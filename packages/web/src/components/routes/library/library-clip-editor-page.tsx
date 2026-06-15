@@ -10,6 +10,7 @@ import * as React from "react"
 
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
+import { clientLogger } from "@/lib/client-log"
 import {
   useClipQuery,
   useDeleteClipMutation,
@@ -26,6 +27,7 @@ import {
 } from "./library-editor-shared"
 import {
   LibraryEntryNavButton,
+  type NavigableLibraryEntry,
   useLibraryEditorShortcuts,
   useLibraryEntryNavigation,
   useNavigateToLibraryEntry,
@@ -77,8 +79,6 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
 }
 
 function ClipEditorBody({ row }: { row: ClipRow }) {
-  const navigate = useNavigate()
-  const navigateToEntry = useNavigateToLibraryEntry()
   const navigation = useLibraryEntryNavigation({ type: "cloud", id: row.id })
   const { localItem, prevEntry, nextEntry } = navigation
   const { data: session } = useSession()
@@ -99,9 +99,12 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   const { playerRef, trim, trimmed, rangeMs } = playback
 
   const trimMutation = useTrimClipMutation()
-  const deleteMutation = useDeleteClipMutation()
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
-  const [deletingLocal, setDeletingLocal] = React.useState(false)
+  const deleteFlow = useServerBackedClipDelete({
+    row,
+    localItem,
+    prevEntry,
+    nextEntry,
+  })
   const canSaveTrim =
     canTrim && trimmed && rangeMs >= MIN_TRIM_MS && !trimMutation.isPending
 
@@ -120,7 +123,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
     prevEntry,
     nextEntry,
     onDelete: () => {
-      if (canManage) setDeleteDialogOpen(true)
+      if (canManage) deleteFlow.openDialog()
     },
     togglePlayback: playback.togglePlayback,
   })
@@ -142,54 +145,6 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
         },
         onError: (cause) =>
           toast.error(cause.message || "Couldn't trim the clip"),
-      },
-    )
-  }
-
-  const handleDelete = (deleteLocal: boolean) => {
-    deleteMutation.mutate(
-      { clipId: row.id },
-      {
-        onSuccess: async () => {
-          if (localItem) {
-            if (deleteLocal) {
-              setDeletingLocal(true)
-              try {
-                await deleteLocalLibraryCopy(localItem)
-                toast.success("Clip deleted from server and this device")
-              } catch {
-                await detachLocalServerLink({
-                  item: localItem,
-                  serverId: row.id,
-                }).catch(() => undefined)
-                toast.error(
-                  "Clip deleted from server, but the local copy couldn't be removed",
-                )
-              } finally {
-                setDeletingLocal(false)
-              }
-            } else {
-              try {
-                await detachLocalServerLink({
-                  item: localItem,
-                  serverId: row.id,
-                })
-                toast.success("Clip deleted from server")
-              } catch {
-                toast.error(
-                  "Clip deleted from server, but the local sync link couldn't be cleared",
-                )
-              }
-            }
-          } else {
-            toast.success("Clip deleted")
-          }
-          setDeleteDialogOpen(false)
-          const fallback = nextEntry ?? prevEntry
-          if (fallback) navigateToEntry(fallback)
-          else void navigate({ to: "/library", replace: true })
-        },
-        onError: () => toast.error("Couldn't delete clip"),
       },
     )
   }
@@ -251,8 +206,8 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
             row={row}
             localItem={localItem}
             canManage={canManage}
-            onRequestDelete={() => setDeleteDialogOpen(true)}
-            deleting={deleteMutation.isPending}
+            onRequestDelete={deleteFlow.openDialog}
+            deleting={deleteFlow.pending}
             canSaveTrim={canSaveTrim}
             trimPending={trimMutation.isPending}
             onSaveTrim={handleSaveTrim}
@@ -261,15 +216,121 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
       </div>
 
       <DeleteClipDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        pending={deleteMutation.isPending || deletingLocal}
+        open={deleteFlow.open}
+        onOpenChange={deleteFlow.setOpen}
+        pending={deleteFlow.pending}
         localItem={localItem}
         title={row.title}
-        onConfirm={handleDelete}
+        onConfirm={deleteFlow.confirm}
       />
     </section>
   )
+}
+
+function useServerBackedClipDelete({
+  row,
+  localItem,
+  prevEntry,
+  nextEntry,
+}: {
+  row: ClipRow
+  localItem: Parameters<typeof DeleteClipDialog>[0]["localItem"]
+  prevEntry: NavigableLibraryEntry | null
+  nextEntry: NavigableLibraryEntry | null
+}) {
+  const navigate = useNavigate()
+  const navigateToEntry = useNavigateToLibraryEntry()
+  const deleteMutation = useDeleteClipMutation()
+  const [open, setOpen] = React.useState(false)
+  const [deletingLocal, setDeletingLocal] = React.useState(false)
+  const pending = deleteMutation.isPending || deletingLocal
+
+  const finishDelete = React.useCallback(() => {
+    setOpen(false)
+    const fallback = nextEntry ?? prevEntry
+    if (fallback) navigateToEntry(fallback)
+    else void navigate({ to: "/library", replace: true })
+  }, [navigate, navigateToEntry, nextEntry, prevEntry])
+
+  const confirm = React.useCallback(
+    (deleteLocal: boolean) => {
+      deleteMutation.mutate(
+        { clipId: row.id },
+        {
+          onSuccess: async () => {
+            if (localItem) {
+              await finishLocalClipDelete({
+                deleteLocal,
+                localItem,
+                serverId: row.id,
+                setDeletingLocal,
+              })
+            } else {
+              toast.success("Clip deleted")
+            }
+            finishDelete()
+          },
+          onError: () => toast.error("Couldn't delete clip"),
+        },
+      )
+    },
+    [deleteMutation, finishDelete, localItem, row.id],
+  )
+
+  return {
+    open,
+    setOpen,
+    openDialog: React.useCallback(() => setOpen(true), []),
+    pending,
+    confirm,
+  }
+}
+
+async function finishLocalClipDelete({
+  deleteLocal,
+  localItem,
+  serverId,
+  setDeletingLocal,
+}: {
+  deleteLocal: boolean
+  localItem: NonNullable<Parameters<typeof DeleteClipDialog>[0]["localItem"]>
+  serverId: string
+  setDeletingLocal: (deleting: boolean) => void
+}): Promise<void> {
+  if (deleteLocal) {
+    setDeletingLocal(true)
+    try {
+      await deleteLocalLibraryCopy(localItem)
+      toast.success("Clip deleted from server and this device")
+    } catch (cause) {
+      clientLogger.warn(
+        "[library] Failed to delete local clip copy after server delete.",
+        cause,
+      )
+      await detachLocalServerLink({ item: localItem, serverId }).catch(
+        () => undefined,
+      )
+      toast.error(
+        "Clip deleted from server, but the local copy couldn't be removed",
+      )
+    } finally {
+      setDeletingLocal(false)
+    }
+    return
+  }
+
+  try {
+    await detachLocalServerLink({ item: localItem, serverId })
+    toast.success("Clip deleted from server")
+  } catch (cause) {
+    clientLogger.warn(
+      "[library] Failed to detach local clip link after server delete.",
+      cause,
+    )
+    toast.error(
+      "Clip deleted from server, but the local sync link couldn't be cleared",
+    )
+  }
 }
 
 function clipEditorMediaVersion(row: ClipRow): string {

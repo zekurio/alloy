@@ -17,13 +17,17 @@ export { getRecordingLibrarySnapshot } from "./recording-library-scan"
 export { cleanupLegacyFilmstripCache } from "./recording-library-thumbnails"
 export {
   deleteRecordingLibraryItem,
-  deleteRecordingLibraryProjectDraft,
-  importRecordingLibraryCapture,
-  importRecordingLibraryVideoFiles,
   openRecordingLibraryFolder,
   openRecordingLibraryItem,
   rememberRecordingLibraryCapture,
   revealRecordingLibraryItem,
-  saveRecordingLibraryProjectDraft,
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library-store"
+export {
+  importRecordingLibraryCapture,
+  importRecordingLibraryVideoFiles,
+} from "./recording-library-import"
+export {
+  deleteRecordingLibraryProjectDraft,
+  saveRecordingLibraryProjectDraft,
+} from "./recording-library-project-drafts"

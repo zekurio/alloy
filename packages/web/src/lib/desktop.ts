@@ -1,5 +1,5 @@
 import type {
-  DesktopUpdateState,
+  AlloyDesktopUpdatesApi,
   RecordingActionResult,
   RecordingActionRequest,
   RecordingDisplay,
@@ -139,14 +139,6 @@ export interface AlloyDesktopRecordingApi {
   ): Promise<RecordingActionResult>
   stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
-}
-
-/** Desktop auto-update state and controls (absent on older desktop shells). */
-export interface AlloyDesktopUpdatesApi {
-  getState(): Promise<DesktopUpdateState>
-  /** Quits and installs the downloaded update; no-op when none is ready. */
-  restartToInstall(): Promise<void>
-  onState(listener: (state: DesktopUpdateState) => void): () => void
 }
 
 export interface AlloyDesktop {

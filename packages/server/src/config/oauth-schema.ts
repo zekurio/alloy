@@ -1,4 +1,5 @@
 import {
+  OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
@@ -31,9 +32,7 @@ const OAuthProviderBaseSchema = z.object({
   tokenUrl: z.string().url().optional(),
   userInfoUrl: z.string().url().optional(),
   pkce: z.boolean().default(true),
-  tokenAuthMethod: z
-    .enum(["client_secret_post", "client_secret_basic"])
-    .optional(),
+  tokenAuthMethod: z.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
   uidClaim: z.string().min(1).max(128).default("sub"),
   fetchUserInfo: z.boolean().default(true),
   authParams: z.record(z.string(), z.string()).optional(),

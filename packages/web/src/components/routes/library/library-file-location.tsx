@@ -19,6 +19,7 @@ import * as React from "react"
 
 import { ClipDownloadMenuItem } from "@/components/clip/clip-download-button"
 import { ClipMetadataSection } from "@/components/clip/clip-metadata-editor"
+import { clientLogger } from "@/lib/client-log"
 import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
 
 import { formatLibraryBytes } from "./library-data"
@@ -88,7 +89,8 @@ function LocationMenu({
     try {
       await deleteLocalLibraryCopy(localItem)
       toast.success("Local copy removed")
-    } catch {
+    } catch (cause) {
+      clientLogger.warn("[library] Failed to remove local clip copy.", cause)
       toast.error("Couldn't remove the local copy")
     } finally {
       setRemovingLocal(false)

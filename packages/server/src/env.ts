@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs"
 
 import {
+  OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
@@ -136,9 +137,7 @@ const AllauthOidcAppSettingsSchema = z.object({
   userinfo_url: z.string().trim().url().optional(),
   scope: ScopeSchema,
   oauth_pkce_enabled: z.boolean().optional(),
-  token_auth_method: z
-    .enum(["client_secret_post", "client_secret_basic"])
-    .optional(),
+  token_auth_method: z.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
   uid_field: z.string().trim().min(1).optional(),
   fetch_userinfo: z.boolean().optional(),
   auth_params: AuthParamsSchema,

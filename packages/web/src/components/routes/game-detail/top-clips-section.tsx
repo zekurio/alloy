@@ -2,12 +2,15 @@ import { TopClipsSection as TopClipsSectionBase } from "@/components/clip/top-cl
 import { useGameTopClipsQuery } from "@/lib/game-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
-type TopClipsSectionProps = {
+type GameTopClipsSectionProps = {
   slug: string
   viewerId: string | undefined
 }
 
-export function TopClipsSection({ slug, viewerId }: TopClipsSectionProps) {
+export function GameTopClipsSection({
+  slug,
+  viewerId,
+}: GameTopClipsSectionProps) {
   const { data: rows, error } = useGameTopClipsQuery(slug, { limit: 5 })
   useQueryErrorToast(error, {
     title: "Couldn't load top clips",

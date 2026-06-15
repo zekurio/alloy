@@ -23,17 +23,3 @@ export function ClipGrid({ className, ...props }: React.ComponentProps<"div">) {
     />
   )
 }
-
-export function GameRow({ className, ...props }: React.ComponentProps<"div">) {
-  return (
-    <GridFrame
-      baseClassName={cn(
-        "grid gap-4",
-        "[grid-template-columns:repeat(auto-fill,minmax(150px,1fr))]",
-        "xl:[grid-template-columns:repeat(6,minmax(0,1fr))]",
-      )}
-      className={className}
-      {...props}
-    />
-  )
-}

@@ -80,10 +80,84 @@ export function LibraryPage() {
 
 function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const navigate = useNavigate()
-  const { snapshot, error } = useLibrarySnapshot(desktop)
   const [query, setQuery] = React.useState("")
   const [kind, setKind] = React.useState<LibraryKindFilter>("all")
   const [groupKey, setGroupKey] = React.useState<string | null>(null)
+  const model = useLibraryContentModel({ desktop, query, kind, groupKey })
+  const importFiles = useLibraryImportAction({ desktop })
+
+  return (
+    <AppMain>
+      <section className="flex w-full flex-col gap-6">
+        <div>
+          <LibraryHeader
+            desktop={desktop}
+            importing={importFiles.importing}
+            onImport={() => {
+              void importFiles.start()
+            }}
+            onNewProject={() => {
+              void navigate({ to: "/editor" })
+            }}
+          />
+
+          <LibraryToolbar
+            groups={model.groups}
+            query={query}
+            kind={kind}
+            groupKey={groupKey}
+            onQueryChange={setQuery}
+            onKindChange={setKind}
+            onGroupChange={setGroupKey}
+          />
+        </div>
+
+        <LibraryBody
+          entries={model.entries}
+          loading={model.loading}
+          error={model.error}
+          hasAnything={model.hasAnything}
+          query={query}
+          kind={kind}
+          onOpenLocal={(item) => {
+            void navigate({
+              to: "/library/$captureId",
+              params: { captureId: item.id },
+            })
+          }}
+          onOpenCloud={(row) => {
+            void navigate({
+              to: "/library/c/$clipId",
+              params: { clipId: row.id },
+            })
+          }}
+          onOpenDraft={(draft) => {
+            void navigate({
+              to: "/editor",
+              search: { draft: draft.id },
+            })
+          }}
+          onReveal={(id) => {
+            void desktop?.recording.revealLibraryCapture(id)
+          }}
+        />
+      </section>
+    </AppMain>
+  )
+}
+
+function useLibraryContentModel({
+  desktop,
+  query,
+  kind,
+  groupKey,
+}: {
+  desktop: AlloyDesktop | null
+  query: string
+  kind: LibraryKindFilter
+  groupKey: string | null
+}) {
+  const { snapshot, error } = useLibrarySnapshot(desktop)
 
   const { data: session } = useSession()
   const handle = session?.user?.username ?? ""
@@ -128,8 +202,22 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     })
   }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, query])
 
+  const loading =
+    (desktop !== null && !snapshot && !error) ||
+    (handle.length > 0 && uploadedQuery.isLoading)
+  const hasAnything =
+    (snapshot?.totalCount ?? 0) > 0 ||
+    (snapshot?.projectDrafts.length ?? 0) > 0 ||
+    uploaded.length > 0
+
+  return { groups, entries, loading, error, hasAnything }
+}
+
+function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
+  const navigate = useNavigate()
   const [importing, setImporting] = React.useState(false)
-  const importFiles = async () => {
+
+  const start = React.useCallback(async () => {
     const pick = desktop?.recording.importLibraryFiles
     if (!pick) return
     setImporting(true)
@@ -166,100 +254,56 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     } finally {
       setImporting(false)
     }
-  }
+  }, [desktop, navigate])
 
-  const loading =
-    (desktop !== null && !snapshot && !error) ||
-    (handle.length > 0 && uploadedQuery.isLoading)
-  const hasAnything =
-    (snapshot?.totalCount ?? 0) > 0 ||
-    (snapshot?.projectDrafts.length ?? 0) > 0 ||
-    uploaded.length > 0
+  return { importing, start }
+}
 
+function LibraryHeader({
+  desktop,
+  importing,
+  onImport,
+  onNewProject,
+}: {
+  desktop: AlloyDesktop | null
+  importing: boolean
+  onImport: () => void
+  onNewProject: () => void
+}) {
   return (
-    <AppMain>
-      <section className="flex w-full flex-col gap-6">
-        <div>
-          <SectionHead>
-            <div>
-              <SectionTitle>
-                <LibraryIcon className="text-accent" />
-                Library
-              </SectionTitle>
-            </div>
-            {desktop ? (
-              <SectionActions>
-                {desktop.recording.importLibraryFiles ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={importing}
-                    onClick={() => {
-                      void importFiles()
-                    }}
-                  >
-                    <FolderInputIcon />
-                    {importing ? "Importing..." : "Import clips"}
-                  </Button>
-                ) : null}
-                <Button
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    void navigate({ to: "/editor" })
-                  }}
-                >
-                  <ClapperboardIcon />
-                  New project
-                </Button>
-              </SectionActions>
-            ) : null}
-          </SectionHead>
-
-          <LibraryToolbar
-            groups={groups}
-            query={query}
-            kind={kind}
-            groupKey={groupKey}
-            onQueryChange={setQuery}
-            onKindChange={setKind}
-            onGroupChange={setGroupKey}
-          />
-        </div>
-
-        <LibraryBody
-          entries={entries}
-          loading={loading}
-          error={error}
-          hasAnything={hasAnything}
-          query={query}
-          kind={kind}
-          onOpenLocal={(item) => {
-            void navigate({
-              to: "/library/$captureId",
-              params: { captureId: item.id },
-            })
-          }}
-          onOpenCloud={(row) => {
-            void navigate({
-              to: "/library/c/$clipId",
-              params: { clipId: row.id },
-            })
-          }}
-          onOpenDraft={(draft) => {
-            void navigate({
-              to: "/editor",
-              search: { draft: draft.id },
-            })
-          }}
-          onReveal={(id) => {
-            void desktop?.recording.revealLibraryCapture(id)
-          }}
-        />
-      </section>
-    </AppMain>
+    <SectionHead>
+      <div>
+        <SectionTitle>
+          <LibraryIcon className="text-accent" />
+          Library
+        </SectionTitle>
+      </div>
+      {desktop ? (
+        <SectionActions>
+          {desktop.recording.importLibraryFiles ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={importing}
+              onClick={onImport}
+            >
+              <FolderInputIcon />
+              {importing ? "Importing..." : "Import clips"}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="primary"
+            size="sm"
+            onClick={onNewProject}
+          >
+            <ClapperboardIcon />
+            New project
+          </Button>
+        </SectionActions>
+      ) : null}
+    </SectionHead>
   )
 }
 

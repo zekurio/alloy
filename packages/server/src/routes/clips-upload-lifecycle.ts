@@ -70,6 +70,31 @@ async function cleanupFailedInitiate(
   }
 }
 
+function uploadQuotaResult({
+  quotaBytes,
+  usedBytes,
+  reservedBytes,
+  incomingBytes,
+}: {
+  quotaBytes: number | null
+  usedBytes: number
+  reservedBytes?: number
+  incomingBytes: number
+}): UploadQuotaResult {
+  if (
+    quotaBytes !== null &&
+    uploadWouldExceedQuota({
+      quotaBytes,
+      usedBytes,
+      reservedBytes,
+      incomingBytes,
+    })
+  ) {
+    return { ok: false, usedBytes, quotaBytes }
+  }
+  return { ok: true }
+}
+
 export const clipsUploadLifecycleRoutes = new Hono()
   .post(
     "/initiate",
@@ -105,16 +130,12 @@ export const clipsUploadLifecycleRoutes = new Hono()
             tx,
             viewerId,
           )
-          if (
-            quotaBytes !== null &&
-            uploadWouldExceedQuota({
-              quotaBytes,
-              usedBytes,
-              incomingBytes: body.sizeBytes,
-            })
-          ) {
-            return { ok: false, usedBytes, quotaBytes }
-          }
+          const quota = uploadQuotaResult({
+            quotaBytes,
+            usedBytes,
+            incomingBytes: body.sizeBytes,
+          })
+          if (!quota.ok) return quota
 
           await tx.insert(clip).values({
             id: clipId,
@@ -250,18 +271,12 @@ export const clipsUploadLifecycleRoutes = new Hono()
             tx,
             viewerId,
           )
-          if (
-            quotaBytes !== null &&
-            uploadWouldExceedQuota({
-              quotaBytes,
-              usedBytes,
-              reservedBytes: sourceSizeBytes,
-              incomingBytes: stagedUpload.size,
-            })
-          ) {
-            return { ok: false, usedBytes, quotaBytes }
-          }
-          return { ok: true }
+          return uploadQuotaResult({
+            quotaBytes,
+            usedBytes,
+            reservedBytes: sourceSizeBytes,
+            incomingBytes: stagedUpload.size,
+          })
         },
       )
       if (!quotaResult.ok) {

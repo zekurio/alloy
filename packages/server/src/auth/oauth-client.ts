@@ -1,4 +1,7 @@
-import type { OAuthProviderConfig } from "@alloy/contracts"
+import {
+  OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
+  type OAuthProviderConfig,
+} from "@alloy/contracts"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { env } from "@alloy/server/env"
 import { errorMessage } from "@alloy/server/runtime/error-message"
@@ -128,7 +131,7 @@ function clientAuthForProvider(
   provider: OAuthProviderConfig,
   clientSecret: string,
 ): ClientAuth {
-  if (provider.tokenAuthMethod === "client_secret_basic") {
+  if (provider.tokenAuthMethod === OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD) {
     return ClientSecretBasic(clientSecret)
   }
   return ClientSecretPost(clientSecret)

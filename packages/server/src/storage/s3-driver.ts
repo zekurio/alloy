@@ -2,7 +2,7 @@ import { createReadStream, createWriteStream } from "node:fs"
 import { mkdir, rename, rm, stat } from "node:fs/promises"
 import { Readable, Transform } from "node:stream"
 import { pipeline } from "node:stream/promises"
-import type { ReadableStream as NodeReadableStream } from "node:stream/web"
+import { ReadableStream as NodeReadableStream } from "node:stream/web"
 
 import {
   CopyObjectCommand,
@@ -252,9 +252,9 @@ export class S3StorageDriver implements StorageDriver {
 
 function bodyToNodeStream(body: unknown): Readable {
   if (body instanceof Readable) return body
-  if (body instanceof ReadableStream) return fromWebStream(body)
+  if (body instanceof NodeReadableStream) return fromWebStream(body)
   const transformed = body as {
-    transformToWebStream?: () => ReadableStream<Uint8Array>
+    transformToWebStream?: () => NodeReadableStream<Uint8Array>
   } | null
   if (transformed && typeof transformed.transformToWebStream === "function") {
     return fromWebStream(transformed.transformToWebStream())
@@ -262,8 +262,10 @@ function bodyToNodeStream(body: unknown): Readable {
   throw new Error("S3 response body is not readable")
 }
 
-function fromWebStream(stream: ReadableStream<Uint8Array>): Readable {
-  return Readable.fromWeb(stream as unknown as NodeReadableStream<Uint8Array>)
+function fromWebStream(
+  stream: ReadableStream<Uint8Array> | NodeReadableStream<Uint8Array>,
+): Readable {
+  return Readable.fromWeb(stream as NodeReadableStream<Uint8Array>)
 }
 
 function copySource(bucket: string, key: string): string {

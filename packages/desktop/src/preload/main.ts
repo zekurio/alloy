@@ -1,10 +1,10 @@
+import type { AlloyDesktopUpdatesApi } from "@alloy/contracts"
 import { contextBridge, ipcRenderer } from "electron"
 
 import type {
   AlloyDesktopMarker,
   AlloyDesktopRecordingApi,
   AlloyDesktopServerApi,
-  AlloyDesktopUpdatesApi,
 } from "@/shared/ipc"
 import { IPC } from "@/shared/ipc"
 
