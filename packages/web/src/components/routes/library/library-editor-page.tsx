@@ -544,7 +544,7 @@ function EditorBody({
                         variant="primary"
                         size="icon"
                         disabled={publishing || deleting}
-                        aria-label="More publish options"
+                        aria-label="More post options"
                         className="border-l-accent-hover rounded-l-none"
                       />
                     }

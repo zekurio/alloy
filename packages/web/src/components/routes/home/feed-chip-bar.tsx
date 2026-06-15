@@ -27,7 +27,7 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
   return (
     <div
       className={cn(
-        "sticky top-0 z-10 -mx-4 px-4 py-4 md:-mx-8 md:px-8",
+        "sticky top-0 z-10 -mx-2 px-2 py-4 md:-mx-8 md:px-8",
         "bg-background",
       )}
     >
