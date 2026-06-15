@@ -16,6 +16,7 @@ import {
   useUserClipsQuery,
 } from "@/lib/clip-queries"
 import { accentCssVars } from "@/lib/color"
+import { useSuspenseSession } from "@/lib/session-suspense"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   taggedClipsQueryOptions,
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
 function UserProfileLayout() {
   const { username } = Route.useParams()
   const navigate = useNavigate()
+  const session = useSuspenseSession()
   const profileQuery = useUserProfileQuery(username)
   const viewerQuery = useUserProfileViewerQuery(username)
   // Prime the clips cache from the layout — children read the same query key
@@ -113,7 +115,7 @@ function UserProfileLayout() {
             gated && "pointer-events-none select-none",
           )}
         >
-          <div className="mx-auto mb-8 w-full max-w-[1500px] min-w-0">
+          <div className="mx-auto w-full max-w-[1800px] min-w-0">
             {profileError ? (
               <EmptyState
                 seed={`profile-error-${username}`}
@@ -134,11 +136,12 @@ function UserProfileLayout() {
 
                 {/* Frosted body — translucent + blurred so the wallpaper bleeds
                     through and tints everything inside. */}
-                <div className="bg-surface-sunken/55 relative min-w-0 px-4 pb-8 backdrop-blur-2xl backdrop-saturate-150 sm:px-6">
+                <div className="bg-surface-sunken/55 relative min-w-0 px-4 pb-4 backdrop-blur-2xl backdrop-saturate-150 sm:px-6 sm:pb-8">
                   {profile ? (
                     <ProfileIdentity
                       profile={profile}
                       viewer={viewer}
+                      currentUserId={session?.user.id ?? null}
                       onViewerChange={setViewer}
                       onFollowerDelta={bumpFollowers}
                       hasBanner={hasBanner}
@@ -153,6 +156,7 @@ function UserProfileLayout() {
               </div>
             )}
           </div>
+          <div aria-hidden className="h-3 sm:h-6" />
         </div>
 
         <BlockedGate

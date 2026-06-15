@@ -282,7 +282,7 @@ function ClipDetailsForm({
               type="button"
               variant="primary"
               disabled={primaryDisabled}
-              className="rounded-r-none"
+              className="h-10 rounded-r-none sm:h-8"
               onClick={() => {
                 if (primaryPublishes) publishClip("public")
                 else handleSave()
@@ -300,7 +300,7 @@ function ClipDetailsForm({
                     size="icon"
                     disabled={saving || deleting || visibilityPending}
                     aria-label="More clip options"
-                    className="border-l-accent-hover rounded-l-none"
+                    className="border-l-accent-hover size-10 rounded-l-none sm:size-8"
                   />
                 }
               >

@@ -4,7 +4,6 @@ import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 import { clipMediaStore } from "./clip-media-store"
 import { runMediaProcessing } from "./media-run"
 import type { MediaStore } from "./media-store"
-import { stagingMediaStore } from "./staging-media-store"
 
 const logger = createLogger("queue")
 
@@ -21,8 +20,8 @@ interface MediaWorker {
 
 /**
  * One lease-loop worker for a single media store. The orchestration (pump,
- * lease, heartbeat, retry/fail) is identical for clips and staging recordings;
- * only the table-specific SQL lives behind the {@link MediaStore}.
+ * lease, heartbeat, retry/fail) lives here; table-specific SQL stays behind
+ * the {@link MediaStore}.
  */
 function createMediaWorker(store: MediaStore): MediaWorker {
   const activeJobs = new Map<
@@ -204,7 +203,6 @@ function createMediaWorker(store: MediaStore): MediaWorker {
 }
 
 const clipWorker = createMediaWorker(clipMediaStore)
-const stagingWorker = createMediaWorker(stagingMediaStore)
 
 export function enqueueClipMediaProcessing(clipId: string): void {
   clipWorker.enqueue(clipId)
@@ -214,19 +212,10 @@ export function cancelClipMediaProcessing(clipId: string): Promise<void> {
   return clipWorker.cancel(clipId)
 }
 
-export function enqueueStagingMediaProcessing(stagingId: string): void {
-  stagingWorker.enqueue(stagingId)
-}
-
-export function cancelStagingMediaProcessing(stagingId: string): Promise<void> {
-  return stagingWorker.cancel(stagingId)
-}
-
 export function startMediaWorkers(): void {
   clipWorker.start()
-  stagingWorker.start()
 }
 
 export async function stopMediaWorkers(): Promise<void> {
-  await Promise.all([clipWorker.stop(), stagingWorker.stop()])
+  await clipWorker.stop()
 }

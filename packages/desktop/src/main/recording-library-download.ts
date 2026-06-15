@@ -217,7 +217,6 @@ function registerDownloadedCapture(
     createdAt: now,
     updatedAt: now,
     uploadedClipId: request.clipId,
-    syncedRecordingId: null,
   }
   writeCaptureManifest(manifest)
 }

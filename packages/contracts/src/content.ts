@@ -82,8 +82,6 @@ export interface ClipRow {
   mentions?: ClipMentionRef[]
   /** Bare, lowercase-canonical hashtags ("ace", "ranked"). */
   tags: string[]
-  /** Name of the desktop device that uploaded the clip; null for web uploads. */
-  originDeviceName: string | null
 }
 
 export type ClipFeedWindow = "today" | "week" | "month" | "year" | "all"
@@ -110,13 +108,7 @@ export interface InitiateClipInput {
   sizeBytes: number
   title: string
   description?: string
-  /**
-   * Exactly one of `steamgriddbId` or `gameName` is required. The sync
-   * engine only knows the detected process name; the server resolves it to
-   * a game (422 "game-unresolved" when it can't).
-   */
-  steamgriddbId?: number
-  gameName?: string
+  steamgriddbId: number
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
   /** Bare hashtags; normalized server-side. */
@@ -129,10 +121,6 @@ export interface InitiateClipInput {
   thumbBlurHash?: string
   /** Poster format the client will upload; defaults to webp. */
   thumbContentType?: AcceptedThumbContentType
-  /** Registered device the upload originates from (desktop sync engine). */
-  originDeviceId?: string
-  /** Play session the clip was captured in (desktop sync engine). */
-  gameSessionId?: string
 }
 
 export interface InitiateClipResponse {

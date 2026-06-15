@@ -1,5 +1,4 @@
 export * from "./contract-validators/clips"
-export * from "./contract-validators/staging"
 export * from "./contract-validators/queue"
 export * from "./contract-validators/feed-search"
 export * from "./contract-validators/people-notifications"

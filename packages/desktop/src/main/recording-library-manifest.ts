@@ -46,10 +46,6 @@ export interface CaptureManifestEntry {
   privacy?: RecordingLibraryItem["privacy"]
   /** Server clip id this capture was published as, once an upload finished. */
   uploadedClipId?: string | null
-  /** Server staging-recording id this capture was synced to (owner-only draft). */
-  syncedRecordingId?: string | null
-  /** Local play session the capture was recorded in, stamped at save time. */
-  gameSessionId?: string | null
 }
 
 export function readCaptureManifest(): CaptureManifest {

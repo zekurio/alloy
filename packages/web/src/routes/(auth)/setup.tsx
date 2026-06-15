@@ -1,5 +1,4 @@
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
-import { toast } from "@alloy/ui/lib/toast"
 import {
   createFileRoute,
   Link,
@@ -78,10 +77,7 @@ function AdminAccountStep() {
       </div>
 
       <React.Suspense fallback={null}>
-        <PasskeySignUpForm
-          redirectTo="/setup"
-          successMessage="Admin account ready"
-        />
+        <PasskeySignUpForm redirectTo="/setup" />
       </React.Suspense>
     </div>
   )
@@ -97,7 +93,6 @@ function CompleteSetupStep() {
       try {
         await api.admin.updateRuntimeConfig({ setupComplete: true })
         invalidateAuthConfig()
-        toast.success("Setup complete")
         if (!cancelled) void navigate({ to: "/" })
       } catch (cause) {
         if (!cancelled) {

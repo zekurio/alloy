@@ -1,9 +1,4 @@
-import {
-  type ClipRow,
-  type StagingRecordingRow,
-  stagingStreamUrl,
-  stagingThumbnailUrl,
-} from "@alloy/api"
+import { type ClipRow } from "@alloy/api"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,9 +21,6 @@ import {
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import {
-  CloudAlertIcon,
-  CloudCheckIcon,
-  CloudUploadIcon,
   DownloadIcon,
   FolderOpenIcon,
   GlobeIcon,
@@ -44,11 +36,6 @@ import { useClipDownloadAction } from "@/components/clip/clip-download-button"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { useDeleteClipMutation } from "@/lib/clip-queries"
-import {
-  clipSyncSupported,
-  queueClipSyncItem,
-  useClipSync,
-} from "@/lib/clip-sync"
 import { formatRelativeTime } from "@/lib/date-format"
 import {
   alloyDesktop,
@@ -56,8 +43,6 @@ import {
   type RecordingLibraryItem,
   type RecordingLibraryProjectDraft,
 } from "@/lib/desktop"
-import { apiOrigin } from "@/lib/env"
-import { useDeleteStagingMutation } from "@/lib/staging-queries"
 
 import { formatLibraryBytes, type LibraryItemView } from "./library-data"
 import { DeleteServerBackedDialog } from "./library-delete-dialog"
@@ -82,11 +67,12 @@ export function LibraryCaptureCard({
     durationMs: item.durationMs,
     enabled: item.kind !== "screenshot",
   })
-  const { source, progressPct } = useCaptureSyncSource(item)
+  const source: LibrarySource = "local"
 
   return (
     <ClipCard
       title={item.title}
+      titleContent={<LibraryCardTitle title={item.title} />}
       author=""
       game={item.displayGameName}
       gameIcon={item.displayGameIconUrl}
@@ -99,13 +85,10 @@ export function LibraryCaptureCard({
       streamUrl={item.kind === "screenshot" ? undefined : item.mediaUrl}
       thumbnailLabel={`Edit ${item.title}`}
       onThumbnailClick={onOpen}
-      thumbnailOverlay={
-        <LibraryCaptureMenu item={item} source={source} onReveal={onReveal} />
-      }
+      thumbnailOverlay={<LibraryCaptureMenu item={item} onReveal={onReveal} />}
       metaContent={
         <LibraryCardMeta
           source={source}
-          progressPct={progressPct}
           sizeBytes={item.sizeBytes}
           createdAt={item.createdAt}
         />
@@ -114,32 +97,16 @@ export function LibraryCaptureCard({
   )
 }
 
-/** Three-dot actions for a local capture: sync, reveal, delete. */
+/** Three-dot actions for a local capture: reveal or delete. */
 function LibraryCaptureMenu({
   item,
-  source,
   onReveal,
 }: {
   item: LibraryItemView
-  source: LibrarySource
   onReveal: () => void
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
-  const canSync =
-    source === "local" && item.kind !== "screenshot" && clipSyncSupported()
-
-  const sync = async () => {
-    setBusy(true)
-    try {
-      await queueClipSyncItem(item.id)
-      toast.success("Syncing to your library")
-    } catch (cause) {
-      toast.error(cause instanceof Error ? cause.message : "Couldn't sync")
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const remove = async () => {
     setBusy(true)
@@ -176,12 +143,6 @@ function LibraryCaptureMenu({
           }
         />
         <DropdownMenuContent align="end">
-          {canSync ? (
-            <DropdownMenuItem onClick={sync} disabled={busy}>
-              <CloudUploadIcon className="size-4" />
-              Sync to server
-            </DropdownMenuItem>
-          ) : null}
           <DropdownMenuItem onClick={onReveal}>
             <FolderOpenIcon className="size-4" />
             Reveal in folder
@@ -220,52 +181,6 @@ function LibraryCaptureMenu({
   )
 }
 
-/**
- * Sync badge for a local capture card. The snapshot's syncState covers the
- * resting states; the live sync queue overrides it between library re-scans
- * and supplies the in-flight percentage.
- */
-function useCaptureSyncSource(item: LibraryItemView): {
-  source: LibrarySource
-  progressPct: number | null
-} {
-  const sync = useClipSync()
-  const live = sync.items.find((entry) => entry.captureId === item.id)
-  if (live) {
-    switch (live.status) {
-      case "queued":
-        return { source: "queued", progressPct: null }
-      case "failed":
-        return { source: "sync-failed", progressPct: null }
-      case "completed":
-        return { source: "synced", progressPct: null }
-      default:
-        return {
-          source: "syncing",
-          progressPct:
-            live.status === "uploading" && live.totalBytes > 0
-              ? Math.min(
-                  99,
-                  Math.floor((live.bytesSent / live.totalBytes) * 100),
-                )
-              : null,
-        }
-    }
-  }
-  switch (item.syncState) {
-    case "queued":
-      return { source: "queued", progressPct: null }
-    case "syncing":
-      return { source: "syncing", progressPct: null }
-    case "failed":
-      return { source: "sync-failed", progressPct: null }
-    case "synced":
-      return { source: "synced", progressPct: null }
-    default:
-      return { source: "local", progressPct: null }
-  }
-}
-
 /** Grid card for an unfinished multitrack project saved from the editor. */
 export function ProjectDraftCard({
   draft,
@@ -281,6 +196,7 @@ export function ProjectDraftCard({
   return (
     <ClipCard
       title={draft.title}
+      titleContent={<LibraryCardTitle title={draft.title} />}
       author=""
       game=""
       gameIcon={null}
@@ -294,6 +210,7 @@ export function ProjectDraftCard({
       onThumbnailClick={onOpen}
       metaContent={
         <LibraryDraftMeta
+          source="local"
           durationMs={draft.durationMs}
           updatedAt={draft.updatedAt}
         />
@@ -303,14 +220,18 @@ export function ProjectDraftCard({
 }
 
 function LibraryDraftMeta({
+  source,
   durationMs,
   updatedAt,
 }: {
+  source: LibrarySource
   durationMs: number
   updatedAt: string
 }) {
   return (
     <>
+      <LibrarySourceBadge source={source} />
+      <span className="shrink-0">·</span>
       <span className="text-foreground-muted shrink-0">Draft</span>
       {durationMs > 0 ? (
         <>
@@ -324,216 +245,7 @@ function LibraryDraftMeta({
   )
 }
 
-/** Grid card for an owner-only staging recording (a synced draft). */
-export function StagingClipCard({
-  row,
-  localItem = null,
-  onOpen,
-}: {
-  row: StagingRecordingRow
-  localItem?: RecordingLibraryItem | null
-  onOpen: () => void
-}) {
-  const processing = row.status !== "ready" || row.encodeProgress < 100
-  const thumbnail = row.thumbKey
-    ? stagingThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
-    : undefined
-  return (
-    <ClipCard
-      title={row.title}
-      author=""
-      game={row.gameRef?.name ?? row.game ?? ""}
-      gameIcon={row.gameRef?.iconUrl ?? null}
-      gameHref={row.gameRef?.slug ? `/g/${row.gameRef.slug}` : null}
-      views="0"
-      likes="0"
-      thumbnail={thumbnail}
-      thumbnailBlurHash={row.thumbBlurHash}
-      fallbackSeed={`staging:${row.id}`}
-      streamUrl={
-        processing ? undefined : stagingStreamUrl(row.id, "source", apiOrigin())
-      }
-      thumbnailLabel={`Edit ${row.title}`}
-      onThumbnailClick={onOpen}
-      thumbnailOverlay={
-        <StagingClipMenu row={row} localItem={localItem} onEdit={onOpen} />
-      }
-      metaContent={
-        <LibraryStagingMeta
-          kind={row.kind}
-          originDeviceName={localItem ? null : row.originDeviceName}
-          sizeBytes={row.sourceSizeBytes}
-          createdAt={row.createdAt}
-          processing={processing}
-          progress={row.encodeProgress}
-        />
-      }
-    />
-  )
-}
-
-/** Three-dot actions for a staging recording: edit or delete the draft. */
-function StagingClipMenu({
-  row,
-  localItem,
-  onEdit,
-}: {
-  row: StagingRecordingRow
-  localItem: RecordingLibraryItem | null
-  onEdit: () => void
-}) {
-  const deleteMutation = useDeleteStagingMutation()
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
-  const [deletingLocal, setDeletingLocal] = React.useState(false)
-  const pending = deleteMutation.isPending || deletingLocal
-
-  const handleConfirm = (deleteLocal: boolean) => {
-    deleteMutation.mutate(
-      { id: row.id },
-      {
-        onSuccess: async () => {
-          if (!localItem) {
-            toast.success("Recording deleted")
-            setDeleteDialogOpen(false)
-            return
-          }
-          if (deleteLocal) {
-            setDeletingLocal(true)
-            try {
-              await deleteLocalLibraryCopy(localItem)
-              toast.success("Recording deleted from server and this device")
-            } catch {
-              await detachLocalServerLink({
-                item: localItem,
-                serverId: row.id,
-              }).catch(() => undefined)
-              toast.error(
-                "Recording deleted from server, but the local copy couldn't be removed",
-              )
-            } finally {
-              setDeletingLocal(false)
-            }
-          } else {
-            try {
-              await detachLocalServerLink({
-                item: localItem,
-                serverId: row.id,
-              })
-              toast.success("Recording deleted from server")
-            } catch {
-              toast.error(
-                "Recording deleted from server, but the local sync link couldn't be cleared",
-              )
-            }
-          }
-          setDeleteDialogOpen(false)
-        },
-        onError: () => toast.error("Couldn't delete recording"),
-      },
-    )
-  }
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Actions for ${row.title}`}
-              className={cn(
-                "bg-black/55 text-white backdrop-blur-sm hover:bg-black/75 hover:text-white",
-                "opacity-0 transition-opacity group-hover/clip-card:opacity-100",
-                "focus-visible:opacity-100 aria-expanded:opacity-100",
-              )}
-            >
-              <MoreVerticalIcon />
-            </Button>
-          }
-        />
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onEdit}>
-            <PencilIcon className="size-4" />
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={() => setDeleteDialogOpen(true)}
-          >
-            <Trash2Icon className="size-4" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <DeleteServerBackedDialog
-        open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
-        pending={pending}
-        title={row.title}
-        noun="recording"
-        localItem={localItem}
-        onConfirm={handleConfirm}
-      />
-    </>
-  )
-}
-
-function LibraryStagingMeta({
-  kind,
-  originDeviceName,
-  sizeBytes,
-  createdAt,
-  processing,
-  progress,
-}: {
-  kind: "clip" | "session"
-  originDeviceName: string | null
-  sizeBytes: number | null
-  createdAt: string
-  processing: boolean
-  progress: number
-}) {
-  const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
-  const clamped = Math.max(0, Math.min(100, progress))
-  return (
-    <>
-      <span className="text-foreground-muted flex shrink-0 items-center gap-1">
-        <CloudCheckIcon className="size-3.5" />
-        {processing ? `Processing ${clamped}%` : "Synced"}
-      </span>
-      {originDeviceName ? (
-        <>
-          <span className="shrink-0">·</span>
-          <span className="truncate">From {originDeviceName}</span>
-        </>
-      ) : null}
-      <span className="shrink-0">·</span>
-      <span className="shrink-0">
-        {kind === "session" ? "Session" : "Clip"}
-      </span>
-      {hasSize ? (
-        <>
-          <span className="shrink-0">·</span>
-          <span className="shrink-0">{formatLibraryBytes(sizeBytes)}</span>
-        </>
-      ) : null}
-      <span className="shrink-0">·</span>
-      <span className="truncate">{formatRelativeTime(createdAt)}</span>
-    </>
-  )
-}
-
-type LibrarySource =
-  | "local"
-  | "synced"
-  | "link-only"
-  | "on-profile"
-  | "queued"
-  | "syncing"
-  | "sync-failed"
+type LibrarySource = "local" | "link-only" | "on-profile"
 
 /** How visible a published clip is, mirroring the privacy picker icons. */
 export function librarySourceForPrivacy(
@@ -547,70 +259,55 @@ const SOURCE_META: Record<
   {
     icon: React.ComponentType<{ className?: string }>
     label: string
-    className?: string
   }
 > = {
-  local: { icon: MonitorIcon, label: "On Device" },
-  // Server-backed clips badge by visibility, not location: a private clip is
-  // just a backup, an unlisted one is shared via its link, a public one is
-  // live on the profile/feeds.
-  synced: { icon: CloudCheckIcon, label: "Synced" },
+  local: { icon: MonitorIcon, label: "Local" },
   "link-only": { icon: Link2Icon, label: "Link only" },
   "on-profile": { icon: GlobeIcon, label: "On profile" },
-  // Positions in the desktop sync queue.
-  queued: { icon: CloudUploadIcon, label: "Queued" },
-  syncing: {
-    icon: CloudUploadIcon,
-    label: "Syncing",
-    className: "text-accent",
-  },
-  "sync-failed": {
-    icon: CloudAlertIcon,
-    label: "Sync failed",
-    className: "text-destructive",
-  },
 }
 
-/** Shared meta line for library cards: source · size · age. */
+function LibraryCardTitle({ title }: { title: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-2">
+      <span className="truncate">{title}</span>
+    </span>
+  )
+}
+
+function LibrarySourceBadge({ source }: { source: LibrarySource }) {
+  const { icon: SourceIcon, label } = SOURCE_META[source]
+  return (
+    <span
+      className="text-foreground-muted inline-flex size-3.5 shrink-0 items-center justify-center opacity-80"
+      title={label}
+      aria-label={label}
+    >
+      <SourceIcon className="size-3" aria-hidden />
+    </span>
+  )
+}
+
+/** Shared meta line for library cards: size · age. */
 function LibraryCardMeta({
   source,
-  progressPct = null,
-  originDeviceName = null,
   sizeBytes,
   createdAt,
 }: {
   source: LibrarySource
-  /** In-flight sync percentage shown next to the "Syncing" label. */
-  progressPct?: number | null
-  /** Device that uploaded the clip, shown on cloud rows ("From X"). */
-  originDeviceName?: string | null
   sizeBytes: number | null
   createdAt: string
 }) {
-  const { icon: SourceIcon, label, className } = SOURCE_META[source]
   const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
   return (
     <>
-      <span className={cn("flex shrink-0 items-center gap-1", className)}>
-        <SourceIcon className="size-3.5" />
-        {label}
-        {progressPct !== null ? (
-          <span className="tabular-nums">{progressPct}%</span>
-        ) : null}
-      </span>
-      {originDeviceName ? (
-        <>
-          <span className="shrink-0">·</span>
-          <span className="truncate">From {originDeviceName}</span>
-        </>
-      ) : null}
+      <LibrarySourceBadge source={source} />
+      <span className="shrink-0">·</span>
       {hasSize ? (
         <>
-          <span className="shrink-0">·</span>
           <span className="shrink-0">{formatLibraryBytes(sizeBytes)}</span>
+          <span className="shrink-0">·</span>
         </>
       ) : null}
-      <span className="shrink-0">·</span>
       <span className="truncate">{formatRelativeTime(createdAt)}</span>
     </>
   )
@@ -628,10 +325,11 @@ export function UploadedClipCard({
   onOpen: () => void
 }) {
   const card = React.useMemo(() => toClipCardData(row), [row])
-  const alsoLocal = localItem !== null
+  const source = librarySourceForPrivacy(row.privacy)
   return (
     <ClipCard
       title={card.title}
+      titleContent={<LibraryCardTitle title={card.title} />}
       author=""
       game={card.game}
       gameIcon={card.gameRef?.iconUrl ?? null}
@@ -642,7 +340,6 @@ export function UploadedClipCard({
       thumbnailBlurHash={card.thumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
       streamUrl={card.streamUrl}
-      privacy={card.privacy}
       thumbnailLabel={`Edit ${card.title}`}
       onThumbnailClick={onOpen}
       thumbnailOverlay={
@@ -650,8 +347,7 @@ export function UploadedClipCard({
       }
       metaContent={
         <LibraryCardMeta
-          source={librarySourceForPrivacy(row.privacy)}
-          originDeviceName={alsoLocal ? null : row.originDeviceName}
+          source={source}
           sizeBytes={row.sourceSizeBytes}
           createdAt={row.createdAt}
         />
@@ -779,7 +475,7 @@ function DeleteUploadedClipDialog({
               toast.success("Clip deleted from server")
             } catch {
               toast.error(
-                "Clip deleted from server, but the local sync link couldn't be cleared",
+                "Clip deleted from server, but the local server link couldn't be cleared",
               )
             }
           } else {

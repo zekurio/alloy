@@ -1,10 +1,7 @@
 import { clipThumbnailUrl, type QueueClip } from "@alloy/api"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 
-import type {
-  RecordingLibraryDownload,
-  RecordingLibrarySyncItem,
-} from "@/lib/desktop"
+import type { RecordingLibraryDownload } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
 
@@ -66,75 +63,6 @@ export function localToQueueItem(
     thumbUrl: e.thumbUrl,
     thumbBlurHash: e.thumbBlurHash,
     onCancel,
-  }
-}
-
-interface SyncHandlers {
-  onCancel: () => void
-  onRetry?: () => void
-}
-
-/**
- * A local capture heading to the server through the desktop sync queue
- * after the user opts in. Completed items vanish from the sync snapshot and the
- * server queue row takes over the story.
- */
-export function syncToQueueItem(
-  sync: RecordingLibrarySyncItem,
-  queuePaused: boolean,
-  blockedReason: "signed-out" | null,
-  handlers: SyncHandlers,
-): QueueItem {
-  let status: QueueItemStatus
-  let detail: string
-  let progress = 0
-  switch (sync.status) {
-    case "queued":
-    case "initiating":
-      status = queuePaused ? "paused" : "queued"
-      detail = queuePaused
-        ? "Sync paused"
-        : blockedReason === "signed-out"
-          ? "Sign in to sync"
-          : "Waiting to sync"
-      break
-    case "uploading":
-      status = queuePaused ? "paused" : "uploading"
-      progress =
-        sync.totalBytes > 0
-          ? Math.min(99, Math.floor((sync.bytesSent / sync.totalBytes) * 100))
-          : 0
-      detail =
-        sync.totalBytes > 0
-          ? `${formatBytes(sync.bytesSent)} / ${formatBytes(sync.totalBytes)}`
-          : "Uploading…"
-      break
-    case "finalizing":
-      status = "uploading"
-      progress = 99
-      detail = "Finalizing…"
-      break
-    case "completed":
-      status = "published"
-      progress = 100
-      detail = "Synced"
-      break
-    case "failed":
-      status = "failed"
-      detail = sync.error ?? "Sync failed"
-      break
-  }
-  return {
-    id: `sync:${sync.captureId}`,
-    title: sync.title,
-    kind: "upload",
-    status,
-    progress,
-    detail,
-    hue: stableHue(sync.captureId),
-    thumbUrl: sync.thumbnailUrl,
-    onCancel: handlers.onCancel,
-    onRetry: sync.status === "failed" ? handlers.onRetry : undefined,
   }
 }
 

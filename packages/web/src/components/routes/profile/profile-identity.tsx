@@ -19,6 +19,7 @@ type ProfileData = {
 type ProfileIdentityProps = {
   profile: ProfileData
   viewer: ProfileViewer | null | undefined
+  currentUserId: string | null
   onViewerChange: (viewer: ProfileViewer) => void
   onFollowerDelta: (delta: number) => void
   /**
@@ -32,6 +33,7 @@ type ProfileIdentityProps = {
 export function ProfileIdentity({
   profile,
   viewer,
+  currentUserId,
   onViewerChange,
   onFollowerDelta,
   hasBanner,
@@ -39,8 +41,10 @@ export function ProfileIdentity({
   const { user, counts } = profile
   const handle = user.username
   const avatar = userAvatar(user)
+  const isSelf = viewer?.isSelf ?? currentUserId === user.id
   const showProfileAction =
-    viewer === undefined || !viewer || (!viewer.isSelf && !viewer.isBlockedBy)
+    !isSelf &&
+    (viewer === undefined || !viewer || (!viewer.isSelf && !viewer.isBlockedBy))
 
   const actionNode = showProfileAction ? (
     <ProfileActions

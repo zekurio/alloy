@@ -61,15 +61,6 @@ import {
   startRecordingLibraryClipDownload,
 } from "./recording-library-download"
 import { VIDEO_EXTENSIONS } from "./recording-library-shared"
-import {
-  cancelRecordingLibrarySyncItem,
-  getRecordingLibrarySyncSnapshot,
-  kickRecordingLibrarySync,
-  pauseRecordingLibrarySync,
-  queueRecordingLibrarySyncItem,
-  resumeRecordingLibrarySync,
-  retryRecordingLibrarySyncItem,
-} from "./recording-library-sync"
 import { storeRecordingThumbnail } from "./recording-library-thumbnails"
 import {
   ensureNotificationSoundsDir,
@@ -174,8 +165,6 @@ function registerServerIpc(windows: Windows): void {
       rememberServer(result.serverUrl)
       await clearRemoteWebCache()
       windows.connectTo(result.serverUrl)
-      // Items held back by a missing session ("Sign in to sync") drain now.
-      kickRecordingLibrarySync()
       return { ok: true, serverUrl: result.serverUrl }
     },
   )
@@ -407,45 +396,6 @@ function registerRecordingLibraryIpc(windows: Windows): void {
     requireMainSender(windows, event)
     return listRecordingLibraryClipDownloads()
   })
-  ipcMain.handle(IPC.getRecordingLibrarySync, (event) => {
-    requireMainSender(windows, event)
-    return getRecordingLibrarySyncSnapshot()
-  })
-  ipcMain.handle(IPC.pauseRecordingLibrarySync, (event) => {
-    requireMainSender(windows, event)
-    return pauseRecordingLibrarySync()
-  })
-  ipcMain.handle(IPC.resumeRecordingLibrarySync, (event) => {
-    requireMainSender(windows, event)
-    return resumeRecordingLibrarySync()
-  })
-  ipcMain.handle(
-    IPC.cancelRecordingLibrarySyncItem,
-    (event, captureId: unknown) => {
-      requireMainSender(windows, event)
-      if (typeof captureId === "string") {
-        cancelRecordingLibrarySyncItem(captureId)
-      }
-    },
-  )
-  ipcMain.handle(
-    IPC.retryRecordingLibrarySyncItem,
-    (event, captureId: unknown) => {
-      requireMainSender(windows, event)
-      if (typeof captureId === "string") {
-        retryRecordingLibrarySyncItem(captureId)
-      }
-    },
-  )
-  ipcMain.handle(
-    IPC.queueRecordingLibrarySyncItem,
-    (event, captureId: unknown) => {
-      requireMainSender(windows, event)
-      if (typeof captureId === "string") {
-        queueRecordingLibrarySyncItem(captureId)
-      }
-    },
-  )
 }
 
 function registerRecordingSoundIpc(windows: Windows): void {

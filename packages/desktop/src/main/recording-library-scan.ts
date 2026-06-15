@@ -34,7 +34,6 @@ import {
   titleForCapture,
   VIDEO_EXTENSIONS,
 } from "./recording-library-shared"
-import { syncStateForCapture } from "./recording-library-sync-registry"
 import { getLastRecordingStatus } from "./recording-status-state"
 import {
   currentOutputFolder,
@@ -226,11 +225,6 @@ function libraryItemForFile(
     mentions: manifestEntry?.mentions ?? [],
     privacy: manifestEntry?.privacy ?? null,
     uploadedClipId: manifestEntry?.uploadedClipId ?? null,
-    syncedRecordingId: manifestEntry?.syncedRecordingId ?? null,
-    syncState: syncStateForCapture(
-      id,
-      manifestEntry?.uploadedClipId ?? manifestEntry?.syncedRecordingId ?? null,
-    ),
     createdAt,
     modifiedAt,
   }

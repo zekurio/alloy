@@ -1,7 +1,4 @@
-import type {
-  RecordingLibraryDownload,
-  RecordingLibrarySyncSnapshot,
-} from "./desktop-recording-library"
+import type { RecordingLibraryDownload } from "./desktop-recording-library"
 import type { AcceptedImageContentType, IsoDateString } from "./shared"
 
 export const RECORDING_ENCODERS = ["hardware", "software"] as const
@@ -366,4 +363,3 @@ export type RecordingEvent =
   | { type: "error"; error: string; status: RecordingStatus }
   | { type: "audio-levels"; levels: RecordingAudioLevel[] }
   | { type: "library-download"; download: RecordingLibraryDownload }
-  | { type: "library-sync"; sync: RecordingLibrarySyncSnapshot }

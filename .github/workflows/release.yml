@@ -77,6 +77,7 @@ jobs:
     if: |
       !failure() &&
       !cancelled() &&
+      (github.event_name != 'push' || github.actor != 'github-actions[bot]') &&
       (github.event_name != 'schedule' || needs.check_changes.outputs.has_changes == 'true')
     runs-on: ubuntu-latest
     outputs:
@@ -163,36 +164,59 @@ jobs:
             fi
 
             version="${raw#v}"
+            tag="v$version"
 
             if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
               echo "Stable release versions must be plain semver (vX.Y.Z), got: $raw" >&2
               exit 1
             fi
 
-            RELEASE_VERSION="$version" node -e '
-              const { readFileSync } = require("node:fs");
-              const expected = process.env.RELEASE_VERSION;
-              const packageFiles = [
-                "package.json",
-                "packages/desktop/package.json",
-                "packages/recorder/package.json",
-              ];
-              const mismatches = packageFiles.filter((filePath) => {
-                const actual = JSON.parse(readFileSync(filePath, "utf8")).version;
-                return actual !== expected;
-              });
-              if (mismatches.length > 0) {
-                console.error(
-                  `Stable release ${expected} requires matching package versions in: ${mismatches.join(", ")}`,
-                );
-                process.exit(1);
-              }
-            '
+            if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+              if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+                echo "Stable release tag $tag already exists." >&2
+                exit 1
+              fi
+
+              node scripts/update-release-package-versions.mjs "$version" --desktop-channel latest --github-output
+
+              if [[ -n "$(git status --porcelain)" ]]; then
+                git config user.name "github-actions[bot]"
+                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                git add package.json packages/desktop/package.json packages/recorder/package.json packages/recorder/Cargo.toml packages/recorder/Cargo.lock
+                git commit -m "chore(release): bump version to $version"
+                git push origin "HEAD:${GITHUB_REF_NAME}"
+              fi
+
+              release_ref="$(git rev-parse HEAD)"
+              short_sha="$(git rev-parse --short=12 HEAD)"
+              git tag "$tag" "$release_ref"
+              git push origin "$tag"
+            else
+              RELEASE_VERSION="$version" node -e '
+                const { readFileSync } = require("node:fs");
+                const expected = process.env.RELEASE_VERSION;
+                const packageFiles = [
+                  "package.json",
+                  "packages/desktop/package.json",
+                  "packages/recorder/package.json",
+                ];
+                const mismatches = packageFiles.filter((filePath) => {
+                  const actual = JSON.parse(readFileSync(filePath, "utf8")).version;
+                  return actual !== expected;
+                });
+                if (mismatches.length > 0) {
+                  console.error(
+                    `Stable release ${expected} requires matching package versions in: ${mismatches.join(", ")}`,
+                  );
+                  process.exit(1);
+                }
+              '
+            fi
 
             {
               echo "release_channel=stable"
               echo "version=$version"
-              echo "tag=v$version"
+              echo "tag=$tag"
               echo "release_name=Alloy v$version"
               echo "is_prerelease=false"
               echo "make_latest=true"

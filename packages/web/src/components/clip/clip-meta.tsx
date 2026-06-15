@@ -212,9 +212,12 @@ function ClipMeta({
     <section className="flex flex-col gap-2">
       {/* Title + top-right actions */}
       <div className="flex items-start justify-between gap-3">
-        <h1 className="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]">
-          {title}
-        </h1>
+        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+          <h1 className="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]">
+            {title}
+          </h1>
+          {privacy === "unlisted" ? <ClipUnlistedBadge /> : null}
+        </div>
 
         <div className="flex shrink-0 items-center gap-1 self-start">
           <Button
@@ -486,6 +489,25 @@ function ClipGameBadge({
   )
 }
 
+function ClipUnlistedBadge({ className }: { className?: string }) {
+  const display = PRIVACY_BY_VALUE.unlisted
+  const Icon = display.icon
+
+  return (
+    <span
+      className={cn(
+        "text-foreground-muted inline-flex h-5 shrink-0 items-center gap-1.5 rounded-sm bg-white/[0.06] px-1.5 text-xs leading-none font-semibold",
+        className,
+      )}
+      title={display.label}
+      aria-label={display.label}
+    >
+      <Icon className="size-3" aria-hidden />
+      {display.label}
+    </span>
+  )
+}
+
 function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   const display = PRIVACY_BY_VALUE[privacy]
   const Icon = display.icon
@@ -498,4 +520,4 @@ function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   )
 }
 
-export { ClipMeta }
+export { ClipMeta, ClipUnlistedBadge }

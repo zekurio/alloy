@@ -1,17 +1,10 @@
 import { normalizeTags } from "@alloy/contracts"
-import {
-  clip,
-  clipMention,
-  clipTag,
-  gameSession,
-  userDevice,
-} from "@alloy/db/schema"
+import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
-import { resolvePersistedGameByName } from "@alloy/server/games/lookup"
 import { getSteamGridGameRef } from "@alloy/server/games/ref"
 import { isConfigured as isSteamGridDBConfigured } from "@alloy/server/games/steamgriddb"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
@@ -91,59 +84,16 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const thumbUploadKey = stagedThumbKey(clipId)
       const privacy = body.privacy ?? "public"
 
-      let steamgriddbId: number
-      let gameName: string
-      if (body.steamgriddbId != null) {
-        if (!isSteamGridDBConfigured()) {
-          return serviceUnavailable(c, "SteamGridDB is not configured")
-        }
-        let gameRef: Awaited<ReturnType<typeof getSteamGridGameRef>>
-        try {
-          gameRef = await getSteamGridGameRef(body.steamgriddbId)
-        } catch (err) {
-          return errorResult(c, sgdbErrorResponse(err))
-        }
-        if (!gameRef) return badRequest(c, "Unknown game")
-        steamgriddbId = body.steamgriddbId
-        gameName = gameRef.name
-      } else {
-        // Uploads only know the detected process name; resolve it to a game
-        // that's persisted in the `game` table so the clip's FK holds.
-        const match = await resolvePersistedGameByName(
-          body.gameName ?? "",
-          viewerId,
-        )
-        if (!match) return c.json({ error: "game-unresolved" }, 422)
-        steamgriddbId = match.steamgriddbId
-        gameName = match.name
+      if (!isSteamGridDBConfigured()) {
+        return serviceUnavailable(c, "SteamGridDB is not configured")
       }
-
-      if (body.originDeviceId) {
-        const [device] = await db
-          .select({ id: userDevice.id })
-          .from(userDevice)
-          .where(
-            and(
-              eq(userDevice.id, body.originDeviceId),
-              eq(userDevice.userId, viewerId),
-            ),
-          )
-          .limit(1)
-        if (!device) return badRequest(c, "Unknown device")
+      let gameRef: Awaited<ReturnType<typeof getSteamGridGameRef>>
+      try {
+        gameRef = await getSteamGridGameRef(body.steamgriddbId)
+      } catch (err) {
+        return errorResult(c, sgdbErrorResponse(err))
       }
-      if (body.gameSessionId) {
-        const [session] = await db
-          .select({ id: gameSession.id })
-          .from(gameSession)
-          .where(
-            and(
-              eq(gameSession.id, body.gameSessionId),
-              eq(gameSession.userId, viewerId),
-            ),
-          )
-          .limit(1)
-        if (!session) return badRequest(c, "Unknown play session")
-      }
+      if (!gameRef) return badRequest(c, "Unknown game")
 
       const mentionedIds = body.mentionedUserIds
         ? await resolveMentionIds(body.mentionedUserIds, viewerId)
@@ -171,11 +121,9 @@ export const clipsUploadLifecycleRoutes = new Hono()
             authorId: viewerId,
             title: body.title,
             description: body.description ?? null,
-            game: gameName,
-            steamgriddbId,
+            game: gameRef.name,
+            steamgriddbId: body.steamgriddbId,
             privacy,
-            originDeviceId: body.originDeviceId ?? null,
-            gameSessionId: body.gameSessionId ?? null,
             sourceContentType: body.contentType,
             sourceSizeBytes: body.sizeBytes,
             // Client-provided placeholder; media processing recomputes the

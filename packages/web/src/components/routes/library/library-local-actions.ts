@@ -25,25 +25,7 @@ export async function detachLocalServerLink({
     id: item.id,
   }
   if (item.uploadedClipId === serverId) patch.uploadedClipId = null
-  if (item.syncedRecordingId === serverId) patch.syncedRecordingId = null
 
   await desktop.recording.updateLibraryCapture(patch)
-  notifyLibraryCapturesChanged()
-}
-
-export async function normalizeLocalPublishedStagingLink({
-  item,
-  clipId,
-}: {
-  item: RecordingLibraryItem
-  clipId: string
-}): Promise<void> {
-  const desktop = alloyDesktop()
-  if (!desktop) return
-  await desktop.recording.updateLibraryCapture({
-    id: item.id,
-    uploadedClipId: clipId,
-    syncedRecordingId: null,
-  })
   notifyLibraryCapturesChanged()
 }

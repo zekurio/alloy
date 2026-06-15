@@ -51,7 +51,6 @@ import {
   pruneStaleThumbnails,
   warmRecordingThumbnail,
 } from "./recording-library-thumbnails"
-import { activeSessionIdForGame } from "./recording-session-tracker"
 import { currentOutputFolder } from "./recording-storage"
 
 const logger = createLogger("library")
@@ -77,8 +76,6 @@ export function rememberRecordingLibraryCapture(
     height: capture.height,
     createdAt: capture.createdAt,
     updatedAt: new Date().toISOString(),
-    gameSessionId:
-      existing?.gameSessionId ?? activeSessionIdForGame(capture.game),
   }
   writeCaptureManifest(manifest)
   warmRecordingThumbnail(capture)
@@ -133,9 +130,6 @@ export function updateRecordingLibraryCaptureMeta(
   if (patch.privacy !== undefined) entry.privacy = patch.privacy
   if (patch.uploadedClipId !== undefined) {
     entry.uploadedClipId = patch.uploadedClipId
-  }
-  if (patch.syncedRecordingId !== undefined) {
-    entry.syncedRecordingId = patch.syncedRecordingId
   }
   entry.updatedAt = new Date().toISOString()
 

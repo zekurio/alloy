@@ -1,4 +1,4 @@
-import type { ClipRow, StagingRecordingRow } from "@alloy/api"
+import type { ClipRow } from "@alloy/api"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
@@ -8,7 +8,6 @@ import * as React from "react"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery } from "@/lib/clip-queries"
 import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
-import { useStagingListQuery } from "@/lib/staging-queries"
 
 import { useLibraryGameLookup, useLibrarySnapshot } from "./library-data"
 import {
@@ -19,13 +18,12 @@ import {
 
 export type NavigableLibraryEntry = Extract<
   LibraryEntry,
-  { type: "local" | "cloud" | "staging" }
+  { type: "local" | "cloud" }
 >
 
 export type CurrentLibraryEntry =
   | { type: "local"; id: string }
   | { type: "cloud"; id: string }
-  | { type: "staging"; id: string }
 
 export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
   entries: NavigableLibraryEntry[]
@@ -42,14 +40,9 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
   const gamesByName = useLibraryGameLookup(snapshot)
   const { data: session } = useSession()
   const uploadedQuery = useUserClipsQuery(session?.user?.username ?? "")
-  const stagingQuery = useStagingListQuery()
   const uploaded = React.useMemo(
     () => uploadedQuery.data ?? [],
     [uploadedQuery.data],
-  )
-  const staging = React.useMemo(
-    () => stagingQuery.data ?? [],
-    [stagingQuery.data],
   )
 
   const entries = React.useMemo(
@@ -58,13 +51,12 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
         snapshot,
         gamesByName,
         uploaded,
-        staging,
         active: null,
         kind: "all" satisfies LibraryKindFilter,
         query: "",
         includeDrafts: false,
       }).filter(isNavigableEntry),
-    [snapshot, gamesByName, uploaded, staging],
+    [snapshot, gamesByName, uploaded],
   )
   const index = entries.findIndex((entry) =>
     entryMatchesCurrent(entry, current),
@@ -89,9 +81,7 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
 }
 
 function isNavigableEntry(entry: LibraryEntry): entry is NavigableLibraryEntry {
-  return (
-    entry.type === "local" || entry.type === "cloud" || entry.type === "staging"
-  )
+  return entry.type === "local" || entry.type === "cloud"
 }
 
 function entryMatchesCurrent(
@@ -104,8 +94,6 @@ function entryMatchesCurrent(
       return entry.localItem?.id === current.id
     case "cloud":
       return entry.type === "cloud" && entry.row.id === current.id
-    case "staging":
-      return entry.type === "staging" && entry.row.id === current.id
   }
   return false
 }
@@ -124,12 +112,6 @@ export function useNavigateToLibraryEntry() {
         void navigate({
           to: "/library/c/$clipId",
           params: { clipId: entry.row.id },
-          replace,
-        })
-      } else {
-        void navigate({
-          to: "/library/r/$recordingId",
-          params: { recordingId: entry.row.id },
           replace,
         })
       }
@@ -220,10 +202,4 @@ export function entryClipRow(
   entry: NavigableLibraryEntry | null,
 ): ClipRow | null {
   return entry?.type === "cloud" ? entry.row : null
-}
-
-export function entryStagingRow(
-  entry: NavigableLibraryEntry | null,
-): StagingRecordingRow | null {
-  return entry?.type === "staging" ? entry.row : null
 }

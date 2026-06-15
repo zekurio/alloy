@@ -22,12 +22,12 @@ export type TopClipsRowItem = {
 export function TopClipsRow({ items }: { items: readonly TopClipsRowItem[] }) {
   return (
     <TopClipsCarousel>
-      {items.map(({ row, owned }) => (
+      {items.map(({ row }) => (
         <CarouselItem
           key={row.id}
           className="basis-full pl-0 md:basis-1/3 md:pl-4 2xl:basis-1/5"
         >
-          <ClipCardTrigger row={row} owned={owned} />
+          <ClipCardTrigger row={row} />
         </CarouselItem>
       ))}
     </TopClipsCarousel>

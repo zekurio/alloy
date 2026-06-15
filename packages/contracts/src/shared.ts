@@ -7,9 +7,8 @@ export const CLIP_STATUS = ["pending", "processing", "ready", "failed"] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
 
 /**
- * What a recording is, independent of where it lives (staging draft or
- * published clip). `clip` is a short replay/highlight; `session` is a long,
- * full-length capture you cut clips from. Extensible — add new kinds here.
+ * What a recording is. `clip` is a short replay/highlight; `session` is a
+ * long, full-length capture you cut clips from. Extensible — add new kinds here.
  */
 export const RECORDING_KIND = ["clip", "session"] as const
 export type RecordingKind = (typeof RECORDING_KIND)[number]

@@ -1,4 +1,9 @@
-import type { ProfileViewer, UserProfile, UserProfileViewer } from "@alloy/api"
+import {
+  HttpError,
+  type ProfileViewer,
+  type UserProfile,
+  type UserProfileViewer,
+} from "@alloy/api"
 import {
   type QueryClient,
   queryOptions,
@@ -120,7 +125,16 @@ export function userProfileQueryOptions(handle: string) {
 export function userProfileViewerQueryOptions(handle: string) {
   return queryOptions({
     queryKey: userKeys.profileViewer(handle),
-    queryFn: () => api.users.fetchProfileViewer(handle),
+    queryFn: async () => {
+      try {
+        return await api.users.fetchProfileViewer(handle)
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 401) {
+          return { viewer: null, counts: null }
+        }
+        throw error
+      }
+    },
     enabled: handle.length > 0,
     staleTime: 30_000,
   })

@@ -1,4 +1,4 @@
-import type { ClipRow, StagingRecordingRow } from "@alloy/api"
+import type { ClipRow } from "@alloy/api"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
 import { Chip } from "@alloy/ui/components/chip"
@@ -52,7 +52,6 @@ import {
   type AlloyDesktop,
   type RecordingLibraryProjectDraft,
 } from "@/lib/desktop"
-import { useStagingListQuery } from "@/lib/staging-queries"
 
 import {
   buildLibraryGroups,
@@ -72,7 +71,6 @@ import {
 import {
   LibraryCaptureCard,
   ProjectDraftCard,
-  StagingClipCard,
   UploadedClipCard,
 } from "./library-entry-cards"
 
@@ -94,12 +92,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     () => uploadedQuery.data ?? [],
     [uploadedQuery.data],
   )
-  const stagingQuery = useStagingListQuery()
-  const staging = React.useMemo(
-    () => stagingQuery.data ?? [],
-    [stagingQuery.data],
-  )
-
   const gamesByName = useLibraryGameLookup(snapshot)
 
   const localGroups = React.useMemo(
@@ -113,16 +105,13 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   // Captures that collapsed into a server row count toward that row's source
   // chip; tally them per local group so the filter chips stay accurate.
   const collapsedCounts = React.useMemo(() => {
-    const serverIds = new Set([
-      ...uploaded.map((row) => row.id),
-      ...staging.map((row) => row.id),
-    ])
+    const serverIds = new Set(uploaded.map((row) => row.id))
     return collapsedServerCounts(snapshot?.items ?? [], serverIds)
-  }, [snapshot, uploaded, staging])
+  }, [snapshot, uploaded])
 
   const groups = React.useMemo(
-    () => buildLibraryGroups(localGroups, uploaded, collapsedCounts, staging),
-    [localGroups, uploaded, collapsedCounts, staging],
+    () => buildLibraryGroups(localGroups, uploaded, collapsedCounts),
+    [localGroups, uploaded, collapsedCounts],
   )
 
   const entries = React.useMemo<LibraryEntry[]>(() => {
@@ -133,12 +122,11 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
       snapshot,
       gamesByName,
       uploaded,
-      staging,
       active,
       kind,
       query,
     })
-  }, [snapshot, gamesByName, uploaded, staging, groups, groupKey, kind, query])
+  }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, query])
 
   const [importing, setImporting] = React.useState(false)
   const importFiles = async () => {
@@ -182,12 +170,11 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
 
   const loading =
     (desktop !== null && !snapshot && !error) ||
-    (handle.length > 0 && (uploadedQuery.isLoading || stagingQuery.isLoading))
+    (handle.length > 0 && uploadedQuery.isLoading)
   const hasAnything =
     (snapshot?.totalCount ?? 0) > 0 ||
     (snapshot?.projectDrafts.length ?? 0) > 0 ||
-    uploaded.length > 0 ||
-    staging.length > 0
+    uploaded.length > 0
 
   return (
     <AppMain>
@@ -259,12 +246,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
             void navigate({
               to: "/library/c/$clipId",
               params: { clipId: row.id },
-            })
-          }}
-          onOpenStaging={(row) => {
-            void navigate({
-              to: "/library/r/$recordingId",
-              params: { recordingId: row.id },
             })
           }}
           onOpenDraft={(draft) => {
@@ -415,7 +396,6 @@ function LibraryBody({
   kind,
   onOpenLocal,
   onOpenCloud,
-  onOpenStaging,
   onOpenDraft,
   onReveal,
 }: {
@@ -427,7 +407,6 @@ function LibraryBody({
   kind: LibraryKindFilter
   onOpenLocal: (item: LibraryItemView) => void
   onOpenCloud: (row: ClipRow) => void
-  onOpenStaging: (row: StagingRecordingRow) => void
   onOpenDraft: (draft: RecordingLibraryProjectDraft) => void
   onReveal: (id: string) => void
 }) {
@@ -451,7 +430,7 @@ function LibraryBody({
         <LibraryEmpty
           icon={<LibraryIcon />}
           title="Your library is empty"
-          description="Captures saved by Alloy and anything you upload will appear here."
+          description="Captures and uploads will appear here."
         />
       )
     }
@@ -486,13 +465,6 @@ function LibraryBody({
             localItem={entry.localItem}
             onOpen={() => onOpenCloud(entry.row)}
           />
-        ) : entry.type === "staging" ? (
-          <StagingClipCard
-            key={entry.key}
-            row={entry.row}
-            localItem={entry.localItem}
-            onOpen={() => onOpenStaging(entry.row)}
-          />
         ) : (
           <ProjectDraftCard
             key={entry.key}
@@ -519,7 +491,7 @@ export function LibraryEmpty({
   children?: React.ReactNode
 }) {
   return (
-    <Empty className="border-border bg-surface/40 min-h-[22rem] border border-dashed">
+    <Empty className="min-h-[22rem] bg-transparent">
       <EmptyHeader>
         <EmptyMedia variant="icon">{icon}</EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>

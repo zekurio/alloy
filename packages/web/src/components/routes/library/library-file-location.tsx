@@ -1,4 +1,4 @@
-import type { ClipRow, StagingRecordingRow } from "@alloy/api"
+import type { ClipRow } from "@alloy/api"
 import { Chip } from "@alloy/ui/components/chip"
 import {
   DropdownMenu,
@@ -54,26 +54,6 @@ export function ClipFileLocation({
         localItem={localItem}
         allowRemoveLocal
         download={<ClipDownloadMenuItem row={row} alreadyLocal={false} />}
-      />
-    </ClipMetadataSection>
-  )
-}
-
-export function StagingFileLocation({
-  row,
-  localItem,
-}: {
-  row: StagingRecordingRow
-  localItem: RecordingLibraryItem | null
-}) {
-  return (
-    <ClipMetadataSection label="File Location">
-      <LocationMenu
-        label={localItem ? "Server + Device" : "On Server"}
-        icon={localItem ? <MonitorIcon /> : <CloudIcon />}
-        sizeBytes={row.sourceSizeBytes}
-        localItem={localItem}
-        allowRemoveLocal
       />
     </ClipMetadataSection>
   )

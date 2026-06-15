@@ -52,7 +52,7 @@ export function useEditorMedia(snapshot: RecordingLibrarySnapshot | null): {
     () =>
       new Set(
         localItems
-          .map((item) => item.uploadedClipId ?? item.syncedRecordingId)
+          .map((item) => item.uploadedClipId)
           .filter((id): id is string => Boolean(id)),
       ),
     [localItems],
@@ -74,7 +74,6 @@ export function useEditorMedia(snapshot: RecordingLibrarySnapshot | null): {
       const source = mediaSourceFor(item)
       map.set(item.id, source)
       if (item.uploadedClipId) map.set(item.uploadedClipId, source)
-      if (item.syncedRecordingId) map.set(item.syncedRecordingId, source)
     }
     return map
   }, [localItems, cloudClips])
