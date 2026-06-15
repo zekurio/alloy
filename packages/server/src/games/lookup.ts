@@ -2,10 +2,11 @@ import type {
   GameNameLookupResponse,
   GameNameLookupResult,
   GameRow,
-  SteamGridDBSearchResult,
+  IGDBSearchResult,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 
+import { gameRowFromSearchResult, searchGames } from "./igdb"
 import {
   exactNameKey,
   normalizedNameKey,
@@ -15,7 +16,6 @@ import {
   type IndexedGameNameLookupCandidate,
   lookupIndexedGamesByName,
 } from "./ref"
-import { gameRowFromSearchResult, searchGames } from "./steamgriddb"
 
 const logger = createLogger("games")
 
@@ -48,19 +48,19 @@ async function lookupGameByName(
     return indexedResult(name, indexedExact.game, "indexed-exact-name")
   }
 
-  let steamGridResults: SteamGridDBSearchResult[]
+  let igdbResults: IGDBSearchResult[]
   try {
-    steamGridResults = uniqueSearchResults(await searchGames(name))
+    igdbResults = uniqueSearchResults(await searchGames(name))
   } catch (err) {
-    logger.warn(`SteamGridDB lookup failed for "${name}":`, err)
+    logger.warn(`IGDB lookup failed for "${name}":`, err)
     return fallbackIndexedOrNoMatch(name, indexed)
   }
 
-  const exact = steamGridResults.filter(
+  const exact = igdbResults.filter(
     (result) => exactNameKey(result.name) === exactNameKey(name),
   )
-  const exactSteamGrid = await steamGridResult(name, exact, indexed)
-  if (exactSteamGrid) return exactSteamGrid
+  const exactIGDB = await igdbResult(name, exact, indexed)
+  if (exactIGDB) return exactIGDB
 
   const indexedNormalized = confidentIndexedMatch(indexed, "normalized")
   if (indexedNormalized) {
@@ -71,11 +71,11 @@ async function lookupGameByName(
     )
   }
 
-  const normalized = steamGridResults.filter(
+  const normalized = igdbResults.filter(
     (result) => normalizedNameKey(result.name) === normalizedNameKey(name),
   )
-  const normalizedSteamGrid = await steamGridResult(name, normalized, indexed)
-  if (normalizedSteamGrid) return normalizedSteamGrid
+  const normalizedIGDB = await igdbResult(name, normalized, indexed)
+  if (normalizedIGDB) return normalizedIGDB
 
   if (exact.length > 1 || normalized.length > 1 || indexed.length > 1) {
     return { name, game: null, confidence: 0, reason: "ambiguous" }
@@ -123,16 +123,16 @@ function indexedResult(
   }
 }
 
-async function steamGridResult(
+async function igdbResult(
   name: string,
-  results: SteamGridDBSearchResult[],
+  results: IGDBSearchResult[],
   indexed: IndexedGameNameLookupCandidate[],
 ): Promise<GameNameLookupResult | null> {
   if (results.length === 0) return null
 
   const indexedTieBreak = confidentIndexedMatch(
     indexed.filter((candidate) =>
-      results.some((result) => result.id === candidate.game.steamgriddbId),
+      results.some((result) => result.id === candidate.game.igdbId),
     ),
     "any",
   )
@@ -152,8 +152,8 @@ async function steamGridResult(
     confidence: 1,
     reason:
       exactNameKey(results[0].name) === exactNameKey(name)
-        ? "steamgriddb-exact-name"
-        : "steamgriddb-normalized-name",
+        ? "igdb-exact-name"
+        : "igdb-normalized-name",
   }
 }
 
@@ -196,11 +196,9 @@ function uniqueBestScore(
   return null
 }
 
-function uniqueSearchResults(
-  results: SteamGridDBSearchResult[],
-): SteamGridDBSearchResult[] {
+function uniqueSearchResults(results: IGDBSearchResult[]): IGDBSearchResult[] {
   const seen = new Set<number>()
-  const unique: SteamGridDBSearchResult[] = []
+  const unique: IGDBSearchResult[] = []
   for (const result of results) {
     if (seen.has(result.id)) continue
     seen.add(result.id)

@@ -257,7 +257,9 @@ export function useUploadQueueState(
           onCancel: () => cancelRow(null, row.id),
           onOpen: row.status === "ready" ? () => onOpenClip(row) : undefined,
           onCopyLink:
-            row.status === "ready" ? () => copyClipLink(row) : undefined,
+            row.status === "ready" && row.gameSlug
+              ? () => copyClipLink(row)
+              : undefined,
           onDismiss:
             row.status === "ready"
               ? () => {
@@ -331,6 +333,7 @@ export function useUploadQueueState(
 }
 
 function clipLinkFor(row: QueueClip): string {
+  if (!row.gameSlug) return ""
   return absoluteClipHref(row.gameSlug, row.id, publicOrigin())
 }
 

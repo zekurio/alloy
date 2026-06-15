@@ -78,12 +78,16 @@ export function validateUserListRow(value: unknown): UserListRow {
 
 function validateNotificationClipRef(value: unknown) {
   const clip = objectRecord(value, "notification clip")
-  for (const key of ["id", "title", "gameSlug"] as const) {
+  for (const key of ["id", "title"] as const) {
     validateRequiredString(
       clip[key],
       `Invalid notification clip response: ${key} is required`,
     )
   }
+  validateNullableString(
+    clip.gameSlug,
+    "Invalid notification clip response: gameSlug must be string or null",
+  )
   validateBoolean(
     clip.hasThumb,
     "Invalid notification clip response: hasThumb must be boolean",

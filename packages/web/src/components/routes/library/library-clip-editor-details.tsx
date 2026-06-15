@@ -116,7 +116,7 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
   if (!ref) return null
   return {
     id: ref.id,
-    steamgriddbId: ref.steamgriddbId,
+    igdbId: ref.igdbId,
     name: ref.name,
     slug: ref.slug,
     releaseDate: ref.releaseDate,
@@ -275,7 +275,7 @@ function ClipDetailsForm({
     const input: Parameters<typeof saveMutation.mutate>[0]["input"] = {}
     if (titleChanged) input.title = trimmedTitle
     if (descriptionChanged) input.description = trimmedDescription
-    if (gameChanged && game) input.steamgriddbId = game.steamgriddbId
+    if (gameChanged) input.igdbId = game?.igdbId ?? null
     if (mentionsChanged) input.mentionedUserIds = mentionIds
     if (tagsChanged) input.tags = tags
     saveMutation.mutate(

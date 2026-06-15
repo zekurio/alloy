@@ -37,7 +37,7 @@ export function userAssetImagePath(key: string, updatedAt: Date): string {
 
 export interface ClipGameRef {
   id: number
-  steamgriddbId: number
+  igdbId: number
   slug: string
   name: string
   releaseDate: IsoDateString | null
@@ -57,7 +57,7 @@ export interface ClipRow {
   title: string
   description: string | null
   game: string | null
-  steamgriddbId: number
+  igdbId: number | null
   privacy: ClipPrivacy
   sourceContentType: string | null
   sourceVideoCodec: string | null
@@ -108,7 +108,7 @@ export interface InitiateClipInput {
   sizeBytes: number
   title: string
   description?: string
-  steamgriddbId: number
+  igdbId?: number | null
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
   /** Bare hashtags; normalized server-side. */
@@ -137,7 +137,7 @@ export interface InitiateClipResponse {
 export interface UpdateClipInput {
   title?: string
   description?: string
-  steamgriddbId?: number
+  igdbId?: number | null
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
   tags?: string[]
@@ -168,8 +168,8 @@ export interface QueueClip {
   thumbBlurHash: string | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
-  steamgriddbId: number
-  gameSlug: string
+  igdbId: number | null
+  gameSlug: string | null
 }
 
 export type QueueEvent =
@@ -180,7 +180,7 @@ export type QueueEvent =
 export interface NotificationClipRef {
   id: string
   title: string
-  gameSlug: string
+  gameSlug: string | null
   /** True when the clip has a generated thumbnail available for preview. */
   hasThumb: boolean
   thumbBlurHash: string | null
@@ -248,7 +248,7 @@ export interface CommentPage {
 export type FeedFilter =
   | { kind: "foryou" }
   | { kind: "following" }
-  | { kind: "game"; steamgriddbId: number }
+  | { kind: "game"; igdbId: number }
 
 export interface FeedPageParams {
   filter: FeedFilter
@@ -263,7 +263,7 @@ export interface FeedPage {
 
 export interface FeedChipGame {
   id: number
-  steamgriddbId: number
+  igdbId: number
   slug: string
   name: string
   iconUrl: string | null
@@ -280,7 +280,7 @@ export interface TagClipsParams {
   sort?: ClipFeedSort
   window?: ClipFeedWindow
   /** Narrow to a single game. */
-  steamgriddbId?: number
+  igdbId?: number
   limit?: number
   cursor?: string | null
 }
@@ -289,38 +289,36 @@ export interface TagGamesResponse {
   games: GameListRow[]
 }
 
-export interface SteamGridDBSearchResult {
-  id: number
-  name: string
-  release_date?: number
-  types?: string[]
-  verified?: boolean
-  iconUrl?: string | null
-  logoUrl?: string | null
-}
-
-export interface SteamGridDBGameDetail {
+export interface IGDBSearchResult {
   id: number
   name: string
   release_date?: number | null
   types?: string[]
   verified?: boolean
+  heroUrl?: string | null
+  gridUrl?: string | null
+  iconUrl?: string | null
+  logoUrl?: string | null
 }
 
-export interface SteamGridDBAsset {
+export interface IGDBGameDetail {
   id: number
-  url: string
-  thumb?: string
+  name: string
+  release_date?: number | null
+  summary?: string | null
+}
+
+export interface IGDBAsset {
+  id?: number
+  image_id: string
+  url?: string
   width?: number
   height?: number
-  style?: string
-  nsfw?: boolean
-  humor?: boolean
 }
 
 export interface GameRow {
   id: number
-  steamgriddbId: number
+  igdbId: number
   name: string
   slug: string
   releaseDate: IsoDateString | null
@@ -348,8 +346,8 @@ export interface GameDetail extends GameRow {
 export type GameNameLookupReason =
   | "indexed-exact-name"
   | "indexed-normalized-name"
-  | "steamgriddb-exact-name"
-  | "steamgriddb-normalized-name"
+  | "igdb-exact-name"
+  | "igdb-normalized-name"
   | "no-match"
   | "ambiguous"
 
@@ -370,8 +368,8 @@ export interface GameClipsParams {
   cursor?: string | null
 }
 
-export interface SteamGridDBStatus {
-  steamgriddbConfigured: boolean
+export interface IGDBStatus {
+  igdbConfigured: boolean
 }
 
 export interface ProfileCounts {

@@ -22,7 +22,7 @@ async function fetchTagClipPage(
     query: queryParams({
       sort: params.sort,
       window: params.window,
-      steamgriddbId: params.steamgriddbId,
+      igdbId: params.igdbId,
       limit: params.limit,
       cursor: params.cursor,
     }),

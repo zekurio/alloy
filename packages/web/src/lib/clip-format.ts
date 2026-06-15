@@ -77,7 +77,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
       ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
       : undefined,
     thumbnailBlurHash: row.thumbBlurHash,
-    fallbackSeed: row.steamgriddbId,
+    fallbackSeed: row.igdbId ?? row.id,
     streamUrl: clipStreamUrl(row.id, undefined, apiOrigin()),
     accentHue: hueForGame(game),
     privacy: row.privacy,

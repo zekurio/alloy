@@ -4,7 +4,7 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import { getSteamGridGameRef } from "@alloy/server/games/ref"
+import { getIGDBGameRef } from "@alloy/server/games/ref"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import {
   badRequest,
@@ -27,7 +27,7 @@ import {
 } from "./clips-upload-access"
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
-import { sgdbErrorResponse } from "./games-helpers"
+import { igdbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
 
 /** Slack when deciding whether a requested trim still covers the full clip. */
@@ -60,16 +60,21 @@ export const clipsUploadRoutes = new Hono()
       if (body.description !== undefined) {
         patch.description = body.description === "" ? null : body.description
       }
-      if (body.steamgriddbId !== undefined) {
-        let gameRef: Awaited<ReturnType<typeof getSteamGridGameRef>>
-        try {
-          gameRef = await getSteamGridGameRef(body.steamgriddbId)
-        } catch (err) {
-          return errorResult(c, sgdbErrorResponse(err))
+      if (body.igdbId !== undefined) {
+        if (body.igdbId === null) {
+          patch.igdbId = null
+          patch.game = null
+        } else {
+          let gameRef: Awaited<ReturnType<typeof getIGDBGameRef>>
+          try {
+            gameRef = await getIGDBGameRef(body.igdbId)
+          } catch (err) {
+            return errorResult(c, igdbErrorResponse(err))
+          }
+          if (!gameRef) return badRequest(c, "Unknown game")
+          patch.igdbId = body.igdbId
+          patch.game = gameRef.name
         }
-        if (!gameRef) return badRequest(c, "Unknown game")
-        patch.steamgriddbId = body.steamgriddbId
-        patch.game = gameRef.name
       }
       if (body.privacy !== undefined) patch.privacy = body.privacy
 

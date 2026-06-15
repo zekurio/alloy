@@ -206,6 +206,7 @@ function registerDownloadedCapture(
     source: "display",
     gameName: request.gameName,
     gameIconUrl: null,
+    gameGuess: null,
     sizeBytes,
     durationMs:
       request.durationMs !== null && request.durationMs > 0

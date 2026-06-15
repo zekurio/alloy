@@ -6,7 +6,7 @@ import { Link } from "@tanstack/react-router"
 import { apiOrigin } from "@/lib/env"
 
 export type GameCardData = {
-  steamgriddbId: number
+  igdbId: number
   name: string
   slug: string | null
   heroUrl: string | null
@@ -31,10 +31,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
 
   return (
     <>
-      <MediaPlaceholder
-        seed={game.steamgriddbId}
-        blurHash={game.gridBlurHash}
-      />
+      <MediaPlaceholder seed={game.igdbId} blurHash={game.gridBlurHash} />
       {gridSrc ? (
         <img
           src={gridSrc}

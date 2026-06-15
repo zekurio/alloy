@@ -8,7 +8,7 @@ import { desc, eq } from "drizzle-orm"
 const queueSelectShape = {
   id: clip.id,
   game: clip.game,
-  steamgriddbId: clip.steamgriddbId,
+  igdbId: clip.igdbId,
   title: clip.title,
   status: clip.status,
   encodeProgress: clip.encodeProgress,
@@ -28,7 +28,7 @@ function serialize(row: {
   thumbKey: string | null
   thumbBlurHash: string | null
   game: string | null
-  steamgriddbId: number
+  igdbId: number | null
   createdAt: Date
   updatedAt: Date
 }): QueueClip {
@@ -38,16 +38,18 @@ function serialize(row: {
     createdAt,
     updatedAt,
     game,
-    steamgriddbId,
+    igdbId,
     ...publicRow
   } = row
-  const gameName = game?.trim() || `Game ${steamgriddbId}`
   return {
     ...publicRow,
-    gameSlug: gameSlugWithId(gameName, steamgriddbId),
+    gameSlug:
+      igdbId === null
+        ? null
+        : gameSlugWithId(game?.trim() || `Game ${igdbId}`, igdbId),
     hasThumb: thumbKey !== null,
     thumbBlurHash,
-    steamgriddbId,
+    igdbId,
     createdAt: isoDate(createdAt),
     updatedAt: isoDate(updatedAt),
   }

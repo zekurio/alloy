@@ -9,7 +9,6 @@ import {
   validateNullablePositiveInteger,
   validateNullableRequiredString,
   validateNullableString,
-  validatePositiveInteger,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
 import {
@@ -52,9 +51,9 @@ function validateClipIdentityFields(row: Record<string, unknown>) {
       `Invalid clip response: ${key} is required`,
     )
   }
-  validatePositiveInteger(
-    row.steamgriddbId,
-    "Invalid clip response: steamgriddbId must be a positive integer",
+  validateNullablePositiveInteger(
+    row.igdbId,
+    "Invalid clip response: igdbId must be a positive integer or null",
   )
 }
 

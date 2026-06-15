@@ -40,7 +40,11 @@ export function adminRuntimeConfigResponse(
       s3SecretAccessKeySet: Boolean(s3Credentials?.secretAccessKey),
     },
     integrations: {
-      steamgriddbApiKeySet: secretStore.get("steamgriddbApiKey").length > 0,
+      igdbClientIdSet: secretStore.get("igdbClientId").length > 0,
+      igdbClientSecretSet: secretStore.get("igdbClientSecret").length > 0,
+      igdbConfigured:
+        secretStore.get("igdbClientId").length > 0 &&
+        secretStore.get("igdbClientSecret").length > 0,
     },
     authBaseURL: env.PUBLIC_SERVER_URL,
   }

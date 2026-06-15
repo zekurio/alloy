@@ -36,13 +36,12 @@ export const clip = pgTable(
 
     title: text("title").notNull(),
     description: text("description"),
-    // Non-authoritative display snapshot. SteamGridDB is the source of truth
-    // for game identity and metadata; this keeps clip rows usable when the
-    // external metadata path is temporarily unavailable.
+    // Non-authoritative display snapshot. `igdbId` is null for desktop
+    // captures, unknown games, and low-confidence detector guesses.
     game: text("game"),
-    steamgriddbId: integer("steamgriddb_id")
-      .notNull()
-      .references(() => game.steamgriddbId, { onDelete: "restrict" }),
+    igdbId: integer("igdb_id").references(() => game.igdbId, {
+      onDelete: "set null",
+    }),
 
     // One of `CLIP_PRIVACY`, validated via zod on write paths.
     privacy: text("privacy").$type<ClipPrivacy>().notNull().default("public"),
@@ -94,10 +93,10 @@ export const clip = pgTable(
       .on(t.viewCount.desc(), t.likeCount.desc(), t.createdAt.desc(), t.id)
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
-    index("clip_steamgriddb_created_idx").on(t.steamgriddbId, t.createdAt),
-    index("clip_ready_visible_steamgriddb_top_idx")
+    index("clip_igdb_created_idx").on(t.igdbId, t.createdAt),
+    index("clip_ready_visible_igdb_top_idx")
       .on(
-        t.steamgriddbId,
+        t.igdbId,
         t.viewCount.desc(),
         t.likeCount.desc(),
         t.createdAt.desc(),

@@ -257,6 +257,23 @@ fn detected_game_from_parts(
         title.as_deref(),
         executable.as_deref(),
     );
+    let icon_url = match_
+        .icon_url
+        .clone()
+        .or_else(|| path.as_deref().and_then(application_icon_url));
+    let guess = RecordingGameGuess {
+        source: match_.source,
+        source_id: match_.source_id,
+        name: match_.name,
+        aliases: match_.aliases,
+        executable: executable.clone(),
+        path: path.clone(),
+        window_title: title.clone(),
+        window_class: class_name.clone(),
+        icon_url: icon_url.clone(),
+        confidence: match_.confidence,
+        match_kind: match_.match_kind,
+    };
 
     Some(DetectedGame {
         game: RecordingGame {
@@ -264,11 +281,12 @@ fn detected_game_from_parts(
             name,
             process_id,
             executable,
-            icon_url: path.as_deref().and_then(application_icon_url),
+            icon_url,
             path,
             window_title: title,
             window_class: class_name,
             started_at: Some(now_iso()),
+            guess: Some(guess),
         },
         obs_window,
         window_key,

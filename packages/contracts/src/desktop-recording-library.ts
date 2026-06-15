@@ -1,6 +1,7 @@
 import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
+  RecordingGameGuess,
 } from "./desktop-recording-types"
 import type { ClipPrivacy } from "./shared"
 
@@ -27,6 +28,7 @@ export interface RecordingLibraryItem {
   groupLabel: string
   gameName: string | null
   gameIconUrl: string | null
+  gameGuess: RecordingGameGuess | null
   sizeBytes: number
   durationMs: number | null
   bookmarksMs: number[]
@@ -63,6 +65,7 @@ export interface RecordingLibraryMetaPatch {
   title?: string
   gameName?: string | null
   gameIconUrl?: string | null
+  gameGuess?: RecordingGameGuess | null
   description?: string | null
   tags?: string | null
   mentions?: RecordingCaptureMention[]
