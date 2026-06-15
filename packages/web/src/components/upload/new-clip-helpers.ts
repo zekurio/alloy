@@ -31,7 +31,7 @@ export interface PublishPayload {
   contentType: AcceptedContentType
   title: string
   description: string | null
-  igdbId: number | null
+  steamgriddbId: number | null
   privacy: Visibility
   width: number
   height: number

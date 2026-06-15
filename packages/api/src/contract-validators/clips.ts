@@ -52,8 +52,8 @@ function validateClipIdentityFields(row: Record<string, unknown>) {
     )
   }
   validateNullablePositiveInteger(
-    row.igdbId,
-    "Invalid clip response: igdbId must be a positive integer or null",
+    row.steamgriddbId,
+    "Invalid clip response: steamgriddbId must be a positive integer or null",
   )
 }
 

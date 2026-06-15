@@ -102,7 +102,7 @@ export function ClipRowItem({
         )}
       >
         <MediaPlaceholder
-          seed={row.igdbId ?? row.id}
+          seed={row.steamgriddbId ?? row.id}
           blurHash={row.thumbBlurHash}
         />
         {thumb ? (
@@ -144,7 +144,10 @@ export function GameRowItem({
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <div className="bg-surface-sunken relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm">
-        <MediaPlaceholder seed={row.igdbId} blurHash={row.heroBlurHash} />
+        <MediaPlaceholder
+          seed={row.steamgriddbId}
+          blurHash={row.heroBlurHash}
+        />
         {row.heroUrl ? (
           <img
             src={row.heroUrl}

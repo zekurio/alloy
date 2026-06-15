@@ -5,6 +5,7 @@ import {
   validateBoolean,
   validateEnumString,
   validateNonNegativeInteger,
+  validateNullablePositiveInteger,
   validateNullableUrlString,
   validatePositiveInteger,
   validateRequiredString,
@@ -15,8 +16,8 @@ import {
   type GameListRow,
   type GameNameLookupResponse,
   type GameRow,
-  type IGDBSearchResult,
-  type IGDBStatus,
+  type SteamGridDBSearchResult,
+  type SteamGridDBStatus,
 } from "@alloy/contracts"
 
 import { validateGameRowFields } from "./shared"
@@ -24,8 +25,8 @@ import { validateGameRowFields } from "./shared"
 const GAME_NAME_LOOKUP_REASON = new Set([
   "indexed-exact-name",
   "indexed-normalized-name",
-  "igdb-exact-name",
-  "igdb-normalized-name",
+  "steamgriddb-exact-name",
+  "steamgriddb-normalized-name",
   "no-match",
   "ambiguous",
 ])
@@ -102,16 +103,18 @@ export function validateGameNameLookupResponse(
   return value as GameNameLookupResponse
 }
 
-export function validateIGDBStatus(value: unknown): IGDBStatus {
-  const status = objectRecord(value, "IGDB status")
+export function validateSteamGridDBStatus(value: unknown): SteamGridDBStatus {
+  const status = objectRecord(value, "SteamGridDB status")
   validateBoolean(
-    status.igdbConfigured,
-    "Invalid IGDB status response: igdbConfigured must be boolean",
+    status.steamgriddbConfigured,
+    "Invalid SteamGridDB status response: steamgriddbConfigured must be boolean",
   )
-  return value as IGDBStatus
+  return value as SteamGridDBStatus
 }
 
-function validateIGDBSearchResult(value: unknown): IGDBSearchResult {
+function validateSteamGridDBSearchResult(
+  value: unknown,
+): SteamGridDBSearchResult {
   const row = objectRecord(value, "game search")
   validatePositiveInteger(
     row.id,
@@ -122,9 +125,9 @@ function validateIGDBSearchResult(value: unknown): IGDBSearchResult {
     "Invalid game search response: name is required",
   )
   if (row.release_date !== undefined) {
-    validatePositiveInteger(
+    validateNullablePositiveInteger(
       row.release_date,
-      "Invalid game search response: release_date must be a positive integer",
+      "Invalid game search response: release_date must be a positive integer or null",
     )
   }
   if (row.types !== undefined) {
@@ -151,12 +154,14 @@ function validateIGDBSearchResult(value: unknown): IGDBSearchResult {
       "Invalid game search response: logoUrl must be a URL or null",
     )
   }
-  return value as IGDBSearchResult
+  return value as SteamGridDBSearchResult
 }
 
-export function validateIGDBSearchResults(value: unknown): IGDBSearchResult[] {
+export function validateSteamGridDBSearchResults(
+  value: unknown,
+): SteamGridDBSearchResult[] {
   return validateArray(value, "Invalid game search response").map(
-    validateIGDBSearchResult,
+    validateSteamGridDBSearchResult,
   )
 }
 

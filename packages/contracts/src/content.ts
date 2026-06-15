@@ -37,7 +37,7 @@ export function userAssetImagePath(key: string, updatedAt: Date): string {
 
 export interface ClipGameRef {
   id: number
-  igdbId: number
+  steamgriddbId: number
   slug: string
   name: string
   releaseDate: IsoDateString | null
@@ -57,7 +57,7 @@ export interface ClipRow {
   title: string
   description: string | null
   game: string | null
-  igdbId: number | null
+  steamgriddbId: number | null
   privacy: ClipPrivacy
   sourceContentType: string | null
   sourceVideoCodec: string | null
@@ -108,7 +108,7 @@ export interface InitiateClipInput {
   sizeBytes: number
   title: string
   description?: string
-  igdbId?: number | null
+  steamgriddbId?: number | null
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
   /** Bare hashtags; normalized server-side. */
@@ -137,7 +137,7 @@ export interface InitiateClipResponse {
 export interface UpdateClipInput {
   title?: string
   description?: string
-  igdbId?: number | null
+  steamgriddbId?: number | null
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
   tags?: string[]
@@ -168,7 +168,7 @@ export interface QueueClip {
   thumbBlurHash: string | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
-  igdbId: number | null
+  steamgriddbId: number | null
   gameSlug: string | null
 }
 
@@ -248,7 +248,7 @@ export interface CommentPage {
 export type FeedFilter =
   | { kind: "foryou" }
   | { kind: "following" }
-  | { kind: "game"; igdbId: number }
+  | { kind: "game"; steamgriddbId: number }
 
 export interface FeedPageParams {
   filter: FeedFilter
@@ -263,7 +263,7 @@ export interface FeedPage {
 
 export interface FeedChipGame {
   id: number
-  igdbId: number
+  steamgriddbId: number
   slug: string
   name: string
   iconUrl: string | null
@@ -280,7 +280,7 @@ export interface TagClipsParams {
   sort?: ClipFeedSort
   window?: ClipFeedWindow
   /** Narrow to a single game. */
-  igdbId?: number
+  steamgriddbId?: number
   limit?: number
   cursor?: string | null
 }
@@ -289,7 +289,7 @@ export interface TagGamesResponse {
   games: GameListRow[]
 }
 
-export interface IGDBSearchResult {
+export interface SteamGridDBSearchResult {
   id: number
   name: string
   release_date?: number | null
@@ -301,24 +301,28 @@ export interface IGDBSearchResult {
   logoUrl?: string | null
 }
 
-export interface IGDBGameDetail {
+export interface SteamGridDBGameDetail {
   id: number
   name: string
   release_date?: number | null
-  summary?: string | null
+  types?: string[]
+  verified?: boolean
 }
 
-export interface IGDBAsset {
-  id?: number
-  image_id: string
-  url?: string
+export interface SteamGridDBAsset {
+  id: number
+  url: string
+  thumb?: string
   width?: number
   height?: number
+  style?: string
+  nsfw?: boolean
+  humor?: boolean
 }
 
 export interface GameRow {
   id: number
-  igdbId: number
+  steamgriddbId: number
   name: string
   slug: string
   releaseDate: IsoDateString | null
@@ -346,8 +350,8 @@ export interface GameDetail extends GameRow {
 export type GameNameLookupReason =
   | "indexed-exact-name"
   | "indexed-normalized-name"
-  | "igdb-exact-name"
-  | "igdb-normalized-name"
+  | "steamgriddb-exact-name"
+  | "steamgriddb-normalized-name"
   | "no-match"
   | "ambiguous"
 
@@ -368,8 +372,8 @@ export interface GameClipsParams {
   cursor?: string | null
 }
 
-export interface IGDBStatus {
-  igdbConfigured: boolean
+export interface SteamGridDBStatus {
+  steamgriddbConfigured: boolean
 }
 
 export interface ProfileCounts {

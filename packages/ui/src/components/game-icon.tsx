@@ -28,7 +28,7 @@ interface GameIconProps
   name: string
 }
 
-// igdb occasionally hands back a URL that 404s; fall back to the first
+// steamgriddb occasionally hands back a URL that 404s; fall back to the first
 // letter in a monospace badge on error.
 function GameIcon({
   src,

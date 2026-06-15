@@ -15,7 +15,7 @@ export const clipSelectShape = {
   title: clip.title,
   description: clip.description,
   game: clip.game,
-  igdbId: clip.igdbId,
+  steamgriddbId: clip.steamgriddbId,
   privacy: clip.privacy,
   sourceKey: clip.sourceKey,
   sourceContentType: clip.sourceContentType,
@@ -64,7 +64,7 @@ export async function selectClipById(id: string) {
     .select(clipSelectShape)
     .from(clip)
     .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.igdbId, game.igdbId))
+    .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
     .where(eq(clip.id, id))
     .limit(1)
   if (!row) return null
@@ -84,7 +84,7 @@ export function toPublicClipRow<
     height: number | null
     thumbKey: string | null
     thumbBlurHash: string | null
-    igdbId: number | null
+    steamgriddbId: number | null
     game: string | null
     gameRef?: Parameters<typeof serialiseGameRow>[0] | null
   },
@@ -94,9 +94,9 @@ export function toPublicClipRow<
     ...rest,
     gameRef: gameRef
       ? serialiseGameRow(gameRef)
-      : row.igdbId !== null
+      : row.steamgriddbId !== null
         ? clipGameRefFromSnapshot({
-            igdbId: row.igdbId,
+            steamgriddbId: row.steamgriddbId,
             name: row.game,
           })
         : null,

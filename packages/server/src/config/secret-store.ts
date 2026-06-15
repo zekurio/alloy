@@ -4,8 +4,7 @@ import { env } from "@alloy/server/env"
 type SecretMap = {
   viewerCookieSecret: string
   uploadHmacSecret: string
-  igdbClientId: string
-  igdbClientSecret: string
+  steamgriddbApiKey: string
 }
 
 export const secretStore = {

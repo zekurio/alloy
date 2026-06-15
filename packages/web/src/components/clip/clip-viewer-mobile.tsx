@@ -334,7 +334,7 @@ function MobileClipViewerBody({
               sourceAudioCodec={row.sourceAudioCodec}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}
-              fallbackSeed={row.igdbId ?? row.id}
+              fallbackSeed={row.steamgriddbId ?? row.id}
               status={row.status}
               encodeProgress={row.encodeProgress}
               maxDisplayHeight={

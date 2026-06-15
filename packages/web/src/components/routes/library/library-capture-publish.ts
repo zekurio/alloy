@@ -81,7 +81,7 @@ export async function exportAndPublishCapture({
     title,
     description: nullableClipDescription(description),
     tags: parseTagString(tags),
-    igdbId: game?.igdbId ?? null,
+    steamgriddbId: game?.steamgriddbId ?? null,
     privacy,
     width: selected.width,
     height: selected.height,

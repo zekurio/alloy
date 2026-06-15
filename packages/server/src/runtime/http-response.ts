@@ -49,8 +49,8 @@ export function urlResponse(c: Context, url: string) {
   return c.json({ url })
 }
 
-export function igdbStatus(c: Context, configured: boolean) {
-  return c.json({ igdbConfigured: configured })
+export function steamgriddbStatus(c: Context, configured: boolean) {
+  return c.json({ steamgriddbConfigured: configured })
 }
 
 export function success(c: Context) {

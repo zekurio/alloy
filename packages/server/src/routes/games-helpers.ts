@@ -1,5 +1,8 @@
 import type { GameListRow, GameRow, ProfileGameRow } from "@alloy/contracts"
-import { IGDBError, IGDBNotConfiguredError } from "@alloy/server/games/igdb"
+import {
+  SteamGridDBError,
+  SteamGridDBNotConfiguredError,
+} from "@alloy/server/games/steamgriddb"
 import { isoDate } from "@alloy/server/runtime/date"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import { z } from "zod"
@@ -23,7 +26,7 @@ export const SearchQuery = z.object({
 })
 
 export const ResolveBody = z.object({
-  igdbId: z.number().int().positive(),
+  steamgriddbId: z.number().int().positive(),
 })
 
 export const LookupBody = z.object({
@@ -70,16 +73,16 @@ export function serialiseProfileGameRow(
   }
 }
 
-export function igdbErrorResponse(
+export function steamgriddbErrorResponse(
   err: unknown,
 ):
   | { status: 503; error: string }
   | { status: 502; error: string }
   | { status: 500; error: string } {
-  if (err instanceof IGDBNotConfiguredError) {
+  if (err instanceof SteamGridDBNotConfiguredError) {
     return { status: 503, error: err.message }
   }
-  if (err instanceof IGDBError) {
+  if (err instanceof SteamGridDBError) {
     const status =
       err.status === null ||
       err.status >= 500 ||

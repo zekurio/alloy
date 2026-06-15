@@ -32,13 +32,13 @@ const FilterEnum = z.enum(["foryou", "following", "game"])
 const FeedQuery = z
   .object({
     filter: FilterEnum.default("foryou"),
-    igdbId: z.coerce.number().int().positive().optional(),
+    steamgriddbId: z.coerce.number().int().positive().optional(),
     limit: limitQueryParam(50, 20),
     cursor: z.string().optional(),
   })
-  .refine((v) => v.filter !== "game" || v.igdbId !== undefined, {
-    message: "igdbId is required when filter=game",
-    path: ["igdbId"],
+  .refine((v) => v.filter !== "game" || v.steamgriddbId !== undefined, {
+    message: "steamgriddbId is required when filter=game",
+    path: ["steamgriddbId"],
   })
 
 const ChipsQuery = z.object({
@@ -66,7 +66,7 @@ type FeedPageRow = {
   height: number | null
   thumbKey: string | null
   thumbBlurHash: string | null
-  igdbId: number | null
+  steamgriddbId: number | null
   game: string | null
 }
 
@@ -121,7 +121,7 @@ function rankScore(viewerId: string | null, asOf: string) {
                  WHEN EXISTS (
                     SELECT 1 FROM ${gameFollow}
                     WHERE ${gameFollow.userId} = ${vid}::uuid
-                      AND ${gameFollow.igdbId} = ${clip.igdbId}
+                      AND ${gameFollow.steamgriddbId} = ${clip.steamgriddbId}
                  ) THEN 1 ELSE 0 END
           )
       )
@@ -149,7 +149,12 @@ function feedPage<T extends FeedPageRow>(rows: T[], limit: number, asOf: Date) {
 
 export const feedRoute = new Hono()
   .get("/", zValidator("query", FeedQuery), async (c) => {
-    const { filter, igdbId, limit, cursor: rawCursor } = c.req.valid("query")
+    const {
+      filter,
+      steamgriddbId,
+      limit,
+      cursor: rawCursor,
+    } = c.req.valid("query")
     const cursor = parseFeedCursor(rawCursor)
     if (rawCursor && !cursor) return invalidCursor(c)
     const asOf = cursor?.asOf ?? new Date()
@@ -176,8 +181,8 @@ export const feedRoute = new Hono()
     }
 
     if (filter === "game") {
-      if (!igdbId) return badRequest(c, "igdbId is required")
-      conditions.push(eq(clip.igdbId, igdbId))
+      if (!steamgriddbId) return badRequest(c, "steamgriddbId is required")
+      conditions.push(eq(clip.steamgriddbId, steamgriddbId))
     }
 
     if (filter === "following") {
@@ -205,7 +210,7 @@ export const feedRoute = new Hono()
               .where(
                 and(
                   eq(gameFollow.userId, followingViewerId),
-                  eq(gameFollow.igdbId, clip.igdbId),
+                  eq(gameFollow.steamgriddbId, clip.steamgriddbId),
                 ),
               ),
           ),
@@ -243,7 +248,7 @@ export const feedRoute = new Hono()
       .select({ ...clipSelectShape, rankScore: score })
       .from(clip)
       .innerJoin(user, eq(clip.authorId, user.id))
-      .leftJoin(game, eq(clip.igdbId, game.igdbId))
+      .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
       .where(and(...conditions))
       // createdAt DESC and id ASC break ties deterministically so
       // neighbouring pages don't duplicate rows when scores collide.
@@ -282,7 +287,7 @@ export const feedRoute = new Hono()
       })
       .from(clip)
       .innerJoin(user, eq(clip.authorId, user.id))
-      .innerJoin(game, eq(clip.igdbId, game.igdbId))
+      .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
       .leftJoin(
         clipLike,
         and(
@@ -298,7 +303,7 @@ export const feedRoute = new Hono()
         ),
       )
       .where(and(...conditions))
-      .groupBy(game.igdbId)
+      .groupBy(game.steamgriddbId)
       .orderBy(sql`${interaction} desc`, sql`${clipCount} desc`, game.name)
       .limit(limit)
 
@@ -306,7 +311,7 @@ export const feedRoute = new Hono()
       const ref = serialiseGameRow(row)
       return {
         id: ref.id,
-        igdbId: ref.igdbId,
+        steamgriddbId: ref.steamgriddbId,
         slug: ref.slug,
         name: ref.name,
         iconUrl: ref.iconUrl,

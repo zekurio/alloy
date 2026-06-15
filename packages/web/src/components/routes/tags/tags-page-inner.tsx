@@ -65,7 +65,7 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
 function TagFilterBar({ tag, search }: { tag: string; search: TagSearch }) {
   const filters = tagFilters(search)
   const { data: games } = useTagGamesQuery(tag)
-  const activeGameId = filters.igdbId
+  const activeGameId = filters.steamgriddbId
 
   return (
     <div className="flex flex-col gap-3">
@@ -125,13 +125,15 @@ function TagFilterBar({ tag, search }: { tag: string; search: TagSearch }) {
             <Chip
               key={g.id}
               size="xl"
-              data-active={activeGameId === g.igdbId ? "true" : undefined}
+              data-active={
+                activeGameId === g.steamgriddbId ? "true" : undefined
+              }
               title={g.name}
               render={
                 <Link
                   to="/tags/$tag"
                   params={{ tag }}
-                  search={{ ...search, game: String(g.igdbId) }}
+                  search={{ ...search, game: String(g.steamgriddbId) }}
                 />
               }
             >

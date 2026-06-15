@@ -328,10 +328,8 @@ export function parseServerEnv(
     "ALLOY_UPLOAD_HMAC_SECRET",
     readTextFile,
   )
-  const igdbClientId =
-    envText(source, "ALLOY_IGDB_CLIENT_ID", readTextFile) ?? ""
-  const igdbClientSecret =
-    envText(source, "ALLOY_IGDB_CLIENT_SECRET", readTextFile) ?? ""
+  const steamgriddbApiKey =
+    envText(source, "ALLOY_STEAMGRIDDB_API_KEY", readTextFile) ?? ""
   const s3AccessKeyId =
     envText(source, "ALLOY_STORAGE_S3_ACCESS_KEY_ID", readTextFile) ?? ""
   const s3SecretAccessKey =
@@ -384,8 +382,7 @@ export function parseServerEnv(
     storage,
     viewerCookieSecret,
     uploadHmacSecret,
-    igdbClientId,
-    igdbClientSecret,
+    steamgriddbApiKey,
     storageS3Credentials:
       s3AccessKeyId && s3SecretAccessKey
         ? { accessKeyId: s3AccessKeyId, secretAccessKey: s3SecretAccessKey }
