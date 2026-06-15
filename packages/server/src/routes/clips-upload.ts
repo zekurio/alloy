@@ -4,7 +4,7 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import { getIGDBGameRef } from "@alloy/server/games/ref"
+import { getSteamGridDBGameRef } from "@alloy/server/games/ref"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import {
   badRequest,
@@ -27,7 +27,7 @@ import {
 } from "./clips-upload-access"
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
-import { igdbErrorResponse } from "./games-helpers"
+import { steamgriddbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
 
 /** Slack when deciding whether a requested trim still covers the full clip. */
@@ -60,19 +60,19 @@ export const clipsUploadRoutes = new Hono()
       if (body.description !== undefined) {
         patch.description = body.description === "" ? null : body.description
       }
-      if (body.igdbId !== undefined) {
-        if (body.igdbId === null) {
-          patch.igdbId = null
+      if (body.steamgriddbId !== undefined) {
+        if (body.steamgriddbId === null) {
+          patch.steamgriddbId = null
           patch.game = null
         } else {
-          let gameRef: Awaited<ReturnType<typeof getIGDBGameRef>>
+          let gameRef: Awaited<ReturnType<typeof getSteamGridDBGameRef>>
           try {
-            gameRef = await getIGDBGameRef(body.igdbId)
+            gameRef = await getSteamGridDBGameRef(body.steamgriddbId)
           } catch (err) {
-            return errorResult(c, igdbErrorResponse(err))
+            return errorResult(c, steamgriddbErrorResponse(err))
           }
           if (!gameRef) return badRequest(c, "Unknown game")
-          patch.igdbId = body.igdbId
+          patch.steamgriddbId = body.steamgriddbId
           patch.game = gameRef.name
         }
       }

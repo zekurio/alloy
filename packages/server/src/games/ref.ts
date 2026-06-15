@@ -5,17 +5,17 @@ import { db } from "@alloy/server/db/index"
 import { nullableIsoDate } from "@alloy/server/runtime/date"
 import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm"
 
-import { getGameAssets, getGameById } from "./igdb"
 import { exactNameKey, normalizedNameKey } from "./name-match"
 import { gameSlugWithId } from "./slug"
+import { getGameAssets, getGameById } from "./steamgriddb"
 
-const logger = createLogger("igdb")
+const logger = createLogger("steamgriddb")
 
 const GAME_REF_REFRESH_MS = 7 * 24 * 60 * 60 * 1000
 
 export const gameSelectShape = {
-  id: game.igdbId,
-  igdbId: game.igdbId,
+  id: game.steamgriddbId,
+  steamgriddbId: game.steamgriddbId,
   name: game.name,
   slug: game.slug,
   releaseDate: game.releaseDate,
@@ -28,7 +28,7 @@ export const gameSelectShape = {
 } as const
 
 type GameMetadataRow = {
-  igdbId: number
+  steamgriddbId: number
   name: string
   slug: string
   releaseDate: Date | string | null
@@ -55,21 +55,21 @@ export type IndexedGameNameLookupCandidate = {
 
 const pendingGameLoads = new Map<number, Promise<GameRow | null>>()
 
-function snapshotName(igdbId: number, name: string | null): string {
+function snapshotName(steamgriddbId: number, name: string | null): string {
   const trimmed = name?.trim()
-  return trimmed && trimmed.length > 0 ? trimmed : `Game ${igdbId}`
+  return trimmed && trimmed.length > 0 ? trimmed : `Game ${steamgriddbId}`
 }
 
 export function gameRowFromSnapshot(
-  igdbId: number,
+  steamgriddbId: number,
   name: string | null,
 ): GameRow {
-  const resolvedName = snapshotName(igdbId, name)
+  const resolvedName = snapshotName(steamgriddbId, name)
   return {
-    id: igdbId,
-    igdbId,
+    id: steamgriddbId,
+    steamgriddbId,
     name: resolvedName,
-    slug: gameSlugWithId(resolvedName, igdbId),
+    slug: gameSlugWithId(resolvedName, steamgriddbId),
     releaseDate: null,
     heroUrl: null,
     heroBlurHash: null,
@@ -81,16 +81,16 @@ export function gameRowFromSnapshot(
 }
 
 export function clipGameRefFromSnapshot(input: {
-  igdbId: number
+  steamgriddbId: number
   name: string | null
 }): ClipGameRef {
-  return gameRowFromSnapshot(input.igdbId, input.name)
+  return gameRowFromSnapshot(input.steamgriddbId, input.name)
 }
 
 export function serialiseGameRow(row: GameMetadataRow): GameRow {
   return {
-    id: row.igdbId,
-    igdbId: row.igdbId,
+    id: row.steamgriddbId,
+    steamgriddbId: row.steamgriddbId,
     name: row.name,
     slug: row.slug,
     releaseDate: nullableIsoDate(row.releaseDate),
@@ -108,28 +108,30 @@ function shouldRefresh(row: CachedGameMetadataRow): boolean {
 }
 
 async function selectCachedGameRef(
-  igdbId: number,
+  steamgriddbId: number,
 ): Promise<CachedGameMetadataRow | null> {
   const [row] = await db
     .select({ ...gameSelectShape, updatedAt: game.updatedAt })
     .from(game)
-    .where(eq(game.igdbId, igdbId))
+    .where(eq(game.steamgriddbId, steamgriddbId))
     .limit(1)
   return row ?? null
 }
 
-async function loadIGDBGameRef(igdbId: number): Promise<GameRow | null> {
+async function loadSteamGridDBGameRef(
+  steamgriddbId: number,
+): Promise<GameRow | null> {
   const [previous, detail, assets] = await Promise.all([
-    selectCachedGameRef(igdbId),
-    getGameById(igdbId),
-    getGameAssets(igdbId),
+    selectCachedGameRef(steamgriddbId),
+    getGameById(steamgriddbId),
+    getGameAssets(steamgriddbId),
   ])
   if (!detail) return null
   const releaseDate =
     detail.release_date != null ? new Date(detail.release_date * 1000) : null
 
   const values = {
-    igdbId: detail.id,
+    steamgriddbId: detail.id,
     name: detail.name,
     slug: gameSlugWithId(detail.name, detail.id),
     releaseDate,
@@ -164,7 +166,7 @@ async function loadIGDBGameRef(igdbId: number): Promise<GameRow | null> {
     .insert(game)
     .values(values)
     .onConflictDoUpdate({
-      target: game.igdbId,
+      target: game.steamgriddbId,
       set: updateValues,
     })
     .returning(gameSelectShape)
@@ -172,44 +174,48 @@ async function loadIGDBGameRef(igdbId: number): Promise<GameRow | null> {
   return row ? serialiseGameRow(row) : null
 }
 
-function loadIGDBGameRefOnce(igdbId: number): Promise<GameRow | null> {
-  const pending = pendingGameLoads.get(igdbId)
+function loadSteamGridDBGameRefOnce(
+  steamgriddbId: number,
+): Promise<GameRow | null> {
+  const pending = pendingGameLoads.get(steamgriddbId)
   if (pending) return pending
 
-  const load = loadIGDBGameRef(igdbId).finally(() => {
-    pendingGameLoads.delete(igdbId)
+  const load = loadSteamGridDBGameRef(steamgriddbId).finally(() => {
+    pendingGameLoads.delete(steamgriddbId)
   })
-  pendingGameLoads.set(igdbId, load)
+  pendingGameLoads.set(steamgriddbId, load)
   return load
 }
 
-function refreshCachedGameRef(igdbId: number): void {
-  void loadIGDBGameRefOnce(igdbId).catch((err) => {
-    logger.warn(`failed to refresh game ${igdbId}:`, err)
+function refreshCachedGameRef(steamgriddbId: number): void {
+  void loadSteamGridDBGameRefOnce(steamgriddbId).catch((err) => {
+    logger.warn(`failed to refresh game ${steamgriddbId}:`, err)
   })
 }
 
-export async function getIGDBGameRef(igdbId: number): Promise<GameRow | null> {
-  const cached = await selectCachedGameRef(igdbId)
+export async function getSteamGridDBGameRef(
+  steamgriddbId: number,
+): Promise<GameRow | null> {
+  const cached = await selectCachedGameRef(steamgriddbId)
   if (cached) {
-    if (shouldRefresh(cached)) refreshCachedGameRef(igdbId)
+    if (shouldRefresh(cached)) refreshCachedGameRef(steamgriddbId)
     return serialiseGameRow(cached)
   }
 
-  return loadIGDBGameRefOnce(igdbId)
+  return loadSteamGridDBGameRefOnce(steamgriddbId)
 }
 
-export async function getIGDBGameRefOrSnapshot(input: {
-  igdbId: number
+export async function getSteamGridDBGameRefOrSnapshot(input: {
+  steamgriddbId: number
   name: string | null
 }): Promise<GameRow> {
   try {
-    const row = await getIGDBGameRef(input.igdbId)
+    const row = await getSteamGridDBGameRef(input.steamgriddbId)
     if (row) return row
   } catch (err) {
-    logger.warn(`using cached game snapshot for ${input.igdbId}:`, err)
+    logger.warn(`using cached game snapshot for ${input.steamgriddbId}:`, err)
   }
-  return gameRowFromSnapshot(input.igdbId, input.name)
+  return gameRowFromSnapshot(input.steamgriddbId, input.name)
 }
 
 export async function lookupIndexedGamesByName(
@@ -246,7 +252,7 @@ export async function lookupIndexedGamesByName(
       followed,
     })
     .from(game)
-    .leftJoin(clip, eq(clip.igdbId, game.igdbId))
+    .leftJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
     .leftJoin(
       clipView,
       and(
@@ -257,12 +263,12 @@ export async function lookupIndexedGamesByName(
     .leftJoin(
       gameFollow,
       and(
-        eq(gameFollow.igdbId, game.igdbId),
+        eq(gameFollow.steamgriddbId, game.steamgriddbId),
         viewerId ? sql`${gameFollow.userId} = ${viewerId}::uuid` : sql`false`,
       ),
     )
     .where(matchCondition)
-    .groupBy(game.igdbId)
+    .groupBy(game.steamgriddbId)
 
   for (const row of rows) {
     const gameRow = serialiseGameRow(row)

@@ -5,8 +5,8 @@ import type {
   GameListRow,
   GameNameLookupResponse,
   GameRow,
-  IGDBSearchResult,
-  IGDBStatus,
+  SteamGridDBSearchResult,
+  SteamGridDBStatus,
 } from "@alloy/api"
 import {
   keepPreviousData,
@@ -21,9 +21,9 @@ import { feedKeys } from "./feed-queries"
 
 export const gameKeys = {
   all: ["games"] as const,
-  /** Boolean `igdbConfigured` — mount check for the upload picker. */
+  /** Boolean `steamgriddbConfigured` — mount check for the upload picker. */
   status: () => [...gameKeys.all, "status"] as const,
-  /** igdb autocomplete proxy — branches per normalised query string. */
+  /** steamgriddb autocomplete proxy — branches per normalised query string. */
   search: (query: string) => [...gameKeys.all, "search", query] as const,
   /** `/games` landscape grid. One global cache entry. */
   list: () => [...gameKeys.all, "list"] as const,
@@ -38,10 +38,10 @@ export const gameKeys = {
     [...gameKeys.all, "topClips", slug, { limit }] as const,
 }
 
-export function useIGDBStatusQuery(): UseQueryResult<IGDBStatus> {
+export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
   return useQuery({
     queryKey: gameKeys.status(),
-    queryFn: () => api.games.fetchIGDBStatus(),
+    queryFn: () => api.games.fetchSteamGridDBStatus(),
     // Config can be changed by another browser session. Keep this cheap probe
     // fresh when the game picker mounts instead of requiring a page reload.
     staleTime: 0,
@@ -52,7 +52,7 @@ export function useIGDBStatusQuery(): UseQueryResult<IGDBStatus> {
 export function useSearchGamesQuery(
   query: string,
   { enabled = true }: { enabled?: boolean } = {},
-): UseQueryResult<IGDBSearchResult[]> {
+): UseQueryResult<SteamGridDBSearchResult[]> {
   const trimmed = query.trim()
   return useQuery({
     queryKey: gameKeys.search(trimmed),
@@ -61,7 +61,7 @@ export function useSearchGamesQuery(
     // hook to avoid the round trip entirely.
     enabled: enabled && trimmed.length > 0,
     staleTime: 30_000,
-    // igdb is the upstream — no point re-hitting on window focus.
+    // steamgriddb is the upstream — no point re-hitting on window focus.
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
     // Autocomplete doesn't want to thrash on transient network blips —
@@ -71,8 +71,8 @@ export function useSearchGamesQuery(
 }
 
 export function useResolveGameMutation() {
-  return useMutation<GameRow, Error, { igdbId: number }>({
-    mutationFn: ({ igdbId }) => api.games.resolve(igdbId),
+  return useMutation<GameRow, Error, { steamgriddbId: number }>({
+    mutationFn: ({ steamgriddbId }) => api.games.resolve(steamgriddbId),
   })
 }
 

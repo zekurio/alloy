@@ -27,7 +27,10 @@ export function GameHeaderBanner({ game }: GameHeaderBannerProps) {
         "w-full",
       )}
     >
-      <MediaPlaceholder seed={game.igdbId} blurHash={game.heroBlurHash} />
+      <MediaPlaceholder
+        seed={game.steamgriddbId}
+        blurHash={game.heroBlurHash}
+      />
       {heroUrl ? (
         <img
           src={heroUrl}

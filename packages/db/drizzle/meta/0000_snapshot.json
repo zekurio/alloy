@@ -1,5 +1,5 @@
 {
-  "id": "fef5ff48-3fd0-4b9c-ad59-1ea57d763576",
+  "id": "1f44d538-4411-466b-b5c2-d04fb82097e1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -39,8 +39,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "igdb_id": {
-          "name": "igdb_id",
+        "steamgriddb_id": {
+          "name": "steamgriddb_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -285,11 +285,11 @@
           "method": "btree",
           "with": {}
         },
-        "clip_igdb_created_idx": {
-          "name": "clip_igdb_created_idx",
+        "clip_steamgriddb_created_idx": {
+          "name": "clip_steamgriddb_created_idx",
           "columns": [
             {
-              "expression": "igdb_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -306,11 +306,11 @@
           "method": "btree",
           "with": {}
         },
-        "clip_ready_visible_igdb_top_idx": {
-          "name": "clip_ready_visible_igdb_top_idx",
+        "clip_ready_visible_steamgriddb_top_idx": {
+          "name": "clip_ready_visible_steamgriddb_top_idx",
           "columns": [
             {
-              "expression": "igdb_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -357,12 +357,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "clip_igdb_id_game_igdb_id_fk": {
-          "name": "clip_igdb_id_game_igdb_id_fk",
+        "clip_steamgriddb_id_game_steamgriddb_id_fk": {
+          "name": "clip_steamgriddb_id_game_steamgriddb_id_fk",
           "tableFrom": "clip",
           "tableTo": "game",
-          "columnsFrom": ["igdb_id"],
-          "columnsTo": ["igdb_id"],
+          "columnsFrom": ["steamgriddb_id"],
+          "columnsTo": ["steamgriddb_id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -890,8 +890,8 @@
       "name": "game",
       "schema": "",
       "columns": {
-        "igdb_id": {
-          "name": "igdb_id",
+        "steamgriddb_id": {
+          "name": "steamgriddb_id",
           "type": "integer",
           "primaryKey": true,
           "notNull": true
@@ -1030,8 +1030,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "igdb_id": {
-          "name": "igdb_id",
+        "steamgriddb_id": {
+          "name": "steamgriddb_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -1116,11 +1116,11 @@
           "method": "btree",
           "with": {}
         },
-        "game_detection_mapping_igdb_idx": {
-          "name": "game_detection_mapping_igdb_idx",
+        "game_detection_mapping_steamgriddb_idx": {
+          "name": "game_detection_mapping_steamgriddb_idx",
           "columns": [
             {
-              "expression": "igdb_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1133,12 +1133,12 @@
         }
       },
       "foreignKeys": {
-        "game_detection_mapping_igdb_id_game_igdb_id_fk": {
-          "name": "game_detection_mapping_igdb_id_game_igdb_id_fk",
+        "game_detection_mapping_steamgriddb_id_game_steamgriddb_id_fk": {
+          "name": "game_detection_mapping_steamgriddb_id_game_steamgriddb_id_fk",
           "tableFrom": "game_detection_mapping",
           "tableTo": "game",
-          "columnsFrom": ["igdb_id"],
-          "columnsTo": ["igdb_id"],
+          "columnsFrom": ["steamgriddb_id"],
+          "columnsTo": ["steamgriddb_id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1166,8 +1166,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "igdb_id": {
-          "name": "igdb_id",
+        "steamgriddb_id": {
+          "name": "steamgriddb_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -1191,7 +1191,7 @@
               "nulls": "last"
             },
             {
-              "expression": "igdb_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1202,11 +1202,11 @@
           "method": "btree",
           "with": {}
         },
-        "game_follow_igdb_idx": {
-          "name": "game_follow_igdb_idx",
+        "game_follow_steamgriddb_idx": {
+          "name": "game_follow_steamgriddb_idx",
           "columns": [
             {
-              "expression": "igdb_id",
+              "expression": "steamgriddb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1228,12 +1228,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "game_follow_igdb_id_game_igdb_id_fk": {
-          "name": "game_follow_igdb_id_game_igdb_id_fk",
+        "game_follow_steamgriddb_id_game_steamgriddb_id_fk": {
+          "name": "game_follow_steamgriddb_id_game_steamgriddb_id_fk",
           "tableFrom": "game_follow",
           "tableTo": "game",
-          "columnsFrom": ["igdb_id"],
-          "columnsTo": ["igdb_id"],
+          "columnsFrom": ["steamgriddb_id"],
+          "columnsTo": ["steamgriddb_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

@@ -160,7 +160,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
               sourceIdentity={`${row.id}:${mediaVersion}`}
               poster={poster}
               posterBlurHash={row.thumbBlurHash}
-              fallbackSeed={row.igdbId ?? row.id}
+              fallbackSeed={row.steamgriddbId ?? row.id}
               aspectRatio={aspectRatio}
               maxDisplayHeight="100%"
               controls={false}

@@ -15,7 +15,7 @@ type FeedChipBarProps = {
 function isActive(filter: FeedFilter, candidate: FeedFilter): boolean {
   if (filter.kind !== candidate.kind) return false
   if (filter.kind === "game" && candidate.kind === "game") {
-    return filter.igdbId === candidate.igdbId
+    return filter.steamgriddbId === candidate.steamgriddbId
   }
   return true
 }
@@ -59,12 +59,14 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
             data-active={
               isActive(filter, {
                 kind: "game",
-                igdbId: g.igdbId,
+                steamgriddbId: g.steamgriddbId,
               })
                 ? "true"
                 : undefined
             }
-            onClick={() => onChange({ kind: "game", igdbId: g.igdbId })}
+            onClick={() =>
+              onChange({ kind: "game", steamgriddbId: g.steamgriddbId })
+            }
             title={g.name}
           >
             <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />

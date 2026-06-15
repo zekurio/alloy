@@ -1,4 +1,4 @@
-import type { GameRow, IGDBSearchResult } from "@alloy/api"
+import type { GameRow, SteamGridDBSearchResult } from "@alloy/api"
 import {
   Combobox,
   ComboboxContent,
@@ -17,11 +17,11 @@ import {
   useGamesListQuery,
   useResolveGameMutation,
   useSearchGamesQuery,
-  useIGDBStatusQuery,
+  useSteamGridDBStatusQuery,
 } from "@/lib/game-queries"
 import { useDebouncedValue } from "@/lib/use-debounced-value"
 
-type GameComboboxItem = IGDBSearchResult & {
+type GameComboboxItem = SteamGridDBSearchResult & {
   iconUrl?: string | null
   logoUrl?: string | null
   clipCount?: number
@@ -57,7 +57,7 @@ export function GameCombobox({
   onChange,
   disabled = false,
   id,
-  placeholder = "Search IGDB…",
+  placeholder = "Search SteamGridDB…",
   allowClear = true,
   invalid = false,
   onConfiguredChange,
@@ -67,8 +67,8 @@ export function GameCombobox({
   className,
   inputClassName,
 }: GameComboboxProps) {
-  const statusQuery = useIGDBStatusQuery()
-  const configured = statusQuery.data?.igdbConfigured ?? null
+  const statusQuery = useSteamGridDBStatusQuery()
+  const configured = statusQuery.data?.steamgriddbConfigured ?? null
 
   React.useEffect(() => {
     onConfiguredChange?.(configured)
@@ -91,7 +91,7 @@ export function GameCombobox({
   const gamesListQuery = useGamesListQuery()
 
   const searchQuery = useSearchGamesQuery(debouncedQuery, {
-    // Only hit igdb when the instance actually has a key configured.
+    // Only hit steamgriddb when the instance actually has a key configured.
     // Without this, an unconfigured instance would 503 on every type.
     enabled: configured === true,
   })
@@ -137,7 +137,7 @@ export function GameCombobox({
       setPendingItem(picked)
       setInputValue(picked.name)
       resolveMutation.mutate(
-        { igdbId: picked.id },
+        { steamgriddbId: picked.id },
         {
           onSuccess: (row) => {
             setPendingItem(null)
@@ -163,7 +163,7 @@ export function GameCombobox({
   const effectiveItems = React.useMemo<GameComboboxItem[]>(() => {
     const q = normalizeGameSearchText(debouncedQuery)
     const inputQuery = normalizeGameSearchText(inputValue)
-    const igdbResults = inputQuery === q ? (searchQuery.data ?? []) : []
+    const steamgriddbResults = inputQuery === q ? (searchQuery.data ?? []) : []
     const localGames = gamesListQuery.data ?? []
     const currentMatch: GameComboboxItem[] =
       q.length > 0 &&
@@ -171,7 +171,7 @@ export function GameCombobox({
       normalizeGameSearchText(value.name).includes(q)
         ? [
             {
-              id: value.igdbId,
+              id: value.steamgriddbId,
               name: value.name,
               iconUrl: value.iconUrl,
               logoUrl: value.logoUrl,
@@ -185,7 +185,7 @@ export function GameCombobox({
         ? localGames
             .filter((g) => normalizeGameSearchText(g.name).includes(q))
             .map((g) => ({
-              id: g.igdbId,
+              id: g.steamgriddbId,
               name: g.name,
               iconUrl: g.iconUrl,
               logoUrl: g.logoUrl,
@@ -193,7 +193,7 @@ export function GameCombobox({
             }))
         : []
 
-    // Append igdb results that aren't already covered by a local match so the
+    // Append steamgriddb results that aren't already covered by a local match so the
     // list never contains duplicates, then rank the combined set locally. The
     // server ranks remote rows, but local rows join here and need the same
     // treatment.
@@ -201,11 +201,11 @@ export function GameCombobox({
       (item, index, items) =>
         items.findIndex((candidate) => candidate.id === item.id) === index,
     )
-    const igdbOnly = igdbResults.filter(
+    const steamgriddbOnly = steamgriddbResults.filter(
       (r) => !knownMatches.some((l) => l.id === r.id),
     )
 
-    return rankGameComboboxItems([...knownMatches, ...igdbOnly], q)
+    return rankGameComboboxItems([...knownMatches, ...steamgriddbOnly], q)
   }, [searchQuery.data, gamesListQuery.data, debouncedQuery, inputValue, value])
 
   // Base UI tracks the controlled `value` by identity (useValueChanged), so
@@ -216,7 +216,7 @@ export function GameCombobox({
     () =>
       value
         ? {
-            id: value.igdbId,
+            id: value.steamgriddbId,
             name: value.name,
             iconUrl: value.iconUrl,
             logoUrl: value.logoUrl,
@@ -233,7 +233,7 @@ export function GameCombobox({
     cleared || editingSelectedName ? null : (pendingItem ?? committedValue)
 
   if (configured === false) {
-    return <IGDBUnavailableNotice className={className} />
+    return <SteamGridDBUnavailableNotice className={className} />
   }
 
   const hasError = searchQuery.isError
@@ -331,7 +331,7 @@ export function GameCombobox({
             ) : null}
             <ComboboxEmpty>
               {hasError
-                ? "Couldn’t reach IGDB"
+                ? "Couldn’t reach SteamGridDB"
                 : debouncedQuery.trim().length === 0
                   ? "Start typing to search"
                   : "No matches"}
@@ -343,7 +343,7 @@ export function GameCombobox({
   )
 }
 
-function IGDBUnavailableNotice({ className }: { className?: string }) {
+function SteamGridDBUnavailableNotice({ className }: { className?: string }) {
   return (
     <div
       role="status"
@@ -361,7 +361,7 @@ function IGDBUnavailableNotice({ className }: { className?: string }) {
           Game search needs a key
         </span>
         <span className="text-foreground-muted block text-xs leading-4">
-          Ask an admin to add an IGDB API key in Integrations.
+          Ask an admin to add a SteamGridDB API key in Integrations.
         </span>
       </span>
     </div>

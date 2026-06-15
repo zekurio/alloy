@@ -53,8 +53,8 @@ export function validateGameRowFields(
     )
   }
   validatePositiveInteger(
-    row.igdbId,
-    `Invalid ${label} response: igdbId must be a positive integer`,
+    row.steamgriddbId,
+    `Invalid ${label} response: steamgriddbId must be a positive integer`,
   )
   validateNullableDateString(
     row.releaseDate,

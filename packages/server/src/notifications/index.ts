@@ -61,12 +61,14 @@ function serialize(row: {
   clipThumbBlurHash: string | null
   clipUpdatedAt: Date | string | null
   clipGame: string | null
-  igdbId: number | null
+  steamgriddbId: number | null
   commentId: string | null
   commentBody: string | null
 }): NotificationRow {
   const gameName =
-    row.igdbId === null ? null : row.clipGame?.trim() || `Game ${row.igdbId}`
+    row.steamgriddbId === null
+      ? null
+      : row.clipGame?.trim() || `Game ${row.steamgriddbId}`
   return {
     id: row.id,
     type: row.type,
@@ -82,9 +84,12 @@ function serialize(row: {
             id: row.clipId,
             title: row.clipTitle,
             gameSlug:
-              row.igdbId === null
+              row.steamgriddbId === null
                 ? null
-                : gameSlugWithId(gameName ?? `Game ${row.igdbId}`, row.igdbId),
+                : gameSlugWithId(
+                    gameName ?? `Game ${row.steamgriddbId}`,
+                    row.steamgriddbId,
+                  ),
             hasThumb: row.clipThumbKey !== null,
             thumbBlurHash: row.clipThumbBlurHash,
             updatedAt: isoDate(row.clipUpdatedAt),
@@ -115,7 +120,7 @@ function selectNotificationFields() {
     clipThumbBlurHash: clip.thumbBlurHash,
     clipUpdatedAt: clip.updatedAt,
     clipGame: clip.game,
-    igdbId: clip.igdbId,
+    steamgriddbId: clip.steamgriddbId,
     commentId: clipComment.id,
     commentBody: clipComment.body,
   }

@@ -33,8 +33,8 @@ function validateQueueClip(value: unknown): QueueClip {
     "Invalid queue response: gameSlug must be a non-empty string or null",
   )
   validateNullablePositiveInteger(
-    row.igdbId,
-    "Invalid queue response: igdbId must be a positive integer or null",
+    row.steamgriddbId,
+    "Invalid queue response: steamgriddbId must be a positive integer or null",
   )
   validateEnumString(
     row.status,

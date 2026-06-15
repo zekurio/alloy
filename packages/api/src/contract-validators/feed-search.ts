@@ -38,8 +38,8 @@ function validateFeedChipGame(value: unknown): FeedChipGame {
     "Invalid feed chips response: id must be a positive integer",
   )
   validatePositiveInteger(
-    row.igdbId,
-    "Invalid feed chips response: igdbId must be a positive integer",
+    row.steamgriddbId,
+    "Invalid feed chips response: steamgriddbId must be a positive integer",
   )
   for (const key of ["slug", "name"] as const) {
     validateRequiredString(

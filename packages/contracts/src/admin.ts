@@ -114,9 +114,8 @@ export type LimitsConfig = AdminLimitsConfig
  * presence flags, never echoed back.
  */
 export const AdminIntegrationsConfigSchema = z.looseObject({
-  igdbClientIdSet: z.boolean(),
-  igdbClientSecretSet: z.boolean(),
-  igdbConfigured: z.boolean(),
+  steamgriddbApiKeySet: z.boolean(),
+  steamgriddbConfigured: z.boolean(),
 })
 
 export type AdminIntegrationsConfig = z.infer<

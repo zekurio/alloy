@@ -48,7 +48,7 @@ export async function performUpload(
     sizeBytes: payload.sizeBytes,
     title: payload.title,
     description: payload.description ?? undefined,
-    igdbId: payload.igdbId,
+    steamgriddbId: payload.steamgriddbId,
     privacy: payload.privacy,
     mentionedUserIds:
       payload.mentionedUserIds.length > 0

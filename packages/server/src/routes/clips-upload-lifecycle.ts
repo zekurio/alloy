@@ -5,7 +5,7 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
-import { getIGDBGameRef } from "@alloy/server/games/ref"
+import { getSteamGridDBGameRef } from "@alloy/server/games/ref"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import {
   badRequest,
@@ -43,7 +43,7 @@ import {
   type UploadQuotaResult,
   uploadWouldExceedQuota,
 } from "./clips-upload-helpers"
-import { igdbErrorResponse } from "./games-helpers"
+import { steamgriddbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
 
 const logger = createLogger("clips")
@@ -107,12 +107,12 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const thumbUploadKey = stagedThumbKey(clipId)
       const privacy = body.privacy ?? "public"
 
-      let gameRef: Awaited<ReturnType<typeof getIGDBGameRef>> = null
-      if (body.igdbId !== undefined && body.igdbId !== null) {
+      let gameRef: Awaited<ReturnType<typeof getSteamGridDBGameRef>> = null
+      if (body.steamgriddbId !== undefined && body.steamgriddbId !== null) {
         try {
-          gameRef = await getIGDBGameRef(body.igdbId)
+          gameRef = await getSteamGridDBGameRef(body.steamgriddbId)
         } catch (err) {
-          return errorResult(c, igdbErrorResponse(err))
+          return errorResult(c, steamgriddbErrorResponse(err))
         }
         if (!gameRef) return badRequest(c, "Unknown game")
       }
@@ -140,7 +140,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
             title: body.title,
             description: body.description ?? null,
             game: gameRef?.name ?? null,
-            igdbId: gameRef?.igdbId ?? null,
+            steamgriddbId: gameRef?.steamgriddbId ?? null,
             privacy,
             sourceContentType: body.contentType,
             sourceSizeBytes: body.sizeBytes,
