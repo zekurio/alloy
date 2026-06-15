@@ -312,8 +312,8 @@ async function republishUploadedThumbnail(
 }
 
 /**
- * The published poster is always webp. The renderer uploads webp directly; the
- * desktop sync engine ships its cached JPEG poster, converted here.
+ * The published poster is always webp. Clients may upload webp directly, or
+ * JPEG when reusing a locally cached poster.
  */
 async function normalizeStagedPosterToWebp(
   buf: Buffer,

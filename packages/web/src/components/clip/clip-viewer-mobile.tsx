@@ -45,7 +45,7 @@ import { userAvatar } from "@/lib/user-display"
 import { ClipComments } from "./clip-comments"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
-import { ClipUnlistedBadge } from "./clip-meta"
+import { ClipVisibilityBadge } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
 import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
@@ -175,6 +175,11 @@ function MobileClipViewerBody({
   }, [canLike, row.id, liked, likeMut])
 
   const handleShare = React.useCallback(async () => {
+    if (row.privacy === "private") {
+      toast.error("Clip link is disabled")
+      return
+    }
+
     const url = currentUrlWithoutSearchOrHash()
     if (url === null) {
       toast.error("Couldn't share clip")
@@ -190,7 +195,7 @@ function MobileClipViewerBody({
     } else if (result === "failed") {
       toast.error("Couldn't share clip")
     }
-  }, [row.title])
+  }, [row.privacy, row.title])
 
   const handleDelete = React.useCallback(() => {
     deleteMutation.mutate(
@@ -275,8 +280,11 @@ function MobileClipViewerBody({
                 <h2 className="line-clamp-1 min-w-0 text-base font-semibold text-white/90">
                   {row.title}
                 </h2>
-                {row.privacy === "unlisted" ? (
-                  <ClipUnlistedBadge className="bg-white/10 text-white/75" />
+                {row.privacy !== "public" ? (
+                  <ClipVisibilityBadge
+                    privacy={row.privacy}
+                    className="bg-white/10 text-white/75"
+                  />
                 ) : null}
               </div>
             </div>
@@ -402,8 +410,11 @@ function MobileClipViewerBody({
                 <h2 className="line-clamp-2 min-w-0 text-base leading-tight font-semibold text-white">
                   {row.title}
                 </h2>
-                {row.privacy === "unlisted" ? (
-                  <ClipUnlistedBadge className="bg-white/10 text-white/75" />
+                {row.privacy !== "public" ? (
+                  <ClipVisibilityBadge
+                    privacy={row.privacy}
+                    className="bg-white/10 text-white/75"
+                  />
                 ) : null}
               </div>
 

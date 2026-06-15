@@ -39,6 +39,7 @@ export type ClipAccessInput = {
   policy: ClipAccessPolicyName
   viewer: ClipViewer
   authorId: string
+  privacy: string
   status: string
   authorDisabledAt: Date | null
 }
@@ -52,9 +53,9 @@ export type ClipAccessDecision =
   | ClipAccessDenied
 
 /**
- * Clips are either public (discoverable) or unlisted (reachable by anyone with
- * the id). The only gate at this layer is readiness (and a disabled author
- * hiding the clip from everyone but the owner/admin).
+ * Public clips are discoverable, unlisted clips are reachable by anyone with
+ * the id, and private clips are owner/admin-only. Readiness remains policy
+ * specific so owners can still manage in-flight uploads.
  */
 export function evaluateClipAccess(input: ClipAccessInput): ClipAccessDecision {
   const accessPolicy = CLIP_ACCESS_POLICIES[input.policy]
@@ -63,6 +64,10 @@ export function evaluateClipAccess(input: ClipAccessInput): ClipAccessDecision {
   const canBypassVisibility = isOwner || isAdmin
 
   if (input.authorDisabledAt && !canBypassVisibility) {
+    return denied("Not found", 404)
+  }
+
+  if (input.privacy === "private" && !canBypassVisibility) {
     return denied("Not found", 404)
   }
 

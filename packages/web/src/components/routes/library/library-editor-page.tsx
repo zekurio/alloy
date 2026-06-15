@@ -25,7 +25,6 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
   ClapperboardIcon,
-  GlobeIcon,
   HardDriveIcon,
   ImageIcon,
   Link2Icon,
@@ -343,8 +342,8 @@ function EditorBody({
     togglePlayback: playback.togglePlayback,
   })
 
-  // Visibility is the publish action itself: "Post to Profile" uploads
-  // public, "Create Link" uploads unlisted and puts the URL on the clipboard.
+  // Visibility is the publish action itself: "Post" uploads public,
+  // "Create Link" uploads unlisted and puts the URL on the clipboard.
   const handlePublish = async (privacy: ClipPrivacy) => {
     setPublishAttempted(true)
     const pickedGame = game
@@ -562,15 +561,6 @@ function EditorBody({
                     >
                       <ClapperboardIcon className="size-4" />
                       Open in Editor
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      disabled={!canPublish}
-                      onClick={() => {
-                        void handlePublish("public")
-                      }}
-                    >
-                      <GlobeIcon className="size-4" />
-                      Post to Profile
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       disabled={!canPublish}

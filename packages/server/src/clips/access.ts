@@ -61,6 +61,7 @@ export async function resolveClipAccess({
     authorDisabledAt,
     authorId: row.authorId,
     policy,
+    privacy: row.privacy,
     status: row.status,
     viewer,
   })

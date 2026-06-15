@@ -89,9 +89,9 @@ jobs:
       make_latest: ${{ steps.meta.outputs.make_latest }}
       update_channel: ${{ steps.meta.outputs.update_channel }}
       update_manifest: ${{ steps.meta.outputs.update_manifest }}
-      short_sha: ${{ steps.meta.outputs.short_sha }}
+      short_sha: ${{ steps.release_ref.outputs.short_sha }}
       previous_tag: ${{ steps.previous_tag.outputs.previous_tag }}
-      ref: ${{ steps.meta.outputs.ref }}
+      ref: ${{ steps.release_ref.outputs.ref }}
 
     steps:
       - name: Checkout repository
@@ -177,20 +177,7 @@ jobs:
                 exit 1
               fi
 
-              node scripts/update-release-package-versions.mjs "$version" --desktop-channel latest --github-output
-
-              if [[ -n "$(git status --porcelain)" ]]; then
-                git config user.name "github-actions[bot]"
-                git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-                git add package.json packages/desktop/package.json packages/recorder/package.json packages/recorder/Cargo.toml packages/recorder/Cargo.lock
-                git commit -m "chore(release): bump version to $version"
-                git push origin "HEAD:${GITHUB_REF_NAME}"
-              fi
-
-              release_ref="$(git rev-parse HEAD)"
-              short_sha="$(git rev-parse --short=12 HEAD)"
-              git tag "$tag" "$release_ref"
-              git push origin "$tag"
+              node scripts/update-release-package-versions.mjs "$version" --desktop-channel latest
             else
               RELEASE_VERSION="$version" node -e '
                 const { readFileSync } = require("node:fs");
@@ -259,6 +246,38 @@ jobs:
 
       - name: Run typecheck
         run: corepack pnpm typecheck
+
+      - id: release_ref
+        name: Resolve release ref
+        shell: bash
+        env:
+          RELEASE_CHANNEL: ${{ steps.meta.outputs.release_channel }}
+          RELEASE_TAG: ${{ steps.meta.outputs.tag }}
+          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "$RELEASE_CHANNEL" == "stable" ]]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add package.json packages/desktop/package.json packages/recorder/package.json packages/recorder/Cargo.toml packages/recorder/Cargo.lock
+
+            if ! git diff --cached --quiet; then
+              git commit -m "chore(release): bump version to $RELEASE_VERSION"
+              git push origin "HEAD:${GITHUB_REF_NAME}"
+            fi
+
+            release_ref="$(git rev-parse HEAD)"
+            short_sha="$(git rev-parse --short=12 HEAD)"
+            git tag "$RELEASE_TAG" "$release_ref"
+            git push origin "$RELEASE_TAG"
+          else
+            release_ref="$(git rev-parse HEAD)"
+            short_sha="$(git rev-parse --short=12 HEAD)"
+          fi
+
+          {
+            echo "ref=$release_ref"
+            echo "short_sha=$short_sha"
+          } >> "$GITHUB_OUTPUT"
 
   desktop:
     name: Build Windows desktop release

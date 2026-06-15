@@ -137,9 +137,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
               search: { draft: draft.id },
             })
           }}
-          onReveal={(id) => {
-            void desktop?.recording.revealLibraryCapture(id)
-          }}
         />
       </section>
     </AppMain>
@@ -441,7 +438,6 @@ function LibraryBody({
   onOpenLocal,
   onOpenCloud,
   onOpenDraft,
-  onReveal,
 }: {
   entries: LibraryEntry[]
   loading: boolean
@@ -452,7 +448,6 @@ function LibraryBody({
   onOpenLocal: (item: LibraryItemView) => void
   onOpenCloud: (row: ClipRow) => void
   onOpenDraft: (draft: RecordingLibraryProjectDraft) => void
-  onReveal: (id: string) => void
 }) {
   if (entries.length === 0) {
     if (error) {
@@ -500,13 +495,11 @@ function LibraryBody({
             key={entry.key}
             item={entry.item}
             onOpen={() => onOpenLocal(entry.item)}
-            onReveal={() => onReveal(entry.item.id)}
           />
         ) : entry.type === "cloud" ? (
           <UploadedClipCard
             key={entry.key}
             row={entry.row}
-            localItem={entry.localItem}
             onOpen={() => onOpenCloud(entry.row)}
           />
         ) : (

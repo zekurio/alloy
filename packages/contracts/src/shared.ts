@@ -1,6 +1,6 @@
 export type IsoDateString = string
 
-export const CLIP_PRIVACY = ["public", "unlisted"] as const
+export const CLIP_PRIVACY = ["public", "unlisted", "private"] as const
 export type ClipPrivacy = (typeof CLIP_PRIVACY)[number]
 
 export const CLIP_STATUS = ["pending", "processing", "ready", "failed"] as const
@@ -51,8 +51,8 @@ export const ACCEPTED_CLIP_CONTENT_TYPES = ["video/mp4"] as const
 
 export type AcceptedContentType = (typeof ACCEPTED_CLIP_CONTENT_TYPES)[number]
 
-// Poster uploads. The renderer ships webp; the desktop sync engine ships the
-// JPEG poster it already has cached. The server republishes both as webp.
+// Poster uploads. Clients may send webp directly, or JPEG when reusing a
+// locally cached poster. The server republishes both as webp.
 export const ACCEPTED_THUMB_CONTENT_TYPES = [
   "image/webp",
   "image/jpeg",

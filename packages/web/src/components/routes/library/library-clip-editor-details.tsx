@@ -24,8 +24,10 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   ClapperboardIcon,
   ChevronUpIcon,
+  EyeOffIcon,
   GlobeIcon,
   Link2Icon,
+  Link2OffIcon,
   SaveIcon,
   Trash2Icon,
 } from "lucide-react"
@@ -41,6 +43,58 @@ import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 
 import { ClipFileLocation } from "./library-file-location"
+
+type VisibilityIntent = "post" | "unpost" | "create-link" | "disable-link"
+
+type VisibilityAction = {
+  label: string
+  pendingLabel: string
+  privacy: ClipPrivacy
+  copyLink: boolean
+  icon: React.ComponentType<{ className?: string }>
+  success: string
+  copySuccess?: string
+  copyFailure?: string
+}
+
+const VISIBILITY_ACTIONS = {
+  post: {
+    label: "Post",
+    pendingLabel: "Posting...",
+    privacy: "public",
+    copyLink: true,
+    icon: GlobeIcon,
+    success: "Clip posted",
+    copySuccess: "Posted and link copied",
+    copyFailure: "Posted, but couldn't copy the link",
+  },
+  unpost: {
+    label: "Unpost",
+    pendingLabel: "Unposting...",
+    privacy: "unlisted",
+    copyLink: false,
+    icon: EyeOffIcon,
+    success: "Clip unposted",
+  },
+  "create-link": {
+    label: "Create Link",
+    pendingLabel: "Creating link...",
+    privacy: "unlisted",
+    copyLink: true,
+    icon: Link2Icon,
+    success: "Link created",
+    copySuccess: "Link created and copied",
+    copyFailure: "Link created, but couldn't copy it",
+  },
+  "disable-link": {
+    label: "Disable Link",
+    pendingLabel: "Disabling link...",
+    privacy: "private",
+    copyLink: false,
+    icon: Link2OffIcon,
+    success: "Clip link disabled",
+  },
+} as const satisfies Record<VisibilityIntent, VisibilityAction>
 
 /** Shared by the tabs container and the details form it hosts. */
 interface ClipDetailsProps {
@@ -187,28 +241,25 @@ function ClipDetailsForm({
     )
   }
 
-  // Visibility changes save immediately from the publish controls — they're
-  // publish actions, not draft fields like the rest of the form.
-  const publishClip = (privacy: ClipPrivacy) => {
-    if (visibilityPending || privacy === row.privacy) return
+  // Visibility changes save immediately from the action controls — they're
+  // publish/link actions, not draft fields like the rest of the form.
+  const updateVisibility = (action: VisibilityAction) => {
+    if (visibilityPending || action.privacy === row.privacy) return
     visibilityMutation.mutate(
-      { clipId: row.id, input: { privacy } },
+      { clipId: row.id, input: { privacy: action.privacy } },
       {
         onSuccess: async (updated) => {
-          const copied = await copyClipLink(updated)
-          if (privacy === "public") {
+          if (action.copyLink) {
+            const copied = await copyClipLink(updated)
             toast[copied ? "success" : "error"](
               copied
-                ? "Posted and link copied"
-                : "Posted, but couldn't copy the link",
+                ? (action.copySuccess ?? action.success)
+                : (action.copyFailure ??
+                    "Visibility updated, but couldn't copy the link"),
             )
-          } else {
-            toast[copied ? "success" : "error"](
-              copied
-                ? "Link created and copied"
-                : "Link created, but couldn't copy it",
-            )
+            return
           }
+          toast.success(action.success)
         },
         onError: () => toast.error("Couldn't update visibility"),
       },
@@ -235,17 +286,29 @@ function ClipDetailsForm({
       },
     )
   }
+
+  const profileVisibilityAction =
+    VISIBILITY_ACTIONS[row.privacy === "public" ? "unpost" : "post"]
+  const linkVisibilityAction =
+    VISIBILITY_ACTIONS[
+      row.privacy === "private" ? "create-link" : "disable-link"
+    ]
+  const ProfileVisibilityIcon = profileVisibilityAction.icon
+  const LinkVisibilityIcon = linkVisibilityAction.icon
+
   const primaryPublishes = !dirty && !canSaveTrim
   const primaryDisabled = primaryPublishes
-    ? row.privacy === "public" || visibilityPending || deleting
+    ? visibilityPending || deleting
     : (!dirty && !canSaveTrim) || titleInvalid || saving || trimPending
   const primaryLabel = primaryPublishes
     ? visibilityPending
-      ? "Posting…"
-      : "Post"
+      ? profileVisibilityAction.pendingLabel
+      : profileVisibilityAction.label
     : saving || trimPending
       ? "Saving…"
       : "Save"
+  const PrimaryIcon = primaryPublishes ? ProfileVisibilityIcon : SaveIcon
+  const showProfileVisibilityInMenu = !primaryPublishes
 
   return (
     <>
@@ -284,11 +347,11 @@ function ClipDetailsForm({
               disabled={primaryDisabled}
               className="h-10 rounded-r-none sm:h-8"
               onClick={() => {
-                if (primaryPublishes) publishClip("public")
+                if (primaryPublishes) updateVisibility(profileVisibilityAction)
                 else handleSave()
               }}
             >
-              {primaryPublishes ? <GlobeIcon /> : <SaveIcon />}
+              <PrimaryIcon />
               {primaryLabel}
             </Button>
             <DropdownMenu>
@@ -320,22 +383,25 @@ function ClipDetailsForm({
                     Open in Editor
                   </DropdownMenuItem>
                 ) : null}
+                {showProfileVisibilityInMenu ? (
+                  <DropdownMenuItem
+                    disabled={visibilityPending}
+                    onClick={() => {
+                      updateVisibility(profileVisibilityAction)
+                    }}
+                  >
+                    <ProfileVisibilityIcon className="size-4" />
+                    {profileVisibilityAction.label}
+                  </DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem
-                  disabled={row.privacy === "public"}
+                  disabled={visibilityPending}
                   onClick={() => {
-                    publishClip("public")
+                    updateVisibility(linkVisibilityAction)
                   }}
                 >
-                  <GlobeIcon className="size-4" />
-                  Post
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    publishClip("unlisted")
-                  }}
-                >
-                  <Link2Icon className="size-4" />
-                  Create Link
+                  <LinkVisibilityIcon className="size-4" />
+                  {linkVisibilityAction.label}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

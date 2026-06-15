@@ -28,20 +28,22 @@ look at `latest.yml` and reject nightly versions; nightly builds look at
    - `channel`: `stable`
    - `version`: `X.Y.Z`
 
-2. The workflow validates the version, updates all release version files with
-   the built-in GitHub Actions bot, commits the bump as
+2. The workflow validates the version, locally updates all release version
+   files, then runs formatting, lint, and typecheck before publishing anything.
+
+3. After validation passes, the workflow commits the bump as
    `github-actions[bot]`, pushes it to the selected branch, and creates the
    matching `vX.Y.Z` tag from that commit.
 
-3. The **Release** workflow runs formatting, lint, and typecheck, builds the
+4. The **Release** workflow builds the
    Windows desktop installer, publishes the server image, attaches only
    desktop/update assets, and publishes the GitHub Release.
 
-4. The server image job publishes:
+5. The server image job publishes:
    - `ghcr.io/zekurio/alloy:vX.Y.Z`
    - `ghcr.io/zekurio/alloy:latest`
 
-5. Publishing a stable release also triggers **Nix Cache** for the flake package.
+6. Publishing a stable release also triggers **Nix Cache** for the flake package.
 
 Pushing an existing `vX.Y.Z` tag still works, but tag-triggered stable releases
 require the checked-in package versions to already match the tag.
@@ -81,6 +83,8 @@ and prepends Alloy-specific deployment notes:
 
 ## Recovery
 
-If a build fails before the GitHub Release is created, fix the issue and rerun
-the failed workflow jobs. If a release was already published with bad assets,
-delete the release and tag, then rerun from the corrected commit.
+If validation fails, fix the issue and rerun the workflow; no release commit or
+tag has been pushed yet. If a later build fails before the GitHub Release is
+created, fix the issue and rerun the failed workflow jobs. If a release was
+already published with bad assets, delete the release and tag, then rerun from
+the corrected commit.
