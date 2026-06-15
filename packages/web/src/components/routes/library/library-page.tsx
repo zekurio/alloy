@@ -380,14 +380,14 @@ function KindSelect({
     >
       <SelectTrigger
         size="sm"
-        className="w-40 shrink-0 max-sm:h-10"
+        className="h-10! w-10 shrink-0 justify-center px-0 sm:h-8! sm:w-40 sm:justify-between sm:px-3 max-sm:[&>svg:last-child]:hidden"
         aria-label="Filter by type"
       >
-        <SelectValue>
+        <SelectValue className="max-sm:justify-center">
           {active ? (
             <>
               {active.icon}
-              {active.label}
+              <span className="sr-only sm:not-sr-only">{active.label}</span>
             </>
           ) : null}
         </SelectValue>

@@ -361,6 +361,7 @@ export function StagingClipCard({
       metaContent={
         <LibraryStagingMeta
           kind={row.kind}
+          originDeviceName={localItem ? null : row.originDeviceName}
           sizeBytes={row.sourceSizeBytes}
           createdAt={row.createdAt}
           processing={processing}
@@ -482,12 +483,14 @@ function StagingClipMenu({
 
 function LibraryStagingMeta({
   kind,
+  originDeviceName,
   sizeBytes,
   createdAt,
   processing,
   progress,
 }: {
   kind: "clip" | "session"
+  originDeviceName: string | null
   sizeBytes: number | null
   createdAt: string
   processing: boolean
@@ -501,6 +504,12 @@ function LibraryStagingMeta({
         <CloudCheckIcon className="size-3.5" />
         {processing ? `Processing ${clamped}%` : "Synced"}
       </span>
+      {originDeviceName ? (
+        <>
+          <span className="shrink-0">·</span>
+          <span className="truncate">From {originDeviceName}</span>
+        </>
+      ) : null}
       <span className="shrink-0">·</span>
       <span className="shrink-0">
         {kind === "session" ? "Session" : "Clip"}

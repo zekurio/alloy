@@ -109,7 +109,7 @@ export function LibraryStagingEditorPage({
           <LibraryEmpty
             icon={<CloudIcon />}
             title="Recording not found"
-            description="It may have been published, deleted, or belong to another account."
+            description="It may have been posted, deleted, or belong to another account."
           >
             <BackToLibraryButton />
           </LibraryEmpty>
@@ -404,7 +404,7 @@ function StagingDetailsForm({
     }
     if (!game) {
       setPublishInvalid(true)
-      toast.error("Pick a game to publish")
+      toast.error("Pick a game to post")
       return
     }
     publishMutation.mutate(
@@ -422,7 +422,7 @@ function StagingDetailsForm({
       {
         onSuccess: ({ clipId }) => {
           toast.success(
-            privacy === "public" ? "Published to your profile" : "Published",
+            privacy === "public" ? "Posted to your profile" : "Posted",
           )
           if (localItem) {
             void normalizeLocalPublishedStagingLink({ item: localItem, clipId })
@@ -434,7 +434,7 @@ function StagingDetailsForm({
             replace: true,
           })
         },
-        onError: (cause) => toast.error(cause.message || "Couldn't publish"),
+        onError: (cause) => toast.error(cause.message || "Couldn't post"),
       },
     )
   }
@@ -479,13 +479,13 @@ function StagingDetailsForm({
             type="button"
             variant="primary"
             disabled={busy || titleInvalid}
-            className="rounded-r-none"
+            className="h-10 rounded-r-none sm:h-8"
             onClick={() => {
               void publish("public")
             }}
           >
             <GlobeIcon />
-            {publishing ? "Publishing…" : "Publish"}
+            {publishing ? "Posting…" : "Post"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -495,8 +495,8 @@ function StagingDetailsForm({
                   variant="primary"
                   size="icon"
                   disabled={busy || (titleInvalid && !localItem)}
-                  aria-label="More publish options"
-                  className="border-l-accent-hover rounded-l-none"
+                  aria-label="More post options"
+                  className="border-l-accent-hover size-10 rounded-l-none sm:size-8"
                 />
               }
             >
@@ -523,7 +523,7 @@ function StagingDetailsForm({
                 }}
               >
                 <Link2Icon className="size-4" />
-                Publish unlisted
+                Create Link
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

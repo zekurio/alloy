@@ -561,7 +561,7 @@ const STATUS_LABELS: Record<QueueItemStatus, string> = {
   uploading: "Upload",
   queued: "Queued",
   paused: "Paused",
-  published: "Published",
+  published: "Posted",
   downloading: "Download",
   downloaded: "Saved locally",
   failed: "Failed",
