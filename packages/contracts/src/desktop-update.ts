@@ -15,3 +15,11 @@ export interface DesktopUpdateState {
   /** Version of the pending update once one is known, e.g. "0.2.0". */
   version: string | null
 }
+
+/** Desktop auto-update state and controls bridged into the web app. */
+export interface AlloyDesktopUpdatesApi {
+  getState(): Promise<DesktopUpdateState>
+  /** Quits and installs the downloaded update; no-op when none is ready. */
+  restartToInstall(): Promise<void>
+  onState(listener: (state: DesktopUpdateState) => void): () => void
+}

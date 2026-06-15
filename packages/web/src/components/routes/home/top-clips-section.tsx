@@ -10,7 +10,7 @@ import { useTopClipsQuery } from "@/lib/clip-queries"
 import type { HomeSearch } from "@/lib/home-search"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
-type TopClipsSectionProps = {
+type HomeTopClipsSectionProps = {
   viewerId: string | undefined
   window: ClipFeedWindow
 }
@@ -23,7 +23,10 @@ const TOP_WINDOWS: ReadonlyArray<SortDropdownOption<ClipFeedWindow>> = [
   { key: "all", label: "All time" },
 ]
 
-export function TopClipsSection({ viewerId, window }: TopClipsSectionProps) {
+export function HomeTopClipsSection({
+  viewerId,
+  window,
+}: HomeTopClipsSectionProps) {
   const { data: rows, error } = useTopClipsQuery(window, { limit: 5 })
   useQueryErrorToast(error, {
     title: "Couldn't load top clips",

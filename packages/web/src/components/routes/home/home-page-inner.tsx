@@ -7,7 +7,7 @@ import type { HomeSearch } from "@/lib/home-search"
 
 import { FeedChipBar } from "./feed-chip-bar"
 import { FeedSection } from "./feed-section"
-import { TopClipsSection } from "./top-clips-section"
+import { HomeTopClipsSection } from "./top-clips-section"
 
 function filterFromSearch(search: HomeSearch): FeedFilter {
   if (search.game) {
@@ -47,7 +47,7 @@ export function HomePageInner() {
   return (
     <AppMain className="!px-2 md:!px-8">
       <div className="flex w-full flex-col">
-        <TopClipsSection viewerId={viewerId} window={window} />
+        <HomeTopClipsSection viewerId={viewerId} window={window} />
         {/* The chip bar bleeds past AppMain's desktop padding (-mx-8) and pins flush
             under the header: a sticky top-0 child sticks to the scrollport's
             padding-box top, so AppMain's py-6 leaves no gap above it. */}

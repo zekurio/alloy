@@ -23,85 +23,120 @@ interface MediaWorker {
  * lease, heartbeat, retry/fail) lives here; table-specific SQL stays behind
  * the {@link MediaStore}.
  */
-function createMediaWorker(store: MediaStore): MediaWorker {
-  const activeJobs = new Map<
+class LeaseLoopMediaWorker implements MediaWorker {
+  private readonly activeJobs = new Map<
     string,
     { abort: AbortController; done: Promise<void> }
   >()
-  const queuedIds = new Set<string>()
-  const inFlightIds = new Set<string>()
-  const runningJobs = new Set<Promise<void>>()
-  let wakeTimer: ReturnType<typeof setTimeout> | null = null
-  let pumpPromise: Promise<void> | null = null
-  let started = false
-  let stopping = false
+  private readonly queuedIds = new Set<string>()
+  private readonly inFlightIds = new Set<string>()
+  private readonly runningJobs = new Set<Promise<void>>()
+  private wakeTimer: ReturnType<typeof setTimeout> | null = null
+  private pumpPromise: Promise<void> | null = null
+  private started = false
+  private stopping = false
 
-  function schedulePump(delayMs: number): void {
-    if (!started || stopping) return
-    if (wakeTimer && delayMs > 0) return
-    if (wakeTimer) clearTimeout(wakeTimer)
-    wakeTimer = setTimeout(() => {
-      wakeTimer = null
-      void pump()
+  constructor(private readonly store: MediaStore) {}
+
+  enqueue(id: string): void {
+    this.queuedIds.add(id)
+    this.schedulePump(0)
+  }
+
+  async cancel(id: string): Promise<void> {
+    const entry = this.activeJobs.get(id)
+    if (!entry) return
+    entry.abort.abort()
+    await entry.done
+  }
+
+  start(): void {
+    if (this.started) return
+    this.started = true
+    this.stopping = false
+    this.schedulePump(0)
+  }
+
+  async stop(): Promise<void> {
+    if (!this.started) return
+    this.started = false
+    this.stopping = true
+    if (this.wakeTimer) {
+      clearTimeout(this.wakeTimer)
+      this.wakeTimer = null
+    }
+    for (const entry of this.activeJobs.values()) {
+      entry.abort.abort()
+    }
+    await Promise.allSettled(this.runningJobs)
+  }
+
+  private schedulePump(delayMs: number): void {
+    if (!this.started || this.stopping) return
+    if (this.wakeTimer && delayMs > 0) return
+    if (this.wakeTimer) clearTimeout(this.wakeTimer)
+    this.wakeTimer = setTimeout(() => {
+      this.wakeTimer = null
+      void this.pump()
     }, delayMs)
   }
 
-  async function pump(): Promise<void> {
-    if (pumpPromise) return pumpPromise
-    pumpPromise = pumpInner()
+  private async pump(): Promise<void> {
+    if (this.pumpPromise) return this.pumpPromise
+    this.pumpPromise = this.pumpInner()
       .catch((err) => {
-        logger.error(`${store.target} media worker pump failed:`, err)
-        schedulePump(POLL_INTERVAL_MS)
+        logger.error(`${this.store.target} media worker pump failed:`, err)
+        this.schedulePump(POLL_INTERVAL_MS)
       })
       .finally(() => {
-        pumpPromise = null
+        this.pumpPromise = null
       })
-    return pumpPromise
+    return this.pumpPromise
   }
 
-  async function pumpInner(): Promise<void> {
+  private async pumpInner(): Promise<void> {
     // No concurrency cap: durable media processing is expected to be rare, so we
     // start every pending recording as we find it. `processOne` adds the id to
     // `inFlightIds` synchronously, so the next `nextId()` won't hand it back.
-    while (started && !stopping) {
-      const id = await nextId()
-      if (!started || stopping) return
+    while (this.started && !this.stopping) {
+      const id = await this.nextId()
+      if (!this.started || this.stopping) return
       if (!id) {
-        schedulePump(POLL_INTERVAL_MS)
+        this.schedulePump(POLL_INTERVAL_MS)
         return
       }
-      const job = processOne(id)
-      runningJobs.add(job)
+      const job = this.processOne(id)
+      this.runningJobs.add(job)
       job.finally(() => {
-        runningJobs.delete(job)
-        schedulePump(0)
+        this.runningJobs.delete(job)
+        this.schedulePump(0)
       })
     }
   }
 
-  async function nextId(): Promise<string | null> {
-    for (const queued of queuedIds) {
-      queuedIds.delete(queued)
-      if (!inFlightIds.has(queued)) return queued
+  private async nextId(): Promise<string | null> {
+    for (const queued of this.queuedIds) {
+      this.queuedIds.delete(queued)
+      if (!this.inFlightIds.has(queued)) return queued
     }
-    return store.selectNextLeasableId(inFlightIds)
+    return this.store.selectNextLeasableId(this.inFlightIds)
   }
 
-  async function processOne(id: string): Promise<void> {
-    inFlightIds.add(id)
+  private async processOne(id: string): Promise<void> {
+    this.inFlightIds.add(id)
     try {
-      await runOne(id)
+      await this.runOne(id)
     } catch (err) {
       if (isAbortError(err)) return
-      logger.error(`${store.target} media job failed for ${id}:`, err)
+      logger.error(`${this.store.target} media job failed for ${id}:`, err)
     } finally {
-      inFlightIds.delete(id)
+      this.inFlightIds.delete(id)
     }
   }
 
-  async function runOne(id: string): Promise<void> {
+  private async runOne(id: string): Promise<void> {
     const runId = crypto.randomUUID()
-    const row = await store.lease(id, runId)
+    const row = await this.store.lease(id, runId)
     if (!row) return
 
     const abort = new AbortController()
@@ -109,42 +144,65 @@ function createMediaWorker(store: MediaStore): MediaWorker {
     const done = new Promise<void>((r) => {
       resolveDone = r
     })
-    activeJobs.set(id, { abort, done })
+    this.activeJobs.set(id, { abort, done })
 
     try {
-      await runWithLogContext({ [store.target]: id, run: runId }, async () => {
-        const stopHeartbeat = startHeartbeat(id, runId, abort)
-        try {
-          await runMediaProcessing(store, id, row, runId, abort.signal)
-        } catch (err) {
-          if (isAbortError(err)) {
-            if (stopping) {
-              await store.releaseLease(
-                id,
-                runId,
-                "Media processing interrupted by shutdown",
-              )
-            }
-          } else {
-            const reason = errorMessage(err, "Media processing failed")
-            if (row.encodeAttempt > RETRY_LIMIT) {
-              await store.markFailed(id, reason)
-            } else {
-              await store.releaseLease(id, runId, reason)
-            }
+      await runWithLogContext(
+        { [this.store.target]: id, run: runId },
+        async () => {
+          const stopHeartbeat = this.startHeartbeat(id, runId, abort)
+          try {
+            await runMediaProcessing(this.store, id, row, runId, abort.signal)
+          } catch (err) {
+            await this.handleRunError({
+              err,
+              id,
+              runId,
+              attempt: row.encodeAttempt,
+            })
+            throw err
+          } finally {
+            stopHeartbeat()
           }
-          throw err
-        } finally {
-          stopHeartbeat()
-        }
-      })
+        },
+      )
     } finally {
-      activeJobs.delete(id)
+      this.activeJobs.delete(id)
       resolveDone()
     }
   }
 
-  function startHeartbeat(
+  private async handleRunError({
+    err,
+    id,
+    runId,
+    attempt,
+  }: {
+    err: unknown
+    id: string
+    runId: string
+    attempt: number
+  }): Promise<void> {
+    if (isAbortError(err)) {
+      if (this.stopping) {
+        await this.store.releaseLease(
+          id,
+          runId,
+          "Media processing interrupted by shutdown",
+        )
+      }
+      return
+    }
+
+    const reason = errorMessage(err, "Media processing failed")
+    if (attempt > RETRY_LIMIT) {
+      await this.store.markFailed(id, reason)
+    } else {
+      await this.store.releaseLease(id, runId, reason)
+    }
+  }
+
+  private startHeartbeat(
     id: string,
     runId: string,
     abort: AbortController,
@@ -153,7 +211,7 @@ function createMediaWorker(store: MediaStore): MediaWorker {
     const beat = () => {
       if (pending || abort.signal.aborted) return
       pending = true
-      store
+      this.store
         .heartbeat(id, runId)
         .then((held) => {
           if (!held) abort.abort()
@@ -168,38 +226,10 @@ function createMediaWorker(store: MediaStore): MediaWorker {
     const timer = setInterval(beat, ENCODE_LEASE_HEARTBEAT_MS)
     return () => clearInterval(timer)
   }
+}
 
-  return {
-    enqueue(id) {
-      queuedIds.add(id)
-      schedulePump(0)
-    },
-    async cancel(id) {
-      const entry = activeJobs.get(id)
-      if (!entry) return
-      entry.abort.abort()
-      await entry.done
-    },
-    start() {
-      if (started) return
-      started = true
-      stopping = false
-      schedulePump(0)
-    },
-    async stop() {
-      if (!started) return
-      started = false
-      stopping = true
-      if (wakeTimer) {
-        clearTimeout(wakeTimer)
-        wakeTimer = null
-      }
-      for (const entry of activeJobs.values()) {
-        entry.abort.abort()
-      }
-      await Promise.allSettled(runningJobs)
-    },
-  }
+function createMediaWorker(store: MediaStore): MediaWorker {
+  return new LeaseLoopMediaWorker(store)
 }
 
 const clipWorker = createMediaWorker(clipMediaStore)

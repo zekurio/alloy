@@ -1,12 +1,10 @@
-import { type QueueClip, uploadToTicket } from "@alloy/api"
+import { type QueueClip } from "@alloy/api"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import * as React from "react"
 
-import { api } from "@/lib/api"
 import { absoluteClipHref } from "@/lib/app-paths"
-import { clientLogger } from "@/lib/client-log"
 import { removeClipDownload, useClipDownloads } from "@/lib/clip-downloads"
 import {
   clipKeys,
@@ -15,11 +13,16 @@ import {
 } from "@/lib/clip-queries"
 import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
 import { copyTextToClipboard } from "@/lib/clipboard"
-import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
+import { alloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import type { PublishPayload } from "./new-clip-helpers"
+import {
+  deleteUploadClipBestEffort,
+  markUploadFailedBestEffort,
+  performUpload,
+} from "./upload-flow-runner"
 import { isCompletedQueueStatus, type QueueItem } from "./upload-queue"
 import {
   type ActiveUpload,
@@ -28,128 +31,6 @@ import {
   serverToQueueItem,
 } from "./upload-queue-mapping"
 import { useDismissedClips } from "./use-dismissed-clips"
-
-async function deleteUploadClipBestEffort(
-  clipId: string,
-  reason: string,
-): Promise<boolean> {
-  try {
-    await api.clips.delete(clipId)
-    return true
-  } catch (cause) {
-    clientLogger.warn(
-      `[upload] Failed to delete clip ${clipId} after ${reason}.`,
-      cause,
-    )
-    return false
-  }
-}
-
-async function markUploadFailedBestEffort(clipId: string): Promise<void> {
-  try {
-    await api.clips.markUploadFailed(clipId)
-  } catch (cause) {
-    clientLogger.warn(
-      `[upload] Failed to mark clip ${clipId} as failed after upload error.`,
-      cause,
-    )
-  }
-}
-
-async function performUpload(
-  payload: PublishPayload,
-  entry: ActiveUpload,
-  bump: () => void,
-  invalidateClips: () => void,
-): Promise<string> {
-  const initiate = await api.clips.initiate({
-    filename: payload.file.name,
-    contentType: payload.contentType,
-    sizeBytes: payload.sizeBytes,
-    title: payload.title,
-    description: payload.description ?? undefined,
-    steamgriddbId: payload.steamgriddbId,
-    privacy: payload.privacy,
-    mentionedUserIds:
-      payload.mentionedUserIds.length > 0
-        ? payload.mentionedUserIds
-        : undefined,
-    tags: payload.tags.length > 0 ? payload.tags : undefined,
-    thumbBlurHash: payload.thumbBlurHash ?? undefined,
-  })
-  const { clipId } = initiate
-
-  entry.clipId = clipId
-  entry.status = "uploading"
-  bump()
-  void invalidateClips()
-
-  await uploadToTicket(
-    initiate.ticket,
-    payload.file,
-    (loaded, total) => {
-      entry.bytesLoaded = loaded
-      entry.bytesTotal = total
-      bump()
-    },
-    entry.abort.signal,
-  )
-
-  // The poster image is small and the desktop client always renders one, so
-  // ship it alongside the video; the server publishes it as-is rather than
-  // extracting a frame. A failed poster upload must not sink the clip.
-  try {
-    await uploadToTicket(
-      initiate.thumbTicket,
-      payload.thumbBlob,
-      () => undefined,
-      entry.abort.signal,
-    )
-  } catch (cause) {
-    if ((cause as Error).name === "AbortError") throw cause
-    clientLogger.warn(
-      `[upload] Failed to upload poster for clip ${clipId}; continuing.`,
-      cause,
-    )
-  }
-
-  entry.status = "finalizing"
-  bump()
-
-  await api.clips.finalize(clipId)
-  void invalidateClips()
-
-  if (payload.localCaptureId) {
-    void linkLocalCaptureToClip(payload.localCaptureId, clipId)
-  }
-
-  return clipId
-}
-
-/**
- * Records the server clip id on the desktop capture it was published from,
- * so the library can collapse the local/uploaded pair into one entry.
- * Best-effort — a missed link only leaves a duplicate card.
- */
-async function linkLocalCaptureToClip(
-  captureId: string,
-  clipId: string,
-): Promise<void> {
-  const desktop = alloyDesktop()
-  if (!desktop) return
-  try {
-    await desktop.recording.updateLibraryCapture({
-      id: captureId,
-      uploadedClipId: clipId,
-    })
-    notifyLibraryCapturesChanged()
-  } catch (cause) {
-    clientLogger.warn(
-      `[upload] Failed to link capture ${captureId} to clip ${clipId}.`,
-      cause,
-    )
-  }
-}
 
 function useServerQueueSync(
   serverQueue: QueueClip[],

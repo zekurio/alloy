@@ -4,7 +4,7 @@ import { useRequireAuth } from "@/lib/auth-hooks"
 
 import { GameHeader } from "./game-header"
 import { RecentClipsSection } from "./recent-clips-section"
-import { TopClipsSection } from "./top-clips-section"
+import { GameTopClipsSection } from "./top-clips-section"
 
 type GameDetailPageInnerProps = {
   slug: string
@@ -19,7 +19,7 @@ export function GameDetailPageInner({ slug }: GameDetailPageInnerProps) {
       <div className="flex w-full flex-col gap-6">
         <GameHeader slug={slug} />
         <div className="flex flex-col gap-6 px-4 pb-4 md:px-8 md:pb-6">
-          <TopClipsSection slug={slug} viewerId={viewerId} />
+          <GameTopClipsSection slug={slug} viewerId={viewerId} />
           <RecentClipsSection slug={slug} viewerId={viewerId} />
         </div>
       </div>

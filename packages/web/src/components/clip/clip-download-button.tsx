@@ -96,13 +96,7 @@ export function ClipDownloadIconButton({
         action.start()
       }}
     >
-      {action.saved ? (
-        <CheckIcon className="text-success" />
-      ) : action.downloading ? (
-        <Loader2Icon className="animate-spin" />
-      ) : (
-        <DownloadIcon />
-      )}
+      <ClipDownloadStatusIcon action={action} />
     </Button>
   )
 }
@@ -126,60 +120,24 @@ export function ClipDownloadMenuItem({
         action.start()
       }}
     >
-      {action.saved ? (
-        <CheckIcon className="text-success" />
-      ) : action.downloading ? (
-        <Loader2Icon className="animate-spin" />
-      ) : (
-        <DownloadIcon />
-      )}
-      {action.saved
-        ? "Saved on this device"
-        : action.downloading
-          ? action.progress > 0
-            ? `Downloading ${action.progress}%`
-            : "Downloading…"
-          : "Download"}
+      <ClipDownloadStatusIcon action={action} />
+      {clipDownloadMenuLabel(action)}
     </DropdownMenuItem>
   )
 }
 
-/** Full-width variant for action rows (clip edit view). */
-export function ClipDownloadButton({
-  row,
-  alreadyLocal = false,
-}: {
-  row: ClipRow
-  alreadyLocal?: boolean
-}) {
-  const action = useClipDownloadAction(row, alreadyLocal)
-  if (!action.supported) return null
+type ClipDownloadAction = ReturnType<typeof useClipDownloadAction>
 
-  return (
-    <Button
-      type="button"
-      variant="secondary"
-      disabled={action.saved || action.downloading}
-      onClick={action.start}
-    >
-      {action.saved ? (
-        <>
-          <CheckIcon />
-          On this device
-        </>
-      ) : action.downloading ? (
-        <>
-          <Loader2Icon className="animate-spin" />
-          {action.progress > 0
-            ? `Downloading ${action.progress}%`
-            : "Downloading…"}
-        </>
-      ) : (
-        <>
-          <DownloadIcon />
-          Save to this device
-        </>
-      )}
-    </Button>
-  )
+function ClipDownloadStatusIcon({ action }: { action: ClipDownloadAction }) {
+  if (action.saved) return <CheckIcon className="text-success" />
+  if (action.downloading) return <Loader2Icon className="animate-spin" />
+  return <DownloadIcon />
+}
+
+function clipDownloadMenuLabel(action: ClipDownloadAction): string {
+  if (action.saved) return "Saved on this device"
+  if (!action.downloading) return "Download"
+  return action.progress > 0
+    ? `Downloading ${action.progress}%`
+    : "Downloading…"
 }

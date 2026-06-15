@@ -1,5 +1,5 @@
 import type {
-  DesktopUpdateState,
+  AlloyDesktopUpdatesApi,
   PublicAuthConfig,
   RecordingActionResult,
   RecordingActionRequest,
@@ -230,14 +230,6 @@ export interface AlloyDesktopRecordingApi {
   previewNotificationSound(
     sound: RecordingNotificationSoundEvent,
   ): Promise<void>
-}
-
-/** Desktop auto-update state and controls bridged into the web app. */
-export interface AlloyDesktopUpdatesApi {
-  getState(): Promise<DesktopUpdateState>
-  /** Quits and installs the downloaded update; no-op when none is ready. */
-  restartToInstall(): Promise<void>
-  onState(listener: (state: DesktopUpdateState) => void): () => void
 }
 
 /**

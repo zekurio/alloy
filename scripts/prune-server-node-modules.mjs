@@ -2,12 +2,6 @@
 
 /* eslint-disable no-console */
 
-// Build a pruned production node_modules for the server package by walking
-// the pnpm virtual store closure of the server's external dependencies.
-// Workspace (@alloy/*) packages are excluded: the server bundle inlines them
-// and only their externalized deps (declared in the server package.json)
-// are required at runtime. Runs fully offline; used by nix/package.nix.
-
 import {
   cpSync,
   lstatSync,

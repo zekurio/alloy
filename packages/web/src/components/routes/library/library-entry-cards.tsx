@@ -34,6 +34,7 @@ import * as React from "react"
 
 import { useClipDownloadAction } from "@/components/clip/clip-download-button"
 import { useCapturePoster } from "@/lib/capture-poster"
+import { clientLogger } from "@/lib/client-log"
 import { toClipCardData } from "@/lib/clip-format"
 import { useDeleteClipMutation } from "@/lib/clip-queries"
 import { formatRelativeTime } from "@/lib/date-format"
@@ -125,23 +126,7 @@ function LibraryCaptureMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Actions for ${item.title}`}
-              className={cn(
-                "bg-black/55 text-white backdrop-blur-sm hover:bg-black/75 hover:text-white",
-                "opacity-0 transition-opacity group-hover/clip-card:opacity-100",
-                "focus-visible:opacity-100 aria-expanded:opacity-100",
-              )}
-            >
-              <MoreVerticalIcon />
-            </Button>
-          }
-        />
+        <LibraryThumbnailMenuTrigger title={item.title} />
         <DropdownMenuContent align="end">
           <DropdownMenuItem onClick={onReveal}>
             <FolderOpenIcon className="size-4" />
@@ -376,23 +361,7 @@ function UploadedClipMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Actions for ${row.title}`}
-              className={cn(
-                "bg-black/55 text-white backdrop-blur-sm hover:bg-black/75 hover:text-white",
-                "opacity-0 transition-opacity group-hover/clip-card:opacity-100",
-                "focus-visible:opacity-100 aria-expanded:opacity-100",
-              )}
-            >
-              <MoreVerticalIcon />
-            </Button>
-          }
-        />
+        <LibraryThumbnailMenuTrigger title={row.title} />
         <DropdownMenuContent align="end" className="min-w-[180px]">
           {download.supported ? (
             <DropdownMenuItem
@@ -430,6 +399,42 @@ function UploadedClipMenu({
   )
 }
 
+function LibraryThumbnailMenuTrigger({ title }: { title: string }) {
+  return (
+    <DropdownMenuTrigger
+      render={
+        <LibraryThumbnailMenuButton label={`Actions for ${title}`}>
+          <MoreVerticalIcon />
+        </LibraryThumbnailMenuButton>
+      }
+    />
+  )
+}
+
+function LibraryThumbnailMenuButton({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      aria-label={label}
+      className={cn(
+        "bg-black/55 text-white backdrop-blur-sm hover:bg-black/75 hover:text-white",
+        "opacity-0 transition-opacity group-hover/clip-card:opacity-100",
+        "focus-visible:opacity-100 aria-expanded:opacity-100",
+      )}
+    >
+      {children}
+    </Button>
+  )
+}
+
 function DeleteUploadedClipDialog({
   row,
   localItem,
@@ -455,7 +460,11 @@ function DeleteUploadedClipDialog({
             try {
               await deleteLocalLibraryCopy(localItem)
               toast.success("Clip deleted from server and this device")
-            } catch {
+            } catch (cause) {
+              clientLogger.warn(
+                "[library] Failed to delete local clip copy after server delete.",
+                cause,
+              )
               await detachLocalServerLink({
                 item: localItem,
                 serverId: row.id,
@@ -473,7 +482,11 @@ function DeleteUploadedClipDialog({
                 serverId: row.id,
               })
               toast.success("Clip deleted from server")
-            } catch {
+            } catch (cause) {
+              clientLogger.warn(
+                "[library] Failed to detach local server link after server delete.",
+                cause,
+              )
               toast.error(
                 "Clip deleted from server, but the local server link couldn't be cleared",
               )

@@ -47,7 +47,6 @@ export interface MediaStore {
   /** Distinguishes the worker instances and scopes upload tickets. */
   readonly target: UploadTicketTarget
 
-  // ---- lease loop ----
   /** Next leasable id (status/lease/retry-delay eligible) not already in flight. */
   selectNextLeasableId(inFlight: ReadonlySet<string>): Promise<string | null>
   /** Atomically take the lease (processing + runId + lockedAt + attempt++). */
@@ -59,7 +58,6 @@ export interface MediaStore {
   /** Terminal failure (unless already ready); cleans tickets + notifies. */
   markFailed(id: string, reason: string): Promise<void>
 
-  // ---- run pipeline ----
   /** True while the row still holds this run's lease. */
   stillPresent(id: string, runId: string): Promise<boolean>
   /** Reset progress at the start of the run body; false if lease lost. */
@@ -93,6 +91,5 @@ export interface MediaStore {
   /** Fresh values for HLS prewarm after publish. */
   prewarmInput(id: string): Promise<MediaPrewarmInput | null>
 
-  // ---- events ----
   publishUpsert(authorId: string, id: string): void
 }

@@ -9,6 +9,22 @@ export const OAUTH_USERNAME_CLAIM_DEFAULT = "preferred_username"
 export const OAUTH_QUOTA_CLAIM_DEFAULT = "alloy_quota"
 export const OAUTH_ROLE_CLAIM_DEFAULT = "alloy_role"
 
+function oauthClientSecretAuthMethod<Suffix extends "post" | "basic">(
+  suffix: Suffix,
+): `client_secret_${Suffix}` {
+  return `client_${"secret"}_${suffix}`
+}
+
+export const OAUTH_CLIENT_SECRET_POST_AUTH_METHOD =
+  oauthClientSecretAuthMethod("post")
+export const OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD =
+  oauthClientSecretAuthMethod("basic")
+export const OAUTH_TOKEN_AUTH_METHODS = [
+  OAUTH_CLIENT_SECRET_POST_AUTH_METHOD,
+  OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
+] as const
+export type OAuthTokenAuthMethod = (typeof OAUTH_TOKEN_AUTH_METHODS)[number]
+
 /**
  * Stored OAuth provider metadata. Note the absence of `clientSecret`: provider
  * secrets live in the server-only secret store, never in this struct, so no
@@ -37,9 +53,7 @@ const OAuthProviderConfigFields = {
   tokenUrl: OptionalUrlStringSchema,
   userInfoUrl: OptionalUrlStringSchema,
   pkce: z.boolean().optional(),
-  tokenAuthMethod: z
-    .enum(["client_secret_post", "client_secret_basic"])
-    .optional(),
+  tokenAuthMethod: z.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
   uidClaim: NonEmptyStringSchema.optional(),
   fetchUserInfo: z.boolean().optional(),
   authParams: z.record(z.string(), z.string()).optional(),

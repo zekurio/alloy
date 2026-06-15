@@ -239,9 +239,10 @@ function pruneObsRuntime() {
   )
 
   const afterBytes = directorySize(obsResourcesDir)
-  console.log(
+  process.stdout.write(
     `Pruned OBS runtime: ${formatMegabytes(beforeBytes)} -> ${formatMegabytes(afterBytes)}`,
   )
+  process.stdout.write("\n")
 }
 
 function pruneDirectory(directory, keep) {
