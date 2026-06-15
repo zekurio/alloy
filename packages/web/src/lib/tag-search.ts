@@ -8,7 +8,7 @@ const WINDOW_KEYS = ["today", "week", "month", "year", "all"] as const
 export type TagSearch = {
   sort?: ClipFeedSort
   window?: ClipFeedWindow
-  /** steamgriddbId (as a string) to narrow the tag results to a game. */
+  /** igdbId (as a string) to narrow the tag results to a game. */
   game?: string
 }
 
@@ -27,17 +27,12 @@ export function parseTagSearch(search: Record<string, unknown>): TagSearch {
 export function tagFilters(search: TagSearch): {
   sort: ClipFeedSort
   window: ClipFeedWindow
-  steamgriddbId?: number
+  igdbId?: number
 } {
-  const steamgriddbId = search.game
-    ? Number.parseInt(search.game, 10)
-    : Number.NaN
+  const igdbId = search.game ? Number.parseInt(search.game, 10) : Number.NaN
   return {
     sort: search.sort ?? "top",
     window: search.window ?? "all",
-    steamgriddbId:
-      Number.isSafeInteger(steamgriddbId) && steamgriddbId > 0
-        ? steamgriddbId
-        : undefined,
+    igdbId: Number.isSafeInteger(igdbId) && igdbId > 0 ? igdbId : undefined,
   }
 }

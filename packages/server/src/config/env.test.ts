@@ -23,12 +23,12 @@ test("rejects direct and file variants for the same secret", () => {
     () =>
       parseServerEnv(
         baseEnv({
-          ALLOY_STEAMGRIDDB_API_KEY: "direct",
-          ALLOY_STEAMGRIDDB_API_KEY_FILE: "/run/secrets/sgdb",
+          ALLOY_IGDB_CLIENT_SECRET: "direct",
+          ALLOY_IGDB_CLIENT_SECRET_FILE: "/run/secrets/igdb",
         }),
         { readTextFile: () => "from-file" },
       ),
-    /Set either ALLOY_STEAMGRIDDB_API_KEY or ALLOY_STEAMGRIDDB_API_KEY_FILE/,
+    /Set either ALLOY_IGDB_CLIENT_SECRET or ALLOY_IGDB_CLIENT_SECRET_FILE/,
   )
 })
 

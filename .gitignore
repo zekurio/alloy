@@ -23,6 +23,7 @@ packages/desktop/release/
 packages/recorder/dist/
 packages/recorder/release/
 packages/recorder/target/
+packages/recorder/src/detections/*.generated.json
 .nitro
 .tanstack
 .vite

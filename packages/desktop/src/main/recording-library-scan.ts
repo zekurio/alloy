@@ -215,6 +215,7 @@ function libraryItemForFile(
     // The manifest keeps the raw remote URL; snapshots hand the renderer the
     // disk-cached variant so icons survive restarts and offline servers.
     gameIconUrl: cachedAssetUrl(manifestEntry?.gameIconUrl ?? null),
+    gameGuess: manifestEntry?.gameGuess ?? null,
     sizeBytes: manifestEntry?.sizeBytes ?? stat.size,
     durationMs: manifestEntry?.durationMs ?? null,
     bookmarksMs: manifestEntry?.bookmarksMs ?? [],

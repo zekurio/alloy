@@ -50,7 +50,7 @@ export async function exportAndPublishCapture({
   title: string
   description: string
   tags: string
-  game: GameRow
+  game: GameRow | null
   privacy: ClipPrivacy
   mentions: UserSearchResult[]
   publishClip: ReturnType<typeof useUploadFlowControls>["publishClip"]
@@ -81,7 +81,7 @@ export async function exportAndPublishCapture({
     title,
     description: nullableClipDescription(description),
     tags: parseTagString(tags),
-    steamgriddbId: game.steamgriddbId,
+    igdbId: game?.igdbId ?? null,
     privacy,
     width: selected.width,
     height: selected.height,

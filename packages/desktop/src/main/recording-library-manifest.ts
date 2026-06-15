@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
+  RecordingGameGuess,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
@@ -29,6 +30,7 @@ export interface CaptureManifestEntry {
   source: RecordingCaptureSource
   gameName: string | null
   gameIconUrl: string | null
+  gameGuess?: RecordingGameGuess | null
   sizeBytes: number | null
   durationMs: number | null
   bookmarksMs?: number[]

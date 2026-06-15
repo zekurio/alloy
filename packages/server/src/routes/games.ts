@@ -5,25 +5,21 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { getSession } from "@alloy/server/auth/session"
 import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
+import { isConfigured, searchGames } from "@alloy/server/games/igdb"
 import { lookupGamesByName } from "@alloy/server/games/lookup"
 import {
   gameSelectShape,
-  getSteamGridGameRef,
+  getIGDBGameRef,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
-import { steamGridDbIdFromGameSlug } from "@alloy/server/games/slug"
-import {
-  enrichSearchResultsWithIcons,
-  isConfigured,
-  searchGames,
-} from "@alloy/server/games/steamgriddb"
+import { igdbIdFromGameSlug } from "@alloy/server/games/slug"
 import {
   badGateway,
   booleanFlag,
   errorResult,
+  igdbStatus,
   invalidCursor,
   notFound,
-  steamGridDBStatus,
 } from "@alloy/server/runtime/http-response"
 import { and, desc, eq, isNull, type SQL, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
@@ -43,7 +39,7 @@ import {
   SearchQuery,
   serialiseGame,
   serialiseGameListRow,
-  sgdbErrorResponse,
+  igdbErrorResponse,
   SlugParam,
   TopQuery,
 } from "./games-helpers"
@@ -58,29 +54,29 @@ type ResolvedGameRef =
   | { row: GameRow; response?: never }
   | { row?: never; response: Response }
 
-function steamgriddbIdFromSlug(slug: string): number | null {
-  return steamGridDbIdFromGameSlug(slug)
+function igdbIdFromSlug(slug: string): number | null {
+  return igdbIdFromGameSlug(slug)
 }
 
-async function resolveSteamGridGameRef(
+async function resolveIGDBGameRef(
   c: Context,
-  steamgriddbId: number,
+  igdbId: number,
 ): Promise<ResolvedGameRef> {
   try {
-    const row = await getSteamGridGameRef(steamgriddbId)
-    if (!row) return { response: notFound(c, "Unknown SteamGridDB game id") }
+    const row = await getIGDBGameRef(igdbId)
+    if (!row) return { response: notFound(c, "Unknown IGDB game id") }
     return { row }
   } catch (err) {
-    return { response: errorResult(c, sgdbErrorResponse(err)) }
+    return { response: errorResult(c, igdbErrorResponse(err)) }
   }
 }
 
 async function proxyGameImageAsset(
   c: Context,
-  steamgriddbId: number,
+  igdbId: number,
   asset: GameImageAsset,
 ) {
-  const resolved = await resolveSteamGridGameRef(c, steamgriddbId)
+  const resolved = await resolveIGDBGameRef(c, igdbId)
   if (resolved.response) return resolved.response
 
   const url = resolved.row[asset.column]
@@ -101,7 +97,7 @@ async function proxyGameImageAsset(
 
 export const gamesRoute = new Hono()
   .get("/status", (c) => {
-    return steamGridDBStatus(c, isConfigured())
+    return igdbStatus(c, isConfigured())
   })
   .get(
     "/search",
@@ -110,14 +106,9 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { q } = c.req.valid("query")
       try {
-        const results = await searchGames(q)
-        const enriched = await enrichSearchResultsWithIcons(
-          results,
-          results.length,
-        )
-        return c.json(enriched)
+        return c.json(await searchGames(q))
       } catch (err) {
-        return errorResult(c, sgdbErrorResponse(err))
+        return errorResult(c, igdbErrorResponse(err))
       }
     },
   )
@@ -126,8 +117,8 @@ export const gamesRoute = new Hono()
     requireSession,
     zValidator("json", ResolveBody),
     async (c) => {
-      const { steamgriddbId } = c.req.valid("json")
-      const resolved = await resolveSteamGridGameRef(c, steamgriddbId)
+      const { igdbId } = c.req.valid("json")
+      const resolved = await resolveIGDBGameRef(c, igdbId)
       if (resolved.response) return resolved.response
       return c.json(serialiseGame(resolved.row))
     },
@@ -149,7 +140,7 @@ export const gamesRoute = new Hono()
         clipCount: sql<number>`count(${clip.id})::int`,
       })
       .from(game)
-      .innerJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
+      .innerJoin(clip, eq(clip.igdbId, game.igdbId))
       .innerJoin(user, eq(clip.authorId, user.id))
       .where(
         and(
@@ -158,7 +149,7 @@ export const gamesRoute = new Hono()
           isNull(user.disabledAt),
         ),
       )
-      .groupBy(game.steamgriddbId)
+      .groupBy(game.igdbId)
       .orderBy(sql`count(${clip.id}) desc`, game.name)
       .limit(limit)
       .offset(offset)
@@ -174,10 +165,10 @@ export const gamesRoute = new Hono()
   })
   .get("/:slug", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
-    const steamgriddbId = steamgriddbIdFromSlug(slug)
-    if (!steamgriddbId) return notFound(c)
+    const igdbId = igdbIdFromSlug(slug)
+    if (!igdbId) return notFound(c)
 
-    const resolved = await resolveSteamGridGameRef(c, steamgriddbId)
+    const resolved = await resolveIGDBGameRef(c, igdbId)
     if (resolved.response) return resolved.response
 
     const session = await getSession(c)
@@ -189,7 +180,7 @@ export const gamesRoute = new Hono()
         .where(
           and(
             eq(gameFollow.userId, session.user.id),
-            eq(gameFollow.steamgriddbId, steamgriddbId),
+            eq(gameFollow.igdbId, igdbId),
           ),
         )
         .limit(1)
@@ -200,29 +191,24 @@ export const gamesRoute = new Hono()
       .select({ value: sql<number>`count(*)::int` })
       .from(gameFollow)
       .innerJoin(user, eq(user.id, gameFollow.userId))
-      .where(
-        and(
-          eq(gameFollow.steamgriddbId, steamgriddbId),
-          isNull(user.disabledAt),
-        ),
-      )
+      .where(and(eq(gameFollow.igdbId, igdbId), isNull(user.disabledAt)))
 
     return c.json({ ...serialiseGame(resolved.row), viewer, favouritesCount })
   })
   .get("/:slug/hero", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
-    const steamgriddbId = steamgriddbIdFromSlug(slug)
-    if (!steamgriddbId) return notFound(c)
-    return proxyGameImageAsset(c, steamgriddbId, {
+    const igdbId = igdbIdFromSlug(slug)
+    if (!igdbId) return notFound(c)
+    return proxyGameImageAsset(c, igdbId, {
       column: "heroUrl",
       label: "hero",
     })
   })
   .get("/:slug/grid", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
-    const steamgriddbId = steamgriddbIdFromSlug(slug)
-    if (!steamgriddbId) return notFound(c)
-    return proxyGameImageAsset(c, steamgriddbId, {
+    const igdbId = igdbIdFromSlug(slug)
+    if (!igdbId) return notFound(c)
+    return proxyGameImageAsset(c, igdbId, {
       column: "gridUrl",
       label: "grid",
     })
@@ -234,15 +220,15 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const steamgriddbId = steamgriddbIdFromSlug(slug)
-      if (!steamgriddbId) return notFound(c)
+      const igdbId = igdbIdFromSlug(slug)
+      if (!igdbId) return notFound(c)
 
-      const resolved = await resolveSteamGridGameRef(c, steamgriddbId)
+      const resolved = await resolveIGDBGameRef(c, igdbId)
       if (resolved.response) return resolved.response
 
       await db
         .insert(gameFollow)
-        .values({ userId: viewerId, steamgriddbId })
+        .values({ userId: viewerId, igdbId })
         .onConflictDoNothing()
 
       return booleanFlag(c, "following", true)
@@ -255,16 +241,13 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const steamgriddbId = steamgriddbIdFromSlug(slug)
-      if (!steamgriddbId) return notFound(c)
+      const igdbId = igdbIdFromSlug(slug)
+      if (!igdbId) return notFound(c)
 
       await db
         .delete(gameFollow)
         .where(
-          and(
-            eq(gameFollow.userId, viewerId),
-            eq(gameFollow.steamgriddbId, steamgriddbId),
-          ),
+          and(eq(gameFollow.userId, viewerId), eq(gameFollow.igdbId, igdbId)),
         )
 
       return booleanFlag(c, "following", false)
@@ -282,11 +265,11 @@ export const gamesRoute = new Hono()
         return invalidCursor(c)
       }
 
-      const steamgriddbId = steamgriddbIdFromSlug(slug)
-      if (!steamgriddbId) return notFound(c)
+      const igdbId = igdbIdFromSlug(slug)
+      if (!igdbId) return notFound(c)
 
       const conditions: SQL[] = [
-        eq(clip.steamgriddbId, steamgriddbId),
+        eq(clip.igdbId, igdbId),
         eq(clip.status, "ready"),
         publicClipPrivacyCondition(),
         isNull(user.disabledAt),
@@ -298,7 +281,7 @@ export const gamesRoute = new Hono()
         .select(clipSelectShape)
         .from(clip)
         .innerJoin(user, eq(clip.authorId, user.id))
-        .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+        .innerJoin(game, eq(clip.igdbId, game.igdbId))
         .where(and(...conditions))
         .orderBy(...clipListOrderBy(sort))
         .limit(limit + 1)
@@ -313,17 +296,17 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const { limit } = c.req.valid("query")
-      const steamgriddbId = steamgriddbIdFromSlug(slug)
-      if (!steamgriddbId) return notFound(c)
+      const igdbId = igdbIdFromSlug(slug)
+      if (!igdbId) return notFound(c)
 
       const rows = await db
         .select(clipSelectShape)
         .from(clip)
         .innerJoin(user, eq(clip.authorId, user.id))
-        .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+        .innerJoin(game, eq(clip.igdbId, game.igdbId))
         .where(
           and(
-            eq(clip.steamgriddbId, steamgriddbId),
+            eq(clip.igdbId, igdbId),
             eq(clip.status, "ready"),
             publicClipPrivacyCondition(),
             isNull(user.disabledAt),

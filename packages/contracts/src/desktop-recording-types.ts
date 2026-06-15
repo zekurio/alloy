@@ -216,6 +216,41 @@ export interface RecordingGameProcess {
   iconUrl: string | null
 }
 
+export const RECORDING_GAME_GUESS_SOURCES = [
+  "discord-detectable",
+  "manual",
+  "plays",
+  "steam-path",
+  "windows-store",
+  "heuristic",
+] as const
+
+export const RECORDING_GAME_GUESS_MATCH_KINDS = [
+  "executable",
+  "path",
+  "manual",
+  "heuristic",
+] as const
+
+export type RecordingGameGuessSource =
+  (typeof RECORDING_GAME_GUESS_SOURCES)[number]
+export type RecordingGameGuessMatchKind =
+  (typeof RECORDING_GAME_GUESS_MATCH_KINDS)[number]
+
+export interface RecordingGameGuess {
+  source: RecordingGameGuessSource
+  sourceId: string | null
+  name: string
+  aliases: string[]
+  executable: string | null
+  path: string | null
+  windowTitle: string | null
+  windowClass: string | null
+  iconUrl: string | null
+  confidence: number
+  matchKind: RecordingGameGuessMatchKind
+}
+
 export interface RecordingDisplay {
   /** OBS monitor id when available, otherwise a stable Electron display id. */
   id: string
@@ -269,6 +304,7 @@ export interface RecordingGame {
   windowTitle?: string | null
   windowClass?: string | null
   startedAt: IsoDateString | null
+  guess: RecordingGameGuess | null
 }
 
 export type RecordingCapturePostProcess =

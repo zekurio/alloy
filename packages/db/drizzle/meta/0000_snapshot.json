@@ -1,5 +1,5 @@
 {
-  "id": "322c3a4d-01e1-45aa-939d-b7d86b2be3da",
+  "id": "fef5ff48-3fd0-4b9c-ad59-1ea57d763576",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -39,11 +39,11 @@
           "primaryKey": false,
           "notNull": false
         },
-        "steamgriddb_id": {
-          "name": "steamgriddb_id",
+        "igdb_id": {
+          "name": "igdb_id",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "privacy": {
           "name": "privacy",
@@ -285,11 +285,11 @@
           "method": "btree",
           "with": {}
         },
-        "clip_steamgriddb_created_idx": {
-          "name": "clip_steamgriddb_created_idx",
+        "clip_igdb_created_idx": {
+          "name": "clip_igdb_created_idx",
           "columns": [
             {
-              "expression": "steamgriddb_id",
+              "expression": "igdb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -306,11 +306,11 @@
           "method": "btree",
           "with": {}
         },
-        "clip_ready_visible_steamgriddb_top_idx": {
-          "name": "clip_ready_visible_steamgriddb_top_idx",
+        "clip_ready_visible_igdb_top_idx": {
+          "name": "clip_ready_visible_igdb_top_idx",
           "columns": [
             {
-              "expression": "steamgriddb_id",
+              "expression": "igdb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -357,13 +357,13 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "clip_steamgriddb_id_game_steamgriddb_id_fk": {
-          "name": "clip_steamgriddb_id_game_steamgriddb_id_fk",
+        "clip_igdb_id_game_igdb_id_fk": {
+          "name": "clip_igdb_id_game_igdb_id_fk",
           "tableFrom": "clip",
           "tableTo": "game",
-          "columnsFrom": ["steamgriddb_id"],
-          "columnsTo": ["steamgriddb_id"],
-          "onDelete": "restrict",
+          "columnsFrom": ["igdb_id"],
+          "columnsTo": ["igdb_id"],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -890,8 +890,8 @@
       "name": "game",
       "schema": "",
       "columns": {
-        "steamgriddb_id": {
-          "name": "steamgriddb_id",
+        "igdb_id": {
+          "name": "igdb_id",
           "type": "integer",
           "primaryKey": true,
           "notNull": true
@@ -995,6 +995,160 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.game_detection_mapping": {
+      "name": "game_detection_mapping",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "executable": {
+          "name": "executable",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "normalized_name": {
+          "name": "normalized_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "igdb_id": {
+          "name": "igdb_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "game_detection_mapping_source_idx": {
+          "name": "game_detection_mapping_source_idx",
+          "columns": [
+            {
+              "expression": "source",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "source_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_detection_mapping_executable_idx": {
+          "name": "game_detection_mapping_executable_idx",
+          "columns": [
+            {
+              "expression": "executable",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_detection_mapping_name_idx": {
+          "name": "game_detection_mapping_name_idx",
+          "columns": [
+            {
+              "expression": "normalized_name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "game_detection_mapping_igdb_idx": {
+          "name": "game_detection_mapping_igdb_idx",
+          "columns": [
+            {
+              "expression": "igdb_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "game_detection_mapping_igdb_id_game_igdb_id_fk": {
+          "name": "game_detection_mapping_igdb_id_game_igdb_id_fk",
+          "tableFrom": "game_detection_mapping",
+          "tableTo": "game",
+          "columnsFrom": ["igdb_id"],
+          "columnsTo": ["igdb_id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.game_follow": {
       "name": "game_follow",
       "schema": "",
@@ -1012,8 +1166,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "steamgriddb_id": {
-          "name": "steamgriddb_id",
+        "igdb_id": {
+          "name": "igdb_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -1037,7 +1191,7 @@
               "nulls": "last"
             },
             {
-              "expression": "steamgriddb_id",
+              "expression": "igdb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1048,11 +1202,11 @@
           "method": "btree",
           "with": {}
         },
-        "game_follow_steamgriddb_idx": {
-          "name": "game_follow_steamgriddb_idx",
+        "game_follow_igdb_idx": {
+          "name": "game_follow_igdb_idx",
           "columns": [
             {
-              "expression": "steamgriddb_id",
+              "expression": "igdb_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1074,12 +1228,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "game_follow_steamgriddb_id_game_steamgriddb_id_fk": {
-          "name": "game_follow_steamgriddb_id_game_steamgriddb_id_fk",
+        "game_follow_igdb_id_game_igdb_id_fk": {
+          "name": "game_follow_igdb_id_game_igdb_id_fk",
           "tableFrom": "game_follow",
           "tableTo": "game",
-          "columnsFrom": ["steamgriddb_id"],
-          "columnsTo": ["steamgriddb_id"],
+          "columnsFrom": ["igdb_id"],
+          "columnsTo": ["igdb_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }

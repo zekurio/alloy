@@ -6,6 +6,8 @@ import {
   validateIntegerInRange,
   validateIsoDateString,
   validateNonNegativeInteger,
+  validateNullablePositiveInteger,
+  validateNullableRequiredString,
   validateNullableString,
   validateRequiredString,
   validateStringRecord,
@@ -26,13 +28,13 @@ function validateQueueClip(value: unknown): QueueClip {
   const row = objectRecord(value, "queue clip")
   validateRequiredString(row.id, "Invalid queue response: id is required")
   validateRequiredString(row.title, "Invalid queue response: title is required")
-  validateRequiredString(
+  validateNullableRequiredString(
     row.gameSlug,
-    "Invalid queue response: gameSlug is required",
+    "Invalid queue response: gameSlug must be a non-empty string or null",
   )
-  validateNonNegativeInteger(
-    row.steamgriddbId,
-    "Invalid queue response: steamgriddbId must be a non-negative integer",
+  validateNullablePositiveInteger(
+    row.igdbId,
+    "Invalid queue response: igdbId must be a positive integer or null",
   )
   validateEnumString(
     row.status,

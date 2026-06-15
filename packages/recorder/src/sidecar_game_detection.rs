@@ -2,6 +2,8 @@ const PLAYS_GAME_DETECTIONS_JSON: &str =
     include_str!("detections/gameDetections.json");
 const PLAYS_NON_GAME_DETECTIONS_JSON: &str =
     include_str!("detections/nonGameDetections.json");
+const DISCORD_DETECTABLE_JSON: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/discordDetectable.generated.json"));
 
 const MANUAL_ALLOW_SCORE: i32 = 120;
 const CURATED_GAME_SCORE: i32 = 90;
@@ -28,10 +30,16 @@ const GAME_CLASS_DENY_TERMS: &[&str] = &[
 #[derive(Clone, Debug)]
 struct CandidateGameMatch {
     id: Option<String>,
+    source: RecordingGameGuessSource,
+    source_id: Option<String>,
     name: String,
+    aliases: Vec<String>,
+    icon_url: Option<String>,
     preserve_name: bool,
     force_display_capture: bool,
     detection_score: i32,
+    confidence: u8,
+    match_kind: RecordingGameGuessMatchKind,
 }
 
 #[derive(Clone, Copy)]
@@ -46,6 +54,8 @@ struct ProcessDisplayName<'a> {
 
 #[derive(Default)]
 struct AutoDetectionCatalog {
+    discord_games_by_id: HashMap<String, DiscordDetectionGame>,
+    discord_rules_by_executable: HashMap<String, Vec<DiscordExecutableRule>>,
     game_rules_by_executable: HashMap<String, Vec<GameDetectionRule>>,
     fallback_game_rules: Vec<GameDetectionRule>,
     non_game_executables: HashSet<String>,
@@ -57,6 +67,32 @@ struct GameDetectionRule {
     title: String,
     pattern: String,
     force_display_capture: bool,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiscordDetectionBundle {
+    games: Vec<DiscordDetectionGame>,
+    executables: HashMap<String, Vec<DiscordExecutableRule>>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiscordDetectionGame {
+    id: String,
+    name: String,
+    #[serde(default)]
+    aliases: Vec<String>,
+    icon_hash: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct DiscordExecutableRule {
+    game_id: String,
+    #[serde(default)]
+    is_launcher: bool,
+    score: i32,
 }
 
 #[derive(Deserialize)]
@@ -104,14 +140,27 @@ fn candidate_game_detection_match(
     {
         return Some(CandidateGameMatch {
             id: Some(game.id.clone()),
+            source: RecordingGameGuessSource::Manual,
+            source_id: Some(game.id.clone()),
             name: manual_game_name(game, path, title, executable),
+            aliases: Vec::new(),
+            icon_url: game.icon_url.clone(),
             preserve_name: true,
             force_display_capture: false,
             detection_score: MANUAL_ALLOW_SCORE + match_score,
+            confidence: 100,
+            match_kind: RecordingGameGuessMatchKind::Manual,
         });
     }
 
     if is_builtin_non_game(executable) || has_blocked_identity(title, executable, class_name) {
+        return None;
+    }
+
+    if let Some(match_) = discord_game_match(executable) {
+        if known_game_window_is_plausible(capture_dimensions, class_name) {
+            return Some(match_);
+        }
         return None;
     }
 
@@ -126,10 +175,16 @@ fn candidate_game_detection_match(
         if known_game_window_is_plausible(capture_dimensions, class_name) {
             return Some(CandidateGameMatch {
                 id: Some(format!("steam-path:{}", detection_slug(&name))),
+                source: RecordingGameGuessSource::SteamPath,
+                source_id: None,
                 name,
+                aliases: Vec::new(),
+                icon_url: None,
                 preserve_name: false,
                 force_display_capture: false,
                 detection_score: STORE_PATH_SCORE,
+                confidence: 74,
+                match_kind: RecordingGameGuessMatchKind::Path,
             });
         }
     }
@@ -138,10 +193,16 @@ fn candidate_game_detection_match(
         if known_game_window_is_plausible(capture_dimensions, class_name) {
             return Some(CandidateGameMatch {
                 id: Some(format!("windows-store:{}", detection_slug(&name))),
+                source: RecordingGameGuessSource::WindowsStore,
+                source_id: None,
                 name,
+                aliases: Vec::new(),
+                icon_url: None,
                 preserve_name: false,
                 force_display_capture: false,
                 detection_score: STORE_PATH_SCORE,
+                confidence: 74,
+                match_kind: RecordingGameGuessMatchKind::Path,
             });
         }
     }
@@ -209,13 +270,54 @@ fn curated_game_match(path: Option<&str>, executable: Option<&str>) -> Option<Ca
     None
 }
 
+fn discord_game_match(executable: Option<&str>) -> Option<CandidateGameMatch> {
+    let executable_key = executable.map(|value| value.to_ascii_lowercase())?;
+    let catalog = auto_detection_catalog();
+    let rule = catalog
+        .discord_rules_by_executable
+        .get(&executable_key)?
+        .iter()
+        .max_by_key(|rule| rule.score)?;
+    let game = catalog.discord_games_by_id.get(&rule.game_id)?;
+
+    Some(CandidateGameMatch {
+        id: Some(game.id.clone()),
+        source: RecordingGameGuessSource::DiscordDetectable,
+        source_id: Some(game.id.clone()),
+        name: game.name.clone(),
+        aliases: game.aliases.clone(),
+        icon_url: discord_icon_url(game),
+        preserve_name: false,
+        force_display_capture: false,
+        detection_score: rule.score,
+        confidence: if rule.is_launcher { 82 } else { 96 },
+        match_kind: RecordingGameGuessMatchKind::Executable,
+    })
+}
+
+fn discord_icon_url(game: &DiscordDetectionGame) -> Option<String> {
+    let hash = game.icon_hash.as_deref()?.trim();
+    (!hash.is_empty()).then(|| {
+        format!(
+            "https://cdn.discordapp.com/app-icons/{}/{}.png",
+            game.id, hash
+        )
+    })
+}
+
 fn candidate_match_from_rule(rule: &GameDetectionRule) -> CandidateGameMatch {
     CandidateGameMatch {
         id: Some(rule.id.clone()),
+        source: RecordingGameGuessSource::Plays,
+        source_id: Some(rule.id.clone()),
         name: rule.title.clone(),
+        aliases: Vec::new(),
+        icon_url: None,
         preserve_name: false,
         force_display_capture: rule.force_display_capture,
         detection_score: CURATED_GAME_SCORE,
+        confidence: 86,
+        match_kind: RecordingGameGuessMatchKind::Executable,
     }
 }
 
@@ -250,10 +352,16 @@ fn heuristic_game_match(
 
     Some(CandidateGameMatch {
         id: Some(format!("heuristic:{}", detection_slug(&name))),
+        source: RecordingGameGuessSource::Heuristic,
+        source_id: None,
         name,
+        aliases: Vec::new(),
+        icon_url: None,
         preserve_name: false,
         force_display_capture: false,
         detection_score: HEURISTIC_GAME_SCORE,
+        confidence: 50,
+        match_kind: RecordingGameGuessMatchKind::Heuristic,
     })
 }
 
@@ -496,9 +604,39 @@ fn auto_detection_catalog() -> &'static AutoDetectionCatalog {
 
 fn load_auto_detection_catalog() -> AutoDetectionCatalog {
     let mut catalog = AutoDetectionCatalog::default();
+    load_discord_detection_rules(&mut catalog);
     load_game_detection_rules(&mut catalog);
     load_non_game_detection_rules(&mut catalog);
     catalog
+}
+
+fn load_discord_detection_rules(catalog: &mut AutoDetectionCatalog) {
+    let Ok(bundle) = serde_json::from_str::<DiscordDetectionBundle>(DISCORD_DETECTABLE_JSON)
+    else {
+        return;
+    };
+
+    catalog.discord_games_by_id = bundle
+        .games
+        .into_iter()
+        .map(|game| (game.id.clone(), game))
+        .collect();
+
+    for (executable, rules) in bundle.executables {
+        let key = executable.trim().to_ascii_lowercase();
+        if key.is_empty() {
+            continue;
+        }
+        let rules = rules
+            .into_iter()
+            .filter(|rule| catalog.discord_games_by_id.contains_key(&rule.game_id))
+            .collect::<Vec<_>>();
+        catalog
+            .discord_rules_by_executable
+            .entry(key)
+            .or_default()
+            .extend(rules);
+    }
 }
 
 fn load_game_detection_rules(catalog: &mut AutoDetectionCatalog) {

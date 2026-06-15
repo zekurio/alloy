@@ -15,8 +15,8 @@ import {
   type GameListRow,
   type GameNameLookupResponse,
   type GameRow,
-  type SteamGridDBSearchResult,
-  type SteamGridDBStatus,
+  type IGDBSearchResult,
+  type IGDBStatus,
 } from "@alloy/contracts"
 
 import { validateGameRowFields } from "./shared"
@@ -24,8 +24,8 @@ import { validateGameRowFields } from "./shared"
 const GAME_NAME_LOOKUP_REASON = new Set([
   "indexed-exact-name",
   "indexed-normalized-name",
-  "steamgriddb-exact-name",
-  "steamgriddb-normalized-name",
+  "igdb-exact-name",
+  "igdb-normalized-name",
   "no-match",
   "ambiguous",
 ])
@@ -102,18 +102,16 @@ export function validateGameNameLookupResponse(
   return value as GameNameLookupResponse
 }
 
-export function validateSteamGridDBStatus(value: unknown): SteamGridDBStatus {
-  const status = objectRecord(value, "SteamGridDB status")
+export function validateIGDBStatus(value: unknown): IGDBStatus {
+  const status = objectRecord(value, "IGDB status")
   validateBoolean(
-    status.steamgriddbConfigured,
-    "Invalid SteamGridDB status response: steamgriddbConfigured must be boolean",
+    status.igdbConfigured,
+    "Invalid IGDB status response: igdbConfigured must be boolean",
   )
-  return value as SteamGridDBStatus
+  return value as IGDBStatus
 }
 
-function validateSteamGridDBSearchResult(
-  value: unknown,
-): SteamGridDBSearchResult {
+function validateIGDBSearchResult(value: unknown): IGDBSearchResult {
   const row = objectRecord(value, "game search")
   validatePositiveInteger(
     row.id,
@@ -153,14 +151,12 @@ function validateSteamGridDBSearchResult(
       "Invalid game search response: logoUrl must be a URL or null",
     )
   }
-  return value as SteamGridDBSearchResult
+  return value as IGDBSearchResult
 }
 
-export function validateSteamGridDBSearchResults(
-  value: unknown,
-): SteamGridDBSearchResult[] {
+export function validateIGDBSearchResults(value: unknown): IGDBSearchResult[] {
   return validateArray(value, "Invalid game search response").map(
-    validateSteamGridDBSearchResult,
+    validateIGDBSearchResult,
   )
 }
 

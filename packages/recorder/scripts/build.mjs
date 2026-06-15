@@ -43,6 +43,19 @@ if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
 
 const obsRuntimeSource = resolveObsRuntimeSource()
 
+const detections = spawnSync(
+  process.execPath,
+  [join(recorderDir, "scripts", "generate-discord-detections.mjs")],
+  { stdio: "inherit" },
+)
+if (detections.error) {
+  console.error(
+    `Failed to generate Discord detections: ${detections.error.message}`,
+  )
+  process.exit(1)
+}
+if (detections.status !== 0) process.exit(detections.status ?? 1)
+
 const cargoArgs = ["build", "--manifest-path", manifestPath, "--release"]
 if (targetTriple) cargoArgs.push("--target", targetTriple)
 

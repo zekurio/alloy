@@ -13,7 +13,7 @@ import {
   clipTag,
   clipView,
 } from "./clip"
-import { game, gameFollow } from "./game"
+import { game, gameDetectionMapping, gameFollow } from "./game"
 import { instanceSetting } from "./instance"
 import { uploadTicket } from "./recording"
 import { block, follow, notification } from "./social"
@@ -34,6 +34,7 @@ export const domainSchema = {
   follow,
   game,
   gameFollow,
+  gameDetectionMapping,
   instanceSetting,
   block,
   notification,

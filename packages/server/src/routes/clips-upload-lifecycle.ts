@@ -5,15 +5,13 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
-import { getSteamGridGameRef } from "@alloy/server/games/ref"
-import { isConfigured as isSteamGridDBConfigured } from "@alloy/server/games/steamgriddb"
+import { getIGDBGameRef } from "@alloy/server/games/ref"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import {
   badRequest,
   conflict,
   errorResult,
   gone,
-  serviceUnavailable,
   success,
 } from "@alloy/server/runtime/http-response"
 import {
@@ -45,7 +43,7 @@ import {
   type UploadQuotaResult,
   uploadWouldExceedQuota,
 } from "./clips-upload-helpers"
-import { sgdbErrorResponse } from "./games-helpers"
+import { igdbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
 
 const logger = createLogger("clips")
@@ -109,16 +107,15 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const thumbUploadKey = stagedThumbKey(clipId)
       const privacy = body.privacy ?? "public"
 
-      if (!isSteamGridDBConfigured()) {
-        return serviceUnavailable(c, "SteamGridDB is not configured")
+      let gameRef: Awaited<ReturnType<typeof getIGDBGameRef>> = null
+      if (body.igdbId !== undefined && body.igdbId !== null) {
+        try {
+          gameRef = await getIGDBGameRef(body.igdbId)
+        } catch (err) {
+          return errorResult(c, igdbErrorResponse(err))
+        }
+        if (!gameRef) return badRequest(c, "Unknown game")
       }
-      let gameRef: Awaited<ReturnType<typeof getSteamGridGameRef>>
-      try {
-        gameRef = await getSteamGridGameRef(body.steamgriddbId)
-      } catch (err) {
-        return errorResult(c, sgdbErrorResponse(err))
-      }
-      if (!gameRef) return badRequest(c, "Unknown game")
 
       const mentionedIds = body.mentionedUserIds
         ? await resolveMentionIds(body.mentionedUserIds, viewerId)
@@ -142,8 +139,8 @@ export const clipsUploadLifecycleRoutes = new Hono()
             authorId: viewerId,
             title: body.title,
             description: body.description ?? null,
-            game: gameRef.name,
-            steamgriddbId: body.steamgriddbId,
+            game: gameRef?.name ?? null,
+            igdbId: gameRef?.igdbId ?? null,
             privacy,
             sourceContentType: body.contentType,
             sourceSizeBytes: body.sizeBytes,

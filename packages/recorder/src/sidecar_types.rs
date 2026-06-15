@@ -142,6 +142,42 @@ struct RecordingGameProcess {
     icon_url: Option<String>,
 }
 
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum RecordingGameGuessSource {
+    DiscordDetectable,
+    Manual,
+    Plays,
+    SteamPath,
+    WindowsStore,
+    Heuristic,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+enum RecordingGameGuessMatchKind {
+    Executable,
+    Path,
+    Manual,
+    Heuristic,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct RecordingGameGuess {
+    source: RecordingGameGuessSource,
+    source_id: Option<String>,
+    name: String,
+    aliases: Vec<String>,
+    executable: Option<String>,
+    path: Option<String>,
+    window_title: Option<String>,
+    window_class: Option<String>,
+    icon_url: Option<String>,
+    confidence: u8,
+    match_kind: RecordingGameGuessMatchKind,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 struct RecordingDisplay {
@@ -240,6 +276,7 @@ struct RecordingGame {
     window_title: Option<String>,
     window_class: Option<String>,
     started_at: Option<String>,
+    guess: Option<RecordingGameGuess>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]

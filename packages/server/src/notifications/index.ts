@@ -61,14 +61,12 @@ function serialize(row: {
   clipThumbBlurHash: string | null
   clipUpdatedAt: Date | string | null
   clipGame: string | null
-  steamgriddbId: number | null
+  igdbId: number | null
   commentId: string | null
   commentBody: string | null
 }): NotificationRow {
   const gameName =
-    row.steamgriddbId === null
-      ? null
-      : row.clipGame?.trim() || `Game ${row.steamgriddbId}`
+    row.igdbId === null ? null : row.clipGame?.trim() || `Game ${row.igdbId}`
   return {
     id: row.id,
     type: row.type,
@@ -79,11 +77,14 @@ function serialize(row: {
       image: row.actorImage,
     }),
     clip:
-      row.clipId && row.clipTitle && gameName && row.clipUpdatedAt
+      row.clipId && row.clipTitle && row.clipUpdatedAt
         ? {
             id: row.clipId,
             title: row.clipTitle,
-            gameSlug: gameSlugWithId(gameName, row.steamgriddbId ?? 0),
+            gameSlug:
+              row.igdbId === null
+                ? null
+                : gameSlugWithId(gameName ?? `Game ${row.igdbId}`, row.igdbId),
             hasThumb: row.clipThumbKey !== null,
             thumbBlurHash: row.clipThumbBlurHash,
             updatedAt: isoDate(row.clipUpdatedAt),
@@ -114,7 +115,7 @@ function selectNotificationFields() {
     clipThumbBlurHash: clip.thumbBlurHash,
     clipUpdatedAt: clip.updatedAt,
     clipGame: clip.game,
-    steamgriddbId: clip.steamgriddbId,
+    igdbId: clip.igdbId,
     commentId: clipComment.id,
     commentBody: clipComment.body,
   }

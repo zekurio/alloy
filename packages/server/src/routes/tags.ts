@@ -31,7 +31,7 @@ const TAG_SUGGESTION_LIMIT = 8
 const TagClipsQuery = z.object({
   window: z.enum(["today", "week", "month", "year", "all"]).optional(),
   sort: z.enum(["top", "recent"]).default("top"),
-  steamgriddbId: z.coerce.number().int().positive().optional(),
+  igdbId: z.coerce.number().int().positive().optional(),
   limit: limitQueryParam(100, 50),
   cursor: z.string().optional(),
 })
@@ -72,8 +72,7 @@ export const tagsRoute = new Hono()
     async (c) => {
       const tag = sanitizeTag(c.req.valid("param").tag)
       if (!tag) return notFound(c)
-      const { window, sort, steamgriddbId, cursor, limit } =
-        c.req.valid("query")
+      const { window, sort, igdbId, cursor, limit } = c.req.valid("query")
 
       const parsedCursor = parseClipListCursor(cursor, sort)
       if (cursor && !parsedCursor) return invalidCursor(c)
@@ -84,8 +83,8 @@ export const tagsRoute = new Hono()
         isNull(user.disabledAt),
         clipTagFilter(tag),
       ]
-      if (steamgriddbId) {
-        conditions.push(eq(clip.steamgriddbId, steamgriddbId))
+      if (igdbId) {
+        conditions.push(eq(clip.igdbId, igdbId))
       }
       if (window && window !== "all") {
         conditions.push(
@@ -99,7 +98,7 @@ export const tagsRoute = new Hono()
         .select(clipSelectShape)
         .from(clip)
         .innerJoin(user, eq(clip.authorId, user.id))
-        .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+        .leftJoin(game, eq(clip.igdbId, game.igdbId))
         .where(and(...conditions))
         .orderBy(...clipListOrderBy(sort))
         .limit(limit + 1)
@@ -117,7 +116,7 @@ export const tagsRoute = new Hono()
         clipCount: sql<number>`count(${clip.id})::int`,
       })
       .from(game)
-      .innerJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
+      .innerJoin(clip, eq(clip.igdbId, game.igdbId))
       .innerJoin(user, eq(clip.authorId, user.id))
       .where(
         and(
@@ -127,7 +126,7 @@ export const tagsRoute = new Hono()
           clipTagFilter(tag),
         ),
       )
-      .groupBy(game.steamgriddbId)
+      .groupBy(game.igdbId)
       .orderBy(sql`count(${clip.id}) desc`, game.name)
 
     return c.json({

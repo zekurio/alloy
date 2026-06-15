@@ -136,13 +136,16 @@ async function clipHead(pathname: string): Promise<string> {
     if (!row) return ""
 
     const origin = env.PUBLIC_SERVER_URL
-    const gameRef = clipGameRefFromSnapshot({
-      steamgriddbId: row.steamgriddbId,
-      name: row.game,
-    })
+    const gameName =
+      row.igdbId === null
+        ? row.game?.trim() || "Uncategorised"
+        : clipGameRefFromSnapshot({
+            igdbId: row.igdbId,
+            name: row.game,
+          }).name
     const description =
       row.description?.trim() ||
-      `${row.authorUsername} shared a ${gameRef.name} clip on alloy.`
+      `${row.authorUsername} shared a ${gameName} clip on alloy.`
     const poster = row.thumbKey
       ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
       : null

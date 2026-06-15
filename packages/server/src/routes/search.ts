@@ -4,12 +4,12 @@ import { clip, game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
+import { searchGames } from "@alloy/server/games/igdb"
 import {
   gameSelectShape,
-  getSteamGridGameRefOrSnapshot,
+  getIGDBGameRefOrSnapshot,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
-import { searchGames } from "@alloy/server/games/steamgriddb"
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -42,46 +42,53 @@ function visibleGameClipConditions() {
   ]
 }
 
-async function countVisibleClipsBySteamGridId(
-  steamgriddbIds: number[],
+async function countVisibleClipsByIGDBId(
+  igdbIds: number[],
 ): Promise<
-  Map<number, { steamgriddbId: number; name: string | null; clipCount: number }>
+  Map<number, { igdbId: number; name: string | null; clipCount: number }>
 > {
-  if (steamgriddbIds.length === 0) return new Map()
+  if (igdbIds.length === 0) return new Map()
   const rows = await db
     .select({
-      steamgriddbId: clip.steamgriddbId,
+      igdbId: clip.igdbId,
       name: sql<string | null>`min(${clip.game})`,
       clipCount: sql<number>`count(${clip.id})::int`,
     })
     .from(clip)
     .innerJoin(user, eq(clip.authorId, user.id))
-    .where(
-      and(
-        ...visibleGameClipConditions(),
-        inArray(clip.steamgriddbId, steamgriddbIds),
-      ),
-    )
-    .groupBy(clip.steamgriddbId)
+    .where(and(...visibleGameClipConditions(), inArray(clip.igdbId, igdbIds)))
+    .groupBy(clip.igdbId)
 
-  return new Map(rows.map((row) => [row.steamgriddbId, row]))
+  const counts = new Map<
+    number,
+    { igdbId: number; name: string | null; clipCount: number }
+  >()
+  for (const row of rows) {
+    if (row.igdbId === null) continue
+    counts.set(row.igdbId, {
+      igdbId: row.igdbId,
+      name: row.name,
+      clipCount: row.clipCount,
+    })
+  }
+  return counts
 }
 
-async function searchSteamGridGames(
+async function searchIGDBGames(
   q: string,
   limit: number,
 ): Promise<GameListRow[]> {
   try {
     const results = await searchGames(q)
     const ids = results.map((row) => row.id)
-    const counts = await countVisibleClipsBySteamGridId(ids)
+    const counts = await countVisibleClipsByIGDBId(ids)
     const rows: GameListRow[] = []
 
     for (const result of results) {
       const countRow = counts.get(result.id)
       if (!countRow) continue
-      const ref = await getSteamGridGameRefOrSnapshot({
-        steamgriddbId: result.id,
+      const ref = await getIGDBGameRefOrSnapshot({
+        igdbId: result.id,
         name: countRow.name ?? result.name,
       })
       rows.push(serialiseGameListRow({ ...ref, clipCount: countRow.clipCount }))
@@ -90,7 +97,7 @@ async function searchSteamGridGames(
 
     return rows
   } catch (err) {
-    logger.warn("SteamGridDB game search failed:", err)
+    logger.warn("IGDB game search failed:", err)
     return []
   }
 }
@@ -105,7 +112,7 @@ async function searchLocalGameSnapshots(
       clipCount: sql<number>`count(${clip.id})::int`,
     })
     .from(game)
-    .innerJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
+    .innerJoin(clip, eq(clip.igdbId, game.igdbId))
     .innerJoin(user, eq(clip.authorId, user.id))
     .where(
       and(
@@ -117,7 +124,7 @@ async function searchLocalGameSnapshots(
         ),
       ),
     )
-    .groupBy(game.steamgriddbId)
+    .groupBy(game.igdbId)
     .orderBy(sql`count(${clip.id}) desc`, game.name)
     .limit(limit)
 
@@ -137,8 +144,8 @@ function mergeGameResults(
   const seen = new Set<number>()
   const merged: GameListRow[] = []
   for (const row of [...primary, ...fallback]) {
-    if (seen.has(row.steamgriddbId)) continue
-    seen.add(row.steamgriddbId)
+    if (seen.has(row.igdbId)) continue
+    seen.add(row.igdbId)
     merged.push(row)
     if (merged.length >= limit) break
   }
@@ -162,12 +169,12 @@ export const searchRoute = new Hono().get(
       ELSE 4
     END`
 
-    const [clips, steamGridGames, localGames, users] = await Promise.all([
+    const [clips, igdbGames, localGames, users] = await Promise.all([
       db
         .select(clipSelectShape)
         .from(clip)
         .innerJoin(user, eq(clip.authorId, user.id))
-        .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+        .leftJoin(game, eq(clip.igdbId, game.igdbId))
         .where(
           and(
             eq(clip.status, "ready"),
@@ -186,7 +193,7 @@ export const searchRoute = new Hono().get(
         .orderBy(matchRank, desc(clip.createdAt))
         .limit(limit),
 
-      searchSteamGridGames(q, limit),
+      searchIGDBGames(q, limit),
       searchLocalGameSnapshots(pattern, limit),
 
       db
@@ -220,7 +227,7 @@ export const searchRoute = new Hono().get(
 
     return c.json({
       clips: clips.map(toPublicClipRow),
-      games: mergeGameResults(steamGridGames, localGames, limit),
+      games: mergeGameResults(igdbGames, localGames, limit),
       users: users.map(serialiseUserListRow),
     })
   },

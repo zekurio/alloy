@@ -6,8 +6,8 @@ import type {
   GameListRow,
   GameNameLookupResponse,
   GameRow,
-  SteamGridDBSearchResult,
-  SteamGridDBStatus,
+  IGDBSearchResult,
+  IGDBStatus,
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
@@ -19,8 +19,8 @@ import {
   validateGameListRows,
   validateGameNameLookupResponse,
   validateGameRow,
-  validateSteamGridDBSearchResults,
-  validateSteamGridDBStatus,
+  validateIGDBSearchResults,
+  validateIGDBStatus,
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { readPostDeleteJson } from "./mutations"
@@ -33,37 +33,35 @@ export type {
   GameNameLookupResponse,
   GameNameLookupResult,
   GameRow,
-  SteamGridDBSearchResult,
-  SteamGridDBStatus,
+  IGDBSearchResult,
+  IGDBStatus,
 } from "@alloy/contracts"
 
 export function gameGridUrl(slug: string, origin?: string): string {
   return resolvePublicUrl(`/api/games/${encodedPathSegment(slug)}/grid`, origin)
 }
 
-async function fetchSteamGridDBStatus(
-  context: ApiContext,
-): Promise<SteamGridDBStatus> {
+async function fetchIGDBStatus(context: ApiContext): Promise<IGDBStatus> {
   const res = await context.rpc.api.games.status.$get()
-  return readJsonOrThrow(res, validateSteamGridDBStatus)
+  return readJsonOrThrow(res, validateIGDBStatus)
 }
 
 async function searchGames(
   context: ApiContext,
   query: string,
-): Promise<SteamGridDBSearchResult[]> {
+): Promise<IGDBSearchResult[]> {
   const res = await context.rpc.api.games.search.$get({
     query: { q: query },
   })
-  return readJsonOrThrow(res, validateSteamGridDBSearchResults)
+  return readJsonOrThrow(res, validateIGDBSearchResults)
 }
 
 async function resolveGame(
   context: ApiContext,
-  steamgriddbId: number,
+  igdbId: number,
 ): Promise<GameRow> {
   const res = await context.rpc.api.games.resolve.$post({
-    json: { steamgriddbId },
+    json: { igdbId },
   })
   return readJsonOrThrow(res, validateGameRow)
 }
@@ -164,9 +162,9 @@ async function fetchGameTopClips(
 
 export function createGamesApi(context: ApiContext) {
   return {
-    fetchSteamGridDBStatus: () => fetchSteamGridDBStatus(context),
+    fetchIGDBStatus: () => fetchIGDBStatus(context),
     search: (query: string) => searchGames(context, query),
-    resolve: (steamgriddbId: number) => resolveGame(context, steamgriddbId),
+    resolve: (igdbId: number) => resolveGame(context, igdbId),
     lookupByNames: (names: string[]) => lookupGamesByName(context, names),
     fetchAll: (params: { limit?: number; offset?: number } = {}) =>
       fetchAllGames(context, params),

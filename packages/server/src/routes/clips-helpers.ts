@@ -82,7 +82,7 @@ type ClipListPageRow = ClipListCursorRow & {
   height: number | null
   thumbKey: string | null
   thumbBlurHash: string | null
-  steamgriddbId: number
+  igdbId: number | null
   game: string | null
 }
 
@@ -220,7 +220,7 @@ export const InitiateBody = z.object({
   sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
   title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
   description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-  steamgriddbId: z.number().int().positive(),
+  igdbId: z.number().int().positive().nullable().optional(),
   privacy: z.enum(CLIP_PRIVACY).default("public"),
   mentionedUserIds: z.array(z.uuid()).optional(),
   tags: TagsInput,
@@ -244,7 +244,7 @@ export const TrimBody = z
 export const UpdateBody = z.object({
   title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH).optional(),
   description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-  steamgriddbId: z.number().int().positive().optional(),
+  igdbId: z.number().int().positive().nullable().optional(),
   privacy: z.enum(CLIP_PRIVACY).optional(),
   mentionedUserIds: z.array(z.uuid()).optional(),
   tags: TagsInput,

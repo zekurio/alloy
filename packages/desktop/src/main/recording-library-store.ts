@@ -47,6 +47,7 @@ export function rememberRecordingLibraryCapture(
     source: capture.source,
     gameName: capture.game?.name ?? null,
     gameIconUrl: capture.game?.iconUrl ?? null,
+    gameGuess: capture.game?.guess ?? null,
     sizeBytes: capture.sizeBytes,
     durationMs: capture.durationMs,
     bookmarksMs: capture.bookmarksMs,
@@ -90,6 +91,7 @@ export function updateRecordingLibraryCaptureMeta(
     source: item.source,
     gameName: item.gameName,
     gameIconUrl: null,
+    gameGuess: item.gameGuess,
     sizeBytes: item.sizeBytes,
     durationMs: item.durationMs,
     bookmarksMs: item.bookmarksMs,
@@ -102,6 +104,7 @@ export function updateRecordingLibraryCaptureMeta(
   if (patch.title !== undefined) entry.title = patch.title
   if (patch.gameName !== undefined) entry.gameName = patch.gameName
   if (patch.gameIconUrl !== undefined) entry.gameIconUrl = patch.gameIconUrl
+  if (patch.gameGuess !== undefined) entry.gameGuess = patch.gameGuess
   if (patch.description !== undefined) entry.description = patch.description
   if (patch.tags !== undefined) entry.tags = patch.tags
   if (patch.mentions !== undefined) entry.mentions = patch.mentions

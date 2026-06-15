@@ -345,10 +345,10 @@ export function notificationHref(row: NotificationRow): string | null {
   if (row.type === "new_follower" && row.actor) {
     return userProfileHref(row.actor.username)
   }
-  if (row.type === "new_video" && row.clip) {
+  if (row.type === "new_video" && row.clip?.gameSlug) {
     return clipHref(row.clip.gameSlug, row.clip.id)
   }
-  if (!row.clip) return null
+  if (!row.clip?.gameSlug) return null
   return clipHref(row.clip.gameSlug, row.clip.id, {
     commentId: row.comment?.id,
   })

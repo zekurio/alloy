@@ -123,16 +123,16 @@ export function enrichLibraryItem(
     item.gameName ??
     game?.name ??
     (item.source === "display" ? "" : item.groupLabel)
-  const sgdbIconUrl = desktopCachedAssetUrl(
+  const igdbIconUrl = desktopCachedAssetUrl(
     game?.iconUrl ?? game?.logoUrl ?? null,
   )
   return {
     ...item,
     displayGame: game,
     // When a local game label resolves cleanly, use the server's canonical
-    // SGDB art so local and uploaded library rows stay visually consistent.
+    // igdb art so local and uploaded library rows stay visually consistent.
     // The capture-provided icon remains the fallback for unresolved games.
-    displayGameIconUrl: sgdbIconUrl ?? item.gameIconUrl,
+    displayGameIconUrl: igdbIconUrl ?? item.gameIconUrl,
     displayGameName,
     gameSlug: game?.slug ?? null,
   }
@@ -263,12 +263,12 @@ export function enrichGroupIcon(
   if (group.kind !== "game") return group
   const match = gamesByName.get(gameNameKey(group.label))
   const game = match?.confidence === 1 ? match.game : null
-  const sgdbIconUrl = desktopCachedAssetUrl(
+  const igdbIconUrl = desktopCachedAssetUrl(
     game?.iconUrl ?? game?.logoUrl ?? null,
   )
   return {
     ...group,
-    iconUrl: sgdbIconUrl ?? group.iconUrl,
+    iconUrl: igdbIconUrl ?? group.iconUrl,
   }
 }
 

@@ -332,7 +332,6 @@ function EditorBody({
     !publishing &&
     !deleting &&
     normalizeClipTitle(title).length > 0 &&
-    Boolean(game) &&
     rangeMs >= MIN_TRIM_MS
 
   useLibraryEditorShortcuts({
@@ -348,7 +347,7 @@ function EditorBody({
     setPublishAttempted(true)
     const pickedGame = game
     const normalizedTitle = normalizeClipTitle(title)
-    if (!pickedGame || normalizedTitle.length === 0) return
+    if (normalizedTitle.length === 0) return
 
     if (description.trim().length > CLIP_DESCRIPTION_MAX) {
       toast.error(
@@ -371,7 +370,7 @@ function EditorBody({
         mentions,
         publishClip,
       })
-      if (privacy === "unlisted" && clipId) {
+      if (privacy === "unlisted" && clipId && pickedGame) {
         const copied = await copyTextToClipboard(
           absoluteClipHref(pickedGame.slug, clipId, publicOrigin()),
           { action: "copy published clip link" },
@@ -381,6 +380,8 @@ function EditorBody({
         } else {
           toast.error("Couldn't copy the clip link")
         }
+      } else if (privacy === "unlisted" && clipId) {
+        toast.success("Clip uploaded")
       }
       void navigate({ to: "/library" })
     } catch (cause) {
@@ -485,7 +486,7 @@ function EditorBody({
                 titleInvalid={
                   publishAttempted && normalizeClipTitle(title).length === 0
                 }
-                gameInvalid={publishAttempted && !game}
+                gameInvalid={false}
                 autoFocusGame={promptGame}
               />
               <LocalFileLocation item={item} />

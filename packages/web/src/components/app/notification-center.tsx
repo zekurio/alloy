@@ -385,7 +385,7 @@ function NotificationRow({
             <NotificationThumb
               src={thumbSrc}
               blurHash={item.clip.thumbBlurHash}
-              seed={item.clip.gameSlug}
+              seed={item.clip.gameSlug ?? item.clip.id}
             />
           </Link>
         ) : (
@@ -393,7 +393,7 @@ function NotificationRow({
             <NotificationThumb
               src={thumbSrc}
               blurHash={item.clip.thumbBlurHash}
-              seed={item.clip.gameSlug}
+              seed={item.clip.gameSlug ?? item.clip.id}
             />
           </div>
         )
