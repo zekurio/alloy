@@ -174,6 +174,11 @@ function ClipMeta({
   }, [clipId, deleteMutation, onDeleted])
 
   const handleShare = React.useCallback(async () => {
+    if (privacy === "private") {
+      toast.error("Clip link is disabled")
+      return
+    }
+
     const url = currentUrlWithoutSearchOrHash()
     if (url === null) {
       toast.error("Couldn't share clip")
@@ -189,7 +194,7 @@ function ClipMeta({
     } else if (result === "failed") {
       toast.error("Couldn't share clip")
     }
-  }, [title])
+  }, [privacy, title])
 
   function handleFollow() {
     if (followPending || !profileViewer) return
@@ -216,7 +221,9 @@ function ClipMeta({
           <h1 className="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]">
             {title}
           </h1>
-          {privacy === "unlisted" ? <ClipUnlistedBadge /> : null}
+          {privacy !== "public" ? (
+            <ClipVisibilityBadge privacy={privacy} />
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-1 self-start">
@@ -236,7 +243,10 @@ function ClipMeta({
             variant="ghost"
             size="icon-sm"
             onClick={handleShare}
-            aria-label="Share clip"
+            aria-label={
+              privacy === "private" ? "Clip link is disabled" : "Share clip"
+            }
+            title={privacy === "private" ? "Clip link is disabled" : undefined}
           >
             <Share2Icon />
           </Button>
@@ -489,8 +499,14 @@ function ClipGameBadge({
   )
 }
 
-function ClipUnlistedBadge({ className }: { className?: string }) {
-  const display = PRIVACY_BY_VALUE.unlisted
+function ClipVisibilityBadge({
+  privacy,
+  className,
+}: {
+  privacy: ClipPrivacy
+  className?: string
+}) {
+  const display = PRIVACY_BY_VALUE[privacy]
   const Icon = display.icon
 
   return (
@@ -508,6 +524,10 @@ function ClipUnlistedBadge({ className }: { className?: string }) {
   )
 }
 
+function ClipUnlistedBadge({ className }: { className?: string }) {
+  return <ClipVisibilityBadge privacy="unlisted" className={className} />
+}
+
 function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   const display = PRIVACY_BY_VALUE[privacy]
   const Icon = display.icon
@@ -520,4 +540,4 @@ function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   )
 }
 
-export { ClipMeta, ClipUnlistedBadge }
+export { ClipMeta, ClipUnlistedBadge, ClipVisibilityBadge }

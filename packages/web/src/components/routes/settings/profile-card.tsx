@@ -266,16 +266,18 @@ export function ProfileCard({
         }}
       >
         <Section>
-          <SectionContent className="flex flex-col gap-4">
+          <SectionContent className="flex flex-col gap-3.5">
             {/* Live profile preview — a miniature of the real floating profile.
                 Click the wallpaper, banner, or avatar to change or remove it. */}
             <div>
-              <div className="text-foreground mb-1.5 text-sm font-medium">
-                Profile preview
+              <div className="mb-2 flex items-baseline justify-between gap-3">
+                <div className="text-foreground text-sm font-medium">
+                  Profile preview
+                </div>
+                <p className="text-foreground-faint hidden text-xs sm:block">
+                  Click media to edit.
+                </p>
               </div>
-              <p className="text-foreground-faint mb-2 text-xs">
-                Click the wallpaper, banner, or avatar to change or remove it.
-              </p>
 
               <form.Subscribe
                 selector={(state) =>
@@ -298,7 +300,7 @@ export function ProfileCard({
                   const hasAvatar = !!avatar.src
 
                   return (
-                    <div className="bg-surface-sunken ring-border/60 relative aspect-[16/9] overflow-hidden rounded-xl ring-1">
+                    <div className="bg-surface-sunken ring-border/60 relative h-[clamp(220px,32vw,340px)] overflow-hidden rounded-lg ring-1">
                       {/* Wallpaper (full bleed, clickable in the margins) */}
                       {editZone({
                         kind: "background",
@@ -325,8 +327,8 @@ export function ProfileCard({
                           shows around it and stays clickable. The whole card is
                           a single frosted surface (banner + body share it) so
                           there's no seam between the two when no banner is set. */}
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
-                        <div className="bg-surface-sunken/55 ring-border/50 pointer-events-auto w-[86%] overflow-hidden rounded-lg shadow-[var(--shadow-md)] ring-1 backdrop-blur-2xl backdrop-saturate-150">
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4 sm:p-5">
+                        <div className="bg-surface-sunken/55 ring-border/50 pointer-events-auto w-[84%] overflow-hidden rounded-md shadow-[var(--shadow-md)] ring-1 backdrop-blur-2xl backdrop-saturate-150 sm:w-[82%]">
                           {editZone({
                             kind: "banner",
                             hasImage: media.hasBanner,
@@ -356,7 +358,7 @@ export function ProfileCard({
                               hasImage: hasAvatar,
                               anchor: media.avatarAnchor,
                               className:
-                                "relative -mt-5 inline-flex size-12 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10",
+                                "relative -mt-4 inline-flex size-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10 sm:size-12",
                               overlay: CENTER_EDIT_OVERLAY,
                               children: (
                                 <ProfileAvatarPreview

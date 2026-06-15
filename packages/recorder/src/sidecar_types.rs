@@ -645,4 +645,3 @@ impl Default for RecordingSettings {
         }
     }
 }
-
