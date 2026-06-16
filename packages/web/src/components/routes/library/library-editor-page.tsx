@@ -112,11 +112,11 @@ function LibraryEditorContent({
   captureId: string
   promptGame: boolean
 }) {
+  const navigate = useNavigate()
   const navigateToEntry = useNavigateToLibraryEntry()
   const navigation = useLibraryEntryNavigation({ type: "local", id: captureId })
   const { snapshot, error, refresh, prevEntry, nextEntry } = navigation
   const [deleting, setDeleting] = React.useState(false)
-  const [deletedLast, setDeletedLast] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
   const currentEntry = navigation.currentEntry
@@ -133,8 +133,8 @@ function LibraryEditorContent({
   const deleteCapture = async () => {
     if (deleting || !item) return
     setDeleting(true)
-    // Land on the neighbor the user was heading toward; deleting the last
-    // capture stays here and shows the "library is empty" state instead.
+    // Land on the neighbor the user was heading toward, or return to the
+    // library once there is no capture left to show.
     const fallback = nextEntry ?? prevEntry
     try {
       await desktop.recording.deleteLibraryCapture(item.id)
@@ -144,28 +144,12 @@ function LibraryEditorContent({
       if (fallback) {
         navigateToEntry(fallback)
       } else {
-        setDeletedLast(true)
+        void navigate({ to: "/library", replace: true })
       }
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't delete capture"))
       setDeleting(false)
     }
-  }
-
-  // Checked before "not found": once the last capture is deleted the missing
-  // item is expected, not an error.
-  if (deletedLast) {
-    return (
-      <AppMain>
-        <LibraryEmpty
-          icon={<Trash2Icon />}
-          title="That was the last one"
-          description="Your library is empty now."
-        >
-          <BackToLibraryButton />
-        </LibraryEmpty>
-      </AppMain>
-    )
   }
 
   if (error) {

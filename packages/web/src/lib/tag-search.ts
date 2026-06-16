@@ -1,9 +1,9 @@
 import type { ClipFeedSort, ClipFeedWindow } from "@alloy/api"
 
+import { parseClipFeedWindow } from "./clip-feed-windows"
 import { searchEnum, searchString } from "./route-search"
 
 const SORT_KEYS = ["top", "recent"] as const
-const WINDOW_KEYS = ["today", "week", "month", "year", "all"] as const
 
 export type TagSearch = {
   sort?: ClipFeedSort
@@ -14,7 +14,7 @@ export type TagSearch = {
 
 export function parseTagSearch(search: Record<string, unknown>): TagSearch {
   const sort = searchEnum(search.sort, SORT_KEYS)
-  const window = searchEnum(search.window, WINDOW_KEYS)
+  const window = parseClipFeedWindow(search.window)
   const game = searchString(search.game)
   return {
     ...(sort ? { sort } : {}),

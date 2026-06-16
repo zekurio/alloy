@@ -1,11 +1,12 @@
 import type { ClipFeedWindow } from "@alloy/api"
 import { Link } from "@tanstack/react-router"
 
-import {
-  SortDropdown,
-  type SortDropdownOption,
-} from "@/components/clip/sort-dropdown"
+import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { TopClipsSection as TopClipsSectionBase } from "@/components/clip/top-clips-section"
+import {
+  TOP_CLIPS_WINDOW_OPTIONS,
+  topClipsEmptyTitle,
+} from "@/lib/clip-feed-windows"
 import { useTopClipsQuery } from "@/lib/clip-queries"
 import type { HomeSearch } from "@/lib/home-search"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
@@ -14,14 +15,6 @@ type HomeTopClipsSectionProps = {
   viewerId: string | undefined
   window: ClipFeedWindow
 }
-
-const TOP_WINDOWS: ReadonlyArray<SortDropdownOption<ClipFeedWindow>> = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "Week" },
-  { key: "month", label: "Month" },
-  { key: "year", label: "Year" },
-  { key: "all", label: "All time" },
-]
 
 export function HomeTopClipsSection({
   viewerId,
@@ -40,12 +33,12 @@ export function HomeTopClipsSection({
       rows={rows}
       error={error}
       owned={(row) => row.authorId === viewerId}
-      emptyTitle={emptyTopTitle(window)}
+      emptyTitle={topClipsEmptyTitle(window)}
       emptyHint="Check back in a bit or upload your own."
       actions={
         <SortDropdown
           value={window}
-          options={TOP_WINDOWS}
+          options={TOP_CLIPS_WINDOW_OPTIONS}
           contentClassName="w-40"
           renderOptionLink={(opt, active) => (
             <Link
@@ -62,19 +55,4 @@ export function HomeTopClipsSection({
       }
     />
   )
-}
-
-function emptyTopTitle(window: ClipFeedWindow): string {
-  switch (window) {
-    case "today":
-      return "No top clips today yet"
-    case "week":
-      return "No top clips this week yet"
-    case "month":
-      return "No top clips this month yet"
-    case "year":
-      return "No top clips this year yet"
-    case "all":
-      return "No top clips yet"
-  }
 }

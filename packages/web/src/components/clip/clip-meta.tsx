@@ -289,13 +289,13 @@ function ClipMeta({
 
       {/* User row */}
       <div className="flex items-end justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-3">
+        <div className="flex min-w-0 items-start gap-3">
           <Link
             to="/u/$username"
             params={{ username: uploader.handle }}
             aria-label={`Open ${uploader.name}'s profile`}
             className={cn(
-              "shrink-0 rounded-md",
+              "mt-0.5 shrink-0 rounded-md",
               "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
             )}

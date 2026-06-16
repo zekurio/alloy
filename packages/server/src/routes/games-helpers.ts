@@ -43,6 +43,7 @@ export const ClipsQuery = z.object({
 })
 
 export const TopQuery = z.object({
+  window: z.enum(["today", "week", "month", "year", "all"]).optional(),
   limit: limitQueryParam(20, 5),
 })
 

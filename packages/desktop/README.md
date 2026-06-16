@@ -54,13 +54,25 @@ pnpm --filter @alloy/desktop preview
 Packaging commands:
 
 ```bash
+pnpm desktop:obs:install
 pnpm desktop:build
 pnpm desktop:dist:win
 pnpm desktop:dist:win:installer
 ```
 
-The `dev` and `build` scripts build `@alloy/recorder` first. Windows release
-builds require an OBS runtime:
+The `dev` and `build` scripts build `@alloy/recorder` first. Recording needs an
+OBS runtime, but development does not require a system-wide OBS install. Stage
+the official portable OBS Windows x64 ZIP into `packages/recorder/dist`:
+
+```bash
+pnpm desktop:obs:install
+```
+
+The installer downloads the latest OBS release by default. Pin a specific
+release with `ALLOY_OBS_VERSION=32.1.2 pnpm desktop:obs:install` or
+`pnpm desktop:obs:install -- --version 32.1.2`.
+
+You can still point at an existing runtime instead:
 
 ```bash
 set ALLOY_OBS_RUNTIME_DIR=C:\Path\To\obs-studio
@@ -68,8 +80,7 @@ pnpm desktop:dist:win:installer
 ```
 
 `ALLOY_OBS_RUNTIME_DIR` may point at the OBS root, `bin`, or `bin/64bit`.
-Release builds require `obs.dll`; normal development can still fall back to a
-system OBS install.
+Release builds require `obs.dll` in either the staged or configured runtime.
 
 ## Runtime Paths
 

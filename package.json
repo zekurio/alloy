@@ -12,6 +12,8 @@
     "dev:all": "pnpm db:push && turbo run dev --filter=@alloy/server --filter=@alloy/web --filter=@alloy/desktop",
     "recorder:build": "pnpm --filter @alloy/recorder build",
     "recorder:build:release": "pnpm --filter @alloy/recorder build:release",
+    "recorder:obs:install": "pnpm --filter @alloy/recorder obs:install",
+    "desktop:obs:install": "pnpm --filter @alloy/recorder obs:install",
     "desktop:build": "pnpm --filter @alloy/desktop build",
     "desktop:dist:win": "pnpm --filter @alloy/desktop dist:win",
     "desktop:dist:win:installer": "pnpm --filter @alloy/desktop dist:win:installer",

@@ -68,6 +68,7 @@ pnpm dev:web          # web only; expects an API server at VITE_SERVER_URL or ht
 pnpm dev:desktop      # server + web + desktop
 pnpm dev:all          # server + web + desktop
 pnpm recorder:build   # build the Rust recorder sidecar
+pnpm desktop:obs:install # download and stage the Windows OBS runtime
 ```
 
 Database commands:
@@ -287,9 +288,21 @@ pnpm desktop:dist:win
 pnpm desktop:dist:win:installer
 ```
 
-Windows distribution builds require `ALLOY_OBS_RUNTIME_DIR` to point at an OBS
-Studio runtime root, or its `bin` / `bin/64bit` directory. Release builds fail
-unless the staged runtime contains `obs.dll`.
+Windows development and distribution builds need OBS runtime libraries, but do
+not require installing OBS Studio system-wide. Stage the official portable OBS
+Windows x64 ZIP into `packages/recorder/dist/obs-runtime`:
+
+```bash
+pnpm desktop:obs:install
+```
+
+The installer downloads the latest OBS release by default. Pin a specific
+release with `ALLOY_OBS_VERSION=32.1.2 pnpm desktop:obs:install` or
+`pnpm desktop:obs:install -- --version 32.1.2`.
+
+Alternatively, set `ALLOY_OBS_RUNTIME_DIR` to an OBS Studio runtime root, or
+its `bin` / `bin/64bit` directory. Release builds fail unless the staged or
+configured runtime contains `obs.dll`.
 
 ## Releases
 

@@ -1,8 +1,7 @@
 import type { ClipFeedWindow } from "@alloy/api"
 
-import { searchEnum, searchString } from "./route-search"
-
-const WINDOW_KEYS = ["today", "week", "month", "year", "all"] as const
+import { parseClipFeedWindow } from "./clip-feed-windows"
+import { searchString } from "./route-search"
 
 export type HomeSearch = {
   window?: ClipFeedWindow
@@ -11,7 +10,7 @@ export type HomeSearch = {
 }
 
 export function parseHomeSearch(search: Record<string, unknown>): HomeSearch {
-  const window = searchEnum(search.window, WINDOW_KEYS)
+  const window = parseClipFeedWindow(search.window)
   const game = searchString(search.game)
   return {
     ...(window ? { window: window as ClipFeedWindow } : {}),

@@ -24,7 +24,11 @@ import {
   uniqueCaptureFilename,
 } from "./recording-library-paths"
 import { findRecordingLibraryItem } from "./recording-library-scan"
-import { captureId, titleForCapture } from "./recording-library-shared"
+import {
+  captureId,
+  isCaptureId,
+  titleForCapture,
+} from "./recording-library-shared"
 import {
   pruneStaleThumbnails,
   warmRecordingThumbnail,
@@ -41,6 +45,7 @@ export function rememberRecordingLibraryCapture(
   const existing = manifest.captures[manifestKey(filename)]
   manifest.captures[manifestKey(filename)] = {
     ...existing,
+    id: isCaptureId(existing?.id) ? existing.id : captureId(filename),
     filename,
     title: titleForCapture(capture.kind, capture.createdAt),
     kind: capture.kind,
@@ -85,6 +90,7 @@ export function updateRecordingLibraryCaptureMeta(
   const manifest = readCaptureManifest()
   let key = manifestKey(item.filename)
   const entry: CaptureManifestEntry = manifest.captures[key] ?? {
+    id: item.id,
     filename: item.filename,
     title: item.title,
     kind: item.kind,
@@ -102,6 +108,7 @@ export function updateRecordingLibraryCaptureMeta(
   }
 
   if (patch.title !== undefined) entry.title = patch.title
+  if (!isCaptureId(entry.id)) entry.id = item.id
   if (patch.gameName !== undefined) entry.gameName = patch.gameName
   if (patch.gameIconUrl !== undefined) entry.gameIconUrl = patch.gameIconUrl
   if (patch.gameGuess !== undefined) entry.gameGuess = patch.gameGuess
@@ -124,7 +131,7 @@ export function updateRecordingLibraryCaptureMeta(
 
   manifest.captures[key] = entry
   writeCaptureManifest(manifest)
-  return { id: captureId(entry.filename) }
+  return { id: entry.id }
 }
 
 function moveDisplayCaptureToGameFolder(

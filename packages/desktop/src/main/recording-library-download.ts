@@ -141,9 +141,13 @@ async function runDownload(
     partialFile = null
 
     const absolute = resolve(filename)
-    registerDownloadedCapture(absolute, request, job.download.receivedBytes)
+    const id = registerDownloadedCapture(
+      absolute,
+      request,
+      job.download.receivedBytes,
+    )
     job.download.status = "completed"
-    job.download.libraryItemId = captureId(absolute)
+    job.download.libraryItemId = id
     emitRecordingLibraryDownloadEvent({ ...job.download })
 
     // Uploaded clips carry their duration, but probe when it's missing so the
@@ -196,10 +200,12 @@ function registerDownloadedCapture(
   absolute: string,
   request: RecordingLibraryDownloadRequest,
   sizeBytes: number,
-): void {
+): string {
   const now = new Date().toISOString()
+  const id = captureId(absolute)
   const manifest = readCaptureManifest()
   manifest.captures[manifestKey(absolute)] = {
+    id,
     filename: absolute,
     title: request.title,
     kind: "replay",
@@ -220,4 +226,5 @@ function registerDownloadedCapture(
     uploadedClipId: request.clipId,
   }
   writeCaptureManifest(manifest)
+  return id
 }
