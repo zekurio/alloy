@@ -1,4 +1,4 @@
-export type DesktopUpdateChannel = "latest" | "nightly"
+import type { DesktopUpdateChannel } from "@alloy/contracts"
 
 const NIGHTLY_VERSION_PATTERN = /-nightly\.\d{8}\.\d+$/
 

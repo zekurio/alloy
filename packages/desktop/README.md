@@ -102,9 +102,11 @@ Desktop ships on the stable `vX.Y.Z` channel and the nightly
 package version and Electron updater channel before building, so stable builds
 publish `latest.yml` and nightly builds publish `nightly.yml`.
 
-Packaged builds derive their updater channel from the installed app version.
-Stable builds accept only stable update versions; nightly builds accept only
-versions matching `-nightly.YYYYMMDD.<run>`.
+Packaged builds default their updater channel from the installed app version,
+and users can switch between Stable (`latest.yml`) and Nightly (`nightly.yml`)
+from Desktop > Updates. The selected channel is saved in
+`preferences.json`. Stable accepts only stable update versions; Nightly accepts
+only versions matching `-nightly.YYYYMMDD.<run>`.
 
 GitHub Release assets are desktop-only: the unsigned Windows NSIS installer,
 blockmap, updater metadata, and checksums from `packages/desktop/release`.

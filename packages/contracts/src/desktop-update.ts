@@ -10,15 +10,33 @@ export type DesktopUpdateStatus =
   | "downloading"
   | "downloaded"
 
+export const DESKTOP_UPDATE_CHANNELS = ["latest", "nightly"] as const
+
+export type DesktopUpdateChannel = (typeof DESKTOP_UPDATE_CHANNELS)[number]
+
 export interface DesktopUpdateState {
   status: DesktopUpdateStatus
   /** Version of the pending update once one is known, e.g. "0.2.0". */
   version: string | null
 }
 
+export function isDesktopUpdateChannel(
+  value: unknown,
+): value is DesktopUpdateChannel {
+  return DESKTOP_UPDATE_CHANNELS.includes(value as DesktopUpdateChannel)
+}
+
+export function normalizeDesktopUpdateChannel(
+  value: unknown,
+): DesktopUpdateChannel | null {
+  return isDesktopUpdateChannel(value) ? value : null
+}
+
 /** Desktop auto-update state and controls bridged into the web app. */
 export interface AlloyDesktopUpdatesApi {
   getState(): Promise<DesktopUpdateState>
+  getChannel?(): Promise<DesktopUpdateChannel>
+  setChannel?(channel: DesktopUpdateChannel): Promise<DesktopUpdateChannel>
   /** Quits and installs the downloaded update; no-op when none is ready. */
   restartToInstall(): Promise<void>
   onState(listener: (state: DesktopUpdateState) => void): () => void

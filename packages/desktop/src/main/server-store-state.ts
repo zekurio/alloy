@@ -1,6 +1,8 @@
 import {
   DEFAULT_RECORDING_SETTINGS,
+  normalizeDesktopUpdateChannel,
   normalizeRecordingSettings,
+  type DesktopUpdateChannel,
   type RecordingSettings,
 } from "@alloy/contracts"
 
@@ -9,6 +11,8 @@ import type { SavedServer } from "@/shared/ipc"
 export interface DesktopState {
   servers: SavedServer[]
   recording: RecordingSettings
+  /** Explicit update channel selection; null follows the installed build. */
+  updateChannel: DesktopUpdateChannel | null
   /** Stable identity for this install, registered with the server for sync. */
   deviceId: string | null
 }
@@ -17,6 +21,7 @@ export const MAX_SAVED_SERVERS = 8
 export const EMPTY_STATE: DesktopState = {
   servers: [],
   recording: DEFAULT_RECORDING_SETTINGS,
+  updateChannel: null,
   deviceId: null,
 }
 
@@ -30,6 +35,7 @@ export function normalizeState(parsed: Record<string, unknown>): DesktopState {
   return {
     servers: dedupeServers(servers).slice(0, MAX_SAVED_SERVERS),
     recording: normalizeRecordingSettings(parsed.recording),
+    updateChannel: normalizeDesktopUpdateChannel(parsed.updateChannel),
     deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : null,
   }
 }

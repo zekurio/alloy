@@ -112,6 +112,8 @@ export const IPC = {
   toggleMaximizeWindow: "alloy:toggle-maximize-window",
   closeWindow: "alloy:close-window",
   getUpdateState: "alloy:get-update-state",
+  getUpdateChannel: "alloy:get-update-channel",
+  setUpdateChannel: "alloy:set-update-channel",
   restartToInstallUpdate: "alloy:restart-to-install-update",
   updateEvent: "alloy:update-event",
 } as const

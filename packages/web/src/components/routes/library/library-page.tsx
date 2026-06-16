@@ -235,13 +235,20 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
             ? "Clip imported into your library"
             : `${result.importedIds.length} clips imported into your library`,
         )
-        notifyLibraryCapturesChanged()
         if (result.importedIds.length === 1) {
+          // Go straight to the editor. It loads this capture from its own
+          // library snapshot on mount (showing a spinner until ready), so we
+          // deliberately skip refreshing the grid we're leaving — repainting it
+          // here flashes the freshly-imported card (no thumbnail/blurhash yet)
+          // for a frame before the editor takes over.
           void navigate({
             to: "/library/$captureId",
             params: { captureId: result.importedIds[0] },
             search: { prompt: "game" },
           })
+        } else {
+          // Staying on the grid — refresh it in place to surface the imports.
+          notifyLibraryCapturesChanged()
         }
       }
     } catch (cause) {
