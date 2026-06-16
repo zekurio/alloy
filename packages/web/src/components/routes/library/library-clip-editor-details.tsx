@@ -43,6 +43,7 @@ import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 
 import { ClipFileLocation } from "./library-file-location"
+import { sameIdSet } from "./library-metadata"
 
 type VisibilityIntent = "post" | "unpost" | "create-link" | "disable-link"
 
@@ -139,13 +140,6 @@ function mentionToSearchResult(ref: ClipMentionRef): UserSearchResult {
     displayUsername: ref.displayUsername,
     image: ref.image,
   }
-}
-
-function sameIdSet(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false
-  const set = new Set(a)
-  for (const id of b) if (!set.has(id)) return false
-  return true
 }
 
 export function ClipEditorTabs(props: ClipDetailsProps) {

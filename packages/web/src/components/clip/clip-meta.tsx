@@ -90,6 +90,8 @@ interface ClipMetaProps {
   tags: string[]
   /** Fired after a successful delete — e.g. closes the player modal. */
   onDeleted?: () => void
+  onRequestDelete?: () => void
+  deletePending?: boolean
   onEdit?: () => void
   /** Desktop-only "save to this device" affordance, slotted by the viewer. */
   downloadAction?: React.ReactNode
@@ -110,6 +112,8 @@ function ClipMeta({
   mentions,
   tags,
   onDeleted,
+  onRequestDelete,
+  deletePending,
   onEdit,
   downloadAction,
 }: ClipMetaProps) {
@@ -125,7 +129,7 @@ function ClipMeta({
   const hasDescription = Boolean(description && description.trim().length > 0)
 
   const deleteMutation = useDeleteClipMutation()
-  const deleting = deleteMutation.isPending
+  const deleting = deletePending ?? deleteMutation.isPending
 
   const likeStateQuery = useLikeStateQuery(clipId, { enabled: canLike })
   const likeMutation = useToggleLikeMutation()
@@ -275,7 +279,10 @@ function ClipMeta({
                     <DropdownMenuItem
                       variant="destructive"
                       disabled={deleting}
-                      onClick={() => setDeleteDialogOpen(true)}
+                      onClick={() => {
+                        if (onRequestDelete) onRequestDelete()
+                        else setDeleteDialogOpen(true)
+                      }}
                     >
                       <Trash2Icon /> Delete
                     </DropdownMenuItem>
@@ -374,26 +381,28 @@ function ClipMeta({
 
       <ClipTagsRow tags={tags} className="pt-0.5" />
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this clip?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This can't be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? "Deleting…" : "Delete clip"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {onRequestDelete ? null : (
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this clip?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This can't be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Deleting…" : "Delete clip"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </section>
   )
 }

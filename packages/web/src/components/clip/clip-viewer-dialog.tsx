@@ -14,6 +14,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import * as React from "react"
 
+import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { clipGameLabel } from "@/lib/clip-format"
 import {
   clipDetailQueryOptions,
@@ -40,6 +41,7 @@ import {
 import { ClipMeta } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
 import { MobileClipViewerBody } from "./clip-viewer-mobile"
+import { useClipViewerDelete } from "./use-clip-viewer-delete"
 
 interface ClipViewerDialogProps {
   /** Current dialog target. `null` keeps the viewer open. */
@@ -204,6 +206,7 @@ function ClipViewerDialogBody({
     ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
     : null
   const initialFocusRef = React.useRef<HTMLDivElement>(null)
+  const deleteFlow = useClipViewerDelete({ row, onDeleted })
 
   const canNavigate = Boolean(onNavigate)
   const showPrev = canNavigate
@@ -354,7 +357,8 @@ function ClipViewerDialogBody({
                   params: { clipId: row.id },
                 })
               }}
-              onDeleted={onDeleted}
+              onRequestDelete={deleteFlow.openDialog}
+              deletePending={deleteFlow.pending}
             />
           </div>
         </div>
@@ -366,6 +370,15 @@ function ClipViewerDialogBody({
           className="bg-surface"
         />
       </div>
+      <DeleteServerBackedDialog
+        open={deleteFlow.open}
+        onOpenChange={deleteFlow.setOpen}
+        pending={deleteFlow.pending}
+        localItem={deleteFlow.localItem}
+        title={row.title}
+        noun="clip"
+        onConfirm={deleteFlow.confirm}
+      />
     </DialogViewportContent>
   )
 }
