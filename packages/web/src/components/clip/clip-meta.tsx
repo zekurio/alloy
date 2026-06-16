@@ -221,14 +221,12 @@ function ClipMeta({
     <section className="flex flex-col gap-2">
       {/* Title + top-right actions */}
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-          <h1 className="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]">
-            {title}
-          </h1>
-          {privacy !== "public" ? (
-            <ClipVisibilityBadge privacy={privacy} />
-          ) : null}
-        </div>
+        <ClipTitleWithVisibility
+          title={title}
+          privacy={privacy}
+          heading="h1"
+          titleClassName="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]"
+        />
 
         <div className="flex shrink-0 items-center gap-1 self-start">
           <Button
@@ -533,6 +531,38 @@ function ClipVisibilityBadge({
   )
 }
 
+function ClipTitleWithVisibility({
+  title,
+  privacy,
+  heading = "h2",
+  className,
+  titleClassName,
+  badgeClassName,
+}: {
+  title: string
+  privacy: ClipPrivacy
+  heading?: "h1" | "h2"
+  className?: string
+  titleClassName: string
+  badgeClassName?: string
+}) {
+  const HeadingTag = heading === "h1" ? "h1" : "h2"
+
+  return (
+    <div
+      className={cn(
+        "flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1",
+        className,
+      )}
+    >
+      <HeadingTag className={titleClassName}>{title}</HeadingTag>
+      {privacy !== "public" ? (
+        <ClipVisibilityBadge privacy={privacy} className={badgeClassName} />
+      ) : null}
+    </div>
+  )
+}
+
 function ClipUnlistedBadge({ className }: { className?: string }) {
   return <ClipVisibilityBadge privacy="unlisted" className={className} />
 }
@@ -549,4 +579,9 @@ function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   )
 }
 
-export { ClipMeta, ClipUnlistedBadge, ClipVisibilityBadge }
+export {
+  ClipMeta,
+  ClipTitleWithVisibility,
+  ClipUnlistedBadge,
+  ClipVisibilityBadge,
+}

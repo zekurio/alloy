@@ -29,7 +29,7 @@
     "@simplewebauthn/server": "13.3.0",
     "blurhash": "^2.0.5",
     "drizzle-orm": "0.45.2",
-    "hono": "4.12.23",
+    "hono": "4.12.25",
     "mediabunny": "^1.46.0",
     "openid-client": "6.8.2",
     "pg": "8.21.0",

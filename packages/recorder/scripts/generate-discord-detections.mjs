@@ -117,7 +117,7 @@ if (!existsSync(outputPath) || readFileSync(outputPath, "utf8") !== nextJson) {
   writeFileSync(outputPath, nextJson)
 }
 
-console.log(
+writeOutput(
   `Generated Discord detections: ${games.length} games, ${executables.size} executable keys`,
 )
 
@@ -164,4 +164,8 @@ function sameDetectorPayload(existing, next) {
     JSON.stringify({ ...existing, generatedAt: null }) ===
     JSON.stringify({ ...next, generatedAt: null })
   )
+}
+
+function writeOutput(message) {
+  process.stdout.write(`${message}\n`)
 }
