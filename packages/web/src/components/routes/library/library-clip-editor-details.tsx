@@ -126,6 +126,9 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
     gridBlurHash: ref.gridBlurHash,
     logoUrl: ref.logoUrl,
     iconUrl: ref.iconUrl,
+    // Clip game refs don't carry the derived accent; the editor picker only
+    // needs identity + art.
+    accentColor: null,
   }
 }
 

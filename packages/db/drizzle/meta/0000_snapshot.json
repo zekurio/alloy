@@ -1,5 +1,5 @@
 {
-  "id": "1f44d538-4411-466b-b5c2-d04fb82097e1",
+  "id": "3483e6e1-80da-4296-b6ea-a65d98eed645",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -946,6 +946,12 @@
         },
         "icon_url": {
           "name": "icon_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "accent_color": {
+          "name": "accent_color",
           "type": "text",
           "primaryKey": false,
           "notNull": false

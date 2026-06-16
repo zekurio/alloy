@@ -6,7 +6,11 @@ import * as React from "react"
 const gameIconVariants = cva(
   cn(
     "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-sm",
-    "bg-surface-muted font-mono leading-3 text-foreground-faint uppercase",
+    // No backing fill here: a loaded icon supplies its own pixels, and leaving
+    // the box transparent lets icons with rounded/transparent corners blend
+    // into the surface instead of showing a faint lighter frame. The pastel
+    // fallback below paints its own background when there is no icon.
+    "font-mono leading-3 text-foreground-faint uppercase",
   ),
   {
     variants: {

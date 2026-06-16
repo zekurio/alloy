@@ -15,6 +15,7 @@ import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { alloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
+import { useInvalidateGames } from "@/lib/game-queries"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import type { PublishPayload } from "./new-clip-helpers"
@@ -39,6 +40,7 @@ function useServerQueueSync(
   bump: () => void,
 ) {
   const invalidateClips = useInvalidateClips()
+  const invalidateGames = useInvalidateGames()
   const readyNotifiedRef = React.useRef<Set<string>>(new Set())
   const thumbNotifiedRef = React.useRef<Set<string>>(new Set())
   React.useEffect(() => {
@@ -64,6 +66,7 @@ function useServerQueueSync(
     }
     if (changed) bump()
     let shouldInvalidateClips = false
+    let shouldInvalidateGames = false
     for (const row of serverQueue) {
       if (row.hasThumb && !thumbNotifiedRef.current.has(row.id)) {
         thumbNotifiedRef.current.add(row.id)
@@ -72,10 +75,19 @@ function useServerQueueSync(
       if (row.status === "ready" && !readyNotifiedRef.current.has(row.id)) {
         readyNotifiedRef.current.add(row.id)
         shouldInvalidateClips = true
+        shouldInvalidateGames = true
       }
     }
     if (shouldInvalidateClips) void invalidateClips()
-  }, [activeRef, retainedThumbsRef, bump, invalidateClips, serverQueue])
+    if (shouldInvalidateGames) void invalidateGames()
+  }, [
+    activeRef,
+    retainedThumbsRef,
+    bump,
+    invalidateClips,
+    invalidateGames,
+    serverQueue,
+  ])
 }
 
 function useCancelRow(
@@ -85,6 +97,7 @@ function useCancelRow(
 ) {
   const queryClient = useQueryClient()
   const invalidateClips = useInvalidateClips()
+  const invalidateGames = useInvalidateGames()
   return React.useCallback(
     (localId: string | null, clipId: string | null) => {
       if (localId) {
@@ -100,7 +113,10 @@ function useCancelRow(
                 entry.clipId,
                 "local cancel",
               ).then((deleted) => {
-                if (deleted) invalidateClips()
+                if (deleted) {
+                  invalidateClips()
+                  invalidateGames()
+                }
               })
             }
           }
@@ -117,12 +133,22 @@ function useCancelRow(
         )
         void deleteUploadClipBestEffort(clipId, "queue cancel").then(
           (deleted) => {
-            if (deleted) invalidateClips()
+            if (deleted) {
+              invalidateClips()
+              invalidateGames()
+            }
           },
         )
       }
     },
-    [invalidateClips, queryClient, bump, activeRef, retainedThumbsRef],
+    [
+      invalidateClips,
+      invalidateGames,
+      queryClient,
+      bump,
+      activeRef,
+      retainedThumbsRef,
+    ],
   )
 }
 

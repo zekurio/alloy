@@ -332,6 +332,8 @@ export interface GameRow {
   gridBlurHash: string | null
   logoUrl: string | null
   iconUrl: string | null
+  /** Accent hex auto-derived from the hero art, or null when undeterminable. */
+  accentColor: string | null
 }
 
 export interface GameListRow extends GameRow {
@@ -345,6 +347,8 @@ export interface ProfileGameRow extends GameListRow {
 export interface GameDetail extends GameRow {
   viewer: { isFollowing: boolean } | null
   favouritesCount: number
+  /** Ready, public clips attributed to this game by enabled users. */
+  clipCount: number
 }
 
 export type GameNameLookupReason =

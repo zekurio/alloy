@@ -6,32 +6,26 @@ import { StarIcon } from "lucide-react"
 
 import { errorMessage } from "@/lib/error-message"
 import { useToggleGameFavoriteMutation } from "@/lib/game-queries"
-import { formatCount } from "@/lib/number-format"
 
 type GameFavoriteButtonProps = {
   slug: string
   viewer: { isFollowing: boolean } | null | undefined
-  count: number
   className?: string
 }
 
+/**
+ * Labeled star toggle, the game-page analog of the profile Follow button. The
+ * favourites count lives in the identity stat row, so this carries only the
+ * action — keeping it from reading as a stranded number at the card edge.
+ */
 export function GameFavoriteButton({
   slug,
   viewer,
-  count,
   className,
 }: GameFavoriteButtonProps) {
   const navigate = useNavigate()
   const mutation = useToggleGameFavoriteMutation()
   const isStarred = viewer?.isFollowing ?? false
-  const label = formatCount(count)
-
-  const sharedContent = (
-    <>
-      <StarIcon className={cn(isStarred && "fill-current")} />
-      <span className="tabular-nums">{label}</span>
-    </>
-  )
 
   if (viewer === undefined) {
     return (
@@ -43,7 +37,8 @@ export function GameFavoriteButton({
         disabled
         className={className}
       >
-        {sharedContent}
+        <StarIcon />
+        Star
       </Button>
     )
   }
@@ -52,7 +47,7 @@ export function GameFavoriteButton({
     return (
       <Button
         type="button"
-        variant="ghost"
+        variant="primary"
         size="sm"
         aria-label="Sign in to star"
         title="Sign in to star"
@@ -61,7 +56,8 @@ export function GameFavoriteButton({
           void navigate({ to: "/login" })
         }}
       >
-        {sharedContent}
+        <StarIcon />
+        Star
       </Button>
     )
   }
@@ -69,11 +65,9 @@ export function GameFavoriteButton({
   return (
     <Button
       type="button"
-      variant={isStarred ? "accent-outline" : "ghost"}
+      variant={isStarred ? "ghost" : "primary"}
       size="sm"
       aria-pressed={isStarred}
-      aria-label={isStarred ? "Unstar" : "Star"}
-      title={isStarred ? "Unstar" : "Star"}
       className={className}
       onClick={() => {
         mutation.mutate(
@@ -87,7 +81,8 @@ export function GameFavoriteButton({
       }}
       disabled={mutation.isPending}
     >
-      {sharedContent}
+      <StarIcon className={cn(isStarred && "fill-current")} />
+      {isStarred ? "Starred" : "Star"}
     </Button>
   )
 }

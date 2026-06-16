@@ -208,7 +208,25 @@ export const gamesRoute = new Hono()
         ),
       )
 
-    return c.json({ ...serialiseGame(resolved.row), viewer, favouritesCount })
+    const [{ value: clipCount }] = await db
+      .select({ value: sql<number>`count(*)::int` })
+      .from(clip)
+      .innerJoin(user, eq(clip.authorId, user.id))
+      .where(
+        and(
+          eq(clip.steamgriddbId, steamgriddbId),
+          eq(clip.status, "ready"),
+          publicClipPrivacyCondition(),
+          isNull(user.disabledAt),
+        ),
+      )
+
+    return c.json({
+      ...serialiseGame(resolved.row),
+      viewer,
+      favouritesCount,
+      clipCount,
+    })
   })
   .get("/:slug/hero", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
