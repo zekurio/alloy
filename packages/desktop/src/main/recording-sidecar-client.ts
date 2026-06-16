@@ -1,56 +1,28 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
-import { existsSync } from "node:fs"
-import { basename, delimiter, join } from "node:path"
+import { basename } from "node:path"
 import { createInterface, type Interface } from "node:readline"
 
-import type {
-  RecordingEvent,
-  RecordingSettings,
-  RecordingStatus,
-} from "@alloy/contracts"
+import type { RecordingEvent, RecordingStatus } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 
+import {
+  errorText,
+  sidecarCwd,
+  sidecarEnv,
+  sidecarExitMessage,
+} from "./recording-sidecar-process"
+import {
+  isSidecarEventEnvelope,
+  isSidecarResponse,
+  type RecordingSidecarVersion,
+  type SidecarConfig,
+  type SidecarMethod,
+  type SidecarRequest,
+} from "./recording-sidecar-protocol"
+
+export type { RecordingSidecarVersion, SidecarConfig }
+
 const logger = createLogger("sidecar")
-
-export interface SidecarConfig {
-  settings: RecordingSettings
-  outputFolder: string
-  replayScratchFolder: string
-  obsRuntimeDir: string | null
-  discordDetectionCachePath: string | null
-}
-
-type SidecarMethod =
-  | "version"
-  | "configure"
-  | "status"
-  | "listGameProcesses"
-  | "listDisplays"
-  | "saveReplayClip"
-  | "addBookmark"
-  | "toggleLongRecording"
-  | "stopRecording"
-  | "subscribeAudioLevels"
-  | "stopAudioLevels"
-  | "shutdown"
-
-interface SidecarRequest {
-  id: number
-  method: SidecarMethod
-  params?: unknown
-}
-
-interface SidecarResponse {
-  id: number
-  ok: boolean
-  result?: unknown
-  error?: string
-  status?: RecordingStatus
-}
-
-interface SidecarEventEnvelope {
-  event: RecordingEvent
-}
 
 interface PendingRequest {
   method: SidecarMethod
@@ -62,13 +34,6 @@ interface PendingRequest {
 interface PendingConfigure {
   key: string
   promise: Promise<RecordingStatus>
-}
-
-export interface RecordingSidecarVersion {
-  name: string
-  version: string
-  protocolVersion: number
-  capabilities: string[]
 }
 
 interface RecordingSidecarClientOptions {
@@ -353,91 +318,4 @@ export class RecordingSidecarClient {
     }
     this.pending.clear()
   }
-}
-
-function sidecarEnv(
-  runtimeDir: string | null,
-  discordDetectionCachePath: string | null,
-): NodeJS.ProcessEnv {
-  const env = { ...process.env }
-  if (discordDetectionCachePath) {
-    env.ALLOY_DISCORD_DETECTIONS_PATH = discordDetectionCachePath
-  }
-  if (!runtimeDir) return env
-
-  env.ALLOY_OBS_RUNTIME_DIR = runtimeDir
-  prependEnvPath(env, "PATH", [
-    runtimeDir,
-    join(runtimeDir, "bin"),
-    join(runtimeDir, "bin", "64bit"),
-  ])
-  prependEnvPath(env, "LD_LIBRARY_PATH", [
-    join(runtimeDir, "lib"),
-    join(runtimeDir, "lib64"),
-    join(runtimeDir, "bin"),
-    join(runtimeDir, "bin", "64bit"),
-  ])
-  return env
-}
-
-function sidecarCwd(runtimeDir: string | null): string | undefined {
-  if (!runtimeDir) return undefined
-
-  for (const candidate of [
-    join(runtimeDir, "bin", "64bit"),
-    join(runtimeDir, "bin"),
-    runtimeDir,
-  ]) {
-    if (existsSync(candidate)) return candidate
-  }
-
-  return undefined
-}
-
-function prependEnvPath(
-  env: NodeJS.ProcessEnv,
-  key: "PATH" | "LD_LIBRARY_PATH",
-  paths: string[],
-) {
-  const envKey =
-    Object.keys(env).find(
-      (candidate) => candidate.toLowerCase() === key.toLowerCase(),
-    ) ?? key
-  const existing = env[envKey]
-  const present = paths.filter((path) => existsSync(path))
-  if (present.length === 0) return
-  env[envKey] = existing
-    ? [...present, existing].join(delimiter)
-    : present.join(delimiter)
-}
-
-function errorText(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
-}
-
-function sidecarExitMessage(
-  code: number | null,
-  signal: NodeJS.Signals | null,
-): string {
-  if (signal) return `Recording sidecar exited from ${signal}.`
-  if (code === null) return "Recording sidecar exited."
-  return `Recording sidecar exited with code ${code}.`
-}
-
-function isSidecarEventEnvelope(value: unknown): value is SidecarEventEnvelope {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "event" in value &&
-    typeof (value as { event?: unknown }).event === "object"
-  )
-}
-
-function isSidecarResponse(value: unknown): value is SidecarResponse {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { id?: unknown }).id === "number" &&
-    typeof (value as { ok?: unknown }).ok === "boolean"
-  )
 }
