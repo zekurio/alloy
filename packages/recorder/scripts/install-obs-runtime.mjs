@@ -33,8 +33,8 @@ if (process.platform !== "win32") {
 }
 
 if (!force && normalizeObsRuntimeDir(obsResourcesDir)) {
-  console.log(`OBS runtime is already staged in ${obsResourcesDir}`)
-  console.log("Pass --force to replace it.")
+  writeOutput(`OBS runtime is already staged in ${obsResourcesDir}`)
+  writeOutput("Pass --force to replace it.")
   process.exit(0)
 }
 
@@ -58,7 +58,7 @@ const extractDir = join(workDir, "extract")
 rmSync(workDir, { recursive: true, force: true })
 mkdirSync(extractDir, { recursive: true })
 
-console.log(`Downloading ${asset.name} from OBS ${release.tag_name}...`)
+writeOutput(`Downloading ${asset.name} from OBS ${release.tag_name}...`)
 await downloadAsset(asset.browser_download_url, zipPath)
 
 if (sha256) {
@@ -77,7 +77,7 @@ if (sha256) {
   console.warn("OBS release did not include a SHA-256 digest for this asset.")
 }
 
-console.log("Extracting OBS portable runtime...")
+writeOutput("Extracting OBS portable runtime...")
 extractZip(zipPath, extractDir)
 
 const runtimeRoot = findObsRuntimeRoot(extractDir)
@@ -90,7 +90,7 @@ stageObsRuntime(runtimeRoot)
 pruneObsRuntime()
 rmSync(workDir, { recursive: true, force: true })
 
-console.log(`Staged OBS runtime in ${obsResourcesDir}`)
+writeOutput(`Staged OBS runtime in ${obsResourcesDir}`)
 
 async function fetchRelease(requestedVersion) {
   const endpoint =
@@ -202,4 +202,8 @@ function optionValue(name) {
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+}
+
+function writeOutput(message) {
+  process.stdout.write(`${message}\n`)
 }

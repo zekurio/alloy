@@ -15,6 +15,7 @@ import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import { finalizeRecordingCapture } from "./recording-capture-finalize"
+import { ensureRecordingDiscordDetectionsCache } from "./recording-discord-detections"
 import { listRecordingDisplays as listElectronRecordingDisplays } from "./recording-displays"
 import { rememberRecordingLibraryCapture } from "./recording-library"
 import { takeRecordingScreenshot as takeElectronRecordingScreenshot } from "./recording-screenshot"
@@ -284,6 +285,7 @@ function currentSidecarConfig(): SidecarConfig {
     outputFolder: currentOutputFolder(),
     replayScratchFolder: defaultReplayScratchFolder(),
     obsRuntimeDir: obsRuntimeDir(),
+    discordDetectionCachePath: ensureRecordingDiscordDetectionsCache(),
   }
 }
 

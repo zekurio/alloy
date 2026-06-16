@@ -2,13 +2,13 @@ const PLAYS_GAME_DETECTIONS_JSON: &str =
     include_str!("detections/gameDetections.json");
 const PLAYS_NON_GAME_DETECTIONS_JSON: &str =
     include_str!("detections/nonGameDetections.json");
-const DISCORD_DETECTABLE_JSON: &str =
-    include_str!(concat!(env!("OUT_DIR"), "/discordDetectable.generated.json"));
 
 const MANUAL_ALLOW_SCORE: i32 = 120;
 const CURATED_GAME_SCORE: i32 = 90;
 const STORE_PATH_SCORE: i32 = 75;
 const HEURISTIC_GAME_SCORE: i32 = 50;
+const DISCORD_DETECTIONS_PATH_ENV: &str = "ALLOY_DISCORD_DETECTIONS_PATH";
+const DISCORD_DETECTION_CACHE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
 const GAME_CLASS_ALLOW_TERMS: &[&str] = &[
     "steam_app_",
@@ -54,11 +54,23 @@ struct ProcessDisplayName<'a> {
 
 #[derive(Default)]
 struct AutoDetectionCatalog {
-    discord_games_by_id: HashMap<String, DiscordDetectionGame>,
-    discord_rules_by_executable: HashMap<String, Vec<DiscordExecutableRule>>,
     game_rules_by_executable: HashMap<String, Vec<GameDetectionRule>>,
     fallback_game_rules: Vec<GameDetectionRule>,
     non_game_executables: HashSet<String>,
+}
+
+#[derive(Default)]
+struct RuntimeDiscordDetectionState {
+    path: Option<PathBuf>,
+    modified: Option<SystemTime>,
+    last_checked: Option<Instant>,
+    catalog: DiscordDetectionCatalog,
+}
+
+#[derive(Default)]
+struct DiscordDetectionCatalog {
+    games_by_id: HashMap<String, DiscordDetectionGame>,
+    rules_by_executable: HashMap<String, Vec<DiscordExecutableRule>>,
 }
 
 #[derive(Clone)]
@@ -121,6 +133,7 @@ struct PlaysNonGameRule {
 }
 
 static AUTO_DETECTION_CATALOG: OnceLock<AutoDetectionCatalog> = OnceLock::new();
+static DISCORD_DETECTION_STATE: OnceLock<Mutex<RuntimeDiscordDetectionState>> = OnceLock::new();
 static GAME_REGEX_CACHE: OnceLock<Mutex<HashMap<String, Option<Regex>>>> = OnceLock::new();
 
 fn candidate_game_detection_match(
@@ -272,13 +285,17 @@ fn curated_game_match(path: Option<&str>, executable: Option<&str>) -> Option<Ca
 
 fn discord_game_match(executable: Option<&str>) -> Option<CandidateGameMatch> {
     let executable_key = executable.map(|value| value.to_ascii_lowercase())?;
-    let catalog = auto_detection_catalog();
-    let rule = catalog
-        .discord_rules_by_executable
+    let mut state = discord_detection_state()
+        .lock()
+        .expect("Discord detection cache should not be poisoned");
+    state.refresh_if_needed();
+    let rule = state
+        .catalog
+        .rules_by_executable
         .get(&executable_key)?
         .iter()
         .max_by_key(|rule| rule.score)?;
-    let game = catalog.discord_games_by_id.get(&rule.game_id)?;
+    let game = state.catalog.games_by_id.get(&rule.game_id)?;
 
     Some(CandidateGameMatch {
         id: Some(game.id.clone()),
@@ -604,23 +621,63 @@ fn auto_detection_catalog() -> &'static AutoDetectionCatalog {
 
 fn load_auto_detection_catalog() -> AutoDetectionCatalog {
     let mut catalog = AutoDetectionCatalog::default();
-    load_discord_detection_rules(&mut catalog);
     load_game_detection_rules(&mut catalog);
     load_non_game_detection_rules(&mut catalog);
     catalog
 }
 
-fn load_discord_detection_rules(catalog: &mut AutoDetectionCatalog) {
-    let Ok(bundle) = serde_json::from_str::<DiscordDetectionBundle>(DISCORD_DETECTABLE_JSON)
-    else {
-        return;
-    };
+fn discord_detection_state() -> &'static Mutex<RuntimeDiscordDetectionState> {
+    DISCORD_DETECTION_STATE.get_or_init(|| Mutex::new(RuntimeDiscordDetectionState::default()))
+}
 
-    catalog.discord_games_by_id = bundle
+impl RuntimeDiscordDetectionState {
+    fn refresh_if_needed(&mut self) {
+        let now = Instant::now();
+        if self
+            .last_checked
+            .is_some_and(|last| now.duration_since(last) < DISCORD_DETECTION_CACHE_CHECK_INTERVAL)
+        {
+            return;
+        }
+        self.last_checked = Some(now);
+
+        let Some(path) = env::var_os(DISCORD_DETECTIONS_PATH_ENV).map(PathBuf::from) else {
+            return;
+        };
+
+        if self.path.as_ref() != Some(&path) {
+            self.path = Some(path.clone());
+            self.modified = None;
+        }
+
+        let Ok(metadata) = fs::metadata(&path) else {
+            return;
+        };
+        let modified = metadata.modified().ok();
+        if self.modified.is_some() && self.modified == modified {
+            return;
+        }
+
+        let Ok(contents) = fs::read_to_string(&path) else {
+            return;
+        };
+        let Some(catalog) = parse_discord_detection_catalog(&contents) else {
+            return;
+        };
+
+        self.catalog = catalog;
+        self.modified = modified;
+    }
+}
+
+fn parse_discord_detection_catalog(contents: &str) -> Option<DiscordDetectionCatalog> {
+    let bundle = serde_json::from_str::<DiscordDetectionBundle>(contents).ok()?;
+    let games_by_id = bundle
         .games
         .into_iter()
         .map(|game| (game.id.clone(), game))
-        .collect();
+        .collect::<HashMap<_, _>>();
+    let mut rules_by_executable = HashMap::new();
 
     for (executable, rules) in bundle.executables {
         let key = executable.trim().to_ascii_lowercase();
@@ -629,14 +686,17 @@ fn load_discord_detection_rules(catalog: &mut AutoDetectionCatalog) {
         }
         let rules = rules
             .into_iter()
-            .filter(|rule| catalog.discord_games_by_id.contains_key(&rule.game_id))
+            .filter(|rule| games_by_id.contains_key(&rule.game_id))
             .collect::<Vec<_>>();
-        catalog
-            .discord_rules_by_executable
-            .entry(key)
-            .or_default()
-            .extend(rules);
+        if !rules.is_empty() {
+            rules_by_executable.insert(key, rules);
+        }
     }
+
+    Some(DiscordDetectionCatalog {
+        games_by_id,
+        rules_by_executable,
+    })
 }
 
 fn load_game_detection_rules(catalog: &mut AutoDetectionCatalog) {

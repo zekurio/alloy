@@ -46,8 +46,8 @@ importers:
         specifier: 13.3.0
         version: 13.3.0
       hono:
-        specifier: 4.12.23
-        version: 4.12.23
+        specifier: 4.12.25
+        version: 4.12.25
       react:
         specifier: 19.2.5
         version: 19.2.5
@@ -181,10 +181,10 @@ importers:
         version: 3.1065.0
       '@hono/node-server':
         specifier: 2.0.4
-        version: 2.0.4(hono@4.12.23)
+        version: 2.0.4(hono@4.12.25)
       '@hono/zod-validator':
         specifier: 0.7.6
-        version: 0.7.6(hono@4.12.23)(zod@4.3.6)
+        version: 0.7.6(hono@4.12.25)(zod@4.3.6)
       '@simplewebauthn/server':
         specifier: 13.3.0
         version: 13.3.0
@@ -195,8 +195,8 @@ importers:
         specifier: 0.45.2
         version: 0.45.2(@types/pg@8.20.0)(pg@8.21.0)
       hono:
-        specifier: 4.12.23
-        version: 4.12.23
+        specifier: 4.12.25
+        version: 4.12.25
       mediabunny:
         specifier: ^1.46.0
         version: 1.46.0
@@ -2517,8 +2517,8 @@ packages:
   hls.js@1.6.16:
     resolution: {integrity: sha512-VSIRpLfRwlAAdGL4wiTucx2ScRipo0ed1FBatWkyt832jC4CReKstga6yIhYVwGu9LOBjuX9wzmRMeQdBJtzEA==}
 
-  hono@4.12.23:
-    resolution: {integrity: sha512-eIaZ9qDgu7XV0pxOCrg7/WhnQ6Ivm22UcxhXx/A3dcbqbbYgBEkc6e/J/s7j2tS96zoB0S9VBdLwQNCWwUo4LA==}
+  hono@4.12.25:
+    resolution: {integrity: sha512-2NFaIyNVgJmBs/ecmtGzlmluTFs5cHEWGTdu0t1HBwYzoGXOL5nUQBRMXsXWla5i4KkG//QMzVP88m1+I3fdAQ==}
     engines: {node: '>=16.9.0'}
 
   hosted-git-info@4.1.0:
@@ -4234,13 +4234,13 @@ snapshots:
 
   '@hexagon/base64@1.1.28': {}
 
-  '@hono/node-server@2.0.4(hono@4.12.23)':
+  '@hono/node-server@2.0.4(hono@4.12.25)':
     dependencies:
-      hono: 4.12.23
+      hono: 4.12.25
 
-  '@hono/zod-validator@0.7.6(hono@4.12.23)(zod@4.3.6)':
+  '@hono/zod-validator@0.7.6(hono@4.12.25)(zod@4.3.6)':
     dependencies:
-      hono: 4.12.23
+      hono: 4.12.25
       zod: 4.3.6
 
   '@img/colour@1.1.0': {}
@@ -5853,7 +5853,7 @@ snapshots:
 
   hls.js@1.6.16: {}
 
-  hono@4.12.23: {}
+  hono@4.12.25: {}
 
   hosted-git-info@4.1.0:
     dependencies:

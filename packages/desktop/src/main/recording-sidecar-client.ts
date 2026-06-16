@@ -17,6 +17,7 @@ export interface SidecarConfig {
   outputFolder: string
   replayScratchFolder: string
   obsRuntimeDir: string | null
+  discordDetectionCachePath: string | null
 }
 
 type SidecarMethod =
@@ -209,10 +210,11 @@ export class RecordingSidecarClient {
 
     const config = this.config()
     const runtimeDir = config.obsRuntimeDir
+    const discordDetectionCachePath = config.discordDetectionCachePath
     const child = spawn(this.executable, [], {
       stdio: "pipe",
       windowsHide: true,
-      env: sidecarEnv(runtimeDir),
+      env: sidecarEnv(runtimeDir, discordDetectionCachePath),
       cwd: sidecarCwd(runtimeDir),
     }) as ChildProcessWithoutNullStreams
 
@@ -353,8 +355,14 @@ export class RecordingSidecarClient {
   }
 }
 
-function sidecarEnv(runtimeDir: string | null): NodeJS.ProcessEnv {
+function sidecarEnv(
+  runtimeDir: string | null,
+  discordDetectionCachePath: string | null,
+): NodeJS.ProcessEnv {
   const env = { ...process.env }
+  if (discordDetectionCachePath) {
+    env.ALLOY_DISCORD_DETECTIONS_PATH = discordDetectionCachePath
+  }
   if (!runtimeDir) return env
 
   env.ALLOY_OBS_RUNTIME_DIR = runtimeDir

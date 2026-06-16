@@ -15,6 +15,7 @@ import {
   shutdownRecordingBackend,
   stopRecording,
 } from "./recording"
+import { startRecordingDiscordDetectionsRefresh } from "./recording-discord-detections"
 import {
   configureRecordingHotkeys,
   unregisterRecordingHotkeys,
@@ -73,6 +74,7 @@ if (!app.requestSingleInstanceLock()) {
     registerRecordingLibraryProtocol()
     registerAssetCacheProtocol()
     cleanupLegacyFilmstripCache()
+    startRecordingDiscordDetectionsRefresh()
 
     registerIpc(windows)
     initAutoUpdater()

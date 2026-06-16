@@ -32,7 +32,7 @@ import { userAvatar } from "@/lib/user-display"
 import { ClipComments } from "./clip-comments"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
-import { ClipVisibilityBadge } from "./clip-meta"
+import { ClipTitleWithVisibility, ClipVisibilityBadge } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
 import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
@@ -380,17 +380,12 @@ function MobileClipViewerBody({
               />
 
               {/* Title */}
-              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-                <h2 className="line-clamp-2 min-w-0 text-base leading-tight font-semibold text-white">
-                  {row.title}
-                </h2>
-                {row.privacy !== "public" ? (
-                  <ClipVisibilityBadge
-                    privacy={row.privacy}
-                    className="bg-white/10 text-white/75"
-                  />
-                ) : null}
-              </div>
+              <ClipTitleWithVisibility
+                title={row.title}
+                privacy={row.privacy}
+                titleClassName="line-clamp-2 min-w-0 text-base leading-tight font-semibold text-white"
+                badgeClassName="bg-white/10 text-white/75"
+              />
 
               {/* Mentions */}
               <ClipMentionsRow mentions={row.mentions ?? []} />
