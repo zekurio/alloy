@@ -1,14 +1,4 @@
 import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@alloy/ui/components/alert-dialog"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
 import { GameIcon } from "@alloy/ui/components/game-icon"
@@ -24,6 +14,7 @@ import {
   mobileDrawerContentClass,
   MobileDrawerHandle,
 } from "@/components/app/mobile-drawer-surface"
+import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"
 import {
@@ -32,11 +23,7 @@ import {
 } from "@/lib/browser-storage"
 import { currentUrlWithoutSearchOrHash } from "@/lib/browser-url"
 import { clipGameLabel } from "@/lib/clip-format"
-import {
-  useDeleteClipMutation,
-  useLikeStateQuery,
-  useToggleLikeMutation,
-} from "@/lib/clip-queries"
+import { useLikeStateQuery, useToggleLikeMutation } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
 import { apiOrigin } from "@/lib/env"
 import { exitFullscreenBestEffort } from "@/lib/fullscreen"
@@ -50,6 +37,7 @@ import { ClipPlayer } from "./clip-player"
 import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 import { renderHashtagTokens } from "./description-tokens"
+import { useClipViewerDelete } from "./use-clip-viewer-delete"
 
 const MOBILE_SWIPE_HINT_SEEN_KEY = "alloy.mobileClipSwipeHintSeen"
 
@@ -114,9 +102,8 @@ function MobileClipViewerBody({
 
   /* ---- edit / delete ---- */
   const navigate = useNavigate()
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
-  const deleteMutation = useDeleteClipMutation()
-  const deleting = deleteMutation.isPending
+  const deleteFlow = useClipViewerDelete({ row, onDeleted })
+  const deleting = deleteFlow.pending
 
   /* ---- comments panel ---- */
   const [commentsOpen, setCommentsOpen] = React.useState(false)
@@ -197,19 +184,6 @@ function MobileClipViewerBody({
     }
   }, [row.privacy, row.title])
 
-  const handleDelete = React.useCallback(() => {
-    deleteMutation.mutate(
-      { clipId: row.id },
-      {
-        onSuccess: () => {
-          toast.success("Clip deleted")
-          onDeleted?.()
-        },
-        onError: () => toast.error("Couldn't delete clip"),
-      },
-    )
-  }, [row.id, deleteMutation, onDeleted])
-
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
   const initialFocusRef = React.useRef<HTMLDivElement>(null)
 
@@ -239,7 +213,7 @@ function MobileClipViewerBody({
         params: { clipId: row.id },
       })
     },
-    onDelete: () => setDeleteDialogOpen(true),
+    onDelete: deleteFlow.openDialog,
   }
 
   return (
@@ -465,26 +439,15 @@ function MobileClipViewerBody({
         </div>
       </DialogViewportContent>
 
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this clip?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This can't be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? "Deleting…" : "Delete clip"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <DeleteServerBackedDialog
+        open={deleteFlow.open}
+        onOpenChange={deleteFlow.setOpen}
+        pending={deleteFlow.pending}
+        localItem={deleteFlow.localItem}
+        title={row.title}
+        noun="clip"
+        onConfirm={deleteFlow.confirm}
+      />
     </>
   )
 }

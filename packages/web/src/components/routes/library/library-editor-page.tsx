@@ -28,6 +28,7 @@ import {
   HardDriveIcon,
   ImageIcon,
   Link2Icon,
+  SaveIcon,
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
@@ -41,6 +42,7 @@ import { useCapturePoster } from "@/lib/capture-poster"
 import {
   CLIP_DESCRIPTION_MAX,
   formatTags,
+  normalizeClipDescription,
   normalizeClipTitle,
   parseTagString,
 } from "@/lib/clip-fields"
@@ -49,6 +51,7 @@ import {
   alloyDesktop,
   notifyLibraryCapturesChanged,
   type AlloyDesktop,
+  type RecordingLibraryMetaPatch,
 } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
@@ -68,9 +71,9 @@ import {
 } from "./library-entry-navigation"
 import { LocalFileLocation } from "./library-file-location"
 import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
+import { captureMentionsFromUsers, sameIdSet } from "./library-metadata"
 import { LibraryEmpty } from "./library-page"
 import { LibraryTrimBar } from "./library-trim-bar"
-import { useDraftPersistence } from "./use-draft-persistence"
 import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 
 export function LibraryEditorPage({
@@ -252,8 +255,8 @@ function EditorBody({
   const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
   const { playerRef, trim, rangeMs } = playback
 
-  // Draft fields are seeded from the capture's persisted metadata so edits
-  // survive app restarts; changes flow back through updateLibraryCapture.
+  // Draft fields are seeded from the capture's persisted metadata, then saved
+  // explicitly through the same dirty-state affordance as uploaded clips.
   const [title, setTitle] = React.useState(item.title)
   const [description, setDescription] = React.useState(item.description ?? "")
   const [tags, setTags] = React.useState(item.tags ?? "")
@@ -261,45 +264,34 @@ function EditorBody({
   const [mentions, setMentions] = React.useState<UserSearchResult[]>(
     item.mentions,
   )
-  const [publishAttempted, setPublishAttempted] = React.useState(false)
+  const [savedMetadata, setSavedMetadata] = React.useState(() =>
+    savedLocalMetadata(item),
+  )
+  const [saving, setSaving] = React.useState(false)
   const [publishing, setPublishing] = React.useState(false)
-  useDraftPersistence(desktop, item.id, {
-    title,
-    description,
-    tags,
-    mentions,
-  })
 
   // The capture's game may resolve after mount (lookup query lands once the
   // snapshot is enriched). Adopt it as long as the user hasn't picked one.
   const resolvedGame = item.displayGame
+  const itemMentionKey = item.mentions.map((mention) => mention.id).join("\0")
+  const itemSavedMetadata = React.useMemo(
+    () => savedLocalMetadata(item),
+    [
+      item.description,
+      item.displayGame?.id,
+      item.tags,
+      item.title,
+      itemMentionKey,
+    ],
+  )
+  React.useEffect(() => {
+    setSavedMetadata(itemSavedMetadata)
+  }, [itemSavedMetadata])
+
   React.useEffect(() => {
     if (!resolvedGame) return
     setGame((current) => current ?? resolvedGame)
   }, [resolvedGame])
-
-  const handleGameChange = (next: GameRow | null) => {
-    setGame(next)
-    void desktop.recording
-      .updateLibraryCapture({
-        id: item.id,
-        gameName: next?.name ?? null,
-        gameIconUrl: next ? (next.iconUrl ?? next.logoUrl) : null,
-      })
-      .then((result) => {
-        notifyLibraryCapturesChanged()
-        if (result.id !== item.id) {
-          void navigate({
-            to: "/library/$captureId",
-            params: { captureId: result.id },
-            replace: true,
-          })
-        }
-      })
-      .catch((cause) => {
-        toast.error(errorMessage(cause, "Couldn't save game"))
-      })
-  }
 
   const isVideo = item.kind !== "screenshot"
   const poster = useCapturePoster({
@@ -311,11 +303,28 @@ function EditorBody({
   })
   const filmstrip = useMediaFilmstrip(isVideo ? item.mediaUrl : null)
   const aspectRatio = mediaAspectRatio(item.width, item.height)
+  const normalizedTitle = normalizeClipTitle(title)
+  const normalizedDescription = normalizeClipDescription(description)
+  const normalizedTags = parseTagString(tags)
+  const mentionIds = mentions.map((mention) => mention.id)
+  const titleChanged = normalizedTitle !== savedMetadata.title
+  const descriptionChanged = normalizedDescription !== savedMetadata.description
+  const tagsChanged = !sameIdSet(normalizedTags, savedMetadata.tags)
+  const mentionsChanged = !sameIdSet(mentionIds, savedMetadata.mentionIds)
+  const gameChanged = (game?.id ?? null) !== savedMetadata.gameId
+  const dirty =
+    titleChanged ||
+    descriptionChanged ||
+    tagsChanged ||
+    mentionsChanged ||
+    gameChanged
+  const titleInvalid = normalizedTitle.length === 0
   const canPublish =
     isVideo &&
+    !saving &&
     !publishing &&
     !deleting &&
-    normalizeClipTitle(title).length > 0 &&
+    !titleInvalid &&
     rangeMs >= MIN_TRIM_MS
 
   useLibraryEditorShortcuts({
@@ -325,10 +334,57 @@ function EditorBody({
     togglePlayback: playback.togglePlayback,
   })
 
+  const handleSave = async () => {
+    if (saving || publishing || deleting || titleInvalid || !dirty) return
+    setSaving(true)
+    try {
+      const patch: RecordingLibraryMetaPatch = {
+        id: item.id,
+        ...(titleChanged ? { title: normalizedTitle } : {}),
+        ...(descriptionChanged
+          ? { description: normalizedDescription || null }
+          : {}),
+        ...(tagsChanged ? { tags: formatTags(normalizedTags) || null } : {}),
+        ...(mentionsChanged
+          ? { mentions: captureMentionsFromUsers(mentions) }
+          : {}),
+        ...(gameChanged
+          ? {
+              gameName: game?.name ?? null,
+              gameIconUrl: game ? (game.iconUrl ?? game.logoUrl) : null,
+            }
+          : {}),
+      }
+      const result = await desktop.recording.updateLibraryCapture(patch)
+      setTitle(normalizedTitle)
+      setDescription(normalizedDescription)
+      setTags(formatTags(normalizedTags))
+      setSavedMetadata({
+        title: normalizedTitle,
+        description: normalizedDescription,
+        tags: normalizedTags,
+        mentionIds,
+        gameId: game?.id ?? null,
+      })
+      notifyLibraryCapturesChanged()
+      toast.success("Capture updated")
+      if (result.id !== item.id) {
+        void navigate({
+          to: "/library/$captureId",
+          params: { captureId: result.id },
+          replace: true,
+        })
+      }
+    } catch (cause) {
+      toast.error(errorMessage(cause, "Couldn't save changes"))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Visibility is the publish action itself: "Post" uploads public,
   // "Create Link" uploads unlisted and puts the URL on the clipboard.
   const handlePublish = async (privacy: ClipPrivacy) => {
-    setPublishAttempted(true)
     const pickedGame = game
     const normalizedTitle = normalizeClipTitle(title)
     if (normalizedTitle.length === 0) return
@@ -374,6 +430,20 @@ function EditorBody({
       setPublishing(false)
     }
   }
+
+  const primaryPublishes = !dirty
+  const primaryDisabled = primaryPublishes
+    ? !canPublish
+    : saving || publishing || deleting || titleInvalid || !dirty
+  const primaryLabel = primaryPublishes
+    ? publishing
+      ? "Preparing..."
+      : "Post"
+    : saving
+      ? "Saving..."
+      : "Save"
+  const PrimaryIcon = primaryPublishes ? UploadIcon : SaveIcon
+  const showPostInMenu = !primaryPublishes
 
   return (
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
@@ -461,15 +531,13 @@ function EditorBody({
                 description={description}
                 onDescriptionChange={setDescription}
                 game={game}
-                onGameChange={handleGameChange}
+                onGameChange={setGame}
                 mentions={mentions}
                 onMentionsChange={setMentions}
                 tags={parseTagString(tags)}
                 onTagsChange={(next) => setTags(formatTags(next))}
-                disabled={publishing || deleting}
-                titleInvalid={
-                  publishAttempted && normalizeClipTitle(title).length === 0
-                }
+                disabled={saving || publishing || deleting}
+                titleInvalid={titleInvalid}
                 gameInvalid={false}
                 autoFocusGame={promptGame}
               />
@@ -500,7 +568,7 @@ function EditorBody({
             <Button
               type="button"
               variant="ghost"
-              disabled={deleting || publishing}
+              disabled={deleting || publishing || saving}
               onClick={onRequestDelete}
             >
               <Trash2Icon />
@@ -511,14 +579,15 @@ function EditorBody({
                 <Button
                   type="button"
                   variant="primary"
-                  disabled={!canPublish}
+                  disabled={primaryDisabled}
                   className="h-10 rounded-r-none sm:h-8"
                   onClick={() => {
-                    void handlePublish("public")
+                    if (primaryPublishes) void handlePublish("public")
+                    else void handleSave()
                   }}
                 >
-                  <UploadIcon />
-                  {publishing ? "Preparing..." : "Post"}
+                  <PrimaryIcon />
+                  {primaryLabel}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger
@@ -527,7 +596,7 @@ function EditorBody({
                         type="button"
                         variant="primary"
                         size="icon"
-                        disabled={publishing || deleting}
+                        disabled={publishing || deleting || saving}
                         aria-label="More post options"
                         className="border-l-accent-hover size-10 rounded-l-none sm:size-8"
                       />
@@ -536,6 +605,17 @@ function EditorBody({
                     <ChevronUpIcon />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" side="top" className="w-52">
+                    {showPostInMenu ? (
+                      <DropdownMenuItem
+                        disabled={!canPublish}
+                        onClick={() => {
+                          void handlePublish("public")
+                        }}
+                      >
+                        <UploadIcon className="size-4" />
+                        Post
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuItem
                       onClick={() => {
                         void navigate({
@@ -565,6 +645,16 @@ function EditorBody({
       </div>
     </section>
   )
+}
+
+function savedLocalMetadata(item: LibraryItemView) {
+  return {
+    title: normalizeClipTitle(item.title),
+    description: normalizeClipDescription(item.description ?? ""),
+    tags: parseTagString(item.tags ?? ""),
+    mentionIds: item.mentions.map((mention) => mention.id),
+    gameId: item.displayGame?.id ?? null,
+  }
 }
 
 function DeleteLocalCaptureDialog({

@@ -10,7 +10,6 @@ import * as React from "react"
 
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
-import { clientLogger } from "@/lib/client-log"
 import {
   useClipQuery,
   useDeleteClipMutation,
@@ -32,10 +31,7 @@ import {
   useLibraryEntryNavigation,
   useNavigateToLibraryEntry,
 } from "./library-entry-navigation"
-import {
-  deleteLocalLibraryCopy,
-  detachLocalServerLink,
-} from "./library-local-actions"
+import { finishLocalClipDelete } from "./library-local-actions"
 import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
 import { LibraryEmpty } from "./library-page"
 import { LibraryTrimBar } from "./library-trim-bar"
@@ -283,53 +279,6 @@ function useServerBackedClipDelete({
     openDialog: React.useCallback(() => setOpen(true), []),
     pending,
     confirm,
-  }
-}
-
-async function finishLocalClipDelete({
-  deleteLocal,
-  localItem,
-  serverId,
-  setDeletingLocal,
-}: {
-  deleteLocal: boolean
-  localItem: NonNullable<Parameters<typeof DeleteClipDialog>[0]["localItem"]>
-  serverId: string
-  setDeletingLocal: (deleting: boolean) => void
-}): Promise<void> {
-  if (deleteLocal) {
-    setDeletingLocal(true)
-    try {
-      await deleteLocalLibraryCopy(localItem)
-      toast.success("Clip deleted from server and this device")
-    } catch (cause) {
-      clientLogger.warn(
-        "[library] Failed to delete local clip copy after server delete.",
-        cause,
-      )
-      await detachLocalServerLink({ item: localItem, serverId }).catch(
-        () => undefined,
-      )
-      toast.error(
-        "Clip deleted from server, but the local copy couldn't be removed",
-      )
-    } finally {
-      setDeletingLocal(false)
-    }
-    return
-  }
-
-  try {
-    await detachLocalServerLink({ item: localItem, serverId })
-    toast.success("Clip deleted from server")
-  } catch (cause) {
-    clientLogger.warn(
-      "[library] Failed to detach local clip link after server delete.",
-      cause,
-    )
-    toast.error(
-      "Clip deleted from server, but the local sync link couldn't be cleared",
-    )
   }
 }
 
