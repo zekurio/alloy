@@ -64,6 +64,10 @@ export function validateGameDetail(value: unknown): GameDetail {
     row.favouritesCount,
     "Invalid game detail response: favouritesCount must be a non-negative integer",
   )
+  validateNonNegativeInteger(
+    row.clipCount,
+    "Invalid game detail response: clipCount must be a non-negative integer",
+  )
   return value as GameDetail
 }
 

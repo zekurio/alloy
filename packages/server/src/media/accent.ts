@@ -107,3 +107,25 @@ export async function deriveAccentColor(
   if (!best) return null
   return hslToHex(normalizeAccent(best))
 }
+
+/**
+ * Fetch an image by URL and derive its accent. Returns null on any failure so
+ * callers can fall back to a neutral accent. Used to tint the game page from
+ * its hero art the same way profile wallpapers tint the profile card.
+ */
+export async function deriveAccentColorFromUrl(
+  url: string,
+  label = "accent",
+): Promise<string | null> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) {
+      logger.warn(`${label}: fetch failed with status ${response.status}`)
+      return null
+    }
+    return await deriveAccentColor(new Uint8Array(await response.arrayBuffer()))
+  } catch (cause) {
+    logger.warn(`${label}: failed to derive accent color:`, cause)
+    return null
+  }
+}

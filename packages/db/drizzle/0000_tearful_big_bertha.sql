@@ -91,6 +91,7 @@ CREATE TABLE "game" (
 	"grid_blur_hash" text,
 	"logo_url" text,
 	"icon_url" text,
+	"accent_color" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "game_slug_unique" UNIQUE("slug")

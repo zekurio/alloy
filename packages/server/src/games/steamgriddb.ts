@@ -6,6 +6,7 @@ import type {
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { secretStore } from "@alloy/server/config/secret-store"
+import { deriveAccentColorFromUrl } from "@alloy/server/media/accent"
 import { imageBlurHash } from "@alloy/server/media/blurhash"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 import { z } from "zod"
@@ -233,6 +234,7 @@ export async function gameRowFromSearchResult(
     gridBlurHash: null,
     logoUrl: enriched?.logoUrl ?? null,
     iconUrl: enriched?.iconUrl ?? null,
+    accentColor: null,
   }
 }
 
@@ -378,6 +380,7 @@ async function getFirstIcon(
 export async function getGameAssets(steamgriddbId: number): Promise<{
   heroUrl: string | null
   heroBlurHash: string | null
+  heroAccent: string | null
   gridUrl: string | null
   gridBlurHash: string | null
   logoUrl: string | null
@@ -397,13 +400,20 @@ export async function getGameAssets(steamgriddbId: number): Promise<{
       getFirstIcon(steamgriddbId),
     ),
   ])
-  const [heroBlurHash, gridBlurHash] = await Promise.all([
+  const [heroBlurHash, gridBlurHash, heroAccent] = await Promise.all([
     computeGameAssetBlurHash("hero", steamgriddbId, hero?.url ?? null),
     computeGameAssetBlurHash("grid", steamgriddbId, grid?.url ?? null),
+    hero?.url
+      ? deriveAccentColorFromUrl(
+          hero.url,
+          `SteamGridDB hero accent ${steamgriddbId}`,
+        )
+      : Promise.resolve(null),
   ])
   return {
     heroUrl: hero?.url ?? null,
     heroBlurHash,
+    heroAccent,
     gridUrl: grid?.url ?? null,
     gridBlurHash,
     logoUrl: logo?.url ?? null,

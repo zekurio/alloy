@@ -19,6 +19,7 @@ import * as React from "react"
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
 import { useUploadQueueStream } from "./clip-queue-stream"
+import { invalidateGameQueries } from "./game-queries"
 import { invalidateStorageUsage } from "./user-queries"
 
 export { clipKeys }
@@ -205,10 +206,16 @@ export function useUpdateClipMutation() {
       // vs empty string for description) land here.
       patchClipInCaches(qc, row.id, row)
     },
-    onSettled: () => {
+    onSettled: (_data, _error, variables) => {
       // Schedule a background refresh so we don't drift from the server
       // on fields we don't patch locally (view count, etc.).
       void qc.invalidateQueries({ queryKey: clipKeys.all })
+      if (
+        variables.input.steamgriddbId !== undefined ||
+        variables.input.privacy !== undefined
+      ) {
+        void invalidateGameQueries(qc)
+      }
     },
   })
 }
@@ -230,6 +237,7 @@ export function useTrimClipMutation() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: clipKeys.all })
+      void invalidateGameQueries(qc)
       void invalidateStorageUsage(qc)
     },
   })
@@ -251,6 +259,7 @@ export function useDeleteClipMutation() {
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: clipKeys.all })
+      void invalidateGameQueries(qc)
       void invalidateStorageUsage(qc)
     },
   })

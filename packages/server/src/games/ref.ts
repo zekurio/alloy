@@ -25,6 +25,7 @@ export const gameSelectShape = {
   gridBlurHash: game.gridBlurHash,
   logoUrl: game.logoUrl,
   iconUrl: game.iconUrl,
+  accentColor: game.accentColor,
 } as const
 
 type GameMetadataRow = {
@@ -38,6 +39,7 @@ type GameMetadataRow = {
   gridBlurHash: string | null
   logoUrl: string | null
   iconUrl: string | null
+  accentColor: string | null
 }
 
 type CachedGameMetadataRow = GameMetadataRow & {
@@ -77,6 +79,7 @@ export function gameRowFromSnapshot(
     gridBlurHash: null,
     logoUrl: null,
     iconUrl: null,
+    accentColor: null,
   }
 }
 
@@ -100,6 +103,7 @@ export function serialiseGameRow(row: GameMetadataRow): GameRow {
     gridBlurHash: row.gridBlurHash,
     logoUrl: row.logoUrl,
     iconUrl: row.iconUrl,
+    accentColor: row.accentColor,
   }
 }
 
@@ -140,6 +144,12 @@ async function loadSteamGridDBGameRef(
       assets.heroUrl === previous?.heroUrl
         ? (assets.heroBlurHash ?? previous.heroBlurHash)
         : assets.heroBlurHash,
+    // Same as the blurhash: only re-derive when the hero art actually changed,
+    // otherwise keep the previously computed accent.
+    accentColor:
+      assets.heroUrl === previous?.heroUrl
+        ? (assets.heroAccent ?? previous.accentColor)
+        : assets.heroAccent,
     gridUrl: assets.gridUrl,
     gridBlurHash:
       assets.gridUrl === previous?.gridUrl
@@ -159,6 +169,7 @@ async function loadSteamGridDBGameRef(
     gridBlurHash: values.gridBlurHash,
     logoUrl: values.logoUrl,
     iconUrl: values.iconUrl,
+    accentColor: values.accentColor,
     updatedAt: values.updatedAt,
   }
 

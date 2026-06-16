@@ -11,11 +11,13 @@ import type {
 } from "@alloy/api"
 import {
   keepPreviousData,
+  type QueryClient,
   useMutation,
   useQuery,
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query"
+import * as React from "react"
 
 import { api } from "./api"
 import { feedKeys } from "./feed-queries"
@@ -85,6 +87,17 @@ export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
     // decent balance between freshness and not hammering on tab flips.
     staleTime: 60_000,
   })
+}
+
+export function invalidateGameQueries(qc: QueryClient): Promise<void> {
+  return qc.invalidateQueries({ queryKey: gameKeys.all })
+}
+
+export function useInvalidateGames(): () => void {
+  const qc = useQueryClient()
+  return React.useCallback(() => {
+    void invalidateGameQueries(qc)
+  }, [qc])
 }
 
 export function useGameNameLookupQuery(
