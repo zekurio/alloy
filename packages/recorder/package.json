@@ -6,6 +6,7 @@
   "type": "module",
   "scripts": {
     "generate:detections": "node scripts/generate-discord-detections.mjs",
+    "obs:install": "node scripts/install-obs-runtime.mjs",
     "build": "node scripts/build.mjs",
     "build:release": "node scripts/build.mjs --require-obs-runtime"
   }

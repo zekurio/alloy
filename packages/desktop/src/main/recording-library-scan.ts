@@ -31,6 +31,7 @@ import {
   MEDIA_HOST,
   MEDIA_PROTOCOL,
   THUMBNAIL_HOST,
+  isCaptureId,
   titleForCapture,
   VIDEO_EXTENSIONS,
 } from "./recording-library-shared"
@@ -181,8 +182,10 @@ function libraryItemForFile(
     return null
   }
 
-  const id = captureId(absoluteFilename)
   const manifestEntry = manifest.captures[manifestKey(absoluteFilename)]
+  const id = isCaptureId(manifestEntry?.id)
+    ? manifestEntry.id
+    : captureId(absoluteFilename)
   const groupLabel = groupLabelForFile(collectionRoot, absoluteFilename)
   const createdAt =
     manifestEntry?.createdAt ?? statTimeIso(stat.birthtimeMs, stat.mtimeMs)

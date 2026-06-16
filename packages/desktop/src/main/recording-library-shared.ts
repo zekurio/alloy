@@ -18,6 +18,10 @@ export function captureId(filename: string): string {
     .slice(0, 22)
 }
 
+export function isCaptureId(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{12,64}$/.test(value)
+}
+
 export function thumbnailSignature(id: string, stat: Stats): string {
   return `${id}-${Math.round(stat.mtimeMs)}-${stat.size}`
 }

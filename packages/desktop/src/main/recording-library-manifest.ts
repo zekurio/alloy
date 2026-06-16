@@ -24,6 +24,11 @@ export interface CaptureManifest {
 }
 
 export interface CaptureManifestEntry {
+  /**
+   * Stable renderer-facing id. Older manifests did not store this; those
+   * entries fall back to the path-derived id until the next manifest write.
+   */
+  id?: string
   filename: string
   title: string
   kind: RecordingCaptureKind

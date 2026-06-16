@@ -37,11 +37,24 @@ runtime updates before calling `configure`.
 ## Commands
 
 ```bash
+pnpm --filter @alloy/recorder obs:install
 pnpm --filter @alloy/recorder build
 pnpm --filter @alloy/recorder build:release
 ```
 
-Release builds require a valid OBS runtime:
+Recording needs OBS runtime libraries, but development does not require a
+system-wide OBS install. Stage the official portable OBS Windows x64 ZIP into
+`dist/obs-runtime`:
+
+```bash
+pnpm --filter @alloy/recorder obs:install
+```
+
+The installer downloads the latest OBS release by default. Pin a specific
+release with `ALLOY_OBS_VERSION=32.1.2 pnpm --filter @alloy/recorder obs:install`
+or `pnpm --filter @alloy/recorder obs:install -- --version 32.1.2`.
+
+You can still point at an existing runtime instead:
 
 ```bash
 set ALLOY_OBS_RUNTIME_DIR=C:\Path\To\obs-studio

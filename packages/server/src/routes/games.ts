@@ -25,7 +25,7 @@ import {
   invalidCursor,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { and, desc, eq, isNull, type SQL, sql } from "drizzle-orm"
+import { and, desc, eq, gte, isNull, type SQL, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
 import {
@@ -34,6 +34,7 @@ import {
   clipListPage,
   parseClipListCursor,
   publicClipPrivacyCondition,
+  WINDOW_MS,
 } from "./clips-helpers"
 import {
   ClipsQuery,
@@ -312,23 +313,28 @@ export const gamesRoute = new Hono()
     zValidator("query", TopQuery),
     async (c) => {
       const { slug } = c.req.valid("param")
-      const { limit } = c.req.valid("query")
+      const { window, limit } = c.req.valid("query")
       const steamgriddbId = steamgriddbIdFromSlug(slug)
       if (!steamgriddbId) return notFound(c)
+
+      const conditions: SQL[] = [
+        eq(clip.steamgriddbId, steamgriddbId),
+        eq(clip.status, "ready"),
+        publicClipPrivacyCondition(),
+        isNull(user.disabledAt),
+      ]
+      if (window && window !== "all") {
+        conditions.push(
+          gte(clip.createdAt, new Date(Date.now() - WINDOW_MS[window])),
+        )
+      }
 
       const rows = await db
         .select(clipSelectShape)
         .from(clip)
         .innerJoin(user, eq(clip.authorId, user.id))
         .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-        .where(
-          and(
-            eq(clip.steamgriddbId, steamgriddbId),
-            eq(clip.status, "ready"),
-            publicClipPrivacyCondition(),
-            isNull(user.disabledAt),
-          ),
-        )
+        .where(and(...conditions))
         .orderBy(
           desc(clip.viewCount),
           desc(clip.likeCount),

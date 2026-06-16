@@ -1,4 +1,5 @@
 import type {
+  ClipFeedWindow,
   ClipRow,
   GameClipsParams,
   GameDetail,
@@ -34,8 +35,8 @@ export const gameKeys = {
   clips: (slug: string, params: GameClipsParams) =>
     [...gameKeys.all, "clips", slug, params] as const,
   /** Weighted top strip on the game detail page. */
-  topClips: (slug: string, limit: number) =>
-    [...gameKeys.all, "topClips", slug, { limit }] as const,
+  topClips: (slug: string, window: ClipFeedWindow, limit: number) =>
+    [...gameKeys.all, "topClips", slug, { window, limit }] as const,
 }
 
 export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
@@ -136,11 +137,12 @@ export function useGameClipsQuery(
 
 export function useGameTopClipsQuery(
   slug: string,
+  window: ClipFeedWindow,
   { limit = 5 }: { limit?: number } = {},
 ): UseQueryResult<ClipRow[]> {
   return useQuery({
-    queryKey: gameKeys.topClips(slug, limit),
-    queryFn: () => api.games.fetchTopClips(slug, limit),
+    queryKey: gameKeys.topClips(slug, window, limit),
+    queryFn: () => api.games.fetchTopClips(slug, { window, limit }),
     enabled: slug.length > 0,
   })
 }

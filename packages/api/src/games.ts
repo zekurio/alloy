@@ -6,6 +6,7 @@ import type {
   GameListRow,
   GameNameLookupResponse,
   GameRow,
+  GameTopClipsParams,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
 } from "@alloy/contracts"
@@ -33,6 +34,7 @@ export type {
   GameNameLookupResponse,
   GameNameLookupResult,
   GameRow,
+  GameTopClipsParams,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
 } from "@alloy/contracts"
@@ -153,11 +155,14 @@ async function fetchGameClipPage(
 async function fetchGameTopClips(
   context: ApiContext,
   slug: string,
-  limit = 5,
+  params: GameTopClipsParams = {},
 ): Promise<ClipRow[]> {
   const res = await context.rpc.api.games[":slug"]["top-clips"].$get({
     param: { slug },
-    query: { limit: String(limit) },
+    query: queryParams({
+      window: params.window,
+      limit: params.limit,
+    }),
   })
   return readJsonOrThrow(res, validateClipRows)
 }
@@ -179,7 +184,7 @@ export function createGamesApi(context: ApiContext) {
       fetchGameClips(context, slug, params),
     fetchClipsPage: (slug: string, params: GameClipsParams = {}) =>
       fetchGameClipPage(context, slug, params),
-    fetchTopClips: (slug: string, limit = 5) =>
-      fetchGameTopClips(context, slug, limit),
+    fetchTopClips: (slug: string, params: GameTopClipsParams = {}) =>
+      fetchGameTopClips(context, slug, params),
   }
 }

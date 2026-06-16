@@ -74,7 +74,7 @@ export interface RecordingLibraryMetaPatch {
 }
 
 export interface RecordingLibraryMetaUpdateResult {
-  /** Current capture id after any filesystem move caused by the metadata edit. */
+  /** Stable capture id after the metadata edit. */
   id: string
 }
 

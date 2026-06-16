@@ -51,9 +51,11 @@ export function importRecordingLibraryCapture(
   writeFileSync(filename, Buffer.from(request.data))
 
   const absolute = resolve(filename)
+  const id = captureId(absolute)
   const createdAt = new Date().toISOString()
   const manifest = readCaptureManifest()
   manifest.captures[manifestKey(absolute)] = {
+    id,
     filename: absolute,
     title: `Render ${new Date(createdAt).toLocaleString(undefined, {
       month: "short",
@@ -76,7 +78,7 @@ export function importRecordingLibraryCapture(
   }
   writeCaptureManifest(manifest)
 
-  return { id: captureId(absolute) }
+  return { id }
 }
 
 export async function importRecordingLibraryVideoFiles(
@@ -121,11 +123,13 @@ async function importVideoFile(sourcePath: string): Promise<string> {
   await copyFile(source, destination, constants.COPYFILE_EXCL)
 
   const absolute = resolve(destination)
+  const id = captureId(absolute)
   const createdAt = new Date(
     sourceStat.mtimeMs > 0 ? sourceStat.mtimeMs : Date.now(),
   ).toISOString()
   const manifest = readCaptureManifest()
   manifest.captures[manifestKey(absolute)] = {
+    id,
     filename: absolute,
     title: base.trim() || titleForCapture("replay", createdAt),
     kind: "replay",
@@ -143,7 +147,7 @@ async function importVideoFile(sourcePath: string): Promise<string> {
   }
   writeCaptureManifest(manifest)
 
-  return captureId(absolute)
+  return id
 }
 
 function isInsideVideoCollection(filename: string): boolean {

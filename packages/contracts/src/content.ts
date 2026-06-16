@@ -372,6 +372,11 @@ export interface GameClipsParams {
   cursor?: string | null
 }
 
+export interface GameTopClipsParams {
+  window?: ClipFeedWindow
+  limit?: number
+}
+
 export interface SteamGridDBStatus {
   steamgriddbConfigured: boolean
 }
