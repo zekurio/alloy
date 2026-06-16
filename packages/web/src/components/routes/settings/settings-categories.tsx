@@ -2,6 +2,7 @@ import {
   AlertTriangleIcon,
   DatabaseIcon,
   HardDriveIcon,
+  RefreshCcwIcon,
   type LucideIcon,
   PaletteIcon,
   ServerIcon,
@@ -30,6 +31,7 @@ import {
 } from "@/components/routes/settings/desktop/desktop-capture-settings"
 import { DesktopQualitySettings } from "@/components/routes/settings/desktop/desktop-quality-settings"
 import { DesktopServerSettings } from "@/components/routes/settings/desktop/desktop-server-settings"
+import { DesktopUpdateSettings } from "@/components/routes/settings/desktop/desktop-update-settings"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SecuritySettings } from "@/components/routes/settings/security-settings"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
@@ -230,6 +232,23 @@ const ALL_CATEGORIES: SettingsCategory[] = [
     icon: ServerIcon,
     group: "desktop",
     Panel: DesktopServerSettings,
+  },
+  {
+    id: "desktop-updates",
+    label: "Updates",
+    title: "Updates",
+    description: "Switch stable or nightly desktop releases.",
+    keywords: [
+      "updates",
+      "update channel",
+      "stable",
+      "latest",
+      "nightly",
+      "release channel",
+    ],
+    icon: RefreshCcwIcon,
+    group: "desktop",
+    Panel: DesktopUpdateSettings,
   },
   {
     id: "appearance",

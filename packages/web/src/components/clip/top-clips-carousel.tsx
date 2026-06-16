@@ -8,10 +8,11 @@ import * as React from "react"
 
 export function TopClipsCarousel({ children }: { children: React.ReactNode }) {
   return (
-    <Carousel className="group" opts={{ align: "start" }}>
-      <CarouselContent className="ml-0 gap-3 md:-ml-4 md:gap-0">
-        {children}
-      </CarouselContent>
+    <Carousel
+      className="group"
+      opts={{ align: "start", containScroll: "trimSnaps" }}
+    >
+      <CarouselContent className="ml-0 gap-3">{children}</CarouselContent>
       <CarouselPrevious
         variant="ghost"
         size="icon"

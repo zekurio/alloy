@@ -18,6 +18,9 @@ export type TopClipsRowItem = {
  * viewports — five cards at `xl` shrank them too far. At the widest breakpoint
  * the cards fill the row and the scroller has nothing left to page through;
  * below that it pages through the deck.
+ *
+ * Slide widths subtract the visible `gap-3` gutters before division, otherwise
+ * exact 3-up and 5-up decks leave a tiny scrollable remainder.
  */
 export function TopClipsRow({ items }: { items: readonly TopClipsRowItem[] }) {
   return (
@@ -25,7 +28,7 @@ export function TopClipsRow({ items }: { items: readonly TopClipsRowItem[] }) {
       {items.map(({ row }) => (
         <CarouselItem
           key={row.id}
-          className="basis-full pl-0 md:basis-1/3 md:pl-4 2xl:basis-1/5"
+          className="basis-full pl-0 md:basis-[calc((100%_-_1.5rem)/3)] 2xl:basis-[calc((100%_-_3rem)/5)]"
         >
           <ClipCardTrigger row={row} />
         </CarouselItem>
