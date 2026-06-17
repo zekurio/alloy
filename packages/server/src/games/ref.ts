@@ -3,10 +3,14 @@ import { clip, clipView, game, gameFollow } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { nullableIsoDate } from "@alloy/server/runtime/date"
-import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm"
+import { and, eq, ilike, inArray, like, or, type SQL, sql } from "drizzle-orm"
 
 import { exactNameKey, normalizedNameKey } from "./name-match"
-import { gameSlugWithId } from "./slug"
+import {
+  gameSlug,
+  legacyGameSlug,
+  steamgriddbIdFromLegacyGameSlug,
+} from "./slug"
 import { getGameAssets, getGameById } from "./steamgriddb"
 
 const logger = createLogger("steamgriddb")
@@ -71,7 +75,7 @@ export function gameRowFromSnapshot(
     id: steamgriddbId,
     steamgriddbId,
     name: resolvedName,
-    slug: gameSlugWithId(resolvedName, steamgriddbId),
+    slug: gameSlug(resolvedName),
     releaseDate: null,
     heroUrl: null,
     heroBlurHash: null,
@@ -95,7 +99,7 @@ export function serialiseGameRow(row: GameMetadataRow): GameRow {
     id: row.steamgriddbId,
     steamgriddbId: row.steamgriddbId,
     name: row.name,
-    slug: row.slug,
+    slug: publicGameSlug(row),
     releaseDate: nullableIsoDate(row.releaseDate),
     heroUrl: row.heroUrl,
     heroBlurHash: row.heroBlurHash,
@@ -105,6 +109,52 @@ export function serialiseGameRow(row: GameMetadataRow): GameRow {
     iconUrl: row.iconUrl,
     accentColor: row.accentColor,
   }
+}
+
+function publicGameSlug(
+  row: Pick<GameMetadataRow, "name" | "slug" | "steamgriddbId">,
+): string {
+  const clean = gameSlug(row.name)
+  return row.slug === legacyGameSlug(row.name, row.steamgriddbId)
+    ? clean
+    : row.slug
+}
+
+async function availableGameSlug(
+  name: string,
+  steamgriddbId: number,
+): Promise<string> {
+  const base = gameSlug(name)
+  const rows = await db
+    .select({
+      steamgriddbId: game.steamgriddbId,
+      slug: game.slug,
+    })
+    .from(game)
+    .where(
+      or(
+        eq(game.steamgriddbId, steamgriddbId),
+        eq(game.slug, base),
+        like(game.slug, `${base}-%`),
+      ),
+    )
+
+  const reserved = new Set(
+    rows
+      .filter((row) => row.steamgriddbId !== steamgriddbId)
+      .map((row) => row.slug),
+  )
+  if (!reserved.has(base)) return base
+
+  const firstVariant = `${base}-variant`
+  if (!reserved.has(firstVariant)) return firstVariant
+
+  for (let suffix = 2; suffix < 10_000; suffix += 1) {
+    const candidate = `${base}-variant-${suffix}`
+    if (!reserved.has(candidate)) return candidate
+  }
+
+  return legacyGameSlug(name, steamgriddbId)
 }
 
 function shouldRefresh(row: CachedGameMetadataRow): boolean {
@@ -122,6 +172,25 @@ async function selectCachedGameRef(
   return row ?? null
 }
 
+async function selectCachedGameRefBySlug(
+  slug: string,
+): Promise<CachedGameMetadataRow | null> {
+  const [exact] = await db
+    .select({ ...gameSelectShape, updatedAt: game.updatedAt })
+    .from(game)
+    .where(eq(game.slug, slug))
+    .limit(1)
+  if (exact) return exact
+
+  const rows = await db
+    .select({ ...gameSelectShape, updatedAt: game.updatedAt })
+    .from(game)
+    .where(like(game.slug, `${slug}-%`))
+    .limit(25)
+  const publicMatches = rows.filter((row) => publicGameSlug(row) === slug)
+  return publicMatches.length === 1 ? publicMatches[0] : null
+}
+
 async function loadSteamGridDBGameRef(
   steamgriddbId: number,
 ): Promise<GameRow | null> {
@@ -133,11 +202,12 @@ async function loadSteamGridDBGameRef(
   if (!detail) return null
   const releaseDate =
     detail.release_date != null ? new Date(detail.release_date * 1000) : null
+  const slug = await availableGameSlug(detail.name, detail.id)
 
   const values = {
     steamgriddbId: detail.id,
     name: detail.name,
-    slug: gameSlugWithId(detail.name, detail.id),
+    slug,
     releaseDate,
     heroUrl: assets.heroUrl,
     heroBlurHash:
@@ -214,6 +284,25 @@ export async function getSteamGridDBGameRef(
   }
 
   return loadSteamGridDBGameRefOnce(steamgriddbId)
+}
+
+export async function getSteamGridDBGameRefBySlug(
+  slug: string,
+): Promise<GameRow | null> {
+  const cached = await selectCachedGameRefBySlug(slug)
+  if (cached) {
+    if (shouldRefresh(cached)) refreshCachedGameRef(cached.steamgriddbId)
+    return serialiseGameRow(cached)
+  }
+
+  const legacySteamGridDBId = steamgriddbIdFromLegacyGameSlug(slug)
+  if (!legacySteamGridDBId) return null
+
+  const legacy = await getSteamGridDBGameRef(legacySteamGridDBId)
+  if (!legacy) return null
+  return legacyGameSlug(legacy.name, legacy.steamgriddbId) === slug
+    ? legacy
+    : null
 }
 
 export async function getSteamGridDBGameRefOrSnapshot(input: {

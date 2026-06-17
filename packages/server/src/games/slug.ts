@@ -17,15 +17,18 @@ function slugifyGame(input: string): string {
   )
 }
 
-export function gameSlugWithId(name: string, steamgriddbId: number): string {
+export function gameSlug(name: string): string {
   const base = slugifyGame(name)
   // Fall back to "game" if slugifying stripped the whole string
   // (e.g. a CJK-only title with no ASCII characters).
-  const seed = base.length >= MIN_LEN ? base : "game"
-  return `${seed}-${steamgriddbId}`
+  return base.length >= MIN_LEN ? base : "game"
 }
 
-export function steamgriddbIdFromGameSlug(slug: string): number | null {
+export function legacyGameSlug(name: string, steamgriddbId: number): string {
+  return `${gameSlug(name)}-${steamgriddbId}`
+}
+
+export function steamgriddbIdFromLegacyGameSlug(slug: string): number | null {
   const match = /-([1-9][0-9]*)$/.exec(slug)
   if (!match) return null
   const id = Number(match[1])

@@ -11,7 +11,7 @@ import { user } from "@alloy/db/auth-schema"
 import { clip, clipComment, follow, notification } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
-import { gameSlugWithId } from "@alloy/server/games/slug"
+import { gameSlug } from "@alloy/server/games/slug"
 import { serialiseNullableUserSummary } from "@alloy/server/routes/users-helpers"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm"
@@ -86,10 +86,7 @@ function serialize(row: {
             gameSlug:
               row.steamgriddbId === null
                 ? null
-                : gameSlugWithId(
-                    gameName ?? `Game ${row.steamgriddbId}`,
-                    row.steamgriddbId,
-                  ),
+                : gameSlug(gameName ?? `Game ${row.steamgriddbId}`),
             hasThumb: row.clipThumbKey !== null,
             thumbBlurHash: row.clipThumbBlurHash,
             updatedAt: isoDate(row.clipUpdatedAt),

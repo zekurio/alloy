@@ -16,6 +16,7 @@ type TagClipsFilters = {
 export const tagKeys = {
   all: ["tags"] as const,
   games: (tag: string) => [...tagKeys.all, "games", tag] as const,
+  summary: (tag: string) => [...tagKeys.all, "summary", tag] as const,
   search: (query: string) => [...tagKeys.all, "search", query] as const,
   clips: (tag: string, filters: TagClipsFilters) =>
     [...tagKeys.all, "clips", tag, filters] as const,
@@ -48,6 +49,16 @@ export function useTagGamesQuery(tag: string) {
   return useQuery({
     queryKey: tagKeys.games(tag),
     queryFn: () => api.tags.fetchGames(tag),
+    enabled: tag.length > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useTagSummaryQuery(tag: string) {
+  return useQuery({
+    queryKey: tagKeys.summary(tag),
+    queryFn: () => api.tags.fetchSummary(tag),
     enabled: tag.length > 0,
     staleTime: 30_000,
     refetchOnWindowFocus: false,

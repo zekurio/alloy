@@ -36,6 +36,15 @@ const TagClipsQuery = z.object({
   cursor: z.string().optional(),
 })
 
+function publicTagClipConditions(tag: string): SQL[] {
+  return [
+    eq(clip.status, "ready"),
+    publicClipPrivacyCondition(),
+    isNull(user.disabledAt),
+    clipTagFilter(tag),
+  ]
+}
+
 export const tagsRoute = new Hono()
   // Prefix autocomplete for the editor. Ranks by how many public clips use a
   // tag so the most useful suggestions surface first.
@@ -78,12 +87,7 @@ export const tagsRoute = new Hono()
       const parsedCursor = parseClipListCursor(cursor, sort)
       if (cursor && !parsedCursor) return invalidCursor(c)
 
-      const conditions: SQL[] = [
-        eq(clip.status, "ready"),
-        publicClipPrivacyCondition(),
-        isNull(user.disabledAt),
-        clipTagFilter(tag),
-      ]
+      const conditions = publicTagClipConditions(tag)
       if (steamgriddbId) {
         conditions.push(eq(clip.steamgriddbId, steamgriddbId))
       }
@@ -111,26 +115,28 @@ export const tagsRoute = new Hono()
     const tag = sanitizeTag(c.req.valid("param").tag)
     if (!tag) return notFound(c)
 
-    const rows = await db
-      .select({
-        ...gameSelectShape,
-        clipCount: sql<number>`count(${clip.id})::int`,
-      })
-      .from(game)
-      .innerJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
-      .innerJoin(user, eq(clip.authorId, user.id))
-      .where(
-        and(
-          eq(clip.status, "ready"),
-          publicClipPrivacyCondition(),
-          isNull(user.disabledAt),
-          clipTagFilter(tag),
-        ),
-      )
-      .groupBy(game.steamgriddbId)
-      .orderBy(sql`count(${clip.id}) desc`, game.name)
+    const conditions = publicTagClipConditions(tag)
+    const [summary, rows] = await Promise.all([
+      db
+        .select({ clipCount: sql<number>`count(${clip.id})::int` })
+        .from(clip)
+        .innerJoin(user, eq(clip.authorId, user.id))
+        .where(and(...conditions)),
+      db
+        .select({
+          ...gameSelectShape,
+          clipCount: sql<number>`count(${clip.id})::int`,
+        })
+        .from(game)
+        .innerJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
+        .innerJoin(user, eq(clip.authorId, user.id))
+        .where(and(...conditions))
+        .groupBy(game.steamgriddbId)
+        .orderBy(sql`count(${clip.id}) desc`, game.name),
+    ])
 
     return c.json({
+      clipCount: summary[0]?.clipCount ?? 0,
       games: rows.map((row) =>
         serialiseGameListRow({
           ...serialiseGameRow(row),

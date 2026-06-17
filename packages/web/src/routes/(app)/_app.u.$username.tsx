@@ -4,6 +4,12 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import * as React from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
+import {
+  MediaPageBody,
+  MediaPageBottomSpacer,
+  MediaPageCard,
+  MediaPageContent,
+} from "@/components/routes/media-page-frame"
 import { BlockedGate } from "@/components/routes/profile/blocked-gate"
 import { ProfileBackground } from "@/components/routes/profile/profile-background"
 import { ProfileBanner } from "@/components/routes/profile/profile-banner"
@@ -108,12 +114,9 @@ function UserProfileLayout() {
           </div>
         ) : null}
 
-        <div
+        <MediaPageContent
           aria-hidden={gated ? true : undefined}
-          className={cn(
-            "relative z-10 min-h-full min-w-0 px-3 py-3 [grid-area:1/1] sm:px-6 sm:py-6 lg:px-10",
-            gated && "pointer-events-none select-none",
-          )}
+          className={gated ? "pointer-events-none select-none" : undefined}
         >
           <div className="mx-auto w-full max-w-[1800px] min-w-0">
             {profileError ? (
@@ -123,20 +126,16 @@ function UserProfileLayout() {
                 title="Couldn't load profile"
               />
             ) : (
-              // The fully floating profile card: an optional banner plus the
-              // frosted content body, rounded and shadowed so it lifts off the
-              // wallpaper. With no banner the body itself is the rounded top.
-              <div
-                style={accentStyle}
-                className="ring-border/60 min-w-0 overflow-hidden rounded-2xl shadow-[var(--shadow-lg)] ring-1"
-              >
+              // Mobile uses the full viewport width; larger screens keep the
+              // floating card treatment against the wallpaper.
+              <MediaPageCard style={accentStyle}>
                 {hasBanner && profile ? (
                   <ProfileBanner user={profile.user} />
                 ) : null}
 
                 {/* Frosted body — translucent + blurred so the wallpaper bleeds
                     through and tints everything inside. */}
-                <div className="bg-surface-sunken/55 relative min-w-0 px-4 pb-4 backdrop-blur-2xl backdrop-saturate-150 sm:px-6 sm:pb-8">
+                <MediaPageBody>
                   {profile ? (
                     <ProfileIdentity
                       profile={profile}
@@ -152,12 +151,12 @@ function UserProfileLayout() {
 
                   <ProfileTabsNav username={username} />
                   <Outlet />
-                </div>
-              </div>
+                </MediaPageBody>
+              </MediaPageCard>
             )}
           </div>
-          <div aria-hidden className="h-3 sm:h-6" />
-        </div>
+          <MediaPageBottomSpacer />
+        </MediaPageContent>
 
         <BlockedGate
           open={gated}
