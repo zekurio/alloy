@@ -1,7 +1,7 @@
 import type { QueueClip } from "@alloy/contracts"
 import { clip } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
-import { gameSlugWithId } from "@alloy/server/games/slug"
+import { gameSlug } from "@alloy/server/games/slug"
 import { isoDate } from "@alloy/server/runtime/date"
 import { desc, eq } from "drizzle-orm"
 
@@ -46,10 +46,7 @@ function serialize(row: {
     gameSlug:
       steamgriddbId === null
         ? null
-        : gameSlugWithId(
-            game?.trim() || `Game ${steamgriddbId}`,
-            steamgriddbId,
-          ),
+        : gameSlug(game?.trim() || `Game ${steamgriddbId}`),
     hasThumb: thumbKey !== null,
     thumbBlurHash,
     steamgriddbId,

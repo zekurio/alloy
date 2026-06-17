@@ -1,4 +1,4 @@
-import type { ClipFeedWindow } from "@alloy/api"
+import type { ClipFeedWindow, GameListRow } from "@alloy/api"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
@@ -10,6 +10,7 @@ import * as React from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import {
+  filterLabelClass,
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
@@ -17,7 +18,8 @@ import { EmptyState } from "@/components/feedback/empty-state"
 import { FilterCarousel } from "@/components/filter-carousel"
 import { useRequireAuth } from "@/lib/auth-hooks"
 import { sanitizeTag } from "@/lib/clip-fields"
-import { useTagClipsInfiniteQuery, useTagGamesQuery } from "@/lib/tag-queries"
+import { formatCount } from "@/lib/number-format"
+import { useTagClipsInfiniteQuery, useTagSummaryQuery } from "@/lib/tag-queries"
 import { type TagSearch, tagFilters } from "@/lib/tag-search"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
@@ -41,20 +43,14 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const search = useSearch({ strict: false }) as TagSearch
   const tag = sanitizeTag(rawTag)
   const filters = tagFilters(search)
+  const { data: summary } = useTagSummaryQuery(tag)
 
   return (
-    <AppMain className="!px-2 !pt-0 md:!px-4">
-      <div className="mx-auto flex w-full max-w-[1800px] flex-col gap-4 pt-4 md:pt-6">
-        <div className="flex items-center gap-2">
-          <span className="bg-accent-soft text-accent flex size-10 items-center justify-center rounded-xl">
-            <HashIcon className="size-5" />
-          </span>
-          <h1 className="text-foreground min-w-0 truncate text-2xl font-bold tracking-[-0.02em]">
-            {tag}
-          </h1>
-        </div>
+    <AppMain className="!px-2 md:!px-8">
+      <div className="flex w-full flex-col gap-5 py-3 md:gap-6 md:py-6">
+        <TagHeader tag={tag} clipCount={summary?.clipCount} />
 
-        <TagFilterBar tag={tag} search={search} />
+        <TagFilterBar tag={tag} search={search} games={summary?.games} />
 
         <TagClipsSection tag={tag} filters={filters} viewerId={viewerId} />
       </div>
@@ -62,14 +58,51 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   )
 }
 
-function TagFilterBar({ tag, search }: { tag: string; search: TagSearch }) {
+function clipCountLabel(count: number) {
+  return `${formatCount(count)} ${count === 1 ? "clip" : "clips"}`
+}
+
+function TagHeader({
+  tag,
+  clipCount,
+}: {
+  tag: string
+  clipCount: number | undefined
+}) {
+  return (
+    <header className="flex min-w-0 items-start gap-3">
+      <span className="border-border bg-surface-raised text-foreground-muted flex size-10 shrink-0 items-center justify-center rounded-lg border">
+        <HashIcon className="size-5" />
+      </span>
+      <div className="min-w-0">
+        <h1 className="text-foreground min-w-0 truncate text-2xl font-bold tracking-tight md:text-3xl">
+          {tag}
+        </h1>
+        {clipCount === undefined ? null : (
+          <p className="text-foreground-muted mt-0.5 text-sm font-semibold tabular-nums">
+            {clipCountLabel(clipCount)}
+          </p>
+        )}
+      </div>
+    </header>
+  )
+}
+
+function TagFilterBar({
+  tag,
+  search,
+  games,
+}: {
+  tag: string
+  search: TagSearch
+  games: GameListRow[] | undefined
+}) {
   const filters = tagFilters(search)
-  const { data: games } = useTagGamesQuery(tag)
   const activeGameId = filters.steamgriddbId
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="border-border flex flex-col gap-3 border-y py-3 lg:flex-row lg:items-center lg:gap-4">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         <SortDropdown
           label="Sort"
           value={filters.sort}
@@ -107,41 +140,53 @@ function TagFilterBar({ tag, search }: { tag: string; search: TagSearch }) {
       </div>
 
       {games && games.length > 0 ? (
-        <FilterCarousel>
-          <Chip
-            size="xl"
-            data-active={activeGameId === undefined ? "true" : undefined}
-            render={
-              <Link
-                to="/tags/$tag"
-                params={{ tag }}
-                search={{ ...search, game: undefined }}
-              />
-            }
-          >
-            All games
-          </Chip>
-          {games.map((g) => (
-            <Chip
-              key={g.id}
-              size="xl"
-              data-active={
-                activeGameId === g.steamgriddbId ? "true" : undefined
-              }
-              title={g.name}
-              render={
-                <Link
-                  to="/tags/$tag"
-                  params={{ tag }}
-                  search={{ ...search, game: String(g.steamgriddbId) }}
-                />
-              }
-            >
-              <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />
-              {g.name}
-            </Chip>
-          ))}
-        </FilterCarousel>
+        <>
+          <span
+            aria-hidden
+            className="bg-border hidden h-5 w-px shrink-0 lg:block"
+          />
+          <div className="flex min-w-0 flex-1 items-center gap-1.5">
+            <span className={filterLabelClass}>Game</span>
+            <FilterCarousel className="min-w-0 flex-1">
+              <Chip
+                size="xl"
+                data-active={activeGameId === undefined ? "true" : undefined}
+                render={
+                  <Link
+                    to="/tags/$tag"
+                    params={{ tag }}
+                    search={{ ...search, game: undefined }}
+                  />
+                }
+              >
+                All games
+              </Chip>
+              {games.map((g) => (
+                <Chip
+                  key={g.id}
+                  size="xl"
+                  data-active={
+                    activeGameId === g.steamgriddbId ? "true" : undefined
+                  }
+                  title={g.name}
+                  render={
+                    <Link
+                      to="/tags/$tag"
+                      params={{ tag }}
+                      search={{ ...search, game: String(g.steamgriddbId) }}
+                    />
+                  }
+                >
+                  <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />
+                  <span className="max-w-[10rem] truncate">{g.name}</span>
+                  <span className="text-foreground-faint tabular-nums">
+                    {g.clipCount}
+                  </span>
+                </Chip>
+              ))}
+            </FilterCarousel>
+          </div>
+        </>
       ) : null}
     </div>
   )

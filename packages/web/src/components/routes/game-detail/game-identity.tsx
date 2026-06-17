@@ -26,9 +26,9 @@ function releaseYear(releaseDate: string | null): number | null {
 export function GameIdentity({ game, hasBanner }: GameIdentityProps) {
   const year = releaseYear(game.releaseDate)
 
+  // Identity bar lives inside the frosted card body. With a hero it straddles
+  // the banner edge; without one it is the rounded top of the card.
   return (
-    // Identity bar — lives inside the frosted card body. With a hero it
-    // straddles the banner seam; without one it is the rounded top of the card.
     <div className={cn(hasBanner ? "pb-4" : "pt-4 pb-4 sm:pt-5")}>
       <div
         className={cn(
@@ -46,14 +46,11 @@ export function GameIdentity({ game, hasBanner }: GameIdentityProps) {
 
         {/* Identity */}
         <div className="min-w-0 flex-1">
-          {/* Name + inline star toggle, matching the clip-meta user row where
-              the Follow button sits right beside the @handle. Plain name text
-              mirrors that handle — the logo wordmark embeds the icon mark, so
-              showing it next to the icon would double the brand mark. */}
           <div className="flex min-w-0 items-center gap-2">
-            <h1 className="text-foreground truncate text-xl font-semibold tracking-[-0.02em] sm:text-3xl">
+            <h1 className="text-foreground min-w-0 truncate text-xl font-semibold tracking-[-0.02em] sm:text-3xl">
               {game.name}
             </h1>
+
             <GameFavoriteButton
               slug={game.slug}
               viewer={game.viewer}
@@ -62,7 +59,7 @@ export function GameIdentity({ game, hasBanner }: GameIdentityProps) {
           </div>
 
           {/* Stats mirror the profile's follower/following line — the
-              favourites count lives here, not on the star button. */}
+                favourites count lives here, not on the star button. */}
           <div className="text-foreground-muted mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
             <Stat value={game.favouritesCount} label="favourites" />
             <span className="text-foreground-faint">·</span>
@@ -106,31 +103,16 @@ function GameIcon({
   const [failed, setFailed] = React.useState(false)
   const iconUrl = game.iconUrl && !failed ? game.iconUrl : null
 
-  // SteamGridDB icons aren't standardised — full squares, rounded squares with
-  // transparent corners, the odd non-square logo. A blurred, scaled copy of the
-  // icon backs the contained icon so every shape settles into one uniform
-  // rounded square: square icons fill it exactly (backing hidden), everything
-  // else gets a cohesive ambient fill instead of a hard frame.
   if (iconUrl) {
     return (
-      <div
+      <img
+        src={iconUrl}
+        alt=""
         aria-hidden
-        className={cn("relative overflow-hidden rounded-2xl", className)}
-      >
-        <img
-          src={iconUrl}
-          alt=""
-          decoding="async"
-          className="absolute inset-0 size-full scale-125 object-cover blur-xl"
-        />
-        <img
-          src={iconUrl}
-          alt=""
-          decoding="async"
-          onError={() => setFailed(true)}
-          className="absolute inset-0 size-full object-contain"
-        />
-      </div>
+        decoding="async"
+        onError={() => setFailed(true)}
+        className={cn("object-contain", className)}
+      />
     )
   }
 

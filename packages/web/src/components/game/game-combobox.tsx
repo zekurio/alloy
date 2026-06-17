@@ -22,6 +22,7 @@ import {
 import { useDebouncedValue } from "@/lib/use-debounced-value"
 
 type GameComboboxItem = SteamGridDBSearchResult & {
+  releaseDate?: GameRow["releaseDate"]
   iconUrl?: string | null
   logoUrl?: string | null
   clipCount?: number
@@ -173,6 +174,7 @@ export function GameCombobox({
             {
               id: value.steamgriddbId,
               name: value.name,
+              releaseDate: value.releaseDate,
               iconUrl: value.iconUrl,
               logoUrl: value.logoUrl,
             },
@@ -187,6 +189,7 @@ export function GameCombobox({
             .map((g) => ({
               id: g.steamgriddbId,
               name: g.name,
+              releaseDate: g.releaseDate,
               iconUrl: g.iconUrl,
               logoUrl: g.logoUrl,
               clipCount: g.clipCount,
@@ -218,6 +221,7 @@ export function GameCombobox({
         ? {
             id: value.steamgriddbId,
             name: value.name,
+            releaseDate: value.releaseDate,
             iconUrl: value.iconUrl,
             logoUrl: value.logoUrl,
           }
@@ -369,13 +373,22 @@ function SteamGridDBUnavailableNotice({ className }: { className?: string }) {
 }
 
 function GameSearchResultYear({ item }: { item: GameComboboxItem }) {
-  const releaseYear = releaseYearFromTimestamp(item.release_date)
+  const releaseYear = releaseYearFromGameSearchItem(item)
   if (!releaseYear) return null
 
   return (
     <span className="text-foreground-faint min-w-0 truncate text-xs">
       - {releaseYear}
     </span>
+  )
+}
+
+function releaseYearFromGameSearchItem(
+  item: Pick<GameComboboxItem, "release_date" | "releaseDate">,
+): string | null {
+  return (
+    releaseYearFromTimestamp(item.release_date) ??
+    releaseYearFromDateString(item.releaseDate)
   )
 }
 
@@ -423,5 +436,13 @@ function releaseYearFromTimestamp(
 ): string | null {
   if (value == null) return null
   const year = new Date(value * 1000).getUTCFullYear()
+  return Number.isFinite(year) ? String(year) : null
+}
+
+function releaseYearFromDateString(
+  value: string | null | undefined,
+): string | null {
+  if (!value) return null
+  const year = new Date(value).getUTCFullYear()
   return Number.isFinite(year) ? String(year) : null
 }

@@ -3,7 +3,7 @@ import { createLogger } from "@alloy/logging"
 import { deriveAccentColorFromUrl } from "@alloy/server/media/accent"
 import { imageBlurHash } from "@alloy/server/media/blurhash"
 
-import { gameSlugWithId } from "./slug"
+import { gameSlug } from "./slug"
 import {
   getFirstGrid,
   getFirstHero,
@@ -89,7 +89,7 @@ export async function gameRowFromSearchResult(
     id: result.id,
     steamgriddbId: result.id,
     name: result.name,
-    slug: gameSlugWithId(result.name, result.id),
+    slug: gameSlug(result.name),
     releaseDate,
     heroUrl: null,
     heroBlurHash: null,

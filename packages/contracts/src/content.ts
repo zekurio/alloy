@@ -286,6 +286,7 @@ export interface TagClipsParams {
 }
 
 export interface TagGamesResponse {
+  clipCount: number
   games: GameListRow[]
 }
 

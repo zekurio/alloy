@@ -8,6 +8,12 @@ import { accentCssVars } from "@/lib/color"
 import { useGameQuery } from "@/lib/game-queries"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
+import {
+  MediaPageBody,
+  MediaPageBottomSpacer,
+  MediaPageCard,
+  MediaPageContent,
+} from "../media-page-frame"
 import { GameBackground } from "./game-background"
 import { GameBanner } from "./game-banner"
 import { GameIdentity } from "./game-identity"
@@ -55,7 +61,7 @@ export function GameDetailPageInner({
         </div>
       ) : null}
 
-      <div className="relative z-10 min-h-full min-w-0 px-3 py-3 [grid-area:1/1] sm:px-6 sm:py-6 lg:px-10">
+      <MediaPageContent>
         <div className="mx-auto w-full max-w-[1800px] min-w-0">
           {error ? (
             <EmptyState
@@ -64,15 +70,12 @@ export function GameDetailPageInner({
               title="Couldn't load this game"
             />
           ) : (
-            // The floating game card: an optional hero banner plus the frosted
-            // content body, rounded and shadowed so it lifts off the backdrop.
-            <div
-              style={accentStyle}
-              className="ring-border/60 min-w-0 overflow-hidden rounded-2xl shadow-[var(--shadow-lg)] ring-1"
-            >
+            // Mobile uses the full viewport width; larger screens keep the
+            // floating card treatment against the ambient backdrop.
+            <MediaPageCard style={accentStyle}>
               {game?.heroUrl ? <GameBanner game={game} /> : null}
 
-              <div className="bg-surface-sunken/55 relative min-w-0 px-4 pb-4 backdrop-blur-2xl backdrop-saturate-150 sm:px-6 sm:pb-8">
+              <MediaPageBody>
                 {game ? (
                   <GameIdentity game={game} hasBanner={hasHero} />
                 ) : (
@@ -87,12 +90,12 @@ export function GameDetailPageInner({
                   />
                   <RecentClipsSection slug={slug} viewerId={viewerId} />
                 </div>
-              </div>
-            </div>
+              </MediaPageBody>
+            </MediaPageCard>
           )}
         </div>
-        <div aria-hidden className="h-3 sm:h-6" />
-      </div>
+        <MediaPageBottomSpacer />
+      </MediaPageContent>
     </AppMain>
   )
 }

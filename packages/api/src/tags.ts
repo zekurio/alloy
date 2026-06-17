@@ -1,6 +1,5 @@
 import type {
   ClipPage,
-  GameListRow,
   TagClipsParams,
   TagGamesResponse,
 } from "@alloy/contracts"
@@ -9,6 +8,7 @@ import type { ApiContext } from "./client"
 import { validateClipPage, validateGameListRows } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { queryParams } from "./paths"
+import { objectRecord, validateNonNegativeInteger } from "./runtime-validation"
 
 export type { TagClipsParams, TagGamesResponse } from "@alloy/contracts"
 
@@ -33,17 +33,24 @@ async function fetchTagClipPage(
 async function fetchTagGames(
   context: ApiContext,
   tag: string,
-): Promise<GameListRow[]> {
+): Promise<TagGamesResponse> {
   const res = await context.rpc.api.tags[":tag"].games.$get({
     param: { tag },
   })
-  const payload = await readJsonOrThrow(
-    res,
-    (value): TagGamesResponse => ({
-      games: validateGameListRows((value as { games: unknown }).games),
-    }),
+  return readJsonOrThrow(res, validateTagGamesResponse)
+}
+
+function validateTagGamesResponse(value: unknown): TagGamesResponse {
+  const payload = objectRecord(value, "tag games")
+  const clipCount = payload.clipCount
+  validateNonNegativeInteger(
+    clipCount,
+    "Invalid tag games response: clipCount must be a non-negative integer",
   )
-  return payload.games
+  return {
+    clipCount: clipCount as number,
+    games: validateGameListRows(payload.games),
+  }
 }
 
 function validateTagSuggestions(value: unknown): string[] {
@@ -71,7 +78,9 @@ export function createTagsApi(context: ApiContext) {
   return {
     fetchClipPage: (tag: string, params: TagClipsParams = {}) =>
       fetchTagClipPage(context, tag, params),
-    fetchGames: (tag: string) => fetchTagGames(context, tag),
+    fetchGames: async (tag: string) =>
+      (await fetchTagGames(context, tag)).games,
+    fetchSummary: (tag: string) => fetchTagGames(context, tag),
     search: (query: string) => searchTags(context, query),
   }
 }
