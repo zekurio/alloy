@@ -1,5 +1,5 @@
 import type { ClipMentionRef } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -92,7 +92,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           {others > 0
             ? tx(" and {count} {label}", {
                 count: others,
-                label: others === 1 ? tx("other") : tx("others"),
+                label: tp(others, "other", "others"),
               })
             : null}
         </span>

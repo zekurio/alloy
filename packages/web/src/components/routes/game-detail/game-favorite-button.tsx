@@ -62,12 +62,18 @@ export function GameFavoriteButton({
   return (
     <Button
       type="button"
-      variant={isStarred ? "ghost" : "primary"}
-      size="icon"
+      variant="ghost"
+      size="icon-lg"
       aria-pressed={isStarred}
       aria-label={label}
       title={label}
-      className={className}
+      className={cn(
+        "hover:bg-transparent",
+        isStarred
+          ? "text-yellow-300 hover:text-yellow-200"
+          : "text-white/80 hover:text-white",
+        className,
+      )}
       onClick={() => {
         mutation.mutate(
           { gameId: String(gameId), next: !isStarred },
@@ -80,7 +86,7 @@ export function GameFavoriteButton({
       }}
       disabled={mutation.isPending}
     >
-      <StarIcon className={cn(isStarred && "fill-current")} />
+      <StarIcon className={cn("size-5", isStarred && "fill-current")} />
     </Button>
   )
 }

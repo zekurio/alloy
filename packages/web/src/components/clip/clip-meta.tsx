@@ -1,5 +1,5 @@
 import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -72,6 +72,7 @@ interface ClipMetaProps {
   /** Real privacy value. Pill + popover menu are owner-gated inside. */
   privacy: ClipPrivacy
   views: string
+  viewCount: number
   postedAt: string
   uploader: {
     /** Username handle — drives `/u/:handle` profile links. */
@@ -107,6 +108,7 @@ function ClipMeta({
   description,
   privacy,
   views,
+  viewCount,
   postedAt,
   uploader,
   likes,
@@ -358,7 +360,7 @@ function ClipMeta({
                 <span className="text-foreground-muted">
                   {formatCount(followerCount)}
                 </span>{" "}
-                {tx("followers")}
+                {tp(followerCount, "follower", "followers")}
               </div>
             ) : null}
           </div>
@@ -374,7 +376,7 @@ function ClipMeta({
               </>
             ) : null}
             <span>
-              {views} {tx("views")}
+              {views} {tp(viewCount, "view", "views")}
             </span>
             <span>{"•"}</span>
             <span>{postedAt}</span>

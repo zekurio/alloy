@@ -76,6 +76,7 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       gameHref={gameLink}
       renderGameLink={renderGameLink}
       views={card.views}
+      viewCount={card.viewCount}
       likes={card.likes}
       comments={card.comments}
       postedAt={card.postedAt}
@@ -86,9 +87,12 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       streamUrl={card.streamUrl}
       metaVariant={metaVariant}
       onThumbnailClick={handleThumbnailClick}
+      onTitleClick={handleThumbnailClick}
       onThumbnailIntent={preloadClip}
+      onTitleIntent={preloadClip}
       onPreviewError={handlePreviewError}
       thumbnailLabel={tx("Play clip: {title}", { title: card.title })}
+      titleLabel={tx("Open clip: {title}", { title: card.title })}
     />
   )
 })

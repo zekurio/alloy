@@ -1,17 +1,15 @@
-import { gameGridUrl } from "@alloy/api"
 import { t as tx } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-
-import { apiOrigin } from "@/lib/env"
+import * as React from "react"
 
 export type GameCardData = {
   steamgriddbId: number
   name: string
   slug: string | null
   heroUrl: string | null
-  gridUrl: string | null
+  heroBlurHash: string | null
   gridBlurHash: string | null
   logoUrl: string | null
 }
@@ -27,34 +25,66 @@ type GameCardProps = {
 }
 
 function GameCardBody({ game }: { game: GameCardData }) {
-  const gridSrc =
-    game.gridUrl && game.slug ? gameGridUrl(game.slug, apiOrigin()) : null
+  const [heroFailed, setHeroFailed] = React.useState(false)
+  const [logoFailed, setLogoFailed] = React.useState(false)
+  const heroSrc = game.heroUrl && !heroFailed ? game.heroUrl : null
+  const logoSrc = game.logoUrl && !logoFailed ? game.logoUrl : null
 
   return (
     <>
       <MediaPlaceholder
         seed={game.steamgriddbId}
-        blurHash={game.gridBlurHash}
+        blurHash={game.heroBlurHash ?? game.gridBlurHash}
       />
-      {gridSrc ? (
+      {heroSrc ? (
         <img
-          src={gridSrc}
+          src={heroSrc}
           alt=""
-          crossOrigin="use-credentials"
+          aria-hidden
           className="absolute inset-0 size-full object-cover"
           loading="lazy"
           decoding="async"
+          onError={() => setHeroFailed(true)}
         />
       ) : null}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/15"
+      />
+      <div className="absolute inset-0 flex items-center justify-center p-4">
+        {logoSrc ? (
+          <img
+            src={logoSrc}
+            alt={game.name}
+            className={cn(
+              "max-h-[62%] w-auto max-w-[80%] object-contain",
+              "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)]",
+            )}
+            loading="lazy"
+            decoding="async"
+            onError={() => setLogoFailed(true)}
+          />
+        ) : (
+          <span
+            className={cn(
+              "px-2 text-center text-lg font-semibold tracking-[-0.02em] text-white",
+              "line-clamp-2 drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:text-xl",
+            )}
+          >
+            {game.name}
+          </span>
+        )}
+      </div>
     </>
   )
 }
 
 export function GameCard({ game, link, className }: GameCardProps) {
   const surface = cn(
-    "group/game-card relative block aspect-[2/3] overflow-hidden rounded-md [-webkit-mask-image:linear-gradient(black,black)] [mask-image:linear-gradient(black,black)]",
+    "group/game-card relative block aspect-[16/5] overflow-hidden rounded-lg",
     "bg-neutral-900",
     "transition-[box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+    "hover:shadow-[0_8px_24px_oklch(0_0_0_/_0.35)]",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
     className,
   )

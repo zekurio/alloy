@@ -1,5 +1,5 @@
 import type { ProfileCounts } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import {
   Dialog,
   DialogBody,
@@ -72,7 +72,7 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
       <div className="text-foreground-muted flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium">
         <FollowStatButton
           value={counts.followers}
-          label={tx("followers")}
+          label={tp(counts.followers, "follower", "followers")}
           onClick={() => setOpen("followers")}
         />
         <FollowStatButton

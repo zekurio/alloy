@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { tp } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -29,6 +29,7 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   gameHref?: string | null
   renderGameLink?: ClipCardLabelLinkRenderer
   views: string
+  viewCount?: number
   likes: string
   comments?: string | number
   postedAt?: string
@@ -40,12 +41,18 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   streamUrl?: string
   /** When set, the thumbnail becomes a button that fires this handler. */
   onThumbnailClick?: () => void
+  /** When set, the title becomes a button that fires this handler. */
+  onTitleClick?: () => void
   /** Fires on hover/focus/press so callers can warm data before open. */
   onThumbnailIntent?: () => void
+  /** Fires on hover/focus/press over the title so callers can warm data. */
+  onTitleIntent?: () => void
   /** Fires when hover-preview video playback is rejected by the browser. */
   onPreviewError?: (cause: unknown) => void
   /** Accessible label for the thumbnail button. */
   thumbnailLabel?: string
+  /** Accessible label for the title button. */
+  titleLabel?: string
   thumbnailRef?: React.Ref<HTMLButtonElement>
   metaVariant?: "default" | "showcase"
   /**
@@ -61,6 +68,7 @@ type ClipCardLabelLinkProps = {
   className: string
   children: React.ReactNode
   onClick: React.MouseEventHandler<HTMLAnchorElement>
+  ariaLabel?: string
 }
 
 type ClipCardLabelLinkRenderer = (
@@ -85,6 +93,7 @@ function ClipCard({
   gameHref,
   renderGameLink,
   views,
+  viewCount,
   // Likes and comments stay in the contract but are no longer shown on the
   // card face — the meta line mirrors the channel-style "views · age" layout.
   likes: _likes,
@@ -98,9 +107,12 @@ function ClipCard({
   accentHue: _accentHue,
   streamUrl,
   onThumbnailClick,
+  onTitleClick,
   onThumbnailIntent,
+  onTitleIntent,
   onPreviewError,
   thumbnailLabel,
+  titleLabel,
   thumbnailRef,
   metaVariant = "default",
   thumbnailOverlay,
@@ -146,11 +158,20 @@ function ClipCard({
             authorInitials={authorInitials}
             authorAvatarBg={authorAvatarBg}
             authorAvatarFg={authorAvatarFg}
+            href={authorHref}
+            renderLink={renderAuthorLink}
             className="row-span-2 mt-0.5 size-11"
           />
         ) : null}
         <div className="text-foreground col-span-2 truncate text-lg leading-6 font-semibold">
-          {titleContent ?? title}
+          <ClipCardTitleButton
+            title={title}
+            label={titleLabel}
+            onClick={onTitleClick}
+            onIntent={onTitleIntent}
+          >
+            {titleContent ?? title}
+          </ClipCardTitleButton>
         </div>
         {showAttributionRow ? (
           <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-base leading-5">
@@ -192,7 +213,7 @@ function ClipCard({
         ) : (
           <div className="text-foreground-faint flex shrink-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums">
             <span className="shrink-0">
-              {views} {tx("views")}
+              {views} {tp(viewCountForLabel(viewCount, views), "view", "views")}
             </span>
             <span className="shrink-0">{"·"}</span>
             <span className="shrink-0">{postedAt}</span>
@@ -201,6 +222,14 @@ function ClipCard({
       </div>
     </article>
   )
+}
+
+function viewCountForLabel(
+  viewCount: number | undefined,
+  formattedViews: string,
+): number {
+  if (viewCount !== undefined) return viewCount
+  return formattedViews.trim() === "1" ? 1 : 0
 }
 
 function ClipCardThumb({
@@ -521,6 +550,8 @@ function ClipCardAvatar({
   authorInitials,
   authorAvatarBg,
   authorAvatarFg,
+  href,
+  renderLink,
   className,
 }: {
   author: string
@@ -528,6 +559,8 @@ function ClipCardAvatar({
   authorInitials: string | undefined
   authorAvatarBg: string | undefined
   authorAvatarFg: string | undefined
+  href: string | null | undefined
+  renderLink: ClipCardLabelLinkRenderer | undefined
   className?: string
 }) {
   const initials = authorInitials ?? (author.slice(0, 2).toUpperCase() || "?")
@@ -536,11 +569,70 @@ function ClipCardAvatar({
     color: authorAvatarFg,
   }
 
-  return (
+  const avatar = (
     <Avatar aria-hidden size="lg" className={className} style={avatarStyle}>
       {authorImage ? <AvatarImage src={authorImage} alt="" /> : null}
       <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
     </Avatar>
+  )
+
+  const linkClassName = cn(
+    className,
+    "rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
+  )
+
+  if (renderLink) {
+    return renderLink({
+      href: href ?? undefined,
+      className: linkClassName,
+      onClick: stopLabelLinkPropagation,
+      ariaLabel: author,
+      children: avatar,
+    })
+  }
+
+  if (href) {
+    return (
+      <a
+        href={href}
+        aria-label={author}
+        onClick={stopLabelLinkPropagation}
+        className={linkClassName}
+      >
+        {avatar}
+      </a>
+    )
+  }
+
+  return avatar
+}
+
+function ClipCardTitleButton({
+  title,
+  label,
+  onClick,
+  onIntent,
+  children,
+}: {
+  title: string
+  label: string | undefined
+  onClick: (() => void) | undefined
+  onIntent: (() => void) | undefined
+  children: React.ReactNode
+}) {
+  if (!onClick) return children
+
+  return (
+    <button
+      type="button"
+      aria-label={label ?? title}
+      className="block max-w-full truncate text-left hover:underline focus-visible:underline focus-visible:outline-none"
+      onClick={onClick}
+      onPointerEnter={onIntent}
+      onFocus={onIntent}
+    >
+      {children}
+    </button>
   )
 }
 

@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,9 +40,9 @@ function useDeleteAllClipsAction() {
       }
       await getQueryClient().invalidateQueries()
       toast.success(
-        deleted === 1
-          ? tx("Deleted 1 clip")
-          : tx("Deleted {count} clips", { count: deleted }),
+        tp(deleted, "Deleted {count} clip", "Deleted {count} clips", {
+          count: deleted,
+        }),
       )
     } catch (cause) {
       toast.error(errorMessage(cause, tx("Couldn't delete clips")))

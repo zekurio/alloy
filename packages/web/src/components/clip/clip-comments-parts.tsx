@@ -1,5 +1,5 @@
 import { COMMENT_BODY_MAX_LENGTH } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,7 +49,7 @@ export function CommentsHeader({ count }: { count: number }) {
     <div className="flex items-center justify-center pt-4 pb-1">
       <div className="bg-surface-raised text-foreground-faint inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs leading-4 font-medium tabular-nums">
         <MessageSquareIcon className="size-3.5" />
-        {formatCount(count)} {count === 1 ? tx("comment") : tx("comments")}
+        {formatCount(count)} {tp(count, "comment", "comments")}
       </div>
     </div>
   )
@@ -389,11 +389,11 @@ export function CommentActions({
             repliesOpen
               ? tx("Hide {count} {label}", {
                   count: replyCount,
-                  label: replyCount === 1 ? tx("reply") : tx("replies"),
+                  label: tp(replyCount, "reply", "replies"),
                 })
               : tx("View {count} {label}", {
                   count: replyCount,
-                  label: replyCount === 1 ? tx("reply") : tx("replies"),
+                  label: tp(replyCount, "reply", "replies"),
                 })
           }
           className={cn(
@@ -415,12 +415,12 @@ export function CommentActions({
           ) : repliesOpen ? (
             tx("Hide {count} {label}", {
               count: formatCount(replyCount),
-              label: replyCount === 1 ? tx("reply") : tx("replies"),
+              label: tp(replyCount, "reply", "replies"),
             })
           ) : (
             tx("View {count} {label}", {
               count: formatCount(replyCount),
-              label: replyCount === 1 ? tx("reply") : tx("replies"),
+              label: tp(replyCount, "reply", "replies"),
             })
           )}
         </button>
