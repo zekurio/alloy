@@ -1,4 +1,4 @@
-import { getRuntimeLocale, t as tx } from "@alloy/i18n"
+import { getRuntimeLocale, tp } from "@alloy/i18n"
 const COUNT_UNITS = ["k", "m", "b", "t"] as const
 
 /** 1,3k / 12,4k / 842 — truncated so counts never round up. */
@@ -37,6 +37,6 @@ export function headerCountLabel(
 ): string {
   const safe = Number.isFinite(count) ? Math.trunc(Math.max(0, count)) : 0
   const display = safe > 99 ? "99+" : String(safe)
-  const noun = safe === 1 ? tx(singular) : tx(plural)
+  const noun = tp(safe, singular, plural)
   return `${display} ${noun}`
 }

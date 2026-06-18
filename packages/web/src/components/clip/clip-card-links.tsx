@@ -8,13 +8,19 @@ export function useClipCardAuthorLink(
   return React.useMemo<ClipCardLabelLinkRenderer | undefined>(() => {
     if (!username) return undefined
 
-    return function renderClipCardAuthorLink({ children, className, onClick }) {
+    return function renderClipCardAuthorLink({
+      children,
+      className,
+      onClick,
+      ariaLabel,
+    }) {
       return (
         <Link
           to="/u/$username"
           params={{ username }}
           className={className}
           onClick={onClick}
+          aria-label={ariaLabel}
         >
           {children}
         </Link>
@@ -29,13 +35,19 @@ export function useClipCardGameLink(
   return React.useMemo<ClipCardLabelLinkRenderer | undefined>(() => {
     if (!gameId) return undefined
 
-    return function renderClipCardGameLink({ children, className, onClick }) {
+    return function renderClipCardGameLink({
+      children,
+      className,
+      onClick,
+      ariaLabel,
+    }) {
       return (
         <Link
           to="/games/$gameId"
           params={{ gameId: String(gameId) }}
           className={className}
           onClick={onClick}
+          aria-label={ariaLabel}
         >
           {children}
         </Link>

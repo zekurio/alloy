@@ -59,11 +59,7 @@ function toPublicAuthConfig(
   }
 }
 
-/**
- * Renders children at a fixed reference size, scaled to fit the parent's width.
- * The parent must establish the box (here, an aspect-video container) so the
- * scaled height lines up with the 16:9 reference.
- */
+/** Renders children at a fixed reference size, scaled to fit the parent. */
 function ScaledViewport({
   width,
   height,
@@ -79,22 +75,26 @@ function ScaledViewport({
   React.useEffect(() => {
     const el = containerRef.current
     if (!el) return
-    const update = () => setScale(el.clientWidth / width)
+    const update = () =>
+      setScale(Math.min(el.clientWidth / width, el.clientHeight / height))
     update()
     const observer = new ResizeObserver(update)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [width])
+  }, [height, width])
 
   return (
-    <div ref={containerRef} className="absolute inset-0 overflow-hidden">
+    <div
+      ref={containerRef}
+      className="absolute inset-0 flex items-center justify-center overflow-hidden"
+    >
       {scale > 0 ? (
         <div
           style={{
             width,
             height,
             transform: `scale(${scale})`,
-            transformOrigin: "top left",
+            transformOrigin: "center",
           }}
         >
           {children}
@@ -114,7 +114,11 @@ function AuthPreviewContent({
   fill?: boolean
 }) {
   return (
-    <AuthPageFrame splash={config.loginSplash} fill={fill}>
+    <AuthPageFrame
+      splash={config.loginSplash}
+      fill={fill}
+      desktopChrome={false}
+    >
       {mode === "login" ? (
         <LoginForm config={config} passkeySupported />
       ) : (

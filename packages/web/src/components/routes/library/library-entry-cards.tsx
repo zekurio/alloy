@@ -43,6 +43,7 @@ export function LibraryCaptureCard({
       gameHref={gameUrl}
       renderGameLink={renderGameLink}
       views="0"
+      viewCount={0}
       likes="0"
       thumbnail={thumbnail ?? undefined}
       thumbnailBlurHash={item.thumbBlurHash}
@@ -78,6 +79,7 @@ export function ProjectDraftCard({
       gameIcon={null}
       gameHref={null}
       views="0"
+      viewCount={0}
       likes="0"
       thumbnail={thumbnailUrl ?? undefined}
       thumbnailBlurHash={thumbBlurHash}
@@ -209,6 +211,7 @@ export function UploadedClipCard({
       gameHref={gameUrl}
       renderGameLink={renderGameLink}
       views={card.views}
+      viewCount={card.viewCount}
       likes={card.likes}
       thumbnail={card.thumbnail}
       thumbnailBlurHash={card.thumbnailBlurHash}

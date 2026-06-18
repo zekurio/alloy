@@ -32,6 +32,7 @@ interface ClipCardData {
   authorImage: string | null
   authorAvatar: UserAvatar
   views: string
+  viewCount: number
   likes: string
   comments: string
   postedAt: string
@@ -70,6 +71,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     authorImage: authorAvatar.src ?? null,
     authorAvatar,
     views: formatCount(row.viewCount),
+    viewCount: row.viewCount,
     likes: formatCount(row.likeCount),
     comments: formatCount(row.commentCount),
     postedAt: formatRelativeTime(row.createdAt, now),

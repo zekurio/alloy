@@ -9,11 +9,12 @@ export function GamesGrid({ children }: GamesGridProps) {
   return (
     <div
       className={cn(
-        // Match the `ClipGrid` cadence so a game card and a clip card
-        // feel like the same object on screens that host both.
+        // Wide banner cards: fluid columns that collapse to a single
+        // full-width card on narrow viewports and fan out to a few across
+        // on desktop.
         "grid gap-4",
-        "[grid-template-columns:repeat(auto-fill,minmax(160px,1fr))]",
-        "xl:[grid-template-columns:repeat(auto-fill,minmax(180px,1fr))]",
+        "[grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr))]",
+        "xl:[grid-template-columns:repeat(auto-fill,minmax(420px,1fr))]",
       )}
     >
       {children}

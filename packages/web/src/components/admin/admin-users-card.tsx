@@ -1,5 +1,5 @@
 import type { AdminUsersResponse, AdminUserStorageRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -361,7 +361,7 @@ function UserListRow({
   const name = displayName(user)
   const avatar = userAvatar(user)
   const avatarStyle = { background: avatar.bg, color: avatar.fg }
-  const clipLabel = user.clipCount === 1 ? tx("clip") : tx("clips")
+  const clipLabel = tp(user.clipCount, "clip", "clips")
 
   return (
     <ListItem>

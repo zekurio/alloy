@@ -50,17 +50,20 @@ function MediaMenuItems({
   onUpload: () => void
   onRemove: () => void
 }) {
+  const uploadLabel =
+    kind === "avatar" ? tx("Upload new avatar") : tx("Upload new banner")
+  const removeLabel =
+    kind === "avatar" ? tx("Remove avatar") : tx("Remove banner")
+
   return (
     <>
       <DropdownMenuItem onClick={onUpload}>
         <ImageIcon />
-        {tx("Upload new")}
-        {kind}
+        <span>{uploadLabel}</span>
       </DropdownMenuItem>
       <DropdownMenuItem variant="destructive" onClick={onRemove}>
         <Trash2 />
-        {tx("Remove")}
-        {kind}
+        <span>{removeLabel}</span>
       </DropdownMenuItem>
     </>
   )
@@ -80,7 +83,7 @@ export function MediaDropdownContent({
   return (
     <DropdownMenuContent
       anchor={anchor ?? undefined}
-      className="alloy-blur text-foreground w-auto border-white/8"
+      className="alloy-blur text-foreground w-max min-w-44 border-white/8"
     >
       <MediaMenuItems kind={kind} onUpload={onUpload} onRemove={onRemove} />
     </DropdownMenuContent>

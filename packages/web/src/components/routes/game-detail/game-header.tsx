@@ -1,5 +1,5 @@
 import type { GameDetail } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
@@ -9,17 +9,13 @@ import { formatCount } from "@/lib/number-format"
 
 import { GameFavoriteButton } from "./game-favorite-button"
 
-type GameHeaderProps = {
-  game: GameDetail
-}
-
 function releaseYear(releaseDate: string | null): number | null {
   if (!releaseDate) return null
   const year = new Date(releaseDate).getUTCFullYear()
   return Number.isFinite(year) ? year : null
 }
 
-export function GameHeader({ game }: GameHeaderProps) {
+export function GameHeader({ game }: { game: GameDetail }) {
   return (
     <header className="w-full min-w-0">
       <GameHeroBanner game={game} />
@@ -103,11 +99,14 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-white/75">
-            <HeroStat value={game.favouritesCount} label={tx("favourites")} />
+            <HeroStat
+              value={game.favouritesCount}
+              label={tp(game.favouritesCount, "favourite", "favourites")}
+            />
             <HeroDot />
             <HeroStat
               value={game.clipCount}
-              label={game.clipCount === 1 ? tx("clip") : tx("clips")}
+              label={tp(game.clipCount, "clip", "clips")}
             />
             {year !== null ? (
               <>
