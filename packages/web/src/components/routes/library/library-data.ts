@@ -65,6 +65,7 @@ function librarySnapshotErrorMessage(cause: unknown): string | null {
  */
 export function useLibrarySnapshot(
   desktop: AlloyDesktop | null,
+  { toastErrors = true }: { toastErrors?: boolean } = {},
 ): LibrarySnapshotState {
   const queryClient = useQueryClient()
   const { data, error, isFetching, refetch } = useQuery({
@@ -81,6 +82,7 @@ export function useLibrarySnapshot(
   const lastToastedErrorRef = React.useRef<string | null>(null)
 
   React.useEffect(() => {
+    if (!toastErrors) return
     if (!errorMessage) {
       lastToastedErrorRef.current = null
       return
@@ -88,7 +90,7 @@ export function useLibrarySnapshot(
     if (lastToastedErrorRef.current === errorMessage) return
     lastToastedErrorRef.current = errorMessage
     toast.error(errorMessage)
-  }, [errorMessage])
+  }, [errorMessage, toastErrors])
 
   const refresh = React.useCallback(async () => {
     if (!desktop) return
