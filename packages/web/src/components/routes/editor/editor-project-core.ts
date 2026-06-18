@@ -14,6 +14,11 @@ import {
   type EditorFilterId,
   normalizeEditorFilterId,
 } from "./editor-filters"
+import {
+  DEFAULT_EDITOR_TRANSITION_TYPE,
+  type EditorTransitionType,
+  normalizeEditorTransitionType,
+} from "./editor-transition-presets"
 
 /** A piece of media clips can reference: a local capture or an uploaded clip. */
 export interface EditorMediaSource {
@@ -46,15 +51,13 @@ export interface TimelineTrack {
   label: string
 }
 
-export type TransitionType = "crossfade"
+export type TransitionType = EditorTransitionType
 
 /**
  * A transition bridging two adjacent clips on the same track. It lives in
- * the window `[cut - durationMs, cut]` (the tail of the left clip): the
- * right clip's first frame fades in over the left clip's ending, and the
- * left clip's audio ramps out. Without a transition, boundaries are hard
- * cuts. Transitions only stay valid while their clips remain adjacent —
- * edits that separate the pair drop them (see `pruneTransitions`).
+ * the window `[cut - durationMs, cut]` (the tail of the left clip). Without a
+ * transition, boundaries are hard cuts. Transitions only stay valid while
+ * their clips remain adjacent; edits that separate the pair drop them.
  */
 export interface ClipTransition {
   id: string
@@ -71,6 +74,8 @@ export interface EditorProject {
   transitions: ClipTransition[]
   /** Global visual filter applied to preview and rendered exports. */
   filterId?: EditorFilterId
+  /** Default transition used when adding new junction effects. */
+  transitionType?: EditorTransitionType
 }
 
 /** Smallest clip an edit operation may produce. */
@@ -78,6 +83,7 @@ export const MIN_CLIP_MS = 100
 export const MIN_TRANSITION_MS = 100
 export const DEFAULT_TRANSITION_MS = 500
 export const DEFAULT_PROJECT_FILTER_ID = DEFAULT_EDITOR_FILTER_ID
+export const DEFAULT_PROJECT_TRANSITION_TYPE = DEFAULT_EDITOR_TRANSITION_TYPE
 
 let idCounter = 0
 export function nextId(prefix: string): string {
@@ -99,6 +105,12 @@ export function projectDurationMs(project: EditorProject): number {
 
 export function projectFilterId(project: EditorProject): EditorFilterId {
   return normalizeEditorFilterId(project.filterId)
+}
+
+export function projectTransitionType(
+  project: EditorProject,
+): EditorTransitionType {
+  return normalizeEditorTransitionType(project.transitionType)
 }
 
 export function findClip(

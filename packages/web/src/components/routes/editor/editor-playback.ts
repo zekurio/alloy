@@ -28,7 +28,7 @@ import { incomingPreRollMs, outgoingTransitionFor } from "./editor-transitions"
  *   clip boundaries are sample-accurate.
  * - Upcoming clips are primed ahead of time (pipeline opened, first frame
  *   decoded, audio pre-scheduled), so cuts swap frames instantly instead of
- *   blacking out, and crossfades have both sides ready.
+ *   blacking out, and transitions have both sides ready.
  *
  * The same decode pipeline is what a future export path would drive, just
  * against an `Output` instead of a canvas + audio context.
@@ -83,7 +83,7 @@ export class PreviewEngine {
       }
     }
     // Open every referenced source eagerly: without this, the first pass
-    // over a cut or crossfade pays the demuxer-open latency mid-window and
+    // over a cut or transition pays the demuxer-open latency mid-window and
     // the incoming side pops in late.
     for (const clip of project.clips) {
       const existing = this.readers.get(clip.sourceId)
@@ -178,7 +178,7 @@ export class PreviewEngine {
       }
     }
 
-    // Advance the frames that are on screen. During a crossfade the
+    // Advance the frames that are on screen. During a transition the
     // incoming clip plays too: the same linear mapping extended before its
     // start yields its pre-roll material (clamped by what was decoded).
     if (visible) {
@@ -237,7 +237,7 @@ export class PreviewEngine {
     const sourceMs = Math.round(
       visible.sourceStartMs + (timelineMs - visible.startMs),
     )
-    // The incoming side of a crossfade shows its pre-roll material at this
+    // The incoming side of a transition shows its pre-roll material at this
     // point of the window (clamped by its available leading handle).
     const rightSourceMs = transition
       ? Math.round(
@@ -250,7 +250,7 @@ export class PreviewEngine {
         )
       : 0
     const key = transition
-      ? `${visible.sourceId}:${sourceMs}:${transition.right.sourceId}:${rightSourceMs}:${transition.progress.toFixed(2)}`
+      ? `${visible.sourceId}:${sourceMs}:${transition.right.sourceId}:${rightSourceMs}:${transition.transition.type}:${transition.progress.toFixed(2)}`
       : `${visible.sourceId}:${sourceMs}`
     if (key === this.lastStaticKey) return
 
@@ -268,7 +268,13 @@ export class PreviewEngine {
 
     this.surface.clear()
     this.surface.blit(frame, 1)
-    if (transition && overlay) this.surface.blit(overlay, transition.progress)
+    if (transition) {
+      this.surface.transition(
+        overlay,
+        transition.transition.type,
+        transition.progress,
+      )
+    }
     // A null frame (pipeline still opening, decode failure) leaves the key
     // unset so the next request at this position retries.
     if (frame) this.lastStaticKey = key
@@ -303,8 +309,8 @@ export class PreviewEngine {
   /**
    * Creates (or completes) the player for a clip: opens the video pipeline
    * at the right source offset and, while playing, schedules its audio at
-   * absolute context times — including the gain ramps of crossfades on
-   * either end. A clip entered by a crossfade starts `preRoll` early,
+   * absolute context times — including the gain ramps of transitions on
+   * either end. A clip entered by a transition starts `preRoll` early,
    * playing its trimmed-away lead-in so it lands on its in-point exactly
    * at the cut.
    */
@@ -372,8 +378,9 @@ export class PreviewEngine {
       const incoming = this.players.get(transition.right.id)
       // Live pre-roll frames when the clip has a leading handle; its first
       // decoded frame as the fallback while the pipeline warms up.
-      this.surface.blit(
+      this.surface.transition(
         incoming?.current ?? incoming?.firstFrame ?? null,
+        transition.transition.type,
         transition.progress,
       )
     }

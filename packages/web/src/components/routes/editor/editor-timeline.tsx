@@ -15,6 +15,10 @@ import {
 } from "./editor-project"
 import { ClipBlock } from "./editor-timeline-clip"
 import { TimelineRuler } from "./editor-timeline-ruler"
+import {
+  editorTransitionPreset,
+  type EditorTransitionType,
+} from "./editor-transition-presets"
 
 /**
  * Multitrack editing timeline: tracks render as stacked rows over a shared
@@ -92,6 +96,7 @@ export function MultitrackTimeline({
   project,
   sources,
   spanMs,
+  transitionType,
   selectedClipId,
   currentMs,
   playing,
@@ -111,6 +116,8 @@ export function MultitrackTimeline({
   sources: Map<string, EditorMediaSource>
   /** Total time the scrollable strip covers; the timeline's spatial frame. */
   spanMs: number
+  /** Transition style applied by the junction badge when adding a new effect. */
+  transitionType: EditorTransitionType
   selectedClipId: string | null
   /** Playhead position in timeline time. */
   currentMs: number
@@ -124,7 +131,7 @@ export function MultitrackTimeline({
   onMoveClip: (clipId: string, trackId: string, desiredStartMs: number) => void
   onTrimClipStart: (clipId: string, timelineMs: number) => void
   onTrimClipEnd: (clipId: string, timelineMs: number) => void
-  /** Toggles a crossfade at the junction between two adjacent clips. */
+  /** Toggles a transition at the junction between two adjacent clips. */
   onToggleTransition: (leftClipId: string, rightClipId: string) => void
   /** Removes an empty track (the model refuses non-empty/last ones). */
   onRemoveTrack: (trackId: string) => void
@@ -470,12 +477,19 @@ export function MultitrackTimeline({
                   />
                 ))}
 
-              {/* Junction badges: adjacent clips can carry a crossfade. */}
+              {/* Junction badges: adjacent clips can carry a transition. */}
               {trackJunctions(project, track.id).map(({ left, right }) => {
                 const transition = transitionBetween(project, left.id, right.id)
+                const preset = editorTransitionPreset(
+                  transition?.type ?? transitionType,
+                )
                 const label = transition
-                  ? tx("Remove crossfade")
-                  : tx("Add crossfade")
+                  ? tx("Remove {transition}", {
+                      transition: preset.title,
+                    })
+                  : tx("Add {transition}", {
+                      transition: preset.title,
+                    })
                 return (
                   <button
                     key={`${left.id}:${right.id}`}

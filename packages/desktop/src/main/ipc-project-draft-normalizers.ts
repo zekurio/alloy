@@ -1,6 +1,8 @@
 import {
   RECORDING_LIBRARY_PROJECT_FILTER_IDS,
+  RECORDING_LIBRARY_PROJECT_TRANSITION_TYPES,
   type RecordingLibraryProjectFilterId,
+  type RecordingLibraryProjectTransitionType,
 } from "@alloy/contracts"
 
 import type {
@@ -69,6 +71,7 @@ function normalizeProjectDraftProject(
     clips,
     transitions,
     filterId: normalizeProjectDraftFilterId(record.filterId),
+    transitionType: normalizeProjectDraftTransitionType(record.transitionType),
   }
 }
 
@@ -142,9 +145,9 @@ function normalizeProjectDraftTransition(
     record.rightClipId,
     PROJECT_DRAFT_ID_MAX,
   )
+  const type = normalizeProjectDraftTransitionType(record.type)
   if (
     !id ||
-    record.type !== "crossfade" ||
     !leftClipId ||
     !rightClipId ||
     !clipIds.has(leftClipId) ||
@@ -154,7 +157,7 @@ function normalizeProjectDraftTransition(
   }
   return {
     id,
-    type: "crossfade",
+    type,
     leftClipId,
     rightClipId,
     durationMs: normalizeProjectDraftMs(record.durationMs),
@@ -169,6 +172,16 @@ function normalizeProjectDraftFilterId(
   )
     ? (value as RecordingLibraryProjectFilterId)
     : "none"
+}
+
+function normalizeProjectDraftTransitionType(
+  value: unknown,
+): RecordingLibraryProjectTransitionType {
+  return RECORDING_LIBRARY_PROJECT_TRANSITION_TYPES.includes(
+    value as RecordingLibraryProjectTransitionType,
+  )
+    ? (value as RecordingLibraryProjectTransitionType)
+    : "crossfade"
 }
 
 function normalizeProjectDraftString(
