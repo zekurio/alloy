@@ -40,7 +40,7 @@ type SortDropdownProps<K extends string> = {
   /**
    * Render the navigation target for an option as a router `<Link>`. Keeping
    * the route wiring at the call site lets a single dropdown serve different
-   * routes (profile sort, home top-clips window, ...) without duplication.
+   * routes (profile sort, feed sort, ...) without duplication.
    */
   renderOptionLink: (
     option: SortDropdownOption<K>,

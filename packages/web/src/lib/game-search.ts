@@ -1,19 +1,16 @@
-import type { ClipFeedWindow } from "@alloy/api"
+import type { ClipFeedSort } from "@alloy/api"
 
-import {
-  DEFAULT_TOP_CLIPS_WINDOW,
-  parseClipFeedWindow,
-} from "./clip-feed-windows"
+import { DEFAULT_CLIP_SORT, parseClipSort } from "./clip-sort"
 
 export type GameSearch = {
-  window?: ClipFeedWindow
+  sort?: ClipFeedSort
 }
 
 export function parseGameSearch(search: Record<string, unknown>): GameSearch {
-  const window = parseClipFeedWindow(search.window)
-  return window ? { window } : {}
+  const sort = parseClipSort(search.sort)
+  return sort ? { sort } : {}
 }
 
-export function gameTopClipsWindow(search: GameSearch): ClipFeedWindow {
-  return search.window ?? DEFAULT_TOP_CLIPS_WINDOW
+export function gameClipsSort(search: GameSearch): ClipFeedSort {
+  return search.sort ?? DEFAULT_CLIP_SORT
 }

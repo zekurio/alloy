@@ -1,15 +1,10 @@
 import type { UserClip } from "@alloy/api"
 import { t as tx } from "@alloy/i18n"
-import {
-  SectionActions,
-  SectionHead,
-  SectionMeta,
-  SectionTitle,
-} from "@alloy/ui/components/section-head"
-import { FilmIcon } from "lucide-react"
+import { SectionMeta } from "@alloy/ui/components/section-head"
 import * as React from "react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
+import { useHeaderToolbar } from "@/components/layout/header-toolbar"
 import { compareDateAsc, compareDateDesc } from "@/lib/date-format"
 import { headerCountLabel } from "@/lib/number-format"
 import type { ProfileAllSort } from "@/lib/profile-all-search"
@@ -82,31 +77,28 @@ export function AllClipsSection({
     return sortClips(byGame, sort)
   }, [clips, gameSlug, sort])
 
-  return (
-    <section>
-      <SectionHead>
-        <div>
-          <SectionTitle>
-            <FilmIcon className="text-accent" />
-            {tx("All clips")}
-          </SectionTitle>
-        </div>
-        <SectionActions>
-          {visible ? (
-            <SectionMeta>
-              {headerCountLabel(visible.length, "clip")}
-            </SectionMeta>
-          ) : null}
-        </SectionActions>
-      </SectionHead>
-
+  const toolbar = React.useMemo(
+    () => (
       <ClipsFilterBar
         username={username}
         sort={sort}
         gameSlug={gameSlug}
         gameOptions={gameOptions}
+        trailing={
+          visible ? (
+            <SectionMeta>
+              {headerCountLabel(visible.length, "clip")}
+            </SectionMeta>
+          ) : null
+        }
       />
+    ),
+    [gameOptions, gameSlug, sort, username, visible],
+  )
+  useHeaderToolbar(toolbar)
 
+  return (
+    <section>
       <ClipSectionContent
         rows={visible}
         error={error}

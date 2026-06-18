@@ -1,4 +1,4 @@
-import type { FeedFilter, FeedPageParams } from "@alloy/api"
+import type { ClipFeedSort, FeedFilter, FeedPageParams } from "@alloy/api"
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -15,19 +15,21 @@ function filterKey(filter: FeedFilter): readonly unknown[] {
 export const feedKeys = {
   all: ["feed"] as const,
   chips: () => [...feedKeys.all, "chips"] as const,
-  list: (filter: FeedFilter, limit: number) =>
-    [...feedKeys.all, "list", ...filterKey(filter), { limit }] as const,
+  list: (filter: FeedFilter, sort: ClipFeedSort, limit: number) =>
+    [...feedKeys.all, "list", ...filterKey(filter), { sort, limit }] as const,
 }
 
 export function useFeedInfiniteQuery(
   filter: FeedFilter,
+  sort: ClipFeedSort,
   { limit = 20 }: { limit?: number } = {},
 ) {
   return useInfiniteQuery({
-    queryKey: feedKeys.list(filter, limit),
+    queryKey: feedKeys.list(filter, sort, limit),
     queryFn: ({ pageParam }) =>
       api.feed.fetch({
         filter,
+        sort,
         limit,
         cursor: pageParam,
       } satisfies FeedPageParams),

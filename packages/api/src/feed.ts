@@ -26,6 +26,7 @@ export function createFeedApi(context: ApiContext) {
       const res = await context.rpc.api.feed.$get({
         query: queryParams({
           filter: params.filter.kind,
+          sort: params.sort,
           steamgriddbId:
             params.filter.kind === "game"
               ? params.filter.steamgriddbId

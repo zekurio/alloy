@@ -1,13 +1,17 @@
-import type { ClipFeedWindow, FeedFilter } from "@alloy/api"
+import type { ClipFeedSort, FeedFilter } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { Link, useSearch } from "@tanstack/react-router"
+import * as React from "react"
 
+import { SortDropdown } from "@/components/clip/sort-dropdown"
+import { useHeaderToolbar } from "@/components/layout/header-toolbar"
+import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
 import type { HomeSearch } from "@/lib/home-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
-import { FeedChipBar } from "./feed-chip-bar"
+import { FeedFilterDropdown } from "./feed-filter-dropdown"
 import { FeedSection } from "./feed-section"
-import { HomeTopClipsSection } from "./top-clips-section"
 
 function filterFromSearch(search: HomeSearch): FeedFilter {
   if (search.game) {
@@ -17,43 +21,80 @@ function filterFromSearch(search: HomeSearch): FeedFilter {
     }
   }
   if (search.feed === "following") return { kind: "following" }
-  return { kind: "foryou" }
+  if (search.feed === "recommended") return { kind: "recommended" }
+  return { kind: "all" }
 }
 
 export function HomePageInner() {
   const session = useSuspenseSession()
-  const navigate = useNavigate()
   const search = useSearch({ strict: false }) as HomeSearch
+  const toolbarSearchKey = JSON.stringify(search)
+  const toolbarSearch = React.useMemo(() => search, [toolbarSearchKey])
 
-  const filter = filterFromSearch(search)
-  const window: ClipFeedWindow = search.window ?? "today"
-
-  // The feed filter lives in the URL so it is shareable and survives reloads,
-  // mirroring the top-clips window and the profile sort. `window`/other params
-  // are preserved by spreading the previous search.
-  function setFilter(next: FeedFilter) {
-    void navigate({
-      to: "/",
-      search: (prev: HomeSearch) => ({
-        ...prev,
-        game: next.kind === "game" ? String(next.steamgriddbId) : undefined,
-        feed: next.kind === "following" ? ("following" as const) : undefined,
-      }),
-    })
-  }
+  const filter = React.useMemo(
+    () => filterFromSearch(toolbarSearch),
+    [toolbarSearch],
+  )
+  const sort: ClipFeedSort = toolbarSearch.sort ?? DEFAULT_CLIP_SORT
 
   const viewerId = session?.user.id
+  const toolbar = React.useMemo(() => {
+    const desktop = (
+      <>
+        <FeedFilterDropdown filter={filter} search={toolbarSearch} />
+        <SortDropdown
+          value={sort}
+          options={CLIP_SORT_OPTIONS}
+          contentClassName="w-40"
+          renderOptionLink={(opt, active) => (
+            <Link
+              to="/"
+              search={{
+                ...toolbarSearch,
+                // The default sort stays out of the URL.
+                sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
+              }}
+              data-active={active ? "true" : undefined}
+            />
+          )}
+        />
+      </>
+    )
+    const mobile = (
+      <>
+        <FeedFilterDropdown
+          filter={filter}
+          search={toolbarSearch}
+          triggerVariant="icon"
+        />
+        <SortDropdown
+          value={sort}
+          triggerLabel={tx("Sort")}
+          triggerVariant="icon"
+          options={CLIP_SORT_OPTIONS}
+          contentClassName="w-40"
+          renderOptionLink={(opt, active) => (
+            <Link
+              to="/"
+              search={{
+                ...toolbarSearch,
+                sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
+              }}
+              data-active={active ? "true" : undefined}
+            />
+          )}
+        />
+      </>
+    )
+    return { desktop, mobile }
+  }, [filter, sort, toolbarSearch])
+  useHeaderToolbar(toolbar)
 
   return (
-    <AppMain className="!px-2 md:!px-8">
-      <div className="flex w-full flex-col">
-        <HomeTopClipsSection viewerId={viewerId} window={window} />
-        {/* The chip bar bleeds past AppMain's desktop padding (-mx-8) and pins flush
-            under the header: a sticky top-0 child sticks to the scrollport's
-            padding-box top, so AppMain's py-6 leaves no gap above it. */}
-        <FeedChipBar filter={filter} onChange={setFilter} />
-        <FeedSection filter={filter} viewerId={viewerId} />
-      </div>
+    <AppMain>
+      <section className="flex w-full flex-col gap-6">
+        <FeedSection filter={filter} sort={sort} viewerId={viewerId} />
+      </section>
     </AppMain>
   )
 }

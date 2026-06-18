@@ -81,18 +81,10 @@ export interface ClipRow {
   tags: string[]
 }
 
-export type ClipFeedWindow = "today" | "week" | "month" | "year" | "all"
 export type ClipFeedSort = "top" | "recent"
 
 export const CLIP_TITLE_MAX_LENGTH = 100
 export const CLIP_DESCRIPTION_MAX_LENGTH = 2000
-
-export interface ClipFeedParams {
-  window?: ClipFeedWindow
-  sort?: ClipFeedSort
-  limit?: number
-  cursor?: string | null
-}
 
 export interface ClipPage {
   items: ClipRow[]
@@ -244,12 +236,14 @@ export interface CommentPage {
 }
 
 export type FeedFilter =
-  | { kind: "foryou" }
+  | { kind: "all" }
   | { kind: "following" }
+  | { kind: "recommended" }
   | { kind: "game"; steamgriddbId: number }
 
 export interface FeedPageParams {
   filter: FeedFilter
+  sort: ClipFeedSort
   limit?: number
   cursor?: string | null
 }
@@ -276,7 +270,6 @@ export interface FeedChipsResponse {
 
 export interface TagClipsParams {
   sort?: ClipFeedSort
-  window?: ClipFeedWindow
   /** Narrow to a single game. */
   steamgriddbId?: number
   limit?: number
@@ -365,17 +358,6 @@ export interface GameNameLookupResult {
 
 export interface GameNameLookupResponse {
   results: GameNameLookupResult[]
-}
-
-export interface GameClipsParams {
-  sort?: "top" | "recent"
-  limit?: number
-  cursor?: string | null
-}
-
-export interface GameTopClipsParams {
-  window?: ClipFeedWindow
-  limit?: number
 }
 
 export interface SteamGridDBStatus {

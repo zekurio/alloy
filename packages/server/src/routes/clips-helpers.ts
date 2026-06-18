@@ -21,7 +21,6 @@ import {
   encodeCursorPayload,
 } from "./cursor-codec"
 import {
-  limitQueryParam,
   optionalBlankToNullTrimmedString,
   optionalTrimmedString,
   requiredTrimmedString,
@@ -34,13 +33,6 @@ export const StreamQuery = z.object({
 export const HlsFileParam = z.object({
   id: z.uuid(),
   file: z.string().min(1).max(64),
-})
-
-export const ListQuery = z.object({
-  window: z.enum(["today", "week", "month", "year", "all"]).optional(),
-  sort: z.enum(["top", "recent"]).default("recent"),
-  limit: limitQueryParam(100, 50),
-  cursor: z.string().optional(),
 })
 
 type ClipListSort = "top" | "recent"
@@ -189,15 +181,6 @@ export function clipListPage<T extends ClipListPageRow>(
     nextCursor:
       rows.length > limit && tail ? encodeClipListCursor(tail, sort) : null,
   }
-}
-
-// Epoch offsets for the window filter. Kept in one place so both the feed
-// read and any future analytics rollups agree on what "today" means.
-export const WINDOW_MS: Record<"today" | "week" | "month" | "year", number> = {
-  today: 24 * 60 * 60 * 1000,
-  week: 7 * 24 * 60 * 60 * 1000,
-  month: 30 * 24 * 60 * 60 * 1000,
-  year: 365 * 24 * 60 * 60 * 1000,
 }
 
 // BlurHash strings are base83: 6..~100 chars depending on component count.

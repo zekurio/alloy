@@ -36,17 +36,6 @@ export const LookupBody = z.object({
     .transform((names) => [...new Set(names)]),
 })
 
-export const ClipsQuery = z.object({
-  sort: z.enum(["top", "recent"]).default("recent"),
-  limit: limitQueryParam(100, 50),
-  cursor: z.string().optional(),
-})
-
-export const TopQuery = z.object({
-  window: z.enum(["today", "week", "month", "year", "all"]).optional(),
-  limit: limitQueryParam(20, 5),
-})
-
 export const GamesListQuery = z.object({
   limit: limitQueryParam(100, 100),
   offset: offsetQueryParam(),

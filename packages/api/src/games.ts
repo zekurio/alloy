@@ -1,12 +1,8 @@
 import type {
-  ClipPage,
-  ClipRow,
-  GameClipsParams,
   GameDetail,
   GameListRow,
   GameNameLookupResponse,
   GameRow,
-  GameTopClipsParams,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
 } from "@alloy/contracts"
@@ -14,8 +10,6 @@ import type {
 import type { ApiContext } from "./client"
 import {
   booleanFlagResponseValidator,
-  validateClipPage,
-  validateClipRows,
   validateGameDetail,
   validateGameListRows,
   validateGameNameLookupResponse,
@@ -28,13 +22,11 @@ import { readPostDeleteJson } from "./mutations"
 import { encodedPathSegment, queryParams, resolvePublicUrl } from "./paths"
 
 export type {
-  GameClipsParams,
   GameDetail,
   GameListRow,
   GameNameLookupResponse,
   GameNameLookupResult,
   GameRow,
-  GameTopClipsParams,
   SteamGridDBSearchResult,
   SteamGridDBStatus,
 } from "@alloy/contracts"
@@ -138,45 +130,6 @@ async function setGameFollow(
   return { following: response.following }
 }
 
-async function fetchGameClips(
-  context: ApiContext,
-  gameId: number | string,
-  params: GameClipsParams = {},
-): Promise<ClipRow[]> {
-  return (await fetchGameClipPage(context, gameId, params)).items
-}
-
-async function fetchGameClipPage(
-  context: ApiContext,
-  gameId: number | string,
-  params: GameClipsParams = {},
-): Promise<ClipPage> {
-  const res = await context.rpc.api.games[":slug"].clips.$get({
-    param: { slug: String(gameId) },
-    query: queryParams({
-      sort: params.sort,
-      limit: params.limit,
-      cursor: params.cursor,
-    }),
-  })
-  return readJsonOrThrow(res, validateClipPage)
-}
-
-async function fetchGameTopClips(
-  context: ApiContext,
-  gameId: number | string,
-  params: GameTopClipsParams = {},
-): Promise<ClipRow[]> {
-  const res = await context.rpc.api.games[":slug"]["top-clips"].$get({
-    param: { slug: String(gameId) },
-    query: queryParams({
-      window: params.window,
-      limit: params.limit,
-    }),
-  })
-  return readJsonOrThrow(res, validateClipRows)
-}
-
 export function createGamesApi(context: ApiContext) {
   return {
     fetchSteamGridDBStatus: () => fetchSteamGridDBStatus(context),
@@ -193,11 +146,5 @@ export function createGamesApi(context: ApiContext) {
     follow: (gameId: number | string) => setGameFollow(context, gameId, true),
     unfollow: (gameId: number | string) =>
       setGameFollow(context, gameId, false),
-    fetchClips: (gameId: number | string, params: GameClipsParams = {}) =>
-      fetchGameClips(context, gameId, params),
-    fetchClipsPage: (gameId: number | string, params: GameClipsParams = {}) =>
-      fetchGameClipPage(context, gameId, params),
-    fetchTopClips: (gameId: number | string, params: GameTopClipsParams = {}) =>
-      fetchGameTopClips(context, gameId, params),
   }
 }

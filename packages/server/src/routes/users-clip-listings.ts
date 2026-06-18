@@ -12,10 +12,6 @@ import { serialiseProfileGameRow } from "./games-helpers"
 import type { UserRow } from "./users-helpers"
 import { limitQueryParam, offsetQueryParam } from "./validation"
 
-export const UserTopClipsQuery = z.object({
-  limit: limitQueryParam(24, 5),
-})
-
 export const UserGamesQuery = z.object({
   limit: limitQueryParam(48, 24),
   offset: offsetQueryParam(),
@@ -32,33 +28,6 @@ export async function listUserClips(row: UserRow, headers: Headers) {
     .where(and(...conditions))
     .orderBy(desc(clip.createdAt))
     .limit(50)
-  return rows.map(toPublicClipRow)
-}
-
-export async function listUserTopClips(
-  row: UserRow,
-  { limit }: z.infer<typeof UserTopClipsQuery>,
-) {
-  const rows = await db
-    .select(clipSelectShape)
-    .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-    .where(
-      and(
-        eq(clip.authorId, row.id),
-        eq(clip.status, "ready"),
-        eq(clip.privacy, "public"),
-        isNull(user.disabledAt),
-      ),
-    )
-    .orderBy(
-      desc(clip.viewCount),
-      desc(clip.likeCount),
-      desc(clip.createdAt),
-      clip.id,
-    )
-    .limit(limit)
   return rows.map(toPublicClipRow)
 }
 

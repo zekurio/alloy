@@ -8,30 +8,29 @@ import {
   gameFollow,
 } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
-import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
+import { clipSelectShape } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
-import { dateFromDateLike, isoDate } from "@alloy/server/runtime/date"
 import { badRequest, invalidCursor } from "@alloy/server/runtime/http-response"
-import { and, eq, exists, isNull, lt, ne, or, type SQL, sql } from "drizzle-orm"
+import { and, eq, exists, isNull, ne, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
 import {
-  cursorDate,
-  cursorFiniteNumber,
-  cursorRequiredString,
-  decodeCursorPayload,
-  encodeCursorPayload,
-} from "./cursor-codec"
+  clipListCursorCondition,
+  clipListOrderBy,
+  clipListPage,
+  parseClipListCursor,
+} from "./clips-helpers"
 import { limitQueryParam, zValidator } from "./validation"
 
-const FilterEnum = z.enum(["foryou", "following", "game"])
+const FilterEnum = z.enum(["all", "following", "recommended", "game"])
 
 const FeedQuery = z
   .object({
-    filter: FilterEnum.default("foryou"),
+    filter: FilterEnum.default("all"),
+    sort: z.enum(["top", "recent"]).default("recent"),
     steamgriddbId: z.coerce.number().int().positive().optional(),
     limit: limitQueryParam(50, 20),
     cursor: z.string().optional(),
@@ -45,127 +44,25 @@ const ChipsQuery = z.object({
   limit: limitQueryParam(40, 20),
 })
 
-type FeedCursor = {
-  score: number
-  createdAt: Date
-  id: string
-  asOf: Date
-}
-
-type FeedPageRow = {
-  id: string
-  createdAt: Date | string
-  rankScore: number
-  sourceKey: string | null
-  sourceContentType: string | null
-  sourceVideoCodec: string | null
-  sourceAudioCodec: string | null
-  sourceSizeBytes: number | null
-  durationMs: number | null
-  width: number | null
-  height: number | null
-  thumbKey: string | null
-  thumbBlurHash: string | null
-  steamgriddbId: number | null
-  game: string | null
-}
-
-function parseFeedCursor(value: string | undefined): FeedCursor | null {
-  if (!value) return null
-  const parsed = decodeCursorPayload(value)
-  if (!parsed) return null
-  const score = cursorFiniteNumber(parsed.score)
-  const createdAt = cursorDate(parsed.createdAt)
-  const id = cursorRequiredString(parsed.id)
-  const asOf = cursorDate(parsed.asOf)
-  if (score === null || !createdAt || !id || !asOf) return null
-  return {
-    score,
-    createdAt,
-    id,
-    asOf,
-  }
-}
-
-function encodeFeedCursor(cursor: FeedCursor): string {
-  return encodeCursorPayload({
-    score: cursor.score,
-    createdAt: isoDate(cursor.createdAt),
-    id: cursor.id,
-    asOf: isoDate(cursor.asOf),
-  })
-}
-
-function rankScore(viewerId: string | null, asOf: string) {
-  const vid = viewerId ?? null
-  return sql<number>`
-    (
-      (${clip.likeCount} + 0.1 * ${clip.viewCount})
-      / power(
-          extract(epoch from (${asOf}::timestamp - ${clip.createdAt})) / 3600.0 + 2.0,
-          1.5
-        )
-    )
-    * (
-        1.0
-        + 1.0 * (
-            CASE WHEN ${vid}::uuid IS NULL THEN 0
-                 WHEN EXISTS (
-                    SELECT 1 FROM ${follow}
-                    WHERE ${follow.followerId} = ${vid}::uuid
-                      AND ${follow.followingId} = ${clip.authorId}
-                 ) THEN 1 ELSE 0 END
-          )
-        + 0.5 * (
-            CASE WHEN ${vid}::uuid IS NULL THEN 0
-                 WHEN EXISTS (
-                    SELECT 1 FROM ${gameFollow}
-                    WHERE ${gameFollow.userId} = ${vid}::uuid
-                      AND ${gameFollow.steamgriddbId} = ${clip.steamgriddbId}
-                 ) THEN 1 ELSE 0 END
-          )
-      )
-  `
-}
-
-function feedPage<T extends FeedPageRow>(rows: T[], limit: number, asOf: Date) {
-  const pageRows = rows.slice(0, limit)
-  const tail = pageRows[pageRows.length - 1]
-  return {
-    items: pageRows.map(({ rankScore: _rankScore, ...row }) =>
-      toPublicClipRow(row),
-    ),
-    nextCursor:
-      rows.length > limit && tail
-        ? encodeFeedCursor({
-            score: tail.rankScore,
-            createdAt: dateFromDateLike(tail.createdAt),
-            id: tail.id,
-            asOf,
-          })
-        : null,
-  }
-}
-
 export const feedRoute = new Hono()
   .get("/", zValidator("query", FeedQuery), async (c) => {
     const {
       filter,
+      sort,
       steamgriddbId,
       limit,
       cursor: rawCursor,
     } = c.req.valid("query")
-    const cursor = parseFeedCursor(rawCursor)
+    const cursor = parseClipListCursor(rawCursor, sort)
     if (rawCursor && !cursor) return invalidCursor(c)
-    const asOf = cursor?.asOf ?? new Date()
 
     const session = await getSession(c)
     const viewerId = session?.user.id ?? null
 
-    if (filter === "following" && !viewerId) {
+    if ((filter === "following" || filter === "recommended") && !viewerId) {
       // Nothing to personalise for anon — return an empty page rather
-      // than leaking unrelated clips from the foryou corpus.
-      return c.json(feedPage([], limit, asOf))
+      // than leaking the whole public corpus.
+      return c.json(clipListPage([], limit, sort))
     }
 
     const conditions: SQL[] = [
@@ -176,86 +73,69 @@ export const feedRoute = new Hono()
       isNull(user.disabledAt),
     ]
 
-    if (viewerId) {
-      conditions.push(ne(clip.authorId, viewerId))
-    }
-
     if (filter === "game") {
       if (!steamgriddbId) return badRequest(c, "steamgriddbId is required")
       conditions.push(eq(clip.steamgriddbId, steamgriddbId))
     }
 
     if (filter === "following") {
-      // Either the clip author is followed, or the clip's game is
-      // favourited. Anon already returned above, so viewerId is set.
+      // The following feed is strictly creator follows. Game follows power
+      // recommendations instead, so starring a game doesn't muddy this tab.
       const followingViewerId = viewerId
-      if (!followingViewerId) return c.json(feedPage([], limit, asOf))
-      const userFollowed = exists(
-        db
-          .select({ one: sql`1` })
-          .from(follow)
-          .where(
-            and(
-              eq(follow.followerId, followingViewerId),
-              eq(follow.followingId, clip.authorId),
+      if (!followingViewerId) return c.json(clipListPage([], limit, sort))
+      // Your own clips don't belong in a feed of people you follow.
+      conditions.push(ne(clip.authorId, followingViewerId))
+      conditions.push(
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(follow)
+            .where(
+              and(
+                eq(follow.followerId, followingViewerId),
+                eq(follow.followingId, clip.authorId),
+              ),
             ),
-          ),
+        ),
       )
-      const gameFollowed = requiredSql(
-        and(
+    }
+
+    if (filter === "recommended") {
+      // Initial recommendation signal: games the viewer starred.
+      const recommendedViewerId = viewerId
+      if (!recommendedViewerId) return c.json(clipListPage([], limit, sort))
+      conditions.push(ne(clip.authorId, recommendedViewerId))
+      conditions.push(
+        requiredSql(
           exists(
             db
               .select({ one: sql`1` })
               .from(gameFollow)
               .where(
                 and(
-                  eq(gameFollow.userId, followingViewerId),
+                  eq(gameFollow.userId, recommendedViewerId),
                   eq(gameFollow.steamgriddbId, clip.steamgriddbId),
                 ),
               ),
           ),
+          "recommended feed game filter",
         ),
-        "following feed game filter",
-      )
-      conditions.push(
-        requiredSql(or(userFollowed, gameFollowed), "following feed filter"),
       )
     }
 
-    const score = rankScore(viewerId, isoDate(asOf))
-    if (cursor) {
-      conditions.push(
-        requiredSql(
-          or(
-            lt(score, cursor.score),
-            and(
-              sql`abs(${score} - ${cursor.score}) < 0.000000000001`,
-              or(
-                lt(clip.createdAt, cursor.createdAt),
-                and(
-                  eq(clip.createdAt, cursor.createdAt),
-                  sql`${clip.id} > ${cursor.id}`,
-                ),
-              ),
-            ),
-          ),
-          "feed cursor",
-        ),
-      )
-    }
+    const cursorCondition = clipListCursorCondition(cursor, sort)
+    if (cursorCondition) conditions.push(cursorCondition)
 
     const rows = await db
-      .select({ ...clipSelectShape, rankScore: score })
+      .select(clipSelectShape)
       .from(clip)
       .innerJoin(user, eq(clip.authorId, user.id))
       .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
       .where(and(...conditions))
-      // createdAt DESC and id ASC break ties deterministically so
-      // neighbouring pages don't duplicate rows when scores collide.
-      .orderBy(sql`${score} desc`, sql`${clip.createdAt} desc`, clip.id)
+      .orderBy(...clipListOrderBy(sort))
       .limit(limit + 1)
 
-    return c.json(feedPage(rows, limit, asOf))
+    return c.json(clipListPage(rows, limit, sort))
   })
   .get("/chips", zValidator("query", ChipsQuery), async (c) => {
     const { limit } = c.req.valid("query")
@@ -270,14 +150,14 @@ export const feedRoute = new Hono()
     const interaction = sql<number>`(
       (2 * (${likedCount}) + (${viewedCount}))::double precision
     )`
+    // Chips mirror the "All" feed, which includes the viewer's own clips, so
+    // a game you've only posted in yourself still gets a chip. `clipLike`/
+    // `clipView` are still joined per-viewer to weight by your interaction.
     const conditions: SQL[] = [
       eq(clip.status, "ready"),
       eq(clip.privacy, "public"),
       isNull(user.disabledAt),
     ]
-    if (viewerId) {
-      conditions.push(ne(clip.authorId, viewerId))
-    }
 
     const rows = await db
       .select({

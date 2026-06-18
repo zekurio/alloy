@@ -3,10 +3,8 @@ import {
   SectionActions,
   SectionHead,
   SectionMeta,
-  SectionTitle,
 } from "@alloy/ui/components/section-head"
 import { createFileRoute } from "@tanstack/react-router"
-import { HeartIcon } from "lucide-react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useUserLikedClipsQuery } from "@/lib/clip-queries"
@@ -33,19 +31,13 @@ function ProfileLikedTab() {
 
   return (
     <section>
-      <SectionHead>
-        <div>
-          <SectionTitle>
-            <HeartIcon className="text-accent" />
-            {tx("Liked")}
-          </SectionTitle>
-        </div>
-        <SectionActions>
-          {clips ? (
+      {clips ? (
+        <SectionHead className="justify-end">
+          <SectionActions>
             <SectionMeta>{headerCountLabel(clips.length, "clip")}</SectionMeta>
-          ) : null}
-        </SectionActions>
-      </SectionHead>
+          </SectionActions>
+        </SectionHead>
+      ) : null}
 
       <ClipSectionContent
         rows={clips}
