@@ -16,7 +16,7 @@ export type GameCardData = {
 }
 
 export type GameCardLink =
-  | { kind: "game"; slug: string }
+  | { kind: "game"; steamgriddbId: number }
   | { kind: "user-clips"; username: string; slug: string }
 
 type GameCardProps = {
@@ -61,8 +61,8 @@ export function GameCard({ game, link, className }: GameCardProps) {
   if (link?.kind === "game") {
     return (
       <Link
-        to="/g/$slug"
-        params={{ slug: link.slug }}
+        to="/games/$gameId"
+        params={{ gameId: String(link.steamgriddbId) }}
         aria-label={game.name}
         className={surface}
       >

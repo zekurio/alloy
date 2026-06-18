@@ -263,7 +263,7 @@ export function EditorBody({
 
       if (privacy === "unlisted" && pickedGame) {
         const copied = await copyTextToClipboard(
-          absoluteClipHref(pickedGame.slug, clipId, publicOrigin()),
+          absoluteClipHref(pickedGame.steamgriddbId, clipId, publicOrigin()),
           { action: "copy published clip link" },
         )
         if (copied) {

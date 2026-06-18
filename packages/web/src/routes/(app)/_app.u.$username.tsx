@@ -1,18 +1,9 @@
 import { AppMain } from "@alloy/ui/components/app-shell"
-import { cn } from "@alloy/ui/lib/utils"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import * as React from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
-import {
-  MediaPageBody,
-  MediaPageBottomSpacer,
-  MediaPageCard,
-  MediaPageContent,
-} from "@/components/routes/media-page-frame"
 import { BlockedGate } from "@/components/routes/profile/blocked-gate"
-import { ProfileBackground } from "@/components/routes/profile/profile-background"
-import { ProfileBanner } from "@/components/routes/profile/profile-banner"
 import { ProfileIdentity } from "@/components/routes/profile/profile-identity"
 import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-identity-skeleton"
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
@@ -21,7 +12,6 @@ import {
   userLikedClipsQueryOptions,
   useUserClipsQuery,
 } from "@/lib/clip-queries"
-import { accentCssVars } from "@/lib/color"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
@@ -87,86 +77,45 @@ function UserProfileLayout() {
 
   const isBlockedView = !!(viewer && !viewer.isSelf && viewer.isBlocked)
   const gated = isBlockedView && !revealed
-  const hasBanner = Boolean(profile?.user.banner)
-  const hasBackground = Boolean(profile?.user.background)
-  // Retint the whole card to the profile's accent (auto-derived from the
-  // wallpaper or user-chosen), replacing the default lavender.
-  const accentStyle = profile?.user.accentColor
-    ? accentCssVars(profile.user.accentColor)
-    : undefined
 
   return (
-    <>
-      {/* The fallback page surface is a touch lighter than the frosted card so
-          the content reads as clearly separate when no wallpaper is set; with a
-          wallpaper the darker base sits behind it. */}
-      <AppMain
-        className={cn(
-          "relative grid !px-0 !py-0",
-          hasBackground ? "bg-surface-sunken" : "bg-surface",
-        )}
+    <AppMain className="!px-0 !py-0">
+      <div
+        aria-hidden={gated ? true : undefined}
+        className={gated ? "pointer-events-none select-none" : undefined}
       >
-        {/* Custom wallpaper sized to the scroll viewport and kept sticky inside
-            AppMain, so long mobile profiles cannot scroll past its crop. */}
-        {hasBackground ? (
-          <div className="pointer-events-none sticky top-0 z-0 h-full min-w-0 [grid-area:1/1]">
-            <ProfileBackground src={profile?.user.background} />
-          </div>
-        ) : null}
+        {profileError ? (
+          <EmptyState
+            seed={`profile-error-${username}`}
+            size="lg"
+            title="Couldn't load profile"
+          />
+        ) : profile ? (
+          <ProfileIdentity
+            profile={profile}
+            viewer={viewer}
+            currentUserId={session?.user.id ?? null}
+            onViewerChange={setViewer}
+            onFollowerDelta={bumpFollowers}
+          />
+        ) : (
+          <ProfileIdentitySkeleton />
+        )}
 
-        <MediaPageContent
-          aria-hidden={gated ? true : undefined}
-          className={gated ? "pointer-events-none select-none" : undefined}
-        >
-          <div className="mx-auto w-full max-w-[1800px] min-w-0">
-            {profileError ? (
-              <EmptyState
-                seed={`profile-error-${username}`}
-                size="lg"
-                title="Couldn't load profile"
-              />
-            ) : (
-              // Mobile uses the full viewport width; larger screens keep the
-              // floating card treatment against the wallpaper.
-              <MediaPageCard style={accentStyle}>
-                {hasBanner && profile ? (
-                  <ProfileBanner user={profile.user} />
-                ) : null}
+        <div className="px-4 pb-4 md:px-8 md:pb-6">
+          <ProfileTabsNav username={username} />
+          <Outlet />
+        </div>
+      </div>
 
-                {/* Frosted body — translucent + blurred so the wallpaper bleeds
-                    through and tints everything inside. */}
-                <MediaPageBody>
-                  {profile ? (
-                    <ProfileIdentity
-                      profile={profile}
-                      viewer={viewer}
-                      currentUserId={session?.user.id ?? null}
-                      onViewerChange={setViewer}
-                      onFollowerDelta={bumpFollowers}
-                      hasBanner={hasBanner}
-                    />
-                  ) : (
-                    <ProfileIdentitySkeleton />
-                  )}
-
-                  <ProfileTabsNav username={username} />
-                  <Outlet />
-                </MediaPageBody>
-              </MediaPageCard>
-            )}
-          </div>
-          <MediaPageBottomSpacer />
-        </MediaPageContent>
-
-        <BlockedGate
-          open={gated}
-          handle={username}
-          onReveal={() => setRevealed(true)}
-          onCancel={() => {
-            void navigate({ to: "/" })
-          }}
-        />
-      </AppMain>
-    </>
+      <BlockedGate
+        open={gated}
+        handle={username}
+        onReveal={() => setRevealed(true)}
+        onCancel={() => {
+          void navigate({ to: "/" })
+        }}
+      />
+    </AppMain>
   )
 }

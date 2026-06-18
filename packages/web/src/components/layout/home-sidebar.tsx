@@ -27,6 +27,7 @@ function useNavFlags(): NavFlags {
       isHome: s.location.pathname === "/",
       isGames:
         s.location.pathname === "/games" ||
+        s.location.pathname.startsWith("/games/") ||
         s.location.pathname.startsWith("/g/"),
       isLibrary:
         s.location.pathname === "/library" ||

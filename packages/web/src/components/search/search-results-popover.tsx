@@ -53,15 +53,15 @@ function useSearchPopoverState(
     (row: ClipRow) => {
       closePopover()
       clear()
-      const slug = row.gameRef?.slug
+      const gameId = row.gameRef ? String(row.gameRef.steamgriddbId) : null
       void navigate({
         to: ".",
         search: (prev: AppSearch) => ({ ...prev, clip: row.id }),
-        ...(slug
+        ...(gameId
           ? {
               mask: {
-                to: "/g/$slug/c/$clipId",
-                params: { slug, clipId: row.id },
+                to: "/games/$gameId/c/$clipId",
+                params: { gameId, clipId: row.id },
               },
             }
           : {}),
@@ -76,7 +76,10 @@ function useSearchPopoverState(
       clear()
       // Clear before navigating — avoids a 1-frame flash of "old query,
       // new page" while navigation is in flight.
-      void navigate({ to: "/g/$slug", params: { slug: row.slug } })
+      void navigate({
+        to: "/games/$gameId",
+        params: { gameId: String(row.steamgriddbId) },
+      })
     },
     [clear, closePopover, navigate],
   )

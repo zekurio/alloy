@@ -20,7 +20,7 @@ import {
 const NOTIFICATION_SOUND_EVENT_ALIASES: Partial<
   Record<RecordingNotificationSoundEvent, readonly string[]>
 > = {
-  replayRecordingStarted: ["recordingStarted"],
+  replayBufferStarted: ["replayRecordingStarted", "recordingStarted"],
 }
 
 export function normalizeQualitySettings(

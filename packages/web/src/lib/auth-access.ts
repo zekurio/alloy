@@ -9,7 +9,7 @@ export function isAdmin(session: Session | null): boolean {
 }
 
 function isClipPermalink(pathname: string): boolean {
-  return /^\/g\/[^/]+\/c\/[^/]+\/?$/.test(pathname)
+  return /^\/(?:g|games)\/[^/]+\/c\/[^/]+\/?$/.test(pathname)
 }
 
 export function shouldForceOnboarding(

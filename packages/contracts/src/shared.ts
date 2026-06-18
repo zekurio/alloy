@@ -61,9 +61,26 @@ export const ACCEPTED_THUMB_CONTENT_TYPES = [
 export type AcceptedThumbContentType =
   (typeof ACCEPTED_THUMB_CONTENT_TYPES)[number]
 
+export type UploadTicketStrategy =
+  | { type: "single" }
+  | { type: "chunked"; chunkSizeBytes: number }
+  | { type: "multipart"; partSizeBytes: number }
+
 export interface UploadTicket {
   uploadUrl: string
   method: "PUT" | "POST"
   headers: Record<string, string>
   expiresAt: number
+  strategy?: UploadTicketStrategy
+}
+
+export interface UploadPartTicket {
+  uploadUrl: string
+  method: "PUT"
+  headers: Record<string, string>
+}
+
+export interface CompleteMultipartUploadPart {
+  partNumber: number
+  etag: string
 }

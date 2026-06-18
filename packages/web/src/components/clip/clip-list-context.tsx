@@ -3,7 +3,7 @@ import * as React from "react"
 
 export interface ClipListEntry {
   id: string
-  gameSlug: string | null
+  gameId: string | null
   row?: ClipRow
 }
 

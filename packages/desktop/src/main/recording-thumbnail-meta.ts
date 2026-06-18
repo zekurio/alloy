@@ -26,6 +26,10 @@ export function getThumbnailBlurHash(signature: string): string | null {
   return readMeta().blurHashes[signature] ?? null
 }
 
+export function getThumbnailBlurHashes(): Record<string, string> {
+  return { ...readMeta().blurHashes }
+}
+
 export function rememberThumbnailBlurHash(
   signature: string,
   blurHash: string,

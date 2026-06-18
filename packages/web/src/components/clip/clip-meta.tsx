@@ -414,8 +414,8 @@ function ClipGameBadge({
 }) {
   const navigate = useNavigate()
   const icon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
-  const slug = gameRef?.slug ?? ""
-  const gameQuery = useGameQuery(slug)
+  const gameId = gameRef ? String(gameRef.steamgriddbId) : ""
+  const gameQuery = useGameQuery(gameId)
   const favoriteMutation = useToggleGameFavoriteMutation()
   const viewer = gameQuery.data?.viewer
   const isFavorite = viewer?.isFollowing ?? false
@@ -428,7 +428,7 @@ function ClipGameBadge({
       return
     }
     favoriteMutation.mutate(
-      { slug: gameRef.slug, next: !isFavorite },
+      { gameId, next: !isFavorite },
       {
         onError: (cause) => {
           toast.error(errorMessage(cause, "Something went wrong"))
@@ -484,8 +484,8 @@ function ClipGameBadge({
         {starBtn}
         {separator}
         <Link
-          to="/g/$slug"
-          params={{ slug: gameRef.slug }}
+          to="/games/$gameId"
+          params={{ gameId }}
           className="text-foreground-muted hover:text-foreground inline-flex h-full items-center gap-2 px-2.5 text-sm font-semibold transition-colors"
           title={game}
         >

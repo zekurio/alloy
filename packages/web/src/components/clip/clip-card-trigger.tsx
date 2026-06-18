@@ -29,31 +29,31 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
   const list = useClipList()
   const card = React.useMemo(() => toClipCardData(row), [row])
 
-  const gameSlug = card.gameRef?.slug ?? null
-  const gameLink = gameSlug ? gameHref(gameSlug) : null
+  const gameId = card.gameRef?.steamgriddbId ?? null
+  const gameLink = gameId ? gameHref(gameId) : null
   const authorHref = card.authorUsername
     ? userProfileHref(card.authorUsername)
     : null
   const renderAuthorLink = useClipCardAuthorLink(card.authorUsername)
-  const renderGameLink = useClipCardGameLink(gameSlug)
+  const renderGameLink = useClipCardGameLink(gameId)
 
   const preloadClip = React.useCallback(() => {
     warmClipDetailCache(queryClient, row)
   }, [queryClient, row])
 
   const handleThumbnailClick = React.useCallback(() => {
-    if (!gameSlug) return
+    if (!gameId) return
     preloadClip()
     setActiveClipList(list)
     void navigate({
       to: ".",
       search: (prev: AppSearch) => ({ ...prev, clip: card.clipId }),
       mask: {
-        to: "/g/$slug/c/$clipId",
-        params: { slug: gameSlug, clipId: card.clipId },
+        to: "/games/$gameId/c/$clipId",
+        params: { gameId: String(gameId), clipId: card.clipId },
       },
     })
-  }, [navigate, gameSlug, card.clipId, list, preloadClip])
+  }, [navigate, gameId, card.clipId, list, preloadClip])
 
   const handlePreviewError = React.useCallback((cause: unknown) => {
     clientLogger.warn("[clip-card] Hover preview playback failed.", cause)

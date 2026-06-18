@@ -46,7 +46,7 @@ export function TopClipsSection({
     () =>
       (rows ?? []).map((row) => ({
         id: row.id,
-        gameSlug: row.gameRef?.slug ?? null,
+        gameId: row.gameRef ? String(row.gameRef.steamgriddbId) : null,
         row,
       })),
     [rows],

@@ -24,16 +24,16 @@ export function useClipCardAuthorLink(
 }
 
 export function useClipCardGameLink(
-  slug: string | null | undefined,
+  gameId: number | string | null | undefined,
 ): ClipCardLabelLinkRenderer | undefined {
   return React.useMemo<ClipCardLabelLinkRenderer | undefined>(() => {
-    if (!slug) return undefined
+    if (!gameId) return undefined
 
     return function renderClipCardGameLink({ children, className, onClick }) {
       return (
         <Link
-          to="/g/$slug"
-          params={{ slug }}
+          to="/games/$gameId"
+          params={{ gameId: String(gameId) }}
           className={className}
           onClick={onClick}
         >
@@ -41,5 +41,5 @@ export function useClipCardGameLink(
         </Link>
       )
     }
-  }, [slug])
+  }, [gameId])
 }

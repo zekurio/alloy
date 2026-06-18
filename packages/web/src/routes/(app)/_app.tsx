@@ -14,37 +14,9 @@ import { AppSearchProvider } from "@/components/search/app-search"
 import { UploadFlow } from "@/components/upload/upload-flow"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
 import { type AppSearch, parseAppSearch } from "@/lib/app-search"
-import { useSession } from "@/lib/auth-client"
-import { requireBrowseAuthBeforeLoad } from "@/lib/auth-guards"
-import { useBrowseAuthGate } from "@/lib/auth-hooks"
-import { accentCssVars } from "@/lib/color"
-
-/**
- * Retint the entire app to the signed-in user's chosen accent by writing the
- * accent CSS variables onto the document root. Going through `:root` (instead
- * of a wrapper element) means portaled UI — dialogs, popovers, toasts — picks
- * it up too. Clears the overrides when no accent is set so the default lavender
- * returns.
- */
-function useViewerAccentTheme() {
-  const { data } = useSession()
-  const accent = data?.user.accentColor ?? null
-
-  React.useEffect(() => {
-    if (!accent) return
-    const root = document.documentElement
-    const entries = Object.entries(
-      accentCssVars(accent) as Record<string, string>,
-    )
-    for (const [key, value] of entries) root.style.setProperty(key, value)
-    return () => {
-      for (const [key] of entries) root.style.removeProperty(key)
-    }
-  }, [accent])
-}
+import { useSuspenseSession } from "@/lib/session-suspense"
 
 export const Route = createFileRoute("/(app)/_app")({
-  beforeLoad: requireBrowseAuthBeforeLoad,
   validateSearch: parseAppSearch,
   errorComponent: AppRouteErrorState,
   notFoundComponent: AppRouteNotFoundState,
@@ -52,10 +24,9 @@ export const Route = createFileRoute("/(app)/_app")({
 })
 
 function AppLayout() {
-  const { allowed } = useBrowseAuthGate()
   const { clip, comment, settings } = Route.useSearch()
+  const session = useSuspenseSession()
   const navigate = useNavigate()
-  useViewerAccentTheme()
 
   const handleCloseClipModal = () => {
     void navigate({
@@ -70,7 +41,7 @@ function AppLayout() {
   }
 
   const handleNavigateClip = React.useCallback(
-    (entry: { id: string; gameSlug: string | null }) => {
+    (entry: { id: string; gameId: string | null }) => {
       void navigate({
         to: ".",
         search: (prev: AppSearch) => ({
@@ -78,11 +49,11 @@ function AppLayout() {
           clip: entry.id,
           comment: undefined,
         }),
-        ...(entry.gameSlug
+        ...(entry.gameId
           ? {
               mask: {
-                to: "/g/$slug/c/$clipId",
-                params: { slug: entry.gameSlug, clipId: entry.id },
+                to: "/games/$gameId/c/$clipId",
+                params: { gameId: entry.gameId, clipId: entry.id },
               },
             }
           : {}),
@@ -111,7 +82,7 @@ function AppLayout() {
     [navigate],
   )
 
-  return allowed ? (
+  return (
     <AppSearchProvider>
       <UploadFlowProvider>
         <AppShell>
@@ -127,12 +98,12 @@ function AppLayout() {
         onNavigate={handleNavigateClip}
       />
       <SettingsDialog
-        section={settings ?? null}
+        section={session ? (settings ?? null) : null}
         onNavigate={handleNavigateSettings}
         onClose={handleCloseSettings}
       />
     </AppSearchProvider>
-  ) : null
+  )
 }
 
 const AppChrome = React.memo(function AppChrome() {

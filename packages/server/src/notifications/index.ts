@@ -83,6 +83,7 @@ function serialize(row: {
         ? {
             id: row.clipId,
             title: row.clipTitle,
+            steamgriddbId: row.steamgriddbId,
             gameSlug:
               row.steamgriddbId === null
                 ? null

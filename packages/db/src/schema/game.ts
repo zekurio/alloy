@@ -26,8 +26,6 @@ export const game = pgTable(
     gridBlurHash: text("grid_blur_hash"),
     logoUrl: text("logo_url"),
     iconUrl: text("icon_url"),
-    // Accent hex auto-derived from the hero art; retints the game page card.
-    accentColor: text("accent_color"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

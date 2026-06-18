@@ -1,4 +1,4 @@
-import { createReadStream } from "node:fs"
+import { createReadStream, createWriteStream } from "node:fs"
 import {
   copyFile,
   link,
@@ -11,6 +11,7 @@ import {
   writeFile,
 } from "node:fs/promises"
 import { Readable } from "node:stream"
+import { pipeline } from "node:stream/promises"
 
 import {
   dirname,
@@ -21,13 +22,18 @@ import {
 
 import type {
   MintUploadUrlInput,
+  MintUploadPartUrlInput,
   ResolvedObject,
   StorageDriver,
-  UploadTicket,
+  WriteUploadPartInput,
+  CompleteUploadInput,
+  AbortUploadInput,
 } from "./driver"
 import { mintFsUploadTicket, type UploadTokenPayload } from "./fs-upload-token"
 
 export { decodeUploadToken } from "./fs-upload-token"
+
+const FS_UPLOAD_CHUNK_SIZE_BYTES = 32 * 1024 * 1024
 
 interface FsDriverOptions {
   root: string
@@ -104,8 +110,9 @@ export class FsStorageDriver implements StorageDriver {
     }
   }
 
-  async mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket> {
+  async mintUploadUrl(input: MintUploadUrlInput) {
     const expiresAt = Math.floor(Date.now() / 1000) + input.expiresInSec
+    const chunked = input.role === "video"
     const payload: UploadTokenPayload = {
       k: input.key,
       ct: input.contentType,
@@ -113,12 +120,110 @@ export class FsStorageDriver implements StorageDriver {
       exp: expiresAt,
       uid: input.userId,
       cid: input.clipId,
+      m: chunked ? "fs-chunked" : "single",
+      cs: chunked ? FS_UPLOAD_CHUNK_SIZE_BYTES : undefined,
     }
-    return mintFsUploadTicket({
-      payload,
-      publicBaseUrl: this.opts.publicBaseUrl,
-      secret: this.opts.hmacSecret,
-    })
+    return {
+      ticket: await mintFsUploadTicket({
+        payload,
+        publicBaseUrl: this.opts.publicBaseUrl,
+        secret: this.opts.hmacSecret,
+        headers: chunked ? {} : undefined,
+        strategy: chunked
+          ? { type: "chunked", chunkSizeBytes: FS_UPLOAD_CHUNK_SIZE_BYTES }
+          : { type: "single" },
+      }),
+      storageState: null,
+    }
+  }
+
+  async mintUploadPartUrl(_input: MintUploadPartUrlInput): Promise<never> {
+    throw new Error("Filesystem storage does not support direct part URLs")
+  }
+
+  async writeUploadPart(
+    input: WriteUploadPartInput,
+  ): Promise<{ size: number }> {
+    const maxPartBytes = uploadPartExpectedBytes(
+      input.partNumber,
+      input.partSizeBytes,
+      input.maxBytes,
+    )
+    const dir = this.partDir(input.key)
+    await mkdir(dir, { recursive: true })
+    const finalPath = this.partPath(input.key, input.partNumber)
+    const tmpPath = `${finalPath}.${crypto.randomUUID()}.tmp`
+    const file = await open(tmpPath, "w")
+    let size = 0
+    let limitTripped = false
+
+    try {
+      for await (const chunk of input.body) {
+        size += chunk.byteLength
+        if (size > maxPartBytes) {
+          limitTripped = true
+          throw new Error("upload part exceeded expected size")
+        }
+        await file.write(chunk)
+      }
+      if (size !== maxPartBytes) {
+        throw new Error("upload part size did not match expected size")
+      }
+      await file.close()
+      await rename(tmpPath, finalPath)
+      return { size }
+    } catch (err) {
+      await file.close().catch(() => undefined)
+      await rm(tmpPath, { force: true }).catch(() => undefined)
+      if (limitTripped) throw new UploadPartTooLargeError()
+      throw err
+    }
+  }
+
+  async completeUpload(input: CompleteUploadInput): Promise<void> {
+    const partSizeBytes = input.partSizeBytes
+    if (!partSizeBytes) {
+      throw new Error("Filesystem chunk completion requires partSizeBytes")
+    }
+    const dst = this.fullPath(input.key)
+    if (await fileExists(dst)) {
+      throw new Error("Upload ticket has already been used")
+    }
+
+    await mkdir(dirname(dst), { recursive: true })
+    const tmpPath = `${dst}.${crypto.randomUUID()}.tmp`
+    const partCount = Math.ceil(input.maxBytes / partSizeBytes)
+    try {
+      for (let partNumber = 1; partNumber <= partCount; partNumber += 1) {
+        const partPath = this.partPath(input.key, partNumber)
+        const stats = await stat(partPath)
+        const expected = uploadPartExpectedBytes(
+          partNumber,
+          partSizeBytes,
+          input.maxBytes,
+        )
+        if (!stats.isFile() || stats.size !== expected) {
+          throw new Error("Upload part size did not match declared size")
+        }
+        await pipeline(
+          createReadStream(partPath),
+          createWriteStream(tmpPath, { flags: partNumber === 1 ? "w" : "a" }),
+        )
+      }
+      const stats = await stat(tmpPath)
+      if (stats.size !== input.maxBytes) {
+        throw new Error("Upload size did not match declared size")
+      }
+      await rename(tmpPath, dst)
+      await rm(this.partDir(input.key), { recursive: true, force: true })
+    } catch (err) {
+      await rm(tmpPath, { force: true }).catch(() => undefined)
+      throw err
+    }
+  }
+
+  async abortUpload(input: AbortUploadInput): Promise<void> {
+    await rm(this.partDir(input.key), { recursive: true, force: true })
   }
 
   /** Local files have no browser-reachable URL of their own — the server
@@ -190,10 +295,18 @@ export class FsStorageDriver implements StorageDriver {
     try {
       await rm(full)
     } catch (err) {
-      if (isOsErrorCode(err, "ENOENT")) return
-      throw err
+      if (!isOsErrorCode(err, "ENOENT")) throw err
     }
+    await rm(this.partDir(key), { recursive: true, force: true })
     await this.pruneEmptyAncestors(dirname(full))
+  }
+
+  private partDir(key: string): string {
+    return `${this.fullPath(key)}.parts`
+  }
+
+  private partPath(key: string, partNumber: number): string {
+    return `${this.partDir(key)}/${partNumber}.part`
   }
 
   private async pruneEmptyAncestors(startDir: string): Promise<void> {
@@ -226,6 +339,38 @@ function fspCreateReadStream(
   return Readable.toWeb(
     createReadStream(path, { start, end }),
   ) as ReadableStream<Uint8Array>
+}
+
+export class UploadPartTooLargeError extends Error {
+  constructor() {
+    super("Upload part exceeded expected size")
+    this.name = "UploadPartTooLargeError"
+  }
+}
+
+function uploadPartExpectedBytes(
+  partNumber: number,
+  partSizeBytes: number,
+  maxBytes: number,
+): number {
+  if (!Number.isSafeInteger(partNumber) || partNumber <= 0) {
+    throw new Error("Invalid upload part number")
+  }
+  const offset = (partNumber - 1) * partSizeBytes
+  if (offset >= maxBytes) {
+    throw new Error("Upload part is outside declared size")
+  }
+  return Math.min(partSizeBytes, maxBytes - offset)
+}
+
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    const stats = await stat(path)
+    return stats.isFile()
+  } catch (err) {
+    if (isOsErrorCode(err, "ENOENT")) return false
+    throw err
+  }
 }
 
 function extname(value: string): string {

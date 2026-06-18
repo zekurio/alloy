@@ -12,28 +12,28 @@ import type { GameSearch } from "@/lib/game-search"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type GameTopClipsSectionProps = {
-  slug: string
+  gameId: string
   viewerId: string | undefined
   window: ClipFeedWindow
 }
 
 export function GameTopClipsSection({
-  slug,
+  gameId,
   viewerId,
   window,
 }: GameTopClipsSectionProps) {
-  const { data: rows, error } = useGameTopClipsQuery(slug, window, {
+  const { data: rows, error } = useGameTopClipsQuery(gameId, window, {
     limit: 5,
   })
   useQueryErrorToast(error, {
     title: "Couldn't load top clips",
-    toastId: `game-${slug}-top-clips-${window}-error`,
+    toastId: `game-${gameId}-top-clips-${window}-error`,
   })
 
   return (
     <TopClipsSectionBase
-      listKey={`game:${slug}:top:${window}`}
-      seed={`game-${slug}-top-${window}`}
+      listKey={`game:${gameId}:top:${window}`}
+      seed={`game-${gameId}-top-${window}`}
       rows={rows}
       error={error}
       owned={(row) => row.authorId === viewerId}
@@ -46,8 +46,8 @@ export function GameTopClipsSection({
           contentClassName="w-40"
           renderOptionLink={(opt, active) => (
             <Link
-              to="/g/$slug"
-              params={{ slug }}
+              to="/games/$gameId"
+              params={{ gameId }}
               search={(prev: GameSearch) => ({
                 ...prev,
                 // "today" is the default — keep it out of the URL.

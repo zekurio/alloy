@@ -95,7 +95,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
               </h1>
             )}
             <GameFavoriteButton
-              slug={game.slug}
+              gameId={game.steamgriddbId}
               viewer={game.viewer}
               className="shrink-0 shadow-[0_6px_18px_oklch(0_0_0_/_0.35)]"
             />

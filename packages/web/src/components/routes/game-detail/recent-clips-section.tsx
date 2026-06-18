@@ -12,23 +12,23 @@ import { headerCountLabel } from "@/lib/number-format"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type RecentClipsSectionProps = {
-  slug: string
+  gameId: string
   viewerId: string | undefined
 }
 
 const RECENT_LIMIT = 60
 
 export function RecentClipsSection({
-  slug,
+  gameId,
   viewerId,
 }: RecentClipsSectionProps) {
-  const { data: rows, error } = useGameClipsQuery(slug, {
+  const { data: rows, error } = useGameClipsQuery(gameId, {
     sort: "recent",
     limit: RECENT_LIMIT,
   })
   useQueryErrorToast(error, {
     title: "Couldn't load clips",
-    toastId: `game-${slug}-recent-clips-error`,
+    toastId: `game-${gameId}-recent-clips-error`,
   })
   const visibleRows = rows ?? null
 
@@ -53,13 +53,13 @@ export function RecentClipsSection({
       <ClipSectionContent
         rows={visibleRows}
         error={error}
-        errorSeed={`game-${slug}-recent-error`}
+        errorSeed={`game-${gameId}-recent-error`}
         errorTitle="Couldn't load clips"
         errorSize="lg"
-        emptySeed={`game-${slug}-recent-empty`}
+        emptySeed={`game-${gameId}-recent-empty`}
         emptyTitle="No clips for this game yet"
         emptyHint="Upload one to get the grid started."
-        listKey={`game:${slug}:recent`}
+        listKey={`game:${gameId}:recent`}
         isOwnedByViewer={(row) => row.authorId === viewerId}
       />
     </section>

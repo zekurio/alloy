@@ -8,6 +8,7 @@ import { isAllowedMainSessionPermission } from "./permissions"
  * browser-login handshake injects the session it obtains.
  */
 export const MAIN_PARTITION = "persist:alloy"
+const SESSION_VALIDATION_TIMEOUT_MS = 10_000
 
 export function mainSession(): Session {
   return session.fromPartition(MAIN_PARTITION)
@@ -76,7 +77,10 @@ export async function injectSessionCookie(
  * server, so we can skip the browser-login handshake on reconnect. Reads the
  * stored session cookie and validates it against `/api/auth/session`.
  */
-export async function hasValidSession(serverUrl: string): Promise<boolean> {
+export async function hasValidSession(
+  serverUrl: string,
+  options: { timeoutMs?: number } = {},
+): Promise<boolean> {
   const [cookie] = await mainSession().cookies.get({
     url: serverUrl,
     name: "alloy_session",
@@ -84,8 +88,10 @@ export async function hasValidSession(serverUrl: string): Promise<boolean> {
   if (!cookie) return false
 
   try {
+    const timeoutMs = options.timeoutMs ?? SESSION_VALIDATION_TIMEOUT_MS
     const res = await fetch(new URL("/api/auth/session", serverUrl), {
       headers: { Cookie: `alloy_session=${cookie.value}` },
+      signal: timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined,
     })
     if (!res.ok) return false
     const body: unknown = await res.json()

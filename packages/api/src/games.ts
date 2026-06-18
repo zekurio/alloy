@@ -39,8 +39,14 @@ export type {
   SteamGridDBStatus,
 } from "@alloy/contracts"
 
-export function gameGridUrl(slug: string, origin?: string): string {
-  return resolvePublicUrl(`/api/games/${encodedPathSegment(slug)}/grid`, origin)
+export function gameGridUrl(
+  steamgriddbId: number | string,
+  origin?: string,
+): string {
+  return resolvePublicUrl(
+    `/api/games/${encodedPathSegment(String(steamgriddbId))}/grid`,
+    origin,
+  )
 }
 
 async function fetchSteamGridDBStatus(
@@ -90,38 +96,42 @@ async function fetchAllGames(
   return readJsonOrThrow(res, validateGameListRows)
 }
 
-async function fetchGameBySlug(
+async function fetchGameById(
   context: ApiContext,
-  slug: string,
+  gameId: number | string,
 ): Promise<GameDetail> {
   const res = await context.rpc.api.games[":slug"].$get({
-    param: { slug },
+    param: { slug: String(gameId) },
   })
   return readJsonOrThrow(res, validateGameDetail)
 }
 
 async function setGameFollow(
   context: ApiContext,
-  slug: string,
+  gameId: number | string,
   following: true,
 ): Promise<{ following: true }>
 async function setGameFollow(
   context: ApiContext,
-  slug: string,
+  gameId: number | string,
   following: false,
 ): Promise<{ following: false }>
 async function setGameFollow(
   context: ApiContext,
-  slug: string,
+  gameId: number | string,
   following: boolean,
 ): Promise<{ following: boolean }> {
   const response = await readPostDeleteJson(
     following,
     {
       post: () =>
-        context.rpc.api.games[":slug"].follow.$post({ param: { slug } }),
+        context.rpc.api.games[":slug"].follow.$post({
+          param: { slug: String(gameId) },
+        }),
       delete: () =>
-        context.rpc.api.games[":slug"].follow.$delete({ param: { slug } }),
+        context.rpc.api.games[":slug"].follow.$delete({
+          param: { slug: String(gameId) },
+        }),
     },
     booleanFlagResponseValidator("following", following),
   )
@@ -130,19 +140,19 @@ async function setGameFollow(
 
 async function fetchGameClips(
   context: ApiContext,
-  slug: string,
+  gameId: number | string,
   params: GameClipsParams = {},
 ): Promise<ClipRow[]> {
-  return (await fetchGameClipPage(context, slug, params)).items
+  return (await fetchGameClipPage(context, gameId, params)).items
 }
 
 async function fetchGameClipPage(
   context: ApiContext,
-  slug: string,
+  gameId: number | string,
   params: GameClipsParams = {},
 ): Promise<ClipPage> {
   const res = await context.rpc.api.games[":slug"].clips.$get({
-    param: { slug },
+    param: { slug: String(gameId) },
     query: queryParams({
       sort: params.sort,
       limit: params.limit,
@@ -154,11 +164,11 @@ async function fetchGameClipPage(
 
 async function fetchGameTopClips(
   context: ApiContext,
-  slug: string,
+  gameId: number | string,
   params: GameTopClipsParams = {},
 ): Promise<ClipRow[]> {
   const res = await context.rpc.api.games[":slug"]["top-clips"].$get({
-    param: { slug },
+    param: { slug: String(gameId) },
     query: queryParams({
       window: params.window,
       limit: params.limit,
@@ -175,16 +185,19 @@ export function createGamesApi(context: ApiContext) {
     lookupByNames: (names: string[]) => lookupGamesByName(context, names),
     fetchAll: (params: { limit?: number; offset?: number } = {}) =>
       fetchAllGames(context, params),
-    fetchBySlug: (slug: string) => fetchGameBySlug(context, slug),
-    favorite: (slug: string) => setGameFollow(context, slug, true),
-    unfavorite: (slug: string) => setGameFollow(context, slug, false),
-    follow: (slug: string) => setGameFollow(context, slug, true),
-    unfollow: (slug: string) => setGameFollow(context, slug, false),
-    fetchClips: (slug: string, params: GameClipsParams = {}) =>
-      fetchGameClips(context, slug, params),
-    fetchClipsPage: (slug: string, params: GameClipsParams = {}) =>
-      fetchGameClipPage(context, slug, params),
-    fetchTopClips: (slug: string, params: GameTopClipsParams = {}) =>
-      fetchGameTopClips(context, slug, params),
+    fetchById: (gameId: number | string) => fetchGameById(context, gameId),
+    fetchBySlug: (slug: string) => fetchGameById(context, slug),
+    favorite: (gameId: number | string) => setGameFollow(context, gameId, true),
+    unfavorite: (gameId: number | string) =>
+      setGameFollow(context, gameId, false),
+    follow: (gameId: number | string) => setGameFollow(context, gameId, true),
+    unfollow: (gameId: number | string) =>
+      setGameFollow(context, gameId, false),
+    fetchClips: (gameId: number | string, params: GameClipsParams = {}) =>
+      fetchGameClips(context, gameId, params),
+    fetchClipsPage: (gameId: number | string, params: GameClipsParams = {}) =>
+      fetchGameClipPage(context, gameId, params),
+    fetchTopClips: (gameId: number | string, params: GameTopClipsParams = {}) =>
+      fetchGameTopClips(context, gameId, params),
   }
 }

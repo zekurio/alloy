@@ -25,6 +25,14 @@ class ConfiguredStorageDriver implements StorageDriver {
     this.driver().resolve(...args)
   mintUploadUrl: StorageDriver["mintUploadUrl"] = (...args) =>
     this.driver().mintUploadUrl(...args)
+  mintUploadPartUrl: StorageDriver["mintUploadPartUrl"] = (...args) =>
+    this.driver().mintUploadPartUrl(...args)
+  writeUploadPart: StorageDriver["writeUploadPart"] = (...args) =>
+    this.driver().writeUploadPart(...args)
+  completeUpload: StorageDriver["completeUpload"] = (...args) =>
+    this.driver().completeUpload(...args)
+  abortUpload: StorageDriver["abortUpload"] = (...args) =>
+    this.driver().abortUpload(...args)
   mintDownloadUrl: StorageDriver["mintDownloadUrl"] = (...args) =>
     this.driver().mintDownloadUrl(...args)
   delete: StorageDriver["delete"] = (...args) => this.driver().delete(...args)
@@ -57,6 +65,8 @@ class ConfiguredStorageDriver implements StorageDriver {
         ? new S3StorageDriver({
             ...storage.s3,
             prefix,
+            publicBaseUrl: env.PUBLIC_SERVER_URL,
+            hmacSecret: uploadHmacSecret,
             credentials:
               credentials ??
               missingS3Credentials(this.namespace, storage.s3.bucket),
@@ -77,7 +87,12 @@ export const clipStorage: StorageDriver = new ConfiguredStorageDriver("clips")
 export const userStorage: StorageDriver = new ConfiguredStorageDriver("users")
 export const dataStorage: StorageDriver = userStorage
 
-export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
+export type {
+  StorageDriver,
+  UploadTicket,
+  UploadTicketStorageState,
+  UserAssetRole,
+} from "./driver"
 export { clipAssetDir, clipAssetKey, userAssetKey } from "./driver"
 
 function missingS3Credentials(

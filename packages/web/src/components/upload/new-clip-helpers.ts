@@ -50,22 +50,36 @@ export interface PublishPayload {
   localCaptureId?: string
 }
 
-const CONTENT_TYPE_ALIASES: Record<string, AcceptedContentType> = {
-  "video/mp4": "video/mp4",
+const ACCEPTED_CLIP_CONTENT_TYPE_SET = new Set<string>(
+  ACCEPTED_CLIP_CONTENT_TYPES,
+)
+
+const FALLBACK_CLIP_CONTENT_TYPE = ACCEPTED_CLIP_CONTENT_TYPES[0]
+
+const EXTENSION_CONTENT_TYPE_ALIASES: Record<string, AcceptedContentType> = {
+  mp4: FALLBACK_CLIP_CONTENT_TYPE,
+  m4v: FALLBACK_CLIP_CONTENT_TYPE,
 }
 
-const EXTENSION_TO_CONTENT_TYPE: Record<string, AcceptedContentType> = {
-  mp4: "video/mp4",
-  m4v: "video/mp4",
-}
+const ACCEPTED_CLIP_EXTENSIONS = Object.keys(
+  EXTENSION_CONTENT_TYPE_ALIASES,
+).map((extension) => `.${extension}`)
 
-export const ACCEPT_LIST = `${ACCEPTED_CLIP_CONTENT_TYPES.join(",")},.mp4,.m4v`
+export const ACCEPT_LIST = [
+  ...ACCEPTED_CLIP_CONTENT_TYPES,
+  ...ACCEPTED_CLIP_EXTENSIONS,
+].join(",")
+
+function isAcceptedContentType(value: string): value is AcceptedContentType {
+  return ACCEPTED_CLIP_CONTENT_TYPE_SET.has(value)
+}
 
 function resolveContentType(file: File): AcceptedContentType | null {
-  const byMime = CONTENT_TYPE_ALIASES[file.type]
-  if (byMime) return byMime
+  const contentType = file.type.toLowerCase()
+  if (isAcceptedContentType(contentType)) return contentType
+
   const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
-  return EXTENSION_TO_CONTENT_TYPE[ext] ?? null
+  return EXTENSION_CONTENT_TYPE_ALIASES[ext] ?? null
 }
 
 export async function prepareSelectedClipFile(

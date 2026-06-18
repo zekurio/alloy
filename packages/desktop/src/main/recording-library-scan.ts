@@ -1,240 +1,198 @@
-import {
-  existsSync,
-  readdirSync,
-  statSync,
-  type Dirent,
-  type Stats,
-} from "node:fs"
-import { basename, dirname, extname, join, relative, resolve } from "node:path"
+import { resolve } from "node:path"
+import { Worker } from "node:worker_threads"
 
-import type {
-  RecordingCaptureKind,
-  RecordingCaptureSource,
-} from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 
 import type {
-  RecordingLibraryGroup,
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
 } from "@/shared/ipc"
 
 import { cachedAssetUrl } from "./asset-cache"
+import { readCaptureManifest, manifestKey } from "./recording-library-manifest"
 import {
-  readCaptureManifest,
-  manifestKey,
-  type CaptureManifest,
-} from "./recording-library-manifest"
-import {
-  captureId,
-  IMAGE_EXTENSIONS,
-  MEDIA_HOST,
-  MEDIA_PROTOCOL,
-  THUMBNAIL_HOST,
-  isCaptureId,
-  titleForCapture,
-  VIDEO_EXTENSIONS,
-} from "./recording-library-shared"
+  createRecordingLibrarySnapshot,
+  findRecordingLibraryItemInScan,
+  type RecordingLibraryScanInput,
+  type RecordingLibraryScanWorkerRequest,
+  type RecordingLibraryScanWorkerResponse,
+} from "./recording-library-scan-core"
 import { getLastRecordingStatus } from "./recording-status-state"
 import {
   currentOutputFolder,
   defaultScreenshotFolder,
 } from "./recording-storage"
-import { getThumbnailBlurHash } from "./recording-thumbnail-meta"
+import { getThumbnailBlurHashes } from "./recording-thumbnail-meta"
 
 const logger = createLogger("library")
 
-type LibraryCollection = RecordingLibraryItem["collection"]
+const SCAN_WORKER_IDLE_TIMEOUT_MS = 30_000
 
-interface CollectionScan {
-  root: string
-  collection: LibraryCollection
-  kind: RecordingCaptureKind
+interface PendingScan {
+  resolve: (snapshot: RecordingLibrarySnapshot) => void
+  reject: (error: Error) => void
 }
 
-export function getRecordingLibrarySnapshot(): RecordingLibrarySnapshot {
-  const outputFolder = currentOutputFolder()
-  const screenshotFolder = defaultScreenshotFolder()
-  const manifest = readCaptureManifest()
-  const items = scanRecordingLibraryItems(
-    outputFolder,
-    screenshotFolder,
-    manifest,
-    activeLongRecordingFileKeys(),
-  ).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
-  const groups = groupLibraryItems(items)
-  return {
-    outputFolder,
-    screenshotFolder,
-    scannedAt: new Date().toISOString(),
-    totalCount: items.length,
-    totalSizeBytes: items.reduce((total, item) => total + item.sizeBytes, 0),
-    items,
-    groups,
-    projectDrafts: Object.values(manifest.projectDrafts).sort(
-      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
-    ),
-  }
+let scanWorker: Worker | null = null
+let scanWorkerIdleTimer: ReturnType<typeof setTimeout> | null = null
+let nextScanId = 1
+let pendingSnapshot: Promise<RecordingLibrarySnapshot> | null = null
+const pendingScans = new Map<number, PendingScan>()
+
+export function getRecordingLibrarySnapshot(): Promise<RecordingLibrarySnapshot> {
+  const input = recordingLibraryScanInput()
+  if (pendingSnapshot) return pendingSnapshot
+
+  const task = scanRecordingLibrarySnapshotInWorker(input)
+    .catch((cause: unknown) => {
+      logger.warn("recording library worker scan failed; falling back:", cause)
+      return createRecordingLibrarySnapshot(input)
+    })
+    .then(withCachedAssetUrls)
+    .finally(() => {
+      if (pendingSnapshot === task) pendingSnapshot = null
+    })
+
+  pendingSnapshot = task
+  return task
 }
 
 export function findRecordingLibraryItem(
   id: string,
 ): RecordingLibraryItem | null {
-  for (const item of scanRecordingLibraryItems(
-    currentOutputFolder(),
-    defaultScreenshotFolder(),
-    readCaptureManifest(),
-    activeLongRecordingFileKeys(),
-  )) {
-    if (item.id === id) return item
-  }
-
-  return null
+  const item = findRecordingLibraryItemInScan(recordingLibraryScanInput(), id)
+  return item ? withCachedAssetUrl(item) : null
 }
 
-function scanRecordingLibraryItems(
-  outputFolder: string,
-  screenshotFolder: string,
-  manifest: CaptureManifest,
-  hiddenFileKeys: Set<string>,
-): RecordingLibraryItem[] {
-  const collections: CollectionScan[] = [
-    {
-      root: join(outputFolder, "Clips"),
-      collection: "Clips",
-      kind: "replay",
-    },
-    {
-      root: join(outputFolder, "Sessions"),
-      collection: "Sessions",
-      kind: "long-recording",
-    },
-    {
-      root: join(screenshotFolder, "Screenshots"),
-      collection: "Screenshots",
-      kind: "screenshot",
-    },
-  ]
+function scanRecordingLibrarySnapshotInWorker(
+  input: RecordingLibraryScanInput,
+): Promise<RecordingLibrarySnapshot> {
+  return new Promise((resolve, reject) => {
+    let worker: Worker
+    try {
+      worker = recordingLibraryScanWorker()
+    } catch (cause) {
+      reject(
+        cause instanceof Error
+          ? cause
+          : new Error("Recording library worker failed to start."),
+      )
+      return
+    }
 
-  return collections.flatMap((collection) =>
-    scanCollection(collection, manifest, hiddenFileKeys),
+    const id = nextScanId++
+    const request: RecordingLibraryScanWorkerRequest = { id, input }
+    pendingScans.set(id, { resolve, reject })
+    try {
+      // oxlint-disable-next-line unicorn/require-post-message-target-origin -- Node worker_threads postMessage does not take a targetOrigin.
+      worker.postMessage(request)
+    } catch (cause) {
+      pendingScans.delete(id)
+      reject(
+        cause instanceof Error
+          ? cause
+          : new Error("Recording library worker rejected scan input."),
+      )
+    }
+  })
+}
+
+function recordingLibraryScanWorker(): Worker {
+  if (scanWorker) {
+    clearScanWorkerIdleTimer()
+    return scanWorker
+  }
+
+  const worker = new Worker(
+    new URL("./recording-library-scan-worker.js", import.meta.url),
+  )
+  worker.on("message", handleScanWorkerMessage)
+  worker.on("error", (cause) => {
+    rejectPendingScans(
+      cause instanceof Error
+        ? cause
+        : new Error("Recording library worker failed."),
+    )
+  })
+  worker.on("exit", (code) => {
+    if (scanWorker === worker) scanWorker = null
+    clearScanWorkerIdleTimer()
+    if (pendingScans.size > 0) {
+      rejectPendingScans(
+        new Error(`Recording library worker exited with code ${code}.`),
+      )
+    }
+  })
+
+  scanWorker = worker
+  return worker
+}
+
+function handleScanWorkerMessage(message: unknown): void {
+  if (!isScanWorkerResponse(message)) return
+
+  const pending = pendingScans.get(message.id)
+  if (!pending) return
+  pendingScans.delete(message.id)
+
+  if (message.ok) {
+    pending.resolve(message.snapshot)
+  } else {
+    pending.reject(new Error(message.error))
+  }
+
+  scheduleScanWorkerIdleShutdown()
+}
+
+function scheduleScanWorkerIdleShutdown(): void {
+  if (!scanWorker || pendingScans.size > 0 || scanWorkerIdleTimer) return
+  scanWorkerIdleTimer = setTimeout(() => {
+    scanWorkerIdleTimer = null
+    const worker = scanWorker
+    scanWorker = null
+    void worker?.terminate()
+  }, SCAN_WORKER_IDLE_TIMEOUT_MS)
+  scanWorkerIdleTimer.unref?.()
+}
+
+function clearScanWorkerIdleTimer(): void {
+  if (!scanWorkerIdleTimer) return
+  clearTimeout(scanWorkerIdleTimer)
+  scanWorkerIdleTimer = null
+}
+
+function rejectPendingScans(error: Error): void {
+  for (const pending of pendingScans.values()) {
+    pending.reject(error)
+  }
+  pendingScans.clear()
+}
+
+function isScanWorkerResponse(
+  value: unknown,
+): value is RecordingLibraryScanWorkerResponse {
+  if (typeof value !== "object" || value === null) return false
+  const response = value as Record<string, unknown>
+  return (
+    typeof response.id === "number" &&
+    typeof response.ok === "boolean" &&
+    (response.ok
+      ? typeof response.snapshot === "object" && response.snapshot !== null
+      : typeof response.error === "string")
   )
 }
 
-function scanCollection(
-  collection: CollectionScan,
-  manifest: CaptureManifest,
-  hiddenFileKeys: Set<string>,
-): RecordingLibraryItem[] {
-  const root = resolve(collection.root)
-  if (!existsSync(root)) return []
-
-  const items: RecordingLibraryItem[] = []
-  walkFiles(root, (filename) => {
-    const item = libraryItemForFile(
-      collection,
-      root,
-      filename,
-      manifest,
-      hiddenFileKeys,
-    )
-    if (item) items.push(item)
-  })
-  return items
-}
-
-function walkFiles(root: string, visit: (filename: string) => void): void {
-  let entries: Dirent[]
-  try {
-    entries = readdirSync(root, { withFileTypes: true })
-  } catch (cause) {
-    logger.warn("failed to scan recording library:", cause)
-    return
-  }
-
-  for (const entry of entries) {
-    const entryPath = join(root, entry.name)
-    if (entry.isDirectory()) {
-      walkFiles(entryPath, visit)
-    } else if (entry.isFile()) {
-      visit(entryPath)
-    }
-  }
-}
-
-function libraryItemForFile(
-  collection: CollectionScan,
-  collectionRoot: string,
-  filename: string,
-  manifest: CaptureManifest,
-  hiddenFileKeys: Set<string>,
-): RecordingLibraryItem | null {
-  const extension = extname(filename).toLowerCase()
-  if (!extensionMatchesKind(extension, collection.kind)) return null
-
-  const absoluteFilename = resolve(filename)
-  if (hiddenFileKeys.has(manifestKey(absoluteFilename))) return null
-
-  let stat: Stats
-  try {
-    stat = statSync(filename)
-  } catch {
-    return null
-  }
-
-  const manifestEntry = manifest.captures[manifestKey(absoluteFilename)]
-  const id = isCaptureId(manifestEntry?.id)
-    ? manifestEntry.id
-    : captureId(absoluteFilename)
-  const groupLabel = groupLabelForFile(collectionRoot, absoluteFilename)
-  const createdAt =
-    manifestEntry?.createdAt ?? statTimeIso(stat.birthtimeMs, stat.mtimeMs)
-  const modifiedAt = new Date(stat.mtimeMs).toISOString()
-  const source = manifestEntry?.source ?? sourceFromLabel(groupLabel)
-  const kind = manifestEntry?.kind ?? collection.kind
-  const mediaUrl = `${MEDIA_PROTOCOL}://${MEDIA_HOST}/${id}`
-  // The version query busts the renderer's image cache when the capture file
-  // itself changes; the protocol handler routes on pathname only.
-  const thumbnailVersion = `${Math.round(stat.mtimeMs)}-${stat.size}`
-
+function recordingLibraryScanInput(): RecordingLibraryScanInput {
   return {
-    id,
-    title: manifestEntry?.title ?? titleForCapture(kind, createdAt),
-    filename: absoluteFilename,
-    fileName: basename(absoluteFilename),
-    mediaUrl,
-    thumbnailUrl:
-      kind === "screenshot"
-        ? mediaUrl
-        : `${MEDIA_PROTOCOL}://${THUMBNAIL_HOST}/${id}?v=${thumbnailVersion}`,
-    thumbBlurHash: getThumbnailBlurHash(`${id}-${thumbnailVersion}`),
-    collection: collection.collection,
-    kind,
-    source,
-    groupKey: groupKeyForLabel(groupLabel),
-    groupLabel,
-    gameName:
-      manifestEntry?.gameName ?? (source === "game" ? groupLabel : null),
-    // The manifest keeps the raw remote URL; snapshots hand the renderer the
-    // disk-cached variant so icons survive restarts and offline servers.
-    gameIconUrl: cachedAssetUrl(manifestEntry?.gameIconUrl ?? null),
-    gameGuess: manifestEntry?.gameGuess ?? null,
-    sizeBytes: manifestEntry?.sizeBytes ?? stat.size,
-    durationMs: manifestEntry?.durationMs ?? null,
-    bookmarksMs: manifestEntry?.bookmarksMs ?? [],
-    width: manifestEntry?.width ?? null,
-    height: manifestEntry?.height ?? null,
-    description: manifestEntry?.description ?? null,
-    tags: manifestEntry?.tags ?? null,
-    mentions: manifestEntry?.mentions ?? [],
-    privacy: manifestEntry?.privacy ?? null,
-    uploadedClipId: manifestEntry?.uploadedClipId ?? null,
-    createdAt,
-    modifiedAt,
+    outputFolder: currentOutputFolder(),
+    screenshotFolder: defaultScreenshotFolder(),
+    manifest: readCaptureManifest(),
+    hiddenFileKeys: activeLongRecordingFileKeys(),
+    thumbnailBlurHashes: getThumbnailBlurHashes(),
   }
 }
 
-function activeLongRecordingFileKeys(): Set<string> {
+function activeLongRecordingFileKeys(): string[] {
   const status = getLastRecordingStatus()
   const capture = status?.currentCapture
   if (
@@ -242,83 +200,35 @@ function activeLongRecordingFileKeys(): Set<string> {
     status?.longRecordingActive !== true ||
     capture?.kind !== "long-recording"
   ) {
-    return new Set()
+    return []
   }
 
-  return new Set([manifestKey(resolve(capture.filename))])
+  return [manifestKey(resolve(capture.filename))]
 }
 
-function sourceFromLabel(groupLabel: string): RecordingCaptureSource {
-  return groupLabel === "Desktop" ? "display" : "game"
+function withCachedAssetUrls(
+  snapshot: RecordingLibrarySnapshot,
+): RecordingLibrarySnapshot {
+  const itemById = new Map<string, RecordingLibraryItem>()
+  const items = snapshot.items.map((item) => {
+    const mapped = withCachedAssetUrl(item)
+    itemById.set(mapped.id, mapped)
+    return mapped
+  })
+  const groups = snapshot.groups.map((group) => ({
+    ...group,
+    iconUrl: cachedAssetUrl(group.iconUrl),
+    items: group.items.map(
+      (item) => itemById.get(item.id) ?? withCachedAssetUrl(item),
+    ),
+  }))
+
+  return { ...snapshot, items, groups }
 }
 
-function extensionMatchesKind(
-  extension: string,
-  kind: RecordingCaptureKind,
-): boolean {
-  return kind === "screenshot"
-    ? IMAGE_EXTENSIONS.has(extension)
-    : VIDEO_EXTENSIONS.has(extension)
-}
-
-function groupLabelForFile(collectionRoot: string, filename: string): string {
-  const parent = dirname(filename)
-  const relativeParent = relative(collectionRoot, parent)
-  const firstSegment = relativeParent
-    .split(/[\\/]/)
-    .find((segment) => segment.length > 0 && segment !== ".")
-
-  return firstSegment || "Desktop"
-}
-
-function groupKeyForLabel(label: string): string {
-  return label.trim().toLowerCase() || "desktop"
-}
-
-function statTimeIso(birthtimeMs: number, mtimeMs: number): string {
-  const time =
-    Number.isFinite(birthtimeMs) && birthtimeMs > 0 ? birthtimeMs : mtimeMs
-  return new Date(time).toISOString()
-}
-
-function groupLibraryItems(
-  items: RecordingLibraryItem[],
-): RecordingLibraryGroup[] {
-  const groups = new Map<string, RecordingLibraryGroup>()
-
-  for (const item of items) {
-    let group = groups.get(item.groupKey)
-    if (!group) {
-      group = {
-        key: item.groupKey,
-        label: item.groupLabel,
-        kind: item.groupLabel === "Desktop" ? "desktop" : "game",
-        iconUrl: item.gameIconUrl,
-        totalCount: 0,
-        clipCount: 0,
-        sessionCount: 0,
-        screenshotCount: 0,
-        totalSizeBytes: 0,
-        latestAt: item.createdAt,
-        items: [],
-      }
-      groups.set(item.groupKey, group)
-    }
-
-    group.totalCount += 1
-    group.iconUrl ??= item.gameIconUrl
-    group.totalSizeBytes += item.sizeBytes
-    group.latestAt =
-      Date.parse(item.createdAt) > Date.parse(group.latestAt)
-        ? item.createdAt
-        : group.latestAt
-    if (item.kind === "replay") group.clipCount += 1
-    if (item.kind === "long-recording") group.sessionCount += 1
-    if (item.kind === "screenshot") group.screenshotCount += 1
-    group.items.push(item)
+function withCachedAssetUrl(item: RecordingLibraryItem): RecordingLibraryItem {
+  return {
+    ...item,
+    gameIconUrl: cachedAssetUrl(item.gameIconUrl),
   }
-
-  return [...groups.values()].sort(
-    (a, b) => Date.parse(b.latestAt) - Date.parse(a.latestAt),
-  )
 }

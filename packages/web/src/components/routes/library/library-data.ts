@@ -22,6 +22,7 @@ export type LibraryItemView = RecordingLibraryItem & {
   displayGameIconUrl: string | null
   displayGameName: string
   gameSlug: string | null
+  gameSteamGridDBId: number | null
 }
 
 export interface LibrarySnapshotState {
@@ -160,6 +161,7 @@ export function enrichLibraryItem(
     displayGameIconUrl: steamgriddbIconUrl ?? item.gameIconUrl,
     displayGameName,
     gameSlug: game?.slug ?? null,
+    gameSteamGridDBId: game?.steamgriddbId ?? null,
   }
 }
 

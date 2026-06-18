@@ -19,7 +19,6 @@ import { useForm, useStore } from "@tanstack/react-form"
 import { ImageIcon, Pencil, SaveIcon } from "lucide-react"
 import * as React from "react"
 
-import { ColorPicker } from "@/components/form/color-picker"
 import type { useClickAnchor } from "@/hooks/use-click-anchor"
 import { authClient } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
@@ -43,13 +42,8 @@ type ProfileCardProps = {
   initialUsername: string
   image: string
   banner: string
-  background: string
-  accentColor: string
   email: string
 }
-
-/** The app's default lavender accent, shown when the user hasn't set one. */
-const DEFAULT_ACCENT = "#d0c4eb"
 
 type ProfileAvatarPreviewProps = {
   avatar: ReturnType<typeof userAvatar>
@@ -75,7 +69,10 @@ function ProfileAvatarPreview({
   const style = { background: avatar.bg, color: avatar.fg }
 
   return (
-    <Avatar size="xl" style={style}>
+    // Fills the sized wrapper button so the preview avatar tracks the
+    // responsive size-16/size-24 zone; the `2xl` token supplies the initials
+    // text size.
+    <Avatar size="2xl" style={style} className="!size-full">
       {showImage && avatar.src ? (
         <AvatarImage
           src={avatar.src}
@@ -96,29 +93,14 @@ const CENTER_EDIT_OVERLAY = (
   </MediaEditOverlay>
 )
 
-/**
- * Corner pencil overlay for the wallpaper zone — the centered variant would sit
- * behind the floating card, so this pins the affordance to a visible corner.
- */
-const CORNER_EDIT_OVERLAY = (
-  <div className="pointer-events-none absolute inset-0 rounded-[inherit] opacity-0 transition-opacity group-hover:opacity-100">
-    <div className="absolute inset-0 rounded-[inherit] bg-[oklch(12%_0.01_250)]/40" />
-    <span className="absolute top-2 right-2 inline-flex size-7 items-center justify-center rounded-full bg-[oklch(12%_0.01_250)]/55 ring-1 ring-white/15">
-      <Pencil className="size-3.5 text-white" />
-    </span>
-  </div>
-)
-
 export function ProfileCard({
   userId,
   initialUsername,
   image,
   banner,
-  background,
-  accentColor,
   email,
 }: ProfileCardProps) {
-  const media = useProfileMedia({ image, banner, background, accentColor })
+  const media = useProfileMedia({ image, banner })
   const bannerUser = {
     id: userId,
     image: media.profileImage || null,
@@ -158,8 +140,8 @@ export function ProfileCard({
     })
   }, [email, form, initialUsername])
 
-  // Media (avatar, banner, wallpaper, accent) applies as soon as it uploads;
-  // only the identity fields go through the dialog's unified save bar.
+  // Media (avatar, banner) applies as soon as it uploads; only the identity
+  // fields go through the dialog's unified save bar.
   const identityDirty = useStore(form.store, (state) =>
     profileIdentityChanged(state.values, initialIdentity),
   )
@@ -267,8 +249,8 @@ export function ProfileCard({
       >
         <Section>
           <SectionContent className="flex flex-col gap-3.5">
-            {/* Live profile preview — a miniature of the real floating profile.
-                Click the wallpaper, banner, or avatar to change or remove it. */}
+            {/* Live profile preview — a miniature of the real profile header.
+                Click the banner or avatar to change or remove it. */}
             <div>
               <div className="mb-2 flex items-baseline justify-between gap-3">
                 <div className="text-foreground text-sm font-medium">
@@ -300,82 +282,52 @@ export function ProfileCard({
                   const hasAvatar = !!avatar.src
 
                   return (
-                    <div className="bg-surface-sunken ring-border/60 relative h-[clamp(220px,32vw,340px)] overflow-hidden rounded-lg ring-1">
-                      {/* Wallpaper (full bleed, clickable in the margins) */}
+                    <div className="bg-surface-sunken ring-border/60 relative overflow-hidden rounded-lg ring-1">
+                      {/* Full-width banner */}
                       {editZone({
-                        kind: "background",
-                        hasImage: media.hasBackground,
-                        anchor: media.backgroundAnchor,
-                        className: "absolute inset-0 block",
-                        overlay: CORNER_EDIT_OVERLAY,
-                        children: media.hasBackground ? (
-                          <img
-                            src={media.backgroundSrc}
-                            alt=""
-                            aria-hidden
-                            className="absolute inset-0 size-full object-cover"
-                          />
+                        kind: "banner",
+                        hasImage: media.hasBanner,
+                        anchor: media.bannerAnchor,
+                        className: cn(
+                          "relative block w-full",
+                          PROFILE_BANNER_ASPECT_CLASS,
+                        ),
+                        overlay: CENTER_EDIT_OVERLAY,
+                        children: media.hasBanner ? (
+                          <UserBanner user={bannerUser} />
                         ) : (
-                          <span className="text-foreground-faint absolute inset-0 flex flex-col items-center justify-center gap-1 text-xs">
-                            <ImageIcon className="size-5" />
-                            Wallpaper
+                          // Fades out on hover so it doesn't collide with the
+                          // centered pencil affordance.
+                          <span className="text-foreground-faint absolute inset-0 flex items-center justify-center gap-1.5 text-xs opacity-100 transition-opacity group-hover:opacity-0">
+                            <ImageIcon className="size-4" />
+                            Add banner
                           </span>
                         ),
                       })}
 
-                      {/* Floating card — centered with margins so the wallpaper
-                          shows around it and stays clickable. The whole card is
-                          a single frosted surface (banner + body share it) so
-                          there's no seam between the two when no banner is set. */}
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-4 sm:p-5">
-                        <div className="bg-surface-sunken/55 ring-border/50 pointer-events-auto w-[84%] overflow-hidden rounded-md shadow-[var(--shadow-md)] ring-1 backdrop-blur-2xl backdrop-saturate-150 sm:w-[82%]">
-                          {editZone({
-                            kind: "banner",
-                            hasImage: media.hasBanner,
-                            anchor: media.bannerAnchor,
-                            className: cn(
-                              "relative block w-full",
-                              PROFILE_BANNER_ASPECT_CLASS,
-                            ),
-                            overlay: CENTER_EDIT_OVERLAY,
-                            children: media.hasBanner ? (
-                              <UserBanner user={bannerUser} />
-                            ) : (
-                              // Transparent so the card's single frost shows
-                              // through — no second blurred layer, no seam.
-                              // Fades out on hover so it doesn't collide with
-                              // the centered pencil affordance.
-                              <span className="text-foreground-faint absolute inset-0 flex items-center justify-center gap-1.5 text-xs opacity-100 transition-opacity group-hover:opacity-0">
-                                <ImageIcon className="size-4" />
-                                Add banner
-                              </span>
-                            ),
-                          })}
-
-                          <div className="relative flex items-center gap-2.5 px-3 pb-2.5">
-                            {editZone({
-                              kind: "avatar",
-                              hasImage: hasAvatar,
-                              anchor: media.avatarAnchor,
-                              className:
-                                "relative -mt-4 inline-flex size-11 shrink-0 overflow-hidden rounded-full ring-2 ring-white/10 sm:size-12",
-                              overlay: CENTER_EDIT_OVERLAY,
-                              children: (
-                                <ProfileAvatarPreview
-                                  avatar={avatar}
-                                  previewName={previewName}
-                                  showImage={hasAvatar}
-                                />
-                              ),
-                            })}
-                            <div className="min-w-0 pt-1">
-                              <div className="text-foreground truncate text-sm font-semibold">
-                                {previewName}
-                              </div>
-                              <div className="text-foreground-faint truncate text-xs">
-                                {normalizedIdentity.email || email}
-                              </div>
-                            </div>
+                      {/* Identity bar — avatar straddles the banner seam above */}
+                      <div className="relative flex items-end gap-3 px-3 pb-3 sm:gap-4 sm:px-4">
+                        {editZone({
+                          kind: "avatar",
+                          hasImage: hasAvatar,
+                          anchor: media.avatarAnchor,
+                          className:
+                            "ring-background relative -mt-8 inline-flex size-16 shrink-0 overflow-hidden rounded-full ring-[3px] sm:-mt-12 sm:size-24 sm:ring-4",
+                          overlay: CENTER_EDIT_OVERLAY,
+                          children: (
+                            <ProfileAvatarPreview
+                              avatar={avatar}
+                              previewName={previewName}
+                              showImage={hasAvatar}
+                            />
+                          ),
+                        })}
+                        <div className="min-w-0 flex-1 pb-0.5">
+                          <div className="text-foreground truncate text-sm font-semibold sm:text-base">
+                            {previewName}
+                          </div>
+                          <div className="text-foreground-faint truncate text-xs">
+                            {normalizedIdentity.email || email}
                           </div>
                         </div>
                       </div>
@@ -383,47 +335,6 @@ export function ProfileCard({
                   )
                 }}
               </form.Subscribe>
-            </div>
-
-            {/* Profile accent */}
-            <div>
-              <div className="text-foreground mb-1.5 text-sm font-medium">
-                Profile accent
-              </div>
-              <p className="text-foreground-faint mb-2 text-xs">
-                Auto-derived from your wallpaper. Override it with any color.
-              </p>
-              <div className="flex items-center gap-2">
-                <ColorPicker
-                  value={media.profileAccent || DEFAULT_ACCENT}
-                  onChange={media.handleAccentChange}
-                  disabled={media.uploading}
-                  aria-label="Profile accent color"
-                />
-                <span className="text-foreground-muted font-mono text-xs uppercase">
-                  {(media.profileAccent || DEFAULT_ACCENT).toUpperCase()}
-                </span>
-                <div className="ml-auto flex items-center gap-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void media.handleAutoAccent()}
-                    disabled={media.uploading || !media.hasBackground}
-                  >
-                    Auto
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => void media.handleClearAccent()}
-                    disabled={media.uploading || !media.profileAccent}
-                  >
-                    Reset
-                  </Button>
-                </div>
-              </div>
             </div>
 
             {identityTextFields.map((config) => (

@@ -32,13 +32,13 @@ export const gameKeys = {
   list: () => [...gameKeys.all, "list"] as const,
   lookupByName: (names: readonly string[]) =>
     [...gameKeys.all, "lookup-by-name", names] as const,
-  /** Per-slug detail for the banner header on `/g/:slug`. */
-  detail: (slug: string) => [...gameKeys.all, "detail", slug] as const,
-  clips: (slug: string, params: GameClipsParams) =>
-    [...gameKeys.all, "clips", slug, params] as const,
+  /** Per-game detail for the banner header on `/games/:gameId`. */
+  detail: (gameId: string) => [...gameKeys.all, "detail", gameId] as const,
+  clips: (gameId: string, params: GameClipsParams) =>
+    [...gameKeys.all, "clips", gameId, params] as const,
   /** Weighted top strip on the game detail page. */
-  topClips: (slug: string, window: ClipFeedWindow, limit: number) =>
-    [...gameKeys.all, "topClips", slug, { window, limit }] as const,
+  topClips: (gameId: string, window: ClipFeedWindow, limit: number) =>
+    [...gameKeys.all, "topClips", gameId, { window, limit }] as const,
 }
 
 export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
@@ -115,11 +115,11 @@ export function useGameNameLookupQuery(
   })
 }
 
-export function useGameQuery(slug: string): UseQueryResult<GameDetail> {
+export function useGameQuery(gameId: string): UseQueryResult<GameDetail> {
   return useQuery({
-    queryKey: gameKeys.detail(slug),
-    queryFn: () => api.games.fetchBySlug(slug),
-    enabled: slug.length > 0,
+    queryKey: gameKeys.detail(gameId),
+    queryFn: () => api.games.fetchById(gameId),
+    enabled: gameId.length > 0,
   })
 }
 
@@ -138,25 +138,25 @@ function normaliseLookupNames(names: readonly string[]): readonly string[] {
 }
 
 export function useGameClipsQuery(
-  slug: string,
+  gameId: string,
   params: GameClipsParams = {},
 ): UseQueryResult<ClipRow[]> {
   return useQuery({
-    queryKey: gameKeys.clips(slug, params),
-    queryFn: () => api.games.fetchClips(slug, params),
-    enabled: slug.length > 0,
+    queryKey: gameKeys.clips(gameId, params),
+    queryFn: () => api.games.fetchClips(gameId, params),
+    enabled: gameId.length > 0,
   })
 }
 
 export function useGameTopClipsQuery(
-  slug: string,
+  gameId: string,
   window: ClipFeedWindow,
   { limit = 5 }: { limit?: number } = {},
 ): UseQueryResult<ClipRow[]> {
   return useQuery({
-    queryKey: gameKeys.topClips(slug, window, limit),
-    queryFn: () => api.games.fetchTopClips(slug, { window, limit }),
-    enabled: slug.length > 0,
+    queryKey: gameKeys.topClips(gameId, window, limit),
+    queryFn: () => api.games.fetchTopClips(gameId, { window, limit }),
+    enabled: gameId.length > 0,
   })
 }
 
@@ -166,16 +166,16 @@ export function useToggleGameFavoriteMutation() {
   return useMutation<
     { following: boolean },
     Error,
-    { slug: string; next: boolean },
+    { gameId: string; next: boolean },
     {
       detailKey: ReturnType<typeof gameKeys.detail>
       previous: GameDetail | undefined
     }
   >({
-    mutationFn: ({ slug, next }) =>
-      next ? api.games.follow(slug) : api.games.unfollow(slug),
-    onMutate: async ({ slug, next }) => {
-      const detailKey = gameKeys.detail(slug)
+    mutationFn: ({ gameId, next }) =>
+      next ? api.games.follow(gameId) : api.games.unfollow(gameId),
+    onMutate: async ({ gameId, next }) => {
+      const detailKey = gameKeys.detail(gameId)
       await qc.cancelQueries({ queryKey: detailKey })
       const previous = qc.getQueryData<GameDetail>(detailKey)
       qc.setQueryData<GameDetail>(detailKey, (old) => {
@@ -196,7 +196,7 @@ export function useToggleGameFavoriteMutation() {
       }
     },
     onSettled: (_data, _error, variables) => {
-      void qc.invalidateQueries({ queryKey: gameKeys.detail(variables.slug) })
+      void qc.invalidateQueries({ queryKey: gameKeys.detail(variables.gameId) })
       void qc.invalidateQueries({ queryKey: feedKeys.all })
     },
   })

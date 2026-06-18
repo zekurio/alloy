@@ -39,7 +39,12 @@ export default defineConfig({
   main: {
     build: {
       rollupOptions: {
-        input: { index: fromHere("src/main/index.ts") },
+        input: {
+          index: fromHere("src/main/index.ts"),
+          "recording-library-scan-worker": fromHere(
+            "src/main/recording-library-scan-worker.ts",
+          ),
+        },
         external: nodeExternals,
       },
     },

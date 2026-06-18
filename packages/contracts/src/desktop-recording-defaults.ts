@@ -41,7 +41,7 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
     screenshot: "F7",
   },
   notificationSounds: {
-    replayRecordingStarted: { enabled: true, volume: 100, path: "" },
+    replayBufferStarted: { enabled: true, volume: 100, path: "" },
     clipSaved: { enabled: true, volume: 100, path: "" },
     bookmarkAdded: { enabled: true, volume: 100, path: "" },
     screenshotTaken: { enabled: true, volume: 100, path: "" },

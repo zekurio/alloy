@@ -23,7 +23,6 @@ import { stream } from "hono/streaming"
 import {
   contentDisposition,
   downloadFilename,
-  DownloadQuery,
   HlsFileParam,
   IdParam,
   StreamQuery,
@@ -221,68 +220,58 @@ export const clipsPlaybackRoutes = new Hono()
 
     return await streamThumbnail(c, key, thumbCacheControl)
   })
-  .get(
-    "/:id/download",
-    zValidator("param", IdParam),
-    zValidator("query", DownloadQuery),
-    async (c) => {
-      const { id } = c.req.valid("param")
-      const { variant: requestedVariant } = c.req.valid("query")
+  .get("/:id/download", zValidator("param", IdParam), async (c) => {
+    const { id } = c.req.valid("param")
 
-      const access = await resolveClipAccess({
-        id,
-        headers: c.req.raw.headers,
-        policy: "ownerAsset",
-      })
-      if (!access.accessible) return clipAccessResponse(c, access)
-      const row = access.row
+    const access = await resolveClipAccess({
+      id,
+      headers: c.req.raw.headers,
+      policy: "ownerAsset",
+    })
+    if (!access.accessible) return clipAccessResponse(c, access)
+    const row = access.row
 
-      const selected =
-        requestedVariant === "source"
-          ? row.sourceKey && row.sourceContentType
-            ? {
-                key: row.sourceKey,
-                contentType: row.sourceContentType,
-                filename: downloadFilename(row, "source"),
-              }
-            : null
-          : null
+    const selected =
+      row.sourceKey && row.sourceContentType
+        ? {
+            key: row.sourceKey,
+            contentType: row.sourceContentType,
+            filename: downloadFilename(row),
+          }
+        : null
 
-      if (!selected) {
-        return notFound(c, "Unknown download")
-      }
+    if (!selected) {
+      return notFound(c, "Unknown download")
+    }
 
-      const dlCacheControl =
-        row.privacy === "public"
-          ? "public, max-age=300"
-          : "private, max-age=300"
+    const dlCacheControl =
+      row.privacy === "public" ? "public, max-age=300" : "private, max-age=300"
 
-      const direct = await redirectToStorageUrl(
-        c,
-        clipStorage,
-        {
-          key: selected.key,
-          contentType: selected.contentType || undefined,
-          contentDisposition: contentDisposition(selected.filename),
-        },
-        dlCacheControl,
-      )
-      if (direct) return direct
+    const direct = await redirectToStorageUrl(
+      c,
+      clipStorage,
+      {
+        key: selected.key,
+        contentType: selected.contentType || undefined,
+        contentDisposition: contentDisposition(selected.filename),
+      },
+      dlCacheControl,
+    )
+    if (direct) return direct
 
-      const resolved = await clipStorage.resolve(selected.key)
-      if (!resolved) {
-        return notFound(c, "Download unavailable")
-      }
+    const resolved = await clipStorage.resolve(selected.key)
+    if (!resolved) {
+      return notFound(c, "Download unavailable")
+    }
 
-      c.header("Content-Type", selected.contentType || resolved.contentType)
-      c.header("Content-Length", String(resolved.size))
-      c.header("Content-Disposition", contentDisposition(selected.filename))
-      c.header("Cache-Control", dlCacheControl)
-      if (c.req.method === "HEAD") return c.body(null)
+    c.header("Content-Type", selected.contentType || resolved.contentType)
+    c.header("Content-Length", String(resolved.size))
+    c.header("Content-Disposition", contentDisposition(selected.filename))
+    c.header("Cache-Control", dlCacheControl)
+    if (c.req.method === "HEAD") return c.body(null)
 
-      const body = resolved.stream()
-      return stream(c, async (s) => {
-        await pipeReadable(s, body)
-      })
-    },
-  )
+    const body = resolved.stream()
+    return stream(c, async (s) => {
+      await pipeReadable(s, body)
+    })
+  })

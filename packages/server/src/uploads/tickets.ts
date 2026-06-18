@@ -31,8 +31,10 @@ export async function createUploadTickets(input: {
   videoKey: string
   videoContentType: string
   videoBytes: number
+  videoUploadState?: Record<string, unknown> | null
   thumbKey: string
   thumbContentType?: string
+  thumbUploadState?: Record<string, unknown> | null
   expiresAt: Date
 }): Promise<void> {
   await db.insert(uploadTicket).values([
@@ -44,6 +46,7 @@ export async function createUploadTickets(input: {
       storageKey: input.videoKey,
       contentType: input.videoContentType,
       expectedBytes: input.videoBytes,
+      uploadState: input.videoUploadState ?? null,
       expiresAt: input.expiresAt,
     },
     {
@@ -54,6 +57,7 @@ export async function createUploadTickets(input: {
       storageKey: input.thumbKey,
       contentType: input.thumbContentType ?? THUMB_UPLOAD_CONTENT_TYPE,
       expectedBytes: THUMB_UPLOAD_MAX_BYTES,
+      uploadState: input.thumbUploadState ?? null,
       expiresAt: input.expiresAt,
     },
   ])
@@ -94,10 +98,34 @@ async function selectTicketKey(
   return ticket?.storageKey ?? null
 }
 
+async function selectTicket(
+  target: UploadTarget,
+  role: "video" | "thumb",
+): Promise<{
+  storageKey: string
+  uploadState: unknown
+  usedAt: Date | null
+} | null> {
+  const [ticket] = await db
+    .select({
+      storageKey: uploadTicket.storageKey,
+      uploadState: uploadTicket.uploadState,
+      usedAt: uploadTicket.usedAt,
+    })
+    .from(uploadTicket)
+    .where(and(targetMatch(target), eq(uploadTicket.role, role)))
+    .limit(1)
+  return ticket ?? null
+}
+
 export function selectVideoTicketKey(
   target: UploadTarget,
 ): Promise<string | null> {
   return selectTicketKey(target, "video")
+}
+
+export function selectVideoTicket(target: UploadTarget) {
+  return selectTicket(target, "video")
 }
 
 export function selectThumbTicketKey(
@@ -108,12 +136,19 @@ export function selectThumbTicketKey(
 
 export async function selectTicketKeys(
   target: UploadTarget,
-): Promise<string[]> {
+): Promise<Array<{ key: string; uploadState: unknown }>> {
   const tickets = await db
-    .select({ storageKey: uploadTicket.storageKey })
+    .select({
+      storageKey: uploadTicket.storageKey,
+      uploadState: uploadTicket.uploadState,
+      usedAt: uploadTicket.usedAt,
+    })
     .from(uploadTicket)
     .where(targetMatch(target))
-  return tickets.map((ticket) => ticket.storageKey)
+  return tickets.map((ticket) => ({
+    key: ticket.storageKey,
+    uploadState: ticket.usedAt ? null : ticket.uploadState,
+  }))
 }
 
 /** Drop the ticket rows for a recording (does not touch storage objects). */

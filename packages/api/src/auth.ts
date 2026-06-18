@@ -30,8 +30,6 @@ export type AuthUser = {
   displayUsername: string
   image: string | null
   banner: string | null
-  background: string | null
-  accentColor: string | null
   role: "user" | "admin"
   status: "active" | "disabled"
   disabledAt: string | null

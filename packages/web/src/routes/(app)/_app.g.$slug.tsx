@@ -1,23 +1,18 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router"
-import * as React from "react"
+import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { GameDetailPageInner } from "@/components/routes/game-detail/game-detail-page-inner"
-import { gameTopClipsWindow, parseGameSearch } from "@/lib/game-search"
+import { api } from "@/lib/api"
+import { parseGameSearch } from "@/lib/game-search"
 
 export const Route = createFileRoute("/(app)/_app/g/$slug")({
   validateSearch: parseGameSearch,
-  component: GameDetailPage,
+  loader: async ({ location, params }) => {
+    const game = await api.games.fetchBySlug(params.slug)
+    throw redirect({
+      to: "/games/$gameId",
+      params: { gameId: String(game.steamgriddbId) },
+      search: location.search,
+      replace: true,
+    })
+  },
+  component: () => null,
 })
-
-function GameDetailPage() {
-  const { slug } = Route.useParams()
-  const search = Route.useSearch()
-  const window = gameTopClipsWindow(search)
-
-  return (
-    <React.Suspense fallback={null}>
-      <GameDetailPageInner slug={slug} window={window} />
-      <Outlet />
-    </React.Suspense>
-  )
-}

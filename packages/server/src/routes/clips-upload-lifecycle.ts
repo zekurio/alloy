@@ -14,10 +14,12 @@ import {
   gone,
   success,
 } from "@alloy/server/runtime/http-response"
+import type { UploadTicketStorageState } from "@alloy/server/storage/index"
 import {
   deleteStagedUpload,
   deleteStagedUploads,
-  mintStagedUploadUrl,
+  mintStagedUpload,
+  parseUploadTicketStorageState,
   resolveStagedUpload,
   stagedSourceKey,
   stagedThumbKey,
@@ -25,7 +27,7 @@ import {
 import {
   assertUsableVideoTicket,
   createUploadTickets,
-  selectVideoTicketKey,
+  selectVideoTicket,
   THUMB_UPLOAD_MAX_BYTES,
 } from "@alloy/server/uploads/tickets"
 import { and, eq } from "drizzle-orm"
@@ -51,6 +53,7 @@ const logger = createLogger("clips")
 async function cleanupFailedInitiate(
   clipId: string,
   uploadKey: string,
+  uploadState: UploadTicketStorageState = null,
 ): Promise<void> {
   try {
     await db.delete(clip).where(eq(clip.id, clipId))
@@ -59,7 +62,7 @@ async function cleanupFailedInitiate(
   }
 
   try {
-    await deleteStagedUpload(uploadKey)
+    await deleteStagedUpload(uploadKey, uploadState)
   } catch (err) {
     logger.warn(
       `failed to delete staged upload for ${clipId} after initiate failure:`,
@@ -185,36 +188,46 @@ export const clipsUploadLifecycleRoutes = new Hono()
 
       const expiresInSec = configStore.get("limits").uploadTtlSec
       const expiresAt = new Date(Date.now() + expiresInSec * 1000)
+      let videoUploadState: UploadTicketStorageState = null
       try {
-        await createUploadTickets({
-          target: { type: "clip", id: clipId },
-          ownerId: viewerId,
-          videoKey: uploadKey,
-          videoContentType: body.contentType,
-          videoBytes: body.sizeBytes,
-          thumbKey: thumbUploadKey,
-          thumbContentType: body.thumbContentType,
-          expiresAt,
-        })
-        const ticket = await mintStagedUploadUrl({
+        const videoUpload = await mintStagedUpload({
           key: uploadKey,
           contentType: body.contentType,
           maxBytes: body.sizeBytes,
           expiresInSec,
           userId: viewerId,
           clipId,
+          role: "video",
         })
-        const thumbTicket = await mintStagedUploadUrl({
+        videoUploadState = videoUpload.storageState
+        const thumbUpload = await mintStagedUpload({
           key: thumbUploadKey,
           contentType: body.thumbContentType,
           maxBytes: THUMB_UPLOAD_MAX_BYTES,
           expiresInSec,
           userId: viewerId,
           clipId,
+          role: "thumb",
         })
-        return c.json({ clipId, ticket, thumbTicket })
+        await createUploadTickets({
+          target: { type: "clip", id: clipId },
+          ownerId: viewerId,
+          videoKey: uploadKey,
+          videoContentType: body.contentType,
+          videoBytes: body.sizeBytes,
+          videoUploadState: videoUpload.storageState,
+          thumbKey: thumbUploadKey,
+          thumbContentType: body.thumbContentType,
+          thumbUploadState: thumbUpload.storageState,
+          expiresAt,
+        })
+        return c.json({
+          clipId,
+          ticket: videoUpload.ticket,
+          thumbTicket: thumbUpload.ticket,
+        })
       } catch (err) {
-        await cleanupFailedInitiate(clipId, uploadKey)
+        await cleanupFailedInitiate(clipId, uploadKey, videoUploadState)
         throw err
       }
     },
@@ -235,7 +248,11 @@ export const clipsUploadLifecycleRoutes = new Hono()
       if ("response" in access) return access.response
       const row = access.row
 
-      const videoTicketKey = await selectVideoTicketKey({ type: "clip", id })
+      const videoTicket = await selectVideoTicket({ type: "clip", id })
+      const videoTicketKey = videoTicket?.storageKey ?? null
+      const videoUploadState = videoTicket?.usedAt
+        ? null
+        : parseUploadTicketStorageState(videoTicket?.uploadState)
       const sourceContentType = row.sourceContentType
       const sourceSizeBytes = row.sourceSizeBytes
       if (!videoTicketKey || !sourceContentType || sourceSizeBytes == null) {
@@ -250,14 +267,14 @@ export const clipsUploadLifecycleRoutes = new Hono()
         expectedBytes: sourceSizeBytes,
       })
       if (!videoTicketOk) {
-        await deleteStagedUpload(videoTicketKey)
+        await deleteStagedUpload(videoTicketKey, videoUploadState)
         await markUploadFailed(row.authorId, id, "Upload ticket expired")
         return gone(c, "Upload ticket expired")
       }
 
       const stagedUpload = await resolveStagedUpload(videoTicketKey)
       if (!stagedUpload) {
-        await deleteStagedUpload(videoTicketKey)
+        await deleteStagedUpload(videoTicketKey, videoUploadState)
         await markUploadFailed(row.authorId, id, "Upload bytes are missing")
         return badRequest(c, "Upload bytes are missing")
       }
@@ -277,7 +294,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
         },
       )
       if (!quotaResult.ok) {
-        await deleteStagedUpload(videoTicketKey)
+        await deleteStagedUpload(videoTicketKey, videoUploadState)
         await markUploadFailed(row.authorId, id, "Storage quota exceeded")
         return c.json(
           {
@@ -290,7 +307,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
       }
 
       if (stagedUpload.size !== sourceSizeBytes) {
-        await deleteStagedUpload(videoTicketKey)
+        await deleteStagedUpload(videoTicketKey, videoUploadState)
         await markUploadFailed(
           row.authorId,
           id,
@@ -341,7 +358,17 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const row = access.row
 
       await deleteStagedUploads(
-        [await selectVideoTicketKey({ type: "clip", id }), stagedThumbKey(id)],
+        [
+          await selectVideoTicket({ type: "clip", id }).then((ticket) =>
+            ticket
+              ? {
+                  key: ticket.storageKey,
+                  uploadState: ticket.usedAt ? null : ticket.uploadState,
+                }
+              : null,
+          ),
+          stagedThumbKey(id),
+        ],
         "failed staged upload",
       )
       await markUploadFailed(row.authorId, id, "Upload failed")

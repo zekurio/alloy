@@ -8,7 +8,7 @@ import { errorMessage } from "@/lib/error-message"
 import { useToggleGameFavoriteMutation } from "@/lib/game-queries"
 
 type GameFavoriteButtonProps = {
-  slug: string
+  gameId: number | string
   viewer: { isFollowing: boolean } | null | undefined
   className?: string
 }
@@ -19,7 +19,7 @@ type GameFavoriteButtonProps = {
  * action — keeping it from reading as a stranded number at the card edge.
  */
 export function GameFavoriteButton({
-  slug,
+  gameId,
   viewer,
   className,
 }: GameFavoriteButtonProps) {
@@ -71,7 +71,7 @@ export function GameFavoriteButton({
       className={className}
       onClick={() => {
         mutation.mutate(
-          { slug, next: !isStarred },
+          { gameId: String(gameId), next: !isStarred },
           {
             onError: (cause) => {
               toast.error(errorMessage(cause, "Something went wrong"))

@@ -356,8 +356,8 @@ function MobileClipViewerBody({
               {/* Game badge */}
               {gameRef ? (
                 <Link
-                  to="/g/$slug"
-                  params={{ slug: gameRef.slug }}
+                  to="/games/$gameId"
+                  params={{ gameId: String(gameRef.steamgriddbId) }}
                   className="inline-flex w-fit items-center gap-2"
                 >
                   <GameIcon

@@ -33,8 +33,6 @@ export const user = pgTable(
     displayUsername: text("display_username").notNull().default(""),
     image: text("image"),
     banner: text("banner"),
-    background: text("background"),
-    accentColor: text("accent_color"),
     role: text("role").$type<UserRole>().notNull().default("user"),
     status: text("status").$type<UserStatus>().notNull().default("active"),
     disabledAt: timestamp("disabled_at"),

@@ -74,8 +74,6 @@ function ProfilePanel() {
       initialUsername={user.username ?? ""}
       image={user.image ?? ""}
       banner={(user as { banner?: string | null }).banner ?? ""}
-      background={(user as { background?: string | null }).background ?? ""}
-      accentColor={(user as { accentColor?: string | null }).accentColor ?? ""}
       email={user.email ?? ""}
     />
   )

@@ -141,7 +141,7 @@ export function ClipBrowserDownloadMenuItem({ row }: { row: ClipRow }) {
       onClick={(event) => {
         event.stopPropagation()
         const started = startBrowserDownload(
-          clipDownloadUrl(row.id, "source", apiOrigin()),
+          clipDownloadUrl(row.id, apiOrigin()),
         )
         if (!started) toast.error("Couldn't start download")
       }}

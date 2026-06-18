@@ -18,9 +18,9 @@ export function ModeSection({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-sm font-semibold">Record with Alloy</div>
+          <div className="text-sm font-semibold">Capture with Alloy</div>
           <p className="text-foreground-dim mt-0.5 text-xs">
-            Auto-detect games and keep replay clips ready.
+            Auto-detect a game or display and keep the replay buffer ready.
           </p>
         </div>
         <Switch
@@ -61,9 +61,9 @@ export function ModeSection({
       >
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <div className="text-sm font-semibold">Auto long recordings</div>
+            <div className="text-sm font-semibold">Full-session capture</div>
             <p className="text-foreground-dim mt-0.5 text-xs">
-              Record full detected game sessions until the game closes.
+              Save detected game sessions automatically until the game closes.
             </p>
           </div>
           <Switch
@@ -82,7 +82,7 @@ export function ModeSection({
         </div>
         {settings.captureMode === "display" ? (
           <p className="text-foreground-faint mt-2 text-xs">
-            Auto long recordings are only available for game capture.
+            Full-session capture is only available for game capture.
           </p>
         ) : null}
       </div>
@@ -109,12 +109,12 @@ function captureStatusLabel(
   settings: RecordingSettings,
   status: RecordingStatus,
 ): string {
-  if (status.longRecordingActive) return "Auto long recording"
-  if (status.replayActive) return "Replay active"
+  if (status.longRecordingActive) return "Saving full session"
+  if (status.replayActive) return "Replay buffer active"
   if (settings.captureMode === "display") {
-    return settings.enabled ? "Desktop capture ready" : "Desktop capture off"
+    return settings.enabled ? "Display capture ready" : "Display capture off"
   }
-  if (!settings.enabled) return "Recording is off"
+  if (!settings.enabled) return "Capture is off"
   return status.activeGame
     ? `${status.activeGame} is ready`
     : "Waiting for a game"

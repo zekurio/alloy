@@ -7,7 +7,8 @@ import {
 import { cn } from "@alloy/ui/lib/utils"
 
 import { ProfileActions } from "@/components/profile/profile-actions"
-import { userAvatar } from "@/lib/user-display"
+import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
+import { userAvatar, UserBanner } from "@/lib/user-display"
 
 import { IdentityStats } from "./identity-stats"
 
@@ -22,12 +23,6 @@ type ProfileIdentityProps = {
   currentUserId: string | null
   onViewerChange: (viewer: ProfileViewer) => void
   onFollowerDelta: (delta: number) => void
-  /**
-   * When true a banner sits above this bar and the avatar straddles the seam.
-   * When false (no banner) the bar is the rounded top of the card, so the
-   * avatar sits inline with normal top spacing instead of overlapping upward.
-   */
-  hasBanner: boolean
 }
 
 export function ProfileIdentity({
@@ -36,7 +31,6 @@ export function ProfileIdentity({
   currentUserId,
   onViewerChange,
   onFollowerDelta,
-  hasBanner,
 }: ProfileIdentityProps) {
   const { user, counts } = profile
   const handle = user.username
@@ -62,56 +56,62 @@ export function ProfileIdentity({
   ) : null
 
   return (
-    // Identity bar — lives inside the frosted card body. With a banner it
-    // straddles the seam; without one it is the rounded top of the card.
-    <div className={cn(hasBanner ? "pb-4" : "pt-4 pb-4 sm:pt-5")}>
-      <div
+    <div className="flex w-full flex-col">
+      {/* Full-width banner */}
+      <section
         className={cn(
-          "flex gap-3 sm:gap-4",
-          hasBanner ? "items-end" : "items-center",
+          "relative w-full overflow-hidden",
+          APP_BANNER_HEIGHT_CLASS,
         )}
       >
-        {/* Avatar — straddles the banner above when there is one */}
-        <Avatar
-          size="2xl"
-          style={{ background: avatar.bg, color: avatar.fg }}
-          className={cn(
-            "!size-16 shrink-0 !text-lg ring-2 ring-white/10",
-            "sm:!size-24 sm:!text-[28px]",
-            hasBanner && "-mt-10 sm:-mt-14",
-          )}
-        >
-          {avatar.src ? (
-            <AvatarImage
-              src={avatar.src}
-              alt={handle}
-              fetchPriority="high"
-              loading="eager"
-            />
-          ) : null}
-          <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
-            {avatar.initials}
-          </AvatarFallback>
-        </Avatar>
+        <UserBanner user={user} />
+      </section>
 
-        {/* Identity + action */}
-        <div className="flex min-w-0 flex-1 items-end gap-3">
-          <div className="min-w-0 flex-1">
-            {/* Name row with inline handle */}
-            <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
-              <h1 className="text-foreground truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
-                @{handle}
-              </h1>
+      {/* Profile info bar */}
+      <div className="px-4 pb-3 sm:pb-4 md:px-8">
+        <div className="flex items-end gap-3 sm:gap-4">
+          {/* Avatar — overlaps the banner above */}
+          <Avatar
+            size="2xl"
+            style={{ background: avatar.bg, color: avatar.fg }}
+            className={cn(
+              "ring-background !size-16 shrink-0 ring-[3px]",
+              "sm:!size-24 sm:ring-4",
+              "-mt-8 sm:-mt-12",
+            )}
+          >
+            {avatar.src ? (
+              <AvatarImage
+                src={avatar.src}
+                alt={handle}
+                fetchPriority="high"
+                loading="eager"
+              />
+            ) : null}
+            <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
+              {avatar.initials}
+            </AvatarFallback>
+          </Avatar>
+
+          {/* Identity + action */}
+          <div className="flex min-w-0 flex-1 items-end gap-3">
+            <div className="min-w-0 flex-1">
+              {/* Name row */}
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
+                <h1 className="text-foreground truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
+                  @{handle}
+                </h1>
+              </div>
+
+              {/* Stats */}
+              <div className="mt-0.5">
+                <IdentityStats handle={handle} counts={counts} />
+              </div>
             </div>
 
-            {/* Stats */}
-            <div className="mt-0.5">
-              <IdentityStats handle={handle} counts={counts} />
-            </div>
+            {/* Follow / action button */}
+            {actionNode ? <div className="shrink-0">{actionNode}</div> : null}
           </div>
-
-          {/* Follow / action button */}
-          {actionNode ? <div className="shrink-0">{actionNode}</div> : null}
         </div>
       </div>
     </div>

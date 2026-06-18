@@ -85,6 +85,22 @@ async function resolveSteamGridDBGameRefBySlug(
   }
 }
 
+async function resolveSteamGridDBGameRefByParam(
+  c: Context,
+  value: string,
+): Promise<ResolvedGameRef> {
+  const steamgriddbId = Number.parseInt(value, 10)
+  if (
+    String(steamgriddbId) === value &&
+    Number.isSafeInteger(steamgriddbId) &&
+    steamgriddbId > 0
+  ) {
+    return resolveSteamGridDBGameRef(c, steamgriddbId)
+  }
+
+  return resolveSteamGridDBGameRefBySlug(c, value)
+}
+
 async function proxyGameImageAsset(
   c: Context,
   row: GameRow,
@@ -181,7 +197,7 @@ export const gamesRoute = new Hono()
   })
   .get("/:slug", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
-    const resolved = await resolveSteamGridDBGameRefBySlug(c, slug)
+    const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
     if (resolved.response) return resolved.response
     const { steamgriddbId } = resolved.row
 
@@ -234,7 +250,7 @@ export const gamesRoute = new Hono()
   })
   .get("/:slug/hero", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
-    const resolved = await resolveSteamGridDBGameRefBySlug(c, slug)
+    const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
     if (resolved.response) return resolved.response
     return proxyGameImageAsset(c, resolved.row, {
       column: "heroUrl",
@@ -243,7 +259,7 @@ export const gamesRoute = new Hono()
   })
   .get("/:slug/grid", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
-    const resolved = await resolveSteamGridDBGameRefBySlug(c, slug)
+    const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
     if (resolved.response) return resolved.response
     return proxyGameImageAsset(c, resolved.row, {
       column: "gridUrl",
@@ -257,7 +273,7 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const resolved = await resolveSteamGridDBGameRefBySlug(c, slug)
+      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
       const { steamgriddbId } = resolved.row
 
@@ -276,7 +292,7 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const resolved = await resolveSteamGridDBGameRefBySlug(c, slug)
+      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
       const { steamgriddbId } = resolved.row
 
@@ -304,7 +320,7 @@ export const gamesRoute = new Hono()
         return invalidCursor(c)
       }
 
-      const resolved = await resolveSteamGridDBGameRefBySlug(c, slug)
+      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
       const { steamgriddbId } = resolved.row
 
@@ -336,7 +352,7 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const { window, limit } = c.req.valid("query")
-      const resolved = await resolveSteamGridDBGameRefBySlug(c, slug)
+      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
       const { steamgriddbId } = resolved.row
 
