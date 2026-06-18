@@ -36,28 +36,51 @@ export function HomePageInner() {
     [toolbarSearch],
   )
   const sort: ClipFeedSort = toolbarSearch.sort ?? DEFAULT_CLIP_SORT
+  const effectiveSort = filter.kind === "recommended" ? DEFAULT_CLIP_SORT : sort
 
   const viewerId = session?.user.id
   const toolbar = React.useMemo(() => {
+    const sortControl = (
+      <SortDropdown
+        value={sort}
+        options={CLIP_SORT_OPTIONS}
+        contentClassName="w-40"
+        renderOptionLink={(opt, active) => (
+          <Link
+            to="/"
+            search={{
+              ...toolbarSearch,
+              // The default sort stays out of the URL.
+              sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
+            }}
+            data-active={active ? "true" : undefined}
+          />
+        )}
+      />
+    )
+    const mobileSortControl = (
+      <SortDropdown
+        value={sort}
+        triggerLabel={tx("Sort")}
+        triggerVariant="icon"
+        options={CLIP_SORT_OPTIONS}
+        contentClassName="w-40"
+        renderOptionLink={(opt, active) => (
+          <Link
+            to="/"
+            search={{
+              ...toolbarSearch,
+              sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
+            }}
+            data-active={active ? "true" : undefined}
+          />
+        )}
+      />
+    )
     const desktop = (
       <>
         <FeedFilterDropdown filter={filter} search={toolbarSearch} />
-        <SortDropdown
-          value={sort}
-          options={CLIP_SORT_OPTIONS}
-          contentClassName="w-40"
-          renderOptionLink={(opt, active) => (
-            <Link
-              to="/"
-              search={{
-                ...toolbarSearch,
-                // The default sort stays out of the URL.
-                sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
-              }}
-              data-active={active ? "true" : undefined}
-            />
-          )}
-        />
+        {filter.kind === "recommended" ? null : sortControl}
       </>
     )
     const mobile = (
@@ -67,23 +90,7 @@ export function HomePageInner() {
           search={toolbarSearch}
           triggerVariant="icon"
         />
-        <SortDropdown
-          value={sort}
-          triggerLabel={tx("Sort")}
-          triggerVariant="icon"
-          options={CLIP_SORT_OPTIONS}
-          contentClassName="w-40"
-          renderOptionLink={(opt, active) => (
-            <Link
-              to="/"
-              search={{
-                ...toolbarSearch,
-                sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
-              }}
-              data-active={active ? "true" : undefined}
-            />
-          )}
-        />
+        {filter.kind === "recommended" ? null : mobileSortControl}
       </>
     )
     return { desktop, mobile }
@@ -93,7 +100,7 @@ export function HomePageInner() {
   return (
     <AppMain>
       <section className="flex w-full flex-col gap-6">
-        <FeedSection filter={filter} sort={sort} viewerId={viewerId} />
+        <FeedSection filter={filter} sort={effectiveSort} viewerId={viewerId} />
       </section>
     </AppMain>
   )

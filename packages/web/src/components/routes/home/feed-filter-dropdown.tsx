@@ -32,7 +32,7 @@ function searchForKey(search: HomeSearch, key: string): HomeSearch {
     return { ...search, feed: "following", game: undefined }
   }
   if (key === SCOPE_RECOMMENDED) {
-    return { ...search, feed: "recommended", game: undefined }
+    return { ...search, feed: "recommended", game: undefined, sort: undefined }
   }
   if (key.startsWith("game:")) {
     return { ...search, feed: undefined, game: key.slice("game:".length) }

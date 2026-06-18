@@ -14,7 +14,10 @@ import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { publicClipPrivacyCondition } from "./clips-helpers"
+import {
+  publicClipListingConditions,
+  publicClipPrivacyCondition,
+} from "./clips-helpers"
 import { serialiseGameListRow } from "./games-helpers"
 import {
   serialiseUserListRow,
@@ -35,11 +38,7 @@ const SearchQuery = z.object({
 })
 
 function visibleGameClipConditions() {
-  return [
-    eq(clip.status, "ready"),
-    publicClipPrivacyCondition(),
-    isNull(user.disabledAt),
-  ]
+  return publicClipListingConditions()
 }
 
 async function countVisibleClipsBySteamGridDBId(
@@ -182,9 +181,7 @@ export const searchRoute = new Hono().get(
         .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
         .where(
           and(
-            eq(clip.status, "ready"),
-            publicClipPrivacyCondition(),
-            isNull(user.disabledAt),
+            ...publicClipListingConditions(),
             or(
               ilike(clip.title, pattern),
               ilike(clip.description, pattern),

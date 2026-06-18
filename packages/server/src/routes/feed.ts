@@ -1,19 +1,11 @@
 import { user } from "@alloy/db/auth-schema"
-import {
-  clip,
-  clipLike,
-  clipView,
-  follow,
-  game,
-  gameFollow,
-} from "@alloy/db/schema"
+import { clip, clipLike, clipView, follow, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
 import { clipSelectShape } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
-import { requiredSql } from "@alloy/server/db/sql"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
 import { badRequest, invalidCursor } from "@alloy/server/runtime/http-response"
-import { and, eq, exists, isNull, ne, type SQL, sql } from "drizzle-orm"
+import { and, eq, exists, ne, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -22,7 +14,12 @@ import {
   clipListOrderBy,
   clipListPage,
   parseClipListCursor,
+  publicClipListingConditions,
 } from "./clips-helpers"
+import {
+  listRecommendedClips,
+  parseRecommendedClipCursor,
+} from "./feed-recommendations"
 import { limitQueryParam, zValidator } from "./validation"
 
 const FilterEnum = z.enum(["all", "following", "recommended", "game"])
@@ -53,25 +50,24 @@ export const feedRoute = new Hono()
       limit,
       cursor: rawCursor,
     } = c.req.valid("query")
-    const cursor = parseClipListCursor(rawCursor, sort)
-    if (rawCursor && !cursor) return invalidCursor(c)
 
     const session = await getSession(c)
     const viewerId = session?.user.id ?? null
 
-    if ((filter === "following" || filter === "recommended") && !viewerId) {
-      // Nothing to personalise for anon — return an empty page rather
-      // than leaking the whole public corpus.
+    if (filter === "recommended") {
+      const cursor = parseRecommendedClipCursor(rawCursor)
+      if (rawCursor && !cursor) return invalidCursor(c)
+      return c.json(await listRecommendedClips({ cursor, limit, viewerId }))
+    }
+
+    const cursor = parseClipListCursor(rawCursor, sort)
+    if (rawCursor && !cursor) return invalidCursor(c)
+
+    if (filter === "following" && !viewerId) {
       return c.json(clipListPage([], limit, sort))
     }
 
-    const conditions: SQL[] = [
-      eq(clip.status, "ready"),
-      // Feed is strictly public. Unlisted clips are reachable by link
-      // but shouldn't surface via discovery.
-      eq(clip.privacy, "public"),
-      isNull(user.disabledAt),
-    ]
+    const conditions: SQL[] = publicClipListingConditions()
 
     if (filter === "game") {
       if (!steamgriddbId) return badRequest(c, "steamgriddbId is required")
@@ -96,29 +92,6 @@ export const feedRoute = new Hono()
                 eq(follow.followingId, clip.authorId),
               ),
             ),
-        ),
-      )
-    }
-
-    if (filter === "recommended") {
-      // Initial recommendation signal: games the viewer starred.
-      const recommendedViewerId = viewerId
-      if (!recommendedViewerId) return c.json(clipListPage([], limit, sort))
-      conditions.push(ne(clip.authorId, recommendedViewerId))
-      conditions.push(
-        requiredSql(
-          exists(
-            db
-              .select({ one: sql`1` })
-              .from(gameFollow)
-              .where(
-                and(
-                  eq(gameFollow.userId, recommendedViewerId),
-                  eq(gameFollow.steamgriddbId, clip.steamgriddbId),
-                ),
-              ),
-          ),
-          "recommended feed game filter",
         ),
       )
     }
@@ -153,11 +126,7 @@ export const feedRoute = new Hono()
     // Chips mirror the "All" feed, which includes the viewer's own clips, so
     // a game you've only posted in yourself still gets a chip. `clipLike`/
     // `clipView` are still joined per-viewer to weight by your interaction.
-    const conditions: SQL[] = [
-      eq(clip.status, "ready"),
-      eq(clip.privacy, "public"),
-      isNull(user.disabledAt),
-    ]
+    const conditions: SQL[] = publicClipListingConditions()
 
     const rows = await db
       .select({

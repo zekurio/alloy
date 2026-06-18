@@ -39,7 +39,7 @@ function emptyHint(filter: FeedFilter): string {
     case "following":
       return tx("Follow creators to populate this tab.")
     case "recommended":
-      return tx("Star games to surface clips from them here.")
+      return tx("Like clips, follow creators, or star games to tune this feed.")
     case "game":
       return tx("Be the first to post one.")
   }

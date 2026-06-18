@@ -6,11 +6,12 @@ import {
   CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
 } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
-import { and, desc, eq, lt, or, type SQL, sql } from "drizzle-orm"
+import { and, desc, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import {
@@ -78,6 +79,14 @@ type ClipListPageRow = ClipListCursorRow & {
 // "unlisted" is link-only: it must never satisfy a listing/discovery filter.
 export function publicClipPrivacyCondition(): SQL {
   return eq(clip.privacy, "public")
+}
+
+export function publicClipListingConditions(): SQL[] {
+  return [
+    eq(clip.status, "ready"),
+    publicClipPrivacyCondition(),
+    isNull(user.disabledAt),
+  ]
 }
 
 function parseLegacyClipListCursor(value: string): ParsedClipListCursor | null {

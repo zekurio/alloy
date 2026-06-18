@@ -5,7 +5,7 @@ import { clipSelectShape } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
 import { invalidCursor, notFound } from "@alloy/server/runtime/http-response"
-import { and, eq, isNull, type SQL, sql } from "drizzle-orm"
+import { and, eq, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -14,7 +14,7 @@ import {
   clipListOrderBy,
   clipListPage,
   parseClipListCursor,
-  publicClipPrivacyCondition,
+  publicClipListingConditions,
 } from "./clips-helpers"
 import { serialiseGameListRow } from "./games-helpers"
 import { clipTagFilter } from "./tag-filter"
@@ -35,12 +35,7 @@ const TagClipsQuery = z.object({
 })
 
 function publicTagClipConditions(tag: string): SQL[] {
-  return [
-    eq(clip.status, "ready"),
-    publicClipPrivacyCondition(),
-    isNull(user.disabledAt),
-    clipTagFilter(tag),
-  ]
+  return [...publicClipListingConditions(), clipTagFilter(tag)]
 }
 
 export const tagsRoute = new Hono()
@@ -60,9 +55,7 @@ export const tagsRoute = new Hono()
       .innerJoin(user, eq(clip.authorId, user.id))
       .where(
         and(
-          eq(clip.status, "ready"),
-          publicClipPrivacyCondition(),
-          isNull(user.disabledAt),
+          ...publicClipListingConditions(),
           sql`${clipTag.tag} like ${like} escape '\\'`,
         ),
       )
