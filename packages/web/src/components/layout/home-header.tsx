@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   AppHeader,
   AppHeaderActions,
@@ -44,8 +45,8 @@ export function HomeHeader() {
       <AppHeaderSearch
         ref={inputRef}
         value={query}
-        placeholder="Search..."
-        aria-label="Search"
+        placeholder={tx("Search...")}
+        aria-label={tx("Search")}
         autoComplete="off"
         spellCheck={false}
         onFocus={() => {
@@ -90,14 +91,14 @@ function HeaderNavigation() {
   return (
     <div className="hidden items-center gap-1 md:flex">
       <HeaderNavigationButton
-        label="Go back"
+        label={tx("Go back")}
         disabled={!history.canGoBack}
         onClick={history.goBack}
       >
         <ChevronLeftIcon />
       </HeaderNavigationButton>
       <HeaderNavigationButton
-        label="Go forward"
+        label={tx("Go forward")}
         disabled={!history.canGoForward}
         onClick={history.goForward}
       >

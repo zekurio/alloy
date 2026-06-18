@@ -1,4 +1,5 @@
 import { type ClipRow, clipThumbnailUrl, type GameListRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -121,7 +122,9 @@ export function ClipRowItem({
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
           <span>{label}</span>
           <span>@{row.authorUsername}</span>
-          <span>{formatCount(row.viewCount)} views</span>
+          <span>
+            {formatCount(row.viewCount)} {tx("views")}
+          </span>
         </div>
       </div>
     </RowButton>
@@ -167,7 +170,8 @@ export function GameRowItem({
           {row.name}
         </div>
         <div className="text-foreground-muted truncate text-xs font-semibold">
-          {formatCount(row.clipCount)} {row.clipCount === 1 ? "clip" : "clips"}
+          {formatCount(row.clipCount)}{" "}
+          {row.clipCount === 1 ? tx("clip") : tx("clips")}
         </div>
       </div>
     </RowButton>
@@ -215,7 +219,7 @@ export function UserRowItem({
           <span>@{handle}</span>
           <span>
             {formatCount(row.clipCount)}{" "}
-            {row.clipCount === 1 ? "clip" : "clips"}
+            {row.clipCount === 1 ? tx("clip") : tx("clips")}
           </span>
         </div>
       </div>

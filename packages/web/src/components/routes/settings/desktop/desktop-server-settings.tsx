@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
 import { Spinner } from "@alloy/ui/components/spinner"
@@ -40,7 +41,7 @@ export function DesktopServerSettings() {
         setCurrentServerUrl(currentServer)
       } catch (cause) {
         if (!cancelled) {
-          toast.error(errorText(cause, "Couldn't load servers."))
+          toast.error(errorText(cause, tx("Couldn't load servers.")))
         }
       } finally {
         if (!cancelled) setPhase("idle")
@@ -78,7 +79,7 @@ export function DesktopServerSettings() {
       setConnectingServerUrl(null)
       setPhase("idle")
     } catch (cause) {
-      toast.error(errorText(cause, "Couldn't connect to server."))
+      toast.error(errorText(cause, tx("Couldn't connect to server.")))
       setConnectingServerUrl(null)
       setPhase("idle")
     }
@@ -95,7 +96,7 @@ export function DesktopServerSettings() {
       const nextServers = await activeServerApi.forgetServer(serverUrl)
       setServers(nextServers)
     } catch (cause) {
-      toast.error(errorText(cause, "Couldn't forget server."))
+      toast.error(errorText(cause, tx("Couldn't forget server.")))
     }
   }
 
@@ -146,19 +147,19 @@ function ServerConnectForm({
         value={url}
         onChange={(event) => setUrl(event.target.value)}
         disabled={busy}
-        aria-label="Server URL"
+        aria-label={tx("Server URL")}
         className="sm:flex-1"
       />
       <Button type="submit" disabled={busy || !url.trim()}>
         {busy && sameServerTarget(connectingServerUrl, url) ? (
           <>
             <Spinner />
-            Connecting...
+            {tx("Connecting...")}
           </>
         ) : (
           <>
             <PlusIcon className="size-4" />
-            Add server
+            {tx("Add server")}
           </>
         )}
       </Button>
@@ -187,14 +188,16 @@ function SavedServerList({
     return (
       <div className="text-foreground-muted flex h-16 items-center justify-center gap-2 text-sm">
         <Spinner />
-        Loading servers
+        {tx("Loading servers")}
       </div>
     )
   }
 
   if (servers.length === 0) {
     return (
-      <p className="text-foreground-muted text-sm">No saved servers yet.</p>
+      <p className="text-foreground-muted text-sm">
+        {tx("No saved servers yet.")}
+      </p>
     )
   }
 
@@ -243,12 +246,13 @@ function SavedServerRow({
           {current ? (
             <span className="text-success inline-flex shrink-0 items-center gap-1 text-xs font-medium">
               <CheckCircle2Icon className="size-3.5" />
-              Current
+              {tx("Current")}
             </span>
           ) : null}
         </div>
         <div className="text-foreground-faint mt-0.5 text-xs">
-          Last used {formatLastConnected(server.lastConnectedAt)}
+          {tx("Last used")}
+          {formatLastConnected(server.lastConnectedAt)}
         </div>
       </div>
 
@@ -262,12 +266,12 @@ function SavedServerRow({
         {connecting ? (
           <>
             <Spinner />
-            Connecting...
+            {tx("Connecting...")}
           </>
         ) : (
           <>
             <LogInIcon className="size-3.5" />
-            Switch
+            {tx("Switch")}
           </>
         )}
       </Button>
@@ -275,8 +279,10 @@ function SavedServerRow({
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={`Forget ${server.serverUrl}`}
-        title="Forget server"
+        aria-label={tx("Forget {serverUrl}", {
+          serverUrl: server.serverUrl,
+        })}
+        title={tx("Forget server")}
         disabled={busy || current}
         onClick={() => void forgetServer(server.serverUrl)}
         className={cn(!current && "hover:text-danger")}
@@ -301,7 +307,7 @@ function sameServerTarget(left: string | null, right: string): boolean {
 
 function formatLastConnected(value: string): string {
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return "recently"
+  if (Number.isNaN(date.getTime())) return tx("recently")
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",

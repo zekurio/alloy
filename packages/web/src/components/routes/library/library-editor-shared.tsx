@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
@@ -17,7 +18,7 @@ export function BackToLibraryButton() {
   return (
     <Button variant="secondary" render={<Link to="/library" />}>
       <ArrowLeftIcon />
-      Back to library
+      {tx("Back to library")}
     </Button>
   )
 }
@@ -36,8 +37,8 @@ export function TrimTransportControls({
           type="button"
           variant="secondary"
           size="icon-sm"
-          aria-label={playing ? "Pause (Space)" : "Play (Space)"}
-          title={playing ? "Pause (Space)" : "Play (Space)"}
+          aria-label={playing ? tx("Pause (Space)") : tx("Play (Space)")}
+          title={playing ? tx("Pause (Space)") : tx("Play (Space)")}
           onClick={playback.togglePlayback}
         >
           {playing ? <PauseIcon /> : <PlayIcon />}
@@ -46,8 +47,8 @@ export function TrimTransportControls({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Stop"
-          title="Stop"
+          aria-label={tx("Stop")}
+          title={tx("Stop")}
           onClick={playback.stopPlayback}
         >
           <SquareIcon />
@@ -56,8 +57,8 @@ export function TrimTransportControls({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label="Reset trim"
-          title="Reset trim"
+          aria-label={tx("Reset trim")}
+          title={tx("Reset trim")}
           onClick={playback.resetTrim}
           disabled={!trimmed}
           className={cn(
@@ -73,7 +74,9 @@ export function TrimTransportControls({
       </span>
       {trimmed ? (
         <span className="text-foreground-faint text-sm tabular-nums">
-          Trimmed to {formatTrimMs(trim.startMs)} – {formatTrimMs(trim.endMs)}
+          {tx("Trimmed to")}
+          {formatTrimMs(trim.startMs)} {"–"}
+          {formatTrimMs(trim.endMs)}
         </span>
       ) : null}
     </div>

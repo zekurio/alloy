@@ -1,4 +1,5 @@
 import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -250,7 +251,7 @@ function ClipViewerDialogBody({
             className="absolute top-3 right-3 z-30 hidden rounded-full border-transparent bg-transparent text-white/80 shadow-none hover:border-transparent hover:bg-transparent hover:text-white lg:inline-flex [&_svg]:!size-5"
           />
         }
-        aria-label="Close"
+        aria-label={tx("Close")}
       >
         <XIcon />
       </DialogClose>
@@ -260,7 +261,7 @@ function ClipViewerDialogBody({
           variant="ghost"
           size="icon"
           onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
-          aria-label="Previous clip"
+          aria-label={tx("Previous clip")}
           disabled={prevDisabled}
           className={cn(
             "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
@@ -277,7 +278,7 @@ function ClipViewerDialogBody({
           variant="ghost"
           size="icon"
           onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
-          aria-label="Next clip"
+          aria-label={tx("Next clip")}
           disabled={nextDisabled}
           className={cn(
             "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",

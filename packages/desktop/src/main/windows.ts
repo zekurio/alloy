@@ -1,5 +1,6 @@
 import { join } from "node:path"
 
+import { t as tx } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import {
   app,
@@ -57,7 +58,7 @@ export class Windows {
       icon: WINDOW_ICON,
       resizable: false,
       show: false,
-      title: "Alloy",
+      title: tx("Alloy"),
       backgroundColor: WINDOW_BACKGROUND_COLOR,
       webPreferences: {
         preload: OVERLAY_PRELOAD,
@@ -204,7 +205,7 @@ export class Windows {
       frame: false,
       icon: WINDOW_ICON,
       show: false,
-      title: "Alloy",
+      title: tx("Alloy"),
       backgroundColor: WINDOW_BACKGROUND_COLOR,
       webPreferences: {
         partition: MAIN_PARTITION,

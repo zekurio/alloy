@@ -1,4 +1,5 @@
 import type { ClipFeedWindow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 
 import { searchEnum } from "./route-search"
 
@@ -11,11 +12,11 @@ export const CLIP_FEED_WINDOW_KEYS = [
 ] as const satisfies readonly ClipFeedWindow[]
 
 export const TOP_CLIPS_WINDOW_OPTIONS = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "Week" },
-  { key: "month", label: "Month" },
-  { key: "year", label: "Year" },
-  { key: "all", label: "All time" },
+  { key: "today", label: tx("Today") },
+  { key: "week", label: tx("Week") },
+  { key: "month", label: tx("Month") },
+  { key: "year", label: tx("Year") },
+  { key: "all", label: tx("All time") },
 ] as const satisfies ReadonlyArray<{ key: ClipFeedWindow; label: string }>
 
 export const DEFAULT_TOP_CLIPS_WINDOW: ClipFeedWindow = "today"
@@ -30,17 +31,26 @@ export function topClipsEmptyTitle(
   window: ClipFeedWindow,
   subject = "",
 ): string {
-  const suffix = subject ? ` ${subject}` : ""
   switch (window) {
     case "today":
-      return `No top clips${suffix} today yet`
+      return subject
+        ? tx("No top clips {subject} today yet", { subject })
+        : tx("No top clips today yet")
     case "week":
-      return `No top clips${suffix} this week yet`
+      return subject
+        ? tx("No top clips {subject} this week yet", { subject })
+        : tx("No top clips this week yet")
     case "month":
-      return `No top clips${suffix} this month yet`
+      return subject
+        ? tx("No top clips {subject} this month yet", { subject })
+        : tx("No top clips this month yet")
     case "year":
-      return `No top clips${suffix} this year yet`
+      return subject
+        ? tx("No top clips {subject} this year yet", { subject })
+        : tx("No top clips this year yet")
     case "all":
-      return `No top clips${suffix} yet`
+      return subject
+        ? tx("No top clips {subject} yet", { subject })
+        : tx("No top clips yet")
   }
 }

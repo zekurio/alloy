@@ -1,5 +1,6 @@
 "use client"
 
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   type CarouselApi,
@@ -213,7 +214,7 @@ function CarouselPrevious({
       {...props}
     >
       <ChevronLeftIcon />
-      <span className="sr-only">Previous slide</span>
+      <span className="sr-only">{tx("Previous slide")}</span>
     </CarouselControl>
   )
 }
@@ -239,7 +240,7 @@ function CarouselNext({
       {...props}
     >
       <ChevronRightIcon />
-      <span className="sr-only">Next slide</span>
+      <span className="sr-only">{tx("Next slide")}</span>
     </CarouselControl>
   )
 }

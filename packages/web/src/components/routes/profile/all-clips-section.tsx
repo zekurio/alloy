@@ -1,4 +1,5 @@
 import type { UserClip } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   SectionActions,
   SectionHead,
@@ -34,7 +35,7 @@ export function AllClipsSection({
   gameSlug,
 }: AllClipsSectionProps) {
   useQueryErrorToast(error, {
-    title: "Couldn't load clips",
+    title: tx("Couldn't load clips"),
     toastId: "profile-all-clips-error",
   })
   const gameOptions = React.useMemo(() => {
@@ -87,7 +88,7 @@ export function AllClipsSection({
         <div>
           <SectionTitle>
             <FilmIcon className="text-accent" />
-            All clips
+            {tx("All clips")}
           </SectionTitle>
         </div>
         <SectionActions>
@@ -110,17 +111,19 @@ export function AllClipsSection({
         rows={visible}
         error={error}
         errorSeed="profile-all-error"
-        errorTitle="Couldn't load clips"
+        errorTitle={tx("Couldn't load clips")}
         emptySeed={`profile-all-empty-${gameSlug ?? "none"}`}
         emptyTitle={
           gameSlug
-            ? `No clips for ${selectedGameName ?? "this game"} yet`
-            : "No clips uploaded yet"
+            ? tx("No clips for {game} yet", {
+                game: selectedGameName ?? tx("this game"),
+              })
+            : tx("No clips uploaded yet")
         }
         emptyHint={
           gameSlug
-            ? "Try a different game or clear the filter."
-            : "Clips from this user will show up here once they upload."
+            ? tx("Try a different game or clear the filter.")
+            : tx("Clips from this user will show up here once they upload.")
         }
         listKey={`profile:${username}:all:${sort}:${gameSlug ?? ""}`}
         isOwnedByViewer={() => isSelf}

@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { ClapperboardIcon } from "lucide-react"
 import * as React from "react"
@@ -88,7 +89,7 @@ export function EditorPreview({
       {empty ? (
         <div className="text-foreground-faint pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm">
           <ClapperboardIcon className="size-8" />
-          Add clips from the library to start editing
+          {tx("Add clips from the library to start editing")}
         </div>
       ) : null}
       {engineError ? (

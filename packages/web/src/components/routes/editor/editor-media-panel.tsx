@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   InputGroup,
   InputGroupAddon,
@@ -116,13 +117,16 @@ function ElementsHome({
     <div className="flex min-h-0 flex-1 flex-col p-3">
       <div className="text-foreground flex items-center gap-2 text-sm font-semibold">
         <PlusIcon className="text-accent size-4" />
-        Add elements
+        {tx("Add elements")}
       </div>
       <div className="mt-3 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         <ElementPickerRow
           icon={<LibraryIcon />}
-          title="Media"
-          subtitle={`${itemCount} ${itemCount === 1 ? "clip" : "clips"}`}
+          title={tx("Media")}
+          subtitle={tx("{count} {label}", {
+            count: itemCount,
+            label: itemCount === 1 ? tx("clip") : tx("clips"),
+          })}
           onClick={() => onSelectView("media")}
         >
           <div className="bg-surface-raised border-border flex -space-x-1 rounded-md border px-1.5 py-1">
@@ -133,7 +137,7 @@ function ElementsHome({
         </ElementPickerRow>
         <ElementPickerRow
           icon={<PaletteIcon />}
-          title="Filters"
+          title={tx("Filters")}
           subtitle={filterTitle}
           onClick={() => onSelectView("filters")}
         >
@@ -210,7 +214,7 @@ function BackToElementsButton({ onBack }: { onBack: () => void }) {
       onClick={onBack}
     >
       <ArrowLeftIcon className="size-3.5" />
-      Back to elements
+      {tx("Back to elements")}
     </button>
   )
 }
@@ -232,15 +236,15 @@ function MediaLibraryView({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-      <PanelHeader icon={<LibraryIcon />} title="Media" />
+      <PanelHeader icon={<LibraryIcon />} title={tx("Media")} />
       <InputGroup className="h-8 sm:h-8">
         <InputGroupAddon align="inline-start">
           <SearchIcon />
         </InputGroupAddon>
         <InputGroupInput
           value={query}
-          placeholder="Search media..."
-          aria-label="Search media"
+          placeholder={tx("Search media...")}
+          aria-label={tx("Search media")}
           onChange={(event) => onQueryChange(event.target.value)}
           className="text-sm"
         />
@@ -250,8 +254,8 @@ function MediaLibraryView({
         {visible.length === 0 ? (
           <p className="text-foreground-faint px-1 py-4 text-center text-sm">
             {items.length === 0
-              ? "No clips on this device or in your uploads yet."
-              : "No clips match."}
+              ? tx("No clips on this device or in your uploads yet.")
+              : tx("No clips match.")}
           </p>
         ) : (
           visible.map((item) => (
@@ -275,7 +279,7 @@ function FiltersView({
 }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
-      <PanelHeader icon={<PaletteIcon />} title="Filters" />
+      <PanelHeader icon={<PaletteIcon />} title={tx("Filters")} />
       <div className="-mr-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
         {EDITOR_FILTER_PRESETS.map((preset) => (
           <FilterPresetRow
@@ -345,7 +349,7 @@ function MediaRow({
       <button
         type="button"
         className="hover:bg-surface-raised focus-visible:ring-ring flex w-full cursor-pointer items-center gap-2 rounded-md p-1.5 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none"
-        title={`Add ${item.title} to the timeline`}
+        title={tx("Add {title} to the timeline", { title: item.title })}
         onClick={onAdd}
       >
         <div className="bg-surface-raised relative aspect-video w-16 shrink-0 overflow-hidden rounded">
@@ -365,13 +369,13 @@ function MediaRow({
           <p className="text-foreground-faint flex items-center gap-1 truncate text-xs tabular-nums">
             {item.cloud ? (
               <CloudIcon
-                aria-label="Uploaded clip"
+                aria-label={tx("Uploaded clip")}
                 className="size-3 shrink-0"
               />
             ) : null}
             <span className="truncate">
-              {item.durationMs ? formatMediaDurationMs(item.durationMs) : "—"} ·{" "}
-              {item.subtitle}
+              {item.durationMs ? formatMediaDurationMs(item.durationMs) : "—"}{" "}
+              {"·"} {item.subtitle}
             </span>
           </p>
         </div>
@@ -379,7 +383,7 @@ function MediaRow({
         <span
           aria-hidden
           className={`bg-surface-raised text-foreground-muted inline-flex size-6 shrink-0 items-center justify-center rounded-md opacity-0 transition-opacity group-hover/media:opacity-100 ${
-            item.clipRow ? "mr-7" : ""
+            item.clipRow ? tx("mr-7") : ""
           }`}
         >
           <PlusIcon className="size-3.5" />

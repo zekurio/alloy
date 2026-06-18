@@ -1,4 +1,5 @@
 import type { ClipRow, FeedFilter } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
@@ -20,22 +21,22 @@ const FEED_PAGE_LIMIT = 20
 function emptyTitle(filter: FeedFilter): string {
   switch (filter.kind) {
     case "foryou":
-      return "Nothing to show yet"
+      return tx("Nothing to show yet")
     case "following":
-      return "Your following feed is empty"
+      return tx("Your following feed is empty")
     case "game":
-      return "No clips in this game yet"
+      return tx("No clips in this game yet")
   }
 }
 
 function emptyHint(filter: FeedFilter): string {
   switch (filter.kind) {
     case "foryou":
-      return "Come back when others have uploaded some clips."
+      return tx("Come back when others have uploaded some clips.")
     case "following":
-      return "Follow creators or favourite games to populate this tab."
+      return tx("Follow creators or favourite games to populate this tab.")
     case "game":
-      return "Be the first to post one."
+      return tx("Be the first to post one.")
   }
 }
 
@@ -80,7 +81,7 @@ function FeedSentinelStatus({
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         )}
       >
-        Retry
+        {tx("Retry")}
       </button>
     )
   }
@@ -115,7 +116,7 @@ function FeedSectionBody({
       <EmptyState
         seed={`feed-${feedId}-error`}
         size="lg"
-        title="Couldn't load feed"
+        title={tx("Couldn't load feed")}
       />
     )
   }
@@ -154,7 +155,7 @@ function useFeedSectionState(filter: FeedFilter) {
     refetch,
   } = useFeedInfiniteQuery(filter, { limit: FEED_PAGE_LIMIT })
   useQueryErrorToast(error, {
-    title: "Couldn't load feed",
+    title: tx("Couldn't load feed"),
     // Keying the toast on filter avoids stacked toasts when tabs switch.
     toastId: `feed-${feedId}-error`,
   })

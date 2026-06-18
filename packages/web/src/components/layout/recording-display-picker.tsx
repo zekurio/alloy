@@ -1,4 +1,5 @@
 import type { RecordingDisplay } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import {
   Dialog,
   DialogBody,
@@ -26,15 +27,15 @@ export function DisplayPickerDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent variant="secondary" className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Choose Display</DialogTitle>
+          <DialogTitle>{tx("Choose Display")}</DialogTitle>
           <DialogDescription>
-            Select the display Alloy should use for desktop capture.
+            {tx("Select the display Alloy should use for desktop capture.")}
           </DialogDescription>
         </DialogHeader>
         <DialogBody>
           {loading ? (
             <div className="text-foreground-muted flex h-40 items-center justify-center text-sm">
-              Loading displays
+              {tx("Loading displays")}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
@@ -83,12 +84,12 @@ function DisplayOption({
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold">{display.name}</div>
           <div className="text-foreground-dim text-xs">
-            {display.width} x {display.height}
+            {display.width} x{display.height}
           </div>
         </div>
         {display.primary ? (
           <span className="bg-accent/10 text-accent rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase">
-            Primary
+            {tx("Primary")}
           </span>
         ) : null}
       </div>

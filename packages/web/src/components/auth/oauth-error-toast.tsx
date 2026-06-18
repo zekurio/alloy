@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import { useLocation } from "@tanstack/react-router"
 import * as React from "react"
@@ -15,7 +16,7 @@ export function OAuthErrorToast() {
     if (!message) return
 
     if (isAuthAttemptCancellation(message)) {
-      toast.warning("Auth attempt cancelled.")
+      toast.warning(tx("Auth attempt cancelled."))
       return
     }
     toast.error(message)

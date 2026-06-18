@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   Dialog,
   DialogClose,
@@ -91,10 +92,10 @@ function SettingsDialogRoot({
           "max-sm:h-[78dvh] max-sm:max-h-[680px] max-sm:max-w-[430px]",
         )}
       >
-        <DialogTitle className="sr-only">Settings</DialogTitle>
+        <DialogTitle className="sr-only">{tx("Settings")}</DialogTitle>
         {body}
         <DialogClose
-          aria-label="Close settings"
+          aria-label={tx("Close settings")}
           className="text-foreground-dim hover:text-foreground focus-visible:ring-foreground/30 absolute top-3 right-3 z-10 inline-flex size-8 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
         >
           <XIcon className="size-4" />
@@ -155,7 +156,7 @@ function SettingsDialogContent({
     <>
       <nav className="border-border bg-background hidden w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r p-4 sm:flex">
         <div className="text-foreground px-2.5 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
-          Settings
+          {tx("Settings")}
         </div>
         <div className="relative mb-1">
           <SearchIcon className="text-foreground-faint pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
@@ -163,8 +164,8 @@ function SettingsDialogContent({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder="Search settings"
-            aria-label="Search settings"
+            placeholder={tx("Search settings")}
+            aria-label={tx("Search settings")}
             className="border-border bg-background placeholder:text-foreground-faint focus-visible:border-accent-border focus-visible:ring-accent-border/20 h-9 w-full rounded-lg border pr-2 pl-8 text-sm outline-none focus-visible:ring-2 sm:h-8 [&::-webkit-search-cancel-button]:appearance-none"
           />
         </div>
@@ -212,7 +213,7 @@ function SettingsDialogContent({
         })}
         {matches.length === 0 ? (
           <p className="text-foreground-faint px-2.5 pt-3 text-sm">
-            No settings found.
+            {tx("No settings found.")}
           </p>
         ) : null}
       </nav>
@@ -220,11 +221,11 @@ function SettingsDialogContent({
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="border-border bg-background border-b pt-3 pr-12 sm:hidden">
           <div className="text-foreground px-4 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
-            Settings
+            {tx("Settings")}
           </div>
           <div
             role="tablist"
-            aria-label="Settings sections"
+            aria-label={tx("Settings sections")}
             className="no-scrollbar flex gap-1 overflow-x-auto px-3 pb-2"
           >
             {categories.map((category) => {

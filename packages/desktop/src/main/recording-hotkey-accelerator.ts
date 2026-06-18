@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 export function electronAccelerator(value: string): string | null {
   const parts = hotkeyParts(value)
   if (parts.length === 0) return null
@@ -39,16 +40,16 @@ function normalizedModifier(value: string): string | null {
   switch (value.toLowerCase()) {
     case "ctrl":
     case "control":
-      return "CommandOrControl"
+      return tx("CommandOrControl")
     case "alt":
     case "option":
-      return "Alt"
+      return tx("Alt")
     case "shift":
-      return "Shift"
+      return tx("Shift")
     case "meta":
     case "cmd":
     case "command":
-      return "Meta"
+      return tx("Meta")
     default:
       return null
   }
@@ -58,7 +59,7 @@ function normalizedKey(value: string): string | null {
   const upper = value.toUpperCase()
   if (/^[A-Z0-9]$/.test(upper)) return upper
   if (/^F([1-9]|1[0-9]|2[0-4])$/.test(upper)) return upper
-  if (upper === "SPACE") return "Space"
+  if (upper === "SPACE") return tx("Space")
 
   return (
     {

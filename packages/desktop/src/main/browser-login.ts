@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto"
 import { createServer, type Server } from "node:http"
 import { type AddressInfo } from "node:net"
 
+import { t as tx } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { shell } from "electron"
 
@@ -76,7 +77,7 @@ export async function loginViaBrowser(serverUrl: string): Promise<LoginResult> {
     const timedOut = cause instanceof Error && cause.message === "timeout"
     return {
       ok: false,
-      error: timedOut ? "Sign-in timed out." : "Sign-in failed.",
+      error: timedOut ? tx("Sign-in timed out.") : tx("Sign-in failed."),
     }
   } finally {
     server.close()

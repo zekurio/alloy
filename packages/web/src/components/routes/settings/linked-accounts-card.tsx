@@ -1,5 +1,6 @@
 import type { PublicAuthConfig } from "@alloy/api"
 import type { LinkedAccount as ApiLinkedAccount } from "@alloy/api/auth"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { List, ListItem } from "@alloy/ui/components/list"
 import { Section, SectionContent } from "@alloy/ui/components/section"
@@ -50,9 +51,9 @@ export function LinkedAccountsCard({
     <Section>
       <SectionContent className="flex flex-col gap-3 py-4">
         <div>
-          <div className="text-sm font-medium">Linked accounts</div>
+          <div className="text-sm font-medium">{tx("Linked accounts")}</div>
           <p className="text-foreground-dim mt-0.5 text-xs">
-            Connect additional sign-in methods to your account.
+            {tx("Connect additional sign-in methods to your account.")}
           </p>
         </div>
         <AccountsList
@@ -100,7 +101,9 @@ function useLinkedAccountActions({
         await router.invalidate()
       } catch (cause) {
         if (active) {
-          toast.error(errorMessage(cause, "Couldn't refresh linked accounts"))
+          toast.error(
+            errorMessage(cause, tx("Couldn't refresh linked accounts")),
+          )
         }
       }
     })()
@@ -140,7 +143,9 @@ function useLinkedAccountActions({
       if (unlinkingId) return
       if (!canRemoveAccount(account, accounts, config, hasPasskeySignIn)) {
         toast.error(
-          "This is your last enabled sign-in method. Link another before removing it.",
+          tx(
+            "This is your last enabled sign-in method. Link another before removing it.",
+          ),
         )
         return
       }
@@ -151,14 +156,14 @@ function useLinkedAccountActions({
           accountId: account.accountId,
         })
         if (error) {
-          toast.error(errorMessage(error, "Couldn't unlink"))
+          toast.error(errorMessage(error, tx("Couldn't unlink")))
           return
         }
-        toast.success("Account unlinked")
+        toast.success(tx("Account unlinked"))
         await refresh()
         await router.invalidate()
       } catch (cause) {
-        toast.error(errorMessage(cause, "Couldn't unlink"))
+        toast.error(errorMessage(cause, tx("Couldn't unlink")))
       } finally {
         setUnlinkingId(null)
       }
@@ -238,7 +243,9 @@ function AccountsList({
         <AccountRow
           key={account.id}
           label={account.providerId}
-          sublabel={`${linkedAccountLabel(account)} · No longer configured`}
+          sublabel={tx("{label} · No longer configured", {
+            label: linkedAccountLabel(account),
+          })}
           busy={unlinkingId === account.id}
           canUnlink={canRemoveAccount(
             account,
@@ -254,7 +261,9 @@ function AccountsList({
 }
 
 function linkedAccountLabel(account: LinkedAccount): string {
-  return account.email ? `Connected as ${account.email}` : "Connected"
+  return account.email
+    ? tx("Connected as {email}", { email: account.email })
+    : tx("Connected")
 }
 
 function LinkRow(props: {
@@ -269,7 +278,7 @@ function LinkRow(props: {
         <ProviderIcon provider={props.provider} />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
-          <p className="text-foreground-dim text-xs">Not linked</p>
+          <p className="text-foreground-dim text-xs">{tx("Not linked")}</p>
         </div>
       </div>
       <Button
@@ -281,7 +290,7 @@ function LinkRow(props: {
         onClick={props.onLink}
       >
         <LinkIcon />
-        {props.busy ? "Redirecting…" : "Link"}
+        {props.busy ? tx("Redirecting…") : tx("Link")}
       </Button>
     </ListItem>
   )
@@ -316,11 +325,11 @@ function AccountRow(props: AccountRowProps) {
         title={
           props.canUnlink
             ? undefined
-            : "Link another enabled sign-in method before removing this one"
+            : tx("Link another enabled sign-in method before removing this one")
         }
       >
         <Link2OffIcon />
-        {props.busy ? "Removing…" : "Unlink"}
+        {props.busy ? tx("Removing…") : tx("Unlink")}
       </Button>
     </ListItem>
   )

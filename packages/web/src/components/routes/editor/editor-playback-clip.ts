@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import type { AudioBufferSink, CanvasSink, WrappedCanvas } from "mediabunny"
 
 import type { SourceReader } from "./editor-playback-source"
@@ -69,9 +70,10 @@ export class ClipPlayer {
       this.next = result.value
     } catch (cause) {
       this.reader.reportError(
-        `Video decode failed in "${this.clip.label}": ${
-          cause instanceof Error ? cause.message : "unknown error"
-        }`,
+        tx('Video decode failed in "{label}": {message}', {
+          label: this.clip.label,
+          message: cause instanceof Error ? cause.message : tx("unknown error"),
+        }),
       )
       this.videoDone = true
     } finally {

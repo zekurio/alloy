@@ -1,4 +1,5 @@
 import type { ClipFeedWindow, GameListRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
@@ -25,16 +26,16 @@ import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 const SORTS: ReadonlyArray<SortDropdownOption<"top" | "recent">> = [
-  { key: "top", label: "Top" },
-  { key: "recent", label: "Recent" },
+  { key: "top", label: tx("Top") },
+  { key: "recent", label: tx("Recent") },
 ]
 
 const WINDOWS: ReadonlyArray<SortDropdownOption<ClipFeedWindow>> = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "Week" },
-  { key: "month", label: "Month" },
-  { key: "year", label: "Year" },
-  { key: "all", label: "All time" },
+  { key: "today", label: tx("Today") },
+  { key: "week", label: tx("Week") },
+  { key: "month", label: tx("Month") },
+  { key: "year", label: tx("Year") },
+  { key: "all", label: tx("All time") },
 ]
 
 export function TagsPageInner({ tag: rawTag }: { tag: string }) {
@@ -59,7 +60,10 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
 }
 
 function clipCountLabel(count: number) {
-  return `${formatCount(count)} ${count === 1 ? "clip" : "clips"}`
+  return tx("{count} {label}", {
+    count: formatCount(count),
+    label: count === 1 ? tx("clip") : tx("clips"),
+  })
 }
 
 function TagHeader({
@@ -104,7 +108,7 @@ function TagFilterBar({
     <div className="border-border flex flex-col gap-3 border-y py-3 lg:flex-row lg:items-center lg:gap-4">
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <SortDropdown
-          label="Sort"
+          label={tx("Sort")}
           value={filters.sort}
           options={SORTS}
           contentClassName="w-40"
@@ -121,7 +125,7 @@ function TagFilterBar({
           )}
         />
         <SortDropdown
-          label="When"
+          label={tx("When")}
           value={filters.window}
           options={WINDOWS}
           contentClassName="w-40"
@@ -146,7 +150,7 @@ function TagFilterBar({
             className="bg-border hidden h-5 w-px shrink-0 lg:block"
           />
           <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <span className={filterLabelClass}>Game</span>
+            <span className={filterLabelClass}>{tx("Game")}</span>
             <FilterCarousel className="min-w-0 flex-1">
               <Chip
                 size="xl"
@@ -159,7 +163,7 @@ function TagFilterBar({
                   />
                 }
               >
-                All games
+                {tx("All games")}
               </Chip>
               {games.map((g) => (
                 <Chip
@@ -210,7 +214,7 @@ function TagClipsSection({
     isPending,
   } = useTagClipsInfiniteQuery(tag, filters)
   useQueryErrorToast(error, {
-    title: "Couldn't load clips",
+    title: tx("Couldn't load clips"),
     toastId: `tag-${tag}-error`,
   })
 
@@ -234,8 +238,8 @@ function TagClipsSection({
       <EmptyState
         seed={`tag-${tag}-empty`}
         size="lg"
-        title={`No clips tagged #${tag}`}
-        hint="Try a different game or time window."
+        title={tx("No clips tagged #{tag}", { tag })}
+        hint={tx("Try a different game or time window.")}
       />
     )
   }

@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   SectionActions,
   SectionHead,
@@ -27,7 +28,7 @@ export function RecentClipsSection({
     limit: RECENT_LIMIT,
   })
   useQueryErrorToast(error, {
-    title: "Couldn't load clips",
+    title: tx("Couldn't load clips"),
     toastId: `game-${gameId}-recent-clips-error`,
   })
   const visibleRows = rows ?? null
@@ -38,7 +39,7 @@ export function RecentClipsSection({
         <div>
           <SectionTitle>
             <FilmIcon className="text-accent" />
-            Recent clips
+            {tx("Recent clips")}
           </SectionTitle>
         </div>
         <SectionActions>
@@ -54,10 +55,10 @@ export function RecentClipsSection({
         rows={visibleRows}
         error={error}
         errorSeed={`game-${gameId}-recent-error`}
-        errorTitle="Couldn't load clips"
+        errorTitle={tx("Couldn't load clips")}
         errorSize="lg"
         emptySeed={`game-${gameId}-recent-empty`}
-        emptyTitle="No clips for this game yet"
+        emptyTitle={tx("No clips for this game yet")}
         emptyHint="Upload one to get the grid started."
         listKey={`game:${gameId}:recent`}
         isOwnedByViewer={(row) => row.authorId === viewerId}

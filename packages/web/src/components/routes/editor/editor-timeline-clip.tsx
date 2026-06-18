@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { CloudIcon } from "lucide-react"
 import * as React from "react"
@@ -64,7 +65,7 @@ export function ClipBlock({
         >
           {source?.cloud ? (
             <CloudIcon
-              aria-label="Uploaded clip"
+              aria-label={tx("Uploaded clip")}
               className="size-2.5 shrink-0"
             />
           ) : null}
@@ -82,7 +83,7 @@ export function ClipBlock({
       <div
         data-clip-handle="start"
         role="slider"
-        aria-label={`${clip.label} start`}
+        aria-label={tx("{label} start", { label: clip.label })}
         aria-valuemin={0}
         aria-valuemax={Math.round(spanMs / 1000)}
         aria-valuenow={Math.round(clip.startMs / 1000)}
@@ -96,7 +97,7 @@ export function ClipBlock({
       <div
         data-clip-handle="end"
         role="slider"
-        aria-label={`${clip.label} end`}
+        aria-label={tx("{label} end", { label: clip.label })}
         aria-valuemin={0}
         aria-valuemax={Math.round(spanMs / 1000)}
         aria-valuenow={Math.round(clipEndMs(clip) / 1000)}

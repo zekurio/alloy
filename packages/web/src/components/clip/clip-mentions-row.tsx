@@ -1,4 +1,5 @@
 import type { ClipMentionRef } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -67,7 +68,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
             "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           )}
-          aria-label="View tagged users"
+          aria-label={tx("View tagged users")}
         >
           <AvatarGroup>
             {preview.map((u) => (
@@ -76,7 +77,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           </AvatarGroup>
         </button>
         <span className="text-foreground-muted text-xs">
-          with{" "}
+          {tx("with")}{" "}
           <Link
             to="/u/$username"
             params={{ username: first.username }}
@@ -88,7 +89,12 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           >
             @{firstHandle}
           </Link>
-          {others > 0 ? ` and ${others} other${others === 1 ? "" : "s"}` : null}
+          {others > 0
+            ? tx(" and {count} {label}", {
+                count: others,
+                label: others === 1 ? tx("other") : tx("others"),
+              })
+            : null}
         </span>
       </div>
 
@@ -114,7 +120,7 @@ function MentionsListDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Tagged in clip</DialogTitle>
+          <DialogTitle>{tx("Tagged in clip")}</DialogTitle>
         </DialogHeader>
         <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
           <ul className="flex flex-col">

@@ -1,6 +1,8 @@
+import { getRuntimeLocale, localeToLanguageTag, t as tx } from "@alloy/i18n"
 const BYTES_PER_GIB = 1024 * 1024 * 1024
-const QUOTA_GIB_ERROR =
-  "Quota must be blank or a positive GiB value within the safe integer range."
+const QUOTA_GIB_ERROR = tx(
+  "Quota must be blank or a positive GiB value within the safe integer range.",
+)
 
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
@@ -12,7 +14,14 @@ export function formatBytes(bytes: number): string {
     unit += 1
   }
   const digits = value >= 10 || unit === 0 ? 0 : 1
-  return `${value.toFixed(digits)} ${units[unit]}`
+  const formatted = value.toLocaleString(
+    localeToLanguageTag(getRuntimeLocale()),
+    {
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits,
+    },
+  )
+  return `${formatted} ${units[unit]}`
 }
 
 export function formatQuotaGiB(quotaBytes: number | null): string {

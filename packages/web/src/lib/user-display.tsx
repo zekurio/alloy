@@ -3,6 +3,7 @@ import {
   resolvePublicUrl,
   USER_ASSET_PATH_PREFIX,
 } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { pastelAvatarColors, pastelBannerGradient } from "@alloy/ui/lib/pastel"
 import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
@@ -85,7 +86,7 @@ function normalizeUserAssetPath(value: string, prefix: string): string {
  * Pulls a stable display label from the handle, then the email local part.
  */
 export function displayName(user: DisplayUser | null | undefined): string {
-  if (!user) return "user"
+  if (!user) return tx("user")
   if (user.displayUsername && user.displayUsername.trim()) {
     return displayUsername(user.displayUsername)
   }
@@ -93,7 +94,7 @@ export function displayName(user: DisplayUser | null | undefined): string {
     return displayUsername(user.username)
   }
   if (user.email) return user.email.split("@")[0] ?? "user"
-  return "user"
+  return tx("user")
 }
 
 /** Up to two uppercase letters from a stable user identity. */

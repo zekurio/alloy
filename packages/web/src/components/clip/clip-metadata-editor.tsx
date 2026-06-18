@@ -1,4 +1,5 @@
 import type { GameRow, UserSearchResult } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Textarea } from "@alloy/ui/components/textarea"
@@ -72,8 +73,8 @@ export function ClipMetadataEditor({
         onChange={(e) => onTitleChange(e.target.value)}
         maxLength={CLIP_TITLE_MAX}
         disabled={disabled}
-        placeholder="Untitled"
-        aria-label="Title"
+        placeholder={tx("Untitled")}
+        aria-label={tx("Title")}
         aria-invalid={titleInvalid || undefined}
         className={cn(
           "w-full border-b border-transparent bg-transparent pb-1.5 text-lg font-semibold text-foreground",
@@ -91,14 +92,14 @@ export function ClipMetadataEditor({
         maxLength={CLIP_DESCRIPTION_MAX}
         disabled={disabled}
         rows={2}
-        placeholder="Add a description…"
+        placeholder={tx("Add a description…")}
         className={cn(
           "min-h-0 resize-none rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-relaxed",
           "hover:border-0 hover:bg-transparent focus-visible:border-0 focus-visible:bg-transparent focus-visible:ring-0",
         )}
       />
 
-      <ClipMetadataSection label="Game">
+      <ClipMetadataSection label={tx("Game")}>
         <GamePickerChip
           value={game}
           onChange={onGameChange}
@@ -108,7 +109,7 @@ export function ClipMetadataEditor({
         />
       </ClipMetadataSection>
 
-      <ClipMetadataSection label="People">
+      <ClipMetadataSection label={tx("People")}>
         <PeoplePicker
           value={mentions}
           onChange={onMentionsChange}
@@ -117,7 +118,7 @@ export function ClipMetadataEditor({
       </ClipMetadataSection>
 
       {showTags ? (
-        <ClipMetadataSection label="Hashtags">
+        <ClipMetadataSection label={tx("Hashtags")}>
           <HashtagPicker
             value={tags}
             onChange={onTagsChange}
@@ -188,7 +189,7 @@ function GamePickerChip({
           }}
           disabled={disabled}
           invalid={invalid && !value}
-          placeholder="Search game..."
+          placeholder={tx("Search game...")}
           allowClear={false}
           focusOnMount
           className="w-full"
@@ -224,7 +225,9 @@ function GamePickerChip({
         ) : (
           <>
             <Gamepad2Icon />
-            <span className="min-w-0 flex-1 truncate text-left">Add game</span>
+            <span className="min-w-0 flex-1 truncate text-left">
+              {tx("Add game")}
+            </span>
           </>
         )}
         <ChevronRightIcon className="text-foreground-faint" />

@@ -24,13 +24,15 @@ export function renderHashtagTokens(
           params={{ tag: tag.toLowerCase() }}
           className="text-accent hover:underline"
         >
-          #{tag}
+          {"#"}
+          {tag}
         </Link>,
       )
     } else {
       nodes.push(
         <span key={`tag-${key++}`} className="text-accent">
-          #{tag}
+          {"#"}
+          {tag}
         </span>,
       )
     }

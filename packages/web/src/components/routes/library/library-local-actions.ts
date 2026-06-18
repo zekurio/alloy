@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 
 import { clientLogger } from "@/lib/client-log"
@@ -48,7 +49,7 @@ export async function finishLocalClipDelete({
     setDeletingLocal(true)
     try {
       await deleteLocalLibraryCopy(localItem)
-      toast.success("Clip deleted from server and this device")
+      toast.success(tx("Clip deleted from server and this device"))
     } catch (cause) {
       clientLogger.warn(
         "[library] Failed to delete local clip copy after server delete.",
@@ -58,7 +59,7 @@ export async function finishLocalClipDelete({
         () => undefined,
       )
       toast.error(
-        "Clip deleted from server, but the local copy couldn't be removed",
+        tx("Clip deleted from server, but the local copy couldn't be removed"),
       )
     } finally {
       setDeletingLocal(false)
@@ -68,14 +69,16 @@ export async function finishLocalClipDelete({
 
   try {
     await detachLocalServerLink({ item: localItem, serverId })
-    toast.success("Clip deleted from server")
+    toast.success(tx("Clip deleted from server"))
   } catch (cause) {
     clientLogger.warn(
       "[library] Failed to detach local clip link after server delete.",
       cause,
     )
     toast.error(
-      "Clip deleted from server, but the local sync link couldn't be cleared",
+      tx(
+        "Clip deleted from server, but the local sync link couldn't be cleared",
+      ),
     )
   }
 }

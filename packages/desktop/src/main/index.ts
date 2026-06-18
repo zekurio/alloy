@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs"
 import { join } from "node:path"
 
+import { detectLocale, setRuntimeLocale } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow, Menu, protocol } from "electron"
 
@@ -41,6 +42,7 @@ const BACKGROUND_STARTUP_DELAY_MS = 1000
 const logger = createLogger("main")
 
 app.setName("Alloy")
+setRuntimeLocale(detectLocale([app.getLocale()]))
 configureAppPaths()
 installFileLogSink()
 installCrashLogging()

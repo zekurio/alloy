@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,11 +41,11 @@ export function ReactivateAccountPrompt() {
     setPending(true)
     try {
       await api.users.reactivateAccount()
-      toast.success("Account reactivated")
+      toast.success(tx("Account reactivated"))
       setOpen(false)
       await router.invalidate()
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't reactivate account"))
+      toast.error(errorMessage(cause, tx("Couldn't reactivate account")))
     } finally {
       setPending(false)
     }
@@ -54,14 +55,16 @@ export function ReactivateAccountPrompt() {
     <AlertDialog open={open}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Reactivate your account?</AlertDialogTitle>
+          <AlertDialogTitle>{tx("Reactivate your account?")}</AlertDialogTitle>
           <AlertDialogDescription>
-            Your profile and clips are hidden while your account is disabled.
+            {tx(
+              "Your profile and clips are hidden while your account is disabled.",
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="grid-cols-1">
           <AlertDialogAction onClick={onReactivate} disabled={pending}>
-            {pending ? "Reactivating…" : "Reactivate account"}
+            {pending ? tx("Reactivating…") : tx("Reactivate account")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

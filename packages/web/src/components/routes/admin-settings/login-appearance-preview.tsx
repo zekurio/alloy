@@ -4,6 +4,7 @@ import type {
   PublicLoginSplashConfig,
 } from "@alloy/api"
 import { DESKTOP_AUTH_CAPABILITY_VERSION } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -148,7 +149,7 @@ function ModeToggle({
         onClick={() => onChange("login")}
         className={modeButtonClass(mode === "login")}
       >
-        Login
+        {tx("Login")}
       </button>
       {signUpDisabled ? (
         <Tooltip>
@@ -159,9 +160,11 @@ function ModeToggle({
             aria-pressed={mode === "sign-up"}
             className={modeButtonClass(mode === "sign-up", true)}
           >
-            Sign up
+            {tx("Sign up")}
           </TooltipTrigger>
-          <TooltipContent side="bottom">Sign-ups are disabled</TooltipContent>
+          <TooltipContent side="bottom">
+            {tx("Sign-ups are disabled")}
+          </TooltipContent>
         </Tooltip>
       ) : (
         <button
@@ -170,7 +173,7 @@ function ModeToggle({
           onClick={() => onChange("sign-up")}
           className={modeButtonClass(mode === "sign-up")}
         >
-          Sign up
+          {tx("Sign up")}
         </button>
       )}
     </div>
@@ -217,7 +220,7 @@ export function LoginAppearancePreview({
           onClick={() => setFullscreen(true)}
         >
           <MaximizeIcon />
-          Fullscreen
+          {tx("Fullscreen")}
         </Button>
       </div>
 
@@ -238,14 +241,16 @@ export function LoginAppearancePreview({
           className="inset-0 top-0 left-0 h-screen w-screen max-w-none translate-x-0 translate-y-0 rounded-none border-0 p-0"
         >
           <DialogTitle className="sr-only">
-            {mode === "login" ? "Login page preview" : "Sign-up page preview"}
+            {mode === "login"
+              ? tx("Login page preview")
+              : tx("Sign-up page preview")}
           </DialogTitle>
           <div className="pointer-events-none h-full w-full select-none">
             <AuthPreviewContent mode={mode} config={authConfig} fill />
           </div>
           <DialogClose
             className="bg-background/72 text-foreground hover:bg-surface-raised absolute top-4 right-4 z-10 inline-flex size-9 items-center justify-center rounded-md border border-white/10 shadow-sm backdrop-blur-sm transition-colors"
-            aria-label="Close preview"
+            aria-label={tx("Close preview")}
           >
             <XIcon className="size-4" />
           </DialogClose>

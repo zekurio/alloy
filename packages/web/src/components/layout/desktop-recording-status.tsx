@@ -3,6 +3,7 @@ import type {
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -101,8 +102,8 @@ function RecordingStatusPopover({
         render={
           <button
             type="button"
-            title="Capture status"
-            aria-label={`Capture status: ${label}`}
+            title={tx("Capture status")}
+            aria-label={tx("Capture status: {label}", { label })}
             className={cn(
               "hidden h-8 w-36 min-w-0 appearance-none items-center border-0 bg-transparent p-0 text-left outline-none md:inline-flex",
               "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -174,11 +175,11 @@ function RecordingStatusContent({
   return (
     <>
       <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
-        <div className="text-sm font-semibold">Capture with Alloy</div>
+        <div className="text-sm font-semibold">{tx("Capture with Alloy")}</div>
         {settings ? (
           <div className="flex items-center gap-2">
             <span className="text-foreground-dim text-[10px] font-semibold tracking-wide uppercase">
-              {settings.enabled ? "On" : "Off"}
+              {settings.enabled ? tx("On") : tx("Off")}
             </span>
             <Switch
               checked={settings.enabled}
@@ -214,7 +215,7 @@ function RecordingStatusContent({
           className="h-8 w-full justify-between px-2 text-sm font-medium"
           onClick={() => void desktop.openSettings()}
         >
-          <span>Capture settings</span>
+          <span>{tx("Capture settings")}</span>
           <ArrowRightIcon className="text-foreground-dim size-4" />
         </Button>
       </div>
@@ -246,7 +247,7 @@ function RecordingAudioSettings({
     <>
       <div className="flex items-center justify-between">
         <span className="text-foreground-dim text-xs font-semibold tracking-wide uppercase">
-          Audio settings
+          {tx("Audio settings")}
         </span>
         <Button
           type="button"
@@ -255,13 +256,13 @@ function RecordingAudioSettings({
           className="text-accent h-7 px-1.5"
           onClick={() => void desktop.openSettings()}
         >
-          Manage Audio
+          {tx("Manage Audio")}
           <ArrowRightIcon className="size-3.5" />
         </Button>
       </div>
       <AudioRow
         icon={<Volume2Icon className="size-4" />}
-        label="Audio source"
+        label={tx("Audio source")}
         kind="output"
         devices={audioDevices}
         settings={settings}
@@ -269,7 +270,7 @@ function RecordingAudioSettings({
       />
       <AudioRow
         icon={<MicIcon className="size-4" />}
-        label="Microphone source"
+        label={tx("Microphone source")}
         kind="input"
         devices={audioDevices}
         settings={settings}
@@ -349,7 +350,7 @@ function RecordingCaptureTarget({
           }
         >
           <Gamepad2Icon className="size-4" />
-          Use Game Capture
+          {tx("Use Game Capture")}
         </Button>
       ) : (
         <Button
@@ -359,7 +360,7 @@ function RecordingCaptureTarget({
           onClick={onOpenDisplayPicker}
         >
           <MonitorIcon className="size-4" />
-          Use Display Capture
+          {tx("Use Display Capture")}
         </Button>
       )}
     </>

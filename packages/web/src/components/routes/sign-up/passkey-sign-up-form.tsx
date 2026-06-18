@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { ArrowRightIcon, KeyRoundIcon, MailIcon, UserIcon } from "lucide-react"
@@ -153,13 +154,13 @@ function UsernameField(props: {
 
   return (
     <PasskeyAccountField
-      label="Username"
+      label={tx("Username")}
       icon={<UserIcon />}
       autoCapitalize="none"
       autoComplete="username"
       autoCorrect="off"
       spellCheck={false}
-      placeholder="alloy"
+      placeholder={"alloy"}
       field={props.field}
       invalid={invalid}
       errors={errors}
@@ -180,7 +181,7 @@ function EmailField(props: {
 
   return (
     <PasskeyAccountField
-      label="Email"
+      label={tx("Email")}
       icon={<MailIcon />}
       type="email"
       autoComplete="email"
@@ -197,7 +198,7 @@ function SubmitButton() {
   return (
     <>
       <KeyRoundIcon className="size-4" />
-      Create account with passkey
+      {tx("Create account with passkey")}
       <ArrowRightIcon />
     </>
   )
@@ -265,7 +266,7 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
             isSubmitting={isSubmitting}
             onFocus={authClient.passkey.preload}
             onPointerEnter={authClient.passkey.preload}
-            pendingLabel="Waiting for authenticator…"
+            pendingLabel={tx("Waiting for authenticator…")}
           >
             <SubmitButton />
           </AuthSubmitButton>

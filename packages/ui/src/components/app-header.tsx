@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import { Kbd } from "@alloy/ui/components/kbd"
 import { cn } from "@alloy/ui/lib/utils"
@@ -71,9 +72,9 @@ const AppHeaderSearch = React.forwardRef<
     containerClassName,
     hint,
     icon,
-    placeholder = "Search clips and games...",
+    placeholder = tx("Search clips and games..."),
     onClear,
-    clearAriaLabel = "Clear search",
+    clearAriaLabel = tx("Clear search"),
     value,
     children,
     ...props
@@ -217,16 +218,16 @@ function AppHeaderWindowControls({
       className={cn("flex h-full items-stretch justify-self-end", className)}
       {...props}
     >
-      <WindowControlButton aria-label="Minimize" onClick={onMinimize}>
+      <WindowControlButton aria-label={tx("Minimize")} onClick={onMinimize}>
         <MinusIcon />
       </WindowControlButton>
       <WindowControlButton
-        aria-label="Maximize or restore"
+        aria-label={tx("Maximize or restore")}
         onClick={onToggleMaximize}
       >
         <Maximize2Icon />
       </WindowControlButton>
-      <WindowControlButton aria-label="Close" danger onClick={onClose}>
+      <WindowControlButton aria-label={tx("Close")} danger onClick={onClose}>
         <XIcon />
       </WindowControlButton>
     </div>

@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { XIcon } from "lucide-react"
 import * as React from "react"
@@ -71,13 +72,13 @@ export function HotkeyInput({
           showClear && "pr-7",
         )}
       >
-        {listening ? "Press keys…" : value || "Not set"}
+        {listening ? tx("Press keys…") : value || tx("Not set")}
       </button>
       {showClear ? (
         <button
           type="button"
-          aria-label={`Clear ${ariaLabel}`}
-          title="Clear shortcut"
+          aria-label={tx("Clear {label}", { label: ariaLabel })}
+          title={tx("Clear shortcut")}
           onClick={() => onChange("")}
           className="text-foreground-faint hover:text-danger absolute top-1/2 right-1.5 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded-sm outline-none"
         >

@@ -1,4 +1,5 @@
 import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import {
   type QueryClient,
@@ -51,7 +52,9 @@ export async function refreshLibrarySnapshotCache(
 
 function librarySnapshotErrorMessage(cause: unknown): string | null {
   if (!cause) return null
-  return cause instanceof Error ? cause.message : "Could not scan local clips."
+  return cause instanceof Error
+    ? cause.message
+    : tx("Could not scan local clips.")
 }
 
 /**
@@ -285,7 +288,7 @@ function addNoGameGroup(
 
   map.set(LIBRARY_NO_GAME_GROUP_KEY, {
     key: LIBRARY_NO_GAME_GROUP_KEY,
-    label: "No game",
+    label: tx("No game"),
     kind: "no-game",
     iconUrl: null,
     localKeys: localKey ? [localKey] : [],
@@ -328,9 +331,9 @@ export function gameNameKey(name: string): string {
 export function libraryKindLabel(kind: RecordingLibraryItem["kind"]): string {
   switch (kind) {
     case "replay":
-      return "Clip"
+      return tx("Clip")
     default:
-      return "Capture"
+      return tx("Capture")
   }
 }
 

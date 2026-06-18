@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   ALL_FORMATS,
   AudioBufferSink,
@@ -57,12 +58,20 @@ export class SourceReader {
         ])
         let video: InputVideoTrack | null = null
         if (!videoTrack) {
-          this.reportError(`"${this.label}" has no video track.`)
+          this.reportError(
+            tx('"{label}" has no video track.', { label: this.label }),
+          )
         } else if (await videoTrack.canDecode()) {
           video = videoTrack
         } else {
           this.reportError(
-            `"${this.label}": the ${videoTrack.codec ?? "unknown"} video codec can't be decoded for preview.`,
+            tx(
+              '"{label}": the {codec} video codec can\'t be decoded for preview.',
+              {
+                codec: videoTrack.codec ?? tx("unknown"),
+                label: this.label,
+              },
+            ),
           )
         }
         // A missing/undecodable audio track just plays silent.
@@ -71,9 +80,11 @@ export class SourceReader {
         return { video, audio }
       } catch (cause) {
         this.reportError(
-          `Couldn't open "${this.label}" for preview: ${
-            cause instanceof Error ? cause.message : "unknown error"
-          }`,
+          tx('Couldn\'t open "{label}" for preview: {message}', {
+            label: this.label,
+            message:
+              cause instanceof Error ? cause.message : tx("unknown error"),
+          }),
         )
         return { video: null, audio: null }
       }

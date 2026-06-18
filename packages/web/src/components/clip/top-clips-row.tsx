@@ -16,7 +16,7 @@ export type TopClipsRowItem = {
  * number visible flows naturally with the viewport (and the rest scrolls)
  * instead of snapping between the old 3-up and 5-up layouts. A full-width card
  * with a peek on mobile cues that the deck scrolls; from `sm` up each slide
- * holds 340px to match `ClipGrid`'s fixed column width, so a deck card and a
+ * holds 380px to match `ClipGrid`'s fixed column width, so a deck card and a
  * grid card on the same page are the same width — wide enough for the avatar +
  * title + meta rows to breathe without cropping the `author · game` line.
  */
@@ -26,7 +26,7 @@ export function TopClipsRow({ items }: { items: readonly TopClipsRowItem[] }) {
       {items.map(({ row }) => (
         <CarouselItem
           key={row.id}
-          className="basis-[88%] pl-0 sm:basis-[340px]"
+          className="basis-[88%] pl-0 sm:basis-[380px]"
         >
           <ClipCardTrigger row={row} />
         </CarouselItem>

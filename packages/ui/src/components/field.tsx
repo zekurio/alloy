@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Label } from "@alloy/ui/components/label"
 import { Separator } from "@alloy/ui/components/separator"
 import { messageFromUnknown } from "@alloy/ui/lib/error-message"
@@ -24,9 +25,9 @@ function FieldRequiredMarker() {
         data-slot="field-required-marker"
         className="text-foreground-muted group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive text-base leading-none font-semibold transition-colors"
       >
-        *
+        {"*"}
       </span>
-      <span className="sr-only">required</span>
+      <span className="sr-only">{tx("required")}</span>
     </>
   )
 }
@@ -46,7 +47,7 @@ function FieldHeaderContent({
         <span className="min-w-0">{children}</span>
         {required ? <FieldRequiredMarker /> : null}
       </span>
-      {optional ? <FieldStateMarker>Optional</FieldStateMarker> : null}
+      {optional ? <FieldStateMarker>{tx("Optional")}</FieldStateMarker> : null}
     </>
   )
 }

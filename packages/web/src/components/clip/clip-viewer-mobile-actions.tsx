@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -114,7 +115,7 @@ function ClipActionsMenu({
           <button
             type="button"
             className="flex flex-col items-center text-white/80"
-            aria-label="Clip actions"
+            aria-label={tx("Clip actions")}
           >
             <MoreHorizontalIcon className={iconClassName} />
           </button>
@@ -126,7 +127,7 @@ function ClipActionsMenu({
         {canManage ? (
           <>
             <DropdownMenuItem onClick={onEdit}>
-              <PencilIcon /> Edit
+              <PencilIcon /> {tx("Edit")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -134,7 +135,7 @@ function ClipActionsMenu({
               disabled={deleting}
               onClick={onDelete}
             >
-              <Trash2Icon /> Delete
+              <Trash2Icon /> {tx("Delete")}
             </DropdownMenuItem>
           </>
         ) : null}
@@ -182,7 +183,7 @@ export function MobileActionsRail({
         onClick={onLike}
         disabled={!canLike}
         className="flex flex-col items-center gap-0.5 disabled:opacity-50"
-        ariaLabel={liked ? "Unlike" : "Like"}
+        ariaLabel={liked ? tx("Unlike") : tx("Like")}
         count={likeCount}
         countClassName={countClassName}
         icon={
@@ -196,7 +197,7 @@ export function MobileActionsRail({
       />
       <MobileActionButton
         onClick={onComments}
-        ariaLabel="Comments"
+        ariaLabel={tx("Comments")}
         count={commentCount}
         countClassName={countClassName}
         icon={
@@ -206,7 +207,7 @@ export function MobileActionsRail({
       <MobileActionButton
         onClick={onShare}
         className="flex flex-col items-center"
-        ariaLabel="Share"
+        ariaLabel={tx("Share")}
         icon={<Share2Icon className={cn(iconSizeClassName, "text-white")} />}
       />
       {canManage || downloadAction ? (

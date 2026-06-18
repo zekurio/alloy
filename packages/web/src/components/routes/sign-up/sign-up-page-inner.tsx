@@ -1,4 +1,5 @@
 import type { PublicAuthConfig } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Separator } from "@alloy/ui/components/separator"
 import { Link } from "@tanstack/react-router"
 import * as React from "react"
@@ -39,7 +40,7 @@ export function SignUpForm({
     <>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
-          Create your account
+          {tx("Create your account")}
         </h2>
       </div>
 
@@ -52,8 +53,9 @@ export function SignUpForm({
 
         {passkeyReady && canPasskeySignUp && !passkeySupported ? (
           <p className="text-foreground-muted text-sm">
-            Passkey sign-up is enabled, but this browser does not support
-            passkeys.
+            {tx(
+              "Passkey sign-up is enabled, but this browser does not support passkeys.",
+            )}
           </p>
         ) : null}
 
@@ -61,7 +63,7 @@ export function SignUpForm({
           <div className="flex items-center gap-3">
             <Separator className="flex-1" />
             <span className="text-foreground-muted text-xs font-medium tracking-wider uppercase">
-              or
+              {tx("or")}
             </span>
             <Separator className="flex-1" />
           </div>
@@ -77,12 +79,12 @@ export function SignUpForm({
       </div>
 
       <p className="text-foreground-muted mt-6 text-sm">
-        Already have an account?{" "}
+        {tx("Already have an account?")}{" "}
         <Link
           to="/login"
           className="text-foreground hover:text-accent font-medium underline-offset-4 hover:underline"
         >
-          Sign in
+          {tx("Sign in")}
         </Link>
       </p>
     </>

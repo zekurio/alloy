@@ -26,7 +26,8 @@ export function ClipTagsRow({
             "text-foreground-muted transition-colors hover:border-border-strong hover:text-foreground",
           )}
         >
-          #{tag}
+          {"#"}
+          {tag}
         </Link>
       ))}
     </div>

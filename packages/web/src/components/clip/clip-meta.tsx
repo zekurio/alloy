@@ -1,4 +1,5 @@
 import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -159,7 +160,7 @@ function ClipMeta({
     likeMutation.mutate(
       { clipId, nextLiked: !liked },
       {
-        onError: () => toast.error("Couldn't update like"),
+        onError: () => toast.error(tx("Couldn't update like")),
       },
     )
   }, [canLike, clipId, liked, likeMutation])
@@ -169,23 +170,23 @@ function ClipMeta({
       { clipId },
       {
         onSuccess: () => {
-          toast.success("Clip deleted")
+          toast.success(tx("Clip deleted"))
           onDeleted?.()
         },
-        onError: () => toast.error("Couldn't delete clip"),
+        onError: () => toast.error(tx("Couldn't delete clip")),
       },
     )
   }, [clipId, deleteMutation, onDeleted])
 
   const handleShare = React.useCallback(async () => {
     if (privacy === "private") {
-      toast.error("Clip link is disabled")
+      toast.error(tx("Clip link is disabled"))
       return
     }
 
     const url = currentUrlWithoutSearchOrHash()
     if (url === null) {
-      toast.error("Couldn't share clip")
+      toast.error(tx("Couldn't share clip"))
       return
     }
 
@@ -194,9 +195,9 @@ function ClipMeta({
       action: "share clip link",
     })
     if (result === "copied") {
-      toast.success("Link copied")
+      toast.success(tx("Link copied"))
     } else if (result === "failed") {
-      toast.error("Couldn't share clip")
+      toast.error(tx("Couldn't share clip"))
     }
   }, [privacy, title])
 
@@ -206,7 +207,7 @@ function ClipMeta({
       { next: !isFollowing },
       {
         onError: (cause) => {
-          toast.error(errorMessage(cause, "Something went wrong"))
+          toast.error(errorMessage(cause, tx("Something went wrong")))
         },
       },
     )
@@ -235,8 +236,8 @@ function ClipMeta({
             onClick={handleLikeToggle}
             disabled={!canLike || likeMutation.isPending}
             aria-pressed={liked}
-            aria-label={canLike ? "Like clip" : "Sign in to like"}
-            title={canLike ? undefined : "Sign in to like"}
+            aria-label={canLike ? tx("Like clip") : tx("Sign in to like")}
+            title={canLike ? undefined : tx("Sign in to like")}
           >
             <HeartIcon className={cn(liked && "fill-current")} />
             <span className="tabular-nums">{formatCount(likes)}</span>
@@ -246,9 +247,13 @@ function ClipMeta({
             size="icon-sm"
             onClick={handleShare}
             aria-label={
-              privacy === "private" ? "Clip link is disabled" : "Share clip"
+              privacy === "private"
+                ? tx("Clip link is disabled")
+                : tx("Share clip")
             }
-            title={privacy === "private" ? "Clip link is disabled" : undefined}
+            title={
+              privacy === "private" ? tx("Clip link is disabled") : undefined
+            }
           >
             <Share2Icon />
           </Button>
@@ -259,7 +264,7 @@ function ClipMeta({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label="Clip actions"
+                    aria-label={tx("Clip actions")}
                   >
                     <MoreHorizontalIcon className="rotate-90" />
                   </Button>
@@ -271,7 +276,7 @@ function ClipMeta({
                 {canManage ? (
                   <>
                     <DropdownMenuItem onClick={onEdit}>
-                      <PencilIcon /> Edit
+                      <PencilIcon /> {tx("Edit")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -282,7 +287,7 @@ function ClipMeta({
                         else setDeleteDialogOpen(true)
                       }}
                     >
-                      <Trash2Icon /> Delete
+                      <Trash2Icon /> {tx("Delete")}
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -298,7 +303,9 @@ function ClipMeta({
           <Link
             to="/u/$username"
             params={{ username: uploader.handle }}
-            aria-label={`Open ${uploader.name}'s profile`}
+            aria-label={tx("Open {name}'s profile", {
+              name: uploader.name,
+            })}
             className={cn(
               "mt-0.5 shrink-0 rounded-md",
               "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
@@ -338,7 +345,11 @@ function ClipMeta({
                   disabled={followPending}
                 >
                   {isFollowing ? <UserMinusIcon /> : <UserPlusIcon />}
-                  {followPending ? "…" : isFollowing ? "Following" : "Follow"}
+                  {followPending
+                    ? tx("…")
+                    : isFollowing
+                      ? tx("Following")
+                      : tx("Follow")}
                 </Button>
               ) : null}
             </div>
@@ -347,7 +358,7 @@ function ClipMeta({
                 <span className="text-foreground-muted">
                   {formatCount(followerCount)}
                 </span>{" "}
-                followers
+                {tx("followers")}
               </div>
             ) : null}
           </div>
@@ -359,11 +370,13 @@ function ClipMeta({
             {privacy !== "public" ? (
               <>
                 <ClipPrivacyBadge privacy={privacy} />
-                <span>•</span>
+                <span>{"•"}</span>
               </>
             ) : null}
-            <span>{views} views</span>
-            <span>•</span>
+            <span>
+              {views} {tx("views")}
+            </span>
+            <span>{"•"}</span>
             <span>{postedAt}</span>
           </div>
         </div>
@@ -383,19 +396,21 @@ function ClipMeta({
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete this clip?</AlertDialogTitle>
+              <AlertDialogTitle>{tx("Delete this clip?")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This can't be undone.
+                {tx("This can't be undone.")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleting}>
+                {tx("Cancel")}
+              </AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
                 onClick={handleDelete}
                 disabled={deleting}
               >
-                {deleting ? "Deleting…" : "Delete clip"}
+                {deleting ? tx("Deleting…") : tx("Delete clip")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -431,7 +446,7 @@ function ClipGameBadge({
       { gameId, next: !isFavorite },
       {
         onError: (cause) => {
-          toast.error(errorMessage(cause, "Something went wrong"))
+          toast.error(errorMessage(cause, tx("Something went wrong")))
         },
       },
     )
@@ -454,15 +469,17 @@ function ClipGameBadge({
       disabled={!canToggle || favoriteMutation.isPending}
       title={
         !gameRef
-          ? "Game details unavailable"
+          ? tx("Game details unavailable")
           : viewer === null
-            ? "Sign in to favourite"
+            ? tx("Sign in to favourite")
             : isFavorite
-              ? "Remove from favourites"
-              : "Add to favourites"
+              ? tx("Remove from favourites")
+              : tx("Add to favourites")
       }
       aria-label={
-        isFavorite ? "Remove game from favourites" : "Add game to favourites"
+        isFavorite
+          ? tx("Remove game from favourites")
+          : tx("Add game to favourites")
       }
       onClick={toggleFavorite}
       className={cn(

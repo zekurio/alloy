@@ -1,4 +1,5 @@
 import type { ClipRow, GameListRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { cn } from "@alloy/ui/lib/utils"
@@ -262,7 +263,7 @@ export function SearchResultsPopover() {
           id={listboxId}
           ref={rootRef}
           role="listbox"
-          aria-label="Search results"
+          aria-label={tx("Search results")}
           className={cn(
             "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
             "alloy-blur overflow-hidden rounded-md border",
@@ -330,18 +331,19 @@ function SearchResultsBody({
       return (
         <EmptyBlock
           icon={<SearchIcon />}
-          title="Couldn't search"
-          hint={errorMessage(error, "Search failed")}
+          title={tx("Couldn't search")}
+          hint={errorMessage(error, tx("Search failed"))}
         />
       )
     }
     return (
       <EmptyBlock
         icon={<SearchIcon />}
-        title="No matches"
-        hint={`Nothing found for ${quote(
-          query,
-        )}. Try a different title, game, or creator.`}
+        title={tx("No matches")}
+        hint={tx(
+          "Nothing found for {query}. Try a different title, game, or creator.",
+          { query: quote(query) },
+        )}
       />
     )
   }
@@ -368,7 +370,7 @@ function SearchResultsBody({
     >
       {games.length > 0 ? (
         <section>
-          <GroupLabel icon={<GamepadIcon />}>Games</GroupLabel>
+          <GroupLabel icon={<GamepadIcon />}>{tx("Games")}</GroupLabel>
           <ul>
             {games.map((item, localIdx) => {
               const globalIdx = localIdx
@@ -389,7 +391,7 @@ function SearchResultsBody({
       ) : null}
       {users.length > 0 ? (
         <section>
-          <GroupLabel icon={<UserIcon />}>Users</GroupLabel>
+          <GroupLabel icon={<UserIcon />}>{tx("Users")}</GroupLabel>
           <ul>
             {users.map((item, localIdx) => {
               const globalIdx = firstUserIndex + localIdx
@@ -410,7 +412,7 @@ function SearchResultsBody({
       ) : null}
       {clips.length > 0 ? (
         <section>
-          <GroupLabel icon={<FilmIcon />}>Clips</GroupLabel>
+          <GroupLabel icon={<FilmIcon />}>{tx("Clips")}</GroupLabel>
           <ul>
             {clips.map((item, localIdx) => {
               const globalIdx = firstClipIndex + localIdx

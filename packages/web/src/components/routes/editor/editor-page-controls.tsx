@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { SectionTitle } from "@alloy/ui/components/section-head"
 import { ClapperboardIcon, PencilIcon } from "lucide-react"
@@ -60,14 +61,14 @@ export function EditableProjectName({
               setEditing(false)
             }
           }}
-          aria-label="Project name"
+          aria-label={tx("Project name")}
           className="field-sizing-content max-w-full min-w-[6ch] border-0 bg-transparent p-0 text-xl leading-7 font-semibold tracking-[-0.02em] text-inherit outline-none"
         />
       ) : (
         <button
           type="button"
           onClick={beginEdit}
-          title="Rename project"
+          title={tx("Rename project")}
           className="flex min-w-0 items-center gap-2"
         >
           <span className="truncate">{value}</span>

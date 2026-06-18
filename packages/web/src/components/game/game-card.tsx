@@ -1,4 +1,5 @@
 import { gameGridUrl } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
@@ -77,7 +78,7 @@ export function GameCard({ game, link, className }: GameCardProps) {
         to="/u/$username/all"
         params={{ username: link.username }}
         search={{ game: link.slug }}
-        aria-label={`Show clips for ${game.name}`}
+        aria-label={tx("Show clips for {game}", { game: game.name })}
         className={surface}
       >
         <GameCardBody game={game} />

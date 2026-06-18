@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
@@ -74,7 +75,7 @@ export function VideoScrubber({
     <div
       ref={railRef}
       role="slider"
-      aria-label="Seek"
+      aria-label={tx("Seek")}
       aria-valuemin={0}
       aria-valuemax={Math.max(0, Math.round(duration))}
       aria-valuenow={Math.round(currentTime)}

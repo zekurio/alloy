@@ -1,3 +1,4 @@
+import { t } from "@alloy/i18n"
 import { Menu, nativeImage, Tray } from "electron"
 
 import { WINDOW_ICON } from "./windows"
@@ -27,25 +28,25 @@ export function createAlloyTray(options: AlloyTrayOptions): Tray {
 function createTrayMenu(options: AlloyTrayOptions): Menu {
   return Menu.buildFromTemplate([
     {
-      label: "Show Alloy",
+      label: t("Show Alloy"),
       click: () => {
         void options.showAlloy()
       },
     },
     {
-      label: "Library",
+      label: t("Library"),
       click: () => {
         void options.openLibrary()
       },
     },
     {
-      label: "Settings",
+      label: t("Settings"),
       click: () => {
         options.openSettings()
       },
     },
     {
-      label: "Quit Alloy",
+      label: t("Quit Alloy"),
       click: () => {
         options.quit()
       },

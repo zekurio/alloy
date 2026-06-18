@@ -3,6 +3,7 @@ import type {
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import {
   Select,
@@ -47,7 +48,7 @@ export function EncodingSettingsGrid({
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       <Field>
         <FieldLabel htmlFor="desktop-recording-resolution" className="text-xs">
-          Resolution
+          {tx("Resolution")}
         </FieldLabel>
         <Select
           value={settings.resolution}
@@ -78,7 +79,7 @@ export function EncodingSettingsGrid({
 
       <Field>
         <FieldLabel htmlFor="desktop-recording-fps" className="text-xs">
-          Frame rate
+          {tx("Frame rate")}
         </FieldLabel>
         <Select
           value={String(settings.fps)}
@@ -93,12 +94,14 @@ export function EncodingSettingsGrid({
             size="sm"
             className="w-full"
           >
-            <SelectValue>{settings.fps} FPS</SelectValue>
+            <SelectValue>
+              {settings.fps} {tx("FPS")}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent align="start">
             {DESKTOP_RECORDING_FRAME_RATES.map((fps) => (
               <SelectItem key={fps} value={String(fps)}>
-                {fps} FPS
+                {fps} {tx("FPS")}
               </SelectItem>
             ))}
           </SelectContent>
@@ -107,7 +110,7 @@ export function EncodingSettingsGrid({
 
       <Field>
         <FieldLabel htmlFor="desktop-recording-bitrate" className="text-xs">
-          Bitrate
+          {tx("Bitrate")}
         </FieldLabel>
         <Select
           value={settings.bitrate}
@@ -136,7 +139,7 @@ export function EncodingSettingsGrid({
 
       <Field>
         <FieldLabel htmlFor="desktop-recording-encoder" className="text-xs">
-          Video encoder
+          {tx("Video encoder")}
         </FieldLabel>
         <Select
           value={settings.encoder}
@@ -171,7 +174,7 @@ export function EncodingSettingsGrid({
 
       <Field>
         <FieldLabel htmlFor="desktop-recording-codec" className="text-xs">
-          Codec
+          {tx("Codec")}
         </FieldLabel>
         <Select
           value={settings.codec}
@@ -188,7 +191,7 @@ export function EncodingSettingsGrid({
           >
             <SelectValue>
               {CODEC_LABELS[settings.codec]}
-              {selectedCodecSupported ? "" : " (unsupported)"}
+              {selectedCodecSupported ? "" : tx("(unsupported)")}
             </SelectValue>
           </SelectTrigger>
           <SelectContent align="start">
@@ -199,7 +202,7 @@ export function EncodingSettingsGrid({
             ))}
             {selectedCodecSupported ? null : (
               <SelectItem key={settings.codec} value={settings.codec} disabled>
-                {CODEC_LABELS[settings.codec]} (unsupported)
+                {CODEC_LABELS[settings.codec]} {tx("(unsupported)")}
               </SelectItem>
             )}
           </SelectContent>
@@ -208,7 +211,7 @@ export function EncodingSettingsGrid({
 
       <Field>
         <FieldLabel htmlFor="desktop-recording-gpu" className="text-xs">
-          GPU
+          {tx("GPU")}
         </FieldLabel>
         <Select
           value={settings.gpu}

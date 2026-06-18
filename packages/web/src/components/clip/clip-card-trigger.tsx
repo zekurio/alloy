@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -87,7 +88,7 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       onThumbnailClick={handleThumbnailClick}
       onThumbnailIntent={preloadClip}
       onPreviewError={handlePreviewError}
-      thumbnailLabel={`Play clip: ${card.title}`}
+      thumbnailLabel={tx("Play clip: {title}", { title: card.title })}
     />
   )
 })

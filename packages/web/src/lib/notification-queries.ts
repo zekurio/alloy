@@ -5,6 +5,7 @@ import {
   notificationStreamUrl,
   parseNotificationEventPayload,
 } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import {
   queryOptions,
@@ -291,50 +292,51 @@ export function notificationText(row: NotificationRow): {
   /** Optional secondary line, used for context (e.g. comment body excerpt). */
   body: string | null
 } {
-  const actor = row.actor?.displayUsername || row.actor?.username || "Someone"
-  const clipTitle = row.clip?.title ?? "your clip"
+  const actor =
+    row.actor?.displayUsername || row.actor?.username || tx("Someone")
+  const clipTitle = row.clip?.title ?? tx("your clip")
 
   switch (row.type) {
     case "clip_upload_failed":
       return {
-        kind: "Upload failed",
+        kind: tx("Upload failed"),
         title: clipTitle,
-        body: "Check uploads for details.",
+        body: tx("Check uploads for details."),
       }
     case "new_follower":
       return {
-        kind: "New follower",
-        title: `${actor} followed you`,
+        kind: tx("New follower"),
+        title: tx("{actor} followed you", { actor }),
         body: null,
       }
     case "new_video":
       return {
-        kind: "New video",
-        title: `${actor} uploaded a new video`,
+        kind: tx("New video"),
+        title: tx("{actor} uploaded a new video", { actor }),
         body: clipTitle,
       }
     case "clip_comment":
       return {
-        kind: "New comment",
-        title: `${actor} commented on ${clipTitle}`,
+        kind: tx("New comment"),
+        title: tx("{actor} commented on {clipTitle}", { actor, clipTitle }),
         body: row.comment?.body ?? null,
       }
     case "comment_reply":
       return {
-        kind: "New reply",
-        title: `${actor} replied to your comment`,
+        kind: tx("New reply"),
+        title: tx("{actor} replied to your comment", { actor }),
         body: row.comment?.body ?? clipTitle,
       }
     case "comment_pinned":
       return {
-        kind: "Comment pinned",
-        title: `${actor} pinned your comment`,
+        kind: tx("Comment pinned"),
+        title: tx("{actor} pinned your comment", { actor }),
         body: clipTitle,
       }
     case "comment_liked_by_author":
       return {
-        kind: "Comment liked",
-        title: `${actor} liked your comment`,
+        kind: tx("Comment liked"),
+        title: tx("{actor} liked your comment", { actor }),
         body: clipTitle,
       }
   }

@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Link } from "@tanstack/react-router"
@@ -29,10 +30,10 @@ type ClipsFilterBarProps = {
 }
 
 const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileAllSort>> = [
-  { key: "recent", label: "Newest" },
-  { key: "oldest", label: "Oldest" },
-  { key: "top", label: "Most liked" },
-  { key: "views", label: "Most viewed" },
+  { key: "recent", label: tx("Newest") },
+  { key: "oldest", label: tx("Oldest") },
+  { key: "top", label: tx("Most liked") },
+  { key: "views", label: tx("Most viewed") },
 ]
 
 export function ClipsFilterBar({
@@ -45,7 +46,7 @@ export function ClipsFilterBar({
     <div className="mb-6 flex items-center gap-3">
       {/* Sort group */}
       <SortDropdown
-        label="Sort"
+        label={tx("Sort")}
         value={sort}
         options={SORT_OPTIONS}
         renderOptionLink={(opt, active) => (
@@ -66,7 +67,7 @@ export function ClipsFilterBar({
       {/* Game filter rail */}
       {gameOptions.length > 0 ? (
         <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className={filterLabelClass}>Game</span>
+          <span className={filterLabelClass}>{tx("Game")}</span>
           <FilterCarousel className="min-w-0 flex-1">
             <Chip
               size="xl"
@@ -80,7 +81,7 @@ export function ClipsFilterBar({
                 />
               }
             >
-              All games
+              {tx("All games")}
             </Chip>
             {gameOptions.map((g) => (
               <Chip

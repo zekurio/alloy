@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,8 +41,10 @@ export function LibraryEditorPage({
       <AppMain>
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title="The library is only available in Alloy Desktop"
-          description="Open Alloy in the desktop app to edit captures stored on this device."
+          title={tx("The library is only available in Alloy Desktop")}
+          description={tx(
+            "Open Alloy in the desktop app to edit captures stored on this device.",
+          )}
         />
       </AppMain>
     )
@@ -90,7 +93,7 @@ function LibraryEditorContent({
     const fallback = nextEntry ?? prevEntry
     try {
       await desktop.recording.deleteLibraryCapture(item.id)
-      toast.success("Capture moved to the system trash")
+      toast.success(tx("Capture moved to the system trash"))
       void refresh()
       setDeleteDialogOpen(false)
       setDeleting(false)
@@ -100,7 +103,7 @@ function LibraryEditorContent({
         void navigate({ to: "/library", replace: true })
       }
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't delete capture"))
+      toast.error(errorMessage(cause, tx("Couldn't delete capture")))
       setDeleting(false)
     }
   }
@@ -110,7 +113,7 @@ function LibraryEditorContent({
       <AppMain>
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title="Couldn't scan the library"
+          title={tx("Couldn't scan the library")}
           description={error}
         >
           <BackToLibraryButton />
@@ -148,8 +151,10 @@ function LibraryEditorContent({
       <AppMain>
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title="Capture not found"
-          description="It may have been moved or deleted from the capture folder."
+          title={tx("Capture not found")}
+          description={tx(
+            "It may have been moved or deleted from the capture folder.",
+          )}
         >
           <BackToLibraryButton />
         </LibraryEmpty>
@@ -196,19 +201,21 @@ function DeleteLocalCaptureDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this capture?</AlertDialogTitle>
+          <AlertDialogTitle>{tx("Delete this capture?")}</AlertDialogTitle>
           <AlertDialogDescription>
-            The file will be moved to your system trash.
+            {tx("The file will be moved to your system trash.")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>
+            {tx("Cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             onClick={onConfirm}
             disabled={pending}
           >
-            {pending ? "Deleting..." : "Delete capture"}
+            {pending ? tx("Deleting...") : tx("Delete capture")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -4,6 +4,7 @@ import {
   type ClipPrivacy,
 } from "@alloy/api"
 import { normalizeTags, sanitizeTag } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { GlobeIcon, Link2Icon, LockIcon } from "lucide-react"
 
 // Re-exported so callers keep a single import surface for clip field helpers;
@@ -47,9 +48,9 @@ interface PrivacyOption {
 }
 
 export const PRIVACY_OPTIONS: readonly PrivacyOption[] = [
-  { value: "public", label: "Public", icon: GlobeIcon },
-  { value: "unlisted", label: "Unlisted", icon: Link2Icon },
-  { value: "private", label: "Private", icon: LockIcon },
+  { value: "public", label: tx("Public"), icon: GlobeIcon },
+  { value: "unlisted", label: tx("Unlisted"), icon: Link2Icon },
+  { value: "private", label: tx("Private"), icon: LockIcon },
 ] as const
 
 export const PRIVACY_BY_VALUE: Record<ClipPrivacy, PrivacyOption> =

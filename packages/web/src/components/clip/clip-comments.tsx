@@ -1,4 +1,5 @@
 import { COMMENT_BODY_MAX_LENGTH, type CommentRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -168,9 +169,9 @@ function ClipComments({
         action: "copy comment link",
       }))
     if (copied) {
-      toast.success("Comment link copied")
+      toast.success(tx("Comment link copied"))
     } else {
-      toast.error("Couldn't copy comment link")
+      toast.error(tx("Couldn't copy comment link"))
     }
   }
 
@@ -192,7 +193,7 @@ function ClipComments({
       toast.error(
         errorMessage(
           err,
-          replyTarget ? "Couldn't post reply" : "Couldn't post comment",
+          replyTarget ? tx("Couldn't post reply") : tx("Couldn't post comment"),
         ),
       )
     }
@@ -277,8 +278,8 @@ function ClipComments({
             <EmptyState
               seed={`comments-${clipId}-error`}
               size="lg"
-              title="Couldn't load comments"
-              hint="Try again in a moment."
+              title={tx("Couldn't load comments")}
+              hint={tx("Try again in a moment.")}
               action={
                 <Button
                   type="button"
@@ -290,7 +291,7 @@ function ClipComments({
                   {commentsQuery.isFetching ? (
                     <Spinner className="size-4" />
                   ) : null}
-                  Retry
+                  {tx("Retry")}
                 </Button>
               }
             />
@@ -300,8 +301,8 @@ function ClipComments({
             <EmptyState
               seed={`comments-${clipId}`}
               size="lg"
-              title="No comments yet"
-              hint="Be the first to leave your thoughts!"
+              title={tx("No comments yet")}
+              hint={tx("Be the first to leave your thoughts!")}
             />
           </div>
         ) : (
@@ -337,7 +338,7 @@ function ClipComments({
                   {commentsQuery.isFetchingNextPage ? (
                     <Spinner className="size-4" />
                   ) : null}
-                  Load more
+                  {tx("Load more")}
                 </Button>
               </div>
             ) : null}
@@ -358,8 +359,10 @@ function ClipComments({
             replyingToName={replyTarget?.authorName}
             placeholder={
               replyTarget
-                ? `Reply to ${replyTarget.authorName}…`
-                : "Add a comment…"
+                ? tx("Reply to {authorName}…", {
+                    authorName: replyTarget.authorName,
+                  })
+                : tx("Add a comment…")
             }
             submitting={create.isPending}
             canSubmit={canSubmit}
@@ -420,7 +423,7 @@ function CommentRowView({
 
   function onToggleLike() {
     if (!viewerId) {
-      toast.error("Sign in to like comments")
+      toast.error(tx("Sign in to like comments"))
       return
     }
     toggleLike.mutate({
@@ -434,7 +437,7 @@ function CommentRowView({
       { commentId: comment.id, nextPinned: !comment.pinned },
       {
         onError: (err) => {
-          toast.error(errorMessage(err, "Couldn't pin"))
+          toast.error(errorMessage(err, tx("Couldn't pin")))
         },
       },
     )
@@ -445,7 +448,7 @@ function CommentRowView({
       { commentId: comment.id },
       {
         onError: (err) => {
-          toast.error(errorMessage(err, "Couldn't delete"))
+          toast.error(errorMessage(err, tx("Couldn't delete")))
         },
       },
     )
@@ -485,7 +488,7 @@ function CommentRowView({
           </span>
           {comment.author.id === clipAuthorId ? (
             <span className="bg-accent-soft text-accent inline-flex items-center rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-3 font-semibold tracking-wide uppercase">
-              Author
+              {tx("Author")}
             </span>
           ) : null}
           <span className="text-foreground-faint text-xs">
@@ -495,17 +498,21 @@ function CommentRowView({
             canDelete={canDelete}
             deletePending={del.isPending}
             deleteTitle={
-              isTopLevel ? "Delete this comment?" : "Delete this reply?"
+              isTopLevel ? tx("Delete this comment?") : tx("Delete this reply?")
             }
-            deleteDescription="This will remove the comment text. Replies will stay visible."
-            deleteActionLabel={isTopLevel ? "Delete comment" : "Delete reply"}
+            deleteDescription={tx(
+              "This will remove the comment text. Replies will stay visible.",
+            )}
+            deleteActionLabel={
+              isTopLevel ? tx("Delete comment") : tx("Delete reply")
+            }
             onCopyLink={() => onCopyLink(comment.id)}
             onDelete={onDelete}
           />
         </div>
 
         <CommentBody
-          body={isDeleted ? "Deleted comment" : comment.body}
+          body={isDeleted ? tx("Deleted comment") : comment.body}
           expanded={expanded}
           isLong={isLong}
           edited={!isDeleted && comment.editedAt !== null}
@@ -564,7 +571,7 @@ function CommentRowView({
                   <button
                     type="button"
                     onClick={() => onToggleReplies(comment.id)}
-                    aria-label="Collapse thread"
+                    aria-label={tx("Collapse thread")}
                     className="group/thread absolute inset-y-0 left-0 z-10 flex w-4 cursor-pointer justify-center focus-visible:outline-none"
                   >
                     <span className="bg-border group-hover/thread:bg-foreground-faint group-focus-visible/thread:bg-foreground-faint h-full w-px rounded-full transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]" />

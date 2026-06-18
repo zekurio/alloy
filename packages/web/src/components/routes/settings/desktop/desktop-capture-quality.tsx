@@ -1,4 +1,5 @@
 import type { RecordingSettings } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import {
   Select,
   SelectContent,
@@ -44,10 +45,19 @@ export function QualitySection({
         <PresetCard
           key={preset.id}
           label={preset.label}
-          spec={`${RESOLUTION_LABELS[preset.resolution]} · ${preset.fps} FPS`}
-          hourly={`≈ ${formatBytes(
-            estimateHourlyBytes(preset.resolution, preset.fps, preset.bitrate),
-          )}/hr`}
+          spec={tx("{resolution} · {fps} FPS", {
+            fps: preset.fps,
+            resolution: RESOLUTION_LABELS[preset.resolution],
+          })}
+          hourly={tx("≈ {size}/hr", {
+            size: formatBytes(
+              estimateHourlyBytes(
+                preset.resolution,
+                preset.fps,
+                preset.bitrate,
+              ),
+            ),
+          })}
           active={activePreset?.id === preset.id}
           disabled={busy}
           onSelect={() => void save(applyPreset(settings, preset))}
@@ -55,16 +65,19 @@ export function QualitySection({
       ))}
       <PresetCard
         label={CUSTOM_QUALITY_LABEL}
-        spec={`${RESOLUTION_LABELS[settings.customQuality.resolution]} · ${
-          settings.customQuality.fps
-        } FPS`}
-        hourly={`≈ ${formatBytes(
-          estimateHourlyBytes(
-            settings.customQuality.resolution,
-            settings.customQuality.fps,
-            settings.customQuality.bitrate,
+        spec={tx("{resolution} · {fps} FPS", {
+          fps: settings.customQuality.fps,
+          resolution: RESOLUTION_LABELS[settings.customQuality.resolution],
+        })}
+        hourly={tx("≈ {size}/hr", {
+          size: formatBytes(
+            estimateHourlyBytes(
+              settings.customQuality.resolution,
+              settings.customQuality.fps,
+              settings.customQuality.bitrate,
+            ),
           ),
-        )}/hr`}
+        })}
         active={settings.qualityProfile === "custom"}
         disabled={busy}
         onSelect={() => void save(applyCustomProfile(settings))}
@@ -85,10 +98,10 @@ export function ReplayBufferSection({
   save: (next: RecordingSettings) => Promise<void>
 }) {
   return (
-    <Subsection title="Replay buffer">
+    <Subsection title={tx("Replay buffer")}>
       <SettingRow
-        title="Replay buffer"
-        description="The rolling window the clip hotkey saves."
+        title={tx("Replay buffer")}
+        description={tx("The rolling window the clip hotkey saves.")}
         htmlFor="desktop-recording-buffer"
       >
         <div className="flex w-44 items-center gap-3 sm:w-56">
@@ -119,8 +132,8 @@ export function ReplayBufferSection({
         </div>
       </SettingRow>
       <SettingRow
-        title="Buffer storage"
-        description="Where replay video is kept before a clip is saved."
+        title={tx("Buffer storage")}
+        description={tx("Where replay video is kept before a clip is saved.")}
         htmlFor="desktop-recording-buffer-storage"
       >
         <Select

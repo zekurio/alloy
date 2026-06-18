@@ -1,4 +1,5 @@
 import { COMMENT_BODY_MAX_LENGTH } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,7 +49,7 @@ export function CommentsHeader({ count }: { count: number }) {
     <div className="flex items-center justify-center pt-4 pb-1">
       <div className="bg-surface-raised text-foreground-faint inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs leading-4 font-medium tabular-nums">
         <MessageSquareIcon className="size-3.5" />
-        {formatCount(count)} {count === 1 ? "comment" : "comments"}
+        {formatCount(count)} {count === 1 ? tx("comment") : tx("comments")}
       </div>
     </div>
   )
@@ -65,9 +66,10 @@ export function CommentsSortDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="sm" aria-label="Sort comments">
+          <Button variant="ghost" size="sm" aria-label={tx("Sort comments")}>
             <ArrowUpDownIcon className="size-4" />
-            Sort by: {sort === "top" ? "Top" : "New"}
+            {tx("Sort by:")}
+            {sort === "top" ? tx("Top") : tx("New")}
           </Button>
         }
       />
@@ -76,13 +78,13 @@ export function CommentsSortDropdown({
           data-active={sort === "top" ? "true" : undefined}
           onClick={() => onSortChange("top")}
         >
-          Top
+          {tx("Top")}
         </DropdownMenuItem>
         <DropdownMenuItem
           data-active={sort === "new" ? "true" : undefined}
           onClick={() => onSortChange("new")}
         >
-          New
+          {tx("New")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -97,20 +99,20 @@ export function CommentAuthHint({ canSignUp }: { canSignUp: boolean }) {
           to="/login"
           className="text-foreground font-medium hover:underline"
         >
-          Log in
+          {tx("Log in")}
         </Link>
         {canSignUp ? (
           <>
-            {" or "}
+            {tx("or")}
             <Link
               to="/sign-up"
               className="text-foreground font-medium hover:underline"
             >
-              create an account
+              {tx("create an account")}
             </Link>
           </>
         ) : null}{" "}
-        to comment
+        {tx("to comment")}
       </p>
     </div>
   )
@@ -122,7 +124,7 @@ export function CommentComposer({
   meAvatarStyle,
   inputRef,
   replyingToName,
-  placeholder = "Add a comment…",
+  placeholder = tx("Add a comment…"),
   submitting,
   canSubmit,
   onDraftChange,
@@ -154,7 +156,7 @@ export function CommentComposer({
       {replyingToName ? (
         <div className="bg-surface-raised text-foreground-faint flex items-center justify-between gap-2 rounded-sm px-2 py-1 text-xs">
           <span className="min-w-0 truncate">
-            Replying to{" "}
+            {tx("Replying to")}{" "}
             <span className="text-foreground font-medium">
               {replyingToName}
             </span>
@@ -164,7 +166,7 @@ export function CommentComposer({
               variant="ghost"
               size="icon-sm"
               type="button"
-              aria-label="Cancel reply"
+              aria-label={tx("Cancel reply")}
               onClick={onCancelReply}
               disabled={submitting}
               className="size-6 shrink-0"
@@ -205,7 +207,7 @@ export function CommentComposer({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label="Emoji"
+            aria-label={tx("Emoji")}
             type="button"
           >
             <SmileIcon />
@@ -221,7 +223,7 @@ export function CommentComposer({
               onClick={onClear}
               disabled={submitting}
             >
-              Cancel
+              {tx("Cancel")}
             </Button>
           ) : null}
           <Button
@@ -232,7 +234,7 @@ export function CommentComposer({
             onClick={onSubmit}
           >
             <SendHorizontalIcon />
-            {submitting ? "Posting…" : "Post"}
+            {submitting ? tx("Posting…") : tx("Post")}
           </Button>
         </div>
       </div>
@@ -267,7 +269,9 @@ export function CommentBody({
       >
         {body}
         {edited ? (
-          <span className="text-foreground-faint ml-1 text-xs">(edited)</span>
+          <span className="text-foreground-faint ml-1 text-xs">
+            {tx("(edited)")}
+          </span>
         ) : null}
       </p>
       {isLong ? (
@@ -282,7 +286,7 @@ export function CommentBody({
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
           )}
         >
-          {expanded ? "Show less" : "Show more"}
+          {expanded ? tx("Show less") : tx("Show more")}
         </button>
       ) : null}
     </>
@@ -343,7 +347,7 @@ export function CommentActions({
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
           )}
         >
-          Reply
+          {tx("Reply")}
         </button>
       ) : null}
 
@@ -362,18 +366,18 @@ export function CommentActions({
         >
           {pinned ? (
             <>
-              <PinOffIcon className="size-3" /> Unpin
+              <PinOffIcon className="size-3" /> {tx("Unpin")}
             </>
           ) : (
             <>
-              <PinIcon className="size-3" /> Pin
+              <PinIcon className="size-3" /> {tx("Pin")}
             </>
           )}
         </button>
       ) : pinned ? (
         <span className="bg-accent-soft text-accent inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-semibold">
           <PinIcon className="size-3" />
-          Pinned by author
+          {tx("Pinned by author")}
         </span>
       ) : null}
 
@@ -381,9 +385,17 @@ export function CommentActions({
         <button
           type="button"
           onClick={onToggleReplies}
-          aria-label={`${repliesOpen ? "Hide" : "View"} ${replyCount} ${
-            replyCount === 1 ? "reply" : "replies"
-          }`}
+          aria-label={
+            repliesOpen
+              ? tx("Hide {count} {label}", {
+                  count: replyCount,
+                  label: replyCount === 1 ? tx("reply") : tx("replies"),
+                })
+              : tx("View {count} {label}", {
+                  count: replyCount,
+                  label: replyCount === 1 ? tx("reply") : tx("replies"),
+                })
+          }
           className={cn(
             "inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-medium whitespace-nowrap tabular-nums",
             "text-accent transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
@@ -393,7 +405,7 @@ export function CommentActions({
         >
           {compactReplies ? (
             repliesOpen ? (
-              "Hide"
+              tx("Hide")
             ) : (
               <>
                 <MessageSquareIcon className="size-3" />
@@ -401,13 +413,15 @@ export function CommentActions({
               </>
             )
           ) : repliesOpen ? (
-            `Hide ${formatCount(replyCount)} ${
-              replyCount === 1 ? "reply" : "replies"
-            }`
+            tx("Hide {count} {label}", {
+              count: formatCount(replyCount),
+              label: replyCount === 1 ? tx("reply") : tx("replies"),
+            })
           ) : (
-            `View ${formatCount(replyCount)} ${
-              replyCount === 1 ? "reply" : "replies"
-            }`
+            tx("View {count} {label}", {
+              count: formatCount(replyCount),
+              label: replyCount === 1 ? tx("reply") : tx("replies"),
+            })
           )}
         </button>
       ) : null}
@@ -448,10 +462,10 @@ function AuthorLikeBadge() {
   return (
     <span
       className="bg-accent-soft text-accent inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-semibold"
-      title="Liked by the clip author"
+      title={tx("Liked by the clip author")}
     >
       <HeartIcon className="size-3 fill-current" />
-      Author
+      {tx("Author")}
     </span>
   )
 }
@@ -484,7 +498,7 @@ export function CommentMenu({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="Comment actions"
+              aria-label={tx("Comment actions")}
               className="-mr-1 ml-auto"
             >
               <MoreHorizontalIcon className="size-4" />
@@ -493,14 +507,14 @@ export function CommentMenu({
         />
         <DropdownMenuContent align="end" sideOffset={6}>
           <DropdownMenuItem onClick={onCopyLink}>
-            <LinkIcon /> Copy link
+            <LinkIcon /> {tx("Copy link")}
           </DropdownMenuItem>
           {canDelete ? (
             <DropdownMenuItem
               variant="destructive"
               onClick={() => setAlertOpen(true)}
             >
-              <Trash2Icon /> Delete
+              <Trash2Icon /> {tx("Delete")}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -514,14 +528,14 @@ export function CommentMenu({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletePending}>
-              Cancel
+              {tx("Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={onDelete}
               disabled={deletePending}
             >
-              {deletePending ? "Deleting…" : deleteActionLabel}
+              {deletePending ? tx("Deleting…") : deleteActionLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

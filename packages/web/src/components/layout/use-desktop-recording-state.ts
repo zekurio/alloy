@@ -4,6 +4,7 @@ import type {
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
@@ -77,7 +78,7 @@ function useRecordingDisplays(
         if (!cancelled) setDisplays(nextDisplays)
       })
       .catch((cause) =>
-        toast.error(errorText(cause, "Couldn't load displays.")),
+        toast.error(errorText(cause, tx("Couldn't load displays."))),
       )
       .finally(() => {
         if (!cancelled) setDisplayLoading(false)
@@ -98,7 +99,7 @@ function useRecordingDisplays(
         if (!cancelled) setDisplays(nextDisplays)
       })
       .catch((cause) =>
-        toast.error(errorText(cause, "Couldn't load display preview.")),
+        toast.error(errorText(cause, tx("Couldn't load display preview."))),
       )
     return () => {
       cancelled = true
@@ -133,7 +134,7 @@ function useSaveRecordingSettings(
       } catch (cause) {
         if (sequence !== saveSequence.current) return
         setSettings(previous)
-        toast.error(errorText(cause, "Couldn't save recording settings."))
+        toast.error(errorText(cause, tx("Couldn't save recording settings.")))
       }
     },
     [recording, setSettings, settings],

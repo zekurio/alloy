@@ -1,4 +1,5 @@
 import type { ProfileCounts } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   Dialog,
   DialogBody,
@@ -71,12 +72,12 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
       <div className="text-foreground-muted flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium">
         <FollowStatButton
           value={counts.followers}
-          label="followers"
+          label={tx("followers")}
           onClick={() => setOpen("followers")}
         />
         <FollowStatButton
           value={counts.following}
-          label="following"
+          label={tx("following")}
           onClick={() => setOpen("following")}
         />
       </div>
@@ -85,7 +86,7 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {view === "followers" ? "Followers" : "Following"}
+              {view === "followers" ? tx("Followers") : tx("Following")}
             </DialogTitle>
           </DialogHeader>
           <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
@@ -107,8 +108,8 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
             ) : (
               <p className="text-foreground-faint px-2 py-4 text-center text-sm">
                 {view === "followers"
-                  ? "No followers yet."
-                  : "Not following anyone yet."}
+                  ? tx("No followers yet.")
+                  : tx("Not following anyone yet.")}
               </p>
             )}
           </DialogBody>

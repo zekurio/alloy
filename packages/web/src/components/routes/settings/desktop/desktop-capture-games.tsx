@@ -3,6 +3,7 @@ import type {
   RecordingGameProcess,
   RecordingSettings,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -127,35 +128,40 @@ export function AllowedGamesSection({
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-sm font-semibold">Game detection</div>
+          <div className="text-sm font-semibold">{tx("Game detection")}</div>
           <p className="text-foreground-dim mt-0.5 text-xs">
-            Alloy auto-detects games. Add manual rules when detection needs a
-            nudge.
+            {tx(
+              "Alloy auto-detects games. Add manual rules when detection needs a nudge.",
+            )}
           </p>
         </div>
       </div>
 
       <RuleGroup
-        title="Always record"
-        description="Manual includes for games the automatic detector misses."
+        title={tx("Always record")}
+        description={tx(
+          "Manual includes for games the automatic detector misses.",
+        )}
         games={settings.allowedGames}
         busy={busy}
-        addLabel="Add include"
+        addLabel={tx("Add include")}
         addIcon={<PlusIcon className="size-3.5" />}
-        emptyText="No manual includes."
+        emptyText={tx("No manual includes.")}
         fallbackIcon={<Gamepad2Icon className="size-4" />}
         onAdd={() => setPickerMode("allow")}
         onRemove={(id) => void removeGame(id, "allow")}
       />
 
       <RuleGroup
-        title="Never record"
-        description="Manual excludes for launchers, tools, or apps that look game-like."
+        title={tx("Never record")}
+        description={tx(
+          "Manual excludes for launchers, tools, or apps that look game-like.",
+        )}
         games={settings.deniedGames}
         busy={busy}
-        addLabel="Add exclude"
+        addLabel={tx("Add exclude")}
         addIcon={<PlusIcon className="size-3.5" />}
-        emptyText="No manual excludes."
+        emptyText={tx("No manual excludes.")}
         fallbackIcon={<BanIcon className="size-4" />}
         onAdd={() => setPickerMode("deny")}
         onRemove={(id) => void removeGame(id, "deny")}
@@ -171,12 +177,12 @@ export function AllowedGamesSection({
           <DialogHeader className="pr-14">
             <DialogTitle>
               {pickerMode === "deny"
-                ? "Add manual exclude"
-                : "Add manual include"}
+                ? tx("Add manual exclude")
+                : tx("Add manual include")}
             </DialogTitle>
           </DialogHeader>
           <DialogClose
-            aria-label="Close process picker"
+            aria-label={tx("Close process picker")}
             className="text-foreground-dim hover:text-foreground focus-visible:ring-foreground/30 absolute top-3 right-3 z-10 inline-flex size-8 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
           >
             <XIcon className="size-4" />
@@ -188,7 +194,7 @@ export function AllowedGamesSection({
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search processes"
+                  placeholder={tx("Search processes")}
                   className="pl-9"
                 />
               </div>
@@ -197,8 +203,8 @@ export function AllowedGamesSection({
                 variant="secondary"
                 size="icon"
                 disabled={loadingProcesses}
-                title="Refresh"
-                aria-label="Refresh processes"
+                title={tx("Refresh")}
+                aria-label={tx("Refresh processes")}
                 onClick={() => void loadProcesses()}
               >
                 {loadingProcesses ? (
@@ -213,7 +219,7 @@ export function AllowedGamesSection({
               {loadingProcesses && processes.length === 0 ? (
                 <div className="text-foreground-muted flex h-full items-center justify-center gap-2 text-sm">
                   <Spinner />
-                  Loading processes
+                  {tx("Loading processes")}
                 </div>
               ) : filteredProcesses.length > 0 ? (
                 <div className="divide-border divide-y">
@@ -263,10 +269,10 @@ export function AllowedGamesSection({
                             <PlusIcon className="size-3.5" />
                           )}
                           {selected
-                            ? "Added"
+                            ? tx("Added")
                             : pickerMode === "deny"
-                              ? "Block"
-                              : "Add"}
+                              ? tx("Block")
+                              : tx("Add")}
                         </Button>
                       </div>
                     )
@@ -274,7 +280,7 @@ export function AllowedGamesSection({
                 </div>
               ) : (
                 <div className="text-foreground-dim flex h-full items-center justify-center px-4 text-center text-sm">
-                  No matching processes found.
+                  {tx("No matching processes found.")}
                 </div>
               )}
             </div>

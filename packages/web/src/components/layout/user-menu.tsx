@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,7 +39,7 @@ function UserMenuInner() {
         className={buttonVariants({ variant: "ghost", size: "sm" })}
       >
         <LogInIcon />
-        Sign in
+        {tx("Sign in")}
       </Link>
     )
   }
@@ -53,7 +54,9 @@ function UserMenuInner() {
         invalidateRouter: () => router.invalidate(),
       })
     } catch (cause) {
-      toast.error(reportAuthFlowFailure("sign-out", "Couldn't sign out", cause))
+      toast.error(
+        reportAuthFlowFailure("sign-out", tx("Couldn't sign out"), cause),
+      )
     }
   }
   return (
@@ -64,7 +67,9 @@ function UserMenuInner() {
             avatar={chip.avatar}
             name={chip.name}
             size="nav"
-            aria-label={`Open account menu for ${chip.name}`}
+            aria-label={tx("Open account menu for {name}", {
+              name: chip.name,
+            })}
           />
         }
       />
@@ -90,7 +95,7 @@ function UserMenuInner() {
               render={<Link to="/u/$username" params={{ username: handle }} />}
             >
               <UserIcon />
-              Profile
+              {tx("Profile")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
           </>
@@ -101,7 +106,7 @@ function UserMenuInner() {
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={onSignOut}>
           <LogOutIcon />
-          Sign out
+          {tx("Sign out")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

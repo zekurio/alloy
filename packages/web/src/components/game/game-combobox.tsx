@@ -1,4 +1,5 @@
 import type { GameRow, SteamGridDBSearchResult } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   Combobox,
   ComboboxContent,
@@ -58,7 +59,7 @@ export function GameCombobox({
   onChange,
   disabled = false,
   id,
-  placeholder = "Search SteamGridDB…",
+  placeholder = tx("Search SteamGridDB…"),
   allowClear = true,
   invalid = false,
   onConfiguredChange,
@@ -264,7 +265,7 @@ export function GameCombobox({
           placeholder={placeholder}
           showTrigger={false}
           showClear={allowClear && controlledValue !== null}
-          aria-label="Game"
+          aria-label={tx("Game")}
           aria-busy={searchQuery.isFetching || resolving || undefined}
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}
@@ -329,16 +330,17 @@ export function GameCombobox({
                   "text-foreground-muted hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                Show {Math.min(PAGE_SIZE, effectiveItems.length - visibleCount)}{" "}
-                more
+                {tx("Show")}
+                {Math.min(PAGE_SIZE, effectiveItems.length - visibleCount)}{" "}
+                {tx("more")}
               </button>
             ) : null}
             <ComboboxEmpty>
               {hasError
-                ? "Couldn’t reach SteamGridDB"
+                ? tx("Couldn’t reach SteamGridDB")
                 : debouncedQuery.trim().length === 0
-                  ? "Start typing to search"
-                  : "No matches"}
+                  ? tx("Start typing to search")
+                  : tx("No matches")}
             </ComboboxEmpty>
           </ComboboxList>
         </ComboboxContent>
@@ -362,10 +364,10 @@ function SteamGridDBUnavailableNotice({ className }: { className?: string }) {
       </span>
       <span className="min-w-0 space-y-0.5">
         <span className="text-foreground block text-sm leading-4 font-semibold">
-          Game search needs a key
+          {tx("Game search needs a key")}
         </span>
         <span className="text-foreground-muted block text-xs leading-4">
-          Ask an admin to add a SteamGridDB API key in Integrations.
+          {tx("Ask an admin to add a SteamGridDB API key in Integrations.")}
         </span>
       </span>
     </div>
@@ -378,7 +380,8 @@ function GameSearchResultYear({ item }: { item: GameComboboxItem }) {
 
   return (
     <span className="text-foreground-faint min-w-0 truncate text-xs">
-      - {releaseYear}
+      {"-"}
+      {releaseYear}
     </span>
   )
 }

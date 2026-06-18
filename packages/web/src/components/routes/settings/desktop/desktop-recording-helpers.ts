@@ -12,10 +12,11 @@ import type {
   RecordingSettings,
 } from "@alloy/contracts"
 import { RECORDING_QUALITY_PRESETS as CONTRACT_RECORDING_QUALITY_PRESETS } from "@alloy/contracts"
+import { getRuntimeLocale, localeToLanguageTag, t as tx } from "@alloy/i18n"
 
 export const ENCODER_LABELS: Record<RecordingEncoder, string> = {
-  hardware: "GPU",
-  software: "CPU",
+  hardware: tx("GPU"),
+  software: tx("CPU"),
 }
 
 export const CODEC_LABELS: Record<RecordingCodec, string> = {
@@ -25,7 +26,7 @@ export const CODEC_LABELS: Record<RecordingCodec, string> = {
 }
 
 export const RESOLUTION_LABELS: Record<RecordingResolution, string> = {
-  source: "Source",
+  source: tx("Source"),
   "720p": "720p",
   "1080p": "1080p",
   "1440p": "1440p",
@@ -33,43 +34,49 @@ export const RESOLUTION_LABELS: Record<RecordingResolution, string> = {
 }
 
 export function bitrateLabel(value: RecordingBitrate): string {
-  return value === "auto" ? "Auto" : `${value}M`
+  return value === "auto" ? tx("Auto") : `${value}M`
 }
 
 export const AUDIO_MODE_LABELS: Record<RecordingAudioMode, string> = {
-  devices: "Devices",
-  applications: "Applications",
+  devices: tx("Devices"),
+  applications: tx("Applications"),
 }
 
 export const AUDIO_DEVICE_KIND_LABELS: Record<
   RecordingAudioDeviceKind,
   string
 > = {
-  output: "Output",
-  input: "Input",
+  output: tx("Output"),
+  input: tx("Input"),
 }
 
 export const BUFFER_STORAGE_LABELS: Record<RecordingBufferStorage, string> = {
-  memory: "Memory",
-  disk: "Disk",
+  memory: tx("Memory"),
+  disk: tx("Disk"),
 }
 
 export function gpuLabel(value: string): string {
-  if (value === "auto") return "Auto"
+  if (value === "auto") return tx("Auto")
 
   const match = /^adapter:(\d+)(?::(.+))?$/.exec(value)
   if (!match) return value
 
   const [, index, label] = match
-  return label?.trim() || `GPU ${index}`
+  return label?.trim() || tx("GPU {index}", { index })
 }
 
 /** Human-readable byte size using decimal (GB/TB) units, matching disk specs. */
 export function formatBytes(bytes: number): string {
-  if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(2)} TB`
-  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(0)} MB`
-  if (bytes >= 1e3) return `${(bytes / 1e3).toFixed(0)} KB`
+  const locale = localeToLanguageTag(getRuntimeLocale())
+  const format = (value: number, digits: number) =>
+    value.toLocaleString(locale, {
+      maximumFractionDigits: digits,
+      minimumFractionDigits: digits,
+    })
+  if (bytes >= 1e12) return `${format(bytes / 1e12, 2)} TB`
+  if (bytes >= 1e9) return `${format(bytes / 1e9, 1)} GB`
+  if (bytes >= 1e6) return `${format(bytes / 1e6, 0)} MB`
+  if (bytes >= 1e3) return `${format(bytes / 1e3, 0)} KB`
   return `${bytes} B`
 }
 
@@ -108,9 +115,9 @@ const QUALITY_PROFILE_LABELS: Record<
   Exclude<RecordingQualityProfile, "custom">,
   string
 > = {
-  low: "Low",
-  standard: "Standard",
-  high: "High",
+  low: tx("Low"),
+  standard: tx("Standard"),
+  high: tx("High"),
 }
 
 /**
@@ -123,7 +130,7 @@ export const RECORDING_QUALITY_PRESETS: QualityPresetOption[] =
     label: QUALITY_PROFILE_LABELS[preset.id],
   }))
 
-export const CUSTOM_QUALITY_LABEL = "Custom"
+export const CUSTOM_QUALITY_LABEL = tx("Custom")
 
 /** The preset selected in settings, or null when Custom is selected. */
 export function selectedQualityPreset(

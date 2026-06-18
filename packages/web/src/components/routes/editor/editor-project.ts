@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 /**
  * Edit operations of the multitrack project model. All helpers are pure so
  * the page can keep snapshots in undo history and the timeline component
@@ -59,9 +60,9 @@ export {
 export function newProject(): EditorProject {
   return {
     tracks: [
-      { id: nextId("track"), label: "Track 1" },
-      { id: nextId("track"), label: "Track 2" },
-      { id: nextId("track"), label: "Track 3" },
+      { id: nextId("track"), label: tx("Track 1") },
+      { id: nextId("track"), label: tx("Track 2") },
+      { id: nextId("track"), label: tx("Track 3") },
     ],
     clips: [],
     transitions: [],
@@ -308,7 +309,7 @@ export function setProjectFilter(
 export function addTrack(project: EditorProject): EditorProject {
   const track: TimelineTrack = {
     id: nextId("track"),
-    label: `Track ${project.tracks.length + 1}`,
+    label: tx("Track {number}", { number: project.tracks.length + 1 }),
   }
   return { ...project, tracks: [track, ...project.tracks] }
 }

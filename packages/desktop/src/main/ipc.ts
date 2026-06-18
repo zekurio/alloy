@@ -1,4 +1,5 @@
 import { normalizeRecordingSettings } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 
 import type { ConnectResult, ProbeResult } from "@/shared/ipc"
@@ -234,7 +235,7 @@ function registerRecordingStorageIpc(windows: Windows): void {
       requireMainSender(windows, event)
       const parent = BrowserWindow.fromWebContents(event.sender)
       const options: Electron.OpenDialogOptions = {
-        title: "Choose capture folder",
+        title: tx("Choose capture folder"),
         properties: ["openDirectory", "createDirectory"],
       }
       const result = await (parent

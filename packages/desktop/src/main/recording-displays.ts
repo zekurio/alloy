@@ -1,4 +1,5 @@
 import type { RecordingDisplay } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { desktopCapturer, screen } from "electron"
 
 const DISPLAY_THUMBNAIL_WIDTH = 480
@@ -35,7 +36,10 @@ export async function listRecordingDisplays(
       name:
         obsDisplay?.name ??
         source?.name ??
-        `Display ${index + 1}${display.id === primaryId ? " (primary)" : ""}`,
+        tx("Display {number}{primary}", {
+          number: index + 1,
+          primary: display.id === primaryId ? tx(" (primary)") : "",
+        }),
       width: obsDisplay?.width ?? size.width,
       height: obsDisplay?.height ?? size.height,
       primary: obsDisplay?.primary ?? display.id === primaryId,

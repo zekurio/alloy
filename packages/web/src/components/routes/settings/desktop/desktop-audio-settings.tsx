@@ -5,6 +5,7 @@ import type {
   RecordingAudioLevel,
   RecordingSettings,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { Checkbox } from "@alloy/ui/components/checkbox"
 import {
   Select,
@@ -37,8 +38,8 @@ const AUDIO_DEVICE_GROUPS: Array<{
   kind: RecordingAudioDeviceKind
   title: string
 }> = [
-  { kind: "output", title: "Output" },
-  { kind: "input", title: "Input" },
+  { kind: "output", title: tx("Output") },
+  { kind: "input", title: tx("Input") },
 ]
 
 const AUDIO_DEVICE_ICONS: Record<RecordingAudioDeviceKind, LucideIcon> = {
@@ -128,7 +129,7 @@ export function DesktopAudioSettings() {
     return (
       <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />
-        Loading audio settings
+        {tx("Loading audio settings")}
       </div>
     )
   }
@@ -146,8 +147,10 @@ export function DesktopAudioSettings() {
   return (
     <div className="flex flex-col gap-6">
       <SettingRow
-        title="Capture audio from"
-        description="Record individual playback and capture devices, or per-application audio streams."
+        title={tx("Capture audio from")}
+        description={tx(
+          "Record individual playback and capture devices, or per-application audio streams.",
+        )}
         htmlFor="desktop-recording-audio-mode"
       >
         <Select
@@ -237,7 +240,7 @@ function AudioDeviceList({
     if (kinds) return null
     return (
       <p className="text-foreground-dim py-2 text-xs">
-        No audio devices are available.
+        {tx("No audio devices are available.")}
       </p>
     )
   }
@@ -304,7 +307,7 @@ function AudioApplicationList({
   if (applications.length === 0) {
     return (
       <p className="text-foreground-dim py-2 text-xs">
-        Running applications outputting audio will appear here.
+        {tx("Running applications outputting audio will appear here.")}
       </p>
     )
   }
@@ -442,7 +445,8 @@ function AudioRow({
               enabled ? "text-foreground-muted" : "text-foreground-faint",
             )}
           >
-            {displayVolume}%
+            {displayVolume}
+            {"%"}
           </span>
         </div>
       </div>
@@ -512,7 +516,7 @@ function AudioLevelMeter({ peak, active }: { peak: number; active: boolean }) {
         !active && "opacity-40",
       )}
       role="meter"
-      aria-label="Audio level"
+      aria-label={tx("Audio level")}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(fraction * 100)}

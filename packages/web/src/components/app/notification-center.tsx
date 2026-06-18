@@ -1,5 +1,6 @@
 import { clipThumbnailUrl, type NotificationRow } from "@alloy/api"
 import type { DesktopUpdateState } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -103,7 +104,7 @@ export function NotificationCenter() {
   const updateReady = updateState.status === "downloaded"
 
   const trigger = (
-    <Button variant="ghost" size="icon" aria-label="Notifications">
+    <Button variant="ghost" size="icon" aria-label={tx("Notifications")}>
       <NotificationBell showDot={unreadCount > 0 || updateReady} />
     </Button>
   )
@@ -194,9 +195,13 @@ function NotificationCenterContent({
   return (
     <section className="flex flex-col">
       <header className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-foreground text-sm font-semibold">Notifications</h2>
+        <h2 className="text-foreground text-sm font-semibold">
+          {tx("Notifications")}
+        </h2>
         <span className="text-foreground-muted text-xs font-semibold tabular-nums">
-          {unreadCount === 0 ? "all read" : `${unreadCount} unread`}
+          {unreadCount === 0
+            ? tx("all read")
+            : tx("{count} unread", { count: unreadCount })}
         </span>
       </header>
 
@@ -232,7 +237,7 @@ function NotificationCenterContent({
               onClick={() => markAllRead.mutate()}
               className="text-foreground-muted"
             >
-              Mark all read
+              {tx("Mark all read")}
             </Button>
           ) : null}
           {items.length > 0 ? (
@@ -243,17 +248,17 @@ function NotificationCenterContent({
               onClick={() => clearNotifications.mutate()}
               className="text-foreground-muted"
             >
-              Clear all
+              {tx("Clear all")}
             </Button>
           ) : null}
           <Button
             variant="ghost"
             size="sm"
-            aria-label="Close notifications"
+            aria-label={tx("Close notifications")}
             onClick={onClose}
             className="text-foreground-muted"
           >
-            Close
+            {tx("Close")}
           </Button>
         </div>
       </div>
@@ -292,16 +297,16 @@ function DesktopUpdateRow({ version }: { version: string | null }) {
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-foreground line-clamp-2 text-sm leading-snug font-semibold tracking-[-0.01em]">
-          Update ready
+          {tx("Update ready")}
         </span>
         <span className="text-foreground-muted text-xs">
           {version
-            ? `Alloy ${version} has been downloaded.`
-            : "A new version has been downloaded."}
+            ? tx("Alloy {version} has been downloaded.", { version })
+            : tx("A new version has been downloaded.")}
         </span>
         <div className="mt-1">
           <Button size="sm" disabled={pending} onClick={restart}>
-            {pending ? "Restarting…" : "Restart to update"}
+            {pending ? tx("Restarting…") : tx("Restart to update")}
           </Button>
         </div>
       </div>
@@ -365,7 +370,7 @@ function NotificationRow({
           ) : null}
           {text.body ? (
             <span aria-hidden className="text-foreground-faint">
-              ·
+              {"·"}
             </span>
           ) : null}
           <span className="shrink-0 tabular-nums">
@@ -412,7 +417,7 @@ function NotificationRow({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={`Mark as read: ${text.title}`}
+            aria-label={tx("Mark as read: {title}", { title: text.title })}
             disabled={markRead.isPending}
             onClick={() => markRead.mutate(item.id)}
           >
@@ -422,7 +427,9 @@ function NotificationRow({
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label={`Delete notification: ${text.title}`}
+          aria-label={tx("Delete notification: {title}", {
+            title: text.title,
+          })}
           disabled={deleteNotification.isPending}
           onClick={() => deleteNotification.mutate(item.id)}
         >
@@ -512,9 +519,9 @@ function NotificationEmptyState() {
   return (
     <EmptyState
       className="border-border border border-dashed px-6"
-      hint="New notifications will show up here."
+      hint={tx("New notifications will show up here.")}
       size="sm"
-      title="Nothing here yet"
+      title={tx("Nothing here yet")}
     />
   )
 }

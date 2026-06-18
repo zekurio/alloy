@@ -1,4 +1,5 @@
 import type { UserClip } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 
 import { TopClipsSection } from "@/components/clip/top-clips-section"
 
@@ -23,8 +24,10 @@ export function ProfileTopClipsSection({
       rows={clips}
       error={error}
       owned={() => isSelf}
-      emptyTitle="No top clips yet"
-      emptyHint="Once clips have likes and views, the best ones land here."
+      emptyTitle={tx("No top clips yet")}
+      emptyHint={tx(
+        "Once clips have likes and views, the best ones land here.",
+      )}
     />
   )
 }

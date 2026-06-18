@@ -3,6 +3,7 @@ import {
   normalizeDesktopUpdateChannel,
   type DesktopUpdateChannel,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Select,
@@ -30,13 +31,13 @@ import { alloyDesktop } from "./desktop-bridge"
 type Phase = "idle" | "saving" | "restarting"
 
 const CHANNEL_LABELS: Record<DesktopUpdateChannel, string> = {
-  latest: "Stable",
-  nightly: "Nightly",
+  latest: tx("Stable"),
+  nightly: tx("Nightly"),
 }
 
 const CHANNEL_SUMMARIES: Record<DesktopUpdateChannel, string> = {
-  latest: "Release builds",
-  nightly: "Nightly builds",
+  latest: tx("Release builds"),
+  nightly: tx("Nightly builds"),
 }
 
 export function DesktopUpdateSettings() {
@@ -64,9 +65,13 @@ export function DesktopUpdateSettings() {
     try {
       const savedChannel = await activeUpdates.setChannel(nextChannel)
       rememberDesktopUpdateChannel(savedChannel)
-      toast.success(`Update channel set to ${CHANNEL_LABELS[savedChannel]}.`)
+      toast.success(
+        tx("Update channel set to {channel}.", {
+          channel: CHANNEL_LABELS[savedChannel],
+        }),
+      )
     } catch (cause) {
-      toast.error(errorText(cause, "Couldn't save update channel."))
+      toast.error(errorText(cause, tx("Couldn't save update channel.")))
     } finally {
       setPhase("idle")
     }
@@ -77,7 +82,7 @@ export function DesktopUpdateSettings() {
     try {
       await activeUpdates.restartToInstall()
     } catch (cause) {
-      toast.error(errorText(cause, "Couldn't restart to update."))
+      toast.error(errorText(cause, tx("Couldn't restart to update.")))
       setPhase("idle")
     }
   }
@@ -87,14 +92,14 @@ export function DesktopUpdateSettings() {
       <div className="border-border rounded-md border px-3 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="text-sm font-semibold">Update channel</div>
+            <div className="text-sm font-semibold">{tx("Update channel")}</div>
             <div className="text-foreground-dim mt-0.5 text-xs">
               {channel ? (
                 CHANNEL_SUMMARIES[channel]
               ) : channelLoading ? (
                 <Skeleton className="h-3 w-24" />
               ) : (
-                "Desktop releases"
+                tx("Desktop releases")
               )}
             </div>
           </div>
@@ -124,7 +129,7 @@ export function DesktopUpdateSettings() {
             <Skeleton className="h-8 w-full sm:w-40" />
           ) : (
             <span className="text-foreground-faint text-xs">
-              Unavailable in this build
+              {tx("Unavailable in this build")}
             </span>
           )}
         </div>
@@ -153,12 +158,12 @@ export function DesktopUpdateSettings() {
             {phase === "restarting" ? (
               <>
                 <Spinner />
-                Restarting...
+                {tx("Restarting...")}
               </>
             ) : (
               <>
                 <RefreshCcwIcon className="size-3.5" />
-                Restart
+                {tx("Restart")}
               </>
             )}
           </Button>
@@ -169,7 +174,7 @@ export function DesktopUpdateSettings() {
             ) : (
               <DownloadIcon className="size-3.5" />
             )}
-            {phase === "saving" ? "Saving" : "Background checks"}
+            {phase === "saving" ? tx("Saving") : tx("Background checks")}
           </span>
         )}
       </div>
@@ -201,18 +206,20 @@ function updateStatusTitle(
 ): string {
   switch (status) {
     case "checking":
-      return "Checking for updates"
+      return tx("Checking for updates")
     case "downloading":
-      return "Downloading update"
+      return tx("Downloading update")
     case "downloaded":
-      return "Update ready"
+      return tx("Update ready")
     case "idle":
-      return "Updates ready in the background"
+      return tx("Updates ready in the background")
   }
 }
 
 function updateStatusDetails(version: string | null): string {
-  return version ? `Version ${version}` : "No downloaded update"
+  return version
+    ? tx("Version {version}", { version })
+    : tx("No downloaded update")
 }
 
 function errorText(cause: unknown, fallback: string): string {

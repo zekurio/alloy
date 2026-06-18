@@ -3,6 +3,7 @@ import {
   type ClipRow,
   type GameNameLookupResult,
 } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 
 import type {
   RecordingLibraryItem,
@@ -268,7 +269,7 @@ function draftMatchesGroup(
 export function emptyKindLabel(kind: LibraryKindFilter) {
   switch (kind) {
     case "replay":
-      return "clips"
+      return tx("clips")
     default:
       return "captures"
   }

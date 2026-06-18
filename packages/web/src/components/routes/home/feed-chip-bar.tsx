@@ -1,4 +1,5 @@
 import type { FeedFilter } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { cn } from "@alloy/ui/lib/utils"
@@ -40,7 +41,7 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
           onClick={() => onChange({ kind: "foryou" })}
         >
           <FlameIcon />
-          For you
+          {tx("For you")}
         </Chip>
         <Chip
           size="xl"
@@ -50,7 +51,7 @@ export function FeedChipBar({ filter, onChange }: FeedChipBarProps) {
           onClick={() => onChange({ kind: "following" })}
         >
           <UsersIcon />
-          Following
+          {tx("Following")}
         </Chip>
         {games.map((g) => (
           <Chip

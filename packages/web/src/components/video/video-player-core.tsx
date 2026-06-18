@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import * as React from "react"
@@ -226,7 +227,7 @@ export function PlayerCore({
         return
       }
       if (!reportBlocked) return
-      const message = errorMessage(err, "Playback failed")
+      const message = errorMessage(err, tx("Playback failed"))
       if (onPlaybackErrorRef.current) {
         setStatus({ kind: "ready" })
         onPlaybackErrorRef.current(message)

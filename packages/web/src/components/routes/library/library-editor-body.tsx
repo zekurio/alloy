@@ -1,4 +1,5 @@
 import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -213,7 +214,7 @@ export function EditorBody({
         gameId: game?.id ?? null,
       })
       notifyLibraryCapturesChanged()
-      toast.success("Capture updated")
+      toast.success(tx("Capture updated"))
       if (result.id !== item.id) {
         void navigate({
           to: "/library/$captureId",
@@ -222,7 +223,7 @@ export function EditorBody({
         })
       }
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't save changes"))
+      toast.error(errorMessage(cause, tx("Couldn't save changes")))
     } finally {
       setSaving(false)
     }
@@ -235,7 +236,9 @@ export function EditorBody({
 
     if (description.trim().length > CLIP_DESCRIPTION_MAX) {
       toast.error(
-        `Description can be at most ${CLIP_DESCRIPTION_MAX} characters`,
+        tx("Description can be at most {max} characters", {
+          max: CLIP_DESCRIPTION_MAX,
+        }),
       )
       return
     }
@@ -262,12 +265,12 @@ export function EditorBody({
           { action: "copy published clip link" },
         )
         if (copied) {
-          toast.success("Link copied to clipboard")
+          toast.success(tx("Link copied to clipboard"))
         } else {
-          toast.error("Couldn't copy the clip link")
+          toast.error(tx("Couldn't copy the clip link"))
         }
       } else if (privacy === "unlisted") {
-        toast.success("Clip uploaded")
+        toast.success(tx("Clip uploaded"))
       }
 
       await queryClient.prefetchQuery(clipDetailQueryOptions(clipId))
@@ -277,7 +280,7 @@ export function EditorBody({
         replace: true,
       })
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't prepare clip"))
+      toast.error(errorMessage(cause, tx("Couldn't prepare clip")))
     } finally {
       setPublishing(false)
     }
@@ -289,11 +292,11 @@ export function EditorBody({
     : saving || publishing || deleting || titleInvalid || !dirty
   const primaryLabel = primaryPublishes
     ? publishing
-      ? "Preparing..."
-      : "Post"
+      ? tx("Preparing...")
+      : tx("Post")
     : saving
-      ? "Saving..."
-      : "Save"
+      ? tx("Saving...")
+      : tx("Save")
   const PrimaryIcon = primaryPublishes ? UploadIcon : SaveIcon
   const showPostInMenu = !primaryPublishes
 
@@ -373,7 +376,7 @@ export function EditorBody({
               disabled={deleting || publishing || saving}
               render={<Link to="/library" />}
             >
-              Cancel
+              {tx("Cancel")}
             </Button>
             <div className="flex items-center">
               <Button
@@ -397,7 +400,7 @@ export function EditorBody({
                       variant="primary"
                       size="icon"
                       disabled={publishing || deleting || saving}
-                      aria-label="More post options"
+                      aria-label={tx("More post options")}
                       className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
                     />
                   }
@@ -413,7 +416,7 @@ export function EditorBody({
                       }}
                     >
                       <UploadIcon className="size-4" />
-                      Post
+                      {tx("Post")}
                     </DropdownMenuItem>
                   ) : null}
                   <DropdownMenuItem
@@ -425,7 +428,7 @@ export function EditorBody({
                     }}
                   >
                     <ClapperboardIcon className="size-4" />
-                    Open in Editor
+                    {tx("Open in Editor")}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={!canPublish}
@@ -434,7 +437,7 @@ export function EditorBody({
                     }}
                   >
                     <Link2Icon className="size-4" />
-                    Create Link
+                    {tx("Create Link")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -443,7 +446,7 @@ export function EditorBody({
                     onClick={onRequestDelete}
                   >
                     <Trash2Icon className="size-4" />
-                    Delete
+                    {tx("Delete")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

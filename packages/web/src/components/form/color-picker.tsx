@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Input } from "@alloy/ui/components/input"
 import {
   Popover,
@@ -196,7 +197,7 @@ export function ColorPicker({
             autoComplete="off"
             maxLength={7}
             className="font-mono uppercase"
-            aria-label="Hex color value"
+            aria-label={tx("Hex color value")}
           />
         </div>
 

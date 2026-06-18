@@ -1,4 +1,5 @@
 import { clipThumbnailUrl, type QueueClip } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 
 import type { RecordingLibraryDownload } from "@/lib/desktop"
@@ -41,7 +42,7 @@ export function localToQueueItem(
       detail =
         e.bytesTotal > 0
           ? `${formatBytes(e.bytesLoaded)} / ${formatBytes(e.bytesTotal)}`
-          : "Uploading…"
+          : tx("Uploading…")
       break
     case "finalizing":
       status = "uploading"

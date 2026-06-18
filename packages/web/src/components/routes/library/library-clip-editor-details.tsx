@@ -5,6 +5,7 @@ import {
   type GameRow,
   type UserSearchResult,
 } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -61,40 +62,40 @@ type VisibilityAction = {
 
 const VISIBILITY_ACTIONS = {
   post: {
-    label: "Post",
-    pendingLabel: "Posting...",
+    label: tx("Post"),
+    pendingLabel: tx("Posting..."),
     privacy: "public",
     copyLink: true,
     icon: GlobeIcon,
-    success: "Clip posted",
-    copySuccess: "Posted and link copied",
-    copyFailure: "Posted, but couldn't copy the link",
+    success: tx("Clip posted"),
+    copySuccess: tx("Posted and link copied"),
+    copyFailure: tx("Posted, but couldn't copy the link"),
   },
   unpost: {
-    label: "Unpost",
-    pendingLabel: "Unposting...",
+    label: tx("Unpost"),
+    pendingLabel: tx("Unposting..."),
     privacy: "unlisted",
     copyLink: false,
     icon: EyeOffIcon,
-    success: "Clip unposted",
+    success: tx("Clip unposted"),
   },
   "create-link": {
-    label: "Create Link",
-    pendingLabel: "Creating link...",
+    label: tx("Create Link"),
+    pendingLabel: tx("Creating link..."),
     privacy: "unlisted",
     copyLink: true,
     icon: Link2Icon,
-    success: "Link created",
-    copySuccess: "Link created and copied",
-    copyFailure: "Link created, but couldn't copy it",
+    success: tx("Link created"),
+    copySuccess: tx("Link created and copied"),
+    copyFailure: tx("Link created, but couldn't copy it"),
   },
   "disable-link": {
-    label: "Disable Link",
-    pendingLabel: "Disabling link...",
+    label: tx("Disable Link"),
+    pendingLabel: tx("Disabling link..."),
     privacy: "private",
     copyLink: false,
     icon: Link2OffIcon,
-    success: "Clip link disabled",
+    success: tx("Clip link disabled"),
   },
 } as const satisfies Record<VisibilityIntent, VisibilityAction>
 
@@ -151,9 +152,9 @@ export function ClipEditorTabs(props: ClipDetailsProps) {
       className="flex min-h-0 flex-1 flex-col gap-0"
     >
       <TabsList className="shrink-0 px-4 pt-1">
-        <TabsTrigger value="details">Details</TabsTrigger>
+        <TabsTrigger value="details">{tx("Details")}</TabsTrigger>
         <TabsTrigger value="comments">
-          Comments
+          {tx("Comments")}
           {row.commentCount > 0 ? (
             <TabsCount>{row.commentCount}</TabsCount>
           ) : null}
@@ -256,7 +257,7 @@ function ClipDetailsForm({
           }
           toast.success(action.success)
         },
-        onError: () => toast.error("Couldn't update visibility"),
+        onError: () => toast.error(tx("Couldn't update visibility")),
       },
     )
   }
@@ -276,8 +277,8 @@ function ClipDetailsForm({
     saveMutation.mutate(
       { clipId: row.id, input },
       {
-        onSuccess: () => toast.success("Clip updated"),
-        onError: () => toast.error("Couldn't save changes"),
+        onSuccess: () => toast.success(tx("Clip updated")),
+        onError: () => toast.error(tx("Couldn't save changes")),
       },
     )
   }
@@ -300,8 +301,8 @@ function ClipDetailsForm({
       ? profileVisibilityAction.pendingLabel
       : profileVisibilityAction.label
     : saving || trimPending
-      ? "Saving…"
-      : "Save"
+      ? tx("Saving…")
+      : tx("Save")
   const PrimaryIcon = primaryPublishes ? ProfileVisibilityIcon : SaveIcon
   const showProfileVisibilityInMenu = !primaryPublishes
 
@@ -332,7 +333,7 @@ function ClipDetailsForm({
             disabled={deleting || saving || visibilityPending}
             render={<Link to="/library" />}
           >
-            Cancel
+            {tx("Cancel")}
           </Button>
           <div className="flex items-center">
             <Button
@@ -356,7 +357,7 @@ function ClipDetailsForm({
                     variant="primary"
                     size="icon"
                     disabled={saving || deleting || visibilityPending}
-                    aria-label="More clip options"
+                    aria-label={tx("More clip options")}
                     className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
                   />
                 }
@@ -374,7 +375,7 @@ function ClipDetailsForm({
                     }}
                   >
                     <ClapperboardIcon className="size-4" />
-                    Open in Editor
+                    {tx("Open in Editor")}
                   </DropdownMenuItem>
                 ) : null}
                 {showProfileVisibilityInMenu ? (
@@ -404,7 +405,7 @@ function ClipDetailsForm({
                   onClick={onRequestDelete}
                 >
                   <Trash2Icon className="size-4" />
-                  Delete
+                  {tx("Delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

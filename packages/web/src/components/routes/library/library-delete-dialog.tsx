@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,9 +41,14 @@ export function DeleteServerBackedDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this {noun}?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {tx("Delete this {noun}?", { noun })}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            "{title}" will be removed from the server. This can't be undone.
+            {tx(
+              '"{title}" will be removed from the server. This can\'t be undone.',
+              { title },
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {localItem ? (
@@ -53,18 +59,20 @@ export function DeleteServerBackedDialog({
               disabled={pending}
             />
             <span className="text-foreground-muted">
-              Also delete the local copy on this device
+              {tx("Also delete the local copy on this device")}
             </span>
           </label>
         ) : null}
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={pending}>
+            {tx("Cancel")}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             onClick={() => onConfirm(deleteLocal)}
             disabled={pending}
           >
-            {pending ? "Deleting..." : `Delete ${noun}`}
+            {pending ? tx("Deleting...") : tx("Delete {noun}", { noun })}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

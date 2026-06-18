@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import {
   createFileRoute,
@@ -69,10 +70,10 @@ function AdminAccountStep() {
     <div className="w-full max-w-sm">
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold">
-          Create the admin account
+          {tx("Create the admin account")}
         </h2>
         <p className="text-foreground-muted text-sm">
-          This first account will be assigned the admin role.
+          {tx("This first account will be assigned the admin role.")}
         </p>
       </div>
 
@@ -96,7 +97,7 @@ function CompleteSetupStep() {
         if (!cancelled) void navigate({ to: "/" })
       } catch (cause) {
         if (!cancelled) {
-          setMessage(errorMessage(cause, "Couldn't complete setup"))
+          setMessage(errorMessage(cause, tx("Couldn't complete setup")))
         }
       }
     }
@@ -110,13 +111,13 @@ function CompleteSetupStep() {
     <div className="w-full max-w-sm">
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold">
-          Finishing setup
+          {tx("Finishing setup")}
         </h2>
         {message ? (
           <p className="text-destructive text-sm">{message}</p>
         ) : (
           <p className="text-foreground-muted text-sm">
-            Finalizing the instance state.
+            {tx("Finalizing the instance state.")}
           </p>
         )}
       </div>
