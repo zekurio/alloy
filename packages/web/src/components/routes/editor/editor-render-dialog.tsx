@@ -18,9 +18,11 @@ import {
   SelectValue,
 } from "@alloy/ui/components/select"
 import { toast } from "@alloy/ui/lib/toast"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import * as React from "react"
 
+import { refreshLibrarySnapshotCache } from "@/components/routes/library/library-data"
 import type { AlloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
@@ -97,6 +99,7 @@ export function useEditorRender({
   onBeforeOpen: () => void
 }): EditorRenderController {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [renderDialogOpen, setRenderDialogOpen] = React.useState(false)
   const [renderSettings, setRenderSettings] = React.useState<RenderSettings>(
     DEFAULT_RENDER_SETTINGS,
@@ -156,6 +159,7 @@ export function useEditorRender({
         width: rendered.width,
         height: rendered.height,
       })
+      await refreshLibrarySnapshotCache(queryClient, desktop)
       toast.success("Render saved to your library")
       setRenderDialogOpen(false)
       void navigate({

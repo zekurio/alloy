@@ -38,27 +38,13 @@ const SOUND_ROWS: Array<{
     id: "clipSaved",
     title: "Save clip",
     description: "Played when the replay hotkey starts saving a clip.",
-    defaultFile: "bookmark.wav",
-  },
-  {
-    id: "screenshotTaken",
-    title: "Screenshot",
-    description: "Played when a screenshot is saved.",
-    defaultFile: "bookmark.wav",
-  },
-  {
-    id: "bookmarkAdded",
-    title: "Bookmark",
-    description: "Played when a bookmark is added to a full-session capture.",
-    defaultFile: "bookmark.wav",
+    defaultFile: "clip_saved.wav",
   },
 ]
 
 const EMPTY_LIBRARY: RecordingNotificationSoundLibrary = {
   replayBufferStarted: [],
   clipSaved: [],
-  bookmarkAdded: [],
-  screenshotTaken: [],
 }
 
 export function NotificationSoundsSection({

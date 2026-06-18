@@ -48,8 +48,6 @@ fn sidecar_version() -> SidecarVersion {
             "game-processes",
             "display-capture",
             "displays",
-            "long-recording",
-            "bookmarks",
             "replay-buffer",
             "audio-levels",
         ],
@@ -114,14 +112,6 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
             Err(error) => response_error(
                 request.id,
                 format!("Invalid replay clip params: {error}"),
-                recorder.status(),
-            ),
-        },
-        "addBookmark" => match serde_json::from_value::<RecordingActionRequest>(request.params) {
-            Ok(params) => response_ok(request.id, recorder.add_bookmark(params)),
-            Err(error) => response_error(
-                request.id,
-                format!("Invalid bookmark params: {error}"),
                 recorder.status(),
             ),
         },

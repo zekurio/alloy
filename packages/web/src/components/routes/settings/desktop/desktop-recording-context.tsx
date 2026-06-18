@@ -1,12 +1,9 @@
 import type {
-  RecordingActionResult,
-  RecordingActionRequest,
   RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundLibrary,
-  SaveReplayClipRequest,
   RecordingSettings,
   RecordingStatus,
   RecordingStorageInfo,
@@ -17,10 +14,6 @@ import * as React from "react"
 import { alloyDesktop } from "./desktop-bridge"
 
 type Phase = "loading" | "idle"
-type RecordingAction =
-  | { type: "saveReplayClip"; request: SaveReplayClipRequest }
-  | { type: "addBookmark"; request: RecordingActionRequest }
-  | { type: "takeScreenshot"; request: RecordingActionRequest }
 
 interface DesktopRecordingContextValue {
   settings: RecordingSettings | null
@@ -32,7 +25,6 @@ interface DesktopRecordingContextValue {
   setSettings: React.Dispatch<React.SetStateAction<RecordingSettings | null>>
   /** Persist the given settings to the desktop shell. */
   save: (next: RecordingSettings) => Promise<void>
-  runAction: (action: RecordingAction) => Promise<RecordingActionResult>
   /** Open the native folder picker and apply the chosen capture folder. */
   chooseOutputFolder: () => Promise<void>
   /** List the audio files available in each event's notification sounds folder. */
@@ -54,8 +46,6 @@ interface DesktopRecordingContextValue {
 const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
   replayBufferStarted: [],
   clipSaved: [],
-  bookmarkAdded: [],
-  screenshotTaken: [],
 }
 
 const DesktopRecordingContext =
@@ -234,29 +224,6 @@ export function DesktopRecordingProvider({
     }
   }, [recording])
 
-  const runAction = React.useCallback(
-    async (action: RecordingAction): Promise<RecordingActionResult> => {
-      if (!recording) {
-        throw new Error(
-          status?.message ?? "Desktop recording is not available.",
-        )
-      }
-
-      try {
-        const result = await runRecordingAction(recording, action)
-        setStatus(result.status)
-        if (!result.ok) toast.error(result.error ?? "Recording action failed.")
-        return result
-      } catch (cause) {
-        const message = errorText(cause, "Couldn't run recording action.")
-        toast.error(message)
-        if (status) return { ok: false, error: message, status }
-        throw new Error(message)
-      }
-    },
-    [recording, status],
-  )
-
   const value = React.useMemo<DesktopRecordingContextValue>(
     () => ({
       settings,
@@ -266,7 +233,6 @@ export function DesktopRecordingProvider({
       busy: phase !== "idle",
       setSettings,
       save,
-      runAction,
       chooseOutputFolder,
       listNotificationSounds,
       openNotificationSoundsFolder,
@@ -280,7 +246,6 @@ export function DesktopRecordingProvider({
       storageInfo,
       phase,
       save,
-      runAction,
       chooseOutputFolder,
       listNotificationSounds,
       openNotificationSoundsFolder,
@@ -309,18 +274,4 @@ export function useDesktopRecording(): DesktopRecordingContextValue {
 
 function errorText(cause: unknown, fallback: string): string {
   return cause instanceof Error ? cause.message : fallback
-}
-
-async function runRecordingAction(
-  recording: NonNullable<ReturnType<typeof alloyDesktop>>["recording"],
-  action: RecordingAction,
-): Promise<RecordingActionResult> {
-  switch (action.type) {
-    case "saveReplayClip":
-      return recording.saveReplayClip(action.request)
-    case "addBookmark":
-      return recording.addBookmark(action.request)
-    case "takeScreenshot":
-      return recording.takeScreenshot(action.request)
-  }
 }

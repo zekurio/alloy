@@ -1,5 +1,4 @@
 import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
-import { BlurHashCanvas } from "@alloy/ui/components/blurhash-canvas"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -8,14 +7,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
   ClapperboardIcon,
-  ImageIcon,
   Link2Icon,
   SaveIcon,
   Trash2Icon,
@@ -129,16 +126,15 @@ export function EditorBody({
     setGame((current) => current ?? resolvedGame)
   }, [resolvedGame])
 
-  const isVideo = item.kind !== "screenshot"
   const [handoffPoster, setHandoffPoster] = React.useState(() =>
-    isVideo ? readLibraryHandoffPoster(item.id) : null,
+    readLibraryHandoffPoster(item.id),
   )
   const [localFrameReady, setLocalFrameReady] = React.useState(
     () => handoffPoster === null,
   )
   React.useEffect(() => {
-    setHandoffPoster(isVideo ? readLibraryHandoffPoster(item.id) : null)
-  }, [isVideo, item.id])
+    setHandoffPoster(readLibraryHandoffPoster(item.id))
+  }, [item.id])
   React.useEffect(() => {
     setLocalFrameReady(handoffPoster === null)
   }, [handoffPoster])
@@ -147,12 +143,12 @@ export function EditorBody({
   }, [handoffPoster, item.id, localFrameReady])
   const poster = useCapturePoster({
     id: item.id,
-    mediaUrl: isVideo ? item.mediaUrl : null,
+    mediaUrl: item.mediaUrl,
     thumbnailUrl: item.thumbnailUrl,
     durationMs: item.durationMs,
-    enabled: isVideo,
+    enabled: true,
   })
-  const filmstrip = useMediaFilmstrip(isVideo ? item.mediaUrl : null)
+  const filmstrip = useMediaFilmstrip(item.mediaUrl)
   const aspectRatio = mediaAspectRatio(item.width, item.height)
   const normalizedTitle = normalizeClipTitle(title)
   const normalizedDescription = normalizeClipDescription(description)
@@ -171,7 +167,6 @@ export function EditorBody({
     gameChanged
   const titleInvalid = normalizedTitle.length === 0
   const canPublish =
-    isVideo &&
     !saving &&
     !publishing &&
     !deleting &&
@@ -307,34 +302,23 @@ export function EditorBody({
       <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
         <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
           <LibraryMediaStage aspectRatio={aspectRatio}>
-            {isVideo ? (
-              <VideoPlayer
-                src={item.mediaUrl}
-                sourceIdentity={item.id}
-                poster={poster ?? undefined}
-                posterBlurHash={item.thumbBlurHash}
-                fallbackSeed={item.id}
-                aspectRatio={aspectRatio}
-                maxDisplayHeight="100%"
-                controls={false}
-                onVideoClick={() => playback.togglePlayback()}
-                playerRef={playerRef}
-                onTimeUpdate={playback.handleTimeUpdate}
-                onPlayingChange={playback.setPlaying}
-                onFrameReady={() => setLocalFrameReady(true)}
-                onEnded={playback.handleEnded}
-                className="overflow-hidden rounded-md"
-              />
-            ) : (
-              <div className="relative flex size-full items-center justify-center overflow-hidden rounded-md bg-black">
-                <BlurHashCanvas hash={item.thumbBlurHash} />
-                <img
-                  src={item.mediaUrl}
-                  alt=""
-                  className="relative max-h-full max-w-full object-contain"
-                />
-              </div>
-            )}
+            <VideoPlayer
+              src={item.mediaUrl}
+              sourceIdentity={item.id}
+              poster={poster ?? undefined}
+              posterBlurHash={item.thumbBlurHash}
+              fallbackSeed={item.id}
+              aspectRatio={aspectRatio}
+              maxDisplayHeight="100%"
+              controls={false}
+              onVideoClick={() => playback.togglePlayback()}
+              playerRef={playerRef}
+              onTimeUpdate={playback.handleTimeUpdate}
+              onPlayingChange={playback.setPlaying}
+              onFrameReady={() => setLocalFrameReady(true)}
+              onEnded={playback.handleEnded}
+              className="overflow-hidden rounded-md"
+            />
 
             <LibraryEntryNavButton side="left" target={prevEntry} />
             <LibraryEntryNavButton side="right" target={nextEntry} />
@@ -344,76 +328,43 @@ export function EditorBody({
             />
           </LibraryMediaStage>
 
-          {isVideo ? (
-            <>
-              <TrimTransportControls playback={playback} />
+          <TrimTransportControls playback={playback} />
 
-              <LibraryTrimBar
-                frames={filmstrip.frames}
-                frameAspect={filmstrip.aspect}
-                durationMs={playback.durationMs}
-                startMs={trim.startMs}
-                endMs={trim.endMs}
-                currentMs={playback.currentMs}
-                onSeek={(sourceMs) => {
-                  playerRef.current?.pause()
-                  playback.seek(sourceMs)
-                }}
-                onStartChange={playback.handleTrimStartChange}
-                onEndChange={playback.handleTrimEndChange}
-                onMove={playback.handleTrimMove}
-              />
-            </>
-          ) : null}
+          <LibraryTrimBar
+            frames={filmstrip.frames}
+            frameAspect={filmstrip.aspect}
+            durationMs={playback.durationMs}
+            startMs={trim.startMs}
+            endMs={trim.endMs}
+            currentMs={playback.currentMs}
+            onSeek={(sourceMs) => {
+              playerRef.current?.pause()
+              playback.seek(sourceMs)
+            }}
+            onStartChange={playback.handleTrimStartChange}
+            onEndChange={playback.handleTrimEndChange}
+            onMove={playback.handleTrimMove}
+          />
         </section>
 
         <aside className="border-border bg-surface/60 flex min-w-0 flex-col gap-5 self-stretch rounded-md border p-4 lg:min-h-0 lg:overflow-y-auto">
-          {!isVideo ? (
-            <h1 className="text-foreground truncate text-lg font-semibold">
-              {item.title}
-            </h1>
-          ) : null}
-
-          {isVideo ? (
-            <>
-              <ClipMetadataEditor
-                title={title}
-                onTitleChange={setTitle}
-                description={description}
-                onDescriptionChange={setDescription}
-                game={game}
-                onGameChange={setGame}
-                mentions={mentions}
-                onMentionsChange={setMentions}
-                tags={parseTagString(tags)}
-                onTagsChange={(next) => setTags(formatTags(next))}
-                disabled={saving || publishing || deleting}
-                titleInvalid={titleInvalid}
-                gameInvalid={false}
-                autoFocusGame={promptGame}
-              />
-              <LocalFileLocation item={item} />
-            </>
-          ) : (
-            <>
-              {item.displayGameName ? (
-                <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-sm">
-                  <GameIcon
-                    src={item.displayGameIconUrl}
-                    name={item.displayGameName}
-                    size="sm"
-                  />
-                  <span className="truncate">{item.displayGameName}</span>
-                </div>
-              ) : null}
-              <div className="border-border bg-surface-raised/40 flex min-h-40 flex-col items-center justify-center gap-3 rounded-md border border-dashed text-center">
-                <ImageIcon className="text-foreground-faint size-8" />
-                <p className="text-foreground-muted text-sm">
-                  Screenshot upload is not available yet.
-                </p>
-              </div>
-            </>
-          )}
+          <ClipMetadataEditor
+            title={title}
+            onTitleChange={setTitle}
+            description={description}
+            onDescriptionChange={setDescription}
+            game={game}
+            onGameChange={setGame}
+            mentions={mentions}
+            onMentionsChange={setMentions}
+            tags={parseTagString(tags)}
+            onTagsChange={(next) => setTags(formatTags(next))}
+            disabled={saving || publishing || deleting}
+            titleInvalid={titleInvalid}
+            gameInvalid={false}
+            autoFocusGame={promptGame}
+          />
+          <LocalFileLocation item={item} />
 
           <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
             <Button
@@ -424,91 +375,79 @@ export function EditorBody({
             >
               Cancel
             </Button>
-            {isVideo ? (
-              <div className="flex items-center">
-                <Button
-                  type="button"
-                  variant="primary"
-                  disabled={primaryDisabled}
-                  className="rounded-r-none"
-                  onClick={() => {
-                    if (primaryPublishes) void handlePublish("public")
-                    else void handleSave()
-                  }}
+            <div className="flex items-center">
+              <Button
+                type="button"
+                variant="primary"
+                disabled={primaryDisabled}
+                className="rounded-r-none"
+                onClick={() => {
+                  if (primaryPublishes) void handlePublish("public")
+                  else void handleSave()
+                }}
+              >
+                <PrimaryIcon />
+                {primaryLabel}
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="icon"
+                      disabled={publishing || deleting || saving}
+                      aria-label="More post options"
+                      className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
+                    />
+                  }
                 >
-                  <PrimaryIcon />
-                  {primaryLabel}
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="icon"
-                        disabled={publishing || deleting || saving}
-                        aria-label="More post options"
-                        className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
-                      />
-                    }
-                  >
-                    <ChevronUpIcon />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="top" className="w-52">
-                    {showPostInMenu ? (
-                      <DropdownMenuItem
-                        disabled={!canPublish}
-                        onClick={() => {
-                          void handlePublish("public")
-                        }}
-                      >
-                        <UploadIcon className="size-4" />
-                        Post
-                      </DropdownMenuItem>
-                    ) : null}
-                    <DropdownMenuItem
-                      onClick={() => {
-                        void navigate({
-                          to: "/editor",
-                          search: { capture: item.id },
-                        })
-                      }}
-                    >
-                      <ClapperboardIcon className="size-4" />
-                      Open in Editor
-                    </DropdownMenuItem>
+                  <ChevronUpIcon />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" side="top" className="w-52">
+                  {showPostInMenu ? (
                     <DropdownMenuItem
                       disabled={!canPublish}
                       onClick={() => {
-                        void handlePublish("unlisted")
+                        void handlePublish("public")
                       }}
                     >
-                      <Link2Icon className="size-4" />
-                      Create Link
+                      <UploadIcon className="size-4" />
+                      Post
                     </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      variant="destructive"
-                      disabled={deleting || publishing || saving}
-                      onClick={onRequestDelete}
-                    >
-                      <Trash2Icon className="size-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="ghost"
-                disabled={deleting || saving}
-                onClick={onRequestDelete}
-              >
-                <Trash2Icon />
-                Delete
-              </Button>
-            )}
+                  ) : null}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      void navigate({
+                        to: "/editor",
+                        search: { capture: item.id },
+                      })
+                    }}
+                  >
+                    <ClapperboardIcon className="size-4" />
+                    Open in Editor
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!canPublish}
+                    onClick={() => {
+                      void handlePublish("unlisted")
+                    }}
+                  >
+                    <Link2Icon className="size-4" />
+                    Create Link
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    disabled={deleting || publishing || saving}
+                    onClick={onRequestDelete}
+                  >
+                    <Trash2Icon className="size-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </aside>
       </div>

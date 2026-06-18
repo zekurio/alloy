@@ -95,7 +95,7 @@ export function statusLabel(
 }
 
 export function statusActive(status: RecordingStatus | null): boolean {
-  return Boolean(status?.replayActive || status?.longRecordingActive)
+  return Boolean(status?.replayActive)
 }
 
 export function errorText(cause: unknown, fallback: string): string {

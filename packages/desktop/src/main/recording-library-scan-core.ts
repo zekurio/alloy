@@ -21,7 +21,6 @@ import type {
 import type { CaptureManifest } from "./recording-library-manifest"
 import {
   captureId,
-  IMAGE_EXTENSIONS,
   MEDIA_HOST,
   MEDIA_PROTOCOL,
   THUMBNAIL_HOST,
@@ -32,7 +31,6 @@ import {
 
 export interface RecordingLibraryScanInput {
   outputFolder: string
-  screenshotFolder: string
   manifest: CaptureManifest
   hiddenFileKeys: string[]
   thumbnailBlurHashes: Record<string, string>
@@ -73,7 +71,6 @@ export function createRecordingLibrarySnapshot(
   const groups = groupLibraryItems(items)
   return {
     outputFolder: input.outputFolder,
-    screenshotFolder: input.screenshotFolder,
     scannedAt: new Date().toISOString(),
     totalCount: items.length,
     totalSizeBytes: items.reduce((total, item) => total + item.sizeBytes, 0),
@@ -108,16 +105,6 @@ function scanRecordingLibraryItems(
       root: join(input.outputFolder, "Clips"),
       collection: "Clips",
       kind: "replay",
-    },
-    {
-      root: join(input.outputFolder, "Sessions"),
-      collection: "Sessions",
-      kind: "long-recording",
-    },
-    {
-      root: join(input.screenshotFolder, "Screenshots"),
-      collection: "Screenshots",
-      kind: "screenshot",
     },
   ]
 
@@ -201,14 +188,11 @@ function libraryItemForFile(
 
   return {
     id,
-    title: manifestEntry?.title ?? titleForCapture(kind, createdAt),
+    title: manifestEntry?.title ?? titleForCapture(createdAt),
     filename: absoluteFilename,
     fileName: basename(absoluteFilename),
     mediaUrl,
-    thumbnailUrl:
-      kind === "screenshot"
-        ? mediaUrl
-        : `${MEDIA_PROTOCOL}://${THUMBNAIL_HOST}/${id}?v=${thumbnailVersion}`,
+    thumbnailUrl: `${MEDIA_PROTOCOL}://${THUMBNAIL_HOST}/${id}?v=${thumbnailVersion}`,
     thumbBlurHash:
       input.thumbnailBlurHashes[`${id}-${thumbnailVersion}`] ?? null,
     collection: collection.collection,
@@ -222,7 +206,6 @@ function libraryItemForFile(
     gameGuess: manifestEntry?.gameGuess ?? null,
     sizeBytes: manifestEntry?.sizeBytes ?? stat.size,
     durationMs: manifestEntry?.durationMs ?? null,
-    bookmarksMs: manifestEntry?.bookmarksMs ?? [],
     width: manifestEntry?.width ?? null,
     height: manifestEntry?.height ?? null,
     description: manifestEntry?.description ?? null,
@@ -243,9 +226,7 @@ function extensionMatchesKind(
   extension: string,
   kind: RecordingCaptureKind,
 ): boolean {
-  return kind === "screenshot"
-    ? IMAGE_EXTENSIONS.has(extension)
-    : VIDEO_EXTENSIONS.has(extension)
+  return kind === "replay" && VIDEO_EXTENSIONS.has(extension)
 }
 
 function groupLabelForFile(collectionRoot: string, filename: string): string {
@@ -283,8 +264,6 @@ function groupLibraryItems(
         iconUrl: item.gameIconUrl,
         totalCount: 0,
         clipCount: 0,
-        sessionCount: 0,
-        screenshotCount: 0,
         totalSizeBytes: 0,
         latestAt: item.createdAt,
         items: [],
@@ -300,8 +279,6 @@ function groupLibraryItems(
         ? item.createdAt
         : group.latestAt
     if (item.kind === "replay") group.clipCount += 1
-    if (item.kind === "long-recording") group.sessionCount += 1
-    if (item.kind === "screenshot") group.screenshotCount += 1
     group.items.push(item)
   }
 

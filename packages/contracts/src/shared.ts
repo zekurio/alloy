@@ -6,11 +6,8 @@ export type ClipPrivacy = (typeof CLIP_PRIVACY)[number]
 export const CLIP_STATUS = ["pending", "processing", "ready", "failed"] as const
 export type ClipStatus = (typeof CLIP_STATUS)[number]
 
-/**
- * What a recording is. `clip` is a short replay/highlight; `session` is a
- * long, full-length capture you cut clips from. Extensible — add new kinds here.
- */
-export const RECORDING_KIND = ["clip", "session"] as const
+/** What a recording is. Alloy currently publishes short replay/highlight clips. */
+export const RECORDING_KIND = ["clip"] as const
 export type RecordingKind = (typeof RECORDING_KIND)[number]
 
 export const NOTIFICATION_TYPES = [

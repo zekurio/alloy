@@ -68,7 +68,8 @@ function LibraryEditorContent({
   const navigate = useNavigate()
   const navigateToEntry = useNavigateToLibraryEntry()
   const navigation = useLibraryEntryNavigation({ type: "local", id: captureId })
-  const { snapshot, error, refresh, prevEntry, nextEntry } = navigation
+  const { snapshot, error, refreshing, refresh, prevEntry, nextEntry } =
+    navigation
   const [deleting, setDeleting] = React.useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
 
@@ -127,6 +128,14 @@ function LibraryEditorContent({
   }
 
   if (currentEntry && currentEntry.type !== "local") {
+    return (
+      <AppMain>
+        <LoadingState className="py-16" />
+      </AppMain>
+    )
+  }
+
+  if (!item && refreshing) {
     return (
       <AppMain>
         <LoadingState className="py-16" />

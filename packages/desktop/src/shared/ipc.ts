@@ -2,7 +2,6 @@ import type {
   AlloyDesktopUpdatesApi,
   PublicAuthConfig,
   RecordingActionResult,
-  RecordingActionRequest,
   RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
@@ -110,8 +109,6 @@ export const IPC = {
   subscribeRecordingAudioLevels: "alloy:subscribe-recording-audio-levels",
   stopAudioLevels: "alloy:stop-audio-levels",
   saveReplayClip: "alloy:save-replay-clip",
-  addRecordingBookmark: "alloy:add-recording-bookmark",
-  takeRecordingScreenshot: "alloy:take-recording-screenshot",
   revealRecordingCapture: "alloy:reveal-recording-capture",
   minimizeWindow: "alloy:minimize-window",
   toggleMaximizeWindow: "alloy:toggle-maximize-window",
@@ -224,10 +221,6 @@ export interface AlloyDesktopRecordingApi {
   /** Stops audio-level events without waiting for the subscription to expire. */
   stopAudioLevels(): Promise<void>
   saveReplayClip(request: SaveReplayClipRequest): Promise<RecordingActionResult>
-  addBookmark(request: RecordingActionRequest): Promise<RecordingActionResult>
-  takeScreenshot(
-    request: RecordingActionRequest,
-  ): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
   /** Lists the audio files available in each event's notification sounds folder. */
   listNotificationSounds(): Promise<RecordingNotificationSoundLibrary>

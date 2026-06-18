@@ -5,7 +5,6 @@ import {
   normalizeAudioDevices,
   normalizeHotkeys,
   normalizeLiteral,
-  normalizeLongRecording,
   normalizeNotificationSounds,
   normalizeQualityProfile,
   normalizeQualitySettings,
@@ -48,7 +47,6 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
       typeof record.selectedDisplayId === "string"
         ? record.selectedDisplayId
         : DEFAULT_RECORDING_SETTINGS.selectedDisplayId,
-    longRecording: normalizeLongRecording(record.longRecording),
     allowedGames: normalizeAllowedGames(record.allowedGames),
     deniedGames: normalizeAllowedGames(record.deniedGames),
     audioMode: normalizeLiteral(

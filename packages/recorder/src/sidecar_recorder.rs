@@ -55,7 +55,7 @@ impl Recorder {
         self.last_error = None;
 
         if active_output_should_stop {
-            self.stop_all_outputs(true)?;
+            self.stop_all_outputs()?;
         }
 
         if needs_reinit || active_video_config_changed {
@@ -65,7 +65,7 @@ impl Recorder {
         self.refresh_discovery_caches();
 
         if !self.settings.as_ref().is_some_and(|settings| settings.enabled) {
-            self.stop_all_outputs(false)?;
+            self.stop_all_outputs()?;
             self.shutdown_obs();
             self.refresh_codec_capabilities();
             let status = self.status();
@@ -112,15 +112,10 @@ impl Recorder {
         let paused = self
             .replay_session
             .as_ref()
-            .is_some_and(|session| session.paused)
-            || self
-                .long_session
-                .as_ref()
-                .is_some_and(|session| session.paused);
+            .is_some_and(|session| session.paused);
         let run_state = match (&backend, &mode, paused) {
             (RecordingBackendState::Error, _, _) => RecordingRunState::Error,
             (_, _, true) => RecordingRunState::Paused,
-            (_, RecordingMode::Recording, _) => RecordingRunState::Recording,
             (_, RecordingMode::ReplayBuffer, _) => RecordingRunState::ReplayBuffer,
             _ => RecordingRunState::Idle,
         };
@@ -131,34 +126,23 @@ impl Recorder {
             capture_mode: settings.capture_mode.clone(),
             run_state,
             replay_active: self.replay_session.is_some(),
-            long_recording_active: self.long_session.is_some(),
             active_game: self.active_game.as_ref().map(|game| game.game.name.clone()),
             active_game_detail: self.active_game.as_ref().map(|game| game.game.clone()),
             active_display: self.active_display.clone(),
             focused: self.focused,
             current_source: self
-                .long_session
+                .replay_session
                 .as_ref()
                 .map(|session| session.capture.source.clone())
-                .or_else(|| {
-                    self.replay_session
-                        .as_ref()
-                        .map(|session| session.capture.source.clone())
-                })
                 .or_else(|| {
                     self.last_capture
                         .as_ref()
                         .map(|capture| capture.source.clone())
                 }),
             current_capture: self
-                .long_session
+                .replay_session
                 .as_ref()
                 .map(|session| session.capture.clone())
-                .or_else(|| {
-                    self.replay_session
-                        .as_ref()
-                        .map(|session| session.capture.clone())
-                })
                 .or_else(|| self.last_capture.clone()),
             replay_buffer_seconds: settings.replay_buffer_seconds,
             available_gpus: self.cached_gpus.clone(),
@@ -193,11 +177,7 @@ impl Recorder {
         let game = self.capture_game_for_mode("No detected game is available for replay buffer.")?;
         let output_folder = self.current_output_folder();
         let replay_scratch_folder = self.current_replay_scratch_folder();
-        let path = saved_recording_path(
-            &output_folder,
-            "Clips",
-            self.capture_folder_game(game.as_ref()),
-        );
+        let path = saved_recording_path(&output_folder, self.capture_folder_game(game.as_ref()));
         let capture = self.new_capture(
             &settings,
             game.as_ref(),
@@ -230,11 +210,10 @@ impl Recorder {
     }
 
     fn stop_active_replay_buffer(&mut self) -> Result<(), String> {
-        let Some(mut session) = self.replay_session.take() else {
+        let Some(session) = self.replay_session.take() else {
             return Err("Replay buffer state was lost.".to_string());
         };
 
-        self.transfer_capture_ownership_from(&mut session);
         let output_config = session.output_config.clone();
         unsafe {
             self.stop_output(session)?;
@@ -301,7 +280,6 @@ impl Recorder {
             game: session.capture.game.clone(),
             source: session.capture.source.clone(),
             kind: RecordingCaptureKind::Replay,
-            bookmarks_ms: Vec::new(),
             post_process: saved.post_process,
             created_at: system_time_iso(requested_at),
         };
@@ -320,34 +298,8 @@ impl Recorder {
         }
     }
 
-    fn add_bookmark(&mut self, params: RecordingActionRequest) -> RecordingActionResult {
-        let Some(session) = self.long_session.as_mut() else {
-            return RecordingActionResult {
-                ok: true,
-                status: self.status(),
-                capture: None,
-                error: None,
-            };
-        };
-
-        let requested_at = unix_millis_to_system_time(params.requested_at_unix_ms);
-        let position_ms = bookmark_position_ms(session, requested_at);
-        session.bookmarks.push(RecordingBookmark { position_ms });
-        RecordingActionResult {
-            ok: true,
-            status: self.status(),
-            capture: None,
-            error: None,
-        }
-    }
-
     fn shutdown(&mut self) {
         if let Some(session) = self.replay_session.take() {
-            unsafe {
-                let _ = self.stop_output(session);
-            }
-        }
-        if let Some(session) = self.long_session.take() {
             unsafe {
                 let _ = self.stop_output(session);
             }
@@ -413,8 +365,12 @@ impl Recorder {
                 encoder: RecordingEncoder::Hardware,
                 ..settings.clone()
             };
-            self.available_codecs =
-                available_video_codecs(&obs, &hardware_settings, &self.available_encoders);
+            self.available_codecs = available_video_codecs(
+                &obs,
+                &hardware_settings,
+                &self.available_encoders,
+                selected_gpu_label(settings, &self.cached_gpus),
+            );
         }
         self.obs = Some(obs);
         self.obs_video_config = Some(video_config);
@@ -468,7 +424,6 @@ impl Recorder {
             game: game.map(|game| game.game.clone()),
             source: recording_source_from_kind(source_kind),
             kind,
-            bookmarks_ms: Vec::new(),
             post_process: None,
             created_at: now_iso(),
         }
@@ -633,19 +588,6 @@ impl Recorder {
             }
         }
 
-        if settings.capture_mode == RecordingCaptureMode::Game
-            && settings.long_recording.auto_record_games
-            && self.long_session.is_none()
-            && self.active_game.is_some()
-        {
-            if let Err(error) = self.start_long_recording() {
-                self.last_error = Some(error.clone());
-                let status = self.status();
-                emit_event(RecordingEvent::Error { error, status });
-                return;
-            }
-        }
-
         if self.has_active_outputs() {
             if let Err(error) = self.refresh_active_output_for_focus() {
                 self.last_error = Some(error.clone());
@@ -673,107 +615,16 @@ impl Recorder {
         Some(active_game.game)
     }
 
-    fn start_long_recording(&mut self) -> Result<(), String> {
-        if self.long_session.is_some() {
-            return Ok(());
+    fn stop_all_outputs(&mut self) -> Result<(), String> {
+        if self.replay_session.is_some() {
+            self.stop_active_replay_buffer()?;
         }
-        let settings = self.settings.clone().unwrap_or_default();
-        let game =
-            self.capture_game_for_mode("No detected game is available for long recording.")?;
-        let output_folder = self.current_output_folder();
-        let filename = saved_recording_path(
-            &output_folder,
-            "Sessions",
-            self.capture_folder_game(game.as_ref()),
-        );
-        let capture = self.new_capture(
-            &settings,
-            game.as_ref(),
-            RecordingCaptureKind::LongRecording,
-            filename.to_string_lossy().into_owned(),
-        );
-        let session = self.start_file_output(
-            &settings,
-            game.as_ref(),
-            ActiveOutputKind::LongRecording,
-            capture,
-        )?;
-        self.long_session = Some(session);
-        self.last_capture = None;
-        self.last_error = None;
-        let status = self.status();
-        emit_event(RecordingEvent::Status { status });
         Ok(())
     }
 
-    fn stop_active_long_recording(&mut self) -> Result<RecordingCapture, String> {
-        let Some(mut session) = self.long_session.take() else {
-            return Err("Recording state was lost.".to_string());
-        };
-        self.transfer_capture_ownership_from(&mut session);
-        let mut capture = session.capture.clone();
-        let started_at = session.started_at;
-        let total_paused = session_total_paused(&session);
-        let bookmarks = session.bookmarks.clone();
-        unsafe {
-            self.stop_output(session)?;
-        }
-        capture.size_bytes = fs::metadata(&capture.filename)
-            .ok()
-            .map(|metadata| metadata.len());
-        capture.duration_ms = session_duration_ms(started_at, total_paused);
-        capture.bookmarks_ms = bookmarks
-            .iter()
-            .map(|bookmark| bookmark.position_ms)
-            .collect();
-        capture.bookmarks_ms.sort_unstable();
-        self.last_capture = Some(capture.clone());
-        self.last_error = None;
-        Ok(capture)
-    }
-
-    fn stop_all_outputs(
-        &mut self,
-        emit_file_capture: bool,
-    ) -> Result<Option<RecordingCapture>, String> {
-        if self.replay_session.is_some() {
-            self.stop_active_replay_buffer()?;
-        }
-
-        if self.long_session.is_some() {
-            let capture = self.stop_active_long_recording()?;
-            if emit_file_capture {
-                let status = self.status();
-                emit_event(RecordingEvent::CaptureReady {
-                    capture: capture.clone(),
-                    status,
-                });
-            } else {
-                let status = self.status();
-                emit_event(RecordingEvent::Status { status });
-            }
-            return Ok(Some(capture));
-        }
-        Ok(None)
-    }
-
     fn handle_game_boundary(&mut self, settings: &RecordingSettings) -> Result<(), String> {
-        let restart_auto_long = settings.capture_mode == RecordingCaptureMode::Game
-            && settings.long_recording.auto_record_games
-            && self.long_session.is_some()
-            && self.active_game.is_some();
-
         if self.replay_session.is_some() {
             self.stop_active_replay_buffer()?;
-        }
-        if self.long_session.is_some() {
-            let capture = self.stop_active_long_recording()?;
-            let status = self.status();
-            emit_event(RecordingEvent::CaptureReady { capture, status });
-        }
-
-        if restart_auto_long {
-            self.start_long_recording()?;
         }
         if settings.enabled && self.capture_target_available(settings) {
             self.start_replay_buffer()?;
@@ -817,27 +668,6 @@ impl Recorder {
         }
     }
 
-    fn transfer_capture_ownership_from(&mut self, session: &mut ActiveSession) {
-        if !session.owns_capture {
-            return;
-        }
-        if let Some(long_session) = self.long_session.as_mut() {
-            long_session.owns_capture = true;
-            long_session.video_graph = session.video_graph;
-            long_session.audio_sources = session.audio_sources.clone();
-            long_session.source_kind = session.source_kind;
-            session.owns_capture = false;
-            return;
-        }
-        if let Some(replay_session) = self.replay_session.as_mut() {
-            replay_session.owns_capture = true;
-            replay_session.video_graph = session.video_graph;
-            replay_session.audio_sources = session.audio_sources.clone();
-            replay_session.source_kind = session.source_kind;
-            session.owns_capture = false;
-        }
-    }
-
     fn refresh_active_capture_metadata(&mut self, settings: &RecordingSettings) {
         if settings.capture_mode != RecordingCaptureMode::Game {
             return;
@@ -874,10 +704,7 @@ impl Recorder {
             .obs
             .as_ref()
             .ok_or_else(|| "OBS is not initialized.".to_string())?;
-        for session in [&mut self.replay_session, &mut self.long_session]
-            .into_iter()
-            .flatten()
-        {
+        for session in [&mut self.replay_session].into_iter().flatten() {
             if session.paused == should_pause || !session.can_pause {
                 continue;
             }
@@ -906,7 +733,7 @@ impl Recorder {
             return Ok(());
         }
 
-        self.stop_all_outputs(true)?;
+        self.stop_all_outputs()?;
         self.shutdown_obs();
         self.tick();
         Ok(())

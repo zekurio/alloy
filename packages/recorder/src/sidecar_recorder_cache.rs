@@ -11,7 +11,16 @@ impl Recorder {
     fn available_codecs(&self, settings: &RecordingSettings) -> Vec<RecordingCodec> {
         let caps = self.codec_caps.clone().unwrap_or_default();
         match settings.encoder {
-            RecordingEncoder::Hardware => caps.hardware,
+            RecordingEncoder::Hardware => caps
+                .hardware
+                .into_iter()
+                .filter(|codec| {
+                    codec_allowed_for_gpu_label(
+                        codec,
+                        selected_gpu_label(settings, &self.cached_gpus),
+                    )
+                })
+                .collect(),
             RecordingEncoder::Software => {
                 if caps.software_h264 {
                     vec![RecordingCodec::H264]
@@ -31,7 +40,11 @@ impl Recorder {
         let Some(settings) = self.settings.clone() else {
             return;
         };
-        let key = (gpu_adapter(&settings), self.obs_runtime_dir.clone());
+        let key = (
+            gpu_adapter(&settings),
+            selected_gpu_label(&settings, &self.cached_gpus).map(str::to_string),
+            self.obs_runtime_dir.clone(),
+        );
         let cached = self
             .codec_caps
             .take()
@@ -89,8 +102,11 @@ impl Recorder {
             && self
                 .codec_caps_key
                 .as_ref()
-                .is_some_and(|(adapter, runtime)| {
-                    *adapter == gpu_adapter(settings) && runtime == &self.obs_runtime_dir
+                .is_some_and(|(adapter, gpu_label, runtime)| {
+                    *adapter == gpu_adapter(settings)
+                        && gpu_label.as_deref()
+                            == selected_gpu_label(settings, &self.cached_gpus)
+                        && runtime == &self.obs_runtime_dir
                 })
     }
 
@@ -117,7 +133,12 @@ impl Recorder {
                 ..settings.clone()
             };
             let caps = CodecCaps {
-                hardware: available_video_codecs(&obs, &hardware_settings, &encoders),
+                hardware: available_video_codecs(
+                    &obs,
+                    &hardware_settings,
+                    &encoders,
+                    selected_gpu_label(settings, &self.cached_gpus),
+                ),
                 software_h264: has_software_h264_encoder(&encoders),
             };
             obs.shutdown();
@@ -192,9 +213,7 @@ impl Recorder {
     }
 
     fn current_mode(&self) -> RecordingMode {
-        if self.long_session.is_some() {
-            RecordingMode::Recording
-        } else if self.replay_session.is_some() {
+        if self.replay_session.is_some() {
             RecordingMode::ReplayBuffer
         } else {
             RecordingMode::Idle
@@ -205,21 +224,15 @@ impl Recorder {
         self.replay_session
             .as_ref()
             .filter(|session| session.owns_capture)
-            .or_else(|| {
-                self.long_session
-                    .as_ref()
-                    .filter(|session| session.owns_capture)
-            })
     }
 
     fn has_active_outputs(&self) -> bool {
-        self.replay_session.is_some() || self.long_session.is_some()
+        self.replay_session.is_some()
     }
 }
 fn active_session_should_stop(session: &ActiveSession, settings: &RecordingSettings) -> bool {
     match session.kind {
         ActiveOutputKind::ReplayBuffer => !settings.enabled,
-        ActiveOutputKind::LongRecording => !settings.enabled,
     }
 }
 

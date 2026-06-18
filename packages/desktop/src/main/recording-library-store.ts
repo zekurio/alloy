@@ -23,16 +23,16 @@ import {
   captureCollectionFolder,
   uniqueCaptureFilename,
 } from "./recording-library-paths"
-import { findRecordingLibraryItem } from "./recording-library-scan"
+import {
+  findRecordingLibraryItem,
+  invalidateRecordingLibrarySnapshot,
+} from "./recording-library-scan"
 import {
   captureId,
   isCaptureId,
   titleForCapture,
 } from "./recording-library-shared"
-import {
-  pruneStaleThumbnails,
-  warmRecordingThumbnail,
-} from "./recording-library-thumbnails"
+import { pruneStaleThumbnails } from "./recording-library-thumbnails"
 import { currentOutputFolder } from "./recording-storage"
 
 const logger = createLogger("library")
@@ -47,7 +47,7 @@ export function rememberRecordingLibraryCapture(
     ...existing,
     id: isCaptureId(existing?.id) ? existing.id : captureId(filename),
     filename,
-    title: titleForCapture(capture.kind, capture.createdAt),
+    title: titleForCapture(capture.createdAt),
     kind: capture.kind,
     source: capture.source,
     gameName: capture.game?.name ?? null,
@@ -55,14 +55,13 @@ export function rememberRecordingLibraryCapture(
     gameGuess: capture.game?.guess ?? null,
     sizeBytes: capture.sizeBytes,
     durationMs: capture.durationMs,
-    bookmarksMs: capture.bookmarksMs,
     width: capture.width,
     height: capture.height,
     createdAt: capture.createdAt,
     updatedAt: new Date().toISOString(),
   }
   writeCaptureManifest(manifest)
-  warmRecordingThumbnail(capture)
+  invalidateRecordingLibrarySnapshot()
 
   // The sidecar reports the requested duration (for replays, the configured
   // buffer window even when the buffer held less footage). Measure the real
@@ -71,7 +70,9 @@ export function rememberRecordingLibraryCapture(
     if (probed === null) return
     const reported = capture.durationMs
     if (reported !== null && Math.abs(probed - reported) <= 1000) return
-    correctCaptureDurationMs(filename, probed)
+    if (correctCaptureDurationMs(filename, probed)) {
+      invalidateRecordingLibrarySnapshot()
+    }
   })
 }
 
@@ -100,7 +101,6 @@ export function updateRecordingLibraryCaptureMeta(
     gameGuess: item.gameGuess,
     sizeBytes: item.sizeBytes,
     durationMs: item.durationMs,
-    bookmarksMs: item.bookmarksMs,
     width: item.width,
     height: item.height,
     createdAt: item.createdAt,
@@ -131,6 +131,7 @@ export function updateRecordingLibraryCaptureMeta(
 
   manifest.captures[key] = entry
   writeCaptureManifest(manifest)
+  invalidateRecordingLibrarySnapshot()
   return { id: entry.id }
 }
 
@@ -139,9 +140,6 @@ function moveDisplayCaptureToGameFolder(
   entry: CaptureManifestEntry,
 ): string | null {
   if (item.source !== "display") return null
-  if (item.collection !== "Clips" && item.collection !== "Sessions") {
-    return null
-  }
 
   const root = captureCollectionFolder(item.collection, entry.gameName)
   const current = resolve(entry.filename)
@@ -172,6 +170,7 @@ export async function deleteRecordingLibraryItem(id: string): Promise<void> {
     delete manifest.captures[manifestKey(item.filename)]
     writeCaptureManifest(manifest)
   }
+  invalidateRecordingLibrarySnapshot()
   // Passing an impossible "keep" name clears every cached file for the id.
   pruneStaleThumbnails(id, "")
 }

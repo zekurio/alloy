@@ -31,6 +31,7 @@ import {
   captureCollectionFolder,
   uniqueCaptureFilename,
 } from "./recording-library-paths"
+import { invalidateRecordingLibrarySnapshot } from "./recording-library-scan"
 import {
   captureId,
   titleForCapture,
@@ -87,13 +88,13 @@ export function importRecordingLibraryCapture(
     gameGuess: null,
     sizeBytes: request.data.byteLength,
     durationMs: request.durationMs > 0 ? Math.round(request.durationMs) : null,
-    bookmarksMs: [],
     width: request.width,
     height: request.height,
     createdAt,
     updatedAt: createdAt,
   }
   writeCaptureManifest(manifest)
+  invalidateRecordingLibrarySnapshot()
 
   return { id }
 }
@@ -145,7 +146,7 @@ async function stageVideoFile(
     sourceStat.mtimeMs > 0 ? sourceStat.mtimeMs : Date.now(),
   ).toISOString()
   const base = basename(source, extension)
-  const title = base.trim() || titleForCapture("replay", createdAt)
+  const title = base.trim() || titleForCapture(createdAt)
   const staged: StagedVideoImport = {
     id,
     stagedPath: resolve(stagedPath),
@@ -197,13 +198,13 @@ export async function commitRecordingLibraryStagedImport(
     gameGuess: null,
     sizeBytes: staged.sizeBytes,
     durationMs: staged.durationMs,
-    bookmarksMs: [],
     width: staged.width,
     height: staged.height,
     createdAt: staged.createdAt,
     updatedAt: new Date().toISOString(),
   }
   writeCaptureManifest(manifest)
+  invalidateRecordingLibrarySnapshot()
   stagedImports.delete(request.id)
 
   return { id }

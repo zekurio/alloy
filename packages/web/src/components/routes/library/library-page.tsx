@@ -46,7 +46,6 @@ import {
   ClapperboardIcon,
   FolderInputIcon,
   HardDriveIcon,
-  ImageIcon,
   LayersIcon,
   LibraryIcon,
   SearchIcon,
@@ -54,6 +53,7 @@ import {
 } from "lucide-react"
 import * as React from "react"
 
+import { ClipGrid } from "@/components/clip/clip-grid"
 import { FilterCarousel } from "@/components/filter-carousel"
 import { GameCombobox } from "@/components/game/game-combobox"
 import { useSession } from "@/lib/auth-client"
@@ -71,6 +71,7 @@ import {
   buildLibraryGroups,
   enrichGroupIcon,
   formatLibraryBytes,
+  refreshLibrarySnapshotCache,
   type LibraryGroupView,
   type LibraryItemView,
   useLibraryGameLookup,
@@ -245,6 +246,7 @@ function useLibraryContentModel({
 
 function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [picking, setPicking] = React.useState(false)
   const [committing, setCommitting] = React.useState(false)
   const [staged, setStaged] =
@@ -307,6 +309,8 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
           gameName: game.name,
           gameIconUrl: game.iconUrl ?? game.logoUrl,
         })
+        await refreshLibrarySnapshotCache(queryClient, desktop)
+        setStaged(null)
         toast.success("Clip imported into your library")
         await navigate({
           to: "/library/$captureId",
@@ -318,7 +322,7 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
         setCommitting(false)
       }
     },
-    [committing, desktop, navigate, staged],
+    [committing, desktop, navigate, queryClient, staged],
   )
 
   return { available, picking, committing, staged, start, discard, commit }
@@ -603,8 +607,6 @@ const KIND_OPTIONS: ReadonlyArray<{
 }> = [
   { value: "all", label: "All", icon: <LayersIcon /> },
   { value: "replay", label: "Clips", icon: <ClapperboardIcon /> },
-  { value: "long-recording", label: "Sessions", icon: <VideoIcon /> },
-  { value: "screenshot", label: "Screenshots", icon: <ImageIcon /> },
 ]
 
 function KindSelect({
@@ -710,7 +712,7 @@ function LibraryBody({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-3 2xl:grid-cols-5 [&>*]:[contain-intrinsic-size:260px] [&>*]:[content-visibility:auto]">
+    <ClipGrid>
       {entries.map((entry) =>
         entry.type === "local" ? (
           <LibraryCaptureCard
@@ -735,7 +737,7 @@ function LibraryBody({
           />
         ),
       )}
-    </div>
+    </ClipGrid>
   )
 }
 

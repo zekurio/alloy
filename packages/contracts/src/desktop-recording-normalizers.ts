@@ -10,7 +10,6 @@ import {
   type RecordingAudioApplicationSelection,
   type RecordingAudioDeviceSelection,
   type RecordingHotkeys,
-  type RecordingLongRecordingSettings,
   type RecordingNotificationSoundEvent,
   type RecordingNotificationSounds,
   type RecordingQualityProfile,
@@ -61,33 +60,8 @@ export function normalizeHotkeys(value: unknown): RecordingHotkeys {
     typeof value === "object" && value !== null
       ? (value as Record<string, unknown>)
       : {}
-  const toHotkey = (raw: unknown, fallback: string) =>
-    typeof raw === "string" ? raw : fallback
   return {
     clip: normalizeClipHotkey(record),
-    bookmark: toHotkey(
-      record.bookmark,
-      DEFAULT_RECORDING_SETTINGS.hotkeys.bookmark,
-    ),
-    screenshot: toHotkey(
-      record.screenshot,
-      DEFAULT_RECORDING_SETTINGS.hotkeys.screenshot,
-    ),
-  }
-}
-
-export function normalizeLongRecording(
-  value: unknown,
-): RecordingLongRecordingSettings {
-  const record =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {}
-  return {
-    autoRecordGames:
-      typeof record.autoRecordGames === "boolean"
-        ? record.autoRecordGames
-        : DEFAULT_RECORDING_SETTINGS.longRecording.autoRecordGames,
   }
 }
 

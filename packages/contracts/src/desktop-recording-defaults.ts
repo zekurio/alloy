@@ -4,9 +4,6 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   enabled: false,
   captureMode: "game",
   selectedDisplayId: "",
-  longRecording: {
-    autoRecordGames: false,
-  },
   allowedGames: [],
   deniedGames: [],
   audioMode: "devices",
@@ -37,13 +34,9 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   outputFolder: "",
   hotkeys: {
     clip: "F8",
-    bookmark: "F9",
-    screenshot: "F7",
   },
   notificationSounds: {
     replayBufferStarted: { enabled: true, volume: 100, path: "" },
     clipSaved: { enabled: true, volume: 100, path: "" },
-    bookmarkAdded: { enabled: true, volume: 100, path: "" },
-    screenshotTaken: { enabled: true, volume: 100, path: "" },
   },
 }

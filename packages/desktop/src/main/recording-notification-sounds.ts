@@ -43,16 +43,8 @@ const RECORDING_NOTIFICATION_SOUND_MATCHES: Record<
     terms: ["replay", "buffer", "start"],
   },
   clipSaved: {
-    files: ["clip_saved.wav", "save_clip.wav", "bookmark.wav"],
+    files: ["clip_saved.wav", "save_clip.wav"],
     terms: ["clip", "save", "saved"],
-  },
-  bookmarkAdded: {
-    files: ["bookmark.wav", "marker.wav"],
-    terms: ["bookmark", "marker"],
-  },
-  screenshotTaken: {
-    files: ["screenshot.wav", "screenshot_saved.wav", "bookmark.wav"],
-    terms: ["screenshot", "camera", "shutter", "snapshot"],
   },
 }
 

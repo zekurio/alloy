@@ -14,7 +14,6 @@ import {
 } from "./ipc-guards"
 import {
   isNotificationSoundEvent,
-  normalizeActionRequest,
   normalizeSaveReplayClipRequest,
 } from "./ipc-normalizers"
 import { registerRecordingLibraryIpc } from "./ipc-recording-library"
@@ -24,7 +23,6 @@ import {
   emitRecordingSettingsEvent,
   getRecordingStatus,
   getRecordingStorageInfo,
-  addRecordingBookmark,
   listGameProcesses,
   listRecordingDisplays,
   onRecordingEvent,
@@ -32,7 +30,6 @@ import {
   saveReplayClip,
   stopAudioLevels,
   subscribeRecordingAudioLevels,
-  takeRecordingScreenshot,
 } from "./recording"
 import { configureRecordingHotkeys } from "./recording-hotkeys"
 import {
@@ -311,14 +308,6 @@ function registerRecordingActionIpc(windows: Windows): void {
   ipcMain.handle(IPC.saveReplayClip, (event, request: unknown) => {
     requireMainSender(windows, event)
     return saveReplayClip(normalizeSaveReplayClipRequest(request))
-  })
-  ipcMain.handle(IPC.addRecordingBookmark, (event, request: unknown) => {
-    requireMainSender(windows, event)
-    return addRecordingBookmark(normalizeActionRequest(request))
-  })
-  ipcMain.handle(IPC.takeRecordingScreenshot, (event, request: unknown) => {
-    requireMainSender(windows, event)
-    return takeRecordingScreenshot(normalizeActionRequest(request))
   })
   ipcMain.handle(IPC.revealRecordingCapture, (event, filename: unknown) => {
     requireMainSender(windows, event)

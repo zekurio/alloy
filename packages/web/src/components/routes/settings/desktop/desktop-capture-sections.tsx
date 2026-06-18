@@ -33,58 +33,18 @@ export function ModeSection({
       <div
         className={cn(
           "border-border bg-surface-raised/40 flex items-center gap-2 rounded-md border px-3 py-2 text-xs",
-          status.replayActive || status.longRecordingActive
-            ? "text-foreground-muted"
-            : "text-foreground-dim",
+          status.replayActive ? "text-foreground-muted" : "text-foreground-dim",
         )}
       >
         <div
           className={cn(
             "size-1.5 shrink-0 rounded-full",
-            status.replayActive || status.longRecordingActive
-              ? "bg-accent"
-              : "bg-foreground-dim",
+            status.replayActive ? "bg-accent" : "bg-foreground-dim",
           )}
         />
         <span className="font-medium">
           {captureStatusLabel(settings, status)}
         </span>
-      </div>
-
-      <div
-        className={cn(
-          "rounded-md border px-3 py-3",
-          settings.longRecording.autoRecordGames
-            ? "border-accent-border bg-accent/5"
-            : "border-border bg-transparent",
-        )}
-      >
-        <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold">Full-session capture</div>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              Save detected game sessions automatically until the game closes.
-            </p>
-          </div>
-          <Switch
-            checked={settings.longRecording.autoRecordGames}
-            disabled={busy || settings.captureMode === "display"}
-            onCheckedChange={(autoRecordGames) =>
-              void save({
-                ...settings,
-                longRecording: {
-                  ...settings.longRecording,
-                  autoRecordGames,
-                },
-              })
-            }
-          />
-        </div>
-        {settings.captureMode === "display" ? (
-          <p className="text-foreground-faint mt-2 text-xs">
-            Full-session capture is only available for game capture.
-          </p>
-        ) : null}
       </div>
     </div>
   )
@@ -109,7 +69,6 @@ function captureStatusLabel(
   settings: RecordingSettings,
   status: RecordingStatus,
 ): string {
-  if (status.longRecordingActive) return "Saving full session"
   if (status.replayActive) return "Replay buffer active"
   if (settings.captureMode === "display") {
     return settings.enabled ? "Display capture ready" : "Display capture off"

@@ -12,15 +12,13 @@ export type TopClipsRowItem = {
 /**
  * Shared layout for the "Top clips" decks on home, game, and profile pages.
  *
- * A single carousel that shows 1, 3, or 5 cards per row (never the in-between
- * 2 or 4, which read awkwardly). We hold the comfortable 3-up layout across the
- * whole common desktop range and only step up to 5 on genuinely wide (`2xl`)
- * viewports — five cards at `xl` shrank them too far. At the widest breakpoint
- * the cards fill the row and the scroller has nothing left to page through;
- * below that it pages through the deck.
- *
- * Slide widths subtract the visible `gap-3` gutters before division, otherwise
- * exact 3-up and 5-up decks leave a tiny scrollable remainder.
+ * Slides are a fixed legible width rather than a count-derived fraction, so the
+ * number visible flows naturally with the viewport (and the rest scrolls)
+ * instead of snapping between the old 3-up and 5-up layouts. A full-width card
+ * with a peek on mobile cues that the deck scrolls; from `sm` up each slide
+ * holds 340px to match `ClipGrid`'s fixed column width, so a deck card and a
+ * grid card on the same page are the same width — wide enough for the avatar +
+ * title + meta rows to breathe without cropping the `author · game` line.
  */
 export function TopClipsRow({ items }: { items: readonly TopClipsRowItem[] }) {
   return (
@@ -28,7 +26,7 @@ export function TopClipsRow({ items }: { items: readonly TopClipsRowItem[] }) {
       {items.map(({ row }) => (
         <CarouselItem
           key={row.id}
-          className="basis-full pl-0 md:basis-[calc((100%_-_1.5rem)/3)] 2xl:basis-[calc((100%_-_3rem)/5)]"
+          className="basis-[88%] pl-0 sm:basis-[340px]"
         >
           <ClipCardTrigger row={row} />
         </CarouselItem>
