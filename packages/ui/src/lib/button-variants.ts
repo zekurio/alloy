@@ -4,7 +4,7 @@ import { cva } from "class-variance-authority"
 const buttonVariants = cva(
   cn(
     "group/button inline-flex shrink-0 items-center justify-center gap-2",
-    "rounded-md border border-transparent whitespace-nowrap select-none",
+    "rounded-lg border border-transparent whitespace-nowrap select-none",
     "font-semibold tracking-[-0.005em]",
     "transition-[background,border-color,color,box-shadow]",
     "duration-[var(--duration-fast)] ease-[var(--ease-out)]",

@@ -1,4 +1,4 @@
-import type { ClipRow } from "@alloy/api"
+import { clipDownloadUrl, type ClipRow } from "@alloy/api"
 import { Button } from "@alloy/ui/components/button"
 import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
@@ -6,11 +6,13 @@ import { cn } from "@alloy/ui/lib/utils"
 import { CheckIcon, DownloadIcon, Loader2Icon } from "lucide-react"
 import * as React from "react"
 
+import { startBrowserDownload } from "@/lib/browser-download"
 import {
   clipDownloadsSupported,
   startClipDownload,
   useClipDownload,
 } from "@/lib/clip-downloads"
+import { apiOrigin } from "@/lib/env"
 
 /**
  * Shared "save this uploaded clip to the local library" affordance. Renders
@@ -28,6 +30,10 @@ export function clipDownloadActionSupported(row: ClipRow): boolean {
     row.status === "ready" &&
     Boolean(row.sourceContentType)
   )
+}
+
+export function clipBrowserDownloadActionSupported(row: ClipRow): boolean {
+  return row.status === "ready" && Boolean(row.sourceContentType)
 }
 
 export function useClipDownloadAction(
@@ -122,6 +128,26 @@ export function ClipDownloadMenuItem({
     >
       <ClipDownloadStatusIcon action={action} />
       {clipDownloadMenuLabel(action)}
+    </DropdownMenuItem>
+  )
+}
+
+/** Browser download variant for clip action menus. */
+export function ClipBrowserDownloadMenuItem({ row }: { row: ClipRow }) {
+  if (!clipBrowserDownloadActionSupported(row)) return null
+
+  return (
+    <DropdownMenuItem
+      onClick={(event) => {
+        event.stopPropagation()
+        const started = startBrowserDownload(
+          clipDownloadUrl(row.id, "source", apiOrigin()),
+        )
+        if (!started) toast.error("Couldn't start download")
+      }}
+    >
+      <DownloadIcon />
+      Download
     </DropdownMenuItem>
   )
 }

@@ -12,7 +12,7 @@ import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { toast } from "@alloy/ui/lib/toast"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   ClapperboardIcon,
   HardDriveIcon,
@@ -393,6 +393,9 @@ function EditorContent({
           {draftSaveStatus === "saved" ? (
             <span className="text-foreground-faint text-sm">Saved</span>
           ) : null}
+          <Button variant="ghost" size="sm" render={<Link to="/library" />}>
+            Cancel
+          </Button>
           {savedDraftId ? (
             <Button
               variant="ghost"

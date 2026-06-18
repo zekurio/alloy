@@ -8,7 +8,6 @@ import {
   playReplaySaveRequestedSound,
   saveReplayClip,
   takeRecordingScreenshot,
-  toggleLongRecording,
 } from "./recording"
 import { electronAccelerator } from "./recording-hotkey-accelerator"
 import { getRecordingSettings } from "./server-store"
@@ -19,7 +18,6 @@ type HotkeyAction =
   | { type: "clip"; durationSeconds: number }
   | { type: "bookmark" }
   | { type: "screenshot" }
-  | { type: "toggleLongRecording" }
 
 const HOTKEY_HEALTH_INTERVAL_MS = 30_000
 const HOTKEY_ACTION_DEBOUNCE_MS = 700
@@ -134,13 +132,6 @@ async function runAction(
       }
       return
     }
-    case "toggleLongRecording": {
-      const result = await toggleLongRecording({ requestedAtUnixMs })
-      if (!result.ok) {
-        logger.warn(`long recording hotkey failed: ${result.error}`)
-      }
-      return
-    }
   }
 }
 
@@ -182,7 +173,6 @@ function hotkeyActionMap(
   })
   add(settings.hotkeys.bookmark, { type: "bookmark" })
   add(settings.hotkeys.screenshot, { type: "screenshot" })
-  add(settings.hotkeys.toggleLongRecording, { type: "toggleLongRecording" })
 
   return actions
 }

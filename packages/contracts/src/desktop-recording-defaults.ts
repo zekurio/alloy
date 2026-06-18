@@ -39,13 +39,11 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
     clip: "F8",
     bookmark: "F9",
     screenshot: "F7",
-    toggleLongRecording: "Alt+F7",
   },
   notificationSounds: {
-    recordingStarted: { enabled: true, volume: 100, path: "" },
-    manualRecordingStarted: { enabled: true, volume: 100, path: "" },
+    replayRecordingStarted: { enabled: true, volume: 100, path: "" },
     clipSaved: { enabled: true, volume: 100, path: "" },
-    screenshotTaken: { enabled: true, volume: 100, path: "" },
     bookmarkAdded: { enabled: true, volume: 100, path: "" },
+    screenshotTaken: { enabled: true, volume: 100, path: "" },
   },
 }

@@ -15,6 +15,10 @@ struct LibObs {
     obs_get_video: unsafe extern "C" fn() -> *mut ObsVideo,
     obs_get_audio: unsafe extern "C" fn() -> *mut ObsAudio,
     obs_enum_encoder_types: unsafe extern "C" fn(usize, *mut *const c_char) -> bool,
+    obs_encoder_get_display_name: unsafe extern "C" fn(*const c_char) -> *const c_char,
+    obs_get_encoder_codec: unsafe extern "C" fn(*const c_char) -> *const c_char,
+    obs_get_encoder_type: unsafe extern "C" fn(*const c_char) -> c_int,
+    obs_get_encoder_caps: unsafe extern "C" fn(*const c_char) -> u32,
     obs_data_create: unsafe extern "C" fn() -> *mut ObsData,
     obs_data_release: unsafe extern "C" fn(*mut ObsData),
     obs_data_set_string: unsafe extern "C" fn(*mut ObsData, *const c_char, *const c_char),
@@ -122,6 +126,13 @@ impl LibObs {
                     obs_get_video: load_symbol(&library, b"obs_get_video\0")?,
                     obs_get_audio: load_symbol(&library, b"obs_get_audio\0")?,
                     obs_enum_encoder_types: load_symbol(&library, b"obs_enum_encoder_types\0")?,
+                    obs_encoder_get_display_name: load_symbol(
+                        &library,
+                        b"obs_encoder_get_display_name\0",
+                    )?,
+                    obs_get_encoder_codec: load_symbol(&library, b"obs_get_encoder_codec\0")?,
+                    obs_get_encoder_type: load_symbol(&library, b"obs_get_encoder_type\0")?,
+                    obs_get_encoder_caps: load_symbol(&library, b"obs_get_encoder_caps\0")?,
                     obs_data_create: load_symbol(&library, b"obs_data_create\0")?,
                     obs_data_release: load_symbol(&library, b"obs_data_release\0")?,
                     obs_data_set_string: load_symbol(&library, b"obs_data_set_string\0")?,
@@ -407,7 +418,7 @@ impl LibObs {
         Ok(())
     }
 
-    unsafe fn enumerate_encoders(&self) -> Vec<String> {
+    unsafe fn enumerate_encoders(&self) -> Vec<ObsEncoderDescriptor> {
         let mut encoders = Vec::new();
         let mut index = 0usize;
         loop {
@@ -416,7 +427,31 @@ impl LibObs {
                 break;
             }
             if !id.is_null() {
-                encoders.push(CStr::from_ptr(id).to_string_lossy().into_owned());
+                let codec = (self.obs_get_encoder_codec)(id);
+                if codec.is_null() {
+                    index += 1;
+                    continue;
+                }
+                let kind = match (self.obs_get_encoder_type)(id) {
+                    OBS_ENCODER_AUDIO => ObsEncoderKind::Audio,
+                    OBS_ENCODER_VIDEO => ObsEncoderKind::Video,
+                    _ => {
+                        index += 1;
+                        continue;
+                    }
+                };
+                let display_name = (self.obs_encoder_get_display_name)(id);
+                encoders.push(ObsEncoderDescriptor {
+                    id: CStr::from_ptr(id).to_string_lossy().into_owned(),
+                    kind,
+                    codec: CStr::from_ptr(codec).to_string_lossy().into_owned(),
+                    caps: (self.obs_get_encoder_caps)(id),
+                    display_name: if display_name.is_null() {
+                        None
+                    } else {
+                        Some(CStr::from_ptr(display_name).to_string_lossy().into_owned())
+                    },
+                });
             }
             index += 1;
         }

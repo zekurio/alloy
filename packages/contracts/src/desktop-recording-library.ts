@@ -175,10 +175,32 @@ export interface RecordingLibraryImportResult {
   id: string
 }
 
-/** Outcome of importing user-picked video files into the capture library. */
+/** A user-picked video copied into the desktop shell's temporary import stage. */
+export interface RecordingLibraryStagedImport {
+  /** Opaque token used to either commit or discard the staged file. */
+  id: string
+  /** Original file name, shown so the user can confirm what they picked. */
+  fileName: string
+  /** Suggested clip title derived from the picked file name. */
+  title: string
+  sizeBytes: number
+  durationMs: number | null
+  width: number | null
+  height: number | null
+}
+
+/** Metadata required before a staged import becomes a library capture. */
+export interface RecordingLibraryCommitStagedImportRequest {
+  id: string
+  title: string
+  gameName: string
+  gameIconUrl: string | null
+}
+
+/** Outcome of staging user-picked video files before they enter the library. */
 export interface RecordingLibraryFilesImportResult {
-  /** Library capture ids of the files that were imported. */
-  importedIds: string[]
+  /** Picked files copied into the temporary import stage. */
+  staged: RecordingLibraryStagedImport[]
   /** Files that could not be imported, with a human-readable reason. */
   failed: { fileName: string; error: string }[]
   /** True when the user dismissed the file picker without choosing files. */

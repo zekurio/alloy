@@ -24,8 +24,10 @@ export {
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library-store"
 export {
+  commitRecordingLibraryStagedImport,
+  discardRecordingLibraryStagedImport,
   importRecordingLibraryCapture,
-  importRecordingLibraryVideoFiles,
+  stageRecordingLibraryVideoFiles,
 } from "./recording-library-import"
 export {
   deleteRecordingLibraryProjectDraft,

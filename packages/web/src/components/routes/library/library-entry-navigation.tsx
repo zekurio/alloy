@@ -1,12 +1,13 @@
 import type { ClipRow } from "@alloy/api"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 
 import { useSession } from "@/lib/auth-client"
-import { useUserClipsQuery } from "@/lib/clip-queries"
+import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
 
 import { useLibraryGameLookup, useLibrarySnapshot } from "./library-data"
@@ -62,10 +63,15 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
     entryMatchesCurrent(entry, current),
   )
   const currentEntry = index >= 0 ? entries[index] : null
+  const linkedLocalItem =
+    current.type === "cloud"
+      ? (snapshot?.items.find((item) => item.uploadedClipId === current.id) ??
+        null)
+      : null
   const localItem =
     currentEntry?.type === "local"
       ? currentEntry.item
-      : (currentEntry?.localItem ?? null)
+      : (currentEntry?.localItem ?? linkedLocalItem)
 
   return {
     entries,
@@ -100,6 +106,7 @@ function entryMatchesCurrent(
 
 export function useNavigateToLibraryEntry() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   return React.useCallback(
     (entry: NavigableLibraryEntry, replace = true) => {
       if (entry.type === "local") {
@@ -109,6 +116,7 @@ export function useNavigateToLibraryEntry() {
           replace,
         })
       } else if (entry.type === "cloud") {
+        warmClipDetailCache(queryClient, entry.row)
         void navigate({
           to: "/library/c/$clipId",
           params: { clipId: entry.row.id },
@@ -116,7 +124,7 @@ export function useNavigateToLibraryEntry() {
         })
       }
     },
-    [navigate],
+    [navigate, queryClient],
   )
 }
 

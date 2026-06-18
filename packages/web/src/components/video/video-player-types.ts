@@ -29,6 +29,7 @@ export type SharedPlayerProps = {
   onVideoClick?: React.MouseEventHandler<HTMLVideoElement>
   onPlaybackError?: (message: string) => void
   onPlayThreshold?: () => void
+  onFrameReady?: () => void
   onEnded?: () => void
   chromeSize?: "default" | "compact"
   shortcutBounds?: {

@@ -6,7 +6,6 @@ type AlloyTrayOptions = {
   showAlloy: () => void | Promise<void>
   openLibrary: () => void | Promise<void>
   openSettings: () => void
-  stopRecording: () => void | Promise<void>
   quit: () => void
 }
 
@@ -45,13 +44,6 @@ function createTrayMenu(options: AlloyTrayOptions): Menu {
         options.openSettings()
       },
     },
-    {
-      label: "Stop Recording",
-      click: () => {
-        void options.stopRecording()
-      },
-    },
-    { type: "separator" },
     {
       label: "Quit Alloy",
       click: () => {

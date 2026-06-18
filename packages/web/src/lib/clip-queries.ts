@@ -24,11 +24,18 @@ import { invalidateStorageUsage } from "./user-queries"
 
 export { clipKeys }
 
-export function useClipQuery(clipId: string) {
-  return useQuery(clipDetailQueryOptions(clipId))
+interface ClipDetailQueryOptions {
+  keepPreviousData?: boolean
 }
 
-export function clipDetailQueryOptions(clipId: string) {
+export function useClipQuery(clipId: string, options?: ClipDetailQueryOptions) {
+  return useQuery(clipDetailQueryOptions(clipId, options))
+}
+
+export function clipDetailQueryOptions(
+  clipId: string,
+  { keepPreviousData = true }: ClipDetailQueryOptions = {},
+) {
   return queryOptions({
     queryKey: clipKeys.detail(clipId),
     queryFn: () => api.clips.fetchById(clipId),
@@ -42,12 +49,19 @@ export function clipDetailQueryOptions(clipId: string) {
     },
     // Keep the previous clip visible while the next one loads so
     // route-driven modal navigation feels continuous.
-    placeholderData: (previous) => previous,
+    ...(keepPreviousData
+      ? { placeholderData: (previous: ClipRow | undefined) => previous }
+      : {}),
   })
 }
 
 export function seedClipDetailInCache(qc: QueryClient, row: ClipRow) {
   qc.setQueryData<ClipRow>(clipKeys.detail(row.id), (current) => current ?? row)
+}
+
+export function warmClipDetailCache(qc: QueryClient, row: ClipRow): void {
+  seedClipDetailInCache(qc, row)
+  void qc.prefetchQuery(clipDetailQueryOptions(row.id))
 }
 
 export function useTopClipsQuery(
@@ -134,7 +148,11 @@ function patchClipInCaches(
   )
 }
 
-function removeClipFromCaches(qc: QueryClient, clipId: string) {
+function removeClipFromCaches(
+  qc: QueryClient,
+  clipId: string,
+  { removeDetail = true }: { removeDetail?: boolean } = {},
+) {
   qc.setQueriesData<ClipRow[] | undefined>(
     { queryKey: clipKeys.lists() },
     (old) => old?.filter((r) => r.id !== clipId),
@@ -150,7 +168,17 @@ function removeClipFromCaches(qc: QueryClient, clipId: string) {
         })),
       },
   )
-  qc.removeQueries({ queryKey: clipKeys.detail(clipId) })
+  if (removeDetail) removeClipDetailFromCache(qc, clipId)
+}
+
+export function removeClipDetailFromCache(qc: QueryClient, clipId: string) {
+  qc.removeQueries({ queryKey: clipKeys.detail(clipId), exact: true })
+}
+
+export function invalidateDeletedClipCaches(qc: QueryClient): void {
+  void qc.invalidateQueries({ queryKey: clipKeys.all })
+  void invalidateGameQueries(qc)
+  void invalidateStorageUsage(qc)
 }
 
 /** Snapshot shape captured on `onMutate` so `onError` can roll back. */
@@ -246,21 +274,29 @@ export function useTrimClipMutation() {
 export function useDeleteClipMutation() {
   const qc = useQueryClient()
 
-  return useMutation<void, Error, { clipId: string }, ClipsSnapshot>({
+  return useMutation<
+    void,
+    Error,
+    {
+      clipId: string
+      removeDetail?: boolean
+      deferInvalidation?: boolean
+    },
+    ClipsSnapshot
+  >({
     mutationFn: ({ clipId }) => api.clips.delete(clipId),
-    onMutate: async ({ clipId }) => {
+    onMutate: async ({ clipId, removeDetail = true }) => {
       await qc.cancelQueries({ queryKey: clipKeys.all })
       const snap = snapshotClips(qc)
-      removeClipFromCaches(qc, clipId)
+      removeClipFromCaches(qc, clipId, { removeDetail })
       return snap
     },
     onError: (_err, _vars, context) => {
       if (context) restoreClips(qc, context)
     },
-    onSettled: () => {
-      void qc.invalidateQueries({ queryKey: clipKeys.all })
-      void invalidateGameQueries(qc)
-      void invalidateStorageUsage(qc)
+    onSettled: (_data, _error, variables) => {
+      if (variables.deferInvalidation) return
+      invalidateDeletedClipCaches(qc)
     },
   })
 }

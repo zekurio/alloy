@@ -204,7 +204,6 @@ struct RecordingHotkeys {
     clip: String,
     bookmark: String,
     screenshot: String,
-    toggle_long_recording: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -553,6 +552,31 @@ enum OutputSourceKind {
     Display,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ObsEncoderDescriptor {
+    id: String,
+    kind: ObsEncoderKind,
+    codec: String,
+    caps: u32,
+    display_name: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ObsEncoderKind {
+    Audio,
+    Video,
+}
+
+impl ObsEncoderDescriptor {
+    fn has_cap(&self, cap: u32) -> bool {
+        self.caps & cap != 0
+    }
+
+    fn is_internal_or_deprecated(&self) -> bool {
+        self.has_cap(OBS_ENCODER_CAP_INTERNAL) || self.has_cap(OBS_ENCODER_CAP_DEPRECATED)
+    }
+}
+
 /// Codec support detected for the current GPU, cached so the settings UI can
 /// render supported codecs without an active recording.
 #[derive(Clone, Debug, Default)]
@@ -571,7 +595,7 @@ struct Recorder {
     output_folder: Option<PathBuf>,
     replay_scratch_folder: Option<PathBuf>,
     obs_runtime_dir: Option<PathBuf>,
-    available_encoders: Vec<String>,
+    available_encoders: Vec<ObsEncoderDescriptor>,
     available_codecs: Vec<RecordingCodec>,
     /// Encoder capabilities probed independently of an active recording so the
     /// settings UI can show supported codecs while recording is disabled.
@@ -592,7 +616,6 @@ struct Recorder {
     cached_audio_applications_game_key: Option<String>,
     replay_session: Option<ActiveSession>,
     long_session: Option<ActiveSession>,
-    manual_long_recording: bool,
     active_display: Option<RecordingDisplay>,
     active_game: Option<DetectedGame>,
     focused: bool,
@@ -677,7 +700,6 @@ impl Default for RecordingSettings {
                 clip: "F8".to_string(),
                 bookmark: "F9".to_string(),
                 screenshot: "F7".to_string(),
-                toggle_long_recording: "Alt+F7".to_string(),
             },
         }
     }

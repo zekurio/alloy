@@ -27,7 +27,6 @@ Supported methods:
 - `configure`
 - `status`
 - `saveReplayClip`
-- `stopRecording`
 - `shutdown`
 
 The `version` method returns the recorder semantic version, protocol version,

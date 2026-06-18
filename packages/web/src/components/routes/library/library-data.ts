@@ -1,5 +1,10 @@
 import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
 import { toast } from "@alloy/ui/lib/toast"
+import {
+  type QueryClient,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import * as React from "react"
 
 import {
@@ -26,6 +31,17 @@ export interface LibrarySnapshotState {
   refresh: () => Promise<void>
 }
 
+const librarySnapshotKey = ["desktop", "library-snapshot"] as const
+
+function invalidateLibrarySnapshot(queryClient: QueryClient): void {
+  void queryClient.invalidateQueries({ queryKey: librarySnapshotKey })
+}
+
+function librarySnapshotErrorMessage(cause: unknown): string | null {
+  if (!cause) return null
+  return cause instanceof Error ? cause.message : "Could not scan local clips."
+}
+
 /**
  * Loads the desktop capture library and keeps it fresh: refreshes when the
  * recorder reports a new capture or a settings change. Shared by the library
@@ -35,50 +51,59 @@ export interface LibrarySnapshotState {
 export function useLibrarySnapshot(
   desktop: AlloyDesktop | null,
 ): LibrarySnapshotState {
-  const [snapshot, setSnapshot] =
-    React.useState<RecordingLibrarySnapshot | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
-  const [refreshing, setRefreshing] = React.useState(false)
+  const queryClient = useQueryClient()
+  const { data, error, isFetching, refetch } = useQuery({
+    queryKey: librarySnapshotKey,
+    queryFn: async () => {
+      if (!desktop) throw new Error("Desktop library is unavailable.")
+      return desktop.recording.getLibrary()
+    },
+    enabled: desktop !== null,
+  })
+  const snapshot = desktop ? (data ?? null) : null
+  const errorMessage = librarySnapshotErrorMessage(error)
+  const blockingError = snapshot ? null : errorMessage
+  const lastToastedErrorRef = React.useRef<string | null>(null)
+
+  React.useEffect(() => {
+    if (!errorMessage) {
+      lastToastedErrorRef.current = null
+      return
+    }
+    if (lastToastedErrorRef.current === errorMessage) return
+    lastToastedErrorRef.current = errorMessage
+    toast.error(errorMessage)
+  }, [errorMessage])
 
   const refresh = React.useCallback(async () => {
     if (!desktop) return
-    setRefreshing(true)
-    setError(null)
-    try {
-      setSnapshot(await desktop.recording.getLibrary())
-    } catch (cause) {
-      const message =
-        cause instanceof Error ? cause.message : "Could not scan local clips."
-      setError(message)
-      toast.error(message)
-    } finally {
-      setRefreshing(false)
-    }
-  }, [desktop])
-
-  React.useEffect(() => {
-    void refresh()
-  }, [refresh])
+    await refetch()
+  }, [desktop, refetch])
 
   React.useEffect(() => {
     if (!desktop) return
     return desktop.recording.onEvent((event) => {
       if (event.type === "capture-ready" || event.type === "settings") {
         window.setTimeout(() => {
-          void refresh()
+          invalidateLibrarySnapshot(queryClient)
         }, 250)
       }
     })
-  }, [desktop, refresh])
+  }, [desktop, queryClient])
 
   React.useEffect(() => {
     if (!desktop) return
     return onLibraryCapturesChanged(() => {
-      void refresh()
+      invalidateLibrarySnapshot(queryClient)
     })
-  }, [desktop, refresh])
+  }, [desktop, queryClient])
 
-  return { snapshot, error, refreshing, refresh }
+  return {
+    snapshot,
+    error: desktop ? blockingError : null,
+    refreshing: isFetching,
+    refresh,
+  }
 }
 
 /**

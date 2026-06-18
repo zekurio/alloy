@@ -1,7 +1,16 @@
-import type { ClipRow } from "@alloy/api"
+import type { ClipRow, GameRow } from "@alloy/api"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
 import { Chip } from "@alloy/ui/components/chip"
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@alloy/ui/components/dialog"
 import {
   Empty,
   EmptyDescription,
@@ -10,6 +19,7 @@ import {
   EmptyTitle,
 } from "@alloy/ui/components/empty"
 import { GameIcon } from "@alloy/ui/components/game-icon"
+import { Input } from "@alloy/ui/components/input"
 import {
   InputGroup,
   InputGroupAddon,
@@ -29,6 +39,7 @@ import {
   SelectValue,
 } from "@alloy/ui/components/select"
 import { toast } from "@alloy/ui/lib/toast"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import {
   BanIcon,
@@ -44,18 +55,22 @@ import {
 import * as React from "react"
 
 import { FilterCarousel } from "@/components/filter-carousel"
+import { GameCombobox } from "@/components/game/game-combobox"
 import { useSession } from "@/lib/auth-client"
-import { useUserClipsQuery } from "@/lib/clip-queries"
+import { CLIP_TITLE_MAX, normalizeClipTitle } from "@/lib/clip-fields"
+import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import {
   alloyDesktop,
-  notifyLibraryCapturesChanged,
   type AlloyDesktop,
   type RecordingLibraryProjectDraft,
+  type RecordingLibraryStagedImport,
 } from "@/lib/desktop"
+import { errorMessage } from "@/lib/error-message"
 
 import {
   buildLibraryGroups,
   enrichGroupIcon,
+  formatLibraryBytes,
   type LibraryGroupView,
   type LibraryItemView,
   useLibraryGameLookup,
@@ -80,19 +95,25 @@ export function LibraryPage() {
 
 function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [query, setQuery] = React.useState("")
   const [kind, setKind] = React.useState<LibraryKindFilter>("all")
   const [groupKey, setGroupKey] = React.useState<string | null>(null)
   const model = useLibraryContentModel({ desktop, query, kind, groupKey })
   const importFiles = useLibraryImportAction({ desktop })
+  const warmCloudClip = React.useCallback(
+    (row: ClipRow) => warmClipDetailCache(queryClient, row),
+    [queryClient],
+  )
 
   return (
     <AppMain>
       <section className="flex w-full flex-col gap-6">
         <div>
           <LibraryHeader
-            desktop={desktop}
-            importing={importFiles.importing}
+            hasDesktop={desktop !== null}
+            canImport={importFiles.available}
+            importing={importFiles.picking}
             onImport={() => {
               void importFiles.start()
             }}
@@ -126,16 +147,28 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
             })
           }}
           onOpenCloud={(row) => {
+            warmCloudClip(row)
             void navigate({
               to: "/library/c/$clipId",
               params: { clipId: row.id },
             })
           }}
+          onCloudIntent={warmCloudClip}
           onOpenDraft={(draft) => {
             void navigate({
               to: "/editor",
               search: { draft: draft.id },
             })
+          }}
+        />
+        <ImportClipDetailsDialog
+          staged={importFiles.staged}
+          pending={importFiles.committing}
+          onOpenChange={(open) => {
+            if (!open) void importFiles.discard()
+          }}
+          onCommit={(metadata) => {
+            void importFiles.commit(metadata)
           }}
         />
       </section>
@@ -212,12 +245,20 @@ function useLibraryContentModel({
 
 function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
   const navigate = useNavigate()
-  const [importing, setImporting] = React.useState(false)
+  const [picking, setPicking] = React.useState(false)
+  const [committing, setCommitting] = React.useState(false)
+  const [staged, setStaged] =
+    React.useState<RecordingLibraryStagedImport | null>(null)
+
+  const available =
+    !!desktop?.recording.importLibraryFiles &&
+    !!desktop.recording.commitStagedLibraryImport &&
+    !!desktop.recording.discardStagedLibraryImport
 
   const start = React.useCallback(async () => {
     const pick = desktop?.recording.importLibraryFiles
-    if (!pick) return
-    setImporting(true)
+    if (!pick || !available || picking || committing || staged) return
+    setPicking(true)
     try {
       const result = await pick()
       if (result.canceled) return
@@ -229,47 +270,69 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
             : `${result.failed.length} files couldn't be imported.`,
         )
       }
-      if (result.importedIds.length > 0) {
-        toast.success(
-          result.importedIds.length === 1
-            ? "Clip imported into your library"
-            : `${result.importedIds.length} clips imported into your library`,
-        )
-        if (result.importedIds.length === 1) {
-          // Go straight to the editor. It loads this capture from its own
-          // library snapshot on mount (showing a spinner until ready), so we
-          // deliberately skip refreshing the grid we're leaving — repainting it
-          // here flashes the freshly-imported card (no thumbnail/blurhash yet)
-          // for a frame before the editor takes over.
-          void navigate({
-            to: "/library/$captureId",
-            params: { captureId: result.importedIds[0] },
-            search: { prompt: "game" },
-          })
-        } else {
-          // Staying on the grid — refresh it in place to surface the imports.
-          notifyLibraryCapturesChanged()
-        }
+      const [next] = result.staged
+      if (next) {
+        setStaged(next)
       }
     } catch (cause) {
-      toast.error(
-        cause instanceof Error ? cause.message : "Could not import clips.",
-      )
+      toast.error(errorMessage(cause, "Could not import clip."))
     } finally {
-      setImporting(false)
+      setPicking(false)
     }
-  }, [desktop, navigate])
+  }, [available, committing, desktop, picking, staged])
 
-  return { importing, start }
+  const discard = React.useCallback(async () => {
+    const current = staged
+    const discardStaged = desktop?.recording.discardStagedLibraryImport
+    if (!current || !discardStaged || committing) return
+    setStaged(null)
+    try {
+      await discardStaged(current.id)
+    } catch (cause) {
+      toast.error(errorMessage(cause, "Could not clear staged import."))
+    }
+  }, [committing, desktop, staged])
+
+  const commit = React.useCallback(
+    async ({ title, game }: { title: string; game: GameRow }) => {
+      const current = staged
+      const commitStaged = desktop?.recording.commitStagedLibraryImport
+      if (!current || !commitStaged || committing) return
+
+      setCommitting(true)
+      try {
+        const result = await commitStaged({
+          id: current.id,
+          title: normalizeClipTitle(title),
+          gameName: game.name,
+          gameIconUrl: game.iconUrl ?? game.logoUrl,
+        })
+        toast.success("Clip imported into your library")
+        await navigate({
+          to: "/library/$captureId",
+          params: { captureId: result.id },
+        })
+      } catch (cause) {
+        toast.error(errorMessage(cause, "Could not import clip."))
+      } finally {
+        setCommitting(false)
+      }
+    },
+    [committing, desktop, navigate, staged],
+  )
+
+  return { available, picking, committing, staged, start, discard, commit }
 }
 
 function LibraryHeader({
-  desktop,
+  hasDesktop,
+  canImport,
   importing,
   onImport,
   onNewProject,
 }: {
-  desktop: AlloyDesktop | null
+  hasDesktop: boolean
+  canImport: boolean
   importing: boolean
   onImport: () => void
   onNewProject: () => void
@@ -282,9 +345,9 @@ function LibraryHeader({
           Library
         </SectionTitle>
       </div>
-      {desktop ? (
+      {hasDesktop ? (
         <SectionActions>
-          {desktop.recording.importLibraryFiles ? (
+          {canImport ? (
             <Button
               type="button"
               variant="secondary"
@@ -293,7 +356,7 @@ function LibraryHeader({
               onClick={onImport}
             >
               <FolderInputIcon />
-              {importing ? "Importing..." : "Import clips"}
+              {importing ? "Staging..." : "Import clip"}
             </Button>
           ) : null}
           <Button
@@ -309,6 +372,157 @@ function LibraryHeader({
       ) : null}
     </SectionHead>
   )
+}
+
+function ImportClipDetailsDialog({
+  staged,
+  pending,
+  onOpenChange,
+  onCommit,
+}: {
+  staged: RecordingLibraryStagedImport | null
+  pending: boolean
+  onOpenChange: (open: boolean) => void
+  onCommit: (metadata: { title: string; game: GameRow }) => void
+}) {
+  const [title, setTitle] = React.useState("")
+  const [game, setGame] = React.useState<GameRow | null>(null)
+  const [submitted, setSubmitted] = React.useState(false)
+
+  React.useEffect(() => {
+    setTitle(staged?.title ?? "")
+    setGame(null)
+    setSubmitted(false)
+  }, [staged?.id, staged?.title])
+
+  const normalizedTitle = normalizeClipTitle(title)
+  const titleInvalid = submitted && normalizedTitle.length === 0
+  const gameInvalid = submitted && game === null
+
+  const submit = () => {
+    setSubmitted(true)
+    if (pending || normalizedTitle.length === 0 || !game) return
+    onCommit({ title: normalizedTitle, game })
+  }
+
+  return (
+    <Dialog open={staged !== null} onOpenChange={onOpenChange}>
+      <DialogContent variant="secondary" className="max-w-[480px]">
+        <DialogHeader>
+          <DialogTitle>Import clip</DialogTitle>
+          <DialogDescription>
+            Add the clip details before it enters your library.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault()
+            submit()
+          }}
+        >
+          <DialogBody className="flex flex-col gap-4">
+            {staged ? <StagedImportSummary staged={staged} /> : null}
+
+            <label className="flex flex-col gap-2">
+              <span className="text-foreground-muted text-xs font-semibold">
+                Title
+              </span>
+              <Input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                maxLength={CLIP_TITLE_MAX}
+                disabled={pending}
+                aria-invalid={titleInvalid || undefined}
+                placeholder="Untitled"
+              />
+              {titleInvalid ? (
+                <span className="text-destructive text-xs">
+                  Add a title to import this clip.
+                </span>
+              ) : null}
+            </label>
+
+            <div className="flex flex-col gap-2">
+              <label
+                htmlFor="import-clip-game"
+                className="text-foreground-muted text-xs font-semibold"
+              >
+                Game
+              </label>
+              <GameCombobox
+                id="import-clip-game"
+                value={game}
+                onChange={setGame}
+                disabled={pending}
+                invalid={gameInvalid}
+                required
+                placeholder="Search game..."
+                className="w-full"
+                inputClassName="w-full"
+              />
+              {gameInvalid ? (
+                <span className="text-destructive text-xs">
+                  Pick a game to import this clip.
+                </span>
+              ) : null}
+            </div>
+          </DialogBody>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={pending}>
+              <FolderInputIcon />
+              {pending ? "Importing..." : "Import clip"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function StagedImportSummary({
+  staged,
+}: {
+  staged: RecordingLibraryStagedImport
+}) {
+  const details = [
+    formatLibraryBytes(staged.sizeBytes),
+    formatStagedDuration(staged.durationMs),
+    staged.width && staged.height ? `${staged.width}x${staged.height}` : null,
+  ].filter((value): value is string => value !== null)
+
+  return (
+    <div className="border-border bg-surface-raised/60 flex min-w-0 items-center gap-3 rounded-md border p-3">
+      <div className="bg-accent-soft text-accent grid size-9 shrink-0 place-items-center rounded-md">
+        <VideoIcon className="size-4" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-foreground truncate text-sm font-semibold">
+          {staged.fileName}
+        </p>
+        {details.length > 0 ? (
+          <p className="text-foreground-muted truncate text-xs">
+            {details.join(" - ")}
+          </p>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+function formatStagedDuration(durationMs: number | null): string | null {
+  if (!durationMs || durationMs <= 0) return null
+  const totalSeconds = Math.max(1, Math.round(durationMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
 function LibraryToolbar({
@@ -331,7 +545,7 @@ function LibraryToolbar({
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
       <div className="flex min-w-0 items-center gap-2 sm:contents">
-        <InputGroup className="h-10 min-w-0 flex-1 sm:h-8 sm:w-64 sm:flex-none">
+        <InputGroup className="min-w-0 flex-1 sm:w-64 sm:flex-none">
           <InputGroupAddon align="inline-start">
             <SearchIcon />
           </InputGroupAddon>
@@ -408,8 +622,7 @@ function KindSelect({
       onValueChange={(value) => onKindChange(value as LibraryKindFilter)}
     >
       <SelectTrigger
-        size="sm"
-        className="h-10! w-10 shrink-0 justify-center px-0 sm:h-8! sm:w-40 sm:justify-between sm:px-3 max-sm:[&>svg:last-child]:hidden"
+        className="w-9 shrink-0 justify-center px-0 sm:w-40 sm:justify-between sm:px-3 max-sm:[&>svg:last-child]:hidden"
         aria-label="Filter by type"
       >
         <SelectValue className="max-sm:justify-center">
@@ -444,6 +657,7 @@ function LibraryBody({
   kind,
   onOpenLocal,
   onOpenCloud,
+  onCloudIntent,
   onOpenDraft,
 }: {
   entries: LibraryEntry[]
@@ -454,6 +668,7 @@ function LibraryBody({
   kind: LibraryKindFilter
   onOpenLocal: (item: LibraryItemView) => void
   onOpenCloud: (row: ClipRow) => void
+  onCloudIntent: (row: ClipRow) => void
   onOpenDraft: (draft: RecordingLibraryProjectDraft) => void
 }) {
   if (entries.length === 0) {
@@ -508,6 +723,7 @@ function LibraryBody({
             key={entry.key}
             row={entry.row}
             onOpen={() => onOpenCloud(entry.row)}
+            onIntent={() => onCloudIntent(entry.row)}
           />
         ) : (
           <ProjectDraftCard

@@ -52,11 +52,10 @@ export const RECORDING_CAPTURE_SOURCES = ["game", "display"] as const
 export const RECORDING_AUDIO_MODES = ["devices", "applications"] as const
 export const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
 export const RECORDING_NOTIFICATION_SOUND_EVENTS = [
-  "recordingStarted",
-  "manualRecordingStarted",
+  "replayRecordingStarted",
   "clipSaved",
-  "screenshotTaken",
   "bookmarkAdded",
+  "screenshotTaken",
 ] as const
 
 export type RecordingEncoder = (typeof RECORDING_ENCODERS)[number]
@@ -129,7 +128,6 @@ export interface RecordingHotkeys {
   clip: string
   bookmark: string
   screenshot: string
-  toggleLongRecording: string
 }
 
 export interface RecordingLongRecordingSettings {

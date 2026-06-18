@@ -22,9 +22,11 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   authorAvatarBg?: string
   authorAvatarFg?: string
   authorHref?: string | null
+  renderAuthorLink?: ClipCardLabelLinkRenderer
   game: string
   gameIcon?: string | null
   gameHref?: string | null
+  renderGameLink?: ClipCardLabelLinkRenderer
   views: string
   likes: string
   comments?: string | number
@@ -53,6 +55,17 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   thumbnailOverlay?: React.ReactNode
 }
 
+type ClipCardLabelLinkProps = {
+  href?: string
+  className: string
+  children: React.ReactNode
+  onClick: React.MouseEventHandler<HTMLAnchorElement>
+}
+
+type ClipCardLabelLinkRenderer = (
+  props: ClipCardLabelLinkProps,
+) => React.ReactNode
+
 const HOVER_PREVIEW_DELAY_MS = 250
 
 function ClipCard({
@@ -65,9 +78,11 @@ function ClipCard({
   authorAvatarBg,
   authorAvatarFg,
   authorHref,
+  renderAuthorLink,
   game,
   gameIcon,
   gameHref,
+  renderGameLink,
   views,
   // Likes and comments stay in the contract but are no longer shown on the
   // card face — the meta line mirrors the channel-style "views · age" layout.
@@ -140,16 +155,30 @@ function ClipCard({
           <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-base leading-5">
             {author ? (
               <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
-                <AuthorLabel author={author} href={authorHref} />
+                <AuthorLabel
+                  author={author}
+                  href={authorHref}
+                  renderLink={renderAuthorLink}
+                />
                 {game ? (
                   <>
                     <span className="text-foreground-faint shrink-0">·</span>
-                    <GameLabel game={game} icon={gameIcon} href={gameHref} />
+                    <GameLabel
+                      game={game}
+                      icon={gameIcon}
+                      href={gameHref}
+                      renderLink={renderGameLink}
+                    />
                   </>
                 ) : null}
               </span>
             ) : (
-              <GameLabel game={game} icon={gameIcon} href={gameHref} />
+              <GameLabel
+                game={game}
+                icon={gameIcon}
+                href={gameHref}
+                renderLink={renderGameLink}
+              />
             )}
           </div>
         ) : null}
@@ -452,18 +481,28 @@ function renderThumbnailFallback(
 function AuthorLabel({
   author,
   href,
+  renderLink,
 }: {
   author: string
   href: string | null | undefined
+  renderLink: ClipCardLabelLinkRenderer | undefined
 }) {
   const className = cn(
     "min-w-0 shrink truncate leading-5 font-medium text-foreground-muted",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )
+  if (renderLink) {
+    return renderLink({
+      href: href ?? undefined,
+      className,
+      onClick: stopLabelLinkPropagation,
+      children: author,
+    })
+  }
   if (href) {
     return (
-      <a href={href} onClick={(e) => e.stopPropagation()} className={className}>
+      <a href={href} onClick={stopLabelLinkPropagation} className={className}>
         {author}
       </a>
     )
@@ -504,10 +543,12 @@ function GameLabel({
   game,
   icon,
   href,
+  renderLink,
 }: {
   game: string
   icon: string | null | undefined
   href: string | null | undefined
+  renderLink: ClipCardLabelLinkRenderer | undefined
 }) {
   const className = cn(
     "inline-flex min-w-0 items-center gap-1.5 truncate leading-5 text-accent",
@@ -520,9 +561,17 @@ function GameLabel({
       <span className="truncate">{game}</span>
     </>
   )
+  if (renderLink) {
+    return renderLink({
+      href: href ?? undefined,
+      className,
+      onClick: stopLabelLinkPropagation,
+      children: content,
+    })
+  }
   if (href) {
     return (
-      <a href={href} onClick={(e) => e.stopPropagation()} className={className}>
+      <a href={href} onClick={stopLabelLinkPropagation} className={className}>
         {content}
       </a>
     )
@@ -530,4 +579,13 @@ function GameLabel({
   return <span className={className}>{content}</span>
 }
 
-export { ClipCard, type ClipCardProps }
+function stopLabelLinkPropagation(event: React.MouseEvent<HTMLAnchorElement>) {
+  event.stopPropagation()
+}
+
+export {
+  ClipCard,
+  type ClipCardLabelLinkProps,
+  type ClipCardLabelLinkRenderer,
+  type ClipCardProps,
+}

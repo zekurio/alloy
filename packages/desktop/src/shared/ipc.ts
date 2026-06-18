@@ -10,6 +10,7 @@ import type {
   RecordingLibraryDownloadRequest,
   RecordingLibraryExport,
   RecordingLibraryExportRequest,
+  RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
@@ -37,6 +38,7 @@ export type {
   RecordingLibraryDownloadStatus,
   RecordingLibraryExportSegment,
   RecordingLibraryExportRequest,
+  RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
   RecordingLibraryProjectTrack,
@@ -50,6 +52,7 @@ export type {
   RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
+  RecordingLibraryStagedImport,
   RecordingLibraryGroup,
   RecordingLibrarySnapshot,
 } from "@alloy/contracts"
@@ -86,6 +89,10 @@ export const IPC = {
   deleteRecordingLibraryCapture: "alloy:delete-recording-library-capture",
   importRecordingLibraryCapture: "alloy:import-recording-library-capture",
   importRecordingLibraryFiles: "alloy:import-recording-library-files",
+  commitRecordingLibraryStagedImport:
+    "alloy:commit-recording-library-staged-import",
+  discardRecordingLibraryStagedImport:
+    "alloy:discard-recording-library-staged-import",
   saveRecordingLibraryCaptureThumbnail:
     "alloy:save-recording-library-capture-thumbnail",
   downloadRecordingLibraryClip: "alloy:download-recording-library-clip",
@@ -101,12 +108,10 @@ export const IPC = {
   listGameProcesses: "alloy:list-game-processes",
   listRecordingDisplays: "alloy:list-recording-displays",
   subscribeRecordingAudioLevels: "alloy:subscribe-recording-audio-levels",
-  stopRecordingAudioLevels: "alloy:stop-recording-audio-levels",
+  stopAudioLevels: "alloy:stop-audio-levels",
   saveReplayClip: "alloy:save-replay-clip",
   addRecordingBookmark: "alloy:add-recording-bookmark",
   takeRecordingScreenshot: "alloy:take-recording-screenshot",
-  toggleLongRecording: "alloy:toggle-long-recording",
-  stopRecording: "alloy:stop-recording",
   revealRecordingCapture: "alloy:reveal-recording-capture",
   minimizeWindow: "alloy:minimize-window",
   toggleMaximizeWindow: "alloy:toggle-maximize-window",
@@ -183,8 +188,14 @@ export interface AlloyDesktopRecordingApi {
   importLibraryCapture(
     request: RecordingLibraryImportRequest,
   ): Promise<RecordingLibraryImportResult>
-  /** Opens a native picker and copies the chosen video files into the library. */
+  /** Opens a native picker and copies the chosen video files into a temporary import stage. */
   importLibraryFiles(): Promise<RecordingLibraryFilesImportResult>
+  /** Commits a staged picked file into the capture library. */
+  commitStagedLibraryImport(
+    request: RecordingLibraryCommitStagedImportRequest,
+  ): Promise<RecordingLibraryImportResult>
+  /** Deletes a picked file from the temporary import stage. */
+  discardStagedLibraryImport(id: string): Promise<void>
   /** Persists a renderer-decoded JPEG poster for a local video capture. */
   saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
   /**
@@ -217,10 +228,6 @@ export interface AlloyDesktopRecordingApi {
   takeScreenshot(
     request: RecordingActionRequest,
   ): Promise<RecordingActionResult>
-  toggleLongRecording(
-    request: RecordingActionRequest,
-  ): Promise<RecordingActionResult>
-  stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
   /** Lists the audio files available in each event's notification sounds folder. */
   listNotificationSounds(): Promise<RecordingNotificationSoundLibrary>

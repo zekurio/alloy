@@ -8,10 +8,6 @@ impl Recorder {
         }
     }
 
-    fn available_encoder_set(&self) -> HashSet<String> {
-        self.available_encoders.iter().cloned().collect()
-    }
-
     fn available_codecs(&self, settings: &RecordingSettings) -> Vec<RecordingCodec> {
         let caps = self.codec_caps.clone().unwrap_or_default();
         match settings.encoder {
@@ -44,7 +40,7 @@ impl Recorder {
         if self.obs.is_some() {
             let live = CodecCaps {
                 hardware: self.available_codecs.clone(),
-                software_h264: self.available_encoder_set().contains("obs_x264"),
+                software_h264: has_software_h264_encoder(&self.available_encoders),
             };
             // Encoder registration can transiently fail while the GPU is busy
             // (AMD's AMF helper probe under gaming load), so a codec that ever
@@ -115,14 +111,14 @@ impl Recorder {
                 video_config,
                 gpu_adapter(settings),
             )?;
-            let encoders: HashSet<String> = obs.enumerate_encoders().into_iter().collect();
+            let encoders = obs.enumerate_encoders();
             let hardware_settings = RecordingSettings {
                 encoder: RecordingEncoder::Hardware,
                 ..settings.clone()
             };
             let caps = CodecCaps {
                 hardware: available_video_codecs(&obs, &hardware_settings, &encoders),
-                software_h264: encoders.contains("obs_x264"),
+                software_h264: has_software_h264_encoder(&encoders),
             };
             obs.shutdown();
             caps

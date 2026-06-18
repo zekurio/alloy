@@ -9,6 +9,7 @@ import type {
   RecordingLibraryDownloadRequest,
   RecordingLibraryExport,
   RecordingLibraryExportRequest,
+  RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
@@ -36,6 +37,7 @@ export type {
   RecordingLibraryDownloadStatus,
   RecordingLibraryExportSegment,
   RecordingLibraryExportRequest,
+  RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
   RecordingLibraryProjectTrack,
@@ -49,6 +51,7 @@ export type {
   RecordingLibraryFilesImportResult,
   RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
+  RecordingLibraryStagedImport,
   RecordingLibraryGroup,
   RecordingLibrarySnapshot,
 } from "@alloy/contracts"
@@ -97,8 +100,14 @@ export interface AlloyDesktopRecordingApi {
   importLibraryCapture(
     request: RecordingLibraryImportRequest,
   ): Promise<RecordingLibraryImportResult>
-  /** Opens a native picker and copies the chosen video files into the library. */
+  /** Opens a native picker and copies the chosen video files into a temporary import stage. */
   importLibraryFiles?(): Promise<RecordingLibraryFilesImportResult>
+  /** Commits a staged picked file into the capture library. */
+  commitStagedLibraryImport?(
+    request: RecordingLibraryCommitStagedImportRequest,
+  ): Promise<RecordingLibraryImportResult>
+  /** Deletes a picked file from the temporary import stage. */
+  discardStagedLibraryImport?(id: string): Promise<void>
   saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
   /**
    * Persists an uploaded clip into the local capture library. Progress
@@ -134,10 +143,6 @@ export interface AlloyDesktopRecordingApi {
   takeScreenshot(
     request: RecordingActionRequest,
   ): Promise<RecordingActionResult>
-  toggleLongRecording(
-    request: RecordingActionRequest,
-  ): Promise<RecordingActionResult>
-  stopRecording(): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
 }
 

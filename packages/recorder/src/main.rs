@@ -7,7 +7,7 @@ use std::{
     ffi::{CStr, CString},
     fs,
     io::{self, BufRead, Write},
-    os::raw::{c_char, c_void},
+    os::raw::{c_char, c_int, c_void},
     path::{Path, PathBuf},
     process::Command,
     ptr,
@@ -40,6 +40,11 @@ const OBS_BOUNDS_SCALE_INNER: i32 = 2;
 const OBS_ALIGN_CENTER: u32 = 0;
 const SPEAKERS_STEREO: i32 = 2;
 const OBS_VIDEO_SUCCESS: i32 = 0;
+const OBS_ENCODER_AUDIO: c_int = 0;
+const OBS_ENCODER_VIDEO: c_int = 1;
+const OBS_ENCODER_CAP_DEPRECATED: u32 = 1 << 0;
+const OBS_ENCODER_CAP_PASS_TEXTURE: u32 = 1 << 1;
+const OBS_ENCODER_CAP_INTERNAL: u32 = 1 << 3;
 const GAME_CAPTURE_SOURCE_ID: &str = "game_capture";
 const MAX_AUDIO_SOURCES: usize = 6;
 

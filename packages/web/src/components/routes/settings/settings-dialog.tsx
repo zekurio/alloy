@@ -165,7 +165,7 @@ function SettingsDialogContent({
             onChange={(event) => setQuery(event.currentTarget.value)}
             placeholder="Search settings"
             aria-label="Search settings"
-            className="border-border bg-background placeholder:text-foreground-faint focus-visible:border-accent-border focus-visible:ring-accent-border/20 h-8 w-full rounded-md border pr-2 pl-8 text-sm outline-none focus-visible:ring-2 [&::-webkit-search-cancel-button]:appearance-none"
+            className="border-border bg-background placeholder:text-foreground-faint focus-visible:border-accent-border focus-visible:ring-accent-border/20 h-9 w-full rounded-lg border pr-2 pl-8 text-sm outline-none focus-visible:ring-2 sm:h-8 [&::-webkit-search-cancel-button]:appearance-none"
           />
         </div>
         {SETTINGS_GROUPS.map((group) => {
