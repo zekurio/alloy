@@ -511,6 +511,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Library: "Bibliothek",
   Like: "Wie",
   "Like clip": "Clip liken",
+  "Like clips, follow creators, or star games to tune this feed.":
+    "Like Clips, folge Creators oder markiere Spiele, um diesen Feed anzupassen.",
   Liked: "Gefallen",
   "Liked by the clip author": "Vom Clip-Autor gelikt",
   Link: "Link",

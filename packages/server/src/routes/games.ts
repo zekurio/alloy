@@ -26,7 +26,7 @@ import {
 import { and, eq, isNull, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
-import { publicClipPrivacyCondition } from "./clips-helpers"
+import { publicClipListingConditions } from "./clips-helpers"
 import {
   GamesListQuery,
   LookupBody,
@@ -163,13 +163,7 @@ export const gamesRoute = new Hono()
       .from(game)
       .innerJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
       .innerJoin(user, eq(clip.authorId, user.id))
-      .where(
-        and(
-          eq(clip.status, "ready"),
-          publicClipPrivacyCondition(),
-          isNull(user.disabledAt),
-        ),
-      )
+      .where(and(...publicClipListingConditions()))
       .groupBy(game.steamgriddbId)
       .orderBy(sql`count(${clip.id}) desc`, game.name)
       .limit(limit)
@@ -224,9 +218,7 @@ export const gamesRoute = new Hono()
       .where(
         and(
           eq(clip.steamgriddbId, steamgriddbId),
-          eq(clip.status, "ready"),
-          publicClipPrivacyCondition(),
-          isNull(user.disabledAt),
+          ...publicClipListingConditions(),
         ),
       )
 
