@@ -30,6 +30,7 @@ import {
   type RecordingLibraryStagedImport,
 } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
+import { useSuspenseSession } from "@/lib/session-suspense"
 
 /**
  * The "create" actions surfaced by the global header `+` button. Lifted out of
@@ -37,6 +38,8 @@ import { errorMessage } from "@/lib/error-message"
  * reachable from anywhere, not just `/library`.
  */
 type CreateActionsValue = {
+  /** Whether desktop-only project creation is available. */
+  projectDisabled: boolean
   /** Label for the import/upload entry — platform dependent. */
   uploadLabel: string
   /** Whether the upload action is busy (e.g. the OS picker is open). */
@@ -56,8 +59,10 @@ export function CreateActionsProvider({
   children: React.ReactNode
 }) {
   const desktop = alloyDesktop()
+  const session = useSuspenseSession()
   const importAction = useLibraryImportAction({ desktop })
   const webInputRef = React.useRef<HTMLInputElement>(null)
+  const authed = session !== null
 
   const startWebUpload = React.useCallback(() => {
     webInputRef.current?.click()
@@ -67,20 +72,24 @@ export function CreateActionsProvider({
     () =>
       desktop !== null
         ? {
+            projectDisabled: !authed,
             uploadLabel: tx("Import clip"),
             uploadBusy: importAction.picking,
-            uploadDisabled: !importAction.available || importAction.committing,
+            uploadDisabled:
+              !authed || !importAction.available || importAction.committing,
             startUpload: () => {
+              if (!authed) return
               void importAction.start()
             },
           }
         : {
+            projectDisabled: true,
             uploadLabel: tx("Upload"),
             uploadBusy: false,
-            uploadDisabled: false,
+            uploadDisabled: !authed,
             startUpload: startWebUpload,
           },
-    [desktop, importAction, startWebUpload],
+    [authed, desktop, importAction, startWebUpload],
   )
 
   return (
