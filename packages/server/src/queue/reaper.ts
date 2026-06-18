@@ -3,7 +3,10 @@ import { createLogger } from "@alloy/logging"
 import { publishClipRemove } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
-import { deleteStagedUpload } from "@alloy/server/uploads/staged"
+import {
+  deleteStagedUpload,
+  parseUploadTicketStorageState,
+} from "@alloy/server/uploads/staged"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 
@@ -69,7 +72,11 @@ async function reapExpiredUploadTickets(): Promise<void> {
   // A ticket that expired without being consumed belongs to an upload that
   // never completed; finalize would reject it anyway, so drop object + row.
   const expiredTickets = await db
-    .select({ id: uploadTicket.id, storageKey: uploadTicket.storageKey })
+    .select({
+      id: uploadTicket.id,
+      storageKey: uploadTicket.storageKey,
+      uploadState: uploadTicket.uploadState,
+    })
     .from(uploadTicket)
     .where(
       and(isNull(uploadTicket.usedAt), lt(uploadTicket.expiresAt, new Date())),
@@ -77,7 +84,10 @@ async function reapExpiredUploadTickets(): Promise<void> {
 
   for (const ticket of expiredTickets) {
     try {
-      await deleteStagedUpload(ticket.storageKey)
+      await deleteStagedUpload(
+        ticket.storageKey,
+        parseUploadTicketStorageState(ticket.uploadState),
+      )
     } catch (err) {
       logger.warn(
         `could not delete expired staged object ${ticket.storageKey}:`,

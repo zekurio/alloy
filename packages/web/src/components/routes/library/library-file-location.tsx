@@ -17,7 +17,10 @@ import {
 } from "lucide-react"
 import * as React from "react"
 
-import { ClipDownloadMenuItem } from "@/components/clip/clip-download-button"
+import {
+  clipBrowserDownloadActionSupported,
+  ClipBrowserDownloadMenuItem,
+} from "@/components/clip/clip-download-button"
 import { ClipMetadataSection } from "@/components/clip/clip-metadata-editor"
 import { clientLogger } from "@/lib/client-log"
 import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
@@ -46,6 +49,10 @@ export function ClipFileLocation({
   row: ClipRow
   localItem: RecordingLibraryItem | null
 }) {
+  const downloadAction = clipBrowserDownloadActionSupported(row) ? (
+    <ClipBrowserDownloadMenuItem row={row} />
+  ) : null
+
   return (
     <ClipMetadataSection label="File Location">
       <LocationMenu
@@ -54,7 +61,7 @@ export function ClipFileLocation({
         sizeBytes={row.sourceSizeBytes}
         localItem={localItem}
         allowRemoveLocal
-        download={<ClipDownloadMenuItem row={row} alreadyLocal={false} />}
+        downloadAction={downloadAction}
       />
     </ClipMetadataSection>
   )
@@ -66,14 +73,14 @@ function LocationMenu({
   sizeBytes,
   localItem,
   allowRemoveLocal = true,
-  download = null,
+  downloadAction = null,
 }: {
   label: string
   icon: React.ReactNode
   sizeBytes: number | null
   localItem: RecordingLibraryItem | null
   allowRemoveLocal?: boolean
-  download?: React.ReactNode
+  downloadAction?: React.ReactNode
 }) {
   const [removingLocal, setRemovingLocal] = React.useState(false)
   const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
@@ -131,21 +138,18 @@ function LocationMenu({
               </DropdownMenuItem>
             ) : null}
           </>
-        ) : download ? (
-          download
+        ) : downloadAction ? (
+          downloadAction
         ) : (
           <DropdownMenuItem disabled>
             <CloudIcon />
             Server only
           </DropdownMenuItem>
         )}
-        {localItem && download ? (
+        {localItem && downloadAction ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem disabled>
-              <CloudIcon />
-              Server copy available
-            </DropdownMenuItem>
+            {downloadAction}
           </>
         ) : null}
       </DropdownMenuContent>

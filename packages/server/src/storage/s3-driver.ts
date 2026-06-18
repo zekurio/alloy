@@ -5,13 +5,17 @@ import { pipeline } from "node:stream/promises"
 import { ReadableStream as NodeReadableStream } from "node:stream/web"
 
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
   CopyObjectCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   type HeadObjectCommandOutput,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
@@ -19,11 +23,18 @@ import { dirname } from "../runtime/path"
 import type {
   MintDownloadUrlInput,
   MintUploadUrlInput,
+  MintUploadPartUrlInput,
   ResolvedObject,
   StorageDriver,
-  UploadTicket,
+  UploadPartTicket,
+  CompleteUploadInput,
+  AbortUploadInput,
+  WriteUploadPartInput,
 } from "./driver"
+import { mintFsUploadTicket, type UploadTokenPayload } from "./fs-upload-token"
 import { normalizeObjectPath } from "./object-path"
+
+const S3_MULTIPART_PART_SIZE_BYTES = 64 * 1024 * 1024
 
 interface S3StorageDriverOptions {
   bucket: string
@@ -31,6 +42,8 @@ interface S3StorageDriverOptions {
   endpoint: string | null
   forcePathStyle: boolean
   prefix: string
+  publicBaseUrl: string
+  hmacSecret: string
   credentials: {
     accessKeyId: string
     secretAccessKey: string
@@ -111,8 +124,47 @@ export class S3StorageDriver implements StorageDriver {
     }
   }
 
-  async mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket> {
+  async mintUploadUrl(input: MintUploadUrlInput) {
     const expiresAt = Math.floor(Date.now() / 1000) + input.expiresInSec
+    if (input.role === "video") {
+      const command = new CreateMultipartUploadCommand({
+        Bucket: this.opts.bucket,
+        Key: this.fullKey(input.key),
+        ContentType: input.contentType,
+      })
+      const created = await this.client.send(command)
+      if (!created.UploadId) {
+        throw new Error("S3 did not return a multipart upload id")
+      }
+      const payload: UploadTokenPayload = {
+        k: input.key,
+        ct: input.contentType,
+        mb: input.maxBytes,
+        exp: expiresAt,
+        uid: input.userId,
+        cid: input.clipId,
+        m: "s3-multipart",
+        cs: S3_MULTIPART_PART_SIZE_BYTES,
+        mpu: created.UploadId,
+      }
+      return {
+        ticket: await mintFsUploadTicket({
+          payload,
+          publicBaseUrl: this.opts.publicBaseUrl,
+          secret: this.opts.hmacSecret,
+          headers: {},
+          strategy: {
+            type: "multipart",
+            partSizeBytes: S3_MULTIPART_PART_SIZE_BYTES,
+          },
+        }),
+        storageState: {
+          type: "s3-multipart" as const,
+          uploadId: created.UploadId,
+        },
+      }
+    }
+
     const command = new PutObjectCommand({
       Bucket: this.opts.bucket,
       Key: this.fullKey(input.key),
@@ -120,13 +172,76 @@ export class S3StorageDriver implements StorageDriver {
     })
 
     return {
+      ticket: {
+        uploadUrl: await getSignedUrl(this.client, command, {
+          expiresIn: input.expiresInSec,
+        }),
+        method: "PUT" as const,
+        headers: { "Content-Type": input.contentType },
+        expiresAt,
+        strategy: { type: "single" as const },
+      },
+      storageState: null,
+    }
+  }
+
+  async mintUploadPartUrl(
+    input: MintUploadPartUrlInput,
+  ): Promise<UploadPartTicket> {
+    const command = new UploadPartCommand({
+      Bucket: this.opts.bucket,
+      Key: this.fullKey(input.key),
+      UploadId: input.uploadId,
+      PartNumber: input.partNumber,
+    })
+    return {
       uploadUrl: await getSignedUrl(this.client, command, {
         expiresIn: input.expiresInSec,
       }),
       method: "PUT",
-      headers: { "Content-Type": input.contentType },
-      expiresAt,
+      headers: {},
     }
+  }
+
+  async writeUploadPart(_input: WriteUploadPartInput): Promise<never> {
+    throw new Error("S3 storage does not support server-mediated upload parts")
+  }
+
+  async completeUpload(input: CompleteUploadInput): Promise<void> {
+    if (input.storageState?.type !== "s3-multipart") {
+      throw new Error("S3 multipart completion requires multipart state")
+    }
+    if (!input.parts || input.parts.length === 0) {
+      throw new Error("S3 multipart completion requires uploaded parts")
+    }
+    await this.client.send(
+      new CompleteMultipartUploadCommand({
+        Bucket: this.opts.bucket,
+        Key: this.fullKey(input.key),
+        UploadId: input.storageState.uploadId,
+        MultipartUpload: {
+          Parts: input.parts.map((part) => ({
+            PartNumber: part.partNumber,
+            ETag: part.etag,
+          })),
+        },
+      }),
+    )
+  }
+
+  async abortUpload(input: AbortUploadInput): Promise<void> {
+    if (input.storageState?.type !== "s3-multipart") return
+    await this.client
+      .send(
+        new AbortMultipartUploadCommand({
+          Bucket: this.opts.bucket,
+          Key: this.fullKey(input.key),
+          UploadId: input.storageState.uploadId,
+        }),
+      )
+      .catch((err) => {
+        if (!isS3NotFound(err)) throw err
+      })
   }
 
   async mintDownloadUrl(input: MintDownloadUrlInput): Promise<string | null> {
@@ -282,6 +397,7 @@ function isS3NotFound(err: unknown): boolean {
   }
   return (
     maybe.name === "NoSuchKey" ||
+    maybe.name === "NoSuchUpload" ||
     maybe.name === "NotFound" ||
     maybe.$metadata?.httpStatusCode === 404
   )

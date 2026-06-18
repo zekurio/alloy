@@ -4,7 +4,9 @@ import {
 } from "@alloy/server/encoding/base64url"
 import { constantTimeEqual, hmacSha256 } from "@alloy/server/runtime/crypto"
 
-import type { UploadTicket } from "./driver"
+import type { UploadTicket, UploadTicketStrategy } from "./driver"
+
+export type UploadTokenMode = "single" | "fs-chunked" | "s3-multipart"
 
 export interface UploadTokenPayload {
   /** key - opaque storage key the bytes will land at */
@@ -19,6 +21,12 @@ export interface UploadTokenPayload {
   uid: string
   /** clipId - reserved clip row the ticket targets */
   cid: string
+  /** mode - upload strategy baked into the signed ticket */
+  m?: UploadTokenMode
+  /** chunkSize - fixed part size for resumable upload strategies */
+  cs?: number
+  /** multipartUploadId - storage-native multipart upload identifier */
+  mpu?: string
 }
 
 const textEncoder = new TextEncoder()
@@ -37,14 +45,17 @@ export async function mintFsUploadTicket(input: {
   payload: UploadTokenPayload
   publicBaseUrl: string
   secret: string
+  headers?: Record<string, string>
+  strategy?: UploadTicketStrategy
 }): Promise<UploadTicket> {
   const token = await signToken(input.payload, input.secret)
   const baseUrl = input.publicBaseUrl.replace(/\/+$/, "")
   return {
     uploadUrl: `${baseUrl}/api/assets/upload/${token}`,
     method: "POST",
-    headers: { "Content-Type": input.payload.ct },
+    headers: input.headers ?? { "Content-Type": input.payload.ct },
     expiresAt: input.payload.exp,
+    strategy: input.strategy,
   }
 }
 
@@ -55,7 +66,7 @@ type DecodedToken =
 function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const payload = value as Record<string, unknown>
-  const { k, ct, mb, exp, uid, cid } = payload
+  const { k, ct, mb, exp, uid, cid, m, cs, mpu } = payload
   if (
     typeof k !== "string" ||
     !k.trim() ||
@@ -78,7 +89,30 @@ function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
   ) {
     return null
   }
-  return { k, ct, mb, exp, uid, cid }
+  if (
+    m !== undefined &&
+    m !== "single" &&
+    m !== "fs-chunked" &&
+    m !== "s3-multipart"
+  ) {
+    return null
+  }
+  if (
+    cs !== undefined &&
+    (typeof cs !== "number" || !Number.isSafeInteger(cs) || cs <= 0)
+  ) {
+    return null
+  }
+  if (mpu !== undefined && (typeof mpu !== "string" || !mpu.trim())) {
+    return null
+  }
+  if ((m === "fs-chunked" || m === "s3-multipart") && cs === undefined) {
+    return null
+  }
+  if (m === "s3-multipart" && mpu === undefined) {
+    return null
+  }
+  return { k, ct, mb, exp, uid, cid, m, cs, mpu }
 }
 
 export async function decodeUploadToken(

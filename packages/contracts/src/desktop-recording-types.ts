@@ -52,7 +52,7 @@ export const RECORDING_CAPTURE_SOURCES = ["game", "display"] as const
 export const RECORDING_AUDIO_MODES = ["devices", "applications"] as const
 export const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
 export const RECORDING_NOTIFICATION_SOUND_EVENTS = [
-  "replayRecordingStarted",
+  "replayBufferStarted",
   "clipSaved",
   "bookmarkAdded",
   "screenshotTaken",
@@ -380,7 +380,7 @@ export interface SaveReplayClipRequest extends RecordingActionRequest {
 export type RecordingEvent =
   | { type: "settings"; settings: RecordingSettings }
   | { type: "status"; status: RecordingStatus }
-  | { type: "recording-started"; status: RecordingStatus }
+  | { type: "replay-buffer-started"; status: RecordingStatus }
   | { type: "game-started"; game: RecordingGame; status: RecordingStatus }
   | {
       type: "game-focus-changed"

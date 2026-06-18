@@ -38,9 +38,9 @@ const RECORDING_NOTIFICATION_SOUND_MATCHES: Record<
     terms: readonly string[]
   }
 > = {
-  replayRecordingStarted: {
+  replayBufferStarted: {
     files: ["replay_recording.wav", "start_recording.wav"],
-    terms: ["replay", "buffer", "recording", "start"],
+    terms: ["replay", "buffer", "start"],
   },
   clipSaved: {
     files: ["clip_saved.wav", "save_clip.wav", "bookmark.wav"],

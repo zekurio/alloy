@@ -119,7 +119,7 @@ export const usersRoute = new Hono()
       .orderBy(clip.createdAt)
 
     const entries = rows.map((row) => ({
-      filename: downloadFilename(row, "source"),
+      filename: downloadFilename(row),
       stream: async () => {
         if (!row.sourceKey) return null
         const resolved = await clipStorage.resolve(row.sourceKey)

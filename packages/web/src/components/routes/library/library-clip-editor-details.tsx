@@ -128,9 +128,6 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
     gridBlurHash: ref.gridBlurHash,
     logoUrl: ref.logoUrl,
     iconUrl: ref.iconUrl,
-    // Clip game refs don't carry the derived accent; the editor picker only
-    // needs identity + art.
-    accentColor: null,
   }
 }
 
@@ -229,10 +226,10 @@ function ClipDetailsForm({
   const titleInvalid = trimmedTitle.length === 0
 
   const copyClipLink = async (clip: ClipRow = row) => {
-    const slug = clip.gameRef?.slug
-    if (!slug) return false
+    const steamgriddbId = clip.gameRef?.steamgriddbId
+    if (!steamgriddbId) return false
     return copyTextToClipboard(
-      absoluteClipHref(slug, clip.id, publicOrigin()),
+      absoluteClipHref(steamgriddbId, clip.id, publicOrigin()),
       {
         action: "copy clip link",
       },

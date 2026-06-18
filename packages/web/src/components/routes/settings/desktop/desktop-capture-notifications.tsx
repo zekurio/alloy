@@ -29,9 +29,9 @@ const SOUND_ROWS: Array<{
   defaultFile: string
 }> = [
   {
-    id: "replayRecordingStarted",
-    title: "Replay recording started",
-    description: "Played when the replay buffer starts for a detected game.",
+    id: "replayBufferStarted",
+    title: "Replay buffer started",
+    description: "Played when Alloy starts keeping replay clips ready.",
     defaultFile: "start_recording.wav",
   },
   {
@@ -43,19 +43,19 @@ const SOUND_ROWS: Array<{
   {
     id: "screenshotTaken",
     title: "Screenshot",
-    description: "Played when a recording screenshot is saved.",
+    description: "Played when a screenshot is saved.",
     defaultFile: "bookmark.wav",
   },
   {
     id: "bookmarkAdded",
     title: "Bookmark",
-    description: "Played when a bookmark is added to an active recording.",
+    description: "Played when a bookmark is added to a full-session capture.",
     defaultFile: "bookmark.wav",
   },
 ]
 
 const EMPTY_LIBRARY: RecordingNotificationSoundLibrary = {
-  replayRecordingStarted: [],
+  replayBufferStarted: [],
   clipSaved: [],
   bookmarkAdded: [],
   screenshotTaken: [],

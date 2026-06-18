@@ -54,14 +54,6 @@ export function validateAuthUser(value: unknown): AuthUser {
     user.banner,
     "Invalid auth user response: banner must be string or null",
   )
-  validateNullableString(
-    user.background,
-    "Invalid auth user response: background must be string or null",
-  )
-  validateNullableString(
-    user.accentColor,
-    "Invalid auth user response: accentColor must be string or null",
-  )
   validateEnumString(
     user.role,
     USER_ROLE_SET,

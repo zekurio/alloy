@@ -33,7 +33,7 @@ export function HotkeysSection({
       </SettingRow>
       <SettingRow
         title="Bookmark"
-        description="Adds a marker to an active recording."
+        description="Adds a marker to the current full-session capture."
       >
         <HotkeyInput
           value={settings.hotkeys.bookmark}
@@ -49,7 +49,7 @@ export function HotkeysSection({
       </SettingRow>
       <SettingRow
         title="Screenshot"
-        description="Captures the active recording source."
+        description="Captures the current capture source."
       >
         <HotkeyInput
           value={settings.hotkeys.screenshot}

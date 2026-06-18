@@ -34,6 +34,11 @@ let lastActionAt = new Map<string, number>()
 export function configureRecordingHotkeys(
   settings: RecordingSettings = getRecordingSettings(),
 ): void {
+  if (!settings.enabled) {
+    unregisterRecordingHotkeys()
+    return
+  }
+
   if (!app.isReady()) {
     pendingSettings = settings
     if (!pendingReadyRegistration) {

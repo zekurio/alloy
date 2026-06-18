@@ -454,7 +454,7 @@ enum RecordingEvent {
     Status {
         status: RecordingStatus,
     },
-    RecordingStarted {
+    ReplayBufferStarted {
         status: RecordingStatus,
     },
     GameStarted {

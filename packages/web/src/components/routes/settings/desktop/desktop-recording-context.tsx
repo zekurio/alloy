@@ -52,7 +52,7 @@ interface DesktopRecordingContextValue {
 }
 
 const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
-  replayRecordingStarted: [],
+  replayBufferStarted: [],
   clipSaved: [],
   bookmarkAdded: [],
   screenshotTaken: [],

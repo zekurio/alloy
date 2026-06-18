@@ -6,7 +6,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon, Trash2 } from "lucide-react"
 import * as React from "react"
 
-export type MediaKind = "avatar" | "banner" | "background"
+export type MediaKind = "avatar" | "banner"
 
 export function MediaEditOverlay({
   tone = "shade",

@@ -77,7 +77,7 @@ export function captureTargetLabel(
 ): string {
   if (!settings) return "Loading capture"
   if (settings.captureMode === "display") {
-    return status?.activeDisplay?.name ?? "Desktop capture"
+    return status?.activeDisplay?.name ?? "Display capture"
   }
   return status?.activeGame
     ? `${status.activeGame} is being captured`
@@ -88,9 +88,9 @@ export function statusLabel(
   settings: RecordingSettings | null,
   status: RecordingStatus | null,
 ): string {
-  if (!settings) return "Loading Capture"
-  if (settings.captureMode === "display") return "Desktop Capture"
-  if (!settings.enabled) return "Recording Off"
+  if (!settings) return "Loading capture"
+  if (settings.captureMode === "display") return "Display capture"
+  if (!settings.enabled) return "Capture off"
   return status?.activeGame ?? "Waiting for game"
 }
 

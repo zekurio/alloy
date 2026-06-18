@@ -21,7 +21,7 @@ const logger = createLogger("web")
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const BOOTSTRAP_MARKER = "<!-- alloy:bootstrap -->"
-const CLIP_PERMALINK_RE = /^\/g\/[^/]+\/c\/([^/]+)\/?$/
+const CLIP_PERMALINK_RE = /^\/(?:g|games)\/[^/]+\/c\/([^/]+)\/?$/
 const DEFAULT_WEB_DIST_DIR = "../../build/www"
 const PUBLIC_WEB_PATHS = new Set(["/login", "/setup", "/sign-up"])
 

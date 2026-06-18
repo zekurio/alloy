@@ -66,7 +66,7 @@ export function validateGameRowFields(
       `Invalid ${label} response: ${key} must be a URL or null`,
     )
   }
-  for (const key of ["heroBlurHash", "gridBlurHash", "accentColor"] as const) {
+  for (const key of ["heroBlurHash", "gridBlurHash"] as const) {
     validateNullableString(
       row[key],
       `Invalid ${label} response: ${key} must be string or null`,

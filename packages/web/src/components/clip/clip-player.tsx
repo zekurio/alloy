@@ -90,7 +90,7 @@ function ClipPlayer({
           id: SOURCE_QUALITY_ID,
           label: "Original",
           detail: sourcePlayable ? "Direct stream" : "Direct play attempt",
-          downloadUrl: clipDownloadUrl(clipId, "source", apiOrigin()),
+          downloadUrl: clipDownloadUrl(clipId, apiOrigin()),
         },
       ]
     : []

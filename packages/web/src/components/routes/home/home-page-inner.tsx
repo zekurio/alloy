@@ -2,8 +2,8 @@ import type { ClipFeedWindow, FeedFilter } from "@alloy/api"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 
-import { useRequireAuth } from "@/lib/auth-hooks"
 import type { HomeSearch } from "@/lib/home-search"
+import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { FeedChipBar } from "./feed-chip-bar"
 import { FeedSection } from "./feed-section"
@@ -21,7 +21,7 @@ function filterFromSearch(search: HomeSearch): FeedFilter {
 }
 
 export function HomePageInner() {
-  const session = useRequireAuth()
+  const session = useSuspenseSession()
   const navigate = useNavigate()
   const search = useSearch({ strict: false }) as HomeSearch
 

@@ -276,14 +276,6 @@ export function validatePublicUser(value: unknown): PublicUser {
     row.banner,
     "Invalid user response: banner must be string or null",
   )
-  validateNullableString(
-    row.background,
-    "Invalid user response: background must be string or null",
-  )
-  validateNullableString(
-    row.accentColor,
-    "Invalid user response: accentColor must be string or null",
-  )
   validateIsoDateString(
     row.createdAt,
     "Invalid user response: createdAt must be a date string",

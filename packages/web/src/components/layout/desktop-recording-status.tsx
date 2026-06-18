@@ -101,8 +101,8 @@ function RecordingStatusPopover({
         render={
           <button
             type="button"
-            title="Recording status"
-            aria-label={`Recording status: ${label}`}
+            title="Capture status"
+            aria-label={`Capture status: ${label}`}
             className={cn(
               "hidden h-8 w-36 min-w-0 appearance-none items-center border-0 bg-transparent p-0 text-left outline-none md:inline-flex",
               "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -174,7 +174,7 @@ function RecordingStatusContent({
   return (
     <>
       <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
-        <div className="text-sm font-semibold">Record with Alloy</div>
+        <div className="text-sm font-semibold">Capture with Alloy</div>
         {settings ? (
           <div className="flex items-center gap-2">
             <span className="text-foreground-dim text-[10px] font-semibold tracking-wide uppercase">
@@ -214,7 +214,7 @@ function RecordingStatusContent({
           className="h-8 w-full justify-between px-2 text-sm font-medium"
           onClick={() => void desktop.openSettings()}
         >
-          <span>Recording settings</span>
+          <span>Capture settings</span>
           <ArrowRightIcon className="text-foreground-dim size-4" />
         </Button>
       </div>
@@ -339,7 +339,7 @@ function RecordingCaptureTarget({
         <Button
           type="button"
           variant="outline"
-          className="border-danger/70 bg-danger/5 text-danger hover:border-danger hover:bg-danger/15 hover:text-danger h-9 w-full"
+          className="h-9 w-full"
           onClick={() =>
             void onSave({
               ...settings,
@@ -348,7 +348,8 @@ function RecordingCaptureTarget({
             })
           }
         >
-          Stop Desktop Capture
+          <Gamepad2Icon className="size-4" />
+          Use Game Capture
         </Button>
       ) : (
         <Button
@@ -358,7 +359,7 @@ function RecordingCaptureTarget({
           onClick={onOpenDisplayPicker}
         >
           <MonitorIcon className="size-4" />
-          Switch to Desktop Capture
+          Use Display Capture
         </Button>
       )}
     </>

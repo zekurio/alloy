@@ -3,6 +3,7 @@ import { ClipCard } from "@alloy/ui/components/clip-card"
 import { GlobeIcon, Link2Icon, LockIcon, MonitorIcon } from "lucide-react"
 import * as React from "react"
 
+import { gameHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
@@ -26,7 +27,10 @@ export function LibraryCaptureCard({
     enabled: item.kind !== "screenshot",
   })
   const source: LibrarySource = "local"
-  const renderGameLink = useClipCardGameLink(item.gameSlug)
+  const renderGameLink = useClipCardGameLink(item.gameSteamGridDBId)
+  const gameUrl = item.gameSteamGridDBId
+    ? gameHref(item.gameSteamGridDBId)
+    : null
 
   return (
     <ClipCard
@@ -35,7 +39,7 @@ export function LibraryCaptureCard({
       author=""
       game={item.displayGameName}
       gameIcon={item.displayGameIconUrl}
-      gameHref={item.gameSlug ? `/g/${item.gameSlug}` : null}
+      gameHref={gameUrl}
       renderGameLink={renderGameLink}
       views="0"
       likes="0"
@@ -191,7 +195,9 @@ export function UploadedClipCard({
 }) {
   const card = React.useMemo(() => toClipCardData(row), [row])
   const source = librarySourceForPrivacy(row.privacy)
-  const renderGameLink = useClipCardGameLink(card.gameSlug)
+  const gameId = card.gameRef?.steamgriddbId ?? null
+  const renderGameLink = useClipCardGameLink(gameId)
+  const gameUrl = gameId ? gameHref(gameId) : null
   return (
     <ClipCard
       title={card.title}
@@ -199,7 +205,7 @@ export function UploadedClipCard({
       author=""
       game={card.game}
       gameIcon={card.gameRef?.iconUrl ?? null}
-      gameHref={card.gameSlug ? `/g/${card.gameSlug}` : null}
+      gameHref={gameUrl}
       renderGameLink={renderGameLink}
       views={card.views}
       likes={card.likes}

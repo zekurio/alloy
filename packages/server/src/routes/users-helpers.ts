@@ -137,8 +137,6 @@ export function toPublicUser(row: UserRow): PublicUser {
     username: row.username,
     image: row.image,
     banner: row.banner,
-    background: row.background,
-    accentColor: row.accentColor,
     createdAt: isoDate(row.createdAt),
     updatedAt: isoDate(row.updatedAt),
   }

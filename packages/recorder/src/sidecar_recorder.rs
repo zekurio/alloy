@@ -225,7 +225,7 @@ impl Recorder {
         emit_event(RecordingEvent::Status {
             status: status.clone(),
         });
-        emit_event(RecordingEvent::RecordingStarted { status });
+        emit_event(RecordingEvent::ReplayBufferStarted { status });
         Ok(())
     }
 

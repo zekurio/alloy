@@ -16,9 +16,9 @@ import {
 } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { FilterCarousel } from "@/components/filter-carousel"
-import { useRequireAuth } from "@/lib/auth-hooks"
 import { sanitizeTag } from "@/lib/clip-fields"
 import { formatCount } from "@/lib/number-format"
+import { useSuspenseSession } from "@/lib/session-suspense"
 import { useTagClipsInfiniteQuery, useTagSummaryQuery } from "@/lib/tag-queries"
 import { type TagSearch, tagFilters } from "@/lib/tag-search"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
@@ -38,7 +38,7 @@ const WINDOWS: ReadonlyArray<SortDropdownOption<ClipFeedWindow>> = [
 ]
 
 export function TagsPageInner({ tag: rawTag }: { tag: string }) {
-  const session = useRequireAuth()
+  const session = useSuspenseSession()
   const viewerId = session?.user.id
   const search = useSearch({ strict: false }) as TagSearch
   const tag = sanitizeTag(rawTag)

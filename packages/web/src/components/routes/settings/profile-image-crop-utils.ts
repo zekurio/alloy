@@ -1,4 +1,4 @@
-export type CropMode = "avatar" | "banner" | "background"
+export type CropMode = "avatar" | "banner"
 
 type CropConfig = {
   aspect: number
@@ -19,13 +19,6 @@ export const CROP_CONFIG: Record<CropMode, CropConfig> = {
     label: "Edit banner",
     outputHeight: 375,
     outputWidth: 1500,
-  },
-  // 16:9 fills the page behind the profile content on typical displays.
-  background: {
-    aspect: 16 / 9,
-    label: "Edit background",
-    outputHeight: 1080,
-    outputWidth: 1920,
   },
 }
 
@@ -169,14 +162,9 @@ export function getCropFrame(
 ): CropFrame {
   const preferredMaxWidth =
     mode === "avatar" ? stage.height * 0.78 : stage.width
-  // Background shares the stage's 16:9 aspect, so let its frame fill most of the
-  // stage; the banner stays a short 4:1 strip centered in the taller stage.
+  // The banner is a short 4:1 strip centered in the taller stage.
   const preferredMaxHeight =
-    mode === "avatar"
-      ? stage.height * 0.78
-      : mode === "background"
-        ? stage.height * 0.82
-        : stage.height * 0.54
+    mode === "avatar" ? stage.height * 0.78 : stage.height * 0.54
   const maxWidth = Math.min(
     preferredMaxWidth,
     containedImageBox?.width ?? preferredMaxWidth,

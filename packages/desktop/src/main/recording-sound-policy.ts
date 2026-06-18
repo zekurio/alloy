@@ -14,10 +14,10 @@ import { getRecordingSettings } from "./server-store"
  * happened (events, statuses) and never reasons about chimes itself.
  */
 
-let lastReplayRecordingStartSoundKey: string | null = null
+let lastReplayBufferStartSoundKey: string | null = null
 let lastClipSavedSoundKey: string | null = null
 let pendingReplaySaveRequestSounds = 0
-let startSoundSuppressionDepth = 0
+let replayBufferStartSoundSuppressionDepth = 0
 
 export function playNotificationSound(
   sound: RecordingNotificationSoundEvent,
@@ -26,33 +26,33 @@ export function playNotificationSound(
   void playRecordingNotificationSound(sound, sounds[sound])
 }
 
-/** Play whatever sound a sidecar event calls for (start chime, clip saved). */
+/** Play whatever sound a sidecar event calls for (buffer start, clip saved). */
 export function handleRecordingEventSound(event: RecordingEvent): void {
   if (event.type === "game-ended") {
-    lastReplayRecordingStartSoundKey = null
+    lastReplayBufferStartSoundKey = null
   }
-  maybePlayReplayRecordingStartedSound(event)
+  maybePlayReplayBufferStartedSound(event)
   if (event.type === "capture-ready") {
     maybePlayClipSavedSound(event.capture)
   }
 }
 
 /**
- * Run `task` with the recording-started sound suppressed. Used while pushing
- * settings to the sidecar: a reconfigure restarts an active replay buffer and
- * would otherwise replay the start chime.
+ * Run `task` with the replay-buffer-started sound suppressed. Used while
+ * pushing settings to the sidecar: a reconfigure restarts an active replay
+ * buffer and would otherwise replay the start chime.
  */
-export async function withRecordingStartSoundSuppressed<T>(
+export async function withReplayBufferStartSoundSuppressed<T>(
   suppress: boolean,
   task: () => Promise<T>,
 ): Promise<T> {
   if (!suppress) return task()
 
-  startSoundSuppressionDepth += 1
+  replayBufferStartSoundSuppressionDepth += 1
   try {
     return await task()
   } finally {
-    startSoundSuppressionDepth -= 1
+    replayBufferStartSoundSuppressionDepth -= 1
   }
 }
 
@@ -77,19 +77,19 @@ export function cancelReplaySaveRequestedSoundSuppression(): void {
   if (pendingReplaySaveRequestSounds > 0) pendingReplaySaveRequestSounds -= 1
 }
 
-function maybePlayReplayRecordingStartedSound(event: RecordingEvent): void {
-  if (event.type !== "recording-started") return
+function maybePlayReplayBufferStartedSound(event: RecordingEvent): void {
+  if (event.type !== "replay-buffer-started") return
 
-  const soundKey = replayRecordingStartSoundKey(event.status)
+  const soundKey = replayBufferStartSoundKey(event.status)
   if (!soundKey) return
-  if (lastReplayRecordingStartSoundKey === soundKey) return
-  lastReplayRecordingStartSoundKey = soundKey
-  if (startSoundSuppressionDepth > 0) return
+  if (lastReplayBufferStartSoundKey === soundKey) return
+  lastReplayBufferStartSoundKey = soundKey
+  if (replayBufferStartSoundSuppressionDepth > 0) return
 
-  playNotificationSound("replayRecordingStarted")
+  playNotificationSound("replayBufferStarted")
 }
 
-function replayRecordingStartSoundKey(status: RecordingStatus): string | null {
+function replayBufferStartSoundKey(status: RecordingStatus): string | null {
   if (status.backend !== "ready" || !status.replayActive) return null
 
   const targetKey = recordingTargetKey(status)

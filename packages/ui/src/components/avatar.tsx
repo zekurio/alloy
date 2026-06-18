@@ -8,7 +8,7 @@ const avatarRootSizeClasses = [
   "data-[size=nav]:size-8 data-[size=nav]:text-xs",
   "data-[size=lg]:size-9 data-[size=lg]:text-[14px]",
   "data-[size=xl]:size-12 data-[size=xl]:text-[18px]",
-  "data-[size=2xl]:size-24 data-[size=2xl]:text-4xl",
+  "data-[size=2xl]:size-24 data-[size=2xl]:text-[28px]",
 ]
 
 const avatarBadgeSizeClasses = [

@@ -47,7 +47,7 @@
       "buildResources": "assets",
       "output": "release"
     },
-    "compression": "maximum",
+    "compression": "normal",
     "electronLanguages": [
       "en-US"
     ],

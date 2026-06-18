@@ -28,7 +28,7 @@ import {
   handleRecordingEventSound,
   playNotificationSound,
   requestReplaySaveSound,
-  withRecordingStartSoundSuppressed,
+  withReplayBufferStartSoundSuppressed,
 } from "./recording-sound-policy"
 import {
   getLastRecordingStatus,
@@ -141,7 +141,7 @@ export async function configureRecordingBackend(): Promise<RecordingStatus> {
     // Reconfiguring restarts an active replay buffer inside the sidecar;
     // suppress the start chime so settings changes stay silent.
     const suppressStartSound = getLastRecordingStatus()?.replayActive === true
-    const status = await withRecordingStartSoundSuppressed(
+    const status = await withReplayBufferStartSoundSuppressed(
       suppressStartSound,
       () => client.configure(currentSidecarConfig()),
     )

@@ -13,9 +13,6 @@ export interface PublicUser {
   username: string
   image: string | null
   banner: string | null
-  background: string | null
-  /** User-chosen or background-derived accent (hex, e.g. "#d0c4eb"). */
-  accentColor: string | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
 }
@@ -180,6 +177,7 @@ export type QueueEvent =
 export interface NotificationClipRef {
   id: string
   title: string
+  steamgriddbId: number | null
   gameSlug: string | null
   /** True when the clip has a generated thumbnail available for preview. */
   hasThumb: boolean
@@ -333,8 +331,6 @@ export interface GameRow {
   gridBlurHash: string | null
   logoUrl: string | null
   iconUrl: string | null
-  /** Accent hex auto-derived from the hero art, or null when undeterminable. */
-  accentColor: string | null
 }
 
 export interface GameListRow extends GameRow {

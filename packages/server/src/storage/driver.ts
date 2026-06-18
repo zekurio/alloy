@@ -1,4 +1,19 @@
-import type { UploadTicket } from "@alloy/contracts"
+import type {
+  CompleteMultipartUploadPart,
+  UploadPartTicket,
+  UploadTicket,
+  UploadTicketRole,
+} from "@alloy/contracts"
+
+export type UploadTicketStorageState = {
+  type: "s3-multipart"
+  uploadId: string
+} | null
+
+export interface MintedUploadTicket {
+  ticket: UploadTicket
+  storageState: UploadTicketStorageState
+}
 
 export interface ResolvedObject {
   stream: (opts?: {
@@ -26,6 +41,36 @@ export interface MintUploadUrlInput {
   userId: string
   /** Bind the ticket to the reserved clip row (defence-in-depth). */
   clipId: string
+  role: UploadTicketRole
+}
+
+export interface MintUploadPartUrlInput {
+  key: string
+  uploadId: string
+  partNumber: number
+  expiresInSec: number
+}
+
+export interface WriteUploadPartInput {
+  key: string
+  partNumber: number
+  partSizeBytes: number
+  maxBytes: number
+  body: ReadableStream<Uint8Array>
+}
+
+export interface CompleteUploadInput {
+  key: string
+  contentType: string
+  maxBytes: number
+  partSizeBytes?: number
+  storageState: UploadTicketStorageState
+  parts?: CompleteMultipartUploadPart[]
+}
+
+export interface AbortUploadInput {
+  key: string
+  storageState: UploadTicketStorageState
 }
 
 export interface MintDownloadUrlInput {
@@ -58,7 +103,19 @@ export interface StorageDriver {
   resolve(key: string): Promise<ResolvedObject | null>
 
   /** Issue a browser-bound upload URL. */
-  mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket>
+  mintUploadUrl(input: MintUploadUrlInput): Promise<MintedUploadTicket>
+
+  /** Issue a browser-bound URL for one native multipart upload part. */
+  mintUploadPartUrl(input: MintUploadPartUrlInput): Promise<UploadPartTicket>
+
+  /** Store one server-mediated upload part, used by the filesystem driver. */
+  writeUploadPart(input: WriteUploadPartInput): Promise<{ size: number }>
+
+  /** Publish a resumable upload into its final staged object. */
+  completeUpload(input: CompleteUploadInput): Promise<void>
+
+  /** Best-effort cleanup for resumable upload state. */
+  abortUpload(input: AbortUploadInput): Promise<void>
 
   /**
    * Issue a short-lived browser-bound GET URL so clients pull bytes
@@ -123,7 +180,7 @@ function userAssetDir(userId: string): string {
   return `${aa}/${bb}/${userId}`
 }
 
-export type UserAssetRole = "avatar" | "banner" | "background"
+export type UserAssetRole = "avatar" | "banner"
 
 export function userAssetKey(
   userId: string,
@@ -133,4 +190,9 @@ export function userAssetKey(
   return `${userAssetDir(userId)}/${role}${ext}`
 }
 
-export type { UploadTicket } from "@alloy/contracts"
+export type {
+  CompleteMultipartUploadPart,
+  UploadPartTicket,
+  UploadTicket,
+  UploadTicketStrategy,
+} from "@alloy/contracts"

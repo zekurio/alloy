@@ -6,6 +6,7 @@ import {
   validateEnumString,
   validateIsoDateString,
   validateNonNegativeInteger,
+  validateNullablePositiveInteger,
   validateNullableDateString,
   validateNullableString,
   validateRequiredString,
@@ -87,6 +88,10 @@ function validateNotificationClipRef(value: unknown) {
   validateNullableString(
     clip.gameSlug,
     "Invalid notification clip response: gameSlug must be string or null",
+  )
+  validateNullablePositiveInteger(
+    clip.steamgriddbId,
+    "Invalid notification clip response: steamgriddbId must be a positive integer or null",
   )
   validateBoolean(
     clip.hasThumb,

@@ -35,9 +35,6 @@ export const HlsFileParam = z.object({
   id: z.uuid(),
   file: z.string().min(1).max(64),
 })
-export const DownloadQuery = z.object({
-  variant: optionalTrimmedString(),
-})
 
 export const ListQuery = z.object({
   window: z.enum(["today", "week", "month", "year", "all"]).optional(),
@@ -303,14 +300,9 @@ export function contentDisposition(filename: string): string {
   )}`
 }
 
-export function downloadFilename(
-  row: PlaybackClipRow,
-  variant: "source",
-): string {
+export function downloadFilename(row: PlaybackClipRow): string {
   const base = row.title.trim().replace(/[/\\?%*:|"<>]/g, "-") || row.id
-  return `${base}-${variant}.${extensionForContentType(
-    row.sourceContentType ?? "",
-  )}`
+  return `${base}.${extensionForContentType(row.sourceContentType ?? "")}`
 }
 
 export async function readAll(

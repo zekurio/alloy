@@ -25,7 +25,7 @@ import {
   registerRecordingLibraryProtocol,
 } from "./recording-library"
 import { destroyRecordingNotificationSoundPlayer } from "./recording-notification-sounds"
-import { getStartupServerUrl } from "./server-store"
+import { getRecordingSettings, getStartupServerUrl } from "./server-store"
 import { hasValidSession } from "./session"
 import { createAlloyTray } from "./tray"
 import { initAutoUpdater } from "./updater"
@@ -35,6 +35,8 @@ const WINDOWS_APP_USER_MODEL_ID = "dev.zekurio.alloy.desktop"
 const USER_DATA_DIR_NAME = "Alloy Desktop"
 const SESSION_DATA_DIR_NAME = "session"
 const LOGS_DIR_NAME = "logs"
+const STARTUP_SESSION_VALIDATION_TIMEOUT_MS = 2500
+const BACKGROUND_STARTUP_DELAY_MS = 1000
 
 const logger = createLogger("main")
 
@@ -72,15 +74,8 @@ if (!app.requestSingleInstanceLock()) {
     Menu.setApplicationMenu(null)
     registerRecordingLibraryProtocol()
     registerAssetCacheProtocol()
-    cleanupLegacyFilmstripCache()
-    startRecordingDiscordDetectionsRefresh()
 
     registerIpc(windows)
-    initAutoUpdater()
-    configureRecordingHotkeys()
-    // Push settings to the recording sidecar once at startup so background
-    // capture and hotkeys work before any window asks for recording state.
-    void configureRecordingBackend()
     createAlloyTray({
       showAlloy: () => showOrOpenInitialWindow(windows),
       openLibrary: () => {
@@ -95,6 +90,7 @@ if (!app.requestSingleInstanceLock()) {
       },
     })
     await openInitialWindow(windows)
+    scheduleBackgroundStartup()
 
     app.on("activate", () => {
       // macOS: re-open the connected app when possible, or the fallback connect
@@ -133,7 +129,12 @@ async function shutdownWithDeadline(): Promise<void> {
 
 async function openInitialWindow(windows: Windows): Promise<void> {
   const startupServerUrl = getStartupServerUrl()
-  if (startupServerUrl && (await hasValidSession(startupServerUrl))) {
+  if (
+    startupServerUrl &&
+    (await hasValidSession(startupServerUrl, {
+      timeoutMs: STARTUP_SESSION_VALIDATION_TIMEOUT_MS,
+    }))
+  ) {
     windows.connectTo(startupServerUrl)
     return
   }
@@ -162,4 +163,37 @@ function configureAppPaths(): void {
   app.setPath("userData", roamingRoot)
   app.setPath("sessionData", sessionDataPath)
   app.setAppLogsPath(logsPath)
+}
+
+function scheduleBackgroundStartup(): void {
+  const timer = setTimeout(() => {
+    runBackgroundStartupTask("legacy filmstrip cleanup", () => {
+      cleanupLegacyFilmstripCache()
+    })
+    runBackgroundStartupTask("Discord detection refresh", () => {
+      startRecordingDiscordDetectionsRefresh()
+    })
+    runBackgroundStartupTask("auto updater", () => {
+      initAutoUpdater()
+    })
+
+    const recordingSettings = getRecordingSettings()
+    runBackgroundStartupTask("recording hotkeys", () => {
+      configureRecordingHotkeys(recordingSettings)
+    })
+    if (recordingSettings.enabled) {
+      void configureRecordingBackend().catch((cause: unknown) => {
+        logger.warn("recording backend startup failed:", cause)
+      })
+    }
+  }, BACKGROUND_STARTUP_DELAY_MS)
+  timer.unref?.()
+}
+
+function runBackgroundStartupTask(name: string, task: () => void): void {
+  try {
+    task()
+  } catch (cause) {
+    logger.warn(`${name} startup task failed:`, cause)
+  }
 }
