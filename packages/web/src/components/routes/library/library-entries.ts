@@ -3,7 +3,6 @@ import {
   type ClipRow,
   type GameNameLookupResult,
 } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
 
 import type {
   RecordingLibraryItem,
@@ -20,14 +19,22 @@ import {
 } from "./library-data"
 
 export type LibraryKindFilter = "all" | "replay"
+export type LibraryStatusFilter = "all" | "local" | "cloud" | "synced"
 
 /** One row of the combined grid: a local capture or an uploaded clip. */
 export type LibraryEntry =
-  | { type: "local"; key: string; createdAt: string; item: LibraryItemView }
+  | {
+      type: "local"
+      key: string
+      createdAt: string
+      status: "local"
+      item: LibraryItemView
+    }
   | {
       type: "cloud"
       key: string
       createdAt: string
+      status: "cloud" | "synced"
       row: ClipRow
       /** The on-disk capture backing this clip (uploaded from / downloaded). */
       localItem: RecordingLibraryItem | null
@@ -36,10 +43,31 @@ export type LibraryEntry =
       type: "draft"
       key: string
       createdAt: string
+      status: "local"
       draft: RecordingLibraryProjectDraft
       thumbnailUrl: string | null
       thumbBlurHash: string | null
     }
+
+export function filterLibraryEntriesByStatus(
+  entries: LibraryEntry[],
+  status: LibraryStatusFilter,
+): LibraryEntry[] {
+  if (status === "all") return entries
+  return entries.filter((entry) => entry.status === status)
+}
+
+export function countLibraryEntriesByStatus(
+  entries: LibraryEntry[],
+): Record<Exclude<LibraryStatusFilter, "all">, number> {
+  return entries.reduce(
+    (counts, entry) => {
+      counts[entry.status] += 1
+      return counts
+    },
+    { local: 0, cloud: 0, synced: 0 },
+  )
+}
 
 export function filterLibraryItems(
   items: RecordingLibraryItem[],
@@ -180,19 +208,24 @@ export function buildLibraryEntries({
       type: "local",
       key: `local:${view.id}`,
       createdAt: view.createdAt,
+      status: "local",
       item: view,
     }
   })
 
   const cloudVisible = kind === "all" || kind === "replay"
   const cloud: LibraryEntry[] = cloudVisible
-    ? filterUploadedClips(uploaded, query, active).map((row) => ({
-        type: "cloud",
-        key: `cloud:${row.id}`,
-        createdAt: row.createdAt,
-        row,
-        localItem: localByClipId.get(row.id) ?? null,
-      }))
+    ? filterUploadedClips(uploaded, query, active).map((row) => {
+        const localItem = localByClipId.get(row.id) ?? null
+        return {
+          type: "cloud",
+          key: `cloud:${row.id}`,
+          createdAt: row.createdAt,
+          status: localItem ? "synced" : "cloud",
+          row,
+          localItem,
+        }
+      })
     : []
 
   const drafts: LibraryEntry[] =
@@ -207,6 +240,7 @@ export function buildLibraryEntries({
           type: "draft",
           key: `draft:${draft.id}`,
           createdAt: draft.updatedAt,
+          status: "local",
           draft,
           ...projectDraftThumbnail(draft, snapshot?.items ?? [], uploaded),
         }))
@@ -264,13 +298,4 @@ function draftMatchesGroup(
     if (active.kind === "no-game") return !gameName
     return active.nameKey === gameNameKey(gameName ?? "")
   })
-}
-
-export function emptyKindLabel(kind: LibraryKindFilter) {
-  switch (kind) {
-    case "replay":
-      return tx("clips")
-    default:
-      return "captures"
-  }
 }
