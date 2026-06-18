@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { UserKeyIcon } from "lucide-react"
@@ -44,7 +45,7 @@ export function OAuthButton({
         <UserKeyIcon className="size-4" />
       )}
       <span className="truncate">
-        {pendingLabel ?? `Continue with ${displayName}`}
+        {pendingLabel ?? tx("Continue with {displayName}", { displayName })}
       </span>
     </Button>
   )

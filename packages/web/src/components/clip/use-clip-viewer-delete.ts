@@ -1,5 +1,6 @@
 import type { ClipRow } from "@alloy/api"
 import type { RecordingEvent } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
@@ -40,12 +41,12 @@ export function useClipViewerDelete({
                 setDeletingLocal,
               })
             } else {
-              toast.success("Clip deleted")
+              toast.success(tx("Clip deleted"))
             }
             setOpen(false)
             onDeleted?.()
           },
-          onError: () => toast.error("Couldn't delete clip"),
+          onError: () => toast.error(tx("Couldn't delete clip")),
         },
       )
     },

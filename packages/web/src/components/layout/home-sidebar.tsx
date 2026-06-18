@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   AppBottomNav,
   AppBottomNavItem,
@@ -81,19 +82,23 @@ function SidebarTop() {
 
   return (
     <>
-      <AppSidebarItem active={isHome} title="Home" render={<Link to="/" />}>
+      <AppSidebarItem
+        active={isHome}
+        title={tx("Home")}
+        render={<Link to="/" />}
+      >
         <HomeIcon />
       </AppSidebarItem>
       <AppSidebarItem
         active={isLibrary}
-        title="Library"
+        title={tx("Library")}
         render={<Link to="/library" />}
       >
         <LibraryIcon />
       </AppSidebarItem>
       <AppSidebarItem
         active={isGames}
-        title="Games"
+        title={tx("Games")}
         render={<Link to="/games" />}
       >
         <GamepadIcon />
@@ -110,7 +115,7 @@ function SidebarSettings() {
   if (!session) {
     return (
       <AppSidebarItem
-        title="Settings"
+        title={tx("Settings")}
         aria-disabled
         tabIndex={-1}
         className="pointer-events-none opacity-60"
@@ -121,7 +126,11 @@ function SidebarSettings() {
   }
 
   return (
-    <AppSidebarItem active={isSettings} title="Settings" onClick={openSettings}>
+    <AppSidebarItem
+      active={isSettings}
+      title={tx("Settings")}
+      onClick={openSettings}
+    >
       <SettingsIcon />
     </AppSidebarItem>
   )
@@ -129,7 +138,7 @@ function SidebarSettings() {
 
 function SidebarSettingsFallback() {
   return (
-    <AppSidebarItem title="Settings">
+    <AppSidebarItem title={tx("Settings")}>
       <SettingsIcon />
     </AppSidebarItem>
   )
@@ -138,13 +147,13 @@ function SidebarSettingsFallback() {
 function SidebarTopFallback() {
   return (
     <>
-      <AppSidebarItem title="Home">
+      <AppSidebarItem title={tx("Home")}>
         <HomeIcon />
       </AppSidebarItem>
-      <AppSidebarItem title="Library">
+      <AppSidebarItem title={tx("Library")}>
         <LibraryIcon />
       </AppSidebarItem>
-      <AppSidebarItem title="Games">
+      <AppSidebarItem title={tx("Games")}>
         <GamepadIcon />
       </AppSidebarItem>
     </>
@@ -158,19 +167,23 @@ function BottomNavItems() {
 
   return (
     <>
-      <AppBottomNavItem active={isHome} title="Home" render={<Link to="/" />}>
+      <AppBottomNavItem
+        active={isHome}
+        title={tx("Home")}
+        render={<Link to="/" />}
+      >
         <HomeIcon />
       </AppBottomNavItem>
       <AppBottomNavItem
         active={isLibrary}
-        title="Library"
+        title={tx("Library")}
         render={<Link to="/library" />}
       >
         <LibraryIcon />
       </AppBottomNavItem>
       <AppBottomNavItem
         active={isGames}
-        title="Games"
+        title={tx("Games")}
         render={<Link to="/games" />}
       >
         <GamepadIcon />
@@ -178,14 +191,14 @@ function BottomNavItems() {
       {session ? (
         <AppBottomNavItem
           active={isSettings}
-          title="Settings"
+          title={tx("Settings")}
           onClick={openSettings}
         >
           <SettingsIcon />
         </AppBottomNavItem>
       ) : (
         <AppBottomNavItem
-          title="Settings"
+          title={tx("Settings")}
           aria-disabled
           tabIndex={-1}
           className="pointer-events-none opacity-60"
@@ -200,16 +213,16 @@ function BottomNavItems() {
 function BottomNavFallback() {
   return (
     <>
-      <AppBottomNavItem title="Home">
+      <AppBottomNavItem title={tx("Home")}>
         <HomeIcon />
       </AppBottomNavItem>
-      <AppBottomNavItem title="Library">
+      <AppBottomNavItem title={tx("Library")}>
         <LibraryIcon />
       </AppBottomNavItem>
-      <AppBottomNavItem title="Games">
+      <AppBottomNavItem title={tx("Games")}>
         <GamepadIcon />
       </AppBottomNavItem>
-      <AppBottomNavItem title="Settings">
+      <AppBottomNavItem title={tx("Settings")}>
         <SettingsIcon />
       </AppBottomNavItem>
     </>

@@ -94,6 +94,9 @@ importers:
       '@alloy/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@alloy/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       '@alloy/logging':
         specifier: workspace:*
         version: link:../logging
@@ -154,6 +157,8 @@ importers:
       zod:
         specifier: 4.3.6
         version: 4.3.6
+
+  packages/i18n: {}
 
   packages/logging: {}
 
@@ -222,6 +227,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@alloy/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       '@base-ui/react':
         specifier: 1.4.1
         version: 1.4.1(@types/react@19.2.14)(react-dom@19.2.5(react@19.2.5))(react@19.2.5)
@@ -277,6 +285,9 @@ importers:
       '@alloy/env':
         specifier: workspace:*
         version: link:../env
+      '@alloy/i18n':
+        specifier: workspace:*
+        version: link:../i18n
       '@alloy/ui':
         specifier: workspace:*
         version: link:../ui

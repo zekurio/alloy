@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
@@ -243,7 +244,7 @@ export function LibraryTrimBar({
       >
         <div
           role="slider"
-          aria-label="Move trim window"
+          aria-label={tx("Move trim window")}
           aria-valuemin={0}
           aria-valuemax={Math.round(
             Math.max(0, durationMs - (endMs - startMs)) / 1000,
@@ -254,7 +255,7 @@ export function LibraryTrimBar({
           onKeyDown={handleKeyDown("move")}
           className="bg-accent text-accent-foreground focus-visible:ring-ring flex h-4 items-center gap-1 px-4 text-[10px] leading-none font-semibold focus-visible:ring-2 focus-visible:outline-none"
         >
-          <span className="truncate">Trim selection</span>
+          <span className="truncate">{tx("Trim selection")}</span>
           <span className="ml-auto shrink-0 tabular-nums opacity-80">
             {formatTrimMs(endMs - startMs)}
           </span>
@@ -262,7 +263,7 @@ export function LibraryTrimBar({
         <div
           data-trim-handle="start"
           role="slider"
-          aria-label="Trim start"
+          aria-label={tx("Trim start")}
           aria-valuemin={0}
           aria-valuemax={Math.round(durationMs / 1000)}
           aria-valuenow={Math.round(startMs / 1000)}
@@ -276,7 +277,7 @@ export function LibraryTrimBar({
         <div
           data-trim-handle="end"
           role="slider"
-          aria-label="Trim end"
+          aria-label={tx("Trim end")}
           aria-valuemin={0}
           aria-valuemax={Math.round(durationMs / 1000)}
           aria-valuenow={Math.round(endMs / 1000)}

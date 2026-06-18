@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -43,26 +44,26 @@ import {
 } from "./editor-render-settings"
 
 const CODEC_LABELS: Record<RenderCodec, string> = {
-  avc: "H.264 (AVC)",
-  hevc: "H.265 (HEVC)",
-  vp9: "VP9",
-  av1: "AV1",
+  avc: tx("H.264 (AVC)"),
+  hevc: tx("H.265 (HEVC)"),
+  vp9: tx("VP9"),
+  av1: tx("AV1"),
 }
 const RESOLUTION_LABELS: Record<RenderResolution, string> = {
-  source: "Source resolution",
+  source: tx("Source resolution"),
   "1440": "1440p",
   "1080": "1080p",
   "720": "720p",
 }
 const QUALITY_LABELS: Record<RenderQuality, string> = {
-  medium: "Medium",
-  high: "High",
-  "very-high": "Very high",
+  medium: tx("Medium"),
+  high: tx("High"),
+  "very-high": tx("Very high"),
 }
 const ACCELERATION_LABELS: Record<RenderAcceleration, string> = {
-  auto: "Auto",
-  gpu: "GPU (hardware)",
-  cpu: "CPU (software)",
+  auto: tx("Auto"),
+  gpu: tx("GPU (hardware)"),
+  cpu: tx("CPU (software)"),
 }
 
 export interface EditorRenderController {
@@ -129,7 +130,7 @@ export function useEditorRender({
           )
         })
         .catch((cause) => {
-          toast.error(errorMessage(cause, "Couldn't probe video encoders"))
+          toast.error(errorMessage(cause, tx("Couldn't probe video encoders")))
           setRenderCodecs([])
         })
     }
@@ -160,7 +161,7 @@ export function useEditorRender({
         height: rendered.height,
       })
       await refreshLibrarySnapshotCache(queryClient, desktop)
-      toast.success("Render saved to your library")
+      toast.success(tx("Render saved to your library"))
       setRenderDialogOpen(false)
       void navigate({
         to: "/library/$captureId",
@@ -168,7 +169,7 @@ export function useEditorRender({
       })
     } catch (cause) {
       if (!abort.signal.aborted) {
-        toast.error(errorMessage(cause, "Couldn't render the project"))
+        toast.error(errorMessage(cause, tx("Couldn't render the project")))
       }
     } finally {
       renderAbortRef.current = null
@@ -216,15 +217,15 @@ export function EditorRenderDialog({
         {renderFraction === null ? (
           <>
             <DialogHeader>
-              <DialogTitle>Render video</DialogTitle>
+              <DialogTitle>{tx("Render video")}</DialogTitle>
               <DialogDescription>
-                The render is saved to your library as a new clip.
+                {tx("The render is saved to your library as a new clip.")}
               </DialogDescription>
             </DialogHeader>
             <DialogBody className="grid grid-cols-2 gap-3">
               <Field>
                 <FieldLabel htmlFor="render-resolution" className="text-xs">
-                  Resolution
+                  {tx("Resolution")}
                 </FieldLabel>
                 <Select
                   value={renderSettings.resolution}
@@ -258,7 +259,7 @@ export function EditorRenderDialog({
 
               <Field>
                 <FieldLabel htmlFor="render-fps" className="text-xs">
-                  Frame rate
+                  {tx("Frame rate")}
                 </FieldLabel>
                 <Select
                   value={String(renderSettings.fps)}
@@ -270,12 +271,14 @@ export function EditorRenderDialog({
                   }}
                 >
                   <SelectTrigger id="render-fps" size="sm" className="w-full">
-                    <SelectValue>{renderSettings.fps} FPS</SelectValue>
+                    <SelectValue>
+                      {renderSettings.fps} {tx("FPS")}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent align="start">
                     {RENDER_FPS_OPTIONS.map((fps) => (
                       <SelectItem key={fps} value={String(fps)}>
-                        {fps} FPS
+                        {fps} {tx("FPS")}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -284,7 +287,7 @@ export function EditorRenderDialog({
 
               <Field>
                 <FieldLabel htmlFor="render-codec" className="text-xs">
-                  Codec
+                  {tx("Codec")}
                 </FieldLabel>
                 <Select
                   value={renderSettings.codec}
@@ -301,9 +304,9 @@ export function EditorRenderDialog({
                   <SelectTrigger id="render-codec" size="sm" className="w-full">
                     <SelectValue>
                       {renderCodecs === null
-                        ? "Checking encoders..."
+                        ? tx("Checking encoders...")
                         : renderCodecs.length === 0
-                          ? "No encoders available"
+                          ? tx("No encoders available")
                           : CODEC_LABELS[renderSettings.codec]}
                     </SelectValue>
                   </SelectTrigger>
@@ -319,7 +322,7 @@ export function EditorRenderDialog({
 
               <Field>
                 <FieldLabel htmlFor="render-quality" className="text-xs">
-                  Quality
+                  {tx("Quality")}
                 </FieldLabel>
                 <Select
                   value={renderSettings.quality}
@@ -353,7 +356,7 @@ export function EditorRenderDialog({
 
               <Field className="col-span-2">
                 <FieldLabel htmlFor="render-acceleration" className="text-xs">
-                  Encoder
+                  {tx("Encoder")}
                 </FieldLabel>
                 <Select
                   value={renderSettings.acceleration}
@@ -387,7 +390,7 @@ export function EditorRenderDialog({
             </DialogBody>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={render.close}>
-                Cancel
+                {tx("Cancel")}
               </Button>
               <Button
                 type="button"
@@ -397,28 +400,30 @@ export function EditorRenderDialog({
                   void render.start()
                 }}
               >
-                Start render
+                {tx("Start render")}
               </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Rendering video</DialogTitle>
+              <DialogTitle>{tx("Rendering video")}</DialogTitle>
               <DialogDescription>
-                Decoding, compositing, and encoding your timeline. Keep the app
-                open.
+                {tx(
+                  "Decoding, compositing, and encoding your timeline. Keep the app open.",
+                )}
               </DialogDescription>
             </DialogHeader>
             <DialogBody className="flex flex-col gap-3">
               <Progress value={Math.round(renderFraction * 100)} />
               <span className="text-foreground-muted text-sm tabular-nums">
-                {Math.round(renderFraction * 100)}%
+                {Math.round(renderFraction * 100)}
+                {"%"}
               </span>
             </DialogBody>
             <DialogFooter>
               <Button type="button" variant="ghost" onClick={render.cancel}>
-                Cancel
+                {tx("Cancel")}
               </Button>
             </DialogFooter>
           </>

@@ -10,6 +10,7 @@ import type {
   SaveReplayClipRequest,
   RecordingStatus,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
@@ -39,9 +40,13 @@ import { getRecordingSettings } from "./server-store"
 
 function sidecarMissingMessage(): string {
   if (app.isPackaged) {
-    return "Recording is unavailable because the capture component is missing. Try reinstalling Alloy."
+    return tx(
+      "Recording is unavailable because the capture component is missing. Try reinstalling Alloy.",
+    )
   }
-  return "Recording capture sidecar is not built yet. Run pnpm --filter @alloy/recorder build."
+  return tx(
+    "Recording capture sidecar is not built yet. Run pnpm --filter @alloy/recorder build.",
+  )
 }
 
 type RecordingEventListener = (event: RecordingEvent) => void
@@ -69,7 +74,7 @@ export async function getRecordingStatus(): Promise<RecordingStatus> {
     return status
   } catch (cause) {
     const status = errorRecordingStatus(
-      errorText(cause, "Recording sidecar failed."),
+      errorText(cause, tx("Recording sidecar failed.")),
     )
     rememberRecordingStatus(status)
     return status
@@ -147,7 +152,7 @@ export async function configureRecordingBackend(): Promise<RecordingStatus> {
     return status
   } catch (cause) {
     const status = errorRecordingStatus(
-      errorText(cause, "Recording sidecar failed."),
+      errorText(cause, tx("Recording sidecar failed.")),
     )
     rememberRecordingStatus(status)
     emitRecordingStatusEvent(status)
@@ -216,7 +221,7 @@ async function runRecordingAction(
     rememberRecordingLibraryCapture(capture)
     return { ...result, status, capture }
   } catch (cause) {
-    const message = errorText(cause, "Recording sidecar failed.")
+    const message = errorText(cause, tx("Recording sidecar failed."))
     const status = errorRecordingStatus(message)
     rememberRecordingStatus(status)
     return {

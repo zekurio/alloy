@@ -1,6 +1,8 @@
 import { existsSync } from "node:fs"
 import { delimiter, join } from "node:path"
 
+import { t as tx } from "@alloy/i18n"
+
 export function sidecarEnv(
   runtimeDir: string | null,
   discordDetectionCachePath: string | null,
@@ -49,7 +51,7 @@ export function sidecarExitMessage(
   signal: NodeJS.Signals | null,
 ): string {
   if (signal) return `Recording sidecar exited from ${signal}.`
-  if (code === null) return "Recording sidecar exited."
+  if (code === null) return tx("Recording sidecar exited.")
   return `Recording sidecar exited with code ${code}.`
 }
 

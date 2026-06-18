@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { SaveIcon } from "lucide-react"
@@ -52,8 +53,8 @@ export function SettingsSaveBar() {
           )}
         >
           {warned
-            ? "You have unsaved settings — save or discard them first."
-            : "You have unsaved changes."}
+            ? tx("You have unsaved settings — save or discard them first.")
+            : tx("You have unsaved changes.")}
         </p>
         <Button
           type="button"
@@ -62,7 +63,7 @@ export function SettingsSaveBar() {
           disabled={saving}
           onClick={discardAll}
         >
-          Cancel
+          {tx("Cancel")}
         </Button>
         <Button
           type="button"
@@ -72,7 +73,7 @@ export function SettingsSaveBar() {
           onClick={() => void saveAll()}
         >
           <SaveIcon />
-          {saving ? "Saving…" : "Save"}
+          {saving ? tx("Saving…") : tx("Save")}
         </Button>
       </div>
     </div>

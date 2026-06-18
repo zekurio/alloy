@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { Loader2Icon } from "lucide-react"
 
@@ -5,7 +6,7 @@ function Spinner({ className, ...props }: React.ComponentProps<"svg">) {
   return (
     <Loader2Icon
       role="status"
-      aria-label="Loading"
+      aria-label={tx("Loading")}
       className={cn("size-4 animate-spin", className)}
       {...props}
     />

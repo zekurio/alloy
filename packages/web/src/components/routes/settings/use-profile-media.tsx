@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
@@ -14,8 +15,8 @@ import type { CropMode } from "./profile-image-crop-utils"
 import { MediaDropdownContent, type MediaKind } from "./profile-media-controls"
 
 const UPLOAD_SUCCESS_MESSAGE: Record<CropMode, string> = {
-  avatar: "Avatar updated",
-  banner: "Banner updated",
+  avatar: tx("Avatar updated"),
+  banner: tx("Banner updated"),
 }
 
 type ProfileMediaInput = {
@@ -94,7 +95,7 @@ export function useProfileMedia({ image, banner }: ProfileMediaInput) {
       await refreshProfile()
       return true
     } catch (cause) {
-      toast.error(errorMessage(cause, "Upload failed"))
+      toast.error(errorMessage(cause, tx("Upload failed")))
       return false
     } finally {
       setUploading(false)
@@ -106,10 +107,10 @@ export function useProfileMedia({ image, banner }: ProfileMediaInput) {
     try {
       const nextUser = await api.users.removeAvatar()
       setProfileImage(nextUser.image ?? "")
-      toast.success("Avatar removed")
+      toast.success(tx("Avatar removed"))
       await refreshProfile()
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't remove avatar"))
+      toast.error(errorMessage(cause, tx("Couldn't remove avatar")))
     } finally {
       setUploading(false)
     }
@@ -120,10 +121,10 @@ export function useProfileMedia({ image, banner }: ProfileMediaInput) {
     try {
       const nextUser = await api.users.removeBanner()
       setProfileBanner(nextUser.banner ?? "")
-      toast.success("Banner removed")
+      toast.success(tx("Banner removed"))
       await refreshProfile()
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't remove banner"))
+      toast.error(errorMessage(cause, tx("Couldn't remove banner")))
     } finally {
       setUploading(false)
     }

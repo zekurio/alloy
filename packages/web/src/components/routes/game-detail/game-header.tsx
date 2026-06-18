@@ -1,4 +1,5 @@
 import type { GameDetail } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
@@ -102,16 +103,19 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-white/75">
-            <HeroStat value={game.favouritesCount} label="favourites" />
+            <HeroStat value={game.favouritesCount} label={tx("favourites")} />
             <HeroDot />
             <HeroStat
               value={game.clipCount}
-              label={game.clipCount === 1 ? "clip" : "clips"}
+              label={game.clipCount === 1 ? tx("clip") : tx("clips")}
             />
             {year !== null ? (
               <>
                 <HeroDot />
-                <span>Released {year}</span>
+                <span>
+                  {tx("Released")}
+                  {year}
+                </span>
               </>
             ) : null}
           </div>
@@ -133,5 +137,5 @@ function HeroStat({ value, label }: { value: number; label: string }) {
 }
 
 function HeroDot() {
-  return <span className="text-white/45">·</span>
+  return <span className="text-white/45">{"·"}</span>
 }

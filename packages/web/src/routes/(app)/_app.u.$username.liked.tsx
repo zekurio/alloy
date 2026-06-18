@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   SectionActions,
   SectionHead,
@@ -26,7 +27,7 @@ function ProfileLikedTab() {
   const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
 
   useQueryErrorToast(error, {
-    title: "Couldn't load liked clips",
+    title: tx("Couldn't load liked clips"),
     toastId: "profile-liked-error",
   })
 
@@ -36,7 +37,7 @@ function ProfileLikedTab() {
         <div>
           <SectionTitle>
             <HeartIcon className="text-accent" />
-            Liked
+            {tx("Liked")}
           </SectionTitle>
         </div>
         <SectionActions>
@@ -50,10 +51,10 @@ function ProfileLikedTab() {
         rows={clips}
         error={error}
         errorSeed="profile-liked-error"
-        errorTitle="Couldn't load liked clips"
+        errorTitle={tx("Couldn't load liked clips")}
         emptySeed="profile-liked-empty"
-        emptyTitle="No liked clips yet"
-        emptyHint="Videos this user likes will show up here."
+        emptyTitle={tx("No liked clips yet")}
+        emptyHint={tx("Videos this user likes will show up here.")}
         listKey={`profile:${username}:liked`}
         isOwnedByViewer={() => isSelf}
       />

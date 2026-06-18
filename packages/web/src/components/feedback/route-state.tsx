@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { messageFromUnknown } from "@alloy/ui/lib/error-message"
@@ -40,9 +41,9 @@ function RouteErrorState({
       action: "copy route error details",
     })
     if (copied) {
-      toast.success("Error details copied")
+      toast.success(tx("Error details copied"))
     } else {
-      toast.error("Couldn't copy error details")
+      toast.error(tx("Couldn't copy error details"))
     }
   }, [details, message])
 
@@ -51,7 +52,7 @@ function RouteErrorState({
       <div className="flex w-full max-w-md flex-col items-start gap-4 text-left">
         <div className="flex w-full flex-col gap-2">
           <h1 className="text-foreground text-lg font-semibold tracking-tight">
-            Something went wrong
+            {tx("Something went wrong")}
           </h1>
           <pre className="border-border bg-surface-raised text-foreground-muted max-h-32 overflow-auto rounded-lg border px-3 py-2 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap">
             {message}
@@ -60,10 +61,10 @@ function RouteErrorState({
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" onClick={reset}>
-            Retry
+            {tx("Retry")}
           </Button>
           <Button type="button" variant="outline" onClick={copyErrorDetails}>
-            Copy error
+            {tx("Copy error")}
           </Button>
         </div>
       </div>
@@ -81,17 +82,17 @@ function RouteNotFoundState({
       <div className="flex w-full max-w-md flex-col items-start gap-4 text-left text-balance">
         <div className="flex w-full flex-col gap-1.5">
           <h1 className="text-foreground text-lg font-semibold tracking-tight">
-            Page not found
+            {tx("Page not found")}
           </h1>
           <p className="text-foreground-muted text-sm leading-relaxed">
-            The page may have moved, been deleted, or never existed.
+            {tx("The page may have moved, been deleted, or never existed.")}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Link to="/" className={buttonVariants({ variant: "outline" })}>
             <Home className="size-3.5" aria-hidden />
-            Go home
+            {tx("Go home")}
           </Link>
           {canGoBack ? (
             <Button
@@ -100,7 +101,7 @@ function RouteNotFoundState({
               onClick={goBackInBrowserHistory}
             >
               <ArrowLeft className="size-3.5" aria-hidden />
-              Go back
+              {tx("Go back")}
             </Button>
           ) : null}
         </div>

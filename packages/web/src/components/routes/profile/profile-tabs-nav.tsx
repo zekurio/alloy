@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useLocation } from "@tanstack/react-router"
 
@@ -21,22 +22,22 @@ type Tab = {
 const TABS: ReadonlyArray<Tab> = [
   {
     segment: "feed",
-    label: "Home",
+    label: tx("Home"),
     to: "/u/$username/feed",
   },
   {
     segment: "all",
-    label: "Clips",
+    label: tx("Clips"),
     to: "/u/$username/all",
   },
   {
     segment: "liked",
-    label: "Liked",
+    label: tx("Liked"),
     to: "/u/$username/liked",
   },
   {
     segment: "tagged",
-    label: "Tagged",
+    label: tx("Tagged"),
     to: "/u/$username/tagged",
   },
 ]
@@ -61,7 +62,7 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
       data-slot="tabs-list"
       data-variant="profile"
       className="border-border mb-6 flex w-full gap-6 overflow-x-auto overflow-y-hidden border-b sm:mb-8 sm:gap-8"
-      aria-label="Profile sections"
+      aria-label={tx("Profile sections")}
     >
       {TABS.map((tab) => {
         const isActive = tab.segment === active

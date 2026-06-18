@@ -1,4 +1,5 @@
 import type { RecordingSettings, RecordingStatus } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
 import { type ReactNode } from "react"
@@ -18,9 +19,13 @@ export function ModeSection({
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-sm font-semibold">Capture with Alloy</div>
+          <div className="text-sm font-semibold">
+            {tx("Capture with Alloy")}
+          </div>
           <p className="text-foreground-dim mt-0.5 text-xs">
-            Auto-detect a game or display and keep the replay buffer ready.
+            {tx(
+              "Auto-detect a game or display and keep the replay buffer ready.",
+            )}
           </p>
         </div>
         <Switch
@@ -69,12 +74,14 @@ function captureStatusLabel(
   settings: RecordingSettings,
   status: RecordingStatus,
 ): string {
-  if (status.replayActive) return "Replay buffer active"
+  if (status.replayActive) return tx("Replay buffer active")
   if (settings.captureMode === "display") {
-    return settings.enabled ? "Display capture ready" : "Display capture off"
+    return settings.enabled
+      ? tx("Display capture ready")
+      : tx("Display capture off")
   }
-  if (!settings.enabled) return "Capture is off"
+  if (!settings.enabled) return tx("Capture is off")
   return status.activeGame
-    ? `${status.activeGame} is ready`
-    : "Waiting for a game"
+    ? tx("{game} is ready", { game: status.activeGame })
+    : tx("Waiting for a game")
 }

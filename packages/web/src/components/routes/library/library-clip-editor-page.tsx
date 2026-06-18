@@ -1,4 +1,5 @@
 import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Progress } from "@alloy/ui/components/progress"
@@ -61,8 +62,10 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
         {query.isError ? (
           <LibraryEmpty
             icon={<CloudIcon />}
-            title="Clip not found"
-            description="It may have been deleted, or you may not have access to it."
+            title={tx("Clip not found")}
+            description={tx(
+              "It may have been deleted, or you may not have access to it.",
+            )}
           >
             <BackToLibraryButton />
           </LibraryEmpty>
@@ -152,7 +155,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
       },
       {
         onSuccess: () => {
-          toast.success("Trim saved — the clip is reprocessing")
+          toast.success(tx("Trim saved — the clip is reprocessing"))
           playback.setTrim({ startMs: 0, endMs: 0 })
           playback.setCurrentMs(0)
         },
@@ -319,11 +322,11 @@ function useServerBackedClipDelete({
                 setDeletingLocal,
               })
             } else {
-              toast.success("Clip deleted")
+              toast.success(tx("Clip deleted"))
             }
             await finishDelete({ keptLocalItem })
           },
-          onError: () => toast.error("Couldn't delete clip"),
+          onError: () => toast.error(tx("Couldn't delete clip")),
         },
       )
     },
@@ -361,12 +364,13 @@ function ClipProcessingNotice({ progress }: { progress: number }) {
       <Spinner className="size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-foreground text-sm font-medium">
-          Processing clip...
+          {tx("Processing clip...")}
         </p>
         <Progress value={clamped} className="mt-1.5" />
       </div>
       <span className="text-foreground-muted text-sm tabular-nums">
-        {clamped}%
+        {clamped}
+        {"%"}
       </span>
     </div>
   )

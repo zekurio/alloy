@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Spinner } from "@alloy/ui/components/spinner"
 
 import { AllowedGamesSection } from "./desktop-capture-games"
@@ -14,7 +15,7 @@ export function DesktopCaptureSettings() {
     return (
       <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />
-        Loading capture settings
+        {tx("Loading capture settings")}
       </div>
     )
   }
@@ -50,7 +51,7 @@ export function DesktopStoragePanel() {
     return (
       <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />
-        Loading storage settings
+        {tx("Loading storage settings")}
       </div>
     )
   }

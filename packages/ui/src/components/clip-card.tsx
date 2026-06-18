@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -162,7 +163,9 @@ function ClipCard({
                 />
                 {game ? (
                   <>
-                    <span className="text-foreground-faint shrink-0">·</span>
+                    <span className="text-foreground-faint shrink-0">
+                      {"·"}
+                    </span>
                     <GameLabel
                       game={game}
                       icon={gameIcon}
@@ -188,8 +191,10 @@ function ClipCard({
           </div>
         ) : (
           <div className="text-foreground-faint flex shrink-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums">
-            <span className="shrink-0">{views} views</span>
-            <span className="shrink-0">·</span>
+            <span className="shrink-0">
+              {views} {tx("views")}
+            </span>
+            <span className="shrink-0">{"·"}</span>
             <span className="shrink-0">{postedAt}</span>
           </div>
         )}

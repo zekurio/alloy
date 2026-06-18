@@ -1,3 +1,4 @@
+import { getRuntimeLocale, t as tx } from "@alloy/i18n"
 const COUNT_UNITS = ["k", "m", "b", "t"] as const
 
 /** 1,3k / 12,4k / 842 — truncated so counts never round up. */
@@ -19,7 +20,7 @@ export function formatCount(value: number): string {
   const scaled = Math.trunc((count / divisor) * 10) / 10
   const formatted = Number.isInteger(scaled)
     ? String(scaled)
-    : scaled.toFixed(1).replace(".", ",")
+    : scaled.toFixed(1).replace(".", getRuntimeLocale() === "de" ? "," : ".")
 
   return `${sign}${formatted}${COUNT_UNITS[unitIndex]}`
 }
@@ -29,9 +30,13 @@ export function formatCount(value: number): string {
  * "99+ clips". Counts past 99 collapse to "99+" so the header stays tidy
  * instead of rendering arbitrarily large totals.
  */
-export function headerCountLabel(count: number, singular: string): string {
+export function headerCountLabel(
+  count: number,
+  singular: string,
+  plural = `${singular}s`,
+): string {
   const safe = Number.isFinite(count) ? Math.trunc(Math.max(0, count)) : 0
   const display = safe > 99 ? "99+" : String(safe)
-  const noun = safe === 1 ? singular : `${singular}s`
+  const noun = safe === 1 ? tx(singular) : tx(plural)
   return `${display} ${noun}`
 }

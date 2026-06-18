@@ -1,4 +1,5 @@
 import type { UserClip } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
@@ -41,7 +42,7 @@ export function ProfileClips({
   isSelf,
 }: ProfileClipsProps) {
   useQueryErrorToast(error, {
-    title: "Couldn't load clips",
+    title: tx("Couldn't load clips"),
     toastId: `profile-${username}-clips-error`,
   })
   const [gameSlug, setGameSlug] = React.useState<string | null>(null)
@@ -93,7 +94,7 @@ export function ProfileClips({
         <div>
           <SectionTitle>
             <FilmIcon className="text-accent" />
-            Clips
+            {tx("Clips")}
           </SectionTitle>
         </div>
         <SectionActions>
@@ -112,7 +113,7 @@ export function ProfileClips({
             data-active={gameSlug === null ? "true" : undefined}
             onClick={() => setGameSlug(null)}
           >
-            All games
+            {tx("All games")}
           </Chip>
           {gameOptions.map((g) => (
             <Chip
@@ -138,17 +139,17 @@ export function ProfileClips({
         rows={visible}
         error={error}
         errorSeed={`profile-${username}-clips-error`}
-        errorTitle="Couldn't load clips"
+        errorTitle={tx("Couldn't load clips")}
         emptySeed={`profile-${username}-clips-empty-${gameSlug ?? "all"}`}
         emptyTitle={
           selectedGame
-            ? `No clips for ${selectedGame.name} yet`
-            : "No clips uploaded yet"
+            ? tx("No clips for {game} yet", { game: selectedGame.name })
+            : tx("No clips uploaded yet")
         }
         emptyHint={
           selectedGame
-            ? "Try a different game."
-            : "Clips from this user will show up here once they upload."
+            ? tx("Try a different game.")
+            : tx("Clips from this user will show up here once they upload.")
         }
         listKey={`profile:${username}:clips:${gameSlug ?? ""}`}
         isOwnedByViewer={() => isSelf}

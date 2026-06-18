@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -94,8 +95,10 @@ export function EditorPage({
       <AppMain>
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title="The editor is only available in Alloy Desktop"
-          description="Open Alloy in the desktop app to edit captures stored on this device."
+          title={tx("The editor is only available in Alloy Desktop")}
+          description={tx(
+            "Open Alloy in the desktop app to edit captures stored on this device.",
+          )}
         />
       </AppMain>
     )
@@ -317,7 +320,7 @@ function EditorContent({
         project,
       )
       setDraftSaveStatus("saved")
-      toast.success("Draft saved")
+      toast.success(tx("Draft saved"))
       void refresh()
       if (!savedDraftId) {
         void navigate({
@@ -328,7 +331,7 @@ function EditorContent({
       }
     } catch (cause) {
       setDraftSaveStatus("idle")
-      toast.error(errorMessage(cause, "Couldn't save the draft"))
+      toast.error(errorMessage(cause, tx("Couldn't save the draft")))
     }
   }, [
     desktop,
@@ -345,12 +348,12 @@ function EditorContent({
     setDeleting(true)
     try {
       await desktop.recording.deleteLibraryProjectDraft(savedDraftId)
-      toast.success("Project deleted")
+      toast.success(tx("Project deleted"))
       void refresh()
       void navigate({ to: "/library", replace: true })
     } catch (cause) {
       setDeleting(false)
-      toast.error(errorMessage(cause, "Couldn't delete the project"))
+      toast.error(errorMessage(cause, tx("Couldn't delete the project")))
     }
   }, [desktop, deleting, navigate, refresh, savedDraftId])
 
@@ -391,10 +394,10 @@ function EditorContent({
           <EditableProjectName value={projectName} onChange={setProjectName} />
           <div className="flex-1" />
           {draftSaveStatus === "saved" ? (
-            <span className="text-foreground-faint text-sm">Saved</span>
+            <span className="text-foreground-faint text-sm">{tx("Saved")}</span>
           ) : null}
           <Button variant="ghost" size="sm" render={<Link to="/library" />}>
-            Cancel
+            {tx("Cancel")}
           </Button>
           {savedDraftId ? (
             <Button
@@ -404,7 +407,7 @@ function EditorContent({
               onClick={() => setDeleteDialogOpen(true)}
             >
               <Trash2Icon />
-              Delete
+              {tx("Delete")}
             </Button>
           ) : null}
           <Button
@@ -418,7 +421,7 @@ function EditorContent({
             }}
           >
             <SaveIcon />
-            {draftSaveStatus === "saving" ? "Saving..." : "Save draft"}
+            {draftSaveStatus === "saving" ? tx("Saving...") : tx("Save draft")}
           </Button>
           <Button
             variant="primary"
@@ -427,7 +430,7 @@ function EditorContent({
             onClick={render.openDialog}
           >
             <ClapperboardIcon />
-            Render video
+            {tx("Render video")}
           </Button>
         </div>
 
@@ -437,14 +440,17 @@ function EditorContent({
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Delete this project?</AlertDialogTitle>
+              <AlertDialogTitle>{tx("Delete this project?")}</AlertDialogTitle>
               <AlertDialogDescription>
-                This removes the saved draft from your library. This can't be
-                undone. Your source captures aren't affected.
+                {tx(
+                  "This removes the saved draft from your library. This can't be undone. Your source captures aren't affected.",
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={deleting}>
+                {tx("Cancel")}
+              </AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
                 onClick={() => {
@@ -452,7 +458,7 @@ function EditorContent({
                 }}
                 disabled={deleting}
               >
-                {deleting ? "Deleting…" : "Delete project"}
+                {deleting ? tx("Deleting…") : tx("Delete project")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -488,21 +494,21 @@ function EditorContent({
         <div className="border-border bg-surface-raised/50 grid grid-cols-[1fr_auto_1fr] items-center gap-2 rounded-md border px-2 py-1.5">
           <div className="flex items-center gap-1">
             <TransportButton
-              label="Split at playhead (S)"
+              label={tx("Split at playhead (S)")}
               disabled={!canSplit}
               onClick={splitAtPlayhead}
             >
               <ScissorsIcon />
             </TransportButton>
             <TransportButton
-              label="Delete clip (Del)"
+              label={tx("Delete clip (Del)")}
               disabled={!selectedClip}
               onClick={deleteSelected}
             >
               <Trash2Icon />
             </TransportButton>
             <TransportButton
-              label="Add track"
+              label={tx("Add track")}
               onClick={() => history.apply(addTrack(project))}
             >
               <PlusIcon />
@@ -514,8 +520,8 @@ function EditorContent({
               type="button"
               variant="secondary"
               size="icon-sm"
-              aria-label={playing ? "Pause (Space)" : "Play (Space)"}
-              title={playing ? "Pause (Space)" : "Play (Space)"}
+              aria-label={playing ? tx("Pause (Space)") : tx("Play (Space)")}
+              title={playing ? tx("Pause (Space)") : tx("Play (Space)")}
               disabled={project.clips.length === 0}
               onClick={togglePlayback}
             >
@@ -529,28 +535,28 @@ function EditorContent({
 
           <div className="flex items-center justify-end gap-1">
             <TransportButton
-              label="Undo (Ctrl+Z)"
+              label={tx("Undo (Ctrl+Z)")}
               disabled={!history.canUndo}
               onClick={history.undo}
             >
               <Undo2Icon />
             </TransportButton>
             <TransportButton
-              label="Redo (Ctrl+Shift+Z)"
+              label={tx("Redo (Ctrl+Shift+Z)")}
               disabled={!history.canRedo}
               onClick={history.redo}
             >
               <Redo2Icon />
             </TransportButton>
             <TransportButton
-              label="Zoom out (Ctrl+Scroll)"
+              label={tx("Zoom out (Ctrl+Scroll)")}
               disabled={zoom <= 1}
               onClick={() => setZoom(clampTimelineZoom(zoom / ZOOM_STEP))}
             >
               <ZoomOutIcon />
             </TransportButton>
             <TransportButton
-              label="Zoom in (Ctrl+Scroll)"
+              label={tx("Zoom in (Ctrl+Scroll)")}
               disabled={zoom >= MAX_TIMELINE_ZOOM}
               onClick={() => setZoom(clampTimelineZoom(zoom * ZOOM_STEP))}
             >

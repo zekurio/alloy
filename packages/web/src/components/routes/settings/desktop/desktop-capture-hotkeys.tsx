@@ -1,4 +1,5 @@
 import type { RecordingSettings } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 
 import { Subsection } from "./desktop-capture-sections"
@@ -14,15 +15,15 @@ export function HotkeysSection({
   save: (next: RecordingSettings) => Promise<void>
 }) {
   return (
-    <Subsection title="Hotkeys">
+    <Subsection title={tx("Hotkeys")}>
       <SettingRow
-        title="Clip"
-        description="Saves the configured replay buffer."
+        title={tx("Clip")}
+        description={tx("Saves the configured replay buffer.")}
       >
         <HotkeyInput
           value={settings.hotkeys.clip}
           disabled={busy}
-          ariaLabel="Clip shortcut"
+          ariaLabel={tx("Clip shortcut")}
           onChange={(clip) =>
             void save({
               ...settings,

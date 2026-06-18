@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { KeyRoundIcon } from "lucide-react"
@@ -58,7 +59,9 @@ export function PasskeySignIn({ redirectTo }: { redirectTo?: string }) {
     >
       <KeyRoundIcon className="size-4" />
       <span className="truncate">
-        {pending ? "Waiting for authenticator…" : "Continue with a passkey"}
+        {pending
+          ? tx("Waiting for authenticator…")
+          : tx("Continue with a passkey")}
       </span>
     </Button>
   )

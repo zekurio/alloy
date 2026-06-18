@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
@@ -144,9 +145,11 @@ export function LibraryEntryNavButton({
       variant="ghost"
       size="icon"
       aria-label={
-        side === "left" ? "Previous library item" : "Next library item"
+        side === "left" ? tx("Previous library item") : tx("Next library item")
       }
-      title={side === "left" ? "Previous library item" : "Next library item"}
+      title={
+        side === "left" ? tx("Previous library item") : tx("Next library item")
+      }
       className={cn(
         "absolute top-1/2 z-40 h-12 w-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
         side === "left" ? "left-2" : "right-2",

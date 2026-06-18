@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { BlendIcon, XIcon } from "lucide-react"
 import * as React from "react"
@@ -441,8 +442,8 @@ export function MultitrackTimeline({
               !project.clips.some((clip) => clip.trackId === track.id) ? (
                 <button
                   type="button"
-                  title={`Remove ${track.label}`}
-                  aria-label={`Remove ${track.label}`}
+                  title={tx("Remove {label}", { label: track.label })}
+                  aria-label={tx("Remove {label}", { label: track.label })}
                   className={cn(
                     "absolute top-1/2 left-2 z-20 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border transition-opacity",
                     "border-border bg-surface text-foreground-faint hover:border-border-strong hover:text-foreground",
@@ -472,7 +473,9 @@ export function MultitrackTimeline({
               {/* Junction badges: adjacent clips can carry a crossfade. */}
               {trackJunctions(project, track.id).map(({ left, right }) => {
                 const transition = transitionBetween(project, left.id, right.id)
-                const label = transition ? "Remove crossfade" : "Add crossfade"
+                const label = transition
+                  ? tx("Remove crossfade")
+                  : tx("Add crossfade")
                 return (
                   <button
                     key={`${left.id}:${right.id}`}
@@ -519,7 +522,7 @@ export function MultitrackTimeline({
             <div
               data-playhead
               role="slider"
-              aria-label="Playhead"
+              aria-label={tx("Playhead")}
               aria-valuemin={0}
               aria-valuemax={Math.round(spanMs / 1000)}
               aria-valuenow={Math.round(currentMs / 1000)}

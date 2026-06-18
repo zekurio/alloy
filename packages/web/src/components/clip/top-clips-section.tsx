@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   SectionActions,
@@ -58,7 +59,7 @@ export function TopClipsSection({
       <EmptyState
         seed={`${seed}-error`}
         size="md"
-        title="Couldn't load top clips"
+        title={tx("Couldn't load top clips")}
       />
     ) : (
       <LoadingState />
@@ -86,7 +87,7 @@ export function TopClipsSection({
         <div>
           <SectionTitle>
             <AwardIcon className="text-accent" />
-            Top clips
+            {tx("Top clips")}
           </SectionTitle>
         </div>
         {actions ? <SectionActions>{actions}</SectionActions> : null}

@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import * as React from "react"
@@ -64,7 +65,7 @@ function UserProfileLayout() {
     : null
   const profileError = profileQuery.error ?? null
   useQueryErrorToast(profileError, {
-    title: "Couldn't load profile",
+    title: tx("Couldn't load profile"),
     toastId: `profile-${username}-error`,
   })
   const [revealed, setRevealed] = React.useState(false)
@@ -82,13 +83,13 @@ function UserProfileLayout() {
     <AppMain className="!px-0 !py-0">
       <div
         aria-hidden={gated ? true : undefined}
-        className={gated ? "pointer-events-none select-none" : undefined}
+        className={gated ? tx("pointer-events-none select-none") : undefined}
       >
         {profileError ? (
           <EmptyState
             seed={`profile-error-${username}`}
             size="lg"
-            title="Couldn't load profile"
+            title={tx("Couldn't load profile")}
           />
         ) : profile ? (
           <ProfileIdentity

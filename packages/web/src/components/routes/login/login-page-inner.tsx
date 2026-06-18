@@ -1,4 +1,5 @@
 import type { PublicAuthConfig } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link } from "@tanstack/react-router"
@@ -44,7 +45,7 @@ export function LoginForm({
     <>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
-          Sign in
+          {tx("Sign in")}
         </h2>
       </div>
 
@@ -61,19 +62,20 @@ export function LoginForm({
 
       {passkeyReady && passkeyEnabled && !passkeySupported ? (
         <p className="text-foreground-muted mt-4 text-sm">
-          Passkey sign-in is enabled, but this browser does not support
-          passkeys.
+          {tx(
+            "Passkey sign-in is enabled, but this browser does not support passkeys.",
+          )}
         </p>
       ) : null}
 
       {canSignUp ? (
         <p className="text-foreground-muted mt-6 text-center text-sm">
-          Don't have an account?{" "}
+          {tx("Don't have an account?")}{" "}
           <Link
             to="/sign-up"
             className="text-foreground hover:text-accent font-medium underline-offset-4 hover:underline"
           >
-            Create one
+            {tx("Create one")}
           </Link>
         </p>
       ) : null}
@@ -159,14 +161,16 @@ function DesktopLoginPage({ config }: { config: PublicAuthConfig }) {
     <AuthPageFrame splash={config.loginSplash}>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
-          Signed out
+          {tx("Signed out")}
         </h2>
         <p className="text-foreground-muted text-sm">
           {serverLabel
-            ? `Sign in to ${serverLabel} in your browser to continue.`
+            ? tx("Sign in to {serverLabel} in your browser to continue.", {
+                serverLabel,
+              })
             : loaded
-              ? "Choose an Alloy server to sign in."
-              : "Loading saved server..."}
+              ? tx("Choose an Alloy server to sign in.")
+              : tx("Loading saved server...")}
         </p>
       </div>
       {error ? (
@@ -184,7 +188,7 @@ function DesktopLoginPage({ config }: { config: PublicAuthConfig }) {
       >
         {pending ? <Spinner /> : <LogInIcon className="size-4" />}
         <span className="truncate">
-          {serverUrl ? "Sign in to saved server" : "Choose server"}
+          {serverUrl ? tx("Sign in to saved server") : tx("Choose server")}
         </span>
       </Button>
     </AuthPageFrame>

@@ -1,4 +1,5 @@
 import type { Passkey as ApiPasskey } from "@alloy/api/auth"
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,13 +55,13 @@ export function PasskeysCard({
         id: passkey.id,
       })
       if (error) {
-        toast.error(errorMessage(error, "Couldn't remove passkey"))
+        toast.error(errorMessage(error, tx("Couldn't remove passkey")))
         return
       }
-      toast.success("Passkey removed")
+      toast.success(tx("Passkey removed"))
       await onRefresh()
     } catch (cause) {
-      toast.error(errorMessage(cause, "Something went wrong"))
+      toast.error(errorMessage(cause, tx("Something went wrong")))
     } finally {
       setDeletingId(null)
     }
@@ -71,9 +72,11 @@ export function PasskeysCard({
       <SectionContent className="flex flex-col gap-3 py-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-sm font-medium">Passkeys</div>
+            <div className="text-sm font-medium">{tx("Passkeys")}</div>
             <p className="text-foreground-dim mt-0.5 text-xs">
-              Sign in without a password using your device or hardware key.
+              {tx(
+                "Sign in without a password using your device or hardware key.",
+              )}
             </p>
           </div>
           <AddPasskeyDialog onAdded={onRefresh} />
@@ -93,7 +96,7 @@ export function PasskeysCard({
           </List>
         ) : (
           <p className="text-foreground-muted text-sm">
-            No passkeys yet. Add one for faster, password-free sign-in.
+            {tx("No passkeys yet. Add one for faster, password-free sign-in.")}
           </p>
         )}
       </SectionContent>
@@ -122,7 +125,7 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
         )
         return
       }
-      toast.success("Passkey added")
+      toast.success(tx("Passkey added"))
       setOpen(false)
       setName("")
       await onAdded()
@@ -143,28 +146,31 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
         render={
           <Button type="button" variant="outline" size="sm">
             <PlusIcon />
-            Add passkey
+            {tx("Add passkey")}
           </Button>
         }
       />
       <DialogContent variant="secondary">
         <form onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>Add a passkey</DialogTitle>
+            <DialogTitle>{tx("Add a passkey")}</DialogTitle>
             <DialogDescription>
-              Your browser will prompt you to use Touch ID, Face ID, Windows
-              Hello, or a security key.
+              {tx(
+                "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.",
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
             <Field>
-              <FieldLabel htmlFor="passkey-name">Name (optional)</FieldLabel>
+              <FieldLabel htmlFor="passkey-name">
+                {tx("Name (optional)")}
+              </FieldLabel>
               <LimitedInput
                 id="passkey-name"
                 type="text"
                 value={name}
                 maxLength={64}
-                placeholder="e.g. Laptop, YubiKey"
+                placeholder={tx("e.g. Laptop, YubiKey")}
                 onChange={(e) => setName(e.target.value)}
                 disabled={adding}
               />
@@ -178,10 +184,10 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
               disabled={adding}
               onClick={() => setOpen(false)}
             >
-              Cancel
+              {tx("Cancel")}
             </Button>
             <Button type="submit" variant="primary" size="sm" disabled={adding}>
-              {adding ? "Waiting for authenticator…" : "Register"}
+              {adding ? tx("Waiting for authenticator…") : tx("Register")}
             </Button>
           </DialogFooter>
         </form>
@@ -208,7 +214,8 @@ function PasskeyRow({
           {passkey.name || "Passkey"}
         </div>
         <p className="text-foreground-dim truncate text-xs">
-          Added {formatCalendarDate(passkey.createdAt)}
+          {tx("Added")}
+          {formatCalendarDate(passkey.createdAt)}
         </p>
       </div>
       <div className="flex shrink-0 items-center">
@@ -220,7 +227,7 @@ function PasskeyRow({
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="Remove passkey"
+                aria-label={tx("Remove passkey")}
                 disabled={removing}
               >
                 <Trash2Icon className="size-3.5" />
@@ -229,19 +236,23 @@ function PasskeyRow({
           />
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Remove this passkey?</AlertDialogTitle>
+              <AlertDialogTitle>{tx("Remove this passkey?")}</AlertDialogTitle>
               <AlertDialogDescription>
-                You may need another sign-in method to access your account.
+                {tx(
+                  "You may need another sign-in method to access your account.",
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={removing}>
+                {tx("Cancel")}
+              </AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
                 onClick={onDelete}
                 disabled={removing}
               >
-                {removing ? "Removing…" : "Remove passkey"}
+                {removing ? tx("Removing…") : tx("Remove passkey")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -282,14 +293,14 @@ function EditPasskeyDialog({
         name: name.trim() || undefined,
       })
       if (error) {
-        toast.error(errorMessage(error, "Couldn't rename passkey"))
+        toast.error(errorMessage(error, tx("Couldn't rename passkey")))
         return
       }
-      toast.success("Passkey renamed")
+      toast.success(tx("Passkey renamed"))
       setOpen(false)
       await onUpdated()
     } catch (cause) {
-      toast.error(errorMessage(cause, "Something went wrong"))
+      toast.error(errorMessage(cause, tx("Something went wrong")))
     } finally {
       setSaving(false)
     }
@@ -303,7 +314,7 @@ function EditPasskeyDialog({
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label="Rename passkey"
+            aria-label={tx("Rename passkey")}
           >
             <PencilIcon className="size-3.5" />
           </Button>
@@ -312,22 +323,22 @@ function EditPasskeyDialog({
       <DialogContent variant="secondary">
         <form onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>Rename passkey</DialogTitle>
+            <DialogTitle>{tx("Rename passkey")}</DialogTitle>
             <DialogDescription>
-              Give this passkey a name so you can recognise it later.
+              {tx("Give this passkey a name so you can recognise it later.")}
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
             <Field>
               <FieldLabel htmlFor={`passkey-name-${passkey.id}`}>
-                Name
+                {tx("Name")}
               </FieldLabel>
               <LimitedInput
                 id={`passkey-name-${passkey.id}`}
                 type="text"
                 value={name}
                 maxLength={64}
-                placeholder="e.g. Laptop, YubiKey"
+                placeholder={tx("e.g. Laptop, YubiKey")}
                 onChange={(e) => setName(e.target.value)}
                 disabled={saving}
               />
@@ -341,7 +352,7 @@ function EditPasskeyDialog({
               disabled={saving}
               onClick={() => setOpen(false)}
             >
-              Cancel
+              {tx("Cancel")}
             </Button>
             <Button
               type="submit"
@@ -350,7 +361,7 @@ function EditPasskeyDialog({
               disabled={saving || !dirty}
             >
               <SaveIcon />
-              {saving ? "Saving…" : "Save"}
+              {saving ? tx("Saving…") : tx("Save")}
             </Button>
           </DialogFooter>
         </form>

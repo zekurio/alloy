@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react"
@@ -88,7 +89,7 @@ export function VolumeControl({
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={muted ? "Unmute" : "Mute"}
+        aria-label={muted ? tx("Unmute") : tx("Mute")}
         onClick={onToggleMute}
         className={cn(
           "size-[52px] shrink-0 rounded-full text-foreground hover:bg-transparent hover:text-foreground hover:shadow-none focus-visible:ring-ring",
@@ -108,7 +109,7 @@ export function VolumeControl({
           ref={railRef}
           data-dragging={dragging || undefined}
           role="slider"
-          aria-label="Volume"
+          aria-label={tx("Volume")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(effective * 100)}

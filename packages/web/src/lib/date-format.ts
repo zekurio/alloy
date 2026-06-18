@@ -1,3 +1,4 @@
+import { getRuntimeLocale, localeToLanguageTag } from "@alloy/i18n"
 type DateInput = string | Date
 
 function validDate(value: DateInput): Date | null {
@@ -34,7 +35,7 @@ export function compareDateDesc(a: DateInput, b: DateInput): number {
 function formatShortDate(value: DateInput): string {
   const date = validDate(value)
   if (!date) return ""
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(localeToLanguageTag(getRuntimeLocale()), {
     month: "short",
     day: "numeric",
   })
@@ -43,7 +44,7 @@ function formatShortDate(value: DateInput): string {
 export function formatCalendarDate(value: DateInput): string {
   const date = validDate(value)
   if (!date) return ""
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(localeToLanguageTag(getRuntimeLocale()), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -52,7 +53,9 @@ export function formatCalendarDate(value: DateInput): string {
 
 export function formatDateTime(value: DateInput): string {
   const date = validDate(value)
-  return date ? date.toLocaleString() : ""
+  return date
+    ? date.toLocaleString(localeToLanguageTag(getRuntimeLocale()))
+    : ""
 }
 
 export function formatRelativeTime(
@@ -65,9 +68,17 @@ export function formatRelativeTime(
   const minute = 60_000
   const hour = 60 * minute
   const day = 24 * hour
-  if (delta < minute) return "just now"
-  if (delta < hour) return `${Math.floor(delta / minute)}m ago`
-  if (delta < day) return `${Math.floor(delta / hour)}h ago`
-  if (delta < 7 * day) return `${Math.floor(delta / day)}d ago`
+  const formatter = new Intl.RelativeTimeFormat(
+    localeToLanguageTag(getRuntimeLocale()),
+    {
+      numeric: "auto",
+      style: "short",
+    },
+  )
+  if (delta < minute) return formatter.format(0, "second")
+  if (delta < hour)
+    return formatter.format(-Math.floor(delta / minute), "minute")
+  if (delta < day) return formatter.format(-Math.floor(delta / hour), "hour")
+  if (delta < 7 * day) return formatter.format(-Math.floor(delta / day), "day")
   return formatShortDate(date)
 }

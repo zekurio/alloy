@@ -1,4 +1,5 @@
 import { type AdminRuntimeConfig } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Section,
@@ -64,9 +65,11 @@ export function AppearanceSettingsContent({
       })
       setConfig(updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success(next ? "Login backdrop enabled" : "Login backdrop disabled")
+      toast.success(
+        next ? tx("Login backdrop enabled") : tx("Login backdrop disabled"),
+      )
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't update backdrop"))
+      toast.error(errorMessage(cause, tx("Couldn't update backdrop")))
     } finally {
       setEnabledPending(false)
     }
@@ -89,9 +92,9 @@ export function AppearanceSettingsContent({
       })
       setConfig(updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success("Login backdrop appearance saved")
+      toast.success(tx("Login backdrop appearance saved"))
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't save backdrop appearance"))
+      toast.error(errorMessage(cause, tx("Couldn't save backdrop appearance")))
     } finally {
       setTreatmentPending(false)
     }
@@ -112,10 +115,11 @@ export function AppearanceSettingsContent({
         <LoginAppearancePreview config={config} splash={previewSplash} />
         <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0">
           <div className="min-w-0">
-            <div className="text-sm font-medium">Login backdrop</div>
+            <div className="text-sm font-medium">{tx("Login backdrop")}</div>
             <p className="text-foreground-dim mt-0.5 text-xs">
-              Show a sloped, scrolling wall of random public clip thumbnails
-              behind the login form.
+              {tx(
+                "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
+              )}
             </p>
           </div>
           <Switch
@@ -127,9 +131,10 @@ export function AppearanceSettingsContent({
         <div className="grid gap-4 py-3 last:pb-0 sm:grid-cols-2">
           <div className="min-w-0 space-y-2">
             <div className="flex items-center justify-between gap-3 text-sm font-medium">
-              <span>Blur</span>
+              <span>{tx("Blur")}</span>
               <span className="text-foreground-muted text-xs">
-                {draftBlurPx}px
+                {draftBlurPx}
+                {tx("px")}
               </span>
             </div>
             <Slider
@@ -143,9 +148,10 @@ export function AppearanceSettingsContent({
           </div>
           <div className="min-w-0 space-y-2">
             <div className="flex items-center justify-between gap-3 text-sm font-medium">
-              <span>Darkening</span>
+              <span>{tx("Darkening")}</span>
               <span className="text-foreground-muted text-xs">
-                {Math.round(draftDarkenOpacity * 100)}%
+                {Math.round(draftDarkenOpacity * 100)}
+                {"%"}
               </span>
             </div>
             <Slider
@@ -172,7 +178,7 @@ export function AppearanceSettingsContent({
               onClick={cancelTreatment}
               disabled={treatmentPending || !treatmentChanged}
             >
-              Cancel
+              {tx("Cancel")}
             </Button>
             <Button
               className="flex-1 sm:flex-initial"
@@ -183,7 +189,7 @@ export function AppearanceSettingsContent({
               disabled={treatmentPending || !treatmentChanged}
             >
               <SaveIcon />
-              {treatmentPending ? "Saving..." : "Save"}
+              {treatmentPending ? tx("Saving...") : tx("Save")}
             </Button>
           </div>
         </SectionFooter>

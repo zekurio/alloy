@@ -3,6 +3,7 @@ import { basename } from "node:path"
 import { createInterface, type Interface } from "node:readline"
 
 import type { RecordingEvent, RecordingStatus } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
 import {
@@ -199,7 +200,7 @@ export class RecordingSidecarClient {
         logger.warn(`${basename(this.executable)}: ${message}`)
     })
     child.on("error", (cause) =>
-      this.handleExit(errorText(cause, "Recording sidecar failed.")),
+      this.handleExit(errorText(cause, tx("Recording sidecar failed."))),
     )
     child.on("exit", (code, signal) => {
       if (this.shutdownRequested) return

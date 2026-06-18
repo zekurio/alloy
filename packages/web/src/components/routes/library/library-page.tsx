@@ -1,4 +1,5 @@
 import type { ClipRow, GameRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
 import { Chip } from "@alloy/ui/components/chip"
@@ -268,8 +269,13 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
         const [first] = result.failed
         toast.error(
           result.failed.length === 1
-            ? `${first.fileName}: ${first.error}`
-            : `${result.failed.length} files couldn't be imported.`,
+            ? tx("{fileName}: {error}", {
+                error: first.error,
+                fileName: first.fileName,
+              })
+            : tx("{count} files couldn't be imported.", {
+                count: result.failed.length,
+              }),
         )
       }
       const [next] = result.staged
@@ -277,7 +283,7 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
         setStaged(next)
       }
     } catch (cause) {
-      toast.error(errorMessage(cause, "Could not import clip."))
+      toast.error(errorMessage(cause, tx("Could not import clip.")))
     } finally {
       setPicking(false)
     }
@@ -291,7 +297,7 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
     try {
       await discardStaged(current.id)
     } catch (cause) {
-      toast.error(errorMessage(cause, "Could not clear staged import."))
+      toast.error(errorMessage(cause, tx("Could not clear staged import.")))
     }
   }, [committing, desktop, staged])
 
@@ -311,13 +317,13 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
         })
         await refreshLibrarySnapshotCache(queryClient, desktop)
         setStaged(null)
-        toast.success("Clip imported into your library")
+        toast.success(tx("Clip imported into your library"))
         await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
         })
       } catch (cause) {
-        toast.error(errorMessage(cause, "Could not import clip."))
+        toast.error(errorMessage(cause, tx("Could not import clip.")))
       } finally {
         setCommitting(false)
       }
@@ -346,7 +352,7 @@ function LibraryHeader({
       <div>
         <SectionTitle>
           <LibraryIcon className="text-accent" />
-          Library
+          {tx("Library")}
         </SectionTitle>
       </div>
       {hasDesktop ? (
@@ -360,7 +366,7 @@ function LibraryHeader({
               onClick={onImport}
             >
               <FolderInputIcon />
-              {importing ? "Staging..." : "Import clip"}
+              {importing ? tx("Staging...") : tx("Import clip")}
             </Button>
           ) : null}
           <Button
@@ -370,7 +376,7 @@ function LibraryHeader({
             onClick={onNewProject}
           >
             <ClapperboardIcon />
-            New project
+            {tx("New project")}
           </Button>
         </SectionActions>
       ) : null}
@@ -413,9 +419,9 @@ function ImportClipDetailsDialog({
     <Dialog open={staged !== null} onOpenChange={onOpenChange}>
       <DialogContent variant="secondary" className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>Import clip</DialogTitle>
+          <DialogTitle>{tx("Import clip")}</DialogTitle>
           <DialogDescription>
-            Add the clip details before it enters your library.
+            {tx("Add the clip details before it enters your library.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -429,7 +435,7 @@ function ImportClipDetailsDialog({
 
             <label className="flex flex-col gap-2">
               <span className="text-foreground-muted text-xs font-semibold">
-                Title
+                {tx("Title")}
               </span>
               <Input
                 value={title}
@@ -437,11 +443,11 @@ function ImportClipDetailsDialog({
                 maxLength={CLIP_TITLE_MAX}
                 disabled={pending}
                 aria-invalid={titleInvalid || undefined}
-                placeholder="Untitled"
+                placeholder={tx("Untitled")}
               />
               {titleInvalid ? (
                 <span className="text-destructive text-xs">
-                  Add a title to import this clip.
+                  {tx("Add a title to import this clip.")}
                 </span>
               ) : null}
             </label>
@@ -451,7 +457,7 @@ function ImportClipDetailsDialog({
                 htmlFor="import-clip-game"
                 className="text-foreground-muted text-xs font-semibold"
               >
-                Game
+                {tx("Game")}
               </label>
               <GameCombobox
                 id="import-clip-game"
@@ -460,13 +466,13 @@ function ImportClipDetailsDialog({
                 disabled={pending}
                 invalid={gameInvalid}
                 required
-                placeholder="Search game..."
+                placeholder={tx("Search game...")}
                 className="w-full"
                 inputClassName="w-full"
               />
               {gameInvalid ? (
                 <span className="text-destructive text-xs">
-                  Pick a game to import this clip.
+                  {tx("Pick a game to import this clip.")}
                 </span>
               ) : null}
             </div>
@@ -478,11 +484,11 @@ function ImportClipDetailsDialog({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              Cancel
+              {tx("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={pending}>
               <FolderInputIcon />
-              {pending ? "Importing..." : "Import clip"}
+              {pending ? tx("Importing...") : tx("Import clip")}
             </Button>
           </DialogFooter>
         </form>
@@ -555,8 +561,8 @@ function LibraryToolbar({
           </InputGroupAddon>
           <InputGroupInput
             value={query}
-            placeholder="Search media..."
-            aria-label="Search media"
+            placeholder={tx("Search media...")}
+            aria-label={tx("Search media")}
             onChange={(event) => onQueryChange(event.target.value)}
             className="text-sm"
           />
@@ -570,7 +576,7 @@ function LibraryToolbar({
           data-active={groupKey === null ? "true" : undefined}
           onClick={() => onGroupChange(null)}
         >
-          All games
+          {tx("All games")}
         </Chip>
         {groups.map((group) => (
           <Chip
@@ -578,7 +584,7 @@ function LibraryToolbar({
             size="xl"
             title={
               group.kind === "no-game"
-                ? "Captures without a selected game"
+                ? tx("Captures without a selected game")
                 : group.label
             }
             data-active={groupKey === group.key ? "true" : undefined}
@@ -605,8 +611,8 @@ const KIND_OPTIONS: ReadonlyArray<{
   label: string
   icon: React.ReactNode
 }> = [
-  { value: "all", label: "All", icon: <LayersIcon /> },
-  { value: "replay", label: "Clips", icon: <ClapperboardIcon /> },
+  { value: "all", label: tx("All"), icon: <LayersIcon /> },
+  { value: "replay", label: tx("Clips"), icon: <ClapperboardIcon /> },
 ]
 
 function KindSelect({
@@ -625,7 +631,7 @@ function KindSelect({
     >
       <SelectTrigger
         className="w-9 shrink-0 justify-center px-0 sm:w-40 sm:justify-between sm:px-3 max-sm:[&>svg:last-child]:hidden"
-        aria-label="Filter by type"
+        aria-label={tx("Filter by type")}
       >
         <SelectValue className="max-sm:justify-center">
           {active ? (
@@ -678,7 +684,7 @@ function LibraryBody({
       return (
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title="Couldn't scan the library"
+          title={tx("Couldn't scan the library")}
           description={error}
         />
       )
@@ -692,8 +698,8 @@ function LibraryBody({
       return (
         <LibraryEmpty
           icon={<LibraryIcon />}
-          title="Your library is empty"
-          description="Captures and uploads will appear here."
+          title={tx("Your library is empty")}
+          description={tx("Captures and uploads will appear here.")}
         />
       )
     }
@@ -701,11 +707,13 @@ function LibraryBody({
     return (
       <LibraryEmpty
         icon={<LibraryIcon />}
-        title="Nothing matches"
+        title={tx("Nothing matches")}
         description={
           query.trim()
-            ? "Try a different search or source filter."
-            : `No ${emptyKindLabel(kind)} in this source yet.`
+            ? tx("Try a different search or source filter.")
+            : tx("No {kind} in this source yet.", {
+                kind: emptyKindLabel(kind),
+              })
         }
       />
     )

@@ -2,6 +2,7 @@ import {
   DESKTOP_AUTH_CAPABILITY_VERSION,
   type PublicAuthConfig,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
 import type { ProbeResult } from "@/shared/ipc"
@@ -92,8 +93,8 @@ async function probeOne(baseUrl: string): Promise<ProbeResult> {
   } catch (error) {
     const reason =
       error instanceof Error && error.name === "AbortError"
-        ? "Connection timed out."
-        : "Could not reach server."
+        ? tx("Connection timed out.")
+        : tx("Could not reach server.")
     return { ok: false, error: reason }
   } finally {
     clearTimeout(timeout)

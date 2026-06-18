@@ -1,4 +1,5 @@
 import { clipDownloadUrl, type ClipRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
@@ -61,7 +62,9 @@ export function useClipDownloadAction(
   const start = React.useCallback(() => {
     void startClipDownload(row).catch((cause) => {
       toast.error(
-        cause instanceof Error ? cause.message : "Couldn't start the download",
+        cause instanceof Error
+          ? cause.message
+          : tx("Couldn't start the download"),
       )
     })
   }, [row])
@@ -83,10 +86,10 @@ export function ClipDownloadIconButton({
   if (!action.supported) return null
 
   const label = action.saved
-    ? "Saved on this device"
+    ? tx("Saved on this device")
     : action.downloading
-      ? "Downloading…"
-      : `Download ${row.title} to this device`
+      ? tx("Downloading…")
+      : tx("Download {title} to this device", { title: row.title })
   return (
     <Button
       type="button"
@@ -143,11 +146,11 @@ export function ClipBrowserDownloadMenuItem({ row }: { row: ClipRow }) {
         const started = startBrowserDownload(
           clipDownloadUrl(row.id, apiOrigin()),
         )
-        if (!started) toast.error("Couldn't start download")
+        if (!started) toast.error(tx("Couldn't start download"))
       }}
     >
       <DownloadIcon />
-      Download
+      {tx("Download")}
     </DropdownMenuItem>
   )
 }
@@ -161,9 +164,9 @@ function ClipDownloadStatusIcon({ action }: { action: ClipDownloadAction }) {
 }
 
 function clipDownloadMenuLabel(action: ClipDownloadAction): string {
-  if (action.saved) return "Saved on this device"
-  if (!action.downloading) return "Download"
+  if (action.saved) return tx("Saved on this device")
+  if (!action.downloading) return tx("Download")
   return action.progress > 0
-    ? `Downloading ${action.progress}%`
-    : "Downloading…"
+    ? tx("Downloading {progress}%", { progress: action.progress })
+    : tx("Downloading…")
 }

@@ -1,4 +1,5 @@
 import type { ProfileViewer } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
@@ -29,10 +30,10 @@ export function ProfileActions({
         type="button"
         variant="primary"
         size="sm"
-        aria-label="Follow"
+        aria-label={tx("Follow")}
         disabled
       >
-        Follow
+        {tx("Follow")}
       </Button>
     )
   }
@@ -43,13 +44,13 @@ export function ProfileActions({
         type="button"
         variant="primary"
         size="sm"
-        aria-label="Sign in to follow"
-        title="Sign in to follow"
+        aria-label={tx("Sign in to follow")}
+        title={tx("Sign in to follow")}
         onClick={() => {
           void navigate({ to: "/login" })
         }}
       >
-        Follow
+        {tx("Follow")}
       </Button>
     )
   }
@@ -66,7 +67,7 @@ export function ProfileActions({
       { next: !isFollowing },
       {
         onError: (cause) => {
-          toast.error(errorMessage(cause, "Something went wrong"))
+          toast.error(errorMessage(cause, tx("Something went wrong")))
         },
       },
     )
@@ -79,10 +80,10 @@ export function ProfileActions({
     onChange({ ...prev, isBlocked: false })
     try {
       await api.users.unblock(targetHandle)
-      toast.success("User unblocked")
+      toast.success(tx("User unblocked"))
     } catch (cause) {
       onChange(prev)
-      toast.error(errorMessage(cause, "Something went wrong"))
+      toast.error(errorMessage(cause, tx("Something went wrong")))
     } finally {
       setUnblockPending(false)
     }
@@ -94,13 +95,13 @@ export function ProfileActions({
         type="button"
         variant="ghost"
         size="sm"
-        aria-label="Unblock"
-        title="Unblock"
+        aria-label={tx("Unblock")}
+        title={tx("Unblock")}
         onClick={runUnblock}
         disabled={pending}
       >
         <ShieldOffIcon />
-        Unblock
+        {tx("Unblock")}
       </Button>
     )
   }
@@ -115,12 +116,12 @@ export function ProfileActions({
       variant={isFollowing ? "ghost" : "primary"}
       size="sm"
       aria-pressed={isFollowing}
-      aria-label={isFollowing ? "Unfollow" : "Follow"}
-      title={isFollowing ? "Unfollow" : "Follow"}
+      aria-label={isFollowing ? tx("Unfollow") : tx("Follow")}
+      title={isFollowing ? tx("Unfollow") : tx("Follow")}
       onClick={runFollow}
       disabled={pending}
     >
-      {isFollowing ? "Following" : "Follow"}
+      {isFollowing ? tx("Following") : tx("Follow")}
     </Button>
   )
 }

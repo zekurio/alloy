@@ -1,4 +1,5 @@
 import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
 import { GameIcon } from "@alloy/ui/components/game-icon"
@@ -161,19 +162,19 @@ function MobileClipViewerBody({
     if (!canLike) return
     likeMut.mutate(
       { clipId: row.id, nextLiked: !liked },
-      { onError: () => toast.error("Couldn't update like") },
+      { onError: () => toast.error(tx("Couldn't update like")) },
     )
   }, [canLike, row.id, liked, likeMut])
 
   const handleShare = React.useCallback(async () => {
     if (row.privacy === "private") {
-      toast.error("Clip link is disabled")
+      toast.error(tx("Clip link is disabled"))
       return
     }
 
     const url = currentUrlWithoutSearchOrHash()
     if (url === null) {
-      toast.error("Couldn't share clip")
+      toast.error(tx("Couldn't share clip"))
       return
     }
 
@@ -182,9 +183,9 @@ function MobileClipViewerBody({
       action: "share clip link",
     })
     if (result === "copied") {
-      toast.success("Link copied")
+      toast.success(tx("Link copied"))
     } else if (result === "failed") {
-      toast.error("Couldn't share clip")
+      toast.error(tx("Couldn't share clip"))
     }
   }, [row.privacy, row.title])
 
@@ -230,7 +231,7 @@ function MobileClipViewerBody({
         className="h-dvh w-dvw rounded-none border-0 shadow-none"
       >
         <div
-          data-orientation={isLandscape ? "landscape" : "portrait"}
+          data-orientation={isLandscape ? tx("landscape") : tx("portrait")}
           className="relative flex h-full flex-col bg-[oklch(12%_0.01_250)]"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
@@ -289,7 +290,7 @@ function MobileClipViewerBody({
               buttonVariants({ variant: "ghost", size: "icon" }),
               "absolute top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] z-30 rounded-full text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-white/40 focus-visible:ring-offset-0",
             )}
-            aria-label="Close"
+            aria-label={tx("Close")}
           >
             <XIcon className="size-5" />
           </DialogClose>
@@ -305,7 +306,7 @@ function MobileClipViewerBody({
             tabIndex={-1}
             className={cn(
               "relative z-10 outline-none",
-              isLandscape ? "flex min-h-0 flex-1 items-center" : "shrink-0",
+              isLandscape ? "flex min-h-0 flex-1 items-center" : tx("shrink-0"),
             )}
           >
             <ClipPlayer
@@ -319,7 +320,7 @@ function MobileClipViewerBody({
               status={row.status}
               encodeProgress={row.encodeProgress}
               maxDisplayHeight={
-                isLandscape ? "100dvh" : "min(72dvh, calc(100dvh - 18rem))"
+                isLandscape ? "100dvh" : tx("min(72dvh, calc(100dvh - 18rem))")
               }
               chromeSize="compact"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
@@ -338,7 +339,7 @@ function MobileClipViewerBody({
                 "animate-in duration-200 fade-in-0 slide-in-from-bottom-1",
               )}
             >
-              Swipe to navigate
+              {tx("Swipe to navigate")}
             </div>
           ) : null}
 
@@ -428,7 +429,7 @@ function MobileClipViewerBody({
             handleOnly
           >
             <DrawerContent className={mobileDrawerContentClass}>
-              <DrawerTitle className="sr-only">Comments</DrawerTitle>
+              <DrawerTitle className="sr-only">{tx("Comments")}</DrawerTitle>
               <MobileDrawerHandle />
               <ClipComments
                 clipId={row.id}

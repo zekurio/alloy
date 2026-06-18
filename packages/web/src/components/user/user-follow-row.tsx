@@ -1,4 +1,5 @@
 import type { UserSummary } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -46,7 +47,7 @@ export function UserFollowRow({
       {
         onError: (err) => {
           setFollowing(!next)
-          toast.error(errorMessage(err, "Something went wrong"))
+          toast.error(errorMessage(err, tx("Something went wrong")))
         },
       },
     )
@@ -87,7 +88,7 @@ export function UserFollowRow({
         onClick={toggle}
       >
         <UserPlusIcon className="size-3.5" />
-        {following ? "Following" : "Follow"}
+        {following ? tx("Following") : tx("Follow")}
       </Button>
     </li>
   )

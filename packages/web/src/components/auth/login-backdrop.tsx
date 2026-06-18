@@ -1,4 +1,5 @@
 import { clipThumbnailUrl } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import * as React from "react"
 
 import { api } from "@/lib/api"
@@ -76,8 +77,8 @@ function MarqueeRow({
           animationDuration: `${durationSec}s`,
           animationTimingFunction: "linear",
           animationIterationCount: "infinite",
-          animationDirection: reverse ? "reverse" : "normal",
-          animationPlayState: paused ? "paused" : "running",
+          animationDirection: reverse ? tx("reverse") : tx("normal"),
+          animationPlayState: paused ? tx("paused") : tx("running"),
         }}
       >
         {tiles.map((url, i) => (

@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,10 +40,12 @@ function useDeleteAllClipsAction() {
       }
       await getQueryClient().invalidateQueries()
       toast.success(
-        deleted === 1 ? "Deleted 1 clip" : `Deleted ${deleted} clips`,
+        deleted === 1
+          ? tx("Deleted 1 clip")
+          : tx("Deleted {count} clips", { count: deleted }),
       )
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't delete clips"))
+      toast.error(errorMessage(cause, tx("Couldn't delete clips")))
     } finally {
       setPending(false)
     }
@@ -56,14 +59,16 @@ function DownloadClipsRow() {
     const started = startBrowserDownload(api.users.downloadAllClipsUrl(), {
       rel: "noopener",
     })
-    if (!started) toast.error("Couldn't start download")
+    if (!started) toast.error(tx("Couldn't start download"))
   }
 
   return (
     <SettingRow
       className="py-4 first:pt-4 last:pb-4"
-      title="Download clips"
-      description="Download a zip archive with the original files for your clips."
+      title={tx("Download clips")}
+      description={tx(
+        "Download a zip archive with the original files for your clips.",
+      )}
     >
       <Button
         type="button"
@@ -72,7 +77,7 @@ function DownloadClipsRow() {
         onClick={onDownloadAllClips}
       >
         <DownloadIcon />
-        Download
+        {tx("Download")}
       </Button>
     </SettingRow>
   )
@@ -88,33 +93,37 @@ function DeleteClipsRow({
   return (
     <SettingRow
       className="py-4 first:pt-4 last:pb-4"
-      title="Delete clips"
-      description="Permanently removes every clip you uploaded. This can't be undone."
+      title={tx("Delete clips")}
+      description={tx(
+        "Permanently removes every clip you uploaded. This can't be undone.",
+      )}
     >
       <AlertDialog>
         <AlertDialogTrigger
           render={
             <Button type="button" variant="danger" size="sm">
               <Trash2Icon />
-              Delete clips
+              {tx("Delete clips")}
             </Button>
           }
         />
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete all clips?</AlertDialogTitle>
+            <AlertDialogTitle>{tx("Delete all clips?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes every clip you uploaded.
+              {tx("This permanently removes every clip you uploaded.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>
+              {tx("Cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={onDeleteAllClips}
               disabled={pending}
             >
-              {pending ? "Deleting..." : "Delete clips"}
+              {pending ? tx("Deleting...") : tx("Delete clips")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

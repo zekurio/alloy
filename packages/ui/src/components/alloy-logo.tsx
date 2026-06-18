@@ -36,7 +36,7 @@ function AlloyLogo({
         )}
         style={{ fontSize: Math.round(size * 0.56) }}
       >
-        alloy
+        {"alloy"}
       </span>
     </span>
   )
@@ -53,7 +53,7 @@ function AlloyLogoMark({
       src={src}
       width={size}
       height={size}
-      alt="alloy"
+      alt={"alloy"}
       className={cn("shrink-0 select-none", className)}
       draggable={false}
       {...props}

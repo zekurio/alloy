@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
@@ -45,7 +46,7 @@ function ConnectApp() {
 
     const result = await window.alloyNative?.connect(nextUrl)
     if (!result) {
-      toast.error("Desktop bridge is unavailable.", {
+      toast.error(tx("Desktop bridge is unavailable."), {
         id: CONNECT_ERROR_TOAST_ID,
       })
       setPhase("idle")
@@ -79,10 +80,10 @@ function ConnectApp() {
         >
           <div className="mb-5 space-y-1.5">
             <h1 className="text-foreground text-2xl font-semibold">
-              Connect to Alloy
+              {tx("Connect to Alloy")}
             </h1>
             <p className="text-foreground-muted text-sm">
-              Enter your server URL to authenticate the desktop app.
+              {tx("Enter your server URL to authenticate the desktop app.")}
             </p>
           </div>
 
@@ -94,13 +95,14 @@ function ConnectApp() {
             value={url}
             onChange={(event) => setUrl(event.target.value)}
             disabled={phase === "connecting"}
-            aria-label="Server URL"
+            aria-label={tx("Server URL")}
           />
 
           {phase === "connecting" ? (
             <p className="text-foreground-muted text-sm">
-              A browser window may open to sign in. Return here once you're
-              done.
+              {tx(
+                "A browser window may open to sign in. Return here once you're done.",
+              )}
             </p>
           ) : null}
 
@@ -111,10 +113,10 @@ function ConnectApp() {
           >
             {phase === "connecting" ? (
               <>
-                <Spinner /> Connecting...
+                <Spinner /> {tx("Connecting...")}
               </>
             ) : (
-              "Connect"
+              tx("Connect")
             )}
           </Button>
         </form>

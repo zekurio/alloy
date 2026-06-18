@@ -5,6 +5,7 @@ import {
   clipStreamUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
@@ -88,8 +89,10 @@ function ClipPlayer({
     ? [
         {
           id: SOURCE_QUALITY_ID,
-          label: "Original",
-          detail: sourcePlayable ? "Direct stream" : "Direct play attempt",
+          label: tx("Original"),
+          detail: sourcePlayable
+            ? tx("Direct stream")
+            : tx("Direct play attempt"),
           downloadUrl: clipDownloadUrl(clipId, apiOrigin()),
         },
       ]
@@ -135,8 +138,8 @@ function ClipPlayer({
           />
           <span className="relative z-10">
             {unavailable
-              ? "Playback unavailable."
-              : "Preparing playback version..."}
+              ? tx("Playback unavailable.")
+              : tx("Preparing playback version...")}
           </span>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import {
   SectionActions,
@@ -18,7 +19,7 @@ import { GamesGrid } from "./games-grid"
 export function GamesSection() {
   const { data: games, error, isPending } = useGamesListQuery()
   useQueryErrorToast(error, {
-    title: "Couldn't load games",
+    title: tx("Couldn't load games"),
     toastId: "games-list-error",
   })
   const visibleGames = games ?? null
@@ -29,7 +30,7 @@ export function GamesSection() {
         <div>
           <SectionTitle>
             <GamepadIcon className="text-accent" />
-            Games
+            {tx("Games")}
           </SectionTitle>
         </div>
         <SectionActions>
@@ -46,8 +47,8 @@ export function GamesSection() {
           <EmptyState
             seed="games-empty"
             size="lg"
-            title="No games yet"
-            hint="Upload a clip and pick a game to seed this list."
+            title={tx("No games yet")}
+            hint={tx("Upload a clip and pick a game to seed this list.")}
           />
         ) : (
           <GamesGrid>
@@ -61,15 +62,19 @@ export function GamesSection() {
           </GamesGrid>
         )
       ) : error ? (
-        <EmptyState seed="games-error" size="lg" title="Couldn't load games" />
+        <EmptyState
+          seed="games-error"
+          size="lg"
+          title={tx("Couldn't load games")}
+        />
       ) : isPending ? (
         <LoadingState />
       ) : (
         <EmptyState
           seed="games-empty"
           size="lg"
-          title="No games yet"
-          hint="Upload a clip and pick a game to seed this list."
+          title={tx("No games yet")}
+          hint={tx("Upload a clip and pick a game to seed this list.")}
         />
       )}
     </section>

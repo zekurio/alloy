@@ -1,4 +1,5 @@
 import type { RecordingAllowedGame } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Gamepad2Icon, Trash2Icon } from "lucide-react"
 import * as React from "react"
@@ -66,8 +67,8 @@ export function RuleGroup({
                 variant="ghost"
                 size="icon-sm"
                 disabled={busy}
-                title={`Remove ${game.name}`}
-                aria-label={`Remove ${game.name}`}
+                title={tx("Remove {name}", { name: game.name })}
+                aria-label={tx("Remove {name}", { name: game.name })}
                 onClick={() => onRemove(game.id)}
               >
                 <Trash2Icon className="size-3.5" />

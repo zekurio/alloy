@@ -10,6 +10,7 @@ import type {
   RecordingNotificationSoundSettings,
 } from "@alloy/contracts"
 import { RECORDING_NOTIFICATION_SOUND_EVENTS } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow } from "electron"
 
@@ -164,7 +165,7 @@ async function ensureSoundPlayerWindow(): Promise<BrowserWindow> {
     show: false,
     skipTaskbar: true,
     focusable: false,
-    title: "Alloy Recording Sounds",
+    title: tx("Alloy Recording Sounds"),
     webPreferences: {
       contextIsolation: true,
       sandbox: true,

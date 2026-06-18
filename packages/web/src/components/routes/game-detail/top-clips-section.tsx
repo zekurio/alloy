@@ -1,4 +1,5 @@
 import type { ClipFeedWindow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Link } from "@tanstack/react-router"
 
 import { SortDropdown } from "@/components/clip/sort-dropdown"
@@ -26,7 +27,7 @@ export function GameTopClipsSection({
     limit: 5,
   })
   useQueryErrorToast(error, {
-    title: "Couldn't load top clips",
+    title: tx("Couldn't load top clips"),
     toastId: `game-${gameId}-top-clips-${window}-error`,
   })
 
@@ -38,7 +39,7 @@ export function GameTopClipsSection({
       error={error}
       owned={(row) => row.authorId === viewerId}
       emptyTitle={topClipsEmptyTitle(window, "for this game")}
-      emptyHint="Upload something or check back later."
+      emptyHint={tx("Upload something or check back later.")}
       actions={
         <SortDropdown
           value={window}

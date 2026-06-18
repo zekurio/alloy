@@ -1,4 +1,5 @@
 import type { ClipFeedWindow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Spinner } from "@alloy/ui/components/spinner"
 
@@ -26,7 +27,7 @@ export function GameDetailPageInner({
 
   const { data: game, error, isPending } = useGameQuery(gameId)
   useQueryErrorToast(error, {
-    title: "Couldn't load this game",
+    title: tx("Couldn't load this game"),
     toastId: `game-${gameId}-error`,
   })
 
@@ -37,7 +38,7 @@ export function GameDetailPageInner({
           <EmptyState
             seed={`game-${gameId}-error`}
             size="lg"
-            title="Couldn't load this game"
+            title={tx("Couldn't load this game")}
           />
         ) : isPending || !game ? (
           <div

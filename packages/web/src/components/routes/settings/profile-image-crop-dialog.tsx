@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -128,7 +129,7 @@ export function ProfileImageCropDialog({
     load().catch((cause) => {
       if (active) {
         setLoadedImage(null)
-        toast.error(errorMessage(cause, "Couldn't load image"))
+        toast.error(errorMessage(cause, tx("Couldn't load image")))
       }
     })
 
@@ -303,7 +304,7 @@ export function ProfileImageCropDialog({
     try {
       await handleApply()
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't crop image"))
+      toast.error(errorMessage(cause, tx("Couldn't crop image")))
     }
   }
 
@@ -370,7 +371,7 @@ export function ProfileImageCropDialog({
             {cropReady && imagePlacement ? (
               <div
                 role="application"
-                aria-label="Drag image to reposition crop"
+                aria-label={tx("Drag image to reposition crop")}
                 className="absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
@@ -422,7 +423,7 @@ export function ProfileImageCropDialog({
           <div className="flex items-center gap-3">
             <Minus className="text-foreground-faint size-4 shrink-0" />
             <Slider
-              aria-label="Zoom"
+              aria-label={tx("Zoom")}
               min={minimumZoom}
               max={MAX_PREVIEW_ZOOM}
               step={0.01}
@@ -442,7 +443,7 @@ export function ProfileImageCropDialog({
             onClick={() => onOpenChange(false)}
             disabled={applying || cropPending}
           >
-            Cancel
+            {tx("Cancel")}
           </Button>
           <Button
             type="button"
@@ -452,8 +453,8 @@ export function ProfileImageCropDialog({
             disabled={applyDisabled}
           >
             {applyDisabled && (applying || cropPending)
-              ? "Applying..."
-              : "Apply"}
+              ? tx("Applying...")
+              : tx("Apply")}
           </Button>
         </DialogFooter>
       </DialogContent>

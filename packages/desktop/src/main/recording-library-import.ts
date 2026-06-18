@@ -10,6 +10,7 @@ import {
 } from "node:fs/promises"
 import { basename, extname, join, resolve } from "node:path"
 
+import { t as tx } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
@@ -113,7 +114,7 @@ export async function stageRecordingLibraryVideoFiles(
       logger.warn("failed to stage library import:", cause)
       failed.push({
         fileName: basename(path),
-        error: cause instanceof Error ? cause.message : "Import failed.",
+        error: cause instanceof Error ? cause.message : tx("Import failed."),
       })
     }
   }

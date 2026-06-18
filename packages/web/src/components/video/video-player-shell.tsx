@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
@@ -332,8 +333,8 @@ export function ChromeBar({
           className={cn(
             "absolute inset-x-0 bottom-0 z-30",
             edgeScrubberInteractive
-              ? "pointer-events-auto"
-              : "pointer-events-none",
+              ? tx("pointer-events-auto")
+              : tx("pointer-events-none"),
           )}
         >
           <VideoScrubber
@@ -369,7 +370,7 @@ export function ChromeBar({
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label={playing ? "Pause" : "Play"}
+            aria-label={playing ? tx("Pause") : tx("Play")}
             onClick={onTogglePlay}
             className={cn(
               videoChromeIconClass,
@@ -411,7 +412,9 @@ export function ChromeBar({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              aria-label={
+                isFullscreen ? tx("Exit fullscreen") : tx("Fullscreen")
+              }
               onClick={onToggleFullscreen}
               className={cn(
                 videoChromeIconClass,

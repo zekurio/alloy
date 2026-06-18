@@ -1,4 +1,5 @@
 import type { UserSearchResult } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -235,7 +236,7 @@ function PersonChip({
       </span>
       <button
         type="button"
-        aria-label={`Remove ${chip.name}`}
+        aria-label={tx("Remove {name}", { name: chip.name })}
         onClick={onRemove}
         disabled={disabled}
         className="text-foreground-faint hover:text-foreground transition-colors"
@@ -302,22 +303,24 @@ function PeopleSearchPopover({
             }
           }}
           inputRef={inputRef}
-          placeholder="Search people..."
+          placeholder={tx("Search people...")}
           disabled={disabled}
-          label="Search people"
+          label={tx("Search people")}
           completion={suggestionChip?.name ?? null}
           title={
             suggestionChip
-              ? `Press Enter to add ${suggestionChip.name}`
+              ? tx("Press Enter to add {name}", {
+                  name: suggestionChip.name,
+                })
               : isSearching || trimmed.length > 0
-                ? "No inline match"
+                ? tx("No inline match")
                 : undefined
           }
         />
       ) : (
         <PickerChipTrigger
           icon={<AtSignIcon />}
-          label="Tag people"
+          label={tx("Tag people")}
           disabled={disabled}
           onClick={() => setOpen(true)}
         />
@@ -345,10 +348,11 @@ export function HashtagPicker({
             disabled && "opacity-60",
           )}
         >
-          #{tag}
+          {"#"}
+          {tag}
           <button
             type="button"
-            aria-label={`Remove #${tag}`}
+            aria-label={tx("Remove #{tag}", { tag })}
             onClick={() => onChange(value.filter((t) => t !== tag))}
             disabled={disabled}
             className="text-foreground-faint hover:text-foreground transition-colors"
@@ -426,20 +430,20 @@ function HashtagInputPopover({
             }
           }}
           inputRef={inputRef}
-          placeholder="Add hashtag..."
+          placeholder={tx("Add hashtag...")}
           disabled={disabled}
-          label="Add hashtag"
+          label={tx("Add hashtag")}
           completion={suggestion}
           title={
             suggestion
-              ? `Press Enter to add #${suggestion}`
-              : "Type a tag and press Enter"
+              ? tx("Press Enter to add #{tag}", { tag: suggestion })
+              : tx("Type a tag and press Enter")
           }
         />
       ) : (
         <PickerChipTrigger
           icon={<HashIcon />}
-          label="Add hashtag"
+          label={tx("Add hashtag")}
           disabled={disabled}
           onClick={() => setOpen(true)}
         />

@@ -1,3 +1,4 @@
+import { initializeClientLocale } from "@alloy/i18n"
 import { RouterProvider } from "@tanstack/react-router"
 import * as React from "react"
 import { createRoot } from "react-dom/client"
@@ -11,6 +12,8 @@ const root = document.getElementById("root")
 if (!root) {
   throw new Error("Missing root element")
 }
+
+initializeClientLocale()
 
 createRoot(root).render(
   <React.StrictMode>

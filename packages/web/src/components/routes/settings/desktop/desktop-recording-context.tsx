@@ -8,6 +8,7 @@ import type {
   RecordingStatus,
   RecordingStorageInfo,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import * as React from "react"
 
@@ -103,7 +104,7 @@ export function DesktopRecordingProvider({
         setPhase("idle")
       } catch (cause) {
         if (!cancelled) {
-          toast.error(errorText(cause, "Couldn't load recording settings."))
+          toast.error(errorText(cause, tx("Couldn't load recording settings.")))
           setPhase("idle")
         }
       }
@@ -148,7 +149,7 @@ export function DesktopRecordingProvider({
         setSettings(saved)
       } catch (cause) {
         if (sequence !== saveSequence.current) return
-        toast.error(errorText(cause, "Couldn't save recording settings."))
+        toast.error(errorText(cause, tx("Couldn't save recording settings.")))
       }
     },
     [recording],
@@ -166,7 +167,7 @@ export function DesktopRecordingProvider({
       setSettings(nextSettings)
       setStorageInfo(nextStorage)
     } catch (cause) {
-      toast.error(errorText(cause, "Couldn't change the capture folder."))
+      toast.error(errorText(cause, tx("Couldn't change the capture folder.")))
     }
   }, [recording])
 
@@ -175,7 +176,7 @@ export function DesktopRecordingProvider({
     try {
       return await recording.listNotificationSounds()
     } catch (cause) {
-      toast.error(errorText(cause, "Couldn't load notification sounds."))
+      toast.error(errorText(cause, tx("Couldn't load notification sounds.")))
       return EMPTY_SOUND_LIBRARY
     }
   }, [recording])
@@ -186,7 +187,7 @@ export function DesktopRecordingProvider({
       try {
         await recording.openNotificationSoundsFolder(sound)
       } catch (cause) {
-        toast.error(errorText(cause, "Couldn't open the sounds folder."))
+        toast.error(errorText(cause, tx("Couldn't open the sounds folder.")))
       }
     },
     [recording],
@@ -198,7 +199,7 @@ export function DesktopRecordingProvider({
       try {
         await recording.previewNotificationSound(sound)
       } catch (cause) {
-        toast.error(errorText(cause, "Couldn't play the sound."))
+        toast.error(errorText(cause, tx("Couldn't play the sound.")))
       }
     },
     [recording],
@@ -209,7 +210,7 @@ export function DesktopRecordingProvider({
     try {
       return await recording.listGameProcesses()
     } catch (cause) {
-      toast.error(errorText(cause, "Couldn't load running processes."))
+      toast.error(errorText(cause, tx("Couldn't load running processes.")))
       return []
     }
   }, [recording])
@@ -219,7 +220,7 @@ export function DesktopRecordingProvider({
     try {
       return await recording.listDisplays()
     } catch (cause) {
-      toast.error(errorText(cause, "Couldn't load displays."))
+      toast.error(errorText(cause, tx("Couldn't load displays.")))
       return []
     }
   }, [recording])

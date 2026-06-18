@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   SectionActions,
   SectionHead,
@@ -28,7 +29,7 @@ function ProfileTaggedTab() {
   const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
 
   useQueryErrorToast(error, {
-    title: "Couldn't load tagged clips",
+    title: tx("Couldn't load tagged clips"),
     toastId: "profile-tagged-error",
   })
 
@@ -38,7 +39,7 @@ function ProfileTaggedTab() {
         <div>
           <SectionTitle>
             <TagIcon className="text-accent" />
-            Tagged
+            {tx("Tagged")}
           </SectionTitle>
         </div>
         <SectionActions>
@@ -52,10 +53,10 @@ function ProfileTaggedTab() {
         rows={clips}
         error={error}
         errorSeed="profile-tagged-error"
-        errorTitle="Couldn't load tagged clips"
+        errorTitle={tx("Couldn't load tagged clips")}
         emptySeed="profile-tagged-empty"
-        emptyTitle="No tagged clips yet"
-        emptyHint="Clips where this user is tagged will show up here."
+        emptyTitle={tx("No tagged clips yet")}
+        emptyHint={tx("Clips where this user is tagged will show up here.")}
         listKey={`profile:${username}:tagged`}
         isOwnedByViewer={() => isSelf}
       />

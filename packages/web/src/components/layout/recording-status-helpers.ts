@@ -3,6 +3,7 @@ import type {
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts"
+import { t as tx } from "@alloy/i18n"
 
 export type SaveRecordingSettings = (next: RecordingSettings) => Promise<void>
 
@@ -44,10 +45,10 @@ export function audioDeviceMultiSelectLabel(
   selected: RecordingSettings["audioDevices"],
   settings: RecordingSettings | null,
 ): string {
-  if (!settings) return "Loading"
-  if (selected.length === 0) return "Off"
+  if (!settings) return tx("Loading")
+  if (selected.length === 0) return tx("Off")
   if (selected.length === 1) return selected[0]?.label ?? "Off"
-  return `${selected.length} selected`
+  return tx("{count} selected", { count: selected.length })
 }
 
 function audioDeviceKey(
@@ -75,23 +76,23 @@ export function captureTargetLabel(
   settings: RecordingSettings | null,
   status: RecordingStatus | null,
 ): string {
-  if (!settings) return "Loading capture"
+  if (!settings) return tx("Loading capture")
   if (settings.captureMode === "display") {
-    return status?.activeDisplay?.name ?? "Display capture"
+    return status?.activeDisplay?.name ?? tx("Display capture")
   }
   return status?.activeGame
-    ? `${status.activeGame} is being captured`
-    : "Alloy will start capturing when you launch a game."
+    ? tx("{game} is being captured", { game: status.activeGame })
+    : tx("Alloy will start capturing when you launch a game.")
 }
 
 export function statusLabel(
   settings: RecordingSettings | null,
   status: RecordingStatus | null,
 ): string {
-  if (!settings) return "Loading capture"
-  if (settings.captureMode === "display") return "Display capture"
-  if (!settings.enabled) return "Capture off"
-  return status?.activeGame ?? "Waiting for game"
+  if (!settings) return tx("Loading capture")
+  if (settings.captureMode === "display") return tx("Display capture")
+  if (!settings.enabled) return tx("Capture off")
+  return status?.activeGame ?? tx("Waiting for game")
 }
 
 export function statusActive(status: RecordingStatus | null): boolean {

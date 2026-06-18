@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,7 +47,7 @@ function useAccountDangerActions() {
     try {
       const state = await api.users.disableAccount()
       setDisabledAt(state.disabledAt)
-      toast.success("Account disabled")
+      toast.success(tx("Account disabled"))
       try {
         await signOut()
       } catch (cause) {
@@ -56,7 +57,7 @@ function useAccountDangerActions() {
       await router.invalidate()
       await navigate({ to: "/login" })
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't disable account"))
+      toast.error(errorMessage(cause, tx("Couldn't disable account")))
     } finally {
       setPendingAction(null)
     }
@@ -68,10 +69,10 @@ function useAccountDangerActions() {
     try {
       await api.users.reactivateAccount()
       setDisabledAt(null)
-      toast.success("Account reactivated")
+      toast.success(tx("Account reactivated"))
       await router.invalidate()
     } catch (cause) {
-      toast.error(errorMessage(cause, "Couldn't reactivate account"))
+      toast.error(errorMessage(cause, tx("Couldn't reactivate account")))
     } finally {
       setPendingAction(null)
     }
@@ -83,14 +84,14 @@ function useAccountDangerActions() {
     try {
       const { error } = await authClient.deleteUser()
       if (error) {
-        toast.error(errorMessage(error, "Couldn't delete account"))
+        toast.error(errorMessage(error, tx("Couldn't delete account")))
         return
       }
-      toast.success("Account deleted")
+      toast.success(tx("Account deleted"))
       await router.invalidate()
       await navigate({ to: "/login" })
     } catch (cause) {
-      toast.error(errorMessage(cause, "Something went wrong"))
+      toast.error(errorMessage(cause, tx("Something went wrong")))
     } finally {
       setPendingAction(null)
     }
@@ -122,11 +123,11 @@ function DisableAccountRow({
   return (
     <SettingRow
       className="py-4 first:pt-4 last:pb-4"
-      title={disabledAt ? "Reactivate account" : "Disable account"}
+      title={disabledAt ? tx("Reactivate account") : tx("Disable account")}
       description={
         disabledAt
-          ? "Make your profile and clips visible again."
-          : "Hide your profile and clips until you reactivate your account."
+          ? tx("Make your profile and clips visible again.")
+          : tx("Hide your profile and clips until you reactivate your account.")
       }
     >
       {disabledAt ? (
@@ -138,7 +139,9 @@ function DisableAccountRow({
           disabled={pending}
         >
           <RotateCcwIcon />
-          {pendingAction === "reactivate" ? "Reactivating..." : "Reactivate"}
+          {pendingAction === "reactivate"
+            ? tx("Reactivating...")
+            : tx("Reactivate")}
         </Button>
       ) : (
         <AlertDialog>
@@ -146,24 +149,27 @@ function DisableAccountRow({
             render={
               <Button type="button" variant="outline" size="sm">
                 <EyeOffIcon />
-                Disable
+                {tx("Disable")}
               </Button>
             }
           />
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>Disable your account?</AlertDialogTitle>
+              <AlertDialogTitle>{tx("Disable your account?")}</AlertDialogTitle>
               <AlertDialogDescription>
-                Your profile and clips will be hidden until you sign back in and
-                reactivate.
+                {tx(
+                  "Your profile and clips will be hidden until you sign back in and reactivate.",
+                )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel disabled={pending}>
+                {tx("Cancel")}
+              </AlertDialogCancel>
               <AlertDialogAction onClick={onDisable} disabled={pending}>
                 {pendingAction === "disable"
-                  ? "Disabling..."
-                  : "Disable account"}
+                  ? tx("Disabling...")
+                  : tx("Disable account")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -185,33 +191,39 @@ function DeleteAccountRow({
   return (
     <SettingRow
       className="py-4 first:pt-4 last:pb-4"
-      title="Delete account"
-      description="Permanently removes your account and clips. Can't be undone."
+      title={tx("Delete account")}
+      description={tx(
+        "Permanently removes your account and clips. Can't be undone.",
+      )}
     >
       <AlertDialog>
         <AlertDialogTrigger
           render={
             <Button type="button" variant="danger" size="sm">
               <Trash2Icon />
-              Delete account
+              {tx("Delete account")}
             </Button>
           }
         />
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogTitle>{tx("Delete your account?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              This can't be undone.
+              {tx("This can't be undone.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={pending}>
+              {tx("Cancel")}
+            </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={onDelete}
               disabled={pending}
             >
-              {pendingAction === "delete" ? "Deleting..." : "Delete account"}
+              {pendingAction === "delete"
+                ? tx("Deleting...")
+                : tx("Delete account")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

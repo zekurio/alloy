@@ -1,3 +1,4 @@
+import { t as tx } from "@alloy/i18n"
 import {
   DropdownMenuContent,
   DropdownMenuItem,
@@ -53,11 +54,13 @@ function MediaMenuItems({
     <>
       <DropdownMenuItem onClick={onUpload}>
         <ImageIcon />
-        Upload new {kind}
+        {tx("Upload new")}
+        {kind}
       </DropdownMenuItem>
       <DropdownMenuItem variant="destructive" onClick={onRemove}>
         <Trash2 />
-        Remove {kind}
+        {tx("Remove")}
+        {kind}
       </DropdownMenuItem>
     </>
   )

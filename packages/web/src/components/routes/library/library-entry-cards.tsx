@@ -1,4 +1,5 @@
 import { type ClipRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import { GlobeIcon, Link2Icon, LockIcon, MonitorIcon } from "lucide-react"
 import * as React from "react"
@@ -47,7 +48,7 @@ export function LibraryCaptureCard({
       thumbnailBlurHash={item.thumbBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
       streamUrl={item.mediaUrl}
-      thumbnailLabel={`Edit ${item.title}`}
+      thumbnailLabel={tx("Edit {title}", { title: item.title })}
       onThumbnailClick={onOpen}
       metaContent={
         <LibraryCardMeta source={source} createdAt={item.createdAt} />
@@ -81,7 +82,7 @@ export function ProjectDraftCard({
       thumbnail={thumbnailUrl ?? undefined}
       thumbnailBlurHash={thumbBlurHash}
       fallbackSeed={`draft:${draft.id}`}
-      thumbnailLabel={`Open draft ${draft.title}`}
+      thumbnailLabel={tx("Open draft {title}", { title: draft.title })}
       onThumbnailClick={onOpen}
       metaContent={
         <LibraryDraftMeta
@@ -106,15 +107,15 @@ function LibraryDraftMeta({
   return (
     <>
       <LibrarySourceBadge source={source} />
-      <span className="shrink-0">·</span>
-      <span className="text-foreground-muted shrink-0">Draft</span>
+      <span className="shrink-0">{"·"}</span>
+      <span className="text-foreground-muted shrink-0">{tx("Draft")}</span>
       {durationMs > 0 ? (
         <>
-          <span className="shrink-0">·</span>
+          <span className="shrink-0">{"·"}</span>
           <span className="shrink-0">{formatDraftDuration(durationMs)}</span>
         </>
       ) : null}
-      <span className="shrink-0">·</span>
+      <span className="shrink-0">{"·"}</span>
       <span className="truncate">{formatRelativeTime(updatedAt)}</span>
     </>
   )
@@ -138,10 +139,10 @@ const SOURCE_META: Record<
     label: string
   }
 > = {
-  local: { icon: MonitorIcon, label: "Local" },
-  "link-disabled": { icon: LockIcon, label: "Private" },
-  "link-only": { icon: Link2Icon, label: "Unlisted" },
-  "on-profile": { icon: GlobeIcon, label: "Public" },
+  local: { icon: MonitorIcon, label: tx("Local") },
+  "link-disabled": { icon: LockIcon, label: tx("Private") },
+  "link-only": { icon: Link2Icon, label: tx("Unlisted") },
+  "on-profile": { icon: GlobeIcon, label: tx("Public") },
 }
 
 function LibraryCardTitle({ title }: { title: string }) {
@@ -177,7 +178,7 @@ function LibraryCardMeta({
   return (
     <>
       <LibrarySourceBadge source={source} />
-      <span className="shrink-0">·</span>
+      <span className="shrink-0">{"·"}</span>
       <span className="truncate">{formatRelativeTime(createdAt)}</span>
     </>
   )
@@ -213,7 +214,7 @@ export function UploadedClipCard({
       thumbnailBlurHash={card.thumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
       streamUrl={card.streamUrl}
-      thumbnailLabel={`Edit ${card.title}`}
+      thumbnailLabel={tx("Edit {title}", { title: card.title })}
       onThumbnailClick={onOpen}
       onThumbnailIntent={onIntent}
       metaContent={

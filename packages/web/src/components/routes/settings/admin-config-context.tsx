@@ -1,4 +1,5 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { useQuery } from "@tanstack/react-query"
 import * as React from "react"
 
@@ -28,7 +29,7 @@ function useAdminConfig() {
   }, [configQuery.data])
 
   const loadError = configQuery.error
-    ? errorMessage(configQuery.error, "Couldn't load settings")
+    ? errorMessage(configQuery.error, tx("Couldn't load settings"))
     : null
 
   return { config, setConfig, loadError }

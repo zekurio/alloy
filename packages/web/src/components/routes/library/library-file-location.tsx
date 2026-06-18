@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
 import {
   DropdownMenu,
@@ -30,9 +31,9 @@ import { deleteLocalLibraryCopy } from "./library-local-actions"
 
 export function LocalFileLocation({ item }: { item: RecordingLibraryItem }) {
   return (
-    <ClipMetadataSection label="File Location">
+    <ClipMetadataSection label={tx("File Location")}>
       <LocationMenu
-        label="On Device"
+        label={tx("On Device")}
         icon={<MonitorIcon />}
         sizeBytes={item.sizeBytes}
         localItem={item}
@@ -54,9 +55,9 @@ export function ClipFileLocation({
   ) : null
 
   return (
-    <ClipMetadataSection label="File Location">
+    <ClipMetadataSection label={tx("File Location")}>
       <LocationMenu
-        label={localItem ? "Server + Device" : "On Server"}
+        label={localItem ? tx("Server + Device") : tx("On Server")}
         icon={localItem ? <MonitorIcon /> : <CloudIcon />}
         sizeBytes={row.sourceSizeBytes}
         localItem={localItem}
@@ -95,10 +96,10 @@ function LocationMenu({
     setRemovingLocal(true)
     try {
       await deleteLocalLibraryCopy(localItem)
-      toast.success("Local copy removed")
+      toast.success(tx("Local copy removed"))
     } catch (cause) {
       clientLogger.warn("[library] Failed to remove local clip copy.", cause)
-      toast.error("Couldn't remove the local copy")
+      toast.error(tx("Couldn't remove the local copy"))
     } finally {
       setRemovingLocal(false)
     }
@@ -113,7 +114,9 @@ function LocationMenu({
         <span className="min-w-0 truncate">{label}</span>
         {hasSize ? (
           <span className="text-foreground-faint font-normal">
-            ({formatLibraryBytes(sizeBytes)})
+            {"("}
+            {formatLibraryBytes(sizeBytes)}
+            {")"}
           </span>
         ) : null}
         <ChevronDownIcon className="text-foreground-faint" />
@@ -123,7 +126,7 @@ function LocationMenu({
           <>
             <DropdownMenuItem onClick={revealLocal}>
               <FolderOpenIcon />
-              Reveal in folder
+              {tx("Reveal in folder")}
             </DropdownMenuItem>
             {allowRemoveLocal ? (
               <DropdownMenuItem
@@ -134,7 +137,7 @@ function LocationMenu({
                 }}
               >
                 <Trash2Icon />
-                {removingLocal ? "Removing..." : "Remove local copy"}
+                {removingLocal ? tx("Removing...") : tx("Remove local copy")}
               </DropdownMenuItem>
             ) : null}
           </>
@@ -143,7 +146,7 @@ function LocationMenu({
         ) : (
           <DropdownMenuItem disabled>
             <CloudIcon />
-            Server only
+            {tx("Server only")}
           </DropdownMenuItem>
         )}
         {localItem && downloadAction ? (

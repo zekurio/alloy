@@ -1,4 +1,5 @@
 import { type QueueClip } from "@alloy/api"
+import { t as tx } from "@alloy/i18n"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
@@ -368,8 +369,8 @@ async function copyClipLink(row: QueueClip): Promise<void> {
     action: "copy uploaded clip link",
   })
   if (copied) {
-    toast.success("Link copied")
+    toast.success(tx("Link copied"))
   } else {
-    toast.error("Couldn't copy link")
+    toast.error(tx("Couldn't copy link"))
   }
 }
