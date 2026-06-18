@@ -18,8 +18,13 @@ type CreateMenuProps = {
 /** Global rounded `+` button — the create entry point shown on every page. */
 export function CreateMenu({ placement = "inline" }: CreateMenuProps) {
   const navigate = useNavigate()
-  const { uploadLabel, uploadBusy, uploadDisabled, startUpload } =
-    useCreateActions()
+  const {
+    projectDisabled,
+    uploadLabel,
+    uploadBusy,
+    uploadDisabled,
+    startUpload,
+  } = useCreateActions()
   const floating = placement === "floating"
 
   return (
@@ -47,6 +52,7 @@ export function CreateMenu({ placement = "inline" }: CreateMenuProps) {
         className="w-48"
       >
         <DropdownMenuItem
+          disabled={projectDisabled}
           onClick={() => {
             void navigate({ to: "/editor" })
           }}
