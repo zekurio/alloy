@@ -10,16 +10,13 @@ function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
     <header
       data-slot="app-header"
       className={cn(
-        "relative grid min-w-0 items-center gap-2 px-4 sm:gap-3 sm:px-5",
-        "[grid-template-columns:auto_minmax(0,1fr)_auto_auto]",
+        "relative grid min-w-0 items-center gap-2 px-2 sm:gap-3 sm:px-5 md:pl-0",
+        "md:[grid-template-columns:var(--sidebar-expanded)_minmax(12rem,1fr)_auto_auto_auto]",
         "[&_[data-slot=app-header-brand]]:col-start-1",
         "[&_[data-slot=app-header-search]]:col-start-2",
-        "[&_[data-slot=app-header-actions]]:col-start-3",
-        "[&_[data-slot=app-header-window-controls]]:col-start-4",
-        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:pointer-events-none",
-        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-brand]]:opacity-0",
-        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:pointer-events-none",
-        "max-sm:[&:has([data-slot=app-header-search]:focus-within)_[data-slot=app-header-actions]]:opacity-0",
+        "[&_[data-slot=app-header-toolbar]]:col-start-3",
+        "[&_[data-slot=app-header-actions]]:col-start-4",
+        "[&_[data-slot=app-header-window-controls]]:col-start-5",
         "h-[var(--header-h)] border-b border-border bg-surface",
         className,
       )}
@@ -39,13 +36,25 @@ function AppHeaderBrand({
     <div
       data-slot="app-header-brand"
       className={cn(
-        "flex min-w-0 items-center gap-2 justify-self-start font-sans text-md font-bold tracking-normal",
+        "flex min-w-0 items-center justify-self-start md:h-full md:w-[var(--sidebar-expanded)] md:border-r md:border-border",
         className,
       )}
       {...props}
     >
-      <AlloyLogo size={size} showText={showText} spacing={8} />
-      {children}
+      {/* Left inset roughly tracks the sidebar nav items so the mark sits above
+          them. Alignment — not a divider — ties the header and sidebar
+          together; the sidebar's own border is the only line. */}
+      <div className="flex shrink-0 items-center md:pl-3">
+        <AlloyLogo
+          size={size}
+          showText={showText}
+          spacing={8}
+          textClassName="max-md:hidden"
+        />
+      </div>
+      {children ? (
+        <div className="flex items-center gap-2 pl-3 md:pl-4">{children}</div>
+      ) : null}
     </div>
   )
 }
@@ -89,12 +98,12 @@ const AppHeaderSearch = React.forwardRef<
     <div
       data-slot="app-header-search"
       className={cn(
-        "relative w-full max-w-[28rem] min-w-0 justify-self-center",
+        "relative w-full min-w-0 justify-self-stretch",
         "max-sm:focus-within:z-30",
         containerClassName,
       )}
     >
-      <div className="group/search relative flex h-9 w-full items-center sm:h-8">
+      <div className="group/search relative flex h-10 w-full items-center md:h-8">
         <span
           aria-hidden
           className={cn(
@@ -118,8 +127,11 @@ const AppHeaderSearch = React.forwardRef<
             "text-sm text-foreground placeholder:text-foreground-faint",
             "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "outline-none",
+            "max-md:border-transparent max-md:bg-transparent",
+            "max-md:focus:border-border max-md:focus:bg-input",
             "focus:border-accent focus:bg-surface-raised",
             "focus:shadow-[0_0_0_3px_var(--accent-soft)]",
+            "max-md:focus:shadow-none",
             className,
           )}
           {...props}
@@ -180,6 +192,23 @@ function DefaultSearchHint() {
 }
 
 /**
+ * Header toolbar — contextual controls (filter/sort) for the current route,
+ * sitting between the search box and the right-aligned actions.
+ */
+function AppHeaderToolbar({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="app-header-toolbar"
+      className={cn("flex items-center gap-2 justify-self-end", className)}
+      {...props}
+    />
+  )
+}
+
+/**
  * Header actions — right-aligned group for buttons, user chip, etc.
  * Uses `ml-auto` so it pins to the right regardless of the search width.
  */
@@ -191,6 +220,20 @@ function AppHeaderActions({
     <div
       data-slot="app-header-actions"
       className={cn("flex items-center gap-1 justify-self-end", className)}
+      {...props}
+    />
+  )
+}
+
+function AppHeaderDivider({
+  className,
+  ...props
+}: React.ComponentProps<"span">) {
+  return (
+    <span
+      aria-hidden
+      data-slot="app-header-divider"
+      className={cn("bg-border hidden h-6 w-px shrink-0 md:block", className)}
       {...props}
     />
   )
@@ -262,6 +305,8 @@ export {
   AppHeader,
   AppHeaderActions,
   AppHeaderBrand,
+  AppHeaderDivider,
   AppHeaderSearch,
+  AppHeaderToolbar,
   AppHeaderWindowControls,
 }

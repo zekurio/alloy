@@ -13,8 +13,10 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 type TranslationValue = boolean | number | string | null | undefined
 export type TranslationValues = Record<string, TranslationValue>
+type PluralForm = "one" | "other"
 
 let runtimeLocale: Locale | null = null
+const pluralRules = new Map<Locale, Intl.PluralRules>()
 
 export function normalizeLocale(
   value: string | null | undefined,
@@ -104,8 +106,38 @@ export function t(key: string, values?: TranslationValues): string {
   return translate(getRuntimeLocale(), key, values)
 }
 
+export function translatePlural(
+  locale: Locale,
+  count: number,
+  one: string,
+  other = `${one}s`,
+  values?: TranslationValues,
+): string {
+  const key = pluralForm(locale, count) === "one" ? one : other
+  return translate(locale, key, { count, ...values })
+}
+
+export function tp(
+  count: number,
+  one: string,
+  other = `${one}s`,
+  values?: TranslationValues,
+): string {
+  return translatePlural(getRuntimeLocale(), count, one, other, values)
+}
+
 export function hasTranslation(locale: Locale, key: string): boolean {
   return locale === "en" || Object.hasOwn(DE_MESSAGES, key)
+}
+
+function pluralForm(locale: Locale, count: number): PluralForm {
+  const absoluteCount = Math.abs(Number.isFinite(count) ? count : 0)
+  let rules = pluralRules.get(locale)
+  if (!rules) {
+    rules = new Intl.PluralRules(localeToLanguageTag(locale))
+    pluralRules.set(locale, rules)
+  }
+  return rules.select(absoluteCount) === "one" ? "one" : "other"
 }
 
 function interpolate(template: string, values?: TranslationValues): string {
