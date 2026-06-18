@@ -95,7 +95,7 @@ export class ClipPlayer {
    * is the absolute context time at which `fromSourceMs` should be heard;
    * everything after is scheduled relative to it, so two players started
    * with a consistent mapping stay sample-aligned across a cut. Optional
-   * fade windows (the two halves of a crossfade) are applied as gain
+   * fade windows (the two halves of a transition) are applied as gain
    * automation in absolute context time.
    */
   async runAudio(

@@ -10,7 +10,7 @@ import type { EditorMediaSource, EditorProject } from "./editor-project"
  * Arrangement preview backed by the mediabunny engine: a canvas the engine
  * composites decoded frames onto, with audio scheduled on its own
  * AudioContext. The page's clock owns timeline time — this component just
- * forwards it, so cuts swap frames instantly and crossfades blend instead
+ * forwards it, so cuts swap frames instantly and transitions blend instead
  * of the old per-cut video-element reload (which blacked out).
  */
 export function EditorPreview({

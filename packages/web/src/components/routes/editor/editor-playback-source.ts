@@ -12,6 +12,8 @@ import {
 import { createCaptureSource } from "@/lib/capture-source"
 
 import type { EditorMediaSource } from "./editor-project"
+import { drawIncomingTransitionFrame } from "./editor-transition-effects"
+import type { EditorTransitionType } from "./editor-transition-presets"
 
 /**
  * Source-side plumbing of the preview engine: byte-range transport into
@@ -168,5 +170,21 @@ export class PreviewSurface {
       this.canvas.height,
     )
     this.ctx2d.globalAlpha = 1
+  }
+
+  transition(
+    frame: WrappedCanvas | null,
+    type: EditorTransitionType,
+    progress: number,
+  ): void {
+    if (!this.ctx2d || !this.canvas) return
+    drawIncomingTransitionFrame(
+      this.ctx2d,
+      frame?.canvas ?? null,
+      type,
+      progress,
+      this.canvas.width,
+      this.canvas.height,
+    )
   }
 }

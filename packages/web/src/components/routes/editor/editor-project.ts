@@ -15,12 +15,14 @@ import {
   clipDurationMs,
   clipEndMs,
   DEFAULT_PROJECT_FILTER_ID,
+  DEFAULT_PROJECT_TRANSITION_TYPE,
   type EditorMediaSource,
   type EditorProject,
   findClip,
   MIN_CLIP_MS,
   nextId,
   projectFilterId,
+  projectTransitionType,
   type TimelineClip,
   type TimelineTrack,
   trackClips,
@@ -34,12 +36,14 @@ export {
   type ClipTransition,
   DEFAULT_TRANSITION_MS,
   DEFAULT_PROJECT_FILTER_ID,
+  DEFAULT_PROJECT_TRANSITION_TYPE,
   type EditorMediaSource,
   type EditorProject,
   findClip,
   MIN_CLIP_MS,
   MIN_TRANSITION_MS,
   projectFilterId,
+  projectTransitionType,
   projectDurationMs,
   type TimelineClip,
   type TimelineTrack,
@@ -67,11 +71,13 @@ export function newProject(): EditorProject {
     clips: [],
     transitions: [],
     filterId: DEFAULT_PROJECT_FILTER_ID,
+    transitionType: DEFAULT_PROJECT_TRANSITION_TYPE,
   }
 }
 
 export function projectsEqual(a: EditorProject, b: EditorProject): boolean {
   if (projectFilterId(a) !== projectFilterId(b)) return false
+  if (projectTransitionType(a) !== projectTransitionType(b)) return false
   if (a.tracks.length !== b.tracks.length) return false
   if (a.clips.length !== b.clips.length) return false
   if (a.transitions.length !== b.transitions.length) return false
@@ -303,6 +309,15 @@ export function setProjectFilter(
   const nextFilterId = filterId ?? DEFAULT_PROJECT_FILTER_ID
   if (projectFilterId(project) === nextFilterId) return project
   return { ...project, filterId: nextFilterId }
+}
+
+export function setProjectTransitionType(
+  project: EditorProject,
+  transitionType: EditorProject["transitionType"],
+): EditorProject {
+  const nextTransitionType = transitionType ?? DEFAULT_PROJECT_TRANSITION_TYPE
+  if (projectTransitionType(project) === nextTransitionType) return project
+  return { ...project, transitionType: nextTransitionType }
 }
 
 /** Adds an empty track above the existing ones (new material overlays). */

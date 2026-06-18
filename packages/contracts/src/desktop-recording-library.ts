@@ -93,9 +93,21 @@ export interface RecordingLibraryProjectClip {
   label: string
 }
 
+export const RECORDING_LIBRARY_PROJECT_TRANSITION_TYPES = [
+  "crossfade",
+  "dip-to-black",
+  "wipe-left",
+  "wipe-right",
+  "slide-left",
+  "slide-right",
+] as const
+
+export type RecordingLibraryProjectTransitionType =
+  (typeof RECORDING_LIBRARY_PROJECT_TRANSITION_TYPES)[number]
+
 export interface RecordingLibraryProjectTransition {
   id: string
-  type: "crossfade"
+  type: RecordingLibraryProjectTransitionType
   leftClipId: string
   rightClipId: string
   durationMs: number
@@ -119,6 +131,8 @@ export interface RecordingLibraryProject {
   transitions: RecordingLibraryProjectTransition[]
   /** Global visual filter applied to preview and rendered exports. */
   filterId?: RecordingLibraryProjectFilterId
+  /** Default transition applied when adding a new timeline junction effect. */
+  transitionType?: RecordingLibraryProjectTransitionType
 }
 
 export interface RecordingLibraryProjectDraft {

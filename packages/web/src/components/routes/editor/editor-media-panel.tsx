@@ -1,5 +1,5 @@
 import type { ClipRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import {
   InputGroup,
   InputGroupAddon,
@@ -8,6 +8,7 @@ import {
 import { cn } from "@alloy/ui/lib/utils"
 import {
   ArrowLeftIcon,
+  BlendIcon,
   ChevronRightIcon,
   CheckIcon,
   CloudIcon,
@@ -27,6 +28,12 @@ import {
   type EditorFilterId,
   type EditorFilterPreset,
 } from "./editor-filters"
+import {
+  EDITOR_TRANSITION_PRESETS,
+  editorTransitionPreset,
+  type EditorTransitionPreset,
+  type EditorTransitionType,
+} from "./editor-transition-presets"
 
 /** One addable media row: a local capture or an uploaded ("cloud") clip. */
 export interface EditorMediaItem {
@@ -44,7 +51,7 @@ export interface EditorMediaItem {
   clipRow?: ClipRow
 }
 
-type EditorElementsPanelView = "elements" | "media" | "filters"
+type EditorElementsPanelView = "elements" | "media" | "filters" | "transitions"
 
 /**
  * Multifunction add panel of the editor. Media adds timeline clips; filters
@@ -53,13 +60,17 @@ type EditorElementsPanelView = "elements" | "media" | "filters"
 export function EditorMediaPanel({
   filterId,
   items,
+  transitionType,
   onAdd,
   onFilterChange,
+  onTransitionTypeChange,
 }: {
   filterId: EditorFilterId
   items: EditorMediaItem[]
+  transitionType: EditorTransitionType
   onAdd: (item: EditorMediaItem) => void
   onFilterChange: (filterId: EditorFilterId) => void
+  onTransitionTypeChange: (transitionType: EditorTransitionType) => void
 }) {
   const [view, setView] = React.useState<EditorElementsPanelView>("elements")
   const [query, setQuery] = React.useState("")
@@ -80,6 +91,7 @@ export function EditorMediaPanel({
         <ElementsHome
           filterTitle={editorFilterPreset(filterId).title}
           itemCount={items.length}
+          transitionTitle={editorTransitionPreset(transitionType).title}
           onSelectView={setView}
         />
       ) : null}
@@ -100,6 +112,13 @@ export function EditorMediaPanel({
           onBack={() => setView("elements")}
         />
       ) : null}
+      {view === "transitions" ? (
+        <TransitionsView
+          selectedType={transitionType}
+          onSelect={onTransitionTypeChange}
+          onBack={() => setView("elements")}
+        />
+      ) : null}
     </aside>
   )
 }
@@ -107,10 +126,12 @@ export function EditorMediaPanel({
 function ElementsHome({
   filterTitle,
   itemCount,
+  transitionTitle,
   onSelectView,
 }: {
   filterTitle: string
   itemCount: number
+  transitionTitle: string
   onSelectView: (view: EditorElementsPanelView) => void
 }) {
   return (
@@ -125,7 +146,7 @@ function ElementsHome({
           title={tx("Media")}
           subtitle={tx("{count} {label}", {
             count: itemCount,
-            label: itemCount === 1 ? tx("clip") : tx("clips"),
+            label: tp(itemCount, "clip", "clips"),
           })}
           onClick={() => onSelectView("media")}
         >
@@ -140,16 +161,13 @@ function ElementsHome({
           title={tx("Filters")}
           subtitle={filterTitle}
           onClick={() => onSelectView("filters")}
-        >
-          <div className="grid grid-cols-2 gap-0.5">
-            {EDITOR_FILTER_PRESETS.slice(1, 5).map((preset) => (
-              <span
-                key={preset.id}
-                className={cn("block size-3 rounded-sm", preset.swatches[1])}
-              />
-            ))}
-          </div>
-        </ElementPickerRow>
+        />
+        <ElementPickerRow
+          icon={<BlendIcon />}
+          title={tx("Transitions")}
+          subtitle={transitionTitle}
+          onClick={() => onSelectView("transitions")}
+        />
       </div>
     </div>
   )
@@ -165,7 +183,7 @@ function ElementPickerRow({
   icon: React.ReactNode
   title: string
   subtitle: string
-  children: React.ReactNode
+  children?: React.ReactNode
   onClick: () => void
 }) {
   return (
@@ -185,7 +203,7 @@ function ElementPickerRow({
           {subtitle}
         </span>
       </span>
-      <span className="shrink-0">{children}</span>
+      {children ? <span className="shrink-0">{children}</span> : null}
       <ChevronRightIcon className="text-foreground-faint size-4 shrink-0" />
     </button>
   )
@@ -295,6 +313,33 @@ function FiltersView({
   )
 }
 
+function TransitionsView({
+  selectedType,
+  onSelect,
+  onBack,
+}: {
+  selectedType: EditorTransitionType
+  onSelect: (type: EditorTransitionType) => void
+  onBack: () => void
+}) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-3 p-3">
+      <PanelHeader icon={<BlendIcon />} title={tx("Transitions")} />
+      <div className="-mr-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+        {EDITOR_TRANSITION_PRESETS.map((preset) => (
+          <TransitionPresetRow
+            key={preset.type}
+            preset={preset}
+            selected={selectedType === preset.type}
+            onSelect={() => onSelect(preset.type)}
+          />
+        ))}
+      </div>
+      <BackToElementsButton onBack={onBack} />
+    </div>
+  )
+}
+
 function FilterPresetRow({
   preset,
   selected,
@@ -332,6 +377,77 @@ function FilterPresetRow({
         {selected ? <CheckIcon className="text-accent size-4" /> : null}
       </span>
     </button>
+  )
+}
+
+function TransitionPresetRow({
+  preset,
+  selected,
+  onSelect,
+}: {
+  preset: EditorTransitionPreset
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      className={cn(
+        "border-border bg-surface/50 hover:border-border-strong hover:bg-surface-raised focus-visible:ring-ring flex w-full cursor-pointer items-center gap-3 rounded-md border p-2 text-left transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        selected &&
+          "border-accent-border bg-accent-soft/60 text-accent hover:border-accent-border hover:bg-accent-soft",
+      )}
+      onClick={onSelect}
+    >
+      <TransitionPreview type={preset.type} />
+      <span className="min-w-0 flex-1">
+        <span className="text-foreground block truncate text-sm font-semibold">
+          {preset.title}
+        </span>
+        <span className="text-foreground-faint block truncate text-xs">
+          {preset.subtitle}
+        </span>
+      </span>
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        {selected ? <CheckIcon className="text-accent size-4" /> : null}
+      </span>
+    </button>
+  )
+}
+
+function TransitionPreview({ type }: { type: EditorTransitionType }) {
+  return (
+    <span className="border-border bg-surface-raised relative h-9 w-12 shrink-0 overflow-hidden rounded-md border">
+      <span className="absolute inset-y-0 left-0 w-1/2 bg-neutral-500/70" />
+      <span
+        className={cn(
+          "absolute inset-y-0 bg-neutral-200/80",
+          type === "crossfade" && "left-4 w-7 opacity-70",
+          type === "dip-to-black" && "left-1/2 w-1 -translate-x-1/2 bg-black",
+          type === "wipe-left" && "left-0 w-2/3",
+          type === "wipe-right" && "right-0 w-2/3",
+          type === "slide-left" && "right-0 w-2/3",
+          type === "slide-right" && "left-0 w-2/3",
+        )}
+      />
+      {type === "wipe-left" || type === "wipe-right" ? (
+        <span
+          className={cn(
+            "absolute inset-y-1 w-px bg-accent",
+            type === "wipe-left" ? "left-2/3" : "right-2/3",
+          )}
+        />
+      ) : null}
+      {type === "slide-left" || type === "slide-right" ? (
+        <span
+          className={cn(
+            "border-accent absolute inset-y-1 w-4 border",
+            type === "slide-left" ? "right-1" : "left-1",
+          )}
+        />
+      ) : null}
+    </span>
   )
 }
 

@@ -35,12 +35,13 @@ import {
   type RenderedProject,
   type RenderSettings,
 } from "./editor-render-settings"
+import { drawIncomingTransitionFrame } from "./editor-transition-effects"
 import { incomingPreRollMs, outgoingTransitionFor } from "./editor-transitions"
 
 /**
  * Offline render of an editor project into an MP4, using the same
  * mediabunny pipeline (and the same program semantics) as the live
- * preview: top track wins, cuts are exact, crossfades blend the incoming
+ * preview: top track wins, cuts are exact, transitions composite the incoming
  * clip's pre-roll over the outgoing tail with cross-ramped audio.
  *
  * Video composites frame by frame onto one canvas feeding a
@@ -353,11 +354,14 @@ export async function renderProject(
               transition.right.sourceStartMs + (t - transition.right.startMs),
             )
           : null
-        if (image) {
-          ctx.globalAlpha = Math.min(1, Math.max(0, transition.progress))
-          ctx.drawImage(image.canvas, 0, 0, width, height)
-          ctx.globalAlpha = 1
-        }
+        drawIncomingTransitionFrame(
+          ctx,
+          image?.canvas ?? null,
+          transition.transition.type,
+          transition.progress,
+          width,
+          height,
+        )
       }
 
       if (encodedCtx) {

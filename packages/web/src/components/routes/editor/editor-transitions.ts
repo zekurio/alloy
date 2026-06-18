@@ -1,7 +1,7 @@
 /**
- * Transition (crossfade) logic of the project model: junction discovery,
- * toggling, validity pruning, and resolving the transition in effect at a
- * timeline position. All helpers are pure, mirroring `editor-project`.
+ * Transition logic of the project model: junction discovery, toggling,
+ * validity pruning, and resolving the transition in effect at a timeline
+ * position. All helpers are pure, mirroring `editor-project`.
  */
 
 import {
@@ -17,6 +17,11 @@ import {
   type TimelineClip,
   trackClips,
 } from "./editor-project-core"
+import {
+  DEFAULT_EDITOR_TRANSITION_TYPE,
+  type EditorTransitionType,
+  normalizeEditorTransitionType,
+} from "./editor-transition-presets"
 
 /** Clip edges this close in timeline time count as one junction. */
 const JUNCTION_TOLERANCE_MS = 1
@@ -85,7 +90,7 @@ export function outgoingTransitionFor(
   )
 }
 
-/** Crossfade lead-in available to a clip entered by a transition. */
+/** Lead-in available to a clip entered by a transition. */
 export function incomingPreRollMs(
   project: EditorProject,
   clip: TimelineClip,
@@ -100,11 +105,11 @@ function maxTransitionMs(left: TimelineClip, right: TimelineClip): number {
 }
 
 /**
- * How much lead-in the right clip can actually play during a crossfade:
- * its trimmed-away source material before the in-point. During the window
- * the right side plays `[sourceStart - preRoll, sourceStart)` and lands on
- * its in-point exactly at the cut, so playback is continuous. A clip with
- * no leading handle falls back to holding its first frame.
+ * How much lead-in the right clip can actually play during a transition: its
+ * trimmed-away source material before the in-point. During the window the
+ * right side plays `[sourceStart - preRoll, sourceStart)` and lands on its
+ * in-point exactly at the cut. A clip with no leading handle falls back to
+ * holding its first frame.
  */
 export function transitionPreRollMs(
   transition: ClipTransition,
@@ -114,13 +119,14 @@ export function transitionPreRollMs(
 }
 
 /**
- * Adds a crossfade at the junction, or removes the existing transition.
+ * Adds a transition at the junction, or removes the existing transition.
  * No-op when the clips aren't adjacent or are too short to fade over.
  */
 export function toggleTransition(
   project: EditorProject,
   leftClipId: string,
   rightClipId: string,
+  type: EditorTransitionType = DEFAULT_EDITOR_TRANSITION_TYPE,
 ): EditorProject {
   const existing = transitionBetween(project, leftClipId, rightClipId)
   if (existing) {
@@ -145,7 +151,7 @@ export function toggleTransition(
       ...project.transitions,
       {
         id: nextId("transition"),
-        type: "crossfade",
+        type: normalizeEditorTransitionType(type),
         leftClipId,
         rightClipId,
         durationMs,

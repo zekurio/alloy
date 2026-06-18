@@ -58,11 +58,13 @@ import {
   moveClip,
   newProject,
   projectFilterId,
+  projectTransitionType,
   projectDurationMs,
   projectsEqual,
   removeClip,
   removeTrack,
   setProjectFilter,
+  setProjectTransitionType,
   splitClipAt,
   toggleTransition,
   trimClipEnd,
@@ -385,6 +387,7 @@ function EditorContent({
 
   const selectedClip = selectedClipId ? findClip(project, selectedClipId) : null
   const canSplit = splitTarget(project, selectedClipId, currentMs) !== null
+  const transitionType = projectTransitionType(project)
 
   return (
     <AppMain>
@@ -470,9 +473,13 @@ function EditorContent({
             <EditorMediaPanel
               filterId={projectFilterId(project)}
               items={mediaItems}
+              transitionType={transitionType}
               onAdd={addFromLibrary}
               onFilterChange={(filterId) =>
                 history.apply(setProjectFilter(project, filterId))
+              }
+              onTransitionTypeChange={(nextType) =>
+                history.apply(setProjectTransitionType(project, nextType))
               }
             />
             <div className="flex min-h-0 items-center justify-center overflow-hidden">
@@ -577,6 +584,7 @@ function EditorContent({
             project={project}
             sources={sources}
             spanMs={spanMs}
+            transitionType={transitionType}
             selectedClipId={selectedClipId}
             currentMs={currentMs}
             playing={playing}
@@ -594,7 +602,14 @@ function EditorContent({
               history.update(trimClipEnd(project, clipId, timelineMs))
             }}
             onToggleTransition={(leftClipId, rightClipId) => {
-              history.apply(toggleTransition(project, leftClipId, rightClipId))
+              history.apply(
+                toggleTransition(
+                  project,
+                  leftClipId,
+                  rightClipId,
+                  transitionType,
+                ),
+              )
             }}
             onRemoveTrack={(trackId) => {
               history.apply(removeTrack(project, trackId))
