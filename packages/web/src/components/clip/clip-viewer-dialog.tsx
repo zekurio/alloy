@@ -30,8 +30,8 @@ import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
 import {
-  clipDownloadActionSupported,
-  ClipDownloadMenuItem,
+  clipBrowserDownloadActionSupported,
+  ClipBrowserDownloadMenuItem,
 } from "./clip-download-button"
 import {
   type ClipListEntry,
@@ -335,8 +335,8 @@ function ClipViewerDialogBody({
                 // Gate on support here: ClipMeta shows its "…" menu whenever
                 // a download action exists, and an always-truthy element
                 // would leave non-owners on the web with an empty menu.
-                clipDownloadActionSupported(row) ? (
-                  <ClipDownloadMenuItem row={row} />
+                clipBrowserDownloadActionSupported(row) ? (
+                  <ClipBrowserDownloadMenuItem row={row} />
                 ) : undefined
               }
               uploader={{

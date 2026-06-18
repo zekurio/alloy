@@ -30,11 +30,9 @@ import {
   onRecordingEvent,
   resolveRevealableCapturePath,
   saveReplayClip,
-  stopRecording,
-  stopRecordingAudioLevels,
+  stopAudioLevels,
   subscribeRecordingAudioLevels,
   takeRecordingScreenshot,
-  toggleLongRecording,
 } from "./recording"
 import { configureRecordingHotkeys } from "./recording-hotkeys"
 import {
@@ -303,9 +301,9 @@ function registerRecordingSourceIpc(windows: Windows): void {
     requireMainSender(windows, event)
     return subscribeRecordingAudioLevels()
   })
-  ipcMain.handle(IPC.stopRecordingAudioLevels, async (event) => {
+  ipcMain.handle(IPC.stopAudioLevels, async (event) => {
     requireMainSender(windows, event)
-    return stopRecordingAudioLevels()
+    return stopAudioLevels()
   })
 }
 
@@ -321,14 +319,6 @@ function registerRecordingActionIpc(windows: Windows): void {
   ipcMain.handle(IPC.takeRecordingScreenshot, (event, request: unknown) => {
     requireMainSender(windows, event)
     return takeRecordingScreenshot(normalizeActionRequest(request))
-  })
-  ipcMain.handle(IPC.toggleLongRecording, (event, request: unknown) => {
-    requireMainSender(windows, event)
-    return toggleLongRecording(normalizeActionRequest(request))
-  })
-  ipcMain.handle(IPC.stopRecording, (event) => {
-    requireMainSender(windows, event)
-    return stopRecording()
   })
   ipcMain.handle(IPC.revealRecordingCapture, (event, filename: unknown) => {
     requireMainSender(windows, event)

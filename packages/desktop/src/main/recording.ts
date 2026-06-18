@@ -192,22 +192,6 @@ export async function takeRecordingScreenshot(
   return result
 }
 
-export async function toggleLongRecording(
-  request: RecordingActionRequest,
-): Promise<RecordingActionResult> {
-  const wasLongRecording =
-    getLastRecordingStatus()?.longRecordingActive === true
-  const result = await runRecordingAction("toggleLongRecording", request)
-  if (result.ok && !wasLongRecording && result.status.longRecordingActive) {
-    playNotificationSound("manualRecordingStarted")
-  }
-  return result
-}
-
-export async function stopRecording(): Promise<RecordingActionResult> {
-  return runRecordingAction("stopRecording")
-}
-
 /**
  * Keep live audio-level events flowing from the sidecar. The subscription
  * auto-expires after a few seconds, so the renderer re-sends this as a
@@ -223,7 +207,7 @@ export async function subscribeRecordingAudioLevels(): Promise<void> {
   }
 }
 
-export async function stopRecordingAudioLevels(): Promise<void> {
+export async function stopAudioLevels(): Promise<void> {
   const client = getSidecarClient()
   if (!client) return
   try {
@@ -244,11 +228,7 @@ export function playReplaySaveRequestedSound(): boolean {
 }
 
 async function runRecordingAction(
-  method:
-    | "saveReplayClip"
-    | "addBookmark"
-    | "toggleLongRecording"
-    | "stopRecording",
+  method: "saveReplayClip" | "addBookmark",
   params?: unknown,
 ): Promise<RecordingActionResult> {
   const client = getSidecarClient()

@@ -5,10 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "turbo run build",
-    "dev": "pnpm db:push && turbo run dev --filter=@alloy/server",
+    "dev": "pnpm db:push && turbo run dev --filter=@alloy/server --filter=@alloy/web",
     "dev:server": "pnpm db:push && turbo run dev --filter=@alloy/server",
     "dev:web": "turbo run dev --filter=@alloy/web",
-    "dev:desktop": "pnpm db:push && turbo run dev --filter=@alloy/server --filter=@alloy/web --filter=@alloy/desktop",
     "dev:all": "pnpm db:push && turbo run dev --filter=@alloy/server --filter=@alloy/web --filter=@alloy/desktop",
     "recorder:build": "pnpm --filter @alloy/recorder build",
     "recorder:build:release": "pnpm --filter @alloy/recorder build:release",

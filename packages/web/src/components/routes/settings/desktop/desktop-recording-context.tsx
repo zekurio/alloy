@@ -21,7 +21,6 @@ type RecordingAction =
   | { type: "saveReplayClip"; request: SaveReplayClipRequest }
   | { type: "addBookmark"; request: RecordingActionRequest }
   | { type: "takeScreenshot"; request: RecordingActionRequest }
-  | { type: "toggleLongRecording"; request: RecordingActionRequest }
 
 interface DesktopRecordingContextValue {
   settings: RecordingSettings | null
@@ -53,11 +52,10 @@ interface DesktopRecordingContextValue {
 }
 
 const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
-  recordingStarted: [],
-  manualRecordingStarted: [],
+  replayRecordingStarted: [],
   clipSaved: [],
-  screenshotTaken: [],
   bookmarkAdded: [],
+  screenshotTaken: [],
 }
 
 const DesktopRecordingContext =
@@ -324,7 +322,5 @@ async function runRecordingAction(
       return recording.addBookmark(action.request)
     case "takeScreenshot":
       return recording.takeScreenshot(action.request)
-    case "toggleLongRecording":
-      return recording.toggleLongRecording(action.request)
   }
 }

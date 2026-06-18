@@ -33,7 +33,7 @@ export function HotkeysSection({
       </SettingRow>
       <SettingRow
         title="Bookmark"
-        description="Adds a marker to an active long recording."
+        description="Adds a marker to an active recording."
       >
         <HotkeyInput
           value={settings.hotkeys.bookmark}
@@ -59,22 +59,6 @@ export function HotkeysSection({
             void save({
               ...settings,
               hotkeys: { ...settings.hotkeys, screenshot },
-            })
-          }
-        />
-      </SettingRow>
-      <SettingRow
-        title="Long recording"
-        description="Starts or stops a manual long recording."
-      >
-        <HotkeyInput
-          value={settings.hotkeys.toggleLongRecording}
-          disabled={busy}
-          ariaLabel="Long recording shortcut"
-          onChange={(toggleLongRecording) =>
-            void save({
-              ...settings,
-              hotkeys: { ...settings.hotkeys, toggleLongRecording },
             })
           }
         />

@@ -91,14 +91,18 @@ function MobileActionButton({
 }
 
 type ClipActionsMenuProps = {
+  canManage: boolean
   deleting: boolean
+  downloadAction?: React.ReactNode
   iconClassName: string
   onEdit: () => void
   onDelete: () => void
 }
 
 function ClipActionsMenu({
+  canManage,
   deleting,
+  downloadAction,
   iconClassName,
   onEdit,
   onDelete,
@@ -117,17 +121,23 @@ function ClipActionsMenu({
         }
       />
       <DropdownMenuContent align="end" className="min-w-[150px]">
-        <DropdownMenuItem onClick={onEdit}>
-          <PencilIcon /> Edit
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          variant="destructive"
-          disabled={deleting}
-          onClick={onDelete}
-        >
-          <Trash2Icon /> Delete
-        </DropdownMenuItem>
+        {downloadAction}
+        {canManage && downloadAction ? <DropdownMenuSeparator /> : null}
+        {canManage ? (
+          <>
+            <DropdownMenuItem onClick={onEdit}>
+              <PencilIcon /> Edit
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={deleting}
+              onClick={onDelete}
+            >
+              <Trash2Icon /> Delete
+            </DropdownMenuItem>
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   )
@@ -138,6 +148,7 @@ type MobileActionsRailProps = {
   canLike: boolean
   canManage: boolean
   deleting: boolean
+  downloadAction?: React.ReactNode
   likeCount: number
   commentCount: number
   iconSizeClassName: string
@@ -154,6 +165,7 @@ export function MobileActionsRail({
   canLike,
   canManage,
   deleting,
+  downloadAction,
   likeCount,
   commentCount,
   iconSizeClassName,
@@ -197,9 +209,11 @@ export function MobileActionsRail({
         ariaLabel="Share"
         icon={<Share2Icon className={cn(iconSizeClassName, "text-white")} />}
       />
-      {canManage ? (
+      {canManage || downloadAction ? (
         <ClipActionsMenu
+          canManage={canManage}
           deleting={deleting}
+          downloadAction={downloadAction}
           iconClassName={cn(iconSizeClassName, "rotate-90")}
           onEdit={onEdit}
           onDelete={onDelete}

@@ -30,6 +30,10 @@ import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
+import {
+  clipBrowserDownloadActionSupported,
+  ClipBrowserDownloadMenuItem,
+} from "./clip-download-button"
 import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { ClipTitleWithVisibility, ClipVisibilityBadge } from "./clip-meta"
@@ -200,6 +204,9 @@ function MobileClipViewerBody({
     canLike,
     canManage,
     deleting,
+    downloadAction: clipBrowserDownloadActionSupported(row) ? (
+      <ClipBrowserDownloadMenuItem row={row} />
+    ) : undefined,
     likeCount: row.likeCount,
     commentCount: row.commentCount,
     onLike: handleLike,

@@ -13,7 +13,6 @@ import { installCrashLogging, installFileLogSink } from "./logging"
 import {
   configureRecordingBackend,
   shutdownRecordingBackend,
-  stopRecording,
 } from "./recording"
 import { startRecordingDiscordDetectionsRefresh } from "./recording-discord-detections"
 import {
@@ -89,9 +88,6 @@ if (!app.requestSingleInstanceLock()) {
       },
       openSettings: () => {
         windows.openSettings()
-      },
-      stopRecording: async () => {
-        await stopRecording()
       },
       quit: () => {
         windows.allowAppQuit()

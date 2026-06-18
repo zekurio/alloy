@@ -93,7 +93,7 @@ const AppHeaderSearch = React.forwardRef<
         containerClassName,
       )}
     >
-      <div className="group/search relative flex h-10 w-full items-center sm:h-9">
+      <div className="group/search relative flex h-9 w-full items-center sm:h-8">
         <span
           aria-hidden
           className={cn(
@@ -113,7 +113,7 @@ const AppHeaderSearch = React.forwardRef<
           placeholder={placeholder}
           value={value}
           className={cn(
-            "h-full w-full min-w-0 rounded-md border border-border bg-input pr-11 pl-8",
+            "h-full w-full min-w-0 rounded-lg border border-border bg-input pr-11 pl-8",
             "text-sm text-foreground placeholder:text-foreground-faint",
             "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "outline-none",

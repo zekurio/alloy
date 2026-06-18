@@ -39,9 +39,9 @@ impl Recorder {
             .obs
             .as_ref()
             .ok_or_else(|| "OBS is not initialized.".to_string())?;
-        let encoder_ids = self.available_encoder_set();
-        let (video_encoder_id, video_codec) = choose_video_encoder(settings, &encoder_ids)
-            .ok_or_else(|| unavailable_video_encoder_message(settings))?;
+        let (video_encoder_id, video_codec) =
+            choose_video_encoder(settings, &self.available_encoders)
+                .ok_or_else(|| unavailable_video_encoder_message(settings))?;
         if video_codec != settings.codec {
             eprintln!(
                 "[{SIDE_CAR_NAME}] no {} encoder is available in this OBS instance; recording with {} instead.",
@@ -53,7 +53,7 @@ impl Recorder {
             codec: video_codec,
             ..settings.clone()
         };
-        let audio_encoder_id = choose_audio_encoder(&encoder_ids)
+        let audio_encoder_id = choose_audio_encoder(&self.available_encoders)
             .ok_or_else(|| "No OBS audio encoder is available.".to_string())?;
 
         let output_quality = effective_quality_for_base(settings, video_config.base);

@@ -29,15 +29,9 @@ const SOUND_ROWS: Array<{
   defaultFile: string
 }> = [
   {
-    id: "recordingStarted",
-    title: "Recording started",
+    id: "replayRecordingStarted",
+    title: "Replay recording started",
     description: "Played when the replay buffer starts for a detected game.",
-    defaultFile: "start_recording.wav",
-  },
-  {
-    id: "manualRecordingStarted",
-    title: "Manual recording started",
-    description: "Played when a manual long recording starts.",
     defaultFile: "start_recording.wav",
   },
   {
@@ -55,17 +49,16 @@ const SOUND_ROWS: Array<{
   {
     id: "bookmarkAdded",
     title: "Bookmark",
-    description: "Played when a bookmark is added to a manual recording.",
+    description: "Played when a bookmark is added to an active recording.",
     defaultFile: "bookmark.wav",
   },
 ]
 
 const EMPTY_LIBRARY: RecordingNotificationSoundLibrary = {
-  recordingStarted: [],
-  manualRecordingStarted: [],
+  replayRecordingStarted: [],
   clipSaved: [],
-  screenshotTaken: [],
   bookmarkAdded: [],
+  screenshotTaken: [],
 }
 
 export function NotificationSoundsSection({
@@ -167,7 +160,9 @@ function SoundCard({
   // surface a custom path that lives outside the folder as its own entry.
   const items = soundItems(options, sound.path)
   const selectedValue =
-    sound.path || items.find((item) => item.name === defaultFile)?.path || ""
+    sound.path ||
+    items.find((item) => fileName(item.name) === defaultFile)?.path ||
+    ""
 
   const controlsDisabled = busy || !sound.enabled
 

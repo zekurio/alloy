@@ -47,6 +47,7 @@ export function PlayerCore({
   onVideoClick,
   onPlaybackError,
   onPlayThreshold,
+  onFrameReady,
   onEnded,
   chromeSize = "default",
   shortcutBounds,
@@ -69,6 +70,7 @@ export function PlayerCore({
   const chromeHideTimerRef = React.useRef<number | null>(null)
   const lastTimeRef = React.useRef(0)
   const playRequestIdRef = React.useRef(0)
+  const hasRenderedFrameRef = React.useRef(false)
   const resumeRef = React.useRef<{ time: number; play: boolean } | null>(null)
   const prevSourceRef = React.useRef<{
     identity: string
@@ -107,13 +109,15 @@ export function PlayerCore({
   const onTimeUpdateRef = React.useRef(onTimeUpdate)
   const onPlayingChangeRef = React.useRef(onPlayingChange)
   const onPlaybackErrorRef = React.useRef(onPlaybackError)
+  const onFrameReadyRef = React.useRef(onFrameReady)
   const onEndedRef = React.useRef(onEnded)
   React.useEffect(() => {
     onTimeUpdateRef.current = onTimeUpdate
     onPlayingChangeRef.current = onPlayingChange
     onPlaybackErrorRef.current = onPlaybackError
+    onFrameReadyRef.current = onFrameReady
     onEndedRef.current = onEnded
-  }, [onTimeUpdate, onPlayingChange, onPlaybackError, onEnded])
+  }, [onTimeUpdate, onPlayingChange, onPlaybackError, onFrameReady, onEnded])
 
   const syncTime = React.useCallback(() => {
     const video = videoRef.current
@@ -165,6 +169,7 @@ export function PlayerCore({
     playRequestIdRef.current += 1
     setStatus({ kind: "loading" })
     setBufferedEnd(0)
+    hasRenderedFrameRef.current = false
     setHasRenderedFrame(false)
     clearChromeHideTimer()
     setChromeVisible(!(isCoarsePointer && autoPlay))
@@ -488,7 +493,10 @@ export function PlayerCore({
   }, [autoPlay, playbackRate, playInternal, syncBuffered])
 
   const handleLoadedData = React.useCallback(() => {
+    if (hasRenderedFrameRef.current) return
+    hasRenderedFrameRef.current = true
     setHasRenderedFrame(true)
+    onFrameReadyRef.current?.()
   }, [])
 
   const posterVisible = Boolean(poster) && !hasRenderedFrame

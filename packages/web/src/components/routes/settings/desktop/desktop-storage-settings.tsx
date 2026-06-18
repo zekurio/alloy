@@ -25,13 +25,12 @@ export function DesktopStorageSettings({
       <div className="flex flex-col gap-1.5">
         <span className="text-xs font-medium">Capture folder</span>
         <div className="flex items-center gap-2">
-          <div className="border-border bg-input text-foreground-dim flex h-8 min-w-0 flex-1 items-center truncate rounded-md border px-3 text-xs">
+          <div className="border-border bg-input text-foreground-dim flex h-9 min-w-0 flex-1 items-center truncate rounded-lg border px-3 text-sm sm:h-8">
             {folder}
           </div>
           <Button
             type="button"
             variant="secondary"
-            size="sm"
             disabled={disabled}
             onClick={() => void chooseOutputFolder()}
           >

@@ -11,17 +11,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
+import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { DownloadIcon, RefreshCcwIcon } from "lucide-react"
 import * as React from "react"
 
-import { useDesktopUpdateState } from "@/lib/desktop-updates"
+import {
+  rememberDesktopUpdateChannel,
+  useDesktopUpdateChannel,
+  useDesktopUpdateChannelLoading,
+  useDesktopUpdateState,
+} from "@/lib/desktop-updates"
 
 import { alloyDesktop } from "./desktop-bridge"
 
-type Phase = "loading" | "idle" | "saving" | "restarting"
+type Phase = "idle" | "saving" | "restarting"
 
 const CHANNEL_LABELS: Record<DesktopUpdateChannel, string> = {
   latest: "Stable",
@@ -36,39 +42,9 @@ const CHANNEL_SUMMARIES: Record<DesktopUpdateChannel, string> = {
 export function DesktopUpdateSettings() {
   const updates = alloyDesktop()?.updates
   const updateState = useDesktopUpdateState()
-  const [channel, setChannel] = React.useState<DesktopUpdateChannel | null>(
-    null,
-  )
-  const [phase, setPhase] = React.useState<Phase>("loading")
-
-  React.useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      if (!updates?.getChannel) {
-        setPhase("idle")
-        return
-      }
-
-      setPhase("loading")
-      try {
-        const loadedChannel = await updates.getChannel()
-        if (!cancelled) setChannel(loadedChannel)
-      } catch (cause) {
-        if (!cancelled) {
-          toast.error(errorText(cause, "Couldn't load update settings."))
-        }
-      } finally {
-        if (!cancelled) setPhase("idle")
-      }
-    }
-
-    void load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [updates])
+  const channel = useDesktopUpdateChannel()
+  const channelLoading = useDesktopUpdateChannelLoading()
+  const [phase, setPhase] = React.useState<Phase>("idle")
 
   if (!updates) return null
   const activeUpdates = updates
@@ -76,7 +52,7 @@ export function DesktopUpdateSettings() {
   const canConfigure =
     typeof activeUpdates.getChannel === "function" &&
     typeof activeUpdates.setChannel === "function"
-  const busy = phase === "loading" || phase === "saving"
+  const busy = phase === "saving"
 
   async function changeChannel(value: DesktopUpdateChannel | null) {
     const nextChannel = normalizeDesktopUpdateChannel(value)
@@ -87,7 +63,7 @@ export function DesktopUpdateSettings() {
     setPhase("saving")
     try {
       const savedChannel = await activeUpdates.setChannel(nextChannel)
-      setChannel(savedChannel)
+      rememberDesktopUpdateChannel(savedChannel)
       toast.success(`Update channel set to ${CHANNEL_LABELS[savedChannel]}.`)
     } catch (cause) {
       toast.error(errorText(cause, "Couldn't save update channel."))
@@ -112,12 +88,18 @@ export function DesktopUpdateSettings() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="text-sm font-semibold">Update channel</div>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              {channel ? CHANNEL_SUMMARIES[channel] : "Desktop releases"}
-            </p>
+            <div className="text-foreground-dim mt-0.5 text-xs">
+              {channel ? (
+                CHANNEL_SUMMARIES[channel]
+              ) : channelLoading ? (
+                <Skeleton className="h-3 w-24" />
+              ) : (
+                "Desktop releases"
+              )}
+            </div>
           </div>
 
-          {canConfigure ? (
+          {canConfigure && channel ? (
             <Select
               value={channel}
               onValueChange={changeChannel}
@@ -128,9 +110,7 @@ export function DesktopUpdateSettings() {
                 size="sm"
                 className="w-full sm:w-40"
               >
-                <SelectValue>
-                  {channel ? CHANNEL_LABELS[channel] : "Loading"}
-                </SelectValue>
+                <SelectValue>{CHANNEL_LABELS[channel]}</SelectValue>
               </SelectTrigger>
               <SelectContent align="end">
                 {DESKTOP_UPDATE_CHANNELS.map((option) => (
@@ -140,6 +120,8 @@ export function DesktopUpdateSettings() {
                 ))}
               </SelectContent>
             </Select>
+          ) : canConfigure && channelLoading ? (
+            <Skeleton className="h-8 w-full sm:w-40" />
           ) : (
             <span className="text-foreground-faint text-xs">
               Unavailable in this build
@@ -182,7 +164,7 @@ export function DesktopUpdateSettings() {
           </Button>
         ) : (
           <span className="text-foreground-faint inline-flex items-center gap-1.5 text-xs">
-            {phase === "loading" || phase === "saving" ? (
+            {phase === "saving" ? (
               <Spinner />
             ) : (
               <DownloadIcon className="size-3.5" />

@@ -14,7 +14,7 @@ import { getRecordingSettings } from "./server-store"
  * happened (events, statuses) and never reasons about chimes itself.
  */
 
-let lastRecordingStartSoundKey: string | null = null
+let lastReplayRecordingStartSoundKey: string | null = null
 let lastClipSavedSoundKey: string | null = null
 let pendingReplaySaveRequestSounds = 0
 let startSoundSuppressionDepth = 0
@@ -29,9 +29,9 @@ export function playNotificationSound(
 /** Play whatever sound a sidecar event calls for (start chime, clip saved). */
 export function handleRecordingEventSound(event: RecordingEvent): void {
   if (event.type === "game-ended") {
-    lastRecordingStartSoundKey = null
+    lastReplayRecordingStartSoundKey = null
   }
-  maybePlayRecordingStartedSound(event)
+  maybePlayReplayRecordingStartedSound(event)
   if (event.type === "capture-ready") {
     maybePlayClipSavedSound(event.capture)
   }
@@ -77,19 +77,19 @@ export function cancelReplaySaveRequestedSoundSuppression(): void {
   if (pendingReplaySaveRequestSounds > 0) pendingReplaySaveRequestSounds -= 1
 }
 
-function maybePlayRecordingStartedSound(event: RecordingEvent): void {
+function maybePlayReplayRecordingStartedSound(event: RecordingEvent): void {
   if (event.type !== "recording-started") return
 
-  const soundKey = recordingStartSoundKey(event.status)
+  const soundKey = replayRecordingStartSoundKey(event.status)
   if (!soundKey) return
-  if (lastRecordingStartSoundKey === soundKey) return
-  lastRecordingStartSoundKey = soundKey
+  if (lastReplayRecordingStartSoundKey === soundKey) return
+  lastReplayRecordingStartSoundKey = soundKey
   if (startSoundSuppressionDepth > 0) return
 
-  playNotificationSound("recordingStarted")
+  playNotificationSound("replayRecordingStarted")
 }
 
-function recordingStartSoundKey(status: RecordingStatus): string | null {
+function replayRecordingStartSoundKey(status: RecordingStatus): string | null {
   if (status.backend !== "ready" || !status.replayActive) return null
 
   const targetKey = recordingTargetKey(status)

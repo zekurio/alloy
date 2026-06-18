@@ -82,7 +82,7 @@ export function ModeSection({
         </div>
         {settings.captureMode === "display" ? (
           <p className="text-foreground-faint mt-2 text-xs">
-            Desktop capture uses manual long recording only.
+            Auto long recordings are only available for game capture.
           </p>
         ) : null}
       </div>
@@ -109,7 +109,7 @@ function captureStatusLabel(
   settings: RecordingSettings,
   status: RecordingStatus,
 ): string {
-  if (status.longRecordingActive) return "Long recording"
+  if (status.longRecordingActive) return "Auto long recording"
   if (status.replayActive) return "Replay active"
   if (settings.captureMode === "display") {
     return settings.enabled ? "Desktop capture ready" : "Desktop capture off"

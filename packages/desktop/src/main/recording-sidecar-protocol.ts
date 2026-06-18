@@ -20,8 +20,6 @@ export type SidecarMethod =
   | "listDisplays"
   | "saveReplayClip"
   | "addBookmark"
-  | "toggleLongRecording"
-  | "stopRecording"
   | "subscribeAudioLevels"
   | "stopAudioLevels"
   | "shutdown"

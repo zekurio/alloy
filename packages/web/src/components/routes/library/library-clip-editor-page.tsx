@@ -4,6 +4,7 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Progress } from "@alloy/ui/components/progress"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { CloudIcon } from "lucide-react"
 import * as React from "react"
@@ -11,8 +12,11 @@ import * as React from "react"
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
 import {
+  invalidateDeletedClipCaches,
+  removeClipDetailFromCache,
   useClipQuery,
   useDeleteClipMutation,
+  seedClipDetailInCache,
   useTrimClipMutation,
 } from "@/lib/clip-queries"
 import { apiOrigin } from "@/lib/env"
@@ -31,6 +35,10 @@ import {
   useLibraryEntryNavigation,
   useNavigateToLibraryEntry,
 } from "./library-entry-navigation"
+import {
+  type LibraryHandoffPoster,
+  setLibraryHandoffPoster,
+} from "./library-handoff-poster"
 import { finishLocalClipDelete } from "./library-local-actions"
 import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
 import { LibraryEmpty } from "./library-page"
@@ -44,8 +52,8 @@ import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
  * and reprocesses it in place — id, comments, and likes survive.
  */
 export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
-  const query = useClipQuery(clipId)
-  const row = query.data
+  const query = useClipQuery(clipId, { keepPreviousData: false })
+  const row = query.data?.id === clipId ? query.data : undefined
 
   if (!row) {
     return (
@@ -95,12 +103,6 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   const { playerRef, trim, trimmed, rangeMs } = playback
 
   const trimMutation = useTrimClipMutation()
-  const deleteFlow = useServerBackedClipDelete({
-    row,
-    localItem,
-    prevEntry,
-    nextEntry,
-  })
   const canSaveTrim =
     canTrim && trimmed && rangeMs >= MIN_TRIM_MS && !trimMutation.isPending
 
@@ -114,6 +116,21 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
     ? clipThumbnailUrl(row.id, apiOrigin(), mediaVersion)
     : undefined
   const aspectRatio = mediaAspectRatio(row.width, row.height)
+  const handoffPoster = React.useMemo<LibraryHandoffPoster>(
+    () => ({
+      src: poster,
+      blurHash: row.thumbBlurHash,
+      fallbackSeed: row.steamgriddbId ?? row.id,
+    }),
+    [poster, row.id, row.steamgriddbId, row.thumbBlurHash],
+  )
+  const deleteFlow = useServerBackedClipDelete({
+    row,
+    localItem,
+    prevEntry,
+    nextEntry,
+    handoffPoster,
+  })
 
   useLibraryEditorShortcuts({
     prevEntry,
@@ -228,32 +245,72 @@ function useServerBackedClipDelete({
   localItem,
   prevEntry,
   nextEntry,
+  handoffPoster,
 }: {
   row: ClipRow
   localItem: Parameters<typeof DeleteClipDialog>[0]["localItem"]
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
+  handoffPoster: LibraryHandoffPoster
 }) {
   const navigate = useNavigate()
   const navigateToEntry = useNavigateToLibraryEntry()
+  const queryClient = useQueryClient()
   const deleteMutation = useDeleteClipMutation()
   const [open, setOpen] = React.useState(false)
   const [deletingLocal, setDeletingLocal] = React.useState(false)
   const pending = deleteMutation.isPending || deletingLocal
 
-  const finishDelete = React.useCallback(() => {
-    setOpen(false)
-    const fallback = nextEntry ?? prevEntry
-    if (fallback) navigateToEntry(fallback)
-    else void navigate({ to: "/library", replace: true })
-  }, [navigate, navigateToEntry, nextEntry, prevEntry])
+  const finishDelete = React.useCallback(
+    async ({
+      keptLocalItem,
+    }: {
+      keptLocalItem: Parameters<typeof DeleteClipDialog>[0]["localItem"]
+    }) => {
+      setOpen(false)
+      if (keptLocalItem) {
+        setLibraryHandoffPoster(keptLocalItem.id, handoffPoster)
+        await navigate({
+          to: "/library/$captureId",
+          params: { captureId: keptLocalItem.id },
+          replace: true,
+        })
+        removeClipDetailFromCache(queryClient, row.id)
+        invalidateDeletedClipCaches(queryClient)
+        return
+      }
+
+      const fallback = nextEntry ?? prevEntry
+      if (fallback) {
+        if (fallback.type === "cloud") {
+          seedClipDetailInCache(queryClient, fallback.row)
+        }
+        navigateToEntry(fallback)
+      } else void navigate({ to: "/library", replace: true })
+    },
+    [
+      handoffPoster,
+      navigate,
+      navigateToEntry,
+      nextEntry,
+      prevEntry,
+      queryClient,
+      row.id,
+    ],
+  )
 
   const confirm = React.useCallback(
     (deleteLocal: boolean) => {
+      const keepLocalCopy = Boolean(localItem && !deleteLocal)
       deleteMutation.mutate(
-        { clipId: row.id },
+        {
+          clipId: row.id,
+          removeDetail: !keepLocalCopy,
+          deferInvalidation: keepLocalCopy,
+        },
         {
           onSuccess: async () => {
+            const keptLocalItem = localItem && !deleteLocal ? localItem : null
             if (localItem) {
               await finishLocalClipDelete({
                 deleteLocal,
@@ -264,7 +321,7 @@ function useServerBackedClipDelete({
             } else {
               toast.success("Clip deleted")
             }
-            finishDelete()
+            await finishDelete({ keptLocalItem })
           },
           onError: () => toast.error("Couldn't delete clip"),
         },

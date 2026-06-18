@@ -8,6 +8,7 @@ import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
 import { type RecordingLibraryProjectDraft } from "@/lib/desktop"
 
+import { useClipCardGameLink } from "../../clip/clip-card-links"
 import { type LibraryItemView } from "./library-data"
 
 export function LibraryCaptureCard({
@@ -25,6 +26,7 @@ export function LibraryCaptureCard({
     enabled: item.kind !== "screenshot",
   })
   const source: LibrarySource = "local"
+  const renderGameLink = useClipCardGameLink(item.gameSlug)
 
   return (
     <ClipCard
@@ -34,6 +36,7 @@ export function LibraryCaptureCard({
       game={item.displayGameName}
       gameIcon={item.displayGameIconUrl}
       gameHref={item.gameSlug ? `/g/${item.gameSlug}` : null}
+      renderGameLink={renderGameLink}
       views="0"
       likes="0"
       thumbnail={thumbnail ?? undefined}
@@ -180,12 +183,15 @@ function LibraryCardMeta({
 export function UploadedClipCard({
   row,
   onOpen,
+  onIntent,
 }: {
   row: ClipRow
   onOpen: () => void
+  onIntent?: () => void
 }) {
   const card = React.useMemo(() => toClipCardData(row), [row])
   const source = librarySourceForPrivacy(row.privacy)
+  const renderGameLink = useClipCardGameLink(card.gameSlug)
   return (
     <ClipCard
       title={card.title}
@@ -194,6 +200,7 @@ export function UploadedClipCard({
       game={card.game}
       gameIcon={card.gameRef?.iconUrl ?? null}
       gameHref={card.gameSlug ? `/g/${card.gameSlug}` : null}
+      renderGameLink={renderGameLink}
       views={card.views}
       likes={card.likes}
       thumbnail={card.thumbnail}
@@ -202,6 +209,7 @@ export function UploadedClipCard({
       streamUrl={card.streamUrl}
       thumbnailLabel={`Edit ${card.title}`}
       onThumbnailClick={onOpen}
+      onThumbnailIntent={onIntent}
       metaContent={
         <LibraryCardMeta source={source} createdAt={row.createdAt} />
       }

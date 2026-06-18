@@ -45,6 +45,10 @@ const recording: AlloyDesktopRecordingApi = {
   importLibraryCapture: (request) =>
     ipcRenderer.invoke(IPC.importRecordingLibraryCapture, request),
   importLibraryFiles: () => ipcRenderer.invoke(IPC.importRecordingLibraryFiles),
+  commitStagedLibraryImport: (request) =>
+    ipcRenderer.invoke(IPC.commitRecordingLibraryStagedImport, request),
+  discardStagedLibraryImport: (id) =>
+    ipcRenderer.invoke(IPC.discardRecordingLibraryStagedImport, id),
   saveLibraryCaptureThumbnail: (id, data) =>
     ipcRenderer.invoke(IPC.saveRecordingLibraryCaptureThumbnail, { id, data }),
   downloadClip: (request) =>
@@ -70,15 +74,12 @@ const recording: AlloyDesktopRecordingApi = {
   listDisplays: () => ipcRenderer.invoke(IPC.listRecordingDisplays),
   subscribeAudioLevels: () =>
     ipcRenderer.invoke(IPC.subscribeRecordingAudioLevels),
-  stopAudioLevels: () => ipcRenderer.invoke(IPC.stopRecordingAudioLevels),
+  stopAudioLevels: () => ipcRenderer.invoke(IPC.stopAudioLevels),
   saveReplayClip: (request) => ipcRenderer.invoke(IPC.saveReplayClip, request),
   addBookmark: (request) =>
     ipcRenderer.invoke(IPC.addRecordingBookmark, request),
   takeScreenshot: (request) =>
     ipcRenderer.invoke(IPC.takeRecordingScreenshot, request),
-  toggleLongRecording: (request) =>
-    ipcRenderer.invoke(IPC.toggleLongRecording, request),
-  stopRecording: () => ipcRenderer.invoke(IPC.stopRecording),
   revealCapture: (filename) =>
     ipcRenderer.invoke(IPC.revealRecordingCapture, filename),
 }

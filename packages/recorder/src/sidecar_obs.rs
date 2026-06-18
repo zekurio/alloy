@@ -188,7 +188,7 @@ unsafe fn configure_video_encoder(
 /// in a fallback codec beats losing the session.
 fn choose_video_encoder(
     settings: &RecordingSettings,
-    available: &HashSet<String>,
+    available: &[ObsEncoderDescriptor],
 ) -> Option<(String, RecordingCodec)> {
     let mut codecs = vec![settings.codec.clone()];
     for fallback in [RecordingCodec::Hevc, RecordingCodec::H264] {
@@ -197,17 +197,17 @@ fn choose_video_encoder(
         }
     }
     codecs.into_iter().find_map(|codec| {
-        video_encoder_candidates(&settings.encoder, &codec)
+        video_encoder_candidates(&settings.encoder, &codec, available)
             .into_iter()
-            .find(|candidate| available.contains(*candidate))
-            .map(|candidate| (candidate.to_string(), codec))
+            .next()
+            .map(|candidate| (candidate.id.clone(), codec))
     })
 }
 
 fn available_video_codecs(
     obs: &LibObs,
     settings: &RecordingSettings,
-    available: &HashSet<String>,
+    available: &[ObsEncoderDescriptor],
 ) -> Vec<RecordingCodec> {
     [
         RecordingCodec::H264,
@@ -222,20 +222,16 @@ fn available_video_codecs(
 fn can_create_video_codec(
     obs: &LibObs,
     settings: &RecordingSettings,
-    available: &HashSet<String>,
+    available: &[ObsEncoderDescriptor],
     codec: &RecordingCodec,
 ) -> bool {
-    let candidates = video_encoder_candidates(&settings.encoder, codec);
+    let candidates = video_encoder_candidates(&settings.encoder, codec, available);
     if candidates.is_empty() {
         return false;
     }
 
     unsafe {
         for candidate in candidates {
-            if !available.contains(candidate) {
-                continue;
-            }
-
             let probe_settings = RecordingSettings {
                 codec: codec.clone(),
                 ..settings.clone()
@@ -244,7 +240,7 @@ fn can_create_video_codec(
             let result = (|| {
                 let quality = effective_quality(&probe_settings);
                 configure_video_encoder(obs, data, &probe_settings, &quality)?;
-                create_video_encoder(obs, candidate, data)
+                create_video_encoder(obs, &candidate.id, data)
             })();
             obs.release_data(data);
 
@@ -258,37 +254,83 @@ fn can_create_video_codec(
     false
 }
 
-fn video_encoder_candidates(
+fn video_encoder_candidates<'a>(
     encoder: &RecordingEncoder,
     codec: &RecordingCodec,
-) -> Vec<&'static str> {
-    match (encoder, codec) {
-        (RecordingEncoder::Software, RecordingCodec::H264) => vec!["obs_x264"],
-        (RecordingEncoder::Software, _) => Vec::new(),
-        (RecordingEncoder::Hardware, RecordingCodec::H264) => vec![
-            "jim_nvenc",
-            "obs_nvenc_h264_tex",
-            "ffmpeg_nvenc",
-            "h264_texture_amf",
-            "amd_amf_h264",
-            "obs_qsv11",
-        ],
-        (RecordingEncoder::Hardware, RecordingCodec::Hevc) => vec![
-            "jim_hevc_nvenc",
-            "obs_nvenc_hevc_tex",
-            "ffmpeg_hevc_nvenc",
-            "h265_texture_amf",
-            "amd_amf_hevc",
-            "obs_qsv11_hevc",
-        ],
-        (RecordingEncoder::Hardware, RecordingCodec::Av1) => vec![
-            "jim_av1_nvenc",
-            "obs_nvenc_av1_tex",
-            "av1_texture_amf",
-            "amd_amf_av1",
-            "obs_qsv11_av1",
-        ],
+    available: &'a [ObsEncoderDescriptor],
+) -> Vec<&'a ObsEncoderDescriptor> {
+    let mut candidates: Vec<_> = available
+        .iter()
+        .enumerate()
+        .filter(|(_, candidate)| video_encoder_matches(candidate, encoder, codec))
+        .collect();
+    candidates.sort_by_key(|(index, candidate)| (video_encoder_priority(candidate), *index));
+    candidates
+        .into_iter()
+        .map(|(_, candidate)| candidate)
+        .collect()
+}
+
+fn video_encoder_matches(
+    encoder: &ObsEncoderDescriptor,
+    target: &RecordingEncoder,
+    codec: &RecordingCodec,
+) -> bool {
+    if encoder.kind != ObsEncoderKind::Video || encoder.is_internal_or_deprecated() {
+        return false;
     }
+
+    let Some(encoder_codec) = recording_codec_from_obs(&encoder.codec) else {
+        return false;
+    };
+    if &encoder_codec != codec {
+        return false;
+    }
+
+    match target {
+        RecordingEncoder::Software => is_software_h264_encoder(encoder),
+        RecordingEncoder::Hardware => !is_software_video_encoder(encoder),
+    }
+}
+
+fn video_encoder_priority(encoder: &ObsEncoderDescriptor) -> u8 {
+    if encoder.has_cap(OBS_ENCODER_CAP_PASS_TEXTURE) {
+        0
+    } else {
+        1
+    }
+}
+
+fn has_software_h264_encoder(available: &[ObsEncoderDescriptor]) -> bool {
+    available.iter().any(is_software_h264_encoder)
+}
+
+fn is_software_h264_encoder(encoder: &ObsEncoderDescriptor) -> bool {
+    is_software_video_encoder(encoder)
+        && !encoder.is_internal_or_deprecated()
+        && recording_codec_from_obs(&encoder.codec) == Some(RecordingCodec::H264)
+}
+
+fn is_software_video_encoder(encoder: &ObsEncoderDescriptor) -> bool {
+    encoder.id == "obs_x264"
+        || encoder
+            .display_name
+            .as_deref()
+            .is_some_and(|name| name.to_ascii_lowercase().contains("x264"))
+}
+
+fn recording_codec_from_obs(codec: &str) -> Option<RecordingCodec> {
+    let normalized = codec.trim().to_ascii_lowercase();
+    match normalized.as_str() {
+        "h264" | "avc" => Some(RecordingCodec::H264),
+        "h265" | "hevc" => Some(RecordingCodec::Hevc),
+        "av1" => Some(RecordingCodec::Av1),
+        _ => None,
+    }
+}
+
+fn is_aac_codec(codec: &str) -> bool {
+    codec.trim().eq_ignore_ascii_case("aac")
 }
 
 fn unavailable_video_encoder_message(settings: &RecordingSettings) -> String {
@@ -314,11 +356,95 @@ fn encoder_label(encoder: &RecordingEncoder) -> &'static str {
     }
 }
 
-fn choose_audio_encoder(available: &HashSet<String>) -> Option<String> {
-    ["ffmpeg_aac", "CoreAudio_AAC", "libfdk_aac", "aac"]
-        .into_iter()
-        .find(|candidate| available.contains(*candidate))
-        .map(str::to_string)
+fn choose_audio_encoder(available: &[ObsEncoderDescriptor]) -> Option<String> {
+    available
+        .iter()
+        .find(|encoder| {
+            encoder.kind == ObsEncoderKind::Audio
+                && !encoder.is_internal_or_deprecated()
+                && is_aac_codec(&encoder.codec)
+        })
+        .map(|encoder| encoder.id.clone())
+}
+
+#[cfg(test)]
+mod obs_encoder_policy_tests {
+    use super::*;
+
+    fn encoder(id: &str, kind: ObsEncoderKind, codec: &str, caps: u32) -> ObsEncoderDescriptor {
+        ObsEncoderDescriptor {
+            id: id.to_string(),
+            kind,
+            codec: codec.to_string(),
+            caps,
+            display_name: None,
+        }
+    }
+
+    #[test]
+    fn hardware_candidates_should_prefer_texture_capable_encoders() {
+        let encoders = vec![
+            encoder("obs_x264", ObsEncoderKind::Video, "h264", 0),
+            encoder("plain_hardware", ObsEncoderKind::Video, "h264", 0),
+            encoder(
+                "texture_hardware",
+                ObsEncoderKind::Video,
+                "h264",
+                OBS_ENCODER_CAP_PASS_TEXTURE,
+            ),
+        ];
+
+        let candidates = video_encoder_candidates(
+            &RecordingEncoder::Hardware,
+            &RecordingCodec::H264,
+            &encoders,
+        );
+
+        assert_eq!(
+            candidates.first().map(|encoder| encoder.id.as_str()),
+            Some("texture_hardware"),
+        );
+    }
+
+    #[test]
+    fn software_candidates_should_only_include_x264_h264() {
+        let encoders = vec![
+            encoder("obs_x264", ObsEncoderKind::Video, "h264", 0),
+            encoder("software_hevc", ObsEncoderKind::Video, "hevc", 0),
+            encoder("hardware_h264", ObsEncoderKind::Video, "h264", 0),
+        ];
+
+        let candidates = video_encoder_candidates(
+            &RecordingEncoder::Software,
+            &RecordingCodec::H264,
+            &encoders,
+        );
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].id, "obs_x264");
+    }
+
+    #[test]
+    fn deprecated_encoders_should_not_be_candidates() {
+        let encoders = vec![
+            encoder(
+                "deprecated_h264",
+                ObsEncoderKind::Video,
+                "h264",
+                OBS_ENCODER_CAP_DEPRECATED,
+            ),
+            encoder("current_h264", ObsEncoderKind::Video, "h264", 0),
+        ];
+
+        let candidates = video_encoder_candidates(
+            &RecordingEncoder::Hardware,
+            &RecordingCodec::H264,
+            &encoders,
+        );
+
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].id, "current_h264");
+    }
 }
 
 fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {

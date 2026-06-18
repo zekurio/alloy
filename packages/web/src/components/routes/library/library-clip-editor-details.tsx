@@ -10,6 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import {
@@ -20,7 +21,7 @@ import {
   TabsTrigger,
 } from "@alloy/ui/components/tabs"
 import { toast } from "@alloy/ui/lib/toast"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   ClapperboardIcon,
   ChevronUpIcon,
@@ -332,17 +333,16 @@ function ClipDetailsForm({
             type="button"
             variant="ghost"
             disabled={deleting || saving || visibilityPending}
-            onClick={onRequestDelete}
+            render={<Link to="/library" />}
           >
-            <Trash2Icon />
-            Delete
+            Cancel
           </Button>
           <div className="flex items-center">
             <Button
               type="button"
               variant="primary"
               disabled={primaryDisabled}
-              className="h-10 rounded-r-none sm:h-8"
+              className="rounded-r-none"
               onClick={() => {
                 if (primaryPublishes) updateVisibility(profileVisibilityAction)
                 else handleSave()
@@ -360,7 +360,7 @@ function ClipDetailsForm({
                     size="icon"
                     disabled={saving || deleting || visibilityPending}
                     aria-label="More clip options"
-                    className="border-l-accent-hover size-10 rounded-l-none sm:size-8"
+                    className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
                   />
                 }
               >
@@ -399,6 +399,15 @@ function ClipDetailsForm({
                 >
                   <LinkVisibilityIcon className="size-4" />
                   {linkVisibilityAction.label}
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={deleting || saving || visibilityPending}
+                  onClick={onRequestDelete}
+                >
+                  <Trash2Icon className="size-4" />
+                  Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

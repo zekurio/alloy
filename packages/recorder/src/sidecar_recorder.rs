@@ -48,9 +48,6 @@ impl Recorder {
             || active_paths_changed
             || needs_reinit
             || active_video_config_changed;
-        let restart_manual_long_recording =
-            active_output_should_stop && self.manual_long_recording && self.long_session.is_some();
-
         self.settings = Some(settings);
         self.output_folder = Some(output_folder);
         self.replay_scratch_folder = Some(replay_scratch_folder);
@@ -88,9 +85,6 @@ impl Recorder {
             return Err(error);
         }
 
-        if restart_manual_long_recording {
-            self.restart_manual_long_recording();
-        }
         // Re-evaluate capture targets right away so outputs stopped by this
         // reconfigure (or enabled by it) resume without waiting for the next
         // detection tick.
@@ -347,70 +341,6 @@ impl Recorder {
         }
     }
 
-    fn toggle_long_recording(&mut self, _params: RecordingActionRequest) -> RecordingActionResult {
-        if self.long_session.is_some() {
-            self.manual_long_recording = false;
-            return match self.stop_active_long_recording() {
-                Ok(capture) => {
-                    let status = self.status();
-                    emit_event(RecordingEvent::CaptureReady {
-                        capture: capture.clone(),
-                        status: status.clone(),
-                    });
-                    RecordingActionResult {
-                        ok: true,
-                        status,
-                        capture: Some(capture),
-                        error: None,
-                    }
-                }
-                Err(error) => self.stop_action_error(error),
-            };
-        }
-
-        self.manual_long_recording = true;
-        match self.start_long_recording() {
-            Ok(()) => RecordingActionResult {
-                ok: true,
-                status: self.status(),
-                capture: None,
-                error: None,
-            },
-            Err(error) => self.stop_action_error(error),
-        }
-    }
-
-    fn stop_recording(&mut self) -> RecordingActionResult {
-        if !self.has_active_outputs() {
-            return RecordingActionResult {
-                ok: true,
-                status: self.status(),
-                capture: None,
-                error: None,
-            };
-        }
-
-        match self.stop_all_outputs(true) {
-            Ok(capture) => RecordingActionResult {
-                ok: true,
-                status: self.status(),
-                capture,
-                error: None,
-            },
-            Err(error) => self.stop_action_error(error),
-        }
-    }
-
-    fn stop_action_error(&mut self, error: String) -> RecordingActionResult {
-        self.last_error = Some(error.clone());
-        let result = self.action_error(&error);
-        emit_event(RecordingEvent::Error {
-            error,
-            status: result.status.clone(),
-        });
-        result
-    }
-
     fn shutdown(&mut self) {
         if let Some(session) = self.replay_session.take() {
             unsafe {
@@ -484,7 +414,7 @@ impl Recorder {
                 ..settings.clone()
             };
             self.available_codecs =
-                available_video_codecs(&obs, &hardware_settings, &self.available_encoder_set());
+                available_video_codecs(&obs, &hardware_settings, &self.available_encoders);
         }
         self.obs = Some(obs);
         self.obs_video_config = Some(video_config);
@@ -708,7 +638,6 @@ impl Recorder {
             && self.long_session.is_none()
             && self.active_game.is_some()
         {
-            self.manual_long_recording = false;
             if let Err(error) = self.start_long_recording() {
                 self.last_error = Some(error.clone());
                 let status = self.status();
@@ -832,7 +761,6 @@ impl Recorder {
         let restart_auto_long = settings.capture_mode == RecordingCaptureMode::Game
             && settings.long_recording.auto_record_games
             && self.long_session.is_some()
-            && !self.manual_long_recording
             && self.active_game.is_some();
 
         if self.replay_session.is_some() {
@@ -845,7 +773,6 @@ impl Recorder {
         }
 
         if restart_auto_long {
-            self.manual_long_recording = false;
             self.start_long_recording()?;
         }
         if settings.enabled && self.capture_target_available(settings) {
@@ -934,28 +861,6 @@ impl Recorder {
         session.video_config != video_config
     }
 
-    fn restart_manual_long_recording(&mut self) {
-        if self.long_session.is_some() || !self.settings_enabled() {
-            return;
-        }
-        let settings = self.settings.clone().unwrap_or_default();
-        if !self.capture_target_available(&settings) {
-            return;
-        }
-        self.manual_long_recording = true;
-        if let Err(error) = self.start_long_recording() {
-            self.last_error = Some(error.clone());
-            let status = self.status();
-            emit_event(RecordingEvent::Error { error, status });
-        }
-    }
-
-    fn settings_enabled(&self) -> bool {
-        self.settings
-            .as_ref()
-            .is_some_and(|settings| settings.enabled)
-    }
-
     fn refresh_active_output_for_focus(&mut self) -> Result<(), String> {
         self.refresh_active_pause()?;
         self.refresh_active_source()
@@ -1001,12 +906,8 @@ impl Recorder {
             return Ok(());
         }
 
-        let restart_manual_long_recording = self.manual_long_recording && self.long_session.is_some();
         self.stop_all_outputs(true)?;
         self.shutdown_obs();
-        if restart_manual_long_recording {
-            self.restart_manual_long_recording();
-        }
         self.tick();
         Ok(())
     }

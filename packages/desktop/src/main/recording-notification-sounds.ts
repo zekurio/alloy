@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs"
-import { extname, isAbsolute, join } from "node:path"
+import type { Dirent } from "node:fs"
+import { extname, isAbsolute, join, relative } from "node:path"
 import { pathToFileURL } from "node:url"
 
 import type {
@@ -27,15 +28,32 @@ const SUPPORTED_RECORDING_SOUND_EXTENSIONS = new Set(
   RECORDING_SOUND_FILE_EXTENSIONS.map((extension) => `.${extension}`),
 )
 
-const DEFAULT_RECORDING_SOUND_FILES: Record<
+const RECORDING_SOUND_CRAWL_MAX_DEPTH = 5
+const RECORDING_SOUND_CRAWL_MAX_FILES = 500
+
+const RECORDING_NOTIFICATION_SOUND_MATCHES: Record<
   RecordingNotificationSoundEvent,
-  string
+  {
+    files: readonly string[]
+    terms: readonly string[]
+  }
 > = {
-  recordingStarted: "start_recording.wav",
-  manualRecordingStarted: "start_recording.wav",
-  clipSaved: "bookmark.wav",
-  screenshotTaken: "bookmark.wav",
-  bookmarkAdded: "bookmark.wav",
+  replayRecordingStarted: {
+    files: ["replay_recording.wav", "start_recording.wav"],
+    terms: ["replay", "buffer", "recording", "start"],
+  },
+  clipSaved: {
+    files: ["clip_saved.wav", "save_clip.wav", "bookmark.wav"],
+    terms: ["clip", "save", "saved"],
+  },
+  bookmarkAdded: {
+    files: ["bookmark.wav", "marker.wav"],
+    terms: ["bookmark", "marker"],
+  },
+  screenshotTaken: {
+    files: ["screenshot.wav", "screenshot_saved.wav", "bookmark.wav"],
+    terms: ["screenshot", "camera", "shutter", "snapshot"],
+  },
 }
 
 let soundPlayerWindow: BrowserWindow | null = null
@@ -50,11 +68,8 @@ export function recordingNotificationSoundUrl(
   const customPath = normalizeCustomSoundPath(settings.path)
   if (customPath) return pathToFileURL(customPath).toString()
 
-  const defaultPath = join(
-    recordingAssetsDir(),
-    DEFAULT_RECORDING_SOUND_FILES[sound],
-  )
-  return existsSync(defaultPath) ? pathToFileURL(defaultPath).toString() : null
+  const defaultPath = defaultRecordingSoundPath(sound)
+  return defaultPath ? pathToFileURL(defaultPath).toString() : null
 }
 
 export function isRecordingSoundFile(path: string): boolean {
@@ -69,7 +84,7 @@ export function isRecordingSoundFile(path: string): boolean {
 export function notificationSoundsDir(
   sound: RecordingNotificationSoundEvent,
 ): string {
-  return join(app.getPath("userData"), "sounds", sound)
+  return join(notificationSoundsRootDir(), sound)
 }
 
 export function ensureNotificationSoundsDir(
@@ -78,11 +93,15 @@ export function ensureNotificationSoundsDir(
   const dir = notificationSoundsDir(sound)
   try {
     mkdirSync(dir, { recursive: true })
-    const defaultFile = DEFAULT_RECORDING_SOUND_FILES[sound]
-    const seeded = join(dir, defaultFile)
-    if (!existsSync(seeded)) {
+    for (const defaultFile of RECORDING_NOTIFICATION_SOUND_MATCHES[sound]
+      .files) {
       const source = join(recordingAssetsDir(), defaultFile)
-      if (existsSync(source)) copyFileSync(source, seeded)
+      if (!existsSync(source)) continue
+
+      const seeded = join(dir, defaultFile)
+      if (!existsSync(seeded)) {
+        copyFileSync(source, seeded)
+      }
     }
   } catch (cause) {
     logger.warn(`failed to prepare notification sounds folder: ${sound}`, cause)
@@ -90,26 +109,23 @@ export function ensureNotificationSoundsDir(
   return dir
 }
 
-/** Audio files available in an event's sounds folder, sorted by name. */
+/** Audio files available in the sounds library, ranked for this event. */
 export function listNotificationSoundFiles(
   sound: RecordingNotificationSoundEvent,
 ): RecordingNotificationSoundOption[] {
-  const dir = ensureNotificationSoundsDir(sound)
-  try {
-    return readdirSync(dir, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && isRecordingSoundFile(entry.name))
-      .map((entry) => ({ name: entry.name, path: join(dir, entry.name) }))
-      .sort((a, b) => a.name.localeCompare(b.name))
-  } catch (cause) {
-    logger.warn(`failed to list notification sounds: ${sound}`, cause)
-    return []
-  }
+  ensureNotificationSoundsDir(sound)
+  return rankedNotificationSoundFiles(sound, crawlNotificationSoundsRoot())
 }
 
 export function listNotificationSoundLibrary(): RecordingNotificationSoundLibrary {
+  for (const sound of RECORDING_NOTIFICATION_SOUND_EVENTS) {
+    ensureNotificationSoundsDir(sound)
+  }
+
+  const discovered = crawlNotificationSoundsRoot()
   const library = {} as RecordingNotificationSoundLibrary
   for (const sound of RECORDING_NOTIFICATION_SOUND_EVENTS) {
-    library[sound] = listNotificationSoundFiles(sound)
+    library[sound] = rankedNotificationSoundFiles(sound, discovered)
   }
   return library
 }
@@ -228,6 +244,150 @@ function normalizeCustomSoundPath(path: string): string | null {
     return null
   }
   return existsSync(trimmed) ? trimmed : null
+}
+
+function notificationSoundsRootDir(): string {
+  return join(app.getPath("userData"), "sounds")
+}
+
+function defaultRecordingSoundPath(
+  sound: RecordingNotificationSoundEvent,
+): string | null {
+  for (const file of RECORDING_NOTIFICATION_SOUND_MATCHES[sound].files) {
+    const path = join(recordingAssetsDir(), file)
+    if (existsSync(path)) return path
+  }
+
+  return null
+}
+
+function crawlNotificationSoundsRoot(): RecordingNotificationSoundOption[] {
+  const root = notificationSoundsRootDir()
+  try {
+    mkdirSync(root, { recursive: true })
+    return crawlSoundFiles(root)
+  } catch (cause) {
+    logger.warn("failed to list notification sounds:", cause)
+    return []
+  }
+}
+
+function crawlSoundFiles(root: string): RecordingNotificationSoundOption[] {
+  const found: RecordingNotificationSoundOption[] = []
+  const seen = new Set<string>()
+  const stack: Array<{ dir: string; relativeDir: string; depth: number }> = [
+    { dir: root, relativeDir: "", depth: 0 },
+  ]
+
+  while (stack.length > 0 && found.length < RECORDING_SOUND_CRAWL_MAX_FILES) {
+    const current = stack.shift()
+    if (!current) break
+
+    let entries: Dirent[]
+    try {
+      entries = readdirSync(current.dir, { withFileTypes: true }).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      )
+    } catch (cause) {
+      logger.warn(`failed to scan notification sounds: ${current.dir}`, cause)
+      continue
+    }
+
+    for (const entry of entries) {
+      const path = join(current.dir, entry.name)
+      const relativePath = current.relativeDir
+        ? join(current.relativeDir, entry.name)
+        : entry.name
+
+      if (entry.isDirectory()) {
+        if (
+          current.depth < RECORDING_SOUND_CRAWL_MAX_DEPTH &&
+          !entry.name.startsWith(".")
+        ) {
+          stack.push({
+            dir: path,
+            relativeDir: relativePath,
+            depth: current.depth + 1,
+          })
+        }
+        continue
+      }
+
+      if (!entry.isFile() || !isRecordingSoundFile(entry.name)) continue
+
+      const key = path.toLowerCase()
+      if (seen.has(key)) continue
+      seen.add(key)
+      found.push({
+        path,
+        name: relativePath.replaceAll("\\", "/"),
+      })
+
+      if (found.length >= RECORDING_SOUND_CRAWL_MAX_FILES) break
+    }
+  }
+
+  if (found.length >= RECORDING_SOUND_CRAWL_MAX_FILES) {
+    logger.warn(
+      `notification sound scan capped at ${RECORDING_SOUND_CRAWL_MAX_FILES} files`,
+    )
+  }
+
+  return found
+}
+
+function rankedNotificationSoundFiles(
+  sound: RecordingNotificationSoundEvent,
+  files: RecordingNotificationSoundOption[],
+): RecordingNotificationSoundOption[] {
+  return [...files].sort((a, b) => {
+    const rankDelta = soundFileRank(sound, b) - soundFileRank(sound, a)
+    return rankDelta || a.name.localeCompare(b.name)
+  })
+}
+
+function soundFileRank(
+  sound: RecordingNotificationSoundEvent,
+  option: RecordingNotificationSoundOption,
+): number {
+  const match = RECORDING_NOTIFICATION_SOUND_MATCHES[sound]
+  const name = normalizedSoundSearchText(option.name)
+  const basename = normalizedSoundSearchText(fileName(option.name))
+  const defaultIndex = match.files.findIndex(
+    (file) => normalizedSoundSearchText(file) === basename,
+  )
+  const defaultScore = defaultIndex >= 0 ? 100 - defaultIndex : 0
+  const termScore = match.terms.reduce(
+    (score, term) => score + (name.includes(term) ? 8 : 0),
+    0,
+  )
+  const eventFolderScore = isPathInside(
+    notificationSoundsDir(sound),
+    option.path,
+  )
+    ? 40
+    : 0
+
+  return defaultScore + eventFolderScore + termScore
+}
+
+function fileName(path: string): string {
+  return path.replaceAll("\\", "/").split("/").pop() || path
+}
+
+function normalizedSoundSearchText(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+}
+
+function isPathInside(parent: string, child: string): boolean {
+  const childRelativePath = relative(parent, child)
+  return (
+    childRelativePath === "" ||
+    (!childRelativePath.startsWith("..") && !isAbsolute(childRelativePath))
+  )
 }
 
 function recordingAssetsDir(): string {

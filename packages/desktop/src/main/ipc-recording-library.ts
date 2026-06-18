@@ -4,6 +4,7 @@ import { IPC } from "@/shared/ipc"
 
 import { requireMainSender } from "./ipc-guards"
 import {
+  normalizeLibraryCommitStagedImportRequest,
   normalizeLibraryDownloadRequest,
   normalizeLibraryExportRequest,
   normalizeLibraryImportRequest,
@@ -14,14 +15,16 @@ import {
 import {
   deleteRecordingLibraryItem,
   deleteRecordingLibraryProjectDraft,
+  commitRecordingLibraryStagedImport,
+  discardRecordingLibraryStagedImport,
   exportRecordingLibraryItem,
   getRecordingLibrarySnapshot,
   importRecordingLibraryCapture,
-  importRecordingLibraryVideoFiles,
   openRecordingLibraryFolder,
   openRecordingLibraryItem,
   revealRecordingLibraryItem,
   saveRecordingLibraryProjectDraft,
+  stageRecordingLibraryVideoFiles,
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library"
 import {
@@ -120,16 +123,34 @@ function registerRecordingLibraryImportIpc(windows: Windows): void {
           extensions: [...VIDEO_EXTENSIONS].map((ext) => ext.slice(1)),
         },
       ],
-      properties: ["openFile", "multiSelections"],
+      properties: ["openFile"],
     }
     const result = await (parent
       ? dialog.showOpenDialog(parent, options)
       : dialog.showOpenDialog(options))
     if (result.canceled || result.filePaths.length === 0) {
-      return { importedIds: [], failed: [], canceled: true }
+      return { staged: [], failed: [], canceled: true }
     }
-    return importRecordingLibraryVideoFiles(result.filePaths)
+    return stageRecordingLibraryVideoFiles(result.filePaths)
   })
+  ipcMain.handle(
+    IPC.commitRecordingLibraryStagedImport,
+    (event, request: unknown) => {
+      requireMainSender(windows, event)
+      const normalized = normalizeLibraryCommitStagedImportRequest(request)
+      if (!normalized) throw new Error("Invalid staged import request.")
+      return commitRecordingLibraryStagedImport(normalized)
+    },
+  )
+  ipcMain.handle(
+    IPC.discardRecordingLibraryStagedImport,
+    (event, id: unknown) => {
+      requireMainSender(windows, event)
+      if (typeof id === "string") {
+        return discardRecordingLibraryStagedImport(id)
+      }
+    },
+  )
   ipcMain.handle(
     IPC.saveRecordingLibraryCaptureThumbnail,
     (event, request: unknown) => {

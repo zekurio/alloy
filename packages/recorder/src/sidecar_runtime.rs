@@ -125,17 +125,6 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
                 recorder.status(),
             ),
         },
-        "toggleLongRecording" => {
-            match serde_json::from_value::<RecordingActionRequest>(request.params) {
-                Ok(params) => response_ok(request.id, recorder.toggle_long_recording(params)),
-                Err(error) => response_error(
-                    request.id,
-                    format!("Invalid long recording params: {error}"),
-                    recorder.status(),
-                ),
-            }
-        }
-        "stopRecording" => response_ok(request.id, recorder.stop_recording()),
         "shutdown" => {
             recorder.shutdown();
             response_ok(request.id, recorder.status())

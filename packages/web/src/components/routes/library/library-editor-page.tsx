@@ -92,6 +92,7 @@ function LibraryEditorContent({
       toast.success("Capture moved to the system trash")
       void refresh()
       setDeleteDialogOpen(false)
+      setDeleting(false)
       if (fallback) {
         navigateToEntry(fallback)
       } else {

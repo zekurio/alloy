@@ -8,11 +8,9 @@ import { gameHref, userProfileHref } from "@/lib/app-paths"
 import type { AppSearch } from "@/lib/app-search"
 import { clientLogger } from "@/lib/client-log"
 import { toClipCardData } from "@/lib/clip-format"
-import {
-  clipDetailQueryOptions,
-  seedClipDetailInCache,
-} from "@/lib/clip-queries"
+import { warmClipDetailCache } from "@/lib/clip-queries"
 
+import { useClipCardAuthorLink, useClipCardGameLink } from "./clip-card-links"
 import { setActiveClipList, useClipList } from "./clip-list-context"
 
 interface ClipCardTriggerProps {
@@ -36,10 +34,11 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
   const authorHref = card.authorUsername
     ? userProfileHref(card.authorUsername)
     : null
+  const renderAuthorLink = useClipCardAuthorLink(card.authorUsername)
+  const renderGameLink = useClipCardGameLink(gameSlug)
 
   const preloadClip = React.useCallback(() => {
-    seedClipDetailInCache(queryClient, row)
-    void queryClient.prefetchQuery(clipDetailQueryOptions(row.id))
+    warmClipDetailCache(queryClient, row)
   }, [queryClient, row])
 
   const handleThumbnailClick = React.useCallback(() => {
@@ -70,9 +69,11 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       authorAvatarBg={card.authorAvatar.bg}
       authorAvatarFg={card.authorAvatar.fg}
       authorHref={authorHref}
+      renderAuthorLink={renderAuthorLink}
       game={card.game}
       gameIcon={card.gameRef?.iconUrl ?? null}
       gameHref={gameLink}
+      renderGameLink={renderGameLink}
       views={card.views}
       likes={card.likes}
       comments={card.comments}

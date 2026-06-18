@@ -17,6 +17,12 @@ import {
   type RecordingQualitySettings,
 } from "./desktop-recording-types"
 
+const NOTIFICATION_SOUND_EVENT_ALIASES: Partial<
+  Record<RecordingNotificationSoundEvent, readonly string[]>
+> = {
+  replayRecordingStarted: ["recordingStarted"],
+}
+
 export function normalizeQualitySettings(
   value: unknown,
   fallback: RecordingQualitySettings,
@@ -67,10 +73,6 @@ export function normalizeHotkeys(value: unknown): RecordingHotkeys {
       record.screenshot,
       DEFAULT_RECORDING_SETTINGS.hotkeys.screenshot,
     ),
-    toggleLongRecording: toHotkey(
-      record.toggleLongRecording,
-      DEFAULT_RECORDING_SETTINGS.hotkeys.toggleLongRecording,
-    ),
   }
 }
 
@@ -99,7 +101,10 @@ export function normalizeNotificationSounds(
   const sounds = {} as RecordingNotificationSounds
 
   for (const event of RECORDING_NOTIFICATION_SOUND_EVENTS) {
-    sounds[event] = normalizeNotificationSound(record[event], event)
+    sounds[event] = normalizeNotificationSound(
+      notificationSoundValue(record, event),
+      event,
+    )
   }
 
   return sounds
@@ -274,6 +279,23 @@ function normalizeNotificationSound(
     volume: normalizeAudioVolume(record.volume),
     path: typeof record.path === "string" ? record.path.trim() : fallback.path,
   }
+}
+
+function notificationSoundValue(
+  record: Record<string, unknown>,
+  event: RecordingNotificationSoundEvent,
+): unknown {
+  if (hasOwn(record, event)) return record[event]
+
+  for (const alias of NOTIFICATION_SOUND_EVENT_ALIASES[event] ?? []) {
+    if (hasOwn(record, alias)) return record[alias]
+  }
+
+  return undefined
+}
+
+function hasOwn(record: Record<string, unknown>, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key)
 }
 
 function allowedGameKey(game: RecordingAllowedGame): string {

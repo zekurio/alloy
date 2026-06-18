@@ -5,11 +5,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { toast } from "@alloy/ui/lib/toast"
-import { useNavigate } from "@tanstack/react-router"
+import { useQueryClient } from "@tanstack/react-query"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
   ClapperboardIcon,
@@ -33,6 +35,7 @@ import {
   normalizeClipTitle,
   parseTagString,
 } from "@/lib/clip-fields"
+import { clipDetailQueryOptions } from "@/lib/clip-queries"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import {
   notifyLibraryCapturesChanged,
@@ -52,6 +55,11 @@ import {
   useLibraryEditorShortcuts,
 } from "./library-entry-navigation"
 import { LocalFileLocation } from "./library-file-location"
+import {
+  clearLibraryHandoffPoster,
+  LibraryHandoffPosterOverlay,
+  readLibraryHandoffPoster,
+} from "./library-handoff-poster"
 import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
 import { captureMentionsFromUsers, sameIdSet } from "./library-metadata"
 import { LibraryTrimBar } from "./library-trim-bar"
@@ -81,6 +89,7 @@ export function EditorBody({
   onRequestDelete: () => void
 }) {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { publishClip } = useUploadFlowControls()
 
   const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
@@ -121,6 +130,21 @@ export function EditorBody({
   }, [resolvedGame])
 
   const isVideo = item.kind !== "screenshot"
+  const [handoffPoster, setHandoffPoster] = React.useState(() =>
+    isVideo ? readLibraryHandoffPoster(item.id) : null,
+  )
+  const [localFrameReady, setLocalFrameReady] = React.useState(
+    () => handoffPoster === null,
+  )
+  React.useEffect(() => {
+    setHandoffPoster(isVideo ? readLibraryHandoffPoster(item.id) : null)
+  }, [isVideo, item.id])
+  React.useEffect(() => {
+    setLocalFrameReady(handoffPoster === null)
+  }, [handoffPoster])
+  React.useEffect(() => {
+    if (handoffPoster && localFrameReady) clearLibraryHandoffPoster(item.id)
+  }, [handoffPoster, item.id, localFrameReady])
   const poster = useCapturePoster({
     id: item.id,
     mediaUrl: isVideo ? item.mediaUrl : null,
@@ -235,7 +259,9 @@ export function EditorBody({
         mentions,
         publishClip,
       })
-      if (privacy === "unlisted" && clipId && pickedGame) {
+      if (!clipId) return
+
+      if (privacy === "unlisted" && pickedGame) {
         const copied = await copyTextToClipboard(
           absoluteClipHref(pickedGame.slug, clipId, publicOrigin()),
           { action: "copy published clip link" },
@@ -245,10 +271,16 @@ export function EditorBody({
         } else {
           toast.error("Couldn't copy the clip link")
         }
-      } else if (privacy === "unlisted" && clipId) {
+      } else if (privacy === "unlisted") {
         toast.success("Clip uploaded")
       }
-      void navigate({ to: "/library" })
+
+      await queryClient.prefetchQuery(clipDetailQueryOptions(clipId))
+      await navigate({
+        to: "/library/c/$clipId",
+        params: { clipId },
+        replace: true,
+      })
     } catch (cause) {
       toast.error(errorMessage(cause, "Couldn't prepare clip"))
     } finally {
@@ -289,6 +321,7 @@ export function EditorBody({
                 playerRef={playerRef}
                 onTimeUpdate={playback.handleTimeUpdate}
                 onPlayingChange={playback.setPlaying}
+                onFrameReady={() => setLocalFrameReady(true)}
                 onEnded={playback.handleEnded}
                 className="overflow-hidden rounded-md"
               />
@@ -305,6 +338,10 @@ export function EditorBody({
 
             <LibraryEntryNavButton side="left" target={prevEntry} />
             <LibraryEntryNavButton side="right" target={nextEntry} />
+            <LibraryHandoffPosterOverlay
+              poster={handoffPoster}
+              ready={localFrameReady}
+            />
           </LibraryMediaStage>
 
           {isVideo ? (
@@ -383,10 +420,9 @@ export function EditorBody({
               type="button"
               variant="ghost"
               disabled={deleting || publishing || saving}
-              onClick={onRequestDelete}
+              render={<Link to="/library" />}
             >
-              <Trash2Icon />
-              Delete
+              Cancel
             </Button>
             {isVideo ? (
               <div className="flex items-center">
@@ -394,7 +430,7 @@ export function EditorBody({
                   type="button"
                   variant="primary"
                   disabled={primaryDisabled}
-                  className="h-10 rounded-r-none sm:h-8"
+                  className="rounded-r-none"
                   onClick={() => {
                     if (primaryPublishes) void handlePublish("public")
                     else void handleSave()
@@ -412,7 +448,7 @@ export function EditorBody({
                         size="icon"
                         disabled={publishing || deleting || saving}
                         aria-label="More post options"
-                        className="border-l-accent-hover size-10 rounded-l-none sm:size-8"
+                        className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
                       />
                     }
                   >
@@ -450,10 +486,29 @@ export function EditorBody({
                       <Link2Icon className="size-4" />
                       Create Link
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      variant="destructive"
+                      disabled={deleting || publishing || saving}
+                      onClick={onRequestDelete}
+                    >
+                      <Trash2Icon className="size-4" />
+                      Delete
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
-            ) : null}
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={deleting || saving}
+                onClick={onRequestDelete}
+              >
+                <Trash2Icon />
+                Delete
+              </Button>
+            )}
           </div>
         </aside>
       </div>

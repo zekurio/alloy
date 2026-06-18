@@ -7,6 +7,7 @@ import {
 
 import type {
   RecordingCaptureMention,
+  RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryDownloadRequest,
   RecordingLibraryExportRequest,
   RecordingLibraryExportSegment,
@@ -108,6 +109,43 @@ export function normalizeLibraryImportRequest(
     durationMs,
     width: normalizeDimension(record.width),
     height: normalizeDimension(record.height),
+  }
+}
+
+const COMMIT_STAGED_IMPORT_ID_MAX = 128
+const COMMIT_STAGED_IMPORT_TITLE_MAX = 200
+const COMMIT_STAGED_IMPORT_GAME_NAME_MAX = 200
+const COMMIT_STAGED_IMPORT_GAME_ICON_URL_MAX = 2000
+
+export function normalizeLibraryCommitStagedImportRequest(
+  value: unknown,
+): RecordingLibraryCommitStagedImportRequest | null {
+  if (typeof value !== "object" || value === null) return null
+  const record = value as Record<string, unknown>
+  if (
+    typeof record.id !== "string" ||
+    record.id.length === 0 ||
+    record.id.length > COMMIT_STAGED_IMPORT_ID_MAX
+  ) {
+    return null
+  }
+  if (typeof record.title !== "string") return null
+  if (typeof record.gameName !== "string") return null
+
+  const title = record.title.trim().slice(0, COMMIT_STAGED_IMPORT_TITLE_MAX)
+  const gameName = record.gameName
+    .trim()
+    .slice(0, COMMIT_STAGED_IMPORT_GAME_NAME_MAX)
+  if (title.length === 0 || gameName.length === 0) return null
+
+  return {
+    id: record.id,
+    title,
+    gameName,
+    gameIconUrl:
+      typeof record.gameIconUrl === "string"
+        ? record.gameIconUrl.slice(0, COMMIT_STAGED_IMPORT_GAME_ICON_URL_MAX)
+        : null,
   }
 }
 
