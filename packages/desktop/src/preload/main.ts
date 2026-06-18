@@ -76,10 +76,6 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.subscribeRecordingAudioLevels),
   stopAudioLevels: () => ipcRenderer.invoke(IPC.stopAudioLevels),
   saveReplayClip: (request) => ipcRenderer.invoke(IPC.saveReplayClip, request),
-  addBookmark: (request) =>
-    ipcRenderer.invoke(IPC.addRecordingBookmark, request),
-  takeScreenshot: (request) =>
-    ipcRenderer.invoke(IPC.takeRecordingScreenshot, request),
   revealCapture: (filename) =>
     ipcRenderer.invoke(IPC.revealRecordingCapture, filename),
 }

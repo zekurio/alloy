@@ -8,9 +8,8 @@ import {
   type Dirent,
   type Stats,
 } from "node:fs"
-import { dirname, extname, join, resolve } from "node:path"
+import { dirname, extname, join } from "node:path"
 
-import type { RecordingCapture } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
@@ -19,7 +18,6 @@ import type { RecordingLibraryItem } from "@/shared/ipc"
 import { imageFileBlurHash } from "./image-blurhash"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
-  captureId,
   thumbnailSignature,
   VIDEO_EXTENSIONS,
 } from "./recording-library-shared"
@@ -37,7 +35,6 @@ export type ThumbnailSource = Pick<
 >
 
 export function cachedRecordingThumbnail(item: ThumbnailSource): string | null {
-  if (item.kind === "screenshot") return item.filename
   if (!VIDEO_EXTENSIONS.has(extname(item.filename).toLowerCase())) return null
 
   let stat: Stats
@@ -57,7 +54,7 @@ export function storeRecordingThumbnail(
   jpegBytes: Uint8Array,
 ): void {
   const item = findRecordingLibraryItem(id)
-  if (!item || item.kind === "screenshot") return
+  if (!item) return
   if (!VIDEO_EXTENSIONS.has(extname(item.filename).toLowerCase())) return
 
   let stat: Stats
@@ -122,24 +119,10 @@ export function pruneStaleThumbnails(id: string, keep: string): void {
 }
 
 /**
- * Screenshots can be hashed immediately from their image bytes. Video posters
- * are decoded in the renderer and saved back through IPC.
- */
-export function warmRecordingThumbnail(capture: RecordingCapture): void {
-  if (capture.kind !== "screenshot") return
-  const filename = resolve(capture.filename)
-  void ensureCaptureBlurHash({
-    id: captureId(filename),
-    kind: capture.kind,
-    filename,
-  })
-}
-
-/**
- * Computes (and persists) the BlurHash for a capture from its thumbnail —
- * or from the image itself for screenshots. Hashes are keyed by the same
- * mtime/size signature as thumbnail files, so they stay stable across app
- * starts and invalidate together with the thumbnail when the file changes.
+ * Computes (and persists) the BlurHash for a capture from its thumbnail. Hashes
+ * are keyed by the same mtime/size signature as thumbnail files, so they stay
+ * stable across app starts and invalidate together with the thumbnail when the
+ * file changes.
  */
 export async function ensureCaptureBlurHash(
   item: ThumbnailSource,
@@ -155,8 +138,7 @@ export async function ensureCaptureBlurHash(
   const existing = getThumbnailBlurHash(signature)
   if (existing) return existing
 
-  const imagePath =
-    item.kind === "screenshot" ? item.filename : cachedRecordingThumbnail(item)
+  const imagePath = cachedRecordingThumbnail(item)
   if (!imagePath) return null
 
   const blurHash = imageFileBlurHash(imagePath)

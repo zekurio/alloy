@@ -1,19 +1,4 @@
 impl Recorder {
-    fn start_file_output(
-        &mut self,
-        settings: &RecordingSettings,
-        game: Option<&DetectedGame>,
-        kind: ActiveOutputKind,
-        capture: RecordingCapture,
-    ) -> Result<ActiveSession, String> {
-        let path = capture.filename.clone();
-        if let Some(parent) = Path::new(&path).parent() {
-            fs::create_dir_all(parent)
-                .map_err(|error| format!("Could not create recording output folder: {error}"))?;
-        }
-        self.start_output(settings, game, kind, capture, OutputConfig::File { path })
-    }
-
     fn start_output(
         &mut self,
         settings: &RecordingSettings,
@@ -39,9 +24,12 @@ impl Recorder {
             .obs
             .as_ref()
             .ok_or_else(|| "OBS is not initialized.".to_string())?;
-        let (video_encoder_id, video_codec) =
-            choose_video_encoder(settings, &self.available_encoders)
-                .ok_or_else(|| unavailable_video_encoder_message(settings))?;
+        let (video_encoder_id, video_codec) = choose_video_encoder(
+            settings,
+            &self.available_encoders,
+            selected_gpu_label(settings, &self.cached_gpus),
+        )
+        .ok_or_else(|| unavailable_video_encoder_message(settings))?;
         if video_codec != settings.codec {
             eprintln!(
                 "[{SIDE_CAR_NAME}] no {} encoder is available in this OBS instance; recording with {} instead.",
@@ -171,13 +159,6 @@ impl Recorder {
 
         let output_settings = unsafe { obs.create_data() };
         let output_id = match &output_config {
-            OutputConfig::File { path } => {
-                let result = unsafe {
-                    obs.set_string(output_settings, "path", path)?;
-                    obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")
-                };
-                result.map(|_| "ffmpeg_muxer")
-            }
             OutputConfig::ReplayBuffer {
                 scratch_directory,
                 output_directory: _,
@@ -303,13 +284,9 @@ impl Recorder {
             source_kind,
             output_config,
             capture,
-            started_at: SystemTime::now(),
             can_pause,
             paused: false,
-            paused_at: None,
-            total_paused: Duration::ZERO,
             owns_capture,
-            bookmarks: Vec::new(),
         })
     }
 
@@ -395,32 +372,20 @@ impl Recorder {
         if session.kind != ActiveOutputKind::ReplayBuffer {
             return Err("Current OBS output is not a replay buffer.".to_string());
         }
-        if let OutputConfig::ReplayBuffer {
+        let OutputConfig::ReplayBuffer {
             scratch_directory,
             output_directory,
             storage,
             replay_seconds,
-        } = &session.output_config
-        {
-            if storage == &RecordingBufferStorage::Disk {
-                return self.save_disk_replay(
-                    session,
-                    scratch_directory,
-                    output_directory,
-                    duration_seconds.min(*replay_seconds),
-                );
-            }
-        } else {
-            return Err("Current OBS output is not a replay buffer.".to_string());
-        }
-        let (output_directory, replay_seconds) = match &session.output_config {
-            OutputConfig::ReplayBuffer {
+        } = &session.output_config;
+        if storage == &RecordingBufferStorage::Disk {
+            return self.save_disk_replay(
+                session,
+                scratch_directory,
                 output_directory,
-                replay_seconds,
-                ..
-            } => (output_directory, *replay_seconds),
-            _ => unreachable!("replay buffer config checked above"),
-        };
+                duration_seconds.min(*replay_seconds),
+            );
+        }
         let obs = self
             .obs
             .as_ref()
@@ -454,26 +419,21 @@ impl Recorder {
                         output_directory,
                         session.capture.game.as_ref(),
                         duration_seconds,
-                        replay_seconds,
+                        *replay_seconds,
                     );
                 }
             }
             thread::sleep(Duration::from_millis(100));
         }
 
-        if let OutputConfig::ReplayBuffer {
-            scratch_directory, ..
-        } = &session.output_config
-        {
-            if let Some(replay) = newest_memory_replay_file(scratch_directory, saved_after) {
-                return move_saved_replay_to_output(
-                    &replay.path.to_string_lossy(),
-                    output_directory,
-                    session.capture.game.as_ref(),
-                    duration_seconds,
-                    replay_seconds,
-                );
-            }
+        if let Some(replay) = newest_memory_replay_file(scratch_directory, saved_after) {
+            return move_saved_replay_to_output(
+                &replay.path.to_string_lossy(),
+                output_directory,
+                session.capture.game.as_ref(),
+                duration_seconds,
+                *replay_seconds,
+            );
         }
 
         Err("OBS saved replay, but did not report a file path.".to_string())

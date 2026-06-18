@@ -17,7 +17,6 @@ import { performance } from "node:perf_hooks"
 const DEFAULT_SIZES = [100, 1000, 5000]
 const DEFAULT_RUNS = 12
 const VIDEO_EXTENSIONS = new Set([".mp4", ".mkv", ".mov", ".webm"])
-const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"])
 
 const options = parseArgs(process.argv.slice(2))
 const sizes = options.sizes ?? DEFAULT_SIZES
@@ -100,37 +99,16 @@ function buildFixture(size) {
   rmSync(fixtureRoot, { recursive: true, force: true })
 
   const outputFolder = join(fixtureRoot, "Videos", "Alloy")
-  const screenshotFolder = join(fixtureRoot, "Pictures", "Alloy")
   const userData = join(fixtureRoot, "UserData")
   const manifest = { version: 1, captures: {}, projectDrafts: {} }
 
-  const clipCount = Math.floor(size * 0.8)
-  const sessionCount = Math.floor(size * 0.1)
-  const screenshotCount = size - clipCount - sessionCount
-
   addCaptures({
     root: join(outputFolder, "Clips"),
-    count: clipCount,
+    count: size,
     extension: ".mp4",
     manifest,
     kind: "replay",
     sizeBytes: 1024,
-  })
-  addCaptures({
-    root: join(outputFolder, "Sessions"),
-    count: sessionCount,
-    extension: ".mkv",
-    manifest,
-    kind: "long-recording",
-    sizeBytes: 1024,
-  })
-  addCaptures({
-    root: join(screenshotFolder, "Screenshots"),
-    count: screenshotCount,
-    extension: ".png",
-    manifest,
-    kind: "screenshot",
-    sizeBytes: 256,
   })
 
   mkdirSync(userData, { recursive: true })
@@ -144,7 +122,7 @@ function buildFixture(size) {
     JSON.stringify({ version: 1, blurHashes: {} }),
   )
 
-  return { outputFolder, screenshotFolder, userData }
+  return { outputFolder, userData }
 }
 
 function addCaptures({
@@ -173,10 +151,9 @@ function addCaptures({
       gameName: group,
       gameIconUrl: null,
       sizeBytes,
-      durationMs: kind === "screenshot" ? null : 30_000,
-      bookmarksMs: [],
-      width: kind === "screenshot" ? 1920 : 1280,
-      height: kind === "screenshot" ? 1080 : 720,
+      durationMs: 30_000,
+      width: 1280,
+      height: 720,
       createdAt: timestamp,
       updatedAt: timestamp,
     }
@@ -192,7 +169,6 @@ function measureScan(fixture) {
   const state = { filesVisited: 0 }
   const items = scanRecordingLibraryItems(
     fixture.outputFolder,
-    fixture.screenshotFolder,
     manifest,
     thumbnailMeta,
     state,
@@ -212,7 +188,6 @@ function readJson(filename) {
 
 function scanRecordingLibraryItems(
   outputFolder,
-  screenshotFolder,
   manifest,
   thumbnailMeta,
   state,
@@ -222,16 +197,6 @@ function scanRecordingLibraryItems(
       root: join(outputFolder, "Clips"),
       collection: "Clips",
       kind: "replay",
-    },
-    {
-      root: join(outputFolder, "Sessions"),
-      collection: "Sessions",
-      kind: "long-recording",
-    },
-    {
-      root: join(screenshotFolder, "Screenshots"),
-      collection: "Screenshots",
-      kind: "screenshot",
     },
   ]
 
@@ -311,10 +276,7 @@ function libraryItemForFile(
     filename: absoluteFilename,
     fileName: basename(absoluteFilename),
     mediaUrl: `alloy-capture://media/${id}`,
-    thumbnailUrl:
-      kind === "screenshot"
-        ? `alloy-capture://media/${id}`
-        : `alloy-capture://thumbnail/${id}?v=${thumbnailVersion}`,
+    thumbnailUrl: `alloy-capture://thumbnail/${id}?v=${thumbnailVersion}`,
     thumbBlurHash:
       thumbnailMeta.blurHashes[`${id}-${thumbnailVersion}`] ?? null,
     collection: collection.collection,
@@ -327,7 +289,6 @@ function libraryItemForFile(
     gameIconUrl: manifestEntry?.gameIconUrl ?? null,
     sizeBytes: manifestEntry?.sizeBytes ?? stat.size,
     durationMs: manifestEntry?.durationMs ?? null,
-    bookmarksMs: manifestEntry?.bookmarksMs ?? [],
     width: manifestEntry?.width ?? null,
     height: manifestEntry?.height ?? null,
     description: manifestEntry?.description ?? null,
@@ -345,9 +306,7 @@ function sourceFromLabel(groupLabel) {
 }
 
 function extensionMatchesKind(extension, kind) {
-  return kind === "screenshot"
-    ? IMAGE_EXTENSIONS.has(extension)
-    : VIDEO_EXTENSIONS.has(extension)
+  return kind === "replay" && VIDEO_EXTENSIONS.has(extension)
 }
 
 function groupLabelForFile(collectionRoot, filename) {
@@ -383,8 +342,6 @@ function groupLibraryItems(items) {
         iconUrl: item.gameIconUrl,
         totalCount: 0,
         clipCount: 0,
-        sessionCount: 0,
-        screenshotCount: 0,
         totalSizeBytes: 0,
         latestAt: item.createdAt,
         items: [],
@@ -400,8 +357,6 @@ function groupLibraryItems(items) {
         ? item.createdAt
         : group.latestAt
     if (item.kind === "replay") group.clipCount += 1
-    if (item.kind === "long-recording") group.sessionCount += 1
-    if (item.kind === "screenshot") group.screenshotCount += 1
     group.items.push(item)
   }
 

@@ -2,7 +2,6 @@ import { existsSync } from "node:fs"
 
 import type {
   RecordingActionResult,
-  RecordingActionRequest,
   RecordingCapture,
   RecordingDisplay,
   RecordingEvent,
@@ -18,7 +17,6 @@ import { finalizeRecordingCapture } from "./recording-capture-finalize"
 import { ensureRecordingDiscordDetectionsCache } from "./recording-discord-detections"
 import { listRecordingDisplays as listElectronRecordingDisplays } from "./recording-displays"
 import { rememberRecordingLibraryCapture } from "./recording-library"
-import { takeRecordingScreenshot as takeElectronRecordingScreenshot } from "./recording-screenshot"
 import {
   RecordingSidecarClient,
   type SidecarConfig,
@@ -26,7 +24,6 @@ import {
 import { obsRuntimeDir, sidecarExecutablePath } from "./recording-sidecar-paths"
 import {
   handleRecordingEventSound,
-  playNotificationSound,
   requestReplaySaveSound,
   withReplayBufferStartSoundSuppressed,
 } from "./recording-sound-policy"
@@ -164,34 +161,6 @@ export async function saveReplayClip(
   return runRecordingAction("saveReplayClip", request)
 }
 
-export async function addRecordingBookmark(
-  request: RecordingActionRequest,
-): Promise<RecordingActionResult> {
-  const result = await runRecordingAction("addBookmark", request)
-  if (result.ok && canBookmarkFromStatus(result.status)) {
-    playNotificationSound("bookmarkAdded")
-  }
-  return result
-}
-
-export async function takeRecordingScreenshot(
-  request: RecordingActionRequest,
-): Promise<RecordingActionResult> {
-  const status = await getRecordingStatus()
-  const displays = await listRecordingDisplays()
-  const result = await takeElectronRecordingScreenshot({
-    displays,
-    request,
-    settings: getRecordingSettings(),
-    status,
-  })
-  if (result.ok && result.capture?.kind === "screenshot") {
-    rememberRecordingLibraryCapture(result.capture)
-    playNotificationSound("screenshotTaken")
-  }
-  return result
-}
-
 /**
  * Keep live audio-level events flowing from the sidecar. The subscription
  * auto-expires after a few seconds, so the renderer re-sends this as a
@@ -228,7 +197,7 @@ export function playReplaySaveRequestedSound(): boolean {
 }
 
 async function runRecordingAction(
-  method: "saveReplayClip" | "addBookmark",
+  method: "saveReplayClip",
   params?: unknown,
 ): Promise<RecordingActionResult> {
   const client = getSidecarClient()
@@ -294,7 +263,6 @@ function unavailableRecordingStatus(
     captureMode: settings.captureMode,
     runState: backend === "error" ? "error" : "idle",
     replayActive: false,
-    longRecordingActive: false,
     activeGame: null,
     activeGameDetail: null,
     activeDisplay: null,
@@ -372,14 +340,6 @@ function statusWithCapture(
 
 function errorRecordingStatus(message: string): RecordingStatus {
   return unavailableRecordingStatus(message, "error")
-}
-
-function canBookmarkFromStatus(status: RecordingStatus): boolean {
-  return (
-    status.backend === "ready" &&
-    status.longRecordingActive &&
-    status.runState !== "error"
-  )
 }
 
 function errorText(cause: unknown, fallback: string): string {

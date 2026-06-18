@@ -90,7 +90,6 @@ struct RecordingSettings {
     enabled: bool,
     capture_mode: RecordingCaptureMode,
     selected_display_id: String,
-    long_recording: RecordingLongRecordingSettings,
     allowed_games: Vec<RecordingAllowedGame>,
     #[serde(default)]
     denied_games: Vec<RecordingAllowedGame>,
@@ -109,12 +108,6 @@ struct RecordingSettings {
     buffer_storage: RecordingBufferStorage,
     output_folder: String,
     hotkeys: RecordingHotkeys,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-struct RecordingLongRecordingSettings {
-    auto_record_games: bool,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -202,8 +195,6 @@ struct RecordingQualitySettings {
 #[serde(rename_all = "camelCase")]
 struct RecordingHotkeys {
     clip: String,
-    bookmark: String,
-    screenshot: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -350,7 +341,6 @@ struct RecordingCapture {
     game: Option<RecordingGame>,
     source: RecordingCaptureSource,
     kind: RecordingCaptureKind,
-    bookmarks_ms: Vec<u64>,
     post_process: Option<RecordingCapturePostProcess>,
     created_at: String,
 }
@@ -368,8 +358,6 @@ enum RecordingCaptureSource {
 #[allow(dead_code)]
 enum RecordingCaptureKind {
     Replay,
-    LongRecording,
-    Screenshot,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -393,7 +381,6 @@ struct RecordingStatus {
     capture_mode: RecordingCaptureMode,
     run_state: RecordingRunState,
     replay_active: bool,
-    long_recording_active: bool,
     active_game: Option<String>,
     active_game_detail: Option<RecordingGame>,
     active_display: Option<RecordingDisplay>,
@@ -421,7 +408,6 @@ enum RecordingBackendState {
 #[allow(dead_code)]
 enum RecordingMode {
     Idle,
-    Recording,
     ReplayBuffer,
 }
 
@@ -430,7 +416,6 @@ enum RecordingMode {
 #[allow(dead_code)]
 enum RecordingRunState {
     Idle,
-    Recording,
     Paused,
     ReplayBuffer,
     Stopping,
@@ -531,13 +516,11 @@ struct VideoGraph {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ActiveOutputKind {
-    LongRecording,
     ReplayBuffer,
 }
 
 #[derive(Clone)]
 enum OutputConfig {
-    File { path: String },
     ReplayBuffer {
         scratch_directory: PathBuf,
         output_directory: PathBuf,
@@ -600,13 +583,13 @@ struct Recorder {
     /// Encoder capabilities probed independently of an active recording so the
     /// settings UI can show supported codecs while recording is disabled.
     codec_caps: Option<CodecCaps>,
-    /// Adapter + runtime the cached `codec_caps` were probed against; a change
-    /// invalidates the cache and triggers a re-probe.
-    codec_caps_key: Option<(u32, Option<PathBuf>)>,
-    /// Adapter + runtime and time of the last failed capability probe, so
-    /// retries from the tick loop back off instead of spinning OBS up twice a
-    /// second.
-    codec_caps_failed_probe: Option<((u32, Option<PathBuf>), Instant)>,
+    /// Adapter + GPU label + runtime the cached `codec_caps` were probed
+    /// against; a change invalidates the cache and triggers a re-probe.
+    codec_caps_key: Option<(u32, Option<String>, Option<PathBuf>)>,
+    /// Adapter + GPU label + runtime and time of the last failed capability
+    /// probe, so retries from the tick loop back off instead of spinning OBS up
+    /// twice a second.
+    codec_caps_failed_probe: Option<((u32, Option<String>, Option<PathBuf>), Instant)>,
     cached_gpus: Vec<String>,
     cached_gpus_at: Option<Instant>,
     cached_audio_devices: Vec<RecordingAudioDeviceSelection>,
@@ -615,7 +598,6 @@ struct Recorder {
     cached_audio_applications_at: Option<Instant>,
     cached_audio_applications_game_key: Option<String>,
     replay_session: Option<ActiveSession>,
-    long_session: Option<ActiveSession>,
     active_display: Option<RecordingDisplay>,
     active_game: Option<DetectedGame>,
     focused: bool,
@@ -635,24 +617,9 @@ struct ActiveSession {
     source_kind: OutputSourceKind,
     output_config: OutputConfig,
     capture: RecordingCapture,
-    started_at: SystemTime,
     can_pause: bool,
     paused: bool,
-    paused_at: Option<SystemTime>,
-    total_paused: Duration,
     owns_capture: bool,
-    bookmarks: Vec<RecordingBookmark>,
-}
-
-#[derive(Clone, Debug)]
-struct RecordingBookmark {
-    position_ms: u64,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct RecordingActionRequest {
-    requested_at_unix_ms: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -670,9 +637,6 @@ impl Default for RecordingSettings {
             enabled: false,
             capture_mode: RecordingCaptureMode::Game,
             selected_display_id: String::new(),
-            long_recording: RecordingLongRecordingSettings {
-                auto_record_games: false,
-            },
             allowed_games: Vec::new(),
             denied_games: Vec::new(),
             audio_mode: RecordingAudioMode::Devices,
@@ -698,8 +662,6 @@ impl Default for RecordingSettings {
             output_folder: String::new(),
             hotkeys: RecordingHotkeys {
                 clip: "F8".to_string(),
-                bookmark: "F9".to_string(),
-                screenshot: "F7".to_string(),
             },
         }
     }

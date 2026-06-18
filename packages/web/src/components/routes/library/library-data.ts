@@ -38,6 +38,17 @@ function invalidateLibrarySnapshot(queryClient: QueryClient): void {
   void queryClient.invalidateQueries({ queryKey: librarySnapshotKey })
 }
 
+export async function refreshLibrarySnapshotCache(
+  queryClient: QueryClient,
+  desktop: AlloyDesktop | null,
+): Promise<RecordingLibrarySnapshot | null> {
+  if (!desktop) return null
+  await queryClient.cancelQueries({ queryKey: librarySnapshotKey })
+  const snapshot = await desktop.recording.getLibrary()
+  queryClient.setQueryData(librarySnapshotKey, snapshot)
+  return snapshot
+}
+
 function librarySnapshotErrorMessage(cause: unknown): string | null {
   if (!cause) return null
   return cause instanceof Error ? cause.message : "Could not scan local clips."
@@ -318,10 +329,6 @@ export function libraryKindLabel(kind: RecordingLibraryItem["kind"]): string {
   switch (kind) {
     case "replay":
       return "Clip"
-    case "long-recording":
-      return "Session"
-    case "screenshot":
-      return "Screenshot"
     default:
       return "Capture"
   }

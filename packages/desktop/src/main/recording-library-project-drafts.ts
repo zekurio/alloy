@@ -10,6 +10,7 @@ import {
   readCaptureManifest,
   writeCaptureManifest,
 } from "./recording-library-manifest"
+import { invalidateRecordingLibrarySnapshot } from "./recording-library-scan"
 
 export function saveRecordingLibraryProjectDraft(
   request: RecordingLibraryProjectDraftSaveRequest,
@@ -35,6 +36,7 @@ export function saveRecordingLibraryProjectDraft(
     updatedAt: now,
   }
   writeCaptureManifest(manifest)
+  invalidateRecordingLibrarySnapshot()
   return { id }
 }
 
@@ -43,6 +45,7 @@ export function deleteRecordingLibraryProjectDraft(id: string): void {
   if (!manifest.projectDrafts[id]) return
   delete manifest.projectDrafts[id]
   writeCaptureManifest(manifest)
+  invalidateRecordingLibrarySnapshot()
 }
 
 function projectDurationMs(project: RecordingLibraryProject): number {

@@ -21,7 +21,7 @@ export interface RecordingLibraryItem {
   mediaUrl: string
   thumbnailUrl: string | null
   thumbBlurHash: string | null
-  collection: "Clips" | "Sessions" | "Screenshots"
+  collection: "Clips"
   kind: RecordingCaptureKind
   source: RecordingCaptureSource
   groupKey: string
@@ -31,7 +31,6 @@ export interface RecordingLibraryItem {
   gameGuess: RecordingGameGuess | null
   sizeBytes: number
   durationMs: number | null
-  bookmarksMs: number[]
   width: number | null
   height: number | null
   description: string | null
@@ -249,8 +248,6 @@ export interface RecordingLibraryGroup {
   iconUrl: string | null
   totalCount: number
   clipCount: number
-  sessionCount: number
-  screenshotCount: number
   totalSizeBytes: number
   latestAt: string
   items: RecordingLibraryItem[]
@@ -258,7 +255,6 @@ export interface RecordingLibraryGroup {
 
 export interface RecordingLibrarySnapshot {
   outputFolder: string
-  screenshotFolder: string
   scannedAt: string
   totalCount: number
   totalSizeBytes: number

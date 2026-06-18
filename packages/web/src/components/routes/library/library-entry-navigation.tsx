@@ -34,10 +34,11 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
   localItem: RecordingLibraryItem | null
   snapshot: ReturnType<typeof useLibrarySnapshot>["snapshot"]
   error: ReturnType<typeof useLibrarySnapshot>["error"]
+  refreshing: ReturnType<typeof useLibrarySnapshot>["refreshing"]
   refresh: ReturnType<typeof useLibrarySnapshot>["refresh"]
 } {
   const desktop = alloyDesktop()
-  const { snapshot, error, refresh } = useLibrarySnapshot(desktop)
+  const { snapshot, error, refreshing, refresh } = useLibrarySnapshot(desktop)
   const gamesByName = useLibraryGameLookup(snapshot)
   const { data: session } = useSession()
   const uploadedQuery = useUserClipsQuery(session?.user?.username ?? "")
@@ -82,6 +83,7 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
     localItem,
     snapshot,
     error,
+    refreshing,
     refresh,
   }
 }

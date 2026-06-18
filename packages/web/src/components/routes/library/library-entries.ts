@@ -18,11 +18,7 @@ import {
   type LibraryItemView,
 } from "./library-data"
 
-export type LibraryKindFilter =
-  | "all"
-  | "replay"
-  | "long-recording"
-  | "screenshot"
+export type LibraryKindFilter = "all" | "replay"
 
 /** One row of the combined grid: a local capture or an uploaded clip. */
 export type LibraryEntry =
@@ -273,10 +269,6 @@ export function emptyKindLabel(kind: LibraryKindFilter) {
   switch (kind) {
     case "replay":
       return "clips"
-    case "long-recording":
-      return "sessions"
-    case "screenshot":
-      return "screenshots"
     default:
       return "captures"
   }

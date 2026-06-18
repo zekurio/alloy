@@ -218,7 +218,6 @@ function registerDownloadedCapture(
       request.durationMs !== null && request.durationMs > 0
         ? Math.round(request.durationMs)
         : null,
-    bookmarksMs: [],
     width: request.width,
     height: request.height,
     createdAt: now,

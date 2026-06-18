@@ -23,10 +23,7 @@ export function useEditorMedia(snapshot: RecordingLibrarySnapshot | null): {
   sources: Map<string, EditorMediaSource>
 } {
   const localItems = React.useMemo(
-    () =>
-      (snapshot?.items ?? []).filter(
-        (item) => item.kind !== "screenshot" && (item.durationMs ?? 0) > 0,
-      ),
+    () => (snapshot?.items ?? []).filter((item) => (item.durationMs ?? 0) > 0),
     [snapshot],
   )
   // Uploaded clips stream from the server as additional sources; only

@@ -22,23 +22,11 @@ fn recording_context_folder(game: Option<&RecordingGame>) -> String {
         .unwrap_or_else(|| "Desktop".to_string())
 }
 
-fn recording_file_prefix(collection: &str) -> &str {
-    match collection {
-        "Clips" => "clip",
-        "Sessions" => "session",
-        _ => "capture",
-    }
-}
-
-fn saved_recording_path(
-    output_folder: &Path,
-    collection: &str,
-    game: Option<&RecordingGame>,
-) -> PathBuf {
+fn saved_recording_path(output_folder: &Path, game: Option<&RecordingGame>) -> PathBuf {
     let directory = output_folder
-        .join(collection)
+        .join("Clips")
         .join(recording_context_folder(game));
-    unique_recording_path(&directory, recording_file_prefix(collection))
+    unique_recording_path(&directory, "clip")
 }
 
 fn unique_recording_path(directory: &Path, prefix: &str) -> PathBuf {
@@ -204,7 +192,7 @@ fn save_disk_replay_clip(
         return Err("OBS disk replay buffer did not produce a file.".to_string());
     }
 
-    let output = saved_recording_path(output_directory, "Clips", game);
+    let output = saved_recording_path(output_directory, game);
     let output_parent = output
         .parent()
         .ok_or_else(|| "Could not determine replay output folder.".to_string())?;
@@ -235,7 +223,7 @@ fn move_saved_replay_to_output(
 ) -> Result<SavedReplayClip, String> {
     let source = PathBuf::from(path);
     wait_for_stable_file(&source)?;
-    let mut output = saved_recording_path(output_directory, "Clips", game);
+    let mut output = saved_recording_path(output_directory, game);
     let output_parent = output
         .parent()
         .ok_or_else(|| "Could not determine replay output folder.".to_string())?;
@@ -250,7 +238,7 @@ fn move_saved_replay_to_output(
     }
 
     if output.exists() {
-        output = saved_recording_path(output_directory, "Clips", game);
+        output = saved_recording_path(output_directory, game);
     }
 
     if source != output {
@@ -317,10 +305,7 @@ fn cleanup_disk_replay_segments(config: &OutputConfig, keep: Option<&str>) {
         output_directory: _,
         storage,
         replay_seconds,
-    } = config
-    else {
-        return;
-    };
+    } = config;
     if storage != &RecordingBufferStorage::Disk {
         return;
     }
@@ -339,40 +324,9 @@ fn cleanup_disk_replay_segments(config: &OutputConfig, keep: Option<&str>) {
 }
 
 fn update_session_pause_time(session: &mut ActiveSession, paused: bool) {
-    if paused == session.paused {
-        return;
-    }
-
-    let now = SystemTime::now();
-    if paused {
-        session.paused_at = Some(now);
-    } else if let Some(paused_at) = session.paused_at.take() {
-        session.total_paused += now.duration_since(paused_at).unwrap_or_default();
-    }
     session.paused = paused;
-}
-
-fn session_total_paused(session: &ActiveSession) -> Duration {
-    let current_pause = session
-        .paused_at
-        .and_then(|paused_at| SystemTime::now().duration_since(paused_at).ok())
-        .unwrap_or_default();
-    session.total_paused.saturating_add(current_pause)
-}
-
-fn session_duration_ms(started_at: SystemTime, total_paused: Duration) -> Option<u64> {
-    let elapsed = started_at.elapsed().ok()?.saturating_sub(total_paused);
-    u64::try_from(elapsed.as_millis()).ok()
 }
 
 fn unix_millis_to_system_time(value: u64) -> SystemTime {
     UNIX_EPOCH + Duration::from_millis(value)
-}
-
-fn bookmark_position_ms(session: &ActiveSession, requested_at: SystemTime) -> u64 {
-    let elapsed = requested_at
-        .duration_since(session.started_at)
-        .unwrap_or_default()
-        .saturating_sub(session_total_paused(session));
-    u64::try_from(elapsed.as_millis()).unwrap_or(u64::MAX)
 }

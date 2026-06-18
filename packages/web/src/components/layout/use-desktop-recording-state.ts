@@ -160,10 +160,6 @@ export function useDesktopRecordingState(
         enabled: true,
         captureMode: "display",
         selectedDisplayId: display.id,
-        longRecording: {
-          ...settings.longRecording,
-          autoRecordGames: false,
-        },
       })
       setDisplayPickerOpen(false)
     },

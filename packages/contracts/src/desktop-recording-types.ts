@@ -1,5 +1,5 @@
 import type { RecordingLibraryDownload } from "./desktop-recording-library"
-import type { AcceptedImageContentType, IsoDateString } from "./shared"
+import type { IsoDateString } from "./shared"
 
 export const RECORDING_ENCODERS = ["hardware", "software"] as const
 export const RECORDING_CODECS = ["h264", "hevc", "av1"] as const
@@ -29,11 +29,7 @@ export const RECORDING_BITRATES = [
 /** Where the replay buffer is held while recording: RAM or scratch on disk. */
 export const RECORDING_BUFFER_STORAGE = ["memory", "disk"] as const
 export const RECORDING_CAPTURE_MODES = ["game", "display"] as const
-export const RECORDING_CAPTURE_KINDS = [
-  "replay",
-  "long-recording",
-  "screenshot",
-] as const
+export const RECORDING_CAPTURE_KINDS = ["replay"] as const
 export const RECORDING_QUALITY_PROFILES = [
   "low",
   "standard",
@@ -42,7 +38,6 @@ export const RECORDING_QUALITY_PROFILES = [
 ] as const
 export const RECORDING_RUN_STATES = [
   "idle",
-  "recording",
   "paused",
   "replay-buffer",
   "stopping",
@@ -54,8 +49,6 @@ export const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
 export const RECORDING_NOTIFICATION_SOUND_EVENTS = [
   "replayBufferStarted",
   "clipSaved",
-  "bookmarkAdded",
-  "screenshotTaken",
 ] as const
 
 export type RecordingEncoder = (typeof RECORDING_ENCODERS)[number]
@@ -77,8 +70,8 @@ export type RecordingNotificationSoundEvent =
   (typeof RECORDING_NOTIFICATION_SOUND_EVENTS)[number]
 /**
  * Content types the desktop library handles locally. Wider than the server's
- * upload accept list (mp4 only): local recordings and screenshots can sit in
- * the library in any of these containers — they just can't all be published.
+ * upload accept list (mp4 only): imported local recordings can sit in the
+ * library in any of these containers — they just can't all be published.
  */
 export const RECORDING_VIDEO_CONTENT_TYPES = [
   "video/mp4",
@@ -88,8 +81,7 @@ export const RECORDING_VIDEO_CONTENT_TYPES = [
 ] as const
 
 export type RecordingCaptureContentType =
-  | (typeof RECORDING_VIDEO_CONTENT_TYPES)[number]
-  | AcceptedImageContentType
+  (typeof RECORDING_VIDEO_CONTENT_TYPES)[number]
 
 export interface RecordingQualitySettings {
   resolution: RecordingResolution
@@ -126,13 +118,6 @@ export const RECORDING_QUALITY_PRESETS: Array<
 export interface RecordingHotkeys {
   /** Saves the full replay buffer (its length is `replayBufferSeconds`). */
   clip: string
-  bookmark: string
-  screenshot: string
-}
-
-export interface RecordingLongRecordingSettings {
-  /** Storage-heavy opt-in: automatically record every detected game session. */
-  autoRecordGames: boolean
 }
 
 export interface RecordingNotificationSoundSettings {
@@ -252,7 +237,7 @@ export interface RecordingGameGuess {
 export interface RecordingDisplay {
   /** OBS monitor id when available, otherwise a stable Electron display id. */
   id: string
-  /** Electron desktopCapturer display id, used for thumbnails/screenshots. */
+  /** Electron desktopCapturer display id, used for display previews. */
   electronId: string | null
   name: string
   width: number
@@ -266,7 +251,6 @@ export interface RecordingSettings {
   captureMode: RecordingCaptureMode
   /** OBS monitor id for desktop capture; empty string = backend default. */
   selectedDisplayId: string
-  longRecording: RecordingLongRecordingSettings
   /** Manual include overrides for games the automatic detector misses. */
   allowedGames: RecordingAllowedGame[]
   /** Manual exclude overrides for apps the automatic detector should ignore. */
@@ -320,7 +304,6 @@ export interface RecordingCapture {
   game: RecordingGame | null
   source: RecordingCaptureSource
   kind: RecordingCaptureKind
-  bookmarksMs: number[]
   postProcess: RecordingCapturePostProcess | null
   createdAt: IsoDateString
 }
@@ -336,7 +319,7 @@ export interface RecordingStorageInfo {
   clipsBytes: number
 }
 
-export type RecordingMode = "idle" | "recording" | "replay-buffer"
+export type RecordingMode = "idle" | "replay-buffer"
 export type RecordingBackendState = "missing" | "ready" | "error"
 
 export interface RecordingStatus {
@@ -346,7 +329,6 @@ export interface RecordingStatus {
   captureMode: RecordingCaptureMode
   runState: RecordingRunState
   replayActive: boolean
-  longRecordingActive: boolean
   activeGame: string | null
   activeGameDetail: RecordingGame | null
   activeDisplay: RecordingDisplay | null

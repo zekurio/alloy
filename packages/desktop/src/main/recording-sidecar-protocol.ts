@@ -19,7 +19,6 @@ export type SidecarMethod =
   | "listGameProcesses"
   | "listDisplays"
   | "saveReplayClip"
-  | "addBookmark"
   | "subscribeAudioLevels"
   | "stopAudioLevels"
   | "shutdown"

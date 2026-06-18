@@ -38,7 +38,6 @@ export interface CaptureManifestEntry {
   gameGuess?: RecordingGameGuess | null
   sizeBytes: number | null
   durationMs: number | null
-  bookmarksMs?: number[]
   width: number | null
   height: number | null
   createdAt: string

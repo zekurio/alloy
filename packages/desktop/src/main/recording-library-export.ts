@@ -34,9 +34,6 @@ export async function exportRecordingLibraryItem(
 ) {
   const item = findRecordingLibraryItem(request.id)
   if (!item) throw new Error("Capture not found.")
-  if (item.kind === "screenshot") {
-    throw new Error("Screenshots cannot be uploaded as clips yet.")
-  }
 
   const sourceDurationMs = item.durationMs
   if (!sourceDurationMs || sourceDurationMs <= 0) {

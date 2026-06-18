@@ -1,7 +1,6 @@
 import type {
   AlloyDesktopUpdatesApi,
   RecordingActionResult,
-  RecordingActionRequest,
   RecordingDisplay,
   RecordingEvent,
   RecordingGameProcess,
@@ -139,10 +138,6 @@ export interface AlloyDesktopRecordingApi {
   /** Stops audio-level events without waiting for the subscription to expire. */
   stopAudioLevels(): Promise<void>
   saveReplayClip(request: SaveReplayClipRequest): Promise<RecordingActionResult>
-  addBookmark(request: RecordingActionRequest): Promise<RecordingActionResult>
-  takeScreenshot(
-    request: RecordingActionRequest,
-  ): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
 }
 

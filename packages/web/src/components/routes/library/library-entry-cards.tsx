@@ -21,10 +21,10 @@ export function LibraryCaptureCard({
 }) {
   const thumbnail = useCapturePoster({
     id: item.id,
-    mediaUrl: item.kind === "screenshot" ? null : item.mediaUrl,
+    mediaUrl: item.mediaUrl,
     thumbnailUrl: item.thumbnailUrl,
     durationMs: item.durationMs,
-    enabled: item.kind !== "screenshot",
+    enabled: true,
   })
   const source: LibrarySource = "local"
   const renderGameLink = useClipCardGameLink(item.gameSteamGridDBId)
@@ -46,7 +46,7 @@ export function LibraryCaptureCard({
       thumbnail={thumbnail ?? undefined}
       thumbnailBlurHash={item.thumbBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
-      streamUrl={item.kind === "screenshot" ? undefined : item.mediaUrl}
+      streamUrl={item.mediaUrl}
       thumbnailLabel={`Edit ${item.title}`}
       onThumbnailClick={onOpen}
       metaContent={

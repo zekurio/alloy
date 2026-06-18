@@ -189,6 +189,7 @@ unsafe fn configure_video_encoder(
 fn choose_video_encoder(
     settings: &RecordingSettings,
     available: &[ObsEncoderDescriptor],
+    selected_gpu_label: Option<&str>,
 ) -> Option<(String, RecordingCodec)> {
     let mut codecs = vec![settings.codec.clone()];
     for fallback in [RecordingCodec::Hevc, RecordingCodec::H264] {
@@ -197,7 +198,7 @@ fn choose_video_encoder(
         }
     }
     codecs.into_iter().find_map(|codec| {
-        video_encoder_candidates(&settings.encoder, &codec, available)
+        video_encoder_candidates(&settings.encoder, &codec, available, selected_gpu_label)
             .into_iter()
             .next()
             .map(|candidate| (candidate.id.clone(), codec))
@@ -208,6 +209,7 @@ fn available_video_codecs(
     obs: &LibObs,
     settings: &RecordingSettings,
     available: &[ObsEncoderDescriptor],
+    selected_gpu_label: Option<&str>,
 ) -> Vec<RecordingCodec> {
     [
         RecordingCodec::H264,
@@ -215,7 +217,10 @@ fn available_video_codecs(
         RecordingCodec::Av1,
     ]
     .into_iter()
-    .filter(|codec| can_create_video_codec(obs, settings, available, codec))
+    .filter(|codec| {
+        codec_allowed_for_gpu_label(codec, selected_gpu_label)
+            && can_create_video_codec(obs, settings, available, codec, selected_gpu_label)
+    })
     .collect()
 }
 
@@ -224,8 +229,14 @@ fn can_create_video_codec(
     settings: &RecordingSettings,
     available: &[ObsEncoderDescriptor],
     codec: &RecordingCodec,
+    selected_gpu_label: Option<&str>,
 ) -> bool {
-    let candidates = video_encoder_candidates(&settings.encoder, codec, available);
+    let candidates = video_encoder_candidates(
+        &settings.encoder,
+        codec,
+        available,
+        selected_gpu_label,
+    );
     if candidates.is_empty() {
         return false;
     }
@@ -258,11 +269,14 @@ fn video_encoder_candidates<'a>(
     encoder: &RecordingEncoder,
     codec: &RecordingCodec,
     available: &'a [ObsEncoderDescriptor],
+    selected_gpu_label: Option<&str>,
 ) -> Vec<&'a ObsEncoderDescriptor> {
     let mut candidates: Vec<_> = available
         .iter()
         .enumerate()
-        .filter(|(_, candidate)| video_encoder_matches(candidate, encoder, codec))
+        .filter(|(_, candidate)| {
+            video_encoder_matches(candidate, encoder, codec, selected_gpu_label)
+        })
         .collect();
     candidates.sort_by_key(|(index, candidate)| (video_encoder_priority(candidate), *index));
     candidates
@@ -275,8 +289,13 @@ fn video_encoder_matches(
     encoder: &ObsEncoderDescriptor,
     target: &RecordingEncoder,
     codec: &RecordingCodec,
+    selected_gpu_label: Option<&str>,
 ) -> bool {
     if encoder.kind != ObsEncoderKind::Video || encoder.is_internal_or_deprecated() {
+        return false;
+    }
+
+    if !codec_allowed_for_gpu_label(codec, selected_gpu_label) {
         return false;
     }
 
@@ -291,6 +310,95 @@ fn video_encoder_matches(
         RecordingEncoder::Software => is_software_h264_encoder(encoder),
         RecordingEncoder::Hardware => !is_software_video_encoder(encoder),
     }
+}
+
+fn codec_allowed_for_gpu_label(codec: &RecordingCodec, selected_gpu_label: Option<&str>) -> bool {
+    if codec != &RecordingCodec::Av1 {
+        return true;
+    }
+
+    selected_gpu_label.is_none_or(|label| !amd_gpu_label_lacks_av1_encode(label))
+}
+
+fn selected_gpu_label<'a>(
+    settings: &'a RecordingSettings,
+    available_gpus: &'a [String],
+) -> Option<&'a str> {
+    if settings.gpu == "auto" {
+        return available_gpus
+            .first()
+            .and_then(|gpu| gpu_setting_label(gpu));
+    }
+
+    gpu_setting_label(&settings.gpu).or_else(|| {
+        let adapter = usize::try_from(gpu_adapter(settings)).ok()?;
+        available_gpus
+            .get(adapter)
+            .and_then(|gpu| gpu_setting_label(gpu))
+    })
+}
+
+fn gpu_setting_label(value: &str) -> Option<&str> {
+    let mut parts = value.splitn(3, ':');
+    (parts.next() == Some("adapter")).then_some(())?;
+    parts.next()?;
+    parts.next().map(str::trim).filter(|label| !label.is_empty())
+}
+
+fn amd_gpu_label_lacks_av1_encode(label: &str) -> bool {
+    let normalized = label.to_ascii_lowercase();
+    if !normalized.contains("amd") && !normalized.contains("radeon") {
+        return false;
+    }
+
+    amd_radeon_rx_model(&normalized).is_some_and(|model| model < 7000)
+        || amd_radeon_pro_w_model(&normalized).is_some_and(|model| model < 7000)
+}
+
+fn amd_radeon_rx_model(label: &str) -> Option<u32> {
+    parse_model_after_token(label, "rx")
+}
+
+fn amd_radeon_pro_w_model(label: &str) -> Option<u32> {
+    parse_model_after_token(label, "w")
+}
+
+fn parse_model_after_token(label: &str, token: &str) -> Option<u32> {
+    let normalized = normalize_gpu_label_tokens(label);
+    let mut previous = "";
+    for part in normalized.split_whitespace() {
+        if previous == token {
+            if let Some(model) = leading_u32(part) {
+                return Some(model);
+            }
+        }
+
+        if let Some(rest) = part.strip_prefix(token) {
+            if let Some(model) = leading_u32(rest) {
+                return Some(model);
+            }
+        }
+
+        previous = part;
+    }
+    None
+}
+
+fn normalize_gpu_label_tokens(label: &str) -> String {
+    label
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { ' ' })
+        .collect()
+}
+
+fn leading_u32(value: &str) -> Option<u32> {
+    let digits: String = value
+        .chars()
+        .take_while(|ch| ch.is_ascii_digit())
+        .collect();
+    (!digits.is_empty())
+        .then(|| digits.parse::<u32>().ok())
+        .flatten()
 }
 
 fn video_encoder_priority(encoder: &ObsEncoderDescriptor) -> u8 {
@@ -398,6 +506,7 @@ mod obs_encoder_policy_tests {
             &RecordingEncoder::Hardware,
             &RecordingCodec::H264,
             &encoders,
+            None,
         );
 
         assert_eq!(
@@ -418,6 +527,7 @@ mod obs_encoder_policy_tests {
             &RecordingEncoder::Software,
             &RecordingCodec::H264,
             &encoders,
+            None,
         );
 
         assert_eq!(candidates.len(), 1);
@@ -440,10 +550,63 @@ mod obs_encoder_policy_tests {
             &RecordingEncoder::Hardware,
             &RecordingCodec::H264,
             &encoders,
+            None,
         );
 
         assert_eq!(candidates.len(), 1);
         assert_eq!(candidates[0].id, "current_h264");
+    }
+
+    #[test]
+    fn amd_rx_6000_should_not_be_an_av1_candidate() {
+        let encoders = vec![encoder(
+            "av1_texture_amf",
+            ObsEncoderKind::Video,
+            "av1",
+            OBS_ENCODER_CAP_PASS_TEXTURE,
+        )];
+
+        let candidates = video_encoder_candidates(
+            &RecordingEncoder::Hardware,
+            &RecordingCodec::Av1,
+            &encoders,
+            Some("AMD Radeon RX 6800"),
+        );
+
+        assert!(candidates.is_empty());
+    }
+
+    #[test]
+    fn amd_rx_7000_should_remain_an_av1_candidate() {
+        let encoders = vec![encoder(
+            "av1_texture_amf",
+            ObsEncoderKind::Video,
+            "av1",
+            OBS_ENCODER_CAP_PASS_TEXTURE,
+        )];
+
+        let candidates = video_encoder_candidates(
+            &RecordingEncoder::Hardware,
+            &RecordingCodec::Av1,
+            &encoders,
+            Some("AMD Radeon RX 7900 XTX"),
+        );
+
+        assert_eq!(
+            candidates.first().map(|encoder| encoder.id.as_str()),
+            Some("av1_texture_amf"),
+        );
+    }
+
+    #[test]
+    fn selected_gpu_label_should_use_first_adapter_for_auto() {
+        let settings = RecordingSettings::default();
+        let gpus = vec!["adapter:0:AMD Radeon RX 6800".to_string()];
+
+        assert_eq!(
+            selected_gpu_label(&settings, &gpus),
+            Some("AMD Radeon RX 6800"),
+        );
     }
 }
 

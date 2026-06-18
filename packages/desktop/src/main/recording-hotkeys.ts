@@ -3,21 +3,16 @@ import { createLogger } from "@alloy/logging"
 import { app, globalShortcut } from "electron"
 
 import {
-  addRecordingBookmark,
   cancelReplaySaveRequestedSoundSuppression,
   playReplaySaveRequestedSound,
   saveReplayClip,
-  takeRecordingScreenshot,
 } from "./recording"
 import { electronAccelerator } from "./recording-hotkey-accelerator"
 import { getRecordingSettings } from "./server-store"
 
 const logger = createLogger("hotkeys")
 
-type HotkeyAction =
-  | { type: "clip"; durationSeconds: number }
-  | { type: "bookmark" }
-  | { type: "screenshot" }
+type HotkeyAction = { type: "clip"; durationSeconds: number }
 
 const HOTKEY_HEALTH_INTERVAL_MS = 30_000
 const HOTKEY_ACTION_DEBOUNCE_MS = 700
@@ -123,20 +118,6 @@ async function runAction(
       }
       return
     }
-    case "bookmark": {
-      const result = await addRecordingBookmark({ requestedAtUnixMs })
-      if (!result.ok) {
-        logger.warn(`recording bookmark hotkey failed: ${result.error}`)
-      }
-      return
-    }
-    case "screenshot": {
-      const result = await takeRecordingScreenshot({ requestedAtUnixMs })
-      if (!result.ok) {
-        logger.warn(`recording screenshot hotkey failed: ${result.error}`)
-      }
-      return
-    }
   }
 }
 
@@ -176,16 +157,12 @@ function hotkeyActionMap(
     type: "clip",
     durationSeconds: settings.replayBufferSeconds,
   })
-  add(settings.hotkeys.bookmark, { type: "bookmark" })
-  add(settings.hotkeys.screenshot, { type: "screenshot" })
 
   return actions
 }
 
 function actionKey(accelerator: string, action: HotkeyAction): string {
-  return action.type === "clip"
-    ? `${accelerator}:clip:${action.durationSeconds}`
-    : `${accelerator}:${action.type}`
+  return `${accelerator}:clip:${action.durationSeconds}`
 }
 
 function startHotkeyHealthCheck(): void {

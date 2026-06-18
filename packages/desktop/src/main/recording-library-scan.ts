@@ -1,4 +1,3 @@
-import { resolve } from "node:path"
 import { Worker } from "node:worker_threads"
 
 import { createLogger } from "@alloy/logging"
@@ -9,7 +8,7 @@ import type {
 } from "@/shared/ipc"
 
 import { cachedAssetUrl } from "./asset-cache"
-import { readCaptureManifest, manifestKey } from "./recording-library-manifest"
+import { readCaptureManifest } from "./recording-library-manifest"
 import {
   createRecordingLibrarySnapshot,
   findRecordingLibraryItemInScan,
@@ -17,11 +16,7 @@ import {
   type RecordingLibraryScanWorkerRequest,
   type RecordingLibraryScanWorkerResponse,
 } from "./recording-library-scan-core"
-import { getLastRecordingStatus } from "./recording-status-state"
-import {
-  currentOutputFolder,
-  defaultScreenshotFolder,
-} from "./recording-storage"
+import { currentOutputFolder } from "./recording-storage"
 import { getThumbnailBlurHashes } from "./recording-thumbnail-meta"
 
 const logger = createLogger("library")
@@ -55,6 +50,10 @@ export function getRecordingLibrarySnapshot(): Promise<RecordingLibrarySnapshot>
 
   pendingSnapshot = task
   return task
+}
+
+export function invalidateRecordingLibrarySnapshot(): void {
+  pendingSnapshot = null
 }
 
 export function findRecordingLibraryItem(
@@ -185,25 +184,10 @@ function isScanWorkerResponse(
 function recordingLibraryScanInput(): RecordingLibraryScanInput {
   return {
     outputFolder: currentOutputFolder(),
-    screenshotFolder: defaultScreenshotFolder(),
     manifest: readCaptureManifest(),
-    hiddenFileKeys: activeLongRecordingFileKeys(),
+    hiddenFileKeys: [],
     thumbnailBlurHashes: getThumbnailBlurHashes(),
   }
-}
-
-function activeLongRecordingFileKeys(): string[] {
-  const status = getLastRecordingStatus()
-  const capture = status?.currentCapture
-  if (
-    status?.backend !== "ready" ||
-    status?.longRecordingActive !== true ||
-    capture?.kind !== "long-recording"
-  ) {
-    return []
-  }
-
-  return [manifestKey(resolve(capture.filename))]
 }
 
 function withCachedAssetUrls(

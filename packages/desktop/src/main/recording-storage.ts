@@ -16,10 +16,6 @@ export function defaultOutputFolder(): string {
   return join(app.getPath("videos"), "Alloy")
 }
 
-export function defaultScreenshotFolder(): string {
-  return join(app.getPath("pictures"), "Alloy")
-}
-
 export function defaultReplayScratchFolder(): string {
   return join(app.getPath("temp"), "Alloy", "replay-buffer")
 }
@@ -40,18 +36,16 @@ export async function getRecordingStorageInfo(): Promise<RecordingStorageInfo> {
 }
 
 export function resolveRevealableCapturePath(filename: string): string | null {
-  if (!/\.(mp4|mkv|mov|webm|png|jpe?g|webp)$/i.test(filename)) return null
+  if (!/\.(mp4|mkv|mov|webm)$/i.test(filename)) return null
 
   const capturePath = resolve(filename)
-  for (const root of [currentOutputFolder(), defaultScreenshotFolder()]) {
-    const relativePath = relative(resolve(root), capturePath)
-    if (
-      relativePath.length > 0 &&
-      !relativePath.startsWith("..") &&
-      !isAbsolute(relativePath)
-    ) {
-      return capturePath
-    }
+  const relativePath = relative(resolve(currentOutputFolder()), capturePath)
+  if (
+    relativePath.length > 0 &&
+    !relativePath.startsWith("..") &&
+    !isAbsolute(relativePath)
+  ) {
+    return capturePath
   }
   return null
 }

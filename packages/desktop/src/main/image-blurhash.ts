@@ -8,7 +8,7 @@ const MAX_SAMPLE_DIMENSION = 128
 
 /**
  * Computes the BlurHash of a local image file (capture thumbnails and
- * screenshots). Decoding goes through Electron's `nativeImage`, so no external
+ * posters). Decoding goes through Electron's `nativeImage`, so no external
  * binary is needed; the image is downscaled before encoding because BlurHash
  * quality saturates well below 128px.
  *

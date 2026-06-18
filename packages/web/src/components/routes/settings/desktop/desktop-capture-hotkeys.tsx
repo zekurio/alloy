@@ -31,38 +31,6 @@ export function HotkeysSection({
           }
         />
       </SettingRow>
-      <SettingRow
-        title="Bookmark"
-        description="Adds a marker to the current full-session capture."
-      >
-        <HotkeyInput
-          value={settings.hotkeys.bookmark}
-          disabled={busy}
-          ariaLabel="Bookmark shortcut"
-          onChange={(bookmark) =>
-            void save({
-              ...settings,
-              hotkeys: { ...settings.hotkeys, bookmark },
-            })
-          }
-        />
-      </SettingRow>
-      <SettingRow
-        title="Screenshot"
-        description="Captures the current capture source."
-      >
-        <HotkeyInput
-          value={settings.hotkeys.screenshot}
-          disabled={busy}
-          ariaLabel="Screenshot shortcut"
-          onChange={(screenshot) =>
-            void save({
-              ...settings,
-              hotkeys: { ...settings.hotkeys, screenshot },
-            })
-          }
-        />
-      </SettingRow>
     </Subsection>
   )
 }

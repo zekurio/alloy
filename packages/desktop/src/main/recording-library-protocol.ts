@@ -11,10 +11,7 @@ import {
   MEDIA_PROTOCOL,
   THUMBNAIL_HOST,
 } from "./recording-library-shared"
-import {
-  cachedRecordingThumbnail,
-  ensureCaptureBlurHash,
-} from "./recording-library-thumbnails"
+import { cachedRecordingThumbnail } from "./recording-library-thumbnails"
 import { mainSession } from "./session"
 
 export function recordingLibraryProtocolScheme(): Electron.CustomScheme {
@@ -78,9 +75,6 @@ export function registerRecordingLibraryProtocol(): void {
       return rangedFileResponse(thumbnail, request)
     }
 
-    // Screenshots are their own thumbnail, so the first media request is the
-    // natural point to derive their BlurHash.
-    if (item.kind === "screenshot") void ensureCaptureBlurHash(item)
     return rangedFileResponse(item.filename, request)
   })
 }
@@ -91,10 +85,6 @@ const CAPTURE_CONTENT_TYPES: Record<string, string> = {
   ".mkv": "video/x-matroska",
   ".mov": "video/quicktime",
   ".webm": "video/webm",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
 }
 
 /**
