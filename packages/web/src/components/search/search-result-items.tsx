@@ -1,5 +1,5 @@
 import { type ClipRow, clipThumbnailUrl, type GameListRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -15,10 +15,14 @@ import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
 import { clipGameLabel } from "@/lib/clip-format"
+import { formatRelativeTime } from "@/lib/date-format"
 import { apiOrigin } from "@/lib/env"
+import { formatMediaDurationMs } from "@/lib/media-time"
 import { formatCount } from "@/lib/number-format"
 import type { UserListRow } from "@/lib/search-api"
 import { userChipData } from "@/lib/user-display"
+
+import type { LibraryItemView } from "../routes/library/library-data"
 
 export function GroupLabel({
   icon,
@@ -123,8 +127,70 @@ export function ClipRowItem({
           <span>{label}</span>
           <span>@{row.authorUsername}</span>
           <span>
-            {formatCount(row.viewCount)} {tx("views")}
+            {formatCount(row.viewCount)} {tp(row.viewCount, "view", "views")}
           </span>
+        </div>
+      </div>
+    </RowButton>
+  )
+}
+
+export function LocalClipRowItem({
+  id,
+  row,
+  active,
+  onHover,
+  onSelect,
+}: {
+  id: string
+  row: LibraryItemView
+  active: boolean
+  onHover: () => void
+  onSelect: () => void
+}) {
+  const label = row.displayGameName || row.groupLabel || tx("Local capture")
+  const details = [
+    label,
+    row.durationMs && row.durationMs > 0
+      ? formatMediaDurationMs(row.durationMs)
+      : null,
+    formatRelativeTime(row.createdAt),
+  ].filter((value): value is string => Boolean(value))
+
+  return (
+    <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
+      <div
+        className={cn(
+          CLIP_MEDIA_VIEWPORT_CLASS,
+          "w-16 shrink-0 rounded-sm bg-surface-sunken",
+        )}
+      >
+        <MediaPlaceholder
+          seed={row.displayGameName || row.groupLabel || row.id}
+          blurHash={row.thumbBlurHash}
+        />
+        {row.thumbnailUrl ? (
+          <img
+            src={row.thumbnailUrl}
+            alt=""
+            loading="lazy"
+            className={CLIP_MEDIA_CLASS}
+          />
+        ) : null}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div
+          className={cn(
+            "truncate text-sm font-medium",
+            active ? "text-accent" : "text-foreground",
+          )}
+        >
+          {row.title}
+        </div>
+        <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
+          {details.map((detail, index) => (
+            <span key={`${detail}:${index}`}>{detail}</span>
+          ))}
         </div>
       </div>
     </RowButton>
@@ -170,8 +236,7 @@ export function GameRowItem({
           {row.name}
         </div>
         <div className="text-foreground-muted truncate text-xs font-semibold">
-          {formatCount(row.clipCount)}{" "}
-          {row.clipCount === 1 ? tx("clip") : tx("clips")}
+          {formatCount(row.clipCount)} {tp(row.clipCount, "clip", "clips")}
         </div>
       </div>
     </RowButton>
@@ -218,8 +283,7 @@ export function UserRowItem({
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
           <span>@{handle}</span>
           <span>
-            {formatCount(row.clipCount)}{" "}
-            {row.clipCount === 1 ? tx("clip") : tx("clips")}
+            {formatCount(row.clipCount)} {tp(row.clipCount, "clip", "clips")}
           </span>
         </div>
       </div>

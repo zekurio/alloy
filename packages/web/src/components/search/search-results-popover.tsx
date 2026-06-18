@@ -4,20 +4,34 @@ import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { cn } from "@alloy/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
-import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
+import {
+  FilmIcon,
+  GamepadIcon,
+  MonitorIcon,
+  SearchIcon,
+  UserIcon,
+} from "lucide-react"
 import * as React from "react"
 
+import {
+  useLibraryGameLookup,
+  useLibrarySnapshot,
+  type LibraryItemView,
+} from "@/components/routes/library/library-data"
 import type { AppSearch } from "@/lib/app-search"
+import { alloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 import { type UserListRow, useSearchQuery } from "@/lib/search-api"
 
 import { useAppSearch } from "./app-search"
+import { searchLocalClips } from "./local-clip-search"
 import { quote } from "./search-format"
 import {
   ClipRowItem,
   EmptyBlock,
   GameRowItem,
   GroupLabel,
+  LocalClipRowItem,
   SearchLoadingBar,
   SearchResultsSkeleton,
   UserRowItem,
@@ -26,6 +40,7 @@ import {
 type FlatItem =
   | { kind: "game"; id: string; optionId: string; row: GameListRow }
   | { kind: "user"; id: string; optionId: string; row: UserListRow }
+  | { kind: "local-clip"; id: string; optionId: string; row: LibraryItemView }
   | { kind: "clip"; id: string; optionId: string; row: ClipRow }
 
 function resultOptionId(listboxId: string, id: string): string {
@@ -66,6 +81,18 @@ function useSearchPopoverState(
               },
             }
           : {}),
+      })
+    },
+    [clear, closePopover, navigate],
+  )
+
+  const commitLocalClip = React.useCallback(
+    (row: LibraryItemView) => {
+      closePopover()
+      clear()
+      void navigate({
+        to: "/library/$captureId",
+        params: { captureId: row.id },
       })
     },
     [clear, closePopover, navigate],
@@ -121,11 +148,20 @@ function useSearchPopoverState(
         if (!item) return
         event.preventDefault()
         if (item.kind === "clip") commitClip(item.row)
+        else if (item.kind === "local-clip") commitLocalClip(item.row)
         else if (item.kind === "game") commitGame(item.row)
         else commitUser(item.row)
       }
     },
-    [flat, activeIndex, clear, commitClip, commitGame, commitUser],
+    [
+      flat,
+      activeIndex,
+      clear,
+      commitClip,
+      commitGame,
+      commitLocalClip,
+      commitUser,
+    ],
   )
 
   // Window-scoped so ↓/↑/Esc work even when focus is still in the input.
@@ -150,6 +186,7 @@ function useSearchPopoverState(
     activeIndex,
     setActiveIndex,
     commitClip,
+    commitLocalClip,
     commitGame,
     commitUser,
     rootRef,
@@ -158,31 +195,63 @@ function useSearchPopoverState(
 
 function useFlatSearchResults(
   data: ReturnType<typeof useSearchQuery>["data"],
+  localClips: LibraryItemView[],
   listboxId: string,
 ): FlatItem[] {
   return React.useMemo<FlatItem[]>(() => {
-    if (!data) return []
     return [
-      ...data.games.map<FlatItem>((row) => ({
+      ...(data?.games ?? []).map<FlatItem>((row) => ({
         kind: "game",
         id: `game:${row.id}`,
         optionId: resultOptionId(listboxId, `game:${row.id}`),
         row,
       })),
-      ...data.users.map<FlatItem>((row) => ({
+      ...(data?.users ?? []).map<FlatItem>((row) => ({
         kind: "user",
         id: `user:${row.id}`,
         optionId: resultOptionId(listboxId, `user:${row.id}`),
         row,
       })),
-      ...data.clips.map<FlatItem>((row) => ({
+      ...localClips.map<FlatItem>((row) => ({
+        kind: "local-clip",
+        id: `local-clip:${row.id}`,
+        optionId: resultOptionId(listboxId, `local-clip:${row.id}`),
+        row,
+      })),
+      ...(data?.clips ?? []).map<FlatItem>((row) => ({
         kind: "clip",
         id: `clip:${row.id}`,
         optionId: resultOptionId(listboxId, `clip:${row.id}`),
         row,
       })),
     ]
-  }, [data, listboxId])
+  }, [data, localClips, listboxId])
+}
+
+function useLocalClipSearch(
+  query: string,
+  {
+    enabled,
+    limit,
+  }: {
+    enabled: boolean
+    limit: number
+  },
+) {
+  const desktop = enabled ? alloyDesktop() : null
+  const { snapshot, refreshing } = useLibrarySnapshot(desktop, {
+    toastErrors: false,
+  })
+  const gamesByName = useLibraryGameLookup(snapshot)
+  const localClips = React.useMemo(
+    () => searchLocalClips({ snapshot, gamesByName, query, limit }),
+    [snapshot, gamesByName, query, limit],
+  )
+
+  return {
+    clips: localClips,
+    pending: enabled && desktop !== null && !snapshot && refreshing,
+  }
 }
 
 function useSearchInputA11y(
@@ -231,13 +300,18 @@ export function SearchResultsPopover() {
   const { data, isFetching, error } = useSearchQuery(deferredQuery, {
     enabled: open && deferredQuery.length > 0,
   })
+  const local = useLocalClipSearch(deferredQuery, {
+    enabled: open && deferredQuery.length > 0,
+    limit: 8,
+  })
 
-  const flat = useFlatSearchResults(data, listboxId)
+  const flat = useFlatSearchResults(data, local.clips, listboxId)
 
   const {
     activeIndex,
     setActiveIndex,
     commitClip,
+    commitLocalClip,
     commitGame,
     commitUser,
     rootRef,
@@ -251,7 +325,7 @@ export function SearchResultsPopover() {
   // reached `deferredQuery` yet) and an in-flight request for the settled
   // query. Treating the gap as pending stops the popover flashing "No matches"
   // before the search has even started.
-  const pending = isFetching || trimmedQuery !== deferredQuery
+  const pending = isFetching || local.pending || trimmedQuery !== deferredQuery
 
   useSearchInputA11y(bridgeRef, showPopover, listboxId, activeOptionId)
 
@@ -287,6 +361,7 @@ export function SearchResultsPopover() {
             activeIndex={activeIndex}
             onHover={setActiveIndex}
             onCommitClip={commitClip}
+            onCommitLocalClip={commitLocalClip}
             onCommitGame={commitGame}
             onCommitUser={commitUser}
           />
@@ -304,6 +379,7 @@ type SearchResultsBodyProps = {
   activeIndex: number
   onHover: (index: number) => void
   onCommitClip: (row: ClipRow) => void
+  onCommitLocalClip: (row: LibraryItemView) => void
   onCommitGame: (row: GameListRow) => void
   onCommitUser: (row: UserListRow) => void
 }
@@ -316,6 +392,7 @@ function SearchResultsBody({
   activeIndex,
   onHover,
   onCommitClip,
+  onCommitLocalClip,
   onCommitGame,
   onCommitUser,
 }: SearchResultsBodyProps) {
@@ -341,7 +418,7 @@ function SearchResultsBody({
         icon={<SearchIcon />}
         title={tx("No matches")}
         hint={tx(
-          "Nothing found for {query}. Try a different title, game, or creator.",
+          "Nothing found for {query}. Try a different title, game, file, or creator.",
           { query: quote(query) },
         )}
       />
@@ -354,11 +431,16 @@ function SearchResultsBody({
   const users = flat.filter(
     (i): i is Extract<FlatItem, { kind: "user" }> => i.kind === "user",
   )
+  const localClips = flat.filter(
+    (i): i is Extract<FlatItem, { kind: "local-clip" }> =>
+      i.kind === "local-clip",
+  )
   const clips = flat.filter(
     (i): i is Extract<FlatItem, { kind: "clip" }> => i.kind === "clip",
   )
   const firstUserIndex = games.length
-  const firstClipIndex = games.length + users.length
+  const firstLocalClipIndex = games.length + users.length
+  const firstClipIndex = firstLocalClipIndex + localClips.length
 
   return (
     <div
@@ -403,6 +485,27 @@ function SearchResultsBody({
                     active={activeIndex === globalIdx}
                     onHover={() => onHover(globalIdx)}
                     onSelect={() => onCommitUser(item.row)}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+      {localClips.length > 0 ? (
+        <section>
+          <GroupLabel icon={<MonitorIcon />}>{tx("Local clips")}</GroupLabel>
+          <ul>
+            {localClips.map((item, localIdx) => {
+              const globalIdx = firstLocalClipIndex + localIdx
+              return (
+                <li key={item.id}>
+                  <LocalClipRowItem
+                    id={item.optionId}
+                    row={item.row}
+                    active={activeIndex === globalIdx}
+                    onHover={() => onHover(globalIdx)}
+                    onSelect={() => onCommitLocalClip(item.row)}
                   />
                 </li>
               )
