@@ -761,7 +761,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Refresh processes": "Prozesse aktualisieren",
   Register: "Registrieren",
   "Release builds": "Release-Builds",
-  Released: "Freigegeben",
+  Released: "Veröffentlichung",
   Remove: "Entfernen",
   "Remove {label}": "{label} entfernen",
   "Remove {name}": "{name} entfernen",

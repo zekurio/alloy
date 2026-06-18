@@ -14,11 +14,6 @@ type GameFavoriteButtonProps = {
   className?: string
 }
 
-/**
- * Labeled star toggle, the game-page analog of the profile Follow button. The
- * favourites count lives in the identity stat row, so this carries only the
- * action — keeping it from reading as a stranded number at the card edge.
- */
 export function GameFavoriteButton({
   gameId,
   viewer,
@@ -33,13 +28,13 @@ export function GameFavoriteButton({
       <Button
         type="button"
         variant="ghost"
-        size="sm"
+        size="icon"
         aria-label={tx("Star")}
+        title={tx("Star")}
         disabled
         className={className}
       >
         <StarIcon />
-        {tx("Star")}
       </Button>
     )
   }
@@ -49,7 +44,7 @@ export function GameFavoriteButton({
       <Button
         type="button"
         variant="primary"
-        size="sm"
+        size="icon"
         aria-label={tx("Sign in to star")}
         title={tx("Sign in to star")}
         className={className}
@@ -58,17 +53,20 @@ export function GameFavoriteButton({
         }}
       >
         <StarIcon />
-        {tx("Star")}
       </Button>
     )
   }
+
+  const label = isStarred ? tx("Starred") : tx("Star")
 
   return (
     <Button
       type="button"
       variant={isStarred ? "ghost" : "primary"}
-      size="sm"
+      size="icon"
       aria-pressed={isStarred}
+      aria-label={label}
+      title={label}
       className={className}
       onClick={() => {
         mutation.mutate(
@@ -83,7 +81,6 @@ export function GameFavoriteButton({
       disabled={mutation.isPending}
     >
       <StarIcon className={cn(isStarred && "fill-current")} />
-      {isStarred ? tx("Starred") : tx("Star")}
     </Button>
   )
 }

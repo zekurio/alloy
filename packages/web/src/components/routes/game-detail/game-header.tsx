@@ -113,8 +113,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
               <>
                 <HeroDot />
                 <span>
-                  {tx("Released")}
-                  {year}
+                  {tx("Released")} {year}
                 </span>
               </>
             ) : null}
