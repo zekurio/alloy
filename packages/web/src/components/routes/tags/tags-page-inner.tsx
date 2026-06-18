@@ -1,22 +1,24 @@
-import type { ClipFeedWindow, GameListRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import type { GameListRow } from "@alloy/api"
+import { t as tx, tp } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
-import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { Link, useSearch } from "@tanstack/react-router"
-import { HashIcon } from "lucide-react"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { GlobeIcon, HashIcon } from "lucide-react"
 import * as React from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import {
-  filterLabelClass,
+  FilterDropdown,
+  type FilterDropdownOption,
+} from "@/components/clip/filter-dropdown"
+import {
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
-import { FilterCarousel } from "@/components/filter-carousel"
+import { useHeaderToolbar } from "@/components/layout/header-toolbar"
 import { sanitizeTag } from "@/lib/clip-fields"
 import { formatCount } from "@/lib/number-format"
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -30,14 +32,6 @@ const SORTS: ReadonlyArray<SortDropdownOption<"top" | "recent">> = [
   { key: "recent", label: tx("Recent") },
 ]
 
-const WINDOWS: ReadonlyArray<SortDropdownOption<ClipFeedWindow>> = [
-  { key: "today", label: tx("Today") },
-  { key: "week", label: tx("Week") },
-  { key: "month", label: tx("Month") },
-  { key: "year", label: tx("Year") },
-  { key: "all", label: tx("All time") },
-]
-
 export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const session = useSuspenseSession()
   const viewerId = session?.user.id
@@ -45,13 +39,20 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const tag = sanitizeTag(rawTag)
   const filters = tagFilters(search)
   const { data: summary } = useTagSummaryQuery(tag)
+  const toolbarSearchKey = JSON.stringify(search)
+  const toolbarSearch = React.useMemo(() => search, [toolbarSearchKey])
+  const toolbar = React.useMemo(
+    () => (
+      <TagFilterBar tag={tag} search={toolbarSearch} games={summary?.games} />
+    ),
+    [summary?.games, tag, toolbarSearch],
+  )
+  useHeaderToolbar(toolbar)
 
   return (
     <AppMain className="!px-2 md:!px-8">
       <div className="flex w-full flex-col gap-5 py-3 md:gap-6 md:py-6">
         <TagHeader tag={tag} clipCount={summary?.clipCount} />
-
-        <TagFilterBar tag={tag} search={search} games={summary?.games} />
 
         <TagClipsSection tag={tag} filters={filters} viewerId={viewerId} />
       </div>
@@ -62,7 +63,7 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
 function clipCountLabel(count: number) {
   return tx("{count} {label}", {
     count: formatCount(count),
-    label: count === 1 ? tx("clip") : tx("clips"),
+    label: tp(count, "clip", "clips"),
   })
 }
 
@@ -101,11 +102,23 @@ function TagFilterBar({
   search: TagSearch
   games: GameListRow[] | undefined
 }) {
+  const navigate = useNavigate()
   const filters = tagFilters(search)
   const activeGameId = filters.steamgriddbId
+  const ALL_GAMES = "__all"
+
+  const gameOptions: FilterDropdownOption<string>[] = [
+    { key: ALL_GAMES, label: tx("All games"), icon: <GlobeIcon /> },
+    ...(games ?? []).map((g) => ({
+      key: String(g.steamgriddbId),
+      label: g.name,
+      icon: <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />,
+      count: g.clipCount,
+    })),
+  ]
 
   return (
-    <div className="border-border flex flex-col gap-3 border-y py-3 lg:flex-row lg:items-center lg:gap-4">
+    <div className="flex items-center gap-3">
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         <SortDropdown
           label={tx("Sort")}
@@ -124,73 +137,25 @@ function TagFilterBar({
             />
           )}
         />
-        <SortDropdown
-          label={tx("When")}
-          value={filters.window}
-          options={WINDOWS}
-          contentClassName="w-40"
-          renderOptionLink={(opt, active) => (
-            <Link
-              to="/tags/$tag"
-              params={{ tag }}
-              search={{
-                ...search,
-                window: opt.key === "all" ? undefined : opt.key,
-              }}
-              data-active={active ? "true" : undefined}
-            />
-          )}
-        />
       </div>
 
       {games && games.length > 0 ? (
-        <>
-          <span
-            aria-hidden
-            className="bg-border hidden h-5 w-px shrink-0 lg:block"
-          />
-          <div className="flex min-w-0 flex-1 items-center gap-1.5">
-            <span className={filterLabelClass}>{tx("Game")}</span>
-            <FilterCarousel className="min-w-0 flex-1">
-              <Chip
-                size="xl"
-                data-active={activeGameId === undefined ? "true" : undefined}
-                render={
-                  <Link
-                    to="/tags/$tag"
-                    params={{ tag }}
-                    search={{ ...search, game: undefined }}
-                  />
-                }
-              >
-                {tx("All games")}
-              </Chip>
-              {games.map((g) => (
-                <Chip
-                  key={g.id}
-                  size="xl"
-                  data-active={
-                    activeGameId === g.steamgriddbId ? "true" : undefined
-                  }
-                  title={g.name}
-                  render={
-                    <Link
-                      to="/tags/$tag"
-                      params={{ tag }}
-                      search={{ ...search, game: String(g.steamgriddbId) }}
-                    />
-                  }
-                >
-                  <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />
-                  <span className="max-w-[10rem] truncate">{g.name}</span>
-                  <span className="text-foreground-faint tabular-nums">
-                    {g.clipCount}
-                  </span>
-                </Chip>
-              ))}
-            </FilterCarousel>
-          </div>
-        </>
+        <FilterDropdown
+          label={tx("Game")}
+          value={activeGameId === undefined ? ALL_GAMES : String(activeGameId)}
+          options={gameOptions}
+          searchPlaceholder={tx("Search games…")}
+          onSelect={(key) => {
+            void navigate({
+              to: "/tags/$tag",
+              params: { tag },
+              search: {
+                ...search,
+                game: key === ALL_GAMES ? undefined : key,
+              },
+            })
+          }}
+        />
       ) : null}
     </div>
   )
@@ -239,7 +204,7 @@ function TagClipsSection({
         seed={`tag-${tag}-empty`}
         size="lg"
         title={tx("No clips tagged #{tag}", { tag })}
-        hint={tx("Try a different game or time window.")}
+        hint={tx("Try a different game.")}
       />
     )
   }

@@ -1,7 +1,4 @@
 import type {
-  ClipFeedWindow,
-  ClipRow,
-  GameClipsParams,
   GameDetail,
   GameListRow,
   GameNameLookupResponse,
@@ -34,11 +31,6 @@ export const gameKeys = {
     [...gameKeys.all, "lookup-by-name", names] as const,
   /** Per-game detail for the banner header on `/games/:gameId`. */
   detail: (gameId: string) => [...gameKeys.all, "detail", gameId] as const,
-  clips: (gameId: string, params: GameClipsParams) =>
-    [...gameKeys.all, "clips", gameId, params] as const,
-  /** Weighted top strip on the game detail page. */
-  topClips: (gameId: string, window: ClipFeedWindow, limit: number) =>
-    [...gameKeys.all, "topClips", gameId, { window, limit }] as const,
 }
 
 export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
@@ -135,29 +127,6 @@ function normaliseLookupNames(names: readonly string[]): readonly string[] {
     result.push(trimmed)
   }
   return result.sort((a, b) => a.localeCompare(b))
-}
-
-export function useGameClipsQuery(
-  gameId: string,
-  params: GameClipsParams = {},
-): UseQueryResult<ClipRow[]> {
-  return useQuery({
-    queryKey: gameKeys.clips(gameId, params),
-    queryFn: () => api.games.fetchClips(gameId, params),
-    enabled: gameId.length > 0,
-  })
-}
-
-export function useGameTopClipsQuery(
-  gameId: string,
-  window: ClipFeedWindow,
-  { limit = 5 }: { limit?: number } = {},
-): UseQueryResult<ClipRow[]> {
-  return useQuery({
-    queryKey: gameKeys.topClips(gameId, window, limit),
-    queryFn: () => api.games.fetchTopClips(gameId, { window, limit }),
-    enabled: gameId.length > 0,
-  })
 }
 
 export function useToggleGameFavoriteMutation() {

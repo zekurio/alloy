@@ -5,7 +5,7 @@ import { clipSelectShape } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
 import { invalidCursor, notFound } from "@alloy/server/runtime/http-response"
-import { and, eq, gte, isNull, type SQL, sql } from "drizzle-orm"
+import { and, eq, isNull, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -15,7 +15,6 @@ import {
   clipListPage,
   parseClipListCursor,
   publicClipPrivacyCondition,
-  WINDOW_MS,
 } from "./clips-helpers"
 import { serialiseGameListRow } from "./games-helpers"
 import { clipTagFilter } from "./tag-filter"
@@ -29,7 +28,6 @@ const TagSearchQuery = z.object({ q: z.string().min(1).max(64) })
 const TAG_SUGGESTION_LIMIT = 8
 
 const TagClipsQuery = z.object({
-  window: z.enum(["today", "week", "month", "year", "all"]).optional(),
   sort: z.enum(["top", "recent"]).default("top"),
   steamgriddbId: z.coerce.number().int().positive().optional(),
   limit: limitQueryParam(100, 50),
@@ -81,8 +79,7 @@ export const tagsRoute = new Hono()
     async (c) => {
       const tag = sanitizeTag(c.req.valid("param").tag)
       if (!tag) return notFound(c)
-      const { window, sort, steamgriddbId, cursor, limit } =
-        c.req.valid("query")
+      const { sort, steamgriddbId, cursor, limit } = c.req.valid("query")
 
       const parsedCursor = parseClipListCursor(cursor, sort)
       if (cursor && !parsedCursor) return invalidCursor(c)
@@ -90,11 +87,6 @@ export const tagsRoute = new Hono()
       const conditions = publicTagClipConditions(tag)
       if (steamgriddbId) {
         conditions.push(eq(clip.steamgriddbId, steamgriddbId))
-      }
-      if (window && window !== "all") {
-        conditions.push(
-          gte(clip.createdAt, new Date(Date.now() - WINDOW_MS[window])),
-        )
       }
       const cursorCondition = clipListCursorCondition(parsedCursor, sort)
       if (cursorCondition) conditions.push(cursorCondition)

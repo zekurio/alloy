@@ -121,22 +121,6 @@ async function getClips(
   return readJsonOrThrow(res, validateClipRows)
 }
 
-async function getTopClips(
-  context: ApiContext,
-  handle: string,
-  limit = 5,
-  init?: RequestInit,
-): Promise<UserClip[]> {
-  const res = await context.rpc.api.users[":username"]["top-clips"].$get(
-    {
-      param: usernameParam(handle),
-      query: { limit: String(limit) },
-    },
-    { init },
-  )
-  return readJsonOrThrow(res, validateClipRows)
-}
-
 async function getProfileGames(
   context: ApiContext,
   handle: string,
@@ -320,8 +304,6 @@ export function createUsersApi(context: ApiContext) {
       getProfileViewer(context, handle, init),
     fetchClips: (handle: string, init?: RequestInit) =>
       getClips(context, handle, init),
-    fetchTopClips: (handle: string, limit = 5, init?: RequestInit) =>
-      getTopClips(context, handle, limit, init),
     fetchProfileGames: (
       handle: string,
       params: { limit?: number; offset?: number } = {},

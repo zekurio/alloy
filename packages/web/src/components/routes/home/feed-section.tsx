@@ -1,4 +1,4 @@
-import type { ClipRow, FeedFilter } from "@alloy/api"
+import type { ClipFeedSort, ClipRow, FeedFilter } from "@alloy/api"
 import { t as tx } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Spinner } from "@alloy/ui/components/spinner"
@@ -13,6 +13,7 @@ import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type FeedSectionProps = {
   filter: FeedFilter
+  sort: ClipFeedSort
   viewerId: string | undefined
 }
 
@@ -20,10 +21,12 @@ const FEED_PAGE_LIMIT = 20
 
 function emptyTitle(filter: FeedFilter): string {
   switch (filter.kind) {
-    case "foryou":
-      return tx("Nothing to show yet")
+    case "all":
+      return tx("No public clips yet")
     case "following":
       return tx("Your following feed is empty")
+    case "recommended":
+      return tx("No recommendations yet")
     case "game":
       return tx("No clips in this game yet")
   }
@@ -31,10 +34,12 @@ function emptyTitle(filter: FeedFilter): string {
 
 function emptyHint(filter: FeedFilter): string {
   switch (filter.kind) {
-    case "foryou":
+    case "all":
       return tx("Come back when others have uploaded some clips.")
     case "following":
-      return tx("Follow creators or favourite games to populate this tab.")
+      return tx("Follow creators to populate this tab.")
+    case "recommended":
+      return tx("Star games to surface clips from them here.")
     case "game":
       return tx("Be the first to post one.")
   }
@@ -141,8 +146,8 @@ function FeedSectionBody({
   )
 }
 
-function useFeedSectionState(filter: FeedFilter) {
-  const feedId = filterId(filter)
+function useFeedSectionState(filter: FeedFilter, sort: ClipFeedSort) {
+  const feedId = `${filterId(filter)}:${sort}`
   const {
     data,
     error,
@@ -153,7 +158,7 @@ function useFeedSectionState(filter: FeedFilter) {
     isPlaceholderData,
     isPending,
     refetch,
-  } = useFeedInfiniteQuery(filter, { limit: FEED_PAGE_LIMIT })
+  } = useFeedInfiniteQuery(filter, sort, { limit: FEED_PAGE_LIMIT })
   useQueryErrorToast(error, {
     title: tx("Couldn't load feed"),
     // Keying the toast on filter avoids stacked toasts when tabs switch.
@@ -192,8 +197,8 @@ function useFeedSectionState(filter: FeedFilter) {
   }
 }
 
-export function FeedSection({ filter, viewerId }: FeedSectionProps) {
-  const state = useFeedSectionState(filter)
+export function FeedSection({ filter, sort, viewerId }: FeedSectionProps) {
+  const state = useFeedSectionState(filter, sort)
 
   const sentinelRef = useInfiniteScrollSentinel(
     state.fetchNextPage,

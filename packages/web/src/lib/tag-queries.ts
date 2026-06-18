@@ -1,4 +1,4 @@
-import type { ClipFeedSort, ClipFeedWindow, TagClipsParams } from "@alloy/api"
+import type { ClipFeedSort, TagClipsParams } from "@alloy/api"
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -9,7 +9,6 @@ import { api } from "./api"
 
 type TagClipsFilters = {
   sort: ClipFeedSort
-  window: ClipFeedWindow
   steamgriddbId?: number
 }
 
@@ -33,7 +32,6 @@ export function useTagClipsInfiniteQuery(
     queryFn: ({ pageParam }) =>
       api.tags.fetchClipPage(tag, {
         sort: filters.sort,
-        window: filters.window,
         steamgriddbId: filters.steamgriddbId,
         limit: TAG_PAGE_LIMIT,
         cursor: pageParam,

@@ -3,10 +3,8 @@ import {
   SectionActions,
   SectionHead,
   SectionMeta,
-  SectionTitle,
 } from "@alloy/ui/components/section-head"
 import { createFileRoute } from "@tanstack/react-router"
-import { TagIcon } from "lucide-react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { headerCountLabel } from "@/lib/number-format"
@@ -35,19 +33,13 @@ function ProfileTaggedTab() {
 
   return (
     <section>
-      <SectionHead>
-        <div>
-          <SectionTitle>
-            <TagIcon className="text-accent" />
-            {tx("Tagged")}
-          </SectionTitle>
-        </div>
-        <SectionActions>
-          {clips ? (
+      {clips ? (
+        <SectionHead className="justify-end">
+          <SectionActions>
             <SectionMeta>{headerCountLabel(clips.length, "clip")}</SectionMeta>
-          ) : null}
-        </SectionActions>
-      </SectionHead>
+          </SectionActions>
+        </SectionHead>
+      ) : null}
 
       <ClipSectionContent
         rows={clips}

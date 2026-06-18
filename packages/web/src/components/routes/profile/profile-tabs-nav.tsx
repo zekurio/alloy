@@ -8,26 +8,17 @@ type ProfileTabsNavProps = {
   username: string
 }
 
-type TabSegment = "feed" | "all" | "liked" | "tagged"
+type TabSegment = "all" | "liked" | "tagged"
 type Tab = {
   segment: TabSegment
   label: string
-  to:
-    | "/u/$username/feed"
-    | "/u/$username/all"
-    | "/u/$username/liked"
-    | "/u/$username/tagged"
+  to: "/u/$username/all" | "/u/$username/liked" | "/u/$username/tagged"
 }
 
 const TABS: ReadonlyArray<Tab> = [
   {
-    segment: "feed",
-    label: tx("Home"),
-    to: "/u/$username/feed",
-  },
-  {
     segment: "all",
-    label: tx("Clips"),
+    label: tx("Uploads"),
     to: "/u/$username/all",
   },
   {
@@ -44,11 +35,11 @@ const TABS: ReadonlyArray<Tab> = [
 
 function activeProfileSegment(pathname: string, username: string): TabSegment {
   const parsed = parseProfilePathname(pathname)
-  if (!parsed || parsed.username !== username) return "feed"
+  if (!parsed || parsed.username !== username) return "all"
   const segment = parsed.segment
   return TABS.some((tab) => tab.segment === segment)
     ? (segment as TabSegment)
-    : "feed"
+    : "all"
 }
 
 export function ProfileTabsNav({ username }: ProfileTabsNavProps) {

@@ -21,7 +21,6 @@ async function fetchTagClipPage(
     param: { tag },
     query: queryParams({
       sort: params.sort,
-      window: params.window,
       steamgriddbId: params.steamgriddbId,
       limit: params.limit,
       cursor: params.cursor,

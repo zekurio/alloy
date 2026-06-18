@@ -1,20 +1,22 @@
-import type { ClipFeedWindow } from "@alloy/api"
+import type { ClipFeedSort } from "@alloy/api"
 
-import { parseClipFeedWindow } from "./clip-feed-windows"
+import { parseClipSort } from "./clip-sort"
 import { searchString } from "./route-search"
 
 export type HomeSearch = {
-  window?: ClipFeedWindow
-  feed?: "following"
+  sort?: ClipFeedSort
+  feed?: "following" | "recommended"
   game?: string
 }
 
 export function parseHomeSearch(search: Record<string, unknown>): HomeSearch {
-  const window = parseClipFeedWindow(search.window)
+  const sort = parseClipSort(search.sort)
   const game = searchString(search.game)
   return {
-    ...(window ? { window: window as ClipFeedWindow } : {}),
-    ...(search.feed === "following" ? { feed: "following" as const } : {}),
+    ...(sort ? { sort } : {}),
+    ...(search.feed === "following" || search.feed === "recommended"
+      ? { feed: search.feed }
+      : {}),
     ...(game ? { game } : {}),
   }
 }

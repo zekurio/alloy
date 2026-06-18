@@ -1,5 +1,4 @@
 import type {
-  ClipFeedWindow,
   ClipPage,
   ClipRow,
   QueueClip,
@@ -64,29 +63,8 @@ export function warmClipDetailCache(qc: QueryClient, row: ClipRow): void {
   void qc.prefetchQuery(clipDetailQueryOptions(row.id))
 }
 
-export function useTopClipsQuery(
-  window: ClipFeedWindow,
-  { limit = 5 }: { limit?: number } = {},
-) {
-  return useQuery({
-    queryKey: clipKeys.topList(window, limit),
-    queryFn: () => api.clips.fetch({ window, sort: "top", limit }),
-  })
-}
-
 export function useUserClipsQuery(handle: string) {
   return useQuery(userClipsQueryOptions(handle))
-}
-
-export function useUserTopClipsQuery(
-  handle: string,
-  { limit = 5 }: { limit?: number } = {},
-) {
-  return useQuery({
-    queryKey: clipKeys.userTopList(handle, limit),
-    queryFn: () => api.users.fetchTopClips(handle, limit),
-    enabled: handle.length > 0,
-  })
 }
 
 export function userClipsQueryOptions(handle: string) {

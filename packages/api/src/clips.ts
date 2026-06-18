@@ -1,7 +1,5 @@
 import type {
-  ClipFeedParams,
   ClipLikeState,
-  ClipPage,
   ClipRow,
   InitiateClipInput,
   InitiateClipResponse,
@@ -16,7 +14,6 @@ import type {
 import type { ApiContext } from "./client"
 import {
   validateClipLikeState,
-  validateClipPage,
   validateClipRow,
   validateInitiateClipResponse,
   validateQueueClips,
@@ -35,11 +32,7 @@ import {
   readPostDeleteJson,
   readSuccessJson,
 } from "./mutations"
-import {
-  encodedPathSegment,
-  queryParams,
-  resolvePublicUrlWithQuery,
-} from "./paths"
+import { encodedPathSegment, resolvePublicUrlWithQuery } from "./paths"
 
 const UPLOAD_TIMEOUT_GRACE_MS = 30_000
 const MIN_UPLOAD_TIMEOUT_MS = 30_000
@@ -51,9 +44,7 @@ export {
 } from "@alloy/contracts"
 export type {
   AcceptedContentType,
-  ClipFeedParams,
   ClipFeedSort,
-  ClipFeedWindow,
   ClipGameRef,
   ClipLikeState,
   ClipMentionRef,
@@ -465,28 +456,6 @@ function stringRecord(value: object): Record<string, string> {
   return out
 }
 
-async function fetchClipPage(
-  context: ApiContext,
-  params: ClipFeedParams = {},
-): Promise<ClipPage> {
-  const res = await context.rpc.api.clips.$get({
-    query: queryParams({
-      window: params.window,
-      sort: params.sort,
-      limit: params.limit,
-      cursor: params.cursor,
-    }),
-  })
-  return readJsonOrThrow(res, validateClipPage)
-}
-
-async function fetchClips(
-  context: ApiContext,
-  params: ClipFeedParams = {},
-): Promise<ClipRow[]> {
-  return (await fetchClipPage(context, params)).items
-}
-
 async function fetchClipById(
   context: ApiContext,
   clipId: string,
@@ -601,8 +570,6 @@ async function recordClipView(
 
 export function createClipsApi(context: ApiContext) {
   return {
-    fetch: (params: ClipFeedParams = {}) => fetchClips(context, params),
-    fetchPage: (params: ClipFeedParams = {}) => fetchClipPage(context, params),
     fetchById: (clipId: string, init?: RequestInit) =>
       fetchClipById(context, clipId, init),
     initiate: (input: InitiateClipInput) => initiateClip(context, input),

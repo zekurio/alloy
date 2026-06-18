@@ -1,14 +1,17 @@
 import { t as tx } from "@alloy/i18n"
-import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
+import { GlobeIcon } from "lucide-react"
+import type { ReactNode } from "react"
 
 import {
-  filterLabelClass,
+  FilterDropdown,
+  type FilterDropdownOption,
+} from "@/components/clip/filter-dropdown"
+import {
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
-import { FilterCarousel } from "@/components/filter-carousel"
 import {
   profileAllSearchFor,
   type ProfileAllSort,
@@ -27,6 +30,8 @@ type ClipsFilterBarProps = {
   sort: ProfileAllSort
   gameSlug: string | null
   gameOptions: GameOption[]
+  /** Right-aligned content (e.g. a clip count) pinned to the end of the row. */
+  trailing?: ReactNode
 }
 
 const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileAllSort>> = [
@@ -36,14 +41,28 @@ const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileAllSort>> = [
   { key: "views", label: tx("Most viewed") },
 ]
 
+const ALL_GAMES = "__all"
+
 export function ClipsFilterBar({
   username,
   sort,
   gameSlug,
   gameOptions,
+  trailing,
 }: ClipsFilterBarProps) {
+  const navigate = useNavigate()
+  const gameFilterOptions: FilterDropdownOption<string>[] = [
+    { key: ALL_GAMES, label: tx("All games"), icon: <GlobeIcon /> },
+    ...gameOptions.map((g) => ({
+      key: g.slug,
+      label: g.name,
+      icon: <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />,
+      count: g.count,
+    })),
+  ]
+
   return (
-    <div className="mb-6 flex items-center gap-3">
+    <div className="flex items-center gap-3">
       {/* Sort group */}
       <SortDropdown
         label={tx("Sort")}
@@ -59,54 +78,24 @@ export function ClipsFilterBar({
         )}
       />
 
-      {/* Vertical divider */}
+      {/* Game filter */}
       {gameOptions.length > 0 ? (
-        <span aria-hidden className="bg-border h-5 w-px" />
+        <FilterDropdown
+          label={tx("Game")}
+          value={gameSlug ?? ALL_GAMES}
+          options={gameFilterOptions}
+          searchPlaceholder={tx("Search games…")}
+          onSelect={(key) => {
+            void navigate({
+              to: "/u/$username/all",
+              params: { username },
+              search: profileAllSearchFor(sort, key === ALL_GAMES ? null : key),
+            })
+          }}
+        />
       ) : null}
 
-      {/* Game filter rail */}
-      {gameOptions.length > 0 ? (
-        <div className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className={filterLabelClass}>{tx("Game")}</span>
-          <FilterCarousel className="min-w-0 flex-1">
-            <Chip
-              size="xl"
-              data-active={gameSlug === null ? "true" : undefined}
-              render={
-                <Link
-                  to="/u/$username/all"
-                  params={{ username }}
-                  search={profileAllSearchFor(sort, null)}
-                  replace
-                />
-              }
-            >
-              {tx("All games")}
-            </Chip>
-            {gameOptions.map((g) => (
-              <Chip
-                key={g.slug}
-                size="xl"
-                data-active={g.slug === gameSlug ? "true" : undefined}
-                title={g.name}
-                render={
-                  <Link
-                    to="/u/$username/all"
-                    params={{ username }}
-                    search={profileAllSearchFor(sort, g.slug)}
-                  />
-                }
-              >
-                <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />
-                <span className="max-w-[10rem] truncate">{g.name}</span>
-                <span className="text-foreground-faint tabular-nums">
-                  {g.count}
-                </span>
-              </Chip>
-            ))}
-          </FilterCarousel>
-        </div>
-      ) : null}
+      {trailing ? <div className="ml-auto shrink-0">{trailing}</div> : null}
     </div>
   )
 }

@@ -1,22 +1,14 @@
-import type { ClipFeedWindow } from "@alloy/api"
-
 export const clipKeys = {
   all: ["clips"] as const,
-  /** Every finite list query (top-by-window, user-by-handle). */
+  /** Every finite list query (user-by-handle, liked). */
   lists: () => [...clipKeys.all, "list"] as const,
-  topList: (window: ClipFeedWindow, limit: number) =>
-    [...clipKeys.lists(), "top", { window, limit }] as const,
   userList: (handle: string) =>
     [...clipKeys.lists(), "user", { handle }] as const,
-  userTopList: (handle: string, limit: number) =>
-    [...clipKeys.lists(), "user-top", { handle, limit }] as const,
   userLikedList: (handle: string) =>
     [...clipKeys.lists(), "user-liked", { handle }] as const,
-  /** Infinite recent feed. Separate branch because its data shape is paged,
+  /** Infinite paged feeds. Separate branch because the data shape is paged,
    *  not a plain `ClipRow[]` list. */
   infinite: () => [...clipKeys.all, "infinite"] as const,
-  recentInfinite: (limit: number) =>
-    [...clipKeys.infinite(), "recent", { limit }] as const,
   /** Upload queue — its own branch so clip edits don't nudge it. */
   queue: () => [...clipKeys.all, "queue"] as const,
   /** Per-viewer like state for a single clip. */

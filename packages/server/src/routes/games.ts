@@ -3,7 +3,6 @@ import { user } from "@alloy/db/auth-schema"
 import { clip, game, gameFollow } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { getSession } from "@alloy/server/auth/session"
-import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { lookupGamesByName } from "@alloy/server/games/lookup"
 import {
@@ -22,22 +21,13 @@ import {
   booleanFlag,
   errorResult,
   steamgriddbStatus,
-  invalidCursor,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { and, desc, eq, gte, isNull, type SQL, sql } from "drizzle-orm"
+import { and, eq, isNull, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
+import { publicClipPrivacyCondition } from "./clips-helpers"
 import {
-  clipListCursorCondition,
-  clipListOrderBy,
-  clipListPage,
-  parseClipListCursor,
-  publicClipPrivacyCondition,
-  WINDOW_MS,
-} from "./clips-helpers"
-import {
-  ClipsQuery,
   GamesListQuery,
   LookupBody,
   ResolveBody,
@@ -46,7 +36,6 @@ import {
   serialiseGameListRow,
   steamgriddbErrorResponse,
   SlugParam,
-  TopQuery,
 } from "./games-helpers"
 import { zValidator } from "./validation"
 
@@ -306,82 +295,5 @@ export const gamesRoute = new Hono()
         )
 
       return booleanFlag(c, "following", false)
-    },
-  )
-  .get(
-    "/:slug/clips",
-    zValidator("param", SlugParam),
-    zValidator("query", ClipsQuery),
-    async (c) => {
-      const { slug } = c.req.valid("param")
-      const { sort, cursor, limit } = c.req.valid("query")
-      const parsedCursor = parseClipListCursor(cursor, sort)
-      if (cursor && !parsedCursor) {
-        return invalidCursor(c)
-      }
-
-      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
-      if (resolved.response) return resolved.response
-      const { steamgriddbId } = resolved.row
-
-      const conditions: SQL[] = [
-        eq(clip.steamgriddbId, steamgriddbId),
-        eq(clip.status, "ready"),
-        publicClipPrivacyCondition(),
-        isNull(user.disabledAt),
-      ]
-      const cursorCondition = clipListCursorCondition(parsedCursor, sort)
-      if (cursorCondition) conditions.push(cursorCondition)
-
-      const rows = await db
-        .select(clipSelectShape)
-        .from(clip)
-        .innerJoin(user, eq(clip.authorId, user.id))
-        .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-        .where(and(...conditions))
-        .orderBy(...clipListOrderBy(sort))
-        .limit(limit + 1)
-
-      return c.json(clipListPage(rows, limit, sort))
-    },
-  )
-  .get(
-    "/:slug/top-clips",
-    zValidator("param", SlugParam),
-    zValidator("query", TopQuery),
-    async (c) => {
-      const { slug } = c.req.valid("param")
-      const { window, limit } = c.req.valid("query")
-      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
-      if (resolved.response) return resolved.response
-      const { steamgriddbId } = resolved.row
-
-      const conditions: SQL[] = [
-        eq(clip.steamgriddbId, steamgriddbId),
-        eq(clip.status, "ready"),
-        publicClipPrivacyCondition(),
-        isNull(user.disabledAt),
-      ]
-      if (window && window !== "all") {
-        conditions.push(
-          gte(clip.createdAt, new Date(Date.now() - WINDOW_MS[window])),
-        )
-      }
-
-      const rows = await db
-        .select(clipSelectShape)
-        .from(clip)
-        .innerJoin(user, eq(clip.authorId, user.id))
-        .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-        .where(and(...conditions))
-        .orderBy(
-          desc(clip.viewCount),
-          desc(clip.likeCount),
-          desc(clip.createdAt),
-          clip.id,
-        )
-        .limit(limit)
-
-      return c.json(rows.map(toPublicClipRow))
     },
   )
