@@ -1,5 +1,10 @@
 import { AppMain, AppShell } from "@alloy/ui/components/app-shell"
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Outlet,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router"
 import * as React from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
@@ -7,6 +12,9 @@ import {
   RouteErrorState,
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
+import { CreateActionsProvider } from "@/components/layout/create-actions"
+import { CreateMenu } from "@/components/layout/create-menu"
+import { HeaderToolbarProvider } from "@/components/layout/header-toolbar"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { SettingsDialog } from "@/components/routes/settings/settings-dialog"
@@ -85,11 +93,16 @@ function AppLayout() {
   return (
     <AppSearchProvider>
       <UploadFlowProvider>
-        <AppShell>
-          <AppChrome />
-          <Outlet />
-          <UploadFlow />
-        </AppShell>
+        <HeaderToolbarProvider>
+          <CreateActionsProvider>
+            <AppShell>
+              <AppChrome />
+              <Outlet />
+              <UploadFlow />
+              <FloatingCreateMenu />
+            </AppShell>
+          </CreateActionsProvider>
+        </HeaderToolbarProvider>
       </UploadFlowProvider>
       <ClipViewerDialog
         clipId={clip ?? null}
@@ -139,11 +152,33 @@ function AppRouteStateShell({ children }: { children: React.ReactNode }) {
   return (
     <AppSearchProvider>
       <UploadFlowProvider>
-        <AppShell>
-          <AppChrome />
-          <AppMain>{children}</AppMain>
-        </AppShell>
+        <HeaderToolbarProvider>
+          <CreateActionsProvider>
+            <AppShell>
+              <AppChrome />
+              <AppMain>{children}</AppMain>
+              <FloatingCreateMenu />
+            </AppShell>
+          </CreateActionsProvider>
+        </HeaderToolbarProvider>
       </UploadFlowProvider>
     </AppSearchProvider>
+  )
+}
+
+function FloatingCreateMenu() {
+  const hidden = useRouterState({
+    select: (state) => {
+      const pathname = state.location.pathname
+      return pathname === "/editor" || pathname.startsWith("/library/")
+    },
+  })
+
+  if (hidden) return null
+
+  return (
+    <div className="fixed right-5 bottom-[calc(env(safe-area-inset-bottom,0px)+1.25rem)] z-40 md:right-8 md:bottom-8">
+      <CreateMenu placement="floating" />
+    </div>
   )
 }

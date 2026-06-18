@@ -1,5 +1,10 @@
 import { t as tx } from "@alloy/i18n"
 import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "@alloy/ui/components/avatar"
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -11,32 +16,53 @@ import { UserAvatarButton } from "@alloy/ui/components/user-avatar-button"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { toast } from "@alloy/ui/lib/toast"
 import { Link, useRouter } from "@tanstack/react-router"
-import { LogInIcon, LogOutIcon, UserIcon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  LogInIcon,
+  LogOutIcon,
+  SettingsIcon,
+  UserIcon,
+} from "lucide-react"
 import * as React from "react"
 
+import { NotificationCenter } from "@/components/app/notification-center"
 import { StorageQuotaCompact } from "@/components/storage-quota"
 import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { useSuspenseSession } from "@/lib/session-suspense"
+import { useOpenSettings } from "@/lib/use-open-settings"
 import { useUserChipData } from "@/lib/user-display"
 
-export function UserMenu() {
+type UserMenuVariant = "compact" | "rail"
+
+export function UserMenu({
+  variant = "compact",
+}: {
+  variant?: UserMenuVariant
+}) {
   return (
-    <React.Suspense fallback={<UserAvatarSkeleton />}>
-      <UserMenuInner />
+    <React.Suspense fallback={<UserAvatarSkeleton variant={variant} />}>
+      <UserMenuInner variant={variant} />
     </React.Suspense>
   )
 }
 
-function UserMenuInner() {
+function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
   const session = useSuspenseSession()
   const router = useRouter()
+  const openSettings = useOpenSettings()
   const chip = useUserChipData(session?.user)
+  const [railTriggerAnchor, setRailTriggerAnchor] =
+    React.useState<Element | null>(null)
 
   if (!session) {
     return (
       <Link
         to="/login"
-        className={buttonVariants({ variant: "ghost", size: "sm" })}
+        className={buttonVariants({
+          variant: "ghost",
+          size: "sm",
+          className: variant === "rail" ? "w-full justify-start" : undefined,
+        })}
       >
         <LogInIcon />
         {tx("Sign in")}
@@ -63,43 +89,89 @@ function UserMenuInner() {
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <UserAvatarButton
-            avatar={chip.avatar}
-            name={chip.name}
-            size="nav"
-            aria-label={tx("Open account menu for {name}", {
-              name: chip.name,
-            })}
-          />
+          variant === "rail" ? (
+            <button
+              ref={setRailTriggerAnchor}
+              type="button"
+              aria-label={tx("Open account menu for {name}", {
+                name: chip.name,
+              })}
+              className="group text-foreground-muted hover:bg-surface-raised hover:text-foreground focus-visible:ring-ring data-popup-open:bg-surface-raised flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:outline-none"
+            >
+              <Avatar size="nav" style={avatarTint(chip.avatar)}>
+                {chip.avatar.src ? (
+                  <AvatarImage src={chip.avatar.src} alt="" />
+                ) : null}
+                <AvatarFallback style={avatarTint(chip.avatar)}>
+                  {chip.avatar.initials}
+                </AvatarFallback>
+              </Avatar>
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-foreground truncate text-sm font-semibold">
+                  {primaryLabel}
+                </span>
+                {email ? (
+                  <span className="text-foreground-faint truncate text-xs">
+                    {email}
+                  </span>
+                ) : null}
+              </span>
+              <ChevronDownIcon className="text-foreground-faint size-4 shrink-0 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)] group-data-popup-open:rotate-180" />
+            </button>
+          ) : (
+            <UserAvatarButton
+              avatar={chip.avatar}
+              name={chip.name}
+              size="nav"
+              aria-label={tx("Open account menu for {name}", {
+                name: chip.name,
+              })}
+            />
+          )
         }
       />
       <DropdownMenuContent
-        align="end"
+        align={variant === "rail" ? "start" : "end"}
+        side={variant === "rail" ? "top" : "bottom"}
         sideOffset={6}
-        className="alloy-blur text-foreground min-w-[220px] border-white/8"
+        className={
+          variant === "rail"
+            ? "alloy-blur text-foreground w-(--anchor-width) border-white/8"
+            : "alloy-blur text-foreground min-w-[220px] border-white/8"
+        }
       >
-        <div className="flex flex-col gap-0.5 px-3 py-2">
-          <span className="text-foreground truncate text-sm font-semibold">
-            {primaryLabel}
-          </span>
-          {email ? (
-            <span className="text-foreground-faint truncate text-xs">
-              {email}
-            </span>
-          ) : null}
-        </div>
-        <DropdownMenuSeparator />
-        {handle ? (
+        {variant === "compact" ? (
           <>
-            <DropdownMenuItem
-              render={<Link to="/u/$username" params={{ username: handle }} />}
-            >
-              <UserIcon />
-              {tx("Profile")}
-            </DropdownMenuItem>
+            <div className="flex flex-col gap-0.5 px-3 py-2">
+              <span className="text-foreground truncate text-sm font-semibold">
+                {primaryLabel}
+              </span>
+              {email ? (
+                <span className="text-foreground-faint truncate text-xs">
+                  {email}
+                </span>
+              ) : null}
+            </div>
             <DropdownMenuSeparator />
           </>
         ) : null}
+        {handle ? (
+          <DropdownMenuItem
+            render={<Link to="/u/$username" params={{ username: handle }} />}
+          >
+            <UserIcon />
+            {tx("Profile")}
+          </DropdownMenuItem>
+        ) : null}
+        <NotificationCenter
+          menuTriggerAnchor={variant === "rail" ? railTriggerAnchor : null}
+          triggerVariant="menu-item"
+        />
+        <DropdownMenuItem onClick={openSettings}>
+          <SettingsIcon />
+          {tx("Settings")}
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <div className="px-3 py-2">
           <StorageQuotaCompact />
         </div>
@@ -113,7 +185,25 @@ function UserMenuInner() {
   )
 }
 
-function UserAvatarSkeleton() {
+function avatarTint(avatar: { bg?: string; fg?: string }) {
+  return {
+    background: avatar.bg ?? "var(--neutral-200)",
+    color: avatar.fg ?? "var(--foreground)",
+  }
+}
+
+function UserAvatarSkeleton({ variant }: { variant: UserMenuVariant }) {
+  if (variant === "rail") {
+    return (
+      <div
+        data-slot="user-avatar-skeleton"
+        className="flex h-11 w-full items-center gap-2.5 px-2"
+        aria-hidden
+      >
+        <Spinner className="size-4" />
+      </div>
+    )
+  }
   return (
     <div
       data-slot="user-avatar-skeleton"

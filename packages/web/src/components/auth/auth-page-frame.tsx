@@ -12,11 +12,17 @@ type AuthPageFrameProps = {
   splash: PublicLoginSplashConfig
   children: ReactNode
   fill?: boolean
+  desktopChrome?: boolean
 }
 
-export function AuthPageFrame({ splash, children, fill }: AuthPageFrameProps) {
+export function AuthPageFrame({
+  splash,
+  children,
+  fill,
+  desktopChrome = true,
+}: AuthPageFrameProps) {
   const heightClass = fill ? "h-full min-h-full" : "min-h-screen"
-  const desktop = alloyDesktop()
+  const desktop = desktopChrome ? alloyDesktop() : null
   return (
     <div
       className={cn(

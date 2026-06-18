@@ -9,7 +9,7 @@ function AppSidebar({ className, ...props }: React.ComponentProps<"aside">) {
       data-slot="app-sidebar"
       className={cn(
         "relative z-10 flex h-full flex-col overflow-hidden",
-        "w-[var(--sidebar-rail)] border-r border-border bg-surface-sunken py-3",
+        "w-[var(--sidebar-expanded)] border-r border-border bg-surface-sunken py-3",
         className,
       )}
       {...props}
@@ -57,8 +57,8 @@ function useNavItem(
 const SIDEBAR_ITEM_STYLE: NavItemStyle = {
   slot: "app-sidebar-item",
   className: cn(
-    "group/app-sidebar-item relative flex h-9 w-full items-center justify-center rounded-md",
-    "text-foreground-muted",
+    "group/app-sidebar-item relative flex h-9 w-full items-center justify-start gap-3 rounded-md px-3",
+    "text-sm font-medium text-foreground-muted",
     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",

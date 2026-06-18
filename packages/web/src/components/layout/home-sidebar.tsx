@@ -1,25 +1,28 @@
 import { t as tx } from "@alloy/i18n"
 import {
-  AppBottomNav,
-  AppBottomNavItem,
   AppSidebar,
   AppSidebarFooter,
   AppSidebarGroup,
   AppSidebarItem,
 } from "@alloy/ui/components/app-sidebar"
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
-import { GamepadIcon, HomeIcon, LibraryIcon, SettingsIcon } from "lucide-react"
+import { Button } from "@alloy/ui/components/button"
+import {
+  Drawer,
+  DrawerContent,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@alloy/ui/components/drawer"
+import { Link, useRouterState } from "@tanstack/react-router"
+import { GamepadIcon, HomeIcon, LibraryIcon, MenuIcon } from "lucide-react"
 import * as React from "react"
 
-import { DEFAULT_SETTINGS_SECTION } from "@/components/routes/settings/settings-categories"
-import type { AppSearch } from "@/lib/app-search"
-import { useSuspenseSession } from "@/lib/session-suspense"
+import { DesktopRecordingStatus } from "./desktop-recording-status"
+import { UserMenu } from "./user-menu"
 
 interface NavFlags {
   isHome: boolean
   isGames: boolean
   isLibrary: boolean
-  isSettings: boolean
 }
 
 function useNavFlags(): NavFlags {
@@ -33,51 +36,69 @@ function useNavFlags(): NavFlags {
       isLibrary:
         s.location.pathname === "/library" ||
         s.location.pathname.startsWith("/library/"),
-      isSettings: Boolean((s.location.search as AppSearch).settings),
     }),
     structuralSharing: true,
   })
 }
 
-function useOpenSettings() {
-  const navigate = useNavigate()
-  return React.useCallback(() => {
-    void navigate({
-      to: ".",
-      search: (prev: AppSearch) => ({
-        ...prev,
-        settings: DEFAULT_SETTINGS_SECTION,
-      }),
-    })
-  }, [navigate])
-}
-
 export function HomeSidebar() {
   return (
-    <>
-      <AppSidebar className="hidden md:flex">
-        <AppSidebarGroup>
-          <React.Suspense fallback={<SidebarTopFallback />}>
-            <SidebarTop />
-          </React.Suspense>
-        </AppSidebarGroup>
-        <AppSidebarFooter>
-          <React.Suspense fallback={<SidebarSettingsFallback />}>
-            <SidebarSettings />
-          </React.Suspense>
-        </AppSidebarFooter>
-      </AppSidebar>
+    <AppSidebar className="hidden md:flex">
+      <HomeSidebarContent />
+    </AppSidebar>
+  )
+}
 
-      <AppBottomNav className="md:hidden">
-        <React.Suspense fallback={<BottomNavFallback />}>
-          <BottomNavItems />
+export function MobileSidebarTrigger() {
+  const [open, setOpen] = React.useState(false)
+  const close = React.useCallback(() => setOpen(false), [])
+
+  return (
+    <Drawer direction="left" open={open} onOpenChange={setOpen}>
+      <DrawerTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={tx("Open navigation")}
+            className="text-foreground-faint hover:bg-surface-raised hover:text-foreground-muted size-11 rounded-md [&_svg]:size-4"
+          >
+            <MenuIcon />
+          </Button>
+        }
+      />
+      <DrawerContent className="border-border bg-surface-sunken w-[min(82vw,20rem)] max-w-[20rem] p-0">
+        <DrawerTitle className="sr-only">{tx("Navigation")}</DrawerTitle>
+        <AppSidebar className="h-full w-full border-0">
+          <HomeSidebarContent onNavigate={close} />
+        </AppSidebar>
+      </DrawerContent>
+    </Drawer>
+  )
+}
+
+function HomeSidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <>
+      <AppSidebarGroup>
+        <React.Suspense fallback={<SidebarTopFallback />}>
+          <SidebarTop onNavigate={onNavigate} />
         </React.Suspense>
-      </AppBottomNav>
+      </AppSidebarGroup>
+      {/* Capture status sits above the footer's separator; the user menu stays
+          below it. The wrapping div pins the cluster to the bottom and
+          neutralizes the footer's own mt-auto. */}
+      <div className="mt-auto">
+        <DesktopRecordingStatus placement="sidebar" />
+        <AppSidebarFooter>
+          <SidebarFooter />
+        </AppSidebarFooter>
+      </div>
     </>
   )
 }
 
-function SidebarTop() {
+function SidebarTop({ onNavigate }: { onNavigate?: () => void }) {
   const { isHome, isGames, isLibrary } = useNavFlags()
 
   return (
@@ -85,62 +106,31 @@ function SidebarTop() {
       <AppSidebarItem
         active={isHome}
         title={tx("Home")}
+        onClick={onNavigate}
         render={<Link to="/" />}
       >
         <HomeIcon />
+        <span>{tx("Home")}</span>
       </AppSidebarItem>
       <AppSidebarItem
         active={isLibrary}
         title={tx("Library")}
+        onClick={onNavigate}
         render={<Link to="/library" />}
       >
         <LibraryIcon />
+        <span>{tx("Library")}</span>
       </AppSidebarItem>
       <AppSidebarItem
         active={isGames}
         title={tx("Games")}
+        onClick={onNavigate}
         render={<Link to="/games" />}
       >
         <GamepadIcon />
+        <span>{tx("Games")}</span>
       </AppSidebarItem>
     </>
-  )
-}
-
-function SidebarSettings() {
-  const { isSettings } = useNavFlags()
-  const session = useSuspenseSession()
-  const openSettings = useOpenSettings()
-
-  if (!session) {
-    return (
-      <AppSidebarItem
-        title={tx("Settings")}
-        aria-disabled
-        tabIndex={-1}
-        className="pointer-events-none opacity-60"
-      >
-        <SettingsIcon />
-      </AppSidebarItem>
-    )
-  }
-
-  return (
-    <AppSidebarItem
-      active={isSettings}
-      title={tx("Settings")}
-      onClick={openSettings}
-    >
-      <SettingsIcon />
-    </AppSidebarItem>
-  )
-}
-
-function SidebarSettingsFallback() {
-  return (
-    <AppSidebarItem title={tx("Settings")}>
-      <SettingsIcon />
-    </AppSidebarItem>
   )
 }
 
@@ -149,82 +139,20 @@ function SidebarTopFallback() {
     <>
       <AppSidebarItem title={tx("Home")}>
         <HomeIcon />
+        <span>{tx("Home")}</span>
       </AppSidebarItem>
       <AppSidebarItem title={tx("Library")}>
         <LibraryIcon />
+        <span>{tx("Library")}</span>
       </AppSidebarItem>
       <AppSidebarItem title={tx("Games")}>
         <GamepadIcon />
+        <span>{tx("Games")}</span>
       </AppSidebarItem>
     </>
   )
 }
 
-function BottomNavItems() {
-  const { isHome, isGames, isLibrary, isSettings } = useNavFlags()
-  const session = useSuspenseSession()
-  const openSettings = useOpenSettings()
-
-  return (
-    <>
-      <AppBottomNavItem
-        active={isHome}
-        title={tx("Home")}
-        render={<Link to="/" />}
-      >
-        <HomeIcon />
-      </AppBottomNavItem>
-      <AppBottomNavItem
-        active={isLibrary}
-        title={tx("Library")}
-        render={<Link to="/library" />}
-      >
-        <LibraryIcon />
-      </AppBottomNavItem>
-      <AppBottomNavItem
-        active={isGames}
-        title={tx("Games")}
-        render={<Link to="/games" />}
-      >
-        <GamepadIcon />
-      </AppBottomNavItem>
-      {session ? (
-        <AppBottomNavItem
-          active={isSettings}
-          title={tx("Settings")}
-          onClick={openSettings}
-        >
-          <SettingsIcon />
-        </AppBottomNavItem>
-      ) : (
-        <AppBottomNavItem
-          title={tx("Settings")}
-          aria-disabled
-          tabIndex={-1}
-          className="pointer-events-none opacity-60"
-        >
-          <SettingsIcon />
-        </AppBottomNavItem>
-      )}
-    </>
-  )
-}
-
-function BottomNavFallback() {
-  return (
-    <>
-      <AppBottomNavItem title={tx("Home")}>
-        <HomeIcon />
-      </AppBottomNavItem>
-      <AppBottomNavItem title={tx("Library")}>
-        <LibraryIcon />
-      </AppBottomNavItem>
-      <AppBottomNavItem title={tx("Games")}>
-        <GamepadIcon />
-      </AppBottomNavItem>
-      <AppBottomNavItem title={tx("Settings")}>
-        <SettingsIcon />
-      </AppBottomNavItem>
-    </>
-  )
+function SidebarFooter() {
+  return <UserMenu variant="rail" />
 }

@@ -1,9 +1,9 @@
 import { t as tx } from "@alloy/i18n"
 import {
   AppHeader,
-  AppHeaderActions,
   AppHeaderBrand,
   AppHeaderSearch,
+  AppHeaderToolbar,
   AppHeaderWindowControls,
 } from "@alloy/ui/components/app-header"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
@@ -11,13 +11,12 @@ import { useRouterState } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 
-import { NotificationCenter } from "@/components/app/notification-center"
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
 import { alloyDesktop } from "@/lib/desktop"
 
-import { DesktopRecordingStatus } from "./desktop-recording-status"
-import { UserMenu } from "./user-menu"
+import { HeaderToolbarSlot } from "./header-toolbar"
+import { MobileSidebarTrigger } from "./home-sidebar"
 
 export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
@@ -36,12 +35,15 @@ export function HomeHeader() {
 
   return (
     <AppHeader>
-      <AppHeaderBrand showText={desktop?.titlebarOverlay}>
-        {desktop?.titlebarOverlay ? <HeaderNavigation /> : null}
-        <div className="ml-1">
-          <DesktopRecordingStatus />
-        </div>
+      <AppHeaderBrand showText className="max-md:hidden">
+        <HeaderNavigation />
       </AppHeaderBrand>
+      <div
+        data-slot="app-header-brand"
+        className="flex items-center justify-self-start md:hidden"
+      >
+        <MobileSidebarTrigger />
+      </div>
       <AppHeaderSearch
         ref={inputRef}
         value={query}
@@ -64,10 +66,9 @@ export function HomeHeader() {
       >
         <SearchResultsPopover />
       </AppHeaderSearch>
-      <AppHeaderActions className="gap-2 sm:gap-3">
-        <NotificationCenter />
-        <UserMenu />
-      </AppHeaderActions>
+      <AppHeaderToolbar>
+        <HeaderToolbarSlot />
+      </AppHeaderToolbar>
       {desktop?.titlebarOverlay ? (
         <AppHeaderWindowControls
           onMinimize={() => {

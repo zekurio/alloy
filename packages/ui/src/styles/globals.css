@@ -595,6 +595,18 @@
     animation: alloy-text-shimmer 2.4s linear infinite;
   }
 
+  /* Recording status label scroll — when a long game name overflows the sidebar
+     status row, slide it left and back (ping-pong) so the full name is legible.
+     The shift distance is supplied per-element via --rec-shift. */
+  @keyframes recording-marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(var(--rec-shift, 0px));
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .animate-text-shimmer {
       animation: none;
@@ -737,22 +749,40 @@
 
 @media (width < 48rem) {
   [data-slot="app-header"] {
-    grid-template-columns: 2rem minmax(0, 1fr) max-content;
-    padding-right: 1rem;
-    padding-left: 1.5rem;
+    column-gap: 0.5rem;
+    grid-template-columns: 2.75rem minmax(0, 1fr) max-content;
+    padding-inline: 0.5rem;
+  }
+
+  [data-slot="app-header"]:has([data-slot="app-header-actions"]) {
+    grid-template-columns: 2.75rem minmax(0, 1fr) max-content max-content;
   }
 
   [data-slot="app-header-brand"] {
-    justify-self: end;
+    justify-self: start;
+  }
+
+  [data-slot="app-header-search"] {
+    grid-column-start: 2;
+  }
+
+  [data-slot="app-header-toolbar"] {
+    grid-column-start: 3;
   }
 
   [data-slot="app-header-actions"] {
+    grid-column-start: 3;
     justify-self: end;
+  }
+
+  [data-slot="app-header"]:has([data-slot="app-header-toolbar"])
+    [data-slot="app-header-actions"] {
+    grid-column-start: 4;
   }
 
   [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within) {
     column-gap: 0;
-    grid-template-columns: 0 minmax(0, 1fr) 0 auto;
+    grid-template-columns: 0 minmax(0, 1fr) 0 0;
     padding-inline: calc((var(--header-h) - 2rem) / 2);
   }
 
@@ -762,8 +792,11 @@
   }
 
   [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within)
-    :where([data-slot="app-header-brand"], [data-slot="app-header-actions"]) {
-    pointer-events: none;
+    :where(
+      [data-slot="app-header-brand"],
+      [data-slot="app-header-toolbar"],
+      [data-slot="app-header-actions"]
+    ) {
     opacity: 0;
   }
 }
@@ -774,18 +807,18 @@
    browser. */
 .is-desktop-titlebar [data-slot="app-header"] {
   -webkit-app-region: drag;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  grid-template-columns:
+    var(--sidebar-expanded) minmax(12rem, 1fr)
+    auto auto auto;
   gap: 0.75rem;
   padding-right: 0;
-  padding-left: 1rem;
+  /* The brand zone owns its left inset so its divider lands on the sidebar
+     edge; keep the header flush-left here. */
+  padding-left: 0;
 }
 
 .is-desktop-titlebar [data-slot="app-header-brand"] {
   justify-content: flex-start;
-}
-
-.is-desktop-titlebar [data-slot="app-header-search"] {
-  width: min(28rem, 100%);
 }
 
 .is-desktop-titlebar [data-slot="app-header-actions"] {
