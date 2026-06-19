@@ -1027,7 +1027,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Video playback failed.": "Die Videowiedergabe ist fehlgeschlagen.",
   "Videos this user likes will show up here.":
     "Videos, die diese Person liked, erscheinen hier.",
-  view: "Ansicht",
+  view: "Aufruf",
   "View {count} {label}": "{count} {label} anzeigen",
   "View tagged users": "Markierte Benutzer anzeigen",
   views: "Aufrufe",
