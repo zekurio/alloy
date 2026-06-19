@@ -19,7 +19,7 @@ import {
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { readPostDeleteJson } from "./mutations"
-import { encodedPathSegment, queryParams, resolvePublicUrl } from "./paths"
+import { queryParams } from "./paths"
 
 export type {
   GameDetail,
@@ -30,16 +30,6 @@ export type {
   SteamGridDBSearchResult,
   SteamGridDBStatus,
 } from "@alloy/contracts"
-
-export function gameGridUrl(
-  steamgriddbId: number | string,
-  origin?: string,
-): string {
-  return resolvePublicUrl(
-    `/api/games/${encodedPathSegment(String(steamgriddbId))}/grid`,
-    origin,
-  )
-}
 
 async function fetchSteamGridDBStatus(
   context: ApiContext,

@@ -17,7 +17,6 @@ import {
   searchGames,
 } from "@alloy/server/games/steamgriddb"
 import {
-  badGateway,
   booleanFlag,
   errorResult,
   steamgriddbStatus,
@@ -38,11 +37,6 @@ import {
   SlugParam,
 } from "./games-helpers"
 import { zValidator } from "./validation"
-
-type GameImageAsset = {
-  column: "heroUrl" | "gridUrl"
-  label: "hero" | "grid"
-}
 
 type ResolvedGameRef =
   | { row: GameRow; response?: never }
@@ -88,27 +82,6 @@ async function resolveSteamGridDBGameRefByParam(
   }
 
   return resolveSteamGridDBGameRefBySlug(c, value)
-}
-
-async function proxyGameImageAsset(
-  c: Context,
-  row: GameRow,
-  asset: GameImageAsset,
-) {
-  const url = row[asset.column]
-  if (!url) return notFound(c)
-
-  const upstream = await fetch(url)
-  if (!upstream.ok || !upstream.body) {
-    return badGateway(c, `Upstream ${asset.label} unavailable`)
-  }
-
-  return new Response(upstream.body, {
-    headers: {
-      "content-type": upstream.headers.get("content-type") ?? "image/*",
-      "cache-control": "public, max-age=86400",
-    },
-  })
 }
 
 export const gamesRoute = new Hono()
@@ -227,24 +200,6 @@ export const gamesRoute = new Hono()
       viewer,
       favouritesCount,
       clipCount,
-    })
-  })
-  .get("/:slug/hero", zValidator("param", SlugParam), async (c) => {
-    const { slug } = c.req.valid("param")
-    const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
-    if (resolved.response) return resolved.response
-    return proxyGameImageAsset(c, resolved.row, {
-      column: "heroUrl",
-      label: "hero",
-    })
-  })
-  .get("/:slug/grid", zValidator("param", SlugParam), async (c) => {
-    const { slug } = c.req.valid("param")
-    const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
-    if (resolved.response) return resolved.response
-    return proxyGameImageAsset(c, resolved.row, {
-      column: "gridUrl",
-      label: "grid",
     })
   })
   .post(
