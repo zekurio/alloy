@@ -4,13 +4,7 @@ import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { cn } from "@alloy/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
-import {
-  FilmIcon,
-  GamepadIcon,
-  MonitorIcon,
-  SearchIcon,
-  UserIcon,
-} from "lucide-react"
+import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
 import * as React from "react"
 
 import {
@@ -42,6 +36,8 @@ type FlatItem =
   | { kind: "user"; id: string; optionId: string; row: UserListRow }
   | { kind: "local-clip"; id: string; optionId: string; row: LibraryItemView }
   | { kind: "clip"; id: string; optionId: string; row: ClipRow }
+
+type ClipItem = Extract<FlatItem, { kind: "clip" | "local-clip" }>
 
 function resultOptionId(listboxId: string, id: string): string {
   return `${listboxId}-option-${encodeURIComponent(id)}`
@@ -199,6 +195,11 @@ function useFlatSearchResults(
   listboxId: string,
 ): FlatItem[] {
   return React.useMemo<FlatItem[]>(() => {
+    const serverClipIds = new Set((data?.clips ?? []).map((row) => row.id))
+    const localOnlyClips = localClips.filter((row) => {
+      return !row.uploadedClipId || !serverClipIds.has(row.uploadedClipId)
+    })
+
     return [
       ...(data?.games ?? []).map<FlatItem>((row) => ({
         kind: "game",
@@ -212,16 +213,16 @@ function useFlatSearchResults(
         optionId: resultOptionId(listboxId, `user:${row.id}`),
         row,
       })),
-      ...localClips.map<FlatItem>((row) => ({
-        kind: "local-clip",
-        id: `local-clip:${row.id}`,
-        optionId: resultOptionId(listboxId, `local-clip:${row.id}`),
-        row,
-      })),
       ...(data?.clips ?? []).map<FlatItem>((row) => ({
         kind: "clip",
         id: `clip:${row.id}`,
         optionId: resultOptionId(listboxId, `clip:${row.id}`),
+        row,
+      })),
+      ...localOnlyClips.map<FlatItem>((row) => ({
+        kind: "local-clip",
+        id: `local-clip:${row.id}`,
+        optionId: resultOptionId(listboxId, `local-clip:${row.id}`),
         row,
       })),
     ]
@@ -431,16 +432,9 @@ function SearchResultsBody({
   const users = flat.filter(
     (i): i is Extract<FlatItem, { kind: "user" }> => i.kind === "user",
   )
-  const localClips = flat.filter(
-    (i): i is Extract<FlatItem, { kind: "local-clip" }> =>
-      i.kind === "local-clip",
-  )
-  const clips = flat.filter(
-    (i): i is Extract<FlatItem, { kind: "clip" }> => i.kind === "clip",
-  )
+  const clips = flat.filter((i): i is ClipItem => isClipItem(i))
   const firstUserIndex = games.length
-  const firstLocalClipIndex = games.length + users.length
-  const firstClipIndex = firstLocalClipIndex + localClips.length
+  const firstClipIndex = games.length + users.length
 
   return (
     <div
@@ -492,27 +486,6 @@ function SearchResultsBody({
           </ul>
         </section>
       ) : null}
-      {localClips.length > 0 ? (
-        <section>
-          <GroupLabel icon={<MonitorIcon />}>{tx("Local clips")}</GroupLabel>
-          <ul>
-            {localClips.map((item, localIdx) => {
-              const globalIdx = firstLocalClipIndex + localIdx
-              return (
-                <li key={item.id}>
-                  <LocalClipRowItem
-                    id={item.optionId}
-                    row={item.row}
-                    active={activeIndex === globalIdx}
-                    onHover={() => onHover(globalIdx)}
-                    onSelect={() => onCommitLocalClip(item.row)}
-                  />
-                </li>
-              )
-            })}
-          </ul>
-        </section>
-      ) : null}
       {clips.length > 0 ? (
         <section>
           <GroupLabel icon={<FilmIcon />}>{tx("Clips")}</GroupLabel>
@@ -521,13 +494,23 @@ function SearchResultsBody({
               const globalIdx = firstClipIndex + localIdx
               return (
                 <li key={item.id}>
-                  <ClipRowItem
-                    id={item.optionId}
-                    row={item.row}
-                    active={activeIndex === globalIdx}
-                    onHover={() => onHover(globalIdx)}
-                    onSelect={() => onCommitClip(item.row)}
-                  />
+                  {item.kind === "clip" ? (
+                    <ClipRowItem
+                      id={item.optionId}
+                      row={item.row}
+                      active={activeIndex === globalIdx}
+                      onHover={() => onHover(globalIdx)}
+                      onSelect={() => onCommitClip(item.row)}
+                    />
+                  ) : (
+                    <LocalClipRowItem
+                      id={item.optionId}
+                      row={item.row}
+                      active={activeIndex === globalIdx}
+                      onHover={() => onHover(globalIdx)}
+                      onSelect={() => onCommitLocalClip(item.row)}
+                    />
+                  )}
                 </li>
               )
             })}
@@ -536,4 +519,8 @@ function SearchResultsBody({
       ) : null}
     </div>
   )
+}
+
+function isClipItem(item: FlatItem): item is ClipItem {
+  return item.kind === "clip" || item.kind === "local-clip"
 }
