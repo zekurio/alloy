@@ -21,12 +21,12 @@ export function AuthPageFrame({
   fill,
   desktopChrome = true,
 }: AuthPageFrameProps) {
-  const heightClass = fill ? "h-full min-h-full" : "min-h-screen"
+  const heightClass = fill ? "h-full min-h-full" : "h-dvh min-h-dvh"
   const desktop = desktopChrome ? alloyDesktop() : null
   return (
     <div
       className={cn(
-        "relative w-full bg-background text-foreground",
+        "relative isolate w-full overflow-hidden bg-background text-foreground",
         heightClass,
       )}
     >
@@ -44,7 +44,14 @@ export function AuthPageFrame({
             "top-0 right-0 left-0 h-[var(--header-h)] px-4 sm:left-0",
         )}
       >
-        <Link to="/" className="inline-flex items-center">
+        <Link
+          to="/"
+          data-slot={desktop?.titlebarOverlay ? "app-header-brand" : undefined}
+          className={cn(
+            "inline-flex items-center",
+            desktop?.titlebarOverlay && "h-full pl-3",
+          )}
+        >
           <AlloyLogo showText size={36} />
         </Link>
         {desktop?.titlebarOverlay ? (
@@ -63,13 +70,10 @@ export function AuthPageFrame({
         ) : null}
       </header>
 
-      <div
-        className={cn(
-          "relative flex items-center justify-center px-6 py-24 sm:px-10",
-          heightClass,
-        )}
-      >
-        <div className="w-full max-w-sm">{children}</div>
+      <div className="relative h-full overflow-y-auto">
+        <div className="flex min-h-full items-center justify-center px-6 py-24 sm:px-10">
+          <div className="w-full max-w-sm">{children}</div>
+        </div>
       </div>
     </div>
   )

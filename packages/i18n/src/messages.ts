@@ -654,6 +654,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Sobald Clips Likes und Views haben, landen die besten hier.",
   "Open {name}'s profile": "Profil von {name} öffnen",
   "Open account menu for {name}": "Kontomenü für {name} öffnen",
+  "Open account menu for {name}; notifications available":
+    "Kontomenü für {name} öffnen; Benachrichtigungen verfügbar",
   "Open Alloy in the desktop app to edit captures stored on this device.":
     "Öffne Alloy in der Desktop-App, um auf diesem Gerät gespeicherte Aufnahmen zu bearbeiten.",
   "Open draft {title}": "Entwurf {title} öffnen",
@@ -738,6 +740,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Reactivating…": "Wird reaktiviert…",
   Recent: "Aktuell",
   "Recent clips": "Aktuelle Clips",
+  Recommended: "Empfohlen",
   recently: "kürzlich",
   "Record individual playback and capture devices, or per-application audio streams.":
     "Nimm einzelne Wiedergabe- und Aufnahmegeräte oder Audiostreams pro App auf.",

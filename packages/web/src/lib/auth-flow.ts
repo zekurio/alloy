@@ -27,12 +27,16 @@ export async function completeAuthSessionFlow({
 
 export async function completeSignOutFlow({
   invalidateRouter,
+  navigate,
 }: {
   invalidateRouter: () => Promise<unknown>
+  navigate?: () => Promise<unknown> | unknown
 }): Promise<void> {
-  await authClient.signOut()
+  const { error } = await authClient.signOut()
+  if (error) throw error
   resetClientState()
   await invalidateRouter()
+  await navigate?.()
 }
 
 export function reportAuthFlowFailure(

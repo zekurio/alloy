@@ -6,7 +6,6 @@ import { Link } from "@tanstack/react-router"
 import { LogInIcon } from "lucide-react"
 import * as React from "react"
 
-import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { authClient } from "@/lib/auth-client"
 import { useLoginRedirect } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
@@ -98,22 +97,20 @@ export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
   if (!canRender) return null
 
   if (desktop && !redirectTo) {
-    return <DesktopLoginPage config={config} />
+    return <DesktopLoginPage />
   }
 
   return (
-    <AuthPageFrame splash={config.loginSplash}>
-      <LoginForm
-        config={config}
-        passkeyReady={passkeyReady}
-        passkeySupported={passkeySupported}
-        redirectTo={redirectTo}
-      />
-    </AuthPageFrame>
+    <LoginForm
+      config={config}
+      passkeyReady={passkeyReady}
+      passkeySupported={passkeySupported}
+      redirectTo={redirectTo}
+    />
   )
 }
 
-function DesktopLoginPage({ config }: { config: PublicAuthConfig }) {
+function DesktopLoginPage() {
   const desktop = alloyDesktop()
   const [serverUrl, setServerUrl] = React.useState<string | null>(null)
   const [loaded, setLoaded] = React.useState(false)
@@ -158,7 +155,7 @@ function DesktopLoginPage({ config }: { config: PublicAuthConfig }) {
   const serverLabel = serverUrl ? new URL(serverUrl).host : null
 
   return (
-    <AuthPageFrame splash={config.loginSplash}>
+    <>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
           {tx("Signed out")}
@@ -191,6 +188,6 @@ function DesktopLoginPage({ config }: { config: PublicAuthConfig }) {
           {serverUrl ? tx("Sign in to saved server") : tx("Choose server")}
         </span>
       </Button>
-    </AuthPageFrame>
+    </>
   )
 }

@@ -4,7 +4,6 @@ import { Separator } from "@alloy/ui/components/separator"
 import { Link } from "@tanstack/react-router"
 import * as React from "react"
 
-import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { OAuthSignIn } from "@/components/routes/login/oauth-sign-in"
 import { authClient } from "@/lib/auth-client"
 import { useRedirectIfAuthed } from "@/lib/auth-hooks"
@@ -105,12 +104,10 @@ export function SignUpPageInner({ config }: SignUpPageInnerProps) {
   if (!canRender) return null
 
   return (
-    <AuthPageFrame splash={config.loginSplash}>
-      <SignUpForm
-        config={config}
-        passkeyReady={passkeyReady}
-        passkeySupported={passkeySupported}
-      />
-    </AuthPageFrame>
+    <SignUpForm
+      config={config}
+      passkeyReady={passkeyReady}
+      passkeySupported={passkeySupported}
+    />
   )
 }
