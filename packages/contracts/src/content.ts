@@ -81,7 +81,8 @@ export interface ClipRow {
   tags: string[]
 }
 
-export type ClipFeedSort = "top" | "recent"
+export type ClipListSort = "top" | "recent"
+export type ClipFeedSort = ClipListSort | "recommended"
 
 export const CLIP_TITLE_MAX_LENGTH = 100
 export const CLIP_DESCRIPTION_MAX_LENGTH = 2000
@@ -104,8 +105,8 @@ export interface InitiateClipInput {
   tags?: string[]
   /**
    * Client-computed BlurHash of the clip's poster frame. Stored as the
-   * canonical placeholder; the desktop client is the only uploader and
-   * always provides one, so media processing no longer recomputes it.
+   * canonical placeholder when provided. The server preserves this value and
+   * never recomputes a poster hash during media finalization.
    */
   thumbBlurHash?: string
   /** Poster format the client will upload; defaults to webp. */
@@ -238,7 +239,6 @@ export interface CommentPage {
 export type FeedFilter =
   | { kind: "all" }
   | { kind: "following" }
-  | { kind: "recommended" }
   | { kind: "game"; steamgriddbId: number }
 
 export interface FeedPageParams {
@@ -269,7 +269,7 @@ export interface FeedChipsResponse {
 }
 
 export interface TagClipsParams {
-  sort?: ClipFeedSort
+  sort?: ClipListSort
   /** Narrow to a single game. */
   steamgriddbId?: number
   limit?: number

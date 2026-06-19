@@ -84,7 +84,6 @@ export function GameCard({ game, link, className }: GameCardProps) {
     "group/game-card relative block aspect-[16/5] overflow-hidden rounded-lg",
     "bg-neutral-900",
     "transition-[box-shadow,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-    "hover:shadow-[0_8px_24px_oklch(0_0_0_/_0.35)]",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
     className,
   )

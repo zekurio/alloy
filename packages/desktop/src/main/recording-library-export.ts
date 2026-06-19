@@ -62,7 +62,8 @@ export async function exportRecordingLibraryItem(
     segments[0].endMs >= sourceDurationMs - 50
 
   // The source capture's hash is a representative placeholder for edited
-  // exports too; the server recomputes the canonical one while processing.
+  // exports too. If it is missing, the publish flow hashes the exact poster
+  // blob before initiating the upload.
   const thumbBlurHash = await ensureCaptureBlurHash(item)
 
   if (fullSource) {

@@ -3,9 +3,9 @@ import { t as tx } from "@alloy/i18n"
 
 import { searchEnum } from "./route-search"
 
-export const CLIP_SORT_KEYS = ["top", "recent"] as const
+export const CLIP_SORT_KEYS = ["top", "recent", "recommended"] as const
 
-/** Feed default: newest first. "top" is the opt-in ranking. */
+/** Feed default: newest first. Ranked feeds are opt-in. */
 export const DEFAULT_CLIP_SORT: ClipFeedSort = "recent"
 
 export const CLIP_SORT_OPTIONS: ReadonlyArray<{
@@ -13,6 +13,7 @@ export const CLIP_SORT_OPTIONS: ReadonlyArray<{
   label: string
 }> = [
   { key: "recent", label: tx("Recent") },
+  { key: "recommended", label: tx("Recommended") },
   { key: "top", label: tx("Top") },
 ]
 

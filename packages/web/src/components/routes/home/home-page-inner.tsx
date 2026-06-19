@@ -21,7 +21,6 @@ function filterFromSearch(search: HomeSearch): FeedFilter {
     }
   }
   if (search.feed === "following") return { kind: "following" }
-  if (search.feed === "recommended") return { kind: "recommended" }
   return { kind: "all" }
 }
 
@@ -36,7 +35,6 @@ export function HomePageInner() {
     [toolbarSearch],
   )
   const sort: ClipFeedSort = toolbarSearch.sort ?? DEFAULT_CLIP_SORT
-  const effectiveSort = filter.kind === "recommended" ? DEFAULT_CLIP_SORT : sort
 
   const viewerId = session?.user.id
   const toolbar = React.useMemo(() => {
@@ -80,7 +78,7 @@ export function HomePageInner() {
     const desktop = (
       <>
         <FeedFilterDropdown filter={filter} search={toolbarSearch} />
-        {filter.kind === "recommended" ? null : sortControl}
+        {sortControl}
       </>
     )
     const mobile = (
@@ -90,7 +88,7 @@ export function HomePageInner() {
           search={toolbarSearch}
           triggerVariant="icon"
         />
-        {filter.kind === "recommended" ? null : mobileSortControl}
+        {mobileSortControl}
       </>
     )
     return { desktop, mobile }
@@ -100,7 +98,7 @@ export function HomePageInner() {
   return (
     <AppMain>
       <section className="flex w-full flex-col gap-6">
-        <FeedSection filter={filter} sort={effectiveSort} viewerId={viewerId} />
+        <FeedSection filter={filter} sort={sort} viewerId={viewerId} />
       </section>
     </AppMain>
   )

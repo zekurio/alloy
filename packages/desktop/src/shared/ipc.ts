@@ -94,6 +94,7 @@ export const IPC = {
     "alloy:discard-recording-library-staged-import",
   saveRecordingLibraryCaptureThumbnail:
     "alloy:save-recording-library-capture-thumbnail",
+  hashRecordingLibraryThumbnail: "alloy:hash-recording-library-thumbnail",
   downloadRecordingLibraryClip: "alloy:download-recording-library-clip",
   cancelRecordingLibraryClipDownload:
     "alloy:cancel-recording-library-clip-download",
@@ -195,6 +196,8 @@ export interface AlloyDesktopRecordingApi {
   discardStagedLibraryImport(id: string): Promise<void>
   /** Persists a renderer-decoded JPEG poster for a local video capture. */
   saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
+  /** Computes the BlurHash for renderer-produced poster bytes. */
+  hashLibraryThumbnail(data: Uint8Array): Promise<string | null>
   /**
    * Persists an uploaded clip into the local capture library. Progress
    * streams out as "library-download" recording events.
