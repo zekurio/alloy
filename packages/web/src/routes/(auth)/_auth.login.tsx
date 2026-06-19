@@ -5,7 +5,7 @@ import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
 import { sanitizeLoginRedirect } from "@/lib/login-redirect"
 import { loadAuthConfig } from "@/lib/session-suspense"
 
-export const Route = createFileRoute("/(auth)/login")({
+export const Route = createFileRoute("/(auth)/_auth/login")({
   validateSearch: (search): { redirect?: string } => {
     const target = sanitizeLoginRedirect(search.redirect)
     return target ? { redirect: target } : {}

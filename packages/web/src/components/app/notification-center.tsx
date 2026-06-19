@@ -1,4 +1,8 @@
-import { clipThumbnailUrl, type NotificationRow } from "@alloy/api"
+import {
+  clipThumbnailUrl,
+  type NotificationRow,
+  type NotificationsResponse,
+} from "@alloy/api"
 import type { DesktopUpdateState } from "@alloy/contracts"
 import { t as tx } from "@alloy/i18n"
 import {
@@ -51,7 +55,6 @@ import {
 import { EmptyState } from "@/components/feedback/empty-state"
 import { formatRelativeTime } from "@/lib/date-format"
 import { alloyDesktop } from "@/lib/desktop"
-import { useDesktopUpdateState } from "@/lib/desktop-updates"
 import { apiOrigin } from "@/lib/env"
 import {
   notificationHref,
@@ -60,10 +63,7 @@ import {
   useDeleteNotificationMutation,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
-  useNotificationsQuery,
-  useNotificationStream,
 } from "@/lib/notification-queries"
-import { useSuspenseSession } from "@/lib/session-suspense"
 import { displayName, userAvatar } from "@/lib/user-display"
 
 const NOTIFICATION_GLASS_STYLE = {
@@ -79,24 +79,39 @@ const NOTIFICATION_GLASS_STYLE = {
 } as React.CSSProperties
 
 type NotificationCenterProps = {
+  data: NotificationsResponse | undefined
+  isLoading: boolean
   menuTriggerAnchor?: Element | null
   triggerVariant?: "icon" | "menu-item"
+  updateState: DesktopUpdateState
+}
+
+type MenuPopoverGeometry = {
+  alignOffset: number
+  maxHeight: number
+  minHeight: number
+}
+
+const DEFAULT_MENU_POPOVER_GEOMETRY: MenuPopoverGeometry = {
+  alignOffset: 0,
+  maxHeight: 0,
+  minHeight: 0,
 }
 
 export function NotificationCenter({
+  data,
+  isLoading,
   menuTriggerAnchor,
   triggerVariant = "icon",
+  updateState,
 }: NotificationCenterProps) {
   const isMobile = useIsMobile()
-  const session = useSuspenseSession()
-  const enabled = Boolean(session)
   const [open, setOpen] = React.useState(false)
-  const [menuAlignOffset, setMenuAlignOffset] = React.useState(0)
+  const [menuPopoverGeometry, setMenuPopoverGeometry] = React.useState(
+    DEFAULT_MENU_POPOVER_GEOMETRY,
+  )
   const [menuPopoverAnchor, setMenuPopoverAnchor] =
     React.useState<Element | null>(null)
-  const query = useNotificationsQuery({ enabled: false })
-  useNotificationStream({ enabled })
-  const updateState = useDesktopUpdateState()
 
   const setMenuItemTrigger = React.useCallback(
     (node: HTMLButtonElement | null) => {
@@ -127,34 +142,59 @@ export function NotificationCenter({
       !menuPopoverAnchor ||
       !menuTriggerAnchor
     ) {
-      setMenuAlignOffset(0)
+      setMenuPopoverGeometry(DEFAULT_MENU_POPOVER_GEOMETRY)
       return
     }
 
-    const updateAlignOffset = () => {
+    const updateMenuGeometry = () => {
       const popoverRect = menuPopoverAnchor.getBoundingClientRect()
       const triggerRect = menuTriggerAnchor.getBoundingClientRect()
-      setMenuAlignOffset(popoverRect.bottom - triggerRect.bottom)
+      const viewportTop = window.visualViewport?.offsetTop ?? 0
+      const viewportPadding = 8
+      const maxHeight = Math.max(
+        0,
+        Math.round(triggerRect.bottom - viewportTop - viewportPadding),
+      )
+      const minHeight = Math.min(
+        Math.max(0, Math.round(triggerRect.bottom - popoverRect.top)),
+        maxHeight || Number.POSITIVE_INFINITY,
+      )
+      const nextGeometry = {
+        alignOffset: Math.round(popoverRect.bottom - triggerRect.bottom),
+        maxHeight,
+        minHeight,
+      }
+      setMenuPopoverGeometry((current) =>
+        isSameMenuPopoverGeometry(current, nextGeometry)
+          ? current
+          : nextGeometry,
+      )
     }
 
-    updateAlignOffset()
+    updateMenuGeometry()
 
-    const resizeObserver = new ResizeObserver(updateAlignOffset)
+    const resizeObserver = new ResizeObserver(updateMenuGeometry)
     resizeObserver.observe(menuPopoverAnchor)
     resizeObserver.observe(menuTriggerAnchor)
-    window.addEventListener("resize", updateAlignOffset)
+    const visualViewport = window.visualViewport
+    window.addEventListener("resize", updateMenuGeometry)
+    visualViewport?.addEventListener("resize", updateMenuGeometry)
+    visualViewport?.addEventListener("scroll", updateMenuGeometry)
     return () => {
       resizeObserver.disconnect()
-      window.removeEventListener("resize", updateAlignOffset)
+      window.removeEventListener("resize", updateMenuGeometry)
+      visualViewport?.removeEventListener("resize", updateMenuGeometry)
+      visualViewport?.removeEventListener("scroll", updateMenuGeometry)
     }
   }, [menuPopoverAnchor, menuTriggerAnchor, open, triggerVariant])
 
-  if (!enabled) {
-    return null
-  }
-
-  const unreadCount = query.data?.unreadCount ?? 0
+  const unreadCount = data?.unreadCount ?? 0
   const updateReady = updateState.status === "downloaded"
+  const useMenuGeometry =
+    triggerVariant === "menu-item" &&
+    !!menuTriggerAnchor &&
+    menuPopoverGeometry.minHeight > 0 &&
+    menuPopoverGeometry.maxHeight > 0
 
   const trigger =
     triggerVariant === "menu-item" ? (
@@ -186,8 +226,9 @@ export function NotificationCenter({
 
   const content = (
     <NotificationCenterContent
-      data={query.data}
-      isLoading={query.data === undefined}
+      data={data}
+      fillSurface={useMenuGeometry && !isMobile}
+      isLoading={isLoading}
       mobile={isMobile}
       updateState={updateState}
       onClose={() => setOpen(false)}
@@ -220,21 +261,50 @@ export function NotificationCenter({
       <PopoverTrigger render={trigger} />
       <PopoverContent
         align="end"
-        alignOffset={triggerVariant === "menu-item" ? menuAlignOffset : 0}
+        alignOffset={
+          triggerVariant === "menu-item" ? menuPopoverGeometry.alignOffset : 0
+        }
         anchor={triggerVariant === "menu-item" ? menuPopoverAnchor : undefined}
         side={triggerVariant === "menu-item" ? "right" : "bottom"}
         sideOffset={8}
         className={cn(
           "w-[380px] max-w-[calc(100vw-1.5rem)] border p-3 ring-0",
           "alloy-blur duration-0 data-open:animate-none data-closed:animate-none",
+          useMenuGeometry &&
+            "max-h-(--notification-menu-max-height) min-h-(--notification-menu-min-height) overflow-hidden",
         )}
-        style={NOTIFICATION_GLASS_STYLE}
+        style={notificationPopoverStyle(
+          useMenuGeometry ? menuPopoverGeometry : null,
+        )}
         aria-describedby={undefined}
       >
         {content}
       </PopoverContent>
     </Popover>
   )
+}
+
+function isSameMenuPopoverGeometry(
+  current: MenuPopoverGeometry,
+  next: MenuPopoverGeometry,
+) {
+  return (
+    current.alignOffset === next.alignOffset &&
+    current.maxHeight === next.maxHeight &&
+    current.minHeight === next.minHeight
+  )
+}
+
+function notificationPopoverStyle(
+  geometry: MenuPopoverGeometry | null,
+): React.CSSProperties {
+  if (!geometry) return NOTIFICATION_GLASS_STYLE
+
+  return {
+    ...NOTIFICATION_GLASS_STYLE,
+    "--notification-menu-max-height": `${geometry.maxHeight}px`,
+    "--notification-menu-min-height": `${geometry.minHeight}px`,
+  } as React.CSSProperties
 }
 
 function NotificationBell({ showDot }: { showDot: boolean }) {
@@ -253,12 +323,14 @@ function NotificationBell({ showDot }: { showDot: boolean }) {
 
 function NotificationCenterContent({
   data,
+  fillSurface = false,
   isLoading,
   mobile = false,
   updateState,
   onClose,
 }: {
   data: { items: NotificationRow[]; unreadCount: number } | undefined
+  fillSurface?: boolean
   isLoading: boolean
   mobile?: boolean
   updateState: DesktopUpdateState
@@ -272,7 +344,10 @@ function NotificationCenterContent({
 
   return (
     <section
-      className={cn("flex flex-col", mobile ? "min-h-0 flex-1" : undefined)}
+      className={cn(
+        "flex flex-col",
+        mobile || fillSurface ? "min-h-0 flex-1" : undefined,
+      )}
     >
       <header
         className={cn(
@@ -330,7 +405,9 @@ function NotificationCenterContent({
           "flex flex-col overflow-y-auto",
           mobile
             ? "min-h-0 flex-1 px-3 py-3"
-            : "-mx-1 max-h-[min(520px,calc(100dvh-14rem))]",
+            : fillSurface
+              ? "-mx-1 min-h-0 flex-1"
+              : "-mx-1 max-h-[min(520px,calc(100dvh-14rem))]",
         )}
       >
         {updateReady ? (

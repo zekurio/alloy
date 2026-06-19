@@ -9,11 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as authSignUpRouteImport } from './routes/(auth)/sign-up'
 import { Route as authSetupRouteImport } from './routes/(auth)/setup'
-import { Route as authLoginRouteImport } from './routes/(auth)/login'
+import { Route as authAuthRouteImport } from './routes/(auth)/_auth'
 import { Route as appAppRouteImport } from './routes/(app)/_app'
 import { Route as appAppIndexRouteImport } from './routes/(app)/_app.index'
+import { Route as authAuthSignUpRouteImport } from './routes/(auth)/_auth.sign-up'
+import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
 import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
 import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
 import { Route as appAppEditorRouteImport } from './routes/(app)/_app.editor'
@@ -33,19 +34,13 @@ import { Route as appAppLibraryCClipIdRouteImport } from './routes/(app)/_app.li
 import { Route as appAppGamesGameIdCClipIdRouteImport } from './routes/(app)/_app.games.$gameId.c.$clipId'
 import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
 
-const authSignUpRoute = authSignUpRouteImport.update({
-  id: '/(auth)/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const authSetupRoute = authSetupRouteImport.update({
   id: '/(auth)/setup',
   path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
-const authLoginRoute = authLoginRouteImport.update({
-  id: '/(auth)/login',
-  path: '/login',
+const authAuthRoute = authAuthRouteImport.update({
+  id: '/(auth)/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const appAppRoute = appAppRouteImport.update({
@@ -56,6 +51,16 @@ const appAppIndexRoute = appAppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => appAppRoute,
+} as any)
+const authAuthSignUpRoute = authAuthSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => authAuthRoute,
+} as any)
+const authAuthLoginRoute = authAuthLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => authAuthRoute,
 } as any)
 const appAppSettingsRoute = appAppSettingsRouteImport.update({
   id: '/settings',
@@ -150,12 +155,12 @@ const appAppGSlugCClipIdRoute = appAppGSlugCClipIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/login': typeof authLoginRoute
   '/setup': typeof authSetupRoute
-  '/sign-up': typeof authSignUpRoute
   '/editor': typeof appAppEditorRoute
   '/games': typeof appAppGamesRouteWithChildren
   '/settings': typeof appAppSettingsRoute
+  '/login': typeof authAuthLoginRoute
+  '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
   '/g/$slug': typeof appAppGSlugRouteWithChildren
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
@@ -174,11 +179,11 @@ export interface FileRoutesByFullPath {
   '/games/$gameId/c/$clipId': typeof appAppGamesGameIdCClipIdRoute
 }
 export interface FileRoutesByTo {
-  '/login': typeof authLoginRoute
   '/setup': typeof authSetupRoute
-  '/sign-up': typeof authSignUpRoute
   '/editor': typeof appAppEditorRoute
   '/settings': typeof appAppSettingsRoute
+  '/login': typeof authAuthLoginRoute
+  '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
   '/g/$slug': typeof appAppGSlugRouteWithChildren
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
@@ -198,12 +203,13 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/(app)/_app': typeof appAppRouteWithChildren
-  '/(auth)/login': typeof authLoginRoute
+  '/(auth)/_auth': typeof authAuthRouteWithChildren
   '/(auth)/setup': typeof authSetupRoute
-  '/(auth)/sign-up': typeof authSignUpRoute
   '/(app)/_app/editor': typeof appAppEditorRoute
   '/(app)/_app/games': typeof appAppGamesRouteWithChildren
   '/(app)/_app/settings': typeof appAppSettingsRoute
+  '/(auth)/_auth/login': typeof authAuthLoginRoute
+  '/(auth)/_auth/sign-up': typeof authAuthSignUpRoute
   '/(app)/_app/': typeof appAppIndexRoute
   '/(app)/_app/g/$slug': typeof appAppGSlugRouteWithChildren
   '/(app)/_app/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
@@ -224,12 +230,12 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/login'
     | '/setup'
-    | '/sign-up'
     | '/editor'
     | '/games'
     | '/settings'
+    | '/login'
+    | '/sign-up'
     | '/'
     | '/g/$slug'
     | '/games/$gameId'
@@ -248,11 +254,11 @@ export interface FileRouteTypes {
     | '/games/$gameId/c/$clipId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/login'
     | '/setup'
-    | '/sign-up'
     | '/editor'
     | '/settings'
+    | '/login'
+    | '/sign-up'
     | '/'
     | '/g/$slug'
     | '/games/$gameId'
@@ -271,12 +277,13 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/(app)/_app'
-    | '/(auth)/login'
+    | '/(auth)/_auth'
     | '/(auth)/setup'
-    | '/(auth)/sign-up'
     | '/(app)/_app/editor'
     | '/(app)/_app/games'
     | '/(app)/_app/settings'
+    | '/(auth)/_auth/login'
+    | '/(auth)/_auth/sign-up'
     | '/(app)/_app/'
     | '/(app)/_app/g/$slug'
     | '/(app)/_app/games/$gameId'
@@ -297,20 +304,12 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   appAppRoute: typeof appAppRouteWithChildren
-  authLoginRoute: typeof authLoginRoute
+  authAuthRoute: typeof authAuthRouteWithChildren
   authSetupRoute: typeof authSetupRoute
-  authSignUpRoute: typeof authSignUpRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/(auth)/sign-up': {
-      id: '/(auth)/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof authSignUpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/(auth)/setup': {
       id: '/(auth)/setup'
       path: '/setup'
@@ -318,11 +317,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(auth)/login': {
-      id: '/(auth)/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof authLoginRouteImport
+    '/(auth)/_auth': {
+      id: '/(auth)/_auth'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof authAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(app)/_app': {
@@ -338,6 +337,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof appAppIndexRouteImport
       parentRoute: typeof appAppRoute
+    }
+    '/(auth)/_auth/sign-up': {
+      id: '/(auth)/_auth/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof authAuthSignUpRouteImport
+      parentRoute: typeof authAuthRoute
+    }
+    '/(auth)/_auth/login': {
+      id: '/(auth)/_auth/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof authAuthLoginRouteImport
+      parentRoute: typeof authAuthRoute
     }
     '/(app)/_app/settings': {
       id: '/(app)/_app/settings'
@@ -554,11 +567,24 @@ const appAppRouteChildren: appAppRouteChildren = {
 const appAppRouteWithChildren =
   appAppRoute._addFileChildren(appAppRouteChildren)
 
+interface authAuthRouteChildren {
+  authAuthLoginRoute: typeof authAuthLoginRoute
+  authAuthSignUpRoute: typeof authAuthSignUpRoute
+}
+
+const authAuthRouteChildren: authAuthRouteChildren = {
+  authAuthLoginRoute: authAuthLoginRoute,
+  authAuthSignUpRoute: authAuthSignUpRoute,
+}
+
+const authAuthRouteWithChildren = authAuthRoute._addFileChildren(
+  authAuthRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   appAppRoute: appAppRouteWithChildren,
-  authLoginRoute: authLoginRoute,
+  authAuthRoute: authAuthRouteWithChildren,
   authSetupRoute: authSetupRoute,
-  authSignUpRoute: authSignUpRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

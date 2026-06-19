@@ -24,17 +24,20 @@ function AlloyLogo({
 
   return (
     <span
-      className={cn("inline-flex items-center", className)}
+      className={cn("inline-flex items-center leading-none", className)}
       style={{ gap: spacing }}
       {...props}
     >
       <AlloyLogoMark src={markSrc} size={size} />
       <span
         className={cn(
-          "font-mono leading-none font-bold tracking-normal text-foreground",
+          "font-mono inline-flex items-center font-bold tracking-normal text-foreground",
           textClassName,
         )}
-        style={{ fontSize: Math.round(size * 0.56) }}
+        style={{
+          fontSize: Math.round(size * 0.56),
+          lineHeight: `${size}px`,
+        }}
       >
         {"alloy"}
       </span>
@@ -46,6 +49,7 @@ function AlloyLogoMark({
   src = "/logo.png",
   size = 40,
   className,
+  style,
   ...props
 }: React.ImgHTMLAttributes<HTMLImageElement> & { size?: number }) {
   return (
@@ -54,7 +58,8 @@ function AlloyLogoMark({
       width={size}
       height={size}
       alt={"alloy"}
-      className={cn("shrink-0 select-none", className)}
+      className={cn("block shrink-0 select-none", className)}
+      style={{ width: size, height: size, ...style }}
       draggable={false}
       {...props}
     />

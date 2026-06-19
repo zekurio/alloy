@@ -4,7 +4,7 @@ import { SignUpPageInner } from "@/components/routes/sign-up/sign-up-page-inner"
 import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
 import { loadAuthConfig } from "@/lib/session-suspense"
 
-export const Route = createFileRoute("/(auth)/sign-up")({
+export const Route = createFileRoute("/(auth)/_auth/sign-up")({
   beforeLoad: redirectAuthedBeforeLoad,
   loader: async ({ context }) => {
     const config = context.authConfig ?? (await loadAuthConfig())
