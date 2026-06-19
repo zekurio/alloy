@@ -46,6 +46,7 @@ export type {
   AcceptedContentType,
   ClipFeedSort,
   ClipGameRef,
+  ClipListSort,
   ClipLikeState,
   ClipMentionRef,
   ClipPage,

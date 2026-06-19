@@ -5,18 +5,17 @@ import { searchString } from "./route-search"
 
 export type HomeSearch = {
   sort?: ClipFeedSort
-  feed?: "following" | "recommended"
+  feed?: "following"
   game?: string
 }
 
 export function parseHomeSearch(search: Record<string, unknown>): HomeSearch {
-  const sort = parseClipSort(search.sort)
+  const sort =
+    search.feed === "recommended" ? "recommended" : parseClipSort(search.sort)
   const game = searchString(search.game)
   return {
     ...(sort ? { sort } : {}),
-    ...(search.feed === "following" || search.feed === "recommended"
-      ? { feed: search.feed }
-      : {}),
+    ...(search.feed === "following" ? { feed: search.feed } : {}),
     ...(game ? { game } : {}),
   }
 }

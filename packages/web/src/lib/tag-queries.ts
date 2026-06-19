@@ -1,4 +1,4 @@
-import type { ClipFeedSort, TagClipsParams } from "@alloy/api"
+import type { ClipListSort, TagClipsParams } from "@alloy/api"
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -8,7 +8,7 @@ import {
 import { api } from "./api"
 
 type TagClipsFilters = {
-  sort: ClipFeedSort
+  sort: ClipListSort
   steamgriddbId?: number
 }
 

@@ -22,12 +22,13 @@ import {
 } from "./feed-recommendations"
 import { limitQueryParam, zValidator } from "./validation"
 
-const FilterEnum = z.enum(["all", "following", "recommended", "game"])
+const FilterEnum = z.enum(["all", "following", "game"])
+const FeedSortEnum = z.enum(["top", "recent", "recommended"])
 
 const FeedQuery = z
   .object({
     filter: FilterEnum.default("all"),
-    sort: z.enum(["top", "recent"]).default("recent"),
+    sort: FeedSortEnum.default("recent"),
     steamgriddbId: z.coerce.number().int().positive().optional(),
     limit: limitQueryParam(50, 20),
     cursor: z.string().optional(),
@@ -54,17 +55,8 @@ export const feedRoute = new Hono()
     const session = await getSession(c)
     const viewerId = session?.user.id ?? null
 
-    if (filter === "recommended") {
-      const cursor = parseRecommendedClipCursor(rawCursor)
-      if (rawCursor && !cursor) return invalidCursor(c)
-      return c.json(await listRecommendedClips({ cursor, limit, viewerId }))
-    }
-
-    const cursor = parseClipListCursor(rawCursor, sort)
-    if (rawCursor && !cursor) return invalidCursor(c)
-
     if (filter === "following" && !viewerId) {
-      return c.json(clipListPage([], limit, sort))
+      return c.json({ items: [], nextCursor: null })
     }
 
     const conditions: SQL[] = publicClipListingConditions()
@@ -78,7 +70,7 @@ export const feedRoute = new Hono()
       // The following feed is strictly creator follows. Game follows power
       // recommendations instead, so starring a game doesn't muddy this tab.
       const followingViewerId = viewerId
-      if (!followingViewerId) return c.json(clipListPage([], limit, sort))
+      if (!followingViewerId) return c.json({ items: [], nextCursor: null })
       // Your own clips don't belong in a feed of people you follow.
       conditions.push(ne(clip.authorId, followingViewerId))
       conditions.push(
@@ -95,6 +87,17 @@ export const feedRoute = new Hono()
         ),
       )
     }
+
+    if (sort === "recommended") {
+      const cursor = parseRecommendedClipCursor(rawCursor)
+      if (rawCursor && !cursor) return invalidCursor(c)
+      return c.json(
+        await listRecommendedClips({ conditions, cursor, limit, viewerId }),
+      )
+    }
+
+    const cursor = parseClipListCursor(rawCursor, sort)
+    if (rawCursor && !cursor) return invalidCursor(c)
 
     const cursorCondition = clipListCursorCondition(cursor, sort)
     if (cursorCondition) conditions.push(cursorCondition)

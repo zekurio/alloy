@@ -3,6 +3,7 @@ import { BrowserWindow, dialog, ipcMain } from "electron"
 
 import { IPC } from "@/shared/ipc"
 
+import { imageBufferBlurHash } from "./image-blurhash"
 import { requireMainSender } from "./ipc-guards"
 import {
   normalizeLibraryCommitStagedImportRequest,
@@ -10,6 +11,7 @@ import {
   normalizeLibraryExportRequest,
   normalizeLibraryImportRequest,
   normalizeLibraryMetaPatch,
+  normalizeLibraryThumbnailHashRequest,
   normalizeLibraryThumbnailSaveRequest,
   normalizeProjectDraftSaveRequest,
 } from "./ipc-normalizers"
@@ -159,6 +161,15 @@ function registerRecordingLibraryImportIpc(windows: Windows): void {
       const normalized = normalizeLibraryThumbnailSaveRequest(request)
       if (!normalized) throw new Error("Invalid thumbnail save request.")
       storeRecordingThumbnail(normalized.id, normalized.data)
+    },
+  )
+  ipcMain.handle(
+    IPC.hashRecordingLibraryThumbnail,
+    (event, request: unknown) => {
+      requireMainSender(windows, event)
+      const normalized = normalizeLibraryThumbnailHashRequest(request)
+      if (!normalized) throw new Error("Invalid thumbnail hash request.")
+      return imageBufferBlurHash(normalized)
     },
   )
 }

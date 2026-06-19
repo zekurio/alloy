@@ -2,7 +2,7 @@ import type { FeedFilter } from "@alloy/api"
 import { t as tx } from "@alloy/i18n"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { useNavigate } from "@tanstack/react-router"
-import { GlobeIcon, SparklesIcon, UsersIcon } from "lucide-react"
+import { GlobeIcon, UsersIcon } from "lucide-react"
 
 import {
   FilterDropdown,
@@ -19,7 +19,6 @@ type FeedFilterDropdownProps = {
 
 const SCOPE_ALL = "all"
 const SCOPE_FOLLOWING = "following"
-const SCOPE_RECOMMENDED = "recommended"
 
 function filterKey(filter: FeedFilter): string {
   if (filter.kind === "game") return `game:${filter.steamgriddbId}`
@@ -30,9 +29,6 @@ function filterKey(filter: FeedFilter): string {
 function searchForKey(search: HomeSearch, key: string): HomeSearch {
   if (key === SCOPE_FOLLOWING) {
     return { ...search, feed: "following", game: undefined }
-  }
-  if (key === SCOPE_RECOMMENDED) {
-    return { ...search, feed: "recommended", game: undefined, sort: undefined }
   }
   if (key.startsWith("game:")) {
     return { ...search, feed: undefined, game: key.slice("game:".length) }
@@ -52,11 +48,6 @@ export function FeedFilterDropdown({
   const options: FilterDropdownOption<string>[] = [
     { key: SCOPE_ALL, label: tx("All"), icon: <GlobeIcon /> },
     { key: SCOPE_FOLLOWING, label: tx("Following"), icon: <UsersIcon /> },
-    {
-      key: SCOPE_RECOMMENDED,
-      label: tx("Recommended"),
-      icon: <SparklesIcon />,
-    },
     ...games.map((g) => ({
       key: `game:${g.steamgriddbId}`,
       label: g.name,

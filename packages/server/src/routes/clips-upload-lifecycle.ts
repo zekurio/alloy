@@ -147,8 +147,8 @@ export const clipsUploadLifecycleRoutes = new Hono()
             privacy,
             sourceContentType: body.contentType,
             sourceSizeBytes: body.sizeBytes,
-            // Client-provided placeholder; media processing recomputes the
-            // canonical hash from the published thumbnail.
+            // Client-provided poster placeholder; media finalization preserves
+            // it because the server does not derive poster frames or hashes.
             thumbBlurHash: body.thumbBlurHash ?? null,
             status: "pending",
           })

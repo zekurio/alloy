@@ -5,9 +5,8 @@ import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
 import { dateFromDateLike, isoDate } from "@alloy/server/runtime/date"
-import { and, eq, lt, ne, or, type SQL, sql } from "drizzle-orm"
+import { and, eq, lt, or, type SQL, sql } from "drizzle-orm"
 
-import { publicClipListingConditions } from "./clips-helpers"
 import {
   cursorDate,
   cursorFiniteNumber,
@@ -149,27 +148,28 @@ function recommendedCursorCondition(
 }
 
 export async function listRecommendedClips({
+  conditions,
   cursor,
   limit,
   viewerId,
 }: {
+  conditions: SQL[]
   cursor: RecommendedClipCursor | null
   limit: number
   viewerId: string | null
 }): Promise<FeedPage> {
   const asOf = cursor?.asOf ?? new Date()
   const score = rankScore(viewerId, isoDate(asOf))
-  const conditions: SQL[] = publicClipListingConditions()
-  if (viewerId) conditions.push(ne(clip.authorId, viewerId))
+  const pageConditions = [...conditions]
   const cursorCondition = recommendedCursorCondition(cursor, score)
-  if (cursorCondition) conditions.push(cursorCondition)
+  if (cursorCondition) pageConditions.push(cursorCondition)
 
   const rows = await db
     .select({ ...clipSelectShape, rankScore: score })
     .from(clip)
     .innerJoin(user, eq(clip.authorId, user.id))
     .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
-    .where(and(...conditions))
+    .where(and(...pageConditions))
     .orderBy(sql`${score} desc`, sql`${clip.createdAt} desc`, clip.id)
     .limit(limit + 1)
 

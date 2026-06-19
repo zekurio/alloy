@@ -13,6 +13,7 @@ import {
   Clock3Icon,
   EyeIcon,
   HistoryIcon,
+  SparklesIcon,
   TrophyIcon,
 } from "lucide-react"
 import * as React from "react"
@@ -123,6 +124,8 @@ function defaultSortIcon(key: string | undefined) {
       return <HistoryIcon />
     case "top":
       return <TrophyIcon />
+    case "recommended":
+      return <SparklesIcon />
     case "views":
       return <EyeIcon />
     default:

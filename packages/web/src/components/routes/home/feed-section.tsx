@@ -25,8 +25,6 @@ function emptyTitle(filter: FeedFilter): string {
       return tx("No public clips yet")
     case "following":
       return tx("Your following feed is empty")
-    case "recommended":
-      return tx("No recommendations yet")
     case "game":
       return tx("No clips in this game yet")
   }
@@ -38,8 +36,6 @@ function emptyHint(filter: FeedFilter): string {
       return tx("Come back when others have uploaded some clips.")
     case "following":
       return tx("Follow creators to populate this tab.")
-    case "recommended":
-      return tx("Like clips, follow creators, or star games to tune this feed.")
     case "game":
       return tx("Be the first to post one.")
   }

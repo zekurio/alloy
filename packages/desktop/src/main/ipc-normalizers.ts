@@ -165,6 +165,16 @@ export function normalizeLibraryThumbnailSaveRequest(
   return { id: record.id, data: record.data }
 }
 
+export function normalizeLibraryThumbnailHashRequest(
+  value: unknown,
+): Uint8Array | null {
+  if (!(value instanceof Uint8Array)) return null
+  if (value.byteLength === 0 || value.byteLength > THUMBNAIL_MAX_BYTES) {
+    return null
+  }
+  return value
+}
+
 const DOWNLOAD_TITLE_MAX = 200
 const DOWNLOAD_ID_MAX = 64
 const DOWNLOAD_URL_MAX = 2000

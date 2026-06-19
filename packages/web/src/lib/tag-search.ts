@@ -1,11 +1,11 @@
-import type { ClipFeedSort } from "@alloy/api"
+import type { ClipListSort } from "@alloy/api"
 
 import { searchEnum, searchString } from "./route-search"
 
 const SORT_KEYS = ["top", "recent"] as const
 
 export type TagSearch = {
-  sort?: ClipFeedSort
+  sort?: ClipListSort
   /** steamgriddbId (as a string) to narrow the tag results to a game. */
   game?: string
 }
@@ -21,7 +21,7 @@ export function parseTagSearch(search: Record<string, unknown>): TagSearch {
 
 /** Resolve the effective filters, applying the page defaults. */
 export function tagFilters(search: TagSearch): {
-  sort: ClipFeedSort
+  sort: ClipListSort
   steamgriddbId?: number
 } {
   const steamgriddbId = search.game

@@ -12,6 +12,7 @@ import {
 } from "@/components/upload/new-clip-helpers"
 import type { PublishClipResult } from "@/components/upload/upload-flow-context"
 import type { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
+import { clientLogger } from "@/lib/client-log"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import type { AlloyDesktop } from "@/lib/desktop"
 
@@ -74,6 +75,10 @@ export async function exportAndPublishCapture({
     selected.file,
     posterAtMs,
   )
+  const thumbBlurHash =
+    exported.thumbBlurHash ??
+    item.thumbBlurHash ??
+    (await hashPosterBlob(desktop, thumbBlob))
 
   return publishClip({
     file: selected.file,
@@ -88,7 +93,7 @@ export async function exportAndPublishCapture({
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
     thumbBlob,
-    thumbBlurHash: exported.thumbBlurHash ?? item.thumbBlurHash,
+    thumbBlurHash,
     mentionedUserIds: mentions.map((mention) => mention.id),
     localCaptureId: item.id,
   })
@@ -111,4 +116,19 @@ async function capturePosterBlob(
     }
   }
   return captureThumbnail(file, posterAtMs)
+}
+
+async function hashPosterBlob(
+  desktop: AlloyDesktop,
+  blob: Blob,
+): Promise<string | null> {
+  if (!desktop.recording.hashLibraryThumbnail) return null
+  try {
+    return await desktop.recording.hashLibraryThumbnail(
+      new Uint8Array(await blob.arrayBuffer()),
+    )
+  } catch (cause) {
+    clientLogger.warn("[upload] Could not compute poster BlurHash.", cause)
+    return null
+  }
 }
