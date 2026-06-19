@@ -29,6 +29,7 @@ import {
   type FilterDropdownOption,
 } from "@/components/clip/filter-dropdown"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
+import { useAppSearch } from "@/components/search/app-search"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import {
@@ -67,11 +68,13 @@ export function LibraryPage() {
 function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { deferredQuery } = useAppSearch()
   const [groupKey, setGroupKey] = React.useState<string | null>(null)
   const [status, setStatus] = React.useState<LibraryStatusFilter>("all")
   const model = useLibraryContentModel({
     desktop,
     kind: "all",
+    query: deferredQuery,
     groupKey,
     status,
   })
@@ -102,6 +105,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           loading={model.loading}
           error={model.error}
           hasAnything={model.hasAnything}
+          query={deferredQuery}
           onOpenLocal={(item) => {
             void navigate({
               to: "/library/$captureId",
@@ -131,11 +135,13 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
 function useLibraryContentModel({
   desktop,
   kind,
+  query,
   groupKey,
   status,
 }: {
   desktop: AlloyDesktop | null
   kind: LibraryKindFilter
+  query: string
   groupKey: string | null
   status: LibraryStatusFilter
 }) {
@@ -180,9 +186,9 @@ function useLibraryContentModel({
       uploaded,
       active,
       kind,
-      query: "",
+      query,
     })
-  }, [snapshot, gamesByName, uploaded, groups, groupKey, kind])
+  }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, query])
   const statusCounts = React.useMemo(
     () => countLibraryEntriesByStatus(visibleEntries),
     [visibleEntries],
@@ -285,6 +291,7 @@ function LibraryBody({
   loading,
   error,
   hasAnything,
+  query,
   onOpenLocal,
   onOpenCloud,
   onCloudIntent,
@@ -294,6 +301,7 @@ function LibraryBody({
   loading: boolean
   error: string | null
   hasAnything: boolean
+  query: string
   onOpenLocal: (item: LibraryItemView) => void
   onOpenCloud: (row: ClipRow) => void
   onCloudIntent: (row: ClipRow) => void
@@ -328,7 +336,11 @@ function LibraryBody({
       <LibraryEmpty
         icon={<LibraryIcon />}
         title={tx("No captures here")}
-        description={tx("Pick another game or add a capture.")}
+        description={
+          query.trim()
+            ? tx("Try a different search or filter.")
+            : tx("Pick another game or add a capture.")
+        }
       />
     )
   }
