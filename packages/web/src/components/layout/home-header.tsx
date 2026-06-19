@@ -15,11 +15,12 @@ import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
 import { alloyDesktop } from "@/lib/desktop"
 
-import { HeaderToolbarSlot } from "./header-toolbar"
+import { HeaderToolbarSlot, useHeaderToolbarNode } from "./header-toolbar"
 import { MobileSidebarTrigger } from "./home-sidebar"
 
 export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
+  const toolbarNode = useHeaderToolbarNode()
   const inputRef = React.useRef<HTMLInputElement>(null)
   const desktop = alloyDesktop()
 
@@ -66,9 +67,11 @@ export function HomeHeader() {
       >
         <SearchResultsPopover />
       </AppHeaderSearch>
-      <AppHeaderToolbar>
-        <HeaderToolbarSlot />
-      </AppHeaderToolbar>
+      {toolbarNode ? (
+        <AppHeaderToolbar>
+          <HeaderToolbarSlot />
+        </AppHeaderToolbar>
+      ) : null}
       {desktop?.titlebarOverlay ? (
         <AppHeaderWindowControls
           onMinimize={() => {

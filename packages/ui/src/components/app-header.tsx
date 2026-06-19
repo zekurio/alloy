@@ -10,13 +10,9 @@ function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
     <header
       data-slot="app-header"
       className={cn(
-        "relative grid min-w-0 items-center gap-2 px-2 sm:gap-3 sm:px-5 md:pl-0",
-        "md:[grid-template-columns:var(--sidebar-expanded)_minmax(12rem,1fr)_auto_auto_auto]",
-        "[&_[data-slot=app-header-brand]]:col-start-1",
-        "[&_[data-slot=app-header-search]]:col-start-2",
-        "[&_[data-slot=app-header-toolbar]]:col-start-3",
-        "[&_[data-slot=app-header-actions]]:col-start-4",
-        "[&_[data-slot=app-header-window-controls]]:col-start-5",
+        "relative grid min-w-0 grid-flow-col auto-cols-auto items-center gap-2 px-2 sm:gap-3 sm:px-5 md:pl-0",
+        "[grid-template-columns:auto_minmax(0,1fr)]",
+        "md:[grid-template-columns:var(--sidebar-expanded)_minmax(12rem,1fr)]",
         "h-[var(--header-h)] border-b border-border bg-surface",
         className,
       )}

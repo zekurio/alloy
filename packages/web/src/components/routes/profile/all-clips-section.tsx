@@ -1,12 +1,11 @@
 import type { UserClip } from "@alloy/api"
 import { t as tx } from "@alloy/i18n"
-import { SectionMeta } from "@alloy/ui/components/section-head"
 import * as React from "react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
+import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { compareDateAsc, compareDateDesc } from "@/lib/date-format"
-import { headerCountLabel } from "@/lib/number-format"
 import type { ProfileAllSort } from "@/lib/profile-all-search"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
@@ -78,22 +77,27 @@ export function AllClipsSection({
   }, [clips, gameSlug, sort])
 
   const toolbar = React.useMemo(
-    () => (
-      <ClipsFilterBar
-        username={username}
-        sort={sort}
-        gameSlug={gameSlug}
-        gameOptions={gameOptions}
-        trailing={
-          visible ? (
-            <SectionMeta>
-              {headerCountLabel(visible.length, "clip")}
-            </SectionMeta>
-          ) : null
-        }
-      />
-    ),
-    [gameOptions, gameSlug, sort, username, visible],
+    () =>
+      createHeaderToolbarControls({
+        desktop: (
+          <ClipsFilterBar
+            username={username}
+            sort={sort}
+            gameSlug={gameSlug}
+            gameOptions={gameOptions}
+          />
+        ),
+        mobile: (
+          <ClipsFilterBar
+            username={username}
+            sort={sort}
+            gameSlug={gameSlug}
+            gameOptions={gameOptions}
+            triggerVariant="icon"
+          />
+        ),
+      }),
+    [gameOptions, gameSlug, sort, username],
   )
   useHeaderToolbar(toolbar)
 

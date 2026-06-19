@@ -8,6 +8,7 @@ import * as React from "react"
 import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
+import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { FeedSection } from "@/components/routes/home/feed-section"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
@@ -45,7 +46,7 @@ export function GameDetailPageInner({
       />
     )
 
-    return {
+    return createHeaderToolbarControls({
       desktop: (
         <SortDropdown
           value={sort}
@@ -64,7 +65,7 @@ export function GameDetailPageInner({
           renderOptionLink={renderOptionLink}
         />
       ),
-    }
+    })
   }, [gameId, sort])
   useHeaderToolbar(toolbar)
 

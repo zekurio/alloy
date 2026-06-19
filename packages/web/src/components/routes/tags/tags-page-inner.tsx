@@ -19,6 +19,7 @@ import {
 } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
+import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { sanitizeTag } from "@/lib/clip-fields"
 import { formatCount } from "@/lib/number-format"
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -42,9 +43,24 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const toolbarSearchKey = JSON.stringify(search)
   const toolbarSearch = React.useMemo(() => search, [toolbarSearchKey])
   const toolbar = React.useMemo(
-    () => (
-      <TagFilterBar tag={tag} search={toolbarSearch} games={summary?.games} />
-    ),
+    () =>
+      createHeaderToolbarControls({
+        desktop: (
+          <TagFilterBar
+            tag={tag}
+            search={toolbarSearch}
+            games={summary?.games}
+          />
+        ),
+        mobile: (
+          <TagFilterBar
+            tag={tag}
+            search={toolbarSearch}
+            games={summary?.games}
+            triggerVariant="icon"
+          />
+        ),
+      }),
     [summary?.games, tag, toolbarSearch],
   )
   useHeaderToolbar(toolbar)
@@ -97,10 +113,12 @@ function TagFilterBar({
   tag,
   search,
   games,
+  triggerVariant = "chip",
 }: {
   tag: string
   search: TagSearch
   games: GameListRow[] | undefined
+  triggerVariant?: "chip" | "icon"
 }) {
   const navigate = useNavigate()
   const filters = tagFilters(search)
@@ -118,30 +136,30 @@ function TagFilterBar({
   ]
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <SortDropdown
-          label={tx("Sort")}
-          value={filters.sort}
-          options={SORTS}
-          contentClassName="w-40"
-          renderOptionLink={(opt, active) => (
-            <Link
-              to="/tags/$tag"
-              params={{ tag }}
-              search={{
-                ...search,
-                sort: opt.key === "top" ? undefined : opt.key,
-              }}
-              data-active={active ? "true" : undefined}
-            />
-          )}
-        />
-      </div>
+    <>
+      <SortDropdown
+        triggerLabel={tx("Sort clips")}
+        triggerVariant={triggerVariant}
+        value={filters.sort}
+        options={SORTS}
+        contentClassName="w-40"
+        renderOptionLink={(opt, active) => (
+          <Link
+            to="/tags/$tag"
+            params={{ tag }}
+            search={{
+              ...search,
+              sort: opt.key === "top" ? undefined : opt.key,
+            }}
+            data-active={active ? "true" : undefined}
+          />
+        )}
+      />
 
       {games && games.length > 0 ? (
         <FilterDropdown
-          label={tx("Game")}
+          triggerLabel={tx("Filter by game")}
+          triggerVariant={triggerVariant}
           value={activeGameId === undefined ? ALL_GAMES : String(activeGameId)}
           options={gameOptions}
           searchPlaceholder={tx("Search games…")}
@@ -157,7 +175,7 @@ function TagFilterBar({
           }}
         />
       ) : null}
-    </div>
+    </>
   )
 }
 
