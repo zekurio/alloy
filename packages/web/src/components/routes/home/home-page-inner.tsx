@@ -6,6 +6,7 @@ import * as React from "react"
 
 import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
+import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
 import type { HomeSearch } from "@/lib/home-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -75,23 +76,24 @@ export function HomePageInner() {
         )}
       />
     )
-    const desktop = (
-      <>
-        <FeedFilterDropdown filter={filter} search={toolbarSearch} />
-        {sortControl}
-      </>
-    )
-    const mobile = (
-      <>
-        <FeedFilterDropdown
-          filter={filter}
-          search={toolbarSearch}
-          triggerVariant="icon"
-        />
-        {mobileSortControl}
-      </>
-    )
-    return { desktop, mobile }
+    return createHeaderToolbarControls({
+      desktop: (
+        <>
+          <FeedFilterDropdown filter={filter} search={toolbarSearch} />
+          {sortControl}
+        </>
+      ),
+      mobile: (
+        <>
+          <FeedFilterDropdown
+            filter={filter}
+            search={toolbarSearch}
+            triggerVariant="icon"
+          />
+          {mobileSortControl}
+        </>
+      ),
+    })
   }, [filter, sort, toolbarSearch])
   useHeaderToolbar(toolbar)
 

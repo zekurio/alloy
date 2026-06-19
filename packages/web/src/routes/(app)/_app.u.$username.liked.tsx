@@ -1,14 +1,8 @@
 import { t as tx } from "@alloy/i18n"
-import {
-  SectionActions,
-  SectionHead,
-  SectionMeta,
-} from "@alloy/ui/components/section-head"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useUserLikedClipsQuery } from "@/lib/clip-queries"
-import { headerCountLabel } from "@/lib/number-format"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import { useUserProfileViewerQuery } from "@/lib/user-queries"
 
@@ -31,14 +25,6 @@ function ProfileLikedTab() {
 
   return (
     <section>
-      {clips ? (
-        <SectionHead className="justify-end">
-          <SectionActions>
-            <SectionMeta>{headerCountLabel(clips.length, "clip")}</SectionMeta>
-          </SectionActions>
-        </SectionHead>
-      ) : null}
-
       <ClipSectionContent
         rows={clips}
         error={error}

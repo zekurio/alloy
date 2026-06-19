@@ -73,6 +73,10 @@ export function useHeaderToolbar(node: HeaderToolbarNode): void {
   }, [node, setNode])
 }
 
+export function useHeaderToolbarNode(): HeaderToolbarNode {
+  return useHeaderToolbarContext().node
+}
+
 /**
  * Renders the active route's controls inside the header. Inline on `md+`; on
  * mobile the header row is too tight, so the controls collapse behind a single

@@ -807,9 +807,7 @@
    browser. */
 .is-desktop-titlebar [data-slot="app-header"] {
   -webkit-app-region: drag;
-  grid-template-columns:
-    var(--sidebar-expanded) minmax(12rem, 1fr)
-    auto auto auto;
+  grid-template-columns: var(--sidebar-expanded) minmax(12rem, 1fr);
   gap: 0.75rem;
   padding-right: 0;
   /* The brand zone owns its left inset so its divider lands on the sidebar
