@@ -91,68 +91,24 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
 function ClipEditorBody({ row }: { row: ClipRow }) {
   const navigation = useLibraryEntryNavigation({ type: "cloud", id: row.id })
   const { localItem, prevEntry, nextEntry } = navigation
-  const { data: session } = useSession()
-  const viewerId = session?.user?.id ?? null
-  const viewerRole =
-    (session?.user as { role?: string | null } | undefined)?.role ?? null
-  const canManage =
-    viewerId !== null && (viewerId === row.authorId || viewerRole === "admin")
-  const isOwner = viewerId !== null && viewerId === row.authorId
-
+  const { canManage, isOwner } = useClipEditorPermissions(row)
   const processing = row.status !== "ready" || row.encodeProgress < 100
   const canTrim = isOwner && !processing
-
   const playback = useTrimPlayback({
     initialDurationMs: row.durationMs ?? 0,
     canTrim,
   })
   const { playerRef, trim, trimmed, rangeMs } = playback
-
   const trimMutation = useTrimClipMutation()
   const canSaveTrim =
     canTrim && trimmed && rangeMs >= MIN_TRIM_MS && !trimMutation.isPending
-
-  // Keep metadata-only updates (post/unpost, title, tags) from making the
-  // player and poster reload. Server trims still change this through the
-  // media-shaped fields and status transitions.
-  const mediaVersion = clipEditorMediaVersion(row)
-  const streamSrc = `${clipStreamUrl(row.id, "source", apiOrigin())}&v=${encodeURIComponent(mediaVersion)}`
-  const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
-  const poster = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
-    : undefined
-  const aspectRatio = mediaAspectRatio(row.width, row.height)
-  const handoffPoster = React.useMemo<LibraryHandoffPoster>(
-    () => ({
-      src: poster,
-      blurHash: row.thumbBlurHash,
-      fallbackSeed: row.steamgriddbId ?? row.id,
-    }),
-    [poster, row.id, row.steamgriddbId, row.thumbBlurHash],
-  )
-  const [publishHandoffPoster, setPublishHandoffPoster] = React.useState(() =>
-    readLibraryHandoffPoster(row.id),
-  )
-  const [cloudFrameReady, setCloudFrameReady] = React.useState(
-    () => publishHandoffPoster === null,
-  )
-  React.useEffect(() => {
-    setPublishHandoffPoster(readLibraryHandoffPoster(row.id))
-  }, [row.id])
-  React.useEffect(() => {
-    setCloudFrameReady(publishHandoffPoster === null)
-  }, [publishHandoffPoster])
-  React.useEffect(() => {
-    if (publishHandoffPoster && cloudFrameReady) {
-      clearLibraryHandoffPoster(row.id)
-    }
-  }, [cloudFrameReady, publishHandoffPoster, row.id])
+  const media = useClipEditorMedia(row, processing)
   const deleteFlow = useServerBackedClipDelete({
     row,
     localItem,
     prevEntry,
     nextEntry,
-    handoffPoster,
+    handoffPoster: media.handoffPoster,
   })
 
   useLibraryEditorShortcuts({
@@ -188,60 +144,15 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   return (
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
       <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
-        {/* ── Stage: player, transport, and the trimmer. ── */}
-        <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
-          <LibraryMediaStage aspectRatio={aspectRatio}>
-            <VideoPlayer
-              src={streamSrc}
-              sourceIdentity={`${row.id}:${mediaVersion}`}
-              poster={poster}
-              posterBlurHash={row.thumbBlurHash}
-              fallbackSeed={row.steamgriddbId ?? row.id}
-              aspectRatio={aspectRatio}
-              maxDisplayHeight="100%"
-              controls={false}
-              onVideoClick={() => playback.togglePlayback()}
-              playerRef={playerRef}
-              onTimeUpdate={playback.handleTimeUpdate}
-              onPlayingChange={playback.setPlaying}
-              onFrameReady={() => setCloudFrameReady(true)}
-              onEnded={playback.handleEnded}
-              className="overflow-hidden rounded-md"
-            />
-            <LibraryEntryNavButton side="left" target={prevEntry} />
-            <LibraryEntryNavButton side="right" target={nextEntry} />
-            <LibraryHandoffPosterOverlay
-              poster={publishHandoffPoster}
-              ready={cloudFrameReady}
-            />
-          </LibraryMediaStage>
+        <ClipEditorStage
+          row={row}
+          media={media}
+          playback={playback}
+          processing={processing}
+          prevEntry={prevEntry}
+          nextEntry={nextEntry}
+        />
 
-          {processing ? (
-            <ClipProcessingNotice progress={row.encodeProgress} />
-          ) : (
-            <>
-              <TrimTransportControls playback={playback} />
-
-              <LibraryTrimBar
-                frames={filmstrip.frames}
-                frameAspect={filmstrip.aspect}
-                durationMs={playback.durationMs}
-                startMs={trim.startMs}
-                endMs={trim.endMs}
-                currentMs={playback.currentMs}
-                onSeek={(sourceMs) => {
-                  playerRef.current?.pause()
-                  playback.seek(sourceMs)
-                }}
-                onStartChange={playback.handleTrimStartChange}
-                onEndChange={playback.handleTrimEndChange}
-                onMove={playback.handleTrimMove}
-              />
-            </>
-          )}
-        </section>
-
-        {/* ── Sheet: Details / Comments tabs. ── */}
         <aside className="border-border bg-surface/60 flex min-w-0 flex-col self-stretch overflow-hidden rounded-md border lg:min-h-0">
           <ClipEditorTabs
             row={row}
@@ -265,6 +176,152 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
         onConfirm={deleteFlow.confirm}
       />
     </section>
+  )
+}
+
+function useClipEditorPermissions(row: ClipRow) {
+  const { data: session } = useSession()
+  const viewerId = session?.user?.id ?? null
+  const viewerRole =
+    (session?.user as { role?: string | null } | undefined)?.role ?? null
+
+  return {
+    canManage:
+      viewerId !== null &&
+      (viewerId === row.authorId || viewerRole === "admin"),
+    isOwner: viewerId !== null && viewerId === row.authorId,
+  }
+}
+
+function useClipEditorMedia(row: ClipRow, processing: boolean) {
+  const mediaVersion = clipEditorMediaVersion(row)
+  const streamSrc = `${clipStreamUrl(row.id, "source", apiOrigin())}&v=${encodeURIComponent(mediaVersion)}`
+  const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
+  const poster = row.thumbKey
+    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
+    : undefined
+  const aspectRatio = mediaAspectRatio(row.width, row.height)
+  const handoffPoster = React.useMemo<LibraryHandoffPoster>(
+    () => ({
+      src: poster,
+      blurHash: row.thumbBlurHash,
+      fallbackSeed: row.steamgriddbId ?? row.id,
+    }),
+    [poster, row.id, row.steamgriddbId, row.thumbBlurHash],
+  )
+  const [publishHandoffPoster, setPublishHandoffPoster] = React.useState(() =>
+    readLibraryHandoffPoster(row.id),
+  )
+  const [cloudFrameReady, setCloudFrameReady] = React.useState(
+    () => publishHandoffPoster === null,
+  )
+
+  React.useEffect(() => {
+    setPublishHandoffPoster(readLibraryHandoffPoster(row.id))
+  }, [row.id])
+  React.useEffect(() => {
+    setCloudFrameReady(publishHandoffPoster === null)
+  }, [publishHandoffPoster])
+  React.useEffect(() => {
+    if (publishHandoffPoster && cloudFrameReady) {
+      clearLibraryHandoffPoster(row.id)
+    }
+  }, [cloudFrameReady, publishHandoffPoster, row.id])
+
+  return {
+    aspectRatio,
+    cloudFrameReady,
+    filmstrip,
+    handoffPoster,
+    mediaVersion,
+    poster,
+    publishHandoffPoster,
+    setCloudFrameReady,
+    streamSrc,
+  }
+}
+
+type ClipEditorMediaState = ReturnType<typeof useClipEditorMedia>
+type ClipEditorPlaybackState = ReturnType<typeof useTrimPlayback>
+
+function ClipEditorStage({
+  row,
+  media,
+  playback,
+  processing,
+  prevEntry,
+  nextEntry,
+}: {
+  row: ClipRow
+  media: ClipEditorMediaState
+  playback: ClipEditorPlaybackState
+  processing: boolean
+  prevEntry: NavigableLibraryEntry | null
+  nextEntry: NavigableLibraryEntry | null
+}) {
+  return (
+    <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
+      <LibraryMediaStage aspectRatio={media.aspectRatio}>
+        <VideoPlayer
+          src={media.streamSrc}
+          sourceIdentity={`${row.id}:${media.mediaVersion}`}
+          poster={media.poster}
+          posterBlurHash={row.thumbBlurHash}
+          fallbackSeed={row.steamgriddbId ?? row.id}
+          aspectRatio={media.aspectRatio}
+          maxDisplayHeight="100%"
+          controls={false}
+          onVideoClick={() => playback.togglePlayback()}
+          playerRef={playback.playerRef}
+          onTimeUpdate={playback.handleTimeUpdate}
+          onPlayingChange={playback.setPlaying}
+          onFrameReady={() => media.setCloudFrameReady(true)}
+          onEnded={playback.handleEnded}
+          className="overflow-hidden rounded-md"
+        />
+        <LibraryEntryNavButton side="left" target={prevEntry} />
+        <LibraryEntryNavButton side="right" target={nextEntry} />
+        <LibraryHandoffPosterOverlay
+          poster={media.publishHandoffPoster}
+          ready={media.cloudFrameReady}
+        />
+      </LibraryMediaStage>
+
+      {processing ? (
+        <ClipProcessingNotice progress={row.encodeProgress} />
+      ) : (
+        <ClipEditorTrimControls media={media} playback={playback} />
+      )}
+    </section>
+  )
+}
+
+function ClipEditorTrimControls({
+  media,
+  playback,
+}: {
+  media: ClipEditorMediaState
+  playback: ClipEditorPlaybackState
+}) {
+  return (
+    <>
+      <TrimTransportControls playback={playback} />
+      <LibraryTrimBar
+        frames={media.filmstrip.frames}
+        frameAspect={media.filmstrip.aspect}
+        durationMs={playback.durationMs}
+        startMs={playback.trim.startMs}
+        endMs={playback.trim.endMs}
+        currentMs={playback.currentMs}
+        onSeek={(sourceMs) => {
+          playback.playerRef.current?.pause()
+          playback.seek(sourceMs)
+        }}
+        onStartChange={playback.handleTrimStartChange}
+        onEndChange={playback.handleTrimEndChange}
+        onMove={playback.handleTrimMove}
+      />
+    </>
   )
 }
 

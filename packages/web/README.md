@@ -26,8 +26,9 @@ pnpm --filter @alloy/web typecheck
 Root shortcuts:
 
 ```bash
+pnpm dev
 pnpm dev:web
-pnpm dev:desktop
+pnpm dev:all
 ```
 
 ## Development
@@ -36,7 +37,7 @@ The Vite dev server runs on `http://localhost:5173` and proxies `/api` to the
 server. Start the API separately or use a root dev command that includes both:
 
 ```bash
-pnpm dev:desktop
+pnpm dev
 ```
 
 ## Production

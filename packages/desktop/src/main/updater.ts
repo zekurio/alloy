@@ -123,8 +123,8 @@ function setState(next: DesktopUpdateState): void {
  * `latest.yml` or `nightly.yml` plus the installer. The app starts on the
  * channel implied by its packaged version unless the user selected another
  * channel, accepts only matching update versions, downloads in the background,
- * and surfaces a "restart to update" entry in the web app notification center
- * via the bridge state above.
+ * and surfaces a "restart to update" entry in the web app sidebar via the
+ * bridge state above.
  */
 export function initAutoUpdater(): void {
   updateChannel = selectedUpdateChannel()

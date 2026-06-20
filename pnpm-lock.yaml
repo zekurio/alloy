@@ -7,6 +7,7 @@ settings:
 overrides:
   esbuild: 0.28.1
   form-data: 4.0.6
+  undici: 7.28.0
 
 importers:
 
@@ -3463,8 +3464,8 @@ packages:
   undici-types@7.19.2:
     resolution: {integrity: sha512-qYVnV5OEm2AW8cJMCpdV20CDyaN3g0AjDlOGf1OW4iaDEx8MwdtChUp4zu4H0VP3nDRF/8RKWH+IPp9uW0YGZg==}
 
-  undici@7.27.1:
-    resolution: {integrity: sha512-UDdpiex+mzigiyrXrGbiUaF4HzTNhKbh2vRNFaTMzcqmLIPrZxaCtwo/1TMSuWoM1Xz3WiTo9KdgI3kRqYzJGg==}
+  undici@7.28.0:
+    resolution: {integrity: sha512-cRZYrTDwWznlnRiPjggAGxZXanty6M8RV1ff8Wm4LWXBp7/IG8v5DnOm74DtUBp9OONpK75YlPnIjQqX0dBDtA==}
     engines: {node: '>=20.18.1'}
 
   unique-filename@4.0.0:
@@ -4057,7 +4058,7 @@ snapshots:
       semver: 7.8.2
       sumchecker: 3.0.1
     optionalDependencies:
-      undici: 7.27.1
+      undici: 7.28.0
     transitivePeerDependencies:
       - supports-color
 
@@ -6788,7 +6789,7 @@ snapshots:
 
   undici-types@7.19.2: {}
 
-  undici@7.27.1:
+  undici@7.28.0:
     optional: true
 
   unique-filename@4.0.0:

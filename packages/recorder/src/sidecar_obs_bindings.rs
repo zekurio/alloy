@@ -97,130 +97,19 @@ impl LibObs {
     fn load(runtime_dir: Option<&Path>) -> Result<Self, String> {
         let mut errors = Vec::new();
         for candidate in libobs_candidates(runtime_dir) {
-            let library = unsafe { Library::new(&candidate) };
-            let library = match library {
+            let library = match unsafe { Library::new(&candidate) } {
                 Ok(library) => library,
                 Err(error) => {
                     errors.push(format!("{}: {error}", candidate.display()));
                     continue;
                 }
             };
-
-            return unsafe {
-                Ok(Self {
-                    obs_startup: load_symbol(&library, b"obs_startup\0")?,
-                    obs_initialized: load_symbol(&library, b"obs_initialized\0")?,
-                    obs_shutdown: load_symbol(&library, b"obs_shutdown\0")?,
-                    obs_add_data_path: load_symbol(&library, b"obs_add_data_path\0")?,
-                    obs_add_module_path: load_symbol(&library, b"obs_add_module_path\0")?,
-                    obs_load_all_modules: load_symbol(&library, b"obs_load_all_modules\0")?,
-                    obs_open_module: load_symbol(&library, b"obs_open_module\0")?,
-                    obs_init_module: load_symbol(&library, b"obs_init_module\0")?,
-                    obs_post_load_modules: load_symbol(&library, b"obs_post_load_modules\0")?,
-                    obs_reset_audio: load_symbol(&library, b"obs_reset_audio\0")?,
-                    obs_reset_video: load_symbol(&library, b"obs_reset_video\0")?,
-                    obs_set_video_levels: load_optional_symbol(
-                        &library,
-                        b"obs_set_video_levels\0",
-                    ),
-                    obs_get_video: load_symbol(&library, b"obs_get_video\0")?,
-                    obs_get_audio: load_symbol(&library, b"obs_get_audio\0")?,
-                    obs_enum_encoder_types: load_symbol(&library, b"obs_enum_encoder_types\0")?,
-                    obs_encoder_get_display_name: load_symbol(
-                        &library,
-                        b"obs_encoder_get_display_name\0",
-                    )?,
-                    obs_get_encoder_codec: load_symbol(&library, b"obs_get_encoder_codec\0")?,
-                    obs_get_encoder_type: load_symbol(&library, b"obs_get_encoder_type\0")?,
-                    obs_get_encoder_caps: load_symbol(&library, b"obs_get_encoder_caps\0")?,
-                    obs_data_create: load_symbol(&library, b"obs_data_create\0")?,
-                    obs_data_release: load_symbol(&library, b"obs_data_release\0")?,
-                    obs_data_set_string: load_symbol(&library, b"obs_data_set_string\0")?,
-                    obs_data_set_int: load_symbol(&library, b"obs_data_set_int\0")?,
-                    obs_data_set_bool: load_symbol(&library, b"obs_data_set_bool\0")?,
-                    obs_source_create: load_symbol(&library, b"obs_source_create\0")?,
-                    obs_source_release: load_symbol(&library, b"obs_source_release\0")?,
-                    obs_source_remove: load_symbol(&library, b"obs_source_remove\0")?,
-                    obs_source_set_audio_mixers: load_symbol(
-                        &library,
-                        b"obs_source_set_audio_mixers\0",
-                    )?,
-                    obs_source_set_volume: load_symbol(&library, b"obs_source_set_volume\0")?,
-                    obs_source_get_signal_handler: load_symbol(
-                        &library,
-                        b"obs_source_get_signal_handler\0",
-                    )?,
-                    obs_source_get_proc_handler: load_symbol(
-                        &library,
-                        b"obs_source_get_proc_handler\0",
-                    )?,
-                    signal_handler_connect: load_symbol(&library, b"signal_handler_connect\0")?,
-                    signal_handler_disconnect: load_symbol(
-                        &library,
-                        b"signal_handler_disconnect\0",
-                    )?,
-                    obs_set_output_source: load_symbol(&library, b"obs_set_output_source\0")?,
-                    obs_scene_create_private: load_symbol(
-                        &library,
-                        b"obs_scene_create_private\0",
-                    )?,
-                    obs_scene_release: load_symbol(&library, b"obs_scene_release\0")?,
-                    obs_scene_get_source: load_symbol(&library, b"obs_scene_get_source\0")?,
-                    obs_scene_add: load_symbol(&library, b"obs_scene_add\0")?,
-                    obs_sceneitem_set_bounds_type: load_symbol(
-                        &library,
-                        b"obs_sceneitem_set_bounds_type\0",
-                    )?,
-                    obs_sceneitem_set_bounds_alignment: load_symbol(
-                        &library,
-                        b"obs_sceneitem_set_bounds_alignment\0",
-                    )?,
-                    obs_sceneitem_set_bounds: load_symbol(
-                        &library,
-                        b"obs_sceneitem_set_bounds\0",
-                    )?,
-                    obs_sceneitem_set_scale_filter: load_symbol(
-                        &library,
-                        b"obs_sceneitem_set_scale_filter\0",
-                    )?,
-                    obs_video_encoder_create: load_symbol(&library, b"obs_video_encoder_create\0")?,
-                    obs_audio_encoder_create: load_symbol(&library, b"obs_audio_encoder_create\0")?,
-                    obs_encoder_set_video: load_symbol(&library, b"obs_encoder_set_video\0")?,
-                    obs_encoder_set_audio: load_symbol(&library, b"obs_encoder_set_audio\0")?,
-                    obs_encoder_release: load_symbol(&library, b"obs_encoder_release\0")?,
-                    obs_output_create: load_symbol(&library, b"obs_output_create\0")?,
-                    obs_output_update: load_symbol(&library, b"obs_output_update\0")?,
-                    obs_output_start: load_symbol(&library, b"obs_output_start\0")?,
-                    obs_output_stop: load_symbol(&library, b"obs_output_stop\0")?,
-                    obs_output_force_stop: load_symbol(&library, b"obs_output_force_stop\0")?,
-                    obs_output_active: load_symbol(&library, b"obs_output_active\0")?,
-                    obs_output_can_pause: load_symbol(&library, b"obs_output_can_pause\0")?,
-                    obs_output_pause: load_symbol(&library, b"obs_output_pause\0")?,
-                    obs_output_paused: load_symbol(&library, b"obs_output_paused\0")?,
-                    obs_output_release: load_symbol(&library, b"obs_output_release\0")?,
-                    obs_output_get_last_error: load_symbol(
-                        &library,
-                        b"obs_output_get_last_error\0",
-                    )?,
-                    obs_output_get_proc_handler: load_symbol(
-                        &library,
-                        b"obs_output_get_proc_handler\0",
-                    )?,
-                    obs_output_set_video_encoder: load_symbol(
-                        &library,
-                        b"obs_output_set_video_encoder\0",
-                    )?,
-                    obs_output_set_audio_encoder: load_symbol(
-                        &library,
-                        b"obs_output_set_audio_encoder\0",
-                    )?,
-                    proc_handler_call: load_symbol(&library, b"proc_handler_call\0")?,
-                    calldata_get_data: load_symbol(&library, b"calldata_get_data\0")?,
-                    calldata_get_string: load_symbol(&library, b"calldata_get_string\0")?,
-                    bfree: load_symbol(&library, b"bfree\0")?,
-                    _library: library,
-                })
-            };
+            match unsafe { Self::from_library(library) } {
+                Ok(obs) => return Ok(obs),
+                Err(error) => {
+                    errors.push(format!("{}: {error}", candidate.display()));
+                }
+            }
         }
 
         let detail = if errors.is_empty() {
@@ -229,6 +118,110 @@ impl LibObs {
             errors.join("; ")
         };
         Err(format!("Could not load libobs ({detail})."))
+    }
+
+    unsafe fn from_library(library: Library) -> Result<Self, String> {
+        Ok(Self {
+            obs_startup: load_symbol(&library, b"obs_startup\0")?,
+            obs_initialized: load_symbol(&library, b"obs_initialized\0")?,
+            obs_shutdown: load_symbol(&library, b"obs_shutdown\0")?,
+            obs_add_data_path: load_symbol(&library, b"obs_add_data_path\0")?,
+            obs_add_module_path: load_symbol(&library, b"obs_add_module_path\0")?,
+            obs_load_all_modules: load_symbol(&library, b"obs_load_all_modules\0")?,
+            obs_open_module: load_symbol(&library, b"obs_open_module\0")?,
+            obs_init_module: load_symbol(&library, b"obs_init_module\0")?,
+            obs_post_load_modules: load_symbol(&library, b"obs_post_load_modules\0")?,
+            obs_reset_audio: load_symbol(&library, b"obs_reset_audio\0")?,
+            obs_reset_video: load_symbol(&library, b"obs_reset_video\0")?,
+            obs_set_video_levels: load_optional_symbol(&library, b"obs_set_video_levels\0"),
+            obs_get_video: load_symbol(&library, b"obs_get_video\0")?,
+            obs_get_audio: load_symbol(&library, b"obs_get_audio\0")?,
+            obs_enum_encoder_types: load_symbol(&library, b"obs_enum_encoder_types\0")?,
+            obs_encoder_get_display_name: load_symbol(
+                &library,
+                b"obs_encoder_get_display_name\0",
+            )?,
+            obs_get_encoder_codec: load_symbol(&library, b"obs_get_encoder_codec\0")?,
+            obs_get_encoder_type: load_symbol(&library, b"obs_get_encoder_type\0")?,
+            obs_get_encoder_caps: load_symbol(&library, b"obs_get_encoder_caps\0")?,
+            obs_data_create: load_symbol(&library, b"obs_data_create\0")?,
+            obs_data_release: load_symbol(&library, b"obs_data_release\0")?,
+            obs_data_set_string: load_symbol(&library, b"obs_data_set_string\0")?,
+            obs_data_set_int: load_symbol(&library, b"obs_data_set_int\0")?,
+            obs_data_set_bool: load_symbol(&library, b"obs_data_set_bool\0")?,
+            obs_source_create: load_symbol(&library, b"obs_source_create\0")?,
+            obs_source_release: load_symbol(&library, b"obs_source_release\0")?,
+            obs_source_remove: load_symbol(&library, b"obs_source_remove\0")?,
+            obs_source_set_audio_mixers: load_symbol(
+                &library,
+                b"obs_source_set_audio_mixers\0",
+            )?,
+            obs_source_set_volume: load_symbol(&library, b"obs_source_set_volume\0")?,
+            obs_source_get_signal_handler: load_symbol(
+                &library,
+                b"obs_source_get_signal_handler\0",
+            )?,
+            obs_source_get_proc_handler: load_symbol(
+                &library,
+                b"obs_source_get_proc_handler\0",
+            )?,
+            signal_handler_connect: load_symbol(&library, b"signal_handler_connect\0")?,
+            signal_handler_disconnect: load_symbol(
+                &library,
+                b"signal_handler_disconnect\0",
+            )?,
+            obs_set_output_source: load_symbol(&library, b"obs_set_output_source\0")?,
+            obs_scene_create_private: load_symbol(&library, b"obs_scene_create_private\0")?,
+            obs_scene_release: load_symbol(&library, b"obs_scene_release\0")?,
+            obs_scene_get_source: load_symbol(&library, b"obs_scene_get_source\0")?,
+            obs_scene_add: load_symbol(&library, b"obs_scene_add\0")?,
+            obs_sceneitem_set_bounds_type: load_symbol(
+                &library,
+                b"obs_sceneitem_set_bounds_type\0",
+            )?,
+            obs_sceneitem_set_bounds_alignment: load_symbol(
+                &library,
+                b"obs_sceneitem_set_bounds_alignment\0",
+            )?,
+            obs_sceneitem_set_bounds: load_symbol(&library, b"obs_sceneitem_set_bounds\0")?,
+            obs_sceneitem_set_scale_filter: load_symbol(
+                &library,
+                b"obs_sceneitem_set_scale_filter\0",
+            )?,
+            obs_video_encoder_create: load_symbol(&library, b"obs_video_encoder_create\0")?,
+            obs_audio_encoder_create: load_symbol(&library, b"obs_audio_encoder_create\0")?,
+            obs_encoder_set_video: load_symbol(&library, b"obs_encoder_set_video\0")?,
+            obs_encoder_set_audio: load_symbol(&library, b"obs_encoder_set_audio\0")?,
+            obs_encoder_release: load_symbol(&library, b"obs_encoder_release\0")?,
+            obs_output_create: load_symbol(&library, b"obs_output_create\0")?,
+            obs_output_update: load_symbol(&library, b"obs_output_update\0")?,
+            obs_output_start: load_symbol(&library, b"obs_output_start\0")?,
+            obs_output_stop: load_symbol(&library, b"obs_output_stop\0")?,
+            obs_output_force_stop: load_symbol(&library, b"obs_output_force_stop\0")?,
+            obs_output_active: load_symbol(&library, b"obs_output_active\0")?,
+            obs_output_can_pause: load_symbol(&library, b"obs_output_can_pause\0")?,
+            obs_output_pause: load_symbol(&library, b"obs_output_pause\0")?,
+            obs_output_paused: load_symbol(&library, b"obs_output_paused\0")?,
+            obs_output_release: load_symbol(&library, b"obs_output_release\0")?,
+            obs_output_get_last_error: load_symbol(&library, b"obs_output_get_last_error\0")?,
+            obs_output_get_proc_handler: load_symbol(
+                &library,
+                b"obs_output_get_proc_handler\0",
+            )?,
+            obs_output_set_video_encoder: load_symbol(
+                &library,
+                b"obs_output_set_video_encoder\0",
+            )?,
+            obs_output_set_audio_encoder: load_symbol(
+                &library,
+                b"obs_output_set_audio_encoder\0",
+            )?,
+            proc_handler_call: load_symbol(&library, b"proc_handler_call\0")?,
+            calldata_get_data: load_symbol(&library, b"calldata_get_data\0")?,
+            calldata_get_string: load_symbol(&library, b"calldata_get_string\0")?,
+            bfree: load_symbol(&library, b"bfree\0")?,
+            _library: library,
+        })
     }
 
     unsafe fn start(

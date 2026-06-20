@@ -76,11 +76,46 @@ export interface SettingsCategory {
   Panel: React.ComponentType
 }
 
+type SettingsCategoryDraft = Omit<SettingsCategory, "group">
+type SettingsCategorySpec = readonly [
+  id: string,
+  label: string,
+  title: string | null,
+  description: string,
+  keywords: string[],
+  icon: LucideIcon,
+  Panel: React.ComponentType,
+]
+
 export const SETTINGS_GROUPS: { id: SettingsGroup; label: string }[] = [
   { id: "account", label: tx("Settings") },
   { id: "desktop", label: tx("Desktop") },
   { id: "admin", label: tx("Administration") },
 ]
+
+function withSettingsGroup(
+  group: SettingsGroup,
+  categories: SettingsCategoryDraft[],
+): SettingsCategory[] {
+  return categories.map((category) => ({ ...category, group }))
+}
+
+function categoryDrafts(
+  specs: readonly SettingsCategorySpec[],
+): SettingsCategoryDraft[] {
+  return specs.map(([id, label, title, description, keywords, icon, Panel]) => {
+    const category: SettingsCategoryDraft = {
+      id,
+      label,
+      description,
+      keywords,
+      icon,
+      Panel,
+    }
+    if (title !== null) category.title = title
+    return category
+  })
+}
 
 function ProfilePanel() {
   const session = useRequireAuthStrict()
@@ -145,79 +180,67 @@ function PreferencesPanel() {
   )
 }
 
-const ALL_CATEGORIES: SettingsCategory[] = [
-  {
-    id: "profile",
-    label: tx("Profile"),
-    title: tx("Profile identity"),
-    description: tx("Edit your username, email, avatar, and banner."),
-    keywords: ["username", "email", "avatar", "profile picture", "banner"],
-    icon: UserIcon,
-    group: "account",
-    Panel: ProfilePanel,
-  },
-  {
-    id: "preferences",
-    label: tx("Preferences"),
-    title: tx("Preferences"),
-    description: tx("Language and regional settings."),
-    keywords: ["language", "locale", "settings"],
-    icon: LanguagesIcon,
-    group: "account",
-    Panel: PreferencesPanel,
-  },
-  {
-    id: "security",
-    label: tx("Security"),
-    title: tx("Sign-in security"),
-    description: tx("Manage linked accounts and passkeys for this account."),
-    keywords: [
+const ACCOUNT_CATEGORIES = categoryDrafts([
+  [
+    "profile",
+    tx("Profile"),
+    tx("Profile identity"),
+    tx("Edit your username, email, avatar, and banner."),
+    ["username", "email", "avatar", "profile picture", "banner"],
+    UserIcon,
+    ProfilePanel,
+  ],
+  [
+    "preferences",
+    tx("Preferences"),
+    tx("Preferences"),
+    tx("Language and regional settings."),
+    ["language", "locale", "settings"],
+    LanguagesIcon,
+    PreferencesPanel,
+  ],
+  [
+    "security",
+    tx("Security"),
+    tx("Sign-in security"),
+    tx("Manage linked accounts and passkeys for this account."),
+    [
       "passkeys",
       "linked accounts",
       "connected accounts",
       "oauth",
       "sign-in methods",
     ],
-    icon: ShieldIcon,
-    group: "account",
-    Panel: SecuritySettings,
-  },
-  {
-    id: "storage",
-    label: tx("Clips & storage"),
-    description: tx("Review storage usage, download, or remove your clips."),
-    keywords: [
-      "storage usage",
-      "quota",
-      "download clips",
-      "delete clips",
-      "export data",
-    ],
-    icon: DatabaseIcon,
-    group: "account",
-    Panel: StoragePanel,
-  },
-  {
-    id: "account",
-    label: tx("Account"),
-    title: tx("Account state"),
-    description: tx("Disable this profile or permanently delete the account."),
-    keywords: [
-      "disable account",
-      "deactivate",
-      "delete account",
-      "danger zone",
-    ],
-    icon: AlertTriangleIcon,
-    group: "account",
-    Panel: DangerZoneCard,
-  },
-  {
-    id: "desktop",
-    label: tx("Capture"),
-    title: tx("Capture"),
-    description: tx("Game detection, desktop capture, hotkeys, and sounds."),
-    keywords: [
+    ShieldIcon,
+    SecuritySettings,
+  ],
+  [
+    "storage",
+    tx("Clips & storage"),
+    null,
+    tx("Review storage usage, download, or remove your clips."),
+    ["storage usage", "quota", "download clips", "delete clips", "export data"],
+    DatabaseIcon,
+    StoragePanel,
+  ],
+  [
+    "account",
+    tx("Account"),
+    tx("Account state"),
+    tx("Disable this profile or permanently delete the account."),
+    ["disable account", "deactivate", "delete account", "danger zone"],
+    AlertTriangleIcon,
+    DangerZoneCard,
+  ],
+])
+
+const DESKTOP_CATEGORIES = categoryDrafts([
+  [
+    "desktop",
+    tx("Capture"),
+    tx("Capture"),
+    tx("Game detection, desktop capture, hotkeys, and sounds."),
+    [
       "desktop app",
       "recording",
       "replay buffer",
@@ -229,16 +252,15 @@ const ALL_CATEGORIES: SettingsCategory[] = [
       "notification sounds",
       "sound effect",
     ],
-    icon: VideoIcon,
-    group: "desktop",
-    Panel: DesktopCaptureSettings,
-  },
-  {
-    id: "desktop-quality",
-    label: tx("Quality"),
-    title: tx("Quality"),
-    description: tx("Resolution, frame rate, encoder, and replay buffer."),
-    keywords: [
+    VideoIcon,
+    DesktopCaptureSettings,
+  ],
+  [
+    "desktop-quality",
+    tx("Quality"),
+    tx("Quality"),
+    tx("Resolution, frame rate, encoder, and replay buffer."),
+    [
       "quality",
       "resolution",
       "frame rate",
@@ -249,16 +271,15 @@ const ALL_CATEGORIES: SettingsCategory[] = [
       "gpu",
       "replay buffer",
     ],
-    icon: SlidersHorizontalIcon,
-    group: "desktop",
-    Panel: DesktopQualitySettings,
-  },
-  {
-    id: "desktop-audio",
-    label: tx("Audio"),
-    title: tx("Audio"),
-    description: tx("Devices, microphones, application streams, and volumes."),
-    keywords: [
+    SlidersHorizontalIcon,
+    DesktopQualitySettings,
+  ],
+  [
+    "desktop-audio",
+    tx("Audio"),
+    tx("Audio"),
+    tx("Devices, microphones, application streams, and volumes."),
+    [
       "audio",
       "output devices",
       "input devices",
@@ -267,44 +288,33 @@ const ALL_CATEGORIES: SettingsCategory[] = [
       "volume",
       "applications",
     ],
-    icon: Volume2Icon,
-    group: "desktop",
-    Panel: DesktopAudioSettings,
-  },
-  {
-    id: "desktop-storage",
-    label: tx("Storage"),
-    title: tx("Capture storage"),
-    description: tx(
-      "Choose where clips are saved and review local disk usage.",
-    ),
-    keywords: [
-      "capture folder",
-      "disk usage",
-      "storage",
-      "free space",
-      "clips folder",
-    ],
-    icon: HardDriveIcon,
-    group: "desktop",
-    Panel: DesktopStoragePanel,
-  },
-  {
-    id: "desktop-servers",
-    label: tx("Servers"),
-    title: tx("Servers"),
-    description: tx("Add, switch between, or forget connected Alloy servers."),
-    keywords: ["desktop servers", "switch server", "saved servers"],
-    icon: ServerIcon,
-    group: "desktop",
-    Panel: DesktopServerSettings,
-  },
-  {
-    id: "desktop-updates",
-    label: tx("Updates"),
-    title: tx("Updates"),
-    description: tx("Switch stable or nightly desktop releases."),
-    keywords: [
+    Volume2Icon,
+    DesktopAudioSettings,
+  ],
+  [
+    "desktop-storage",
+    tx("Storage"),
+    tx("Capture storage"),
+    tx("Choose where clips are saved and review local disk usage."),
+    ["capture folder", "disk usage", "storage", "free space", "clips folder"],
+    HardDriveIcon,
+    DesktopStoragePanel,
+  ],
+  [
+    "desktop-servers",
+    tx("Servers"),
+    tx("Servers"),
+    tx("Add, switch between, or forget connected Alloy servers."),
+    ["desktop servers", "switch server", "saved servers"],
+    ServerIcon,
+    DesktopServerSettings,
+  ],
+  [
+    "desktop-updates",
+    tx("Updates"),
+    tx("Updates"),
+    tx("Switch stable or nightly desktop releases."),
+    [
       "updates",
       "update channel",
       "stable",
@@ -312,18 +322,18 @@ const ALL_CATEGORIES: SettingsCategory[] = [
       "nightly",
       "release channel",
     ],
-    icon: RefreshCcwIcon,
-    group: "desktop",
-    Panel: DesktopUpdateSettings,
-  },
-  {
-    id: "appearance",
-    label: tx("Appearance"),
-    title: tx("Login appearance"),
-    description: tx(
-      "Edit the generated clip backdrop shown on the login page.",
-    ),
-    keywords: [
+    RefreshCcwIcon,
+    DesktopUpdateSettings,
+  ],
+])
+
+const ADMIN_CATEGORIES = categoryDrafts([
+  [
+    "appearance",
+    tx("Appearance"),
+    tx("Login appearance"),
+    tx("Edit the generated clip backdrop shown on the login page."),
+    [
       "login backdrop",
       "splash",
       "blur",
@@ -331,19 +341,24 @@ const ALL_CATEGORIES: SettingsCategory[] = [
       "custom backdrop",
       "regenerate",
     ],
-    icon: PaletteIcon,
-    group: "admin",
-    Panel: AdminAppearancePanel,
-  },
-  {
-    id: "users",
-    label: tx("Users"),
-    description: tx("Edit user accounts, roles, and moderation state."),
-    keywords: ["user accounts", "roles", "moderation", "ban", "storage quota"],
-    icon: UsersIcon,
-    group: "admin",
-    Panel: AdminUsersPanel,
-  },
+    PaletteIcon,
+    AdminAppearancePanel,
+  ],
+  [
+    "users",
+    tx("Users"),
+    null,
+    tx("Edit user accounts, roles, and moderation state."),
+    ["user accounts", "roles", "moderation", "ban", "storage quota"],
+    UsersIcon,
+    AdminUsersPanel,
+  ],
+])
+
+const ALL_CATEGORIES: SettingsCategory[] = [
+  ...withSettingsGroup("account", ACCOUNT_CATEGORIES),
+  ...withSettingsGroup("desktop", DESKTOP_CATEGORIES),
+  ...withSettingsGroup("admin", ADMIN_CATEGORIES),
 ]
 
 /** The default category opened when the dialog is opened without a section. */

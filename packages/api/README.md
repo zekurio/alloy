@@ -11,7 +11,7 @@ packages/api/
   src/client.ts                 low-level API client
   src/http.ts                   fetch wrapper and request helpers
   src/*                         endpoint-specific helpers
-  src/contract-validators/      runtime validators for server responses
+  src/contract-validators.ts    runtime validators for server responses
 ```
 
 ## Imports

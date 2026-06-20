@@ -250,35 +250,51 @@ function DefaultSearchHint() {
  * Header toolbar — contextual controls (filter/sort) for the current route,
  * sitting between the search box and the right-aligned actions.
  */
-function AppHeaderToolbar({
+function AppHeaderSlot({
   className,
+  slot,
+  density,
   ...props
-}: React.ComponentProps<"div">) {
+}: React.ComponentProps<"div"> & {
+  slot: string
+  density: "toolbar" | "actions"
+}) {
   return (
     <div
-      data-slot="app-header-toolbar"
-      className={cn("flex items-center gap-2 justify-self-end", className)}
+      data-slot={slot}
+      className={cn(
+        "flex items-center justify-self-end",
+        density === "toolbar" ? "gap-2" : "gap-1",
+        className,
+      )}
       {...props}
     />
   )
 }
 
+function makeAppHeaderSlot(slot: string, density: "toolbar" | "actions") {
+  return function AppHeaderGeneratedSlot({
+    className,
+    ...props
+  }: React.ComponentProps<"div">) {
+    return (
+      <AppHeaderSlot
+        slot={slot}
+        density={density}
+        className={className}
+        {...props}
+      />
+    )
+  }
+}
+
+const AppHeaderToolbar = makeAppHeaderSlot("app-header-toolbar", "toolbar")
+
 /**
  * Header actions — right-aligned group for buttons, user chip, etc.
  * Uses `ml-auto` so it pins to the right regardless of the search width.
  */
-function AppHeaderActions({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="app-header-actions"
-      className={cn("flex items-center gap-1 justify-self-end", className)}
-      {...props}
-    />
-  )
-}
+const AppHeaderActions = makeAppHeaderSlot("app-header-actions", "actions")
 
 function AppHeaderDivider({
   className,

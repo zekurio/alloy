@@ -81,6 +81,59 @@ function RowButton({
   )
 }
 
+function SearchMediaThumb({
+  seed,
+  blurHash,
+  src,
+  className,
+  imageClassName = CLIP_MEDIA_CLASS,
+}: {
+  seed: string | number
+  blurHash?: string | null
+  src?: string | null
+  className?: string
+  imageClassName?: string
+}) {
+  return (
+    <div
+      className={cn(
+        CLIP_MEDIA_VIEWPORT_CLASS,
+        "w-16 shrink-0 rounded-sm bg-surface-sunken",
+        className,
+      )}
+    >
+      <MediaPlaceholder seed={seed} blurHash={blurHash} />
+      {src ? (
+        <img src={src} alt="" loading="lazy" className={imageClassName} />
+      ) : null}
+    </div>
+  )
+}
+
+function SearchItemText({
+  title,
+  active,
+  children,
+}: {
+  title: string
+  active: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <div className="min-w-0 flex-1">
+      <div
+        className={cn(
+          "truncate text-sm font-medium",
+          active ? "text-accent" : "text-foreground",
+        )}
+      >
+        {title}
+      </div>
+      {children}
+    </div>
+  )
+}
+
 export function ClipRowItem({
   id,
   row,
@@ -100,29 +153,12 @@ export function ClipRowItem({
   const label = clipGameLabel(row)
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
-      <div
-        className={cn(
-          CLIP_MEDIA_VIEWPORT_CLASS,
-          "w-16 shrink-0 rounded-sm bg-surface-sunken",
-        )}
-      >
-        <MediaPlaceholder
-          seed={row.steamgriddbId ?? row.id}
-          blurHash={row.thumbBlurHash}
-        />
-        {thumb ? (
-          <img src={thumb} alt="" loading="lazy" className={CLIP_MEDIA_CLASS} />
-        ) : null}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div
-          className={cn(
-            "truncate text-sm font-medium",
-            active ? "text-accent" : "text-foreground",
-          )}
-        >
-          {row.title}
-        </div>
+      <SearchMediaThumb
+        seed={row.steamgriddbId ?? row.id}
+        blurHash={row.thumbBlurHash}
+        src={thumb}
+      />
+      <SearchItemText title={row.title} active={active}>
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
           <span>{label}</span>
           <span>@{row.authorUsername}</span>
@@ -130,7 +166,7 @@ export function ClipRowItem({
             {formatCount(row.viewCount)} {tp(row.viewCount, "view", "views")}
           </span>
         </div>
-      </div>
+      </SearchItemText>
     </RowButton>
   )
 }
@@ -159,40 +195,18 @@ export function LocalClipRowItem({
 
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
-      <div
-        className={cn(
-          CLIP_MEDIA_VIEWPORT_CLASS,
-          "w-16 shrink-0 rounded-sm bg-surface-sunken",
-        )}
-      >
-        <MediaPlaceholder
-          seed={row.displayGameName || row.groupLabel || row.id}
-          blurHash={row.thumbBlurHash}
-        />
-        {row.thumbnailUrl ? (
-          <img
-            src={row.thumbnailUrl}
-            alt=""
-            loading="lazy"
-            className={CLIP_MEDIA_CLASS}
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div
-          className={cn(
-            "truncate text-sm font-medium",
-            active ? "text-accent" : "text-foreground",
-          )}
-        >
-          {row.title}
-        </div>
+      <SearchMediaThumb
+        seed={row.displayGameName || row.groupLabel || row.id}
+        blurHash={row.thumbBlurHash}
+        src={row.thumbnailUrl}
+      />
+      <SearchItemText title={row.title} active={active}>
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
           {details.map((detail, index) => (
             <span key={`${detail}:${index}`}>{detail}</span>
           ))}
         </div>
-      </div>
+      </SearchItemText>
     </RowButton>
   )
 }
@@ -212,33 +226,16 @@ export function GameRowItem({
 }) {
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
-      <div className="bg-surface-sunken relative aspect-video w-16 shrink-0 overflow-hidden rounded-sm">
-        <MediaPlaceholder
-          seed={row.steamgriddbId}
-          blurHash={row.heroBlurHash}
-        />
-        {row.heroUrl ? (
-          <img
-            src={row.heroUrl}
-            alt=""
-            loading="lazy"
-            className="h-full w-full object-cover"
-          />
-        ) : null}
-      </div>
-      <div className="min-w-0 flex-1">
-        <div
-          className={cn(
-            "truncate text-sm font-medium",
-            active ? "text-accent" : "text-foreground",
-          )}
-        >
-          {row.name}
-        </div>
+      <SearchMediaThumb
+        seed={row.steamgriddbId}
+        blurHash={row.heroBlurHash}
+        src={row.heroUrl}
+      />
+      <SearchItemText title={row.name} active={active}>
         <div className="text-foreground-muted truncate text-xs font-semibold">
           {formatCount(row.clipCount)} {tp(row.clipCount, "clip", "clips")}
         </div>
-      </div>
+      </SearchItemText>
     </RowButton>
   )
 }

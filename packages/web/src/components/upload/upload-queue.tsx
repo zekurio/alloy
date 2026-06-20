@@ -19,6 +19,7 @@ import {
   PlayIcon,
   RotateCcwIcon,
   Trash2Icon,
+  type LucideIcon,
   XIcon,
 } from "lucide-react"
 import * as React from "react"
@@ -62,6 +63,13 @@ export interface QueueItem {
   /** Removes a finished (published) row from the local view only. */
   onDismiss?: () => void
 }
+
+type QueueActionSpec = readonly [
+  key: string,
+  label: string,
+  onClick: (() => void) | undefined,
+  Icon: LucideIcon,
+]
 
 interface UploadQueueContentProps {
   queue: Array<QueueItem>
@@ -457,28 +465,9 @@ function RowAction({ item }: { item: QueueItem }) {
   }
   if (status === "downloaded") {
     return (
-      <>
-        {item.onOpen ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={tx("Reveal {title} in folder", { title })}
-            onClick={item.onOpen}
-          >
-            <FolderOpenIcon />
-          </Button>
-        ) : null}
-        {item.onDismiss ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={tx("Dismiss {title} from queue", { title })}
-            onClick={item.onDismiss}
-          >
-            <XIcon />
-          </Button>
-        ) : null}
-      </>
+      <QueueActionButtons
+        actions={[revealInFolderAction(item), dismissQueueAction(item)]}
+      />
     )
   }
   if (status === "queued" || status === "paused" || status === "failed") {
@@ -487,65 +476,96 @@ function RowAction({ item }: { item: QueueItem }) {
         ? tx("Remove failed clip {title}", { title })
         : tx("Remove {title} from queue", { title })
     return (
-      <>
-        {item.onRetry ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={tx("Retry sync of {title}", { title })}
-            onClick={item.onRetry}
-          >
-            <RotateCcwIcon />
-          </Button>
-        ) : null}
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={label}
-          onClick={item.onCancel}
-        >
-          <Trash2Icon />
-        </Button>
-      </>
+      <QueueActionButtons
+        actions={[
+          [
+            "retry",
+            tx("Retry sync of {title}", { title }),
+            item.onRetry,
+            RotateCcwIcon,
+          ],
+          ["remove", label, item.onCancel, Trash2Icon],
+        ]}
+      />
     )
   }
   if (status === "published") {
     return (
-      <>
-        {item.onCopyLink ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={tx("Copy link to {title}", { title })}
-            onClick={item.onCopyLink}
-          >
-            <CopyIcon />
-          </Button>
-        ) : null}
-        {item.onOpen ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={tx("Open {title}", { title })}
-            onClick={item.onOpen}
-          >
-            <ExternalLinkIcon />
-          </Button>
-        ) : null}
-        {item.onDismiss ? (
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={tx("Dismiss {title} from queue", { title })}
-            onClick={item.onDismiss}
-          >
-            <XIcon />
-          </Button>
-        ) : null}
-      </>
+      <QueueActionButtons
+        actions={[
+          copyLinkAction(item),
+          openPublishedAction(item),
+          dismissQueueAction(item),
+        ]}
+      />
     )
   }
   return null
+}
+
+function QueueActionButtons({ actions }: { actions: QueueActionSpec[] }) {
+  return (
+    <>
+      {actions.map(([key, label, onClick, icon]) => (
+        <QueueActionButton key={key} label={label} onClick={onClick}>
+          {React.createElement(icon)}
+        </QueueActionButton>
+      ))}
+    </>
+  )
+}
+
+function QueueActionButton({
+  label,
+  onClick,
+  children,
+}: {
+  label: string
+  onClick: (() => void) | undefined
+  children: React.ReactNode
+}) {
+  if (!onClick) return null
+  return (
+    <Button variant="ghost" size="icon-sm" aria-label={label} onClick={onClick}>
+      {children}
+    </Button>
+  )
+}
+
+function revealInFolderAction(item: QueueItem): QueueActionSpec {
+  return [
+    "open-folder",
+    tx("Reveal {title} in folder", { title: item.title }),
+    item.onOpen,
+    FolderOpenIcon,
+  ]
+}
+
+function copyLinkAction(item: QueueItem): QueueActionSpec {
+  return [
+    "copy",
+    tx("Copy link to {title}", { title: item.title }),
+    item.onCopyLink,
+    CopyIcon,
+  ]
+}
+
+function openPublishedAction(item: QueueItem): QueueActionSpec {
+  return [
+    "open",
+    tx("Open {title}", { title: item.title }),
+    item.onOpen,
+    ExternalLinkIcon,
+  ]
+}
+
+function dismissQueueAction(item: QueueItem): QueueActionSpec {
+  return [
+    "dismiss",
+    tx("Dismiss {title} from queue", { title: item.title }),
+    item.onDismiss,
+    XIcon,
+  ]
 }
 
 const STATUS_LABELS: Record<QueueItemStatus, string> = {
