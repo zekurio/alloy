@@ -50,6 +50,10 @@ import { zValidator } from "./validation"
 
 const logger = createLogger("clips")
 
+type InitiateTransactionResult =
+  | UploadQuotaResult
+  | { ok: false; reason: "id-conflict" }
+
 async function cleanupFailedInitiate(
   clipId: string,
   uploadKey: string,
@@ -105,7 +109,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const viewerId = c.var.viewerId
       const body = c.req.valid("json")
 
-      const clipId = crypto.randomUUID()
+      const clipId = body.clientClipId ?? crypto.randomUUID()
       const uploadKey = stagedSourceKey(clipId, body.contentType)
       const thumbUploadKey = stagedThumbKey(clipId)
       const privacy = body.privacy ?? "public"
@@ -124,7 +128,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
         ? await resolveMentionIds(body.mentionedUserIds, viewerId)
         : []
 
-      const quotaResult = await db.transaction<UploadQuotaResult>(
+      const initiateResult = await db.transaction<InitiateTransactionResult>(
         async (tx) => {
           const { quotaBytes, usedBytes } = await selectLockedQuotaState(
             tx,
@@ -137,21 +141,26 @@ export const clipsUploadLifecycleRoutes = new Hono()
           })
           if (!quota.ok) return quota
 
-          await tx.insert(clip).values({
-            id: clipId,
-            authorId: viewerId,
-            title: body.title,
-            description: body.description ?? null,
-            game: gameRef?.name ?? null,
-            steamgriddbId: gameRef?.steamgriddbId ?? null,
-            privacy,
-            sourceContentType: body.contentType,
-            sourceSizeBytes: body.sizeBytes,
-            // Client-provided poster placeholder; media finalization preserves
-            // it because the server does not derive poster frames or hashes.
-            thumbBlurHash: body.thumbBlurHash ?? null,
-            status: "pending",
-          })
+          const [inserted] = await tx
+            .insert(clip)
+            .values({
+              id: clipId,
+              authorId: viewerId,
+              title: body.title,
+              description: body.description ?? null,
+              game: gameRef?.name ?? null,
+              steamgriddbId: gameRef?.steamgriddbId ?? null,
+              privacy,
+              sourceContentType: body.contentType,
+              sourceSizeBytes: body.sizeBytes,
+              // Client-provided poster placeholder; media finalization preserves
+              // it because the server does not derive poster frames or hashes.
+              thumbBlurHash: body.thumbBlurHash ?? null,
+              status: "pending",
+            })
+            .onConflictDoNothing()
+            .returning({ id: clip.id })
+          if (!inserted) return { ok: false, reason: "id-conflict" }
 
           if (mentionedIds.length > 0) {
             await tx.insert(clipMention).values(
@@ -173,12 +182,15 @@ export const clipsUploadLifecycleRoutes = new Hono()
         },
       )
 
-      if (!quotaResult.ok) {
+      if (!initiateResult.ok) {
+        if ("reason" in initiateResult) {
+          return conflict(c, "Clip upload already exists")
+        }
         return c.json(
           {
             error: "Storage quota exceeded",
-            usedBytes: quotaResult.usedBytes,
-            quotaBytes: quotaResult.quotaBytes,
+            usedBytes: initiateResult.usedBytes,
+            quotaBytes: initiateResult.quotaBytes,
           },
           413,
         )

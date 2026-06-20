@@ -92,6 +92,11 @@ export interface ClipPage {
 }
 
 export interface InitiateClipInput {
+  /**
+   * Client-generated clip ID for optimistic local queue rows. The server still
+   * validates uniqueness and may reject a collision.
+   */
+  clientClipId?: string
   filename: string
   contentType: AcceptedContentType
   sizeBytes: number

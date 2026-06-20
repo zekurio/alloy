@@ -204,6 +204,7 @@ const TagsInput = z
   .optional()
 
 export const InitiateBody = z.object({
+  clientClipId: z.uuid().optional(),
   filename: z.string().min(1).max(255),
   contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
   sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
