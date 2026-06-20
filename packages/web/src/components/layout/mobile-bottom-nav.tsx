@@ -34,6 +34,7 @@ import { useOpenSettings } from "@/lib/use-open-settings"
 import { useUserChipData } from "@/lib/user-display"
 
 import { useCreateActions } from "./create-actions"
+import { DisabledUploadTooltip } from "./disabled-upload-tooltip"
 import { useNavFlags } from "./use-nav-flags"
 
 /**
@@ -117,29 +118,35 @@ function BottomNavLink({
 
 /** Centered upload entry — a compact accent button that sits within the bar. */
 function UploadTab() {
-  const { uploadLabel, uploadDisabled, startUpload } = useCreateActions()
+  const { uploadLabel, uploadDisabled, uploadDisabledReason, startUpload } =
+    useCreateActions()
 
   return (
     <div className="flex items-center justify-center">
-      <button
-        type="button"
-        data-upload-trigger=""
-        disabled={uploadDisabled}
-        onClick={startUpload}
-        aria-label={uploadLabel || tx("Upload")}
-        title={uploadLabel || tx("Upload")}
-        className={cn(
-          "bg-accent text-accent-foreground grid size-11 place-items-center rounded-full",
-          "shadow-[0_6px_18px_-8px_var(--accent-glow)]",
-          "transition-[transform,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-          "hover:bg-accent-hover active:scale-95",
-          "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-          "disabled:pointer-events-none disabled:opacity-50",
-          "[&_svg]:size-6",
-        )}
+      <DisabledUploadTooltip
+        reason={uploadDisabledReason}
+        className="rounded-full"
       >
-        <PlusIcon />
-      </button>
+        <button
+          type="button"
+          data-upload-trigger=""
+          disabled={uploadDisabled}
+          onClick={startUpload}
+          aria-label={uploadLabel || tx("Upload")}
+          title={uploadLabel || tx("Upload")}
+          className={cn(
+            "bg-accent text-accent-foreground grid size-11 place-items-center rounded-full",
+            "shadow-[0_6px_18px_-8px_var(--accent-glow)]",
+            "transition-[transform,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+            "hover:bg-accent-hover active:scale-95",
+            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+            "disabled:pointer-events-none disabled:opacity-50",
+            "[&_svg]:size-6",
+          )}
+        >
+          <PlusIcon />
+        </button>
+      </DisabledUploadTooltip>
     </div>
   )
 }

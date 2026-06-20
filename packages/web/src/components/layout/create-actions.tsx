@@ -44,6 +44,8 @@ type CreateActionsValue = {
   uploadLabel: string
   /** Whether the action is visible but unavailable on the current bridge. */
   uploadDisabled: boolean
+  /** Optional explanation surfaced on disabled upload triggers. */
+  uploadDisabledReason: string | null
   startUpload: () => void
   /** The import/upload action rendered inside the transfer queue modal. */
   uploadAction: UploadQueueAction | null
@@ -91,6 +93,7 @@ export function CreateActionsProvider({
       importAction.start,
     ],
   )
+  const webUploadDisabledReason = desktop === null ? tx("Coming soon") : null
 
   const value = React.useMemo<CreateActionsValue>(
     () =>
@@ -101,6 +104,7 @@ export function CreateActionsProvider({
                 ? tx("Transfers ({count})", { count: activeCount })
                 : tx("Upload"),
             uploadDisabled: !authed,
+            uploadDisabledReason: null,
             startUpload: toggleUploadQueue,
             uploadAction,
           }
@@ -109,11 +113,19 @@ export function CreateActionsProvider({
               activeCount > 0
                 ? tx("Transfers ({count})", { count: activeCount })
                 : tx("Upload"),
-            uploadDisabled: !authed,
-            startUpload: toggleUploadQueue,
+            uploadDisabled: true,
+            uploadDisabledReason: webUploadDisabledReason,
+            startUpload: () => undefined,
             uploadAction,
           },
-    [activeCount, authed, desktop, toggleUploadQueue, uploadAction],
+    [
+      activeCount,
+      authed,
+      desktop,
+      toggleUploadQueue,
+      uploadAction,
+      webUploadDisabledReason,
+    ],
   )
 
   return (
