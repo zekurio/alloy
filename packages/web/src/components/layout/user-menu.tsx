@@ -188,23 +188,20 @@ function avatarTint(avatar: { bg?: string; fg?: string }) {
 }
 
 function UserAvatarSkeleton({ variant }: { variant: UserMenuVariant }) {
-  if (variant === "rail") {
-    return (
-      <div
-        data-slot="user-avatar-skeleton"
-        className="flex h-11 w-full items-center gap-2.5 px-2"
-        aria-hidden
-      >
-        <Spinner className="size-4" />
-      </div>
-    )
-  }
   return (
-    <div
-      data-slot="user-avatar-skeleton"
-      className="inline-flex size-8 shrink-0 items-center justify-center"
-      aria-hidden
-    >
+    <UserAvatarSkeletonFrame
+      className={
+        variant === "rail"
+          ? "flex h-11 w-full items-center gap-2.5 px-2"
+          : "inline-flex size-8 shrink-0 items-center justify-center"
+      }
+    />
+  )
+}
+
+function UserAvatarSkeletonFrame({ className }: { className: string }) {
+  return (
+    <div data-slot="user-avatar-skeleton" className={className} aria-hidden>
       <Spinner className="size-4" />
     </div>
   )

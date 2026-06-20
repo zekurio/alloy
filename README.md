@@ -4,6 +4,11 @@ Alloy is an open-source, self-hostable alternative to Medal.tv. It is still an
 early WIP, with the strongest focus on predictable behavior, failure handling,
 performance, and maintainable boundaries between deployable pieces.
 
+The current product surface is a self-hosted web app plus a Windows desktop
+recorder. The desktop app records and edits local captures, then publishes them
+to the server; the web app handles browsing, playback, profiles, comments,
+search, library management, setup, and admin settings.
+
 ## Repository Guide
 
 All TypeScript packages live under `packages/`. Deployable products and shared
@@ -17,7 +22,7 @@ libraries are both treated as packages so the workspace graph stays explicit.
 | `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; bundled by desktop release builds.                                     |
 | `packages/api`       | Typed client helpers and runtime validators for browser and desktop clients calling the server API.                      |
 | `packages/contracts` | Shared TypeScript contracts used across the server, web app, desktop app, and recorder-facing flows.                     |
-| `packages/db`        | Drizzle schema, migrations, database contracts, and migration helpers.                                                   |
+| `packages/db`        | Drizzle schema, migrations, connection helpers, and migration helpers.                                                   |
 | `packages/env`       | Shared environment parsing, URL normalization, and local `.env` loading helpers.                                         |
 | `packages/ui`        | Shared React UI components, hooks, styles, and design utilities.                                                         |
 | `packages/logging`   | Tiny shared logging facade.                                                                                              |
@@ -40,9 +45,9 @@ cp .env.example .env
 
 `.env.example` points `DATABASE_URL` at the dev Postgres from
 `docker-compose.dev.yml`, sets local-only signing secrets, uses filesystem
-storage under the server data dir, and allows the Vite dev origin to call the
-API. Shell environment variables always win over `.env`, so you can point
-`DATABASE_URL` at any `postgres://` or `postgresql://` instance.
+storage under the repo-local `data/storage` directory, and allows the Vite dev
+origin to call the API. Shell environment variables always win over `.env`, so
+you can point `DATABASE_URL` at any `postgres://` or `postgresql://` instance.
 
 Start the local Postgres on `127.0.0.1:5432` before running server or database
 commands:
@@ -52,20 +57,18 @@ docker compose -f docker-compose.dev.yml up -d postgres
 ```
 
 Start the default dev loop. `pnpm dev` runs `pnpm db:push` first, then starts
-the API server. Use `dev:web` in another terminal when you want Vite's
-standalone frontend server:
+the API server and Vite web app:
 
 ```bash
 pnpm dev
-pnpm dev:web
 ```
 
 Useful root commands:
 
 ```bash
-pnpm dev:server       # server only
+pnpm dev              # server + web
+pnpm dev:server       # server only; runs db:push first
 pnpm dev:web          # web only; expects an API server at VITE_SERVER_URL or http://localhost:2552
-pnpm dev:desktop      # server + web + desktop
 pnpm dev:all          # server + web + desktop
 pnpm recorder:build   # build the Rust recorder sidecar
 pnpm desktop:obs:install # download and stage the Windows OBS runtime
@@ -101,6 +104,7 @@ If another service already uses Alloy's default dev ports, add an ignored
 {
   env.PORT = lib.mkForce "2652";
   env.PUBLIC_SERVER_URL = lib.mkForce "http://localhost:2652";
+  env.VITE_SERVER_URL = lib.mkForce "http://localhost:2652";
 }
 ```
 
@@ -115,10 +119,15 @@ alloy-postgres-stop
 Before considering a code change complete:
 
 ```bash
-pnpm --filter @alloy/server test:config
 pnpm fmt
 pnpm lint
 pnpm typecheck
+```
+
+For server config parser changes, also run:
+
+```bash
+pnpm --filter @alloy/server test:config
 ```
 
 For Nix package or container changes, run the relevant Nix checks:
@@ -154,13 +163,14 @@ inputs.alloy.url = "github:zekurio/alloy";
 ```
 
 By default the module creates and manages a local PostgreSQL database named
-`alloy`, derives `DATABASE_URL`, stores mutable state in `/var/lib/alloy`, and
-uses filesystem storage under `/var/lib/alloy/storage`. Server config is
-declarative: auth policy, limits, storage, SteamGridDB, and OAuth are Nix
-options or environment variables. `config.json` and `secrets.json` are ignored.
-For an external database, set `services.alloy-clips.database.host`, `port`,
-`name`, and `user`; for unusual authenticated setups, override environment
-through `services.alloy-clips.environment` or a systemd service override.
+`alloy`, derives `DATABASE_URL`, and uses filesystem storage under
+`/var/lib/alloy/storage`. Instance settings live in Postgres. Deploy-time
+server config is declarative: auth policy, limits, storage, SteamGridDB, and
+OAuth are Nix options or environment variables. Alloy no longer reads mutable
+`config.json` or `secrets.json` files. For an external database, set
+`services.alloy-clips.database.host`, `port`, `name`, and `user`; for unusual
+authenticated setups, override environment through
+`services.alloy-clips.environment` or a systemd service override.
 
 For reproducible deployments, pin a release tag:
 
@@ -183,20 +193,20 @@ nix.settings = {
 
 Docker support exists, but is less polished than the NixOS module. Bring your
 own PostgreSQL. The server runs migrations automatically in production, but the
-database must already exist and be reachable through `DATABASE_URL`. Persist the
-app data volume and the storage volume; provide required secrets through env
-vars or `_FILE` paths.
+database must already exist and be reachable through `DATABASE_URL`. Runtime
+configuration comes from env vars or `_FILE` paths. If you use filesystem
+storage, persist `/data`; if you use S3-compatible storage, the app does not need
+a durable container volume.
 
 ```bash
 docker run --rm \
   -p 2552:2552 \
-  -e DATABASE_URL=postgres://alloy:password@postgres:5432/alloy \
+  -e DATABASE_URL=postgres://alloy:password@postgres.example.internal:5432/alloy \
   -e PUBLIC_SERVER_URL=https://alloy.example.com \
   -e TRUSTED_ORIGINS=https://alloy.example.com \
   -e ALLOY_VIEWER_COOKIE_SECRET_FILE=/run/secrets/viewer-cookie-secret \
   -e ALLOY_UPLOAD_HMAC_SECRET_FILE=/run/secrets/upload-hmac-secret \
   -v /run/secrets/alloy:/run/secrets:ro \
-  -v alloy-config:/config \
   -v alloy-storage:/data \
   ghcr.io/zekurio/alloy:latest
 ```
@@ -213,11 +223,16 @@ Image tags:
 Storage is configured declaratively. For filesystem storage, set
 `ALLOY_STORAGE_DRIVER=fs`, `ALLOY_STORAGE_FS_CLIPS_PATH`, and
 `ALLOY_STORAGE_FS_USERS_PATH`; the Docker image defaults these to
-`/data/storage/clips` and `/data/storage/users`. For S3-compatible storage, set
-`ALLOY_STORAGE_DRIVER=s3` plus bucket, region, and access key files. Alloy
-stores clip objects under the `clips/` prefix and user assets under the `users/`
-prefix in the configured bucket. Uploads are presigned so browsers PUT directly
-to the bucket, and direct playback may redirect browsers to presigned GET URLs.
+`/data/storage/clips` and `/data/storage/users`. Mount `/data` when those
+defaults are used.
+
+For S3-compatible storage, set `ALLOY_STORAGE_DRIVER=s3` plus bucket, region,
+endpoint when needed, and access key files. Alloy stores clip objects under the
+`clips/` prefix and user assets under the `users/` prefix in the configured
+bucket. Video multipart upload parts are presigned so browsers PUT directly to
+the bucket. Smaller clip assets, such as thumbnails, are posted to Alloy and
+stored by the server. Direct playback may redirect browsers to presigned GET
+URLs.
 Configure bucket CORS to allow the Alloy web origin to `GET` and `PUT`.
 
 ```json

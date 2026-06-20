@@ -7,13 +7,15 @@ Drizzle database schema, migrations, and database exports for Alloy.
 ```text
 packages/db/
   src/index.ts               package entry: createDb, dbSchema
-  src/contracts.ts           DB-backed contract helpers
   src/runtime/connection.ts  Postgres pool helper
   src/runtime/migrate.ts     migration runner
   src/schema/index.ts        application schema barrel ("@alloy/db/schema")
   src/schema/auth.ts         auth schema ("@alloy/db/auth-schema")
   src/schema/game.ts         game + game-follow tables
   src/schema/clip.ts         clip and its engagement tables
+  src/schema/instance.ts     DB-backed instance settings
+  src/schema/internal.ts     internal worker/runtime state
+  src/schema/recording.ts    desktop recording metadata
   src/schema/social.ts       follow and block tables
   drizzle/                   generated SQL migrations and metadata
   drizzle.config.ts          Drizzle Kit config

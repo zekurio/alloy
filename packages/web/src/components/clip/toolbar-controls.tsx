@@ -8,11 +8,6 @@ import type * as React from "react"
 export const filterLabelClass =
   "inline-flex h-7 items-center pr-0.5 text-2xs leading-3 font-semibold tracking-wide text-foreground-faint uppercase"
 
-/**
- * Shared styling for the square icon-only trigger used by the header toolbar
- * dropdowns. The closed state stays quiet and transparent, with only a soft
- * surface on hover so header controls do not compete with the search field.
- */
 export const toolbarIconButtonClass =
   "h-7 min-w-7 rounded-md border-transparent bg-transparent px-1.5 text-foreground-muted shadow-none hover:border-border hover:bg-surface-raised/60 hover:text-foreground max-md:size-10 max-md:min-w-10 max-md:px-0 max-md:hover:border-transparent max-md:hover:bg-transparent [&_svg:not([class*='size-'])]:size-3.5"
 

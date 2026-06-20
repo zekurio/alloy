@@ -24,15 +24,19 @@ type ProfileMediaInput = {
   banner: string
 }
 
-/**
- * All profile media state and mutations: avatar/banner uploads (with crop),
- * removals, the hidden file inputs, and the per-zone change/remove dropdown
- * menus.
- */
-export function useProfileMedia({ image, banner }: ProfileMediaInput) {
+function useProfileRefresh() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const { refetch: refetchSession } = useSession()
+
+  return React.useCallback(async () => {
+    await refetchSession()
+    await invalidateProfileIdentityCaches(queryClient)
+    await router.invalidate()
+  }, [queryClient, refetchSession, router])
+}
+
+function useSyncedProfileMedia({ image, banner }: ProfileMediaInput) {
   const [profileImage, setProfileImage] = React.useState(image)
   const [profileBanner, setProfileBanner] = React.useState(banner)
 
@@ -44,21 +48,23 @@ export function useProfileMedia({ image, banner }: ProfileMediaInput) {
     setProfileBanner(banner)
   }, [banner])
 
-  const [uploading, setUploading] = React.useState(false)
-  const [cropFile, setCropFile] = React.useState<File | null>(null)
-  const [cropMode, setCropMode] = React.useState<CropMode>("avatar")
-  const [cropApplying, setCropApplying] = React.useState(false)
+  return {
+    profileBanner,
+    profileImage,
+    setProfileBanner,
+    setProfileImage,
+  }
+}
 
+function useProfileMediaInputs({
+  setCropFile,
+  setCropMode,
+}: {
+  setCropFile: React.Dispatch<React.SetStateAction<File | null>>
+  setCropMode: React.Dispatch<React.SetStateAction<CropMode>>
+}) {
   const avatarInputRef = React.useRef<HTMLInputElement>(null)
   const bannerInputRef = React.useRef<HTMLInputElement>(null)
-  const bannerAnchor = useClickAnchor()
-  const avatarAnchor = useClickAnchor()
-
-  async function refreshProfile() {
-    await refetchSession()
-    await invalidateProfileIdentityCaches(queryClient)
-    await router.invalidate()
-  }
 
   function openFilePicker(mode: CropMode) {
     const ref = mode === "avatar" ? avatarInputRef : bannerInputRef
@@ -76,6 +82,40 @@ export function useProfileMedia({ image, banner }: ProfileMediaInput) {
     setCropMode(mode)
     setCropFile(file)
   }
+
+  // Hidden file inputs — reused for avatar and banner.
+  const fileInputs = (
+    <>
+      <input
+        ref={avatarInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => handleFileSelect(e, "avatar")}
+      />
+      <input
+        ref={bannerInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => handleFileSelect(e, "banner")}
+      />
+    </>
+  )
+
+  return { fileInputs, openFilePicker }
+}
+
+function useProfileMediaMutations({
+  refreshProfile,
+  setProfileBanner,
+  setProfileImage,
+}: {
+  refreshProfile: () => Promise<void>
+  setProfileBanner: React.Dispatch<React.SetStateAction<string>>
+  setProfileImage: React.Dispatch<React.SetStateAction<string>>
+}) {
+  const [uploading, setUploading] = React.useState(false)
 
   async function handleImageUpload(
     blob: Blob,
@@ -103,56 +143,92 @@ export function useProfileMedia({ image, banner }: ProfileMediaInput) {
   }
 
   async function handleRemoveAvatar() {
-    setUploading(true)
-    try {
-      const nextUser = await api.users.removeAvatar()
-      setProfileImage(nextUser.image ?? "")
-      toast.success(tx("Avatar removed"))
-      await refreshProfile()
-    } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't remove avatar")))
-    } finally {
-      setUploading(false)
-    }
+    await removeProfileMedia({
+      remove: api.users.removeAvatar,
+      update: (nextUser) => setProfileImage(nextUser.image ?? ""),
+      success: tx("Avatar removed"),
+      failure: tx("Couldn't remove avatar"),
+      refreshProfile,
+      setUploading,
+    })
   }
 
   async function handleRemoveBanner() {
-    setUploading(true)
-    try {
-      const nextUser = await api.users.removeBanner()
-      setProfileBanner(nextUser.banner ?? "")
-      toast.success(tx("Banner removed"))
-      await refreshProfile()
-    } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't remove banner")))
-    } finally {
-      setUploading(false)
-    }
+    await removeProfileMedia({
+      remove: api.users.removeBanner,
+      update: (nextUser) => setProfileBanner(nextUser.banner ?? ""),
+      success: tx("Banner removed"),
+      failure: tx("Couldn't remove banner"),
+      refreshProfile,
+      setUploading,
+    })
   }
 
-  // Hidden file inputs — reused for avatar and banner.
-  const fileInputs = (
-    <>
-      <input
-        ref={avatarInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => handleFileSelect(e, "avatar")}
-      />
-      <input
-        ref={bannerInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => handleFileSelect(e, "banner")}
-      />
-    </>
-  )
+  return {
+    handleImageUpload,
+    handleRemoveAvatar,
+    handleRemoveBanner,
+    uploading,
+  }
+}
+
+async function removeProfileMedia({
+  remove,
+  update,
+  success,
+  failure,
+  refreshProfile,
+  setUploading,
+}: {
+  remove: () => Promise<Awaited<ReturnType<typeof api.users.removeAvatar>>>
+  update: (nextUser: Awaited<ReturnType<typeof api.users.removeAvatar>>) => void
+  success: string
+  failure: string
+  refreshProfile: () => Promise<void>
+  setUploading: React.Dispatch<React.SetStateAction<boolean>>
+}) {
+  setUploading(true)
+  try {
+    const nextUser = await remove()
+    update(nextUser)
+    toast.success(success)
+    await refreshProfile()
+  } catch (cause) {
+    toast.error(errorMessage(cause, failure))
+  } finally {
+    setUploading(false)
+  }
+}
+
+/**
+ * All profile media state and mutations: avatar/banner uploads (with crop),
+ * removals, the hidden file inputs, and the per-zone change/remove dropdown
+ * menus.
+ */
+export function useProfileMedia(input: ProfileMediaInput) {
+  const refreshProfile = useProfileRefresh()
+  const media = useSyncedProfileMedia(input)
+  const [cropFile, setCropFile] = React.useState<File | null>(null)
+  const [cropMode, setCropMode] = React.useState<CropMode>("avatar")
+  const [cropApplying, setCropApplying] = React.useState(false)
+  const bannerAnchor = useClickAnchor()
+  const avatarAnchor = useClickAnchor()
+  const { fileInputs, openFilePicker } = useProfileMediaInputs({
+    setCropFile,
+    setCropMode,
+  })
+  const mutations = useProfileMediaMutations({
+    refreshProfile,
+    setProfileBanner: media.setProfileBanner,
+    setProfileImage: media.setProfileImage,
+  })
 
   function mediaMenu(kind: MediaKind) {
     const anchor = kind === "avatar" ? avatarAnchor.anchor : bannerAnchor.anchor
-    const onRemove = kind === "avatar" ? handleRemoveAvatar : handleRemoveBanner
+    const onRemove =
+      kind === "avatar"
+        ? mutations.handleRemoveAvatar
+        : mutations.handleRemoveBanner
     return (
       <MediaDropdownContent
         anchor={anchor}
@@ -170,15 +246,15 @@ export function useProfileMedia({ image, banner }: ProfileMediaInput) {
     cropFile,
     cropMode,
     fileInputs,
-    handleImageUpload,
-    hasBanner: !!userImageSrc(profileBanner),
+    handleImageUpload: mutations.handleImageUpload,
+    hasBanner: !!userImageSrc(media.profileBanner),
     mediaMenu,
     openFilePicker,
-    profileBanner,
-    profileImage,
+    profileBanner: media.profileBanner,
+    profileImage: media.profileImage,
     refreshProfile,
     setCropApplying,
     setCropFile,
-    uploading,
+    uploading: mutations.uploading,
   }
 }

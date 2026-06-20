@@ -108,7 +108,6 @@ export interface StorageDriver {
   /** Issue a browser-bound URL for one native multipart upload part. */
   mintUploadPartUrl(input: MintUploadPartUrlInput): Promise<UploadPartTicket>
 
-  /** Store one server-mediated upload part, used by the filesystem driver. */
   writeUploadPart(input: WriteUploadPartInput): Promise<{ size: number }>
 
   /** Publish a resumable upload into its final staged object. */
