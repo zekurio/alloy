@@ -96,5 +96,9 @@ export function stripExtension(filename: string): string {
   return idx > 0 ? filename.slice(0, idx) : filename
 }
 
-export { captureThumbnail, thumbnailFromImageUrl } from "./new-clip-media"
+export {
+  captureThumbnail,
+  thumbnailFromImageUrl,
+  type CapturedThumbnail,
+} from "./new-clip-media"
 export { type ProbedFile, probeFile }

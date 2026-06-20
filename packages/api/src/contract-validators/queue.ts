@@ -23,7 +23,7 @@ import {
   type UploadTicket,
 } from "@alloy/contracts"
 
-import { validateLikeState } from "./shared"
+import { validateLikeState, validateNullableBlurHash } from "./shared"
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 function validateQueueClip(value: unknown): QueueClip {
   const row = objectRecord(value, "queue clip")
@@ -65,8 +65,12 @@ function validateQueueClip(value: unknown): QueueClip {
     "Invalid queue response: hasThumb must be boolean",
   )
   validateNullableString(
+    row.thumbVersion,
+    "Invalid queue response: thumbVersion must be string or null",
+  )
+  validateNullableBlurHash(
     row.thumbBlurHash,
-    "Invalid queue response: thumbBlurHash must be string or null",
+    "Invalid queue response: thumbBlurHash",
   )
   return value as QueueClip
 }

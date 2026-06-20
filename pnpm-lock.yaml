@@ -227,6 +227,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@alloy/contracts':
+        specifier: workspace:*
+        version: link:../contracts
       '@alloy/i18n':
         specifier: workspace:*
         version: link:../i18n

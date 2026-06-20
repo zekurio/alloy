@@ -1,4 +1,5 @@
 import { t as tx } from "@alloy/i18n"
+import { canvasBlurHash } from "@alloy/ui/lib/blurhash-encode"
 
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { requireObjectUrl, revokeObjectUrl } from "@/lib/object-url"
@@ -18,13 +19,18 @@ type VideoSession = {
   cleanup: () => void
 }
 
+export interface CapturedThumbnail {
+  blob: Blob
+  blurHash: string | null
+}
+
 export type ProbedFile = Omit<SelectedFile, "contentType">
 
 export async function captureThumbnail(
   file: File,
   atMs: number,
   fallbackAtMs?: number,
-): Promise<Blob> {
+): Promise<CapturedThumbnail> {
   const { video, cleanup } = createVideoSession(file, "auto")
 
   try {
@@ -82,7 +88,9 @@ export async function captureThumbnail(
  * Builds the upload poster from an already-rendered image, preserving the
  * cached capture poster when one is available.
  */
-export async function thumbnailFromImageUrl(url: string): Promise<Blob> {
+export async function thumbnailFromImageUrl(
+  url: string,
+): Promise<CapturedThumbnail> {
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(
@@ -275,7 +283,9 @@ function encodeCanvasAsWebp(
   })
 }
 
-async function drawThumbnail(video: HTMLVideoElement): Promise<Blob> {
+async function drawThumbnail(
+  video: HTMLVideoElement,
+): Promise<CapturedThumbnail> {
   const srcW = video.videoWidth
   const srcH = video.videoHeight
   if (!srcW || !srcH) {
@@ -288,12 +298,12 @@ async function encodeThumbnail(
   source: CanvasImageSource,
   srcW: number,
   srcH: number,
-): Promise<Blob> {
+): Promise<CapturedThumbnail> {
   if (!srcW || !srcH) {
     throw new Error(tx("Source dimensions unavailable for thumbnail"))
   }
 
-  let lastBlob: Blob | null = null
+  let lastThumbnail: CapturedThumbnail | null = null
   for (const maxDimension of THUMB_DIMENSIONS) {
     const { width, height } = thumbnailSize(srcW, srcH, maxDimension)
     const canvas = document.createElement("canvas")
@@ -302,16 +312,26 @@ async function encodeThumbnail(
     const ctx = canvas.getContext("2d")
     if (!ctx) throw new Error(tx("2D canvas context unavailable"))
     ctx.drawImage(source, 0, 0, width, height)
+    const blurHash = safeCanvasBlurHash(canvas)
 
     for (const quality of THUMB_QUALITIES) {
       const blob = await encodeCanvasAsWebp(canvas, quality)
-      if (blob.size <= THUMB_MAX_BYTES) return blob
-      lastBlob = blob
+      const thumbnail = { blob, blurHash }
+      if (blob.size <= THUMB_MAX_BYTES) return thumbnail
+      lastThumbnail = thumbnail
     }
   }
 
-  if (lastBlob) return lastBlob
+  if (lastThumbnail) return lastThumbnail
   throw new Error(tx("Could not encode thumbnail"))
+}
+
+function safeCanvasBlurHash(canvas: HTMLCanvasElement): string | null {
+  try {
+    return canvasBlurHash(canvas)
+  } catch {
+    return null
+  }
 }
 
 function uniqueThumbnailTimes(

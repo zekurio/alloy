@@ -204,7 +204,7 @@ function ClipViewerDialogBody({
   })
   const gameLabel = clipGameLabel(row)
   const thumbnail = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : null
   const initialFocusRef = React.useRef<HTMLDivElement>(null)
   const deleteFlow = useClipViewerDelete({ row, onDeleted })

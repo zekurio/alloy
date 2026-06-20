@@ -19,14 +19,22 @@ const workerScope: BlurHashWorkerScope = self as typeof self &
   BlurHashWorkerScope
 
 workerScope.onmessage = ({ data }) => {
-  const pixels = decode(data.hash, data.width, data.height)
-  workerScope.postMessage(
-    {
-      id: data.id,
-      pixels,
-      width: data.width,
-      height: data.height,
-    },
-    [pixels.buffer],
-  )
+  try {
+    const pixels = decode(data.hash, data.width, data.height)
+    workerScope.postMessage(
+      {
+        id: data.id,
+        pixels,
+        width: data.width,
+        height: data.height,
+      },
+      [pixels.buffer],
+    )
+  } catch (cause) {
+    workerScope.postMessage({ id: data.id, error: errorMessage(cause) }, [])
+  }
+}
+
+function errorMessage(cause: unknown): string {
+  return cause instanceof Error ? cause.message : "BlurHash decode failed"
 }

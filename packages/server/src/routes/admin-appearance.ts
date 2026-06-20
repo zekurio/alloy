@@ -1,5 +1,6 @@
 import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
+import { clipThumbnailVersion } from "@alloy/server/clips/thumbnail-version"
 import { db } from "@alloy/server/db/index"
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm"
 
@@ -11,11 +12,11 @@ const LOGIN_BACKDROP_CLIP_LIMIT = 32
  * loading each thumbnail directly from `/api/clips/:id/thumbnail` — there is no
  * server-side compositing or stored splash artifact.
  */
-export async function getLoginBackdropClipIds(
+export async function getLoginBackdropClips(
   limit = LOGIN_BACKDROP_CLIP_LIMIT,
-): Promise<string[]> {
+): Promise<Array<{ id: string; thumbVersion: string }>> {
   const rows = await db
-    .select({ id: clip.id })
+    .select({ id: clip.id, thumbKey: clip.thumbKey })
     .from(clip)
     .innerJoin(user, eq(clip.authorId, user.id))
     .where(
@@ -28,5 +29,9 @@ export async function getLoginBackdropClipIds(
     )
     .orderBy(sql`random()`)
     .limit(limit)
-  return rows.map((row) => row.id)
+  return rows.flatMap((row) =>
+    row.thumbKey
+      ? [{ id: row.id, thumbVersion: clipThumbnailVersion(row.thumbKey) }]
+      : [],
+  )
 }

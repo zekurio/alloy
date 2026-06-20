@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@alloy/contracts": "workspace:*",
     "@alloy/i18n": "workspace:*",
     "@base-ui/react": "1.4.1",
     "blurhash": "^2.0.5",

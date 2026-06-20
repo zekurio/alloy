@@ -1,9 +1,11 @@
-import type { QueueClip } from "@alloy/contracts"
+import { normalizeBlurHash, type QueueClip } from "@alloy/contracts"
 import { clip } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { gameSlug } from "@alloy/server/games/slug"
 import { isoDate } from "@alloy/server/runtime/date"
 import { desc, eq } from "drizzle-orm"
+
+import { clipThumbnailVersion } from "./thumbnail-version"
 
 const queueSelectShape = {
   id: clip.id,
@@ -48,7 +50,8 @@ function serialize(row: {
         ? null
         : gameSlug(game?.trim() || `Game ${steamgriddbId}`),
     hasThumb: thumbKey !== null,
-    thumbBlurHash,
+    thumbVersion: thumbKey ? clipThumbnailVersion(thumbKey) : null,
+    thumbBlurHash: normalizeBlurHash(thumbBlurHash),
     steamgriddbId,
     createdAt: isoDate(createdAt),
     updatedAt: isoDate(updatedAt),

@@ -91,7 +91,7 @@ function MobileClipViewerBody({
   })
   const gameLabel = clipGameLabel(row)
   const thumbnail = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : null
   const gameRef = row.gameRef
   const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null

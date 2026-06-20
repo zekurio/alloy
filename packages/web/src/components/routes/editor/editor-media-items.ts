@@ -120,7 +120,7 @@ function cloudMediaItem(row: ClipRow): EditorMediaItem {
     subtitle: row.gameRef?.name ?? row.game ?? "Uploaded",
     durationMs: row.durationMs,
     thumbnailUrl: row.thumbKey
-      ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+      ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
       : null,
     searchText: row.description ?? "",
     cloud: true,

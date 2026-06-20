@@ -95,7 +95,7 @@ export function ClipRowItem({
   onSelect: () => void
 }) {
   const thumb = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : null
   const label = clipGameLabel(row)
   return (

@@ -63,6 +63,7 @@ export interface ClipRow {
   width: number | null
   height: number | null
   thumbKey: string | null
+  thumbVersion: string | null
   thumbBlurHash: string | null
   viewCount: number
   likeCount: number
@@ -108,9 +109,8 @@ export interface InitiateClipInput {
   /** Bare hashtags; normalized server-side. */
   tags?: string[]
   /**
-   * Client-computed BlurHash of the clip's poster frame. Stored as the
-   * canonical placeholder when provided. The server preserves this value and
-   * never recomputes a poster hash during media finalization.
+   * Client-computed BlurHash of the clip's poster frame. The server validates
+   * and publishes it only when the uploaded thumbnail image is accepted.
    */
   thumbBlurHash?: string
   /** Poster format the client will upload; defaults to webp. */
@@ -159,6 +159,7 @@ export interface QueueClip {
   encodeProgress: number
   failureReason: string | null
   hasThumb: boolean
+  thumbVersion: string | null
   thumbBlurHash: string | null
   createdAt: IsoDateString
   updatedAt: IsoDateString

@@ -97,6 +97,20 @@ export function validateLoginBackdropsResponse(
     response.clipIds,
     "Invalid login backdrops response: clipIds must be an array of strings",
   )
+  validateArray(
+    response.clips,
+    "Invalid login backdrops response: clips must be an array",
+  ).map((item) => {
+    const clip = objectRecord(item, "login backdrop clip")
+    validateRequiredString(
+      clip.id,
+      "Invalid login backdrops response: clip id is required",
+    )
+    validateRequiredString(
+      clip.thumbVersion,
+      "Invalid login backdrops response: thumbVersion is required",
+    )
+  })
   return value as LoginBackdropsResponse
 }
 

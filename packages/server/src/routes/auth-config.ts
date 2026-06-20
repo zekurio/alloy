@@ -2,7 +2,7 @@ import { buildPublicAuthConfig } from "@alloy/server/auth/public-config"
 import { configStore } from "@alloy/server/config/store"
 import { Hono } from "hono"
 
-import { getLoginBackdropClipIds } from "./admin-appearance"
+import { getLoginBackdropClips } from "./admin-appearance"
 
 export const authConfigRoute = new Hono()
   .get("/", async (c) => {
@@ -13,6 +13,6 @@ export const authConfigRoute = new Hono()
     // the login page simply shows the plain background.
     c.header("Cache-Control", "no-store")
     const enabled = configStore.get("appearance").loginSplash.enabled
-    const clipIds = enabled ? await getLoginBackdropClipIds() : []
-    return c.json({ clipIds })
+    const clips = enabled ? await getLoginBackdropClips() : []
+    return c.json({ clipIds: clips.map((clip) => clip.id), clips })
   })

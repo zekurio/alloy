@@ -11,6 +11,7 @@ import type { Context, Hono } from "hono"
 import { buildPublicAuthConfig } from "./auth/public-config"
 import { getSession } from "./auth/session"
 import { selectClipById } from "./clips/select"
+import { clipThumbnailVersion } from "./clips/thumbnail-version"
 import { configStore } from "./config/store"
 import { db } from "./db"
 import { env } from "./env"
@@ -147,7 +148,10 @@ async function clipHead(pathname: string): Promise<string> {
       row.description?.trim() ||
       `${row.authorUsername} shared a ${gameName} clip on alloy.`
     const poster = row.thumbKey
-      ? new URL(`/api/clips/${row.id}/thumbnail`, origin).toString()
+      ? new URL(
+          `/api/clips/${row.id}/thumbnail?v=${clipThumbnailVersion(row.thumbKey)}`,
+          origin,
+        ).toString()
       : null
     // Desktop uploads browser-playable MP4 sources, so og:video points
     // straight at the stored file — no generated variant. Skip the tag for

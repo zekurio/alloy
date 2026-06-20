@@ -1,4 +1,8 @@
-import type { ClipGameRef, GameRow } from "@alloy/contracts"
+import {
+  normalizeBlurHash,
+  type ClipGameRef,
+  type GameRow,
+} from "@alloy/contracts"
 import { clip, clipView, game, gameFollow } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
@@ -99,9 +103,9 @@ export function serialiseGameRow(row: GameMetadataRow): GameRow {
     slug: publicGameSlug(row),
     releaseDate: nullableIsoDate(row.releaseDate),
     heroUrl: row.heroUrl,
-    heroBlurHash: row.heroBlurHash,
+    heroBlurHash: normalizeBlurHash(row.heroBlurHash),
     gridUrl: row.gridUrl,
-    gridBlurHash: row.gridBlurHash,
+    gridBlurHash: normalizeBlurHash(row.gridBlurHash),
     logoUrl: row.logoUrl,
     iconUrl: row.iconUrl,
   }

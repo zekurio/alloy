@@ -1,4 +1,5 @@
 export * from "./admin"
+export * from "./blurhash"
 export * from "./content"
 export * from "./desktop-recording"
 export * from "./desktop-update"

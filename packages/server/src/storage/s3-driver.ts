@@ -165,22 +165,22 @@ export class S3StorageDriver implements StorageDriver {
       }
     }
 
-    const command = new PutObjectCommand({
-      Bucket: this.opts.bucket,
-      Key: this.fullKey(input.key),
-      ContentType: input.contentType,
-    })
-
+    const payload: UploadTokenPayload = {
+      k: input.key,
+      ct: input.contentType,
+      mb: input.maxBytes,
+      exp: expiresAt,
+      uid: input.userId,
+      cid: input.clipId,
+      m: "single",
+    }
     return {
-      ticket: {
-        uploadUrl: await getSignedUrl(this.client, command, {
-          expiresIn: input.expiresInSec,
-        }),
-        method: "PUT" as const,
-        headers: { "Content-Type": input.contentType },
-        expiresAt,
-        strategy: { type: "single" as const },
-      },
+      ticket: await mintFsUploadTicket({
+        payload,
+        publicBaseUrl: this.opts.publicBaseUrl,
+        secret: this.opts.hmacSecret,
+        strategy: { type: "single" },
+      }),
       storageState: null,
     }
   }
