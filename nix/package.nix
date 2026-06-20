@@ -12,7 +12,7 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-rF7wPW2sRjC+JkBdnUiHKTqTMg8GvrFVQSxswOf3qdg=",
+  pnpmDepsHash ? "sha256-BAib7lHSooO4nXvbpLa1sFHVE8e5GXLUx6qSVnrl6R0=",
 }:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
