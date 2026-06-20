@@ -103,7 +103,7 @@ function UserProfileLayout() {
           <ProfileIdentitySkeleton />
         )}
 
-        <div className="px-4 pb-4 md:px-8 md:pb-6">
+        <div className="px-4 pb-4 md:px-6 md:pb-6">
           <ProfileTabsNav username={username} />
           <Outlet />
         </div>

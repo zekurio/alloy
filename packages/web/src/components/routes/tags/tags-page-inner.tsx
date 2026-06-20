@@ -66,8 +66,8 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   useHeaderToolbar(toolbar)
 
   return (
-    <AppMain className="!px-2 md:!px-8">
-      <div className="flex w-full flex-col gap-5 py-3 md:gap-6 md:py-6">
+    <AppMain className="!px-4 md:!px-6">
+      <div className="flex w-full flex-col gap-5 md:gap-6">
         <TagHeader tag={tag} clipCount={summary?.clipCount} />
 
         <TagClipsSection tag={tag} filters={filters} viewerId={viewerId} />

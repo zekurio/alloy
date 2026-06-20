@@ -123,7 +123,7 @@ function ClipCard({
   return (
     <article
       data-slot="clip-card"
-      className={cn("group/clip-card flex flex-col gap-2", className)}
+      className={cn("group/clip-card flex flex-col gap-1.5", className)}
       {...props}
     >
       <div className="relative">
@@ -145,7 +145,7 @@ function ClipCard({
       </div>
       <div
         className={cn(
-          "grid grid-rows-[auto_auto] gap-x-3",
+          "grid grid-rows-[auto_auto] gap-x-2",
           author
             ? "grid-cols-[auto_minmax(0,1fr)_auto]"
             : "grid-cols-[minmax(0,1fr)_auto]",
@@ -160,7 +160,7 @@ function ClipCard({
             authorAvatarFg={authorAvatarFg}
             href={authorHref}
             renderLink={renderAuthorLink}
-            className="row-span-2 mt-0.5 size-11"
+            className="row-span-2 mt-0.5 size-9"
           />
         ) : null}
         <div className="text-foreground col-span-2 truncate text-lg leading-6 font-semibold">
@@ -391,7 +391,7 @@ function ClipCardThumb({
     CLIP_MEDIA_VIEWPORT_CLASS,
     "transition-[transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     interactive &&
-      "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none data-[pointer-activated=true]:focus-visible:ring-0 data-[pointer-activated=true]:focus-visible:ring-offset-0",
+      "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none data-[pointer-activated=true]:focus-visible:ring-0",
   )
   const hoverHandlers = {
     onPointerEnter: (e: React.PointerEvent) => {
@@ -412,7 +412,6 @@ function ClipCardThumb({
     onFocus: () => {
       onIntent?.()
       preloadThumbnail()
-      schedulePreview()
     },
     onBlur: () => {
       setPointerActivated(false)
