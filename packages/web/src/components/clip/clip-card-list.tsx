@@ -11,7 +11,11 @@ type ClipCardListProps = {
   listKey?: string
 }
 
-export function ClipCardList({ rows, listKey }: ClipCardListProps) {
+export function ClipCardList({
+  rows,
+  isOwnedByViewer,
+  listKey,
+}: ClipCardListProps) {
   const entries = React.useMemo<ClipListEntry[]>(
     () =>
       rows.map((row) => ({
@@ -24,7 +28,11 @@ export function ClipCardList({ rows, listKey }: ClipCardListProps) {
   const grid = (
     <ClipGrid>
       {rows.map((row) => (
-        <ClipCardTrigger key={row.id} row={row} />
+        <ClipCardTrigger
+          key={row.id}
+          row={row}
+          showVisibilityStatus={isOwnedByViewer?.(row) ?? false}
+        />
       ))}
     </ClipGrid>
   )
