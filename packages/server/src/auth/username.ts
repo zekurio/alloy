@@ -1,3 +1,5 @@
+import { randomBytes } from "node:crypto"
+
 import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
@@ -77,7 +79,7 @@ export async function generateUniqueUsername(hints: {
   }
 
   for (let attempt = 0; attempt < 10; attempt++) {
-    const suffix = Math.random().toString(36).slice(2, 8)
+    const suffix = randomBytes(4).toString("base64url")
     const candidate = `${trimBase(MAX_LEN - suffix.length - 1)}-${suffix}`
     if (await isUsernameAvailable(candidate)) return candidate
   }

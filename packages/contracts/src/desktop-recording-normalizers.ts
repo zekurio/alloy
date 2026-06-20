@@ -311,11 +311,26 @@ function executableName(executable: string | null): string | null {
 }
 
 function slug(value: string): string {
-  const slug = value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
+  let slug = ""
+  let previousWasSeparator = true
+  for (const char of value.toLowerCase()) {
+    if (isAsciiSlugCharacter(char)) {
+      slug += char
+      previousWasSeparator = false
+      continue
+    }
+    if (!previousWasSeparator) {
+      slug += "-"
+      previousWasSeparator = true
+    }
+  }
+  if (slug.endsWith("-")) slug = slug.slice(0, -1)
   return slug || "allowed"
+}
+
+function isAsciiSlugCharacter(value: string): boolean {
+  const code = value.charCodeAt(0)
+  return (code >= 97 && code <= 122) || (code >= 48 && code <= 57)
 }
 
 function dedupeBy<T>(items: T[], keyFor: (item: T) => string): T[] {
