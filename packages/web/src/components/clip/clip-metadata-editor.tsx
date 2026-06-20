@@ -4,7 +4,7 @@ import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Textarea } from "@alloy/ui/components/textarea"
 import { cn } from "@alloy/ui/lib/utils"
-import { ChevronRightIcon, Gamepad2Icon } from "lucide-react"
+import { ChevronRightIcon, Gamepad2Icon, PencilIcon } from "lucide-react"
 import * as React from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
@@ -68,36 +68,52 @@ export function ClipMetadataEditor({
 
   return (
     <div className="flex min-w-0 flex-col gap-5">
-      <input
-        value={title}
-        onChange={(e) => onTitleChange(e.target.value)}
-        maxLength={CLIP_TITLE_MAX}
-        disabled={disabled}
-        placeholder={tx("Untitled")}
-        aria-label={tx("Title")}
-        aria-invalid={titleInvalid || undefined}
-        className={cn(
-          "w-full border-b border-transparent bg-transparent pb-1.5 text-lg font-semibold text-foreground",
-          "outline-none transition-colors placeholder:text-foreground-faint",
-          "focus-visible:border-border-strong",
-          titleInvalid &&
-            "border-destructive placeholder:text-destructive/60 focus-visible:border-destructive",
-          disabled && "opacity-60",
+      <div className="group relative min-w-0">
+        <input
+          value={title}
+          onChange={(e) => onTitleChange(e.target.value)}
+          maxLength={CLIP_TITLE_MAX}
+          disabled={disabled}
+          placeholder={tx("Untitled")}
+          aria-label={tx("Title")}
+          aria-invalid={titleInvalid || undefined}
+          className={cn(
+            "w-full border-b border-transparent bg-transparent pb-1.5 pr-7 text-lg font-semibold text-foreground",
+            "outline-none transition-colors placeholder:text-foreground-faint",
+            "focus-visible:border-border-strong",
+            titleInvalid &&
+              "border-destructive placeholder:text-destructive/60 focus-visible:border-destructive",
+            disabled && "opacity-60",
+          )}
+        />
+        {disabled ? null : (
+          <PencilIcon
+            aria-hidden
+            className="text-foreground-faint pointer-events-none absolute top-0.5 right-0 size-4! shrink-0 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+          />
         )}
-      />
+      </div>
 
-      <Textarea
-        value={description}
-        onChange={(e) => onDescriptionChange(e.target.value)}
-        maxLength={CLIP_DESCRIPTION_MAX}
-        disabled={disabled}
-        rows={2}
-        placeholder={tx("Add a description…")}
-        className={cn(
-          "min-h-0 resize-none rounded-none border-0 bg-transparent px-0 py-0 text-sm leading-relaxed",
-          "hover:border-0 hover:bg-transparent focus-visible:border-0 focus-visible:bg-transparent focus-visible:ring-0",
+      <div className="group relative min-w-0">
+        <Textarea
+          value={description}
+          onChange={(e) => onDescriptionChange(e.target.value)}
+          maxLength={CLIP_DESCRIPTION_MAX}
+          disabled={disabled}
+          rows={2}
+          placeholder={tx("Add a description…")}
+          className={cn(
+            "min-h-0 resize-none rounded-none border-0 bg-transparent px-0 py-0 pr-7 text-sm leading-relaxed",
+            "hover:border-0 hover:bg-transparent focus-visible:border-0 focus-visible:bg-transparent focus-visible:ring-0",
+          )}
+        />
+        {disabled ? null : (
+          <PencilIcon
+            aria-hidden
+            className="text-foreground-faint pointer-events-none absolute top-0 right-0 size-4! shrink-0 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100"
+          />
         )}
-      />
+      </div>
 
       <ClipMetadataSection label={tx("Game")}>
         <GamePickerChip

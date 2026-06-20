@@ -36,14 +36,8 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.exportRecordingLibraryCapture, request),
   updateLibraryCapture: (patch) =>
     ipcRenderer.invoke(IPC.updateRecordingLibraryCapture, patch),
-  saveLibraryProjectDraft: (request) =>
-    ipcRenderer.invoke(IPC.saveRecordingLibraryProjectDraft, request),
-  deleteLibraryProjectDraft: (id) =>
-    ipcRenderer.invoke(IPC.deleteRecordingLibraryProjectDraft, id),
   deleteLibraryCapture: (id) =>
     ipcRenderer.invoke(IPC.deleteRecordingLibraryCapture, id),
-  importLibraryCapture: (request) =>
-    ipcRenderer.invoke(IPC.importRecordingLibraryCapture, request),
   importLibraryFiles: () => ipcRenderer.invoke(IPC.importRecordingLibraryFiles),
   commitStagedLibraryImport: (request) =>
     ipcRenderer.invoke(IPC.commitRecordingLibraryStagedImport, request),

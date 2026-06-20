@@ -61,7 +61,6 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
         active: null,
         kind: "all" satisfies LibraryKindFilter,
         query: "",
-        includeDrafts: false,
       }).filter(isNavigableEntry),
     [snapshot, gamesByName, uploaded],
   )

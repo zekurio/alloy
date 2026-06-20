@@ -118,8 +118,8 @@ function HeaderNavigation() {
 function useHeaderNavigationHistory() {
   // Drive availability from the router's real history position rather than a
   // url-matching heuristic: matching on href misreads a fresh push to a
-  // previously-seen url (e.g. going back to /library, or the editor's many
-  // `replace` navigations) as a "back" and wrongly enables forward.
+  // previously-seen url (e.g. going back to /library) as a "back" and wrongly
+  // enables forward.
   const entry = useRouterState({
     select: (state) => {
       const historyState = state.location.state as {

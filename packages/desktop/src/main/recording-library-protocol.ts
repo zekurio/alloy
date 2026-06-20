@@ -25,7 +25,7 @@ export function recordingLibraryProtocolScheme(): Electron.CustomScheme {
       // Without this, the scheme is missing from Chromium's CORS-enabled
       // scheme list and any cross-origin fetch() from the web app fails
       // outright with "Failed to fetch" — the request never reaches the
-      // handler. The editor's mediabunny reader fetches capture bytes.
+      // handler. Mediabunny-backed filmstrip/poster readers fetch bytes.
       corsEnabled: true,
     },
   }
@@ -38,9 +38,8 @@ export function registerRecordingLibraryProtocol(): void {
   mediaProtocolRegistered = true
 
   mainSession().protocol.handle(MEDIA_PROTOCOL, async (request) => {
-    // The web app's editor reads captures with fetch() + Range headers
-    // (mediabunny), which sends a cross-origin preflight first — media
-    // elements skip it, fetch doesn't.
+    // Mediabunny reads captures with fetch() + Range headers, which sends a
+    // cross-origin preflight first — media elements skip it, fetch doesn't.
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
@@ -99,9 +98,9 @@ function fileBodyStream(stream: Readable): ReadableStream<Uint8Array> {
 
 /**
  * Serves a capture file with HTTP Range support. `net.fetch(file://…)`
- * ignores Range headers, so every seek of Chromium's media element (and the
- * editor's filmstrip sampler) would restart a full-file stream — large
- * captures stall and the element eventually gives up with
+ * ignores Range headers, so every seek of Chromium's media element and
+ * filmstrip samplers would restart a full-file stream — large captures stall
+ * and the element eventually gives up with
  * MEDIA_ERR_SRC_NOT_SUPPORTED.
  */
 function rangedFileResponse(filename: string, request: Request): Response {
@@ -148,9 +147,9 @@ function rangedFileResponse(filename: string, request: Request): Response {
 
 /**
  * Range requested as `?range=start-end` (inclusive), an alternative to the
- * Range header. The editor's mediabunny reader uses this because a custom
- * request header forces a CORS preflight on cross-origin fetches to this
- * scheme, while a plain GET sails through with the existing CORS headers.
+ * Range header. Mediabunny readers use this because a custom request header
+ * forces a CORS preflight on cross-origin fetches to this scheme, while a
+ * plain GET sails through with the existing CORS headers.
  */
 function parseQueryByteRange(
   rawUrl: string,

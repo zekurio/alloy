@@ -9,24 +9,19 @@ import {
   normalizeLibraryCommitStagedImportRequest,
   normalizeLibraryDownloadRequest,
   normalizeLibraryExportRequest,
-  normalizeLibraryImportRequest,
   normalizeLibraryMetaPatch,
   normalizeLibraryThumbnailHashRequest,
   normalizeLibraryThumbnailSaveRequest,
-  normalizeProjectDraftSaveRequest,
 } from "./ipc-normalizers"
 import {
   deleteRecordingLibraryItem,
-  deleteRecordingLibraryProjectDraft,
   commitRecordingLibraryStagedImport,
   discardRecordingLibraryStagedImport,
   exportRecordingLibraryItem,
   getRecordingLibrarySnapshot,
-  importRecordingLibraryCapture,
   openRecordingLibraryFolder,
   openRecordingLibraryItem,
   revealRecordingLibraryItem,
-  saveRecordingLibraryProjectDraft,
   stageRecordingLibraryVideoFiles,
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library"
@@ -83,22 +78,6 @@ function registerRecordingLibraryWriteIpc(windows: Windows): void {
       return updateRecordingLibraryCaptureMeta(patch)
     },
   )
-  ipcMain.handle(
-    IPC.saveRecordingLibraryProjectDraft,
-    (event, request: unknown) => {
-      requireMainSender(windows, event)
-      const normalized = normalizeProjectDraftSaveRequest(request)
-      if (!normalized) throw new Error("Invalid project draft request.")
-      return saveRecordingLibraryProjectDraft(normalized)
-    },
-  )
-  ipcMain.handle(
-    IPC.deleteRecordingLibraryProjectDraft,
-    (event, id: unknown) => {
-      requireMainSender(windows, event)
-      if (typeof id === "string") deleteRecordingLibraryProjectDraft(id)
-    },
-  )
   ipcMain.handle(IPC.deleteRecordingLibraryCapture, (event, id: unknown) => {
     requireMainSender(windows, event)
     if (typeof id === "string") return deleteRecordingLibraryItem(id)
@@ -106,15 +85,6 @@ function registerRecordingLibraryWriteIpc(windows: Windows): void {
 }
 
 function registerRecordingLibraryImportIpc(windows: Windows): void {
-  ipcMain.handle(
-    IPC.importRecordingLibraryCapture,
-    (event, request: unknown) => {
-      requireMainSender(windows, event)
-      const normalized = normalizeLibraryImportRequest(request)
-      if (!normalized) throw new Error("Invalid render import request.")
-      return importRecordingLibraryCapture(normalized)
-    },
-  )
   ipcMain.handle(IPC.importRecordingLibraryFiles, async (event) => {
     requireMainSender(windows, event)
     const parent = BrowserWindow.fromWebContents(event.sender)

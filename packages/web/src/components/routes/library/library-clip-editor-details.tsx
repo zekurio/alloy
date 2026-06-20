@@ -22,9 +22,8 @@ import {
   TabsTrigger,
 } from "@alloy/ui/components/tabs"
 import { toast } from "@alloy/ui/lib/toast"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import {
-  ClapperboardIcon,
   ChevronUpIcon,
   EyeOffIcon,
   GlobeIcon,
@@ -41,7 +40,7 @@ import { absoluteClipHref } from "@/lib/app-paths"
 import { normalizeClipDescription, normalizeClipTitle } from "@/lib/clip-fields"
 import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { copyTextToClipboard } from "@/lib/clipboard"
-import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
+import { type RecordingLibraryItem } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 
 import { ClipFileLocation } from "./library-file-location"
@@ -190,8 +189,6 @@ function ClipDetailsForm({
   trimPending,
   onSaveTrim,
 }: ClipDetailsProps) {
-  const navigate = useNavigate()
-  const desktop = alloyDesktop()
   const [title, setTitle] = React.useState(row.title)
   const [description, setDescription] = React.useState(row.description ?? "")
   const [game, setGame] = React.useState<GameRow | null>(() =>
@@ -365,19 +362,6 @@ function ClipDetailsForm({
                 <ChevronUpIcon />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top" className="w-52">
-                {desktop ? (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      void navigate({
-                        to: "/editor",
-                        search: { capture: row.id },
-                      })
-                    }}
-                  >
-                    <ClapperboardIcon className="size-4" />
-                    {tx("Open in Editor")}
-                  </DropdownMenuItem>
-                ) : null}
                 {showProfileVisibilityInMenu ? (
                   <DropdownMenuItem
                     disabled={visibilityPending}

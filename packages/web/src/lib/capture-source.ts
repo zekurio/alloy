@@ -11,8 +11,7 @@ import { CustomSource } from "mediabunny"
  * - http(s) URLs (uploaded clips streamed from the server) use a standard
  *   `Range` header against the same-origin stream endpoint.
  *
- * Shared by the editor's preview engine, the render pipeline, and the
- * filmstrip sampler.
+ * Shared by poster capture and filmstrip sampling.
  */
 export function createCaptureSource(mediaUrl: string): CustomSource {
   const isHttp = /^https?:\/\//i.test(mediaUrl)

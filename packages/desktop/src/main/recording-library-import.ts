@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import type { Dirent } from "node:fs"
-import { constants, mkdirSync, statSync, writeFileSync } from "node:fs"
+import { constants, mkdirSync, statSync } from "node:fs"
 import {
   copyFile,
   readdir,
@@ -17,7 +17,6 @@ import { app } from "electron"
 import type {
   RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryFilesImportResult,
-  RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryStagedImport,
 } from "@/shared/ipc"
@@ -56,49 +55,6 @@ interface StagedVideoImport {
 }
 
 const stagedImports = new Map<string, StagedVideoImport>()
-
-export function importRecordingLibraryCapture(
-  request: RecordingLibraryImportRequest,
-): RecordingLibraryImportResult {
-  const root = captureCollectionFolder("Clips", null)
-  mkdirSync(root, { recursive: true })
-
-  const safeBase = safeCaptureBase(request.fileName.replace(/\.mp4$/i, ""), {
-    fallback: "render",
-  })
-  const filename = uniqueCaptureFilename(root, safeBase, ".mp4")
-  writeFileSync(filename, Buffer.from(request.data))
-
-  const absolute = resolve(filename)
-  const id = captureId(absolute)
-  const createdAt = new Date().toISOString()
-  const manifest = readCaptureManifest()
-  manifest.captures[manifestKey(absolute)] = {
-    id,
-    filename: absolute,
-    title: `Render ${new Date(createdAt).toLocaleString(undefined, {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`,
-    kind: "replay",
-    source: "display",
-    gameName: null,
-    gameIconUrl: null,
-    gameGuess: null,
-    sizeBytes: request.data.byteLength,
-    durationMs: request.durationMs > 0 ? Math.round(request.durationMs) : null,
-    width: request.width,
-    height: request.height,
-    createdAt,
-    updatedAt: createdAt,
-  }
-  writeCaptureManifest(manifest)
-  invalidateRecordingLibrarySnapshot()
-
-  return { id }
-}
 
 export async function stageRecordingLibraryVideoFiles(
   paths: string[],

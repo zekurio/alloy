@@ -11,11 +11,8 @@ import type {
   RecordingLibraryDownloadRequest,
   RecordingLibraryExportRequest,
   RecordingLibraryExportSegment,
-  RecordingLibraryImportRequest,
   RecordingLibraryMetaPatch,
 } from "@/shared/ipc"
-
-export { normalizeProjectDraftSaveRequest } from "./ipc-project-draft-normalizers"
 
 export function isNotificationSoundEvent(
   value: unknown,
@@ -81,36 +78,7 @@ export function normalizeLibraryExportRequest(
   }
 }
 
-/** Hard cap on imported render size (a structured-clone copy in memory). */
-const IMPORT_MAX_BYTES = 4 * 1024 * 1024 * 1024
-const IMPORT_FILE_NAME_MAX = 120
 const THUMBNAIL_MAX_BYTES = 10 * 1024 * 1024
-
-export function normalizeLibraryImportRequest(
-  value: unknown,
-): RecordingLibraryImportRequest | null {
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  if (!(record.data instanceof Uint8Array)) return null
-  if (
-    record.data.byteLength === 0 ||
-    record.data.byteLength > IMPORT_MAX_BYTES
-  ) {
-    return null
-  }
-  if (typeof record.fileName !== "string") return null
-  const durationMs =
-    typeof record.durationMs === "number" && Number.isFinite(record.durationMs)
-      ? Math.max(0, record.durationMs)
-      : 0
-  return {
-    fileName: record.fileName.slice(0, IMPORT_FILE_NAME_MAX),
-    data: record.data,
-    durationMs,
-    width: normalizeDimension(record.width),
-    height: normalizeDimension(record.height),
-  }
-}
 
 const COMMIT_STAGED_IMPORT_ID_MAX = 128
 const COMMIT_STAGED_IMPORT_TITLE_MAX = 200

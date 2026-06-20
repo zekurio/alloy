@@ -12,10 +12,9 @@ import {
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { useQueryClient } from "@tanstack/react-query"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import {
   BanIcon,
-  ClapperboardIcon,
   CloudCheckIcon,
   CloudIcon,
   FunnelIcon,
@@ -41,11 +40,7 @@ import { UploadQueueContent } from "@/components/upload/upload-queue"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
-import {
-  alloyDesktop,
-  type AlloyDesktop,
-  type RecordingLibraryProjectDraft,
-} from "@/lib/desktop"
+import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 
 import {
   buildLibraryGroups,
@@ -64,11 +59,7 @@ import {
   type LibraryKindFilter,
   type LibraryStatusFilter,
 } from "./library-entries"
-import {
-  LibraryCaptureCard,
-  ProjectDraftCard,
-  UploadedClipCard,
-} from "./library-entry-cards"
+import { LibraryCaptureCard, UploadedClipCard } from "./library-entry-cards"
 import {
   ImportClipDetailsDialog,
   type LibraryImportAction,
@@ -166,12 +157,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
             })
           }}
           onCloudIntent={warmCloudClip}
-          onOpenDraft={(draft) => {
-            void navigate({
-              to: "/editor",
-              search: { draft: draft.id },
-            })
-          }}
         />
         <ImportClipDetailsDialog action={importAction} />
       </section>
@@ -191,10 +176,6 @@ function LibraryDesktopActions({
   return (
     <>
       <LibraryTransferToggle />
-      <Button variant="secondary" size="sm" render={<Link to="/editor" />}>
-        <ClapperboardIcon />
-        {tx("Create project")}
-      </Button>
       <Button
         type="button"
         variant="primary"
@@ -347,10 +328,7 @@ function useLibraryContentModel({
   const loading =
     (desktop !== null && !snapshot && !error) ||
     (handle.length > 0 && uploadedQuery.isLoading)
-  const hasAnything =
-    (snapshot?.totalCount ?? 0) > 0 ||
-    (snapshot?.projectDrafts.length ?? 0) > 0 ||
-    uploaded.length > 0
+  const hasAnything = (snapshot?.totalCount ?? 0) > 0 || uploaded.length > 0
 
   return { groups, entries, statusCounts, loading, error, hasAnything }
 }
@@ -445,7 +423,6 @@ function LibraryBody({
   onOpenLocal,
   onOpenCloud,
   onCloudIntent,
-  onOpenDraft,
 }: {
   entries: LibraryEntry[]
   loading: boolean
@@ -455,7 +432,6 @@ function LibraryBody({
   onOpenLocal: (item: LibraryItemView) => void
   onOpenCloud: (row: ClipRow) => void
   onCloudIntent: (row: ClipRow) => void
-  onOpenDraft: (draft: RecordingLibraryProjectDraft) => void
 }) {
   if (entries.length === 0) {
     if (error) {
@@ -497,30 +473,25 @@ function LibraryBody({
 
   return (
     <ClipGrid>
-      {entries.map((entry) =>
-        entry.type === "local" ? (
-          <LibraryCaptureCard
-            key={entry.key}
-            item={entry.item}
-            onOpen={() => onOpenLocal(entry.item)}
-          />
-        ) : entry.type === "cloud" ? (
+      {entries.map((entry) => {
+        if (entry.type === "local") {
+          return (
+            <LibraryCaptureCard
+              key={entry.key}
+              item={entry.item}
+              onOpen={() => onOpenLocal(entry.item)}
+            />
+          )
+        }
+        return (
           <UploadedClipCard
             key={entry.key}
             row={entry.row}
             onOpen={() => onOpenCloud(entry.row)}
             onIntent={() => onCloudIntent(entry.row)}
           />
-        ) : (
-          <ProjectDraftCard
-            key={entry.key}
-            draft={entry.draft}
-            thumbnailUrl={entry.thumbnailUrl}
-            thumbBlurHash={entry.thumbBlurHash}
-            onOpen={() => onOpenDraft(entry.draft)}
-          />
-        ),
-      )}
+        )
+      })}
     </ClipGrid>
   )
 }

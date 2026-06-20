@@ -12,7 +12,6 @@ import { app } from "electron"
 import type {
   RecordingCaptureMention,
   RecordingLibraryItem,
-  RecordingLibraryProjectDraft,
 } from "@/shared/ipc"
 
 const logger = createLogger("library")
@@ -20,7 +19,6 @@ const logger = createLogger("library")
 export interface CaptureManifest {
   version: 1
   captures: Record<string, CaptureManifestEntry>
-  projectDrafts: Record<string, RecordingLibraryProjectDraft>
 }
 
 export interface CaptureManifestEntry {
@@ -58,19 +56,12 @@ export function readCaptureManifest(): CaptureManifest {
   try {
     const parsed: unknown = JSON.parse(readFileSync(manifestPath(), "utf8"))
     if (!isCaptureManifest(parsed)) throw new Error("Invalid manifest.")
-    const record = parsed as {
-      captures: Record<string, CaptureManifestEntry>
-      projectDrafts?: unknown
-    }
     return {
       version: 1,
-      captures: record.captures,
-      projectDrafts: isProjectDraftsRecord(record.projectDrafts)
-        ? record.projectDrafts
-        : {},
+      captures: parsed.captures,
     }
   } catch {
-    return { version: 1, captures: {}, projectDrafts: {} }
+    return { version: 1, captures: {} }
   }
 }
 
@@ -118,12 +109,6 @@ function isCaptureManifest(value: unknown): value is CaptureManifest {
     typeof (value as { captures?: unknown }).captures === "object" &&
     (value as { captures?: unknown }).captures !== null
   )
-}
-
-function isProjectDraftsRecord(
-  value: unknown,
-): value is Record<string, RecordingLibraryProjectDraft> {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
 export function manifestKey(filename: string): string {

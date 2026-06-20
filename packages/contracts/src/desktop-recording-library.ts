@@ -52,9 +52,7 @@ export interface RecordingLibraryExportSegment {
 export interface RecordingLibraryExportRequest {
   id: string
   /**
-   * The single range to keep. Multi-segment sequences are rejected — cut and
-   * reorder in the editor, whose render pipeline imports back into the
-   * library for publishing.
+   * The single range to keep. Multi-segment sequences are rejected.
    */
   segments: RecordingLibraryExportSegment[]
 }
@@ -77,85 +75,6 @@ export interface RecordingLibraryMetaUpdateResult {
   id: string
 }
 
-export interface RecordingLibraryProjectTrack {
-  id: string
-  label: string
-}
-
-export interface RecordingLibraryProjectClip {
-  id: string
-  trackId: string
-  sourceId: string
-  sourceDurationMs: number
-  sourceStartMs: number
-  sourceEndMs: number
-  startMs: number
-  label: string
-}
-
-export const RECORDING_LIBRARY_PROJECT_TRANSITION_TYPES = [
-  "crossfade",
-  "dip-to-black",
-  "wipe-left",
-  "wipe-right",
-  "slide-left",
-  "slide-right",
-] as const
-
-export type RecordingLibraryProjectTransitionType =
-  (typeof RECORDING_LIBRARY_PROJECT_TRANSITION_TYPES)[number]
-
-export interface RecordingLibraryProjectTransition {
-  id: string
-  type: RecordingLibraryProjectTransitionType
-  leftClipId: string
-  rightClipId: string
-  durationMs: number
-}
-
-export const RECORDING_LIBRARY_PROJECT_FILTER_IDS = [
-  "none",
-  "clean",
-  "warm",
-  "crisp",
-  "punch",
-  "mono",
-] as const
-
-export type RecordingLibraryProjectFilterId =
-  (typeof RECORDING_LIBRARY_PROJECT_FILTER_IDS)[number]
-
-export interface RecordingLibraryProject {
-  tracks: RecordingLibraryProjectTrack[]
-  clips: RecordingLibraryProjectClip[]
-  transitions: RecordingLibraryProjectTransition[]
-  /** Global visual filter applied to preview and rendered exports. */
-  filterId?: RecordingLibraryProjectFilterId
-  /** Default transition applied when adding a new timeline junction effect. */
-  transitionType?: RecordingLibraryProjectTransitionType
-}
-
-export interface RecordingLibraryProjectDraft {
-  id: string
-  title: string
-  project: RecordingLibraryProject
-  thumbnailSourceId: string | null
-  durationMs: number
-  clipCount: number
-  createdAt: string
-  updatedAt: string
-}
-
-export interface RecordingLibraryProjectDraftSaveRequest {
-  id?: string | null
-  title: string
-  project: RecordingLibraryProject
-}
-
-export interface RecordingLibraryProjectDraftSaveResult {
-  id: string
-}
-
 export interface RecordingLibraryExport {
   id: string
   mediaUrl: string
@@ -171,16 +90,6 @@ export interface RecordingLibraryExport {
    * back to capturing a frame from the exported file itself.
    */
   thumbUrl: string | null
-}
-
-/** A rendered video to add to the capture library (from the editor). */
-export interface RecordingLibraryImportRequest {
-  /** Suggested file name (sanitized and uniquified on write); ".mp4" added. */
-  fileName: string
-  data: Uint8Array
-  durationMs: number
-  width: number | null
-  height: number | null
 }
 
 export interface RecordingLibraryImportResult {
@@ -274,5 +183,4 @@ export interface RecordingLibrarySnapshot {
   totalSizeBytes: number
   items: RecordingLibraryItem[]
   groups: RecordingLibraryGroup[]
-  projectDrafts: RecordingLibraryProjectDraft[]
 }

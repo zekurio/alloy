@@ -48,12 +48,8 @@ export async function exportRecordingLibraryItem(
   if (segments.length === 0 || totalMs < EXPORT_MIN_TOTAL_MS) {
     throw new Error("The selection is too short to export.")
   }
-  // Multi-cut sequences re-encode; that lives in the editor's render
-  // pipeline, which imports its result back into the library for publishing.
   if (segments.length > 1) {
-    throw new Error(
-      "Multi-segment exports are not supported here — open the capture in the editor to cut and publish.",
-    )
+    throw new Error("Multi-segment exports are not supported yet.")
   }
 
   const fullSource =
@@ -93,7 +89,6 @@ export async function exportRecordingLibraryItem(
 
   if (!existsSync(out) || statSync(out).size === 0) {
     // Packet copy — the cut start snaps to the preceding keyframe.
-    // Frame-accurate cuts go through the editor's render pipeline instead.
     await trimMp4(item.filename, out, {
       startMs: segments[0].startMs,
       endMs: segments[0].endMs,
