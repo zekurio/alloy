@@ -10,12 +10,9 @@ import type {
   RecordingLibraryExportRequest,
   RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryFilesImportResult,
-  RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
-  RecordingLibraryProjectDraftSaveRequest,
-  RecordingLibraryProjectDraftSaveResult,
   RecordingLibrarySnapshot,
   RecordingNotificationSoundEvent,
   RecordingNotificationSoundLibrary,
@@ -39,16 +36,8 @@ export type {
   RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
-  RecordingLibraryProjectTrack,
-  RecordingLibraryProjectClip,
-  RecordingLibraryProjectTransition,
-  RecordingLibraryProject,
-  RecordingLibraryProjectDraft,
-  RecordingLibraryProjectDraftSaveRequest,
-  RecordingLibraryProjectDraftSaveResult,
   RecordingLibraryExport,
   RecordingLibraryFilesImportResult,
-  RecordingLibraryImportRequest,
   RecordingLibraryImportResult,
   RecordingLibraryStagedImport,
   RecordingLibraryGroup,
@@ -87,18 +76,8 @@ export interface AlloyDesktopRecordingApi {
   updateLibraryCapture(
     patch: RecordingLibraryMetaPatch,
   ): Promise<RecordingLibraryMetaUpdateResult>
-  /** Persists an unfinished multitrack editor project as a library draft. */
-  saveLibraryProjectDraft(
-    request: RecordingLibraryProjectDraftSaveRequest,
-  ): Promise<RecordingLibraryProjectDraftSaveResult>
-  /** Removes a saved project draft from the library manifest. */
-  deleteLibraryProjectDraft(id: string): Promise<void>
   /** Moves a capture's file to the OS trash and forgets its metadata. */
   deleteLibraryCapture(id: string): Promise<void>
-  /** Writes a rendered video into the capture library (editor exports). */
-  importLibraryCapture(
-    request: RecordingLibraryImportRequest,
-  ): Promise<RecordingLibraryImportResult>
   /** Opens a native picker and copies the chosen video files into a temporary import stage. */
   importLibraryFiles?(): Promise<RecordingLibraryFilesImportResult>
   /** Commits a staged picked file into the capture library. */

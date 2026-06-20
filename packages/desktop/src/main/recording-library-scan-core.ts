@@ -76,9 +76,6 @@ export function createRecordingLibrarySnapshot(
     totalSizeBytes: items.reduce((total, item) => total + item.sizeBytes, 0),
     items,
     groups,
-    projectDrafts: Object.values(input.manifest.projectDrafts).sort(
-      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
-    ),
   }
 }
 

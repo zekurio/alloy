@@ -17,7 +17,6 @@ import { Route as authAuthSignUpRouteImport } from './routes/(auth)/_auth.sign-u
 import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
 import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
 import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
-import { Route as appAppEditorRouteImport } from './routes/(app)/_app.editor'
 import { Route as appAppLibraryIndexRouteImport } from './routes/(app)/_app.library.index'
 import { Route as appAppGamesIndexRouteImport } from './routes/(app)/_app.games.index'
 import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
@@ -70,11 +69,6 @@ const appAppSettingsRoute = appAppSettingsRouteImport.update({
 const appAppGamesRoute = appAppGamesRouteImport.update({
   id: '/games',
   path: '/games',
-  getParentRoute: () => appAppRoute,
-} as any)
-const appAppEditorRoute = appAppEditorRouteImport.update({
-  id: '/editor',
-  path: '/editor',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppLibraryIndexRoute = appAppLibraryIndexRouteImport.update({
@@ -156,7 +150,6 @@ const appAppGSlugCClipIdRoute = appAppGSlugCClipIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/setup': typeof authSetupRoute
-  '/editor': typeof appAppEditorRoute
   '/games': typeof appAppGamesRouteWithChildren
   '/settings': typeof appAppSettingsRoute
   '/login': typeof authAuthLoginRoute
@@ -180,7 +173,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/setup': typeof authSetupRoute
-  '/editor': typeof appAppEditorRoute
   '/settings': typeof appAppSettingsRoute
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
@@ -205,7 +197,6 @@ export interface FileRoutesById {
   '/(app)/_app': typeof appAppRouteWithChildren
   '/(auth)/_auth': typeof authAuthRouteWithChildren
   '/(auth)/setup': typeof authSetupRoute
-  '/(app)/_app/editor': typeof appAppEditorRoute
   '/(app)/_app/games': typeof appAppGamesRouteWithChildren
   '/(app)/_app/settings': typeof appAppSettingsRoute
   '/(auth)/_auth/login': typeof authAuthLoginRoute
@@ -231,7 +222,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/setup'
-    | '/editor'
     | '/games'
     | '/settings'
     | '/login'
@@ -255,7 +245,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
-    | '/editor'
     | '/settings'
     | '/login'
     | '/sign-up'
@@ -279,7 +268,6 @@ export interface FileRouteTypes {
     | '/(app)/_app'
     | '/(auth)/_auth'
     | '/(auth)/setup'
-    | '/(app)/_app/editor'
     | '/(app)/_app/games'
     | '/(app)/_app/settings'
     | '/(auth)/_auth/login'
@@ -364,13 +352,6 @@ declare module '@tanstack/react-router' {
       path: '/games'
       fullPath: '/games'
       preLoaderRoute: typeof appAppGamesRouteImport
-      parentRoute: typeof appAppRoute
-    }
-    '/(app)/_app/editor': {
-      id: '/(app)/_app/editor'
-      path: '/editor'
-      fullPath: '/editor'
-      preLoaderRoute: typeof appAppEditorRouteImport
       parentRoute: typeof appAppRoute
     }
     '/(app)/_app/library/': {
@@ -539,7 +520,6 @@ const appAppUUsernameRouteWithChildren = appAppUUsernameRoute._addFileChildren(
 )
 
 interface appAppRouteChildren {
-  appAppEditorRoute: typeof appAppEditorRoute
   appAppGamesRoute: typeof appAppGamesRouteWithChildren
   appAppSettingsRoute: typeof appAppSettingsRoute
   appAppIndexRoute: typeof appAppIndexRoute
@@ -552,7 +532,6 @@ interface appAppRouteChildren {
 }
 
 const appAppRouteChildren: appAppRouteChildren = {
-  appAppEditorRoute: appAppEditorRoute,
   appAppGamesRoute: appAppGamesRouteWithChildren,
   appAppSettingsRoute: appAppSettingsRoute,
   appAppIndexRoute: appAppIndexRoute,

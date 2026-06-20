@@ -8,7 +8,6 @@ import { gameHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
-import { type RecordingLibraryProjectDraft } from "@/lib/desktop"
 
 import { useClipCardGameLink } from "../../clip/clip-card-links"
 import { type LibraryItemView } from "./library-data"
@@ -55,71 +54,6 @@ export function LibraryCaptureCard({
         <LibraryCardMeta source={source} createdAt={item.createdAt} />
       }
     />
-  )
-}
-
-/** Grid card for an unfinished multitrack project saved from the editor. */
-export function ProjectDraftCard({
-  draft,
-  thumbnailUrl,
-  thumbBlurHash,
-  onOpen,
-}: {
-  draft: RecordingLibraryProjectDraft
-  thumbnailUrl: string | null
-  thumbBlurHash: string | null
-  onOpen: () => void
-}) {
-  return (
-    <ClipCard
-      title={draft.title}
-      titleContent={<LibraryCardTitle title={draft.title} />}
-      author=""
-      game=""
-      gameIcon={null}
-      gameHref={null}
-      views="0"
-      viewCount={0}
-      likes="0"
-      thumbnail={thumbnailUrl ?? undefined}
-      thumbnailBlurHash={thumbBlurHash}
-      fallbackSeed={`draft:${draft.id}`}
-      thumbnailLabel={tx("Open draft {title}", { title: draft.title })}
-      onThumbnailClick={onOpen}
-      metaContent={
-        <LibraryDraftMeta
-          source="local"
-          durationMs={draft.durationMs}
-          updatedAt={draft.updatedAt}
-        />
-      }
-    />
-  )
-}
-
-function LibraryDraftMeta({
-  source,
-  durationMs,
-  updatedAt,
-}: {
-  source: LibrarySource
-  durationMs: number
-  updatedAt: string
-}) {
-  return (
-    <>
-      <LibrarySourceBadge source={source} />
-      <span className="shrink-0">{"·"}</span>
-      <span className="text-foreground-muted shrink-0">{tx("Draft")}</span>
-      {durationMs > 0 ? (
-        <>
-          <span className="shrink-0">{"·"}</span>
-          <span className="shrink-0">{formatDraftDuration(durationMs)}</span>
-        </>
-      ) : null}
-      <span className="shrink-0">{"·"}</span>
-      <span className="truncate">{formatRelativeTime(updatedAt)}</span>
-    </>
   )
 }
 
@@ -225,11 +159,4 @@ export function UploadedClipCard({
       }
     />
   )
-}
-
-function formatDraftDuration(durationMs: number): string {
-  const totalSeconds = Math.max(0, Math.round(durationMs / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }

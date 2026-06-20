@@ -1,15 +1,9 @@
-import {
-  clipThumbnailUrl,
-  type ClipRow,
-  type GameNameLookupResult,
-} from "@alloy/api"
+import { type ClipRow, type GameNameLookupResult } from "@alloy/api"
 
 import type {
   RecordingLibraryItem,
-  RecordingLibraryProjectDraft,
   RecordingLibrarySnapshot,
 } from "@/lib/desktop"
-import { apiOrigin } from "@/lib/env"
 
 import {
   gameNameKey,
@@ -38,15 +32,6 @@ export type LibraryEntry =
       row: ClipRow
       /** The on-disk capture backing this clip (uploaded from / downloaded). */
       localItem: RecordingLibraryItem | null
-    }
-  | {
-      type: "draft"
-      key: string
-      createdAt: string
-      status: "local"
-      draft: RecordingLibraryProjectDraft
-      thumbnailUrl: string | null
-      thumbBlurHash: string | null
     }
 
 export function filterLibraryEntriesByStatus(
@@ -117,39 +102,6 @@ export function filterUploadedClips(
   })
 }
 
-export function filterProjectDrafts(
-  drafts: RecordingLibraryProjectDraft[],
-  rawQuery: string,
-  active: LibraryGroupView | null,
-  localItems: RecordingLibraryItem[],
-  uploaded: ClipRow[],
-): RecordingLibraryProjectDraft[] {
-  const query = rawQuery.trim().toLowerCase()
-  const localById = new Map(localItems.map((item) => [item.id, item]))
-  const uploadedById = new Map(uploaded.map((row) => [row.id, row]))
-  return drafts.filter((draft) => {
-    if (active && !draftMatchesGroup(draft, active, localById, uploadedById)) {
-      return false
-    }
-    if (!query) return true
-    const sourceLabels = draft.project.clips.map((clip) => {
-      const local = localById.get(clip.sourceId)
-      const row = uploadedById.get(clip.sourceId)
-      return [
-        clip.label,
-        local?.title ?? "",
-        local?.groupLabel ?? "",
-        row?.title ?? "",
-        row?.gameRef?.name ?? row?.game ?? "",
-      ].join(" ")
-    })
-    return [draft.title, ...sourceLabels]
-      .join(" ")
-      .toLowerCase()
-      .includes(query)
-  })
-}
-
 export function libraryServerIdForItem(
   item: RecordingLibraryItem,
 ): string | null {
@@ -177,7 +129,6 @@ export function buildLibraryEntries({
   active,
   kind,
   query,
-  includeDrafts = true,
 }: {
   snapshot: RecordingLibrarySnapshot | null
   gamesByName: Map<string, GameNameLookupResult>
@@ -185,7 +136,6 @@ export function buildLibraryEntries({
   active: LibraryGroupView | null
   kind: LibraryKindFilter
   query: string
-  includeDrafts?: boolean
 }): LibraryEntry[] {
   const cloudIds = new Set(uploaded.map((row) => row.id))
   const localItems = (snapshot?.items ?? []).filter((item) => {
@@ -228,78 +178,7 @@ export function buildLibraryEntries({
       })
     : []
 
-  const drafts: LibraryEntry[] =
-    includeDrafts && (kind === "all" || kind === "replay")
-      ? filterProjectDrafts(
-          snapshot?.projectDrafts ?? [],
-          query,
-          active,
-          snapshot?.items ?? [],
-          uploaded,
-        ).map((draft) => ({
-          type: "draft",
-          key: `draft:${draft.id}`,
-          createdAt: draft.updatedAt,
-          status: "local",
-          draft,
-          ...projectDraftThumbnail(draft, snapshot?.items ?? [], uploaded),
-        }))
-      : []
-
-  return [...local, ...cloud, ...drafts].sort(
+  return [...local, ...cloud].sort(
     (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
   )
-}
-
-export function projectDraftThumbnail(
-  draft: RecordingLibraryProjectDraft,
-  localItems: RecordingLibraryItem[],
-  uploaded: ClipRow[],
-): { thumbnailUrl: string | null; thumbBlurHash: string | null } {
-  const sourceId =
-    draft.thumbnailSourceId ?? draft.project.clips[0]?.sourceId ?? null
-  if (!sourceId) return { thumbnailUrl: null, thumbBlurHash: null }
-
-  const local = localItems.find((item) => item.id === sourceId)
-  if (local) {
-    return {
-      thumbnailUrl: local.thumbnailUrl,
-      thumbBlurHash: local.thumbBlurHash,
-    }
-  }
-
-  const row = uploaded.find((entry) => entry.id === sourceId)
-  if (row?.thumbKey) {
-    return {
-      thumbnailUrl: clipThumbnailUrl(
-        row.id,
-        apiOrigin(),
-        row.thumbVersion ?? undefined,
-      ),
-      thumbBlurHash: row.thumbBlurHash,
-    }
-  }
-  return { thumbnailUrl: null, thumbBlurHash: null }
-}
-
-function draftMatchesGroup(
-  draft: RecordingLibraryProjectDraft,
-  active: LibraryGroupView,
-  localById: Map<string, RecordingLibraryItem>,
-  uploadedById: Map<string, ClipRow>,
-): boolean {
-  return draft.project.clips.some((clip) => {
-    const local = localById.get(clip.sourceId)
-    if (local) {
-      if (active.kind === "no-game")
-        return active.localKeys.includes(local.groupKey)
-      return active.nameKey === gameNameKey(local.gameName ?? local.groupLabel)
-    }
-
-    const row = uploadedById.get(clip.sourceId)
-    if (!row) return false
-    const gameName = row.gameRef?.name ?? row.game
-    if (active.kind === "no-game") return !gameName
-    return active.nameKey === gameNameKey(gameName ?? "")
-  })
 }

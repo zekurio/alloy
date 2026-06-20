@@ -11,8 +11,7 @@ import { formatTrimMs } from "@/lib/media-time"
  * whole capture with one kept range styled like a selected clip block.
  * Dragging the block slides the trim window; dragging either edge resizes it.
  * Material outside the range stays visible but dimmed, clicking or dragging
- * the strip scrubs the playhead. Anything fancier (splits, multiple tracks)
- * lives in the full editor.
+ * the strip scrubs the playhead.
  */
 
 /** Hard cap on filmstrip cells (DOM size guard). */

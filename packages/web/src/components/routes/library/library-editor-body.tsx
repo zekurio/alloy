@@ -13,7 +13,6 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
-  ClapperboardIcon,
   Link2Icon,
   SaveIcon,
   Trash2Icon,
@@ -67,8 +66,7 @@ import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 /**
  * Medal-style publish screen: the capture fills the space on the left with a
  * simple single-range trimmer underneath, and the metadata sheet sits on the
- * right with the post/delete actions pinned to its bottom. Anything beyond
- * a straight trim happens in the full editor ("Open in Editor").
+ * right with the post/delete actions pinned to its bottom.
  */
 export function EditorBody({
   desktop,
@@ -425,17 +423,6 @@ export function EditorBody({
                       {tx("Post")}
                     </DropdownMenuItem>
                   ) : null}
-                  <DropdownMenuItem
-                    onClick={() => {
-                      void navigate({
-                        to: "/editor",
-                        search: { capture: item.id },
-                      })
-                    }}
-                  >
-                    <ClapperboardIcon className="size-4" />
-                    {tx("Open in Editor")}
-                  </DropdownMenuItem>
                   <DropdownMenuItem
                     disabled={!canPublish}
                     onClick={() => {

@@ -318,7 +318,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "create an account": "ein Konto erstellen",
   "Create Link": "Link erstellen",
   "Create one": "Konto erstellen",
-  "Create project": "Projekt erstellen",
   "Create the admin account": "Admin-Konto erstellen",
   "Create your account": "Konto erstellen",
   "Creating link...": "Link wird erstellt...",
@@ -638,7 +637,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Open Alloy in the desktop app to edit captures stored on this device.":
     "Öffne Alloy in der Desktop-App, um auf diesem Gerät gespeicherte Aufnahmen zu bearbeiten.",
   "Open draft {title}": "Entwurf {title} öffnen",
-  "Open in Editor": "Im Editor öffnen",
   Optional: "Optional",
   or: "oder",
   Original: "Original",

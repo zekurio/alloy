@@ -26,10 +26,5 @@ export {
 export {
   commitRecordingLibraryStagedImport,
   discardRecordingLibraryStagedImport,
-  importRecordingLibraryCapture,
   stageRecordingLibraryVideoFiles,
 } from "./recording-library-import"
-export {
-  deleteRecordingLibraryProjectDraft,
-  saveRecordingLibraryProjectDraft,
-} from "./recording-library-project-drafts"
