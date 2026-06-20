@@ -21,7 +21,6 @@ import {
   LibraryIcon,
   LogInIcon,
   LogOutIcon,
-  PlusIcon,
   SettingsIcon,
   UserIcon,
 } from "lucide-react"
@@ -33,15 +32,12 @@ import { useSuspenseSession } from "@/lib/session-suspense"
 import { useOpenSettings } from "@/lib/use-open-settings"
 import { useUserChipData } from "@/lib/user-display"
 
-import { useCreateActions } from "./create-actions"
-import { DisabledUploadTooltip } from "./disabled-upload-tooltip"
 import { useNavFlags } from "./use-nav-flags"
 
 /**
- * Mobile primary navigation: a fixed bottom tab bar with the four core
- * destinations plus a centered upload button. Hidden on md+, where the sidebar
- * rail and floating create button take over. The profile tab opens a floating
- * account menu (settings, storage, sign out) rather than navigating.
+ * Mobile primary navigation. Hidden on md+, where the sidebar rail takes over.
+ * The profile tab opens a floating account menu (settings, storage, sign out)
+ * rather than navigating.
  */
 export function MobileBottomNav() {
   const { isHome, isGames, isLibrary } = useNavFlags()
@@ -55,7 +51,7 @@ export function MobileBottomNav() {
         "pb-[env(safe-area-inset-bottom)]",
       )}
     >
-      <div className="grid h-[var(--bottomnav-h)] grid-cols-5 items-stretch">
+      <div className="grid h-[var(--bottomnav-h)] grid-cols-4 items-stretch">
         <BottomNavLink
           to="/"
           active={isHome}
@@ -68,7 +64,6 @@ export function MobileBottomNav() {
           label={tx("Library")}
           icon={<LibraryIcon />}
         />
-        <UploadTab />
         <BottomNavLink
           to="/games"
           active={isGames}
@@ -113,41 +108,6 @@ function BottomNavLink({
       {icon}
       <span className="max-w-full truncate">{label}</span>
     </Link>
-  )
-}
-
-/** Centered upload entry — a compact accent button that sits within the bar. */
-function UploadTab() {
-  const { uploadLabel, uploadDisabled, uploadDisabledReason, startUpload } =
-    useCreateActions()
-
-  return (
-    <div className="flex items-center justify-center">
-      <DisabledUploadTooltip
-        reason={uploadDisabledReason}
-        className="rounded-full"
-      >
-        <button
-          type="button"
-          data-upload-trigger=""
-          disabled={uploadDisabled}
-          onClick={startUpload}
-          aria-label={uploadLabel || tx("Upload")}
-          title={uploadLabel || tx("Upload")}
-          className={cn(
-            "bg-accent text-accent-foreground grid size-11 place-items-center rounded-full",
-            "shadow-[0_6px_18px_-8px_var(--accent-glow)]",
-            "transition-[transform,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "hover:bg-accent-hover active:scale-95",
-            "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-            "disabled:pointer-events-none disabled:opacity-50",
-            "[&_svg]:size-6",
-          )}
-        >
-          <PlusIcon />
-        </button>
-      </DisabledUploadTooltip>
-    </div>
   )
 }
 

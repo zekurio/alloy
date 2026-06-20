@@ -280,7 +280,7 @@ function PeopleSearchPopover({
   }
 
   return (
-    <div ref={rootRef} className="relative w-36">
+    <div ref={rootRef} className="relative w-56 max-w-full">
       {open ? (
         <PickerInputShell
           icon={<AtSignIcon className="text-foreground-muted size-4" />}
@@ -400,7 +400,7 @@ function HashtagInputPopover({
   const suggestion = suggestions[0] ?? null
 
   return (
-    <div ref={rootRef} className="relative w-40">
+    <div ref={rootRef} className="relative w-56 max-w-full">
       {open ? (
         <PickerInputShell
           icon={<HashIcon className="text-foreground-muted size-4" />}

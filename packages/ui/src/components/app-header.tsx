@@ -79,7 +79,9 @@ const AppHeaderSearch = React.forwardRef<
     icon,
     placeholder = tx("Search clips and games..."),
     onClear,
+    onBlur,
     clearAriaLabel = tx("Clear search"),
+    onFocus,
     value,
     children,
     ...props
@@ -89,13 +91,49 @@ const AppHeaderSearch = React.forwardRef<
   const resolvedHint = hint ?? <DefaultSearchHint />
   const hasValue =
     onClear != null && typeof value === "string" && value.length > 0
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null)
+  const inputRef = React.useRef<HTMLInputElement | null>(null)
+  const [expanded, setExpanded] = React.useState(false)
+
+  const setInputRef = React.useCallback(
+    (node: HTMLInputElement | null) => {
+      inputRef.current = node
+      if (typeof ref === "function") ref(node)
+      else if (ref) ref.current = node
+    },
+    [ref],
+  )
+
+  React.useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (!(target instanceof Node)) return
+      if (wrapperRef.current?.contains(target)) return
+
+      setExpanded(false)
+      if (document.activeElement === inputRef.current) {
+        inputRef.current?.blur()
+      }
+    }
+
+    document.addEventListener("pointerdown", onPointerDown, {
+      capture: true,
+    })
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, {
+        capture: true,
+      })
+    }
+  }, [])
 
   return (
     <div
+      ref={wrapperRef}
       data-slot="app-header-search"
+      data-expanded={expanded ? "true" : undefined}
       className={cn(
         "relative w-full min-w-0 justify-self-stretch",
-        "max-sm:focus-within:z-30",
+        "max-sm:data-[expanded=true]:z-30",
         containerClassName,
       )}
     >
@@ -116,10 +154,24 @@ const AppHeaderSearch = React.forwardRef<
           {icon ?? <SearchIcon />}
         </span>
         <input
-          ref={ref}
+          ref={setInputRef}
           data-slot="app-header-search-input"
           placeholder={placeholder}
           value={value}
+          onBlur={(event) => {
+            const nextTarget = event.relatedTarget
+            if (
+              !(nextTarget instanceof Node) ||
+              !wrapperRef.current?.contains(nextTarget)
+            ) {
+              setExpanded(false)
+            }
+            onBlur?.(event)
+          }}
+          onFocus={(event) => {
+            setExpanded(true)
+            onFocus?.(event)
+          }}
           className={cn(
             "h-full w-full min-w-0 rounded-lg border border-border bg-transparent pr-11 pl-8",
             "max-md:border-transparent",
@@ -136,7 +188,14 @@ const AppHeaderSearch = React.forwardRef<
           <button
             type="button"
             aria-label={clearAriaLabel}
-            onClick={onClear}
+            onPointerDown={(event) => {
+              event.preventDefault()
+              event.stopPropagation()
+            }}
+            onClick={(event) => {
+              event.stopPropagation()
+              onClear()
+            }}
             className={cn(
               "absolute top-1/2 right-1.5 -translate-y-1/2",
               "grid size-6 place-items-center rounded-sm",

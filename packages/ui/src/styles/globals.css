@@ -838,18 +838,24 @@
     grid-column-start: 4;
   }
 
-  [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within) {
+  [data-slot="app-header"]:has(
+    [data-slot="app-header-search"][data-expanded="true"]
+  ) {
     column-gap: 0;
     grid-template-columns: 0 minmax(0, 1fr) 0 0;
     padding-inline: calc((var(--header-h) - 2rem) / 2);
   }
 
-  [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within)
+  [data-slot="app-header"]:has(
+      [data-slot="app-header-search"][data-expanded="true"]
+    )
     [data-slot="app-header-search"] {
     max-width: none;
   }
 
-  [data-slot="app-header"]:has([data-slot="app-header-search"]:focus-within)
+  [data-slot="app-header"]:has(
+      [data-slot="app-header-search"][data-expanded="true"]
+    )
     :where(
       [data-slot="app-header-brand"],
       [data-slot="app-header-toolbar"],

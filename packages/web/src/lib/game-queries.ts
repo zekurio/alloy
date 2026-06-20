@@ -21,7 +21,7 @@ import { feedKeys } from "./feed-queries"
 
 export const gameKeys = {
   all: ["games"] as const,
-  /** Boolean `steamgriddbConfigured` — mount check for the upload picker. */
+  /** Boolean `steamgriddbConfigured` — mount check for game search controls. */
   status: () => [...gameKeys.all, "status"] as const,
   /** steamgriddb autocomplete proxy — branches per normalised query string. */
   search: (query: string) => [...gameKeys.all, "search", query] as const,
