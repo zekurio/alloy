@@ -55,7 +55,7 @@ export interface MediaStore {
   heartbeat(id: string, runId: string): Promise<boolean>
   /** Clear the lease (leaving status) so the row is retried later. */
   releaseLease(id: string, runId: string, reason: string): Promise<void>
-  /** Terminal failure (unless already ready); cleans tickets + notifies. */
+  /** Terminal failure (unless already ready); cleans tickets. */
   markFailed(id: string, reason: string): Promise<void>
 
   /** True while the row still holds this run's lease. */
@@ -64,7 +64,7 @@ export interface MediaStore {
   beginProcessing(id: string, runId: string): Promise<boolean>
   /** Persist a progress %, guarded by runId; true if the row advanced. */
   commitProgress(id: string, runId: string, pct: number): Promise<boolean>
-  /** Side-channel progress notification (SSE for clips). */
+  /** Side-channel progress signal (SSE for clips). */
   publishProgress(authorId: string, id: string, pct: number): void
   /** Commit the (possibly trimmed) source asset; false if lease lost. */
   commitSource(

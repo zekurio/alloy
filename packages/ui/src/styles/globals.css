@@ -425,6 +425,27 @@
     }
   }
 
+  [data-slot="drawer-overlay"] {
+    opacity: 1;
+    transition-property: opacity;
+    transition-duration: var(--duration-base);
+    transition-timing-function: var(--ease-out);
+    will-change: opacity;
+  }
+
+  [data-slot="drawer-overlay"][data-starting-style],
+  [data-slot="drawer-overlay"][data-ending-style] {
+    opacity: 0;
+  }
+
+  [data-slot="drawer-overlay"][data-swiping] {
+    transition-duration: 0ms;
+  }
+
+  [data-slot="drawer-overlay"][data-swipe-dismiss] {
+    transition-duration: var(--duration-slow);
+  }
+
   [data-slot="drawer-content"] {
     transform: translate3d(
       var(--drawer-swipe-movement-x, 0px),
@@ -657,6 +678,43 @@
       opacity: 1;
       transform: scale(1) rotate(0);
     }
+  }
+}
+
+/* Mobile settings sheet — at full-screen size a plain fade reads as a rough
+   pop. Use Base UI's starting/ending style attributes so the first painted
+   frame is already offscreen instead of briefly flashing in place. */
+@media (max-width: 639px) {
+  [data-slot="dialog-content"].settings-sheet {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+    transition-property: transform, opacity;
+    transition-duration: 280ms;
+    transition-timing-function: var(--ease-out);
+    animation: none !important;
+    will-change: transform;
+    backface-visibility: hidden;
+  }
+
+  [data-slot="dialog-content"].settings-sheet[data-starting-style],
+  [data-slot="dialog-content"].settings-sheet[data-ending-style],
+  [data-slot="dialog-content"].settings-sheet[data-closed] {
+    opacity: 0;
+    transform: translate3d(0, 100%, 0);
+    animation: none !important;
+  }
+
+  [data-slot="dialog-content"].settings-sheet[data-ending-style],
+  [data-slot="dialog-content"].settings-sheet[data-closed] {
+    transition-duration: 200ms;
+    transition-timing-function: var(--ease-in, ease-in);
+  }
+}
+@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+  [data-slot="dialog-content"].settings-sheet,
+  [data-slot="dialog-content"].settings-sheet[data-closed] {
+    transition-duration: 0ms;
+    animation: none;
   }
 }
 

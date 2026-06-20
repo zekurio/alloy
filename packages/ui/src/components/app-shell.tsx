@@ -35,6 +35,9 @@ function AppMain({ className, ...props }: React.ComponentProps<"main">) {
       data-slot="app-main"
       className={cn(
         "overflow-x-hidden overflow-y-auto px-4 py-4 md:px-8 md:py-6",
+        // Clear the fixed mobile bottom-nav (hidden on md+) so the last row of
+        // content isn't trapped behind it.
+        "max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)]",
         className,
       )}
       {...props}

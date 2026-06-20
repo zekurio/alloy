@@ -1,6 +1,6 @@
 export * from "./contract-validators/clips"
 export * from "./contract-validators/queue"
 export * from "./contract-validators/feed-search"
-export * from "./contract-validators/people-notifications"
+export * from "./contract-validators/people"
 export * from "./contract-validators/auth-users-comments"
 export * from "./contract-validators/games-media"

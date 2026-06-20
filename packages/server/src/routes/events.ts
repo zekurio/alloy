@@ -4,23 +4,11 @@ import {
   subscribeToAuthorQueue,
 } from "@alloy/server/clips/events"
 import { selectQueueRowsForAuthor } from "@alloy/server/clips/queue-select"
-import {
-  type NotificationEvent,
-  subscribeToNotifications,
-} from "@alloy/server/notifications/events"
-import { listNotifications } from "@alloy/server/notifications/index"
 import { shutdownSignal } from "@alloy/server/runtime/shutdown"
 import { Hono } from "hono"
 import { streamSSE } from "hono/streaming"
-import { z } from "zod"
-
-import { zValidator } from "./validation"
 
 const HEARTBEAT_MS = 25_000
-
-const NotificationEventsQuery = z.object({
-  snapshot: z.enum(["true", "false"]).default("true"),
-})
 
 type StreamSleeper = {
   sleep(ms: number): PromiseLike<unknown>
@@ -209,40 +197,6 @@ export const eventsRoute = new Hono().get(
         subscribe: (push) => subscribeToAuthorQueue(viewerId, push),
         writeSnapshot: () =>
           writeQueueSnapshot(stream.writeSSE.bind(stream), viewerId),
-        eventName: (event) => event.type,
-      })
-    })
-  },
-)
-
-eventsRoute.get(
-  "/notifications",
-  requireSession,
-  zValidator("query", NotificationEventsQuery),
-  (c) => {
-    const viewerId = c.var.viewerId
-    const { snapshot } = c.req.valid("query")
-    const includeSnapshot = snapshot !== "false"
-
-    c.header("Cache-Control", "no-cache, no-transform")
-    c.header("X-Accel-Buffering", "no")
-    c.header("Content-Encoding", "identity")
-
-    return streamSSE(c, async (stream) => {
-      const pending: NotificationEvent[] = []
-      await streamSubscribedEvents({
-        stream,
-        pending,
-        subscribe: (push) => subscribeToNotifications(viewerId, push),
-        writeSnapshot: async () => {
-          if (includeSnapshot) {
-            const snapshot = await listNotifications(viewerId)
-            await stream.writeSSE({
-              event: "snapshot",
-              data: JSON.stringify({ type: "snapshot", payload: snapshot }),
-            })
-          }
-        },
         eventName: (event) => event.type,
       })
     })

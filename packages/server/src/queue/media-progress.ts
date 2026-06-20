@@ -5,7 +5,7 @@ const logger = createLogger("queue")
 /**
  * Throttled progress writer shared by every media store. `commit` persists the
  * percent (returning whether the row actually advanced) and `onCommitted` fires
- * the side-channel notification only when it did.
+ * the side-channel progress signal only when it did.
  */
 export function makeMediaProgressWriter(opts: {
   id: string

@@ -1,8 +1,8 @@
 # @alloy/server
 
 Hono API server for Alloy. It owns auth, clips, uploads, playback, feeds, search,
-notifications, admin instance settings, storage, encoding jobs, and production
-web asset serving.
+admin instance settings, storage, encoding jobs, and production web asset
+serving.
 
 ## Layout
 

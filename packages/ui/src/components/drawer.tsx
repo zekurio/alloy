@@ -109,13 +109,18 @@ function DrawerHandle({ className, ...props }: React.ComponentProps<"div">) {
 
 function DrawerOverlay({
   className,
+  // Base UI suppresses the backdrop when the drawer is nested inside another
+  // dialog/drawer (`enabled: forceRender || !nested`). Force it so the sheet
+  // always darkens its surroundings and the backdrop can catch outside taps.
+  forceRender = true,
   ...props
 }: DrawerPrimitive.Backdrop.Props) {
   return (
     <DrawerPrimitive.Backdrop
       data-slot="drawer-overlay"
+      forceRender={forceRender}
       className={cn(
-        "fixed inset-0 z-50 bg-[oklch(12%_0.01_250)]/50 data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0",
+        "fixed inset-0 z-50 bg-[oklch(12%_0.01_250)]/50",
         className,
       )}
       {...props}

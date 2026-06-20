@@ -1,4 +1,5 @@
 import { t as tx } from "@alloy/i18n"
+import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import {
   AppHeader,
   AppHeaderBrand,
@@ -7,7 +8,7 @@ import {
   AppHeaderWindowControls,
 } from "@alloy/ui/components/app-header"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
-import { useRouterState } from "@tanstack/react-router"
+import { Link, useRouterState } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import * as React from "react"
 
@@ -16,7 +17,6 @@ import { SearchResultsPopover } from "@/components/search/search-results-popover
 import { alloyDesktop } from "@/lib/desktop"
 
 import { HeaderToolbarSlot, useHeaderToolbarNode } from "./header-toolbar"
-import { MobileSidebarTrigger } from "./home-sidebar"
 
 export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
@@ -39,12 +39,14 @@ export function HomeHeader() {
       <AppHeaderBrand showText className="max-md:hidden">
         <HeaderNavigation />
       </AppHeaderBrand>
-      <div
+      <Link
+        to="/"
         data-slot="app-header-brand"
-        className="flex items-center justify-self-start md:hidden"
+        aria-label={tx("Home")}
+        className="flex items-center justify-self-start pl-1.5 md:hidden"
       >
-        <MobileSidebarTrigger />
-      </div>
+        <AlloyLogo size={26} />
+      </Link>
       <AppHeaderSearch
         ref={inputRef}
         value={query}

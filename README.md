@@ -9,19 +9,19 @@ performance, and maintainable boundaries between deployable pieces.
 All TypeScript packages live under `packages/`. Deployable products and shared
 libraries are both treated as packages so the workspace graph stays explicit.
 
-| Path                 | Role                                                                                                                                    |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/server`    | Hono API server for auth, clips, uploads, playback, feeds, search, notifications, admin, storage, encoding jobs, and web asset serving. |
-| `packages/web`       | React/TanStack web app served by the server in production and by Vite during local development.                                         |
-| `packages/desktop`   | Electron desktop shell that connects to a self-hosted Alloy server and controls local recording.                                        |
-| `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; bundled by desktop release builds.                                                    |
-| `packages/api`       | Typed client helpers and runtime validators for browser and desktop clients calling the server API.                                     |
-| `packages/contracts` | Shared TypeScript contracts used across the server, web app, desktop app, and recorder-facing flows.                                    |
-| `packages/db`        | Drizzle schema, migrations, database contracts, and migration helpers.                                                                  |
-| `packages/env`       | Shared environment parsing, URL normalization, and local `.env` loading helpers.                                                        |
-| `packages/ui`        | Shared React UI components, hooks, styles, and design utilities.                                                                        |
-| `packages/logging`   | Tiny shared logging facade.                                                                                                             |
-| `nix`                | Nix package, NixOS module, and Nix-built OCI image definitions.                                                                         |
+| Path                 | Role                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `packages/server`    | Hono API server for auth, clips, uploads, playback, feeds, search, admin, storage, encoding jobs, and web asset serving. |
+| `packages/web`       | React/TanStack web app served by the server in production and by Vite during local development.                          |
+| `packages/desktop`   | Electron desktop shell that connects to a self-hosted Alloy server and controls local recording.                         |
+| `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; bundled by desktop release builds.                                     |
+| `packages/api`       | Typed client helpers and runtime validators for browser and desktop clients calling the server API.                      |
+| `packages/contracts` | Shared TypeScript contracts used across the server, web app, desktop app, and recorder-facing flows.                     |
+| `packages/db`        | Drizzle schema, migrations, database contracts, and migration helpers.                                                   |
+| `packages/env`       | Shared environment parsing, URL normalization, and local `.env` loading helpers.                                         |
+| `packages/ui`        | Shared React UI components, hooks, styles, and design utilities.                                                         |
+| `packages/logging`   | Tiny shared logging facade.                                                                                              |
+| `nix`                | Nix package, NixOS module, and Nix-built OCI image definitions.                                                          |
 
 ## Local Development
 

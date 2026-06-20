@@ -36,7 +36,7 @@ import {
   type UserStorageUsage,
 } from "@alloy/contracts"
 
-import { validateUserSummary } from "./people-notifications"
+import { validateUserSummary } from "./people"
 import {
   validateAuthProviderColors,
   validateBackdropTreatment,

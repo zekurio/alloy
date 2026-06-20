@@ -17,7 +17,7 @@ import {
 
 import { validateClipRow } from "./clips"
 import { validateGameListRow } from "./games-media"
-import { validateUserListRow } from "./people-notifications"
+import { validateUserListRow } from "./people"
 export function validateFeedPage(value: unknown): FeedPage {
   const page = objectRecord(value, "feed")
   validateArray(

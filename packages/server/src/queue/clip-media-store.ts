@@ -6,10 +6,6 @@ import {
   publishClipUpsertById,
 } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import {
-  createNotification,
-  notifyFollowersOfNewClip,
-} from "@alloy/server/notifications/index"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull, lt, ne, or, sql } from "drizzle-orm"
 
@@ -99,12 +95,12 @@ export const clipMediaStore: MediaStore = {
 
   async markFailed(id, reason) {
     try {
-      const [owner] = await db
-        .select({ authorId: clip.authorId, status: clip.status })
+      const [row] = await db
+        .select({ status: clip.status })
         .from(clip)
         .where(eq(clip.id, id))
         .limit(1)
-      if (owner?.status === "ready") {
+      if (row?.status === "ready") {
         await db
           .update(clip)
           .set({ failureReason: reason.slice(0, 500), updatedAt: new Date() })
@@ -123,13 +119,6 @@ export const clipMediaStore: MediaStore = {
         .where(eq(clip.id, id))
       await cleanupTickets({ type: "clip", id }, `terminal clip ${id} upload`)
       void publishClipUpsertById(id)
-      if (owner) {
-        void createNotification({
-          recipientId: owner.authorId,
-          type: "clip_upload_failed",
-          clipId: id,
-        })
-      }
     } catch (err) {
       logger.error(`failed to mark clip ${id} as failed:`, err)
     }
@@ -201,44 +190,20 @@ export const clipMediaStore: MediaStore = {
   },
 
   async commitReady(id, runId, patch) {
-    const state = await db.transaction(async (tx) => {
-      const [previous] = await tx
-        .select({
-          status: clip.status,
-          privacy: clip.privacy,
-          authorId: clip.authorId,
-        })
-        .from(clip)
-        .where(eq(clip.id, id))
-        .limit(1)
-        .for("update")
-      const [updated] = await tx
-        .update(clip)
-        .set({
-          ...patch,
-          status: "ready",
-          encodeProgress: 100,
-          encodeRunId: null,
-          encodeLockedAt: null,
-          failureReason: null,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(clip.id, id), eq(clip.encodeRunId, runId)))
-        .returning({ privacy: clip.privacy })
-      return { previous, updated }
-    })
-    if (!state.updated) return false
-    if (
-      state.previous?.status !== "ready" &&
-      state.updated.privacy === "public" &&
-      state.previous?.authorId
-    ) {
-      void notifyFollowersOfNewClip({
-        authorId: state.previous.authorId,
-        clipId: id,
+    const [updated] = await db
+      .update(clip)
+      .set({
+        ...patch,
+        status: "ready",
+        encodeProgress: 100,
+        encodeRunId: null,
+        encodeLockedAt: null,
+        failureReason: null,
+        updatedAt: new Date(),
       })
-    }
-    return true
+      .where(and(eq(clip.id, id), eq(clip.encodeRunId, runId)))
+      .returning({ id: clip.id })
+    return Boolean(updated)
   },
 
   async currentAssetKeys(id) {

@@ -7,7 +7,6 @@ import {
   resolveClipAccess,
 } from "@alloy/server/clips/access"
 import { db } from "@alloy/server/db/index"
-import { createNotification } from "@alloy/server/notifications/index"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import {
   booleanFlag,
@@ -94,14 +93,11 @@ export const clipCommentsRoutes = new Hono()
       if (!access.accessible) return clipAccessResponse(c, access)
 
       let resolvedParentId: string | null = null
-      let parentAuthorId: string | null = null
       if (parentId) {
         const [parent] = await db
           .select({
             id: clipComment.id,
             clipId: clipComment.clipId,
-            authorId: clipComment.authorId,
-            parentId: clipComment.parentId,
           })
           .from(clipComment)
           .where(eq(clipComment.id, parentId))
@@ -110,7 +106,6 @@ export const clipCommentsRoutes = new Hono()
           return notFound(c, "Parent comment not found")
         }
         resolvedParentId = parent.id
-        parentAuthorId = parent.authorId
       }
 
       const [inserted] = await db.transaction(async (tx) => {
@@ -130,23 +125,6 @@ export const clipCommentsRoutes = new Hono()
         return rows
       })
       if (!inserted) return internalServerError(c, "Insert failed")
-
-      void createNotification({
-        recipientId: access.row.authorId,
-        actorId: viewerId,
-        type: "clip_comment",
-        clipId: id,
-        commentId: inserted.id,
-      })
-      if (parentAuthorId && parentAuthorId !== access.row.authorId) {
-        void createNotification({
-          recipientId: parentAuthorId,
-          actorId: viewerId,
-          type: "comment_reply",
-          clipId: id,
-          commentId: inserted.id,
-        })
-      }
 
       const [authorRow] = await db
         .select(userSummarySelectShape)
@@ -263,56 +241,21 @@ export const clipCommentsRoutes = new Hono()
           .returning({ commentId: clipCommentLike.commentId })
         if (inserted.length === 0) {
           const [row] = await tx
-            .select({
-              likeCount: clipComment.likeCount,
-              authorId: clipComment.authorId,
-              clipId: clipComment.clipId,
-              clipAuthorId: clip.authorId,
-            })
+            .select({ likeCount: clipComment.likeCount })
             .from(clipComment)
-            .innerJoin(clip, eq(clipComment.clipId, clip.id))
             .where(eq(clipComment.id, commentId))
             .limit(1)
-          return row
-            ? { liked: true, likeCount: row.likeCount, inserted: false, row }
-            : null
+          return row ? { liked: true, likeCount: row.likeCount } : null
         }
         const [row] = await tx
           .update(clipComment)
           .set({ likeCount: sql`${clipComment.likeCount} + 1` })
           .where(eq(clipComment.id, commentId))
-          .returning({
-            likeCount: clipComment.likeCount,
-            authorId: clipComment.authorId,
-            clipId: clipComment.clipId,
-          })
+          .returning({ likeCount: clipComment.likeCount })
         if (!row) return null
-        const [clipRow] = await tx
-          .select({ authorId: clip.authorId })
-          .from(clip)
-          .where(eq(clip.id, row.clipId))
-          .limit(1)
-        return {
-          liked: true,
-          likeCount: row.likeCount,
-          inserted: true,
-          row: { ...row, clipAuthorId: clipRow?.authorId ?? null },
-        }
+        return { liked: true, likeCount: row.likeCount }
       })
       if (!result) return notFound(c)
-      if (
-        result.inserted &&
-        result.row.clipAuthorId === viewerId &&
-        result.row.authorId !== viewerId
-      ) {
-        void createNotification({
-          recipientId: result.row.authorId,
-          actorId: viewerId,
-          type: "comment_liked_by_author",
-          clipId: result.row.clipId,
-          commentId,
-        })
-      }
       return likeState(c, result.liked, result.likeCount)
     },
   )
@@ -373,13 +316,6 @@ export const clipCommentsRoutes = new Hono()
       if (!result.ok) {
         return errorResult(c, result)
       }
-      void createNotification({
-        recipientId: result.row.authorId,
-        actorId: viewerId,
-        type: "comment_pinned",
-        clipId: result.row.clipId,
-        commentId,
-      })
       return booleanFlag(c, "pinned", true)
     },
   )

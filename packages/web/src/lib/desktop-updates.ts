@@ -29,9 +29,9 @@ const listeners = new Set<() => void>()
 let started = false
 
 /**
- * Shared renderer-side view of desktop updater state. The notification center
- * mounts early and warms this cache, so Settings > Updates can reuse the
- * already-known channel instead of flashing through a local null state.
+ * Shared renderer-side view of desktop updater state. The nav/footer update UI
+ * warms this cache, so Settings > Updates can reuse the already-known channel
+ * instead of flashing through a local null state.
  */
 function ensureStarted(): void {
   if (started) return

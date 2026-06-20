@@ -25,14 +25,8 @@ import {
 } from "lucide-react"
 import * as React from "react"
 
-import { NotificationCenter } from "@/components/app/notification-center"
 import { StorageQuotaCompact } from "@/components/storage-quota"
 import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
-import { useDesktopUpdateState } from "@/lib/desktop-updates"
-import {
-  useNotificationsQuery,
-  useNotificationStream,
-} from "@/lib/notification-queries"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useOpenSettings } from "@/lib/use-open-settings"
 import { useUserChipData } from "@/lib/user-display"
@@ -57,11 +51,6 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
   const navigate = useNavigate()
   const openSettings = useOpenSettings()
   const chip = useUserChipData(session?.user)
-  const notifications = useNotificationsQuery({ enabled: false })
-  useNotificationStream({ enabled: Boolean(session) })
-  const updateState = useDesktopUpdateState()
-  const [railTriggerAnchor, setRailTriggerAnchor] =
-    React.useState<Element | null>(null)
 
   if (!session) {
     return (
@@ -83,16 +72,9 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
   const handle = user.username ?? user.displayUsername ?? null
   const email = user.email ?? null
   const primaryLabel = handle ? `@${handle}` : chip.name
-  const showNotificationDot =
-    (notifications.data?.unreadCount ?? 0) > 0 ||
-    updateState.status === "downloaded"
-  const accountMenuLabel = showNotificationDot
-    ? tx("Open account menu for {name}; notifications available", {
-        name: chip.name,
-      })
-    : tx("Open account menu for {name}", {
-        name: chip.name,
-      })
+  const accountMenuLabel = tx("Open account menu for {name}", {
+    name: chip.name,
+  })
   async function onSignOut() {
     try {
       await completeSignOutFlow({
@@ -111,12 +93,11 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
         render={
           variant === "rail" ? (
             <button
-              ref={setRailTriggerAnchor}
               type="button"
               aria-label={accountMenuLabel}
               className="group text-foreground-muted hover:bg-surface-raised hover:text-foreground focus-visible:ring-ring data-popup-open:bg-surface-raised flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:outline-none"
             >
-              <span className="relative inline-flex shrink-0">
+              <span className="inline-flex shrink-0">
                 <Avatar size="nav" style={avatarTint(chip.avatar)}>
                   {chip.avatar.src ? (
                     <AvatarImage src={chip.avatar.src} alt="" />
@@ -125,7 +106,6 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
                     {chip.avatar.initials}
                   </AvatarFallback>
                 </Avatar>
-                <UserAvatarNotificationDot show={showNotificationDot} />
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="text-foreground truncate text-sm font-semibold">
@@ -145,10 +125,7 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
               name={chip.name}
               size="nav"
               aria-label={accountMenuLabel}
-              className="relative"
-            >
-              <UserAvatarNotificationDot show={showNotificationDot} />
-            </UserAvatarButton>
+            />
           )
         }
       />
@@ -185,13 +162,6 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
             {tx("Profile")}
           </DropdownMenuItem>
         ) : null}
-        <NotificationCenter
-          data={notifications.data}
-          isLoading={notifications.data === undefined}
-          menuTriggerAnchor={variant === "rail" ? railTriggerAnchor : null}
-          triggerVariant="menu-item"
-          updateState={updateState}
-        />
         <DropdownMenuItem onClick={openSettings}>
           <SettingsIcon />
           {tx("Settings")}
@@ -215,18 +185,6 @@ function avatarTint(avatar: { bg?: string; fg?: string }) {
     background: avatar.bg ?? "var(--neutral-200)",
     color: avatar.fg ?? "var(--foreground)",
   }
-}
-
-function UserAvatarNotificationDot({ show }: { show: boolean }) {
-  if (!show) return null
-
-  return (
-    <span
-      aria-hidden
-      data-slot="user-avatar-notification-dot"
-      className="bg-accent ring-background pointer-events-none absolute -top-0.5 -right-0.5 size-2.5 rounded-full ring-2"
-    />
-  )
 }
 
 function UserAvatarSkeleton({ variant }: { variant: UserMenuVariant }) {

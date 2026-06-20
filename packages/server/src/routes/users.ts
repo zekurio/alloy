@@ -11,7 +11,6 @@ import {
 } from "@alloy/server/auth/session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"
-import { createNotification } from "@alloy/server/notifications/index"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import {
   accountState,
@@ -280,7 +279,7 @@ export const usersRoute = new Hono()
       const target = result.target
       const targetId = target.id
 
-      const inserted = await db
+      await db
         .insert(follow)
         .values({
           id: crypto.randomUUID(),
@@ -288,15 +287,6 @@ export const usersRoute = new Hono()
           followingId: targetId,
         })
         .onConflictDoNothing()
-        .returning({ id: follow.id })
-
-      if (inserted.length > 0) {
-        void createNotification({
-          recipientId: targetId,
-          actorId: viewerId,
-          type: "new_follower",
-        })
-      }
 
       return booleanFlag(c, "following", true)
     },
