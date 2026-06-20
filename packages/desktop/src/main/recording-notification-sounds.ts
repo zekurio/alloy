@@ -48,6 +48,8 @@ const RECORDING_NOTIFICATION_SOUND_MATCHES: Record<
   },
 }
 
+const SOUND_PLAYER_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>Alloy Recording Sounds</title></head><body></body></html>`
+
 let soundPlayerWindow: BrowserWindow | null = null
 let soundPlayerReady: Promise<void> | null = null
 
@@ -180,7 +182,7 @@ async function ensureSoundPlayerWindow(): Promise<BrowserWindow> {
   })
 
   try {
-    await win.loadFile(join(recordingAssetsDir(), "sound-player.html"))
+    await win.loadURL(soundPlayerHtmlUrl())
     await soundPlayerReady
     return win
   } catch (cause) {
@@ -191,6 +193,10 @@ async function ensureSoundPlayerWindow(): Promise<BrowserWindow> {
     }
     throw cause
   }
+}
+
+function soundPlayerHtmlUrl(): string {
+  return `data:text/html;charset=utf-8,${encodeURIComponent(SOUND_PLAYER_HTML)}`
 }
 
 function soundPlayerScript(soundUrl: string, volume: number): string {
