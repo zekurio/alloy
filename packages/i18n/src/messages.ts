@@ -199,6 +199,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Comment link copied": "Kommentarlink kopiert",
   comments: "Kommentare",
   Comments: "Kommentare",
+  "Coming soon": "Demnächst",
   Connect: "Verbinden",
   "Connect additional sign-in methods to your account.":
     "Verbinde weitere Anmeldemethoden mit deinem Konto.",
