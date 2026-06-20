@@ -18,7 +18,7 @@ import {
   type ClipRow,
 } from "@alloy/contracts"
 
-import { validateUserSummary } from "./people-notifications"
+import { validateUserSummary } from "./people"
 import { validateGameRowFields } from "./shared"
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)

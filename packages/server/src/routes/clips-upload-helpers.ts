@@ -2,7 +2,6 @@ import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import { createNotification } from "@alloy/server/notifications/index"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { eq, inArray, sql } from "drizzle-orm"
 
@@ -70,9 +69,4 @@ export async function markUploadFailed(
     })
     .where(eq(clip.id, clipId))
   void publishClipUpsert(authorId, clipId)
-  void createNotification({
-    recipientId: authorId,
-    type: "clip_upload_failed",
-    clipId,
-  })
 }

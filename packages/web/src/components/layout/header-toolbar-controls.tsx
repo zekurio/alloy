@@ -34,7 +34,7 @@ export function HeaderToolbarControls({
 }: ComponentProps<"div">) {
   return (
     <div
-      className={cn("flex min-w-0 items-center gap-2", className)}
+      className={cn("flex min-w-0 items-center gap-1.5", className)}
       {...props}
     />
   )

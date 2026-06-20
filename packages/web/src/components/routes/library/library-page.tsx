@@ -16,6 +16,7 @@ import {
   BanIcon,
   CloudCheckIcon,
   CloudIcon,
+  FunnelIcon,
   GlobeIcon,
   HardDriveIcon,
   LibraryIcon,
@@ -29,6 +30,7 @@ import {
   type FilterDropdownOption,
 } from "@/components/clip/filter-dropdown"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
+import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { useAppSearch } from "@/components/search/app-search"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
@@ -79,16 +81,30 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     status,
   })
   const toolbar = React.useMemo(
-    () => (
-      <LibraryToolbar
-        groups={model.groups}
-        groupKey={groupKey}
-        status={status}
-        statusCounts={model.statusCounts}
-        onGroupChange={setGroupKey}
-        onStatusChange={setStatus}
-      />
-    ),
+    () =>
+      createHeaderToolbarControls({
+        desktop: (
+          <LibraryToolbar
+            groups={model.groups}
+            groupKey={groupKey}
+            status={status}
+            statusCounts={model.statusCounts}
+            onGroupChange={setGroupKey}
+            onStatusChange={setStatus}
+          />
+        ),
+        mobile: (
+          <LibraryToolbar
+            groups={model.groups}
+            groupKey={groupKey}
+            status={status}
+            statusCounts={model.statusCounts}
+            triggerVariant="icon"
+            onGroupChange={setGroupKey}
+            onStatusChange={setStatus}
+          />
+        ),
+      }),
     [model.groups, model.statusCounts, groupKey, status],
   )
   useHeaderToolbar(toolbar)
@@ -214,6 +230,7 @@ function LibraryToolbar({
   groupKey,
   status,
   statusCounts,
+  triggerVariant = "chip",
   onGroupChange,
   onStatusChange,
 }: {
@@ -221,6 +238,7 @@ function LibraryToolbar({
   groupKey: string | null
   status: LibraryStatusFilter
   statusCounts: Record<Exclude<LibraryStatusFilter, "all">, number>
+  triggerVariant?: "chip" | "icon"
   onGroupChange: (groupKey: string | null) => void
   onStatusChange: (status: LibraryStatusFilter) => void
 }) {
@@ -242,8 +260,8 @@ function LibraryToolbar({
   const statusOptions: FilterDropdownOption<LibraryStatusFilter>[] = [
     {
       key: "all",
-      label: tx("All"),
-      icon: <LibraryIcon />,
+      label: tx("Any status"),
+      icon: <FunnelIcon />,
       count: statusCounts.local + statusCounts.cloud + statusCounts.synced,
     },
     {
@@ -267,22 +285,24 @@ function LibraryToolbar({
   ]
 
   return (
-    <div className="flex items-center gap-2">
+    <>
       <FilterDropdown
+        triggerLabel={tx("Filter by game")}
+        triggerVariant={triggerVariant}
         value={groupKey ?? ALL_GAMES}
         options={options}
         searchPlaceholder={tx("Search games…")}
         onSelect={(key) => onGroupChange(key === ALL_GAMES ? null : key)}
       />
       <FilterDropdown
-        triggerVariant="icon"
         triggerLabel={tx("Filter by status")}
+        triggerVariant={triggerVariant}
         value={status}
         options={statusOptions}
         searchThreshold={Number.POSITIVE_INFINITY}
         onSelect={onStatusChange}
       />
-    </div>
+    </>
   )
 }
 

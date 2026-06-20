@@ -11,21 +11,13 @@ export const DE_MESSAGES: Record<string, string> = {
     "„{title}“ wird vom Server entfernt. Das kann nicht rückgängig gemacht werden.",
   "(edited)": "(bearbeitet)",
   "(unsupported)": "(nicht unterstützt)",
-  "{actor} commented on {clipTitle}": "{actor} hat {clipTitle} kommentiert",
-  "{actor} followed you": "{actor} ist dir gefolgt",
-  "{actor} liked your comment": "{actor} mag deinen Kommentar",
-  "{actor} pinned your comment": "{actor} hat deinen Kommentar angepinnt",
-  "{actor} replied to your comment":
-    "{actor} hat auf deinen Kommentar geantwortet",
-  "{actor} uploaded a new video": "{actor} hat ein neues Video hochgeladen",
   "{available} free of {total}": "{available} von {total} frei",
   "{count} {label}": "{count} {label}",
-  "{count} file couldn't be imported.":
-    "{count} Datei konnte nicht importiert werden.",
-  "{count} files couldn't be imported.":
-    "{count} Dateien konnten nicht importiert werden.",
+  "{count} file couldn't be uploaded.":
+    "{count} Datei konnte nicht hochgeladen werden.",
+  "{count} files couldn't be uploaded.":
+    "{count} Dateien konnten nicht hochgeladen werden.",
   "{count} selected": "{count} ausgewählt",
-  "{count} unread": "{count} ungelesen",
   "{fallback}: {message}": "{fallback}: {message}",
   "{fileName}: {error}": "{fileName}: {error}",
   "{game} is being captured": "{game} wird aufgenommen",
@@ -53,8 +45,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add a comment…": "Kommentar hinzufügen…",
   "Add a description…": "Beschreibung hinzufügen…",
   "Add a passkey": "Passkey hinzufügen",
-  "Add a title to import this clip.":
-    "Gib einen Titel ein, um diesen Clip zu importieren.",
+  "Add a title to upload this clip.":
+    "Gib einen Titel ein, um diesen Clip hochzuladen.",
   "Add banner": "Banner hinzufügen",
   "Add clips from the library to start editing":
     "Füge Clips aus der Bibliothek hinzu, um mit dem Bearbeiten zu beginnen",
@@ -82,7 +74,6 @@ export const DE_MESSAGES: Record<string, string> = {
   All: "Alle",
   "All clips": "Alle Clips",
   "All games": "Alle Spiele",
-  "all read": "alle gelesen",
   "All time": "Gesamt",
   Alloy: "Alloy",
   "Alloy {version} has been downloaded.":
@@ -151,7 +142,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Change: "Ändern",
   "Check back in a bit or upload your own.":
     "Schau später nochmal vorbei oder lade dein eigenes hoch.",
-  "Check uploads for details.": "Details findest du in den Uploads.",
   "Checking encoders...": "Encoder werden geprüft...",
   "Checking for updates": "Suche nach Updates",
   "Choose an Alloy server to sign in.":
@@ -179,7 +169,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Clip vom Server gelöscht, aber die lokale Kopie konnte nicht entfernt werden",
   "Clip deleted from server, but the local sync link couldn't be cleared":
     "Clip vom Server gelöscht, aber der lokale Sync-Link konnte nicht gelöscht werden",
-  "Clip imported into your library": "Clip in deine Bibliothek importiert",
+  "Clip uploaded to your library": "Clip in deine Bibliothek hochgeladen",
   "Clip link disabled": "Clip-Link deaktiviert",
   "Clip link is disabled": "Clip-Link ist deaktiviert",
   "Clip not found": "Clip nicht gefunden",
@@ -196,7 +186,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Clips where this user is tagged will show up here.":
     "Clips, in denen diese Person getaggt ist, erscheinen hier.",
   Close: "Schließen",
-  "Close notifications": "Benachrichtigungen schließen",
   "Close preview": "Vorschau schließen",
   "Close process picker": "Prozessauswahl schließen",
   "Close settings": "Einstellungen schließen",
@@ -207,9 +196,7 @@ export const DE_MESSAGES: Record<string, string> = {
   CommandOrControl: "CommandOrControl",
   comment: "Kommentar",
   "Comment actions": "Kommentaraktionen",
-  "Comment liked": "Kommentar geliked",
   "Comment link copied": "Kommentarlink kopiert",
-  "Comment pinned": "Kommentar angepinnt",
   comments: "Kommentare",
   Comments: "Kommentare",
   Connect: "Verbinden",
@@ -231,7 +218,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not encode thumbnail": "Vorschaubild konnte nicht kodiert werden",
   "Could not fetch poster image ({status})":
     "Posterbild konnte nicht abgerufen werden ({status})",
-  "Could not import clip.": "Clip konnte nicht importiert werden.",
+  "Could not upload clip.": "Clip konnte nicht hochgeladen werden.",
   "Could not load video frame for thumbnail capture":
     "Videobild für die Vorschau konnte nicht geladen werden",
   "Could not load video metadata for thumbnail capture":
@@ -350,7 +337,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Delete clip (Del)": "Clip löschen (Entf)",
   "Delete clips": "Clips löschen",
   "Delete comment": "Kommentar löschen",
-  "Delete notification: {title}": "Benachrichtigung löschen: {title}",
   "Delete project": "Projekt löschen",
   "Delete reply": "Antwort löschen",
   "Delete this {noun}?": "{noun} löschen?",
@@ -488,10 +474,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Home: "Start",
   Hotkeys: "Hotkeys",
   "image/jpeg": "image/jpeg",
-  "Import clip": "Clip importieren",
   "Import clips": "Clips importieren",
   "Import failed.": "Import fehlgeschlagen.",
-  "Importing...": "Wird importiert...",
   Input: "Eingabe",
   "Invalid quota": "Ungültiges Kontingent",
   "It may have been deleted, or you may not have access to it.":
@@ -551,8 +535,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Manuelle Ausschlüsse für Launcher, Tools oder Apps, die wie Spiele aussehen.",
   "Manual includes for games the automatic detector misses.":
     "Manuelle Einträge für Spiele, die die automatische Erkennung übersieht.",
-  "Mark all read": "Alles als gelesen markieren",
-  "Mark as read: {title}": "Als gelesen markieren: {title}",
   "Maximize or restore": "Maximieren oder wiederherstellen",
   Media: "Medien",
   Medium: "Mittel",
@@ -577,13 +559,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Netzwerkfehler beim Laden des Videos.",
   "Never record": "Nie aufnehmen",
   New: "Neu",
-  "New comment": "Neuer Kommentar",
-  "New follower": "Neuer Follower",
-  "New notifications will show up here.":
-    "Neue Benachrichtigungen erscheinen hier.",
   "New project": "Neues Projekt",
-  "New reply": "Neue Antwort",
-  "New video": "Neues Video",
   Newest: "Neueste",
   "Next clip": "Nächster Clip",
   "Next library item": "Nächstes Bibliothekselement",
@@ -643,7 +619,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Nothing here yet": "Hier ist noch nichts",
   "Nothing matches": "Nichts passt",
   "Nothing to show yet": "Noch nichts zu zeigen",
-  Notifications: "Benachrichtigungen",
   of: "von",
   Off: "Aus",
   Oldest: "Älteste",
@@ -654,8 +629,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Sobald Clips Likes und Views haben, landen die besten hier.",
   "Open {name}'s profile": "Profil von {name} öffnen",
   "Open account menu for {name}": "Kontomenü für {name} öffnen",
-  "Open account menu for {name}; notifications available":
-    "Kontomenü für {name} öffnen; Benachrichtigungen verfügbar",
   "Open Alloy in the desktop app to edit captures stored on this device.":
     "Öffne Alloy in der Desktop-App, um auf diesem Gerät gespeicherte Aufnahmen zu bearbeiten.",
   "Open draft {title}": "Entwurf {title} öffnen",
@@ -683,8 +656,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Entfernt dauerhaft jeden Clip, den du hochgeladen hast. Das kann nicht rückgängig gemacht werden.",
   "Permanently removes your account and clips. Can't be undone.":
     "Entfernt dein Konto und deine Clips dauerhaft. Kann nicht rückgängig gemacht werden.",
-  "Pick a game to import this clip.":
-    "Wähle ein Spiel, um diesen Clip zu importieren.",
+  "Pick a game to upload this clip.":
+    "Wähle ein Spiel, um diesen Clip hochzuladen.",
   Pin: "Anpinnen",
   "Pinned by author": "Vom Autor angepinnt",
   Play: "Abspielen",
@@ -992,6 +965,48 @@ export const DE_MESSAGES: Record<string, string> = {
     "Aktualisiere Rolle und Speicherkontingent für {username}.",
   Updates: "Updates",
   "Updates ready in the background": "Updates im Hintergrund bereit",
+  "Cancel download of {title}": "Download von {title} abbrechen",
+  "Cancel upload of {title}": "Upload von {title} abbrechen",
+  "Clear completed": "Abgeschlossene löschen",
+  "Close transfer status": "Transferstatus schließen",
+  "Copy link to {title}": "Link zu {title} kopieren",
+  "Dismiss {title} from queue": "{title} aus der Warteschlange ausblenden",
+  Downloads: "Downloads",
+  Failed: "Fehlgeschlagen",
+  "Loading transfer activity": "Transferaktivität wird geladen",
+  "Next page": "Nächste Seite",
+  "Nothing in the queue": "Nichts in der Warteschlange",
+  "Open {title}": "{title} öffnen",
+  "Opening...": "Wird geöffnet...",
+  "Pause sync": "Sync pausieren",
+  Paused: "Pausiert",
+  "Previous page": "Vorherige Seite",
+  Published: "Veröffentlicht",
+  Queued: "In Warteschlange",
+  "Remove failed clip {title}": "Fehlgeschlagenen Clip {title} entfernen",
+  "Remove {title} from queue": "{title} aus der Warteschlange entfernen",
+  "Reopen transfers after the connection recovers.":
+    "Öffne Transfers erneut, sobald die Verbindung wiederhergestellt ist.",
+  "Resume sync": "Sync fortsetzen",
+  "Retry sync of {title}": "Sync von {title} erneut versuchen",
+  "Reveal {title} in folder": "{title} im Ordner anzeigen",
+  "Saved locally": "Lokal gespeichert",
+  "Transfer status unavailable": "Transferstatus nicht verfügbar",
+  Transfers: "Transfers",
+  "Transfers ({count})": "Transfers ({count})",
+  Upload: "Upload",
+  "Upload clip": "Clip hochladen",
+  "Uploading...": "Wird hochgeladen...",
+  "Uploads and downloads will show up here.":
+    "Uploads und Downloads erscheinen hier.",
+  "View transfer activity": "Transferaktivität anzeigen",
+  "View transfer activity - {count} in progress":
+    "Transferaktivität anzeigen - {count} läuft",
+  empty: "leer",
+  item: "Element",
+  items: "Elemente",
+  loading: "lädt",
+  unavailable: "nicht verfügbar",
   "Upload a clip and pick a game to seed this list.":
     "Lade einen Clip hoch und wähle ein Spiel, um diese Liste zu füllen.",
   "Upload failed": "Upload fehlgeschlagen",

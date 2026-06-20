@@ -4,7 +4,6 @@ import type {
   ClipPrivacy,
   ClipStatus,
   IsoDateString,
-  NotificationType,
   UploadTicket,
 } from "./shared"
 
@@ -166,48 +165,6 @@ export type QueueEvent =
   | { type: "upsert"; clip: QueueClip }
   | { type: "progress"; id: string; encodeProgress: number }
   | { type: "remove"; id: string }
-
-export interface NotificationClipRef {
-  id: string
-  title: string
-  steamgriddbId: number | null
-  gameSlug: string | null
-  /** True when the clip has a generated thumbnail available for preview. */
-  hasThumb: boolean
-  thumbBlurHash: string | null
-  updatedAt: IsoDateString
-}
-
-export interface NotificationCommentRef {
-  id: string
-  body: string
-}
-
-export interface NotificationRow {
-  id: string
-  type: NotificationType
-  actor: UserSummary | null
-  clip: NotificationClipRef | null
-  comment: NotificationCommentRef | null
-  readAt: IsoDateString | null
-  createdAt: IsoDateString
-}
-
-export interface NotificationsResponse {
-  items: NotificationRow[]
-  unreadCount: number
-}
-
-export const NOTIFICATIONS_DEFAULT_LIMIT = 20
-export const NOTIFICATIONS_MAX_LIMIT = 50
-
-export type NotificationEvent =
-  | { type: "snapshot"; payload: NotificationsResponse }
-  | { type: "upsert"; notification: NotificationRow; unreadCount: number }
-  | { type: "read"; id: string; readAt: IsoDateString; unreadCount: number }
-  | { type: "read_all"; readAt: IsoDateString; unreadCount: number }
-  | { type: "remove"; id: string; unreadCount: number }
-  | { type: "clear"; unreadCount: number }
 
 export type CommentAuthor = UserSummary
 

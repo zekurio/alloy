@@ -105,8 +105,10 @@ const AppHeaderSearch = React.forwardRef<
           className={cn(
             "pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2",
             // Leading icon picks up the accent colour while the input is
-            // focused — another visual cue the field is active.
-            "text-foreground-faint [&_svg]:size-3.5",
+            // focused — another visual cue the field is active. On mobile the
+            // input sits on a transparent surface, so lift the resting glyph a
+            // step brighter to stay legible against the dark header.
+            "text-foreground-faint max-md:text-foreground-muted [&_svg]:size-3.5",
             "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "group-focus-within/search:text-accent",
           )}
@@ -119,15 +121,13 @@ const AppHeaderSearch = React.forwardRef<
           placeholder={placeholder}
           value={value}
           className={cn(
-            "h-full w-full min-w-0 rounded-lg border border-border bg-input pr-11 pl-8",
-            "text-sm text-foreground placeholder:text-foreground-faint",
+            "h-full w-full min-w-0 rounded-lg border border-border bg-transparent pr-11 pl-8",
+            "max-md:border-transparent",
+            "text-sm text-foreground placeholder:text-foreground-faint max-md:placeholder:text-foreground-muted",
             "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "outline-none",
-            "max-md:border-transparent max-md:bg-transparent",
-            "max-md:focus:border-border max-md:focus:bg-input",
             "focus:border-accent focus:bg-surface-raised",
             "focus:shadow-[0_0_0_3px_var(--accent-soft)]",
-            "max-md:focus:shadow-none",
             className,
           )}
           {...props}

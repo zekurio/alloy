@@ -1,20 +1,12 @@
-import { NOTIFICATION_TYPES, type NotificationType } from "@alloy/contracts"
-import { sql } from "drizzle-orm"
 import {
-  check,
   index,
   pgTable,
-  text,
   timestamp,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
 
 import { user } from "./auth"
-import { clip, clipComment } from "./clip"
-import { sqlStringList } from "./internal"
-
-export { NOTIFICATION_TYPES }
 
 export const follow = pgTable(
   "follow",
@@ -47,36 +39,4 @@ export const block = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [uniqueIndex("block_pair_idx").on(t.blockerId, t.blockedId)],
-)
-
-export const notification = pgTable(
-  "notification",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    recipientId: uuid("recipient_id")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    actorId: uuid("actor_id").references(() => user.id, {
-      onDelete: "set null",
-    }),
-    type: text("type").$type<NotificationType>().notNull(),
-    clipId: uuid("clip_id").references(() => clip.id, {
-      onDelete: "cascade",
-    }),
-    commentId: uuid("comment_id").references(() => clipComment.id, {
-      onDelete: "cascade",
-    }),
-    readAt: timestamp("read_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [
-    index("notification_recipient_created_idx").on(t.recipientId, t.createdAt),
-    index("notification_recipient_unread_idx")
-      .on(t.recipientId, t.createdAt)
-      .where(sql`${t.readAt} IS NULL`),
-    check(
-      "notification_type_check",
-      sql`${t.type} in (${sql.raw(sqlStringList(NOTIFICATION_TYPES))})`,
-    ),
-  ],
 )

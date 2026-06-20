@@ -21,6 +21,10 @@ import { cn } from "@alloy/ui/lib/utils"
 import { MaximizeIcon, XIcon } from "lucide-react"
 import * as React from "react"
 
+import {
+  mobileCloseIconClassName,
+  mobileSurfaceCloseButtonClassName,
+} from "@/components/app/mobile-close-button"
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { LoginForm } from "@/components/routes/login/login-page-inner"
 import { SignUpForm } from "@/components/routes/sign-up/sign-up-page-inner"
@@ -253,10 +257,13 @@ export function LoginAppearancePreview({
             <AuthPreviewContent mode={mode} config={authConfig} fill />
           </div>
           <DialogClose
-            className="bg-background/72 text-foreground hover:bg-surface-raised absolute top-4 right-4 z-10 inline-flex size-9 items-center justify-center rounded-md border border-white/10 shadow-sm backdrop-blur-sm transition-colors"
+            className={cn(
+              mobileSurfaceCloseButtonClassName,
+              "absolute top-4 right-4 z-10 border border-white/10 bg-background/72 shadow-sm backdrop-blur-sm",
+            )}
             aria-label={tx("Close preview")}
           >
-            <XIcon className="size-4" />
+            <XIcon className={mobileCloseIconClassName} />
           </DialogClose>
         </DialogContent>
       </Dialog>

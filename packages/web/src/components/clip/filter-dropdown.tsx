@@ -1,6 +1,4 @@
 import { t as tx } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
-import { Chip } from "@alloy/ui/components/chip"
 import {
   Combobox,
   ComboboxContent,
@@ -12,10 +10,14 @@ import {
 import { InputGroupAddon } from "@alloy/ui/components/input-group"
 import { cn } from "@alloy/ui/lib/utils"
 import { Combobox as ComboboxPrimitive } from "@base-ui/react"
-import { ChevronDownIcon, FunnelIcon, SearchIcon } from "lucide-react"
+import { FunnelIcon, SearchIcon } from "lucide-react"
 import * as React from "react"
 
-import { filterLabelClass, toolbarIconButtonClass } from "./sort-dropdown"
+import {
+  filterLabelClass,
+  ToolbarChipTrigger,
+  ToolbarIconButton,
+} from "./toolbar-controls"
 
 /** Once the option count crosses this, the popup grows a search field. */
 const SEARCH_THRESHOLD = 8
@@ -87,36 +89,22 @@ export function FilterDropdown<K extends string>({
         <ComboboxPrimitive.Trigger
           render={
             triggerVariant === "icon" ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                className={cn(toolbarIconButtonClass, "max-w-[9.5rem]")}
+              <ToolbarIconButton
+                className="max-w-[8rem]"
                 aria-label={triggerLabel ?? label ?? tx("Filter")}
                 title={triggerLabel ?? label ?? tx("Filter")}
               >
                 {current?.icon ?? <FunnelIcon />}
-              </Button>
+              </ToolbarIconButton>
             ) : (
-              <Chip
-                size="xl"
-                data-active="true"
-                className="w-[11.25rem] min-w-0 justify-between"
-              >
-                {current?.icon}
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {current?.label}
-                </span>
-                <ChevronDownIcon />
-              </Chip>
+              <ToolbarChipTrigger icon={current?.icon} label={current?.label} />
             )
           }
         />
         <ComboboxContent
           align={triggerVariant === "icon" ? "end" : "start"}
           className={cn(
-            triggerVariant === "icon"
-              ? "!w-64 !min-w-64"
-              : "!w-(--anchor-width) !min-w-(--anchor-width)",
+            triggerVariant === "icon" ? "!w-64 !min-w-64" : "!w-56 !min-w-56",
             contentClassName,
           )}
         >

@@ -4,13 +4,13 @@ import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
-import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { XIcon } from "lucide-react"
 import * as React from "react"
 
+import { mobileOverlayCloseButtonClassName } from "@/components/app/mobile-close-button"
 import {
   mobileDrawerContentClass,
   MobileDrawerHandle,
@@ -285,14 +285,13 @@ function MobileClipViewerBody({
 
           {/* ---- Close button ---- */}
           <DialogClose
-            data-variant="ghost"
             className={cn(
-              buttonVariants({ variant: "ghost", size: "icon" }),
-              "absolute top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] z-30 rounded-full text-white/80 hover:bg-white/10 hover:text-white focus-visible:ring-white/40 focus-visible:ring-offset-0",
+              mobileOverlayCloseButtonClassName,
+              "absolute top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] z-30",
             )}
             aria-label={tx("Close")}
           >
-            <XIcon className="size-5" />
+            <XIcon />
           </DialogClose>
 
           {/* ---- Top spacer (keeps the player higher while metadata stays bottom-pinned) ---- */}

@@ -10,17 +10,6 @@ export type ClipStatus = (typeof CLIP_STATUS)[number]
 export const RECORDING_KIND = ["clip"] as const
 export type RecordingKind = (typeof RECORDING_KIND)[number]
 
-export const NOTIFICATION_TYPES = [
-  "clip_upload_failed",
-  "new_follower",
-  "clip_comment",
-  "comment_reply",
-  "comment_pinned",
-  "comment_liked_by_author",
-  "new_video",
-] as const
-export type NotificationType = (typeof NOTIFICATION_TYPES)[number]
-
 export const UPLOAD_TICKET_ROLE = ["video", "thumb"] as const
 export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
 

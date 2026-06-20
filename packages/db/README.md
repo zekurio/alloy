@@ -14,7 +14,7 @@ packages/db/
   src/schema/auth.ts         auth schema ("@alloy/db/auth-schema")
   src/schema/game.ts         game + game-follow tables
   src/schema/clip.ts         clip and its engagement tables
-  src/schema/social.ts       follow, block, notification tables
+  src/schema/social.ts       follow and block tables
   drizzle/                   generated SQL migrations and metadata
   drizzle.config.ts          Drizzle Kit config
 ```

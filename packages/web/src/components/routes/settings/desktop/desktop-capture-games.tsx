@@ -27,6 +27,8 @@ import {
 } from "lucide-react"
 import * as React from "react"
 
+import { mobileSurfaceCloseButtonClassName } from "@/components/app/mobile-close-button"
+
 import { RuleGroup } from "./desktop-capture-game-rules"
 import { useDesktopRecording } from "./desktop-recording-context"
 
@@ -183,9 +185,9 @@ export function AllowedGamesSection({
           </DialogHeader>
           <DialogClose
             aria-label={tx("Close process picker")}
-            className="text-foreground-dim hover:text-foreground focus-visible:ring-foreground/30 absolute top-3 right-3 z-10 inline-flex size-8 items-center justify-center rounded-full transition-colors focus-visible:ring-2 focus-visible:outline-none"
+            className={`${mobileSurfaceCloseButtonClassName} absolute top-3 right-3 z-10`}
           >
-            <XIcon className="size-4" />
+            <XIcon />
           </DialogClose>
           <DialogBody className="flex flex-col gap-3">
             <div className="flex items-center gap-2">

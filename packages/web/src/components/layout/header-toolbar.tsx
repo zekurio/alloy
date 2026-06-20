@@ -1,5 +1,4 @@
 import { t as tx } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
 import {
   Popover,
   PopoverContent,
@@ -8,7 +7,7 @@ import {
 import { FunnelIcon } from "lucide-react"
 import * as React from "react"
 
-import { toolbarIconButtonClass } from "@/components/clip/sort-dropdown"
+import { ToolbarIconButton } from "@/components/clip/toolbar-controls"
 
 type HeaderToolbarNode =
   | React.ReactNode
@@ -104,12 +103,7 @@ export function HeaderToolbarSlot() {
         <Popover>
           <PopoverTrigger
             render={
-              <Button
-                variant="secondary"
-                size="icon"
-                className={toolbarIconButtonClass}
-                aria-label={tx("Filters")}
-              />
+              <ToolbarIconButton size="icon" aria-label={tx("Filters")} />
             }
           >
             <FunnelIcon />

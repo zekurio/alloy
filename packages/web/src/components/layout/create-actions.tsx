@@ -14,7 +14,7 @@ import { Input } from "@alloy/ui/components/input"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { FolderInputIcon, VideoIcon } from "lucide-react"
+import { CloudUploadIcon, VideoIcon } from "lucide-react"
 import * as React from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
@@ -22,7 +22,6 @@ import {
   formatLibraryBytes,
   refreshLibrarySnapshotCache,
 } from "@/components/routes/library/library-data"
-import { ACCEPT_LIST } from "@/components/upload/new-clip-helpers"
 import { CLIP_TITLE_MAX, normalizeClipTitle } from "@/lib/clip-fields"
 import {
   alloyDesktop,
@@ -32,21 +31,22 @@ import {
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
+import type { UploadQueueAction } from "../upload/upload-queue"
+import { useUploadFlowControls } from "../upload/use-upload-flow-controls"
+
 /**
  * The "create" actions surfaced by the global header `+` button. Lifted out of
  * the Library page so the same import flow (and its staged-details dialog) is
  * reachable from anywhere, not just `/library`.
  */
 type CreateActionsValue = {
-  /** Whether desktop-only project creation is available. */
-  projectDisabled: boolean
   /** Label for the import/upload entry — platform dependent. */
   uploadLabel: string
-  /** Whether the upload action is busy (e.g. the OS picker is open). */
-  uploadBusy: boolean
   /** Whether the action is visible but unavailable on the current bridge. */
   uploadDisabled: boolean
   startUpload: () => void
+  /** The import/upload action rendered inside the transfer queue modal. */
+  uploadAction: UploadQueueAction | null
 }
 
 const CreateActionsContext = React.createContext<CreateActionsValue | null>(
@@ -60,69 +60,75 @@ export function CreateActionsProvider({
 }) {
   const desktop = alloyDesktop()
   const session = useSuspenseSession()
-  const importAction = useLibraryImportAction({ desktop })
-  const webInputRef = React.useRef<HTMLInputElement>(null)
+  const { activeCount, setQueueOpen } = useUploadFlowControls()
+  const importAction = useLibraryImportAction({ desktop, setQueueOpen })
   const authed = session !== null
 
-  const startWebUpload = React.useCallback(() => {
-    webInputRef.current?.click()
-  }, [])
+  const toggleUploadQueue = React.useCallback(() => {
+    setQueueOpen((open) => !open)
+  }, [setQueueOpen])
+
+  const uploadAction = React.useMemo<UploadQueueAction | null>(
+    () =>
+      desktop !== null
+        ? {
+            label: tx("Upload"),
+            busy: importAction.picking,
+            disabled:
+              !authed || !importAction.available || importAction.committing,
+            onClick: () => {
+              if (!authed) return
+              void importAction.start()
+            },
+          }
+        : null,
+    [
+      authed,
+      desktop,
+      importAction.available,
+      importAction.committing,
+      importAction.picking,
+      importAction.start,
+    ],
+  )
 
   const value = React.useMemo<CreateActionsValue>(
     () =>
       desktop !== null
         ? {
-            projectDisabled: !authed,
-            uploadLabel: tx("Import clip"),
-            uploadBusy: importAction.picking,
-            uploadDisabled:
-              !authed || !importAction.available || importAction.committing,
-            startUpload: () => {
-              if (!authed) return
-              void importAction.start()
-            },
+            uploadLabel:
+              activeCount > 0
+                ? tx("Transfers ({count})", { count: activeCount })
+                : tx("Upload"),
+            uploadDisabled: !authed,
+            startUpload: toggleUploadQueue,
+            uploadAction,
           }
         : {
-            projectDisabled: true,
-            uploadLabel: tx("Upload"),
-            uploadBusy: false,
+            uploadLabel:
+              activeCount > 0
+                ? tx("Transfers ({count})", { count: activeCount })
+                : tx("Upload"),
             uploadDisabled: !authed,
-            startUpload: startWebUpload,
+            startUpload: toggleUploadQueue,
+            uploadAction,
           },
-    [authed, desktop, importAction, startWebUpload],
+    [activeCount, authed, desktop, toggleUploadQueue, uploadAction],
   )
 
   return (
     <CreateActionsContext.Provider value={value}>
       {children}
-      {desktop !== null ? (
-        <ImportClipDetailsDialog
-          staged={importAction.staged}
-          pending={importAction.committing}
-          onOpenChange={(open) => {
-            if (!open) void importAction.discard()
-          }}
-          onCommit={(metadata) => {
-            void importAction.commit(metadata)
-          }}
-        />
-      ) : (
-        // Web has no library-import bridge yet; the picker is wired so the
-        // entry point exists, with a placeholder handoff until the upload
-        // pipeline lands.
-        <input
-          ref={webInputRef}
-          type="file"
-          accept={ACCEPT_LIST}
-          className="hidden"
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            event.target.value = ""
-            if (!file) return
-            toast.info(tx("Web upload is coming soon."))
-          }}
-        />
-      )}
+      <ImportClipDetailsDialog
+        staged={importAction.staged}
+        pending={importAction.committing}
+        onOpenChange={(open) => {
+          if (!open) void importAction.discard()
+        }}
+        onCommit={(metadata) => {
+          void importAction.commit(metadata)
+        }}
+      />
     </CreateActionsContext.Provider>
   )
 }
@@ -137,7 +143,13 @@ export function useCreateActions(): CreateActionsValue {
   return value
 }
 
-function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
+function useLibraryImportAction({
+  desktop,
+  setQueueOpen,
+}: {
+  desktop: AlloyDesktop | null
+  setQueueOpen: (open: boolean) => void
+}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [picking, setPicking] = React.useState(false)
@@ -167,8 +179,8 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
               })
             : tp(
                 result.failed.length,
-                "{count} file couldn't be imported.",
-                "{count} files couldn't be imported.",
+                "{count} file couldn't be uploaded.",
+                "{count} files couldn't be uploaded.",
                 {
                   count: result.failed.length,
                 },
@@ -178,13 +190,14 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
       const [next] = result.staged
       if (next) {
         setStaged(next)
+        setQueueOpen(false)
       }
     } catch (cause) {
       toast.error(errorMessage(cause, tx("Could not import clip.")))
     } finally {
       setPicking(false)
     }
-  }, [available, committing, desktop, picking, staged])
+  }, [available, committing, desktop, picking, setQueueOpen, staged])
 
   const discard = React.useCallback(async () => {
     const current = staged
@@ -214,13 +227,13 @@ function useLibraryImportAction({ desktop }: { desktop: AlloyDesktop | null }) {
         })
         await refreshLibrarySnapshotCache(queryClient, desktop)
         setStaged(null)
-        toast.success(tx("Clip imported into your library"))
+        toast.success(tx("Clip uploaded to your library"))
         await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
         })
       } catch (cause) {
-        toast.error(errorMessage(cause, tx("Could not import clip.")))
+        toast.error(errorMessage(cause, tx("Could not upload clip.")))
       } finally {
         setCommitting(false)
       }
@@ -266,7 +279,7 @@ function ImportClipDetailsDialog({
     <Dialog open={staged !== null} onOpenChange={onOpenChange}>
       <DialogContent variant="secondary" className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>{tx("Import clip")}</DialogTitle>
+          <DialogTitle>{tx("Upload clip")}</DialogTitle>
           <DialogDescription>
             {tx("Add the clip details before it enters your library.")}
           </DialogDescription>
@@ -294,7 +307,7 @@ function ImportClipDetailsDialog({
               />
               {titleInvalid ? (
                 <span className="text-destructive text-xs">
-                  {tx("Add a title to import this clip.")}
+                  {tx("Add a title to upload this clip.")}
                 </span>
               ) : null}
             </label>
@@ -319,7 +332,7 @@ function ImportClipDetailsDialog({
               />
               {gameInvalid ? (
                 <span className="text-destructive text-xs">
-                  {tx("Pick a game to import this clip.")}
+                  {tx("Pick a game to upload this clip.")}
                 </span>
               ) : null}
             </div>
@@ -334,8 +347,8 @@ function ImportClipDetailsDialog({
               {tx("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={pending}>
-              <FolderInputIcon />
-              {pending ? tx("Importing...") : tx("Import clip")}
+              <CloudUploadIcon />
+              {pending ? tx("Uploading...") : tx("Upload clip")}
             </Button>
           </DialogFooter>
         </form>

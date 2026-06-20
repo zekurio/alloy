@@ -1,5 +1,3 @@
-import { Button } from "@alloy/ui/components/button"
-import { Chip } from "@alloy/ui/components/chip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +7,6 @@ import {
 import { cn } from "@alloy/ui/lib/utils"
 import {
   ArrowUpDownIcon,
-  ChevronDownIcon,
   Clock3Icon,
   EyeIcon,
   HistoryIcon,
@@ -18,11 +15,11 @@ import {
 } from "lucide-react"
 import * as React from "react"
 
-export const filterLabelClass =
-  "inline-flex h-8 items-center pr-1 text-xs leading-4 font-semibold tracking-wide text-foreground-muted uppercase"
-
-export const toolbarIconButtonClass =
-  "h-9 min-w-9 rounded-lg border-border bg-input px-2.5 text-foreground-muted hover:border-border-strong hover:bg-surface-raised hover:text-foreground max-md:size-10 max-md:min-w-10 max-md:rounded-md max-md:border-transparent max-md:bg-transparent max-md:px-0 max-md:text-foreground-faint max-md:hover:border-transparent max-md:hover:bg-surface-raised max-md:hover:text-foreground-muted max-md:[&_svg]:opacity-70 max-md:hover:[&_svg]:opacity-100 [&_svg:not([class*='size-'])]:size-4"
+import {
+  filterLabelClass,
+  ToolbarChipTrigger,
+  ToolbarIconButton,
+} from "./toolbar-controls"
 
 export type SortDropdownOption<K extends string> = {
   key: K
@@ -68,36 +65,21 @@ export function SortDropdown<K extends string>({
         <DropdownMenuTrigger
           render={
             triggerVariant === "icon" ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                className={toolbarIconButtonClass}
+              <ToolbarIconButton
                 aria-label={triggerLabel ?? label ?? "Sort"}
                 title={triggerLabel ?? label ?? "Sort"}
               >
                 {currentIcon ?? <ArrowUpDownIcon />}
-              </Button>
+              </ToolbarIconButton>
             ) : (
-              <Chip
-                size="xl"
-                data-active="true"
-                className="w-[11.25rem] justify-between"
-              >
-                {currentIcon}
-                <span className="min-w-0 flex-1 truncate text-left">
-                  {current?.label}
-                </span>
-                <ChevronDownIcon />
-              </Chip>
+              <ToolbarChipTrigger icon={currentIcon} label={current?.label} />
             )
           }
         />
         <DropdownMenuContent
           align={triggerVariant === "icon" ? "end" : "start"}
           className={cn(
-            triggerVariant === "icon"
-              ? "!w-40 !min-w-40"
-              : "!w-(--anchor-width) !min-w-(--anchor-width)",
+            triggerVariant === "icon" ? "!w-40 !min-w-40" : "!w-40 !min-w-40",
             contentClassName,
           )}
         >

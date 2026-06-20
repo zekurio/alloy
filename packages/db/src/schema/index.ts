@@ -16,7 +16,7 @@ import {
 import { game, gameDetectionMapping, gameFollow } from "./game"
 import { instanceSetting } from "./instance"
 import { uploadTicket } from "./recording"
-import { block, follow, notification } from "./social"
+import { block, follow } from "./social"
 
 /**
  * Application (non-auth) tables. Combined with `authSchema` into `dbSchema`
@@ -37,5 +37,4 @@ export const domainSchema = {
   gameDetectionMapping,
   instanceSetting,
   block,
-  notification,
 } as const
