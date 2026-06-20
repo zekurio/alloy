@@ -8,6 +8,7 @@ import * as React from "react"
 import { gameHref, userProfileHref } from "@/lib/app-paths"
 import type { AppSearch } from "@/lib/app-search"
 import { clientLogger } from "@/lib/client-log"
+import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import { toClipCardData } from "@/lib/clip-format"
 import { warmClipDetailCache } from "@/lib/clip-queries"
 
@@ -18,12 +19,14 @@ interface ClipCardTriggerProps {
   row: ClipRow
   className?: string
   metaVariant?: "default" | "showcase"
+  showVisibilityStatus?: boolean
 }
 
 export const ClipCardTrigger = React.memo(function ClipCardTrigger({
   row,
   className,
   metaVariant = "default",
+  showVisibilityStatus = false,
 }: ClipCardTriggerProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -93,6 +96,31 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       onPreviewError={handlePreviewError}
       thumbnailLabel={tx("Play clip: {title}", { title: card.title })}
       titleLabel={tx("Open clip: {title}", { title: card.title })}
+      thumbnailOverlay={
+        showVisibilityStatus && card.privacy !== "public" ? (
+          <ClipCardVisibilityBadge privacy={card.privacy} />
+        ) : null
+      }
     />
   )
 })
+
+function ClipCardVisibilityBadge({
+  privacy,
+}: {
+  privacy: Exclude<ClipRow["privacy"], "public">
+}) {
+  const display = PRIVACY_BY_VALUE[privacy]
+  const Icon = display.icon
+
+  return (
+    <span
+      className="pointer-events-none inline-flex h-6 items-center gap-1.5 rounded bg-black/70 px-2 text-xs leading-none font-semibold whitespace-nowrap text-white/90 shadow-sm ring-1 ring-white/10 backdrop-blur-sm"
+      title={display.label}
+      aria-label={display.label}
+    >
+      <Icon className="size-3" aria-hidden />
+      {display.label}
+    </span>
+  )
+}

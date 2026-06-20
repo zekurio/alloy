@@ -31,9 +31,11 @@ import { SignUpForm } from "@/components/routes/sign-up/sign-up-page-inner"
 
 type AuthPreviewMode = "login" | "sign-up"
 
-// 16:9 reference viewport the scaled in-card preview is laid out against.
-const PREVIEW_WIDTH = 1280
-const PREVIEW_HEIGHT = 720
+// Compact 16:9 desktop viewport the scaled in-card preview is laid out
+// against. A full 1280px-wide page makes the max-w-sm auth form unreadably
+// tiny inside the settings panel, while fullscreen still renders at real size.
+const PREVIEW_WIDTH = 640
+const PREVIEW_HEIGHT = 360
 
 /**
  * Build the public auth config the login/sign-up pages consume from the admin
