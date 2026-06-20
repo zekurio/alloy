@@ -266,7 +266,7 @@ function registerRecordingSoundIpc(windows: Windows): void {
     async (event, sound: unknown): Promise<void> => {
       requireMainSender(windows, event)
       if (!isNotificationSoundEvent(sound)) return
-      const openError = await shell.openPath(ensureNotificationSoundsDir(sound))
+      const openError = await shell.openPath(ensureNotificationSoundsDir())
       if (openError) throw new Error(openError)
     },
   )

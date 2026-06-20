@@ -1,5 +1,5 @@
 import type { ClipRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t as tx, tp } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -96,16 +96,45 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       onPreviewError={handlePreviewError}
       thumbnailLabel={tx("Play clip: {title}", { title: card.title })}
       titleLabel={tx("Open clip: {title}", { title: card.title })}
-      thumbnailOverlay={
+      metaContent={
         showVisibilityStatus && card.privacy !== "public" ? (
-          <ClipCardVisibilityBadge privacy={card.privacy} />
+          <ClipCardMetaWithVisibility
+            privacy={card.privacy}
+            views={card.views}
+            viewCount={card.viewCount}
+            postedAt={card.postedAt}
+          />
         ) : null
       }
     />
   )
 })
 
-function ClipCardVisibilityBadge({
+function ClipCardMetaWithVisibility({
+  privacy,
+  views,
+  viewCount,
+  postedAt,
+}: {
+  privacy: Exclude<ClipRow["privacy"], "public">
+  views: string
+  viewCount: number
+  postedAt: string
+}) {
+  return (
+    <>
+      <span className="shrink-0">
+        {views} {tp(viewCount, "view", "views")}
+      </span>
+      <span className="shrink-0">{"·"}</span>
+      <ClipCardVisibilityStatus privacy={privacy} />
+      <span className="shrink-0">{"·"}</span>
+      <span className="shrink-0">{postedAt}</span>
+    </>
+  )
+}
+
+function ClipCardVisibilityStatus({
   privacy,
 }: {
   privacy: Exclude<ClipRow["privacy"], "public">
@@ -115,12 +144,12 @@ function ClipCardVisibilityBadge({
 
   return (
     <span
-      className="pointer-events-none inline-flex h-6 items-center gap-1.5 rounded bg-black/70 px-2 text-xs leading-none font-semibold whitespace-nowrap text-white/90 shadow-sm ring-1 ring-white/10 backdrop-blur-sm"
+      className="text-foreground-muted inline-flex shrink-0 items-center gap-1 whitespace-nowrap opacity-80"
       title={display.label}
       aria-label={display.label}
     >
       <Icon className="size-3" aria-hidden />
-      {display.label}
+      <span>{display.label}</span>
     </span>
   )
 }

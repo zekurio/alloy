@@ -133,7 +133,7 @@ export type RecordingNotificationSounds = Record<
   RecordingNotificationSoundSettings
 >
 
-/** A selectable sound file discovered in an event's notification sounds folder. */
+/** A selectable sound file discovered in the shared notification sounds folder. */
 export interface RecordingNotificationSoundOption {
   /** Absolute path to the audio file. */
   path: string

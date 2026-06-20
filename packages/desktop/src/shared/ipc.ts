@@ -199,9 +199,9 @@ export interface AlloyDesktopRecordingApi {
   stopAudioLevels(): Promise<void>
   saveReplayClip(request: SaveReplayClipRequest): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
-  /** Lists the audio files available in each event's notification sounds folder. */
+  /** Lists the audio files available in the shared notification sounds folder. */
   listNotificationSounds(): Promise<RecordingNotificationSoundLibrary>
-  /** Opens the event's notification sounds folder so the user can add files. */
+  /** Opens the shared notification sounds folder so the user can add files. */
   openNotificationSoundsFolder(
     sound: RecordingNotificationSoundEvent,
   ): Promise<void>

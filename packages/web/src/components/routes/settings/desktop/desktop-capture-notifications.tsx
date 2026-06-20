@@ -142,14 +142,18 @@ function SoundCard({
   const [draftVolume, setDraftVolume] = useState<number | null>(null)
   const displayVolume = draftVolume ?? sound.volume
 
-  // Empty path means "use the bundled default", which the folder is seeded
-  // with — so resolve the selected value to that default file when unset, and
-  // surface a custom path that lives outside the folder as its own entry.
+  // Empty path means "use the bundled default", which the shared folder is
+  // seeded with — so resolve the selected value to that default file when
+  // unset, and surface a custom path as its own entry.
   const items = soundItems(options, sound.path)
   const selectedValue =
     sound.path ||
     items.find((item) => fileName(item.name) === defaultFile)?.path ||
     ""
+  const selectedItem = items.find((item) => item.path === selectedValue)
+  const selectedLabel = selectedItem
+    ? soundOptionLabel(selectedItem)
+    : soundName(selectedValue)
 
   const controlsDisabled = busy || !sound.enabled
 
@@ -196,13 +200,13 @@ function SoundCard({
               className="w-48"
             >
               <SelectValue placeholder={tx("No sounds found")}>
-                {soundName(selectedValue) || "No sounds found"}
+                {selectedLabel || tx("No sounds found")}
               </SelectValue>
             </SelectTrigger>
             <SelectContent align="end">
               {items.map((item) => (
                 <SelectItem key={item.path} value={item.path}>
-                  {item.name}
+                  {soundOptionLabel(item)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -265,8 +269,8 @@ function SoundCard({
 }
 
 /**
- * Folder files plus, if the saved sound points outside the folder, the custom
- * file so the dropdown can still show and keep it selected.
+ * Shared folder files plus, if the saved sound points outside the folder, the
+ * custom file so the dropdown can still show and keep it selected.
  */
 function soundItems(
   options: RecordingNotificationSoundOption[],
@@ -296,6 +300,10 @@ function saveSound(
 
 function soundName(path: string): string {
   return path ? fileName(path) : ""
+}
+
+function soundOptionLabel(option: RecordingNotificationSoundOption): string {
+  return fileName(option.name || option.path)
 }
 
 function fileName(path: string): string {

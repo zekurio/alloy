@@ -28,9 +28,9 @@ interface DesktopRecordingContextValue {
   save: (next: RecordingSettings) => Promise<void>
   /** Open the native folder picker and apply the chosen capture folder. */
   chooseOutputFolder: () => Promise<void>
-  /** List the audio files available in each event's notification sounds folder. */
+  /** List the audio files available in the shared notification sounds folder. */
   listNotificationSounds: () => Promise<RecordingNotificationSoundLibrary>
-  /** Open an event's notification sounds folder so the user can add files. */
+  /** Open the shared notification sounds folder so the user can add files. */
   openNotificationSoundsFolder: (
     sound: RecordingNotificationSoundEvent,
   ) => Promise<void>

@@ -1,6 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs"
 import type { Dirent } from "node:fs"
-import { extname, isAbsolute, join, relative } from "node:path"
+import { extname, isAbsolute, join } from "node:path"
 import { pathToFileURL } from "node:url"
 
 import type {
@@ -29,7 +29,6 @@ const SUPPORTED_RECORDING_SOUND_EXTENSIONS = new Set(
   RECORDING_SOUND_FILE_EXTENSIONS.map((extension) => `.${extension}`),
 )
 
-const RECORDING_SOUND_CRAWL_MAX_DEPTH = 5
 const RECORDING_SOUND_CRAWL_MAX_FILES = 500
 
 const RECORDING_NOTIFICATION_SOUND_MATCHES: Record<
@@ -69,25 +68,17 @@ export function isRecordingSoundFile(path: string): boolean {
   return SUPPORTED_RECORDING_SOUND_EXTENSIONS.has(extname(path).toLowerCase())
 }
 
-/**
- * Per-event folder users drop their own notification sounds into. Returned by
- * {@link ensureNotificationSoundsDir} after it's created and seeded with the
- * bundled default so the sound picker always has at least one entry.
- */
-export function notificationSoundsDir(
-  sound: RecordingNotificationSoundEvent,
-): string {
-  return join(notificationSoundsRootDir(), sound)
+/** Shared folder users drop their own notification sounds into. */
+export function notificationSoundsDir(): string {
+  return notificationSoundsRootDir()
 }
 
-export function ensureNotificationSoundsDir(
-  sound: RecordingNotificationSoundEvent,
-): string {
-  const dir = notificationSoundsDir(sound)
+export function ensureNotificationSoundsDir(): string {
+  const dir = notificationSoundsDir()
   try {
     mkdirSync(dir, { recursive: true })
-    for (const defaultFile of RECORDING_NOTIFICATION_SOUND_MATCHES[sound]
-      .files) {
+    const defaultFiles = allDefaultRecordingSoundFiles()
+    for (const defaultFile of defaultFiles) {
       const source = join(recordingAssetsDir(), defaultFile)
       if (!existsSync(source)) continue
 
@@ -97,7 +88,7 @@ export function ensureNotificationSoundsDir(
       }
     }
   } catch (cause) {
-    logger.warn(`failed to prepare notification sounds folder: ${sound}`, cause)
+    logger.warn("failed to prepare notification sounds folder:", cause)
   }
   return dir
 }
@@ -106,14 +97,12 @@ export function ensureNotificationSoundsDir(
 export function listNotificationSoundFiles(
   sound: RecordingNotificationSoundEvent,
 ): RecordingNotificationSoundOption[] {
-  ensureNotificationSoundsDir(sound)
+  ensureNotificationSoundsDir()
   return rankedNotificationSoundFiles(sound, crawlNotificationSoundsRoot())
 }
 
 export function listNotificationSoundLibrary(): RecordingNotificationSoundLibrary {
-  for (const sound of RECORDING_NOTIFICATION_SOUND_EVENTS) {
-    ensureNotificationSoundsDir(sound)
-  }
+  ensureNotificationSoundsDir()
 
   const discovered = crawlNotificationSoundsRoot()
   const library = {} as RecordingNotificationSoundLibrary
@@ -243,6 +232,16 @@ function notificationSoundsRootDir(): string {
   return join(app.getPath("userData"), "sounds")
 }
 
+function allDefaultRecordingSoundFiles(): string[] {
+  return [
+    ...new Set(
+      RECORDING_NOTIFICATION_SOUND_EVENTS.flatMap(
+        (sound) => RECORDING_NOTIFICATION_SOUND_MATCHES[sound].files,
+      ),
+    ),
+  ]
+}
+
 function defaultRecordingSoundPath(
   sound: RecordingNotificationSoundEvent,
 ): string | null {
@@ -268,56 +267,30 @@ function crawlNotificationSoundsRoot(): RecordingNotificationSoundOption[] {
 function crawlSoundFiles(root: string): RecordingNotificationSoundOption[] {
   const found: RecordingNotificationSoundOption[] = []
   const seen = new Set<string>()
-  const stack: Array<{ dir: string; relativeDir: string; depth: number }> = [
-    { dir: root, relativeDir: "", depth: 0 },
-  ]
 
-  while (stack.length > 0 && found.length < RECORDING_SOUND_CRAWL_MAX_FILES) {
-    const current = stack.shift()
-    if (!current) break
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(root, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )
+  } catch (cause) {
+    logger.warn(`failed to scan notification sounds: ${root}`, cause)
+    return []
+  }
 
-    let entries: Dirent[]
-    try {
-      entries = readdirSync(current.dir, { withFileTypes: true }).sort((a, b) =>
-        a.name.localeCompare(b.name),
-      )
-    } catch (cause) {
-      logger.warn(`failed to scan notification sounds: ${current.dir}`, cause)
-      continue
-    }
+  for (const entry of entries) {
+    if (!entry.isFile() || !isRecordingSoundFile(entry.name)) continue
 
-    for (const entry of entries) {
-      const path = join(current.dir, entry.name)
-      const relativePath = current.relativeDir
-        ? join(current.relativeDir, entry.name)
-        : entry.name
+    const path = join(root, entry.name)
+    const key = path.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    found.push({
+      path,
+      name: entry.name,
+    })
 
-      if (entry.isDirectory()) {
-        if (
-          current.depth < RECORDING_SOUND_CRAWL_MAX_DEPTH &&
-          !entry.name.startsWith(".")
-        ) {
-          stack.push({
-            dir: path,
-            relativeDir: relativePath,
-            depth: current.depth + 1,
-          })
-        }
-        continue
-      }
-
-      if (!entry.isFile() || !isRecordingSoundFile(entry.name)) continue
-
-      const key = path.toLowerCase()
-      if (seen.has(key)) continue
-      seen.add(key)
-      found.push({
-        path,
-        name: relativePath.replaceAll("\\", "/"),
-      })
-
-      if (found.length >= RECORDING_SOUND_CRAWL_MAX_FILES) break
-    }
+    if (found.length >= RECORDING_SOUND_CRAWL_MAX_FILES) break
   }
 
   if (found.length >= RECORDING_SOUND_CRAWL_MAX_FILES) {
@@ -354,14 +327,8 @@ function soundFileRank(
     (score, term) => score + (name.includes(term) ? 8 : 0),
     0,
   )
-  const eventFolderScore = isPathInside(
-    notificationSoundsDir(sound),
-    option.path,
-  )
-    ? 40
-    : 0
 
-  return defaultScore + eventFolderScore + termScore
+  return defaultScore + termScore
 }
 
 function fileName(path: string): string {
@@ -373,14 +340,6 @@ function normalizedSoundSearchText(value: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
-}
-
-function isPathInside(parent: string, child: string): boolean {
-  const childRelativePath = relative(parent, child)
-  return (
-    childRelativePath === "" ||
-    (!childRelativePath.startsWith("..") && !isAbsolute(childRelativePath))
-  )
 }
 
 function recordingAssetsDir(): string {
