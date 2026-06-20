@@ -1,6 +1,7 @@
 import * as React from "react"
 
 import type { PublishPayload } from "./new-clip-helpers"
+import type { QueueItem } from "./upload-queue"
 
 export interface PublishClipResult {
   /** Server clip id, or null when the upload was cancelled. */
@@ -16,6 +17,13 @@ export interface UploadFlowControls {
   setQueueOpen: React.Dispatch<React.SetStateAction<boolean>>
   activeCount: number
   setActiveCount: React.Dispatch<React.SetStateAction<number>>
+  queue: QueueItem[]
+  setQueueState: (state: UploadQueueState | null) => void
+  clearCompleted: () => void
+  syncPaused: boolean | null
+  onToggleSyncPause?: () => void
+  isQueueLoading: boolean
+  isQueueUnavailable: boolean
   /** Stable delegate to the currently registered upload runner. */
   publishClip: PublishClipFn
   /**
@@ -24,6 +32,15 @@ export interface UploadFlowControls {
    * cascade renders through the provider.
    */
   setPublishClip: (fn: PublishClipFn | null) => void
+}
+
+export interface UploadQueueState {
+  queue: QueueItem[]
+  clearCompleted: () => void
+  syncPaused: boolean | null
+  onToggleSyncPause?: () => void
+  isQueueLoading: boolean
+  isQueueUnavailable: boolean
 }
 
 export const UploadFlowContext = React.createContext<UploadFlowControls | null>(

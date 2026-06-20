@@ -13,10 +13,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "(unsupported)": "(nicht unterstützt)",
   "{available} free of {total}": "{available} von {total} frei",
   "{count} {label}": "{count} {label}",
-  "{count} file couldn't be uploaded.":
-    "{count} Datei konnte nicht hochgeladen werden.",
-  "{count} files couldn't be uploaded.":
-    "{count} Dateien konnten nicht hochgeladen werden.",
+  "{count} file couldn't be imported.":
+    "{count} Datei konnte nicht importiert werden.",
+  "{count} files couldn't be imported.":
+    "{count} Dateien konnten nicht importiert werden.",
   "{count} selected": "{count} ausgewählt",
   "{fallback}: {message}": "{fallback}: {message}",
   "{fileName}: {error}": "{fileName}: {error}",
@@ -45,8 +45,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add a comment…": "Kommentar hinzufügen…",
   "Add a description…": "Beschreibung hinzufügen…",
   "Add a passkey": "Passkey hinzufügen",
-  "Add a title to upload this clip.":
-    "Gib einen Titel ein, um diesen Clip hochzuladen.",
+  "Add a title to import this clip.":
+    "Gib einen Titel ein, um diesen Clip zu importieren.",
   "Add banner": "Banner hinzufügen",
   "Add clips from the library to start editing":
     "Füge Clips aus der Bibliothek hinzu, um mit dem Bearbeiten zu beginnen",
@@ -136,8 +136,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Capture storage": "Aufnahmespeicher",
   "Capture updated": "Aufnahme aktualisiert",
   "Capture with Alloy": "Mit Alloy aufnehmen",
-  "Captures and uploads will appear here.":
-    "Aufnahmen und Uploads erscheinen hier.",
+  "Captures and clips will appear here.":
+    "Aufnahmen und Clips erscheinen hier.",
   "Captures without a selected game": "Aufnahmen ohne ausgewähltes Spiel",
   Change: "Ändern",
   "Check back in a bit or upload your own.":
@@ -169,7 +169,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Clip vom Server gelöscht, aber die lokale Kopie konnte nicht entfernt werden",
   "Clip deleted from server, but the local sync link couldn't be cleared":
     "Clip vom Server gelöscht, aber der lokale Sync-Link konnte nicht gelöscht werden",
-  "Clip uploaded to your library": "Clip in deine Bibliothek hochgeladen",
+  "Clip imported to your library": "Clip in deine Bibliothek importiert",
   "Clip link disabled": "Clip-Link deaktiviert",
   "Clip link is disabled": "Clip-Link ist deaktiviert",
   "Clip not found": "Clip nicht gefunden",
@@ -219,7 +219,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not encode thumbnail": "Vorschaubild konnte nicht kodiert werden",
   "Could not fetch poster image ({status})":
     "Posterbild konnte nicht abgerufen werden ({status})",
-  "Could not upload clip.": "Clip konnte nicht hochgeladen werden.",
+  "Could not import clip.": "Clip konnte nicht importiert werden.",
   "Could not load video frame for thumbnail capture":
     "Videobild für die Vorschau konnte nicht geladen werden",
   "Could not load video metadata for thumbnail capture":
@@ -318,6 +318,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "create an account": "ein Konto erstellen",
   "Create Link": "Link erstellen",
   "Create one": "Konto erstellen",
+  "Create project": "Projekt erstellen",
   "Create the admin account": "Admin-Konto erstellen",
   "Create your account": "Konto erstellen",
   "Creating link...": "Link wird erstellt...",
@@ -475,8 +476,12 @@ export const DE_MESSAGES: Record<string, string> = {
   Home: "Start",
   Hotkeys: "Hotkeys",
   "image/jpeg": "image/jpeg",
+  "Import clip": "Clip importieren",
   "Import clips": "Clips importieren",
+  "Import is unavailable in this desktop build":
+    "Import ist in diesem Desktop-Build nicht verfügbar",
   "Import failed.": "Import fehlgeschlagen.",
+  "Importing...": "Wird importiert...",
   Input: "Eingabe",
   "Invalid quota": "Ungültiges Kontingent",
   "It may have been deleted, or you may not have access to it.":
@@ -657,8 +662,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Entfernt dauerhaft jeden Clip, den du hochgeladen hast. Das kann nicht rückgängig gemacht werden.",
   "Permanently removes your account and clips. Can't be undone.":
     "Entfernt dein Konto und deine Clips dauerhaft. Kann nicht rückgängig gemacht werden.",
-  "Pick a game to upload this clip.":
-    "Wähle ein Spiel, um diesen Clip hochzuladen.",
+  "Pick a game to import this clip.":
+    "Wähle ein Spiel, um diesen Clip zu importieren.",
   Pin: "Anpinnen",
   "Pinned by author": "Vom Autor angepinnt",
   Play: "Abspielen",
@@ -969,7 +974,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Cancel download of {title}": "Download von {title} abbrechen",
   "Cancel upload of {title}": "Upload von {title} abbrechen",
   "Clear completed": "Abgeschlossene löschen",
-  "Close transfer status": "Transferstatus schließen",
   "Copy link to {title}": "Link zu {title} kopieren",
   "Dismiss {title} from queue": "{title} aus der Warteschlange ausblenden",
   Downloads: "Downloads",
@@ -996,13 +1000,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Transfers: "Transfers",
   "Transfers ({count})": "Transfers ({count})",
   Upload: "Upload",
-  "Upload clip": "Clip hochladen",
-  "Uploading...": "Wird hochgeladen...",
   "Uploads and downloads will show up here.":
     "Uploads und Downloads erscheinen hier.",
-  "View transfer activity": "Transferaktivität anzeigen",
-  "View transfer activity - {count} in progress":
-    "Transferaktivität anzeigen - {count} läuft",
   empty: "leer",
   item: "Element",
   items: "Elemente",

@@ -7,7 +7,7 @@ import { useFilmstripCellCount } from "@/lib/media-filmstrip"
 import { formatTrimMs } from "@/lib/media-time"
 
 /**
- * Simple single-range trimmer for the upload screen: a filmstrip of the
+ * Simple single-range trimmer for the publish screen: a filmstrip of the
  * whole capture with one kept range styled like a selected clip block.
  * Dragging the block slides the trim window; dragging either edge resizes it.
  * Material outside the range stays visible but dimmed, clicking or dragging

@@ -1,6 +1,7 @@
 import type { ClipRow } from "@alloy/api"
 import { t as tx } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
+import { Button } from "@alloy/ui/components/button"
 import {
   Empty,
   EmptyDescription,
@@ -11,16 +12,20 @@ import {
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import {
   BanIcon,
+  ClapperboardIcon,
   CloudCheckIcon,
   CloudIcon,
   FunnelIcon,
   GlobeIcon,
   HardDriveIcon,
   LibraryIcon,
+  ListChecksIcon,
+  Loader2Icon,
   MonitorIcon,
+  UploadIcon,
 } from "lucide-react"
 import * as React from "react"
 
@@ -32,6 +37,8 @@ import {
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
 import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { useAppSearch } from "@/components/search/app-search"
+import { UploadQueueContent } from "@/components/upload/upload-queue"
+import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import {
@@ -62,6 +69,11 @@ import {
   ProjectDraftCard,
   UploadedClipCard,
 } from "./library-entry-cards"
+import {
+  ImportClipDetailsDialog,
+  type LibraryImportAction,
+  useLibraryImportAction,
+} from "./library-import-action"
 
 export function LibraryPage() {
   return <LibraryContent desktop={alloyDesktop()} />
@@ -73,6 +85,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const { deferredQuery } = useAppSearch()
   const [groupKey, setGroupKey] = React.useState<string | null>(null)
   const [status, setStatus] = React.useState<LibraryStatusFilter>("all")
+  const importAction = useLibraryImportAction(desktop)
   const model = useLibraryContentModel({
     desktop,
     kind: "all",
@@ -84,14 +97,20 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     () =>
       createHeaderToolbarControls({
         desktop: (
-          <LibraryToolbar
-            groups={model.groups}
-            groupKey={groupKey}
-            status={status}
-            statusCounts={model.statusCounts}
-            onGroupChange={setGroupKey}
-            onStatusChange={setStatus}
-          />
+          <>
+            <LibraryDesktopActions
+              desktop={desktop}
+              importAction={importAction}
+            />
+            <LibraryToolbar
+              groups={model.groups}
+              groupKey={groupKey}
+              status={status}
+              statusCounts={model.statusCounts}
+              onGroupChange={setGroupKey}
+              onStatusChange={setStatus}
+            />
+          </>
         ),
         mobile: (
           <LibraryToolbar
@@ -105,7 +124,17 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           />
         ),
       }),
-    [model.groups, model.statusCounts, groupKey, status],
+    [
+      desktop,
+      importAction.available,
+      importAction.committing,
+      importAction.picking,
+      importAction.start,
+      model.groups,
+      model.statusCounts,
+      groupKey,
+      status,
+    ],
   )
   useHeaderToolbar(toolbar)
   const warmCloudClip = React.useCallback(
@@ -116,6 +145,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   return (
     <AppMain>
       <section className="flex w-full flex-col gap-6">
+        <LibraryTransferStatus desktop={desktop} />
         <LibraryBody
           entries={model.entries}
           loading={model.loading}
@@ -143,8 +173,108 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
             })
           }}
         />
+        <ImportClipDetailsDialog action={importAction} />
       </section>
     </AppMain>
+  )
+}
+
+function LibraryDesktopActions({
+  desktop,
+  importAction,
+}: {
+  desktop: AlloyDesktop | null
+  importAction: LibraryImportAction
+}) {
+  if (!desktop) return null
+
+  return (
+    <>
+      <LibraryTransferToggle />
+      <Button variant="secondary" size="sm" render={<Link to="/editor" />}>
+        <ClapperboardIcon />
+        {tx("Create project")}
+      </Button>
+      <Button
+        type="button"
+        variant="primary"
+        size="sm"
+        disabled={
+          !importAction.available ||
+          importAction.picking ||
+          importAction.committing
+        }
+        title={
+          importAction.available
+            ? tx("Import clip")
+            : tx("Import is unavailable in this desktop build")
+        }
+        onClick={() => {
+          void importAction.start()
+        }}
+      >
+        {importAction.picking ? (
+          <Loader2Icon className="animate-spin" />
+        ) : (
+          <UploadIcon />
+        )}
+        {importAction.picking ? tx("Opening...") : tx("Import clip")}
+      </Button>
+    </>
+  )
+}
+
+function LibraryTransferToggle() {
+  const { queue, activeCount, queueOpen, setQueueOpen } =
+    useUploadFlowControls()
+
+  if (queue.length === 0 && activeCount === 0 && !queueOpen) return null
+
+  return (
+    <Button
+      type="button"
+      variant="secondary"
+      size="sm"
+      aria-pressed={queueOpen}
+      onClick={() => setQueueOpen((open) => !open)}
+    >
+      {activeCount > 0 ? (
+        <Loader2Icon className="animate-spin" />
+      ) : (
+        <ListChecksIcon />
+      )}
+      {activeCount > 0
+        ? tx("Transfers ({count})", { count: activeCount })
+        : tx("Transfers")}
+    </Button>
+  )
+}
+
+function LibraryTransferStatus({ desktop }: { desktop: AlloyDesktop | null }) {
+  const {
+    queueOpen,
+    queue,
+    activeCount,
+    clearCompleted,
+    syncPaused,
+    onToggleSyncPause,
+    isQueueLoading,
+    isQueueUnavailable,
+  } = useUploadFlowControls()
+
+  if (!desktop || (!queueOpen && activeCount === 0)) return null
+
+  return (
+    <div className="border-border bg-surface/70 w-full max-w-[32rem] rounded-md border p-3">
+      <UploadQueueContent
+        queue={queue}
+        isLoading={isQueueLoading}
+        isUnavailable={isQueueUnavailable}
+        syncPaused={syncPaused}
+        onToggleSyncPause={onToggleSyncPause}
+        onClearCompleted={clearCompleted}
+      />
+    </div>
   )
 }
 
@@ -347,7 +477,7 @@ function LibraryBody({
         <LibraryEmpty
           icon={<LibraryIcon />}
           title={tx("Your library is empty")}
-          description={tx("Captures and uploads will appear here.")}
+          description={tx("Captures and clips will appear here.")}
         />
       )
     }

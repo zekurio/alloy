@@ -65,9 +65,9 @@ import { LibraryTrimBar } from "./library-trim-bar"
 import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 
 /**
- * Medal-style upload screen: the capture fills the space on the left with a
+ * Medal-style publish screen: the capture fills the space on the left with a
  * simple single-range trimmer underneath, and the metadata sheet sits on the
- * right with the upload/delete actions pinned to its bottom. Anything beyond
+ * right with the post/delete actions pinned to its bottom. Anything beyond
  * a straight trim happens in the full editor ("Open in Editor").
  */
 export function EditorBody({

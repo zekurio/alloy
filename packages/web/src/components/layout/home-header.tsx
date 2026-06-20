@@ -61,10 +61,11 @@ export function HomeHeader() {
           setQuery(event.target.value)
         }}
         onClear={() => {
+          const hadInputFocus = document.activeElement === inputRef.current
           clear()
           // Keep focus so the user can keep typing without reaching
           // for the mouse after hitting the clear button.
-          inputRef.current?.focus()
+          if (hadInputFocus) inputRef.current?.focus()
         }}
       >
         <SearchResultsPopover />

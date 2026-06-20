@@ -11,7 +11,6 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CircleAlertIcon,
-  CloudUploadIcon,
   CopyIcon,
   ExternalLinkIcon,
   FolderOpenIcon,
@@ -64,22 +63,12 @@ export interface QueueItem {
   onDismiss?: () => void
 }
 
-export interface UploadQueueAction {
-  /** Button copy — "Upload" idle, swapped for a busy label while picking. */
-  label: string
-  busy?: boolean
-  disabled?: boolean
-  onClick?: () => void
-}
-
 interface UploadQueueContentProps {
   queue: Array<QueueItem>
   /** True until the initial server queue snapshot has populated the cache. */
   isLoading?: boolean
   /** True when the initial server queue stream could not hydrate the cache. */
   isUnavailable?: boolean
-  /** Primary import/upload entry surfaced inside the queue modal. */
-  action?: UploadQueueAction | null
   /** Whether upload activity is paused; null hides the control. */
   syncPaused?: boolean | null
   /** Pauses/resumes upload activity. */
@@ -95,7 +84,6 @@ export function UploadQueueContent({
   queue,
   isLoading = false,
   isUnavailable = false,
-  action = null,
   syncPaused = null,
   onToggleSyncPause,
   onClearCompleted,
@@ -229,8 +217,8 @@ export function UploadQueueContent({
         </div>
       ) : null}
 
-      <div className="border-border grid auto-cols-fr grid-flow-col items-center gap-2 border-t pt-2">
-        {completedCount > 0 && onClearCompleted ? (
+      {completedCount > 0 && onClearCompleted ? (
+        <div className="border-border border-t pt-2">
           <Button
             variant="ghost"
             size="sm"
@@ -239,25 +227,8 @@ export function UploadQueueContent({
           >
             {tx("Clear all")}
           </Button>
-        ) : null}
-        {action ? (
-          <Button
-            type="button"
-            variant="primary"
-            size="sm"
-            disabled={action.disabled || action.busy}
-            onClick={action.onClick}
-            className="w-full"
-          >
-            {action.busy ? (
-              <Loader2Icon className="animate-spin" />
-            ) : (
-              <CloudUploadIcon />
-            )}
-            {action.busy ? tx("Opening...") : action.label}
-          </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </div>
   )
 }

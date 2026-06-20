@@ -9,7 +9,6 @@ import { Link } from "@tanstack/react-router"
 import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
 import * as React from "react"
 
-import { CreateMenu } from "./create-menu"
 import { DesktopRecordingStatus } from "./desktop-recording-status"
 import { DesktopUpdatePill } from "./desktop-update-pill"
 import { useNavFlags } from "./use-nav-flags"
@@ -36,9 +35,6 @@ function HomeSidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           neutralizes the footer's own mt-auto. */}
       <div className="mt-auto">
         <DesktopRecordingStatus placement="sidebar" />
-        <div className="px-1.5 pt-2 pb-2">
-          <CreateMenu placement="sidebar" />
-        </div>
         <AppSidebarFooter>
           <SidebarFooter />
         </AppSidebarFooter>

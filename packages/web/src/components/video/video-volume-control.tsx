@@ -20,7 +20,7 @@ export function VolumeControl({
   onToggleMute: () => void
   onVolumeChange: (next: number) => void
   showSlider?: boolean
-  /** Extra classes on the outer wrapper — useful when the control is placed in an external toolbar row (e.g. the upload trim controls). */
+  /** Extra classes on the outer wrapper — useful when the control is placed in an external toolbar row. */
   className?: string
   /** Override the icon button styling (size, colors). */
   iconClassName?: string
