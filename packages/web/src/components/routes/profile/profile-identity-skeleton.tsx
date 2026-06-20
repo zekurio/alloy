@@ -12,7 +12,7 @@ export function ProfileIdentitySkeleton() {
       />
 
       {/* Profile info bar skeleton */}
-      <div className="px-4 pb-3 sm:pb-4 md:px-8">
+      <div className="px-4 pb-3 sm:pb-4 md:px-6">
         <div className="flex items-start gap-3 sm:gap-4">
           {/* Avatar skeleton */}
           <Skeleton

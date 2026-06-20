@@ -68,7 +68,7 @@ export function ProfileIdentity({
       </section>
 
       {/* Profile info bar */}
-      <div className="px-4 pb-3 sm:pb-4 md:px-8">
+      <div className="px-4 pb-3 sm:pb-4 md:px-6">
         <div className="flex items-end gap-3 sm:gap-4">
           {/* Avatar — overlaps the banner above */}
           <Avatar

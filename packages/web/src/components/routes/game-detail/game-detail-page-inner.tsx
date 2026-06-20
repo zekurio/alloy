@@ -93,7 +93,7 @@ export function GameDetailPageInner({
         ) : (
           <>
             <GameHeader game={game} />
-            <div className="flex flex-col gap-4 px-4 pb-4 md:px-8 md:pb-6">
+            <div className="flex flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6">
               <FeedSection
                 filter={{ kind: "game", steamgriddbId: game.steamgriddbId }}
                 sort={sort}
