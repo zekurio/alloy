@@ -124,9 +124,15 @@ export function LoginBackdrop({
     let cancelled = false
     void api.authConfig
       .fetchBackdrops()
-      .then(({ clipIds }) => {
+      .then(({ clips, clipIds }) => {
         if (cancelled) return
-        setUrls(clipIds.map((id) => clipThumbnailUrl(id, apiOrigin())))
+        const nextUrls =
+          clips.length > 0
+            ? clips.map((clip) =>
+                clipThumbnailUrl(clip.id, apiOrigin(), clip.thumbVersion),
+              )
+            : clipIds.map((id) => clipThumbnailUrl(id, apiOrigin()))
+        setUrls(nextUrls)
       })
       .catch(() => {
         if (!cancelled) setUrls([])

@@ -1,20 +1,18 @@
 import { readFile } from "node:fs/promises"
 
+import { blurHashComponents } from "@alloy/contracts/blurhash"
 import { encode } from "blurhash"
 import sharp from "sharp"
 
 const MAX_SAMPLE_DIMENSION = 128
+const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 10000
+const REMOTE_IMAGE_MAX_BYTES = 10 * 1024 * 1024
 
 type ImageInput = {
   /** Local file path or http(s) URL. */
   source: string
   label?: string
   signal?: AbortSignal
-}
-
-type ImageDimensions = {
-  width: number
-  height: number
 }
 
 export async function imageBlurHash({
@@ -38,7 +36,7 @@ export async function imageBlurHash({
   throwIfAborted(signal)
 
   const sample = { width: info.width, height: info.height }
-  const { x, y } = blurHashComponents(sample)
+  const { x, y } = blurHashComponents(sample.width, sample.height)
   return encode(
     new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength),
     sample.width,
@@ -54,29 +52,64 @@ async function loadImageBytes(
   signal: AbortSignal | undefined,
 ): Promise<Buffer> {
   if (/^https?:\/\//i.test(source)) {
-    const response = await fetch(source, { signal })
+    const response = await fetch(source, {
+      signal: boundedRemoteSignal(signal),
+    })
     if (!response.ok) {
       throw new Error(`${label}: fetch failed with status ${response.status}`)
     }
-    return Buffer.from(await response.arrayBuffer())
+    const contentType = response.headers.get("content-type") ?? ""
+    if (!contentType.toLowerCase().startsWith("image/")) {
+      throw new Error(`${label}: expected image content type`)
+    }
+    const contentLength = response.headers.get("content-length")
+    if (
+      contentLength !== null &&
+      Number(contentLength) > REMOTE_IMAGE_MAX_BYTES
+    ) {
+      throw new Error(`${label}: image exceeds byte limit`)
+    }
+    return Buffer.from(await readBoundedRemoteBody(response, label))
   }
   return readFile(source)
 }
 
-function blurHashComponents({ width, height }: ImageDimensions): {
-  x: number
-  y: number
-} {
-  const xCompF = Math.sqrt((16 * width) / height)
-  const yCompF = (xCompF * height) / width
-  return {
-    x: clampComponent(Math.floor(xCompF) + 1),
-    y: clampComponent(Math.floor(yCompF) + 1),
+async function readBoundedRemoteBody(
+  response: Response,
+  label: string,
+): Promise<ArrayBuffer> {
+  const reader = response.body?.getReader()
+  if (!reader) return response.arrayBuffer()
+
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > REMOTE_IMAGE_MAX_BYTES) {
+        throw new Error(`${label}: image exceeds byte limit`)
+      }
+      chunks.push(value)
+    }
+  } catch (err) {
+    await reader.cancel().catch(() => undefined)
+    throw err
   }
+
+  const bytes = new Uint8Array(total)
+  let offset = 0
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset)
+    offset += chunk.byteLength
+  }
+  return bytes.buffer
 }
 
-function clampComponent(value: number): number {
-  return Math.max(1, Math.min(9, value))
+function boundedRemoteSignal(signal: AbortSignal | undefined): AbortSignal {
+  const timeout = AbortSignal.timeout(REMOTE_IMAGE_FETCH_TIMEOUT_MS)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {

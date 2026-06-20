@@ -19,7 +19,7 @@ import {
 } from "@alloy/contracts"
 
 import { validateUserSummary } from "./people"
-import { validateGameRowFields } from "./shared"
+import { validateGameRowFields, validateNullableBlurHash } from "./shared"
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 function assertNoStorageKey(value: Record<string, unknown>, label: string) {
@@ -125,8 +125,12 @@ function validateClipTimestamps(row: Record<string, unknown>) {
     "Invalid clip response: thumbKey must be string or null",
   )
   validateNullableString(
+    row.thumbVersion,
+    "Invalid clip response: thumbVersion must be string or null",
+  )
+  validateNullableBlurHash(
     row.thumbBlurHash,
-    "Invalid clip response: thumbBlurHash must be string or null",
+    "Invalid clip response: thumbBlurHash",
   )
 }
 

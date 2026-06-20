@@ -271,7 +271,11 @@ export function projectDraftThumbnail(
   const row = uploaded.find((entry) => entry.id === sourceId)
   if (row?.thumbKey) {
     return {
-      thumbnailUrl: clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt),
+      thumbnailUrl: clipThumbnailUrl(
+        row.id,
+        apiOrigin(),
+        row.thumbVersion ?? undefined,
+      ),
       thumbBlurHash: row.thumbBlurHash,
     }
   }

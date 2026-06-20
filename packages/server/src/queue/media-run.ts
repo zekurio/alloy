@@ -1,6 +1,6 @@
 import { rm, stat } from "node:fs/promises"
 
-import type { AcceptedContentType } from "@alloy/contracts"
+import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import {
   ensureDirectHlsPackage,
@@ -198,9 +198,9 @@ async function runPipelineInWorkDir({
   completeWork()
 
   await ensureStillPresent(store, id, runId, signal)
-  // The desktop client is the only producer of posters: it ships a rendered
-  // webp plus a BlurHash at initiate. The server never extracts frames — when
-  // no poster was uploaded (an owner trim reprocess), the existing one is kept.
+  // Clients are the only producers of posters: they ship a rendered image plus
+  // a BlurHash at initiate. The server never extracts frames; it only validates
+  // and publishes the uploaded poster artifact.
   const { thumbKey, thumbBlurHash } = await republishUploadedThumbnail(
     store,
     id,
@@ -291,7 +291,7 @@ async function republishUploadedThumbnail(
         logger.warn(
           `rejected oversized staged poster for ${id}: ${stagedThumb.size} bytes`,
         )
-        return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
+        return publishedThumbnail(row)
       }
 
       const buf = Buffer.from(
@@ -299,16 +299,27 @@ async function republishUploadedThumbnail(
       )
       const webp = await normalizeStagedPosterToWebp(buf, id)
       if (!webp) {
-        return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
+        return publishedThumbnail(row)
       }
 
       const thumbKey = runScopedThumbKey(id, runId)
       await clipStorage.put(thumbKey, webp, "image/webp")
       uploadedKeys.push(thumbKey)
-      return { thumbKey, thumbBlurHash: row.thumbBlurHash }
+      return { thumbKey, thumbBlurHash: normalizeBlurHash(row.thumbBlurHash) }
     }
+    return publishedThumbnail(row)
   }
-  return { thumbKey: row.thumbKey, thumbBlurHash: row.thumbBlurHash }
+  return publishedThumbnail(row)
+}
+
+function publishedThumbnail(
+  row: Pick<MediaRow, "thumbKey" | "thumbBlurHash">,
+): { thumbKey: string | null; thumbBlurHash: string | null } {
+  if (!row.thumbKey) return { thumbKey: null, thumbBlurHash: null }
+  return {
+    thumbKey: row.thumbKey,
+    thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
+  }
 }
 
 /**

@@ -10,6 +10,7 @@ import {
   validatePositiveInteger,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
+import { isBlurHash } from "@alloy/contracts/blurhash"
 
 export function validateAuthProviderColors(
   provider: Record<string, unknown>,
@@ -67,10 +68,14 @@ export function validateGameRowFields(
     )
   }
   for (const key of ["heroBlurHash", "gridBlurHash"] as const) {
-    validateNullableString(
-      row[key],
-      `Invalid ${label} response: ${key} must be string or null`,
-    )
+    validateNullableBlurHash(row[key], `Invalid ${label} response: ${key}`)
+  }
+}
+
+export function validateNullableBlurHash(value: unknown, label: string): void {
+  validateNullableString(value, `${label} must be string or null`)
+  if (value !== null && !isBlurHash(value)) {
+    throw new Error(`${label} must be a valid BlurHash`)
   }
 }
 

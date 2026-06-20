@@ -242,11 +242,17 @@ export interface PublicLoginSplashConfig {
 
 /**
  * Response of `GET /api/auth-config/backdrops`: a freshly-randomized set of
- * public clip IDs the login page rotates through as full-screen backdrops. The
- * client builds thumbnail URLs from these IDs (`/api/clips/:id/thumbnail`).
+ * public clips the login page rotates through as full-screen backdrops. `clipIds`
+ * is kept for older clients; `clips` carries the thumbnail cache version.
  */
+export interface LoginBackdropClip {
+  id: string
+  thumbVersion: string
+}
+
 export interface LoginBackdropsResponse {
   clipIds: string[]
+  clips: LoginBackdropClip[]
 }
 
 export const AppearanceConfigSchema = z.looseObject({

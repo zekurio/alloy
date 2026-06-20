@@ -76,7 +76,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     comments: formatCount(row.commentCount),
     postedAt: formatRelativeTime(row.createdAt, now),
     thumbnail: row.thumbKey
-      ? clipThumbnailUrl(row.id, apiOrigin(), row.updatedAt)
+      ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
       : undefined,
     thumbnailBlurHash: row.thumbBlurHash,
     fallbackSeed: row.steamgriddbId ?? row.id,

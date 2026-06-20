@@ -5,6 +5,7 @@ import {
   CLIP_TAG_MAX_LENGTH,
   CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
+  isBlurHash,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
@@ -192,9 +193,6 @@ export function clipListPage<T extends ClipListPageRow>(
   }
 }
 
-// BlurHash strings are base83: 6..~100 chars depending on component count.
-const BLURHASH_PATTERN = /^[0-9A-Za-z#$%*+,\-.:;=?@[\]^_{|}~]{6,120}$/
-
 // Raw tag input is sanitized/deduped/capped server-side via `normalizeTags`;
 // this only bounds the request so an enormous array can't be sent. Each entry
 // allows the leading `#` plus a little slack before sanitizing trims it.
@@ -214,7 +212,7 @@ export const InitiateBody = z.object({
   privacy: z.enum(CLIP_PRIVACY).default("public"),
   mentionedUserIds: z.array(z.uuid()).optional(),
   tags: TagsInput,
-  thumbBlurHash: z.string().regex(BLURHASH_PATTERN).optional(),
+  thumbBlurHash: z.string().refine(isBlurHash, "Invalid BlurHash").optional(),
   thumbContentType: z.enum(ACCEPTED_THUMB_CONTENT_TYPES).default("image/webp"),
 })
 

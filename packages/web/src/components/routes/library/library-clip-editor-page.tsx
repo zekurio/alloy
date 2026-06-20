@@ -116,7 +116,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   const streamSrc = `${clipStreamUrl(row.id, "source", apiOrigin())}&v=${encodeURIComponent(mediaVersion)}`
   const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
   const poster = row.thumbKey
-    ? clipThumbnailUrl(row.id, apiOrigin(), mediaVersion)
+    ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : undefined
   const aspectRatio = mediaAspectRatio(row.width, row.height)
   const handoffPoster = React.useMemo<LibraryHandoffPoster>(

@@ -232,6 +232,12 @@ async function computeGameAssetBlurHash(
   url: string | null,
 ): Promise<string | null> {
   if (!url) return null
+  if (!isSteamGridDBAssetUrl(url)) {
+    logger.warn(
+      `rejected ${label} blurhash URL for ${steamgriddbId}: unexpected origin`,
+    )
+    return null
+  }
   try {
     return await imageBlurHash({
       source: url,
@@ -243,5 +249,17 @@ async function computeGameAssetBlurHash(
       err,
     )
     return null
+  }
+}
+
+function isSteamGridDBAssetUrl(value: string): boolean {
+  try {
+    const { protocol, hostname } = new URL(value)
+    return (
+      protocol === "https:" &&
+      (hostname === "steamgriddb.com" || hostname.endsWith(".steamgriddb.com"))
+    )
+  } catch {
+    return false
   }
 }

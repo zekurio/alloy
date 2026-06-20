@@ -7,6 +7,7 @@ import type {
 
 import {
   captureThumbnail,
+  type CapturedThumbnail,
   prepareSelectedClipFile,
   thumbnailFromImageUrl,
 } from "@/components/upload/new-clip-helpers"
@@ -70,15 +71,16 @@ export async function exportAndPublishCapture({
   })
   const selected = await prepareSelectedClipFile(file)
   const posterAtMs = Math.min(1000, Math.max(0, selected.durationMs - 100))
-  const thumbBlob = await capturePosterBlob(
+  const thumbnail = await capturePoster(
     exported.thumbUrl,
     selected.file,
     posterAtMs,
   )
   const thumbBlurHash =
+    thumbnail.blurHash ??
     exported.thumbBlurHash ??
     item.thumbBlurHash ??
-    (await hashPosterBlob(desktop, thumbBlob))
+    (await hashPosterBlob(desktop, thumbnail.blob))
 
   return publishClip({
     file: selected.file,
@@ -92,7 +94,7 @@ export async function exportAndPublishCapture({
     height: selected.height,
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
-    thumbBlob,
+    thumbBlob: thumbnail.blob,
     thumbBlurHash,
     mentionedUserIds: mentions.map((mention) => mention.id),
     localCaptureId: item.id,
@@ -103,11 +105,11 @@ export async function exportAndPublishCapture({
  * Prefers the library poster when one is available; otherwise samples the
  * selected video file near the publish point.
  */
-async function capturePosterBlob(
+async function capturePoster(
   thumbUrl: string | null,
   file: File,
   posterAtMs: number,
-): Promise<Blob> {
+): Promise<CapturedThumbnail> {
   if (thumbUrl) {
     try {
       return await thumbnailFromImageUrl(thumbUrl)

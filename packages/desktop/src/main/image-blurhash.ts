@@ -1,3 +1,4 @@
+import { blurHashComponents } from "@alloy/contracts/blurhash"
 import { createLogger } from "@alloy/logging"
 import { encode } from "blurhash"
 import { nativeImage } from "electron"
@@ -68,20 +69,4 @@ function nativeImageBlurHash(image: Electron.NativeImage): string | null {
 
   const { x, y } = blurHashComponents(width, height)
   return encode(pixels, width, height, x, y)
-}
-
-function blurHashComponents(
-  width: number,
-  height: number,
-): { x: number; y: number } {
-  const xCompF = Math.sqrt((16 * width) / height)
-  const yCompF = (xCompF * height) / width
-  return {
-    x: clampComponent(Math.floor(xCompF) + 1),
-    y: clampComponent(Math.floor(yCompF) + 1),
-  }
-}
-
-function clampComponent(value: number): number {
-  return Math.max(1, Math.min(9, value))
 }

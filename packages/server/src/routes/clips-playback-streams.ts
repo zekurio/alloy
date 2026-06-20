@@ -5,7 +5,7 @@ import { clipStorage } from "@alloy/server/storage/index"
 import { type Context } from "hono"
 import { stream } from "hono/streaming"
 
-import { parseRange, readAll } from "./clips-helpers"
+import { parseRange } from "./clips-helpers"
 
 type ResolvedStorageObject = NonNullable<
   Awaited<ReturnType<typeof clipStorage.resolve>>
@@ -64,11 +64,7 @@ export async function streamThumbnail(
   c.header("Cache-Control", cacheControl)
   if (c.req.method === "HEAD") return c.body(null)
 
-  const buf = await readAll(resolved.stream())
-  return c.body(
-    buf.buffer.slice(
-      buf.byteOffset,
-      buf.byteOffset + buf.byteLength,
-    ) as ArrayBuffer,
-  )
+  return stream(c, async (s) => {
+    await pipeReadable(s, resolved.stream())
+  })
 }

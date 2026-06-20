@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
+import { isBlurHash } from "@alloy/contracts/blurhash"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
@@ -23,17 +24,23 @@ const MAX_ENTRIES = 2000
 let cache: ThumbnailMetaFile | null = null
 
 export function getThumbnailBlurHash(signature: string): string | null {
-  return readMeta().blurHashes[signature] ?? null
+  const hash = readMeta().blurHashes[signature]
+  return isBlurHash(hash) ? hash : null
 }
 
 export function getThumbnailBlurHashes(): Record<string, string> {
-  return { ...readMeta().blurHashes }
+  return Object.fromEntries(
+    Object.entries(readMeta().blurHashes).filter(([, hash]) =>
+      isBlurHash(hash),
+    ),
+  )
 }
 
 export function rememberThumbnailBlurHash(
   signature: string,
   blurHash: string,
 ): void {
+  if (!isBlurHash(blurHash)) return
   const meta = readMeta()
   if (meta.blurHashes[signature] === blurHash) return
   meta.blurHashes[signature] = blurHash
@@ -109,7 +116,5 @@ function isThumbnailMetaFile(value: unknown): value is ThumbnailMetaFile {
   if (typeof meta.blurHashes !== "object" || meta.blurHashes === null) {
     return false
   }
-  return Object.values(meta.blurHashes).every(
-    (hash) => typeof hash === "string",
-  )
+  return Object.values(meta.blurHashes).every(isBlurHash)
 }

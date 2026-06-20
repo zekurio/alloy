@@ -7,12 +7,13 @@ type DecodedBlurHash = {
   height: number
 }
 
-type WorkerResponse = DecodedBlurHash & {
-  id: number
-}
+type WorkerResponse =
+  | (DecodedBlurHash & { id: number; error?: undefined })
+  | { id: number; error: string }
 
 const DEFAULT_DECODE_WIDTH = 20
 const DEFAULT_DECODE_HEIGHT = 20
+const MAX_CACHE_ENTRIES = 256
 
 let worker: Worker | null = null
 let nextRequestId = 1
@@ -29,6 +30,14 @@ function cacheKey(hash: string, width: number, height: number): string {
   return `${hash}:${width}x${height}`
 }
 
+function rememberDecoded(key: string, decoded: DecodedBlurHash): void {
+  if (cache.has(key)) cache.delete(key)
+  cache.set(key, decoded)
+  if (cache.size <= MAX_CACHE_ENTRIES) return
+  const oldest = cache.keys().next().value
+  if (oldest !== undefined) cache.delete(oldest)
+}
+
 function blurHashWorker(): Worker {
   if (worker) return worker
   worker = new Worker(new URL("../lib/blurhash-worker.ts", import.meta.url), {
@@ -40,6 +49,10 @@ function blurHashWorker(): Worker {
       const request = pending.get(data.id)
       if (!request) return
       pending.delete(data.id)
+      if (data.error !== undefined) {
+        request.reject(new Error(data.error))
+        return
+      }
       const decoded = {
         pixels: data.pixels,
         width: data.width,
@@ -71,7 +84,7 @@ function decodeBlurHash(
     const id = nextRequestId++
     pending.set(id, {
       resolve: (decoded) => {
-        cache.set(key, decoded)
+        rememberDecoded(key, decoded)
         resolve(decoded)
       },
       reject,

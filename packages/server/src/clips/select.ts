@@ -1,4 +1,4 @@
-import type { ClipMentionRef } from "@alloy/contracts"
+import { normalizeBlurHash, type ClipMentionRef } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipMention, clipTag, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
@@ -8,6 +8,8 @@ import {
   serialiseGameRow,
 } from "@alloy/server/games/ref"
 import { eq, sql } from "drizzle-orm"
+
+import { clipThumbnailVersion } from "./thumbnail-version"
 
 export const clipSelectShape = {
   id: clip.id,
@@ -90,6 +92,7 @@ export function toPublicClipRow<
   },
 >(row: T) {
   const { sourceKey: _sourceKey, gameRef, ...rest } = row
+  const thumbVersion = row.thumbKey ? clipThumbnailVersion(row.thumbKey) : null
   return {
     ...rest,
     gameRef: gameRef
@@ -100,7 +103,8 @@ export function toPublicClipRow<
             name: row.game,
           })
         : null,
-    thumbKey: row.thumbKey ? "thumbnail" : null,
-    thumbBlurHash: row.thumbBlurHash,
+    thumbKey: thumbVersion ? "thumbnail" : null,
+    thumbVersion,
+    thumbBlurHash: thumbVersion ? normalizeBlurHash(row.thumbBlurHash) : null,
   }
 }
