@@ -57,6 +57,7 @@ import {
   clearLibraryHandoffPoster,
   LibraryHandoffPosterOverlay,
   readLibraryHandoffPoster,
+  setLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
 import { captureMentionsFromUsers, sameIdSet } from "./library-metadata"
@@ -258,6 +259,11 @@ export function EditorBody({
         publishClip,
       })
       if (!clipId) return
+      setLibraryHandoffPoster(clipId, {
+        src: poster ?? item.thumbnailUrl ?? undefined,
+        blurHash: item.thumbBlurHash,
+        fallbackSeed: item.id,
+      })
 
       if (privacy === "unlisted" && pickedGame) {
         const copied = await copyTextToClipboard(

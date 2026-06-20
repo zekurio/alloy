@@ -37,7 +37,10 @@ import {
   useNavigateToLibraryEntry,
 } from "./library-entry-navigation"
 import {
+  clearLibraryHandoffPoster,
+  LibraryHandoffPosterOverlay,
   type LibraryHandoffPoster,
+  readLibraryHandoffPoster,
   setLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { finishLocalClipDelete } from "./library-local-actions"
@@ -127,6 +130,23 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
     }),
     [poster, row.id, row.steamgriddbId, row.thumbBlurHash],
   )
+  const [publishHandoffPoster, setPublishHandoffPoster] = React.useState(() =>
+    readLibraryHandoffPoster(row.id),
+  )
+  const [cloudFrameReady, setCloudFrameReady] = React.useState(
+    () => publishHandoffPoster === null,
+  )
+  React.useEffect(() => {
+    setPublishHandoffPoster(readLibraryHandoffPoster(row.id))
+  }, [row.id])
+  React.useEffect(() => {
+    setCloudFrameReady(publishHandoffPoster === null)
+  }, [publishHandoffPoster])
+  React.useEffect(() => {
+    if (publishHandoffPoster && cloudFrameReady) {
+      clearLibraryHandoffPoster(row.id)
+    }
+  }, [cloudFrameReady, publishHandoffPoster, row.id])
   const deleteFlow = useServerBackedClipDelete({
     row,
     localItem,
@@ -184,11 +204,16 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
               playerRef={playerRef}
               onTimeUpdate={playback.handleTimeUpdate}
               onPlayingChange={playback.setPlaying}
+              onFrameReady={() => setCloudFrameReady(true)}
               onEnded={playback.handleEnded}
               className="overflow-hidden rounded-md"
             />
             <LibraryEntryNavButton side="left" target={prevEntry} />
             <LibraryEntryNavButton side="right" target={nextEntry} />
+            <LibraryHandoffPosterOverlay
+              poster={publishHandoffPoster}
+              ready={cloudFrameReady}
+            />
           </LibraryMediaStage>
 
           {processing ? (

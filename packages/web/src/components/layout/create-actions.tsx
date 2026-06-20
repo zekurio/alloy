@@ -238,12 +238,12 @@ function useLibraryImportAction({
           gameIconUrl: game.iconUrl ?? game.logoUrl,
         })
         await refreshLibrarySnapshotCache(queryClient, desktop)
-        setStaged(null)
         toast.success(tx("Clip uploaded to your library"))
         await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
         })
+        setStaged(null)
       } catch (cause) {
         toast.error(errorMessage(cause, tx("Could not upload clip.")))
       } finally {

@@ -11,7 +11,11 @@ import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
 
-import { useLibraryGameLookup, useLibrarySnapshot } from "./library-data"
+import {
+  enrichLibraryItem,
+  useLibraryGameLookup,
+  useLibrarySnapshot,
+} from "./library-data"
 import {
   buildLibraryEntries,
   type LibraryEntry,
@@ -64,16 +68,36 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
   const index = entries.findIndex((entry) =>
     entryMatchesCurrent(entry, current),
   )
-  const currentEntry = index >= 0 ? entries[index] : null
+  const directLocalItem =
+    current.type === "local"
+      ? (snapshot?.items.find((item) => item.id === current.id) ?? null)
+      : null
+  const directLocalEntry = directLocalItem
+    ? ({
+        type: "local",
+        key: `local:${directLocalItem.id}`,
+        createdAt: directLocalItem.createdAt,
+        status: "local",
+        item: enrichLibraryItem(directLocalItem, gamesByName),
+      } satisfies NavigableLibraryEntry)
+    : null
+  const currentEntry =
+    current.type === "local" && directLocalEntry
+      ? directLocalEntry
+      : index >= 0
+        ? entries[index]
+        : null
   const linkedLocalItem =
     current.type === "cloud"
       ? (snapshot?.items.find((item) => item.uploadedClipId === current.id) ??
         null)
       : null
   const localItem =
-    currentEntry?.type === "local"
-      ? currentEntry.item
-      : (currentEntry?.localItem ?? linkedLocalItem)
+    current.type === "local"
+      ? directLocalItem
+      : currentEntry?.type === "cloud"
+        ? (currentEntry.localItem ?? linkedLocalItem)
+        : linkedLocalItem
 
   return {
     entries,
