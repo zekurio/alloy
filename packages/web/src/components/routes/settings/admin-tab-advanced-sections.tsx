@@ -6,7 +6,6 @@ import {
   SectionContent,
   SectionFooter,
 } from "@alloy/ui/components/section"
-import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
 import { SaveIcon } from "lucide-react"
@@ -46,10 +45,6 @@ export function AppearanceSettingsContent({
   )
   const treatmentChanged =
     draftBlurPx !== splash.blurPx || draftDarkenOpacity !== splash.darkenOpacity
-
-  function sliderValue(value: number | readonly number[]): number {
-    return typeof value === "number" ? value : (value[0] ?? 0)
-  }
 
   React.useEffect(() => {
     setDraftBlurPx(splash.blurPx)
@@ -112,7 +107,6 @@ export function AppearanceSettingsContent({
   return (
     <Section>
       <SectionContent className="flex flex-col gap-4">
-        <LoginAppearancePreview config={config} splash={previewSplash} />
         <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0">
           <div className="min-w-0">
             <div className="text-sm font-medium">{tx("Login backdrop")}</div>
@@ -122,47 +116,20 @@ export function AppearanceSettingsContent({
               )}
             </p>
           </div>
-          <Switch
-            checked={splash.enabled}
-            onCheckedChange={updateSplashEnabled}
-            disabled={enabledPending}
-          />
-        </div>
-        <div className="grid gap-4 py-3 last:pb-0 sm:grid-cols-2">
-          <div className="min-w-0 space-y-2">
-            <div className="flex items-center justify-between gap-3 text-sm font-medium">
-              <span>{tx("Blur")}</span>
-              <span className="text-foreground-muted text-xs">
-                {draftBlurPx}
-                {tx("px")}
-              </span>
-            </div>
-            <Slider
-              value={[draftBlurPx]}
-              min={0}
-              max={48}
-              step={1}
-              disabled={treatmentPending}
-              onValueChange={(value) => setDraftBlurPx(sliderValue(value))}
+          <div className="flex shrink-0 items-center gap-2">
+            <LoginAppearancePreview
+              config={config}
+              splash={previewSplash}
+              blurPx={draftBlurPx}
+              darkenOpacity={draftDarkenOpacity}
+              controlsDisabled={treatmentPending}
+              onBlurPxChange={setDraftBlurPx}
+              onDarkenOpacityChange={setDraftDarkenOpacity}
             />
-          </div>
-          <div className="min-w-0 space-y-2">
-            <div className="flex items-center justify-between gap-3 text-sm font-medium">
-              <span>{tx("Darkening")}</span>
-              <span className="text-foreground-muted text-xs">
-                {Math.round(draftDarkenOpacity * 100)}
-                {"%"}
-              </span>
-            </div>
-            <Slider
-              value={[draftDarkenOpacity]}
-              min={0}
-              max={1}
-              step={0.01}
-              disabled={treatmentPending}
-              onValueChange={(value) =>
-                setDraftDarkenOpacity(sliderValue(value))
-              }
+            <Switch
+              checked={splash.enabled}
+              onCheckedChange={updateSplashEnabled}
+              disabled={enabledPending}
             />
           </div>
         </div>
