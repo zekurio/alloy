@@ -4,6 +4,7 @@ import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
 import * as React from "react"
 
+import { GameLogo } from "@/components/game/game-logo"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 import { formatCount } from "@/lib/number-format"
 
@@ -71,14 +72,10 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex min-w-0 items-center gap-3">
             {logoUrl ? (
-              <img
+              <GameLogo
                 src={logoUrl}
-                alt={game.name}
-                className={cn(
-                  "h-12 w-auto max-w-[min(420px,60vw)] object-contain object-left",
-                  "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:h-16",
-                )}
-                decoding="async"
+                name={game.name}
+                variant="header"
                 onError={() => setFailedLogoUrl(logoUrl)}
               />
             ) : (

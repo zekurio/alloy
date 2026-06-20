@@ -64,7 +64,7 @@ function GameIcon({
         <img
           src={src}
           alt=""
-          className="size-full object-cover"
+          className="block size-full object-contain"
           onError={() => setOk(false)}
         />
       ) : (

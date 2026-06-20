@@ -19,20 +19,31 @@ import { publicOrigin } from "@/lib/env"
 import { useInvalidateGames } from "@/lib/game-queries"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
-import type { PublishPayload } from "./new-clip-helpers"
 import {
+  isDeferredPublishPayload,
+  type PublishClipInput,
+  type PublishPayload,
+} from "./new-clip-helpers"
+import {
+  clearLocalCaptureClipLink,
   deleteUploadClipBestEffort,
+  linkLocalCaptureToClip,
   markUploadFailedBestEffort,
-  performUpload,
+  startUpload,
 } from "./upload-flow-runner"
-import { isCompletedQueueStatus, type QueueItem } from "./upload-queue"
 import {
   type ActiveUpload,
   downloadToQueueItem,
   localToQueueItem,
   serverToQueueItem,
 } from "./upload-queue-mapping"
+import type { QueueItem } from "./upload-queue-types"
 import { useDismissedClips } from "./use-dismissed-clips"
+
+function revokeUploadThumbUrl(url: string | null | undefined, label: string) {
+  if (!url?.startsWith("blob:")) return
+  revokeObjectUrl(url, label)
+}
 
 function useServerQueueSync(
   serverQueue: QueueClip[],
@@ -46,20 +57,19 @@ function useServerQueueSync(
   const thumbNotifiedRef = React.useRef<Set<string>>(new Set())
   React.useEffect(() => {
     if (serverQueue.length === 0) return
-    const seen = new Set(serverQueue.map((r) => r.id))
+    const rowsById = new Map(serverQueue.map((row) => [row.id, row]))
     let changed = false
     for (const [localId, active] of activeRef.current) {
-      if (
-        active.clipId &&
-        seen.has(active.clipId) &&
-        active.status !== "uploading"
-      ) {
-        const retained = retainedThumbsRef.current.get(active.clipId)
+      const clipId = active.clipId
+      if (!clipId) continue
+      const row = rowsById.get(clipId)
+      if (row && row.status !== "pending" && active.status !== "uploading") {
+        const retained = retainedThumbsRef.current.get(clipId)
         if (retained && retained !== active.thumbUrl) {
-          revokeObjectUrl(retained, "retained upload thumbnail URL")
+          revokeUploadThumbUrl(retained, "retained upload thumbnail URL")
         }
         if (active.thumbUrl) {
-          retainedThumbsRef.current.set(active.clipId, active.thumbUrl)
+          retainedThumbsRef.current.set(clipId, active.thumbUrl)
         }
         activeRef.current.delete(localId)
         changed = true
@@ -106,10 +116,13 @@ function useCancelRow(
         if (entry) {
           entry.abort.abort()
           if (entry.status !== "uploading") {
-            revokeObjectUrl(entry.thumbUrl, "local upload thumbnail URL")
+            revokeUploadThumbUrl(entry.thumbUrl, "local upload thumbnail URL")
             activeRef.current.delete(localId)
             bump()
-            if (entry.clipId) {
+            if (entry.localCaptureId && entry.clipId) {
+              void clearLocalCaptureClipLink(entry.localCaptureId, entry.clipId)
+            }
+            if (entry.serverClipCreated && entry.clipId) {
               void deleteUploadClipBestEffort(
                 entry.clipId,
                 "local cancel",
@@ -126,7 +139,7 @@ function useCancelRow(
       if (clipId) {
         const retained = retainedThumbsRef.current.get(clipId)
         if (retained) {
-          revokeObjectUrl(retained, "retained upload thumbnail URL")
+          revokeUploadThumbUrl(retained, "retained upload thumbnail URL")
           retainedThumbsRef.current.delete(clipId)
         }
         queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
@@ -159,79 +172,138 @@ function useRunUpload(
   bump: () => void,
 ) {
   const invalidateClips = useInvalidateClips()
+  const finishActiveUpload = React.useCallback(
+    (entry: ActiveUpload) => {
+      if (entry.clipId && entry.thumbUrl) {
+        retainedThumbsRef.current.set(entry.clipId, entry.thumbUrl)
+      } else {
+        revokeUploadThumbUrl(entry.thumbUrl, "local upload thumbnail URL")
+      }
+      activeRef.current.delete(entry.localId)
+      bump()
+    },
+    [activeRef, retainedThumbsRef, bump],
+  )
+  const failActiveUpload = React.useCallback(
+    (entry: ActiveUpload, err: unknown) => {
+      if ((err as Error).name === "AbortError") {
+        revokeUploadThumbUrl(entry.thumbUrl, "local upload thumbnail URL")
+        activeRef.current.delete(entry.localId)
+        bump()
+        if (entry.localCaptureId && entry.clipId) {
+          void clearLocalCaptureClipLink(entry.localCaptureId, entry.clipId)
+        }
+        if (entry.serverClipCreated && entry.clipId) {
+          void deleteUploadClipBestEffort(entry.clipId, "upload abort").then(
+            (deleted) => {
+              if (deleted) invalidateClips()
+            },
+          )
+        }
+        return
+      }
+
+      if (entry.serverClipCreated && entry.clipId) {
+        void markUploadFailedBestEffort(entry.clipId).finally(invalidateClips)
+      } else if (entry.localCaptureId && entry.clipId) {
+        void clearLocalCaptureClipLink(entry.localCaptureId, entry.clipId)
+      }
+      entry.status = "error"
+      entry.errorMessage = (err as Error).message
+      bump()
+    },
+    [activeRef, bump, invalidateClips],
+  )
   return React.useCallback(
-    async (payload: PublishPayload) => {
+    async (input: PublishClipInput) => {
       const localId = `local-${Math.random().toString(36).slice(2)}`
+      const deferred = isDeferredPublishPayload(input)
       const entry: ActiveUpload = {
         localId,
-        title: payload.title,
-        hue: stableHue(payload.title),
-        bytesTotal: payload.sizeBytes,
+        clipId: deferred ? crypto.randomUUID() : undefined,
+        localCaptureId: input.localCaptureId,
+        title: input.title,
+        hue: stableHue(input.title),
+        bytesTotal: input.sizeBytes,
         bytesLoaded: 0,
-        status: "initiating",
+        status: deferred ? "preparing" : "initiating",
         abort: new AbortController(),
-        thumbUrl: createObjectUrl(payload.thumbBlob, "upload thumbnail URL"),
-        thumbBlurHash: payload.thumbBlurHash,
+        thumbUrl: deferred
+          ? input.thumbUrl
+          : createObjectUrl(input.thumbBlob, "upload thumbnail URL"),
+        thumbBlurHash: input.thumbBlurHash,
       }
       activeRef.current.set(localId, entry)
       bump()
 
-      try {
-        const clipId = await performUpload(
+      if (deferred && entry.localCaptureId && entry.clipId) {
+        void linkLocalCaptureToClip(entry.localCaptureId, entry.clipId)
+      }
+
+      const beginPreparedUpload = async (payload: PublishPayload) => {
+        entry.title = payload.title
+        entry.hue = stableHue(payload.title)
+        entry.bytesTotal = payload.sizeBytes
+        entry.bytesLoaded = 0
+        entry.localCaptureId = payload.localCaptureId ?? entry.localCaptureId
+        entry.thumbBlurHash = payload.thumbBlurHash ?? entry.thumbBlurHash
+        if (!entry.thumbUrl) {
+          entry.thumbUrl = createObjectUrl(
+            payload.thumbBlob,
+            "upload thumbnail URL",
+          )
+        }
+        entry.status = "initiating"
+        bump()
+
+        const { clipId, completion } = await startUpload(
           payload,
           entry,
           bump,
           invalidateClips,
         )
-        if (entry.clipId && entry.thumbUrl) {
-          retainedThumbsRef.current.set(entry.clipId, entry.thumbUrl)
-        } else {
-          revokeObjectUrl(entry.thumbUrl, "local upload thumbnail URL")
-        }
-        activeRef.current.delete(localId)
-        bump()
+        void completion.then(
+          () => finishActiveUpload(entry),
+          (err) => failActiveUpload(entry, err),
+        )
+        return clipId
+      }
+
+      if (deferred) {
+        void input
+          .prepare(entry.abort.signal)
+          .then((payload) => {
+            entry.abort.signal.throwIfAborted()
+            return beginPreparedUpload(payload)
+          })
+          .catch((err: unknown) => failActiveUpload(entry, err))
+
+        return { clipId: entry.clipId ?? null }
+      }
+
+      try {
+        const clipId = await beginPreparedUpload(input)
         return { clipId }
       } catch (err) {
-        if ((err as Error).name === "AbortError") {
-          revokeObjectUrl(entry.thumbUrl, "local upload thumbnail URL")
-          activeRef.current.delete(localId)
-          bump()
-          if (entry.clipId) {
-            void deleteUploadClipBestEffort(entry.clipId, "upload abort").then(
-              (deleted) => {
-                if (deleted) invalidateClips()
-              },
-            )
-          }
-          return { clipId: null }
-        }
-        if (entry.clipId) {
-          void markUploadFailedBestEffort(entry.clipId).finally(invalidateClips)
-        }
-        entry.status = "error"
-        entry.errorMessage = (err as Error).message
-        bump()
+        failActiveUpload(entry, err)
+        if ((err as Error).name === "AbortError") return { clipId: null }
         throw err
       }
     },
-    [invalidateClips, bump, activeRef, retainedThumbsRef],
+    [invalidateClips, bump, activeRef, finishActiveUpload, failActiveUpload],
   )
 }
 
-export function useUploadQueueState(
-  queueOpen: boolean,
-  onOpenClip: (row: QueueClip) => void,
-) {
+export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
   const activeRef = React.useRef<Map<string, ActiveUpload>>(new Map())
   const retainedThumbsRef = React.useRef<Map<string, string>>(new Map())
-  const [, bumpState] = React.useReducer((n: number) => n + 1, 0)
+  const [queueVersion, bumpState] = React.useReducer((n: number) => n + 1, 0)
   const bump = React.useCallback(() => bumpState(), [])
 
-  const { data: serverQueueData, stream } = useUploadQueueQuery({
+  const { data: serverQueueData } = useUploadQueueQuery({
     enabled: true,
   })
   const serverQueueHydrated = serverQueueData !== undefined
-  const queueStreamFailed = stream.initialError
   const serverQueue = React.useMemo<QueueClip[]>(
     () => serverQueueData ?? [],
     [serverQueueData],
@@ -240,11 +312,11 @@ export function useUploadQueueState(
   React.useEffect(() => {
     return () => {
       for (const active of activeRef.current.values()) {
-        revokeObjectUrl(active.thumbUrl, "local upload thumbnail URL")
+        revokeUploadThumbUrl(active.thumbUrl, "local upload thumbnail URL")
       }
       activeRef.current.clear()
       for (const url of retainedThumbsRef.current.values()) {
-        revokeObjectUrl(url, "retained upload thumbnail URL")
+        revokeUploadThumbUrl(url, "retained upload thumbnail URL")
       }
       retainedThumbsRef.current.clear()
     }
@@ -258,13 +330,13 @@ export function useUploadQueueState(
     (clipId: string) => {
       const retained = retainedThumbsRef.current.get(clipId)
       if (!retained) return
-      revokeObjectUrl(retained, "retained upload thumbnail URL")
+      revokeUploadThumbUrl(retained, "retained upload thumbnail URL")
       retainedThumbsRef.current.delete(clipId)
       bump()
     },
     [bump],
   )
-  const { dismissed, dismiss, dismissMany } = useDismissedClips(
+  const { dismissed, dismiss } = useDismissedClips(
     serverQueue,
     serverQueueHydrated,
   )
@@ -318,6 +390,7 @@ export function useUploadQueueState(
     )
     return [...fromDownloads, ...fromLocal, ...fromServer]
   }, [
+    queueVersion,
     serverQueue,
     downloads,
     cancelRow,
@@ -327,35 +400,9 @@ export function useUploadQueueState(
     releaseRetainedThumb,
   ])
 
-  const activeCount = queue.filter(
-    (q) =>
-      !isCompletedQueueStatus(q.status) &&
-      q.status !== "failed" &&
-      q.status !== "paused",
-  ).length
-
-  const clearCompleted = React.useCallback(() => {
-    const readyIds = serverQueue
-      .filter((r) => r.status === "ready" && !dismissed.has(r.id))
-      .map((r) => r.id)
-    for (const id of readyIds) {
-      releaseRetainedThumb(id)
-    }
-    dismissMany(readyIds)
-    for (const download of downloads) {
-      if (download.status === "completed") removeClipDownload(download.clipId)
-    }
-  }, [serverQueue, dismissed, dismissMany, releaseRetainedThumb, downloads])
-
   return {
     runUpload,
     queue,
-    activeCount,
-    clearCompleted,
-    syncPaused: null,
-    onToggleSyncPause: undefined,
-    isQueueLoading: queueOpen && !serverQueueHydrated && !queueStreamFailed,
-    isQueueUnavailable: queueOpen && !serverQueueHydrated && queueStreamFailed,
   }
 }
 

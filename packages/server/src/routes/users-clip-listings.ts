@@ -4,7 +4,7 @@ import { getSession } from "@alloy/server/auth/session"
 import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
-import { and, desc, eq, isNull, type SQL, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import { publicClipPrivacyCondition } from "./clips-helpers"
@@ -18,7 +18,9 @@ export const UserGamesQuery = z.object({
 })
 
 export async function listUserClips(row: UserRow, headers: Headers) {
-  const conditions = await visibleReadyClipConditions(row, headers)
+  const conditions = await visibleClipConditions(row, headers, {
+    includeOwnerUploads: true,
+  })
 
   const rows = await db
     .select(clipSelectShape)
@@ -36,7 +38,7 @@ export async function listUserGames(
   headers: Headers,
   { limit, offset }: z.infer<typeof UserGamesQuery>,
 ) {
-  const conditions = await visibleReadyClipConditions(row, headers)
+  const conditions = await visibleClipConditions(row, headers)
 
   const lastClippedAt = sql<Date>`max(${clip.createdAt})`
 
@@ -64,17 +66,21 @@ export async function listUserGames(
   return enriched.map(serialiseProfileGameRow)
 }
 
-async function visibleReadyClipConditions(
+async function visibleClipConditions(
   row: UserRow,
   headers: Headers,
+  { includeOwnerUploads = false }: { includeOwnerUploads?: boolean } = {},
 ): Promise<SQL[]> {
   const session = await getSession(headers)
   const isOwner = session?.user.id === row.id
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
+  const canSeeUploads = includeOwnerUploads && (isOwner || isAdmin)
   const conditions: SQL[] = [
     eq(clip.authorId, row.id),
-    eq(clip.status, "ready"),
+    canSeeUploads
+      ? inArray(clip.status, ["pending", "processing", "ready", "failed"])
+      : eq(clip.status, "ready"),
     isNull(user.disabledAt),
   ]
   if (!isOwner && !isAdmin) {

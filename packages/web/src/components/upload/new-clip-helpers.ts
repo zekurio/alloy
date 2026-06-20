@@ -50,6 +50,24 @@ export interface PublishPayload {
   localCaptureId?: string
 }
 
+export interface DeferredPublishPayload {
+  kind: "deferred"
+  title: string
+  sizeBytes: number
+  thumbUrl: string | null
+  thumbBlurHash: string | null
+  localCaptureId?: string
+  prepare: (signal: AbortSignal) => Promise<PublishPayload>
+}
+
+export type PublishClipInput = PublishPayload | DeferredPublishPayload
+
+export function isDeferredPublishPayload(
+  input: PublishClipInput,
+): input is DeferredPublishPayload {
+  return "kind" in input && input.kind === "deferred"
+}
+
 const ACCEPTED_CLIP_CONTENT_TYPE_SET = new Set<string>(
   ACCEPTED_CLIP_CONTENT_TYPES,
 )

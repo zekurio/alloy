@@ -1,29 +1,20 @@
 import * as React from "react"
 
-import type { PublishPayload } from "./new-clip-helpers"
-import type { QueueItem } from "./upload-queue"
+import type { PublishClipInput } from "./new-clip-helpers"
+import type { QueueItem } from "./upload-queue-types"
 
 export interface PublishClipResult {
-  /** Server clip id, or null when the upload was cancelled. */
+  /** Server clip id once the upload is queued, or null when cancelled. */
   clipId: string | null
 }
 
 export type PublishClipFn = (
-  payload: PublishPayload,
+  payload: PublishClipInput,
 ) => Promise<PublishClipResult>
 
 export interface UploadFlowControls {
-  queueOpen: boolean
-  setQueueOpen: React.Dispatch<React.SetStateAction<boolean>>
-  activeCount: number
-  setActiveCount: React.Dispatch<React.SetStateAction<number>>
   queue: QueueItem[]
   setQueueState: (state: UploadQueueState | null) => void
-  clearCompleted: () => void
-  syncPaused: boolean | null
-  onToggleSyncPause?: () => void
-  isQueueLoading: boolean
-  isQueueUnavailable: boolean
   /** Stable delegate to the currently registered upload runner. */
   publishClip: PublishClipFn
   /**
@@ -36,11 +27,6 @@ export interface UploadFlowControls {
 
 export interface UploadQueueState {
   queue: QueueItem[]
-  clearCompleted: () => void
-  syncPaused: boolean | null
-  onToggleSyncPause?: () => void
-  isQueueLoading: boolean
-  isQueueUnavailable: boolean
 }
 
 export const UploadFlowContext = React.createContext<UploadFlowControls | null>(

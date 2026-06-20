@@ -29,9 +29,8 @@ function acceptedContentType(value: string): AcceptedContentType {
 }
 
 /**
- * Cuts the capture to the trimmed range via the desktop exporter, reads the
- * result back as a File, and hands it to the upload flow. Throws on any
- * failure so the caller can surface it.
+ * Enqueues a capture publish job. The upload flow owns the slow export/probe
+ * work so the editor can return to the library immediately.
  */
 export async function exportAndPublishCapture({
   desktop,
@@ -44,6 +43,7 @@ export async function exportAndPublishCapture({
   privacy,
   mentions,
   publishClip,
+  posterUrl,
 }: {
   desktop: AlloyDesktop
   item: LibraryItemView
@@ -56,33 +56,85 @@ export async function exportAndPublishCapture({
   privacy: ClipPrivacy
   mentions: UserSearchResult[]
   publishClip: ReturnType<typeof useUploadFlowControls>["publishClip"]
+  posterUrl?: string | null
 }): Promise<PublishClipResult> {
+  return publishClip({
+    kind: "deferred",
+    title,
+    sizeBytes: estimatedExportSizeBytes(item, trim),
+    thumbUrl: posterUrl ?? item.thumbnailUrl,
+    thumbBlurHash: item.thumbBlurHash,
+    localCaptureId: item.id,
+    prepare: (signal) =>
+      prepareCapturePublishPayload({
+        desktop,
+        item,
+        trim,
+        title,
+        description,
+        tags,
+        game,
+        privacy,
+        mentions,
+        signal,
+      }),
+  })
+}
+
+async function prepareCapturePublishPayload({
+  desktop,
+  item,
+  trim,
+  title,
+  description,
+  tags,
+  game,
+  privacy,
+  mentions,
+  signal,
+}: {
+  desktop: AlloyDesktop
+  item: LibraryItemView
+  trim: { startMs: number; endMs: number }
+  title: string
+  description: string
+  tags: string
+  game: GameRow | null
+  privacy: ClipPrivacy
+  mentions: UserSearchResult[]
+  signal: AbortSignal
+}) {
+  throwIfAborted(signal)
   const exported = await desktop.recording.exportLibraryCapture({
     id: item.id,
     segments: [{ startMs: trim.startMs, endMs: trim.endMs }],
   })
-  const response = await fetch(exported.mediaUrl)
+  throwIfAborted(signal)
+  const response = await fetch(exported.mediaUrl, { signal })
   if (!response.ok) throw new Error("Could not read exported clip.")
   const blob = await response.blob()
+  throwIfAborted(signal)
   const contentType = acceptedContentType(exported.contentType)
   const file = new File([blob], exported.fileName, {
     type: contentType,
     lastModified: Date.now(),
   })
   const selected = await prepareSelectedClipFile(file)
+  throwIfAborted(signal)
   const posterAtMs = Math.min(1000, Math.max(0, selected.durationMs - 100))
   const thumbnail = await capturePoster(
     exported.thumbUrl,
     selected.file,
     posterAtMs,
   )
+  throwIfAborted(signal)
   const thumbBlurHash =
     thumbnail.blurHash ??
     exported.thumbBlurHash ??
     item.thumbBlurHash ??
     (await hashPosterBlob(desktop, thumbnail.blob))
 
-  return publishClip({
+  return {
     file: selected.file,
     contentType: selected.contentType,
     title,
@@ -98,7 +150,22 @@ export async function exportAndPublishCapture({
     thumbBlurHash,
     mentionedUserIds: mentions.map((mention) => mention.id),
     localCaptureId: item.id,
-  })
+  }
+}
+
+function estimatedExportSizeBytes(
+  item: LibraryItemView,
+  trim: { startMs: number; endMs: number },
+): number {
+  if (!item.durationMs || item.durationMs <= 0) return item.sizeBytes
+  const ratio = Math.max(0, trim.endMs - trim.startMs) / item.durationMs
+  return Math.max(1, Math.round(item.sizeBytes * Math.min(1, ratio)))
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) {
+    throw new DOMException("Upload aborted", "AbortError")
+  }
 }
 
 /**

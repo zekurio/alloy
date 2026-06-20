@@ -9,7 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
-import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
@@ -32,7 +31,6 @@ import {
   normalizeClipTitle,
   parseTagString,
 } from "@/lib/clip-fields"
-import { clipDetailQueryOptions } from "@/lib/clip-queries"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import {
   notifyLibraryCapturesChanged,
@@ -56,7 +54,6 @@ import {
   clearLibraryHandoffPoster,
   LibraryHandoffPosterOverlay,
   readLibraryHandoffPoster,
-  setLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
 import { captureMentionsFromUsers, sameIdSet } from "./library-metadata"
@@ -86,7 +83,6 @@ export function EditorBody({
   onRequestDelete: () => void
 }) {
   const navigate = useNavigate()
-  const queryClient = useQueryClient()
   const { publishClip } = useUploadFlowControls()
 
   const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
@@ -255,14 +251,9 @@ export function EditorBody({
         privacy,
         mentions,
         publishClip,
+        posterUrl: poster ?? item.thumbnailUrl,
       })
       if (!clipId) return
-      setLibraryHandoffPoster(clipId, {
-        src: poster ?? item.thumbnailUrl ?? undefined,
-        blurHash: item.thumbBlurHash,
-        fallbackSeed: item.id,
-      })
-
       if (privacy === "unlisted" && pickedGame) {
         const copied = await copyTextToClipboard(
           absoluteClipHref(pickedGame.steamgriddbId, clipId, publicOrigin()),
@@ -273,14 +264,12 @@ export function EditorBody({
         } else {
           toast.error(tx("Couldn't copy the clip link"))
         }
-      } else if (privacy === "unlisted") {
-        toast.success(tx("Clip uploaded"))
+      } else {
+        toast.success(tx("Upload started"))
       }
 
-      await queryClient.prefetchQuery(clipDetailQueryOptions(clipId))
       await navigate({
-        to: "/library/c/$clipId",
-        params: { clipId },
+        to: "/library",
         replace: true,
       })
     } catch (cause) {

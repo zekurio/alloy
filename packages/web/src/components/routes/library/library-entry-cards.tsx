@@ -1,9 +1,11 @@
 import { type ClipRow } from "@alloy/api"
 import { t as tx } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
+import { cn } from "@alloy/ui/lib/utils"
 import { GlobeIcon, Link2Icon, LockIcon, MonitorIcon } from "lucide-react"
 import * as React from "react"
 
+import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { gameHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
@@ -14,9 +16,11 @@ import { type LibraryItemView } from "./library-data"
 
 export function LibraryCaptureCard({
   item,
+  transfer,
   onOpen,
 }: {
   item: LibraryItemView
+  transfer?: QueueItem
   onOpen: () => void
 }) {
   const thumbnail = useCapturePoster({
@@ -31,6 +35,9 @@ export function LibraryCaptureCard({
   const gameUrl = item.gameSteamGridDBId
     ? gameHref(item.gameSteamGridDBId)
     : null
+  const cardThumbnail =
+    transfer?.thumbUrl ?? transfer?.thumbFallbackUrl ?? thumbnail ?? undefined
+  const cardThumbnailBlurHash = transfer?.thumbBlurHash ?? item.thumbBlurHash
 
   return (
     <ClipCard
@@ -44,14 +51,18 @@ export function LibraryCaptureCard({
       views="0"
       viewCount={0}
       likes="0"
-      thumbnail={thumbnail ?? undefined}
-      thumbnailBlurHash={item.thumbBlurHash}
+      thumbnail={cardThumbnail}
+      thumbnailBlurHash={cardThumbnailBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
       streamUrl={item.mediaUrl}
       thumbnailLabel={tx("Edit {title}", { title: item.title })}
       onThumbnailClick={onOpen}
       metaContent={
-        <LibraryCardMeta source={source} createdAt={item.createdAt} />
+        <LibraryCardMeta
+          source={source}
+          createdAt={item.createdAt}
+          transfer={transfer}
+        />
       }
     />
   )
@@ -107,13 +118,23 @@ function LibrarySourceBadge({ source }: { source: LibrarySource }) {
 function LibraryCardMeta({
   source,
   createdAt,
+  transfer,
 }: {
   source: LibrarySource
   createdAt: string
+  transfer?: QueueItem
 }) {
   return (
     <>
-      <LibrarySourceBadge source={source} />
+      {transfer ? (
+        transfer.status === "published" || transfer.status === "downloaded" ? (
+          <LibrarySourceBadge source={source} />
+        ) : (
+          <LibraryTransferMeta transfer={transfer} />
+        )
+      ) : (
+        <LibrarySourceBadge source={source} />
+      )}
       <span className="shrink-0">{"·"}</span>
       <span className="truncate">{formatRelativeTime(createdAt)}</span>
     </>
@@ -123,15 +144,24 @@ function LibraryCardMeta({
 /** Grid card for a clip that already lives on the server. */
 export function UploadedClipCard({
   row,
+  transfer,
   onOpen,
   onIntent,
 }: {
   row: ClipRow
+  transfer?: QueueItem
   onOpen: () => void
   onIntent?: () => void
 }) {
   const card = React.useMemo(() => toClipCardData(row), [row])
   const source = librarySourceForPrivacy(row.privacy)
+  const effectiveTransfer = transfer ?? transferFromClipRow(row)
+  const thumbnail =
+    effectiveTransfer?.thumbUrl ??
+    effectiveTransfer?.thumbFallbackUrl ??
+    card.thumbnail
+  const thumbnailBlurHash =
+    effectiveTransfer?.thumbBlurHash ?? card.thumbnailBlurHash
   const gameId = card.gameRef?.steamgriddbId ?? null
   const renderGameLink = useClipCardGameLink(gameId)
   const gameUrl = gameId ? gameHref(gameId) : null
@@ -147,16 +177,117 @@ export function UploadedClipCard({
       views={card.views}
       viewCount={card.viewCount}
       likes={card.likes}
-      thumbnail={card.thumbnail}
-      thumbnailBlurHash={card.thumbnailBlurHash}
+      thumbnail={thumbnail}
+      thumbnailBlurHash={thumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
       streamUrl={card.streamUrl}
       thumbnailLabel={tx("Edit {title}", { title: card.title })}
       onThumbnailClick={onOpen}
       onThumbnailIntent={onIntent}
       metaContent={
-        <LibraryCardMeta source={source} createdAt={row.createdAt} />
+        <LibraryCardMeta
+          source={source}
+          createdAt={row.createdAt}
+          transfer={effectiveTransfer}
+        />
       }
     />
   )
+}
+
+function transferFromClipRow(row: ClipRow): QueueItem | undefined {
+  if (row.status === "ready") return undefined
+
+  const failed = row.status === "failed"
+  const processing = row.status === "processing"
+  const progress = processing
+    ? Math.max(0, Math.min(99, Math.floor(row.encodeProgress)))
+    : 0
+
+  return {
+    id: row.id,
+    title: row.title,
+    kind: "upload",
+    status: failed ? "failed" : processing ? "uploading" : "queued",
+    progress,
+    detail: failed
+      ? (row.failureReason ?? tx("Upload failed"))
+      : processing
+        ? "Finalizing…"
+        : tx("Local"),
+    hue: 0,
+  }
+}
+
+function LibraryTransferMeta({ transfer }: { transfer: QueueItem }) {
+  const meta = transferMeta(transfer)
+  if (!meta) return null
+
+  return (
+    <span
+      className={cn(
+        "inline-flex min-w-0 shrink-0 items-center gap-1 whitespace-nowrap",
+        meta.tone,
+      )}
+      title={transfer.detail ? `${meta.label}: ${transfer.detail}` : meta.label}
+      aria-label={
+        transfer.detail ? `${meta.label}: ${transfer.detail}` : meta.label
+      }
+    >
+      <span>{meta.label}</span>
+      {meta.showPercent ? (
+        <span className="tabular-nums">{meta.progress}%</span>
+      ) : null}
+    </span>
+  )
+}
+
+function transferMeta(transfer: QueueItem): {
+  label: string
+  progress: number
+  showPercent: boolean
+  tone: string
+} | null {
+  if (transfer.status === "published" || transfer.status === "downloaded") {
+    return null
+  }
+
+  if (transfer.status === "failed") {
+    return {
+      label: tx("Failed"),
+      progress: 0,
+      showPercent: false,
+      tone: "text-destructive",
+    }
+  }
+
+  if (transfer.status === "preparing") {
+    return {
+      label: tx("Preparing..."),
+      progress: 0,
+      showPercent: false,
+      tone: "text-accent",
+    }
+  }
+
+  if (transfer.status === "queued" || transfer.status === "paused") {
+    return {
+      label: tx("Local"),
+      progress: 0,
+      showPercent: false,
+      tone: "text-foreground-muted",
+    }
+  }
+
+  const progress = Math.max(0, Math.min(99, transfer.progress))
+  return {
+    label: transfer.detail.toLowerCase().includes("finalizing")
+      ? tx("Processing")
+      : transfer.kind === "download"
+        ? tx("Download")
+        : tx("Upload"),
+    progress,
+    showPercent: transfer.showProgress !== false,
+    tone: "text-accent",
+  }
 }

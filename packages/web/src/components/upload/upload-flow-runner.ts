@@ -36,17 +36,17 @@ export async function markUploadFailedBestEffort(
   }
 }
 
-export async function performUpload(
+export async function startUpload(
   payload: PublishPayload,
   entry: ActiveUpload,
   bump: () => void,
   invalidateClips: () => void,
-): Promise<string> {
+): Promise<{ clipId: string; completion: Promise<void> }> {
   if (!alloyDesktop()) {
     throw new Error("Uploads are only available in Alloy Desktop.")
   }
 
-  const localClipId = crypto.randomUUID()
+  const localClipId = entry.clipId ?? crypto.randomUUID()
   entry.clipId = localClipId
   bump()
 
@@ -69,9 +69,29 @@ export async function performUpload(
   const { clipId } = initiate
 
   entry.clipId = clipId
+  entry.serverClipCreated = true
+  entry.abort.signal.throwIfAborted()
   entry.status = "uploading"
   bump()
   void invalidateClips()
+  if (payload.localCaptureId) {
+    void linkLocalCaptureToClip(payload.localCaptureId, clipId)
+  }
+
+  return {
+    clipId,
+    completion: completeUpload(payload, initiate, entry, bump, invalidateClips),
+  }
+}
+
+async function completeUpload(
+  payload: PublishPayload,
+  initiate: Awaited<ReturnType<typeof api.clips.initiate>>,
+  entry: ActiveUpload,
+  bump: () => void,
+  invalidateClips: () => void,
+): Promise<void> {
+  const { clipId } = initiate
 
   await uploadToTicket(
     initiate.ticket,
@@ -104,15 +124,9 @@ export async function performUpload(
 
   await api.clips.finalize(clipId)
   void invalidateClips()
-
-  if (payload.localCaptureId) {
-    void linkLocalCaptureToClip(payload.localCaptureId, clipId)
-  }
-
-  return clipId
 }
 
-async function linkLocalCaptureToClip(
+export async function linkLocalCaptureToClip(
   captureId: string,
   clipId: string,
 ): Promise<void> {
@@ -127,6 +141,26 @@ async function linkLocalCaptureToClip(
   } catch (cause) {
     clientLogger.warn(
       `[upload] Failed to link capture ${captureId} to clip ${clipId}.`,
+      cause,
+    )
+  }
+}
+
+export async function clearLocalCaptureClipLink(
+  captureId: string,
+  clipId: string,
+): Promise<void> {
+  const desktop = alloyDesktop()
+  if (!desktop) return
+  try {
+    await desktop.recording.updateLibraryCapture({
+      id: captureId,
+      uploadedClipId: null,
+    })
+    notifyLibraryCapturesChanged()
+  } catch (cause) {
+    clientLogger.warn(
+      `[upload] Failed to clear capture ${captureId} link to clip ${clipId}.`,
       cause,
     )
   }

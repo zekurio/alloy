@@ -984,6 +984,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Pause sync": "Sync pausieren",
   Paused: "Pausiert",
   "Previous page": "Vorherige Seite",
+  Processing: "Wird verarbeitet",
   Published: "Veröffentlicht",
   Queued: "In Warteschlange",
   "Remove failed clip {title}": "Fehlgeschlagenen Clip {title} entfernen",
@@ -998,6 +999,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Transfers: "Transfers",
   "Transfers ({count})": "Transfers ({count})",
   Upload: "Upload",
+  "Upload started": "Upload gestartet",
   "Uploads and downloads will show up here.":
     "Uploads und Downloads erscheinen hier.",
   empty: "leer",

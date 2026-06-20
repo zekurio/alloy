@@ -4,7 +4,12 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useQuery } from "@tanstack/react-query"
 
 import { api } from "@/lib/api"
-import { formatBytes, storageUsagePercent } from "@/lib/storage-format"
+import {
+  formatBytes,
+  storageUsagePercent,
+  storageUsageTone,
+  type StorageUsageTone,
+} from "@/lib/storage-format"
 import { userKeys } from "@/lib/user-queries"
 
 function useStorageUsage({
@@ -24,11 +29,32 @@ function formatUsage(usedBytes: number, quotaBytes: number | null) {
     : `${formatBytes(usedBytes)} / ${formatBytes(quotaBytes)}`
 }
 
+function quotaToneClasses(tone: StorageUsageTone) {
+  switch (tone) {
+    case "danger":
+      return {
+        indicator: "bg-danger",
+        text: "text-danger",
+      }
+    case "warning":
+      return {
+        indicator: "bg-warning",
+        text: "text-warning",
+      }
+    case "normal":
+      return {
+        indicator: undefined,
+        text: undefined,
+      }
+  }
+}
+
 export function StorageQuota({ className }: { className?: string }) {
   const { data } = useStorageUsage()
   const usedBytes = data?.usedBytes ?? 0
   const quotaBytes = data?.quotaBytes ?? null
   const pct = storageUsagePercent(usedBytes, quotaBytes)
+  const tone = quotaToneClasses(storageUsageTone(usedBytes, quotaBytes))
 
   return (
     <div className={cn("flex flex-col gap-3 py-4", className)}>
@@ -39,11 +65,16 @@ export function StorageQuota({ className }: { className?: string }) {
             {tx("Source clips count toward your quota. Encoded copies do not.")}
           </p>
         </div>
-        <div className="shrink-0 text-right text-sm tabular-nums">
+        <div
+          className={cn(
+            "shrink-0 text-right text-sm tabular-nums transition-colors",
+            tone.text,
+          )}
+        >
           {formatUsage(usedBytes, quotaBytes)}
         </div>
       </div>
-      <Progress value={pct} />
+      <Progress value={pct} indicatorClassName={tone.indicator} />
     </div>
   )
 }
@@ -53,6 +84,7 @@ export function StorageQuotaCompact({ className }: { className?: string }) {
   const usedBytes = data?.usedBytes ?? 0
   const quotaBytes = data?.quotaBytes ?? null
   const pct = storageUsagePercent(usedBytes, quotaBytes)
+  const tone = quotaToneClasses(storageUsageTone(usedBytes, quotaBytes))
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
@@ -60,11 +92,16 @@ export function StorageQuotaCompact({ className }: { className?: string }) {
         <span className="text-foreground-muted text-xs font-medium">
           {tx("Storage")}
         </span>
-        <span className="text-2xs text-foreground-faint tabular-nums">
+        <span
+          className={cn(
+            "text-2xs text-foreground-faint tabular-nums transition-colors",
+            tone.text,
+          )}
+        >
           {formatUsage(usedBytes, quotaBytes)}
         </span>
       </div>
-      <Progress value={pct} />
+      <Progress value={pct} indicatorClassName={tone.indicator} />
     </div>
   )
 }

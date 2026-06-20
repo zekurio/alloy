@@ -4,6 +4,8 @@ import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import * as React from "react"
 
+import { GameLogo } from "./game-logo"
+
 export type GameCardData = {
   steamgriddbId: number
   name: string
@@ -53,15 +55,11 @@ function GameCardBody({ game }: { game: GameCardData }) {
       />
       <div className="absolute inset-0 flex items-center justify-center p-4">
         {logoSrc ? (
-          <img
+          <GameLogo
             src={logoSrc}
-            alt={game.name}
-            className={cn(
-              "max-h-[62%] w-auto max-w-[80%] object-contain",
-              "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)]",
-            )}
+            name={game.name}
+            variant="card"
             loading="lazy"
-            decoding="async"
             onError={() => setLogoFailed(true)}
           />
         ) : (

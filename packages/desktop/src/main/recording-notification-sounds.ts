@@ -1,7 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs"
 import type { Dirent } from "node:fs"
 import { extname, isAbsolute, join } from "node:path"
-import { pathToFileURL } from "node:url"
 
 import type {
   RecordingNotificationSoundEvent,
@@ -10,9 +9,8 @@ import type {
   RecordingNotificationSoundSettings,
 } from "@alloy/contracts"
 import { RECORDING_NOTIFICATION_SOUND_EVENTS } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
-import { app, BrowserWindow } from "electron"
+import { app } from "electron"
 
 const logger = createLogger("sounds")
 
@@ -48,20 +46,29 @@ const RECORDING_NOTIFICATION_SOUND_MATCHES: Record<
   },
 }
 
-let soundPlayerWindow: BrowserWindow | null = null
-let soundPlayerReady: Promise<void> | null = null
+type RecordingNotificationSoundPlayer = (
+  path: string,
+  volume: number,
+) => Promise<void>
 
-export function recordingNotificationSoundUrl(
+let soundPlayer: RecordingNotificationSoundPlayer | null = null
+
+export function setRecordingNotificationSoundPlayer(
+  player: RecordingNotificationSoundPlayer,
+): void {
+  soundPlayer = player
+}
+
+export function recordingNotificationSoundPath(
   sound: RecordingNotificationSoundEvent,
   settings: RecordingNotificationSoundSettings,
 ): string | null {
   if (!settings.enabled) return null
 
   const customPath = normalizeCustomSoundPath(settings.path)
-  if (customPath) return pathToFileURL(customPath).toString()
+  if (customPath) return customPath
 
-  const defaultPath = defaultRecordingSoundPath(sound)
-  return defaultPath ? pathToFileURL(defaultPath).toString() : null
+  return defaultRecordingSoundPath(sound)
 }
 
 export function isRecordingSoundFile(path: string): boolean {
@@ -116,103 +123,18 @@ export async function playRecordingNotificationSound(
   sound: RecordingNotificationSoundEvent,
   settings: RecordingNotificationSoundSettings,
 ): Promise<void> {
-  const soundUrl = recordingNotificationSoundUrl(sound, settings)
-  if (!soundUrl) return
+  const soundPath = recordingNotificationSoundPath(sound, settings)
+  if (!soundPath) return
 
   try {
-    const win = await ensureSoundPlayerWindow()
-    const volume = notificationSoundVolume(settings.volume)
-    const played = await win.webContents.executeJavaScript(
-      soundPlayerScript(soundUrl, volume),
-      true,
-    )
-    if (played !== true) {
-      logger.warn(`recording notification sound did not play: ${sound}`)
-    }
+    await soundPlayer?.(soundPath, notificationSoundVolume(settings.volume))
   } catch (cause) {
     logger.warn(`failed to play recording notification sound: ${sound}`, cause)
   }
 }
 
 export function destroyRecordingNotificationSoundPlayer(): void {
-  const win = soundPlayerWindow
-  soundPlayerWindow = null
-  soundPlayerReady = null
-  if (win && !win.isDestroyed()) win.destroy()
-}
-
-async function ensureSoundPlayerWindow(): Promise<BrowserWindow> {
-  await app.whenReady()
-  if (soundPlayerWindow && !soundPlayerWindow.isDestroyed()) {
-    await soundPlayerReady
-    return soundPlayerWindow
-  }
-
-  const win = new BrowserWindow({
-    width: 1,
-    height: 1,
-    show: false,
-    skipTaskbar: true,
-    focusable: false,
-    title: tx("Alloy Recording Sounds"),
-    webPreferences: {
-      contextIsolation: true,
-      sandbox: true,
-      nodeIntegration: false,
-      autoplayPolicy: "no-user-gesture-required",
-      backgroundThrottling: false,
-    },
-  })
-
-  win.on("closed", () => {
-    if (soundPlayerWindow === win) {
-      soundPlayerWindow = null
-      soundPlayerReady = null
-    }
-  })
-
-  soundPlayerWindow = win
-  soundPlayerReady = new Promise<void>((resolve, reject) => {
-    win.webContents.once("did-finish-load", () => resolve())
-    win.webContents.once("did-fail-load", (_event, _code, description) =>
-      reject(new Error(description)),
-    )
-  })
-
-  try {
-    await win.loadURL(recordingAssetsDirUrl())
-    await soundPlayerReady
-    return win
-  } catch (cause) {
-    if (!win.isDestroyed()) win.destroy()
-    if (soundPlayerWindow === win) {
-      soundPlayerWindow = null
-      soundPlayerReady = null
-    }
-    throw cause
-  }
-}
-
-function soundPlayerScript(soundUrl: string, volume: number): string {
-  return `
-    (() => {
-      window.__alloyRecordingSounds ??= new Set();
-      const audio = new Audio(${JSON.stringify(soundUrl)});
-      audio.volume = ${JSON.stringify(volume)};
-      audio.preload = "auto";
-      const cleanup = () => window.__alloyRecordingSounds.delete(audio);
-      audio.addEventListener("ended", cleanup, { once: true });
-      audio.addEventListener("error", cleanup, { once: true });
-      window.__alloyRecordingSounds.add(audio);
-      return audio.play().then(
-        () => true,
-        () => {
-          cleanup();
-          return false;
-        },
-      );
-    })()
-  `
+  soundPlayer = null
 }
 
 function notificationSoundVolume(value: number): number {
@@ -345,8 +267,4 @@ function normalizedSoundSearchText(value: string): string {
 function recordingAssetsDir(): string {
   if (app.isPackaged) return join(process.resourcesPath, "assets")
   return join(app.getAppPath(), "assets")
-}
-
-function recordingAssetsDirUrl(): string {
-  return `${pathToFileURL(recordingAssetsDir()).toString()}/`
 }

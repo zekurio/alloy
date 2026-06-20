@@ -18,6 +18,7 @@ import { finalizeRecordingCapture } from "./recording-capture-finalize"
 import { ensureRecordingDiscordDetectionsCache } from "./recording-discord-detections"
 import { listRecordingDisplays as listElectronRecordingDisplays } from "./recording-displays"
 import { rememberRecordingLibraryCapture } from "./recording-library"
+import { setRecordingNotificationSoundPlayer } from "./recording-notification-sounds"
 import {
   RecordingSidecarClient,
   type SidecarConfig,
@@ -63,6 +64,12 @@ export {
 
 const logger = createLogger("recording")
 export { cancelReplaySaveRequestedSoundSuppression } from "./recording-sound-policy"
+
+setRecordingNotificationSoundPlayer((path, volume) => {
+  const client = getSidecarClient()
+  if (!client) return Promise.resolve()
+  return client.request("playNotificationSound", { path, volume })
+})
 
 export async function getRecordingStatus(): Promise<RecordingStatus> {
   const client = getSidecarClient()

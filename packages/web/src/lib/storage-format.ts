@@ -1,8 +1,12 @@
 import { getRuntimeLocale, localeToLanguageTag, t as tx } from "@alloy/i18n"
 const BYTES_PER_GIB = 1024 * 1024 * 1024
+const STORAGE_WARNING_RATIO = 0.8
+const STORAGE_DANGER_RATIO = 0.95
 const QUOTA_GIB_ERROR = tx(
   "Quota must be blank or a positive GiB value within the safe integer range.",
 )
+
+export type StorageUsageTone = "normal" | "warning" | "danger"
 
 export function formatBytes(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B"
@@ -48,4 +52,16 @@ export function storageUsagePercent(
 ): number {
   if (quotaBytes === null || quotaBytes <= 0) return 0
   return Math.min(100, Math.round((usedBytes / quotaBytes) * 100))
+}
+
+export function storageUsageTone(
+  usedBytes: number,
+  quotaBytes: number | null,
+): StorageUsageTone {
+  if (quotaBytes === null || quotaBytes <= 0) return "normal"
+
+  const ratio = usedBytes / quotaBytes
+  if (ratio >= STORAGE_DANGER_RATIO) return "danger"
+  if (ratio >= STORAGE_WARNING_RATIO) return "warning"
+  return "normal"
 }
