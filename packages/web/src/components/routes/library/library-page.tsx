@@ -21,7 +21,6 @@ import {
   GlobeIcon,
   HardDriveIcon,
   LibraryIcon,
-  ListChecksIcon,
   Loader2Icon,
   MonitorIcon,
   UploadIcon,
@@ -36,7 +35,7 @@ import {
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
 import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { useAppSearch } from "@/components/search/app-search"
-import { UploadQueueContent } from "@/components/upload/upload-queue"
+import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
@@ -77,6 +76,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const [groupKey, setGroupKey] = React.useState<string | null>(null)
   const [status, setStatus] = React.useState<LibraryStatusFilter>("all")
   const importAction = useLibraryImportAction(desktop)
+  const { queue } = useUploadFlowControls()
   const model = useLibraryContentModel({
     desktop,
     kind: "all",
@@ -132,13 +132,27 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     (row: ClipRow) => warmClipDetailCache(queryClient, row),
     [queryClient],
   )
+  const transferMaps = React.useMemo(() => {
+    const byClipId = new Map<string, QueueItem>()
+    const byLocalCaptureId = new Map<string, QueueItem>()
+    for (const item of queue) {
+      if (item.kind === "upload") {
+        byClipId.set(item.id, item)
+        if (item.localCaptureId) byLocalCaptureId.set(item.localCaptureId, item)
+      } else if (item.id.startsWith("download:")) {
+        byClipId.set(item.id.slice("download:".length), item)
+      }
+    }
+    return { byClipId, byLocalCaptureId }
+  }, [queue])
 
   return (
     <AppMain>
       <section className="flex w-full flex-col gap-6">
-        <LibraryTransferStatus desktop={desktop} />
         <LibraryBody
           entries={model.entries}
+          transferByClipId={transferMaps.byClipId}
+          transferByLocalCaptureId={transferMaps.byLocalCaptureId}
           loading={model.loading}
           error={model.error}
           hasAnything={model.hasAnything}
@@ -174,88 +188,31 @@ function LibraryDesktopActions({
   if (!desktop) return null
 
   return (
-    <>
-      <LibraryTransferToggle />
-      <Button
-        type="button"
-        variant="primary"
-        size="sm"
-        disabled={
-          !importAction.available ||
-          importAction.picking ||
-          importAction.committing
-        }
-        title={
-          importAction.available
-            ? tx("Import clip")
-            : tx("Import is unavailable in this desktop build")
-        }
-        onClick={() => {
-          void importAction.start()
-        }}
-      >
-        {importAction.picking ? (
-          <Loader2Icon className="animate-spin" />
-        ) : (
-          <UploadIcon />
-        )}
-        {importAction.picking ? tx("Opening...") : tx("Import clip")}
-      </Button>
-    </>
-  )
-}
-
-function LibraryTransferToggle() {
-  const { queue, activeCount, queueOpen, setQueueOpen } =
-    useUploadFlowControls()
-
-  if (queue.length === 0 && activeCount === 0 && !queueOpen) return null
-
-  return (
     <Button
       type="button"
-      variant="secondary"
+      variant="primary"
       size="sm"
-      aria-pressed={queueOpen}
-      onClick={() => setQueueOpen((open) => !open)}
+      disabled={
+        !importAction.available ||
+        importAction.picking ||
+        importAction.committing
+      }
+      title={
+        importAction.available
+          ? tx("Import clip")
+          : tx("Import is unavailable in this desktop build")
+      }
+      onClick={() => {
+        void importAction.start()
+      }}
     >
-      {activeCount > 0 ? (
+      {importAction.picking ? (
         <Loader2Icon className="animate-spin" />
       ) : (
-        <ListChecksIcon />
+        <UploadIcon />
       )}
-      {activeCount > 0
-        ? tx("Transfers ({count})", { count: activeCount })
-        : tx("Transfers")}
+      {importAction.picking ? tx("Opening...") : tx("Import clip")}
     </Button>
-  )
-}
-
-function LibraryTransferStatus({ desktop }: { desktop: AlloyDesktop | null }) {
-  const {
-    queueOpen,
-    queue,
-    activeCount,
-    clearCompleted,
-    syncPaused,
-    onToggleSyncPause,
-    isQueueLoading,
-    isQueueUnavailable,
-  } = useUploadFlowControls()
-
-  if (!desktop || (!queueOpen && activeCount === 0)) return null
-
-  return (
-    <div className="border-border bg-surface/70 w-full max-w-[32rem] rounded-md border p-3">
-      <UploadQueueContent
-        queue={queue}
-        isLoading={isQueueLoading}
-        isUnavailable={isQueueUnavailable}
-        syncPaused={syncPaused}
-        onToggleSyncPause={onToggleSyncPause}
-        onClearCompleted={clearCompleted}
-      />
-    </div>
   )
 }
 
@@ -416,6 +373,8 @@ function LibraryToolbar({
 
 function LibraryBody({
   entries,
+  transferByClipId,
+  transferByLocalCaptureId,
   loading,
   error,
   hasAnything,
@@ -425,6 +384,8 @@ function LibraryBody({
   onCloudIntent,
 }: {
   entries: LibraryEntry[]
+  transferByClipId: Map<string, QueueItem>
+  transferByLocalCaptureId: Map<string, QueueItem>
   loading: boolean
   error: string | null
   hasAnything: boolean
@@ -479,6 +440,11 @@ function LibraryBody({
             <LibraryCaptureCard
               key={entry.key}
               item={entry.item}
+              transfer={
+                (entry.item.uploadedClipId
+                  ? transferByClipId.get(entry.item.uploadedClipId)
+                  : undefined) ?? transferByLocalCaptureId.get(entry.item.id)
+              }
               onOpen={() => onOpenLocal(entry.item)}
             />
           )
@@ -487,6 +453,7 @@ function LibraryBody({
           <UploadedClipCard
             key={entry.key}
             row={entry.row}
+            transfer={transferByClipId.get(entry.row.id)}
             onOpen={() => onOpenCloud(entry.row)}
             onIntent={() => onCloudIntent(entry.row)}
           />

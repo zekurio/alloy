@@ -6,7 +6,7 @@ import type { AppSearch } from "@/lib/app-search"
 import { alloyDesktop } from "@/lib/desktop"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
-import type { PublishPayload } from "./new-clip-helpers"
+import type { PublishClipInput } from "./new-clip-helpers"
 import { useUploadQueueState } from "./upload-flow-queue-state"
 import { useUploadFlowControls } from "./use-upload-flow-controls"
 
@@ -28,17 +28,10 @@ function UploadFlowInner() {
 }
 
 function AuthedDesktopUploadFlow() {
-  const {
-    queueOpen,
-    setQueueOpen,
-    setActiveCount,
-    setPublishClip,
-    setQueueState,
-  } = useUploadFlowControls()
+  const { setPublishClip, setQueueState } = useUploadFlowControls()
   const navigate = useNavigate()
   const handleOpenClip = React.useCallback(
     (row: QueueClip) => {
-      setQueueOpen(false)
       void navigate({
         to: ".",
         search: (prev: AppSearch) => ({
@@ -59,37 +52,11 @@ function AuthedDesktopUploadFlow() {
           : {}),
       })
     },
-    [navigate, setQueueOpen],
+    [navigate],
   )
-  const {
-    runUpload,
-    queue,
-    activeCount,
-    clearCompleted,
-    syncPaused,
-    onToggleSyncPause,
-    isQueueLoading,
-    isQueueUnavailable,
-  } = useUploadQueueState(queueOpen, handleOpenClip)
+  const { runUpload, queue } = useUploadQueueState(handleOpenClip)
 
-  const queueState = React.useMemo(
-    () => ({
-      queue,
-      clearCompleted,
-      syncPaused,
-      onToggleSyncPause,
-      isQueueLoading,
-      isQueueUnavailable,
-    }),
-    [
-      queue,
-      clearCompleted,
-      syncPaused,
-      onToggleSyncPause,
-      isQueueLoading,
-      isQueueUnavailable,
-    ],
-  )
+  const queueState = React.useMemo(() => ({ queue }), [queue])
 
   React.useEffect(() => {
     setQueueState(queueState)
@@ -99,17 +66,11 @@ function AuthedDesktopUploadFlow() {
     return () => setQueueState(null)
   }, [setQueueState])
 
-  React.useEffect(() => {
-    setActiveCount(activeCount)
-    return () => setActiveCount(0)
-  }, [activeCount, setActiveCount])
-
   const publishFromDesktopEditor = React.useCallback(
-    async (payload: PublishPayload) => {
-      setQueueOpen(true)
+    async (payload: PublishClipInput) => {
       return runUpload(payload)
     },
-    [runUpload, setQueueOpen],
+    [runUpload],
   )
 
   React.useEffect(() => {

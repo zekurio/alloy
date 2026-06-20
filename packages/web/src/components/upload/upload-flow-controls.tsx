@@ -11,10 +11,6 @@ const publishUnavailable: PublishClipFn = () =>
 
 const emptyQueueState: UploadQueueState = {
   queue: [],
-  clearCompleted: () => undefined,
-  syncPaused: null,
-  isQueueLoading: false,
-  isQueueUnavailable: false,
 }
 
 export function UploadFlowProvider({
@@ -22,8 +18,6 @@ export function UploadFlowProvider({
 }: {
   children: React.ReactNode
 }) {
-  const [queueOpen, setQueueOpen] = React.useState(false)
-  const [activeCount, setActiveCount] = React.useState(0)
   const [queueState, setQueueStateValue] =
     React.useState<UploadQueueState>(emptyQueueState)
   const publishClipRef = React.useRef<PublishClipFn>(publishUnavailable)
@@ -41,23 +35,12 @@ export function UploadFlowProvider({
 
   const value = React.useMemo(
     () => ({
-      queueOpen,
-      setQueueOpen,
-      activeCount,
-      setActiveCount,
       ...queueState,
       setQueueState,
       publishClip,
       setPublishClip,
     }),
-    [
-      queueOpen,
-      activeCount,
-      queueState,
-      setQueueState,
-      publishClip,
-      setPublishClip,
-    ],
+    [queueState, setQueueState, publishClip, setPublishClip],
   )
 
   return (

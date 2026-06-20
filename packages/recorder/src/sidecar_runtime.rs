@@ -49,6 +49,7 @@ fn sidecar_version() -> SidecarVersion {
             "display-capture",
             "displays",
             "replay-buffer",
+            "notification-sounds",
             "audio-levels",
         ],
     }
@@ -115,6 +116,19 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
                 recorder.status(),
             ),
         },
+        "playNotificationSound" => {
+            match serde_json::from_value::<PlayNotificationSoundParams>(request.params) {
+                Ok(params) => match play_notification_sound(params) {
+                    Ok(()) => response_ok(request.id, json!(null)),
+                    Err(error) => response_error(request.id, error, recorder.status()),
+                },
+                Err(error) => response_error(
+                    request.id,
+                    format!("Invalid notification sound params: {error}"),
+                    recorder.status(),
+                ),
+            }
+        }
         "shutdown" => {
             recorder.shutdown();
             response_ok(request.id, recorder.status())

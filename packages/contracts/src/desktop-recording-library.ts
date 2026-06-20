@@ -37,7 +37,7 @@ export interface RecordingLibraryItem {
   tags: string | null
   mentions: RecordingCaptureMention[]
   privacy: ClipPrivacy | null
-  /** Server clip id this capture was published as, once an upload finished. */
+  /** Server/client clip id this capture is being or has been published as. */
   uploadedClipId: string | null
   createdAt: string
   modifiedAt: string

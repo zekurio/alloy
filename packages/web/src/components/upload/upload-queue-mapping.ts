@@ -6,16 +6,18 @@ import type { RecordingLibraryDownload } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
 
-import type { QueueItem, QueueItemStatus } from "./upload-queue"
+import type { QueueItem, QueueItemStatus } from "./upload-queue-types"
 
 export interface ActiveUpload {
   localId: string
   clipId?: string
+  localCaptureId?: string
+  serverClipCreated?: boolean
   title: string
   hue: number
   bytesTotal: number
   bytesLoaded: number
-  status: "initiating" | "uploading" | "finalizing" | "error"
+  status: "preparing" | "initiating" | "uploading" | "finalizing" | "error"
   errorMessage?: string
   abort: AbortController
   thumbUrl: string | null
@@ -32,13 +34,21 @@ export function localToQueueItem(
       : 0
   let status: QueueItemStatus
   let detail: string
+  let progress = 0
+  let showProgress = false
   switch (e.status) {
+    case "preparing":
+      status = "preparing"
+      detail = tx("Preparing...")
+      break
     case "initiating":
       status = "queued"
       detail = "Reserving slot…"
       break
     case "uploading":
       status = "uploading"
+      progress = pct
+      showProgress = true
       detail =
         e.bytesTotal > 0
           ? `${formatBytes(e.bytesLoaded)} / ${formatBytes(e.bytesTotal)}`
@@ -54,11 +64,13 @@ export function localToQueueItem(
       break
   }
   return {
-    id: e.localId,
+    id: e.clipId ?? e.localId,
+    localCaptureId: e.localCaptureId,
     title: e.title,
     kind: "upload",
     status,
-    progress: status === "uploading" ? pct : 0,
+    progress,
+    showProgress,
     detail,
     hue: e.hue,
     thumbUrl: e.thumbUrl,
@@ -148,11 +160,9 @@ export function serverToQueueItem(
       status = "queued"
       detail = "Awaiting upload"
       break
-    // Packaging is a quick stream-copy, not a transcode — show it as the
-    // tail end of the upload rather than a separate "Processing" stage.
     case "processing":
       status = "uploading"
-      progress = 99
+      progress = Math.max(0, Math.min(99, Math.floor(row.encodeProgress)))
       detail = "Finalizing…"
       break
     case "ready":

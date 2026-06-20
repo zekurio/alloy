@@ -67,4 +67,5 @@ include!("sidecar_recorder.rs");
 include!("sidecar_recorder_output.rs");
 include!("sidecar_recorder_cache.rs");
 include!("sidecar_obs.rs");
+include!("sidecar_notification_sounds.rs");
 include!("sidecar_runtime.rs");

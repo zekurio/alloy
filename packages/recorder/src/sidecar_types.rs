@@ -629,6 +629,13 @@ struct SaveReplayClipParams {
     duration_seconds: u32,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PlayNotificationSoundParams {
+    path: String,
+    volume: f32,
+}
+
 include!("sidecar_obs_bindings.rs");
 
 impl Default for RecordingSettings {

@@ -127,7 +127,9 @@ function SidebarStatusLabel({
         overflowing ? "justify-start" : "justify-center",
       )}
     >
-      <span className="shrink-0">{icon}</span>
+      <span className="flex size-4 shrink-0 items-center justify-center">
+        {icon}
+      </span>
       <span ref={wrapRef} className="min-w-0 overflow-hidden">
         <span
           ref={textRef}
