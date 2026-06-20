@@ -42,7 +42,12 @@ export async function performUpload(
   bump: () => void,
   invalidateClips: () => void,
 ): Promise<string> {
+  const localClipId = crypto.randomUUID()
+  entry.clipId = localClipId
+  bump()
+
   const initiate = await api.clips.initiate({
+    clientClipId: localClipId,
     filename: payload.file.name,
     contentType: payload.contentType,
     sizeBytes: payload.sizeBytes,
