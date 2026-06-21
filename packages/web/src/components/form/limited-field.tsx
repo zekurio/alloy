@@ -4,9 +4,10 @@ import {
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { forwardRef } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
-function characterCount(value: React.ComponentProps<"input">["value"]) {
+function characterCount(value: ComponentProps<"input">["value"]) {
   if (typeof value === "string" || typeof value === "number") {
     return String(value).length
   }
@@ -25,9 +26,9 @@ function LimitCounter({ current, max }: { current: number; max: number }) {
 }
 
 function renderLimitCounter(
-  value: React.ComponentProps<"input">["value"],
+  value: ComponentProps<"input">["value"],
   max: number | undefined,
-  addonProps: React.ComponentProps<typeof InputGroupAddon>,
+  addonProps: ComponentProps<typeof InputGroupAddon>,
 ) {
   return max !== undefined ? (
     <InputGroupAddon {...addonProps}>
@@ -42,10 +43,10 @@ function maxFromLength(maxLength: string | number | undefined) {
 
 function renderLimitedField(input: {
   groupClassName?: string
-  control: React.ReactNode
-  value: React.ComponentProps<"input">["value"]
+  control: ReactNode
+  value: ComponentProps<"input">["value"]
   max: number | undefined
-  addonProps: React.ComponentProps<typeof InputGroupAddon>
+  addonProps: ComponentProps<typeof InputGroupAddon>
 }) {
   return (
     <InputGroup className={input.groupClassName}>
@@ -55,9 +56,9 @@ function renderLimitedField(input: {
   )
 }
 
-const LimitedInput = React.forwardRef<
+const LimitedInput = forwardRef<
   HTMLInputElement,
-  React.ComponentProps<typeof InputGroupInput> & { groupClassName?: string }
+  ComponentProps<typeof InputGroupInput> & { groupClassName?: string }
 >(function LimitedInput(
   { className, groupClassName, maxLength, value, ...props },
   ref,

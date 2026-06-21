@@ -145,7 +145,7 @@ function exportFileName(
 ): string {
   const base = basename(fileName, extname(fileName)) || "clip"
   if (segments.length === 1) {
-    const [segment] = segments
+    const segment = segments[0]
     return `${base}-${Math.round(segment.startMs / 1000)}-${Math.round(segment.endMs / 1000)}.mp4`
   }
   return `${base}-edited.mp4`

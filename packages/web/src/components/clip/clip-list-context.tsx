@@ -1,5 +1,6 @@
 import type { ClipRow } from "@alloy/api"
-import * as React from "react"
+import { createContext, useContext, useMemo, useSyncExternalStore } from "react"
+import type { ReactNode } from "react"
 
 export interface ClipListEntry {
   id: string
@@ -45,7 +46,7 @@ function buildList(
   }
 }
 
-const ClipListContext = React.createContext<ClipListContextValue | null>(null)
+const ClipListContext = createContext<ClipListContextValue | null>(null)
 
 export function ClipListProvider({
   listKey,
@@ -54,12 +55,9 @@ export function ClipListProvider({
 }: {
   listKey: string
   entries: readonly ClipListEntry[]
-  children: React.ReactNode
+  children: ReactNode
 }) {
-  const value = React.useMemo(
-    () => buildList(listKey, entries),
-    [entries, listKey],
-  )
+  const value = useMemo(() => buildList(listKey, entries), [entries, listKey])
   return (
     <ClipListContext.Provider value={value}>
       {children}
@@ -72,7 +70,7 @@ export function ClipListProvider({
  * when no provider is in scope.
  */
 export function useClipList(): ClipListContextValue | null {
-  return React.useContext(ClipListContext)
+  return useContext(ClipListContext)
 }
 
 let activeList: ClipListContextValue | null = null
@@ -94,7 +92,7 @@ export function setActiveClipList(list: ClipListContextValue | null): void {
  * whenever a different list becomes active (or it's cleared).
  */
 export function useActiveClipList(): ClipListContextValue | null {
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     (onChange) => {
       listeners.add(onChange)
       return () => {

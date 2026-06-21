@@ -1,5 +1,5 @@
 import type { ClipMentionRef } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -15,7 +15,7 @@ import {
 } from "@alloy/ui/components/dialog"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import * as React from "react"
+import { useState } from "react"
 
 import { UserFollowRow } from "@/components/user/user-follow-row"
 import { userChipData } from "@/lib/user-display"
@@ -48,7 +48,7 @@ interface ClipMentionsRowProps {
 
 /** Mobile/full-bleed variant: avatar group + summary text on its own row. */
 function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = useState(false)
   if (mentions.length === 0) return null
 
   const first = mentions[0]
@@ -68,7 +68,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
             "transition-opacity duration-[var(--duration-fast)] ease-[var(--ease-out)]",
             "hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
           )}
-          aria-label={tx("View tagged users")}
+          aria-label={t("View tagged users")}
         >
           <AvatarGroup>
             {preview.map((u) => (
@@ -77,7 +77,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
           </AvatarGroup>
         </button>
         <span className="text-foreground-muted text-xs">
-          {tx("with")}{" "}
+          {t("with")}{" "}
           <Link
             to="/u/$username"
             params={{ username: first.username }}
@@ -90,7 +90,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
             @{firstHandle}
           </Link>
           {others > 0
-            ? tx(" and {count} {label}", {
+            ? t(" and {count} {label}", {
                 count: others,
                 label: tp(others, "other", "others"),
               })
@@ -120,7 +120,7 @@ function MentionsListDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{tx("Tagged in clip")}</DialogTitle>
+          <DialogTitle>{t("Tagged in clip")}</DialogTitle>
         </DialogHeader>
         <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
           <ul className="flex flex-col">

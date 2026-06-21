@@ -1,6 +1,6 @@
 import { clipThumbnailUrl } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
-import * as React from "react"
+import { t } from "@alloy/i18n"
+import { useEffect, useState } from "react"
 
 import { api } from "@/lib/api"
 import { apiOrigin } from "@/lib/env"
@@ -27,8 +27,8 @@ const ROW_DURATIONS = [62, 78, 70, 86, 66, 82, 74, 90, 68, 84, 72, 88] as const
 const MIN_TILES_PER_COPY = 16
 
 function usePrefersReducedMotion(): boolean {
-  const [reduced, setReduced] = React.useState(false)
-  React.useEffect(() => {
+  const [reduced, setReduced] = useState(false)
+  useEffect(() => {
     if (typeof window === "undefined" || !window.matchMedia) return
     const query = window.matchMedia("(prefers-reduced-motion: reduce)")
     const update = () => setReduced(query.matches)
@@ -77,8 +77,8 @@ function MarqueeRow({
           animationDuration: `${durationSec}s`,
           animationTimingFunction: "linear",
           animationIterationCount: "infinite",
-          animationDirection: reverse ? tx("reverse") : tx("normal"),
-          animationPlayState: paused ? tx("paused") : tx("running"),
+          animationDirection: reverse ? t("reverse") : t("normal"),
+          animationPlayState: paused ? t("paused") : t("running"),
         }}
       >
         {tiles.map((url, i) => (
@@ -114,9 +114,9 @@ export function LoginBackdrop({
   darkenOpacity,
 }: LoginBackdropProps) {
   const reducedMotion = usePrefersReducedMotion()
-  const [urls, setUrls] = React.useState<string[]>([])
+  const [urls, setUrls] = useState<string[]>([])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!enabled) {
       setUrls([])
       return

@@ -1,5 +1,5 @@
 import type { GameRow, SteamGridDBSearchResult } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Combobox,
   ComboboxContent,
@@ -12,7 +12,7 @@ import { GameIcon } from "@alloy/ui/components/game-icon"
 import { InputGroupAddon } from "@alloy/ui/components/input-group"
 import { cn } from "@alloy/ui/lib/utils"
 import { KeyRoundIcon, SearchIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
   useGamesListQuery,
@@ -59,7 +59,7 @@ export function GameCombobox({
   onChange,
   disabled = false,
   id,
-  placeholder = tx("Search SteamGridDB…"),
+  placeholder = t("Search SteamGridDB…"),
   allowClear = true,
   invalid = false,
   onConfiguredChange,
@@ -72,17 +72,17 @@ export function GameCombobox({
   const statusQuery = useSteamGridDBStatusQuery()
   const configured = statusQuery.data?.steamgriddbConfigured ?? null
 
-  React.useEffect(() => {
+  useEffect(() => {
     onConfiguredChange?.(configured)
   }, [configured, onConfiguredChange])
 
   // Input text is controlled so a picked value can show the game name
   // (via `itemToStringLabel` alone, the input would blank on open).
-  const [inputValue, setInputValue] = React.useState(value?.name ?? "")
+  const [inputValue, setInputValue] = useState(value?.name ?? "")
   const debouncedQuery = useDebouncedValue(inputValue, 200)
 
-  const lastExternalNameRef = React.useRef<string | null>(value?.name ?? null)
-  React.useEffect(() => {
+  const lastExternalNameRef = useRef<string | null>(value?.name ?? null)
+  useEffect(() => {
     const nextName = value?.name ?? ""
     if (lastExternalNameRef.current !== nextName) {
       lastExternalNameRef.current = nextName
@@ -100,29 +100,27 @@ export function GameCombobox({
 
   const resolveMutation = useResolveGameMutation()
 
-  const [pendingItem, setPendingItem] = React.useState<GameComboboxItem | null>(
-    null,
-  )
+  const [pendingItem, setPendingItem] = useState<GameComboboxItem | null>(null)
 
-  const [cleared, setCleared] = React.useState(false)
+  const [cleared, setCleared] = useState(false)
 
-  const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE)
-  React.useEffect(() => {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  useEffect(() => {
     setVisibleCount(PAGE_SIZE)
   }, [debouncedQuery])
 
-  const anchorRef = React.useRef<HTMLDivElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!focusOnMount) return
     anchorRef.current?.querySelector("input")?.focus()
   }, [focusOnMount])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (value) setCleared(false)
   }, [value])
 
-  const handlePick = React.useCallback(
+  const handlePick = useCallback(
     (picked: GameComboboxItem | null) => {
       if (picked === null) {
         if (!allowClear) {
@@ -160,9 +158,9 @@ export function GameCombobox({
 
   // Base UI's `filter` prop runs on every items change; we want zero
   // client-side filtering because the server already narrowed the list.
-  const noopFilter = React.useCallback(() => true, [])
+  const noopFilter = useCallback(() => true, [])
 
-  const effectiveItems = React.useMemo<GameComboboxItem[]>(() => {
+  const effectiveItems = useMemo<GameComboboxItem[]>(() => {
     const q = normalizeGameSearchText(debouncedQuery)
     const inputQuery = normalizeGameSearchText(inputValue)
     const steamgriddbResults = inputQuery === q ? (searchQuery.data ?? []) : []
@@ -216,7 +214,7 @@ export function GameCombobox({
   // this object must stay referentially stable across renders — recreating it
   // inline re-fires Base UI's value-changed layout effect on every render and
   // loops until React aborts with "Maximum update depth exceeded".
-  const committedValue = React.useMemo<GameComboboxItem | null>(
+  const committedValue = useMemo<GameComboboxItem | null>(
     () =>
       value
         ? {
@@ -265,7 +263,7 @@ export function GameCombobox({
           placeholder={placeholder}
           showTrigger={false}
           showClear={allowClear && controlledValue !== null}
-          aria-label={tx("Game")}
+          aria-label={t("Game")}
           aria-busy={searchQuery.isFetching || resolving || undefined}
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}
@@ -330,17 +328,17 @@ export function GameCombobox({
                   "text-foreground-muted hover:bg-accent hover:text-accent-foreground",
                 )}
               >
-                {tx("Show")}
+                {t("Show")}
                 {Math.min(PAGE_SIZE, effectiveItems.length - visibleCount)}{" "}
-                {tx("more")}
+                {t("more")}
               </button>
             ) : null}
             <ComboboxEmpty>
               {hasError
-                ? tx("Couldn’t reach SteamGridDB")
+                ? t("Couldn’t reach SteamGridDB")
                 : debouncedQuery.trim().length === 0
-                  ? tx("Start typing to search")
-                  : tx("No matches")}
+                  ? t("Start typing to search")
+                  : t("No matches")}
             </ComboboxEmpty>
           </ComboboxList>
         </ComboboxContent>
@@ -364,10 +362,10 @@ function SteamGridDBUnavailableNotice({ className }: { className?: string }) {
       </span>
       <span className="min-w-0 space-y-0.5">
         <span className="text-foreground block text-sm leading-4 font-semibold">
-          {tx("Game search needs a key")}
+          {t("Game search needs a key")}
         </span>
         <span className="text-foreground-muted block text-xs leading-4">
-          {tx("Ask an admin to add a SteamGridDB API key in Integrations.")}
+          {t("Ask an admin to add a SteamGridDB API key in Integrations.")}
         </span>
       </span>
     </div>

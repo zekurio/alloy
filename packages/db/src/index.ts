@@ -17,10 +17,12 @@ export const dbSchema = {
 
 export function createDb(databaseUrl: string) {
   const client = createPostgresPool(databaseUrl)
-  const db = drizzle({
-    client,
-    schema: dbSchema,
-  })
 
-  return { client, db }
+  return {
+    client,
+    db: drizzle({
+      client,
+      schema: dbSchema,
+    }),
+  }
 }

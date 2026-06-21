@@ -1,11 +1,12 @@
 import type { ClipRow, GameListRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { cn } from "@alloy/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
 import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import type { CSSProperties, RefObject } from "react"
 
 import {
   enrichLibraryItem,
@@ -57,18 +58,18 @@ function useSearchPopoverState(
   setOpen: (value: boolean) => void,
 ) {
   const navigate = useNavigate()
-  const [activeIndex, setActiveIndex] = React.useState(0)
-  const rootRef = React.useRef<HTMLDivElement | null>(null)
+  const [activeIndex, setActiveIndex] = useState(0)
+  const rootRef = useRef<HTMLDivElement | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setActiveIndex(0)
   }, [flat])
 
-  const closePopover = React.useCallback(() => {
+  const closePopover = useCallback(() => {
     setOpen(false)
   }, [setOpen])
 
-  const commitClip = React.useCallback(
+  const commitClip = useCallback(
     (row: ClipRow) => {
       closePopover()
       clear()
@@ -89,7 +90,7 @@ function useSearchPopoverState(
     [clear, closePopover, navigate],
   )
 
-  const commitLocalClip = React.useCallback(
+  const commitLocalClip = useCallback(
     (row: LibraryItemView) => {
       closePopover()
       clear()
@@ -101,7 +102,7 @@ function useSearchPopoverState(
     [clear, closePopover, navigate],
   )
 
-  const commitGame = React.useCallback(
+  const commitGame = useCallback(
     (row: GameListRow) => {
       closePopover()
       clear()
@@ -115,7 +116,7 @@ function useSearchPopoverState(
     [clear, closePopover, navigate],
   )
 
-  const commitUser = React.useCallback(
+  const commitUser = useCallback(
     (row: UserListRow) => {
       closePopover()
       clear()
@@ -127,7 +128,7 @@ function useSearchPopoverState(
     [clear, closePopover, navigate],
   )
 
-  const onKeyDown = React.useCallback(
+  const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
       const target = event.target
       const wrapper = rootRef.current?.closest<HTMLElement>(
@@ -171,7 +172,7 @@ function useSearchPopoverState(
   // Gated on `open` so other surfaces aren't intercepted.
   useWindowEvent("keydown", onKeyDown, undefined, open)
 
-  const onPointerDown = React.useCallback(
+  const onPointerDown = useCallback(
     (event: PointerEvent) => {
       const target = event.target
       if (!(target instanceof Node)) return
@@ -202,7 +203,7 @@ function useFlatSearchResults(
   localFallbacks: Map<string, LibraryItemView>,
   listboxId: string,
 ): FlatItem[] {
-  return React.useMemo<FlatItem[]>(() => {
+  return useMemo<FlatItem[]>(() => {
     const serverClipIds = new Set((data?.clips ?? []).map((row) => row.id))
     const localOnlyClips = localClips.filter((row) => {
       return !row.uploadedClipId || !serverClipIds.has(row.uploadedClipId)
@@ -253,7 +254,7 @@ function useLocalClipSearch(
     toastErrors: false,
   })
   const gamesByName = useLibraryGameLookup(snapshot)
-  const fallbackByClipId = React.useMemo(() => {
+  const fallbackByClipId = useMemo(() => {
     const map = new Map<string, LibraryItemView>()
     for (const item of snapshot?.items ?? []) {
       if (!item.uploadedClipId) continue
@@ -261,7 +262,7 @@ function useLocalClipSearch(
     }
     return map
   }, [snapshot, gamesByName])
-  const localClips = React.useMemo(
+  const localClips = useMemo(
     () => searchLocalClips({ snapshot, gamesByName, query, limit }),
     [snapshot, gamesByName, query, limit],
   )
@@ -274,12 +275,12 @@ function useLocalClipSearch(
 }
 
 function useSearchInputA11y(
-  bridgeRef: React.RefObject<HTMLSpanElement | null>,
+  bridgeRef: RefObject<HTMLSpanElement | null>,
   showPopover: boolean,
   listboxId: string,
   activeOptionId: string | undefined,
 ): void {
-  React.useEffect(() => {
+  useEffect(() => {
     const wrapper = bridgeRef.current?.closest<HTMLElement>(
       '[data-slot="app-header-search"]',
     )
@@ -311,8 +312,8 @@ function useSearchInputA11y(
 
 export function SearchResultsPopover() {
   const { query, deferredQuery, open, setOpen, clear } = useAppSearch()
-  const bridgeRef = React.useRef<HTMLSpanElement | null>(null)
-  const listboxId = React.useId()
+  const bridgeRef = useRef<HTMLSpanElement | null>(null)
+  const listboxId = useId()
 
   const trimmedQuery = query.trim()
 
@@ -361,7 +362,7 @@ export function SearchResultsPopover() {
           id={listboxId}
           ref={rootRef}
           role="listbox"
-          aria-label={tx("Search results")}
+          aria-label={t("Search results")}
           className={cn(
             "absolute top-[calc(100%+0.5rem)] right-0 left-0 z-50",
             "alloy-blur overflow-hidden rounded-md border",
@@ -372,7 +373,7 @@ export function SearchResultsPopover() {
               "--alloy-blur-opacity": "82%",
               "--alloy-blur-blur": "28px",
               "--alloy-blur-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
-            } as React.CSSProperties
+            } as CSSProperties
           }
           onMouseDown={(event) => event.preventDefault()}
         >
@@ -432,16 +433,16 @@ function SearchResultsBody({
       return (
         <EmptyBlock
           icon={<SearchIcon />}
-          title={tx("Couldn't search")}
-          hint={errorMessage(error, tx("Search failed"))}
+          title={t("Couldn't search")}
+          hint={errorMessage(error, t("Search failed"))}
         />
       )
     }
     return (
       <EmptyBlock
         icon={<SearchIcon />}
-        title={tx("No matches")}
-        hint={tx(
+        title={t("No matches")}
+        hint={t(
           "Nothing found for {query}. Try a different title, game, file, or creator.",
           { query: quote(query) },
         )}
@@ -469,7 +470,7 @@ function SearchResultsBody({
     >
       {games.length > 0 ? (
         <section>
-          <GroupLabel icon={<GamepadIcon />}>{tx("Games")}</GroupLabel>
+          <GroupLabel icon={<GamepadIcon />}>{t("Games")}</GroupLabel>
           <ul>
             {games.map((item, localIdx) => {
               const globalIdx = localIdx
@@ -490,7 +491,7 @@ function SearchResultsBody({
       ) : null}
       {users.length > 0 ? (
         <section>
-          <GroupLabel icon={<UserIcon />}>{tx("Users")}</GroupLabel>
+          <GroupLabel icon={<UserIcon />}>{t("Users")}</GroupLabel>
           <ul>
             {users.map((item, localIdx) => {
               const globalIdx = firstUserIndex + localIdx
@@ -511,7 +512,7 @@ function SearchResultsBody({
       ) : null}
       {clips.length > 0 ? (
         <section>
-          <GroupLabel icon={<FilmIcon />}>{tx("Clips")}</GroupLabel>
+          <GroupLabel icon={<FilmIcon />}>{t("Clips")}</GroupLabel>
           <ul>
             {clips.map((item, localIdx) => {
               const globalIdx = firstClipIndex + localIdx

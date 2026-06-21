@@ -1,11 +1,11 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@alloy/ui/components/dropdown-menu"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon, Trash2 } from "lucide-react"
-import * as React from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 export type MediaKind = "avatar" | "banner"
 
@@ -14,7 +14,7 @@ export function MediaEditOverlay({
   children,
 }: {
   tone?: "shade" | "control"
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <div
@@ -51,9 +51,9 @@ function MediaMenuItems({
   onRemove: () => void
 }) {
   const uploadLabel =
-    kind === "avatar" ? tx("Upload new avatar") : tx("Upload new banner")
+    kind === "avatar" ? t("Upload new avatar") : t("Upload new banner")
   const removeLabel =
-    kind === "avatar" ? tx("Remove avatar") : tx("Remove banner")
+    kind === "avatar" ? t("Remove avatar") : t("Remove banner")
 
   return (
     <>
@@ -75,7 +75,7 @@ export function MediaDropdownContent({
   onUpload,
   onRemove,
 }: {
-  anchor: React.ComponentProps<typeof DropdownMenuContent>["anchor"] | null
+  anchor: ComponentProps<typeof DropdownMenuContent>["anchor"] | null
   kind: MediaKind
   onUpload: () => void
   onRemove: () => void

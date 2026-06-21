@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
@@ -29,8 +29,8 @@ export function GameFavoriteButton({
         type="button"
         variant="ghost"
         size="icon"
-        aria-label={tx("Star")}
-        title={tx("Star")}
+        aria-label={t("Star")}
+        title={t("Star")}
         disabled
         className={className}
       >
@@ -45,8 +45,8 @@ export function GameFavoriteButton({
         type="button"
         variant="primary"
         size="icon"
-        aria-label={tx("Sign in to star")}
-        title={tx("Sign in to star")}
+        aria-label={t("Sign in to star")}
+        title={t("Sign in to star")}
         className={className}
         onClick={() => {
           void navigate({ to: "/login" })
@@ -57,7 +57,7 @@ export function GameFavoriteButton({
     )
   }
 
-  const label = isStarred ? tx("Starred") : tx("Star")
+  const label = isStarred ? t("Starred") : t("Star")
 
   return (
     <Button
@@ -79,7 +79,7 @@ export function GameFavoriteButton({
           { gameId: String(gameId), next: !isStarred },
           {
             onError: (cause) => {
-              toast.error(errorMessage(cause, tx("Something went wrong")))
+              toast.error(errorMessage(cause, t("Something went wrong")))
             },
           },
         )

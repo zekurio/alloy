@@ -108,16 +108,20 @@ export async function injectSessionCookie(
  * the normal web session flow, so startup never waits on a remote auth probe.
  */
 export async function hasValidSession(serverUrl: string): Promise<boolean> {
-  const [refreshCookie] = await mainSession().cookies.get({
-    url: serverUrl,
-    name: REFRESH_COOKIE,
-  })
+  const refreshCookie = (
+    await mainSession().cookies.get({
+      url: serverUrl,
+      name: REFRESH_COOKIE,
+    })
+  ).at(0)
   if (isUnexpiredCookie(refreshCookie)) return true
 
-  const [legacyCookie] = await mainSession().cookies.get({
-    url: serverUrl,
-    name: LEGACY_SESSION_COOKIE,
-  })
+  const legacyCookie = (
+    await mainSession().cookies.get({
+      url: serverUrl,
+      name: LEGACY_SESSION_COOKIE,
+    })
+  ).at(0)
   return isUnexpiredCookie(legacyCookie)
 }
 

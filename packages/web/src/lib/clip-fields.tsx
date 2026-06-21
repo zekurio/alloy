@@ -4,8 +4,9 @@ import {
   type ClipPrivacy,
 } from "@alloy/api"
 import { normalizeTags, sanitizeTag } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { GlobeIcon, Link2Icon, LockIcon } from "lucide-react"
+import type { ComponentType } from "react"
 
 // Re-exported so callers keep a single import surface for clip field helpers;
 // the canonical tag logic lives in @alloy/contracts (shared with the server).
@@ -44,13 +45,13 @@ export function formatTags(tags: string[]): string {
 interface PrivacyOption {
   value: ClipPrivacy
   label: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: ComponentType<{ className?: string }>
 }
 
 export const PRIVACY_OPTIONS: readonly PrivacyOption[] = [
-  { value: "public", label: tx("Public"), icon: GlobeIcon },
-  { value: "unlisted", label: tx("Unlisted"), icon: Link2Icon },
-  { value: "private", label: tx("Private"), icon: LockIcon },
+  { value: "public", label: t("Public"), icon: GlobeIcon },
+  { value: "unlisted", label: t("Unlisted"), icon: Link2Icon },
+  { value: "private", label: t("Private"), icon: LockIcon },
 ] as const
 
 export const PRIVACY_BY_VALUE: Record<ClipPrivacy, PrivacyOption> =

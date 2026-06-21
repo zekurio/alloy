@@ -1,5 +1,5 @@
 import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -17,7 +17,7 @@ import {
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
-import * as React from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
@@ -88,22 +88,20 @@ export function EditorBody({
   const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
   const { playerRef, trim, rangeMs } = playback
 
-  const [title, setTitle] = React.useState(item.title)
-  const [description, setDescription] = React.useState(item.description ?? "")
-  const [tags, setTags] = React.useState(item.tags ?? "")
-  const [game, setGame] = React.useState<GameRow | null>(item.displayGame)
-  const [mentions, setMentions] = React.useState<UserSearchResult[]>(
-    item.mentions,
-  )
-  const [savedMetadata, setSavedMetadata] = React.useState(() =>
+  const [title, setTitle] = useState(item.title)
+  const [description, setDescription] = useState(item.description ?? "")
+  const [tags, setTags] = useState(item.tags ?? "")
+  const [game, setGame] = useState<GameRow | null>(item.displayGame)
+  const [mentions, setMentions] = useState<UserSearchResult[]>(item.mentions)
+  const [savedMetadata, setSavedMetadata] = useState(() =>
     savedLocalMetadata(item),
   )
-  const [saving, setSaving] = React.useState(false)
-  const [publishing, setPublishing] = React.useState(false)
+  const [saving, setSaving] = useState(false)
+  const [publishing, setPublishing] = useState(false)
 
   const resolvedGame = item.displayGame
   const itemMentionKey = item.mentions.map((mention) => mention.id).join("\0")
-  const itemSavedMetadata = React.useMemo(
+  const itemSavedMetadata = useMemo(
     () => savedLocalMetadata(item),
     [
       item.description,
@@ -113,28 +111,28 @@ export function EditorBody({
       itemMentionKey,
     ],
   )
-  React.useEffect(() => {
+  useEffect(() => {
     setSavedMetadata(itemSavedMetadata)
   }, [itemSavedMetadata])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!resolvedGame) return
     setGame((current) => current ?? resolvedGame)
   }, [resolvedGame])
 
-  const [handoffPoster, setHandoffPoster] = React.useState(() =>
+  const [handoffPoster, setHandoffPoster] = useState(() =>
     readLibraryHandoffPoster(item.id),
   )
-  const [localFrameReady, setLocalFrameReady] = React.useState(
+  const [localFrameReady, setLocalFrameReady] = useState(
     () => handoffPoster === null,
   )
-  React.useEffect(() => {
+  useEffect(() => {
     setHandoffPoster(readLibraryHandoffPoster(item.id))
   }, [item.id])
-  React.useEffect(() => {
+  useEffect(() => {
     setLocalFrameReady(handoffPoster === null)
   }, [handoffPoster])
-  React.useEffect(() => {
+  useEffect(() => {
     if (handoffPoster && localFrameReady) clearLibraryHandoffPoster(item.id)
   }, [handoffPoster, item.id, localFrameReady])
   const poster = useCapturePoster({
@@ -209,7 +207,7 @@ export function EditorBody({
         gameId: game?.id ?? null,
       })
       notifyLibraryCapturesChanged()
-      toast.success(tx("Capture updated"))
+      toast.success(t("Capture updated"))
       if (result.id !== item.id) {
         void navigate({
           to: "/library/$captureId",
@@ -218,7 +216,7 @@ export function EditorBody({
         })
       }
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't save changes")))
+      toast.error(errorMessage(cause, t("Couldn't save changes")))
     } finally {
       setSaving(false)
     }
@@ -231,7 +229,7 @@ export function EditorBody({
 
     if (description.trim().length > CLIP_DESCRIPTION_MAX) {
       toast.error(
-        tx("Description can be at most {max} characters", {
+        t("Description can be at most {max} characters", {
           max: CLIP_DESCRIPTION_MAX,
         }),
       )
@@ -260,12 +258,12 @@ export function EditorBody({
           { action: "copy published clip link" },
         )
         if (copied) {
-          toast.success(tx("Link copied to clipboard"))
+          toast.success(t("Link copied to clipboard"))
         } else {
-          toast.error(tx("Couldn't copy the clip link"))
+          toast.error(t("Couldn't copy the clip link"))
         }
       } else {
-        toast.success(tx("Upload started"))
+        toast.success(t("Upload started"))
       }
 
       await navigate({
@@ -273,7 +271,7 @@ export function EditorBody({
         replace: true,
       })
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't prepare clip")))
+      toast.error(errorMessage(cause, t("Couldn't prepare clip")))
     } finally {
       setPublishing(false)
     }
@@ -285,11 +283,11 @@ export function EditorBody({
     : saving || publishing || deleting || titleInvalid || !dirty
   const primaryLabel = primaryPublishes
     ? publishing
-      ? tx("Preparing...")
-      : tx("Post")
+      ? t("Preparing...")
+      : t("Post")
     : saving
-      ? tx("Saving...")
-      : tx("Save")
+      ? t("Saving...")
+      : t("Save")
   const PrimaryIcon = primaryPublishes ? UploadIcon : SaveIcon
   const showPostInMenu = !primaryPublishes
 
@@ -369,7 +367,7 @@ export function EditorBody({
               disabled={deleting || publishing || saving}
               render={<Link to="/library" />}
             >
-              {tx("Cancel")}
+              {t("Cancel")}
             </Button>
             <div className="flex items-center">
               <Button
@@ -393,7 +391,7 @@ export function EditorBody({
                       variant="primary"
                       size="icon"
                       disabled={publishing || deleting || saving}
-                      aria-label={tx("More post options")}
+                      aria-label={t("More post options")}
                       className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
                     />
                   }
@@ -409,7 +407,7 @@ export function EditorBody({
                       }}
                     >
                       <UploadIcon className="size-4" />
-                      {tx("Post")}
+                      {t("Post")}
                     </DropdownMenuItem>
                   ) : null}
                   <DropdownMenuItem
@@ -419,7 +417,7 @@ export function EditorBody({
                     }}
                   >
                     <Link2Icon className="size-4" />
-                    {tx("Create Link")}
+                    {t("Create Link")}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
@@ -428,7 +426,7 @@ export function EditorBody({
                     onClick={onRequestDelete}
                   >
                     <Trash2Icon className="size-4" />
-                    {tx("Delete")}
+                    {t("Delete")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

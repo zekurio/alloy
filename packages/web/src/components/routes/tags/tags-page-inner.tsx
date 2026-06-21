@@ -1,12 +1,12 @@
 import type { GameListRow } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { GlobeIcon, HashIcon } from "lucide-react"
-import * as React from "react"
+import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import {
@@ -29,8 +29,8 @@ import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 const SORTS: ReadonlyArray<SortDropdownOption<"top" | "recent">> = [
-  { key: "top", label: tx("Top") },
-  { key: "recent", label: tx("Recent") },
+  { key: "top", label: t("Top") },
+  { key: "recent", label: t("Recent") },
 ]
 
 export function TagsPageInner({ tag: rawTag }: { tag: string }) {
@@ -41,8 +41,8 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const filters = tagFilters(search)
   const { data: summary } = useTagSummaryQuery(tag)
   const toolbarSearchKey = JSON.stringify(search)
-  const toolbarSearch = React.useMemo(() => search, [toolbarSearchKey])
-  const toolbar = React.useMemo(
+  const toolbarSearch = useMemo(() => search, [toolbarSearchKey])
+  const toolbar = useMemo(
     () =>
       createHeaderToolbarControls({
         desktop: (
@@ -77,7 +77,7 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
 }
 
 function clipCountLabel(count: number) {
-  return tx("{count} {label}", {
+  return t("{count} {label}", {
     count: formatCount(count),
     label: tp(count, "clip", "clips"),
   })
@@ -126,7 +126,7 @@ function TagFilterBar({
   const ALL_GAMES = "__all"
 
   const gameOptions: FilterDropdownOption<string>[] = [
-    { key: ALL_GAMES, label: tx("All games"), icon: <GlobeIcon /> },
+    { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
     ...(games ?? []).map((g) => ({
       key: String(g.steamgriddbId),
       label: g.name,
@@ -138,7 +138,7 @@ function TagFilterBar({
   return (
     <>
       <SortDropdown
-        triggerLabel={tx("Sort clips")}
+        triggerLabel={t("Sort clips")}
         triggerVariant={triggerVariant}
         value={filters.sort}
         options={SORTS}
@@ -158,11 +158,11 @@ function TagFilterBar({
 
       {games && games.length > 0 ? (
         <FilterDropdown
-          triggerLabel={tx("Filter by game")}
+          triggerLabel={t("Filter by game")}
           triggerVariant={triggerVariant}
           value={activeGameId === undefined ? ALL_GAMES : String(activeGameId)}
           options={gameOptions}
-          searchPlaceholder={tx("Search games…")}
+          searchPlaceholder={t("Search games…")}
           onSelect={(key) => {
             void navigate({
               to: "/tags/$tag",
@@ -197,11 +197,11 @@ function TagClipsSection({
     isPending,
   } = useTagClipsInfiniteQuery(tag, filters)
   useQueryErrorToast(error, {
-    title: tx("Couldn't load clips"),
+    title: t("Couldn't load clips"),
     toastId: `tag-${tag}-error`,
   })
 
-  const rows = React.useMemo(
+  const rows = useMemo(
     () => (data ? data.pages.flatMap((page) => page.items) : []),
     [data],
   )
@@ -221,8 +221,8 @@ function TagClipsSection({
       <EmptyState
         seed={`tag-${tag}-empty`}
         size="lg"
-        title={tx("No clips tagged #{tag}", { tag })}
-        hint={tx("Try a different game.")}
+        title={t("No clips tagged #{tag}", { tag })}
+        hint={t("Try a different game.")}
       />
     )
   }

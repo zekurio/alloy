@@ -3,7 +3,7 @@ import {
   type DesktopUpdateChannel,
   type DesktopUpdateState,
 } from "@alloy/contracts"
-import * as React from "react"
+import { useSyncExternalStore } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -120,7 +120,7 @@ function currentSnapshot(): DesktopUpdatesSnapshot {
  * update UI renders nothing outside the desktop app.
  */
 export function useDesktopUpdateState(): DesktopUpdateState {
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     subscribe,
     () => currentSnapshot().state,
     () => IDLE_STATE,
@@ -128,7 +128,7 @@ export function useDesktopUpdateState(): DesktopUpdateState {
 }
 
 export function useDesktopUpdateChannel(): DesktopUpdateChannel | null {
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     subscribe,
     () => currentSnapshot().channel,
     () => null,
@@ -136,7 +136,7 @@ export function useDesktopUpdateChannel(): DesktopUpdateChannel | null {
 }
 
 export function useDesktopUpdateChannelLoading(): boolean {
-  return React.useSyncExternalStore(
+  return useSyncExternalStore(
     subscribe,
     () => !currentSnapshot().channelHydrated,
     () => false,

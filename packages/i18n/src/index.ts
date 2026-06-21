@@ -131,13 +131,19 @@ export function hasTranslation(locale: Locale, key: string): boolean {
 }
 
 function pluralForm(locale: Locale, count: number): PluralForm {
-  const absoluteCount = Math.abs(Number.isFinite(count) ? count : 0)
-  let rules = pluralRules.get(locale)
-  if (!rules) {
-    rules = new Intl.PluralRules(localeToLanguageTag(locale))
-    pluralRules.set(locale, rules)
-  }
-  return rules.select(absoluteCount) === "one" ? "one" : "other"
+  const countForRules = Math.abs(Number.isFinite(count) ? count : 0)
+  return getPluralRules(locale).select(countForRules) === "one"
+    ? "one"
+    : "other"
+}
+
+function getPluralRules(locale: Locale) {
+  const rules = pluralRules.get(locale)
+  if (rules) return rules
+
+  const nextRules = new Intl.PluralRules(localeToLanguageTag(locale))
+  pluralRules.set(locale, nextRules)
+  return nextRules
 }
 
 function interpolate(template: string, values?: TranslationValues): string {

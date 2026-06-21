@@ -3,7 +3,7 @@ import type {
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -27,7 +27,8 @@ import {
   MonitorIcon,
   Volume2Icon,
 } from "lucide-react"
-import * as React from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 
@@ -97,14 +98,14 @@ function SidebarStatusLabel({
   icon,
   label,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   label: string
 }) {
-  const wrapRef = React.useRef<HTMLSpanElement>(null)
-  const textRef = React.useRef<HTMLSpanElement>(null)
-  const [shift, setShift] = React.useState(0)
+  const wrapRef = useRef<HTMLSpanElement>(null)
+  const textRef = useRef<HTMLSpanElement>(null)
+  const [shift, setShift] = useState(0)
 
-  React.useEffect(() => {
+  useEffect(() => {
     const wrap = wrapRef.current
     const text = textRef.current
     if (!wrap || !text) return
@@ -142,7 +143,7 @@ function SidebarStatusLabel({
                     3,
                     Math.round(shift / 25),
                   )}s linear infinite alternate`,
-                } as React.CSSProperties)
+                } as CSSProperties)
               : undefined
           }
         >
@@ -195,8 +196,8 @@ function RecordingStatusPopover({
         render={
           <button
             type="button"
-            title={tx("Capture status")}
-            aria-label={tx("Capture status: {label}", { label })}
+            title={t("Capture status")}
+            aria-label={t("Capture status: {label}", { label })}
             className={cn(
               "hidden min-w-0 appearance-none items-center border-0 bg-transparent text-left outline-none md:inline-flex",
               "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -231,7 +232,7 @@ function RecordingStatusPopover({
             "--alloy-blur-opacity": "90%",
             "--alloy-blur-blur": "36px",
             "--alloy-blur-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
-          } as React.CSSProperties
+          } as CSSProperties
         }
       >
         <RecordingStatusContent
@@ -265,11 +266,11 @@ function RecordingStatusContent({
   return (
     <>
       <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
-        <div className="text-sm font-semibold">{tx("Capture with Alloy")}</div>
+        <div className="text-sm font-semibold">{t("Capture with Alloy")}</div>
         {settings ? (
           <div className="flex items-center gap-2">
             <span className="text-foreground-dim text-[10px] font-semibold tracking-wide uppercase">
-              {settings.enabled ? tx("On") : tx("Off")}
+              {settings.enabled ? t("On") : t("Off")}
             </span>
             <Switch
               checked={settings.enabled}
@@ -305,7 +306,7 @@ function RecordingStatusContent({
           className="h-8 w-full justify-between px-2 text-sm font-medium"
           onClick={() => void desktop.openSettings()}
         >
-          <span>{tx("Capture settings")}</span>
+          <span>{t("Capture settings")}</span>
           <ArrowRightIcon className="text-foreground-dim size-4" />
         </Button>
       </div>
@@ -324,7 +325,7 @@ function RecordingAudioSettings({
   status: RecordingStatus | null
   onSave: SaveRecordingSettings
 }) {
-  const audioDevices = React.useMemo(
+  const audioDevices = useMemo(
     () =>
       mergeAudioDevices(
         status?.availableAudioDevices ?? [],
@@ -337,7 +338,7 @@ function RecordingAudioSettings({
     <>
       <div className="flex items-center justify-between">
         <span className="text-foreground-dim text-xs font-semibold tracking-wide uppercase">
-          {tx("Audio settings")}
+          {t("Audio settings")}
         </span>
         <Button
           type="button"
@@ -346,13 +347,13 @@ function RecordingAudioSettings({
           className="text-accent h-7 px-1.5"
           onClick={() => void desktop.openSettings()}
         >
-          {tx("Manage Audio")}
+          {t("Manage Audio")}
           <ArrowRightIcon className="size-3.5" />
         </Button>
       </div>
       <AudioRow
         icon={<Volume2Icon className="size-4" />}
-        label={tx("Audio source")}
+        label={t("Audio source")}
         kind="output"
         devices={audioDevices}
         settings={settings}
@@ -360,7 +361,7 @@ function RecordingAudioSettings({
       />
       <AudioRow
         icon={<MicIcon className="size-4" />}
-        label={tx("Microphone source")}
+        label={t("Microphone source")}
         kind="input"
         devices={audioDevices}
         settings={settings}
@@ -394,7 +395,7 @@ function RecordingCaptureTarget({
             "--alloy-blur-opacity": "58%",
             "--alloy-blur-blur": "24px",
             "--alloy-blur-shadow": "none",
-          } as React.CSSProperties
+          } as CSSProperties
         }
       >
         {settings?.captureMode === "display" &&
@@ -440,7 +441,7 @@ function RecordingCaptureTarget({
           }
         >
           <Gamepad2Icon className="size-4" />
-          {tx("Use Game Capture")}
+          {t("Use Game Capture")}
         </Button>
       ) : (
         <Button
@@ -450,7 +451,7 @@ function RecordingCaptureTarget({
           onClick={onOpenDisplayPicker}
         >
           <MonitorIcon className="size-4" />
-          {tx("Use Display Capture")}
+          {t("Use Display Capture")}
         </Button>
       )}
     </>
@@ -465,7 +466,7 @@ function AudioRow({
   settings,
   onSave,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   label: string
   kind: "output" | "input"
   devices: RecordingSettings["audioDevices"]

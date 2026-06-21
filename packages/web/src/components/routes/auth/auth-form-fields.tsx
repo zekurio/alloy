@@ -10,14 +10,19 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
-import * as React from "react"
+import type {
+  ComponentProps,
+  FocusEventHandler,
+  PointerEventHandler,
+  ReactNode,
+} from "react"
 
 type BaseFieldProps = {
-  description?: React.ReactNode
+  description?: ReactNode
   disabled?: boolean
   errors?: Array<unknown>
-  headerAction?: React.ReactNode
-  icon: React.ReactNode
+  headerAction?: ReactNode
+  icon: ReactNode
   id: string
   invalid: boolean
   label: string
@@ -30,7 +35,7 @@ type BaseFieldProps = {
 
 type TextFieldProps = BaseFieldProps &
   Pick<
-    React.ComponentProps<typeof InputGroupInput>,
+    ComponentProps<typeof InputGroupInput>,
     | "autoCapitalize"
     | "autoComplete"
     | "autoCorrect"
@@ -62,7 +67,7 @@ function FieldHeader({
   label,
   required,
 }: {
-  action?: React.ReactNode
+  action?: ReactNode
   id: string
   label: string
   required?: boolean
@@ -94,10 +99,10 @@ function AuthFieldFrame({
   label,
   required,
 }: {
-  children: React.ReactNode
-  description?: React.ReactNode
+  children: ReactNode
+  description?: ReactNode
   errors?: Array<unknown>
-  headerAction?: React.ReactNode
+  headerAction?: ReactNode
   id: string
   label: string
   required?: boolean
@@ -152,7 +157,7 @@ function AuthInputGroupField({
   | "type"
   | "value"
 > & {
-  trailingAddon?: React.ReactNode
+  trailingAddon?: ReactNode
 }) {
   return (
     <InputGroup>
@@ -191,7 +196,7 @@ function renderAuthInputFieldFrame(
     TextFieldProps,
     "description" | "errors" | "headerAction" | "id" | "label" | "required"
   >,
-  children: React.ReactNode,
+  children: ReactNode,
 ) {
   return (
     <AuthFieldFrame
@@ -212,7 +217,7 @@ function renderAuthTextLikeField(
     TextFieldProps,
     "description" | "errors" | "headerAction" | "id" | "label" | "required"
   >,
-  inputProps: React.ComponentProps<typeof AuthInputGroupField>,
+  inputProps: ComponentProps<typeof AuthInputGroupField>,
 ) {
   return renderAuthInputFieldFrame(
     frameProps,
@@ -231,7 +236,7 @@ function createAuthInputGroupBaseProps({
   required,
   value,
 }: Pick<
-  React.ComponentProps<typeof AuthInputGroupField>,
+  ComponentProps<typeof AuthInputGroupField>,
   | "disabled"
   | "icon"
   | "id"
@@ -300,7 +305,7 @@ function renderAuthTextField(
   >,
   baseInputProps: ReturnType<typeof createAuthInputGroupBaseProps>,
   extraInputProps: Omit<
-    React.ComponentProps<typeof AuthInputGroupField>,
+    ComponentProps<typeof AuthInputGroupField>,
     keyof ReturnType<typeof createAuthInputGroupBaseProps>
   >,
 ) {
@@ -314,7 +319,7 @@ function createAuthInputField<TProps extends TextFieldProps>(
   buildExtraInputProps: (
     props: TProps,
   ) => Omit<
-    React.ComponentProps<typeof AuthInputGroupField>,
+    ComponentProps<typeof AuthInputGroupField>,
     keyof ReturnType<typeof createAuthInputGroupBaseProps>
   >,
 ) {
@@ -356,10 +361,10 @@ export function AuthSubmitButton({
   pendingLabel,
 }: {
   canSubmit: boolean
-  children: React.ReactNode
+  children: ReactNode
   isSubmitting: boolean
-  onFocus?: React.FocusEventHandler<HTMLButtonElement>
-  onPointerEnter?: React.PointerEventHandler<HTMLButtonElement>
+  onFocus?: FocusEventHandler<HTMLButtonElement>
+  onPointerEnter?: PointerEventHandler<HTMLButtonElement>
   pendingLabel: string
 }) {
   return (

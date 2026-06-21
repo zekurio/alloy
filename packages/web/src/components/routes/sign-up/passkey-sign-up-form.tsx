@@ -1,8 +1,9 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { ArrowRightIcon, KeyRoundIcon, MailIcon, UserIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 import {
   AuthSubmitButton,
@@ -45,7 +46,7 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
   const router = useRouter()
   const navigate = useNavigate()
 
-  return React.useCallback(
+  return useCallback(
     async (form: PasskeySignUpFormState) => {
       try {
         const { error } = await authClient.passkey.signUp({
@@ -104,20 +105,20 @@ function PasskeyAccountField({
   spellCheck,
   type,
 }: {
-  autoCapitalize?: React.ComponentProps<typeof FormInputField>["autoCapitalize"]
-  autoComplete?: React.ComponentProps<typeof FormInputField>["autoComplete"]
-  autoCorrect?: React.ComponentProps<typeof FormInputField>["autoCorrect"]
-  description?: React.ReactNode
+  autoCapitalize?: ComponentProps<typeof FormInputField>["autoCapitalize"]
+  autoComplete?: ComponentProps<typeof FormInputField>["autoComplete"]
+  autoCorrect?: ComponentProps<typeof FormInputField>["autoCorrect"]
+  description?: ReactNode
   disabled: boolean
   errors?: Array<unknown>
   field: StringFieldController
-  icon: React.ReactNode
+  icon: ReactNode
   invalid: boolean
   label: string
   onChange?: (value: string) => void
   placeholder: string
   spellCheck?: boolean
-  type?: React.ComponentProps<typeof FormInputField>["type"]
+  type?: ComponentProps<typeof FormInputField>["type"]
 }) {
   return (
     <FormInputField
@@ -154,7 +155,7 @@ function UsernameField(props: {
 
   return (
     <PasskeyAccountField
-      label={tx("Username")}
+      label={t("Username")}
       icon={<UserIcon />}
       autoCapitalize="none"
       autoComplete="username"
@@ -181,7 +182,7 @@ function EmailField(props: {
 
   return (
     <PasskeyAccountField
-      label={tx("Email")}
+      label={t("Email")}
       icon={<MailIcon />}
       type="email"
       autoComplete="email"
@@ -198,7 +199,7 @@ function SubmitButton() {
   return (
     <>
       <KeyRoundIcon className="size-4" />
-      {tx("Create account with passkey")}
+      {t("Create account with passkey")}
       <ArrowRightIcon />
     </>
   )
@@ -266,7 +267,7 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
             isSubmitting={isSubmitting}
             onFocus={authClient.passkey.preload}
             onPointerEnter={authClient.passkey.preload}
-            pendingLabel={tx("Waiting for authenticator…")}
+            pendingLabel={t("Waiting for authenticator…")}
           >
             <SubmitButton />
           </AuthSubmitButton>

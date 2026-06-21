@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useEffect, useRef } from "react"
 
 /**
  * Returns a ref to attach to a sentinel element near the end of a list. When
@@ -14,15 +14,15 @@ export function useInfiniteScrollSentinel(
   hasNextPage: boolean,
   isFetchingNextPage: boolean,
 ) {
-  const fetchNextRef = React.useRef(fetchNextPage)
+  const fetchNextRef = useRef(fetchNextPage)
   fetchNextRef.current = fetchNextPage
-  const hasNextRef = React.useRef(hasNextPage)
+  const hasNextRef = useRef(hasNextPage)
   hasNextRef.current = hasNextPage
-  const isFetchingNextRef = React.useRef(isFetchingNextPage)
+  const isFetchingNextRef = useRef(isFetchingNextPage)
   isFetchingNextRef.current = isFetchingNextPage
 
-  const sentinelRef = React.useRef<HTMLDivElement | null>(null)
-  React.useEffect(() => {
+  const sentinelRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
     const el = sentinelRef.current
     if (!el || typeof IntersectionObserver === "undefined") return
     const observer = new IntersectionObserver(

@@ -6,7 +6,7 @@ import {
   ensureDirectHlsPackage,
   makeDirectHlsSpec,
 } from "@alloy/server/clips/direct-hls"
-import * as imageValidation from "@alloy/server/media/image-validation"
+import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { probeMedia } from "@alloy/server/media/probe"
 import { trimToMp4 } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
@@ -330,10 +330,10 @@ async function normalizeStagedPosterToJpeg(
   buf: Buffer,
   id: string,
 ): Promise<Buffer | null> {
-  const asJpeg = imageValidation.validateImageBytes(buf, "image/jpeg")
+  const asJpeg = validateImageBytes(buf, "image/jpeg")
   if (asJpeg.ok) return buf
 
-  const asWebp = imageValidation.validateImageBytes(buf, "image/webp")
+  const asWebp = validateImageBytes(buf, "image/webp")
   if (!asWebp.ok) {
     logger.warn(`rejected staged poster for ${id}: ${asWebp.error}`)
     return null

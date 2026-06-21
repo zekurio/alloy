@@ -1,8 +1,9 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useRef, useState } from "react"
+import type { PointerEvent } from "react"
 
 export function VolumeControl({
   muted,
@@ -29,9 +30,9 @@ export function VolumeControl({
   /** Override the vertical slider popover styling. */
   sliderClassName?: string
 }) {
-  const railRef = React.useRef<HTMLDivElement>(null)
-  const draggingIdRef = React.useRef<number | null>(null)
-  const [dragging, setDragging] = React.useState(false)
+  const railRef = useRef<HTMLDivElement>(null)
+  const draggingIdRef = useRef<number | null>(null)
+  const [dragging, setDragging] = useState(false)
 
   const effective = muted ? 0 : volume
   const Icon =
@@ -41,7 +42,7 @@ export function VolumeControl({
         ? Volume1Icon
         : Volume2Icon
 
-  const computeVolume = React.useCallback((clientY: number): number => {
+  const computeVolume = useCallback((clientY: number): number => {
     const rail = railRef.current
     if (!rail) return 0
     const rect = rail.getBoundingClientRect()
@@ -53,7 +54,7 @@ export function VolumeControl({
     )
   }, [])
 
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
     e.stopPropagation()
     e.currentTarget.focus()
@@ -62,13 +63,13 @@ export function VolumeControl({
     setDragging(true)
     onVolumeChange(computeVolume(e.clientY))
   }
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (draggingIdRef.current !== e.pointerId) return
     e.preventDefault()
     e.stopPropagation()
     onVolumeChange(computeVolume(e.clientY))
   }
-  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
     if (draggingIdRef.current !== e.pointerId) return
     e.preventDefault()
     e.stopPropagation()
@@ -89,7 +90,7 @@ export function VolumeControl({
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={muted ? tx("Unmute") : tx("Mute")}
+        aria-label={muted ? t("Unmute") : t("Mute")}
         onClick={onToggleMute}
         className={cn(
           "size-[52px] shrink-0 rounded-full text-foreground hover:bg-transparent hover:text-foreground hover:shadow-none focus-visible:ring-ring",
@@ -109,7 +110,7 @@ export function VolumeControl({
           ref={railRef}
           data-dragging={dragging || undefined}
           role="slider"
-          aria-label={tx("Volume")}
+          aria-label={t("Volume")}
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(effective * 100)}

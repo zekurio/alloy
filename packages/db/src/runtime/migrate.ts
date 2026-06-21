@@ -34,7 +34,6 @@ async function main() {
   if (!url) {
     logger.error("[db/migrate] DATABASE_URL is required")
     process.exit(1)
-    return
   }
 
   await migrateDatabase(url)

@@ -1,12 +1,13 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Label } from "@alloy/ui/components/label"
 import { Separator } from "@alloy/ui/components/separator"
 import { messageFromUnknown } from "@alloy/ui/lib/error-message"
 import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
 import { useMemo } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
-function FieldStateMarker({ children }: { children: React.ReactNode }) {
+function FieldStateMarker({ children }: { children: ReactNode }) {
   return (
     <span
       data-slot="field-state-marker"
@@ -27,7 +28,7 @@ function FieldRequiredMarker() {
       >
         {"*"}
       </span>
-      <span className="sr-only">{tx("required")}</span>
+      <span className="sr-only">{t("required")}</span>
     </>
   )
 }
@@ -37,7 +38,7 @@ function FieldHeaderContent({
   optional,
   required,
 }: {
-  children: React.ReactNode
+  children: ReactNode
   optional?: boolean
   required?: boolean
 }) {
@@ -47,12 +48,12 @@ function FieldHeaderContent({
         <span className="min-w-0">{children}</span>
         {required ? <FieldRequiredMarker /> : null}
       </span>
-      {optional ? <FieldStateMarker>{tx("Optional")}</FieldStateMarker> : null}
+      {optional ? <FieldStateMarker>{t("Optional")}</FieldStateMarker> : null}
     </>
   )
 }
 
-function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
+function FieldSet({ className, ...props }: ComponentProps<"fieldset">) {
   return (
     <fieldset
       data-slot="field-set"
@@ -72,7 +73,7 @@ function FieldLegend({
   required,
   optional,
   ...props
-}: React.ComponentProps<"legend"> & {
+}: ComponentProps<"legend"> & {
   variant?: "legend" | "label"
   required?: boolean
   optional?: boolean
@@ -98,7 +99,7 @@ function FieldSection({
   className,
   slot,
   ...props
-}: React.ComponentProps<"div"> & {
+}: ComponentProps<"div"> & {
   slot: string
 }) {
   return <div data-slot={slot} className={cn(className)} {...props} />
@@ -107,7 +108,7 @@ function FieldSection({
 function renderFieldSection(
   slot: string,
   defaultClassName: string,
-  { className, ...props }: React.ComponentProps<"div">,
+  { className, ...props }: ComponentProps<"div">,
 ) {
   return (
     <FieldSection
@@ -118,7 +119,7 @@ function renderFieldSection(
   )
 }
 
-function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
+function FieldGroup({ className, ...props }: ComponentProps<"div">) {
   return renderFieldSection(
     "field-group",
     "group/field-group @container/field-group flex w-full flex-col gap-5 data-[slot=checkbox-group]:gap-3 *:data-[slot=field-group]:gap-4",
@@ -148,7 +149,7 @@ function Field({
   className,
   orientation = "vertical",
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof fieldVariants>) {
+}: ComponentProps<"div"> & VariantProps<typeof fieldVariants>) {
   return (
     <div
       role="group"
@@ -160,7 +161,7 @@ function Field({
   )
 }
 
-function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
+function FieldContent({ className, ...props }: ComponentProps<"div">) {
   return renderFieldSection(
     "field-content",
     "group/field-content flex flex-1 flex-col gap-1.5 leading-tight",
@@ -174,7 +175,7 @@ function FieldLabel({
   required,
   optional,
   ...props
-}: React.ComponentProps<typeof Label> & {
+}: ComponentProps<typeof Label> & {
   required?: boolean
   optional?: boolean
 }) {
@@ -201,7 +202,7 @@ function FieldTitle({
   required,
   optional,
   ...props
-}: React.ComponentProps<"div"> & {
+}: ComponentProps<"div"> & {
   required?: boolean
   optional?: boolean
 }) {
@@ -221,7 +222,7 @@ function FieldTitle({
   )
 }
 
-function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
+function FieldDescription({ className, ...props }: ComponentProps<"p">) {
   return (
     <p
       data-slot="field-description"
@@ -240,8 +241,8 @@ function FieldSeparator({
   children,
   className,
   ...props
-}: React.ComponentProps<"div"> & {
-  children?: React.ReactNode
+}: ComponentProps<"div"> & {
+  children?: ReactNode
 }) {
   return (
     <div
@@ -271,7 +272,7 @@ function FieldError({
   children,
   errors,
   ...props
-}: React.ComponentProps<"div"> & {
+}: ComponentProps<"div"> & {
   errors?: Array<unknown>
 }) {
   const content = useMemo(() => {

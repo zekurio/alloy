@@ -4,7 +4,7 @@ import type {
   PublicLoginSplashConfig,
 } from "@alloy/api"
 import { DESKTOP_AUTH_CAPABILITY_VERSION } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -20,7 +20,7 @@ import {
 } from "@alloy/ui/components/tooltip"
 import { cn } from "@alloy/ui/lib/utils"
 import { EyeIcon, XIcon } from "lucide-react"
-import * as React from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   mobileCloseIconClassName,
@@ -105,10 +105,10 @@ function BackdropTreatmentControls({
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="min-w-0 space-y-2">
         <div className="flex items-center justify-between gap-3 text-sm font-medium">
-          <span>{tx("Blur")}</span>
+          <span>{t("Blur")}</span>
           <span className="text-foreground-muted text-xs">
             {blurPx}
-            {tx("px")}
+            {t("px")}
           </span>
         </div>
         <Slider
@@ -122,7 +122,7 @@ function BackdropTreatmentControls({
       </div>
       <div className="min-w-0 space-y-2">
         <div className="flex items-center justify-between gap-3 text-sm font-medium">
-          <span>{tx("Darkening")}</span>
+          <span>{t("Darkening")}</span>
           <span className="text-foreground-muted text-xs">
             {Math.round(darkenOpacity * 100)}
             {"%"}
@@ -166,7 +166,7 @@ function ModeToggle({
         onClick={() => onChange("login")}
         className={modeButtonClass(mode === "login")}
       >
-        {tx("Login")}
+        {t("Login")}
       </button>
       {signUpDisabled ? (
         <Tooltip>
@@ -177,10 +177,10 @@ function ModeToggle({
             aria-pressed={mode === "sign-up"}
             className={modeButtonClass(mode === "sign-up", true)}
           >
-            {tx("Sign up")}
+            {t("Sign up")}
           </TooltipTrigger>
           <TooltipContent side="bottom">
-            {tx("Sign-ups are disabled")}
+            {t("Sign-ups are disabled")}
           </TooltipContent>
         </Tooltip>
       ) : (
@@ -190,7 +190,7 @@ function ModeToggle({
           onClick={() => onChange("sign-up")}
           className={modeButtonClass(mode === "sign-up")}
         >
-          {tx("Sign up")}
+          {t("Sign up")}
         </button>
       )}
     </div>
@@ -214,10 +214,10 @@ export function LoginAppearancePreview({
   onBlurPxChange: (value: number) => void
   onDarkenOpacityChange: (value: number) => void
 }) {
-  const [mode, setMode] = React.useState<AuthPreviewMode>("login")
-  const [open, setOpen] = React.useState(false)
+  const [mode, setMode] = useState<AuthPreviewMode>("login")
+  const [open, setOpen] = useState(false)
 
-  const authConfig = React.useMemo(
+  const authConfig = useMemo(
     () => toPublicAuthConfig(config, splash),
     [config, splash],
   )
@@ -228,7 +228,7 @@ export function LoginAppearancePreview({
     authConfig.openRegistrations &&
     (authConfig.passkeyEnabled || authConfig.providers.length > 0)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!canSignUp && mode === "sign-up") setMode("login")
   }, [canSignUp, mode])
 
@@ -241,7 +241,7 @@ export function LoginAppearancePreview({
         onClick={() => setOpen(true)}
       >
         <EyeIcon />
-        {tx("Open preview")}
+        {t("Open preview")}
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -252,19 +252,19 @@ export function LoginAppearancePreview({
         >
           <DialogTitle className="sr-only">
             {mode === "login"
-              ? tx("Login page preview")
-              : tx("Sign-up page preview")}
+              ? t("Login page preview")
+              : t("Sign-up page preview")}
           </DialogTitle>
 
           <div className="border-border/70 bg-surface/88 relative z-10 flex flex-col gap-3 border-b px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
             <div className="min-w-0">
               <div className="text-sm font-semibold">
-                {tx("Login appearance")}
+                {t("Login appearance")}
               </div>
               <div className="text-foreground-muted text-xs">
                 {mode === "login"
-                  ? tx("Login page preview")
-                  : tx("Sign-up page preview")}
+                  ? t("Login page preview")
+                  : t("Sign-up page preview")}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
@@ -278,7 +278,7 @@ export function LoginAppearancePreview({
                   mobileSurfaceCloseButtonClassName,
                   "border border-border bg-surface-raised",
                 )}
-                aria-label={tx("Close preview")}
+                aria-label={t("Close preview")}
               >
                 <XIcon className={mobileCloseIconClassName} />
               </DialogClose>

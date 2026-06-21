@@ -1,6 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
-import * as React from "react"
+import { Suspense, lazy, useEffect } from "react"
 
 import { ClientOnly } from "@/components/app/client-only"
 import { OAuthErrorToast } from "@/components/auth/oauth-error-toast"
@@ -23,13 +23,13 @@ export const Route = createRootRouteWithContext<{
   component: RootLayout,
 })
 
-const ReactivateAccountPrompt = React.lazy(() =>
+const ReactivateAccountPrompt = lazy(() =>
   import("@/components/account/reactivate-account-prompt").then((m) => ({
     default: m.ReactivateAccountPrompt,
   })),
 )
 
-const Toaster = React.lazy(() =>
+const Toaster = lazy(() =>
   import("@alloy/ui/components/sonner").then((m) => ({
     default: m.Toaster,
   })),
@@ -38,7 +38,7 @@ const Toaster = React.lazy(() =>
 function RootLayout() {
   // In the desktop shell with custom chrome, flag the document so the app
   // header becomes a draggable title bar (see globals.css).
-  React.useEffect(() => {
+  useEffect(() => {
     if (!alloyDesktop()?.titlebarOverlay) return
     const root = document.documentElement
     root.classList.add("is-desktop-titlebar")
@@ -49,17 +49,17 @@ function RootLayout() {
     <>
       <Outlet />
       <ClientOnly>
-        <React.Suspense fallback={null}>
+        <Suspense fallback={null}>
           <RuntimeConfigEvents />
           <OAuthErrorToast />
           <ReactivateAccountPrompt />
-        </React.Suspense>
+        </Suspense>
       </ClientOnly>
       {/* Global toast portal — rendered once at the root so every route
           can call `toast.*` without mounting its own provider. */}
-      <React.Suspense fallback={null}>
+      <Suspense fallback={null}>
         <Toaster />
-      </React.Suspense>
+      </Suspense>
     </>
   )
 }

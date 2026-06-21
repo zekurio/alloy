@@ -1,5 +1,5 @@
 import type { RecordingSettings } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Select,
   SelectContent,
@@ -10,7 +10,7 @@ import {
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { CheckIcon } from "lucide-react"
-import { type Dispatch, type SetStateAction } from "react"
+import type { Dispatch, SetStateAction } from "react"
 
 import { DESKTOP_RECORDING_BUFFER_STORAGE } from "./desktop-bridge"
 import { Subsection } from "./desktop-capture-sections"
@@ -22,7 +22,7 @@ import {
   estimateHourlyBytes,
   formatBytes,
   formatDuration,
-  RECORDING_QUALITY_PRESETS,
+  RECORDING_QUALITY_PRESET_OPTIONS,
   RESOLUTION_LABELS,
   selectedQualityPreset,
   type QualityPresetOption,
@@ -41,15 +41,15 @@ export function QualitySection({
 
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {RECORDING_QUALITY_PRESETS.map((preset) => (
+      {RECORDING_QUALITY_PRESET_OPTIONS.map((preset) => (
         <PresetCard
           key={preset.id}
           label={preset.label}
-          spec={tx("{resolution} · {fps} FPS", {
+          spec={t("{resolution} · {fps} FPS", {
             fps: preset.fps,
             resolution: RESOLUTION_LABELS[preset.resolution],
           })}
-          hourly={tx("≈ {size}/hr", {
+          hourly={t("≈ {size}/hr", {
             size: formatBytes(
               estimateHourlyBytes(
                 preset.resolution,
@@ -65,11 +65,11 @@ export function QualitySection({
       ))}
       <PresetCard
         label={CUSTOM_QUALITY_LABEL}
-        spec={tx("{resolution} · {fps} FPS", {
+        spec={t("{resolution} · {fps} FPS", {
           fps: settings.customQuality.fps,
           resolution: RESOLUTION_LABELS[settings.customQuality.resolution],
         })}
-        hourly={tx("≈ {size}/hr", {
+        hourly={t("≈ {size}/hr", {
           size: formatBytes(
             estimateHourlyBytes(
               settings.customQuality.resolution,
@@ -98,10 +98,10 @@ export function ReplayBufferSection({
   save: (next: RecordingSettings) => Promise<void>
 }) {
   return (
-    <Subsection title={tx("Replay buffer")}>
+    <Subsection title={t("Replay buffer")}>
       <SettingRow
-        title={tx("Replay buffer")}
-        description={tx("The rolling window the clip hotkey saves.")}
+        title={t("Replay buffer")}
+        description={t("The rolling window the clip hotkey saves.")}
         htmlFor="desktop-recording-buffer"
       >
         <div className="flex w-44 items-center gap-3 sm:w-56">
@@ -132,8 +132,8 @@ export function ReplayBufferSection({
         </div>
       </SettingRow>
       <SettingRow
-        title={tx("Buffer storage")}
-        description={tx("Where replay video is kept before a clip is saved.")}
+        title={t("Buffer storage")}
+        description={t("Where replay video is kept before a clip is saved.")}
         htmlFor="desktop-recording-buffer-storage"
       >
         <Select

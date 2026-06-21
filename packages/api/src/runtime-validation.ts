@@ -141,7 +141,10 @@ export function validatePositiveInteger(value: unknown, message: string) {
   }
 }
 
-export function validateNonNegativeInteger(value: unknown, message: string) {
+export function validateNonNegativeInteger(
+  value: unknown,
+  message: string,
+): asserts value is number {
   validateNumber(value, message)
   if (!Number.isInteger(value) || value < 0) {
     throw new Error(message)

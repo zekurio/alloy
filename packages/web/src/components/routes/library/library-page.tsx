@@ -1,5 +1,5 @@
 import type { ClipRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
 import {
@@ -25,7 +25,8 @@ import {
   MonitorIcon,
   UploadIcon,
 } from "lucide-react"
-import * as React from "react"
+import { useCallback, useMemo, useState } from "react"
+import type { ReactNode } from "react"
 
 import { ClipGrid } from "@/components/clip/clip-grid"
 import {
@@ -73,8 +74,8 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { deferredQuery } = useAppSearch()
-  const [groupKey, setGroupKey] = React.useState<string | null>(null)
-  const [status, setStatus] = React.useState<LibraryStatusFilter>("all")
+  const [groupKey, setGroupKey] = useState<string | null>(null)
+  const [status, setStatus] = useState<LibraryStatusFilter>("all")
   const importAction = useLibraryImportAction(desktop)
   const { queue } = useUploadFlowControls()
   const model = useLibraryContentModel({
@@ -84,7 +85,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     groupKey,
     status,
   })
-  const toolbar = React.useMemo(
+  const toolbar = useMemo(
     () =>
       createHeaderToolbarControls({
         desktop: (
@@ -128,11 +129,11 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     ],
   )
   useHeaderToolbar(toolbar)
-  const warmCloudClip = React.useCallback(
+  const warmCloudClip = useCallback(
     (row: ClipRow) => warmClipDetailCache(queryClient, row),
     [queryClient],
   )
-  const transferMaps = React.useMemo(() => {
+  const transferMaps = useMemo(() => {
     const byClipId = new Map<string, QueueItem>()
     const byLocalCaptureId = new Map<string, QueueItem>()
     for (const item of queue) {
@@ -199,8 +200,8 @@ function LibraryDesktopActions({
       }
       title={
         importAction.available
-          ? tx("Import clip")
-          : tx("Import is unavailable in this desktop build")
+          ? t("Import clip")
+          : t("Import is unavailable in this desktop build")
       }
       onClick={() => {
         void importAction.start()
@@ -211,7 +212,7 @@ function LibraryDesktopActions({
       ) : (
         <UploadIcon />
       )}
-      {importAction.picking ? tx("Opening...") : tx("Import clip")}
+      {importAction.picking ? t("Opening...") : t("Import clip")}
     </Button>
   )
 }
@@ -234,13 +235,10 @@ function useLibraryContentModel({
   const { data: session } = useSession()
   const handle = session?.user?.username ?? ""
   const uploadedQuery = useUserClipsQuery(handle)
-  const uploaded = React.useMemo(
-    () => uploadedQuery.data ?? [],
-    [uploadedQuery.data],
-  )
+  const uploaded = useMemo(() => uploadedQuery.data ?? [], [uploadedQuery.data])
   const gamesByName = useLibraryGameLookup(snapshot)
 
-  const localGroups = React.useMemo(
+  const localGroups = useMemo(
     () =>
       (snapshot?.groups ?? []).map((group) =>
         enrichGroupIcon(group, gamesByName),
@@ -250,17 +248,17 @@ function useLibraryContentModel({
 
   // Captures that collapsed into a server row count toward that row's source
   // chip; tally them per local group so the filter chips stay accurate.
-  const collapsedCounts = React.useMemo(() => {
+  const collapsedCounts = useMemo(() => {
     const serverIds = new Set(uploaded.map((row) => row.id))
     return collapsedServerCounts(snapshot?.items ?? [], serverIds)
   }, [snapshot, uploaded])
 
-  const groups = React.useMemo(
+  const groups = useMemo(
     () => buildLibraryGroups(localGroups, uploaded, collapsedCounts),
     [localGroups, uploaded, collapsedCounts],
   )
 
-  const visibleEntries = React.useMemo<LibraryEntry[]>(() => {
+  const visibleEntries = useMemo<LibraryEntry[]>(() => {
     const active = groupKey
       ? (groups.find((group) => group.key === groupKey) ?? null)
       : null
@@ -273,11 +271,11 @@ function useLibraryContentModel({
       query,
     })
   }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, query])
-  const statusCounts = React.useMemo(
+  const statusCounts = useMemo(
     () => countLibraryEntriesByStatus(visibleEntries),
     [visibleEntries],
   )
-  const entries = React.useMemo(
+  const entries = useMemo(
     () => filterLibraryEntriesByStatus(visibleEntries, status),
     [visibleEntries, status],
   )
@@ -309,7 +307,7 @@ function LibraryToolbar({
 }) {
   const ALL_GAMES = "__all"
   const options: FilterDropdownOption<string>[] = [
-    { key: ALL_GAMES, label: tx("All games"), icon: <GlobeIcon /> },
+    { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
     ...groups.map((group) => ({
       key: group.key,
       label: group.label,
@@ -325,25 +323,25 @@ function LibraryToolbar({
   const statusOptions: FilterDropdownOption<LibraryStatusFilter>[] = [
     {
       key: "all",
-      label: tx("Any status"),
+      label: t("Any status"),
       icon: <FunnelIcon />,
       count: statusCounts.local + statusCounts.cloud + statusCounts.synced,
     },
     {
       key: "local",
-      label: tx("On Device"),
+      label: t("On Device"),
       icon: <MonitorIcon />,
       count: statusCounts.local,
     },
     {
       key: "cloud",
-      label: tx("On Server"),
+      label: t("On Server"),
       icon: <CloudIcon />,
       count: statusCounts.cloud,
     },
     {
       key: "synced",
-      label: tx("Server + Device"),
+      label: t("Server + Device"),
       icon: <CloudCheckIcon />,
       count: statusCounts.synced,
     },
@@ -352,15 +350,15 @@ function LibraryToolbar({
   return (
     <>
       <FilterDropdown
-        triggerLabel={tx("Filter by game")}
+        triggerLabel={t("Filter by game")}
         triggerVariant={triggerVariant}
         value={groupKey ?? ALL_GAMES}
         options={options}
-        searchPlaceholder={tx("Search games…")}
+        searchPlaceholder={t("Search games…")}
         onSelect={(key) => onGroupChange(key === ALL_GAMES ? null : key)}
       />
       <FilterDropdown
-        triggerLabel={tx("Filter by status")}
+        triggerLabel={t("Filter by status")}
         triggerVariant={triggerVariant}
         value={status}
         options={statusOptions}
@@ -399,7 +397,7 @@ function LibraryBody({
       return (
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title={tx("Couldn't scan the library")}
+          title={t("Couldn't scan the library")}
           description={error}
         />
       )
@@ -413,8 +411,8 @@ function LibraryBody({
       return (
         <LibraryEmpty
           icon={<LibraryIcon />}
-          title={tx("Your library is empty")}
-          description={tx("Captures and clips will appear here.")}
+          title={t("Your library is empty")}
+          description={t("Captures and clips will appear here.")}
         />
       )
     }
@@ -422,11 +420,11 @@ function LibraryBody({
     return (
       <LibraryEmpty
         icon={<LibraryIcon />}
-        title={tx("No captures here")}
+        title={t("No captures here")}
         description={
           query.trim()
-            ? tx("Try a different search or filter.")
-            : tx("Pick another game or add a capture.")
+            ? t("Try a different search or filter.")
+            : t("Pick another game or add a capture.")
         }
       />
     )
@@ -470,10 +468,10 @@ export function LibraryEmpty({
   description,
   children,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   title: string
   description: string
-  children?: React.ReactNode
+  children?: ReactNode
 }) {
   return (
     <Empty className="min-h-[22rem] bg-transparent">

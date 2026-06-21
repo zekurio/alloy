@@ -18,55 +18,55 @@ import {
   RECORDING_ENCODERS,
   type RecordingSettings,
 } from "./desktop-recording-types"
+import { isObjectRecord } from "./object"
 
 export { DEFAULT_RECORDING_SETTINGS } from "./desktop-recording-defaults"
 export { normalizeReplayBufferSeconds } from "./desktop-recording-normalizers"
 
 export function normalizeRecordingSettings(value: unknown): RecordingSettings {
-  if (typeof value !== "object" || value === null) {
+  if (!isObjectRecord(value)) {
     return DEFAULT_RECORDING_SETTINGS
   }
 
-  const record = value as Record<string, unknown>
-  const quality = normalizeQualitySettings(record, DEFAULT_RECORDING_SETTINGS)
-  const customQuality = normalizeQualitySettings(record.customQuality, quality)
-  const qualityProfile = normalizeQualityProfile(record.qualityProfile)
-  const hotkeys = normalizeHotkeys(record.hotkeys)
+  const quality = normalizeQualitySettings(value, DEFAULT_RECORDING_SETTINGS)
+  const customQuality = normalizeQualitySettings(value.customQuality, quality)
+  const qualityProfile = normalizeQualityProfile(value.qualityProfile)
+  const hotkeys = normalizeHotkeys(value.hotkeys)
 
   return {
     enabled:
-      typeof record.enabled === "boolean"
-        ? record.enabled
+      typeof value.enabled === "boolean"
+        ? value.enabled
         : DEFAULT_RECORDING_SETTINGS.enabled,
     captureMode: normalizeLiteral(
-      record.captureMode,
+      value.captureMode,
       RECORDING_CAPTURE_MODES,
       DEFAULT_RECORDING_SETTINGS.captureMode,
     ),
     selectedDisplayId:
-      typeof record.selectedDisplayId === "string"
-        ? record.selectedDisplayId
+      typeof value.selectedDisplayId === "string"
+        ? value.selectedDisplayId
         : DEFAULT_RECORDING_SETTINGS.selectedDisplayId,
-    allowedGames: normalizeAllowedGames(record.allowedGames),
-    deniedGames: normalizeAllowedGames(record.deniedGames),
+    allowedGames: normalizeAllowedGames(value.allowedGames),
+    deniedGames: normalizeAllowedGames(value.deniedGames),
     audioMode: normalizeLiteral(
-      record.audioMode,
+      value.audioMode,
       RECORDING_AUDIO_MODES,
       DEFAULT_RECORDING_SETTINGS.audioMode,
     ),
-    audioDevices: normalizeAudioDevices(record.audioDevices),
-    audioApplications: normalizeAudioApplications(record.audioApplications),
+    audioDevices: normalizeAudioDevices(value.audioDevices),
+    audioApplications: normalizeAudioApplications(value.audioApplications),
     encoder: normalizeLiteral(
-      record.encoder,
+      value.encoder,
       RECORDING_ENCODERS,
       DEFAULT_RECORDING_SETTINGS.encoder,
     ),
     gpu:
-      typeof record.gpu === "string" && record.gpu.length > 0
-        ? record.gpu
+      typeof value.gpu === "string" && value.gpu.length > 0
+        ? value.gpu
         : DEFAULT_RECORDING_SETTINGS.gpu,
     codec: normalizeLiteral(
-      record.codec,
+      value.codec,
       RECORDING_CODECS,
       DEFAULT_RECORDING_SETTINGS.codec,
     ),
@@ -76,16 +76,16 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
     bitrate: quality.bitrate,
     customQuality,
     replayBufferSeconds: normalizeReplayBufferSeconds(
-      record.replayBufferSeconds,
+      value.replayBufferSeconds,
     ),
     bufferStorage: normalizeLiteral(
-      record.bufferStorage,
+      value.bufferStorage,
       RECORDING_BUFFER_STORAGE,
       DEFAULT_RECORDING_SETTINGS.bufferStorage,
     ),
     outputFolder:
-      typeof record.outputFolder === "string" ? record.outputFolder : "",
+      typeof value.outputFolder === "string" ? value.outputFolder : "",
     hotkeys,
-    notificationSounds: normalizeNotificationSounds(record.notificationSounds),
+    notificationSounds: normalizeNotificationSounds(value.notificationSounds),
   }
 }

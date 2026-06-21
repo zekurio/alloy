@@ -1,8 +1,8 @@
 import type { ClipFeedSort, FeedFilter } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Link, useSearch } from "@tanstack/react-router"
-import * as React from "react"
+import { useMemo } from "react"
 
 import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
@@ -29,16 +29,13 @@ export function HomePageInner() {
   const session = useSuspenseSession()
   const search = useSearch({ strict: false }) as HomeSearch
   const toolbarSearchKey = JSON.stringify(search)
-  const toolbarSearch = React.useMemo(() => search, [toolbarSearchKey])
+  const toolbarSearch = useMemo(() => search, [toolbarSearchKey])
 
-  const filter = React.useMemo(
-    () => filterFromSearch(toolbarSearch),
-    [toolbarSearch],
-  )
+  const filter = useMemo(() => filterFromSearch(toolbarSearch), [toolbarSearch])
   const sort: ClipFeedSort = toolbarSearch.sort ?? DEFAULT_CLIP_SORT
 
   const viewerId = session?.user.id
-  const toolbar = React.useMemo(() => {
+  const toolbar = useMemo(() => {
     const sortControl = (
       <SortDropdown
         value={sort}
@@ -60,7 +57,7 @@ export function HomePageInner() {
     const mobileSortControl = (
       <SortDropdown
         value={sort}
-        triggerLabel={tx("Sort")}
+        triggerLabel={t("Sort")}
         triggerVariant="icon"
         options={CLIP_SORT_OPTIONS}
         contentClassName="w-40"

@@ -1,4 +1,14 @@
-import * as React from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import type { ReactNode } from "react"
 
 interface SettingsFormSnapshot {
   /** The form has edits that differ from the saved values. */
@@ -39,31 +49,26 @@ interface SettingsSaveState {
 // Two contexts on purpose: forms subscribe to the registry, whose identity
 // never changes, so registering can't loop when the aggregated state (which
 // changes on every keystroke that flips dirtiness) re-renders consumers.
-const SettingsSaveRegistryContext =
-  React.createContext<SettingsSaveRegistry | null>(null)
-const SettingsSaveStateContext = React.createContext<SettingsSaveState | null>(
+const SettingsSaveRegistryContext = createContext<SettingsSaveRegistry | null>(
   null,
 )
+const SettingsSaveStateContext = createContext<SettingsSaveState | null>(null)
 
 /**
  * Collects the dirty/save/discard state of every settings form so the dialog
  * can drive one bottom-anchored save bar and block closing with unsaved edits.
  * Lives outside the dialog content, so it survives open/close transitions.
  */
-export function SettingsSaveProvider({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export function SettingsSaveProvider({ children }: { children: ReactNode }) {
   // Handlers live in a ref: their identity changes every render of the
   // registering form, and only the call-time value matters.
-  const handlersRef = React.useRef(new Map<string, SettingsFormHandlers>())
-  const [snapshots, setSnapshots] = React.useState<
+  const handlersRef = useRef(new Map<string, SettingsFormHandlers>())
+  const [snapshots, setSnapshots] = useState<
     ReadonlyMap<string, SettingsFormSnapshot>
   >(new Map())
-  const [attention, setAttention] = React.useState(0)
+  const [attention, setAttention] = useState(0)
 
-  const update = React.useCallback<SettingsSaveRegistry["update"]>(
+  const update = useCallback<SettingsSaveRegistry["update"]>(
     (id, snapshot, handlers) => {
       handlersRef.current.set(id, handlers)
       setSnapshots((prev) => {
@@ -83,7 +88,7 @@ export function SettingsSaveProvider({
     [],
   )
 
-  const remove = React.useCallback((id: string) => {
+  const remove = useCallback((id: string) => {
     handlersRef.current.delete(id)
     setSnapshots((prev) => {
       if (!prev.has(id)) return prev
@@ -93,12 +98,12 @@ export function SettingsSaveProvider({
     })
   }, [])
 
-  const registry = React.useMemo<SettingsSaveRegistry>(
+  const registry = useMemo<SettingsSaveRegistry>(
     () => ({ update, remove }),
     [update, remove],
   )
 
-  const saveAll = React.useCallback(async () => {
+  const saveAll = useCallback(async () => {
     const jobs: Promise<void>[] = []
     for (const [id, snapshot] of snapshots) {
       if (!snapshot.dirty || snapshot.saving) continue
@@ -108,14 +113,14 @@ export function SettingsSaveProvider({
     await Promise.all(jobs)
   }, [snapshots])
 
-  const discardAll = React.useCallback(() => {
+  const discardAll = useCallback(() => {
     for (const [id, snapshot] of snapshots) {
       if (!snapshot.dirty) continue
       handlersRef.current.get(id)?.discard()
     }
   }, [snapshots])
 
-  const requestAttention = React.useCallback(() => {
+  const requestAttention = useCallback(() => {
     setAttention((count) => count + 1)
   }, [])
 
@@ -126,7 +131,7 @@ export function SettingsSaveProvider({
     saving ||= snapshot.saving
   }
 
-  const state = React.useMemo<SettingsSaveState>(
+  const state = useMemo<SettingsSaveState>(
     () => ({
       dirty,
       saving,
@@ -148,7 +153,7 @@ export function SettingsSaveProvider({
 }
 
 export function useSettingsSaveState(): SettingsSaveState {
-  const value = React.useContext(SettingsSaveStateContext)
+  const value = useContext(SettingsSaveStateContext)
   if (!value) {
     throw new Error(
       "useSettingsSaveState must be used within a SettingsSaveProvider",
@@ -166,12 +171,12 @@ export function useSettingsSaveState(): SettingsSaveState {
 export function useSettingsSaveBar(
   form: SettingsFormSnapshot & SettingsFormHandlers,
 ): boolean {
-  const registry = React.useContext(SettingsSaveRegistryContext)
-  const id = React.useId()
+  const registry = useContext(SettingsSaveRegistryContext)
+  const id = useId()
 
-  const formRef = React.useRef(form)
+  const formRef = useRef(form)
   // Stable wrappers so re-registration never captures stale closures.
-  const handlers = React.useMemo<SettingsFormHandlers>(
+  const handlers = useMemo<SettingsFormHandlers>(
     () => ({
       save: () => formRef.current.save(),
       discard: () => formRef.current.discard(),
@@ -180,12 +185,12 @@ export function useSettingsSaveBar(
   )
 
   // Re-register every render; the provider ignores no-op snapshot updates.
-  React.useEffect(() => {
+  useEffect(() => {
     formRef.current = form
     registry?.update(id, { dirty: form.dirty, saving: form.saving }, handlers)
   })
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!registry) return
     return () => registry.remove(id)
   }, [registry, id])

@@ -1,5 +1,5 @@
 import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
 import { GameIcon } from "@alloy/ui/components/game-icon"
@@ -8,7 +8,8 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { XIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { TouchEvent } from "react"
 
 import { mobileOverlayCloseButtonClassName } from "@/components/app/mobile-close-button"
 import {
@@ -111,18 +112,18 @@ function MobileClipViewerBody({
   const deleting = deleteFlow.pending
 
   /* ---- comments panel ---- */
-  const [commentsOpen, setCommentsOpen] = React.useState(false)
-  const [showSwipeHint, setShowSwipeHint] = React.useState(false)
+  const [commentsOpen, setCommentsOpen] = useState(false)
+  const [showSwipeHint, setShowSwipeHint] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setCommentsOpen(false)
   }, [row.id])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (focusedCommentId) setCommentsOpen(true)
   }, [focusedCommentId])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!canNav || (!prev && !next)) return
 
     if (readSessionStorageItem(MOBILE_SWIPE_HINT_SEEN_KEY) === "true") return
@@ -134,16 +135,16 @@ function MobileClipViewerBody({
   }, [canNav, next, prev])
 
   /* ---- swipe gesture ---- */
-  const touchRef = React.useRef<{ y: number; t: number } | null>(null)
+  const touchRef = useRef<{ y: number; t: number } | null>(null)
 
-  const onTouchStart = React.useCallback((e: React.TouchEvent) => {
+  const onTouchStart = useCallback((e: TouchEvent) => {
     const touch = e.touches.item(0)
     if (!touch) return
     touchRef.current = { y: touch.clientY, t: Date.now() }
   }, [])
 
-  const onTouchEnd = React.useCallback(
-    (e: React.TouchEvent) => {
+  const onTouchEnd = useCallback(
+    (e: TouchEvent) => {
       if (!touchRef.current) return
       const touch = e.changedTouches.item(0)
       if (!touch) return
@@ -158,23 +159,23 @@ function MobileClipViewerBody({
   )
 
   /* ---- handlers ---- */
-  const handleLike = React.useCallback(() => {
+  const handleLike = useCallback(() => {
     if (!canLike) return
     likeMut.mutate(
       { clipId: row.id, nextLiked: !liked },
-      { onError: () => toast.error(tx("Couldn't update like")) },
+      { onError: () => toast.error(t("Couldn't update like")) },
     )
   }, [canLike, row.id, liked, likeMut])
 
-  const handleShare = React.useCallback(async () => {
+  const handleShare = useCallback(async () => {
     if (row.privacy === "private") {
-      toast.error(tx("Clip link is disabled"))
+      toast.error(t("Clip link is disabled"))
       return
     }
 
     const url = currentUrlWithoutSearchOrHash()
     if (url === null) {
-      toast.error(tx("Couldn't share clip"))
+      toast.error(t("Couldn't share clip"))
       return
     }
 
@@ -183,18 +184,18 @@ function MobileClipViewerBody({
       action: "share clip link",
     })
     if (result === "copied") {
-      toast.success(tx("Link copied"))
+      toast.success(t("Link copied"))
     } else if (result === "failed") {
-      toast.error(tx("Couldn't share clip"))
+      toast.error(t("Couldn't share clip"))
     }
   }, [row.privacy, row.title])
 
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
-  const initialFocusRef = React.useRef<HTMLDivElement>(null)
+  const initialFocusRef = useRef<HTMLDivElement>(null)
 
   const isLandscape = useMediaQuery("(orientation: landscape)")
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       exitFullscreenBestEffort("mobile clip viewer cleanup")
     }
@@ -231,7 +232,7 @@ function MobileClipViewerBody({
         className="h-dvh w-dvw rounded-none border-0 shadow-none"
       >
         <div
-          data-orientation={isLandscape ? tx("landscape") : tx("portrait")}
+          data-orientation={isLandscape ? t("landscape") : t("portrait")}
           className="relative flex h-full flex-col bg-[oklch(12%_0.01_250)]"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
@@ -289,7 +290,7 @@ function MobileClipViewerBody({
               mobileOverlayCloseButtonClassName,
               "absolute top-[max(0.75rem,calc(env(safe-area-inset-top)+0.25rem))] right-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] z-30",
             )}
-            aria-label={tx("Close")}
+            aria-label={t("Close")}
           >
             <XIcon />
           </DialogClose>
@@ -305,7 +306,7 @@ function MobileClipViewerBody({
             tabIndex={-1}
             className={cn(
               "relative z-10 outline-none",
-              isLandscape ? "flex min-h-0 flex-1 items-center" : tx("shrink-0"),
+              isLandscape ? "flex min-h-0 flex-1 items-center" : t("shrink-0"),
             )}
           >
             <ClipPlayer
@@ -319,7 +320,7 @@ function MobileClipViewerBody({
               status={row.status}
               encodeProgress={row.encodeProgress}
               maxDisplayHeight={
-                isLandscape ? "100dvh" : tx("min(72dvh, calc(100dvh - 18rem))")
+                isLandscape ? "100dvh" : t("min(72dvh, calc(100dvh - 18rem))")
               }
               chromeSize="compact"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
@@ -338,7 +339,7 @@ function MobileClipViewerBody({
                 "animate-in duration-200 fade-in-0 slide-in-from-bottom-1",
               )}
             >
-              {tx("Swipe to navigate")}
+              {t("Swipe to navigate")}
             </div>
           ) : null}
 
@@ -428,7 +429,7 @@ function MobileClipViewerBody({
             handleOnly
           >
             <DrawerContent className={mobileDrawerContentClass}>
-              <DrawerTitle className="sr-only">{tx("Comments")}</DrawerTitle>
+              <DrawerTitle className="sr-only">{t("Comments")}</DrawerTitle>
               <MobileDrawerHandle />
               <ClipComments
                 clipId={row.id}

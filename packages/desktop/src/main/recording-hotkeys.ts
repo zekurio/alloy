@@ -113,7 +113,9 @@ async function runAction(
       if (!result.ok) {
         if (playedRequestSound) cancelReplaySaveRequestedSoundSuppression()
         logger.warn(`recording clip hotkey failed: ${result.error}`)
-      } else if (!result.capture && playedRequestSound) {
+        return
+      }
+      if (!result.capture && playedRequestSound) {
         cancelReplaySaveRequestedSoundSuppression()
       }
       return

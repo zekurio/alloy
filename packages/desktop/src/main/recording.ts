@@ -10,13 +10,13 @@ import type {
   SaveReplayClipRequest,
   RecordingStatus,
 } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import { finalizeRecordingCapture } from "./recording-capture-finalize"
 import { ensureRecordingDiscordDetectionsCache } from "./recording-discord-detections"
-import { listRecordingDisplays as listElectronRecordingDisplays } from "./recording-displays"
+import { listElectronRecordingDisplays } from "./recording-displays"
 import { rememberRecordingLibraryCapture } from "./recording-library"
 import { setRecordingNotificationSoundPlayer } from "./recording-notification-sounds"
 import {
@@ -41,11 +41,11 @@ import { getRecordingSettings } from "./server-store"
 
 function sidecarMissingMessage(): string {
   if (app.isPackaged) {
-    return tx(
+    return t(
       "Recording is unavailable because the capture component is missing. Try reinstalling Alloy.",
     )
   }
-  return tx(
+  return t(
     "Recording capture sidecar is not built yet. Run pnpm --filter @alloy/recorder build.",
   )
 }
@@ -81,7 +81,7 @@ export async function getRecordingStatus(): Promise<RecordingStatus> {
     return status
   } catch (cause) {
     const status = errorRecordingStatus(
-      errorText(cause, tx("Recording sidecar failed.")),
+      errorText(cause, t("Recording sidecar failed.")),
     )
     rememberRecordingStatus(status)
     return status
@@ -159,7 +159,7 @@ export async function configureRecordingBackend(): Promise<RecordingStatus> {
     return status
   } catch (cause) {
     const status = errorRecordingStatus(
-      errorText(cause, tx("Recording sidecar failed.")),
+      errorText(cause, t("Recording sidecar failed.")),
     )
     rememberRecordingStatus(status)
     emitRecordingStatusEvent(status)
@@ -228,7 +228,7 @@ async function runRecordingAction(
     rememberRecordingLibraryCapture(capture)
     return { ...result, status, capture }
   } catch (cause) {
-    const message = errorText(cause, tx("Recording sidecar failed."))
+    const message = errorText(cause, t("Recording sidecar failed."))
     const status = errorRecordingStatus(message)
     rememberRecordingStatus(status)
     return {

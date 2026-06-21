@@ -1,5 +1,5 @@
 import type { UserSearchResult } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -8,7 +8,21 @@ import {
 import { Chip } from "@alloy/ui/components/chip"
 import { cn } from "@alloy/ui/lib/utils"
 import { AtSignIcon, ChevronRightIcon, HashIcon, XIcon } from "lucide-react"
-import * as React from "react"
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import type {
+  ComponentPropsWithoutRef,
+  KeyboardEventHandler,
+  ReactNode,
+  Ref,
+  RefObject,
+} from "react"
 
 import { useSession } from "@/lib/auth-client"
 import { sanitizeTag } from "@/lib/clip-fields"
@@ -18,12 +32,12 @@ import { userChipData } from "@/lib/user-display"
 import { useUserSearchQuery } from "@/lib/user-queries"
 
 export function useOutsideDismiss<T extends HTMLElement>(
-  ref: React.RefObject<T | null>,
+  ref: RefObject<T | null>,
   enabled: boolean,
   onDismiss: () => void,
   ignoreTarget?: (target: Element) => boolean,
 ) {
-  React.useEffect(() => {
+  useEffect(() => {
     if (!enabled) return
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -40,20 +54,20 @@ export function useOutsideDismiss<T extends HTMLElement>(
 }
 
 function useInlinePicker() {
-  const [open, setOpen] = React.useState(false)
-  const [draft, setDraft] = React.useState("")
-  const inputRef = React.useRef<HTMLInputElement>(null)
-  const rootRef = React.useRef<HTMLDivElement>(null)
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const debouncedDraft = useDebouncedValue(draft, 200)
 
-  const close = React.useCallback(() => {
+  const close = useCallback(() => {
     setOpen(false)
     setDraft("")
   }, [])
 
   useOutsideDismiss(rootRef, open, close)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) inputRef.current?.focus()
   }, [open])
 
@@ -74,7 +88,7 @@ function PickerChipTrigger({
   disabled,
   onClick,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   label: string
   disabled: boolean
   onClick: () => void
@@ -94,75 +108,74 @@ function PickerChipTrigger({
 }
 
 type PickerInputShellProps = {
-  icon: React.ReactNode
+  icon: ReactNode
   value: string
   onChange: (value: string) => void
-  onKeyDown?: React.KeyboardEventHandler<HTMLInputElement>
-  inputRef: React.Ref<HTMLInputElement>
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>
+  inputRef: Ref<HTMLInputElement>
   placeholder: string
   disabled: boolean
   label: string
   completion?: string | null
-} & Omit<React.ComponentPropsWithoutRef<"span">, "onChange" | "onKeyDown">
+} & Omit<ComponentPropsWithoutRef<"span">, "onChange" | "onKeyDown">
 
-const PickerInputShell = React.forwardRef<
-  HTMLSpanElement,
-  PickerInputShellProps
->(function PickerInputShell(
-  {
-    icon,
-    value,
-    onChange,
-    onKeyDown,
-    inputRef,
-    placeholder,
-    disabled,
-    label,
-    completion,
-    className,
-    ...props
-  },
-  ref,
-) {
-  return (
-    <span
-      ref={ref}
-      className={cn(
-        "flex h-8 w-full items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 text-sm leading-4 font-semibold text-foreground",
-        "focus-within:border-accent-border focus-within:ring-2 focus-within:ring-accent-border/20",
-        "[&_svg:not([class*='size-'])]:size-4",
-        disabled && "opacity-60",
-        className,
-      )}
-      {...props}
-    >
-      {icon}
-      <span className="relative min-w-0 flex-1">
-        {completion ? (
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-0 flex items-center overflow-hidden font-semibold whitespace-pre"
-          >
-            <span className="invisible">{value}</span>
-            <span className="text-foreground-faint">
-              {completionTail(value, completion)}
+const PickerInputShell = forwardRef<HTMLSpanElement, PickerInputShellProps>(
+  function PickerInputShell(
+    {
+      icon,
+      value,
+      onChange,
+      onKeyDown,
+      inputRef,
+      placeholder,
+      disabled,
+      label,
+      completion,
+      className,
+      ...props
+    },
+    ref,
+  ) {
+    return (
+      <span
+        ref={ref}
+        className={cn(
+          "flex h-8 w-full items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 text-sm leading-4 font-semibold text-foreground",
+          "focus-within:border-accent-border focus-within:ring-2 focus-within:ring-accent-border/20",
+          "[&_svg:not([class*='size-'])]:size-4",
+          disabled && "opacity-60",
+          className,
+        )}
+        {...props}
+      >
+        {icon}
+        <span className="relative min-w-0 flex-1">
+          {completion ? (
+            <span
+              aria-hidden
+              className="pointer-events-none absolute inset-0 flex items-center overflow-hidden font-semibold whitespace-pre"
+            >
+              <span className="invisible">{value}</span>
+              <span className="text-foreground-faint">
+                {completionTail(value, completion)}
+              </span>
             </span>
-          </span>
-        ) : null}
-        <input
-          ref={inputRef}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onKeyDown={onKeyDown}
-          disabled={disabled}
-          placeholder={placeholder}
-          aria-label={label}
-          className="placeholder:text-foreground-muted relative z-10 w-full bg-transparent text-sm leading-4 font-semibold outline-none placeholder:font-semibold"
-        />
+          ) : null}
+          <input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onKeyDown={onKeyDown}
+            disabled={disabled}
+            placeholder={placeholder}
+            aria-label={label}
+            className="placeholder:text-foreground-muted relative z-10 w-full bg-transparent text-sm leading-4 font-semibold outline-none placeholder:font-semibold"
+          />
+        </span>
       </span>
-    </span>
-  )
-})
+    )
+  },
+)
 
 function completionTail(value: string, completion: string): string {
   if (!value) return completion
@@ -179,10 +192,7 @@ export function PeoplePicker({
   onChange: (next: UserSearchResult[]) => void
   disabled: boolean
 }) {
-  const selectedIds = React.useMemo(
-    () => new Set(value.map((u) => u.id)),
-    [value],
-  )
+  const selectedIds = useMemo(() => new Set(value.map((u) => u.id)), [value])
 
   return (
     <>
@@ -236,7 +246,7 @@ function PersonChip({
       </span>
       <button
         type="button"
-        aria-label={tx("Remove {name}", { name: chip.name })}
+        aria-label={t("Remove {name}", { name: chip.name })}
         onClick={onRemove}
         disabled={disabled}
         className="text-foreground-faint hover:text-foreground transition-colors"
@@ -262,7 +272,7 @@ function PeopleSearchPopover({
     useInlinePicker()
   const searchQuery = useUserSearchQuery(debouncedDraft)
 
-  const candidates = React.useMemo(() => {
+  const candidates = useMemo(() => {
     const rows = searchQuery.data ?? []
     return rows.filter((row) => !selectedIds.has(row.id) && row.id !== viewerId)
   }, [searchQuery.data, selectedIds, viewerId])
@@ -303,24 +313,24 @@ function PeopleSearchPopover({
             }
           }}
           inputRef={inputRef}
-          placeholder={tx("Search people...")}
+          placeholder={t("Search people...")}
           disabled={disabled}
-          label={tx("Search people")}
+          label={t("Search people")}
           completion={suggestionChip?.name ?? null}
           title={
             suggestionChip
-              ? tx("Press Enter to add {name}", {
+              ? t("Press Enter to add {name}", {
                   name: suggestionChip.name,
                 })
               : isSearching || trimmed.length > 0
-                ? tx("No inline match")
+                ? t("No inline match")
                 : undefined
           }
         />
       ) : (
         <PickerChipTrigger
           icon={<AtSignIcon />}
-          label={tx("Tag people")}
+          label={t("Tag people")}
           disabled={disabled}
           onClick={() => setOpen(true)}
         />
@@ -352,7 +362,7 @@ export function HashtagPicker({
           {tag}
           <button
             type="button"
-            aria-label={tx("Remove #{tag}", { tag })}
+            aria-label={t("Remove #{tag}", { tag })}
             onClick={() => onChange(value.filter((t) => t !== tag))}
             disabled={disabled}
             className="text-foreground-faint hover:text-foreground transition-colors"
@@ -392,8 +402,8 @@ function HashtagInputPopover({
     onChange([...value, tag])
   }
 
-  const selected = React.useMemo(() => new Set(value), [value])
-  const suggestions = React.useMemo(
+  const selected = useMemo(() => new Set(value), [value])
+  const suggestions = useMemo(
     () => (searchQuery.data ?? []).filter((tag) => !selected.has(tag)),
     [searchQuery.data, selected],
   )
@@ -430,20 +440,20 @@ function HashtagInputPopover({
             }
           }}
           inputRef={inputRef}
-          placeholder={tx("Add hashtag...")}
+          placeholder={t("Add hashtag...")}
           disabled={disabled}
-          label={tx("Add hashtag")}
+          label={t("Add hashtag")}
           completion={suggestion}
           title={
             suggestion
-              ? tx("Press Enter to add #{tag}", { tag: suggestion })
-              : tx("Type a tag and press Enter")
+              ? t("Press Enter to add #{tag}", { tag: suggestion })
+              : t("Type a tag and press Enter")
           }
         />
       ) : (
         <PickerChipTrigger
           icon={<HashIcon />}
-          label={tx("Add hashtag")}
+          label={t("Add hashtag")}
           disabled={disabled}
           onClick={() => setOpen(true)}
         />

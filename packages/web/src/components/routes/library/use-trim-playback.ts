@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useEffect, useRef, useState } from "react"
 
 import type { VideoPlayerHandle } from "@/components/video/video-player-types"
 
@@ -18,20 +18,20 @@ export function useTrimPlayback({
   initialDurationMs: number
   canTrim?: boolean
 }) {
-  const playerRef = React.useRef<VideoPlayerHandle | null>(null)
-  const [playing, setPlaying] = React.useState(false)
-  const [durationMs, setDurationMs] = React.useState(initialDurationMs)
-  const [trim, setTrim] = React.useState({
+  const playerRef = useRef<VideoPlayerHandle | null>(null)
+  const [playing, setPlaying] = useState(false)
+  const [durationMs, setDurationMs] = useState(initialDurationMs)
+  const [trim, setTrim] = useState({
     startMs: 0,
     endMs: initialDurationMs,
   })
-  const [currentMs, setCurrentMs] = React.useState(0)
-  const trimRef = React.useRef(trim)
+  const [currentMs, setCurrentMs] = useState(0)
+  const trimRef = useRef(trim)
   trimRef.current = trim
 
   // While playing, an animation-frame loop follows the player and loops
   // playback back to the trim start when it runs past the trim end.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!playing) return
     let raf = 0
     const tick = () => {

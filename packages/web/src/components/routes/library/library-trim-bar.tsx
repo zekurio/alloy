@@ -1,6 +1,7 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useRef, useState } from "react"
+import type { KeyboardEvent, PointerEvent } from "react"
 
 import { FilmstripCanvas } from "@/components/media/filmstrip-canvas"
 import { useFilmstripCellCount } from "@/lib/media-filmstrip"
@@ -90,9 +91,9 @@ export function LibraryTrimBar({
   /** Slides the whole kept range to a new start (caller preserves length). */
   onMove: (sourceStartMs: number) => void
 }) {
-  const trackRef = React.useRef<HTMLDivElement | null>(null)
-  const dragRef = React.useRef<DragState | null>(null)
-  const [dragging, setDragging] = React.useState(false)
+  const trackRef = useRef<HTMLDivElement | null>(null)
+  const dragRef = useRef<DragState | null>(null)
+  const [dragging, setDragging] = useState(false)
   const ready = durationMs > 0
 
   const sourceMsFromClientX = (clientX: number): number => {
@@ -125,7 +126,7 @@ export function LibraryTrimBar({
     else if (drag.mode === "move") onMove(sourceMs - drag.grabOffsetMs)
   }
 
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!ready || e.button !== 0) return
     const target = e.target as Element
     const handleEl = target.closest<HTMLElement>("[data-trim-handle]")
@@ -160,14 +161,14 @@ export function LibraryTrimBar({
     if (drag.mode === "seek") applyDrag(drag, e.clientX, e.clientY)
   }
 
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== e.pointerId) return
     applyDrag(drag, e.clientX, e.clientY)
   }
 
   const finishPointer = (
-    e: React.PointerEvent<HTMLDivElement>,
+    e: PointerEvent<HTMLDivElement>,
     cancelled = false,
   ) => {
     const drag = dragRef.current
@@ -179,8 +180,7 @@ export function LibraryTrimBar({
   }
 
   const handleKeyDown =
-    (edge: "start" | "end" | "move") =>
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
+    (edge: "start" | "end" | "move") => (e: KeyboardEvent<HTMLDivElement>) => {
       if (!ready) return
       const stepMs = e.shiftKey ? 1000 : 100
       const apply = (deltaMs: number) => {
@@ -243,7 +243,7 @@ export function LibraryTrimBar({
       >
         <div
           role="slider"
-          aria-label={tx("Move trim window")}
+          aria-label={t("Move trim window")}
           aria-valuemin={0}
           aria-valuemax={Math.round(
             Math.max(0, durationMs - (endMs - startMs)) / 1000,
@@ -254,7 +254,7 @@ export function LibraryTrimBar({
           onKeyDown={handleKeyDown("move")}
           className="bg-accent text-accent-foreground focus-visible:ring-ring flex h-4 items-center gap-1 px-4 text-[10px] leading-none font-semibold focus-visible:ring-2 focus-visible:outline-none"
         >
-          <span className="truncate">{tx("Trim selection")}</span>
+          <span className="truncate">{t("Trim selection")}</span>
           <span className="ml-auto shrink-0 tabular-nums opacity-80">
             {formatTrimMs(endMs - startMs)}
           </span>
@@ -262,7 +262,7 @@ export function LibraryTrimBar({
         <div
           data-trim-handle="start"
           role="slider"
-          aria-label={tx("Trim start")}
+          aria-label={t("Trim start")}
           aria-valuemin={0}
           aria-valuemax={Math.round(durationMs / 1000)}
           aria-valuenow={Math.round(startMs / 1000)}
@@ -276,7 +276,7 @@ export function LibraryTrimBar({
         <div
           data-trim-handle="end"
           role="slider"
-          aria-label={tx("Trim end")}
+          aria-label={t("Trim end")}
           aria-valuemin={0}
           aria-valuemax={Math.round(durationMs / 1000)}
           aria-valuenow={Math.round(endMs / 1000)}
@@ -328,7 +328,7 @@ function FilmstripCells({
   frameAspect: number
   durationMs: number
 }) {
-  const stripRef = React.useRef<HTMLDivElement | null>(null)
+  const stripRef = useRef<HTMLDivElement | null>(null)
   const cellCount = useFilmstripCellCount(
     stripRef,
     frameAspect,

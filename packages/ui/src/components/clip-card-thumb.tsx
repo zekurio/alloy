@@ -5,7 +5,8 @@ import {
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { PointerEvent, Ref } from "react"
 
 const HOVER_PREVIEW_DELAY_MS = 250
 
@@ -21,7 +22,7 @@ interface ClipCardThumbProps {
   onIntent?: () => void
   onPreviewError?: (cause: unknown) => void
   label?: string
-  buttonRef?: React.Ref<HTMLButtonElement>
+  buttonRef?: Ref<HTMLButtonElement>
 }
 
 export function ClipCardThumb({
@@ -38,29 +39,28 @@ export function ClipCardThumb({
   label,
   buttonRef,
 }: ClipCardThumbProps) {
-  const videoRef = React.useRef<HTMLVideoElement | null>(null)
-  const imageRef = React.useRef<HTMLImageElement | null>(null)
-  const timerRef = React.useRef<number | null>(null)
-  const hoveredRef = React.useRef(false)
-  const shouldPreviewRef = React.useRef(false)
-  const primedRef = React.useRef(false)
-  const preloadedThumbnailRef = React.useRef<string | null>(null)
-  const [previewing, setPreviewing] = React.useState(false)
-  const [previewMounted, setPreviewMounted] = React.useState(false)
-  const [thumbnailLoaded, setThumbnailLoaded] = React.useState(false)
-  const [thumbnailFailed, setThumbnailFailed] = React.useState(false)
-  const [thumbnailFallbackFailed, setThumbnailFallbackFailed] =
-    React.useState(false)
-  const [pointerActivated, setPointerActivated] = React.useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const imageRef = useRef<HTMLImageElement | null>(null)
+  const timerRef = useRef<number | null>(null)
+  const hoveredRef = useRef(false)
+  const shouldPreviewRef = useRef(false)
+  const primedRef = useRef(false)
+  const preloadedThumbnailRef = useRef<string | null>(null)
+  const [previewing, setPreviewing] = useState(false)
+  const [previewMounted, setPreviewMounted] = useState(false)
+  const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
+  const [thumbnailFailed, setThumbnailFailed] = useState(false)
+  const [thumbnailFallbackFailed, setThumbnailFallbackFailed] = useState(false)
+  const [pointerActivated, setPointerActivated] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setThumbnailFailed(false)
     setThumbnailFallbackFailed(false)
     const image = imageRef.current
     setThumbnailLoaded(Boolean(image?.complete && image.naturalWidth > 0))
   }, [thumbnail, thumbnailFallback])
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (timerRef.current !== null) {
         window.clearTimeout(timerRef.current)
@@ -87,7 +87,7 @@ export function ClipCardThumb({
     image.src = activeThumbnail
   }
 
-  const revealPreview = React.useCallback(() => {
+  const revealPreview = useCallback(() => {
     const v = videoRef.current
     if (!v || !hoveredRef.current || !shouldPreviewRef.current || v.paused) {
       return
@@ -105,7 +105,7 @@ export function ClipCardThumb({
     setPreviewing(true)
   }, [])
 
-  const primePreview = React.useCallback(() => {
+  const primePreview = useCallback(() => {
     const v = videoRef.current
     if (!v || primedRef.current) return
     primedRef.current = true
@@ -116,7 +116,7 @@ export function ClipCardThumb({
     v.load()
   }, [])
 
-  const startPreview = React.useCallback(() => {
+  const startPreview = useCallback(() => {
     const v = videoRef.current
     if (!v || !hoveredRef.current || !shouldPreviewRef.current) return
 
@@ -137,7 +137,7 @@ export function ClipCardThumb({
       })
   }, [onPreviewError, revealPreview])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!previewMounted || !hoveredRef.current) return
     primePreview()
     startPreview()
@@ -179,7 +179,7 @@ export function ClipCardThumb({
       "cursor-pointer focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none data-[pointer-activated=true]:focus-visible:ring-0",
   )
   const hoverHandlers = {
-    onPointerEnter: (e: React.PointerEvent) => {
+    onPointerEnter: (e: PointerEvent) => {
       onIntent?.()
       preloadThumbnail()
       if (e.pointerType === "touch") return
@@ -225,9 +225,9 @@ export function ClipCardThumb({
             setThumbnailLoaded(false)
             if (activeThumbnail === thumbnail) {
               setThumbnailFailed(true)
-            } else {
-              setThumbnailFallbackFailed(true)
+              return
             }
+            setThumbnailFallbackFailed(true)
           }}
         />
       ) : null}

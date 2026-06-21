@@ -1,12 +1,13 @@
 import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
+import type { ComponentProps } from "react"
 
 function EmptySection({
   as: Component = "div",
   className,
   slot,
   ...props
-}: React.ComponentProps<"div"> & {
+}: ComponentProps<"div"> & {
   as?: "div" | "p"
   slot: string
 }) {
@@ -16,7 +17,7 @@ function EmptySection({
 function renderEmptySection(
   slot: string,
   defaultClassName: string,
-  { className, ...props }: React.ComponentProps<"div">,
+  { className, ...props }: ComponentProps<"div">,
 ) {
   return (
     <EmptySection
@@ -27,7 +28,7 @@ function renderEmptySection(
   )
 }
 
-function Empty({ className, ...props }: React.ComponentProps<"div">) {
+function Empty({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="empty"
@@ -40,7 +41,7 @@ function Empty({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function EmptyHeader({ className, ...props }: React.ComponentProps<"div">) {
+function EmptyHeader({ className, ...props }: ComponentProps<"div">) {
   return renderEmptySection(
     "empty-header",
     "flex max-w-sm flex-col items-center gap-2",
@@ -70,7 +71,7 @@ function EmptyMedia({
   className,
   variant = "default",
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof emptyMediaVariants>) {
+}: ComponentProps<"div"> & VariantProps<typeof emptyMediaVariants>) {
   return (
     <div
       data-slot="empty-icon"
@@ -81,7 +82,7 @@ function EmptyMedia({
   )
 }
 
-function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
+function EmptyTitle({ className, ...props }: ComponentProps<"div">) {
   return renderEmptySection(
     "empty-title",
     "font-heading text-sm font-medium tracking-tight",
@@ -92,7 +93,7 @@ function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
+function EmptyDescription({ className, ...props }: ComponentProps<"p">) {
   return (
     <EmptySection
       as="p"
@@ -106,7 +107,7 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
   )
 }
 
-function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
+function EmptyContent({ className, ...props }: ComponentProps<"div">) {
   return renderEmptySection(
     "empty-content",
     "flex w-full max-w-sm min-w-0 flex-col items-center gap-2.5 text-sm text-balance",

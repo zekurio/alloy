@@ -6,7 +6,7 @@ import {
   uploadQueueStreamUrl,
 } from "@alloy/api"
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
-import * as React from "react"
+import { useEffect, useState } from "react"
 
 import { clipKeys } from "./clip-query-keys"
 import { apiOrigin } from "./env"
@@ -98,9 +98,9 @@ function bindUploadQueueStream(input: {
 
 export function useUploadQueueStream({ enabled }: { enabled: boolean }) {
   const queryClient = useQueryClient()
-  const [initialError, setInitialError] = React.useState(false)
+  const [initialError, setInitialError] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setInitialError(false)
     if (!enabled) return
 

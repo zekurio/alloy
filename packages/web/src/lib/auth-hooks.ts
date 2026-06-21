@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "@tanstack/react-router"
-import * as React from "react"
+import { useEffect } from "react"
 
 import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"
 import {
@@ -29,7 +29,7 @@ export function useBrowseAuthGate(): {
 
   const target = browseAuthTarget(session, config, location.pathname)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (target) void navigate({ to: target, replace: true })
   }, [target, navigate])
 
@@ -48,7 +48,7 @@ export function useRequireAuthStrict(): Session | null {
         ? null
         : "/login"
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (target) void navigate({ to: target, replace: true })
   }, [target, navigate])
 
@@ -59,7 +59,7 @@ export function useRedirectIfAuthed(to: string = "/"): boolean {
   const session = useSuspenseSession()
   const navigate = useNavigate()
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (session) void navigate({ to, replace: true })
   }, [session, to, navigate])
 
@@ -77,7 +77,7 @@ export function useLoginRedirect(redirectTo: string | null): boolean {
   const session = useSuspenseSession()
   const navigate = useNavigate()
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!session) return
     if (redirectTo) {
       window.location.assign(redirectTo)

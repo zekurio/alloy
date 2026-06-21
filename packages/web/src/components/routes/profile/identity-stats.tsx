@@ -1,5 +1,5 @@
 import type { ProfileCounts } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   Dialog,
   DialogBody,
@@ -9,7 +9,7 @@ import {
 } from "@alloy/ui/components/dialog"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useRef, useState } from "react"
 
 import { UserFollowRow } from "@/components/user/user-follow-row"
 import {
@@ -51,8 +51,8 @@ function FollowStatButton({
 }
 
 export function IdentityStats({ handle, counts }: IdentityStatsProps) {
-  const [open, setOpen] = React.useState<FollowModal>(null)
-  const viewRef = React.useRef<Exclude<FollowModal, null>>("followers")
+  const [open, setOpen] = useState<FollowModal>(null)
+  const viewRef = useRef<Exclude<FollowModal, null>>("followers")
   if (open !== null) viewRef.current = open
   const view = viewRef.current
 
@@ -77,7 +77,7 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
         />
         <FollowStatButton
           value={counts.following}
-          label={tx("following")}
+          label={t("following")}
           onClick={() => setOpen("following")}
         />
       </div>
@@ -86,7 +86,7 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {view === "followers" ? tx("Followers") : tx("Following")}
+              {view === "followers" ? t("Followers") : t("Following")}
             </DialogTitle>
           </DialogHeader>
           <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
@@ -108,8 +108,8 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
             ) : (
               <p className="text-foreground-faint px-2 py-4 text-center text-sm">
                 {view === "followers"
-                  ? tx("No followers yet.")
-                  : tx("Not following anyone yet.")}
+                  ? t("No followers yet.")
+                  : t("Not following anyone yet.")}
               </p>
             )}
           </DialogBody>

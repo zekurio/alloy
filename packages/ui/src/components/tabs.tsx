@@ -1,14 +1,15 @@
 import { cn } from "@alloy/ui/lib/utils"
-import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
+import { Tabs } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
+import type { ComponentProps } from "react"
 
-function Tabs({
+function TabsRoot({
   className,
   orientation = "horizontal",
   ...props
-}: TabsPrimitive.Root.Props) {
+}: Tabs.Root.Props) {
   return (
-    <TabsPrimitive.Root
+    <Tabs.Root
       data-slot="tabs"
       data-orientation={orientation}
       className={cn(
@@ -39,9 +40,9 @@ function TabsList({
   className,
   variant = "line",
   ...props
-}: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>) {
+}: Tabs.List.Props & VariantProps<typeof tabsListVariants>) {
   return (
-    <TabsPrimitive.List
+    <Tabs.List
       data-slot="tabs-list"
       data-variant={variant}
       className={cn(tabsListVariants({ variant }), className)}
@@ -50,9 +51,9 @@ function TabsList({
   )
 }
 
-function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
+function TabsTrigger({ className, ...props }: Tabs.Tab.Props) {
   return (
-    <TabsPrimitive.Tab
+    <Tabs.Tab
       data-slot="tabs-trigger"
       className={cn(
         "group/tabs-trigger relative inline-flex h-8 items-center gap-2 px-0.5",
@@ -78,9 +79,9 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   )
 }
 
-function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
+function TabsContent({ className, ...props }: Tabs.Panel.Props) {
   return (
-    <TabsPrimitive.Panel
+    <Tabs.Panel
       data-slot="tabs-content"
       className={cn("flex-1 text-sm outline-none", className)}
       {...props}
@@ -89,7 +90,7 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
 }
 
 /** Badge-style count pill used inside a tab trigger. */
-function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
+function TabsCount({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
       data-slot="tabs-count"
@@ -103,4 +104,11 @@ function TabsCount({ className, ...props }: React.ComponentProps<"span">) {
   )
 }
 
-export { Tabs, TabsContent, TabsCount, TabsList, tabsListVariants, TabsTrigger }
+export {
+  TabsRoot as Tabs,
+  TabsContent,
+  TabsCount,
+  TabsList,
+  tabsListVariants,
+  TabsTrigger,
+}

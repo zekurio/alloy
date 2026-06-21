@@ -3,10 +3,10 @@ import {
   resolvePublicUrl,
   USER_ASSET_PATH_PREFIX,
 } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { pastelAvatarColors, pastelBannerGradient } from "@alloy/ui/lib/pastel"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useEffect, useState } from "react"
 
 import { apiOrigin } from "./env"
 
@@ -86,7 +86,7 @@ function normalizeUserAssetPath(value: string, prefix: string): string {
  * Pulls a stable display label from the handle, then the email local part.
  */
 export function displayName(user: DisplayUser | null | undefined): string {
-  if (!user) return tx("user")
+  if (!user) return t("user")
   if (user.displayUsername && user.displayUsername.trim()) {
     return displayUsername(user.displayUsername)
   }
@@ -94,7 +94,7 @@ export function displayName(user: DisplayUser | null | undefined): string {
     return displayUsername(user.username)
   }
   if (user.email) return user.email.split("@")[0] ?? "user"
-  return tx("user")
+  return t("user")
 }
 
 /** Up to two uppercase letters from a stable user identity. */
@@ -199,11 +199,11 @@ export function UserBanner({
 }
 
 function UserBannerImage({ src }: { src: string }) {
-  const [status, setStatus] = React.useState<"loading" | "loaded" | "error">(
-    () => (loadedUserBannerSrcs.has(src) ? "loaded" : "loading"),
+  const [status, setStatus] = useState<"loading" | "loaded" | "error">(() =>
+    loadedUserBannerSrcs.has(src) ? "loaded" : "loading",
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     setStatus(loadedUserBannerSrcs.has(src) ? "loaded" : "loading")
   }, [src])
 

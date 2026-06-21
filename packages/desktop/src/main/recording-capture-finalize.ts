@@ -53,8 +53,11 @@ async function finalizeTrimTail(
   const tmp = `${filename}.trim.tmp`
   try {
     const trimmed = await trimMp4Tail(filename, tmp, keepMs)
-    if (trimmed) renameSync(tmp, filename)
-    else removeFile(tmp)
+    if (trimmed) {
+      renameSync(tmp, filename)
+      return
+    }
+    removeFile(tmp)
   } catch (cause) {
     removeFile(tmp)
     logger.warn("failed to trim replay tail:", cause)

@@ -66,53 +66,70 @@ type DecodedToken =
 function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const payload = value as Record<string, unknown>
-  const { k, ct, mb, exp, uid, cid, m, cs, mpu } = payload
   if (
-    typeof k !== "string" ||
-    !k.trim() ||
-    typeof ct !== "string" ||
-    !ct.trim() ||
-    typeof uid !== "string" ||
-    !uid.trim() ||
-    typeof cid !== "string" ||
-    !cid.trim()
+    typeof payload.k !== "string" ||
+    !payload.k.trim() ||
+    typeof payload.ct !== "string" ||
+    !payload.ct.trim() ||
+    typeof payload.uid !== "string" ||
+    !payload.uid.trim() ||
+    typeof payload.cid !== "string" ||
+    !payload.cid.trim()
   ) {
     return null
   }
   if (
-    typeof mb !== "number" ||
-    !Number.isSafeInteger(mb) ||
-    mb <= 0 ||
-    typeof exp !== "number" ||
-    !Number.isSafeInteger(exp) ||
-    exp <= 0
+    typeof payload.mb !== "number" ||
+    !Number.isSafeInteger(payload.mb) ||
+    payload.mb <= 0 ||
+    typeof payload.exp !== "number" ||
+    !Number.isSafeInteger(payload.exp) ||
+    payload.exp <= 0
   ) {
     return null
   }
   if (
-    m !== undefined &&
-    m !== "single" &&
-    m !== "fs-chunked" &&
-    m !== "s3-multipart"
+    payload.m !== undefined &&
+    payload.m !== "single" &&
+    payload.m !== "fs-chunked" &&
+    payload.m !== "s3-multipart"
   ) {
     return null
   }
   if (
-    cs !== undefined &&
-    (typeof cs !== "number" || !Number.isSafeInteger(cs) || cs <= 0)
+    payload.cs !== undefined &&
+    (typeof payload.cs !== "number" ||
+      !Number.isSafeInteger(payload.cs) ||
+      payload.cs <= 0)
   ) {
     return null
   }
-  if (mpu !== undefined && (typeof mpu !== "string" || !mpu.trim())) {
+  if (
+    payload.mpu !== undefined &&
+    (typeof payload.mpu !== "string" || !payload.mpu.trim())
+  ) {
     return null
   }
-  if ((m === "fs-chunked" || m === "s3-multipart") && cs === undefined) {
+  if (
+    (payload.m === "fs-chunked" || payload.m === "s3-multipart") &&
+    payload.cs === undefined
+  ) {
     return null
   }
-  if (m === "s3-multipart" && mpu === undefined) {
+  if (payload.m === "s3-multipart" && payload.mpu === undefined) {
     return null
   }
-  return { k, ct, mb, exp, uid, cid, m, cs, mpu }
+  return {
+    k: payload.k,
+    ct: payload.ct,
+    mb: payload.mb,
+    exp: payload.exp,
+    uid: payload.uid,
+    cid: payload.cid,
+    m: payload.m,
+    cs: payload.cs,
+    mpu: payload.mpu,
+  }
 }
 
 export async function decodeUploadToken(
@@ -147,7 +164,7 @@ export async function decodeUploadToken(
 
   let rawPayload: unknown
   try {
-    rawPayload = JSON.parse(textDecoder.decode(payloadBytes)) as unknown
+    rawPayload = JSON.parse(textDecoder.decode(payloadBytes))
   } catch {
     return { ok: false, reason: "malformed" }
   }

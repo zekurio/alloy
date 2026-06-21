@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   AppSidebar,
   AppSidebarFooter,
@@ -7,7 +7,7 @@ import {
 } from "@alloy/ui/components/app-sidebar"
 import { Link } from "@tanstack/react-router"
 import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
-import * as React from "react"
+import { Suspense } from "react"
 
 import { DesktopRecordingStatus } from "./desktop-recording-status"
 import { DesktopUpdatePill } from "./desktop-update-pill"
@@ -26,9 +26,9 @@ function HomeSidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
       <AppSidebarGroup>
-        <React.Suspense fallback={<SidebarTopFallback />}>
+        <Suspense fallback={<SidebarTopFallback />}>
           <SidebarTop onNavigate={onNavigate} />
-        </React.Suspense>
+        </Suspense>
       </AppSidebarGroup>
       {/* Capture status sits above the footer's separator; the user menu stays
           below it. The wrapping div pins the cluster to the bottom and
@@ -50,30 +50,30 @@ function SidebarTop({ onNavigate }: { onNavigate?: () => void }) {
     <>
       <AppSidebarItem
         active={isHome}
-        title={tx("Home")}
+        title={t("Home")}
         onClick={onNavigate}
         render={<Link to="/" />}
       >
         <HomeIcon />
-        <span>{tx("Home")}</span>
+        <span>{t("Home")}</span>
       </AppSidebarItem>
       <AppSidebarItem
         active={isLibrary}
-        title={tx("Library")}
+        title={t("Library")}
         onClick={onNavigate}
         render={<Link to="/library" />}
       >
         <LibraryIcon />
-        <span>{tx("Library")}</span>
+        <span>{t("Library")}</span>
       </AppSidebarItem>
       <AppSidebarItem
         active={isGames}
-        title={tx("Games")}
+        title={t("Games")}
         onClick={onNavigate}
         render={<Link to="/games" />}
       >
         <GamepadIcon />
-        <span>{tx("Games")}</span>
+        <span>{t("Games")}</span>
       </AppSidebarItem>
     </>
   )
@@ -82,17 +82,17 @@ function SidebarTop({ onNavigate }: { onNavigate?: () => void }) {
 function SidebarTopFallback() {
   return (
     <>
-      <AppSidebarItem title={tx("Home")}>
+      <AppSidebarItem title={t("Home")}>
         <HomeIcon />
-        <span>{tx("Home")}</span>
+        <span>{t("Home")}</span>
       </AppSidebarItem>
-      <AppSidebarItem title={tx("Library")}>
+      <AppSidebarItem title={t("Library")}>
         <LibraryIcon />
-        <span>{tx("Library")}</span>
+        <span>{t("Library")}</span>
       </AppSidebarItem>
-      <AppSidebarItem title={tx("Games")}>
+      <AppSidebarItem title={t("Games")}>
         <GamepadIcon />
-        <span>{tx("Games")}</span>
+        <span>{t("Games")}</span>
       </AppSidebarItem>
     </>
   )

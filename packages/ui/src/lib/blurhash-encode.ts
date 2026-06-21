@@ -19,8 +19,8 @@ export function canvasBlurHash(canvas: HTMLCanvasElement): string | null {
   if (!context) return null
 
   const imageData = context.getImageData(0, 0, width, height)
-  const { x, y } = blurHashComponents(width, height)
-  return encode(imageData.data, width, height, x, y)
+  const components = blurHashComponents(width, height)
+  return encode(imageData.data, width, height, components.x, components.y)
 }
 
 function drawSampleCanvas(

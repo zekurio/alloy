@@ -1,5 +1,5 @@
 import { clipThumbnailUrl, type QueueClip } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 
 import type { RecordingLibraryDownload } from "@/lib/desktop"
@@ -39,7 +39,7 @@ export function localToQueueItem(
   switch (e.status) {
     case "preparing":
       status = "preparing"
-      detail = tx("Preparing...")
+      detail = t("Preparing...")
       break
     case "initiating":
       status = "queued"
@@ -52,7 +52,7 @@ export function localToQueueItem(
       detail =
         e.bytesTotal > 0
           ? `${formatBytes(e.bytesLoaded)} / ${formatBytes(e.bytesTotal)}`
-          : tx("Uploading…")
+          : t("Uploading…")
       break
     case "finalizing":
       status = "uploading"

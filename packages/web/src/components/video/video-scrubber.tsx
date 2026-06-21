@@ -1,6 +1,7 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useCallback, useRef } from "react"
+import type { KeyboardEvent, PointerEvent } from "react"
 
 export function VideoScrubber({
   currentTime,
@@ -17,8 +18,8 @@ export function VideoScrubber({
    *  rails that sit on a plain dark background without a chrome surface. */
   variant?: "default" | "translucent" | "edge"
 }) {
-  const railRef = React.useRef<HTMLDivElement>(null)
-  const draggingIdRef = React.useRef<number | null>(null)
+  const railRef = useRef<HTMLDivElement>(null)
+  const draggingIdRef = useRef<number | null>(null)
 
   const progress = duration > 0 ? (currentTime / duration) * 100 : 0
   const buffered = duration > 0 ? (bufferedEnd / duration) * 100 : 0
@@ -28,7 +29,7 @@ export function VideoScrubber({
   const barLayerClass =
     variant === "edge" ? "bottom-0 h-[2px]" : "top-1/2 h-[4px] -translate-y-1/2"
 
-  const secFromClientX = React.useCallback(
+  const secFromClientX = useCallback(
     (clientX: number): number => {
       const rail = railRef.current
       if (!rail || duration <= 0) return 0
@@ -39,23 +40,23 @@ export function VideoScrubber({
     [duration],
   )
 
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (duration <= 0) return
     e.currentTarget.setPointerCapture(e.pointerId)
     draggingIdRef.current = e.pointerId
     onSeek(secFromClientX(e.clientX))
   }
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (draggingIdRef.current !== e.pointerId) return
     onSeek(secFromClientX(e.clientX))
   }
-  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerUp = (e: PointerEvent<HTMLDivElement>) => {
     if (draggingIdRef.current !== e.pointerId) return
     e.currentTarget.releasePointerCapture(e.pointerId)
     draggingIdRef.current = null
   }
 
-  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "ArrowLeft") {
       e.preventDefault()
       onSeek(Math.max(0, currentTime - 5))
@@ -75,7 +76,7 @@ export function VideoScrubber({
     <div
       ref={railRef}
       role="slider"
-      aria-label={tx("Seek")}
+      aria-label={t("Seek")}
       aria-valuemin={0}
       aria-valuemax={Math.max(0, Math.round(duration))}
       aria-valuenow={Math.round(currentTime)}
