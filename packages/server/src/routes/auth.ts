@@ -161,6 +161,7 @@ export const authRoute = new Hono()
         const existing = await findUserByEmail(email)
         const registration = await beginPasskeyRegistration({
           identifier: email,
+          origin: c.req.header("origin"),
           payload: { email, username, setupFirstAdmin },
           user: {
             id: existing && setupFirstAdmin ? existing.id : crypto.randomUUID(),
@@ -204,7 +205,9 @@ export const authRoute = new Hono()
   )
   .post("/passkey/sign-in/options", async (c) => {
     try {
-      return c.json(await beginPasskeyAuthentication())
+      return c.json(
+        await beginPasskeyAuthentication({ origin: c.req.header("origin") }),
+      )
     } catch (cause) {
       return badRequestFromCause(c, cause, "Could not start sign-in.")
     }
@@ -258,6 +261,7 @@ export const authRoute = new Hono()
       return c.json(
         await beginPasskeyRegistration({
           identifier: c.var.viewerId,
+          origin: c.req.header("origin"),
           payload: { userId: c.var.viewerId },
           user: { ...c.var.session.user, passkeys },
         }),

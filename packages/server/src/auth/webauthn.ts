@@ -23,6 +23,10 @@ import {
 import { and, eq, gt, lt } from "drizzle-orm"
 
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
+import {
+  webAuthnChallengeContext,
+  type WebAuthnChallengeContext,
+} from "./webauthn-origin"
 
 const logger = createLogger("webauthn")
 
@@ -36,14 +40,6 @@ type RegistrationPayload = {
   setupFirstAdmin?: boolean
   userId?: string
   username?: string
-}
-
-function rpId(): string {
-  return new URL(env.PUBLIC_SERVER_URL).hostname
-}
-
-function expectedOrigins(): string[] {
-  return env.TRUSTED_ORIGINS
 }
 
 const AUTHENTICATOR_TRANSPORTS = new Set<string>([
@@ -149,11 +145,13 @@ async function consumeChallenge(input: {
 
 export async function beginPasskeyRegistration(input: {
   identifier: string
+  origin?: string
   payload: RegistrationPayload
   user: Pick<User, "id" | "email" | "username"> & {
     passkeys?: UserPasskey[]
   }
 }) {
+  const context = currentWebAuthnContext(input.origin)
   const excludeCredentials =
     input.user.passkeys?.map((row) => ({
       id: row.credential_id,
@@ -161,7 +159,7 @@ export async function beginPasskeyRegistration(input: {
     })) ?? []
   const options = await generateRegistrationOptions({
     rpName: RP_NAME,
-    rpID: rpId(),
+    rpID: context.rpId,
     userID: Buffer.from(input.user.id, "utf8"),
     userName: input.user.email,
     userDisplayName: input.user.username,
@@ -177,7 +175,7 @@ export async function beginPasskeyRegistration(input: {
     purpose: "passkey-registration",
     identifier: input.identifier,
     challenge: options.challenge,
-    payload: input.payload,
+    payload: challengePayload(input.payload, context),
     ttlMs: REGISTRATION_TTL_MS,
   })
   return { challengeId: challenge.id, options }
@@ -192,12 +190,13 @@ export async function verifyPasskeyRegistration(input: {
     purpose: "passkey-registration",
     expiredMessage: "Passkey registration expired. Try again.",
   })
+  const context = webAuthnContextFromPayload(challenge.payload)
 
   const verification = await verifyRegistrationResponse({
     response: input.response,
     expectedChallenge: challenge.challenge,
-    expectedOrigin: expectedOrigins(),
-    expectedRPID: rpId(),
+    expectedOrigin: context?.origin ?? env.TRUSTED_ORIGINS,
+    expectedRPID: context?.rpId ?? new URL(env.PUBLIC_SERVER_URL).hostname,
     requireUserVerification: true,
   })
   if (!verification.verified) {
@@ -209,19 +208,22 @@ export async function verifyPasskeyRegistration(input: {
   }
 }
 
-export async function beginPasskeyAuthentication() {
+export async function beginPasskeyAuthentication(
+  input: { origin?: string } = {},
+) {
   if (!configStore.get("passkeyEnabled")) {
     throw new Error("Passkey sign-in is currently disabled.")
   }
+  const context = currentWebAuthnContext(input.origin)
   const options = await generateAuthenticationOptions({
-    rpID: rpId(),
+    rpID: context.rpId,
     userVerification: "required",
   })
   const challenge = await createChallenge({
     purpose: "passkey-authentication",
     identifier: "discoverable",
     challenge: options.challenge,
-    payload: {},
+    payload: challengePayload({}, context),
     ttlMs: AUTHENTICATION_TTL_MS,
   })
   return { challengeId: challenge.id, options }
@@ -239,6 +241,7 @@ export async function verifyPasskeyAuthentication(input: {
     purpose: "passkey-authentication",
     expiredMessage: "Passkey sign-in expired. Try again.",
   })
+  const context = webAuthnContextFromPayload(challenge.payload)
 
   const [credential] = await db
     .select({ passkey: userPasskey })
@@ -250,8 +253,8 @@ export async function verifyPasskeyAuthentication(input: {
   const verification = await verifyAuthenticationResponse({
     response: input.response,
     expectedChallenge: challenge.challenge,
-    expectedOrigin: expectedOrigins(),
-    expectedRPID: rpId(),
+    expectedOrigin: context?.origin ?? env.TRUSTED_ORIGINS,
+    expectedRPID: context?.rpId ?? new URL(env.PUBLIC_SERVER_URL).hostname,
     credential: {
       id: credential.passkey.credential_id,
       publicKey: base64UrlToBytes(credential.passkey.public_key) as Uint8Array_,
@@ -272,6 +275,48 @@ export function serializeTransports(
   value: string[] | undefined,
 ): string | null {
   return value && value.length > 0 ? value.join(",") : null
+}
+
+function currentWebAuthnContext(
+  origin: string | undefined,
+): WebAuthnChallengeContext {
+  return webAuthnChallengeContext({
+    publicServerUrl: env.PUBLIC_SERVER_URL,
+    requestOrigin: origin,
+    trustedOrigins: env.TRUSTED_ORIGINS,
+  })
+}
+
+function challengePayload(
+  payload: Record<string, unknown>,
+  context: WebAuthnChallengeContext,
+): Record<string, unknown> {
+  return {
+    ...payload,
+    webAuthnOrigin: context.origin,
+    webAuthnRpId: context.rpId,
+  }
+}
+
+function webAuthnContextFromPayload(
+  payload: Record<string, unknown>,
+): WebAuthnChallengeContext | null {
+  if (
+    payload.webAuthnOrigin === undefined &&
+    payload.webAuthnRpId === undefined
+  ) {
+    return null
+  }
+  if (
+    typeof payload.webAuthnOrigin === "string" &&
+    typeof payload.webAuthnRpId === "string"
+  ) {
+    return {
+      origin: payload.webAuthnOrigin,
+      rpId: payload.webAuthnRpId,
+    }
+  }
+  throw new Error("Passkey challenge payload is invalid.")
 }
 
 function requireRegistrationPayload(
