@@ -41,7 +41,7 @@ The root `db:*` scripts delegate to this package.
 Start local Postgres before running migration or push commands:
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d postgres
+docker compose -f compose.dev.yml up -d postgres
 ```
 
 Drizzle commands require `DATABASE_URL` to be set (the dev scripts and devenv

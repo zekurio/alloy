@@ -44,7 +44,7 @@ Start Postgres (or use a devenv shell, which runs its own on a random free
 localhost port and exports `DATABASE_URL`), then run the server:
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d postgres
+docker compose -f compose.dev.yml up -d postgres
 pnpm dev:server
 ```
 
