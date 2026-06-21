@@ -31,7 +31,9 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   postedAt?: string
   metaContent?: React.ReactNode
   thumbnail?: string
+  thumbnailFallback?: string
   thumbnailBlurHash?: string | null
+  thumbnailFallbackBlurHash?: string | null
   fallbackSeed?: string | number
   accentHue?: number
   streamUrl?: string
@@ -95,7 +97,9 @@ function ClipCard({
   postedAt = "2h ago",
   metaContent,
   thumbnail,
+  thumbnailFallback,
   thumbnailBlurHash,
+  thumbnailFallbackBlurHash,
   fallbackSeed,
   // Retained on the contract for callers; fallback color is now seed-driven.
   accentHue: _accentHue,
@@ -124,7 +128,9 @@ function ClipCard({
         <ClipCardThumb
           title={title}
           thumbnail={thumbnail}
+          thumbnailFallback={thumbnailFallback}
           thumbnailBlurHash={thumbnailBlurHash}
+          thumbnailFallbackBlurHash={thumbnailFallbackBlurHash}
           fallbackSeed={fallbackSeed ?? game}
           streamUrl={streamUrl}
           onClick={onThumbnailClick}

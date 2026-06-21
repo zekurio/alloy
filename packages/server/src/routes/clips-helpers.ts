@@ -213,7 +213,7 @@ export const InitiateBody = z.object({
   mentionedUserIds: z.array(z.uuid()).optional(),
   tags: TagsInput,
   thumbBlurHash: z.string().refine(isBlurHash, "Invalid BlurHash").optional(),
-  thumbContentType: z.enum(ACCEPTED_THUMB_CONTENT_TYPES).default("image/webp"),
+  thumbContentType: z.enum(ACCEPTED_THUMB_CONTENT_TYPES).default("image/jpeg"),
 })
 
 /** Smallest media range a trim may keep, in ms. */

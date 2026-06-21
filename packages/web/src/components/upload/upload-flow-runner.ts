@@ -1,4 +1,8 @@
 import { uploadToTicket } from "@alloy/api"
+import {
+  ACCEPTED_THUMB_CONTENT_TYPES,
+  type AcceptedThumbContentType,
+} from "@alloy/contracts"
 
 import { api } from "@/lib/api"
 import { clientLogger } from "@/lib/client-log"
@@ -6,6 +10,19 @@ import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
 
 import type { PublishPayload } from "./new-clip-helpers"
 import type { ActiveUpload } from "./upload-queue-mapping"
+
+const ACCEPTED_THUMB_CONTENT_TYPE_SET = new Set<string>(
+  ACCEPTED_THUMB_CONTENT_TYPES,
+)
+
+function thumbContentTypeForBlob(
+  blob: Blob,
+): AcceptedThumbContentType | undefined {
+  const contentType = blob.type.toLowerCase()
+  return ACCEPTED_THUMB_CONTENT_TYPE_SET.has(contentType)
+    ? (contentType as AcceptedThumbContentType)
+    : undefined
+}
 
 export async function deleteUploadClipBestEffort(
   clipId: string,
@@ -65,6 +82,7 @@ export async function startUpload(
         : undefined,
     tags: payload.tags.length > 0 ? payload.tags : undefined,
     thumbBlurHash: payload.thumbBlurHash ?? undefined,
+    thumbContentType: thumbContentTypeForBlob(payload.thumbBlob),
   })
   const { clipId } = initiate
 

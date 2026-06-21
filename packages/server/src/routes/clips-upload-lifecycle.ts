@@ -27,6 +27,7 @@ import {
 import {
   assertUsableVideoTicket,
   createUploadTickets,
+  selectThumbTicket,
   selectVideoTicket,
   THUMB_UPLOAD_MAX_BYTES,
 } from "@alloy/server/uploads/tickets"
@@ -56,8 +57,10 @@ type InitiateTransactionResult =
 
 async function cleanupFailedInitiate(
   clipId: string,
-  uploadKey: string,
-  uploadState: UploadTicketStorageState = null,
+  uploads: Array<{
+    key: string | null
+    uploadState?: UploadTicketStorageState
+  }>,
 ): Promise<void> {
   try {
     await db.delete(clip).where(eq(clip.id, clipId))
@@ -66,10 +69,10 @@ async function cleanupFailedInitiate(
   }
 
   try {
-    await deleteStagedUpload(uploadKey, uploadState)
+    await deleteStagedUploads(uploads, "initiate failure staged upload")
   } catch (err) {
     logger.warn(
-      `failed to delete staged upload for ${clipId} after initiate failure:`,
+      `failed to delete staged uploads for ${clipId} after initiate failure:`,
       err,
     )
   }
@@ -201,6 +204,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const expiresInSec = configStore.get("limits").uploadTtlSec
       const expiresAt = new Date(Date.now() + expiresInSec * 1000)
       let videoUploadState: UploadTicketStorageState = null
+      let thumbUploadState: UploadTicketStorageState = null
       try {
         const videoUpload = await mintStagedUpload({
           key: uploadKey,
@@ -221,6 +225,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
           clipId,
           role: "thumb",
         })
+        thumbUploadState = thumbUpload.storageState
         await createUploadTickets({
           target: { type: "clip", id: clipId },
           ownerId: viewerId,
@@ -239,7 +244,10 @@ export const clipsUploadLifecycleRoutes = new Hono()
           thumbTicket: thumbUpload.ticket,
         })
       } catch (err) {
-        await cleanupFailedInitiate(clipId, uploadKey, videoUploadState)
+        await cleanupFailedInitiate(clipId, [
+          { key: uploadKey, uploadState: videoUploadState },
+          { key: thumbUploadKey, uploadState: thumbUploadState },
+        ])
         throw err
       }
     },
@@ -379,7 +387,14 @@ export const clipsUploadLifecycleRoutes = new Hono()
                 }
               : null,
           ),
-          stagedThumbKey(id),
+          await selectThumbTicket({ type: "clip", id }).then((ticket) =>
+            ticket
+              ? {
+                  key: ticket.storageKey,
+                  uploadState: ticket.usedAt ? null : ticket.uploadState,
+                }
+              : null,
+          ),
         ],
         "failed staged upload",
       )

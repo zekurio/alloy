@@ -10,10 +10,10 @@ export interface UploadTarget {
 }
 
 /** Default poster image content type when the client doesn't pick one. */
-export const THUMB_UPLOAD_CONTENT_TYPE = "image/webp"
+export const THUMB_UPLOAD_CONTENT_TYPE = "image/jpeg"
 
 /**
- * Hard cap for the uploaded poster image. The client renders a small webp
+ * Hard cap for the uploaded poster image. The client renders a small JPEG
  * (<2 MB); this leaves headroom while keeping the staged upload bounded.
  */
 export const THUMB_UPLOAD_MAX_BYTES = 4 * 1024 * 1024
@@ -126,6 +126,10 @@ export function selectVideoTicketKey(
 
 export function selectVideoTicket(target: UploadTarget) {
   return selectTicket(target, "video")
+}
+
+export function selectThumbTicket(target: UploadTarget) {
+  return selectTicket(target, "thumb")
 }
 
 export function selectThumbTicketKey(

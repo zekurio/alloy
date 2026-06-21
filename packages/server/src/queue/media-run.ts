@@ -297,13 +297,13 @@ async function republishUploadedThumbnail(
       const buf = Buffer.from(
         await new Response(stagedThumb.stream()).arrayBuffer(),
       )
-      const webp = await normalizeStagedPosterToWebp(buf, id)
-      if (!webp) {
+      const jpeg = await normalizeStagedPosterToJpeg(buf, id)
+      if (!jpeg) {
         return publishedThumbnail(row)
       }
 
       const thumbKey = runScopedThumbKey(id, runId)
-      await clipStorage.put(thumbKey, webp, "image/webp")
+      await clipStorage.put(thumbKey, jpeg, "image/jpeg")
       uploadedKeys.push(thumbKey)
       return { thumbKey, thumbBlurHash: normalizeBlurHash(row.thumbBlurHash) }
     }
@@ -323,23 +323,24 @@ function publishedThumbnail(
 }
 
 /**
- * The published poster is always webp. Clients may upload webp directly, or
- * JPEG when reusing a locally cached poster.
+ * The published poster is always JPEG. Older clients may upload WebP, so keep
+ * accepting it and normalize during publish.
  */
-async function normalizeStagedPosterToWebp(
+async function normalizeStagedPosterToJpeg(
   buf: Buffer,
   id: string,
 ): Promise<Buffer | null> {
-  const asWebp = imageValidation.validateImageBytes(buf, "image/webp")
-  if (asWebp.ok) return buf
-
   const asJpeg = imageValidation.validateImageBytes(buf, "image/jpeg")
-  if (!asJpeg.ok) {
-    logger.warn(`rejected staged poster for ${id}: ${asJpeg.error}`)
+  if (asJpeg.ok) return buf
+
+  const asWebp = imageValidation.validateImageBytes(buf, "image/webp")
+  if (!asWebp.ok) {
+    logger.warn(`rejected staged poster for ${id}: ${asWebp.error}`)
     return null
   }
+
   try {
-    return await sharp(buf).webp({ quality: 82 }).toBuffer()
+    return await sharp(buf).jpeg({ quality: 82 }).toBuffer()
   } catch (err) {
     logger.warn(`failed to convert staged poster for ${id}:`, err)
     return null

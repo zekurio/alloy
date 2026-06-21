@@ -113,7 +113,7 @@ export interface InitiateClipInput {
    * and publishes it only when the uploaded thumbnail image is accepted.
    */
   thumbBlurHash?: string
-  /** Poster format the client will upload; defaults to webp. */
+  /** Poster format the client will upload; defaults to JPEG. */
   thumbContentType?: AcceptedThumbContentType
 }
 
@@ -121,7 +121,7 @@ export interface InitiateClipResponse {
   clipId: string
   ticket: UploadTicket
   /**
-   * Upload target for the client-rendered poster image (webp). The desktop
+   * Upload target for the client-rendered poster image. The desktop
    * client uploads its thumbnail here so the server never has to extract a
    * frame. Best-effort: a clip without a published thumbnail still works.
    */
