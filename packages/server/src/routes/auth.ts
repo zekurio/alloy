@@ -13,7 +13,11 @@ import {
   updateUserIdentity,
   validateUsername,
 } from "@alloy/server/auth/identity"
-import { publicPasskeyRow } from "@alloy/server/auth/security-responses"
+import {
+  publicAuthUserRow,
+  publicPasskeyRow,
+  publicSessionData,
+} from "@alloy/server/auth/security-responses"
 import {
   createSession,
   deleteCurrentSession,
@@ -124,12 +128,13 @@ export const authRoute = new Hono()
   .use("/oauth/sign-in", strictAuthRateLimit)
   .use("/oauth/link", strictAuthRateLimit)
   .get("/session", async (c) => {
-    return c.json(await getSession(c))
+    const session = await getSession(c)
+    return c.json(session ? publicSessionData(session) : null)
   })
   .post("/refresh", async (c) => {
     const refreshed = await refreshSession(c)
     if (!refreshed) return unauthorized(c)
-    return c.json(refreshed.data)
+    return c.json(publicSessionData(refreshed.data))
   })
   .post("/sign-out", async (c) => {
     await deleteCurrentSession(c)
@@ -197,7 +202,7 @@ export const authRoute = new Hono()
 
         const { tokens, data } = await createSession(c, userRow.id)
         setSessionCookies(c, tokens)
-        return c.json(data)
+        return c.json(publicSessionData(data))
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not verify passkey.")
       }
@@ -233,7 +238,7 @@ export const authRoute = new Hono()
           .where(eq(userPasskey.id, credential.id))
         const { tokens, data } = await createSession(c, credential.user_id)
         setSessionCookies(c, tokens)
-        return c.json(data)
+        return c.json(publicSessionData(data))
       } catch (cause) {
         return badRequestFromCause(c, cause, "Passkey sign-in failed.")
       }
@@ -360,7 +365,7 @@ export const authRoute = new Hono()
           c.var.viewerId,
           c.req.valid("json"),
         )
-        return c.json({ user: updated })
+        return c.json({ user: publicAuthUserRow(updated) })
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not update user.")
       }
