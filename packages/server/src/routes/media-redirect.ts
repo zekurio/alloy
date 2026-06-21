@@ -14,7 +14,7 @@ export const DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC = DIRECT_MEDIA_URL_TTL_SEC / 2
 
 /**
  * Serve an object by redirecting the client to a storage-signed URL, so
- * the bytes flow from the store (S3/R2) instead of through this server.
+ * drivers with direct browser URLs can keep bytes off this server.
  * Returns `null` when the driver has no direct URLs (fs) or the request
  * is not a plain GET — presigned URLs sign the HTTP method, so a GET URL
  * cannot answer HEAD. Callers fall back to proxy streaming.

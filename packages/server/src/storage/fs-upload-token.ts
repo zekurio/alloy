@@ -6,7 +6,7 @@ import { constantTimeEqual, hmacSha256 } from "@alloy/server/runtime/crypto"
 
 import type { UploadTicket, UploadTicketStrategy } from "./driver"
 
-export type UploadTokenMode = "single" | "fs-chunked" | "s3-multipart"
+export type UploadTokenMode = "single" | "fs-chunked"
 
 export interface UploadTokenPayload {
   /** key - opaque storage key the bytes will land at */
@@ -25,8 +25,6 @@ export interface UploadTokenPayload {
   m?: UploadTokenMode
   /** chunkSize - fixed part size for resumable upload strategies */
   cs?: number
-  /** multipartUploadId - storage-native multipart upload identifier */
-  mpu?: string
 }
 
 const textEncoder = new TextEncoder()
@@ -91,8 +89,7 @@ function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
   if (
     payload.m !== undefined &&
     payload.m !== "single" &&
-    payload.m !== "fs-chunked" &&
-    payload.m !== "s3-multipart"
+    payload.m !== "fs-chunked"
   ) {
     return null
   }
@@ -104,19 +101,7 @@ function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
   ) {
     return null
   }
-  if (
-    payload.mpu !== undefined &&
-    (typeof payload.mpu !== "string" || !payload.mpu.trim())
-  ) {
-    return null
-  }
-  if (
-    (payload.m === "fs-chunked" || payload.m === "s3-multipart") &&
-    payload.cs === undefined
-  ) {
-    return null
-  }
-  if (payload.m === "s3-multipart" && payload.mpu === undefined) {
+  if (payload.m === "fs-chunked" && payload.cs === undefined) {
     return null
   }
   return {
@@ -128,7 +113,6 @@ function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
     cid: payload.cid,
     m: payload.m,
     cs: payload.cs,
-    mpu: payload.mpu,
   }
 }
 

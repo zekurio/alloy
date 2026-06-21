@@ -30,15 +30,10 @@ function toAdminOAuthProvider(
 export function adminRuntimeConfigResponse(
   config: Readonly<RuntimeConfig>,
 ): AdminRuntimeConfig {
-  const s3Credentials = secretStore.storageS3Credentials()
   return {
     ...config,
     oauthProviders: config.oauthProviders.map(toAdminOAuthProvider),
-    storage: {
-      ...config.storage,
-      s3AccessKeyIdSet: Boolean(s3Credentials?.accessKeyId),
-      s3SecretAccessKeySet: Boolean(s3Credentials?.secretAccessKey),
-    },
+    storage: config.storage,
     integrations: {
       steamgriddbApiKeySet: secretStore.get("steamgriddbApiKey").length > 0,
       steamgriddbConfigured: secretStore.get("steamgriddbApiKey").length > 0,

@@ -14,12 +14,10 @@ import {
   gone,
   success,
 } from "@alloy/server/runtime/http-response"
-import type { UploadTicketStorageState } from "@alloy/server/storage/index"
 import {
   deleteStagedUpload,
   deleteStagedUploads,
   mintStagedUpload,
-  parseUploadTicketStorageState,
   resolveStagedUpload,
   stagedSourceKey,
   stagedThumbKey,
@@ -59,7 +57,6 @@ async function cleanupFailedInitiate(
   clipId: string,
   uploads: Array<{
     key: string | null
-    uploadState?: UploadTicketStorageState
   }>,
 ): Promise<void> {
   try {
@@ -203,8 +200,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
 
       const expiresInSec = configStore.get("limits").uploadTtlSec
       const expiresAt = new Date(Date.now() + expiresInSec * 1000)
-      let videoUploadState: UploadTicketStorageState = null
-      let thumbUploadState: UploadTicketStorageState = null
       try {
         const videoUpload = await mintStagedUpload({
           key: uploadKey,
@@ -215,7 +210,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
           clipId,
           role: "video",
         })
-        videoUploadState = videoUpload.storageState
         const thumbUpload = await mintStagedUpload({
           key: thumbUploadKey,
           contentType: body.thumbContentType,
@@ -225,28 +219,25 @@ export const clipsUploadLifecycleRoutes = new Hono()
           clipId,
           role: "thumb",
         })
-        thumbUploadState = thumbUpload.storageState
         await createUploadTickets({
           target: { type: "clip", id: clipId },
           ownerId: viewerId,
           videoKey: uploadKey,
           videoContentType: body.contentType,
           videoBytes: body.sizeBytes,
-          videoUploadState: videoUpload.storageState,
           thumbKey: thumbUploadKey,
           thumbContentType: body.thumbContentType,
-          thumbUploadState: thumbUpload.storageState,
           expiresAt,
         })
         return c.json({
           clipId,
-          ticket: videoUpload.ticket,
-          thumbTicket: thumbUpload.ticket,
+          ticket: videoUpload,
+          thumbTicket: thumbUpload,
         })
       } catch (err) {
         await cleanupFailedInitiate(clipId, [
-          { key: uploadKey, uploadState: videoUploadState },
-          { key: thumbUploadKey, uploadState: thumbUploadState },
+          { key: uploadKey },
+          { key: thumbUploadKey },
         ])
         throw err
       }
@@ -270,9 +261,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
 
       const videoTicket = await selectVideoTicket({ type: "clip", id })
       const videoTicketKey = videoTicket?.storageKey ?? null
-      const videoUploadState = videoTicket?.usedAt
-        ? null
-        : parseUploadTicketStorageState(videoTicket?.uploadState)
       const sourceContentType = row.source_content_type
       const sourceSizeBytes = row.source_size_bytes
       if (!videoTicketKey || !sourceContentType || sourceSizeBytes == null) {
@@ -287,14 +275,14 @@ export const clipsUploadLifecycleRoutes = new Hono()
         expectedBytes: sourceSizeBytes,
       })
       if (!videoTicketOk) {
-        await deleteStagedUpload(videoTicketKey, videoUploadState)
+        await deleteStagedUpload(videoTicketKey)
         await markUploadFailed(row.author_id, id, "Upload ticket expired")
         return gone(c, "Upload ticket expired")
       }
 
       const stagedUpload = await resolveStagedUpload(videoTicketKey)
       if (!stagedUpload) {
-        await deleteStagedUpload(videoTicketKey, videoUploadState)
+        await deleteStagedUpload(videoTicketKey)
         await markUploadFailed(row.author_id, id, "Upload bytes are missing")
         return badRequest(c, "Upload bytes are missing")
       }
@@ -314,7 +302,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
         },
       )
       if (!quotaResult.ok) {
-        await deleteStagedUpload(videoTicketKey, videoUploadState)
+        await deleteStagedUpload(videoTicketKey)
         await markUploadFailed(row.author_id, id, "Storage quota exceeded")
         return c.json(
           {
@@ -327,7 +315,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
       }
 
       if (stagedUpload.size !== sourceSizeBytes) {
-        await deleteStagedUpload(videoTicketKey, videoUploadState)
+        await deleteStagedUpload(videoTicketKey)
         await markUploadFailed(
           row.author_id,
           id,
@@ -383,7 +371,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
             ticket
               ? {
                   key: ticket.storageKey,
-                  uploadState: ticket.usedAt ? null : ticket.uploadState,
                 }
               : null,
           ),
@@ -391,7 +378,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
             ticket
               ? {
                   key: ticket.storageKey,
-                  uploadState: ticket.usedAt ? null : ticket.uploadState,
                 }
               : null,
           ),

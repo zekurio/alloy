@@ -141,23 +141,13 @@ export function validateUploadTicket(value: unknown): UploadTicket {
   )
   if (ticket.strategy !== undefined) {
     const strategy = objectRecord(ticket.strategy, "upload ticket strategy")
-    if (
-      strategy.type !== "single" &&
-      strategy.type !== "chunked" &&
-      strategy.type !== "multipart"
-    ) {
+    if (strategy.type !== "single" && strategy.type !== "chunked") {
       throw new Error("Invalid upload ticket response: strategy is invalid")
     }
     if (strategy.type === "chunked") {
       validatePositiveInteger(
         strategy.chunkSizeBytes,
         "Invalid upload ticket response: chunkSizeBytes must be positive",
-      )
-    }
-    if (strategy.type === "multipart") {
-      validatePositiveInteger(
-        strategy.partSizeBytes,
-        "Invalid upload ticket response: partSizeBytes must be positive",
       )
     }
   }

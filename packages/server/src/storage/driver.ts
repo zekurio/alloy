@@ -1,19 +1,4 @@
-import type {
-  CompleteMultipartUploadPart,
-  UploadPartTicket,
-  UploadTicket,
-  UploadTicketRole,
-} from "@alloy/contracts"
-
-export type UploadTicketStorageState = {
-  type: "s3-multipart"
-  uploadId: string
-} | null
-
-export interface MintedUploadTicket {
-  ticket: UploadTicket
-  storageState: UploadTicketStorageState
-}
+import type { UploadTicket, UploadTicketRole } from "@alloy/contracts"
 
 export interface ResolvedObject {
   stream: (opts?: {
@@ -44,13 +29,6 @@ export interface MintUploadUrlInput {
   role: UploadTicketRole
 }
 
-export interface MintUploadPartUrlInput {
-  key: string
-  uploadId: string
-  partNumber: number
-  expiresInSec: number
-}
-
 export interface WriteUploadPartInput {
   key: string
   partNumber: number
@@ -64,13 +42,10 @@ export interface CompleteUploadInput {
   contentType: string
   maxBytes: number
   partSizeBytes?: number
-  storageState: UploadTicketStorageState
-  parts?: CompleteMultipartUploadPart[]
 }
 
 export interface AbortUploadInput {
   key: string
-  storageState: UploadTicketStorageState
 }
 
 export interface MintDownloadUrlInput {
@@ -103,10 +78,7 @@ export interface StorageDriver {
   resolve(key: string): Promise<ResolvedObject | null>
 
   /** Issue a browser-bound upload URL. */
-  mintUploadUrl(input: MintUploadUrlInput): Promise<MintedUploadTicket>
-
-  /** Issue a browser-bound URL for one native multipart upload part. */
-  mintUploadPartUrl(input: MintUploadPartUrlInput): Promise<UploadPartTicket>
+  mintUploadUrl(input: MintUploadUrlInput): Promise<UploadTicket>
 
   writeUploadPart(input: WriteUploadPartInput): Promise<{ size: number }>
 
@@ -128,14 +100,14 @@ export interface StorageDriver {
 
   /**
    * Materialize a stored object as a local file — media processing needs a
-   * filesystem path it can read directly. Fs driver hardlinks; remote
-   * drivers download. The destination's parent dir must exist.
+   * filesystem path it can read directly. The filesystem driver hardlinks
+   * where possible. The destination's parent dir must exist.
    */
   downloadToFile(key: string, destPath: string): Promise<void>
 
   /**
-   * Publish a local file under a storage key. Fs driver hardlinks;
-   * remote drivers stream-upload. Returns the size committed.
+   * Publish a local file under a storage key. The filesystem driver hardlinks
+   * where possible. Returns the size committed.
    */
   uploadFromFile(
     localPath: string,
@@ -189,9 +161,4 @@ export function userAssetKey(
   return `${userAssetDir(userId)}/${role}${ext}`
 }
 
-export type {
-  CompleteMultipartUploadPart,
-  UploadPartTicket,
-  UploadTicket,
-  UploadTicketStrategy,
-} from "@alloy/contracts"
+export type { UploadTicket, UploadTicketStrategy } from "@alloy/contracts"

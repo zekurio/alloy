@@ -38,9 +38,7 @@ let
   ];
   serverExternalWritePaths = lib.unique (
     lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
-    ++ lib.optionals (cfg.storage.driver == "fs") (
-      lib.filter (path: !(pathIsUnder cfg.stateDir path)) fsStoragePaths
-    )
+    ++ lib.filter (path: !(pathIsUnder cfg.stateDir path)) fsStoragePaths
   );
   isDatabaseUnixSocket = lib.hasPrefix "/" cfg.database.host;
   databaseConnectHost =
@@ -110,13 +108,9 @@ in
       Put ALLOY_UPLOAD_HMAC_SECRET in services.alloy-server.environmentFile,
       or set ALLOY_UPLOAD_HMAC_SECRET through services.alloy-server.environment.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storage" "s3" "accessKeyIdFile" ] ''
-      Put ALLOY_STORAGE_S3_ACCESS_KEY_ID in services.alloy-server.environmentFile,
-      or set ALLOY_STORAGE_S3_ACCESS_KEY_ID through services.alloy-server.environment.
-    '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storage" "s3" "secretAccessKeyFile" ] ''
-      Put ALLOY_STORAGE_S3_SECRET_ACCESS_KEY in services.alloy-server.environmentFile,
-      or set ALLOY_STORAGE_S3_SECRET_ACCESS_KEY through services.alloy-server.environment.
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storage" "s3" ] ''
+      S3-compatible storage support has been removed. Configure filesystem
+      storage through services.alloy-server.storage.fs.
     '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "integrations" "steamgriddb" "apiKeyFile" ] ''
       Put ALLOY_STEAMGRIDDB_API_KEY in services.alloy-server.environmentFile,
@@ -230,7 +224,7 @@ in
       description = ''
         Optional systemd environment file containing secret Alloy environment
         variables such as ALLOY_VIEWER_COOKIE_SECRET,
-        ALLOY_UPLOAD_HMAC_SECRET, DATABASE_URL, PGPASSWORD, S3 credentials, and
+        ALLOY_UPLOAD_HMAC_SECRET, DATABASE_URL, PGPASSWORD, and
         OAuth provider JSON. The file is read by systemd at service start and is
         not copied into the Nix store.
       '';
@@ -275,10 +269,9 @@ in
       driver = lib.mkOption {
         type = lib.types.enum [
           "fs"
-          "s3"
         ];
         default = "fs";
-        description = "Storage backend for clips and user assets.";
+        description = "Storage backend for clips and user assets. Only filesystem storage is supported.";
       };
 
       fs = {
@@ -297,32 +290,6 @@ in
         };
       };
 
-      s3 = {
-        bucket = lib.mkOption {
-          type = lib.types.str;
-          default = "";
-          description = "S3 bucket name.";
-        };
-
-        region = lib.mkOption {
-          type = lib.types.str;
-          default = "";
-          description = "S3 region. Use \"auto\" for Cloudflare R2.";
-        };
-
-        endpoint = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
-          default = null;
-          example = "https://s3.example.com";
-          description = "Optional S3-compatible endpoint URL.";
-        };
-
-        forcePathStyle = lib.mkOption {
-          type = lib.types.bool;
-          default = false;
-          description = "Use path-style S3 URLs.";
-        };
-      };
     };
 
     database = {
@@ -390,32 +357,6 @@ in
       }
       {
         assertion =
-          cfg.storage.driver != "s3"
-          || cfg.storage.s3.bucket != "";
-        message = "services.alloy-server.storage.s3.bucket is required when storage.driver is s3.";
-      }
-      {
-        assertion =
-          cfg.storage.driver != "s3"
-          || cfg.storage.s3.region != "";
-        message = "services.alloy-server.storage.s3.region is required when storage.driver is s3.";
-      }
-      {
-        assertion =
-          cfg.storage.driver != "s3"
-          || cfg.environmentFile != null
-          || hasEnv "ALLOY_STORAGE_S3_ACCESS_KEY_ID";
-        message = "Set ALLOY_STORAGE_S3_ACCESS_KEY_ID through services.alloy-server.environmentFile or services.alloy-server.environment for S3.";
-      }
-      {
-        assertion =
-          cfg.storage.driver != "s3"
-          || cfg.environmentFile != null
-          || hasEnv "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY";
-        message = "Set ALLOY_STORAGE_S3_SECRET_ACCESS_KEY through services.alloy-server.environmentFile or services.alloy-server.environment for S3.";
-      }
-      {
-        assertion =
           !(cfg.database.enable && cfg.database.createDB && isDatabaseUnixSocket)
           || cfg.user == cfg.database.user;
         message = "services.alloy-server.user must match services.alloy-server.database.user when creating a peer-authenticated local PostgreSQL database.";
@@ -447,10 +388,8 @@ in
 
     networking.firewall.allowedTCPPorts = lib.mkIf cfg.openFirewall [ cfg.port ];
 
-    systemd.tmpfiles.rules = lib.optionals (cfg.storage.driver == "fs") (
-      map (path: "e ${path} 0750 ${cfg.user} ${cfg.group} - -") (
-        lib.filter (path: !(pathIsUnder cfg.stateDir path)) fsStoragePaths
-      )
+    systemd.tmpfiles.rules = map (path: "e ${path} 0750 ${cfg.user} ${cfg.group} - -") (
+      lib.filter (path: !(pathIsUnder cfg.stateDir path)) fsStoragePaths
     );
 
     systemd.services.alloy-server = {
@@ -474,18 +413,12 @@ in
           ALLOY_STORAGE_DRIVER = cfg.storage.driver;
           ALLOY_STORAGE_FS_CLIPS_PATH = toString cfg.storage.fs.clipsPath;
           ALLOY_STORAGE_FS_USERS_PATH = toString cfg.storage.fs.usersPath;
-          ALLOY_STORAGE_S3_BUCKET = cfg.storage.s3.bucket;
-          ALLOY_STORAGE_S3_REGION = cfg.storage.s3.region;
-          ALLOY_STORAGE_S3_FORCE_PATH_STYLE = lib.boolToString cfg.storage.s3.forcePathStyle;
           PGHOST = cfg.database.host;
           PGUSER = cfg.database.user;
           PGDATABASE = cfg.database.name;
         }
         // lib.optionalAttrs (cfg.limits.defaultStorageQuotaBytes != null) {
           ALLOY_DEFAULT_STORAGE_QUOTA_BYTES = toString cfg.limits.defaultStorageQuotaBytes;
-        }
-        // lib.optionalAttrs (cfg.storage.s3.endpoint != null) {
-          ALLOY_STORAGE_S3_ENDPOINT = cfg.storage.s3.endpoint;
         }
         // lib.optionalAttrs (!isDatabaseUnixSocket) {
           PGPORT = toString cfg.database.port;

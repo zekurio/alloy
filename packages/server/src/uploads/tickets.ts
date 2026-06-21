@@ -31,10 +31,8 @@ export async function createUploadTickets(input: {
   videoKey: string
   videoContentType: string
   videoBytes: number
-  videoUploadState?: Record<string, unknown> | null
   thumbKey: string
   thumbContentType?: string
-  thumbUploadState?: Record<string, unknown> | null
   expiresAt: Date
 }): Promise<void> {
   await db.insert(uploadTicket).values([
@@ -46,7 +44,6 @@ export async function createUploadTickets(input: {
       storage_key: input.videoKey,
       content_type: input.videoContentType,
       expected_bytes: input.videoBytes,
-      upload_state: input.videoUploadState ?? null,
       expires_at: input.expiresAt,
     },
     {
@@ -57,7 +54,6 @@ export async function createUploadTickets(input: {
       storage_key: input.thumbKey,
       content_type: input.thumbContentType ?? THUMB_UPLOAD_CONTENT_TYPE,
       expected_bytes: THUMB_UPLOAD_MAX_BYTES,
-      upload_state: input.thumbUploadState ?? null,
       expires_at: input.expiresAt,
     },
   ])
@@ -103,14 +99,10 @@ async function selectTicket(
   role: "video" | "thumb",
 ): Promise<{
   storageKey: string
-  uploadState: unknown
-  usedAt: Date | null
 } | null> {
   const [ticket] = await db
     .select({
       storageKey: uploadTicket.storage_key,
-      uploadState: uploadTicket.upload_state,
-      usedAt: uploadTicket.used_at,
     })
     .from(uploadTicket)
     .where(and(targetMatch(target), eq(uploadTicket.role, role)))
@@ -140,18 +132,15 @@ export function selectThumbTicketKey(
 
 export async function selectTicketKeys(
   target: UploadTarget,
-): Promise<Array<{ key: string; uploadState: unknown }>> {
+): Promise<Array<{ key: string }>> {
   const tickets = await db
     .select({
       storageKey: uploadTicket.storage_key,
-      uploadState: uploadTicket.upload_state,
-      usedAt: uploadTicket.used_at,
     })
     .from(uploadTicket)
     .where(targetMatch(target))
   return tickets.map((ticket) => ({
     key: ticket.storageKey,
-    uploadState: ticket.usedAt ? null : ticket.uploadState,
   }))
 }
 

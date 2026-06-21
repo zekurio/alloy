@@ -50,7 +50,6 @@ export type AcceptedThumbContentType =
 export type UploadTicketStrategy =
   | { type: "single" }
   | { type: "chunked"; chunkSizeBytes: number }
-  | { type: "multipart"; partSizeBytes: number }
 
 export interface UploadTicket {
   uploadUrl: string
@@ -58,15 +57,4 @@ export interface UploadTicket {
   headers: Record<string, string>
   expiresAt: number
   strategy?: UploadTicketStrategy
-}
-
-export interface UploadPartTicket {
-  uploadUrl: string
-  method: "PUT"
-  headers: Record<string, string>
-}
-
-export interface CompleteMultipartUploadPart {
-  partNumber: number
-  etag: string
 }

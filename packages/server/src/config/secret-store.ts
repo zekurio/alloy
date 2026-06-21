@@ -18,12 +18,6 @@ export const secretStore = {
   hasOAuthClientSecret(providerId: string): boolean {
     return (env.oauthClientSecrets[providerId] ?? "").length > 0
   },
-  storageS3Credentials(): {
-    accessKeyId: string
-    secretAccessKey: string
-  } | null {
-    return env.storageS3Credentials
-  },
 } as const
 
 /**

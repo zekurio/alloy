@@ -1,4 +1,3 @@
-import type { CompleteMultipartUploadPart } from "@alloy/contracts"
 import { uploadTicket } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { secretStore } from "@alloy/server/config/secret-store"
@@ -9,13 +8,9 @@ import {
   internalServerError,
   noContent,
   payloadTooLarge,
-  unauthorized,
 } from "@alloy/server/runtime/http-response"
 import { clipStorage } from "@alloy/server/storage/index"
-import {
-  deleteStagedUpload,
-  parseUploadTicketStorageState,
-} from "@alloy/server/uploads/staged"
+import { deleteStagedUpload } from "@alloy/server/uploads/staged"
 import { and, eq, gt, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -26,7 +21,6 @@ const logger = createLogger("assets")
 
 type UploadTicketRecord = {
   id: string
-  uploadState: unknown
 }
 
 type ResolvedUploadTicket = {
@@ -111,53 +105,14 @@ export const storageRoute = new Hono()
     }
     return noContent(c)
   })
-  .post("/upload/:token/parts/:partNumber", async (c) => {
-    const resolved = await resolveUploadTicket(c.req.param("token"), [
-      "s3-multipart",
-    ])
-    if (resolved instanceof Response) return resolved
-    const partNumber = parsePartNumber(c.req.param("partNumber"))
-    if (!partNumber) return badRequest(c, "Invalid upload part number")
-    const { payload } = resolved
-    const partSizeBytes = payload.cs
-    const uploadId = payload.mpu
-    if (!partSizeBytes || !uploadId)
-      return badRequest(c, "Invalid upload ticket")
-    if (!partNumberInRange(partNumber, partSizeBytes, payload.mb)) {
-      return badRequest(c, "Upload part is outside declared size")
-    }
-
-    const ticket = await clipStorage.mintUploadPartUrl({
-      key: payload.k,
-      uploadId,
-      partNumber,
-      expiresInSec: secondsUntil(payload.exp),
-    })
-    return c.json(ticket)
-  })
   .post("/upload/:token/complete", async (c) => {
     const resolved = await resolveUploadTicket(c.req.param("token"), [
       "fs-chunked",
-      "s3-multipart",
     ])
     if (resolved instanceof Response) return resolved
-    const { payload, mode, ticket } = resolved
+    const { payload, ticket } = resolved
     const partSizeBytes = payload.cs
     if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
-
-    const uploadState = parseUploadTicketStorageState(ticket.uploadState)
-    if (mode === "s3-multipart" && uploadState?.uploadId !== payload.mpu) {
-      return unauthorized(c, "Upload ticket storage state is invalid")
-    }
-
-    const parts =
-      mode === "s3-multipart"
-        ? await readMultipartCompleteParts(c.req.raw)
-        : undefined
-    if (parts instanceof Response) return parts
-    if (parts && !validateCompleteParts(parts, partSizeBytes, payload.mb)) {
-      return badRequest(c, "Multipart upload parts are invalid")
-    }
 
     try {
       await clipStorage.completeUpload({
@@ -165,8 +120,6 @@ export const storageRoute = new Hono()
         contentType: payload.ct,
         maxBytes: payload.mb,
         partSizeBytes,
-        storageState: uploadState,
-        parts,
       })
     } catch (err) {
       logger.error("upload completion failed:", err)
@@ -180,14 +133,10 @@ export const storageRoute = new Hono()
     const resolved = await resolveUploadTicket(c.req.param("token"), [
       "single",
       "fs-chunked",
-      "s3-multipart",
     ])
     if (resolved instanceof Response) return resolved
     const { payload, ticket } = resolved
-    await deleteStagedUpload(
-      payload.k,
-      parseUploadTicketStorageState(ticket.uploadState),
-    )
+    await deleteStagedUpload(payload.k)
     await db.delete(uploadTicket).where(eq(uploadTicket.id, ticket.id))
     return noContent(c)
   })
@@ -210,7 +159,7 @@ async function resolveUploadTicket(
   }
 
   const [ticket] = await db
-    .select({ id: uploadTicket.id, uploadState: uploadTicket.upload_state })
+    .select({ id: uploadTicket.id })
     .from(uploadTicket)
     .where(
       and(
@@ -248,70 +197,6 @@ function partNumberInRange(
   maxBytes: number,
 ): boolean {
   return (partNumber - 1) * partSizeBytes < maxBytes
-}
-
-function expectedPartCount(maxBytes: number, partSizeBytes: number): number {
-  return Math.ceil(maxBytes / partSizeBytes)
-}
-
-function validateCompleteParts(
-  parts: CompleteMultipartUploadPart[],
-  partSizeBytes: number,
-  maxBytes: number,
-): boolean {
-  if (parts.length !== expectedPartCount(maxBytes, partSizeBytes)) return false
-  const seen = new Set<number>()
-  for (const part of parts) {
-    if (!Number.isSafeInteger(part.partNumber) || part.partNumber <= 0) {
-      return false
-    }
-    if (!partNumberInRange(part.partNumber, partSizeBytes, maxBytes)) {
-      return false
-    }
-    if (!part.etag.trim()) return false
-    if (seen.has(part.partNumber)) return false
-    seen.add(part.partNumber)
-  }
-  return true
-}
-
-async function readMultipartCompleteParts(
-  request: Request,
-): Promise<CompleteMultipartUploadPart[] | Response> {
-  let data: unknown
-  try {
-    data = await request.json()
-  } catch {
-    return new Response("Invalid multipart completion body", { status: 400 })
-  }
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
-    return new Response("Invalid multipart completion body", { status: 400 })
-  }
-  const parts = (data as { parts?: unknown }).parts
-  if (!Array.isArray(parts)) {
-    return new Response("Invalid multipart completion body", { status: 400 })
-  }
-  const parsed: CompleteMultipartUploadPart[] = []
-  for (const item of parts) {
-    if (!item || typeof item !== "object" || Array.isArray(item)) {
-      return new Response("Invalid multipart completion body", { status: 400 })
-    }
-    const part = item as { partNumber?: unknown; etag?: unknown }
-    if (
-      typeof part.partNumber !== "number" ||
-      !Number.isSafeInteger(part.partNumber) ||
-      typeof part.etag !== "string" ||
-      !part.etag.trim()
-    ) {
-      return new Response("Invalid multipart completion body", { status: 400 })
-    }
-    parsed.push({ partNumber: part.partNumber, etag: part.etag })
-  }
-  return parsed.sort((a, b) => a.partNumber - b.partNumber)
-}
-
-function secondsUntil(exp: number): number {
-  return Math.max(1, exp - Math.floor(Date.now() / 1000))
 }
 
 async function markTicketUsed(ticketId: string): Promise<void> {

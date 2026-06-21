@@ -5,8 +5,6 @@ import { defineConfig } from "vite"
 const nodeBuiltins = builtinModules.flatMap((name) => [name, `node:${name}`])
 
 const runtimePackages = [
-  "@aws-sdk/client-s3",
-  "@aws-sdk/s3-request-presigner",
   "@hono/node-server",
   "@hono/zod-validator",
   "@simplewebauthn/server",
