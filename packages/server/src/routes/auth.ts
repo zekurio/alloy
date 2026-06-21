@@ -18,6 +18,7 @@ import {
   createSession,
   deleteCurrentSession,
   getSession,
+  refreshSession,
   requireSession,
 } from "@alloy/server/auth/session"
 import {
@@ -35,6 +36,7 @@ import {
   internalServerError,
   notFound,
   success,
+  unauthorized,
 } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { requestIp } from "@alloy/server/runtime/request-ip"
@@ -124,6 +126,11 @@ export const authRoute = new Hono()
   .get("/session", async (c) => {
     return c.json(await getSession(c))
   })
+  .post("/refresh", async (c) => {
+    const refreshed = await refreshSession(c)
+    if (!refreshed) return unauthorized(c)
+    return c.json(refreshed.data)
+  })
   .post("/sign-out", async (c) => {
     await deleteCurrentSession(c)
     clearSessionCookies(c)
@@ -187,8 +194,8 @@ export const authRoute = new Hono()
           response,
         })
 
-        const { token, data } = await createSession(c, userRow.id)
-        setSessionCookies(c, token)
+        const { tokens, data } = await createSession(c, userRow.id)
+        setSessionCookies(c, tokens)
         return c.json(data)
       } catch (cause) {
         return badRequestFromCause(c, cause, "Could not verify passkey.")
@@ -221,8 +228,8 @@ export const authRoute = new Hono()
             updatedAt: now,
           })
           .where(eq(userPasskey.id, credential.id))
-        const { token, data } = await createSession(c, credential.userId)
-        setSessionCookies(c, token)
+        const { tokens, data } = await createSession(c, credential.userId)
+        setSessionCookies(c, tokens)
         return c.json(data)
       } catch (cause) {
         return badRequestFromCause(c, cause, "Passkey sign-in failed.")
