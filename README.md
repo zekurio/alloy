@@ -178,6 +178,13 @@ For reproducible deployments, pin a release tag:
 inputs.alloy.url = "github:zekurio/alloy/vX.Y.Z";
 ```
 
+To follow the development branch through Nix flakes, pin `develop` in your
+flake input and update your lock file when you want to move:
+
+```nix
+inputs.alloy.url = "github:zekurio/alloy/develop";
+```
+
 Optional Cachix cache:
 
 ```nix
@@ -213,10 +220,10 @@ docker run --rm \
 
 Image tags:
 
-- `latest`: latest stable app release.
-- `vX.Y.Z`: exact stable app release.
-- `nightly`: latest nightly app release.
-- `vX.Y.Z-nightly.YYYYMMDD.<run>`: exact nightly app release.
+- `latest`: latest app release.
+- `vX.Y.Z`: exact latest app release.
+- `unstable`: latest unstable app build from `develop`.
+- `vX.Y.Z-unstable.YYYYMMDD.<run>`: exact unstable app build.
 
 ### Storage
 
@@ -321,15 +328,16 @@ configured runtime contains `obs.dll`.
 
 ## Releases
 
-Alloy has stable and nightly release channels. Stable releases use tags named
-`vX.Y.Z`; nightly releases use tags named `vX.Y.Z-nightly.YYYYMMDD.<run>`.
+Alloy has latest and unstable release channels. Latest releases use tags named
+`vX.Y.Z`; unstable releases use tags named
+`vX.Y.Z-unstable.YYYYMMDD.<run>` and are built from `develop` after CI passes.
 
 GitHub Release assets are desktop-only: the Windows installer, Electron updater
-metadata (`latest.yml` or `nightly.yml`), blockmaps, and checksums. The same
+metadata (`latest.yml` or `unstable.yml`), blockmaps, and checksums. The same
 release workflow publishes GHCR server images: use
-`ghcr.io/zekurio/alloy:latest` for stable,
-`ghcr.io/zekurio/alloy:nightly` for nightly, or pin the exact `:vX.Y.Z` /
-`:vX.Y.Z-nightly...` tag.
+`ghcr.io/zekurio/alloy:latest` for latest,
+`ghcr.io/zekurio/alloy:unstable` for unstable, or pin the exact `:vX.Y.Z` /
+`:vX.Y.Z-unstable...` tag.
 
 ## Package READMEs
 

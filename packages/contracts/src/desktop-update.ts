@@ -9,7 +9,7 @@ export type DesktopUpdateStatus =
   | "downloading"
   | "downloaded"
 
-export const DESKTOP_UPDATE_CHANNELS = ["latest", "nightly"] as const
+export const DESKTOP_UPDATE_CHANNELS = ["latest", "unstable"] as const
 
 export type DesktopUpdateChannel = (typeof DESKTOP_UPDATE_CHANNELS)[number]
 
@@ -28,6 +28,7 @@ export function isDesktopUpdateChannel(
 export function normalizeDesktopUpdateChannel(
   value: unknown,
 ): DesktopUpdateChannel | null {
+  if (value === "nightly") return "unstable"
   return isDesktopUpdateChannel(value) ? value : null
 }
 

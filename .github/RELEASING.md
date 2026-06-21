@@ -2,30 +2,41 @@
 
 Alloy has two release channels:
 
-- **Stable**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and paired
+- **Latest**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and paired
   with the `ghcr.io/zekurio/alloy:latest` Docker tag.
-- **Nightly**: tagged `vX.Y.Z-nightly.YYYYMMDD.<run>`, marked as a prerelease,
-  and paired with the `ghcr.io/zekurio/alloy:nightly` Docker tag.
+- **Unstable**: built from `develop` after CI passes, tagged
+  `vX.Y.Z-unstable.YYYYMMDD.<run>`, marked as a prerelease, and paired with the
+  `ghcr.io/zekurio/alloy:unstable` Docker tag.
 
 GitHub Release assets are intentionally limited to the desktop app and
 auto-update files:
 
 - `Alloy-Desktop-...exe`
 - the installer `.blockmap`
-- `latest.yml` for stable releases or `nightly.yml` for nightly releases
+- `latest.yml` for latest releases or `unstable.yml` for unstable releases
 - `checksums.txt`
 
 Server distribution is handled by the **Release** workflow's server image job.
 Release notes include the matching pinned image tag and the channel tag to use.
 
-Desktop auto-update follows the installed app's version channel. Stable builds
-look at `latest.yml` and reject nightly versions; nightly builds look at
-`nightly.yml` and reject stable versions.
+Desktop auto-update follows the installed app's version channel. Latest builds
+look at `latest.yml` and reject unstable versions. Unstable builds look at
+`unstable.yml` and reject plain semver versions.
 
-## Stable Releases
+## Branch Policy
+
+- `main` is the release-ready branch for tagged latest releases.
+- `develop` is the integration branch for unstable builds and can be consumed by
+  Nix users with `inputs.alloy.url = "github:zekurio/alloy/develop";`.
+- Feature branches should target `develop` unless they are release fixes for
+  `main`.
+- Protect both `main` and `develop`. The unstable release path runs with write
+  permissions after CI passes, so `develop` should only receive trusted merges.
+
+## Latest Releases
 
 1. Run **Release** manually with:
-   - `channel`: `stable`
+   - `channel`: `latest`
    - `version`: `X.Y.Z`
 
 2. The workflow validates the version, locally updates all release version
@@ -35,41 +46,44 @@ look at `latest.yml` and reject nightly versions; nightly builds look at
    `github-actions[bot]`, pushes it to the selected branch, and creates the
    matching `vX.Y.Z` tag from that commit.
 
-4. The **Release** workflow builds the
-   Windows desktop installer, publishes the server image, attaches only
-   desktop/update assets, and publishes the GitHub Release.
+4. The **Release** workflow builds the Windows desktop installer, publishes the
+   server image, attaches only desktop/update assets, and publishes the GitHub
+   Release.
 
 5. The server image job publishes:
    - `ghcr.io/zekurio/alloy:vX.Y.Z`
    - `ghcr.io/zekurio/alloy:latest`
 
-6. Publishing a stable release also triggers **Nix Cache** for the flake package.
+6. Publishing a latest release also triggers **Nix Cache** for the flake
+   package.
 
-Pushing an existing `vX.Y.Z` tag still works, but tag-triggered stable releases
+Pushing an existing `vX.Y.Z` tag still works, but tag-triggered latest releases
 require the checked-in package versions to already match the tag.
 
-## Nightly Releases
+## Unstable Releases
 
-Nightlies run automatically every day at `03:00 UTC`. The workflow skips the
-scheduled run when `main` has not changed since the last nightly tag.
+Unstable releases are produced automatically from `develop` after the **CI**
+workflow completes successfully for a push to `develop`. The release workflow
+skips the run if that exact commit already has an unstable release tag, so
+rerunning CI for the same commit does not create duplicate prereleases.
 
-To cut a nightly manually, run **Release** with:
+To cut an unstable manually, run **Release** with:
 
-- `channel`: `nightly`
+- `channel`: `unstable`
 - `version`: empty
 
-The workflow derives the nightly version from the next patch after the current
+The workflow derives the unstable version from the next patch after the current
 root package version, the UTC date, and the GitHub run number. For example,
-`0.0.1` produces `0.0.2-nightly.YYYYMMDD.<run>`. Nightly releases publish:
+`0.0.1` produces `0.0.2-unstable.YYYYMMDD.<run>`. Unstable releases publish:
 
 - the Windows desktop installer
-- `nightly.yml`
+- `unstable.yml`
 - blockmaps and checksums
 
 The server image job publishes:
 
-- `ghcr.io/zekurio/alloy:vX.Y.Z-nightly.YYYYMMDD.<run>`
-- `ghcr.io/zekurio/alloy:nightly`
+- `ghcr.io/zekurio/alloy:vX.Y.Z-unstable.YYYYMMDD.<run>`
+- `ghcr.io/zekurio/alloy:unstable`
 
 ## Custom Release Notes
 
@@ -77,7 +91,7 @@ No custom bot is required. The release workflow uses the built-in
 `GITHUB_TOKEN`, asks GitHub to generate the changelog for the matching channel,
 and prepends Alloy-specific deployment notes:
 
-- which desktop updater manifest is attached (`latest.yml` or `nightly.yml`)
+- which desktop updater manifest is attached (`latest.yml` or `unstable.yml`)
 - which Docker image to use for the channel
 - which pinned Docker image reproduces the exact release
 

@@ -31,13 +31,13 @@ import { alloyDesktop } from "./desktop-bridge"
 type Phase = "idle" | "saving" | "restarting"
 
 const CHANNEL_LABELS: Record<DesktopUpdateChannel, string> = {
-  latest: tx("Stable"),
-  nightly: tx("Nightly"),
+  latest: tx("Latest"),
+  unstable: tx("Unstable"),
 }
 
 const CHANNEL_SUMMARIES: Record<DesktopUpdateChannel, string> = {
   latest: tx("Release builds"),
-  nightly: tx("Nightly builds"),
+  unstable: tx("Unstable builds"),
 }
 
 export function DesktopUpdateSettings() {
