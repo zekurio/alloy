@@ -61,39 +61,6 @@ flake input and update your lock file when you want to move:
 inputs.alloy.url = "github:zekurio/alloy/develop";
 ```
 
-Docker support is available through the root `Dockerfile`. Bring your own
-PostgreSQL. The server runs migrations automatically in production, but the
-database must already exist and be reachable through `DATABASE_URL`. Runtime
-configuration comes from env vars. If you use filesystem storage, persist
-`/data`; if you use S3-compatible storage, the app does not need a durable
-container volume.
-
-```bash
-docker run --rm \
-  -p 2552:2552 \
-  --env-file /run/secrets/alloy.env \
-  -v alloy-storage:/data \
-  ghcr.io/zekurio/alloy:latest
-```
-
-For Docker, include the database URL, public origin, and required signing
-secrets in that env file:
-
-```sh
-DATABASE_URL=postgres://alloy:password@postgres.example.internal:5432/alloy
-PUBLIC_SERVER_URL=https://alloy.example.com
-TRUSTED_ORIGINS=https://alloy.example.com
-ALLOY_VIEWER_COOKIE_SECRET=replace-with-a-long-random-secret
-ALLOY_UPLOAD_HMAC_SECRET=replace-with-a-long-random-secret
-```
-
-Server image tags:
-
-- `latest`: latest app release.
-- `vX.Y.Z`: exact latest app release.
-- `unstable`: latest unstable server build from `develop`.
-- `<commit-sha>`: exact unstable server build.
-
 ## Repository Guide
 
 All TypeScript packages live under `packages/`. Deployable products and shared
@@ -111,12 +78,28 @@ libraries are both treated as packages so the workspace graph stays explicit.
 | `packages/env`       | Shared environment parsing, URL normalization, and local `.env` loading helpers.                                         |
 | `packages/ui`        | Shared React UI components, hooks, styles, and design utilities.                                                         |
 | `packages/logging`   | Tiny shared logging facade.                                                                                              |
-| `nix`                | Nix package, NixOS module, and Nix-built OCI image definitions.                                                          |
+| `nix`                | Nix package and NixOS module definitions.                                                                                |
 
 ## Local Development
 
-Install Node 24, pnpm 11, and Docker or Podman for local Postgres. Then install
-dependencies:
+Nix users can use `devenv` for the complete local toolchain, including a
+repo-local Postgres on a random free localhost port:
+
+```bash
+nix profile install nixpkgs#devenv nixpkgs#direnv
+direnv allow
+pnpm install
+pnpm dev
+```
+
+Stop the devenv-managed Postgres instance with:
+
+```bash
+alloy-postgres-stop
+```
+
+For non-Nix setups, install Node 24, pnpm 11, and provide a local Postgres
+database yourself. Then install dependencies:
 
 ```bash
 pnpm install
@@ -128,18 +111,10 @@ Copy the env template if you are not using `devenv`:
 cp .env.example .env
 ```
 
-`.env.example` points `DATABASE_URL` at the dev Postgres from
-`compose.dev.yml`, sets local-only signing secrets, uses filesystem
-storage under the repo-local `data/storage` directory, and allows the Vite dev
-origin to call the API. Shell environment variables always win over `.env`, so
-you can point `DATABASE_URL` at any `postgres://` or `postgresql://` instance.
-
-Start the local Postgres on `127.0.0.1:5432` before running server or database
-commands:
-
-```bash
-docker compose -f compose.dev.yml up -d postgres
-```
+`.env.example` includes local-only signing secrets, uses filesystem storage
+under the repo-local `data/storage` directory, and allows the Vite dev origin to
+call the API. Shell environment variables always win over `.env`, so you can
+point `DATABASE_URL` at any `postgres://` or `postgresql://` instance.
 
 Start the default dev loop. `pnpm dev` runs `pnpm db:push` first, then starts
 the API server and Vite web app:
@@ -168,19 +143,6 @@ pnpm db:push          # push the current Drizzle schema to a dev database
 pnpm db:studio        # open Drizzle Studio
 ```
 
-Nix users can use `devenv` instead of manually installing local tooling. The
-shell starts a repo-local Postgres on a random free localhost port (so it
-never collides with a system-wide Postgres service) and exports
-`DATABASE_URL` and the rest of the dev environment, which always takes
-precedence over `.env`:
-
-```bash
-nix profile install nixpkgs#devenv nixpkgs#direnv
-direnv allow
-pnpm install
-pnpm dev
-```
-
 If another service already uses Alloy's default dev ports, add an ignored
 `devenv.local.nix`:
 
@@ -191,12 +153,6 @@ If another service already uses Alloy's default dev ports, add an ignored
   env.PUBLIC_SERVER_URL = lib.mkForce "http://localhost:2652";
   env.VITE_SERVER_URL = lib.mkForce "http://localhost:2652";
 }
-```
-
-Stop the devenv-managed Postgres instance with:
-
-```bash
-alloy-postgres-stop
 ```
 
 ## Checks
@@ -220,14 +176,6 @@ For Nix package changes, run the relevant Nix checks:
 ```bash
 nix --extra-experimental-features "nix-command flakes" flake check --no-build
 nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link
-```
-
-For Docker image changes, build the image with Docker or Podman:
-
-```bash
-docker build -t alloy:local .
-# or:
-podman build -t alloy:local .
 ```
 
 ## Server Configuration
@@ -258,9 +206,8 @@ nix.settings = {
 
 Storage is configured declaratively. For filesystem storage, set
 `ALLOY_STORAGE_DRIVER=fs`, `ALLOY_STORAGE_FS_CLIPS_PATH`, and
-`ALLOY_STORAGE_FS_USERS_PATH`; the Docker image defaults these to
-`/data/storage/clips` and `/data/storage/users`. Mount `/data` when those
-defaults are used.
+`ALLOY_STORAGE_FS_USERS_PATH`. The NixOS module defaults these to paths under
+`/var/lib/alloy/storage`.
 
 For S3-compatible storage, set `ALLOY_STORAGE_DRIVER=s3` plus bucket, region,
 endpoint when needed, and access key environment variables. Alloy stores clip
@@ -365,10 +312,8 @@ Unstable desktop builds are workflow artifacts from `develop`, not GitHub
 Releases. Download the latest unstable Electron artifact from
 [desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip).
 
-The same release workflow publishes GHCR server images: use
-`ghcr.io/zekurio/alloy:latest` for latest,
-`ghcr.io/zekurio/alloy:unstable` for unstable, or pin the exact `:vX.Y.Z` /
-`:<commit-sha>` tag.
+Server releases are distributed through the Nix flake package and NixOS module.
+For reproducible deployments, pin the exact release tag in your flake input.
 
 ## Package READMEs
 

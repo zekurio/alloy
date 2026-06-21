@@ -1,5 +1,5 @@
 import {
-  normalizeDesktopUpdateChannel,
+  isDesktopUpdateChannel,
   type DesktopUpdateChannel,
   type DesktopUpdateState,
 } from "@alloy/contracts"
@@ -44,25 +44,24 @@ export function getUpdateChannel(): DesktopUpdateChannel {
 }
 
 export function setUpdateChannel(value: unknown): DesktopUpdateChannel {
-  const nextChannel = normalizeDesktopUpdateChannel(value)
-  if (!nextChannel) throw new Error("Invalid update channel.")
+  if (!isDesktopUpdateChannel(value)) throw new Error("Invalid update channel.")
 
   const previousChannel = updateChannel
-  saveUpdateChannel(nextChannel)
-  updateChannel = nextChannel
+  saveUpdateChannel(value)
+  updateChannel = value
 
-  if (previousChannel === nextChannel) return nextChannel
+  if (previousChannel === value) return value
 
   clearPendingDownload()
   setState({ status: "idle", version: null })
 
   if (app.isPackaged && initialized) {
-    configureAutoUpdater(nextChannel)
+    configureAutoUpdater(value)
     ensureBackgroundChecks()
     scheduleUpdateCheck(CHANNEL_SWITCH_CHECK_DELAY_MS)
   }
 
-  return nextChannel
+  return value
 }
 
 /** Subscribe to update-state changes (used to push events to windows). */

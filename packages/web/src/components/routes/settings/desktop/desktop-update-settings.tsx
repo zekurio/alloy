@@ -1,6 +1,6 @@
 import {
   DESKTOP_UPDATE_CHANNELS,
-  normalizeDesktopUpdateChannel,
+  isDesktopUpdateChannel,
   type DesktopUpdateChannel,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
@@ -55,15 +55,18 @@ export function DesktopUpdateSettings() {
     typeof activeUpdates.setChannel === "function"
   const busy = phase === "saving"
 
-  async function changeChannel(value: DesktopUpdateChannel | null) {
-    const nextChannel = normalizeDesktopUpdateChannel(value)
-    if (!activeUpdates.setChannel || !nextChannel || nextChannel === channel) {
+  async function changeChannel(value: unknown) {
+    if (
+      !activeUpdates.setChannel ||
+      !isDesktopUpdateChannel(value) ||
+      value === channel
+    ) {
       return
     }
 
     setPhase("saving")
     try {
-      const savedChannel = await activeUpdates.setChannel(nextChannel)
+      const savedChannel = await activeUpdates.setChannel(value)
       rememberDesktopUpdateChannel(savedChannel)
       toast.success(
         t("Update channel set to {channel}.", {

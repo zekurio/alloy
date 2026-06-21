@@ -37,7 +37,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   # Nothing in the shipped node_modules is executed via shebang (node only
   # requires the libraries), and patching would re-point #!/usr/bin/env node
   # CLI scripts at the full build-time nodejs, dragging its -dev closure
-  # into the runtime image.
+  # into the runtime closure.
   dontPatchShebangs = true;
 
   buildPhase = ''

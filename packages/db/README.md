@@ -38,10 +38,11 @@ The root `db:*` scripts delegate to this package.
 
 ## Local Database
 
-Start local Postgres before running migration or push commands:
+Use a devenv shell, which runs its own Postgres and exports `DATABASE_URL`, or
+provide a local Postgres yourself before running migration or push commands:
 
 ```bash
-docker compose -f compose.dev.yml up -d postgres
+pnpm db:push
 ```
 
 Drizzle commands require `DATABASE_URL` to be set (the dev scripts and devenv

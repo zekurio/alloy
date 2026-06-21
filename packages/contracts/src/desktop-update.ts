@@ -25,13 +25,6 @@ export function isDesktopUpdateChannel(
   return DESKTOP_UPDATE_CHANNELS.some((channel) => channel === value)
 }
 
-export function normalizeDesktopUpdateChannel(
-  value: unknown,
-): DesktopUpdateChannel | null {
-  if (value === "nightly") return "unstable"
-  return isDesktopUpdateChannel(value) ? value : null
-}
-
 /** Desktop auto-update state and controls bridged into the web app. */
 export interface AlloyDesktopUpdatesApi {
   getState(): Promise<DesktopUpdateState>

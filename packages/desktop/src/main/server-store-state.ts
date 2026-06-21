@@ -1,6 +1,6 @@
 import {
   DEFAULT_RECORDING_SETTINGS,
-  normalizeDesktopUpdateChannel,
+  isDesktopUpdateChannel,
   normalizeRecordingSettings,
   type DesktopUpdateChannel,
   type RecordingSettings,
@@ -35,7 +35,9 @@ export function normalizeState(parsed: Record<string, unknown>): DesktopState {
   return {
     servers: dedupeServers(servers).slice(0, MAX_SAVED_SERVERS),
     recording: normalizeRecordingSettings(parsed.recording),
-    updateChannel: normalizeDesktopUpdateChannel(parsed.updateChannel),
+    updateChannel: isDesktopUpdateChannel(parsed.updateChannel)
+      ? parsed.updateChannel
+      : null,
     deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : null,
   }
 }

@@ -2,11 +2,11 @@
 
 Alloy has one GitHub Release channel and one unstable build channel:
 
-- **Latest**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and paired
-  with the `ghcr.io/zekurio/alloy:latest` Docker tag.
+- **Latest**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and built
+  by the Nix cache workflow.
 - **Unstable**: built from `develop` after CI passes, uploaded as a workflow
-  artifact, and paired with the `ghcr.io/zekurio/alloy:unstable` Docker tag.
-  The pinned Docker tag is the release commit SHA.
+  artifact. Server builds are consumed from the Nix flake by pinning the
+  development branch or an exact commit.
 
 GitHub Release assets are intentionally limited to the desktop app and
 auto-update files:
@@ -16,8 +16,9 @@ auto-update files:
 - `latest.yml`
 - `checksums.txt`
 
-Server distribution is handled by the **Release** workflow's server image job.
-Release notes include the matching pinned image tag and the channel tag to use.
+Server distribution is handled by the Nix flake package and NixOS module.
+Publishing a latest GitHub Release triggers the **Nix Cache** workflow for the
+flake package.
 
 Desktop auto-update follows the installed app's version channel. Latest builds
 look at `latest.yml` and reject unstable versions. Unstable builds look at
@@ -46,15 +47,10 @@ look at `latest.yml` and reject unstable versions. Unstable builds look at
    `github-actions[bot]`, pushes it to the selected branch, and creates the
    matching `vX.Y.Z` tag from that commit.
 
-4. The **Release** workflow builds the Windows desktop installer, publishes the
-   server image, attaches only desktop/update assets, and publishes the GitHub
-   Release.
+4. The **Release** workflow builds the Windows desktop installer, attaches only
+   desktop/update assets, and publishes the GitHub Release.
 
-5. The server image job publishes:
-   - `ghcr.io/zekurio/alloy:vX.Y.Z`
-   - `ghcr.io/zekurio/alloy:latest`
-
-6. Publishing a latest release also triggers **Nix Cache** for the flake
+5. Publishing a latest release also triggers **Nix Cache** for the flake
    package.
 
 Pushing an existing `vX.Y.Z` tag still works, but tag-triggered latest releases
@@ -83,10 +79,8 @@ updater metadata. For example, `0.0.1` produces
 Download the latest unstable Electron artifact from
 `https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip`.
 
-The server image job publishes:
-
-- `ghcr.io/zekurio/alloy:<commit-sha>`
-- `ghcr.io/zekurio/alloy:unstable`
+For unstable server deployments, pin the development branch or an exact commit
+in your flake input.
 
 ## Custom Release Notes
 
@@ -95,8 +89,7 @@ No custom bot is required. The release workflow uses the built-in
 and prepends Alloy-specific deployment notes for latest releases:
 
 - which desktop updater manifest is attached (`latest.yml`)
-- which Docker image to use for the channel
-- which pinned Docker image reproduces the exact release
+- how to pin the matching Nix flake input
 
 ## Recovery
 

@@ -1,5 +1,5 @@
 import {
-  normalizeDesktopUpdateChannel,
+  isDesktopUpdateChannel,
   type DesktopUpdateChannel,
   type DesktopUpdateState,
 } from "@alloy/contracts"
@@ -82,13 +82,12 @@ function applyState(state: DesktopUpdateState): void {
 }
 
 function applyChannel(value: unknown): void {
-  const channel = normalizeDesktopUpdateChannel(value)
-  if (!channel) {
+  if (!isDesktopUpdateChannel(value)) {
     markChannelHydrated()
     return
   }
-  if (snapshot.channel === channel && snapshot.channelHydrated) return
-  snapshot = { ...snapshot, channel, channelHydrated: true }
+  if (snapshot.channel === value && snapshot.channelHydrated) return
+  snapshot = { ...snapshot, channel: value, channelHydrated: true }
   emit()
 }
 
