@@ -41,7 +41,7 @@ concurrency:
 
 jobs:
   check_unstable_changes:
-    name: Check for existing unstable release
+    name: Check unstable build eligibility
     if: |
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
@@ -65,17 +65,17 @@ jobs:
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           if [[ -z "$HEAD_SHA" ]]; then
-            echo "No CI head SHA was provided; skipping unstable release." >&2
+            echo "No CI head SHA was provided; skipping unstable build." >&2
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
           existing_tag="$(git tag --points-at "$HEAD_SHA" --list 'v*-unstable.*' | head -n 1)"
           if [[ -n "$existing_tag" ]]; then
-            echo "$HEAD_SHA is already released as $existing_tag; skipping unstable release."
+            echo "$HEAD_SHA already has $existing_tag; skipping unstable build."
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
           else
-            echo "$HEAD_SHA has no unstable release tag; releasing."
+            echo "$HEAD_SHA has no unstable release tag; building."
             echo "has_changes=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -440,7 +440,7 @@ jobs:
       - preflight
       - desktop
       - server_image
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.desktop.result == 'success' && needs.server_image.result == 'success' }}
+    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.desktop.result == 'success' && needs.server_image.result == 'success' && needs.preflight.outputs.release_channel == 'latest' }}
     runs-on: ubuntu-latest
 
     steps:
