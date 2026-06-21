@@ -22,8 +22,8 @@ import { OAuthProvidersSchema } from "./config/oauth-schema"
 // OAuth, and secret material. Instance UI/state settings live in Postgres.
 
 // Fill in unset variables from the workspace `.env` (non-devenv local dev);
-// real shell environment always wins. Production deployments (nix/docker set
-// NODE_ENV in the wrapper) never probe the filesystem.
+// real shell environment always wins. Production deployments set NODE_ENV in
+// the wrapper and never probe the filesystem.
 if (process.env.NODE_ENV !== "production") {
   loadDotenv()
 }

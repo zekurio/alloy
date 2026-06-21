@@ -40,11 +40,11 @@ pnpm db:studio
 
 ## Local Development
 
-Start Postgres (or use a devenv shell, which runs its own on a random free
-localhost port and exports `DATABASE_URL`), then run the server:
+Use a devenv shell, which runs its own Postgres on a random free localhost port
+and exports `DATABASE_URL`, or provide a local Postgres yourself. Then run the
+server:
 
 ```bash
-docker compose -f compose.dev.yml up -d postgres
 pnpm dev:server
 ```
 
