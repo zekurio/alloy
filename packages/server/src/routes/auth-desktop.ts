@@ -2,7 +2,11 @@ import {
   consumeDesktopLinkCode,
   createDesktopLinkCode,
 } from "@alloy/server/auth/desktop-link"
-import { createSession, getSession } from "@alloy/server/auth/session"
+import {
+  createSession,
+  getSession,
+  REFRESH_ABSOLUTE_TTL_MS,
+} from "@alloy/server/auth/session"
 import { getSetupStatus } from "@alloy/server/auth/user-bootstrap"
 import { badRequest } from "@alloy/server/runtime/http-response"
 import { type Context, Hono } from "hono"
@@ -260,8 +264,15 @@ export const authDesktopRoute = new Hono()
     const userId = await consumeDesktopLinkCode(code, codeVerifier)
     if (!userId) return badRequest(c, "Invalid or expired code.")
 
-    const { token, data } = await createSession(c, userId)
+    const { tokens, data } = await createSession(c, userId)
     const expiresAt = data.session.expiresAt
     if (!expiresAt) throw new Error("Session created without an expiry.")
-    return c.json({ token, expiresAt: expiresAt.toISOString() })
+    return c.json({
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      accessExpiresAt: expiresAt.toISOString(),
+      refreshExpiresAt: new Date(
+        Date.now() + REFRESH_ABSOLUTE_TTL_MS,
+      ).toISOString(),
+    })
   })

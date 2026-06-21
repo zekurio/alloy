@@ -1,5 +1,6 @@
 import {
   type AuthSession,
+  authRefreshToken,
   authSession,
   type User,
   user,
@@ -7,15 +8,25 @@ import {
 import { db } from "@alloy/server/db/index"
 import { forbidden, unauthorized } from "@alloy/server/runtime/http-response"
 import { requestIp } from "@alloy/server/runtime/request-ip"
-import { and, eq, gt } from "drizzle-orm"
+import { and, eq, gt, isNull } from "drizzle-orm"
 import type { Context } from "hono"
 import { createMiddleware } from "hono/factory"
 
-import { readSessionCookie } from "./cookies"
+import {
+  clearSessionCookies,
+  readAccessCookie,
+  readLegacySessionCookie,
+  readRefreshCookie,
+  setSessionCookies,
+  type SessionCookieTokens,
+} from "./cookies"
 import { generateSessionToken, hashSessionToken } from "./tokens"
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000
+export const ACCESS_TTL_MS = 15 * 60 * 1000
+export const REFRESH_IDLE_TTL_MS = 30 * 24 * 60 * 60 * 1000
+export const REFRESH_ABSOLUTE_TTL_MS = 90 * 24 * 60 * 60 * 1000
 const SESSION_TOUCH_MS = 60 * 60 * 1000
+const REFRESH_REUSE_GRACE_MS = 10 * 1000
 
 type AuthUser = User
 
@@ -24,31 +35,89 @@ type SessionData = {
   user: AuthUser
 }
 
+type CreatedSession = {
+  tokens: SessionCookieTokens
+  data: SessionData
+}
+
+type RefreshResult = {
+  tokens: SessionCookieTokens | null
+  data: SessionData
+}
+
+function accessExpiresAt(now: Date): Date {
+  return new Date(now.getTime() + ACCESS_TTL_MS)
+}
+
+function refreshIdleExpiresAt(now: Date): Date {
+  return new Date(now.getTime() + REFRESH_IDLE_TTL_MS)
+}
+
+function refreshAbsoluteExpiresAt(now: Date): Date {
+  return new Date(now.getTime() + REFRESH_ABSOLUTE_TTL_MS)
+}
+
+function isAfter(value: Date | null, now: Date): boolean {
+  return value !== null && value.getTime() > now.getTime()
+}
+
+function withinReuseGrace(consumedAt: Date | null, now: Date): boolean {
+  return (
+    consumedAt !== null &&
+    consumedAt.getTime() + REFRESH_REUSE_GRACE_MS > now.getTime()
+  )
+}
+
+async function touchSession(row: SessionData, now: Date): Promise<void> {
+  const lastSeenAt = row.session.lastSeenAt ?? row.session.updatedAt
+  if (lastSeenAt.getTime() + SESSION_TOUCH_MS >= now.getTime()) return
+
+  await db
+    .update(authSession)
+    .set({ lastSeenAt: now, updatedAt: now })
+    .where(eq(authSession.id, row.session.id))
+  row.session.lastSeenAt = now
+  row.session.updatedAt = now
+}
+
 export async function createSession(
   c: Context,
   userId: string,
-): Promise<{ token: string; data: SessionData }> {
-  const token = generateSessionToken()
+): Promise<CreatedSession> {
+  const accessToken = generateSessionToken()
+  const refreshToken = generateSessionToken()
   const now = new Date()
-  const expiresAt = new Date(now.getTime() + SESSION_TTL_MS)
-  const [session] = await db
-    .insert(authSession)
-    .values({
-      tokenHash: await hashSessionToken(token),
-      userId,
-      expiresAt,
-      ipAddress: requestIp(c),
-      userAgent: c.req.header("user-agent") ?? null,
-      lastSeenAt: now,
+  const accessHash = await hashSessionToken(accessToken)
+  const refreshHash = await hashSessionToken(refreshToken)
+  const session = await db.transaction(async (tx) => {
+    const [created] = await tx
+      .insert(authSession)
+      .values({
+        tokenHash: accessHash,
+        userId,
+        expiresAt: accessExpiresAt(now),
+        ipAddress: requestIp(c),
+        userAgent: c.req.header("user-agent") ?? null,
+        lastSeenAt: now,
+      })
+      .returning()
+    if (!created) throw new Error("Could not create session.")
+
+    await tx.insert(authRefreshToken).values({
+      sessionId: created.id,
+      tokenHash: refreshHash,
+      expiresAt: refreshIdleExpiresAt(now),
+      absoluteExpiresAt: refreshAbsoluteExpiresAt(now),
     })
-    .returning()
-  if (!session) throw new Error("Could not create session.")
-  const data = await selectSessionByHash(session.tokenHash)
+    return created
+  })
+
+  const data = await selectSessionByAccessHash(session.tokenHash)
   if (!data) throw new Error("Could not load session.")
-  return { token, data }
+  return { tokens: { accessToken, refreshToken }, data }
 }
 
-async function selectSessionByHash(
+async function selectSessionByAccessHash(
   tokenHash: string,
 ): Promise<SessionData | null> {
   const now = new Date()
@@ -57,41 +126,208 @@ async function selectSessionByHash(
     .from(authSession)
     .innerJoin(user, eq(user.id, authSession.userId))
     .where(
-      and(eq(authSession.tokenHash, tokenHash), gt(authSession.expiresAt, now)),
+      and(
+        eq(authSession.tokenHash, tokenHash),
+        gt(authSession.expiresAt, now),
+        isNull(authSession.revokedAt),
+      ),
     )
     .limit(1)
   if (!row) return null
-  const lastSeenAt = row.session.lastSeenAt ?? row.session.updatedAt
-  if (lastSeenAt.getTime() + SESSION_TOUCH_MS < now.getTime()) {
-    await db
-      .update(authSession)
-      .set({ lastSeenAt: now, updatedAt: now })
-      .where(eq(authSession.id, row.session.id))
-    row.session.lastSeenAt = now
-    row.session.updatedAt = now
-  }
+  await touchSession(row, now)
   return row
+}
+
+async function selectLegacySessionByHash(
+  tokenHash: string,
+): Promise<SessionData | null> {
+  const [refresh] = await db
+    .select({ id: authRefreshToken.id })
+    .from(authRefreshToken)
+    .innerJoin(authSession, eq(authSession.id, authRefreshToken.sessionId))
+    .where(eq(authSession.tokenHash, tokenHash))
+    .limit(1)
+  if (refresh) return null
+  return selectSessionByAccessHash(tokenHash)
+}
+
+function sessionDataForRefreshGrace(input: {
+  session: AuthSession
+  user: AuthUser
+  consumedAt: Date | null
+  now: Date
+}): RefreshResult | null {
+  if (!withinReuseGrace(input.consumedAt, input.now)) return null
+  if (!isAfter(input.session.expiresAt, input.now)) return null
+  if (input.session.revokedAt) return null
+
+  const data = { session: input.session, user: input.user }
+  return { tokens: null, data }
+}
+
+export async function refreshSession(
+  c: Context,
+): Promise<RefreshResult | null> {
+  const token = readRefreshCookie(c)
+  if (!token) return null
+
+  const now = new Date()
+  const tokenHash = await hashSessionToken(token)
+  const result = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        refresh: authRefreshToken,
+        session: authSession,
+        user,
+      })
+      .from(authRefreshToken)
+      .innerJoin(authSession, eq(authSession.id, authRefreshToken.sessionId))
+      .innerJoin(user, eq(user.id, authSession.userId))
+      .where(eq(authRefreshToken.tokenHash, tokenHash))
+      .limit(1)
+    if (!row) return null
+
+    if (row.refresh.consumedAt) {
+      const grace = sessionDataForRefreshGrace({
+        session: row.session,
+        user: row.user,
+        consumedAt: row.refresh.consumedAt,
+        now,
+      })
+      if (grace) return grace
+
+      await tx
+        .update(authSession)
+        .set({ revokedAt: now, updatedAt: now })
+        .where(eq(authSession.id, row.session.id))
+      await tx
+        .update(authRefreshToken)
+        .set({ revokedAt: now, updatedAt: now })
+        .where(eq(authRefreshToken.sessionId, row.session.id))
+      return null
+    }
+
+    if (
+      row.refresh.revokedAt ||
+      row.session.revokedAt ||
+      row.refresh.expiresAt.getTime() <= now.getTime() ||
+      row.refresh.absoluteExpiresAt.getTime() <= now.getTime()
+    ) {
+      return null
+    }
+
+    const [consumed] = await tx
+      .update(authRefreshToken)
+      .set({ consumedAt: now, lastUsedAt: now, updatedAt: now })
+      .where(
+        and(
+          eq(authRefreshToken.id, row.refresh.id),
+          isNull(authRefreshToken.consumedAt),
+          isNull(authRefreshToken.revokedAt),
+        ),
+      )
+      .returning()
+    if (!consumed) {
+      const grace = sessionDataForRefreshGrace({
+        session: row.session,
+        user: row.user,
+        consumedAt: now,
+        now,
+      })
+      if (grace) return grace
+
+      await tx
+        .update(authSession)
+        .set({ revokedAt: now, updatedAt: now })
+        .where(eq(authSession.id, row.session.id))
+      await tx
+        .update(authRefreshToken)
+        .set({ revokedAt: now, updatedAt: now })
+        .where(eq(authRefreshToken.sessionId, row.session.id))
+      return null
+    }
+
+    const accessToken = generateSessionToken()
+    const refreshToken = generateSessionToken()
+    const accessHash = await hashSessionToken(accessToken)
+    const refreshHash = await hashSessionToken(refreshToken)
+    const absoluteExpiresAt = row.refresh.absoluteExpiresAt
+    const refreshExpiresAt = new Date(
+      Math.min(
+        refreshIdleExpiresAt(now).getTime(),
+        absoluteExpiresAt.getTime(),
+      ),
+    )
+
+    await tx.insert(authRefreshToken).values({
+      sessionId: row.session.id,
+      tokenHash: refreshHash,
+      expiresAt: refreshExpiresAt,
+      absoluteExpiresAt,
+    })
+    const [session] = await tx
+      .update(authSession)
+      .set({
+        tokenHash: accessHash,
+        expiresAt: accessExpiresAt(now),
+        lastSeenAt: now,
+        updatedAt: now,
+      })
+      .where(eq(authSession.id, row.session.id))
+      .returning()
+    if (!session) throw new Error("Could not refresh session.")
+
+    return {
+      tokens: { accessToken, refreshToken },
+      data: { session, user: row.user },
+    }
+  })
+
+  if (result?.tokens) setSessionCookies(c, result.tokens)
+  if (!result) clearSessionCookies(c)
+  return result
 }
 
 export async function getSession(
   headers: Headers | Context,
 ): Promise<SessionData | null> {
-  const token =
+  const accessToken =
     "req" in headers
-      ? readSessionCookie(headers)
-      : cookieTokenFromHeaders(headers)
-  if (!token) return null
-  const data = await selectSessionByHash(await hashSessionToken(token))
-  if (!data) return null
-  return data
+      ? readAccessCookie(headers)
+      : cookieTokenFromHeaders(headers, "alloy_access")
+  if (accessToken) {
+    const data = await selectSessionByAccessHash(
+      await hashSessionToken(accessToken),
+    )
+    if (data) return data
+  }
+
+  const legacyToken =
+    "req" in headers
+      ? readLegacySessionCookie(headers)
+      : cookieTokenFromHeaders(headers, "alloy_session")
+  if (legacyToken) {
+    const data = await selectLegacySessionByHash(
+      await hashSessionToken(legacyToken),
+    )
+    if (data) return data
+  }
+
+  if ("req" in headers) {
+    return (await refreshSession(headers))?.data ?? null
+  }
+  return null
 }
 
-function cookieTokenFromHeaders(headers: Headers): string | null {
+function cookieTokenFromHeaders(
+  headers: Headers,
+  cookieName: string,
+): string | null {
   const cookie = headers.get("cookie")
   if (!cookie) return null
   for (const part of cookie.split(";")) {
     const [name, ...rest] = part.trim().split("=")
-    if (name !== "alloy_session") continue
+    if (name !== cookieName) continue
     try {
       return decodeURIComponent(rest.join("="))
     } catch {
@@ -102,11 +338,34 @@ function cookieTokenFromHeaders(headers: Headers): string | null {
 }
 
 export async function deleteCurrentSession(c: Context): Promise<void> {
-  const token = readSessionCookie(c)
-  if (!token) return
+  const accessToken = readAccessCookie(c)
+  if (accessToken) {
+    const [deleted] = await db
+      .delete(authSession)
+      .where(eq(authSession.tokenHash, await hashSessionToken(accessToken)))
+      .returning({ id: authSession.id })
+    if (deleted) return
+  }
+
+  const refreshToken = readRefreshCookie(c)
+  if (refreshToken) {
+    const tokenHash = await hashSessionToken(refreshToken)
+    const [row] = await db
+      .select({ sessionId: authRefreshToken.sessionId })
+      .from(authRefreshToken)
+      .where(eq(authRefreshToken.tokenHash, tokenHash))
+      .limit(1)
+    if (row) {
+      await db.delete(authSession).where(eq(authSession.id, row.sessionId))
+      return
+    }
+  }
+
+  const legacyToken = readLegacySessionCookie(c)
+  if (!legacyToken) return
   await db
     .delete(authSession)
-    .where(eq(authSession.tokenHash, await hashSessionToken(token)))
+    .where(eq(authSession.tokenHash, await hashSessionToken(legacyToken)))
 }
 
 export async function deleteAllSessionsForUser(userId: string): Promise<void> {

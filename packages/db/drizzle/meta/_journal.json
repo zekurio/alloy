@@ -8,6 +8,13 @@
       "when": 1781948104653,
       "tag": "0000_foamy_maestro",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1782032732643,
+      "tag": "0001_auth_refresh_tokens",
+      "breakpoints": true
     }
   ]
 }

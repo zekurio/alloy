@@ -2,41 +2,70 @@ import { env } from "@alloy/server/env"
 import type { Context } from "hono"
 import { deleteCookie, getCookie, setCookie } from "hono/cookie"
 
-const SESSION_COOKIE = "alloy_session"
+const ACCESS_COOKIE = "alloy_access"
+const REFRESH_COOKIE = "alloy_refresh"
+const LEGACY_SESSION_COOKIE = "alloy_session"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
 const OAUTH_STATE_COOKIE_PREFIX = "alloy_oauth_state_"
-const SESSION_MAX_AGE_SEC = 30 * 24 * 60 * 60
+const ACCESS_MAX_AGE_SEC = 15 * 60
+const REFRESH_MAX_AGE_SEC = 90 * 24 * 60 * 60
 const OAUTH_STATE_MAX_AGE_SEC = 10 * 60
+
+export type SessionCookieTokens = {
+  accessToken: string
+  refreshToken: string
+}
 
 function secureCookies(): boolean {
   return new URL(env.PUBLIC_SERVER_URL).protocol === "https:"
 }
 
-export function readSessionCookie(c: Context): string | null {
-  return getCookie(c, SESSION_COOKIE) ?? null
+export function readAccessCookie(c: Context): string | null {
+  return getCookie(c, ACCESS_COOKIE) ?? null
 }
 
-export function setSessionCookies(c: Context, token: string): void {
+export function readRefreshCookie(c: Context): string | null {
+  return getCookie(c, REFRESH_COOKIE) ?? null
+}
+
+export function readLegacySessionCookie(c: Context): string | null {
+  return getCookie(c, LEGACY_SESSION_COOKIE) ?? null
+}
+
+export function setSessionCookies(
+  c: Context,
+  tokens: SessionCookieTokens,
+): void {
   const secure = secureCookies()
-  setCookie(c, SESSION_COOKIE, token, {
+  setCookie(c, ACCESS_COOKIE, tokens.accessToken, {
     httpOnly: true,
     sameSite: "Lax",
     secure,
     path: "/",
-    maxAge: SESSION_MAX_AGE_SEC,
+    maxAge: ACCESS_MAX_AGE_SEC,
+  })
+  setCookie(c, REFRESH_COOKIE, tokens.refreshToken, {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure,
+    path: "/api/auth",
+    maxAge: REFRESH_MAX_AGE_SEC,
   })
   setCookie(c, AUTH_MARKER_COOKIE, "true", {
     httpOnly: false,
     sameSite: "Lax",
     secure,
     path: "/",
-    maxAge: SESSION_MAX_AGE_SEC,
+    maxAge: REFRESH_MAX_AGE_SEC,
   })
+  deleteCookie(c, LEGACY_SESSION_COOKIE, { path: "/", secure })
 }
 
 export function clearSessionCookies(c: Context): void {
   const secure = secureCookies()
-  deleteCookie(c, SESSION_COOKIE, { path: "/", secure })
+  deleteCookie(c, ACCESS_COOKIE, { path: "/", secure })
+  deleteCookie(c, REFRESH_COOKIE, { path: "/api/auth", secure })
+  deleteCookie(c, LEGACY_SESSION_COOKIE, { path: "/", secure })
   deleteCookie(c, AUTH_MARKER_COOKIE, { path: "/", secure })
 }
 

@@ -2,6 +2,7 @@ import { encodedPathSegment } from "./paths"
 
 export const AUTH_PATHS = {
   session: "/api/auth/session",
+  refresh: "/api/auth/refresh",
   signOut: "/api/auth/sign-out",
   user: "/api/auth/user",
   accounts: "/api/auth/accounts",
