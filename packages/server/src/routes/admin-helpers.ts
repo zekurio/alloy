@@ -54,12 +54,12 @@ async function selectClipCountsByUserIds(
 
   const rows = await db
     .select({
-      userId: clip.authorId,
+      userId: clip.author_id,
       count: sql<number>`count(*)::int`,
     })
     .from(clip)
-    .where(and(inArray(clip.authorId, userIds), ne(clip.status, "failed")))
-    .groupBy(clip.authorId)
+    .where(and(inArray(clip.author_id, userIds), ne(clip.status, "failed")))
+    .groupBy(clip.author_id)
 
   return new Map(rows.map((row) => [row.userId, row.count]))
 }
@@ -73,13 +73,13 @@ export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
       image: user.image,
       role: user.role,
       status: user.status,
-      disabledAt: user.disabledAt,
-      createdAt: user.createdAt,
-      storageQuotaBytes: user.storageQuotaBytes,
+      disabledAt: user.disabled_at,
+      createdAt: user.created_at,
+      storageQuotaBytes: user.storage_quota_bytes,
     })
     .from(user)
     .where(targetUserIds ? inArray(user.id, targetUserIds) : undefined)
-    .orderBy(desc(user.createdAt))
+    .orderBy(desc(user.created_at))
     .limit(targetUserIds ? targetUserIds.length : 100)
 
   const userIds = rows.map((row) => row.id)

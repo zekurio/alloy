@@ -224,11 +224,11 @@ export const authRoute = new Hono()
           .update(userPasskey)
           .set({
             counter: verification.authenticationInfo.newCounter,
-            lastUsedAt: now,
-            updatedAt: now,
+            last_used_at: now,
+            updated_at: now,
           })
           .where(eq(userPasskey.id, credential.id))
-        const { tokens, data } = await createSession(c, credential.userId)
+        const { tokens, data } = await createSession(c, credential.user_id)
         setSessionCookies(c, tokens)
         return c.json(data)
       } catch (cause) {
@@ -241,12 +241,12 @@ export const authRoute = new Hono()
       .select({
         id: userPasskey.id,
         name: userPasskey.name,
-        createdAt: userPasskey.createdAt,
-        deviceType: userPasskey.deviceType,
+        createdAt: userPasskey.created_at,
+        deviceType: userPasskey.device_type,
       })
       .from(userPasskey)
-      .where(eq(userPasskey.userId, c.var.viewerId))
-      .orderBy(userPasskey.createdAt)
+      .where(eq(userPasskey.user_id, c.var.viewerId))
+      .orderBy(userPasskey.created_at)
     return c.json(rows.map(publicPasskeyRow))
   })
   .post("/passkeys/options", requireSession, async (c) => {
@@ -254,7 +254,7 @@ export const authRoute = new Hono()
       const passkeys = await db
         .select()
         .from(userPasskey)
-        .where(eq(userPasskey.userId, c.var.viewerId))
+        .where(eq(userPasskey.user_id, c.var.viewerId))
       return c.json(
         await beginPasskeyRegistration({
           identifier: c.var.viewerId,
@@ -289,12 +289,12 @@ export const authRoute = new Hono()
         const [created] = await db
           .insert(userPasskey)
           .values({
-            userId: c.var.viewerId,
-            credentialId: info.credential.id,
-            publicKey: passkeyPublicKey(info.credential.publicKey),
+            user_id: c.var.viewerId,
+            credential_id: info.credential.id,
+            public_key: passkeyPublicKey(info.credential.publicKey),
             counter: info.credential.counter,
-            deviceType: info.credentialDeviceType,
-            backedUp: info.credentialBackedUp,
+            device_type: info.credentialDeviceType,
+            backed_up: info.credentialBackedUp,
             transports: serializeTransports(response.response.transports),
             aaguid: info.aaguid,
             name: body.name ?? null,
@@ -317,9 +317,9 @@ export const authRoute = new Hono()
       const { name } = c.req.valid("json")
       const [updated] = await db
         .update(userPasskey)
-        .set({ name: name ?? null, updatedAt: new Date() })
+        .set({ name: name ?? null, updated_at: new Date() })
         .where(
-          and(eq(userPasskey.id, id), eq(userPasskey.userId, c.var.viewerId)),
+          and(eq(userPasskey.id, id), eq(userPasskey.user_id, c.var.viewerId)),
         )
         .returning()
       if (!updated) return notFound(c, "Passkey not found.")

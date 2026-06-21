@@ -64,7 +64,7 @@ export const clipCommentsRoutes = new Hono()
             limit,
             cursor,
             viewerId: access.viewer?.id ?? null,
-            clipAuthorId: access.row.authorId,
+            clipAuthorId: access.row.author_id,
           }),
         )
       } catch (err) {
@@ -97,7 +97,7 @@ export const clipCommentsRoutes = new Hono()
         const [parent] = await db
           .select({
             id: clipComment.id,
-            clipId: clipComment.clipId,
+            clipId: clipComment.clip_id,
           })
           .from(clipComment)
           .where(eq(clipComment.id, parentId))
@@ -112,15 +112,15 @@ export const clipCommentsRoutes = new Hono()
         const rows = await tx
           .insert(clipComment)
           .values({
-            clipId: id,
-            authorId: viewerId,
-            parentId: resolvedParentId,
+            clip_id: id,
+            author_id: viewerId,
+            parent_id: resolvedParentId,
             body,
           })
           .returning()
         await tx
           .update(clip)
-          .set({ commentCount: sql`${clip.commentCount} + 1` })
+          .set({ comment_count: sql`${clip.comment_count} + 1` })
           .where(eq(clip.id, id))
         return rows
       })
@@ -134,15 +134,15 @@ export const clipCommentsRoutes = new Hono()
 
       const out: CommentRow = {
         id: inserted.id,
-        clipId: inserted.clipId,
-        parentId: inserted.parentId,
+        clipId: inserted.clip_id,
+        parentId: inserted.parent_id,
         body: inserted.body,
-        likeCount: inserted.likeCount,
+        likeCount: inserted.like_count,
         pinned: false,
         pinnedAt: null,
         likedByViewer: false,
         likedByAuthor: false,
-        createdAt: isoDate(inserted.createdAt),
+        createdAt: isoDate(inserted.created_at),
         editedAt: null,
         author: authorRow
           ? serialiseUserSummary(authorRow)
@@ -168,7 +168,7 @@ export const clipCommentsRoutes = new Hono()
       const { body } = c.req.valid("json")
 
       const [existing] = await db
-        .select({ id: clipComment.id, authorId: clipComment.authorId })
+        .select({ id: clipComment.id, authorId: clipComment.author_id })
         .from(clipComment)
         .where(eq(clipComment.id, commentId))
         .limit(1)
@@ -179,12 +179,12 @@ export const clipCommentsRoutes = new Hono()
 
       const [updated] = await db
         .update(clipComment)
-        .set({ body, editedAt: new Date() })
+        .set({ body, edited_at: new Date() })
         .where(eq(clipComment.id, commentId))
         .returning({
           id: clipComment.id,
           body: clipComment.body,
-          editedAt: clipComment.editedAt,
+          editedAt: clipComment.edited_at,
         })
       if (!updated) {
         return internalServerError(c, "Comment update did not persist")
@@ -233,12 +233,12 @@ export const clipCommentsRoutes = new Hono()
       const result = await db.transaction(async (tx) => {
         const inserted = await tx
           .insert(clipCommentLike)
-          .values({ commentId, userId: viewerId })
+          .values({ comment_id: commentId, user_id: viewerId })
           .onConflictDoNothing()
-          .returning({ commentId: clipCommentLike.commentId })
+          .returning({ commentId: clipCommentLike.comment_id })
         if (inserted.length === 0) {
           const [row] = await tx
-            .select({ likeCount: clipComment.likeCount })
+            .select({ likeCount: clipComment.like_count })
             .from(clipComment)
             .where(eq(clipComment.id, commentId))
             .limit(1)
@@ -246,9 +246,9 @@ export const clipCommentsRoutes = new Hono()
         }
         const [row] = await tx
           .update(clipComment)
-          .set({ likeCount: sql`${clipComment.likeCount} + 1` })
+          .set({ like_count: sql`${clipComment.like_count} + 1` })
           .where(eq(clipComment.id, commentId))
-          .returning({ likeCount: clipComment.likeCount })
+          .returning({ likeCount: clipComment.like_count })
         if (!row) return null
         return { liked: true, likeCount: row.likeCount }
       })
@@ -274,14 +274,14 @@ export const clipCommentsRoutes = new Hono()
           .delete(clipCommentLike)
           .where(
             and(
-              eq(clipCommentLike.commentId, commentId),
-              eq(clipCommentLike.userId, viewerId),
+              eq(clipCommentLike.comment_id, commentId),
+              eq(clipCommentLike.user_id, viewerId),
             ),
           )
-          .returning({ commentId: clipCommentLike.commentId })
+          .returning({ commentId: clipCommentLike.comment_id })
         if (removed.length === 0) {
           const [row] = await tx
-            .select({ likeCount: clipComment.likeCount })
+            .select({ likeCount: clipComment.like_count })
             .from(clipComment)
             .where(eq(clipComment.id, commentId))
             .limit(1)
@@ -289,9 +289,9 @@ export const clipCommentsRoutes = new Hono()
         }
         const [row] = await tx
           .update(clipComment)
-          .set({ likeCount: sql`GREATEST(0, ${clipComment.likeCount} - 1)` })
+          .set({ like_count: sql`GREATEST(0, ${clipComment.like_count} - 1)` })
           .where(eq(clipComment.id, commentId))
-          .returning({ likeCount: clipComment.likeCount })
+          .returning({ likeCount: clipComment.like_count })
         return row ? { liked: false, likeCount: row.likeCount } : null
       })
       if (!result) return notFound(c)

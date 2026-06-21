@@ -49,19 +49,19 @@ async function countVisibleClipsBySteamGridDBId(
   if (steamgriddbIds.length === 0) return new Map()
   const rows = await db
     .select({
-      steamgriddbId: clip.steamgriddbId,
+      steamgriddbId: clip.steamgriddb_id,
       name: sql<string | null>`min(${clip.game})`,
       clipCount: sql<number>`count(${clip.id})::int`,
     })
     .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
+    .innerJoin(user, eq(clip.author_id, user.id))
     .where(
       and(
         ...visibleGameClipConditions(),
-        inArray(clip.steamgriddbId, steamgriddbIds),
+        inArray(clip.steamgriddb_id, steamgriddbIds),
       ),
     )
-    .groupBy(clip.steamgriddbId)
+    .groupBy(clip.steamgriddb_id)
 
   const counts = new Map<
     number,
@@ -116,8 +116,8 @@ async function searchLocalGameSnapshots(
       clipCount: sql<number>`count(${clip.id})::int`,
     })
     .from(game)
-    .innerJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
-    .innerJoin(user, eq(clip.authorId, user.id))
+    .innerJoin(clip, eq(clip.steamgriddb_id, game.steamgriddb_id))
+    .innerJoin(user, eq(clip.author_id, user.id))
     .where(
       and(
         ...visibleGameClipConditions(),
@@ -128,7 +128,7 @@ async function searchLocalGameSnapshots(
         ),
       ),
     )
-    .groupBy(game.steamgriddbId)
+    .groupBy(game.steamgriddb_id)
     .orderBy(sql`count(${clip.id}) desc`, game.name)
     .limit(limit)
 
@@ -165,7 +165,7 @@ export const searchRoute = new Hono().get(
 
     const matchRank = sql<number>`CASE
       WHEN ${clip.title} ILIKE ${pattern} THEN 0
-      WHEN ${user.displayUsername} ILIKE ${pattern}
+      WHEN ${user.display_username} ILIKE ${pattern}
         OR ${user.username} ILIKE ${pattern} THEN 1
       WHEN ${game.name} ILIKE ${pattern}
         OR ${clip.game} ILIKE ${pattern} THEN 2
@@ -177,22 +177,22 @@ export const searchRoute = new Hono().get(
       db
         .select(clipSelectShape)
         .from(clip)
-        .innerJoin(user, eq(clip.authorId, user.id))
-        .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+        .innerJoin(user, eq(clip.author_id, user.id))
+        .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
         .where(
           and(
             ...publicClipListingConditions(),
             or(
               ilike(clip.title, pattern),
               ilike(clip.description, pattern),
-              ilike(user.displayUsername, pattern),
+              ilike(user.display_username, pattern),
               ilike(user.username, pattern),
               ilike(game.name, pattern),
               ilike(clip.game, pattern),
             ),
           ),
         )
-        .orderBy(matchRank, desc(clip.createdAt))
+        .orderBy(matchRank, desc(clip.created_at))
         .limit(limit),
 
       searchSteamGridDBGames(q, limit),
@@ -201,14 +201,14 @@ export const searchRoute = new Hono().get(
       db
         .select({
           ...userSummarySelectShape,
-          createdAt: user.createdAt,
+          createdAt: user.created_at,
           clipCount: sql<number>`count(${clip.id})::int`,
         })
         .from(user)
         .leftJoin(
           clip,
           and(
-            eq(clip.authorId, user.id),
+            eq(clip.author_id, user.id),
             eq(clip.status, "ready"),
             publicClipPrivacyCondition(),
           ),
@@ -216,10 +216,10 @@ export const searchRoute = new Hono().get(
         .where(
           and(
             or(
-              ilike(user.displayUsername, pattern),
+              ilike(user.display_username, pattern),
               ilike(user.username, pattern),
             ),
-            isNull(user.disabledAt),
+            isNull(user.disabled_at),
           ),
         )
         .groupBy(user.id)

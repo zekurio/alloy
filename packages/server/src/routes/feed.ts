@@ -63,7 +63,7 @@ export const feedRoute = new Hono()
 
     if (filter === "game") {
       if (!steamgriddbId) return badRequest(c, "steamgriddbId is required")
-      conditions.push(eq(clip.steamgriddbId, steamgriddbId))
+      conditions.push(eq(clip.steamgriddb_id, steamgriddbId))
     }
 
     if (filter === "following") {
@@ -72,7 +72,7 @@ export const feedRoute = new Hono()
       const followingViewerId = viewerId
       if (!followingViewerId) return c.json({ items: [], nextCursor: null })
       // Your own clips don't belong in a feed of people you follow.
-      conditions.push(ne(clip.authorId, followingViewerId))
+      conditions.push(ne(clip.author_id, followingViewerId))
       conditions.push(
         exists(
           db
@@ -80,8 +80,8 @@ export const feedRoute = new Hono()
             .from(follow)
             .where(
               and(
-                eq(follow.followerId, followingViewerId),
-                eq(follow.followingId, clip.authorId),
+                eq(follow.follower_id, followingViewerId),
+                eq(follow.following_id, clip.author_id),
               ),
             ),
         ),
@@ -105,8 +105,8 @@ export const feedRoute = new Hono()
     const rows = await db
       .select(clipSelectShape)
       .from(clip)
-      .innerJoin(user, eq(clip.authorId, user.id))
-      .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+      .innerJoin(user, eq(clip.author_id, user.id))
+      .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
       .where(and(...conditions))
       .orderBy(...clipListOrderBy(sort))
       .limit(limit + 1)
@@ -120,8 +120,8 @@ export const feedRoute = new Hono()
     const viewerId = session?.user.id ?? null
     const vid = viewerId ?? null
 
-    const likedCount = sql<number>`(count(distinct ${clipLike.clipId}))::int`
-    const viewedCount = sql<number>`(count(distinct ${clipView.clipId}))::int`
+    const likedCount = sql<number>`(count(distinct ${clipLike.clip_id}))::int`
+    const viewedCount = sql<number>`(count(distinct ${clipView.clip_id}))::int`
     const clipCount = sql<number>`(count(distinct ${clip.id}))::int`
     const interaction = sql<number>`(
       (2 * (${likedCount}) + (${viewedCount}))::double precision
@@ -138,24 +138,24 @@ export const feedRoute = new Hono()
         clipCount,
       })
       .from(clip)
-      .innerJoin(user, eq(clip.authorId, user.id))
-      .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+      .innerJoin(user, eq(clip.author_id, user.id))
+      .innerJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
       .leftJoin(
         clipLike,
         and(
-          eq(clipLike.clipId, clip.id),
-          sql`${clipLike.userId} = ${vid}::uuid`,
+          eq(clipLike.clip_id, clip.id),
+          sql`${clipLike.user_id} = ${vid}::uuid`,
         ),
       )
       .leftJoin(
         clipView,
         and(
-          eq(clipView.clipId, clip.id),
-          sql`${clipView.userId} = ${vid}::uuid`,
+          eq(clipView.clip_id, clip.id),
+          sql`${clipView.user_id} = ${vid}::uuid`,
         ),
       )
       .where(and(...conditions))
-      .groupBy(game.steamgriddbId)
+      .groupBy(game.steamgriddb_id)
       .orderBy(sql`${interaction} desc`, sql`${clipCount} desc`, game.name)
       .limit(limit)
 

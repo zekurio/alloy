@@ -10,7 +10,7 @@ export async function countUserPasskeys(userId: string): Promise<number> {
   const [row] = await db
     .select({ value: count() })
     .from(userPasskey)
-    .where(eq(userPasskey.userId, userId))
+    .where(eq(userPasskey.user_id, userId))
   return row?.value ?? 0
 }
 
@@ -27,14 +27,14 @@ async function countEnabledOAuthAccounts(
 
   const rows = await executor
     .select({
-      providerAccountId: authAccount.providerAccountId,
-      providerId: authAccount.providerId,
+      providerAccountId: authAccount.provider_account_id,
+      providerId: authAccount.provider_id,
     })
     .from(authAccount)
     .where(
       and(
-        eq(authAccount.userId, userId),
-        inArray(authAccount.providerId, providerIds),
+        eq(authAccount.user_id, userId),
+        inArray(authAccount.provider_id, providerIds),
       ),
     )
 
@@ -59,7 +59,7 @@ export async function userHasEnabledSignInMethod(
     const passkeys = await executor
       .select({ id: userPasskey.id })
       .from(userPasskey)
-      .where(eq(userPasskey.userId, userId))
+      .where(eq(userPasskey.user_id, userId))
     if (passkeys.some((passkey) => passkey.id !== options.excludePasskeyId)) {
       return true
     }
@@ -107,7 +107,7 @@ export async function deleteUserPasskeyPreservingSignIn(input: {
       .where(
         and(
           eq(userPasskey.id, input.passkeyId),
-          eq(userPasskey.userId, input.userId),
+          eq(userPasskey.user_id, input.userId),
         ),
       )
       .returning({ id: userPasskey.id })
@@ -140,9 +140,9 @@ export async function unlinkOAuthAccountPreservingSignIn(input: {
       .delete(authAccount)
       .where(
         and(
-          eq(authAccount.userId, input.userId),
-          eq(authAccount.providerId, input.providerId),
-          eq(authAccount.providerAccountId, input.providerAccountId),
+          eq(authAccount.user_id, input.userId),
+          eq(authAccount.provider_id, input.providerId),
+          eq(authAccount.provider_account_id, input.providerAccountId),
         ),
       )
       .returning({ id: authAccount.id })

@@ -27,38 +27,38 @@ export type UploadTicketTarget = (typeof UPLOAD_TICKET_TARGET)[number]
 export const uploadTicket = pgTable(
   "upload_ticket",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid().primaryKey().defaultRandom(),
     // Owner anchors cascade cleanup when a user is deleted.
-    ownerId: uuid("owner_id")
+    owner_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    targetType: text("target_type").$type<UploadTicketTarget>().notNull(),
-    targetId: uuid("target_id").notNull(),
-    role: text("role").$type<UploadTicketRole>().notNull(),
-    storageKey: text("storage_key").notNull().unique(),
-    contentType: text("content_type").notNull(),
-    expectedBytes: bigint("expected_bytes", { mode: "number" }).notNull(),
-    uploadState: jsonb("upload_state").$type<Record<string, unknown> | null>(),
-    expiresAt: timestamp("expires_at").notNull(),
-    usedAt: timestamp("used_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+    target_type: text().$type<UploadTicketTarget>().notNull(),
+    target_id: uuid().notNull(),
+    role: text().$type<UploadTicketRole>().notNull(),
+    storage_key: text().notNull().unique(),
+    content_type: text().notNull(),
+    expected_bytes: bigint({ mode: "number" }).notNull(),
+    upload_state: jsonb().$type<Record<string, unknown> | null>(),
+    expires_at: timestamp().notNull(),
+    used_at: timestamp(),
+    created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    index("upload_ticket_target_idx").on(t.targetType, t.targetId),
-    index("upload_ticket_owner_idx").on(t.ownerId),
-    index("upload_ticket_expires_idx").on(t.expiresAt),
-    index("upload_ticket_used_idx").on(t.usedAt),
+    index("upload_ticket_target_idx").on(t.target_type, t.target_id),
+    index("upload_ticket_owner_idx").on(t.owner_id),
+    index("upload_ticket_expires_idx").on(t.expires_at),
+    index("upload_ticket_used_idx").on(t.used_at),
     check(
       "upload_ticket_role_check",
       sql`${t.role} in (${sql.raw(sqlStringList(UPLOAD_TICKET_ROLE))})`,
     ),
     check(
       "upload_ticket_target_check",
-      sql`${t.targetType} in (${sql.raw(sqlStringList(UPLOAD_TICKET_TARGET))})`,
+      sql`${t.target_type} in (${sql.raw(sqlStringList(UPLOAD_TICKET_TARGET))})`,
     ),
     check(
       "upload_ticket_expected_bytes_safe_check",
-      sql`${t.expectedBytes} > 0 and ${t.expectedBytes} <= 9007199254740991`,
+      sql`${t.expected_bytes} > 0 and ${t.expected_bytes} <= 9007199254740991`,
     ),
   ],
 )

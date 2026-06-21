@@ -3,9 +3,10 @@ import { isoDate } from "@alloy/server/runtime/date"
 type PublicPasskeyRow = {
   id: string
   name: string | null
-  createdAt: Date
-  deviceType: string
-}
+} & (
+  | { createdAt: Date; deviceType: string }
+  | { created_at: Date; device_type: string }
+)
 
 type PublicLinkedAccountRow = {
   id: string
@@ -19,8 +20,8 @@ export function publicPasskeyRow(row: PublicPasskeyRow) {
   return {
     id: row.id,
     name: row.name,
-    createdAt: isoDate(row.createdAt),
-    deviceType: row.deviceType,
+    createdAt: isoDate("createdAt" in row ? row.createdAt : row.created_at),
+    deviceType: "deviceType" in row ? row.deviceType : row.device_type,
   }
 }
 

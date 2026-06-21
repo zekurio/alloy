@@ -10,15 +10,15 @@ import { clipThumbnailVersion } from "./thumbnail-version"
 const queueSelectShape = {
   id: clip.id,
   game: clip.game,
-  steamgriddbId: clip.steamgriddbId,
+  steamgriddbId: clip.steamgriddb_id,
   title: clip.title,
   status: clip.status,
-  encodeProgress: clip.encodeProgress,
-  failureReason: clip.failureReason,
-  thumbKey: clip.thumbKey,
-  thumbBlurHash: clip.thumbBlurHash,
-  createdAt: clip.createdAt,
-  updatedAt: clip.updatedAt,
+  encodeProgress: clip.encode_progress,
+  failureReason: clip.failure_reason,
+  thumbKey: clip.thumb_key,
+  thumbBlurHash: clip.thumb_blur_hash,
+  createdAt: clip.created_at,
+  updatedAt: clip.updated_at,
 } as const
 
 function serialize(row: {
@@ -66,8 +66,8 @@ export async function selectQueueRowsForAuthor(
   const rows = await db
     .select(queueSelectShape)
     .from(clip)
-    .where(eq(clip.authorId, authorId))
-    .orderBy(desc(clip.createdAt))
+    .where(eq(clip.author_id, authorId))
+    .orderBy(desc(clip.created_at))
     .limit(50)
   return rows.map((row) => serialize(row))
 }

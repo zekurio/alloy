@@ -11,32 +11,32 @@ import { user } from "./auth"
 export const follow = pgTable(
   "follow",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    followerId: uuid("follower_id")
+    id: uuid().primaryKey().defaultRandom(),
+    follower_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    followingId: uuid("following_id")
+    following_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+    created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("follow_pair_idx").on(t.followerId, t.followingId),
-    index("follow_following_idx").on(t.followingId),
+    uniqueIndex("follow_pair_idx").on(t.follower_id, t.following_id),
+    index("follow_following_idx").on(t.following_id),
   ],
 )
 
 export const block = pgTable(
   "block",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    blockerId: uuid("blocker_id")
+    id: uuid().primaryKey().defaultRandom(),
+    blocker_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    blockedId: uuid("blocked_id")
+    blocked_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+    created_at: timestamp().notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("block_pair_idx").on(t.blockerId, t.blockedId)],
+  (t) => [uniqueIndex("block_pair_idx").on(t.blocker_id, t.blocked_id)],
 )

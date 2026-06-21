@@ -12,5 +12,5 @@ import { type SQL, sql } from "drizzle-orm"
 export function clipTagFilter(tag: string): SQL {
   const normalized = sanitizeTag(tag)
   if (!normalized) return sql`false`
-  return sql`exists (select 1 from ${clipTag} where ${clipTag.clipId} = ${clip.id} and ${clipTag.tag} = ${normalized})`
+  return sql`exists (select 1 from ${clipTag} where ${clipTag.clip_id} = ${clip.id} and ${clipTag.tag} = ${normalized})`
 }

@@ -54,7 +54,7 @@ export const clipsUploadRoutes = new Hono()
       const row = access.row
 
       const patch: Partial<typeof clip.$inferInsert> = {
-        updatedAt: new Date(),
+        updated_at: new Date(),
       }
       if (body.title !== undefined) patch.title = body.title
       if (body.description !== undefined) {
@@ -62,7 +62,7 @@ export const clipsUploadRoutes = new Hono()
       }
       if (body.steamgriddbId !== undefined) {
         if (body.steamgriddbId === null) {
-          patch.steamgriddbId = null
+          patch.steamgriddb_id = null
           patch.game = null
         } else {
           let gameRef: Awaited<ReturnType<typeof getSteamGridDBGameRef>>
@@ -72,7 +72,7 @@ export const clipsUploadRoutes = new Hono()
             return errorResult(c, steamgriddbErrorResponse(err))
           }
           if (!gameRef) return badRequest(c, "Unknown game")
-          patch.steamgriddbId = body.steamgriddbId
+          patch.steamgriddb_id = body.steamgriddbId
           patch.game = gameRef.name
         }
       }
@@ -83,14 +83,14 @@ export const clipsUploadRoutes = new Hono()
       if (body.mentionedUserIds !== undefined) {
         const mentionedIds = await resolveMentionIds(
           body.mentionedUserIds,
-          row.authorId,
+          row.author_id,
         )
-        await db.delete(clipMention).where(eq(clipMention.clipId, id))
+        await db.delete(clipMention).where(eq(clipMention.clip_id, id))
         if (mentionedIds.length > 0) {
           await db.insert(clipMention).values(
             mentionedIds.map((mentionedUserId) => ({
-              clipId: id,
-              mentionedUserId,
+              clip_id: id,
+              mentioned_user_id: mentionedUserId,
             })),
           )
         }
@@ -98,15 +98,15 @@ export const clipsUploadRoutes = new Hono()
 
       if (body.tags !== undefined) {
         const tags = normalizeTags(body.tags)
-        await db.delete(clipTag).where(eq(clipTag.clipId, id))
+        await db.delete(clipTag).where(eq(clipTag.clip_id, id))
         if (tags.length > 0) {
           await db
             .insert(clipTag)
-            .values(tags.map((tag) => ({ clipId: id, tag })))
+            .values(tags.map((tag) => ({ clip_id: id, tag })))
         }
       }
 
-      void publishClipUpsert(row.authorId, id)
+      void publishClipUpsert(row.author_id, id)
 
       return updatedClipResponse(c, id)
     },
@@ -129,8 +129,8 @@ export const clipsUploadRoutes = new Hono()
       if ("response" in access) return access.response
       const row = access.row
 
-      if (!row.sourceKey) return badRequest(c, "Clip has no source media")
-      const durationMs = row.durationMs
+      if (!row.source_key) return badRequest(c, "Clip has no source media")
+      const durationMs = row.duration_ms
       if (durationMs == null || durationMs <= 0) {
         return badRequest(c, "Clip duration is unknown")
       }
@@ -152,25 +152,25 @@ export const clipsUploadRoutes = new Hono()
       const [accepted] = await db
         .update(clip)
         .set({
-          trimStartMs: startMs,
-          trimEndMs: endMs,
+          trim_start_ms: startMs,
+          trim_end_ms: endMs,
           status: "processing",
-          encodeProgress: 0,
-          encodeAttempt: 0,
-          failureReason: null,
-          updatedAt: new Date(),
+          encode_progress: 0,
+          encode_attempt: 0,
+          failure_reason: null,
+          updated_at: new Date(),
         })
         .where(
           and(
             eq(clip.id, id),
-            eq(clip.authorId, row.authorId),
+            eq(clip.author_id, row.author_id),
             eq(clip.status, "ready"),
           ),
         )
         .returning({ id: clip.id })
       if (!accepted) return conflict(c, "Clip is already processing")
 
-      void publishClipUpsert(row.authorId, id)
+      void publishClipUpsert(row.author_id, id)
       enqueueClipMediaProcessing(id)
 
       return updatedClipResponse(c, id)

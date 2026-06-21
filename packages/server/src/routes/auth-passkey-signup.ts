@@ -41,12 +41,12 @@ export async function completePasskeySignUp({
     })
 
     await tx.insert(userPasskey).values({
-      userId: row.id,
-      credentialId: registrationInfo.credential.id,
-      publicKey: passkeyPublicKey(registrationInfo.credential.publicKey),
+      user_id: row.id,
+      credential_id: registrationInfo.credential.id,
+      public_key: passkeyPublicKey(registrationInfo.credential.publicKey),
       counter: registrationInfo.credential.counter,
-      deviceType: registrationInfo.credentialDeviceType,
-      backedUp: registrationInfo.credentialBackedUp,
+      device_type: registrationInfo.credentialDeviceType,
+      backed_up: registrationInfo.credentialBackedUp,
       transports: serializeTransports(response.response.transports),
       aaguid: registrationInfo.aaguid,
       name: `${row.username}'s passkey`,

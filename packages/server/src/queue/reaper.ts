@@ -54,9 +54,11 @@ function pendingCutoff(): Date {
 
 async function reapPendingClips(): Promise<void> {
   const stale = await db
-    .select({ id: clip.id, authorId: clip.authorId })
+    .select({ id: clip.id, authorId: clip.author_id })
     .from(clip)
-    .where(and(eq(clip.status, "pending"), lt(clip.createdAt, pendingCutoff())))
+    .where(
+      and(eq(clip.status, "pending"), lt(clip.created_at, pendingCutoff())),
+    )
 
   for (const row of stale) {
     await cleanupTickets(
@@ -74,12 +76,15 @@ async function reapExpiredUploadTickets(): Promise<void> {
   const expiredTickets = await db
     .select({
       id: uploadTicket.id,
-      storageKey: uploadTicket.storageKey,
-      uploadState: uploadTicket.uploadState,
+      storageKey: uploadTicket.storage_key,
+      uploadState: uploadTicket.upload_state,
     })
     .from(uploadTicket)
     .where(
-      and(isNull(uploadTicket.usedAt), lt(uploadTicket.expiresAt, new Date())),
+      and(
+        isNull(uploadTicket.used_at),
+        lt(uploadTicket.expires_at, new Date()),
+      ),
     )
 
   for (const ticket of expiredTickets) {
@@ -109,12 +114,12 @@ async function requeueStuckProcessing(): Promise<void> {
           eq(clip.status, "processing"),
           and(
             eq(clip.status, "ready"),
-            lt(clip.encodeProgress, 100),
-            isNull(clip.failureReason),
+            lt(clip.encode_progress, 100),
+            isNull(clip.failure_reason),
           ),
         ),
         lt(
-          clip.updatedAt,
+          clip.updated_at,
           sql`now() - interval '${sql.raw(UPLOADED_MAX_AGE_INTERVAL)}'`,
         ),
       ),

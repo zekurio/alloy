@@ -23,8 +23,8 @@ export async function resolveSignInUser(input: {
   )
   if (existingAccount) {
     await updateLinkedAccount(existingAccount.id, input.profile, input.tokens)
-    await syncOAuthUserRole(existingAccount.userId, input.profile)
-    return existingAccount.userId
+    await syncOAuthUserRole(existingAccount.user_id, input.profile)
+    return existingAccount.user_id
   }
 
   if (!input.profile.email) {
@@ -71,7 +71,7 @@ export async function resolveSignInUser(input: {
         input.profile.providerAccountId,
       )
       if (!account) throw new Error("Could not link OAuth account.")
-      if (account.userId !== row.id) {
+      if (account.user_id !== row.id) {
         throw new Error("OAuth account is already linked to another user.")
       }
       await updateLinkedAccount(account.id, input.profile, input.tokens)
@@ -94,7 +94,7 @@ export async function linkAccountToUser(input: {
     input.provider.providerId,
     input.profile.providerAccountId,
   )
-  if (existing && existing.userId !== input.userId) {
+  if (existing && existing.user_id !== input.userId) {
     throw new Error("OAuth account is already linked to another user.")
   }
   if (existing) {
@@ -124,8 +124,8 @@ async function findLinkedAccount(
     .from(authAccount)
     .where(
       and(
-        eq(authAccount.providerId, providerId),
-        eq(authAccount.providerAccountId, providerAccountId),
+        eq(authAccount.provider_id, providerId),
+        eq(authAccount.provider_account_id, providerAccountId),
       ),
     )
     .limit(1)
@@ -141,12 +141,12 @@ async function updateLinkedAccount(
     .update(authAccount)
     .set({
       email: profile.email,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      idToken: tokens.idToken,
-      accessTokenExpiresAt: tokens.accessTokenExpiresAt,
+      access_token: tokens.accessToken,
+      refresh_token: tokens.refreshToken,
+      id_token: tokens.idToken,
+      access_token_expires_at: tokens.accessTokenExpiresAt,
       scope: tokens.scope,
-      updatedAt: new Date(),
+      updated_at: new Date(),
     })
     .where(eq(authAccount.id, accountId))
 }
@@ -175,7 +175,7 @@ async function syncOAuthUserRole(
 
   await db
     .update(user)
-    .set({ role: profile.role, updatedAt: new Date() })
+    .set({ role: profile.role, updated_at: new Date() })
     .where(eq(user.id, userId))
 }
 
@@ -196,10 +196,10 @@ async function createOAuthUser(
   })
   return insert({
     email: profile.email,
-    emailVerified: profile.emailVerified,
+    email_verified: profile.emailVerified,
     username,
     role: profile.role ?? "user",
-    storageQuotaBytes:
+    storage_quota_bytes:
       profile.storageQuotaBytes === undefined
         ? defaultOAuthStorageQuota()
         : profile.storageQuotaBytes,
@@ -213,14 +213,14 @@ function accountValues(
   tokens: StoredTokens,
 ): typeof authAccount.$inferInsert {
   return {
-    userId,
-    providerId,
-    providerAccountId: profile.providerAccountId,
+    user_id: userId,
+    provider_id: providerId,
+    provider_account_id: profile.providerAccountId,
     email: profile.email,
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
-    idToken: tokens.idToken,
-    accessTokenExpiresAt: tokens.accessTokenExpiresAt,
+    access_token: tokens.accessToken,
+    refresh_token: tokens.refreshToken,
+    id_token: tokens.idToken,
+    access_token_expires_at: tokens.accessTokenExpiresAt,
     scope: tokens.scope,
   }
 }

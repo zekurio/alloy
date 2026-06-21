@@ -13,30 +13,30 @@ import { clipThumbnailVersion } from "./thumbnail-version"
 
 export const clipSelectShape = {
   id: clip.id,
-  authorId: clip.authorId,
+  authorId: clip.author_id,
   title: clip.title,
   description: clip.description,
   game: clip.game,
-  steamgriddbId: clip.steamgriddbId,
+  steamgriddbId: clip.steamgriddb_id,
   privacy: clip.privacy,
-  sourceKey: clip.sourceKey,
-  sourceContentType: clip.sourceContentType,
-  sourceVideoCodec: clip.sourceVideoCodec,
-  sourceAudioCodec: clip.sourceAudioCodec,
-  sourceSizeBytes: clip.sourceSizeBytes,
-  durationMs: clip.durationMs,
+  sourceKey: clip.source_key,
+  sourceContentType: clip.source_content_type,
+  sourceVideoCodec: clip.source_video_codec,
+  sourceAudioCodec: clip.source_audio_codec,
+  sourceSizeBytes: clip.source_size_bytes,
+  durationMs: clip.duration_ms,
   width: clip.width,
   height: clip.height,
-  thumbKey: clip.thumbKey,
-  thumbBlurHash: clip.thumbBlurHash,
-  viewCount: clip.viewCount,
-  likeCount: clip.likeCount,
-  commentCount: clip.commentCount,
+  thumbKey: clip.thumb_key,
+  thumbBlurHash: clip.thumb_blur_hash,
+  viewCount: clip.view_count,
+  likeCount: clip.like_count,
+  commentCount: clip.comment_count,
   status: clip.status,
-  encodeProgress: clip.encodeProgress,
-  failureReason: clip.failureReason,
-  createdAt: clip.createdAt,
-  updatedAt: clip.updatedAt,
+  encodeProgress: clip.encode_progress,
+  failureReason: clip.failure_reason,
+  createdAt: clip.created_at,
+  updatedAt: clip.updated_at,
   authorUsername: user.username,
   authorImage: user.image,
   gameRef: gameSelectShape,
@@ -44,7 +44,7 @@ export const clipSelectShape = {
   // read returns them without a second round-trip.
   tags: sql<
     string[]
-  >`coalesce((select array_agg(${clipTag.tag} order by ${clipTag.tag}) from ${clipTag} where ${clipTag.clipId} = ${clip.id}), '{}')`,
+  >`coalesce((select array_agg(${clipTag.tag} order by ${clipTag.tag}) from ${clipTag} where ${clipTag.clip_id} = ${clip.id}), '{}')`,
 } as const
 
 async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
@@ -52,12 +52,12 @@ async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
     .select({
       id: user.id,
       username: user.username,
-      displayUsername: user.displayUsername,
+      displayUsername: user.display_username,
       image: user.image,
     })
     .from(clipMention)
-    .innerJoin(user, eq(clipMention.mentionedUserId, user.id))
-    .where(eq(clipMention.clipId, clipId))
+    .innerJoin(user, eq(clipMention.mentioned_user_id, user.id))
+    .where(eq(clipMention.clip_id, clipId))
     .orderBy(user.username)
 }
 
@@ -65,8 +65,8 @@ export async function selectClipById(id: string) {
   const [row] = await db
     .select(clipSelectShape)
     .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
     .where(eq(clip.id, id))
     .limit(1)
   if (!row) return null

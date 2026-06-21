@@ -27,9 +27,9 @@ async function applyLikeCountDelta(
 ): Promise<number> {
   const [row] = await tx
     .update(clip)
-    .set({ likeCount: delta })
+    .set({ like_count: delta })
     .where(eq(clip.id, clipId))
-    .returning({ likeCount: clip.likeCount })
+    .returning({ likeCount: clip.like_count })
   return row?.likeCount ?? fallback
 }
 
@@ -39,7 +39,7 @@ async function readLikeCount(
   fallback: number,
 ): Promise<number> {
   const [row] = await tx
-    .select({ likeCount: clip.likeCount })
+    .select({ likeCount: clip.like_count })
     .from(clip)
     .where(eq(clip.id, clipId))
     .limit(1)
@@ -58,9 +58,9 @@ export const clipsEngagementRoutes = new Hono()
     if (!target.accessible) return clipAccessResponse(c, target)
 
     const [row] = await db
-      .select({ clipId: clipLike.clipId })
+      .select({ clipId: clipLike.clip_id })
       .from(clipLike)
-      .where(and(eq(clipLike.clipId, id), eq(clipLike.userId, viewerId)))
+      .where(and(eq(clipLike.clip_id, id), eq(clipLike.user_id, viewerId)))
       .limit(1)
     return booleanFlag(c, "liked", row !== undefined)
   })
@@ -82,11 +82,11 @@ export const clipsEngagementRoutes = new Hono()
       const likeCount = await db.transaction(async (tx) => {
         const inserted = await tx
           .insert(clipLike)
-          .values({ clipId: id, userId: viewerId })
+          .values({ clip_id: id, user_id: viewerId })
           .onConflictDoNothing()
-          .returning({ clipId: clipLike.clipId })
+          .returning({ clipId: clipLike.clip_id })
         if (inserted.length > 0) {
-          return applyLikeCountDelta(tx, id, sql`${clip.likeCount} + 1`, 0)
+          return applyLikeCountDelta(tx, id, sql`${clip.like_count} + 1`, 0)
         }
         return readLikeCount(tx, id, 0)
       })
@@ -111,17 +111,17 @@ export const clipsEngagementRoutes = new Hono()
       const likeCount = await db.transaction(async (tx) => {
         const removed = await tx
           .delete(clipLike)
-          .where(and(eq(clipLike.clipId, id), eq(clipLike.userId, viewerId)))
-          .returning({ clipId: clipLike.clipId })
+          .where(and(eq(clipLike.clip_id, id), eq(clipLike.user_id, viewerId)))
+          .returning({ clipId: clipLike.clip_id })
         if (removed.length > 0) {
           return applyLikeCountDelta(
             tx,
             id,
-            sql`GREATEST(0, ${clip.likeCount} - 1)`,
+            sql`GREATEST(0, ${clip.like_count} - 1)`,
             0,
           )
         }
-        return readLikeCount(tx, id, target.row.likeCount)
+        return readLikeCount(tx, id, target.row.like_count)
       })
 
       return likeState(c, false, likeCount)
@@ -142,16 +142,16 @@ export const clipsEngagementRoutes = new Hono()
     const inserted = await db
       .insert(clipView)
       .values({
-        clipId: id,
-        viewerKey: viewer.viewerKey,
-        userId: viewer.userId,
+        clip_id: id,
+        viewer_key: viewer.viewerKey,
+        user_id: viewer.userId,
       })
       .onConflictDoNothing()
-      .returning({ clipId: clipView.clipId })
+      .returning({ clipId: clipView.clip_id })
     if (inserted.length > 0) {
       await db
         .update(clip)
-        .set({ viewCount: sql`${clip.viewCount} + 1` })
+        .set({ view_count: sql`${clip.view_count} + 1` })
         .where(eq(clip.id, id))
     }
 

@@ -96,10 +96,10 @@ async function readSetting(key: string): Promise<unknown | undefined> {
 async function writeSetting(key: string, value: unknown): Promise<void> {
   await db
     .insert(instanceSetting)
-    .values({ key, value, updatedAt: new Date() })
+    .values({ key, value, updated_at: new Date() })
     .onConflictDoUpdate({
       target: instanceSetting.key,
-      set: { value, updatedAt: new Date() },
+      set: { value, updated_at: new Date() },
     })
 }
 

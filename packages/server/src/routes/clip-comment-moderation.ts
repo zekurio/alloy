@@ -8,9 +8,9 @@ async function selectCommentModerationTarget(commentId: string) {
   const [row] = await db
     .select({
       id: clipComment.id,
-      clipId: clipComment.clipId,
-      authorId: clipComment.authorId,
-      parentId: clipComment.parentId,
+      clipId: clipComment.clip_id,
+      authorId: clipComment.author_id,
+      parentId: clipComment.parent_id,
     })
     .from(clipComment)
     .where(eq(clipComment.id, commentId))
@@ -20,7 +20,7 @@ async function selectCommentModerationTarget(commentId: string) {
 
 async function selectClipAuthorId(clipId: string) {
   const [row] = await db
-    .select({ authorId: clip.authorId })
+    .select({ authorId: clip.author_id })
     .from(clip)
     .where(eq(clip.id, clipId))
     .limit(1)
@@ -77,8 +77,8 @@ export async function softDeleteComment(commentId: string) {
     .update(clipComment)
     .set({
       body: "",
-      pinnedAt: null,
-      editedAt: new Date(),
+      pinned_at: null,
+      edited_at: new Date(),
     })
     .where(eq(clipComment.id, commentId))
 }
@@ -107,16 +107,16 @@ export async function pinTopLevelComment({
   await db.transaction(async (tx) => {
     await tx
       .update(clipComment)
-      .set({ pinnedAt: null })
+      .set({ pinned_at: null })
       .where(
         and(
-          eq(clipComment.clipId, row.clipId),
-          sql`${clipComment.pinnedAt} IS NOT NULL`,
+          eq(clipComment.clip_id, row.clipId),
+          sql`${clipComment.pinned_at} IS NOT NULL`,
         ),
       )
     await tx
       .update(clipComment)
-      .set({ pinnedAt: new Date() })
+      .set({ pinned_at: new Date() })
       .where(eq(clipComment.id, commentId))
   })
   return { ok: true as const, row }
@@ -137,7 +137,7 @@ export async function unpinComment({
 
   await db
     .update(clipComment)
-    .set({ pinnedAt: null })
+    .set({ pinned_at: null })
     .where(eq(clipComment.id, commentId))
   return { ok: true as const }
 }

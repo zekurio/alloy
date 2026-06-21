@@ -22,8 +22,8 @@ export async function hasBlockingRelationship(
     .from(block)
     .where(
       or(
-        and(eq(block.blockerId, viewerId), eq(block.blockedId, targetId)),
-        and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId)),
+        and(eq(block.blocker_id, viewerId), eq(block.blocked_id, targetId)),
+        and(eq(block.blocker_id, targetId), eq(block.blocked_id, viewerId)),
       ),
     )
     .limit(1)
@@ -79,7 +79,10 @@ export async function deleteViewerBlock(
   await db
     .delete(block)
     .where(
-      and(eq(block.blockerId, viewerId), eq(block.blockedId, result.target.id)),
+      and(
+        eq(block.blocker_id, viewerId),
+        eq(block.blocked_id, result.target.id),
+      ),
     )
   return booleanFlag(c, "blocked", false)
 }

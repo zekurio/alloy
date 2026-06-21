@@ -44,10 +44,10 @@ export async function resolveClipAccess({
   const [selected] = await db
     .select({
       row: clip,
-      authorDisabledAt: user.disabledAt,
+      authorDisabledAt: user.disabled_at,
     })
     .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
+    .innerJoin(user, eq(clip.author_id, user.id))
     .where(eq(clip.id, id))
     .limit(1)
 
@@ -59,7 +59,7 @@ export async function resolveClipAccess({
   const viewer = await peekClipViewer(c)
   const decision = evaluateClipAccess({
     authorDisabledAt,
-    authorId: row.authorId,
+    authorId: row.author_id,
     policy,
     privacy: row.privacy,
     status: row.status,

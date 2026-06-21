@@ -118,7 +118,7 @@ async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
   if (row.privacy !== "public" && row.privacy !== "unlisted") return null
 
   const [author] = await db
-    .select({ disabledAt: user.disabledAt })
+    .select({ disabledAt: user.disabled_at })
     .from(user)
     .where(eq(user.id, row.authorId))
     .limit(1)

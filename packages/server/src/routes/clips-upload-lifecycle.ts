@@ -148,17 +148,17 @@ export const clipsUploadLifecycleRoutes = new Hono()
             .insert(clip)
             .values({
               id: clipId,
-              authorId: viewerId,
+              author_id: viewerId,
               title: body.title,
               description: body.description ?? null,
               game: gameRef?.name ?? null,
-              steamgriddbId: gameRef?.steamgriddbId ?? null,
+              steamgriddb_id: gameRef?.steamgriddbId ?? null,
               privacy,
-              sourceContentType: body.contentType,
-              sourceSizeBytes: body.sizeBytes,
+              source_content_type: body.contentType,
+              source_size_bytes: body.sizeBytes,
               // Client-provided poster placeholder; media finalization preserves
               // it because the server does not derive poster frames or hashes.
-              thumbBlurHash: body.thumbBlurHash ?? null,
+              thumb_blur_hash: body.thumbBlurHash ?? null,
               status: "pending",
             })
             .onConflictDoNothing()
@@ -168,8 +168,8 @@ export const clipsUploadLifecycleRoutes = new Hono()
           if (mentionedIds.length > 0) {
             await tx.insert(clipMention).values(
               mentionedIds.map((mentionedUserId) => ({
-                clipId,
-                mentionedUserId,
+                clip_id: clipId,
+                mentioned_user_id: mentionedUserId,
               })),
             )
           }
@@ -178,7 +178,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
           if (tags.length > 0) {
             await tx
               .insert(clipTag)
-              .values(tags.map((tag) => ({ clipId, tag })))
+              .values(tags.map((tag) => ({ clip_id: clipId, tag })))
           }
 
           return { ok: true }
@@ -273,10 +273,10 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const videoUploadState = videoTicket?.usedAt
         ? null
         : parseUploadTicketStorageState(videoTicket?.uploadState)
-      const sourceContentType = row.sourceContentType
-      const sourceSizeBytes = row.sourceSizeBytes
+      const sourceContentType = row.source_content_type
+      const sourceSizeBytes = row.source_size_bytes
       if (!videoTicketKey || !sourceContentType || sourceSizeBytes == null) {
-        await markUploadFailed(row.authorId, id, "Upload ticket missing")
+        await markUploadFailed(row.author_id, id, "Upload ticket missing")
         return badRequest(c, "Upload ticket missing")
       }
 
@@ -288,14 +288,14 @@ export const clipsUploadLifecycleRoutes = new Hono()
       })
       if (!videoTicketOk) {
         await deleteStagedUpload(videoTicketKey, videoUploadState)
-        await markUploadFailed(row.authorId, id, "Upload ticket expired")
+        await markUploadFailed(row.author_id, id, "Upload ticket expired")
         return gone(c, "Upload ticket expired")
       }
 
       const stagedUpload = await resolveStagedUpload(videoTicketKey)
       if (!stagedUpload) {
         await deleteStagedUpload(videoTicketKey, videoUploadState)
-        await markUploadFailed(row.authorId, id, "Upload bytes are missing")
+        await markUploadFailed(row.author_id, id, "Upload bytes are missing")
         return badRequest(c, "Upload bytes are missing")
       }
 
@@ -315,7 +315,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
       )
       if (!quotaResult.ok) {
         await deleteStagedUpload(videoTicketKey, videoUploadState)
-        await markUploadFailed(row.authorId, id, "Storage quota exceeded")
+        await markUploadFailed(row.author_id, id, "Storage quota exceeded")
         return c.json(
           {
             error: "Storage quota exceeded",
@@ -329,7 +329,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
       if (stagedUpload.size !== sourceSizeBytes) {
         await deleteStagedUpload(videoTicketKey, videoUploadState)
         await markUploadFailed(
-          row.authorId,
+          row.author_id,
           id,
           "Upload size did not match declared size",
         )
@@ -340,13 +340,13 @@ export const clipsUploadLifecycleRoutes = new Hono()
         .update(clip)
         .set({
           status: "processing",
-          sourceSizeBytes: stagedUpload.size,
-          updatedAt: new Date(),
+          source_size_bytes: stagedUpload.size,
+          updated_at: new Date(),
         })
         .where(
           and(
             eq(clip.id, id),
-            eq(clip.authorId, viewerId),
+            eq(clip.author_id, viewerId),
             eq(clip.status, "pending"),
           ),
         )
@@ -398,7 +398,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
         ],
         "failed staged upload",
       )
-      await markUploadFailed(row.authorId, id, "Upload failed")
+      await markUploadFailed(row.author_id, id, "Upload failed")
       return success(c)
     },
   )

@@ -214,7 +214,7 @@ export const authDesktopRoute = new Hono()
         codeChallenge: codeChallenge.data,
         redirectUri: redirect.toString(),
         state,
-        username: session.user.displayUsername || session.user.username,
+        username: session.user.display_username || session.user.username,
       }),
     )
   })
@@ -265,7 +265,7 @@ export const authDesktopRoute = new Hono()
     if (!userId) return badRequest(c, "Invalid or expired code.")
 
     const { tokens, data } = await createSession(c, userId)
-    const expiresAt = data.session.expiresAt
+    const expiresAt = data.session.expires_at
     if (!expiresAt) throw new Error("Session created without an expiry.")
     return c.json({
       accessToken: tokens.accessToken,

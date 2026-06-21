@@ -66,7 +66,7 @@ export const adminRoute = new Hono()
       .select({ id: clip.id })
       .from(clip)
       .where(inArray(clip.status, ["ready", "failed"]))
-      .orderBy(clip.createdAt)
+      .orderBy(clip.created_at)
       .limit(RE_ENCODE_BATCH_LIMIT + 1)
     const batch = rows.slice(0, RE_ENCODE_BATCH_LIMIT)
     if (batch.length === 0) {
@@ -77,12 +77,12 @@ export const adminRoute = new Hono()
       .update(clip)
       .set({
         status: "processing",
-        encodeProgress: 0,
-        encodeRunId: null,
-        encodeLockedAt: null,
-        encodeAttempt: 0,
-        failureReason: null,
-        updatedAt: new Date(),
+        encode_progress: 0,
+        encode_run_id: null,
+        encode_locked_at: null,
+        encode_attempt: 0,
+        failure_reason: null,
+        updated_at: new Date(),
       })
       .where(inArray(clip.id, ids))
 

@@ -50,7 +50,7 @@ export async function hasAdminSignInMethodWith(
     const passkeyRows = await executor
       .select({ id: user.id })
       .from(user)
-      .innerJoin(userPasskey, eq(userPasskey.userId, user.id))
+      .innerJoin(userPasskey, eq(userPasskey.user_id, user.id))
       .where(and(...conditions))
       .limit(1)
     if (passkeyRows.length > 0) return true
@@ -64,8 +64,8 @@ export async function hasAdminSignInMethodWith(
   const oauthRows = await executor
     .select({ id: user.id })
     .from(user)
-    .innerJoin(authAccount, eq(authAccount.userId, user.id))
-    .where(and(...conditions, inArray(authAccount.providerId, providerIds)))
+    .innerJoin(authAccount, eq(authAccount.user_id, user.id))
+    .where(and(...conditions, inArray(authAccount.provider_id, providerIds)))
     .limit(1)
   return oauthRows.length > 0
 }

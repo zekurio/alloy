@@ -107,10 +107,10 @@ async function createUserIdentityWith(
   await assertUsernameAvailable(executor, username)
   const values: NewUser = {
     email,
-    emailVerified: true,
+    email_verified: true,
     username,
     role: input.role ?? "user",
-    storageQuotaBytes: configStore.get("limits").defaultStorageQuotaBytes,
+    storage_quota_bytes: configStore.get("limits").defaultStorageQuotaBytes,
   }
   const [created] = await executor.insert(user).values(values).returning()
   if (!created) throw new Error("Could not create user.")
@@ -148,9 +148,9 @@ async function createOrClaimSetupUserWith(
       .set({
         role: "admin",
         status: "active",
-        disabledAt: null,
+        disabled_at: null,
         username,
-        updatedAt: now,
+        updated_at: now,
       })
       .where(eq(user.id, existing.id))
       .returning()
@@ -219,7 +219,7 @@ export async function updateUserIdentity(
   userId: string,
   input: { email?: string; username?: string },
 ): Promise<User> {
-  const patch: Partial<NewUser> = { updatedAt: new Date() }
+  const patch: Partial<NewUser> = { updated_at: new Date() }
   if (input.email !== undefined) {
     const email = normalizeEmail(input.email)
     const existing = await findUserByEmail(email)
@@ -227,7 +227,7 @@ export async function updateUserIdentity(
       throw new Error("An account already exists for that email address.")
     }
     patch.email = email
-    patch.emailVerified = true
+    patch.email_verified = true
   }
   if (input.username !== undefined) {
     const username = validateUsername(input.username)
