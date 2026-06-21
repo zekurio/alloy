@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs"
-
 import {
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_QUOTA_CLAIM_DEFAULT,
@@ -31,7 +29,6 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 type EnvSource = Record<string, string | undefined>
-type ReadTextFile = (path: string) => string
 
 type ParsedSocialProviders = {
   oauthProviders: OAuthProviderConfig[]
@@ -92,31 +89,15 @@ function normalizeTrustedOrigins(
   return [...origins]
 }
 
-function envText(
-  source: EnvSource,
-  name: string,
-  readTextFile: ReadTextFile,
-): string | undefined {
-  const direct = source[name]?.trim()
-  const fileName = source[`${name}_FILE`]?.trim()
-  if (direct && fileName) {
-    throw new Error(
-      `[server/env] Set either ${name} or ${name}_FILE, not both.`,
-    )
-  }
-  if (direct) return direct
-  if (!fileName) return undefined
-  return readTextFile(fileName).trim()
+function envText(source: EnvSource, name: string): string | undefined {
+  const value = source[name]?.trim()
+  return value ? value : undefined
 }
 
-function requiredSecret(
-  source: EnvSource,
-  name: string,
-  readTextFile: ReadTextFile,
-): string {
-  const value = envText(source, name, readTextFile)
+function requiredSecret(source: EnvSource, name: string): string {
+  const value = envText(source, name)
   if (!value) {
-    throw new Error(`[server/env] ${name} or ${name}_FILE is required.`)
+    throw new Error(`[server/env] ${name} is required.`)
   }
   if (value.length < 32) {
     throw new Error(`[server/env] ${name} must be at least 32 characters.`)
@@ -239,12 +220,7 @@ function authParams(
   return Object.keys(params).length > 0 ? params : undefined
 }
 
-export function parseServerEnv(
-  source: EnvSource = process.env,
-  options: { readTextFile?: ReadTextFile } = {},
-) {
-  const readTextFile =
-    options.readTextFile ?? ((path) => readFileSync(path, "utf8"))
+export function parseServerEnv(source: EnvSource = process.env) {
   const defaultPublicServerUrl =
     source.PUBLIC_SERVER_URL ?? "http://localhost:2552"
 
@@ -321,24 +297,13 @@ export function parseServerEnv(
   const viewerCookieSecret = requiredSecret(
     source,
     "ALLOY_VIEWER_COOKIE_SECRET",
-    readTextFile,
   )
-  const uploadHmacSecret = requiredSecret(
-    source,
-    "ALLOY_UPLOAD_HMAC_SECRET",
-    readTextFile,
-  )
-  const steamgriddbApiKey =
-    envText(source, "ALLOY_STEAMGRIDDB_API_KEY", readTextFile) ?? ""
-  const s3AccessKeyId =
-    envText(source, "ALLOY_STORAGE_S3_ACCESS_KEY_ID", readTextFile) ?? ""
+  const uploadHmacSecret = requiredSecret(source, "ALLOY_UPLOAD_HMAC_SECRET")
+  const steamgriddbApiKey = envText(source, "ALLOY_STEAMGRIDDB_API_KEY") ?? ""
+  const s3AccessKeyId = envText(source, "ALLOY_STORAGE_S3_ACCESS_KEY_ID") ?? ""
   const s3SecretAccessKey =
-    envText(source, "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY", readTextFile) ?? ""
-  const socialProviders = envText(
-    source,
-    "ALLOY_SOCIALACCOUNT_PROVIDERS",
-    readTextFile,
-  )
+    envText(source, "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY") ?? ""
+  const socialProviders = envText(source, "ALLOY_SOCIALACCOUNT_PROVIDERS")
   const { oauthProviders, oauthClientSecrets } =
     parseSocialProviders(socialProviders)
 
@@ -355,12 +320,12 @@ export function parseServerEnv(
     }
     if (!s3AccessKeyId) {
       throw new Error(
-        "[server/env] ALLOY_STORAGE_S3_ACCESS_KEY_ID or ALLOY_STORAGE_S3_ACCESS_KEY_ID_FILE is required for S3 storage.",
+        "[server/env] ALLOY_STORAGE_S3_ACCESS_KEY_ID is required for S3 storage.",
       )
     }
     if (!s3SecretAccessKey) {
       throw new Error(
-        "[server/env] ALLOY_STORAGE_S3_SECRET_ACCESS_KEY or ALLOY_STORAGE_S3_SECRET_ACCESS_KEY_FILE is required for S3 storage.",
+        "[server/env] ALLOY_STORAGE_S3_SECRET_ACCESS_KEY is required for S3 storage.",
       )
     }
   }

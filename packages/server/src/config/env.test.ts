@@ -18,32 +18,6 @@ function baseEnv(overrides: Record<string, string | undefined> = {}) {
   }
 }
 
-test("rejects direct and file variants for the same secret", () => {
-  assert.throws(
-    () =>
-      parseServerEnv(
-        baseEnv({
-          ALLOY_STEAMGRIDDB_API_KEY: "direct",
-          ALLOY_STEAMGRIDDB_API_KEY_FILE: "/run/secrets/steamgriddb",
-        }),
-        { readTextFile: () => "from-file" },
-      ),
-    /Set either ALLOY_STEAMGRIDDB_API_KEY or ALLOY_STEAMGRIDDB_API_KEY_FILE/,
-  )
-})
-
-test("loads file-backed secrets", () => {
-  const parsed = parseServerEnv(
-    baseEnv({
-      ALLOY_VIEWER_COOKIE_SECRET: undefined,
-      ALLOY_VIEWER_COOKIE_SECRET_FILE: "/run/secrets/viewer",
-    }),
-    { readTextFile: () => secret },
-  )
-
-  assert.equal(parsed.viewerCookieSecret, secret)
-})
-
 test("rejects missing required internal signing secrets", () => {
   assert.throws(
     () =>
@@ -52,7 +26,7 @@ test("rejects missing required internal signing secrets", () => {
           ALLOY_UPLOAD_HMAC_SECRET: undefined,
         }),
       ),
-    /ALLOY_UPLOAD_HMAC_SECRET or ALLOY_UPLOAD_HMAC_SECRET_FILE is required/,
+    /ALLOY_UPLOAD_HMAC_SECRET is required/,
   )
 })
 
