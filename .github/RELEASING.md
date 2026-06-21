@@ -1,20 +1,19 @@
 # Releasing
 
-Alloy has two release channels:
+Alloy has one GitHub Release channel and one unstable build channel:
 
 - **Latest**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and paired
   with the `ghcr.io/zekurio/alloy:latest` Docker tag.
-- **Unstable**: built from `develop` after CI passes, tagged
-  `vX.Y.Z-unstable.YYYYMMDD.<run>` as a GitHub prerelease, and paired with the
-  `ghcr.io/zekurio/alloy:unstable` Docker tag. The pinned Docker tag is the
-  release commit SHA.
+- **Unstable**: built from `develop` after CI passes, uploaded as a workflow
+  artifact, and paired with the `ghcr.io/zekurio/alloy:unstable` Docker tag.
+  The pinned Docker tag is the release commit SHA.
 
 GitHub Release assets are intentionally limited to the desktop app and
 auto-update files:
 
 - `Alloy-Desktop-...exe`
 - the installer `.blockmap`
-- `latest.yml` for latest releases or `unstable.yml` for unstable releases
+- `latest.yml`
 - `checksums.txt`
 
 Server distribution is handled by the **Release** workflow's server image job.
@@ -31,7 +30,7 @@ look at `latest.yml` and reject unstable versions. Unstable builds look at
   Nix users with `inputs.alloy.url = "github:zekurio/alloy/develop";`.
 - Feature branches should target `develop` unless they are release fixes for
   `main`.
-- Protect both `main` and `develop`. The unstable release path runs with write
+- Protect both `main` and `develop`. The unstable build path runs with write
   permissions after CI passes, so `develop` should only receive trusted merges.
 
 ## Latest Releases
@@ -61,25 +60,28 @@ look at `latest.yml` and reject unstable versions. Unstable builds look at
 Pushing an existing `vX.Y.Z` tag still works, but tag-triggered latest releases
 require the checked-in package versions to already match the tag.
 
-## Unstable Releases
+## Unstable Builds
 
-Unstable releases are produced automatically from `develop` after the **CI**
-workflow completes successfully for a push to `develop`. The release workflow
-skips the run if that exact commit already has an unstable release tag, so
-rerunning CI for the same commit does not create duplicate prereleases.
+Unstable builds are produced automatically from `develop` after the **CI**
+workflow completes successfully for a push to `develop`. They do not create
+GitHub Releases or prereleases.
 
-To cut an unstable manually, run **Release** with:
+To build unstable manually, run **Release** with:
 
 - `channel`: `unstable`
 - `version`: empty
 
 The workflow derives the unstable version from the next patch after the current
-root package version, the UTC date, and the GitHub run number. For example,
-`0.0.1` produces `0.0.2-unstable.YYYYMMDD.<run>`. Unstable releases publish:
+root package version, the UTC date, and the GitHub run number for Electron
+updater metadata. For example, `0.0.1` produces
+`0.0.2-unstable.YYYYMMDD.<run>`. Unstable builds upload:
 
 - the Windows desktop installer
 - `unstable.yml`
-- blockmaps and checksums
+- blockmaps
+
+Download the latest unstable Electron artifact from
+`https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip`.
 
 The server image job publishes:
 
@@ -90,9 +92,9 @@ The server image job publishes:
 
 No custom bot is required. The release workflow uses the built-in
 `GITHUB_TOKEN`, asks GitHub to generate the changelog for the matching channel,
-and prepends Alloy-specific deployment notes:
+and prepends Alloy-specific deployment notes for latest releases:
 
-- which desktop updater manifest is attached (`latest.yml` or `unstable.yml`)
+- which desktop updater manifest is attached (`latest.yml`)
 - which Docker image to use for the channel
 - which pinned Docker image reproduces the exact release
 

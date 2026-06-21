@@ -9,6 +9,79 @@ recorder. The desktop app records and edits local captures, then publishes them
 to the server; the web app handles browsing, playback, profiles, comments,
 search, library management, setup, and admin settings.
 
+## Installation
+
+### Desktop
+
+Alloy Desktop currently targets Windows x64. Install the latest stable desktop
+build from the [latest GitHub Release](https://github.com/zekurio/alloy/releases/latest).
+
+Unstable desktop builds are workflow artifacts from `develop`, not GitHub
+Releases. Download the latest unstable Electron artifact from
+[desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip).
+
+### Server
+
+The NixOS module is the preferred server deployment path today.
+
+```nix
+inputs.alloy.url = "github:zekurio/alloy";
+```
+
+```nix
+{
+  imports = [ inputs.alloy.nixosModules.default ];
+
+  services.alloy-clips = {
+    enable = true;
+    publicServerUrl = "https://alloy.example.com";
+    openFirewall = true;
+    secrets.viewerCookieSecretFile = "/run/secrets/alloy-viewer-cookie-secret";
+    secrets.uploadHmacSecretFile = "/run/secrets/alloy-upload-hmac-secret";
+  };
+}
+```
+
+For reproducible NixOS deployments, pin a release tag:
+
+```nix
+inputs.alloy.url = "github:zekurio/alloy/vX.Y.Z";
+```
+
+To follow the development branch through Nix flakes, pin `develop` in your
+flake input and update your lock file when you want to move:
+
+```nix
+inputs.alloy.url = "github:zekurio/alloy/develop";
+```
+
+Docker support exists, but is less polished than the NixOS module. Bring your
+own PostgreSQL. The server runs migrations automatically in production, but the
+database must already exist and be reachable through `DATABASE_URL`. Runtime
+configuration comes from env vars or `_FILE` paths. If you use filesystem
+storage, persist `/data`; if you use S3-compatible storage, the app does not need
+a durable container volume.
+
+```bash
+docker run --rm \
+  -p 2552:2552 \
+  -e DATABASE_URL=postgres://alloy:password@postgres.example.internal:5432/alloy \
+  -e PUBLIC_SERVER_URL=https://alloy.example.com \
+  -e TRUSTED_ORIGINS=https://alloy.example.com \
+  -e ALLOY_VIEWER_COOKIE_SECRET_FILE=/run/secrets/viewer-cookie-secret \
+  -e ALLOY_UPLOAD_HMAC_SECRET_FILE=/run/secrets/upload-hmac-secret \
+  -v /run/secrets/alloy:/run/secrets:ro \
+  -v alloy-storage:/data \
+  ghcr.io/zekurio/alloy:latest
+```
+
+Server image tags:
+
+- `latest`: latest app release.
+- `vX.Y.Z`: exact latest app release.
+- `unstable`: latest unstable server build from `develop`.
+- `<commit-sha>`: exact unstable server build.
+
 ## Repository Guide
 
 All TypeScript packages live under `packages/`. Deployable products and shared
@@ -138,29 +211,7 @@ nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link
 nix --extra-experimental-features "nix-command flakes" build .#alloy-image --no-link
 ```
 
-## Deployment
-
-### NixOS
-
-The NixOS module is the preferred deployment path today.
-
-```nix
-inputs.alloy.url = "github:zekurio/alloy";
-```
-
-```nix
-{
-  imports = [ inputs.alloy.nixosModules.default ];
-
-  services.alloy-clips = {
-    enable = true;
-    publicServerUrl = "https://alloy.example.com";
-    openFirewall = true;
-    secrets.viewerCookieSecretFile = "/run/secrets/alloy-viewer-cookie-secret";
-    secrets.uploadHmacSecretFile = "/run/secrets/alloy-upload-hmac-secret";
-  };
-}
-```
+## Server Configuration
 
 By default the module creates and manages a local PostgreSQL database named
 `alloy`, derives `DATABASE_URL`, and uses filesystem storage under
@@ -172,19 +223,6 @@ OAuth are Nix options or environment variables. Alloy no longer reads mutable
 authenticated setups, override environment through
 `services.alloy-clips.environment` or a systemd service override.
 
-For reproducible deployments, pin a release tag:
-
-```nix
-inputs.alloy.url = "github:zekurio/alloy/vX.Y.Z";
-```
-
-To follow the development branch through Nix flakes, pin `develop` in your
-flake input and update your lock file when you want to move:
-
-```nix
-inputs.alloy.url = "github:zekurio/alloy/develop";
-```
-
 Optional Cachix cache:
 
 ```nix
@@ -195,35 +233,6 @@ nix.settings = {
   ];
 };
 ```
-
-### Docker
-
-Docker support exists, but is less polished than the NixOS module. Bring your
-own PostgreSQL. The server runs migrations automatically in production, but the
-database must already exist and be reachable through `DATABASE_URL`. Runtime
-configuration comes from env vars or `_FILE` paths. If you use filesystem
-storage, persist `/data`; if you use S3-compatible storage, the app does not need
-a durable container volume.
-
-```bash
-docker run --rm \
-  -p 2552:2552 \
-  -e DATABASE_URL=postgres://alloy:password@postgres.example.internal:5432/alloy \
-  -e PUBLIC_SERVER_URL=https://alloy.example.com \
-  -e TRUSTED_ORIGINS=https://alloy.example.com \
-  -e ALLOY_VIEWER_COOKIE_SECRET_FILE=/run/secrets/viewer-cookie-secret \
-  -e ALLOY_UPLOAD_HMAC_SECRET_FILE=/run/secrets/upload-hmac-secret \
-  -v /run/secrets/alloy:/run/secrets:ro \
-  -v alloy-storage:/data \
-  ghcr.io/zekurio/alloy:latest
-```
-
-Image tags:
-
-- `latest`: latest app release.
-- `vX.Y.Z`: exact latest app release.
-- `unstable`: latest unstable app build from `develop`.
-- `<commit-sha>`: exact unstable app build.
 
 ### Storage
 
@@ -328,13 +337,15 @@ configured runtime contains `obs.dll`.
 
 ## Releases
 
-Alloy has latest and unstable release channels. Latest releases use tags named
-`vX.Y.Z`; unstable releases use tags named
-`vX.Y.Z-unstable.YYYYMMDD.<run>` and are built from `develop` after CI passes.
+Alloy publishes GitHub Releases only for latest builds. Latest releases use tags
+named `vX.Y.Z` and attach the Windows installer, Electron updater metadata
+(`latest.yml`), blockmaps, and checksums.
 
-GitHub Release assets are desktop-only: the Windows installer, Electron updater
-metadata (`latest.yml` or `unstable.yml`), blockmaps, and checksums. The same
-release workflow publishes GHCR server images: use
+Unstable desktop builds are workflow artifacts from `develop`, not GitHub
+Releases. Download the latest unstable Electron artifact from
+[desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip).
+
+The same release workflow publishes GHCR server images: use
 `ghcr.io/zekurio/alloy:latest` for latest,
 `ghcr.io/zekurio/alloy:unstable` for unstable, or pin the exact `:vX.Y.Z` /
 `:<commit-sha>` tag.
