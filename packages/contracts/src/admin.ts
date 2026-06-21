@@ -128,10 +128,15 @@ export type StorageDriverType = (typeof STORAGE_DRIVER_TYPES)[number]
 
 export const FilesystemStorageConfigSchema = z.looseObject({
   /**
-   * Filesystem root for clip sources, thumbnails, and derived media. Relative
-   * paths resolve from the server working directory; absolute paths are used as-is.
+   * Filesystem root for clip sources and derived clip media. Relative paths
+   * resolve from the server working directory; absolute paths are used as-is.
    */
   clipsPath: NonEmptyStringSchema,
+  /**
+   * Filesystem root for clip thumbnails. Relative paths resolve from the
+   * server working directory; absolute paths are used as-is.
+   */
+  thumbnailsPath: NonEmptyStringSchema,
   /**
    * Filesystem root for user-owned assets such as avatars, banners, and
    * profile backgrounds. Relative paths resolve from the server working
@@ -164,6 +169,7 @@ function migrateLegacyStorageConfig(value: unknown): unknown {
     driver: value.driver,
     fs: {
       clipsPath: legacyStoragePath(value, "clips"),
+      thumbnailsPath: legacyStoragePath(value, "thumbnails"),
       usersPath: legacyStoragePath(value, "users"),
     },
   }
@@ -171,9 +177,16 @@ function migrateLegacyStorageConfig(value: unknown): unknown {
 
 function legacyStoragePath(
   record: Record<string, unknown>,
-  namespace: "clips" | "users",
+  namespace: "clips" | "thumbnails" | "users",
 ): string {
-  const override = record[namespace === "clips" ? "clipsPath" : "usersPath"]
+  const override =
+    record[
+      namespace === "clips"
+        ? "clipsPath"
+        : namespace === "thumbnails"
+          ? "thumbnailsPath"
+          : "usersPath"
+    ]
   if (typeof override === "string" && override.trim().length > 0) {
     return override
   }

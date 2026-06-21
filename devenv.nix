@@ -61,6 +61,7 @@ in
     ALLOY_UPLOAD_TTL_SEC = "900";
     ALLOY_STORAGE_DRIVER = "fs";
     ALLOY_STORAGE_FS_CLIPS_PATH = "${config.devenv.root}/data/storage/clips";
+    ALLOY_STORAGE_FS_THUMBNAILS_PATH = "${config.devenv.root}/data/storage/thumbnails";
     ALLOY_STORAGE_FS_USERS_PATH = "${config.devenv.root}/data/storage/users";
 
     # Desktop app: run the Nix-provided Electron (electron-vite reads

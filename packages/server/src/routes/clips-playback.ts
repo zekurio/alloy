@@ -16,7 +16,7 @@ import {
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
-import { clipStorage } from "@alloy/server/storage/index"
+import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { type Context, Hono } from "hono"
 import { stream } from "hono/streaming"
 
@@ -210,7 +210,7 @@ export const clipsPlaybackRoutes = new Hono()
         : `private, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`
     const direct = await redirectToStorageUrl(
       c,
-      clipStorage,
+      clipThumbnailStorage,
       { key },
       directCacheControl,
     )

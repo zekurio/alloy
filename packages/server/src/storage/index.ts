@@ -1,3 +1,4 @@
+import type { UploadTicketRole } from "@alloy/contracts"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
@@ -64,8 +65,30 @@ class ConfiguredStorageDriver implements StorageDriver {
 }
 
 export const clipStorage: StorageDriver = new ConfiguredStorageDriver("clips")
+export const clipThumbnailStorage: StorageDriver = new ConfiguredStorageDriver(
+  "thumbnails",
+)
 export const userStorage: StorageDriver = new ConfiguredStorageDriver("users")
 export const dataStorage: StorageDriver = userStorage
+
+export function clipStorageForUploadRole(
+  role: UploadTicketRole,
+): StorageDriver {
+  return role === "thumb" ? clipThumbnailStorage : clipStorage
+}
+
+export function clipStorageForKey(key: string): StorageDriver {
+  return isClipThumbnailKey(key) ? clipThumbnailStorage : clipStorage
+}
+
+function isClipThumbnailKey(key: string): boolean {
+  const filename = key.slice(key.lastIndexOf("/") + 1).toLowerCase()
+  return (
+    filename === "thumb.jpg" ||
+    filename === "thumb-small.jpg" ||
+    (filename.startsWith("thumb-") && filename.endsWith(".jpg"))
+  )
+}
 
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
 export { clipAssetDir, clipAssetKey, userAssetKey } from "./driver"

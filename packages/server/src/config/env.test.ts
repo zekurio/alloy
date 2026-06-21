@@ -42,6 +42,25 @@ test("rejects unsupported storage driver", () => {
   )
 })
 
+test("configures filesystem thumbnail storage separately", () => {
+  const parsed = parseServerEnv(
+    baseEnv({
+      ALLOY_STORAGE_FS_CLIPS_PATH: "/tank/alloy/clips",
+      ALLOY_STORAGE_FS_THUMBNAILS_PATH: "/fast/alloy/thumbnails",
+      ALLOY_STORAGE_FS_USERS_PATH: "/var/lib/alloy/assets",
+    }),
+  )
+
+  assert.deepEqual(parsed.storage, {
+    driver: "fs",
+    fs: {
+      clipsPath: "/tank/alloy/clips",
+      thumbnailsPath: "/fast/alloy/thumbnails",
+      usersPath: "/var/lib/alloy/assets",
+    },
+  })
+})
+
 test("maps Paperless-style OIDC JSON to Alloy provider config", () => {
   const providers = {
     openid_connect: {

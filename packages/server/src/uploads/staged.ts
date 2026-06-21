@@ -1,6 +1,9 @@
 import type { AcceptedContentType, UploadTicket } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
-import { clipStorage } from "@alloy/server/storage/index"
+import {
+  clipStorageForKey,
+  clipStorageForUploadRole,
+} from "@alloy/server/storage/index"
 
 const logger = createLogger("uploads")
 
@@ -25,7 +28,7 @@ export async function mintStagedUploadUrl(input: {
   clipId: string
   role: "video" | "thumb"
 }): Promise<UploadTicket> {
-  return clipStorage.mintUploadUrl(input)
+  return clipStorageForUploadRole(input.role).mintUploadUrl(input)
 }
 
 export async function mintStagedUpload(input: {
@@ -37,24 +40,25 @@ export async function mintStagedUpload(input: {
   clipId: string
   role: "video" | "thumb"
 }) {
-  return clipStorage.mintUploadUrl(input)
+  return clipStorageForUploadRole(input.role).mintUploadUrl(input)
 }
 
 export async function resolveStagedUpload(key: string) {
-  return clipStorage.resolve(key)
+  return clipStorageForKey(key).resolve(key)
 }
 
 export async function downloadStagedUploadToFile(
   key: string,
   destPath: string,
 ): Promise<void> {
-  await clipStorage.downloadToFile(key, destPath)
+  await clipStorageForKey(key).downloadToFile(key, destPath)
 }
 
 export async function deleteStagedUpload(key: string | null): Promise<void> {
   if (!key) return
-  await clipStorage.abortUpload({ key })
-  await clipStorage.delete(key)
+  const storage = clipStorageForKey(key)
+  await storage.abortUpload({ key })
+  await storage.delete(key)
 }
 
 export async function deleteStagedUploads(
