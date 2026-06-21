@@ -1,5 +1,8 @@
 .git
 .direnv
+.env
+.env.*
+!.env.example
 .pg
 build
 node_modules

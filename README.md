@@ -61,8 +61,8 @@ flake input and update your lock file when you want to move:
 inputs.alloy.url = "github:zekurio/alloy/develop";
 ```
 
-Docker support exists, but is less polished than the NixOS module. Bring your
-own PostgreSQL. The server runs migrations automatically in production, but the
+Docker support is available through the root `Dockerfile`. Bring your own
+PostgreSQL. The server runs migrations automatically in production, but the
 database must already exist and be reachable through `DATABASE_URL`. Runtime
 configuration comes from env vars. If you use filesystem storage, persist
 `/data`; if you use S3-compatible storage, the app does not need a durable
@@ -215,12 +215,19 @@ For server config parser changes, also run:
 pnpm --filter @alloy/server test:config
 ```
 
-For Nix package or container changes, run the relevant Nix checks:
+For Nix package changes, run the relevant Nix checks:
 
 ```bash
 nix --extra-experimental-features "nix-command flakes" flake check --no-build
 nix --extra-experimental-features "nix-command flakes" build .#alloy --no-link
-nix --extra-experimental-features "nix-command flakes" build .#alloy-image --no-link
+```
+
+For Docker image changes, build the image with Docker or Podman:
+
+```bash
+docker build -t alloy:local .
+# or:
+podman build -t alloy:local .
 ```
 
 ## Server Configuration
