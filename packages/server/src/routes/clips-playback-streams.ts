@@ -1,15 +1,12 @@
 import type { ClipPrivacy } from "@alloy/contracts"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
-import { clipStorage } from "@alloy/server/storage/index"
+import type { ResolvedObject } from "@alloy/server/storage/driver"
+import { clipThumbnailStorage } from "@alloy/server/storage/index"
 import { type Context } from "hono"
 import { stream } from "hono/streaming"
 
 import { parseRange } from "./clips-helpers"
-
-type ResolvedStorageObject = NonNullable<
-  Awaited<ReturnType<typeof clipStorage.resolve>>
->
 
 export function mediaCacheControl(privacy: ClipPrivacy): string {
   return privacy === "public" ? "public, max-age=300" : "private, max-age=300"
@@ -17,7 +14,7 @@ export function mediaCacheControl(privacy: ClipPrivacy): string {
 
 export function streamResolved(
   c: Context,
-  resolved: ResolvedStorageObject,
+  resolved: ResolvedObject,
   contentType: string,
   cacheControl: string,
 ): Response {
@@ -56,7 +53,7 @@ export async function streamThumbnail(
   key: string,
   cacheControl: string,
 ): Promise<Response> {
-  const resolved = await clipStorage.resolve(key)
+  const resolved = await clipThumbnailStorage.resolve(key)
   if (!resolved) return notFound(c, "No thumbnail")
 
   c.header("Content-Type", resolved.contentType)

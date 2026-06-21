@@ -34,6 +34,7 @@ let
     childString == parentString || lib.hasPrefix "${parentString}/" childString;
   fsStoragePaths = [
     cfg.storage.fs.clipsPath
+    cfg.storage.fs.thumbnailsPath
     cfg.storage.fs.usersPath
   ];
   serverExternalWritePaths = lib.unique (
@@ -75,6 +76,7 @@ in
     )
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "storageDir" ] ''
       Configure services.alloy-server.storage.fs.clipsPath and
+      services.alloy-server.storage.fs.thumbnailsPath and
       services.alloy-server.storage.fs.usersPath directly.
     '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "configFile" ] ''
@@ -271,7 +273,7 @@ in
           "fs"
         ];
         default = "fs";
-        description = "Storage backend for clips and user assets. Only filesystem storage is supported.";
+        description = "Storage backend for clips, thumbnails, and user assets. Only filesystem storage is supported.";
       };
 
       fs = {
@@ -279,7 +281,14 @@ in
           type = lib.types.path;
           default = "${cfg.stateDir}/storage/clips";
           defaultText = lib.literalExpression ''"\${config.services.alloy-server.stateDir}/storage/clips"'';
-          description = "Filesystem root for clip sources, thumbnails, and derived media.";
+          description = "Filesystem root for clip sources and derived clip media.";
+        };
+
+        thumbnailsPath = lib.mkOption {
+          type = lib.types.path;
+          default = "${cfg.stateDir}/storage/thumbnails";
+          defaultText = lib.literalExpression ''"\${config.services.alloy-server.stateDir}/storage/thumbnails"'';
+          description = "Filesystem root for clip thumbnails.";
         };
 
         usersPath = lib.mkOption {
@@ -412,6 +421,7 @@ in
           ALLOY_UPLOAD_TTL_SEC = toString cfg.limits.uploadTtlSec;
           ALLOY_STORAGE_DRIVER = cfg.storage.driver;
           ALLOY_STORAGE_FS_CLIPS_PATH = toString cfg.storage.fs.clipsPath;
+          ALLOY_STORAGE_FS_THUMBNAILS_PATH = toString cfg.storage.fs.thumbnailsPath;
           ALLOY_STORAGE_FS_USERS_PATH = toString cfg.storage.fs.usersPath;
           PGHOST = cfg.database.host;
           PGUSER = cfg.database.user;

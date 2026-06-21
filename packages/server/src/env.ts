@@ -248,6 +248,11 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .trim()
         .min(1)
         .default("storage/clips"),
+      ALLOY_STORAGE_FS_THUMBNAILS_PATH: z
+        .string()
+        .trim()
+        .min(1)
+        .default("storage/thumbnails"),
       ALLOY_STORAGE_FS_USERS_PATH: z
         .string()
         .trim()
@@ -270,6 +275,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
     driver: raw.ALLOY_STORAGE_DRIVER,
     fs: {
       clipsPath: raw.ALLOY_STORAGE_FS_CLIPS_PATH,
+      thumbnailsPath: raw.ALLOY_STORAGE_FS_THUMBNAILS_PATH,
       usersPath: raw.ALLOY_STORAGE_FS_USERS_PATH,
     },
   }

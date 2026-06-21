@@ -10,7 +10,11 @@ import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { probeMedia } from "@alloy/server/media/probe"
 import { trimToMp4 } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
-import { clipStorage } from "@alloy/server/storage/index"
+import {
+  clipStorage,
+  clipStorageForKey,
+  clipThumbnailStorage,
+} from "@alloy/server/storage/index"
 import {
   deleteStagedUpload,
   downloadStagedUploadToFile,
@@ -303,7 +307,7 @@ async function republishUploadedThumbnail(
       }
 
       const thumbKey = runScopedThumbKey(id, runId)
-      await clipStorage.put(thumbKey, jpeg, "image/jpeg")
+      await clipThumbnailStorage.put(thumbKey, jpeg, "image/jpeg")
       uploadedKeys.push(thumbKey)
       return { thumbKey, thumbBlurHash: normalizeBlurHash(row.thumbBlurHash) }
     }
@@ -387,7 +391,7 @@ async function deleteAssetsBestEffort(
       .filter((key) => !retainedKeys.has(key))
       .map(async (key) => {
         try {
-          await clipStorage.delete(key)
+          await clipStorageForKey(key).delete(key)
         } catch (err) {
           logger.warn(`failed to delete ${label} ${key}:`, err)
         }

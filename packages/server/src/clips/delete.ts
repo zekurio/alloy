@@ -2,7 +2,7 @@ import { clip } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { cancelClipMediaProcessing } from "@alloy/server/queue/media-worker"
-import { clipStorage } from "@alloy/server/storage/index"
+import { clipStorageForKey } from "@alloy/server/storage/index"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { eq } from "drizzle-orm"
 
@@ -21,7 +21,7 @@ export async function deleteClipRowAndAssets(
   )
   for (const key of keys) {
     try {
-      await clipStorage.delete(key)
+      await clipStorageForKey(key).delete(key)
     } catch (err) {
       logger.warn(`failed to delete ${key}:`, err)
     }
