@@ -52,7 +52,7 @@ export const clipsEngagementRoutes = new Hono()
     const { id } = c.req.valid("param")
     const target = await resolveClipAccess({
       id,
-      headers: c.req.raw.headers,
+      c,
       policy: "engagement",
     })
     if (!target.accessible) return clipAccessResponse(c, target)
@@ -74,7 +74,7 @@ export const clipsEngagementRoutes = new Hono()
 
       const target = await resolveClipAccess({
         id,
-        headers: c.req.raw.headers,
+        c,
         policy: "engagement",
       })
       if (!target.accessible) return clipAccessResponse(c, target)
@@ -103,7 +103,7 @@ export const clipsEngagementRoutes = new Hono()
       const { id } = c.req.valid("param")
       const target = await resolveClipAccess({
         id,
-        headers: c.req.raw.headers,
+        c,
         policy: "engagement",
       })
       if (!target.accessible) return clipAccessResponse(c, target)
@@ -132,7 +132,7 @@ export const clipsEngagementRoutes = new Hono()
 
     const target = await resolveClipAccess({
       id,
-      headers: c.req.raw.headers,
+      c,
       policy: "engagement",
     })
     if (!target.accessible) return clipAccessResponse(c, target)

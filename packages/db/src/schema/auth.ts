@@ -69,7 +69,30 @@ export const authSession = pgTable("auth_session", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   lastSeenAt: timestamp("last_seen_at"),
+  revokedAt: timestamp("revoked_at"),
 })
+
+export const authRefreshToken = pgTable(
+  "auth_refresh_token",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => authSession.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at").notNull(),
+    absoluteExpiresAt: timestamp("absolute_expires_at").notNull(),
+    consumedAt: timestamp("consumed_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at"),
+  },
+  (t) => [
+    index("auth_refresh_token_session_idx").on(t.sessionId),
+    index("auth_refresh_token_expires_at_idx").on(t.expiresAt),
+  ],
+)
 
 export const userPasskey = pgTable("user_passkey", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -143,6 +166,7 @@ export const authChallenge = pgTable(
 export const authSchema = {
   user,
   authSession,
+  authRefreshToken,
   userPasskey,
   authAccount,
   authChallenge,
@@ -151,4 +175,5 @@ export const authSchema = {
 export type User = typeof user.$inferSelect
 export type NewUser = typeof user.$inferInsert
 export type AuthSession = typeof authSession.$inferSelect
+export type AuthRefreshToken = typeof authRefreshToken.$inferSelect
 export type UserPasskey = typeof userPasskey.$inferSelect

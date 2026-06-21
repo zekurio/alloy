@@ -51,7 +51,7 @@ export const clipCommentsRoutes = new Hono()
 
       const access = await resolveClipAccess({
         id,
-        headers: c.req.raw.headers,
+        c,
         policy: "metadata",
       })
       if (!access.accessible) return clipAccessResponse(c, access)
@@ -87,7 +87,7 @@ export const clipCommentsRoutes = new Hono()
 
       const access = await resolveClipAccess({
         id,
-        headers: c.req.raw.headers,
+        c,
         policy: "engagement",
       })
       if (!access.accessible) return clipAccessResponse(c, access)
@@ -207,7 +207,7 @@ export const clipCommentsRoutes = new Hono()
       const target = await canModerateComment({
         commentId,
         viewerId,
-        headers: c.req.raw.headers,
+        c,
       })
       if (!target.ok) {
         return errorResult(c, target)
@@ -225,10 +225,7 @@ export const clipCommentsRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
 
-      const target = await resolveCommentEngagementTarget(
-        commentId,
-        c.req.raw.headers,
-      )
+      const target = await resolveCommentEngagementTarget(commentId, c)
       if (!target.accessible) {
         return clipAccessResponse(c, target)
       }
@@ -267,10 +264,7 @@ export const clipCommentsRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
 
-      const target = await resolveCommentEngagementTarget(
-        commentId,
-        c.req.raw.headers,
-      )
+      const target = await resolveCommentEngagementTarget(commentId, c)
       if (!target.accessible) {
         return clipAccessResponse(c, target)
       }

@@ -23,8 +23,8 @@ type ClipAccessAllowed = {
 
 type ClipAccessResult = ClipAccessAllowed | ClipAccessDenied
 
-async function peekClipViewer(headers: Headers): Promise<ClipViewer> {
-  const session = await getSession(headers)
+async function peekClipViewer(c: Context): Promise<ClipViewer> {
+  const session = await getSession(c)
   if (!session) return null
   return {
     id: session.user.id,
@@ -34,11 +34,11 @@ async function peekClipViewer(headers: Headers): Promise<ClipViewer> {
 
 export async function resolveClipAccess({
   id,
-  headers,
+  c,
   policy,
 }: {
   id: string
-  headers: Headers
+  c: Context
   policy: ClipAccessPolicyName
 }): Promise<ClipAccessResult> {
   const [selected] = await db
@@ -56,7 +56,7 @@ export async function resolveClipAccess({
   }
 
   const { row, authorDisabledAt } = selected
-  const viewer = await peekClipViewer(headers)
+  const viewer = await peekClipViewer(c)
   const decision = evaluateClipAccess({
     authorDisabledAt,
     authorId: row.authorId,

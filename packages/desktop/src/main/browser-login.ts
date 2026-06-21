@@ -70,7 +70,7 @@ export async function loginViaBrowser(serverUrl: string): Promise<LoginResult> {
 
     const code = await withTimeout(codePromise, LOGIN_TIMEOUT_MS)
     const session = await exchangeCode(serverUrl, code, codeVerifier)
-    await injectSessionCookie(serverUrl, session.token, session.expiresAt)
+    await injectSessionCookie(serverUrl, session)
     return { ok: true }
   } catch (cause) {
     logger.error("browser login failed:", cause)
@@ -88,7 +88,12 @@ async function exchangeCode(
   serverUrl: string,
   code: string,
   codeVerifier: string,
-): Promise<{ token: string; expiresAt: string }> {
+): Promise<{
+  accessToken: string
+  refreshToken: string
+  accessExpiresAt: string
+  refreshExpiresAt: string
+}> {
   const res = await fetch(new URL("/api/auth/desktop/token", serverUrl), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -99,12 +104,21 @@ async function exchangeCode(
   if (
     typeof body !== "object" ||
     body === null ||
-    typeof (body as { token?: unknown }).token !== "string" ||
-    typeof (body as { expiresAt?: unknown }).expiresAt !== "string"
+    typeof (body as { accessToken?: unknown }).accessToken !== "string" ||
+    typeof (body as { refreshToken?: unknown }).refreshToken !== "string" ||
+    typeof (body as { accessExpiresAt?: unknown }).accessExpiresAt !==
+      "string" ||
+    typeof (body as { refreshExpiresAt?: unknown }).refreshExpiresAt !==
+      "string"
   ) {
     throw new Error("Invalid token response.")
   }
-  return body as { token: string; expiresAt: string }
+  return body as {
+    accessToken: string
+    refreshToken: string
+    accessExpiresAt: string
+    refreshExpiresAt: string
+  }
 }
 
 function randomBase64Url(byteLength: number): string {
