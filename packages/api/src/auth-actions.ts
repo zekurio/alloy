@@ -128,14 +128,7 @@ async function addPasskey(
 
 async function completeRegistrationChallenge<T>(
   request: RequestFn,
-  {
-    optionsPath,
-    verifyPath,
-    method,
-    body,
-    extraVerifyBody,
-    validateResult,
-  }: {
+  options: {
     optionsPath: string
     verifyPath: string
     method: "POST"
@@ -146,10 +139,12 @@ async function completeRegistrationChallenge<T>(
 ): Promise<T> {
   const [start, { startRegistration }] = await Promise.all([
     request(
-      optionsPath,
+      options.optionsPath,
       {
-        method,
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        method: options.method,
+        ...(options.body === undefined
+          ? {}
+          : { body: JSON.stringify(options.body) }),
       },
       validatePasskeyRegistrationOptionsResponse,
     ),
@@ -159,16 +154,16 @@ async function completeRegistrationChallenge<T>(
     optionsJSON: start.options,
   })
   return request(
-    verifyPath,
+    options.verifyPath,
     {
       method: "POST",
       body: JSON.stringify({
         challengeId: start.challengeId,
         response,
-        ...extraVerifyBody,
+        ...options.extraVerifyBody,
       }),
     },
-    validateResult,
+    options.validateResult,
   )
 }
 

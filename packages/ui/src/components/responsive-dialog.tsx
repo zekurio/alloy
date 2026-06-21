@@ -23,13 +23,13 @@ import {
 } from "@alloy/ui/components/drawer"
 import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { cn } from "@alloy/ui/lib/utils"
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import * as React from "react"
+import { cloneElement, createContext, isValidElement, useContext } from "react"
+import type { CSSProperties, ComponentProps, ReactNode } from "react"
 
-const ResponsiveDialogContext = React.createContext(false)
+const ResponsiveDialogContext = createContext(false)
 
 function useIsResponsiveMobile() {
-  return React.useContext(ResponsiveDialogContext)
+  return useContext(ResponsiveDialogContext)
 }
 
 function ResponsiveDialog({
@@ -39,7 +39,7 @@ function ResponsiveDialog({
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
-  children: React.ReactNode
+  children: ReactNode
 }) {
   const isMobile = useIsMobile()
 
@@ -70,9 +70,9 @@ function ResponsiveDialogContent({
   style,
 }: {
   className?: string
-  children: React.ReactNode
+  children: ReactNode
   variant?: "default" | "secondary"
-  style?: React.CSSProperties
+  style?: CSSProperties
 }) {
   const isMobile = useIsResponsiveMobile()
 
@@ -102,7 +102,7 @@ function ResponsiveDialogContent({
 function ResponsiveDialogHeader({
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: ComponentProps<"div">) {
   const isMobile = useIsResponsiveMobile()
 
   if (isMobile) {
@@ -118,10 +118,7 @@ function ResponsiveDialogHeader({
   return <DialogHeader className={className} {...props} />
 }
 
-function ResponsiveDialogBody({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function ResponsiveDialogBody({ className, ...props }: ComponentProps<"div">) {
   const isMobile = useIsResponsiveMobile()
 
   if (isMobile) {
@@ -140,7 +137,7 @@ function ResponsiveDialogBody({
 function ResponsiveDialogFooter({
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: ComponentProps<"div">) {
   const isMobile = useIsResponsiveMobile()
 
   if (isMobile) {
@@ -162,7 +159,7 @@ function ResponsiveDialogTitle({
   className,
   children,
   ...props
-}: React.ComponentProps<"h2">) {
+}: ComponentProps<"h2">) {
   const isMobile = useIsResponsiveMobile()
 
   if (isMobile) {
@@ -190,7 +187,7 @@ function ResponsiveDialogDescription({
   className,
   children,
   ...props
-}: React.ComponentProps<"p">) {
+}: ComponentProps<"p">) {
   const isMobile = useIsResponsiveMobile()
 
   // On mobile drawers we suppress the description to keep
@@ -210,19 +207,19 @@ function ResponsiveDialogDescription({
   )
 }
 
-type ResponsiveDialogTriggerProps = DialogPrimitive.Trigger.Props & {
+type ResponsiveDialogTriggerProps = ComponentProps<typeof DialogTrigger> & {
   asChild?: boolean
 }
 
 function renderDrawerChild(
-  render: DialogPrimitive.Trigger.Props["render"],
-  children: React.ReactNode,
+  render: ComponentProps<typeof DialogTrigger>["render"],
+  children: ReactNode,
 ) {
-  if (React.isValidElement<{ children?: React.ReactNode }>(render)) {
+  if (isValidElement<{ children?: ReactNode }>(render)) {
     if (render.props.children !== undefined || children === undefined) {
       return render
     }
-    return React.cloneElement(render, undefined, children)
+    return cloneElement(render, undefined, children)
   }
   return children
 }
@@ -253,7 +250,7 @@ function ResponsiveDialogTrigger({
   )
 }
 
-type ResponsiveDialogCloseProps = DialogPrimitive.Close.Props & {
+type ResponsiveDialogCloseProps = ComponentProps<typeof DialogClose> & {
   asChild?: boolean
 }
 

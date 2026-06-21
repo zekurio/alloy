@@ -1,19 +1,27 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
 import { FunnelIcon } from "lucide-react"
-import * as React from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useLayoutEffect,
+  useMemo,
+  useState,
+} from "react"
+import type { ReactNode } from "react"
 
 import { ToolbarIconButton } from "@/components/clip/toolbar-controls"
 
 type HeaderToolbarNode =
-  | React.ReactNode
+  | ReactNode
   | {
-      desktop: React.ReactNode
-      mobile: React.ReactNode
+      desktop: ReactNode
+      mobile: ReactNode
     }
 
 /**
@@ -26,19 +34,16 @@ type HeaderToolbarContextValue = {
   setNode: (node: HeaderToolbarNode) => void
 }
 
-const HeaderToolbarContext =
-  React.createContext<HeaderToolbarContextValue | null>(null)
+const HeaderToolbarContext = createContext<HeaderToolbarContextValue | null>(
+  null,
+)
 
-export function HeaderToolbarProvider({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const [node, setNode] = React.useState<HeaderToolbarNode>(null)
-  const setToolbarNode = React.useCallback((next: HeaderToolbarNode) => {
+export function HeaderToolbarProvider({ children }: { children: ReactNode }) {
+  const [node, setNode] = useState<HeaderToolbarNode>(null)
+  const setToolbarNode = useCallback((next: HeaderToolbarNode) => {
     setNode(next)
   }, [])
-  const value = React.useMemo(
+  const value = useMemo(
     () => ({ node, setNode: setToolbarNode }),
     [node, setToolbarNode],
   )
@@ -50,7 +55,7 @@ export function HeaderToolbarProvider({
 }
 
 function useHeaderToolbarContext(): HeaderToolbarContextValue {
-  const value = React.useContext(HeaderToolbarContext)
+  const value = useContext(HeaderToolbarContext)
   if (!value) {
     throw new Error(
       "useHeaderToolbar must be used within a HeaderToolbarProvider",
@@ -66,7 +71,7 @@ function useHeaderToolbarContext(): HeaderToolbarContextValue {
  */
 export function useHeaderToolbar(node: HeaderToolbarNode): void {
   const { setNode } = useHeaderToolbarContext()
-  React.useLayoutEffect(() => {
+  useLayoutEffect(() => {
     setNode(node)
     return () => setNode(null)
   }, [node, setNode])
@@ -102,9 +107,7 @@ export function HeaderToolbarSlot() {
       <div className="md:hidden">
         <Popover>
           <PopoverTrigger
-            render={
-              <ToolbarIconButton size="icon" aria-label={tx("Filters")} />
-            }
+            render={<ToolbarIconButton size="icon" aria-label={t("Filters")} />}
           >
             <FunnelIcon />
           </PopoverTrigger>
@@ -119,7 +122,7 @@ export function HeaderToolbarSlot() {
 
 function isResponsiveToolbarNode(
   node: HeaderToolbarNode,
-): node is { desktop: React.ReactNode; mobile: React.ReactNode } {
+): node is { desktop: ReactNode; mobile: ReactNode } {
   return (
     typeof node === "object" &&
     node !== null &&

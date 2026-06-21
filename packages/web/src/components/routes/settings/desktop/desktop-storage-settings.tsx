@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { FolderOpenIcon } from "lucide-react"
 
@@ -24,7 +24,7 @@ export function DesktopStorageSettings({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-medium">{tx("Capture folder")}</span>
+        <span className="text-xs font-medium">{t("Capture folder")}</span>
         <div className="flex items-center gap-2">
           <div className="border-border bg-input text-foreground-dim flex h-9 min-w-0 flex-1 items-center truncate rounded-lg border px-3 text-sm sm:h-8">
             {folder}
@@ -36,16 +36,16 @@ export function DesktopStorageSettings({
             onClick={() => void chooseOutputFolder()}
           >
             <FolderOpenIcon className="size-3.5" />
-            {tx("Change")}
+            {t("Change")}
           </Button>
         </div>
       </div>
 
       <div className="flex flex-col gap-3">
         <div className="flex items-baseline justify-between">
-          <span className="text-sm font-medium">{tx("Disk usage")}</span>
+          <span className="text-sm font-medium">{t("Disk usage")}</span>
           <span className="text-foreground-dim text-xs">
-            {tx("{available} free of {total}", {
+            {t("{available} free of {total}", {
               available: formatBytes(availableBytes),
               total: formatBytes(totalBytes),
             })}
@@ -66,17 +66,17 @@ export function DesktopStorageSettings({
         <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs">
           <UsageLegend
             className="bg-foreground-muted/60"
-            label={tx("System")}
+            label={t("System")}
             value={formatBytes(otherBytes)}
           />
           <UsageLegend
             className="bg-accent"
-            label={tx("Clips")}
+            label={t("Clips")}
             value={formatBytes(clipsBytes)}
           />
           <UsageLegend
             className="bg-surface-raised"
-            label={tx("Available")}
+            label={t("Available")}
             value={formatBytes(availableBytes)}
           />
         </div>

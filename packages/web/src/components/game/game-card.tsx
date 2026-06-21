@@ -1,8 +1,8 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import * as React from "react"
+import { useState } from "react"
 
 import { GameLogo } from "./game-logo"
 
@@ -27,8 +27,8 @@ type GameCardProps = {
 }
 
 function GameCardBody({ game }: { game: GameCardData }) {
-  const [heroFailed, setHeroFailed] = React.useState(false)
-  const [logoFailed, setLogoFailed] = React.useState(false)
+  const [heroFailed, setHeroFailed] = useState(false)
+  const [logoFailed, setLogoFailed] = useState(false)
   const heroSrc = game.heroUrl && !heroFailed ? game.heroUrl : null
   const logoSrc = game.logoUrl && !logoFailed ? game.logoUrl : null
 
@@ -105,7 +105,7 @@ export function GameCard({ game, link, className }: GameCardProps) {
         to="/u/$username/all"
         params={{ username: link.username }}
         search={{ game: link.slug }}
-        aria-label={tx("Show clips for {game}", { game: game.name })}
+        aria-label={t("Show clips for {game}", { game: game.name })}
         className={surface}
       >
         <GameCardBody game={game} />

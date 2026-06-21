@@ -1,4 +1,4 @@
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +15,7 @@ import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
-import * as React from "react"
+import { useState } from "react"
 
 import { StorageQuota } from "@/components/storage-quota"
 import { api } from "@/lib/api"
@@ -24,7 +24,7 @@ import { errorMessage } from "@/lib/error-message"
 import { getQueryClient } from "@/lib/query-client"
 
 function useDeleteAllClipsAction() {
-  const [pending, setPending] = React.useState(false)
+  const [pending, setPending] = useState(false)
 
   const onDeleteAllClips = async () => {
     if (pending) return
@@ -45,7 +45,7 @@ function useDeleteAllClipsAction() {
         }),
       )
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't delete clips")))
+      toast.error(errorMessage(cause, t("Couldn't delete clips")))
     } finally {
       setPending(false)
     }
@@ -59,14 +59,14 @@ function DownloadClipsRow() {
     const started = startBrowserDownload(api.users.downloadAllClipsUrl(), {
       rel: "noopener",
     })
-    if (!started) toast.error(tx("Couldn't start download"))
+    if (!started) toast.error(t("Couldn't start download"))
   }
 
   return (
     <SettingRow
       className="py-4 first:pt-4 last:pb-4"
-      title={tx("Download clips")}
-      description={tx(
+      title={t("Download clips")}
+      description={t(
         "Download a zip archive with the original files for your clips.",
       )}
     >
@@ -77,7 +77,7 @@ function DownloadClipsRow() {
         onClick={onDownloadAllClips}
       >
         <DownloadIcon />
-        {tx("Download")}
+        {t("Download")}
       </Button>
     </SettingRow>
   )
@@ -93,8 +93,8 @@ function DeleteClipsRow({
   return (
     <SettingRow
       className="py-4 first:pt-4 last:pb-4"
-      title={tx("Delete clips")}
-      description={tx(
+      title={t("Delete clips")}
+      description={t(
         "Permanently removes every clip you uploaded. This can't be undone.",
       )}
     >
@@ -103,27 +103,27 @@ function DeleteClipsRow({
           render={
             <Button type="button" variant="danger" size="sm">
               <Trash2Icon />
-              {tx("Delete clips")}
+              {t("Delete clips")}
             </Button>
           }
         />
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{tx("Delete all clips?")}</AlertDialogTitle>
+            <AlertDialogTitle>{t("Delete all clips?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {tx("This permanently removes every clip you uploaded.")}
+              {t("This permanently removes every clip you uploaded.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>
-              {tx("Cancel")}
+              {t("Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={onDeleteAllClips}
               disabled={pending}
             >
-              {pending ? tx("Deleting...") : tx("Delete clips")}
+              {pending ? t("Deleting...") : t("Delete clips")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

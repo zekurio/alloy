@@ -1,11 +1,12 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import { Kbd } from "@alloy/ui/components/kbd"
 import { cn } from "@alloy/ui/lib/utils"
 import { Maximize2Icon, MinusIcon, SearchIcon, XIcon } from "lucide-react"
-import * as React from "react"
+import { forwardRef, useCallback, useEffect, useRef, useState } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
-function AppHeader({ className, ...props }: React.ComponentProps<"header">) {
+function AppHeader({ className, ...props }: ComponentProps<"header">) {
   return (
     <header
       data-slot="app-header"
@@ -27,7 +28,7 @@ function AppHeaderBrand({
   showText = false,
   children,
   ...props
-}: React.ComponentProps<"div"> & { size?: number; showText?: boolean }) {
+}: ComponentProps<"div"> & { size?: number; showText?: boolean }) {
   return (
     <div
       data-slot="app-header-brand"
@@ -56,175 +57,177 @@ function AppHeaderBrand({
 }
 
 interface AppHeaderSearchProps extends Omit<
-  React.ComponentProps<"input">,
+  ComponentProps<"input">,
   "size" | "type" | "children"
 > {
-  hint?: React.ReactNode
-  icon?: React.ReactNode
+  hint?: ReactNode
+  icon?: ReactNode
   containerClassName?: string
   onClear?: () => void
   /** Accessible label for the clear button. Defaults to "Clear search". */
   clearAriaLabel?: string
-  children?: React.ReactNode
+  children?: ReactNode
 }
 
-const AppHeaderSearch = React.forwardRef<
-  HTMLInputElement,
-  AppHeaderSearchProps
->(function AppHeaderSearch(
-  {
-    className,
-    containerClassName,
-    hint,
-    icon,
-    placeholder = tx("Search clips and games..."),
-    onClear,
-    onBlur,
-    clearAriaLabel = tx("Clear search"),
-    onFocus,
-    value,
-    children,
-    ...props
-  },
-  ref,
-) {
-  const resolvedHint = hint ?? <DefaultSearchHint />
-  const hasValue =
-    onClear != null && typeof value === "string" && value.length > 0
-  const wrapperRef = React.useRef<HTMLDivElement | null>(null)
-  const inputRef = React.useRef<HTMLInputElement | null>(null)
-  const [expanded, setExpanded] = React.useState(false)
-
-  const setInputRef = React.useCallback(
-    (node: HTMLInputElement | null) => {
-      inputRef.current = node
-      if (typeof ref === "function") ref(node)
-      else if (ref) ref.current = node
+const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
+  function AppHeaderSearch(
+    {
+      className,
+      containerClassName,
+      hint,
+      icon,
+      placeholder = t("Search clips and games..."),
+      onClear,
+      onBlur,
+      clearAriaLabel = t("Clear search"),
+      onFocus,
+      value,
+      children,
+      ...props
     },
-    [ref],
-  )
+    ref,
+  ) {
+    const resolvedHint = hint ?? <DefaultSearchHint />
+    const hasValue =
+      onClear != null && typeof value === "string" && value.length > 0
+    const wrapperRef = useRef<HTMLDivElement | null>(null)
+    const inputRef = useRef<HTMLInputElement | null>(null)
+    const [expanded, setExpanded] = useState(false)
 
-  React.useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      const target = event.target
-      if (!(target instanceof Node)) return
-      if (wrapperRef.current?.contains(target)) return
+    const setInputRef = useCallback(
+      (node: HTMLInputElement | null) => {
+        inputRef.current = node
+        if (typeof ref === "function") {
+          ref(node)
+          return
+        }
+        if (ref) ref.current = node
+      },
+      [ref],
+    )
 
-      setExpanded(false)
-      if (document.activeElement === inputRef.current) {
-        inputRef.current?.blur()
+    useEffect(() => {
+      const onPointerDown = (event: PointerEvent) => {
+        const target = event.target
+        if (!(target instanceof Node)) return
+        if (wrapperRef.current?.contains(target)) return
+
+        setExpanded(false)
+        if (document.activeElement === inputRef.current) {
+          inputRef.current?.blur()
+        }
       }
-    }
 
-    document.addEventListener("pointerdown", onPointerDown, {
-      capture: true,
-    })
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown, {
+      document.addEventListener("pointerdown", onPointerDown, {
         capture: true,
       })
-    }
-  }, [])
+      return () => {
+        document.removeEventListener("pointerdown", onPointerDown, {
+          capture: true,
+        })
+      }
+    }, [])
 
-  return (
-    <div
-      ref={wrapperRef}
-      data-slot="app-header-search"
-      data-expanded={expanded ? "true" : undefined}
-      className={cn(
-        "relative w-full min-w-0 justify-self-stretch",
-        "max-sm:data-[expanded=true]:z-30",
-        containerClassName,
-      )}
-    >
-      <div className="group/search relative flex h-10 w-full items-center md:h-8">
-        <span
-          aria-hidden
-          className={cn(
-            "pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2",
-            // Leading icon picks up the accent colour while the input is
-            // focused — another visual cue the field is active. On mobile the
-            // input sits on a transparent surface, so lift the resting glyph a
-            // step brighter to stay legible against the dark header.
-            "text-foreground-faint max-md:text-foreground-muted [&_svg]:size-3.5",
-            "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "group-focus-within/search:text-accent",
-          )}
-        >
-          {icon ?? <SearchIcon />}
-        </span>
-        <input
-          ref={setInputRef}
-          data-slot="app-header-search-input"
-          placeholder={placeholder}
-          value={value}
-          onBlur={(event) => {
-            const nextTarget = event.relatedTarget
-            if (
-              !(nextTarget instanceof Node) ||
-              !wrapperRef.current?.contains(nextTarget)
-            ) {
-              setExpanded(false)
-            }
-            onBlur?.(event)
-          }}
-          onFocus={(event) => {
-            setExpanded(true)
-            onFocus?.(event)
-          }}
-          className={cn(
-            "h-full w-full min-w-0 rounded-lg border border-border bg-transparent pr-11 pl-8",
-            "max-md:border-transparent",
-            "text-sm text-foreground placeholder:text-foreground-faint max-md:placeholder:text-foreground-muted",
-            "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-            "outline-none",
-            "focus:border-accent focus:bg-surface-raised",
-            "focus:shadow-[0_0_0_3px_var(--accent-soft)]",
-            className,
-          )}
-          {...props}
-        />
-        {hasValue ? (
-          <button
-            type="button"
-            aria-label={clearAriaLabel}
-            onPointerDown={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onClick={(event) => {
-              event.stopPropagation()
-              onClear()
-            }}
+    return (
+      <div
+        ref={wrapperRef}
+        data-slot="app-header-search"
+        data-expanded={expanded ? "true" : undefined}
+        className={cn(
+          "relative w-full min-w-0 justify-self-stretch",
+          "max-sm:data-[expanded=true]:z-30",
+          containerClassName,
+        )}
+      >
+        <div className="group/search relative flex h-10 w-full items-center md:h-8">
+          <span
+            aria-hidden
             className={cn(
-              "absolute top-1/2 right-1.5 -translate-y-1/2",
-              "grid size-6 place-items-center rounded-sm",
-              // Brand-blue-aware hover: soft fill from the accent family
-              // instead of the off-white the native browser X paints.
-              "text-foreground-faint",
+              "pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2",
+              // Leading icon picks up the accent colour while the input is
+              // focused — another visual cue the field is active. On mobile the
+              // input sits on a transparent surface, so lift the resting glyph a
+              // step brighter to stay legible against the dark header.
+              "text-foreground-faint max-md:text-foreground-muted [&_svg]:size-3.5",
               "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "hover:bg-accent-soft hover:text-accent",
-              "focus-visible:bg-accent-soft focus-visible:text-accent",
-              "focus-visible:ring-2 focus-visible:ring-accent-border focus-visible:outline-none",
-              "[&_svg]:size-3",
+              "group-focus-within/search:text-accent",
             )}
           >
-            <XIcon />
-          </button>
-        ) : resolvedHint ? (
-          <Kbd className="absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex">
-            {resolvedHint}
-          </Kbd>
-        ) : null}
+            {icon ?? <SearchIcon />}
+          </span>
+          <input
+            ref={setInputRef}
+            data-slot="app-header-search-input"
+            placeholder={placeholder}
+            value={value}
+            onBlur={(event) => {
+              const nextTarget = event.relatedTarget
+              if (
+                !(nextTarget instanceof Node) ||
+                !wrapperRef.current?.contains(nextTarget)
+              ) {
+                setExpanded(false)
+              }
+              onBlur?.(event)
+            }}
+            onFocus={(event) => {
+              setExpanded(true)
+              onFocus?.(event)
+            }}
+            className={cn(
+              "h-full w-full min-w-0 rounded-lg border border-border bg-transparent pr-11 pl-8",
+              "max-md:border-transparent",
+              "text-sm text-foreground placeholder:text-foreground-faint max-md:placeholder:text-foreground-muted",
+              "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "outline-none",
+              "focus:border-accent focus:bg-surface-raised",
+              "focus:shadow-[0_0_0_3px_var(--accent-soft)]",
+              className,
+            )}
+            {...props}
+          />
+          {hasValue ? (
+            <button
+              type="button"
+              aria-label={clearAriaLabel}
+              onPointerDown={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+              }}
+              onClick={(event) => {
+                event.stopPropagation()
+                onClear()
+              }}
+              className={cn(
+                "absolute top-1/2 right-1.5 -translate-y-1/2",
+                "grid size-6 place-items-center rounded-sm",
+                // Brand-blue-aware hover: soft fill from the accent family
+                // instead of the off-white the native browser X paints.
+                "text-foreground-faint",
+                "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+                "hover:bg-accent-soft hover:text-accent",
+                "focus-visible:bg-accent-soft focus-visible:text-accent",
+                "focus-visible:ring-2 focus-visible:ring-accent-border focus-visible:outline-none",
+                "[&_svg]:size-3",
+              )}
+            >
+              <XIcon />
+            </button>
+          ) : resolvedHint ? (
+            <Kbd className="absolute top-1/2 right-2 hidden -translate-y-1/2 sm:inline-flex">
+              {resolvedHint}
+            </Kbd>
+          ) : null}
+        </div>
+        {children}
       </div>
-      {children}
-    </div>
-  )
-})
+    )
+  },
+)
 
 function useIsMacPlatform() {
-  const [isMac, setIsMac] = React.useState(false)
-  React.useEffect(() => {
+  const [isMac, setIsMac] = useState(false)
+  useEffect(() => {
     if (typeof navigator === "undefined") return
     const platform =
       // `userAgentData.platform` is the modern API; fall back to the legacy
@@ -255,7 +258,7 @@ function AppHeaderSlot({
   slot,
   density,
   ...props
-}: React.ComponentProps<"div"> & {
+}: ComponentProps<"div"> & {
   slot: string
   density: "toolbar" | "actions"
 }) {
@@ -276,7 +279,7 @@ function makeAppHeaderSlot(slot: string, density: "toolbar" | "actions") {
   return function AppHeaderGeneratedSlot({
     className,
     ...props
-  }: React.ComponentProps<"div">) {
+  }: ComponentProps<"div">) {
     return (
       <AppHeaderSlot
         slot={slot}
@@ -296,10 +299,7 @@ const AppHeaderToolbar = makeAppHeaderSlot("app-header-toolbar", "toolbar")
  */
 const AppHeaderActions = makeAppHeaderSlot("app-header-actions", "actions")
 
-function AppHeaderDivider({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
+function AppHeaderDivider({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
       aria-hidden
@@ -311,7 +311,7 @@ function AppHeaderDivider({
 }
 
 interface AppHeaderWindowControlsProps extends Omit<
-  React.ComponentProps<"div">,
+  ComponentProps<"div">,
   "children"
 > {
   onMinimize: () => void
@@ -332,16 +332,16 @@ function AppHeaderWindowControls({
       className={cn("flex h-full items-stretch justify-self-end", className)}
       {...props}
     >
-      <WindowControlButton aria-label={tx("Minimize")} onClick={onMinimize}>
+      <WindowControlButton aria-label={t("Minimize")} onClick={onMinimize}>
         <MinusIcon />
       </WindowControlButton>
       <WindowControlButton
-        aria-label={tx("Maximize or restore")}
+        aria-label={t("Maximize or restore")}
         onClick={onToggleMaximize}
       >
         <Maximize2Icon />
       </WindowControlButton>
-      <WindowControlButton aria-label={tx("Close")} danger onClick={onClose}>
+      <WindowControlButton aria-label={t("Close")} danger onClick={onClose}>
         <XIcon />
       </WindowControlButton>
     </div>
@@ -352,7 +352,7 @@ function WindowControlButton({
   className,
   danger,
   ...props
-}: React.ComponentProps<"button"> & { danger?: boolean }) {
+}: ComponentProps<"button"> & { danger?: boolean }) {
   return (
     <button
       type="button"

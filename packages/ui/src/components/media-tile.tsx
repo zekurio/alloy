@@ -1,11 +1,12 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { forwardRef } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
-type MediaTileProps = Omit<React.ComponentProps<"button">, "title"> & {
+type MediaTileProps = Omit<ComponentProps<"button">, "title"> & {
   /** Cover image shown behind the overlay. */
   imageUrl?: string | null
   /** Centered glyph above the label (e.g. a play badge or icon). */
-  icon?: React.ReactNode
+  icon?: ReactNode
   /** Primary label, e.g. "Watch Trailer". */
   label: string
   /** Secondary line, e.g. "4 screenshots" / "10 clips". */
@@ -22,7 +23,7 @@ type MediaTileProps = Omit<React.ComponentProps<"button">, "title"> & {
  * clips-of-the-week cards. Forwards its ref/props so it can be used directly as
  * a dialog or link trigger (`render={<MediaTile … />}`).
  */
-export const MediaTile = React.forwardRef<HTMLButtonElement, MediaTileProps>(
+export const MediaTile = forwardRef<HTMLButtonElement, MediaTileProps>(
   function MediaTile(
     {
       imageUrl,

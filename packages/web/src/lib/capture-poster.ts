@@ -1,5 +1,5 @@
 import { ALL_FORMATS, CanvasSink, Input } from "mediabunny"
-import * as React from "react"
+import { useEffect, useState } from "react"
 
 import { createCaptureSource } from "@/lib/capture-source"
 import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
@@ -36,9 +36,9 @@ export function useCapturePoster({
   durationMs,
   enabled = true,
 }: CapturePosterOptions): string | null {
-  const [poster, setPoster] = React.useState(thumbnailUrl)
+  const [poster, setPoster] = useState(thumbnailUrl)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setPoster(thumbnailUrl)
     if (!enabled || !mediaUrl || !thumbnailUrl) return
 

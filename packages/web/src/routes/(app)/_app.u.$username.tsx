@@ -1,7 +1,7 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
-import * as React from "react"
+import { useEffect, useState } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
 import { BlockedGate } from "@/components/routes/profile/blocked-gate"
@@ -65,14 +65,14 @@ function UserProfileLayout() {
     : null
   const profileError = profileQuery.error ?? null
   useQueryErrorToast(profileError, {
-    title: tx("Couldn't load profile"),
+    title: t("Couldn't load profile"),
     toastId: `profile-${username}-error`,
   })
-  const [revealed, setRevealed] = React.useState(false)
+  const [revealed, setRevealed] = useState(false)
 
   // Reset the reveal gate on navigation between profiles — the query
   // layer handles data caching and the old per-profile refetch.
-  React.useEffect(() => {
+  useEffect(() => {
     setRevealed(false)
   }, [username])
 
@@ -83,13 +83,13 @@ function UserProfileLayout() {
     <AppMain className="!px-0 !py-0">
       <div
         aria-hidden={gated ? true : undefined}
-        className={gated ? tx("pointer-events-none select-none") : undefined}
+        className={gated ? t("pointer-events-none select-none") : undefined}
       >
         {profileError ? (
           <EmptyState
             seed={`profile-error-${username}`}
             size="lg"
-            title={tx("Couldn't load profile")}
+            title={t("Couldn't load profile")}
           />
         ) : profile ? (
           <ProfileIdentity

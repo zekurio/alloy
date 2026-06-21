@@ -54,11 +54,11 @@ function nativeImageBlurHash(image: Electron.NativeImage): string | null {
           quality: "good",
         })
       : image
-  const { width, height } = sample.getSize()
+  const sampleSize = sample.getSize()
 
   // nativeImage bitmaps are BGRA; blurhash expects RGBA.
   const bitmap = sample.toBitmap()
-  if (bitmap.length !== width * height * 4) return null
+  if (bitmap.length !== sampleSize.width * sampleSize.height * 4) return null
   const pixels = new Uint8ClampedArray(bitmap.length)
   for (let i = 0; i < bitmap.length; i += 4) {
     pixels[i] = bitmap[i + 2]
@@ -67,6 +67,12 @@ function nativeImageBlurHash(image: Electron.NativeImage): string | null {
     pixels[i + 3] = bitmap[i + 3]
   }
 
-  const { x, y } = blurHashComponents(width, height)
-  return encode(pixels, width, height, x, y)
+  const components = blurHashComponents(sampleSize.width, sampleSize.height)
+  return encode(
+    pixels,
+    sampleSize.width,
+    sampleSize.height,
+    components.x,
+    components.y,
+  )
 }

@@ -1,11 +1,11 @@
 import type { ClipRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
@@ -47,12 +47,9 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
   const gamesByName = useLibraryGameLookup(snapshot)
   const { data: session } = useSession()
   const uploadedQuery = useUserClipsQuery(session?.user?.username ?? "")
-  const uploaded = React.useMemo(
-    () => uploadedQuery.data ?? [],
-    [uploadedQuery.data],
-  )
+  const uploaded = useMemo(() => uploadedQuery.data ?? [], [uploadedQuery.data])
 
-  const entries = React.useMemo(
+  const entries = useMemo(
     () =>
       buildLibraryEntries({
         snapshot,
@@ -133,7 +130,7 @@ function entryMatchesCurrent(
 export function useNavigateToLibraryEntry() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  return React.useCallback(
+  return useCallback(
     (entry: NavigableLibraryEntry, replace = true) => {
       if (entry.type === "local") {
         void navigate({
@@ -168,10 +165,10 @@ export function LibraryEntryNavButton({
       variant="ghost"
       size="icon"
       aria-label={
-        side === "left" ? tx("Previous library item") : tx("Next library item")
+        side === "left" ? t("Previous library item") : t("Next library item")
       }
       title={
-        side === "left" ? tx("Previous library item") : tx("Next library item")
+        side === "left" ? t("Previous library item") : t("Next library item")
       }
       className={cn(
         "absolute top-1/2 z-40 h-12 w-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
@@ -196,10 +193,10 @@ export function useLibraryEditorShortcuts({
   togglePlayback: () => void
 }) {
   const navigateToEntry = useNavigateToLibraryEntry()
-  const actionsRef = React.useRef({ onDelete, togglePlayback })
+  const actionsRef = useRef({ onDelete, togglePlayback })
   actionsRef.current = { onDelete, togglePlayback }
 
-  React.useEffect(() => {
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (isEditableTarget(event)) return
       if (event.key === "ArrowLeft" && prevEntry) {

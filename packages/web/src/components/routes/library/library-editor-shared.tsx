@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
@@ -18,7 +18,7 @@ export function BackToLibraryButton() {
   return (
     <Button variant="secondary" render={<Link to="/library" />}>
       <ArrowLeftIcon />
-      {tx("Back to library")}
+      {t("Back to library")}
     </Button>
   )
 }
@@ -37,8 +37,8 @@ export function TrimTransportControls({
           type="button"
           variant="secondary"
           size="icon-sm"
-          aria-label={playing ? tx("Pause (Space)") : tx("Play (Space)")}
-          title={playing ? tx("Pause (Space)") : tx("Play (Space)")}
+          aria-label={playing ? t("Pause (Space)") : t("Play (Space)")}
+          title={playing ? t("Pause (Space)") : t("Play (Space)")}
           onClick={playback.togglePlayback}
         >
           {playing ? <PauseIcon /> : <PlayIcon />}
@@ -47,8 +47,8 @@ export function TrimTransportControls({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label={tx("Stop")}
-          title={tx("Stop")}
+          aria-label={t("Stop")}
+          title={t("Stop")}
           onClick={playback.stopPlayback}
         >
           <SquareIcon />
@@ -57,8 +57,8 @@ export function TrimTransportControls({
           type="button"
           variant="ghost"
           size="icon-sm"
-          aria-label={tx("Reset trim")}
-          title={tx("Reset trim")}
+          aria-label={t("Reset trim")}
+          title={t("Reset trim")}
           onClick={playback.resetTrim}
           disabled={!trimmed}
           className={cn(
@@ -74,7 +74,7 @@ export function TrimTransportControls({
       </span>
       {trimmed ? (
         <span className="text-foreground-faint text-sm tabular-nums">
-          {tx("Trimmed to")}
+          {t("Trimmed to")}
           {formatTrimMs(trim.startMs)} {"–"}
           {formatTrimMs(trim.endMs)}
         </span>

@@ -1,5 +1,5 @@
 import type { AdminUsersResponse, AdminUserStorageRow } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -59,7 +59,8 @@ import {
   UserCheckIcon,
   UserXIcon,
 } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import type { Dispatch, FormEvent, SetStateAction } from "react"
 
 import { adminKeys, adminUsersQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
@@ -89,11 +90,11 @@ interface AdminUsersCardProps {
 function useAdminUsersQuery() {
   const usersQuery = useQuery(adminUsersQueryOptions())
   const { refetch } = usersQuery
-  const refresh = React.useCallback(async () => {
+  const refresh = useCallback(async () => {
     await refetch()
   }, [refetch])
   const loadError = usersQuery.error
-    ? errorMessage(usersQuery.error, tx("Failed to load users"))
+    ? errorMessage(usersQuery.error, t("Failed to load users"))
     : null
 
   return {
@@ -108,7 +109,7 @@ function useDeleteAdminUser({
   setBusyId,
 }: {
   busyId: string | null
-  setBusyId: React.Dispatch<React.SetStateAction<string | null>>
+  setBusyId: Dispatch<SetStateAction<string | null>>
 }) {
   const queryClient = useQueryClient()
   return async (user: AdminUserRow) => {
@@ -116,10 +117,10 @@ function useDeleteAdminUser({
     setBusyId(user.id)
     try {
       await api.admin.deleteUser(user.id)
-      toast.success(tx("User removed"))
+      toast.success(t("User removed"))
       await queryClient.invalidateQueries({ queryKey: adminKeys.users() })
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't remove user")))
+      toast.error(errorMessage(cause, t("Couldn't remove user")))
     } finally {
       setBusyId(null)
     }
@@ -131,7 +132,7 @@ function useToggleAdminUserStatus({
   setBusyId,
 }: {
   busyId: string | null
-  setBusyId: React.Dispatch<React.SetStateAction<string | null>>
+  setBusyId: Dispatch<SetStateAction<string | null>>
 }) {
   const queryClient = useQueryClient()
   return async (user: AdminUserRow) => {
@@ -144,10 +145,10 @@ function useToggleAdminUserStatus({
       })
       setAdminUserCacheRow(queryClient, updated)
       toast.success(
-        nextStatus === "disabled" ? tx("User disabled") : tx("User enabled"),
+        nextStatus === "disabled" ? t("User disabled") : t("User enabled"),
       )
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't update user")))
+      toast.error(errorMessage(cause, t("Couldn't update user")))
     } finally {
       setBusyId(null)
     }
@@ -191,7 +192,7 @@ function useUpdateAdminUser({
 }: {
   busyId: string | null
   currentUserId: string
-  setBusyId: React.Dispatch<React.SetStateAction<string | null>>
+  setBusyId: Dispatch<SetStateAction<string | null>>
 }) {
   const queryClient = useQueryClient()
   return async (
@@ -206,7 +207,7 @@ function useUpdateAdminUser({
 
     if (user.id === currentUserId && roleChanged && next.role !== "admin") {
       toast.error(
-        tx(
+        t(
           "Demote yourself from the profile page after promoting another admin first.",
         ),
       )
@@ -225,10 +226,10 @@ function useUpdateAdminUser({
           queryKey: userKeys.storage(),
         })
       }
-      toast.success(tx("User updated"))
+      toast.success(t("User updated"))
       return true
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't update user")))
+      toast.error(errorMessage(cause, t("Couldn't update user")))
       return false
     } finally {
       setBusyId(null)
@@ -237,7 +238,7 @@ function useUpdateAdminUser({
 }
 
 function useAdminUserMutations(currentUserId: string) {
-  const [busyId, setBusyId] = React.useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
   const mutationState = { busyId, setBusyId }
   const onDelete = useDeleteAdminUser(mutationState)
   const onToggleStatus = useToggleAdminUserStatus(mutationState)
@@ -277,7 +278,7 @@ export function AdminUsersCard({
       <Spinner className="size-4" />
     </div>
   ) : users.length === 0 ? (
-    <p className="text-foreground-muted text-sm">{tx("No users yet.")}</p>
+    <p className="text-foreground-muted text-sm">{t("No users yet.")}</p>
   ) : (
     <UsersList
       users={users}
@@ -296,7 +297,7 @@ export function AdminUsersCard({
   return (
     <Section>
       <SectionHeader>
-        <SectionTitle>{tx("Users")}</SectionTitle>
+        <SectionTitle>{t("Users")}</SectionTitle>
       </SectionHeader>
       <SectionContent>{content}</SectionContent>
     </Section>
@@ -375,12 +376,12 @@ function UserListRow({
             <span className="truncate text-sm font-medium">{name}</span>
             {isSelf ? (
               <Badge variant="outline" className="shrink-0 text-xs">
-                {tx("You")}
+                {t("You")}
               </Badge>
             ) : null}
             {isDisabled ? (
               <Badge variant="destructive" className="shrink-0 text-xs">
-                {tx("Disabled")}
+                {t("Disabled")}
               </Badge>
             ) : null}
           </div>
@@ -389,7 +390,7 @@ function UserListRow({
             {user.clipCount} {clipLabel} {"·"}
             {formatBytes(user.storageUsedBytes)}
             {user.storageQuotaBytes !== null
-              ? ` ${tx("of")} ${formatBytes(user.storageQuotaBytes)}`
+              ? ` ${t("of")} ${formatBytes(user.storageQuotaBytes)}`
               : ""}
           </p>
         </div>
@@ -403,7 +404,7 @@ function UserListRow({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={isDisabled ? tx("Enable user") : tx("Disable user")}
+                aria-label={isDisabled ? t("Enable user") : t("Disable user")}
                 disabled={busy || isSelf}
               >
                 {isDisabled ? (
@@ -418,29 +419,29 @@ function UserListRow({
             <AlertDialogHeader>
               <AlertDialogTitle>
                 {isDisabled
-                  ? tx("Enable {email}?", { email: user.email })
-                  : tx("Disable {email}?", { email: user.email })}
+                  ? t("Enable {email}?", { email: user.email })
+                  : t("Disable {email}?", { email: user.email })}
               </AlertDialogTitle>
               <AlertDialogDescription>
                 {isDisabled
-                  ? tx(
+                  ? t(
                       "They'll be able to sign in and their clips will be visible again.",
                     )
-                  : tx(
+                  : t(
                       "They'll be signed out and their clips hidden. Their data is kept and you can enable them again later.",
                     )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={busy}>
-                {tx("Cancel")}
+                {t("Cancel")}
               </AlertDialogCancel>
               <AlertDialogAction
                 variant={isDisabled ? "primary" : "destructive"}
                 onClick={() => onToggleStatus(user)}
                 disabled={busy}
               >
-                {isDisabled ? tx("Enable") : tx("Disable")}
+                {isDisabled ? t("Enable") : t("Disable")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -451,7 +452,7 @@ function UserListRow({
               <Button
                 variant="ghost"
                 size="icon-sm"
-                aria-label={tx("Delete user")}
+                aria-label={t("Delete user")}
                 disabled={busy || isSelf}
               >
                 <Trash2Icon className="size-3.5" />
@@ -461,24 +462,24 @@ function UserListRow({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                {tx("Delete {email}?", { email: user.email })}
+                {t("Delete {email}?", { email: user.email })}
               </AlertDialogTitle>
               <AlertDialogDescription>
-                {tx(
+                {t(
                   "This removes their sessions and clips. It can't be undone.",
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={busy}>
-                {tx("Cancel")}
+                {t("Cancel")}
               </AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
                 onClick={() => onDelete(user)}
                 disabled={busy}
               >
-                {busy ? tx("Deleting…") : tx("Delete")}
+                {busy ? t("Deleting…") : t("Delete")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -500,12 +501,12 @@ function EditUserDialog({
     next: AdminUserEditableFields,
   ) => Promise<boolean>
 }) {
-  const [open, setOpen] = React.useState(false)
-  const [quotaGiB, setQuotaGiB] = React.useState("")
-  const [role, setRole] = React.useState<"admin" | "user">("user")
-  const [submitting, setSubmitting] = React.useState(false)
+  const [open, setOpen] = useState(false)
+  const [quotaGiB, setQuotaGiB] = useState("")
+  const [role, setRole] = useState<"admin" | "user">("user")
+  const [submitting, setSubmitting] = useState(false)
   const saving = busy || submitting
-  const parsedQuota = React.useMemo(() => {
+  const parsedQuota = useMemo(() => {
     try {
       return { ok: true as const, value: parseQuotaGiB(quotaGiB) }
     } catch {
@@ -520,14 +521,14 @@ function EditUserDialog({
     ? !adminUserFieldsEqual(currentFields, nextFields)
     : true
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) {
       setQuotaGiB(formatQuotaGiB(user.storageQuotaBytes))
       setRole(normalizeRole(user.role) as "admin" | "user")
     }
   }, [open, user.storageQuotaBytes, user.role])
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (saving) return
     if (nextFields && !dirty) {
@@ -539,7 +540,7 @@ function EditUserDialog({
     try {
       storageQuotaBytes = parseQuotaGiB(quotaGiB)
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Invalid quota")))
+      toast.error(errorMessage(cause, t("Invalid quota")))
       return
     }
 
@@ -559,7 +560,7 @@ function EditUserDialog({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={tx("Edit user")}
+            aria-label={t("Edit user")}
             disabled={busy}
           >
             <PencilIcon className="size-3.5" />
@@ -569,16 +570,16 @@ function EditUserDialog({
       <ResponsiveDialogContent variant="secondary">
         <form onSubmit={onSubmit}>
           <ResponsiveDialogHeader>
-            <ResponsiveDialogTitle>{tx("Edit user")}</ResponsiveDialogTitle>
+            <ResponsiveDialogTitle>{t("Edit user")}</ResponsiveDialogTitle>
             <ResponsiveDialogDescription>
-              {tx("Update role and storage quota for {username}.", {
+              {t("Update role and storage quota for {username}.", {
                 username: user.username,
               })}
             </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <ResponsiveDialogBody className="flex flex-col gap-4">
             <Field>
-              <FieldLabel htmlFor={`role-${user.id}`}>{tx("Role")}</FieldLabel>
+              <FieldLabel htmlFor={`role-${user.id}`}>{t("Role")}</FieldLabel>
               <Select
                 value={role}
                 onValueChange={(v) => setRole(v as "admin" | "user")}
@@ -588,14 +589,14 @@ function EditUserDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">{tx("User")}</SelectItem>
-                  <SelectItem value="admin">{tx("Admin")}</SelectItem>
+                  <SelectItem value="user">{t("User")}</SelectItem>
+                  <SelectItem value="admin">{t("Admin")}</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
             <Field>
               <FieldLabel htmlFor={`quota-${user.id}`}>
-                {tx("Storage quota (GiB)")}
+                {t("Storage quota (GiB)")}
               </FieldLabel>
               <Input
                 id={`quota-${user.id}`}
@@ -603,7 +604,7 @@ function EditUserDialog({
                 min={1}
                 step={1}
                 value={quotaGiB}
-                placeholder={tx("Unlimited")}
+                placeholder={t("Unlimited")}
                 disabled={saving}
                 onChange={(e) => setQuotaGiB(e.target.value)}
               />
@@ -620,7 +621,7 @@ function EditUserDialog({
                 />
               }
             >
-              {tx("Cancel")}
+              {t("Cancel")}
             </ResponsiveDialogClose>
             <Button
               type="submit"
@@ -629,7 +630,7 @@ function EditUserDialog({
               disabled={saving || !dirty}
             >
               <SaveIcon />
-              {saving ? tx("Saving…") : tx("Save")}
+              {saving ? t("Saving…") : t("Save")}
             </Button>
           </ResponsiveDialogFooter>
         </form>

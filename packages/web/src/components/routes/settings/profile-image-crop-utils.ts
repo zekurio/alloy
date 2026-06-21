@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 export type CropMode = "avatar" | "banner"
 
 type CropConfig = {
@@ -11,13 +11,13 @@ type CropConfig = {
 export const CROP_CONFIG: Record<CropMode, CropConfig> = {
   avatar: {
     aspect: 1,
-    label: tx("Edit avatar"),
+    label: t("Edit avatar"),
     outputHeight: 512,
     outputWidth: 512,
   },
   banner: {
     aspect: 4,
-    label: tx("Edit banner"),
+    label: t("Edit banner"),
     outputHeight: 375,
     outputWidth: 1500,
   },
@@ -217,7 +217,7 @@ export function readElementSize(node: HTMLElement | null) {
 }
 
 export function preferredOutputType(type: string) {
-  return type === "image/png" || type === "image/webp" ? type : tx("image/jpeg")
+  return type === "image/png" || type === "image/webp" ? type : t("image/jpeg")
 }
 
 export async function readFileAsDataUrl(file: File): Promise<string> {

@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { canvasBlurHash } from "@alloy/ui/lib/blurhash-encode"
 
 import { formatMediaDurationMs } from "@/lib/media-time"
@@ -36,7 +36,7 @@ export async function captureThumbnail(
   try {
     await loadVideoMetadata(
       video,
-      tx("Could not load video metadata for thumbnail capture"),
+      t("Could not load video metadata for thumbnail capture"),
     )
 
     const duration = Number.isFinite(video.duration) ? video.duration : null
@@ -58,7 +58,7 @@ export async function captureThumbnail(
           await seekVideo(
             video,
             targetTime,
-            tx("Seek failed during thumbnail capture"),
+            t("Seek failed during thumbnail capture"),
           )
         ) {
           return await drawThumbnail(video)
@@ -67,7 +67,7 @@ export async function captureThumbnail(
         await waitForVideoEvent(
           video,
           "loadeddata",
-          tx("Could not load video frame for thumbnail capture"),
+          t("Could not load video frame for thumbnail capture"),
           () => video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
         )
         return await drawThumbnail(video)
@@ -78,7 +78,7 @@ export async function captureThumbnail(
 
     throw lastError instanceof Error
       ? lastError
-      : new Error(tx("Could not capture thumbnail"))
+      : new Error(t("Could not capture thumbnail"))
   } finally {
     cleanup()
   }
@@ -94,7 +94,7 @@ export async function thumbnailFromImageUrl(
   const response = await fetch(url)
   if (!response.ok) {
     throw new Error(
-      tx("Could not fetch poster image ({status})", {
+      t("Could not fetch poster image ({status})", {
         status: response.status,
       }),
     )
@@ -135,7 +135,7 @@ export function probeFile(file: File): Promise<ProbedFile> {
       const durationMs = Math.round((video.duration || 0) * 1000)
       cleanup()
       if (!width || !height || !durationMs) {
-        reject(new Error(tx("Could not read video metadata")))
+        reject(new Error(t("Could not read video metadata")))
         return
       }
       resolve({
@@ -152,10 +152,10 @@ export function probeFile(file: File): Promise<ProbedFile> {
       })
     }
     video.onerror = () => {
-      fail(videoErrorMessage(video, tx("Could not read video metadata")))
+      fail(videoErrorMessage(video, t("Could not read video metadata")))
     }
     timeoutId = window.setTimeout(() => {
-      fail(tx("Timed out while reading video metadata"))
+      fail(t("Timed out while reading video metadata"))
     }, VIDEO_LOAD_TIMEOUT_MS)
     video.load()
   })
@@ -202,7 +202,7 @@ async function loadVideoMetadata(
 
 function videoErrorMessage(video: HTMLVideoElement, fallback: string): string {
   const message = video.error?.message
-  return message ? tx("{fallback}: {message}", { fallback, message }) : fallback
+  return message ? t("{fallback}: {message}", { fallback, message }) : fallback
 }
 
 function waitForVideoEvent(
@@ -274,7 +274,7 @@ function encodeCanvasAsJpeg(
     canvas.toBlob(
       (blob) => {
         if (blob) resolve(blob)
-        else reject(new Error(tx("canvas.toBlob returned null")))
+        else reject(new Error(t("canvas.toBlob returned null")))
       },
       "image/jpeg",
       quality,
@@ -288,7 +288,7 @@ async function drawThumbnail(
   const srcW = video.videoWidth
   const srcH = video.videoHeight
   if (!srcW || !srcH) {
-    throw new Error(tx("Video dimensions unavailable for thumbnail"))
+    throw new Error(t("Video dimensions unavailable for thumbnail"))
   }
   return encodeThumbnail(video, srcW, srcH)
 }
@@ -299,7 +299,7 @@ async function encodeThumbnail(
   srcH: number,
 ): Promise<CapturedThumbnail> {
   if (!srcW || !srcH) {
-    throw new Error(tx("Source dimensions unavailable for thumbnail"))
+    throw new Error(t("Source dimensions unavailable for thumbnail"))
   }
 
   let lastThumbnail: CapturedThumbnail | null = null
@@ -309,7 +309,7 @@ async function encodeThumbnail(
     canvas.width = width
     canvas.height = height
     const ctx = canvas.getContext("2d")
-    if (!ctx) throw new Error(tx("2D canvas context unavailable"))
+    if (!ctx) throw new Error(t("2D canvas context unavailable"))
     ctx.drawImage(source, 0, 0, width, height)
     const blurHash = safeCanvasBlurHash(canvas)
 
@@ -322,7 +322,7 @@ async function encodeThumbnail(
   }
 
   if (lastThumbnail) return lastThumbnail
-  throw new Error(tx("Could not encode thumbnail"))
+  throw new Error(t("Could not encode thumbnail"))
 }
 
 function safeCanvasBlurHash(canvas: HTMLCanvasElement): string | null {

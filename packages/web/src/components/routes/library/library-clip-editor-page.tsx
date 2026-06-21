@@ -1,5 +1,5 @@
 import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Progress } from "@alloy/ui/components/progress"
@@ -8,7 +8,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { CloudIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
@@ -65,8 +65,8 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
         {query.isError ? (
           <LibraryEmpty
             icon={<CloudIcon />}
-            title={tx("Clip not found")}
-            description={tx(
+            title={t("Clip not found")}
+            description={t(
               "It may have been deleted, or you may not have access to it.",
             )}
           >
@@ -131,7 +131,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
       },
       {
         onSuccess: () => {
-          toast.success(tx("Trim saved — the clip is reprocessing"))
+          toast.success(t("Trim saved — the clip is reprocessing"))
           playback.setTrim({ startMs: 0, endMs: 0 })
           playback.setCurrentMs(0)
         },
@@ -201,7 +201,7 @@ function useClipEditorMedia(row: ClipRow, processing: boolean) {
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : undefined
   const aspectRatio = mediaAspectRatio(row.width, row.height)
-  const handoffPoster = React.useMemo<LibraryHandoffPoster>(
+  const handoffPoster = useMemo<LibraryHandoffPoster>(
     () => ({
       src: poster,
       blurHash: row.thumbBlurHash,
@@ -209,20 +209,20 @@ function useClipEditorMedia(row: ClipRow, processing: boolean) {
     }),
     [poster, row.id, row.steamgriddbId, row.thumbBlurHash],
   )
-  const [publishHandoffPoster, setPublishHandoffPoster] = React.useState(() =>
+  const [publishHandoffPoster, setPublishHandoffPoster] = useState(() =>
     readLibraryHandoffPoster(row.id),
   )
-  const [cloudFrameReady, setCloudFrameReady] = React.useState(
+  const [cloudFrameReady, setCloudFrameReady] = useState(
     () => publishHandoffPoster === null,
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     setPublishHandoffPoster(readLibraryHandoffPoster(row.id))
   }, [row.id])
-  React.useEffect(() => {
+  useEffect(() => {
     setCloudFrameReady(publishHandoffPoster === null)
   }, [publishHandoffPoster])
-  React.useEffect(() => {
+  useEffect(() => {
     if (publishHandoffPoster && cloudFrameReady) {
       clearLibraryHandoffPoster(row.id)
     }
@@ -342,11 +342,11 @@ function useServerBackedClipDelete({
   const navigateToEntry = useNavigateToLibraryEntry()
   const queryClient = useQueryClient()
   const deleteMutation = useDeleteClipMutation()
-  const [open, setOpen] = React.useState(false)
-  const [deletingLocal, setDeletingLocal] = React.useState(false)
+  const [open, setOpen] = useState(false)
+  const [deletingLocal, setDeletingLocal] = useState(false)
   const pending = deleteMutation.isPending || deletingLocal
 
-  const finishDelete = React.useCallback(
+  const finishDelete = useCallback(
     async ({
       keptLocalItem,
     }: {
@@ -384,7 +384,7 @@ function useServerBackedClipDelete({
     ],
   )
 
-  const confirm = React.useCallback(
+  const confirm = useCallback(
     (deleteLocal: boolean) => {
       const keepLocalCopy = Boolean(localItem && !deleteLocal)
       deleteMutation.mutate(
@@ -404,11 +404,11 @@ function useServerBackedClipDelete({
                 setDeletingLocal,
               })
             } else {
-              toast.success(tx("Clip deleted"))
+              toast.success(t("Clip deleted"))
             }
             await finishDelete({ keptLocalItem })
           },
-          onError: () => toast.error(tx("Couldn't delete clip")),
+          onError: () => toast.error(t("Couldn't delete clip")),
         },
       )
     },
@@ -418,7 +418,7 @@ function useServerBackedClipDelete({
   return {
     open,
     setOpen,
-    openDialog: React.useCallback(() => setOpen(true), []),
+    openDialog: useCallback(() => setOpen(true), []),
     pending,
     confirm,
   }
@@ -446,7 +446,7 @@ function ClipProcessingNotice({ progress }: { progress: number }) {
       <Spinner className="size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-foreground text-sm font-medium">
-          {tx("Processing clip...")}
+          {t("Processing clip...")}
         </p>
         <Progress value={clamped} className="mt-1.5" />
       </div>

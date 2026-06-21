@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -18,7 +18,8 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useForm, useStore } from "@tanstack/react-form"
 import { ImageIcon, Pencil, SaveIcon } from "lucide-react"
-import * as React from "react"
+import { useEffect } from "react"
+import type { ReactNode } from "react"
 
 import type { useClickAnchor } from "@/hooks/use-click-anchor"
 import { authClient } from "@/lib/auth-client"
@@ -54,7 +55,7 @@ type ProfileAvatarPreviewProps = {
 
 type IdentityTextFieldConfig = {
   autoComplete: string
-  description?: React.ReactNode
+  description?: ReactNode
   label: string
   name: "username" | "email"
   onChangeValue?: (value: string) => string
@@ -122,19 +123,19 @@ export function ProfileCard({
       try {
         const { error } = await authClient.updateUser(patch)
         if (error) {
-          toast.error(errorMessage(error, tx("Couldn't save")))
+          toast.error(errorMessage(error, t("Couldn't save")))
           return
         }
 
-        toast.success(tx("Saved"))
+        toast.success(t("Saved"))
         await media.refreshProfile()
       } catch (cause) {
-        toast.error(errorMessage(cause, tx("Something went wrong")))
+        toast.error(errorMessage(cause, t("Something went wrong")))
       }
     },
   })
 
-  React.useEffect(() => {
+  useEffect(() => {
     form.reset({
       email,
       username: initialUsername,
@@ -163,8 +164,8 @@ export function ProfileCard({
     hasImage: boolean
     anchor: ReturnType<typeof useClickAnchor>
     className: string
-    overlay: React.ReactNode
-    children: React.ReactNode
+    overlay: ReactNode
+    children: ReactNode
   }) {
     const surface = cn(
       "group focus-visible:outline-accent focus-visible:outline-2 focus-visible:outline-offset-2",
@@ -204,14 +205,14 @@ export function ProfileCard({
   const identityTextFields: ReadonlyArray<IdentityTextFieldConfig> = [
     {
       autoComplete: "username",
-      label: tx("Username"),
+      label: t("Username"),
       name: "username",
       type: "text",
       validate: validateUsername,
     },
     {
       autoComplete: "email",
-      label: tx("Email"),
+      label: t("Email"),
       name: "email",
       onChangeValue: undefined,
       type: "email",
@@ -255,10 +256,10 @@ export function ProfileCard({
             <div>
               <div className="mb-2 flex items-baseline justify-between gap-3">
                 <div className="text-foreground text-sm font-medium">
-                  {tx("Profile preview")}
+                  {t("Profile preview")}
                 </div>
                 <p className="text-foreground-faint hidden text-xs sm:block">
-                  {tx("Click media to edit.")}
+                  {t("Click media to edit.")}
                 </p>
               </div>
 
@@ -301,7 +302,7 @@ export function ProfileCard({
                           // centered pencil affordance.
                           <span className="text-foreground-faint absolute inset-0 flex items-center justify-center gap-1.5 text-xs opacity-100 transition-opacity group-hover:opacity-0">
                             <ImageIcon className="size-4" />
-                            {tx("Add banner")}
+                            {t("Add banner")}
                           </span>
                         ),
                       })}
@@ -377,7 +378,7 @@ export function ProfileCard({
                     disabled={!identityDirty || !canSubmit}
                   >
                     <SaveIcon />
-                    {isSubmitting ? tx("Saving…") : tx("Save")}
+                    {isSubmitting ? t("Saving…") : t("Save")}
                   </Button>
                 )}
               </form.Subscribe>

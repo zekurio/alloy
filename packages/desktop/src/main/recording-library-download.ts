@@ -8,7 +8,7 @@ import type {
   RecordingLibraryDownload,
   RecordingLibraryDownloadRequest,
 } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
 import { probeDurationMs } from "./media"
@@ -170,7 +170,7 @@ async function runDownload(
     if (signal?.aborted || !jobs.has(request.clipId)) return
     job.download.status = "failed"
     job.download.error =
-      cause instanceof Error ? cause.message : tx("Download failed.")
+      cause instanceof Error ? cause.message : t("Download failed.")
     emitRecordingLibraryDownloadEvent({ ...job.download })
   } finally {
     job.abort = null

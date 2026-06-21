@@ -203,7 +203,10 @@ export async function verifyPasskeyRegistration(input: {
   if (!verification.verified) {
     throw new Error("Passkey registration failed.")
   }
-  return { payload: challenge.payload as RegistrationPayload, verification }
+  return {
+    payload: requireRegistrationPayload(challenge.payload),
+    verification,
+  }
 }
 
 export async function beginPasskeyAuthentication() {
@@ -269,4 +272,24 @@ export function serializeTransports(
   value: string[] | undefined,
 ): string | null {
   return value && value.length > 0 ? value.join(",") : null
+}
+
+function requireRegistrationPayload(
+  payload: Record<string, unknown>,
+): RegistrationPayload {
+  if (
+    (payload.email === undefined || typeof payload.email === "string") &&
+    (payload.setupFirstAdmin === undefined ||
+      typeof payload.setupFirstAdmin === "boolean") &&
+    (payload.userId === undefined || typeof payload.userId === "string") &&
+    (payload.username === undefined || typeof payload.username === "string")
+  ) {
+    return {
+      email: payload.email,
+      setupFirstAdmin: payload.setupFirstAdmin,
+      userId: payload.userId,
+      username: payload.username,
+    }
+  }
+  throw new Error("Passkey registration payload is invalid.")
 }

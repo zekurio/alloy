@@ -144,9 +144,9 @@ function walkFiles(root: string, visit: (filename: string) => void): void {
     const entryPath = join(root, entry.name)
     if (entry.isDirectory()) {
       walkFiles(entryPath, visit)
-    } else if (entry.isFile()) {
-      visit(entryPath)
+      continue
     }
+    if (entry.isFile()) visit(entryPath)
   }
 }
 

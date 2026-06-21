@@ -1,8 +1,8 @@
-import { getRuntimeLocale, localeToLanguageTag, t as tx } from "@alloy/i18n"
+import { getRuntimeLocale, localeToLanguageTag, t } from "@alloy/i18n"
 const BYTES_PER_GIB = 1024 * 1024 * 1024
 const STORAGE_WARNING_RATIO = 0.8
 const STORAGE_DANGER_RATIO = 0.95
-const QUOTA_GIB_ERROR = tx(
+const QUOTA_GIB_ERROR = t(
   "Quota must be blank or a positive GiB value within the safe integer range.",
 )
 

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import * as React from "react"
+import { Suspense } from "react"
 
 import { AllClipsSection } from "@/components/routes/profile/all-clips-section"
 import { useUserClipsQuery } from "@/lib/clip-queries"
@@ -27,7 +27,7 @@ function ProfileAllTab() {
   const gameSlug = search.game ?? null
 
   return (
-    <React.Suspense fallback={null}>
+    <Suspense fallback={null}>
       <AllClipsSection
         username={username}
         clips={clips}
@@ -36,6 +36,6 @@ function ProfileAllTab() {
         sort={sort}
         gameSlug={gameSlug}
       />
-    </React.Suspense>
+    </Suspense>
   )
 }

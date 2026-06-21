@@ -11,7 +11,6 @@ import {
   type Configuration,
   skipSubjectCheck,
   type TokenEndpointResponse,
-  type UserInfoResponse,
 } from "openid-client"
 
 import { normalizeEmail } from "./identity"
@@ -38,7 +37,7 @@ export async function profileFromTokens(
           tokens.access_token,
           expectedSubject,
         )
-      : ({} as UserInfoResponse)
+      : {}
   const raw = { ...claims, ...userInfo }
   const uidClaim = provider.uidClaim ?? "sub"
   const providerAccountId =
@@ -106,7 +105,7 @@ function roleFromProfile(
 
 function roleFromString(value: string): UserRole | null {
   const role = value.trim().toLowerCase()
-  return USER_ROLES.includes(role as UserRole) ? (role as UserRole) : null
+  return USER_ROLES.find((userRole) => userRole === role) ?? null
 }
 
 function quotaFromProfile(

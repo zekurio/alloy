@@ -1,6 +1,7 @@
 import { AppMain, AppShell } from "@alloy/ui/components/app-shell"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
-import * as React from "react"
+import { memo, useCallback } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import {
@@ -42,7 +43,7 @@ function AppLayout() {
     })
   }
 
-  const handleNavigateClip = React.useCallback(
+  const handleNavigateClip = useCallback(
     (entry: { id: string; gameId: string | null }) => {
       void navigate({
         to: ".",
@@ -65,7 +66,7 @@ function AppLayout() {
     [navigate],
   )
 
-  const handleCloseSettings = React.useCallback(() => {
+  const handleCloseSettings = useCallback(() => {
     void navigate({
       to: ".",
       search: (prev: AppSearch) => ({ ...prev, settings: undefined }),
@@ -73,7 +74,7 @@ function AppLayout() {
     })
   }, [navigate])
 
-  const handleNavigateSettings = React.useCallback(
+  const handleNavigateSettings = useCallback(
     (section: string) => {
       void navigate({
         to: ".",
@@ -111,7 +112,7 @@ function AppLayout() {
   )
 }
 
-const AppChrome = React.memo(function AppChrome() {
+const AppChrome = memo(function AppChrome() {
   return (
     <>
       <HomeSidebar />
@@ -120,9 +121,7 @@ const AppChrome = React.memo(function AppChrome() {
   )
 })
 
-function AppRouteErrorState(
-  props: React.ComponentProps<typeof RouteErrorState>,
-) {
+function AppRouteErrorState(props: ComponentProps<typeof RouteErrorState>) {
   return (
     <AppRouteStateShell>
       <RouteErrorState {...props} variant="panel" />
@@ -131,7 +130,7 @@ function AppRouteErrorState(
 }
 
 function AppRouteNotFoundState(
-  props: React.ComponentProps<typeof RouteNotFoundState>,
+  props: ComponentProps<typeof RouteNotFoundState>,
 ) {
   return (
     <AppRouteStateShell>
@@ -140,7 +139,7 @@ function AppRouteNotFoundState(
   )
 }
 
-function AppRouteStateShell({ children }: { children: React.ReactNode }) {
+function AppRouteStateShell({ children }: { children: ReactNode }) {
   return (
     <AppSearchProvider>
       <UploadFlowProvider>

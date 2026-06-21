@@ -1,11 +1,12 @@
 "use client"
 
 import { cn } from "@alloy/ui/lib/utils"
-import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer"
-import * as React from "react"
+import { Drawer } from "@base-ui/react/drawer"
+import { createContext, isValidElement, useContext } from "react"
+import type { ComponentProps } from "react"
 
 type DrawerSide = "top" | "right" | "bottom" | "left"
-type DrawerSlotProps = React.ComponentProps<"div"> & {
+type DrawerSlotProps = ComponentProps<"div"> & {
   slot: string
   baseClassName: string
 }
@@ -23,13 +24,13 @@ function swipeDirectionForSide(side: DrawerSide) {
   }
 }
 
-const DrawerDirectionContext = React.createContext<DrawerSide>("bottom")
+const DrawerDirectionContext = createContext<DrawerSide>("bottom")
 
-function Drawer({
+function DrawerRoot({
   direction = "bottom",
   handleOnly: _handleOnly,
   ...props
-}: DrawerPrimitive.Root.Props & {
+}: Drawer.Root.Props & {
   direction?: DrawerSide
   /**
    * Kept for legacy API compatibility. Base UI drawers always allow swiping
@@ -40,7 +41,7 @@ function Drawer({
 }) {
   return (
     <DrawerDirectionContext.Provider value={direction}>
-      <DrawerPrimitive.Root
+      <Drawer.Root
         data-slot="drawer"
         swipeDirection={swipeDirectionForSide(direction)}
         {...props}
@@ -53,35 +54,35 @@ function DrawerTrigger({
   asChild,
   children,
   ...props
-}: DrawerPrimitive.Trigger.Props & { asChild?: boolean }) {
+}: Drawer.Trigger.Props & { asChild?: boolean }) {
   return (
-    <DrawerPrimitive.Trigger
+    <Drawer.Trigger
       data-slot="drawer-trigger"
-      render={asChild && React.isValidElement(children) ? children : undefined}
+      render={asChild && isValidElement(children) ? children : undefined}
       {...props}
     >
       {asChild ? undefined : children}
-    </DrawerPrimitive.Trigger>
+    </Drawer.Trigger>
   )
 }
 
-function DrawerPortal({ ...props }: DrawerPrimitive.Portal.Props) {
-  return <DrawerPrimitive.Portal data-slot="drawer-portal" {...props} />
+function DrawerPortal({ ...props }: Drawer.Portal.Props) {
+  return <Drawer.Portal data-slot="drawer-portal" {...props} />
 }
 
 function DrawerClose({
   asChild,
   children,
   ...props
-}: DrawerPrimitive.Close.Props & { asChild?: boolean }) {
+}: Drawer.Close.Props & { asChild?: boolean }) {
   return (
-    <DrawerPrimitive.Close
+    <Drawer.Close
       data-slot="drawer-close"
-      render={asChild && React.isValidElement(children) ? children : undefined}
+      render={asChild && isValidElement(children) ? children : undefined}
       {...props}
     >
       {asChild ? undefined : children}
-    </DrawerPrimitive.Close>
+    </Drawer.Close>
   )
 }
 
@@ -96,7 +97,7 @@ function DrawerSlot({
   )
 }
 
-function DrawerHandle({ className, ...props }: React.ComponentProps<"div">) {
+function DrawerHandle({ className, ...props }: ComponentProps<"div">) {
   return (
     <DrawerSlot
       slot="drawer-handle"
@@ -114,9 +115,9 @@ function DrawerOverlay({
   // always darkens its surroundings and the backdrop can catch outside taps.
   forceRender = true,
   ...props
-}: DrawerPrimitive.Backdrop.Props) {
+}: Drawer.Backdrop.Props) {
   return (
-    <DrawerPrimitive.Backdrop
+    <Drawer.Backdrop
       data-slot="drawer-overlay"
       forceRender={forceRender}
       className={cn(
@@ -128,12 +129,9 @@ function DrawerOverlay({
   )
 }
 
-function DrawerViewport({
-  className,
-  ...props
-}: DrawerPrimitive.Viewport.Props) {
+function DrawerViewport({ className, ...props }: Drawer.Viewport.Props) {
   return (
-    <DrawerPrimitive.Viewport
+    <Drawer.Viewport
       data-slot="drawer-viewport"
       className={cn("fixed inset-0 z-50 pointer-events-none", className)}
       {...props}
@@ -146,18 +144,18 @@ function DrawerContent({
   children,
   container,
   ...props
-}: DrawerPrimitive.Popup.Props & {
+}: Drawer.Popup.Props & {
   /** Portal target — defaults to document.body. Pass the player container so
    *  the sheet renders above an element that is currently fullscreen. */
   container?: HTMLElement | null
 }) {
-  const direction = React.useContext(DrawerDirectionContext)
+  const direction = useContext(DrawerDirectionContext)
 
   return (
     <DrawerPortal container={container ?? undefined}>
       <DrawerOverlay />
       <DrawerViewport>
-        <DrawerPrimitive.Popup
+        <Drawer.Popup
           data-slot="drawer-content"
           data-side={direction}
           className={cn(
@@ -167,13 +165,13 @@ function DrawerContent({
           {...props}
         >
           {children}
-        </DrawerPrimitive.Popup>
+        </Drawer.Popup>
       </DrawerViewport>
     </DrawerPortal>
   )
 }
 
-function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
+function DrawerHeader({ className, ...props }: ComponentProps<"div">) {
   return (
     <DrawerSlot
       slot="drawer-header"
@@ -184,7 +182,7 @@ function DrawerHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
+function DrawerFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <DrawerSlot
       slot="drawer-footer"
@@ -195,9 +193,9 @@ function DrawerFooter({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DrawerTitle({ className, ...props }: DrawerPrimitive.Title.Props) {
+function DrawerTitle({ className, ...props }: Drawer.Title.Props) {
   return (
-    <DrawerPrimitive.Title
+    <Drawer.Title
       data-slot="drawer-title"
       className={cn("font-semibold text-foreground", className)}
       {...props}
@@ -205,12 +203,9 @@ function DrawerTitle({ className, ...props }: DrawerPrimitive.Title.Props) {
   )
 }
 
-function DrawerDescription({
-  className,
-  ...props
-}: DrawerPrimitive.Description.Props) {
+function DrawerDescription({ className, ...props }: Drawer.Description.Props) {
   return (
-    <DrawerPrimitive.Description
+    <Drawer.Description
       data-slot="drawer-description"
       className={cn("text-sm text-muted-foreground", className)}
       {...props}
@@ -219,7 +214,7 @@ function DrawerDescription({
 }
 
 export {
-  Drawer,
+  DrawerRoot as Drawer,
   DrawerClose,
   DrawerContent,
   DrawerDescription,

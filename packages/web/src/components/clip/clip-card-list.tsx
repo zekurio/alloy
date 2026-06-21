@@ -1,5 +1,5 @@
 import type { ClipRow } from "@alloy/api"
-import * as React from "react"
+import { useMemo } from "react"
 
 import { ClipCardTrigger } from "./clip-card-trigger"
 import { ClipGrid } from "./clip-grid"
@@ -16,7 +16,7 @@ export function ClipCardList({
   isOwnedByViewer,
   listKey,
 }: ClipCardListProps) {
-  const entries = React.useMemo<ClipListEntry[]>(
+  const entries = useMemo<ClipListEntry[]>(
     () =>
       rows.map((row) => ({
         id: row.id,

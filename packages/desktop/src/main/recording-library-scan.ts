@@ -136,10 +136,11 @@ function handleScanWorkerMessage(message: unknown): void {
 
   if (message.ok) {
     pending.resolve(message.snapshot)
-  } else {
-    pending.reject(new Error(message.error))
+    scheduleScanWorkerIdleShutdown()
+    return
   }
 
+  pending.reject(new Error(message.error))
   scheduleScanWorkerIdleShutdown()
 }
 

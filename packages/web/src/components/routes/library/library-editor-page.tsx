@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +14,7 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
 import { HardDriveIcon } from "lucide-react"
-import * as React from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
@@ -41,8 +41,8 @@ export function LibraryEditorPage({
       <AppMain>
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title={tx("The library is only available in Alloy Desktop")}
-          description={tx(
+          title={t("The library is only available in Alloy Desktop")}
+          description={t(
             "Open Alloy in the desktop app to edit captures stored on this device.",
           )}
         />
@@ -73,15 +73,15 @@ function LibraryEditorContent({
   const navigation = useLibraryEntryNavigation({ type: "local", id: captureId })
   const { snapshot, error, refreshing, refresh, prevEntry, nextEntry } =
     navigation
-  const [deleting, setDeleting] = React.useState(false)
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const currentEntry = navigation.currentEntry
-  const item = React.useMemo(() => {
+  const item = useMemo(() => {
     return currentEntry?.type === "local" ? currentEntry.item : null
   }, [currentEntry])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (currentEntry && currentEntry.type !== "local") {
       navigateToEntry(currentEntry)
     }
@@ -93,7 +93,7 @@ function LibraryEditorContent({
     const fallback = nextEntry ?? prevEntry
     try {
       await desktop.recording.deleteLibraryCapture(item.id)
-      toast.success(tx("Capture moved to the system trash"))
+      toast.success(t("Capture moved to the system trash"))
       void refresh()
       setDeleteDialogOpen(false)
       setDeleting(false)
@@ -103,7 +103,7 @@ function LibraryEditorContent({
         void navigate({ to: "/library", replace: true })
       }
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't delete capture")))
+      toast.error(errorMessage(cause, t("Couldn't delete capture")))
       setDeleting(false)
     }
   }
@@ -113,7 +113,7 @@ function LibraryEditorContent({
       <AppMain>
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title={tx("Couldn't scan the library")}
+          title={t("Couldn't scan the library")}
           description={error}
         >
           <BackToLibraryButton />
@@ -151,8 +151,8 @@ function LibraryEditorContent({
       <AppMain>
         <LibraryEmpty
           icon={<HardDriveIcon />}
-          title={tx("Capture not found")}
-          description={tx(
+          title={t("Capture not found")}
+          description={t(
             "It may have been moved or deleted from the capture folder.",
           )}
         >
@@ -201,21 +201,21 @@ function DeleteLocalCaptureDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{tx("Delete this capture?")}</AlertDialogTitle>
+          <AlertDialogTitle>{t("Delete this capture?")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {tx("The file will be moved to your system trash.")}
+            {t("The file will be moved to your system trash.")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>
-            {tx("Cancel")}
+            {t("Cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             onClick={onConfirm}
             disabled={pending}
           >
-            {pending ? tx("Deleting...") : tx("Delete capture")}
+            {pending ? t("Deleting...") : t("Delete capture")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

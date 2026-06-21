@@ -1,5 +1,5 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useEffect, useRef } from "react"
 
 type DecodedBlurHash = {
   pixels: Uint8ClampedArray
@@ -105,9 +105,9 @@ export function BlurHashCanvas({
   width?: number
   height?: number
 }) {
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas || !hash) return
 

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import * as React from "react"
+import { Suspense } from "react"
 
 import { TagsPageInner } from "@/components/routes/tags/tags-page-inner"
 import { parseTagSearch } from "@/lib/tag-search"
@@ -13,8 +13,8 @@ function TagsPage() {
   const { tag } = Route.useParams()
 
   return (
-    <React.Suspense fallback={null}>
+    <Suspense fallback={null}>
       <TagsPageInner tag={tag} />
-    </React.Suspense>
+    </Suspense>
   )
 }

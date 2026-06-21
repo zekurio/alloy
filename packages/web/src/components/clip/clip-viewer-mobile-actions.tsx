@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -21,7 +21,7 @@ import {
   Share2Icon,
   Trash2Icon,
 } from "lucide-react"
-import * as React from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 import { formatCount } from "@/lib/number-format"
 import { userAvatar } from "@/lib/user-display"
@@ -29,7 +29,7 @@ import { userAvatar } from "@/lib/user-display"
 type ClipAuthorLinkProps = {
   handle: string
   avatar: ReturnType<typeof userAvatar>
-  avatarStyle: React.CSSProperties
+  avatarStyle: CSSProperties
   author: string
   size: "sm" | "md" | "lg"
   className: string
@@ -57,7 +57,7 @@ export function ClipAuthorLink({
 }
 
 type MobileActionButtonProps = {
-  icon: React.ReactNode
+  icon: ReactNode
   count?: number
   onClick: () => void
   disabled?: boolean
@@ -94,7 +94,7 @@ function MobileActionButton({
 type ClipActionsMenuProps = {
   canManage: boolean
   deleting: boolean
-  downloadAction?: React.ReactNode
+  downloadAction?: ReactNode
   iconClassName: string
   onEdit: () => void
   onDelete: () => void
@@ -115,7 +115,7 @@ function ClipActionsMenu({
           <button
             type="button"
             className="flex flex-col items-center text-white/80"
-            aria-label={tx("Clip actions")}
+            aria-label={t("Clip actions")}
           >
             <MoreHorizontalIcon className={iconClassName} />
           </button>
@@ -127,7 +127,7 @@ function ClipActionsMenu({
         {canManage ? (
           <>
             <DropdownMenuItem onClick={onEdit}>
-              <PencilIcon /> {tx("Edit")}
+              <PencilIcon /> {t("Edit")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
@@ -135,7 +135,7 @@ function ClipActionsMenu({
               disabled={deleting}
               onClick={onDelete}
             >
-              <Trash2Icon /> {tx("Delete")}
+              <Trash2Icon /> {t("Delete")}
             </DropdownMenuItem>
           </>
         ) : null}
@@ -149,7 +149,7 @@ type MobileActionsRailProps = {
   canLike: boolean
   canManage: boolean
   deleting: boolean
-  downloadAction?: React.ReactNode
+  downloadAction?: ReactNode
   likeCount: number
   commentCount: number
   iconSizeClassName: string
@@ -183,7 +183,7 @@ export function MobileActionsRail({
         onClick={onLike}
         disabled={!canLike}
         className="flex flex-col items-center gap-0.5 disabled:opacity-50"
-        ariaLabel={liked ? tx("Unlike") : tx("Like")}
+        ariaLabel={liked ? t("Unlike") : t("Like")}
         count={likeCount}
         countClassName={countClassName}
         icon={
@@ -197,7 +197,7 @@ export function MobileActionsRail({
       />
       <MobileActionButton
         onClick={onComments}
-        ariaLabel={tx("Comments")}
+        ariaLabel={t("Comments")}
         count={commentCount}
         countClassName={countClassName}
         icon={
@@ -207,7 +207,7 @@ export function MobileActionsRail({
       <MobileActionButton
         onClick={onShare}
         className="flex flex-col items-center"
-        ariaLabel={tx("Share")}
+        ariaLabel={t("Share")}
         icon={<Share2Icon className={cn(iconSizeClassName, "text-white")} />}
       />
       {canManage || downloadAction ? (

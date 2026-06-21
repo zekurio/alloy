@@ -13,7 +13,7 @@ import {
   SparklesIcon,
   TrophyIcon,
 } from "lucide-react"
-import * as React from "react"
+import type { ReactElement, ReactNode } from "react"
 
 import {
   filterLabelClass,
@@ -24,7 +24,7 @@ import {
 export type SortDropdownOption<K extends string> = {
   key: K
   label: string
-  icon?: React.ReactNode
+  icon?: ReactNode
 }
 
 type SortDropdownProps<K extends string> = {
@@ -43,7 +43,7 @@ type SortDropdownProps<K extends string> = {
   renderOptionLink: (
     option: SortDropdownOption<K>,
     active: boolean,
-  ) => React.ReactElement
+  ) => ReactElement
 }
 
 export function SortDropdown<K extends string>({

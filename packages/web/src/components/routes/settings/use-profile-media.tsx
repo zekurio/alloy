@@ -1,8 +1,9 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
-import * as React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { ChangeEvent, Dispatch, SetStateAction } from "react"
 
 import { useClickAnchor } from "@/hooks/use-click-anchor"
 import { api } from "@/lib/api"
@@ -15,8 +16,8 @@ import type { CropMode } from "./profile-image-crop-utils"
 import { MediaDropdownContent, type MediaKind } from "./profile-media-controls"
 
 const UPLOAD_SUCCESS_MESSAGE: Record<CropMode, string> = {
-  avatar: tx("Avatar updated"),
-  banner: tx("Banner updated"),
+  avatar: t("Avatar updated"),
+  banner: t("Banner updated"),
 }
 
 type ProfileMediaInput = {
@@ -29,7 +30,7 @@ function useProfileRefresh() {
   const queryClient = useQueryClient()
   const { refetch: refetchSession } = useSession()
 
-  return React.useCallback(async () => {
+  return useCallback(async () => {
     await refetchSession()
     await invalidateProfileIdentityCaches(queryClient)
     await router.invalidate()
@@ -37,14 +38,14 @@ function useProfileRefresh() {
 }
 
 function useSyncedProfileMedia({ image, banner }: ProfileMediaInput) {
-  const [profileImage, setProfileImage] = React.useState(image)
-  const [profileBanner, setProfileBanner] = React.useState(banner)
+  const [profileImage, setProfileImage] = useState(image)
+  const [profileBanner, setProfileBanner] = useState(banner)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setProfileImage(image)
   }, [image])
 
-  React.useEffect(() => {
+  useEffect(() => {
     setProfileBanner(banner)
   }, [banner])
 
@@ -60,21 +61,18 @@ function useProfileMediaInputs({
   setCropFile,
   setCropMode,
 }: {
-  setCropFile: React.Dispatch<React.SetStateAction<File | null>>
-  setCropMode: React.Dispatch<React.SetStateAction<CropMode>>
+  setCropFile: Dispatch<SetStateAction<File | null>>
+  setCropMode: Dispatch<SetStateAction<CropMode>>
 }) {
-  const avatarInputRef = React.useRef<HTMLInputElement>(null)
-  const bannerInputRef = React.useRef<HTMLInputElement>(null)
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const bannerInputRef = useRef<HTMLInputElement>(null)
 
   function openFilePicker(mode: CropMode) {
     const ref = mode === "avatar" ? avatarInputRef : bannerInputRef
     ref.current?.click()
   }
 
-  function handleFileSelect(
-    e: React.ChangeEvent<HTMLInputElement>,
-    mode: CropMode,
-  ) {
+  function handleFileSelect(e: ChangeEvent<HTMLInputElement>, mode: CropMode) {
     const file = e.target.files?.[0]
     if (!file) return
     // Reset the input so the same file can be re-selected.
@@ -112,10 +110,10 @@ function useProfileMediaMutations({
   setProfileImage,
 }: {
   refreshProfile: () => Promise<void>
-  setProfileBanner: React.Dispatch<React.SetStateAction<string>>
-  setProfileImage: React.Dispatch<React.SetStateAction<string>>
+  setProfileBanner: Dispatch<SetStateAction<string>>
+  setProfileImage: Dispatch<SetStateAction<string>>
 }) {
-  const [uploading, setUploading] = React.useState(false)
+  const [uploading, setUploading] = useState(false)
 
   async function handleImageUpload(
     blob: Blob,
@@ -135,7 +133,7 @@ function useProfileMediaMutations({
       await refreshProfile()
       return true
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Upload failed")))
+      toast.error(errorMessage(cause, t("Upload failed")))
       return false
     } finally {
       setUploading(false)
@@ -146,8 +144,8 @@ function useProfileMediaMutations({
     await removeProfileMedia({
       remove: api.users.removeAvatar,
       update: (nextUser) => setProfileImage(nextUser.image ?? ""),
-      success: tx("Avatar removed"),
-      failure: tx("Couldn't remove avatar"),
+      success: t("Avatar removed"),
+      failure: t("Couldn't remove avatar"),
       refreshProfile,
       setUploading,
     })
@@ -157,8 +155,8 @@ function useProfileMediaMutations({
     await removeProfileMedia({
       remove: api.users.removeBanner,
       update: (nextUser) => setProfileBanner(nextUser.banner ?? ""),
-      success: tx("Banner removed"),
-      failure: tx("Couldn't remove banner"),
+      success: t("Banner removed"),
+      failure: t("Couldn't remove banner"),
       refreshProfile,
       setUploading,
     })
@@ -185,7 +183,7 @@ async function removeProfileMedia({
   success: string
   failure: string
   refreshProfile: () => Promise<void>
-  setUploading: React.Dispatch<React.SetStateAction<boolean>>
+  setUploading: Dispatch<SetStateAction<boolean>>
 }) {
   setUploading(true)
   try {
@@ -208,9 +206,9 @@ async function removeProfileMedia({
 export function useProfileMedia(input: ProfileMediaInput) {
   const refreshProfile = useProfileRefresh()
   const media = useSyncedProfileMedia(input)
-  const [cropFile, setCropFile] = React.useState<File | null>(null)
-  const [cropMode, setCropMode] = React.useState<CropMode>("avatar")
-  const [cropApplying, setCropApplying] = React.useState(false)
+  const [cropFile, setCropFile] = useState<File | null>(null)
+  const [cropMode, setCropMode] = useState<CropMode>("avatar")
+  const [cropApplying, setCropApplying] = useState(false)
   const bannerAnchor = useClickAnchor()
   const avatarAnchor = useClickAnchor()
   const { fileInputs, openFilePicker } = useProfileMediaInputs({

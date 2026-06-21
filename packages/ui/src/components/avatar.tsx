@@ -1,6 +1,7 @@
 import { cn } from "@alloy/ui/lib/utils"
-import { Avatar as AvatarPrimitive } from "@base-ui/react/avatar"
-import * as React from "react"
+import { Avatar } from "@base-ui/react/avatar"
+import { Children, isValidElement, useEffect, useState } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 const avatarRootSizeClasses = [
   "data-[size=sm]:size-5 data-[size=sm]:text-[8px]",
@@ -21,43 +22,39 @@ const avatarBadgeSizeClasses = [
 
 const loadedAvatarImageSrcs = new Set<string>()
 
-function getAvatarImageKey(children: React.ReactNode): string {
-  let imageKey = "fallback"
-
-  React.Children.forEach(children, (child) => {
-    if (!React.isValidElement(child)) return
+function getAvatarImageKey(children: ReactNode): string {
+  return Children.toArray(children).reduce<string>((imageKey, child) => {
+    if (!isValidElement<{ children?: ReactNode; src?: unknown }>(child)) {
+      return imageKey
+    }
 
     if (child.type === AvatarImage) {
-      const src = (child.props as { src?: unknown }).src
-      imageKey = typeof src === "string" && src ? src : "fallback"
-      return
+      return typeof child.props.src === "string" && child.props.src
+        ? child.props.src
+        : "fallback"
     }
 
-    const nestedChildren = (child.props as { children?: React.ReactNode })
-      .children
-    if (nestedChildren !== undefined) {
-      const nestedKey = getAvatarImageKey(nestedChildren)
-      if (nestedKey !== "fallback") imageKey = nestedKey
-    }
-  })
+    if (child.props.children === undefined) return imageKey
 
-  return imageKey
+    const nestedKey = getAvatarImageKey(child.props.children)
+    return nestedKey !== "fallback" ? nestedKey : imageKey
+  }, "fallback")
 }
 
-function Avatar({
+function AvatarRoot({
   className,
   size = "md",
   ring = false,
   children,
   ...props
-}: AvatarPrimitive.Root.Props & {
+}: Avatar.Root.Props & {
   size?: "sm" | "md" | "nav" | "lg" | "xl" | "2xl"
   ring?: boolean
 }) {
   const imageKey = getAvatarImageKey(children)
 
   return (
-    <AvatarPrimitive.Root
+    <Avatar.Root
       key={imageKey}
       data-slot="avatar"
       data-size={size}
@@ -73,7 +70,7 @@ function Avatar({
       {...props}
     >
       {children}
-    </AvatarPrimitive.Root>
+    </Avatar.Root>
   )
 }
 
@@ -82,17 +79,17 @@ function AvatarImage({
   src,
   onLoadingStatusChange,
   ...props
-}: AvatarPrimitive.Image.Props) {
+}: Avatar.Image.Props) {
   const initialStatus = src
     ? loadedAvatarImageSrcs.has(src)
       ? "loaded"
       : "loading"
     : "idle"
-  const [status, setStatus] = React.useState<
-    "idle" | "loading" | "loaded" | "error"
-  >(initialStatus)
+  const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">(
+    initialStatus,
+  )
 
-  React.useEffect(() => {
+  useEffect(() => {
     setStatus(
       src ? (loadedAvatarImageSrcs.has(src) ? "loaded" : "loading") : "idle",
     )
@@ -102,7 +99,7 @@ function AvatarImage({
 
   return (
     <>
-      <AvatarPrimitive.Image
+      <Avatar.Image
         data-slot="avatar-image"
         src={src}
         onLoadingStatusChange={(nextStatus) => {
@@ -126,12 +123,9 @@ function AvatarImage({
   )
 }
 
-function AvatarFallback({
-  className,
-  ...props
-}: AvatarPrimitive.Fallback.Props) {
+function AvatarFallback({ className, ...props }: Avatar.Fallback.Props) {
   return (
-    <AvatarPrimitive.Fallback
+    <Avatar.Fallback
       data-slot="avatar-fallback"
       className={cn(
         "grid size-full place-items-center text-center leading-none",
@@ -142,7 +136,7 @@ function AvatarFallback({
   )
 }
 
-function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
+function AvatarBadge({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
       data-slot="avatar-badge"
@@ -156,7 +150,7 @@ function AvatarBadge({ className, ...props }: React.ComponentProps<"span">) {
   )
 }
 
-function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
+function AvatarGroup({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="avatar-group"
@@ -169,10 +163,7 @@ function AvatarGroup({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function AvatarGroupCount({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function AvatarGroupCount({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="avatar-group-count"
@@ -187,7 +178,7 @@ function AvatarGroupCount({
 }
 
 export {
-  Avatar,
+  AvatarRoot as Avatar,
   AvatarBadge,
   AvatarFallback,
   AvatarGroup,

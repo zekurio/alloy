@@ -1,12 +1,12 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type { ComponentProps } from "react"
 
 function SectionDiv({
   slot,
   baseClassName,
   className,
   ...props
-}: React.ComponentProps<"div"> & {
+}: ComponentProps<"div"> & {
   slot: string
   baseClassName: string
 }) {
@@ -15,7 +15,7 @@ function SectionDiv({
   )
 }
 
-function Section({ className, ...props }: React.ComponentProps<"div">) {
+function Section({ className, ...props }: ComponentProps<"div">) {
   return (
     <SectionDiv
       slot="section"
@@ -26,7 +26,7 @@ function Section({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionHeader({ className, ...props }: React.ComponentProps<"div">) {
+function SectionHeader({ className, ...props }: ComponentProps<"div">) {
   return (
     <SectionDiv
       slot="section-header"
@@ -37,7 +37,7 @@ function SectionHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
+function SectionTitle({ className, ...props }: ComponentProps<"div">) {
   return (
     <SectionDiv
       slot="section-title"
@@ -48,7 +48,7 @@ function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionContent({ className, ...props }: React.ComponentProps<"div">) {
+function SectionContent({ className, ...props }: ComponentProps<"div">) {
   return (
     <SectionDiv
       slot="section-content"
@@ -59,7 +59,7 @@ function SectionContent({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionFooter({ className, ...props }: React.ComponentProps<"div">) {
+function SectionFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <SectionDiv
       slot="section-footer"

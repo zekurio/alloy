@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import {
   createFileRoute,
@@ -6,7 +6,7 @@ import {
   redirect,
   useNavigate,
 } from "@tanstack/react-router"
-import * as React from "react"
+import { Suspense, lazy, useEffect, useState } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -37,7 +37,7 @@ export const Route = createFileRoute("/(auth)/setup")({
   component: SetupPage,
 })
 
-const PasskeySignUpForm = React.lazy(() =>
+const PasskeySignUpForm = lazy(() =>
   import("@/components/routes/sign-up/passkey-sign-up-form").then((m) => ({
     default: m.PasskeySignUpForm,
   })),
@@ -70,25 +70,25 @@ function AdminAccountStep() {
     <div className="w-full max-w-sm">
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold">
-          {tx("Create the admin account")}
+          {t("Create the admin account")}
         </h2>
         <p className="text-foreground-muted text-sm">
-          {tx("This first account will be assigned the admin role.")}
+          {t("This first account will be assigned the admin role.")}
         </p>
       </div>
 
-      <React.Suspense fallback={null}>
+      <Suspense fallback={null}>
         <PasskeySignUpForm redirectTo="/setup" />
-      </React.Suspense>
+      </Suspense>
     </div>
   )
 }
 
 function CompleteSetupStep() {
   const navigate = useNavigate()
-  const [message, setMessage] = React.useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false
     async function completeSetup() {
       try {
@@ -97,7 +97,7 @@ function CompleteSetupStep() {
         if (!cancelled) void navigate({ to: "/" })
       } catch (cause) {
         if (!cancelled) {
-          setMessage(errorMessage(cause, tx("Couldn't complete setup")))
+          setMessage(errorMessage(cause, t("Couldn't complete setup")))
         }
       }
     }
@@ -111,13 +111,13 @@ function CompleteSetupStep() {
     <div className="w-full max-w-sm">
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold">
-          {tx("Finishing setup")}
+          {t("Finishing setup")}
         </h2>
         {message ? (
           <p className="text-destructive text-sm">{message}</p>
         ) : (
           <p className="text-foreground-muted text-sm">
-            {tx("Finalizing the instance state.")}
+            {t("Finalizing the instance state.")}
           </p>
         )}
       </div>

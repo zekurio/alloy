@@ -1,4 +1,12 @@
-import * as React from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useDeferredValue,
+  useMemo,
+  useState,
+} from "react"
+import type { ReactNode } from "react"
 
 import { useDebouncedValue } from "@/lib/use-debounced-value"
 
@@ -12,29 +20,29 @@ type AppSearchContextValue = {
   setOpen: (open: boolean) => void
 }
 
-const AppSearchContext = React.createContext<AppSearchContextValue | null>(null)
+const AppSearchContext = createContext<AppSearchContextValue | null>(null)
 
-export function AppSearchProvider({ children }: { children: React.ReactNode }) {
-  const [query, setQueryState] = React.useState("")
-  const [open, setOpen] = React.useState(false)
+export function AppSearchProvider({ children }: { children: ReactNode }) {
+  const [query, setQueryState] = useState("")
+  const [open, setOpen] = useState(false)
   const debouncedQuery = useDebouncedValue(query, 180)
-  const deferredQueryRaw = React.useDeferredValue(debouncedQuery)
-  const deferredQuery = React.useMemo(
+  const deferredQueryRaw = useDeferredValue(debouncedQuery)
+  const deferredQuery = useMemo(
     () => deferredQueryRaw.trim(),
     [deferredQueryRaw],
   )
 
-  const setQuery = React.useCallback((next: string) => {
+  const setQuery = useCallback((next: string) => {
     setQueryState(next)
     if (next.length > 0) setOpen(true)
   }, [])
 
-  const clear = React.useCallback(() => {
+  const clear = useCallback(() => {
     setQueryState("")
     setOpen(false)
   }, [])
 
-  const value = React.useMemo(
+  const value = useMemo(
     () => ({
       query,
       deferredQuery,
@@ -54,7 +62,7 @@ export function AppSearchProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAppSearch() {
-  const value = React.useContext(AppSearchContext)
+  const value = useContext(AppSearchContext)
   if (!value) {
     throw new Error("useAppSearch must be used inside AppSearchProvider")
   }

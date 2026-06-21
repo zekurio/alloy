@@ -1,11 +1,11 @@
 import type { RecordingDisplay } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { desktopCapturer, screen } from "electron"
 
 const DISPLAY_THUMBNAIL_WIDTH = 480
 const DISPLAY_THUMBNAIL_HEIGHT = 270
 
-export async function listRecordingDisplays(
+export async function listElectronRecordingDisplays(
   obsDisplays: RecordingDisplay[] = [],
 ): Promise<RecordingDisplay[]> {
   const [sources, electronDisplays] = await Promise.all([
@@ -36,9 +36,9 @@ export async function listRecordingDisplays(
       name:
         obsDisplay?.name ??
         source?.name ??
-        tx("Display {number}{primary}", {
+        t("Display {number}{primary}", {
           number: index + 1,
-          primary: display.id === primaryId ? tx(" (primary)") : "",
+          primary: display.id === primaryId ? t(" (primary)") : "",
         }),
       width: obsDisplay?.width ?? size.width,
       height: obsDisplay?.height ?? size.height,

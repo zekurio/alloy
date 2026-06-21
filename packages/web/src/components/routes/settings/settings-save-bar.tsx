@@ -1,8 +1,8 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { SaveIcon } from "lucide-react"
-import * as React from "react"
+import { useEffect, useRef, useState } from "react"
 
 import { useSettingsSaveState } from "./settings-save-context"
 
@@ -18,9 +18,9 @@ export function SettingsSaveBar() {
   // Warn for a moment after each blocked attempt. Compare against the last
   // seen counter so a bump from an earlier dirty episode doesn't re-warn when
   // the bar reappears.
-  const [warned, setWarned] = React.useState(false)
-  const lastAttention = React.useRef(attention)
-  React.useEffect(() => {
+  const [warned, setWarned] = useState(false)
+  const lastAttention = useRef(attention)
+  useEffect(() => {
     if (attention === lastAttention.current) return
     lastAttention.current = attention
     setWarned(true)
@@ -53,8 +53,8 @@ export function SettingsSaveBar() {
           )}
         >
           {warned
-            ? tx("You have unsaved settings — save or discard them first.")
-            : tx("You have unsaved changes.")}
+            ? t("You have unsaved settings — save or discard them first.")
+            : t("You have unsaved changes.")}
         </p>
         <Button
           type="button"
@@ -63,7 +63,7 @@ export function SettingsSaveBar() {
           disabled={saving}
           onClick={discardAll}
         >
-          {tx("Cancel")}
+          {t("Cancel")}
         </Button>
         <Button
           type="button"
@@ -73,7 +73,7 @@ export function SettingsSaveBar() {
           onClick={() => void saveAll()}
         >
           <SaveIcon />
-          {saving ? tx("Saving…") : tx("Save")}
+          {saving ? t("Saving…") : t("Save")}
         </Button>
       </div>
     </div>

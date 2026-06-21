@@ -4,9 +4,10 @@ import type {
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
-import * as React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { Dispatch, SetStateAction } from "react"
 
 import type { AlloyDesktopRecordingApi } from "@/lib/desktop"
 
@@ -18,10 +19,10 @@ import { errorText } from "./recording-status-helpers"
  * the two no event has arrived for yet.
  */
 function useRecordingSnapshot(recording: AlloyDesktopRecordingApi | null) {
-  const [settings, setSettings] = React.useState<RecordingSettings | null>(null)
-  const [status, setStatus] = React.useState<RecordingStatus | null>(null)
+  const [settings, setSettings] = useState<RecordingSettings | null>(null)
+  const [status, setStatus] = useState<RecordingStatus | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!recording) return
 
     let cancelled = false
@@ -65,10 +66,10 @@ function useRecordingDisplays(
   displayPickerOpen: boolean,
   captureMode: RecordingSettings["captureMode"] | undefined,
 ) {
-  const [displays, setDisplays] = React.useState<RecordingDisplay[]>([])
-  const [displayLoading, setDisplayLoading] = React.useState(false)
+  const [displays, setDisplays] = useState<RecordingDisplay[]>([])
+  const [displayLoading, setDisplayLoading] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!recording || !displayPickerOpen) return
     let cancelled = false
     setDisplayLoading(true)
@@ -78,7 +79,7 @@ function useRecordingDisplays(
         if (!cancelled) setDisplays(nextDisplays)
       })
       .catch((cause) =>
-        toast.error(errorText(cause, tx("Couldn't load displays."))),
+        toast.error(errorText(cause, t("Couldn't load displays."))),
       )
       .finally(() => {
         if (!cancelled) setDisplayLoading(false)
@@ -88,7 +89,7 @@ function useRecordingDisplays(
     }
   }, [displayPickerOpen, recording])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!recording || captureMode !== "display") return
     if (displays.some((display) => display.thumbnailDataUrl)) return
 
@@ -99,7 +100,7 @@ function useRecordingDisplays(
         if (!cancelled) setDisplays(nextDisplays)
       })
       .catch((cause) =>
-        toast.error(errorText(cause, tx("Couldn't load display preview."))),
+        toast.error(errorText(cause, t("Couldn't load display preview."))),
       )
     return () => {
       cancelled = true
@@ -117,11 +118,11 @@ function useRecordingDisplays(
 function useSaveRecordingSettings(
   recording: AlloyDesktopRecordingApi | null,
   settings: RecordingSettings | null,
-  setSettings: React.Dispatch<React.SetStateAction<RecordingSettings | null>>,
+  setSettings: Dispatch<SetStateAction<RecordingSettings | null>>,
 ) {
-  const saveSequence = React.useRef(0)
+  const saveSequence = useRef(0)
 
-  return React.useCallback(
+  return useCallback(
     async (next: RecordingSettings) => {
       if (!recording) return
       const previous = settings
@@ -134,7 +135,7 @@ function useSaveRecordingSettings(
       } catch (cause) {
         if (sequence !== saveSequence.current) return
         setSettings(previous)
-        toast.error(errorText(cause, tx("Couldn't save recording settings.")))
+        toast.error(errorText(cause, t("Couldn't save recording settings.")))
       }
     },
     [recording, setSettings, settings],
@@ -144,7 +145,7 @@ function useSaveRecordingSettings(
 export function useDesktopRecordingState(
   recording: AlloyDesktopRecordingApi | null,
 ) {
-  const [displayPickerOpen, setDisplayPickerOpen] = React.useState(false)
+  const [displayPickerOpen, setDisplayPickerOpen] = useState(false)
   const { settings, setSettings, status } = useRecordingSnapshot(recording)
   const { displays, displayLoading } = useRecordingDisplays(
     recording,
@@ -153,7 +154,7 @@ export function useDesktopRecordingState(
   )
   const save = useSaveRecordingSettings(recording, settings, setSettings)
 
-  const selectDisplay = React.useCallback(
+  const selectDisplay = useCallback(
     (display: RecordingDisplay) => {
       if (!settings) return
       void save({

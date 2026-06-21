@@ -1,8 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 import { createServer, type Server } from "node:http"
-import { type AddressInfo } from "node:net"
 
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { shell } from "electron"
 
@@ -23,12 +22,7 @@ export async function loginViaBrowser(serverUrl: string): Promise<LoginResult> {
   const state = randomUUID()
   const codeVerifier = randomBase64Url(32)
   const codeChallenge = sha256Base64Url(codeVerifier)
-  let resolveCode!: (code: string) => void
-  let rejectCode!: (error: Error) => void
-  const codePromise = new Promise<string>((resolve, reject) => {
-    resolveCode = resolve
-    rejectCode = reject
-  })
+  const codeReceiver = createLoopbackCodeReceiver()
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
@@ -44,7 +38,7 @@ export async function loginViaBrowser(serverUrl: string): Promise<LoginResult> {
       res.end(
         resultPage("Sign-in failed", "You can close this window.", serverUrl),
       )
-      rejectCode(new Error("Invalid loopback callback."))
+      codeReceiver.reject(new Error("Invalid loopback callback."))
       return
     }
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
@@ -55,7 +49,7 @@ export async function loginViaBrowser(serverUrl: string): Promise<LoginResult> {
         serverUrl,
       ),
     )
-    resolveCode(code)
+    codeReceiver.resolve(code)
   })
 
   try {
@@ -68,7 +62,7 @@ export async function loginViaBrowser(serverUrl: string): Promise<LoginResult> {
 
     await shell.openExternal(authorizeUrl.toString())
 
-    const code = await withTimeout(codePromise, LOGIN_TIMEOUT_MS)
+    const code = await withTimeout(codeReceiver.promise, LOGIN_TIMEOUT_MS)
     const session = await exchangeCode(serverUrl, code, codeVerifier)
     await injectSessionCookie(serverUrl, session)
     return { ok: true }
@@ -77,7 +71,7 @@ export async function loginViaBrowser(serverUrl: string): Promise<LoginResult> {
     const timedOut = cause instanceof Error && cause.message === "timeout"
     return {
       ok: false,
-      error: timedOut ? tx("Sign-in timed out.") : tx("Sign-in failed."),
+      error: timedOut ? t("Sign-in timed out.") : t("Sign-in failed."),
     }
   } finally {
     server.close()
@@ -133,11 +127,33 @@ function listen(server: Server): Promise<number> {
   return new Promise((resolve, reject) => {
     server.once("error", reject)
     server.listen(0, "127.0.0.1", () => {
-      const address = server.address() as AddressInfo | null
-      if (address) resolve(address.port)
-      else reject(new Error("Could not bind loopback port."))
+      const address = server.address()
+      if (typeof address === "object" && address !== null) {
+        resolve(address.port)
+        return
+      }
+      reject(new Error("Could not bind loopback port."))
     })
   })
+}
+
+interface LoopbackCodeReceiver {
+  promise: Promise<string>
+  resolve: (code: string) => void
+  reject: (error: Error) => void
+}
+
+function createLoopbackCodeReceiver(): LoopbackCodeReceiver {
+  let resolveCode: ((code: string) => void) | null = null
+  let rejectCode: ((error: Error) => void) | null = null
+  const promise = new Promise<string>((resolve, reject) => {
+    resolveCode = resolve
+    rejectCode = reject
+  })
+  if (!resolveCode || !rejectCode) {
+    throw new Error("Could not create loopback code receiver.")
+  }
+  return { promise, resolve: resolveCode, reject: rejectCode }
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

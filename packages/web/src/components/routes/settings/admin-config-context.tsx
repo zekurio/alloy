@@ -1,14 +1,13 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { useQuery } from "@tanstack/react-query"
-import * as React from "react"
+import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import type { Dispatch, ReactNode, SetStateAction } from "react"
 
 import { adminRuntimeConfigQueryOptions } from "@/lib/admin-query-keys"
 import { errorMessage } from "@/lib/error-message"
 
-type AdminConfigSetter = React.Dispatch<
-  React.SetStateAction<AdminRuntimeConfig | null>
->
+type AdminConfigSetter = Dispatch<SetStateAction<AdminRuntimeConfig | null>>
 
 interface AdminConfigContextValue {
   config: AdminRuntimeConfig | null
@@ -16,33 +15,27 @@ interface AdminConfigContextValue {
   loadError: string | null
 }
 
-const AdminConfigContext = React.createContext<AdminConfigContextValue | null>(
-  null,
-)
+const AdminConfigContext = createContext<AdminConfigContextValue | null>(null)
 
 function useAdminConfig() {
   const configQuery = useQuery(adminRuntimeConfigQueryOptions())
-  const [config, setConfig] = React.useState<AdminRuntimeConfig | null>(null)
+  const [config, setConfig] = useState<AdminRuntimeConfig | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (configQuery.data) setConfig(configQuery.data)
   }, [configQuery.data])
 
   const loadError = configQuery.error
-    ? errorMessage(configQuery.error, tx("Couldn't load settings"))
+    ? errorMessage(configQuery.error, t("Couldn't load settings"))
     : null
 
   return { config, setConfig, loadError }
 }
 
-export function AdminConfigProvider({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export function AdminConfigProvider({ children }: { children: ReactNode }) {
   const { config, setConfig, loadError } = useAdminConfig()
 
-  const value = React.useMemo<AdminConfigContextValue>(
+  const value = useMemo<AdminConfigContextValue>(
     () => ({
       config,
       setConfig,
@@ -59,7 +52,7 @@ export function AdminConfigProvider({
 }
 
 export function useAdminConfigContext(): AdminConfigContextValue {
-  const value = React.useContext(AdminConfigContext)
+  const value = useContext(AdminConfigContext)
   if (!value) {
     throw new Error(
       "useAdminConfigContext must be used within an AdminConfigProvider",

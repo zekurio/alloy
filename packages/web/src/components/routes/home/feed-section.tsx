@@ -1,9 +1,9 @@
 import type { ClipFeedSort, ClipRow, FeedFilter } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -22,22 +22,22 @@ const FEED_PAGE_LIMIT = 20
 function emptyTitle(filter: FeedFilter): string {
   switch (filter.kind) {
     case "all":
-      return tx("No public clips yet")
+      return t("No public clips yet")
     case "following":
-      return tx("Your following feed is empty")
+      return t("Your following feed is empty")
     case "game":
-      return tx("No clips in this game yet")
+      return t("No clips in this game yet")
   }
 }
 
 function emptyHint(filter: FeedFilter): string {
   switch (filter.kind) {
     case "all":
-      return tx("Come back when others have uploaded some clips.")
+      return t("Come back when others have uploaded some clips.")
     case "following":
-      return tx("Follow creators to populate this tab.")
+      return t("Follow creators to populate this tab.")
     case "game":
-      return tx("Be the first to post one.")
+      return t("Be the first to post one.")
   }
 }
 
@@ -82,7 +82,7 @@ function FeedSentinelStatus({
           "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
         )}
       >
-        {tx("Retry")}
+        {t("Retry")}
       </button>
     )
   }
@@ -117,7 +117,7 @@ function FeedSectionBody({
       <EmptyState
         seed={`feed-${feedId}-error`}
         size="lg"
-        title={tx("Couldn't load feed")}
+        title={t("Couldn't load feed")}
       />
     )
   }
@@ -156,12 +156,12 @@ function useFeedSectionState(filter: FeedFilter, sort: ClipFeedSort) {
     refetch,
   } = useFeedInfiniteQuery(filter, sort, { limit: FEED_PAGE_LIMIT })
   useQueryErrorToast(error, {
-    title: tx("Couldn't load feed"),
+    title: t("Couldn't load feed"),
     // Keying the toast on filter avoids stacked toasts when tabs switch.
     toastId: `feed-${feedId}-error`,
   })
 
-  const rows = React.useMemo(
+  const rows = useMemo(
     () => (data ? data.pages.flatMap((page) => page.items) : []),
     [data],
   )

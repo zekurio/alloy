@@ -44,8 +44,8 @@ function formatContextValue(value: string): string {
 }
 
 function sortedContextEntries(ctx: Record<string, string>): [string, string][] {
-  return Object.entries(ctx).sort(([left], [right]) =>
-    left.localeCompare(right),
+  return Object.entries(ctx).sort((left, right) =>
+    left[0].localeCompare(right[0]),
   )
 }
 
@@ -62,11 +62,10 @@ export function formatRecord(record: LogRecord, format: LogFormat): string {
     })
   }
 
-  const scope = record.scope ? ` [${record.scope}]` : ""
   const contextSuffix = sortedContextEntries(record.context)
-    .map(([key, value]) => `${key}=${formatContextValue(value)}`)
+    .map((entry) => `${entry[0]}=${formatContextValue(entry[1])}`)
     .join(" ")
-  const line = `${ts} ${record.level.padEnd(5)}${scope} ${record.message}`
+  const line = `${ts} ${record.level.padEnd(5)}${record.scope ? ` [${record.scope}]` : ""} ${record.message}`
   return contextSuffix ? `${line} ${contextSuffix}` : line
 }
 
@@ -88,20 +87,15 @@ export function formatPrettyRecord(
   stream: NodeJS.WriteStream,
 ): string {
   const paint = (format: StyleFormat, text: string): string => {
-    try {
-      return styleText(format, text, { stream })
-    } catch {
-      return text
-    }
+    return styleText(format, text, { stream })
   }
 
   const ts = paint("dim", record.timestamp.toISOString())
   const level = paint(LEVEL_STYLE[record.level], record.level.padEnd(5))
-  const scope = record.scope ? ` ${paint("cyan", `[${record.scope}]`)}` : ""
   const contextSuffix = sortedContextEntries(record.context)
-    .map(([key, value]) => paint("dim", `${key}=${formatContextValue(value)}`))
+    .map((entry) => paint("dim", `${entry[0]}=${formatContextValue(entry[1])}`))
     .join(" ")
-  const line = `${ts} ${level}${scope} ${record.message}`
+  const line = `${ts} ${level}${record.scope ? ` ${paint("cyan", `[${record.scope}]`)}` : ""} ${record.message}`
   return contextSuffix ? `${line} ${contextSuffix}` : line
 }
 

@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -23,7 +23,7 @@ import {
   SettingsIcon,
   UserIcon,
 } from "lucide-react"
-import * as React from "react"
+import { Suspense } from "react"
 
 import { StorageQuotaCompact } from "@/components/storage-quota"
 import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
@@ -39,9 +39,9 @@ export function UserMenu({
   variant?: UserMenuVariant
 }) {
   return (
-    <React.Suspense fallback={<UserAvatarSkeleton variant={variant} />}>
+    <Suspense fallback={<UserAvatarSkeleton variant={variant} />}>
       <UserMenuInner variant={variant} />
-    </React.Suspense>
+    </Suspense>
   )
 }
 
@@ -63,7 +63,7 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
         })}
       >
         <LogInIcon />
-        {tx("Sign in")}
+        {t("Sign in")}
       </Link>
     )
   }
@@ -72,7 +72,7 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
   const handle = user.username ?? user.displayUsername ?? null
   const email = user.email ?? null
   const primaryLabel = handle ? `@${handle}` : chip.name
-  const accountMenuLabel = tx("Open account menu for {name}", {
+  const accountMenuLabel = t("Open account menu for {name}", {
     name: chip.name,
   })
   async function onSignOut() {
@@ -83,7 +83,7 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
       })
     } catch (cause) {
       toast.error(
-        reportAuthFlowFailure("sign-out", tx("Couldn't sign out"), cause),
+        reportAuthFlowFailure("sign-out", t("Couldn't sign out"), cause),
       )
     }
   }
@@ -159,12 +159,12 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
             render={<Link to="/u/$username" params={{ username: handle }} />}
           >
             <UserIcon />
-            {tx("Profile")}
+            {t("Profile")}
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem onClick={openSettings}>
           <SettingsIcon />
-          {tx("Settings")}
+          {t("Settings")}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <div className="px-3 py-2">
@@ -173,7 +173,7 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
         <DropdownMenuSeparator />
         <DropdownMenuItem variant="destructive" onClick={onSignOut}>
           <LogOutIcon />
-          {tx("Sign out")}
+          {t("Sign out")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

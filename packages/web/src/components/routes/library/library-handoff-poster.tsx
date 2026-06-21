@@ -1,7 +1,7 @@
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { CLIP_MEDIA_CLASS } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useEffect, useRef, useState } from "react"
 
 const HANDOFF_POSTER_TTL_MS = 10_000
 
@@ -48,16 +48,16 @@ export function LibraryHandoffPosterOverlay({
   poster: LibraryHandoffPoster | null
   ready: boolean
 }) {
-  const imageRef = React.useRef<HTMLImageElement | null>(null)
-  const [mounted, setMounted] = React.useState(poster !== null)
-  const [imageLoaded, setImageLoaded] = React.useState(false)
+  const imageRef = useRef<HTMLImageElement | null>(null)
+  const [mounted, setMounted] = useState(poster !== null)
+  const [imageLoaded, setImageLoaded] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setMounted(poster !== null)
     setImageLoaded(false)
   }, [poster])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!poster?.src) return
     const image = imageRef.current
     setImageLoaded(Boolean(image?.complete && image.naturalWidth > 0))

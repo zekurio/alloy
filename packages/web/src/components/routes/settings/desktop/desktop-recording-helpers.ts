@@ -11,12 +11,12 @@ import type {
   RecordingResolution,
   RecordingSettings,
 } from "@alloy/contracts"
-import { RECORDING_QUALITY_PRESETS as CONTRACT_RECORDING_QUALITY_PRESETS } from "@alloy/contracts"
-import { getRuntimeLocale, localeToLanguageTag, t as tx } from "@alloy/i18n"
+import { RECORDING_QUALITY_PRESETS } from "@alloy/contracts"
+import { getRuntimeLocale, localeToLanguageTag, t } from "@alloy/i18n"
 
 export const ENCODER_LABELS: Record<RecordingEncoder, string> = {
-  hardware: tx("GPU"),
-  software: tx("CPU"),
+  hardware: t("GPU"),
+  software: t("CPU"),
 }
 
 export const CODEC_LABELS: Record<RecordingCodec, string> = {
@@ -26,7 +26,7 @@ export const CODEC_LABELS: Record<RecordingCodec, string> = {
 }
 
 export const RESOLUTION_LABELS: Record<RecordingResolution, string> = {
-  source: tx("Source"),
+  source: t("Source"),
   "720p": "720p",
   "1080p": "1080p",
   "1440p": "1440p",
@@ -34,35 +34,35 @@ export const RESOLUTION_LABELS: Record<RecordingResolution, string> = {
 }
 
 export function bitrateLabel(value: RecordingBitrate): string {
-  return value === "auto" ? tx("Auto") : `${value}M`
+  return value === "auto" ? t("Auto") : `${value}M`
 }
 
 export const AUDIO_MODE_LABELS: Record<RecordingAudioMode, string> = {
-  devices: tx("Devices"),
-  applications: tx("Applications"),
+  devices: t("Devices"),
+  applications: t("Applications"),
 }
 
 export const AUDIO_DEVICE_KIND_LABELS: Record<
   RecordingAudioDeviceKind,
   string
 > = {
-  output: tx("Output"),
-  input: tx("Input"),
+  output: t("Output"),
+  input: t("Input"),
 }
 
 export const BUFFER_STORAGE_LABELS: Record<RecordingBufferStorage, string> = {
-  memory: tx("Memory"),
-  disk: tx("Disk"),
+  memory: t("Memory"),
+  disk: t("Disk"),
 }
 
 export function gpuLabel(value: string): string {
-  if (value === "auto") return tx("Auto")
+  if (value === "auto") return t("Auto")
 
   const match = /^adapter:(\d+)(?::(.+))?$/.exec(value)
   if (!match) return value
 
   const [, index, label] = match
-  return label?.trim() || tx("GPU {index}", { index })
+  return label?.trim() || t("GPU {index}", { index })
 }
 
 /** Human-readable byte size using decimal (GB/TB) units, matching disk specs. */
@@ -115,29 +115,29 @@ const QUALITY_PROFILE_LABELS: Record<
   Exclude<RecordingQualityProfile, "custom">,
   string
 > = {
-  low: tx("Low"),
-  standard: tx("Standard"),
-  high: tx("High"),
+  low: t("Low"),
+  standard: t("Standard"),
+  high: t("High"),
 }
 
 /**
  * One-click quality presets. Each applies resolution, frame rate, and bitrate;
  * encoder, GPU, and codec are left untouched.
  */
-export const RECORDING_QUALITY_PRESETS: QualityPresetOption[] =
-  CONTRACT_RECORDING_QUALITY_PRESETS.map((preset) => ({
+export const RECORDING_QUALITY_PRESET_OPTIONS: QualityPresetOption[] =
+  RECORDING_QUALITY_PRESETS.map((preset) => ({
     ...preset,
     label: QUALITY_PROFILE_LABELS[preset.id],
   }))
 
-export const CUSTOM_QUALITY_LABEL = tx("Custom")
+export const CUSTOM_QUALITY_LABEL = t("Custom")
 
 /** The preset selected in settings, or null when Custom is selected. */
 export function selectedQualityPreset(
   settings: RecordingSettings,
 ): QualityPresetOption | null {
   return (
-    RECORDING_QUALITY_PRESETS.find(
+    RECORDING_QUALITY_PRESET_OPTIONS.find(
       (preset) => preset.id === settings.qualityProfile,
     ) ?? null
   )

@@ -1,8 +1,8 @@
 import type { PublicAuthConfig } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQuery } from "@tanstack/react-query"
-import * as React from "react"
+import { useEffect } from "react"
 
 import {
   LinkedAccountsCard,
@@ -26,18 +26,18 @@ function useSecurityData(config: PublicAuthConfig) {
     enabled: config.passkeyEnabled,
   })
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (accountsQuery.error) {
       toast.error(
-        errorMessage(accountsQuery.error, tx("Couldn't load accounts")),
+        errorMessage(accountsQuery.error, t("Couldn't load accounts")),
       )
     }
   }, [accountsQuery.error])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (passkeysQuery.error) {
       toast.error(
-        errorMessage(passkeysQuery.error, tx("Couldn't load passkeys")),
+        errorMessage(passkeysQuery.error, t("Couldn't load passkeys")),
       )
     }
   }, [passkeysQuery.error])
@@ -72,9 +72,9 @@ export function SecuritySettings() {
       {showLinkedAccounts && (
         <div className="flex flex-col gap-3">
           <div>
-            <h2 className="text-sm font-semibold">{tx("Sign-in methods")}</h2>
+            <h2 className="text-sm font-semibold">{t("Sign-in methods")}</h2>
             <p className="text-foreground-dim mt-0.5 text-xs">
-              {tx("Manage linked OAuth sign-in methods.")}
+              {t("Manage linked OAuth sign-in methods.")}
             </p>
           </div>
           <LinkedAccountsCard

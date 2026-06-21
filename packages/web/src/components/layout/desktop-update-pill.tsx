@@ -1,7 +1,7 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { DownloadIcon, RefreshCwIcon } from "lucide-react"
-import * as React from "react"
+import { useState } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
 import { useDesktopUpdateState } from "@/lib/desktop-updates"
@@ -13,7 +13,7 @@ import { useDesktopUpdateState } from "@/lib/desktop-updates"
  */
 export function DesktopUpdatePill() {
   const { status, version } = useDesktopUpdateState()
-  const [pending, setPending] = React.useState(false)
+  const [pending, setPending] = useState(false)
 
   if (status !== "downloading" && status !== "downloaded") return null
 
@@ -29,14 +29,14 @@ export function DesktopUpdatePill() {
   }
 
   const label = pending
-    ? tx("Restarting…")
+    ? t("Restarting…")
     : downloaded
-      ? tx("Restart to update")
-      : tx("Downloading update")
+      ? t("Restart to update")
+      : t("Downloading update")
 
   const tooltip = version
-    ? tx("Alloy {version} has been downloaded.", { version })
-    : tx("A new version has been downloaded.")
+    ? t("Alloy {version} has been downloaded.", { version })
+    : t("A new version has been downloaded.")
 
   return (
     <button

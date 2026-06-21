@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Spinner } from "@alloy/ui/components/spinner"
 
 import { EncodingSettingsGrid } from "./desktop-capture-encoding"
@@ -13,7 +13,7 @@ export function DesktopQualitySettings() {
     return (
       <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />
-        {tx("Loading quality settings")}
+        {t("Loading quality settings")}
       </div>
     )
   }
@@ -24,7 +24,7 @@ export function DesktopQualitySettings() {
 
       <hr className="border-border" />
 
-      <Subsection title={tx("Encoding")}>
+      <Subsection title={t("Encoding")}>
         <EncodingSettingsGrid
           settings={settings}
           status={status}

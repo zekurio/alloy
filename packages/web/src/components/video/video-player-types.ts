@@ -1,4 +1,4 @@
-import * as React from "react"
+import type { MouseEventHandler, Ref } from "react"
 
 export interface VideoPlayerHandle {
   play(): Promise<void>
@@ -23,10 +23,10 @@ export type QualityOption = {
 export type SharedPlayerProps = {
   className?: string
   maxDisplayHeight?: string
-  playerRef?: React.Ref<VideoPlayerHandle>
+  playerRef?: Ref<VideoPlayerHandle>
   onTimeUpdate?: (seconds: number) => void
   onPlayingChange?: (playing: boolean) => void
-  onVideoClick?: React.MouseEventHandler<HTMLVideoElement>
+  onVideoClick?: MouseEventHandler<HTMLVideoElement>
   onPlaybackError?: (message: string) => void
   onPlayThreshold?: () => void
   onFrameReady?: () => void

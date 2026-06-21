@@ -1,5 +1,5 @@
 import { type AdminRuntimeConfig } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Section,
@@ -9,7 +9,8 @@ import {
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
 import { SaveIcon } from "lucide-react"
-import * as React from "react"
+import { useEffect, useMemo, useState } from "react"
+import type { Dispatch, SetStateAction } from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
@@ -17,9 +18,7 @@ import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
-type AdminConfigSetter = React.Dispatch<
-  React.SetStateAction<AdminRuntimeConfig | null>
->
+type AdminConfigSetter = Dispatch<SetStateAction<AdminRuntimeConfig | null>>
 
 export function AppearanceSettingsContent({
   config,
@@ -28,14 +27,14 @@ export function AppearanceSettingsContent({
   config: AdminRuntimeConfig
   setConfig: AdminConfigSetter
 }) {
-  const [enabledPending, setEnabledPending] = React.useState(false)
-  const [treatmentPending, setTreatmentPending] = React.useState(false)
+  const [enabledPending, setEnabledPending] = useState(false)
+  const [treatmentPending, setTreatmentPending] = useState(false)
   const splash = config.appearance.loginSplash
-  const [draftBlurPx, setDraftBlurPx] = React.useState(splash.blurPx)
-  const [draftDarkenOpacity, setDraftDarkenOpacity] = React.useState(
+  const [draftBlurPx, setDraftBlurPx] = useState(splash.blurPx)
+  const [draftDarkenOpacity, setDraftDarkenOpacity] = useState(
     splash.darkenOpacity,
   )
-  const previewSplash = React.useMemo(
+  const previewSplash = useMemo(
     () => ({
       ...splash,
       blurPx: draftBlurPx,
@@ -46,7 +45,7 @@ export function AppearanceSettingsContent({
   const treatmentChanged =
     draftBlurPx !== splash.blurPx || draftDarkenOpacity !== splash.darkenOpacity
 
-  React.useEffect(() => {
+  useEffect(() => {
     setDraftBlurPx(splash.blurPx)
     setDraftDarkenOpacity(splash.darkenOpacity)
   }, [splash.blurPx, splash.darkenOpacity])
@@ -61,10 +60,10 @@ export function AppearanceSettingsContent({
       setConfig(updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
       toast.success(
-        next ? tx("Login backdrop enabled") : tx("Login backdrop disabled"),
+        next ? t("Login backdrop enabled") : t("Login backdrop disabled"),
       )
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't update backdrop")))
+      toast.error(errorMessage(cause, t("Couldn't update backdrop")))
     } finally {
       setEnabledPending(false)
     }
@@ -87,9 +86,9 @@ export function AppearanceSettingsContent({
       })
       setConfig(updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success(tx("Login backdrop appearance saved"))
+      toast.success(t("Login backdrop appearance saved"))
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't save backdrop appearance")))
+      toast.error(errorMessage(cause, t("Couldn't save backdrop appearance")))
     } finally {
       setTreatmentPending(false)
     }
@@ -109,9 +108,9 @@ export function AppearanceSettingsContent({
       <SectionContent className="flex flex-col gap-4">
         <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0">
           <div className="min-w-0">
-            <div className="text-sm font-medium">{tx("Login backdrop")}</div>
+            <div className="text-sm font-medium">{t("Login backdrop")}</div>
             <p className="text-foreground-dim mt-0.5 text-xs">
-              {tx(
+              {t(
                 "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
               )}
             </p>
@@ -145,7 +144,7 @@ export function AppearanceSettingsContent({
               onClick={cancelTreatment}
               disabled={treatmentPending || !treatmentChanged}
             >
-              {tx("Cancel")}
+              {t("Cancel")}
             </Button>
             <Button
               className="flex-1 sm:flex-initial"
@@ -156,7 +155,7 @@ export function AppearanceSettingsContent({
               disabled={treatmentPending || !treatmentChanged}
             >
               <SaveIcon />
-              {treatmentPending ? tx("Saving...") : tx("Save")}
+              {treatmentPending ? t("Saving...") : t("Save")}
             </Button>
           </div>
         </SectionFooter>

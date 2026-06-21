@@ -1,9 +1,9 @@
 import type { ClipFeedSort } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link } from "@tanstack/react-router"
-import * as React from "react"
+import { useMemo } from "react"
 
 import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -30,7 +30,7 @@ export function GameDetailPageInner({
   const session = useSuspenseSession()
   const viewerId = session?.user.id
 
-  const toolbar = React.useMemo(() => {
+  const toolbar = useMemo(() => {
     const renderOptionLink = (
       opt: (typeof CLIP_SORT_OPTIONS)[number],
       active: boolean,
@@ -58,7 +58,7 @@ export function GameDetailPageInner({
       mobile: (
         <SortDropdown
           triggerVariant="icon"
-          triggerLabel={tx("Sort")}
+          triggerLabel={t("Sort")}
           value={sort}
           options={CLIP_SORT_OPTIONS}
           contentClassName="!w-40 !min-w-40"
@@ -71,7 +71,7 @@ export function GameDetailPageInner({
 
   const { data: game, error, isPending } = useGameQuery(gameId)
   useQueryErrorToast(error, {
-    title: tx("Couldn't load this game"),
+    title: t("Couldn't load this game"),
     toastId: `game-${gameId}-error`,
   })
 
@@ -82,7 +82,7 @@ export function GameDetailPageInner({
           <EmptyState
             seed={`game-${gameId}-error`}
             size="lg"
-            title={tx("Couldn't load this game")}
+            title={t("Couldn't load this game")}
           />
         ) : isPending || !game ? (
           <div

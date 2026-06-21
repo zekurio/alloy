@@ -1,20 +1,20 @@
 import type { PublicAuthConfig } from "@alloy/api"
-import type { LinkedAccount as ApiLinkedAccount } from "@alloy/api/auth"
-import { t as tx } from "@alloy/i18n"
+import type { LinkedAccount } from "@alloy/api/auth"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { List, ListItem } from "@alloy/ui/components/list"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { toast } from "@alloy/ui/lib/toast"
 import { useRouter } from "@tanstack/react-router"
 import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { authClient, useSession } from "@/lib/auth-client"
 import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
 import { consumeCurrentQueryParam } from "@/lib/browser-url"
 import { errorMessage } from "@/lib/error-message"
 
-export type LinkedAccount = ApiLinkedAccount
+export type { LinkedAccount }
 
 type Provider = PublicAuthConfig["providers"][number]
 const OAUTH_LINKED_QUERY_KEY = "oauthLinked"
@@ -51,9 +51,9 @@ export function LinkedAccountsCard({
     <Section>
       <SectionContent className="flex flex-col gap-3 py-4">
         <div>
-          <div className="text-sm font-medium">{tx("Linked accounts")}</div>
+          <div className="text-sm font-medium">{t("Linked accounts")}</div>
           <p className="text-foreground-dim mt-0.5 text-xs">
-            {tx("Connect additional sign-in methods to your account.")}
+            {t("Connect additional sign-in methods to your account.")}
           </p>
         </div>
         <AccountsList
@@ -84,12 +84,12 @@ function useLinkedAccountActions({
   router: ReturnType<typeof useRouter>
 }) {
   const { refetch: refetchSession } = useSession()
-  const [linkingProviderId, setLinkingProviderId] = React.useState<
-    string | null
-  >(null)
-  const [unlinkingId, setUnlinkingId] = React.useState<string | null>(null)
+  const [linkingProviderId, setLinkingProviderId] = useState<string | null>(
+    null,
+  )
+  const [unlinkingId, setUnlinkingId] = useState<string | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (consumeCurrentQueryParam(OAUTH_LINKED_QUERY_KEY) !== "1") return
 
     let active = true
@@ -102,7 +102,7 @@ function useLinkedAccountActions({
       } catch (cause) {
         if (active) {
           toast.error(
-            errorMessage(cause, tx("Couldn't refresh linked accounts")),
+            errorMessage(cause, t("Couldn't refresh linked accounts")),
           )
         }
       }
@@ -113,7 +113,7 @@ function useLinkedAccountActions({
     }
   }, [refetchSession, refresh, router])
 
-  const onLink = React.useCallback(
+  const onLink = useCallback(
     async (provider: Provider) => {
       if (linkingProviderId) return
       setLinkingProviderId(provider.providerId)
@@ -138,12 +138,12 @@ function useLinkedAccountActions({
     [linkingProviderId],
   )
 
-  const onUnlink = React.useCallback(
+  const onUnlink = useCallback(
     async (account: LinkedAccount) => {
       if (unlinkingId) return
       if (!canRemoveAccount(account, accounts, config, hasPasskeySignIn)) {
         toast.error(
-          tx(
+          t(
             "This is your last enabled sign-in method. Link another before removing it.",
           ),
         )
@@ -156,14 +156,14 @@ function useLinkedAccountActions({
           accountId: account.accountId,
         })
         if (error) {
-          toast.error(errorMessage(error, tx("Couldn't unlink")))
+          toast.error(errorMessage(error, t("Couldn't unlink")))
           return
         }
-        toast.success(tx("Account unlinked"))
+        toast.success(t("Account unlinked"))
         await refresh()
         await router.invalidate()
       } catch (cause) {
-        toast.error(errorMessage(cause, tx("Couldn't unlink")))
+        toast.error(errorMessage(cause, t("Couldn't unlink")))
       } finally {
         setUnlinkingId(null)
       }
@@ -243,7 +243,7 @@ function AccountsList({
         <AccountRow
           key={account.id}
           label={account.providerId}
-          sublabel={tx("{label} · No longer configured", {
+          sublabel={t("{label} · No longer configured", {
             label: linkedAccountLabel(account),
           })}
           busy={unlinkingId === account.id}
@@ -262,8 +262,8 @@ function AccountsList({
 
 function linkedAccountLabel(account: LinkedAccount): string {
   return account.email
-    ? tx("Connected as {email}", { email: account.email })
-    : tx("Connected")
+    ? t("Connected as {email}", { email: account.email })
+    : t("Connected")
 }
 
 function LinkRow(props: {
@@ -278,7 +278,7 @@ function LinkRow(props: {
         <ProviderIcon provider={props.provider} />
         <div className="min-w-0">
           <div className="text-sm font-medium">{props.label}</div>
-          <p className="text-foreground-dim text-xs">{tx("Not linked")}</p>
+          <p className="text-foreground-dim text-xs">{t("Not linked")}</p>
         </div>
       </div>
       <Button
@@ -290,7 +290,7 @@ function LinkRow(props: {
         onClick={props.onLink}
       >
         <LinkIcon />
-        {props.busy ? tx("Redirecting…") : tx("Link")}
+        {props.busy ? t("Redirecting…") : t("Link")}
       </Button>
     </ListItem>
   )
@@ -325,11 +325,11 @@ function AccountRow(props: AccountRowProps) {
         title={
           props.canUnlink
             ? undefined
-            : tx("Link another enabled sign-in method before removing this one")
+            : t("Link another enabled sign-in method before removing this one")
         }
       >
         <Link2OffIcon />
-        {props.busy ? tx("Removing…") : tx("Unlink")}
+        {props.busy ? t("Removing…") : t("Unlink")}
       </Button>
     </ListItem>
   )

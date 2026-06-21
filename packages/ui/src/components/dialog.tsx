@@ -1,30 +1,27 @@
 import { MODAL_OVERLAY_CLASS_NAME } from "@alloy/ui/lib/modal-overlay"
 import { cn } from "@alloy/ui/lib/utils"
-import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
-import * as React from "react"
+import { Dialog } from "@base-ui/react/dialog"
+import type { ComponentProps } from "react"
 
-function Dialog({ ...props }: DialogPrimitive.Root.Props) {
-  return <DialogPrimitive.Root data-slot="dialog" {...props} />
+function DialogRoot({ ...props }: Dialog.Root.Props) {
+  return <Dialog.Root data-slot="dialog" {...props} />
 }
 
-function DialogTrigger({ ...props }: DialogPrimitive.Trigger.Props) {
-  return <DialogPrimitive.Trigger data-slot="dialog-trigger" {...props} />
+function DialogTrigger({ ...props }: Dialog.Trigger.Props) {
+  return <Dialog.Trigger data-slot="dialog-trigger" {...props} />
 }
 
-function DialogPortal({ ...props }: DialogPrimitive.Portal.Props) {
-  return <DialogPrimitive.Portal data-slot="dialog-portal" {...props} />
+function DialogPortal({ ...props }: Dialog.Portal.Props) {
+  return <Dialog.Portal data-slot="dialog-portal" {...props} />
 }
 
-function DialogClose({ ...props }: DialogPrimitive.Close.Props) {
-  return <DialogPrimitive.Close data-slot="dialog-close" {...props} />
+function DialogClose({ ...props }: Dialog.Close.Props) {
+  return <Dialog.Close data-slot="dialog-close" {...props} />
 }
 
-function DialogOverlay({
-  className,
-  ...props
-}: DialogPrimitive.Backdrop.Props) {
+function DialogOverlay({ className, ...props }: Dialog.Backdrop.Props) {
   return (
-    <DialogPrimitive.Backdrop
+    <Dialog.Backdrop
       data-slot="dialog-overlay"
       className={cn(
         MODAL_OVERLAY_CLASS_NAME,
@@ -43,7 +40,7 @@ function DialogContent({
   centered = true,
   variant = "default",
   ...props
-}: DialogPrimitive.Popup.Props & {
+}: Dialog.Popup.Props & {
   showOverlay?: boolean
   disableZoom?: boolean
   centered?: boolean
@@ -52,7 +49,7 @@ function DialogContent({
   return (
     <DialogPortal>
       {showOverlay ? <DialogOverlay /> : null}
-      <DialogPrimitive.Popup
+      <Dialog.Popup
         data-slot="dialog-content"
         data-variant={variant}
         className={cn(
@@ -75,7 +72,7 @@ function DialogContent({
 function DialogViewportContent({
   className,
   ...props
-}: React.ComponentProps<typeof DialogContent>) {
+}: ComponentProps<typeof DialogContent>) {
   return (
     <DialogContent
       disableZoom
@@ -92,7 +89,7 @@ function DialogViewportContent({
 function renderDialogSection(
   slot: string,
   defaultClassName: string,
-  { className, ...props }: React.ComponentProps<"div">,
+  { className, ...props }: ComponentProps<"div">,
 ) {
   return (
     <div
@@ -103,7 +100,7 @@ function renderDialogSection(
   )
 }
 
-function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+function DialogHeader({ className, ...props }: ComponentProps<"div">) {
   return renderDialogSection(
     "dialog-header",
     "flex flex-col gap-1.5 px-6 pt-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pt-4 sm:group-data-[variant=secondary]/dialog-content:px-6",
@@ -111,7 +108,7 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
+function DialogBody({ className, ...props }: ComponentProps<"div">) {
   return renderDialogSection(
     "dialog-body",
     "px-6 py-4 group-data-[variant=secondary]/dialog-content:px-5 sm:group-data-[variant=secondary]/dialog-content:px-6",
@@ -119,7 +116,7 @@ function DialogBody({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
+function DialogFooter({ className, ...props }: ComponentProps<"div">) {
   return renderDialogSection(
     "dialog-footer",
     "flex items-center justify-end gap-2 px-6 pb-5 group-data-[variant=secondary]/dialog-content:px-5 group-data-[variant=secondary]/dialog-content:pb-4 sm:group-data-[variant=secondary]/dialog-content:px-6 [&_[data-slot=button][data-variant=outline]]:!border-transparent [&_[data-slot=button][data-variant=outline]]:!bg-transparent [&_[data-slot=button][data-variant=outline]]:!text-foreground-muted [&_[data-slot=button][data-variant=outline]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=outline]]:hover:!text-foreground [&_[data-slot=button][data-variant=secondary]]:!border-transparent [&_[data-slot=button][data-variant=secondary]]:!bg-transparent [&_[data-slot=button][data-variant=secondary]]:!text-foreground-muted [&_[data-slot=button][data-variant=secondary]]:hover:!bg-surface-raised [&_[data-slot=button][data-variant=secondary]]:hover:!text-foreground",
@@ -127,9 +124,9 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
+function DialogTitle({ className, ...props }: Dialog.Title.Props) {
   return (
-    <DialogPrimitive.Title
+    <Dialog.Title
       data-slot="dialog-title"
       className={cn(
         "text-lg leading-tight font-semibold tracking-[var(--tracking-tight)] text-foreground",
@@ -140,12 +137,9 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
   )
 }
 
-function DialogDescription({
-  className,
-  ...props
-}: DialogPrimitive.Description.Props) {
+function DialogDescription({ className, ...props }: Dialog.Description.Props) {
   return (
-    <DialogPrimitive.Description
+    <Dialog.Description
       data-slot="dialog-description"
       className={cn(
         "text-sm text-foreground-dim",
@@ -158,7 +152,7 @@ function DialogDescription({
 }
 
 export {
-  Dialog,
+  DialogRoot as Dialog,
   DialogBody,
   DialogClose,
   DialogContent,

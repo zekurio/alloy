@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,17 +32,17 @@ export function BlockedGate({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{tx("Show this profile?")}</AlertDialogTitle>
+          <AlertDialogTitle>{t("Show this profile?")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {tx("You've blocked @")}
+            {t("You've blocked @")}
             {handle}
-            {tx(". Do you want to show their profile anyway?")}
+            {t(". Do you want to show their profile anyway?")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{tx("Go back")}</AlertDialogCancel>
+          <AlertDialogCancel>{t("Go back")}</AlertDialogCancel>
           <AlertDialogAction onClick={onReveal}>
-            {tx("Show profile")}
+            {t("Show profile")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

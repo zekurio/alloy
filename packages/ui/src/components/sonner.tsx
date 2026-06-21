@@ -7,11 +7,13 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { Toaster as Sonner, type ToasterProps } from "sonner"
+import type { CSSProperties } from "react"
+import { Toaster } from "sonner"
+import type { ToasterProps } from "sonner"
 
-const Toaster = ({ ...props }: ToasterProps) => {
+const AlloyToaster = ({ ...props }: ToasterProps) => {
   return (
-    <Sonner
+    <Toaster
       theme="dark"
       className="toaster group"
       position="bottom-right"
@@ -33,7 +35,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           "--border-radius": "var(--radius-md)",
           "--width": "380px",
           fontFamily: "var(--font-sans)",
-        } as React.CSSProperties
+        } as CSSProperties
       }
       toastOptions={{
         classNames: {
@@ -48,4 +50,4 @@ const Toaster = ({ ...props }: ToasterProps) => {
   )
 }
 
-export { Toaster }
+export { AlloyToaster as Toaster }

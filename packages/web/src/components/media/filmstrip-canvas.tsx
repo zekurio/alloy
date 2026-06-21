@@ -1,5 +1,5 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
 import { filmstripCellsForRange } from "@/lib/media-filmstrip"
 
@@ -28,9 +28,9 @@ export function FilmstripCanvas({
   endMs,
   className,
 }: FilmstripCanvasProps) {
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null)
-  const [size, setSize] = React.useState({ width: 0, height: 0 })
-  const cells = React.useMemo(
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [size, setSize] = useState({ width: 0, height: 0 })
+  const cells = useMemo(
     () =>
       filmstripCellsForRange({
         frames,
@@ -42,7 +42,7 @@ export function FilmstripCanvas({
     [cellCount, durationMs, endMs, frames, startMs],
   )
 
-  React.useLayoutEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -62,7 +62,7 @@ export function FilmstripCanvas({
     return () => observer.disconnect()
   }, [])
 
-  React.useEffect(() => {
+  useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 

@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 export type SourceSpec =
   | { kind: "url"; url: string }
   | { kind: "file"; file: File }
@@ -25,15 +25,15 @@ export function mediaErrorMessage(video: HTMLVideoElement | null): string {
   const error = video?.error
   switch (error?.code) {
     case MediaError.MEDIA_ERR_ABORTED:
-      return tx("Video loading was aborted.")
+      return t("Video loading was aborted.")
     case MediaError.MEDIA_ERR_NETWORK:
-      return tx("Network error while loading the video.")
+      return t("Network error while loading the video.")
     case MediaError.MEDIA_ERR_DECODE:
-      return tx("The browser could not decode this video.")
+      return t("The browser could not decode this video.")
     case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-      return tx("This video source is not supported by the browser.")
+      return t("This video source is not supported by the browser.")
     default:
-      return tx("Video playback failed.")
+      return t("Video playback failed.")
   }
 }
 

@@ -1,12 +1,12 @@
 import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import {
   type QueryClient,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 
 import {
   type AlloyDesktop,
@@ -54,7 +54,7 @@ function librarySnapshotErrorMessage(cause: unknown): string | null {
   if (!cause) return null
   return cause instanceof Error
     ? cause.message
-    : tx("Could not scan local clips.")
+    : t("Could not scan local clips.")
 }
 
 /**
@@ -79,9 +79,9 @@ export function useLibrarySnapshot(
   const snapshot = desktop ? (data ?? null) : null
   const errorMessage = librarySnapshotErrorMessage(error)
   const blockingError = snapshot ? null : errorMessage
-  const lastToastedErrorRef = React.useRef<string | null>(null)
+  const lastToastedErrorRef = useRef<string | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!toastErrors) return
     if (!errorMessage) {
       lastToastedErrorRef.current = null
@@ -92,12 +92,12 @@ export function useLibrarySnapshot(
     toast.error(errorMessage)
   }, [errorMessage, toastErrors])
 
-  const refresh = React.useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (!desktop) return
     await refetch()
   }, [desktop, refetch])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!desktop) return
     return desktop.recording.onEvent((event) => {
       if (event.type === "capture-ready" || event.type === "settings") {
@@ -108,7 +108,7 @@ export function useLibrarySnapshot(
     })
   }, [desktop, queryClient])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!desktop) return
     return onLibraryCapturesChanged(() => {
       invalidateLibrarySnapshot(queryClient)
@@ -131,7 +131,7 @@ export function useLibrarySnapshot(
 export function useLibraryGameLookup(
   snapshot: RecordingLibrarySnapshot | null,
 ): Map<string, GameNameLookupResult> {
-  const sourceNames = React.useMemo(() => {
+  const sourceNames = useMemo(() => {
     if (!snapshot) return []
     const names = new Set<string>()
     for (const group of snapshot.groups) {
@@ -145,7 +145,7 @@ export function useLibraryGameLookup(
   const gameLookup = useGameNameLookupQuery(sourceNames, {
     enabled: sourceNames.length > 0,
   })
-  return React.useMemo(
+  return useMemo(
     () => gameLookupByName(gameLookup.data?.results ?? []),
     [gameLookup.data],
   )
@@ -290,7 +290,7 @@ function addNoGameGroup(
 
   map.set(LIBRARY_NO_GAME_GROUP_KEY, {
     key: LIBRARY_NO_GAME_GROUP_KEY,
-    label: tx("No game"),
+    label: t("No game"),
     kind: "no-game",
     iconUrl: null,
     localKeys: localKey ? [localKey] : [],
@@ -333,9 +333,9 @@ export function gameNameKey(name: string): string {
 export function libraryKindLabel(kind: RecordingLibraryItem["kind"]): string {
   switch (kind) {
     case "replay":
-      return tx("Clip")
+      return t("Clip")
     default:
-      return tx("Capture")
+      return t("Capture")
   }
 }
 

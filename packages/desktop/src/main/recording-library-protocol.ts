@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, statSync } from "node:fs"
 import { extname } from "node:path"
 import { Readable } from "node:stream"
-import type { ReadableStream as NodeWebReadableStream } from "node:stream/web"
+import type { ReadableStream } from "node:stream/web"
 
 import { exportedCaptureFiles } from "./recording-library-export"
 import { findRecordingLibraryItem } from "./recording-library-scan"
@@ -91,9 +91,11 @@ const CAPTURE_CONTENT_TYPES: Record<string, string> = {
  * `Response` accepts. `Readable.toWeb` returns the structurally identical
  * `node:stream/web` variant, so a single targeted assertion is enough.
  */
-function fileBodyStream(stream: Readable): ReadableStream<Uint8Array> {
-  const webStream: NodeWebReadableStream<Uint8Array> = Readable.toWeb(stream)
-  return webStream as ReadableStream<Uint8Array>
+function fileBodyStream(
+  stream: Readable,
+): globalThis.ReadableStream<Uint8Array> {
+  const webStream: ReadableStream<Uint8Array> = Readable.toWeb(stream)
+  return webStream as globalThis.ReadableStream<Uint8Array>
 }
 
 /**
@@ -128,11 +130,9 @@ function rangedFileResponse(filename: string, request: Request): Response {
   const range =
     parseByteRange(request.headers.get("range"), size) ??
     parseQueryByteRange(request.url, size)
+  headers["Content-Length"] = String(range ? range.end - range.start + 1 : size)
   if (range) {
-    headers["Content-Length"] = String(range.end - range.start + 1)
     headers["Content-Range"] = `bytes ${range.start}-${range.end}/${size}`
-  } else {
-    headers["Content-Length"] = String(size)
   }
 
   const stream = createReadStream(
@@ -179,7 +179,8 @@ function parseByteRange(
   if (!header || size <= 0) return null
   const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim())
   if (!match) return null
-  const [, startText, endText] = match
+  const startText = match[1]
+  const endText = match[2]
 
   if (!startText) {
     // Suffix range: the final N bytes.

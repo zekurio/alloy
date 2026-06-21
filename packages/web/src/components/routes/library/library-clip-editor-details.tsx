@@ -5,7 +5,7 @@ import {
   type GameRow,
   type UserSearchResult,
 } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -32,7 +32,8 @@ import {
   SaveIcon,
   Trash2Icon,
 } from "lucide-react"
-import * as React from "react"
+import { useState } from "react"
+import type { ComponentType } from "react"
 
 import { ClipComments } from "@/components/clip/clip-comments"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
@@ -53,7 +54,7 @@ type VisibilityAction = {
   pendingLabel: string
   privacy: ClipPrivacy
   copyLink: boolean
-  icon: React.ComponentType<{ className?: string }>
+  icon: ComponentType<{ className?: string }>
   success: string
   copySuccess?: string
   copyFailure?: string
@@ -61,40 +62,40 @@ type VisibilityAction = {
 
 const VISIBILITY_ACTIONS = {
   post: {
-    label: tx("Post"),
-    pendingLabel: tx("Posting..."),
+    label: t("Post"),
+    pendingLabel: t("Posting..."),
     privacy: "public",
     copyLink: true,
     icon: GlobeIcon,
-    success: tx("Clip posted"),
-    copySuccess: tx("Posted and link copied"),
-    copyFailure: tx("Posted, but couldn't copy the link"),
+    success: t("Clip posted"),
+    copySuccess: t("Posted and link copied"),
+    copyFailure: t("Posted, but couldn't copy the link"),
   },
   unpost: {
-    label: tx("Unpost"),
-    pendingLabel: tx("Unposting..."),
+    label: t("Unpost"),
+    pendingLabel: t("Unposting..."),
     privacy: "unlisted",
     copyLink: false,
     icon: EyeOffIcon,
-    success: tx("Clip unposted"),
+    success: t("Clip unposted"),
   },
   "create-link": {
-    label: tx("Create Link"),
-    pendingLabel: tx("Creating link..."),
+    label: t("Create Link"),
+    pendingLabel: t("Creating link..."),
     privacy: "unlisted",
     copyLink: true,
     icon: Link2Icon,
-    success: tx("Link created"),
-    copySuccess: tx("Link created and copied"),
-    copyFailure: tx("Link created, but couldn't copy it"),
+    success: t("Link created"),
+    copySuccess: t("Link created and copied"),
+    copyFailure: t("Link created, but couldn't copy it"),
   },
   "disable-link": {
-    label: tx("Disable Link"),
-    pendingLabel: tx("Disabling link..."),
+    label: t("Disable Link"),
+    pendingLabel: t("Disabling link..."),
     privacy: "private",
     copyLink: false,
     icon: Link2OffIcon,
-    success: tx("Clip link disabled"),
+    success: t("Clip link disabled"),
   },
 } as const satisfies Record<VisibilityIntent, VisibilityAction>
 
@@ -142,7 +143,7 @@ function mentionToSearchResult(ref: ClipMentionRef): UserSearchResult {
 
 export function ClipEditorTabs(props: ClipDetailsProps) {
   const { row } = props
-  const [tab, setTab] = React.useState("details")
+  const [tab, setTab] = useState("details")
 
   return (
     <Tabs
@@ -151,9 +152,9 @@ export function ClipEditorTabs(props: ClipDetailsProps) {
       className="flex min-h-0 flex-1 flex-col gap-0"
     >
       <TabsList className="shrink-0 px-4 pt-1">
-        <TabsTrigger value="details">{tx("Details")}</TabsTrigger>
+        <TabsTrigger value="details">{t("Details")}</TabsTrigger>
         <TabsTrigger value="comments">
-          {tx("Comments")}
+          {t("Comments")}
           {row.commentCount > 0 ? (
             <TabsCount>{row.commentCount}</TabsCount>
           ) : null}
@@ -189,15 +190,13 @@ function ClipDetailsForm({
   trimPending,
   onSaveTrim,
 }: ClipDetailsProps) {
-  const [title, setTitle] = React.useState(row.title)
-  const [description, setDescription] = React.useState(row.description ?? "")
-  const [game, setGame] = React.useState<GameRow | null>(() =>
-    gameRowFromRef(row),
-  )
-  const [mentions, setMentions] = React.useState<UserSearchResult[]>(() =>
+  const [title, setTitle] = useState(row.title)
+  const [description, setDescription] = useState(row.description ?? "")
+  const [game, setGame] = useState<GameRow | null>(() => gameRowFromRef(row))
+  const [mentions, setMentions] = useState<UserSearchResult[]>(() =>
     (row.mentions ?? []).map(mentionToSearchResult),
   )
-  const [tags, setTags] = React.useState<string[]>(row.tags)
+  const [tags, setTags] = useState<string[]>(row.tags)
   const saveMutation = useUpdateClipMutation()
   const visibilityMutation = useUpdateClipMutation()
   const saving = saveMutation.isPending
@@ -254,7 +253,7 @@ function ClipDetailsForm({
           }
           toast.success(action.success)
         },
-        onError: () => toast.error(tx("Couldn't update visibility")),
+        onError: () => toast.error(t("Couldn't update visibility")),
       },
     )
   }
@@ -274,8 +273,8 @@ function ClipDetailsForm({
     saveMutation.mutate(
       { clipId: row.id, input },
       {
-        onSuccess: () => toast.success(tx("Clip updated")),
-        onError: () => toast.error(tx("Couldn't save changes")),
+        onSuccess: () => toast.success(t("Clip updated")),
+        onError: () => toast.error(t("Couldn't save changes")),
       },
     )
   }
@@ -298,8 +297,8 @@ function ClipDetailsForm({
       ? profileVisibilityAction.pendingLabel
       : profileVisibilityAction.label
     : saving || trimPending
-      ? tx("Saving…")
-      : tx("Save")
+      ? t("Saving…")
+      : t("Save")
   const PrimaryIcon = primaryPublishes ? ProfileVisibilityIcon : SaveIcon
   const showProfileVisibilityInMenu = !primaryPublishes
 
@@ -330,7 +329,7 @@ function ClipDetailsForm({
             disabled={deleting || saving || visibilityPending}
             render={<Link to="/library" />}
           >
-            {tx("Cancel")}
+            {t("Cancel")}
           </Button>
           <div className="flex items-center">
             <Button
@@ -354,7 +353,7 @@ function ClipDetailsForm({
                     variant="primary"
                     size="icon"
                     disabled={saving || deleting || visibilityPending}
-                    aria-label={tx("More clip options")}
+                    aria-label={t("More clip options")}
                     className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
                   />
                 }
@@ -389,7 +388,7 @@ function ClipDetailsForm({
                   onClick={onRequestDelete}
                 >
                   <Trash2Icon className="size-4" />
-                  {tx("Delete")}
+                  {t("Delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

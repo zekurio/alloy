@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useSyncExternalStore } from "react"
 
 type PasskeySupport = {
   ready: boolean
@@ -19,7 +19,7 @@ function subscribe(): () => void {
 }
 
 export function usePasskeySupport(): PasskeySupport {
-  const isClient = React.useSyncExternalStore(
+  const isClient = useSyncExternalStore(
     subscribe,
     () => true,
     () => false,

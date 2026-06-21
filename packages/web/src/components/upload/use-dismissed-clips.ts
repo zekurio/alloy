@@ -1,5 +1,5 @@
 import type { QueueClip } from "@alloy/api"
-import * as React from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import {
   readLocalStorageItem,
@@ -48,11 +48,9 @@ export function useDismissedClips(
   serverQueue: QueueClip[],
   serverQueueHydrated: boolean,
 ) {
-  const [dismissed, setDismissed] = React.useState<Set<string>>(() =>
-    loadDismissed(),
-  )
+  const [dismissed, setDismissed] = useState<Set<string>>(() => loadDismissed())
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!serverQueueHydrated || dismissed.size === 0) return
     const live = new Set(serverQueue.map((r) => r.id))
     let changed = false
@@ -67,7 +65,7 @@ export function useDismissedClips(
     }
   }, [serverQueue, serverQueueHydrated, dismissed])
 
-  const dismiss = React.useCallback((id: string) => {
+  const dismiss = useCallback((id: string) => {
     setDismissed((prev) => {
       if (prev.has(id)) return prev
       const next = new Set(prev)
@@ -77,7 +75,7 @@ export function useDismissedClips(
     })
   }, [])
 
-  const dismissMany = React.useCallback((ids: string[]) => {
+  const dismissMany = useCallback((ids: string[]) => {
     if (ids.length === 0) return
     setDismissed((prev) => {
       const next = new Set(prev)

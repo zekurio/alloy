@@ -1,13 +1,13 @@
 import { cn } from "@alloy/ui/lib/utils"
-import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
+import { Separator } from "@base-ui/react/separator"
 
-function Separator({
+function SeparatorRoot({
   className,
   orientation = "horizontal",
   ...props
-}: SeparatorPrimitive.Props) {
+}: Separator.Props) {
   return (
-    <SeparatorPrimitive
+    <Separator
       data-slot="separator"
       orientation={orientation}
       className={cn(
@@ -19,4 +19,4 @@ function Separator({
   )
 }
 
-export { Separator }
+export { SeparatorRoot as Separator }

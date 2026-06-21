@@ -5,7 +5,7 @@ import type {
   RecordingAudioLevel,
   RecordingSettings,
 } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Checkbox } from "@alloy/ui/components/checkbox"
 import {
   Select,
@@ -24,7 +24,8 @@ import {
   Volume2Icon,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState } from "react"
+import type { ReactNode } from "react"
 
 import { alloyDesktop, DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-bridge"
 import { useDesktopRecording } from "./desktop-recording-context"
@@ -38,8 +39,8 @@ const AUDIO_DEVICE_GROUPS: Array<{
   kind: RecordingAudioDeviceKind
   title: string
 }> = [
-  { kind: "output", title: tx("Output") },
-  { kind: "input", title: tx("Input") },
+  { kind: "output", title: t("Output") },
+  { kind: "input", title: t("Input") },
 ]
 
 const AUDIO_DEVICE_ICONS: Record<RecordingAudioDeviceKind, LucideIcon> = {
@@ -129,7 +130,7 @@ export function DesktopAudioSettings() {
     return (
       <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />
-        {tx("Loading audio settings")}
+        {t("Loading audio settings")}
       </div>
     )
   }
@@ -147,8 +148,8 @@ export function DesktopAudioSettings() {
   return (
     <div className="flex flex-col gap-6">
       <SettingRow
-        title={tx("Capture audio from")}
-        description={tx(
+        title={t("Capture audio from")}
+        description={t(
           "Record individual playback and capture devices, or per-application audio streams.",
         )}
         htmlFor="desktop-recording-audio-mode"
@@ -240,7 +241,7 @@ function AudioDeviceList({
     if (kinds) return null
     return (
       <p className="text-foreground-dim py-2 text-xs">
-        {tx("No audio devices are available.")}
+        {t("No audio devices are available.")}
       </p>
     )
   }
@@ -307,7 +308,7 @@ function AudioApplicationList({
   if (applications.length === 0) {
     return (
       <p className="text-foreground-dim py-2 text-xs">
-        {tx("Running applications outputting audio will appear here.")}
+        {t("Running applications outputting audio will appear here.")}
       </p>
     )
   }
@@ -516,7 +517,7 @@ function AudioLevelMeter({ peak, active }: { peak: number; active: boolean }) {
         !active && "opacity-40",
       )}
       role="meter"
-      aria-label={tx("Audio level")}
+      aria-label={t("Audio level")}
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(fraction * 100)}

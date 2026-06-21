@@ -1,7 +1,8 @@
 import { pastelAvatarColors } from "@alloy/ui/lib/pastel"
 import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
-import * as React from "react"
+import { useEffect, useState } from "react"
+import type { ComponentProps } from "react"
 
 const gameIconVariants = cva(
   cn(
@@ -26,7 +27,7 @@ const gameIconVariants = cva(
 
 interface GameIconProps
   extends
-    Omit<React.ComponentProps<"span">, "children">,
+    Omit<ComponentProps<"span">, "children">,
     VariantProps<typeof gameIconVariants> {
   src: string | null | undefined
   name: string
@@ -42,14 +43,14 @@ function GameIcon({
   style,
   ...props
 }: GameIconProps) {
-  const [ok, setOk] = React.useState(src != null)
+  const [ok, setOk] = useState(src != null)
   const fallbackColors = pastelAvatarColors(name)
   const fallbackStyle =
     ok && src
       ? style
       : { background: fallbackColors.bg, color: fallbackColors.fg, ...style }
 
-  React.useEffect(() => {
+  useEffect(() => {
     setOk(src != null)
   }, [src])
 

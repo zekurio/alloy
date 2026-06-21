@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useEffect, useRef } from "react"
 
 const PLAY_THRESHOLD_CAP_SEC = 10
 const PLAY_THRESHOLD_FRACTION = 0.5
@@ -7,7 +7,7 @@ export function usePlayingTimeSync(
   playing: boolean,
   syncTime: () => void,
 ): void {
-  React.useEffect(() => {
+  useEffect(() => {
     if (!playing) return
     let rafId = 0
     const tick = () => {
@@ -30,22 +30,22 @@ export function usePlayThreshold({
   identity: string
   onPlayThreshold: (() => void) | undefined
 }): void {
-  const callbackRef = React.useRef(onPlayThreshold)
-  React.useEffect(() => {
+  const callbackRef = useRef(onPlayThreshold)
+  useEffect(() => {
     callbackRef.current = onPlayThreshold
   }, [onPlayThreshold])
 
-  const firedRef = React.useRef(false)
-  const accumulatedMsRef = React.useRef(0)
-  const lastTickAtRef = React.useRef<number | null>(null)
+  const firedRef = useRef(false)
+  const accumulatedMsRef = useRef(0)
+  const lastTickAtRef = useRef<number | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     firedRef.current = false
     accumulatedMsRef.current = 0
     lastTickAtRef.current = null
   }, [identity])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (firedRef.current) return
     if (!callbackRef.current) return
 
