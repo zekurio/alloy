@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +10,7 @@ import {
 } from "@alloy/ui/components/alert-dialog"
 import { toast } from "@alloy/ui/lib/toast"
 import { useRouter } from "@tanstack/react-router"
-import * as React from "react"
+import { useEffect, useState } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -25,12 +25,10 @@ function isDisabledSessionUser(
 export function ReactivateAccountPrompt() {
   const session = useSuspenseSession()
   const router = useRouter()
-  const [open, setOpen] = React.useState(() =>
-    isDisabledSessionUser(session?.user),
-  )
-  const [pending, setPending] = React.useState(false)
+  const [open, setOpen] = useState(() => isDisabledSessionUser(session?.user))
+  const [pending, setPending] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setOpen(isDisabledSessionUser(session?.user))
   }, [session?.user])
 
@@ -41,11 +39,11 @@ export function ReactivateAccountPrompt() {
     setPending(true)
     try {
       await api.users.reactivateAccount()
-      toast.success(tx("Account reactivated"))
+      toast.success(t("Account reactivated"))
       setOpen(false)
       await router.invalidate()
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't reactivate account")))
+      toast.error(errorMessage(cause, t("Couldn't reactivate account")))
     } finally {
       setPending(false)
     }
@@ -55,16 +53,16 @@ export function ReactivateAccountPrompt() {
     <AlertDialog open={open}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{tx("Reactivate your account?")}</AlertDialogTitle>
+          <AlertDialogTitle>{t("Reactivate your account?")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {tx(
+            {t(
               "Your profile and clips are hidden while your account is disabled.",
             )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="grid-cols-1">
           <AlertDialogAction onClick={onReactivate} disabled={pending}>
-            {pending ? tx("Reactivating…") : tx("Reactivate account")}
+            {pending ? t("Reactivating…") : t("Reactivate account")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

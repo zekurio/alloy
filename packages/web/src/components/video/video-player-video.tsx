@@ -5,10 +5,16 @@ import {
   CLIP_VIDEO_MEDIA_CLASS,
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useEffect, useRef, useState } from "react"
+import type {
+  MouseEventHandler,
+  PointerEventHandler,
+  ReactEventHandler,
+  Ref,
+} from "react"
 
 type VideoFrameProps = {
-  videoRef: React.Ref<HTMLVideoElement>
+  videoRef: Ref<HTMLVideoElement>
   mediaUrl: string | null
   poster?: string
   posterBlurHash?: string | null
@@ -18,17 +24,17 @@ type VideoFrameProps = {
   autoPlay: boolean
   loop: boolean
   muted: boolean
-  onPointerDown: React.PointerEventHandler<HTMLVideoElement>
-  onClick?: React.MouseEventHandler<HTMLVideoElement>
-  onLoadedMetadata: React.ReactEventHandler<HTMLVideoElement>
-  onLoadedData: React.ReactEventHandler<HTMLVideoElement>
-  onDurationChange: React.ReactEventHandler<HTMLVideoElement>
-  onTimeUpdate: React.ReactEventHandler<HTMLVideoElement>
-  onProgress: React.ReactEventHandler<HTMLVideoElement>
-  onPlay: React.ReactEventHandler<HTMLVideoElement>
-  onPause: React.ReactEventHandler<HTMLVideoElement>
-  onEnded: React.ReactEventHandler<HTMLVideoElement>
-  onError: React.ReactEventHandler<HTMLVideoElement>
+  onPointerDown: PointerEventHandler<HTMLVideoElement>
+  onClick?: MouseEventHandler<HTMLVideoElement>
+  onLoadedMetadata: ReactEventHandler<HTMLVideoElement>
+  onLoadedData: ReactEventHandler<HTMLVideoElement>
+  onDurationChange: ReactEventHandler<HTMLVideoElement>
+  onTimeUpdate: ReactEventHandler<HTMLVideoElement>
+  onProgress: ReactEventHandler<HTMLVideoElement>
+  onPlay: ReactEventHandler<HTMLVideoElement>
+  onPause: ReactEventHandler<HTMLVideoElement>
+  onEnded: ReactEventHandler<HTMLVideoElement>
+  onError: ReactEventHandler<HTMLVideoElement>
 }
 
 export function VideoFrame({
@@ -54,14 +60,14 @@ export function VideoFrame({
   onEnded,
   onError,
 }: VideoFrameProps) {
-  const posterRef = React.useRef<HTMLImageElement | null>(null)
-  const [posterLoaded, setPosterLoaded] = React.useState(false)
+  const posterRef = useRef<HTMLImageElement | null>(null)
+  const [posterLoaded, setPosterLoaded] = useState(false)
 
   // Seed from the element for cached posters: navigating from a grid where the
   // same thumbnail already loaded means the <img> can be `complete` before
   // React attaches `onLoad`, so that handler never fires. Without this the
   // blurhash would flash over an already-cached poster on every open.
-  React.useEffect(() => {
+  useEffect(() => {
     if (!poster) {
       setPosterLoaded(false)
       return

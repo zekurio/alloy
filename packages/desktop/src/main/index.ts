@@ -59,9 +59,13 @@ if (process.platform === "win32") {
 
 // Single-instance: a second launch focuses the existing overlay/app instead of
 // spinning up a duplicate process (which would fight over the session cookie).
-if (!app.requestSingleInstanceLock()) {
+const singleInstanceLock = app.requestSingleInstanceLock()
+if (!singleInstanceLock) {
   app.quit()
-} else {
+}
+if (singleInstanceLock) startApp()
+
+function startApp(): void {
   const windows = new Windows()
 
   app.on("second-instance", () => {

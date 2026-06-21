@@ -14,7 +14,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query"
-import * as React from "react"
+import { useCallback } from "react"
 
 import { api } from "./api"
 import { feedKeys } from "./feed-queries"
@@ -87,7 +87,7 @@ export function invalidateGameQueries(qc: QueryClient): Promise<void> {
 
 export function useInvalidateGames(): () => void {
   const qc = useQueryClient()
-  return React.useCallback(() => {
+  return useCallback(() => {
     void invalidateGameQueries(qc)
   }, [qc])
 }

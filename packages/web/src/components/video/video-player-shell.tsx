@@ -1,11 +1,19 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cn } from "@alloy/ui/lib/utils"
 import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import type {
+  CSSProperties,
+  FocusEventHandler,
+  KeyboardEvent,
+  PointerEventHandler,
+  ReactNode,
+  RefObject,
+} from "react"
 
 import { isFullscreenElement, isFullscreenSupported } from "@/lib/fullscreen"
 
@@ -54,16 +62,16 @@ export function BareShell({
   onFocus,
   children,
 }: {
-  containerRef?: React.RefObject<HTMLDivElement | null>
+  containerRef?: RefObject<HTMLDivElement | null>
   className?: string
   status: LoadStatus
   aspectRatio?: number
   maxDisplayHeight?: string
-  onPointerDown?: React.PointerEventHandler<HTMLDivElement>
-  onFocus?: React.FocusEventHandler<HTMLDivElement>
-  children: React.ReactNode
+  onPointerDown?: PointerEventHandler<HTMLDivElement>
+  onFocus?: FocusEventHandler<HTMLDivElement>
+  children: ReactNode
 }) {
-  const sizingStyle = React.useMemo(
+  const sizingStyle = useMemo(
     () => videoPlayerSizingStyle(aspectRatio, maxDisplayHeight),
     [aspectRatio, maxDisplayHeight],
   )
@@ -107,28 +115,26 @@ export function ChromeShell({
   barBelow = false,
   children,
 }: {
-  containerRef: React.RefObject<HTMLDivElement | null>
+  containerRef: RefObject<HTMLDivElement | null>
   className?: string
   aspectRatio?: number
   maxDisplayHeight?: string
   playing: boolean
-  onPointerDown?: React.PointerEventHandler<HTMLDivElement>
-  onPointerMove?: React.PointerEventHandler<HTMLDivElement>
-  onPointerLeave?: React.PointerEventHandler<HTMLDivElement>
-  onFocus?: React.FocusEventHandler<HTMLDivElement>
+  onPointerDown?: PointerEventHandler<HTMLDivElement>
+  onPointerMove?: PointerEventHandler<HTMLDivElement>
+  onPointerLeave?: PointerEventHandler<HTMLDivElement>
+  onFocus?: FocusEventHandler<HTMLDivElement>
   onKeyCommand: VideoKeyCommand
   enableHorizontalSeekShortcuts?: boolean
   /** Chrome controls rendered inside the media viewport. */
-  bar?: React.ReactNode
+  bar?: ReactNode
   /** When true, the bar is rendered as a sibling below the media frame
    *  instead of overlaying the video. */
   barBelow?: boolean
-  children: React.ReactNode
+  children: ReactNode
 }) {
-  const [isFullscreen, setIsFullscreen] = React.useState(false)
-  const mediaSizingStyle = React.useMemo<
-    React.CSSProperties | undefined
-  >(() => {
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const mediaSizingStyle = useMemo<CSSProperties | undefined>(() => {
     if (isFullscreen) return undefined
     // The shell owns the aspect-ratio so there is a single rounded box defining
     // the video area; the media frame simply fills it. Re-deriving the media
@@ -137,22 +143,22 @@ export function ChromeShell({
     // thin gap between the video and the bottom chrome shadow.
     return { flex: "1 1 0", minHeight: 0 }
   }, [isFullscreen])
-  const rootSizingStyle = React.useMemo(
+  const rootSizingStyle = useMemo(
     () => mediaShellSizingStyle(aspectRatio, maxDisplayHeight, isFullscreen),
     [aspectRatio, isFullscreen, maxDisplayHeight],
   )
 
-  const onFullscreenChange = React.useCallback(() => {
+  const onFullscreenChange = useCallback(() => {
     setIsFullscreen(isFullscreenElement(containerRef.current))
   }, [containerRef])
 
-  React.useEffect(() => {
+  useEffect(() => {
     onFullscreenChange()
   }, [onFullscreenChange])
   useDocumentEvent("fullscreenchange", onFullscreenChange)
 
-  const onKeyDown = React.useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
       if (!shouldHandleVideoShortcut(e.target, e.currentTarget)) return
       handleVideoKeyCommand(e.nativeEvent, onKeyCommand, {
         enableHorizontalSeek: enableHorizontalSeekShortcuts,
@@ -207,7 +213,7 @@ export function ChromeShell({
 function videoPlayerSizingStyle(
   aspectRatio: number | undefined,
   maxDisplayHeight: string | undefined,
-): React.CSSProperties | undefined {
+): CSSProperties | undefined {
   if (!aspectRatio && !maxDisplayHeight) return undefined
   if (!maxDisplayHeight) {
     return aspectRatio ? { aspectRatio: String(aspectRatio) } : undefined
@@ -240,11 +246,11 @@ function mediaShellSizingStyle(
   aspectRatio: number | undefined,
   maxDisplayHeight: string | undefined,
   isFullscreen: boolean,
-): React.CSSProperties | undefined {
+): CSSProperties | undefined {
   if (isFullscreen) return undefined
   if (!aspectRatio && !maxDisplayHeight) return undefined
 
-  const style: React.CSSProperties = {}
+  const style: CSSProperties = {}
   if (aspectRatio) style.aspectRatio = String(aspectRatio)
 
   if (maxDisplayHeight === "100%") {
@@ -291,7 +297,7 @@ export function ChromeBar({
   onToggleFullscreen,
 }: {
   size?: "default" | "compact"
-  containerRef: React.RefObject<HTMLDivElement | null>
+  containerRef: RefObject<HTMLDivElement | null>
   visible?: boolean
   playing: boolean
   duration: number
@@ -305,23 +311,23 @@ export function ChromeBar({
   onSeek: (sec: number) => void
   onToggleFullscreen: () => void
 }) {
-  const [fullscreenSupported, setFullscreenSupported] = React.useState(false)
-  const [isFullscreen, setIsFullscreen] = React.useState(false)
+  const [fullscreenSupported, setFullscreenSupported] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
   const chromeInteractive = visible
   const showEdgeScrubber = isCoarsePointer
   const edgeScrubberInteractive = !visible
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof document === "undefined") return
     setFullscreenSupported(isFullscreenSupported())
   }, [])
 
-  const onFullscreenChange = React.useCallback(() => {
+  const onFullscreenChange = useCallback(() => {
     setIsFullscreen(isFullscreenElement(containerRef.current))
   }, [containerRef])
 
-  React.useEffect(() => {
+  useEffect(() => {
     onFullscreenChange()
   }, [onFullscreenChange])
   useDocumentEvent("fullscreenchange", onFullscreenChange)
@@ -333,8 +339,8 @@ export function ChromeBar({
           className={cn(
             "absolute inset-x-0 bottom-0 z-30",
             edgeScrubberInteractive
-              ? tx("pointer-events-auto")
-              : tx("pointer-events-none"),
+              ? t("pointer-events-auto")
+              : t("pointer-events-none"),
           )}
         >
           <VideoScrubber
@@ -370,7 +376,7 @@ export function ChromeBar({
             type="button"
             variant="ghost"
             size="icon-sm"
-            aria-label={playing ? tx("Pause") : tx("Play")}
+            aria-label={playing ? t("Pause") : t("Play")}
             onClick={onTogglePlay}
             className={cn(
               videoChromeIconClass,
@@ -412,9 +418,7 @@ export function ChromeBar({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={
-                isFullscreen ? tx("Exit fullscreen") : tx("Fullscreen")
-              }
+              aria-label={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")}
               onClick={onToggleFullscreen}
               className={cn(
                 videoChromeIconClass,

@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Combobox,
   ComboboxContent,
@@ -6,12 +6,13 @@ import {
   ComboboxInput,
   ComboboxItem,
   ComboboxList,
+  ComboboxTrigger,
 } from "@alloy/ui/components/combobox"
 import { InputGroupAddon } from "@alloy/ui/components/input-group"
 import { cn } from "@alloy/ui/lib/utils"
-import { Combobox as ComboboxPrimitive } from "@base-ui/react"
 import { FunnelIcon, SearchIcon } from "lucide-react"
-import * as React from "react"
+import { useState } from "react"
+import type { ReactNode } from "react"
 
 import {
   filterLabelClass,
@@ -26,7 +27,7 @@ export type FilterDropdownOption<K extends string> = {
   key: K
   label: string
   /** Leading visual rendered in both the trigger and the menu row. */
-  icon?: React.ReactNode
+  icon?: ReactNode
   /** Trailing count shown muted + tabular in the menu row. */
   count?: number
 }
@@ -61,10 +62,10 @@ export function FilterDropdown<K extends string>({
   onSelect,
   contentClassName,
   searchThreshold = SEARCH_THRESHOLD,
-  searchPlaceholder = tx("Search…"),
+  searchPlaceholder = t("Search…"),
 }: FilterDropdownProps<K>) {
   const current = options.find((o) => o.key === value) ?? options[0]
-  const [query, setQuery] = React.useState("")
+  const [query, setQuery] = useState("")
   const searchable = options.length > searchThreshold
 
   return (
@@ -86,13 +87,13 @@ export function FilterDropdown<K extends string>({
         }}
         autoHighlight
       >
-        <ComboboxPrimitive.Trigger
+        <ComboboxTrigger
           render={
             triggerVariant === "icon" ? (
               <ToolbarIconButton
                 className="max-w-[8rem]"
-                aria-label={triggerLabel ?? label ?? tx("Filter")}
-                title={triggerLabel ?? label ?? tx("Filter")}
+                aria-label={triggerLabel ?? label ?? t("Filter")}
+                title={triggerLabel ?? label ?? t("Filter")}
               >
                 {current?.icon ?? <FunnelIcon />}
               </ToolbarIconButton>
@@ -132,9 +133,7 @@ export function FilterDropdown<K extends string>({
               </ComboboxItem>
             )}
           </ComboboxList>
-          {searchable ? (
-            <ComboboxEmpty>{tx("No matches")}</ComboboxEmpty>
-          ) : null}
+          {searchable ? <ComboboxEmpty>{t("No matches")}</ComboboxEmpty> : null}
         </ComboboxContent>
       </Combobox>
     </div>

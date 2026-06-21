@@ -47,13 +47,13 @@ function validateTagGamesResponse(value: unknown): TagGamesResponse {
     "Invalid tag games response: clipCount must be a non-negative integer",
   )
   return {
-    clipCount: clipCount as number,
+    clipCount,
     games: validateGameListRows(payload.games),
   }
 }
 
 function validateTagSuggestions(value: unknown): string[] {
-  const tags = (value as { tags?: unknown }).tags
+  const tags = objectRecord(value, "tag search").tags
   if (!Array.isArray(tags)) {
     throw new Error("Invalid tag search response: tags must be an array")
   }

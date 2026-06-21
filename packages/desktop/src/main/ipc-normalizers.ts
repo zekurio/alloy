@@ -256,12 +256,12 @@ export function normalizeLibraryMetaPatch(
   }
   if (record.privacy === null) {
     patch.privacy = null
-  } else if (CLIP_PRIVACY.includes(record.privacy as ClipPrivacy)) {
-    patch.privacy = record.privacy as ClipPrivacy
   }
+  if (isClipPrivacy(record.privacy)) patch.privacy = record.privacy
   if (record.uploadedClipId === null) {
     patch.uploadedClipId = null
-  } else if (
+  }
+  if (
     typeof record.uploadedClipId === "string" &&
     record.uploadedClipId.length > 0 &&
     record.uploadedClipId.length <= 64
@@ -269,6 +269,10 @@ export function normalizeLibraryMetaPatch(
     patch.uploadedClipId = record.uploadedClipId
   }
   return patch
+}
+
+function isClipPrivacy(value: unknown): value is ClipPrivacy {
+  return CLIP_PRIVACY.includes(value as ClipPrivacy)
 }
 
 function normalizeCaptureMention(

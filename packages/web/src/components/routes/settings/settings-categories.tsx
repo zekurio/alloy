@@ -4,7 +4,7 @@ import {
   normalizeLocale,
   setClientLocale,
   SUPPORTED_LOCALES,
-  t as tx,
+  t,
   type Locale,
 } from "@alloy/i18n"
 import { Section, SectionContent } from "@alloy/ui/components/section"
@@ -32,7 +32,8 @@ import {
   VideoIcon,
   Volume2Icon,
 } from "lucide-react"
-import * as React from "react"
+import { useMemo, useState } from "react"
+import type { ComponentType } from "react"
 
 import {
   AdminAppearancePanel,
@@ -73,7 +74,7 @@ export interface SettingsCategory {
   keywords?: string[]
   icon: LucideIcon
   group: SettingsGroup
-  Panel: React.ComponentType
+  Panel: ComponentType
 }
 
 type SettingsCategoryDraft = Omit<SettingsCategory, "group">
@@ -84,13 +85,13 @@ type SettingsCategorySpec = readonly [
   description: string,
   keywords: string[],
   icon: LucideIcon,
-  Panel: React.ComponentType,
+  Panel: ComponentType,
 ]
 
 export const SETTINGS_GROUPS: { id: SettingsGroup; label: string }[] = [
-  { id: "account", label: tx("Settings") },
-  { id: "desktop", label: tx("Desktop") },
-  { id: "admin", label: tx("Administration") },
+  { id: "account", label: t("Settings") },
+  { id: "desktop", label: t("Desktop") },
+  { id: "admin", label: t("Administration") },
 ]
 
 function withSettingsGroup(
@@ -144,7 +145,7 @@ function StoragePanel() {
 }
 
 function PreferencesPanel() {
-  const [locale, setLocale] = React.useState<Locale>(() => getClientLocale())
+  const [locale, setLocale] = useState<Locale>(() => getClientLocale())
 
   function changeLocale(value: string | null) {
     const nextLocale = normalizeLocale(value)
@@ -158,8 +159,8 @@ function PreferencesPanel() {
     <Section>
       <SectionContent>
         <SettingRow
-          title={tx("Language")}
-          description={tx("Choose the language used by Alloy.")}
+          title={t("Language")}
+          description={t("Choose the language used by Alloy.")}
           htmlFor="locale"
         >
           <Select value={locale} onValueChange={changeLocale}>
@@ -183,27 +184,27 @@ function PreferencesPanel() {
 const ACCOUNT_CATEGORIES = categoryDrafts([
   [
     "profile",
-    tx("Profile"),
-    tx("Profile identity"),
-    tx("Edit your username, email, avatar, and banner."),
+    t("Profile"),
+    t("Profile identity"),
+    t("Edit your username, email, avatar, and banner."),
     ["username", "email", "avatar", "profile picture", "banner"],
     UserIcon,
     ProfilePanel,
   ],
   [
     "preferences",
-    tx("Preferences"),
-    tx("Preferences"),
-    tx("Language and regional settings."),
+    t("Preferences"),
+    t("Preferences"),
+    t("Language and regional settings."),
     ["language", "locale", "settings"],
     LanguagesIcon,
     PreferencesPanel,
   ],
   [
     "security",
-    tx("Security"),
-    tx("Sign-in security"),
-    tx("Manage linked accounts and passkeys for this account."),
+    t("Security"),
+    t("Sign-in security"),
+    t("Manage linked accounts and passkeys for this account."),
     [
       "passkeys",
       "linked accounts",
@@ -216,18 +217,18 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
   ],
   [
     "storage",
-    tx("Clips & storage"),
+    t("Clips & storage"),
     null,
-    tx("Review storage usage, download, or remove your clips."),
+    t("Review storage usage, download, or remove your clips."),
     ["storage usage", "quota", "download clips", "delete clips", "export data"],
     DatabaseIcon,
     StoragePanel,
   ],
   [
     "account",
-    tx("Account"),
-    tx("Account state"),
-    tx("Disable this profile or permanently delete the account."),
+    t("Account"),
+    t("Account state"),
+    t("Disable this profile or permanently delete the account."),
     ["disable account", "deactivate", "delete account", "danger zone"],
     AlertTriangleIcon,
     DangerZoneCard,
@@ -237,9 +238,9 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
 const DESKTOP_CATEGORIES = categoryDrafts([
   [
     "desktop",
-    tx("Capture"),
-    tx("Capture"),
-    tx("Game detection, desktop capture, hotkeys, and sounds."),
+    t("Capture"),
+    t("Capture"),
+    t("Game detection, desktop capture, hotkeys, and sounds."),
     [
       "desktop app",
       "recording",
@@ -257,9 +258,9 @@ const DESKTOP_CATEGORIES = categoryDrafts([
   ],
   [
     "desktop-quality",
-    tx("Quality"),
-    tx("Quality"),
-    tx("Resolution, frame rate, encoder, and replay buffer."),
+    t("Quality"),
+    t("Quality"),
+    t("Resolution, frame rate, encoder, and replay buffer."),
     [
       "quality",
       "resolution",
@@ -276,9 +277,9 @@ const DESKTOP_CATEGORIES = categoryDrafts([
   ],
   [
     "desktop-audio",
-    tx("Audio"),
-    tx("Audio"),
-    tx("Devices, microphones, application streams, and volumes."),
+    t("Audio"),
+    t("Audio"),
+    t("Devices, microphones, application streams, and volumes."),
     [
       "audio",
       "output devices",
@@ -293,27 +294,27 @@ const DESKTOP_CATEGORIES = categoryDrafts([
   ],
   [
     "desktop-storage",
-    tx("Storage"),
-    tx("Capture storage"),
-    tx("Choose where clips are saved and review local disk usage."),
+    t("Storage"),
+    t("Capture storage"),
+    t("Choose where clips are saved and review local disk usage."),
     ["capture folder", "disk usage", "storage", "free space", "clips folder"],
     HardDriveIcon,
     DesktopStoragePanel,
   ],
   [
     "desktop-servers",
-    tx("Servers"),
-    tx("Servers"),
-    tx("Add, switch between, or forget connected Alloy servers."),
+    t("Servers"),
+    t("Servers"),
+    t("Add, switch between, or forget connected Alloy servers."),
     ["desktop servers", "switch server", "saved servers"],
     ServerIcon,
     DesktopServerSettings,
   ],
   [
     "desktop-updates",
-    tx("Updates"),
-    tx("Updates"),
-    tx("Switch latest or unstable desktop releases."),
+    t("Updates"),
+    t("Updates"),
+    t("Switch latest or unstable desktop releases."),
     ["updates", "update channel", "latest", "unstable", "release channel"],
     RefreshCcwIcon,
     DesktopUpdateSettings,
@@ -323,9 +324,9 @@ const DESKTOP_CATEGORIES = categoryDrafts([
 const ADMIN_CATEGORIES = categoryDrafts([
   [
     "appearance",
-    tx("Appearance"),
-    tx("Login appearance"),
-    tx("Edit the generated clip backdrop shown on the login page."),
+    t("Appearance"),
+    t("Login appearance"),
+    t("Edit the generated clip backdrop shown on the login page."),
     [
       "login backdrop",
       "splash",
@@ -339,9 +340,9 @@ const ADMIN_CATEGORIES = categoryDrafts([
   ],
   [
     "users",
-    tx("Users"),
+    t("Users"),
     null,
-    tx("Edit user accounts, roles, and moderation state."),
+    t("Edit user accounts, roles, and moderation state."),
     ["user accounts", "roles", "moderation", "ban", "storage quota"],
     UsersIcon,
     AdminUsersPanel,
@@ -361,7 +362,7 @@ export const DEFAULT_SETTINGS_SECTION = "profile"
 export function useSettingsCategories(): SettingsCategory[] {
   const isAdmin = useIsAdmin()
   const hasDesktop = alloyDesktop() !== null
-  return React.useMemo(
+  return useMemo(
     () =>
       ALL_CATEGORIES.filter((category) => {
         if (category.group === "admin") return isAdmin

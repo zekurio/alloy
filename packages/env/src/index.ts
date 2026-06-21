@@ -32,12 +32,10 @@ export function postgresUrl() {
 }
 
 export function isPostgresUrl(value: string): boolean {
-  try {
-    const protocol = new URL(value).protocol
-    return protocol === "postgres:" || protocol === "postgresql:"
-  } catch {
-    return false
-  }
+  if (!URL.canParse(value)) return false
+
+  const protocol = new URL(value).protocol
+  return protocol === "postgres:" || protocol === "postgresql:"
 }
 
 export function nonEmpty(value: string | undefined): string | undefined {

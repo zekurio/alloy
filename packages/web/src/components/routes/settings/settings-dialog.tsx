@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Dialog,
   DialogClose,
@@ -17,7 +17,7 @@ import {
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
 import { SearchIcon, XIcon } from "lucide-react"
-import * as React from "react"
+import { Suspense, useEffect, useMemo, useState } from "react"
 
 import { mobileSurfaceCloseButtonClassName } from "@/components/app/mobile-close-button"
 import { AdminConfigProvider } from "@/components/routes/settings/admin-config-context"
@@ -55,8 +55,8 @@ function SettingsDialogRoot({
 }: SettingsDialogProps) {
   const categories = useSettingsCategories()
   const open = section !== null && categories.length > 0
-  const [visibleSection, setVisibleSection] = React.useState(section)
-  React.useEffect(() => {
+  const [visibleSection, setVisibleSection] = useState(section)
+  useEffect(() => {
     if (section !== null) setVisibleSection(section)
   }, [section])
 
@@ -102,10 +102,10 @@ function SettingsDialogRoot({
           "settings-sheet max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0",
         )}
       >
-        <DialogTitle className="sr-only">{tx("Settings")}</DialogTitle>
+        <DialogTitle className="sr-only">{t("Settings")}</DialogTitle>
         {body}
         <DialogClose
-          aria-label={tx("Close settings")}
+          aria-label={t("Close settings")}
           className={cn(
             mobileSurfaceCloseButtonClassName,
             "absolute top-2 right-2 z-10 sm:top-3 sm:right-3",
@@ -139,9 +139,9 @@ function SettingsDialogContent({
     }
     onNavigate(sectionId)
   }
-  const [query, setQuery] = React.useState("")
+  const [query, setQuery] = useState("")
   const normalized = query.trim().toLowerCase()
-  const matches = React.useMemo<
+  const matches = useMemo<
     { category: SettingsCategory; hint: string | null }[]
   >(() => {
     if (!normalized) {
@@ -169,7 +169,7 @@ function SettingsDialogContent({
     <>
       <nav className="border-border bg-background hidden w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r p-4 sm:flex">
         <div className="text-foreground px-2.5 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
-          {tx("Settings")}
+          {t("Settings")}
         </div>
         <div className="relative mb-1">
           <SearchIcon className="text-foreground-faint pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
@@ -177,8 +177,8 @@ function SettingsDialogContent({
             type="search"
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
-            placeholder={tx("Search settings")}
-            aria-label={tx("Search settings")}
+            placeholder={t("Search settings")}
+            aria-label={t("Search settings")}
             className="border-border bg-background placeholder:text-foreground-faint focus-visible:border-accent-border focus-visible:ring-accent-border/20 h-9 w-full rounded-lg border pr-2 pl-8 text-sm outline-none focus-visible:ring-2 sm:h-8 [&::-webkit-search-cancel-button]:appearance-none"
           />
         </div>
@@ -226,7 +226,7 @@ function SettingsDialogContent({
         })}
         {matches.length === 0 ? (
           <p className="text-foreground-faint px-2.5 pt-3 text-sm">
-            {tx("No settings found.")}
+            {t("No settings found.")}
           </p>
         ) : null}
       </nav>
@@ -234,7 +234,7 @@ function SettingsDialogContent({
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="border-border bg-background border-b sm:hidden">
           <div className="text-foreground px-4 pt-3 pr-12 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
-            {tx("Settings")}
+            {t("Settings")}
           </div>
           <div className="px-4 pb-3">
             <Select
@@ -244,7 +244,7 @@ function SettingsDialogContent({
               }}
             >
               <SelectTrigger
-                aria-label={tx("Settings sections")}
+                aria-label={t("Settings sections")}
                 className="w-full"
               >
                 <SelectValue>
@@ -285,9 +285,9 @@ function SettingsDialogContent({
             title={active.title ?? active.label}
             description={active.description}
           >
-            <React.Suspense fallback={<PanelLoading />}>
+            <Suspense fallback={<PanelLoading />}>
               <ActivePanel />
-            </React.Suspense>
+            </Suspense>
           </SettingsPanel>
         </div>
 

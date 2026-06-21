@@ -1,10 +1,11 @@
-import * as React from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
+import type { PointerEvent } from "react"
 
 export function useClickAnchor() {
-  const [open, setOpen] = React.useState(false)
-  const openRef = React.useRef(false)
-  const [point, setPoint] = React.useState({ x: 0, y: 0 })
-  const anchor = React.useMemo(
+  const [open, setOpen] = useState(false)
+  const openRef = useRef(false)
+  const [point, setPoint] = useState({ x: 0, y: 0 })
+  const anchor = useMemo(
     () => ({
       getBoundingClientRect: () =>
         DOMRect.fromRect({
@@ -17,12 +18,12 @@ export function useClickAnchor() {
     [point],
   )
 
-  const onOpenChange = React.useCallback((nextOpen: boolean) => {
+  const onOpenChange = useCallback((nextOpen: boolean) => {
     openRef.current = nextOpen
     setOpen(nextOpen)
   }, [])
 
-  const onTriggerPointerDown = React.useCallback((e: React.PointerEvent) => {
+  const onTriggerPointerDown = useCallback((e: PointerEvent) => {
     if (openRef.current) return
     setPoint({ x: e.clientX, y: e.clientY })
   }, [])

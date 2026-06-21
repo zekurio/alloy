@@ -3,7 +3,6 @@ import {
   RECORDING_AUDIO_DEVICE_KINDS,
   RECORDING_BITRATES,
   RECORDING_FRAME_RATES,
-  RECORDING_NOTIFICATION_SOUND_EVENTS,
   RECORDING_QUALITY_PROFILES,
   RECORDING_RESOLUTIONS,
   type RecordingAllowedGame,
@@ -15,6 +14,7 @@ import {
   type RecordingQualityProfile,
   type RecordingQualitySettings,
 } from "./desktop-recording-types"
+import { isObjectRecord } from "./object"
 
 const NOTIFICATION_SOUND_EVENT_ALIASES: Partial<
   Record<RecordingNotificationSoundEvent, readonly string[]>
@@ -26,10 +26,7 @@ export function normalizeQualitySettings(
   value: unknown,
   fallback: RecordingQualitySettings,
 ): RecordingQualitySettings {
-  const record =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {}
+  const record = isObjectRecord(value) ? value : {}
   return {
     resolution: normalizeLiteral(
       record.resolution,
@@ -56,10 +53,7 @@ export function normalizeQualityProfile(
 }
 
 export function normalizeHotkeys(value: unknown): RecordingHotkeys {
-  const record =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {}
+  const record = isObjectRecord(value) ? value : {}
   return {
     clip: normalizeClipHotkey(record),
   }
@@ -68,20 +62,17 @@ export function normalizeHotkeys(value: unknown): RecordingHotkeys {
 export function normalizeNotificationSounds(
   value: unknown,
 ): RecordingNotificationSounds {
-  const record =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {}
-  const sounds = {} as RecordingNotificationSounds
-
-  for (const event of RECORDING_NOTIFICATION_SOUND_EVENTS) {
-    sounds[event] = normalizeNotificationSound(
-      notificationSoundValue(record, event),
-      event,
-    )
+  const record = isObjectRecord(value) ? value : {}
+  return {
+    replayBufferStarted: normalizeNotificationSound(
+      notificationSoundValue(record, "replayBufferStarted"),
+      "replayBufferStarted",
+    ),
+    clipSaved: normalizeNotificationSound(
+      notificationSoundValue(record, "clipSaved"),
+      "clipSaved",
+    ),
   }
-
-  return sounds
 }
 
 export function normalizeAudioDevices(
@@ -90,10 +81,7 @@ export function normalizeAudioDevices(
   if (!Array.isArray(value)) return DEFAULT_RECORDING_SETTINGS.audioDevices
 
   const devices = value.flatMap((entry): RecordingAudioDeviceSelection[] => {
-    const record =
-      typeof entry === "object" && entry !== null
-        ? (entry as Record<string, unknown>)
-        : null
+    const record = isObjectRecord(entry) ? entry : null
     if (!record) return []
 
     const id = normalizeNonEmptyString(record.id)
@@ -124,10 +112,7 @@ export function normalizeAudioApplications(
 
   const applications = value.flatMap(
     (entry): RecordingAudioApplicationSelection[] => {
-      const record =
-        typeof entry === "object" && entry !== null
-          ? (entry as Record<string, unknown>)
-          : null
+      const record = isObjectRecord(entry) ? entry : null
       if (!record) return []
 
       const window = normalizeNonEmptyString(record.window) ?? ""
@@ -157,10 +142,7 @@ export function normalizeAllowedGames(value: unknown): RecordingAllowedGame[] {
   if (!Array.isArray(value)) return DEFAULT_RECORDING_SETTINGS.allowedGames
 
   const games = value.flatMap((entry): RecordingAllowedGame[] => {
-    const record =
-      typeof entry === "object" && entry !== null
-        ? (entry as Record<string, unknown>)
-        : null
+    const record = isObjectRecord(entry) ? entry : null
     if (!record) return []
 
     const path = normalizeNullableString(record.path)
@@ -214,7 +196,7 @@ export function normalizeLiteral<const T extends readonly (string | number)[]>(
   allowed: T,
   fallback: T[number],
 ): T[number] {
-  return allowed.includes(value as T[number]) ? (value as T[number]) : fallback
+  return allowed.find((allowedValue) => allowedValue === value) ?? fallback
 }
 
 /**
@@ -226,10 +208,9 @@ function normalizeClipHotkey(record: Record<string, unknown>): string {
 
   if (Array.isArray(record.clips)) {
     for (const entry of record.clips) {
-      const hotkey =
-        typeof entry === "object" && entry !== null
-          ? normalizeNonEmptyString((entry as Record<string, unknown>).hotkey)
-          : null
+      const hotkey = isObjectRecord(entry)
+        ? normalizeNonEmptyString(entry.hotkey)
+        : null
       if (hotkey) return hotkey
     }
   }
@@ -242,10 +223,7 @@ function normalizeNotificationSound(
   event: RecordingNotificationSoundEvent,
 ): RecordingNotificationSounds[RecordingNotificationSoundEvent] {
   const fallback = DEFAULT_RECORDING_SETTINGS.notificationSounds[event]
-  const record =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {}
+  const record = isObjectRecord(value) ? value : {}
 
   return {
     enabled:
@@ -307,30 +285,16 @@ function pathFileName(path: string): string | null {
 function executableName(executable: string | null): string | null {
   if (!executable) return null
   const name = executable.replace(/\.[^.]+$/, "").trim()
-  return name ? name : executable
+  return name || executable
 }
 
 function slug(value: string): string {
-  let slug = ""
-  let previousWasSeparator = true
-  for (const char of value.toLowerCase()) {
-    if (isAsciiSlugCharacter(char)) {
-      slug += char
-      previousWasSeparator = false
-      continue
-    }
-    if (!previousWasSeparator) {
-      slug += "-"
-      previousWasSeparator = true
-    }
-  }
-  if (slug.endsWith("-")) slug = slug.slice(0, -1)
-  return slug || "allowed"
-}
-
-function isAsciiSlugCharacter(value: string): boolean {
-  const code = value.charCodeAt(0)
-  return (code >= 97 && code <= 122) || (code >= 48 && code <= 57)
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "allowed"
+  )
 }
 
 function dedupeBy<T>(items: T[], keyFor: (item: T) => string): T[] {

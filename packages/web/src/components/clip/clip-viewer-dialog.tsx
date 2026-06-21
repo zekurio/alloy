@@ -1,5 +1,5 @@
 import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -13,7 +13,8 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
+import type { CSSProperties } from "react"
 
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { clipGameLabel } from "@/lib/clip-format"
@@ -67,21 +68,21 @@ export function ClipViewerDialog({
   const query = useClipQuery(clipId ?? "")
   const list = useActiveClipList()
 
-  const closeViewer = React.useCallback(() => {
+  const closeViewer = useCallback(() => {
     setActiveClipList(null)
     onClose()
   }, [onClose])
 
-  const prev = React.useMemo(() => {
+  const prev = useMemo(() => {
     if (!list || !clipId) return null
     return list.prevOf(clipId)
   }, [list, clipId])
-  const next = React.useMemo(() => {
+  const next = useMemo(() => {
     if (!list || !clipId) return null
     return list.nextOf(clipId)
   }, [list, clipId])
 
-  const navigateTo = React.useCallback(
+  const navigateTo = useCallback(
     (entry: ClipListEntry) => {
       if (!onNavigate) return
       seedClipDetail(queryClient, entry)
@@ -90,7 +91,7 @@ export function ClipViewerDialog({
     [onNavigate, queryClient],
   )
 
-  const onKey = React.useCallback(
+  const onKey = useCallback(
     (event: KeyboardEvent) => {
       if (event.defaultPrevented) return
       if (isEditableKeyTarget(event.target)) return
@@ -106,7 +107,7 @@ export function ClipViewerDialog({
   )
   useWindowEvent("keydown", onKey, true, open)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) return
     const neighbours = [prev, next].filter((entry): entry is ClipListEntry =>
       Boolean(entry),
@@ -206,7 +207,7 @@ function ClipViewerDialogBody({
   const thumbnail = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : null
-  const initialFocusRef = React.useRef<HTMLDivElement>(null)
+  const initialFocusRef = useRef<HTMLDivElement>(null)
   const deleteFlow = useClipViewerDelete({ row, onDeleted })
 
   const canNavigate = Boolean(onNavigate)
@@ -225,7 +226,7 @@ function ClipViewerDialogBody({
           "--clip-modal-nav-gutter": "72px",
           "--clip-modal-sidebar": "400px",
           "--clip-modal-meta": "13rem",
-        } as React.CSSProperties
+        } as CSSProperties
       }
       className={cn(
         // Below lg this branch is normally hidden by MobileClipViewerBody, but
@@ -251,7 +252,7 @@ function ClipViewerDialogBody({
             className="absolute top-3 right-3 z-30 hidden rounded-full border-transparent bg-transparent text-white/80 shadow-none hover:border-transparent hover:bg-transparent hover:text-white lg:inline-flex [&_svg]:!size-5"
           />
         }
-        aria-label={tx("Close")}
+        aria-label={t("Close")}
       >
         <XIcon />
       </DialogClose>
@@ -261,7 +262,7 @@ function ClipViewerDialogBody({
           variant="ghost"
           size="icon"
           onClick={() => (prev && onNavigate ? onNavigate(prev) : undefined)}
-          aria-label={tx("Previous clip")}
+          aria-label={t("Previous clip")}
           disabled={prevDisabled}
           className={cn(
             "absolute top-1/2 left-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
@@ -278,7 +279,7 @@ function ClipViewerDialogBody({
           variant="ghost"
           size="icon"
           onClick={() => (next && onNavigate ? onNavigate(next) : undefined)}
-          aria-label={tx("Next clip")}
+          aria-label={t("Next clip")}
           disabled={nextDisabled}
           className={cn(
             "absolute top-1/2 right-[calc((var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))*-1)] z-40 h-12 w-[calc(var(--clip-modal-margin-x)+var(--clip-modal-nav-gutter))] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",

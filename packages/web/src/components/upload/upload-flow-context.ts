@@ -1,4 +1,4 @@
-import * as React from "react"
+import { createContext } from "react"
 
 import type { PublishClipInput } from "./new-clip-helpers"
 import type { QueueItem } from "./upload-queue-types"
@@ -29,6 +29,4 @@ export interface UploadQueueState {
   queue: QueueItem[]
 }
 
-export const UploadFlowContext = React.createContext<UploadFlowControls | null>(
-  null,
-)
+export const UploadFlowContext = createContext<UploadFlowControls | null>(null)

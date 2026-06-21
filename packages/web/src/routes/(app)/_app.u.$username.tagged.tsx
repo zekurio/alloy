@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
@@ -21,7 +21,7 @@ function ProfileTaggedTab() {
   const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
 
   useQueryErrorToast(error, {
-    title: tx("Couldn't load tagged clips"),
+    title: t("Couldn't load tagged clips"),
     toastId: "profile-tagged-error",
   })
 
@@ -31,10 +31,10 @@ function ProfileTaggedTab() {
         rows={clips}
         error={error}
         errorSeed="profile-tagged-error"
-        errorTitle={tx("Couldn't load tagged clips")}
+        errorTitle={t("Couldn't load tagged clips")}
         emptySeed="profile-tagged-empty"
-        emptyTitle={tx("No tagged clips yet")}
-        emptyHint={tx("Clips where this user is tagged will show up here.")}
+        emptyTitle={t("No tagged clips yet")}
+        emptyHint={t("Clips where this user is tagged will show up here.")}
         listKey={`profile:${username}:tagged`}
         isOwnedByViewer={() => isSelf}
       />

@@ -13,7 +13,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import * as React from "react"
+import { useCallback } from "react"
 
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
@@ -385,7 +385,7 @@ export function useInvalidateClips() {
   const qc = useQueryClient()
   // Stable identity: callers put this in effect/callback dependency arrays, so
   // a fresh function per render would cascade re-runs through their hooks.
-  return React.useCallback(() => {
+  return useCallback(() => {
     void qc.invalidateQueries({ queryKey: clipKeys.all })
     void invalidateStorageUsage(qc)
   }, [qc])

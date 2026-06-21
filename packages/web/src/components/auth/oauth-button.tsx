@@ -1,10 +1,10 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { UserKeyIcon } from "lucide-react"
-import * as React from "react"
+import type { ComponentProps } from "react"
 
-interface OAuthButtonProps extends React.ComponentProps<"button"> {
+interface OAuthButtonProps extends ComponentProps<"button"> {
   providerId: string
   /** Human-readable provider name, rendered as "Continue with {displayName}". */
   displayName: string
@@ -45,7 +45,7 @@ export function OAuthButton({
         <UserKeyIcon className="size-4" />
       )}
       <span className="truncate">
-        {pendingLabel ?? tx("Continue with {displayName}", { displayName })}
+        {pendingLabel ?? t("Continue with {displayName}", { displayName })}
       </span>
     </Button>
   )

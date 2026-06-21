@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 
 import { authClient } from "./auth-client"
@@ -98,7 +98,7 @@ export function toastAuthAttemptFailure(
 ): void {
   clientLogger.warn(`[auth] ${action} failed.`, cause)
   if (isAuthAttemptCancellation(cause)) {
-    toast.warning(tx("Auth attempt cancelled."))
+    toast.warning(t("Auth attempt cancelled."))
     return
   }
   toast.error(errorMessage(cause, fallbackMessage))

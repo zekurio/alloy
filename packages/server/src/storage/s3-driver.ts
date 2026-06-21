@@ -2,7 +2,7 @@ import { createReadStream, createWriteStream } from "node:fs"
 import { mkdir, rename, rm, stat } from "node:fs/promises"
 import { Readable, Transform } from "node:stream"
 import { pipeline } from "node:stream/promises"
-import { ReadableStream as NodeReadableStream } from "node:stream/web"
+import { ReadableStream } from "node:stream/web"
 
 import {
   AbortMultipartUploadCommand,
@@ -69,7 +69,7 @@ export class S3StorageDriver implements StorageDriver {
 
   async put(
     key: string,
-    body: Uint8Array | ReadableStream<Uint8Array>,
+    body: Uint8Array | globalThis.ReadableStream<Uint8Array>,
     contentType: string,
   ): Promise<{ size: number }> {
     let size = body instanceof Uint8Array ? body.byteLength : 0
@@ -338,10 +338,10 @@ export class S3StorageDriver implements StorageDriver {
   private getObjectStream(
     key: string,
     opts: { start?: number; end?: number } | undefined,
-  ): ReadableStream<Uint8Array> {
+  ): globalThis.ReadableStream<Uint8Array> {
     return Readable.toWeb(
       Readable.from(this.getObjectChunks(key, opts)),
-    ) as ReadableStream<Uint8Array>
+    ) as globalThis.ReadableStream<Uint8Array>
   }
 
   private async *getObjectChunks(
@@ -367,9 +367,9 @@ export class S3StorageDriver implements StorageDriver {
 
 function bodyToNodeStream(body: unknown): Readable {
   if (body instanceof Readable) return body
-  if (body instanceof NodeReadableStream) return fromWebStream(body)
+  if (body instanceof ReadableStream) return fromWebStream(body)
   const transformed = body as {
-    transformToWebStream?: () => NodeReadableStream<Uint8Array>
+    transformToWebStream?: () => ReadableStream<Uint8Array>
   } | null
   if (transformed && typeof transformed.transformToWebStream === "function") {
     return fromWebStream(transformed.transformToWebStream())
@@ -378,9 +378,9 @@ function bodyToNodeStream(body: unknown): Readable {
 }
 
 function fromWebStream(
-  stream: ReadableStream<Uint8Array> | NodeReadableStream<Uint8Array>,
+  stream: globalThis.ReadableStream<Uint8Array> | ReadableStream<Uint8Array>,
 ): Readable {
-  return Readable.fromWeb(stream as NodeReadableStream<Uint8Array>)
+  return Readable.fromWeb(stream as ReadableStream<Uint8Array>)
 }
 
 function copySource(bucket: string, key: string): string {

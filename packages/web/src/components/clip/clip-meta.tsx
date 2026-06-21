@@ -1,5 +1,5 @@
 import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +37,8 @@ import {
   UserMinusIcon,
   UserPlusIcon,
 } from "lucide-react"
-import * as React from "react"
+import { useCallback, useState } from "react"
+import type { ReactNode } from "react"
 
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"
@@ -96,7 +97,7 @@ interface ClipMetaProps {
   deletePending?: boolean
   onEdit?: () => void
   /** Desktop-only "save to this device" affordance, slotted by the viewer. */
-  downloadAction?: React.ReactNode
+  downloadAction?: ReactNode
 }
 
 function ClipMeta({
@@ -128,7 +129,7 @@ function ClipMeta({
   const isAdmin = viewerRole === "admin"
   const canManage = isOwner || isAdmin
   const canLike = viewerId !== null
-  const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const hasDescription = Boolean(description && description.trim().length > 0)
 
   const deleteMutation = useDeleteClipMutation()
@@ -157,38 +158,38 @@ function ClipMeta({
     !profileViewer.isSelf &&
     !profileViewer.isBlockedBy
 
-  const handleLikeToggle = React.useCallback(() => {
+  const handleLikeToggle = useCallback(() => {
     if (!canLike) return
     likeMutation.mutate(
       { clipId, nextLiked: !liked },
       {
-        onError: () => toast.error(tx("Couldn't update like")),
+        onError: () => toast.error(t("Couldn't update like")),
       },
     )
   }, [canLike, clipId, liked, likeMutation])
 
-  const handleDelete = React.useCallback(() => {
+  const handleDelete = useCallback(() => {
     deleteMutation.mutate(
       { clipId },
       {
         onSuccess: () => {
-          toast.success(tx("Clip deleted"))
+          toast.success(t("Clip deleted"))
           onDeleted?.()
         },
-        onError: () => toast.error(tx("Couldn't delete clip")),
+        onError: () => toast.error(t("Couldn't delete clip")),
       },
     )
   }, [clipId, deleteMutation, onDeleted])
 
-  const handleShare = React.useCallback(async () => {
+  const handleShare = useCallback(async () => {
     if (privacy === "private") {
-      toast.error(tx("Clip link is disabled"))
+      toast.error(t("Clip link is disabled"))
       return
     }
 
     const url = currentUrlWithoutSearchOrHash()
     if (url === null) {
-      toast.error(tx("Couldn't share clip"))
+      toast.error(t("Couldn't share clip"))
       return
     }
 
@@ -197,9 +198,9 @@ function ClipMeta({
       action: "share clip link",
     })
     if (result === "copied") {
-      toast.success(tx("Link copied"))
+      toast.success(t("Link copied"))
     } else if (result === "failed") {
-      toast.error(tx("Couldn't share clip"))
+      toast.error(t("Couldn't share clip"))
     }
   }, [privacy, title])
 
@@ -209,7 +210,7 @@ function ClipMeta({
       { next: !isFollowing },
       {
         onError: (cause) => {
-          toast.error(errorMessage(cause, tx("Something went wrong")))
+          toast.error(errorMessage(cause, t("Something went wrong")))
         },
       },
     )
@@ -238,8 +239,8 @@ function ClipMeta({
             onClick={handleLikeToggle}
             disabled={!canLike || likeMutation.isPending}
             aria-pressed={liked}
-            aria-label={canLike ? tx("Like clip") : tx("Sign in to like")}
-            title={canLike ? undefined : tx("Sign in to like")}
+            aria-label={canLike ? t("Like clip") : t("Sign in to like")}
+            title={canLike ? undefined : t("Sign in to like")}
           >
             <HeartIcon className={cn(liked && "fill-current")} />
             <span className="tabular-nums">{formatCount(likes)}</span>
@@ -250,11 +251,11 @@ function ClipMeta({
             onClick={handleShare}
             aria-label={
               privacy === "private"
-                ? tx("Clip link is disabled")
-                : tx("Share clip")
+                ? t("Clip link is disabled")
+                : t("Share clip")
             }
             title={
-              privacy === "private" ? tx("Clip link is disabled") : undefined
+              privacy === "private" ? t("Clip link is disabled") : undefined
             }
           >
             <Share2Icon />
@@ -266,7 +267,7 @@ function ClipMeta({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    aria-label={tx("Clip actions")}
+                    aria-label={t("Clip actions")}
                   >
                     <MoreHorizontalIcon className="rotate-90" />
                   </Button>
@@ -278,7 +279,7 @@ function ClipMeta({
                 {canManage ? (
                   <>
                     <DropdownMenuItem onClick={onEdit}>
-                      <PencilIcon /> {tx("Edit")}
+                      <PencilIcon /> {t("Edit")}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
@@ -289,7 +290,7 @@ function ClipMeta({
                         else setDeleteDialogOpen(true)
                       }}
                     >
-                      <Trash2Icon /> {tx("Delete")}
+                      <Trash2Icon /> {t("Delete")}
                     </DropdownMenuItem>
                   </>
                 ) : null}
@@ -305,7 +306,7 @@ function ClipMeta({
           <Link
             to="/u/$username"
             params={{ username: uploader.handle }}
-            aria-label={tx("Open {name}'s profile", {
+            aria-label={t("Open {name}'s profile", {
               name: uploader.name,
             })}
             className={cn(
@@ -348,10 +349,10 @@ function ClipMeta({
                 >
                   {isFollowing ? <UserMinusIcon /> : <UserPlusIcon />}
                   {followPending
-                    ? tx("…")
+                    ? t("…")
                     : isFollowing
-                      ? tx("Following")
-                      : tx("Follow")}
+                      ? t("Following")
+                      : t("Follow")}
                 </Button>
               ) : null}
             </div>
@@ -398,21 +399,21 @@ function ClipMeta({
         <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{tx("Delete this clip?")}</AlertDialogTitle>
+              <AlertDialogTitle>{t("Delete this clip?")}</AlertDialogTitle>
               <AlertDialogDescription>
-                {tx("This can't be undone.")}
+                {t("This can't be undone.")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={deleting}>
-                {tx("Cancel")}
+                {t("Cancel")}
               </AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
                 onClick={handleDelete}
                 disabled={deleting}
               >
-                {deleting ? tx("Deleting…") : tx("Delete clip")}
+                {deleting ? t("Deleting…") : t("Delete clip")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -448,7 +449,7 @@ function ClipGameBadge({
       { gameId, next: !isFavorite },
       {
         onError: (cause) => {
-          toast.error(errorMessage(cause, tx("Something went wrong")))
+          toast.error(errorMessage(cause, t("Something went wrong")))
         },
       },
     )
@@ -471,17 +472,17 @@ function ClipGameBadge({
       disabled={!canToggle || favoriteMutation.isPending}
       title={
         !gameRef
-          ? tx("Game details unavailable")
+          ? t("Game details unavailable")
           : viewer === null
-            ? tx("Sign in to favourite")
+            ? t("Sign in to favourite")
             : isFavorite
-              ? tx("Remove from favourites")
-              : tx("Add to favourites")
+              ? t("Remove from favourites")
+              : t("Add to favourites")
       }
       aria-label={
         isFavorite
-          ? tx("Remove game from favourites")
-          : tx("Add game to favourites")
+          ? t("Remove game from favourites")
+          : t("Add game to favourites")
       }
       onClick={toggleFavorite}
       className={cn(

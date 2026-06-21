@@ -1,7 +1,7 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type { ComponentProps } from "react"
 
-function SectionHead({ className, ...props }: React.ComponentProps<"div">) {
+function SectionHead({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="section-head"
@@ -11,7 +11,7 @@ function SectionHead({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionEyebrow({ className, ...props }: React.ComponentProps<"div">) {
+function SectionEyebrow({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="section-eyebrow"
@@ -24,7 +24,7 @@ function SectionEyebrow({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
+function SectionTitle({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="section-title"
@@ -38,7 +38,7 @@ function SectionTitle({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionSub({ className, ...props }: React.ComponentProps<"div">) {
+function SectionSub({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="section-sub"
@@ -48,7 +48,7 @@ function SectionSub({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionActions({ className, ...props }: React.ComponentProps<"div">) {
+function SectionActions({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="section-actions"
@@ -58,7 +58,7 @@ function SectionActions({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function SectionMeta({ className, ...props }: React.ComponentProps<"span">) {
+function SectionMeta({ className, ...props }: ComponentProps<"span">) {
   return (
     <span
       data-slot="section-meta"

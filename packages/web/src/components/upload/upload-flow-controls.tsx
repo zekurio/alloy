@@ -1,4 +1,5 @@
-import * as React from "react"
+import { useCallback, useMemo, useRef, useState } from "react"
+import type { ReactNode } from "react"
 
 import {
   type PublishClipFn,
@@ -13,27 +14,23 @@ const emptyQueueState: UploadQueueState = {
   queue: [],
 }
 
-export function UploadFlowProvider({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export function UploadFlowProvider({ children }: { children: ReactNode }) {
   const [queueState, setQueueStateValue] =
-    React.useState<UploadQueueState>(emptyQueueState)
-  const publishClipRef = React.useRef<PublishClipFn>(publishUnavailable)
+    useState<UploadQueueState>(emptyQueueState)
+  const publishClipRef = useRef<PublishClipFn>(publishUnavailable)
 
-  const publishClip = React.useCallback<PublishClipFn>(
+  const publishClip = useCallback<PublishClipFn>(
     (payload) => publishClipRef.current(payload),
     [],
   )
-  const setPublishClip = React.useCallback((fn: PublishClipFn | null) => {
+  const setPublishClip = useCallback((fn: PublishClipFn | null) => {
     publishClipRef.current = fn ?? publishUnavailable
   }, [])
-  const setQueueState = React.useCallback((state: UploadQueueState | null) => {
+  const setQueueState = useCallback((state: UploadQueueState | null) => {
     setQueueStateValue(state ?? emptyQueueState)
   }, [])
 
-  const value = React.useMemo(
+  const value = useMemo(
     () => ({
       ...queueState,
       setQueueState,

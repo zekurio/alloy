@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import {
   AppHeader,
@@ -10,7 +10,8 @@ import {
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { ReactNode } from "react"
 
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
@@ -21,10 +22,10 @@ import { HeaderToolbarSlot, useHeaderToolbarNode } from "./header-toolbar"
 export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
   const toolbarNode = useHeaderToolbarNode()
-  const inputRef = React.useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const desktop = alloyDesktop()
 
-  const onKeyDown = React.useCallback((event: KeyboardEvent) => {
+  const onKeyDown = useCallback((event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") {
       return
     }
@@ -42,7 +43,7 @@ export function HomeHeader() {
       <Link
         to="/"
         data-slot="app-header-brand"
-        aria-label={tx("Home")}
+        aria-label={t("Home")}
         className="flex items-center justify-self-start pl-1.5 md:hidden"
       >
         <AlloyLogo size={26} />
@@ -50,8 +51,8 @@ export function HomeHeader() {
       <AppHeaderSearch
         ref={inputRef}
         value={query}
-        placeholder={tx("Search...")}
-        aria-label={tx("Search")}
+        placeholder={t("Search...")}
+        aria-label={t("Search")}
         autoComplete="off"
         spellCheck={false}
         onFocus={() => {
@@ -98,14 +99,14 @@ function HeaderNavigation() {
   return (
     <div className="hidden items-center gap-1 md:flex">
       <HeaderNavigationButton
-        label={tx("Go back")}
+        label={t("Go back")}
         disabled={!history.canGoBack}
         onClick={history.goBack}
       >
         <ChevronLeftIcon />
       </HeaderNavigationButton>
       <HeaderNavigationButton
-        label={tx("Go forward")}
+        label={t("Go forward")}
         disabled={!history.canGoForward}
         onClick={history.goForward}
       >
@@ -138,14 +139,14 @@ function useHeaderNavigationHistory() {
 
   // index -> the key last seen at that position. A push/replace lands a new
   // key (truncating everything ahead); a back/forward restores a known key.
-  const keysByIndexRef = React.useRef(new Map<number, string>())
-  const topIndexRef = React.useRef(entry.index)
-  const [availability, setAvailability] = React.useState({
+  const keysByIndexRef = useRef(new Map<number, string>())
+  const topIndexRef = useRef(entry.index)
+  const [availability, setAvailability] = useState({
     canGoBack: false,
     canGoForward: false,
   })
 
-  React.useEffect(() => {
+  useEffect(() => {
     const keysByIndex = keysByIndexRef.current
     if (keysByIndex.get(entry.index) !== entry.key) {
       // New entry here (push or replace): it discards any forward history, so
@@ -165,10 +166,10 @@ function useHeaderNavigationHistory() {
 
   return {
     ...availability,
-    goBack: React.useCallback(() => {
+    goBack: useCallback(() => {
       if (entry.index > 0) window.history.back()
     }, [entry.index]),
-    goForward: React.useCallback(() => {
+    goForward: useCallback(() => {
       if (entry.index < topIndexRef.current) window.history.forward()
     }, [entry.index]),
   }
@@ -183,7 +184,7 @@ function HeaderNavigationButton({
   label: string
   onClick: () => void
   disabled: boolean
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <button

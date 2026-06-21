@@ -1,5 +1,5 @@
 import type { ClipRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
 import {
   DropdownMenu,
@@ -16,7 +16,8 @@ import {
   MonitorIcon,
   Trash2Icon,
 } from "lucide-react"
-import * as React from "react"
+import { useState } from "react"
+import type { ReactNode } from "react"
 
 import {
   clipBrowserDownloadActionSupported,
@@ -31,9 +32,9 @@ import { deleteLocalLibraryCopy } from "./library-local-actions"
 
 export function LocalFileLocation({ item }: { item: RecordingLibraryItem }) {
   return (
-    <ClipMetadataSection label={tx("File Location")}>
+    <ClipMetadataSection label={t("File Location")}>
       <LocationMenu
-        label={tx("On Device")}
+        label={t("On Device")}
         icon={<MonitorIcon />}
         sizeBytes={item.sizeBytes}
         localItem={item}
@@ -55,9 +56,9 @@ export function ClipFileLocation({
   ) : null
 
   return (
-    <ClipMetadataSection label={tx("File Location")}>
+    <ClipMetadataSection label={t("File Location")}>
       <LocationMenu
-        label={localItem ? tx("Server + Device") : tx("On Server")}
+        label={localItem ? t("Server + Device") : t("On Server")}
         icon={localItem ? <MonitorIcon /> : <CloudIcon />}
         sizeBytes={row.sourceSizeBytes}
         localItem={localItem}
@@ -77,13 +78,13 @@ function LocationMenu({
   downloadAction = null,
 }: {
   label: string
-  icon: React.ReactNode
+  icon: ReactNode
   sizeBytes: number | null
   localItem: RecordingLibraryItem | null
   allowRemoveLocal?: boolean
-  downloadAction?: React.ReactNode
+  downloadAction?: ReactNode
 }) {
-  const [removingLocal, setRemovingLocal] = React.useState(false)
+  const [removingLocal, setRemovingLocal] = useState(false)
   const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
 
   const revealLocal = () => {
@@ -96,10 +97,10 @@ function LocationMenu({
     setRemovingLocal(true)
     try {
       await deleteLocalLibraryCopy(localItem)
-      toast.success(tx("Local copy removed"))
+      toast.success(t("Local copy removed"))
     } catch (cause) {
       clientLogger.warn("[library] Failed to remove local clip copy.", cause)
-      toast.error(tx("Couldn't remove the local copy"))
+      toast.error(t("Couldn't remove the local copy"))
     } finally {
       setRemovingLocal(false)
     }
@@ -126,7 +127,7 @@ function LocationMenu({
           <>
             <DropdownMenuItem onClick={revealLocal}>
               <FolderOpenIcon />
-              {tx("Reveal in folder")}
+              {t("Reveal in folder")}
             </DropdownMenuItem>
             {allowRemoveLocal ? (
               <DropdownMenuItem
@@ -137,7 +138,7 @@ function LocationMenu({
                 }}
               >
                 <Trash2Icon />
-                {removingLocal ? tx("Removing...") : tx("Remove local copy")}
+                {removingLocal ? t("Removing...") : t("Remove local copy")}
               </DropdownMenuItem>
             ) : null}
           </>
@@ -146,7 +147,7 @@ function LocationMenu({
         ) : (
           <DropdownMenuItem disabled>
             <CloudIcon />
-            {tx("Server only")}
+            {t("Server only")}
           </DropdownMenuItem>
         )}
         {localItem && downloadAction ? (

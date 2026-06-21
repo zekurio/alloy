@@ -1,5 +1,5 @@
 import type { GameRow } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -15,7 +15,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { UploadIcon, VideoIcon } from "lucide-react"
-import * as React from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
 import { CLIP_TITLE_MAX, normalizeClipTitle } from "@/lib/clip-fields"
@@ -42,17 +42,18 @@ export function useLibraryImportAction(
 ): LibraryImportAction {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [picking, setPicking] = React.useState(false)
-  const [committing, setCommitting] = React.useState(false)
-  const [staged, setStaged] =
-    React.useState<RecordingLibraryStagedImport | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [committing, setCommitting] = useState(false)
+  const [staged, setStaged] = useState<RecordingLibraryStagedImport | null>(
+    null,
+  )
 
   const available =
     !!desktop?.recording.importLibraryFiles &&
     !!desktop.recording.commitStagedLibraryImport &&
     !!desktop.recording.discardStagedLibraryImport
 
-  const start = React.useCallback(async () => {
+  const start = useCallback(async () => {
     const pick = desktop?.recording.importLibraryFiles
     if (!pick || !available || picking || committing || staged) return
     setPicking(true)
@@ -63,7 +64,7 @@ export function useLibraryImportAction(
         const [first] = result.failed
         toast.error(
           result.failed.length === 1
-            ? tx("{fileName}: {error}", {
+            ? t("{fileName}: {error}", {
                 error: first.error,
                 fileName: first.fileName,
               })
@@ -80,13 +81,13 @@ export function useLibraryImportAction(
       const [next] = result.staged
       if (next) setStaged(next)
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Could not import clip.")))
+      toast.error(errorMessage(cause, t("Could not import clip.")))
     } finally {
       setPicking(false)
     }
   }, [available, committing, desktop, picking, staged])
 
-  const discard = React.useCallback(async () => {
+  const discard = useCallback(async () => {
     const current = staged
     const discardStaged = desktop?.recording.discardStagedLibraryImport
     if (!current || !discardStaged || committing) return
@@ -94,11 +95,11 @@ export function useLibraryImportAction(
     try {
       await discardStaged(current.id)
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Could not clear staged import.")))
+      toast.error(errorMessage(cause, t("Could not clear staged import.")))
     }
   }, [committing, desktop, staged])
 
-  const commit = React.useCallback(
+  const commit = useCallback(
     async ({ title, game }: { title: string; game: GameRow }) => {
       const current = staged
       const commitStaged = desktop?.recording.commitStagedLibraryImport
@@ -113,14 +114,14 @@ export function useLibraryImportAction(
           gameIconUrl: game.iconUrl ?? game.logoUrl,
         })
         await refreshLibrarySnapshotCache(queryClient, desktop)
-        toast.success(tx("Clip imported to your library"))
+        toast.success(t("Clip imported to your library"))
         await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
         })
         setStaged(null)
       } catch (cause) {
-        toast.error(errorMessage(cause, tx("Could not import clip.")))
+        toast.error(errorMessage(cause, t("Could not import clip.")))
       } finally {
         setCommitting(false)
       }
@@ -161,11 +162,11 @@ function ImportClipDetailsDialogInner({
   onOpenChange: (open: boolean) => void
   onCommit: (metadata: { title: string; game: GameRow }) => void
 }) {
-  const [title, setTitle] = React.useState("")
-  const [game, setGame] = React.useState<GameRow | null>(null)
-  const [submitted, setSubmitted] = React.useState(false)
+  const [title, setTitle] = useState("")
+  const [game, setGame] = useState<GameRow | null>(null)
+  const [submitted, setSubmitted] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setTitle(staged?.title ?? "")
     setGame(null)
     setSubmitted(false)
@@ -185,9 +186,9 @@ function ImportClipDetailsDialogInner({
     <Dialog open={staged !== null} onOpenChange={onOpenChange}>
       <DialogContent variant="secondary" className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>{tx("Import clip")}</DialogTitle>
+          <DialogTitle>{t("Import clip")}</DialogTitle>
           <DialogDescription>
-            {tx("Add the clip details before it enters your library.")}
+            {t("Add the clip details before it enters your library.")}
           </DialogDescription>
         </DialogHeader>
         <form
@@ -201,7 +202,7 @@ function ImportClipDetailsDialogInner({
 
             <label className="flex flex-col gap-2">
               <span className="text-foreground-muted text-xs font-semibold">
-                {tx("Title")}
+                {t("Title")}
               </span>
               <Input
                 value={title}
@@ -209,11 +210,11 @@ function ImportClipDetailsDialogInner({
                 maxLength={CLIP_TITLE_MAX}
                 disabled={pending}
                 aria-invalid={titleInvalid || undefined}
-                placeholder={tx("Untitled")}
+                placeholder={t("Untitled")}
               />
               {titleInvalid ? (
                 <span className="text-destructive text-xs">
-                  {tx("Add a title to import this clip.")}
+                  {t("Add a title to import this clip.")}
                 </span>
               ) : null}
             </label>
@@ -223,7 +224,7 @@ function ImportClipDetailsDialogInner({
                 htmlFor="import-clip-game"
                 className="text-foreground-muted text-xs font-semibold"
               >
-                {tx("Game")}
+                {t("Game")}
               </label>
               <GameCombobox
                 id="import-clip-game"
@@ -232,13 +233,13 @@ function ImportClipDetailsDialogInner({
                 disabled={pending}
                 invalid={gameInvalid}
                 required
-                placeholder={tx("Search game...")}
+                placeholder={t("Search game...")}
                 className="w-full"
                 inputClassName="w-full"
               />
               {gameInvalid ? (
                 <span className="text-destructive text-xs">
-                  {tx("Pick a game to import this clip.")}
+                  {t("Pick a game to import this clip.")}
                 </span>
               ) : null}
             </div>
@@ -250,11 +251,11 @@ function ImportClipDetailsDialogInner({
               disabled={pending}
               onClick={() => onOpenChange(false)}
             >
-              {tx("Cancel")}
+              {t("Cancel")}
             </Button>
             <Button type="submit" variant="primary" disabled={pending}>
               <UploadIcon />
-              {pending ? tx("Importing...") : tx("Import clip")}
+              {pending ? t("Importing...") : t("Import clip")}
             </Button>
           </DialogFooter>
         </form>

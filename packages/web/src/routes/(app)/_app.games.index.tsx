@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router"
-import * as React from "react"
+import { Suspense } from "react"
 
 import { GamesPageInner } from "@/components/routes/games/games-page-inner"
 
@@ -9,8 +9,8 @@ export const Route = createFileRoute("/(app)/_app/games/")({
 
 function GamesIndexPage() {
   return (
-    <React.Suspense fallback={null}>
+    <Suspense fallback={null}>
       <GamesPageInner />
-    </React.Suspense>
+    </Suspense>
   )
 }

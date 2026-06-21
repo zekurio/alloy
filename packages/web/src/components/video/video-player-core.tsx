@@ -1,7 +1,15 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
-import * as React from "react"
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import type { MouseEvent, MouseEventHandler } from "react"
 
 import { errorMessage } from "@/lib/error-message"
 import {
@@ -57,46 +65,46 @@ export function PlayerCore({
   hlsLevelHeight = "auto",
   onHlsFatalError,
 }: PlayerCoreProps) {
-  const videoRef = React.useRef<HTMLVideoElement | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const { src: mediaUrl } = useMediaEngine(
     videoRef,
     spec,
     hlsLevelHeight,
     onHlsFatalError,
   )
-  const containerRef = React.useRef<HTMLDivElement | null>(null)
-  const playingRef = React.useRef(false)
-  const volumeRef = React.useRef(1)
-  const mutedRef = React.useRef(initialMuted)
-  const chromeHideTimerRef = React.useRef<number | null>(null)
-  const lastTimeRef = React.useRef(0)
-  const playRequestIdRef = React.useRef(0)
-  const hasRenderedFrameRef = React.useRef(false)
-  const resumeRef = React.useRef<{ time: number; play: boolean } | null>(null)
-  const prevSourceRef = React.useRef<{
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const playingRef = useRef(false)
+  const volumeRef = useRef(1)
+  const mutedRef = useRef(initialMuted)
+  const chromeHideTimerRef = useRef<number | null>(null)
+  const lastTimeRef = useRef(0)
+  const playRequestIdRef = useRef(0)
+  const hasRenderedFrameRef = useRef(false)
+  const resumeRef = useRef<{ time: number; play: boolean } | null>(null)
+  const prevSourceRef = useRef<{
     identity: string
     specKey: string
   } | null>(null)
   const specKey = sourceSpecKey(spec)
 
-  const [status, setStatus] = React.useState<LoadStatus>({ kind: "loading" })
-  const [duration, setDuration] = React.useState(0)
-  const [currentTime, setCurrentTime] = React.useState(0)
-  const [bufferedEnd, setBufferedEnd] = React.useState(0)
-  const [playing, setPlaying] = React.useState(false)
-  const [volume, setVolumeState] = React.useState(1)
-  const [muted, setMutedState] = React.useState(initialMuted)
-  const [hasRenderedFrame, setHasRenderedFrame] = React.useState(false)
-  const [chromeVisible, setChromeVisible] = React.useState(true)
+  const [status, setStatus] = useState<LoadStatus>({ kind: "loading" })
+  const [duration, setDuration] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [bufferedEnd, setBufferedEnd] = useState(0)
+  const [playing, setPlaying] = useState(false)
+  const [volume, setVolumeState] = useState(1)
+  const [muted, setMutedState] = useState(initialMuted)
+  const [hasRenderedFrame, setHasRenderedFrame] = useState(false)
+  const [chromeVisible, setChromeVisible] = useState(true)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
 
-  const clearChromeHideTimer = React.useCallback(() => {
+  const clearChromeHideTimer = useCallback(() => {
     if (chromeHideTimerRef.current === null) return
     window.clearTimeout(chromeHideTimerRef.current)
     chromeHideTimerRef.current = null
   }, [])
 
-  const scheduleChromeHide = React.useCallback(
+  const scheduleChromeHide = useCallback(
     (delayMs = isCoarsePointer ? 2600 : 1600) => {
       clearChromeHideTimer()
       chromeHideTimerRef.current = window.setTimeout(() => {
@@ -107,12 +115,12 @@ export function PlayerCore({
     [clearChromeHideTimer, isCoarsePointer],
   )
 
-  const onTimeUpdateRef = React.useRef(onTimeUpdate)
-  const onPlayingChangeRef = React.useRef(onPlayingChange)
-  const onPlaybackErrorRef = React.useRef(onPlaybackError)
-  const onFrameReadyRef = React.useRef(onFrameReady)
-  const onEndedRef = React.useRef(onEnded)
-  React.useEffect(() => {
+  const onTimeUpdateRef = useRef(onTimeUpdate)
+  const onPlayingChangeRef = useRef(onPlayingChange)
+  const onPlaybackErrorRef = useRef(onPlaybackError)
+  const onFrameReadyRef = useRef(onFrameReady)
+  const onEndedRef = useRef(onEnded)
+  useEffect(() => {
     onTimeUpdateRef.current = onTimeUpdate
     onPlayingChangeRef.current = onPlayingChange
     onPlaybackErrorRef.current = onPlaybackError
@@ -120,7 +128,7 @@ export function PlayerCore({
     onEndedRef.current = onEnded
   }, [onTimeUpdate, onPlayingChange, onPlaybackError, onFrameReady, onEnded])
 
-  const syncTime = React.useCallback(() => {
+  const syncTime = useCallback(() => {
     const video = videoRef.current
     if (!video) return
     const nextTime = video.currentTime || 0
@@ -131,7 +139,7 @@ export function PlayerCore({
     onTimeUpdateRef.current?.(nextTime)
   }, [])
 
-  const syncBuffered = React.useCallback(() => {
+  const syncBuffered = useCallback(() => {
     const video = videoRef.current
     if (!video || video.buffered.length === 0) {
       setBufferedEnd(0)
@@ -140,21 +148,21 @@ export function PlayerCore({
     setBufferedEnd(video.buffered.end(video.buffered.length - 1))
   }, [])
 
-  const setPlayingState = React.useCallback((next: boolean) => {
+  const setPlayingState = useCallback((next: boolean) => {
     if (playingRef.current === next) return
     playingRef.current = next
     setPlaying(next)
     onPlayingChangeRef.current?.(next)
   }, [])
 
-  React.useEffect(() => {
+  useEffect(() => {
     mutedRef.current = initialMuted
     setMutedState(initialMuted)
     const video = videoRef.current
     if (video) video.muted = initialMuted
   }, [initialMuted])
 
-  React.useEffect(() => {
+  useEffect(() => {
     // A changed `identity` means a different clip. A changed SourceSpec with
     // the same identity is a rendition/source swap for the same clip; this also
     // covers hls.js playback, where `mediaUrl` stays null while the engine
@@ -200,7 +208,7 @@ export function PlayerCore({
     specKey,
   ])
 
-  const reportError = React.useCallback(() => {
+  const reportError = useCallback(() => {
     const video = videoRef.current
     const message = mediaErrorMessage(video)
     setPlayingState(false)
@@ -212,7 +220,7 @@ export function PlayerCore({
     }
   }, [setPlayingState])
 
-  const playInternal = React.useCallback(async (reportBlocked = true) => {
+  const playInternal = useCallback(async (reportBlocked = true) => {
     const video = videoRef.current
     if (!video) return
     const requestId = playRequestIdRef.current + 1
@@ -227,7 +235,7 @@ export function PlayerCore({
         return
       }
       if (!reportBlocked) return
-      const message = errorMessage(err, tx("Playback failed"))
+      const message = errorMessage(err, t("Playback failed"))
       if (onPlaybackErrorRef.current) {
         setStatus({ kind: "ready" })
         onPlaybackErrorRef.current(message)
@@ -237,12 +245,12 @@ export function PlayerCore({
     }
   }, [])
 
-  const pauseInternal = React.useCallback(() => {
+  const pauseInternal = useCallback(() => {
     playRequestIdRef.current += 1
     videoRef.current?.pause()
   }, [])
 
-  const seekInternal = React.useCallback(
+  const seekInternal = useCallback(
     (targetSec: number, keepPlaying: boolean = playingRef.current) => {
       const video = videoRef.current
       if (!video) return
@@ -264,7 +272,7 @@ export function PlayerCore({
     [playInternal, shortcutBounds?.end, shortcutBounds?.start],
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     const video = videoRef.current
     if (!video) return
     volumeRef.current = volume
@@ -273,7 +281,7 @@ export function PlayerCore({
     video.muted = muted
   }, [volume, muted])
 
-  React.useEffect(() => {
+  useEffect(() => {
     const video = videoRef.current
     if (!video) return
     video.playbackRate = playbackRate
@@ -281,7 +289,7 @@ export function PlayerCore({
 
   usePlayingTimeSync(playing, syncTime)
 
-  React.useImperativeHandle(
+  useImperativeHandle(
     playerRef,
     () => ({
       play: () => playInternal(),
@@ -314,7 +322,7 @@ export function PlayerCore({
     [pauseInternal, playInternal, seekInternal],
   )
 
-  const togglePlay = React.useCallback(() => {
+  const togglePlay = useCallback(() => {
     const video = videoRef.current
     if (!video) return
     if (video.paused || video.ended) {
@@ -324,7 +332,7 @@ export function PlayerCore({
     }
   }, [pauseInternal, playInternal])
 
-  const toggleMute = React.useCallback(() => {
+  const toggleMute = useCallback(() => {
     setMutedState((current) => {
       const next = !current
       mutedRef.current = next
@@ -334,7 +342,7 @@ export function PlayerCore({
     })
   }, [])
 
-  const setVolume = React.useCallback((next: number) => {
+  const setVolume = useCallback((next: number) => {
     const clamped = Math.max(0, Math.min(1, next))
     volumeRef.current = clamped
     setVolumeState(clamped)
@@ -350,14 +358,14 @@ export function PlayerCore({
     })
   }, [])
 
-  const volumeBy = React.useCallback(
+  const volumeBy = useCallback(
     (delta: number) => {
       setVolume(volumeRef.current + delta)
     },
     [setVolume],
   )
 
-  const seekBy = React.useCallback(
+  const seekBy = useCallback(
     (deltaSec: number) => {
       const video = videoRef.current
       if (!video) return
@@ -366,7 +374,7 @@ export function PlayerCore({
     [seekInternal],
   )
 
-  const toggleFullscreen = React.useCallback(() => {
+  const toggleFullscreen = useCallback(() => {
     const el = containerRef.current
     if (!el) return
     if (isFullscreenElement(el)) {
@@ -376,18 +384,18 @@ export function PlayerCore({
     }
   }, [])
 
-  const onFullscreenChange = React.useCallback(() => {
+  const onFullscreenChange = useCallback(() => {
     const nextIsFullscreen = isFullscreenElement(containerRef.current)
     if (nextIsFullscreen && isCoarsePointer) screen.orientation?.unlock?.()
     setChromeVisible(true)
   }, [isCoarsePointer])
 
-  React.useEffect(() => {
+  useEffect(() => {
     onFullscreenChange()
   }, [onFullscreenChange])
   useDocumentEvent("fullscreenchange", onFullscreenChange)
 
-  const keyCommand = React.useMemo<VideoKeyCommand>(
+  const keyCommand = useMemo<VideoKeyCommand>(
     () => ({
       togglePlay,
       toggleMute,
@@ -429,7 +437,7 @@ export function PlayerCore({
     keyCommand,
   })
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isCoarsePointer && autoPlay) {
       clearChromeHideTimer()
       setChromeVisible(false)
@@ -456,7 +464,7 @@ export function PlayerCore({
     onPlayThreshold,
   })
 
-  const handleLoadedMetadata = React.useCallback(() => {
+  const handleLoadedMetadata = useCallback(() => {
     const element = videoRef.current
     if (!element) return
     const nextDuration = Number.isFinite(element.duration)
@@ -493,7 +501,7 @@ export function PlayerCore({
     syncBuffered()
   }, [autoPlay, playbackRate, playInternal, syncBuffered])
 
-  const handleLoadedData = React.useCallback(() => {
+  const handleLoadedData = useCallback(() => {
     if (hasRenderedFrameRef.current) return
     hasRenderedFrameRef.current = true
     setHasRenderedFrame(true)
@@ -502,25 +510,25 @@ export function PlayerCore({
 
   const posterVisible = Boolean(poster) && !hasRenderedFrame
 
-  const handleTimeUpdate = React.useCallback(() => {
+  const handleTimeUpdate = useCallback(() => {
     syncTime()
     syncBuffered()
   }, [syncBuffered, syncTime])
 
-  const handleChromePointerMove = React.useCallback(() => {
+  const handleChromePointerMove = useCallback(() => {
     if (isCoarsePointer) return
     setChromeVisible(true)
     if (playingRef.current) scheduleChromeHide()
   }, [isCoarsePointer, scheduleChromeHide])
 
-  const handleChromePointerLeave = React.useCallback(() => {
+  const handleChromePointerLeave = useCallback(() => {
     if (isCoarsePointer) return
     clearChromeHideTimer()
     setChromeVisible(false)
   }, [clearChromeHideTimer, isCoarsePointer])
 
-  const handleControlledVideoClick = React.useCallback(
-    (event: React.MouseEvent<HTMLVideoElement>) => {
+  const handleControlledVideoClick = useCallback(
+    (event: MouseEvent<HTMLVideoElement>) => {
       onVideoClick?.(event)
 
       if (isCoarsePointer) {
@@ -545,9 +553,7 @@ export function PlayerCore({
     ],
   )
 
-  const renderVideo = (
-    clickHandler?: React.MouseEventHandler<HTMLVideoElement>,
-  ) => (
+  const renderVideo = (clickHandler?: MouseEventHandler<HTMLVideoElement>) => (
     <VideoFrame
       videoRef={videoRef}
       mediaUrl={mediaUrl}

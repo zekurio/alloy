@@ -1,14 +1,14 @@
 import { cn } from "@alloy/ui/lib/utils"
-import { Slider as SliderPrimitive } from "@base-ui/react/slider"
+import { Slider } from "@base-ui/react/slider"
 
-function Slider({
+function SliderRoot({
   className,
   defaultValue,
   value,
   min = 0,
   max = 100,
   ...props
-}: SliderPrimitive.Root.Props) {
+}: Slider.Root.Props) {
   const _values = Array.isArray(value)
     ? value
     : Array.isArray(defaultValue)
@@ -16,7 +16,7 @@ function Slider({
       : [min]
 
   return (
-    <SliderPrimitive.Root
+    <Slider.Root
       data-slot="slider"
       defaultValue={defaultValue}
       value={value}
@@ -26,14 +26,14 @@ function Slider({
       className={cn("data-horizontal:w-full data-vertical:h-full", className)}
       {...props}
     >
-      <SliderPrimitive.Control
+      <Slider.Control
         className={cn(
           "relative flex w-full touch-none items-center select-none",
           "data-disabled:opacity-50",
           "data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
         )}
       >
-        <SliderPrimitive.Track
+        <Slider.Track
           data-slot="slider-track"
           className={cn(
             "relative grow overflow-hidden rounded-full bg-white/20 select-none",
@@ -41,13 +41,13 @@ function Slider({
             "data-vertical:h-full data-vertical:w-1",
           )}
         >
-          <SliderPrimitive.Indicator
+          <Slider.Indicator
             data-slot="slider-range"
             className="bg-accent shadow-[0_0_8px_var(--accent-glow)] select-none data-horizontal:h-full data-vertical:w-full"
           />
-        </SliderPrimitive.Track>
+        </Slider.Track>
         {Array.from({ length: _values.length }, (_, index) => (
-          <SliderPrimitive.Thumb
+          <Slider.Thumb
             key={index}
             data-slot="slider-thumb"
             className={cn(
@@ -61,9 +61,9 @@ function Slider({
             )}
           />
         ))}
-      </SliderPrimitive.Control>
-    </SliderPrimitive.Root>
+      </Slider.Control>
+    </Slider.Root>
   )
 }
 
-export { Slider }
+export { SliderRoot as Slider }

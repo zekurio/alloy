@@ -1,5 +1,5 @@
 import { COMMENT_BODY_MAX_LENGTH, type CommentRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -9,7 +9,8 @@ import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { ComponentProps, MutableRefObject } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useSession } from "@/lib/auth-client"
@@ -42,7 +43,7 @@ const LONG_COMMENT_CHARS = 260
 // threads don't run out of horizontal room.
 const MAX_VISIBLE_REPLY_INDENT = 4
 
-interface ClipCommentsProps extends React.ComponentProps<"aside"> {
+interface ClipCommentsProps extends ComponentProps<"aside"> {
   clipId: string
   clipAuthorId: string
   focusedCommentId?: string | null
@@ -77,19 +78,17 @@ function ClipComments({
   focusedCommentId = null,
   ...props
 }: ClipCommentsProps) {
-  const [draft, setDraft] = React.useState("")
-  const [sort, setSort] = React.useState<Sort>("top")
-  const [replyTarget, setReplyTarget] = React.useState<ReplyTarget | null>(null)
-  const [openReplyIds, setOpenReplyIds] = React.useState<Set<string>>(
-    () => new Set(),
+  const [draft, setDraft] = useState("")
+  const [sort, setSort] = useState<Sort>("top")
+  const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null)
+  const [openReplyIds, setOpenReplyIds] = useState<Set<string>>(() => new Set())
+  const [flashingCommentId, setFlashingCommentId] = useState<string | null>(
+    null,
   )
-  const [flashingCommentId, setFlashingCommentId] = React.useState<
-    string | null
-  >(null)
-  const commentRefs = React.useRef(new Map<string, HTMLLIElement>())
-  const composerRef = React.useRef<HTMLTextAreaElement>(null)
-  const loadingFocusedCommentRef = React.useRef(false)
-  const flashedCommentRef = React.useRef<string | null>(null)
+  const commentRefs = useRef(new Map<string, HTMLLIElement>())
+  const composerRef = useRef<HTMLTextAreaElement>(null)
+  const loadingFocusedCommentRef = useRef(false)
+  const flashedCommentRef = useRef<string | null>(null)
   const { data: session } = useSession()
   const me = useUserChipData(session?.user)
   const viewerId = session?.user?.id ?? null
@@ -97,12 +96,12 @@ function ClipComments({
     background: me.avatar.bg,
     color: me.avatar.fg,
   } as const
-  const isRepliesOpen = React.useCallback(
+  const isRepliesOpen = useCallback(
     (commentId: string) => openReplyIds.has(commentId),
     [openReplyIds],
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     setDraft("")
     setReplyTarget(null)
     setSort("top")
@@ -112,21 +111,21 @@ function ClipComments({
     flashedCommentRef.current = null
   }, [clipId])
 
-  React.useEffect(() => {
+  useEffect(() => {
     flashedCommentRef.current = null
     setFlashingCommentId(null)
     loadingFocusedCommentRef.current = false
   }, [focusedCommentId])
 
   const commentsQuery = useCommentsQuery(clipId, sort)
-  const comments = React.useMemo(
+  const comments = useMemo(
     () => commentsQuery.data?.pages.flatMap((page) => page.items) ?? [],
     [commentsQuery.data],
   )
   const create = useCreateCommentMutation(clipId)
   const authConfig = useSuspenseAuthConfig()
 
-  const totalCount = React.useMemo(
+  const totalCount = useMemo(
     () => comments.reduce((n, c) => n + countCommentTree(c), 0),
     [comments],
   )
@@ -169,9 +168,9 @@ function ClipComments({
         action: "copy comment link",
       }))
     if (copied) {
-      toast.success(tx("Comment link copied"))
+      toast.success(t("Comment link copied"))
     } else {
-      toast.error(tx("Couldn't copy comment link"))
+      toast.error(t("Couldn't copy comment link"))
     }
   }
 
@@ -193,13 +192,13 @@ function ClipComments({
       toast.error(
         errorMessage(
           err,
-          replyTarget ? tx("Couldn't post reply") : tx("Couldn't post comment"),
+          replyTarget ? t("Couldn't post reply") : t("Couldn't post comment"),
         ),
       )
     }
   }
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!focusedCommentId) return
     const path = findCommentPath(comments, focusedCommentId)
 
@@ -278,8 +277,8 @@ function ClipComments({
             <EmptyState
               seed={`comments-${clipId}-error`}
               size="lg"
-              title={tx("Couldn't load comments")}
-              hint={tx("Try again in a moment.")}
+              title={t("Couldn't load comments")}
+              hint={t("Try again in a moment.")}
               action={
                 <Button
                   type="button"
@@ -291,7 +290,7 @@ function ClipComments({
                   {commentsQuery.isFetching ? (
                     <Spinner className="size-4" />
                   ) : null}
-                  {tx("Retry")}
+                  {t("Retry")}
                 </Button>
               }
             />
@@ -301,8 +300,8 @@ function ClipComments({
             <EmptyState
               seed={`comments-${clipId}`}
               size="lg"
-              title={tx("No comments yet")}
-              hint={tx("Be the first to leave your thoughts!")}
+              title={t("No comments yet")}
+              hint={t("Be the first to leave your thoughts!")}
             />
           </div>
         ) : (
@@ -338,7 +337,7 @@ function ClipComments({
                   {commentsQuery.isFetchingNextPage ? (
                     <Spinner className="size-4" />
                   ) : null}
-                  {tx("Load more")}
+                  {t("Load more")}
                 </Button>
               </div>
             ) : null}
@@ -359,10 +358,10 @@ function ClipComments({
             replyingToName={replyTarget?.authorName}
             placeholder={
               replyTarget
-                ? tx("Reply to {authorName}…", {
+                ? t("Reply to {authorName}…", {
                     authorName: replyTarget.authorName,
                   })
-                : tx("Add a comment…")
+                : t("Add a comment…")
             }
             submitting={create.isPending}
             canSubmit={canSubmit}
@@ -401,12 +400,12 @@ function CommentRowView({
   repliesOpen: boolean
   isRepliesOpen: (commentId: string) => boolean
   flashingCommentId: string | null
-  commentRefs: React.MutableRefObject<Map<string, HTMLLIElement>>
+  commentRefs: MutableRefObject<Map<string, HTMLLIElement>>
   onToggleReplies: (commentId: string) => void
   onStartReply: (target: ReplyTarget) => void
   onCopyLink: (commentId: string) => void
 }) {
-  const [expanded, setExpanded] = React.useState(false)
+  const [expanded, setExpanded] = useState(false)
   const isDeleted = comment.body.length === 0
   const isLong = !isDeleted && comment.body.length > LONG_COMMENT_CHARS
 
@@ -423,7 +422,7 @@ function CommentRowView({
 
   function onToggleLike() {
     if (!viewerId) {
-      toast.error(tx("Sign in to like comments"))
+      toast.error(t("Sign in to like comments"))
       return
     }
     toggleLike.mutate({
@@ -437,7 +436,7 @@ function CommentRowView({
       { commentId: comment.id, nextPinned: !comment.pinned },
       {
         onError: (err) => {
-          toast.error(errorMessage(err, tx("Couldn't pin")))
+          toast.error(errorMessage(err, t("Couldn't pin")))
         },
       },
     )
@@ -448,7 +447,7 @@ function CommentRowView({
       { commentId: comment.id },
       {
         onError: (err) => {
-          toast.error(errorMessage(err, tx("Couldn't delete")))
+          toast.error(errorMessage(err, t("Couldn't delete")))
         },
       },
     )
@@ -488,7 +487,7 @@ function CommentRowView({
           </span>
           {comment.author.id === clipAuthorId ? (
             <span className="bg-accent-soft text-accent inline-flex items-center rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-3 font-semibold tracking-wide uppercase">
-              {tx("Author")}
+              {t("Author")}
             </span>
           ) : null}
           <span className="text-foreground-faint text-xs">
@@ -498,13 +497,13 @@ function CommentRowView({
             canDelete={canDelete}
             deletePending={del.isPending}
             deleteTitle={
-              isTopLevel ? tx("Delete this comment?") : tx("Delete this reply?")
+              isTopLevel ? t("Delete this comment?") : t("Delete this reply?")
             }
-            deleteDescription={tx(
+            deleteDescription={t(
               "This will remove the comment text. Replies will stay visible.",
             )}
             deleteActionLabel={
-              isTopLevel ? tx("Delete comment") : tx("Delete reply")
+              isTopLevel ? t("Delete comment") : t("Delete reply")
             }
             onCopyLink={() => onCopyLink(comment.id)}
             onDelete={onDelete}
@@ -512,7 +511,7 @@ function CommentRowView({
         </div>
 
         <CommentBody
-          body={isDeleted ? tx("Deleted comment") : comment.body}
+          body={isDeleted ? t("Deleted comment") : comment.body}
           expanded={expanded}
           isLong={isLong}
           edited={!isDeleted && comment.editedAt !== null}
@@ -571,7 +570,7 @@ function CommentRowView({
                   <button
                     type="button"
                     onClick={() => onToggleReplies(comment.id)}
-                    aria-label={tx("Collapse thread")}
+                    aria-label={t("Collapse thread")}
                     className="group/thread absolute inset-y-0 left-0 z-10 flex w-4 cursor-pointer justify-center focus-visible:outline-none"
                   >
                     <span className="bg-border group-hover/thread:bg-foreground-faint group-focus-visible/thread:bg-foreground-faint h-full w-px rounded-full transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]" />

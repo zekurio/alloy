@@ -1,5 +1,5 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
-import * as React from "react"
+import type { ReactNode } from "react"
 
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
 import {
@@ -25,7 +25,7 @@ function withAdminConfig(
   render: (
     config: AdminRuntimeConfig,
     ctx: AdminConfigContextValue,
-  ) => React.ReactNode,
+  ) => ReactNode,
 ) {
   return function AdminConfigPanel() {
     const ctx = useAdminConfigContext()

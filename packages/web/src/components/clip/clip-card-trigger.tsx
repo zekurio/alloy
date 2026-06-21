@@ -1,9 +1,9 @@
 import type { ClipRow } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import * as React from "react"
+import { memo, useCallback, useMemo } from "react"
 
 import { gameHref, userProfileHref } from "@/lib/app-paths"
 import type { AppSearch } from "@/lib/app-search"
@@ -22,7 +22,7 @@ interface ClipCardTriggerProps {
   showVisibilityStatus?: boolean
 }
 
-export const ClipCardTrigger = React.memo(function ClipCardTrigger({
+export const ClipCardTrigger = memo(function ClipCardTrigger({
   row,
   className,
   metaVariant = "default",
@@ -31,7 +31,7 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const list = useClipList()
-  const card = React.useMemo(() => toClipCardData(row), [row])
+  const card = useMemo(() => toClipCardData(row), [row])
 
   const gameId = card.gameRef?.steamgriddbId ?? null
   const gameLink = gameId ? gameHref(gameId) : null
@@ -41,11 +41,11 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
   const renderAuthorLink = useClipCardAuthorLink(card.authorUsername)
   const renderGameLink = useClipCardGameLink(gameId)
 
-  const preloadClip = React.useCallback(() => {
+  const preloadClip = useCallback(() => {
     warmClipDetailCache(queryClient, row)
   }, [queryClient, row])
 
-  const handleThumbnailClick = React.useCallback(() => {
+  const handleThumbnailClick = useCallback(() => {
     if (!gameId) return
     preloadClip()
     setActiveClipList(list)
@@ -59,7 +59,7 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
     })
   }, [navigate, gameId, card.clipId, list, preloadClip])
 
-  const handlePreviewError = React.useCallback((cause: unknown) => {
+  const handlePreviewError = useCallback((cause: unknown) => {
     clientLogger.warn("[clip-card] Hover preview playback failed.", cause)
   }, [])
 
@@ -94,8 +94,8 @@ export const ClipCardTrigger = React.memo(function ClipCardTrigger({
       onThumbnailIntent={preloadClip}
       onTitleIntent={preloadClip}
       onPreviewError={handlePreviewError}
-      thumbnailLabel={tx("Play clip: {title}", { title: card.title })}
-      titleLabel={tx("Open clip: {title}", { title: card.title })}
+      thumbnailLabel={t("Play clip: {title}", { title: card.title })}
+      titleLabel={t("Open clip: {title}", { title: card.title })}
       metaContent={
         showVisibilityStatus && card.privacy !== "public" ? (
           <ClipCardMetaWithVisibility

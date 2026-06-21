@@ -22,7 +22,7 @@ export interface DesktopUpdateState {
 export function isDesktopUpdateChannel(
   value: unknown,
 ): value is DesktopUpdateChannel {
-  return DESKTOP_UPDATE_CHANNELS.includes(value as DesktopUpdateChannel)
+  return DESKTOP_UPDATE_CHANNELS.some((channel) => channel === value)
 }
 
 export function normalizeDesktopUpdateChannel(

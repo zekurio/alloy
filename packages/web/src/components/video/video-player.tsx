@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useMemo } from "react"
 
 import type { HlsLevelSelection } from "./video-media-engine"
 import { PlayerCore } from "./video-player-core"
@@ -38,7 +38,7 @@ export function VideoPlayer({
   playbackRate = 1,
   ...rest
 }: VideoPlayerProps) {
-  const spec = React.useMemo<SourceSpec>(
+  const spec = useMemo<SourceSpec>(
     () =>
       hlsMasterUrl ? { kind: "hls", url: hlsMasterUrl } : toSourceSpec(src),
     [hlsMasterUrl, src],

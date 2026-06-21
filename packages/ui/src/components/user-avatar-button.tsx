@@ -4,9 +4,9 @@ import {
   AvatarImage,
 } from "@alloy/ui/components/avatar"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type { ComponentProps } from "react"
 
-interface UserAvatarButtonProps extends React.ComponentProps<"button"> {
+interface UserAvatarButtonProps extends ComponentProps<"button"> {
   avatar: {
     initials: string
     bg?: string
@@ -15,7 +15,7 @@ interface UserAvatarButtonProps extends React.ComponentProps<"button"> {
   }
   /** Accessible label describing whose avatar this is — fed to aria-label. */
   name: string
-  size?: React.ComponentProps<typeof Avatar>["size"]
+  size?: ComponentProps<typeof Avatar>["size"]
   avatarClassName?: string
 }
 

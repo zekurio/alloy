@@ -1,6 +1,6 @@
 import type { PublicAuthProvider } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
-import * as React from "react"
+import { t } from "@alloy/i18n"
+import { useState } from "react"
 
 import { OAuthButton } from "@/components/auth/oauth-button"
 import { authClient } from "@/lib/auth-client"
@@ -13,7 +13,7 @@ type OAuthSignInProps = {
 }
 
 export function OAuthSignIn({ provider, redirectTo }: OAuthSignInProps) {
-  const [pending, setPending] = React.useState(false)
+  const [pending, setPending] = useState(false)
 
   async function onOAuth() {
     if (pending) return
@@ -40,7 +40,7 @@ export function OAuthSignIn({ provider, redirectTo }: OAuthSignInProps) {
       buttonColor={provider.buttonColor}
       buttonTextColor={provider.buttonTextColor}
       iconUrl={provider.iconUrl}
-      pendingLabel={pending ? tx("Redirecting…") : undefined}
+      pendingLabel={pending ? t("Redirecting…") : undefined}
       className="w-full"
       disabled={pending}
       onClick={onOAuth}

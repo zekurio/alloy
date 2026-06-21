@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
@@ -19,7 +19,7 @@ function ProfileLikedTab() {
   const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
 
   useQueryErrorToast(error, {
-    title: tx("Couldn't load liked clips"),
+    title: t("Couldn't load liked clips"),
     toastId: "profile-liked-error",
   })
 
@@ -29,10 +29,10 @@ function ProfileLikedTab() {
         rows={clips}
         error={error}
         errorSeed="profile-liked-error"
-        errorTitle={tx("Couldn't load liked clips")}
+        errorTitle={t("Couldn't load liked clips")}
         emptySeed="profile-liked-empty"
-        emptyTitle={tx("No liked clips yet")}
-        emptyHint={tx("Videos this user likes will show up here.")}
+        emptyTitle={t("No liked clips yet")}
+        emptyHint={t("Videos this user likes will show up here.")}
         listKey={`profile:${username}:liked`}
         isOwnedByViewer={() => isSelf}
       />

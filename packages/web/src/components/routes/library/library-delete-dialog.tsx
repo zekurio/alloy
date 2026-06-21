@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from "@alloy/ui/components/alert-dialog"
 import { Checkbox } from "@alloy/ui/components/checkbox"
-import * as React from "react"
+import { useEffect, useState } from "react"
 
 import type { RecordingLibraryItem } from "@/lib/desktop"
 
@@ -31,9 +31,9 @@ export function DeleteServerBackedDialog({
   localItem: RecordingLibraryItem | null
   onConfirm: (deleteLocal: boolean) => void
 }) {
-  const [deleteLocal, setDeleteLocal] = React.useState(Boolean(localItem))
+  const [deleteLocal, setDeleteLocal] = useState(Boolean(localItem))
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) setDeleteLocal(Boolean(localItem))
   }, [localItem, open])
 
@@ -42,10 +42,10 @@ export function DeleteServerBackedDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {tx("Delete this {noun}?", { noun })}
+            {t("Delete this {noun}?", { noun })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {tx(
+            {t(
               '"{title}" will be removed from the server. This can\'t be undone.',
               { title },
             )}
@@ -59,20 +59,20 @@ export function DeleteServerBackedDialog({
               disabled={pending}
             />
             <span className="text-foreground-muted">
-              {tx("Also delete the local copy on this device")}
+              {t("Also delete the local copy on this device")}
             </span>
           </label>
         ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>
-            {tx("Cancel")}
+            {t("Cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             onClick={() => onConfirm(deleteLocal)}
             disabled={pending}
           >
-            {pending ? tx("Deleting...") : tx("Delete {noun}", { noun })}
+            {pending ? t("Deleting...") : t("Delete {noun}", { noun })}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -1,9 +1,9 @@
-import * as React from "react"
+import type { ReactNode } from "react"
 
 interface SettingsPanelProps {
   title: string
   description?: string
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function SettingsPanel({

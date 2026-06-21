@@ -1,10 +1,10 @@
 import { cn } from "@alloy/ui/lib/utils"
-import { Input as InputPrimitive } from "@base-ui/react/input"
-import * as React from "react"
+import { Input } from "@base-ui/react/input"
+import type { ComponentProps } from "react"
 
-function Input({ className, type, ...props }: React.ComponentProps<"input">) {
+function InputRoot({ className, type, ...props }: ComponentProps<"input">) {
   return (
-    <InputPrimitive
+    <Input
       type={type}
       data-slot="input"
       className={cn(
@@ -36,4 +36,4 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
   )
 }
 
-export { Input }
+export { InputRoot as Input }

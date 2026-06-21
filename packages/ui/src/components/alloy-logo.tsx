@@ -1,7 +1,7 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type { HTMLAttributes, ImgHTMLAttributes } from "react"
 
-interface AlloyLogoProps extends React.HTMLAttributes<HTMLSpanElement> {
+interface AlloyLogoProps extends HTMLAttributes<HTMLSpanElement> {
   size?: number
   showText?: boolean
   markSrc?: string
@@ -51,7 +51,7 @@ function AlloyLogoMark({
   className,
   style,
   ...props
-}: React.ImgHTMLAttributes<HTMLImageElement> & { size?: number }) {
+}: ImgHTMLAttributes<HTMLImageElement> & { size?: number }) {
   return (
     <img
       src={src}

@@ -1,6 +1,6 @@
 import { isServerHttpError } from "@alloy/api"
 import { toast } from "@alloy/ui/lib/toast"
-import * as React from "react"
+import { useEffect, useRef } from "react"
 
 type UseQueryErrorToastOptions = {
   title: string
@@ -11,9 +11,9 @@ export function useQueryErrorToast(
   error: Error | null | undefined,
   { title, toastId }: UseQueryErrorToastOptions,
 ) {
-  const lastToastKey = React.useRef<string | null>(null)
+  const lastToastKey = useRef<string | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isServerHttpError(error)) {
       if (!error) lastToastKey.current = null
       return

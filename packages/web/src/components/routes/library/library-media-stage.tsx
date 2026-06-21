@@ -1,18 +1,18 @@
 import { cn } from "@alloy/ui/lib/utils"
-import type * as React from "react"
+import type { CSSProperties, ReactNode } from "react"
 
 export function LibraryMediaStage({
   children,
   className,
   aspectRatio,
 }: {
-  children: React.ReactNode
+  children: ReactNode
   className?: string
   aspectRatio?: number
 }) {
   const frameStyle =
     aspectRatio && Number.isFinite(aspectRatio)
-      ? ({ aspectRatio: String(aspectRatio) } satisfies React.CSSProperties)
+      ? ({ aspectRatio: String(aspectRatio) } satisfies CSSProperties)
       : undefined
 
   return (

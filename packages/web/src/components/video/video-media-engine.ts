@@ -1,5 +1,6 @@
 import type HlsType from "hls.js"
-import * as React from "react"
+import { useEffect, useRef, useState } from "react"
+import type { RefObject } from "react"
 
 import { clientLogger } from "@/lib/client-log"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
@@ -86,21 +87,21 @@ function applyLevel(hls: HlsType, level: HlsLevelSelection): void {
  * - `hls` without MSE: native HLS via `src`, with browser-driven adaptation.
  */
 export function useMediaEngine(
-  videoRef: React.RefObject<HTMLVideoElement | null>,
+  videoRef: RefObject<HTMLVideoElement | null>,
   spec: SourceSpec,
   levelHeight: HlsLevelSelection,
   onFatalError?: (message: string) => void,
 ): { src: string | null } {
-  const [objectUrl, setObjectUrl] = React.useState<string | null>(null)
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
 
-  const hlsRef = React.useRef<HlsType | null>(null)
-  const levelRef = React.useRef(levelHeight)
+  const hlsRef = useRef<HlsType | null>(null)
+  const levelRef = useRef(levelHeight)
   levelRef.current = levelHeight
-  const onFatalRef = React.useRef(onFatalError)
+  const onFatalRef = useRef(onFatalError)
   onFatalRef.current = onFatalError
 
   // Object URL lifecycle for local File sources.
-  React.useEffect(() => {
+  useEffect(() => {
     if (spec.kind !== "file") {
       setObjectUrl(null)
       return
@@ -115,7 +116,7 @@ export function useMediaEngine(
   // the engine (that is what makes quality switching seamless).
   const useHlsJs = spec.kind === "hls" && mseHlsSupported()
   const hlsUrl = spec.kind === "hls" ? spec.url : null
-  React.useEffect(() => {
+  useEffect(() => {
     if (!useHlsJs || !hlsUrl) return
     const video = videoRef.current
     if (!video) return
@@ -163,7 +164,7 @@ export function useMediaEngine(
   }, [useHlsJs, hlsUrl, videoRef])
 
   // Apply manual level changes to a live hls.js instance without reloading.
-  React.useEffect(() => {
+  useEffect(() => {
     const hls = hlsRef.current
     if (hls) applyLevel(hls, levelHeight)
   }, [levelHeight])

@@ -1,9 +1,10 @@
 import { type ClipRow } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import { cn } from "@alloy/ui/lib/utils"
 import { GlobeIcon, Link2Icon, LockIcon, MonitorIcon } from "lucide-react"
-import * as React from "react"
+import { useMemo } from "react"
+import type { ComponentType } from "react"
 
 import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { gameHref } from "@/lib/app-paths"
@@ -56,7 +57,7 @@ export function LibraryCaptureCard({
       thumbnailBlurHash={cardThumbnailBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
       streamUrl={item.mediaUrl}
-      thumbnailLabel={tx("Edit {title}", { title: item.title })}
+      thumbnailLabel={t("Edit {title}", { title: item.title })}
       onThumbnailClick={onOpen}
       metaContent={
         <LibraryCardMeta
@@ -83,14 +84,14 @@ export function librarySourceForPrivacy(
 const SOURCE_META: Record<
   LibrarySource,
   {
-    icon: React.ComponentType<{ className?: string }>
+    icon: ComponentType<{ className?: string }>
     label: string
   }
 > = {
-  local: { icon: MonitorIcon, label: tx("Local") },
-  "link-disabled": { icon: LockIcon, label: tx("Private") },
-  "link-only": { icon: Link2Icon, label: tx("Unlisted") },
-  "on-profile": { icon: GlobeIcon, label: tx("Public") },
+  local: { icon: MonitorIcon, label: t("Local") },
+  "link-disabled": { icon: LockIcon, label: t("Private") },
+  "link-only": { icon: Link2Icon, label: t("Unlisted") },
+  "on-profile": { icon: GlobeIcon, label: t("Public") },
 }
 
 function LibraryCardTitle({ title }: { title: string }) {
@@ -156,7 +157,7 @@ export function UploadedClipCard({
   onOpen: () => void
   onIntent?: () => void
 }) {
-  const card = React.useMemo(() => toClipCardData(row), [row])
+  const card = useMemo(() => toClipCardData(row), [row])
   const source = librarySourceForPrivacy(row.privacy)
   const effectiveTransfer = transfer ?? transferFromClipRow(row)
   const localPoster = useCapturePoster({
@@ -195,7 +196,7 @@ export function UploadedClipCard({
       thumbnailFallbackBlurHash={localThumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
       streamUrl={card.streamUrl}
-      thumbnailLabel={tx("Edit {title}", { title: card.title })}
+      thumbnailLabel={t("Edit {title}", { title: card.title })}
       onThumbnailClick={onOpen}
       onThumbnailIntent={onIntent}
       metaContent={
@@ -225,10 +226,10 @@ function transferFromClipRow(row: ClipRow): QueueItem | undefined {
     status: failed ? "failed" : processing ? "uploading" : "queued",
     progress,
     detail: failed
-      ? (row.failureReason ?? tx("Upload failed"))
+      ? (row.failureReason ?? t("Upload failed"))
       : processing
         ? "Finalizing…"
-        : tx("Local"),
+        : t("Local"),
     hue: 0,
   }
 }
@@ -268,7 +269,7 @@ function transferMeta(transfer: QueueItem): {
 
   if (transfer.status === "failed") {
     return {
-      label: tx("Failed"),
+      label: t("Failed"),
       progress: 0,
       showPercent: false,
       tone: "text-destructive",
@@ -277,7 +278,7 @@ function transferMeta(transfer: QueueItem): {
 
   if (transfer.status === "preparing") {
     return {
-      label: tx("Preparing..."),
+      label: t("Preparing..."),
       progress: 0,
       showPercent: false,
       tone: "text-accent",
@@ -286,7 +287,7 @@ function transferMeta(transfer: QueueItem): {
 
   if (transfer.status === "queued" || transfer.status === "paused") {
     return {
-      label: tx("Local"),
+      label: t("Local"),
       progress: 0,
       showPercent: false,
       tone: "text-foreground-muted",
@@ -296,10 +297,10 @@ function transferMeta(transfer: QueueItem): {
   const progress = Math.max(0, Math.min(99, transfer.progress))
   return {
     label: transfer.detail.toLowerCase().includes("finalizing")
-      ? tx("Processing")
+      ? t("Processing")
       : transfer.kind === "download"
-        ? tx("Download")
-        : tx("Upload"),
+        ? t("Download")
+        : t("Upload"),
     progress,
     showPercent: transfer.showProgress !== false,
     tone: "text-accent",

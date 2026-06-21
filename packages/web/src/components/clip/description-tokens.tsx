@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router"
-import * as React from "react"
+import type { ReactNode } from "react"
 
 export function renderHashtagTokens(
   raw: string,
   { linkHashtags }: { linkHashtags: boolean },
-): React.ReactNode[] {
+): ReactNode[] {
   const pattern = /#([\p{L}\p{N}_]+)/gu
-  const nodes: React.ReactNode[] = []
+  const nodes: ReactNode[] = []
   let lastIndex = 0
   let match: RegExpExecArray | null
   let key = 0

@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { BrowserWindow, dialog, ipcMain } from "electron"
 
 import { IPC } from "@/shared/ipc"
@@ -89,7 +89,7 @@ function registerRecordingLibraryImportIpc(windows: Windows): void {
     requireMainSender(windows, event)
     const parent = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {
-      title: tx("Import clips"),
+      title: t("Import clips"),
       filters: [
         {
           name: "Videos",

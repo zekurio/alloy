@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query"
-import { createRouter as createTanStackRouter } from "@tanstack/react-router"
+import { createRouter } from "@tanstack/react-router"
 
 import {
   RouteErrorState,
@@ -12,7 +12,7 @@ import { routeTree } from "./routeTree.gen"
 export function getRouter() {
   const queryClient = getQueryClient()
 
-  const router = createTanStackRouter({
+  const router = createRouter({
     routeTree,
     context: {
       queryClient,

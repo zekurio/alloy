@@ -8,9 +8,18 @@ import type {
   RecordingStatus,
   RecordingStorageInfo,
 } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
-import * as React from "react"
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import type { Dispatch, ReactNode, SetStateAction } from "react"
 
 import { alloyDesktop } from "./desktop-bridge"
 
@@ -23,7 +32,7 @@ interface DesktopRecordingContextValue {
   phase: Phase
   busy: boolean
   /** Local-only update, e.g. live slider dragging before committing. */
-  setSettings: React.Dispatch<React.SetStateAction<RecordingSettings | null>>
+  setSettings: Dispatch<SetStateAction<RecordingSettings | null>>
   /** Persist the given settings to the desktop shell. */
   save: (next: RecordingSettings) => Promise<void>
   /** Open the native folder picker and apply the chosen capture folder. */
@@ -50,7 +59,7 @@ const EMPTY_SOUND_LIBRARY: RecordingNotificationSoundLibrary = {
 }
 
 const DesktopRecordingContext =
-  React.createContext<DesktopRecordingContextValue | null>(null)
+  createContext<DesktopRecordingContextValue | null>(null)
 
 /**
  * Loads and owns the desktop recording settings + capture status. Mounted once
@@ -60,18 +69,19 @@ const DesktopRecordingContext =
 export function DesktopRecordingProvider({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   const recording = alloyDesktop()?.recording ?? null
-  const [settings, setSettings] = React.useState<RecordingSettings | null>(null)
-  const [status, setStatus] = React.useState<RecordingStatus | null>(null)
-  const [storageInfo, setStorageInfo] =
-    React.useState<RecordingStorageInfo | null>(null)
-  const [phase, setPhase] = React.useState<Phase>("loading")
-  const saveSequence = React.useRef(0)
-  const lastStatusMessageToast = React.useRef<string | null>(null)
+  const [settings, setSettings] = useState<RecordingSettings | null>(null)
+  const [status, setStatus] = useState<RecordingStatus | null>(null)
+  const [storageInfo, setStorageInfo] = useState<RecordingStorageInfo | null>(
+    null,
+  )
+  const [phase, setPhase] = useState<Phase>("loading")
+  const saveSequence = useRef(0)
+  const lastStatusMessageToast = useRef<string | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false
     let unsubscribe: (() => void) | undefined
     let receivedSettingsEvent = false
@@ -104,7 +114,7 @@ export function DesktopRecordingProvider({
         setPhase("idle")
       } catch (cause) {
         if (!cancelled) {
-          toast.error(errorText(cause, tx("Couldn't load recording settings.")))
+          toast.error(errorText(cause, t("Couldn't load recording settings.")))
           setPhase("idle")
         }
       }
@@ -118,7 +128,7 @@ export function DesktopRecordingProvider({
     }
   }, [recording])
 
-  React.useEffect(() => {
+  useEffect(() => {
     const message = status?.message?.trim()
     const backend = status?.backend
     if (!message || !backend) {
@@ -138,7 +148,7 @@ export function DesktopRecordingProvider({
     }
   }, [status?.backend, status?.message])
 
-  const save = React.useCallback(
+  const save = useCallback(
     async (next: RecordingSettings) => {
       if (!recording) return
       const sequence = ++saveSequence.current
@@ -149,13 +159,13 @@ export function DesktopRecordingProvider({
         setSettings(saved)
       } catch (cause) {
         if (sequence !== saveSequence.current) return
-        toast.error(errorText(cause, tx("Couldn't save recording settings.")))
+        toast.error(errorText(cause, t("Couldn't save recording settings.")))
       }
     },
     [recording],
   )
 
-  const chooseOutputFolder = React.useCallback(async () => {
+  const chooseOutputFolder = useCallback(async () => {
     if (!recording) return
     try {
       const folder = await recording.selectOutputFolder()
@@ -167,65 +177,65 @@ export function DesktopRecordingProvider({
       setSettings(nextSettings)
       setStorageInfo(nextStorage)
     } catch (cause) {
-      toast.error(errorText(cause, tx("Couldn't change the capture folder.")))
+      toast.error(errorText(cause, t("Couldn't change the capture folder.")))
     }
   }, [recording])
 
-  const listNotificationSounds = React.useCallback(async () => {
+  const listNotificationSounds = useCallback(async () => {
     if (!recording) return EMPTY_SOUND_LIBRARY
     try {
       return await recording.listNotificationSounds()
     } catch (cause) {
-      toast.error(errorText(cause, tx("Couldn't load notification sounds.")))
+      toast.error(errorText(cause, t("Couldn't load notification sounds.")))
       return EMPTY_SOUND_LIBRARY
     }
   }, [recording])
 
-  const openNotificationSoundsFolder = React.useCallback(
+  const openNotificationSoundsFolder = useCallback(
     async (sound: RecordingNotificationSoundEvent) => {
       if (!recording) return
       try {
         await recording.openNotificationSoundsFolder(sound)
       } catch (cause) {
-        toast.error(errorText(cause, tx("Couldn't open the sounds folder.")))
+        toast.error(errorText(cause, t("Couldn't open the sounds folder.")))
       }
     },
     [recording],
   )
 
-  const previewNotificationSound = React.useCallback(
+  const previewNotificationSound = useCallback(
     async (sound: RecordingNotificationSoundEvent) => {
       if (!recording) return
       try {
         await recording.previewNotificationSound(sound)
       } catch (cause) {
-        toast.error(errorText(cause, tx("Couldn't play the sound.")))
+        toast.error(errorText(cause, t("Couldn't play the sound.")))
       }
     },
     [recording],
   )
 
-  const listGameProcesses = React.useCallback(async () => {
+  const listGameProcesses = useCallback(async () => {
     if (!recording) return []
     try {
       return await recording.listGameProcesses()
     } catch (cause) {
-      toast.error(errorText(cause, tx("Couldn't load running processes.")))
+      toast.error(errorText(cause, t("Couldn't load running processes.")))
       return []
     }
   }, [recording])
 
-  const listDisplays = React.useCallback(async () => {
+  const listDisplays = useCallback(async () => {
     if (!recording) return []
     try {
       return await recording.listDisplays()
     } catch (cause) {
-      toast.error(errorText(cause, tx("Couldn't load displays.")))
+      toast.error(errorText(cause, t("Couldn't load displays.")))
       return []
     }
   }, [recording])
 
-  const value = React.useMemo<DesktopRecordingContextValue>(
+  const value = useMemo<DesktopRecordingContextValue>(
     () => ({
       settings,
       status,
@@ -264,7 +274,7 @@ export function DesktopRecordingProvider({
 }
 
 export function useDesktopRecording(): DesktopRecordingContextValue {
-  const value = React.useContext(DesktopRecordingContext)
+  const value = useContext(DesktopRecordingContext)
   if (!value) {
     throw new Error(
       "useDesktopRecording must be used within a DesktopRecordingProvider",

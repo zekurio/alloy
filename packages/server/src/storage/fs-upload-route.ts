@@ -296,16 +296,16 @@ async function readMultipartCompleteParts(
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       return new Response("Invalid multipart completion body", { status: 400 })
     }
-    const { partNumber, etag } = item as Record<string, unknown>
+    const part = item as { partNumber?: unknown; etag?: unknown }
     if (
-      typeof partNumber !== "number" ||
-      !Number.isSafeInteger(partNumber) ||
-      typeof etag !== "string" ||
-      !etag.trim()
+      typeof part.partNumber !== "number" ||
+      !Number.isSafeInteger(part.partNumber) ||
+      typeof part.etag !== "string" ||
+      !part.etag.trim()
     ) {
       return new Response("Invalid multipart completion body", { status: 400 })
     }
-    parsed.push({ partNumber, etag })
+    parsed.push({ partNumber: part.partNumber, etag: part.etag })
   }
   return parsed.sort((a, b) => a.partNumber - b.partNumber)
 }

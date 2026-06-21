@@ -1,6 +1,6 @@
 import type { UserClip } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
-import * as React from "react"
+import { t } from "@alloy/i18n"
+import { useMemo } from "react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
@@ -29,10 +29,10 @@ export function AllClipsSection({
   gameSlug,
 }: AllClipsSectionProps) {
   useQueryErrorToast(error, {
-    title: tx("Couldn't load clips"),
+    title: t("Couldn't load clips"),
     toastId: "profile-all-clips-error",
   })
-  const gameOptions = React.useMemo(() => {
+  const gameOptions = useMemo(() => {
     if (!clips) return []
     const map = new Map<
       string,
@@ -62,13 +62,13 @@ export function AllClipsSection({
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [clips])
 
-  const selectedGame = React.useMemo(() => {
+  const selectedGame = useMemo(() => {
     if (!gameSlug) return null
     return gameOptions.find((g) => g.slug === gameSlug) ?? null
   }, [gameOptions, gameSlug])
   const selectedGameName = selectedGame?.name ?? null
 
-  const visible = React.useMemo(() => {
+  const visible = useMemo(() => {
     if (!clips) return null
     const byGame = gameSlug
       ? clips.filter((c) => c.gameRef?.slug === gameSlug)
@@ -76,7 +76,7 @@ export function AllClipsSection({
     return sortClips(byGame, sort)
   }, [clips, gameSlug, sort])
 
-  const toolbar = React.useMemo(
+  const toolbar = useMemo(
     () =>
       createHeaderToolbarControls({
         desktop: (
@@ -107,19 +107,19 @@ export function AllClipsSection({
         rows={visible}
         error={error}
         errorSeed="profile-all-error"
-        errorTitle={tx("Couldn't load clips")}
+        errorTitle={t("Couldn't load clips")}
         emptySeed={`profile-all-empty-${gameSlug ?? "none"}`}
         emptyTitle={
           gameSlug
-            ? tx("No clips for {game} yet", {
-                game: selectedGameName ?? tx("this game"),
+            ? t("No clips for {game} yet", {
+                game: selectedGameName ?? t("this game"),
               })
-            : tx("No clips uploaded yet")
+            : t("No clips uploaded yet")
         }
         emptyHint={
           gameSlug
-            ? tx("Try a different game or clear the filter.")
-            : tx("Clips from this user will show up here once they upload.")
+            ? t("Try a different game or clear the filter.")
+            : t("Clips from this user will show up here once they upload.")
         }
         listKey={`profile:${username}:all:${sort}:${gameSlug ?? ""}`}
         isOwnedByViewer={() => isSelf}

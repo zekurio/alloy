@@ -1,6 +1,6 @@
 import { HttpError } from "@alloy/api"
 import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
-import * as React from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { api } from "@/lib/api"
@@ -36,13 +36,13 @@ function ClipModalRoute() {
   const { gameId, clipId } = Route.useParams()
   const { comment } = Route.useSearch()
   const router = useRouter()
-  const [modalClipId, setModalClipId] = React.useState<string | null>(clipId)
+  const [modalClipId, setModalClipId] = useState<string | null>(clipId)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setModalClipId(clipId)
   }, [clipId])
 
-  const handleClose = React.useCallback(() => {
+  const handleClose = useCallback(() => {
     setModalClipId(null)
     if (!goBackInBrowserHistory()) {
       void router.navigate({
@@ -53,7 +53,7 @@ function ClipModalRoute() {
     }
   }, [router, gameId])
 
-  const handleNavigate = React.useCallback(
+  const handleNavigate = useCallback(
     (entry: { id: string; gameId: string | null }) => {
       setModalClipId(entry.id)
       void router.navigate({

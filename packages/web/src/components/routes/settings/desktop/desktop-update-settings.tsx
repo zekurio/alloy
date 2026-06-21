@@ -3,7 +3,7 @@ import {
   normalizeDesktopUpdateChannel,
   type DesktopUpdateChannel,
 } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Select,
@@ -17,7 +17,7 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { DownloadIcon, RefreshCcwIcon } from "lucide-react"
-import * as React from "react"
+import { useState } from "react"
 
 import {
   rememberDesktopUpdateChannel,
@@ -31,13 +31,13 @@ import { alloyDesktop } from "./desktop-bridge"
 type Phase = "idle" | "saving" | "restarting"
 
 const CHANNEL_LABELS: Record<DesktopUpdateChannel, string> = {
-  latest: tx("Latest"),
-  unstable: tx("Unstable"),
+  latest: t("Latest"),
+  unstable: t("Unstable"),
 }
 
 const CHANNEL_SUMMARIES: Record<DesktopUpdateChannel, string> = {
-  latest: tx("Release builds"),
-  unstable: tx("Unstable builds"),
+  latest: t("Release builds"),
+  unstable: t("Unstable builds"),
 }
 
 export function DesktopUpdateSettings() {
@@ -45,7 +45,7 @@ export function DesktopUpdateSettings() {
   const updateState = useDesktopUpdateState()
   const channel = useDesktopUpdateChannel()
   const channelLoading = useDesktopUpdateChannelLoading()
-  const [phase, setPhase] = React.useState<Phase>("idle")
+  const [phase, setPhase] = useState<Phase>("idle")
 
   if (!updates) return null
   const activeUpdates = updates
@@ -66,12 +66,12 @@ export function DesktopUpdateSettings() {
       const savedChannel = await activeUpdates.setChannel(nextChannel)
       rememberDesktopUpdateChannel(savedChannel)
       toast.success(
-        tx("Update channel set to {channel}.", {
+        t("Update channel set to {channel}.", {
           channel: CHANNEL_LABELS[savedChannel],
         }),
       )
     } catch (cause) {
-      toast.error(errorText(cause, tx("Couldn't save update channel.")))
+      toast.error(errorText(cause, t("Couldn't save update channel.")))
     } finally {
       setPhase("idle")
     }
@@ -82,7 +82,7 @@ export function DesktopUpdateSettings() {
     try {
       await activeUpdates.restartToInstall()
     } catch (cause) {
-      toast.error(errorText(cause, tx("Couldn't restart to update.")))
+      toast.error(errorText(cause, t("Couldn't restart to update.")))
       setPhase("idle")
     }
   }
@@ -92,14 +92,14 @@ export function DesktopUpdateSettings() {
       <div className="border-border rounded-md border px-3 py-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="text-sm font-semibold">{tx("Update channel")}</div>
+            <div className="text-sm font-semibold">{t("Update channel")}</div>
             <div className="text-foreground-dim mt-0.5 text-xs">
               {channel ? (
                 CHANNEL_SUMMARIES[channel]
               ) : channelLoading ? (
                 <Skeleton className="h-3 w-24" />
               ) : (
-                tx("Desktop releases")
+                t("Desktop releases")
               )}
             </div>
           </div>
@@ -129,7 +129,7 @@ export function DesktopUpdateSettings() {
             <Skeleton className="h-8 w-full sm:w-40" />
           ) : (
             <span className="text-foreground-faint text-xs">
-              {tx("Unavailable in this build")}
+              {t("Unavailable in this build")}
             </span>
           )}
         </div>
@@ -158,12 +158,12 @@ export function DesktopUpdateSettings() {
             {phase === "restarting" ? (
               <>
                 <Spinner />
-                {tx("Restarting...")}
+                {t("Restarting...")}
               </>
             ) : (
               <>
                 <RefreshCcwIcon className="size-3.5" />
-                {tx("Restart")}
+                {t("Restart")}
               </>
             )}
           </Button>
@@ -174,7 +174,7 @@ export function DesktopUpdateSettings() {
             ) : (
               <DownloadIcon className="size-3.5" />
             )}
-            {phase === "saving" ? tx("Saving") : tx("Background checks")}
+            {phase === "saving" ? t("Saving") : t("Background checks")}
           </span>
         )}
       </div>
@@ -206,20 +206,20 @@ function updateStatusTitle(
 ): string {
   switch (status) {
     case "checking":
-      return tx("Checking for updates")
+      return t("Checking for updates")
     case "downloading":
-      return tx("Downloading update")
+      return t("Downloading update")
     case "downloaded":
-      return tx("Update ready")
+      return t("Update ready")
     case "idle":
-      return tx("Updates ready in the background")
+      return t("Updates ready in the background")
   }
 }
 
 function updateStatusDetails(version: string | null): string {
   return version
-    ? tx("Version {version}", { version })
-    : tx("No downloaded update")
+    ? t("Version {version}", { version })
+    : t("No downloaded update")
 }
 
 function errorText(cause: unknown, fallback: string): string {

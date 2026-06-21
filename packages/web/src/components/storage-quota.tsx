@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Progress } from "@alloy/ui/components/progress"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQuery } from "@tanstack/react-query"
@@ -25,7 +25,7 @@ function useStorageUsage({
 
 function formatUsage(usedBytes: number, quotaBytes: number | null) {
   return quotaBytes === null
-    ? tx("{used} used", { used: formatBytes(usedBytes) })
+    ? t("{used} used", { used: formatBytes(usedBytes) })
     : `${formatBytes(usedBytes)} / ${formatBytes(quotaBytes)}`
 }
 
@@ -60,9 +60,9 @@ export function StorageQuota({ className }: { className?: string }) {
     <div className={cn("flex flex-col gap-3 py-4", className)}>
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-sm font-medium">{tx("Storage")}</div>
+          <div className="text-sm font-medium">{t("Storage")}</div>
           <p className="text-foreground-dim mt-0.5 text-xs">
-            {tx("Source clips count toward your quota. Encoded copies do not.")}
+            {t("Source clips count toward your quota. Encoded copies do not.")}
           </p>
         </div>
         <div
@@ -90,7 +90,7 @@ export function StorageQuotaCompact({ className }: { className?: string }) {
     <div className={cn("flex flex-col gap-1.5", className)}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-foreground-muted text-xs font-medium">
-          {tx("Storage")}
+          {t("Storage")}
         </span>
         <span
           className={cn(

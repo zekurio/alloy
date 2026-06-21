@@ -1,8 +1,8 @@
 import type { RecordingAllowedGame } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Gamepad2Icon, Trash2Icon } from "lucide-react"
-import * as React from "react"
+import type { ReactNode } from "react"
 
 export function RuleGroup({
   title,
@@ -21,9 +21,9 @@ export function RuleGroup({
   games: RecordingAllowedGame[]
   busy: boolean
   addLabel: string
-  addIcon: React.ReactNode
+  addIcon: ReactNode
   emptyText: string
-  fallbackIcon: React.ReactNode
+  fallbackIcon: ReactNode
   onAdd: () => void
   onRemove: (id: string) => void
 }) {
@@ -67,8 +67,8 @@ export function RuleGroup({
                 variant="ghost"
                 size="icon-sm"
                 disabled={busy}
-                title={tx("Remove {name}", { name: game.name })}
-                aria-label={tx("Remove {name}", { name: game.name })}
+                title={t("Remove {name}", { name: game.name })}
+                aria-label={t("Remove {name}", { name: game.name })}
                 onClick={() => onRemove(game.id)}
               >
                 <Trash2Icon className="size-3.5" />
@@ -93,7 +93,7 @@ function GameIcon({
   fallbackIcon,
 }: {
   game: RecordingAllowedGame
-  fallbackIcon?: React.ReactNode
+  fallbackIcon?: ReactNode
 }) {
   if (game.iconUrl) {
     return (

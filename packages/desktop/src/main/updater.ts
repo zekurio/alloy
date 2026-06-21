@@ -7,19 +7,15 @@ import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
 
-import {
-  getSavedUpdateChannel,
-  saveUpdateChannel as persistUpdateChannel,
-} from "./server-store"
+import { getSavedUpdateChannel, saveUpdateChannel } from "./server-store"
 import {
   isDesktopUpdateForChannel,
   resolveDesktopUpdateChannel,
 } from "./update-channel"
 
-// electron-updater is CommonJS with a lazy `autoUpdater` getter; destructuring
-// the default import keeps that laziness intact in the rollup bundle, where a
-// named import could capture an undefined binding at build time.
-const { autoUpdater } = electronUpdater
+// electron-updater is CommonJS with a lazy `autoUpdater` getter; read from the
+// default import so Rollup does not capture an undefined named binding.
+const autoUpdater = electronUpdater.autoUpdater
 
 const logger = createLogger("updater")
 
@@ -52,7 +48,7 @@ export function setUpdateChannel(value: unknown): DesktopUpdateChannel {
   if (!nextChannel) throw new Error("Invalid update channel.")
 
   const previousChannel = updateChannel
-  persistUpdateChannel(nextChannel)
+  saveUpdateChannel(nextChannel)
   updateChannel = nextChannel
 
   if (previousChannel === nextChannel) return nextChannel

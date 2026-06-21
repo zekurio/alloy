@@ -1,12 +1,12 @@
 import { join } from "node:path"
 
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import {
   app,
   BrowserWindow,
   shell,
-  type Event as ElectronEvent,
+  type Event,
   type WebContents,
 } from "electron"
 
@@ -58,7 +58,7 @@ export class Windows {
       icon: WINDOW_ICON,
       resizable: false,
       show: false,
-      title: tx("Alloy"),
+      title: t("Alloy"),
       backgroundColor: WINDOW_BACKGROUND_COLOR,
       webPreferences: {
         preload: OVERLAY_PRELOAD,
@@ -205,7 +205,7 @@ export class Windows {
       frame: false,
       icon: WINDOW_ICON,
       show: false,
-      title: tx("Alloy"),
+      title: t("Alloy"),
       backgroundColor: WINDOW_BACKGROUND_COLOR,
       webPreferences: {
         partition: MAIN_PARTITION,
@@ -247,7 +247,7 @@ export class Windows {
     return win
   }
 
-  private handleNavigation(event: ElectronEvent, url: string): void {
+  private handleNavigation(event: Event, url: string): void {
     const origin = this.mainOrigin
     if (origin && sameOrigin(url, origin)) return
 
@@ -400,15 +400,16 @@ function loadRenderer(
     ),
   )
   const devUrl = process.env.ELECTRON_RENDERER_URL
-  if (devUrl) {
-    const url = new URL(html, devUrl.endsWith("/") ? devUrl : `${devUrl}/`)
-    for (const [key, value] of Object.entries(params)) {
-      url.searchParams.set(key, value)
-    }
-    win.loadURL(url.toString())
-  } else {
+  if (!devUrl) {
     win.loadFile(join(import.meta.dirname, "../renderer", html), {
       query: params,
     })
+    return
   }
+
+  const url = new URL(html, devUrl.endsWith("/") ? devUrl : `${devUrl}/`)
+  for (const [key, value] of Object.entries(params)) {
+    url.searchParams.set(key, value)
+  }
+  win.loadURL(url.toString())
 }

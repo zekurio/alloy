@@ -1,17 +1,17 @@
 import { cn } from "@alloy/ui/lib/utils"
-import { Switch as SwitchPrimitive } from "@base-ui/react/switch"
+import { Switch } from "@base-ui/react/switch"
 
 /**
  * Alloy Switch — 36×20 pill (28×16 in `sm`), tokenised so the thumb animates on
  * the accent track.
  */
-function Switch({
+function SwitchRoot({
   className,
   size = "default",
   ...props
-}: SwitchPrimitive.Root.Props & { size?: "default" | "sm" }) {
+}: Switch.Root.Props & { size?: "default" | "sm" }) {
   return (
-    <SwitchPrimitive.Root
+    <Switch.Root
       data-slot="switch"
       data-size={size}
       className={cn(
@@ -27,7 +27,7 @@ function Switch({
       )}
       {...props}
     >
-      <SwitchPrimitive.Thumb
+      <Switch.Thumb
         data-slot="switch-thumb"
         className={cn(
           "pointer-events-none block rounded-full bg-neutral-700",
@@ -39,8 +39,8 @@ function Switch({
           "group-data-checked/switch:bg-accent-foreground",
         )}
       />
-    </SwitchPrimitive.Root>
+    </Switch.Root>
   )
 }
 
-export { Switch }
+export { SwitchRoot as Switch }

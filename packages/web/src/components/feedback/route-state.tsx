@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { messageFromUnknown } from "@alloy/ui/lib/error-message"
@@ -10,7 +10,8 @@ import type {
   NotFoundRouteProps,
 } from "@tanstack/react-router"
 import { ArrowLeft, Home } from "lucide-react"
-import * as React from "react"
+import { useCallback } from "react"
+import type { ReactElement, ReactNode } from "react"
 
 import {
   canGoBackInBrowserHistory,
@@ -33,17 +34,17 @@ function RouteErrorState({
   info,
   reset,
   variant = "screen",
-}: RouteErrorStateProps): React.ReactElement {
+}: RouteErrorStateProps): ReactElement {
   const message = getErrorMessage(error) ?? "This view failed to load."
   const details = getErrorDetails(error, info)
-  const copyErrorDetails = React.useCallback(async () => {
+  const copyErrorDetails = useCallback(async () => {
     const copied = await copyTextToClipboard(details ?? message, {
       action: "copy route error details",
     })
     if (copied) {
-      toast.success(tx("Error details copied"))
+      toast.success(t("Error details copied"))
     } else {
-      toast.error(tx("Couldn't copy error details"))
+      toast.error(t("Couldn't copy error details"))
     }
   }, [details, message])
 
@@ -52,7 +53,7 @@ function RouteErrorState({
       <div className="flex w-full max-w-md flex-col items-start gap-4 text-left">
         <div className="flex w-full flex-col gap-2">
           <h1 className="text-foreground text-lg font-semibold tracking-tight">
-            {tx("Something went wrong")}
+            {t("Something went wrong")}
           </h1>
           <pre className="border-border bg-surface-raised text-foreground-muted max-h-32 overflow-auto rounded-lg border px-3 py-2 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap">
             {message}
@@ -61,10 +62,10 @@ function RouteErrorState({
 
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" onClick={reset}>
-            {tx("Retry")}
+            {t("Retry")}
           </Button>
           <Button type="button" variant="outline" onClick={copyErrorDetails}>
-            {tx("Copy error")}
+            {t("Copy error")}
           </Button>
         </div>
       </div>
@@ -74,7 +75,7 @@ function RouteErrorState({
 
 function RouteNotFoundState({
   variant = "screen",
-}: RouteNotFoundStateProps): React.ReactElement {
+}: RouteNotFoundStateProps): ReactElement {
   const canGoBack = canGoBackInBrowserHistory()
 
   return (
@@ -82,17 +83,17 @@ function RouteNotFoundState({
       <div className="flex w-full max-w-md flex-col items-start gap-4 text-left text-balance">
         <div className="flex w-full flex-col gap-1.5">
           <h1 className="text-foreground text-lg font-semibold tracking-tight">
-            {tx("Page not found")}
+            {t("Page not found")}
           </h1>
           <p className="text-foreground-muted text-sm leading-relaxed">
-            {tx("The page may have moved, been deleted, or never existed.")}
+            {t("The page may have moved, been deleted, or never existed.")}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Link to="/" className={buttonVariants({ variant: "outline" })}>
             <Home className="size-3.5" aria-hidden />
-            {tx("Go home")}
+            {t("Go home")}
           </Link>
           {canGoBack ? (
             <Button
@@ -101,7 +102,7 @@ function RouteNotFoundState({
               onClick={goBackInBrowserHistory}
             >
               <ArrowLeft className="size-3.5" aria-hidden />
-              {tx("Go back")}
+              {t("Go back")}
             </Button>
           ) : null}
         </div>
@@ -114,7 +115,7 @@ function RouteStateFrame({
   children,
   variant,
 }: {
-  children: React.ReactNode
+  children: ReactNode
   variant: RouteStateVariant
 }) {
   const Component = variant === "screen" ? "main" : "div"

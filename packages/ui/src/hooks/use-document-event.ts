@@ -1,6 +1,6 @@
 "use client"
 
-import * as React from "react"
+import { useEffect } from "react"
 
 export function useDocumentEvent<K extends keyof DocumentEventMap>(
   type: K,
@@ -8,7 +8,7 @@ export function useDocumentEvent<K extends keyof DocumentEventMap>(
   options?: boolean | AddEventListenerOptions,
   enabled = true,
 ): void {
-  React.useEffect(() => {
+  useEffect(() => {
     if (!enabled || typeof document === "undefined") return
     document.addEventListener(type, listener as EventListener, options)
     return () =>
