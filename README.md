@@ -223,7 +223,7 @@ Image tags:
 - `latest`: latest app release.
 - `vX.Y.Z`: exact latest app release.
 - `unstable`: latest unstable app build from `develop`.
-- `vX.Y.Z-unstable.YYYYMMDD.<run>`: exact unstable app build.
+- `<commit-sha>`: exact unstable app build.
 
 ### Storage
 
@@ -337,7 +337,7 @@ metadata (`latest.yml` or `unstable.yml`), blockmaps, and checksums. The same
 release workflow publishes GHCR server images: use
 `ghcr.io/zekurio/alloy:latest` for latest,
 `ghcr.io/zekurio/alloy:unstable` for unstable, or pin the exact `:vX.Y.Z` /
-`:vX.Y.Z-unstable...` tag.
+`:<commit-sha>` tag.
 
 ## Package READMEs
 

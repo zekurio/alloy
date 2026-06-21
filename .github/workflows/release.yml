@@ -103,6 +103,7 @@ jobs:
       release_name: ${{ steps.meta.outputs.release_name }}
       is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
       make_latest: ${{ steps.meta.outputs.make_latest }}
+      image_tag: ${{ steps.meta.outputs.image_tag }}
       update_channel: ${{ steps.meta.outputs.update_channel }}
       update_manifest: ${{ steps.meta.outputs.update_manifest }}
       short_sha: ${{ steps.release_ref.outputs.short_sha }}
@@ -165,6 +166,7 @@ jobs:
               echo "release_name=Alloy Unstable $version ($short_sha)"
               echo "is_prerelease=true"
               echo "make_latest=false"
+              echo "image_tag=$release_ref"
               echo "update_channel=unstable"
               echo "update_manifest=unstable.yml"
               echo "ref=$release_ref"
@@ -225,6 +227,7 @@ jobs:
               echo "release_name=Alloy v$version"
               echo "is_prerelease=false"
               echo "make_latest=true"
+              echo "image_tag=$tag"
               echo "update_channel=latest"
               echo "update_manifest=latest.yml"
               echo "ref=$release_ref"
@@ -428,7 +431,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=${{ needs.preflight.outputs.tag }}
+            type=raw,value=${{ needs.preflight.outputs.image_tag }}
             type=raw,value=${{ needs.preflight.outputs.update_channel }}
 
   publish:
@@ -465,6 +468,7 @@ jobs:
         env:
           RELEASE_CHANNEL: ${{ needs.preflight.outputs.release_channel }}
           RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          IMAGE_TAG: ${{ needs.preflight.outputs.image_tag }}
           RELEASE_REF: ${{ needs.preflight.outputs.ref }}
           UPDATE_MANIFEST: ${{ needs.preflight.outputs.update_manifest }}
           PREVIOUS_TAG: ${{ needs.preflight.outputs.previous_tag }}
@@ -474,12 +478,13 @@ jobs:
 
             const channel = process.env.RELEASE_CHANNEL;
             const tag = process.env.RELEASE_TAG;
+            const imageTag = process.env.IMAGE_TAG;
             const manifest = process.env.UPDATE_MANIFEST;
             const previousTag = process.env.PREVIOUS_TAG;
             const { owner, repo } = context.repo;
             const image = `ghcr.io/${owner}/${repo}`;
             const floatingImage = channel === "latest" ? `${image}:latest` : `${image}:unstable`;
-            const pinnedImage = `${image}:${tag}`;
+            const pinnedImage = `${image}:${imageTag}`;
             const channelName = channel === "latest" ? "Latest" : "Unstable";
 
             let generatedNotes = "";

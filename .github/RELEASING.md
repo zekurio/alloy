@@ -5,8 +5,9 @@ Alloy has two release channels:
 - **Latest**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and paired
   with the `ghcr.io/zekurio/alloy:latest` Docker tag.
 - **Unstable**: built from `develop` after CI passes, tagged
-  `vX.Y.Z-unstable.YYYYMMDD.<run>`, marked as a prerelease, and paired with the
-  `ghcr.io/zekurio/alloy:unstable` Docker tag.
+  `vX.Y.Z-unstable.YYYYMMDD.<run>` as a GitHub prerelease, and paired with the
+  `ghcr.io/zekurio/alloy:unstable` Docker tag. The pinned Docker tag is the
+  release commit SHA.
 
 GitHub Release assets are intentionally limited to the desktop app and
 auto-update files:
@@ -82,7 +83,7 @@ root package version, the UTC date, and the GitHub run number. For example,
 
 The server image job publishes:
 
-- `ghcr.io/zekurio/alloy:vX.Y.Z-unstable.YYYYMMDD.<run>`
+- `ghcr.io/zekurio/alloy:<commit-sha>`
 - `ghcr.io/zekurio/alloy:unstable`
 
 ## Custom Release Notes
