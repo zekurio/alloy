@@ -14,6 +14,7 @@ import {
   nullableIsoDate,
 } from "@alloy/server/runtime/date"
 import { and, desc, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm"
+import type { Context } from "hono"
 import { z } from "zod"
 
 import {
@@ -52,7 +53,7 @@ export class InvalidCommentCursorError extends Error {
 
 export async function resolveCommentEngagementTarget(
   commentId: string,
-  headers: Headers,
+  c: Context,
 ) {
   const [row] = await db
     .select({ clipId: clipComment.clipId })
@@ -68,7 +69,7 @@ export async function resolveCommentEngagementTarget(
   }
   const target = await resolveClipAccess({
     id: row.clipId,
-    headers,
+    c,
     policy: "engagement",
   })
   if (!target.accessible) return target

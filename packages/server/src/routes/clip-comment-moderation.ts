@@ -2,6 +2,7 @@ import { clip, clipComment } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
 import { db } from "@alloy/server/db/index"
 import { and, eq, sql } from "drizzle-orm"
+import type { Context } from "hono"
 
 async function selectCommentModerationTarget(commentId: string) {
   const [row] = await db
@@ -48,18 +49,18 @@ async function requireClipOwner(clipId: string, viewerId: string) {
 export async function canModerateComment({
   commentId,
   viewerId,
-  headers,
+  c,
 }: {
   commentId: string
   viewerId: string
-  headers: Headers
+  c: Context
 }) {
   const target = await loadModerationTarget(commentId)
   if (!target.ok) return target
   const { row } = target
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
-  const session = await getSession(headers)
+  const session = await getSession(c)
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
   const isCommentAuthor = row.authorId === viewerId

@@ -158,8 +158,8 @@ export async function finishOAuthCallback(
       provider,
       tokens: storedTokens(tokens),
     })
-    const { token } = await createSession(c, userId)
-    setSessionCookies(c, token)
+    const { tokens: sessionTokens } = await createSession(c, userId)
+    setSessionCookies(c, sessionTokens)
     return { redirectTo: payload.callbackURL }
   } catch (cause) {
     logger.warn(

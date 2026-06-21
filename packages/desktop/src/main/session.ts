@@ -8,7 +8,17 @@ import { isAllowedMainSessionPermission } from "./permissions"
  * browser-login handshake injects the session it obtains.
  */
 export const MAIN_PARTITION = "persist:alloy"
-const SESSION_VALIDATION_TIMEOUT_MS = 10_000
+const ACCESS_COOKIE = "alloy_access"
+const REFRESH_COOKIE = "alloy_refresh"
+const LEGACY_SESSION_COOKIE = "alloy_session"
+const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
+
+type DesktopSessionTokens = {
+  accessToken: string
+  refreshToken: string
+  accessExpiresAt: string
+  refreshExpiresAt: string
+}
 
 export function mainSession(): Session {
   return session.fromPartition(MAIN_PARTITION)
@@ -44,64 +54,75 @@ export function hardenMainSessionPermissions(): void {
  */
 export async function injectSessionCookie(
   serverUrl: string,
-  token: string,
-  expiresAt: string,
+  tokens: DesktopSessionTokens,
 ): Promise<void> {
   const ses = mainSession()
   const secure = new URL(serverUrl).protocol === "https:"
-  const expirationDate = Math.floor(new Date(expiresAt).getTime() / 1000)
+  const accessExpirationDate = Math.floor(
+    new Date(tokens.accessExpiresAt).getTime() / 1000,
+  )
+  const refreshExpirationDate = Math.floor(
+    new Date(tokens.refreshExpiresAt).getTime() / 1000,
+  )
 
   await ses.cookies.set({
     url: serverUrl,
-    name: "alloy_session",
-    value: token,
+    name: ACCESS_COOKIE,
+    value: tokens.accessToken,
     httpOnly: true,
     secure,
     sameSite: "lax",
-    expirationDate,
+    path: "/",
+    expirationDate: accessExpirationDate,
+  })
+  await ses.cookies.set({
+    url: serverUrl,
+    name: REFRESH_COOKIE,
+    value: tokens.refreshToken,
+    httpOnly: true,
+    secure,
+    sameSite: "lax",
+    path: "/",
+    expirationDate: refreshExpirationDate,
   })
   // Non-httpOnly marker the web app uses for optimistic "is authenticated" UI.
   await ses.cookies.set({
     url: serverUrl,
-    name: "alloy_is_authenticated",
+    name: AUTH_MARKER_COOKIE,
     value: "true",
     httpOnly: false,
     secure,
     sameSite: "lax",
-    expirationDate,
+    path: "/",
+    expirationDate: refreshExpirationDate,
   })
+  await ses.cookies
+    .remove(new URL("/api/auth/refresh", serverUrl).toString(), REFRESH_COOKIE)
+    .catch(() => {})
+  await ses.cookies.remove(serverUrl, LEGACY_SESSION_COOKIE).catch(() => {})
 }
 
 /**
- * Check whether the main partition already holds a valid session for this
- * server, so we can skip the browser-login handshake on reconnect. Reads the
- * stored session cookie and validates it against `/api/auth/session`.
+ * Check whether the main partition holds a locally unexpired session cookie for
+ * this server. Network validation happens after the app UI is visible through
+ * the normal web session flow, so startup never waits on a remote auth probe.
  */
-export async function hasValidSession(
-  serverUrl: string,
-  options: { timeoutMs?: number } = {},
-): Promise<boolean> {
-  const [cookie] = await mainSession().cookies.get({
+export async function hasValidSession(serverUrl: string): Promise<boolean> {
+  const [refreshCookie] = await mainSession().cookies.get({
     url: serverUrl,
-    name: "alloy_session",
+    name: REFRESH_COOKIE,
   })
-  if (!cookie) return false
+  if (isUnexpiredCookie(refreshCookie)) return true
 
-  try {
-    const timeoutMs = options.timeoutMs ?? SESSION_VALIDATION_TIMEOUT_MS
-    const res = await fetch(new URL("/api/auth/session", serverUrl), {
-      headers: { Cookie: `alloy_session=${cookie.value}` },
-      signal: timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined,
-    })
-    if (!res.ok) return false
-    const body: unknown = await res.json()
-    return (
-      typeof body === "object" &&
-      body !== null &&
-      "user" in body &&
-      body.user !== null
-    )
-  } catch {
-    return false
-  }
+  const [legacyCookie] = await mainSession().cookies.get({
+    url: serverUrl,
+    name: LEGACY_SESSION_COOKIE,
+  })
+  return isUnexpiredCookie(legacyCookie)
+}
+
+function isUnexpiredCookie(cookie: Electron.Cookie | undefined): boolean {
+  if (!cookie) return false
+  if (!cookie.expirationDate) return true
+  return cookie.expirationDate > Date.now() / 1000
 }
