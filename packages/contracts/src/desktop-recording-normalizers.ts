@@ -289,12 +289,24 @@ function executableName(executable: string | null): string | null {
 }
 
 function slug(value: string): string {
-  return (
-    value
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "") || "allowed"
-  )
+  const slugChars: string[] = []
+  let needsSeparator = false
+
+  for (const char of value.toLowerCase()) {
+    const isSlugChar =
+      (char >= "a" && char <= "z") || (char >= "0" && char <= "9")
+
+    if (isSlugChar) {
+      if (needsSeparator && slugChars.length > 0) slugChars.push("-")
+      slugChars.push(char)
+      needsSeparator = false
+      continue
+    }
+
+    needsSeparator = slugChars.length > 0
+  }
+
+  return slugChars.length > 0 ? slugChars.join("") : "allowed"
 }
 
 function dedupeBy<T>(items: T[], keyFor: (item: T) => string): T[] {
