@@ -44,7 +44,7 @@ cp .env.example .env
 ```
 
 `.env.example` points `DATABASE_URL` at the dev Postgres from
-`docker-compose.dev.yml`, sets local-only signing secrets, uses filesystem
+`compose.dev.yml`, sets local-only signing secrets, uses filesystem
 storage under the repo-local `data/storage` directory, and allows the Vite dev
 origin to call the API. Shell environment variables always win over `.env`, so
 you can point `DATABASE_URL` at any `postgres://` or `postgresql://` instance.
@@ -53,7 +53,7 @@ Start the local Postgres on `127.0.0.1:5432` before running server or database
 commands:
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d postgres
+docker compose -f compose.dev.yml up -d postgres
 ```
 
 Start the default dev loop. `pnpm dev` runs `pnpm db:push` first, then starts
