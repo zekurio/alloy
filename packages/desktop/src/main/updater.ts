@@ -120,7 +120,7 @@ function setState(next: DesktopUpdateState): void {
  * Background auto-update from the GitHub releases feed. electron-builder
  * embeds `app-update.yml` (from the `publish` config) into packaged builds,
  * which is where the updater finds the repo; published releases expose
- * `latest.yml` or `nightly.yml` plus the installer. The app starts on the
+ * `latest.yml` or `unstable.yml` plus the installer. The app starts on the
  * channel implied by its packaged version unless the user selected another
  * channel, accepts only matching update versions, downloads in the background,
  * and surfaces a "restart to update" entry in the web app sidebar via the
@@ -189,7 +189,7 @@ export function initAutoUpdater(): void {
 
 function configureAutoUpdater(channel: DesktopUpdateChannel): void {
   const installedChannel = defaultUpdateChannel()
-  const allowsPrerelease = channel === "nightly"
+  const allowsPrerelease = channel === "unstable"
   const allowsDowngrade = allowsPrerelease || channel !== installedChannel
   autoUpdater.channel = channel
   autoUpdater.allowPrerelease = allowsPrerelease

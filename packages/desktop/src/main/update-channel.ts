@@ -1,15 +1,15 @@
 import type { DesktopUpdateChannel } from "@alloy/contracts"
 
-const NIGHTLY_VERSION_PATTERN = /-nightly\.\d{8}\.\d+$/
+const UNSTABLE_VERSION_PATTERN = /-unstable\.\d{8}\.\d+$/
 
-export function isNightlyDesktopVersion(version: string): boolean {
-  return NIGHTLY_VERSION_PATTERN.test(version)
+export function isUnstableDesktopVersion(version: string): boolean {
+  return UNSTABLE_VERSION_PATTERN.test(version)
 }
 
 export function resolveDesktopUpdateChannel(
   version: string,
 ): DesktopUpdateChannel {
-  return isNightlyDesktopVersion(version) ? "nightly" : "latest"
+  return isUnstableDesktopVersion(version) ? "unstable" : "latest"
 }
 
 export function isDesktopUpdateForChannel(

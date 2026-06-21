@@ -74,7 +74,7 @@ On Windows, OBS helper executables such as `obs-ffmpeg-mux.exe` are copied into
 
 ## Release
 
-Recorder builds ship inside the Alloy desktop installer for stable and nightly
+Recorder builds ship inside the Alloy desktop installer for latest and unstable
 releases. The release workflow stamps the recorder package and Cargo versions to
 the desktop release version, builds the Windows x64 runtime, and bundles it into
 the Electron app resources.

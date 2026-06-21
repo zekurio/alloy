@@ -46,24 +46,24 @@ const cargoLockPackageFiles = ["packages/recorder/Cargo.lock"]
 
 if (!version) {
   console.error(
-    "Usage: node scripts/update-release-package-versions.mjs <version> [--desktop-channel latest|nightly]",
+    "Usage: node scripts/update-release-package-versions.mjs <version> [--desktop-channel latest|unstable]",
   )
   process.exit(1)
 }
 
-const stableVersionPattern = /^[0-9]+\.[0-9]+\.[0-9]+$/
-const nightlyVersionPattern =
-  /^[0-9]+\.[0-9]+\.[0-9]+-nightly\.[0-9]{8}\.[0-9]+$/
+const semverVersionPattern = /^[0-9]+\.[0-9]+\.[0-9]+$/
+const unstableVersionPattern =
+  /^[0-9]+\.[0-9]+\.[0-9]+-unstable\.[0-9]{8}\.[0-9]+$/
 
 if (
-  !stableVersionPattern.test(version) &&
-  !nightlyVersionPattern.test(version)
+  !semverVersionPattern.test(version) &&
+  !unstableVersionPattern.test(version)
 ) {
   console.error(`Invalid release version: ${version}`)
   process.exit(1)
 }
 
-if (desktopChannel && !/^(latest|nightly)$/.test(desktopChannel)) {
+if (desktopChannel && !/^(latest|unstable)$/.test(desktopChannel)) {
   console.error(`Invalid desktop release channel: ${desktopChannel}`)
   process.exit(1)
 }
@@ -93,7 +93,7 @@ for (const filePath of releasePackageFiles) {
       fileChanged = true
     }
 
-    const releaseType = desktopChannel === "nightly" ? "prerelease" : "release"
+    const releaseType = desktopChannel === "unstable" ? "prerelease" : "release"
 
     if (publishConfig.releaseType !== releaseType) {
       publishConfig.releaseType = releaseType
