@@ -32,14 +32,20 @@ inputs.alloy.url = "github:zekurio/alloy";
 {
   imports = [ inputs.alloy.nixosModules.default ];
 
-  services.alloy-clips = {
+  services.alloy-server = {
     enable = true;
     publicServerUrl = "https://alloy.example.com";
     openFirewall = true;
-    secrets.viewerCookieSecretFile = "/run/secrets/alloy-viewer-cookie-secret";
-    secrets.uploadHmacSecretFile = "/run/secrets/alloy-upload-hmac-secret";
+    environmentFile = "/run/secrets/alloy.env";
   };
 }
+```
+
+The env file should contain the required signing secrets:
+
+```sh
+ALLOY_VIEWER_COOKIE_SECRET=replace-with-a-long-random-secret
+ALLOY_UPLOAD_HMAC_SECRET=replace-with-a-long-random-secret
 ```
 
 For reproducible NixOS deployments, pin a release tag:
@@ -58,21 +64,27 @@ inputs.alloy.url = "github:zekurio/alloy/develop";
 Docker support exists, but is less polished than the NixOS module. Bring your
 own PostgreSQL. The server runs migrations automatically in production, but the
 database must already exist and be reachable through `DATABASE_URL`. Runtime
-configuration comes from env vars or `_FILE` paths. If you use filesystem
-storage, persist `/data`; if you use S3-compatible storage, the app does not need
-a durable container volume.
+configuration comes from env vars. If you use filesystem storage, persist
+`/data`; if you use S3-compatible storage, the app does not need a durable
+container volume.
 
 ```bash
 docker run --rm \
   -p 2552:2552 \
-  -e DATABASE_URL=postgres://alloy:password@postgres.example.internal:5432/alloy \
-  -e PUBLIC_SERVER_URL=https://alloy.example.com \
-  -e TRUSTED_ORIGINS=https://alloy.example.com \
-  -e ALLOY_VIEWER_COOKIE_SECRET_FILE=/run/secrets/viewer-cookie-secret \
-  -e ALLOY_UPLOAD_HMAC_SECRET_FILE=/run/secrets/upload-hmac-secret \
-  -v /run/secrets/alloy:/run/secrets:ro \
+  --env-file /run/secrets/alloy.env \
   -v alloy-storage:/data \
   ghcr.io/zekurio/alloy:latest
+```
+
+For Docker, include the database URL, public origin, and required signing
+secrets in that env file:
+
+```sh
+DATABASE_URL=postgres://alloy:password@postgres.example.internal:5432/alloy
+PUBLIC_SERVER_URL=https://alloy.example.com
+TRUSTED_ORIGINS=https://alloy.example.com
+ALLOY_VIEWER_COOKIE_SECRET=replace-with-a-long-random-secret
+ALLOY_UPLOAD_HMAC_SECRET=replace-with-a-long-random-secret
 ```
 
 Server image tags:
@@ -218,10 +230,11 @@ By default the module creates and manages a local PostgreSQL database named
 `/var/lib/alloy/storage`. Instance settings live in Postgres. Deploy-time
 server config is declarative: auth policy, limits, storage, SteamGridDB, and
 OAuth are Nix options or environment variables. Alloy no longer reads mutable
-`config.json` or `secrets.json` files. For an external database, set
-`services.alloy-clips.database.host`, `port`, `name`, and `user`; for unusual
+`config.json` or `secrets.json` files. Put secret environment variables in
+`services.alloy-server.environmentFile`. For an external database, set
+`services.alloy-server.database.host`, `port`, `name`, and `user`; for unusual
 authenticated setups, override environment through
-`services.alloy-clips.environment` or a systemd service override.
+`services.alloy-server.environment` or `services.alloy-server.environmentFile`.
 
 Optional Cachix cache:
 
@@ -243,12 +256,12 @@ Storage is configured declaratively. For filesystem storage, set
 defaults are used.
 
 For S3-compatible storage, set `ALLOY_STORAGE_DRIVER=s3` plus bucket, region,
-endpoint when needed, and access key files. Alloy stores clip objects under the
-`clips/` prefix and user assets under the `users/` prefix in the configured
-bucket. Video multipart upload parts are presigned so browsers PUT directly to
-the bucket. Smaller clip assets, such as thumbnails, are posted to Alloy and
-stored by the server. Direct playback may redirect browsers to presigned GET
-URLs.
+endpoint when needed, and access key environment variables. Alloy stores clip
+objects under the `clips/` prefix and user assets under the `users/` prefix in
+the configured bucket. Video multipart upload parts are presigned so browsers
+PUT directly to the bucket. Smaller clip assets, such as thumbnails, are posted
+to Alloy and stored by the server. Direct playback may redirect browsers to
+presigned GET URLs.
 Configure bucket CORS to allow the Alloy web origin to `GET` and `PUT`.
 
 ```json
@@ -277,9 +290,9 @@ npx wrangler r2 bucket cors list alloy-bucket
 
 ### OAuth
 
-OAuth/OIDC providers are configured with `ALLOY_SOCIALACCOUNT_PROVIDERS_FILE`
-or `ALLOY_SOCIALACCOUNT_PROVIDERS`. The JSON follows the Paperless/allauth
-OpenID Connect shape; only `openid_connect` is supported for now.
+OAuth/OIDC providers are configured with `ALLOY_SOCIALACCOUNT_PROVIDERS`. The
+JSON follows the Paperless/allauth OpenID Connect shape; only `openid_connect`
+is supported for now.
 When setting `ALLOY_SOCIALACCOUNT_PROVIDERS` in `.env` syntax or Railway's RAW
 editor, write optional `button_color` and `button_text_color` values without a
 leading `#`; Alloy normalizes six-digit values like `5865F2` to `#5865F2` at

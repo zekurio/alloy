@@ -8,7 +8,7 @@
 }:
 
 let
-  cfg = config.services.alloy-clips;
+  cfg = config.services.alloy-server;
 
   packageForSystem =
     self.packages.${pkgs.stdenv.hostPlatform.system}.default
@@ -56,134 +56,89 @@ let
     else
       "postgresql://${cfg.database.user}@${databaseConnectHost}:${toString cfg.database.port}/${cfg.database.name}";
   hasEnv = name: builtins.hasAttr name cfg.environment;
-  hasEnvSecret =
-    name:
-    hasEnv name || hasEnv "${name}_FILE";
-  credentialSpecs =
-    lib.optional
-      (
-        cfg.secrets.viewerCookieSecretFile != null
-        && !(hasEnvSecret "ALLOY_VIEWER_COOKIE_SECRET")
-      )
-      {
-      name = "viewer-cookie-secret";
-      path = cfg.secrets.viewerCookieSecretFile;
-      env = "ALLOY_VIEWER_COOKIE_SECRET_FILE";
-    }
-    ++ lib.optional
-      (
-        cfg.secrets.uploadHmacSecretFile != null
-        && !(hasEnvSecret "ALLOY_UPLOAD_HMAC_SECRET")
-      )
-      {
-      name = "upload-hmac-secret";
-      path = cfg.secrets.uploadHmacSecretFile;
-      env = "ALLOY_UPLOAD_HMAC_SECRET_FILE";
-    }
-    ++ lib.optional
-      (
-        cfg.integrations.steamgriddb.apiKeyFile != null
-        && !(hasEnvSecret "ALLOY_STEAMGRIDDB_API_KEY")
-      )
-      {
-      name = "steamgriddb-api-key";
-      path = cfg.integrations.steamgriddb.apiKeyFile;
-      env = "ALLOY_STEAMGRIDDB_API_KEY_FILE";
-    }
-    ++ lib.optional
-      (
-        cfg.storage.s3.accessKeyIdFile != null
-        && !(hasEnvSecret "ALLOY_STORAGE_S3_ACCESS_KEY_ID")
-      )
-      {
-      name = "s3-access-key-id";
-      path = cfg.storage.s3.accessKeyIdFile;
-      env = "ALLOY_STORAGE_S3_ACCESS_KEY_ID_FILE";
-    }
-    ++ lib.optional
-      (
-        cfg.storage.s3.secretAccessKeyFile != null
-        && !(hasEnvSecret "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY")
-      )
-      {
-      name = "s3-secret-access-key";
-      path = cfg.storage.s3.secretAccessKeyFile;
-      env = "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY_FILE";
-    }
-    ++ lib.optional
-      (
-        cfg.oauth.socialAccountProvidersFile != null
-        && !(hasEnvSecret "ALLOY_SOCIALACCOUNT_PROVIDERS")
-      )
-      {
-      name = "socialaccount-providers";
-      path = cfg.oauth.socialAccountProvidersFile;
-      env = "ALLOY_SOCIALACCOUNT_PROVIDERS_FILE";
-    };
-  credentialEnvironment = builtins.listToAttrs (
-    map (credential: {
-      name = credential.env;
-      value = "%d/${credential.name}";
-    }) credentialSpecs
-  );
-  loadCredentials = map (
-    credential: "${credential.name}:${toString credential.path}"
-  ) credentialSpecs;
 in
 {
   imports = [
     (lib.mkRenamedOptionModule
-      [ "services" "alloy-clips" "database" "createLocally" ]
-      [ "services" "alloy-clips" "database" "enable" ]
+      [ "services" "alloy-clips" ]
+      [ "services" "alloy-server" ]
     )
     (lib.mkRenamedOptionModule
-      [ "services" "alloy-clips" "clipsStorageDir" ]
-      [ "services" "alloy-clips" "storage" "fs" "clipsPath" ]
+      [ "services" "alloy-server" "database" "createLocally" ]
+      [ "services" "alloy-server" "database" "enable" ]
     )
     (lib.mkRenamedOptionModule
-      [ "services" "alloy-clips" "userAssetsStorageDir" ]
-      [ "services" "alloy-clips" "storage" "fs" "usersPath" ]
+      [ "services" "alloy-server" "clipsStorageDir" ]
+      [ "services" "alloy-server" "storage" "fs" "clipsPath" ]
     )
-    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "storageDir" ] ''
-      Configure services.alloy-clips.storage.fs.clipsPath and
-      services.alloy-clips.storage.fs.usersPath directly.
+    (lib.mkRenamedOptionModule
+      [ "services" "alloy-server" "userAssetsStorageDir" ]
+      [ "services" "alloy-server" "storage" "fs" "usersPath" ]
+    )
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storageDir" ] ''
+      Configure services.alloy-server.storage.fs.clipsPath and
+      services.alloy-server.storage.fs.usersPath directly.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "configFile" ] ''
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "configFile" ] ''
       Alloy no longer reads mutable config.json. Use typed NixOS options under
-      services.alloy-clips or services.alloy-clips.environment.
+      services.alloy-server or services.alloy-server.environment.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "initialRuntimeConfig" ] ''
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "initialRuntimeConfig" ] ''
       Alloy no longer bootstraps mutable runtime config. Use typed NixOS
-      options under services.alloy-clips or services.alloy-clips.environment.
+      options under services.alloy-server or services.alloy-server.environment.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "database" "url" ] ''
-      Configure services.alloy-clips.database.host, port, name, and user instead.
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "database" "url" ] ''
+      Configure services.alloy-server.database.host, port, name, and user instead.
       The module derives DATABASE_URL like the Immich module. For unusual
-      setups, override DATABASE_URL through services.alloy-clips.environment or
+      setups, override DATABASE_URL through services.alloy-server.environment or
       a systemd service override.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "database" "urlFile" ] ''
-      Configure services.alloy-clips.database.host, port, name, and user instead.
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "database" "urlFile" ] ''
+      Configure services.alloy-server.database.host, port, name, and user instead.
       If you need secret database credentials, provide PGPASSWORD or DATABASE_URL
-      with a systemd service override such as EnvironmentFile or LoadCredential.
+      through services.alloy-server.environmentFile.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "database" "socketDir" ] ''
-      Use services.alloy-clips.database.host for both PostgreSQL hostnames and
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "database" "socketDir" ] ''
+      Use services.alloy-server.database.host for both PostgreSQL hostnames and
       Unix socket directories.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "accelerationDevices" ] ''
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "secrets" "viewerCookieSecretFile" ] ''
+      Put ALLOY_VIEWER_COOKIE_SECRET in services.alloy-server.environmentFile,
+      or set ALLOY_VIEWER_COOKIE_SECRET through services.alloy-server.environment.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "secrets" "uploadHmacSecretFile" ] ''
+      Put ALLOY_UPLOAD_HMAC_SECRET in services.alloy-server.environmentFile,
+      or set ALLOY_UPLOAD_HMAC_SECRET through services.alloy-server.environment.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storage" "s3" "accessKeyIdFile" ] ''
+      Put ALLOY_STORAGE_S3_ACCESS_KEY_ID in services.alloy-server.environmentFile,
+      or set ALLOY_STORAGE_S3_ACCESS_KEY_ID through services.alloy-server.environment.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storage" "s3" "secretAccessKeyFile" ] ''
+      Put ALLOY_STORAGE_S3_SECRET_ACCESS_KEY in services.alloy-server.environmentFile,
+      or set ALLOY_STORAGE_S3_SECRET_ACCESS_KEY through services.alloy-server.environment.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "integrations" "steamgriddb" "apiKeyFile" ] ''
+      Put ALLOY_STEAMGRIDDB_API_KEY in services.alloy-server.environmentFile,
+      or set ALLOY_STEAMGRIDDB_API_KEY through services.alloy-server.environment.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "oauth" "socialAccountProvidersFile" ] ''
+      Put ALLOY_SOCIALACCOUNT_PROVIDERS in services.alloy-server.environmentFile,
+      or set ALLOY_SOCIALACCOUNT_PROVIDERS through services.alloy-server.environment.
+    '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "accelerationDevices" ] ''
       Alloy no longer transcodes on the server (the desktop app owns all
       encoding), so the service needs no hardware encoder device access.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-clips" "cacheDir" ] ''
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "cacheDir" ] ''
       Alloy now keeps temporary media work/cache files in the OS temp area.
-      Configure durable storage through services.alloy-clips.storage.
+      Configure durable storage through services.alloy-server.storage.
     '')
   ]
   ++ map
     (
       option:
-      lib.mkRemovedOptionModule [ "services" "alloy-clips" "machine-learning" option ] ''
+      lib.mkRemovedOptionModule [ "services" "alloy-server" "machine-learning" option ] ''
         Alloy no longer ships a machine learning inference service. Game
         tagging is fully deterministic (recorder detection + SteamGridDB).
       ''
@@ -198,7 +153,7 @@ in
       "environment"
     ];
 
-  options.services.alloy-clips = {
+  options.services.alloy-server = {
     enable = lib.mkEnableOption "Alloy";
 
     package = lib.mkOption {
@@ -268,20 +223,17 @@ in
       description = "Additional environment variables for Alloy. Values here override typed module defaults.";
     };
 
-    secrets = {
-      viewerCookieSecretFile = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
-        default = null;
-        example = "/run/secrets/alloy-viewer-cookie-secret";
-        description = "File containing the viewer cookie signing secret.";
-      };
-
-      uploadHmacSecretFile = lib.mkOption {
-        type = lib.types.nullOr lib.types.path;
-        default = null;
-        example = "/run/secrets/alloy-upload-hmac-secret";
-        description = "File containing the upload ticket HMAC signing secret.";
-      };
+    environmentFile = lib.mkOption {
+      type = lib.types.nullOr lib.types.path;
+      default = null;
+      example = "/run/secrets/alloy.env";
+      description = ''
+        Optional systemd environment file containing secret Alloy environment
+        variables such as ALLOY_VIEWER_COOKIE_SECRET,
+        ALLOY_UPLOAD_HMAC_SECRET, DATABASE_URL, PGPASSWORD, S3 credentials, and
+        OAuth provider JSON. The file is read by systemd at service start and is
+        not copied into the Nix store.
+      '';
     };
 
     auth = {
@@ -333,14 +285,14 @@ in
         clipsPath = lib.mkOption {
           type = lib.types.path;
           default = "${cfg.stateDir}/storage/clips";
-          defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage/clips"'';
+          defaultText = lib.literalExpression ''"\${config.services.alloy-server.stateDir}/storage/clips"'';
           description = "Filesystem root for clip sources, thumbnails, and derived media.";
         };
 
         usersPath = lib.mkOption {
           type = lib.types.path;
           default = "${cfg.stateDir}/storage/users";
-          defaultText = lib.literalExpression ''"\${config.services.alloy-clips.stateDir}/storage/users"'';
+          defaultText = lib.literalExpression ''"\${config.services.alloy-server.stateDir}/storage/users"'';
           description = "Filesystem root for user assets such as avatars and banners.";
         };
       };
@@ -370,39 +322,7 @@ in
           default = false;
           description = "Use path-style S3 URLs.";
         };
-
-        accessKeyIdFile = lib.mkOption {
-          type = lib.types.nullOr lib.types.path;
-          default = null;
-          example = "/run/secrets/alloy-s3-access-key-id";
-          description = "File containing the S3 access key ID.";
-        };
-
-        secretAccessKeyFile = lib.mkOption {
-          type = lib.types.nullOr lib.types.path;
-          default = null;
-          example = "/run/secrets/alloy-s3-secret-access-key";
-          description = "File containing the S3 secret access key.";
-        };
       };
-    };
-
-    integrations.steamgriddb.apiKeyFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
-      default = null;
-      example = "/run/secrets/alloy-steamgriddb-api-key";
-      description = "Optional file containing the SteamGridDB API key.";
-    };
-
-    oauth.socialAccountProvidersFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
-      default = null;
-      example = "/run/secrets/alloy-socialaccount-providers.json";
-      description = ''
-        Optional Paperless/allauth-style JSON file for OpenID Connect providers.
-        The file may contain client secrets and is passed through a systemd
-        credential, not copied into the Nix store by the module.
-      '';
     };
 
     database = {
@@ -450,55 +370,55 @@ in
     assertions = [
       {
         assertion = pkgs.stdenv.hostPlatform.system == "x86_64-linux";
-        message = "services.alloy-clips currently supports x86_64-linux only.";
+        message = "services.alloy-server currently supports x86_64-linux only.";
       }
       {
         assertion = cfg.publicServerUrl != null;
-        message = "services.alloy-clips.publicServerUrl must be set for production deployments.";
+        message = "services.alloy-server.publicServerUrl must be set for production deployments.";
       }
       {
         assertion =
-          cfg.secrets.viewerCookieSecretFile != null
-          || hasEnvSecret "ALLOY_VIEWER_COOKIE_SECRET";
-        message = "Set services.alloy-clips.secrets.viewerCookieSecretFile or ALLOY_VIEWER_COOKIE_SECRET(_FILE).";
+          cfg.environmentFile != null
+          || hasEnv "ALLOY_VIEWER_COOKIE_SECRET";
+        message = "Set ALLOY_VIEWER_COOKIE_SECRET through services.alloy-server.environmentFile or services.alloy-server.environment.";
       }
       {
         assertion =
-          cfg.secrets.uploadHmacSecretFile != null
-          || hasEnvSecret "ALLOY_UPLOAD_HMAC_SECRET";
-        message = "Set services.alloy-clips.secrets.uploadHmacSecretFile or ALLOY_UPLOAD_HMAC_SECRET(_FILE).";
+          cfg.environmentFile != null
+          || hasEnv "ALLOY_UPLOAD_HMAC_SECRET";
+        message = "Set ALLOY_UPLOAD_HMAC_SECRET through services.alloy-server.environmentFile or services.alloy-server.environment.";
       }
       {
         assertion =
           cfg.storage.driver != "s3"
           || cfg.storage.s3.bucket != "";
-        message = "services.alloy-clips.storage.s3.bucket is required when storage.driver is s3.";
+        message = "services.alloy-server.storage.s3.bucket is required when storage.driver is s3.";
       }
       {
         assertion =
           cfg.storage.driver != "s3"
           || cfg.storage.s3.region != "";
-        message = "services.alloy-clips.storage.s3.region is required when storage.driver is s3.";
+        message = "services.alloy-server.storage.s3.region is required when storage.driver is s3.";
       }
       {
         assertion =
           cfg.storage.driver != "s3"
-          || cfg.storage.s3.accessKeyIdFile != null
-          || hasEnvSecret "ALLOY_STORAGE_S3_ACCESS_KEY_ID";
-        message = "Set services.alloy-clips.storage.s3.accessKeyIdFile or ALLOY_STORAGE_S3_ACCESS_KEY_ID(_FILE) for S3.";
+          || cfg.environmentFile != null
+          || hasEnv "ALLOY_STORAGE_S3_ACCESS_KEY_ID";
+        message = "Set ALLOY_STORAGE_S3_ACCESS_KEY_ID through services.alloy-server.environmentFile or services.alloy-server.environment for S3.";
       }
       {
         assertion =
           cfg.storage.driver != "s3"
-          || cfg.storage.s3.secretAccessKeyFile != null
-          || hasEnvSecret "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY";
-        message = "Set services.alloy-clips.storage.s3.secretAccessKeyFile or ALLOY_STORAGE_S3_SECRET_ACCESS_KEY(_FILE) for S3.";
+          || cfg.environmentFile != null
+          || hasEnv "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY";
+        message = "Set ALLOY_STORAGE_S3_SECRET_ACCESS_KEY through services.alloy-server.environmentFile or services.alloy-server.environment for S3.";
       }
       {
         assertion =
           !(cfg.database.enable && cfg.database.createDB && isDatabaseUnixSocket)
           || cfg.user == cfg.database.user;
-        message = "services.alloy-clips.user must match services.alloy-clips.database.user when creating a peer-authenticated local PostgreSQL database.";
+        message = "services.alloy-server.user must match services.alloy-server.database.user when creating a peer-authenticated local PostgreSQL database.";
       }
     ];
 
@@ -533,8 +453,8 @@ in
       )
     );
 
-    systemd.services.alloy-clips = {
-      description = "Alloy clip sharing server";
+    systemd.services.alloy-server = {
+      description = "Alloy server";
       wantedBy = [ "multi-user.target" ];
       requires = lib.optional cfg.database.enable "postgresql.target";
       wants = [ "network-online.target" ] ++ lib.optional cfg.database.enable "postgresql.target";
@@ -570,7 +490,6 @@ in
         // lib.optionalAttrs (!isDatabaseUnixSocket) {
           PGPORT = toString cfg.database.port;
         }
-        // credentialEnvironment
         // cfg.environment;
 
       serviceConfig =
@@ -590,7 +509,9 @@ in
           ProtectHome = true;
           StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
           ReadWritePaths = serverExternalWritePaths;
-          LoadCredential = loadCredentials;
+        }
+        // lib.optionalAttrs (cfg.environmentFile != null) {
+          EnvironmentFile = cfg.environmentFile;
         }
         // lib.optionalAttrs (managedStateDirectory != null) {
           StateDirectoryMode = "0750";
