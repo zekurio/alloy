@@ -60,9 +60,9 @@ export const clip = pgTable(
     width: integer("width"),
     height: integer("height"),
 
-    // Poster image. The desktop client uploads a rendered webp + BlurHash on
-    // upload; media processing publishes it as-is. A missing thumbnail leaves
-    // this null rather than failing the clip — the UI shows a placeholder.
+    // Poster image. The desktop client uploads a rendered JPEG + BlurHash on
+    // upload; media processing validates and publishes it. A missing thumbnail
+    // leaves this null rather than failing the clip — the UI shows a placeholder.
     thumbKey: text("thumb_key"),
     thumbBlurHash: text("thumb_blur_hash"),
 

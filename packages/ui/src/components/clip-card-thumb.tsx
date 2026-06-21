@@ -12,7 +12,9 @@ const HOVER_PREVIEW_DELAY_MS = 250
 interface ClipCardThumbProps {
   title: string
   thumbnail: string | undefined
+  thumbnailFallback?: string | undefined
   thumbnailBlurHash: string | null | undefined
+  thumbnailFallbackBlurHash?: string | null | undefined
   fallbackSeed: string | number
   streamUrl: string | undefined
   onClick?: () => void
@@ -25,7 +27,9 @@ interface ClipCardThumbProps {
 export function ClipCardThumb({
   title,
   thumbnail,
+  thumbnailFallback,
   thumbnailBlurHash,
+  thumbnailFallbackBlurHash,
   fallbackSeed,
   streamUrl,
   onClick,
@@ -45,13 +49,16 @@ export function ClipCardThumb({
   const [previewMounted, setPreviewMounted] = React.useState(false)
   const [thumbnailLoaded, setThumbnailLoaded] = React.useState(false)
   const [thumbnailFailed, setThumbnailFailed] = React.useState(false)
+  const [thumbnailFallbackFailed, setThumbnailFallbackFailed] =
+    React.useState(false)
   const [pointerActivated, setPointerActivated] = React.useState(false)
 
   React.useEffect(() => {
     setThumbnailFailed(false)
+    setThumbnailFallbackFailed(false)
     const image = imageRef.current
     setThumbnailLoaded(Boolean(image?.complete && image.naturalWidth > 0))
-  }, [thumbnail])
+  }, [thumbnail, thumbnailFallback])
 
   React.useEffect(() => {
     return () => {
@@ -63,13 +70,21 @@ export function ClipCardThumb({
 
   const canPreview = Boolean(streamUrl)
 
+  const activeThumbnail =
+    thumbnail && !thumbnailFailed
+      ? thumbnail
+      : thumbnailFallback && !thumbnailFallbackFailed
+        ? thumbnailFallback
+        : undefined
+  const activeBlurHash = thumbnailBlurHash ?? thumbnailFallbackBlurHash
+
   const preloadThumbnail = () => {
-    if (!thumbnail || thumbnailFailed) return
-    if (preloadedThumbnailRef.current === thumbnail) return
-    preloadedThumbnailRef.current = thumbnail
+    if (!activeThumbnail) return
+    if (preloadedThumbnailRef.current === activeThumbnail) return
+    preloadedThumbnailRef.current = activeThumbnail
     const image = new Image()
     image.decoding = "async"
-    image.src = thumbnail
+    image.src = activeThumbnail
   }
 
   const revealPreview = React.useCallback(() => {
@@ -191,12 +206,12 @@ export function ClipCardThumb({
 
   const body = (
     <div className={cn("absolute inset-0", CLIP_MEDIA_ROUNDED_CLASS)}>
-      <MediaPlaceholder seed={fallbackSeed} blurHash={thumbnailBlurHash} />
+      <MediaPlaceholder seed={fallbackSeed} blurHash={activeBlurHash} />
 
-      {thumbnail && !thumbnailFailed ? (
+      {activeThumbnail ? (
         <img
           ref={imageRef}
-          src={thumbnail}
+          src={activeThumbnail}
           alt={title}
           className={cn(
             CLIP_MEDIA_CLASS,
@@ -208,7 +223,11 @@ export function ClipCardThumb({
           onLoad={() => setThumbnailLoaded(true)}
           onError={() => {
             setThumbnailLoaded(false)
-            setThumbnailFailed(true)
+            if (activeThumbnail === thumbnail) {
+              setThumbnailFailed(true)
+            } else {
+              setThumbnailFallbackFailed(true)
+            }
           }}
         />
       ) : null}

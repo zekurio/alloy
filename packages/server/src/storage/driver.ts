@@ -164,8 +164,8 @@ type ClipAssetRole = "source" | "thumb" | "thumb-small"
 
 const CLIP_ASSET_EXTENSION: Record<ClipAssetRole, string> = {
   source: "",
-  thumb: ".webp",
-  "thumb-small": ".webp",
+  thumb: ".jpg",
+  "thumb-small": ".jpg",
 }
 
 export function clipAssetKey(clipId: string, role: ClipAssetRole): string {

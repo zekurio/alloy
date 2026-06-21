@@ -14,9 +14,9 @@ export function stagedSourceKey(
   return `uploads/${recordingId}/source${sourceExtension(contentType)}`
 }
 
-/** Staged target for the client-rendered poster image (always webp). */
+/** Staged target for the client-rendered poster image. */
 export function stagedThumbKey(recordingId: string): string {
-  return `uploads/${recordingId}/thumb.webp`
+  return `uploads/${recordingId}/thumb.jpg`
 }
 
 export async function mintStagedUploadUrl(input: {

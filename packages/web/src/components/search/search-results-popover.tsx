@@ -8,6 +8,7 @@ import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
 import * as React from "react"
 
 import {
+  enrichLibraryItem,
   useLibraryGameLookup,
   useLibrarySnapshot,
   type LibraryItemView,
@@ -35,7 +36,13 @@ type FlatItem =
   | { kind: "game"; id: string; optionId: string; row: GameListRow }
   | { kind: "user"; id: string; optionId: string; row: UserListRow }
   | { kind: "local-clip"; id: string; optionId: string; row: LibraryItemView }
-  | { kind: "clip"; id: string; optionId: string; row: ClipRow }
+  | {
+      kind: "clip"
+      id: string
+      optionId: string
+      row: ClipRow
+      localFallback: LibraryItemView | null
+    }
 
 type ClipItem = Extract<FlatItem, { kind: "clip" | "local-clip" }>
 
@@ -192,6 +199,7 @@ function useSearchPopoverState(
 function useFlatSearchResults(
   data: ReturnType<typeof useSearchQuery>["data"],
   localClips: LibraryItemView[],
+  localFallbacks: Map<string, LibraryItemView>,
   listboxId: string,
 ): FlatItem[] {
   return React.useMemo<FlatItem[]>(() => {
@@ -218,6 +226,7 @@ function useFlatSearchResults(
         id: `clip:${row.id}`,
         optionId: resultOptionId(listboxId, `clip:${row.id}`),
         row,
+        localFallback: localFallbacks.get(row.id) ?? null,
       })),
       ...localOnlyClips.map<FlatItem>((row) => ({
         kind: "local-clip",
@@ -226,7 +235,7 @@ function useFlatSearchResults(
         row,
       })),
     ]
-  }, [data, localClips, listboxId])
+  }, [data, localClips, localFallbacks, listboxId])
 }
 
 function useLocalClipSearch(
@@ -244,6 +253,14 @@ function useLocalClipSearch(
     toastErrors: false,
   })
   const gamesByName = useLibraryGameLookup(snapshot)
+  const fallbackByClipId = React.useMemo(() => {
+    const map = new Map<string, LibraryItemView>()
+    for (const item of snapshot?.items ?? []) {
+      if (!item.uploadedClipId) continue
+      map.set(item.uploadedClipId, enrichLibraryItem(item, gamesByName))
+    }
+    return map
+  }, [snapshot, gamesByName])
   const localClips = React.useMemo(
     () => searchLocalClips({ snapshot, gamesByName, query, limit }),
     [snapshot, gamesByName, query, limit],
@@ -251,6 +268,7 @@ function useLocalClipSearch(
 
   return {
     clips: localClips,
+    fallbackByClipId,
     pending: enabled && desktop !== null && !snapshot && refreshing,
   }
 }
@@ -306,7 +324,12 @@ export function SearchResultsPopover() {
     limit: 8,
   })
 
-  const flat = useFlatSearchResults(data, local.clips, listboxId)
+  const flat = useFlatSearchResults(
+    data,
+    local.clips,
+    local.fallbackByClipId,
+    listboxId,
+  )
 
   const {
     activeIndex,
@@ -498,6 +521,7 @@ function SearchResultsBody({
                     <ClipRowItem
                       id={item.optionId}
                       row={item.row}
+                      localFallback={item.localFallback}
                       active={activeIndex === globalIdx}
                       onHover={() => onHover(globalIdx)}
                       onSelect={() => onCommitClip(item.row)}

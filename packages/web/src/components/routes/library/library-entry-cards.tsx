@@ -10,6 +10,7 @@ import { gameHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
+import type { RecordingLibraryItem } from "@/lib/desktop"
 
 import { useClipCardGameLink } from "../../clip/clip-card-links"
 import { type LibraryItemView } from "./library-data"
@@ -144,11 +145,13 @@ function LibraryCardMeta({
 /** Grid card for a clip that already lives on the server. */
 export function UploadedClipCard({
   row,
+  localItem,
   transfer,
   onOpen,
   onIntent,
 }: {
   row: ClipRow
+  localItem?: RecordingLibraryItem | null
   transfer?: QueueItem
   onOpen: () => void
   onIntent?: () => void
@@ -156,6 +159,15 @@ export function UploadedClipCard({
   const card = React.useMemo(() => toClipCardData(row), [row])
   const source = librarySourceForPrivacy(row.privacy)
   const effectiveTransfer = transfer ?? transferFromClipRow(row)
+  const localPoster = useCapturePoster({
+    id: localItem?.id ?? "",
+    mediaUrl: localItem?.mediaUrl ?? null,
+    thumbnailUrl: localItem?.thumbnailUrl ?? null,
+    durationMs: localItem?.durationMs ?? null,
+    enabled: Boolean(localItem) && !card.thumbnail,
+  })
+  const localThumbnail = localPoster ?? localItem?.thumbnailUrl ?? undefined
+  const localThumbnailBlurHash = localItem?.thumbBlurHash ?? null
   const thumbnail =
     effectiveTransfer?.thumbUrl ??
     effectiveTransfer?.thumbFallbackUrl ??
@@ -178,7 +190,9 @@ export function UploadedClipCard({
       viewCount={card.viewCount}
       likes={card.likes}
       thumbnail={thumbnail}
+      thumbnailFallback={localThumbnail}
       thumbnailBlurHash={thumbnailBlurHash}
+      thumbnailFallbackBlurHash={localThumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
       streamUrl={card.streamUrl}
       thumbnailLabel={tx("Edit {title}", { title: card.title })}

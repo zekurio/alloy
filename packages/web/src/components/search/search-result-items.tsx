@@ -85,15 +85,32 @@ function SearchMediaThumb({
   seed,
   blurHash,
   src,
+  fallbackSrc,
   className,
   imageClassName = CLIP_MEDIA_CLASS,
 }: {
   seed: string | number
   blurHash?: string | null
   src?: string | null
+  fallbackSrc?: string | null
   className?: string
   imageClassName?: string
 }) {
+  const [primaryFailed, setPrimaryFailed] = React.useState(false)
+  const [fallbackFailed, setFallbackFailed] = React.useState(false)
+
+  React.useEffect(() => {
+    setPrimaryFailed(false)
+    setFallbackFailed(false)
+  }, [src, fallbackSrc])
+
+  const activeSrc =
+    src && !primaryFailed
+      ? src
+      : fallbackSrc && !fallbackFailed
+        ? fallbackSrc
+        : null
+
   return (
     <div
       className={cn(
@@ -103,8 +120,17 @@ function SearchMediaThumb({
       )}
     >
       <MediaPlaceholder seed={seed} blurHash={blurHash} />
-      {src ? (
-        <img src={src} alt="" loading="lazy" className={imageClassName} />
+      {activeSrc ? (
+        <img
+          src={activeSrc}
+          alt=""
+          loading="lazy"
+          className={imageClassName}
+          onError={() => {
+            if (activeSrc === src) setPrimaryFailed(true)
+            else setFallbackFailed(true)
+          }}
+        />
       ) : null}
     </div>
   )
@@ -137,12 +163,14 @@ function SearchItemText({
 export function ClipRowItem({
   id,
   row,
+  localFallback,
   active,
   onHover,
   onSelect,
 }: {
   id: string
   row: ClipRow
+  localFallback?: Pick<LibraryItemView, "thumbnailUrl" | "thumbBlurHash"> | null
   active: boolean
   onHover: () => void
   onSelect: () => void
@@ -151,12 +179,14 @@ export function ClipRowItem({
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : null
   const label = clipGameLabel(row)
+  const blurHash = row.thumbBlurHash ?? localFallback?.thumbBlurHash ?? null
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <SearchMediaThumb
         seed={row.steamgriddbId ?? row.id}
-        blurHash={row.thumbBlurHash}
+        blurHash={blurHash}
         src={thumb}
+        fallbackSrc={localFallback?.thumbnailUrl}
       />
       <SearchItemText title={row.title} active={active}>
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">

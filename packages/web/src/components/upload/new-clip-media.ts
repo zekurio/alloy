@@ -264,10 +264,9 @@ function thumbnailSize(
   }
 }
 
-// The poster is uploaded as-is and served as image/webp, so encode webp here.
-// The desktop client runs on Chromium, which always supports webp canvas
-// export.
-function encodeCanvasAsWebp(
+// Clip posters are standardized on JPEG so uploaded and local-only thumbnails
+// use the same broadly inspectable image format.
+function encodeCanvasAsJpeg(
   canvas: HTMLCanvasElement,
   quality: number,
 ): Promise<Blob> {
@@ -277,7 +276,7 @@ function encodeCanvasAsWebp(
         if (blob) resolve(blob)
         else reject(new Error(tx("canvas.toBlob returned null")))
       },
-      "image/webp",
+      "image/jpeg",
       quality,
     )
   })
@@ -315,7 +314,7 @@ async function encodeThumbnail(
     const blurHash = safeCanvasBlurHash(canvas)
 
     for (const quality of THUMB_QUALITIES) {
-      const blob = await encodeCanvasAsWebp(canvas, quality)
+      const blob = await encodeCanvasAsJpeg(canvas, quality)
       const thumbnail = { blob, blurHash }
       if (blob.size <= THUMB_MAX_BYTES) return thumbnail
       lastThumbnail = thumbnail

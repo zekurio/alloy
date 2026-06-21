@@ -11,7 +11,7 @@ export function runScopedSourceKey(clipId: string, runId: string): string {
 }
 
 export function runScopedThumbKey(clipId: string, runId: string): string {
-  return `${clipAssetDir(clipId)}/thumb-${runKeyStamp(runId)}.webp`
+  return `${clipAssetDir(clipId)}/thumb-${runKeyStamp(runId)}.jpg`
 }
 
 function runKeyStamp(runId: string): string {

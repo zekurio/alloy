@@ -37,11 +37,11 @@ export const ACCEPTED_CLIP_CONTENT_TYPES = ["video/mp4"] as const
 
 export type AcceptedContentType = (typeof ACCEPTED_CLIP_CONTENT_TYPES)[number]
 
-// Poster uploads. Clients may send webp directly, or JPEG when reusing a
-// locally cached poster. The server republishes both as webp.
+// Poster uploads. Clients should send JPEG; WebP remains accepted for older
+// clients and staged data. The server republishes both as JPEG.
 export const ACCEPTED_THUMB_CONTENT_TYPES = [
-  "image/webp",
   "image/jpeg",
+  "image/webp",
 ] as const
 
 export type AcceptedThumbContentType =
