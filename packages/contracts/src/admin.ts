@@ -123,17 +123,8 @@ export type AdminIntegrationsConfig = z.infer<
   typeof AdminIntegrationsConfigSchema
 >
 
-export const STORAGE_DRIVER_TYPES = ["fs", "s3"] as const
+export const STORAGE_DRIVER_TYPES = ["fs"] as const
 export type StorageDriverType = (typeof STORAGE_DRIVER_TYPES)[number]
-
-export const S3StorageConfigSchema = z.looseObject({
-  bucket: z.string(),
-  region: z.string(),
-  endpoint: UrlStringSchema.nullable(),
-  forcePathStyle: z.boolean(),
-})
-
-export type S3StorageConfig = z.infer<typeof S3StorageConfigSchema>
 
 export const FilesystemStorageConfigSchema = z.looseObject({
   /**
@@ -154,31 +145,20 @@ export type FilesystemStorageConfig = z.infer<
 >
 
 const StorageConfigFields = {
-  driver: z.enum(STORAGE_DRIVER_TYPES),
+  driver: z.enum(STORAGE_DRIVER_TYPES).default("fs"),
   fs: FilesystemStorageConfigSchema,
-  s3: S3StorageConfigSchema,
-}
-
-function requireS3FieldsWhenEnabled(
-  storage: z.infer<z.ZodObject<typeof StorageConfigFields>>,
-  ctx: z.RefinementCtx,
-) {
-  if (storage.driver !== "s3") return
-  for (const key of ["bucket", "region"] as const) {
-    if (storage.s3[key].trim().length > 0) continue
-    ctx.addIssue({
-      code: "custom",
-      path: ["s3", key],
-      message: `${key} is required for S3 storage`,
-    })
-  }
 }
 
 function migrateLegacyStorageConfig(value: unknown): unknown {
   if (!isObjectRecord(value)) {
     return value
   }
-  if (value.fs !== undefined) return value
+  if (value.fs !== undefined) {
+    return {
+      driver: value.driver,
+      fs: value.fs,
+    }
+  }
 
   return {
     driver: value.driver,
@@ -186,7 +166,6 @@ function migrateLegacyStorageConfig(value: unknown): unknown {
       clipsPath: legacyStoragePath(value, "clips"),
       usersPath: legacyStoragePath(value, "users"),
     },
-    s3: value.s3,
   }
 }
 
@@ -205,9 +184,7 @@ function legacyStoragePath(
   return `${root.trim().replace(/[\\/]+$/, "")}/${namespace}`
 }
 
-const StorageConfigObjectSchema = z
-  .looseObject(StorageConfigFields)
-  .superRefine(requireS3FieldsWhenEnabled)
+const StorageConfigObjectSchema = z.looseObject(StorageConfigFields)
 
 export const StorageConfigSchema = z.preprocess(
   migrateLegacyStorageConfig,
@@ -216,15 +193,9 @@ export const StorageConfigSchema = z.preprocess(
 
 export type StorageConfig = z.infer<typeof StorageConfigSchema>
 
-export const AdminStorageConfigSchema = z
-  .looseObject({
-    ...StorageConfigFields,
-    s3AccessKeyIdSet: z.boolean(),
-    s3SecretAccessKeySet: z.boolean(),
-  })
-  .superRefine(requireS3FieldsWhenEnabled)
+export const AdminStorageConfigSchema = StorageConfigSchema
 
-export type AdminStorageConfig = z.infer<typeof AdminStorageConfigSchema>
+export type AdminStorageConfig = StorageConfig
 
 export const LoginSplashConfigSchema = z.looseObject({
   enabled: z.boolean(),

@@ -22,7 +22,6 @@ import {
 
 import type {
   MintUploadUrlInput,
-  MintUploadPartUrlInput,
   ResolvedObject,
   StorageDriver,
   WriteUploadPartInput,
@@ -123,22 +122,15 @@ export class FsStorageDriver implements StorageDriver {
       m: chunked ? "fs-chunked" : "single",
       cs: chunked ? FS_UPLOAD_CHUNK_SIZE_BYTES : undefined,
     }
-    return {
-      ticket: await mintFsUploadTicket({
-        payload,
-        publicBaseUrl: this.opts.publicBaseUrl,
-        secret: this.opts.hmacSecret,
-        headers: chunked ? {} : undefined,
-        strategy: chunked
-          ? { type: "chunked", chunkSizeBytes: FS_UPLOAD_CHUNK_SIZE_BYTES }
-          : { type: "single" },
-      }),
-      storageState: null,
-    }
-  }
-
-  async mintUploadPartUrl(_input: MintUploadPartUrlInput): Promise<never> {
-    throw new Error("Filesystem storage does not support direct part URLs")
+    return mintFsUploadTicket({
+      payload,
+      publicBaseUrl: this.opts.publicBaseUrl,
+      secret: this.opts.hmacSecret,
+      headers: chunked ? {} : undefined,
+      strategy: chunked
+        ? { type: "chunked", chunkSizeBytes: FS_UPLOAD_CHUNK_SIZE_BYTES }
+        : { type: "single" },
+    })
   }
 
   async writeUploadPart(

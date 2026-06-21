@@ -3,10 +3,7 @@ import { createLogger } from "@alloy/logging"
 import { publishClipRemove } from "@alloy/server/clips/events"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
-import {
-  deleteStagedUpload,
-  parseUploadTicketStorageState,
-} from "@alloy/server/uploads/staged"
+import { deleteStagedUpload } from "@alloy/server/uploads/staged"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
 
@@ -77,7 +74,6 @@ async function reapExpiredUploadTickets(): Promise<void> {
     .select({
       id: uploadTicket.id,
       storageKey: uploadTicket.storage_key,
-      uploadState: uploadTicket.upload_state,
     })
     .from(uploadTicket)
     .where(
@@ -89,10 +85,7 @@ async function reapExpiredUploadTickets(): Promise<void> {
 
   for (const ticket of expiredTickets) {
     try {
-      await deleteStagedUpload(
-        ticket.storageKey,
-        parseUploadTicketStorageState(ticket.uploadState),
-      )
+      await deleteStagedUpload(ticket.storageKey)
     } catch (err) {
       logger.warn(
         `could not delete expired staged object ${ticket.storageKey}:`,

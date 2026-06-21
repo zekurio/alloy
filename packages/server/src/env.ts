@@ -55,16 +55,6 @@ function envBool(defaultValue: boolean) {
   }, z.boolean())
 }
 
-function optionalUrlOrNull() {
-  return z
-    .preprocess(
-      (value) =>
-        typeof value === "string" && value.trim().length === 0 ? null : value,
-      z.string().trim().url().nullable(),
-    )
-    .default(null)
-}
-
 function optionalPositiveIntegerOrNull() {
   return z
     .preprocess((value) => {
@@ -252,7 +242,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .min(60)
         .max(24 * 60 * 60)
         .default(900),
-      ALLOY_STORAGE_DRIVER: z.enum(["fs", "s3"]).default("fs"),
+      ALLOY_STORAGE_DRIVER: z.enum(["fs"]).default("fs"),
       ALLOY_STORAGE_FS_CLIPS_PATH: z
         .string()
         .trim()
@@ -263,10 +253,6 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .trim()
         .min(1)
         .default("storage/users"),
-      ALLOY_STORAGE_S3_BUCKET: z.string().trim().default(""),
-      ALLOY_STORAGE_S3_REGION: z.string().trim().default(""),
-      ALLOY_STORAGE_S3_ENDPOINT: optionalUrlOrNull(),
-      ALLOY_STORAGE_S3_FORCE_PATH_STYLE: envBool(false),
     }),
     { label: "server/env", source },
   )
@@ -286,12 +272,6 @@ export function parseServerEnv(source: EnvSource = process.env) {
       clipsPath: raw.ALLOY_STORAGE_FS_CLIPS_PATH,
       usersPath: raw.ALLOY_STORAGE_FS_USERS_PATH,
     },
-    s3: {
-      bucket: raw.ALLOY_STORAGE_S3_BUCKET,
-      region: raw.ALLOY_STORAGE_S3_REGION,
-      endpoint: raw.ALLOY_STORAGE_S3_ENDPOINT,
-      forcePathStyle: raw.ALLOY_STORAGE_S3_FORCE_PATH_STYLE,
-    },
   }
 
   const viewerCookieSecret = requiredSecret(
@@ -300,35 +280,9 @@ export function parseServerEnv(source: EnvSource = process.env) {
   )
   const uploadHmacSecret = requiredSecret(source, "ALLOY_UPLOAD_HMAC_SECRET")
   const steamgriddbApiKey = envText(source, "ALLOY_STEAMGRIDDB_API_KEY") ?? ""
-  const s3AccessKeyId = envText(source, "ALLOY_STORAGE_S3_ACCESS_KEY_ID") ?? ""
-  const s3SecretAccessKey =
-    envText(source, "ALLOY_STORAGE_S3_SECRET_ACCESS_KEY") ?? ""
   const socialProviders = envText(source, "ALLOY_SOCIALACCOUNT_PROVIDERS")
   const { oauthProviders, oauthClientSecrets } =
     parseSocialProviders(socialProviders)
-
-  if (storage.driver === "s3") {
-    if (!storage.s3.bucket) {
-      throw new Error(
-        "[server/env] ALLOY_STORAGE_S3_BUCKET is required for S3 storage.",
-      )
-    }
-    if (!storage.s3.region) {
-      throw new Error(
-        "[server/env] ALLOY_STORAGE_S3_REGION is required for S3 storage.",
-      )
-    }
-    if (!s3AccessKeyId) {
-      throw new Error(
-        "[server/env] ALLOY_STORAGE_S3_ACCESS_KEY_ID is required for S3 storage.",
-      )
-    }
-    if (!s3SecretAccessKey) {
-      throw new Error(
-        "[server/env] ALLOY_STORAGE_S3_SECRET_ACCESS_KEY is required for S3 storage.",
-      )
-    }
-  }
 
   return {
     NODE_ENV: raw.NODE_ENV,
@@ -348,10 +302,6 @@ export function parseServerEnv(source: EnvSource = process.env) {
     viewerCookieSecret,
     uploadHmacSecret,
     steamgriddbApiKey,
-    storageS3Credentials:
-      s3AccessKeyId && s3SecretAccessKey
-        ? { accessKeyId: s3AccessKeyId, secretAccessKey: s3SecretAccessKey }
-        : null,
     oauthProviders,
     oauthClientSecrets,
   } as const

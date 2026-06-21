@@ -1,4 +1,4 @@
-import type { UploadPartTicket, UploadTicket } from "@alloy/contracts"
+import type { UploadTicket } from "@alloy/contracts"
 
 import { toError } from "./error"
 import { parseErrorMessagePayload } from "./http"
@@ -7,7 +7,7 @@ const UPLOAD_TIMEOUT_GRACE_MS = 30_000
 const MIN_UPLOAD_TIMEOUT_MS = 30_000
 
 type XhrUploadOptions<T> = {
-  ticket: UploadTicket | UploadPartTicket
+  ticket: UploadTicket
   body: Blob
   timeoutMs: number
   signal?: AbortSignal
@@ -25,14 +25,11 @@ export function uploadToTicket(
   if (ticket.strategy?.type === "chunked") {
     return uploadChunkedToTicket(ticket, body, onProgress, signal)
   }
-  if (ticket.strategy?.type === "multipart") {
-    return uploadMultipartToTicket(ticket, body, onProgress, signal)
-  }
   return uploadSingleToTicket(ticket, body, onProgress, signal)
 }
 
 function uploadSingleToTicket(
-  ticket: UploadTicket | UploadPartTicket,
+  ticket: UploadTicket,
   body: Blob,
   onProgress: (loaded: number, total: number) => void,
   signal?: AbortSignal,
@@ -86,116 +83,6 @@ async function uploadChunkedToTicket(
     await abortTicketUpload(ticket.uploadUrl)
     throw err
   }
-}
-
-async function uploadMultipartToTicket(
-  ticket: UploadTicket,
-  body: Blob,
-  onProgress: (loaded: number, total: number) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  const strategy = ticket.strategy
-  if (strategy?.type !== "multipart") {
-    throw new Error("Upload ticket is not multipart")
-  }
-  const partSize = strategy.partSizeBytes
-  const partCount = Math.ceil(body.size / partSize)
-  const loadedByPart = new Map<number, number>()
-  const completedParts: Array<{ partNumber: number; etag: string }> = []
-
-  try {
-    for (let index = 0; index < partCount; index += 1) {
-      throwIfAborted(signal)
-      const partNumber = index + 1
-      const start = index * partSize
-      const end = Math.min(start + partSize, body.size)
-      const partTicket = await signMultipartPart(
-        ticket.uploadUrl,
-        partNumber,
-        signal,
-      )
-      const etag = await uploadMultipartPart(
-        partTicket,
-        body.slice(start, end),
-        partNumber,
-        loadedByPart,
-        body.size,
-        onProgress,
-        ticketTimeoutMs(ticket),
-        signal,
-      )
-      completedParts.push({ partNumber, etag })
-      loadedByPart.set(partNumber, end - start)
-      reportPartProgress(loadedByPart, body.size, onProgress)
-    }
-    throwIfAborted(signal)
-    await postTicketControl(
-      ticket.uploadUrl,
-      "complete",
-      { parts: completedParts },
-      signal,
-    )
-    onProgress(body.size, body.size)
-  } catch (err) {
-    await abortTicketUpload(ticket.uploadUrl)
-    throw err
-  }
-}
-
-async function signMultipartPart(
-  uploadUrl: string,
-  partNumber: number,
-  signal?: AbortSignal,
-): Promise<UploadPartTicket> {
-  const res = await fetch(`${uploadUrl}/parts/${partNumber}`, {
-    method: "POST",
-    signal,
-  })
-  if (!res.ok) throw new Error(await responseErrorMessage(res))
-  const data = (await res.json()) as Partial<UploadPartTicket>
-  if (
-    typeof data.uploadUrl !== "string" ||
-    data.method !== "PUT" ||
-    !data.headers ||
-    typeof data.headers !== "object"
-  ) {
-    throw new Error("Invalid multipart upload part ticket")
-  }
-  return {
-    uploadUrl: data.uploadUrl,
-    method: data.method,
-    headers: stringRecord(data.headers),
-  }
-}
-
-function uploadMultipartPart(
-  ticket: UploadPartTicket,
-  body: Blob,
-  partNumber: number,
-  loadedByPart: Map<number, number>,
-  totalBytes: number,
-  onProgress: (loaded: number, total: number) => void,
-  timeoutMs: number,
-  signal?: AbortSignal,
-): Promise<string> {
-  return uploadWithXhr({
-    ticket,
-    body,
-    signal,
-    timeoutMs,
-    onProgress: (event) => {
-      if (!event.lengthComputable) return
-      loadedByPart.set(partNumber, event.loaded)
-      reportPartProgress(loadedByPart, totalBytes, onProgress)
-    },
-    readSuccess: (xhr) => {
-      const etag = xhr.getResponseHeader("ETag")
-      if (!etag) {
-        throw new Error("Storage did not expose the uploaded part ETag")
-      }
-      return etag
-    },
-  })
 }
 
 function uploadWithXhr<T>({
@@ -280,23 +167,11 @@ function setContentTypeHeader(
   }
 }
 
-function ticketTimeoutMs(ticket: UploadTicket | UploadPartTicket): number {
+function ticketTimeoutMs(ticket: UploadTicket): number {
   return Math.max(
     MIN_UPLOAD_TIMEOUT_MS,
-    "expiresAt" in ticket
-      ? ticket.expiresAt * 1000 - Date.now() + UPLOAD_TIMEOUT_GRACE_MS
-      : MIN_UPLOAD_TIMEOUT_MS,
+    ticket.expiresAt * 1000 - Date.now() + UPLOAD_TIMEOUT_GRACE_MS,
   )
-}
-
-function reportPartProgress(
-  loadedByPart: Map<number, number>,
-  totalBytes: number,
-  onProgress: (loaded: number, total: number) => void,
-): void {
-  let loaded = 0
-  for (const value of loadedByPart.values()) loaded += value
-  onProgress(Math.min(loaded, totalBytes), totalBytes)
 }
 
 async function postTicketControl(
@@ -330,15 +205,4 @@ function throwIfAborted(signal?: AbortSignal): void {
 async function responseErrorMessage(res: Response): Promise<string> {
   const text = await res.text().catch(() => "")
   return parseErrorMessagePayload(text) ?? `${res.status} ${res.statusText}`
-}
-
-function stringRecord(value: object): Record<string, string> {
-  const out: Record<string, string> = {}
-  for (const [key, item] of Object.entries(value)) {
-    if (typeof item !== "string") {
-      throw new Error("Invalid multipart upload part ticket")
-    }
-    out[key] = item
-  }
-  return out
 }

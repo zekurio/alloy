@@ -49,7 +49,6 @@ export type {
   QueueEvent,
   TrimClipInput,
   UpdateClipInput,
-  UploadPartTicket,
   UploadTicket,
 } from "@alloy/contracts"
 

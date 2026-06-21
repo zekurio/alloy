@@ -7,10 +7,8 @@ import { FsStorageDriver } from "./fs-driver"
 import {
   configuredFilesystemStoragePath,
   filesystemStorageRoot,
-  objectStoragePrefix,
   type StorageNamespace,
 } from "./paths"
-import { S3StorageDriver } from "./s3-driver"
 
 const uploadHmacSecret = secretStore.get("uploadHmacSecret")
 
@@ -25,8 +23,6 @@ class ConfiguredStorageDriver implements StorageDriver {
     this.driver().resolve(...args)
   mintUploadUrl: StorageDriver["mintUploadUrl"] = (...args) =>
     this.driver().mintUploadUrl(...args)
-  mintUploadPartUrl: StorageDriver["mintUploadPartUrl"] = (...args) =>
-    this.driver().mintUploadPartUrl(...args)
   writeUploadPart: StorageDriver["writeUploadPart"] = (...args) =>
     this.driver().writeUploadPart(...args)
   completeUpload: StorageDriver["completeUpload"] = (...args) =>
@@ -45,37 +41,21 @@ class ConfiguredStorageDriver implements StorageDriver {
   private driver(): StorageDriver {
     const storage = configStore.get("storage")
     const fsPath = configuredFilesystemStoragePath(storage.fs, this.namespace)
-    const prefix = objectStoragePrefix(this.namespace)
-    const credentials = secretStore.storageS3Credentials()
     const cacheKey = JSON.stringify({
       namespace: this.namespace,
       driver: storage.driver,
       fsPath,
-      prefix,
-      s3: storage.s3,
-      credentials,
     })
 
     if (this.cachedDriver && this.cachedKey === cacheKey) {
       return this.cachedDriver
     }
 
-    const driver =
-      storage.driver === "s3"
-        ? new S3StorageDriver({
-            ...storage.s3,
-            prefix,
-            publicBaseUrl: env.PUBLIC_SERVER_URL,
-            hmacSecret: uploadHmacSecret,
-            credentials:
-              credentials ??
-              missingS3Credentials(this.namespace, storage.s3.bucket),
-          })
-        : new FsStorageDriver({
-            root: filesystemStorageRoot(fsPath),
-            publicBaseUrl: env.PUBLIC_SERVER_URL,
-            hmacSecret: uploadHmacSecret,
-          })
+    const driver = new FsStorageDriver({
+      root: filesystemStorageRoot(fsPath),
+      publicBaseUrl: env.PUBLIC_SERVER_URL,
+      hmacSecret: uploadHmacSecret,
+    })
 
     this.cachedKey = cacheKey
     this.cachedDriver = driver
@@ -87,20 +67,5 @@ export const clipStorage: StorageDriver = new ConfiguredStorageDriver("clips")
 export const userStorage: StorageDriver = new ConfiguredStorageDriver("users")
 export const dataStorage: StorageDriver = userStorage
 
-export type {
-  StorageDriver,
-  UploadTicket,
-  UploadTicketStorageState,
-  UserAssetRole,
-} from "./driver"
+export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
 export { clipAssetDir, clipAssetKey, userAssetKey } from "./driver"
-
-function missingS3Credentials(
-  namespace: StorageNamespace,
-  bucket: string,
-): never {
-  const target = bucket ? `bucket ${bucket}` : "the configured S3 bucket"
-  throw new Error(
-    `S3 ${namespace} storage is configured for ${target}, but S3 credentials are missing.`,
-  )
-}

@@ -30,32 +30,15 @@ test("rejects missing required internal signing secrets", () => {
   )
 })
 
-test("rejects S3 storage without credentials", () => {
+test("rejects unsupported storage driver", () => {
   assert.throws(
     () =>
       parseServerEnv(
         baseEnv({
           ALLOY_STORAGE_DRIVER: "s3",
-          ALLOY_STORAGE_S3_BUCKET: "alloy",
-          ALLOY_STORAGE_S3_REGION: "eu-central-1",
         }),
       ),
-    /ALLOY_STORAGE_S3_ACCESS_KEY_ID/,
-  )
-})
-
-test("rejects S3 storage without a region", () => {
-  assert.throws(
-    () =>
-      parseServerEnv(
-        baseEnv({
-          ALLOY_STORAGE_DRIVER: "s3",
-          ALLOY_STORAGE_S3_BUCKET: "alloy",
-          ALLOY_STORAGE_S3_ACCESS_KEY_ID: "access-key",
-          ALLOY_STORAGE_S3_SECRET_ACCESS_KEY: "secret-key",
-        }),
-      ),
-    /ALLOY_STORAGE_S3_REGION/,
+    /ALLOY_STORAGE_DRIVER/,
   )
 })
 
