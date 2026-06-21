@@ -404,15 +404,6 @@ jobs:
         with:
           ref: ${{ needs.preflight.outputs.ref }}
 
-      - name: Set up Nix
-        uses: cachix/install-nix-action@v31
-
-      - name: Set up Cachix substituter
-        uses: cachix/cachix-action@v17
-        with:
-          name: zekurio
-          skipPush: true
-
       - name: Stamp image version
         shell: bash
         env:
@@ -425,14 +416,34 @@ jobs:
           writeFileSync("package.json", `${JSON.stringify(config, null, 2)}\n`);
           NODE
 
-      - name: Publish server image
-        uses: ./.github/actions/publish-nix-image
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract image metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ needs.preflight.outputs.image_tag }}
             type=raw,value=${{ needs.preflight.outputs.update_channel }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push server image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            APP_VERSION=${{ needs.preflight.outputs.version }}
 
   publish:
     name: Publish GitHub release

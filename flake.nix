@@ -22,14 +22,13 @@
       let
         pkgs = import nixpkgs { inherit system; };
         alloy = pkgs.callPackage ./nix/package.nix { inherit version; };
-        alloy-image = pkgs.callPackage ./nix/docker.nix { inherit alloy version; };
       in
       {
         # The dev environment lives in devenv.nix (https://devenv.sh); this flake
         # is the packaging/CI/NixOS entrypoint only.
         packages = {
           default = alloy;
-          inherit alloy alloy-image;
+          inherit alloy;
         };
 
         checks.default = alloy;
