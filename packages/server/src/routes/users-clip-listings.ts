@@ -5,6 +5,7 @@ import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
 import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
+import type { Context } from "hono"
 import { z } from "zod"
 
 import { publicClipPrivacyCondition } from "./clips-helpers"
@@ -17,8 +18,8 @@ export const UserGamesQuery = z.object({
   offset: offsetQueryParam(),
 })
 
-export async function listUserClips(row: UserRow, headers: Headers) {
-  const conditions = await visibleClipConditions(row, headers, {
+export async function listUserClips(row: UserRow, c: Context) {
+  const conditions = await visibleClipConditions(row, c, {
     includeOwnerUploads: true,
   })
 
@@ -35,10 +36,10 @@ export async function listUserClips(row: UserRow, headers: Headers) {
 
 export async function listUserGames(
   row: UserRow,
-  headers: Headers,
+  c: Context,
   { limit, offset }: z.infer<typeof UserGamesQuery>,
 ) {
-  const conditions = await visibleClipConditions(row, headers)
+  const conditions = await visibleClipConditions(row, c)
 
   const lastClippedAt = sql<Date>`max(${clip.createdAt})`
 
@@ -68,10 +69,10 @@ export async function listUserGames(
 
 async function visibleClipConditions(
   row: UserRow,
-  headers: Headers,
+  c: Context,
   { includeOwnerUploads = false }: { includeOwnerUploads?: boolean } = {},
 ): Promise<SQL[]> {
-  const session = await getSession(headers)
+  const session = await getSession(c)
   const isOwner = session?.user.id === row.id
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
@@ -89,8 +90,8 @@ async function visibleClipConditions(
   return conditions
 }
 
-export async function listTaggedClips(row: UserRow, headers: Headers) {
-  const session = await getSession(headers)
+export async function listTaggedClips(row: UserRow, c: Context) {
+  const session = await getSession(c)
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
 
@@ -115,8 +116,8 @@ export async function listTaggedClips(row: UserRow, headers: Headers) {
   return rows.map(toPublicClipRow)
 }
 
-export async function listLikedClips(row: UserRow, headers: Headers) {
-  const session = await getSession(headers)
+export async function listLikedClips(row: UserRow, c: Context) {
+  const session = await getSession(c)
   const isOwner = session?.user.id === row.id
   const isAdmin =
     (session?.user as { role?: string | null } | undefined)?.role === "admin"

@@ -5,7 +5,7 @@ import {
 import {
   createSession,
   getSession,
-  REFRESH_ABSOLUTE_TTL_MS,
+  REFRESH_IDLE_TTL_MS,
 } from "@alloy/server/auth/session"
 import { getSetupStatus } from "@alloy/server/auth/user-bootstrap"
 import { badRequest } from "@alloy/server/runtime/http-response"
@@ -272,7 +272,7 @@ export const authDesktopRoute = new Hono()
       refreshToken: tokens.refreshToken,
       accessExpiresAt: expiresAt.toISOString(),
       refreshExpiresAt: new Date(
-        Date.now() + REFRESH_ABSOLUTE_TTL_MS,
+        Date.now() + REFRESH_IDLE_TTL_MS,
       ).toISOString(),
     })
   })

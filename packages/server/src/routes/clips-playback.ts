@@ -96,7 +96,7 @@ export const clipsPlaybackRoutes = new Hono()
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({
       id,
-      headers: c.req.raw.headers,
+      c,
       policy: "stream",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
@@ -106,7 +106,7 @@ export const clipsPlaybackRoutes = new Hono()
     const { id, file } = c.req.valid("param")
     const access = await resolveClipAccess({
       id,
-      headers: c.req.raw.headers,
+      c,
       policy: "stream",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
@@ -121,7 +121,7 @@ export const clipsPlaybackRoutes = new Hono()
       const { variant: requestedVariant } = c.req.valid("query")
       const access = await resolveClipAccess({
         id,
-        headers: c.req.raw.headers,
+        c,
         policy: "stream",
       })
       if (!access.accessible) return clipAccessResponse(c, access)
@@ -182,7 +182,7 @@ export const clipsPlaybackRoutes = new Hono()
 
     const access = await resolveClipAccess({
       id,
-      headers: c.req.raw.headers,
+      c,
       policy: "ownerAsset",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
@@ -225,7 +225,7 @@ export const clipsPlaybackRoutes = new Hono()
 
     const access = await resolveClipAccess({
       id,
-      headers: c.req.raw.headers,
+      c,
       policy: "ownerAsset",
     })
     if (!access.accessible) return clipAccessResponse(c, access)

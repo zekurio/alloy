@@ -45,6 +45,17 @@ type RefreshResult = {
   data: SessionData
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+type CachedRefreshResult = {
+  expiresAtMs: number
+  result: RefreshResult
+  timeout: ReturnType<typeof setTimeout>
+}
+
+const refreshInFlight = new Map<string, Promise<RefreshResult | null>>()
+const refreshResultCache = new Map<string, CachedRefreshResult>()
+
 function accessExpiresAt(now: Date): Date {
   return new Date(now.getTime() + ACCESS_TTL_MS)
 }
@@ -66,6 +77,21 @@ function withinReuseGrace(consumedAt: Date | null, now: Date): boolean {
     consumedAt !== null &&
     consumedAt.getTime() + REFRESH_REUSE_GRACE_MS > now.getTime()
   )
+}
+
+async function revokeSessionFamily(
+  tx: Tx,
+  sessionId: string,
+  now: Date,
+): Promise<void> {
+  await tx
+    .update(authSession)
+    .set({ revokedAt: now, updatedAt: now })
+    .where(eq(authSession.id, sessionId))
+  await tx
+    .update(authRefreshToken)
+    .set({ revokedAt: now, updatedAt: now })
+    .where(eq(authRefreshToken.sessionId, sessionId))
 }
 
 async function touchSession(row: SessionData, now: Date): Promise<void> {
@@ -165,15 +191,51 @@ function sessionDataForRefreshGrace(input: {
   return { tokens: null, data }
 }
 
-export async function refreshSession(
-  c: Context,
+async function cachedRefreshResult(
+  tokenHash: string,
+  now: Date,
 ): Promise<RefreshResult | null> {
-  const token = readRefreshCookie(c)
-  if (!token) return null
+  const cached = refreshResultCache.get(tokenHash)
+  if (!cached) return null
+  if (cached.expiresAtMs <= now.getTime()) {
+    clearTimeout(cached.timeout)
+    refreshResultCache.delete(tokenHash)
+    return null
+  }
 
-  const now = new Date()
-  const tokenHash = await hashSessionToken(token)
-  const result = await db.transaction(async (tx) => {
+  const [active] = await db
+    .select({ id: authSession.id })
+    .from(authSession)
+    .where(
+      and(
+        eq(authSession.id, cached.result.data.session.id),
+        eq(authSession.tokenHash, cached.result.data.session.tokenHash),
+        gt(authSession.expiresAt, now),
+        isNull(authSession.revokedAt),
+      ),
+    )
+    .limit(1)
+  return active ? cached.result : null
+}
+
+function cacheRefreshResult(tokenHash: string, result: RefreshResult): void {
+  if (!result.tokens) return
+
+  const existing = refreshResultCache.get(tokenHash)
+  if (existing) clearTimeout(existing.timeout)
+
+  const expiresAtMs = Date.now() + REFRESH_REUSE_GRACE_MS
+  const timeout = setTimeout(() => {
+    refreshResultCache.delete(tokenHash)
+  }, REFRESH_REUSE_GRACE_MS)
+  refreshResultCache.set(tokenHash, { expiresAtMs, result, timeout })
+}
+
+async function rotateRefreshSession(
+  tokenHash: string,
+  now: Date,
+): Promise<RefreshResult | null> {
+  return await db.transaction(async (tx) => {
     const [row] = await tx
       .select({
         refresh: authRefreshToken,
@@ -196,14 +258,7 @@ export async function refreshSession(
       })
       if (grace) return grace
 
-      await tx
-        .update(authSession)
-        .set({ revokedAt: now, updatedAt: now })
-        .where(eq(authSession.id, row.session.id))
-      await tx
-        .update(authRefreshToken)
-        .set({ revokedAt: now, updatedAt: now })
-        .where(eq(authRefreshToken.sessionId, row.session.id))
+      await revokeSessionFamily(tx, row.session.id, now)
       return null
     }
 
@@ -228,22 +283,28 @@ export async function refreshSession(
       )
       .returning()
     if (!consumed) {
-      const grace = sessionDataForRefreshGrace({
-        session: row.session,
-        user: row.user,
-        consumedAt: now,
-        now,
-      })
+      const [current] = await tx
+        .select({
+          refresh: authRefreshToken,
+          session: authSession,
+          user,
+        })
+        .from(authRefreshToken)
+        .innerJoin(authSession, eq(authSession.id, authRefreshToken.sessionId))
+        .innerJoin(user, eq(user.id, authSession.userId))
+        .where(eq(authRefreshToken.id, row.refresh.id))
+        .limit(1)
+      const grace = current
+        ? sessionDataForRefreshGrace({
+            session: current.session,
+            user: current.user,
+            consumedAt: current.refresh.consumedAt,
+            now,
+          })
+        : null
       if (grace) return grace
 
-      await tx
-        .update(authSession)
-        .set({ revokedAt: now, updatedAt: now })
-        .where(eq(authSession.id, row.session.id))
-      await tx
-        .update(authRefreshToken)
-        .set({ revokedAt: now, updatedAt: now })
-        .where(eq(authRefreshToken.sessionId, row.session.id))
+      await revokeSessionFamily(tx, row.session.id, now)
       return null
     }
 
@@ -282,6 +343,39 @@ export async function refreshSession(
       data: { session, user: row.user },
     }
   })
+}
+
+async function refreshSessionForToken(
+  tokenHash: string,
+): Promise<RefreshResult | null> {
+  const now = new Date()
+  const cached = await cachedRefreshResult(tokenHash, now)
+  if (cached) return cached
+
+  const existing = refreshInFlight.get(tokenHash)
+  if (existing) return existing
+
+  const startedAt = new Date()
+  const promise = rotateRefreshSession(tokenHash, startedAt)
+    .then((result) => {
+      if (result) cacheRefreshResult(tokenHash, result)
+      return result
+    })
+    .finally(() => {
+      refreshInFlight.delete(tokenHash)
+    })
+  refreshInFlight.set(tokenHash, promise)
+  return promise
+}
+
+export async function refreshSession(
+  c: Context,
+): Promise<RefreshResult | null> {
+  const token = readRefreshCookie(c)
+  if (!token) return null
+
+  const tokenHash = await hashSessionToken(token)
+  const result = await refreshSessionForToken(tokenHash)
 
   if (result?.tokens) setSessionCookies(c, result.tokens)
   if (!result) clearSessionCookies(c)
