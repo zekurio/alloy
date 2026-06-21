@@ -22,17 +22,17 @@ const logger = createLogger("steamgriddb")
 const GAME_REF_REFRESH_MS = 7 * 24 * 60 * 60 * 1000
 
 export const gameSelectShape = {
-  id: game.steamgriddbId,
-  steamgriddbId: game.steamgriddbId,
+  id: game.steamgriddb_id,
+  steamgriddbId: game.steamgriddb_id,
   name: game.name,
   slug: game.slug,
-  releaseDate: game.releaseDate,
-  heroUrl: game.heroUrl,
-  heroBlurHash: game.heroBlurHash,
-  gridUrl: game.gridUrl,
-  gridBlurHash: game.gridBlurHash,
-  logoUrl: game.logoUrl,
-  iconUrl: game.iconUrl,
+  releaseDate: game.release_date,
+  heroUrl: game.hero_url,
+  heroBlurHash: game.hero_blur_hash,
+  gridUrl: game.grid_url,
+  gridBlurHash: game.grid_blur_hash,
+  logoUrl: game.logo_url,
+  iconUrl: game.icon_url,
 } as const
 
 type GameMetadataRow = {
@@ -127,13 +127,13 @@ async function availableGameSlug(
   const base = gameSlug(name)
   const rows = await db
     .select({
-      steamgriddbId: game.steamgriddbId,
+      steamgriddbId: game.steamgriddb_id,
       slug: game.slug,
     })
     .from(game)
     .where(
       or(
-        eq(game.steamgriddbId, steamgriddbId),
+        eq(game.steamgriddb_id, steamgriddbId),
         eq(game.slug, base),
         like(game.slug, `${base}-%`),
       ),
@@ -165,9 +165,9 @@ async function selectCachedGameRef(
   steamgriddbId: number,
 ): Promise<CachedGameMetadataRow | null> {
   const [row] = await db
-    .select({ ...gameSelectShape, updatedAt: game.updatedAt })
+    .select({ ...gameSelectShape, updatedAt: game.updated_at })
     .from(game)
-    .where(eq(game.steamgriddbId, steamgriddbId))
+    .where(eq(game.steamgriddb_id, steamgriddbId))
     .limit(1)
   return row ?? null
 }
@@ -176,14 +176,14 @@ async function selectCachedGameRefBySlug(
   slug: string,
 ): Promise<CachedGameMetadataRow | null> {
   const [exact] = await db
-    .select({ ...gameSelectShape, updatedAt: game.updatedAt })
+    .select({ ...gameSelectShape, updatedAt: game.updated_at })
     .from(game)
     .where(eq(game.slug, slug))
     .limit(1)
   if (exact) return exact
 
   const rows = await db
-    .select({ ...gameSelectShape, updatedAt: game.updatedAt })
+    .select({ ...gameSelectShape, updatedAt: game.updated_at })
     .from(game)
     .where(like(game.slug, `${slug}-%`))
     .limit(25)
@@ -205,42 +205,42 @@ async function loadSteamGridDBGameRef(
   const slug = await availableGameSlug(detail.name, detail.id)
 
   const values = {
-    steamgriddbId: detail.id,
+    steamgriddb_id: detail.id,
     name: detail.name,
     slug,
-    releaseDate,
-    heroUrl: assets.heroUrl,
-    heroBlurHash:
+    release_date: releaseDate,
+    hero_url: assets.heroUrl,
+    hero_blur_hash:
       assets.heroUrl === previous?.heroUrl
         ? (assets.heroBlurHash ?? previous.heroBlurHash)
         : assets.heroBlurHash,
-    gridUrl: assets.gridUrl,
-    gridBlurHash:
+    grid_url: assets.gridUrl,
+    grid_blur_hash:
       assets.gridUrl === previous?.gridUrl
         ? (assets.gridBlurHash ?? previous.gridBlurHash)
         : assets.gridBlurHash,
-    logoUrl: assets.logoUrl,
-    iconUrl: assets.iconUrl,
-    updatedAt: new Date(),
+    logo_url: assets.logoUrl,
+    icon_url: assets.iconUrl,
+    updated_at: new Date(),
   }
   const updateValues = {
     name: values.name,
     slug: values.slug,
-    releaseDate: values.releaseDate,
-    heroUrl: values.heroUrl,
-    heroBlurHash: values.heroBlurHash,
-    gridUrl: values.gridUrl,
-    gridBlurHash: values.gridBlurHash,
-    logoUrl: values.logoUrl,
-    iconUrl: values.iconUrl,
-    updatedAt: values.updatedAt,
+    release_date: values.release_date,
+    hero_url: values.hero_url,
+    hero_blur_hash: values.hero_blur_hash,
+    grid_url: values.grid_url,
+    grid_blur_hash: values.grid_blur_hash,
+    logo_url: values.logo_url,
+    icon_url: values.icon_url,
+    updated_at: values.updated_at,
   }
 
   const [row] = await db
     .insert(game)
     .values(values)
     .onConflictDoUpdate({
-      target: game.steamgriddbId,
+      target: game.steamgriddb_id,
       set: updateValues,
     })
     .returning(gameSelectShape)
@@ -324,10 +324,10 @@ export async function lookupIndexedGamesByName(
   if (!matchCondition) return matches
 
   const viewerClipCount = viewerId
-    ? sql<number>`count(distinct case when ${clip.authorId} = ${viewerId}::uuid then ${clip.id} end)::int`
+    ? sql<number>`count(distinct case when ${clip.author_id} = ${viewerId}::uuid then ${clip.id} end)::int`
     : sql<number>`0`
   const viewerViewCount = viewerId
-    ? sql<number>`count(distinct ${clipView.clipId})::int`
+    ? sql<number>`count(distinct ${clipView.clip_id})::int`
     : sql<number>`0`
   const followed = viewerId
     ? sql<number>`max(case when ${gameFollow.id} is null then 0 else 1 end)::int`
@@ -345,23 +345,23 @@ export async function lookupIndexedGamesByName(
       followed,
     })
     .from(game)
-    .leftJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
+    .leftJoin(clip, eq(clip.steamgriddb_id, game.steamgriddb_id))
     .leftJoin(
       clipView,
       and(
-        eq(clipView.clipId, clip.id),
-        viewerId ? sql`${clipView.userId} = ${viewerId}::uuid` : sql`false`,
+        eq(clipView.clip_id, clip.id),
+        viewerId ? sql`${clipView.user_id} = ${viewerId}::uuid` : sql`false`,
       ),
     )
     .leftJoin(
       gameFollow,
       and(
-        eq(gameFollow.steamgriddbId, game.steamgriddbId),
-        viewerId ? sql`${gameFollow.userId} = ${viewerId}::uuid` : sql`false`,
+        eq(gameFollow.steamgriddb_id, game.steamgriddb_id),
+        viewerId ? sql`${gameFollow.user_id} = ${viewerId}::uuid` : sql`false`,
       ),
     )
     .where(matchCondition)
-    .groupBy(game.steamgriddbId)
+    .groupBy(game.steamgriddb_id)
 
   for (const row of rows) {
     const gameRow = serialiseGameRow(row)

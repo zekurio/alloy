@@ -210,17 +210,17 @@ async function resolveUploadTicket(
   }
 
   const [ticket] = await db
-    .select({ id: uploadTicket.id, uploadState: uploadTicket.uploadState })
+    .select({ id: uploadTicket.id, uploadState: uploadTicket.upload_state })
     .from(uploadTicket)
     .where(
       and(
-        eq(uploadTicket.ownerId, payload.uid),
-        eq(uploadTicket.targetId, payload.cid),
-        eq(uploadTicket.storageKey, payload.k),
-        eq(uploadTicket.contentType, payload.ct),
-        eq(uploadTicket.expectedBytes, payload.mb),
-        isNull(uploadTicket.usedAt),
-        gt(uploadTicket.expiresAt, new Date()),
+        eq(uploadTicket.owner_id, payload.uid),
+        eq(uploadTicket.target_id, payload.cid),
+        eq(uploadTicket.storage_key, payload.k),
+        eq(uploadTicket.content_type, payload.ct),
+        eq(uploadTicket.expected_bytes, payload.mb),
+        isNull(uploadTicket.used_at),
+        gt(uploadTicket.expires_at, new Date()),
       ),
     )
     .limit(1)
@@ -317,7 +317,7 @@ function secondsUntil(exp: number): number {
 async function markTicketUsed(ticketId: string): Promise<void> {
   await db
     .update(uploadTicket)
-    .set({ usedAt: new Date() })
+    .set({ used_at: new Date() })
     .where(eq(uploadTicket.id, ticketId))
 }
 

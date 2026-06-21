@@ -16,15 +16,15 @@ export async function getLoginBackdropClips(
   limit = LOGIN_BACKDROP_CLIP_LIMIT,
 ): Promise<Array<{ id: string; thumbVersion: string }>> {
   const rows = await db
-    .select({ id: clip.id, thumbKey: clip.thumbKey })
+    .select({ id: clip.id, thumbKey: clip.thumb_key })
     .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
+    .innerJoin(user, eq(clip.author_id, user.id))
     .where(
       and(
         eq(clip.status, "ready"),
         eq(clip.privacy, "public"),
-        isNotNull(clip.thumbKey),
-        isNull(user.disabledAt),
+        isNotNull(clip.thumb_key),
+        isNull(user.disabled_at),
       ),
     )
     .orderBy(sql`random()`)

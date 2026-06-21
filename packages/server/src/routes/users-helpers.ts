@@ -39,14 +39,16 @@ export function toLikePattern(raw: string): string {
 export const userSummarySelectShape = {
   id: user.id,
   username: user.username,
-  displayUsername: user.displayUsername,
+  displayUsername: user.display_username,
   image: user.image,
 }
 
-type UserSummaryFields = Pick<
-  typeof user.$inferSelect,
-  "id" | "username" | "displayUsername" | "image"
->
+type UserSummaryFields = {
+  id: string
+  username: string
+  displayUsername: string
+  image: string | null
+}
 
 export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
   return {
@@ -94,7 +96,7 @@ export async function searchVisibleUsers({
   const pattern = toLikePattern(q.trim())
   const conditions: SQL[] = [
     requiredSql(
-      or(ilike(user.displayUsername, pattern), ilike(user.username, pattern)),
+      or(ilike(user.display_username, pattern), ilike(user.username, pattern)),
       "user search text filter",
     ),
   ]
@@ -102,11 +104,11 @@ export async function searchVisibleUsers({
     conditions.push(ne(user.id, viewerId))
     const blockRows = await db
       .select({
-        blockerId: block.blockerId,
-        blockedId: block.blockedId,
+        blockerId: block.blocker_id,
+        blockedId: block.blocked_id,
       })
       .from(block)
-      .where(or(eq(block.blockerId, viewerId), eq(block.blockedId, viewerId)))
+      .where(or(eq(block.blocker_id, viewerId), eq(block.blocked_id, viewerId)))
     const excluded = new Set<string>()
     for (const row of blockRows) {
       excluded.add(row.blockerId === viewerId ? row.blockedId : row.blockerId)
@@ -115,7 +117,7 @@ export async function searchVisibleUsers({
       conditions.push(notInArray(user.id, [...excluded]))
     }
   }
-  conditions.push(isNull(user.disabledAt))
+  conditions.push(isNull(user.disabled_at))
 
   const rows = await db
     .select({
@@ -137,8 +139,8 @@ export function toPublicUser(row: UserRow): PublicUser {
     username: row.username,
     image: row.image,
     banner: row.banner,
-    createdAt: isoDate(row.createdAt),
-    updatedAt: isoDate(row.updatedAt),
+    createdAt: isoDate(row.created_at),
+    updatedAt: isoDate(row.updated_at),
   }
 }
 
@@ -149,7 +151,7 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
     .where(
       and(
         eq(sql`lower(${user.username})`, segment.toLowerCase()),
-        isNull(user.disabledAt),
+        isNull(user.disabled_at),
       ),
     )
     .limit(1)
@@ -162,8 +164,8 @@ export async function listFollowers(row: UserRow) {
       ...userSummarySelectShape,
     })
     .from(follow)
-    .innerJoin(user, eq(user.id, follow.followerId))
-    .where(and(eq(follow.followingId, row.id), isNull(user.disabledAt)))
+    .innerJoin(user, eq(user.id, follow.follower_id))
+    .where(and(eq(follow.following_id, row.id), isNull(user.disabled_at)))
     .orderBy(user.username)
     .limit(200)
   return rows.map(serialiseUserSummary)
@@ -175,8 +177,8 @@ export async function listFollowing(row: UserRow) {
       ...userSummarySelectShape,
     })
     .from(follow)
-    .innerJoin(user, eq(user.id, follow.followingId))
-    .where(and(eq(follow.followerId, row.id), isNull(user.disabledAt)))
+    .innerJoin(user, eq(user.id, follow.following_id))
+    .where(and(eq(follow.follower_id, row.id), isNull(user.disabled_at)))
     .orderBy(user.username)
     .limit(200)
   return rows.map(serialiseUserSummary)
@@ -208,19 +210,22 @@ export async function resolveViewerState(
       .select({ id: follow.id })
       .from(follow)
       .where(
-        and(eq(follow.followerId, viewerId), eq(follow.followingId, targetId)),
+        and(
+          eq(follow.follower_id, viewerId),
+          eq(follow.following_id, targetId),
+        ),
       )
       .limit(1),
     db
       .select({
-        blockerId: block.blockerId,
-        blockedId: block.blockedId,
+        blockerId: block.blocker_id,
+        blockedId: block.blocked_id,
       })
       .from(block)
       .where(
         or(
-          and(eq(block.blockerId, viewerId), eq(block.blockedId, targetId)),
-          and(eq(block.blockerId, targetId), eq(block.blockedId, viewerId)),
+          and(eq(block.blocker_id, viewerId), eq(block.blocked_id, targetId)),
+          and(eq(block.blocker_id, targetId), eq(block.blocked_id, viewerId)),
         ),
       ),
   ])
@@ -238,7 +243,7 @@ export async function selectProfileCounts(
   { includeRestrictedClips }: { includeRestrictedClips: boolean },
 ) {
   const clipConditions: SQL[] = [
-    eq(clip.authorId, targetId),
+    eq(clip.author_id, targetId),
     eq(clip.status, "ready"),
   ]
   if (!includeRestrictedClips) {
@@ -257,11 +262,11 @@ export async function selectProfileCounts(
     db
       .select({ value: count() })
       .from(follow)
-      .where(eq(follow.followingId, targetId)),
+      .where(eq(follow.following_id, targetId)),
     db
       .select({ value: count() })
       .from(follow)
-      .where(eq(follow.followerId, targetId)),
+      .where(eq(follow.follower_id, targetId)),
   ])
 
   return {

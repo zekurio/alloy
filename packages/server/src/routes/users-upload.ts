@@ -187,7 +187,7 @@ async function uploadUserAsset(input: {
   await userStorage.put(key, resized, USER_ASSET_CONTENT_TYPE)
 
   const updatedAt = new Date()
-  const patch: Partial<typeof user.$inferInsert> = { updatedAt }
+  const patch: Partial<typeof user.$inferInsert> = { updated_at: updatedAt }
   patch[USER_ASSET_COLUMN[input.role]] = userAssetImagePath(key, updatedAt)
 
   await db.update(user).set(patch).where(eq(user.id, input.viewerId))
@@ -204,7 +204,7 @@ async function removeUserAsset(
   role: UserAssetRole,
 ): Promise<UserAssetUpdateResult> {
   await deleteOldAssets(viewerId, role)
-  const patch: Partial<typeof user.$inferInsert> = { updatedAt: new Date() }
+  const patch: Partial<typeof user.$inferInsert> = { updated_at: new Date() }
   patch[USER_ASSET_COLUMN[role]] = null
   await db.update(user).set(patch).where(eq(user.id, viewerId))
 

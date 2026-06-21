@@ -16,18 +16,18 @@ export const game = pgTable(
   {
     // SteamGridDB is the canonical game identity. This table is a durable
     // metadata cache, not a second identity namespace.
-    steamgriddbId: integer("steamgriddb_id").primaryKey(),
-    name: text("name").notNull(),
-    slug: text("slug").notNull().unique(),
-    releaseDate: timestamp("release_date"),
-    heroUrl: text("hero_url"),
-    heroBlurHash: text("hero_blur_hash"),
-    gridUrl: text("grid_url"),
-    gridBlurHash: text("grid_blur_hash"),
-    logoUrl: text("logo_url"),
-    iconUrl: text("icon_url"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    steamgriddb_id: integer().primaryKey(),
+    name: text().notNull(),
+    slug: text().notNull().unique(),
+    release_date: timestamp(),
+    hero_url: text(),
+    hero_blur_hash: text(),
+    grid_url: text(),
+    grid_blur_hash: text(),
+    logo_url: text(),
+    icon_url: text(),
+    created_at: timestamp().notNull().defaultNow(),
+    updated_at: timestamp().notNull().defaultNow(),
   },
   (t) => [index("game_name_idx").on(t.name)],
 )
@@ -35,46 +35,43 @@ export const game = pgTable(
 export const gameFollow = pgTable(
   "game_follow",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
+    id: uuid().primaryKey().defaultRandom(),
+    user_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    steamgriddbId: integer("steamgriddb_id")
+    steamgriddb_id: integer()
       .notNull()
-      .references(() => game.steamgriddbId, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+      .references(() => game.steamgriddb_id, { onDelete: "cascade" }),
+    created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("game_follow_pair_idx").on(t.userId, t.steamgriddbId),
+    uniqueIndex("game_follow_pair_idx").on(t.user_id, t.steamgriddb_id),
     // Reverse lookup for the feed-ranking join ("is this clip's game
     // followed by the viewer?"), and for per-game follower counts.
-    index("game_follow_steamgriddb_idx").on(t.steamgriddbId),
+    index("game_follow_steamgriddb_idx").on(t.steamgriddb_id),
   ],
 )
 
 export const gameDetectionMapping = pgTable(
   "game_detection_mapping",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    source: text("source").notNull(),
-    sourceId: text("source_id"),
-    executable: text("executable"),
-    normalizedName: text("normalized_name").notNull(),
-    steamgriddbId: integer("steamgriddb_id").references(
-      () => game.steamgriddbId,
-      {
-        onDelete: "set null",
-      },
-    ),
-    status: text("status").$type<"auto" | "confirmed" | "rejected">().notNull(),
-    confidence: real("confidence").notNull().default(0),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    id: uuid().primaryKey().defaultRandom(),
+    source: text().notNull(),
+    source_id: text(),
+    executable: text(),
+    normalized_name: text().notNull(),
+    steamgriddb_id: integer().references(() => game.steamgriddb_id, {
+      onDelete: "set null",
+    }),
+    status: text().$type<"auto" | "confirmed" | "rejected">().notNull(),
+    confidence: real().notNull().default(0),
+    created_at: timestamp().notNull().defaultNow(),
+    updated_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    index("game_detection_mapping_source_idx").on(t.source, t.sourceId),
+    index("game_detection_mapping_source_idx").on(t.source, t.source_id),
     index("game_detection_mapping_executable_idx").on(t.executable),
-    index("game_detection_mapping_name_idx").on(t.normalizedName),
-    index("game_detection_mapping_steamgriddb_idx").on(t.steamgriddbId),
+    index("game_detection_mapping_name_idx").on(t.normalized_name),
+    index("game_detection_mapping_steamgriddb_idx").on(t.steamgriddb_id),
   ],
 )

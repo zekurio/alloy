@@ -33,7 +33,7 @@ export async function selectLockedQuotaState(
     sql`select "id" from "user" where "id" = ${viewerId} for update`,
   )
   const [quotaRow] = await database
-    .select({ storageQuotaBytes: user.storageQuotaBytes })
+    .select({ storageQuotaBytes: user.storage_quota_bytes })
     .from(user)
     .where(eq(user.id, viewerId))
     .limit(1)
@@ -64,8 +64,8 @@ export async function markUploadFailed(
     .update(clip)
     .set({
       status: "failed",
-      failureReason: reason.slice(0, 500),
-      updatedAt: new Date(),
+      failure_reason: reason.slice(0, 500),
+      updated_at: new Date(),
     })
     .where(eq(clip.id, clipId))
   void publishClipUpsert(authorId, clipId)

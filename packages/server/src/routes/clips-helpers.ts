@@ -86,7 +86,7 @@ export function publicClipListingConditions(): SQL[] {
   return [
     eq(clip.status, "ready"),
     publicClipPrivacyCondition(),
-    isNull(user.disabledAt),
+    isNull(user.disabled_at),
   ]
 }
 
@@ -139,12 +139,15 @@ export function clipListCursorCondition(
   sort: ClipListSort,
 ): SQL | null {
   if (!cursor) return null
-  if (!cursor.id) return lt(clip.createdAt, cursor.createdAt)
+  if (!cursor.id) return lt(clip.created_at, cursor.createdAt)
 
   const afterCreatedAt = requiredSql(
     or(
-      lt(clip.createdAt, cursor.createdAt),
-      and(eq(clip.createdAt, cursor.createdAt), sql`${clip.id} > ${cursor.id}`),
+      lt(clip.created_at, cursor.createdAt),
+      and(
+        eq(clip.created_at, cursor.createdAt),
+        sql`${clip.id} > ${cursor.id}`,
+      ),
     ),
     "clip cursor createdAt",
   )
@@ -152,12 +155,12 @@ export function clipListCursorCondition(
   if (sort === "top") {
     return requiredSql(
       or(
-        lt(clip.viewCount, cursor.viewCount ?? 0),
+        lt(clip.view_count, cursor.viewCount ?? 0),
         and(
-          eq(clip.viewCount, cursor.viewCount ?? 0),
+          eq(clip.view_count, cursor.viewCount ?? 0),
           or(
-            lt(clip.likeCount, cursor.likeCount ?? 0),
-            and(eq(clip.likeCount, cursor.likeCount ?? 0), afterCreatedAt),
+            lt(clip.like_count, cursor.likeCount ?? 0),
+            and(eq(clip.like_count, cursor.likeCount ?? 0), afterCreatedAt),
           ),
         ),
       ),
@@ -171,12 +174,12 @@ export function clipListCursorCondition(
 export function clipListOrderBy(sort: ClipListSort) {
   return sort === "top"
     ? [
-        desc(clip.viewCount),
-        desc(clip.likeCount),
-        desc(clip.createdAt),
+        desc(clip.view_count),
+        desc(clip.like_count),
+        desc(clip.created_at),
         clip.id,
       ]
-    : [desc(clip.createdAt), clip.id]
+    : [desc(clip.created_at), clip.id]
 }
 
 export function clipListPage<T extends ClipListPageRow>(
@@ -293,7 +296,7 @@ export function contentDisposition(filename: string): string {
 
 export function downloadFilename(row: PlaybackClipRow): string {
   const base = row.title.trim().replace(/[/\\?%*:|"<>]/g, "-") || row.id
-  return `${base}.${extensionForContentType(row.sourceContentType ?? "")}`
+  return `${base}.${extensionForContentType(row.source_content_type ?? "")}`
 }
 
 export async function readAll(

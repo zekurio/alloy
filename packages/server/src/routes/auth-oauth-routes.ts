@@ -65,14 +65,14 @@ export const authOAuthRoute = new Hono()
     const rows = await db
       .select({
         id: authAccount.id,
-        providerId: authAccount.providerId,
-        accountId: authAccount.providerAccountId,
+        providerId: authAccount.provider_id,
+        accountId: authAccount.provider_account_id,
         email: authAccount.email,
-        createdAt: authAccount.createdAt,
+        createdAt: authAccount.created_at,
       })
       .from(authAccount)
-      .where(eq(authAccount.userId, c.var.viewerId))
-      .orderBy(authAccount.createdAt)
+      .where(eq(authAccount.user_id, c.var.viewerId))
+      .orderBy(authAccount.created_at)
     return c.json(rows.map(publicLinkedAccountRow))
   })
   .post("/oauth/sign-in", zValidator("json", OAuthStartBody), async (c) => {

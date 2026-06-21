@@ -20,8 +20,8 @@ export const THUMB_UPLOAD_MAX_BYTES = 4 * 1024 * 1024
 
 function targetMatch(target: UploadTarget) {
   return and(
-    eq(uploadTicket.targetType, target.type),
-    eq(uploadTicket.targetId, target.id),
+    eq(uploadTicket.target_type, target.type),
+    eq(uploadTicket.target_id, target.id),
   )
 }
 
@@ -39,26 +39,26 @@ export async function createUploadTickets(input: {
 }): Promise<void> {
   await db.insert(uploadTicket).values([
     {
-      ownerId: input.ownerId,
-      targetType: input.target.type,
-      targetId: input.target.id,
+      owner_id: input.ownerId,
+      target_type: input.target.type,
+      target_id: input.target.id,
       role: "video",
-      storageKey: input.videoKey,
-      contentType: input.videoContentType,
-      expectedBytes: input.videoBytes,
-      uploadState: input.videoUploadState ?? null,
-      expiresAt: input.expiresAt,
+      storage_key: input.videoKey,
+      content_type: input.videoContentType,
+      expected_bytes: input.videoBytes,
+      upload_state: input.videoUploadState ?? null,
+      expires_at: input.expiresAt,
     },
     {
-      ownerId: input.ownerId,
-      targetType: input.target.type,
-      targetId: input.target.id,
+      owner_id: input.ownerId,
+      target_type: input.target.type,
+      target_id: input.target.id,
       role: "thumb",
-      storageKey: input.thumbKey,
-      contentType: input.thumbContentType ?? THUMB_UPLOAD_CONTENT_TYPE,
-      expectedBytes: THUMB_UPLOAD_MAX_BYTES,
-      uploadState: input.thumbUploadState ?? null,
-      expiresAt: input.expiresAt,
+      storage_key: input.thumbKey,
+      content_type: input.thumbContentType ?? THUMB_UPLOAD_CONTENT_TYPE,
+      expected_bytes: THUMB_UPLOAD_MAX_BYTES,
+      upload_state: input.thumbUploadState ?? null,
+      expires_at: input.expiresAt,
     },
   ])
 }
@@ -75,11 +75,11 @@ export async function assertUsableVideoTicket(input: {
     .where(
       and(
         targetMatch(input.target),
-        eq(uploadTicket.storageKey, input.storageKey),
-        eq(uploadTicket.contentType, input.contentType),
-        eq(uploadTicket.expectedBytes, input.expectedBytes),
+        eq(uploadTicket.storage_key, input.storageKey),
+        eq(uploadTicket.content_type, input.contentType),
+        eq(uploadTicket.expected_bytes, input.expectedBytes),
         eq(uploadTicket.role, "video"),
-        gt(uploadTicket.expiresAt, new Date()),
+        gt(uploadTicket.expires_at, new Date()),
       ),
     )
     .limit(1)
@@ -91,7 +91,7 @@ async function selectTicketKey(
   role: "video" | "thumb",
 ): Promise<string | null> {
   const [ticket] = await db
-    .select({ storageKey: uploadTicket.storageKey })
+    .select({ storageKey: uploadTicket.storage_key })
     .from(uploadTicket)
     .where(and(targetMatch(target), eq(uploadTicket.role, role)))
     .limit(1)
@@ -108,9 +108,9 @@ async function selectTicket(
 } | null> {
   const [ticket] = await db
     .select({
-      storageKey: uploadTicket.storageKey,
-      uploadState: uploadTicket.uploadState,
-      usedAt: uploadTicket.usedAt,
+      storageKey: uploadTicket.storage_key,
+      uploadState: uploadTicket.upload_state,
+      usedAt: uploadTicket.used_at,
     })
     .from(uploadTicket)
     .where(and(targetMatch(target), eq(uploadTicket.role, role)))
@@ -143,9 +143,9 @@ export async function selectTicketKeys(
 ): Promise<Array<{ key: string; uploadState: unknown }>> {
   const tickets = await db
     .select({
-      storageKey: uploadTicket.storageKey,
-      uploadState: uploadTicket.uploadState,
-      usedAt: uploadTicket.usedAt,
+      storageKey: uploadTicket.storage_key,
+      uploadState: uploadTicket.upload_state,
+      usedAt: uploadTicket.used_at,
     })
     .from(uploadTicket)
     .where(targetMatch(target))

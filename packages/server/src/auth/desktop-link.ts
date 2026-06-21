@@ -19,7 +19,7 @@ export async function deleteExpiredDesktopLinkCodes(): Promise<void> {
     .where(
       and(
         eq(authChallenge.purpose, DESKTOP_LINK_PURPOSE),
-        lt(authChallenge.expiresAt, new Date()),
+        lt(authChallenge.expires_at, new Date()),
       ),
     )
 }
@@ -37,7 +37,7 @@ export async function createDesktopLinkCode(
     identifier: code,
     challenge: codeChallenge,
     payload: { userId },
-    expiresAt: new Date(Date.now() + DESKTOP_LINK_TTL_MS),
+    expires_at: new Date(Date.now() + DESKTOP_LINK_TTL_MS),
   })
   return code
 }
@@ -54,7 +54,7 @@ export async function consumeDesktopLinkCode(
         eq(authChallenge.purpose, DESKTOP_LINK_PURPOSE),
         eq(authChallenge.identifier, code),
         eq(authChallenge.challenge, codeChallenge),
-        gt(authChallenge.expiresAt, new Date()),
+        gt(authChallenge.expires_at, new Date()),
       ),
     )
     .returning()

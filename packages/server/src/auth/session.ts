@@ -86,24 +86,24 @@ async function revokeSessionFamily(
 ): Promise<void> {
   await tx
     .update(authSession)
-    .set({ revokedAt: now, updatedAt: now })
+    .set({ revoked_at: now, updated_at: now })
     .where(eq(authSession.id, sessionId))
   await tx
     .update(authRefreshToken)
-    .set({ revokedAt: now, updatedAt: now })
-    .where(eq(authRefreshToken.sessionId, sessionId))
+    .set({ revoked_at: now, updated_at: now })
+    .where(eq(authRefreshToken.session_id, sessionId))
 }
 
 async function touchSession(row: SessionData, now: Date): Promise<void> {
-  const lastSeenAt = row.session.lastSeenAt ?? row.session.updatedAt
+  const lastSeenAt = row.session.last_seen_at ?? row.session.updated_at
   if (lastSeenAt.getTime() + SESSION_TOUCH_MS >= now.getTime()) return
 
   await db
     .update(authSession)
-    .set({ lastSeenAt: now, updatedAt: now })
+    .set({ last_seen_at: now, updated_at: now })
     .where(eq(authSession.id, row.session.id))
-  row.session.lastSeenAt = now
-  row.session.updatedAt = now
+  row.session.last_seen_at = now
+  row.session.updated_at = now
 }
 
 export async function createSession(
@@ -119,26 +119,26 @@ export async function createSession(
     const [created] = await tx
       .insert(authSession)
       .values({
-        tokenHash: accessHash,
-        userId,
-        expiresAt: accessExpiresAt(now),
-        ipAddress: requestIp(c),
-        userAgent: c.req.header("user-agent") ?? null,
-        lastSeenAt: now,
+        token_hash: accessHash,
+        user_id: userId,
+        expires_at: accessExpiresAt(now),
+        ip_address: requestIp(c),
+        user_agent: c.req.header("user-agent") ?? null,
+        last_seen_at: now,
       })
       .returning()
     if (!created) throw new Error("Could not create session.")
 
     await tx.insert(authRefreshToken).values({
-      sessionId: created.id,
-      tokenHash: refreshHash,
-      expiresAt: refreshIdleExpiresAt(now),
-      absoluteExpiresAt: refreshAbsoluteExpiresAt(now),
+      session_id: created.id,
+      token_hash: refreshHash,
+      expires_at: refreshIdleExpiresAt(now),
+      absolute_expires_at: refreshAbsoluteExpiresAt(now),
     })
     return created
   })
 
-  const data = await selectSessionByAccessHash(session.tokenHash)
+  const data = await selectSessionByAccessHash(session.token_hash)
   if (!data) throw new Error("Could not load session.")
   return { tokens: { accessToken, refreshToken }, data }
 }
@@ -150,12 +150,12 @@ async function selectSessionByAccessHash(
   const [row] = await db
     .select({ session: authSession, user })
     .from(authSession)
-    .innerJoin(user, eq(user.id, authSession.userId))
+    .innerJoin(user, eq(user.id, authSession.user_id))
     .where(
       and(
-        eq(authSession.tokenHash, tokenHash),
-        gt(authSession.expiresAt, now),
-        isNull(authSession.revokedAt),
+        eq(authSession.token_hash, tokenHash),
+        gt(authSession.expires_at, now),
+        isNull(authSession.revoked_at),
       ),
     )
     .limit(1)
@@ -170,8 +170,8 @@ async function selectLegacySessionByHash(
   const [refresh] = await db
     .select({ id: authRefreshToken.id })
     .from(authRefreshToken)
-    .innerJoin(authSession, eq(authSession.id, authRefreshToken.sessionId))
-    .where(eq(authSession.tokenHash, tokenHash))
+    .innerJoin(authSession, eq(authSession.id, authRefreshToken.session_id))
+    .where(eq(authSession.token_hash, tokenHash))
     .limit(1)
   if (refresh) return null
   return selectSessionByAccessHash(tokenHash)
@@ -184,8 +184,8 @@ function sessionDataForRefreshGrace(input: {
   now: Date
 }): RefreshResult | null {
   if (!withinReuseGrace(input.consumedAt, input.now)) return null
-  if (!isAfter(input.session.expiresAt, input.now)) return null
-  if (input.session.revokedAt) return null
+  if (!isAfter(input.session.expires_at, input.now)) return null
+  if (input.session.revoked_at) return null
 
   const data = { session: input.session, user: input.user }
   return { tokens: null, data }
@@ -209,9 +209,9 @@ async function cachedRefreshResult(
     .where(
       and(
         eq(authSession.id, cached.result.data.session.id),
-        eq(authSession.tokenHash, cached.result.data.session.tokenHash),
-        gt(authSession.expiresAt, now),
-        isNull(authSession.revokedAt),
+        eq(authSession.token_hash, cached.result.data.session.token_hash),
+        gt(authSession.expires_at, now),
+        isNull(authSession.revoked_at),
       ),
     )
     .limit(1)
@@ -243,17 +243,17 @@ async function rotateRefreshSession(
         user,
       })
       .from(authRefreshToken)
-      .innerJoin(authSession, eq(authSession.id, authRefreshToken.sessionId))
-      .innerJoin(user, eq(user.id, authSession.userId))
-      .where(eq(authRefreshToken.tokenHash, tokenHash))
+      .innerJoin(authSession, eq(authSession.id, authRefreshToken.session_id))
+      .innerJoin(user, eq(user.id, authSession.user_id))
+      .where(eq(authRefreshToken.token_hash, tokenHash))
       .limit(1)
     if (!row) return null
 
-    if (row.refresh.consumedAt) {
+    if (row.refresh.consumed_at) {
       const grace = sessionDataForRefreshGrace({
         session: row.session,
         user: row.user,
-        consumedAt: row.refresh.consumedAt,
+        consumedAt: row.refresh.consumed_at,
         now,
       })
       if (grace) return grace
@@ -263,22 +263,22 @@ async function rotateRefreshSession(
     }
 
     if (
-      row.refresh.revokedAt ||
-      row.session.revokedAt ||
-      row.refresh.expiresAt.getTime() <= now.getTime() ||
-      row.refresh.absoluteExpiresAt.getTime() <= now.getTime()
+      row.refresh.revoked_at ||
+      row.session.revoked_at ||
+      row.refresh.expires_at.getTime() <= now.getTime() ||
+      row.refresh.absolute_expires_at.getTime() <= now.getTime()
     ) {
       return null
     }
 
     const [consumed] = await tx
       .update(authRefreshToken)
-      .set({ consumedAt: now, lastUsedAt: now, updatedAt: now })
+      .set({ consumed_at: now, last_used_at: now, updated_at: now })
       .where(
         and(
           eq(authRefreshToken.id, row.refresh.id),
-          isNull(authRefreshToken.consumedAt),
-          isNull(authRefreshToken.revokedAt),
+          isNull(authRefreshToken.consumed_at),
+          isNull(authRefreshToken.revoked_at),
         ),
       )
       .returning()
@@ -290,15 +290,15 @@ async function rotateRefreshSession(
           user,
         })
         .from(authRefreshToken)
-        .innerJoin(authSession, eq(authSession.id, authRefreshToken.sessionId))
-        .innerJoin(user, eq(user.id, authSession.userId))
+        .innerJoin(authSession, eq(authSession.id, authRefreshToken.session_id))
+        .innerJoin(user, eq(user.id, authSession.user_id))
         .where(eq(authRefreshToken.id, row.refresh.id))
         .limit(1)
       const grace = current
         ? sessionDataForRefreshGrace({
             session: current.session,
             user: current.user,
-            consumedAt: current.refresh.consumedAt,
+            consumedAt: current.refresh.consumed_at,
             now,
           })
         : null
@@ -312,7 +312,7 @@ async function rotateRefreshSession(
     const refreshToken = generateSessionToken()
     const accessHash = await hashSessionToken(accessToken)
     const refreshHash = await hashSessionToken(refreshToken)
-    const absoluteExpiresAt = row.refresh.absoluteExpiresAt
+    const absoluteExpiresAt = row.refresh.absolute_expires_at
     const refreshExpiresAt = new Date(
       Math.min(
         refreshIdleExpiresAt(now).getTime(),
@@ -321,18 +321,18 @@ async function rotateRefreshSession(
     )
 
     await tx.insert(authRefreshToken).values({
-      sessionId: row.session.id,
-      tokenHash: refreshHash,
-      expiresAt: refreshExpiresAt,
-      absoluteExpiresAt,
+      session_id: row.session.id,
+      token_hash: refreshHash,
+      expires_at: refreshExpiresAt,
+      absolute_expires_at: absoluteExpiresAt,
     })
     const [session] = await tx
       .update(authSession)
       .set({
-        tokenHash: accessHash,
-        expiresAt: accessExpiresAt(now),
-        lastSeenAt: now,
-        updatedAt: now,
+        token_hash: accessHash,
+        expires_at: accessExpiresAt(now),
+        last_seen_at: now,
+        updated_at: now,
       })
       .where(eq(authSession.id, row.session.id))
       .returning()
@@ -436,7 +436,7 @@ export async function deleteCurrentSession(c: Context): Promise<void> {
   if (accessToken) {
     const [deleted] = await db
       .delete(authSession)
-      .where(eq(authSession.tokenHash, await hashSessionToken(accessToken)))
+      .where(eq(authSession.token_hash, await hashSessionToken(accessToken)))
       .returning({ id: authSession.id })
     if (deleted) return
   }
@@ -445,9 +445,9 @@ export async function deleteCurrentSession(c: Context): Promise<void> {
   if (refreshToken) {
     const tokenHash = await hashSessionToken(refreshToken)
     const [row] = await db
-      .select({ sessionId: authRefreshToken.sessionId })
+      .select({ sessionId: authRefreshToken.session_id })
       .from(authRefreshToken)
-      .where(eq(authRefreshToken.tokenHash, tokenHash))
+      .where(eq(authRefreshToken.token_hash, tokenHash))
       .limit(1)
     if (row) {
       await db.delete(authSession).where(eq(authSession.id, row.sessionId))
@@ -459,11 +459,11 @@ export async function deleteCurrentSession(c: Context): Promise<void> {
   if (!legacyToken) return
   await db
     .delete(authSession)
-    .where(eq(authSession.tokenHash, await hashSessionToken(legacyToken)))
+    .where(eq(authSession.token_hash, await hashSessionToken(legacyToken)))
 }
 
 export async function deleteAllSessionsForUser(userId: string): Promise<void> {
-  await db.delete(authSession).where(eq(authSession.userId, userId))
+  await db.delete(authSession).where(eq(authSession.user_id, userId))
 }
 
 export const requireAnySession = createMiddleware<{

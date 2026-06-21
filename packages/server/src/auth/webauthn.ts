@@ -74,7 +74,7 @@ function transports(
 }
 
 async function deleteExpiredChallenges(): Promise<void> {
-  await db.delete(authChallenge).where(lt(authChallenge.expiresAt, new Date()))
+  await db.delete(authChallenge).where(lt(authChallenge.expires_at, new Date()))
 }
 
 let sweepTimer: ReturnType<typeof setInterval> | null = null
@@ -118,7 +118,7 @@ async function createChallenge(input: {
       identifier: input.identifier,
       challenge: input.challenge,
       payload: input.payload,
-      expiresAt: new Date(Date.now() + input.ttlMs),
+      expires_at: new Date(Date.now() + input.ttlMs),
     })
     .returning({ id: authChallenge.id })
   if (!challenge) throw new Error("Could not create passkey challenge.")
@@ -136,7 +136,7 @@ async function consumeChallenge(input: {
       and(
         eq(authChallenge.id, input.challengeId),
         eq(authChallenge.purpose, input.purpose),
-        gt(authChallenge.expiresAt, new Date()),
+        gt(authChallenge.expires_at, new Date()),
       ),
     )
     .returning({
@@ -156,7 +156,7 @@ export async function beginPasskeyRegistration(input: {
 }) {
   const excludeCredentials =
     input.user.passkeys?.map((row) => ({
-      id: row.credentialId,
+      id: row.credential_id,
       transports: transports(row),
     })) ?? []
   const options = await generateRegistrationOptions({
@@ -240,7 +240,7 @@ export async function verifyPasskeyAuthentication(input: {
   const [credential] = await db
     .select({ passkey: userPasskey })
     .from(userPasskey)
-    .where(eq(userPasskey.credentialId, input.response.id))
+    .where(eq(userPasskey.credential_id, input.response.id))
     .limit(1)
   if (!credential) throw new Error("Passkey is not registered.")
 
@@ -250,8 +250,8 @@ export async function verifyPasskeyAuthentication(input: {
     expectedOrigin: expectedOrigins(),
     expectedRPID: rpId(),
     credential: {
-      id: credential.passkey.credentialId,
-      publicKey: base64UrlToBytes(credential.passkey.publicKey) as Uint8Array_,
+      id: credential.passkey.credential_id,
+      publicKey: base64UrlToBytes(credential.passkey.public_key) as Uint8Array_,
       counter: credential.passkey.counter,
       transports: transports(credential.passkey),
     },

@@ -53,9 +53,9 @@ function thumbnailEtag(key: string): string {
 
 type HlsClipRow = {
   id: string
-  sourceKey: string | null
-  sourceSizeBytes: number | null
-  updatedAt: Date | string
+  source_key: string | null
+  source_size_bytes: number | null
+  updated_at: Date | string
   privacy: ClipPrivacy
 }
 
@@ -64,10 +64,15 @@ async function serveDirectHlsFile(
   row: HlsClipRow,
   filename: string,
 ): Promise<Response> {
-  if (!row.sourceKey || !isServableDirectHlsFile(filename)) {
+  if (!row.source_key || !isServableDirectHlsFile(filename)) {
     return notFound(c, "Adaptive stream unavailable")
   }
-  const spec = makeDirectHlsSpec({ ...row, sourceKey: row.sourceKey })
+  const spec = makeDirectHlsSpec({
+    id: row.id,
+    sourceKey: row.source_key,
+    sourceSizeBytes: row.source_size_bytes,
+    updatedAt: row.updated_at,
+  })
   const etag = `"dhls1-${spec.cacheKey}"`
   c.header("ETag", etag)
   c.header("Cache-Control", hlsCacheControl(row.privacy))
@@ -132,10 +137,10 @@ export const clipsPlaybackRoutes = new Hono()
         requestedVariant === "auto" ||
         requestedVariant === "source"
       const selected =
-        wantsSource && row.sourceKey && row.sourceContentType
+        wantsSource && row.source_key && row.source_content_type
           ? {
-              key: row.sourceKey,
-              contentType: row.sourceContentType,
+              key: row.source_key,
+              contentType: row.source_content_type,
               id: "source",
             }
           : null
@@ -188,7 +193,7 @@ export const clipsPlaybackRoutes = new Hono()
     if (!access.accessible) return clipAccessResponse(c, access)
     const row = access.row
 
-    const key = row.thumbKey
+    const key = row.thumb_key
     if (!key) return notFound(c, "No thumbnail")
 
     const thumbCacheControl =
@@ -232,10 +237,10 @@ export const clipsPlaybackRoutes = new Hono()
     const row = access.row
 
     const selected =
-      row.sourceKey && row.sourceContentType
+      row.source_key && row.source_content_type
         ? {
-            key: row.sourceKey,
-            contentType: row.sourceContentType,
+            key: row.source_key,
+            contentType: row.source_content_type,
             filename: downloadFilename(row),
           }
         : null

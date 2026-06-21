@@ -95,9 +95,9 @@ function rankScore(viewerId: string | null, asOf: string) {
   const vid = viewerId ?? null
   return sql<number>`
     (
-      (${clip.likeCount} + 0.1 * ${clip.viewCount})
+      (${clip.like_count} + 0.1 * ${clip.view_count})
       / power(
-          extract(epoch from (${asOf}::timestamp - ${clip.createdAt})) / 3600.0 + 2.0,
+          extract(epoch from (${asOf}::timestamp - ${clip.created_at})) / 3600.0 + 2.0,
           1.5
         )
     )
@@ -107,16 +107,16 @@ function rankScore(viewerId: string | null, asOf: string) {
             CASE WHEN ${vid}::uuid IS NULL THEN 0
                  WHEN EXISTS (
                     SELECT 1 FROM ${follow}
-                    WHERE ${follow.followerId} = ${vid}::uuid
-                      AND ${follow.followingId} = ${clip.authorId}
+                    WHERE ${follow.follower_id} = ${vid}::uuid
+                      AND ${follow.following_id} = ${clip.author_id}
                  ) THEN 1 ELSE 0 END
           )
         + 0.5 * (
             CASE WHEN ${vid}::uuid IS NULL THEN 0
                  WHEN EXISTS (
                     SELECT 1 FROM ${gameFollow}
-                    WHERE ${gameFollow.userId} = ${vid}::uuid
-                      AND ${gameFollow.steamgriddbId} = ${clip.steamgriddbId}
+                    WHERE ${gameFollow.user_id} = ${vid}::uuid
+                      AND ${gameFollow.steamgriddb_id} = ${clip.steamgriddb_id}
                  ) THEN 1 ELSE 0 END
           )
       )
@@ -135,9 +135,9 @@ function recommendedCursorCondition(
       and(
         sql`abs(${score} - ${cursor.score}) < 0.000000000001`,
         or(
-          lt(clip.createdAt, cursor.createdAt),
+          lt(clip.created_at, cursor.createdAt),
           and(
-            eq(clip.createdAt, cursor.createdAt),
+            eq(clip.created_at, cursor.createdAt),
             sql`${clip.id} > ${cursor.id}`,
           ),
         ),
@@ -167,10 +167,10 @@ export async function listRecommendedClips({
   const rows = await db
     .select({ ...clipSelectShape, rankScore: score })
     .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
     .where(and(...pageConditions))
-    .orderBy(sql`${score} desc`, sql`${clip.createdAt} desc`, clip.id)
+    .orderBy(sql`${score} desc`, sql`${clip.created_at} desc`, clip.id)
     .limit(limit + 1)
 
   return recommendedClipPage(rows, limit, asOf)

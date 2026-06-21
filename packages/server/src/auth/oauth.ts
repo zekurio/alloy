@@ -100,7 +100,7 @@ async function startOAuthFlow(input: {
       identifier: state,
       challenge: state,
       payload,
-      expiresAt: new Date(Date.now() + OAUTH_STATE_TTL_MS),
+      expires_at: new Date(Date.now() + OAUTH_STATE_TTL_MS),
     })
     .returning({ id: authChallenge.id })
   if (!challenge) throw new Error("Could not start OAuth flow.")

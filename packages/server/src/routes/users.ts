@@ -67,7 +67,7 @@ export const usersRoute = new Hono()
   })
   .get("/me/account", requireSession, async (c) => {
     const [row] = await db
-      .select({ disabledAt: user.disabledAt })
+      .select({ disabledAt: user.disabled_at })
       .from(user)
       .where(eq(user.id, c.var.viewerId))
       .limit(1)
@@ -77,7 +77,7 @@ export const usersRoute = new Hono()
     const viewerId = c.var.viewerId
     const [row, usedBytes] = await Promise.all([
       db
-        .select({ quotaBytes: user.storageQuotaBytes })
+        .select({ quotaBytes: user.storage_quota_bytes })
         .from(user)
         .where(eq(user.id, viewerId))
         .limit(1),
@@ -94,7 +94,7 @@ export const usersRoute = new Hono()
     await assertCanRemoveAdmin(viewerId)
     await db
       .update(user)
-      .set({ disabledAt: now, status: "disabled", updatedAt: now })
+      .set({ disabled_at: now, status: "disabled", updated_at: now })
       .where(eq(user.id, viewerId))
     await deleteAllSessionsForUser(viewerId)
     clearSessionCookies(c)
@@ -104,7 +104,7 @@ export const usersRoute = new Hono()
     const now = new Date()
     await db
       .update(user)
-      .set({ disabledAt: null, status: "active", updatedAt: now })
+      .set({ disabled_at: null, status: "active", updated_at: now })
       .where(eq(user.id, c.var.viewerId))
     return accountState(c, null)
   })
@@ -112,14 +112,14 @@ export const usersRoute = new Hono()
     const rows = await db
       .select()
       .from(clip)
-      .where(eq(clip.authorId, c.var.viewerId))
-      .orderBy(clip.createdAt)
+      .where(eq(clip.author_id, c.var.viewerId))
+      .orderBy(clip.created_at)
 
     const entries = rows.map((row) => ({
       filename: downloadFilename(row),
       stream: async () => {
-        if (!row.sourceKey) return null
-        const resolved = await clipStorage.resolve(row.sourceKey)
+        if (!row.source_key) return null
+        const resolved = await clipStorage.resolve(row.source_key)
         return resolved?.stream() ?? null
       },
     }))
@@ -147,8 +147,8 @@ export const usersRoute = new Hono()
       const rows = await db
         .select()
         .from(clip)
-        .where(eq(clip.authorId, c.var.viewerId))
-        .orderBy(clip.createdAt)
+        .where(eq(clip.author_id, c.var.viewerId))
+        .orderBy(clip.created_at)
         .limit(limit + 1)
       const batch = rows.slice(0, limit)
 
@@ -283,8 +283,8 @@ export const usersRoute = new Hono()
         .insert(follow)
         .values({
           id: crypto.randomUUID(),
-          followerId: viewerId,
-          followingId: targetId,
+          follower_id: viewerId,
+          following_id: targetId,
         })
         .onConflictDoNothing()
 
@@ -306,8 +306,8 @@ export const usersRoute = new Hono()
         .delete(follow)
         .where(
           and(
-            eq(follow.followerId, viewerId),
-            eq(follow.followingId, target.id),
+            eq(follow.follower_id, viewerId),
+            eq(follow.following_id, target.id),
           ),
         )
       return booleanFlag(c, "following", false)
@@ -332,8 +332,8 @@ export const usersRoute = new Hono()
         .insert(block)
         .values({
           id: crypto.randomUUID(),
-          blockerId: viewerId,
-          blockedId: target.id,
+          blocker_id: viewerId,
+          blocked_id: target.id,
         })
         .onConflictDoNothing()
 
@@ -342,12 +342,12 @@ export const usersRoute = new Hono()
         .where(
           or(
             and(
-              eq(follow.followerId, viewerId),
-              eq(follow.followingId, target.id),
+              eq(follow.follower_id, viewerId),
+              eq(follow.following_id, target.id),
             ),
             and(
-              eq(follow.followerId, target.id),
-              eq(follow.followingId, viewerId),
+              eq(follow.follower_id, target.id),
+              eq(follow.following_id, viewerId),
             ),
           ),
         )

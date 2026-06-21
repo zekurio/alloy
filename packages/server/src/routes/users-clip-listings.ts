@@ -26,10 +26,10 @@ export async function listUserClips(row: UserRow, c: Context) {
   const rows = await db
     .select(clipSelectShape)
     .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
     .where(and(...conditions))
-    .orderBy(desc(clip.createdAt))
+    .orderBy(desc(clip.created_at))
     .limit(50)
   return rows.map(toPublicClipRow)
 }
@@ -41,7 +41,7 @@ export async function listUserGames(
 ) {
   const conditions = await visibleClipConditions(row, c)
 
-  const lastClippedAt = sql<Date>`max(${clip.createdAt})`
+  const lastClippedAt = sql<Date>`max(${clip.created_at})`
 
   const rows = await db
     .select({
@@ -50,10 +50,10 @@ export async function listUserGames(
       lastClippedAt,
     })
     .from(clip)
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .innerJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .innerJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
     .where(and(...conditions))
-    .groupBy(game.steamgriddbId)
+    .groupBy(game.steamgriddb_id)
     .orderBy(sql`${lastClippedAt} desc`, game.name)
     .limit(limit)
     .offset(offset)
@@ -78,11 +78,11 @@ async function visibleClipConditions(
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
   const canSeeUploads = includeOwnerUploads && (isOwner || isAdmin)
   const conditions: SQL[] = [
-    eq(clip.authorId, row.id),
+    eq(clip.author_id, row.id),
     canSeeUploads
       ? inArray(clip.status, ["pending", "processing", "ready", "failed"])
       : eq(clip.status, "ready"),
-    isNull(user.disabledAt),
+    isNull(user.disabled_at),
   ]
   if (!isOwner && !isAdmin) {
     conditions.push(publicClipPrivacyCondition())
@@ -96,9 +96,9 @@ export async function listTaggedClips(row: UserRow, c: Context) {
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
 
   const conditions: SQL[] = [
-    eq(clipMention.mentionedUserId, row.id),
+    eq(clipMention.mentioned_user_id, row.id),
     eq(clip.status, "ready"),
-    isNull(user.disabledAt),
+    isNull(user.disabled_at),
   ]
   if (!isAdmin) {
     conditions.push(publicClipPrivacyCondition())
@@ -107,11 +107,11 @@ export async function listTaggedClips(row: UserRow, c: Context) {
   const rows = await db
     .select(clipSelectShape)
     .from(clipMention)
-    .innerJoin(clip, eq(clipMention.clipId, clip.id))
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+    .innerJoin(clip, eq(clipMention.clip_id, clip.id))
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
     .where(and(...conditions))
-    .orderBy(desc(clip.createdAt))
+    .orderBy(desc(clip.created_at))
     .limit(50)
   return rows.map(toPublicClipRow)
 }
@@ -123,9 +123,9 @@ export async function listLikedClips(row: UserRow, c: Context) {
     (session?.user as { role?: string | null } | undefined)?.role === "admin"
 
   const conditions: SQL[] = [
-    eq(clipLike.userId, row.id),
+    eq(clipLike.user_id, row.id),
     eq(clip.status, "ready"),
-    isNull(user.disabledAt),
+    isNull(user.disabled_at),
   ]
   if (!isAdmin && !isOwner) {
     // Liking required link access, so owners keep unlisted clips in their own
@@ -136,11 +136,11 @@ export async function listLikedClips(row: UserRow, c: Context) {
   const rows = await db
     .select(clipSelectShape)
     .from(clipLike)
-    .innerJoin(clip, eq(clipLike.clipId, clip.id))
-    .innerJoin(user, eq(clip.authorId, user.id))
-    .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+    .innerJoin(clip, eq(clipLike.clip_id, clip.id))
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
     .where(and(...conditions))
-    .orderBy(desc(clipLike.createdAt))
+    .orderBy(desc(clipLike.created_at))
     .limit(50)
   return rows.map(toPublicClipRow)
 }

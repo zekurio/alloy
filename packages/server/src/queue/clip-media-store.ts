@@ -22,9 +22,42 @@ const logger = createLogger("queue")
 const leaseConditions = () =>
   encodeLeaseConditions({
     status: clip.status,
-    encodeProgress: clip.encodeProgress,
-    encodeLockedAt: clip.encodeLockedAt,
+    encodeProgress: clip.encode_progress,
+    encodeLockedAt: clip.encode_locked_at,
   })
+
+const mediaRowSelect = {
+  id: clip.id,
+  authorId: clip.author_id,
+  sourceKey: clip.source_key,
+  sourceContentType: clip.source_content_type,
+  sourceSizeBytes: clip.source_size_bytes,
+  thumbKey: clip.thumb_key,
+  thumbBlurHash: clip.thumb_blur_hash,
+  trimStartMs: clip.trim_start_ms,
+  trimEndMs: clip.trim_end_ms,
+  encodeAttempt: clip.encode_attempt,
+} as const
+
+function sourcePatchToColumns(patch: MediaSourcePatch) {
+  return {
+    source_key: patch.sourceKey,
+    source_content_type: patch.sourceContentType,
+    source_video_codec: patch.sourceVideoCodec,
+    source_audio_codec: patch.sourceAudioCodec,
+    source_size_bytes: patch.sourceSizeBytes,
+    duration_ms: patch.durationMs,
+    width: patch.width,
+    height: patch.height,
+  }
+}
+
+function thumbPatchToColumns(patch: MediaThumbPatch) {
+  return {
+    thumb_key: patch.thumbKey,
+    thumb_blur_hash: patch.thumbBlurHash,
+  }
+}
 
 export const clipMediaStore: MediaStore = {
   target: "clip",
@@ -37,15 +70,15 @@ export const clipMediaStore: MediaStore = {
         and(
           ...leaseConditions(),
           or(
-            isNull(clip.failureReason),
+            isNull(clip.failure_reason),
             lt(
-              clip.updatedAt,
+              clip.updated_at,
               sql`now() - interval '${sql.raw(RETRY_DELAY_INTERVAL)}'`,
             ),
           ),
         ),
       )
-      .orderBy(clip.updatedAt)
+      .orderBy(clip.updated_at)
       .limit(inFlight.size + 1)
     return rows.find((row) => !inFlight.has(row.id))?.id ?? null
   },
@@ -55,22 +88,22 @@ export const clipMediaStore: MediaStore = {
       .update(clip)
       .set({
         status: "processing",
-        encodeRunId: runId,
-        encodeLockedAt: new Date(),
-        encodeAttempt: sql`${clip.encodeAttempt} + 1`,
-        failureReason: null,
-        updatedAt: new Date(),
+        encode_run_id: runId,
+        encode_locked_at: new Date(),
+        encode_attempt: sql`${clip.encode_attempt} + 1`,
+        failure_reason: null,
+        updated_at: new Date(),
       })
       .where(and(eq(clip.id, id), ...leaseConditions()))
-      .returning()
+      .returning(mediaRowSelect)
     return row ?? null
   },
 
   async heartbeat(id, runId) {
     const rows = await db
       .update(clip)
-      .set({ encodeLockedAt: new Date() })
-      .where(and(eq(clip.id, id), eq(clip.encodeRunId, runId)))
+      .set({ encode_locked_at: new Date() })
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return rows.length > 0
   },
@@ -79,15 +112,15 @@ export const clipMediaStore: MediaStore = {
     await db
       .update(clip)
       .set({
-        encodeRunId: null,
-        encodeLockedAt: null,
-        failureReason: reason.slice(0, 500),
-        updatedAt: new Date(),
+        encode_run_id: null,
+        encode_locked_at: null,
+        failure_reason: reason.slice(0, 500),
+        updated_at: new Date(),
       })
       .where(
         and(
           eq(clip.id, id),
-          eq(clip.encodeRunId, runId),
+          eq(clip.encode_run_id, runId),
           ne(clip.status, "ready"),
         ),
       )
@@ -103,7 +136,7 @@ export const clipMediaStore: MediaStore = {
       if (row?.status === "ready") {
         await db
           .update(clip)
-          .set({ failureReason: reason.slice(0, 500), updatedAt: new Date() })
+          .set({ failure_reason: reason.slice(0, 500), updated_at: new Date() })
           .where(eq(clip.id, id))
         return
       }
@@ -111,10 +144,10 @@ export const clipMediaStore: MediaStore = {
         .update(clip)
         .set({
           status: "failed",
-          encodeRunId: null,
-          encodeLockedAt: null,
-          failureReason: reason.slice(0, 500),
-          updatedAt: new Date(),
+          encode_run_id: null,
+          encode_locked_at: null,
+          failure_reason: reason.slice(0, 500),
+          updated_at: new Date(),
         })
         .where(eq(clip.id, id))
       await cleanupTickets({ type: "clip", id }, `terminal clip ${id} upload`)
@@ -128,7 +161,7 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .select({ id: clip.id })
       .from(clip)
-      .where(and(eq(clip.id, id), eq(clip.encodeRunId, runId)))
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .limit(1)
     return Boolean(row)
   },
@@ -138,11 +171,11 @@ export const clipMediaStore: MediaStore = {
       .update(clip)
       .set({
         status: "processing",
-        encodeProgress: 0,
-        failureReason: null,
-        updatedAt: new Date(),
+        encode_progress: 0,
+        failure_reason: null,
+        updated_at: new Date(),
       })
-      .where(and(eq(clip.id, id), eq(clip.encodeRunId, runId)))
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
   },
@@ -150,12 +183,12 @@ export const clipMediaStore: MediaStore = {
   async commitProgress(id, runId, pct) {
     const rows = await db
       .update(clip)
-      .set({ encodeProgress: pct, updatedAt: new Date() })
+      .set({ encode_progress: pct, updated_at: new Date() })
       .where(
         and(
           eq(clip.id, id),
-          eq(clip.encodeRunId, runId),
-          lt(clip.encodeProgress, pct),
+          eq(clip.encode_run_id, runId),
+          lt(clip.encode_progress, pct),
         ),
       )
       .returning({ id: clip.id })
@@ -170,12 +203,12 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .update(clip)
       .set({
-        ...patch,
-        trimStartMs: null,
-        trimEndMs: null,
-        updatedAt: new Date(),
+        ...sourcePatchToColumns(patch),
+        trim_start_ms: null,
+        trim_end_ms: null,
+        updated_at: new Date(),
       })
-      .where(and(eq(clip.id, id), eq(clip.encodeRunId, runId)))
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
   },
@@ -183,8 +216,8 @@ export const clipMediaStore: MediaStore = {
   async commitThumb(id, runId, patch: MediaThumbPatch) {
     const [row] = await db
       .update(clip)
-      .set({ ...patch, updatedAt: new Date() })
-      .where(and(eq(clip.id, id), eq(clip.encodeRunId, runId)))
+      .set({ ...thumbPatchToColumns(patch), updated_at: new Date() })
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
   },
@@ -193,22 +226,23 @@ export const clipMediaStore: MediaStore = {
     const [updated] = await db
       .update(clip)
       .set({
-        ...patch,
+        ...sourcePatchToColumns(patch),
+        ...thumbPatchToColumns(patch),
         status: "ready",
-        encodeProgress: 100,
-        encodeRunId: null,
-        encodeLockedAt: null,
-        failureReason: null,
-        updatedAt: new Date(),
+        encode_progress: 100,
+        encode_run_id: null,
+        encode_locked_at: null,
+        failure_reason: null,
+        updated_at: new Date(),
       })
-      .where(and(eq(clip.id, id), eq(clip.encodeRunId, runId)))
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(updated)
   },
 
   async currentAssetKeys(id) {
     const [row] = await db
-      .select({ sourceKey: clip.sourceKey, thumbKey: clip.thumbKey })
+      .select({ sourceKey: clip.source_key, thumbKey: clip.thumb_key })
       .from(clip)
       .where(eq(clip.id, id))
       .limit(1)
@@ -219,9 +253,9 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .select({
         id: clip.id,
-        sourceKey: clip.sourceKey,
-        sourceSizeBytes: clip.sourceSizeBytes,
-        updatedAt: clip.updatedAt,
+        sourceKey: clip.source_key,
+        sourceSizeBytes: clip.source_size_bytes,
+        updatedAt: clip.updated_at,
       })
       .from(clip)
       .where(eq(clip.id, id))

@@ -25,7 +25,7 @@ export async function publishClipUpsert(
 
 export async function publishClipUpsertById(clipId: string): Promise<void> {
   const [owner] = await db
-    .select({ authorId: clip.authorId })
+    .select({ authorId: clip.author_id })
     .from(clip)
     .where(eq(clip.id, clipId))
     .limit(1)

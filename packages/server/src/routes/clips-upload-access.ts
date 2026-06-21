@@ -47,7 +47,7 @@ export async function selectClipForMutation(
   if (!row) return { response: notFound(c) }
 
   const canMutate =
-    row.authorId === input.viewerId ||
+    row.author_id === input.viewerId ||
     (input.allowAdmin === true && (await canAdminMutateClip(c)))
   if (!canMutate) return { response: forbidden(c) }
 

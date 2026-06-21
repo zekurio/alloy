@@ -28,81 +28,78 @@ export { CLIP_PRIVACY, CLIP_STATUS }
 export const clip = pgTable(
   "clip",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
+    id: uuid().primaryKey().defaultRandom(),
 
-    authorId: uuid("author_id")
+    author_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
 
-    title: text("title").notNull(),
-    description: text("description"),
+    title: text().notNull(),
+    description: text(),
     // Non-authoritative display snapshot. `steamgriddbId` is null for desktop
     // captures, unknown games, and low-confidence detector guesses.
-    game: text("game"),
-    steamgriddbId: integer("steamgriddb_id").references(
-      () => game.steamgriddbId,
-      {
-        onDelete: "set null",
-      },
-    ),
+    game: text(),
+    steamgriddb_id: integer().references(() => game.steamgriddb_id, {
+      onDelete: "set null",
+    }),
 
     // One of `CLIP_PRIVACY`, validated via zod on write paths.
-    privacy: text("privacy").$type<ClipPrivacy>().notNull().default("public"),
+    privacy: text().$type<ClipPrivacy>().notNull().default("public"),
 
-    sourceKey: text("source_key"),
-    sourceContentType: text("source_content_type"),
-    sourceVideoCodec: text("source_video_codec"),
-    sourceAudioCodec: text("source_audio_codec"),
-    sourceSizeBytes: bigint("source_size_bytes", { mode: "number" }),
+    source_key: text(),
+    source_content_type: text(),
+    source_video_codec: text(),
+    source_audio_codec: text(),
+    source_size_bytes: bigint({ mode: "number" }),
     // Nullable: populated by the finalize step after probing. Clips in
     // 'pending' or 'failed' status may be missing some or all of these.
-    durationMs: integer("duration_ms"),
-    width: integer("width"),
-    height: integer("height"),
+    duration_ms: integer(),
+    width: integer(),
+    height: integer(),
 
     // Poster image. The desktop client uploads a rendered JPEG + BlurHash on
     // upload; media processing validates and publishes it. A missing thumbnail
     // leaves this null rather than failing the clip — the UI shows a placeholder.
-    thumbKey: text("thumb_key"),
-    thumbBlurHash: text("thumb_blur_hash"),
+    thumb_key: text(),
+    thumb_blur_hash: text(),
 
-    viewCount: integer("view_count").notNull().default(0),
-    likeCount: integer("like_count").notNull().default(0),
-    commentCount: integer("comment_count").notNull().default(0),
+    view_count: integer().notNull().default(0),
+    like_count: integer().notNull().default(0),
+    comment_count: integer().notNull().default(0),
 
     // Pending owner-requested trim (source-time ms). The media pipeline cuts
     // the stored source to this range on its next run and clears both.
-    trimStartMs: integer("trim_start_ms"),
-    trimEndMs: integer("trim_end_ms"),
+    trim_start_ms: integer(),
+    trim_end_ms: integer(),
 
-    status: text("status").$type<ClipStatus>().notNull().default("pending"),
-    encodeProgress: integer("encode_progress").notNull().default(0),
-    encodeRunId: uuid("encode_run_id"),
-    encodeLockedAt: timestamp("encode_locked_at"),
-    encodeAttempt: integer("encode_attempt").notNull().default(0),
-    failureReason: text("failure_reason"),
+    status: text().$type<ClipStatus>().notNull().default("pending"),
+    encode_progress: integer().notNull().default(0),
+    encode_run_id: uuid(),
+    encode_locked_at: timestamp(),
+    encode_attempt: integer().notNull().default(0),
+    failure_reason: text(),
 
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    created_at: timestamp().notNull().defaultNow(),
+    updated_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    index("clip_author_idx").on(t.authorId),
+    index("clip_author_idx").on(t.author_id),
     // Home feed hot path: "newest public (or public+unlisted) clips".
     // Filter on privacy, sort by createdAt — composite supports both.
-    index("clip_privacy_created_idx").on(t.privacy, t.createdAt),
+    index("clip_privacy_created_idx").on(t.privacy, t.created_at),
     // Top clips are the same for every viewer: only ready public rows
     // participate, so keep the ranking columns first and in route order.
     index("clip_ready_visible_top_idx")
-      .on(t.viewCount.desc(), t.likeCount.desc(), t.createdAt.desc(), t.id)
+      .on(t.view_count.desc(), t.like_count.desc(), t.created_at.desc(), t.id)
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
-    index("clip_steamgriddb_created_idx").on(t.steamgriddbId, t.createdAt),
+    index("clip_steamgriddb_created_idx").on(t.steamgriddb_id, t.created_at),
     index("clip_ready_visible_steamgriddb_top_idx")
       .on(
-        t.steamgriddbId,
-        t.viewCount.desc(),
-        t.likeCount.desc(),
-        t.createdAt.desc(),
+        t.steamgriddb_id,
+        t.view_count.desc(),
+        t.like_count.desc(),
+        t.created_at.desc(),
         t.id,
       )
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
@@ -116,7 +113,7 @@ export const clip = pgTable(
     ),
     check(
       "clip_source_size_bytes_safe_check",
-      sql`${t.sourceSizeBytes} is null or (${t.sourceSizeBytes} >= 0 and ${t.sourceSizeBytes} <= 9007199254740991)`,
+      sql`${t.source_size_bytes} is null or (${t.source_size_bytes} >= 0 and ${t.source_size_bytes} <= 9007199254740991)`,
     ),
   ],
 )
@@ -124,104 +121,104 @@ export const clip = pgTable(
 export const clipLike = pgTable(
   "clip_like",
   {
-    clipId: uuid("clip_id")
+    clip_id: uuid()
       .notNull()
       .references(() => clip.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    user_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+    created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.clipId, t.userId] }),
+    primaryKey({ columns: [t.clip_id, t.user_id] }),
     // Inverse lookup: "clips this user liked" for a future liked-feed.
-    index("clip_like_user_idx").on(t.userId),
+    index("clip_like_user_idx").on(t.user_id),
   ],
 )
 
 export const clipComment = pgTable(
   "clip_comment",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    clipId: uuid("clip_id")
+    id: uuid().primaryKey().defaultRandom(),
+    clip_id: uuid()
       .notNull()
       .references(() => clip.id, { onDelete: "cascade" }),
-    authorId: uuid("author_id")
+    author_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    parentId: uuid("parent_id"),
-    body: text("body").notNull(),
-    likeCount: integer("like_count").notNull().default(0),
+    parent_id: uuid(),
+    body: text().notNull(),
+    like_count: integer().notNull().default(0),
     // Null = not pinned. At most one pinned per clip — enforced by a
     // partial unique index below plus a transaction on the pin route.
-    pinnedAt: timestamp("pinned_at"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    editedAt: timestamp("edited_at"),
+    pinned_at: timestamp(),
+    created_at: timestamp().notNull().defaultNow(),
+    edited_at: timestamp(),
   },
   (t) => [
     foreignKey({
-      columns: [t.parentId],
+      columns: [t.parent_id],
       foreignColumns: [t.id],
       name: "clip_comment_parent_fk",
     }).onDelete("cascade"),
     // Main read path: top-level comments for a clip ordered by createdAt,
     // then replies batched per top-level id.
-    index("clip_comment_clip_created_idx").on(t.clipId, t.createdAt),
-    index("clip_comment_parent_idx").on(t.parentId),
+    index("clip_comment_clip_created_idx").on(t.clip_id, t.created_at),
+    index("clip_comment_parent_idx").on(t.parent_id),
     // One pinned comment per clip. Partial index so non-pinned rows
     // don't conflict on the NULL.
     uniqueIndex("clip_comment_one_pin_per_clip_idx")
-      .on(t.clipId)
-      .where(sql`${t.pinnedAt} IS NOT NULL`),
+      .on(t.clip_id)
+      .where(sql`${t.pinned_at} IS NOT NULL`),
   ],
 )
 
 export const clipCommentLike = pgTable(
   "clip_comment_like",
   {
-    commentId: uuid("comment_id")
+    comment_id: uuid()
       .notNull()
       .references(() => clipComment.id, { onDelete: "cascade" }),
-    userId: uuid("user_id")
+    user_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+    created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.commentId, t.userId] }),
+    primaryKey({ columns: [t.comment_id, t.user_id] }),
     // Reverse lookup: "did the clip author like this comment?" — the
     // list query joins on (commentId, clip.authorId).
-    index("clip_comment_like_user_idx").on(t.userId),
+    index("clip_comment_like_user_idx").on(t.user_id),
   ],
 )
 
 export const clipMention = pgTable(
   "clip_mention",
   {
-    clipId: uuid("clip_id")
+    clip_id: uuid()
       .notNull()
       .references(() => clip.id, { onDelete: "cascade" }),
-    mentionedUserId: uuid("mentioned_user_id")
+    mentioned_user_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
   (t) => [
-    primaryKey({ columns: [t.clipId, t.mentionedUserId] }),
-    index("clip_mention_user_idx").on(t.mentionedUserId),
+    primaryKey({ columns: [t.clip_id, t.mentioned_user_id] }),
+    index("clip_mention_user_idx").on(t.mentioned_user_id),
   ],
 )
 
 export const clipTag = pgTable(
   "clip_tag",
   {
-    clipId: uuid("clip_id")
+    clip_id: uuid()
       .notNull()
       .references(() => clip.id, { onDelete: "cascade" }),
     // Bare, lowercase-canonical hashtag (no leading '#').
-    tag: text("tag").notNull(),
+    tag: text().notNull(),
   },
   (t) => [
-    primaryKey({ columns: [t.clipId, t.tag] }),
+    primaryKey({ columns: [t.clip_id, t.tag] }),
     // Reverse lookup for the /tags/:tag page and the tag filter.
     index("clip_tag_tag_idx").on(t.tag),
   ],
@@ -230,21 +227,21 @@ export const clipTag = pgTable(
 export const clipView = pgTable(
   "clip_view",
   {
-    clipId: uuid("clip_id")
+    clip_id: uuid()
       .notNull()
       .references(() => clip.id, { onDelete: "cascade" }),
-    viewerKey: text("viewer_key").notNull(),
+    viewer_key: text().notNull(),
     // Populated only for signed-in viewers. The chip-ordering query
     // needs this to join on user id without parsing `viewerKey`.
-    userId: uuid("user_id").references(() => user.id, {
+    user_id: uuid().references(() => user.id, {
       onDelete: "set null",
     }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
+    created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.clipId, t.viewerKey] }),
+    primaryKey({ columns: [t.clip_id, t.viewer_key] }),
     // Chip bar: "games the viewer has watched clips in".
-    index("clip_view_user_clip_idx").on(t.userId, t.clipId),
+    index("clip_view_user_clip_idx").on(t.user_id, t.clip_id),
   ],
 )
 

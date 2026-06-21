@@ -16,7 +16,7 @@ export async function deleteClipRowAndAssets(
   await cancelClipMediaProcessing(row.id)
   await db.delete(clip).where(eq(clip.id, row.id))
 
-  const keys = [row.sourceKey, row.thumbKey].filter((key): key is string =>
+  const keys = [row.source_key, row.thumb_key].filter((key): key is string =>
     Boolean(key),
   )
   for (const key of keys) {
@@ -31,5 +31,5 @@ export async function deleteClipRowAndAssets(
     `clip ${row.id} staged upload`,
   )
 
-  publishClipRemove(row.authorId, row.id)
+  publishClipRemove(row.author_id, row.id)
 }

@@ -60,14 +60,14 @@ async function updateAdminUser(id: string, patch: z.infer<typeof UserPatch>) {
   }
 
   const now = new Date()
-  const update: Partial<typeof user.$inferInsert> = { updatedAt: now }
+  const update: Partial<typeof user.$inferInsert> = { updated_at: now }
   if (patch.role !== undefined) update.role = patch.role
   if (patch.status !== undefined) {
     update.status = patch.status
-    update.disabledAt = patch.status === "disabled" ? now : null
+    update.disabled_at = patch.status === "disabled" ? now : null
   }
   if (patch.storageQuotaBytes !== undefined) {
-    update.storageQuotaBytes = patch.storageQuotaBytes
+    update.storage_quota_bytes = patch.storageQuotaBytes
   }
 
   const [updated] = await db

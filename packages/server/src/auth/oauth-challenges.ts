@@ -11,7 +11,7 @@ export async function deleteExpiredOAuthChallenges(): Promise<void> {
     .where(
       and(
         eq(authChallenge.purpose, OAUTH_PURPOSE),
-        lt(authChallenge.expiresAt, new Date()),
+        lt(authChallenge.expires_at, new Date()),
       ),
     )
 }
@@ -24,7 +24,7 @@ export async function consumeOAuthChallenge(state: string) {
         eq(authChallenge.purpose, OAUTH_PURPOSE),
         eq(authChallenge.identifier, state),
         eq(authChallenge.challenge, state),
-        gt(authChallenge.expiresAt, new Date()),
+        gt(authChallenge.expires_at, new Date()),
       ),
     )
     .returning()

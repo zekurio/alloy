@@ -51,8 +51,8 @@ export const tagsRoute = new Hono()
     const rows = await db
       .select({ tag: clipTag.tag, usage })
       .from(clipTag)
-      .innerJoin(clip, eq(clipTag.clipId, clip.id))
-      .innerJoin(user, eq(clip.authorId, user.id))
+      .innerJoin(clip, eq(clipTag.clip_id, clip.id))
+      .innerJoin(user, eq(clip.author_id, user.id))
       .where(
         and(
           ...publicClipListingConditions(),
@@ -79,7 +79,7 @@ export const tagsRoute = new Hono()
 
       const conditions = publicTagClipConditions(tag)
       if (steamgriddbId) {
-        conditions.push(eq(clip.steamgriddbId, steamgriddbId))
+        conditions.push(eq(clip.steamgriddb_id, steamgriddbId))
       }
       const cursorCondition = clipListCursorCondition(parsedCursor, sort)
       if (cursorCondition) conditions.push(cursorCondition)
@@ -87,8 +87,8 @@ export const tagsRoute = new Hono()
       const rows = await db
         .select(clipSelectShape)
         .from(clip)
-        .innerJoin(user, eq(clip.authorId, user.id))
-        .leftJoin(game, eq(clip.steamgriddbId, game.steamgriddbId))
+        .innerJoin(user, eq(clip.author_id, user.id))
+        .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
         .where(and(...conditions))
         .orderBy(...clipListOrderBy(sort))
         .limit(limit + 1)
@@ -105,7 +105,7 @@ export const tagsRoute = new Hono()
       db
         .select({ clipCount: sql<number>`count(${clip.id})::int` })
         .from(clip)
-        .innerJoin(user, eq(clip.authorId, user.id))
+        .innerJoin(user, eq(clip.author_id, user.id))
         .where(and(...conditions)),
       db
         .select({
@@ -113,10 +113,10 @@ export const tagsRoute = new Hono()
           clipCount: sql<number>`count(${clip.id})::int`,
         })
         .from(game)
-        .innerJoin(clip, eq(clip.steamgriddbId, game.steamgriddbId))
-        .innerJoin(user, eq(clip.authorId, user.id))
+        .innerJoin(clip, eq(clip.steamgriddb_id, game.steamgriddb_id))
+        .innerJoin(user, eq(clip.author_id, user.id))
         .where(and(...conditions))
-        .groupBy(game.steamgriddbId)
+        .groupBy(game.steamgriddb_id)
         .orderBy(sql`count(${clip.id}) desc`, game.name),
     ])
 

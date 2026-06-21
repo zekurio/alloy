@@ -56,7 +56,7 @@ export async function resolveCommentEngagementTarget(
   c: Context,
 ) {
   const [row] = await db
-    .select({ clipId: clipComment.clipId })
+    .select({ clipId: clipComment.clip_id })
     .from(clipComment)
     .where(eq(clipComment.id, commentId))
     .limit(1)
@@ -97,8 +97,8 @@ export async function listClipComments({
   }
 
   const topLevelConditions: SQL[] = [
-    eq(clipComment.clipId, clipId),
-    isNull(clipComment.parentId),
+    eq(clipComment.clip_id, clipId),
+    isNull(clipComment.parent_id),
   ]
   const cursorCondition = parsedCursor
     ? commentCursorCondition(parsedCursor, sort)
@@ -108,7 +108,7 @@ export async function listClipComments({
   const pageRows = await db
     .select(commentSelectShape)
     .from(clipComment)
-    .innerJoin(user, eq(clipComment.authorId, user.id))
+    .innerJoin(user, eq(clipComment.author_id, user.id))
     .where(and(...topLevelConditions))
     .orderBy(...commentOrderBy(sort))
     .limit(limit + 1)
@@ -124,9 +124,9 @@ export async function listClipComments({
     const descendants = await db
       .select(commentSelectShape)
       .from(clipComment)
-      .innerJoin(user, eq(clipComment.authorId, user.id))
-      .where(inArray(clipComment.parentId, batch))
-      .orderBy(desc(clipComment.createdAt), clipComment.id)
+      .innerJoin(user, eq(clipComment.author_id, user.id))
+      .where(inArray(clipComment.parent_id, batch))
+      .orderBy(desc(clipComment.created_at), clipComment.id)
     for (const row of descendants) {
       if (seen.has(row.id)) continue
       seen.add(row.id)
@@ -147,13 +147,13 @@ export async function listClipComments({
 
 const commentSelectShape = {
   id: clipComment.id,
-  clipId: clipComment.clipId,
-  parentId: clipComment.parentId,
+  clipId: clipComment.clip_id,
+  parentId: clipComment.parent_id,
   body: clipComment.body,
-  likeCount: clipComment.likeCount,
-  pinnedAt: clipComment.pinnedAt,
-  createdAt: clipComment.createdAt,
-  editedAt: clipComment.editedAt,
+  likeCount: clipComment.like_count,
+  pinnedAt: clipComment.pinned_at,
+  createdAt: clipComment.created_at,
+  editedAt: clipComment.edited_at,
   author: userSummarySelectShape,
 } as const
 
@@ -216,32 +216,32 @@ function encodeCommentCursor(row: CommentRowRecord): string {
 }
 
 function commentOrderBy(sort: "top" | "new") {
-  const pinnedRank = sql<number>`case when ${clipComment.pinnedAt} is null then 0 else 1 end`
+  const pinnedRank = sql<number>`case when ${clipComment.pinned_at} is null then 0 else 1 end`
   return sort === "top"
     ? [
         sql`${pinnedRank} desc`,
-        desc(clipComment.likeCount),
-        desc(clipComment.createdAt),
+        desc(clipComment.like_count),
+        desc(clipComment.created_at),
         clipComment.id,
       ]
-    : [sql`${pinnedRank} desc`, desc(clipComment.createdAt), clipComment.id]
+    : [sql`${pinnedRank} desc`, desc(clipComment.created_at), clipComment.id]
 }
 
 function commentCursorCondition(cursor: CommentCursor, sort: "top" | "new") {
   const pinnedValue = cursor.pinned ? 1 : 0
-  const pinnedRank = sql<number>`case when ${clipComment.pinnedAt} is null then 0 else 1 end`
+  const pinnedRank = sql<number>`case when ${clipComment.pinned_at} is null then 0 else 1 end`
   const afterCreatedAt = or(
-    sql`${clipComment.createdAt} < ${cursor.createdAt}`,
+    sql`${clipComment.created_at} < ${cursor.createdAt}`,
     and(
-      eq(clipComment.createdAt, cursor.createdAt),
+      eq(clipComment.created_at, cursor.createdAt),
       sql`${clipComment.id} > ${cursor.id}`,
     ),
   )
   const afterSort =
     sort === "top"
       ? or(
-          sql`${clipComment.likeCount} < ${cursor.likeCount}`,
-          and(eq(clipComment.likeCount, cursor.likeCount), afterCreatedAt),
+          sql`${clipComment.like_count} < ${cursor.likeCount}`,
+          and(eq(clipComment.like_count, cursor.likeCount), afterCreatedAt),
         )
       : afterCreatedAt
   return or(
@@ -262,11 +262,11 @@ async function buildCommentTree(
   if (ids.length > 0) {
     const likes = await db
       .select({
-        commentId: clipCommentLike.commentId,
-        userId: clipCommentLike.userId,
+        commentId: clipCommentLike.comment_id,
+        userId: clipCommentLike.user_id,
       })
       .from(clipCommentLike)
-      .where(inArray(clipCommentLike.commentId, ids))
+      .where(inArray(clipCommentLike.comment_id, ids))
     for (const l of likes) {
       if (l.userId === clipAuthorId) likedByAuthor.add(l.commentId)
       if (viewerId && l.userId === viewerId) likedByViewer.add(l.commentId)
