@@ -24,6 +24,7 @@ lib.cleanSourceWith {
       || name == "data"
       || name == "devenv.local.nix"
       || name == "dist"
+      || name == "nix"
       || name == "node_modules"
       || lib.hasSuffix ".pyc" (toString path)
     );
