@@ -1,14 +1,15 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useMemo } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 import { pickEmptyStateKaomoji } from "@/lib/kaomoji"
 
-interface EmptyStateProps extends React.ComponentProps<"div"> {
+interface EmptyStateProps extends ComponentProps<"div"> {
   seed?: string | number
   title: string
-  hint?: React.ReactNode
+  hint?: ReactNode
   /** Optional trailing action node (button, link). */
-  action?: React.ReactNode
+  action?: ReactNode
   size?: "sm" | "md" | "lg"
 }
 
@@ -33,7 +34,7 @@ export function EmptyState({
   className,
   ...props
 }: EmptyStateProps) {
-  const face = React.useMemo(() => pickEmptyStateKaomoji(seed), [seed])
+  const face = useMemo(() => pickEmptyStateKaomoji(seed), [seed])
 
   return (
     <div

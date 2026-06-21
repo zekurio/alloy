@@ -1,9 +1,10 @@
 import { type QueueClip } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
-import * as React from "react"
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react"
+import type { MutableRefObject } from "react"
 
 import { absoluteClipHref } from "@/lib/app-paths"
 import { removeClipDownload, useClipDownloads } from "@/lib/clip-downloads"
@@ -47,15 +48,15 @@ function revokeUploadThumbUrl(url: string | null | undefined, label: string) {
 
 function useServerQueueSync(
   serverQueue: QueueClip[],
-  activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
-  retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
+  activeRef: MutableRefObject<Map<string, ActiveUpload>>,
+  retainedThumbsRef: MutableRefObject<Map<string, string>>,
   bump: () => void,
 ) {
   const invalidateClips = useInvalidateClips()
   const invalidateGames = useInvalidateGames()
-  const readyNotifiedRef = React.useRef<Set<string>>(new Set())
-  const thumbNotifiedRef = React.useRef<Set<string>>(new Set())
-  React.useEffect(() => {
+  const readyNotifiedRef = useRef<Set<string>>(new Set())
+  const thumbNotifiedRef = useRef<Set<string>>(new Set())
+  useEffect(() => {
     if (serverQueue.length === 0) return
     const rowsById = new Map(serverQueue.map((row) => [row.id, row]))
     let changed = false
@@ -102,14 +103,14 @@ function useServerQueueSync(
 }
 
 function useCancelRow(
-  activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
-  retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
+  activeRef: MutableRefObject<Map<string, ActiveUpload>>,
+  retainedThumbsRef: MutableRefObject<Map<string, string>>,
   bump: () => void,
 ) {
   const queryClient = useQueryClient()
   const invalidateClips = useInvalidateClips()
   const invalidateGames = useInvalidateGames()
-  return React.useCallback(
+  return useCallback(
     (localId: string | null, clipId: string | null) => {
       if (localId) {
         const entry = activeRef.current.get(localId)
@@ -167,12 +168,12 @@ function useCancelRow(
 }
 
 function useRunUpload(
-  activeRef: React.MutableRefObject<Map<string, ActiveUpload>>,
-  retainedThumbsRef: React.MutableRefObject<Map<string, string>>,
+  activeRef: MutableRefObject<Map<string, ActiveUpload>>,
+  retainedThumbsRef: MutableRefObject<Map<string, string>>,
   bump: () => void,
 ) {
   const invalidateClips = useInvalidateClips()
-  const finishActiveUpload = React.useCallback(
+  const finishActiveUpload = useCallback(
     (entry: ActiveUpload) => {
       if (entry.clipId && entry.thumbUrl) {
         retainedThumbsRef.current.set(entry.clipId, entry.thumbUrl)
@@ -184,7 +185,7 @@ function useRunUpload(
     },
     [activeRef, retainedThumbsRef, bump],
   )
-  const failActiveUpload = React.useCallback(
+  const failActiveUpload = useCallback(
     (entry: ActiveUpload, err: unknown) => {
       if ((err as Error).name === "AbortError") {
         revokeUploadThumbUrl(entry.thumbUrl, "local upload thumbnail URL")
@@ -214,7 +215,7 @@ function useRunUpload(
     },
     [activeRef, bump, invalidateClips],
   )
-  return React.useCallback(
+  return useCallback(
     async (input: PublishClipInput) => {
       const localId = `local-${Math.random().toString(36).slice(2)}`
       const deferred = isDeferredPublishPayload(input)
@@ -295,21 +296,21 @@ function useRunUpload(
 }
 
 export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
-  const activeRef = React.useRef<Map<string, ActiveUpload>>(new Map())
-  const retainedThumbsRef = React.useRef<Map<string, string>>(new Map())
-  const [queueVersion, bumpState] = React.useReducer((n: number) => n + 1, 0)
-  const bump = React.useCallback(() => bumpState(), [])
+  const activeRef = useRef<Map<string, ActiveUpload>>(new Map())
+  const retainedThumbsRef = useRef<Map<string, string>>(new Map())
+  const [queueVersion, bumpState] = useReducer((n: number) => n + 1, 0)
+  const bump = useCallback(() => bumpState(), [])
 
   const { data: serverQueueData } = useUploadQueueQuery({
     enabled: true,
   })
   const serverQueueHydrated = serverQueueData !== undefined
-  const serverQueue = React.useMemo<QueueClip[]>(
+  const serverQueue = useMemo<QueueClip[]>(
     () => serverQueueData ?? [],
     [serverQueueData],
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       for (const active of activeRef.current.values()) {
         revokeUploadThumbUrl(active.thumbUrl, "local upload thumbnail URL")
@@ -326,7 +327,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
   const runUpload = useRunUpload(activeRef, retainedThumbsRef, bump)
   const cancelRow = useCancelRow(activeRef, retainedThumbsRef, bump)
   const downloads = useClipDownloads()
-  const releaseRetainedThumb = React.useCallback(
+  const releaseRetainedThumb = useCallback(
     (clipId: string) => {
       const retained = retainedThumbsRef.current.get(clipId)
       if (!retained) return
@@ -341,7 +342,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
     serverQueueHydrated,
   )
 
-  const queue: QueueItem[] = React.useMemo(() => {
+  const queue: QueueItem[] = useMemo(() => {
     const localEntries = Array.from(activeRef.current.values())
     const localClipIds = new Set(
       localEntries.map((e) => e.clipId).filter((x): x is string => Boolean(x)),
@@ -416,8 +417,8 @@ async function copyClipLink(row: QueueClip): Promise<void> {
     action: "copy uploaded clip link",
   })
   if (copied) {
-    toast.success(tx("Link copied"))
+    toast.success(t("Link copied"))
   } else {
-    toast.error(tx("Couldn't copy link"))
+    toast.error(t("Couldn't copy link"))
   }
 }

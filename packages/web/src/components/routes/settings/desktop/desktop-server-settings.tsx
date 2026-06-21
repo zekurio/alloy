@@ -1,11 +1,12 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { CheckCircle2Icon, LogInIcon, PlusIcon, Trash2Icon } from "lucide-react"
-import * as React from "react"
+import { useEffect, useState } from "react"
+import type { FormEvent } from "react"
 import { flushSync } from "react-dom"
 
 import { alloyDesktop, type DesktopSavedServer } from "./desktop-bridge"
@@ -15,17 +16,15 @@ type Phase = "idle" | "loading" | "connecting"
 export function DesktopServerSettings() {
   const desktop = alloyDesktop()
   const serverApi = desktop?.servers
-  const [servers, setServers] = React.useState<DesktopSavedServer[]>([])
-  const [url, setUrl] = React.useState("")
-  const [phase, setPhase] = React.useState<Phase>("loading")
-  const [connectingServerUrl, setConnectingServerUrl] = React.useState<
-    string | null
-  >(null)
-  const [currentServerUrl, setCurrentServerUrl] = React.useState<string | null>(
+  const [servers, setServers] = useState<DesktopSavedServer[]>([])
+  const [url, setUrl] = useState("")
+  const [phase, setPhase] = useState<Phase>("loading")
+  const [connectingServerUrl, setConnectingServerUrl] = useState<string | null>(
     null,
   )
+  const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false
 
     async function load() {
@@ -41,7 +40,7 @@ export function DesktopServerSettings() {
         setCurrentServerUrl(currentServer)
       } catch (cause) {
         if (!cancelled) {
-          toast.error(errorText(cause, tx("Couldn't load servers.")))
+          toast.error(errorText(cause, t("Couldn't load servers.")))
         }
       } finally {
         if (!cancelled) setPhase("idle")
@@ -79,13 +78,13 @@ export function DesktopServerSettings() {
       setConnectingServerUrl(null)
       setPhase("idle")
     } catch (cause) {
-      toast.error(errorText(cause, tx("Couldn't connect to server.")))
+      toast.error(errorText(cause, t("Couldn't connect to server.")))
       setConnectingServerUrl(null)
       setPhase("idle")
     }
   }
 
-  async function handleSubmit(event: React.FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     await connectTo(url)
   }
@@ -96,7 +95,7 @@ export function DesktopServerSettings() {
       const nextServers = await activeServerApi.forgetServer(serverUrl)
       setServers(nextServers)
     } catch (cause) {
-      toast.error(errorText(cause, tx("Couldn't forget server.")))
+      toast.error(errorText(cause, t("Couldn't forget server.")))
     }
   }
 
@@ -136,7 +135,7 @@ function ServerConnectForm({
   busy: boolean
   connectingServerUrl: string | null
   setUrl: (url: string) => void
-  onSubmit: (event: React.FormEvent) => void
+  onSubmit: (event: FormEvent) => void
 }) {
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
@@ -147,19 +146,19 @@ function ServerConnectForm({
         value={url}
         onChange={(event) => setUrl(event.target.value)}
         disabled={busy}
-        aria-label={tx("Server URL")}
+        aria-label={t("Server URL")}
         className="sm:flex-1"
       />
       <Button type="submit" disabled={busy || !url.trim()}>
         {busy && sameServerTarget(connectingServerUrl, url) ? (
           <>
             <Spinner />
-            {tx("Connecting...")}
+            {t("Connecting...")}
           </>
         ) : (
           <>
             <PlusIcon className="size-4" />
-            {tx("Add server")}
+            {t("Add server")}
           </>
         )}
       </Button>
@@ -188,7 +187,7 @@ function SavedServerList({
     return (
       <div className="text-foreground-muted flex h-16 items-center justify-center gap-2 text-sm">
         <Spinner />
-        {tx("Loading servers")}
+        {t("Loading servers")}
       </div>
     )
   }
@@ -196,7 +195,7 @@ function SavedServerList({
   if (servers.length === 0) {
     return (
       <p className="text-foreground-muted text-sm">
-        {tx("No saved servers yet.")}
+        {t("No saved servers yet.")}
       </p>
     )
   }
@@ -246,12 +245,12 @@ function SavedServerRow({
           {current ? (
             <span className="text-success inline-flex shrink-0 items-center gap-1 text-xs font-medium">
               <CheckCircle2Icon className="size-3.5" />
-              {tx("Current")}
+              {t("Current")}
             </span>
           ) : null}
         </div>
         <div className="text-foreground-faint mt-0.5 text-xs">
-          {tx("Last used")}
+          {t("Last used")}
           {formatLastConnected(server.lastConnectedAt)}
         </div>
       </div>
@@ -266,12 +265,12 @@ function SavedServerRow({
         {connecting ? (
           <>
             <Spinner />
-            {tx("Connecting...")}
+            {t("Connecting...")}
           </>
         ) : (
           <>
             <LogInIcon className="size-3.5" />
-            {tx("Switch")}
+            {t("Switch")}
           </>
         )}
       </Button>
@@ -279,10 +278,10 @@ function SavedServerRow({
         type="button"
         variant="ghost"
         size="icon-sm"
-        aria-label={tx("Forget {serverUrl}", {
+        aria-label={t("Forget {serverUrl}", {
           serverUrl: server.serverUrl,
         })}
-        title={tx("Forget server")}
+        title={t("Forget server")}
         disabled={busy || current}
         onClick={() => void forgetServer(server.serverUrl)}
         className={cn(!current && "hover:text-danger")}
@@ -307,7 +306,7 @@ function sameServerTarget(left: string | null, right: string): boolean {
 
 function formatLastConnected(value: string): string {
   const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return tx("recently")
+  if (Number.isNaN(date.getTime())) return t("recently")
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",

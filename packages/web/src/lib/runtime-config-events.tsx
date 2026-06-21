@@ -1,5 +1,5 @@
 import { useRouter } from "@tanstack/react-router"
-import * as React from "react"
+import { useEffect } from "react"
 
 import { invalidateAuthConfig } from "./session-suspense"
 
@@ -32,7 +32,7 @@ function subscribeRuntimeConfigUpdates(
 export function RuntimeConfigEvents() {
   const router = useRouter()
 
-  React.useEffect(
+  useEffect(
     () =>
       subscribeRuntimeConfigUpdates((event) => {
         if (event.authConfigChanged) void router.invalidate()

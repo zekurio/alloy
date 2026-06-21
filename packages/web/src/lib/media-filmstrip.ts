@@ -1,5 +1,6 @@
 import { ALL_FORMATS, CanvasSink, Input } from "mediabunny"
-import * as React from "react"
+import { useEffect, useState } from "react"
+import type { RefObject } from "react"
 
 import { createCaptureSource } from "@/lib/capture-source"
 
@@ -56,8 +57,8 @@ export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
 }
 
 export function useMediaFilmstrip(mediaUrl: string | null): MediaFilmstrip {
-  const [strip, setStrip] = React.useState(EMPTY_FILMSTRIP)
-  React.useEffect(() => {
+  const [strip, setStrip] = useState(EMPTY_FILMSTRIP)
+  useEffect(() => {
     setStrip(EMPTY_FILMSTRIP)
     if (!mediaUrl) return
     let cancelled = false
@@ -76,14 +77,14 @@ export function useMediaFilmstrip(mediaUrl: string | null): MediaFilmstrip {
  * floor for timelines that need enough cells to keep time buckets aligned.
  */
 export function useFilmstripCellCount(
-  stripRef: React.RefObject<HTMLElement | null>,
+  stripRef: RefObject<HTMLElement | null>,
   aspect: number,
   maxCells: number,
   minCells = 1,
 ): number {
   const minimum = clampCellCount(minCells, maxCells)
-  const [count, setCount] = React.useState(minimum)
-  React.useEffect(() => {
+  const [count, setCount] = useState(minimum)
+  useEffect(() => {
     setCount(minimum)
     const el = stripRef.current
     if (!el) return

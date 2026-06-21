@@ -1,9 +1,9 @@
 import { cn } from "@alloy/ui/lib/utils"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import * as React from "react"
+import type { ComponentProps } from "react"
 
-function AppSidebar({ className, ...props }: React.ComponentProps<"aside">) {
+function AppSidebar({ className, ...props }: ComponentProps<"aside">) {
   return (
     <aside
       data-slot="app-sidebar"
@@ -17,7 +17,7 @@ function AppSidebar({ className, ...props }: React.ComponentProps<"aside">) {
   )
 }
 
-function AppSidebarGroup({ className, ...props }: React.ComponentProps<"div">) {
+function AppSidebarGroup({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="app-sidebar-group"
@@ -95,10 +95,7 @@ function AppSidebarItem(props: NavItemProps) {
   return useNavItem(SIDEBAR_ITEM_STYLE, props)
 }
 
-function AppSidebarFooter({
-  className,
-  ...props
-}: React.ComponentProps<"div">) {
+function AppSidebarFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="app-sidebar-footer"
@@ -111,7 +108,7 @@ function AppSidebarFooter({
   )
 }
 
-function AppBottomNav({ className, ...props }: React.ComponentProps<"nav">) {
+function AppBottomNav({ className, ...props }: ComponentProps<"nav">) {
   return (
     <nav
       data-slot="app-bottom-nav"

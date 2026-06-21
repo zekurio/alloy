@@ -1,8 +1,9 @@
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { cn } from "@alloy/ui/lib/utils"
-import { Button as ButtonPrimitive } from "@base-ui/react/button"
+import { Button } from "@base-ui/react/button"
 import type { VariantProps } from "class-variance-authority"
-import * as React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { RefObject } from "react"
 
 type FormValidityControl = Element & {
   readonly validity: ValidityState
@@ -16,11 +17,7 @@ function isFormValidityControl(
 }
 
 function hasInvalidFormControl(form: HTMLFormElement) {
-  const { elements } = form
-
-  for (let i = 0; i < elements.length; i++) {
-    const control = elements.item(i)
-
+  for (const control of Array.from(form.elements)) {
     if (
       control &&
       isFormValidityControl(control) &&
@@ -35,12 +32,12 @@ function hasInvalidFormControl(form: HTMLFormElement) {
 }
 
 function useSubmitButtonValidity(
-  buttonRef: React.RefObject<HTMLButtonElement | null>,
+  buttonRef: RefObject<HTMLButtonElement | null>,
   enabled: boolean,
 ) {
-  const [formInvalid, setFormInvalid] = React.useState(false)
+  const [formInvalid, setFormInvalid] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!enabled) {
       setFormInvalid(false)
       return
@@ -93,7 +90,7 @@ function useSubmitButtonValidity(
   return formInvalid
 }
 
-function Button({
+function ButtonRoot({
   className,
   disabled,
   ref,
@@ -101,16 +98,16 @@ function Button({
   variant,
   size,
   ...props
-}: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
-  const buttonRef = React.useRef<HTMLButtonElement | null>(null)
-  const setRef = React.useCallback(
+}: Button.Props & VariantProps<typeof buttonVariants>) {
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
+  const setRef = useCallback(
     (node: HTMLButtonElement | null) => {
       buttonRef.current = node
       if (typeof ref === "function") {
         ref(node)
-      } else if (ref) {
-        ref.current = node
+        return
       }
+      if (ref) ref.current = node
     },
     [ref],
   )
@@ -118,7 +115,7 @@ function Button({
   const formInvalid = useSubmitButtonValidity(buttonRef, disableWhenFormInvalid)
 
   return (
-    <ButtonPrimitive
+    <Button
       data-slot="button"
       data-variant={variant ?? "primary"}
       ref={setRef}
@@ -130,4 +127,4 @@ function Button({
   )
 }
 
-export { Button }
+export { ButtonRoot as Button }

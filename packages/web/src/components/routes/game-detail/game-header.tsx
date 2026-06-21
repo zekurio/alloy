@@ -1,8 +1,8 @@
 import type { GameDetail } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useCallback, useState } from "react"
 
 import { GameLogo } from "@/components/game/game-logo"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
@@ -25,10 +25,10 @@ export function GameHeader({ game }: { game: GameDetail }) {
 }
 
 function GameHeroBanner({ game }: { game: GameDetail }) {
-  const [failedHeaderUrls, setFailedHeaderUrls] = React.useState<
-    readonly string[]
-  >([])
-  const [failedLogoUrl, setFailedLogoUrl] = React.useState<string | null>(null)
+  const [failedHeaderUrls, setFailedHeaderUrls] = useState<readonly string[]>(
+    [],
+  )
+  const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null)
   const headerUrl =
     game.heroUrl && !failedHeaderUrls.includes(game.heroUrl)
       ? game.heroUrl
@@ -36,7 +36,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
   const logoUrl =
     game.logoUrl && failedLogoUrl !== game.logoUrl ? game.logoUrl : null
   const year = releaseYear(game.releaseDate)
-  const onHeaderError = React.useCallback((url: string) => {
+  const onHeaderError = useCallback((url: string) => {
     setFailedHeaderUrls((previous) =>
       previous.includes(url) ? previous : [...previous, url],
     )
@@ -109,7 +109,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
               <>
                 <HeroDot />
                 <span>
-                  {tx("Released")} {year}
+                  {t("Released")} {year}
                 </span>
               </>
             ) : null}

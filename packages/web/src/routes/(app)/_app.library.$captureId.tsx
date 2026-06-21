@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import * as React from "react"
+import { Suspense } from "react"
 
 import { LibraryEditorPage } from "@/components/routes/library/library-editor-page"
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
@@ -20,8 +20,8 @@ function LibraryCaptureRoute() {
   const { captureId } = Route.useParams()
   const { prompt } = Route.useSearch()
   return (
-    <React.Suspense fallback={null}>
+    <Suspense fallback={null}>
       <LibraryEditorPage captureId={captureId} promptGame={prompt === "game"} />
-    </React.Suspense>
+    </Suspense>
   )
 }

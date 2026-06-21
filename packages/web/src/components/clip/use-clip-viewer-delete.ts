@@ -1,8 +1,8 @@
 import type { ClipRow } from "@alloy/api"
 import type { RecordingEvent } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
-import * as React from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { clientLogger } from "@/lib/client-log"
 import { useDeleteClipMutation } from "@/lib/clip-queries"
@@ -23,11 +23,11 @@ export function useClipViewerDelete({
 }) {
   const localItem = useLocalClipLibraryItem(row.id)
   const deleteMutation = useDeleteClipMutation()
-  const [open, setOpen] = React.useState(false)
-  const [deletingLocal, setDeletingLocal] = React.useState(false)
+  const [open, setOpen] = useState(false)
+  const [deletingLocal, setDeletingLocal] = useState(false)
   const pending = deleteMutation.isPending || deletingLocal
 
-  const confirm = React.useCallback(
+  const confirm = useCallback(
     (deleteLocal: boolean) => {
       deleteMutation.mutate(
         { clipId: row.id },
@@ -41,12 +41,12 @@ export function useClipViewerDelete({
                 setDeletingLocal,
               })
             } else {
-              toast.success(tx("Clip deleted"))
+              toast.success(t("Clip deleted"))
             }
             setOpen(false)
             onDeleted?.()
           },
-          onError: () => toast.error(tx("Couldn't delete clip")),
+          onError: () => toast.error(t("Couldn't delete clip")),
         },
       )
     },
@@ -56,7 +56,7 @@ export function useClipViewerDelete({
   return {
     open,
     setOpen,
-    openDialog: React.useCallback(() => setOpen(true), []),
+    openDialog: useCallback(() => setOpen(true), []),
     pending,
     localItem,
     confirm,
@@ -64,11 +64,9 @@ export function useClipViewerDelete({
 }
 
 function useLocalClipLibraryItem(clipId: string): RecordingLibraryItem | null {
-  const [localItem, setLocalItem] = React.useState<RecordingLibraryItem | null>(
-    null,
-  )
+  const [localItem, setLocalItem] = useState<RecordingLibraryItem | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     const desktop = alloyDesktop()
     if (!desktop) {
       setLocalItem(null)

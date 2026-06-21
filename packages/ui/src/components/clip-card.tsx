@@ -6,13 +6,19 @@ import {
 } from "@alloy/ui/components/avatar"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type {
+  ComponentProps,
+  MouseEvent,
+  MouseEventHandler,
+  ReactNode,
+  Ref,
+} from "react"
 
 import { ClipCardThumb } from "./clip-card-thumb"
 
-interface ClipCardProps extends React.ComponentProps<"article"> {
+interface ClipCardProps extends ComponentProps<"article"> {
   title: string
-  titleContent?: React.ReactNode
+  titleContent?: ReactNode
   author: string
   authorImage?: string | null
   authorInitials?: string
@@ -29,7 +35,7 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   likes: string
   comments?: string | number
   postedAt?: string
-  metaContent?: React.ReactNode
+  metaContent?: ReactNode
   thumbnail?: string
   thumbnailFallback?: string
   thumbnailBlurHash?: string | null
@@ -51,27 +57,25 @@ interface ClipCardProps extends React.ComponentProps<"article"> {
   thumbnailLabel?: string
   /** Accessible label for the title button. */
   titleLabel?: string
-  thumbnailRef?: React.Ref<HTMLButtonElement>
+  thumbnailRef?: Ref<HTMLButtonElement>
   metaVariant?: "default" | "showcase"
   /**
    * Floating controls over the thumbnail's top-right corner (e.g. an actions
    * menu). Rendered as a sibling of the thumbnail button, so interactive
    * elements stay valid HTML.
    */
-  thumbnailOverlay?: React.ReactNode
+  thumbnailOverlay?: ReactNode
 }
 
 type ClipCardLabelLinkProps = {
   href?: string
   className: string
-  children: React.ReactNode
-  onClick: React.MouseEventHandler<HTMLAnchorElement>
+  children: ReactNode
+  onClick: MouseEventHandler<HTMLAnchorElement>
   ariaLabel?: string
 }
 
-type ClipCardLabelLinkRenderer = (
-  props: ClipCardLabelLinkProps,
-) => React.ReactNode
+type ClipCardLabelLinkRenderer = (props: ClipCardLabelLinkProps) => ReactNode
 
 function ClipCard({
   className,
@@ -338,7 +342,7 @@ function ClipCardTitleButton({
   label: string | undefined
   onClick: (() => void) | undefined
   onIntent: (() => void) | undefined
-  children: React.ReactNode
+  children: ReactNode
 }) {
   if (!onClick) return children
 
@@ -396,7 +400,7 @@ function GameLabel({
   return <span className={className}>{content}</span>
 }
 
-function stopLabelLinkPropagation(event: React.MouseEvent<HTMLAnchorElement>) {
+function stopLabelLinkPropagation(event: MouseEvent<HTMLAnchorElement>) {
   event.stopPropagation()
 }
 

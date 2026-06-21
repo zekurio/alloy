@@ -1,11 +1,12 @@
 import type { GameRow, UserSearchResult } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Textarea } from "@alloy/ui/components/textarea"
 import { cn } from "@alloy/ui/lib/utils"
 import { ChevronRightIcon, Gamepad2Icon, PencilIcon } from "lucide-react"
-import * as React from "react"
+import { useEffect, useRef, useState } from "react"
+import type { ReactNode } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
@@ -74,8 +75,8 @@ export function ClipMetadataEditor({
           onChange={(e) => onTitleChange(e.target.value)}
           maxLength={CLIP_TITLE_MAX}
           disabled={disabled}
-          placeholder={tx("Untitled")}
-          aria-label={tx("Title")}
+          placeholder={t("Untitled")}
+          aria-label={t("Title")}
           aria-invalid={titleInvalid || undefined}
           className={cn(
             "w-full border-b border-transparent bg-transparent pb-1.5 pr-7 text-lg font-semibold text-foreground",
@@ -101,7 +102,7 @@ export function ClipMetadataEditor({
           maxLength={CLIP_DESCRIPTION_MAX}
           disabled={disabled}
           rows={2}
-          placeholder={tx("Add a description…")}
+          placeholder={t("Add a description…")}
           className={cn(
             "min-h-0 resize-none rounded-none border-0 bg-transparent px-0 py-0 pr-7 text-sm leading-relaxed",
             "hover:border-0 hover:bg-transparent focus-visible:border-0 focus-visible:bg-transparent focus-visible:ring-0",
@@ -115,7 +116,7 @@ export function ClipMetadataEditor({
         )}
       </div>
 
-      <ClipMetadataSection label={tx("Game")}>
+      <ClipMetadataSection label={t("Game")}>
         <GamePickerChip
           value={game}
           onChange={onGameChange}
@@ -125,7 +126,7 @@ export function ClipMetadataEditor({
         />
       </ClipMetadataSection>
 
-      <ClipMetadataSection label={tx("People")}>
+      <ClipMetadataSection label={t("People")}>
         <PeoplePicker
           value={mentions}
           onChange={onMentionsChange}
@@ -134,7 +135,7 @@ export function ClipMetadataEditor({
       </ClipMetadataSection>
 
       {showTags ? (
-        <ClipMetadataSection label={tx("Hashtags")}>
+        <ClipMetadataSection label={t("Hashtags")}>
           <HashtagPicker
             value={tags}
             onChange={onTagsChange}
@@ -151,7 +152,7 @@ export function ClipMetadataSection({
   children,
 }: {
   label: string
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -176,11 +177,11 @@ function GamePickerChip({
   invalid: boolean
   promptOnMount: boolean
 }) {
-  const [editing, setEditing] = React.useState(false)
-  const autoFocusUsedRef = React.useRef(false)
-  const rootRef = React.useRef<HTMLDivElement>(null)
+  const [editing, setEditing] = useState(false)
+  const autoFocusUsedRef = useRef(false)
+  const rootRef = useRef<HTMLDivElement>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (autoFocusUsedRef.current || disabled || !promptOnMount || value) return
     autoFocusUsedRef.current = true
     setEditing(true)
@@ -205,7 +206,7 @@ function GamePickerChip({
           }}
           disabled={disabled}
           invalid={invalid && !value}
-          placeholder={tx("Search game...")}
+          placeholder={t("Search game...")}
           allowClear={false}
           focusOnMount
           className="w-full"
@@ -242,7 +243,7 @@ function GamePickerChip({
           <>
             <Gamepad2Icon />
             <span className="min-w-0 flex-1 truncate text-left">
-              {tx("Add game")}
+              {t("Add game")}
             </span>
           </>
         )}

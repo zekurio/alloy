@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { queryOptions } from "@tanstack/react-query"
 
 import { authClient } from "./auth-client"
@@ -16,7 +16,7 @@ export function linkedAccountsQueryOptions() {
     queryFn: async () => {
       const { data, error } = await authClient.listAccounts()
       if (error)
-        throw new Error(errorMessage(error, tx("Couldn't load accounts")))
+        throw new Error(errorMessage(error, t("Couldn't load accounts")))
       return data ?? []
     },
   })
@@ -28,7 +28,7 @@ export function passkeysQueryOptions() {
     queryFn: async () => {
       const { data, error } = await authClient.passkey.listUserPasskeys()
       if (error)
-        throw new Error(errorMessage(error, tx("Couldn't load passkeys")))
+        throw new Error(errorMessage(error, t("Couldn't load passkeys")))
       return data ?? []
     },
   })

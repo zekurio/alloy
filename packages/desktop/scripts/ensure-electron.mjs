@@ -67,8 +67,8 @@ function runElectronInstaller() {
 
 async function installWindowsElectronFromCache() {
   const electronRequire = createRequire(join(electronDir, "install.js"))
-  const { downloadArtifact } = electronRequire("@electron/get")
-  const artifactPath = await downloadArtifact({
+  const electronGet = electronRequire("@electron/get")
+  const artifactPath = await electronGet.downloadArtifact({
     version: electronPackage.version,
     artifactName: "electron",
     platform: "win32",

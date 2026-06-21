@@ -1,4 +1,4 @@
-import { Pool, type PoolConfig } from "pg"
+import { Pool } from "pg"
 
 type CreatePostgresPoolOptions = {
   max?: number
@@ -11,12 +11,10 @@ export function createPostgresPool(
   databaseUrl: string,
   options: CreatePostgresPoolOptions = {},
 ): Pool {
-  const config: PoolConfig = {
+  return new Pool({
     connectionString: databaseUrl,
     connectionTimeoutMillis: DEFAULT_CONNECT_TIMEOUT_MS,
     idleTimeoutMillis: 0,
     max: options.max ?? DEFAULT_POOL_MAX,
-  }
-
-  return new Pool(config)
+  })
 }

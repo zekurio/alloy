@@ -1,7 +1,7 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type { ComponentProps } from "react"
 
-function AppShell({ className, ...props }: React.ComponentProps<"div">) {
+function AppShell({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="app-shell"
@@ -29,7 +29,7 @@ function AppShell({ className, ...props }: React.ComponentProps<"div">) {
  * Main content region. Scrolls vertically; responsive side padding
  * (16px mobile -> 24px desktop) stays even on every side.
  */
-function AppMain({ className, ...props }: React.ComponentProps<"main">) {
+function AppMain({ className, ...props }: ComponentProps<"main">) {
   return (
     <main
       data-slot="app-main"
@@ -54,7 +54,7 @@ function DividerV({
   h = 20,
   style,
   ...props
-}: React.ComponentProps<"span"> & { h?: number }) {
+}: ComponentProps<"span"> & { h?: number }) {
   return (
     <span
       aria-hidden

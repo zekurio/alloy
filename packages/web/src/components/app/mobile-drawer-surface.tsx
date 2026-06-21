@@ -1,6 +1,6 @@
 import { DrawerHandle } from "@alloy/ui/components/drawer"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type { ComponentProps } from "react"
 
 export const mobileDrawerContentClass =
   "max-h-[92dvh] border-t-white/[0.08] bg-surface text-foreground"
@@ -8,7 +8,7 @@ export const mobileDrawerContentClass =
 export function MobileDrawerHandle({
   className,
   ...props
-}: React.ComponentProps<"div">) {
+}: ComponentProps<"div">) {
   return (
     <DrawerHandle
       className={cn(

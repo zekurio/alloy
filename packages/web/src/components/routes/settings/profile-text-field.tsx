@@ -5,7 +5,7 @@ import {
   FieldLabel,
 } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
-import * as React from "react"
+import type { ReactNode } from "react"
 
 type ProfileFieldController = {
   name: string
@@ -32,7 +32,7 @@ export function ProfileTextField({
   type,
 }: {
   autoComplete: string
-  description?: React.ReactNode
+  description?: ReactNode
   field: ProfileFieldController
   isSubmitting: boolean
   label: string

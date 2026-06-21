@@ -1,5 +1,5 @@
 import { type ClipRow, clipStreamUrl } from "@alloy/api"
-import * as React from "react"
+import { useSyncExternalStore } from "react"
 
 import { clientLogger } from "@/lib/client-log"
 import {
@@ -76,7 +76,7 @@ function subscribe(listener: () => void): () => void {
 
 /** Every known download (active and finished-but-undismissed). */
 export function useClipDownloads(): RecordingLibraryDownload[] {
-  return React.useSyncExternalStore(subscribe, () => snapshot)
+  return useSyncExternalStore(subscribe, () => snapshot)
 }
 
 /** State of one clip's download, or null when none is known. */

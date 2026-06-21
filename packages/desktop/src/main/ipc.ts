@@ -1,5 +1,5 @@
 import { normalizeRecordingSettings } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 
 import type { ConnectResult, ProbeResult } from "@/shared/ipc"
@@ -186,9 +186,9 @@ function registerServerIpc(windows: Windows): void {
     const window = requireControllableWindow(windows, event)
     if (window.isMaximized()) {
       window.unmaximize()
-    } else {
-      window.maximize()
+      return
     }
+    window.maximize()
   })
   ipcMain.handle(IPC.closeWindow, (event) => {
     const window = requireControllableWindow(windows, event)
@@ -235,7 +235,7 @@ function registerRecordingStorageIpc(windows: Windows): void {
       requireMainSender(windows, event)
       const parent = BrowserWindow.fromWebContents(event.sender)
       const options: Electron.OpenDialogOptions = {
-        title: tx("Choose capture folder"),
+        title: t("Choose capture folder"),
         properties: ["openDirectory", "createDirectory"],
       }
       const result = await (parent

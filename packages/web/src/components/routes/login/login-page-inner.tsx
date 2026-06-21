@@ -1,10 +1,10 @@
 import type { PublicAuthConfig } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link } from "@tanstack/react-router"
 import { LogInIcon } from "lucide-react"
-import * as React from "react"
+import { useEffect, useState } from "react"
 
 import { authClient } from "@/lib/auth-client"
 import { useLoginRedirect } from "@/lib/auth-hooks"
@@ -44,7 +44,7 @@ export function LoginForm({
     <>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
-          {tx("Sign in")}
+          {t("Sign in")}
         </h2>
       </div>
 
@@ -61,7 +61,7 @@ export function LoginForm({
 
       {passkeyReady && passkeyEnabled && !passkeySupported ? (
         <p className="text-foreground-muted mt-4 text-sm">
-          {tx(
+          {t(
             "Passkey sign-in is enabled, but this browser does not support passkeys.",
           )}
         </p>
@@ -69,12 +69,12 @@ export function LoginForm({
 
       {canSignUp ? (
         <p className="text-foreground-muted mt-6 text-center text-sm">
-          {tx("Don't have an account?")}{" "}
+          {t("Don't have an account?")}{" "}
           <Link
             to="/sign-up"
             className="text-foreground hover:text-accent font-medium underline-offset-4 hover:underline"
           >
-            {tx("Create one")}
+            {t("Create one")}
           </Link>
         </p>
       ) : null}
@@ -88,7 +88,7 @@ export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
     usePasskeySupport()
   const desktop = alloyDesktop()
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!desktop && config.passkeyEnabled && passkeyReady && passkeySupported) {
       authClient.signIn.preloadPasskey()
     }
@@ -112,12 +112,12 @@ export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
 
 function DesktopLoginPage() {
   const desktop = alloyDesktop()
-  const [serverUrl, setServerUrl] = React.useState<string | null>(null)
-  const [loaded, setLoaded] = React.useState(false)
-  const [pending, setPending] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [serverUrl, setServerUrl] = useState<string | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  React.useEffect(() => {
+  useEffect(() => {
     let cancelled = false
 
     async function loadServer() {
@@ -158,16 +158,16 @@ function DesktopLoginPage() {
     <>
       <div className="mb-8 space-y-1.5">
         <h2 className="text-foreground text-2xl font-semibold tracking-[-0.02em]">
-          {tx("Signed out")}
+          {t("Signed out")}
         </h2>
         <p className="text-foreground-muted text-sm">
           {serverLabel
-            ? tx("Sign in to {serverLabel} in your browser to continue.", {
+            ? t("Sign in to {serverLabel} in your browser to continue.", {
                 serverLabel,
               })
             : loaded
-              ? tx("Choose an Alloy server to sign in.")
-              : tx("Loading saved server...")}
+              ? t("Choose an Alloy server to sign in.")
+              : t("Loading saved server...")}
         </p>
       </div>
       {error ? (
@@ -185,7 +185,7 @@ function DesktopLoginPage() {
       >
         {pending ? <Spinner /> : <LogInIcon className="size-4" />}
         <span className="truncate">
-          {serverUrl ? tx("Sign in to saved server") : tx("Choose server")}
+          {serverUrl ? t("Sign in to saved server") : t("Choose server")}
         </span>
       </Button>
     </>

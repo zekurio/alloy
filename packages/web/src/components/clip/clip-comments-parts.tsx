@@ -1,5 +1,5 @@
 import { COMMENT_BODY_MAX_LENGTH } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +37,8 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react"
-import * as React from "react"
+import { useState } from "react"
+import type { Ref } from "react"
 
 import { formatCount } from "@/lib/number-format"
 import type { UserChipData } from "@/lib/user-display"
@@ -66,10 +67,10 @@ export function CommentsSortDropdown({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" size="sm" aria-label={tx("Sort comments")}>
+          <Button variant="ghost" size="sm" aria-label={t("Sort comments")}>
             <ArrowUpDownIcon className="size-4" />
-            {tx("Sort by:")}
-            {sort === "top" ? tx("Top") : tx("New")}
+            {t("Sort by:")}
+            {sort === "top" ? t("Top") : t("New")}
           </Button>
         }
       />
@@ -78,13 +79,13 @@ export function CommentsSortDropdown({
           data-active={sort === "top" ? "true" : undefined}
           onClick={() => onSortChange("top")}
         >
-          {tx("Top")}
+          {t("Top")}
         </DropdownMenuItem>
         <DropdownMenuItem
           data-active={sort === "new" ? "true" : undefined}
           onClick={() => onSortChange("new")}
         >
-          {tx("New")}
+          {t("New")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -99,20 +100,20 @@ export function CommentAuthHint({ canSignUp }: { canSignUp: boolean }) {
           to="/login"
           className="text-foreground font-medium hover:underline"
         >
-          {tx("Log in")}
+          {t("Log in")}
         </Link>
         {canSignUp ? (
           <>
-            {tx("or")}
+            {t("or")}
             <Link
               to="/sign-up"
               className="text-foreground font-medium hover:underline"
             >
-              {tx("create an account")}
+              {t("create an account")}
             </Link>
           </>
         ) : null}{" "}
-        {tx("to comment")}
+        {t("to comment")}
       </p>
     </div>
   )
@@ -124,7 +125,7 @@ export function CommentComposer({
   meAvatarStyle,
   inputRef,
   replyingToName,
-  placeholder = tx("Add a comment…"),
+  placeholder = t("Add a comment…"),
   submitting,
   canSubmit,
   onDraftChange,
@@ -135,7 +136,7 @@ export function CommentComposer({
   draft: string
   me: UserChipData
   meAvatarStyle: { background: string; color: string }
-  inputRef?: React.Ref<HTMLTextAreaElement>
+  inputRef?: Ref<HTMLTextAreaElement>
   replyingToName?: string | null
   placeholder?: string
   submitting: boolean
@@ -156,7 +157,7 @@ export function CommentComposer({
       {replyingToName ? (
         <div className="bg-surface-raised text-foreground-faint flex items-center justify-between gap-2 rounded-sm px-2 py-1 text-xs">
           <span className="min-w-0 truncate">
-            {tx("Replying to")}{" "}
+            {t("Replying to")}{" "}
             <span className="text-foreground font-medium">
               {replyingToName}
             </span>
@@ -166,7 +167,7 @@ export function CommentComposer({
               variant="ghost"
               size="icon-sm"
               type="button"
-              aria-label={tx("Cancel reply")}
+              aria-label={t("Cancel reply")}
               onClick={onCancelReply}
               disabled={submitting}
               className="size-6 shrink-0"
@@ -207,7 +208,7 @@ export function CommentComposer({
           <Button
             variant="ghost"
             size="icon-sm"
-            aria-label={tx("Emoji")}
+            aria-label={t("Emoji")}
             type="button"
           >
             <SmileIcon />
@@ -223,7 +224,7 @@ export function CommentComposer({
               onClick={onClear}
               disabled={submitting}
             >
-              {tx("Cancel")}
+              {t("Cancel")}
             </Button>
           ) : null}
           <Button
@@ -234,7 +235,7 @@ export function CommentComposer({
             onClick={onSubmit}
           >
             <SendHorizontalIcon />
-            {submitting ? tx("Posting…") : tx("Post")}
+            {submitting ? t("Posting…") : t("Post")}
           </Button>
         </div>
       </div>
@@ -270,7 +271,7 @@ export function CommentBody({
         {body}
         {edited ? (
           <span className="text-foreground-faint ml-1 text-xs">
-            {tx("(edited)")}
+            {t("(edited)")}
           </span>
         ) : null}
       </p>
@@ -286,7 +287,7 @@ export function CommentBody({
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
           )}
         >
-          {expanded ? tx("Show less") : tx("Show more")}
+          {expanded ? t("Show less") : t("Show more")}
         </button>
       ) : null}
     </>
@@ -347,7 +348,7 @@ export function CommentActions({
             "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
           )}
         >
-          {tx("Reply")}
+          {t("Reply")}
         </button>
       ) : null}
 
@@ -366,18 +367,18 @@ export function CommentActions({
         >
           {pinned ? (
             <>
-              <PinOffIcon className="size-3" /> {tx("Unpin")}
+              <PinOffIcon className="size-3" /> {t("Unpin")}
             </>
           ) : (
             <>
-              <PinIcon className="size-3" /> {tx("Pin")}
+              <PinIcon className="size-3" /> {t("Pin")}
             </>
           )}
         </button>
       ) : pinned ? (
         <span className="bg-accent-soft text-accent inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-semibold">
           <PinIcon className="size-3" />
-          {tx("Pinned by author")}
+          {t("Pinned by author")}
         </span>
       ) : null}
 
@@ -387,11 +388,11 @@ export function CommentActions({
           onClick={onToggleReplies}
           aria-label={
             repliesOpen
-              ? tx("Hide {count} {label}", {
+              ? t("Hide {count} {label}", {
                   count: replyCount,
                   label: tp(replyCount, "reply", "replies"),
                 })
-              : tx("View {count} {label}", {
+              : t("View {count} {label}", {
                   count: replyCount,
                   label: tp(replyCount, "reply", "replies"),
                 })
@@ -405,7 +406,7 @@ export function CommentActions({
         >
           {compactReplies ? (
             repliesOpen ? (
-              tx("Hide")
+              t("Hide")
             ) : (
               <>
                 <MessageSquareIcon className="size-3" />
@@ -413,12 +414,12 @@ export function CommentActions({
               </>
             )
           ) : repliesOpen ? (
-            tx("Hide {count} {label}", {
+            t("Hide {count} {label}", {
               count: formatCount(replyCount),
               label: tp(replyCount, "reply", "replies"),
             })
           ) : (
-            tx("View {count} {label}", {
+            t("View {count} {label}", {
               count: formatCount(replyCount),
               label: tp(replyCount, "reply", "replies"),
             })
@@ -462,10 +463,10 @@ function AuthorLikeBadge() {
   return (
     <span
       className="bg-accent-soft text-accent inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs leading-4 font-semibold"
-      title={tx("Liked by the clip author")}
+      title={t("Liked by the clip author")}
     >
       <HeartIcon className="size-3 fill-current" />
-      {tx("Author")}
+      {t("Author")}
     </span>
   )
 }
@@ -487,7 +488,7 @@ export function CommentMenu({
   onCopyLink: () => void
   onDelete: () => void
 }) {
-  const [alertOpen, setAlertOpen] = React.useState(false)
+  const [alertOpen, setAlertOpen] = useState(false)
 
   return (
     <>
@@ -498,7 +499,7 @@ export function CommentMenu({
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label={tx("Comment actions")}
+              aria-label={t("Comment actions")}
               className="-mr-1 ml-auto"
             >
               <MoreHorizontalIcon className="size-4" />
@@ -507,14 +508,14 @@ export function CommentMenu({
         />
         <DropdownMenuContent align="end" sideOffset={6}>
           <DropdownMenuItem onClick={onCopyLink}>
-            <LinkIcon /> {tx("Copy link")}
+            <LinkIcon /> {t("Copy link")}
           </DropdownMenuItem>
           {canDelete ? (
             <DropdownMenuItem
               variant="destructive"
               onClick={() => setAlertOpen(true)}
             >
-              <Trash2Icon /> {tx("Delete")}
+              <Trash2Icon /> {t("Delete")}
             </DropdownMenuItem>
           ) : null}
         </DropdownMenuContent>
@@ -528,14 +529,14 @@ export function CommentMenu({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deletePending}>
-              {tx("Cancel")}
+              {t("Cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={onDelete}
               disabled={deletePending}
             >
-              {deletePending ? tx("Deleting…") : deleteActionLabel}
+              {deletePending ? t("Deleting…") : deleteActionLabel}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

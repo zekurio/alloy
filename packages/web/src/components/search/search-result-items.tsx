@@ -1,5 +1,5 @@
 import { type ClipRow, clipThumbnailUrl, type GameListRow } from "@alloy/api"
-import { t as tx, tp } from "@alloy/i18n"
+import { t, tp } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -12,7 +12,8 @@ import {
   CLIP_MEDIA_VIEWPORT_CLASS,
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useEffect, useState } from "react"
+import type { ReactNode } from "react"
 
 import { clipGameLabel } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
@@ -28,8 +29,8 @@ export function GroupLabel({
   icon,
   children,
 }: {
-  icon: React.ReactNode
-  children: React.ReactNode
+  icon: ReactNode
+  children: ReactNode
 }) {
   return (
     <div
@@ -56,7 +57,7 @@ function RowButton({
   active: boolean
   onHover: () => void
   onSelect: () => void
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <button
@@ -96,10 +97,10 @@ function SearchMediaThumb({
   className?: string
   imageClassName?: string
 }) {
-  const [primaryFailed, setPrimaryFailed] = React.useState(false)
-  const [fallbackFailed, setFallbackFailed] = React.useState(false)
+  const [primaryFailed, setPrimaryFailed] = useState(false)
+  const [fallbackFailed, setFallbackFailed] = useState(false)
 
-  React.useEffect(() => {
+  useEffect(() => {
     setPrimaryFailed(false)
     setFallbackFailed(false)
   }, [src, fallbackSrc])
@@ -143,7 +144,7 @@ function SearchItemText({
 }: {
   title: string
   active: boolean
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <div className="min-w-0 flex-1">
@@ -214,7 +215,7 @@ export function LocalClipRowItem({
   onHover: () => void
   onSelect: () => void
 }) {
-  const label = row.displayGameName || row.groupLabel || tx("Local capture")
+  const label = row.displayGameName || row.groupLabel || t("Local capture")
   const details = [
     label,
     row.durationMs && row.durationMs > 0
@@ -360,7 +361,7 @@ export function EmptyBlock({
   title,
   hint,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   title: string
   hint: string
 }) {

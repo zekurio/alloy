@@ -1,5 +1,5 @@
 import type { UserSummary } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -9,7 +9,7 @@ import { Button } from "@alloy/ui/components/button"
 import { toast } from "@alloy/ui/lib/toast"
 import { Link } from "@tanstack/react-router"
 import { UserPlusIcon } from "lucide-react"
-import * as React from "react"
+import { useEffect, useState } from "react"
 
 import { errorMessage } from "@/lib/error-message"
 import { userChipData } from "@/lib/user-display"
@@ -30,12 +30,12 @@ export function UserFollowRow({
   initiallyFollowing?: boolean
   onNavigate: () => void
 }) {
-  const [following, setFollowing] = React.useState(initiallyFollowing)
+  const [following, setFollowing] = useState(initiallyFollowing)
   const followMutation = useToggleUserFollowMutation(user.username)
   const chip = userChipData(user)
   const handle = user.displayUsername || user.username
 
-  React.useEffect(() => {
+  useEffect(() => {
     setFollowing(initiallyFollowing)
   }, [initiallyFollowing, user.id])
 
@@ -47,7 +47,7 @@ export function UserFollowRow({
       {
         onError: (err) => {
           setFollowing(!next)
-          toast.error(errorMessage(err, tx("Something went wrong")))
+          toast.error(errorMessage(err, t("Something went wrong")))
         },
       },
     )
@@ -88,7 +88,7 @@ export function UserFollowRow({
         onClick={toggle}
       >
         <UserPlusIcon className="size-3.5" />
-        {following ? tx("Following") : tx("Follow")}
+        {following ? t("Following") : t("Follow")}
       </Button>
     </li>
   )

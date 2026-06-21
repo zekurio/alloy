@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useContext } from "react"
 
 import {
   UploadFlowContext,
@@ -6,7 +6,7 @@ import {
 } from "./upload-flow-context"
 
 export function useUploadFlowControls(): UploadFlowControls {
-  const value = React.useContext(UploadFlowContext)
+  const value = useContext(UploadFlowContext)
   if (!value) {
     throw new Error(
       "useUploadFlowControls must be used within UploadFlowProvider",

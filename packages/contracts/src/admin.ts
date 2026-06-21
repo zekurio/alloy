@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+import { isObjectRecord } from "./object"
 import type { UserStatus } from "./shared"
 
 export type UsernameClaim = string
@@ -174,19 +175,18 @@ function requireS3FieldsWhenEnabled(
 }
 
 function migrateLegacyStorageConfig(value: unknown): unknown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isObjectRecord(value)) {
     return value
   }
-  const record = value as Record<string, unknown>
-  if (record.fs !== undefined) return value
+  if (value.fs !== undefined) return value
 
   return {
-    driver: record.driver,
+    driver: value.driver,
     fs: {
-      clipsPath: legacyStoragePath(record, "clips"),
-      usersPath: legacyStoragePath(record, "users"),
+      clipsPath: legacyStoragePath(value, "clips"),
+      usersPath: legacyStoragePath(value, "users"),
     },
-    s3: record.s3,
+    s3: value.s3,
   }
 }
 

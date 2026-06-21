@@ -1,5 +1,6 @@
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
-import * as React from "react"
+import { useCallback, useEffect, useId } from "react"
+import type { RefObject } from "react"
 
 import {
   handleVideoKeyCommand,
@@ -12,7 +13,7 @@ let activeVideoPlayerId: string | null = null
 interface ActiveVideoPlayerOptions {
   autoPlay: boolean
   controls: boolean
-  containerRef: React.RefObject<HTMLDivElement | null>
+  containerRef: RefObject<HTMLDivElement | null>
   clearChromeHideTimer: () => void
   enableHorizontalSeekShortcuts: boolean
   keyCommand: VideoKeyCommand
@@ -29,18 +30,18 @@ export function useActiveVideoPlayer({
   activatePlayer: () => void
   focusPlayerContainer: () => void
 } {
-  const playerId = React.useId()
+  const playerId = useId()
 
-  const activatePlayer = React.useCallback(() => {
+  const activatePlayer = useCallback(() => {
     activeVideoPlayerId = playerId
   }, [playerId])
 
-  const focusPlayerContainer = React.useCallback(() => {
+  const focusPlayerContainer = useCallback(() => {
     activatePlayer()
     containerRef.current?.focus({ preventScroll: true })
   }, [activatePlayer, containerRef])
 
-  const onKeyDown = React.useCallback(
+  const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
       if (activeVideoPlayerId !== playerId) return
       if (
@@ -60,7 +61,7 @@ export function useActiveVideoPlayer({
   )
   useWindowEvent("keydown", onKeyDown, true)
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!autoPlay && controls) return
     activeVideoPlayerId = playerId
     return () => {
@@ -68,7 +69,7 @@ export function useActiveVideoPlayer({
     }
   }, [autoPlay, controls, playerId])
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (activeVideoPlayerId === playerId) activeVideoPlayerId = null
       clearChromeHideTimer()

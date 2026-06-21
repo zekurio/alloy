@@ -118,7 +118,7 @@ export async function finishOAuthCallback(
   if (!state) throw new Error("Missing OAuth state.")
 
   const challenge = await consumeOAuthChallenge(state)
-  const payload = challenge.payload as OAuthChallengePayload
+  const payload = requireOAuthChallengePayload(challenge.payload)
   const browserNonce = readOAuthStateCookie(c, provider.providerId)
   clearOAuthStateCookie(c, provider.providerId)
   try {
@@ -176,4 +176,28 @@ export async function finishOAuthCallback(
           : loginURLWithOAuthError(payload.callbackURL, cause),
     }
   }
+}
+
+function requireOAuthChallengePayload(
+  payload: Record<string, unknown>,
+): OAuthChallengePayload {
+  if (
+    typeof payload.browserNonce === "string" &&
+    typeof payload.callbackURL === "string" &&
+    typeof payload.providerId === "string" &&
+    (payload.mode === "sign-in" || payload.mode === "link") &&
+    (payload.codeVerifier === undefined ||
+      typeof payload.codeVerifier === "string") &&
+    (payload.userId === undefined || typeof payload.userId === "string")
+  ) {
+    return {
+      browserNonce: payload.browserNonce,
+      callbackURL: payload.callbackURL,
+      codeVerifier: payload.codeVerifier,
+      mode: payload.mode,
+      providerId: payload.providerId,
+      userId: payload.userId,
+    }
+  }
+  throw new Error("OAuth state payload is invalid.")
 }

@@ -1,5 +1,5 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type { ReactNode } from "react"
 
 /**
  * Compact settings row: title (+ optional description) on the left, a control on
@@ -14,14 +14,14 @@ export function SettingRow({
   children,
   className,
 }: {
-  title: React.ReactNode
-  description?: React.ReactNode
+  title: ReactNode
+  description?: ReactNode
   /** When set, the title renders as a <label> bound to this control id. */
   htmlFor?: string
   /** Vertical alignment of the control against the text block. */
   align?: "center" | "start"
   /** The control rendered on the right. */
-  children: React.ReactNode
+  children: ReactNode
   className?: string
 }) {
   return (

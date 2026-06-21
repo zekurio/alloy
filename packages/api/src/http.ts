@@ -26,11 +26,10 @@ function isJsonResponse(res: Response): boolean {
 
 async function readErrorBody(res: Response): Promise<ErrorBody> {
   if (!isJsonResponse(res)) return null
-  try {
-    return asErrorBody(await res.json())
-  } catch {
-    return null
-  }
+  return res
+    .json()
+    .then(asErrorBody)
+    .catch(() => null)
 }
 
 function asErrorBody(value: unknown): ErrorBody {
@@ -94,12 +93,7 @@ export function parseErrorMessagePayload(data: string): string | null {
 
 async function readUnexpectedBodyType(res: Response): Promise<string> {
   const contentType = res.headers.get("Content-Type") ?? "unknown content type"
-  let body = ""
-  try {
-    body = await res.text()
-  } catch {
-    body = ""
-  }
+  const body = await res.text().catch(() => "")
   const trimmed = body.trim()
   const suffix = trimmed ? `: ${trimmed.slice(0, 80)}` : ""
   return `Expected JSON response but received ${contentType}${suffix}`

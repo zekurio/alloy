@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Input } from "@alloy/ui/components/input"
 import {
   Popover,
@@ -6,7 +6,8 @@ import {
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { PointerEvent } from "react"
 
 import { hexToHsv, type Hsv, hsvToHex, normalizeHex } from "@/lib/color"
 
@@ -35,11 +36,11 @@ type ColorPickerProps = {
 
 /** Reads normalized [0,1] pointer coordinates within an element while dragging. */
 function useNormDrag(onMove: (nx: number, ny: number) => void) {
-  const ref = React.useRef<HTMLDivElement>(null)
-  const onMoveRef = React.useRef(onMove)
+  const ref = useRef<HTMLDivElement>(null)
+  const onMoveRef = useRef(onMove)
   onMoveRef.current = onMove
 
-  const sample = React.useCallback((clientX: number, clientY: number) => {
+  const sample = useCallback((clientX: number, clientY: number) => {
     const el = ref.current
     if (!el) return
     const rect = el.getBoundingClientRect()
@@ -53,11 +54,11 @@ function useNormDrag(onMove: (nx: number, ny: number) => void) {
 
   return {
     ref,
-    onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => {
+    onPointerDown: (e: PointerEvent<HTMLDivElement>) => {
       e.currentTarget.setPointerCapture(e.pointerId)
       sample(e.clientX, e.clientY)
     },
-    onPointerMove: (e: React.PointerEvent<HTMLDivElement>) => {
+    onPointerMove: (e: PointerEvent<HTMLDivElement>) => {
       if (e.buttons === 0) return
       sample(e.clientX, e.clientY)
     },
@@ -77,17 +78,15 @@ export function ColorPicker({
   triggerClassName,
   "aria-label": ariaLabel,
 }: ColorPickerProps) {
-  const [hsv, setHsv] = React.useState<Hsv>(
+  const [hsv, setHsv] = useState<Hsv>(
     () => hexToHsv(value) ?? { h: 260, s: 0.3, v: 0.85 },
   )
-  const [hexText, setHexText] = React.useState(
-    () => normalizeHex(value) ?? value,
-  )
-  const lastHexRef = React.useRef(normalizeHex(value) ?? "")
+  const [hexText, setHexText] = useState(() => normalizeHex(value) ?? value)
+  const lastHexRef = useRef(normalizeHex(value) ?? "")
 
   // Adopt external value changes (e.g. an "Auto" reset) without clobbering
   // in-progress local edits.
-  React.useEffect(() => {
+  useEffect(() => {
     const norm = normalizeHex(value)
     if (!norm || norm === lastHexRef.current) return
     const next = hexToHsv(norm)
@@ -98,7 +97,7 @@ export function ColorPicker({
     }
   }, [value])
 
-  const commit = React.useCallback(
+  const commit = useCallback(
     (next: Hsv) => {
       const hex = hsvToHex(next)
       lastHexRef.current = hex
@@ -197,7 +196,7 @@ export function ColorPicker({
             autoComplete="off"
             maxLength={7}
             className="font-mono uppercase"
-            aria-label={tx("Hex color value")}
+            aria-label={t("Hex color value")}
           />
         </div>
 

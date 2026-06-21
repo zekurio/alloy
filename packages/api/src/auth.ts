@@ -1,4 +1,4 @@
-import * as React from "react"
+import { useSyncExternalStore } from "react"
 
 import { createAuthActions } from "./auth-actions"
 import { AUTH_PATHS } from "./auth-paths"
@@ -161,7 +161,7 @@ export function createAuth(input: string | CreateAuthOptions) {
   const store = createSessionStore(fetchSession)
 
   function useSession() {
-    const snapshot = React.useSyncExternalStore(
+    const snapshot = useSyncExternalStore(
       store.subscribe,
       store.getSnapshot,
       store.getSnapshot,
@@ -171,8 +171,7 @@ export function createAuth(input: string | CreateAuthOptions) {
 
   async function getSession(): AuthResult<SessionData | null> {
     try {
-      const { data } = await store.refetch()
-      return { data, error: null }
+      return { data: (await store.refetch()).data, error: null }
     } catch (cause) {
       return { data: null, error: errorFrom(cause, "Could not load session") }
     }

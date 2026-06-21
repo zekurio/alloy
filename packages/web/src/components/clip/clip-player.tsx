@@ -5,10 +5,10 @@ import {
   clipStreamUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { toast } from "@alloy/ui/lib/toast"
-import * as React from "react"
+import { useCallback, useEffect, useState } from "react"
 
 import { hlsPlaybackSupported } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
@@ -76,8 +76,8 @@ function ClipPlayer({
   // The server packages the desktop-encoded source into a single-rendition
   // HLS VOD (stream copy). Prefer it for segment-level seeking; when hls.js
   // hits a fatal error, fall back to the progressive source stream.
-  const [hlsFailed, setHlsFailed] = React.useState(false)
-  React.useEffect(() => {
+  const [hlsFailed, setHlsFailed] = useState(false)
+  useEffect(() => {
     setHlsFailed(false)
   }, [clipId])
   const useHls = !hlsFailed && hlsPlaybackSupported()
@@ -89,20 +89,20 @@ function ClipPlayer({
     ? [
         {
           id: SOURCE_QUALITY_ID,
-          label: tx("Original"),
+          label: t("Original"),
           detail: sourcePlayable
-            ? tx("Direct stream")
-            : tx("Direct play attempt"),
+            ? t("Direct stream")
+            : t("Direct play attempt"),
           downloadUrl: clipDownloadUrl(clipId, apiOrigin()),
         },
       ]
     : []
 
-  const handleHlsFatalError = React.useCallback(() => {
+  const handleHlsFatalError = useCallback(() => {
     setHlsFailed(true)
   }, [])
 
-  const handlePlaybackError = React.useCallback(
+  const handlePlaybackError = useCallback(
     (message: string) => {
       if (onPlaybackError) {
         onPlaybackError(message)
@@ -138,8 +138,8 @@ function ClipPlayer({
           />
           <span className="relative z-10">
             {unavailable
-              ? tx("Playback unavailable.")
-              : tx("Preparing playback version...")}
+              ? t("Playback unavailable.")
+              : t("Preparing playback version...")}
           </span>
         </div>
       </div>

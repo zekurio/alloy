@@ -2,7 +2,7 @@ import { Button } from "@alloy/ui/components/button"
 import { Chip } from "@alloy/ui/components/chip"
 import { cn } from "@alloy/ui/lib/utils"
 import { ChevronDownIcon } from "lucide-react"
-import type * as React from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 /** Uppercase label rendered before a toolbar trigger (e.g. "Sort", "Game"). */
 export const filterLabelClass =
@@ -18,7 +18,7 @@ export const toolbarIconButtonClass =
 export function ToolbarIconButton({
   className,
   ...props
-}: React.ComponentProps<typeof Button>) {
+}: ComponentProps<typeof Button>) {
   return (
     <Button
       variant="secondary"
@@ -38,9 +38,9 @@ export function ToolbarChipTrigger({
   label,
   className,
   ...props
-}: React.ComponentProps<typeof Chip> & {
-  icon?: React.ReactNode
-  label?: React.ReactNode
+}: ComponentProps<typeof Chip> & {
+  icon?: ReactNode
+  label?: ReactNode
 }) {
   return (
     <Chip

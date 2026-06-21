@@ -11,22 +11,21 @@ import { dirname, join } from "node:path"
  * bundles never pull this in.
  */
 export function loadDotenv(startDir = process.cwd()): void {
-  let dir = startDir
-  for (;;) {
-    const candidate = join(dir, ".env")
-    if (existsSync(candidate)) {
-      process.loadEnvFile(candidate)
-      return
-    }
-    // Don't escape the repository: a stray ~/.env must not leak in.
-    if (
-      existsSync(join(dir, "pnpm-workspace.yaml")) ||
-      existsSync(join(dir, ".git"))
-    ) {
-      return
-    }
-    const parent = dirname(dir)
-    if (parent === dir) return
-    dir = parent
+  const candidate = join(startDir, ".env")
+  if (existsSync(candidate)) {
+    process.loadEnvFile(candidate)
+    return
   }
+  // Don't escape the repository: a stray ~/.env must not leak in.
+  if (
+    existsSync(join(startDir, "pnpm-workspace.yaml")) ||
+    existsSync(join(startDir, ".git"))
+  ) {
+    return
+  }
+
+  const parent = dirname(startDir)
+  if (parent === startDir) return
+
+  loadDotenv(parent)
 }

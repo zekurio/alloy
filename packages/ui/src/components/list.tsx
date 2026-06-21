@@ -1,11 +1,11 @@
 import { cn } from "@alloy/ui/lib/utils"
-import * as React from "react"
+import type { ComponentProps } from "react"
 
 /**
  * Vertical list with a solid rail down the left edge, signalling that the rows
  * below read together as a single list. Pair with {@link ListItem}.
  */
-function List({ className, ...props }: React.ComponentProps<"ul">) {
+function List({ className, ...props }: ComponentProps<"ul">) {
   return (
     <ul
       data-slot="list"
@@ -23,7 +23,7 @@ function List({ className, ...props }: React.ComponentProps<"ul">) {
  * A single row in a {@link List}. Lay out a `min-w-0 flex-1` primary block
  * followed by `shrink-0` trailing controls and they space apart automatically.
  */
-function ListItem({ className, ...props }: React.ComponentProps<"li">) {
+function ListItem({ className, ...props }: ComponentProps<"li">) {
   return (
     <li
       data-slot="list-item"

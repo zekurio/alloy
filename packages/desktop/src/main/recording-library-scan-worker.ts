@@ -1,6 +1,6 @@
 import { parentPort } from "node:worker_threads"
 
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 
 import {
   createRecordingLibrarySnapshot,
@@ -29,7 +29,7 @@ parentPort.on("message", (message: RecordingLibraryScanWorkerRequest) => {
       error:
         cause instanceof Error
           ? cause.message
-          : tx("Recording library scan failed."),
+          : t("Recording library scan failed."),
     }
   }
 

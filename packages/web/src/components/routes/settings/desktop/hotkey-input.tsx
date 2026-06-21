@@ -1,12 +1,13 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { XIcon } from "lucide-react"
-import * as React from "react"
+import { useState } from "react"
+import type { KeyboardEvent } from "react"
 
 const MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta"])
 
 /** Build a "Ctrl+Shift+F8"-style combo from a keydown, or null for modifier-only. */
-function comboFromEvent(event: React.KeyboardEvent): string | null {
+function comboFromEvent(event: KeyboardEvent): string | null {
   if (MODIFIER_KEYS.has(event.key)) return null
   const parts: string[] = []
   if (event.ctrlKey) parts.push("Ctrl")
@@ -36,9 +37,9 @@ export function HotkeyInput({
   disabled?: boolean
   ariaLabel: string
 }) {
-  const [listening, setListening] = React.useState(false)
+  const [listening, setListening] = useState(false)
 
-  function handleKeyDown(event: React.KeyboardEvent) {
+  function handleKeyDown(event: KeyboardEvent) {
     if (!listening) return
     event.preventDefault()
     if (event.key === "Escape") {
@@ -72,13 +73,13 @@ export function HotkeyInput({
           showClear && "pr-7",
         )}
       >
-        {listening ? tx("Press keys…") : value || tx("Not set")}
+        {listening ? t("Press keys…") : value || t("Not set")}
       </button>
       {showClear ? (
         <button
           type="button"
-          aria-label={tx("Clear {label}", { label: ariaLabel })}
-          title={tx("Clear shortcut")}
+          aria-label={t("Clear {label}", { label: ariaLabel })}
+          title={t("Clear shortcut")}
           onClick={() => onChange("")}
           className="text-foreground-faint hover:text-danger absolute top-1/2 right-1.5 inline-flex size-5 -translate-y-1/2 items-center justify-center rounded-sm outline-none"
         >

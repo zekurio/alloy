@@ -1,16 +1,10 @@
 import { randomUUID } from "node:crypto"
 import type { Dirent } from "node:fs"
 import { constants, mkdirSync, statSync } from "node:fs"
-import {
-  copyFile,
-  readdir,
-  rename,
-  stat as statAsync,
-  unlink,
-} from "node:fs/promises"
+import { copyFile, readdir, rename, stat, unlink } from "node:fs/promises"
 import { basename, extname, join, resolve } from "node:path"
 
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
@@ -70,7 +64,7 @@ export async function stageRecordingLibraryVideoFiles(
       logger.warn("failed to stage library import:", cause)
       failed.push({
         fileName: basename(path),
-        error: cause instanceof Error ? cause.message : tx("Import failed."),
+        error: cause instanceof Error ? cause.message : t("Import failed."),
       })
     }
   }
@@ -205,7 +199,8 @@ function isCrossDeviceError(cause: unknown): boolean {
   return (
     typeof cause === "object" &&
     cause !== null &&
-    (cause as NodeJS.ErrnoException).code === "EXDEV"
+    "code" in cause &&
+    cause.code === "EXDEV"
   )
 }
 
@@ -229,7 +224,7 @@ async function cleanupStaleStagedImportFiles(): Promise<void> {
         const filename = resolve(root, entry.name)
         if (activePaths.has(filename)) return
         try {
-          const info = await statAsync(filename)
+          const info = await stat(filename)
           if (now - info.mtimeMs <= STAGED_IMPORT_MAX_AGE_MS) return
           await unlink(filename)
         } catch (cause) {

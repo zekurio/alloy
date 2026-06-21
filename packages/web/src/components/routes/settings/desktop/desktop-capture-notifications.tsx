@@ -5,7 +5,7 @@ import type {
   RecordingNotificationSoundSettings,
   RecordingSettings,
 } from "@alloy/contracts"
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Select,
@@ -31,14 +31,14 @@ const SOUND_ROWS: Array<{
 }> = [
   {
     id: "replayBufferStarted",
-    title: tx("Replay buffer started"),
-    description: tx("Played when Alloy starts keeping replay clips ready."),
+    title: t("Replay buffer started"),
+    description: t("Played when Alloy starts keeping replay clips ready."),
     defaultFile: "start_recording.wav",
   },
   {
     id: "clipSaved",
-    title: tx("Save clip"),
-    description: tx("Played when the replay hotkey starts saving a clip."),
+    title: t("Save clip"),
+    description: t("Played when the replay hotkey starts saving a clip."),
     defaultFile: "clip_saved.wav",
   },
 ]
@@ -82,7 +82,7 @@ export function NotificationSoundsSection({
   }, [listNotificationSounds])
 
   return (
-    <Subsection title={tx("Sounds")}>
+    <Subsection title={t("Sounds")}>
       <div className="flex flex-col">
         {SOUND_ROWS.map((row) => (
           <SoundCard
@@ -181,7 +181,7 @@ function SoundCard({
           htmlFor={`sound-effect-${title}`}
           className="text-foreground-muted text-xs font-medium"
         >
-          {tx("Sound effect")}
+          {t("Sound effect")}
         </label>
         <div className="flex items-center gap-2">
           <Select
@@ -199,8 +199,8 @@ function SoundCard({
               size="sm"
               className="w-48"
             >
-              <SelectValue placeholder={tx("No sounds found")}>
-                {selectedLabel || tx("No sounds found")}
+              <SelectValue placeholder={t("No sounds found")}>
+                {selectedLabel || t("No sounds found")}
               </SelectValue>
             </SelectTrigger>
             <SelectContent align="end">
@@ -216,8 +216,8 @@ function SoundCard({
             variant="secondary"
             size="icon-sm"
             disabled={busy || !selectedValue}
-            title={tx("Test sound")}
-            aria-label={tx("Test {title} sound", { title })}
+            title={t("Test sound")}
+            aria-label={t("Test {title} sound", { title })}
             onClick={onPreview}
           >
             <PlayIcon className="size-3.5" />
@@ -230,7 +230,7 @@ function SoundCard({
             onClick={onOpenFolder}
           >
             <FolderOpenIcon className="size-3.5" />
-            {tx("Folder")}
+            {t("Folder")}
           </Button>
         </div>
       </div>
@@ -242,7 +242,7 @@ function SoundCard({
         )}
       >
         <span className="text-foreground-muted text-xs font-medium">
-          {tx("Volume")}
+          {t("Volume")}
         </span>
         <div className="flex w-48 items-center gap-3">
           <Slider

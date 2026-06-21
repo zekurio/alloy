@@ -1,7 +1,7 @@
-import { zValidator as baseZValidator } from "@hono/zod-validator"
+import { zValidator } from "@hono/zod-validator"
 import { z } from "zod"
 
-type ZValidator = typeof baseZValidator
+type ZValidator = typeof zValidator
 type ZValidatorArgs = Parameters<ZValidator>
 
 type Issue = {
@@ -18,13 +18,13 @@ const TARGET_LABELS: Record<string, string> = {
   query: "query parameters",
 }
 
-export const zValidator = ((
+const alloyZValidator = ((
   target: ZValidatorArgs[0],
   schema: ZValidatorArgs[1],
   hook?: ZValidatorArgs[2],
   options?: ZValidatorArgs[3],
 ) =>
-  baseZValidator(
+  zValidator(
     target,
     schema,
     async (result, c) => {
@@ -35,6 +35,8 @@ export const zValidator = ((
     },
     options,
   )) as ZValidator
+
+export { alloyZValidator as zValidator }
 
 export function limitQueryParam(max: number, defaultValue: number) {
   return z.coerce.number().int().min(1).max(max).default(defaultValue)

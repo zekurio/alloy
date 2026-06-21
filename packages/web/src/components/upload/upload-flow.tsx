@@ -1,6 +1,6 @@
 import { type QueueClip } from "@alloy/api"
 import { useNavigate } from "@tanstack/react-router"
-import * as React from "react"
+import { Suspense, useCallback, useEffect, useMemo } from "react"
 
 import type { AppSearch } from "@/lib/app-search"
 import { alloyDesktop } from "@/lib/desktop"
@@ -12,9 +12,9 @@ import { useUploadFlowControls } from "./use-upload-flow-controls"
 
 export function UploadFlow() {
   return (
-    <React.Suspense fallback={null}>
+    <Suspense fallback={null}>
       <UploadFlowInner />
-    </React.Suspense>
+    </Suspense>
   )
 }
 
@@ -30,7 +30,7 @@ function UploadFlowInner() {
 function AuthedDesktopUploadFlow() {
   const { setPublishClip, setQueueState } = useUploadFlowControls()
   const navigate = useNavigate()
-  const handleOpenClip = React.useCallback(
+  const handleOpenClip = useCallback(
     (row: QueueClip) => {
       void navigate({
         to: ".",
@@ -56,24 +56,24 @@ function AuthedDesktopUploadFlow() {
   )
   const { runUpload, queue } = useUploadQueueState(handleOpenClip)
 
-  const queueState = React.useMemo(() => ({ queue }), [queue])
+  const queueState = useMemo(() => ({ queue }), [queue])
 
-  React.useEffect(() => {
+  useEffect(() => {
     setQueueState(queueState)
   }, [queueState, setQueueState])
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => setQueueState(null)
   }, [setQueueState])
 
-  const publishFromDesktopEditor = React.useCallback(
+  const publishFromDesktopEditor = useCallback(
     async (payload: PublishClipInput) => {
       return runUpload(payload)
     },
     [runUpload],
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     setPublishClip(publishFromDesktopEditor)
     return () => {
       setPublishClip(null)

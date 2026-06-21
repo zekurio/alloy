@@ -1,4 +1,4 @@
-import { t as tx } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
   Dialog,
@@ -12,7 +12,15 @@ import { Slider } from "@alloy/ui/components/slider"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon, Minus, Plus } from "lucide-react"
-import * as React from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import type { PointerEvent } from "react"
 
 import { errorMessage } from "@/lib/error-message"
 
@@ -60,41 +68,41 @@ export function ProfileImageCropDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const config = CROP_CONFIG[mode]
-  const stageRef = React.useRef<HTMLDivElement>(null)
-  const dragRef = React.useRef<DragState | null>(null)
-  const zoomInitializedRef = React.useRef(false)
-  const [stageNode, setStageNode] = React.useState<HTMLDivElement | null>(null)
-  const [loadedImage, setLoadedImage] = React.useState<LoadedImage | null>(null)
-  const [stageSize, setStageSize] = React.useState({ height: 0, width: 0 })
-  const [offset, setOffset] = React.useState<Point>({ x: 0, y: 0 })
-  const [zoom, setZoom] = React.useState(1)
-  const [cropPending, setCropPending] = React.useState(false)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<DragState | null>(null)
+  const zoomInitializedRef = useRef(false)
+  const [stageNode, setStageNode] = useState<HTMLDivElement | null>(null)
+  const [loadedImage, setLoadedImage] = useState<LoadedImage | null>(null)
+  const [stageSize, setStageSize] = useState({ height: 0, width: 0 })
+  const [offset, setOffset] = useState<Point>({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
+  const [cropPending, setCropPending] = useState(false)
   const stageReady = stageSize.width > 0 && stageSize.height > 0
   const cropReady = !!loadedImage && stageReady
   const controlsDisabled = !cropReady || applying || cropPending
-  const effectiveStageSize = React.useMemo(
+  const effectiveStageSize = useMemo(
     () => (stageReady ? stageSize : fallbackStageSize(mode)),
     [mode, stageSize],
   )
-  const containedImageBox = React.useMemo(() => {
+  const containedImageBox = useMemo(() => {
     if (!loadedImage) return null
     return getImageBox(loadedImage, effectiveStageSize, 1)
   }, [effectiveStageSize, loadedImage])
-  const cropFrame = React.useMemo(
+  const cropFrame = useMemo(
     () =>
       getCropFrame(effectiveStageSize, config.aspect, mode, containedImageBox),
     [config.aspect, containedImageBox, effectiveStageSize, mode],
   )
-  const minimumZoom = React.useMemo(
+  const minimumZoom = useMemo(
     () => getMinimumZoom(mode, containedImageBox, cropFrame),
     [containedImageBox, cropFrame, mode],
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     onApplyingChange?.(cropPending)
   }, [cropPending, onApplyingChange])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!file || !open) {
       setLoadedImage(null)
       setStageSize({ height: 0, width: 0 })
@@ -129,7 +137,7 @@ export function ProfileImageCropDialog({
     load().catch((cause) => {
       if (active) {
         setLoadedImage(null)
-        toast.error(errorMessage(cause, tx("Couldn't load image")))
+        toast.error(errorMessage(cause, t("Couldn't load image")))
       }
     })
 
@@ -138,7 +146,7 @@ export function ProfileImageCropDialog({
     }
   }, [file, open])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!cropReady || zoomInitializedRef.current) return
 
     zoomInitializedRef.current = true
@@ -146,11 +154,11 @@ export function ProfileImageCropDialog({
     setZoom(minimumZoom)
   }, [cropReady, minimumZoom])
 
-  React.useEffect(() => {
+  useEffect(() => {
     setZoom((current) => clamp(current, minimumZoom, MAX_PREVIEW_ZOOM))
   }, [minimumZoom])
 
-  React.useLayoutEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return
 
     const node = stageNode
@@ -178,7 +186,7 @@ export function ProfileImageCropDialog({
     return () => observer.disconnect()
   }, [open, mode, stageNode])
 
-  const imageBox = React.useMemo(() => {
+  const imageBox = useMemo(() => {
     if (!loadedImage) {
       return null
     }
@@ -186,7 +194,7 @@ export function ProfileImageCropDialog({
     return getImageBox(loadedImage, effectiveStageSize, zoom)
   }, [effectiveStageSize, loadedImage, zoom])
 
-  const clampOffset = React.useCallback(
+  const clampOffset = useCallback(
     (next: Point) => {
       if (!imageBox) return { x: 0, y: 0 }
 
@@ -195,14 +203,14 @@ export function ProfileImageCropDialog({
     [cropFrame, imageBox],
   )
 
-  React.useEffect(() => {
+  useEffect(() => {
     setOffset((current) => {
       const next = clampOffset(current)
       return pointsEqual(current, next) ? current : next
     })
   }, [clampOffset, zoom])
 
-  function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+  function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (!cropReady || applying) return
 
     updateStageSizeFromDom()
@@ -214,7 +222,7 @@ export function ProfileImageCropDialog({
     }
   }
 
-  function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
 
@@ -233,7 +241,7 @@ export function ProfileImageCropDialog({
     )
   }
 
-  function finishDrag(event: React.PointerEvent<HTMLDivElement>) {
+  function finishDrag(event: PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
     if (!drag || drag.pointerId !== event.pointerId) return
 
@@ -304,7 +312,7 @@ export function ProfileImageCropDialog({
     try {
       await handleApply()
     } catch (cause) {
-      toast.error(errorMessage(cause, tx("Couldn't crop image")))
+      toast.error(errorMessage(cause, t("Couldn't crop image")))
     }
   }
 
@@ -321,7 +329,7 @@ export function ProfileImageCropDialog({
     return nextStageSize
   }
 
-  const setStageElement = React.useCallback((node: HTMLDivElement | null) => {
+  const setStageElement = useCallback((node: HTMLDivElement | null) => {
     stageRef.current = node
     setStageNode(node)
   }, [])
@@ -371,7 +379,7 @@ export function ProfileImageCropDialog({
             {cropReady && imagePlacement ? (
               <div
                 role="application"
-                aria-label={tx("Drag image to reposition crop")}
+                aria-label={t("Drag image to reposition crop")}
                 className="absolute inset-0 cursor-grab touch-none overflow-hidden active:cursor-grabbing"
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
@@ -423,7 +431,7 @@ export function ProfileImageCropDialog({
           <div className="flex items-center gap-3">
             <Minus className="text-foreground-faint size-4 shrink-0" />
             <Slider
-              aria-label={tx("Zoom")}
+              aria-label={t("Zoom")}
               min={minimumZoom}
               max={MAX_PREVIEW_ZOOM}
               step={0.01}
@@ -443,7 +451,7 @@ export function ProfileImageCropDialog({
             onClick={() => onOpenChange(false)}
             disabled={applying || cropPending}
           >
-            {tx("Cancel")}
+            {t("Cancel")}
           </Button>
           <Button
             type="button"
@@ -453,8 +461,8 @@ export function ProfileImageCropDialog({
             disabled={applyDisabled}
           >
             {applyDisabled && (applying || cropPending)
-              ? tx("Applying...")
-              : tx("Apply")}
+              ? t("Applying...")
+              : t("Apply")}
           </Button>
         </DialogFooter>
       </DialogContent>

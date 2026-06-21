@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router"
-import * as React from "react"
+import { Suspense } from "react"
 
 import { GameDetailPageInner } from "@/components/routes/game-detail/game-detail-page-inner"
 import { gameClipsSort, parseGameSearch } from "@/lib/game-search"
@@ -15,9 +15,9 @@ function GameDetailPage() {
   const sort = gameClipsSort(search)
 
   return (
-    <React.Suspense fallback={null}>
+    <Suspense fallback={null}>
       <GameDetailPageInner gameId={gameId} sort={sort} />
       <Outlet />
-    </React.Suspense>
+    </Suspense>
   )
 }
