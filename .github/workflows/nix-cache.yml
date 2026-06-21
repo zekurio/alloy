@@ -1,9 +1,14 @@
 name: Nix Cache
 
 on:
+  push:
+    branches:
+      - main
+      - develop
   release:
     types:
       - published
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,13 +21,13 @@ jobs:
   push:
     name: Build and cache Nix package
     runs-on: ubuntu-latest
-    if: ${{ !github.event.release.prerelease }}
+    if: ${{ github.event_name != 'release' || !github.event.release.prerelease }}
 
     steps:
-      - name: Checkout release tag
+      - name: Checkout source
         uses: actions/checkout@v5
         with:
-          ref: ${{ github.event.release.tag_name }}
+          ref: ${{ github.event.release.tag_name || github.sha }}
 
       - name: Set up Nix
         uses: cachix/install-nix-action@v31
