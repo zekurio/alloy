@@ -8,7 +8,7 @@ const LEGACY_SESSION_COOKIE = "alloy_session"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
 const OAUTH_STATE_COOKIE_PREFIX = "alloy_oauth_state_"
 const ACCESS_MAX_AGE_SEC = 15 * 60
-const REFRESH_MAX_AGE_SEC = 90 * 24 * 60 * 60
+const REFRESH_MAX_AGE_SEC = 30 * 24 * 60 * 60
 const OAUTH_STATE_MAX_AGE_SEC = 10 * 60
 
 export type SessionCookieTokens = {
@@ -48,7 +48,7 @@ export function setSessionCookies(
     httpOnly: true,
     sameSite: "Lax",
     secure,
-    path: "/api/auth",
+    path: "/",
     maxAge: REFRESH_MAX_AGE_SEC,
   })
   setCookie(c, AUTH_MARKER_COOKIE, "true", {
@@ -58,12 +58,14 @@ export function setSessionCookies(
     path: "/",
     maxAge: REFRESH_MAX_AGE_SEC,
   })
+  deleteCookie(c, REFRESH_COOKIE, { path: "/api/auth", secure })
   deleteCookie(c, LEGACY_SESSION_COOKIE, { path: "/", secure })
 }
 
 export function clearSessionCookies(c: Context): void {
   const secure = secureCookies()
   deleteCookie(c, ACCESS_COOKIE, { path: "/", secure })
+  deleteCookie(c, REFRESH_COOKIE, { path: "/", secure })
   deleteCookie(c, REFRESH_COOKIE, { path: "/api/auth", secure })
   deleteCookie(c, LEGACY_SESSION_COOKIE, { path: "/", secure })
   deleteCookie(c, AUTH_MARKER_COOKIE, { path: "/", secure })

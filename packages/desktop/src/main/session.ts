@@ -76,13 +76,13 @@ export async function injectSessionCookie(
     expirationDate: accessExpirationDate,
   })
   await ses.cookies.set({
-    url: new URL("/api/auth/refresh", serverUrl).toString(),
+    url: serverUrl,
     name: REFRESH_COOKIE,
     value: tokens.refreshToken,
     httpOnly: true,
     secure,
     sameSite: "lax",
-    path: "/api/auth",
+    path: "/",
     expirationDate: refreshExpirationDate,
   })
   // Non-httpOnly marker the web app uses for optimistic "is authenticated" UI.
@@ -96,6 +96,9 @@ export async function injectSessionCookie(
     path: "/",
     expirationDate: refreshExpirationDate,
   })
+  await ses.cookies
+    .remove(new URL("/api/auth/refresh", serverUrl).toString(), REFRESH_COOKIE)
+    .catch(() => {})
   await ses.cookies.remove(serverUrl, LEGACY_SESSION_COOKIE).catch(() => {})
 }
 
@@ -105,9 +108,8 @@ export async function injectSessionCookie(
  * the normal web session flow, so startup never waits on a remote auth probe.
  */
 export async function hasValidSession(serverUrl: string): Promise<boolean> {
-  const refreshUrl = new URL("/api/auth/refresh", serverUrl).toString()
   const [refreshCookie] = await mainSession().cookies.get({
-    url: refreshUrl,
+    url: serverUrl,
     name: REFRESH_COOKIE,
   })
   if (isUnexpiredCookie(refreshCookie)) return true

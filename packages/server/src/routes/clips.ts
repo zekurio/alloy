@@ -18,7 +18,7 @@ export const clips = new Hono()
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({
       id,
-      headers: c.req.raw.headers,
+      c,
       policy: "metadata",
     })
     if (!access.accessible) return clipAccessResponse(c, access)

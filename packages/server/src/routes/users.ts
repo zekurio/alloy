@@ -205,7 +205,7 @@ export const usersRoute = new Hono()
     if ("response" in result) return result.response
     const row = result.target
 
-    return c.json(await listUserClips(row, c.req.raw.headers))
+    return c.json(await listUserClips(row, c))
   })
   .get(
     "/:username/games",
@@ -218,7 +218,7 @@ export const usersRoute = new Hono()
       if ("response" in result) return result.response
       const row = result.target
 
-      return c.json(await listUserGames(row, c.req.raw.headers, query))
+      return c.json(await listUserGames(row, c, query))
     },
   )
   .get("/:username/tagged", zValidator("param", UsernameParam), async (c) => {
@@ -227,7 +227,7 @@ export const usersRoute = new Hono()
     if ("response" in result) return result.response
     const row = result.target
 
-    return c.json(await listTaggedClips(row, c.req.raw.headers))
+    return c.json(await listTaggedClips(row, c))
   })
   .get("/:username/liked", zValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
@@ -235,7 +235,7 @@ export const usersRoute = new Hono()
     if ("response" in result) return result.response
     const row = result.target
 
-    return c.json(await listLikedClips(row, c.req.raw.headers))
+    return c.json(await listLikedClips(row, c))
   })
   .get(
     "/:username/followers",
