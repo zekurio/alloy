@@ -48,13 +48,20 @@ export type DesktopConnectResult =
   | { ok: true; serverUrl: string }
   | { ok: false; error: string }
 
+export interface DesktopConnectOptions {
+  forceBrowserLogin?: boolean
+}
+
 export interface DesktopSavedServer {
   serverUrl: string
   lastConnectedAt: string
 }
 
 export interface AlloyDesktopServerApi {
-  connect(url: string): Promise<DesktopConnectResult>
+  connect(
+    url: string,
+    options?: DesktopConnectOptions,
+  ): Promise<DesktopConnectResult>
   getServers(): Promise<DesktopSavedServer[]>
   getCurrentServer(): Promise<string | null>
   forgetServer(url: string): Promise<DesktopSavedServer[]>

@@ -14,7 +14,7 @@ import { IPC } from "@/shared/ipc"
  * narrow desktop APIs it needs through explicit request/response IPC methods.
  */
 const servers: AlloyDesktopServerApi = {
-  connect: (url) => ipcRenderer.invoke(IPC.connect, url),
+  connect: (url, options) => ipcRenderer.invoke(IPC.connect, url, options),
   getServers: () => ipcRenderer.invoke(IPC.getServers),
   getCurrentServer: () => ipcRenderer.invoke(IPC.getCurrentServer),
   forgetServer: (url) => ipcRenderer.invoke(IPC.forgetServer, url),

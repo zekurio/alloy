@@ -106,7 +106,7 @@ export function AppearanceSettingsContent({
   return (
     <Section>
       <SectionContent className="flex flex-col gap-4">
-        <div className="not-last:border-border flex items-start justify-between gap-4 py-3 not-last:border-b first:pt-0">
+        <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-sm font-medium">{t("Login backdrop")}</div>
             <p className="text-foreground-dim mt-0.5 text-xs">
@@ -115,23 +115,23 @@ export function AppearanceSettingsContent({
               )}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <LoginAppearancePreview
-              config={config}
-              splash={previewSplash}
-              blurPx={draftBlurPx}
-              darkenOpacity={draftDarkenOpacity}
-              controlsDisabled={treatmentPending}
-              onBlurPxChange={setDraftBlurPx}
-              onDarkenOpacityChange={setDraftDarkenOpacity}
-            />
-            <Switch
-              checked={splash.enabled}
-              onCheckedChange={updateSplashEnabled}
-              disabled={enabledPending}
-            />
-          </div>
+          <Switch
+            checked={splash.enabled}
+            onCheckedChange={updateSplashEnabled}
+            disabled={enabledPending}
+            className="shrink-0"
+          />
         </div>
+
+        <LoginAppearancePreview
+          config={config}
+          splash={previewSplash}
+          blurPx={draftBlurPx}
+          darkenOpacity={draftDarkenOpacity}
+          controlsDisabled={treatmentPending}
+          onBlurPxChange={setDraftBlurPx}
+          onDarkenOpacityChange={setDraftDarkenOpacity}
+        />
       </SectionContent>
       {!inSettingsDialog && (
         <SectionFooter>

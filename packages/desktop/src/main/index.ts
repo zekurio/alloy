@@ -36,6 +36,7 @@ const WINDOWS_APP_USER_MODEL_ID = "dev.zekurio.alloy.desktop"
 const USER_DATA_DIR_NAME = "Alloy Desktop"
 const SESSION_DATA_DIR_NAME = "session"
 const LOGS_DIR_NAME = "logs"
+const STARTUP_SESSION_VALIDATION_TIMEOUT_MS = 2500
 const BACKGROUND_STARTUP_DELAY_MS = 1000
 
 const logger = createLogger("main")
@@ -134,8 +135,17 @@ async function shutdownWithDeadline(): Promise<void> {
 
 async function openInitialWindow(windows: Windows): Promise<void> {
   const startupServerUrl = getStartupServerUrl()
-  if (startupServerUrl && (await hasValidSession(startupServerUrl))) {
-    windows.connectTo(startupServerUrl)
+  if (startupServerUrl) {
+    if (
+      await hasValidSession(startupServerUrl, {
+        timeoutMs: STARTUP_SESSION_VALIDATION_TIMEOUT_MS,
+      })
+    ) {
+      windows.connectTo(startupServerUrl)
+      return
+    }
+
+    windows.connectToLogin(startupServerUrl)
     return
   }
 

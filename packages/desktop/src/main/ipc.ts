@@ -58,6 +58,7 @@ import type { Windows } from "./windows"
 
 const SETUP_REQUIRED_ERROR =
   "This Alloy server needs setup. Finish setup in your browser, then connect again."
+const CONNECT_SESSION_VALIDATION_TIMEOUT_MS = 2500
 
 /**
  * Register the overlay's privileged IPC surface. Handlers are intentionally
@@ -118,11 +119,12 @@ function registerServerIpc(windows: Windows): void {
 
   ipcMain.handle(
     IPC.connect,
-    async (event, url: unknown): Promise<ConnectResult> => {
+    async (event, url: unknown, options: unknown): Promise<ConnectResult> => {
       requireDesktopSender(windows, event)
       if (typeof url !== "string") {
         return { ok: false, error: "Enter a server URL." }
       }
+      const forceBrowserLogin = connectOptions(options).forceBrowserLogin
       // Re-probe before committing so we only ever persist + load a URL we just
       // confirmed is a reachable Alloy server.
       const result = await probeServer(url)
@@ -137,7 +139,12 @@ function registerServerIpc(windows: Windows): void {
       // Electron can't run passkeys/embedded OAuth, so unless a stored session
       // is still valid we authenticate in the system browser and inject the
       // resulting session before loading the app.
-      if (!(await hasValidSession(result.serverUrl))) {
+      const needsBrowserLogin =
+        forceBrowserLogin ||
+        !(await hasValidSession(result.serverUrl, {
+          timeoutMs: CONNECT_SESSION_VALIDATION_TIMEOUT_MS,
+        }))
+      if (needsBrowserLogin) {
         const login = await loginViaBrowser(result.serverUrl)
         if (!login.ok) return { ok: false, error: login.error }
       }
@@ -194,6 +201,14 @@ function registerServerIpc(windows: Windows): void {
     const window = requireControllableWindow(windows, event)
     window.close()
   })
+}
+
+function connectOptions(value: unknown): { forceBrowserLogin: boolean } {
+  if (!value || typeof value !== "object") return { forceBrowserLogin: false }
+  return {
+    forceBrowserLogin:
+      (value as { forceBrowserLogin?: unknown }).forceBrowserLogin === true,
+  }
 }
 
 function registerRecordingIpc(windows: Windows): void {

@@ -145,7 +145,9 @@ function DesktopLoginPage() {
 
     setPending(true)
     setError(null)
-    const result = await desktop.servers.connect(serverUrl)
+    const result = await desktop.servers.connect(serverUrl, {
+      forceBrowserLogin: true,
+    })
     if (!result.ok) {
       setError(result.error)
       setPending(false)

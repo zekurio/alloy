@@ -5,13 +5,6 @@ import type {
 } from "@alloy/api"
 import { DESKTOP_AUTH_CAPABILITY_VERSION } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogTitle,
-} from "@alloy/ui/components/dialog"
 import { Slider } from "@alloy/ui/components/slider"
 import {
   Tooltip,
@@ -19,13 +12,8 @@ import {
   TooltipTrigger,
 } from "@alloy/ui/components/tooltip"
 import { cn } from "@alloy/ui/lib/utils"
-import { EyeIcon, XIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
-import {
-  mobileCloseIconClassName,
-  mobileSurfaceCloseButtonClassName,
-} from "@/components/app/mobile-close-button"
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { LoginForm } from "@/components/routes/login/login-page-inner"
 import { SignUpForm } from "@/components/routes/sign-up/sign-up-page-inner"
@@ -63,18 +51,12 @@ function toPublicAuthConfig(
 function AuthPreviewContent({
   mode,
   config,
-  fill,
 }: {
   mode: AuthPreviewMode
   config: PublicAuthConfig
-  fill?: boolean
 }) {
   return (
-    <AuthPageFrame
-      splash={config.loginSplash}
-      fill={fill}
-      desktopChrome={false}
-    >
+    <AuthPageFrame splash={config.loginSplash} fill desktopChrome={false}>
       {mode === "login" ? (
         <LoginForm config={config} passkeySupported />
       ) : (
@@ -215,7 +197,6 @@ export function LoginAppearancePreview({
   onDarkenOpacityChange: (value: number) => void
 }) {
   const [mode, setMode] = useState<AuthPreviewMode>("login")
-  const [open, setOpen] = useState(false)
 
   const authConfig = useMemo(
     () => toPublicAuthConfig(config, splash),
@@ -233,77 +214,35 @@ export function LoginAppearancePreview({
   }, [canSignUp, mode])
 
   return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => setOpen(true)}
-      >
-        <EyeIcon />
-        {t("Open preview")}
-      </Button>
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-foreground-muted text-xs">
+          {mode === "login"
+            ? t("Login page preview")
+            : t("Sign-up page preview")}
+        </div>
+        <ModeToggle
+          mode={mode}
+          onChange={setMode}
+          signUpDisabled={!canSignUp}
+        />
+      </div>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent
-          centered={false}
-          disableZoom
-          className="border-border/80 bg-background top-3 right-3 bottom-3 left-3 flex h-auto w-auto max-w-none translate-x-0 translate-y-0 flex-col rounded-xl p-0 shadow-2xl sm:top-5 sm:right-5 sm:bottom-5 sm:left-5"
-        >
-          <DialogTitle className="sr-only">
-            {mode === "login"
-              ? t("Login page preview")
-              : t("Sign-up page preview")}
-          </DialogTitle>
+      {/* Non-interactive: the preview renders the real auth buttons, but clicks
+          must not start an actual sign-in flow. */}
+      <div className="border-border/80 bg-background h-[480px] overflow-hidden rounded-xl border select-none">
+        <div className="pointer-events-none h-full w-full">
+          <AuthPreviewContent mode={mode} config={authConfig} />
+        </div>
+      </div>
 
-          <div className="border-border/70 bg-surface/88 relative z-10 flex flex-col gap-3 border-b px-4 py-3 backdrop-blur-sm sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="min-w-0">
-              <div className="text-sm font-semibold">
-                {t("Login appearance")}
-              </div>
-              <div className="text-foreground-muted text-xs">
-                {mode === "login"
-                  ? t("Login page preview")
-                  : t("Sign-up page preview")}
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              <ModeToggle
-                mode={mode}
-                onChange={setMode}
-                signUpDisabled={!canSignUp}
-              />
-              <DialogClose
-                className={cn(
-                  mobileSurfaceCloseButtonClassName,
-                  "border border-border bg-surface-raised",
-                )}
-                aria-label={t("Close preview")}
-              >
-                <XIcon className={mobileCloseIconClassName} />
-              </DialogClose>
-            </div>
-          </div>
-
-          {/* Non-interactive: the preview renders the real auth buttons, but
-              clicks must not start an actual sign-in flow. */}
-          <div className="min-h-0 flex-1 select-none">
-            <div className="pointer-events-none h-full w-full">
-              <AuthPreviewContent mode={mode} config={authConfig} fill />
-            </div>
-          </div>
-
-          <div className="border-border/70 bg-surface/92 relative z-10 border-t px-4 py-4 backdrop-blur-sm sm:px-6">
-            <BackdropTreatmentControls
-              blurPx={blurPx}
-              darkenOpacity={darkenOpacity}
-              disabled={controlsDisabled}
-              onBlurPxChange={onBlurPxChange}
-              onDarkenOpacityChange={onDarkenOpacityChange}
-            />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+      <BackdropTreatmentControls
+        blurPx={blurPx}
+        darkenOpacity={darkenOpacity}
+        disabled={controlsDisabled}
+        onBlurPxChange={onBlurPxChange}
+        onDarkenOpacityChange={onDarkenOpacityChange}
+      />
+    </div>
   )
 }
