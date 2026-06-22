@@ -20,7 +20,7 @@ import {
   type SteamGridDBStatus,
 } from "@alloy/contracts"
 
-import { validateGameRowFields } from "./shared"
+import { validateGameRowFields, validateGameSource } from "./shared"
 
 const GAME_NAME_LOOKUP_REASON = new Set([
   "indexed-exact-name",
@@ -33,12 +33,14 @@ const GAME_NAME_LOOKUP_REASON = new Set([
 export function validateGameRow(value: unknown): GameRow {
   const row = objectRecord(value, "game")
   validateGameRowFields(row, "game")
+  validateGameSource(row, "game")
   return value as GameRow
 }
 
 export function validateGameListRow(value: unknown): GameListRow {
   const row = objectRecord(value, "game")
   validateGameRowFields(row, "game")
+  validateGameSource(row, "game")
   validateNonNegativeInteger(
     row.clipCount,
     "Invalid game response: clipCount must be a non-negative integer",
@@ -53,6 +55,7 @@ export function validateGameListRows(value: unknown): GameListRow[] {
 export function validateGameDetail(value: unknown): GameDetail {
   const row = objectRecord(value, "game detail")
   validateGameRowFields(row, "game detail")
+  validateGameSource(row, "game detail")
   if (row.viewer !== null) {
     const viewer = objectRecord(row.viewer, "game detail viewer")
     validateBoolean(

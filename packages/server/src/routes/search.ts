@@ -6,7 +6,7 @@ import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import {
   gameSelectShape,
-  getSteamGridDBGameRefOrSnapshot,
+  getGameRefById,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
 import { searchGames } from "@alloy/server/games/steamgriddb"
@@ -41,37 +41,32 @@ function visibleGameClipConditions() {
   return publicClipListingConditions()
 }
 
-async function countVisibleClipsBySteamGridDBId(
+async function countVisibleClipsForSteamGridDBIds(
   steamgriddbIds: number[],
-): Promise<
-  Map<number, { steamgriddbId: number; name: string | null; clipCount: number }>
-> {
+): Promise<Map<number, { gameId: string; clipCount: number }>> {
   if (steamgriddbIds.length === 0) return new Map()
   const rows = await db
     .select({
-      steamgriddbId: clip.steamgriddb_id,
-      name: sql<string | null>`min(${clip.game})`,
+      steamgriddbId: game.steamgriddb_id,
+      gameId: game.id,
       clipCount: sql<number>`count(${clip.id})::int`,
     })
-    .from(clip)
+    .from(game)
+    .innerJoin(clip, eq(clip.game_id, game.id))
     .innerJoin(user, eq(clip.author_id, user.id))
     .where(
       and(
         ...visibleGameClipConditions(),
-        inArray(clip.steamgriddb_id, steamgriddbIds),
+        inArray(game.steamgriddb_id, steamgriddbIds),
       ),
     )
-    .groupBy(clip.steamgriddb_id)
+    .groupBy(game.steamgriddb_id, game.id)
 
-  const counts = new Map<
-    number,
-    { steamgriddbId: number; name: string | null; clipCount: number }
-  >()
+  const counts = new Map<number, { gameId: string; clipCount: number }>()
   for (const row of rows) {
     if (row.steamgriddbId === null) continue
     counts.set(row.steamgriddbId, {
-      steamgriddbId: row.steamgriddbId,
-      name: row.name,
+      gameId: row.gameId,
       clipCount: row.clipCount,
     })
   }
@@ -85,16 +80,14 @@ async function searchSteamGridDBGames(
   try {
     const results = await searchGames(q)
     const ids = results.map((row) => row.id)
-    const counts = await countVisibleClipsBySteamGridDBId(ids)
+    const counts = await countVisibleClipsForSteamGridDBIds(ids)
     const rows: GameListRow[] = []
 
     for (const result of results) {
       const countRow = counts.get(result.id)
       if (!countRow) continue
-      const ref = await getSteamGridDBGameRefOrSnapshot({
-        steamgriddbId: result.id,
-        name: countRow.name ?? result.name,
-      })
+      const ref = await getGameRefById(countRow.gameId)
+      if (!ref) continue
       rows.push(serialiseGameListRow({ ...ref, clipCount: countRow.clipCount }))
       if (rows.length >= limit) break
     }
@@ -116,7 +109,7 @@ async function searchLocalGameSnapshots(
       clipCount: sql<number>`count(${clip.id})::int`,
     })
     .from(game)
-    .innerJoin(clip, eq(clip.steamgriddb_id, game.steamgriddb_id))
+    .innerJoin(clip, eq(clip.game_id, game.id))
     .innerJoin(user, eq(clip.author_id, user.id))
     .where(
       and(
@@ -128,7 +121,7 @@ async function searchLocalGameSnapshots(
         ),
       ),
     )
-    .groupBy(game.steamgriddb_id)
+    .groupBy(game.id)
     .orderBy(sql`count(${clip.id}) desc`, game.name)
     .limit(limit)
 
@@ -145,11 +138,11 @@ function mergeGameResults(
   fallback: GameListRow[],
   limit: number,
 ): GameListRow[] {
-  const seen = new Set<number>()
+  const seen = new Set<string>()
   const merged: GameListRow[] = []
   for (const row of [...primary, ...fallback]) {
-    if (seen.has(row.steamgriddbId)) continue
-    seen.add(row.steamgriddbId)
+    if (seen.has(row.id)) continue
+    seen.add(row.id)
     merged.push(row)
     if (merged.length >= limit) break
   }
@@ -178,7 +171,7 @@ export const searchRoute = new Hono().get(
         .select(clipSelectShape)
         .from(clip)
         .innerJoin(user, eq(clip.author_id, user.id))
-        .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
+        .leftJoin(game, eq(clip.game_id, game.id))
         .where(
           and(
             ...publicClipListingConditions(),

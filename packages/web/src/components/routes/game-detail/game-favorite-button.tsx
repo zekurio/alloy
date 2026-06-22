@@ -10,12 +10,14 @@ import { useToggleGameFavoriteMutation } from "@/lib/game-queries"
 
 type GameFavoriteButtonProps = {
   gameId: number | string
+  viewerId: string | null
   viewer: { isFollowing: boolean } | null | undefined
   className?: string
 }
 
 export function GameFavoriteButton({
   gameId,
+  viewerId,
   viewer,
   className,
 }: GameFavoriteButtonProps) {
@@ -43,16 +45,19 @@ export function GameFavoriteButton({
     return (
       <Button
         type="button"
-        variant="primary"
-        size="icon"
+        variant="ghost"
+        size="icon-lg"
         aria-label={t("Sign in to star")}
         title={t("Sign in to star")}
-        className={className}
+        className={cn(
+          "text-white/80 hover:bg-transparent hover:text-white",
+          className,
+        )}
         onClick={() => {
           void navigate({ to: "/login" })
         }}
       >
-        <StarIcon />
+        <StarIcon className="size-5" />
       </Button>
     )
   }
@@ -76,7 +81,7 @@ export function GameFavoriteButton({
       )}
       onClick={() => {
         mutation.mutate(
-          { gameId: String(gameId), next: !isStarred },
+          { gameId: String(gameId), next: !isStarred, viewerId },
           {
             onError: (cause) => {
               toast.error(errorMessage(cause, t("Something went wrong")))

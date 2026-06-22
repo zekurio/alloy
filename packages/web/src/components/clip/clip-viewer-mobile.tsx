@@ -316,7 +316,7 @@ function MobileClipViewerBody({
               sourceAudioCodec={row.sourceAudioCodec}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}
-              fallbackSeed={row.steamgriddbId ?? row.id}
+              fallbackSeed={row.gameId ?? row.id}
               status={row.status}
               encodeProgress={row.encodeProgress}
               maxDisplayHeight={
@@ -326,7 +326,13 @@ function MobileClipViewerBody({
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
               autoPlay
               enableHorizontalSeekShortcuts={false}
-              className="rounded-lg data-[fullscreen=true]:rounded-none"
+              className={cn(
+                "data-[fullscreen=true]:rounded-none",
+                // Portrait fills the full width, so the player sits flush
+                // against the screen edges; rounded corners would float off
+                // them. Only round when landscape centers it with side margins.
+                isLandscape ? "rounded-lg" : "rounded-none",
+              )}
             />
           </div>
 
@@ -358,7 +364,7 @@ function MobileClipViewerBody({
               {gameRef ? (
                 <Link
                   to="/games/$gameId"
-                  params={{ gameId: String(gameRef.steamgriddbId) }}
+                  params={{ gameId: gameRef.slug }}
                   className="inline-flex w-fit items-center gap-2"
                 >
                   <GameIcon

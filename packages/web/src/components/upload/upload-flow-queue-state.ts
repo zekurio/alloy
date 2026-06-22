@@ -357,7 +357,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
           onCancel: () => cancelRow(null, row.id),
           onOpen: row.status === "ready" ? () => onOpenClip(row) : undefined,
           onCopyLink:
-            row.status === "ready" && row.steamgriddbId
+            row.status === "ready" && row.gameSlug
               ? () => copyClipLink(row)
               : undefined,
           onDismiss:
@@ -408,8 +408,8 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
 }
 
 function clipLinkFor(row: QueueClip): string {
-  if (!row.steamgriddbId) return ""
-  return absoluteClipHref(row.steamgriddbId, row.id, publicOrigin())
+  if (!row.gameSlug) return ""
+  return absoluteClipHref(row.gameSlug, row.id, publicOrigin())
 }
 
 async function copyClipLink(row: QueueClip): Promise<void> {

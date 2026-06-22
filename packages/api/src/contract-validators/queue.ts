@@ -6,7 +6,6 @@ import {
   validateIntegerInRange,
   validateIsoDateString,
   validateNonNegativeInteger,
-  validateNullablePositiveInteger,
   validateNullableRequiredString,
   validateNullableString,
   validatePositiveInteger,
@@ -33,9 +32,9 @@ function validateQueueClip(value: unknown): QueueClip {
     row.gameSlug,
     "Invalid queue response: gameSlug must be a non-empty string or null",
   )
-  validateNullablePositiveInteger(
-    row.steamgriddbId,
-    "Invalid queue response: steamgriddbId must be a positive integer or null",
+  validateNullableRequiredString(
+    row.gameId,
+    "Invalid queue response: gameId must be a non-empty string or null",
   )
   validateEnumString(
     row.status,

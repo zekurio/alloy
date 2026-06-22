@@ -182,7 +182,7 @@ export function serverToQueueItem(
     status,
     progress,
     detail,
-    hue: stableHue(row.steamgriddbId ?? row.id),
+    hue: stableHue(row.gameId ?? row.id),
     thumbUrl: queueThumbnailUrl(row),
     thumbBlurHash: row.thumbBlurHash,
     thumbFallbackUrl: handlers.thumbFallbackUrl,

@@ -2,6 +2,7 @@ import {
   normalizeBlurHash,
   type ClipGameRef,
   type GameRow,
+  type GameSource,
 } from "@alloy/contracts"
 import { clip, clipView, game, gameFollow } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
@@ -22,8 +23,9 @@ const logger = createLogger("steamgriddb")
 const GAME_REF_REFRESH_MS = 7 * 24 * 60 * 60 * 1000
 
 export const gameSelectShape = {
-  id: game.steamgriddb_id,
+  id: game.id,
   steamgriddbId: game.steamgriddb_id,
+  source: game.source,
   name: game.name,
   slug: game.slug,
   releaseDate: game.release_date,
@@ -36,7 +38,9 @@ export const gameSelectShape = {
 } as const
 
 type GameMetadataRow = {
-  steamgriddbId: number
+  id: string
+  steamgriddbId: number | null
+  source: GameSource
   name: string
   slug: string
   releaseDate: Date | string | null
@@ -63,19 +67,20 @@ export type IndexedGameNameLookupCandidate = {
 
 const pendingGameLoads = new Map<number, Promise<GameRow | null>>()
 
-function snapshotName(steamgriddbId: number, name: string | null): string {
+function snapshotName(name: string | null): string {
   const trimmed = name?.trim()
-  return trimmed && trimmed.length > 0 ? trimmed : `Game ${steamgriddbId}`
+  return trimmed && trimmed.length > 0 ? trimmed : "Game"
 }
 
-export function gameRowFromSnapshot(
-  steamgriddbId: number,
-  name: string | null,
-): GameRow {
-  const resolvedName = snapshotName(steamgriddbId, name)
+export function gameRowFromSnapshot(input: {
+  id: string
+  name: string | null
+}): GameRow {
+  const resolvedName = snapshotName(input.name)
   return {
-    id: steamgriddbId,
-    steamgriddbId,
+    id: input.id,
+    steamgriddbId: null,
+    source: "steamgriddb",
     name: resolvedName,
     slug: gameSlug(resolvedName),
     releaseDate: null,
@@ -89,16 +94,17 @@ export function gameRowFromSnapshot(
 }
 
 export function clipGameRefFromSnapshot(input: {
-  steamgriddbId: number
+  id: string
   name: string | null
 }): ClipGameRef {
-  return gameRowFromSnapshot(input.steamgriddbId, input.name)
+  return gameRowFromSnapshot(input)
 }
 
 export function serialiseGameRow(row: GameMetadataRow): GameRow {
   return {
-    id: row.steamgriddbId,
+    id: row.id,
     steamgriddbId: row.steamgriddbId,
+    source: row.source,
     name: row.name,
     slug: publicGameSlug(row),
     releaseDate: nullableIsoDate(row.releaseDate),
@@ -114,6 +120,9 @@ export function serialiseGameRow(row: GameMetadataRow): GameRow {
 function publicGameSlug(
   row: Pick<GameMetadataRow, "name" | "slug" | "steamgriddbId">,
 ): string {
+  // Custom games own their slug verbatim; only legacy SteamGridDB rows carry
+  // the historical `name-id` slug we clean up here.
+  if (row.steamgriddbId === null) return row.slug
   const clean = gameSlug(row.name)
   return row.slug === legacyGameSlug(row.name, row.steamgriddbId)
     ? clean
@@ -161,6 +170,14 @@ function shouldRefresh(row: CachedGameMetadataRow): boolean {
   return Date.now() - new Date(row.updatedAt).getTime() > GAME_REF_REFRESH_MS
 }
 
+function shouldBackgroundRefresh(row: CachedGameMetadataRow): boolean {
+  return (
+    row.source === "steamgriddb" &&
+    row.steamgriddbId !== null &&
+    shouldRefresh(row)
+  )
+}
+
 async function selectCachedGameRef(
   steamgriddbId: number,
 ): Promise<CachedGameMetadataRow | null> {
@@ -168,6 +185,17 @@ async function selectCachedGameRef(
     .select({ ...gameSelectShape, updatedAt: game.updated_at })
     .from(game)
     .where(eq(game.steamgriddb_id, steamgriddbId))
+    .limit(1)
+  return row ?? null
+}
+
+async function selectCachedGameRefById(
+  gameId: string,
+): Promise<CachedGameMetadataRow | null> {
+  const [row] = await db
+    .select({ ...gameSelectShape, updatedAt: game.updated_at })
+    .from(game)
+    .where(eq(game.id, gameId))
     .limit(1)
   return row ?? null
 }
@@ -206,6 +234,7 @@ async function loadSteamGridDBGameRef(
 
   const values = {
     steamgriddb_id: detail.id,
+    source: "steamgriddb" as const,
     name: detail.name,
     slug,
     release_date: releaseDate,
@@ -279,12 +308,28 @@ export async function getSteamGridDBGameRef(
   return loadSteamGridDBGameRefOnce(steamgriddbId)
 }
 
+/**
+ * Resolve a game by its surrogate id — the write path for attaching a game
+ * (SteamGridDB or custom) to a clip. SteamGridDB rows are refreshed on a TTL
+ * in the background; custom rows are returned as-is.
+ */
+export async function getGameRefById(gameId: string): Promise<GameRow | null> {
+  const cached = await selectCachedGameRefById(gameId)
+  if (!cached) return null
+  if (shouldBackgroundRefresh(cached) && cached.steamgriddbId !== null) {
+    refreshCachedGameRef(cached.steamgriddbId)
+  }
+  return serialiseGameRow(cached)
+}
+
 export async function getSteamGridDBGameRefBySlug(
   slug: string,
 ): Promise<GameRow | null> {
   const cached = await selectCachedGameRefBySlug(slug)
   if (cached) {
-    if (shouldRefresh(cached)) refreshCachedGameRef(cached.steamgriddbId)
+    if (shouldBackgroundRefresh(cached) && cached.steamgriddbId !== null) {
+      refreshCachedGameRef(cached.steamgriddbId)
+    }
     return serialiseGameRow(cached)
   }
 
@@ -292,23 +337,10 @@ export async function getSteamGridDBGameRefBySlug(
   if (!legacySteamGridDBId) return null
 
   const legacy = await getSteamGridDBGameRef(legacySteamGridDBId)
-  if (!legacy) return null
+  if (!legacy || legacy.steamgriddbId === null) return null
   return legacyGameSlug(legacy.name, legacy.steamgriddbId) === slug
     ? legacy
     : null
-}
-
-export async function getSteamGridDBGameRefOrSnapshot(input: {
-  steamgriddbId: number
-  name: string | null
-}): Promise<GameRow> {
-  try {
-    const row = await getSteamGridDBGameRef(input.steamgriddbId)
-    if (row) return row
-  } catch (err) {
-    logger.warn(`using cached game snapshot for ${input.steamgriddbId}:`, err)
-  }
-  return gameRowFromSnapshot(input.steamgriddbId, input.name)
 }
 
 export async function lookupIndexedGamesByName(
@@ -345,7 +377,7 @@ export async function lookupIndexedGamesByName(
       followed,
     })
     .from(game)
-    .leftJoin(clip, eq(clip.steamgriddb_id, game.steamgriddb_id))
+    .leftJoin(clip, eq(clip.game_id, game.id))
     .leftJoin(
       clipView,
       and(
@@ -356,12 +388,12 @@ export async function lookupIndexedGamesByName(
     .leftJoin(
       gameFollow,
       and(
-        eq(gameFollow.steamgriddb_id, game.steamgriddb_id),
+        eq(gameFollow.game_id, game.id),
         viewerId ? sql`${gameFollow.user_id} = ${viewerId}::uuid` : sql`false`,
       ),
     )
     .where(matchCondition)
-    .groupBy(game.steamgriddb_id)
+    .groupBy(game.id)
 
   for (const row of rows) {
     const gameRow = serialiseGameRow(row)

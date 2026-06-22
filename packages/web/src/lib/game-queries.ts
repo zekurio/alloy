@@ -30,7 +30,12 @@ export const gameKeys = {
   lookupByName: (names: readonly string[]) =>
     [...gameKeys.all, "lookup-by-name", names] as const,
   /** Per-game detail for the banner header on `/games/:gameId`. */
-  detail: (gameId: string) => [...gameKeys.all, "detail", gameId] as const,
+  detailScope: (gameId: string) => [...gameKeys.all, "detail", gameId] as const,
+  detail: (gameId: string, viewerId: string | null) =>
+    [
+      ...gameKeys.detailScope(gameId),
+      { viewerId: viewerId ?? "anonymous" },
+    ] as const,
 }
 
 export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
@@ -107,9 +112,12 @@ export function useGameNameLookupQuery(
   })
 }
 
-export function useGameQuery(gameId: string): UseQueryResult<GameDetail> {
+export function useGameQuery(
+  gameId: string,
+  viewerId: string | null,
+): UseQueryResult<GameDetail> {
   return useQuery({
-    queryKey: gameKeys.detail(gameId),
+    queryKey: gameKeys.detail(gameId, viewerId),
     queryFn: () => api.games.fetchById(gameId),
     enabled: gameId.length > 0,
   })
@@ -135,7 +143,7 @@ export function useToggleGameFavoriteMutation() {
   return useMutation<
     { following: boolean },
     Error,
-    { gameId: string; next: boolean },
+    { gameId: string; next: boolean; viewerId: string | null },
     {
       detailKey: ReturnType<typeof gameKeys.detail>
       previous: GameDetail | undefined
@@ -143,8 +151,8 @@ export function useToggleGameFavoriteMutation() {
   >({
     mutationFn: ({ gameId, next }) =>
       next ? api.games.follow(gameId) : api.games.unfollow(gameId),
-    onMutate: async ({ gameId, next }) => {
-      const detailKey = gameKeys.detail(gameId)
+    onMutate: async ({ gameId, next, viewerId }) => {
+      const detailKey = gameKeys.detail(gameId, viewerId)
       await qc.cancelQueries({ queryKey: detailKey })
       const previous = qc.getQueryData<GameDetail>(detailKey)
       qc.setQueryData<GameDetail>(detailKey, (old) => {
@@ -165,7 +173,9 @@ export function useToggleGameFavoriteMutation() {
       }
     },
     onSettled: (_data, _error, variables) => {
-      void qc.invalidateQueries({ queryKey: gameKeys.detail(variables.gameId) })
+      void qc.invalidateQueries({
+        queryKey: gameKeys.detailScope(variables.gameId),
+      })
       void qc.invalidateQueries({ queryKey: feedKeys.all })
     },
   })

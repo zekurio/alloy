@@ -27,10 +27,8 @@ export function createFeedApi(context: ApiContext) {
         query: queryParams({
           filter: params.filter.kind,
           sort: params.sort,
-          steamgriddbId:
-            params.filter.kind === "game"
-              ? params.filter.steamgriddbId
-              : undefined,
+          gameId:
+            params.filter.kind === "game" ? params.filter.gameId : undefined,
           limit: params.limit,
           cursor: params.cursor,
         }),

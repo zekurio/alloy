@@ -42,7 +42,7 @@ function emptyHint(filter: FeedFilter): string {
 }
 
 function filterId(filter: FeedFilter): string {
-  if (filter.kind === "game") return `game:${filter.steamgriddbId}`
+  if (filter.kind === "game") return `game:${filter.gameId}`
   return filter.kind
 }
 

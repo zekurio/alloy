@@ -138,10 +138,10 @@ async function clipHead(pathname: string): Promise<string> {
 
     const origin = env.PUBLIC_SERVER_URL
     const gameName =
-      row.steamgriddbId === null
+      row.gameId === null
         ? row.game?.trim() || "Uncategorised"
         : clipGameRefFromSnapshot({
-            steamgriddbId: row.steamgriddbId,
+            id: row.gameId,
             name: row.game,
           }).name
     const description =

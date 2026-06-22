@@ -140,7 +140,7 @@ async function prepareCapturePublishPayload({
     title,
     description: nullableClipDescription(description),
     tags: parseTagString(tags),
-    steamgriddbId: game?.steamgriddbId ?? null,
+    gameId: game?.id ?? null,
     privacy,
     width: selected.width,
     height: selected.height,

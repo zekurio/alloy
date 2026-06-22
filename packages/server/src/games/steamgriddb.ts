@@ -1,8 +1,7 @@
-import type { GameRow, SteamGridDBSearchResult } from "@alloy/contracts"
+import type { SteamGridDBSearchResult } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { imageBlurHash } from "@alloy/server/media/blurhash"
 
-import { gameSlug } from "./slug"
 import {
   getFirstGrid,
   getFirstHero,
@@ -73,30 +72,6 @@ export async function searchGames(
   const trimmed = query.trim()
   if (trimmed.length === 0) return []
   return rankSearchResults(await searchSteamGridDBGames(trimmed), trimmed)
-}
-
-export async function gameRowFromSearchResult(
-  result: SteamGridDBSearchResult,
-): Promise<GameRow> {
-  const [enriched] = await enrichSearchResultsWithIcons([result], 1)
-  const releaseDate =
-    typeof result.release_date === "number"
-      ? new Date(result.release_date * 1000).toISOString()
-      : null
-
-  return {
-    id: result.id,
-    steamgriddbId: result.id,
-    name: result.name,
-    slug: gameSlug(result.name),
-    releaseDate,
-    heroUrl: null,
-    heroBlurHash: null,
-    gridUrl: null,
-    gridBlurHash: null,
-    logoUrl: enriched?.logoUrl ?? null,
-    iconUrl: enriched?.iconUrl ?? null,
-  }
 }
 
 const ICON_CACHE_MAX = 512

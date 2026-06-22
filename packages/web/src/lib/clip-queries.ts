@@ -217,7 +217,7 @@ export function useUpdateClipMutation() {
       // on fields we don't patch locally (view count, etc.).
       void qc.invalidateQueries({ queryKey: clipKeys.all })
       if (
-        variables.input.steamgriddbId !== undefined ||
+        variables.input.gameId !== undefined ||
         variables.input.privacy !== undefined
       ) {
         void invalidateGameQueries(qc)
