@@ -10,14 +10,9 @@ import { isAllowedMainSessionPermission } from "./permissions"
 export const MAIN_PARTITION = "persist:alloy"
 const ACCESS_COOKIE = "alloy_access"
 const REFRESH_COOKIE = "alloy_refresh"
-const LEGACY_SESSION_COOKIE = "alloy_session"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
 const SESSION_VALIDATION_TIMEOUT_MS = 10_000
-const AUTH_COOKIE_NAMES = [
-  ACCESS_COOKIE,
-  REFRESH_COOKIE,
-  LEGACY_SESSION_COOKIE,
-] as const
+const AUTH_COOKIE_NAMES = [ACCESS_COOKIE, REFRESH_COOKIE] as const
 
 type DesktopSessionTokens = {
   accessToken: string
@@ -115,10 +110,7 @@ export async function injectSessionCookie(
     path: "/",
     expirationDate: refreshExpirationDate,
   })
-  await ses.cookies
-    .remove(new URL("/api/auth/refresh", serverUrl).toString(), REFRESH_COOKIE)
-    .catch(() => {})
-  await ses.cookies.remove(serverUrl, LEGACY_SESSION_COOKIE).catch(() => {})
+  await flushCookieStore()
 }
 
 /**
@@ -179,13 +171,24 @@ async function persistResponseCookies(
   serverUrl: string,
   headers: Headers,
 ): Promise<void> {
-  for (const header of setCookieHeaders(headers)) {
-    const cookie = parseSetCookie(header)
-    if (!cookie || !isManagedAuthCookie(cookie.name)) continue
+  const cookies = setCookieHeaders(headers)
+    .map(parseSetCookie)
+    .filter((cookie): cookie is ParsedSetCookie =>
+      Boolean(cookie && isManagedAuthCookie(cookie.name)),
+    )
+
+  // Electron removes every matching cookie visible to the URL. Apply
+  // expirations before replacements so a same-response delete cannot remove a
+  // freshly written root cookie.
+  for (const cookie of cookies) {
+    if (!cookie.expired) continue
+    await mainSession()
+      .cookies.remove(cookieUrl(serverUrl, cookie.path), cookie.name)
+      .catch(() => undefined)
+  }
+
+  for (const cookie of cookies) {
     if (cookie.expired) {
-      await mainSession()
-        .cookies.remove(cookieUrl(serverUrl, cookie.path), cookie.name)
-        .catch(() => undefined)
       continue
     }
 
@@ -201,6 +204,14 @@ async function persistResponseCookies(
       sameSite: cookie.sameSite,
     })
   }
+
+  if (cookies.length > 0) await flushCookieStore()
+}
+
+async function flushCookieStore(): Promise<void> {
+  await mainSession()
+    .cookies.flushStore()
+    .catch(() => undefined)
 }
 
 function setCookieHeaders(headers: Headers): string[] {
