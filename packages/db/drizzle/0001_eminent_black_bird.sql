@@ -9,28 +9,18 @@ DROP INDEX "clip_ready_visible_steamgriddb_top_idx";--> statement-breakpoint
 DROP INDEX "game_detection_mapping_steamgriddb_idx";--> statement-breakpoint
 DROP INDEX "game_follow_steamgriddb_idx";--> statement-breakpoint
 DROP INDEX "game_follow_pair_idx";--> statement-breakpoint
-/* 
-    Unfortunately in current drizzle-kit version we can't automatically get name for primary key.
-    We are working on making it available!
-
-    Meanwhile you can:
-        1. Check pk name in your database, by running
-            SELECT constraint_name FROM information_schema.table_constraints
-            WHERE table_schema = 'public'
-                AND table_name = 'game'
-                AND constraint_type = 'PRIMARY KEY';
-        2. Uncomment code below and paste pk name manually
-        
-    Hope to release this update as soon as possible
-*/
-
--- ALTER TABLE "game" DROP CONSTRAINT "<constraint_name>";--> statement-breakpoint
+ALTER TABLE "game" ADD COLUMN "id" uuid DEFAULT gen_random_uuid() NOT NULL;--> statement-breakpoint
+ALTER TABLE "game" DROP CONSTRAINT "game_pkey";--> statement-breakpoint
+ALTER TABLE "game" ADD CONSTRAINT "game_pkey" PRIMARY KEY("id");--> statement-breakpoint
 ALTER TABLE "game" ALTER COLUMN "steamgriddb_id" DROP NOT NULL;--> statement-breakpoint
-ALTER TABLE "clip" ADD COLUMN "game_id" uuid;--> statement-breakpoint
-ALTER TABLE "game" ADD COLUMN "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL;--> statement-breakpoint
 ALTER TABLE "game" ADD COLUMN "source" text DEFAULT 'steamgriddb' NOT NULL;--> statement-breakpoint
+ALTER TABLE "clip" ADD COLUMN "game_id" uuid;--> statement-breakpoint
 ALTER TABLE "game_detection_mapping" ADD COLUMN "game_id" uuid;--> statement-breakpoint
-ALTER TABLE "game_follow" ADD COLUMN "game_id" uuid NOT NULL;--> statement-breakpoint
+ALTER TABLE "game_follow" ADD COLUMN "game_id" uuid;--> statement-breakpoint
+UPDATE "clip" SET "game_id" = "game"."id" FROM "game" WHERE "clip"."steamgriddb_id" = "game"."steamgriddb_id";--> statement-breakpoint
+UPDATE "game_detection_mapping" SET "game_id" = "game"."id" FROM "game" WHERE "game_detection_mapping"."steamgriddb_id" = "game"."steamgriddb_id";--> statement-breakpoint
+UPDATE "game_follow" SET "game_id" = "game"."id" FROM "game" WHERE "game_follow"."steamgriddb_id" = "game"."steamgriddb_id";--> statement-breakpoint
+ALTER TABLE "game_follow" ALTER COLUMN "game_id" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "clip" ADD CONSTRAINT "clip_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "game_detection_mapping" ADD CONSTRAINT "game_detection_mapping_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "game_follow" ADD CONSTRAINT "game_follow_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
