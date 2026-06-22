@@ -1,13 +1,19 @@
 import type {
+  AdminCreateGameInput,
+  AdminGameRow,
   AdminRuntimeConfig,
+  AdminUpdateGameInput,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
+  GameAssetRole,
 } from "@alloy/contracts"
 import { AdminRuntimeConfigSchema } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
+  validateAdminGameRow,
+  validateAdminGameRows,
   validateAdminReEncodeResponse,
   validateAdminUsersResponse,
   validateAdminUserStorageRow,
@@ -21,15 +27,19 @@ export {
   OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "@alloy/contracts"
 export type {
+  AdminCreateGameInput,
+  AdminGameRow,
   AdminIntegrationsConfig,
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminStorageConfig,
+  AdminUpdateGameInput,
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
   AppearanceConfig,
+  GameAssetRole,
   RuntimeConfig,
   UsernameClaim,
 } from "@alloy/contracts"
@@ -120,6 +130,64 @@ async function deleteUser(context: ApiContext, userId: string): Promise<void> {
   await readSuccessJson(res)
 }
 
+async function fetchGames(context: ApiContext): Promise<AdminGameRow[]> {
+  const res = await context.rpc.api.admin.games.$get()
+  return readJsonOrThrow(res, validateAdminGameRows)
+}
+
+async function createGame(
+  context: ApiContext,
+  input: AdminCreateGameInput,
+): Promise<AdminGameRow> {
+  const res = await context.rpc.api.admin.games.$post({ json: input })
+  return readJsonOrThrow(res, validateAdminGameRow)
+}
+
+async function updateGame(
+  context: ApiContext,
+  gameId: string,
+  input: AdminUpdateGameInput,
+): Promise<AdminGameRow> {
+  const res = await context.rpc.api.admin.games[":id"].$patch({
+    param: { id: gameId },
+    json: input,
+  })
+  return readJsonOrThrow(res, validateAdminGameRow)
+}
+
+async function deleteGame(context: ApiContext, gameId: string): Promise<void> {
+  const res = await context.rpc.api.admin.games[":id"].$delete({
+    param: { id: gameId },
+  })
+  await readSuccessJson(res)
+}
+
+async function uploadGameAsset(
+  context: ApiContext,
+  gameId: string,
+  role: GameAssetRole,
+  blob: Blob,
+): Promise<AdminGameRow> {
+  const file =
+    blob instanceof File ? blob : new File([blob], role, { type: blob.type })
+  const res = await context.rpc.api.admin.games[":id"].assets[":role"].$post({
+    param: { id: gameId, role },
+    form: { file },
+  })
+  return readJsonOrThrow(res, validateAdminGameRow)
+}
+
+async function deleteGameAsset(
+  context: ApiContext,
+  gameId: string,
+  role: GameAssetRole,
+): Promise<AdminGameRow> {
+  const res = await context.rpc.api.admin.games[":id"].assets[":role"].$delete({
+    param: { id: gameId, role },
+  })
+  return readJsonOrThrow(res, validateAdminGameRow)
+}
+
 export function createAdminApi(context: ApiContext) {
   return {
     fetchRuntimeConfig: () => fetchRuntimeConfig(context),
@@ -133,5 +201,14 @@ export function createAdminApi(context: ApiContext) {
     updateUser: (userId: string, input: AdminUpdateUserInput) =>
       updateUser(context, userId, input),
     deleteUser: (userId: string) => deleteUser(context, userId),
+    fetchGames: () => fetchGames(context),
+    createGame: (input: AdminCreateGameInput) => createGame(context, input),
+    updateGame: (gameId: string, input: AdminUpdateGameInput) =>
+      updateGame(context, gameId, input),
+    deleteGame: (gameId: string) => deleteGame(context, gameId),
+    uploadGameAsset: (gameId: string, role: GameAssetRole, blob: Blob) =>
+      uploadGameAsset(context, gameId, role, blob),
+    deleteGameAsset: (gameId: string, role: GameAssetRole) =>
+      deleteGameAsset(context, gameId, role),
   }
 }

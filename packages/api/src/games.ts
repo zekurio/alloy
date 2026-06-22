@@ -14,6 +14,7 @@ import {
   validateGameListRows,
   validateGameNameLookupResponse,
   validateGameRow,
+  validateGameRows,
   validateSteamGridDBSearchResults,
   validateSteamGridDBStatus,
 } from "./contract-validators"
@@ -56,6 +57,16 @@ async function resolveGame(
     json: { steamgriddbId },
   })
   return readJsonOrThrow(res, validateGameRow)
+}
+
+async function localSearchGames(
+  context: ApiContext,
+  query: string,
+): Promise<GameRow[]> {
+  const res = await context.rpc.api.games["local-search"].$get({
+    query: { q: query },
+  })
+  return readJsonOrThrow(res, validateGameRows)
 }
 
 async function lookupGamesByName(
@@ -124,6 +135,7 @@ export function createGamesApi(context: ApiContext) {
   return {
     fetchSteamGridDBStatus: () => fetchSteamGridDBStatus(context),
     search: (query: string) => searchGames(context, query),
+    localSearch: (query: string) => localSearchGames(context, query),
     resolve: (steamgriddbId: number) => resolveGame(context, steamgriddbId),
     lookupByNames: (names: string[]) => lookupGamesByName(context, names),
     fetchAll: (params: { limit?: number; offset?: number } = {}) =>

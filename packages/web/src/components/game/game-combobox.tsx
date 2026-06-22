@@ -1,4 +1,4 @@
-import type { GameRow, SteamGridDBSearchResult } from "@alloy/api"
+import type { GameRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import {
   Combobox,
@@ -11,22 +11,31 @@ import {
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { InputGroupAddon } from "@alloy/ui/components/input-group"
 import { cn } from "@alloy/ui/lib/utils"
-import { KeyRoundIcon, SearchIcon } from "lucide-react"
+import { SearchIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
-  useGamesListQuery,
+  useLocalGameSearchQuery,
   useResolveGameMutation,
   useSearchGamesQuery,
   useSteamGridDBStatusQuery,
 } from "@/lib/game-queries"
 import { useDebouncedValue } from "@/lib/use-debounced-value"
 
-type GameComboboxItem = SteamGridDBSearchResult & {
+type GameComboboxItem = {
+  /** List key + equality id: a game uuid, or `sgdb:<id>` for remote-only rows. */
+  id: string
+  name: string
   releaseDate?: GameRow["releaseDate"]
+  release_date?: number | null
+  types?: string[]
+  verified?: boolean
   iconUrl?: string | null
   logoUrl?: string | null
-  clipCount?: number
+  /** Set when the game already exists locally — picking is instant. */
+  game?: GameRow
+  /** SteamGridDB id for remote-only results that still need resolving. */
+  steamgriddbId?: number
 }
 
 const PAGE_SIZE = 6
@@ -90,7 +99,7 @@ export function GameCombobox({
     }
   }, [value?.name])
 
-  const gamesListQuery = useGamesListQuery()
+  const localSearchQuery = useLocalGameSearchQuery(debouncedQuery)
 
   const searchQuery = useSearchGamesQuery(debouncedQuery, {
     // Only hit steamgriddb when the instance actually has a key configured.
@@ -136,8 +145,20 @@ export function GameCombobox({
       setCleared(false)
       setPendingItem(picked)
       setInputValue(picked.name)
+      // Local/custom games are already resolved — attach them directly. Only
+      // remote-only SteamGridDB results need a resolve round-trip to mint a row.
+      if (picked.game) {
+        setPendingItem(null)
+        lastExternalNameRef.current = picked.game.name
+        onChange(picked.game)
+        return
+      }
+      if (picked.steamgriddbId == null) {
+        setPendingItem(null)
+        return
+      }
       resolveMutation.mutate(
-        { steamgriddbId: picked.id },
+        { steamgriddbId: picked.steamgriddbId },
         {
           onSuccess: (row) => {
             setPendingItem(null)
@@ -164,57 +185,65 @@ export function GameCombobox({
     const q = normalizeGameSearchText(debouncedQuery)
     const inputQuery = normalizeGameSearchText(inputValue)
     const steamgriddbResults = inputQuery === q ? (searchQuery.data ?? []) : []
-    const localGames = gamesListQuery.data ?? []
+    const localGames = localSearchQuery.data ?? []
     const currentMatch: GameComboboxItem[] =
       q.length > 0 &&
       value !== null &&
-      value.steamgriddbId !== null &&
       normalizeGameSearchText(value.name).includes(q)
         ? [
             {
-              id: value.steamgriddbId,
+              id: value.id,
               name: value.name,
               releaseDate: value.releaseDate,
               iconUrl: value.iconUrl,
               logoUrl: value.logoUrl,
+              game: value,
             },
           ]
         : []
 
-    // Filter already-known games by the current query — zero network cost.
-    const localMatches: GameComboboxItem[] =
-      q.length > 0
-        ? localGames.flatMap((g) =>
-            g.steamgriddbId === null ||
-            !normalizeGameSearchText(g.name).includes(q)
-              ? []
-              : [
-                  {
-                    id: g.steamgriddbId,
-                    name: g.name,
-                    releaseDate: g.releaseDate,
-                    iconUrl: g.iconUrl,
-                    logoUrl: g.logoUrl,
-                    clipCount: g.clipCount,
-                  },
-                ],
-          )
-        : []
+    // Local catalogue rows (custom + SteamGridDB) are already resolved.
+    const localMatches: GameComboboxItem[] = localGames.map((g) => ({
+      id: g.id,
+      name: g.name,
+      releaseDate: g.releaseDate,
+      iconUrl: g.iconUrl,
+      logoUrl: g.logoUrl,
+      game: g,
+    }))
 
-    // Append steamgriddb results that aren't already covered by a local match so the
-    // list never contains duplicates, then rank the combined set locally. The
-    // server ranks remote rows, but local rows join here and need the same
-    // treatment.
     const knownMatches = [...currentMatch, ...localMatches].filter(
       (item, index, items) =>
         items.findIndex((candidate) => candidate.id === item.id) === index,
     )
-    const steamgriddbOnly = steamgriddbResults.filter(
-      (r) => !knownMatches.some((l) => l.id === r.id),
+    // Drop remote results already covered by a local row (same SteamGridDB id),
+    // then rank the combined set locally so local rows interleave correctly.
+    const knownSteamGridDBIds = new Set(
+      knownMatches
+        .map((m) => m.game?.steamgriddbId)
+        .filter((id): id is number => id != null),
     )
+    const steamgriddbOnly: GameComboboxItem[] = steamgriddbResults
+      .filter((r) => !knownSteamGridDBIds.has(r.id))
+      .map((r) => ({
+        id: `sgdb:${r.id}`,
+        name: r.name,
+        release_date: r.release_date,
+        types: r.types,
+        verified: r.verified,
+        iconUrl: r.iconUrl,
+        logoUrl: r.logoUrl,
+        steamgriddbId: r.id,
+      }))
 
     return rankGameComboboxItems([...knownMatches, ...steamgriddbOnly], q)
-  }, [searchQuery.data, gamesListQuery.data, debouncedQuery, inputValue, value])
+  }, [
+    searchQuery.data,
+    localSearchQuery.data,
+    debouncedQuery,
+    inputValue,
+    value,
+  ])
 
   // Base UI tracks the controlled `value` by identity (useValueChanged), so
   // this object must stay referentially stable across renders — recreating it
@@ -222,13 +251,14 @@ export function GameCombobox({
   // loops until React aborts with "Maximum update depth exceeded".
   const committedValue = useMemo<GameComboboxItem | null>(
     () =>
-      value && value.steamgriddbId !== null
+      value
         ? {
-            id: value.steamgriddbId,
+            id: value.id,
             name: value.name,
             releaseDate: value.releaseDate,
             iconUrl: value.iconUrl,
             logoUrl: value.logoUrl,
+            game: value,
           }
         : null,
     [value],
@@ -241,13 +271,10 @@ export function GameCombobox({
   const controlledValue: GameComboboxItem | null =
     cleared || editingSelectedName ? null : (pendingItem ?? committedValue)
 
-  if (configured === false) {
-    return <SteamGridDBUnavailableNotice className={className} />
-  }
-
-  const hasError = searchQuery.isError
   const resolving = resolveMutation.isPending
   const isDisabled = disabled || resolving || configured === null
+  const effectivePlaceholder =
+    configured === false ? t("Search custom games…") : placeholder
 
   return (
     <div ref={anchorRef} className={cn("relative", className)}>
@@ -266,11 +293,16 @@ export function GameCombobox({
         <ComboboxInput
           id={id}
           className={inputClassName}
-          placeholder={placeholder}
+          placeholder={effectivePlaceholder}
           showTrigger={false}
           showClear={allowClear && controlledValue !== null}
           aria-label={t("Game")}
-          aria-busy={searchQuery.isFetching || resolving || undefined}
+          aria-busy={
+            localSearchQuery.isFetching ||
+            searchQuery.isFetching ||
+            resolving ||
+            undefined
+          }
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}
         >
@@ -340,40 +372,17 @@ export function GameCombobox({
               </button>
             ) : null}
             <ComboboxEmpty>
-              {hasError
-                ? t("Couldn’t reach SteamGridDB")
-                : debouncedQuery.trim().length === 0
-                  ? t("Start typing to search")
-                  : t("No matches")}
+              {localSearchQuery.isError
+                ? t("Couldn’t load games")
+                : searchQuery.isError
+                  ? t("Couldn’t reach SteamGridDB")
+                  : debouncedQuery.trim().length === 0
+                    ? t("Start typing to search")
+                    : t("No matches")}
             </ComboboxEmpty>
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
-    </div>
-  )
-}
-
-function SteamGridDBUnavailableNotice({ className }: { className?: string }) {
-  return (
-    <div
-      role="status"
-      className={cn(
-        "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2.5 rounded-lg",
-        "border border-warning/25 bg-warning/5 px-3 py-2.5 text-left shadow-sm shadow-black/10",
-        className,
-      )}
-    >
-      <span className="border-warning/25 bg-warning/10 text-warning flex size-6 shrink-0 items-center justify-center rounded-md border">
-        <KeyRoundIcon className="size-3.5" aria-hidden="true" />
-      </span>
-      <span className="min-w-0 space-y-0.5">
-        <span className="text-foreground block text-sm leading-4 font-semibold">
-          {t("Game search needs a key")}
-        </span>
-        <span className="text-foreground-muted block text-xs leading-4">
-          {t("Ask an admin to add a SteamGridDB API key in Integrations.")}
-        </span>
-      </span>
     </div>
   )
 }
@@ -425,7 +434,7 @@ function rankGameComboboxItems(
       else if (name.startsWith(normalizedQuery)) score += 600
       else if (name.includes(normalizedQuery)) score += 250
 
-      if (item.clipCount !== undefined) score += 140
+      if (item.game) score += 140
       if (item.verified) score += 80
       if (types.includes("game")) score += 40
       if (types.some((type) => ["dlc", "demo", "mod"].includes(type))) {
