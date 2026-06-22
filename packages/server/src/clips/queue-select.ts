@@ -1,7 +1,6 @@
 import { normalizeBlurHash, type QueueClip } from "@alloy/contracts"
-import { clip } from "@alloy/db/schema"
+import { clip, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
-import { gameSlug } from "@alloy/server/games/slug"
 import { isoDate } from "@alloy/server/runtime/date"
 import { desc, eq } from "drizzle-orm"
 
@@ -9,8 +8,8 @@ import { clipThumbnailVersion } from "./thumbnail-version"
 
 const queueSelectShape = {
   id: clip.id,
-  game: clip.game,
   gameId: clip.game_id,
+  gameSlug: game.slug,
   title: clip.title,
   status: clip.status,
   encodeProgress: clip.encode_progress,
@@ -29,29 +28,24 @@ function serialize(row: {
   failureReason: string | null
   thumbKey: string | null
   thumbBlurHash: string | null
-  game: string | null
   gameId: string | null
+  gameSlug: string | null
   createdAt: Date
   updatedAt: Date
 }): QueueClip {
-  const {
-    thumbKey,
-    thumbBlurHash,
-    createdAt,
-    updatedAt,
-    game,
-    gameId,
-    ...publicRow
-  } = row
   return {
-    ...publicRow,
-    gameSlug: gameId === null ? null : gameSlug(game?.trim() || "Game"),
-    hasThumb: thumbKey !== null,
-    thumbVersion: thumbKey ? clipThumbnailVersion(thumbKey) : null,
-    thumbBlurHash: normalizeBlurHash(thumbBlurHash),
-    gameId,
-    createdAt: isoDate(createdAt),
-    updatedAt: isoDate(updatedAt),
+    id: row.id,
+    title: row.title,
+    status: row.status,
+    encodeProgress: row.encodeProgress,
+    failureReason: row.failureReason,
+    gameSlug: row.gameSlug,
+    hasThumb: row.thumbKey !== null,
+    thumbVersion: row.thumbKey ? clipThumbnailVersion(row.thumbKey) : null,
+    thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
+    gameId: row.gameId,
+    createdAt: isoDate(row.createdAt),
+    updatedAt: isoDate(row.updatedAt),
   }
 }
 
@@ -63,6 +57,7 @@ export async function selectQueueRowsForAuthor(
   const rows = await db
     .select(queueSelectShape)
     .from(clip)
+    .leftJoin(game, eq(clip.game_id, game.id))
     .where(eq(clip.author_id, authorId))
     .orderBy(desc(clip.created_at))
     .limit(50)
@@ -75,6 +70,7 @@ export async function selectQueueRowById(
   const [row] = await db
     .select(queueSelectShape)
     .from(clip)
+    .leftJoin(game, eq(clip.game_id, game.id))
     .where(eq(clip.id, clipId))
     .limit(1)
   return row ? serialize(row) : null
