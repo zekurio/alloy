@@ -3,6 +3,20 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Set the theme class before paint to avoid a flash. Mirrors
+      // @alloy/ui/lib/theme; keep the storage key in sync.
+      try {
+        var theme = localStorage.getItem("alloy.theme") || "system"
+        var dark =
+          theme === "dark" ||
+          (theme !== "light" &&
+            matchMedia("(prefers-color-scheme: dark)").matches)
+        document.documentElement.classList.add(dark ? "dark" : "light")
+      } catch (e) {
+        document.documentElement.classList.add("dark")
+      }
+    </script>
     <!-- alloy:head -->
     <title>alloy</title>
     <meta name="description" content="Share and watch game clips on alloy." />
