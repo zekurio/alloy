@@ -10,7 +10,7 @@ import { clipThumbnailVersion } from "./thumbnail-version"
 const queueSelectShape = {
   id: clip.id,
   game: clip.game,
-  steamgriddbId: clip.steamgriddb_id,
+  gameId: clip.game_id,
   title: clip.title,
   status: clip.status,
   encodeProgress: clip.encode_progress,
@@ -30,7 +30,7 @@ function serialize(row: {
   thumbKey: string | null
   thumbBlurHash: string | null
   game: string | null
-  steamgriddbId: number | null
+  gameId: string | null
   createdAt: Date
   updatedAt: Date
 }): QueueClip {
@@ -40,19 +40,16 @@ function serialize(row: {
     createdAt,
     updatedAt,
     game,
-    steamgriddbId,
+    gameId,
     ...publicRow
   } = row
   return {
     ...publicRow,
-    gameSlug:
-      steamgriddbId === null
-        ? null
-        : gameSlug(game?.trim() || `Game ${steamgriddbId}`),
+    gameSlug: gameId === null ? null : gameSlug(game?.trim() || "Game"),
     hasThumb: thumbKey !== null,
     thumbVersion: thumbKey ? clipThumbnailVersion(thumbKey) : null,
     thumbBlurHash: normalizeBlurHash(thumbBlurHash),
-    steamgriddbId,
+    gameId,
     createdAt: isoDate(createdAt),
     updatedAt: isoDate(updatedAt),
   }

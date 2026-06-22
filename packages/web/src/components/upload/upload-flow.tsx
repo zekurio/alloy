@@ -39,12 +39,12 @@ function AuthedDesktopUploadFlow() {
           clip: row.id,
           comment: undefined,
         }),
-        ...(row.steamgriddbId
+        ...(row.gameSlug
           ? {
               mask: {
                 to: "/games/$gameId/c/$clipId",
                 params: {
-                  gameId: String(row.steamgriddbId),
+                  gameId: row.gameSlug,
                   clipId: row.id,
                 },
               },

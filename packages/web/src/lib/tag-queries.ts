@@ -9,7 +9,7 @@ import { api } from "./api"
 
 type TagClipsFilters = {
   sort: ClipListSort
-  steamgriddbId?: number
+  gameId?: string
 }
 
 export const tagKeys = {
@@ -32,7 +32,7 @@ export function useTagClipsInfiniteQuery(
     queryFn: ({ pageParam }) =>
       api.tags.fetchClipPage(tag, {
         sort: filters.sort,
-        steamgriddbId: filters.steamgriddbId,
+        gameId: filters.gameId,
         limit: TAG_PAGE_LIMIT,
         cursor: pageParam,
       } satisfies TagClipsParams),

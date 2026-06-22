@@ -10,7 +10,7 @@ export const Route = createFileRoute("/(app)/_app/g/$slug/c/$clipId")({
     throw redirect({
       to: "/games/$gameId/c/$clipId",
       params: {
-        gameId: String(game.steamgriddbId),
+        gameId: game.slug,
         clipId: params.clipId,
       },
       search: location.search,

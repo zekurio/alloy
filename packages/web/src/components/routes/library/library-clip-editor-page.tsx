@@ -205,9 +205,9 @@ function useClipEditorMedia(row: ClipRow, processing: boolean) {
     () => ({
       src: poster,
       blurHash: row.thumbBlurHash,
-      fallbackSeed: row.steamgriddbId ?? row.id,
+      fallbackSeed: row.gameId ?? row.id,
     }),
-    [poster, row.id, row.steamgriddbId, row.thumbBlurHash],
+    [poster, row.id, row.gameId, row.thumbBlurHash],
   )
   const [publishHandoffPoster, setPublishHandoffPoster] = useState(() =>
     readLibraryHandoffPoster(row.id),
@@ -267,7 +267,7 @@ function ClipEditorStage({
           sourceIdentity={`${row.id}:${media.mediaVersion}`}
           poster={media.poster}
           posterBlurHash={row.thumbBlurHash}
-          fallbackSeed={row.steamgriddbId ?? row.id}
+          fallbackSeed={row.gameId ?? row.id}
           aspectRatio={media.aspectRatio}
           maxDisplayHeight="100%"
           controls={false}

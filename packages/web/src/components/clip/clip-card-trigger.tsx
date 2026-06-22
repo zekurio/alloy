@@ -33,7 +33,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
   const list = useClipList()
   const card = useMemo(() => toClipCardData(row), [row])
 
-  const gameId = card.gameRef?.steamgriddbId ?? null
+  const gameId = card.gameRef?.slug ?? null
   const gameLink = gameId ? gameHref(gameId) : null
   const authorHref = card.authorUsername
     ? userProfileHref(card.authorUsername)

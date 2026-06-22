@@ -88,6 +88,7 @@ function SearchMediaThumb({
   src,
   fallbackSrc,
   className,
+  viewportClassName = CLIP_MEDIA_VIEWPORT_CLASS,
   imageClassName = CLIP_MEDIA_CLASS,
 }: {
   seed: string | number
@@ -95,6 +96,7 @@ function SearchMediaThumb({
   src?: string | null
   fallbackSrc?: string | null
   className?: string
+  viewportClassName?: string
   imageClassName?: string
 }) {
   const [primaryFailed, setPrimaryFailed] = useState(false)
@@ -115,8 +117,8 @@ function SearchMediaThumb({
   return (
     <div
       className={cn(
-        CLIP_MEDIA_VIEWPORT_CLASS,
-        "w-16 shrink-0 rounded-sm bg-surface-sunken",
+        viewportClassName,
+        "shrink-0 rounded-sm bg-surface-sunken",
         className,
       )}
     >
@@ -184,10 +186,11 @@ export function ClipRowItem({
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <SearchMediaThumb
-        seed={row.steamgriddbId ?? row.id}
+        seed={row.gameId ?? row.id}
         blurHash={blurHash}
         src={thumb}
         fallbackSrc={localFallback?.thumbnailUrl}
+        className="w-16"
       />
       <SearchItemText title={row.title} active={active}>
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
@@ -230,6 +233,7 @@ export function LocalClipRowItem({
         seed={row.displayGameName || row.groupLabel || row.id}
         blurHash={row.thumbBlurHash}
         src={row.thumbnailUrl}
+        className="w-16"
       />
       <SearchItemText title={row.title} active={active}>
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
@@ -258,9 +262,15 @@ export function GameRowItem({
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <SearchMediaThumb
-        seed={row.steamgriddbId}
-        blurHash={row.heroBlurHash}
-        src={row.heroUrl}
+        seed={row.id}
+        blurHash={row.gridBlurHash ?? row.heroBlurHash}
+        // Grids are ~2:3 box art that fills a portrait slot cleanly; the wide
+        // hero is only a fallback. object-cover keeps the placeholder hidden
+        // instead of letterboxing it into view.
+        src={row.gridUrl ?? row.heroUrl}
+        viewportClassName="relative aspect-[3/4] overflow-hidden"
+        imageClassName="absolute inset-0 size-full object-cover object-center"
+        className="w-12"
       />
       <SearchItemText title={row.name} active={active}>
         <div className="text-foreground-muted truncate text-xs font-semibold">

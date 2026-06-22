@@ -21,7 +21,7 @@ const SCOPE_ALL = "all"
 const SCOPE_FOLLOWING = "following"
 
 function filterKey(filter: FeedFilter): string {
-  if (filter.kind === "game") return `game:${filter.steamgriddbId}`
+  if (filter.kind === "game") return `game:${filter.gameId}`
   return filter.kind
 }
 
@@ -49,7 +49,7 @@ export function FeedFilterDropdown({
     { key: SCOPE_ALL, label: t("All"), icon: <GlobeIcon /> },
     { key: SCOPE_FOLLOWING, label: t("Following"), icon: <UsersIcon /> },
     ...games.map((g) => ({
-      key: `game:${g.steamgriddbId}`,
+      key: `game:${g.id}`,
       label: g.name,
       icon: <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />,
     })),

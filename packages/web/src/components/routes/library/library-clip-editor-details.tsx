@@ -120,6 +120,7 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
   return {
     id: ref.id,
     steamgriddbId: ref.steamgriddbId,
+    source: ref.source,
     name: ref.name,
     slug: ref.slug,
     releaseDate: ref.releaseDate,
@@ -223,10 +224,10 @@ function ClipDetailsForm({
   const titleInvalid = trimmedTitle.length === 0
 
   const copyClipLink = async (clip: ClipRow = row) => {
-    const steamgriddbId = clip.gameRef?.steamgriddbId
-    if (!steamgriddbId) return false
+    const slug = clip.gameRef?.slug
+    if (!slug) return false
     return copyTextToClipboard(
-      absoluteClipHref(steamgriddbId, clip.id, publicOrigin()),
+      absoluteClipHref(slug, clip.id, publicOrigin()),
       {
         action: "copy clip link",
       },
@@ -267,7 +268,7 @@ function ClipDetailsForm({
     const input: Parameters<typeof saveMutation.mutate>[0]["input"] = {}
     if (titleChanged) input.title = trimmedTitle
     if (descriptionChanged) input.description = trimmedDescription
-    if (gameChanged) input.steamgriddbId = game?.steamgriddbId ?? null
+    if (gameChanged) input.gameId = game?.id ?? null
     if (mentionsChanged) input.mentionedUserIds = mentionIds
     if (tagsChanged) input.tags = tags
     saveMutation.mutate(

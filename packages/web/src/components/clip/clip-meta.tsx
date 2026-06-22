@@ -368,7 +368,7 @@ function ClipMeta({
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <ClipGameBadge game={game} gameRef={gameRef} />
+          <ClipGameBadge game={game} gameRef={gameRef} viewerId={viewerId} />
           <div className="text-foreground-faint flex items-center gap-1.5 pt-0.5 text-xs leading-4">
             {privacy !== "public" ? (
               <>
@@ -426,14 +426,16 @@ function ClipMeta({
 function ClipGameBadge({
   game,
   gameRef,
+  viewerId,
 }: {
   game: string
   gameRef: ClipGameRef | null
+  viewerId: string | null
 }) {
   const navigate = useNavigate()
   const icon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
-  const gameId = gameRef ? String(gameRef.steamgriddbId) : ""
-  const gameQuery = useGameQuery(gameId)
+  const gameId = gameRef ? gameRef.slug : ""
+  const gameQuery = useGameQuery(gameId, viewerId)
   const favoriteMutation = useToggleGameFavoriteMutation()
   const viewer = gameQuery.data?.viewer
   const isFavorite = viewer?.isFollowing ?? false
@@ -446,7 +448,7 @@ function ClipGameBadge({
       return
     }
     favoriteMutation.mutate(
-      { gameId, next: !isFavorite },
+      { gameId, next: !isFavorite, viewerId },
       {
         onError: (cause) => {
           toast.error(errorMessage(cause, t("Something went wrong")))

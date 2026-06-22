@@ -20,7 +20,7 @@ export function ClipCardList({
     () =>
       rows.map((row) => ({
         id: row.id,
-        gameId: row.gameRef ? String(row.gameRef.steamgriddbId) : null,
+        gameId: row.gameRef ? row.gameRef.slug : null,
         row,
       })),
     [rows],

@@ -36,10 +36,10 @@ export const clip = pgTable(
 
     title: text().notNull(),
     description: text(),
-    // Non-authoritative display snapshot. `steamgriddbId` is null for desktop
-    // captures, unknown games, and low-confidence detector guesses.
+    // Non-authoritative display snapshot of the game name. `game_id` is null
+    // for desktop captures, unknown games, and low-confidence detector guesses.
     game: text(),
-    steamgriddb_id: integer().references(() => game.steamgriddb_id, {
+    game_id: uuid().references(() => game.id, {
       onDelete: "set null",
     }),
 
@@ -93,10 +93,10 @@ export const clip = pgTable(
       .on(t.view_count.desc(), t.like_count.desc(), t.created_at.desc(), t.id)
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
-    index("clip_steamgriddb_created_idx").on(t.steamgriddb_id, t.created_at),
-    index("clip_ready_visible_steamgriddb_top_idx")
+    index("clip_game_created_idx").on(t.game_id, t.created_at),
+    index("clip_ready_visible_game_top_idx")
       .on(
-        t.steamgriddb_id,
+        t.game_id,
         t.view_count.desc(),
         t.like_count.desc(),
         t.created_at.desc(),
