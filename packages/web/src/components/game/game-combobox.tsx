@@ -11,7 +11,7 @@ import {
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { InputGroupAddon } from "@alloy/ui/components/input-group"
 import { cn } from "@alloy/ui/lib/utils"
-import { KeyRoundIcon, SearchIcon } from "lucide-react"
+import { SearchIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import {
@@ -271,13 +271,10 @@ export function GameCombobox({
   const controlledValue: GameComboboxItem | null =
     cleared || editingSelectedName ? null : (pendingItem ?? committedValue)
 
-  if (configured === false) {
-    return <SteamGridDBUnavailableNotice className={className} />
-  }
-
-  const hasError = searchQuery.isError
   const resolving = resolveMutation.isPending
   const isDisabled = disabled || resolving || configured === null
+  const effectivePlaceholder =
+    configured === false ? t("Search custom games…") : placeholder
 
   return (
     <div ref={anchorRef} className={cn("relative", className)}>
@@ -296,11 +293,16 @@ export function GameCombobox({
         <ComboboxInput
           id={id}
           className={inputClassName}
-          placeholder={placeholder}
+          placeholder={effectivePlaceholder}
           showTrigger={false}
           showClear={allowClear && controlledValue !== null}
           aria-label={t("Game")}
-          aria-busy={searchQuery.isFetching || resolving || undefined}
+          aria-busy={
+            localSearchQuery.isFetching ||
+            searchQuery.isFetching ||
+            resolving ||
+            undefined
+          }
           aria-invalid={invalid || undefined}
           aria-required={required || undefined}
         >
@@ -370,40 +372,17 @@ export function GameCombobox({
               </button>
             ) : null}
             <ComboboxEmpty>
-              {hasError
-                ? t("Couldn’t reach SteamGridDB")
-                : debouncedQuery.trim().length === 0
-                  ? t("Start typing to search")
-                  : t("No matches")}
+              {localSearchQuery.isError
+                ? t("Couldn’t load games")
+                : searchQuery.isError
+                  ? t("Couldn’t reach SteamGridDB")
+                  : debouncedQuery.trim().length === 0
+                    ? t("Start typing to search")
+                    : t("No matches")}
             </ComboboxEmpty>
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
-    </div>
-  )
-}
-
-function SteamGridDBUnavailableNotice({ className }: { className?: string }) {
-  return (
-    <div
-      role="status"
-      className={cn(
-        "grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-start gap-2.5 rounded-lg",
-        "border border-warning/25 bg-warning/5 px-3 py-2.5 text-left shadow-sm shadow-black/10",
-        className,
-      )}
-    >
-      <span className="border-warning/25 bg-warning/10 text-warning flex size-6 shrink-0 items-center justify-center rounded-md border">
-        <KeyRoundIcon className="size-3.5" aria-hidden="true" />
-      </span>
-      <span className="min-w-0 space-y-0.5">
-        <span className="text-foreground block text-sm leading-4 font-semibold">
-          {t("Game search needs a key")}
-        </span>
-        <span className="text-foreground-muted block text-xs leading-4">
-          {t("Ask an admin to add a SteamGridDB API key in Integrations.")}
-        </span>
-      </span>
     </div>
   )
 }
