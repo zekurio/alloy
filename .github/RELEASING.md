@@ -1,87 +1,99 @@
 # Releasing
 
-Alloy has one GitHub Release channel and one unstable build channel:
+Alloy has two GitHub Release channels for the desktop updater:
 
-- **Latest**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and built
-  by the Nix cache workflow.
-- **Unstable**: built from `develop` pushes, uploaded as a workflow artifact.
-  Server builds are consumed from the Nix flake by pinning the development
-  branch or an exact commit.
+- **Latest**: built from `main` pushes, tagged `vX.Y.Z`, marked as the latest
+  GitHub Release, and exposed through `latest.yml`.
+- **Unstable**: built from desktop-impacting `develop` pushes, tagged
+  `vX.Y.Z-unstable.YYYYMMDD.<run>`, published as a prerelease, and exposed
+  through `unstable.yml`.
+
+Server distribution is handled by the Nix flake package and NixOS module. We do
+not attach server artifacts to GitHub Releases.
 
 GitHub Release assets are intentionally limited to the desktop app and
 auto-update files:
 
 - `Alloy-Desktop-...exe`
 - the installer `.blockmap`
-- `latest.yml`
+- `latest.yml` or `unstable.yml`
 - `checksums.txt`
 
-Server distribution is handled by the Nix flake package and NixOS module.
-Publishing a latest GitHub Release triggers the **Nix Cache** workflow for the
-flake package.
+Publishing a latest release also triggers the **Nix Cache** workflow for the
+flake package. Prerelease unstable builds do not.
 
-Desktop auto-update follows the installed app's version channel. Latest builds
-look at `latest.yml` and reject unstable versions. Unstable builds look at
+Desktop auto-update follows the selected app channel. Latest builds look at
+`latest.yml` and reject unstable versions. Unstable builds look at
 `unstable.yml` and reject plain semver versions.
 
 ## Branch Policy
 
-- `main` is the release-ready branch for tagged latest releases.
-- `develop` is the integration branch for unstable builds and can be consumed by
-  Nix users with `inputs.alloy.url = "github:zekurio/alloy/develop";`.
+- `main` is the release branch. Pushing to `main` publishes a latest release
+  using the checked-in package version.
+- `develop` is the integration branch. Desktop-impacting pushes publish
+  unstable prereleases.
 - Feature branches should target `develop` unless they are release fixes for
   `main`.
-- Protect both `main` and `develop`. The unstable build path runs with write
-  permissions for trusted `develop` pushes, so `develop` should only receive
+- Protect both `main` and `develop`. Release publishing runs with write
+  permissions for trusted branch pushes, so these branches should only receive
   trusted merges.
+
+## Version Policy
+
+The checked-in package version is the source of truth.
+
+- Latest releases use the exact checked-in plain semver, such as `1.2.3`.
+- Unstable releases use that same version with an unstable suffix, such as
+  `1.2.3-unstable.20260622.456`.
+- The release workflow does not increment the version.
+
+All release version files must match before any desktop artifact is published:
+
+- `package.json`
+- `packages/desktop/package.json`
+- `packages/recorder/package.json`
+- `packages/recorder/Cargo.toml`
+- `packages/recorder/Cargo.lock`
 
 ## Latest Releases
 
-1. Run **Release** manually with:
-   - `channel`: `latest`
-   - `version`: `X.Y.Z`
+1. On `develop`, bump the package version to the intended stable version.
 
-2. The workflow validates the version, locally updates all release version
-   files, then runs formatting, lint, and typecheck before publishing anything.
+   ```sh
+   node scripts/update-release-package-versions.mjs X.Y.Z --desktop-channel latest
+   ```
 
-3. After validation passes, the workflow commits the bump as
-   `github-actions[bot]`, pushes it to the selected branch, and creates the
-   matching `vX.Y.Z` tag from that commit.
+2. Open a PR from `develop` into `main`.
 
-4. The **Release** workflow builds the Windows desktop installer, attaches only
-   desktop/update assets, and publishes the GitHub Release.
+3. CI runs the release version guard for `develop` -> `main` PRs. It fails if
+   the root semver is unchanged from `main` or if release version files do not
+   match.
 
-5. Publishing a latest release also triggers **Nix Cache** for the flake
-   package.
+4. Merge the PR into `main`.
 
-Pushing an existing `vX.Y.Z` tag still works, but tag-triggered latest releases
-require the checked-in package versions to already match the tag.
+5. The **Release** workflow creates or reuses tag `vX.Y.Z` on the merge commit,
+   builds the Windows desktop installer, attaches only desktop/update assets,
+   and publishes the GitHub Release.
+
+Manual versioned latest releases are intentionally deprecated. A stable release
+is created by merging the versioned release PR to `main`.
 
 ## Unstable Builds
 
 Unstable builds are produced automatically when the **Release** workflow
 receives a desktop-impacting push to `develop`. Server-only, web-only, and
-documentation-only pushes do not create desktop artifacts. The workflow runs
-formatting, lint, and typecheck before building the desktop artifact.
+documentation-only pushes do not create desktop artifacts.
 
-To build unstable manually, run **Release** with:
+The workflow stamps the checked-in package version with the UTC date and GitHub
+run number for Electron updater metadata. For example, checked-in version
+`0.2.0` produces `0.2.0-unstable.YYYYMMDD.<run>`.
 
-- `channel`: `unstable`
-- `version`: empty
-
-The workflow derives the unstable version from the next patch after the current
-root package version, the UTC date, and the GitHub run number for Electron
-updater metadata. For example, `0.0.1` produces
-`0.0.2-unstable.YYYYMMDD.<run>`. Unstable builds upload:
+Unstable prereleases upload:
 
 - the Windows desktop installer
 - `unstable.yml`
 - blockmaps
-
-Download the latest unstable Electron artifact from
-`https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip`.
-That URL is backed by the latest successful push-triggered **Release** run on
-`develop`.
+- `checksums.txt`
 
 For unstable server deployments, pin the development branch or an exact commit
 in your flake input.
@@ -90,15 +102,14 @@ in your flake input.
 
 No custom bot is required. The release workflow uses the built-in
 `GITHUB_TOKEN`, asks GitHub to generate the changelog for the matching channel,
-and prepends Alloy-specific deployment notes for latest releases:
+and prepends Alloy-specific deployment notes:
 
-- which desktop updater manifest is attached (`latest.yml`)
+- which desktop updater manifest is attached
 - how to pin the matching Nix flake input
 
 ## Recovery
 
-If validation fails, fix the issue and rerun the workflow; no release commit or
-tag has been pushed yet. If a later build fails before the GitHub Release is
-created, fix the issue and rerun the failed workflow jobs. If a release was
-already published with bad assets, delete the release and tag, then rerun from
-the corrected commit.
+If validation fails, fix the issue and push again; no artifact is published. If
+a build fails after the tag is created, rerun the failed workflow from the same
+commit. If a release was already published with bad assets, delete the release
+and tag, then rerun from the corrected commit.

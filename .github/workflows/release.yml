@@ -4,9 +4,7 @@ on:
   push:
     branches:
       - develop
-    tags:
-      - "v*.*.*"
-      - "!v*-unstable.*"
+      - main
     paths:
       - ".github/workflows/release.yml"
       - "package.json"
@@ -26,20 +24,6 @@ on:
       - "!packages/logging/README.md"
       - "packages/ui/**"
       - "!packages/ui/README.md"
-  workflow_dispatch:
-    inputs:
-      channel:
-        description: Release channel
-        required: true
-        default: latest
-        type: choice
-        options:
-          - latest
-          - unstable
-      version:
-        description: Latest version to release, for example 1.2.3 or v1.2.3
-        required: false
-        type: string
 
 permissions:
   contents: write
@@ -94,27 +78,65 @@ jobs:
         name: Resolve release metadata
         shell: bash
         env:
-          DISPATCH_CHANNEL: ${{ github.event.inputs.channel }}
-          DISPATCH_VERSION: ${{ github.event.inputs.version }}
           RUN_STARTED_AT: ${{ github.run_started_at }}
         run: |
           release_ref="$(git rev-parse HEAD)"
           short_sha="$(git rev-parse --short=12 HEAD)"
+          package_version="$(node -e '
+            const { readFileSync } = require("node:fs");
+            const version = JSON.parse(readFileSync("package.json", "utf8")).version;
+            if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(String(version))) {
+              console.error(`Invalid package.json version: ${version}`);
+              process.exit(1);
+            }
+            console.log(version);
+          ')"
 
-          if [[ ( "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF_NAME}" == "develop" ) || ( "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "${DISPATCH_CHANNEL}" == "unstable" ) ]]; then
-            target_version="$(node -e '
-              const { readFileSync } = require("node:fs");
-              const version = JSON.parse(readFileSync("package.json", "utf8")).version;
-              const match = /^([0-9]+)\.([0-9]+)\.([0-9]+)$/.exec(String(version));
-              if (!match) {
-                console.error(`Invalid package.json version: ${version}`);
-                process.exit(1);
+          RELEASE_VERSION="$package_version" node -e '
+            const { readFileSync } = require("node:fs");
+            const expected = process.env.RELEASE_VERSION;
+            const files = [
+              {
+                path: "package.json",
+                version: (content) => JSON.parse(content).version,
+              },
+              {
+                path: "packages/desktop/package.json",
+                version: (content) => JSON.parse(content).version,
+              },
+              {
+                path: "packages/recorder/package.json",
+                version: (content) => JSON.parse(content).version,
+              },
+              {
+                path: "packages/recorder/Cargo.toml",
+                version: (content) => /^version = "([^"]+)"$/m.exec(content)?.[1],
+              },
+              {
+                path: "packages/recorder/Cargo.lock",
+                version: (content) =>
+                  /\[\[package\]\]\nname = "alloy-recorder"\nversion = "([^"]+)"/.exec(content)?.[1],
+              },
+            ];
+            const mismatches = files
+              .map((file) => ({
+                path: file.path,
+                actual: file.version(readFileSync(file.path, "utf8")),
+              }))
+              .filter((file) => file.actual !== expected);
+
+            if (mismatches.length > 0) {
+              console.error(`Release ${expected} requires matching versions:`);
+              for (const mismatch of mismatches) {
+                console.error(`- ${mismatch.path}: ${mismatch.actual}`);
               }
-              const [, major, minor, patch] = match;
-              console.log(`${major}.${minor}.${Number(patch) + 1}`);
-            ')"
+              process.exit(1);
+            }
+          '
+
+          if [[ "${GITHUB_REF_NAME}" == "develop" ]]; then
             unstable_date="$(date -u -d "$RUN_STARTED_AT" +%Y%m%d)"
-            version="$target_version-unstable.$unstable_date.${GITHUB_RUN_NUMBER}"
+            version="$package_version-unstable.$unstable_date.${GITHUB_RUN_NUMBER}"
             tag="v$version"
 
             {
@@ -129,53 +151,9 @@ jobs:
               echo "ref=$release_ref"
               echo "short_sha=$short_sha"
             } >> "$GITHUB_OUTPUT"
-          else
-            if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-              raw="${DISPATCH_VERSION}"
-              if [[ -z "$raw" ]]; then
-                echo "Latest workflow dispatch releases require the version input." >&2
-                exit 1
-              fi
-            else
-              raw="${GITHUB_REF_NAME}"
-            fi
-
-            version="${raw#v}"
+          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
+            version="$package_version"
             tag="v$version"
-
-            if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              echo "Latest release versions must be plain semver (vX.Y.Z), got: $raw" >&2
-              exit 1
-            fi
-
-            if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-              if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-                echo "Latest release tag $tag already exists." >&2
-                exit 1
-              fi
-
-              node scripts/update-release-package-versions.mjs "$version" --desktop-channel latest
-            else
-              RELEASE_VERSION="$version" node -e '
-                const { readFileSync } = require("node:fs");
-                const expected = process.env.RELEASE_VERSION;
-                const packageFiles = [
-                  "package.json",
-                  "packages/desktop/package.json",
-                  "packages/recorder/package.json",
-                ];
-                const mismatches = packageFiles.filter((filePath) => {
-                  const actual = JSON.parse(readFileSync(filePath, "utf8")).version;
-                  return actual !== expected;
-                });
-                if (mismatches.length > 0) {
-                  console.error(
-                    `Latest release ${expected} requires matching package versions in: ${mismatches.join(", ")}`,
-                  );
-                  process.exit(1);
-                }
-              '
-            fi
 
             {
               echo "release_channel=latest"
@@ -189,6 +167,17 @@ jobs:
               echo "ref=$release_ref"
               echo "short_sha=$short_sha"
             } >> "$GITHUB_OUTPUT"
+          else
+            echo "Unsupported release branch: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            existing_ref="$(git rev-list -n 1 "$tag")"
+            if [[ "$existing_ref" != "$release_ref" ]]; then
+              echo "Release tag $tag already exists at $existing_ref, not $release_ref." >&2
+              exit 1
+            fi
           fi
 
       - id: previous_tag
@@ -228,27 +217,24 @@ jobs:
         name: Resolve release ref
         shell: bash
         env:
-          RELEASE_CHANNEL: ${{ steps.meta.outputs.release_channel }}
           RELEASE_TAG: ${{ steps.meta.outputs.tag }}
-          RELEASE_VERSION: ${{ steps.meta.outputs.version }}
         run: |
-          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" && "$RELEASE_CHANNEL" == "latest" ]]; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package.json packages/desktop/package.json packages/recorder/package.json packages/recorder/Cargo.toml packages/recorder/Cargo.lock
+          release_ref="$(git rev-parse HEAD)"
+          short_sha="$(git rev-parse --short=12 HEAD)"
 
-            if ! git diff --cached --quiet; then
-              git commit -m "chore(release): bump version to $RELEASE_VERSION"
-              git push origin "HEAD:${GITHUB_REF_NAME}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git rev-parse -q --verify "refs/tags/$RELEASE_TAG" >/dev/null; then
+            existing_ref="$(git rev-list -n 1 "$RELEASE_TAG")"
+            if [[ "$existing_ref" != "$release_ref" ]]; then
+              echo "Release tag $RELEASE_TAG already exists at $existing_ref, not $release_ref." >&2
+              exit 1
             fi
-
-            release_ref="$(git rev-parse HEAD)"
-            short_sha="$(git rev-parse --short=12 HEAD)"
+            echo "Release tag $RELEASE_TAG already points at $release_ref."
+          else
             git tag "$RELEASE_TAG" "$release_ref"
             git push origin "$RELEASE_TAG"
-          else
-            release_ref="$(git rev-parse HEAD)"
-            short_sha="$(git rev-parse --short=12 HEAD)"
           fi
 
           {
@@ -353,7 +339,7 @@ jobs:
     needs:
       - preflight
       - desktop
-    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.desktop.result == 'success' && needs.preflight.outputs.release_channel == 'latest' }}
+    if: ${{ !failure() && !cancelled() && needs.preflight.result == 'success' && needs.desktop.result == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
