@@ -15,7 +15,6 @@ import { createMiddleware } from "hono/factory"
 import {
   clearSessionCookies,
   readAccessCookie,
-  readLegacySessionCookie,
   readRefreshCookie,
   setSessionCookies,
   type SessionCookieTokens,
@@ -162,19 +161,6 @@ async function selectSessionByAccessHash(
   if (!row) return null
   await touchSession(row, now)
   return row
-}
-
-async function selectLegacySessionByHash(
-  tokenHash: string,
-): Promise<SessionData | null> {
-  const [refresh] = await db
-    .select({ id: authRefreshToken.id })
-    .from(authRefreshToken)
-    .innerJoin(authSession, eq(authSession.id, authRefreshToken.session_id))
-    .where(eq(authSession.token_hash, tokenHash))
-    .limit(1)
-  if (refresh) return null
-  return selectSessionByAccessHash(tokenHash)
 }
 
 function sessionDataForRefreshGrace(input: {
@@ -396,17 +382,6 @@ export async function getSession(
     if (data) return data
   }
 
-  const legacyToken =
-    "req" in headers
-      ? readLegacySessionCookie(headers)
-      : cookieTokenFromHeaders(headers, "alloy_session")
-  if (legacyToken) {
-    const data = await selectLegacySessionByHash(
-      await hashSessionToken(legacyToken),
-    )
-    if (data) return data
-  }
-
   if ("req" in headers) {
     return (await refreshSession(headers))?.data ?? null
   }
@@ -454,12 +429,6 @@ export async function deleteCurrentSession(c: Context): Promise<void> {
       return
     }
   }
-
-  const legacyToken = readLegacySessionCookie(c)
-  if (!legacyToken) return
-  await db
-    .delete(authSession)
-    .where(eq(authSession.token_hash, await hashSessionToken(legacyToken)))
 }
 
 export async function deleteAllSessionsForUser(userId: string): Promise<void> {

@@ -4,7 +4,6 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie"
 
 const ACCESS_COOKIE = "alloy_access"
 const REFRESH_COOKIE = "alloy_refresh"
-const LEGACY_SESSION_COOKIE = "alloy_session"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
 const OAUTH_STATE_COOKIE_PREFIX = "alloy_oauth_state_"
 const ACCESS_MAX_AGE_SEC = 15 * 60
@@ -26,10 +25,6 @@ export function readAccessCookie(c: Context): string | null {
 
 export function readRefreshCookie(c: Context): string | null {
   return getCookie(c, REFRESH_COOKIE) ?? null
-}
-
-export function readLegacySessionCookie(c: Context): string | null {
-  return getCookie(c, LEGACY_SESSION_COOKIE) ?? null
 }
 
 export function setSessionCookies(
@@ -58,16 +53,12 @@ export function setSessionCookies(
     path: "/",
     maxAge: REFRESH_MAX_AGE_SEC,
   })
-  deleteCookie(c, REFRESH_COOKIE, { path: "/api/auth", secure })
-  deleteCookie(c, LEGACY_SESSION_COOKIE, { path: "/", secure })
 }
 
 export function clearSessionCookies(c: Context): void {
   const secure = secureCookies()
   deleteCookie(c, ACCESS_COOKIE, { path: "/", secure })
   deleteCookie(c, REFRESH_COOKIE, { path: "/", secure })
-  deleteCookie(c, REFRESH_COOKIE, { path: "/api/auth", secure })
-  deleteCookie(c, LEGACY_SESSION_COOKIE, { path: "/", secure })
   deleteCookie(c, AUTH_MARKER_COOKIE, { path: "/", secure })
 }
 
