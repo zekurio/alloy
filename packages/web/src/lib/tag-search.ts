@@ -6,7 +6,7 @@ const SORT_KEYS = ["top", "recent"] as const
 
 export type TagSearch = {
   sort?: ClipListSort
-  /** steamgriddbId (as a string) to narrow the tag results to a game. */
+  /** Game surrogate id to narrow the tag results to a single game. */
   game?: string
 }
 
@@ -22,16 +22,10 @@ export function parseTagSearch(search: Record<string, unknown>): TagSearch {
 /** Resolve the effective filters, applying the page defaults. */
 export function tagFilters(search: TagSearch): {
   sort: ClipListSort
-  steamgriddbId?: number
+  gameId?: string
 } {
-  const steamgriddbId = search.game
-    ? Number.parseInt(search.game, 10)
-    : Number.NaN
   return {
     sort: search.sort ?? "top",
-    steamgriddbId:
-      Number.isSafeInteger(steamgriddbId) && steamgriddbId > 0
-        ? steamgriddbId
-        : undefined,
+    ...(search.game ? { gameId: search.game } : {}),
   }
 }

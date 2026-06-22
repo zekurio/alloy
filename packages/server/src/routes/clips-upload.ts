@@ -4,13 +4,12 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import { getSteamGridDBGameRef } from "@alloy/server/games/ref"
+import { getGameRefById } from "@alloy/server/games/ref"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import {
   badRequest,
   conflict,
   deleted,
-  errorResult,
 } from "@alloy/server/runtime/http-response"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
@@ -27,7 +26,6 @@ import {
 } from "./clips-upload-access"
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
-import { steamgriddbErrorResponse } from "./games-helpers"
 import { zValidator } from "./validation"
 
 /** Slack when deciding whether a requested trim still covers the full clip. */
@@ -60,19 +58,14 @@ export const clipsUploadRoutes = new Hono()
       if (body.description !== undefined) {
         patch.description = body.description === "" ? null : body.description
       }
-      if (body.steamgriddbId !== undefined) {
-        if (body.steamgriddbId === null) {
-          patch.steamgriddb_id = null
+      if (body.gameId !== undefined) {
+        if (body.gameId === null) {
+          patch.game_id = null
           patch.game = null
         } else {
-          let gameRef: Awaited<ReturnType<typeof getSteamGridDBGameRef>>
-          try {
-            gameRef = await getSteamGridDBGameRef(body.steamgriddbId)
-          } catch (err) {
-            return errorResult(c, steamgriddbErrorResponse(err))
-          }
+          const gameRef = await getGameRefById(body.gameId)
           if (!gameRef) return badRequest(c, "Unknown game")
-          patch.steamgriddb_id = body.steamgriddbId
+          patch.game_id = gameRef.id
           patch.game = gameRef.name
         }
       }

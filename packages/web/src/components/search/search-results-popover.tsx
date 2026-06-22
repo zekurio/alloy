@@ -73,7 +73,7 @@ function useSearchPopoverState(
     (row: ClipRow) => {
       closePopover()
       clear()
-      const gameId = row.gameRef ? String(row.gameRef.steamgriddbId) : null
+      const gameId = row.gameRef ? row.gameRef.slug : null
       void navigate({
         to: ".",
         search: (prev: AppSearch) => ({ ...prev, clip: row.id }),
@@ -110,7 +110,7 @@ function useSearchPopoverState(
       // new page" while navigation is in flight.
       void navigate({
         to: "/games/$gameId",
-        params: { gameId: String(row.steamgriddbId) },
+        params: { gameId: row.slug },
       })
     },
     [clear, closePopover, navigate],

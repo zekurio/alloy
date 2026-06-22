@@ -134,10 +134,10 @@ export const gamesRoute = new Hono()
         clipCount: sql<number>`count(${clip.id})::int`,
       })
       .from(game)
-      .innerJoin(clip, eq(clip.steamgriddb_id, game.steamgriddb_id))
+      .innerJoin(clip, eq(clip.game_id, game.id))
       .innerJoin(user, eq(clip.author_id, user.id))
       .where(and(...publicClipListingConditions()))
-      .groupBy(game.steamgriddb_id)
+      .groupBy(game.id)
       .orderBy(sql`count(${clip.id}) desc`, game.name)
       .limit(limit)
       .offset(offset)
@@ -155,7 +155,7 @@ export const gamesRoute = new Hono()
     const { slug } = c.req.valid("param")
     const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
     if (resolved.response) return resolved.response
-    const { steamgriddbId } = resolved.row
+    const gameId = resolved.row.id
 
     const session = await getSession(c)
     let viewer: { isFollowing: boolean } | null = null
@@ -166,7 +166,7 @@ export const gamesRoute = new Hono()
         .where(
           and(
             eq(gameFollow.user_id, session.user.id),
-            eq(gameFollow.steamgriddb_id, steamgriddbId),
+            eq(gameFollow.game_id, gameId),
           ),
         )
         .limit(1)
@@ -177,23 +177,13 @@ export const gamesRoute = new Hono()
       .select({ value: sql<number>`count(*)::int` })
       .from(gameFollow)
       .innerJoin(user, eq(user.id, gameFollow.user_id))
-      .where(
-        and(
-          eq(gameFollow.steamgriddb_id, steamgriddbId),
-          isNull(user.disabled_at),
-        ),
-      )
+      .where(and(eq(gameFollow.game_id, gameId), isNull(user.disabled_at)))
 
     const [{ value: clipCount }] = await db
       .select({ value: sql<number>`count(*)::int` })
       .from(clip)
       .innerJoin(user, eq(clip.author_id, user.id))
-      .where(
-        and(
-          eq(clip.steamgriddb_id, steamgriddbId),
-          ...publicClipListingConditions(),
-        ),
-      )
+      .where(and(eq(clip.game_id, gameId), ...publicClipListingConditions()))
 
     return c.json({
       ...serialiseGame(resolved.row),
@@ -211,11 +201,10 @@ export const gamesRoute = new Hono()
       const viewerId = c.var.viewerId
       const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
-      const { steamgriddbId } = resolved.row
 
       await db
         .insert(gameFollow)
-        .values({ user_id: viewerId, steamgriddb_id: steamgriddbId })
+        .values({ user_id: viewerId, game_id: resolved.row.id })
         .onConflictDoNothing()
 
       return booleanFlag(c, "following", true)
@@ -230,14 +219,13 @@ export const gamesRoute = new Hono()
       const viewerId = c.var.viewerId
       const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
-      const { steamgriddbId } = resolved.row
 
       await db
         .delete(gameFollow)
         .where(
           and(
             eq(gameFollow.user_id, viewerId),
-            eq(gameFollow.steamgriddb_id, steamgriddbId),
+            eq(gameFollow.game_id, resolved.row.id),
           ),
         )
 

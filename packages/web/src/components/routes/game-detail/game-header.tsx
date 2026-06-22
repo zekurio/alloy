@@ -16,15 +16,27 @@ function releaseYear(releaseDate: string | null): number | null {
   return Number.isFinite(year) ? year : null
 }
 
-export function GameHeader({ game }: { game: GameDetail }) {
+export function GameHeader({
+  game,
+  viewerId,
+}: {
+  game: GameDetail
+  viewerId: string | null
+}) {
   return (
     <header className="w-full min-w-0">
-      <GameHeroBanner game={game} />
+      <GameHeroBanner game={game} viewerId={viewerId} />
     </header>
   )
 }
 
-function GameHeroBanner({ game }: { game: GameDetail }) {
+function GameHeroBanner({
+  game,
+  viewerId,
+}: {
+  game: GameDetail
+  viewerId: string | null
+}) {
   const [failedHeaderUrls, setFailedHeaderUrls] = useState<readonly string[]>(
     [],
   )
@@ -50,7 +62,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
       )}
     >
       <MediaPlaceholder
-        seed={game.steamgriddbId}
+        seed={game.slug ?? game.id}
         blurHash={game.heroBlurHash ?? game.gridBlurHash}
       />
       {headerUrl ? (
@@ -89,7 +101,8 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
               </h1>
             )}
             <GameFavoriteButton
-              gameId={game.steamgriddbId}
+              gameId={game.slug}
+              viewerId={viewerId}
               viewer={game.viewer}
               className="shrink-0 shadow-[0_6px_18px_oklch(0_0_0_/_0.35)]"
             />

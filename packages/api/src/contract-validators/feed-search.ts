@@ -3,9 +3,9 @@ import {
   validateArray,
   validateNonNegativeInteger,
   validateNonNegativeNumber,
+  validateNullablePositiveInteger,
   validateNullableRequiredString,
   validateNullableUrlString,
-  validatePositiveInteger,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
 import {
@@ -33,13 +33,10 @@ export function validateFeedPage(value: unknown): FeedPage {
 
 function validateFeedChipGame(value: unknown): FeedChipGame {
   const row = objectRecord(value, "feed chip game")
-  validatePositiveInteger(
-    row.id,
-    "Invalid feed chips response: id must be a positive integer",
-  )
-  validatePositiveInteger(
+  validateRequiredString(row.id, "Invalid feed chips response: id is required")
+  validateNullablePositiveInteger(
     row.steamgriddbId,
-    "Invalid feed chips response: steamgriddbId must be a positive integer",
+    "Invalid feed chips response: steamgriddbId must be a positive integer or null",
   )
   for (const key of ["slug", "name"] as const) {
     validateRequiredString(

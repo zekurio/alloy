@@ -19,7 +19,11 @@ import {
 } from "@alloy/contracts"
 
 import { validateUserSummary } from "./people"
-import { validateGameRowFields, validateNullableBlurHash } from "./shared"
+import {
+  validateGameRowFields,
+  validateGameSource,
+  validateNullableBlurHash,
+} from "./shared"
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 function assertNoStorageKey(value: Record<string, unknown>, label: string) {
@@ -31,6 +35,7 @@ function assertNoStorageKey(value: Record<string, unknown>, label: string) {
 function validateClipGameRef(value: unknown) {
   const row = objectRecord(value, "clip game")
   validateGameRowFields(row, "clip game")
+  validateGameSource(row, "clip game")
 }
 
 export function validateClipRow(value: unknown): ClipRow {
@@ -51,9 +56,9 @@ function validateClipIdentityFields(row: Record<string, unknown>) {
       `Invalid clip response: ${key} is required`,
     )
   }
-  validateNullablePositiveInteger(
-    row.steamgriddbId,
-    "Invalid clip response: steamgriddbId must be a positive integer or null",
+  validateNullableRequiredString(
+    row.gameId,
+    "Invalid clip response: gameId must be a non-empty string or null",
   )
 }
 

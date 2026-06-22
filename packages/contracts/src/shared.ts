@@ -16,6 +16,12 @@ export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
 export const USER_ROLES = ["user", "admin"] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
+// Where a game's identity comes from. SteamGridDB games are populated lazily
+// from the API and kept fresh on a TTL; custom games are admin-authored and
+// have no `steamgriddbId`.
+export const GAME_SOURCE = ["steamgriddb", "custom"] as const
+export type GameSource = (typeof GAME_SOURCE)[number]
+
 export const USER_STATUSES = ["active", "disabled"] as const
 export type UserStatus = (typeof USER_STATUSES)[number]
 

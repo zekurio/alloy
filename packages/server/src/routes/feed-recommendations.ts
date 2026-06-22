@@ -36,7 +36,7 @@ type RecommendedClipPageRow = {
   height: number | null
   thumbKey: string | null
   thumbBlurHash: string | null
-  steamgriddbId: number | null
+  gameId: string | null
   game: string | null
 }
 
@@ -116,7 +116,7 @@ function rankScore(viewerId: string | null, asOf: string) {
                  WHEN EXISTS (
                     SELECT 1 FROM ${gameFollow}
                     WHERE ${gameFollow.user_id} = ${vid}::uuid
-                      AND ${gameFollow.steamgriddb_id} = ${clip.steamgriddb_id}
+                      AND ${gameFollow.game_id} = ${clip.game_id}
                  ) THEN 1 ELSE 0 END
           )
       )
@@ -168,7 +168,7 @@ export async function listRecommendedClips({
     .select({ ...clipSelectShape, rankScore: score })
     .from(clip)
     .innerJoin(user, eq(clip.author_id, user.id))
-    .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
+    .leftJoin(game, eq(clip.game_id, game.id))
     .where(and(...pageConditions))
     .orderBy(sql`${score} desc`, sql`${clip.created_at} desc`, clip.id)
     .limit(limit + 1)

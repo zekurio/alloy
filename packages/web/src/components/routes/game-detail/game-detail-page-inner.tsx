@@ -69,7 +69,11 @@ export function GameDetailPageInner({
   }, [gameId, sort])
   useHeaderToolbar(toolbar)
 
-  const { data: game, error, isPending } = useGameQuery(gameId)
+  const {
+    data: game,
+    error,
+    isPending,
+  } = useGameQuery(gameId, viewerId ?? null)
   useQueryErrorToast(error, {
     title: t("Couldn't load this game"),
     toastId: `game-${gameId}-error`,
@@ -92,10 +96,10 @@ export function GameDetailPageInner({
           </div>
         ) : (
           <>
-            <GameHeader game={game} />
+            <GameHeader game={game} viewerId={viewerId ?? null} />
             <div className="flex flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6">
               <FeedSection
-                filter={{ kind: "game", steamgriddbId: game.steamgriddbId }}
+                filter={{ kind: "game", gameId: game.id }}
                 sort={sort}
                 viewerId={viewerId}
               />

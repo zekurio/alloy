@@ -122,13 +122,13 @@ function TagFilterBar({
 }) {
   const navigate = useNavigate()
   const filters = tagFilters(search)
-  const activeGameId = filters.steamgriddbId
+  const activeGameId = filters.gameId
   const ALL_GAMES = "__all"
 
   const gameOptions: FilterDropdownOption<string>[] = [
     { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
     ...(games ?? []).map((g) => ({
-      key: String(g.steamgriddbId),
+      key: g.id,
       label: g.name,
       icon: <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />,
       count: g.clipCount,
@@ -160,7 +160,7 @@ function TagFilterBar({
         <FilterDropdown
           triggerLabel={t("Filter by game")}
           triggerVariant={triggerVariant}
-          value={activeGameId === undefined ? ALL_GAMES : String(activeGameId)}
+          value={activeGameId ?? ALL_GAMES}
           options={gameOptions}
           searchPlaceholder={t("Search games…")}
           onSelect={(key) => {

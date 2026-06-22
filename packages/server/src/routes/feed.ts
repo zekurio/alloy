@@ -29,13 +29,13 @@ const FeedQuery = z
   .object({
     filter: FilterEnum.default("all"),
     sort: FeedSortEnum.default("recent"),
-    steamgriddbId: z.coerce.number().int().positive().optional(),
+    gameId: z.uuid().optional(),
     limit: limitQueryParam(50, 20),
     cursor: z.string().optional(),
   })
-  .refine((v) => v.filter !== "game" || v.steamgriddbId !== undefined, {
-    message: "steamgriddbId is required when filter=game",
-    path: ["steamgriddbId"],
+  .refine((v) => v.filter !== "game" || v.gameId !== undefined, {
+    message: "gameId is required when filter=game",
+    path: ["gameId"],
   })
 
 const ChipsQuery = z.object({
@@ -47,7 +47,7 @@ export const feedRoute = new Hono()
     const {
       filter,
       sort,
-      steamgriddbId,
+      gameId,
       limit,
       cursor: rawCursor,
     } = c.req.valid("query")
@@ -62,8 +62,8 @@ export const feedRoute = new Hono()
     const conditions: SQL[] = publicClipListingConditions()
 
     if (filter === "game") {
-      if (!steamgriddbId) return badRequest(c, "steamgriddbId is required")
-      conditions.push(eq(clip.steamgriddb_id, steamgriddbId))
+      if (!gameId) return badRequest(c, "gameId is required")
+      conditions.push(eq(clip.game_id, gameId))
     }
 
     if (filter === "following") {
@@ -106,7 +106,7 @@ export const feedRoute = new Hono()
       .select(clipSelectShape)
       .from(clip)
       .innerJoin(user, eq(clip.author_id, user.id))
-      .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
+      .leftJoin(game, eq(clip.game_id, game.id))
       .where(and(...conditions))
       .orderBy(...clipListOrderBy(sort))
       .limit(limit + 1)
@@ -139,7 +139,7 @@ export const feedRoute = new Hono()
       })
       .from(clip)
       .innerJoin(user, eq(clip.author_id, user.id))
-      .innerJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
+      .innerJoin(game, eq(clip.game_id, game.id))
       .leftJoin(
         clipLike,
         and(
@@ -155,7 +155,7 @@ export const feedRoute = new Hono()
         ),
       )
       .where(and(...conditions))
-      .groupBy(game.steamgriddb_id)
+      .groupBy(game.id)
       .orderBy(sql`${interaction} desc`, sql`${clipCount} desc`, game.name)
       .limit(limit)
 

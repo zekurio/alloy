@@ -3,6 +3,7 @@ import type {
   AcceptedThumbContentType,
   ClipPrivacy,
   ClipStatus,
+  GameSource,
   IsoDateString,
   UploadTicket,
 } from "./shared"
@@ -32,8 +33,9 @@ export function userAssetImagePath(key: string, updatedAt: Date): string {
 }
 
 export interface ClipGameRef {
-  id: number
-  steamgriddbId: number
+  id: string
+  steamgriddbId: number | null
+  source: GameSource
   slug: string
   name: string
   releaseDate: IsoDateString | null
@@ -53,7 +55,7 @@ export interface ClipRow {
   title: string
   description: string | null
   game: string | null
-  steamgriddbId: number | null
+  gameId: string | null
   privacy: ClipPrivacy
   sourceContentType: string | null
   sourceVideoCodec: string | null
@@ -103,7 +105,8 @@ export interface InitiateClipInput {
   sizeBytes: number
   title: string
   description?: string
-  steamgriddbId?: number | null
+  /** Surrogate id of the attached game (SteamGridDB or custom); resolved client-side. */
+  gameId?: string | null
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
   /** Bare hashtags; normalized server-side. */
@@ -131,7 +134,7 @@ export interface InitiateClipResponse {
 export interface UpdateClipInput {
   title?: string
   description?: string
-  steamgriddbId?: number | null
+  gameId?: string | null
   privacy?: ClipPrivacy
   mentionedUserIds?: string[]
   tags?: string[]
@@ -163,7 +166,7 @@ export interface QueueClip {
   thumbBlurHash: string | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
-  steamgriddbId: number | null
+  gameId: string | null
   gameSlug: string | null
 }
 
@@ -202,7 +205,7 @@ export interface CommentPage {
 export type FeedFilter =
   | { kind: "all" }
   | { kind: "following" }
-  | { kind: "game"; steamgriddbId: number }
+  | { kind: "game"; gameId: string }
 
 export interface FeedPageParams {
   filter: FeedFilter
@@ -217,8 +220,8 @@ export interface FeedPage {
 }
 
 export interface FeedChipGame {
-  id: number
-  steamgriddbId: number
+  id: string
+  steamgriddbId: number | null
   slug: string
   name: string
   iconUrl: string | null
@@ -233,8 +236,8 @@ export interface FeedChipsResponse {
 
 export interface TagClipsParams {
   sort?: ClipListSort
-  /** Narrow to a single game. */
-  steamgriddbId?: number
+  /** Narrow to a single game by surrogate id. */
+  gameId?: string
   limit?: number
   cursor?: string | null
 }
@@ -276,8 +279,9 @@ export interface SteamGridDBAsset {
 }
 
 export interface GameRow {
-  id: number
-  steamgriddbId: number
+  id: string
+  steamgriddbId: number | null
+  source: GameSource
   name: string
   slug: string
   releaseDate: IsoDateString | null
