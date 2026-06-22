@@ -11,9 +11,8 @@ const container = document.getElementById("root")
 if (!container) throw new Error("Missing #root element")
 
 initializeClientLocale()
-// Desktop's strict CSP blocks an inline pre-paint script, so the theme is
-// applied here instead; the connect window is small enough that the swap is
-// imperceptible.
+// The CSP-safe pre-paint script sets the initial class; initTheme keeps
+// "system" synced with OS theme changes after React starts.
 initTheme()
 document.title = t("Connect to Alloy")
 
