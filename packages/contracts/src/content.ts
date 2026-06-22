@@ -32,6 +32,13 @@ export function userAssetImagePath(key: string, updatedAt: Date): string {
   return `${USER_ASSET_PATH_PREFIX}${key}?v=${version}`
 }
 
+export const GAME_ASSET_PATH_PREFIX = "/api/assets/games/"
+
+export function gameAssetImagePath(key: string, updatedAt: Date): string {
+  const version = updatedAt.getTime().toString(36)
+  return `${GAME_ASSET_PATH_PREFIX}${key}?v=${version}`
+}
+
 export interface ClipGameRef {
   id: string
   steamgriddbId: number | null
@@ -306,6 +313,32 @@ export interface GameDetail extends GameRow {
   favouritesCount: number
   /** Ready, public clips attributed to this game by enabled users. */
   clipCount: number
+}
+
+export const GAME_ASSET_ROLES = ["hero", "grid", "logo", "icon"] as const
+export type GameAssetRole = (typeof GAME_ASSET_ROLES)[number]
+
+export interface AdminGameRow extends GameRow {
+  clipCount: number
+}
+
+export interface AdminCreateGameInput {
+  name: string
+  releaseDate?: string | null
+  heroUrl?: string | null
+  gridUrl?: string | null
+  logoUrl?: string | null
+  iconUrl?: string | null
+}
+
+export interface AdminUpdateGameInput {
+  name?: string
+  slug?: string
+  releaseDate?: string | null
+  heroUrl?: string | null
+  gridUrl?: string | null
+  logoUrl?: string | null
+  iconUrl?: string | null
 }
 
 export type GameNameLookupReason =

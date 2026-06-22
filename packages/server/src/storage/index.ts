@@ -69,6 +69,9 @@ export const clipThumbnailStorage: StorageDriver = new ConfiguredStorageDriver(
   "thumbnails",
 )
 export const userStorage: StorageDriver = new ConfiguredStorageDriver("users")
+export const gameAssetStorage: StorageDriver = new ConfiguredStorageDriver(
+  "games",
+)
 export const dataStorage: StorageDriver = userStorage
 
 export function clipStorageForUploadRole(
@@ -91,4 +94,9 @@ function isClipThumbnailKey(key: string): boolean {
 }
 
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
-export { clipAssetDir, clipAssetKey, userAssetKey } from "./driver"
+export {
+  clipAssetDir,
+  clipAssetKey,
+  gameAssetKey,
+  userAssetKey,
+} from "./driver"

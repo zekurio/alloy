@@ -166,6 +166,34 @@ async function availableGameSlug(
   return legacyGameSlug(name, steamgriddbId)
 }
 
+/**
+ * Unique slug for an admin-authored custom game. Mirrors `availableGameSlug`
+ * but excludes by surrogate id (custom games have no SteamGridDB id), so
+ * editing a game keeps its own slug available.
+ */
+export async function availableCustomGameSlug(
+  name: string,
+  excludeGameId: string | null,
+): Promise<string> {
+  const base = gameSlug(name)
+  const rows = await db
+    .select({ id: game.id, slug: game.slug })
+    .from(game)
+    .where(or(eq(game.slug, base), like(game.slug, `${base}-%`)))
+
+  const reserved = new Set(
+    rows.filter((row) => row.id !== excludeGameId).map((row) => row.slug),
+  )
+  if (!reserved.has(base)) return base
+
+  for (let suffix = 2; suffix < 10_000; suffix += 1) {
+    const candidate = `${base}-${suffix}`
+    if (!reserved.has(candidate)) return candidate
+  }
+
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`
+}
+
 function shouldRefresh(row: CachedGameMetadataRow): boolean {
   return Date.now() - new Date(row.updatedAt).getTime() > GAME_REF_REFRESH_MS
 }

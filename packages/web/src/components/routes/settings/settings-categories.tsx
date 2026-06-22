@@ -19,6 +19,7 @@ import { SettingRow } from "@alloy/ui/components/setting-row"
 import {
   AlertTriangleIcon,
   DatabaseIcon,
+  Gamepad2Icon,
   HardDriveIcon,
   LanguagesIcon,
   RefreshCcwIcon,
@@ -37,6 +38,7 @@ import type { ComponentType } from "react"
 
 import {
   AdminAppearancePanel,
+  AdminGamesPanel,
   AdminUsersPanel,
 } from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
@@ -346,6 +348,15 @@ const ADMIN_CATEGORIES = categoryDrafts([
     ["user accounts", "roles", "moderation", "ban", "storage quota"],
     UsersIcon,
     AdminUsersPanel,
+  ],
+  [
+    "games",
+    t("Games"),
+    null,
+    t("Create custom games and manage their artwork."),
+    ["games", "custom games", "artwork", "cover", "hero", "logo", "icon"],
+    Gamepad2Icon,
+    AdminGamesPanel,
   ],
 ])
 

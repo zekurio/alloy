@@ -1,6 +1,7 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
 import type { ReactNode } from "react"
 
+import { AdminGamesCard } from "@/components/admin/admin-games-card"
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
 import {
   type AdminConfigContextValue,
@@ -44,4 +45,8 @@ export function AdminUsersPanel() {
   const userId = session?.user.id
   if (!userId) return null
   return <AdminUsersCard currentUserId={userId} hideHeader />
+}
+
+export function AdminGamesPanel() {
+  return <AdminGamesCard hideHeader />
 }

@@ -70,6 +70,21 @@ export function useSearchGamesQuery(
   })
 }
 
+export function useLocalGameSearchQuery(
+  query: string,
+  { enabled = true }: { enabled?: boolean } = {},
+): UseQueryResult<GameRow[]> {
+  const trimmed = query.trim()
+  return useQuery({
+    queryKey: [...gameKeys.all, "local-search", trimmed] as const,
+    queryFn: () => api.games.localSearch(trimmed),
+    enabled: enabled && trimmed.length > 0,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+  })
+}
+
 export function useResolveGameMutation() {
   return useMutation<GameRow, Error, { steamgriddbId: number }>({
     mutationFn: ({ steamgriddbId }) => api.games.resolve(steamgriddbId),

@@ -143,6 +143,12 @@ export const FilesystemStorageConfigSchema = z.looseObject({
    * directory; absolute paths are used as-is.
    */
   usersPath: NonEmptyStringSchema,
+  /**
+   * Filesystem root for admin-authored game assets (hero, grid, logo, icon).
+   * Relative paths resolve from the server working directory; absolute paths
+   * are used as-is.
+   */
+  gamesPath: NonEmptyStringSchema,
 })
 
 export type FilesystemStorageConfig = z.infer<
@@ -171,22 +177,16 @@ function migrateLegacyStorageConfig(value: unknown): unknown {
       clipsPath: legacyStoragePath(value, "clips"),
       thumbnailsPath: legacyStoragePath(value, "thumbnails"),
       usersPath: legacyStoragePath(value, "users"),
+      gamesPath: legacyStoragePath(value, "games"),
     },
   }
 }
 
 function legacyStoragePath(
   record: Record<string, unknown>,
-  namespace: "clips" | "thumbnails" | "users",
+  namespace: "clips" | "thumbnails" | "users" | "games",
 ): string {
-  const override =
-    record[
-      namespace === "clips"
-        ? "clipsPath"
-        : namespace === "thumbnails"
-          ? "thumbnailsPath"
-          : "usersPath"
-    ]
+  const override = record[`${namespace}Path`]
   if (typeof override === "string" && override.trim().length > 0) {
     return override
   }

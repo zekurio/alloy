@@ -48,6 +48,7 @@ test("configures filesystem thumbnail storage separately", () => {
       ALLOY_STORAGE_FS_CLIPS_PATH: "/tank/alloy/clips",
       ALLOY_STORAGE_FS_THUMBNAILS_PATH: "/fast/alloy/thumbnails",
       ALLOY_STORAGE_FS_USERS_PATH: "/var/lib/alloy/assets",
+      ALLOY_STORAGE_FS_GAMES_PATH: "/var/lib/alloy/games",
     }),
   )
 
@@ -57,6 +58,7 @@ test("configures filesystem thumbnail storage separately", () => {
       clipsPath: "/tank/alloy/clips",
       thumbnailsPath: "/fast/alloy/thumbnails",
       usersPath: "/var/lib/alloy/assets",
+      gamesPath: "/var/lib/alloy/games",
     },
   })
 })
