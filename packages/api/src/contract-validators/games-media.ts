@@ -12,6 +12,7 @@ import {
   validateStringArray,
 } from "@alloy/api/runtime-validation"
 import {
+  type AdminGameRow,
   type GameDetail,
   type GameListRow,
   type GameNameLookupResponse,
@@ -50,6 +51,21 @@ export function validateGameListRow(value: unknown): GameListRow {
 
 export function validateGameListRows(value: unknown): GameListRow[] {
   return validateArray(value, "Invalid games response").map(validateGameListRow)
+}
+
+export function validateGameRows(value: unknown): GameRow[] {
+  return validateArray(value, "Invalid games response").map(validateGameRow)
+}
+
+export function validateAdminGameRow(value: unknown): AdminGameRow {
+  // AdminGameRow is structurally a GameRow plus clipCount, same as GameListRow.
+  return validateGameListRow(value) as AdminGameRow
+}
+
+export function validateAdminGameRows(value: unknown): AdminGameRow[] {
+  return validateArray(value, "Invalid admin games response").map(
+    validateAdminGameRow,
+  )
 }
 
 export function validateGameDetail(value: unknown): GameDetail {

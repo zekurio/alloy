@@ -1,4 +1,8 @@
-import type { UploadTicket, UploadTicketRole } from "@alloy/contracts"
+import type {
+  GameAssetRole,
+  UploadTicket,
+  UploadTicketRole,
+} from "@alloy/contracts"
 
 export interface ResolvedObject {
   stream: (opts?: {
@@ -159,6 +163,21 @@ export function userAssetKey(
   ext: string,
 ): string {
   return `${userAssetDir(userId)}/${role}${ext}`
+}
+
+function gameAssetDir(gameId: string): string {
+  const hex = gameId.replace(/-/g, "")
+  const aa = hex.slice(0, 2)
+  const bb = hex.slice(2, 4)
+  return `${aa}/${bb}/${gameId}`
+}
+
+export function gameAssetKey(
+  gameId: string,
+  role: GameAssetRole,
+  ext: string,
+): string {
+  return `${gameAssetDir(gameId)}/${role}${ext}`
 }
 
 export type { UploadTicket, UploadTicketStrategy } from "@alloy/contracts"

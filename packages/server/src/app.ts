@@ -8,6 +8,7 @@ import { getSession } from "./auth/session"
 import { configStore } from "./config/store"
 import { env } from "./env"
 import { adminRoute } from "./routes/admin"
+import { gameAssetsRoute } from "./routes/admin-games"
 import { authRoute } from "./routes/auth"
 import { authConfigRoute } from "./routes/auth-config"
 import { csrf } from "./routes/auth-route-helpers"
@@ -170,6 +171,7 @@ const apiApp = new Hono()
   .route("/api/events", eventsRoute)
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
+  .route("/api/assets/games", gameAssetsRoute)
   .onError((err, c) => {
     const requestId =
       getLogContext().req ?? c.res.headers.get("X-Request-Id") ?? undefined

@@ -258,6 +258,11 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .trim()
         .min(1)
         .default("storage/users"),
+      ALLOY_STORAGE_FS_GAMES_PATH: z
+        .string()
+        .trim()
+        .min(1)
+        .default("storage/games"),
     }),
     { label: "server/env", source },
   )
@@ -277,6 +282,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
       clipsPath: raw.ALLOY_STORAGE_FS_CLIPS_PATH,
       thumbnailsPath: raw.ALLOY_STORAGE_FS_THUMBNAILS_PATH,
       usersPath: raw.ALLOY_STORAGE_FS_USERS_PATH,
+      gamesPath: raw.ALLOY_STORAGE_FS_GAMES_PATH,
     },
   }
 

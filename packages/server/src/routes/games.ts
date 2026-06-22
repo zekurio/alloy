@@ -22,7 +22,7 @@ import {
   steamgriddbStatus,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { and, eq, isNull, sql } from "drizzle-orm"
+import { and, eq, ilike, isNull, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 
 import { publicClipListingConditions } from "./clips-helpers"
@@ -104,6 +104,25 @@ export const gamesRoute = new Hono()
       } catch (err) {
         return errorResult(c, steamgriddbErrorResponse(err))
       }
+    },
+  )
+  // Local catalogue search across all indexed games (custom + SteamGridDB),
+  // including games with no clips yet. Powers the game picker so freshly
+  // created custom games are selectable by id without a resolve round-trip.
+  .get(
+    "/local-search",
+    requireSession,
+    zValidator("query", SearchQuery),
+    async (c) => {
+      const { q } = c.req.valid("query")
+      const pattern = `%${q.replace(/[\\%_]/g, "\\$&")}%`
+      const rows = await db
+        .select(gameSelectShape)
+        .from(game)
+        .where(ilike(game.name, pattern))
+        .orderBy(game.name)
+        .limit(12)
+      return c.json(rows.map(serialiseGameRow))
     },
   )
   .post(
