@@ -1,4 +1,5 @@
 import { initializeClientLocale } from "@alloy/i18n"
+import { initTheme } from "@alloy/ui/lib/theme"
 import { RouterProvider } from "@tanstack/react-router"
 import { StrictMode } from "react"
 import { createRoot } from "react-dom/client"
@@ -14,6 +15,7 @@ if (!root) {
 }
 
 initializeClientLocale()
+initTheme()
 
 createRoot(root).render(
   <StrictMode>
