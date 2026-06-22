@@ -115,14 +115,14 @@ export function saveRecordingSettings(
   return recording
 }
 
-export function getSavedUpdateChannel(): DesktopUpdateChannel | null {
-  return readState().updateChannel
+export function getSavedUpdateChannelOverride(): DesktopUpdateChannel | null {
+  return readState().updateChannelOverride
 }
 
-export function saveUpdateChannel(
-  channel: DesktopUpdateChannel,
-): DesktopUpdateChannel {
+export function saveUpdateChannelOverride(
+  channel: DesktopUpdateChannel | null,
+): DesktopUpdateChannel | null {
   const state = readState()
-  writeState({ ...state, updateChannel: channel })
+  writeState({ ...state, updateChannelOverride: channel })
   return channel
 }

@@ -22,9 +22,10 @@ auto-update files:
 Publishing a latest release also triggers the **Nix Cache** workflow for the
 flake package. Prerelease unstable builds do not.
 
-Desktop auto-update follows the selected app channel. Latest builds look at
-`latest.yml` and reject unstable versions. Unstable builds look at
-`unstable.yml` and reject plain semver versions.
+Desktop auto-update follows the installed build's channel unless the user has
+set an explicit override. Latest builds look at `latest.yml` and reject
+unstable versions. Unstable builds look at `unstable.yml` and reject plain
+semver versions.
 
 ## Branch Policy
 
@@ -87,6 +88,9 @@ documentation-only pushes do not create desktop artifacts.
 The workflow stamps the checked-in package version with the UTC date and GitHub
 run number for Electron updater metadata. For example, checked-in version
 `0.2.0` produces `0.2.0-unstable.YYYYMMDD.<run>`.
+It also stamps the packaged desktop `assets/update-channel` marker to
+`unstable`, so fresh installs follow `unstable.yml` without relying on saved
+preferences.
 
 Unstable prereleases upload:
 

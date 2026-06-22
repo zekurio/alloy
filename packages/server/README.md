@@ -41,8 +41,9 @@ pnpm db:studio
 ## Local Development
 
 Use a devenv shell, which runs its own Postgres on a random free localhost port
-and exports `DATABASE_URL`, or provide a local Postgres yourself. Then run the
-server:
+and exports `DATABASE_URL`, or provide a local Postgres yourself. Non-devenv
+local development can use `packages/server/.env`, whose default database URL
+matches the Podman-published local Postgres. Then run the server:
 
 ```bash
 pnpm dev:server
@@ -51,7 +52,7 @@ pnpm dev:server
 `PORT`, `PUBLIC_SERVER_URL`, storage, auth policy, OAuth, and integration
 settings are parsed in `src/env.ts`; `DATABASE_URL`,
 `ALLOY_VIEWER_COOKIE_SECRET`, and `ALLOY_UPLOAD_HMAC_SECRET` are required.
-Shell environment always wins over the repo-root `.env` file.
+Shell environment always wins over `.env` files.
 
 ## Production
 

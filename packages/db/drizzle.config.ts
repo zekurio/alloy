@@ -1,11 +1,17 @@
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
 import { createEnv, postgresUrl } from "@alloy/env"
 import { loadDotenv } from "@alloy/env/node"
 import { defineConfig } from "drizzle-kit"
 import { z } from "zod"
 
-// Fill in unset variables from the workspace `.env` (non-devenv local dev);
-// real shell environment always wins.
-loadDotenv()
+const packageDir = dirname(fileURLToPath(import.meta.url))
+
+// Fill in unset variables from local development `.env` files. Drizzle runs in
+// the db package, but DATABASE_URL is shared with the server package.
+loadDotenv(packageDir)
+loadDotenv(join(packageDir, "..", "server"))
 
 const env = createEnv(
   z.object({

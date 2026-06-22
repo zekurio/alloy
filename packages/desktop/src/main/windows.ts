@@ -84,7 +84,15 @@ export class Windows {
    * use, then hand the screen over from the overlay to the app.
    */
   connectTo(serverUrl: string): void {
-    const nextOrigin = new URL(serverUrl).origin
+    this.connectToUrl(serverUrl)
+  }
+
+  connectToLogin(serverUrl: string): void {
+    this.connectToUrl(new URL("/login", serverUrl).toString())
+  }
+
+  private connectToUrl(url: string): void {
+    const nextOrigin = new URL(url).origin
     const previousOrigin = this.mainOrigin
     if (
       previousOrigin &&
@@ -99,7 +107,7 @@ export class Windows {
     hardenMainSessionPermissions()
     const win = this.ensureMain()
     void win
-      .loadURL(serverUrl)
+      .loadURL(url)
       .catch((error: unknown) => {
         logger.warn("failed to load server URL:", error)
       })

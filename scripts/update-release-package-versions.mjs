@@ -43,6 +43,7 @@ const releasePackageFiles = [
 ]
 const cargoPackageFiles = ["packages/recorder/Cargo.toml"]
 const cargoLockPackageFiles = ["packages/recorder/Cargo.lock"]
+const desktopUpdateChannelFiles = ["packages/desktop/assets/update-channel"]
 
 if (!version) {
   console.error(
@@ -145,6 +146,21 @@ for (const filePath of cargoLockPackageFiles) {
 
   writeFileSync(filePath, updated)
   changed = true
+}
+
+if (desktopChannel) {
+  for (const filePath of desktopUpdateChannelFiles) {
+    const original = readFileSync(filePath, "utf8")
+    const updated = `${desktopChannel}\n`
+
+    if (updated === original) {
+      console.log(`${filePath} is already set to ${desktopChannel}.`)
+      continue
+    }
+
+    writeFileSync(filePath, updated)
+    changed = true
+  }
 }
 
 if (writeGithubOutput) {

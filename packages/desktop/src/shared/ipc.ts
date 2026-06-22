@@ -118,6 +118,10 @@ export type ConnectResult =
       error: string
     }
 
+export interface ConnectOptions {
+  forceBrowserLogin?: boolean
+}
+
 export interface SavedServer {
   serverUrl: string
   lastConnectedAt: string
@@ -129,14 +133,14 @@ export interface SavedServer {
  */
 export interface AlloyNative {
   probe(url: string): Promise<ProbeResult>
-  connect(url: string): Promise<ConnectResult>
+  connect(url: string, options?: ConnectOptions): Promise<ConnectResult>
   getStartupServer(): Promise<string | null>
   getServers(): Promise<SavedServer[]>
   forgetServer(url: string): Promise<SavedServer[]>
 }
 
 export interface AlloyDesktopServerApi {
-  connect(url: string): Promise<ConnectResult>
+  connect(url: string, options?: ConnectOptions): Promise<ConnectResult>
   getServers(): Promise<SavedServer[]>
   getCurrentServer(): Promise<string | null>
   forgetServer(url: string): Promise<SavedServer[]>

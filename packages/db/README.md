@@ -45,9 +45,11 @@ provide a local Postgres yourself before running migration or push commands:
 pnpm db:push
 ```
 
-Drizzle commands require `DATABASE_URL` to be set (the dev scripts and devenv
-shell export it automatically; local development defaults to
-`postgres://postgres:postgres@127.0.0.1:5432/alloy`).
+Drizzle commands require `DATABASE_URL` to be set. The dev scripts and devenv
+shell export it automatically; non-devenv local development can set it in the
+shell, `packages/db/.env`, or the shared server env file at
+`packages/server/.env`. The default Podman-published local URL is
+`postgres://postgres:postgres@127.0.0.1:5432/alloy`.
 
 ## Guidelines
 

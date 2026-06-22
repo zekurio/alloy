@@ -102,11 +102,13 @@ Desktop ships on the latest `vX.Y.Z` channel and the unstable
 desktop package version and Electron updater channel before building, so latest
 builds publish `latest.yml` and unstable builds publish `unstable.yml`.
 
-Packaged builds default their updater channel from the installed app version,
-and users can switch between Latest (`latest.yml`) and Unstable (`unstable.yml`)
-from Desktop > Updates. The selected channel is saved in
-`preferences.json`. Latest accepts only plain semver update versions; Unstable
-accepts only versions matching `-unstable.YYYYMMDD.<run>`.
+Packaged builds default their updater channel from the installed app's
+`assets/update-channel` marker, then fall back to release metadata and the
+installed app version when the marker is missing. Users can switch between
+Latest (`latest.yml`) and Unstable (`unstable.yml`) from Desktop > Updates.
+Only an explicit user override is saved in `preferences.json`; otherwise updates
+follow the installed build's channel. Latest accepts only plain semver update
+versions; Unstable accepts only versions matching `-unstable.YYYYMMDD.<run>`.
 
 GitHub Release assets are desktop-only: the unsigned Windows NSIS installer,
 blockmap, updater metadata, and checksums from `packages/desktop/release`.
