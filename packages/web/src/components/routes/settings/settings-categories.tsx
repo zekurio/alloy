@@ -17,6 +17,12 @@ import {
 } from "@alloy/ui/components/select"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import {
+  getStoredTheme,
+  setStoredTheme,
+  THEMES,
+  type Theme,
+} from "@alloy/ui/lib/theme"
+import {
   AlertTriangleIcon,
   DatabaseIcon,
   Gamepad2Icon,
@@ -146,8 +152,15 @@ function StoragePanel() {
   )
 }
 
+const THEME_LABELS: Record<Theme, string> = {
+  system: t("System"),
+  light: t("Light"),
+  dark: t("Dark"),
+}
+
 function PreferencesPanel() {
   const [locale, setLocale] = useState<Locale>(() => getClientLocale())
+  const [theme, setTheme] = useState<Theme>(() => getStoredTheme())
 
   function changeLocale(value: string | null) {
     const nextLocale = normalizeLocale(value)
@@ -157,9 +170,33 @@ function PreferencesPanel() {
     window.location.reload()
   }
 
+  function changeTheme(value: string | null) {
+    if (value !== "system" && value !== "light" && value !== "dark") return
+    setTheme(value)
+    setStoredTheme(value)
+  }
+
   return (
     <Section>
       <SectionContent>
+        <SettingRow
+          title={t("Theme")}
+          description={t("Choose how Alloy looks.")}
+          htmlFor="theme"
+        >
+          <Select value={theme} onValueChange={changeTheme}>
+            <SelectTrigger id="theme" size="sm" className="w-40">
+              <SelectValue>{THEME_LABELS[theme]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end">
+              {THEMES.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {THEME_LABELS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
         <SettingRow
           title={t("Language")}
           description={t("Choose the language used by Alloy.")}
@@ -197,8 +234,18 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
     "preferences",
     t("Preferences"),
     t("Preferences"),
-    t("Language and regional settings."),
-    ["language", "locale", "settings"],
+    t("Theme, language, and regional settings."),
+    [
+      "theme",
+      "appearance",
+      "light",
+      "dark",
+      "system",
+      "color scheme",
+      "language",
+      "locale",
+      "settings",
+    ],
     LanguagesIcon,
     PreferencesPanel,
   ],
