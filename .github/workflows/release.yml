@@ -7,6 +7,25 @@ on:
     tags:
       - "v*.*.*"
       - "!v*-unstable.*"
+    paths:
+      - ".github/workflows/release.yml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "tsconfig.base.json"
+      - "turbo.json"
+      - "scripts/update-release-package-versions.mjs"
+      - "packages/desktop/**"
+      - "!packages/desktop/README.md"
+      - "packages/recorder/**"
+      - "!packages/recorder/README.md"
+      - "packages/contracts/**"
+      - "!packages/contracts/README.md"
+      - "packages/i18n/**"
+      - "packages/logging/**"
+      - "!packages/logging/README.md"
+      - "packages/ui/**"
+      - "!packages/ui/README.md"
   workflow_dispatch:
     inputs:
       channel:

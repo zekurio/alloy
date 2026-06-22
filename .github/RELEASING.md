@@ -60,9 +60,9 @@ require the checked-in package versions to already match the tag.
 ## Unstable Builds
 
 Unstable builds are produced automatically when the **Release** workflow
-receives a push to `develop`. They do not create GitHub Releases or prereleases.
-The workflow runs formatting, lint, and typecheck before building the desktop
-artifact.
+receives a desktop-impacting push to `develop`. Server-only, web-only, and
+documentation-only pushes do not create desktop artifacts. The workflow runs
+formatting, lint, and typecheck before building the desktop artifact.
 
 To build unstable manually, run **Release** with:
 

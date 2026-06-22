@@ -299,4 +299,4 @@ Most packages have a README with local commands and package-specific notes:
 
 ## License
 
-AGPL-3.0-only.
+MIT.
