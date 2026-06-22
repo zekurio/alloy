@@ -4,9 +4,9 @@ Alloy has one GitHub Release channel and one unstable build channel:
 
 - **Latest**: tagged `vX.Y.Z`, marked as the latest GitHub Release, and built
   by the Nix cache workflow.
-- **Unstable**: built from `develop` after CI passes, uploaded as a workflow
-  artifact. Server builds are consumed from the Nix flake by pinning the
-  development branch or an exact commit.
+- **Unstable**: built from `develop` pushes, uploaded as a workflow artifact.
+  Server builds are consumed from the Nix flake by pinning the development
+  branch or an exact commit.
 
 GitHub Release assets are intentionally limited to the desktop app and
 auto-update files:
@@ -32,7 +32,8 @@ look at `latest.yml` and reject unstable versions. Unstable builds look at
 - Feature branches should target `develop` unless they are release fixes for
   `main`.
 - Protect both `main` and `develop`. The unstable build path runs with write
-  permissions after CI passes, so `develop` should only receive trusted merges.
+  permissions for trusted `develop` pushes, so `develop` should only receive
+  trusted merges.
 
 ## Latest Releases
 
@@ -58,9 +59,10 @@ require the checked-in package versions to already match the tag.
 
 ## Unstable Builds
 
-Unstable builds are produced automatically from `develop` after the **CI**
-workflow completes successfully for a push to `develop`. They do not create
-GitHub Releases or prereleases.
+Unstable builds are produced automatically when the **Release** workflow
+receives a push to `develop`. They do not create GitHub Releases or prereleases.
+The workflow runs formatting, lint, and typecheck before building the desktop
+artifact.
 
 To build unstable manually, run **Release** with:
 
@@ -78,6 +80,8 @@ updater metadata. For example, `0.0.1` produces
 
 Download the latest unstable Electron artifact from
 `https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip`.
+That URL is backed by the latest successful push-triggered **Release** run on
+`develop`.
 
 For unstable server deployments, pin the development branch or an exact commit
 in your flake input.
