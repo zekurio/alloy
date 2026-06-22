@@ -175,7 +175,7 @@ export function UploadedClipCard({
     card.thumbnail
   const thumbnailBlurHash =
     effectiveTransfer?.thumbBlurHash ?? card.thumbnailBlurHash
-  const gameId = card.gameRef?.steamgriddbId ?? null
+  const gameId = card.gameRef?.slug ?? null
   const renderGameLink = useClipCardGameLink(gameId)
   const gameUrl = gameId ? gameHref(gameId) : null
   return (

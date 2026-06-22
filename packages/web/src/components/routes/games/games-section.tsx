@@ -30,7 +30,7 @@ export function GamesSection() {
               <GameCard
                 key={g.id}
                 game={g}
-                link={{ kind: "game", steamgriddbId: g.steamgriddbId }}
+                link={{ kind: "game", slug: g.slug }}
               />
             ))}
           </GamesGrid>

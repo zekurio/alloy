@@ -16,10 +16,7 @@ import { FeedSection } from "./feed-section"
 
 function filterFromSearch(search: HomeSearch): FeedFilter {
   if (search.game) {
-    const steamgriddbId = Number.parseInt(search.game, 10)
-    if (Number.isSafeInteger(steamgriddbId) && steamgriddbId > 0) {
-      return { kind: "game", steamgriddbId }
-    }
+    return { kind: "game", gameId: search.game }
   }
   if (search.feed === "following") return { kind: "following" }
   return { kind: "all" }

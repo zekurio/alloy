@@ -74,7 +74,7 @@ export async function startUpload(
     sizeBytes: payload.sizeBytes,
     title: payload.title,
     description: payload.description ?? undefined,
-    steamgriddbId: payload.steamgriddbId,
+    gameId: payload.gameId,
     privacy: payload.privacy,
     mentionedUserIds:
       payload.mentionedUserIds.length > 0

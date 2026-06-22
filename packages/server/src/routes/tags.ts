@@ -29,7 +29,7 @@ const TAG_SUGGESTION_LIMIT = 8
 
 const TagClipsQuery = z.object({
   sort: z.enum(["top", "recent"]).default("top"),
-  steamgriddbId: z.coerce.number().int().positive().optional(),
+  gameId: z.uuid().optional(),
   limit: limitQueryParam(100, 50),
   cursor: z.string().optional(),
 })
@@ -72,14 +72,14 @@ export const tagsRoute = new Hono()
     async (c) => {
       const tag = sanitizeTag(c.req.valid("param").tag)
       if (!tag) return notFound(c)
-      const { sort, steamgriddbId, cursor, limit } = c.req.valid("query")
+      const { sort, gameId, cursor, limit } = c.req.valid("query")
 
       const parsedCursor = parseClipListCursor(cursor, sort)
       if (cursor && !parsedCursor) return invalidCursor(c)
 
       const conditions = publicTagClipConditions(tag)
-      if (steamgriddbId) {
-        conditions.push(eq(clip.steamgriddb_id, steamgriddbId))
+      if (gameId) {
+        conditions.push(eq(clip.game_id, gameId))
       }
       const cursorCondition = clipListCursorCondition(parsedCursor, sort)
       if (cursorCondition) conditions.push(cursorCondition)
@@ -88,7 +88,7 @@ export const tagsRoute = new Hono()
         .select(clipSelectShape)
         .from(clip)
         .innerJoin(user, eq(clip.author_id, user.id))
-        .leftJoin(game, eq(clip.steamgriddb_id, game.steamgriddb_id))
+        .leftJoin(game, eq(clip.game_id, game.id))
         .where(and(...conditions))
         .orderBy(...clipListOrderBy(sort))
         .limit(limit + 1)
@@ -113,10 +113,10 @@ export const tagsRoute = new Hono()
           clipCount: sql<number>`count(${clip.id})::int`,
         })
         .from(game)
-        .innerJoin(clip, eq(clip.steamgriddb_id, game.steamgriddb_id))
+        .innerJoin(clip, eq(clip.game_id, game.id))
         .innerJoin(user, eq(clip.author_id, user.id))
         .where(and(...conditions))
-        .groupBy(game.steamgriddb_id)
+        .groupBy(game.id)
         .orderBy(sql`count(${clip.id}) desc`, game.name),
     ])
 

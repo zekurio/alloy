@@ -168,6 +168,7 @@ export function GameCombobox({
     const currentMatch: GameComboboxItem[] =
       q.length > 0 &&
       value !== null &&
+      value.steamgriddbId !== null &&
       normalizeGameSearchText(value.name).includes(q)
         ? [
             {
@@ -183,16 +184,21 @@ export function GameCombobox({
     // Filter already-known games by the current query — zero network cost.
     const localMatches: GameComboboxItem[] =
       q.length > 0
-        ? localGames
-            .filter((g) => normalizeGameSearchText(g.name).includes(q))
-            .map((g) => ({
-              id: g.steamgriddbId,
-              name: g.name,
-              releaseDate: g.releaseDate,
-              iconUrl: g.iconUrl,
-              logoUrl: g.logoUrl,
-              clipCount: g.clipCount,
-            }))
+        ? localGames.flatMap((g) =>
+            g.steamgriddbId === null ||
+            !normalizeGameSearchText(g.name).includes(q)
+              ? []
+              : [
+                  {
+                    id: g.steamgriddbId,
+                    name: g.name,
+                    releaseDate: g.releaseDate,
+                    iconUrl: g.iconUrl,
+                    logoUrl: g.logoUrl,
+                    clipCount: g.clipCount,
+                  },
+                ],
+          )
         : []
 
     // Append steamgriddb results that aren't already covered by a local match so the
@@ -216,7 +222,7 @@ export function GameCombobox({
   // loops until React aborts with "Maximum update depth exceeded".
   const committedValue = useMemo<GameComboboxItem | null>(
     () =>
-      value
+      value && value.steamgriddbId !== null
         ? {
             id: value.steamgriddbId,
             name: value.name,

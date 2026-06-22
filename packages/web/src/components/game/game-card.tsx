@@ -7,7 +7,7 @@ import { useState } from "react"
 import { GameLogo } from "./game-logo"
 
 export type GameCardData = {
-  steamgriddbId: number
+  id: string
   name: string
   slug: string | null
   heroUrl: string | null
@@ -17,7 +17,7 @@ export type GameCardData = {
 }
 
 export type GameCardLink =
-  | { kind: "game"; steamgriddbId: number }
+  | { kind: "game"; slug: string }
   | { kind: "user-clips"; username: string; slug: string }
 
 type GameCardProps = {
@@ -35,7 +35,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
   return (
     <>
       <MediaPlaceholder
-        seed={game.steamgriddbId}
+        seed={game.slug ?? game.id}
         blurHash={game.heroBlurHash ?? game.gridBlurHash}
       />
       {heroSrc ? (
@@ -90,7 +90,7 @@ export function GameCard({ game, link, className }: GameCardProps) {
     return (
       <Link
         to="/games/$gameId"
-        params={{ gameId: String(link.steamgriddbId) }}
+        params={{ gameId: link.slug }}
         aria-label={game.name}
         className={surface}
       >

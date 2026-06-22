@@ -1,16 +1,20 @@
 import {
   objectRecord,
   validateBoolean,
+  validateEnumString,
   validateNonNegativeInteger,
   validateNonNegativeNumber,
   validateNullableDateString,
+  validateNullablePositiveInteger,
   validateNullableString,
   validateNullableUrlString,
   validateOptionalString,
-  validatePositiveInteger,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
+import { GAME_SOURCE } from "@alloy/contracts"
 import { isBlurHash } from "@alloy/contracts/blurhash"
+
+const GAME_SOURCE_SET: ReadonlySet<string> = new Set(GAME_SOURCE)
 
 export function validateAuthProviderColors(
   provider: Record<string, unknown>,
@@ -43,19 +47,16 @@ export function validateGameRowFields(
   row: Record<string, unknown>,
   label: string,
 ) {
-  validatePositiveInteger(
-    row.id,
-    `Invalid ${label} response: id must be a positive integer`,
-  )
+  validateRequiredString(row.id, `Invalid ${label} response: id is required`)
   for (const key of ["name", "slug"] as const) {
     validateRequiredString(
       row[key],
       `Invalid ${label} response: ${key} is required`,
     )
   }
-  validatePositiveInteger(
+  validateNullablePositiveInteger(
     row.steamgriddbId,
-    `Invalid ${label} response: steamgriddbId must be a positive integer`,
+    `Invalid ${label} response: steamgriddbId must be a positive integer or null`,
   )
   validateNullableDateString(
     row.releaseDate,
@@ -70,6 +71,17 @@ export function validateGameRowFields(
   for (const key of ["heroBlurHash", "gridBlurHash"] as const) {
     validateNullableBlurHash(row[key], `Invalid ${label} response: ${key}`)
   }
+}
+
+export function validateGameSource(
+  row: Record<string, unknown>,
+  label: string,
+): void {
+  validateEnumString(
+    row.source,
+    GAME_SOURCE_SET,
+    `Invalid ${label} response: source is invalid`,
+  )
 }
 
 export function validateNullableBlurHash(value: unknown, label: string): void {

@@ -12,10 +12,11 @@ import {
   uniqueLookupNames,
 } from "./name-match"
 import {
+  getSteamGridDBGameRef,
   type IndexedGameNameLookupCandidate,
   lookupIndexedGamesByName,
 } from "./ref"
-import { gameRowFromSearchResult, searchGames } from "./steamgriddb"
+import { searchGames } from "./steamgriddb"
 
 const logger = createLogger("games")
 
@@ -150,9 +151,21 @@ async function steamgriddbResult(
 
   if (results.length !== 1) return null
 
+  // Persist the match so the returned game carries a surrogate id callers can
+  // attach to a clip. A resolve failure degrades to no-match rather than
+  // returning an unattachable row.
+  let resolved: GameRow | null
+  try {
+    resolved = await getSteamGridDBGameRef(results[0].id)
+  } catch (err) {
+    logger.warn(`failed to resolve SteamGridDB game for "${name}":`, err)
+    return null
+  }
+  if (!resolved) return null
+
   return {
     name,
-    game: await gameRowFromSearchResult(results[0]),
+    game: resolved,
     confidence: 1,
     reason:
       exactNameKey(results[0].name) === exactNameKey(name)

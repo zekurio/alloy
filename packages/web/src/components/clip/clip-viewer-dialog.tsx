@@ -309,7 +309,7 @@ function ClipViewerDialogBody({
               sourceAudioCodec={row.sourceAudioCodec}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}
-              fallbackSeed={row.steamgriddbId ?? row.id}
+              fallbackSeed={row.gameId ?? row.id}
               status={row.status}
               encodeProgress={row.encodeProgress}
               aspectRatio={16 / 9}

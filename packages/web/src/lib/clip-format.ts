@@ -79,7 +79,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
       ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
       : undefined,
     thumbnailBlurHash: row.thumbBlurHash,
-    fallbackSeed: row.steamgriddbId ?? row.id,
+    fallbackSeed: row.gameId ?? row.id,
     streamUrl: clipStreamUrl(row.id, undefined, apiOrigin()),
     accentHue: hueForGame(game),
     privacy: row.privacy,
