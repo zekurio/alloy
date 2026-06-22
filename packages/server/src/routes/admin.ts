@@ -8,6 +8,7 @@ import { inArray } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
+import { adminGamesRoute } from "./admin-games"
 import { adminRuntimeConfigResponse } from "./admin-helpers"
 import { adminUsersRoute } from "./admin-users"
 import { zValidator } from "./validation"
@@ -31,6 +32,7 @@ const AppearancePatch = z.object({
 export const adminRoute = new Hono()
   .use("*", requireAdmin)
   .route("/", adminUsersRoute)
+  .route("/", adminGamesRoute)
   .get("/runtime-config", (c) => {
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })

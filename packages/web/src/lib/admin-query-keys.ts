@@ -6,6 +6,7 @@ export const adminKeys = {
   all: ["admin"] as const,
   runtimeConfig: () => [...adminKeys.all, "runtime-config"] as const,
   users: () => [...adminKeys.all, "users"] as const,
+  games: () => [...adminKeys.all, "games"] as const,
 }
 
 export function adminRuntimeConfigQueryOptions() {
@@ -19,5 +20,12 @@ export function adminUsersQueryOptions() {
   return queryOptions({
     queryKey: adminKeys.users(),
     queryFn: () => api.admin.fetchUsers(),
+  })
+}
+
+export function adminGamesQueryOptions() {
+  return queryOptions({
+    queryKey: adminKeys.games(),
+    queryFn: () => api.admin.fetchGames(),
   })
 }

@@ -23,7 +23,15 @@ export async function imageBlurHash({
   throwIfAborted(signal)
   const bytes = await loadImageBytes(source, label, signal)
   throwIfAborted(signal)
+  const hash = await imageBlurHashFromBytes(bytes)
+  throwIfAborted(signal)
+  return hash
+}
 
+/** Compute a BlurHash from already-loaded image bytes (e.g. an upload). */
+export async function imageBlurHashFromBytes(
+  bytes: Buffer | Uint8Array,
+): Promise<string> {
   const { data, info } = await sharp(bytes)
     .resize(MAX_SAMPLE_DIMENSION, MAX_SAMPLE_DIMENSION, {
       fit: "inside",
@@ -33,14 +41,12 @@ export async function imageBlurHash({
     .ensureAlpha()
     .raw()
     .toBuffer({ resolveWithObject: true })
-  throwIfAborted(signal)
 
-  const sample = { width: info.width, height: info.height }
-  const { x, y } = blurHashComponents(sample.width, sample.height)
+  const { x, y } = blurHashComponents(info.width, info.height)
   return encode(
     new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength),
-    sample.width,
-    sample.height,
+    info.width,
+    info.height,
     x,
     y,
   )
