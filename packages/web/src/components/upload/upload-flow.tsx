@@ -42,7 +42,7 @@ function AuthedDesktopUploadFlow() {
         ...(row.gameSlug
           ? {
               mask: {
-                to: "/games/$gameId/c/$clipId",
+                to: "/games/$gameId/clips/$clipId",
                 params: {
                   gameId: row.gameSlug,
                   clipId: row.id,

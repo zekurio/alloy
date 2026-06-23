@@ -30,8 +30,7 @@ import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.
 import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
 import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
 import { Route as appAppLibraryCClipIdRouteImport } from './routes/(app)/_app.library.c.$clipId'
-import { Route as appAppGamesGameIdCClipIdRouteImport } from './routes/(app)/_app.games.$gameId.c.$clipId'
-import { Route as appAppGSlugCClipIdRouteImport } from './routes/(app)/_app.g.$slug.c.$clipId'
+import { Route as appAppGamesGameIdClipsClipIdRouteImport } from './routes/(app)/_app.games.$gameId.clips.$clipId'
 
 const authSetupRoute = authSetupRouteImport.update({
   id: '/(auth)/setup',
@@ -136,17 +135,12 @@ const appAppLibraryCClipIdRoute = appAppLibraryCClipIdRouteImport.update({
   path: '/library/c/$clipId',
   getParentRoute: () => appAppRoute,
 } as any)
-const appAppGamesGameIdCClipIdRoute =
-  appAppGamesGameIdCClipIdRouteImport.update({
-    id: '/c/$clipId',
-    path: '/c/$clipId',
+const appAppGamesGameIdClipsClipIdRoute =
+  appAppGamesGameIdClipsClipIdRouteImport.update({
+    id: '/clips/$clipId',
+    path: '/clips/$clipId',
     getParentRoute: () => appAppGamesGameIdRoute,
   } as any)
-const appAppGSlugCClipIdRoute = appAppGSlugCClipIdRouteImport.update({
-  id: '/c/$clipId',
-  path: '/c/$clipId',
-  getParentRoute: () => appAppGSlugRoute,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/setup': typeof authSetupRoute
@@ -155,7 +149,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
-  '/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/g/$slug': typeof appAppGSlugRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/tags/$tag': typeof appAppTagsTagRoute
@@ -168,8 +162,7 @@ export interface FileRoutesByFullPath {
   '/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/u/$username/': typeof appAppUUsernameIndexRoute
-  '/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
-  '/games/$gameId/c/$clipId': typeof appAppGamesGameIdCClipIdRoute
+  '/games/$gameId/clips/$clipId': typeof appAppGamesGameIdClipsClipIdRoute
 }
 export interface FileRoutesByTo {
   '/setup': typeof authSetupRoute
@@ -177,7 +170,7 @@ export interface FileRoutesByTo {
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
-  '/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/g/$slug': typeof appAppGSlugRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/tags/$tag': typeof appAppTagsTagRoute
@@ -189,8 +182,7 @@ export interface FileRoutesByTo {
   '/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/u/$username': typeof appAppUUsernameIndexRoute
-  '/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
-  '/games/$gameId/c/$clipId': typeof appAppGamesGameIdCClipIdRoute
+  '/games/$gameId/clips/$clipId': typeof appAppGamesGameIdClipsClipIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -202,7 +194,7 @@ export interface FileRoutesById {
   '/(auth)/_auth/login': typeof authAuthLoginRoute
   '/(auth)/_auth/sign-up': typeof authAuthSignUpRoute
   '/(app)/_app/': typeof appAppIndexRoute
-  '/(app)/_app/g/$slug': typeof appAppGSlugRouteWithChildren
+  '/(app)/_app/g/$slug': typeof appAppGSlugRoute
   '/(app)/_app/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/(app)/_app/library/$captureId': typeof appAppLibraryCaptureIdRoute
   '/(app)/_app/tags/$tag': typeof appAppTagsTagRoute
@@ -215,8 +207,7 @@ export interface FileRoutesById {
   '/(app)/_app/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/(app)/_app/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/(app)/_app/u/$username/': typeof appAppUUsernameIndexRoute
-  '/(app)/_app/g/$slug/c/$clipId': typeof appAppGSlugCClipIdRoute
-  '/(app)/_app/games/$gameId/c/$clipId': typeof appAppGamesGameIdCClipIdRoute
+  '/(app)/_app/games/$gameId/clips/$clipId': typeof appAppGamesGameIdClipsClipIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -240,8 +231,7 @@ export interface FileRouteTypes {
     | '/u/$username/liked'
     | '/u/$username/tagged'
     | '/u/$username/'
-    | '/g/$slug/c/$clipId'
-    | '/games/$gameId/c/$clipId'
+    | '/games/$gameId/clips/$clipId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
@@ -261,8 +251,7 @@ export interface FileRouteTypes {
     | '/u/$username/liked'
     | '/u/$username/tagged'
     | '/u/$username'
-    | '/g/$slug/c/$clipId'
-    | '/games/$gameId/c/$clipId'
+    | '/games/$gameId/clips/$clipId'
   id:
     | '__root__'
     | '/(app)/_app'
@@ -286,8 +275,7 @@ export interface FileRouteTypes {
     | '/(app)/_app/u/$username/liked'
     | '/(app)/_app/u/$username/tagged'
     | '/(app)/_app/u/$username/'
-    | '/(app)/_app/g/$slug/c/$clipId'
-    | '/(app)/_app/games/$gameId/c/$clipId'
+    | '/(app)/_app/games/$gameId/clips/$clipId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -445,29 +433,22 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppLibraryCClipIdRouteImport
       parentRoute: typeof appAppRoute
     }
-    '/(app)/_app/games/$gameId/c/$clipId': {
-      id: '/(app)/_app/games/$gameId/c/$clipId'
-      path: '/c/$clipId'
-      fullPath: '/games/$gameId/c/$clipId'
-      preLoaderRoute: typeof appAppGamesGameIdCClipIdRouteImport
+    '/(app)/_app/games/$gameId/clips/$clipId': {
+      id: '/(app)/_app/games/$gameId/clips/$clipId'
+      path: '/clips/$clipId'
+      fullPath: '/games/$gameId/clips/$clipId'
+      preLoaderRoute: typeof appAppGamesGameIdClipsClipIdRouteImport
       parentRoute: typeof appAppGamesGameIdRoute
-    }
-    '/(app)/_app/g/$slug/c/$clipId': {
-      id: '/(app)/_app/g/$slug/c/$clipId'
-      path: '/c/$clipId'
-      fullPath: '/g/$slug/c/$clipId'
-      preLoaderRoute: typeof appAppGSlugCClipIdRouteImport
-      parentRoute: typeof appAppGSlugRoute
     }
   }
 }
 
 interface appAppGamesGameIdRouteChildren {
-  appAppGamesGameIdCClipIdRoute: typeof appAppGamesGameIdCClipIdRoute
+  appAppGamesGameIdClipsClipIdRoute: typeof appAppGamesGameIdClipsClipIdRoute
 }
 
 const appAppGamesGameIdRouteChildren: appAppGamesGameIdRouteChildren = {
-  appAppGamesGameIdCClipIdRoute: appAppGamesGameIdCClipIdRoute,
+  appAppGamesGameIdClipsClipIdRoute: appAppGamesGameIdClipsClipIdRoute,
 }
 
 const appAppGamesGameIdRouteWithChildren =
@@ -485,18 +466,6 @@ const appAppGamesRouteChildren: appAppGamesRouteChildren = {
 
 const appAppGamesRouteWithChildren = appAppGamesRoute._addFileChildren(
   appAppGamesRouteChildren,
-)
-
-interface appAppGSlugRouteChildren {
-  appAppGSlugCClipIdRoute: typeof appAppGSlugCClipIdRoute
-}
-
-const appAppGSlugRouteChildren: appAppGSlugRouteChildren = {
-  appAppGSlugCClipIdRoute: appAppGSlugCClipIdRoute,
-}
-
-const appAppGSlugRouteWithChildren = appAppGSlugRoute._addFileChildren(
-  appAppGSlugRouteChildren,
 )
 
 interface appAppUUsernameRouteChildren {
@@ -523,7 +492,7 @@ interface appAppRouteChildren {
   appAppGamesRoute: typeof appAppGamesRouteWithChildren
   appAppSettingsRoute: typeof appAppSettingsRoute
   appAppIndexRoute: typeof appAppIndexRoute
-  appAppGSlugRoute: typeof appAppGSlugRouteWithChildren
+  appAppGSlugRoute: typeof appAppGSlugRoute
   appAppLibraryCaptureIdRoute: typeof appAppLibraryCaptureIdRoute
   appAppTagsTagRoute: typeof appAppTagsTagRoute
   appAppUUsernameRoute: typeof appAppUUsernameRouteWithChildren
@@ -535,7 +504,7 @@ const appAppRouteChildren: appAppRouteChildren = {
   appAppGamesRoute: appAppGamesRouteWithChildren,
   appAppSettingsRoute: appAppSettingsRoute,
   appAppIndexRoute: appAppIndexRoute,
-  appAppGSlugRoute: appAppGSlugRouteWithChildren,
+  appAppGSlugRoute: appAppGSlugRoute,
   appAppLibraryCaptureIdRoute: appAppLibraryCaptureIdRoute,
   appAppTagsTagRoute: appAppTagsTagRoute,
   appAppUUsernameRoute: appAppUUsernameRouteWithChildren,

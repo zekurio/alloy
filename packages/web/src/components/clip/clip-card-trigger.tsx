@@ -53,7 +53,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
       to: ".",
       search: (prev: AppSearch) => ({ ...prev, clip: card.clipId }),
       mask: {
-        to: "/games/$gameId/c/$clipId",
+        to: "/games/$gameId/clips/$clipId",
         params: { gameId: String(gameId), clipId: card.clipId },
       },
     })

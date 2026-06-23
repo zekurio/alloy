@@ -83,37 +83,47 @@ function releaseDatePayload(value: string): string | null {
 export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
   const { data: games, isPending, error } = useQuery(adminGamesQueryOptions())
 
-  return (
-    <Section>
-      {hideHeader ? null : (
-        <SectionHeader>
-          <SectionTitle>{t("Games")}</SectionTitle>
-        </SectionHeader>
-      )}
-      <SectionContent className="gap-3">
-        <div className="flex items-center justify-between">
+  const body = (
+    <div className="flex flex-col gap-3">
+      <div
+        className={
+          hideHeader ? "flex justify-end" : "flex items-center justify-between"
+        }
+      >
+        {hideHeader ? null : (
           <p className="text-foreground-muted text-sm">
             {t("Create and manage custom games and their artwork.")}
           </p>
-          <CreateGameDialog />
-        </div>
-
-        {error ? (
-          <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
-            {errorMessage(error, t("Couldn't load games"))}
-          </div>
-        ) : isPending ? (
-          <Spinner className="size-5" />
-        ) : games.length === 0 ? (
-          <p className="text-foreground-muted text-sm">{t("No games yet.")}</p>
-        ) : (
-          <List>
-            {games.map((game) => (
-              <AdminGameListRow key={game.id} game={game} />
-            ))}
-          </List>
         )}
-      </SectionContent>
+        <CreateGameDialog />
+      </div>
+
+      {error ? (
+        <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
+          {errorMessage(error, t("Couldn't load games"))}
+        </div>
+      ) : isPending ? (
+        <Spinner className="size-5" />
+      ) : games.length === 0 ? (
+        <p className="text-foreground-muted text-sm">{t("No games yet.")}</p>
+      ) : (
+        <List>
+          {games.map((game) => (
+            <AdminGameListRow key={game.id} game={game} />
+          ))}
+        </List>
+      )}
+    </div>
+  )
+
+  if (hideHeader) return body
+
+  return (
+    <Section>
+      <SectionHeader>
+        <SectionTitle>{t("Games")}</SectionTitle>
+      </SectionHeader>
+      <SectionContent>{body}</SectionContent>
     </Section>
   )
 }

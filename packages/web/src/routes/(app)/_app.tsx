@@ -55,7 +55,7 @@ function AppLayout() {
         ...(entry.gameId
           ? {
               mask: {
-                to: "/games/$gameId/c/$clipId",
+                to: "/games/$gameId/clips/$clipId",
                 params: { gameId: entry.gameId, clipId: entry.id },
               },
             }

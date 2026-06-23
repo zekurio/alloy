@@ -8,29 +8,31 @@ import { goBackInBrowserHistory } from "@/lib/browser-url"
 import { seedClipDetailInCache } from "@/lib/clip-queries"
 import { parseClipRouteSearch } from "@/lib/clip-route-search"
 
-export const Route = createFileRoute("/(app)/_app/games/$gameId/c/$clipId")({
-  validateSearch: parseClipRouteSearch,
-  loader: async ({ context, params }) => {
-    try {
-      const clip = await api.clips.fetchById(params.clipId)
-      seedClipDetailInCache(context.queryClient, clip)
-      return { clip }
-    } catch (error) {
-      if (
-        error instanceof HttpError &&
-        (error.status === 401 || error.status === 403 || error.status === 404)
-      ) {
-        throw redirect({
-          to: "/games/$gameId",
-          params: { gameId: params.gameId },
-          replace: true,
-        })
+export const Route = createFileRoute("/(app)/_app/games/$gameId/clips/$clipId")(
+  {
+    validateSearch: parseClipRouteSearch,
+    loader: async ({ context, params }) => {
+      try {
+        const clip = await api.clips.fetchById(params.clipId)
+        seedClipDetailInCache(context.queryClient, clip)
+        return { clip }
+      } catch (error) {
+        if (
+          error instanceof HttpError &&
+          (error.status === 401 || error.status === 403 || error.status === 404)
+        ) {
+          throw redirect({
+            to: "/games/$gameId",
+            params: { gameId: params.gameId },
+            replace: true,
+          })
+        }
+        throw error
       }
-      throw error
-    }
+    },
+    component: ClipModalRoute,
   },
-  component: ClipModalRoute,
-})
+)
 
 function ClipModalRoute() {
   const { gameId, clipId } = Route.useParams()
@@ -57,7 +59,7 @@ function ClipModalRoute() {
     (entry: { id: string; gameId: string | null }) => {
       setModalClipId(entry.id)
       void router.navigate({
-        to: "/games/$gameId/c/$clipId",
+        to: "/games/$gameId/clips/$clipId",
         params: { gameId: entry.gameId ?? gameId, clipId: entry.id },
         search: {},
         replace: true,
