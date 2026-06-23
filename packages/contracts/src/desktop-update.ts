@@ -30,6 +30,8 @@ export interface AlloyDesktopUpdatesApi {
   getState(): Promise<DesktopUpdateState>
   getChannel?(): Promise<DesktopUpdateChannel>
   setChannel?(channel: DesktopUpdateChannel): Promise<DesktopUpdateChannel>
+  /** Runs an immediate update check instead of waiting for the background interval. */
+  checkForUpdates?(): Promise<DesktopUpdateState>
   /** Quits and installs the downloaded update; no-op when none is ready. */
   restartToInstall(): Promise<void>
   onState(listener: (state: DesktopUpdateState) => void): () => void

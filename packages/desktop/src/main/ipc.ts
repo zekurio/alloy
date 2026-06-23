@@ -48,6 +48,7 @@ import {
 } from "./server-store"
 import { clearRemoteWebCache, hasValidSession } from "./session"
 import {
+  checkForUpdatesNow,
   getUpdateChannel,
   getUpdateState,
   onUpdateStateChange,
@@ -101,6 +102,10 @@ function registerUpdateIpc(windows: Windows): void {
   ipcMain.handle(IPC.setUpdateChannel, (event, channel: unknown) => {
     requireDesktopSender(windows, event)
     return setUpdateChannel(channel)
+  })
+  ipcMain.handle(IPC.checkForUpdates, (event) => {
+    requireDesktopSender(windows, event)
+    return checkForUpdatesNow()
   })
   ipcMain.handle(IPC.restartToInstallUpdate, (event) => {
     requireDesktopSender(windows, event)
