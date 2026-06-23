@@ -18,7 +18,7 @@ export function clipHref(
   options: { commentId?: string | null } = {},
 ): string {
   return resolvePublicUrlWithQuery(
-    `${gameHref(steamgriddbId)}/c/${encodedPathSegment(clipId)}`,
+    `${gameHref(steamgriddbId)}/clips/${encodedPathSegment(clipId)}`,
     { comment: options.commentId ?? undefined },
   )
 }
