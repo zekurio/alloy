@@ -72,6 +72,20 @@ export function setUpdateChannel(value: unknown): DesktopUpdateChannel {
   return value
 }
 
+/** Runs an immediate user-requested update check. */
+export async function checkForUpdatesNow(): Promise<DesktopUpdateState> {
+  if (!app.isPackaged) {
+    logger.info("manual update check skipped in development")
+    return state
+  }
+
+  if (!initialized) initAutoUpdater()
+
+  ensureBackgroundChecks()
+  clearPendingCheck()
+  return runUpdateCheck({ force: true })
+}
+
 /** Subscribe to update-state changes (used to push events to windows). */
 export function onUpdateStateChange(
   listener: (state: DesktopUpdateState) => void,
@@ -132,6 +146,9 @@ function setState(next: DesktopUpdateState): void {
  * bridge state above.
  */
 export function initAutoUpdater(): void {
+  if (initialized) return
+  initialized = true
+
   const channel = getUpdateChannel()
 
   if (!app.isPackaged) {
@@ -187,7 +204,6 @@ export function initAutoUpdater(): void {
     }
   })
 
-  initialized = true
   ensureBackgroundChecks()
   scheduleUpdateCheck(INITIAL_UPDATE_CHECK_DELAY_MS)
 }
@@ -286,15 +302,22 @@ function scheduleUpdateCheck(delayMs: number): void {
   clearPendingCheck()
   pendingCheckTimer = setTimeout(() => {
     pendingCheckTimer = null
-    runUpdateCheck()
+    void runUpdateCheck()
   }, delayMs)
 }
 
-function runUpdateCheck(): void {
-  if (checkInFlight || state.status !== "idle") return
+async function runUpdateCheck(
+  options: { force?: boolean } = {},
+): Promise<DesktopUpdateState> {
+  if (checkInFlight) return state
+  if (state.status === "downloaded" || state.status === "downloading") {
+    return state
+  }
+  if (!options.force && state.status !== "idle") return state
 
   checkInFlight = true
-  void autoUpdater
+  if (state.status === "idle") setState({ status: "checking", version: null })
+  await autoUpdater
     .checkForUpdates()
     .catch(() => {
       // Failures already surface through the "error" event.
@@ -302,6 +325,7 @@ function runUpdateCheck(): void {
     .finally(() => {
       checkInFlight = false
     })
+  return state
 }
 
 function scheduleUpdateDownload(
