@@ -495,6 +495,66 @@ fn command_output(command: &str, args: &[&str]) -> Option<String> {
 include!("sidecar_runtime_windows.rs");
 const TICK_INTERVAL: Duration = Duration::from_millis(500);
 
+struct RecorderRequest {
+    request: Request,
+    superseded_configure_ids: Vec<u64>,
+}
+
+fn recv_recorder_request(
+    rx: &mpsc::Receiver<Request>,
+    pending: &mut VecDeque<Request>,
+    timeout: Duration,
+) -> Result<RecorderRequest, mpsc::RecvTimeoutError> {
+    let request = match pending.pop_front() {
+        Some(request) => request,
+        None => rx.recv_timeout(timeout)?,
+    };
+
+    if request.method == "configure" {
+        return Ok(coalesce_configure_requests(rx, pending, request));
+    }
+
+    Ok(RecorderRequest {
+        request,
+        superseded_configure_ids: Vec::new(),
+    })
+}
+
+fn coalesce_configure_requests(
+    rx: &mpsc::Receiver<Request>,
+    pending: &mut VecDeque<Request>,
+    first: Request,
+) -> RecorderRequest {
+    let mut request = first;
+    let mut superseded_configure_ids = Vec::new();
+
+    while let Some(next) = pending.pop_front().or_else(|| rx.try_recv().ok()) {
+        if next.method == "configure" {
+            superseded_configure_ids.push(request.id);
+            request = next;
+            continue;
+        }
+
+        pending.push_back(next);
+        break;
+    }
+
+    RecorderRequest {
+        request,
+        superseded_configure_ids,
+    }
+}
+
+fn response_for_id(response: &Response, id: u64) -> Response {
+    Response {
+        id,
+        ok: response.ok,
+        result: response.result.clone(),
+        error: response.error.clone(),
+        status: response.status.clone(),
+    }
+}
+
 fn main() {
     let (tx, rx) = mpsc::channel::<Request>();
     let status = Arc::new(Mutex::new(Recorder::default().status()));
@@ -530,15 +590,20 @@ fn main() {
     });
 
     let mut recorder = Recorder::default();
+    let mut pending_requests = VecDeque::new();
     let mut next_tick = Instant::now() + TICK_INTERVAL;
 
     loop {
         let timeout = next_tick.saturating_duration_since(Instant::now());
-        match rx.recv_timeout(timeout) {
-            Ok(request) => {
-                let should_shutdown = request.method == "shutdown";
-                write_response(handle_request(&mut recorder, request));
+        match recv_recorder_request(&rx, &mut pending_requests, timeout) {
+            Ok(batch) => {
+                let should_shutdown = batch.request.method == "shutdown";
+                let response = handle_request(&mut recorder, batch.request);
                 publish_status(&status, &recorder);
+                for id in batch.superseded_configure_ids {
+                    write_response(response_for_id(&response, id));
+                }
+                write_response(response);
                 if should_shutdown {
                     break;
                 }

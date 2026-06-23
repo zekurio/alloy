@@ -27,6 +27,7 @@ import {
   listGameProcesses,
   listRecordingDisplays,
   onRecordingEvent,
+  restartRecordingBackend,
   resolveRevealableCapturePath,
   saveReplayClip,
   stopAudioLevels,
@@ -237,6 +238,10 @@ function registerRecordingSettingsIpc(windows: Windows): void {
     void configureRecordingBackend()
     configureRecordingHotkeys(saved)
     return saved
+  })
+  ipcMain.handle(IPC.restartRecordingBackend, (event) => {
+    requireMainSender(windows, event)
+    return restartRecordingBackend()
   })
   ipcMain.handle(IPC.getRecordingStatus, (event) => {
     requireMainSender(windows, event)

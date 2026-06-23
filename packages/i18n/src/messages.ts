@@ -292,6 +292,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't render the project": "Projekt konnte nicht gerendert werden",
   "Couldn't restart to update.":
     "Neustart zum Aktualisieren ist fehlgeschlagen.",
+  "Couldn't restart recording sidecar.":
+    "Aufnahme-Sidecar konnte nicht neu gestartet werden.",
   "Couldn't save": "Konnte nicht gespeichert werden",
   "Couldn't save backdrop appearance":
     "Hintergrund-Aussehen konnte nicht gespeichert werden",
@@ -729,6 +731,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Der Scan der Aufnahmebibliothek ist fehlgeschlagen.",
   "Recording sidecar exited.": "Aufnahme-Sidecar beendet.",
   "Recording sidecar failed.": "Aufnahme-Sidecar fehlgeschlagen.",
+  "Recording sidecar": "Aufnahme-Sidecar",
+  "Recording sidecar restarted.": "Aufnahme-Sidecar neu gestartet.",
   "Redirecting…": "Weiterleitung…",
   "Redo (Ctrl+Shift+Z)": "Wiederherstellen (Strg+Umschalt+Z)",
   Refresh: "Aktualisieren",
@@ -770,6 +774,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Auflösung, Bildrate, Encoder und Replay-Puffer.",
   Restart: "Neustart",
   "Restart to update": "Zum Aktualisieren neu starten",
+  "Restart the capture component if recording gets stuck.":
+    "Starte die Aufnahmekomponente neu, wenn die Aufnahme hängen bleibt.",
   "Restarting...": "Neustart...",
   "Restarting…": "Neustart…",
   Retry: "Wiederholen",
