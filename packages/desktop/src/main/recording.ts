@@ -204,6 +204,11 @@ export async function shutdownRecordingBackend(): Promise<void> {
   await client?.shutdown()
 }
 
+export async function restartRecordingBackend(): Promise<RecordingStatus> {
+  await shutdownRecordingBackend()
+  return configureRecordingBackend()
+}
+
 export function playReplaySaveRequestedSound(): boolean {
   return requestReplaySaveSound(getLastRecordingStatus())
 }

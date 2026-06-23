@@ -2,7 +2,7 @@
 compile_error!("alloy-recorder is currently Windows-only.");
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     env,
     ffi::{CStr, CString},
     fs,

@@ -35,6 +35,8 @@ interface DesktopRecordingContextValue {
   setSettings: Dispatch<SetStateAction<RecordingSettings | null>>
   /** Persist the given settings to the desktop shell. */
   save: (next: RecordingSettings) => Promise<void>
+  /** Restart the capture sidecar process and refresh status. */
+  restartBackend: () => Promise<void>
   /** Open the native folder picker and apply the chosen capture folder. */
   chooseOutputFolder: () => Promise<void>
   /** List the audio files available in the shared notification sounds folder. */
@@ -181,6 +183,20 @@ export function DesktopRecordingProvider({
     }
   }, [recording])
 
+  const restartBackend = useCallback(async () => {
+    if (!recording) return
+    setPhase("loading")
+    try {
+      const nextStatus = await recording.restartBackend()
+      setStatus(nextStatus)
+      toast.success(t("Recording sidecar restarted."))
+    } catch (cause) {
+      toast.error(errorText(cause, t("Couldn't restart recording sidecar.")))
+    } finally {
+      setPhase("idle")
+    }
+  }, [recording])
+
   const listNotificationSounds = useCallback(async () => {
     if (!recording) return EMPTY_SOUND_LIBRARY
     try {
@@ -244,6 +260,7 @@ export function DesktopRecordingProvider({
       busy: phase !== "idle",
       setSettings,
       save,
+      restartBackend,
       chooseOutputFolder,
       listNotificationSounds,
       openNotificationSoundsFolder,
@@ -257,6 +274,7 @@ export function DesktopRecordingProvider({
       storageInfo,
       phase,
       save,
+      restartBackend,
       chooseOutputFolder,
       listNotificationSounds,
       openNotificationSoundsFolder,

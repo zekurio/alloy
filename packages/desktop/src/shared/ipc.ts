@@ -62,6 +62,7 @@ export const IPC = {
   openSettings: "alloy:open-settings",
   getRecordingSettings: "alloy:get-recording-settings",
   setRecordingSettings: "alloy:set-recording-settings",
+  restartRecordingBackend: "alloy:restart-recording-backend",
   getRecordingStatus: "alloy:get-recording-status",
   getRecordingStorageInfo: "alloy:get-recording-storage-info",
   getRecordingLibrary: "alloy:get-recording-library",
@@ -150,6 +151,7 @@ export interface AlloyDesktopServerApi {
 export interface AlloyDesktopRecordingApi {
   getSettings(): Promise<RecordingSettings>
   setSettings(settings: RecordingSettings): Promise<RecordingSettings>
+  restartBackend(): Promise<RecordingStatus>
   getStatus(): Promise<RecordingStatus>
   getStorageInfo(): Promise<RecordingStorageInfo>
   getLibrary(): Promise<RecordingLibrarySnapshot>

@@ -1,5 +1,9 @@
 import { t } from "@alloy/i18n"
+import { Button } from "@alloy/ui/components/button"
+import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
+import { RefreshCcwIcon } from "lucide-react"
+import { useState } from "react"
 
 import { AllowedGamesSection } from "./desktop-capture-games"
 import { HotkeysSection } from "./desktop-capture-hotkeys"
@@ -9,7 +13,8 @@ import { useDesktopRecording } from "./desktop-recording-context"
 import { DesktopStorageSettings } from "./desktop-storage-settings"
 
 export function DesktopCaptureSettings() {
-  const { settings, status, busy, save } = useDesktopRecording()
+  const { settings, status, busy, save, restartBackend } = useDesktopRecording()
+  const [restarting, setRestarting] = useState(false)
 
   if (!settings || !status) {
     return (
@@ -28,6 +33,37 @@ export function DesktopCaptureSettings() {
         busy={busy}
         save={save}
       />
+
+      <SettingRow
+        title={t("Recording sidecar")}
+        description={t(
+          "Restart the capture component if recording gets stuck.",
+        )}
+        className="border-b-0!"
+      >
+        <Button
+          type="button"
+          size="sm"
+          variant="secondary"
+          disabled={busy || restarting}
+          onClick={() => {
+            setRestarting(true)
+            void restartBackend().finally(() => setRestarting(false))
+          }}
+        >
+          {restarting ? (
+            <>
+              <Spinner />
+              {t("Restarting...")}
+            </>
+          ) : (
+            <>
+              <RefreshCcwIcon className="size-3.5" />
+              {t("Restart")}
+            </>
+          )}
+        </Button>
+      </SettingRow>
 
       <hr className="border-border" />
 

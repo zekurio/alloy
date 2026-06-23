@@ -32,9 +32,17 @@ interface PendingRequest {
   timeout: ReturnType<typeof setTimeout>
 }
 
-interface PendingConfigure {
+interface InFlightConfigure {
   key: string
   promise: Promise<RecordingStatus>
+}
+
+interface QueuedConfigure {
+  key: string
+  config: SidecarConfig
+  promise: Promise<RecordingStatus>
+  resolve: (value: RecordingStatus) => void
+  reject: (reason: Error) => void
 }
 
 interface RecordingSidecarClientOptions {
@@ -63,7 +71,8 @@ export class RecordingSidecarClient {
   private reader: Interface | null = null
   private nextId = 1
   private appliedConfigKey: string | null = null
-  private pendingConfigure: PendingConfigure | null = null
+  private inFlightConfigure: InFlightConfigure | null = null
+  private queuedConfigure: QueuedConfigure | null = null
   private lastStatus: RecordingStatus
   private shutdownRequested = false
   private respawnTimer: ReturnType<typeof setTimeout> | null = null
@@ -79,12 +88,17 @@ export class RecordingSidecarClient {
 
   /**
    * Push the given config to the sidecar. Duplicate pushes are coalesced, and
-   * because requests are applied in stdin order the latest call always wins.
+   * while a configure is in flight only the latest queued config is kept.
    */
   async configure(config: SidecarConfig): Promise<RecordingStatus> {
     this.ensureProcess()
     const key = JSON.stringify(config)
-    if (this.pendingConfigure?.key === key) return this.pendingConfigure.promise
+    if (this.inFlightConfigure?.key === key) {
+      this.resolveQueuedConfigureWith(this.inFlightConfigure.promise)
+      return this.inFlightConfigure.promise
+    }
+    if (this.inFlightConfigure) return this.queueConfigure(key, config)
+    if (this.queuedConfigure?.key === key) return this.queuedConfigure.promise
     if (this.appliedConfigKey === key) {
       return this.request<RecordingStatus>("status")
     }
@@ -145,30 +159,93 @@ export class RecordingSidecarClient {
     this.child = null
     this.reader?.close()
     this.reader = null
-    this.rejectPending(new Error("Recording sidecar was shut down."))
+    const error = new Error("Recording sidecar was shut down.")
+    this.rejectPending(error)
+    this.rejectQueuedConfigure(error)
   }
 
   private sendConfigure(
     key: string,
     config: SidecarConfig,
   ): Promise<RecordingStatus> {
-    const promise = this.request<RecordingStatus>("configure", config).then(
-      (status) => {
-        if (this.pendingConfigure?.key === key) {
-          this.pendingConfigure = null
-          this.appliedConfigKey = key
-        }
-        return status
-      },
-      (cause: unknown) => {
-        if (this.pendingConfigure?.key === key) this.pendingConfigure = null
-        throw cause instanceof Error
-          ? cause
-          : new Error("Recording sidecar configure failed.")
-      },
-    )
-    this.pendingConfigure = { key, promise }
+    const promise = this.request<RecordingStatus>("configure", config)
+      .then(
+        (status) => {
+          if (this.inFlightConfigure?.key === key) {
+            this.appliedConfigKey = key
+          }
+          return status
+        },
+        (cause: unknown) => {
+          throw cause instanceof Error
+            ? cause
+            : new Error("Recording sidecar configure failed.")
+        },
+      )
+      .finally(() => {
+        if (this.inFlightConfigure?.key === key) this.inFlightConfigure = null
+        this.flushQueuedConfigure()
+      })
+    this.inFlightConfigure = { key, promise }
     return promise
+  }
+
+  private queueConfigure(
+    key: string,
+    config: SidecarConfig,
+  ): Promise<RecordingStatus> {
+    if (this.queuedConfigure) {
+      this.queuedConfigure.key = key
+      this.queuedConfigure.config = config
+      return this.queuedConfigure.promise
+    }
+
+    let resolveQueued: (value: RecordingStatus) => void = () => undefined
+    let rejectQueued: (reason: Error) => void = () => undefined
+    const promise = new Promise<RecordingStatus>((resolve, reject) => {
+      resolveQueued = resolve
+      rejectQueued = reject
+    })
+    this.queuedConfigure = {
+      key,
+      config,
+      promise,
+      resolve: resolveQueued,
+      reject: rejectQueued,
+    }
+    return promise
+  }
+
+  private flushQueuedConfigure() {
+    const queued = this.queuedConfigure
+    if (!queued || this.inFlightConfigure || this.shutdownRequested) return
+
+    this.queuedConfigure = null
+    if (this.appliedConfigKey === queued.key) {
+      void this.request<RecordingStatus>("status").then(
+        queued.resolve,
+        (cause: unknown) =>
+          queued.reject(
+            cause instanceof Error
+              ? cause
+              : new Error("Recording sidecar status failed."),
+          ),
+      )
+      return
+    }
+
+    void this.sendConfigure(queued.key, queued.config).then(
+      queued.resolve,
+      queued.reject,
+    )
+  }
+
+  private resolveQueuedConfigureWith(promise: Promise<RecordingStatus>) {
+    const queued = this.queuedConfigure
+    if (!queued) return
+
+    this.queuedConfigure = null
+    void promise.then(queued.resolve, queued.reject)
   }
 
   private ensureProcess() {
@@ -188,7 +265,8 @@ export class RecordingSidecarClient {
     this.shutdownRequested = false
     this.spawnedAt = Date.now()
     this.appliedConfigKey = null
-    this.pendingConfigure = null
+    this.inFlightConfigure = null
+    this.queuedConfigure = null
     child.stdin.setDefaultEncoding("utf8")
 
     this.reader = createInterface({ input: child.stdout })
@@ -272,10 +350,12 @@ export class RecordingSidecarClient {
     this.reader?.close()
     this.reader = null
     this.appliedConfigKey = null
-    this.pendingConfigure = null
+    this.inFlightConfigure = null
+    const error = new Error(message)
+    this.rejectQueuedConfigure(error)
     const status = { ...this.lastStatus, backend: "error" as const, message }
     this.lastStatus = status
-    this.rejectPending(new Error(message))
+    this.rejectPending(error)
     this.emitEvent({ type: "error", error: message, status })
     this.scheduleRespawn()
   }
@@ -318,5 +398,13 @@ export class RecordingSidecarClient {
       pending.reject(error)
     }
     this.pending.clear()
+  }
+
+  private rejectQueuedConfigure(error: Error) {
+    const queued = this.queuedConfigure
+    if (!queued) return
+
+    this.queuedConfigure = null
+    queued.reject(error)
   }
 }

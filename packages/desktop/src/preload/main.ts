@@ -24,6 +24,7 @@ const recording: AlloyDesktopRecordingApi = {
   getSettings: () => ipcRenderer.invoke(IPC.getRecordingSettings),
   setSettings: (settings) =>
     ipcRenderer.invoke(IPC.setRecordingSettings, settings),
+  restartBackend: () => ipcRenderer.invoke(IPC.restartRecordingBackend),
   getStatus: () => ipcRenderer.invoke(IPC.getRecordingStatus),
   getStorageInfo: () => ipcRenderer.invoke(IPC.getRecordingStorageInfo),
   getLibrary: () => ipcRenderer.invoke(IPC.getRecordingLibrary),

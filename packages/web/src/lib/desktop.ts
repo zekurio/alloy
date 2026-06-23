@@ -70,6 +70,7 @@ export interface AlloyDesktopServerApi {
 export interface AlloyDesktopRecordingApi {
   getSettings(): Promise<RecordingSettings>
   setSettings(settings: RecordingSettings): Promise<RecordingSettings>
+  restartBackend(): Promise<RecordingStatus>
   getStatus(): Promise<RecordingStatus>
   getStorageInfo(): Promise<RecordingStorageInfo>
   getLibrary(): Promise<RecordingLibrarySnapshot>
