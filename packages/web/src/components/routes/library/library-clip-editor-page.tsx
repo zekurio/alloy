@@ -2,6 +2,7 @@ import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { LoadingState } from "@alloy/ui/components/loading-state"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Progress } from "@alloy/ui/components/progress"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
@@ -12,6 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
+import { useCapturePoster } from "@/lib/capture-poster"
 import {
   invalidateDeletedClipCaches,
   removeClipDetailFromCache,
@@ -20,6 +22,7 @@ import {
   seedClipDetailInCache,
   useTrimClipMutation,
 } from "@/lib/clip-queries"
+import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 
@@ -102,7 +105,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   const trimMutation = useTrimClipMutation()
   const canSaveTrim =
     canTrim && trimmed && rangeMs >= MIN_TRIM_MS && !trimMutation.isPending
-  const media = useClipEditorMedia(row, processing)
+  const media = useClipEditorMedia(row, processing, localItem)
   const deleteFlow = useServerBackedClipDelete({
     row,
     localItem,
@@ -193,21 +196,40 @@ function useClipEditorPermissions(row: ClipRow) {
   }
 }
 
-function useClipEditorMedia(row: ClipRow, processing: boolean) {
+function useClipEditorMedia(
+  row: ClipRow,
+  processing: boolean,
+  localItem: RecordingLibraryItem | null,
+) {
   const mediaVersion = clipEditorMediaVersion(row)
   const streamSrc = `${clipStreamUrl(row.id, "source", apiOrigin())}&v=${encodeURIComponent(mediaVersion)}`
   const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
-  const poster = row.thumbKey
+  const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : undefined
-  const aspectRatio = mediaAspectRatio(row.width, row.height)
+  const localPoster = useCapturePoster({
+    id: localItem?.id ?? "",
+    mediaUrl: localItem?.mediaUrl ?? null,
+    thumbnailUrl: localItem?.thumbnailUrl ?? null,
+    durationMs: localItem?.durationMs ?? null,
+    enabled: processing && Boolean(localItem),
+  })
+  const poster =
+    serverPoster ?? localPoster ?? localItem?.thumbnailUrl ?? undefined
+  const posterBlurHash = row.thumbBlurHash ?? localItem?.thumbBlurHash ?? null
+  const fallbackSeed = row.gameId ?? localItem?.groupLabel ?? row.id
+  const playbackSrc = processing ? (localItem?.mediaUrl ?? null) : streamSrc
+  const aspectRatio = mediaAspectRatio(
+    row.width ?? localItem?.width,
+    row.height ?? localItem?.height,
+  )
   const handoffPoster = useMemo<LibraryHandoffPoster>(
     () => ({
       src: poster,
-      blurHash: row.thumbBlurHash,
-      fallbackSeed: row.gameId ?? row.id,
+      blurHash: posterBlurHash,
+      fallbackSeed,
     }),
-    [poster, row.id, row.gameId, row.thumbBlurHash],
+    [fallbackSeed, poster, posterBlurHash],
   )
   const [publishHandoffPoster, setPublishHandoffPoster] = useState(() =>
     readLibraryHandoffPoster(row.id),
@@ -234,10 +256,13 @@ function useClipEditorMedia(row: ClipRow, processing: boolean) {
     filmstrip,
     handoffPoster,
     mediaVersion,
+    playbackSrc,
     poster,
+    posterBlurHash,
     publishHandoffPoster,
     setCloudFrameReady,
     streamSrc,
+    fallbackSeed,
   }
 }
 
@@ -262,23 +287,27 @@ function ClipEditorStage({
   return (
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
       <LibraryMediaStage aspectRatio={media.aspectRatio}>
-        <VideoPlayer
-          src={media.streamSrc}
-          sourceIdentity={`${row.id}:${media.mediaVersion}`}
-          poster={media.poster}
-          posterBlurHash={row.thumbBlurHash}
-          fallbackSeed={row.gameId ?? row.id}
-          aspectRatio={media.aspectRatio}
-          maxDisplayHeight="100%"
-          controls={false}
-          onVideoClick={() => playback.togglePlayback()}
-          playerRef={playback.playerRef}
-          onTimeUpdate={playback.handleTimeUpdate}
-          onPlayingChange={playback.setPlaying}
-          onFrameReady={() => media.setCloudFrameReady(true)}
-          onEnded={playback.handleEnded}
-          className="overflow-hidden rounded-md"
-        />
+        {media.playbackSrc ? (
+          <VideoPlayer
+            src={media.playbackSrc}
+            sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
+            poster={media.poster}
+            posterBlurHash={media.posterBlurHash}
+            fallbackSeed={media.fallbackSeed}
+            aspectRatio={media.aspectRatio}
+            maxDisplayHeight="100%"
+            controls={false}
+            onVideoClick={() => playback.togglePlayback()}
+            playerRef={playback.playerRef}
+            onTimeUpdate={playback.handleTimeUpdate}
+            onPlayingChange={playback.setPlaying}
+            onFrameReady={() => media.setCloudFrameReady(true)}
+            onEnded={playback.handleEnded}
+            className="overflow-hidden rounded-md"
+          />
+        ) : (
+          <ClipEditorPreviewPlaceholder media={media} />
+        )}
         <LibraryEntryNavButton side="left" target={prevEntry} />
         <LibraryEntryNavButton side="right" target={nextEntry} />
         <LibraryHandoffPosterOverlay
@@ -293,6 +322,29 @@ function ClipEditorStage({
         <ClipEditorTrimControls media={media} playback={playback} />
       )}
     </section>
+  )
+}
+
+function ClipEditorPreviewPlaceholder({
+  media,
+}: {
+  media: ClipEditorMediaState
+}) {
+  return (
+    <div className="relative size-full overflow-hidden rounded-md">
+      <MediaPlaceholder
+        seed={media.fallbackSeed}
+        blurHash={media.posterBlurHash}
+      />
+      {media.poster ? (
+        <img
+          src={media.poster}
+          alt=""
+          className="absolute inset-0 size-full object-contain"
+          decoding="async"
+        />
+      ) : null}
+    </div>
   )
 }
 

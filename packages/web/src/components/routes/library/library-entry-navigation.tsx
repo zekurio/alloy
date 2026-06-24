@@ -77,12 +77,22 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
         item: enrichLibraryItem(directLocalItem, gamesByName),
       } satisfies NavigableLibraryEntry)
     : null
+  const linkedCloudEntry =
+    current.type === "local" && directLocalItem?.uploadedClipId
+      ? (entries.find(
+          (entry) =>
+            entry.type === "cloud" &&
+            entry.row.id === directLocalItem.uploadedClipId,
+        ) ?? null)
+      : null
   const currentEntry =
-    current.type === "local" && directLocalEntry
-      ? directLocalEntry
-      : index >= 0
-        ? entries[index]
-        : null
+    current.type === "local" && linkedCloudEntry
+      ? linkedCloudEntry
+      : current.type === "local" && directLocalEntry
+        ? directLocalEntry
+        : index >= 0
+          ? entries[index]
+          : null
   const linkedLocalItem =
     current.type === "cloud"
       ? (snapshot?.items.find((item) => item.uploadedClipId === current.id) ??
