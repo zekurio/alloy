@@ -11,7 +11,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import {
@@ -30,7 +29,6 @@ import {
   Link2Icon,
   Link2OffIcon,
   SaveIcon,
-  Trash2Icon,
 } from "lucide-react"
 import { useState } from "react"
 import type { ComponentType } from "react"
@@ -320,7 +318,21 @@ function ClipDetailsForm({
         titleInvalid={titleInvalid}
       />
 
-      <ClipFileLocation row={row} localItem={localItem} />
+      <ClipFileLocation
+        row={row}
+        localItem={localItem}
+        deleteAction={
+          canManage
+            ? {
+                disabled: deleting || saving || visibilityPending,
+                label: t("Delete clip"),
+                pending: deleting,
+                pendingLabel: t("Deleting..."),
+                onSelect: onRequestDelete,
+              }
+            : null
+        }
+      />
 
       {canManage ? (
         <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
@@ -381,15 +393,6 @@ function ClipDetailsForm({
                 >
                   <LinkVisibilityIcon className="size-4" />
                   {linkVisibilityAction.label}
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  disabled={deleting || saving || visibilityPending}
-                  onClick={onRequestDelete}
-                >
-                  <Trash2Icon className="size-4" />
-                  {t("Delete")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

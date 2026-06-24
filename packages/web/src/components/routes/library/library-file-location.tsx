@@ -30,6 +30,14 @@ import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
 import { formatLibraryBytes } from "./library-data"
 import { deleteLocalLibraryCopy } from "./library-local-actions"
 
+type LocationDeleteAction = {
+  disabled: boolean
+  label: string
+  pending: boolean
+  pendingLabel: string
+  onSelect: () => void
+}
+
 export function LocalFileLocation({
   item,
   deleting,
@@ -62,9 +70,11 @@ export function LocalFileLocation({
 export function ClipFileLocation({
   row,
   localItem,
+  deleteAction = null,
 }: {
   row: ClipRow
   localItem: RecordingLibraryItem | null
+  deleteAction?: LocationDeleteAction | null
 }) {
   const desktop = alloyDesktop()
   const downloadAction = desktop ? (
@@ -84,6 +94,7 @@ export function ClipFileLocation({
         localItem={localItem}
         allowRemoveLocal
         downloadAction={downloadAction}
+        deleteAction={deleteAction}
       />
     </ClipMetadataSection>
   )
@@ -104,13 +115,7 @@ function LocationMenu({
   localItem: RecordingLibraryItem | null
   allowRemoveLocal?: boolean
   downloadAction?: ReactNode
-  deleteAction?: {
-    disabled: boolean
-    label: string
-    pending: boolean
-    pendingLabel: string
-    onSelect: () => void
-  } | null
+  deleteAction?: LocationDeleteAction | null
 }) {
   const [removingLocal, setRemovingLocal] = useState(false)
   const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
@@ -157,18 +162,7 @@ function LocationMenu({
               <FolderOpenIcon />
               {t("Reveal in folder")}
             </DropdownMenuItem>
-            {deleteAction ? (
-              <DropdownMenuItem
-                variant="destructive"
-                disabled={deleteAction.disabled}
-                onClick={deleteAction.onSelect}
-              >
-                <Trash2Icon />
-                {deleteAction.pending
-                  ? deleteAction.pendingLabel
-                  : deleteAction.label}
-              </DropdownMenuItem>
-            ) : allowRemoveLocal ? (
+            {allowRemoveLocal ? (
               <DropdownMenuItem
                 variant="destructive"
                 disabled={removingLocal}
@@ -193,6 +187,21 @@ function LocationMenu({
           <>
             <DropdownMenuSeparator />
             {downloadAction}
+          </>
+        ) : null}
+        {deleteAction ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              disabled={deleteAction.disabled}
+              onClick={deleteAction.onSelect}
+            >
+              <Trash2Icon />
+              {deleteAction.pending
+                ? deleteAction.pendingLabel
+                : deleteAction.label}
+            </DropdownMenuItem>
           </>
         ) : null}
       </DropdownMenuContent>
