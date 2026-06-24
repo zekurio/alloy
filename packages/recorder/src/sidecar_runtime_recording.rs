@@ -299,6 +299,13 @@ fn disk_replay_segment_count(replay_seconds: u32) -> usize {
     usize::try_from(replay_seconds.div_ceil(segment_seconds).saturating_add(1)).unwrap_or(2)
 }
 
+fn replay_buffer_duration(session: &ActiveSession) -> Duration {
+    let OutputConfig::ReplayBuffer {
+        replay_seconds, ..
+    } = &session.output_config;
+    Duration::from_secs(u64::from((*replay_seconds).max(1)))
+}
+
 fn cleanup_disk_replay_segments(config: &OutputConfig, keep: Option<&str>) {
     let OutputConfig::ReplayBuffer {
         scratch_directory,

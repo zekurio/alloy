@@ -59,7 +59,11 @@ export function DesktopRecordingStatus({
   const popover = (
     <RecordingStatusPopover
       active={statusActive(state.status)}
-      activeGame={state.status?.activeGameDetail ?? null}
+      activeGame={
+        state.status?.activeGameDetail ??
+        state.status?.currentCapture?.game ??
+        null
+      }
       desktop={desktop}
       displays={state.displays}
       label={statusLabel(state.settings, state.status)}

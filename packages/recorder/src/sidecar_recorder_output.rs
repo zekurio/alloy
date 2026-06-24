@@ -284,6 +284,8 @@ impl Recorder {
             source_kind,
             output_config,
             capture,
+            target_game_key: game.map(|game| game.window_key.clone()),
+            game_content_expires_at: None,
             can_pause,
             paused: false,
             owns_capture,

@@ -10,6 +10,13 @@ const AUDIO_APPLICATION_DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(10);
 /// attempt spins a full OBS instance up and back down.
 const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GameBoundaryReason {
+    Closed,
+    Changed,
+    Disallowed,
+}
+
 impl Recorder {
     fn configure(&mut self, params: ConfigureParams) -> Result<RecordingStatus, String> {
         let settings = params.settings;
@@ -519,7 +526,7 @@ impl Recorder {
         }
         let settings = self.settings.clone().unwrap_or_default();
         let previous_game_key = self.active_game.as_ref().map(|game| game.window_key.clone());
-        let ended_game = if settings.capture_mode == RecordingCaptureMode::Game {
+        let game_boundary = if settings.capture_mode == RecordingCaptureMode::Game {
             if let Some(active_game) = self
                 .active_game
                 .clone()
@@ -534,10 +541,11 @@ impl Recorder {
                     game: active_game.game.clone(),
                     status,
                 });
-                Some(active_game.game)
+                Some(GameBoundaryReason::Disallowed)
             } else {
                 let active_game = self.active_game.clone();
                 self.observe_game(detect_game_activity(active_game.as_ref(), &settings))
+                    .map(|_| GameBoundaryReason::Closed)
             }
         } else {
             self.active_game = None;
@@ -550,9 +558,29 @@ impl Recorder {
         let game_switched = previous_game_key.is_some()
             && current_game_key.is_some()
             && previous_game_key != current_game_key;
+        let replay_target_changed = self.active_replay_target_changed(&settings);
+        let game_boundary = if game_switched || replay_target_changed {
+            Some(GameBoundaryReason::Changed)
+        } else {
+            game_boundary
+        };
 
-        if ended_game.is_some() || game_switched {
-            if let Err(error) = self.handle_game_boundary(&settings) {
+        if let Some(reason) = game_boundary {
+            if let Err(error) = self.handle_game_boundary(&settings, reason) {
+                self.last_error = Some(error.clone());
+                let status = self.status();
+                emit_event(RecordingEvent::Error { error, status });
+                return;
+            }
+        }
+        self.clear_replay_buffer_deadline_for_active_game(&settings);
+
+        if self
+            .replay_session
+            .as_ref()
+            .is_some_and(|session| active_session_should_stop(session, &settings))
+        {
+            if let Err(error) = self.stop_active_replay_buffer() {
                 self.last_error = Some(error.clone());
                 let status = self.status();
                 emit_event(RecordingEvent::Error { error, status });
@@ -560,11 +588,7 @@ impl Recorder {
             }
         }
 
-        if self
-            .replay_session
-            .as_ref()
-            .is_some_and(|session| active_session_should_stop(session, &settings))
-        {
+        if self.active_replay_buffer_game_content_expired() {
             if let Err(error) = self.stop_active_replay_buffer() {
                 self.last_error = Some(error.clone());
                 let status = self.status();
@@ -622,14 +646,68 @@ impl Recorder {
         Ok(())
     }
 
-    fn handle_game_boundary(&mut self, settings: &RecordingSettings) -> Result<(), String> {
+    fn handle_game_boundary(
+        &mut self,
+        settings: &RecordingSettings,
+        reason: GameBoundaryReason,
+    ) -> Result<(), String> {
         if self.replay_session.is_some() {
-            self.stop_active_replay_buffer()?;
+            if reason == GameBoundaryReason::Closed {
+                self.defer_active_replay_buffer_stop();
+            } else {
+                self.stop_active_replay_buffer()?;
+            }
         }
         if settings.enabled && self.capture_target_available(settings) {
             self.start_replay_buffer()?;
         }
         Ok(())
+    }
+
+    fn defer_active_replay_buffer_stop(&mut self) {
+        let Some(session) = self.replay_session.as_mut() else {
+            return;
+        };
+        if session.capture.game.is_none() {
+            return;
+        }
+
+        session.game_content_expires_at = Some(Instant::now() + replay_buffer_duration(session));
+    }
+
+    fn active_replay_buffer_game_content_expired(&self) -> bool {
+        self.replay_session
+            .as_ref()
+            .and_then(|session| session.game_content_expires_at)
+            .is_some_and(|expires_at| Instant::now() >= expires_at)
+    }
+
+    fn active_replay_target_changed(&self, settings: &RecordingSettings) -> bool {
+        if settings.capture_mode != RecordingCaptureMode::Game {
+            return false;
+        }
+
+        let Some(active_game) = self.active_game.as_ref() else {
+            return false;
+        };
+        self.replay_session.as_ref().is_some_and(|session| {
+            session.target_game_key.as_deref() != Some(active_game.window_key.as_str())
+        })
+    }
+
+    fn clear_replay_buffer_deadline_for_active_game(&mut self, settings: &RecordingSettings) {
+        if settings.capture_mode != RecordingCaptureMode::Game {
+            return;
+        }
+        let Some(active_game) = self.active_game.as_ref() else {
+            return;
+        };
+        let Some(session) = self.replay_session.as_mut() else {
+            return;
+        };
+        if session.target_game_key.as_deref() == Some(active_game.window_key.as_str()) {
+            session.game_content_expires_at = None;
+        }
     }
 
     fn capture_target_available(&self, settings: &RecordingSettings) -> bool {
