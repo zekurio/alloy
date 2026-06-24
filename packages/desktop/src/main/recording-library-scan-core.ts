@@ -55,6 +55,9 @@ export type RecordingLibraryScanWorkerResponse =
 
 type LibraryCollection = RecordingLibraryItem["collection"]
 
+const UNCATEGORIZED_GROUP_LABEL = "Uncategorized"
+const NO_GAME_GROUP_LABELS = new Set(["desktop", "uncategorized"])
+
 interface CollectionScan {
   root: string
   collection: LibraryCollection
@@ -216,7 +219,7 @@ function libraryItemForFile(
 }
 
 function sourceFromLabel(groupLabel: string): RecordingCaptureSource {
-  return groupLabel === "Desktop" ? "display" : "game"
+  return isNoGameGroupLabel(groupLabel) ? "display" : "game"
 }
 
 function extensionMatchesKind(
@@ -233,11 +236,13 @@ function groupLabelForFile(collectionRoot: string, filename: string): string {
     .split(/[\\/]/)
     .find((segment) => segment.length > 0 && segment !== ".")
 
-  return firstSegment || "Desktop"
+  const groupLabel = firstSegment || UNCATEGORIZED_GROUP_LABEL
+  return isNoGameGroupLabel(groupLabel) ? UNCATEGORIZED_GROUP_LABEL : groupLabel
 }
 
 function groupKeyForLabel(label: string): string {
-  return label.trim().toLowerCase() || "desktop"
+  if (isNoGameGroupLabel(label)) return "uncategorized"
+  return label.trim().toLowerCase() || "uncategorized"
 }
 
 function statTimeIso(birthtimeMs: number, mtimeMs: number): string {
@@ -257,7 +262,7 @@ function groupLibraryItems(
       group = {
         key: item.groupKey,
         label: item.groupLabel,
-        kind: item.groupLabel === "Desktop" ? "desktop" : "game",
+        kind: isNoGameGroupLabel(item.groupLabel) ? "desktop" : "game",
         iconUrl: item.gameIconUrl,
         totalCount: 0,
         clipCount: 0,
@@ -282,6 +287,10 @@ function groupLibraryItems(
   return [...groups.values()].sort(
     (a, b) => Date.parse(b.latestAt) - Date.parse(a.latestAt),
   )
+}
+
+function isNoGameGroupLabel(label: string): boolean {
+  return NO_GAME_GROUP_LABELS.has(label.trim().toLowerCase())
 }
 
 function manifestKey(filename: string): string {

@@ -10,7 +10,7 @@ export function captureCollectionFolder(
   return join(
     currentOutputFolder(),
     collection,
-    fileComponent(gameName, "Desktop"),
+    fileComponent(gameName, "Uncategorized"),
   )
 }
 

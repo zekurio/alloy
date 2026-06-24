@@ -20,8 +20,8 @@ import { useState } from "react"
 import type { ReactNode } from "react"
 
 import {
-  clipBrowserDownloadActionSupported,
   ClipBrowserDownloadMenuItem,
+  ClipDownloadMenuItem,
 } from "@/components/clip/clip-download-button"
 import { ClipMetadataSection } from "@/components/clip/clip-metadata-editor"
 import { clientLogger } from "@/lib/client-log"
@@ -51,9 +51,14 @@ export function ClipFileLocation({
   row: ClipRow
   localItem: RecordingLibraryItem | null
 }) {
-  const downloadAction = clipBrowserDownloadActionSupported(row) ? (
+  const desktop = alloyDesktop()
+  const downloadAction = desktop ? (
+    localItem ? null : (
+      <ClipDownloadMenuItem row={row} />
+    )
+  ) : (
     <ClipBrowserDownloadMenuItem row={row} />
-  ) : null
+  )
 
   return (
     <ClipMetadataSection label={t("File Location")}>
