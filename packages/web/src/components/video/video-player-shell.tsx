@@ -34,8 +34,12 @@ export {
 
 /* ─── Reusable video-chrome primitives ─────────────────────────────── */
 
+// The chrome glyphs always sit over the dark video frame / dark gradient, so
+// they stay white regardless of the app theme. Using `text-foreground` here
+// makes them flip to near-black in the light theme and vanish against the
+// gradient.
 const videoChromeIconClass =
-  "size-10 rounded-full text-foreground shadow-none hover:bg-transparent hover:text-foreground hover:shadow-none focus-visible:ring-ring"
+  "size-10 rounded-full text-white shadow-none hover:bg-transparent hover:text-white hover:shadow-none focus-visible:ring-ring"
 
 // A soft dark drop-shadow keeps the white glyphs legible over bright video
 // frames (e.g. a sunlit scene) where an accent-colored glow would just blend
