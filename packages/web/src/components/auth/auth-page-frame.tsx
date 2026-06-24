@@ -27,6 +27,9 @@ export function AuthPageFrame({
     <div
       className={cn(
         "relative isolate w-full overflow-hidden bg-background text-foreground",
+        // The backdrop is always a darkened thumbnail wall, so force dark tokens
+        // for the form on top — otherwise light-theme text renders dark-on-dark.
+        splash.enabled && "dark",
         heightClass,
       )}
     >
