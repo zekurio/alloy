@@ -1,9 +1,10 @@
 import { t } from "@alloy/i18n"
 import { Spinner } from "@alloy/ui/components/spinner"
 
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+
 import { EncodingSettingsGrid } from "./desktop-capture-encoding"
 import { QualitySection, ReplayBufferSection } from "./desktop-capture-quality"
-import { Subsection } from "./desktop-capture-sections"
 import { useDesktopRecording } from "./desktop-recording-context"
 
 export function DesktopQualitySettings() {
@@ -24,14 +25,14 @@ export function DesktopQualitySettings() {
 
       <hr className="border-border" />
 
-      <Subsection title={t("Encoding")}>
+      <SettingsSubsection title={t("Encoding")}>
         <EncodingSettingsGrid
           settings={settings}
           status={status}
           busy={busy}
           save={save}
         />
-      </Subsection>
+      </SettingsSubsection>
 
       <hr className="border-border" />
 

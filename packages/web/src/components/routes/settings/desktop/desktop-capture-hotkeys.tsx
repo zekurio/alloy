@@ -2,7 +2,8 @@ import type { RecordingSettings } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 
-import { Subsection } from "./desktop-capture-sections"
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+
 import { HotkeyInput } from "./hotkey-input"
 
 export function HotkeysSection({
@@ -15,7 +16,7 @@ export function HotkeysSection({
   save: (next: RecordingSettings) => Promise<void>
 }) {
   return (
-    <Subsection title={t("Hotkeys")}>
+    <SettingsSubsection title={t("Hotkeys")}>
       <SettingRow
         title={t("Clip")}
         description={t("Saves the configured replay buffer.")}
@@ -32,6 +33,6 @@ export function HotkeysSection({
           }
         />
       </SettingRow>
-    </Subsection>
+    </SettingsSubsection>
   )
 }

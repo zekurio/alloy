@@ -4,7 +4,7 @@ import { Suspense } from "react"
 import { LibraryClipEditorPage } from "@/components/routes/library/library-clip-editor-page"
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 
-export const Route = createFileRoute("/(app)/_app/library/c/$clipId")({
+export const Route = createFileRoute("/(app)/_app/library/clips/$clipId")({
   beforeLoad: requireStrictAuthBeforeLoad,
   component: LibraryClipRoute,
 })

@@ -105,7 +105,7 @@ export function AppearanceSettingsContent({
 
   return (
     <Section>
-      <SectionContent className="flex flex-col gap-4">
+      <SectionContent className="flex flex-col gap-4 py-0">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="text-sm font-medium">{t("Login backdrop")}</div>

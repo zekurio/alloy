@@ -167,7 +167,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           onOpenCloud={(row) => {
             warmCloudClip(row)
             void navigate({
-              to: "/library/c/$clipId",
+              to: "/library/clips/$clipId",
               params: { clipId: row.id },
             })
           }}

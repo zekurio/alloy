@@ -23,16 +23,12 @@ import {
   type Theme,
 } from "@alloy/ui/lib/theme"
 import {
-  AlertTriangleIcon,
   DatabaseIcon,
   Gamepad2Icon,
-  HardDriveIcon,
   LanguagesIcon,
-  RefreshCcwIcon,
   type LucideIcon,
   PaletteIcon,
   ServerIcon,
-  ShieldIcon,
   SlidersHorizontalIcon,
   UserIcon,
   UsersIcon,
@@ -62,6 +58,7 @@ import { DesktopServerSettings } from "@/components/routes/settings/desktop/desk
 import { DesktopUpdateSettings } from "@/components/routes/settings/desktop/desktop-update-settings"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SecuritySettings } from "@/components/routes/settings/security-settings"
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -131,23 +128,68 @@ function ProfilePanel() {
   const user = session?.user
   if (!user) return null
   return (
-    <ProfileCard
-      key={user.id}
-      userId={user.id}
-      initialUsername={user.username ?? ""}
-      image={user.image ?? ""}
-      banner={(user as { banner?: string | null }).banner ?? ""}
-      email={user.email ?? ""}
-    />
+    <div className="flex flex-col gap-6">
+      <ProfileCard
+        key={user.id}
+        userId={user.id}
+        initialUsername={user.username ?? ""}
+        image={user.image ?? ""}
+        banner={(user as { banner?: string | null }).banner ?? ""}
+        email={user.email ?? ""}
+      />
+      <hr className="border-border" />
+      <SecuritySettings />
+    </div>
   )
 }
 
-function StoragePanel() {
+function AccountDataPanel() {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <StorageUsageCard />
       <hr className="border-border" />
       <ClipDataCard />
+      <hr className="border-border" />
+      <DangerZoneCard />
+    </div>
+  )
+}
+
+function DesktopCapturePanel() {
+  return (
+    <div className="flex flex-col gap-6">
+      <DesktopCaptureSettings />
+      <hr className="border-border" />
+      <SettingsSubsection
+        title={t("Storage")}
+        description={t(
+          "Choose where clips are saved and review local disk usage.",
+        )}
+      >
+        <DesktopStoragePanel />
+      </SettingsSubsection>
+    </div>
+  )
+}
+
+function DesktopAppPanel() {
+  return (
+    <div className="flex flex-col gap-6">
+      <SettingsSubsection
+        title={t("Servers")}
+        description={t(
+          "Add, switch between, or forget connected Alloy servers.",
+        )}
+      >
+        <DesktopServerSettings />
+      </SettingsSubsection>
+      <hr className="border-border" />
+      <SettingsSubsection
+        title={t("Updates")}
+        description={t("Switch latest or unstable desktop releases.")}
+      >
+        <DesktopUpdateSettings />
+      </SettingsSubsection>
     </div>
   )
 }
@@ -178,7 +220,7 @@ function PreferencesPanel() {
 
   return (
     <Section>
-      <SectionContent>
+      <SectionContent className="py-0">
         <SettingRow
           title={t("Theme")}
           description={t("Choose how Alloy looks.")}
@@ -224,9 +266,20 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
   [
     "profile",
     t("Profile"),
-    t("Profile identity"),
-    t("Edit your username, email, avatar, and banner."),
-    ["username", "email", "avatar", "profile picture", "banner"],
+    null,
+    t("Edit your username, email, avatar, and sign-in methods."),
+    [
+      "username",
+      "email",
+      "avatar",
+      "profile picture",
+      "banner",
+      "passkeys",
+      "linked accounts",
+      "connected accounts",
+      "oauth",
+      "sign-in methods",
+    ],
     UserIcon,
     ProfilePanel,
   ],
@@ -250,37 +303,23 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
     PreferencesPanel,
   ],
   [
-    "security",
-    t("Security"),
-    t("Sign-in security"),
-    t("Manage linked accounts and passkeys for this account."),
-    [
-      "passkeys",
-      "linked accounts",
-      "connected accounts",
-      "oauth",
-      "sign-in methods",
-    ],
-    ShieldIcon,
-    SecuritySettings,
-  ],
-  [
-    "storage",
-    t("Clips & storage"),
-    null,
-    t("Review storage usage, download, or remove your clips."),
-    ["storage usage", "quota", "download clips", "delete clips", "export data"],
-    DatabaseIcon,
-    StoragePanel,
-  ],
-  [
     "account",
-    t("Account"),
-    t("Account state"),
-    t("Disable this profile or permanently delete the account."),
-    ["disable account", "deactivate", "delete account", "danger zone"],
-    AlertTriangleIcon,
-    DangerZoneCard,
+    t("Account & data"),
+    null,
+    t("Review storage, manage your clips, or disable and delete your account."),
+    [
+      "storage usage",
+      "quota",
+      "download clips",
+      "delete clips",
+      "export data",
+      "disable account",
+      "deactivate",
+      "delete account",
+      "danger zone",
+    ],
+    DatabaseIcon,
+    AccountDataPanel,
   ],
 ])
 
@@ -289,7 +328,7 @@ const DESKTOP_CATEGORIES = categoryDrafts([
     "desktop",
     t("Capture"),
     t("Capture"),
-    t("Game detection, desktop capture, hotkeys, and sounds."),
+    t("Game detection, hotkeys, sounds, and where clips are saved."),
     [
       "desktop app",
       "recording",
@@ -301,9 +340,14 @@ const DESKTOP_CATEGORIES = categoryDrafts([
       "manual overrides",
       "notification sounds",
       "sound effect",
+      "capture folder",
+      "disk usage",
+      "storage",
+      "free space",
+      "clips folder",
     ],
     VideoIcon,
-    DesktopCaptureSettings,
+    DesktopCapturePanel,
   ],
   [
     "desktop-quality",
@@ -342,31 +386,22 @@ const DESKTOP_CATEGORIES = categoryDrafts([
     DesktopAudioSettings,
   ],
   [
-    "desktop-storage",
-    t("Storage"),
-    t("Capture storage"),
-    t("Choose where clips are saved and review local disk usage."),
-    ["capture folder", "disk usage", "storage", "free space", "clips folder"],
-    HardDriveIcon,
-    DesktopStoragePanel,
-  ],
-  [
-    "desktop-servers",
-    t("Servers"),
-    t("Servers"),
-    t("Add, switch between, or forget connected Alloy servers."),
-    ["desktop servers", "switch server", "saved servers"],
+    "desktop-app",
+    t("App"),
+    t("App"),
+    t("Manage connected servers and desktop updates."),
+    [
+      "desktop servers",
+      "switch server",
+      "saved servers",
+      "updates",
+      "update channel",
+      "latest",
+      "unstable",
+      "release channel",
+    ],
     ServerIcon,
-    DesktopServerSettings,
-  ],
-  [
-    "desktop-updates",
-    t("Updates"),
-    t("Updates"),
-    t("Switch latest or unstable desktop releases."),
-    ["updates", "update channel", "latest", "unstable", "release channel"],
-    RefreshCcwIcon,
-    DesktopUpdateSettings,
+    DesktopAppPanel,
   ],
 ])
 
