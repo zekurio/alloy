@@ -15,6 +15,8 @@ export type DesktopUpdateChannel = (typeof DESKTOP_UPDATE_CHANNELS)[number]
 
 export interface DesktopUpdateState {
   status: DesktopUpdateStatus
+  /** Version currently running on this machine, e.g. "0.1.0". */
+  currentVersion: string | null
   /** Version of the pending update once one is known, e.g. "0.2.0". */
   version: string | null
 }

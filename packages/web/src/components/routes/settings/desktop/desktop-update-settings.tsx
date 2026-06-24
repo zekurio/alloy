@@ -3,6 +3,7 @@ import {
   isDesktopUpdateChannel,
   type DesktopUpdateStatus,
   type DesktopUpdateChannel,
+  type DesktopUpdateState,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
@@ -127,14 +128,10 @@ export function DesktopUpdateSettings() {
               {updateStatusTitle(updateState.status)}
             </div>
             <div className="text-foreground-dim mt-0.5 truncate text-xs">
-              {updateState.version ? (
-                t("Version {version}", { version: updateState.version })
-              ) : channel ? (
-                CHANNEL_SUMMARIES[channel]
-              ) : channelLoading ? (
+              {channelLoading && !updateState.currentVersion ? (
                 <Skeleton className="h-3 w-24" />
               ) : (
-                t("Desktop releases")
+                updateVersionSummary(updateState, channel)
               )}
             </div>
           </div>
@@ -249,6 +246,28 @@ function updateStatusTitle(status: DesktopUpdateStatus): string {
     case "idle":
       return t("Updates")
   }
+}
+
+function updateVersionSummary(
+  state: DesktopUpdateState,
+  channel: DesktopUpdateChannel | null,
+): string {
+  if (state.currentVersion && state.version) {
+    return t("{currentVersion} -> {version}", {
+      currentVersion: state.currentVersion,
+      version: state.version,
+    })
+  }
+
+  if (state.currentVersion) {
+    return t("Current version {version}", { version: state.currentVersion })
+  }
+
+  if (state.version) {
+    return t("Version {version}", { version: state.version })
+  }
+
+  return channel ? CHANNEL_SUMMARIES[channel] : t("Desktop releases")
 }
 
 function errorText(cause: unknown, fallback: string): string {

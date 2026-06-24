@@ -30,7 +30,7 @@ const INITIAL_UPDATE_CHECK_DELAY_MS = 30 * 1000
 const CHANNEL_SWITCH_CHECK_DELAY_MS = 2 * 1000
 const UPDATE_DOWNLOAD_DELAY_MS = 10 * 1000
 
-let state: DesktopUpdateState = { status: "idle", version: null }
+let state: DesktopUpdateState = idleUpdateState()
 let updateChannel: DesktopUpdateChannel | null = null
 let initialized = false
 let checkInterval: ReturnType<typeof setInterval> | null = null
@@ -61,7 +61,7 @@ export function setUpdateChannel(value: unknown): DesktopUpdateChannel {
   if (previousChannel === value) return value
 
   clearPendingDownload()
-  setState({ status: "idle", version: null })
+  setState(idleUpdateState())
 
   if (app.isPackaged && initialized) {
     configureAutoUpdater(value)
@@ -124,7 +124,13 @@ function selectedUpdateChannel(): DesktopUpdateChannel {
 }
 
 function setState(next: DesktopUpdateState): void {
-  if (next.status === state.status && next.version === state.version) return
+  if (
+    next.status === state.status &&
+    next.currentVersion === state.currentVersion &&
+    next.version === state.version
+  ) {
+    return
+  }
   state = next
   for (const listener of stateListeners) {
     try {
@@ -133,6 +139,10 @@ function setState(next: DesktopUpdateState): void {
       logger.warn("update state listener threw:", cause)
     }
   }
+}
+
+function idleUpdateState(): DesktopUpdateState {
+  return { status: "idle", currentVersion: app.getVersion(), version: null }
 }
 
 /**
@@ -161,23 +171,27 @@ export function initAutoUpdater(): void {
 
   autoUpdater.on("checking-for-update", () => {
     if (state.status === "idle") {
-      setState({ status: "checking", version: null })
+      setState({ ...idleUpdateState(), status: "checking" })
     }
   })
   autoUpdater.on("update-not-available", () => {
     if (state.status === "downloaded") return
-    setState({ status: "idle", version: null })
+    setState(idleUpdateState())
   })
   autoUpdater.on("update-available", (info) => {
     const channel = getUpdateChannel()
     if (!isDesktopUpdateForChannel(info.version, channel)) {
       logger.warn(`ignoring ${info.version} update from non-${channel} channel`)
-      setState({ status: "idle", version: null })
+      setState(idleUpdateState())
       return
     }
 
     logger.info(`update available: ${info.version}`)
-    setState({ status: "downloading", version: info.version })
+    setState({
+      ...idleUpdateState(),
+      status: "downloading",
+      version: info.version,
+    })
     scheduleUpdateDownload(info.version, channel)
   })
   autoUpdater.on("update-downloaded", (info) => {
@@ -186,12 +200,16 @@ export function initAutoUpdater(): void {
       logger.warn(
         `downloaded ${info.version} update from non-${channel} channel; ignoring`,
       )
-      setState({ status: "idle", version: null })
+      setState(idleUpdateState())
       return
     }
 
     logger.info(`update ${info.version} downloaded; waiting for restart`)
-    setState({ status: "downloaded", version: info.version })
+    setState({
+      ...idleUpdateState(),
+      status: "downloaded",
+      version: info.version,
+    })
     // Nothing left to look for until the user restarts into the new version.
     stopBackgroundChecks()
   })
@@ -200,7 +218,7 @@ export function initAutoUpdater(): void {
   autoUpdater.on("error", (cause) => {
     logger.warn("update check failed:", cause)
     if (state.status !== "downloaded") {
-      setState({ status: "idle", version: null })
+      setState(idleUpdateState())
     }
   })
 
@@ -316,7 +334,9 @@ async function runUpdateCheck(
   if (!options.force && state.status !== "idle") return state
 
   checkInFlight = true
-  if (state.status === "idle") setState({ status: "checking", version: null })
+  if (state.status === "idle") {
+    setState({ ...idleUpdateState(), status: "checking" })
+  }
   await autoUpdater
     .checkForUpdates()
     .catch(() => {
@@ -350,7 +370,7 @@ function scheduleUpdateDownload(
       .catch((cause) => {
         logger.warn("update download failed:", cause)
         if (state.status !== "downloaded") {
-          setState({ status: "idle", version: null })
+          setState(idleUpdateState())
         }
       })
       .finally(() => {
