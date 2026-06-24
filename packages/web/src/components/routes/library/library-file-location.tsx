@@ -30,7 +30,15 @@ import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
 import { formatLibraryBytes } from "./library-data"
 import { deleteLocalLibraryCopy } from "./library-local-actions"
 
-export function LocalFileLocation({ item }: { item: RecordingLibraryItem }) {
+export function LocalFileLocation({
+  item,
+  deleting,
+  onRequestDelete,
+}: {
+  item: RecordingLibraryItem
+  deleting: boolean
+  onRequestDelete: () => void
+}) {
   return (
     <ClipMetadataSection label={t("File Location")}>
       <LocationMenu
@@ -39,6 +47,13 @@ export function LocalFileLocation({ item }: { item: RecordingLibraryItem }) {
         sizeBytes={item.sizeBytes}
         localItem={item}
         allowRemoveLocal={false}
+        deleteAction={{
+          disabled: deleting,
+          label: t("Delete capture"),
+          pending: deleting,
+          pendingLabel: t("Deleting..."),
+          onSelect: onRequestDelete,
+        }}
       />
     </ClipMetadataSection>
   )
@@ -81,6 +96,7 @@ function LocationMenu({
   localItem,
   allowRemoveLocal = true,
   downloadAction = null,
+  deleteAction = null,
 }: {
   label: string
   icon: ReactNode
@@ -88,6 +104,13 @@ function LocationMenu({
   localItem: RecordingLibraryItem | null
   allowRemoveLocal?: boolean
   downloadAction?: ReactNode
+  deleteAction?: {
+    disabled: boolean
+    label: string
+    pending: boolean
+    pendingLabel: string
+    onSelect: () => void
+  } | null
 }) {
   const [removingLocal, setRemovingLocal] = useState(false)
   const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
@@ -134,7 +157,18 @@ function LocationMenu({
               <FolderOpenIcon />
               {t("Reveal in folder")}
             </DropdownMenuItem>
-            {allowRemoveLocal ? (
+            {deleteAction ? (
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={deleteAction.disabled}
+                onClick={deleteAction.onSelect}
+              >
+                <Trash2Icon />
+                {deleteAction.pending
+                  ? deleteAction.pendingLabel
+                  : deleteAction.label}
+              </DropdownMenuItem>
+            ) : allowRemoveLocal ? (
               <DropdownMenuItem
                 variant="destructive"
                 disabled={removingLocal}
