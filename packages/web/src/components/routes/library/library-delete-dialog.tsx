@@ -37,13 +37,18 @@ export function DeleteServerBackedDialog({
     if (open) setDeleteLocal(Boolean(localItem))
   }, [localItem, open])
 
+  const deleteTitle =
+    noun === "clip"
+      ? t("Delete this clip?")
+      : t("Delete this {noun}?", { noun })
+  const deleteAction =
+    noun === "clip" ? t("Delete clip") : t("Delete {noun}", { noun })
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t("Delete this {noun}?", { noun })}
-          </AlertDialogTitle>
+          <AlertDialogTitle>{deleteTitle}</AlertDialogTitle>
           <AlertDialogDescription>
             {t(
               '"{title}" will be removed from the server. This can\'t be undone.',
@@ -72,7 +77,7 @@ export function DeleteServerBackedDialog({
             onClick={() => onConfirm(deleteLocal)}
             disabled={pending}
           >
-            {pending ? t("Deleting...") : t("Delete {noun}", { noun })}
+            {pending ? t("Deleting...") : deleteAction}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

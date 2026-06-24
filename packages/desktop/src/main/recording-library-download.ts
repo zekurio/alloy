@@ -1,6 +1,6 @@
-import { createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs"
+import { createWriteStream, mkdirSync, rmSync } from "node:fs"
 import { rename } from "node:fs/promises"
-import { join, resolve } from "node:path"
+import { resolve } from "node:path"
 import { Readable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
@@ -19,8 +19,11 @@ import {
   readCaptureManifest,
   writeCaptureManifest,
 } from "./recording-library-manifest"
+import {
+  captureCollectionFolder,
+  uniqueCaptureFilename,
+} from "./recording-library-paths"
 import { captureId } from "./recording-library-shared"
-import { currentOutputFolder } from "./recording-storage"
 import { mainSession } from "./session"
 
 const logger = createLogger("library")
@@ -104,7 +107,7 @@ async function runDownload(
   job: DownloadJob,
 ): Promise<void> {
   const signal = job.abort?.signal
-  const root = join(currentOutputFolder(), "Clips")
+  const root = captureCollectionFolder("Clips", request.gameName)
   let partialFile: string | null = null
   try {
     mkdirSync(root, { recursive: true })
@@ -185,11 +188,7 @@ function uniqueTargetFile(
     EXTENSION_BY_CONTENT_TYPE[request.contentType ?? ""] ?? ".mp4"
   const safeBase =
     request.title.replace(/[^A-Za-z0-9 ._-]/g, "_").trim() || "clip"
-  let filename = join(root, `${safeBase}${extension}`)
-  for (let counter = 2; existsSync(filename); counter++) {
-    filename = join(root, `${safeBase}-${counter}${extension}`)
-  }
-  return filename
+  return uniqueCaptureFilename(root, safeBase, extension)
 }
 
 /**
