@@ -5,6 +5,7 @@ import {
   clipStreamUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
+import { t } from "@alloy/i18n"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 
 import { formatRelativeTime } from "./date-format"
@@ -49,7 +50,7 @@ interface ClipCardData {
 }
 
 export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
-  return row.gameRef?.name ?? row.game ?? "Uncategorised"
+  return row.gameRef?.name ?? row.game ?? t("Uncategorised")
 }
 
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {

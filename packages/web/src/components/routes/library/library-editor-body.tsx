@@ -83,7 +83,7 @@ export function EditorBody({
   onRequestDelete: () => void
 }) {
   const navigate = useNavigate()
-  const { publishClip } = useUploadFlowControls()
+  const { publishClip, queue } = useUploadFlowControls()
 
   const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
   const { playerRef, trim, rangeMs } = playback
@@ -148,6 +148,11 @@ export function EditorBody({
   const normalizedDescription = normalizeClipDescription(description)
   const normalizedTags = parseTagString(tags)
   const mentionIds = mentions.map((mention) => mention.id)
+  const publishLocked =
+    item.uploadedClipId !== null ||
+    queue.some(
+      (entry) => entry.kind === "upload" && entry.localCaptureId === item.id,
+    )
   const titleChanged = normalizedTitle !== savedMetadata.title
   const descriptionChanged = normalizedDescription !== savedMetadata.description
   const tagsChanged = !sameIdSet(normalizedTags, savedMetadata.tags)
@@ -164,6 +169,7 @@ export function EditorBody({
     !saving &&
     !publishing &&
     !deleting &&
+    !publishLocked &&
     !titleInvalid &&
     rangeMs >= MIN_TRIM_MS
 
@@ -223,6 +229,7 @@ export function EditorBody({
   }
 
   const handlePublish = async (privacy: ClipPrivacy) => {
+    if (publishLocked) return
     const pickedGame = game
     const normalizedTitle = normalizeClipTitle(title)
     if (normalizedTitle.length === 0) return
@@ -282,9 +289,11 @@ export function EditorBody({
     ? !canPublish
     : saving || publishing || deleting || titleInvalid || !dirty
   const primaryLabel = primaryPublishes
-    ? publishing
-      ? t("Preparing...")
-      : t("Post")
+    ? publishLocked
+      ? t("Uploading…")
+      : publishing
+        ? t("Preparing...")
+        : t("Post")
     : saving
       ? t("Saving...")
       : t("Save")

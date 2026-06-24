@@ -93,6 +93,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Auch die lokale Kopie auf diesem Gerät löschen",
   Alt: "Alt",
   "Always record": "Immer aufnehmen",
+  "Any status": "Alle Status",
   App: "App",
   Appearance: "Aussehen",
   Applications: "Anwendungen",
@@ -1049,7 +1050,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Transfer status unavailable": "Transferstatus nicht verfügbar",
   Transfers: "Transfers",
   "Transfers ({count})": "Transfers ({count})",
-  Upload: "Upload",
+  Uncategorised: "Nicht kategorisiert",
+  Upload: "Hochladen",
   "Upload {label}": "{label} hochladen",
   "Upload started": "Upload gestartet",
   "Uploads and downloads will show up here.":
