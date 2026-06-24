@@ -5,18 +5,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
 import { Link, useNavigate } from "@tanstack/react-router"
-import {
-  ChevronUpIcon,
-  Link2Icon,
-  SaveIcon,
-  Trash2Icon,
-  UploadIcon,
-} from "lucide-react"
+import { ChevronUpIcon, Link2Icon, SaveIcon, UploadIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
@@ -367,7 +360,11 @@ export function EditorBody({
             gameInvalid={false}
             autoFocusGame={promptGame}
           />
-          <LocalFileLocation item={item} />
+          <LocalFileLocation
+            item={item}
+            deleting={deleting}
+            onRequestDelete={onRequestDelete}
+          />
 
           <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
             <Button
@@ -427,15 +424,6 @@ export function EditorBody({
                   >
                     <Link2Icon className="size-4" />
                     {t("Create Link")}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    variant="destructive"
-                    disabled={deleting || publishing || saving}
-                    onClick={onRequestDelete}
-                  >
-                    <Trash2Icon className="size-4" />
-                    {t("Delete")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
