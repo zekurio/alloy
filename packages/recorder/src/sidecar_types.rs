@@ -617,6 +617,8 @@ struct ActiveSession {
     source_kind: OutputSourceKind,
     output_config: OutputConfig,
     capture: RecordingCapture,
+    target_game_key: Option<String>,
+    game_content_expires_at: Option<Instant>,
     can_pause: bool,
     paused: bool,
     owns_capture: bool,
