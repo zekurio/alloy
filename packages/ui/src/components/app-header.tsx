@@ -50,7 +50,11 @@ function AppHeaderBrand({
         />
       </div>
       {children ? (
-        <div className="flex items-center gap-2 pl-3 md:pl-4">{children}</div>
+        // Pushed to the right edge of the brand column so the controls sit
+        // flush against the sidebar separator; pr-3 mirrors the logo's inset.
+        <div className="flex items-center gap-2 pl-3 md:ml-auto md:pr-3 md:pl-4">
+          {children}
+        </div>
       ) : null}
     </div>
   )
