@@ -153,7 +153,11 @@
   --shadow-lg: var(--shadow-lg);
 }
 
-:root {
+/* Dark theme is the default (:root). The `.dark` class carries the same values
+   so a subtree can force dark tokens even under a `.light` root — used by the
+   login frame, whose darkened backdrop stays dark in every theme. */
+:root,
+.dark {
   /* Fonts */
   --font-sans:
     "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, Segoe UI,
