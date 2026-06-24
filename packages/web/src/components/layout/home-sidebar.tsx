@@ -25,16 +25,15 @@ export function HomeSidebar() {
 function HomeSidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   return (
     <>
-      <AppSidebarGroup className="mt-auto">
+      <AppSidebarGroup>
         <Suspense fallback={<SidebarTopFallback />}>
           <SidebarTop onNavigate={onNavigate} />
         </Suspense>
       </AppSidebarGroup>
-      {/* The nav group carries mt-auto and absorbs all the slack, so the nav
-          buttons sit flush above the footer separator. Capture status sits
-          above the separator; the user menu stays below it. This wrapper
+      {/* Capture status sits above the footer's separator; the user menu stays
+          below it. The wrapping div pins the cluster to the bottom and
           neutralizes the footer's own mt-auto. */}
-      <div>
+      <div className="mt-auto">
         <DesktopRecordingStatus placement="sidebar" />
         <AppSidebarFooter>
           <SidebarFooter />
