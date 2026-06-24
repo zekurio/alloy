@@ -2,7 +2,6 @@ import type { RecordingSettings, RecordingStatus } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
-import type { ReactNode } from "react"
 
 export function ModeSection({
   settings,
@@ -49,21 +48,6 @@ export function ModeSection({
           {captureStatusLabel(settings, status)}
         </span>
       </div>
-    </div>
-  )
-}
-
-export function Subsection({
-  title,
-  children,
-}: {
-  title: string
-  children: ReactNode
-}) {
-  return (
-    <div className="flex flex-col gap-3">
-      <h3 className="text-foreground text-sm font-semibold">{title}</h3>
-      <div className="flex flex-col">{children}</div>
     </div>
   )
 }

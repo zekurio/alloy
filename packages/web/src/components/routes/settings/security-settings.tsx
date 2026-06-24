@@ -68,24 +68,16 @@ export function SecuritySettings() {
   const showPasskeys = config.passkeyEnabled && passkeys !== null
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {showLinkedAccounts && (
-        <div className="flex flex-col gap-3">
-          <div>
-            <h2 className="text-sm font-semibold">{t("Sign-in methods")}</h2>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              {t("Manage linked OAuth sign-in methods.")}
-            </p>
-          </div>
-          <LinkedAccountsCard
-            accounts={accounts}
-            config={config}
-            hasPasskeySignIn={
-              config.passkeyEnabled && (passkeys?.length ?? 0) > 0
-            }
-            onRefresh={refreshAccounts}
-          />
-        </div>
+        <LinkedAccountsCard
+          accounts={accounts}
+          config={config}
+          hasPasskeySignIn={
+            config.passkeyEnabled && (passkeys?.length ?? 0) > 0
+          }
+          onRefresh={refreshAccounts}
+        />
       )}
       {showLinkedAccounts && showPasskeys && <hr className="border-border" />}
       {showPasskeys && (

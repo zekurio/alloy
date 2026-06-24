@@ -250,7 +250,7 @@ export function ProfileCard({
         }}
       >
         <Section>
-          <SectionContent className="flex flex-col gap-3.5">
+          <SectionContent className="flex flex-col gap-3.5 py-0">
             {/* Live profile preview — a miniature of the real profile header.
                 Click the banner or avatar to change or remove it. */}
             <div>

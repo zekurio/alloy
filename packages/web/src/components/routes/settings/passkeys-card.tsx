@@ -70,7 +70,7 @@ export function PasskeysCard({
 
   return (
     <Section>
-      <SectionContent className="flex flex-col gap-3 py-4">
+      <SectionContent className="flex flex-col gap-3 py-0">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="text-sm font-medium">{t("Passkeys")}</div>

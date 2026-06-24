@@ -356,7 +356,7 @@ function ClipViewerDialogBody({
                 // The edit view lives at its own route; navigating there
                 // drops the `clip` search param and closes this viewer.
                 void navigate({
-                  to: "/library/c/$clipId",
+                  to: "/library/clips/$clipId",
                   params: { clipId: row.id },
                 })
               }}

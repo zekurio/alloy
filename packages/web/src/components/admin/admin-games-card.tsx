@@ -83,14 +83,21 @@ function releaseDatePayload(value: string): string | null {
 export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
   const { data: games, isPending, error } = useQuery(adminGamesQueryOptions())
 
+  const summary =
+    games && games.length > 0
+      ? games.length === 1
+        ? t("{count} game", { count: games.length })
+        : t("{count} games", { count: games.length })
+      : null
+
   const body = (
     <div className="flex flex-col gap-3">
-      <div
-        className={
-          hideHeader ? "flex justify-end" : "flex items-center justify-between"
-        }
-      >
-        {hideHeader ? null : (
+      <div className="flex items-center justify-between gap-4">
+        {hideHeader ? (
+          <span className="text-foreground-muted text-sm tabular-nums">
+            {summary}
+          </span>
+        ) : (
           <p className="text-foreground-muted text-sm">
             {t("Create and manage custom games and their artwork.")}
           </p>

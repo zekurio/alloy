@@ -141,7 +141,7 @@ export function useNavigateToLibraryEntry() {
       } else if (entry.type === "cloud") {
         warmClipDetailCache(queryClient, entry.row)
         void navigate({
-          to: "/library/c/$clipId",
+          to: "/library/clips/$clipId",
           params: { clipId: entry.row.id },
           replace,
         })

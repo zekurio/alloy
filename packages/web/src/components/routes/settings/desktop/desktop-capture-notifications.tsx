@@ -20,7 +20,8 @@ import { cn } from "@alloy/ui/lib/utils"
 import { FolderOpenIcon, PlayIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
-import { Subsection } from "./desktop-capture-sections"
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+
 import { useDesktopRecording } from "./desktop-recording-context"
 
 const SOUND_ROWS: Array<{
@@ -82,7 +83,7 @@ export function NotificationSoundsSection({
   }, [listNotificationSounds])
 
   return (
-    <Subsection title={t("Sounds")}>
+    <SettingsSubsection title={t("Sounds")}>
       <div className="flex flex-col">
         {SOUND_ROWS.map((row) => (
           <SoundCard
@@ -108,7 +109,7 @@ export function NotificationSoundsSection({
           />
         ))}
       </div>
-    </Subsection>
+    </SettingsSubsection>
   )
 }
 

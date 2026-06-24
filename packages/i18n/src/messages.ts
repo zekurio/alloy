@@ -17,6 +17,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "{count} Datei konnte nicht importiert werden.",
   "{count} files couldn't be imported.":
     "{count} Dateien konnten nicht importiert werden.",
+  "{count} game": "{count} Spiel",
+  "{count} games": "{count} Spiele",
   "{count} selected": "{count} ausgewählt",
   "{fallback}: {message}": "{fallback}: {message}",
   "{fileName}: {error}": "{fileName}: {error}",
@@ -35,6 +37,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "A new version has been downloaded.":
     "Eine neue Version wurde heruntergeladen.",
   Account: "Konto",
+  "Account & data": "Konto & Daten",
   "Account deleted": "Konto gelöscht",
   "Account disabled": "Konto deaktiviert",
   "Account reactivated": "Konto reaktiviert",
@@ -47,6 +50,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add a passkey": "Passkey hinzufügen",
   "Add a title to import this clip.":
     "Gib einen Titel ein, um diesen Clip zu importieren.",
+  "Add artwork after creating the game.":
+    "Füge nach dem Erstellen des Spiels Artwork hinzu.",
   "Add banner": "Banner hinzufügen",
   "Add clips from the library to start editing":
     "Füge Clips aus der Bibliothek hinzu, um mit dem Bearbeiten zu beginnen",
@@ -88,10 +93,13 @@ export const DE_MESSAGES: Record<string, string> = {
     "Auch die lokale Kopie auf diesem Gerät löschen",
   Alt: "Alt",
   "Always record": "Immer aufnehmen",
+  App: "App",
   Appearance: "Aussehen",
   Applications: "Anwendungen",
   Apply: "Anwenden",
   "Applying...": "Wird angewendet...",
+  Artwork: "Artwork",
+  "Artwork updated": "Artwork aktualisiert",
   "Ask an admin to add a SteamGridDB API key in Integrations.":
     "Bitte einen Admin, unter Integrationen einen SteamGridDB-API-Schlüssel hinzuzufügen.",
   Audio: "Audio",
@@ -111,6 +119,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Back to library": "Zurück zur Bibliothek",
   "Background checks": "Prüfung im Hintergrund",
   "Balanced contrast": "Ausgewogener Kontrast",
+  Banner: "Banner",
   "Banner removed": "Banner entfernt",
   "Banner updated": "Banner aktualisiert",
   "Be the first to leave your thoughts!":
@@ -148,6 +157,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Wähle einen Alloy-Server zum Anmelden aus.",
   "Choose capture folder": "Aufnahmeordner wählen",
   "Choose Display": "Display wählen",
+  "Choose how Alloy looks.": "Wähle, wie Alloy aussieht.",
   "Choose server": "Server auswählen",
   "Choose the language used by Alloy.": "Wähle die Sprache für Alloy aus.",
   "Choose where clips are saved and review local disk usage.":
@@ -237,12 +247,14 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't copy error details": "Fehlerdetails konnten nicht kopiert werden",
   "Couldn't copy link": "Link konnte nicht kopiert werden",
   "Couldn't copy the clip link": "Clip-Link konnte nicht kopiert werden",
+  "Couldn't create game": "Spiel konnte nicht erstellt werden",
   "Couldn't crop image": "Bild konnte nicht zugeschnitten werden",
   "Couldn't delete": "Konnte nicht gelöscht werden",
   "Couldn't delete account": "Konto konnte nicht gelöscht werden",
   "Couldn't delete capture": "Aufnahme konnte nicht gelöscht werden",
   "Couldn't delete clip": "Clip konnte nicht gelöscht werden",
   "Couldn't delete clips": "Clips konnten nicht gelöscht werden",
+  "Couldn't delete game": "Spiel konnte nicht gelöscht werden",
   "Couldn't delete the project": "Projekt konnte nicht gelöscht werden",
   "Couldn't disable account": "Konto konnte nicht deaktiviert werden",
   "Couldn't forget server.": "Server konnte nicht entfernt werden.",
@@ -283,6 +295,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't reactivate account": "Konto konnte nicht reaktiviert werden",
   "Couldn't refresh linked accounts":
     "Verknüpfte Konten konnten nicht aktualisiert werden",
+  "Couldn't remove artwork": "Artwork konnte nicht entfernt werden",
   "Couldn't remove avatar": "Avatar konnte nicht entfernt werden",
   "Couldn't remove banner": "Banner konnte nicht entfernt werden",
   "Couldn't remove passkey": "Passkey konnte nicht entfernt werden",
@@ -314,10 +327,17 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't update like": "Like konnte nicht aktualisiert werden",
   "Couldn't update user": "Benutzer konnte nicht aktualisiert werden",
   "Couldn't update visibility": "Sichtbarkeit konnte nicht aktualisiert werden",
+  "Couldn't upload artwork": "Artwork konnte nicht hochgeladen werden",
+  Cover: "Cover",
   CPU: "CPU",
   "CPU (software)": "CPU (Software)",
+  Create: "Erstellen",
   "Create account with passkey": "Konto mit Passkey erstellen",
   "create an account": "ein Konto erstellen",
+  "Create and manage custom games and their artwork.":
+    "Eigene Spiele und ihr Artwork erstellen und verwalten.",
+  "Create custom games and manage their artwork.":
+    "Eigene Spiele erstellen und ihr Artwork verwalten.",
   "Create Link": "Link erstellen",
   "Create one": "Konto erstellen",
   "Create the admin account": "Admin-Konto erstellen",
@@ -340,12 +360,14 @@ export const DE_MESSAGES: Record<string, string> = {
   "Delete clip (Del)": "Clip löschen (Entf)",
   "Delete clips": "Clips löschen",
   "Delete comment": "Kommentar löschen",
+  "Delete game": "Spiel löschen",
   "Delete project": "Projekt löschen",
   "Delete reply": "Antwort löschen",
   "Delete this {noun}?": "{noun} löschen?",
   "Delete this capture?": "Diese Aufnahme löschen?",
   "Delete this clip?": "Diesen Clip löschen?",
   "Delete this comment?": "Diesen Kommentar löschen?",
+  "Delete this game?": "Dieses Spiel löschen?",
   "Delete this project?": "Dieses Projekt löschen?",
   "Delete this reply?": "Diese Antwort löschen?",
   "Delete user": "Benutzer löschen",
@@ -386,6 +408,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Display capture off": "Bildschirmaufnahme aus",
   "Display capture ready": "Bildschirmaufnahme bereit",
   "Don't have an account?": "Noch kein Konto?",
+  Done: "Fertig",
   Download: "Herunterladen",
   "Download {title} to this device": "{title} auf dieses Gerät herunterladen",
   "Download a zip archive with the original files for your clips.":
@@ -404,6 +427,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Edit {title}": "{title} bearbeiten",
   "Edit avatar": "Avatar bearbeiten",
   "Edit banner": "Banner bearbeiten",
+  "Edit game": "Spiel bearbeiten",
   "Edit the generated clip backdrop shown on the login page.":
     "Bearbeite den generierten Clip-Hintergrund, der auf der Login-Seite angezeigt wird.",
   "Edit user": "Benutzer bearbeiten",
@@ -411,6 +435,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Bearbeite Benutzerkonten, Rollen und Moderationsstatus.",
   "Edit your username, email, avatar, and banner.":
     "Bearbeite deinen Benutzernamen, deine E-Mail, deinen Avatar und dein Banner.",
+  "Edit your username, email, avatar, and sign-in methods.":
+    "Bearbeite deinen Benutzernamen, deine E-Mail, deinen Avatar und deine Anmeldemethoden.",
   Email: "E-Mail",
   "Email is required": "E-Mail ist erforderlich",
   Emoji: "Emoji",
@@ -448,11 +474,16 @@ export const DE_MESSAGES: Record<string, string> = {
   "Frame rate": "Bildrate",
   Fullscreen: "Vollbild",
   Game: "Spiel",
+  "Game created": "Spiel erstellt",
+  "Game deleted": "Spiel gelöscht",
   "Game details unavailable": "Spieldetails nicht verfügbar",
   "Game detection": "Spielerkennung",
   "Game detection, desktop capture, hotkeys, and sounds.":
     "Spielerkennung, Bildschirmaufnahme, Hotkeys und Sounds.",
+  "Game detection, hotkeys, sounds, and where clips are saved.":
+    "Spielerkennung, Hotkeys, Sounds und Speicherort der Clips.",
   "Game search needs a key": "Die Spielesuche braucht einen Schlüssel",
+  "Game updated": "Spiel aktualisiert",
   Games: "Spiele",
   "Give this passkey a name so you can recognise it later.":
     "Gib diesem Passkey einen Namen, damit du ihn später wiedererkennst.",
@@ -476,6 +507,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "High contrast gray": "Kontrastreiches Grau",
   Home: "Start",
   Hotkeys: "Hotkeys",
+  Icon: "Symbol",
   "image/jpeg": "image/jpeg",
   "Import clip": "Clip importieren",
   "Import clips": "Clips importieren",
@@ -489,6 +521,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Vielleicht wurde es gelöscht oder du hast keinen Zugriff darauf.",
   "It may have been moved or deleted from the capture folder.":
     "Vielleicht wurde es aus dem Aufnahmeordner verschoben oder gelöscht.",
+  "Its artwork is removed and any clips lose their game tag. This can't be undone.":
+    "Das Artwork wird entfernt und alle Clips verlieren ihre Spielzuordnung. Das kann nicht rückgängig gemacht werden.",
   landscape: "Querformat",
   Language: "Sprache",
   "Language and regional settings.": "Sprach- und Regionaleinstellungen.",
@@ -531,10 +565,13 @@ export const DE_MESSAGES: Record<string, string> = {
   "Login backdrop disabled": "Login-Hintergrund deaktiviert",
   "Login backdrop enabled": "Login-Hintergrund aktiviert",
   "Login page preview": "Vorschau der Login-Seite",
+  Logo: "Logo",
   Low: "Niedrig",
   "Make your profile and clips visible again.":
     "Mach dein Profil und deine Clips wieder sichtbar.",
   "Manage Audio": "Audio verwalten",
+  "Manage connected servers and desktop updates.":
+    "Verbundene Server und Desktop-Updates verwalten.",
   "Manage linked accounts and passkeys for this account.":
     "Verknüpfte Konten und Passkeys für dieses Konto verwalten.",
   "Manage linked OAuth sign-in methods.":
@@ -567,6 +604,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Netzwerkfehler beim Laden des Videos.",
   "Never record": "Nie aufnehmen",
   New: "Neu",
+  "New custom game": "Neues eigenes Spiel",
   "New project": "Neues Projekt",
   Newest: "Neueste",
   "Next clip": "Nächster Clip",
@@ -589,6 +627,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "No followers yet.": "Noch keine Follower.",
   "No game": "Kein Spiel",
   "No games yet": "Noch keine Spiele",
+  "No games yet.": "Noch keine Spiele.",
   "No inline match": "Kein Inline-Match",
   "No liked clips yet": "Noch keine gelikten Clips",
   "No manual excludes.": "Keine manuellen Ausschlüsse.",
@@ -739,6 +778,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Refresh processes": "Prozesse aktualisieren",
   Register: "Registrieren",
   "Release builds": "Release-Builds",
+  "Release date": "Erscheinungsdatum",
   Released: "Veröffentlicht",
   Remove: "Entfernen",
   "Remove avatar": "Avatar entfernen",
@@ -783,6 +823,8 @@ export const DE_MESSAGES: Record<string, string> = {
   reverse: "umkehren",
   "Review storage usage, download, or remove your clips.":
     "Prüfe die Speichernutzung, lade deine Clips herunter oder entferne sie.",
+  "Review storage, manage your clips, or disable and delete your account.":
+    "Prüfe deinen Speicher, verwalte deine Clips oder deaktiviere und lösche dein Konto.",
   Role: "Rolle",
   running: "läuft",
   "Running applications outputting audio will appear here.":
@@ -906,6 +948,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Das Rendering wird als neuer Clip in deiner Bibliothek gespeichert.",
   "The rolling window the clip hotkey saves.":
     "Das gleitende Zeitfenster, das der Clip-Hotkey speichert.",
+  "Theme, language, and regional settings.":
+    "Theme-, Sprach- und Regionaleinstellungen.",
   "They'll be able to sign in and their clips will be visible again.":
     "Die Person kann sich wieder anmelden und ihre Clips sind wieder sichtbar.",
   "They'll be signed out and their clips hidden. Their data is kept and you can enable them again later.":
@@ -1006,6 +1050,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Transfers: "Transfers",
   "Transfers ({count})": "Transfers ({count})",
   Upload: "Upload",
+  "Upload {label}": "{label} hochladen",
   "Upload started": "Upload gestartet",
   "Uploads and downloads will show up here.":
     "Uploads und Downloads erscheinen hier.",

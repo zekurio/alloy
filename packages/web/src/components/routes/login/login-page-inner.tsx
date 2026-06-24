@@ -2,6 +2,7 @@ import type { PublicAuthConfig } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
+import { toast } from "@alloy/ui/lib/toast"
 import { Link } from "@tanstack/react-router"
 import { LogInIcon } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -18,6 +19,8 @@ type LoginPageInnerProps = {
   config: PublicAuthConfig
   redirectTo?: string
 }
+
+const DESKTOP_LOGIN_ERROR_TOAST_ID = "desktop-login-error"
 
 /**
  * Presentational sign-in card body. Renders the configured sign-in methods.
@@ -115,7 +118,6 @@ function DesktopLoginPage() {
   const [serverUrl, setServerUrl] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [pending, setPending] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -144,12 +146,12 @@ function DesktopLoginPage() {
     }
 
     setPending(true)
-    setError(null)
+    toast.dismiss(DESKTOP_LOGIN_ERROR_TOAST_ID)
     const result = await desktop.servers.connect(serverUrl, {
       forceBrowserLogin: true,
     })
     if (!result.ok) {
-      setError(result.error)
+      toast.error(result.error, { id: DESKTOP_LOGIN_ERROR_TOAST_ID })
       setPending(false)
     }
   }
@@ -172,11 +174,6 @@ function DesktopLoginPage() {
               : t("Loading saved server...")}
         </p>
       </div>
-      {error ? (
-        <p className="text-danger mb-3 text-sm" role="alert">
-          {error}
-        </p>
-      ) : null}
       <Button
         type="button"
         variant="secondary"

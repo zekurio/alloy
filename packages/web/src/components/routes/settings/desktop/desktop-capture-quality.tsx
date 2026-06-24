@@ -12,8 +12,9 @@ import { Slider } from "@alloy/ui/components/slider"
 import { CheckIcon } from "lucide-react"
 import type { Dispatch, SetStateAction } from "react"
 
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+
 import { DESKTOP_RECORDING_BUFFER_STORAGE } from "./desktop-bridge"
-import { Subsection } from "./desktop-capture-sections"
 import {
   asLiteral,
   applyQualitySettings,
@@ -98,7 +99,7 @@ export function ReplayBufferSection({
   save: (next: RecordingSettings) => Promise<void>
 }) {
   return (
-    <Subsection title={t("Replay buffer")}>
+    <SettingsSubsection title={t("Replay buffer")}>
       <SettingRow
         title={t("Replay buffer")}
         description={t("The rolling window the clip hotkey saves.")}
@@ -165,7 +166,7 @@ export function ReplayBufferSection({
           </SelectContent>
         </Select>
       </SettingRow>
-    </Subsection>
+    </SettingsSubsection>
   )
 }
 

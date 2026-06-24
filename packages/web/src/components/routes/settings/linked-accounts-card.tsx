@@ -49,7 +49,7 @@ export function LinkedAccountsCard({
 
   return (
     <Section>
-      <SectionContent className="flex flex-col gap-3 py-4">
+      <SectionContent className="flex flex-col gap-3 py-0">
         <div>
           <div className="text-sm font-medium">{t("Linked accounts")}</div>
           <p className="text-foreground-dim mt-0.5 text-xs">
