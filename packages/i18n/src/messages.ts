@@ -152,6 +152,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Change: "Ändern",
   "Check back in a bit or upload your own.":
     "Schau später nochmal vorbei oder lade dein eigenes hoch.",
+  "Check for updates": "Nach Updates suchen",
+  "Checking...": "Wird geprüft...",
   "Checking encoders...": "Encoder werden geprüft...",
   "Checking for updates": "Suche nach Updates",
   "Choose an Alloy server to sign in.":
@@ -241,6 +243,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not scan local clips.": "Lokale Clips konnten nicht gescannt werden.",
   "Couldn't change the capture folder.":
     "Aufnahmeordner konnte nicht geändert werden.",
+  "Couldn't check for updates.": "Updates konnten nicht gesucht werden.",
   "Couldn't complete setup": "Einrichtung konnte nicht abgeschlossen werden",
   "Couldn't connect to server.":
     "Verbindung zum Server konnte nicht hergestellt werden.",
@@ -346,6 +349,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Creating link...": "Link wird erstellt...",
   Crisp: "Knackig",
   Current: "Aktuell",
+  "Current version {version}": "Aktuelle Version {version}",
   Custom: "Nutzerdefiniert",
   Darkening: "Verdunkelung",
   "Decoding, compositing, and encoding your timeline. Keep the app open.":
@@ -417,6 +421,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Download clips": "Clips herunterladen",
   "Download failed.": "Download fehlgeschlagen.",
   "Downloading {progress}%": "{progress}% werden heruntergeladen",
+  "Downloading...": "Wird heruntergeladen...",
   "Downloading update": "Update wird heruntergeladen",
   "Downloading…": "Wird heruntergeladen…",
   Draft: "Entwurf",
@@ -528,7 +533,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Language: "Sprache",
   "Language and regional settings.": "Sprach- und Regionaleinstellungen.",
   "Last used": "Zuletzt verwendet",
-  Latest: "Aktuell",
+  Latest: "Stabil",
   Library: "Bibliothek",
   Like: "Liken",
   "Like clip": "Clip liken",
@@ -655,6 +660,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "No top clips this year yet": "Dieses Jahr noch keine Top-Clips",
   "No top clips today yet": "Heute noch keine Top-Clips",
   "No top clips yet": "Noch keine Top-Clips",
+  "No updates found.": "Keine Updates gefunden.",
   "No users yet.": "Noch keine Nutzer.",
   normal: "Normal",
   "Not following anyone yet.": "Folgt noch niemandem.",
@@ -778,7 +784,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Refresh: "Aktualisieren",
   "Refresh processes": "Prozesse aktualisieren",
   Register: "Registrieren",
-  "Release builds": "Release-Builds",
+  "Release builds": "Stabile Builds",
   "Release date": "Erscheinungsdatum",
   Released: "Veröffentlicht",
   Remove: "Entfernen",
@@ -928,7 +934,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Swipe to navigate": "Zum Navigieren wischen",
   Switch: "Wechseln",
   "Switch latest or unstable desktop releases.":
-    "Wechsle zwischen aktuellen und instabilen Desktop-Releases.",
+    "Wechsle zwischen stabilen und instabilen Desktop-Releases.",
   System: "System",
   "Tag people": "Nutzer markieren",
   Tagged: "Markiert",
@@ -1088,6 +1094,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Username can't contain slashes or control characters":
     "Der Nutzername darf keine Schrägstriche oder Steuerzeichen enthalten",
   Users: "Nutzer",
+  "{currentVersion} -> {version}": "{currentVersion} -> {version}",
   "Version {version}": "Version {version}",
   "Very high": "Sehr hoch",
   'Video decode failed in "{label}": {message}':

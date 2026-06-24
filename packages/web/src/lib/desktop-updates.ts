@@ -7,7 +7,11 @@ import { useSyncExternalStore } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
 
-const IDLE_STATE: DesktopUpdateState = { status: "idle", version: null }
+const IDLE_STATE: DesktopUpdateState = {
+  status: "idle",
+  currentVersion: null,
+  version: null,
+}
 
 interface DesktopUpdatesSnapshot {
   state: DesktopUpdateState
@@ -72,6 +76,7 @@ function ensureStarted(): void {
 function applyState(state: DesktopUpdateState): void {
   if (
     snapshot.state.status === state.status &&
+    snapshot.state.currentVersion === state.currentVersion &&
     snapshot.state.version === state.version
   ) {
     return
