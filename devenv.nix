@@ -126,8 +126,26 @@ EOF
       sed -n "s/^$1=//p" "$alloy_env_file" | tail -n 1
     }
 
-    export ALLOY_VIEWER_COOKIE_SECRET="''${ALLOY_VIEWER_COOKIE_SECRET:-$(alloy_env_value ALLOY_VIEWER_COOKIE_SECRET)}"
-    export ALLOY_UPLOAD_HMAC_SECRET="''${ALLOY_UPLOAD_HMAC_SECRET:-$(alloy_env_value ALLOY_UPLOAD_HMAC_SECRET)}"
+    alloy_ensure_env_secret() {
+      alloy_env_key="$1"
+      alloy_env_current="$(alloy_env_value "$alloy_env_key")"
+      if [ -n "$alloy_env_current" ]; then
+        printf '%s\n' "$alloy_env_current"
+        return 0
+      fi
+
+      alloy_env_generated="$(alloy_secret)"
+      {
+        printf '\n'
+        printf '%s=%s\n' "$alloy_env_key" "$alloy_env_generated"
+      } >>"$alloy_env_file"
+      chmod 600 "$alloy_env_file"
+      echo "Added $alloy_env_key to .env with a generated local secret" >&2
+      printf '%s\n' "$alloy_env_generated"
+    }
+
+    export ALLOY_VIEWER_COOKIE_SECRET="''${ALLOY_VIEWER_COOKIE_SECRET:-$(alloy_ensure_env_secret ALLOY_VIEWER_COOKIE_SECRET)}"
+    export ALLOY_UPLOAD_HMAC_SECRET="''${ALLOY_UPLOAD_HMAC_SECRET:-$(alloy_ensure_env_secret ALLOY_UPLOAD_HMAC_SECRET)}"
 
     alloy_pg_root="${config.devenv.root}/.devenv"
     alloy_pg_data="$alloy_pg_root/state/alloy-postgres"
