@@ -346,6 +346,40 @@ struct RecordingCapture {
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordingTelemetry {
+    sampled_at: String,
+    capture_mode: RecordingCaptureMode,
+    capture_source: Option<RecordingCaptureSource>,
+    buffer_storage: RecordingBufferStorage,
+    encoder: RecordingEncoder,
+    codec: RecordingCodec,
+    video_encoder: Option<String>,
+    audio_encoder: Option<String>,
+    gpu: String,
+    gpu_adapter: u32,
+    gpu_label: Option<String>,
+    base_width: u32,
+    base_height: u32,
+    output_width: u32,
+    output_height: u32,
+    fps: u32,
+    bitrate_kbps: u32,
+    output_active: bool,
+    paused: bool,
+    active_fps: Option<f64>,
+    average_frame_time_ms: Option<f64>,
+    frame_interval_ms: Option<f64>,
+    render_total_frames: Option<u32>,
+    render_lagged_frames: Option<u32>,
+    render_lagged_percent: Option<f64>,
+    output_total_frames: Option<u32>,
+    output_dropped_frames: Option<u32>,
+    output_dropped_percent: Option<f64>,
+    output_total_bytes: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]
 #[allow(dead_code)]
 enum RecordingCaptureSource {
@@ -392,6 +426,7 @@ struct RecordingStatus {
     available_codecs: Vec<RecordingCodec>,
     available_audio_devices: Vec<RecordingAudioDeviceSelection>,
     available_audio_applications: Vec<RecordingAudioApplicationSelection>,
+    telemetry: Option<RecordingTelemetry>,
     message: Option<String>,
 }
 
@@ -457,6 +492,10 @@ enum RecordingEvent {
     },
     CaptureReady {
         capture: RecordingCapture,
+        status: RecordingStatus,
+    },
+    Telemetry {
+        telemetry: RecordingTelemetry,
         status: RecordingStatus,
     },
     Error {
@@ -602,6 +641,7 @@ struct Recorder {
     active_game: Option<DetectedGame>,
     focused: bool,
     missing_game_ticks: u8,
+    last_telemetry_event_at: Option<Instant>,
     last_capture: Option<RecordingCapture>,
     last_error: Option<String>,
 }
@@ -611,6 +651,9 @@ struct ActiveSession {
     output: *mut ObsOutput,
     video_encoder: *mut ObsEncoder,
     audio_encoder: *mut ObsEncoder,
+    video_encoder_id: String,
+    audio_encoder_id: String,
+    video_codec: RecordingCodec,
     video_graph: VideoGraph,
     video_config: ObsVideoConfig,
     audio_sources: Vec<*mut ObsSource>,

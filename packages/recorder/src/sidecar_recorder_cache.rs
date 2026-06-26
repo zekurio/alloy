@@ -41,7 +41,7 @@ impl Recorder {
             return;
         };
         let key = (
-            gpu_adapter(&settings),
+            selected_gpu_adapter(&settings, &self.cached_gpus),
             selected_gpu_label(&settings, &self.cached_gpus).map(str::to_string),
             self.obs_runtime_dir.clone(),
         );
@@ -103,7 +103,7 @@ impl Recorder {
                 .codec_caps_key
                 .as_ref()
                 .is_some_and(|(adapter, gpu_label, runtime)| {
-                    *adapter == gpu_adapter(settings)
+                    *adapter == selected_gpu_adapter(settings, &self.cached_gpus)
                         && gpu_label.as_deref()
                             == selected_gpu_label(settings, &self.cached_gpus)
                         && runtime == &self.obs_runtime_dir
@@ -125,7 +125,7 @@ impl Recorder {
             obs.start(
                 self.obs_runtime_dir.as_deref(),
                 video_config,
-                gpu_adapter(settings),
+                selected_gpu_adapter(settings, &self.cached_gpus),
             )?;
             let encoders = obs.enumerate_encoders();
             let hardware_settings = RecordingSettings {
@@ -259,6 +259,23 @@ fn active_settings_require_restart(
 
 fn cache_expired(last_refresh: Option<Instant>, ttl: Duration) -> bool {
     last_refresh.is_none_or(|last_refresh| last_refresh.elapsed() >= ttl)
+}
+
+fn nonnegative_c_int(value: c_int) -> Option<u32> {
+    u32::try_from(value).ok()
+}
+
+fn ns_to_ms(value: u64) -> f64 {
+    value as f64 / 1_000_000.0
+}
+
+fn percent(part: Option<u32>, total: Option<u32>) -> Option<f64> {
+    let part = part?;
+    let total = total?;
+    if total == 0 {
+        return Some(0.0);
+    }
+    Some((f64::from(part) / f64::from(total)) * 100.0)
 }
 
 /// Union of cached and freshly observed codec capabilities, in canonical

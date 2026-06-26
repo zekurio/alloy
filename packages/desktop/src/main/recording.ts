@@ -7,6 +7,7 @@ import type {
   RecordingEvent,
   RecordingGameProcess,
   RecordingLibraryDownload,
+  RecordingTelemetry,
   SaveReplayClipRequest,
   RecordingStatus,
 } from "@alloy/contracts"
@@ -291,6 +292,7 @@ function unavailableRecordingStatus(
     availableCodecs: ["h264"],
     availableAudioDevices: settings.audioDevices,
     availableAudioApplications: settings.audioApplications,
+    telemetry: null,
     message,
   }
 }
@@ -308,6 +310,12 @@ function unavailableRecordingAction(
 }
 
 function emitRecordingEvent(event: RecordingEvent): void {
+  if (event.type === "telemetry") {
+    logRecordingTelemetry(event.telemetry)
+  } else if (event.type === "capture-ready" && event.status.telemetry) {
+    logRecordingTelemetry(event.status.telemetry, "capture")
+  }
+
   if (event.type === "capture-ready") {
     handleRecordingEventSound(event)
     void emitFinalizedCaptureReady(event)
@@ -340,6 +348,48 @@ function sendRecordingEvent(event: RecordingEvent): void {
   for (const listener of recordingEventListeners) {
     listener(event)
   }
+}
+
+function logRecordingTelemetry(
+  telemetry: RecordingTelemetry,
+  reason = "sample",
+): void {
+  logger.info(
+    "recorder telemetry",
+    JSON.stringify({
+      reason,
+      sampledAt: telemetry.sampledAt,
+      captureMode: telemetry.captureMode,
+      source: telemetry.captureSource,
+      storage: telemetry.bufferStorage,
+      encoder: telemetry.encoder,
+      codec: telemetry.codec,
+      videoEncoder: telemetry.videoEncoder,
+      audioEncoder: telemetry.audioEncoder,
+      gpu: telemetry.gpu,
+      gpuAdapter: telemetry.gpuAdapter,
+      gpuLabel: telemetry.gpuLabel,
+      dimensions: `${telemetry.outputWidth}x${telemetry.outputHeight}@${telemetry.fps}`,
+      baseDimensions: `${telemetry.baseWidth}x${telemetry.baseHeight}`,
+      bitrateKbps: telemetry.bitrateKbps,
+      outputActive: telemetry.outputActive,
+      paused: telemetry.paused,
+      activeFps: telemetry.activeFps,
+      averageFrameTimeMs: telemetry.averageFrameTimeMs,
+      frameIntervalMs: telemetry.frameIntervalMs,
+      render: {
+        totalFrames: telemetry.renderTotalFrames,
+        laggedFrames: telemetry.renderLaggedFrames,
+        laggedPercent: telemetry.renderLaggedPercent,
+      },
+      output: {
+        totalFrames: telemetry.outputTotalFrames,
+        droppedFrames: telemetry.outputDroppedFrames,
+        droppedPercent: telemetry.outputDroppedPercent,
+        totalBytes: telemetry.outputTotalBytes,
+      },
+    }),
+  )
 }
 
 function statusWithCapture(

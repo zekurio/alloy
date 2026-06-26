@@ -1,5 +1,4 @@
 import { clipThumbnailUrl } from "@alloy/api"
-import { t } from "@alloy/i18n"
 import { useEffect, useState } from "react"
 
 import { api } from "@/lib/api"
@@ -22,8 +21,8 @@ const ROW_COUNT = 12
 // directions at slightly different speeds for an organic feel.
 const ROW_DURATIONS = [62, 78, 70, 86, 66, 82, 74, 90, 68, 84, 72, 88] as const
 // Minimum tiles in one marquee copy. A row only loops seamlessly if a single
-// copy is wider than the (oversized, rotated) stage, so we recycle the row's
-// thumbnails up to this count before duplicating for the loop.
+// copy is wider than the (oversized, rotated) stage, so we recycle thumbnails
+// up to this count before duplicating for the loop.
 const MIN_TILES_PER_COPY = 16
 
 function usePrefersReducedMotion(): boolean {
@@ -39,14 +38,18 @@ function usePrefersReducedMotion(): boolean {
   return reduced
 }
 
-/** Split the thumbnails into `rowCount` interleaved rows, each non-empty. */
-function splitIntoRows(urls: string[], rowCount: number): string[][] {
-  const rows: string[][] = Array.from({ length: rowCount }, () => [])
-  urls.forEach((url, i) => {
-    rows[i % rowCount]!.push(url)
-  })
-  // Make sure no row is empty (so every row scrolls) by recycling URLs.
-  return rows.map((row, i) => (row.length > 0 ? row : [urls[i % urls.length]!]))
+/**
+ * Give every row an alternating thumbnail sequence instead of partitioning the
+ * clip set across rows. Offsetting each row prevents vertical bands of the same
+ * clip while still keeping each marquee copy wide enough to loop cleanly.
+ */
+function buildRows(urls: string[], rowCount: number): string[][] {
+  return Array.from({ length: rowCount }, (_, rowIndex) =>
+    Array.from(
+      { length: Math.max(MIN_TILES_PER_COPY, urls.length) },
+      (_, tileIndex) => urls[(rowIndex + tileIndex) % urls.length]!,
+    ),
+  )
 }
 
 function MarqueeRow({
@@ -60,14 +63,9 @@ function MarqueeRow({
   reverse: boolean
   paused: boolean
 }) {
-  // Recycle the row's thumbnails up to a copy wide enough to overrun the stage,
-  // then duplicate it so translateX(-50%) lands on an identical frame for a
+  // Duplicate the row so translateX(-50%) lands on an identical frame for a
   // seamless loop.
-  const copy = Array.from(
-    { length: Math.max(MIN_TILES_PER_COPY, urls.length) },
-    (_, i) => urls[i % urls.length]!,
-  )
-  const tiles = [...copy, ...copy]
+  const tiles = [...urls, ...urls]
   return (
     <div className="flex h-[clamp(120px,15vh,200px)] shrink-0 overflow-hidden">
       <div
@@ -77,8 +75,8 @@ function MarqueeRow({
           animationDuration: `${durationSec}s`,
           animationTimingFunction: "linear",
           animationIterationCount: "infinite",
-          animationDirection: reverse ? t("reverse") : t("normal"),
-          animationPlayState: paused ? t("paused") : t("running"),
+          animationDirection: reverse ? "reverse" : "normal",
+          animationPlayState: paused ? "paused" : "running",
         }}
       >
         {tiles.map((url, i) => (
@@ -144,7 +142,7 @@ export function LoginBackdrop({
 
   if (!enabled || urls.length === 0) return null
 
-  const rows = splitIntoRows(urls, ROW_COUNT)
+  const rows = buildRows(urls, ROW_COUNT)
 
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[oklch(12%_0.01_250)]">

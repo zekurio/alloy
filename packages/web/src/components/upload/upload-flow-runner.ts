@@ -59,10 +59,6 @@ export async function startUpload(
   bump: () => void,
   invalidateClips: () => void,
 ): Promise<{ clipId: string; completion: Promise<void> }> {
-  if (!alloyDesktop()) {
-    throw new Error("Uploads are only available in Alloy Desktop.")
-  }
-
   const localClipId = entry.clipId ?? crypto.randomUUID()
   entry.clipId = localClipId
   bump()

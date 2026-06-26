@@ -142,17 +142,23 @@ fn disk_replay_segments(directory: &Path) -> Vec<DiskReplaySegment> {
 }
 
 fn wait_for_stable_file(path: &Path) -> Result<(), String> {
-    let deadline = Instant::now() + Duration::from_secs(5);
+    let deadline = Instant::now() + Duration::from_secs(10);
     let mut last_size = None;
+    let mut stable_ticks = 0;
     while Instant::now() < deadline {
         if let Ok(metadata) = fs::metadata(path) {
             let size = metadata.len();
             if size > 0 && last_size == Some(size) {
+                stable_ticks += 1;
+            } else {
+                stable_ticks = 0;
+            }
+            if stable_ticks >= 3 {
                 return Ok(());
             }
             last_size = Some(size);
         }
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(250));
     }
 
     if path.exists() {
@@ -170,14 +176,19 @@ fn save_disk_replay_clip(
     closed_segment: &Path,
 ) -> Result<SavedReplayClip, String> {
     wait_for_stable_file(closed_segment)?;
-    let closed_modified = fs::metadata(closed_segment)
-        .and_then(|metadata| metadata.modified())
-        .unwrap_or_else(|_| SystemTime::now());
-    let mut segments: Vec<DiskReplaySegment> = disk_replay_segments(scratch_directory)
-        .into_iter()
-        .filter(|segment| segment.modified <= closed_modified)
-        .collect();
+    let mut segments = disk_replay_segments(scratch_directory);
     segments.sort_by_key(|segment| segment.modified);
+    if let Some(closed_index) = segments
+        .iter()
+        .position(|segment| segment.path.as_path() == closed_segment)
+    {
+        segments.truncate(closed_index.saturating_add(1));
+    } else {
+        let closed_modified = fs::metadata(closed_segment)
+            .and_then(|metadata| metadata.modified())
+            .unwrap_or_else(|_| SystemTime::now());
+        segments.retain(|segment| segment.modified <= closed_modified);
+    }
 
     let keep_count = disk_replay_segment_count(replay_seconds);
     let selected = segments
@@ -199,7 +210,7 @@ fn save_disk_replay_clip(
     fs::create_dir_all(output_parent)
         .map_err(|error| format!("Could not create replay output folder: {error}"))?;
     if selected.len() == 1 {
-        fs::copy(closed_segment, &output)
+        fs::copy(&selected[0].path, &output)
             .map_err(|error| format!("Could not save disk replay clip: {error}"))?;
         return Ok(SavedReplayClip {
             path: output.to_string_lossy().into_owned(),
