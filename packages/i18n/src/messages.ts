@@ -47,6 +47,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add {title} to the timeline": "{title} zur Zeitleiste hinzufügen",
   "Add a comment…": "Kommentar hinzufügen…",
   "Add a description…": "Beschreibung hinzufügen…",
+  "Add clip details before the upload starts.":
+    "Füge die Clip-Details hinzu, bevor der Upload startet.",
   "Add a passkey": "Passkey hinzufügen",
   "Add a title to import this clip.":
     "Gib einen Titel ein, um diesen Clip zu importieren.",
@@ -158,11 +160,13 @@ export const DE_MESSAGES: Record<string, string> = {
   "Checking for updates": "Suche nach Updates",
   "Choose an Alloy server to sign in.":
     "Wähle einen Alloy-Server zum Anmelden aus.",
+  "Choose an MP4 video file.": "Wähle eine MP4-Videodatei aus.",
   "Choose capture folder": "Aufnahmeordner wählen",
   "Choose Display": "Display wählen",
   "Choose how Alloy looks.": "Wähle, wie Alloy aussieht.",
   "Choose server": "Server auswählen",
   "Choose the language used by Alloy.": "Wähle die Sprache für Alloy aus.",
+  "Choose a valid MP4 video file.": "Wähle eine gültige MP4-Videodatei aus.",
   "Choose where clips are saved and review local disk usage.":
     "Wähle, wo Clips gespeichert werden, und prüfe die lokale Festplattennutzung.",
   Clean: "Sauber",
@@ -237,10 +241,15 @@ export const DE_MESSAGES: Record<string, string> = {
     "Videobild für die Vorschau konnte nicht geladen werden",
   "Could not load video metadata for thumbnail capture":
     "Videometadaten für die Vorschau konnten nicht geladen werden",
+  "Could not prepare clip.": "Clip konnte nicht vorbereitet werden.",
   "Could not reach server.": "Server konnte nicht erreicht werden.",
+  "Could not read video dimensions.":
+    "Videoabmessungen konnten nicht gelesen werden.",
+  "Could not read video duration.": "Videodauer konnte nicht gelesen werden.",
   "Could not read video metadata":
     "Videometadaten konnten nicht gelesen werden",
   "Could not scan local clips.": "Lokale Clips konnten nicht gescannt werden.",
+  "Could not start upload.": "Upload konnte nicht gestartet werden.",
   "Couldn't change the capture folder.":
     "Aufnahmeordner konnte nicht geändert werden.",
   "Couldn't check for updates.": "Updates konnten nicht gesucht werden.",
@@ -573,6 +582,12 @@ export const DE_MESSAGES: Record<string, string> = {
   "Login page preview": "Vorschau der Login-Seite",
   Logo: "Logo",
   Low: "Niedrig",
+  "MP4 uploads must contain a video track.":
+    "MP4-Uploads müssen eine Videospur enthalten.",
+  "MP4 uploads must use H.264, HEVC, or AV1 video.":
+    "MP4-Uploads müssen H.264-, HEVC- oder AV1-Video verwenden.",
+  "MP4 uploads with audio must use AAC.":
+    "MP4-Uploads mit Audio müssen AAC verwenden.",
   "Make your profile and clips visible again.":
     "Mach dein Profil und deine Clips wieder sichtbar.",
   "Manage Audio": "Audio verwalten",
@@ -599,6 +614,7 @@ export const DE_MESSAGES: Record<string, string> = {
   more: "mehr",
   "More clip options": "Weitere Clip-Optionen",
   "More post options": "Weitere Post-Optionen",
+  "More upload options": "Weitere Upload-Optionen",
   "Most liked": "Meiste Likes",
   "Most viewed": "Meiste Aufrufe",
   "Move trim window": "Trimmfenster verschieben",
@@ -1045,6 +1061,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Processing: "Wird verarbeitet",
   Published: "Veröffentlicht",
   Queued: "In Warteschlange",
+  "Reading...": "Wird gelesen...",
   "Remove failed clip {title}": "Fehlgeschlagenen Clip {title} entfernen",
   "Remove {title} from queue": "{title} aus der Warteschlange entfernen",
   "Reopen transfers after the connection recovers.":
@@ -1059,6 +1076,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Uncategorised: "Nicht kategorisiert",
   Upload: "Hochladen",
   "Upload {label}": "{label} hochladen",
+  "Upload clip": "Clip hochladen",
   "Upload started": "Upload gestartet",
   "Uploads and downloads will show up here.":
     "Uploads und Downloads erscheinen hier.",
@@ -1076,8 +1094,11 @@ export const DE_MESSAGES: Record<string, string> = {
   "Upload something or check back later.":
     "Lade etwas hoch oder schau später nochmal vorbei.",
   "Uploaded clip": "Clip hochgeladen",
+  "Uploading...": "Wird hochgeladen...",
   "Uploading…": "Wird hochgeladen…",
   Uploads: "Uploads",
+  "Uploads are unavailable in this browser":
+    "Uploads sind in diesem Browser nicht verfügbar",
   "Use Display Capture": "Bildschirmaufnahme verwenden",
   "Use Game Capture": "Spielaufnahme verwenden",
   user: "Nutzer",
