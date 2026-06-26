@@ -308,6 +308,38 @@ export interface RecordingCapture {
   createdAt: IsoDateString
 }
 
+export interface RecordingTelemetry {
+  sampledAt: IsoDateString
+  captureMode: RecordingCaptureMode
+  captureSource: RecordingCaptureSource | null
+  bufferStorage: RecordingBufferStorage
+  encoder: RecordingEncoder
+  codec: RecordingCodec
+  videoEncoder: string | null
+  audioEncoder: string | null
+  gpu: string
+  gpuAdapter: number
+  gpuLabel: string | null
+  baseWidth: number
+  baseHeight: number
+  outputWidth: number
+  outputHeight: number
+  fps: number
+  bitrateKbps: number
+  outputActive: boolean
+  paused: boolean
+  activeFps: number | null
+  averageFrameTimeMs: number | null
+  frameIntervalMs: number | null
+  renderTotalFrames: number | null
+  renderLaggedFrames: number | null
+  renderLaggedPercent: number | null
+  outputTotalFrames: number | null
+  outputDroppedFrames: number | null
+  outputDroppedPercent: number | null
+  outputTotalBytes: number | null
+}
+
 /** Disk usage for the capture output location, as shown in storage settings. */
 export interface RecordingStorageInfo {
   /** Absolute folder clips are written to. */
@@ -344,6 +376,7 @@ export interface RecordingStatus {
   availableAudioDevices: RecordingAudioDeviceSelection[]
   /** Application audio sources available for process-only capture. */
   availableAudioApplications: RecordingAudioApplicationSelection[]
+  telemetry: RecordingTelemetry | null
   message: string | null
 }
 
@@ -374,6 +407,11 @@ export type RecordingEvent =
   | {
       type: "capture-ready"
       capture: RecordingCapture
+      status: RecordingStatus
+    }
+  | {
+      type: "telemetry"
+      telemetry: RecordingTelemetry
       status: RecordingStatus
     }
   | { type: "error"; error: string; status: RecordingStatus }

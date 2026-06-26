@@ -51,6 +51,7 @@ fn sidecar_version() -> SidecarVersion {
             "replay-buffer",
             "notification-sounds",
             "audio-levels",
+            "telemetry",
         ],
     }
 }

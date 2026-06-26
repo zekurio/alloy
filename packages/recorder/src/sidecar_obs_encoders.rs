@@ -94,7 +94,13 @@ fn video_encoder_candidates<'a>(
             video_encoder_matches(candidate, encoder, codec, selected_gpu_label)
         })
         .collect();
-    candidates.sort_by_key(|(index, candidate)| (video_encoder_priority(candidate), *index));
+    candidates.sort_by_key(|(index, candidate)| {
+        (
+            hardware_encoder_gpu_priority(candidate, selected_gpu_label),
+            video_encoder_priority(candidate),
+            *index,
+        )
+    });
     candidates
         .into_iter()
         .map(|(_, candidate)| candidate)
@@ -142,16 +148,57 @@ fn selected_gpu_label<'a>(
 ) -> Option<&'a str> {
     if settings.gpu == "auto" {
         return available_gpus
-            .first()
+            .get(preferred_gpu_index(available_gpus))
             .and_then(|gpu| gpu_setting_label(gpu));
     }
 
     gpu_setting_label(&settings.gpu).or_else(|| {
-        let adapter = usize::try_from(gpu_adapter(settings)).ok()?;
+        let adapter = usize::try_from(selected_gpu_adapter(settings, available_gpus)).ok()?;
         available_gpus
             .get(adapter)
             .and_then(|gpu| gpu_setting_label(gpu))
     })
+}
+
+fn selected_gpu_adapter(settings: &RecordingSettings, available_gpus: &[String]) -> u32 {
+    if settings.gpu == "auto" {
+        return u32::try_from(preferred_gpu_index(available_gpus)).unwrap_or(0);
+    }
+    gpu_adapter(settings)
+}
+
+fn preferred_gpu_index(available_gpus: &[String]) -> usize {
+    available_gpus
+        .iter()
+        .position(|gpu| {
+            preferred_gpu_label(gpu_setting_label(gpu).unwrap_or(gpu.as_str()))
+        })
+        .or_else(|| {
+            available_gpus.iter().position(|gpu| {
+                !software_gpu_label(gpu_setting_label(gpu).unwrap_or(gpu.as_str()))
+            })
+        })
+        .unwrap_or(0)
+}
+
+fn preferred_gpu_label(label: &str) -> bool {
+    let normalized = label.to_ascii_lowercase();
+    !software_gpu_label(label)
+        && (normalized.contains("nvidia")
+            || normalized.contains("geforce")
+            || normalized.contains("rtx")
+            || normalized.contains("gtx")
+            || normalized.contains("amd")
+            || normalized.contains("radeon")
+            || normalized.contains("intel arc"))
+}
+
+fn software_gpu_label(label: &str) -> bool {
+    let normalized = label.to_ascii_lowercase();
+    normalized.contains("microsoft")
+        || normalized.contains("basic render")
+        || normalized.contains("software")
+        || normalized.contains("warp")
 }
 
 fn gpu_setting_label(value: &str) -> Option<&str> {
@@ -223,6 +270,48 @@ fn video_encoder_priority(encoder: &ObsEncoderDescriptor) -> u8 {
     } else {
         1
     }
+}
+
+fn hardware_encoder_gpu_priority(
+    encoder: &ObsEncoderDescriptor,
+    selected_gpu_label: Option<&str>,
+) -> u8 {
+    let Some(label) = selected_gpu_label else {
+        return 0;
+    };
+    let family = gpu_encoder_family(label);
+    if family.is_empty() {
+        return 0;
+    }
+    let candidate = format!(
+        "{} {}",
+        encoder.id,
+        encoder.display_name.as_deref().unwrap_or_default()
+    )
+    .to_ascii_lowercase();
+    if family.iter().any(|needle| candidate.contains(needle)) {
+        0
+    } else {
+        1
+    }
+}
+
+fn gpu_encoder_family(label: &str) -> Vec<&'static str> {
+    let normalized = label.to_ascii_lowercase();
+    if normalized.contains("nvidia")
+        || normalized.contains("geforce")
+        || normalized.contains("rtx")
+        || normalized.contains("gtx")
+    {
+        return vec!["nvidia", "nvenc"];
+    }
+    if normalized.contains("amd") || normalized.contains("radeon") {
+        return vec!["amd", "amf"];
+    }
+    if normalized.contains("intel") {
+        return vec!["intel", "qsv", "quick sync"];
+    }
+    Vec::new()
 }
 
 fn has_software_h264_encoder(available: &[ObsEncoderDescriptor]) -> bool {
@@ -423,5 +512,37 @@ mod obs_encoder_policy_tests {
             selected_gpu_label(&settings, &gpus),
             Some("AMD Radeon RX 6800"),
         );
+    }
+
+    #[test]
+    fn selected_gpu_label_should_skip_software_adapter_for_auto() {
+        let settings = RecordingSettings::default();
+        let gpus = vec![
+            "adapter:0:Microsoft Basic Render Driver".to_string(),
+            "adapter:1:NVIDIA GeForce RTX 4070".to_string(),
+        ];
+
+        assert_eq!(
+            selected_gpu_label(&settings, &gpus),
+            Some("NVIDIA GeForce RTX 4070"),
+        );
+        assert_eq!(selected_gpu_adapter(&settings, &gpus), 1);
+    }
+
+    #[test]
+    fn hardware_candidates_should_prefer_selected_gpu_family() {
+        let encoders = vec![
+            encoder("amd_amf_h264", ObsEncoderKind::Video, "h264", 0),
+            encoder("nvidia_nvenc_h264", ObsEncoderKind::Video, "h264", 0),
+        ];
+
+        let candidates = video_encoder_candidates(
+            &RecordingEncoder::Hardware,
+            &RecordingCodec::H264,
+            &encoders,
+            Some("NVIDIA GeForce RTX 4070"),
+        );
+
+        assert_eq!(candidates[0].id, "nvidia_nvenc_h264");
     }
 }

@@ -65,6 +65,11 @@ import {
   type LibraryImportAction,
   useLibraryImportAction,
 } from "./library-import-action"
+import {
+  LibraryWebUploadButton,
+  useLibraryWebUploadAction,
+  WebUploadClipDetailsDialog,
+} from "./library-web-upload-action"
 
 export function LibraryPage() {
   return <LibraryContent desktop={alloyDesktop()} />
@@ -77,6 +82,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const [groupKey, setGroupKey] = useState<string | null>(null)
   const [status, setStatus] = useState<LibraryStatusFilter>("all")
   const importAction = useLibraryImportAction(desktop)
+  const webUploadAction = useLibraryWebUploadAction()
   const { queue } = useUploadFlowControls()
   const model = useLibraryContentModel({
     desktop,
@@ -90,9 +96,10 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
       createHeaderToolbarControls({
         desktop: (
           <>
-            <LibraryDesktopActions
+            <LibraryPrimaryAction
               desktop={desktop}
               importAction={importAction}
+              webUploadAction={webUploadAction}
             />
             <LibraryToolbar
               groups={model.groups}
@@ -122,6 +129,11 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
       importAction.committing,
       importAction.picking,
       importAction.start,
+      webUploadAction.available,
+      webUploadAction.picking,
+      webUploadAction.publishing,
+      webUploadAction.selected,
+      webUploadAction.select,
       model.groups,
       model.statusCounts,
       groupKey,
@@ -174,19 +186,22 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           onCloudIntent={warmCloudClip}
         />
         <ImportClipDetailsDialog action={importAction} />
+        <WebUploadClipDetailsDialog action={webUploadAction} />
       </section>
     </AppMain>
   )
 }
 
-function LibraryDesktopActions({
+function LibraryPrimaryAction({
   desktop,
   importAction,
+  webUploadAction,
 }: {
   desktop: AlloyDesktop | null
   importAction: LibraryImportAction
+  webUploadAction: ReturnType<typeof useLibraryWebUploadAction>
 }) {
-  if (!desktop) return null
+  if (!desktop) return <LibraryWebUploadButton action={webUploadAction} />
 
   return (
     <Button

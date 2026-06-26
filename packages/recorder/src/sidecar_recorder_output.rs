@@ -38,7 +38,7 @@ impl Recorder {
             );
         }
         let encoder_settings = RecordingSettings {
-            codec: video_codec,
+            codec: video_codec.clone(),
             ..settings.clone()
         };
         let audio_encoder_id = choose_audio_encoder(&self.available_encoders)
@@ -278,6 +278,9 @@ impl Recorder {
             output,
             video_encoder,
             audio_encoder,
+            video_encoder_id,
+            audio_encoder_id,
+            video_codec,
             video_graph,
             video_config,
             audio_sources,
