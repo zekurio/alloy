@@ -3,7 +3,6 @@ import { useNavigate } from "@tanstack/react-router"
 import { Suspense, useCallback, useEffect, useMemo } from "react"
 
 import type { AppSearch } from "@/lib/app-search"
-import { alloyDesktop } from "@/lib/desktop"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import type { PublishClipInput } from "./new-clip-helpers"
@@ -20,14 +19,13 @@ export function UploadFlow() {
 
 function UploadFlowInner() {
   const session = useSuspenseSession()
-  const desktop = alloyDesktop()
 
-  if (!session || !desktop) return null
+  if (!session) return null
 
-  return <AuthedDesktopUploadFlow />
+  return <AuthedUploadFlow />
 }
 
-function AuthedDesktopUploadFlow() {
+function AuthedUploadFlow() {
   const { setPublishClip, setQueueState } = useUploadFlowControls()
   const navigate = useNavigate()
   const handleOpenClip = useCallback(

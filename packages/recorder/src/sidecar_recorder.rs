@@ -9,6 +9,7 @@ const AUDIO_APPLICATION_DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(10);
 /// How long to wait before retrying a failed codec capability probe; each
 /// attempt spins a full OBS instance up and back down.
 const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
+const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GameBoundaryReason {
@@ -39,13 +40,19 @@ impl Recorder {
             );
 
         self.refresh_active_capture_metadata(&settings);
+        self.refresh_gpu_cache();
         let active_video_config_changed = self.active_video_config_changed(&settings);
         let next_quality = effective_quality(&settings);
-        let next_adapter = gpu_adapter(&settings);
+        let next_adapter = selected_gpu_adapter(&settings, &self.cached_gpus);
         let needs_reinit = self
             .settings
             .as_ref()
-            .map(|settings| (effective_quality(settings), gpu_adapter(settings)))
+            .map(|settings| {
+                (
+                    effective_quality(settings),
+                    selected_gpu_adapter(settings, &self.cached_gpus),
+                )
+            })
             != Some((next_quality, next_adapter))
             || self.obs_runtime_dir != params.obs_runtime_dir;
         let active_output_should_stop = self
@@ -106,6 +113,10 @@ impl Recorder {
     }
 
     fn status(&self) -> RecordingStatus {
+        self.status_with_telemetry(self.current_telemetry())
+    }
+
+    fn status_with_telemetry(&self, telemetry: Option<RecordingTelemetry>) -> RecordingStatus {
         let settings = self.settings.clone().unwrap_or_default();
         let backend = if self.obs.is_some() {
             RecordingBackendState::Ready
@@ -156,8 +167,88 @@ impl Recorder {
             available_codecs: self.available_codecs(&settings),
             available_audio_devices: self.cached_audio_devices.clone(),
             available_audio_applications: self.cached_audio_applications.clone(),
+            telemetry,
             message: self.last_error.clone(),
         }
+    }
+
+    fn current_telemetry(&self) -> Option<RecordingTelemetry> {
+        let session = self.replay_session.as_ref()?;
+        let obs = self.obs.as_ref()?;
+        let settings = self.settings.clone().unwrap_or_default();
+        let OutputConfig::ReplayBuffer {
+            scratch_directory: _,
+            output_directory: _,
+            storage,
+            replay_seconds: _,
+        } = &session.output_config;
+        let quality = effective_quality_for_base(&settings, session.video_config.base);
+        let render_total_frames = unsafe { obs.obs_get_total_frames.map(|read| read()) };
+        let render_lagged_frames = unsafe { obs.obs_get_lagged_frames.map(|read| read()) };
+        let output_total_frames = unsafe {
+            obs.obs_output_get_total_frames
+                .and_then(|read| nonnegative_c_int(read(session.output)))
+        };
+        let output_dropped_frames = unsafe {
+            obs.obs_output_get_frames_dropped
+                .and_then(|read| nonnegative_c_int(read(session.output)))
+        };
+
+        Some(RecordingTelemetry {
+            sampled_at: now_iso(),
+            capture_mode: settings.capture_mode.clone(),
+            capture_source: Some(recording_source_from_kind(session.source_kind)),
+            buffer_storage: storage.clone(),
+            encoder: settings.encoder.clone(),
+            codec: session.video_codec.clone(),
+            video_encoder: Some(session.video_encoder_id.clone()),
+            audio_encoder: Some(session.audio_encoder_id.clone()),
+            gpu: settings.gpu.clone(),
+            gpu_adapter: selected_gpu_adapter(&settings, &self.cached_gpus),
+            gpu_label: selected_gpu_label(&settings, &self.cached_gpus).map(str::to_string),
+            base_width: session.video_config.base.width,
+            base_height: session.video_config.base.height,
+            output_width: session.video_config.output.width,
+            output_height: session.video_config.output.height,
+            fps: session.video_config.fps,
+            bitrate_kbps: target_bitrate_kbps(&quality),
+            output_active: unsafe { (obs.obs_output_active)(session.output) },
+            paused: session.paused,
+            active_fps: unsafe { obs.obs_get_active_fps.map(|read| read()) },
+            average_frame_time_ms: unsafe {
+                obs.obs_get_average_frame_time_ns.map(|read| ns_to_ms(read()))
+            },
+            frame_interval_ms: unsafe {
+                obs.obs_get_frame_interval_ns.map(|read| ns_to_ms(read()))
+            },
+            render_total_frames,
+            render_lagged_frames,
+            render_lagged_percent: percent(render_lagged_frames, render_total_frames),
+            output_total_frames,
+            output_dropped_frames,
+            output_dropped_percent: percent(output_dropped_frames, output_total_frames),
+            output_total_bytes: unsafe {
+                obs.obs_output_get_total_bytes
+                    .map(|read| read(session.output))
+            },
+        })
+    }
+
+    fn emit_telemetry_if_due(&mut self) {
+        let Some(telemetry) = self.current_telemetry() else {
+            self.last_telemetry_event_at = None;
+            return;
+        };
+        if self
+            .last_telemetry_event_at
+            .is_some_and(|last| last.elapsed() < TELEMETRY_EVENT_INTERVAL)
+        {
+            return;
+        }
+
+        self.last_telemetry_event_at = Some(Instant::now());
+        let status = self.status_with_telemetry(Some(telemetry.clone()));
+        emit_event(RecordingEvent::Telemetry { telemetry, status });
     }
 
     fn can_reconfigure_active_output_paths(
@@ -365,7 +456,7 @@ impl Recorder {
             obs.start(
                 self.obs_runtime_dir.as_deref(),
                 video_config,
-                gpu_adapter(settings),
+                selected_gpu_adapter(settings, &self.cached_gpus),
             )?;
             self.available_encoders = obs.enumerate_encoders();
             let hardware_settings = RecordingSettings {
@@ -617,7 +708,11 @@ impl Recorder {
                 self.last_error = Some(error.clone());
                 let status = self.status();
                 emit_event(RecordingEvent::Error { error, status });
+                return;
             }
+            self.emit_telemetry_if_due();
+        } else {
+            self.last_telemetry_event_at = None;
         }
     }
 

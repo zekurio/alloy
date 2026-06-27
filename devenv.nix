@@ -19,6 +19,7 @@ in
   # Avoid blocking shell startup on optional Cachix metadata checks. Nix's
   # configured substituters are still used for actual builds.
   cachix.enable = false;
+  dotenv.disableHint = true;
 
   # https://devenv.sh/languages/
   languages.javascript = {
@@ -53,8 +54,6 @@ in
     # Dev serves the web app from Vite (5173); the server adds its own public
     # origin to the trusted set on top of this.
     TRUSTED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173";
-    ALLOY_VIEWER_COOKIE_SECRET = "dev-viewer-cookie-secret-32-bytes-min";
-    ALLOY_UPLOAD_HMAC_SECRET = "dev-upload-hmac-secret-32-bytes-min";
     ALLOY_OPEN_REGISTRATIONS = "false";
     ALLOY_PASSKEY_ENABLED = "true";
     ALLOY_REQUIRE_AUTH_TO_BROWSE = "true";
@@ -85,6 +84,68 @@ in
       *u*) alloy_had_nounset=1 ;;
     esac
     set -eu
+
+    alloy_env_file="${config.devenv.root}/.env"
+    alloy_secret() {
+      ${pkgs.openssl}/bin/openssl rand -base64 48 | tr -d '\n'
+    }
+
+    if [ ! -e "$alloy_env_file" ]; then
+      alloy_viewer_cookie_secret="$(alloy_secret)"
+      alloy_upload_hmac_secret="$(alloy_secret)"
+
+      umask 077
+      cat >"$alloy_env_file" <<EOF
+# Local development fallback values. The devenv shell exports DATABASE_URL for
+# its managed Postgres and shell variables always win over this file.
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/alloy
+
+PORT=2552
+PUBLIC_SERVER_URL=http://localhost:2552
+TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+
+ALLOY_VIEWER_COOKIE_SECRET=$alloy_viewer_cookie_secret
+ALLOY_UPLOAD_HMAC_SECRET=$alloy_upload_hmac_secret
+
+ALLOY_OPEN_REGISTRATIONS=false
+ALLOY_PASSKEY_ENABLED=true
+ALLOY_REQUIRE_AUTH_TO_BROWSE=true
+ALLOY_UPLOAD_TTL_SEC=900
+
+ALLOY_STORAGE_DRIVER=fs
+ALLOY_STORAGE_FS_CLIPS_PATH=../../data/storage/clips
+ALLOY_STORAGE_FS_THUMBNAILS_PATH=../../data/storage/thumbnails
+ALLOY_STORAGE_FS_USERS_PATH=../../data/storage/users
+ALLOY_STORAGE_FS_GAMES_PATH=../../data/storage/games
+EOF
+      chmod 600 "$alloy_env_file"
+      echo "Created .env with generated local secrets"
+    fi
+
+    alloy_env_value() {
+      sed -n "s/^$1=//p" "$alloy_env_file" | tail -n 1
+    }
+
+    alloy_ensure_env_secret() {
+      alloy_env_key="$1"
+      alloy_env_current="$(alloy_env_value "$alloy_env_key")"
+      if [ -n "$alloy_env_current" ]; then
+        printf '%s\n' "$alloy_env_current"
+        return 0
+      fi
+
+      alloy_env_generated="$(alloy_secret)"
+      {
+        printf '\n'
+        printf '%s=%s\n' "$alloy_env_key" "$alloy_env_generated"
+      } >>"$alloy_env_file"
+      chmod 600 "$alloy_env_file"
+      echo "Added $alloy_env_key to .env with a generated local secret" >&2
+      printf '%s\n' "$alloy_env_generated"
+    }
+
+    export ALLOY_VIEWER_COOKIE_SECRET="''${ALLOY_VIEWER_COOKIE_SECRET:-$(alloy_ensure_env_secret ALLOY_VIEWER_COOKIE_SECRET)}"
+    export ALLOY_UPLOAD_HMAC_SECRET="''${ALLOY_UPLOAD_HMAC_SECRET:-$(alloy_ensure_env_secret ALLOY_UPLOAD_HMAC_SECRET)}"
 
     alloy_pg_root="${config.devenv.root}/.devenv"
     alloy_pg_data="$alloy_pg_root/state/alloy-postgres"
@@ -131,10 +192,32 @@ in
         >/dev/null 2>&1
     }
 
+    alloy_pg_recover_running() {
+      [ -s "$alloy_pg_data/postmaster.pid" ] || return 1
+      alloy_pg_existing_pid="$(sed -n '1p' "$alloy_pg_data/postmaster.pid")"
+      alloy_pg_existing_port="$(sed -n '4p' "$alloy_pg_data/postmaster.pid")"
+      [ -n "$alloy_pg_existing_pid" ] || return 1
+      [ -n "$alloy_pg_existing_port" ] || return 1
+      kill -0 "$alloy_pg_existing_pid" >/dev/null 2>&1 || return 1
+      pg_isready \
+        -h 127.0.0.1 \
+        -p "$alloy_pg_existing_port" \
+        -U "$alloy_pg_user" \
+        -d "$alloy_pg_db" \
+        >/dev/null 2>&1 || return 1
+
+      sed -n '1p' "$alloy_pg_data/postmaster.pid" >"$alloy_pg_pid"
+      {
+        printf 'PGHOST=127.0.0.1\n'
+        printf 'PGPORT=%s\n' "$alloy_pg_existing_port"
+        printf 'DATABASE_URL=postgres://postgres@127.0.0.1:%s/alloy\n' "$alloy_pg_existing_port"
+      } >"$alloy_pg_env"
+    }
+
     exec 9>"$alloy_pg_lock"
     "$alloy_flock" 9
 
-    if ! alloy_pg_ready; then
+    if ! alloy_pg_ready && ! alloy_pg_recover_running; then
       rm -f "$alloy_pg_env"
 
       alloy_pg_port="$(alloy_pg_pick_port)"
