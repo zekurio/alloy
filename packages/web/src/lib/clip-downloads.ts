@@ -101,7 +101,7 @@ export async function startClipDownload(row: ClipRow): Promise<void> {
   const accepted = await desktop.recording.downloadClip({
     clipId: row.id,
     title: row.title,
-    mediaUrl: clipStreamUrl(row.id, "source", apiOrigin()),
+    mediaUrl: clipStreamUrl(row.id, apiOrigin()),
     contentType: row.sourceContentType,
     sizeBytes: row.sourceSizeBytes,
     durationMs: row.durationMs,

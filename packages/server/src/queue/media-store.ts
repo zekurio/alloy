@@ -30,13 +30,6 @@ export interface MediaThumbPatch {
   thumbBlurHash: string | null
 }
 
-export interface MediaPrewarmInput {
-  id: string
-  sourceKey: string | null
-  sourceSizeBytes: number | null
-  updatedAt: Date
-}
-
 /**
  * Table-specific glue for the media pipeline. The lease loop
  * ({@link createMediaWorker}) and the processing run ({@link runMediaProcessing})
@@ -88,8 +81,6 @@ export interface MediaStore {
   currentAssetKeys(
     id: string,
   ): Promise<{ sourceKey: string | null; thumbKey: string | null } | null>
-  /** Fresh values for HLS prewarm after publish. */
-  prewarmInput(id: string): Promise<MediaPrewarmInput | null>
 
   publishUpsert(authorId: string, id: string): void
 }

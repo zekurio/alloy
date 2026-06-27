@@ -2,10 +2,6 @@ import { rm, stat } from "node:fs/promises"
 
 import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
-import {
-  ensureDirectHlsPackage,
-  makeDirectHlsSpec,
-} from "@alloy/server/clips/direct-hls"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { probeMedia } from "@alloy/server/media/probe"
 import { trimToMp4 } from "@alloy/server/media/trim"
@@ -234,20 +230,6 @@ async function runPipelineInWorkDir({
   await cleanupTickets({ type: store.target, id }, "completed staged upload")
   completeWork()
   store.publishUpsert(row.authorId, id)
-  void prewarmDirectHls(store, id)
-}
-
-/** Build the recording's HLS package ahead of the first viewer. Best-effort. */
-async function prewarmDirectHls(store: MediaStore, id: string): Promise<void> {
-  try {
-    const fresh = await store.prewarmInput(id)
-    if (!fresh?.sourceKey) return
-    await ensureDirectHlsPackage(
-      makeDirectHlsSpec({ ...fresh, sourceKey: fresh.sourceKey }),
-    )
-  } catch (err) {
-    logger.warn(`direct HLS prewarm failed for ${id}:`, err)
-  }
 }
 
 function pendingTrimRange(

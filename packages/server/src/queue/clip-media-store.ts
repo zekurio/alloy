@@ -249,20 +249,6 @@ export const clipMediaStore: MediaStore = {
     return row ?? null
   },
 
-  async prewarmInput(id) {
-    const [row] = await db
-      .select({
-        id: clip.id,
-        sourceKey: clip.source_key,
-        sourceSizeBytes: clip.source_size_bytes,
-        updatedAt: clip.updated_at,
-      })
-      .from(clip)
-      .where(eq(clip.id, id))
-      .limit(1)
-    return row ?? null
-  },
-
   publishUpsert(authorId, id) {
     void publishClipUpsert(authorId, id)
   },

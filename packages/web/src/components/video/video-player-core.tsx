@@ -62,16 +62,9 @@ export function PlayerCore({
   shortcutBounds,
   enableHorizontalSeekShortcuts = true,
   playbackRate,
-  hlsLevelHeight = "auto",
-  onHlsFatalError,
 }: PlayerCoreProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const { src: mediaUrl } = useMediaEngine(
-    videoRef,
-    spec,
-    hlsLevelHeight,
-    onHlsFatalError,
-  )
+  const { src: mediaUrl } = useMediaEngine(spec)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const playingRef = useRef(false)
   const volumeRef = useRef(1)
@@ -164,9 +157,7 @@ export function PlayerCore({
 
   useEffect(() => {
     // A changed `identity` means a different clip. A changed SourceSpec with
-    // the same identity is a rendition/source swap for the same clip; this also
-    // covers hls.js playback, where `mediaUrl` stays null while the engine
-    // reloads a manifest.
+    // the same identity is a source swap for the same clip.
     const previous = prevSourceRef.current
     const isNewMedia = !previous || previous.identity !== identity
     const isSourceChange =
@@ -191,7 +182,7 @@ export function PlayerCore({
       setCurrentTime(0)
       setPlayingState(false)
     } else {
-      // Same clip, different rendition: resume where the viewer was. Capture
+      // Same clip, different source: resume where the viewer was. Capture
       // the position/playing state now, before the element load resets them,
       // and leave the scrubber untouched so the UI doesn't jump to zero.
       resumeRef.current = {

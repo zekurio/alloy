@@ -1,6 +1,5 @@
 import {
   clipDownloadUrl,
-  clipHlsMasterUrl,
   type ClipStatus,
   clipStreamUrl,
   clipThumbnailUrl,
@@ -8,9 +7,8 @@ import {
 import { t } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { toast } from "@alloy/ui/lib/toast"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 
-import { hlsPlaybackSupported } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
 import { canPlaySource } from "@/lib/source-playback"
@@ -73,18 +71,6 @@ function ClipPlayer({
     audioCodec: sourceAudioCodec,
   })
 
-  // The server packages the desktop-encoded source into a single-rendition
-  // HLS VOD (stream copy). Prefer it for segment-level seeking; when hls.js
-  // hits a fatal error, fall back to the progressive source stream.
-  const [hlsFailed, setHlsFailed] = useState(false)
-  useEffect(() => {
-    setHlsFailed(false)
-  }, [clipId])
-  const useHls = !hlsFailed && hlsPlaybackSupported()
-  const hlsMasterUrl = useHls
-    ? clipHlsMasterUrl(clipId, apiOrigin())
-    : undefined
-
   const qualityOptions = sourceContentType
     ? [
         {
@@ -97,10 +83,6 @@ function ClipPlayer({
         },
       ]
     : []
-
-  const handleHlsFatalError = useCallback(() => {
-    setHlsFailed(true)
-  }, [])
 
   const handlePlaybackError = useCallback(
     (message: string) => {
@@ -148,8 +130,7 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={clipStreamUrl(clipId, SOURCE_QUALITY_ID, apiOrigin())}
-      hlsMasterUrl={hlsMasterUrl}
+      src={clipStreamUrl(clipId, apiOrigin())}
       poster={poster}
       posterBlurHash={thumbnailBlurHash}
       fallbackSeed={fallbackSeed ?? clipId}
@@ -163,7 +144,6 @@ function ClipPlayer({
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       onPlaybackError={handlePlaybackError}
-      onHlsFatalError={handleHlsFatalError}
       autoPlay={autoPlay}
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
     />
