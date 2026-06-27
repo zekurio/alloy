@@ -18,8 +18,8 @@ export function rateLimiter(opts: {
   const buckets = new Map<string, Bucket>()
   const now = opts.now ?? Date.now
 
-  // This limiter is intentionally in-memory: Alloy's current direct-HLS cache
-  // and media queue already assume one server process owns request handling.
+  // This limiter is intentionally in-memory: Alloy's media queue already
+  // assumes one server process owns request handling.
   const sweep = setInterval(
     () => {
       const current = now()

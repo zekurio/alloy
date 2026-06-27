@@ -202,7 +202,7 @@ function useClipEditorMedia(
   localItem: RecordingLibraryItem | null,
 ) {
   const mediaVersion = clipEditorMediaVersion(row)
-  const streamSrc = `${clipStreamUrl(row.id, "source", apiOrigin())}&v=${encodeURIComponent(mediaVersion)}`
+  const streamSrc = clipStreamUrl(row.id, apiOrigin(), mediaVersion)
   const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)

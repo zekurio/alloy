@@ -4,7 +4,6 @@ import { serve } from "@hono/node-server"
 
 import { signInConfigError } from "./auth/sign-in-config"
 import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
-import { startDirectHlsCache, stopDirectHlsCache } from "./clips/direct-hls"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
@@ -51,10 +50,6 @@ void startQueue().catch((err) => {
   logger.error("failed to start queue:", err)
 })
 
-void startDirectHlsCache().catch((err) => {
-  logger.error("failed to start direct HLS cache:", err)
-})
-
 // Background TTL cleanup for auth challenges, kept off the request path.
 startChallengeSweeper()
 
@@ -64,7 +59,6 @@ const shutdown = () => {
   shuttingDown = true
   requestShutdown()
   stopChallengeSweeper()
-  void stopDirectHlsCache()
   const forceShutdown = setTimeout(() => {
     logger.warn("forcing shutdown after graceful deadline")
     closeAllConnections(server)

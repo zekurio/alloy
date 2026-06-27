@@ -1,32 +1,18 @@
 import { createHash } from "node:crypto"
 
-import type { ClipPrivacy } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import {
   clipAccessResponse,
   resolveClipAccess,
 } from "@alloy/server/clips/access"
-import {
-  DIRECT_HLS_MASTER,
-  directHlsContentType,
-  isServableDirectHlsFile,
-  makeDirectHlsSpec,
-  readDirectHlsFile,
-} from "@alloy/server/clips/direct-hls"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
-import { type Context, Hono } from "hono"
+import { Hono } from "hono"
 import { stream } from "hono/streaming"
 
-import {
-  contentDisposition,
-  downloadFilename,
-  HlsFileParam,
-  IdParam,
-  StreamQuery,
-} from "./clips-helpers"
+import { contentDisposition, downloadFilename, IdParam } from "./clips-helpers"
 import {
   mediaCacheControl,
   streamResolved,
@@ -40,64 +26,13 @@ import { zValidator } from "./validation"
 
 const logger = createLogger("clips")
 
-function hlsCacheControl(privacy: ClipPrivacy): string {
-  return privacy === "public"
-    ? "public, max-age=300"
-    : mediaCacheControl(privacy)
-}
-
 function thumbnailEtag(key: string): string {
   const hash = createHash("sha256").update(key).digest("hex").slice(0, 32)
   return `"thumb1-${hash}"`
 }
 
-type HlsClipRow = {
-  id: string
-  source_key: string | null
-  source_size_bytes: number | null
-  updated_at: Date | string
-  privacy: ClipPrivacy
-}
-
-async function serveDirectHlsFile(
-  c: Context,
-  row: HlsClipRow,
-  filename: string,
-): Promise<Response> {
-  if (!row.source_key || !isServableDirectHlsFile(filename)) {
-    return notFound(c, "Adaptive stream unavailable")
-  }
-  const spec = makeDirectHlsSpec({
-    id: row.id,
-    sourceKey: row.source_key,
-    sourceSizeBytes: row.source_size_bytes,
-    updatedAt: row.updated_at,
-  })
-  const etag = `"dhls1-${spec.cacheKey}"`
-  c.header("ETag", etag)
-  c.header("Cache-Control", hlsCacheControl(row.privacy))
-  if (ifNoneMatchSatisfied(c.req.header("if-none-match"), etag)) {
-    return c.body(null, 304)
-  }
-
-  try {
-    const file = await readDirectHlsFile(spec, filename)
-    c.header("Content-Type", directHlsContentType(filename))
-    c.header("Content-Length", String(file.size))
-    c.header("Accept-Ranges", "none")
-    if (c.req.method === "HEAD") return c.body(null)
-    return stream(c, async (s) => {
-      await pipeReadable(s, file.body)
-    })
-  } catch (err) {
-    if (c.req.raw.signal.aborted) throw err
-    logger.error(`failed to serve direct HLS file ${row.id}/${filename}:`, err)
-    return notFound(c, "Adaptive stream unavailable")
-  }
-}
-
 export const clipsPlaybackRoutes = new Hono()
-  .get("/:id/hls/master.m3u8", zValidator("param", IdParam), async (c) => {
+  .get("/:id/stream", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({
       id,
@@ -105,77 +40,46 @@ export const clipsPlaybackRoutes = new Hono()
       policy: "stream",
     })
     if (!access.accessible) return clipAccessResponse(c, access)
-    return serveDirectHlsFile(c, access.row, DIRECT_HLS_MASTER)
-  })
-  .get("/:id/hls/:file", zValidator("param", HlsFileParam), async (c) => {
-    const { id, file } = c.req.valid("param")
-    const access = await resolveClipAccess({
-      id,
+    const row = access.row
+
+    const selected =
+      row.source_key && row.source_content_type
+        ? {
+            key: row.source_key,
+            contentType: row.source_content_type,
+          }
+        : null
+
+    if (!selected) {
+      return notFound(c, "Stream unavailable")
+    }
+
+    const cacheControl = mediaCacheControl(row.privacy)
+
+    const direct = await redirectToStorageUrl(
       c,
-      policy: "stream",
-    })
-    if (!access.accessible) return clipAccessResponse(c, access)
-    return serveDirectHlsFile(c, access.row, file)
+      clipStorage,
+      {
+        key: selected.key,
+        contentType: selected.contentType || undefined,
+      },
+      cacheControl,
+    )
+    if (direct) return direct
+
+    const resolved = await clipStorage.resolve(selected.key)
+    if (!resolved) {
+      logger.error(`bytes missing for ready clip ${id}`)
+      return notFound(c, "Stream unavailable")
+    }
+
+    return streamResolved(
+      c,
+      resolved,
+      selected.contentType || resolved.contentType,
+      cacheControl,
+    )
   })
-  .get(
-    "/:id/stream",
-    zValidator("param", IdParam),
-    zValidator("query", StreamQuery),
-    async (c) => {
-      const { id } = c.req.valid("param")
-      const { variant: requestedVariant } = c.req.valid("query")
-      const access = await resolveClipAccess({
-        id,
-        c,
-        policy: "stream",
-      })
-      if (!access.accessible) return clipAccessResponse(c, access)
-      const row = access.row
-
-      const wantsSource =
-        !requestedVariant ||
-        requestedVariant === "auto" ||
-        requestedVariant === "source"
-      const selected =
-        wantsSource && row.source_key && row.source_content_type
-          ? {
-              key: row.source_key,
-              contentType: row.source_content_type,
-              id: "source",
-            }
-          : null
-
-      if (!selected) {
-        return notFound(c, "Unknown quality")
-      }
-
-      const cacheControl = mediaCacheControl(row.privacy)
-
-      const direct = await redirectToStorageUrl(
-        c,
-        clipStorage,
-        {
-          key: selected.key,
-          contentType: selected.contentType || undefined,
-        },
-        cacheControl,
-      )
-      if (direct) return direct
-
-      const resolved = await clipStorage.resolve(selected.key)
-      if (!resolved) {
-        logger.error(`bytes missing for ready clip ${id} (${selected.id})`)
-        return notFound(c, "Stream unavailable")
-      }
-
-      return streamResolved(
-        c,
-        resolved,
-        selected.contentType || resolved.contentType,
-        cacheControl,
-      )
-    },
-  )
   /**
    * GET /api/clips/:id/thumbnail — poster image for the player and
    * queue/grid cards. Returns 404 when the desktop client didn't ship

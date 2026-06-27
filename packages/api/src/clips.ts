@@ -70,20 +70,12 @@ export function uploadQueueStreamUrl(origin?: string): string {
 
 export function clipStreamUrl(
   clipId: string,
-  variantId?: string,
   origin?: string,
+  version?: string,
 ): string {
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/stream"),
-    { variant: variantId },
-    origin,
-  )
-}
-
-export function clipHlsMasterUrl(clipId: string, origin?: string): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/hls/master.m3u8"),
-    {},
+    { v: version },
     origin,
   )
 }

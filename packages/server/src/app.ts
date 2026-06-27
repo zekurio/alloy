@@ -40,8 +40,6 @@ const BROWSE_API_PATTERNS = [/^\/api\/users\/(?!me(?:\/|$))[^/]+(?:\/.*)?$/]
 
 const SHAREABLE_CLIP_ASSET_RE =
   /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:stream|thumbnail)$/i
-const SHAREABLE_CLIP_HLS_RE =
-  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/hls(?:\/.*)?$/i
 const SHAREABLE_CLIP_DETAIL_RE =
   /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SHAREABLE_CLIP_COMMENTS_RE =
@@ -56,7 +54,7 @@ function requestIdForHeader(value: string | undefined): string {
 }
 
 function isShareableClipRequest(method: string, path: string): boolean {
-  if (SHAREABLE_CLIP_ASSET_RE.test(path) || SHAREABLE_CLIP_HLS_RE.test(path)) {
+  if (SHAREABLE_CLIP_ASSET_RE.test(path)) {
     return method === "GET" || method === "HEAD"
   }
   if (SHAREABLE_CLIP_DETAIL_RE.test(path)) return method === "GET"

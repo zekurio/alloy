@@ -24,18 +24,10 @@ import {
 } from "./cursor-codec"
 import {
   optionalBlankToNullTrimmedString,
-  optionalTrimmedString,
   requiredTrimmedString,
 } from "./validation"
 
 export const IdParam = z.object({ id: z.uuid() })
-export const StreamQuery = z.object({
-  variant: optionalTrimmedString(),
-})
-export const HlsFileParam = z.object({
-  id: z.uuid(),
-  file: z.string().min(1).max(64),
-})
 
 type ClipListSort = "top" | "recent"
 

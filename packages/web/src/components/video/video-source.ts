@@ -2,7 +2,6 @@ import { t } from "@alloy/i18n"
 export type SourceSpec =
   | { kind: "url"; url: string }
   | { kind: "file"; file: File }
-  | { kind: "hls"; url: string }
 
 export function toSourceSpec(src: string | File): SourceSpec {
   return typeof src === "string"
@@ -14,8 +13,6 @@ export function sourceSpecKey(spec: SourceSpec): string {
   switch (spec.kind) {
     case "url":
       return `url:${spec.url}`
-    case "hls":
-      return `hls:${spec.url}`
     case "file":
       return `file:${spec.file.name}:${spec.file.size}:${spec.file.lastModified}`
   }
