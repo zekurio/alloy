@@ -15,14 +15,10 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import {
   BanIcon,
-  CloudCheckIcon,
-  CloudIcon,
-  FunnelIcon,
   GlobeIcon,
   HardDriveIcon,
   LibraryIcon,
   Loader2Icon,
-  MonitorIcon,
   UploadIcon,
 } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
@@ -53,11 +49,8 @@ import {
 import {
   buildLibraryEntries,
   collapsedServerCounts,
-  countLibraryEntriesByStatus,
-  filterLibraryEntriesByStatus,
   type LibraryEntry,
   type LibraryKindFilter,
-  type LibraryStatusFilter,
 } from "./library-entries"
 import { LibraryCaptureCard, UploadedClipCard } from "./library-entry-cards"
 import {
@@ -80,7 +73,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const queryClient = useQueryClient()
   const { deferredQuery } = useAppSearch()
   const [groupKey, setGroupKey] = useState<string | null>(null)
-  const [status, setStatus] = useState<LibraryStatusFilter>("all")
   const importAction = useLibraryImportAction(desktop)
   const webUploadAction = useLibraryWebUploadAction()
   const { queue } = useUploadFlowControls()
@@ -89,7 +81,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     kind: "all",
     query: deferredQuery,
     groupKey,
-    status,
   })
   const toolbar = useMemo(
     () =>
@@ -104,10 +95,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
             <LibraryToolbar
               groups={model.groups}
               groupKey={groupKey}
-              status={status}
-              statusCounts={model.statusCounts}
               onGroupChange={setGroupKey}
-              onStatusChange={setStatus}
             />
           </>
         ),
@@ -115,11 +103,8 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           <LibraryToolbar
             groups={model.groups}
             groupKey={groupKey}
-            status={status}
-            statusCounts={model.statusCounts}
             triggerVariant="icon"
             onGroupChange={setGroupKey}
-            onStatusChange={setStatus}
           />
         ),
       }),
@@ -135,9 +120,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
       webUploadAction.selected,
       webUploadAction.select,
       model.groups,
-      model.statusCounts,
       groupKey,
-      status,
     ],
   )
   useHeaderToolbar(toolbar)
@@ -237,13 +220,11 @@ function useLibraryContentModel({
   kind,
   query,
   groupKey,
-  status,
 }: {
   desktop: AlloyDesktop | null
   kind: LibraryKindFilter
   query: string
   groupKey: string | null
-  status: LibraryStatusFilter
 }) {
   const { snapshot, error } = useLibrarySnapshot(desktop)
 
@@ -286,39 +267,24 @@ function useLibraryContentModel({
       query,
     })
   }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, query])
-  const statusCounts = useMemo(
-    () => countLibraryEntriesByStatus(visibleEntries),
-    [visibleEntries],
-  )
-  const entries = useMemo(
-    () => filterLibraryEntriesByStatus(visibleEntries, status),
-    [visibleEntries, status],
-  )
-
   const loading =
     (desktop !== null && !snapshot && !error) ||
     (handle.length > 0 && uploadedQuery.isLoading)
   const hasAnything = (snapshot?.totalCount ?? 0) > 0 || uploaded.length > 0
 
-  return { groups, entries, statusCounts, loading, error, hasAnything }
+  return { groups, entries: visibleEntries, loading, error, hasAnything }
 }
 
 function LibraryToolbar({
   groups,
   groupKey,
-  status,
-  statusCounts,
   triggerVariant = "chip",
   onGroupChange,
-  onStatusChange,
 }: {
   groups: LibraryGroupView[]
   groupKey: string | null
-  status: LibraryStatusFilter
-  statusCounts: Record<Exclude<LibraryStatusFilter, "all">, number>
   triggerVariant?: "chip" | "icon"
   onGroupChange: (groupKey: string | null) => void
-  onStatusChange: (status: LibraryStatusFilter) => void
 }) {
   const ALL_GAMES = "__all"
   const options: FilterDropdownOption<string>[] = [
@@ -335,52 +301,16 @@ function LibraryToolbar({
         ),
     })),
   ]
-  const statusOptions: FilterDropdownOption<LibraryStatusFilter>[] = [
-    {
-      key: "all",
-      label: t("Any status"),
-      icon: <FunnelIcon />,
-      count: statusCounts.local + statusCounts.cloud + statusCounts.synced,
-    },
-    {
-      key: "local",
-      label: t("On Device"),
-      icon: <MonitorIcon />,
-      count: statusCounts.local,
-    },
-    {
-      key: "cloud",
-      label: t("On Server"),
-      icon: <CloudIcon />,
-      count: statusCounts.cloud,
-    },
-    {
-      key: "synced",
-      label: t("Server + Device"),
-      icon: <CloudCheckIcon />,
-      count: statusCounts.synced,
-    },
-  ]
 
   return (
-    <>
-      <FilterDropdown
-        triggerLabel={t("Filter by game")}
-        triggerVariant={triggerVariant}
-        value={groupKey ?? ALL_GAMES}
-        options={options}
-        searchPlaceholder={t("Search games…")}
-        onSelect={(key) => onGroupChange(key === ALL_GAMES ? null : key)}
-      />
-      <FilterDropdown
-        triggerLabel={t("Filter by status")}
-        triggerVariant={triggerVariant}
-        value={status}
-        options={statusOptions}
-        searchThreshold={Number.POSITIVE_INFINITY}
-        onSelect={onStatusChange}
-      />
-    </>
+    <FilterDropdown
+      triggerLabel={t("Filter by game")}
+      triggerVariant={triggerVariant}
+      value={groupKey ?? ALL_GAMES}
+      options={options}
+      searchPlaceholder={t("Search games…")}
+      onSelect={(key) => onGroupChange(key === ALL_GAMES ? null : key)}
+    />
   )
 }
 

@@ -13,7 +13,6 @@ import {
 } from "./library-data"
 
 export type LibraryKindFilter = "all" | "replay"
-export type LibraryStatusFilter = "all" | "local" | "cloud" | "synced"
 
 /** One row of the combined grid: a local capture or an uploaded clip. */
 export type LibraryEntry =
@@ -33,26 +32,6 @@ export type LibraryEntry =
       /** The on-disk capture backing this clip (uploaded from / downloaded). */
       localItem: RecordingLibraryItem | null
     }
-
-export function filterLibraryEntriesByStatus(
-  entries: LibraryEntry[],
-  status: LibraryStatusFilter,
-): LibraryEntry[] {
-  if (status === "all") return entries
-  return entries.filter((entry) => entry.status === status)
-}
-
-export function countLibraryEntriesByStatus(
-  entries: LibraryEntry[],
-): Record<Exclude<LibraryStatusFilter, "all">, number> {
-  return entries.reduce(
-    (counts, entry) => {
-      counts[entry.status] += 1
-      return counts
-    },
-    { local: 0, cloud: 0, synced: 0 },
-  )
-}
 
 export function filterLibraryItems(
   items: RecordingLibraryItem[],
