@@ -17,16 +17,11 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
-import {
-  ChevronUpIcon,
-  Link2Icon,
-  Loader2Icon,
-  UploadIcon,
-  VideoIcon,
-} from "lucide-react"
+import { ChevronUpIcon, Link2Icon, Loader2Icon, UploadIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
+import { FileTypeChip } from "@/components/routes/library/library-import-action"
 import {
   ACCEPT_LIST,
   captureThumbnail,
@@ -351,9 +346,7 @@ function WebUploadClipDetailsDialogInner({
 function SelectedUploadSummary({ selected }: { selected: SelectedFile }) {
   return (
     <div className="border-border bg-surface-raised/60 flex min-w-0 items-center gap-3 rounded-md border p-3">
-      <div className="bg-accent-soft text-accent grid size-9 shrink-0 place-items-center rounded-md">
-        <VideoIcon className="size-4" />
-      </div>
+      <FileTypeChip fileName={selected.name} />
       <div className="min-w-0">
         <p className="text-foreground truncate text-sm font-semibold">
           {selected.name}

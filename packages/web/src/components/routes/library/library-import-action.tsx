@@ -18,6 +18,7 @@ import { UploadIcon, VideoIcon } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
+import { fileExtensionLabel } from "@/components/upload/new-clip-helpers"
 import { CLIP_TITLE_MAX, normalizeClipTitle } from "@/lib/clip-fields"
 import {
   type AlloyDesktop,
@@ -277,9 +278,7 @@ function StagedImportSummary({
 
   return (
     <div className="border-border bg-surface-raised/60 flex min-w-0 items-center gap-3 rounded-md border p-3">
-      <div className="bg-accent-soft text-accent grid size-9 shrink-0 place-items-center rounded-md">
-        <VideoIcon className="size-4" />
-      </div>
+      <FileTypeChip fileName={staged.fileName} />
       <div className="min-w-0">
         <p className="text-foreground truncate text-sm font-semibold">
           {staged.fileName}
@@ -290,6 +289,21 @@ function StagedImportSummary({
           </p>
         ) : null}
       </div>
+    </div>
+  )
+}
+
+export function FileTypeChip({ fileName }: { fileName: string }) {
+  const extension = fileExtensionLabel(fileName)
+  return (
+    <div className="border-accent-border bg-accent-soft text-accent grid size-9 shrink-0 place-items-center rounded-md border">
+      {extension ? (
+        <span className="text-2xs font-mono font-semibold tracking-[0.06em] tabular-nums">
+          {extension}
+        </span>
+      ) : (
+        <VideoIcon className="size-4" />
+      )}
     </div>
   )
 }

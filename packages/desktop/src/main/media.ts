@@ -6,6 +6,7 @@ import {
   FilePathSource,
   FilePathTarget,
   Input,
+  MP4,
   Mp4OutputFormat,
   Output,
   type InputAudioTrack,
@@ -84,9 +85,9 @@ export async function probeDurationMs(
 }
 
 /**
- * Cut `[startMs, endMs]` out of `srcPath` into an MP4 at `outPath` without
- * re-encoding. The cut start snaps to the nearest preceding video keyframe —
- * the same behavior as the previous stream-copy path.
+ * Cut `[startMs, endMs]` out of `srcPath` into an upload-compatible MP4 at
+ * `outPath` without re-encoding. The cut start snaps to the nearest preceding
+ * video keyframe — the same behavior as the previous stream-copy path.
  */
 export async function trimMp4(
   srcPath: string,
@@ -101,6 +102,7 @@ export async function trimMp4(
     const video = await input.getPrimaryVideoTrack()
     if (!video) throw new Error("Trim source has no video track")
     const audio = await input.getPrimaryAudioTrack()
+    assertUploadMp4Compatible(video.codec, audio?.codec ?? null)
 
     const requestedStartSec = Math.max(0, opts.startMs) / 1000
     const endSec = Math.max(opts.startMs + 1, opts.endMs) / 1000
@@ -132,6 +134,51 @@ export async function trimMp4(
         await copyAudioPackets(audio, sinks.audio, baseSec, endSec)
       }
     })
+  } finally {
+    input.dispose()
+  }
+}
+
+/**
+ * Copy the full source into an upload-compatible MP4 without decoding. This
+ * is the desktop publish/sync normalization boundary: unsupported codecs fail
+ * loudly here instead of producing a local file that the server cannot accept.
+ */
+export async function remuxToUploadMp4(
+  srcPath: string,
+  outPath: string,
+): Promise<void> {
+  const input = new Input({
+    source: new FilePathSource(srcPath),
+    formats: ALL_FORMATS,
+  })
+  try {
+    const video = await input.getPrimaryVideoTrack()
+    if (!video) throw new Error("Remux source has no video track")
+    const audio = await input.getPrimaryAudioTrack()
+    const videoCodec = video.codec ?? throwUnknownCodec("video")
+    const audioCodec = audio?.codec ?? null
+    assertUploadMp4Compatible(videoCodec, audioCodec)
+
+    await withMp4Output(outPath, video, audio, async (sinks) => {
+      await appendSegment(input, sinks, 0, videoCodec, audioCodec)
+    })
+  } finally {
+    input.dispose()
+  }
+}
+
+/** Validate an existing MP4 against the same codecs the upload path accepts. */
+export async function assertUploadMp4File(srcPath: string): Promise<void> {
+  const input = new Input({
+    source: new FilePathSource(srcPath),
+    formats: [MP4],
+  })
+  try {
+    const video = await input.getPrimaryVideoTrack()
+    if (!video) throw new Error("MP4 upload source has no video track")
+    const audio = await input.getPrimaryAudioTrack()
+    assertUploadMp4Compatible(video.codec, audio?.codec ?? null)
   } finally {
     input.dispose()
   }
@@ -325,6 +372,21 @@ async function copyAudioPackets(
     // at the cost of at most one audio frame (~20ms) of leading silence.
     if (timestamp < 0) continue
     await audioSource.add(packet.clone({ timestamp }), meta)
+  }
+}
+
+const UPLOAD_MP4_VIDEO_CODECS = new Set(["avc", "hevc", "av1"])
+const UPLOAD_MP4_AUDIO_CODECS = new Set(["aac"])
+
+function assertUploadMp4Compatible(
+  videoCodec: InputVideoTrack["codec"],
+  audioCodec: InputAudioTrack["codec"] | null,
+): void {
+  if (!videoCodec || !UPLOAD_MP4_VIDEO_CODECS.has(videoCodec)) {
+    throw new Error("Only H.264, HEVC, or AV1 video can be uploaded.")
+  }
+  if (audioCodec && !UPLOAD_MP4_AUDIO_CODECS.has(audioCodec)) {
+    throw new Error("Only AAC audio can be uploaded.")
   }
 }
 

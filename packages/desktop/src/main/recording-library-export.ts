@@ -8,7 +8,7 @@ import type {
   RecordingLibraryExportSegment,
 } from "@/shared/ipc"
 
-import { trimMp4 } from "./media"
+import { assertUploadMp4File, remuxToUploadMp4, trimMp4 } from "./media"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
   captureId,
@@ -20,14 +20,15 @@ import {
 import { ensureCaptureBlurHash } from "./recording-library-thumbnails"
 
 /**
- * Edited exports rendered to the userData export folder, keyed by export id,
- * so the capture protocol can serve them back to the renderer.
+ * Normalized exports rendered to the userData export folder, keyed by export
+ * id, so the capture protocol can serve them back to the renderer.
  */
 export const exportedCaptureFiles = new Map<string, string>()
 
 /** Smallest segment and total an export may carry. */
 const EXPORT_MIN_SEGMENT_MS = 100
 const EXPORT_MIN_TOTAL_MS = 1000
+const EXPORT_CACHE_VERSION = "upload-mp4-v1"
 
 export async function exportRecordingLibraryItem(
   request: RecordingLibraryExportRequest,
@@ -62,7 +63,8 @@ export async function exportRecordingLibraryItem(
   // blob before initiating the upload.
   const thumbBlurHash = await ensureCaptureBlurHash(item)
 
-  if (fullSource) {
+  if (fullSource && contentTypeForFile(item.fileName) === "video/mp4") {
+    await assertUploadMp4File(item.filename)
     return {
       id: item.id,
       mediaUrl: item.mediaUrl,
@@ -81,18 +83,24 @@ export async function exportRecordingLibraryItem(
     .map((segment) => `${segment.startMs}-${segment.endMs}`)
     .join(",")
   const exportId = captureId(
-    `${item.filename}:${statSync(item.filename).mtimeMs}:${segmentsKey}`,
+    `${EXPORT_CACHE_VERSION}:${item.filename}:${statSync(item.filename).mtimeMs}:${segmentsKey}`,
   )
-  const fileName = exportFileName(item.fileName, segments)
+  const fileName = fullSource
+    ? normalizedExportFileName(item.fileName)
+    : exportFileName(item.fileName, segments)
   const out = join(exportFolder(), `${exportId}.mp4`)
   mkdirSync(dirname(out), { recursive: true })
 
   if (!existsSync(out) || statSync(out).size === 0) {
-    // Packet copy — the cut start snaps to the preceding keyframe.
-    await trimMp4(item.filename, out, {
-      startMs: segments[0].startMs,
-      endMs: segments[0].endMs,
-    })
+    if (fullSource) {
+      await remuxToUploadMp4(item.filename, out)
+    } else {
+      // Packet copy — the cut start snaps to the preceding keyframe.
+      await trimMp4(item.filename, out, {
+        startMs: segments[0].startMs,
+        endMs: segments[0].endMs,
+      })
+    }
   }
 
   const stat = statSync(out)
@@ -137,6 +145,10 @@ function sanitizeExportSegments(
 
 function exportFolder(): string {
   return join(app.getPath("userData"), "recording-exports")
+}
+
+function normalizedExportFileName(fileName: string): string {
+  return `${basename(fileName, extname(fileName)) || "clip"}.mp4`
 }
 
 function exportFileName(
