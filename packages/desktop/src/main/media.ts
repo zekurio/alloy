@@ -8,7 +8,6 @@ import {
   Input,
   Mp4OutputFormat,
   Output,
-  type EncodedPacket,
   type InputAudioTrack,
   type InputVideoTrack,
 } from "mediabunny"
@@ -277,10 +276,7 @@ async function appendSegment(
   // One base per segment keeps the segment's own A/V sync intact.
   const baseSec = firstVideo.timestamp
 
-  let endSec = 0
-  const trackEnd = (packet: EncodedPacket, rebased: number) => {
-    endSec = Math.max(endSec, rebased + (packet.duration || 0))
-  }
+  let videoEndSec = 0
 
   const videoMeta = {
     decoderConfig: (await video.getDecoderConfig()) ?? undefined,
@@ -288,7 +284,7 @@ async function appendSegment(
   for await (const packet of videoSink.packets(firstVideo)) {
     const timestamp = packet.timestamp - baseSec + offsetSec
     await sinks.video.add(packet.clone({ timestamp }), videoMeta)
-    trackEnd(packet, timestamp)
+    videoEndSec = Math.max(videoEndSec, timestamp + (packet.duration || 0))
   }
 
   if (audio && sinks.audio) {
@@ -304,12 +300,11 @@ async function appendSegment(
         // for the muxer's monotonic, non-negative contract.
         if (timestamp < offsetSec) continue
         await sinks.audio.add(packet.clone({ timestamp }), meta)
-        trackEnd(packet, timestamp)
       }
     }
   }
 
-  return endSec
+  return videoEndSec
 }
 
 async function copyAudioPackets(
