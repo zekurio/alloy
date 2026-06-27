@@ -181,6 +181,19 @@ export function stripExtension(filename: string): string {
   return idx > 0 ? filename.slice(0, idx) : filename
 }
 
+/**
+ * The file's extension as a short uppercase label (e.g. "MP4"), or null when
+ * the name has no recognizable extension. Used to give file summaries a
+ * meaningful type chip instead of a generic placeholder icon.
+ */
+export function fileExtensionLabel(filename: string): string | null {
+  const idx = filename.lastIndexOf(".")
+  if (idx <= 0 || idx === filename.length - 1) return null
+  const ext = filename.slice(idx + 1)
+  if (ext.length > 5 || /[^a-z0-9]/i.test(ext)) return null
+  return ext.toUpperCase()
+}
+
 export {
   captureThumbnail,
   thumbnailFromImageUrl,
