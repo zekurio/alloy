@@ -7,11 +7,12 @@ import { app, type WebContents } from "electron"
 const logger = createLogger("main")
 const rendererLogger = createLogger("renderer")
 
-const LOG_FILE_RE = /^alloy-main-\d{4}-\d{2}-\d{2}\.log$/
+const LOG_FILE_RE =
+  /^alloy-main-\d{4}-\d{2}-\d{2}(?:T\d{2}-\d{2}-\d{2}-\d{3}Z-\d+)?\.log$/
 const MAX_LOG_FILES = 14
 
 /**
- * Mirror every log record into a date-stamped file under the app's logs
+ * Mirror every log record into a per-run file under the app's logs
  * directory (%LOCALAPPDATA%/Alloy Desktop/logs). The packaged Windows app has
  * no console attached, so without a file sink production logs are lost
  * entirely. Writes are synchronous so the lines leading up to a crash make it
@@ -20,8 +21,11 @@ const MAX_LOG_FILES = 14
 export function installFileLogSink(): void {
   try {
     const dir = app.getPath("logs")
-    const stamp = new Date().toISOString().slice(0, 10)
-    const fd = openSync(join(dir, `alloy-main-${stamp}.log`), "a")
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-")
+    const fd = openSync(
+      join(dir, `alloy-main-${stamp}-${process.pid}.log`),
+      "a",
+    )
     addLogSink({
       write(record) {
         writeSync(fd, `${formatRecord(record, "human")}\n`)
@@ -69,7 +73,7 @@ function pruneOldLogFiles(dir: string): void {
   } catch {
     return
   }
-  // Date-stamped names sort lexicographically; keep the newest files.
+  // Timestamped names sort lexicographically; keep the newest files.
   const expired = names
     .filter((name) => LOG_FILE_RE.test(name))
     .sort()
