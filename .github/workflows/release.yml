@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     branches:
-      - develop
+      - dev
       - main
     paths:
       - ".github/workflows/release.yml"
@@ -134,7 +134,7 @@ jobs:
             }
           '
 
-          if [[ "${GITHUB_REF_NAME}" == "develop" ]]; then
+          if [[ "${GITHUB_REF_NAME}" == "dev" ]]; then
             unstable_date="$(date -u -d "$RUN_STARTED_AT" +%Y%m%d)"
             version="$package_version-unstable.$unstable_date.${GITHUB_RUN_NUMBER}"
             tag="v$version"

@@ -4,7 +4,7 @@ Alloy has two GitHub Release channels for the desktop updater:
 
 - **Latest**: built from `main` pushes, tagged `vX.Y.Z`, marked as the latest
   GitHub Release, and exposed through `latest.yml`.
-- **Unstable**: built from desktop-impacting `develop` pushes, tagged
+- **Unstable**: built from desktop-impacting `dev` pushes, tagged
   `vX.Y.Z-unstable.YYYYMMDD.<run>`, published as a prerelease, and exposed
   through `unstable.yml`.
 
@@ -31,11 +31,11 @@ semver versions.
 
 - `main` is the release branch. Pushing to `main` publishes a latest release
   using the checked-in package version.
-- `develop` is the integration branch. Desktop-impacting pushes publish
+- `dev` is the integration branch. Desktop-impacting pushes publish
   unstable prereleases.
-- Feature branches should target `develop` unless they are release fixes for
+- Feature branches should target `dev` unless they are release fixes for
   `main`.
-- Protect both `main` and `develop`. Release publishing runs with write
+- Protect both `main` and `dev`. Release publishing runs with write
   permissions for trusted branch pushes, so these branches should only receive
   trusted merges.
 
@@ -58,15 +58,15 @@ All release version files must match before any desktop artifact is published:
 
 ## Latest Releases
 
-1. On `develop`, bump the package version to the intended stable version.
+1. On `dev`, bump the package version to the intended stable version.
 
    ```sh
    node scripts/update-release-package-versions.mjs X.Y.Z --desktop-channel latest
    ```
 
-2. Open a PR from `develop` into `main`.
+2. Open a PR from `dev` into `main`.
 
-3. CI runs the release version guard for `develop` -> `main` PRs. It fails if
+3. CI runs the release version guard for `dev` -> `main` PRs. It fails if
    the root semver is unchanged from `main` or if release version files do not
    match.
 
@@ -82,7 +82,7 @@ is created by merging the versioned release PR to `main`.
 ## Unstable Builds
 
 Unstable builds are produced automatically when the **Release** workflow
-receives a desktop-impacting push to `develop`. Server-only, web-only, and
+receives a desktop-impacting push to `dev`. Server-only, web-only, and
 documentation-only pushes do not create desktop artifacts.
 
 The workflow stamps the checked-in package version with the UTC date and GitHub

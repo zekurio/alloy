@@ -46,7 +46,7 @@ assertPlainSemver(`Base ${baseRef} package.json version`, baseVersion)
 
 if (currentVersion === baseVersion) {
   console.error(
-    `Release PRs from develop to main must change the stable semver. package.json is still ${currentVersion}.`,
+    `Release PRs from dev to main must change the stable semver. package.json is still ${currentVersion}.`,
   )
   process.exit(1)
 }
