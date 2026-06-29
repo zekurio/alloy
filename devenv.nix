@@ -157,6 +157,7 @@ EOF
     alloy_pg_db="alloy"
     alloy_pg_user="postgres"
     alloy_flock="${pkgs.util-linuxMinimal}/bin/flock"
+    alloy_pg_lock_wait_sec=30
 
     mkdir -p "$alloy_pg_data" "$alloy_pg_run"
 
@@ -214,8 +215,19 @@ EOF
       } >"$alloy_pg_env"
     }
 
+    alloy_pg_release_lock() {
+      "$alloy_flock" -u 9 2>/dev/null || true
+      exec 9>&- || true
+      trap - EXIT
+    }
+
     exec 9>"$alloy_pg_lock"
-    "$alloy_flock" 9
+    if ! "$alloy_flock" -w "$alloy_pg_lock_wait_sec" 9; then
+      echo "Timed out waiting for Alloy dev Postgres startup lock" >&2
+      echo "If no other shell is starting, run alloy-postgres-stop and try again." >&2
+      exit 1
+    fi
+    trap alloy_pg_release_lock EXIT
 
     if ! alloy_pg_ready && ! alloy_pg_recover_running; then
       rm -f "$alloy_pg_env"
@@ -228,16 +240,27 @@ EOF
           -U "$alloy_pg_user" \
           --auth=trust \
           --no-locale \
-          >/dev/null
+          >/dev/null \
+          9>&-
       fi
 
+      # direnv captures hook output on extra file descriptors. Close them for
+      # the daemon starter so Postgres cannot keep `direnv export` alive.
       pg_ctl \
         -D "$alloy_pg_data" \
         -l "$alloy_pg_log" \
         -o "-h 127.0.0.1 -p $alloy_pg_port -k $alloy_pg_run" \
         -w \
+        -t 30 \
         start \
-        >/dev/null
+        >/dev/null \
+        3>&- \
+        4>&- \
+        5>&- \
+        6>&- \
+        7>&- \
+        8>&- \
+        9>&-
 
       sed -n '1p' "$alloy_pg_data/postmaster.pid" >"$alloy_pg_pid"
 
@@ -252,11 +275,11 @@ EOF
         -p "$alloy_pg_port" \
         -U "$alloy_pg_user" \
         "$alloy_pg_db" \
-        >/dev/null 2>&1 || true
+        >/dev/null 2>&1 \
+        9>&- || true
     fi
 
-    "$alloy_flock" -u 9
-    exec 9>&-
+    alloy_pg_release_lock
 
     . "$alloy_pg_env"
     export PGHOST PGPORT DATABASE_URL
