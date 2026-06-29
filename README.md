@@ -16,9 +16,9 @@ search, library management, setup, and admin settings.
 Alloy Desktop currently targets Windows x64. Install the latest stable desktop
 build from the [latest GitHub Release](https://github.com/zekurio/alloy/releases/latest).
 
-Unstable desktop builds are workflow artifacts from `develop`, not GitHub
+Unstable desktop builds are workflow artifacts from `dev`, not GitHub
 Releases. Download the latest unstable Electron artifact from
-[desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip).
+[desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/dev/desktop-release-assets.zip).
 
 ### Server
 
@@ -54,11 +54,11 @@ For reproducible NixOS deployments, pin a release tag:
 inputs.alloy.url = "github:zekurio/alloy/vX.Y.Z";
 ```
 
-To follow the development branch through Nix flakes, pin `develop` in your
+To follow the development branch through Nix flakes, pin `dev` in your
 flake input and update your lock file when you want to move:
 
 ```nix
-inputs.alloy.url = "github:zekurio/alloy/develop";
+inputs.alloy.url = "github:zekurio/alloy/dev";
 ```
 
 ## Repository Guide
@@ -276,9 +276,9 @@ Alloy publishes GitHub Releases only for latest builds. Latest releases use tags
 named `vX.Y.Z` and attach the Windows installer, Electron updater metadata
 (`latest.yml`), blockmaps, and checksums.
 
-Unstable desktop builds are workflow artifacts from `develop`, not GitHub
+Unstable desktop builds are workflow artifacts from `dev`, not GitHub
 Releases. Download the latest unstable Electron artifact from
-[desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/develop/desktop-release-assets.zip).
+[desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/dev/desktop-release-assets.zip).
 
 Server releases are distributed through the Nix flake package and NixOS module.
 For reproducible deployments, pin the exact release tag in your flake input.
