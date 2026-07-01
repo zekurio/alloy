@@ -233,39 +233,49 @@ export const UpdateBody = z.object({
   tags: TagsInput,
 })
 
+export type ParsedRange =
+  | { kind: "none" }
+  | { kind: "unsatisfiable" }
+  | { kind: "range"; start: number; end: number }
+
 /** Parse an HTTP `Range: bytes=A-B` header into inclusive byte offsets. */
 export function parseRange(
   rangeHeader: string | undefined,
   size: number,
-): { start: number; end: number } | null {
-  if (!rangeHeader) return null
+): ParsedRange {
+  if (!rangeHeader) return { kind: "none" }
   const match = /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim())
-  if (!match) return null
+  if (!match) return { kind: "none" }
   const startStr = match[1] ?? ""
   const endStr = match[2] ?? ""
-  let start: number
-  let end: number
   if (startStr === "" && endStr !== "") {
     const suffix = Number.parseInt(endStr, 10)
-    if (!Number.isFinite(suffix) || suffix <= 0) return null
-    start = Math.max(0, size - suffix)
-    end = size - 1
-  } else if (startStr !== "") {
-    start = Number.parseInt(startStr, 10)
-    end = endStr ? Number.parseInt(endStr, 10) : size - 1
-  } else {
-    return null
+    if (!Number.isFinite(suffix) || suffix <= 0) {
+      return { kind: "unsatisfiable" }
+    }
+    const start = Math.max(0, size - suffix)
+    const end = size - 1
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) {
+      return { kind: "unsatisfiable" }
+    }
+    return { kind: "range", start, end }
   }
+  if (startStr === "") return { kind: "none" }
+
+  const start = Number.parseInt(startStr, 10)
+  const requestedEnd = endStr ? Number.parseInt(endStr, 10) : size - 1
   if (
     !Number.isFinite(start) ||
-    !Number.isFinite(end) ||
+    !Number.isFinite(requestedEnd) ||
     start < 0 ||
-    end >= size ||
-    start > end
+    start >= size
   ) {
-    return null
+    return { kind: "unsatisfiable" }
   }
-  return { start, end }
+
+  const end = Math.min(requestedEnd, size - 1)
+  if (start > end) return { kind: "unsatisfiable" }
+  return { kind: "range", start, end }
 }
 
 type PlaybackClipRow = typeof clip.$inferSelect

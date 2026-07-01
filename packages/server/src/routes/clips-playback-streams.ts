@@ -19,7 +19,7 @@ export function streamResolved(
   cacheControl: string,
 ): Response {
   const range = parseRange(c.req.header("range"), resolved.size)
-  if (range) {
+  if (range.kind === "range") {
     const length = range.end - range.start + 1
     const body = resolved.stream({ start: range.start, end: range.end })
     c.header("Content-Type", contentType)
@@ -35,6 +35,11 @@ export function streamResolved(
     return stream(c, async (s) => {
       await pipeReadable(s, body)
     })
+  }
+  if (range.kind === "unsatisfiable") {
+    c.header("Content-Range", `bytes */${resolved.size}`)
+    c.header("Cache-Control", cacheControl)
+    return c.body(null, 416)
   }
 
   const body = resolved.stream()
