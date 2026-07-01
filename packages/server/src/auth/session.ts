@@ -54,6 +54,7 @@ type CachedRefreshResult = {
 
 const refreshInFlight = new Map<string, Promise<RefreshResult | null>>()
 const refreshResultCache = new Map<string, CachedRefreshResult>()
+const requestSessionCache = new WeakMap<Context, Promise<SessionData | null>>()
 
 function accessExpiresAt(now: Date): Date {
   return new Date(now.getTime() + ACCESS_TTL_MS)
@@ -368,7 +369,7 @@ export async function refreshSession(
   return result
 }
 
-export async function getSession(
+async function resolveSession(
   headers: Headers | Context,
 ): Promise<SessionData | null> {
   const accessToken =
@@ -386,6 +387,19 @@ export async function getSession(
     return (await refreshSession(headers))?.data ?? null
   }
   return null
+}
+
+export async function getSession(
+  headers: Headers | Context,
+): Promise<SessionData | null> {
+  if (!("req" in headers)) return resolveSession(headers)
+
+  const cached = requestSessionCache.get(headers)
+  if (cached) return cached
+
+  const session = resolveSession(headers)
+  requestSessionCache.set(headers, session)
+  return session
 }
 
 function cookieTokenFromHeaders(
