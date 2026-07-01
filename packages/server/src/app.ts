@@ -2,7 +2,7 @@ import { createLogger, getLogContext, runWithLogContext } from "@alloy/logging"
 import { Hono } from "hono"
 import { cors } from "hono/cors"
 import { createMiddleware } from "hono/factory"
-import { secureHeaders } from "hono/secure-headers"
+import { NONCE, secureHeaders } from "hono/secure-headers"
 
 import { getSession } from "./auth/session"
 import { configStore } from "./config/store"
@@ -139,6 +139,22 @@ const apiApp = new Hono()
       // csrf middleware would reject. "same-origin" keeps Origin intact for
       // same-origin requests while still hiding the referrer cross-origin.
       referrerPolicy: "same-origin",
+      // Report-only first; rename this key to `contentSecurityPolicy` to
+      // enforce after production reports confirm the policy is quiet.
+      contentSecurityPolicyReportOnly: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", NONCE],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        // Storage is filesystem-only today, so browser media URLs stay
+        // same-origin. Future direct-storage URLs need their origin here.
+        imgSrc: ["'self'", "data:", "blob:"],
+        mediaSrc: ["'self'", "blob:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'"],
+        frameAncestors: ["'self'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+      },
     }),
   )
   .use("/api/*", csrf)
