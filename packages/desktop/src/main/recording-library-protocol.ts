@@ -3,7 +3,6 @@ import { extname } from "node:path"
 import { Readable } from "node:stream"
 import type { ReadableStream } from "node:stream/web"
 
-import { exportedCaptureFiles } from "./recording-library-export"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
   EXPORT_HOST,
@@ -11,7 +10,6 @@ import {
   MEDIA_PROTOCOL,
   THUMBNAIL_HOST,
 } from "./recording-library-shared"
-import { cachedRecordingThumbnail } from "./recording-library-thumbnails"
 import { mainSession } from "./session"
 
 export function recordingLibraryProtocolScheme(): Electron.CustomScheme {
@@ -59,6 +57,8 @@ export function registerRecordingLibraryProtocol(): void {
       route.kind === "export" ? null : findRecordingLibraryItem(route.id)
 
     if (route.kind === "export") {
+      const { exportedCaptureFiles } =
+        await import("./recording-library-export")
       const filename = exportedCaptureFiles.get(route.id)
       if (!filename || !existsSync(filename)) {
         return new Response("Not found", { status: 404 })
@@ -69,6 +69,8 @@ export function registerRecordingLibraryProtocol(): void {
     if (!item) return new Response("Not found", { status: 404 })
 
     if (route.kind === "thumbnail") {
+      const { cachedRecordingThumbnail } =
+        await import("./recording-library-thumbnails")
       const thumbnail = cachedRecordingThumbnail(item)
       if (!thumbnail) return new Response("Not found", { status: 404 })
       return rangedFileResponse(thumbnail, request)

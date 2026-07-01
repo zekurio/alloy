@@ -3,8 +3,6 @@ import { copyFileSync, renameSync, rmSync, statSync } from "node:fs"
 import type { RecordingCapture } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 
-import { concatMp4Segments, trimMp4Tail } from "./media"
-
 const logger = createLogger("recording")
 
 const pendingFinalizes = new Map<string, Promise<RecordingCapture>>()
@@ -52,6 +50,7 @@ async function finalizeTrimTail(
 ): Promise<void> {
   const tmp = `${filename}.trim.tmp`
   try {
+    const { trimMp4Tail } = await import("./media")
     const trimmed = await trimMp4Tail(filename, tmp, keepMs)
     if (trimmed) {
       renameSync(tmp, filename)
@@ -72,6 +71,7 @@ async function finalizeConcatSegments(
 
   const tmp = `${filename}.concat.tmp`
   try {
+    const { concatMp4Segments } = await import("./media")
     await concatMp4Segments(segmentPaths, tmp)
     renameSync(tmp, filename)
   } catch (cause) {

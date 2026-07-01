@@ -81,21 +81,6 @@ export function storeRecordingThumbnail(
   }
 }
 
-/**
- * Filmstrip frames now decode in the renderer (mediabunny); drop the legacy
- * on-disk cache.
- */
-export function cleanupLegacyFilmstripCache(): void {
-  try {
-    rmSync(join(app.getPath("userData"), "recording-filmstrips"), {
-      recursive: true,
-      force: true,
-    })
-  } catch {
-    // Best effort — a locked folder just lingers.
-  }
-}
-
 /** Drops thumbnails generated from an older mtime/size of the same capture. */
 export function pruneStaleThumbnails(id: string, keep: string): void {
   const folder = thumbnailFolder()

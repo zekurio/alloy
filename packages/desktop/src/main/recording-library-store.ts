@@ -11,7 +11,6 @@ import type {
   RecordingLibraryMetaUpdateResult,
 } from "@/shared/ipc"
 
-import { probeDurationMs } from "./media"
 import {
   correctCaptureDurationMs,
   readCaptureManifest,
@@ -32,7 +31,6 @@ import {
   isCaptureId,
   titleForCapture,
 } from "./recording-library-shared"
-import { pruneStaleThumbnails } from "./recording-library-thumbnails"
 import { currentOutputFolder } from "./recording-storage"
 
 const logger = createLogger("library")
@@ -66,13 +64,17 @@ export function rememberRecordingLibraryCapture(
   // The sidecar reports the requested duration (for replays, the configured
   // buffer window even when the buffer held less footage). Measure the real
   // duration off the recording path and correct the entry when they disagree.
-  void probeDurationMs(filename).then((probed) => {
+  void (async () => {
+    const { probeDurationMs } = await import("./media")
+    const probed = await probeDurationMs(filename)
     if (probed === null) return
     const reported = capture.durationMs
     if (reported !== null && Math.abs(probed - reported) <= 1000) return
     if (correctCaptureDurationMs(filename, probed)) {
       invalidateRecordingLibrarySnapshot()
     }
+  })().catch((cause: unknown) => {
+    logger.warn("failed to probe recording duration:", cause)
   })
 }
 
@@ -172,7 +174,13 @@ export async function deleteRecordingLibraryItem(id: string): Promise<void> {
   }
   invalidateRecordingLibrarySnapshot()
   // Passing an impossible "keep" name clears every cached file for the id.
-  pruneStaleThumbnails(id, "")
+  try {
+    const { pruneStaleThumbnails } =
+      await import("./recording-library-thumbnails")
+    pruneStaleThumbnails(id, "")
+  } catch (cause) {
+    logger.warn("failed to prune deleted recording thumbnails:", cause)
+  }
 }
 
 export function openRecordingLibraryFolder(): void {

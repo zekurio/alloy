@@ -8,13 +8,21 @@
  *   delete) and open/reveal actions.
  * - `recording-library-export` — trimmed exports for publishing.
  */
-export { exportRecordingLibraryItem } from "./recording-library-export"
+import { rmSync } from "node:fs"
+import { join } from "node:path"
+
+import { app } from "electron"
+
+import type {
+  RecordingLibraryCommitStagedImportRequest,
+  RecordingLibraryExportRequest,
+} from "@/shared/ipc"
+
 export {
   recordingLibraryProtocolScheme,
   registerRecordingLibraryProtocol,
 } from "./recording-library-protocol"
 export { getRecordingLibrarySnapshot } from "./recording-library-scan"
-export { cleanupLegacyFilmstripCache } from "./recording-library-thumbnails"
 export {
   deleteRecordingLibraryItem,
   openRecordingLibraryFolder,
@@ -23,8 +31,46 @@ export {
   revealRecordingLibraryItem,
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library-store"
-export {
-  commitRecordingLibraryStagedImport,
-  discardRecordingLibraryStagedImport,
-  stageRecordingLibraryVideoFiles,
-} from "./recording-library-import"
+
+export async function exportRecordingLibraryItem(
+  request: RecordingLibraryExportRequest,
+) {
+  const { exportRecordingLibraryItem } =
+    await import("./recording-library-export")
+  return exportRecordingLibraryItem(request)
+}
+
+export async function stageRecordingLibraryVideoFiles(paths: string[]) {
+  const { stageRecordingLibraryVideoFiles } =
+    await import("./recording-library-import")
+  return stageRecordingLibraryVideoFiles(paths)
+}
+
+export async function commitRecordingLibraryStagedImport(
+  request: RecordingLibraryCommitStagedImportRequest,
+) {
+  const { commitRecordingLibraryStagedImport } =
+    await import("./recording-library-import")
+  return commitRecordingLibraryStagedImport(request)
+}
+
+export async function discardRecordingLibraryStagedImport(id: string) {
+  const { discardRecordingLibraryStagedImport } =
+    await import("./recording-library-import")
+  return discardRecordingLibraryStagedImport(id)
+}
+
+/**
+ * Filmstrip frames now decode in the renderer (mediabunny); drop the legacy
+ * on-disk cache without loading thumbnail or image hashing helpers at startup.
+ */
+export function cleanupLegacyFilmstripCache(): void {
+  try {
+    rmSync(join(app.getPath("userData"), "recording-filmstrips"), {
+      recursive: true,
+      force: true,
+    })
+  } catch {
+    // Best effort — a locked folder just lingers.
+  }
+}
