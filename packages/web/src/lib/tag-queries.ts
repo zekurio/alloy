@@ -1,6 +1,8 @@
 import type { ClipListSort, TagClipsParams } from "@alloy/api"
 import {
+  infiniteQueryOptions,
   keepPreviousData,
+  queryOptions,
   useInfiniteQuery,
   useQuery,
 } from "@tanstack/react-query"
@@ -23,11 +25,11 @@ export const tagKeys = {
 
 const TAG_PAGE_LIMIT = 24
 
-export function useTagClipsInfiniteQuery(
+export function tagClipsInfiniteQueryOptions(
   tag: string,
   filters: TagClipsFilters,
 ) {
-  return useInfiniteQuery({
+  return infiniteQueryOptions({
     queryKey: tagKeys.clips(tag, filters),
     queryFn: ({ pageParam }) =>
       api.tags.fetchClipPage(tag, {
@@ -43,6 +45,13 @@ export function useTagClipsInfiniteQuery(
   })
 }
 
+export function useTagClipsInfiniteQuery(
+  tag: string,
+  filters: TagClipsFilters,
+) {
+  return useInfiniteQuery(tagClipsInfiniteQueryOptions(tag, filters))
+}
+
 export function useTagGamesQuery(tag: string) {
   return useQuery({
     queryKey: tagKeys.games(tag),
@@ -54,7 +63,11 @@ export function useTagGamesQuery(tag: string) {
 }
 
 export function useTagSummaryQuery(tag: string) {
-  return useQuery({
+  return useQuery(tagSummaryQueryOptions(tag))
+}
+
+export function tagSummaryQueryOptions(tag: string) {
+  return queryOptions({
     queryKey: tagKeys.summary(tag),
     queryFn: () => api.tags.fetchSummary(tag),
     enabled: tag.length > 0,

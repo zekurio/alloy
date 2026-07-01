@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { Suspense } from "react"
+import { Suspense, lazy } from "react"
 
-import { AllClipsSection } from "@/components/routes/profile/all-clips-section"
 import { useUserClipsQuery } from "@/lib/clip-queries"
 import {
   parseProfileAllSearch,
@@ -9,8 +8,18 @@ import {
 } from "@/lib/profile-all-search"
 import { useUserProfileViewerQuery } from "@/lib/user-queries"
 
+const loadAllClipsSection = async () => {
+  const module = await import("@/components/routes/profile/all-clips-section")
+  return { default: module.AllClipsSection }
+}
+
+const AllClipsSection = lazy(loadAllClipsSection)
+
 export const Route = createFileRoute("/(app)/_app/u/$username/all")({
   validateSearch: parseProfileAllSearch,
+  loader: () => {
+    void loadAllClipsSection()
+  },
   component: ProfileAllTab,
 })
 

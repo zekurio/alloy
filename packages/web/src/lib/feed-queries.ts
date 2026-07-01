@@ -1,6 +1,8 @@
 import type { ClipFeedSort, FeedFilter, FeedPageParams } from "@alloy/api"
 import {
+  infiniteQueryOptions,
   keepPreviousData,
+  queryOptions,
   useInfiniteQuery,
   useQuery,
 } from "@tanstack/react-query"
@@ -19,12 +21,12 @@ export const feedKeys = {
     [...feedKeys.all, "list", ...filterKey(filter), { sort, limit }] as const,
 }
 
-export function useFeedInfiniteQuery(
+export function feedInfiniteQueryOptions(
   filter: FeedFilter,
   sort: ClipFeedSort,
   { limit = 20 }: { limit?: number } = {},
 ) {
-  return useInfiniteQuery({
+  return infiniteQueryOptions({
     queryKey: feedKeys.list(filter, sort, limit),
     queryFn: ({ pageParam }) =>
       api.feed.fetch({
@@ -39,11 +41,23 @@ export function useFeedInfiniteQuery(
   })
 }
 
-export function useFeedChipsQuery() {
-  return useQuery({
+export function useFeedInfiniteQuery(
+  filter: FeedFilter,
+  sort: ClipFeedSort,
+  { limit = 20 }: { limit?: number } = {},
+) {
+  return useInfiniteQuery(feedInfiniteQueryOptions(filter, sort, { limit }))
+}
+
+export function feedChipsQueryOptions() {
+  return queryOptions({
     queryKey: feedKeys.chips(),
     queryFn: () => api.feed.fetchChips(),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   })
+}
+
+export function useFeedChipsQuery() {
+  return useQuery(feedChipsQueryOptions())
 }

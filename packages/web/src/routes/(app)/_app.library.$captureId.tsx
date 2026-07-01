@@ -1,9 +1,15 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { Suspense } from "react"
+import { Suspense, lazy } from "react"
 
-import { LibraryEditorPage } from "@/components/routes/library/library-editor-page"
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 import { alloyDesktop } from "@/lib/desktop"
+
+const loadLibraryEditorPage = async () => {
+  const module = await import("@/components/routes/library/library-editor-page")
+  return { default: module.LibraryEditorPage }
+}
+
+const LibraryEditorPage = lazy(loadLibraryEditorPage)
 
 export const Route = createFileRoute("/(app)/_app/library/$captureId")({
   validateSearch: (search: Record<string, unknown>): { prompt?: "game" } => ({
@@ -12,6 +18,9 @@ export const Route = createFileRoute("/(app)/_app/library/$captureId")({
   beforeLoad: async ({ context }) => {
     await requireStrictAuthBeforeLoad({ context })
     if (!alloyDesktop()) throw redirect({ to: "/" })
+  },
+  loader: () => {
+    void loadLibraryEditorPage()
   },
   component: LibraryCaptureRoute,
 })
