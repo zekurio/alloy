@@ -1,10 +1,12 @@
 import type { QueueEvent } from "@alloy/contracts"
 import { clip } from "@alloy/db/schema"
+import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { eq } from "drizzle-orm"
 
 import { selectQueueRowById } from "./queue-select"
 
+const logger = createLogger("clips")
 const subscribers = new Map<string, Set<(event: QueueEvent) => void>>()
 
 function channel(authorId: string): string {
@@ -15,22 +17,34 @@ export async function publishClipUpsert(
   authorId: string,
   clipId: string,
 ): Promise<void> {
-  const row = await selectQueueRowById(clipId)
-  if (!row) return
-  publish(channel(authorId), {
-    type: "upsert",
-    clip: row,
-  } satisfies QueueEvent)
+  try {
+    const row = await selectQueueRowById(clipId)
+    if (!row) return
+    publish(channel(authorId), {
+      type: "upsert",
+      clip: row,
+    } satisfies QueueEvent)
+  } catch (err) {
+    // Best-effort SSE fan-out: callers fire-and-forget these, so a rejection
+    // here would become an unhandled rejection and kill the process.
+    logger.warn(`failed to publish clip upsert for ${clipId}:`, err)
+  }
 }
 
 export async function publishClipUpsertById(clipId: string): Promise<void> {
-  const [owner] = await db
-    .select({ authorId: clip.author_id })
-    .from(clip)
-    .where(eq(clip.id, clipId))
-    .limit(1)
-  if (!owner) return
-  await publishClipUpsert(owner.authorId, clipId)
+  try {
+    const [owner] = await db
+      .select({ authorId: clip.author_id })
+      .from(clip)
+      .where(eq(clip.id, clipId))
+      .limit(1)
+    if (!owner) return
+    await publishClipUpsert(owner.authorId, clipId)
+  } catch (err) {
+    // Best-effort SSE fan-out: callers fire-and-forget these, so a rejection
+    // here would become an unhandled rejection and kill the process.
+    logger.warn(`failed to publish clip upsert by id for ${clipId}:`, err)
+  }
 }
 
 /** Hot-path progress tick. No DB fetch — the client patches in place. */
