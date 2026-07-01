@@ -210,14 +210,14 @@ function withInjectedHead(indexHtml: string, head: string): string {
  * public (non-secret) data goes here; `<` is escaped to prevent a `</script>`
  * breakout.
  */
-function bootstrapScript(config: PublicAuthConfig): string {
+function bootstrapScript(config: PublicAuthConfig, nonce: string): string {
   // Escape `<` (blocks </script> breakout) and U+2028/U+2029, which are legal in
   // JSON but illegal as raw line terminators in a JS string on older engines.
   const json = JSON.stringify(config)
     .replaceAll("<", "\\u003c")
     .replaceAll("\u2028", "\\u2028")
     .replaceAll("\u2029", "\\u2029")
-  return `<script>globalThis.__ALLOY_PUBLIC_CONFIG__=${json}</script>`
+  return `<script nonce="${htmlEscape(nonce)}">globalThis.__ALLOY_PUBLIC_CONFIG__=${json}</script>`
 }
 
 function withInjectedBootstrap(indexHtml: string, script: string): string {
@@ -294,9 +294,13 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     c.header("Content-Type", "text/html; charset=utf-8")
     c.header("Cache-Control", "no-cache")
     if (c.req.method === "HEAD") return c.body(null)
+    const nonce = c.get("secureHeadersNonce")
+    if (!nonce) {
+      throw new Error("secure headers nonce missing for app shell")
+    }
     const html = withInjectedBootstrap(
       withInjectedHead(webMount.indexHtml, head),
-      bootstrapScript(await buildPublicAuthConfig()),
+      bootstrapScript(await buildPublicAuthConfig(), nonce),
     )
     return c.html(html)
   })
