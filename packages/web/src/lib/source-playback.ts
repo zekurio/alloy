@@ -1,4 +1,3 @@
-import { t } from "@alloy/i18n"
 type SourceCodecHints = {
   videoCodec?: string | null
   audioCodec?: string | null
@@ -100,9 +99,9 @@ function sourceCodecLists(hints: SourceCodecHints): string[][] {
 function normalizeSourceCodec(codec: string | null | undefined): string | null {
   const normalized = codec?.trim().toLowerCase()
   if (!normalized) return null
-  if (normalized === "avc" || normalized === "avc1") return t("h264")
+  if (normalized === "avc" || normalized === "avc1") return "h264"
   if (normalized === "h265" || normalized === "hvc1" || normalized === "hev1") {
-    return t("hevc")
+    return "hevc"
   }
   if (normalized === "mpeg4aac") return "aac"
   return normalized
