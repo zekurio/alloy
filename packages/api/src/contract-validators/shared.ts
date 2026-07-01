@@ -5,9 +5,9 @@ import {
   validateNonNegativeInteger,
   validateNonNegativeNumber,
   validateNullableDateString,
+  validateNullablePublicImageSrcString,
   validateNullablePositiveInteger,
   validateNullableString,
-  validateNullableUrlString,
   validateOptionalString,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
@@ -63,9 +63,9 @@ export function validateGameRowFields(
     `Invalid ${label} response: releaseDate must be a date string or null`,
   )
   for (const key of ["heroUrl", "gridUrl", "logoUrl", "iconUrl"] as const) {
-    validateNullableUrlString(
+    validateNullablePublicImageSrcString(
       row[key],
-      `Invalid ${label} response: ${key} must be a URL or null`,
+      `Invalid ${label} response: ${key} must be an image URL or public asset path`,
     )
   }
   for (const key of ["heroBlurHash", "gridBlurHash"] as const) {
