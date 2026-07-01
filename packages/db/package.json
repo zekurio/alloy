@@ -19,9 +19,11 @@
     "@alloy/contracts": "workspace:*",
     "@alloy/env": "workspace:*",
     "@alloy/logging": "workspace:*",
-    "drizzle-kit": "0.31.10",
     "drizzle-orm": "0.45.2",
     "pg": "8.21.0",
     "zod": "4.3.6"
+  },
+  "devDependencies": {
+    "drizzle-kit": "0.31.10"
   }
 }

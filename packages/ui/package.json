@@ -16,7 +16,7 @@
     "@alloy/contracts": "workspace:*",
     "@alloy/i18n": "workspace:*",
     "@base-ui/react": "1.4.1",
-    "blurhash": "^2.0.5",
+    "blurhash": "2.0.5",
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "embla-carousel-react": "8.6.0",

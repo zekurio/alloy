@@ -26,13 +26,13 @@
     "@hono/node-server": "2.0.4",
     "@hono/zod-validator": "0.7.6",
     "@simplewebauthn/server": "13.3.0",
-    "blurhash": "^2.0.5",
+    "blurhash": "2.0.5",
     "drizzle-orm": "0.45.2",
     "hono": "4.12.25",
-    "mediabunny": "^1.46.0",
+    "mediabunny": "1.46.0",
     "openid-client": "6.8.2",
     "pg": "8.21.0",
-    "sharp": "^0.34.5",
+    "sharp": "0.34.5",
     "zod": "4.3.6"
   },
   "devDependencies": {
