@@ -12,6 +12,12 @@ import { requestShutdown } from "./runtime/shutdown"
 
 const logger = createLogger("server")
 
+// Best-effort async work (SSE publishes, cache refreshes) must never take the
+// process down; Node's default is --unhandled-rejections=throw.
+process.on("unhandledRejection", (reason) => {
+  logger.error("unhandled promise rejection:", reason)
+})
+
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)
 }
