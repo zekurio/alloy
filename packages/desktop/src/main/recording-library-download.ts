@@ -11,7 +11,6 @@ import type {
 import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
-import { probeDurationMs } from "./media"
 import { emitRecordingLibraryDownloadEvent } from "./recording"
 import {
   correctCaptureDurationMs,
@@ -157,8 +156,12 @@ async function runDownload(
     // Uploaded clips carry their duration, but probe when it's missing so the
     // editor timeline gets a real value (mirrors recorded captures).
     if (request.durationMs === null) {
-      void probeDurationMs(absolute).then((probed) => {
+      void (async () => {
+        const { probeDurationMs } = await import("./media")
+        const probed = await probeDurationMs(absolute)
         if (probed !== null) correctCaptureDurationMs(absolute, probed)
+      })().catch((cause: unknown) => {
+        logger.warn("failed to probe downloaded clip duration:", cause)
       })
     }
   } catch (cause) {

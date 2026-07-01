@@ -3,7 +3,6 @@ import { BrowserWindow, dialog, ipcMain } from "electron"
 
 import { IPC } from "@/shared/ipc"
 
-import { imageBufferBlurHash } from "./image-blurhash"
 import { requireMainSender } from "./ipc-guards"
 import {
   normalizeLibraryCommitStagedImportRequest,
@@ -31,7 +30,6 @@ import {
   startRecordingLibraryClipDownload,
 } from "./recording-library-download"
 import { VIDEO_EXTENSIONS } from "./recording-library-shared"
-import { storeRecordingThumbnail } from "./recording-library-thumbnails"
 import { sameOrigin } from "./url-policy"
 import type { Windows } from "./windows"
 
@@ -126,19 +124,22 @@ function registerRecordingLibraryImportIpc(windows: Windows): void {
   )
   ipcMain.handle(
     IPC.saveRecordingLibraryCaptureThumbnail,
-    (event, request: unknown) => {
+    async (event, request: unknown) => {
       requireMainSender(windows, event)
       const normalized = normalizeLibraryThumbnailSaveRequest(request)
       if (!normalized) throw new Error("Invalid thumbnail save request.")
+      const { storeRecordingThumbnail } =
+        await import("./recording-library-thumbnails")
       storeRecordingThumbnail(normalized.id, normalized.data)
     },
   )
   ipcMain.handle(
     IPC.hashRecordingLibraryThumbnail,
-    (event, request: unknown) => {
+    async (event, request: unknown) => {
       requireMainSender(windows, event)
       const normalized = normalizeLibraryThumbnailHashRequest(request)
       if (!normalized) throw new Error("Invalid thumbnail hash request.")
+      const { imageBufferBlurHash } = await import("./image-blurhash")
       return imageBufferBlurHash(normalized)
     },
   )
