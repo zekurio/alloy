@@ -71,33 +71,37 @@ export const clipsUploadRoutes = new Hono()
       }
       if (body.privacy !== undefined) patch.privacy = body.privacy
 
-      await db.update(clip).set(patch).where(eq(clip.id, id))
+      const mentionedIds =
+        body.mentionedUserIds !== undefined
+          ? await resolveMentionIds(body.mentionedUserIds, row.author_id)
+          : undefined
 
-      if (body.mentionedUserIds !== undefined) {
-        const mentionedIds = await resolveMentionIds(
-          body.mentionedUserIds,
-          row.author_id,
-        )
-        await db.delete(clipMention).where(eq(clipMention.clip_id, id))
-        if (mentionedIds.length > 0) {
-          await db.insert(clipMention).values(
-            mentionedIds.map((mentionedUserId) => ({
-              clip_id: id,
-              mentioned_user_id: mentionedUserId,
-            })),
-          )
+      const tags =
+        body.tags !== undefined ? normalizeTags(body.tags) : undefined
+
+      await db.transaction(async (tx) => {
+        await tx.update(clip).set(patch).where(eq(clip.id, id))
+
+        if (mentionedIds !== undefined) {
+          await tx.delete(clipMention).where(eq(clipMention.clip_id, id))
+          if (mentionedIds.length > 0) {
+            await tx.insert(clipMention).values(
+              mentionedIds.map((mentionedUserId) => ({
+                clip_id: id,
+                mentioned_user_id: mentionedUserId,
+              })),
+            )
+          }
         }
-      }
 
-      if (body.tags !== undefined) {
-        const tags = normalizeTags(body.tags)
-        await db.delete(clipTag).where(eq(clipTag.clip_id, id))
+        if (tags === undefined) return
+        await tx.delete(clipTag).where(eq(clipTag.clip_id, id))
         if (tags.length > 0) {
-          await db
+          await tx
             .insert(clipTag)
             .values(tags.map((tag) => ({ clip_id: id, tag })))
         }
-      }
+      })
 
       void publishClipUpsert(row.author_id, id)
 
