@@ -27,8 +27,9 @@
     "lint": "oxlint .",
     "lint:github": "pnpm lint",
     "lint:ci": "pnpm lint",
+    "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
+    "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
     "@types/node": "25.6.0",
