@@ -1,4 +1,4 @@
-import type { ClipFeedSort, FeedFilter } from "@alloy/api"
+import type { ClipFeedSort } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Link, useSearch } from "@tanstack/react-router"
@@ -8,19 +8,11 @@ import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
 import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
-import type { HomeSearch } from "@/lib/home-search"
+import { homeFeedFilter, type HomeSearch } from "@/lib/home-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { FeedFilterDropdown } from "./feed-filter-dropdown"
 import { FeedSection } from "./feed-section"
-
-function filterFromSearch(search: HomeSearch): FeedFilter {
-  if (search.game) {
-    return { kind: "game", gameId: search.game }
-  }
-  if (search.feed === "following") return { kind: "following" }
-  return { kind: "all" }
-}
 
 export function HomePageInner() {
   const session = useSuspenseSession()
@@ -28,7 +20,7 @@ export function HomePageInner() {
   const toolbarSearchKey = JSON.stringify(search)
   const toolbarSearch = useMemo(() => search, [toolbarSearchKey])
 
-  const filter = useMemo(() => filterFromSearch(toolbarSearch), [toolbarSearch])
+  const filter = useMemo(() => homeFeedFilter(toolbarSearch), [toolbarSearch])
   const sort: ClipFeedSort = toolbarSearch.sort ?? DEFAULT_CLIP_SORT
 
   const viewerId = session?.user.id

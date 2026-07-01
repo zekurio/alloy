@@ -9,6 +9,7 @@ import type {
 import {
   keepPreviousData,
   type QueryClient,
+  queryOptions,
   useMutation,
   useQuery,
   useQueryClient,
@@ -91,14 +92,18 @@ export function useResolveGameMutation() {
   })
 }
 
-export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
-  return useQuery({
+export function gamesListQueryOptions() {
+  return queryOptions({
     queryKey: gameKeys.list(),
     queryFn: () => api.games.fetchAll(),
     // Clip uploads nudge this indirectly (new game → new row). 60s is a
     // decent balance between freshness and not hammering on tab flips.
     staleTime: 60_000,
   })
+}
+
+export function useGamesListQuery(): UseQueryResult<GameListRow[]> {
+  return useQuery(gamesListQueryOptions())
 }
 
 export function invalidateGameQueries(qc: QueryClient): Promise<void> {
@@ -131,7 +136,11 @@ export function useGameQuery(
   gameId: string,
   viewerId: string | null,
 ): UseQueryResult<GameDetail> {
-  return useQuery({
+  return useQuery(gameQueryOptions(gameId, viewerId))
+}
+
+export function gameQueryOptions(gameId: string, viewerId: string | null) {
+  return queryOptions({
     queryKey: gameKeys.detail(gameId, viewerId),
     queryFn: () => api.games.fetchById(gameId),
     enabled: gameId.length > 0,
