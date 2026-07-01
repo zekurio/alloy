@@ -1,3 +1,5 @@
+import { GAME_ASSET_PATH_PREFIX } from "@alloy/contracts"
+
 export function objectRecord(
   value: unknown,
   label: string,
@@ -102,6 +104,57 @@ export function validateUrlString(
 
 export function validateOptionalUrlString(value: unknown, message: string) {
   if (value !== undefined) validateUrlString(value, message)
+}
+
+const PUBLIC_IMAGE_SRC_BASE_URL = "https://alloy.local"
+const PUBLIC_IMAGE_SRC_BASE_ORIGIN = new URL(PUBLIC_IMAGE_SRC_BASE_URL).origin
+
+function isHttpUrlString(value: string) {
+  if (!URL.canParse(value)) return false
+
+  const url = new URL(value)
+  return url.protocol === "http:" || url.protocol === "https:"
+}
+
+function hasControlCharacter(value: string) {
+  for (let i = 0; i < value.length; i += 1) {
+    const code = value.charCodeAt(i)
+    if (code < 0x20 || code === 0x7f) return true
+  }
+  return false
+}
+
+function isPublicAssetPath(value: string) {
+  if (
+    !value.startsWith(GAME_ASSET_PATH_PREFIX) ||
+    value.includes("\\") ||
+    hasControlCharacter(value) ||
+    !URL.canParse(value, PUBLIC_IMAGE_SRC_BASE_URL)
+  ) {
+    return false
+  }
+
+  const url = new URL(value, PUBLIC_IMAGE_SRC_BASE_URL)
+  return (
+    url.origin === PUBLIC_IMAGE_SRC_BASE_ORIGIN &&
+    url.pathname.startsWith(GAME_ASSET_PATH_PREFIX)
+  )
+}
+
+export function validatePublicImageSrcString(
+  value: unknown,
+  message: string,
+): asserts value is string {
+  validateString(value, message)
+  if (isHttpUrlString(value) || isPublicAssetPath(value)) return
+  throw new Error(message)
+}
+
+export function validateNullablePublicImageSrcString(
+  value: unknown,
+  message: string,
+): asserts value is string | null {
+  if (value !== null) validatePublicImageSrcString(value, message)
 }
 
 export function validateNullableUrlString(

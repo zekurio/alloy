@@ -4,8 +4,8 @@ import {
   validateNonNegativeInteger,
   validateNonNegativeNumber,
   validateNullablePositiveInteger,
+  validateNullablePublicImageSrcString,
   validateNullableRequiredString,
-  validateNullableUrlString,
   validateRequiredString,
 } from "@alloy/api/runtime-validation"
 import {
@@ -45,9 +45,9 @@ function validateFeedChipGame(value: unknown): FeedChipGame {
     )
   }
   for (const key of ["iconUrl", "logoUrl"] as const) {
-    validateNullableUrlString(
+    validateNullablePublicImageSrcString(
       row[key],
-      `Invalid feed chips response: ${key} must be a URL or null`,
+      `Invalid feed chips response: ${key} must be an image URL or public asset path`,
     )
   }
   validateNonNegativeNumber(
