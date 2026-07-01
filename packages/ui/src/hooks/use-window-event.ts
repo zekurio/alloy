@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 
 export function useWindowEvent<K extends keyof WindowEventMap>(
   type: K,
@@ -8,10 +8,20 @@ export function useWindowEvent<K extends keyof WindowEventMap>(
   options?: boolean | AddEventListenerOptions,
   enabled = true,
 ): void {
+  const listenerRef = useRef(listener)
+
+  useEffect(() => {
+    listenerRef.current = listener
+  }, [listener])
+
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return
-    window.addEventListener(type, listener as EventListener, options)
-    return () =>
-      window.removeEventListener(type, listener as EventListener, options)
-  }, [type, listener, options, enabled])
+
+    const handleEvent: EventListener = (event) => {
+      listenerRef.current(event as WindowEventMap[K])
+    }
+
+    window.addEventListener(type, handleEvent, options)
+    return () => window.removeEventListener(type, handleEvent, options)
+  }, [type, options, enabled])
 }
