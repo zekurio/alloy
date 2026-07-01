@@ -1,3 +1,4 @@
+import { fieldControlClassName } from "@alloy/ui/lib/field-control"
 import { cn } from "@alloy/ui/lib/utils"
 import { Input } from "@base-ui/react/input"
 import type { ComponentProps } from "react"
@@ -8,18 +9,12 @@ function InputRoot({ className, type, ...props }: ComponentProps<"input">) {
       type={type}
       data-slot="input"
       className={cn(
-        "flex h-9 w-full min-w-0 items-center gap-2 sm:h-8",
-        "rounded-lg border border-border bg-input px-3 text-base text-foreground sm:text-sm",
+        fieldControlClassName,
+        "flex h-9 w-full min-w-0 items-center gap-2 px-3 text-base sm:h-8 sm:text-sm",
         "appearance-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
         "[&[type=number]]:[-moz-appearance:textfield]",
-        "transition-[border-color,background-color,box-shadow] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "placeholder:text-foreground-faint",
-        "hover:border-border-strong hover:bg-surface-raised",
-        "focus-visible:border-accent-border focus-visible:bg-surface-raised focus-visible:outline-none",
-        "focus-visible:ring-2 focus-visible:ring-accent-border/20 focus-visible:ring-inset",
-        "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
-        "aria-invalid:border-destructive aria-invalid:bg-destructive/5 aria-invalid:ring-2 aria-invalid:ring-destructive/15",
-        "user-invalid:border-destructive user-invalid:bg-destructive/5 user-invalid:ring-2 user-invalid:ring-destructive/15",
+        "disabled:pointer-events-none",
         "file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground",
         // Override browser autofill chrome (yellow/blue bgs) with our theme tokens.
         // box-shadow inset is the only reliable way to paint over the forced autofill bg.
