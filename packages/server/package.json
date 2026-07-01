@@ -10,6 +10,7 @@
     "build": "vite build",
     "dev": "tsx watch --clear-screen=false src/index.ts",
     "start": "NODE_ENV=production node dist/index.js",
+    "test": "tsx --test 'src/**/*.test.ts'",
     "test:config": "tsx --test src/config/*.test.ts",
     "typecheck": "tsc --noEmit",
     "db:generate": "pnpm --filter @alloy/db db:generate",
