@@ -228,6 +228,16 @@ async function selectCachedGameRefById(
   return row ?? null
 }
 
+async function selectCachedGameRefsByIds(
+  gameIds: string[],
+): Promise<CachedGameMetadataRow[]> {
+  if (gameIds.length === 0) return []
+  return db
+    .select({ ...gameSelectShape, updatedAt: game.updated_at })
+    .from(game)
+    .where(inArray(game.id, gameIds))
+}
+
 async function selectCachedGameRefBySlug(
   slug: string,
 ): Promise<CachedGameMetadataRow | null> {
@@ -348,6 +358,20 @@ export async function getGameRefById(gameId: string): Promise<GameRow | null> {
     refreshCachedGameRef(cached.steamgriddbId)
   }
   return serialiseGameRow(cached)
+}
+
+export async function getGameRefsByIds(
+  gameIds: string[],
+): Promise<Map<string, GameRow>> {
+  const rows = await selectCachedGameRefsByIds(gameIds)
+  const refs = new Map<string, GameRow>()
+  for (const row of rows) {
+    if (shouldBackgroundRefresh(row) && row.steamgriddbId !== null) {
+      refreshCachedGameRef(row.steamgriddbId)
+    }
+    refs.set(row.id, serialiseGameRow(row))
+  }
+  return refs
 }
 
 export async function getSteamGridDBGameRefBySlug(

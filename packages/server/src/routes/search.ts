@@ -6,7 +6,7 @@ import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import {
   gameSelectShape,
-  getGameRefById,
+  getGameRefsByIds,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
 import { searchGames } from "@alloy/server/games/steamgriddb"
@@ -81,12 +81,15 @@ async function searchSteamGridDBGames(
     const results = await searchGames(q)
     const ids = results.map((row) => row.id)
     const counts = await countVisibleClipsForSteamGridDBIds(ids)
+    const refs = await getGameRefsByIds(
+      [...counts.values()].map((row) => row.gameId),
+    )
     const rows: GameListRow[] = []
 
     for (const result of results) {
       const countRow = counts.get(result.id)
       if (!countRow) continue
-      const ref = await getGameRefById(countRow.gameId)
+      const ref = refs.get(countRow.gameId)
       if (!ref) continue
       rows.push(serialiseGameListRow({ ...ref, clipCount: countRow.clipCount }))
       if (rows.length >= limit) break
