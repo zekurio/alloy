@@ -119,7 +119,7 @@ function ButtonRoot({
       data-slot="button"
       data-variant={variant ?? "primary"}
       ref={setRef}
-      type={type}
+      type={type ?? (props.render ? undefined : "button")}
       disabled={disabled || formInvalid}
       className={cn(buttonVariants({ variant, size, className }))}
       {...props}
