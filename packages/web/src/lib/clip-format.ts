@@ -64,12 +64,7 @@ function previewStreamUrl(row: ClipRow): string {
   if (!lowest) {
     return clipStreamUrl(row.id, apiOrigin(), row.sourceVersion ?? undefined)
   }
-  return clipRenditionFileUrl(
-    row.id,
-    lowest.height,
-    apiOrigin(),
-    lowest.version,
-  )
+  return clipRenditionFileUrl(row.id, lowest.name, apiOrigin(), lowest.version)
 }
 
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {

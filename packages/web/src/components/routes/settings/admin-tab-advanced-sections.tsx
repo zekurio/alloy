@@ -6,6 +6,7 @@ import {
   TRANSCODE_VIDEO_CODECS,
   type VideoCodec,
 } from "@alloy/api"
+import { deriveRenditionNames } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
@@ -29,7 +30,6 @@ import {
   SelectValue,
 } from "@alloy/ui/components/select"
 import { SettingRow } from "@alloy/ui/components/setting-row"
-import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
@@ -60,7 +60,14 @@ type TranscodingConfig = AdminRuntimeConfig["transcoding"]
 
 // A tier stays a plain numeric shape while edited; blank inputs become NaN so
 // the row can flag "required" without ever leaving a config-shaped hole.
-type LadderTier = { height: number; maxFps: number; maxrateKbps: number }
+// `codec` is null when the tier follows the global default codec.
+type LadderTier = {
+  height: number
+  maxFps: number
+  maxrateKbps: number
+  codec: VideoCodec | null
+  og: boolean
+}
 
 type TranscodingForm = {
   videoCodec: VideoCodec
@@ -85,15 +92,12 @@ const HARDWARE_ACCELERATION_LABELS: Record<HardwareAcceleration, string> = {
   videotoolbox: t("Apple VideoToolbox"),
 }
 
-const QUALITY_HINTS: Record<VideoCodec, string> = {
-  h264: t("For H.264, 18–28 is a good range."),
-  hevc: t("For HEVC, 18–28 is a good range."),
-  av1: t("AV1 stays clean at higher values; 24–32 is typical."),
-}
-
 const AUDIO_BITRATES = [64, 96, 128, 160, 192, 256, 320] as const
 
 const COMMON_TIER_HEIGHTS = [2160, 1440, 1080, 720, 480, 360, 240, 144]
+
+const LADDER_GRID_CLASS =
+  "sm:grid sm:grid-cols-[minmax(4.5rem,auto)_6rem_5rem_7rem_minmax(10rem,1fr)_5.5rem_2rem] sm:items-center sm:gap-3"
 
 export function TranscodingSettingsContent({
   config,
@@ -126,6 +130,22 @@ export function TranscodingSettingsContent({
     form.hardwareAcceleration === "none" || !capabilities
       ? null
       : findProbe(capabilities, form.videoCodec, form.hardwareAcceleration)
+  // The link-preview tier doubles as the OpenGraph/compat rendition, so social
+  // embed support hinges on its effective codec, not the global default.
+  const compatCodec = compatTierCodec(form)
+  const ogIndex = effectiveOgTierIndex(form.tiers)
+  const tierNames = useMemo(
+    () =>
+      deriveRenditionNames(
+        form.tiers.map((tier) => ({
+          height: tier.height,
+          fps: tier.maxFps,
+          codec: tier.codec ?? form.videoCodec,
+        })),
+      ),
+    [form.tiers, form.videoCodec],
+  )
+  const ogRadioName = useId()
 
   async function save() {
     if (saving || !dirty) return
@@ -141,7 +161,13 @@ export function TranscodingSettingsContent({
         vaapiDevice: form.vaapiDevice.trim(),
         quality: form.quality,
         audioBitrateKbps: form.audioBitrateKbps,
-        tiers: form.tiers,
+        tiers: form.tiers.map((tier) => ({
+          height: tier.height,
+          maxFps: tier.maxFps,
+          maxrateKbps: tier.maxrateKbps,
+          ...(tier.codec ? { codec: tier.codec } : {}),
+          ...(tier.og ? { og: true } : {}),
+        })),
       })
       setConfig(updated)
       toast.success(t("Transcoding settings saved"))
@@ -210,8 +236,10 @@ export function TranscodingSettingsContent({
               {t("Codec & encoding")}
             </span>
             <div className="flex min-w-0 items-center gap-2">
-              {capabilities?.jellyfin ? (
-                <Badge variant="accent">{t("Jellyfin")}</Badge>
+              {capabilities?.version ? (
+                <Badge variant={capabilities.jellyfin ? "accent" : "default"}>
+                  {ffmpegBadgeLabel(capabilities)}
+                </Badge>
               ) : null}
               <Button
                 type="button"
@@ -235,7 +263,9 @@ export function TranscodingSettingsContent({
 
           <SettingRow
             title={t("Video codec")}
-            description={t("Codec used to encode every rendition.")}
+            description={t(
+              "Default codec for every rendition. Individual tiers in the ladder can override it.",
+            )}
             htmlFor="transcoding-codec"
             align="start"
           >
@@ -261,10 +291,10 @@ export function TranscodingSettingsContent({
             </Select>
           </SettingRow>
 
-          {form.videoCodec !== "h264" ? (
+          {compatCodec !== "h264" ? (
             <TranscodingNotice tone="warning">
               {t(
-                "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.",
+                "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1 on the link preview tier, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.",
               )}
             </TranscodingNotice>
           ) : null}
@@ -384,38 +414,7 @@ export function TranscodingSettingsContent({
         </div>
 
         <div className="border-border flex flex-col gap-4 border-t pt-6">
-          <span className="text-sm font-semibold">{t("Quality & audio")}</span>
-
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="transcoding-quality"
-                className="text-sm font-medium"
-              >
-                {t("Constant quality")}
-              </label>
-              <span className="font-mono text-sm tabular-nums">
-                {Number.isNaN(form.quality) ? "–" : form.quality}
-              </span>
-            </div>
-            <Slider
-              id="transcoding-quality"
-              aria-label={t("Constant quality")}
-              min={10}
-              max={51}
-              value={form.quality}
-              onValueChange={(value) =>
-                setForm((prev) => ({
-                  ...prev,
-                  quality: typeof value === "number" ? value : (value[0] ?? 22),
-                }))
-              }
-            />
-            <p className="text-foreground-dim text-xs">
-              {t("Lower values keep more detail but produce larger files.")}{" "}
-              {QUALITY_HINTS[form.videoCodec]}
-            </p>
-          </div>
+          <span className="text-sm font-semibold">{t("Audio")}</span>
 
           <SettingRow
             title={t("Audio bitrate")}
@@ -469,56 +468,114 @@ export function TranscodingSettingsContent({
           </div>
           <p className="text-foreground-dim text-xs">
             {t(
-              "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the tallest one also powers link previews.",
+              "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.",
             )}
           </p>
 
-          <div className="flex flex-col gap-2">
-            {form.tiers.map((tier, index) => (
-              <div
-                key={index}
-                className="border-border flex flex-wrap items-start gap-3 rounded-lg border p-3"
-              >
-                <LadderField
-                  label={t("Height")}
-                  unit={t("px")}
-                  min={144}
-                  max={4320}
-                  value={tier.height}
-                  error={validation.rows[index]?.height}
-                  onChange={(height) => updateTier(index, { height })}
-                />
-                <LadderField
-                  label={t("Max FPS")}
-                  unit={t("fps")}
-                  min={1}
-                  max={240}
-                  value={tier.maxFps}
-                  error={validation.rows[index]?.maxFps}
-                  onChange={(maxFps) => updateTier(index, { maxFps })}
-                />
-                <LadderField
-                  label={t("Max bitrate")}
-                  unit={t("kbps")}
-                  min={100}
-                  max={100000}
-                  value={tier.maxrateKbps}
-                  error={validation.rows[index]?.maxrateKbps}
-                  onChange={(maxrateKbps) => updateTier(index, { maxrateKbps })}
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => removeTier(index)}
-                  disabled={form.tiers.length <= 1}
-                  aria-label={t("Remove tier")}
-                  className="mt-6 ml-auto shrink-0"
+          <div className="border-border overflow-hidden rounded-lg border">
+            <div
+              className={cn(
+                "bg-muted/30 text-foreground-muted text-2xs hidden px-3 py-2 font-medium tracking-[0.06em] uppercase",
+                LADDER_GRID_CLASS,
+              )}
+            >
+              <span>{t("Rendition")}</span>
+              <span>{t("Height")}</span>
+              <span>{t("Max FPS")}</span>
+              <span>{t("Max bitrate")}</span>
+              <span>{t("Codec")}</span>
+              <span className="text-center">{t("Link preview")}</span>
+              <span className="sr-only">{t("Remove tier")}</span>
+            </div>
+            <div className="divide-border divide-y">
+              {form.tiers.map((tier, index) => (
+                <div
+                  key={index}
+                  className={cn(
+                    "flex flex-wrap items-start gap-3 p-3",
+                    LADDER_GRID_CLASS,
+                  )}
                 >
-                  <Trash2Icon />
-                </Button>
-              </div>
-            ))}
+                  <div className="flex min-w-16 flex-col gap-1.5 sm:min-w-0">
+                    <span className="text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase sm:hidden">
+                      {t("Rendition")}
+                    </span>
+                    <span className="bg-muted text-foreground-muted text-2xs w-fit rounded px-1.5 py-0.5 font-mono">
+                      {Number.isFinite(tier.height) ? tierNames[index] : "–"}
+                    </span>
+                  </div>
+                  <LadderField
+                    label={t("Height")}
+                    unit={t("px")}
+                    min={144}
+                    max={4320}
+                    value={tier.height}
+                    error={validation.rows[index]?.height}
+                    className="w-24 flex-none"
+                    hideLabelOnDesktop
+                    onChange={(height) => updateTier(index, { height })}
+                  />
+                  <LadderField
+                    label={t("Max FPS")}
+                    unit={t("fps")}
+                    min={1}
+                    max={240}
+                    value={tier.maxFps}
+                    error={validation.rows[index]?.maxFps}
+                    className="w-20 flex-none"
+                    hideLabelOnDesktop
+                    onChange={(maxFps) => updateTier(index, { maxFps })}
+                  />
+                  <LadderField
+                    label={t("Max bitrate")}
+                    unit={t("kbps")}
+                    min={100}
+                    max={100000}
+                    value={tier.maxrateKbps}
+                    error={validation.rows[index]?.maxrateKbps}
+                    className="w-28 flex-none"
+                    hideLabelOnDesktop
+                    onChange={(maxrateKbps) =>
+                      updateTier(index, { maxrateKbps })
+                    }
+                  />
+                  <LadderCodecField
+                    value={tier.codec}
+                    defaultCodec={form.videoCodec}
+                    error={validation.rows[index]?.codec}
+                    className="min-w-40 flex-1 sm:min-w-0"
+                    hideLabelOnDesktop
+                    onChange={(codec) => updateTier(index, { codec })}
+                  />
+                  <div className="ml-auto flex items-center justify-center gap-1.5 self-end sm:ml-0 sm:self-center">
+                    <span className="text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase sm:hidden">
+                      {t("Link preview")}
+                    </span>
+                    <LadderPreviewRadio
+                      name={ogRadioName}
+                      checked={index === ogIndex}
+                      onChange={() => setOgTier(index)}
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => removeTier(index)}
+                    disabled={form.tiers.length <= 1}
+                    aria-label={t("Remove tier")}
+                    className="self-end sm:self-center"
+                  >
+                    <Trash2Icon />
+                  </Button>
+                  {firstTierError(validation.rows[index]) ? (
+                    <p className="text-destructive text-2xs w-full sm:col-span-full">
+                      {firstTierError(validation.rows[index])}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
 
           {validation.formMessage ? (
@@ -585,6 +642,8 @@ export function TranscodingSettingsContent({
         height,
         maxFps: 60,
         maxrateKbps: suggestMaxrateKbps(height),
+        codec: null,
+        og: false,
       }
       return {
         ...prev,
@@ -608,6 +667,13 @@ export function TranscodingSettingsContent({
       return { ...prev, tiers: prev.tiers.filter((_, i) => i !== index) }
     })
   }
+
+  function setOgTier(index: number) {
+    setForm((prev) => ({
+      ...prev,
+      tiers: prev.tiers.map((tier, i) => ({ ...tier, og: i === index })),
+    }))
+  }
 }
 
 function LadderField({
@@ -617,6 +683,8 @@ function LadderField({
   min,
   max,
   error,
+  className,
+  hideLabelOnDesktop,
   onChange,
 }: {
   label: string
@@ -625,14 +693,19 @@ function LadderField({
   min: number
   max: number
   error?: string
+  className?: string
+  hideLabelOnDesktop?: boolean
   onChange: (value: number) => void
 }) {
   const id = useId()
   return (
-    <div className="flex min-w-[7rem] flex-1 flex-col gap-1.5">
+    <div className={cn("flex flex-col gap-1.5", className)}>
       <label
         htmlFor={id}
-        className="text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase"
+        className={cn(
+          "text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase",
+          hideLabelOnDesktop && "sm:hidden",
+        )}
       >
         {label}
       </label>
@@ -645,15 +718,113 @@ function LadderField({
           max={max}
           value={Number.isNaN(value) ? "" : value}
           aria-invalid={error ? true : undefined}
+          className="pr-0 text-right font-mono tabular-nums"
           onChange={(event) => onChange(parseNumberInput(event.target.value))}
         />
         <InputGroupAddon align="inline-end">
           <InputGroupText>{unit}</InputGroupText>
         </InputGroupAddon>
       </InputGroup>
-      {error ? <p className="text-destructive text-2xs">{error}</p> : null}
     </div>
   )
+}
+
+function LadderCodecField({
+  value,
+  defaultCodec,
+  error,
+  className,
+  hideLabelOnDesktop,
+  onChange,
+}: {
+  value: VideoCodec | null
+  defaultCodec: VideoCodec
+  error?: string
+  className?: string
+  hideLabelOnDesktop?: boolean
+  onChange: (codec: VideoCodec | null) => void
+}) {
+  const id = useId()
+  return (
+    <div className={cn("flex flex-col gap-1.5", className)}>
+      <label
+        htmlFor={id}
+        className={cn(
+          "text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase",
+          hideLabelOnDesktop && "sm:hidden",
+        )}
+      >
+        {t("Codec")}
+      </label>
+      <Select
+        value={value ?? "default"}
+        onValueChange={(next) => {
+          if (next === "default") return onChange(null)
+          const codec = TRANSCODE_VIDEO_CODECS.find((option) => option === next)
+          if (codec) onChange(codec)
+        }}
+      >
+        <SelectTrigger
+          id={id}
+          size="sm"
+          aria-invalid={error ? true : undefined}
+        >
+          <SelectValue>
+            {value
+              ? VIDEO_CODEC_LABELS[value]
+              : t("Default ({codec})", {
+                  codec: VIDEO_CODEC_LABELS[defaultCodec],
+                })}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="default">
+            {t("Default ({codec})", {
+              codec: VIDEO_CODEC_LABELS[defaultCodec],
+            })}
+          </SelectItem>
+          {TRANSCODE_VIDEO_CODECS.map((codec) => (
+            <SelectItem key={codec} value={codec}>
+              {VIDEO_CODEC_LABELS[codec]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+function LadderPreviewRadio({
+  name,
+  checked,
+  onChange,
+}: {
+  name: string
+  checked: boolean
+  onChange: () => void
+}) {
+  return (
+    <label
+      className="group flex size-8 cursor-pointer items-center justify-center rounded-md"
+      title={t("Link preview")}
+    >
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        className="peer sr-only"
+        aria-label={t("Link preview")}
+        onChange={onChange}
+      />
+      <span className="border-input peer-focus-visible:border-ring peer-focus-visible:ring-ring/50 peer-checked:border-primary group-hover:border-border-strong grid size-4 place-items-center rounded-full border transition-colors peer-focus-visible:ring-3 peer-checked:[&>span]:opacity-100">
+        <span className="bg-primary size-2 rounded-full opacity-0 transition-opacity" />
+      </span>
+    </label>
+  )
+}
+
+function firstTierError(row: RowErrors): string | undefined {
+  return row.height ?? row.maxFps ?? row.maxrateKbps ?? row.codec
 }
 
 function TranscodingNotice({
@@ -694,8 +865,40 @@ function formFromConfig(transcoding: TranscodingConfig): TranscodingForm {
       height: tier.height,
       maxFps: tier.maxFps,
       maxrateKbps: tier.maxrateKbps,
+      codec: tier.codec ?? null,
+      og: tier.og ?? false,
     })),
   }
+}
+
+/**
+ * Index of the tier that powers link previews: the flagged one, or the
+ * tallest tier when none is flagged. -1 only when no tier has a valid height.
+ */
+function effectiveOgTierIndex(tiers: readonly LadderTier[]): number {
+  const flagged = tiers.findIndex((tier) => tier.og)
+  if (flagged !== -1) return flagged
+  return tiers.reduce((best, tier, index) => {
+    if (!Number.isFinite(tier.height)) return best
+    if (best === -1 || tier.height > tiers[best].height) return index
+    return best
+  }, -1)
+}
+
+/** Effective codec of the link preview tier (flagged, or tallest). */
+function compatTierCodec(form: TranscodingForm): VideoCodec {
+  const index = effectiveOgTierIndex(form.tiers)
+  return (index === -1 ? null : form.tiers[index].codec) ?? form.videoCodec
+}
+
+function ffmpegBadgeLabel(capabilities: TranscodingCapabilities): string {
+  const versionNumber = capabilities.version
+    ? /^ffmpeg version (\S+)/i
+        .exec(capabilities.version)?.[1]
+        ?.replace(/-jellyfin$/i, "")
+    : null
+  const flavor = capabilities.jellyfin ? t("Jellyfin FFmpeg") : t("FFmpeg")
+  return versionNumber ? `${flavor} ${versionNumber}` : flavor
 }
 
 function formsEqual(form: TranscodingForm, saved: TranscodingConfig): boolean {
@@ -710,7 +913,9 @@ function formsEqual(form: TranscodingForm, saved: TranscodingConfig): boolean {
     return (
       tier.height === savedTier.height &&
       tier.maxFps === savedTier.maxFps &&
-      tier.maxrateKbps === savedTier.maxrateKbps
+      tier.maxrateKbps === savedTier.maxrateKbps &&
+      tier.codec === (savedTier.codec ?? null) &&
+      tier.og === (savedTier.og ?? false)
     )
   })
 }
@@ -725,24 +930,31 @@ function findProbe(
   )
 }
 
-type RowErrors = { height?: string; maxFps?: string; maxrateKbps?: string }
+type RowErrors = {
+  height?: string
+  maxFps?: string
+  maxrateKbps?: string
+  codec?: string
+}
 
 function validateForm(
   form: TranscodingForm,
   capabilities: TranscodingCapabilities | null,
 ) {
-  const rows = form.tiers.map((tier) => validateTier(tier))
+  const rows = form.tiers.map((tier) => validateTier(tier, form, capabilities))
 
-  const seen = new Set<number>()
-  const duplicates = new Set<number>()
+  const tierKey = (tier: LadderTier) =>
+    `${tier.height}:${tier.maxFps}:${tier.codec ?? "default"}`
+  const seen = new Set<string>()
+  const duplicates = new Set<string>()
   for (const tier of form.tiers) {
-    if (!Number.isFinite(tier.height)) continue
-    if (seen.has(tier.height)) duplicates.add(tier.height)
-    seen.add(tier.height)
+    if (!Number.isFinite(tier.height) || !Number.isFinite(tier.maxFps)) continue
+    if (seen.has(tierKey(tier))) duplicates.add(tierKey(tier))
+    seen.add(tierKey(tier))
   }
   form.tiers.forEach((tier, index) => {
-    if (duplicates.has(tier.height) && !rows[index].height) {
-      rows[index].height = t("Tier heights must be unique.")
+    if (duplicates.has(tierKey(tier)) && !rows[index].height) {
+      rows[index].height = t("Tiers must differ in height, max FPS, or codec.")
     }
   })
 
@@ -751,7 +963,9 @@ function validateForm(
       ? t("Keep between 1 and 6 rendition tiers.")
       : null
   const duplicateMessage =
-    duplicates.size > 0 ? t("Every tier needs a unique height.") : null
+    duplicates.size > 0
+      ? t("Tiers must differ in height, max FPS, or codec.")
+      : null
 
   const accelerationMessage = validateAcceleration(form, capabilities)
   const vaapiDeviceMessage =
@@ -760,7 +974,7 @@ function validateForm(
       : null
 
   const rowsValid = rows.every(
-    (row) => !row.height && !row.maxFps && !row.maxrateKbps,
+    (row) => !row.height && !row.maxFps && !row.maxrateKbps && !row.codec,
   )
   const valid =
     rowsValid &&
@@ -784,7 +998,11 @@ function validateForm(
   }
 }
 
-function validateTier(tier: LadderTier): RowErrors {
+function validateTier(
+  tier: LadderTier,
+  form: TranscodingForm,
+  capabilities: TranscodingCapabilities | null,
+): RowErrors {
   const errors: RowErrors = {}
   if (!isIntInRange(tier.height, 144, 4320) || tier.height % 2 !== 0) {
     errors.height = t("Height must be an even number from 144 to 4320.")
@@ -794,6 +1012,20 @@ function validateTier(tier: LadderTier): RowErrors {
   }
   if (!isIntInRange(tier.maxrateKbps, 100, 100000)) {
     errors.maxrateKbps = t("Max bitrate must be from 100 to 100000 kbps.")
+  }
+  // A tier codec override must work with the globally selected backend; the
+  // global codec is already covered by validateAcceleration.
+  if (tier.codec && form.hardwareAcceleration !== "none" && capabilities) {
+    const probe = findProbe(capabilities, tier.codec, form.hardwareAcceleration)
+    if (!probe || probe.status !== "ok") {
+      errors.codec = t(
+        "{codec} isn't available with {backend} on this server.",
+        {
+          codec: VIDEO_CODEC_LABELS[tier.codec],
+          backend: HARDWARE_ACCELERATION_LABELS[form.hardwareAcceleration],
+        },
+      )
+    }
   }
   return errors
 }
@@ -871,7 +1103,7 @@ function clampMaxrate(kbps: number): number {
   return Math.min(100000, Math.max(100, kbps))
 }
 
-function nextTierHeight(tiers: LadderTier[]): number {
+function nextTierHeight(tiers: readonly LadderTier[]): number {
   const used = new Set(tiers.map((tier) => tier.height))
   return COMMON_TIER_HEIGHTS.find((height) => !used.has(height)) ?? 720
 }
