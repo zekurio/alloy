@@ -54,8 +54,14 @@ export const clipSelectShape = {
   // Committed quality tiers, highest first. Keys are aggregated for version
   // derivation and stripped before the row leaves the server.
   renditionRows: sql<
-    { height: number; width: number; fps: number; key: string }[]
-  >`coalesce((select json_agg(json_build_object('height', ${clipRendition.height}, 'width', ${clipRendition.width}, 'fps', ${clipRendition.fps}, 'key', ${clipRendition.storage_key}) order by ${clipRendition.height} desc) from ${clipRendition} where ${clipRendition.clip_id} = ${clip.id}), '[]'::json)`,
+    {
+      height: number
+      width: number
+      fps: number
+      key: string
+      codecs: string
+    }[]
+  >`coalesce((select json_agg(json_build_object('height', ${clipRendition.height}, 'width', ${clipRendition.width}, 'fps', ${clipRendition.fps}, 'key', ${clipRendition.storage_key}, 'codecs', ${clipRendition.codecs}) order by ${clipRendition.height} desc) from ${clipRendition} where ${clipRendition.clip_id} = ${clip.id}), '[]'::json)`,
 } as const
 
 async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
@@ -105,6 +111,7 @@ export function toPublicClipRow<
       width: number
       fps: number
       key: string
+      codecs: string
     }[]
   },
 >(row: T) {
