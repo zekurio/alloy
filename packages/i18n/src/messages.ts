@@ -10,6 +10,7 @@ export const DE_MESSAGES: Record<string, string> = {
   '"{title}" will be removed from the server. This can\'t be undone.':
     "„{title}“ wird vom Server entfernt. Das kann nicht rückgängig gemacht werden.",
   "(edited)": "(bearbeitet)",
+  "(unavailable)": "(nicht verfügbar)",
   "(unsupported)": "(nicht unterstützt)",
   "{available} free of {total}": "{available} von {total} frei",
   "{count} {label}": "{count} {label}",
@@ -24,6 +25,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "{fileName}: {error}": "{fileName}: {error}",
   "{game} is being captured": "{game} wird aufgenommen",
   "{game} is ready": "{game} ist bereit",
+  "{kbps} kbps": "{kbps} kbps",
   "{label} · No longer configured": "{label} · Nicht mehr konfiguriert",
   "{label} end": "{label} Ende",
   "{label} is required": "{label} ist erforderlich",
@@ -71,6 +73,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add server": "Server hinzufügen",
   "Add the clip details before it enters your library.":
     "Füge die Clip-Details hinzu, bevor er in deine Bibliothek kommt.",
+  "Add tier": "Stufe hinzufügen",
   "Add to favourites": "Zu Favoriten hinzufügen",
   "Add track": "Spur hinzufügen",
   "Add, switch between, or forget connected Alloy servers.":
@@ -98,6 +101,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Any status": "Alle Status",
   App: "App",
   Appearance: "Aussehen",
+  "Apple VideoToolbox": "Apple VideoToolbox",
   Applications: "Anwendungen",
   Apply: "Anwenden",
   "Applying...": "Wird angewendet...",
@@ -106,6 +110,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Ask an admin to add a SteamGridDB API key in Integrations.":
     "Bitte einen Admin, unter Integrationen einen SteamGridDB-API-Schlüssel hinzuzufügen.",
   Audio: "Audio",
+  "Audio bitrate": "Audio-Bitrate",
   "Audio level": "Audiopegel",
   "Audio settings": "Audioeinstellungen",
   "Audio source": "Audioquelle",
@@ -115,6 +120,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Auto-detect a game or display and keep the replay buffer ready.":
     "Erkenne ein Spiel oder Display automatisch und halte den Replay-Puffer bereit.",
   AV1: "AV1",
+  "AV1 stays clean at higher values; 24–32 is typical.":
+    "AV1 bleibt auch bei höheren Werten sauber; 24–32 ist typisch.",
   Available: "Verfügbar",
   "Avatar removed": "Avatar entfernt",
   "Avatar updated": "Avatar aktualisiert",
@@ -211,6 +218,9 @@ export const DE_MESSAGES: Record<string, string> = {
   "Close process picker": "Prozessauswahl schließen",
   "Close settings": "Einstellungen schließen",
   Codec: "Codec",
+  "Codec & encoding": "Codec & Kodierung",
+  "Codec used to encode every rendition.":
+    "Codec, mit dem jede Qualitätsstufe kodiert wird.",
   "Collapse thread": "Thread einklappen",
   "Come back when others have uploaded some clips.":
     "Komm wieder, wenn andere ein paar Clips hochgeladen haben.",
@@ -229,6 +239,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Connected as {email}": "Verbunden als {email}",
   "Connecting...": "Verbindung wird hergestellt...",
   "Connection timed out.": "Zeitüberschreitung bei der Verbindung.",
+  "Constant quality": "Konstante Qualität",
   "Continue with {displayName}": "Mit {displayName} fortfahren",
   "Continue with a passkey": "Mit Passkey fortfahren",
   "Cool shadows": "Kühle Schatten",
@@ -273,6 +284,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't delete clips": "Clips konnten nicht gelöscht werden",
   "Couldn't delete game": "Spiel konnte nicht gelöscht werden",
   "Couldn't delete the project": "Projekt konnte nicht gelöscht werden",
+  "Couldn't detect encoders": "Encoder konnten nicht erkannt werden",
   "Couldn't disable account": "Konto konnte nicht deaktiviert werden",
   "Couldn't forget server.": "Server konnte nicht entfernt werden.",
   "Couldn't load accounts": "Konten konnten nicht geladen werden",
@@ -331,6 +343,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't save recording settings.":
     "Aufnahmeeinstellungen konnten nicht gespeichert werden.",
   "Couldn't save the draft": "Entwurf konnte nicht gespeichert werden",
+  "Couldn't save transcoding settings":
+    "Transkodierungs-Einstellungen konnten nicht gespeichert werden",
   "Couldn't save update channel.":
     "Update-Kanal konnte nicht gespeichert werden.",
   "Couldn't scan the library": "Bibliothek konnte nicht gescannt werden",
@@ -406,6 +420,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Desktop bridge is unavailable.": "Desktop-Bridge ist nicht verfügbar.",
   "Desktop releases": "Desktop-Versionen",
   Details: "Details",
+  "Detecting encoders...": "Encoder werden erkannt …",
+  "Detecting...": "Wird erkannt …",
   Devices: "Geräte",
   "Devices, microphones, application streams, and volumes.":
     "Geräte, Mikrofone, Anwendungsstreams und Lautstärken.",
@@ -466,11 +482,19 @@ export const DE_MESSAGES: Record<string, string> = {
   "Enable {email}?": "{email} aktivieren?",
   "Enable user": "Nutzer aktivieren",
   Encoder: "Encoder",
+  "Encoder detection refreshed": "Encoder-Erkennung aktualisiert",
+  "Encoder used for GPU-accelerated encoding. Decoding and scaling always stay on the CPU.":
+    "Encoder für GPU-beschleunigte Kodierung. Dekodierung und Skalierung laufen weiterhin auf der CPU.",
   Encoding: "Codierung",
+  "Enter a VA-API render node path.": "Gib einen VA-API-Render-Node-Pfad an.",
   "Enter a valid email address": "Gib eine gültige E-Mail-Adresse ein",
   "Enter your server URL to authenticate the desktop app.":
     "Gib deine Server-URL ein, um die Desktop-App zu authentifizieren.",
   "Error details copied": "Fehlerdetails kopiert",
+  "Every tier needs a unique height.":
+    "Jede Stufe braucht eine eindeutige Höhe.",
+  "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the tallest one also powers link previews.":
+    "Jeder Upload wird in diese Qualitätsstufen kodiert. Stufen oberhalb der Quellauflösung werden übersprungen, und die höchste Stufe versorgt auch Link-Vorschauen.",
   "Exit fullscreen": "Vollbild beenden",
   "Failed to load users": "Nutzer konnten nicht geladen werden",
   favourite: "Favorit",
@@ -489,9 +513,12 @@ export const DE_MESSAGES: Record<string, string> = {
   Followers: "Follower",
   following: "folgt",
   Following: "Folge ich",
+  "For H.264, 18–28 is a good range.": "Für H.264 ist 18–28 ein guter Bereich.",
+  "For HEVC, 18–28 is a good range.": "Für HEVC ist 18–28 ein guter Bereich.",
   "For you": "Für dich",
   "Forget {serverUrl}": "{serverUrl} entfernen",
   "Forget server": "Server entfernen",
+  fps: "fps",
   FPS: "FPS",
   "Frame rate": "Bildrate",
   "Full HD at up to 60 fps. The largest files, best quality.":
@@ -519,9 +546,14 @@ export const DE_MESSAGES: Record<string, string> = {
   "GPU {index}": "GPU {index}",
   "H.264 (AVC)": "H.264 (AVC)",
   "H.265 (HEVC)": "H.265 (HEVC)",
+  "Hardware acceleration": "Hardware-Beschleunigung",
   "HD at up to 60 fps. The adaptive-streaming middle tier.":
     "HD mit bis zu 60 fps. Die mittlere Stufe fürs adaptive Streaming.",
   Hashtags: "Hashtags",
+  Height: "Höhe",
+  "Height must be an even number from 144 to 4320.":
+    "Die Höhe muss eine gerade Zahl von 144 bis 4320 sein.",
+  "HEVC (H.265)": "HEVC (H.265)",
   "Hex color value": "Hex-Farbwert",
   Hide: "Ausblenden",
   "Hide {count} {label}": "{count} {label} ausblenden",
@@ -531,6 +563,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "High contrast gray": "Kontrastreiches Grau",
   Home: "Start",
   Hotkeys: "Hotkeys",
+  "How the server transcodes new uploads: video codec, optional GPU encoding, quality, audio, and the ladder of renditions used for adaptive playback.":
+    "Wie der Server neue Uploads transkodiert: Videocodec, optionale GPU-Kodierung, Qualität, Audio und die Stufenleiter an Qualitätsstufen für adaptive Wiedergabe.",
   Icon: "Symbol",
   "image/jpeg": "image/jpeg",
   "Import clip": "Clip importieren",
@@ -540,6 +574,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Import failed.": "Import fehlgeschlagen.",
   "Importing...": "Wird importiert...",
   Input: "Eingabe",
+  "Intel Quick Sync": "Intel Quick Sync",
   "Invalid quota": "Ungültiges Kontingent",
   "It may have been deleted, or you may not have access to it.":
     "Vielleicht wurde es gelöscht oder du hast keinen Zugriff darauf.",
@@ -547,6 +582,10 @@ export const DE_MESSAGES: Record<string, string> = {
     "Vielleicht wurde es aus dem Aufnahmeordner verschoben oder gelöscht.",
   "Its artwork is removed and any clips lose their game tag. This can't be undone.":
     "Das Artwork wird entfernt und alle Clips verlieren ihre Spielzuordnung. Das kann nicht rückgängig gemacht werden.",
+  Jellyfin: "Jellyfin",
+  kbps: "kbps",
+  "Keep between 1 and 6 rendition tiers.":
+    "Behalte zwischen 1 und 6 Qualitätsstufen bei.",
   landscape: "Querformat",
   Language: "Sprache",
   "Language and regional settings.": "Sprach- und Regionaleinstellungen.",
@@ -593,6 +632,13 @@ export const DE_MESSAGES: Record<string, string> = {
   "Login page preview": "Vorschau der Login-Seite",
   Logo: "Logo",
   Low: "Niedrig",
+  "Lower values keep more detail but produce larger files.":
+    "Niedrigere Werte behalten mehr Details, erzeugen aber größere Dateien.",
+  "Max bitrate": "Max. Bitrate",
+  "Max bitrate must be from 100 to 100000 kbps.":
+    "Die max. Bitrate muss zwischen 100 und 100000 kbps liegen.",
+  "Max FPS": "Max. FPS",
+  "Max FPS must be from 1 to 240.": "Max. FPS muss zwischen 1 und 240 liegen.",
   "MP4 uploads must contain a video track.":
     "MP4-Uploads müssen eine Videospur enthalten.",
   "MP4 uploads must use H.264, HEVC, or AV1 video.":
@@ -698,6 +744,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Nothing here yet": "Hier ist noch nichts",
   "Nothing matches": "Nichts passt",
   "Nothing to show yet": "Noch nichts zu zeigen",
+  "NVIDIA NVENC": "NVIDIA NVENC",
   of: "von",
   Off: "Aus",
   Oldest: "Älteste",
@@ -790,6 +837,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Quit Alloy": "Alloy beenden",
   "Quota must be blank or a positive GiB value within the safe integer range.":
     "Das Kontingent muss leer oder ein positiver GiB-Wert im sicheren Ganzzahlbereich sein.",
+  "Re-detect": "Neu erkennen",
   Reactivate: "Reaktivieren",
   "Reactivate account": "Konto reaktivieren",
   "Reactivate your account?": "Konto reaktivieren?",
@@ -803,6 +851,10 @@ export const DE_MESSAGES: Record<string, string> = {
     "Neukodierung für {count} Clips gestartet.",
   "Re-encode started for {count} clips; run again for the rest.":
     "Neukodierung für {count} Clips gestartet; für den Rest erneut ausführen.",
+  "Remove tier": "Stufe entfernen",
+  "Render node passed to ffmpeg for VA-API encoding.":
+    "Render-Node, der ffmpeg für die VA-API-Kodierung übergeben wird.",
+  "Rendition ladder": "Qualitätsstufen-Leiter",
   "Rendition settings saved": "Qualitätsstufen gespeichert",
   recently: "kürzlich",
   "Record individual playback and capture devices, or per-application audio streams.":
@@ -884,6 +936,9 @@ export const DE_MESSAGES: Record<string, string> = {
   Saving: "Speichern",
   "Saving...": "Wird gespeichert...",
   "Saving…": "Wird gespeichert…",
+  "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.":
+    "Social-Einbettungen (Discord, Slack, X) brauchen H.264-Video. Mit HEVC oder AV1 fügt der Server keine Video-Einbettungs-Tags mehr hinzu, sodass geteilte Links auf eine Vorschaubild-Karte statt eines eingebetteten Players zurückfallen.",
+  "Software (CPU)": "Software (CPU)",
   "Starting...": "Wird gestartet...",
   Search: "Suchen",
   "Search…": "Suchen…",
@@ -967,6 +1022,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Starred: "Markiert",
   "Start render": "Rendern starten",
   "Start typing to search": "Tippe los, um zu suchen",
+  "Stereo AAC bitrate applied to every rendition.":
+    "Stereo-AAC-Bitrate, die auf jede Qualitätsstufe angewendet wird.",
   Stop: "Stoppen",
   Storage: "Speicher",
   "Storage quota (GiB)": "Speicherkontingent (GiB)",
@@ -980,6 +1037,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Tagged in clip": "Im Clip getaggt",
   "Test {title} sound": "{title}-Sound testen",
   "Test sound": "Sound testen",
+  "The {backend} encoder for {codec} failed its test on this server. Pick another backend or check the GPU drivers.":
+    "Der {backend}-Encoder für {codec} hat seinen Test auf diesem Server nicht bestanden. Wähle ein anderes Backend oder prüfe die GPU-Treiber.",
   "The browser could not decode this video.":
     "Der Browser konnte dieses Video nicht dekodieren.",
   "The editor is only available in Alloy Desktop":
@@ -994,6 +1053,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Das Rendering wird als neuer Clip in deiner Bibliothek gespeichert.",
   "The rolling window the clip hotkey saves.":
     "Das gleitende Zeitfenster, das der Clip-Hotkey speichert.",
+  "The selected {backend} encoder isn't available for {codec} on this server.":
+    "Der ausgewählte {backend}-Encoder ist für {codec} auf diesem Server nicht verfügbar.",
   "Theme, language, and regional settings.":
     "Theme-, Sprach- und Regionaleinstellungen.",
   "They'll be able to sign in and their clips will be visible again.":
@@ -1001,6 +1062,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "They'll be signed out and their clips hidden. Their data is kept and you can enable them again later.":
     "Der Nutzer wird abgemeldet und seine Clips ausgeblendet. Die Daten bleiben erhalten und du kannst ihn später wieder aktivieren.",
   "This can't be undone.": "Das kann nicht rückgängig gemacht werden.",
+  "This ffmpeg build has no {backend} encoder for {codec}. Pick another backend or install jellyfin-ffmpeg.":
+    "Dieser ffmpeg-Build hat keinen {backend}-Encoder für {codec}. Wähle ein anderes Backend oder installiere jellyfin-ffmpeg.",
   "This first account will be assigned the admin role.":
     "Diesem ersten Konto wird die Admin-Rolle zugewiesen.",
   "this game": "dieses Spiel",
@@ -1016,6 +1079,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Diese Videoquelle wird vom Browser nicht unterstützt.",
   "This will remove the comment text. Replies will stay visible.":
     "Das entfernt den Kommentartext. Antworten bleiben sichtbar.",
+  "Tier heights must be unique.": "Stufenhöhen müssen eindeutig sein.",
   "Timed out while reading video metadata":
     "Zeitüberschreitung beim Lesen der Videometadaten",
   Title: "Titel",
@@ -1027,6 +1091,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Track 1": "Spur 1",
   "Track 2": "Spur 2",
   "Track 3": "Spur 3",
+  "Transcoding settings saved": "Transkodierungs-Einstellungen gespeichert",
   "Trim end": "Ende abschneiden",
   "Trim saved — the clip is reprocessing":
     "Zuschnitt gespeichert – der Clip wird neu verarbeitet",
@@ -1141,8 +1206,13 @@ export const DE_MESSAGES: Record<string, string> = {
     "Der Nutzername darf keine Schrägstriche oder Steuerzeichen enthalten",
   Users: "Nutzer",
   "{currentVersion} -> {version}": "{currentVersion} -> {version}",
+  "VA-API": "VA-API",
+  "VA-API device": "VA-API-Gerät",
   "Version {version}": "Version {version}",
   "Very high": "Sehr hoch",
+  "Video codec": "Videocodec",
+  "Video codec, hardware acceleration, quality, audio, and the rendition ladder for new uploads.":
+    "Videocodec, Hardware-Beschleunigung, Qualität, Audio und die Qualitätsstufen-Leiter für neue Uploads.",
   'Video decode failed in "{label}": {message}':
     "Videodekodierung in „{label}“ fehlgeschlagen: {message}",
   "Video dimensions unavailable for thumbnail":
