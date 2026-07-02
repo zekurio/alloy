@@ -10,6 +10,7 @@ import {
   validateNullableRequiredString,
   validateNullableString,
   validateRequiredString,
+  validateString,
 } from "@alloy/api/runtime-validation"
 import {
   CLIP_PRIVACY,
@@ -166,6 +167,14 @@ function validateClipRelationships(row: Record<string, unknown>) {
         `Invalid clip rendition response: ${key} must be a non-negative integer`,
       )
     }
+    validateRequiredString(
+      rendition.name,
+      "Invalid clip rendition response: name is required",
+    )
+    validateString(
+      rendition.codecs,
+      "Invalid clip rendition response: codecs must be a string",
+    )
     validateRequiredString(
       rendition.version,
       "Invalid clip rendition response: version is required",

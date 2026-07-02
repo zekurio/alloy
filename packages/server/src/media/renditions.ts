@@ -1,6 +1,11 @@
 import { mkdir, readFile, stat } from "node:fs/promises"
 
-import type { RenditionTierConfig, TranscodingConfig } from "@alloy/contracts"
+import {
+  deriveRenditionNames,
+  type RenditionTierConfig,
+  type TranscodingConfig,
+  type VideoCodec,
+} from "@alloy/contracts"
 import { join } from "@alloy/server/runtime/path"
 
 import {
@@ -32,6 +37,10 @@ export interface RenditionTier {
   height: number
   maxFps: number
   maxrateKbps: number
+  /** Per-tier codec override; falls back to the config's `videoCodec`. */
+  codec?: VideoCodec
+  /** Marks the tier whose rendition powers OpenGraph/social embeds. */
+  og?: boolean
 }
 
 export interface LadderStep {
@@ -42,33 +51,67 @@ export interface LadderStep {
   fps: number
   /** Whether an fps filter must cap the source's frame rate. */
   capFps: boolean
+  /** Video codec for this step: the tier override or the global default. */
+  codec: VideoCodec
+  /** Stable per-tier slug derived from output height/fps/codec, e.g. "1080p60". */
+  name: string
+  /** Whether this step's rendition powers OpenGraph/social embeds. */
+  og: boolean
 }
 
 /**
  * The tiers to actually encode for a source: configured tiers clamped to the
  * source height, deduplicated when clamping collapses two tiers to the same
- * output height (the collapsed height keeps the highest maxrate among the
- * tiers that map to it). Always non-empty for a valid config, so every clip
- * gets at least one compat rendition.
+ * output signature (height, fps, codec) — the survivor keeps the highest
+ * maxrate among the tiers that map to it and inherits their og flag. Always
+ * non-empty for a valid config, so every clip gets at least one compat
+ * rendition.
  */
 export function effectiveLadder(
   config: TranscodingConfig,
   source: { height: number; fps: number | null },
 ): LadderStep[] {
-  const byHeight = new Map<number, LadderStep>()
+  const byOutput = new Map<string, Omit<LadderStep, "name">>()
   for (const tier of sortedTiers(config.tiers)) {
     const height = evenFloor(Math.min(tier.height, source.height))
     if (height <= 0) continue
-    const existing = byHeight.get(height)
-    if (existing && existing.tier.maxrateKbps >= tier.maxrateKbps) continue
     // Cap the frame rate when the source exceeds the tier's target, and also
     // when the source rate is unknown — an uncapped 144fps encode is worse
     // than a rare 24->30 upsample.
     const capFps = source.fps === null || source.fps > tier.maxFps
-    const fps = capFps ? tier.maxFps : Math.round(source.fps ?? tier.maxFps)
-    byHeight.set(height, { tier, height, fps: Math.max(1, fps), capFps })
+    const fps = Math.max(
+      1,
+      capFps ? tier.maxFps : Math.round(source.fps ?? tier.maxFps),
+    )
+    const codec = tier.codec ?? config.videoCodec
+    const key = `${height}:${fps}:${codec}`
+    const existing = byOutput.get(key)
+    if (existing) {
+      const og = existing.og || Boolean(tier.og)
+      if (existing.tier.maxrateKbps >= tier.maxrateKbps) {
+        byOutput.set(key, { ...existing, og })
+        continue
+      }
+      byOutput.set(key, { tier, height, fps, capFps, codec, og })
+      continue
+    }
+    byOutput.set(key, {
+      tier,
+      height,
+      fps,
+      capFps,
+      codec,
+      og: Boolean(tier.og),
+    })
   }
-  return [...byHeight.values()].sort((a, b) => b.height - a.height)
+  const steps = [...byOutput.values()].sort(
+    (a, b) => b.height - a.height || b.fps - a.fps,
+  )
+  const names = deriveRenditionNames(steps)
+  return steps.map((step, index) => ({
+    ...step,
+    name: names[index] ?? `${step.height}p`,
+  }))
 }
 
 export function buildRenditionArgs(options: {
@@ -96,6 +139,7 @@ export function buildRenditionArgs(options: {
     "0:a:0?",
     ...buildEncoderVideoArgs({
       config: options.config,
+      codec: options.step.codec,
       maxrateKbps: options.step.tier.maxrateKbps,
     }),
     "-vf",
@@ -218,7 +262,9 @@ export function renderMasterPlaylist(
   renditions: readonly MasterPlaylistRendition[],
 ): string {
   const lines = ["#EXTM3U", "#EXT-X-VERSION:7", "#EXT-X-INDEPENDENT-SEGMENTS"]
-  const ordered = [...renditions].sort((a, b) => b.height - a.height)
+  const ordered = [...renditions].sort(
+    (a, b) => b.height - a.height || b.bandwidth - a.bandwidth,
+  )
   for (const rendition of ordered) {
     const attrs = [
       `BANDWIDTH=${rendition.bandwidth}`,

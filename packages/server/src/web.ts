@@ -155,22 +155,30 @@ async function clipHead(pathname: string): Promise<string> {
       : null
     // Social video embeds are only reliable for H.264/AAC. Legacy rendition
     // rows without codec metadata predate configurable codecs and were H.264.
-    const topRendition = row.renditionRows?.[0] ?? null
-    const embeddableRendition =
-      topRendition && renditionIsH264(topRendition.codecs)
+    // Prefer the tier flagged for link previews, then any H.264 tier.
+    const renditionRows = row.renditionRows ?? []
+    const ogRendition =
+      renditionRows.find(
+        (rendition) => rendition.og && renditionIsH264(rendition.codecs),
+      ) ??
+      renditionRows.find((rendition) => renditionIsH264(rendition.codecs)) ??
+      null
     const embeddableSource =
       row.sourceContentType === "video/mp4" ||
       row.sourceContentType === "video/webm"
-    const videoUrl =
-      embeddableRendition ||
-      (!topRendition && row.sourceKey && embeddableSource)
+    const videoUrl = ogRendition
+      ? new URL(
+          `/api/clips/${row.id}/rendition/${ogRendition.name}/file.mp4?v=${clipAssetVersion(ogRendition.key)}`,
+          origin,
+        ).toString()
+      : renditionRows.length === 0 && row.sourceKey && embeddableSource
         ? new URL(`/api/clips/${row.id}/stream`, origin).toString()
         : null
-    const videoType = embeddableRendition
+    const videoType = ogRendition
       ? "video/mp4"
       : (row.sourceContentType ?? "video/mp4")
-    const width = topRendition?.width ?? row.width
-    const height = topRendition?.height ?? row.height
+    const width = ogRendition?.width ?? row.width
+    const height = ogRendition?.height ?? row.height
 
     return [
       `<title>${htmlEscape(row.title)} | alloy</title>`,
