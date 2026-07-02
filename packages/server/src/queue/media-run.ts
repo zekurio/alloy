@@ -240,7 +240,7 @@ async function runPipelineInWorkDir({
         : transcodingConfig
     const encoded = await encodeRenditionWithFallback({
       srcPath: mediaPath,
-      outDir: join(workDir, `rendition-${step.height}p`),
+      outDir: join(workDir, `rendition-${step.name}`),
       config: encodeConfig,
       step,
       durationMs: outputDurationMs,
@@ -250,7 +250,7 @@ async function runPipelineInWorkDir({
         hardwareFailed = true
       },
     })
-    const renditionKey = runScopedRenditionKey(id, runId, encoded.height)
+    const renditionKey = runScopedRenditionKey(id, runId, step.name)
     await clipStorage.uploadFromFile(
       encoded.filePath,
       renditionKey,
@@ -259,6 +259,8 @@ async function runPipelineInWorkDir({
     uploadedKeys.push(renditionKey)
     await rm(encoded.filePath, { force: true }).catch(() => undefined)
     renditions.push({
+      name: step.name,
+      isOg: step.og,
       height: encoded.height,
       width: encoded.width,
       fps: encoded.fps,

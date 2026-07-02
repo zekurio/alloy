@@ -32,6 +32,10 @@ export interface MediaThumbPatch {
 
 /** One encoded quality tier produced by a media run. */
 export interface MediaRenditionRecord {
+  /** Stable per-tier slug derived from height/fps/codec, e.g. "1080p60". */
+  name: string
+  /** Whether this rendition powers OpenGraph/social embeds. */
+  isOg: boolean
   height: number
   width: number
   fps: number

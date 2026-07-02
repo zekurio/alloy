@@ -17,9 +17,9 @@ export function runScopedThumbKey(clipId: string, runId: string): string {
 export function runScopedRenditionKey(
   clipId: string,
   runId: string,
-  height: number,
+  name: string,
 ): string {
-  return `${clipAssetDir(clipId)}/rendition-${height}p-${runKeyStamp(runId)}.mp4`
+  return `${clipAssetDir(clipId)}/rendition-${name}-${runKeyStamp(runId)}.mp4`
 }
 
 function runKeyStamp(runId: string): string {

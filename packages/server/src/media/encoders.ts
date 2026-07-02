@@ -85,15 +85,15 @@ export function buildVideoFilterChain(
 
 export function buildEncoderVideoArgs(options: {
   config: TranscodingConfig
+  /** Codec override for this encode; defaults to the config's `videoCodec`. */
+  codec?: VideoCodec
   maxrateKbps?: number
 }): string[] {
-  const encoder = transcodeEncoder(
-    options.config.videoCodec,
-    options.config.hardwareAcceleration,
-  )
+  const codec = options.codec ?? options.config.videoCodec
+  const encoder = transcodeEncoder(codec, options.config.hardwareAcceleration)
   if (!encoder) {
     throw new Error(
-      `No ${options.config.hardwareAcceleration} encoder for ${options.config.videoCodec}`,
+      `No ${options.config.hardwareAcceleration} encoder for ${codec}`,
     )
   }
 
