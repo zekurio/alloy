@@ -245,6 +245,25 @@ export const AppearanceConfigSchema = z.looseObject({
 
 export type AppearanceConfig = z.infer<typeof AppearanceConfigSchema>
 
+/**
+ * Which rendition tiers the media pipeline encodes for new clips. Tiers above
+ * the source resolution are always skipped; the highest enabled tier (clamped
+ * to the source) doubles as the OpenGraph/compat rendition, so at least one
+ * tier must stay enabled.
+ */
+export const TranscodingConfigSchema = z
+  .looseObject({
+    enable1080p: z.boolean().default(true),
+    enable720p: z.boolean().default(true),
+    enable480p: z.boolean().default(true),
+  })
+  .refine(
+    (config) => config.enable1080p || config.enable720p || config.enable480p,
+    "at least one rendition tier must be enabled",
+  )
+
+export type TranscodingConfig = z.infer<typeof TranscodingConfigSchema>
+
 export interface AdminUserStorageRow {
   id: string
   username: string
@@ -289,6 +308,7 @@ export const RuntimeConfigSchema = z.looseObject({
   limits: AdminLimitsConfigSchema,
   storage: StorageConfigSchema,
   appearance: AppearanceConfigSchema,
+  transcoding: TranscodingConfigSchema,
 })
 
 export type RuntimeConfig = z.infer<typeof RuntimeConfigSchema>
@@ -310,6 +330,7 @@ export const AdminRuntimeConfigSchema = z.looseObject({
   limits: AdminLimitsConfigSchema,
   storage: AdminStorageConfigSchema,
   appearance: AppearanceConfigSchema,
+  transcoding: TranscodingConfigSchema,
   integrations: AdminIntegrationsConfigSchema,
   authBaseURL: UrlStringSchema,
 })

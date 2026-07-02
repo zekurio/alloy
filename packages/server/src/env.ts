@@ -263,6 +263,21 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .trim()
         .min(1)
         .default("storage/games"),
+      ALLOY_FFMPEG_PATH: z.string().trim().min(1).default("ffmpeg"),
+      ALLOY_TRANSCODE_CONCURRENCY: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(16)
+        .default(1),
+      // 0 lets ffmpeg pick (all cores). Lower it to keep encodes from
+      // starving the API on small hosts.
+      ALLOY_TRANSCODE_THREADS: z.coerce
+        .number()
+        .int()
+        .min(0)
+        .max(64)
+        .default(0),
     }),
     { label: "server/env", source },
   )
@@ -311,6 +326,11 @@ export function parseServerEnv(source: EnvSource = process.env) {
       uploadTtlSec: raw.ALLOY_UPLOAD_TTL_SEC,
     },
     storage,
+    transcode: {
+      ffmpegPath: raw.ALLOY_FFMPEG_PATH,
+      concurrency: raw.ALLOY_TRANSCODE_CONCURRENCY,
+      threads: raw.ALLOY_TRANSCODE_THREADS,
+    },
     viewerCookieSecret,
     uploadHmacSecret,
     steamgriddbApiKey,

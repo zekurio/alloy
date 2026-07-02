@@ -1,8 +1,10 @@
 import {
   AppearanceConfigSchema,
   RUNTIME_CONFIG_VERSION,
+  TranscodingConfigSchema,
   type AppearanceConfig,
   type RuntimeConfig,
+  type TranscodingConfig,
 } from "@alloy/contracts"
 import { instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
@@ -27,11 +29,13 @@ const DEFAULT_APPEARANCE: AppearanceConfig = AppearanceConfigSchema.parse({
     darkenOpacity: 0.8,
   },
 })
+const DEFAULT_TRANSCODING: TranscodingConfig = TranscodingConfigSchema.parse({})
 
-type DbOwnedConfigKey = "setupComplete" | "appearance"
+type DbOwnedConfigKey = "setupComplete" | "appearance" | "transcoding"
 
 let setupSetting = deepFreeze(DEFAULT_SETUP)
 let appearanceSetting = deepFreeze(DEFAULT_APPEARANCE)
+let transcodingSetting = deepFreeze(DEFAULT_TRANSCODING)
 let state = freezeRuntimeConfig(buildRuntimeConfig())
 
 type Listener = (
@@ -51,6 +55,7 @@ function buildRuntimeConfig(): RuntimeConfig {
     limits: env.limits,
     storage: env.storage,
     appearance: appearanceSetting,
+    transcoding: transcodingSetting,
   }
 }
 
@@ -104,14 +109,18 @@ async function writeSetting(key: string, value: unknown): Promise<void> {
 }
 
 export async function initializeConfigStore(): Promise<void> {
-  const [setupValue, appearanceValue] = await Promise.all([
+  const [setupValue, appearanceValue, transcodingValue] = await Promise.all([
     readSetting("setup"),
     readSetting("appearance"),
+    readSetting("transcoding"),
   ])
 
   setupSetting = deepFreeze(SetupSettingSchema.parse(setupValue ?? {}))
   appearanceSetting = deepFreeze(
     AppearanceConfigSchema.parse(appearanceValue ?? DEFAULT_APPEARANCE),
+  )
+  transcodingSetting = deepFreeze(
+    TranscodingConfigSchema.parse(transcodingValue ?? DEFAULT_TRANSCODING),
   )
   refreshState()
 }
@@ -119,7 +128,11 @@ export async function initializeConfigStore(): Promise<void> {
 function assertDbOwnedKey(
   key: keyof RuntimeConfig,
 ): asserts key is DbOwnedConfigKey {
-  if (key !== "setupComplete" && key !== "appearance") {
+  if (
+    key !== "setupComplete" &&
+    key !== "appearance" &&
+    key !== "transcoding"
+  ) {
     throw new Error(
       `Runtime config key "${String(key)}" is declarative and must be set with environment variables or Nix options.`,
     )
@@ -153,9 +166,17 @@ export const configStore: ConfigStore = {
       return
     }
 
-    const nextAppearance = AppearanceConfigSchema.parse(value)
-    await writeSetting("appearance", nextAppearance)
-    appearanceSetting = deepFreeze(nextAppearance)
+    if (key === "appearance") {
+      const nextAppearance = AppearanceConfigSchema.parse(value)
+      await writeSetting("appearance", nextAppearance)
+      appearanceSetting = deepFreeze(nextAppearance)
+      refreshState()
+      return
+    }
+
+    const nextTranscoding = TranscodingConfigSchema.parse(value)
+    await writeSetting("transcoding", nextTranscoding)
+    transcodingSetting = deepFreeze(nextTranscoding)
     refreshState()
   },
   subscribe(fn) {

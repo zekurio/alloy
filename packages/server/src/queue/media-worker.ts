@@ -1,4 +1,5 @@
 import { createLogger, runWithLogContext } from "@alloy/logging"
+import { env } from "@alloy/server/env"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 
 import { clipMediaStore } from "./clip-media-store"
@@ -95,10 +96,12 @@ class LeaseLoopMediaWorker implements MediaWorker {
   }
 
   private async pumpInner(): Promise<void> {
-    // No concurrency cap: durable media processing is expected to be rare, so we
-    // start every pending recording as we find it. `processOne` adds the id to
-    // `inFlightIds` synchronously, so the next `nextId()` won't hand it back.
+    // Each job runs a CPU-heavy ffmpeg encode, so in-flight work is capped;
+    // job completion re-pumps at 0ms, which picks up the next pending row.
+    // `processOne` adds the id to `inFlightIds` synchronously, so the next
+    // `nextId()` won't hand it back.
     while (this.started && !this.stopping) {
+      if (this.inFlightIds.size >= env.transcode.concurrency) return
       const id = await this.nextId()
       if (!this.started || this.stopping) return
       if (!id) {

@@ -10,6 +10,7 @@ import {
   clipCommentLike,
   clipLike,
   clipMention,
+  clipRendition,
   clipTag,
   clipView,
 } from "./clip"
@@ -24,6 +25,7 @@ import { block, follow } from "./social"
  */
 export const domainSchema = {
   clip,
+  clipRendition,
   uploadTicket,
   clipLike,
   clipView,

@@ -33,7 +33,10 @@ in
 
   # https://devenv.sh/packages/
   packages = with pkgs; [
+    pnpm
     postgresql_17
+    # Rendition transcoding and poster extraction in the media pipeline.
+    ffmpeg-headless
     cargo
     rustc
     rustfmt
@@ -119,7 +122,7 @@ ALLOY_STORAGE_FS_USERS_PATH=../../data/storage/users
 ALLOY_STORAGE_FS_GAMES_PATH=../../data/storage/games
 EOF
       chmod 600 "$alloy_env_file"
-      echo "Created .env with generated local secrets"
+      echo "Created .env with generated local secrets" >&2
     fi
 
     alloy_env_value() {
@@ -215,19 +218,17 @@ EOF
       } >"$alloy_pg_env"
     }
 
-    alloy_pg_release_lock() {
-      "$alloy_flock" -u 9 2>/dev/null || true
-      exec 9>&- || true
-      trap - EXIT
-    }
-
-    exec 9>"$alloy_pg_lock"
+    # Serialize startup across shells inside a subshell that owns the lock
+    # fd, so the flock releases when the subshell exits. Never install an
+    # EXIT trap here: this hook runs inside direnv's rc bash, which exports
+    # the environment from its own EXIT trap; overwriting or clearing it
+    # makes direnv silently load nothing.
+    (
     if ! "$alloy_flock" -w "$alloy_pg_lock_wait_sec" 9; then
       echo "Timed out waiting for Alloy dev Postgres startup lock" >&2
       echo "If no other shell is starting, run alloy-postgres-stop and try again." >&2
       exit 1
     fi
-    trap alloy_pg_release_lock EXIT
 
     if ! alloy_pg_ready && ! alloy_pg_recover_running; then
       rm -f "$alloy_pg_env"
@@ -278,8 +279,7 @@ EOF
         >/dev/null 2>&1 \
         9>&- || true
     fi
-
-    alloy_pg_release_lock
+    ) 9>"$alloy_pg_lock"
 
     . "$alloy_pg_env"
     export PGHOST PGPORT DATABASE_URL
@@ -292,7 +292,7 @@ EOF
     fi
     unset alloy_had_errexit alloy_had_nounset
 
-    echo "Alloy dev Postgres: $DATABASE_URL"
+    echo "Alloy dev Postgres: $DATABASE_URL" >&2
   '';
 
   scripts.alloy-postgres-stop.exec = ''

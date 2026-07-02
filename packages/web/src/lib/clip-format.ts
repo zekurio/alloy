@@ -2,6 +2,7 @@ import {
   type ClipGameRef,
   type ClipPrivacy,
   type ClipRow,
+  clipRenditionFileUrl,
   clipStreamUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
@@ -53,6 +54,24 @@ export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
   return row.gameRef?.name ?? row.game ?? t("Uncategorised")
 }
 
+/**
+ * Hover previews are muted, small, and often several at once — the lowest
+ * rendition tier is plenty and a large bandwidth win over the full stream,
+ * which stays the fallback for clips without renditions.
+ */
+function previewStreamUrl(row: ClipRow): string {
+  const lowest = row.renditions[row.renditions.length - 1]
+  if (!lowest) {
+    return clipStreamUrl(row.id, apiOrigin(), row.sourceVersion ?? undefined)
+  }
+  return clipRenditionFileUrl(
+    row.id,
+    lowest.height,
+    apiOrigin(),
+    lowest.version,
+  )
+}
+
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
   const game = clipGameLabel(row)
   const authorAvatar = userAvatar({
@@ -81,11 +100,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
       : undefined,
     thumbnailBlurHash: row.thumbBlurHash,
     fallbackSeed: row.gameId ?? row.id,
-    streamUrl: clipStreamUrl(
-      row.id,
-      apiOrigin(),
-      row.sourceVersion ?? undefined,
-    ),
+    streamUrl: previewStreamUrl(row),
     accentHue: hueForGame(game),
     privacy: row.privacy,
     description: row.description,

@@ -41,6 +41,7 @@ export type {
   ClipMentionRef,
   ClipPage,
   ClipPrivacy,
+  ClipRenditionRef,
   ClipRow,
   ClipStatus,
   InitiateClipInput,
@@ -75,6 +76,31 @@ export function clipStreamUrl(
 ): string {
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/stream"),
+    { v: version },
+    origin,
+  )
+}
+
+export function clipMasterPlaylistUrl(
+  clipId: string,
+  origin?: string,
+  version?: string,
+): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/master.m3u8"),
+    { v: version },
+    origin,
+  )
+}
+
+export function clipRenditionFileUrl(
+  clipId: string,
+  height: number,
+  origin?: string,
+  version?: string,
+): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, `/rendition/${height}/file.mp4`),
     { v: version },
     origin,
   )

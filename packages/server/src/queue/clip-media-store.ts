@@ -1,4 +1,4 @@
-import { clip } from "@alloy/db/schema"
+import { clip, clipRendition } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import {
   publishClipProgress,
@@ -25,6 +25,10 @@ const leaseConditions = () =>
     encodeProgress: clip.encode_progress,
     encodeLockedAt: clip.encode_locked_at,
   })
+
+// Ready rows stay ready across a reprocess run so `stream` access (which is
+// gated on status = 'ready') keeps serving the committed assets meanwhile.
+const keepReadyStatus = sql`case when ${clip.status} = 'ready' then 'ready' else 'processing' end`
 
 const mediaRowSelect = {
   id: clip.id,
@@ -87,7 +91,10 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .update(clip)
       .set({
-        status: "processing",
+        // A reprocess of a ready clip (backfill, owner trim retry) keeps the
+        // clip publicly playable from its committed assets while this run
+        // works; only genuinely unfinished rows show as processing.
+        status: keepReadyStatus,
         encode_run_id: runId,
         encode_locked_at: new Date(),
         encode_attempt: sql`${clip.encode_attempt} + 1`,
@@ -170,7 +177,7 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .update(clip)
       .set({
-        status: "processing",
+        status: keepReadyStatus,
         encode_progress: 0,
         failure_reason: null,
         updated_at: new Date(),
@@ -222,22 +229,42 @@ export const clipMediaStore: MediaStore = {
     return Boolean(row)
   },
 
-  async commitReady(id, runId, patch) {
-    const [updated] = await db
-      .update(clip)
-      .set({
-        ...sourcePatchToColumns(patch),
-        ...thumbPatchToColumns(patch),
-        status: "ready",
-        encode_progress: 100,
-        encode_run_id: null,
-        encode_locked_at: null,
-        failure_reason: null,
-        updated_at: new Date(),
-      })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    return Boolean(updated)
+  async commitReady(id, runId, patch, renditions) {
+    return db.transaction(async (tx) => {
+      const [updated] = await tx
+        .update(clip)
+        .set({
+          ...sourcePatchToColumns(patch),
+          ...thumbPatchToColumns(patch),
+          status: "ready",
+          encode_progress: 100,
+          encode_run_id: null,
+          encode_locked_at: null,
+          failure_reason: null,
+          updated_at: new Date(),
+        })
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        .returning({ id: clip.id })
+      if (!updated) return false
+
+      await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
+      if (renditions.length > 0) {
+        await tx.insert(clipRendition).values(
+          renditions.map((rendition) => ({
+            clip_id: id,
+            height: rendition.height,
+            width: rendition.width,
+            fps: rendition.fps,
+            storage_key: rendition.storageKey,
+            playlist: rendition.playlist,
+            codecs: rendition.codecs,
+            bandwidth: rendition.bandwidth,
+            size_bytes: rendition.sizeBytes,
+          })),
+        )
+      }
+      return true
+    })
   },
 
   async currentAssetKeys(id) {
@@ -246,7 +273,15 @@ export const clipMediaStore: MediaStore = {
       .from(clip)
       .where(eq(clip.id, id))
       .limit(1)
-    return row ?? null
+    if (!row) return null
+    const renditionRows = await db
+      .select({ storageKey: clipRendition.storage_key })
+      .from(clipRendition)
+      .where(eq(clipRendition.clip_id, id))
+    return {
+      ...row,
+      renditionKeys: renditionRows.map((rendition) => rendition.storageKey),
+    }
   },
 
   publishUpsert(authorId, id) {

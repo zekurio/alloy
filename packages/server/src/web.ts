@@ -153,18 +153,23 @@ async function clipHead(pathname: string): Promise<string> {
           origin,
         ).toString()
       : null
-    // Desktop uploads browser-playable MP4 sources, so og:video points
-    // straight at the stored file — no generated variant. Skip the tag for
-    // container types scrapers can't embed.
+    // The stream endpoint serves the top rendition — always H.264+AAC MP4 —
+    // so scrapers can embed it regardless of what was uploaded. Clips the
+    // rendition backfill hasn't reached yet fall back to the source, which is
+    // only advertised when its container is one scrapers can embed.
+    const topRendition = row.renditionRows?.[0] ?? null
     const embeddableSource =
       row.sourceContentType === "video/mp4" ||
       row.sourceContentType === "video/webm"
     const videoUrl =
-      row.sourceKey && embeddableSource
+      topRendition || (row.sourceKey && embeddableSource)
         ? new URL(`/api/clips/${row.id}/stream`, origin).toString()
         : null
-    const width = row.width
-    const height = row.height
+    const videoType = topRendition
+      ? "video/mp4"
+      : (row.sourceContentType ?? "video/mp4")
+    const width = topRendition?.width ?? row.width
+    const height = topRendition?.height ?? row.height
 
     return [
       `<title>${htmlEscape(row.title)} | alloy</title>`,
@@ -181,7 +186,7 @@ async function clipHead(pathname: string): Promise<string> {
             ...(videoUrl.startsWith("https:")
               ? [metaProperty("og:video:secure_url", videoUrl)]
               : []),
-            metaProperty("og:video:type", row.sourceContentType ?? "video/mp4"),
+            metaProperty("og:video:type", videoType),
             ...(width ? [metaProperty("og:video:width", String(width))] : []),
             ...(height
               ? [metaProperty("og:video:height", String(height))]

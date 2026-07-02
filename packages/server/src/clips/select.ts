@@ -1,6 +1,12 @@
 import { normalizeBlurHash, type ClipMentionRef } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
-import { clip, clipMention, clipTag, game } from "@alloy/db/schema"
+import {
+  clip,
+  clipMention,
+  clipRendition,
+  clipTag,
+  game,
+} from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import {
   clipGameRefFromSnapshot,
@@ -45,6 +51,11 @@ export const clipSelectShape = {
   tags: sql<
     string[]
   >`coalesce((select array_agg(${clipTag.tag} order by ${clipTag.tag}) from ${clipTag} where ${clipTag.clip_id} = ${clip.id}), '{}')`,
+  // Committed quality tiers, highest first. Keys are aggregated for version
+  // derivation and stripped before the row leaves the server.
+  renditionRows: sql<
+    { height: number; width: number; fps: number; key: string }[]
+  >`coalesce((select json_agg(json_build_object('height', ${clipRendition.height}, 'width', ${clipRendition.width}, 'fps', ${clipRendition.fps}, 'key', ${clipRendition.storage_key}) order by ${clipRendition.height} desc) from ${clipRendition} where ${clipRendition.clip_id} = ${clip.id}), '[]'::json)`,
 } as const
 
 async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
@@ -89,15 +100,31 @@ export function toPublicClipRow<
     gameId: string | null
     game: string | null
     gameRef?: Parameters<typeof serialiseGameRow>[0] | null
+    renditionRows?: {
+      height: number
+      width: number
+      fps: number
+      key: string
+    }[]
   },
 >(row: T) {
-  const { sourceKey: _sourceKey, gameRef, ...rest } = row
+  const { sourceKey: _sourceKey, gameRef, renditionRows, ...rest } = row
   const thumbVersion = row.thumbKey ? clipAssetVersion(row.thumbKey) : null
+  const renditions = (renditionRows ?? []).map((rendition) => ({
+    height: rendition.height,
+    width: rendition.width,
+    fps: rendition.fps,
+    version: clipAssetVersion(rendition.key),
+  }))
   return {
     ...rest,
     // Derived from the storage key so it changes exactly when a republish
     // (trim, remux) swaps the bytes — the key itself never leaves the server.
     sourceVersion: row.sourceKey ? clipAssetVersion(row.sourceKey) : null,
+    renditions,
+    playbackVersion: playbackVersionFromKeys(
+      (renditionRows ?? []).map((rendition) => rendition.key),
+    ),
     gameRef: gameRef
       ? serialiseGameRow(gameRef)
       : row.gameId !== null
@@ -110,4 +137,16 @@ export function toPublicClipRow<
     thumbVersion,
     thumbBlurHash: thumbVersion ? normalizeBlurHash(row.thumbBlurHash) : null,
   }
+}
+
+/**
+ * Version for playlist URLs, derived from the full rendition key set so both
+ * a re-encode and a ladder change bust caches. Must match the computation in
+ * the playback routes.
+ */
+export function playbackVersionFromKeys(
+  keys: readonly string[],
+): string | null {
+  if (keys.length === 0) return null
+  return clipAssetVersion([...keys].sort().join(","))
 }

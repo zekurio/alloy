@@ -12,6 +12,15 @@ export interface MediaProbe {
   height: number
   videoCodec: string
   audioCodec: string | null
+  /** Average video frame rate; null when packet stats are unavailable. */
+  fps: number | null
+  /**
+   * RFC 6381 codec parameter strings (e.g. "avc1.64002a", "mp4a.40.2") for
+   * HLS CODECS attributes. Null when the container doesn't carry enough
+   * decoder configuration to derive them.
+   */
+  videoCodecString: string | null
+  audioCodecString: string | null
 }
 
 // Keep the codec vocabulary the rest of the app (and the web player's MIME
@@ -49,12 +58,21 @@ export async function probeMedia(path: string): Promise<MediaProbe> {
 
     const videoCodec = await video.getCodec()
     const audioCodec = (await audio?.getCodec()) ?? null
+    const packetStats = await video.computePacketStats(200).catch(() => null)
+    const fps =
+      packetStats && Number.isFinite(packetStats.averagePacketRate)
+        ? packetStats.averagePacketRate
+        : null
     return {
       durationMs: Math.round(durationSec * 1000),
       width,
       height,
       videoCodec: videoCodecName(videoCodec),
       audioCodec: audioCodec ? audioCodecName(audioCodec) : null,
+      fps,
+      videoCodecString: await video.getCodecParameterString().catch(() => null),
+      audioCodecString:
+        (await audio?.getCodecParameterString().catch(() => null)) ?? null,
     }
   } finally {
     input.dispose()

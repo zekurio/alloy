@@ -56,6 +56,12 @@ type AppearanceConfigPatch = {
   }
 }
 
+type TranscodingConfigPatch = {
+  enable1080p?: boolean
+  enable720p?: boolean
+  enable480p?: boolean
+}
+
 type AdminCreateUserInput = {
   email: string
   username?: string
@@ -88,6 +94,14 @@ async function updateAppearanceConfig(
   patch: AppearanceConfigPatch,
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin.appearance.$patch({ json: patch })
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
+}
+
+async function updateTranscodingConfig(
+  context: ApiContext,
+  patch: TranscodingConfigPatch,
+): Promise<AdminRuntimeConfig> {
+  const res = await context.rpc.api.admin.transcoding.$patch({ json: patch })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
@@ -195,6 +209,8 @@ export function createAdminApi(context: ApiContext) {
       updateRuntimeConfig(context, input),
     updateAppearanceConfig: (patch: AppearanceConfigPatch) =>
       updateAppearanceConfig(context, patch),
+    updateTranscodingConfig: (patch: TranscodingConfigPatch) =>
+      updateTranscodingConfig(context, patch),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchUsers: () => fetchUsers(context),
     createUser: (input: AdminCreateUserInput) => createUser(context, input),

@@ -1,10 +1,17 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@alloy/ui/components/dropdown-menu"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cn } from "@alloy/ui/lib/utils"
-import { MaximizeIcon, PauseIcon, PlayIcon } from "lucide-react"
+import { MaximizeIcon, PauseIcon, PlayIcon, SettingsIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type {
   CSSProperties,
@@ -22,6 +29,7 @@ import {
   shouldHandleVideoShortcut,
   type VideoKeyCommand,
 } from "./video-keyboard"
+import type { QualityOption } from "./video-player-types"
 import { VideoScrubber } from "./video-scrubber"
 import { VolumeControl } from "./video-volume-control"
 
@@ -301,6 +309,9 @@ export function ChromeBar({
   onVolumeChange,
   onSeek,
   onToggleFullscreen,
+  qualityOptions,
+  selectedQualityId,
+  onSelectQuality,
 }: {
   size?: "default" | "compact"
   containerRef: RefObject<HTMLDivElement | null>
@@ -316,6 +327,9 @@ export function ChromeBar({
   onVolumeChange: (v: number) => void
   onSeek: (sec: number) => void
   onToggleFullscreen: () => void
+  qualityOptions?: QualityOption[]
+  selectedQualityId?: string
+  onSelectQuality?: (qualityId: string) => void
 }) {
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -418,6 +432,50 @@ export function ChromeBar({
               variant="translucent"
             />
           </div>
+
+          {qualityOptions && qualityOptions.length > 1 && onSelectQuality ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("Playback quality")}
+                    className={cn(
+                      videoChromeIconClass,
+                      size === "compact" && "size-[56px]",
+                    )}
+                  >
+                    <SettingsIcon className={videoChromeGlyphClass} />
+                  </Button>
+                }
+              />
+              <DropdownMenuContent
+                align="end"
+                side="top"
+                // Keep the menu inside the fullscreen element so it stays
+                // visible while the player is fullscreen.
+                portalContainer={containerRef.current ?? undefined}
+              >
+                <DropdownMenuRadioGroup
+                  value={selectedQualityId}
+                  onValueChange={onSelectQuality}
+                >
+                  {qualityOptions.map((option) => (
+                    <DropdownMenuRadioItem key={option.id} value={option.id}>
+                      {option.label}
+                      {option.detail ? (
+                        <span className="text-foreground-dim ml-auto pl-3 text-xs">
+                          {option.detail}
+                        </span>
+                      ) : null}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
 
           {fullscreenSupported ? (
             <Button

@@ -24,6 +24,7 @@ import {
 } from "@alloy/ui/lib/theme"
 import {
   DatabaseIcon,
+  FilmIcon,
   Gamepad2Icon,
   LanguagesIcon,
   type LucideIcon,
@@ -41,6 +42,7 @@ import type { ComponentType } from "react"
 import {
   AdminAppearancePanel,
   AdminGamesPanel,
+  AdminTranscodingPanel,
   AdminUsersPanel,
 } from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
@@ -421,6 +423,24 @@ const ADMIN_CATEGORIES = categoryDrafts([
     ],
     PaletteIcon,
     AdminAppearancePanel,
+  ],
+  [
+    "transcoding",
+    t("Transcoding"),
+    t("Rendition tiers"),
+    t("Choose which quality tiers the server encodes for new uploads."),
+    [
+      "renditions",
+      "transcoding",
+      "quality",
+      "1080p",
+      "720p",
+      "480p",
+      "hls",
+      "re-encode",
+    ],
+    FilmIcon,
+    AdminTranscodingPanel,
   ],
   [
     "users",
