@@ -1,25 +1,37 @@
 import { t } from "@alloy/i18n"
-export type CropMode = "avatar" | "banner"
+export type CropMode = "avatar" | "banner" | "thumbnail"
 
 type CropConfig = {
   aspect: number
   label: string
   outputHeight: number
   outputWidth: number
+  /** "strip" spans the full stage width (banner); "cover" requires the
+   * source image to always fill the frame (avatar, thumbnail). */
+  frameFit: "strip" | "cover"
 }
 
 export const CROP_CONFIG: Record<CropMode, CropConfig> = {
   avatar: {
     aspect: 1,
+    frameFit: "cover",
     label: t("Edit avatar"),
     outputHeight: 512,
     outputWidth: 512,
   },
   banner: {
     aspect: 4,
+    frameFit: "strip",
     label: t("Edit banner"),
     outputHeight: 375,
     outputWidth: 1500,
+  },
+  thumbnail: {
+    aspect: 16 / 9,
+    frameFit: "cover",
+    label: t("Edit thumbnail"),
+    outputHeight: 720,
+    outputWidth: 1280,
   },
 }
 
@@ -93,7 +105,7 @@ export function getMinimumZoom(
   containedImageBox: { height: number; width: number } | null,
   cropFrame: CropFrame,
 ) {
-  if (mode !== "avatar" || !containedImageBox) {
+  if (CROP_CONFIG[mode].frameFit !== "cover" || !containedImageBox) {
     return DEFAULT_PREVIEW_ZOOM
   }
 
@@ -122,7 +134,7 @@ export function getLiveCropGeometry(
 }
 
 export function fallbackStageSize(mode: CropMode) {
-  return mode === "avatar"
+  return CROP_CONFIG[mode].frameFit === "cover"
     ? { height: 420, width: 560 }
     : { height: 315, width: 560 }
 }
@@ -161,11 +173,10 @@ export function getCropFrame(
   mode: CropMode,
   containedImageBox: { height: number; width: number } | null,
 ): CropFrame {
-  const preferredMaxWidth =
-    mode === "avatar" ? stage.height * 0.78 : stage.width
-  // The banner is a short 4:1 strip centered in the taller stage.
-  const preferredMaxHeight =
-    mode === "avatar" ? stage.height * 0.78 : stage.height * 0.54
+  const isStrip = CROP_CONFIG[mode].frameFit === "strip"
+  const preferredMaxWidth = isStrip ? stage.width : stage.height * 0.78
+  // Strip frames (banner) span a short strip centered in the taller stage.
+  const preferredMaxHeight = isStrip ? stage.height * 0.54 : stage.height * 0.78
   const maxWidth = Math.min(
     preferredMaxWidth,
     containedImageBox?.width ?? preferredMaxWidth,

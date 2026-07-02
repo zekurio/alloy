@@ -1,4 +1,10 @@
-import { ALL_FORMATS, CanvasSink, Input } from "mediabunny"
+import {
+  ALL_FORMATS,
+  BlobSource,
+  CanvasSink,
+  Input,
+  type Source,
+} from "mediabunny"
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
@@ -8,7 +14,8 @@ import { createCaptureSource } from "@/lib/capture-source"
  * Renderer-side filmstrip sampling: evenly spaced frames decoded with
  * mediabunny over the same byte-range transport the preview engine uses, so
  * local captures (`alloy-capture://`) and uploaded clips (http stream) get
- * identical treatment.
+ * identical treatment. Picked upload Files are read directly from a
+ * `BlobSource` instead, keyed by their (unique) object URL.
  */
 
 export const FILMSTRIP_FRAME_COUNT = 16
@@ -44,10 +51,14 @@ const EMPTY_FILMSTRIP: MediaFilmstrip = {
  */
 const filmstripCache = new Map<string, Promise<MediaFilmstrip>>()
 
-export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
+export function mediaFilmstrip(
+  mediaUrl: string,
+  blob?: Blob,
+): Promise<MediaFilmstrip> {
   let pending = filmstripCache.get(mediaUrl)
   if (!pending) {
-    pending = extractFilmstrip(mediaUrl).catch(() => {
+    const source = blob ? new BlobSource(blob) : createCaptureSource(mediaUrl)
+    pending = extractFilmstrip(source).catch(() => {
       filmstripCache.delete(mediaUrl)
       return EMPTY_FILMSTRIP
     })
@@ -56,19 +67,22 @@ export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
   return pending
 }
 
-export function useMediaFilmstrip(mediaUrl: string | null): MediaFilmstrip {
+export function useMediaFilmstrip(
+  mediaUrl: string | null,
+  blob?: Blob,
+): MediaFilmstrip {
   const [strip, setStrip] = useState(EMPTY_FILMSTRIP)
   useEffect(() => {
     setStrip(EMPTY_FILMSTRIP)
     if (!mediaUrl) return
     let cancelled = false
-    void mediaFilmstrip(mediaUrl).then((result) => {
+    void mediaFilmstrip(mediaUrl, blob).then((result) => {
       if (!cancelled) setStrip(result)
     })
     return () => {
       cancelled = true
     }
-  }, [mediaUrl])
+  }, [mediaUrl, blob])
   return strip
 }
 
@@ -151,10 +165,10 @@ function clampMs(ms: number, durationMs: number): number {
   return Math.min(durationMs, Math.max(0, ms))
 }
 
-async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
+async function extractFilmstrip(source: Source): Promise<MediaFilmstrip> {
   const input = new Input({
     formats: ALL_FORMATS,
-    source: createCaptureSource(mediaUrl),
+    source,
   })
   try {
     const track = await input.getPrimaryVideoTrack()

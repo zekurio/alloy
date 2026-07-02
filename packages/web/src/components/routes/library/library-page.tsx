@@ -61,8 +61,8 @@ import {
 import {
   LibraryWebUploadButton,
   useLibraryWebUploadAction,
-  WebUploadClipDetailsDialog,
 } from "./library-web-upload-action"
+import { WebUploadEditor } from "./library-web-upload-editor"
 
 export function LibraryPage() {
   return <LibraryContent desktop={alloyDesktop()} />
@@ -142,6 +142,10 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     return { byClipId, byLocalCaptureId }
   }, [queue])
 
+  if (webUploadAction.selected) {
+    return <WebUploadEditor action={webUploadAction} />
+  }
+
   return (
     <AppMain>
       <section className="flex w-full flex-col gap-6">
@@ -169,7 +173,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           onCloudIntent={warmCloudClip}
         />
         <ImportClipDetailsDialog action={importAction} />
-        <WebUploadClipDetailsDialog action={webUploadAction} />
       </section>
     </AppMain>
   )

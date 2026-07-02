@@ -1,53 +1,33 @@
 import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import {
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@alloy/ui/components/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
-import { ChevronUpIcon, Link2Icon, Loader2Icon, UploadIcon } from "lucide-react"
+import { Loader2Icon, UploadIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
-import { FileTypeChip } from "@/components/routes/library/library-import-action"
 import {
   ACCEPT_LIST,
   captureThumbnail,
   prepareSelectedClipFile,
-  stripExtension,
+  type PublishPayload,
   type SelectedFile,
 } from "@/components/upload/new-clip-helpers"
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { absoluteClipHref } from "@/lib/app-paths"
-import {
-  CLIP_DESCRIPTION_MAX,
-  formatTags,
-  nullableClipDescription,
-  normalizeClipDescription,
-  normalizeClipTitle,
-  parseTagString,
-} from "@/lib/clip-fields"
+import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
+import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
+import { trimFileToMp4 } from "@/lib/trim-file"
 
 export interface LibraryWebUploadAction {
   available: boolean
   picking: boolean
   publishing: boolean
   selected: SelectedFile | null
+  /** Object URL for the picked file, driving the editor's preview + trimmer. */
+  previewUrl: string | null
   select: (file: File | null) => Promise<void>
   discard: () => void
   publish: (metadata: WebUploadMetadata) => Promise<void>
@@ -60,6 +40,10 @@ export interface WebUploadMetadata {
   game: GameRow | null
   privacy: ClipPrivacy
   mentions: UserSearchResult[]
+  /** Kept source range, in the picked file's timeline. */
+  trim: { startMs: number; endMs: number }
+  /** False when the range still covers the whole clip; skips the local cut. */
+  trimmed: boolean
 }
 
 export function useLibraryWebUploadAction(): LibraryWebUploadAction {
@@ -67,14 +51,34 @@ export function useLibraryWebUploadAction(): LibraryWebUploadAction {
   const [picking, setPicking] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [selected, setSelected] = useState<SelectedFile | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const available = typeof File !== "undefined"
+
+  // Revoke the preview URL on unmount without re-running the effect (and
+  // tearing the URL down) every time the selection changes.
+  const previewUrlRef = useRef<string | null>(null)
+  previewUrlRef.current = previewUrl
+  useEffect(
+    () => () => revokeObjectUrl(previewUrlRef.current, "upload preview URL"),
+    [],
+  )
+
+  const clearSelection = useCallback(() => {
+    setSelected(null)
+    setPreviewUrl((current) => {
+      revokeObjectUrl(current, "upload preview URL")
+      return null
+    })
+  }, [])
 
   const select = useCallback(
     async (file: File | null) => {
       if (!file || picking || publishing || selected) return
       setPicking(true)
       try {
-        setSelected(await prepareSelectedClipFile(file))
+        const prepared = await prepareSelectedClipFile(file)
+        setSelected(prepared)
+        setPreviewUrl(createObjectUrl(prepared.file, "upload preview URL"))
       } catch (cause) {
         toast.error(errorMessage(cause, t("Could not prepare clip.")))
       } finally {
@@ -86,8 +90,8 @@ export function useLibraryWebUploadAction(): LibraryWebUploadAction {
 
   const discard = useCallback(() => {
     if (publishing) return
-    setSelected(null)
-  }, [publishing])
+    clearSelection()
+  }, [publishing, clearSelection])
 
   const publish = useCallback(
     async (metadata: WebUploadMetadata) => {
@@ -96,29 +100,21 @@ export function useLibraryWebUploadAction(): LibraryWebUploadAction {
 
       setPublishing(true)
       try {
-        const thumbnail = await captureThumbnail(
-          current.file,
-          Math.min(1000, Math.max(0, current.durationMs - 100)),
-        )
+        // Trimming and poster capture are slow, so hand them to the upload
+        // queue as a deferred job: the editor closes immediately and the cut
+        // runs off the picked File in the background.
         const result = await publishClip({
-          file: current.file,
-          contentType: current.contentType,
-          title: normalizeClipTitle(metadata.title),
-          description: nullableClipDescription(metadata.description),
-          gameId: metadata.game?.id ?? null,
-          privacy: metadata.privacy,
-          width: current.width,
-          height: current.height,
-          durationMs: current.durationMs,
-          sizeBytes: current.sizeBytes,
-          thumbBlob: thumbnail.blob,
-          thumbBlurHash: thumbnail.blurHash,
-          mentionedUserIds: metadata.mentions.map((mention) => mention.id),
-          tags: parseTagString(metadata.tags),
+          kind: "deferred",
+          title: metadata.title,
+          sizeBytes: estimatedUploadSizeBytes(current, metadata),
+          thumbUrl: null,
+          thumbBlurHash: null,
+          prepare: (signal) =>
+            prepareWebUploadPayload(current, metadata, signal),
         })
         if (!result.clipId) return
 
-        setSelected(null)
+        clearSelection()
         if (metadata.privacy === "unlisted" && metadata.game) {
           const copied = await copyTextToClipboard(
             absoluteClipHref(metadata.game.slug, result.clipId, publicOrigin()),
@@ -131,7 +127,6 @@ export function useLibraryWebUploadAction(): LibraryWebUploadAction {
           }
           return
         }
-
         toast.success(t("Upload started"))
       } catch (cause) {
         toast.error(errorMessage(cause, t("Could not start upload.")))
@@ -139,10 +134,77 @@ export function useLibraryWebUploadAction(): LibraryWebUploadAction {
         setPublishing(false)
       }
     },
-    [publishClip, publishing, selected],
+    [publishClip, publishing, selected, clearSelection],
   )
 
-  return { available, picking, publishing, selected, select, discard, publish }
+  return {
+    available,
+    picking,
+    publishing,
+    selected,
+    previewUrl,
+    select,
+    discard,
+    publish,
+  }
+}
+
+async function prepareWebUploadPayload(
+  selected: SelectedFile,
+  metadata: WebUploadMetadata,
+  signal: AbortSignal,
+): Promise<PublishPayload> {
+  throwIfAborted(signal)
+  const sourceFile = metadata.trimmed
+    ? await trimFileToMp4(selected.file, {
+        startMs: metadata.trim.startMs,
+        endMs: metadata.trim.endMs,
+        signal,
+      })
+    : selected.file
+  throwIfAborted(signal)
+  // Re-validate and re-probe: the cut file has its own duration/dimensions and
+  // must clear the same upload checks a freshly picked file does.
+  const prepared = await prepareSelectedClipFile(sourceFile)
+  throwIfAborted(signal)
+  // Sample the poster from the cut file — the keyframe snap means the original
+  // frame at the requested start may not survive the trim.
+  const thumbnail = await captureThumbnail(
+    prepared.file,
+    Math.min(1000, Math.max(0, prepared.durationMs - 100)),
+  )
+
+  return {
+    file: prepared.file,
+    contentType: prepared.contentType,
+    title: metadata.title,
+    description: nullableClipDescription(metadata.description),
+    gameId: metadata.game?.id ?? null,
+    privacy: metadata.privacy,
+    width: prepared.width,
+    height: prepared.height,
+    durationMs: prepared.durationMs,
+    sizeBytes: prepared.sizeBytes,
+    thumbBlob: thumbnail.blob,
+    thumbBlurHash: thumbnail.blurHash,
+    mentionedUserIds: metadata.mentions.map((mention) => mention.id),
+    tags: parseTagString(metadata.tags),
+  }
+}
+
+function estimatedUploadSizeBytes(
+  selected: SelectedFile,
+  metadata: WebUploadMetadata,
+): number {
+  if (!metadata.trimmed || !(selected.durationMs > 0)) return selected.sizeBytes
+  const ratio =
+    Math.max(0, metadata.trim.endMs - metadata.trim.startMs) /
+    selected.durationMs
+  return Math.max(1, Math.round(selected.sizeBytes * Math.min(1, ratio)))
+}
+
+function throwIfAborted(signal: AbortSignal): void {
+  if (signal.aborted) throw new DOMException("Upload aborted", "AbortError")
 }
 
 export function LibraryWebUploadButton({
@@ -188,173 +250,5 @@ export function LibraryWebUploadButton({
         {action.picking ? t("Reading...") : t("Upload clip")}
       </Button>
     </>
-  )
-}
-
-export function WebUploadClipDetailsDialog({
-  action,
-}: {
-  action: LibraryWebUploadAction
-}) {
-  return (
-    <WebUploadClipDetailsDialogInner
-      selected={action.selected}
-      pending={action.publishing}
-      onOpenChange={(open) => {
-        if (!open) action.discard()
-      }}
-      onPublish={(metadata) => {
-        void action.publish(metadata)
-      }}
-    />
-  )
-}
-
-function WebUploadClipDetailsDialogInner({
-  selected,
-  pending,
-  onOpenChange,
-  onPublish,
-}: {
-  selected: SelectedFile | null
-  pending: boolean
-  onOpenChange: (open: boolean) => void
-  onPublish: (metadata: WebUploadMetadata) => void
-}) {
-  const [title, setTitle] = useState("")
-  const [description, setDescription] = useState("")
-  const [game, setGame] = useState<GameRow | null>(null)
-  const [mentions, setMentions] = useState<UserSearchResult[]>([])
-  const [tags, setTags] = useState("")
-
-  useEffect(() => {
-    setTitle(selected ? stripExtension(selected.name) : "")
-    setDescription("")
-    setGame(null)
-    setMentions([])
-    setTags("")
-  }, [selected?.file.lastModified, selected?.name, selected?.sizeBytes])
-
-  const normalizedTitle = normalizeClipTitle(title)
-  const normalizedDescription = normalizeClipDescription(description)
-  const titleInvalid = normalizedTitle.length === 0
-  const descriptionInvalid = normalizedDescription.length > CLIP_DESCRIPTION_MAX
-  const canPublish =
-    !pending &&
-    normalizedTitle.length > 0 &&
-    normalizedDescription.length <= CLIP_DESCRIPTION_MAX
-
-  const submit = (privacy: ClipPrivacy) => {
-    if (!canPublish) return
-    onPublish({
-      title: normalizedTitle,
-      description: normalizedDescription,
-      tags,
-      game,
-      privacy,
-      mentions,
-    })
-  }
-
-  return (
-    <Dialog open={selected !== null} onOpenChange={onOpenChange}>
-      <DialogContent variant="secondary" className="max-w-[520px]">
-        <DialogHeader>
-          <DialogTitle>{t("Upload clip")}</DialogTitle>
-          <DialogDescription>
-            {t("Add clip details before the upload starts.")}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogBody className="flex flex-col gap-5">
-          {selected ? <SelectedUploadSummary selected={selected} /> : null}
-          <ClipMetadataEditor
-            title={title}
-            onTitleChange={setTitle}
-            description={description}
-            onDescriptionChange={setDescription}
-            game={game}
-            onGameChange={setGame}
-            mentions={mentions}
-            onMentionsChange={setMentions}
-            tags={parseTagString(tags)}
-            onTagsChange={(next) => setTags(formatTags(next))}
-            disabled={pending}
-            titleInvalid={titleInvalid}
-            gameInvalid={false}
-          />
-          {descriptionInvalid ? (
-            <p className="text-destructive text-xs">
-              {t("Description can be at most {max} characters", {
-                max: CLIP_DESCRIPTION_MAX,
-              })}
-            </p>
-          ) : null}
-        </DialogBody>
-        <DialogFooter>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={pending}
-            onClick={() => onOpenChange(false)}
-          >
-            {t("Cancel")}
-          </Button>
-          <div className="flex items-center">
-            <Button
-              type="button"
-              variant="primary"
-              disabled={!canPublish}
-              className="rounded-r-none"
-              onClick={() => submit("public")}
-            >
-              {pending ? (
-                <Loader2Icon className="animate-spin" />
-              ) : (
-                <UploadIcon />
-              )}
-              {pending ? t("Uploading...") : t("Post")}
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="primary"
-                    size="icon"
-                    disabled={!canPublish}
-                    aria-label={t("More upload options")}
-                    className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
-                  />
-                }
-              >
-                <ChevronUpIcon />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" side="top" className="w-52">
-                <DropdownMenuItem onClick={() => submit("unlisted")}>
-                  <Link2Icon className="size-4" />
-                  {t("Create Link")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function SelectedUploadSummary({ selected }: { selected: SelectedFile }) {
-  return (
-    <div className="border-border bg-surface-raised/60 flex min-w-0 items-center gap-3 rounded-md border p-3">
-      <FileTypeChip fileName={selected.name} />
-      <div className="min-w-0">
-        <p className="text-foreground truncate text-sm font-semibold">
-          {selected.name}
-        </p>
-        <p className="text-foreground-muted truncate text-xs">
-          {[selected.size, selected.duration, selected.resolution].join(" - ")}
-        </p>
-      </div>
-    </div>
   )
 }

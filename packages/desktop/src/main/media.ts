@@ -1,27 +1,26 @@
 import {
+  assertUploadMp4Compatible,
+  type OutputSinks,
+  trimToMp4Target,
+  withMp4Output,
+} from "@alloy/media"
+import {
   ALL_FORMATS,
-  EncodedAudioPacketSource,
   EncodedPacketSink,
-  EncodedVideoPacketSource,
   FilePathSource,
   FilePathTarget,
   Input,
   MP4,
-  Mp4OutputFormat,
-  Output,
   type InputAudioTrack,
   type InputVideoTrack,
 } from "mediabunny"
 
 /**
  * Main-process media operations via mediabunny packet copy — no decoding, no
- * external binaries. The trim pattern mirrors
- * `packages/server/src/media/trim.ts`; like there, mediabunny's `Conversion`
- * is unusable because Node has no WebCodecs, so any path that would decode
- * drops tracks. Cuts therefore snap to the nearest preceding video keyframe.
- *
- * Outputs are fragmented MP4s so they stream progressively without a second
- * faststart pass.
+ * external binaries. The packet-copy core lives in `@alloy/media`, shared with
+ * `packages/server/src/media/trim.ts` and the web upload editor; like there,
+ * cuts snap to the nearest preceding video keyframe. Outputs are fragmented
+ * MP4s so they stream progressively without a second faststart pass.
  */
 
 export interface VideoFileMeta {
@@ -87,7 +86,7 @@ export async function probeDurationMs(
 /**
  * Cut `[startMs, endMs]` out of `srcPath` into an upload-compatible MP4 at
  * `outPath` without re-encoding. The cut start snaps to the nearest preceding
- * video keyframe — the same behavior as the previous stream-copy path.
+ * video keyframe.
  */
 export async function trimMp4(
   srcPath: string,
@@ -104,35 +103,11 @@ export async function trimMp4(
     const audio = await input.getPrimaryAudioTrack()
     assertUploadMp4Compatible(video.codec, audio?.codec ?? null)
 
-    const requestedStartSec = Math.max(0, opts.startMs) / 1000
-    const endSec = Math.max(opts.startMs + 1, opts.endMs) / 1000
-
-    const videoSink = new EncodedPacketSink(video)
-    const startPacket =
-      (await videoSink.getKeyPacket(requestedStartSec, {
-        verifyKeyPackets: true,
-      })) ?? (await videoSink.getFirstKeyPacket({ verifyKeyPackets: true }))
-    if (!startPacket) throw new Error("Trim source has no video key packet")
-    // All output timestamps are rebased onto the keyframe the cut snaps to.
-    const baseSec = startPacket.timestamp
-
-    await withMp4Output(outPath, video, audio, async (sinks) => {
-      const videoMeta = {
-        decoderConfig: (await video.getDecoderConfig()) ?? undefined,
-      }
-      for await (const packet of videoSink.packets(startPacket, undefined, {
-        verifyKeyPackets: true,
-      })) {
-        if (packet.timestamp >= endSec) break
-        await sinks.video.add(
-          packet.clone({ timestamp: packet.timestamp - baseSec }),
-          videoMeta,
-        )
-      }
-
-      if (audio && sinks.audio) {
-        await copyAudioPackets(audio, sinks.audio, baseSec, endSec)
-      }
+    await trimToMp4Target({
+      input,
+      target: new FilePathTarget(outPath),
+      startMs: opts.startMs,
+      endMs: opts.endMs,
     })
   } finally {
     input.dispose()
@@ -160,9 +135,14 @@ export async function remuxToUploadMp4(
     const audioCodec = audio?.codec ?? null
     assertUploadMp4Compatible(videoCodec, audioCodec)
 
-    await withMp4Output(outPath, video, audio, async (sinks) => {
-      await appendSegment(input, sinks, 0, videoCodec, audioCodec)
-    })
+    await withMp4Output(
+      new FilePathTarget(outPath),
+      video,
+      audio,
+      async (sinks) => {
+        await appendSegment(input, sinks, 0, videoCodec, audioCodec)
+      },
+    )
   } finally {
     input.dispose()
   }
@@ -231,71 +211,36 @@ export async function concatMp4Segments(
     const videoCodec = video.codec
     const audioCodec = audio?.codec ?? null
 
-    await withMp4Output(outPath, video, audio, async (sinks) => {
-      let offsetSec = 0
-      for (const path of segmentPaths) {
-        const input =
-          path === segmentPaths[0]
-            ? first
-            : new Input({
-                source: new FilePathSource(path),
-                formats: ALL_FORMATS,
-              })
-        try {
-          offsetSec = await appendSegment(
-            input,
-            sinks,
-            offsetSec,
-            videoCodec,
-            audioCodec,
-          )
-        } finally {
-          if (input !== first) input.dispose()
+    await withMp4Output(
+      new FilePathTarget(outPath),
+      video,
+      audio,
+      async (sinks) => {
+        let offsetSec = 0
+        for (const path of segmentPaths) {
+          const input =
+            path === segmentPaths[0]
+              ? first
+              : new Input({
+                  source: new FilePathSource(path),
+                  formats: ALL_FORMATS,
+                })
+          try {
+            offsetSec = await appendSegment(
+              input,
+              sinks,
+              offsetSec,
+              videoCodec,
+              audioCodec,
+            )
+          } finally {
+            if (input !== first) input.dispose()
+          }
         }
-      }
-    })
+      },
+    )
   } finally {
     first.dispose()
-  }
-}
-
-interface OutputSinks {
-  video: EncodedVideoPacketSource
-  audio: EncodedAudioPacketSource | null
-}
-
-/**
- * Runs `copy` against a fragmented-MP4 output configured for the given
- * tracks, finalizing on success and cancelling on failure.
- */
-async function withMp4Output(
-  outPath: string,
-  video: InputVideoTrack,
-  audio: InputAudioTrack | null,
-  copy: (sinks: OutputSinks) => Promise<void>,
-): Promise<void> {
-  const output = new Output({
-    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
-    target: new FilePathTarget(outPath),
-  })
-  try {
-    const videoSource = new EncodedVideoPacketSource(
-      video.codec ?? throwUnknownCodec("video"),
-    )
-    output.addVideoTrack(videoSource)
-    const audioSource = audio
-      ? new EncodedAudioPacketSource(audio.codec ?? throwUnknownCodec("audio"))
-      : null
-    if (audioSource) output.addAudioTrack(audioSource)
-
-    await output.start()
-    await copy({ video: videoSource, audio: audioSource })
-    videoSource.close()
-    audioSource?.close()
-    await output.finalize()
-  } catch (err) {
-    await output.cancel().catch(() => undefined)
-    throw err
   }
 }
 
@@ -352,42 +297,6 @@ async function appendSegment(
   }
 
   return videoEndSec
-}
-
-async function copyAudioPackets(
-  audio: InputAudioTrack,
-  audioSource: EncodedAudioPacketSource,
-  baseSec: number,
-  endSec: number,
-): Promise<void> {
-  const sink = new EncodedPacketSink(audio)
-  const meta = { decoderConfig: (await audio.getDecoderConfig()) ?? undefined }
-  const first = (await sink.getPacket(baseSec)) ?? (await sink.getFirstPacket())
-  if (!first) return
-  for await (const packet of sink.packets(first)) {
-    if (packet.timestamp >= endSec) break
-    const timestamp = packet.timestamp - baseSec
-    // The packet containing the cut point starts slightly before it; dropping
-    // sub-frame negatives keeps the muxer's monotonic, non-negative contract
-    // at the cost of at most one audio frame (~20ms) of leading silence.
-    if (timestamp < 0) continue
-    await audioSource.add(packet.clone({ timestamp }), meta)
-  }
-}
-
-const UPLOAD_MP4_VIDEO_CODECS = new Set(["avc", "hevc", "av1"])
-const UPLOAD_MP4_AUDIO_CODECS = new Set(["aac"])
-
-function assertUploadMp4Compatible(
-  videoCodec: InputVideoTrack["codec"],
-  audioCodec: InputAudioTrack["codec"] | null,
-): void {
-  if (!videoCodec || !UPLOAD_MP4_VIDEO_CODECS.has(videoCodec)) {
-    throw new Error("Only H.264, HEVC, or AV1 video can be uploaded.")
-  }
-  if (audioCodec && !UPLOAD_MP4_AUDIO_CODECS.has(audioCodec)) {
-    throw new Error("Only AAC audio can be uploaded.")
-  }
 }
 
 function throwUnknownCodec(kind: string): never {
