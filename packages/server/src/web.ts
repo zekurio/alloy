@@ -153,19 +153,20 @@ async function clipHead(pathname: string): Promise<string> {
           origin,
         ).toString()
       : null
-    // The stream endpoint serves the top rendition — always H.264+AAC MP4 —
-    // so scrapers can embed it regardless of what was uploaded. Clips the
-    // rendition backfill hasn't reached yet fall back to the source, which is
-    // only advertised when its container is one scrapers can embed.
+    // Social video embeds are only reliable for H.264/AAC. Legacy rendition
+    // rows without codec metadata predate configurable codecs and were H.264.
     const topRendition = row.renditionRows?.[0] ?? null
+    const embeddableRendition =
+      topRendition && renditionIsH264(topRendition.codecs)
     const embeddableSource =
       row.sourceContentType === "video/mp4" ||
       row.sourceContentType === "video/webm"
     const videoUrl =
-      topRendition || (row.sourceKey && embeddableSource)
+      embeddableRendition ||
+      (!topRendition && row.sourceKey && embeddableSource)
         ? new URL(`/api/clips/${row.id}/stream`, origin).toString()
         : null
-    const videoType = topRendition
+    const videoType = embeddableRendition
       ? "video/mp4"
       : (row.sourceContentType ?? "video/mp4")
     const width = topRendition?.width ?? row.width
@@ -202,6 +203,14 @@ async function clipHead(pathname: string): Promise<string> {
     logger.error("failed to build clip metadata:", error)
     return ""
   }
+}
+
+function renditionIsH264(codecs: string | null | undefined): boolean {
+  if (!codecs) return true
+  return codecs
+    .split(",")
+    .map((codec) => codec.trim().toLowerCase())
+    .some((codec) => codec.startsWith("avc1."))
 }
 
 function withInjectedHead(indexHtml: string, head: string): string {

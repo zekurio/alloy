@@ -155,9 +155,17 @@ in
 
     package = lib.mkOption {
       type = lib.types.package;
-      default = packageForSystem;
-      defaultText = lib.literalExpression "inputs.alloy.packages.\${pkgs.stdenv.hostPlatform.system}.default";
+      default = packageForSystem.override { ffmpegPackage = cfg.ffmpegPackage; };
+      defaultText = lib.literalExpression ''inputs.alloy.packages.''${pkgs.stdenv.hostPlatform.system}.default.override { ffmpegPackage = config.services.alloy-server.ffmpegPackage; }'';
       description = "Alloy package to run.";
+    };
+
+    ffmpegPackage = lib.mkOption {
+      type = lib.types.package;
+      default = pkgs.ffmpeg-headless;
+      defaultText = lib.literalExpression "pkgs.ffmpeg-headless";
+      example = lib.literalExpression "pkgs.jellyfin-ffmpeg";
+      description = "ffmpeg package placed on Alloy's PATH. Use pkgs.jellyfin-ffmpeg for hardware acceleration support.";
     };
 
     user = lib.mkOption {
