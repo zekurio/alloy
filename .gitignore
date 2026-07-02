@@ -51,3 +51,6 @@ data/
 
 # cloned repos to research
 .repos/
+
+# plans
+plans/
