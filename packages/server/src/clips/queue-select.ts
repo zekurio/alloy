@@ -4,7 +4,7 @@ import { db } from "@alloy/server/db/index"
 import { isoDate } from "@alloy/server/runtime/date"
 import { desc, eq } from "drizzle-orm"
 
-import { clipThumbnailVersion } from "./thumbnail-version"
+import { clipAssetVersion } from "./asset-version"
 
 const queueSelectShape = {
   id: clip.id,
@@ -41,7 +41,7 @@ function serialize(row: {
     failureReason: row.failureReason,
     gameSlug: row.gameSlug,
     hasThumb: row.thumbKey !== null,
-    thumbVersion: row.thumbKey ? clipThumbnailVersion(row.thumbKey) : null,
+    thumbVersion: row.thumbKey ? clipAssetVersion(row.thumbKey) : null,
     thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
     gameId: row.gameId,
     createdAt: isoDate(row.createdAt),

@@ -2,9 +2,10 @@ import { rm, stat } from "node:fs/promises"
 
 import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
+import { isFastStartFile } from "@alloy/server/media/faststart"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { probeMedia } from "@alloy/server/media/probe"
-import { trimToMp4 } from "@alloy/server/media/trim"
+import { remuxToFastStartMp4, trimToMp4 } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
 import {
   clipStorage,
@@ -146,6 +147,16 @@ async function runPipelineInWorkDir({
   }
   await ensureStillPresent(store, id, runId, signal)
 
+  // Trim output is already fragmented; only untouched sources can carry a
+  // tail-moov layout that blocks progressive playback.
+  const needsFastStartRemux = !trim && !(await isFastStartFile(mediaPath))
+  if (needsFastStartRemux) {
+    const remuxedPath = join(workDir, "faststart.mp4")
+    await remuxToFastStartMp4(mediaPath, remuxedPath, { signal })
+    mediaPath = remuxedPath
+    mediaContentType = "video/mp4"
+  }
+
   const probed = await probeMedia(mediaPath)
   const outputDurationMs = probed.durationMs
 
@@ -161,10 +172,12 @@ async function runPipelineInWorkDir({
     writeProgress(Math.min(99, Math.floor((completedWork / totalWork) * 100)))
   }
 
-  const sourceKey = trim
-    ? runScopedSourceKey(id, runId)
-    : (row.sourceKey ?? runScopedSourceKey(id, runId))
-  const canReuseSource = !trim && row.sourceKey === sourceKey
+  const sourceKey =
+    trim || needsFastStartRemux
+      ? runScopedSourceKey(id, runId)
+      : (row.sourceKey ?? runScopedSourceKey(id, runId))
+  const canReuseSource =
+    !trim && !needsFastStartRemux && row.sourceKey === sourceKey
   const sourceAsset = canReuseSource
     ? {
         storageKey: sourceKey,

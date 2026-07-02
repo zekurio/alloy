@@ -1,6 +1,6 @@
 import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
-import { clipThumbnailVersion } from "@alloy/server/clips/thumbnail-version"
+import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import { db } from "@alloy/server/db/index"
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm"
 
@@ -31,7 +31,7 @@ export async function getLoginBackdropClips(
     .limit(limit)
   return rows.flatMap((row) =>
     row.thumbKey
-      ? [{ id: row.id, thumbVersion: clipThumbnailVersion(row.thumbKey) }]
+      ? [{ id: row.id, thumbVersion: clipAssetVersion(row.thumbKey) }]
       : [],
   )
 }

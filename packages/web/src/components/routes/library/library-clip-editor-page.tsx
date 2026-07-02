@@ -201,8 +201,15 @@ function useClipEditorMedia(
   processing: boolean,
   localItem: RecordingLibraryItem | null,
 ) {
-  const mediaVersion = clipEditorMediaVersion(row)
-  const streamSrc = clipStreamUrl(row.id, apiOrigin(), mediaVersion)
+  // Version the stream URL by the published source bytes only — deriving it
+  // from thumb/status fields would reload the <video> mid-playback whenever a
+  // background detail refetch lands.
+  const mediaVersion = row.sourceVersion ?? ""
+  const streamSrc = clipStreamUrl(
+    row.id,
+    apiOrigin(),
+    row.sourceVersion ?? undefined,
+  )
   const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
@@ -364,7 +371,8 @@ function ClipEditorTrimControls({
         durationMs={playback.durationMs}
         startMs={playback.trim.startMs}
         endMs={playback.trim.endMs}
-        currentMs={playback.currentMs}
+        subscribeCurrentMs={playback.subscribeCurrentMs}
+        getCurrentMs={playback.getCurrentMs}
         onSeek={(sourceMs) => {
           playback.playerRef.current?.pause()
           playback.seek(sourceMs)
@@ -474,21 +482,6 @@ function useServerBackedClipDelete({
     pending,
     confirm,
   }
-}
-
-function clipEditorMediaVersion(row: ClipRow): string {
-  return [
-    row.status,
-    row.sourceContentType ?? "",
-    row.sourceVideoCodec ?? "",
-    row.sourceAudioCodec ?? "",
-    row.sourceSizeBytes ?? "",
-    row.durationMs ?? "",
-    row.width ?? "",
-    row.height ?? "",
-    row.thumbKey ?? "",
-    row.thumbBlurHash ?? "",
-  ].join(":")
 }
 
 function ClipProcessingNotice({ progress }: { progress: number }) {
