@@ -26,17 +26,8 @@ import { errorFrom } from "./error"
 
 type WebAuthnBrowser = typeof import("@simplewebauthn/browser")
 
-let webAuthnBrowserPromise: Promise<WebAuthnBrowser> | null = null
-
 function loadWebAuthnBrowser(): Promise<WebAuthnBrowser> {
-  if (!webAuthnBrowserPromise) {
-    const promise = import("@simplewebauthn/browser")
-    webAuthnBrowserPromise = promise
-    void promise.catch(() => {
-      if (webAuthnBrowserPromise === promise) webAuthnBrowserPromise = null
-    })
-  }
-  return webAuthnBrowserPromise
+  return import("@simplewebauthn/browser")
 }
 
 function preloadWebAuthnBrowser(): void {
