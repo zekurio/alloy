@@ -7,7 +7,7 @@ import {
 import { t } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { toast } from "@alloy/ui/lib/toast"
-import { useCallback } from "react"
+import { useCallback, useMemo } from "react"
 
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
@@ -22,6 +22,8 @@ interface ClipPlayerProps {
   sourceContentType?: string | null
   sourceVideoCodec?: string | null
   sourceAudioCodec?: string | null
+  /** Cache-busting version of the published source; changes on republish. */
+  sourceVersion?: string | null
   thumbnail?: string | null
   thumbnailBlurHash?: string | null
   fallbackSeed?: string | number
@@ -46,6 +48,7 @@ function ClipPlayer({
   sourceContentType,
   sourceVideoCodec,
   sourceAudioCodec,
+  sourceVersion,
   thumbnail,
   thumbnailBlurHash,
   fallbackSeed,
@@ -66,10 +69,14 @@ function ClipPlayer({
       ? clipThumbnailUrl(clipId, apiOrigin())
       : (thumbnail ?? undefined)
 
-  const sourcePlayable = canPlaySource(sourceContentType, {
-    videoCodec: sourceVideoCodec,
-    audioCodec: sourceAudioCodec,
-  })
+  const sourcePlayable = useMemo(
+    () =>
+      canPlaySource(sourceContentType, {
+        videoCodec: sourceVideoCodec,
+        audioCodec: sourceAudioCodec,
+      }),
+    [sourceAudioCodec, sourceContentType, sourceVideoCodec],
+  )
 
   const qualityOptions = sourceContentType
     ? [
@@ -130,7 +137,7 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={clipStreamUrl(clipId, apiOrigin())}
+      src={clipStreamUrl(clipId, apiOrigin(), sourceVersion ?? undefined)}
       poster={poster}
       posterBlurHash={thumbnailBlurHash}
       fallbackSeed={fallbackSeed ?? clipId}

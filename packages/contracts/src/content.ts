@@ -68,6 +68,8 @@ export interface ClipRow {
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
   sourceSizeBytes: number | null
+  /** Cache-busting version of the published source bytes; changes on republish. */
+  sourceVersion: string | null
   durationMs: number | null
   width: number | null
   height: number | null

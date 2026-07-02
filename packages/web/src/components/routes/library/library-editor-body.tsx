@@ -332,7 +332,8 @@ export function EditorBody({
             durationMs={playback.durationMs}
             startMs={trim.startMs}
             endMs={trim.endMs}
-            currentMs={playback.currentMs}
+            subscribeCurrentMs={playback.subscribeCurrentMs}
+            getCurrentMs={playback.getCurrentMs}
             onSeek={(sourceMs) => {
               playerRef.current?.pause()
               playback.seek(sourceMs)

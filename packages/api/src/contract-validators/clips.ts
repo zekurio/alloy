@@ -133,6 +133,10 @@ function validateClipTimestamps(row: Record<string, unknown>) {
     row.thumbVersion,
     "Invalid clip response: thumbVersion must be string or null",
   )
+  validateNullableString(
+    row.sourceVersion,
+    "Invalid clip response: sourceVersion must be string or null",
+  )
   validateNullableBlurHash(
     row.thumbBlurHash,
     "Invalid clip response: thumbBlurHash",

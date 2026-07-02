@@ -28,6 +28,10 @@ type VideoFrameProps = {
   onClick?: MouseEventHandler<HTMLVideoElement>
   onLoadedMetadata: ReactEventHandler<HTMLVideoElement>
   onLoadedData: ReactEventHandler<HTMLVideoElement>
+  onCanPlay: ReactEventHandler<HTMLVideoElement>
+  onWaiting: ReactEventHandler<HTMLVideoElement>
+  onStalled: ReactEventHandler<HTMLVideoElement>
+  onPlaying: ReactEventHandler<HTMLVideoElement>
   onDurationChange: ReactEventHandler<HTMLVideoElement>
   onTimeUpdate: ReactEventHandler<HTMLVideoElement>
   onProgress: ReactEventHandler<HTMLVideoElement>
@@ -52,6 +56,10 @@ export function VideoFrame({
   onClick,
   onLoadedMetadata,
   onLoadedData,
+  onCanPlay,
+  onWaiting,
+  onStalled,
+  onPlaying,
   onDurationChange,
   onTimeUpdate,
   onProgress,
@@ -100,7 +108,10 @@ export function VideoFrame({
         onClick={onClick}
         onLoadedMetadata={onLoadedMetadata}
         onLoadedData={onLoadedData}
-        onCanPlay={onLoadedData}
+        onCanPlay={onCanPlay}
+        onWaiting={onWaiting}
+        onStalled={onStalled}
+        onPlaying={onPlaying}
         onDurationChange={onDurationChange}
         onTimeUpdate={onTimeUpdate}
         onProgress={onProgress}
