@@ -2,10 +2,15 @@ import { rm, stat } from "node:fs/promises"
 
 import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
-import { isFastStartFile } from "@alloy/server/media/faststart"
+import { configStore } from "@alloy/server/config/store"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
+import { extractPoster } from "@alloy/server/media/poster"
 import { probeMedia } from "@alloy/server/media/probe"
-import { remuxToFastStartMp4, trimToMp4 } from "@alloy/server/media/trim"
+import {
+  effectiveLadder,
+  encodeRendition,
+} from "@alloy/server/media/renditions"
+import { trimToMp4 } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
 import {
   clipStorage,
@@ -26,11 +31,15 @@ import {
 import sharp from "sharp"
 
 import { abortMediaProcessing } from "./media-abort"
-import { runScopedSourceKey, runScopedThumbKey } from "./media-asset-keys"
+import {
+  runScopedRenditionKey,
+  runScopedSourceKey,
+  runScopedThumbKey,
+} from "./media-asset-keys"
 import { makeMediaProgressWriter } from "./media-progress"
 import { type Asset, publishOriginalSource } from "./media-publish"
 import { makeMediaWorkDir } from "./media-run-helpers"
-import type { MediaRow, MediaStore } from "./media-store"
+import type { MediaRenditionRecord, MediaRow, MediaStore } from "./media-store"
 
 const logger = createLogger("queue")
 
@@ -147,37 +156,40 @@ async function runPipelineInWorkDir({
   }
   await ensureStillPresent(store, id, runId, signal)
 
-  // Trim output is already fragmented; only untouched sources can carry a
-  // tail-moov layout that blocks progressive playback.
-  const needsFastStartRemux = !trim && !(await isFastStartFile(mediaPath))
-  if (needsFastStartRemux) {
-    const remuxedPath = join(workDir, "faststart.mp4")
-    await remuxToFastStartMp4(mediaPath, remuxedPath, { signal })
-    mediaPath = remuxedPath
-    mediaContentType = "video/mp4"
-  }
-
   const probed = await probeMedia(mediaPath)
   const outputDurationMs = probed.durationMs
 
-  const totalWork = 3
+  const ladder = effectiveLadder(configStore.get("transcoding"), {
+    height: probed.height,
+    fps: probed.fps,
+  })
+  if (ladder.length === 0) {
+    throw new Error("No rendition tiers apply to this source")
+  }
+
+  // Work units: source publish, one per rendition tier, poster, finalize.
+  // Rendition units advance fractionally with ffmpeg progress, so the SSE
+  // progress bar reflects real encode time.
+  const totalWork = 1 + ladder.length + 2
   let completedWork = 0
   const writeProgress = makeMediaProgressWriter({
     id,
     commit: (pct) => store.commitProgress(id, runId, pct),
     onCommitted: (pct) => store.publishProgress(row.authorId, id, pct),
   })
+  const progressAt = (fraction: number) =>
+    writeProgress(
+      Math.min(99, Math.floor(((completedWork + fraction) / totalWork) * 100)),
+    )
   const completeWork = () => {
     completedWork += 1
-    writeProgress(Math.min(99, Math.floor((completedWork / totalWork) * 100)))
+    progressAt(0)
   }
 
-  const sourceKey =
-    trim || needsFastStartRemux
-      ? runScopedSourceKey(id, runId)
-      : (row.sourceKey ?? runScopedSourceKey(id, runId))
-  const canReuseSource =
-    !trim && !needsFastStartRemux && row.sourceKey === sourceKey
+  const sourceKey = trim
+    ? runScopedSourceKey(id, runId)
+    : (row.sourceKey ?? runScopedSourceKey(id, runId))
+  const canReuseSource = !trim && row.sourceKey === sourceKey
   const sourceAsset = canReuseSource
     ? {
         storageKey: sourceKey,
@@ -192,6 +204,7 @@ async function runPipelineInWorkDir({
         sourcePath: mediaPath,
         sourceKey,
         contentType: mediaContentType,
+        probe: probed,
       })
   if (!canReuseSource) uploadedKeys.push(sourceKey)
 
@@ -210,17 +223,69 @@ async function runPipelineInWorkDir({
   retainSourceAsset(sourceAsset)
   completeWork()
 
+  // Encode the quality ladder. Every rendition is H.264+AAC fMP4, so the top
+  // tier is the universally playable artifact OpenGraph embeds and legacy
+  // stream URLs rely on. Uploaded under run-scoped keys; committed atomically
+  // with the ready transition below.
+  const renditions: MediaRenditionRecord[] = []
+  for (const step of ladder) {
+    await ensureStillPresent(store, id, runId, signal)
+    const encoded = await encodeRendition(
+      mediaPath,
+      join(workDir, `rendition-${step.height}p`),
+      step,
+      {
+        durationMs: outputDurationMs,
+        signal,
+        onProgress: progressAt,
+      },
+    )
+    const renditionKey = runScopedRenditionKey(id, runId, encoded.height)
+    await clipStorage.uploadFromFile(
+      encoded.filePath,
+      renditionKey,
+      "video/mp4",
+    )
+    uploadedKeys.push(renditionKey)
+    await rm(encoded.filePath, { force: true }).catch(() => undefined)
+    renditions.push({
+      height: encoded.height,
+      width: encoded.width,
+      fps: encoded.fps,
+      storageKey: renditionKey,
+      playlist: encoded.playlist,
+      codecs: encoded.codecs,
+      bandwidth: encoded.bandwidth,
+      sizeBytes: encoded.sizeBytes,
+    })
+    completeWork()
+  }
+
   await ensureStillPresent(store, id, runId, signal)
-  // Clients are the only producers of posters: they ship a rendered image plus
-  // a BlurHash at initiate. The server never extracts frames; it only validates
-  // and publishes the uploaded poster artifact.
-  const { thumbKey, thumbBlurHash } = await republishUploadedThumbnail(
+  // Posters normally come from clients (rendered image + BlurHash shipped at
+  // initiate); the server only validates and republishes them. When no client
+  // poster exists at all, extract a frame server-side so every clip has an
+  // og:image and card thumbnail.
+  let thumb = await republishUploadedThumbnail(
     store,
     id,
     runId,
     row,
     uploadedKeys,
   )
+  if (!thumb.thumbKey) {
+    const poster = await extractPoster(mediaPath, workDir, {
+      durationMs: outputDurationMs,
+      signal,
+    })
+    if (poster) {
+      const thumbKey = runScopedThumbKey(id, runId)
+      await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
+      uploadedKeys.push(thumbKey)
+      thumb = { thumbKey, thumbBlurHash: poster.blurHash }
+    }
+  }
+  const { thumbKey, thumbBlurHash } = thumb
   if (!(await store.commitThumb(id, runId, { thumbKey, thumbBlurHash })))
     throw abortMediaProcessing()
   if (thumbKey) retainPublishedKey(thumbKey)
@@ -228,16 +293,24 @@ async function runPipelineInWorkDir({
   completeWork()
 
   await ensureStillPresent(store, id, runId, signal)
-  const committed = await store.commitReady(id, runId, {
-    ...sourcePatch,
-    thumbKey,
-    thumbBlurHash,
-  })
+  // Snapshot the outgoing rendition keys before commitReady replaces the rows.
+  const previousAssets = await store.currentAssetKeys(id)
+  const committed = await store.commitReady(
+    id,
+    runId,
+    {
+      ...sourcePatch,
+      thumbKey,
+      thumbBlurHash,
+    },
+    renditions,
+  )
   if (!committed) throw abortMediaProcessing()
   // The row now points at the newly published assets. Any previous asset that
   // was not retained is orphaned; prune it best-effort after publish.
-  await pruneStaleAssets(row, [
+  await pruneStaleAssets(row, previousAssets?.renditionKeys ?? [], [
     sourceAsset.storageKey,
+    ...renditions.map((rendition) => rendition.storageKey),
     ...(thumbKey ? [thumbKey] : []),
   ])
   await cleanupTickets({ type: store.target, id }, "completed staged upload")
@@ -255,10 +328,15 @@ function pendingTrimRange(
 
 async function pruneStaleAssets(
   row: Pick<MediaRow, "sourceKey" | "thumbKey">,
+  previousRenditionKeys: readonly string[],
   retainedKeys: Iterable<string>,
 ): Promise<void> {
   const retained = new Set(retainedKeys)
-  const previousKeys = new Set([row.sourceKey, row.thumbKey])
+  const previousKeys = new Set([
+    row.sourceKey,
+    row.thumbKey,
+    ...previousRenditionKeys,
+  ])
   previousKeys.delete(null)
 
   await deleteAssetsBestEffort(
@@ -371,6 +449,7 @@ async function retainRowAssetKeys(
     const fresh = await store.currentAssetKeys(id)
     if (fresh?.sourceKey) retainedKeys.add(fresh.sourceKey)
     if (fresh?.thumbKey) retainedKeys.add(fresh.thumbKey)
+    for (const key of fresh?.renditionKeys ?? []) retainedKeys.add(key)
   } catch (err) {
     logger.warn(`failed to retain row asset keys for ${id}:`, err)
   }

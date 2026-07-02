@@ -1,29 +1,33 @@
 import {
-  clipDownloadUrl,
+  type ClipRenditionRef,
+  clipRenditionFileUrl,
   type ClipStatus,
+  clipMasterPlaylistUrl,
   clipStreamUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { toast } from "@alloy/ui/lib/toast"
-import { useCallback, useMemo } from "react"
+import { useCallback, useMemo, useState } from "react"
 
+import type { HlsPlayback } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
-import { canPlaySource } from "@/lib/source-playback"
 
-const SOURCE_QUALITY_ID = "source"
+const AUTO_QUALITY_ID = "auto"
 
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
   clipId: string
-  /** MIME type of the uploaded source, used for the source download option. */
+  /** MIME type of the uploaded source; absent while the clip is processing. */
   sourceContentType?: string | null
-  sourceVideoCodec?: string | null
-  sourceAudioCodec?: string | null
   /** Cache-busting version of the published source; changes on republish. */
   sourceVersion?: string | null
+  /** Committed quality tiers, highest first. Empty for pre-backfill clips. */
+  renditions?: ClipRenditionRef[]
+  /** Cache-busting version of the HLS playlist set. */
+  playbackVersion?: string | null
   thumbnail?: string | null
   thumbnailBlurHash?: string | null
   fallbackSeed?: string | number
@@ -46,14 +50,14 @@ const DEFAULT_ASPECT_RATIO = 16 / 9
 function ClipPlayer({
   clipId,
   sourceContentType,
-  sourceVideoCodec,
-  sourceAudioCodec,
   sourceVersion,
+  renditions = [],
+  playbackVersion,
   thumbnail,
   thumbnailBlurHash,
   fallbackSeed,
   status,
-  encodeProgress: _encodeProgress = 0,
+  encodeProgress = 0,
   onPlayThreshold,
   onEnded,
   onPlaybackError,
@@ -69,27 +73,55 @@ function ClipPlayer({
       ? clipThumbnailUrl(clipId, apiOrigin())
       : (thumbnail ?? undefined)
 
-  const sourcePlayable = useMemo(
-    () =>
-      canPlaySource(sourceContentType, {
-        videoCodec: sourceVideoCodec,
-        audioCodec: sourceAudioCodec,
-      }),
-    [sourceAudioCodec, sourceContentType, sourceVideoCodec],
-  )
+  const [selectedQualityId, setSelectedQualityId] = useState(AUTO_QUALITY_ID)
+  const selectedHeight =
+    selectedQualityId === AUTO_QUALITY_ID ? null : Number(selectedQualityId)
 
-  const qualityOptions = sourceContentType
-    ? [
-        {
-          id: SOURCE_QUALITY_ID,
-          label: t("Original"),
-          detail: sourcePlayable
-            ? t("Direct stream")
-            : t("Direct play attempt"),
-          downloadUrl: clipDownloadUrl(clipId, apiOrigin()),
-        },
-      ]
-    : []
+  const hlsPlayback = useMemo<HlsPlayback | null>(() => {
+    if (renditions.length === 0) return null
+    return {
+      masterUrl: clipMasterPlaylistUrl(
+        clipId,
+        apiOrigin(),
+        playbackVersion ?? undefined,
+      ),
+      selectedHeight,
+      renditionUrls: Object.fromEntries(
+        renditions.map((rendition) => [
+          rendition.height,
+          clipRenditionFileUrl(
+            clipId,
+            rendition.height,
+            apiOrigin(),
+            rendition.version,
+          ),
+        ]),
+      ),
+    }
+  }, [clipId, playbackVersion, renditions, selectedHeight])
+
+  // Progressive fallback: the pinned tier's file when one is selected,
+  // otherwise the stream endpoint (top rendition, or the source for clips the
+  // backfill hasn't reached).
+  const pinned =
+    selectedHeight !== null
+      ? renditions.find((rendition) => rendition.height === selectedHeight)
+      : undefined
+  const fallbackSrc = pinned
+    ? clipRenditionFileUrl(clipId, pinned.height, apiOrigin(), pinned.version)
+    : clipStreamUrl(clipId, apiOrigin(), sourceVersion ?? undefined)
+
+  const qualityOptions = useMemo(() => {
+    if (renditions.length === 0) return []
+    return [
+      { id: AUTO_QUALITY_ID, label: t("Auto") },
+      ...renditions.map((rendition) => ({
+        id: String(rendition.height),
+        label: `${rendition.height}p`,
+        detail: rendition.fps > 30 ? `${rendition.fps} fps` : undefined,
+      })),
+    ]
+  }, [renditions])
 
   const handlePlaybackError = useCallback(
     (message: string) => {
@@ -107,7 +139,7 @@ function ClipPlayer({
 
   const aspectRatio = aspectRatioProp ?? DEFAULT_ASPECT_RATIO
 
-  if (!sourceContentType) {
+  if (!sourceContentType && renditions.length === 0) {
     const unavailable = status === "failed"
     return (
       <div
@@ -128,7 +160,11 @@ function ClipPlayer({
           <span className="relative z-10">
             {unavailable
               ? t("Playback unavailable.")
-              : t("Preparing playback version...")}
+              : encodeProgress > 0
+                ? t("Preparing playback... {percent}%", {
+                    percent: encodeProgress,
+                  })
+                : t("Preparing playback version...")}
           </span>
         </div>
       </div>
@@ -137,7 +173,8 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={clipStreamUrl(clipId, apiOrigin(), sourceVersion ?? undefined)}
+      src={fallbackSrc}
+      hlsPlayback={hlsPlayback}
       poster={poster}
       posterBlurHash={thumbnailBlurHash}
       fallbackSeed={fallbackSeed ?? clipId}
@@ -147,7 +184,8 @@ function ClipPlayer({
       className={className}
       sourceIdentity={clipId}
       qualityOptions={qualityOptions}
-      selectedQualityId={SOURCE_QUALITY_ID}
+      selectedQualityId={selectedQualityId}
+      onSelectQuality={setSelectedQualityId}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       onPlaybackError={handlePlaybackError}

@@ -4,7 +4,7 @@ import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import { batchProgress } from "@alloy/server/runtime/http-response"
-import { inArray } from "drizzle-orm"
+import { inArray, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -17,6 +17,12 @@ const RE_ENCODE_BATCH_LIMIT = 100
 
 const RuntimeConfigPatch = z.object({
   setupComplete: z.boolean().optional(),
+})
+
+const TranscodingPatch = z.object({
+  enable1080p: z.boolean().optional(),
+  enable720p: z.boolean().optional(),
+  enable480p: z.boolean().optional(),
 })
 
 const AppearancePatch = z.object({
@@ -63,6 +69,15 @@ export const adminRoute = new Hono()
     await configStore.set("appearance", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
+  .patch("/transcoding", zValidator("json", TranscodingPatch), async (c) => {
+    const patch = c.req.valid("json")
+    // TranscodingConfigSchema rejects an all-disabled ladder inside set().
+    await configStore.set("transcoding", {
+      ...configStore.get("transcoding"),
+      ...patch,
+    })
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
   .post("/clips/re-encode", async (c) => {
     const rows = await db
       .select({ id: clip.id })
@@ -78,7 +93,9 @@ export const adminRoute = new Hono()
     await db
       .update(clip)
       .set({
-        status: "processing",
+        // Ready clips stay publicly playable from their committed assets
+        // while the re-encode runs; only failed rows re-enter processing.
+        status: sql`case when ${clip.status} = 'ready' then 'ready' else 'processing' end`,
         encode_progress: 0,
         encode_run_id: null,
         encode_locked_at: null,

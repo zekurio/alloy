@@ -1,4 +1,4 @@
-import { probeMedia } from "@alloy/server/media/probe"
+import type { MediaProbe } from "@alloy/server/media/probe"
 import { clipStorage } from "@alloy/server/storage/index"
 
 export type Asset = {
@@ -18,12 +18,13 @@ export async function publishOriginalSource({
   sourcePath,
   sourceKey,
   contentType,
+  probe,
 }: {
   sourcePath: string
   sourceKey: string
   contentType: string
+  probe: MediaProbe
 }): Promise<SourceAsset> {
-  const rawProbe = await probeMedia(sourcePath)
   const { size } = await clipStorage.uploadFromFile(
     sourcePath,
     sourceKey,
@@ -33,9 +34,9 @@ export async function publishOriginalSource({
     storageKey: sourceKey,
     contentType,
     sizeBytes: size,
-    width: rawProbe.width,
-    height: rawProbe.height,
-    videoCodec: rawProbe.videoCodec,
-    audioCodec: rawProbe.audioCodec,
+    width: probe.width,
+    height: probe.height,
+    videoCodec: probe.videoCodec,
+    audioCodec: probe.audioCodec,
   }
 }

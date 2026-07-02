@@ -152,6 +152,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Aufnahmen und Clips erscheinen hier.",
   "Captures without a selected game": "Aufnahmen ohne ausgewähltes Spiel",
   Change: "Ändern",
+  "Changes apply to new uploads. Re-encode existing clips to regenerate their renditions with the current tiers.":
+    "Änderungen gelten für neue Uploads. Kodiere bestehende Clips neu, um ihre Qualitätsstufen mit den aktuellen Einstellungen zu regenerieren.",
   "Check back in a bit or upload your own.":
     "Schau später nochmal vorbei oder lade dein eigenes hoch.",
   "Check for updates": "Nach Updates suchen",
@@ -166,6 +168,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Choose how Alloy looks.": "Wähle, wie Alloy aussieht.",
   "Choose server": "Server auswählen",
   "Choose the language used by Alloy.": "Wähle die Sprache für Alloy aus.",
+  "Choose which quality tiers the server encodes for new uploads.":
+    "Wähle, welche Qualitätsstufen der Server für neue Uploads kodiert.",
   "Choose a valid MP4 video file.": "Wähle eine gültige MP4-Videodatei aus.",
   "Choose where clips are saved and review local disk usage.":
     "Wähle, wo Clips gespeichert werden, und prüfe die lokale Festplattennutzung.",
@@ -334,7 +338,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't share clip": "Clip konnte nicht geteilt werden",
   "Couldn't sign out": "Abmeldung fehlgeschlagen",
   "Couldn't start download": "Download konnte nicht gestartet werden",
+  "Couldn't start re-encode": "Neukodierung konnte nicht gestartet werden",
   "Couldn't start the download": "Download konnte nicht gestartet werden",
+  "Couldn't update rendition settings":
+    "Qualitätsstufen konnten nicht aktualisiert werden",
   "Couldn't unlink": "Verknüpfung konnte nicht aufgehoben werden",
   "Couldn't update backdrop": "Hintergrund konnte nicht aktualisiert werden",
   "Couldn't update like": "Like konnte nicht aktualisiert werden",
@@ -487,6 +494,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Forget server": "Server entfernen",
   FPS: "FPS",
   "Frame rate": "Bildrate",
+  "Full HD at up to 60 fps. The largest files, best quality.":
+    "Full HD mit bis zu 60 fps. Die größten Dateien, beste Qualität.",
   Fullscreen: "Vollbild",
   Game: "Spiel",
   "Game created": "Spiel erstellt",
@@ -510,6 +519,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "GPU {index}": "GPU {index}",
   "H.264 (AVC)": "H.264 (AVC)",
   "H.265 (HEVC)": "H.265 (HEVC)",
+  "HD at up to 60 fps. The adaptive-streaming middle tier.":
+    "HD mit bis zu 60 fps. Die mittlere Stufe fürs adaptive Streaming.",
   Hashtags: "Hashtags",
   "Hex color value": "Hex-Farbwert",
   Hide: "Ausblenden",
@@ -569,6 +580,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Loading storage settings": "Speichereinstellungen werden geladen",
   Local: "Lokal",
   "Local copy removed": "Lokale Kopie entfernt",
+  "Low bandwidth tier, also used for hover previews in clip grids.":
+    "Stufe für niedrige Bandbreite, auch für Hover-Vorschauen in Clip-Rastern.",
   "Log in": "Einloggen",
   Login: "Login",
   "Login appearance": "Login-Aussehen",
@@ -729,6 +742,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Play (Space)": "Abspielen (Leertaste)",
   "Play clip: {title}": "Clip abspielen: {title}",
   "Playback failed": "Wiedergabe fehlgeschlagen",
+  "Playback quality": "Wiedergabequalität",
   "Playback unavailable.": "Wiedergabe nicht verfügbar.",
   "Played when Alloy starts keeping replay clips ready.":
     "Wird abgespielt, wenn Alloy anfängt, Replay-Clips bereitzuhalten.",
@@ -747,6 +761,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Posting…": "Wird gepostet…",
   Preferences: "Einstellungen",
   "Preparing playback version...": "Wiedergabeversion wird vorbereitet...",
+  "Preparing playback... {percent}%":
+    "Wiedergabe wird vorbereitet... {percent}%",
   "Preparing...": "Wird vorbereitet...",
   "Open preview": "Vorschau öffnen",
   "Press Enter to add {name}": "Drück Enter, um {name} hinzuzufügen.",
@@ -765,6 +781,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Project deleted": "Projekt gelöscht",
   "Project name": "Projektname",
   Public: "Öffentlich",
+  "Quality tiers encoded for every new upload. Tiers above the source resolution are skipped automatically; the highest tier also powers link embeds, so at least one must stay enabled.":
+    "Qualitätsstufen, die für jeden neuen Upload kodiert werden. Stufen über der Quellauflösung werden automatisch übersprungen; die höchste Stufe versorgt auch Link-Einbettungen, daher muss mindestens eine aktiv bleiben.",
   "Public clips": "Öffentliche Clips",
   Punch: "Punch",
   px: "px",
@@ -780,6 +798,12 @@ export const DE_MESSAGES: Record<string, string> = {
   Recent: "Aktuell",
   "Recent clips": "Aktuelle Clips",
   Recommended: "Empfohlen",
+  "Re-encode clips": "Clips neu kodieren",
+  "Re-encode started for {count} clips.":
+    "Neukodierung für {count} Clips gestartet.",
+  "Re-encode started for {count} clips; run again for the rest.":
+    "Neukodierung für {count} Clips gestartet; für den Rest erneut ausführen.",
+  "Rendition settings saved": "Qualitätsstufen gespeichert",
   recently: "kürzlich",
   "Record individual playback and capture devices, or per-application audio streams.":
     "Nimm einzelne Wiedergabe- und Aufnahmegeräte oder Audiostreams pro App auf.",
@@ -860,6 +884,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Saving: "Speichern",
   "Saving...": "Wird gespeichert...",
   "Saving…": "Wird gespeichert…",
+  "Starting...": "Wird gestartet...",
   Search: "Suchen",
   "Search…": "Suchen…",
   "Search clips and games...": "Clips und Spiele suchen...",
@@ -1068,6 +1093,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Retry sync of {title}": "Sync von {title} erneut versuchen",
   "Reveal {title} in folder": "{title} im Ordner anzeigen",
   "Saved locally": "Lokal gespeichert",
+  Transcoding: "Transkodierung",
+  "Rendition tiers": "Qualitätsstufen",
   "Transfer status unavailable": "Transferstatus nicht verfügbar",
   Transfers: "Transfers",
   "Transfers ({count})": "Transfers ({count})",

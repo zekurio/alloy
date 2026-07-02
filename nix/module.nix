@@ -123,8 +123,9 @@ in
       or set ALLOY_SOCIALACCOUNT_PROVIDERS through services.alloy-server.environment.
     '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "accelerationDevices" ] ''
-      Alloy no longer transcodes on the server (the desktop app owns all
-      encoding), so the service needs no hardware encoder device access.
+      Alloy transcodes renditions on the CPU (libx264); hardware encoder
+      device access is not used. If hardware encoding returns, this option
+      will come back with it.
     '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "cacheDir" ] ''
       Alloy now keeps temporary media work/cache files in the OS temp area.

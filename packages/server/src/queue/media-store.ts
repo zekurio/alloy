@@ -30,6 +30,18 @@ export interface MediaThumbPatch {
   thumbBlurHash: string | null
 }
 
+/** One encoded quality tier produced by a media run. */
+export interface MediaRenditionRecord {
+  height: number
+  width: number
+  fps: number
+  storageKey: string
+  playlist: string
+  codecs: string
+  bandwidth: number
+  sizeBytes: number
+}
+
 /**
  * Table-specific glue for the media pipeline. The lease loop
  * ({@link createMediaWorker}) and the processing run ({@link runMediaProcessing})
@@ -71,16 +83,22 @@ export interface MediaStore {
     runId: string,
     patch: MediaThumbPatch,
   ): Promise<boolean>
-  /** Final ready transition (+ any store-specific post-publish effects). */
+  /**
+   * Final ready transition. Replaces the row's rendition set in the same
+   * transaction so readers never observe a half-committed ladder.
+   */
   commitReady(
     id: string,
     runId: string,
     patch: MediaSourcePatch & MediaThumbPatch,
+    renditions: readonly MediaRenditionRecord[],
   ): Promise<boolean>
-  /** Current source/thumb keys, so a failing run never deletes live assets. */
-  currentAssetKeys(
-    id: string,
-  ): Promise<{ sourceKey: string | null; thumbKey: string | null } | null>
+  /** Current asset keys, so a failing run never deletes live assets. */
+  currentAssetKeys(id: string): Promise<{
+    sourceKey: string | null
+    thumbKey: string | null
+    renditionKeys: string[]
+  } | null>
 
   publishUpsert(authorId: string, id: string): void
 }

@@ -31,14 +31,11 @@ import {
   type VideoKeyCommand,
 } from "./video-player-shell"
 import { VideoFrame } from "./video-player-video"
-import {
-  isInterruptedPlayRequest,
-  mediaErrorMessage,
-  sourceSpecKey,
-} from "./video-source"
+import { isInterruptedPlayRequest, mediaErrorMessage } from "./video-source"
 
 export function PlayerCore({
   spec,
+  hlsPlayback,
   identity,
   poster,
   posterBlurHash,
@@ -62,9 +59,16 @@ export function PlayerCore({
   shortcutBounds,
   enableHorizontalSeekShortcuts = true,
   playbackRate,
+  qualityOptions,
+  selectedQualityId,
+  onSelectQuality,
 }: PlayerCoreProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const { src: mediaUrl } = useMediaEngine(spec)
+  const { src: mediaUrl, mediaKey } = useMediaEngine(
+    spec,
+    videoRef,
+    hlsPlayback,
+  )
   const containerRef = useRef<HTMLDivElement | null>(null)
   const playingRef = useRef(false)
   const volumeRef = useRef(1)
@@ -76,9 +80,8 @@ export function PlayerCore({
   const resumeRef = useRef<{ time: number; play: boolean } | null>(null)
   const prevSourceRef = useRef<{
     identity: string
-    specKey: string
+    mediaKey: string
   } | null>(null)
-  const specKey = sourceSpecKey(spec)
 
   const [status, setStatus] = useState<LoadStatus>({ kind: "loading" })
   const [buffering, setBuffering] = useState(false)
@@ -186,17 +189,19 @@ export function PlayerCore({
   }, [initialMuted])
 
   useEffect(() => {
-    // A changed `identity` means a different clip. A changed SourceSpec with
-    // the same identity is a source swap for the same clip.
+    // A changed `identity` means a different clip. A changed media key with
+    // the same identity is a source swap for the same clip (e.g. a pinned
+    // quality switch on a player without MSE).
     const previous = prevSourceRef.current
     const isNewMedia = !previous || previous.identity !== identity
     // Load state only resets when the element will actually reload (a new
-    // spec URL). An identity change with an unchanged URL never re-fires
-    // `loadedmetadata`, so entering "loading" there would strand the spinner
-    // over a playing video.
-    const isElementReload = !previous || previous.specKey !== specKey
+    // effective media URL). An identity change with an unchanged URL never
+    // re-fires `loadedmetadata`, so entering "loading" there would strand the
+    // spinner over a playing video. hls.js level switches keep the media key
+    // stable, so they never reset load state.
+    const isElementReload = !previous || previous.mediaKey !== mediaKey
     if (!isNewMedia && !isElementReload) return
-    prevSourceRef.current = { identity, specKey }
+    prevSourceRef.current = { identity, mediaKey }
 
     if (isElementReload) {
       playRequestIdRef.current += 1
@@ -232,7 +237,7 @@ export function PlayerCore({
     identity,
     isCoarsePointer,
     setPlayingState,
-    specKey,
+    mediaKey,
   ])
 
   const reportError = useCallback(() => {
@@ -670,6 +675,9 @@ export function PlayerCore({
           onVolumeChange={setVolume}
           onSeek={(seconds) => seekInternal(seconds)}
           onToggleFullscreen={toggleFullscreen}
+          qualityOptions={qualityOptions}
+          selectedQualityId={selectedQualityId}
+          onSelectQuality={onSelectQuality}
         />
       }
     >

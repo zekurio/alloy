@@ -56,6 +56,15 @@ export interface ClipGameRef {
 
 export type ClipMentionRef = UserSummary
 
+/** One encoded quality tier of a clip, as exposed to clients. */
+export interface ClipRenditionRef {
+  height: number
+  width: number
+  fps: number
+  /** Cache-busting version of this tier's file bytes; changes on re-encode. */
+  version: string
+}
+
 export interface ClipRow {
   id: string
   authorId: string
@@ -70,6 +79,10 @@ export interface ClipRow {
   sourceSizeBytes: number | null
   /** Cache-busting version of the published source bytes; changes on republish. */
   sourceVersion: string | null
+  /** Encoded quality tiers, highest first; empty until the pipeline commits. */
+  renditions: ClipRenditionRef[]
+  /** Cache-busting version of the HLS playlist set; null without renditions. */
+  playbackVersion: string | null
   durationMs: number | null
   width: number | null
   height: number | null

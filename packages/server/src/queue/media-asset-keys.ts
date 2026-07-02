@@ -14,6 +14,14 @@ export function runScopedThumbKey(clipId: string, runId: string): string {
   return `${clipAssetDir(clipId)}/thumb-${runKeyStamp(runId)}.jpg`
 }
 
+export function runScopedRenditionKey(
+  clipId: string,
+  runId: string,
+  height: number,
+): string {
+  return `${clipAssetDir(clipId)}/rendition-${height}p-${runKeyStamp(runId)}.mp4`
+}
+
 function runKeyStamp(runId: string): string {
   return runId.replace(/-/g, "").slice(0, 12)
 }

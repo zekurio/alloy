@@ -46,19 +46,6 @@ export async function trimToMp4(
   })
 }
 
-export async function remuxToFastStartMp4(
-  srcPath: string,
-  outPath: string,
-  opts: { signal?: AbortSignal },
-): Promise<void> {
-  throwIfAborted(opts.signal)
-
-  await copyToFragmentedMp4(srcPath, outPath, {
-    signal: opts.signal,
-    sourceLabel: "MP4 source",
-  })
-}
-
 async function copyToFragmentedMp4(
   srcPath: string,
   outPath: string,

@@ -305,9 +305,9 @@ function ClipViewerDialogBody({
             <ClipPlayer
               clipId={row.id}
               sourceContentType={row.sourceContentType}
-              sourceVideoCodec={row.sourceVideoCodec}
-              sourceAudioCodec={row.sourceAudioCodec}
               sourceVersion={row.sourceVersion}
+              renditions={row.renditions}
+              playbackVersion={row.playbackVersion}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}
               fallbackSeed={row.gameId ?? row.id}

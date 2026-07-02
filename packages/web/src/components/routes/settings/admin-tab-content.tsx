@@ -7,7 +7,10 @@ import {
   type AdminConfigContextValue,
   useAdminConfigContext,
 } from "@/components/routes/settings/admin-config-context"
-import { AppearanceSettingsContent } from "@/components/routes/settings/admin-tab-advanced-sections"
+import {
+  AppearanceSettingsContent,
+  TranscodingSettingsContent,
+} from "@/components/routes/settings/admin-tab-advanced-sections"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
 
 function AdminLoadError({ message }: { message: string }) {
@@ -38,6 +41,10 @@ function withAdminConfig(
 
 export const AdminAppearancePanel = withAdminConfig((config, ctx) => (
   <AppearanceSettingsContent config={config} setConfig={ctx.setConfig} />
+))
+
+export const AdminTranscodingPanel = withAdminConfig((config, ctx) => (
+  <TranscodingSettingsContent config={config} setConfig={ctx.setConfig} />
 ))
 
 export function AdminUsersPanel() {

@@ -137,6 +137,10 @@ function validateClipTimestamps(row: Record<string, unknown>) {
     row.sourceVersion,
     "Invalid clip response: sourceVersion must be string or null",
   )
+  validateNullableString(
+    row.playbackVersion,
+    "Invalid clip response: playbackVersion must be string or null",
+  )
   validateNullableBlurHash(
     row.thumbBlurHash,
     "Invalid clip response: thumbBlurHash",
@@ -147,6 +151,26 @@ function validateClipRelationships(row: Record<string, unknown>) {
   if (row.gameRef !== null) {
     validateClipGameRef(row.gameRef)
   }
+  validateArray(
+    row.renditions,
+    "Invalid clip response: renditions must be an array",
+  ).map((entry) => {
+    const rendition = objectRecord(entry, "clip rendition")
+    assertNoStorageKey(rendition, "clip rendition")
+    if ("key" in rendition) {
+      throw new Error("Invalid clip rendition response: key must not be public")
+    }
+    for (const key of ["height", "width", "fps"] as const) {
+      validateNonNegativeInteger(
+        rendition[key],
+        `Invalid clip rendition response: ${key} must be a non-negative integer`,
+      )
+    }
+    validateRequiredString(
+      rendition.version,
+      "Invalid clip rendition response: version is required",
+    )
+  })
   if (row.mentions !== undefined) {
     validateArray(
       row.mentions,

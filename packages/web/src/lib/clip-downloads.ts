@@ -1,4 +1,4 @@
-import { type ClipRow, clipStreamUrl } from "@alloy/api"
+import { type ClipRow, clipDownloadUrl } from "@alloy/api"
 import { useSyncExternalStore } from "react"
 
 import { clientLogger } from "@/lib/client-log"
@@ -101,11 +101,9 @@ export async function startClipDownload(row: ClipRow): Promise<void> {
   const accepted = await desktop.recording.downloadClip({
     clipId: row.id,
     title: row.title,
-    mediaUrl: clipStreamUrl(
-      row.id,
-      apiOrigin(),
-      row.sourceVersion ?? undefined,
-    ),
+    // The download endpoint serves the original source, matching the
+    // contentType/sizeBytes declared below; /stream serves the top rendition.
+    mediaUrl: clipDownloadUrl(row.id, apiOrigin()),
     contentType: row.sourceContentType,
     sizeBytes: row.sourceSizeBytes,
     durationMs: row.durationMs,

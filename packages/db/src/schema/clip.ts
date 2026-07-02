@@ -118,6 +118,42 @@ export const clip = pgTable(
   ],
 )
 
+// One row per encoded quality tier of a clip. All renditions are H.264+AAC
+// fragmented MP4s; `playlist` holds the tier's HLS media playlist with the
+// media URI as a placeholder that routes rewrite to a versioned URL at serve
+// time. Rows for a clip are replaced atomically when a media run commits, so
+// a clip either has its full ladder or none (legacy/pre-backfill).
+export const clipRendition = pgTable(
+  "clip_rendition",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    clip_id: uuid()
+      .notNull()
+      .references(() => clip.id, { onDelete: "cascade" }),
+    height: integer().notNull(),
+    width: integer().notNull(),
+    fps: integer().notNull(),
+    storage_key: text().notNull(),
+    playlist: text().notNull(),
+    // RFC 6381 codec string for the HLS master playlist CODECS attribute,
+    // e.g. "avc1.64002a,mp4a.40.2".
+    codecs: text().notNull(),
+    // Peak-ish bits per second derived from file size and duration; feeds the
+    // master playlist BANDWIDTH attribute.
+    bandwidth: integer().notNull(),
+    size_bytes: bigint({ mode: "number" }).notNull(),
+    created_at: timestamp().notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("clip_rendition_clip_height_idx").on(t.clip_id, t.height),
+    check(
+      "clip_rendition_size_bytes_safe_check",
+      sql`${t.size_bytes} >= 0 and ${t.size_bytes} <= 9007199254740991`,
+    ),
+    check("clip_rendition_height_check", sql`${t.height} > 0`),
+  ],
+)
+
 export const clipLike = pgTable(
   "clip_like",
   {
@@ -246,3 +282,4 @@ export const clipView = pgTable(
 )
 
 export type Clip = typeof clip.$inferSelect
+export type ClipRendition = typeof clipRendition.$inferSelect
