@@ -11,7 +11,6 @@ Rankings, higher = better. Cost reflects what I actually pay (OpenAI has really 
 | opus-4.8 | 4    | 7            | 6      | 8        |
 | fable-5  | 2    | 9            | 9      | 9        |
 
-
 How to apply:
 
 - These are defaults, not limits. You have standing permission to override them: if a cheaper model's output doesn't meet the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag. Escalating costs less than shipping mediocre work.
