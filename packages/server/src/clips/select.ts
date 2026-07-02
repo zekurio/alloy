@@ -9,7 +9,7 @@ import {
 } from "@alloy/server/games/ref"
 import { eq, sql } from "drizzle-orm"
 
-import { clipThumbnailVersion } from "./thumbnail-version"
+import { clipAssetVersion } from "./asset-version"
 
 export const clipSelectShape = {
   id: clip.id,
@@ -92,9 +92,12 @@ export function toPublicClipRow<
   },
 >(row: T) {
   const { sourceKey: _sourceKey, gameRef, ...rest } = row
-  const thumbVersion = row.thumbKey ? clipThumbnailVersion(row.thumbKey) : null
+  const thumbVersion = row.thumbKey ? clipAssetVersion(row.thumbKey) : null
   return {
     ...rest,
+    // Derived from the storage key so it changes exactly when a republish
+    // (trim, remux) swaps the bytes — the key itself never leaves the server.
+    sourceVersion: row.sourceKey ? clipAssetVersion(row.sourceKey) : null,
     gameRef: gameRef
       ? serialiseGameRow(gameRef)
       : row.gameId !== null

@@ -151,6 +151,18 @@
         }
     }
 
+    pub fn detected_game_alive(game: &DetectedGame) -> bool {
+        unsafe {
+            let hwnd = game.window_handle as HWND;
+            if hwnd.is_null() || IsWindow(hwnd) == 0 {
+                return false;
+            }
+            let mut process_id = 0u32;
+            GetWindowThreadProcessId(hwnd, &mut process_id);
+            process_id == game.game.process_id && process_alive(game.game.process_id)
+        }
+    }
+
     pub fn primary_display_id() -> Option<String> {
         unsafe {
             let monitor = MonitorFromPoint(POINT { x: 0, y: 0 }, MONITOR_DEFAULTTOPRIMARY);

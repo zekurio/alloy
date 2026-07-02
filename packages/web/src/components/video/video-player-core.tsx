@@ -81,6 +81,8 @@ export function PlayerCore({
   const specKey = sourceSpecKey(spec)
 
   const [status, setStatus] = useState<LoadStatus>({ kind: "loading" })
+  const [buffering, setBuffering] = useState(false)
+  const bufferingTimerRef = useRef<number | null>(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
   const [bufferedEnd, setBufferedEnd] = useState(0)
@@ -141,6 +143,34 @@ export function PlayerCore({
     setBufferedEnd(video.buffered.end(video.buffered.length - 1))
   }, [])
 
+  const clearBuffering = useCallback(() => {
+    if (bufferingTimerRef.current !== null) {
+      window.clearTimeout(bufferingTimerRef.current)
+      bufferingTimerRef.current = null
+    }
+    setBuffering(false)
+  }, [])
+
+  // `waiting`/`stalled` fire spuriously while paused and on keyframe-aligned
+  // seeks; only a stall during intended playback should surface the spinner,
+  // and only after a short debounce so brief buffer refills don't flicker it.
+  const handleWaiting = useCallback(() => {
+    const video = videoRef.current
+    if (!video || video.paused) return
+    if (bufferingTimerRef.current !== null) return
+    bufferingTimerRef.current = window.setTimeout(() => {
+      bufferingTimerRef.current = null
+      setBuffering(true)
+    }, 200)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (bufferingTimerRef.current !== null)
+        window.clearTimeout(bufferingTimerRef.current)
+    }
+  }, [])
+
   const setPlayingState = useCallback((next: boolean) => {
     if (playingRef.current === next) return
     playingRef.current = next
@@ -160,17 +190,22 @@ export function PlayerCore({
     // the same identity is a source swap for the same clip.
     const previous = prevSourceRef.current
     const isNewMedia = !previous || previous.identity !== identity
-    const isSourceChange =
-      isNewMedia || !previous || previous.specKey !== specKey
+    // Load state only resets when the element will actually reload (a new
+    // spec URL). An identity change with an unchanged URL never re-fires
+    // `loadedmetadata`, so entering "loading" there would strand the spinner
+    // over a playing video.
+    const isElementReload = !previous || previous.specKey !== specKey
+    if (!isNewMedia && !isElementReload) return
     prevSourceRef.current = { identity, specKey }
 
-    if (!isSourceChange) return
-
-    playRequestIdRef.current += 1
-    setStatus({ kind: "loading" })
-    setBufferedEnd(0)
-    hasRenderedFrameRef.current = false
-    setHasRenderedFrame(false)
+    if (isElementReload) {
+      playRequestIdRef.current += 1
+      setStatus({ kind: "loading" })
+      setBufferedEnd(0)
+      hasRenderedFrameRef.current = false
+      setHasRenderedFrame(false)
+    }
+    clearBuffering()
     clearChromeHideTimer()
     setChromeVisible(!(isCoarsePointer && autoPlay))
 
@@ -192,6 +227,7 @@ export function PlayerCore({
     }
   }, [
     autoPlay,
+    clearBuffering,
     clearChromeHideTimer,
     identity,
     isCoarsePointer,
@@ -202,6 +238,7 @@ export function PlayerCore({
   const reportError = useCallback(() => {
     const video = videoRef.current
     const message = mediaErrorMessage(video)
+    clearBuffering()
     setPlayingState(false)
     if (onPlaybackErrorRef.current) {
       setStatus({ kind: "ready" })
@@ -209,7 +246,7 @@ export function PlayerCore({
     } else {
       setStatus({ kind: "error", message })
     }
-  }, [setPlayingState])
+  }, [clearBuffering, setPlayingState])
 
   const playInternal = useCallback(async (reportBlocked = true) => {
     const video = videoRef.current
@@ -467,6 +504,7 @@ export function PlayerCore({
     element.muted = mutedRef.current
     element.playbackRate = playbackRate
     setStatus({ kind: "ready" })
+    clearBuffering()
 
     const resume = resumeRef.current
     resumeRef.current = null
@@ -490,7 +528,7 @@ export function PlayerCore({
       if (autoPlay) void playInternal(false)
     }
     syncBuffered()
-  }, [autoPlay, playbackRate, playInternal, syncBuffered])
+  }, [autoPlay, clearBuffering, playbackRate, playInternal, syncBuffered])
 
   const handleLoadedData = useCallback(() => {
     if (hasRenderedFrameRef.current) return
@@ -498,6 +536,11 @@ export function PlayerCore({
     setHasRenderedFrame(true)
     onFrameReadyRef.current?.()
   }, [])
+
+  const handleCanPlay = useCallback(() => {
+    handleLoadedData()
+    clearBuffering()
+  }, [clearBuffering, handleLoadedData])
 
   const posterVisible = Boolean(poster) && !hasRenderedFrame
 
@@ -560,11 +603,18 @@ export function PlayerCore({
       onClick={clickHandler}
       onLoadedMetadata={handleLoadedMetadata}
       onLoadedData={handleLoadedData}
+      onCanPlay={handleCanPlay}
+      onWaiting={handleWaiting}
+      onStalled={handleWaiting}
+      onPlaying={clearBuffering}
       onDurationChange={syncTime}
       onTimeUpdate={handleTimeUpdate}
       onProgress={syncBuffered}
       onPlay={() => setPlayingState(true)}
-      onPause={() => setPlayingState(false)}
+      onPause={() => {
+        setPlayingState(false)
+        clearBuffering()
+      }}
       onEnded={() => {
         setPlayingState(false)
         syncTime()
@@ -580,6 +630,7 @@ export function PlayerCore({
         containerRef={containerRef}
         className={className}
         status={status}
+        buffering={buffering}
         aspectRatio={aspectRatio}
         maxDisplayHeight={maxDisplayHeight}
         onPointerDown={activatePlayer}
@@ -624,7 +675,7 @@ export function PlayerCore({
     >
       {renderVideo(handleControlledVideoClick)}
 
-      <LoadOverlay status={status} />
+      <LoadOverlay status={status} buffering={buffering} />
     </ChromeShell>
   )
 }

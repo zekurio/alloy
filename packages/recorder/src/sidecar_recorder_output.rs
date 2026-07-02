@@ -197,6 +197,7 @@ impl Recorder {
                             "alloy-replay-%CCYY%MM%DD-%hh%mm%ss",
                         )?;
                         obs.set_string(output_settings, "extension", "mp4")?;
+                        obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")?;
                         obs.set_int(
                             output_settings,
                             "max_time_sec",

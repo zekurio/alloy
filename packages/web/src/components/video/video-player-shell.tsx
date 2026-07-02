@@ -60,6 +60,7 @@ export function BareShell({
   containerRef,
   className,
   status,
+  buffering = false,
   aspectRatio,
   maxDisplayHeight,
   onPointerDown,
@@ -69,6 +70,7 @@ export function BareShell({
   containerRef?: RefObject<HTMLDivElement | null>
   className?: string
   status: LoadStatus
+  buffering?: boolean
   aspectRatio?: number
   maxDisplayHeight?: string
   onPointerDown?: PointerEventHandler<HTMLDivElement>
@@ -98,7 +100,7 @@ export function BareShell({
       onFocus={onFocus}
     >
       {children}
-      <LoadOverlay status={status} />
+      <LoadOverlay status={status} buffering={buffering} />
     </div>
   )
 }
@@ -440,25 +442,28 @@ export function ChromeBar({
 
 /* ─── Load overlay ─────────────────────────────────────────────────── */
 
-export function LoadOverlay({ status }: { status: LoadStatus }) {
-  if (status.kind === "ready") return null
-  return (
-    <div
-      className={cn(
-        "pointer-events-none absolute inset-0 grid place-items-center",
-        "text-center text-xs text-foreground-muted",
-        status.kind === "loading" ? "bg-transparent" : "",
-      )}
-    >
-      {status.kind === "loading" ? (
-        <span className="grid size-10 place-items-center">
-          <Spinner className="size-5" />
-        </span>
-      ) : (
+export function LoadOverlay({
+  status,
+  buffering = false,
+}: {
+  status: LoadStatus
+  buffering?: boolean
+}) {
+  if (status.kind === "error") {
+    return (
+      <div className="text-foreground-muted pointer-events-none absolute inset-0 grid place-items-center text-center text-xs">
         <span className="border-border-strong bg-surface-raised/95 text-foreground max-w-[80%] rounded-xl border px-3 py-2 shadow-md backdrop-blur-sm">
           {status.message}
         </span>
-      )}
+      </div>
+    )
+  }
+  if (status.kind === "ready" && !buffering) return null
+  return (
+    <div className="text-foreground-muted pointer-events-none absolute inset-0 grid place-items-center bg-transparent text-center text-xs">
+      <span className="grid size-10 place-items-center">
+        <Spinner className="size-5" />
+      </span>
     </div>
   )
 }

@@ -150,7 +150,11 @@ fn detect_game_activity(
 }
 
 fn is_detected_game_alive(game: &DetectedGame) -> bool {
-    platform_process_alive(game.game.process_id)
+    platform_detected_game_alive(game)
+}
+
+fn platform_detected_game_alive(game: &DetectedGame) -> bool {
+    windows_detector::detected_game_alive(game)
 }
 
 fn refresh_capture_metadata(game: &mut DetectedGame) {
@@ -479,10 +483,6 @@ fn platform_detect_game_activity(
     settings: &RecordingSettings,
 ) -> Option<GameDetection> {
     windows_detector::detect_game_activity(active_game, settings)
-}
-
-fn platform_process_alive(process_id: u32) -> bool {
-    windows_detector::process_alive(process_id)
 }
 
 fn command_output(command: &str, args: &[&str]) -> Option<String> {

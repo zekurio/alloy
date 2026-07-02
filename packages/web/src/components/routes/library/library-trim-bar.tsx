@@ -1,6 +1,6 @@
 import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
-import { useRef, useState } from "react"
+import { useRef, useState, useSyncExternalStore } from "react"
 import type { KeyboardEvent, PointerEvent } from "react"
 
 import { FilmstripCanvas } from "@/components/media/filmstrip-canvas"
@@ -69,7 +69,8 @@ export function LibraryTrimBar({
   durationMs,
   startMs,
   endMs,
-  currentMs,
+  subscribeCurrentMs,
+  getCurrentMs,
   onSeek,
   onStartChange,
   onEndChange,
@@ -82,8 +83,9 @@ export function LibraryTrimBar({
   durationMs: number
   startMs: number
   endMs: number
-  /** Playhead position in source time. */
-  currentMs: number
+  /** Playhead store in source time; only the playhead re-renders per frame. */
+  subscribeCurrentMs: (listener: () => void) => () => void
+  getCurrentMs: () => number
   onSeek: (sourceMs: number) => void
   /** Live trim-handle updates in absolute source time (caller clamps). */
   onStartChange: (sourceMs: number) => void
@@ -290,17 +292,37 @@ export function LibraryTrimBar({
       </div>
 
       {ready ? (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -inset-y-1 z-30"
-          style={{
-            left: `${Math.min(100, Math.max(0, (currentMs / durationMs) * 100))}%`,
-          }}
-        >
-          <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
-          <div className="absolute -top-1 size-2.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
-        </div>
+        <TrimPlayhead
+          subscribeCurrentMs={subscribeCurrentMs}
+          getCurrentMs={getCurrentMs}
+          durationMs={durationMs}
+        />
       ) : null}
+    </div>
+  )
+}
+
+/** Leaf that follows the playhead store so only it re-renders per frame. */
+function TrimPlayhead({
+  subscribeCurrentMs,
+  getCurrentMs,
+  durationMs,
+}: {
+  subscribeCurrentMs: (listener: () => void) => () => void
+  getCurrentMs: () => number
+  durationMs: number
+}) {
+  const currentMs = useSyncExternalStore(subscribeCurrentMs, getCurrentMs)
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute -inset-y-1 z-30"
+      style={{
+        left: `${Math.min(100, Math.max(0, (currentMs / durationMs) * 100))}%`,
+      }}
+    >
+      <div className="absolute inset-y-0 w-0.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
+      <div className="absolute -top-1 size-2.5 -translate-x-1/2 rounded-full bg-white shadow-[0_0_4px_rgba(0,0,0,0.6)]" />
     </div>
   )
 }
