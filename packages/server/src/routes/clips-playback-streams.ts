@@ -6,7 +6,7 @@ import { clipThumbnailStorage } from "@alloy/server/storage/index"
 import { type Context } from "hono"
 import { stream } from "hono/streaming"
 
-import { parseRange } from "./clips-helpers"
+import { parseRange } from "./clips-range"
 
 export function mediaCacheControl(privacy: ClipPrivacy): string {
   return privacy === "public" ? "public, max-age=300" : "private, max-age=300"
