@@ -1,11 +1,11 @@
 import { mkdir, readFile, stat } from "node:fs/promises"
 
 import type { TranscodingConfig } from "@alloy/contracts"
-import { env } from "@alloy/server/env"
 import { join } from "@alloy/server/runtime/path"
 
 import { runFfmpeg, transcodeTimeoutMs } from "./ffmpeg"
 import { probeMedia } from "./probe"
+import { transcodeSettings } from "./transcode-settings"
 
 /**
  * Segment target duration. Keyframes are forced on this boundary in every
@@ -138,6 +138,7 @@ export async function encodeRendition(
   ]
 
   const durationSec = opts.durationMs / 1000
+  const threads = transcodeSettings().threads
   await runFfmpeg({
     cwd: outDir,
     timeoutMs: transcodeTimeoutMs(opts.durationMs),
@@ -186,9 +187,7 @@ export async function encodeRendition(
       step.tier.audioBitrate,
       "-ac",
       "2",
-      ...(env.transcode.threads > 0
-        ? ["-threads", String(env.transcode.threads)]
-        : []),
+      ...(threads > 0 ? ["-threads", String(threads)] : []),
       "-f",
       "hls",
       "-hls_time",

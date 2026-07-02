@@ -286,7 +286,12 @@ export const clipsPlaybackRoutes = new Hono()
       return c.body(null, 304)
     }
 
-    return await streamThumbnail(c, key, thumbCacheControl)
+    return await streamThumbnail(
+      c,
+      clipThumbnailStorage,
+      key,
+      thumbCacheControl,
+    )
   })
   .get("/:id/download", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
