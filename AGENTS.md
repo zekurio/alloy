@@ -19,6 +19,35 @@ Valid types are `feat`, `fix`, `docs`, `chore`, `refactor`, and `test`. Scopes a
 
 Examples: `fix(web): add upload UI`, `docs: update contributing guide`, `chore: cleanup build scripts`.
 
+## Picking the right models for workflows and subagents
+
+Rankings, higher = better. Cost reflects what I actually pay (OpenAI has really generous limits), not list price. Intelligence is how hard a problem you can hand the model unsupervised. Coding is sheer coding capability (based on Deep SWE). UI taste covers UI/UX, visual design, API ergonomics, and copy.
+
+| model    | cost | intelligence | coding | ui taste |
+| -------- | ---- | ------------ | ------ | -------- |
+| gpt-5.5  | 9    | 8            | 7      | 5        |
+| sonnet-5 | 5    | 5            | 4      | 7        |
+| opus-4.8 | 4    | 7            | 6      | 8        |
+| fable-5  | 2    | 9            | 9      | 9        |
+
+How to apply:
+
+- These are defaults, not limits. You have standing permission to override them: if a cheaper model's output doesn't meet the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag. Escalating costs less than shipping mediocre work.
+- Cost is a tie-breaker only; when axes conflict for anything that ships, intelligence > coding > ui taste > cost. For user-facing work, ui taste outranks coding.
+- Bulk/mechanical work (clear-spec implementation, data analysis, migrations): gpt-5.5 - it's effectively free.
+- Anything user-facing (UI, copy, API design) needs ui taste >= 7 - never gpt-5.5.
+- Reviews of plans/implementations: fable-5 or opus-4.8, optionally gpt-5.5 as an extra independent perspective.
+- Never use Haiku.
+- Prompts for workflow/subagent delegates must be fully self-contained: include the repo path, relevant rules from this file, exact files or search targets, expected output, and verification commands. Delegates do not reliably share the parent session's context.
+- Keep runtime-specific mechanics out of shared reasoning. Use the current harness's native workflow/subagent controls for Claude-family models, and use the runtime-specific Codex CLI handoff when a delegate should be gpt-5.5.
+
+### Pi mechanics
+
+- Claude models (sonnet-5, opus-4.8, fable-5) run via the `Agent`/`workflow` model parameter.
+- gpt-5.5 is only reachable through the Codex CLI, invoked directly via Bash. Use `codex exec "<prompt>"` for implementation, `codex exec -s read-only "<prompt>"` for investigation/analysis that must not touch the tree, and `codex review` for reviews.
+- For long-running gpt-5.5 tasks in Pi, spawn a thin background wrapper agent and have it run Codex, rather than blocking the main session.
+- Inside Pi workflows/subagents, use a thin Claude wrapper whose prompt instructs it to write a self-contained Codex prompt, run `codex exec` via Bash, and return Codex's final message verbatim.
+
 ## Style Guide
 
 ### General Principles
