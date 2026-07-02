@@ -219,8 +219,11 @@ export const DE_MESSAGES: Record<string, string> = {
   "Close settings": "Einstellungen schließen",
   Codec: "Codec",
   "Codec & encoding": "Codec & Kodierung",
-  "Codec used to encode every rendition.":
-    "Codec, mit dem jede Qualitätsstufe kodiert wird.",
+  "{codec} isn't available with {backend} on this server.":
+    "{codec} ist auf diesem Server nicht mit {backend} verfügbar.",
+  "Default ({codec})": "Standard ({codec})",
+  "Default codec for every rendition. Individual tiers in the ladder can override it.":
+    "Standard-Codec für jede Qualitätsstufe. Einzelne Stufen der Leiter können ihn überschreiben.",
   "Collapse thread": "Thread einklappen",
   "Come back when others have uploaded some clips.":
     "Komm wieder, wenn andere ein paar Clips hochgeladen haben.",
@@ -491,10 +494,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Enter your server URL to authenticate the desktop app.":
     "Gib deine Server-URL ein, um die Desktop-App zu authentifizieren.",
   "Error details copied": "Fehlerdetails kopiert",
-  "Every tier needs a unique height.":
-    "Jede Stufe braucht eine eindeutige Höhe.",
-  "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the tallest one also powers link previews.":
-    "Jeder Upload wird in diese Qualitätsstufen kodiert. Stufen oberhalb der Quellauflösung werden übersprungen, und die höchste Stufe versorgt auch Link-Vorschauen.",
+  "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.":
+    "Jeder Upload wird in diese Qualitätsstufen kodiert. Stufen oberhalb der Quellauflösung werden übersprungen, und die ausgewählte Link-Vorschau-Stufe versorgt Social-Einbettungen.",
   "Exit fullscreen": "Vollbild beenden",
   "Failed to load users": "Nutzer konnten nicht geladen werden",
   favourite: "Favorit",
@@ -582,7 +583,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Vielleicht wurde es aus dem Aufnahmeordner verschoben oder gelöscht.",
   "Its artwork is removed and any clips lose their game tag. This can't be undone.":
     "Das Artwork wird entfernt und alle Clips verlieren ihre Spielzuordnung. Das kann nicht rückgängig gemacht werden.",
-  Jellyfin: "Jellyfin",
+  FFmpeg: "FFmpeg",
+  "Jellyfin FFmpeg": "Jellyfin FFmpeg",
   kbps: "kbps",
   "Keep between 1 and 6 rendition tiers.":
     "Behalte zwischen 1 und 6 Qualitätsstufen bei.",
@@ -597,6 +599,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Liked: "Geliked",
   "Liked by the clip author": "Vom Clip-Autor geliked",
   Link: "Link",
+  "Link preview": "Link-Vorschau",
   "Link another enabled sign-in method before removing this one":
     "Verknüpfe eine andere aktive Anmeldemethode, bevor du diese entfernst",
   "Link copied": "Link kopiert",
@@ -854,6 +857,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Remove tier": "Stufe entfernen",
   "Render node passed to ffmpeg for VA-API encoding.":
     "Render-Node, der ffmpeg für die VA-API-Kodierung übergeben wird.",
+  Rendition: "Qualitätsstufe",
   "Rendition ladder": "Qualitätsstufen-Leiter",
   "Rendition settings saved": "Qualitätsstufen gespeichert",
   recently: "kürzlich",
@@ -936,8 +940,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Saving: "Speichern",
   "Saving...": "Wird gespeichert...",
   "Saving…": "Wird gespeichert…",
-  "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.":
-    "Social-Einbettungen (Discord, Slack, X) brauchen H.264-Video. Mit HEVC oder AV1 fügt der Server keine Video-Einbettungs-Tags mehr hinzu, sodass geteilte Links auf eine Vorschaubild-Karte statt eines eingebetteten Players zurückfallen.",
+  "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1 on the link preview tier, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.":
+    "Social-Einbettungen (Discord, Slack, X) brauchen H.264-Video. Mit HEVC oder AV1 auf der Link-Vorschau-Stufe fügt der Server keine Video-Einbettungs-Tags mehr hinzu, sodass geteilte Links auf eine Vorschaubild-Karte statt eines eingebetteten Players zurückfallen.",
   "Software (CPU)": "Software (CPU)",
   "Starting...": "Wird gestartet...",
   Search: "Suchen",
@@ -1079,7 +1083,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Diese Videoquelle wird vom Browser nicht unterstützt.",
   "This will remove the comment text. Replies will stay visible.":
     "Das entfernt den Kommentartext. Antworten bleiben sichtbar.",
-  "Tier heights must be unique.": "Stufenhöhen müssen eindeutig sein.",
+  "Tiers must differ in height, max FPS, or codec.":
+    "Stufen müssen sich in Höhe, max. FPS oder Codec unterscheiden.",
   "Timed out while reading video metadata":
     "Zeitüberschreitung beim Lesen der Videometadaten",
   Title: "Titel",

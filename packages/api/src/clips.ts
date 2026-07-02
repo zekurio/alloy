@@ -95,12 +95,12 @@ export function clipMasterPlaylistUrl(
 
 export function clipRenditionFileUrl(
   clipId: string,
-  height: number,
+  name: string,
   origin?: string,
   version?: string,
 ): string {
   return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, `/rendition/${height}/file.mp4`),
+    publicClipPath(clipId, `/rendition/${encodeURIComponent(name)}/file.mp4`),
     { v: version },
     origin,
   )

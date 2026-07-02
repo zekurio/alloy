@@ -74,8 +74,14 @@ function ClipPlayer({
       : (thumbnail ?? undefined)
 
   const [selectedQualityId, setSelectedQualityId] = useState(AUTO_QUALITY_ID)
-  const selectedHeight =
-    selectedQualityId === AUTO_QUALITY_ID ? null : Number(selectedQualityId)
+
+  // Progressive fallback: the pinned tier's file when one is selected,
+  // otherwise the stream endpoint (top rendition, or the source for clips the
+  // backfill hasn't reached).
+  const pinned =
+    selectedQualityId !== AUTO_QUALITY_ID
+      ? renditions.find((rendition) => rendition.name === selectedQualityId)
+      : undefined
 
   const hlsPlayback = useMemo<HlsPlayback | null>(() => {
     if (renditions.length === 0) return null
@@ -85,30 +91,25 @@ function ClipPlayer({
         apiOrigin(),
         playbackVersion ?? undefined,
       ),
-      selectedHeight,
+      selected: pinned
+        ? { name: pinned.name, height: pinned.height, fps: pinned.fps }
+        : null,
       renditionUrls: Object.fromEntries(
         renditions.map((rendition) => [
-          rendition.height,
+          rendition.name,
           clipRenditionFileUrl(
             clipId,
-            rendition.height,
+            rendition.name,
             apiOrigin(),
             rendition.version,
           ),
         ]),
       ),
     }
-  }, [clipId, playbackVersion, renditions, selectedHeight])
+  }, [clipId, playbackVersion, renditions, pinned])
 
-  // Progressive fallback: the pinned tier's file when one is selected,
-  // otherwise the stream endpoint (top rendition, or the source for clips the
-  // backfill hasn't reached).
-  const pinned =
-    selectedHeight !== null
-      ? renditions.find((rendition) => rendition.height === selectedHeight)
-      : undefined
   const fallbackSrc = pinned
-    ? clipRenditionFileUrl(clipId, pinned.height, apiOrigin(), pinned.version)
+    ? clipRenditionFileUrl(clipId, pinned.name, apiOrigin(), pinned.version)
     : clipStreamUrl(clipId, apiOrigin(), sourceVersion ?? undefined)
 
   const qualityOptions = useMemo(() => {
@@ -116,9 +117,8 @@ function ClipPlayer({
     return [
       { id: AUTO_QUALITY_ID, label: t("Auto") },
       ...renditions.map((rendition) => ({
-        id: String(rendition.height),
-        label: `${rendition.height}p`,
-        detail: rendition.fps > 30 ? `${rendition.fps} fps` : undefined,
+        id: rendition.name,
+        label: renditionQualityLabel(rendition, renditions),
       })),
     ]
   }, [renditions])
@@ -193,6 +193,42 @@ function ClipPlayer({
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
     />
   )
+}
+
+function renditionQualityLabel(
+  rendition: ClipRenditionRef,
+  renditions: readonly ClipRenditionRef[],
+): string {
+  const label = `${rendition.height}p${rendition.fps}fps`
+  if (!hasResolutionFpsTie(rendition, renditions)) return label
+  const codec = renditionCodecLabel(rendition.codecs)
+  return codec ? `${label} (${codec})` : label
+}
+
+function hasResolutionFpsTie(
+  rendition: ClipRenditionRef,
+  renditions: readonly ClipRenditionRef[],
+): boolean {
+  return renditions.some(
+    (candidate) =>
+      candidate.name !== rendition.name &&
+      candidate.height === rendition.height &&
+      candidate.fps === rendition.fps,
+  )
+}
+
+function renditionCodecLabel(codecs: string): string | null {
+  const videoCodec = codecs
+    .split(",")
+    .map((codec) => codec.trim().toLowerCase())
+    .find((codec) => !codec.startsWith("mp4a."))
+  if (!videoCodec) return null
+  if (videoCodec.startsWith("avc1.")) return "H.264"
+  if (videoCodec.startsWith("hvc1.") || videoCodec.startsWith("hev1.")) {
+    return "HEVC"
+  }
+  if (videoCodec.startsWith("av01.")) return "AV1"
+  return videoCodec.toUpperCase()
 }
 
 export { ClipPlayer }
