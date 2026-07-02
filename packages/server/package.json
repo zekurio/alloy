@@ -23,6 +23,7 @@
     "@alloy/db": "workspace:*",
     "@alloy/env": "workspace:*",
     "@alloy/logging": "workspace:*",
+    "@alloy/media": "workspace:*",
     "@hono/node-server": "2.0.4",
     "@hono/zod-validator": "0.7.6",
     "@simplewebauthn/server": "13.3.0",

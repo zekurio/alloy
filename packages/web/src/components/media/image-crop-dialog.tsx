@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@alloy/ui/components/dialog"
 import { Slider } from "@alloy/ui/components/slider"
+import { canvasBlurHash } from "@alloy/ui/lib/blurhash-encode"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon, Minus, Plus } from "lucide-react"
@@ -48,9 +49,15 @@ import {
   readElementSize,
   readFileAsDataUrl,
   readImageDimensions,
-} from "./profile-image-crop-utils"
+} from "./image-crop-utils"
 
-export function ProfileImageCropDialog({
+export interface ImageCropResult {
+  blob: Blob
+  /** Populated when the canvas can be sampled; null on capture failure. */
+  blurHash: string | null
+}
+
+export function ImageCropDialog({
   file,
   mode,
   open,
@@ -63,7 +70,7 @@ export function ProfileImageCropDialog({
   mode: CropMode
   open: boolean
   applying: boolean
-  onApply: (blob: Blob) => Promise<void>
+  onApply: (result: ImageCropResult) => Promise<void>
   onApplyingChange?: (applying: boolean) => void
   onOpenChange: (open: boolean) => void
 }) {
@@ -301,8 +308,9 @@ export function ProfileImageCropDialog({
         config.outputHeight,
       )
 
+      const blurHash = safeCanvasBlurHash(canvas)
       const blob = await canvasToBlob(canvas, preferredOutputType(file.type))
-      await onApply(blob)
+      await onApply({ blob, blurHash })
     } finally {
       setCropPending(false)
     }
@@ -468,4 +476,12 @@ export function ProfileImageCropDialog({
       </DialogContent>
     </Dialog>
   )
+}
+
+function safeCanvasBlurHash(canvas: HTMLCanvasElement): string | null {
+  try {
+    return canvasBlurHash(canvas)
+  } catch {
+    return null
+  }
 }
