@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process"
 import { setPriority } from "node:os"
 
-import { env } from "@alloy/server/env"
+import { transcodeSettings } from "./transcode-settings"
 
 const STDERR_TAIL_LINES = 100
 
@@ -49,8 +49,9 @@ export function runFfmpeg(opts: {
     return Promise.reject(new DOMException("Aborted", "AbortError"))
   }
 
+  const ffmpegPath = transcodeSettings().ffmpegPath
   const child = spawn(
-    env.transcode.ffmpegPath,
+    ffmpegPath,
     ["-hide_banner", "-nostdin", "-progress", "pipe:1", ...opts.args],
     { stdio: ["ignore", "pipe", "pipe"], cwd: opts.cwd },
   )
@@ -113,7 +114,7 @@ export function runFfmpeg(opts: {
     child.once("error", (err) => {
       reject(
         new FfmpegError(
-          `Failed to start ffmpeg (${env.transcode.ffmpegPath}): ${err.message}`,
+          `Failed to start ffmpeg (${ffmpegPath}): ${err.message}`,
           null,
           "",
         ),

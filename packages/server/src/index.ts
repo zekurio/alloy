@@ -7,6 +7,7 @@ import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
+import { configureTranscode } from "./media/transcode-settings"
 import { startQueue, stopQueue } from "./queue"
 import { requestShutdown } from "./runtime/shutdown"
 
@@ -17,6 +18,10 @@ const logger = createLogger("server")
 process.on("unhandledRejection", (reason) => {
   logger.error("unhandled promise rejection:", reason)
 })
+
+// Media modules default to a bare `ffmpeg`; apply env overrides before the
+// queue can run any transcodes.
+configureTranscode(env.transcode)
 
 if (env.NODE_ENV === "production") {
   await migrateDatabase(env.DATABASE_URL)

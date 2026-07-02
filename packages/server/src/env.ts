@@ -17,6 +17,7 @@ import { loadDotenv } from "@alloy/env/node"
 import { z } from "zod"
 
 import { OAuthProvidersSchema } from "./config/oauth-schema"
+import { TRANSCODE_DEFAULTS } from "./media/transcode-settings"
 
 // Deploy-time env is the only source for server policy, storage, integrations,
 // OAuth, and secret material. Instance UI/state settings live in Postgres.
@@ -263,7 +264,11 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .trim()
         .min(1)
         .default("storage/games"),
-      ALLOY_FFMPEG_PATH: z.string().trim().min(1).default("ffmpeg"),
+      ALLOY_FFMPEG_PATH: z
+        .string()
+        .trim()
+        .min(1)
+        .default(TRANSCODE_DEFAULTS.ffmpegPath),
       ALLOY_TRANSCODE_CONCURRENCY: z.coerce
         .number()
         .int()
@@ -277,7 +282,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .int()
         .min(0)
         .max(64)
-        .default(0),
+        .default(TRANSCODE_DEFAULTS.threads),
     }),
     { label: "server/env", source },
   )

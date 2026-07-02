@@ -6,7 +6,6 @@ import { join } from "node:path"
 import { test } from "node:test"
 
 import type { TranscodingConfig } from "@alloy/contracts"
-import { env } from "@alloy/server/env"
 
 import { runFfmpeg } from "./ffmpeg"
 import { probeMedia } from "./probe"
@@ -19,6 +18,7 @@ import {
   renderMediaPlaylist,
   SEGMENT_SECONDS,
 } from "./renditions"
+import { transcodeSettings } from "./transcode-settings"
 
 const FULL_CONFIG: TranscodingConfig = {
   enable1080p: true,
@@ -163,7 +163,7 @@ test("renderMasterPlaylist orders tiers and omits empty CODECS", () => {
 })
 
 const ffmpegAvailable =
-  spawnSync(env.transcode.ffmpegPath, ["-version"], { stdio: "ignore" })
+  spawnSync(transcodeSettings().ffmpegPath, ["-version"], { stdio: "ignore" })
     .status === 0
 
 test(
