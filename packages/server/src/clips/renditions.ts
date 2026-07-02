@@ -10,5 +10,5 @@ export async function selectClipRenditions(
     .select()
     .from(clipRendition)
     .where(eq(clipRendition.clip_id, clipId))
-    .orderBy(desc(clipRendition.height))
+    .orderBy(desc(clipRendition.height), desc(clipRendition.bandwidth))
 }

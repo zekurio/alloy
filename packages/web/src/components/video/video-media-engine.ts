@@ -9,10 +9,10 @@ import type { SourceSpec } from "./video-source"
 /** HLS playback config for sources that have committed renditions. */
 export interface HlsPlayback {
   masterUrl: string
-  /** null plays adaptively (Auto); a height pins that tier. */
-  selectedHeight: number | null
-  /** Progressive per-tier file URLs for pinned playback without MSE. */
-  renditionUrls: Record<number, string>
+  /** null plays adaptively (Auto); a rendition pins that tier. */
+  selected: { name: string; height: number; fps: number } | null
+  /** Progressive per-tier file URLs (keyed by rendition name) for pinned playback without MSE. */
+  renditionUrls: Record<string, string>
 }
 
 type EngineMode = "progressive" | "native-hls" | "mse"
@@ -33,11 +33,11 @@ export function useMediaEngine(
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [hlsFailed, setHlsFailed] = useState(false)
   const hlsRef = useRef<HlsInstance | null>(null)
-  const selectedHeight = hls?.selectedHeight ?? null
-  const selectedHeightRef = useRef(selectedHeight)
+  const selected = hls?.selected ?? null
+  const selectedRef = useRef(selected)
   useEffect(() => {
-    selectedHeightRef.current = selectedHeight
-  }, [selectedHeight])
+    selectedRef.current = selected
+  }, [selected])
 
   // Object URL lifecycle for local File sources.
   useEffect(() => {
@@ -96,7 +96,7 @@ export function useMediaEngine(
         setHlsFailed(true)
       })
       instance.on(Hls.Events.MANIFEST_PARSED, () => {
-        applySelectedLevel(instance, selectedHeightRef.current)
+        applySelectedLevel(instance, selectedRef.current)
       })
       instance.attachMedia(video)
       instance.loadSource(masterUrl)
@@ -114,8 +114,8 @@ export function useMediaEngine(
     if (mode !== "mse") return
     const instance = hlsRef.current
     if (!instance || instance.levels.length === 0) return
-    applySelectedLevel(instance, selectedHeight)
-  }, [mode, selectedHeight])
+    applySelectedLevel(instance, selected)
+  }, [mode, selected])
 
   if (spec.kind === "file") {
     return {
@@ -130,8 +130,8 @@ export function useMediaEngine(
 
   if (mode === "native-hls" && masterUrl && hls) {
     const url =
-      selectedHeight !== null
-        ? (hls.renditionUrls[selectedHeight] ?? masterUrl)
+      selected !== null
+        ? (hls.renditionUrls[selected.name] ?? masterUrl)
         : masterUrl
     return { src: url, mediaKey: `url:${url}` }
   }
@@ -150,15 +150,25 @@ function supportsNativeHls(): boolean {
 
 function applySelectedLevel(
   instance: HlsInstance,
-  selectedHeight: number | null,
+  selected: { name: string; height: number } | null,
 ): void {
-  if (selectedHeight === null) {
+  if (selected === null) {
     instance.currentLevel = -1
     return
   }
-  const index = instance.levels.findIndex(
-    (level) => level.height === selectedHeight,
+  // Renditions are keyed by name in their playlist URLs, so a URL match is
+  // exact even when two levels share a height; the height match covers
+  // playlists that predate named rendition URLs.
+  const needle = `/rendition/${encodeURIComponent(selected.name)}/`
+  const byUrl = instance.levels.findIndex((level) =>
+    [...level.url, level.uri].some(
+      (url) => typeof url === "string" && url.includes(needle),
+    ),
   )
+  const index =
+    byUrl !== -1
+      ? byUrl
+      : instance.levels.findIndex((level) => level.height === selected.height)
   if (index === -1) return
   instance.currentLevel = index
 }

@@ -41,6 +41,65 @@ test("effectiveLadder produces the full ladder below a 1440p60 source", () => {
   assert.equal(ladder[0]?.fps, 60)
   assert.equal(ladder[2]?.capFps, true)
   assert.equal(ladder[2]?.fps, 30)
+  // Minimal names: no fps or codec suffix needed, og only on the default tier.
+  assert.deepEqual(
+    ladder.map((step) => step.name),
+    ["1080p", "720p", "480p"],
+  )
+  assert.deepEqual(
+    ladder.map((step) => step.og),
+    [true, false, false],
+  )
+})
+
+test("effectiveLadder appends fps only when same-height tiers differ in fps", () => {
+  const ladder = effectiveLadder(
+    TranscodingConfigSchema.parse({
+      tiers: [
+        { height: 1080, maxFps: 60, maxrateKbps: 8000 },
+        { height: 1080, maxFps: 30, maxrateKbps: 5000 },
+      ],
+    }),
+    { height: 1080, fps: 120 },
+  )
+  assert.deepEqual(
+    ladder.map((step) => step.name),
+    ["1080p60", "1080p30"],
+  )
+})
+
+test("effectiveLadder appends the codec only when fps cannot disambiguate", () => {
+  const ladder = effectiveLadder(
+    TranscodingConfigSchema.parse({
+      videoCodec: "h264",
+      tiers: [
+        { height: 1080, maxFps: 60, maxrateKbps: 8000 },
+        { height: 1080, maxFps: 60, maxrateKbps: 8000, codec: "hevc" },
+      ],
+    }),
+    { height: 1080, fps: 60 },
+  )
+  // Same height and fps: stable config order, disambiguated by codec.
+  assert.deepEqual(
+    ladder.map((step) => step.name),
+    ["1080p-h264", "1080p-hevc"],
+  )
+})
+
+test("effectiveLadder collapse keeps the highest maxrate and the og flag", () => {
+  const ladder = effectiveLadder(
+    TranscodingConfigSchema.parse({
+      tiers: [
+        { height: 1440, maxFps: 60, maxrateKbps: 12000, og: true },
+        { height: 1080, maxFps: 60, maxrateKbps: 8000 },
+      ],
+    }),
+    { height: 1080, fps: 60 },
+  )
+  assert.equal(ladder.length, 1)
+  assert.equal(ladder[0]?.name, "1080p")
+  assert.equal(ladder[0]?.og, true)
+  assert.equal(ladder[0]?.tier.maxrateKbps, 12000)
 })
 
 test("effectiveLadder clamps to the source height without upscaling", () => {
@@ -110,6 +169,48 @@ test("effectiveLadder uses custom tier order and fps caps", () => {
   )
   assert.equal(ladder[0]?.fps, 120)
   assert.equal(ladder[0]?.capFps, true)
+})
+
+test("effectiveLadder resolves per-tier codec overrides", () => {
+  const config = TranscodingConfigSchema.parse({
+    videoCodec: "h264",
+    tiers: [
+      { height: 1080, maxFps: 60, maxrateKbps: 8000, codec: "av1" },
+      { height: 720, maxFps: 60, maxrateKbps: 5000 },
+    ],
+  })
+  const ladder = effectiveLadder(config, { height: 1440, fps: 60 })
+  assert.deepEqual(
+    ladder.map((step) => [step.height, step.codec]),
+    [
+      [1080, "av1"],
+      [720, "h264"],
+    ],
+  )
+})
+
+test("buildRenditionArgs uses the tier codec override", () => {
+  const config = TranscodingConfigSchema.parse({
+    videoCodec: "h264",
+    tiers: [
+      { height: 1080, maxFps: 60, maxrateKbps: 8000, codec: "hevc" },
+      { height: 720, maxFps: 60, maxrateKbps: 5000 },
+    ],
+  })
+  const ladder = effectiveLadder(config, { height: 1080, fps: 60 })
+  const topArgs = buildRenditionArgs({
+    config,
+    srcPath: "source.mp4",
+    step: ladder[0]!,
+  })
+  assert.ok(topArgs.includes("libx265"))
+  assert.ok(topArgs.includes("hvc1"))
+  const lowArgs = buildRenditionArgs({
+    config,
+    srcPath: "source.mp4",
+    step: ladder[1]!,
+  })
+  assert.ok(lowArgs.includes("libx264"))
 })
 
 test("TranscodingConfigSchema migrates legacy toggles to tiers", () => {
@@ -293,6 +394,35 @@ test("renderMasterPlaylist orders tiers and omits empty CODECS", () => {
   const lowTier = lines.find((line) => line.includes("RESOLUTION=854x480"))
   assert.ok(lowTier)
   assert.ok(!lowTier.includes("CODECS"))
+})
+
+test("renderMasterPlaylist breaks same-height ties by bandwidth", () => {
+  const master = renderMasterPlaylist([
+    {
+      height: 1080,
+      width: 1920,
+      fps: 30,
+      codecs: "",
+      bandwidth: 4_000_000,
+      playlistUrl: "rendition/1080p30/index.m3u8?v=b",
+    },
+    {
+      height: 1080,
+      width: 1920,
+      fps: 60,
+      codecs: "",
+      bandwidth: 8_000_000,
+      playlistUrl: "rendition/1080p60/index.m3u8?v=a",
+    },
+  ])
+  const urls = master
+    .trim()
+    .split("\n")
+    .filter((line) => line.startsWith("rendition/"))
+  assert.deepEqual(urls, [
+    "rendition/1080p60/index.m3u8?v=a",
+    "rendition/1080p30/index.m3u8?v=b",
+  ])
 })
 
 test(

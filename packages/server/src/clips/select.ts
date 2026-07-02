@@ -55,13 +55,15 @@ export const clipSelectShape = {
   // derivation and stripped before the row leaves the server.
   renditionRows: sql<
     {
+      name: string
+      og: boolean
       height: number
       width: number
       fps: number
       key: string
       codecs: string
     }[]
-  >`coalesce((select json_agg(json_build_object('height', ${clipRendition.height}, 'width', ${clipRendition.width}, 'fps', ${clipRendition.fps}, 'key', ${clipRendition.storage_key}, 'codecs', ${clipRendition.codecs}) order by ${clipRendition.height} desc) from ${clipRendition} where ${clipRendition.clip_id} = ${clip.id}), '[]'::json)`,
+  >`coalesce((select json_agg(json_build_object('name', ${clipRendition.name}, 'og', ${clipRendition.is_og}, 'height', ${clipRendition.height}, 'width', ${clipRendition.width}, 'fps', ${clipRendition.fps}, 'key', ${clipRendition.storage_key}, 'codecs', ${clipRendition.codecs}) order by ${clipRendition.height} desc, ${clipRendition.bandwidth} desc) from ${clipRendition} where ${clipRendition.clip_id} = ${clip.id}), '[]'::json)`,
 } as const
 
 async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
@@ -107,6 +109,8 @@ export function toPublicClipRow<
     game: string | null
     gameRef?: Parameters<typeof serialiseGameRow>[0] | null
     renditionRows?: {
+      name: string
+      og: boolean
       height: number
       width: number
       fps: number
@@ -118,9 +122,11 @@ export function toPublicClipRow<
   const { sourceKey: _sourceKey, gameRef, renditionRows, ...rest } = row
   const thumbVersion = row.thumbKey ? clipAssetVersion(row.thumbKey) : null
   const renditions = (renditionRows ?? []).map((rendition) => ({
+    name: rendition.name,
     height: rendition.height,
     width: rendition.width,
     fps: rendition.fps,
+    codecs: rendition.codecs,
     version: clipAssetVersion(rendition.key),
   }))
   return {
