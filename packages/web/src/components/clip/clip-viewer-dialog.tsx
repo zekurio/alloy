@@ -307,6 +307,7 @@ function ClipViewerDialogBody({
               sourceContentType={row.sourceContentType}
               sourceVideoCodec={row.sourceVideoCodec}
               sourceAudioCodec={row.sourceAudioCodec}
+              sourceVersion={row.sourceVersion}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}
               fallbackSeed={row.gameId ?? row.id}

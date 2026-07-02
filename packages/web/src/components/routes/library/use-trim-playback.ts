@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { VideoPlayerHandle } from "@/components/video/video-player-types"
 
@@ -25,7 +25,23 @@ export function useTrimPlayback({
     startMs: 0,
     endMs: initialDurationMs,
   })
-  const [currentMs, setCurrentMs] = useState(0)
+  // The playhead position lives outside React state: the playback loop
+  // publishes it every animation frame, and rendering it through setState
+  // would reconcile the whole editor subtree at 60fps. Leaf components
+  // subscribe via useSyncExternalStore so only they re-render per frame.
+  const currentMsRef = useRef(0)
+  const currentMsListenersRef = useRef(new Set<() => void>())
+  const setCurrentMs = useCallback((next: number) => {
+    currentMsRef.current = next
+    for (const listener of currentMsListenersRef.current) listener()
+  }, [])
+  const subscribeCurrentMs = useCallback((listener: () => void) => {
+    currentMsListenersRef.current.add(listener)
+    return () => {
+      currentMsListenersRef.current.delete(listener)
+    }
+  }, [])
+  const getCurrentMs = useCallback(() => currentMsRef.current, [])
   const trimRef = useRef(trim)
   trimRef.current = trim
 
@@ -85,7 +101,7 @@ export function useTrimPlayback({
     }
     // Restart from the trim start once the range has fully played, and pull
     // a playhead parked before the range into it.
-    let target = currentMs
+    let target = currentMsRef.current
     if (target >= trim.endMs - 10 || target < trim.startMs) {
       target = trim.startMs
       setCurrentMs(target)
@@ -159,7 +175,6 @@ export function useTrimPlayback({
     durationMs > 0 &&
     (trim.startMs > FULL_CLIP_TOLERANCE_MS ||
       trim.endMs < durationMs - FULL_CLIP_TOLERANCE_MS)
-  const elapsedMs = Math.min(rangeMs, Math.max(0, currentMs - trim.startMs))
 
   return {
     playerRef,
@@ -168,11 +183,11 @@ export function useTrimPlayback({
     durationMs,
     trim,
     setTrim,
-    currentMs,
+    subscribeCurrentMs,
+    getCurrentMs,
     setCurrentMs,
     rangeMs,
     trimmed,
-    elapsedMs,
     handleTimeUpdate,
     seek,
     togglePlayback,

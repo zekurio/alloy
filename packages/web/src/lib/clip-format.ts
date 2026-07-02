@@ -81,7 +81,11 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
       : undefined,
     thumbnailBlurHash: row.thumbBlurHash,
     fallbackSeed: row.gameId ?? row.id,
-    streamUrl: clipStreamUrl(row.id, apiOrigin()),
+    streamUrl: clipStreamUrl(
+      row.id,
+      apiOrigin(),
+      row.sourceVersion ?? undefined,
+    ),
     accentHue: hueForGame(game),
     privacy: row.privacy,
     description: row.description,

@@ -9,6 +9,7 @@ import {
   RotateCcwIcon,
   SquareIcon,
 } from "lucide-react"
+import { useSyncExternalStore } from "react"
 
 import { formatTrimMs } from "@/lib/media-time"
 
@@ -29,7 +30,7 @@ export function TrimTransportControls({
 }: {
   playback: TrimPlayback
 }) {
-  const { playing, trimmed, elapsedMs, rangeMs, trim } = playback
+  const { playing, trimmed, rangeMs, trim } = playback
   return (
     <div className="flex items-center gap-2">
       <div className="flex items-center gap-1">
@@ -70,7 +71,7 @@ export function TrimTransportControls({
         </Button>
       </div>
       <span className="text-foreground-muted text-sm tabular-nums">
-        {formatTrimMs(elapsedMs)} / {formatTrimMs(rangeMs)}
+        <TrimElapsed playback={playback} /> / {formatTrimMs(rangeMs)}
       </span>
       {trimmed ? (
         <span className="text-foreground-faint text-sm tabular-nums">
@@ -81,4 +82,17 @@ export function TrimTransportControls({
       ) : null}
     </div>
   )
+}
+
+/** Leaf that follows the playhead store so only it re-renders per frame. */
+function TrimElapsed({ playback }: { playback: TrimPlayback }) {
+  const currentMs = useSyncExternalStore(
+    playback.subscribeCurrentMs,
+    playback.getCurrentMs,
+  )
+  const elapsedMs = Math.min(
+    playback.rangeMs,
+    Math.max(0, currentMs - playback.trim.startMs),
+  )
+  return formatTrimMs(elapsedMs)
 }

@@ -5,6 +5,7 @@ import {
   clipAccessResponse,
   resolveClipAccess,
 } from "@alloy/server/clips/access"
+import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
@@ -54,7 +55,15 @@ export const clipsPlaybackRoutes = new Hono()
       return notFound(c, "Stream unavailable")
     }
 
-    const cacheControl = mediaCacheControl(row.privacy)
+    const version = clipAssetVersion(selected.key)
+    const etag = `"src-${version}"`
+    // Published source bytes are immutable under run-scoped keys, so a request
+    // naming the current version can cache forever while unversioned requests
+    // keep the short TTL so a republish propagates.
+    const cacheControl =
+      c.req.query("v") === version
+        ? `${row.privacy === "public" ? "public" : "private"}, max-age=31536000, immutable`
+        : mediaCacheControl(row.privacy)
 
     const direct = await redirectToStorageUrl(
       c,
@@ -78,6 +87,7 @@ export const clipsPlaybackRoutes = new Hono()
       resolved,
       selected.contentType || resolved.contentType,
       cacheControl,
+      { etag },
     )
   })
   /**

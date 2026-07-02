@@ -1,6 +1,7 @@
 import {
   ALL_FORMATS,
   EncodedAudioPacketSource,
+  type EncodedPacket,
   EncodedPacketSink,
   EncodedVideoPacketSource,
   FilePathSource,
@@ -37,24 +38,61 @@ export async function trimToMp4(
 ): Promise<void> {
   throwIfAborted(opts.signal)
 
+  await copyToFragmentedMp4(srcPath, outPath, {
+    startMs: opts.startMs,
+    endMs: opts.endMs,
+    signal: opts.signal,
+    sourceLabel: "Trim source",
+  })
+}
+
+export async function remuxToFastStartMp4(
+  srcPath: string,
+  outPath: string,
+  opts: { signal?: AbortSignal },
+): Promise<void> {
+  throwIfAborted(opts.signal)
+
+  await copyToFragmentedMp4(srcPath, outPath, {
+    signal: opts.signal,
+    sourceLabel: "MP4 source",
+  })
+}
+
+async function copyToFragmentedMp4(
+  srcPath: string,
+  outPath: string,
+  opts: {
+    startMs?: number
+    endMs?: number
+    signal?: AbortSignal
+    sourceLabel: string
+  },
+): Promise<void> {
   const input = new Input({
     source: new FilePathSource(srcPath),
     formats: ALL_FORMATS,
   })
   try {
     const video = await input.getPrimaryVideoTrack()
-    if (!video) throw new Error("Trim source has no video track")
+    if (!video) throw new Error(`${opts.sourceLabel} has no video track`)
     const audio = await input.getPrimaryAudioTrack()
 
-    const requestedStartSec = Math.max(0, opts.startMs) / 1000
-    const endSec = Math.max(opts.startMs + 1, opts.endMs) / 1000
+    const requestedStartSec =
+      opts.startMs === undefined ? 0 : Math.max(0, opts.startMs) / 1000
+    const endSec =
+      opts.startMs === undefined || opts.endMs === undefined
+        ? undefined
+        : Math.max(opts.startMs + 1, opts.endMs) / 1000
 
     const videoSink = new EncodedPacketSink(video)
-    const startPacket =
-      (await videoSink.getKeyPacket(requestedStartSec, {
-        verifyKeyPackets: true,
-      })) ?? (await videoSink.getFirstKeyPacket({ verifyKeyPackets: true }))
-    if (!startPacket) throw new Error("Trim source has no video key packet")
+    const startPacket = await findVideoStartPacket(
+      videoSink,
+      requestedStartSec,
+      opts.startMs !== undefined,
+    )
+    if (!startPacket)
+      throw new Error(`${opts.sourceLabel} has no video key packet`)
     // All output timestamps are rebased onto the keyframe the cut snaps to.
     const baseSec = startPacket.timestamp
 
@@ -68,12 +106,12 @@ export async function trimToMp4(
     opts.signal?.addEventListener("abort", onAbort, { once: true })
     try {
       const videoSource = new EncodedVideoPacketSource(
-        video.codec ?? throwUnknownCodec("video"),
+        video.codec ?? throwUnknownCodec(opts.sourceLabel, "video"),
       )
       output.addVideoTrack(videoSource)
       const audioSource = audio
         ? new EncodedAudioPacketSource(
-            audio.codec ?? throwUnknownCodec("audio"),
+            audio.codec ?? throwUnknownCodec(opts.sourceLabel, "audio"),
           )
         : null
       if (audio && audioSource) output.addAudioTrack(audioSource)
@@ -87,7 +125,7 @@ export async function trimToMp4(
         verifyKeyPackets: true,
       })) {
         throwIfAborted(opts.signal)
-        if (packet.timestamp >= endSec) break
+        if (endSec !== undefined && packet.timestamp >= endSec) break
         await videoSource.add(
           packet.clone({ timestamp: packet.timestamp - baseSec }),
           videoMeta,
@@ -113,11 +151,26 @@ export async function trimToMp4(
   }
 }
 
+async function findVideoStartPacket(
+  videoSink: EncodedPacketSink,
+  startSec: number,
+  keyframeAligned: boolean,
+): Promise<EncodedPacket | null> {
+  if (!keyframeAligned)
+    return videoSink.getFirstPacket({ verifyKeyPackets: true })
+
+  return (
+    (await videoSink.getKeyPacket(startSec, {
+      verifyKeyPackets: true,
+    })) ?? (await videoSink.getFirstKeyPacket({ verifyKeyPackets: true }))
+  )
+}
+
 async function copyAudioPackets(
   audio: InputAudioTrack,
   audioSource: EncodedAudioPacketSource,
   baseSec: number,
-  endSec: number,
+  endSec: number | undefined,
   signal: AbortSignal | undefined,
 ): Promise<void> {
   const sink = new EncodedPacketSink(audio)
@@ -126,7 +179,7 @@ async function copyAudioPackets(
   if (!first) return
   for await (const packet of sink.packets(first)) {
     throwIfAborted(signal)
-    if (packet.timestamp >= endSec) break
+    if (endSec !== undefined && packet.timestamp >= endSec) break
     const timestamp = packet.timestamp - baseSec
     // The packet containing the cut point starts slightly before it; dropping
     // sub-frame negatives keeps the muxer's monotonic, non-negative contract
@@ -136,8 +189,8 @@ async function copyAudioPackets(
   }
 }
 
-function throwUnknownCodec(kind: string): never {
-  throw new Error(`Trim source has an unrecognized ${kind} codec`)
+function throwUnknownCodec(sourceLabel: string, kind: string): never {
+  throw new Error(`${sourceLabel} has an unrecognized ${kind} codec`)
 }
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
