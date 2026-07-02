@@ -5,6 +5,7 @@ import { useRouter } from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ChangeEvent, Dispatch, SetStateAction } from "react"
 
+import type { CropMode } from "@/components/media/image-crop-utils"
 import { useClickAnchor } from "@/hooks/use-click-anchor"
 import { api } from "@/lib/api"
 import { useSession } from "@/lib/auth-client"
@@ -12,12 +13,13 @@ import { errorMessage } from "@/lib/error-message"
 import { userImageSrc } from "@/lib/user-display"
 import { invalidateProfileIdentityCaches } from "@/lib/user-queries"
 
-import type { CropMode } from "./profile-image-crop-utils"
 import { MediaDropdownContent, type MediaKind } from "./profile-media-controls"
 
 const UPLOAD_SUCCESS_MESSAGE: Record<CropMode, string> = {
   avatar: t("Avatar updated"),
   banner: t("Banner updated"),
+  // Profile settings never pick the "thumbnail" mode; kept for exhaustiveness.
+  thumbnail: t("Image updated"),
 }
 
 type ProfileMediaInput = {

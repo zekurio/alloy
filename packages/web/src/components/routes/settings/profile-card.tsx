@@ -21,6 +21,7 @@ import { ImageIcon, Pencil, SaveIcon } from "lucide-react"
 import { useEffect } from "react"
 import type { ReactNode } from "react"
 
+import { ImageCropDialog } from "@/components/media/image-crop-dialog"
 import type { useClickAnchor } from "@/hooks/use-click-anchor"
 import { authClient } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
@@ -33,7 +34,6 @@ import {
 } from "@/lib/profile-identity"
 import { displayName, userAvatar, UserBanner } from "@/lib/user-display"
 
-import { ProfileImageCropDialog } from "./profile-image-crop-dialog"
 import { MediaEditOverlay, type MediaKind } from "./profile-media-controls"
 import { ProfileTextField } from "./profile-text-field"
 import { useSettingsSaveBar } from "./settings-save-context"
@@ -223,7 +223,7 @@ export function ProfileCard({
   return (
     <>
       {media.fileInputs}
-      <ProfileImageCropDialog
+      <ImageCropDialog
         file={media.cropFile}
         mode={media.cropMode}
         open={!!media.cropFile}
@@ -234,7 +234,7 @@ export function ProfileCard({
             media.setCropFile(null)
           }
         }}
-        onApply={async (blob) => {
+        onApply={async ({ blob }) => {
           const uploaded = await media.handleImageUpload(blob, media.cropMode)
           if (uploaded) {
             media.setCropFile(null)

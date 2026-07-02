@@ -55,6 +55,7 @@ let
     else
       "postgresql://${cfg.database.user}@${databaseConnectHost}:${toString cfg.database.port}/${cfg.database.name}";
   hasEnv = name: builtins.hasAttr name cfg.environment;
+  hasAccelerationDevices = cfg.accelerationDevices != [ ];
 in
 {
   imports = [
@@ -122,11 +123,6 @@ in
       Put ALLOY_SOCIALACCOUNT_PROVIDERS in services.alloy-server.environmentFile,
       or set ALLOY_SOCIALACCOUNT_PROVIDERS through services.alloy-server.environment.
     '')
-    (lib.mkRemovedOptionModule [ "services" "alloy-server" "accelerationDevices" ] ''
-      Alloy transcodes renditions on the CPU (libx264); hardware encoder
-      device access is not used. If hardware encoding returns, this option
-      will come back with it.
-    '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "cacheDir" ] ''
       Alloy now keeps temporary media work/cache files in the OS temp area.
       Configure durable storage through services.alloy-server.storage.
@@ -165,7 +161,40 @@ in
       default = pkgs.ffmpeg-headless;
       defaultText = lib.literalExpression "pkgs.ffmpeg-headless";
       example = lib.literalExpression "pkgs.jellyfin-ffmpeg";
-      description = "ffmpeg package placed on Alloy's PATH. Use pkgs.jellyfin-ffmpeg for hardware acceleration support.";
+      description = ''
+        ffmpeg package placed on Alloy's PATH. Use pkgs.jellyfin-ffmpeg for
+        hardware acceleration support (NVENC, Intel Quick Sync, VA-API); the
+        default ffmpeg-headless only carries software encoders. Hardware
+        encoding additionally requires services.alloy-server.accelerationDevices
+        and the matching host drivers (see that option's description).
+      '';
+    };
+
+    accelerationDevices = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = [ "/dev/dri/renderD128" ];
+      description = ''
+        Device nodes the transcoder may use for hardware-accelerated encoding,
+        e.g. the DRI render node for VA-API and Intel Quick Sync. When
+        non-empty, the service loses PrivateDevices isolation, is restricted
+        to exactly these devices via DeviceAllow, and joins the video/render
+        groups.
+
+        For Intel Quick Sync (QSV) the host also needs the runtime drivers:
+
+          hardware.graphics = {
+            enable = true;
+            extraPackages = with pkgs; [
+              intel-media-driver # iHD VA-API driver
+              vpl-gpu-rt # oneVPL runtime for QSV (12th gen+)
+            ];
+          };
+
+        Combine with services.alloy-server.ffmpegPackage =
+        pkgs.jellyfin-ffmpeg, which is built with QSV (libvpl) and VA-API
+        support.
+      '';
     };
 
     user = lib.mkOption {
@@ -455,12 +484,22 @@ in
           UMask = "0077";
 
           NoNewPrivileges = true;
-          PrivateDevices = true;
+          # Hardware transcoding needs the real /dev for the allowed render
+          # nodes; without acceleration devices, keep /dev fully private.
+          PrivateDevices = !hasAccelerationDevices;
           PrivateTmp = true;
           ProtectSystem = "strict";
           ProtectHome = true;
           StateDirectory = lib.mkIf (managedStateDirectory != null) managedStateDirectory;
           ReadWritePaths = serverExternalWritePaths;
+        }
+        // lib.optionalAttrs hasAccelerationDevices {
+          DevicePolicy = "closed";
+          DeviceAllow = map (device: "${device} rw") cfg.accelerationDevices;
+          SupplementaryGroups = [
+            "video"
+            "render"
+          ];
         }
         // lib.optionalAttrs (cfg.environmentFile != null) {
           EnvironmentFile = cfg.environmentFile;

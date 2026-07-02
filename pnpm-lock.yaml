@@ -102,6 +102,9 @@ importers:
       '@alloy/logging':
         specifier: workspace:*
         version: link:../logging
+      '@alloy/media':
+        specifier: workspace:*
+        version: link:../media
       '@alloy/recorder':
         specifier: workspace:*
         version: link:../recorder
@@ -164,6 +167,12 @@ importers:
 
   packages/logging: {}
 
+  packages/media:
+    dependencies:
+      mediabunny:
+        specifier: 1.46.0
+        version: 1.46.0
+
   packages/recorder: {}
 
   packages/server:
@@ -180,6 +189,9 @@ importers:
       '@alloy/logging':
         specifier: workspace:*
         version: link:../logging
+      '@alloy/media':
+        specifier: workspace:*
+        version: link:../media
       '@hono/node-server':
         specifier: 2.0.4
         version: 2.0.4(hono@4.12.25)
@@ -284,6 +296,9 @@ importers:
       '@alloy/i18n':
         specifier: workspace:*
         version: link:../i18n
+      '@alloy/media':
+        specifier: workspace:*
+        version: link:../media
       '@alloy/ui':
         specifier: workspace:*
         version: link:../ui
