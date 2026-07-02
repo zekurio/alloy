@@ -252,6 +252,8 @@ export const clipMediaStore: MediaStore = {
         await tx.insert(clipRendition).values(
           renditions.map((rendition) => ({
             clip_id: id,
+            name: rendition.name,
+            is_og: rendition.isOg,
             height: rendition.height,
             width: rendition.width,
             fps: rendition.fps,

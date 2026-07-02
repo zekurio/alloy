@@ -7,6 +7,7 @@ import {
 import { sql } from "drizzle-orm"
 import {
   bigint,
+  boolean,
   check,
   foreignKey,
   index,
@@ -130,6 +131,10 @@ export const clipRendition = pgTable(
     clip_id: uuid()
       .notNull()
       .references(() => clip.id, { onDelete: "cascade" }),
+    // Stable per-tier slug derived from height/fps/codec, e.g. "1080p60".
+    name: text().notNull(),
+    // Whether this rendition powers OpenGraph/social embeds for the clip.
+    is_og: boolean().notNull().default(false),
     height: integer().notNull(),
     width: integer().notNull(),
     fps: integer().notNull(),
@@ -145,7 +150,7 @@ export const clipRendition = pgTable(
     created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
-    uniqueIndex("clip_rendition_clip_height_idx").on(t.clip_id, t.height),
+    uniqueIndex("clip_rendition_clip_name_idx").on(t.clip_id, t.name),
     check(
       "clip_rendition_size_bytes_safe_check",
       sql`${t.size_bytes} >= 0 and ${t.size_bytes} <= 9007199254740991`,

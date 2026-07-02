@@ -39,8 +39,26 @@ const HLS_CONTENT_TYPE = "application/vnd.apple.mpegurl"
 
 const RenditionParam = z.object({
   id: z.uuid(),
-  height: z.coerce.number().int().positive(),
+  name: z.string().min(1).max(64),
 })
+
+/**
+ * Find a committed rendition by name. Legacy URLs used the bare height
+ * (`/rendition/1080/...`), so an all-digit param falls back to the derived
+ * `${height}p` name and then to a plain height match.
+ */
+function findRenditionByName<T extends { name: string; height: number }>(
+  renditions: readonly T[],
+  param: string,
+): T | undefined {
+  const byName = renditions.find((candidate) => candidate.name === param)
+  if (byName) return byName
+  if (!/^\d+$/.test(param)) return undefined
+  return (
+    renditions.find((candidate) => candidate.name === `${param}p`) ??
+    renditions.find((candidate) => candidate.height === Number(param))
+  )
+}
 
 function thumbnailEtag(key: string): string {
   const hash = createHash("sha256").update(key).digest("hex").slice(0, 32)
@@ -149,7 +167,7 @@ export const clipsPlaybackRoutes = new Hono()
         fps: rendition.fps,
         codecs: rendition.codecs,
         bandwidth: rendition.bandwidth,
-        playlistUrl: `rendition/${rendition.height}/index.m3u8?v=${clipAssetVersion(rendition.storage_key)}`,
+        playlistUrl: `rendition/${rendition.name}/index.m3u8?v=${clipAssetVersion(rendition.storage_key)}`,
       })),
     )
     c.header("Content-Type", HLS_CONTENT_TYPE)
@@ -161,21 +179,22 @@ export const clipsPlaybackRoutes = new Hono()
     return c.body(body)
   })
   /**
-   * GET /api/clips/:id/rendition/:height/index.m3u8 — one tier's media
+   * GET /api/clips/:id/rendition/:name/index.m3u8 — one tier's media
    * playlist. Stored with a placeholder URI; the versioned file URL is
    * substituted here so stored playlists never embed origins or keys.
    */
   .get(
-    "/:id/rendition/:height/index.m3u8",
+    "/:id/rendition/:name/index.m3u8",
     zValidator("param", RenditionParam),
     async (c) => {
-      const { id, height } = c.req.valid("param")
+      const { id, name } = c.req.valid("param")
       const access = await resolveClipAccess({ id, c, policy: "stream" })
       if (!access.accessible) return clipAccessResponse(c, access)
       const row = access.row
 
-      const rendition = (await selectClipRenditions(id)).find(
-        (candidate) => candidate.height === height,
+      const rendition = findRenditionByName(
+        await selectClipRenditions(id),
+        name,
       )
       if (!rendition) return notFound(c, "Playlist unavailable")
 
@@ -194,21 +213,22 @@ export const clipsPlaybackRoutes = new Hono()
     },
   )
   /**
-   * GET /api/clips/:id/rendition/:height/file.mp4 — the tier's single-file
+   * GET /api/clips/:id/rendition/:name/file.mp4 — the tier's single-file
    * fMP4. Serves both HLS byte-range segment reads and plain progressive
    * playback (quality selection on players without MSE).
    */
   .get(
-    "/:id/rendition/:height/file.mp4",
+    "/:id/rendition/:name/file.mp4",
     zValidator("param", RenditionParam),
     async (c) => {
-      const { id, height } = c.req.valid("param")
+      const { id, name } = c.req.valid("param")
       const access = await resolveClipAccess({ id, c, policy: "stream" })
       if (!access.accessible) return clipAccessResponse(c, access)
       const row = access.row
 
-      const rendition = (await selectClipRenditions(id)).find(
-        (candidate) => candidate.height === height,
+      const rendition = findRenditionByName(
+        await selectClipRenditions(id),
+        name,
       )
       if (!rendition) return notFound(c, "Rendition unavailable")
 
@@ -229,7 +249,7 @@ export const clipsPlaybackRoutes = new Hono()
 
       const resolved = await clipStorage.resolve(rendition.storage_key)
       if (!resolved) {
-        logger.error(`rendition bytes missing for clip ${id} ${height}p`)
+        logger.error(`rendition bytes missing for clip ${id} ${name}`)
         return notFound(c, "Rendition unavailable")
       }
 

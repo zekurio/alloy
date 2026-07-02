@@ -58,9 +58,13 @@ export type ClipMentionRef = UserSummary
 
 /** One encoded quality tier of a clip, as exposed to clients. */
 export interface ClipRenditionRef {
+  /** Stable per-tier slug like "1080p" or "1080p60-hevc"; keys rendition URLs. */
+  name: string
   height: number
   width: number
   fps: number
+  /** RFC 6381 codec string, used only for display disambiguation. */
+  codecs: string
   /** Cache-busting version of this tier's file bytes; changes on re-encode. */
   version: string
 }
