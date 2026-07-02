@@ -118,8 +118,8 @@ export const clip = pgTable(
   ],
 )
 
-// One row per encoded quality tier of a clip. All renditions are H.264+AAC
-// fragmented MP4s; `playlist` holds the tier's HLS media playlist with the
+// One row per encoded quality tier of a clip. Renditions are fragmented MP4s;
+// `playlist` holds the tier's HLS media playlist with the
 // media URI as a placeholder that routes rewrite to a versioned URL at serve
 // time. Rows for a clip are replaced atomically when a media run commits, so
 // a clip either has its full ladder or none (legacy/pre-backfill).

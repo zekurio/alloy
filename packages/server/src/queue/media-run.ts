@@ -1,6 +1,10 @@
 import { rm, stat } from "node:fs/promises"
 
-import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
+import {
+  normalizeBlurHash,
+  type AcceptedContentType,
+  type TranscodingConfig,
+} from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
@@ -159,7 +163,8 @@ async function runPipelineInWorkDir({
   const probed = await probeMedia(mediaPath)
   const outputDurationMs = probed.durationMs
 
-  const ladder = effectiveLadder(configStore.get("transcoding"), {
+  const transcodingConfig = configStore.get("transcoding")
+  const ladder = effectiveLadder(transcodingConfig, {
     height: probed.height,
     fps: probed.fps,
   })
@@ -223,23 +228,28 @@ async function runPipelineInWorkDir({
   retainSourceAsset(sourceAsset)
   completeWork()
 
-  // Encode the quality ladder. Every rendition is H.264+AAC fMP4, so the top
-  // tier is the universally playable artifact OpenGraph embeds and legacy
-  // stream URLs rely on. Uploaded under run-scoped keys; committed atomically
-  // with the ready transition below.
+  // Encode the quality ladder. Uploaded under run-scoped keys; committed
+  // atomically with the ready transition below.
   const renditions: MediaRenditionRecord[] = []
+  let hardwareFailed = false
   for (const step of ladder) {
     await ensureStillPresent(store, id, runId, signal)
-    const encoded = await encodeRendition(
-      mediaPath,
-      join(workDir, `rendition-${step.height}p`),
+    const encodeConfig =
+      hardwareFailed || transcodingConfig.hardwareAcceleration === "none"
+        ? { ...transcodingConfig, hardwareAcceleration: "none" as const }
+        : transcodingConfig
+    const encoded = await encodeRenditionWithFallback({
+      srcPath: mediaPath,
+      outDir: join(workDir, `rendition-${step.height}p`),
+      config: encodeConfig,
       step,
-      {
-        durationMs: outputDurationMs,
-        signal,
-        onProgress: progressAt,
+      durationMs: outputDurationMs,
+      signal,
+      onProgress: progressAt,
+      onHardwareFailed: () => {
+        hardwareFailed = true
       },
-    )
+    })
     const renditionKey = runScopedRenditionKey(id, runId, encoded.height)
     await clipStorage.uploadFromFile(
       encoded.filePath,
@@ -316,6 +326,52 @@ async function runPipelineInWorkDir({
   await cleanupTickets({ type: store.target, id }, "completed staged upload")
   completeWork()
   store.publishUpsert(row.authorId, id)
+}
+
+async function encodeRenditionWithFallback(options: {
+  srcPath: string
+  outDir: string
+  config: TranscodingConfig
+  step: Parameters<typeof encodeRendition>[3]
+  durationMs: number
+  signal: AbortSignal
+  onProgress: (fraction: number) => void
+  onHardwareFailed: () => void
+}) {
+  try {
+    return await encodeRendition(
+      options.srcPath,
+      options.outDir,
+      options.config,
+      options.step,
+      {
+        durationMs: options.durationMs,
+        signal: options.signal,
+        onProgress: options.onProgress,
+      },
+    )
+  } catch (err) {
+    // A cancelled run rejects with AbortError — not an encoder failure, so it
+    // must not trigger the software fallback.
+    if (options.signal.aborted) throw err
+    if (options.config.hardwareAcceleration === "none") throw err
+    logger.warn(
+      `hardware ${options.config.hardwareAcceleration} encode failed for ${options.step.height}p; falling back to software:`,
+      err,
+    )
+    options.onHardwareFailed()
+    return encodeRendition(
+      options.srcPath,
+      options.outDir,
+      { ...options.config, hardwareAcceleration: "none" },
+      options.step,
+      {
+        durationMs: options.durationMs,
+        signal: options.signal,
+        onProgress: options.onProgress,
+      },
+    )
+  }
 }
 
 function pendingTrimRange(

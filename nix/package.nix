@@ -3,6 +3,7 @@
   stdenvNoCC,
   fetchPnpmDeps,
   ffmpeg-headless,
+  ffmpegPackage ? ffmpeg-headless,
   nodejs_24,
   nodejs-slim_24,
   pnpm,
@@ -84,7 +85,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # extraction; override with ALLOY_FFMPEG_PATH if needed.
     makeWrapper "${nodejs-slim_24}/bin/node" "$out/bin/alloy" \
       --add-flags "$out/share/alloy/server/dist/index.js" \
-      --prefix PATH : "${lib.makeBinPath [ ffmpeg-headless ]}" \
+      --prefix PATH : "${lib.makeBinPath [ ffmpegPackage ]}" \
       --set-default NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \
       --set-default ALLOY_MIGRATIONS_DIR "$out/share/alloy/migrations"

@@ -245,24 +245,118 @@ export const AppearanceConfigSchema = z.looseObject({
 
 export type AppearanceConfig = z.infer<typeof AppearanceConfigSchema>
 
+export const TRANSCODE_VIDEO_CODECS = ["h264", "hevc", "av1"] as const
+export const VideoCodecSchema = z.enum(TRANSCODE_VIDEO_CODECS)
+export type VideoCodec = z.infer<typeof VideoCodecSchema>
+
+export const HARDWARE_ACCELERATIONS = [
+  "none",
+  "nvenc",
+  "qsv",
+  "vaapi",
+  "videotoolbox",
+] as const
+export const HardwareAccelerationSchema = z.enum(HARDWARE_ACCELERATIONS)
+export type HardwareAcceleration = z.infer<typeof HardwareAccelerationSchema>
+
+export const DEFAULT_VAAPI_DEVICE = "/dev/dri/renderD128"
+
+export const RenditionTierConfigSchema = z.object({
+  height: z.number().int().min(144).max(4320).multipleOf(2),
+  maxFps: z.number().int().min(1).max(240),
+  maxrateKbps: z.number().int().min(100).max(100000),
+})
+export type RenditionTierConfig = z.infer<typeof RenditionTierConfigSchema>
+
+export const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
+  { height: 1080, maxFps: 60, maxrateKbps: 8000 },
+  { height: 720, maxFps: 60, maxrateKbps: 5000 },
+  { height: 480, maxFps: 30, maxrateKbps: 2500 },
+]
+
 /**
- * Which rendition tiers the media pipeline encodes for new clips. Tiers above
- * the source resolution are always skipped; the highest enabled tier (clamped
- * to the source) doubles as the OpenGraph/compat rendition, so at least one
- * tier must stay enabled.
+ * How the media pipeline encodes new clips. Tiers above the source resolution
+ * are always skipped; the highest tier (clamped to the source) doubles as the
+ * OpenGraph/compat rendition, so at least one tier must exist. `quality` is a
+ * CRF-scale value (lower = better) mapped to the equivalent rate-control knob
+ * of hardware encoders. Audio is always stereo AAC for embed compatibility;
+ * only its bitrate is configurable. Legacy `enable1080p/720p/480p` toggles are
+ * migrated to an explicit tier list on parse.
  */
-export const TranscodingConfigSchema = z
-  .looseObject({
-    enable1080p: z.boolean().default(true),
-    enable720p: z.boolean().default(true),
-    enable480p: z.boolean().default(true),
-  })
-  .refine(
-    (config) => config.enable1080p || config.enable720p || config.enable480p,
-    "at least one rendition tier must be enabled",
-  )
+export const TranscodingConfigSchema = z.preprocess(
+  migrateLegacyTranscodingConfig,
+  z.looseObject({
+    videoCodec: VideoCodecSchema.default("h264"),
+    hardwareAcceleration: HardwareAccelerationSchema.default("none"),
+    // `catch` keeps config load resilient: a blank/invalid stored device falls
+    // back to the default render node instead of failing startup.
+    vaapiDevice: z
+      .string()
+      .trim()
+      .min(1)
+      .default(DEFAULT_VAAPI_DEVICE)
+      .catch(DEFAULT_VAAPI_DEVICE),
+    quality: z.number().int().min(10).max(51).default(22),
+    audioBitrateKbps: z.number().int().min(64).max(320).default(128),
+    tiers: z
+      .array(RenditionTierConfigSchema)
+      .min(1)
+      .max(6)
+      .default(DEFAULT_RENDITION_TIERS)
+      .refine(
+        (tiers) =>
+          new Set(tiers.map((tier) => tier.height)).size === tiers.length,
+        "tier heights must be unique",
+      ),
+  }),
+)
 
 export type TranscodingConfig = z.infer<typeof TranscodingConfigSchema>
+
+function migrateLegacyTranscodingConfig(value: unknown) {
+  if (!isObjectRecord(value)) return value
+  if ("tiers" in value) return value
+  const hasLegacyToggles =
+    "enable1080p" in value || "enable720p" in value || "enable480p" in value
+  if (!hasLegacyToggles) return value
+  const toggles: Record<number, unknown> = {
+    1080: value.enable1080p,
+    720: value.enable720p,
+    480: value.enable480p,
+  }
+  const tiers = DEFAULT_RENDITION_TIERS.filter(
+    (tier) => toggles[tier.height] !== false,
+  )
+  return { tiers: tiers.length > 0 ? tiers : DEFAULT_RENDITION_TIERS }
+}
+
+/**
+ * Result of probing the configured ffmpeg binary for encoder support. `status`
+ * is "missing" when the encoder is not compiled into the binary, "failed" when
+ * it is listed but a functional test encode errored (e.g. no GPU present), and
+ * "ok" when a test encode succeeded.
+ */
+export const TranscodingEncoderProbeSchema = z.looseObject({
+  codec: VideoCodecSchema,
+  acceleration: HardwareAccelerationSchema,
+  encoder: z.string(),
+  status: z.enum(["ok", "failed", "missing"]),
+  error: z.string().optional(),
+})
+export type TranscodingEncoderProbe = z.infer<
+  typeof TranscodingEncoderProbeSchema
+>
+
+export const TranscodingCapabilitiesSchema = z.looseObject({
+  ffmpegPath: z.string(),
+  version: z.string().nullable(),
+  jellyfin: z.boolean(),
+  probedAt: z.string(),
+  encoders: z.array(TranscodingEncoderProbeSchema),
+})
+export type TranscodingCapabilities = z.infer<
+  typeof TranscodingCapabilitiesSchema
+>
 
 export interface AdminUserStorageRow {
   id: string

@@ -5,6 +5,8 @@ import { api } from "@/lib/api"
 export const adminKeys = {
   all: ["admin"] as const,
   runtimeConfig: () => [...adminKeys.all, "runtime-config"] as const,
+  transcodingCapabilities: () =>
+    [...adminKeys.all, "transcoding-capabilities"] as const,
   users: () => [...adminKeys.all, "users"] as const,
   games: () => [...adminKeys.all, "games"] as const,
 }
@@ -13,6 +15,17 @@ export function adminRuntimeConfigQueryOptions() {
   return queryOptions({
     queryKey: adminKeys.runtimeConfig(),
     queryFn: () => api.admin.fetchRuntimeConfig(),
+  })
+}
+
+export function adminTranscodingCapabilitiesQueryOptions() {
+  return queryOptions({
+    queryKey: adminKeys.transcodingCapabilities(),
+    queryFn: () => api.admin.fetchTranscodingCapabilities(),
+    // Probing spawns several ffmpeg test encodes, so this is expensive; keep it
+    // fresh for the session and re-probe only when the admin hits "Re-detect".
+    staleTime: Infinity,
+    gcTime: Infinity,
   })
 }
 

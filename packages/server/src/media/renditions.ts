@@ -1,8 +1,13 @@
 import { mkdir, readFile, stat } from "node:fs/promises"
 
-import type { TranscodingConfig } from "@alloy/contracts"
+import type { RenditionTierConfig, TranscodingConfig } from "@alloy/contracts"
 import { join } from "@alloy/server/runtime/path"
 
+import {
+  buildEncoderGlobalArgs,
+  buildEncoderVideoArgs,
+  buildVideoFilterChain,
+} from "./encoders"
 import { runFfmpeg, transcodeTimeoutMs } from "./ffmpeg"
 import { probeMedia } from "./probe"
 import { transcodeSettings } from "./transcode-settings"
@@ -26,42 +31,8 @@ const PLAYLIST_FILENAME = "index.m3u8"
 export interface RenditionTier {
   height: number
   maxFps: number
-  crf: number
   maxrateKbps: number
-  audioBitrate: string
-  enabled: (config: TranscodingConfig) => boolean
 }
-
-/**
- * The encode ladder, highest first. crf/maxrate pairs are capped-VBR targets
- * chosen for 60fps game footage; the admin transcoding config toggles tiers.
- */
-export const RENDITION_TIERS: readonly RenditionTier[] = [
-  {
-    height: 1080,
-    maxFps: 60,
-    crf: 21,
-    maxrateKbps: 8000,
-    audioBitrate: "160k",
-    enabled: (config) => config.enable1080p,
-  },
-  {
-    height: 720,
-    maxFps: 60,
-    crf: 22,
-    maxrateKbps: 5000,
-    audioBitrate: "128k",
-    enabled: (config) => config.enable720p,
-  },
-  {
-    height: 480,
-    maxFps: 30,
-    crf: 23,
-    maxrateKbps: 2500,
-    audioBitrate: "96k",
-    enabled: (config) => config.enable480p,
-  },
-] as const
 
 export interface LadderStep {
   tier: RenditionTier
@@ -74,23 +45,22 @@ export interface LadderStep {
 }
 
 /**
- * The tiers to actually encode for a source: enabled tiers clamped to the
+ * The tiers to actually encode for a source: configured tiers clamped to the
  * source height, deduplicated when clamping collapses two tiers to the same
- * output height (the tier whose native height matches wins — its rate targets
- * were chosen for that resolution). Always non-empty for a valid config, so
- * every clip gets at least one compat rendition.
+ * output height (the collapsed height keeps the highest maxrate among the
+ * tiers that map to it). Always non-empty for a valid config, so every clip
+ * gets at least one compat rendition.
  */
 export function effectiveLadder(
   config: TranscodingConfig,
   source: { height: number; fps: number | null },
 ): LadderStep[] {
   const byHeight = new Map<number, LadderStep>()
-  for (const tier of RENDITION_TIERS) {
-    if (!tier.enabled(config)) continue
+  for (const tier of sortedTiers(config.tiers)) {
     const height = evenFloor(Math.min(tier.height, source.height))
     if (height <= 0) continue
     const existing = byHeight.get(height)
-    if (existing && existing.tier.height <= tier.height) continue
+    if (existing && existing.tier.maxrateKbps >= tier.maxrateKbps) continue
     // Cap the frame rate when the source exceeds the tier's target, and also
     // when the source rate is unknown — an uncapped 144fps encode is worse
     // than a rare 24->30 upsample.
@@ -99,6 +69,64 @@ export function effectiveLadder(
     byHeight.set(height, { tier, height, fps: Math.max(1, fps), capFps })
   }
   return [...byHeight.values()].sort((a, b) => b.height - a.height)
+}
+
+export function buildRenditionArgs(options: {
+  config: TranscodingConfig
+  srcPath: string
+  step: LadderStep
+}): string[] {
+  const gop = Math.round(options.step.fps * SEGMENT_SECONDS)
+  const filters = [
+    `scale=-2:${options.step.height}:flags=lanczos`,
+    ...(options.step.capFps ? [`fps=${options.step.tier.maxFps}`] : []),
+  ]
+  const threads = transcodeSettings().threads
+  const softwareEncoder = options.config.hardwareAcceleration === "none"
+  return [
+    "-v",
+    "error",
+    "-y",
+    ...buildEncoderGlobalArgs(options.config),
+    "-i",
+    options.srcPath,
+    "-map",
+    "0:v:0",
+    "-map",
+    "0:a:0?",
+    ...buildEncoderVideoArgs({
+      config: options.config,
+      maxrateKbps: options.step.tier.maxrateKbps,
+    }),
+    "-vf",
+    buildVideoFilterChain(options.config, filters),
+    "-g",
+    String(gop),
+    "-keyint_min",
+    String(gop),
+    "-force_key_frames",
+    `expr:gte(t,n_forced*${SEGMENT_SECONDS})`,
+    "-c:a",
+    "aac",
+    "-b:a",
+    `${options.config.audioBitrateKbps}k`,
+    "-ac",
+    "2",
+    ...(softwareEncoder && threads > 0 ? ["-threads", String(threads)] : []),
+    "-f",
+    "hls",
+    "-hls_time",
+    String(SEGMENT_SECONDS),
+    "-hls_playlist_type",
+    "vod",
+    "-hls_segment_type",
+    "fmp4",
+    "-hls_flags",
+    "single_file",
+    "-hls_segment_filename",
+    MEDIA_FILENAME,
+    PLAYLIST_FILENAME,
+  ]
 }
 
 export interface EncodedRendition {
@@ -123,6 +151,7 @@ export interface EncodedRendition {
 export async function encodeRendition(
   srcPath: string,
   outDir: string,
+  config: TranscodingConfig,
   step: LadderStep,
   opts: {
     durationMs: number
@@ -131,14 +160,8 @@ export async function encodeRendition(
   },
 ): Promise<EncodedRendition> {
   await mkdir(outDir, { recursive: true })
-  const gop = Math.round(step.fps * SEGMENT_SECONDS)
-  const filters = [
-    `scale=-2:${step.height}:flags=lanczos`,
-    ...(step.capFps ? [`fps=${step.tier.maxFps}`] : []),
-  ]
 
   const durationSec = opts.durationMs / 1000
-  const threads = transcodeSettings().threads
   await runFfmpeg({
     cwd: outDir,
     timeoutMs: transcodeTimeoutMs(opts.durationMs),
@@ -147,61 +170,7 @@ export async function encodeRendition(
       if (durationSec <= 0) return
       opts.onProgress?.(Math.min(1, outTimeSec / durationSec))
     },
-    args: [
-      "-v",
-      "error",
-      "-y",
-      "-i",
-      srcPath,
-      "-map",
-      "0:v:0",
-      "-map",
-      "0:a:0?",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-crf",
-      String(step.tier.crf),
-      "-maxrate",
-      `${step.tier.maxrateKbps}k`,
-      "-bufsize",
-      `${Math.round(step.tier.maxrateKbps * 1.5)}k`,
-      // 8-bit 4:2:0 regardless of source depth — the whole point of these
-      // renditions is universal decoder support.
-      "-pix_fmt",
-      "yuv420p",
-      "-vf",
-      filters.join(","),
-      "-g",
-      String(gop),
-      "-keyint_min",
-      String(gop),
-      "-sc_threshold",
-      "0",
-      "-force_key_frames",
-      `expr:gte(t,n_forced*${SEGMENT_SECONDS})`,
-      "-c:a",
-      "aac",
-      "-b:a",
-      step.tier.audioBitrate,
-      "-ac",
-      "2",
-      ...(threads > 0 ? ["-threads", String(threads)] : []),
-      "-f",
-      "hls",
-      "-hls_time",
-      String(SEGMENT_SECONDS),
-      "-hls_playlist_type",
-      "vod",
-      "-hls_segment_type",
-      "fmp4",
-      "-hls_flags",
-      "single_file",
-      "-hls_segment_filename",
-      MEDIA_FILENAME,
-      PLAYLIST_FILENAME,
-    ],
+    args: buildRenditionArgs({ config, srcPath, step }),
   })
 
   const filePath = join(outDir, MEDIA_FILENAME)
@@ -298,4 +267,8 @@ export function mediaPlaylistStats(
 
 function evenFloor(value: number): number {
   return Math.floor(value / 2) * 2
+}
+
+function sortedTiers(tiers: readonly RenditionTierConfig[]): RenditionTier[] {
+  return [...tiers].sort((a, b) => b.height - a.height)
 }

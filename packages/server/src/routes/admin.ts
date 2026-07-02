@@ -1,7 +1,13 @@
+import {
+  HardwareAccelerationSchema,
+  RenditionTierConfigSchema,
+  VideoCodecSchema,
+} from "@alloy/contracts"
 import { clip } from "@alloy/db/schema"
 import { requireAdmin } from "@alloy/server/auth/session"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
+import { probeTranscodingCapabilities } from "@alloy/server/media/capabilities"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import { batchProgress } from "@alloy/server/runtime/http-response"
 import { inArray, sql } from "drizzle-orm"
@@ -20,9 +26,12 @@ const RuntimeConfigPatch = z.object({
 })
 
 const TranscodingPatch = z.object({
-  enable1080p: z.boolean().optional(),
-  enable720p: z.boolean().optional(),
-  enable480p: z.boolean().optional(),
+  videoCodec: VideoCodecSchema.optional(),
+  hardwareAcceleration: HardwareAccelerationSchema.optional(),
+  vaapiDevice: z.string().trim().min(1).optional(),
+  quality: z.number().int().min(10).max(51).optional(),
+  audioBitrateKbps: z.number().int().min(64).max(320).optional(),
+  tiers: z.array(RenditionTierConfigSchema).min(1).max(6).optional(),
 })
 
 const AppearancePatch = z.object({
@@ -77,6 +86,14 @@ export const adminRoute = new Hono()
       ...patch,
     })
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+  .get("/transcoding/capabilities", async (c) => {
+    return c.json(
+      await probeTranscodingCapabilities({
+        refresh: c.req.query("refresh") === "true",
+        vaapiDevice: configStore.get("transcoding").vaapiDevice,
+      }),
+    )
   })
   .post("/clips/re-encode", async (c) => {
     const rows = await db

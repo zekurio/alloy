@@ -7,8 +7,15 @@ import type {
   AdminUsersResponse,
   AdminUserStorageRow,
   GameAssetRole,
+  HardwareAcceleration,
+  RenditionTierConfig,
+  TranscodingCapabilities,
+  VideoCodec,
 } from "@alloy/contracts"
-import { AdminRuntimeConfigSchema } from "@alloy/contracts"
+import {
+  AdminRuntimeConfigSchema,
+  TranscodingCapabilitiesSchema,
+} from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
@@ -40,8 +47,19 @@ export type {
   AdminUserStorageRow,
   AppearanceConfig,
   GameAssetRole,
+  HardwareAcceleration,
+  RenditionTierConfig,
   RuntimeConfig,
+  TranscodingCapabilities,
+  TranscodingConfig,
+  TranscodingEncoderProbe,
   UsernameClaim,
+  VideoCodec,
+} from "@alloy/contracts"
+export {
+  DEFAULT_RENDITION_TIERS,
+  HARDWARE_ACCELERATIONS,
+  TRANSCODE_VIDEO_CODECS,
 } from "@alloy/contracts"
 
 type RuntimeConfigPatch = {
@@ -57,9 +75,12 @@ type AppearanceConfigPatch = {
 }
 
 type TranscodingConfigPatch = {
-  enable1080p?: boolean
-  enable720p?: boolean
-  enable480p?: boolean
+  videoCodec?: VideoCodec
+  hardwareAcceleration?: HardwareAcceleration
+  vaapiDevice?: string
+  quality?: number
+  audioBitrateKbps?: number
+  tiers?: RenditionTierConfig[]
 }
 
 type AdminCreateUserInput = {
@@ -103,6 +124,18 @@ async function updateTranscodingConfig(
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin.transcoding.$patch({ json: patch })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
+}
+
+async function fetchTranscodingCapabilities(
+  context: ApiContext,
+  options?: { refresh?: boolean },
+): Promise<TranscodingCapabilities> {
+  const res = await context.rpc.api.admin.transcoding.capabilities.$get({
+    query: options?.refresh ? { refresh: "true" } : {},
+  })
+  return readJsonOrThrow(res, (value) =>
+    TranscodingCapabilitiesSchema.parse(value),
+  )
 }
 
 async function reEncodeAllClips(
@@ -211,6 +244,8 @@ export function createAdminApi(context: ApiContext) {
       updateAppearanceConfig(context, patch),
     updateTranscodingConfig: (patch: TranscodingConfigPatch) =>
       updateTranscodingConfig(context, patch),
+    fetchTranscodingCapabilities: (options?: { refresh?: boolean }) =>
+      fetchTranscodingCapabilities(context, options),
     reEncodeAllClips: () => reEncodeAllClips(context),
     fetchUsers: () => fetchUsers(context),
     createUser: (input: AdminCreateUserInput) => createUser(context, input),

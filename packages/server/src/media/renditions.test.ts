@@ -5,11 +5,16 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { test } from "node:test"
 
-import type { TranscodingConfig } from "@alloy/contracts"
+import { TranscodingConfigSchema } from "@alloy/contracts"
 
+import {
+  parseFfmpegEncoders,
+  probeTranscodingCapabilities,
+} from "./capabilities"
 import { runFfmpeg } from "./ffmpeg"
 import { probeMedia } from "./probe"
 import {
+  buildRenditionArgs,
   effectiveLadder,
   encodeRendition,
   mediaPlaylistStats,
@@ -20,11 +25,10 @@ import {
 } from "./renditions"
 import { transcodeSettings } from "./transcode-settings"
 
-const FULL_CONFIG: TranscodingConfig = {
-  enable1080p: true,
-  enable720p: true,
-  enable480p: true,
-}
+const FULL_CONFIG = TranscodingConfigSchema.parse({})
+const ffmpegAvailable =
+  spawnSync(transcodeSettings().ffmpegPath, ["-version"], { stdio: "ignore" })
+    .status === 0
 
 test("effectiveLadder produces the full ladder below a 1440p60 source", () => {
   const ladder = effectiveLadder(FULL_CONFIG, { height: 1440, fps: 60 })
@@ -53,8 +57,8 @@ test("effectiveLadder dedupes tiers that collapse to the same height", () => {
     ladder.map((step) => step.height),
     [720, 480],
   )
-  // The native 720p tier's rate targets win over the clamped 1080p tier.
-  assert.equal(ladder[0]?.tier.height, 720)
+  // When clamping collapses tiers, the highest maxrate target wins.
+  assert.equal(ladder[0]?.tier.maxrateKbps, 8000)
 })
 
 test("effectiveLadder rounds odd source heights down to even", () => {
@@ -68,12 +72,14 @@ test("effectiveLadder yields one compat tier for tiny sources", () => {
     ladder.map((step) => step.height),
     [360],
   )
-  assert.equal(ladder[0]?.tier.height, 480)
+  assert.equal(ladder[0]?.tier.maxrateKbps, 8000)
 })
 
 test("effectiveLadder respects disabled tiers", () => {
   const ladder = effectiveLadder(
-    { enable1080p: false, enable720p: true, enable480p: false },
+    TranscodingConfigSchema.parse({
+      tiers: [{ height: 720, maxFps: 60, maxrateKbps: 5000 }],
+    }),
     { height: 1440, fps: 60 },
   )
   assert.deepEqual(
@@ -87,6 +93,133 @@ test("effectiveLadder caps fps when the source rate is unknown", () => {
   assert.ok(ladder.every((step) => step.capFps))
   assert.equal(ladder[0]?.fps, 60)
 })
+
+test("effectiveLadder uses custom tier order and fps caps", () => {
+  const ladder = effectiveLadder(
+    TranscodingConfigSchema.parse({
+      tiers: [
+        { height: 480, maxFps: 30, maxrateKbps: 2500 },
+        { height: 1440, maxFps: 120, maxrateKbps: 12000 },
+      ],
+    }),
+    { height: 2160, fps: 144 },
+  )
+  assert.deepEqual(
+    ladder.map((step) => step.height),
+    [1440, 480],
+  )
+  assert.equal(ladder[0]?.fps, 120)
+  assert.equal(ladder[0]?.capFps, true)
+})
+
+test("TranscodingConfigSchema migrates legacy toggles to tiers", () => {
+  const config = TranscodingConfigSchema.parse({
+    enable1080p: false,
+    enable720p: true,
+    enable480p: false,
+  })
+  assert.deepEqual(config.tiers, [
+    { height: 720, maxFps: 60, maxrateKbps: 5000 },
+  ])
+})
+
+test("buildRenditionArgs keeps libx264 shape", () => {
+  const args = buildRenditionArgs({
+    config: FULL_CONFIG,
+    srcPath: "source.mp4",
+    step: effectiveLadder(FULL_CONFIG, { height: 1080, fps: 60 })[0]!,
+  })
+  assert.deepEqual(args.slice(0, 5), ["-v", "error", "-y", "-i", "source.mp4"])
+  assert.ok(args.includes("libx264"))
+  assert.ok(args.includes("-sc_threshold"))
+  assert.ok(args.includes("-crf"))
+  assert.ok(args.includes("22"))
+  assert.ok(args.includes("-pix_fmt"))
+  assert.ok(args.includes("yuv420p"))
+  assert.ok(args.includes("-maxrate"))
+  assert.ok(args.includes("8000k"))
+  assert.ok(args.includes("-b:a"))
+  assert.ok(args.includes("128k"))
+})
+
+test("buildRenditionArgs tags hevc and omits x264-only scenecut arg", () => {
+  const config = TranscodingConfigSchema.parse({ videoCodec: "hevc" })
+  const args = buildRenditionArgs({
+    config,
+    srcPath: "source.mp4",
+    step: effectiveLadder(config, { height: 1080, fps: 60 })[0]!,
+  })
+  assert.ok(args.includes("libx265"))
+  assert.ok(!args.includes("-sc_threshold"))
+  assert.ok(args.includes("-x265-params"))
+  assert.ok(args.includes("scenecut=0"))
+  assert.ok(args.includes("-tag:v"))
+  assert.ok(args.includes("hvc1"))
+})
+
+test("buildRenditionArgs uses nvenc cq controls", () => {
+  const config = TranscodingConfigSchema.parse({
+    hardwareAcceleration: "nvenc",
+    quality: 24,
+  })
+  const args = buildRenditionArgs({
+    config,
+    srcPath: "source.mp4",
+    step: effectiveLadder(config, { height: 1080, fps: 60 })[0]!,
+  })
+  assert.ok(args.includes("h264_nvenc"))
+  assert.ok(args.includes("-cq"))
+  assert.ok(args.includes("24"))
+  assert.ok(args.includes("-rc"))
+  assert.ok(args.includes("vbr"))
+})
+
+test("buildRenditionArgs uploads vaapi frames and sets device", () => {
+  const config = TranscodingConfigSchema.parse({
+    hardwareAcceleration: "vaapi",
+    vaapiDevice: "/dev/dri/test",
+  })
+  const args = buildRenditionArgs({
+    config,
+    srcPath: "source.mp4",
+    step: effectiveLadder(config, { height: 1080, fps: 60 })[0]!,
+  })
+  assert.deepEqual(args.slice(0, 7), [
+    "-v",
+    "error",
+    "-y",
+    "-vaapi_device",
+    "/dev/dri/test",
+    "-i",
+    "source.mp4",
+  ])
+  assert.ok(args.includes("h264_vaapi"))
+  assert.ok(args.includes("scale=-2:1080:flags=lanczos,format=nv12,hwupload"))
+})
+
+test("parseFfmpegEncoders reads present encoders from ffmpeg output", () => {
+  const encoders = parseFfmpegEncoders(`Encoders:
+ V..... libx264              libx264 H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10
+ V..... hevc_nvenc           NVIDIA NVENC hevc encoder
+ A..... aac                  AAC (Advanced Audio Coding)
+`)
+  assert.equal(encoders.has("libx264"), true)
+  assert.equal(encoders.has("hevc_nvenc"), true)
+  assert.equal(encoders.has("av1_videotoolbox"), false)
+})
+
+test(
+  "probeTranscodingCapabilities functionally verifies libx264 when ffmpeg is available",
+  { skip: !ffmpegAvailable && "ffmpeg not available on PATH" },
+  async () => {
+    const capabilities = await probeTranscodingCapabilities({ refresh: true })
+    const libx264 = capabilities.encoders.find(
+      (encoder) => encoder.codec === "h264" && encoder.acceleration === "none",
+    )
+    assert.equal(libx264?.encoder, "libx264")
+    assert.equal(libx264?.status, "ok")
+  },
+)
 
 const SAMPLE_PLAYLIST = `#EXTM3U
 #EXT-X-VERSION:7
@@ -162,10 +295,6 @@ test("renderMasterPlaylist orders tiers and omits empty CODECS", () => {
   assert.ok(!lowTier.includes("CODECS"))
 })
 
-const ffmpegAvailable =
-  spawnSync(transcodeSettings().ffmpegPath, ["-version"], { stdio: "ignore" })
-    .status === 0
-
 test(
   "encodeRendition emits an aligned single-file fMP4 with byte-range playlist",
   { skip: !ffmpegAvailable && "ffmpeg not available on PATH" },
@@ -210,6 +339,7 @@ test(
       const encoded = await encodeRendition(
         sourcePath,
         join(workDir, "out-720p"),
+        FULL_CONFIG,
         ladder[0]!,
         { durationMs: 5000, onProgress: (fraction) => progress.push(fraction) },
       )

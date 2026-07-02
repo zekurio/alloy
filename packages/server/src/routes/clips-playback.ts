@@ -62,9 +62,8 @@ function versionedCacheControl(
 export const clipsPlaybackRoutes = new Hono()
   /**
    * GET /api/clips/:id/stream — progressive playback bytes. Serves the top
-   * rendition (always H.264+AAC MP4, so OpenGraph embeds and plain <video>
-   * tags decode everywhere) and falls back to the stored source for clips the
-   * rendition backfill hasn't reached yet.
+   * rendition and falls back to the stored source for clips the rendition
+   * backfill hasn't reached yet.
    */
   .get("/:id/stream", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
