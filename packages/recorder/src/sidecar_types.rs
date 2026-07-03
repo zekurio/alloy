@@ -1,3 +1,6 @@
+#[repr(C)]
+// SAFETY: This is passed to libobs as `struct calldata`; field order and C
+// layout must stay in sync with OBS because C reads and writes these offsets.
 struct CallData {
     stack: *mut u8,
     size: usize,
@@ -315,10 +318,28 @@ enum RecordingResolution {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(untagged)]
-enum RecordingBitrate {
-    Auto(String),
-    Mbps(String),
+#[serde(transparent)]
+struct RecordingBitrate(String);
+
+impl RecordingBitrate {
+    fn auto() -> Self {
+        Self("auto".to_string())
+    }
+
+    fn mbps(value: &str) -> Self {
+        Self(value.to_string())
+    }
+
+    fn custom_kbps(&self) -> Option<u32> {
+        if self.0 == "auto" {
+            return None;
+        }
+        self.0
+            .parse::<u32>()
+            .ok()
+            .and_then(|value| value.checked_mul(1000))
+            .filter(|value| *value > 0)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -545,7 +566,6 @@ struct ObsVideoConfig {
     hdr_enabled: bool,
 }
 
-#[derive(Clone, Copy)]
 struct VideoGraph {
     scene: *mut ObsScene,
     source: *mut ObsSource,
@@ -609,6 +629,15 @@ struct CodecCaps {
     software_h264: bool,
 }
 
+/// Inputs a codec capability probe depends on; cached results are only valid
+/// while these stay unchanged.
+#[derive(PartialEq, Eq)]
+struct CodecCapsKey {
+    adapter: u32,
+    gpu_label: Option<String>,
+    runtime_dir: Option<PathBuf>,
+}
+
 #[derive(Default)]
 struct Recorder {
     obs: Option<LibObs>,
@@ -622,13 +651,12 @@ struct Recorder {
     /// Encoder capabilities probed independently of an active recording so the
     /// settings UI can show supported codecs while recording is disabled.
     codec_caps: Option<CodecCaps>,
-    /// Adapter + GPU label + runtime the cached `codec_caps` were probed
-    /// against; a change invalidates the cache and triggers a re-probe.
-    codec_caps_key: Option<(u32, Option<String>, Option<PathBuf>)>,
-    /// Adapter + GPU label + runtime and time of the last failed capability
-    /// probe, so retries from the tick loop back off instead of spinning OBS up
-    /// twice a second.
-    codec_caps_failed_probe: Option<((u32, Option<String>, Option<PathBuf>), Instant)>,
+    /// Probe inputs the cached `codec_caps` were probed against; a change
+    /// invalidates the cache and triggers a re-probe.
+    codec_caps_key: Option<CodecCapsKey>,
+    /// Probe inputs and time of the last failed capability probe, so retries
+    /// from the tick loop back off instead of spinning OBS up twice a second.
+    codec_caps_failed_probe: Option<(CodecCapsKey, Instant)>,
     cached_gpus: Vec<String>,
     cached_gpus_at: Option<Instant>,
     cached_audio_devices: Vec<RecordingAudioDeviceSelection>,
@@ -703,11 +731,11 @@ impl Default for RecordingSettings {
             quality_profile: RecordingQualityProfile::Custom,
             resolution: RecordingResolution::R1080p,
             fps: 60,
-            bitrate: RecordingBitrate::Auto("auto".to_string()),
+            bitrate: RecordingBitrate::auto(),
             custom_quality: RecordingQualitySettings {
                 resolution: RecordingResolution::R1080p,
                 fps: 60,
-                bitrate: RecordingBitrate::Auto("auto".to_string()),
+                bitrate: RecordingBitrate::auto(),
             },
             replay_buffer_seconds: 90,
             buffer_storage: RecordingBufferStorage::Memory,

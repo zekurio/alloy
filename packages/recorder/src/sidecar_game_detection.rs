@@ -134,7 +134,8 @@ struct PlaysNonGameRule {
 
 static AUTO_DETECTION_CATALOG: OnceLock<AutoDetectionCatalog> = OnceLock::new();
 static DISCORD_DETECTION_STATE: OnceLock<Mutex<RuntimeDiscordDetectionState>> = OnceLock::new();
-static GAME_REGEX_CACHE: OnceLock<Mutex<HashMap<String, Option<Regex>>>> = OnceLock::new();
+type GameRegexCache = Mutex<HashMap<String, Option<Regex>>>;
+static GAME_REGEX_CACHE: OnceLock<GameRegexCache> = OnceLock::new();
 
 fn candidate_game_detection_match(
     path: Option<&str>,
@@ -287,7 +288,7 @@ fn discord_game_match(executable: Option<&str>) -> Option<CandidateGameMatch> {
     let executable_key = executable.map(|value| value.to_ascii_lowercase())?;
     let mut state = discord_detection_state()
         .lock()
-        .expect("Discord detection cache should not be poisoned");
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     state.refresh_if_needed();
     let rule = state
         .catalog
@@ -599,13 +600,22 @@ fn game_rule_matches(rule: &GameDetectionRule, candidate_path: &str) -> bool {
     let mut cache = GAME_REGEX_CACHE
         .get_or_init(|| Mutex::new(HashMap::new()))
         .lock()
-        .expect("game detection regex cache should not be poisoned");
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
 
     if !cache.contains_key(&rule.pattern) {
-        let regex = RegexBuilder::new(&rule.pattern)
+        let regex = match RegexBuilder::new(&rule.pattern)
             .case_insensitive(true)
             .build()
-            .ok();
+        {
+            Ok(regex) => Some(regex),
+            Err(error) => {
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] failed to compile game detection regex {:?}: {error}",
+                    rule.pattern
+                );
+                None
+            }
+        };
         cache.insert(rule.pattern.clone(), regex);
     }
 
@@ -658,11 +668,25 @@ impl RuntimeDiscordDetectionState {
             return;
         }
 
-        let Ok(contents) = fs::read_to_string(&path) else {
-            return;
+        let contents = match fs::read_to_string(&path) {
+            Ok(contents) => contents,
+            Err(error) => {
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] failed to read Discord detection catalog {}: {error}",
+                    path.display()
+                );
+                return;
+            }
         };
-        let Some(catalog) = parse_discord_detection_catalog(&contents) else {
-            return;
+        let catalog = match parse_discord_detection_catalog(&contents) {
+            Ok(catalog) => catalog,
+            Err(error) => {
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] failed to parse Discord detection catalog {}: {error}",
+                    path.display()
+                );
+                return;
+            }
         };
 
         self.catalog = catalog;
@@ -670,8 +694,10 @@ impl RuntimeDiscordDetectionState {
     }
 }
 
-fn parse_discord_detection_catalog(contents: &str) -> Option<DiscordDetectionCatalog> {
-    let bundle = serde_json::from_str::<DiscordDetectionBundle>(contents).ok()?;
+fn parse_discord_detection_catalog(
+    contents: &str,
+) -> Result<DiscordDetectionCatalog, serde_json::Error> {
+    let bundle = serde_json::from_str::<DiscordDetectionBundle>(contents)?;
     let games_by_id = bundle
         .games
         .into_iter()
@@ -693,16 +719,19 @@ fn parse_discord_detection_catalog(contents: &str) -> Option<DiscordDetectionCat
         }
     }
 
-    Some(DiscordDetectionCatalog {
+    Ok(DiscordDetectionCatalog {
         games_by_id,
         rules_by_executable,
     })
 }
 
 fn load_game_detection_rules(catalog: &mut AutoDetectionCatalog) {
-    let Ok(entries) = serde_json::from_str::<Vec<PlaysGameEntry>>(PLAYS_GAME_DETECTIONS_JSON)
-    else {
-        return;
+    let entries = match serde_json::from_str::<Vec<PlaysGameEntry>>(PLAYS_GAME_DETECTIONS_JSON) {
+        Ok(entries) => entries,
+        Err(error) => {
+            eprintln!("[{SIDE_CAR_NAME}] failed to parse embedded game detections: {error}");
+            return;
+        }
     };
 
     for entry in entries {
@@ -743,10 +772,15 @@ fn load_game_detection_rules(catalog: &mut AutoDetectionCatalog) {
 }
 
 fn load_non_game_detection_rules(catalog: &mut AutoDetectionCatalog) {
-    let Ok(entries) =
-        serde_json::from_str::<Vec<PlaysNonGameEntry>>(PLAYS_NON_GAME_DETECTIONS_JSON)
-    else {
-        return;
+    let entries = match serde_json::from_str::<Vec<PlaysNonGameEntry>>(
+        PLAYS_NON_GAME_DETECTIONS_JSON,
+    )
+    {
+        Ok(entries) => entries,
+        Err(error) => {
+            eprintln!("[{SIDE_CAR_NAME}] failed to parse embedded non-game detections: {error}");
+            return;
+        }
     };
 
     for entry in entries {
@@ -817,5 +851,27 @@ fn detection_slug(value: &str) -> String {
         "game".to_string()
     } else {
         slug
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn embedded_game_detection_catalog_parses_to_non_empty_collection() {
+        let entries = serde_json::from_str::<Vec<PlaysGameEntry>>(PLAYS_GAME_DETECTIONS_JSON)
+            .expect("embedded game detections should parse");
+
+        assert!(!entries.is_empty());
+    }
+
+    #[test]
+    fn embedded_non_game_detection_catalog_parses_to_non_empty_collection() {
+        let entries =
+            serde_json::from_str::<Vec<PlaysNonGameEntry>>(PLAYS_NON_GAME_DETECTIONS_JSON)
+                .expect("embedded non-game detections should parse");
+
+        assert!(!entries.is_empty());
     }
 }

@@ -1,0 +1,57 @@
+name: Recorder CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - "packages/recorder/**"
+      - ".github/workflows/recorder-ci.yml"
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "packages/recorder/**"
+      - ".github/workflows/recorder-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: recorder-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: cargo checks
+    runs-on: windows-latest
+
+    defaults:
+      run:
+        working-directory: packages/recorder
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Cache cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/recorder
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Run tests
+        run: cargo test --locked
