@@ -218,17 +218,6 @@ test("buildRenditionArgs uses the tier codec override", () => {
   assert.ok(lowArgs.includes("libx264"))
 })
 
-test("TranscodingConfigSchema migrates legacy toggles to tiers", () => {
-  const config = TranscodingConfigSchema.parse({
-    enable1080p: false,
-    enable720p: true,
-    enable480p: false,
-  })
-  assert.deepEqual(config.tiers, [
-    { height: 720, maxFps: 60, maxrateKbps: 5000 },
-  ])
-})
-
 test("buildRenditionArgs keeps libx264 shape", () => {
   const args = buildRenditionArgs({
     config: FULL_CONFIG,

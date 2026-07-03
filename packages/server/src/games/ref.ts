@@ -11,11 +11,7 @@ import { nullableIsoDate } from "@alloy/server/runtime/date"
 import { and, eq, ilike, inArray, like, or, type SQL, sql } from "drizzle-orm"
 
 import { exactNameKey, normalizedNameKey } from "./name-match"
-import {
-  gameSlug,
-  legacyGameSlug,
-  steamgriddbIdFromLegacyGameSlug,
-} from "./slug"
+import { gameSlug } from "./slug"
 import { getGameAssets, getGameById } from "./steamgriddb"
 
 const logger = createLogger("steamgriddb")
@@ -106,7 +102,7 @@ export function serialiseGameRow(row: GameMetadataRow): GameRow {
     steamgriddbId: row.steamgriddbId,
     source: row.source,
     name: row.name,
-    slug: publicGameSlug(row),
+    slug: row.slug,
     releaseDate: nullableIsoDate(row.releaseDate),
     heroUrl: row.heroUrl,
     heroBlurHash: normalizeBlurHash(row.heroBlurHash),
@@ -115,18 +111,6 @@ export function serialiseGameRow(row: GameMetadataRow): GameRow {
     logoUrl: row.logoUrl,
     iconUrl: row.iconUrl,
   }
-}
-
-function publicGameSlug(
-  row: Pick<GameMetadataRow, "name" | "slug" | "steamgriddbId">,
-): string {
-  // Custom games own their slug verbatim; only legacy SteamGridDB rows carry
-  // the historical `name-id` slug we clean up here.
-  if (row.steamgriddbId === null) return row.slug
-  const clean = gameSlug(row.name)
-  return row.slug === legacyGameSlug(row.name, row.steamgriddbId)
-    ? clean
-    : row.slug
 }
 
 async function availableGameSlug(
@@ -163,7 +147,7 @@ async function availableGameSlug(
     if (!reserved.has(candidate)) return candidate
   }
 
-  return legacyGameSlug(name, steamgriddbId)
+  return `${base}-${crypto.randomUUID().slice(0, 8)}`
 }
 
 /**
@@ -241,20 +225,12 @@ async function selectCachedGameRefsByIds(
 async function selectCachedGameRefBySlug(
   slug: string,
 ): Promise<CachedGameMetadataRow | null> {
-  const [exact] = await db
+  const [row] = await db
     .select({ ...gameSelectShape, updatedAt: game.updated_at })
     .from(game)
     .where(eq(game.slug, slug))
     .limit(1)
-  if (exact) return exact
-
-  const rows = await db
-    .select({ ...gameSelectShape, updatedAt: game.updated_at })
-    .from(game)
-    .where(like(game.slug, `${slug}-%`))
-    .limit(25)
-  const publicMatches = rows.filter((row) => publicGameSlug(row) === slug)
-  return publicMatches.length === 1 ? publicMatches[0] : null
+  return row ?? null
 }
 
 async function loadSteamGridDBGameRef(
@@ -385,14 +361,7 @@ export async function getSteamGridDBGameRefBySlug(
     return serialiseGameRow(cached)
   }
 
-  const legacySteamGridDBId = steamgriddbIdFromLegacyGameSlug(slug)
-  if (!legacySteamGridDBId) return null
-
-  const legacy = await getSteamGridDBGameRef(legacySteamGridDBId)
-  if (!legacy || legacy.steamgriddbId === null) return null
-  return legacyGameSlug(legacy.name, legacy.steamgriddbId) === slug
-    ? legacy
-    : null
+  return null
 }
 
 export async function lookupIndexedGamesByName(
