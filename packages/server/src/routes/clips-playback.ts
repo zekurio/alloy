@@ -42,24 +42,6 @@ const RenditionParam = z.object({
   name: z.string().min(1).max(64),
 })
 
-/**
- * Find a committed rendition by name. Legacy URLs used the bare height
- * (`/rendition/1080/...`), so an all-digit param falls back to the derived
- * `${height}p` name and then to a plain height match.
- */
-function findRenditionByName<T extends { name: string; height: number }>(
-  renditions: readonly T[],
-  param: string,
-): T | undefined {
-  const byName = renditions.find((candidate) => candidate.name === param)
-  if (byName) return byName
-  if (!/^\d+$/.test(param)) return undefined
-  return (
-    renditions.find((candidate) => candidate.name === `${param}p`) ??
-    renditions.find((candidate) => candidate.height === Number(param))
-  )
-}
-
 function thumbnailEtag(key: string): string {
   const hash = createHash("sha256").update(key).digest("hex").slice(0, 32)
   return `"thumb1-${hash}"`
@@ -196,9 +178,8 @@ export const clipsPlaybackRoutes = new Hono()
       if (!access.accessible) return clipAccessResponse(c, access)
       const row = access.row
 
-      const rendition = findRenditionByName(
-        await selectClipRenditions(id),
-        name,
+      const rendition = (await selectClipRenditions(id)).find(
+        (candidate) => candidate.name === name,
       )
       if (!rendition) return notFound(c, "Playlist unavailable")
 
@@ -230,9 +211,8 @@ export const clipsPlaybackRoutes = new Hono()
       if (!access.accessible) return clipAccessResponse(c, access)
       const row = access.row
 
-      const rendition = findRenditionByName(
-        await selectClipRenditions(id),
-        name,
+      const rendition = (await selectClipRenditions(id)).find(
+        (candidate) => candidate.name === name,
       )
       if (!rendition) return notFound(c, "Rendition unavailable")
 

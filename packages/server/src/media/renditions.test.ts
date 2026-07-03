@@ -29,6 +29,11 @@ const FULL_CONFIG = TranscodingConfigSchema.parse({})
 const ffmpegAvailable =
   spawnSync(transcodeSettings().ffmpegPath, ["-version"], { stdio: "ignore" })
     .status === 0
+const x265Available =
+  ffmpegAvailable &&
+  spawnSync(transcodeSettings().ffmpegPath, ["-hide_banner", "-encoders"], {
+    encoding: "utf8",
+  }).stdout.includes("libx265")
 
 test("effectiveLadder produces the full ladder below a 1440p60 source", () => {
   const ladder = effectiveLadder(FULL_CONFIG, { height: 1440, fps: 60 })
@@ -519,6 +524,55 @@ test(
       assert.equal(probed.videoCodec, "h264")
       assert.equal(probed.height, 720)
       assert.equal(probed.audioCodec, "aac")
+    } finally {
+      await rm(workDir, { recursive: true, force: true })
+    }
+  },
+)
+
+test(
+  "encodeRendition signals hvc1 in CODECS for hevc renditions",
+  { skip: !x265Available && "libx265 not available" },
+  async () => {
+    const workDir = await mkdtemp(join(tmpdir(), "alloy-renditions-hevc-"))
+    try {
+      const sourcePath = join(workDir, "source.mp4")
+      await runFfmpeg({
+        timeoutMs: 120_000,
+        args: [
+          "-v",
+          "error",
+          "-y",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc2=size=640x360:rate=30:duration=2",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-pix_fmt",
+          "yuv420p",
+          sourcePath,
+        ],
+      })
+
+      const config = TranscodingConfigSchema.parse({ videoCodec: "hevc" })
+      const ladder = effectiveLadder(config, { height: 360, fps: 30 })
+      const encoded = await encodeRendition(
+        sourcePath,
+        join(workDir, "out-360p"),
+        config,
+        ladder[0]!,
+        { durationMs: 2000 },
+      )
+
+      // Safari only plays HEVC variants signaled as hvc1; the files are
+      // written with hvc1 sample entries and the CODECS string must match.
+      assert.ok(
+        encoded.codecs.startsWith("hvc1."),
+        `expected hvc1 codec string, got "${encoded.codecs}"`,
+      )
     } finally {
       await rm(workDir, { recursive: true, force: true })
     }

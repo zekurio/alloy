@@ -64,11 +64,11 @@ export function PlayerCore({
   onSelectQuality,
 }: PlayerCoreProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const { src: mediaUrl, mediaKey } = useMediaEngine(
-    spec,
-    videoRef,
-    hlsPlayback,
-  )
+  const {
+    src: mediaUrl,
+    mediaKey,
+    onMediaError,
+  } = useMediaEngine(spec, videoRef, hlsPlayback)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const playingRef = useRef(false)
   const volumeRef = useRef(1)
@@ -241,6 +241,9 @@ export function PlayerCore({
   ])
 
   const reportError = useCallback(() => {
+    // The engine may recover by switching sources (native HLS degrading to
+    // the progressive fallback); the media key change resets load state.
+    if (onMediaError()) return
     const video = videoRef.current
     const message = mediaErrorMessage(video)
     clearBuffering()
@@ -251,7 +254,7 @@ export function PlayerCore({
     } else {
       setStatus({ kind: "error", message })
     }
-  }, [clearBuffering, setPlayingState])
+  }, [clearBuffering, onMediaError, setPlayingState])
 
   const playInternal = useCallback(async (reportBlocked = true) => {
     const video = videoRef.current

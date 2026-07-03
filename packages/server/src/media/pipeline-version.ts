@@ -9,4 +9,4 @@
  * renditions (settings-only changes don't need a bump — the admin re-encode
  * action covers those).
  */
-export const MEDIA_PIPELINE_VERSION = "1"
+export const MEDIA_PIPELINE_VERSION = "2"

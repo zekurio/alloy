@@ -1,6 +1,5 @@
 import { z } from "zod"
 
-import { isObjectRecord } from "./object"
 import type { UserStatus } from "./shared"
 
 export type UsernameClaim = string
@@ -155,54 +154,10 @@ export type FilesystemStorageConfig = z.infer<
   typeof FilesystemStorageConfigSchema
 >
 
-const StorageConfigFields = {
+export const StorageConfigSchema = z.looseObject({
   driver: z.enum(STORAGE_DRIVER_TYPES).default("fs"),
   fs: FilesystemStorageConfigSchema,
-}
-
-function migrateLegacyStorageConfig(value: unknown): unknown {
-  if (!isObjectRecord(value)) {
-    return value
-  }
-  if (value.fs !== undefined) {
-    return {
-      driver: value.driver,
-      fs: value.fs,
-    }
-  }
-
-  return {
-    driver: value.driver,
-    fs: {
-      clipsPath: legacyStoragePath(value, "clips"),
-      thumbnailsPath: legacyStoragePath(value, "thumbnails"),
-      usersPath: legacyStoragePath(value, "users"),
-      gamesPath: legacyStoragePath(value, "games"),
-    },
-  }
-}
-
-function legacyStoragePath(
-  record: Record<string, unknown>,
-  namespace: "clips" | "thumbnails" | "users" | "games",
-): string {
-  const override = record[`${namespace}Path`]
-  if (typeof override === "string" && override.trim().length > 0) {
-    return override
-  }
-  const root =
-    typeof record.path === "string" && record.path.trim().length > 0
-      ? record.path
-      : "storage"
-  return `${root.trim().replace(/[\\/]+$/, "")}/${namespace}`
-}
-
-const StorageConfigObjectSchema = z.looseObject(StorageConfigFields)
-
-export const StorageConfigSchema = z.preprocess(
-  migrateLegacyStorageConfig,
-  StorageConfigObjectSchema,
-)
+})
 
 export type StorageConfig = z.infer<typeof StorageConfigSchema>
 
@@ -226,8 +181,8 @@ export interface PublicLoginSplashConfig {
 
 /**
  * Response of `GET /api/auth-config/backdrops`: a freshly-randomized set of
- * public clips the login page rotates through as full-screen backdrops. `clipIds`
- * is kept for older clients; `clips` carries the thumbnail cache version.
+ * public clips the login page rotates through as full-screen backdrops;
+ * `thumbVersion` carries the thumbnail cache version.
  */
 export interface LoginBackdropClip {
   id: string
@@ -235,7 +190,6 @@ export interface LoginBackdropClip {
 }
 
 export interface LoginBackdropsResponse {
-  clipIds: string[]
   clips: LoginBackdropClip[]
 }
 
@@ -316,65 +270,44 @@ export const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
  * must exist. `videoCodec`
  * is the default codec for every tier; a tier may override it with its own
  * `codec`. `quality` is a CRF-scale value (lower = better) mapped to the
- * equivalent rate-control knob of hardware encoders. Audio is always stereo AAC for embed compatibility;
- * only its bitrate is configurable. Legacy `enable1080p/720p/480p` toggles are
- * migrated to an explicit tier list on parse.
+ * equivalent rate-control knob of hardware encoders. Audio is always stereo
+ * AAC for embed compatibility; only its bitrate is configurable.
  */
-export const TranscodingConfigSchema = z.preprocess(
-  migrateLegacyTranscodingConfig,
-  z.looseObject({
-    videoCodec: VideoCodecSchema.default("h264"),
-    hardwareAcceleration: HardwareAccelerationSchema.default("none"),
-    // `catch` keeps config load resilient: a blank/invalid stored device falls
-    // back to the default render node instead of failing startup.
-    vaapiDevice: z
-      .string()
-      .trim()
-      .min(1)
-      .default(DEFAULT_VAAPI_DEVICE)
-      .catch(DEFAULT_VAAPI_DEVICE),
-    quality: z.number().int().min(10).max(51).default(22),
-    audioBitrateKbps: z.number().int().min(64).max(320).default(128),
-    tiers: z
-      .array(RenditionTierConfigSchema)
-      .min(1)
-      .max(6)
-      .default(DEFAULT_RENDITION_TIERS)
-      .refine(
-        (tiers) =>
-          new Set(
-            tiers.map(
-              (tier) =>
-                `${tier.height}:${tier.maxFps}:${tier.codec ?? "default"}`,
-            ),
-          ).size === tiers.length,
-        "tiers must differ in height, max FPS, or codec",
-      )
-      .refine(
-        (tiers) => tiers.filter((tier) => tier.og).length <= 1,
-        "only one tier can be the link preview tier",
-      ),
-  }),
-)
+export const TranscodingConfigSchema = z.looseObject({
+  videoCodec: VideoCodecSchema.default("h264"),
+  hardwareAcceleration: HardwareAccelerationSchema.default("none"),
+  // `catch` keeps config load resilient: a blank/invalid stored device falls
+  // back to the default render node instead of failing startup.
+  vaapiDevice: z
+    .string()
+    .trim()
+    .min(1)
+    .default(DEFAULT_VAAPI_DEVICE)
+    .catch(DEFAULT_VAAPI_DEVICE),
+  quality: z.number().int().min(10).max(51).default(22),
+  audioBitrateKbps: z.number().int().min(64).max(320).default(128),
+  tiers: z
+    .array(RenditionTierConfigSchema)
+    .min(1)
+    .max(6)
+    .default(DEFAULT_RENDITION_TIERS)
+    .refine(
+      (tiers) =>
+        new Set(
+          tiers.map(
+            (tier) =>
+              `${tier.height}:${tier.maxFps}:${tier.codec ?? "default"}`,
+          ),
+        ).size === tiers.length,
+      "tiers must differ in height, max FPS, or codec",
+    )
+    .refine(
+      (tiers) => tiers.filter((tier) => tier.og).length <= 1,
+      "only one tier can be the link preview tier",
+    ),
+})
 
 export type TranscodingConfig = z.infer<typeof TranscodingConfigSchema>
-
-function migrateLegacyTranscodingConfig(value: unknown) {
-  if (!isObjectRecord(value)) return value
-  if ("tiers" in value) return value
-  const hasLegacyToggles =
-    "enable1080p" in value || "enable720p" in value || "enable480p" in value
-  if (!hasLegacyToggles) return value
-  const toggles: Record<number, unknown> = {
-    1080: value.enable1080p,
-    720: value.enable720p,
-    480: value.enable480p,
-  }
-  const tiers = DEFAULT_RENDITION_TIERS.filter(
-    (tier) => toggles[tier.height] !== false,
-  )
-  return { tiers: tiers.length > 0 ? tiers : DEFAULT_RENDITION_TIERS }
-}
 
 /**
  * Result of probing the configured ffmpeg binary for encoder support. `status`
