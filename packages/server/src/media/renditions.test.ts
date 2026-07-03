@@ -33,7 +33,11 @@ const x265Available =
   }).stdout.includes("libx265")
 
 test("effectiveLadder produces the full ladder below a 1440p60 source", () => {
-  const ladder = effectiveLadder(FULL_CONFIG, { height: 1440, fps: 60 })
+  const ladder = effectiveLadder(FULL_CONFIG, {
+    height: 1440,
+    fps: 60,
+    browserSafe: false,
+  })
   assert.deepEqual(
     ladder.map((step) => step.height),
     [1080, 720, 480],
@@ -62,7 +66,7 @@ test("effectiveLadder appends fps only when same-height tiers differ in fps", ()
         { height: 1080, maxFps: 30, maxrateKbps: 5000 },
       ],
     }),
-    { height: 1080, fps: 120 },
+    { height: 1080, fps: 120, browserSafe: false },
   )
   assert.deepEqual(
     ladder.map((step) => step.name),
@@ -79,7 +83,7 @@ test("effectiveLadder appends the codec only when fps cannot disambiguate", () =
         { height: 1080, maxFps: 60, maxrateKbps: 8000, codec: "hevc" },
       ],
     }),
-    { height: 1080, fps: 60 },
+    { height: 1080, fps: 60, browserSafe: false },
   )
   // Same height and fps: stable config order, disambiguated by codec.
   assert.deepEqual(
@@ -96,7 +100,7 @@ test("effectiveLadder collapse keeps the highest maxrate and the og flag", () =>
         { height: 1080, maxFps: 60, maxrateKbps: 8000 },
       ],
     }),
-    { height: 1080, fps: 60 },
+    { height: 1080, fps: 60, browserSafe: false },
   )
   assert.equal(ladder.length, 1)
   assert.equal(ladder[0]?.name, "1080p")
@@ -105,7 +109,11 @@ test("effectiveLadder collapse keeps the highest maxrate and the og flag", () =>
 })
 
 test("effectiveLadder clamps to the source height without upscaling", () => {
-  const ladder = effectiveLadder(FULL_CONFIG, { height: 900, fps: 30 })
+  const ladder = effectiveLadder(FULL_CONFIG, {
+    height: 900,
+    fps: 30,
+    browserSafe: false,
+  })
   assert.deepEqual(
     ladder.map((step) => step.height),
     [900, 720, 480],
@@ -113,7 +121,11 @@ test("effectiveLadder clamps to the source height without upscaling", () => {
 })
 
 test("effectiveLadder dedupes tiers that collapse to the same height", () => {
-  const ladder = effectiveLadder(FULL_CONFIG, { height: 720, fps: 60 })
+  const ladder = effectiveLadder(FULL_CONFIG, {
+    height: 720,
+    fps: 60,
+    browserSafe: false,
+  })
   assert.deepEqual(
     ladder.map((step) => step.height),
     [720, 480],
@@ -123,12 +135,20 @@ test("effectiveLadder dedupes tiers that collapse to the same height", () => {
 })
 
 test("effectiveLadder rounds odd source heights down to even", () => {
-  const ladder = effectiveLadder(FULL_CONFIG, { height: 719, fps: 30 })
+  const ladder = effectiveLadder(FULL_CONFIG, {
+    height: 719,
+    fps: 30,
+    browserSafe: false,
+  })
   assert.equal(ladder[0]?.height, 718)
 })
 
 test("effectiveLadder yields one compat tier for tiny sources", () => {
-  const ladder = effectiveLadder(FULL_CONFIG, { height: 360, fps: 30 })
+  const ladder = effectiveLadder(FULL_CONFIG, {
+    height: 360,
+    fps: 30,
+    browserSafe: false,
+  })
   assert.deepEqual(
     ladder.map((step) => step.height),
     [360],
@@ -136,12 +156,59 @@ test("effectiveLadder yields one compat tier for tiny sources", () => {
   assert.equal(ladder[0]?.tier.maxrateKbps, 8000)
 })
 
+test("effectiveLadder skips tiers covered by browser-safe sources", () => {
+  const ladder = effectiveLadder(FULL_CONFIG, {
+    height: 1080,
+    fps: 60,
+    browserSafe: true,
+  })
+  assert.deepEqual(
+    ladder.map((step) => step.height),
+    [720, 480],
+  )
+})
+
+test("effectiveLadder can be empty for browser-safe small sources", () => {
+  assert.deepEqual(
+    effectiveLadder(FULL_CONFIG, {
+      height: 480,
+      fps: 60,
+      browserSafe: true,
+    }),
+    [],
+  )
+  assert.deepEqual(
+    effectiveLadder(FULL_CONFIG, {
+      height: 400,
+      fps: 60,
+      browserSafe: true,
+    }),
+    [],
+  )
+})
+
+test("effectiveLadder keeps full compat ladder for unsafe sources", () => {
+  const ladder = effectiveLadder(FULL_CONFIG, {
+    height: 1080,
+    fps: 60,
+    browserSafe: false,
+  })
+  assert.deepEqual(
+    ladder.map((step) => [step.height, step.og]),
+    [
+      [1080, true],
+      [720, false],
+      [480, false],
+    ],
+  )
+})
+
 test("effectiveLadder respects disabled tiers", () => {
   const ladder = effectiveLadder(
     TranscodingConfigSchema.parse({
       tiers: [{ height: 720, maxFps: 60, maxrateKbps: 5000 }],
     }),
-    { height: 1440, fps: 60 },
+    { height: 1440, fps: 60, browserSafe: false },
   )
   assert.deepEqual(
     ladder.map((step) => step.height),
@@ -150,7 +217,11 @@ test("effectiveLadder respects disabled tiers", () => {
 })
 
 test("effectiveLadder caps fps when the source rate is unknown", () => {
-  const ladder = effectiveLadder(FULL_CONFIG, { height: 1080, fps: null })
+  const ladder = effectiveLadder(FULL_CONFIG, {
+    height: 1080,
+    fps: null,
+    browserSafe: false,
+  })
   assert.ok(ladder.every((step) => step.capFps))
   assert.equal(ladder[0]?.fps, 60)
 })
@@ -163,7 +234,7 @@ test("effectiveLadder uses custom tier order and fps caps", () => {
         { height: 1440, maxFps: 120, maxrateKbps: 12000 },
       ],
     }),
-    { height: 2160, fps: 144 },
+    { height: 2160, fps: 144, browserSafe: false },
   )
   assert.deepEqual(
     ladder.map((step) => step.height),
@@ -181,7 +252,11 @@ test("effectiveLadder resolves per-tier codec overrides", () => {
       { height: 720, maxFps: 60, maxrateKbps: 5000 },
     ],
   })
-  const ladder = effectiveLadder(config, { height: 1440, fps: 60 })
+  const ladder = effectiveLadder(config, {
+    height: 1440,
+    fps: 60,
+    browserSafe: false,
+  })
   assert.deepEqual(
     ladder.map((step) => [step.height, step.codec]),
     [
@@ -199,7 +274,11 @@ test("buildRenditionArgs uses the tier codec override", () => {
       { height: 720, maxFps: 60, maxrateKbps: 5000 },
     ],
   })
-  const ladder = effectiveLadder(config, { height: 1080, fps: 60 })
+  const ladder = effectiveLadder(config, {
+    height: 1080,
+    fps: 60,
+    browserSafe: false,
+  })
   const topArgs = buildRenditionArgs({
     config,
     srcPath: "source.mp4",
@@ -219,7 +298,11 @@ test("buildRenditionArgs keeps libx264 shape", () => {
   const args = buildRenditionArgs({
     config: FULL_CONFIG,
     srcPath: "source.mp4",
-    step: effectiveLadder(FULL_CONFIG, { height: 1080, fps: 60 })[0]!,
+    step: effectiveLadder(FULL_CONFIG, {
+      height: 1080,
+      fps: 60,
+      browserSafe: false,
+    })[0]!,
   })
   assert.deepEqual(args.slice(0, 5), ["-v", "error", "-y", "-i", "source.mp4"])
   assert.ok(args.includes("libx264"))
@@ -242,7 +325,11 @@ test("buildRenditionArgs tags hevc and omits x264-only scenecut arg", () => {
   const args = buildRenditionArgs({
     config,
     srcPath: "source.mp4",
-    step: effectiveLadder(config, { height: 1080, fps: 60 })[0]!,
+    step: effectiveLadder(config, {
+      height: 1080,
+      fps: 60,
+      browserSafe: false,
+    })[0]!,
   })
   assert.ok(args.includes("libx265"))
   assert.ok(!args.includes("-sc_threshold"))
@@ -260,7 +347,11 @@ test("buildRenditionArgs uses nvenc cq controls", () => {
   const args = buildRenditionArgs({
     config,
     srcPath: "source.mp4",
-    step: effectiveLadder(config, { height: 1080, fps: 60 })[0]!,
+    step: effectiveLadder(config, {
+      height: 1080,
+      fps: 60,
+      browserSafe: false,
+    })[0]!,
   })
   assert.ok(args.includes("h264_nvenc"))
   assert.ok(args.includes("-cq"))
@@ -277,7 +368,11 @@ test("buildRenditionArgs uploads vaapi frames and sets device", () => {
   const args = buildRenditionArgs({
     config,
     srcPath: "source.mp4",
-    step: effectiveLadder(config, { height: 1080, fps: 60 })[0]!,
+    step: effectiveLadder(config, {
+      height: 1080,
+      fps: 60,
+      browserSafe: false,
+    })[0]!,
   })
   assert.deepEqual(args.slice(0, 7), [
     "-v",
@@ -350,7 +445,11 @@ test(
         ],
       })
 
-      const ladder = effectiveLadder(FULL_CONFIG, { height: 720, fps: 60 })
+      const ladder = effectiveLadder(FULL_CONFIG, {
+        height: 720,
+        fps: 60,
+        browserSafe: false,
+      })
       assert.deepEqual(
         ladder.map((step) => step.height),
         [720, 480],
@@ -417,7 +516,11 @@ test(
       })
 
       const config = TranscodingConfigSchema.parse({ videoCodec: "hevc" })
-      const ladder = effectiveLadder(config, { height: 360, fps: 30 })
+      const ladder = effectiveLadder(config, {
+        height: 360,
+        fps: 30,
+        browserSafe: false,
+      })
       const encoded = await encodeRendition(
         sourcePath,
         join(workDir, "out-360p"),

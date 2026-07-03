@@ -264,14 +264,13 @@ export const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
 ]
 
 /**
- * How the media pipeline encodes new clips. Tiers above the source resolution
- * are always skipped; the tier flagged `og` (or the tallest one when none is
- * flagged) doubles as the OpenGraph/compat rendition, so at least one tier
- * must exist. `videoCodec`
- * is the default codec for every tier; a tier may override it with its own
- * `codec`. `quality` is a CRF-scale value (lower = better) mapped to the
- * equivalent rate-control knob of hardware encoders. Audio is always stereo
- * AAC for embed compatibility; only its bitrate is configurable.
+ * How the media pipeline encodes new clips. Tiers at/above a browser-safe
+ * H.264 MP4 source's height are skipped because the source serves them; the
+ * og-flagged tier matters for sources that are not browser-safe H.264 MP4.
+ * `videoCodec` is the default codec for every tier; a tier may override it
+ * with its own `codec`. `quality` is a CRF-scale value (lower = better) mapped
+ * to the equivalent rate-control knob of hardware encoders. Audio is always
+ * stereo AAC for embed compatibility; only its bitrate is configurable.
  */
 export const TranscodingConfigSchema = z.looseObject({
   videoCodec: VideoCodecSchema.default("h264"),

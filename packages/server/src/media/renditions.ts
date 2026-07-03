@@ -52,19 +52,20 @@ export interface LadderStep {
 }
 
 /**
- * The tiers to actually encode for a source: configured tiers clamped to the
- * source height, deduplicated when clamping collapses two tiers to the same
- * output signature (height, fps, codec) — the survivor keeps the highest
- * maxrate among the tiers that map to it and inherits their og flag. Always
- * non-empty for a valid config, so every clip gets at least one compat
- * rendition.
+ * The tiers to actually encode for a source. Browser-safe H.264/AAC MP4
+ * sources already serve their own height and above, so those tiers are skipped
+ * before clamping and the ladder may be empty. Other sources keep the compat
+ * behavior: configured tiers are clamped to source height and deduplicated
+ * when clamping collapses them to the same output signature (height, fps,
+ * codec); the survivor keeps the highest maxrate and inherits the og flag.
  */
 export function effectiveLadder(
   config: TranscodingConfig,
-  source: { height: number; fps: number | null },
+  source: { height: number; fps: number | null; browserSafe: boolean },
 ): LadderStep[] {
   const byOutput = new Map<string, Omit<LadderStep, "name">>()
   for (const tier of sortedTiers(config.tiers)) {
+    if (source.browserSafe && tier.height >= source.height) continue
     const height = evenFloor(Math.min(tier.height, source.height))
     if (height <= 0) continue
     // Cap the frame rate when the source exceeds the tier's target, and also
