@@ -48,19 +48,18 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
   const handleThumbnailClick = useCallback(() => {
     preloadClip()
     setActiveClipList(list)
-    // The viewer opens off the `clip` search param; the game-scoped pretty
-    // URL is only a mask, so unclassified clips open without one.
     void navigate({
       to: ".",
       search: (prev: AppSearch) => ({ ...prev, clip: card.clipId }),
-      ...(gameId
+      mask: gameId
         ? {
-            mask: {
-              to: "/games/$gameId/clips/$clipId",
-              params: { gameId: String(gameId), clipId: card.clipId },
-            },
+            to: "/games/$gameId/clips/$clipId",
+            params: { gameId: String(gameId), clipId: card.clipId },
           }
-        : {}),
+        : {
+            to: "/clips/$clipId",
+            params: { clipId: card.clipId },
+          },
     })
   }, [navigate, gameId, card.clipId, list, preloadClip])
 

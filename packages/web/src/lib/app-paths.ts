@@ -13,18 +13,22 @@ export function gameHref(steamgriddbId: number | string): string {
 }
 
 export function clipHref(
-  steamgriddbId: number | string,
+  steamgriddbId: number | string | null,
   clipId: string,
   options: { commentId?: string | null } = {},
 ): string {
-  return resolvePublicUrlWithQuery(
-    `${gameHref(steamgriddbId)}/clips/${encodedPathSegment(clipId)}`,
-    { comment: options.commentId ?? undefined },
-  )
+  // Clips without a game live under the game-agnostic canonical path.
+  const path =
+    steamgriddbId === null
+      ? `/clips/${encodedPathSegment(clipId)}`
+      : `${gameHref(steamgriddbId)}/clips/${encodedPathSegment(clipId)}`
+  return resolvePublicUrlWithQuery(path, {
+    comment: options.commentId ?? undefined,
+  })
 }
 
 export function absoluteClipHref(
-  steamgriddbId: number | string,
+  steamgriddbId: number | string | null,
   clipId: string,
   origin: string,
   options: { commentId?: string | null } = {},

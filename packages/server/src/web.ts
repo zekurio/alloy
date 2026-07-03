@@ -22,7 +22,9 @@ const logger = createLogger("web")
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const BOOTSTRAP_MARKER = "<!-- alloy:bootstrap -->"
-const CLIP_PERMALINK_RE = /^\/games\/[^/]+\/clips\/([^/]+)\/?$/
+// Game-scoped pretty URLs and the game-agnostic /clips/:id permalink both
+// resolve to the same clip head metadata.
+const CLIP_PERMALINK_RE = /^(?:\/games\/[^/]+)?\/clips\/([^/]+)\/?$/
 const DEFAULT_WEB_DIST_DIR = "../../build/www"
 const PUBLIC_WEB_PATHS = new Set(["/login", "/setup", "/sign-up"])
 

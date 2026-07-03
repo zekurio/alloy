@@ -52,14 +52,15 @@ function AppLayout() {
           clip: entry.id,
           comment: undefined,
         }),
-        ...(entry.gameId
+        mask: entry.gameId
           ? {
-              mask: {
-                to: "/games/$gameId/clips/$clipId",
-                params: { gameId: entry.gameId, clipId: entry.id },
-              },
+              to: "/games/$gameId/clips/$clipId",
+              params: { gameId: entry.gameId, clipId: entry.id },
             }
-          : {}),
+          : {
+              to: "/clips/$clipId",
+              params: { clipId: entry.id },
+            },
         replace: true,
       })
     },

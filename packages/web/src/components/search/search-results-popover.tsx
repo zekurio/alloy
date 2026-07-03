@@ -77,14 +77,15 @@ function useSearchPopoverState(
       void navigate({
         to: ".",
         search: (prev: AppSearch) => ({ ...prev, clip: row.id }),
-        ...(gameId
+        mask: gameId
           ? {
-              mask: {
-                to: "/games/$gameId/clips/$clipId",
-                params: { gameId, clipId: row.id },
-              },
+              to: "/games/$gameId/clips/$clipId",
+              params: { gameId, clipId: row.id },
             }
-          : {}),
+          : {
+              to: "/clips/$clipId",
+              params: { clipId: row.id },
+            },
       })
     },
     [clear, closePopover, navigate],
