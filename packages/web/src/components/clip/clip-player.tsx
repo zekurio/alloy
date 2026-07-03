@@ -2,7 +2,7 @@ import {
   type ClipRenditionRef,
   clipRenditionFileUrl,
   type ClipStatus,
-  clipStreamUrl,
+  clipSourceFileUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
@@ -94,9 +94,9 @@ function ClipPlayer({
     }
   }, [clipId, renditions, selectedQualityId])
 
-  // Fallback for clips without renditions: the stream endpoint serves the
-  // stored source until the backfill reaches them.
-  const fallbackSrc = clipStreamUrl(
+  // Fallback for clips without renditions: the source endpoint serves the
+  // default playback asset, which is the cut for trimmed clips.
+  const fallbackSrc = clipSourceFileUrl(
     clipId,
     apiOrigin(),
     sourceVersion ?? undefined,

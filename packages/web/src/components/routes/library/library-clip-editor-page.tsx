@@ -1,4 +1,4 @@
-import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "@alloy/api"
+import { type ClipRow, clipOriginalFileUrl, clipThumbnailUrl } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { LoadingState } from "@alloy/ui/components/loading-state"
@@ -101,7 +101,11 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   const processing = row.status !== "ready" || row.encodeProgress < 100
   const canTrim = isOwner && !processing
   const playback = useTrimPlayback({
-    initialDurationMs: row.durationMs ?? 0,
+    initialDurationMs: row.sourceDurationMs ?? row.durationMs ?? 0,
+    initialTrim:
+      row.trimStartMs !== null && row.trimEndMs !== null
+        ? { startMs: row.trimStartMs, endMs: row.trimEndMs }
+        : undefined,
     canTrim,
   })
   const { playerRef, trim, trimmed, rangeMs } = playback
@@ -208,11 +212,7 @@ function useClipEditorMedia(
   // from thumb/status fields would reload the <video> mid-playback whenever a
   // background detail refetch lands.
   const mediaVersion = row.sourceVersion ?? ""
-  const streamSrc = clipStreamUrl(
-    row.id,
-    apiOrigin(),
-    row.sourceVersion ?? undefined,
-  )
+  const streamSrc = clipOriginalFileUrl(row.id, apiOrigin())
   const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)

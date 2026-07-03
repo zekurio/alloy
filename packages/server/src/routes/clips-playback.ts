@@ -123,6 +123,96 @@ export const clipsPlaybackRoutes = new Hono()
     )
   })
   /**
+   * GET /api/clips/:id/source/file — the default playback tier. Trimmed clips
+   * serve their stream-copy cut so trimmed-away footage stays unexposed.
+   */
+  .get("/:id/source/file", zValidator("param", IdParam), async (c) => {
+    const { id } = c.req.valid("param")
+    const access = await resolveClipAccess({ id, c, policy: "stream" })
+    if (!access.accessible) return clipAccessResponse(c, access)
+    const row = access.row
+
+    const selected = row.cut_key
+      ? { key: row.cut_key, contentType: "video/mp4" }
+      : row.source_key && row.source_content_type
+        ? { key: row.source_key, contentType: row.source_content_type }
+        : null
+    if (!selected) return notFound(c, "Source unavailable")
+
+    const version = clipAssetVersion(selected.key)
+    const cacheControl = versionedCacheControl(
+      c.req.query("v"),
+      version,
+      row.privacy,
+    )
+    const direct = await redirectToStorageUrl(
+      c,
+      clipStorage,
+      {
+        key: selected.key,
+        contentType: selected.contentType || undefined,
+      },
+      cacheControl,
+    )
+    if (direct) return direct
+
+    const resolved = await clipStorage.resolve(selected.key)
+    if (!resolved) {
+      logger.error(`source bytes missing for clip ${id}`)
+      return notFound(c, "Source unavailable")
+    }
+
+    return streamResolved(
+      c,
+      resolved,
+      selected.contentType || resolved.contentType,
+      cacheControl,
+      { etag: `"src-${version}"` },
+    )
+  })
+  /**
+   * GET /api/clips/:id/original/file — the uncut stored source for the owner
+   * trim editor. Re-trims must be able to expand a previous virtual trim.
+   */
+  .get("/:id/original/file", zValidator("param", IdParam), async (c) => {
+    const { id } = c.req.valid("param")
+    const access = await resolveClipAccess({ id, c, policy: "ownerAsset" })
+    if (!access.accessible) return clipAccessResponse(c, access)
+    if (!access.isOwner && !access.isAdmin) return notFound(c, "Not found")
+    const row = access.row
+
+    if (!row.source_key || !row.source_content_type) {
+      return notFound(c, "Source unavailable")
+    }
+
+    const version = clipAssetVersion(row.source_key)
+    const cacheControl = "private, max-age=300"
+    const direct = await redirectToStorageUrl(
+      c,
+      clipStorage,
+      {
+        key: row.source_key,
+        contentType: row.source_content_type || undefined,
+      },
+      cacheControl,
+    )
+    if (direct) return direct
+
+    const resolved = await clipStorage.resolve(row.source_key)
+    if (!resolved) {
+      logger.error(`original source bytes missing for clip ${id}`)
+      return notFound(c, "Source unavailable")
+    }
+
+    return streamResolved(
+      c,
+      resolved,
+      row.source_content_type || resolved.contentType,
+      cacheControl,
+      { etag: `"orig-${version}"` },
+    )
+  })
+  /**
    * GET /api/clips/:id/rendition/:name/file.mp4 — the tier's progressive
    * MP4, served via range requests for playback and quality selection.
    */
@@ -231,8 +321,13 @@ export const clipsPlaybackRoutes = new Hono()
     if (!access.accessible) return clipAccessResponse(c, access)
     const row = access.row
 
-    const selected =
-      row.source_key && row.source_content_type
+    const selected = row.cut_key
+      ? {
+          key: row.cut_key,
+          contentType: "video/mp4",
+          filename: downloadFilename(row),
+        }
+      : row.source_key && row.source_content_type
         ? {
             key: row.source_key,
             contentType: row.source_content_type,

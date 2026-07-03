@@ -3,7 +3,7 @@ import {
   type ClipPrivacy,
   type ClipRow,
   clipRenditionFileUrl,
-  clipStreamUrl,
+  clipSourceFileUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
@@ -62,7 +62,11 @@ export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
 function previewStreamUrl(row: ClipRow): string {
   const lowest = row.renditions[row.renditions.length - 1]
   if (!lowest) {
-    return clipStreamUrl(row.id, apiOrigin(), row.sourceVersion ?? undefined)
+    return clipSourceFileUrl(
+      row.id,
+      apiOrigin(),
+      row.sourceVersion ?? undefined,
+    )
   }
   return clipRenditionFileUrl(row.id, lowest.name, apiOrigin(), lowest.version)
 }
