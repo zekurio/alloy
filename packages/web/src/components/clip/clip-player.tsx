@@ -16,6 +16,8 @@ import { VideoPlayer } from "@/components/video/video-player"
 import { clipHlsPlayback } from "@/lib/clip-hls"
 import { apiOrigin } from "@/lib/env"
 
+const AUTO_QUALITY_ID = "auto"
+
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
   clipId: string
@@ -75,21 +77,15 @@ function ClipPlayer({
   // Poster shown while the clip has no playable media yet (processing/failed).
   const pendingPoster = useImageLoaded(poster)
 
-  const [selectedQualityId, setSelectedQualityId] = useState<string | null>(
-    null,
-  )
-  const effectiveQualityId = renditions.some(
-    (rendition) => rendition.name === selectedQualityId,
-  )
-    ? selectedQualityId
-    : (renditions[0]?.name ?? null)
+  const [selectedQualityId, setSelectedQualityId] = useState(AUTO_QUALITY_ID)
 
   // Progressive fallback: the pinned tier's file when one is selected,
   // otherwise the stream endpoint (top rendition, or the source for clips the
   // backfill hasn't reached).
-  const pinned = renditions.find(
-    (rendition) => rendition.name === effectiveQualityId,
-  )
+  const pinned =
+    selectedQualityId !== AUTO_QUALITY_ID
+      ? renditions.find((rendition) => rendition.name === selectedQualityId)
+      : undefined
 
   const hlsPlayback = useMemo(
     () =>
@@ -110,10 +106,13 @@ function ClipPlayer({
 
   const qualityOptions = useMemo(() => {
     if (renditions.length === 0) return []
-    return renditions.map((rendition) => ({
-      id: rendition.name,
-      label: renditionQualityLabel(rendition, renditions),
-    }))
+    return [
+      { id: AUTO_QUALITY_ID, label: t("Auto") },
+      ...renditions.map((rendition) => ({
+        id: rendition.name,
+        label: renditionQualityLabel(rendition, renditions),
+      })),
+    ]
   }, [renditions])
 
   const handlePlaybackError = useCallback(
@@ -194,7 +193,7 @@ function ClipPlayer({
       className={className}
       sourceIdentity={clipId}
       qualityOptions={qualityOptions}
-      selectedQualityId={effectiveQualityId ?? undefined}
+      selectedQualityId={selectedQualityId}
       onSelectQuality={setSelectedQualityId}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}

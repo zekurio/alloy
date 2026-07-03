@@ -173,7 +173,8 @@ export function useMediaEngine(
     }
   }, [finishRenditionSwitch, masterUrl, mode, videoRef])
 
-  // Pin or release the quality level on the live instance. -1 restores ABR.
+  // Pin or release the quality level on the live instance. `nextLevel` asks
+  // hls.js to switch without flushing the fragment currently being displayed.
   useEffect(() => {
     if (mode !== "mse") {
       finishRenditionSwitch()
@@ -261,8 +262,8 @@ function applySelectedLevel(
   selected: { name: string; height: number } | null,
 ): { changed: boolean; level: number | null } {
   if (selected === null) {
-    if (instance.currentLevel === -1) return { changed: false, level: null }
-    instance.currentLevel = -1
+    if (instance.manualLevel === -1) return { changed: false, level: null }
+    instance.nextLevel = -1
     return { changed: true, level: null }
   }
   // Renditions are keyed by name in their playlist URLs, so a URL match is
@@ -278,9 +279,9 @@ function applySelectedLevel(
     byUrl !== -1
       ? byUrl
       : instance.levels.findIndex((level) => level.height === selected.height)
-  if (index === -1 || instance.currentLevel === index) {
+  if (index === -1 || instance.manualLevel === index) {
     return { changed: false, level: null }
   }
-  instance.currentLevel = index
+  instance.nextLevel = index
   return { changed: true, level: index }
 }
