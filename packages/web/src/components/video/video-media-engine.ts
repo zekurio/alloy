@@ -1,5 +1,5 @@
 import type HlsInstance from "hls.js"
-import { useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { RefObject } from "react"
 
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
@@ -19,9 +19,11 @@ type EngineMode = "progressive" | "native-hls" | "mse"
 
 /**
  * Resolve what the <video> element should actually play. Progressive sources
- * pass through; HLS sources prefer the platform's native HLS (Safari/iOS),
- * then hls.js over MSE, and degrade to the progressive fallback when a fatal
- * HLS error occurs. `mediaKey` identifies the element's effective media: it
+ * pass through; HLS sources prefer hls.js over MSE, fall back to the
+ * platform's native HLS when MSE is unavailable (iOS Safari), and degrade to
+ * the progressive fallback when a fatal HLS error occurs — the player must
+ * route media element errors through `onMediaError` so native HLS failures
+ * degrade too. `mediaKey` identifies the element's effective media: it
  * changes exactly when the element will reload, so the player can capture
  * resume state (hls.js level switches keep the key stable — no reload).
  */
@@ -29,7 +31,7 @@ export function useMediaEngine(
   spec: SourceSpec,
   videoRef: RefObject<HTMLVideoElement | null>,
   hls?: HlsPlayback | null,
-): { src: string | null; mediaKey: string } {
+): { src: string | null; mediaKey: string; onMediaError: () => boolean } {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [hlsFailed, setHlsFailed] = useState(false)
   const hlsRef = useRef<HlsInstance | null>(null)
@@ -55,12 +57,19 @@ export function useMediaEngine(
     setHlsFailed(false)
   }, [masterUrl])
 
+  // MSE (hls.js) is preferred whenever the platform has MediaSource:
+  // Chromium's built-in HLS player advertises support via canPlayType but
+  // cannot switch codecs between variants, which kills Auto on mixed
+  // H.264/HEVC ladders. Native HLS is only for platforms without MSE
+  // (iOS Safari).
   const mode: EngineMode =
     !masterUrl || hlsFailed
       ? "progressive"
-      : supportsNativeHls()
-        ? "native-hls"
-        : "mse"
+      : supportsMse()
+        ? "mse"
+        : supportsNativeHls()
+          ? "native-hls"
+          : "progressive"
 
   // hls.js lifecycle: one instance per master URL, destroyed on source change
   // or when the engine leaves MSE mode. The import is dynamic so the (large)
@@ -117,26 +126,50 @@ export function useMediaEngine(
     applySelectedLevel(instance, selected)
   }, [mode, selected])
 
+  const nativeHlsUrl =
+    mode === "native-hls" && masterUrl && hls
+      ? selected !== null
+        ? (hls.renditionUrls[selected.name] ?? masterUrl)
+        : masterUrl
+      : null
+  const progressiveUrl = spec.kind === "url" ? spec.url : null
+
+  // Native HLS has no hls.js-style recovery, so a media element error while
+  // it plays degrades to the progressive fallback — unless that would just
+  // reload the URL that failed. Returns whether the engine switched sources
+  // (the error should not surface then).
+  const onMediaError = useCallback(() => {
+    if (nativeHlsUrl === null || nativeHlsUrl === progressiveUrl) return false
+    setHlsFailed(true)
+    return true
+  }, [nativeHlsUrl, progressiveUrl])
+
   if (spec.kind === "file") {
     return {
       src: objectUrl,
       mediaKey: objectUrl ? `file:${objectUrl}` : "file",
+      onMediaError,
     }
   }
 
   if (mode === "mse") {
-    return { src: null, mediaKey: `mse:${masterUrl}` }
+    return { src: null, mediaKey: `mse:${masterUrl}`, onMediaError }
   }
 
-  if (mode === "native-hls" && masterUrl && hls) {
-    const url =
-      selected !== null
-        ? (hls.renditionUrls[selected.name] ?? masterUrl)
-        : masterUrl
-    return { src: url, mediaKey: `url:${url}` }
+  if (nativeHlsUrl !== null) {
+    return {
+      src: nativeHlsUrl,
+      mediaKey: `url:${nativeHlsUrl}`,
+      onMediaError,
+    }
   }
 
-  return { src: spec.url, mediaKey: `url:${spec.url}` }
+  return { src: spec.url, mediaKey: `url:${spec.url}`, onMediaError }
+}
+
+function supportsMse(): boolean {
+  if (typeof MediaSource === "undefined") return false
+  return typeof MediaSource.isTypeSupported === "function"
 }
 
 function supportsNativeHls(): boolean {
