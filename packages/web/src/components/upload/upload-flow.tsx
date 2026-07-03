@@ -37,17 +37,18 @@ function AuthedUploadFlow() {
           clip: row.id,
           comment: undefined,
         }),
-        ...(row.gameSlug
+        mask: row.gameSlug
           ? {
-              mask: {
-                to: "/games/$gameId/clips/$clipId",
-                params: {
-                  gameId: row.gameSlug,
-                  clipId: row.id,
-                },
+              to: "/games/$gameId/clips/$clipId",
+              params: {
+                gameId: row.gameSlug,
+                clipId: row.id,
               },
             }
-          : {}),
+          : {
+              to: "/clips/$clipId",
+              params: { clipId: row.id },
+            },
       })
     },
     [navigate],

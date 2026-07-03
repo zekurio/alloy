@@ -222,10 +222,8 @@ function ClipDetailsForm({
   const titleInvalid = trimmedTitle.length === 0
 
   const copyClipLink = async (clip: ClipRow = row) => {
-    const slug = clip.gameRef?.slug
-    if (!slug) return false
     return copyTextToClipboard(
-      absoluteClipHref(slug, clip.id, publicOrigin()),
+      absoluteClipHref(clip.gameRef?.slug ?? null, clip.id, publicOrigin()),
       {
         action: "copy clip link",
       },

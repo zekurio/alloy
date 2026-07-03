@@ -46,16 +46,20 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
   }, [queryClient, row])
 
   const handleThumbnailClick = useCallback(() => {
-    if (!gameId) return
     preloadClip()
     setActiveClipList(list)
     void navigate({
       to: ".",
       search: (prev: AppSearch) => ({ ...prev, clip: card.clipId }),
-      mask: {
-        to: "/games/$gameId/clips/$clipId",
-        params: { gameId: String(gameId), clipId: card.clipId },
-      },
+      mask: gameId
+        ? {
+            to: "/games/$gameId/clips/$clipId",
+            params: { gameId: String(gameId), clipId: card.clipId },
+          }
+        : {
+            to: "/clips/$clipId",
+            params: { clipId: card.clipId },
+          },
     })
   }, [navigate, gameId, card.clipId, list, preloadClip])
 
