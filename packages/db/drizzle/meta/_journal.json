@@ -15,6 +15,13 @@
       "when": 1783112654219,
       "tag": "0001_lumpy_zarek",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1783120236879,
+      "tag": "0002_lying_echo",
+      "breakpoints": true
     }
   ]
 }

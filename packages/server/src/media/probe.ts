@@ -96,10 +96,11 @@ export function buildVideoCodecString(
     return `avc1.${hexByte(profileIdc)}00${hexByte(stream.level)}`
   }
   if (stream.codec_name === "hevc") {
-    // Renditions are always written with hvc1 sample entries (`-tag:v hvc1`
-    // in every encoder branch); Safari only plays HEVC signaled as hvc1.
+    // Raw uploaded sources can carry hev1 sample entries, and Safari refuses
+    // HEVC that is mis-signaled. Renditions still use hvc1 (`-tag:v hvc1`).
     if (stream.level === undefined) return null
-    return `hvc1.1.6.L${stream.level}.B0`
+    const tag = stream.codec_tag_string === "hev1" ? "hev1" : "hvc1"
+    return `${tag}.1.6.L${stream.level}.B0`
   }
   if (stream.codec_name === "av1") {
     if (stream.level === undefined) return null
@@ -110,13 +111,17 @@ export function buildVideoCodecString(
 }
 
 /**
- * RFC 6381 audio codec string. Rendition audio is always ffmpeg's `aac`
- * encoder, which produces AAC-LC. Exported for unit tests.
+ * RFC 6381 audio codec string. Sources may carry AAC profiles beyond LC;
+ * rendition audio remains ffmpeg AAC-LC. Exported for unit tests.
  */
 export function buildAudioCodecString(
-  stream: Pick<FfprobeStream, "codec_name">,
+  stream: Pick<FfprobeStream, "codec_name" | "profile">,
 ): string | null {
-  if (stream.codec_name === "aac") return "mp4a.40.2"
+  if (stream.codec_name === "aac") {
+    if (stream.profile === "HE-AAC") return "mp4a.40.5"
+    if (stream.profile === "HE-AACv2") return "mp4a.40.29"
+    return "mp4a.40.2"
+  }
   return null
 }
 

@@ -33,11 +33,41 @@ test("buildVideoCodecString derives avc1 strings from profile and level", () => 
   )
 })
 
-test("buildVideoCodecString signals hvc1 for hevc renditions", () => {
+test("buildVideoCodecString preserves hev1 for hevc sources", () => {
+  assert.equal(
+    buildVideoCodecString({
+      codec_name: "hevc",
+      codec_tag_string: "hev1",
+      profile: "Main",
+      level: 153,
+    }),
+    "hev1.1.6.L153.B0",
+  )
+})
+
+test("buildVideoCodecString defaults hevc to hvc1", () => {
   assert.equal(
     buildVideoCodecString({
       codec_name: "hevc",
       codec_tag_string: "hvc1",
+      profile: "Main",
+      level: 153,
+    }),
+    "hvc1.1.6.L153.B0",
+  )
+  assert.equal(
+    buildVideoCodecString({
+      codec_name: "hevc",
+      codec_tag_string: "",
+      profile: "Main",
+      level: 153,
+    }),
+    "hvc1.1.6.L153.B0",
+  )
+  assert.equal(
+    buildVideoCodecString({
+      codec_name: "hevc",
+      codec_tag_string: "[0][0][0][0]",
       profile: "Main",
       level: 153,
     }),
@@ -84,7 +114,19 @@ test("buildVideoCodecString returns null without enough decoder config", () => {
   )
 })
 
-test("buildAudioCodecString maps aac to AAC-LC", () => {
+test("buildAudioCodecString maps aac profiles", () => {
+  assert.equal(
+    buildAudioCodecString({ codec_name: "aac", profile: "HE-AAC" }),
+    "mp4a.40.5",
+  )
+  assert.equal(
+    buildAudioCodecString({ codec_name: "aac", profile: "HE-AACv2" }),
+    "mp4a.40.29",
+  )
+  assert.equal(
+    buildAudioCodecString({ codec_name: "aac", profile: "LC" }),
+    "mp4a.40.2",
+  )
   assert.equal(buildAudioCodecString({ codec_name: "aac" }), "mp4a.40.2")
   assert.equal(buildAudioCodecString({ codec_name: "opus" }), null)
 })
