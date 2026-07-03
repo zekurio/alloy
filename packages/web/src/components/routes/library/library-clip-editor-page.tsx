@@ -241,22 +241,13 @@ function useClipEditorMedia(
   // Rendition-backed clips must play over HLS: rendition files are byte-range
   // fMP4s that stall Chromium when streamed progressively. The stream URL
   // stays the fallback for pre-rendition clips, where it serves the source.
-  const hlsPlayback = useMemo(() => {
-    if (processing) return null
-    const topRendition = row.renditions[0]
-    return clipHlsPlayback(
-      row.id,
-      row.renditions,
-      row.playbackVersion,
-      topRendition
-        ? {
-            name: topRendition.name,
-            height: topRendition.height,
-            fps: topRendition.fps,
-          }
-        : null,
-    )
-  }, [processing, row.id, row.renditions, row.playbackVersion])
+  const hlsPlayback = useMemo(
+    () =>
+      processing
+        ? null
+        : clipHlsPlayback(row.id, row.renditions, row.playbackVersion),
+    [processing, row.id, row.renditions, row.playbackVersion],
+  )
   const aspectRatio = mediaAspectRatio(
     row.width ?? localItem?.width,
     row.height ?? localItem?.height,
