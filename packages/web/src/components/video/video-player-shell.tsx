@@ -69,6 +69,7 @@ export function BareShell({
   className,
   status,
   buffering = false,
+  loadingLabel,
   aspectRatio,
   maxDisplayHeight,
   onPointerDown,
@@ -79,6 +80,7 @@ export function BareShell({
   className?: string
   status: LoadStatus
   buffering?: boolean
+  loadingLabel?: string
   aspectRatio?: number
   maxDisplayHeight?: string
   onPointerDown?: PointerEventHandler<HTMLDivElement>
@@ -108,7 +110,11 @@ export function BareShell({
       onFocus={onFocus}
     >
       {children}
-      <LoadOverlay status={status} buffering={buffering} />
+      <LoadOverlay
+        status={status}
+        buffering={buffering}
+        loadingLabel={loadingLabel}
+      />
     </div>
   )
 }
@@ -503,9 +509,11 @@ export function ChromeBar({
 export function LoadOverlay({
   status,
   buffering = false,
+  loadingLabel,
 }: {
   status: LoadStatus
   buffering?: boolean
+  loadingLabel?: string
 }) {
   if (status.kind === "error") {
     return (
@@ -517,6 +525,16 @@ export function LoadOverlay({
     )
   }
   if (status.kind === "ready" && !buffering) return null
+  if (loadingLabel) {
+    return (
+      <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center bg-black/10 text-center text-xs text-white">
+        <span className="flex items-center gap-2 rounded-full border border-white/15 bg-black/70 px-3 py-2 shadow-lg backdrop-blur-md">
+          <Spinner className="size-4" />
+          <span>{loadingLabel}</span>
+        </span>
+      </div>
+    )
+  }
   return (
     <div className="text-foreground-muted pointer-events-none absolute inset-0 grid place-items-center bg-transparent text-center text-xs">
       <span className="grid size-10 place-items-center">
