@@ -357,9 +357,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
           onCancel: () => cancelRow(null, row.id),
           onOpen: row.status === "ready" ? () => onOpenClip(row) : undefined,
           onCopyLink:
-            row.status === "ready" && row.gameSlug
-              ? () => copyClipLink(row)
-              : undefined,
+            row.status === "ready" ? () => copyClipLink(row) : undefined,
           onDismiss:
             row.status === "ready"
               ? () => {
@@ -408,8 +406,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
 }
 
 function clipLinkFor(row: QueueClip): string {
-  if (!row.gameSlug) return ""
-  return absoluteClipHref(row.gameSlug, row.id, publicOrigin())
+  return absoluteClipHref(row.gameSlug ?? null, row.id, publicOrigin())
 }
 
 async function copyClipLink(row: QueueClip): Promise<void> {
