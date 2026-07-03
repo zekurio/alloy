@@ -8,6 +8,13 @@
       "when": 1783099865334,
       "tag": "0000_loud_mentallo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1783112654219,
+      "tag": "0001_lumpy_zarek",
+      "breakpoints": true
     }
   ]
 }

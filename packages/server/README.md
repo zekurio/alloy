@@ -15,7 +15,7 @@ packages/server/
   src/auth/             auth, sessions, OAuth, passkeys, desktop linking
   src/clips/            clip access, playback, and event helpers
   src/storage/          storage drivers and upload token flow
-  src/queue/            media processing queue (mediabunny probe/trim/package)
+  src/queue/            media processing queue (ffprobe/ffmpeg probe/trim/encode)
   src/config/           env-backed config and DB-backed instance settings
   src/runtime/          path, shutdown, response, and process helpers
 ```

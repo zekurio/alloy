@@ -548,8 +548,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "H.264 (AVC)": "H.264 (AVC)",
   "H.265 (HEVC)": "H.265 (HEVC)",
   "Hardware acceleration": "Hardware-Beschleunigung",
-  "HD at up to 60 fps. The adaptive-streaming middle tier.":
-    "HD mit bis zu 60 fps. Die mittlere Stufe fürs adaptive Streaming.",
   Hashtags: "Hashtags",
   Height: "Höhe",
   "Height must be an even number from 144 to 4320.":
@@ -564,8 +562,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "High contrast gray": "Kontrastreiches Grau",
   Home: "Start",
   Hotkeys: "Hotkeys",
-  "How the server transcodes new uploads: video codec, optional GPU encoding, quality, audio, and the ladder of renditions used for adaptive playback.":
-    "Wie der Server neue Uploads transkodiert: Videocodec, optionale GPU-Kodierung, Qualität, Audio und die Stufenleiter an Qualitätsstufen für adaptive Wiedergabe.",
+  "How the server transcodes new uploads: video codec, optional GPU encoding, quality, audio, and the ladder of renditions used for quality switching.":
+    "Wie der Server neue Uploads transkodiert: Videocodec, optionale GPU-Kodierung, Qualität, Audio und die Stufenleiter an Qualitätsstufen für den Qualitätswechsel.",
   Icon: "Symbol",
   "image/jpeg": "image/jpeg",
   "Import clip": "Clip importieren",
@@ -811,7 +809,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Posting...": "Wird gepostet...",
   "Posting…": "Wird gepostet…",
   Preferences: "Einstellungen",
-  "Preparing playback version...": "Wiedergabeversion wird vorbereitet...",
+  "Preparing playback...": "Wiedergabe wird vorbereitet...",
   "Preparing playback... {percent}%":
     "Wiedergabe wird vorbereitet... {percent}%",
   "Preparing...": "Wird vorbereitet...",

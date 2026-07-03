@@ -260,9 +260,7 @@ export const clipMediaStore: MediaStore = {
             width: rendition.width,
             fps: rendition.fps,
             storage_key: rendition.storageKey,
-            playlist: rendition.playlist,
             codecs: rendition.codecs,
-            bandwidth: rendition.bandwidth,
             size_bytes: rendition.sizeBytes,
           })),
         )

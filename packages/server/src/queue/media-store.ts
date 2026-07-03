@@ -40,9 +40,7 @@ export interface MediaRenditionRecord {
   width: number
   fps: number
   storageKey: string
-  playlist: string
   codecs: string
-  bandwidth: number
   sizeBytes: number
 }
 
