@@ -1,1 +1,0 @@
-ALTER TABLE "clip" ADD COLUMN "encode_pipeline" text;
