@@ -123,11 +123,10 @@ export const clip = pgTable(
   ],
 )
 
-// One row per encoded quality tier of a clip. Renditions are fragmented MP4s;
-// `playlist` holds the tier's HLS media playlist with the
-// media URI as a placeholder that routes rewrite to a versioned URL at serve
-// time. Rows for a clip are replaced atomically when a media run commits, so
-// a clip either has its full ladder or none (legacy/pre-backfill).
+// One row per encoded quality tier of a clip. Renditions are progressive
+// MP4s (faststart) served via range requests. Rows for a clip are replaced
+// atomically when a media run commits, so a clip either has its full ladder
+// or none (legacy/pre-backfill).
 export const clipRendition = pgTable(
   "clip_rendition",
   {
@@ -143,13 +142,9 @@ export const clipRendition = pgTable(
     width: integer().notNull(),
     fps: integer().notNull(),
     storage_key: text().notNull(),
-    playlist: text().notNull(),
-    // RFC 6381 codec string for the HLS master playlist CODECS attribute,
-    // e.g. "avc1.64002a,mp4a.40.2".
+    // RFC 6381 codec string, e.g. "avc1.64002a,mp4a.40.2", for canPlayType
+    // filtering and quality-label disambiguation.
     codecs: text().notNull(),
-    // Peak-ish bits per second derived from file size and duration; feeds the
-    // master playlist BANDWIDTH attribute.
-    bandwidth: integer().notNull(),
     size_bytes: bigint({ mode: "number" }).notNull(),
     created_at: timestamp().notNull().defaultNow(),
   },

@@ -63,7 +63,7 @@ export interface ClipRenditionRef {
   height: number
   width: number
   fps: number
-  /** RFC 6381 codec string, used only for display disambiguation. */
+  /** RFC 6381 codec string for canPlayType filtering and quality-label disambiguation. */
   codecs: string
   /** Cache-busting version of this tier's file bytes; changes on re-encode. */
   version: string
@@ -85,8 +85,6 @@ export interface ClipRow {
   sourceVersion: string | null
   /** Encoded quality tiers, highest first; empty until the pipeline commits. */
   renditions: ClipRenditionRef[]
-  /** Cache-busting version of the HLS playlist set; null without renditions. */
-  playbackVersion: string | null
   durationMs: number | null
   width: number | null
   height: number | null
