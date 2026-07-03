@@ -226,7 +226,7 @@ export function TranscodingSettingsContent({
       <SectionContent className="flex flex-col gap-6 py-0">
         <p className="text-foreground-dim text-xs">
           {t(
-            "How the server transcodes new uploads: video codec, optional GPU encoding, quality, audio, and the ladder of renditions used for adaptive playback.",
+            "How the server transcodes new uploads: video codec, optional GPU encoding, quality, audio, and the ladder of renditions used for quality switching.",
           )}
         </p>
 

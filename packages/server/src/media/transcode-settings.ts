@@ -9,12 +9,15 @@ import { existsSync } from "node:fs"
 export interface TranscodeSettings {
   /** ffmpeg binary to spawn. */
   ffmpegPath: string
+  /** ffprobe binary to spawn. */
+  ffprobePath: string
   /** Encoder thread cap; 0 lets ffmpeg pick (all cores). */
   threads: number
 }
 
 export const TRANSCODE_DEFAULTS: TranscodeSettings = {
   ffmpegPath: "ffmpeg",
+  ffprobePath: "ffprobe",
   threads: 0,
 }
 
@@ -35,8 +38,28 @@ export function resolveFfmpegPath(envPath: string | undefined): string {
   )
 }
 
+/**
+ * ffprobe ships next to ffmpeg in every supported install (Jellyfin bundles,
+ * Nix, distro packages), so a resolved ffmpeg path implies its sibling.
+ */
+export function resolveFfprobePath(
+  envPath: string | undefined,
+  ffmpegPath: string,
+): string {
+  if (envPath) return envPath
+  if (ffmpegPath.endsWith("/ffmpeg")) {
+    const sibling = `${ffmpegPath.slice(0, -"ffmpeg".length)}ffprobe`
+    if (existsSync(sibling)) return sibling
+  }
+  return TRANSCODE_DEFAULTS.ffprobePath
+}
+
 export function configureTranscode(next: TranscodeSettings): void {
-  settings = { ffmpegPath: next.ffmpegPath, threads: next.threads }
+  settings = {
+    ffmpegPath: next.ffmpegPath,
+    ffprobePath: next.ffprobePath,
+    threads: next.threads,
+  }
 }
 
 export function transcodeSettings(): TranscodeSettings {

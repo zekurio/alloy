@@ -12,8 +12,8 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useMemo, useState } from "react"
 
+import type { RenditionPlayback } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
-import { clipHlsPlayback } from "@/lib/clip-hls"
 import { apiOrigin } from "@/lib/env"
 
 const AUTO_QUALITY_ID = "auto"
@@ -27,8 +27,6 @@ interface ClipPlayerProps {
   sourceVersion?: string | null
   /** Committed quality tiers, highest first. Empty for pre-backfill clips. */
   renditions?: ClipRenditionRef[]
-  /** Cache-busting version of the HLS playlist set. */
-  playbackVersion?: string | null
   thumbnail?: string | null
   thumbnailBlurHash?: string | null
   fallbackSeed?: string | number
@@ -53,7 +51,6 @@ function ClipPlayer({
   sourceContentType,
   sourceVersion,
   renditions = [],
-  playbackVersion,
   thumbnail,
   thumbnailBlurHash,
   fallbackSeed,
@@ -79,30 +76,31 @@ function ClipPlayer({
 
   const [selectedQualityId, setSelectedQualityId] = useState(AUTO_QUALITY_ID)
 
-  // Progressive fallback: the pinned tier's file when one is selected,
-  // otherwise the stream endpoint (top rendition, or the source for clips the
-  // backfill hasn't reached).
-  const pinned =
-    selectedQualityId !== AUTO_QUALITY_ID
-      ? renditions.find((rendition) => rendition.name === selectedQualityId)
-      : undefined
+  const renditionPlayback = useMemo((): RenditionPlayback | null => {
+    if (renditions.length === 0) return null
+    return {
+      sources: renditions.map((rendition) => ({
+        name: rendition.name,
+        url: clipRenditionFileUrl(
+          clipId,
+          rendition.name,
+          apiOrigin(),
+          rendition.version,
+        ),
+        codecs: rendition.codecs,
+      })),
+      selected:
+        selectedQualityId !== AUTO_QUALITY_ID ? selectedQualityId : null,
+    }
+  }, [clipId, renditions, selectedQualityId])
 
-  const hlsPlayback = useMemo(
-    () =>
-      clipHlsPlayback(
-        clipId,
-        renditions,
-        playbackVersion,
-        pinned
-          ? { name: pinned.name, height: pinned.height, fps: pinned.fps }
-          : null,
-      ),
-    [clipId, playbackVersion, renditions, pinned],
+  // Fallback for clips without renditions: the stream endpoint serves the
+  // stored source until the backfill reaches them.
+  const fallbackSrc = clipStreamUrl(
+    clipId,
+    apiOrigin(),
+    sourceVersion ?? undefined,
   )
-
-  const fallbackSrc = pinned
-    ? clipRenditionFileUrl(clipId, pinned.name, apiOrigin(), pinned.version)
-    : clipStreamUrl(clipId, apiOrigin(), sourceVersion ?? undefined)
 
   const qualityOptions = useMemo(() => {
     if (renditions.length === 0) return []
@@ -173,7 +171,7 @@ function ClipPlayer({
                 ? t("Preparing playback... {percent}%", {
                     percent: encodeProgress,
                   })
-                : t("Preparing playback version...")}
+                : t("Preparing playback...")}
           </span>
         </div>
       </div>
@@ -183,7 +181,7 @@ function ClipPlayer({
   return (
     <VideoPlayer
       src={fallbackSrc}
-      hlsPlayback={hlsPlayback}
+      renditionPlayback={renditionPlayback}
       poster={poster}
       posterBlurHash={thumbnailBlurHash}
       fallbackSeed={fallbackSeed ?? clipId}
