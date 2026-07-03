@@ -19,7 +19,9 @@ export interface MediaSourcePatch {
   sourceContentType: string
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
+  sourceCodecs: string | null
   sourceSizeBytes: number
+  sourceDurationMs: number
   durationMs: number
   width: number
   height: number

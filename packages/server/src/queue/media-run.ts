@@ -218,7 +218,13 @@ async function runPipelineInWorkDir({
     sourceContentType: sourceAsset.contentType,
     sourceVideoCodec: sourceAsset.videoCodec,
     sourceAudioCodec: sourceAsset.audioCodec,
+    sourceCodecs: probed.videoCodecString
+      ? [probed.videoCodecString, probed.audioCodecString]
+          .filter((value): value is string => !!value)
+          .join(",")
+      : null,
     sourceSizeBytes: sourceAsset.sizeBytes,
+    sourceDurationMs: outputDurationMs,
     durationMs: outputDurationMs,
     width: sourceAsset.width,
     height: sourceAsset.height,
