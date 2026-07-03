@@ -138,6 +138,13 @@ export interface InitiateClipInput {
   /** Bare hashtags; normalized server-side. */
   tags?: string[]
   /**
+   * Client-probed source dimensions and duration; shape placeholders while
+   * the clip processes. Media processing re-probes and overwrites them.
+   */
+  width?: number
+  height?: number
+  durationMs?: number
+  /**
    * Client-computed BlurHash of the clip's poster frame. The server validates
    * and publishes it only when the uploaded thumbnail image is accepted.
    */

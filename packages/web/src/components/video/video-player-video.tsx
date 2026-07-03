@@ -1,11 +1,12 @@
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import {
   CLIP_MEDIA_BACKGROUND_CLASS,
   CLIP_MEDIA_CLASS,
   CLIP_VIDEO_MEDIA_CLASS,
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 import type {
   MouseEventHandler,
   PointerEventHandler,
@@ -19,6 +20,7 @@ type VideoFrameProps = {
   poster?: string
   posterBlurHash?: string | null
   fallbackSeed: string | number
+  aspectRatio?: number
   placeholderVisible: boolean
   posterVisible: boolean
   autoPlay: boolean
@@ -41,12 +43,15 @@ type VideoFrameProps = {
   onError: ReactEventHandler<HTMLVideoElement>
 }
 
+const PLACEHOLDER_GRACE_MS = 200
+
 export function VideoFrame({
   videoRef,
   mediaUrl,
   poster,
   posterBlurHash,
   fallbackSeed,
+  aspectRatio,
   placeholderVisible,
   posterVisible,
   autoPlay,
@@ -68,26 +73,25 @@ export function VideoFrame({
   onEnded,
   onError,
 }: VideoFrameProps) {
-  const posterRef = useRef<HTMLImageElement | null>(null)
-  const [posterLoaded, setPosterLoaded] = useState(false)
+  const posterImage = useImageLoaded(poster)
+  const [graceElapsed, setGraceElapsed] = useState(false)
 
-  // Seed from the element for cached posters: navigating from a grid where the
-  // same thumbnail already loaded means the <img> can be `complete` before
-  // React attaches `onLoad`, so that handler never fires. Without this the
-  // blurhash would flash over an already-cached poster on every open.
+  // Hold the placeholder back for a grace window: local files and cached
+  // sources paint their first frame within it, and flashing the gradient for
+  // that blink is worse than showing the container background.
   useEffect(() => {
-    if (!poster) {
-      setPosterLoaded(false)
-      return
-    }
-    const img = posterRef.current
-    setPosterLoaded(Boolean(img?.complete && img.naturalWidth > 0))
-  }, [poster])
+    const timer = window.setTimeout(
+      () => setGraceElapsed(true),
+      PLACEHOLDER_GRACE_MS,
+    )
+    return () => window.clearTimeout(timer)
+  }, [])
 
   // Hold the blurhash only until the poster is painted (or, posterless, until
   // the first video frame); showing it under a not-yet-decoded poster is the
   // flash we're avoiding.
-  const blurHashVisible = placeholderVisible && !posterLoaded
+  const blurHashVisible =
+    placeholderVisible && !posterImage.loaded && graceElapsed
 
   return (
     <>
@@ -127,6 +131,7 @@ export function VideoFrame({
       <MediaPlaceholder
         seed={fallbackSeed}
         blurHash={posterBlurHash}
+        aspectRatio={aspectRatio}
         className={cn(
           "pointer-events-none transition-opacity duration-200 ease-out",
           blurHashVisible ? "opacity-100" : "opacity-0",
@@ -139,18 +144,18 @@ export function VideoFrame({
           empty frame mid-load. */}
       {poster ? (
         <img
-          ref={posterRef}
+          ref={posterImage.ref}
           src={poster}
           alt=""
           aria-hidden
           className={cn(
             CLIP_MEDIA_CLASS,
             "pointer-events-none transition-opacity duration-200 ease-out",
-            posterVisible && posterLoaded ? "opacity-100" : "opacity-0",
+            posterVisible && posterImage.loaded ? "opacity-100" : "opacity-0",
           )}
           decoding="async"
           fetchPriority="high"
-          onLoad={() => setPosterLoaded(true)}
+          onLoad={posterImage.markLoaded}
         />
       ) : null}
     </>
