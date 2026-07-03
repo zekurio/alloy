@@ -6,6 +6,7 @@ import {
   publishClipUpsertById,
 } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
+import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull, lt, ne, or, sql } from "drizzle-orm"
 
@@ -237,6 +238,7 @@ export const clipMediaStore: MediaStore = {
           ...sourcePatchToColumns(patch),
           ...thumbPatchToColumns(patch),
           status: "ready",
+          encode_pipeline: MEDIA_PIPELINE_VERSION,
           encode_progress: 100,
           encode_run_id: null,
           encode_locked_at: null,

@@ -79,8 +79,10 @@ function versionedCacheControl(
 
 export const clipsPlaybackRoutes = new Hono()
   /**
-   * GET /api/clips/:id/stream — progressive playback bytes. Serves the top
-   * rendition and falls back to the stored source for clips the rendition
+   * GET /api/clips/:id/stream — progressive playback bytes. Serves the og
+   * rendition (H.264+AAC, so OpenGraph embeds, plain <video> tags, and the
+   * player's HLS-failure fallback decode everywhere), then the top rendition
+   * for ladders without one, then the stored source for clips the rendition
    * backfill hasn't reached yet.
    */
   .get("/:id/stream", zValidator("param", IdParam), async (c) => {
@@ -93,9 +95,11 @@ export const clipsPlaybackRoutes = new Hono()
     if (!access.accessible) return clipAccessResponse(c, access)
     const row = access.row
 
-    const [top] = await selectClipRenditions(id)
-    const selected = top
-      ? { key: top.storage_key, contentType: "video/mp4" }
+    const renditions = await selectClipRenditions(id)
+    const preferred =
+      renditions.find((rendition) => rendition.is_og) ?? renditions[0]
+    const selected = preferred
+      ? { key: preferred.storage_key, contentType: "video/mp4" }
       : row.source_key && row.source_content_type
         ? {
             key: row.source_key,
