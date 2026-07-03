@@ -40,11 +40,11 @@ impl Recorder {
         let Some(settings) = self.settings.clone() else {
             return;
         };
-        let key = (
-            selected_gpu_adapter(&settings, &self.cached_gpus),
-            selected_gpu_label(&settings, &self.cached_gpus).map(str::to_string),
-            self.obs_runtime_dir.clone(),
-        );
+        let key = CodecCapsKey {
+            adapter: selected_gpu_adapter(&settings, &self.cached_gpus),
+            gpu_label: selected_gpu_label(&settings, &self.cached_gpus).map(str::to_string),
+            runtime_dir: self.obs_runtime_dir.clone(),
+        };
         let cached = self
             .codec_caps
             .take()
@@ -102,11 +102,11 @@ impl Recorder {
             && self
                 .codec_caps_key
                 .as_ref()
-                .is_some_and(|(adapter, gpu_label, runtime)| {
-                    *adapter == selected_gpu_adapter(settings, &self.cached_gpus)
-                        && gpu_label.as_deref()
+                .is_some_and(|key| {
+                    key.adapter == selected_gpu_adapter(settings, &self.cached_gpus)
+                        && key.gpu_label.as_deref()
                             == selected_gpu_label(settings, &self.cached_gpus)
-                        && runtime == &self.obs_runtime_dir
+                        && key.runtime_dir == self.obs_runtime_dir
                 })
     }
 

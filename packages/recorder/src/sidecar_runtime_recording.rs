@@ -161,11 +161,14 @@ fn wait_for_stable_file(path: &Path) -> Result<(), String> {
         thread::sleep(Duration::from_millis(250));
     }
 
-    if path.exists() {
-        Ok(())
-    } else {
-        Err("OBS disk replay buffer did not produce a file.".to_string())
+    if !path.exists() {
+        return Err("OBS disk replay buffer did not produce a file.".to_string());
     }
+
+    Err(format!(
+        "OBS replay file did not become stable before the deadline: {}",
+        path.display()
+    ))
 }
 
 fn save_disk_replay_clip(

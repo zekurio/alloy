@@ -23,13 +23,13 @@
             QDC_ONLY_ACTIVE_PATHS,
         },
         Foundation::{
-            CloseHandle, HGLOBAL, HWND, INVALID_HANDLE_VALUE, LPARAM, POINT, RECT, STILL_ACTIVE,
+            CloseHandle, HGLOBAL, HWND, INVALID_HANDLE_VALUE, LPARAM, POINT, RECT, WAIT_TIMEOUT,
         },
         Graphics::{
             Gdi::{
-                EnumDisplayDevicesA, EnumDisplayMonitors, GetMonitorInfoA, GetMonitorInfoW,
-                MonitorFromPoint, MonitorFromWindow, DISPLAY_DEVICEA, HDC, HMONITOR,
-                MONITORINFO, MONITORINFOEXA, MONITOR_DEFAULTTONEAREST,
+                EnumDisplayDevicesW, EnumDisplayMonitors, GetMonitorInfoA, GetMonitorInfoW,
+                MonitorFromPoint, MonitorFromWindow, DISPLAY_DEVICEW, HDC, HMONITOR,
+                MONITORINFO, MONITORINFOEXA, MONITORINFOEXW, MONITOR_DEFAULTTONEAREST,
                 MONITOR_DEFAULTTOPRIMARY,
             },
             GdiPlus::{
@@ -57,7 +57,7 @@
             },
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
             Threading::{
-                GetExitCodeProcess, OpenProcess, QueryFullProcessImageNameW,
+                OpenProcess, QueryFullProcessImageNameW, WaitForSingleObject,
                 PROCESS_QUERY_LIMITED_INFORMATION,
             },
         },
@@ -144,10 +144,9 @@
             if handle.is_null() {
                 return false;
             }
-            let mut exit_code = 0u32;
-            let ok = GetExitCodeProcess(handle, &mut exit_code) != 0;
+            let alive = WaitForSingleObject(handle, 0) == WAIT_TIMEOUT;
             CloseHandle(handle);
-            ok && exit_code == STILL_ACTIVE as u32
+            alive
         }
     }
 
@@ -170,25 +169,30 @@
                 return None;
             }
 
-            let mut monitor_info: MONITORINFOEXA = zeroed();
-            monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXA>() as u32;
-            if GetMonitorInfoA(monitor, &mut monitor_info as *mut MONITORINFOEXA as *mut _) == 0 {
+            let mut monitor_info: MONITORINFOEXW = zeroed();
+            monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
+            if GetMonitorInfoW(monitor, &mut monitor_info as *mut MONITORINFOEXW as *mut _) == 0 {
                 return None;
             }
 
-            let mut device: DISPLAY_DEVICEA = zeroed();
-            device.cb = size_of::<DISPLAY_DEVICEA>() as u32;
-            if EnumDisplayDevicesA(
-                monitor_info.szDevice.as_ptr().cast(),
+            let device_name = wide_array_to_string(&monitor_info.szDevice);
+            let mut device: DISPLAY_DEVICEW = zeroed();
+            device.cb = size_of::<DISPLAY_DEVICEW>() as u32;
+            if EnumDisplayDevicesW(
+                monitor_info.szDevice.as_ptr(),
                 0,
                 &mut device,
                 EDD_GET_DEVICE_INTERFACE_NAME,
             ) == 0
             {
-                return c_char_array_to_string(monitor_info.szDevice.as_ptr());
+                return (!device_name.is_empty()).then_some(device_name);
             }
 
-            c_char_array_to_string(device.DeviceID.as_ptr())
+            let device_id = wide_array_to_string(&device.DeviceID);
+            if device_id.is_empty() {
+                return (!device_name.is_empty()).then_some(device_name);
+            }
+            Some(device_id)
         }
     }
 
@@ -220,28 +224,37 @@
         lparam: LPARAM,
     ) -> BOOL {
         let context = &mut *(lparam as *mut DisplayEnumerationContext);
-        let mut monitor_info: MONITORINFOEXA = zeroed();
-        monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXA>() as u32;
-        if GetMonitorInfoA(monitor, &mut monitor_info as *mut MONITORINFOEXA as *mut _) == 0 {
+        let mut monitor_info: MONITORINFOEXW = zeroed();
+        monitor_info.monitorInfo.cbSize = size_of::<MONITORINFOEXW>() as u32;
+        if GetMonitorInfoW(monitor, &mut monitor_info as *mut MONITORINFOEXW as *mut _) == 0 {
             return 1;
         }
 
-        let device_name =
-            c_char_array_to_string(monitor_info.szDevice.as_ptr()).unwrap_or_default();
-        let mut device: DISPLAY_DEVICEA = zeroed();
-        device.cb = size_of::<DISPLAY_DEVICEA>() as u32;
-        let (id, name) = if EnumDisplayDevicesA(
-            monitor_info.szDevice.as_ptr().cast(),
+        let device_name = wide_array_to_string(&monitor_info.szDevice);
+        let mut device: DISPLAY_DEVICEW = zeroed();
+        device.cb = size_of::<DISPLAY_DEVICEW>() as u32;
+        let (id, name) = if EnumDisplayDevicesW(
+            monitor_info.szDevice.as_ptr(),
             0,
             &mut device,
             EDD_GET_DEVICE_INTERFACE_NAME,
         ) != 0
         {
+            let device_id = wide_array_to_string(&device.DeviceID);
             (
-                c_char_array_to_string(device.DeviceID.as_ptr())
-                    .unwrap_or_else(|| device_name.clone()),
-                c_char_array_to_string(device.DeviceString.as_ptr())
-                    .unwrap_or_else(|| device_name.clone()),
+                if device_id.is_empty() {
+                    device_name.clone()
+                } else {
+                    device_id
+                },
+                {
+                    let device_string = wide_array_to_string(&device.DeviceString);
+                    if device_string.is_empty() {
+                        device_name.clone()
+                    } else {
+                        device_string
+                    }
+                },
             )
         } else {
             (device_name.clone(), device_name.clone())
