@@ -616,6 +616,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Loading capture settings": "Aufnahmeeinstellungen werden geladen",
   "Loading displays": "Displays werden geladen",
   "Loading processes": "Prozesse werden geladen",
+  "Loading quality...": "Qualität wird geladen...",
   "Loading quality settings": "Qualitätseinstellungen werden geladen",
   "Loading saved server...": "Gespeicherter Server wird geladen...",
   "Loading servers": "Server werden geladen",

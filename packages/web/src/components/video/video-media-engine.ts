@@ -9,7 +9,7 @@ import type { SourceSpec } from "./video-source"
 /** HLS playback config for sources that have committed renditions. */
 export interface HlsPlayback {
   masterUrl: string
-  /** null plays adaptively (Auto); a rendition pins that tier. */
+  /** null lets hls.js pick adaptively; a rendition pins that tier. */
   selected: { name: string; height: number; fps: number } | null
   /** Progressive per-tier file URLs (keyed by rendition name) for pinned playback without MSE. */
   renditionUrls: Record<string, string>
@@ -31,10 +31,19 @@ export function useMediaEngine(
   spec: SourceSpec,
   videoRef: RefObject<HTMLVideoElement | null>,
   hls?: HlsPlayback | null,
-): { src: string | null; mediaKey: string; onMediaError: () => boolean } {
+): {
+  src: string | null
+  mediaKey: string
+  onMediaError: () => boolean
+  switchingRendition: boolean
+} {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [hlsFailed, setHlsFailed] = useState(false)
+  const [switchingRendition, setSwitchingRendition] = useState(false)
   const hlsRef = useRef<HlsInstance | null>(null)
+  const switchingRenditionRef = useRef(false)
+  const switchingRenditionLevelRef = useRef<number | null>(null)
+  const switchingRenditionTimerRef = useRef<number | null>(null)
   const selected = hls?.selected ?? null
   const selectedRef = useRef(selected)
   useEffect(() => {
@@ -56,6 +65,36 @@ export function useMediaEngine(
   useEffect(() => {
     setHlsFailed(false)
   }, [masterUrl])
+
+  const finishRenditionSwitch = useCallback(() => {
+    switchingRenditionRef.current = false
+    switchingRenditionLevelRef.current = null
+    setSwitchingRendition(false)
+    if (switchingRenditionTimerRef.current === null) return
+    window.clearTimeout(switchingRenditionTimerRef.current)
+    switchingRenditionTimerRef.current = null
+  }, [])
+
+  const startRenditionSwitch = useCallback(
+    (level: number | null) => {
+      if (selectedRef.current === null) {
+        finishRenditionSwitch()
+        return
+      }
+      switchingRenditionRef.current = true
+      switchingRenditionLevelRef.current = level
+      setSwitchingRendition(true)
+      if (switchingRenditionTimerRef.current !== null) {
+        window.clearTimeout(switchingRenditionTimerRef.current)
+      }
+      switchingRenditionTimerRef.current = window.setTimeout(() => {
+        finishRenditionSwitch()
+      }, 5000)
+    },
+    [finishRenditionSwitch],
+  )
+
+  useEffect(() => finishRenditionSwitch, [finishRenditionSwitch])
 
   // MSE (hls.js) is preferred whenever the platform has MediaSource:
   // Chromium's built-in HLS player advertises support via canPlayType but
@@ -92,7 +131,19 @@ export function useMediaEngine(
         backBufferLength: 30,
       })
       let recoveredMediaError = false
+      const finishPendingSwitch = (level: number | null) => {
+        if (!switchingRenditionRef.current) return
+        if (
+          level !== null &&
+          switchingRenditionLevelRef.current !== null &&
+          level !== switchingRenditionLevelRef.current
+        ) {
+          return
+        }
+        finishRenditionSwitch()
+      }
       instance.on(Hls.Events.ERROR, (_event, data) => {
+        finishPendingSwitch(null)
         if (!data.fatal) return
         if (data.type === Hls.ErrorTypes.MEDIA_ERROR && !recoveredMediaError) {
           recoveredMediaError = true
@@ -107,6 +158,9 @@ export function useMediaEngine(
       instance.on(Hls.Events.MANIFEST_PARSED, () => {
         applySelectedLevel(instance, selectedRef.current)
       })
+      instance.on(Hls.Events.FRAG_BUFFERED, (_event, data) => {
+        finishPendingSwitch(data.frag.level ?? null)
+      })
       instance.attachMedia(video)
       instance.loadSource(masterUrl)
       hlsRef.current = instance
@@ -115,16 +169,25 @@ export function useMediaEngine(
       disposed = true
       hlsRef.current?.destroy()
       hlsRef.current = null
+      finishRenditionSwitch()
     }
-  }, [masterUrl, mode, videoRef])
+  }, [finishRenditionSwitch, masterUrl, mode, videoRef])
 
   // Pin or release the quality level on the live instance. -1 restores ABR.
   useEffect(() => {
-    if (mode !== "mse") return
+    if (mode !== "mse") {
+      finishRenditionSwitch()
+      return
+    }
     const instance = hlsRef.current
     if (!instance || instance.levels.length === 0) return
-    applySelectedLevel(instance, selected)
-  }, [mode, selected])
+    const applied = applySelectedLevel(instance, selected)
+    if (applied.changed) {
+      startRenditionSwitch(applied.level)
+      return
+    }
+    finishRenditionSwitch()
+  }, [finishRenditionSwitch, mode, selected, startRenditionSwitch])
 
   const nativeHlsUrl =
     mode === "native-hls" && masterUrl && hls
@@ -149,11 +212,17 @@ export function useMediaEngine(
       src: objectUrl,
       mediaKey: objectUrl ? `file:${objectUrl}` : "file",
       onMediaError,
+      switchingRendition: false,
     }
   }
 
   if (mode === "mse") {
-    return { src: null, mediaKey: `mse:${masterUrl}`, onMediaError }
+    return {
+      src: null,
+      mediaKey: `mse:${masterUrl}`,
+      onMediaError,
+      switchingRendition,
+    }
   }
 
   if (nativeHlsUrl !== null) {
@@ -161,10 +230,16 @@ export function useMediaEngine(
       src: nativeHlsUrl,
       mediaKey: `url:${nativeHlsUrl}`,
       onMediaError,
+      switchingRendition: false,
     }
   }
 
-  return { src: spec.url, mediaKey: `url:${spec.url}`, onMediaError }
+  return {
+    src: spec.url,
+    mediaKey: `url:${spec.url}`,
+    onMediaError,
+    switchingRendition: false,
+  }
 }
 
 function supportsMse(): boolean {
@@ -184,10 +259,11 @@ function supportsNativeHls(): boolean {
 function applySelectedLevel(
   instance: HlsInstance,
   selected: { name: string; height: number } | null,
-): void {
+): { changed: boolean; level: number | null } {
   if (selected === null) {
+    if (instance.currentLevel === -1) return { changed: false, level: null }
     instance.currentLevel = -1
-    return
+    return { changed: true, level: null }
   }
   // Renditions are keyed by name in their playlist URLs, so a URL match is
   // exact even when two levels share a height; the height match covers
@@ -202,6 +278,9 @@ function applySelectedLevel(
     byUrl !== -1
       ? byUrl
       : instance.levels.findIndex((level) => level.height === selected.height)
-  if (index === -1) return
+  if (index === -1 || instance.currentLevel === index) {
+    return { changed: false, level: null }
+  }
   instance.currentLevel = index
+  return { changed: true, level: index }
 }
