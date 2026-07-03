@@ -233,7 +233,10 @@ export async function encodeRendition(
     height: probed.height,
     width: probed.width,
     fps: Math.round(probed.fps ?? step.fps),
-    codecs: [probed.videoCodecString, probed.audioCodecString]
+    codecs: [
+      normalizeVideoCodecString(probed.videoCodecString),
+      probed.audioCodecString,
+    ]
       .filter((value): value is string => !!value)
       .join(","),
     bandwidth:
@@ -309,6 +312,17 @@ export function mediaPlaylistStats(
   }
   if (count === 0) return null
   return { peakBitrate: peak, segmentCount: count }
+}
+
+/**
+ * HEVC renditions are written with hvc1 sample entries (`-tag:v hvc1` in
+ * every encoder branch), but mediabunny derives HEVC codec strings with a
+ * hardcoded hev1 prefix. Safari only plays HEVC variants whose CODECS
+ * attribute signals hvc1, so align the string with the actual container.
+ */
+function normalizeVideoCodecString(value: string | null): string | null {
+  if (!value) return null
+  return value.replace(/^hev1\./, "hvc1.")
 }
 
 function evenFloor(value: number): number {

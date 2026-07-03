@@ -1,5 +1,5 @@
 {
-  "id": "12a8c154-53dd-4232-a352-d996ef638e66",
+  "id": "d7703a3f-9258-44d2-84cc-20f66a65b362",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -39,9 +39,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "steamgriddb_id": {
-          "name": "steamgriddb_id",
-          "type": "integer",
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -151,6 +151,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'pending'"
+        },
+        "encode_pipeline": {
+          "name": "encode_pipeline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "encode_progress": {
           "name": "encode_progress",
@@ -285,11 +291,11 @@
           "method": "btree",
           "with": {}
         },
-        "clip_steamgriddb_created_idx": {
-          "name": "clip_steamgriddb_created_idx",
+        "clip_game_created_idx": {
+          "name": "clip_game_created_idx",
           "columns": [
             {
-              "expression": "steamgriddb_id",
+              "expression": "game_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -306,11 +312,11 @@
           "method": "btree",
           "with": {}
         },
-        "clip_ready_visible_steamgriddb_top_idx": {
-          "name": "clip_ready_visible_steamgriddb_top_idx",
+        "clip_ready_visible_game_top_idx": {
+          "name": "clip_ready_visible_game_top_idx",
           "columns": [
             {
-              "expression": "steamgriddb_id",
+              "expression": "game_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -357,12 +363,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "clip_steamgriddb_id_game_steamgriddb_id_fk": {
-          "name": "clip_steamgriddb_id_game_steamgriddb_id_fk",
+        "clip_game_id_game_id_fk": {
+          "name": "clip_game_id_game_id_fk",
           "tableFrom": "clip",
           "tableTo": "game",
-          "columnsFrom": ["steamgriddb_id"],
-          "columnsTo": ["steamgriddb_id"],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -746,6 +752,141 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.clip_rendition": {
+      "name": "clip_rendition",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "clip_id": {
+          "name": "clip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_og": {
+          "name": "is_og",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "fps": {
+          "name": "fps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "playlist": {
+          "name": "playlist",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "codecs": {
+          "name": "codecs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "bandwidth": {
+          "name": "bandwidth",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "clip_rendition_clip_name_idx": {
+          "name": "clip_rendition_clip_name_idx",
+          "columns": [
+            {
+              "expression": "clip_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "clip_rendition_clip_id_clip_id_fk": {
+          "name": "clip_rendition_clip_id_clip_id_fk",
+          "tableFrom": "clip_rendition",
+          "tableTo": "clip",
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "clip_rendition_size_bytes_safe_check": {
+          "name": "clip_rendition_size_bytes_safe_check",
+          "value": "\"clip_rendition\".\"size_bytes\" >= 0 and \"clip_rendition\".\"size_bytes\" <= 9007199254740991"
+        },
+        "clip_rendition_height_check": {
+          "name": "clip_rendition_height_check",
+          "value": "\"clip_rendition\".\"height\" > 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.clip_tag": {
       "name": "clip_tag",
       "schema": "",
@@ -890,11 +1031,25 @@
       "name": "game",
       "schema": "",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
         "steamgriddb_id": {
           "name": "steamgriddb_id",
           "type": "integer",
-          "primaryKey": true,
-          "notNull": true
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'steamgriddb'"
         },
         "name": {
           "name": "name",
@@ -985,6 +1140,11 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
+        "game_steamgriddb_id_unique": {
+          "name": "game_steamgriddb_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["steamgriddb_id"]
+        },
         "game_slug_unique": {
           "name": "game_slug_unique",
           "nullsNotDistinct": false,
@@ -992,7 +1152,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "game_source_check": {
+          "name": "game_source_check",
+          "value": "\"game\".\"source\" in ('steamgriddb', 'custom')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.game_detection_mapping": {
@@ -1030,9 +1195,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "steamgriddb_id": {
-          "name": "steamgriddb_id",
-          "type": "integer",
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": false
         },
@@ -1116,11 +1281,11 @@
           "method": "btree",
           "with": {}
         },
-        "game_detection_mapping_steamgriddb_idx": {
-          "name": "game_detection_mapping_steamgriddb_idx",
+        "game_detection_mapping_game_idx": {
+          "name": "game_detection_mapping_game_idx",
           "columns": [
             {
-              "expression": "steamgriddb_id",
+              "expression": "game_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1133,12 +1298,12 @@
         }
       },
       "foreignKeys": {
-        "game_detection_mapping_steamgriddb_id_game_steamgriddb_id_fk": {
-          "name": "game_detection_mapping_steamgriddb_id_game_steamgriddb_id_fk",
+        "game_detection_mapping_game_id_game_id_fk": {
+          "name": "game_detection_mapping_game_id_game_id_fk",
           "tableFrom": "game_detection_mapping",
           "tableTo": "game",
-          "columnsFrom": ["steamgriddb_id"],
-          "columnsTo": ["steamgriddb_id"],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1166,9 +1331,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "steamgriddb_id": {
-          "name": "steamgriddb_id",
-          "type": "integer",
+        "game_id": {
+          "name": "game_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1191,7 +1356,7 @@
               "nulls": "last"
             },
             {
-              "expression": "steamgriddb_id",
+              "expression": "game_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1202,11 +1367,11 @@
           "method": "btree",
           "with": {}
         },
-        "game_follow_steamgriddb_idx": {
-          "name": "game_follow_steamgriddb_idx",
+        "game_follow_game_idx": {
+          "name": "game_follow_game_idx",
           "columns": [
             {
-              "expression": "steamgriddb_id",
+              "expression": "game_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1228,12 +1393,12 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "game_follow_steamgriddb_id_game_steamgriddb_id_fk": {
-          "name": "game_follow_steamgriddb_id_game_steamgriddb_id_fk",
+        "game_follow_game_id_game_id_fk": {
+          "name": "game_follow_game_id_game_id_fk",
           "tableFrom": "game_follow",
           "tableTo": "game",
-          "columnsFrom": ["steamgriddb_id"],
-          "columnsTo": ["steamgriddb_id"],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
