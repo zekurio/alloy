@@ -207,6 +207,9 @@ export const InitiateBody = z.object({
   privacy: z.enum(CLIP_PRIVACY).default("public"),
   mentionedUserIds: z.array(z.uuid()).optional(),
   tags: TagsInput,
+  width: z.number().int().positive().max(32_768).optional(),
+  height: z.number().int().positive().max(32_768).optional(),
+  durationMs: z.number().int().positive().optional(),
   thumbBlurHash: z.string().refine(isBlurHash, "Invalid BlurHash").optional(),
   thumbContentType: z.enum(ACCEPTED_THUMB_CONTENT_TYPES).default("image/jpeg"),
 })

@@ -2,17 +2,18 @@ import {
   type ClipRenditionRef,
   clipRenditionFileUrl,
   type ClipStatus,
-  clipMasterPlaylistUrl,
   clipStreamUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { toast } from "@alloy/ui/lib/toast"
+import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useMemo, useState } from "react"
 
-import type { HlsPlayback } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
+import { clipHlsPlayback } from "@/lib/clip-hls"
 import { apiOrigin } from "@/lib/env"
 
 const AUTO_QUALITY_ID = "auto"
@@ -73,6 +74,9 @@ function ClipPlayer({
       ? clipThumbnailUrl(clipId, apiOrigin())
       : (thumbnail ?? undefined)
 
+  // Poster shown while the clip has no playable media yet (processing/failed).
+  const pendingPoster = useImageLoaded(poster)
+
   const [selectedQualityId, setSelectedQualityId] = useState(AUTO_QUALITY_ID)
 
   // Progressive fallback: the pinned tier's file when one is selected,
@@ -83,30 +87,18 @@ function ClipPlayer({
       ? renditions.find((rendition) => rendition.name === selectedQualityId)
       : undefined
 
-  const hlsPlayback = useMemo<HlsPlayback | null>(() => {
-    if (renditions.length === 0) return null
-    return {
-      masterUrl: clipMasterPlaylistUrl(
+  const hlsPlayback = useMemo(
+    () =>
+      clipHlsPlayback(
         clipId,
-        apiOrigin(),
-        playbackVersion ?? undefined,
+        renditions,
+        playbackVersion,
+        pinned
+          ? { name: pinned.name, height: pinned.height, fps: pinned.fps }
+          : null,
       ),
-      selected: pinned
-        ? { name: pinned.name, height: pinned.height, fps: pinned.fps }
-        : null,
-      renditionUrls: Object.fromEntries(
-        renditions.map((rendition) => [
-          rendition.name,
-          clipRenditionFileUrl(
-            clipId,
-            rendition.name,
-            apiOrigin(),
-            rendition.version,
-          ),
-        ]),
-      ),
-    }
-  }, [clipId, playbackVersion, renditions, pinned])
+    [clipId, playbackVersion, renditions, pinned],
+  )
 
   const fallbackSrc = pinned
     ? clipRenditionFileUrl(clipId, pinned.name, apiOrigin(), pinned.version)
@@ -156,7 +148,24 @@ function ClipPlayer({
           <MediaPlaceholder
             seed={fallbackSeed ?? clipId}
             blurHash={thumbnailBlurHash}
+            aspectRatio={aspectRatio}
+            className={cn(
+              "transition-opacity duration-200 ease-out",
+              pendingPoster.loaded ? "opacity-0" : "opacity-100",
+            )}
           />
+          {poster ? (
+            <img
+              ref={pendingPoster.ref}
+              src={poster}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 size-full object-contain"
+              decoding="async"
+              onLoad={pendingPoster.markLoaded}
+            />
+          ) : null}
+          <div aria-hidden className="absolute inset-0 bg-black/40" />
           <span className="relative z-10">
             {unavailable
               ? t("Playback unavailable.")

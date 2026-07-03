@@ -115,9 +115,13 @@ export function useLibraryWebUploadAction(): LibraryWebUploadAction {
         if (!result.clipId) return
 
         clearSelection()
-        if (metadata.privacy === "unlisted" && metadata.game) {
+        if (metadata.privacy === "unlisted") {
           const copied = await copyTextToClipboard(
-            absoluteClipHref(metadata.game.slug, result.clipId, publicOrigin()),
+            absoluteClipHref(
+              metadata.game?.slug ?? null,
+              result.clipId,
+              publicOrigin(),
+            ),
             { action: "copy uploaded clip link" },
           )
           if (copied) {

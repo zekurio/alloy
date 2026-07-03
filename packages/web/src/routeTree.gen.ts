@@ -24,6 +24,7 @@ import { Route as appAppTagsTagRouteImport } from './routes/(app)/_app.tags.$tag
 import { Route as appAppLibraryCaptureIdRouteImport } from './routes/(app)/_app.library.$captureId'
 import { Route as appAppGamesGameIdRouteImport } from './routes/(app)/_app.games.$gameId'
 import { Route as appAppGSlugRouteImport } from './routes/(app)/_app.g.$slug'
+import { Route as appAppClipsClipIdRouteImport } from './routes/(app)/_app.clips.$clipId'
 import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
 import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
 import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
@@ -105,6 +106,11 @@ const appAppGSlugRoute = appAppGSlugRouteImport.update({
   path: '/g/$slug',
   getParentRoute: () => appAppRoute,
 } as any)
+const appAppClipsClipIdRoute = appAppClipsClipIdRouteImport.update({
+  id: '/clips/$clipId',
+  path: '/clips/$clipId',
+  getParentRoute: () => appAppRoute,
+} as any)
 const appAppUUsernameIndexRoute = appAppUUsernameIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -150,6 +156,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
+  '/clips/$clipId': typeof appAppClipsClipIdRoute
   '/g/$slug': typeof appAppGSlugRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
   '/': typeof appAppIndexRoute
+  '/clips/$clipId': typeof appAppClipsClipIdRoute
   '/g/$slug': typeof appAppGSlugRoute
   '/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/library/$captureId': typeof appAppLibraryCaptureIdRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/(auth)/_auth/login': typeof authAuthLoginRoute
   '/(auth)/_auth/sign-up': typeof authAuthSignUpRoute
   '/(app)/_app/': typeof appAppIndexRoute
+  '/(app)/_app/clips/$clipId': typeof appAppClipsClipIdRoute
   '/(app)/_app/g/$slug': typeof appAppGSlugRoute
   '/(app)/_app/games/$gameId': typeof appAppGamesGameIdRouteWithChildren
   '/(app)/_app/library/$captureId': typeof appAppLibraryCaptureIdRoute
@@ -219,6 +228,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/sign-up'
     | '/'
+    | '/clips/$clipId'
     | '/g/$slug'
     | '/games/$gameId'
     | '/library/$captureId'
@@ -240,6 +250,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/sign-up'
     | '/'
+    | '/clips/$clipId'
     | '/g/$slug'
     | '/games/$gameId'
     | '/library/$captureId'
@@ -263,6 +274,7 @@ export interface FileRouteTypes {
     | '/(auth)/_auth/login'
     | '/(auth)/_auth/sign-up'
     | '/(app)/_app/'
+    | '/(app)/_app/clips/$clipId'
     | '/(app)/_app/g/$slug'
     | '/(app)/_app/games/$gameId'
     | '/(app)/_app/library/$captureId'
@@ -392,6 +404,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppGSlugRouteImport
       parentRoute: typeof appAppRoute
     }
+    '/(app)/_app/clips/$clipId': {
+      id: '/(app)/_app/clips/$clipId'
+      path: '/clips/$clipId'
+      fullPath: '/clips/$clipId'
+      preLoaderRoute: typeof appAppClipsClipIdRouteImport
+      parentRoute: typeof appAppRoute
+    }
     '/(app)/_app/u/$username/': {
       id: '/(app)/_app/u/$username/'
       path: '/'
@@ -493,6 +512,7 @@ interface appAppRouteChildren {
   appAppGamesRoute: typeof appAppGamesRouteWithChildren
   appAppSettingsRoute: typeof appAppSettingsRoute
   appAppIndexRoute: typeof appAppIndexRoute
+  appAppClipsClipIdRoute: typeof appAppClipsClipIdRoute
   appAppGSlugRoute: typeof appAppGSlugRoute
   appAppLibraryCaptureIdRoute: typeof appAppLibraryCaptureIdRoute
   appAppTagsTagRoute: typeof appAppTagsTagRoute
@@ -505,6 +525,7 @@ const appAppRouteChildren: appAppRouteChildren = {
   appAppGamesRoute: appAppGamesRouteWithChildren,
   appAppSettingsRoute: appAppSettingsRoute,
   appAppIndexRoute: appAppIndexRoute,
+  appAppClipsClipIdRoute: appAppClipsClipIdRoute,
   appAppGSlugRoute: appAppGSlugRoute,
   appAppLibraryCaptureIdRoute: appAppLibraryCaptureIdRoute,
   appAppTagsTagRoute: appAppTagsTagRoute,

@@ -172,7 +172,7 @@ async function runPipelineInWorkDir({
     throw new Error("No rendition tiers apply to this source")
   }
 
-  // Work units: source publish, one per rendition tier, poster, finalize.
+  // Work units: source publish, poster, one per rendition tier, finalize.
   // Rendition units advance fractionally with ffmpeg progress, so the SSE
   // progress bar reflects real encode time.
   const totalWork = 1 + ladder.length + 2
@@ -228,6 +228,39 @@ async function runPipelineInWorkDir({
   retainSourceAsset(sourceAsset)
   completeWork()
 
+  await ensureStillPresent(store, id, runId, signal)
+  // Publish the poster before the encode ladder so viewers see a real
+  // thumbnail for the whole encode instead of only the BlurHash. Posters
+  // normally come from clients (rendered image + BlurHash shipped at
+  // initiate); the server only validates and republishes them. When no client
+  // poster exists at all, extract a frame server-side so every clip has an
+  // og:image and card thumbnail.
+  let thumb = await republishUploadedThumbnail(
+    store,
+    id,
+    runId,
+    row,
+    uploadedKeys,
+  )
+  if (!thumb.thumbKey) {
+    const poster = await extractPoster(mediaPath, workDir, {
+      durationMs: outputDurationMs,
+      signal,
+    })
+    if (poster) {
+      const thumbKey = runScopedThumbKey(id, runId)
+      await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
+      uploadedKeys.push(thumbKey)
+      thumb = { thumbKey, thumbBlurHash: poster.blurHash }
+    }
+  }
+  const { thumbKey, thumbBlurHash } = thumb
+  if (!(await store.commitThumb(id, runId, { thumbKey, thumbBlurHash })))
+    throw abortMediaProcessing()
+  if (thumbKey) retainPublishedKey(thumbKey)
+  store.publishUpsert(row.authorId, id)
+  completeWork()
+
   // Encode the quality ladder. Uploaded under run-scoped keys; committed
   // atomically with the ready transition below.
   const renditions: MediaRenditionRecord[] = []
@@ -272,37 +305,6 @@ async function runPipelineInWorkDir({
     })
     completeWork()
   }
-
-  await ensureStillPresent(store, id, runId, signal)
-  // Posters normally come from clients (rendered image + BlurHash shipped at
-  // initiate); the server only validates and republishes them. When no client
-  // poster exists at all, extract a frame server-side so every clip has an
-  // og:image and card thumbnail.
-  let thumb = await republishUploadedThumbnail(
-    store,
-    id,
-    runId,
-    row,
-    uploadedKeys,
-  )
-  if (!thumb.thumbKey) {
-    const poster = await extractPoster(mediaPath, workDir, {
-      durationMs: outputDurationMs,
-      signal,
-    })
-    if (poster) {
-      const thumbKey = runScopedThumbKey(id, runId)
-      await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
-      uploadedKeys.push(thumbKey)
-      thumb = { thumbKey, thumbBlurHash: poster.blurHash }
-    }
-  }
-  const { thumbKey, thumbBlurHash } = thumb
-  if (!(await store.commitThumb(id, runId, { thumbKey, thumbBlurHash })))
-    throw abortMediaProcessing()
-  if (thumbKey) retainPublishedKey(thumbKey)
-  store.publishUpsert(row.authorId, id)
-  completeWork()
 
   await ensureStillPresent(store, id, runId, signal)
   // Snapshot the outgoing rendition keys before commitReady replaces the rows.

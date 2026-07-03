@@ -252,9 +252,9 @@ export function EditorBody({
         posterUrl: poster ?? item.thumbnailUrl,
       })
       if (!clipId) return
-      if (privacy === "unlisted" && pickedGame) {
+      if (privacy === "unlisted") {
         const copied = await copyTextToClipboard(
-          absoluteClipHref(pickedGame.slug, clipId, publicOrigin()),
+          absoluteClipHref(pickedGame?.slug ?? null, clipId, publicOrigin()),
           { action: "copy published clip link" },
         )
         if (copied) {

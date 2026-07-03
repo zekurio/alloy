@@ -1,7 +1,8 @@
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { CLIP_MEDIA_CLASS } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useState } from "react"
 
 const HANDOFF_POSTER_TTL_MS = 10_000
 
@@ -48,25 +49,17 @@ export function LibraryHandoffPosterOverlay({
   poster: LibraryHandoffPoster | null
   ready: boolean
 }) {
-  const imageRef = useRef<HTMLImageElement | null>(null)
+  const image = useImageLoaded(poster?.src)
   const [mounted, setMounted] = useState(poster !== null)
-  const [imageLoaded, setImageLoaded] = useState(false)
 
   useEffect(() => {
     setMounted(poster !== null)
-    setImageLoaded(false)
   }, [poster])
-
-  useEffect(() => {
-    if (!poster?.src) return
-    const image = imageRef.current
-    setImageLoaded(Boolean(image?.complete && image.naturalWidth > 0))
-  }, [poster?.src])
 
   if (!poster || !mounted) return null
 
   const visible = !ready
-  const showImage = Boolean(poster.src && imageLoaded)
+  const showImage = Boolean(poster.src && image.loaded)
 
   return (
     <div
@@ -90,7 +83,7 @@ export function LibraryHandoffPosterOverlay({
       />
       {poster.src ? (
         <img
-          ref={imageRef}
+          ref={image.ref}
           src={poster.src}
           alt=""
           className={cn(
@@ -100,7 +93,7 @@ export function LibraryHandoffPosterOverlay({
           )}
           decoding="async"
           fetchPriority="high"
-          onLoad={() => setImageLoaded(true)}
+          onLoad={image.markLoaded}
         />
       ) : null}
     </div>
