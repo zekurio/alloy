@@ -452,7 +452,6 @@ const ADMIN_CATEGORIES = categoryDrafts([
       "1080p",
       "720p",
       "480p",
-      "hls",
       "re-encode",
     ],
     FilmIcon,

@@ -35,7 +35,7 @@ import { isInterruptedPlayRequest, mediaErrorMessage } from "./video-source"
 
 export function PlayerCore({
   spec,
-  hlsPlayback,
+  renditionPlayback,
   identity,
   poster,
   posterBlurHash,
@@ -69,7 +69,7 @@ export function PlayerCore({
     mediaKey,
     onMediaError,
     switchingRendition,
-  } = useMediaEngine(spec, videoRef, hlsPlayback)
+  } = useMediaEngine(spec, videoRef, renditionPlayback)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const playingRef = useRef(false)
   const volumeRef = useRef(1)
@@ -191,15 +191,14 @@ export function PlayerCore({
 
   useEffect(() => {
     // A changed `identity` means a different clip. A changed media key with
-    // the same identity is a source swap for the same clip (e.g. a pinned
-    // quality switch on a player without MSE).
+    // the same identity is a source swap for the same clip (e.g. a quality
+    // switch or an automatic downgrade).
     const previous = prevSourceRef.current
     const isNewMedia = !previous || previous.identity !== identity
     // Load state only resets when the element will actually reload (a new
     // effective media URL). An identity change with an unchanged URL never
     // re-fires `loadedmetadata`, so entering "loading" there would strand the
-    // spinner over a playing video. hls.js level switches keep the media key
-    // stable, so they never reset load state.
+    // spinner over a playing video.
     const isElementReload = !previous || previous.mediaKey !== mediaKey
     if (!isNewMedia && !isElementReload) return
     prevSourceRef.current = { identity, mediaKey }

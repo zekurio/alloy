@@ -19,6 +19,7 @@ import { z } from "zod"
 import { OAuthProvidersSchema } from "./config/oauth-schema"
 import {
   resolveFfmpegPath,
+  resolveFfprobePath,
   TRANSCODE_DEFAULTS,
 } from "./media/transcode-settings"
 
@@ -268,6 +269,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .min(1)
         .default("storage/games"),
       ALLOY_FFMPEG_PATH: z.string().trim().min(1).optional(),
+      ALLOY_FFPROBE_PATH: z.string().trim().min(1).optional(),
       ALLOY_TRANSCODE_CONCURRENCY: z.coerce
         .number()
         .int()
@@ -314,6 +316,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
   const socialProviders = envText(source, "ALLOY_SOCIALACCOUNT_PROVIDERS")
   const { oauthProviders, oauthClientSecrets } =
     parseSocialProviders(socialProviders)
+  const ffmpegPath = resolveFfmpegPath(raw.ALLOY_FFMPEG_PATH)
 
   return {
     NODE_ENV: raw.NODE_ENV,
@@ -331,7 +334,8 @@ export function parseServerEnv(source: EnvSource = process.env) {
     },
     storage,
     transcode: {
-      ffmpegPath: resolveFfmpegPath(raw.ALLOY_FFMPEG_PATH),
+      ffmpegPath,
+      ffprobePath: resolveFfprobePath(raw.ALLOY_FFPROBE_PATH, ffmpegPath),
       concurrency: raw.ALLOY_TRANSCODE_CONCURRENCY,
       threads: raw.ALLOY_TRANSCODE_THREADS,
     },

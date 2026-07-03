@@ -81,18 +81,6 @@ export function clipStreamUrl(
   )
 }
 
-export function clipMasterPlaylistUrl(
-  clipId: string,
-  origin?: string,
-  version?: string,
-): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/master.m3u8"),
-    { v: version },
-    origin,
-  )
-}
-
 export function clipRenditionFileUrl(
   clipId: string,
   name: string,

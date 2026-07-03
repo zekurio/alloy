@@ -11,7 +11,6 @@ const runtimePackages = [
   "blurhash",
   "drizzle-orm",
   "hono",
-  "mediabunny",
   "openid-client",
   "pg",
   "sharp",

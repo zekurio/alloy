@@ -8,11 +8,6 @@ import {
 } from "@alloy/server/clips/access"
 import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import { selectClipRenditions } from "@alloy/server/clips/renditions"
-import { playbackVersionFromKeys } from "@alloy/server/clips/select"
-import {
-  renderMasterPlaylist,
-  renderMediaPlaylist,
-} from "@alloy/server/media/renditions"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
@@ -34,8 +29,6 @@ import {
 import { zValidator } from "./validation"
 
 const logger = createLogger("clips")
-
-const HLS_CONTENT_TYPE = "application/vnd.apple.mpegurl"
 
 const RenditionParam = z.object({
   id: z.uuid(),
@@ -62,10 +55,9 @@ function versionedCacheControl(
 export const clipsPlaybackRoutes = new Hono()
   /**
    * GET /api/clips/:id/stream — progressive playback bytes. Serves the og
-   * rendition (H.264+AAC, so OpenGraph embeds, plain <video> tags, and the
-   * player's HLS-failure fallback decode everywhere), then the top rendition
-   * for ladders without one, then the stored source for clips the rendition
-   * backfill hasn't reached yet.
+   * rendition (H.264+AAC, so OpenGraph embeds and plain <video> tags decode
+   * everywhere), then the top rendition for ladders without one, then the
+   * stored source for clips the rendition backfill hasn't reached yet.
    */
   .get("/:id/stream", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
@@ -130,77 +122,8 @@ export const clipsPlaybackRoutes = new Hono()
     )
   })
   /**
-   * GET /api/clips/:id/master.m3u8 — HLS master playlist over the committed
-   * renditions. Variant URIs are relative, so they resolve under the same
-   * /api/clips/:id/ prefix (and the same auth) regardless of origin.
-   */
-  .get("/:id/master.m3u8", zValidator("param", IdParam), async (c) => {
-    const { id } = c.req.valid("param")
-    const access = await resolveClipAccess({ id, c, policy: "stream" })
-    if (!access.accessible) return clipAccessResponse(c, access)
-    const row = access.row
-
-    const renditions = await selectClipRenditions(id)
-    if (renditions.length === 0) return notFound(c, "Playlist unavailable")
-
-    const version = playbackVersionFromKeys(
-      renditions.map((rendition) => rendition.storage_key),
-    )
-    const body = renderMasterPlaylist(
-      renditions.map((rendition) => ({
-        height: rendition.height,
-        width: rendition.width,
-        fps: rendition.fps,
-        codecs: rendition.codecs,
-        bandwidth: rendition.bandwidth,
-        playlistUrl: `rendition/${rendition.name}/index.m3u8?v=${clipAssetVersion(rendition.storage_key)}`,
-      })),
-    )
-    c.header("Content-Type", HLS_CONTENT_TYPE)
-    c.header(
-      "Cache-Control",
-      versionedCacheControl(c.req.query("v"), version ?? "", row.privacy),
-    )
-    if (c.req.method === "HEAD") return c.body(null)
-    return c.body(body)
-  })
-  /**
-   * GET /api/clips/:id/rendition/:name/index.m3u8 — one tier's media
-   * playlist. Stored with a placeholder URI; the versioned file URL is
-   * substituted here so stored playlists never embed origins or keys.
-   */
-  .get(
-    "/:id/rendition/:name/index.m3u8",
-    zValidator("param", RenditionParam),
-    async (c) => {
-      const { id, name } = c.req.valid("param")
-      const access = await resolveClipAccess({ id, c, policy: "stream" })
-      if (!access.accessible) return clipAccessResponse(c, access)
-      const row = access.row
-
-      const rendition = (await selectClipRenditions(id)).find(
-        (candidate) => candidate.name === name,
-      )
-      if (!rendition) return notFound(c, "Playlist unavailable")
-
-      const version = clipAssetVersion(rendition.storage_key)
-      const body = renderMediaPlaylist(
-        rendition.playlist,
-        `file.mp4?v=${version}`,
-      )
-      c.header("Content-Type", HLS_CONTENT_TYPE)
-      c.header(
-        "Cache-Control",
-        versionedCacheControl(c.req.query("v"), version, row.privacy),
-      )
-      if (c.req.method === "HEAD") return c.body(null)
-      return c.body(body)
-    },
-  )
-  /**
-   * GET /api/clips/:id/rendition/:name/file.mp4 — the tier's single-file
-   * fMP4. Serves both HLS byte-range segment reads and plain progressive
-   * playback (quality selection on players without MSE).
+   * GET /api/clips/:id/rendition/:name/file.mp4 — the tier's progressive
+   * MP4, served via range requests for playback and quality selection.
    */
   .get(
     "/:id/rendition/:name/file.mp4",
