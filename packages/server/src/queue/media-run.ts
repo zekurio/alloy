@@ -8,6 +8,7 @@ import {
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
+import { mp4Layout, remuxToFastStart } from "@alloy/server/media/mp4-layout"
 import { extractPoster } from "@alloy/server/media/poster"
 import { probeMedia } from "@alloy/server/media/probe"
 import {
@@ -36,12 +37,17 @@ import sharp from "sharp"
 
 import { abortMediaProcessing } from "./media-abort"
 import {
+  runScopedCutKey,
   runScopedRenditionKey,
   runScopedSourceKey,
   runScopedThumbKey,
 } from "./media-asset-keys"
 import { makeMediaProgressWriter } from "./media-progress"
-import { type Asset, publishOriginalSource } from "./media-publish"
+import {
+  type Asset,
+  publishOriginalSource,
+  type SourceAsset,
+} from "./media-publish"
 import { makeMediaWorkDir } from "./media-run-helpers"
 import type { MediaRenditionRecord, MediaRow, MediaStore } from "./media-store"
 
@@ -60,8 +66,8 @@ async function ensureStillPresent(
 
 /**
  * Run the media pipeline for one leased clip. Downloads the source, applies a
- * pending owner trim, probes, publishes the source + poster under run-scoped
- * keys, and transitions the row to ready.
+ * virtual owner trim when present, publishes playable source/cut + poster, then
+ * finishes the encode ladder under the same lease.
  */
 export async function runMediaProcessing(
   store: MediaStore,
@@ -74,8 +80,9 @@ export async function runMediaProcessing(
   const uploadedKeys: string[] = []
   const retainedKeys = new Set<string>()
   if (row.sourceKey) retainedKeys.add(row.sourceKey)
+  if (row.cutKey) retainedKeys.add(row.cutKey)
   if (row.thumbKey) retainedKeys.add(row.thumbKey)
-  let sourcePublishedForRetry = !!row.sourceKey
+  let sourcePublishedForRetry = false
   try {
     await runPipelineInWorkDir({
       store,
@@ -85,9 +92,9 @@ export async function runMediaProcessing(
       signal,
       workDir,
       uploadedKeys,
-      retainSourceAsset: (asset) => {
+      retainSourceAsset: (asset, publishedByRun) => {
         retainedKeys.add(asset.storageKey)
-        sourcePublishedForRetry = true
+        if (publishedByRun) sourcePublishedForRetry = true
       },
       retainPublishedKey: (key) => retainedKeys.add(key),
     })
@@ -125,57 +132,71 @@ async function runPipelineInWorkDir({
   signal: AbortSignal
   workDir: string
   uploadedKeys: string[]
-  retainSourceAsset: (asset: Asset) => void
+  retainSourceAsset: (asset: Asset, publishedByRun: boolean) => void
   retainPublishedKey: (key: string) => void
 }): Promise<void> {
   const sourceContentType = row.sourceContentType as AcceptedContentType | null
   if (!sourceContentType)
     throw new Error("Recording is missing source content type")
 
-  const sourcePath = join(workDir, "source")
+  const rawSourcePath = join(workDir, "source")
   if (row.sourceKey) {
-    await clipStorage.downloadToFile(row.sourceKey, sourcePath)
+    await clipStorage.downloadToFile(row.sourceKey, rawSourcePath)
   } else {
     const uploadKey = await selectVideoTicketKey({ type: store.target, id })
     if (!uploadKey) throw new Error("Uploaded source is missing")
-    await downloadStagedUploadToFile(uploadKey, sourcePath)
+    await downloadStagedUploadToFile(uploadKey, rawSourcePath)
+  }
+
+  let sourcePath = rawSourcePath
+  if (!row.sourceKey && sourceContentType === "video/mp4") {
+    const layout = await mp4Layout(rawSourcePath)
+    if (layout === "trailing-moov") {
+      const remuxedPath = join(workDir, "source-faststart.mp4")
+      await remuxToFastStart(rawSourcePath, remuxedPath, signal)
+      sourcePath = remuxedPath
+    }
   }
   await ensureStillPresent(store, id, runId, signal)
 
   if (!(await store.beginProcessing(id, runId))) throw abortMediaProcessing()
   store.publishUpsert(row.authorId, id)
 
-  // A pending owner trim cuts the source before anything else is derived. The
-  // cut file is published under a fresh versioned key, so the original source
-  // stays intact until the new one is committed — a retry after a mid-run
-  // failure re-trims from the untouched original.
-  const trim = pendingTrimRange(row)
+  const sourceProbe = await probeMedia(sourcePath)
+  const trim = trimRange(row)
   let mediaPath = sourcePath
-  let mediaContentType = sourceContentType
+  let cutKey: string | null = null
+  let cutProbe: Awaited<ReturnType<typeof probeMedia>> | null = null
   if (trim) {
-    const trimmedPath = join(workDir, "trimmed.mp4")
-    await trimToMp4(sourcePath, trimmedPath, { ...trim, signal })
-    mediaPath = trimmedPath
-    mediaContentType = "video/mp4"
+    const cutPath = join(workDir, "cut.mp4")
+    await trimToMp4(sourcePath, cutPath, { ...trim, signal })
+    cutProbe = await probeMedia(cutPath)
+    cutKey = runScopedCutKey(id, runId)
+    await clipStorage.uploadFromFile(cutPath, cutKey, "video/mp4")
+    uploadedKeys.push(cutKey)
+    mediaPath = cutPath
   }
   await ensureStillPresent(store, id, runId, signal)
 
-  const probed = await probeMedia(mediaPath)
-  const outputDurationMs = probed.durationMs
+  const mediaContentType = trim ? "video/mp4" : sourceContentType
+  const durationMs = cutProbe?.durationMs ?? sourceProbe.durationMs
+  const browserSafe =
+    mediaContentType === "video/mp4" &&
+    sourceProbe.videoCodecString?.startsWith("avc1.") === true &&
+    (sourceProbe.audioCodec === null ||
+      sourceProbe.audioCodecString?.startsWith("mp4a.40.") === true)
 
   const transcodingConfig = configStore.get("transcoding")
   const ladder = effectiveLadder(transcodingConfig, {
-    height: probed.height,
-    fps: probed.fps,
+    height: sourceProbe.height,
+    fps: sourceProbe.fps,
+    browserSafe,
   })
-  if (ladder.length === 0) {
-    throw new Error("No rendition tiers apply to this source")
-  }
 
   // Work units: source publish, poster, one per rendition tier, finalize.
   // Rendition units advance fractionally with ffmpeg progress, so the SSE
   // progress bar reflects real encode time.
-  const totalWork = 1 + ladder.length + 2
+  const totalWork = 1 + 1 + ladder.length + 1
   let completedWork = 0
   const writeProgress = makeMediaProgressWriter({
     id,
@@ -191,47 +212,45 @@ async function runPipelineInWorkDir({
     progressAt(0)
   }
 
-  const sourceKey = trim
-    ? runScopedSourceKey(id, runId)
-    : (row.sourceKey ?? runScopedSourceKey(id, runId))
-  const canReuseSource = !trim && row.sourceKey === sourceKey
-  const sourceAsset = canReuseSource
+  const sourceAsset: SourceAsset = row.sourceKey
     ? {
-        storageKey: sourceKey,
+        storageKey: row.sourceKey,
         contentType: sourceContentType,
-        sizeBytes: row.sourceSizeBytes ?? (await stat(mediaPath)).size,
-        width: probed.width,
-        height: probed.height,
-        videoCodec: probed.videoCodec,
-        audioCodec: probed.audioCodec,
+        sizeBytes: row.sourceSizeBytes ?? (await stat(sourcePath)).size,
+        width: sourceProbe.width,
+        height: sourceProbe.height,
+        videoCodec: sourceProbe.videoCodec,
+        audioCodec: sourceProbe.audioCodec,
       }
     : await publishOriginalSource({
-        sourcePath: mediaPath,
-        sourceKey,
-        contentType: mediaContentType,
-        probe: probed,
+        sourcePath,
+        sourceKey: runScopedSourceKey(id, runId),
+        contentType: sourceContentType,
+        probe: sourceProbe,
       })
-  if (!canReuseSource) uploadedKeys.push(sourceKey)
+  if (!row.sourceKey) uploadedKeys.push(sourceAsset.storageKey)
 
   const sourcePatch = {
     sourceKey: sourceAsset.storageKey,
     sourceContentType: sourceAsset.contentType,
     sourceVideoCodec: sourceAsset.videoCodec,
     sourceAudioCodec: sourceAsset.audioCodec,
-    sourceCodecs: probed.videoCodecString
-      ? [probed.videoCodecString, probed.audioCodecString]
+    sourceCodecs: sourceProbe.videoCodecString
+      ? [sourceProbe.videoCodecString, sourceProbe.audioCodecString]
           .filter((value): value is string => !!value)
           .join(",")
       : null,
     sourceSizeBytes: sourceAsset.sizeBytes,
-    sourceDurationMs: outputDurationMs,
-    durationMs: outputDurationMs,
-    width: sourceAsset.width,
-    height: sourceAsset.height,
+    sourceDurationMs: sourceProbe.durationMs,
+    cutKey,
+    durationMs,
+    width: sourceProbe.width,
+    height: sourceProbe.height,
   }
   if (!(await store.commitSource(id, runId, sourcePatch)))
     throw abortMediaProcessing()
-  retainSourceAsset(sourceAsset)
+  retainSourceAsset(sourceAsset, !row.sourceKey)
+  if (cutKey) retainPublishedKey(cutKey)
   completeWork()
 
   await ensureStillPresent(store, id, runId, signal)
@@ -247,10 +266,11 @@ async function runPipelineInWorkDir({
     runId,
     row,
     uploadedKeys,
+    { keepExisting: !trim },
   )
   if (!thumb.thumbKey) {
     const poster = await extractPoster(mediaPath, workDir, {
-      durationMs: outputDurationMs,
+      durationMs,
       signal,
     })
     if (poster) {
@@ -263,6 +283,7 @@ async function runPipelineInWorkDir({
   const { thumbKey, thumbBlurHash } = thumb
   if (!(await store.commitThumb(id, runId, { thumbKey, thumbBlurHash })))
     throw abortMediaProcessing()
+  if (!(await store.commitPlayable(id, runId))) throw abortMediaProcessing()
   if (thumbKey) retainPublishedKey(thumbKey)
   store.publishUpsert(row.authorId, id)
   completeWork()
@@ -282,7 +303,7 @@ async function runPipelineInWorkDir({
       outDir: join(workDir, `rendition-${step.name}`),
       config: encodeConfig,
       step,
-      durationMs: outputDurationMs,
+      durationMs,
       signal,
       onProgress: progressAt,
       onHardwareFailed: () => {
@@ -328,6 +349,7 @@ async function runPipelineInWorkDir({
   // was not retained is orphaned; prune it best-effort after publish.
   await pruneStaleAssets(row, previousAssets?.renditionKeys ?? [], [
     sourceAsset.storageKey,
+    ...(cutKey ? [cutKey] : []),
     ...renditions.map((rendition) => rendition.storageKey),
     ...(thumbKey ? [thumbKey] : []),
   ])
@@ -382,7 +404,7 @@ async function encodeRenditionWithFallback(options: {
   }
 }
 
-function pendingTrimRange(
+function trimRange(
   row: Pick<MediaRow, "trimStartMs" | "trimEndMs">,
 ): { startMs: number; endMs: number } | null {
   if (row.trimStartMs == null || row.trimEndMs == null) return null
@@ -391,13 +413,14 @@ function pendingTrimRange(
 }
 
 async function pruneStaleAssets(
-  row: Pick<MediaRow, "sourceKey" | "thumbKey">,
+  row: Pick<MediaRow, "sourceKey" | "cutKey" | "thumbKey">,
   previousRenditionKeys: readonly string[],
   retainedKeys: Iterable<string>,
 ): Promise<void> {
   const retained = new Set(retainedKeys)
   const previousKeys = new Set([
     row.sourceKey,
+    row.cutKey,
     row.thumbKey,
     ...previousRenditionKeys,
   ])
@@ -412,7 +435,8 @@ async function pruneStaleAssets(
 
 /**
  * Republish the desktop-uploaded poster when one was staged for this run,
- * otherwise keep whatever the row already points at (owner trim reprocess).
+ * otherwise keep the current poster only when the caller says the visible
+ * media did not change.
  */
 async function republishUploadedThumbnail(
   store: MediaStore,
@@ -420,6 +444,7 @@ async function republishUploadedThumbnail(
   runId: string,
   row: MediaRow,
   uploadedKeys: string[],
+  options: { keepExisting: boolean },
 ): Promise<{ thumbKey: string | null; thumbBlurHash: string | null }> {
   const uploadedThumbKey = await selectThumbTicketKey({
     type: store.target,
@@ -432,7 +457,7 @@ async function republishUploadedThumbnail(
         logger.warn(
           `rejected oversized staged poster for ${id}: ${stagedThumb.size} bytes`,
         )
-        return publishedThumbnail(row)
+        return options.keepExisting ? publishedThumbnail(row) : noThumbnail()
       }
 
       const buf = Buffer.from(
@@ -440,7 +465,7 @@ async function republishUploadedThumbnail(
       )
       const jpeg = await normalizeStagedPosterToJpeg(buf, id)
       if (!jpeg) {
-        return publishedThumbnail(row)
+        return options.keepExisting ? publishedThumbnail(row) : noThumbnail()
       }
 
       const thumbKey = runScopedThumbKey(id, runId)
@@ -448,9 +473,16 @@ async function republishUploadedThumbnail(
       uploadedKeys.push(thumbKey)
       return { thumbKey, thumbBlurHash: normalizeBlurHash(row.thumbBlurHash) }
     }
-    return publishedThumbnail(row)
+    return options.keepExisting ? publishedThumbnail(row) : noThumbnail()
   }
-  return publishedThumbnail(row)
+  return options.keepExisting ? publishedThumbnail(row) : noThumbnail()
+}
+
+function noThumbnail(): {
+  thumbKey: string | null
+  thumbBlurHash: string | null
+} {
+  return { thumbKey: null, thumbBlurHash: null }
 }
 
 function publishedThumbnail(
@@ -512,6 +544,7 @@ async function retainRowAssetKeys(
   try {
     const fresh = await store.currentAssetKeys(id)
     if (fresh?.sourceKey) retainedKeys.add(fresh.sourceKey)
+    if (fresh?.cutKey) retainedKeys.add(fresh.cutKey)
     if (fresh?.thumbKey) retainedKeys.add(fresh.thumbKey)
     for (const key of fresh?.renditionKeys ?? []) retainedKeys.add(key)
   } catch (err) {

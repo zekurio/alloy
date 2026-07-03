@@ -75,8 +75,9 @@ export const clip = pgTable(
     like_count: integer().notNull().default(0),
     comment_count: integer().notNull().default(0),
 
-    // Pending owner-requested trim (source-time ms). The media pipeline cuts
-    // the stored source to this range on its next run and clears both.
+    // Owner trim range in source-time ms. Virtual: the source is never
+    // modified; the media pipeline derives a stream-copy cut + renditions from
+    // this persisted range. Null = untrimmed.
     trim_start_ms: integer(),
     trim_end_ms: integer(),
     // Storage key of the derived stream-copy cut for trimmed clips; null =

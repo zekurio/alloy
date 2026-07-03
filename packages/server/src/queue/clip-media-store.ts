@@ -37,6 +37,7 @@ const mediaRowSelect = {
   sourceKey: clip.source_key,
   sourceContentType: clip.source_content_type,
   sourceSizeBytes: clip.source_size_bytes,
+  cutKey: clip.cut_key,
   thumbKey: clip.thumb_key,
   thumbBlurHash: clip.thumb_blur_hash,
   trimStartMs: clip.trim_start_ms,
@@ -53,6 +54,7 @@ function sourcePatchToColumns(patch: MediaSourcePatch) {
     source_codecs: patch.sourceCodecs,
     source_size_bytes: patch.sourceSizeBytes,
     source_duration_ms: patch.sourceDurationMs,
+    cut_key: patch.cutKey,
     duration_ms: patch.durationMs,
     width: patch.width,
     height: patch.height,
@@ -214,8 +216,6 @@ export const clipMediaStore: MediaStore = {
       .update(clip)
       .set({
         ...sourcePatchToColumns(patch),
-        trim_start_ms: null,
-        trim_end_ms: null,
         updated_at: new Date(),
       })
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
@@ -227,6 +227,15 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .update(clip)
       .set({ ...thumbPatchToColumns(patch), updated_at: new Date() })
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+      .returning({ id: clip.id })
+    return Boolean(row)
+  },
+
+  async commitPlayable(id, runId) {
+    const [row] = await db
+      .update(clip)
+      .set({ status: "ready", updated_at: new Date() })
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
@@ -273,7 +282,11 @@ export const clipMediaStore: MediaStore = {
 
   async currentAssetKeys(id) {
     const [row] = await db
-      .select({ sourceKey: clip.source_key, thumbKey: clip.thumb_key })
+      .select({
+        sourceKey: clip.source_key,
+        cutKey: clip.cut_key,
+        thumbKey: clip.thumb_key,
+      })
       .from(clip)
       .where(eq(clip.id, id))
       .limit(1)

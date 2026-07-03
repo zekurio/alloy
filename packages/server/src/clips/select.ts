@@ -30,6 +30,7 @@ export const clipSelectShape = {
   sourceVideoCodec: clip.source_video_codec,
   sourceAudioCodec: clip.source_audio_codec,
   sourceSizeBytes: clip.source_size_bytes,
+  cutKey: clip.cut_key,
   durationMs: clip.duration_ms,
   width: clip.width,
   height: clip.height,
@@ -100,6 +101,7 @@ export function toPublicClipRow<
     sourceVideoCodec: string | null
     sourceAudioCodec: string | null
     sourceSizeBytes: number | null
+    cutKey?: string | null
     durationMs: number | null
     width: number | null
     height: number | null
@@ -119,7 +121,13 @@ export function toPublicClipRow<
     }[]
   },
 >(row: T) {
-  const { sourceKey: _sourceKey, gameRef, renditionRows, ...rest } = row
+  const {
+    sourceKey: _sourceKey,
+    cutKey: _cutKey,
+    gameRef,
+    renditionRows,
+    ...rest
+  } = row
   const thumbVersion = row.thumbKey ? clipAssetVersion(row.thumbKey) : null
   const renditions = (renditionRows ?? []).map((rendition) => ({
     name: rendition.name,
@@ -133,7 +141,11 @@ export function toPublicClipRow<
     ...rest,
     // Derived from the storage key so it changes exactly when a republish
     // (trim, remux) swaps the bytes — the key itself never leaves the server.
-    sourceVersion: row.sourceKey ? clipAssetVersion(row.sourceKey) : null,
+    sourceVersion: row.cutKey
+      ? clipAssetVersion(row.cutKey)
+      : row.sourceKey
+        ? clipAssetVersion(row.sourceKey)
+        : null,
     renditions,
     gameRef: gameRef
       ? serialiseGameRow(gameRef)

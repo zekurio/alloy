@@ -16,8 +16,8 @@ export async function deleteClipRowAndAssets(
   await cancelClipMediaProcessing(row.id)
   await db.delete(clip).where(eq(clip.id, row.id))
 
-  const keys = [row.source_key, row.thumb_key].filter((key): key is string =>
-    Boolean(key),
+  const keys = [row.source_key, row.cut_key, row.thumb_key].filter(
+    (key): key is string => Boolean(key),
   )
   for (const key of keys) {
     try {

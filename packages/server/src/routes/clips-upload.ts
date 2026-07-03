@@ -127,7 +127,7 @@ export const clipsUploadRoutes = new Hono()
       const row = access.row
 
       if (!row.source_key) return badRequest(c, "Clip has no source media")
-      const durationMs = row.duration_ms
+      const durationMs = row.source_duration_ms ?? row.duration_ms
       if (durationMs == null || durationMs <= 0) {
         return badRequest(c, "Clip duration is unknown")
       }
@@ -141,6 +141,37 @@ export const clipsUploadRoutes = new Hono()
         startMs <= TRIM_FULL_RANGE_TOLERANCE_MS &&
         endMs >= durationMs - TRIM_FULL_RANGE_TOLERANCE_MS
       ) {
+        if (
+          row.trim_start_ms !== null ||
+          row.trim_end_ms !== null ||
+          row.cut_key !== null
+        ) {
+          const [accepted] = await db
+            .update(clip)
+            .set({
+              trim_start_ms: null,
+              trim_end_ms: null,
+              status: "processing",
+              encode_progress: 0,
+              encode_attempt: 0,
+              failure_reason: null,
+              updated_at: new Date(),
+            })
+            .where(
+              and(
+                eq(clip.id, id),
+                eq(clip.author_id, row.author_id),
+                eq(clip.status, "ready"),
+              ),
+            )
+            .returning({ id: clip.id })
+          if (!accepted) return conflict(c, "Clip is already processing")
+
+          void publishClipUpsert(row.author_id, id)
+          enqueueClipMediaProcessing(id)
+
+          return updatedClipResponse(c, id)
+        }
         return badRequest(c, "The trim covers the whole clip")
       }
 
