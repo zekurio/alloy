@@ -8,13 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import {
-  ChevronUpIcon,
-  Link2Icon,
-  Loader2Icon,
-  UploadIcon,
-  XIcon,
-} from "lucide-react"
+import { ChevronUpIcon, Link2Icon, Loader2Icon, UploadIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
@@ -124,21 +118,9 @@ function WebUploadEditorInner({
 
   return (
     <AppMain className="flex min-h-0 flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-foreground text-base font-semibold">
-          {t("Upload clip")}
-        </h1>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={t("Cancel")}
-          disabled={pending}
-          onClick={onCancel}
-        >
-          <XIcon />
-        </Button>
-      </div>
+      <h1 className="text-foreground text-base font-semibold">
+        {t("Upload clip")}
+      </h1>
 
       <section className="flex min-h-0 w-full flex-1 flex-col">
         <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
