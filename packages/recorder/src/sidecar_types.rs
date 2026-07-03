@@ -629,6 +629,15 @@ struct CodecCaps {
     software_h264: bool,
 }
 
+/// Inputs a codec capability probe depends on; cached results are only valid
+/// while these stay unchanged.
+#[derive(PartialEq, Eq)]
+struct CodecCapsKey {
+    adapter: u32,
+    gpu_label: Option<String>,
+    runtime_dir: Option<PathBuf>,
+}
+
 #[derive(Default)]
 struct Recorder {
     obs: Option<LibObs>,
@@ -642,13 +651,12 @@ struct Recorder {
     /// Encoder capabilities probed independently of an active recording so the
     /// settings UI can show supported codecs while recording is disabled.
     codec_caps: Option<CodecCaps>,
-    /// Adapter + GPU label + runtime the cached `codec_caps` were probed
-    /// against; a change invalidates the cache and triggers a re-probe.
-    codec_caps_key: Option<(u32, Option<String>, Option<PathBuf>)>,
-    /// Adapter + GPU label + runtime and time of the last failed capability
-    /// probe, so retries from the tick loop back off instead of spinning OBS up
-    /// twice a second.
-    codec_caps_failed_probe: Option<((u32, Option<String>, Option<PathBuf>), Instant)>,
+    /// Probe inputs the cached `codec_caps` were probed against; a change
+    /// invalidates the cache and triggers a re-probe.
+    codec_caps_key: Option<CodecCapsKey>,
+    /// Probe inputs and time of the last failed capability probe, so retries
+    /// from the tick loop back off instead of spinning OBS up twice a second.
+    codec_caps_failed_probe: Option<(CodecCapsKey, Instant)>,
     cached_gpus: Vec<String>,
     cached_gpus_at: Option<Instant>,
     cached_audio_devices: Vec<RecordingAudioDeviceSelection>,
