@@ -14,5 +14,5 @@ export const authConfigRoute = new Hono()
     c.header("Cache-Control", "no-store")
     const enabled = configStore.get("appearance").loginSplash.enabled
     const clips = enabled ? await getLoginBackdropClips() : []
-    return c.json({ clipIds: clips.map((clip) => clip.id), clips })
+    return c.json({ clips })
   })
