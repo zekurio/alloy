@@ -17,17 +17,14 @@ import {
   buildRenditionArgs,
   effectiveLadder,
   encodeRendition,
-  mediaPlaylistStats,
-  RENDITION_MEDIA_URI_PLACEHOLDER,
-  renderMasterPlaylist,
-  renderMediaPlaylist,
-  SEGMENT_SECONDS,
 } from "./renditions"
 import { transcodeSettings } from "./transcode-settings"
 
 const FULL_CONFIG = TranscodingConfigSchema.parse({})
 const ffmpegAvailable =
   spawnSync(transcodeSettings().ffmpegPath, ["-version"], { stdio: "ignore" })
+    .status === 0 &&
+  spawnSync(transcodeSettings().ffprobePath, ["-version"], { stdio: "ignore" })
     .status === 0
 const x265Available =
   ffmpegAvailable &&
@@ -235,6 +232,9 @@ test("buildRenditionArgs keeps libx264 shape", () => {
   assert.ok(args.includes("8000k"))
   assert.ok(args.includes("-b:a"))
   assert.ok(args.includes("128k"))
+  assert.ok(args.includes("-movflags"))
+  assert.ok(args.includes("+faststart"))
+  assert.equal(args.at(-1), "media.mp4")
 })
 
 test("buildRenditionArgs tags hevc and omits x264-only scenecut arg", () => {
@@ -316,112 +316,9 @@ test(
   },
 )
 
-const SAMPLE_PLAYLIST = `#EXTM3U
-#EXT-X-VERSION:7
-#EXT-X-TARGETDURATION:2
-#EXT-X-MEDIA-SEQUENCE:0
-#EXT-X-PLAYLIST-TYPE:VOD
-#EXT-X-MAP:URI="${RENDITION_MEDIA_URI_PLACEHOLDER}",BYTERANGE="1373@0"
-#EXTINF:2.000000,
-#EXT-X-BYTERANGE:420669@1373
-${RENDITION_MEDIA_URI_PLACEHOLDER}
-#EXTINF:2.000000,
-#EXT-X-BYTERANGE:502091@422042
-${RENDITION_MEDIA_URI_PLACEHOLDER}
-#EXTINF:1.000000,
-#EXT-X-BYTERANGE:255267@924133
-${RENDITION_MEDIA_URI_PLACEHOLDER}
-#EXT-X-ENDLIST
-`
-
-test("mediaPlaylistStats derives the peak segment bitrate", () => {
-  const stats = mediaPlaylistStats(SAMPLE_PLAYLIST)
-  assert.ok(stats)
-  assert.equal(stats.segmentCount, 3)
-  // The short tail segment carries the highest rate: 255267 bytes over 1s.
-  assert.equal(stats.peakBitrate, 255267 * 8)
-})
-
-test("mediaPlaylistStats returns null without segments", () => {
-  assert.equal(mediaPlaylistStats("#EXTM3U\n#EXT-X-ENDLIST\n"), null)
-})
-
-test("renderMediaPlaylist substitutes every URI occurrence", () => {
-  const rendered = renderMediaPlaylist(SAMPLE_PLAYLIST, "file.mp4?v=abc")
-  assert.ok(!rendered.includes(RENDITION_MEDIA_URI_PLACEHOLDER))
-  assert.equal(rendered.match(/file\.mp4\?v=abc/g)?.length, 4)
-  assert.ok(
-    rendered.includes('#EXT-X-MAP:URI="file.mp4?v=abc",BYTERANGE="1373@0"'),
-  )
-})
-
-test("renderMasterPlaylist orders tiers and omits empty CODECS", () => {
-  const master = renderMasterPlaylist([
-    {
-      height: 480,
-      width: 854,
-      fps: 30,
-      codecs: "",
-      bandwidth: 1_500_000,
-      playlistUrl: "rendition/480/index.m3u8?v=b",
-    },
-    {
-      height: 1080,
-      width: 1920,
-      fps: 60,
-      codecs: "avc1.64002a,mp4a.40.2",
-      bandwidth: 8_000_000,
-      playlistUrl: "rendition/1080/index.m3u8?v=a",
-    },
-  ])
-  const lines = master.trim().split("\n")
-  assert.equal(lines[0], "#EXTM3U")
-  const streamInfIndex = lines.findIndex((line) =>
-    line.startsWith("#EXT-X-STREAM-INF:"),
-  )
-  assert.ok(
-    lines[streamInfIndex]?.includes(
-      'BANDWIDTH=8000000,RESOLUTION=1920x1080,FRAME-RATE=60.000,CODECS="avc1.64002a,mp4a.40.2"',
-    ),
-  )
-  assert.equal(lines[streamInfIndex + 1], "rendition/1080/index.m3u8?v=a")
-  const lowTier = lines.find((line) => line.includes("RESOLUTION=854x480"))
-  assert.ok(lowTier)
-  assert.ok(!lowTier.includes("CODECS"))
-})
-
-test("renderMasterPlaylist breaks same-height ties by bandwidth", () => {
-  const master = renderMasterPlaylist([
-    {
-      height: 1080,
-      width: 1920,
-      fps: 30,
-      codecs: "",
-      bandwidth: 4_000_000,
-      playlistUrl: "rendition/1080p30/index.m3u8?v=b",
-    },
-    {
-      height: 1080,
-      width: 1920,
-      fps: 60,
-      codecs: "",
-      bandwidth: 8_000_000,
-      playlistUrl: "rendition/1080p60/index.m3u8?v=a",
-    },
-  ])
-  const urls = master
-    .trim()
-    .split("\n")
-    .filter((line) => line.startsWith("rendition/"))
-  assert.deepEqual(urls, [
-    "rendition/1080p60/index.m3u8?v=a",
-    "rendition/1080p30/index.m3u8?v=b",
-  ])
-})
-
 test(
-  "encodeRendition emits an aligned single-file fMP4 with byte-range playlist",
-  { skip: !ffmpegAvailable && "ffmpeg not available on PATH" },
+  "encodeRendition emits a probeable progressive MP4",
+  { skip: !ffmpegAvailable && "ffmpeg/ffprobe not available on PATH" },
   async () => {
     const workDir = await mkdtemp(join(tmpdir(), "alloy-renditions-test-"))
     try {
@@ -470,49 +367,22 @@ test(
 
       assert.equal(encoded.height, 720)
       assert.equal(encoded.width, 1280)
+      assert.equal(encoded.fps, 60)
       assert.ok(encoded.codecs.startsWith("avc1."))
-      assert.ok(encoded.bandwidth > 0)
+      assert.ok(encoded.codecs.endsWith(",mp4a.40.2"))
       assert.ok(progress.length > 0)
       assert.ok(progress.every((fraction) => fraction >= 0 && fraction <= 1))
 
-      // The stored playlist must reference only the placeholder.
-      assert.ok(encoded.playlist.includes(RENDITION_MEDIA_URI_PLACEHOLDER))
-      assert.ok(!encoded.playlist.includes("media.mp4"))
+      assert.equal(encoded.sizeBytes, (await stat(encoded.filePath)).size)
+      // No HLS artifacts: the work dir holds exactly the MP4.
+      await assert.rejects(stat(join(workDir, "out-720p", "index.m3u8")))
 
-      // Byte ranges must tile the file exactly: init segment from offset 0,
-      // then contiguous segments ending at the file size.
-      const fileSize = (await stat(encoded.filePath)).size
-      assert.equal(encoded.sizeBytes, fileSize)
-      const mapMatch = encoded.playlist.match(/BYTERANGE="(\d+)@(\d+)"/)
-      assert.ok(mapMatch)
-      assert.equal(Number(mapMatch[2]), 0)
-      let expectedOffset = Number(mapMatch[1])
-      for (const match of encoded.playlist.matchAll(
-        /#EXT-X-BYTERANGE:(\d+)@(\d+)/g,
-      )) {
-        assert.equal(Number(match[2]), expectedOffset)
-        expectedOffset += Number(match[1])
-      }
-      assert.equal(expectedOffset, fileSize)
-
-      // Segment durations must sum to the media duration on the 2s grid.
-      const durations = [
-        ...encoded.playlist.matchAll(/#EXTINF:([\d.]+),/g),
-      ].map((match) => Number(match[1]))
-      assert.ok(durations.length >= 2)
-      const total = durations.reduce((sum, value) => sum + value, 0)
-      assert.ok(Math.abs(total - 5) < 0.5)
-      assert.ok(
-        durations
-          .slice(0, -1)
-          .every((value) => Math.abs(value - SEGMENT_SECONDS) < 0.05),
-      )
-
-      // The single file itself is a probeable progressive MP4.
+      // The file itself is a probeable progressive MP4.
       const probed = await probeMedia(encoded.filePath)
       assert.equal(probed.videoCodec, "h264")
       assert.equal(probed.height, 720)
       assert.equal(probed.audioCodec, "aac")
+      assert.ok(Math.abs(probed.durationMs - 5000) < 500)
     } finally {
       await rm(workDir, { recursive: true, force: true })
     }

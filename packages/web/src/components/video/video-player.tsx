@@ -1,6 +1,6 @@
 import { useMemo } from "react"
 
-import type { HlsPlayback } from "./video-media-engine"
+import type { RenditionPlayback } from "./video-media-engine"
 import { PlayerCore } from "./video-player-core"
 import type { SharedPlayerProps } from "./video-player-types"
 import { type SourceSpec, sourceSpecKey, toSourceSpec } from "./video-source"
@@ -9,8 +9,8 @@ export { VolumeControl } from "./video-volume-control"
 
 interface VideoPlayerProps extends SharedPlayerProps {
   src: string | File
-  /** HLS config for sources with committed renditions; src stays the fallback. */
-  hlsPlayback?: HlsPlayback | null
+  /** Rendition config for sources with committed tiers; src stays the fallback. */
+  renditionPlayback?: RenditionPlayback | null
   poster?: string
   posterBlurHash?: string | null
   fallbackSeed?: string | number
@@ -25,7 +25,7 @@ interface VideoPlayerProps extends SharedPlayerProps {
 
 export function VideoPlayer({
   src,
-  hlsPlayback,
+  renditionPlayback,
   sourceIdentity,
   aspectRatio,
   controls = true,
@@ -42,7 +42,7 @@ export function VideoPlayer({
   return (
     <PlayerCore
       spec={spec}
-      hlsPlayback={hlsPlayback}
+      renditionPlayback={renditionPlayback}
       identity={identity}
       aspectRatio={aspectRatio}
       controls={controls}

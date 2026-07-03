@@ -17,7 +17,6 @@ import { useUploadFlowControls } from "@/components/upload/use-upload-flow-contr
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
 import { useCapturePoster } from "@/lib/capture-poster"
-import { clipHlsPlayback } from "@/lib/clip-hls"
 import {
   invalidateDeletedClipCaches,
   removeClipDetailFromCache,
@@ -238,16 +237,6 @@ function useClipEditorMedia(
   const posterBlurHash = row.thumbBlurHash ?? localItem?.thumbBlurHash ?? null
   const fallbackSeed = row.gameId ?? localItem?.groupLabel ?? row.id
   const playbackSrc = processing ? (localItem?.mediaUrl ?? null) : streamSrc
-  // Rendition-backed clips must play over HLS: rendition files are byte-range
-  // fMP4s that stall Chromium when streamed progressively. The stream URL
-  // stays the fallback for pre-rendition clips, where it serves the source.
-  const hlsPlayback = useMemo(
-    () =>
-      processing
-        ? null
-        : clipHlsPlayback(row.id, row.renditions, row.playbackVersion),
-    [processing, row.id, row.renditions, row.playbackVersion],
-  )
   const aspectRatio = mediaAspectRatio(
     row.width ?? localItem?.width,
     row.height ?? localItem?.height,
@@ -284,7 +273,6 @@ function useClipEditorMedia(
     cloudFrameReady,
     filmstrip,
     handoffPoster,
-    hlsPlayback,
     mediaVersion,
     playbackSrc,
     poster,
@@ -320,7 +308,6 @@ function ClipEditorStage({
         {media.playbackSrc ? (
           <VideoPlayer
             src={media.playbackSrc}
-            hlsPlayback={media.hlsPlayback}
             sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
             poster={media.poster}
             posterBlurHash={media.posterBlurHash}

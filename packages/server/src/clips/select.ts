@@ -63,7 +63,7 @@ export const clipSelectShape = {
       key: string
       codecs: string
     }[]
-  >`coalesce((select json_agg(json_build_object('name', ${clipRendition.name}, 'og', ${clipRendition.is_og}, 'height', ${clipRendition.height}, 'width', ${clipRendition.width}, 'fps', ${clipRendition.fps}, 'key', ${clipRendition.storage_key}, 'codecs', ${clipRendition.codecs}) order by ${clipRendition.height} desc, ${clipRendition.bandwidth} desc) from ${clipRendition} where ${clipRendition.clip_id} = ${clip.id}), '[]'::json)`,
+  >`coalesce((select json_agg(json_build_object('name', ${clipRendition.name}, 'og', ${clipRendition.is_og}, 'height', ${clipRendition.height}, 'width', ${clipRendition.width}, 'fps', ${clipRendition.fps}, 'key', ${clipRendition.storage_key}, 'codecs', ${clipRendition.codecs}) order by ${clipRendition.height} desc, ${clipRendition.fps} desc) from ${clipRendition} where ${clipRendition.clip_id} = ${clip.id}), '[]'::json)`,
 } as const
 
 async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
@@ -135,9 +135,6 @@ export function toPublicClipRow<
     // (trim, remux) swaps the bytes — the key itself never leaves the server.
     sourceVersion: row.sourceKey ? clipAssetVersion(row.sourceKey) : null,
     renditions,
-    playbackVersion: playbackVersionFromKeys(
-      (renditionRows ?? []).map((rendition) => rendition.key),
-    ),
     gameRef: gameRef
       ? serialiseGameRow(gameRef)
       : row.gameId !== null
@@ -150,16 +147,4 @@ export function toPublicClipRow<
     thumbVersion,
     thumbBlurHash: thumbVersion ? normalizeBlurHash(row.thumbBlurHash) : null,
   }
-}
-
-/**
- * Version for playlist URLs, derived from the full rendition key set so both
- * a re-encode and a ladder change bust caches. Must match the computation in
- * the playback routes.
- */
-export function playbackVersionFromKeys(
-  keys: readonly string[],
-): string | null {
-  if (keys.length === 0) return null
-  return clipAssetVersion([...keys].sort().join(","))
 }

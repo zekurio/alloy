@@ -314,7 +314,6 @@ function MobileClipViewerBody({
               sourceContentType={row.sourceContentType}
               sourceVersion={row.sourceVersion}
               renditions={row.renditions}
-              playbackVersion={row.playbackVersion}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}
               fallbackSeed={row.gameId ?? row.id}

@@ -298,9 +298,7 @@ async function runPipelineInWorkDir({
       width: encoded.width,
       fps: encoded.fps,
       storageKey: renditionKey,
-      playlist: encoded.playlist,
       codecs: encoded.codecs,
-      bandwidth: encoded.bandwidth,
       sizeBytes: encoded.sizeBytes,
     })
     completeWork()
