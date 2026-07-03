@@ -69,7 +69,15 @@ impl Recorder {
         self.last_error = None;
 
         if active_output_should_stop {
-            self.stop_all_outputs()?;
+            if let Err(error) = self.stop_all_outputs() {
+                self.last_error = Some(error.clone());
+                let status = self.status();
+                emit_event(RecordingEvent::Error {
+                    error: error.clone(),
+                    status,
+                });
+                return Err(error);
+            }
         }
 
         if needs_reinit || active_video_config_changed {
@@ -79,7 +87,15 @@ impl Recorder {
         self.refresh_discovery_caches();
 
         if !self.settings.as_ref().is_some_and(|settings| settings.enabled) {
-            self.stop_all_outputs()?;
+            if let Err(error) = self.stop_all_outputs() {
+                self.last_error = Some(error.clone());
+                let status = self.status();
+                emit_event(RecordingEvent::Error {
+                    error: error.clone(),
+                    status,
+                });
+                return Err(error);
+            }
             self.shutdown_obs();
             self.refresh_codec_capabilities();
             let status = self.status();
@@ -273,8 +289,8 @@ impl Recorder {
 
         let settings = self.settings.clone().unwrap_or_default();
         let game = self.capture_game_for_mode("No detected game is available for replay buffer.")?;
-        let output_folder = self.current_output_folder();
-        let replay_scratch_folder = self.current_replay_scratch_folder();
+        let output_folder = self.current_output_folder()?;
+        let replay_scratch_folder = self.current_replay_scratch_folder()?;
         let path = saved_recording_path(&output_folder, self.capture_folder_game(game.as_ref()));
         let capture = self.new_capture(
             &settings,
@@ -309,41 +325,29 @@ impl Recorder {
 
     fn stop_active_replay_buffer(&mut self) -> Result<(), String> {
         let Some(session) = self.replay_session.take() else {
-            return Err("Replay buffer state was lost.".to_string());
+            return Err("No replay buffer is active.".to_string());
         };
 
         let output_config = session.output_config.clone();
-        unsafe {
-            self.stop_output(session)?;
-        }
-        self.last_error = None;
+        // SAFETY: `session` was created by this recorder for the current OBS
+        // instance and is consumed here exactly once.
+        let stop_result = unsafe { self.stop_output(session) };
         cleanup_disk_replay_segments(&output_config, None);
         let status = self.status();
-        emit_event(RecordingEvent::Status {
-            status: status.clone(),
-        });
+        emit_event(RecordingEvent::Status { status });
+        stop_result?;
+        self.last_error = None;
         Ok(())
     }
 
     fn save_replay_clip(&mut self, params: SaveReplayClipParams) -> RecordingActionResult {
-        if self.replay_session.is_none() {
+        let Some(session) = self.replay_session.as_ref() else {
             return RecordingActionResult {
                 ok: true,
                 status: self.status(),
                 capture: None,
                 error: None,
             };
-        }
-
-        let Some(session) = self.replay_session.as_ref() else {
-            let error = "Replay buffer state was lost.".to_string();
-            self.last_error = Some(error.clone());
-            let result = self.action_error(&error);
-            emit_event(RecordingEvent::Error {
-                error,
-                status: result.status.clone(),
-            });
-            return result;
         };
 
         let settings = self.settings.clone().unwrap_or_default();
@@ -485,21 +489,32 @@ impl Recorder {
         Ok(game)
     }
 
-    fn current_output_folder(&self) -> PathBuf {
+    fn current_output_folder(&self) -> Result<PathBuf, String> {
         let output_folder = self
             .output_folder
             .clone()
             .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-        let _ = fs::create_dir_all(&output_folder);
-        output_folder
+        fs::create_dir_all(&output_folder).map_err(|error| {
+            format!(
+                "Could not create output folder {}: {error}",
+                output_folder.display()
+            )
+        })?;
+        Ok(output_folder)
     }
 
-    fn current_replay_scratch_folder(&self) -> PathBuf {
-        let scratch_folder = self.replay_scratch_folder.clone().unwrap_or_else(|| {
-            self.current_output_folder().join(".alloy-replay-buffer")
-        });
-        let _ = fs::create_dir_all(&scratch_folder);
-        scratch_folder
+    fn current_replay_scratch_folder(&self) -> Result<PathBuf, String> {
+        let scratch_folder = match self.replay_scratch_folder.clone() {
+            Some(scratch_folder) => scratch_folder,
+            None => self.current_output_folder()?.join(".alloy-replay-buffer"),
+        };
+        fs::create_dir_all(&scratch_folder).map_err(|error| {
+            format!(
+                "Could not create replay scratch folder {}: {error}",
+                scratch_folder.display()
+            )
+        })?;
+        Ok(scratch_folder)
     }
 
     fn new_capture(

@@ -363,7 +363,10 @@ impl LibObs {
     unsafe fn load_module(&self, runtime_dir: &Path, module: &str) -> Result<(), String> {
         let bin_path = module_bin_path(runtime_dir, module);
         if !bin_path.exists() {
-            return Ok(());
+            return Err(format!(
+                "OBS module {module} was not found at {}.",
+                bin_path.display()
+            ));
         }
 
         let data_path = runtime_dir.join("data/obs-plugins").join(module);

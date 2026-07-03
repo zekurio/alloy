@@ -1,16 +1,27 @@
 fn emit_event(event: RecordingEvent) {
     let envelope = EventEnvelope { event };
     if let Ok(line) = serde_json::to_string(&envelope) {
-        println!("{line}");
+        let _ = writeln!(io::stdout().lock(), "{line}");
         let _ = io::stdout().flush();
     }
 }
 
-fn response_ok<T: Serialize>(id: u64, result: T) -> Response {
+fn response_ok<T: Serialize>(
+    id: u64,
+    result: T,
+    status: impl FnOnce() -> RecordingStatus,
+) -> Response {
+    let result = match serde_json::to_value(result) {
+        Ok(value) => value,
+        Err(error) => {
+            return response_error(id, format!("Failed to serialize response: {error}"), status());
+        }
+    };
+
     Response {
         id,
         ok: true,
-        result: Some(serde_json::to_value(result).unwrap_or(json!(null))),
+        result: Some(result),
         error: None,
         status: None,
     }
@@ -29,7 +40,7 @@ fn response_error(id: u64, error: String, status: RecordingStatus) -> Response {
 fn write_response(response: Response) {
     match serde_json::to_string(&response) {
         Ok(line) => {
-            println!("{line}");
+            let _ = writeln!(io::stdout().lock(), "{line}");
             let _ = io::stdout().flush();
         }
         Err(error) => eprintln!("[{SIDE_CAR_NAME}] failed to serialize response: {error}"),
@@ -63,15 +74,23 @@ fn sidecar_version() -> SidecarVersion {
 /// (which can block for seconds while OBS outputs start).
 fn handle_io_request(request: &Request, status: &Mutex<RecordingStatus>) -> Option<Response> {
     match request.method.as_str() {
-        "version" => Some(response_ok(request.id, sidecar_version())),
-        "status" => Some(response_ok(request.id, snapshot_status(status))),
+        "version" => Some(response_ok(request.id, sidecar_version(), || {
+            snapshot_status(status)
+        })),
+        "status" => Some(response_ok(request.id, snapshot_status(status), || {
+            snapshot_status(status)
+        })),
         "subscribeAudioLevels" => {
             subscribe_audio_level_events();
-            Some(response_ok(request.id, json!(null)))
+            Some(response_ok(request.id, json!(null), || {
+                snapshot_status(status)
+            }))
         }
         "stopAudioLevels" => {
             stop_audio_level_events();
-            Some(response_ok(request.id, json!(null)))
+            Some(response_ok(request.id, json!(null), || {
+                snapshot_status(status)
+            }))
         }
         _ => None,
     }
@@ -94,10 +113,10 @@ fn publish_status(status: &Mutex<RecordingStatus>, recorder: &Recorder) {
 
 fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
     match request.method.as_str() {
-        "version" => response_ok(request.id, sidecar_version()),
+        "version" => response_ok(request.id, sidecar_version(), || recorder.status()),
         "configure" => match serde_json::from_value::<ConfigureParams>(request.params) {
             Ok(params) => match recorder.configure(params) {
-                Ok(status) => response_ok(request.id, status),
+                Ok(status) => response_ok(request.id, status, || recorder.status()),
                 Err(error) => response_error(request.id, error, recorder.status()),
             },
             Err(error) => response_error(
@@ -106,11 +125,16 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
                 recorder.status(),
             ),
         },
-        "status" => response_ok(request.id, recorder.status()),
-        "listGameProcesses" => response_ok(request.id, list_game_processes()),
-        "listDisplays" => response_ok(request.id, list_displays()),
+        "status" => response_ok(request.id, recorder.status(), || recorder.status()),
+        "listGameProcesses" => {
+            response_ok(request.id, list_game_processes(), || recorder.status())
+        }
+        "listDisplays" => response_ok(request.id, list_displays(), || recorder.status()),
         "saveReplayClip" => match serde_json::from_value::<SaveReplayClipParams>(request.params) {
-            Ok(params) => response_ok(request.id, recorder.save_replay_clip(params)),
+            Ok(params) => {
+                let result = recorder.save_replay_clip(params);
+                response_ok(request.id, result, || recorder.status())
+            }
             Err(error) => response_error(
                 request.id,
                 format!("Invalid replay clip params: {error}"),
@@ -120,7 +144,7 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
         "playNotificationSound" => {
             match serde_json::from_value::<PlayNotificationSoundParams>(request.params) {
                 Ok(params) => match play_notification_sound(params) {
-                    Ok(()) => response_ok(request.id, json!(null)),
+                    Ok(()) => response_ok(request.id, json!(null), || recorder.status()),
                     Err(error) => response_error(request.id, error, recorder.status()),
                 },
                 Err(error) => response_error(
@@ -132,7 +156,7 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
         }
         "shutdown" => {
             recorder.shutdown();
-            response_ok(request.id, recorder.status())
+            response_ok(request.id, recorder.status(), || recorder.status())
         }
         method => response_error(
             request.id,

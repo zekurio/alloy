@@ -9,17 +9,12 @@ impl Recorder {
     ) -> Result<ActiveSession, String> {
         let mut source_kind = source_kind(settings, game);
         let shared_capture = self.capture_owner_session().map(|session| {
-            (
-                session.video_graph,
-                session.video_config,
-                session.audio_sources.clone(),
-                session.source_kind,
-            )
+            (session.video_config, session.source_kind)
         });
-        let video_config = shared_capture
-            .as_ref()
-            .map(|(_, video_config, _, _)| *video_config)
-            .unwrap_or(self.ensure_obs_for_source(settings, game, source_kind)?);
+        let video_config = match shared_capture {
+            Some((video_config, _)) => video_config,
+            None => self.ensure_obs_for_source(settings, game, source_kind)?,
+        };
         let obs = self
             .obs
             .as_ref()
@@ -48,13 +43,24 @@ impl Recorder {
         let mut capture = capture;
         let owns_capture = shared_capture.is_none();
         let (mut video_graph, audio_sources) =
-            if let Some((video_graph, _video_config, audio_sources, shared_kind)) = shared_capture {
+            if let Some((_video_config, shared_kind)) = shared_capture {
                 source_kind = shared_kind;
                 capture.source = recording_source_from_kind(source_kind);
-                (video_graph, audio_sources)
+                (
+                    VideoGraph {
+                        scene: ptr::null_mut(),
+                        source: ptr::null_mut(),
+                        output_source: ptr::null_mut(),
+                        source_kind,
+                    },
+                    Vec::new(),
+                )
             } else {
-                let video_graph =
-                    unsafe { create_video_graph(obs, settings, game, source_kind, video_config.base)? };
+                // SAFETY: OBS is initialized above and this owner session is
+                // creating sources for the same libobs instance.
+                let video_graph = unsafe {
+                    create_video_graph(obs, settings, game, source_kind, video_config.base)?
+                };
                 unsafe {
                     (obs.obs_set_output_source)(0, video_graph.output_source);
                 }
@@ -133,17 +139,25 @@ impl Recorder {
         };
         unsafe { (obs.obs_encoder_set_audio)(audio_encoder, (obs.obs_get_audio)()) };
 
-        if let Err(error) = unsafe {
-            Self::ensure_game_capture_ready_or_fallback(
-                obs,
-                settings,
-                game,
-                video_config.base,
-                &mut source_kind,
-                &mut video_graph,
-                &mut capture,
-            )
-        } {
+        let capture_ready = if owns_capture {
+            // SAFETY: this owner session holds the live OBS graph created for
+            // the current libobs instance, and the fallback path consumes it
+            // only through `video_graph`.
+            unsafe {
+                Self::ensure_game_capture_ready_or_fallback(
+                    obs,
+                    settings,
+                    game,
+                    video_config.base,
+                    &mut source_kind,
+                    &mut video_graph,
+                    &mut capture,
+                )
+            }
+        } else {
+            Ok(())
+        };
+        if let Err(error) = capture_ready {
             unsafe {
                 release_output_graph(
                     obs,
@@ -151,7 +165,7 @@ impl Recorder {
                     video_encoder,
                     audio_encoder,
                     video_graph,
-                    if owns_capture { audio_sources } else { Vec::new() },
+                    audio_sources,
                 );
             }
             return Err(error);
@@ -258,7 +272,9 @@ impl Recorder {
         }
 
         if unsafe { !(obs.obs_output_start)(output) } {
-            let error = output_last_error(obs, output)
+            // SAFETY: `output` was just created by this libobs instance and has
+            // not been released yet.
+            let error = unsafe { output_last_error(obs, output) }
                 .unwrap_or_else(|| "OBS output failed to start.".to_string());
             unsafe {
                 release_output_graph(
@@ -316,15 +332,17 @@ impl Recorder {
 
             eprintln!("[{SIDE_CAR_NAME}] {error} Attempting display capture fallback.");
             let fallback_kind = OutputSourceKind::Display;
-            let fallback_graph = create_video_graph(obs, settings, game, fallback_kind, base_dimensions)
-                .map_err(|fallback_error| {
-                    format!("{error} Display capture fallback also failed: {fallback_error}")
-                })?;
+            let fallback_graph =
+                create_video_graph(obs, settings, game, fallback_kind, base_dimensions).map_err(
+                    |fallback_error| {
+                        format!("{error} Display capture fallback also failed: {fallback_error}")
+                    },
+                )?;
 
             (obs.obs_set_output_source)(0, ptr::null_mut());
-            release_video_graph(obs, *video_graph);
+            let previous_graph = std::mem::replace(video_graph, fallback_graph);
+            release_video_graph(obs, previous_graph);
             *source_kind = fallback_kind;
-            *video_graph = fallback_graph;
             (obs.obs_set_output_source)(0, video_graph.output_source);
             capture.source = recording_source_from_kind(*source_kind);
             eprintln!(
@@ -346,9 +364,9 @@ impl Recorder {
         }
         (obs.obs_output_stop)(session.output);
 
-        let deadline = SystemTime::now() + Duration::from_secs(8);
+        let deadline = Instant::now() + Duration::from_secs(8);
         while (obs.obs_output_active)(session.output) {
-            if SystemTime::now() >= deadline {
+            if Instant::now() >= deadline {
                 (obs.obs_output_force_stop)(session.output);
                 break;
             }
@@ -404,9 +422,7 @@ impl Recorder {
         let previous_replay_path = unsafe { last_replay_path(obs, handler) };
         let save_name = CString::new("save").expect("static string has no nul byte");
         let mut save_data = CallData::default();
-        let saved_after = SystemTime::now()
-            .checked_sub(Duration::from_secs(2))
-            .unwrap_or(UNIX_EPOCH);
+        let saved_after = SystemTime::now();
         if !(obs.proc_handler_call)(handler, save_name.as_ptr(), &mut save_data) {
             free_calldata(obs, &mut save_data);
             return Err("OBS replay buffer failed to save.".to_string());

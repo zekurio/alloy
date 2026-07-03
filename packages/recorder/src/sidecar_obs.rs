@@ -185,21 +185,19 @@ unsafe fn configure_video_encoder(
 include!("sidecar_obs_encoders.rs");
 
 fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
-    match &quality.bitrate {
-        RecordingBitrate::Mbps(value) => value.parse::<u32>().unwrap_or(0).saturating_mul(1000),
-        RecordingBitrate::Auto(value) if value != "auto" => {
-            value.parse::<u32>().unwrap_or(0).saturating_mul(1000)
-        }
-        _ => match (quality.height, quality.fps) {
-            (height, fps) if height >= 2160 && fps >= 60 => 55_000,
-            (height, _) if height >= 2160 => 40_000,
-            (height, fps) if height >= 1440 && fps >= 60 => 30_000,
-            (height, _) if height >= 1440 => 22_000,
-            (height, fps) if height >= 1080 && fps >= 60 => 18_000,
-            (height, _) if height >= 1080 => 12_000,
-            (_, fps) if fps >= 60 => 8_000,
-            _ => 5_000,
-        },
+    if let Some(kbps) = quality.bitrate.custom_kbps() {
+        return kbps;
+    }
+
+    match (quality.height, quality.fps) {
+        (height, fps) if height >= 2160 && fps >= 60 => 55_000,
+        (height, _) if height >= 2160 => 40_000,
+        (height, fps) if height >= 1440 && fps >= 60 => 30_000,
+        (height, _) if height >= 1440 => 22_000,
+        (height, fps) if height >= 1080 && fps >= 60 => 18_000,
+        (height, _) if height >= 1080 => 12_000,
+        (_, fps) if fps >= 60 => 8_000,
+        _ => 5_000,
     }
 }
 
@@ -238,26 +236,30 @@ unsafe fn create_video_source(
 ) -> Result<*mut ObsSource, String> {
     if source_kind == OutputSourceKind::Display {
         let source_settings = obs.create_data();
-        configure_display_capture_source(obs, source_settings, settings)?;
-        let source = create_source(
-            obs,
-            platform_display_source_id(),
-            "alloy_display_video",
-            Some(source_settings),
-        );
+        let source = (|| {
+            configure_display_capture_source(obs, source_settings, settings)?;
+            create_source(
+                obs,
+                platform_display_source_id(),
+                "alloy_display_video",
+                Some(source_settings),
+            )
+        })();
         obs.release_data(source_settings);
         return source;
     }
 
     let source_settings = obs.create_data();
-    configure_game_capture_source(obs, source_settings, game)?;
-    GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
-    let source = create_source(
-        obs,
-        GAME_CAPTURE_SOURCE_ID,
-        "alloy_game_video",
-        Some(source_settings),
-    );
+    let source = (|| {
+        configure_game_capture_source(obs, source_settings, game)?;
+        GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
+        create_source(
+            obs,
+            GAME_CAPTURE_SOURCE_ID,
+            "alloy_game_video",
+            Some(source_settings),
+        )
+    })();
     obs.release_data(source_settings);
     let source = source.map_err(|error| {
         format!(
@@ -408,18 +410,18 @@ unsafe fn game_capture_source_hooked(obs: &LibObs, source: *mut ObsSource) -> bo
     }
 
     let key = CString::new("hooked").expect("static string has no nul byte");
-    let mut hooked = false;
+    let mut hooked = 0u8;
     let ok = (obs.calldata_get_data)(
         &data,
         key.as_ptr(),
-        &mut hooked as *mut bool as *mut c_void,
-        std::mem::size_of::<bool>(),
+        &mut hooked as *mut u8 as *mut c_void,
+        std::mem::size_of::<u8>(),
     );
     free_calldata(obs, &mut data);
-    if ok && hooked {
+    if ok && hooked != 0 {
         GAME_CAPTURE_HOOKED.store(true, Ordering::SeqCst);
     }
-    ok && hooked
+    ok && hooked != 0
 }
 
 unsafe fn configure_display_capture_source(
@@ -746,17 +748,17 @@ fn selected_quality_settings(settings: &RecordingSettings) -> RecordingQualitySe
         RecordingQualityProfile::Low => RecordingQualitySettings {
             resolution: RecordingResolution::R720p,
             fps: 30,
-            bitrate: RecordingBitrate::Mbps("5".to_string()),
+            bitrate: RecordingBitrate::mbps("5"),
         },
         RecordingQualityProfile::Standard => RecordingQualitySettings {
             resolution: RecordingResolution::R1080p,
             fps: 60,
-            bitrate: RecordingBitrate::Mbps("15".to_string()),
+            bitrate: RecordingBitrate::mbps("15"),
         },
         RecordingQualityProfile::High => RecordingQualitySettings {
             resolution: RecordingResolution::R1440p,
             fps: 60,
-            bitrate: RecordingBitrate::Mbps("30".to_string()),
+            bitrate: RecordingBitrate::mbps("30"),
         },
         RecordingQualityProfile::Custom => settings.custom_quality.clone(),
     }
@@ -871,12 +873,15 @@ fn capture_base_dimensions_with_display(
     }
 }
 
-fn output_last_error(obs: &LibObs, output: *mut ObsOutput) -> Option<String> {
-    let raw = unsafe { (obs.obs_output_get_last_error)(output) };
+/// # Safety
+///
+/// `output` must be a valid OBS output pointer for this libobs instance.
+unsafe fn output_last_error(obs: &LibObs, output: *mut ObsOutput) -> Option<String> {
+    let raw = (obs.obs_output_get_last_error)(output);
     if raw.is_null() {
         return None;
     }
-    let message = unsafe { CStr::from_ptr(raw).to_string_lossy().into_owned() };
+    let message = CStr::from_ptr(raw).to_string_lossy().into_owned();
     if message.is_empty() {
         None
     } else {

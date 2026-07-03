@@ -1,3 +1,6 @@
+#[repr(C)]
+// SAFETY: This is passed to libobs as `struct calldata`; field order and C
+// layout must stay in sync with OBS because C reads and writes these offsets.
 struct CallData {
     stack: *mut u8,
     size: usize,
@@ -315,10 +318,28 @@ enum RecordingResolution {
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
-#[serde(untagged)]
-enum RecordingBitrate {
-    Auto(String),
-    Mbps(String),
+#[serde(transparent)]
+struct RecordingBitrate(String);
+
+impl RecordingBitrate {
+    fn auto() -> Self {
+        Self("auto".to_string())
+    }
+
+    fn mbps(value: &str) -> Self {
+        Self(value.to_string())
+    }
+
+    fn custom_kbps(&self) -> Option<u32> {
+        if self.0 == "auto" {
+            return None;
+        }
+        self.0
+            .parse::<u32>()
+            .ok()
+            .and_then(|value| value.checked_mul(1000))
+            .filter(|value| *value > 0)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -545,7 +566,6 @@ struct ObsVideoConfig {
     hdr_enabled: bool,
 }
 
-#[derive(Clone, Copy)]
 struct VideoGraph {
     scene: *mut ObsScene,
     source: *mut ObsSource,
@@ -703,11 +723,11 @@ impl Default for RecordingSettings {
             quality_profile: RecordingQualityProfile::Custom,
             resolution: RecordingResolution::R1080p,
             fps: 60,
-            bitrate: RecordingBitrate::Auto("auto".to_string()),
+            bitrate: RecordingBitrate::auto(),
             custom_quality: RecordingQualitySettings {
                 resolution: RecordingResolution::R1080p,
                 fps: 60,
-                bitrate: RecordingBitrate::Auto("auto".to_string()),
+                bitrate: RecordingBitrate::auto(),
             },
             replay_buffer_seconds: 90,
             buffer_storage: RecordingBufferStorage::Memory,
