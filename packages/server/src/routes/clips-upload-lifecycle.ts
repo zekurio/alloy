@@ -147,6 +147,11 @@ export const clipsUploadLifecycleRoutes = new Hono()
               privacy,
               source_content_type: body.contentType,
               source_size_bytes: body.sizeBytes,
+              // Client-probed hints so placeholders keep the media's shape
+              // while processing; the media run re-probes and overwrites them.
+              width: body.width ?? null,
+              height: body.height ?? null,
+              duration_ms: body.durationMs ?? null,
               // Client-provided poster placeholder; media finalization preserves
               // it because the server does not derive poster frames or hashes.
               thumb_blur_hash: body.thumbBlurHash ?? null,

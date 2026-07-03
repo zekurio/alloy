@@ -599,6 +599,7 @@ export function PlayerCore({
       poster={poster}
       posterBlurHash={posterBlurHash}
       fallbackSeed={fallbackSeed ?? identity}
+      aspectRatio={aspectRatio}
       placeholderVisible={!hasRenderedFrame}
       posterVisible={posterVisible}
       autoPlay={autoPlay}

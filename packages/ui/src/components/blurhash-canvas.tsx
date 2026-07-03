@@ -97,15 +97,20 @@ function decodeBlurHash(
 export function BlurHashCanvas({
   hash,
   className,
-  width = DEFAULT_DECODE_WIDTH,
-  height = DEFAULT_DECODE_HEIGHT,
+  aspectRatio,
 }: {
   hash: string | null | undefined
   className?: string
-  width?: number
-  height?: number
+  /**
+   * Known aspect ratio of the media the hash was sampled from. When set, the
+   * canvas letterboxes like the media (object-contain) instead of stretching
+   * over the frame, so the placeholder keeps the media's shape.
+   */
+  aspectRatio?: number
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const contained = typeof aspectRatio === "number" && aspectRatio > 0
+  const { width, height } = decodeSize(contained ? aspectRatio : undefined)
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -138,8 +143,30 @@ export function BlurHashCanvas({
       aria-hidden
       className={cn(
         "pointer-events-none absolute inset-0 size-full",
+        contained && "object-contain",
         className,
       )}
     />
   )
+}
+
+function decodeSize(aspectRatio: number | undefined): {
+  width: number
+  height: number
+} {
+  if (!aspectRatio || !Number.isFinite(aspectRatio)) {
+    return { width: DEFAULT_DECODE_WIDTH, height: DEFAULT_DECODE_HEIGHT }
+  }
+  // Match the decode buffer's shape to the media so object-contain letterboxes
+  // it exactly like the poster and video do.
+  if (aspectRatio >= 1) {
+    return {
+      width: DEFAULT_DECODE_WIDTH,
+      height: Math.max(1, Math.round(DEFAULT_DECODE_WIDTH / aspectRatio)),
+    }
+  }
+  return {
+    width: Math.max(1, Math.round(DEFAULT_DECODE_HEIGHT * aspectRatio)),
+    height: DEFAULT_DECODE_HEIGHT,
+  }
 }

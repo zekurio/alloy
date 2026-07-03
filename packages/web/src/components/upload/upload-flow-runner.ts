@@ -77,6 +77,9 @@ export async function startUpload(
         ? payload.mentionedUserIds
         : undefined,
     tags: payload.tags.length > 0 ? payload.tags : undefined,
+    width: payload.width,
+    height: payload.height,
+    durationMs: Math.round(payload.durationMs),
     thumbBlurHash: payload.thumbBlurHash ?? undefined,
     thumbContentType: thumbContentTypeForBlob(payload.thumbBlob),
   })
