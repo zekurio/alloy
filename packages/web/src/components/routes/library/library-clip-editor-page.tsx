@@ -5,15 +5,19 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Progress } from "@alloy/ui/components/progress"
 import { Spinner } from "@alloy/ui/components/spinner"
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { toast } from "@alloy/ui/lib/toast"
+import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { CloudIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
+import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
 import { useCapturePoster } from "@/lib/capture-poster"
+import { clipHlsPlayback } from "@/lib/clip-hls"
 import {
   invalidateDeletedClipCaches,
   removeClipDetailFromCache,
@@ -221,11 +225,29 @@ function useClipEditorMedia(
     durationMs: localItem?.durationMs ?? null,
     enabled: processing && Boolean(localItem),
   })
+  // While the server still owes us a thumbnail, the upload queue may hold the
+  // poster the client rendered at publish time (a local object URL).
+  const uploadQueue = useUploadFlowControls().queue
+  const queueEntry = processing
+    ? uploadQueue.find((item) => item.kind === "upload" && item.id === row.id)
+    : undefined
+  const queuePoster =
+    queueEntry?.thumbUrl ?? queueEntry?.thumbFallbackUrl ?? undefined
   const poster =
-    serverPoster ?? localPoster ?? localItem?.thumbnailUrl ?? undefined
+    serverPoster ?? localPoster ?? localItem?.thumbnailUrl ?? queuePoster
   const posterBlurHash = row.thumbBlurHash ?? localItem?.thumbBlurHash ?? null
   const fallbackSeed = row.gameId ?? localItem?.groupLabel ?? row.id
   const playbackSrc = processing ? (localItem?.mediaUrl ?? null) : streamSrc
+  // Rendition-backed clips must play over HLS: rendition files are byte-range
+  // fMP4s that stall Chromium when streamed progressively. The stream URL
+  // stays the fallback for pre-rendition clips, where it serves the source.
+  const hlsPlayback = useMemo(
+    () =>
+      processing
+        ? null
+        : clipHlsPlayback(row.id, row.renditions, row.playbackVersion),
+    [processing, row.id, row.renditions, row.playbackVersion],
+  )
   const aspectRatio = mediaAspectRatio(
     row.width ?? localItem?.width,
     row.height ?? localItem?.height,
@@ -262,6 +284,7 @@ function useClipEditorMedia(
     cloudFrameReady,
     filmstrip,
     handoffPoster,
+    hlsPlayback,
     mediaVersion,
     playbackSrc,
     poster,
@@ -297,6 +320,7 @@ function ClipEditorStage({
         {media.playbackSrc ? (
           <VideoPlayer
             src={media.playbackSrc}
+            hlsPlayback={media.hlsPlayback}
             sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
             poster={media.poster}
             posterBlurHash={media.posterBlurHash}
@@ -337,18 +361,28 @@ function ClipEditorPreviewPlaceholder({
 }: {
   media: ClipEditorMediaState
 }) {
+  const poster = useImageLoaded(media.poster)
   return (
     <div className="relative size-full overflow-hidden rounded-md">
+      {/* Fade the gradient out under the painted poster so its letterbox
+          bars show the page background, matching video playback. */}
       <MediaPlaceholder
         seed={media.fallbackSeed}
         blurHash={media.posterBlurHash}
+        aspectRatio={media.aspectRatio}
+        className={cn(
+          "transition-opacity duration-200 ease-out",
+          poster.loaded ? "opacity-0" : "opacity-100",
+        )}
       />
       {media.poster ? (
         <img
+          ref={poster.ref}
           src={media.poster}
           alt=""
           className="absolute inset-0 size-full object-contain"
           decoding="async"
+          onLoad={poster.markLoaded}
         />
       ) : null}
     </div>
