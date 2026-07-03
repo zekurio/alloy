@@ -1,7 +1,8 @@
-import { clip, clipRendition } from "@alloy/db/schema"
+import { clip } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
-import { and, eq, gt, isNotNull, isNull, notExists, sql } from "drizzle-orm"
+import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
+import { and, eq, gt, isNotNull, isNull, sql } from "drizzle-orm"
 
 import { enqueueClipMediaProcessing } from "./media-worker"
 
@@ -15,11 +16,14 @@ let backfillStarted = false
 let backfillStopped = false
 
 /**
- * Encode renditions for ready clips that predate the transcoding pipeline.
- * Deliberately a trickle: one clip is re-enqueued at a time and the next only
- * after it finishes, so fresh uploads always win the encode queue and a large
- * library warms up over hours instead of monopolizing the host. Clips stay
- * `ready` (and playable from their source) throughout.
+ * Encode renditions for ready clips whose committed media wasn't produced by
+ * the current pipeline — clips that predate renditions entirely (null
+ * fingerprint) as well as clips whose renditions a since-deployed format
+ * change left stale. Deliberately a trickle: one clip is re-enqueued at a
+ * time and the next only after it finishes, so fresh uploads always win the
+ * encode queue and a large library warms up over hours instead of
+ * monopolizing the host. Clips stay `ready` (and playable from their
+ * committed assets) throughout.
  */
 export function startRenditionBackfill(): void {
   if (backfillStarted) return
@@ -66,12 +70,7 @@ async function nextBackfillClipId(
         // Rows with a failure reason already burned their retries this run;
         // the next boot rescans them.
         isNull(clip.failure_reason),
-        notExists(
-          db
-            .select({ one: sql`1` })
-            .from(clipRendition)
-            .where(eq(clipRendition.clip_id, clip.id)),
-        ),
+        sql`${clip.encode_pipeline} is distinct from ${MEDIA_PIPELINE_VERSION}`,
         afterId ? gt(clip.id, afterId) : undefined,
       ),
     )
