@@ -68,6 +68,7 @@ export function PlayerCore({
     src: mediaUrl,
     mediaKey,
     onMediaError,
+    switchingRendition,
   } = useMediaEngine(spec, videoRef, hlsPlayback)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const playingRef = useRef(false)
@@ -639,7 +640,8 @@ export function PlayerCore({
         containerRef={containerRef}
         className={className}
         status={status}
-        buffering={buffering}
+        buffering={buffering || switchingRendition}
+        loadingLabel={switchingRendition ? t("Loading quality...") : undefined}
         aspectRatio={aspectRatio}
         maxDisplayHeight={maxDisplayHeight}
         onPointerDown={activatePlayer}
@@ -687,7 +689,11 @@ export function PlayerCore({
     >
       {renderVideo(handleControlledVideoClick)}
 
-      <LoadOverlay status={status} buffering={buffering} />
+      <LoadOverlay
+        status={status}
+        buffering={buffering || switchingRendition}
+        loadingLabel={switchingRendition ? t("Loading quality...") : undefined}
+      />
     </ChromeShell>
   )
 }

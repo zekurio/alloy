@@ -23,14 +23,3 @@ export function gameSlug(name: string): string {
   // (e.g. a CJK-only title with no ASCII characters).
   return base.length >= MIN_LEN ? base : "game"
 }
-
-export function legacyGameSlug(name: string, steamgriddbId: number): string {
-  return `${gameSlug(name)}-${steamgriddbId}`
-}
-
-export function steamgriddbIdFromLegacyGameSlug(slug: string): number | null {
-  const match = /-([1-9][0-9]*)$/.exec(slug)
-  if (!match) return null
-  const id = Number(match[1])
-  return Number.isSafeInteger(id) ? id : null
-}
