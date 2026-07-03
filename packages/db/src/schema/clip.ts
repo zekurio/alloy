@@ -74,6 +74,10 @@ export const clip = pgTable(
     trim_end_ms: integer(),
 
     status: text().$type<ClipStatus>().notNull().default("pending"),
+    // Fingerprint of the media pipeline that committed the current renditions
+    // (null = legacy/pre-fingerprint). The rendition backfill re-encodes clips
+    // whose value differs from the running pipeline's.
+    encode_pipeline: text(),
     encode_progress: integer().notNull().default(0),
     encode_run_id: uuid(),
     encode_locked_at: timestamp(),
