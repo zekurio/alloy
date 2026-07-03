@@ -94,6 +94,26 @@ export function clipRenditionFileUrl(
   )
 }
 
+export function clipSourceFileUrl(
+  clipId: string,
+  origin?: string,
+  version?: string,
+): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/source/file"),
+    { v: version },
+    origin,
+  )
+}
+
+export function clipOriginalFileUrl(clipId: string, origin?: string): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/original/file"),
+    {},
+    origin,
+  )
+}
+
 export function clipThumbnailUrl(
   clipId: string,
   origin?: string,

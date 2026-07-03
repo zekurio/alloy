@@ -29,7 +29,9 @@ export const clipSelectShape = {
   sourceContentType: clip.source_content_type,
   sourceVideoCodec: clip.source_video_codec,
   sourceAudioCodec: clip.source_audio_codec,
+  sourceCodecs: clip.source_codecs,
   sourceSizeBytes: clip.source_size_bytes,
+  sourceDurationMs: clip.source_duration_ms,
   cutKey: clip.cut_key,
   durationMs: clip.duration_ms,
   width: clip.width,
@@ -39,6 +41,8 @@ export const clipSelectShape = {
   viewCount: clip.view_count,
   likeCount: clip.like_count,
   commentCount: clip.comment_count,
+  trimStartMs: clip.trim_start_ms,
+  trimEndMs: clip.trim_end_ms,
   status: clip.status,
   encodeProgress: clip.encode_progress,
   failureReason: clip.failure_reason,
@@ -100,13 +104,17 @@ export function toPublicClipRow<
     sourceContentType: string | null
     sourceVideoCodec: string | null
     sourceAudioCodec: string | null
+    sourceCodecs?: string | null
     sourceSizeBytes: number | null
+    sourceDurationMs?: number | null
     cutKey?: string | null
     durationMs: number | null
     width: number | null
     height: number | null
     thumbKey: string | null
     thumbBlurHash: string | null
+    trimStartMs?: number | null
+    trimEndMs?: number | null
     gameId: string | null
     game: string | null
     gameRef?: Parameters<typeof serialiseGameRow>[0] | null

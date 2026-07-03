@@ -80,7 +80,9 @@ export interface ClipRow {
   sourceContentType: string | null
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
+  sourceCodecs: string | null
   sourceSizeBytes: number | null
+  sourceDurationMs: number | null
   /** Cache-busting version of the published source bytes; changes on republish. */
   sourceVersion: string | null
   /** Encoded quality tiers, highest first; empty until the pipeline commits. */
@@ -94,6 +96,8 @@ export interface ClipRow {
   viewCount: number
   likeCount: number
   commentCount: number
+  trimStartMs: number | null
+  trimEndMs: number | null
   status: ClipStatus
   encodeProgress: number
   failureReason: string | null
