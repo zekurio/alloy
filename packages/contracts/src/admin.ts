@@ -274,37 +274,37 @@ export const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
  * AAC for embed compatibility; only its bitrate is configurable.
  */
 export const TranscodingConfigSchema = z.looseObject({
-    videoCodec: VideoCodecSchema.default("h264"),
-    hardwareAcceleration: HardwareAccelerationSchema.default("none"),
-    // `catch` keeps config load resilient: a blank/invalid stored device falls
-    // back to the default render node instead of failing startup.
-    vaapiDevice: z
-      .string()
-      .trim()
-      .min(1)
-      .default(DEFAULT_VAAPI_DEVICE)
-      .catch(DEFAULT_VAAPI_DEVICE),
-    quality: z.number().int().min(10).max(51).default(22),
-    audioBitrateKbps: z.number().int().min(64).max(320).default(128),
-    tiers: z
-      .array(RenditionTierConfigSchema)
-      .min(1)
-      .max(6)
-      .default(DEFAULT_RENDITION_TIERS)
-      .refine(
-        (tiers) =>
-          new Set(
-            tiers.map(
-              (tier) =>
-                `${tier.height}:${tier.maxFps}:${tier.codec ?? "default"}`,
-            ),
-          ).size === tiers.length,
-        "tiers must differ in height, max FPS, or codec",
-      )
-      .refine(
-        (tiers) => tiers.filter((tier) => tier.og).length <= 1,
-        "only one tier can be the link preview tier",
-      ),
+  videoCodec: VideoCodecSchema.default("h264"),
+  hardwareAcceleration: HardwareAccelerationSchema.default("none"),
+  // `catch` keeps config load resilient: a blank/invalid stored device falls
+  // back to the default render node instead of failing startup.
+  vaapiDevice: z
+    .string()
+    .trim()
+    .min(1)
+    .default(DEFAULT_VAAPI_DEVICE)
+    .catch(DEFAULT_VAAPI_DEVICE),
+  quality: z.number().int().min(10).max(51).default(22),
+  audioBitrateKbps: z.number().int().min(64).max(320).default(128),
+  tiers: z
+    .array(RenditionTierConfigSchema)
+    .min(1)
+    .max(6)
+    .default(DEFAULT_RENDITION_TIERS)
+    .refine(
+      (tiers) =>
+        new Set(
+          tiers.map(
+            (tier) =>
+              `${tier.height}:${tier.maxFps}:${tier.codec ?? "default"}`,
+          ),
+        ).size === tiers.length,
+      "tiers must differ in height, max FPS, or codec",
+    )
+    .refine(
+      (tiers) => tiers.filter((tier) => tier.og).length <= 1,
+      "only one tier can be the link preview tier",
+    ),
 })
 
 export type TranscodingConfig = z.infer<typeof TranscodingConfigSchema>
