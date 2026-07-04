@@ -395,19 +395,14 @@ async function runPipelineInWorkDir({
     }))
   )
     throw abortMediaProcessing()
-  // Early readiness applies only to the first publish. A reprocess of a
-  // previously-ready clip (trim) still has rendition rows encoded from the
-  // old media; going ready here would serve trimmed-away footage through
-  // them, so those runs stay processing until commitReady atomically
-  // replaces the rendition set.
+  // Reprocess runs keep old renditions until commitReady swaps them.
   if (!row.sourceKey && !(await store.commitPlayable(id, runId)))
     throw abortMediaProcessing()
   if (thumbKey) retainPublishedKey(thumbKey)
   store.publishUpsert(row.authorId, id)
   progress.complete(POSTER_PHASE_COST)
 
-  // Encode the quality ladder. Uploaded under run-scoped keys; committed
-  // atomically with the ready transition below.
+  // Run-scoped rendition keys stay unpublished until the ready transition.
   const renditions: MediaRenditionRecord[] = []
   let hardwareFailed = false
   for (const step of ladder) {

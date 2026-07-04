@@ -122,10 +122,7 @@ export interface MediaStore {
    * not touch encode_pipeline/encode_progress; only commitReady owns those.
    */
   commitPlayable(id: string, runId: string): Promise<boolean>
-  /**
-   * Final ready transition. Replaces the row's rendition set in the same
-   * transaction so readers never observe a half-committed ladder.
-   */
+  /** Transactional replacement keeps readers from seeing partial ladders. */
   commitReady(
     id: string,
     runId: string,

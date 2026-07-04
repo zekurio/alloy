@@ -23,6 +23,7 @@ function messageFromUnknown(cause: unknown): string | null {
 }
 
 export function errorMessage(cause: unknown, fallback: string): string {
+  // API callers provide user-facing fallback copy for non-message failures.
   return messageFromUnknown(cause) ?? fallback
 }
 

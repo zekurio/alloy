@@ -103,7 +103,8 @@ function statCaptureSize(
 ): number | null {
   try {
     return statSync(filename).size
-  } catch {
+  } catch (cause) {
+    logger.warn(`failed to stat finalized capture ${filename}:`, cause)
     return fallback
   }
 }
