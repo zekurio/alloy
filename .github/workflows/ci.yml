@@ -71,6 +71,13 @@ jobs:
 
       - name: Run tests
         run: corepack pnpm test
+        # Server modules parse env at import time, so tests that touch them
+        # need a syntactically valid config even without a live database
+        # (DB-backed tests skip when the server is unreachable).
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/alloy
+          ALLOY_VIEWER_COOKIE_SECRET: ci-only-viewer-cookie-secret-0123456789
+          ALLOY_UPLOAD_HMAC_SECRET: ci-only-upload-hmac-secret-0123456789
 
       - name: Build server and web
         run: corepack pnpm turbo run build --filter=@alloy/server --filter=@alloy/web
