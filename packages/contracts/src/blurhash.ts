@@ -24,6 +24,12 @@ export function normalizeBlurHash(value: string | null): string | null {
   return isBlurHash(value) ? value : null
 }
 
+export function blurHashAverageColor(hash: string): string | null {
+  if (!isBlurHash(hash)) return null
+  const value = decode83(hash.slice(2, 6))
+  return `rgb(${value >> 16} ${(value >> 8) & 0xff} ${value & 0xff})`
+}
+
 export function blurHashComponents(
   width: number,
   height: number,
@@ -38,11 +44,21 @@ export function blurHashComponents(
 }
 
 function expectedBlurHashLength(hash: string): number {
-  const sizeFlag = BLURHASH_ALPHABET.indexOf(hash[0])
+  const sizeFlag = decode83(hash[0])
   if (sizeFlag < 0) return -1
   const componentsX = (sizeFlag % 9) + 1
   const componentsY = Math.floor(sizeFlag / 9) + 1
   return 4 + 2 * componentsX * componentsY
+}
+
+function decode83(value: string): number {
+  let result = 0
+  for (const char of value) {
+    const digit = BLURHASH_ALPHABET.indexOf(char)
+    if (digit < 0) return -1
+    result = result * 83 + digit
+  }
+  return result
 }
 
 function clampComponent(value: number): number {

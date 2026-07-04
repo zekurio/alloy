@@ -1,3 +1,4 @@
+import { blurHashAverageColor } from "@alloy/contracts/blurhash"
 import { BlurHashCanvas } from "@alloy/ui/components/blurhash-canvas"
 import { pastelMediaGradient } from "@alloy/ui/lib/pastel"
 import { cn } from "@alloy/ui/lib/utils"
@@ -18,11 +19,13 @@ export function MediaPlaceholder({
   aspectRatio?: number
   className?: string
 }) {
+  const averageColor = blurHash ? blurHashAverageColor(blurHash) : null
+
   return (
     <div
       aria-hidden
       className={cn("absolute inset-0", className)}
-      style={{ background: pastelMediaGradient(seed) }}
+      style={{ background: averageColor ?? pastelMediaGradient(seed) }}
     >
       <BlurHashCanvas hash={blurHash} aspectRatio={aspectRatio} />
     </div>
