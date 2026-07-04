@@ -44,7 +44,6 @@ export function ClipCardThumb({
   const timerRef = useRef<number | null>(null)
   const hoveredRef = useRef(false)
   const shouldPreviewRef = useRef(false)
-  const primedRef = useRef(false)
   const preloadedThumbnailRef = useRef<string | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [previewMounted, setPreviewMounted] = useState(false)
@@ -105,49 +104,45 @@ export function ClipCardThumb({
     setPreviewing(true)
   }, [])
 
-  const primePreview = useCallback(() => {
-    const v = videoRef.current
-    if (!v || primedRef.current) return
-    primedRef.current = true
-    v.muted = true
-    v.defaultMuted = true
-    v.playsInline = true
-    v.preload = "auto"
-    v.load()
-  }, [])
-
   const startPreview = useCallback(() => {
     const v = videoRef.current
-    if (!v || !hoveredRef.current || !shouldPreviewRef.current) return
+    if (!v || !streamUrl || !hoveredRef.current || !shouldPreviewRef.current) {
+      return
+    }
 
     if (!v.paused) {
       revealPreview()
       return
     }
 
-    if (v.readyState >= HTMLMediaElement.HAVE_METADATA) {
+    // The source only attaches once the hover dwell elapses, so a quick
+    // pointer pass across the grid never starts a download.
+    if (v.getAttribute("src") !== streamUrl) {
+      v.src = streamUrl
+      v.load()
+    } else if (v.readyState >= HTMLMediaElement.HAVE_METADATA) {
       v.currentTime = 0
     }
     void v
       .play()
       .then(revealPreview)
       .catch((cause: unknown) => {
+        // Leaving mid-load aborts the play request; that is not an error.
+        if (!shouldPreviewRef.current) return
         onPreviewError?.(cause)
         setPreviewing(false)
       })
-  }, [onPreviewError, revealPreview])
+  }, [onPreviewError, revealPreview, streamUrl])
 
   useEffect(() => {
     if (!previewMounted || !hoveredRef.current) return
-    primePreview()
     startPreview()
-  }, [previewMounted, primePreview, startPreview])
+  }, [previewMounted, startPreview])
 
   const schedulePreview = () => {
     if (!canPreview) return
     hoveredRef.current = true
     setPreviewMounted(true)
-    if (previewMounted) primePreview()
     if (timerRef.current !== null) window.clearTimeout(timerRef.current)
     timerRef.current = window.setTimeout(() => {
       shouldPreviewRef.current = true
@@ -165,7 +160,10 @@ export function ClipCardThumb({
     const v = videoRef.current
     if (v) {
       v.pause()
-      v.currentTime = 0
+      // Detaching the source aborts the in-flight download; abandoned
+      // previews would otherwise keep buffering in the background.
+      v.removeAttribute("src")
+      v.load()
     }
     setPreviewing(false)
   }
@@ -235,11 +233,10 @@ export function ClipCardThumb({
       {canPreview && previewMounted ? (
         <video
           ref={videoRef}
-          src={streamUrl}
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="auto"
           onLoadedData={startPreview}
           onCanPlay={startPreview}
           onPlaying={revealPreview}
