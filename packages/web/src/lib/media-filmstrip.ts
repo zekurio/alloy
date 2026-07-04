@@ -1,21 +1,11 @@
-import {
-  ALL_FORMATS,
-  BlobSource,
-  CanvasSink,
-  Input,
-  type Source,
-} from "mediabunny"
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
-import { createCaptureSource } from "@/lib/capture-source"
-
 /**
- * Renderer-side filmstrip sampling: evenly spaced frames decoded with
- * mediabunny over the same byte-range transport the preview engine uses, so
- * local captures (`alloy-capture://`) and uploaded clips (http stream) get
- * identical treatment. Picked upload Files are read directly from a
- * `BlobSource` instead, keyed by their (unique) object URL.
+ * Renderer-side filmstrip sampling: evenly spaced frames decoded by seeking a
+ * detached `<video>` element and drawing to canvas, so local captures
+ * (`alloy-capture://`), uploaded clips (http stream), and picked upload Files
+ * (object URLs) get identical treatment with no client-side demuxer.
  */
 
 export const FILMSTRIP_FRAME_COUNT = 16
@@ -51,14 +41,10 @@ const EMPTY_FILMSTRIP: MediaFilmstrip = {
  */
 const filmstripCache = new Map<string, Promise<MediaFilmstrip>>()
 
-export function mediaFilmstrip(
-  mediaUrl: string,
-  blob?: Blob,
-): Promise<MediaFilmstrip> {
+export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
   let pending = filmstripCache.get(mediaUrl)
   if (!pending) {
-    const source = blob ? new BlobSource(blob) : createCaptureSource(mediaUrl)
-    pending = extractFilmstrip(source).catch(() => {
+    pending = extractFilmstrip(mediaUrl).catch(() => {
       filmstripCache.delete(mediaUrl)
       return EMPTY_FILMSTRIP
     })
@@ -67,22 +53,19 @@ export function mediaFilmstrip(
   return pending
 }
 
-export function useMediaFilmstrip(
-  mediaUrl: string | null,
-  blob?: Blob,
-): MediaFilmstrip {
+export function useMediaFilmstrip(mediaUrl: string | null): MediaFilmstrip {
   const [strip, setStrip] = useState(EMPTY_FILMSTRIP)
   useEffect(() => {
     setStrip(EMPTY_FILMSTRIP)
     if (!mediaUrl) return
     let cancelled = false
-    void mediaFilmstrip(mediaUrl, blob).then((result) => {
+    void mediaFilmstrip(mediaUrl).then((result) => {
       if (!cancelled) setStrip(result)
     })
     return () => {
       cancelled = true
     }
-  }, [mediaUrl, blob])
+  }, [mediaUrl])
   return strip
 }
 
@@ -165,31 +148,37 @@ function clampMs(ms: number, durationMs: number): number {
   return Math.min(durationMs, Math.max(0, ms))
 }
 
-async function extractFilmstrip(source: Source): Promise<MediaFilmstrip> {
-  const input = new Input({
-    formats: ALL_FORMATS,
-    source,
-  })
-  try {
-    const track = await input.getPrimaryVideoTrack()
-    if (!track || !(await track.canDecode())) return EMPTY_FILMSTRIP
-    const durationSec = await input.computeDuration()
-    if (!(durationSec > 0)) return EMPTY_FILMSTRIP
+const FRAME_EVENT_TIMEOUT_MS = 15000
 
-    const sink = new CanvasSink(track, { height: FRAME_HEIGHT })
-    const timestamps = Array.from(
-      { length: FILMSTRIP_FRAME_COUNT },
-      (_, i) => ((i + 0.5) / FILMSTRIP_FRAME_COUNT) * durationSec,
-    )
+async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
+  const video = document.createElement("video")
+  video.preload = "auto"
+  video.muted = true
+  video.playsInline = true
+  // Keeps decoded frames drawable to canvas when the media is served from
+  // the API origin; harmless for same-origin and object URLs.
+  video.crossOrigin = "anonymous"
+  video.src = mediaUrl
+
+  try {
+    await videoEvent(video, "loadedmetadata")
+    const durationSec = video.duration
+    if (!Number.isFinite(durationSec) || !(durationSec > 0)) {
+      return EMPTY_FILMSTRIP
+    }
+
     const frames: string[] = []
     let aspect: number | null = null
-    for await (const wrapped of sink.canvasesAtTimestamps(timestamps)) {
-      // A gap (e.g. an undecodable region) just yields fewer cells; the
-      // strip stretches the neighbors over it.
-      if (wrapped) {
-        aspect ??= wrapped.canvas.width / wrapped.canvas.height
-        frames.push(await canvasObjectUrl(wrapped.canvas))
-      }
+    for (let i = 0; i < FILMSTRIP_FRAME_COUNT; i++) {
+      // A failed seek (e.g. an undecodable region) just yields fewer cells;
+      // the strip stretches the neighbors over it.
+      const frame = await seekFrameObjectUrl(
+        video,
+        ((i + 0.5) / FILMSTRIP_FRAME_COUNT) * durationSec,
+      )
+      if (!frame) continue
+      aspect ??= frame.aspect
+      frames.push(frame.url)
     }
     return {
       frames,
@@ -197,28 +186,75 @@ async function extractFilmstrip(source: Source): Promise<MediaFilmstrip> {
       durationMs: Math.round(durationSec * 1000),
     }
   } finally {
-    input.dispose()
+    video.removeAttribute("src")
+    try {
+      video.load()
+    } catch {
+      // Some mobile browsers throw while tearing down blob-backed media.
+    }
   }
 }
 
-async function canvasObjectUrl(
-  canvas: HTMLCanvasElement | OffscreenCanvas,
-): Promise<string> {
-  const blob =
-    canvas instanceof OffscreenCanvas
-      ? await canvas.convertToBlob({
-          type: "image/jpeg",
-          quality: FRAME_QUALITY,
-        })
-      : await new Promise<Blob>((resolve, reject) => {
-          canvas.toBlob(
-            (result) => {
-              if (result) resolve(result)
-              else reject(new Error("canvas.toBlob returned null"))
-            },
-            "image/jpeg",
-            FRAME_QUALITY,
-          )
-        })
-  return URL.createObjectURL(blob)
+async function seekFrameObjectUrl(
+  video: HTMLVideoElement,
+  timeSec: number,
+): Promise<{ url: string; aspect: number } | null> {
+  try {
+    const seeked = videoEvent(video, "seeked")
+    video.currentTime = timeSec
+    await seeked
+  } catch {
+    return null
+  }
+  // An unsupported codec parses metadata but never decodes a frame; skip
+  // instead of drawing black cells.
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return null
+  const srcW = video.videoWidth
+  const srcH = video.videoHeight
+  if (!srcW || !srcH) return null
+
+  const canvas = document.createElement("canvas")
+  canvas.height = FRAME_HEIGHT
+  canvas.width = Math.max(1, Math.round((srcW / srcH) * FRAME_HEIGHT))
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", FRAME_QUALITY)
+  }).catch(() => null)
+  // toBlob rejects/throws on tainted canvases (cross-origin media without
+  // CORS headers) — treat as no frame rather than failing the whole strip.
+  if (!blob) return null
+  return {
+    url: URL.createObjectURL(blob),
+    aspect: canvas.width / canvas.height,
+  }
+}
+
+function videoEvent(
+  video: HTMLVideoElement,
+  eventName: "loadedmetadata" | "seeked",
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    const cleanup = () => {
+      window.clearTimeout(timeoutId)
+      video.removeEventListener(eventName, onEvent)
+      video.removeEventListener("error", onError)
+    }
+    const onEvent = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error(video.error?.message ?? "Video element error"))
+    }
+    const timeoutId = window.setTimeout(() => {
+      cleanup()
+      reject(new Error(`Timed out waiting for ${eventName}`))
+    }, FRAME_EVENT_TIMEOUT_MS)
+    video.addEventListener(eventName, onEvent, { once: true })
+    video.addEventListener("error", onError, { once: true })
+  })
 }

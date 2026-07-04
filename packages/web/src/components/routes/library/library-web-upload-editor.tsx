@@ -39,8 +39,8 @@ import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
  * Web upload editor: the same stage-and-trimmer layout as the library clip
  * editor, driven off the locally picked File. Renders as the main content
  * region (the app sidebar and header stay in place), and trim, metadata, and
- * Post/Create Link all happen here before a single byte is uploaded — the cut
- * runs in the browser via mediabunny when the user posts.
+ * Post/Create Link all happen here before a single byte is uploaded — the
+ * file uploads untouched and the server derives the trim cut at ingest.
  */
 export function WebUploadEditor({
   action,
@@ -78,7 +78,7 @@ function WebUploadEditorInner({
 }) {
   const playback = useTrimPlayback({ initialDurationMs: selected.durationMs })
   const { playerRef, trim, trimmed, rangeMs } = playback
-  const filmstrip = useMediaFilmstrip(previewUrl, selected.file)
+  const filmstrip = useMediaFilmstrip(previewUrl)
   const aspectRatio = mediaAspectRatio(selected.width, selected.height)
 
   const [title, setTitle] = useState(stripExtension(selected.name))

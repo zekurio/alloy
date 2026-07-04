@@ -290,9 +290,6 @@ importers:
       '@alloy/i18n':
         specifier: workspace:*
         version: link:../i18n
-      '@alloy/media':
-        specifier: workspace:*
-        version: link:../media
       '@alloy/ui':
         specifier: workspace:*
         version: link:../ui

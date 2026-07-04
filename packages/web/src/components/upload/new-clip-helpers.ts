@@ -4,13 +4,6 @@ import {
   type ClipPrivacy,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import {
-  BlobSource,
-  Input,
-  MP4,
-  type AudioCodec,
-  type VideoCodec,
-} from "mediabunny"
 
 import { type ProbedFile, probeFile } from "./new-clip-media"
 
@@ -48,6 +41,13 @@ export interface PublishPayload {
   thumbBlob: Blob
   /** Client-computed BlurHash for the poster frame, when available. */
   thumbBlurHash: string | null
+  /**
+   * Kept source range in the uploaded file's timeline; the server derives the
+   * cut at ingest. Absent when the whole file is kept or the file was already
+   * cut client-side (desktop).
+   */
+  trimStartMs?: number
+  trimEndMs?: number
   mentionedUserIds: string[]
   /** Bare, canonical hashtags for the clip. */
   tags: string[]
@@ -107,73 +107,19 @@ function resolveContentType(file: File): AcceptedContentType | null {
   return EXTENSION_CONTENT_TYPE_ALIASES[ext] ?? null
 }
 
+/**
+ * Content-type/extension gate plus a `<video>`-element metadata probe. The
+ * probe doubles as validation: a file the browser cannot demux is rejected
+ * here, and deeper codec/stream checks happen server-side when the media run
+ * ffprobes the ingested source.
+ */
 export async function prepareSelectedClipFile(
   file: File,
 ): Promise<SelectedFile> {
   const contentType = resolveContentType(file)
   if (!contentType) throw new Error(t("Choose an MP4 video file."))
-  await validateUploadMp4(file)
   const meta = await probeFile(file)
   return { ...meta, contentType }
-}
-
-const SUPPORTED_MP4_VIDEO_CODECS = new Set<VideoCodec>(["avc", "hevc", "av1"])
-
-const SUPPORTED_MP4_AUDIO_CODECS = new Set<AudioCodec>(["aac"])
-
-async function validateUploadMp4(file: File): Promise<void> {
-  const input = new Input({
-    source: new BlobSource(file),
-    formats: [MP4],
-  })
-  try {
-    await assertUploadMp4(input)
-  } catch (cause) {
-    if (cause instanceof Error && cause.name === "UploadValidationError") {
-      throw cause
-    }
-    throw uploadValidationError(t("Choose a valid MP4 video file."))
-  } finally {
-    input.dispose()
-  }
-}
-
-async function assertUploadMp4(input: Input): Promise<void> {
-  const video = await input.getPrimaryVideoTrack()
-  if (!video) {
-    throw uploadValidationError(t("MP4 uploads must contain a video track."))
-  }
-
-  const videoCodec = await video.getCodec()
-  if (!videoCodec || !SUPPORTED_MP4_VIDEO_CODECS.has(videoCodec)) {
-    throw uploadValidationError(
-      t("MP4 uploads must use H.264, HEVC, or AV1 video."),
-    )
-  }
-
-  const audioCodec = await (await input.getPrimaryAudioTrack())?.getCodec()
-  if (audioCodec && !SUPPORTED_MP4_AUDIO_CODECS.has(audioCodec)) {
-    throw uploadValidationError(t("MP4 uploads with audio must use AAC."))
-  }
-
-  const duration =
-    (await input.getDurationFromMetadata([video], { skipLiveWait: true })) ??
-    (await input.computeDuration([video], { skipLiveWait: true }))
-  if (!Number.isFinite(duration) || duration <= 0) {
-    throw uploadValidationError(t("Could not read video duration."))
-  }
-
-  const width = await video.getDisplayWidth()
-  const height = await video.getDisplayHeight()
-  if (!width || !height) {
-    throw uploadValidationError(t("Could not read video dimensions."))
-  }
-}
-
-function uploadValidationError(message: string): Error {
-  const error = new Error(message)
-  error.name = "UploadValidationError"
-  return error
 }
 
 export function stripExtension(filename: string): string {
