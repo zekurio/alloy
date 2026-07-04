@@ -38,7 +38,7 @@ export interface PublishPayload {
   height: number
   durationMs: number
   sizeBytes: number
-  thumbBlob: Blob
+  thumbBlob: Blob | null
   /** Client-computed BlurHash for the poster frame, when available. */
   thumbBlurHash: string | null
   /**

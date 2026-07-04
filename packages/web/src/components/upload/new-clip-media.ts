@@ -4,6 +4,7 @@ import { canvasBlurHash } from "@alloy/ui/lib/blurhash-encode"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { requireObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 import { formatBytes } from "@/lib/storage-format"
+import { isUniformCanvasImage } from "@/lib/uniform-image"
 import {
   canvasJpegBlob,
   teardownVideoElement,
@@ -54,8 +55,19 @@ export async function captureThumbnail(
       duration === null
         ? Math.max(minTime, atMs / 1000)
         : Math.max(minTime, duration - 0.05)
+    const durationMs = duration === null ? null : duration * 1000
     const candidateTimes = uniqueThumbnailTimes(
-      [atMs, fallbackAtMs, 1000, 100, 0],
+      [
+        atMs,
+        fallbackAtMs,
+        durationMs === null ? null : durationMs * 0.1,
+        durationMs === null ? null : durationMs * 0.25,
+        durationMs === null ? null : durationMs * 0.5,
+        durationMs === null ? null : durationMs * 0.75,
+        1000,
+        100,
+        0,
+      ],
       minTime,
       maxTime,
     )
@@ -273,6 +285,9 @@ async function encodeThumbnail(
     const ctx = canvas.getContext("2d")
     if (!ctx) throw new Error(t("2D canvas context unavailable"))
     ctx.drawImage(source, 0, 0, width, height)
+    if (isUniformCanvasImage(canvas, width, height)) {
+      throw new Error(t("Captured thumbnail frame is blank"))
+    }
     const blurHash = safeCanvasBlurHash(canvas)
 
     for (const quality of THUMB_QUALITIES) {

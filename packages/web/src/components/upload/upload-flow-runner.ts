@@ -83,7 +83,9 @@ export async function startUpload(
     trimStartMs: payload.trimStartMs,
     trimEndMs: payload.trimEndMs,
     thumbBlurHash: payload.thumbBlurHash ?? undefined,
-    thumbContentType: thumbContentTypeForBlob(payload.thumbBlob),
+    thumbContentType: payload.thumbBlob
+      ? thumbContentTypeForBlob(payload.thumbBlob)
+      : undefined,
   })
   const { clipId } = initiate
 
@@ -123,19 +125,27 @@ async function completeUpload(
     entry.abort.signal,
   )
 
-  try {
-    await uploadToTicket(
-      initiate.thumbTicket,
-      payload.thumbBlob,
-      () => undefined,
-      entry.abort.signal,
-    )
-  } catch (cause) {
-    if ((cause as Error).name === "AbortError") throw cause
+  if (!payload.thumbBlob) {
     clientLogger.warn(
-      `[upload] Failed to upload poster for clip ${clipId}; continuing.`,
-      cause,
+      `[upload] No usable poster for clip ${clipId}; continuing without thumbnail.`,
     )
+  }
+
+  if (payload.thumbBlob) {
+    try {
+      await uploadToTicket(
+        initiate.thumbTicket,
+        payload.thumbBlob,
+        () => undefined,
+        entry.abort.signal,
+      )
+    } catch (cause) {
+      if ((cause as Error).name === "AbortError") throw cause
+      clientLogger.warn(
+        `[upload] Failed to upload poster for clip ${clipId}; continuing.`,
+        cause,
+      )
+    }
   }
 
   entry.status = "finalizing"
