@@ -10,7 +10,7 @@ export type ClipStatus = (typeof CLIP_STATUS)[number]
 export const RECORDING_KIND = ["clip"] as const
 export type RecordingKind = (typeof RECORDING_KIND)[number]
 
-export const UPLOAD_TICKET_ROLE = ["video", "thumb"] as const
+export const UPLOAD_TICKET_ROLE = ["video"] as const
 export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
 
 export const USER_ROLES = ["user", "admin"] as const
@@ -42,16 +42,6 @@ export type AcceptedImageContentType =
 export const ACCEPTED_CLIP_CONTENT_TYPES = ["video/mp4"] as const
 
 export type AcceptedContentType = (typeof ACCEPTED_CLIP_CONTENT_TYPES)[number]
-
-// Poster uploads. Clients should send JPEG; WebP remains accepted for older
-// clients and staged data. The server republishes both as JPEG.
-export const ACCEPTED_THUMB_CONTENT_TYPES = [
-  "image/jpeg",
-  "image/webp",
-] as const
-
-export type AcceptedThumbContentType =
-  (typeof ACCEPTED_THUMB_CONTENT_TYPES)[number]
 
 export type UploadTicketStrategy =
   | { type: "single" }

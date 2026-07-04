@@ -1,8 +1,13 @@
 import { readFile, rm } from "node:fs/promises"
 
+import {
+  UNIFORM_IMAGE_CHANNEL_RANGE_THRESHOLD,
+  UNIFORM_IMAGE_SAMPLE_MAX_DIMENSION,
+  UNIFORM_IMAGE_VARIANCE_THRESHOLD,
+} from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { join } from "@alloy/server/runtime/path"
-import sharp from "sharp"
+import sharp, { type Sharp } from "sharp"
 
 import { imageBlurHashFromBytes } from "./blurhash"
 import { runFfmpeg } from "./ffmpeg"
@@ -19,43 +24,102 @@ export interface ExtractedPoster {
 }
 
 /**
- * Poster frame extraction: grab a frame at the requested timestamp — or a
- * bit into the video when none is given (fast keyframe seek) — retry at the
- * first frame when the seek lands outside the stream, and return a JPEG +
- * BlurHash matching what client-rendered posters provide. Returns null when
- * extraction fails — a missing poster must never fail the media run.
+ * Poster frame extraction: grab a frame at the requested timestamp or from the
+ * standard automatic candidates, and return a JPEG + BlurHash. Returns null
+ * only when every checked candidate is blank/uniform. ffmpeg/sharp failures are
+ * transient and throw so callers can retry later.
  */
 export async function extractPoster(
   videoPath: string,
   workDir: string,
-  opts: { durationMs: number; atMs?: number; signal?: AbortSignal },
+  opts: {
+    durationMs: number
+    atMs?: number
+    allowUniform?: boolean
+    signal?: AbortSignal
+  },
 ): Promise<ExtractedPoster | null> {
   const framePath = join(workDir, "poster-frame.png")
-  const seekSec = Math.max(
-    0,
-    opts.atMs !== undefined ? opts.atMs / 1000 : (opts.durationMs / 1000) * 0.1,
-  )
+  for (const seekMs of posterCandidateTimes(opts)) {
+    await extractFrame(videoPath, framePath, seekMs / 1000, opts.signal)
 
-  // The frame-0 retry only applies to automatic placement: an explicit
-  // timestamp is clamped into the clip's trim range by the caller, and
-  // falling back to 0 could surface trimmed-away footage.
-  const extracted =
-    (await extractFrame(videoPath, framePath, seekSec, opts.signal)) ||
-    (opts.atMs === undefined &&
-      seekSec > 0 &&
-      (await extractFrame(videoPath, framePath, 0, opts.signal)))
-  if (!extracted) {
-    logger.warn(`poster extraction failed for ${videoPath}`)
-    return null
+    const poster = await readPosterFrame(framePath, {
+      allowUniform: opts.allowUniform ?? false,
+    })
+    if (poster) return poster
   }
 
+  logger.warn(`poster extraction produced no usable frame for ${videoPath}`)
+  return null
+}
+
+function posterCandidateTimes(opts: { durationMs: number; atMs?: number }) {
+  if (opts.atMs !== undefined) {
+    return uniqueClampedTimes([opts.atMs], opts.durationMs)
+  }
+  return uniqueClampedTimes(
+    [
+      Math.min(1000, opts.durationMs - 100),
+      opts.durationMs * 0.1,
+      opts.durationMs * 0.5,
+      100,
+      0,
+    ],
+    opts.durationMs,
+  )
+}
+
+function uniqueClampedTimes(timesMs: number[], durationMs: number): number[] {
+  const maxMs = Math.max(0, durationMs - 50)
+  const result: number[] = []
+  for (const timeMs of timesMs) {
+    if (!Number.isFinite(timeMs)) continue
+    const clamped = Math.round(Math.min(Math.max(0, timeMs), maxMs))
+    if (!result.includes(clamped)) result.push(clamped)
+  }
+  return result.length > 0 ? result : [0]
+}
+
+async function readPosterFrame(
+  framePath: string,
+  options: { allowUniform: boolean },
+): Promise<ExtractedPoster | null> {
   const frame = await readFile(framePath)
-  await rm(framePath, { force: true }).catch(() => undefined)
-  const jpeg = await sharp(frame)
-    .resize(POSTER_MAX_WIDTH, null, { withoutEnlargement: true })
-    .jpeg({ quality: POSTER_JPEG_QUALITY })
-    .toBuffer()
-  return { jpeg, blurHash: await imageBlurHashFromBytes(jpeg) }
+  try {
+    const image = sharp(frame).resize(POSTER_MAX_WIDTH, null, {
+      withoutEnlargement: true,
+    })
+    await rm(framePath, { force: true }).catch(() => undefined)
+    if (!options.allowUniform && (await isUniformFrame(image))) return null
+    const jpeg = await image
+      .clone()
+      .jpeg({ quality: POSTER_JPEG_QUALITY })
+      .toBuffer()
+    return { jpeg, blurHash: await imageBlurHashFromBytes(jpeg) }
+  } finally {
+    await rm(framePath, { force: true }).catch(() => undefined)
+  }
+}
+
+async function isUniformFrame(image: Sharp): Promise<boolean> {
+  const stats = await image
+    .clone()
+    .resize(
+      UNIFORM_IMAGE_SAMPLE_MAX_DIMENSION,
+      UNIFORM_IMAGE_SAMPLE_MAX_DIMENSION,
+      {
+        fit: "inside",
+        withoutEnlargement: true,
+        fastShrinkOnLoad: true,
+      },
+    )
+    .removeAlpha()
+    .stats()
+  return stats.channels.every(
+    (channel) =>
+      channel.max - channel.min <= UNIFORM_IMAGE_CHANNEL_RANGE_THRESHOLD &&
+      channel.stdev <= UNIFORM_IMAGE_VARIANCE_THRESHOLD,
+  )
 }
 
 async function extractFrame(
@@ -63,29 +127,27 @@ async function extractFrame(
   framePath: string,
   seekSec: number,
   signal: AbortSignal | undefined,
-): Promise<boolean> {
-  try {
-    // -ss before -i uses the fast keyframe seek, which is reliable even for
-    // large high-bitrate sources.
-    await runFfmpeg({
-      timeoutMs: EXTRACT_TIMEOUT_MS,
-      signal,
-      args: [
-        "-v",
-        "error",
-        "-y",
-        "-ss",
-        seekSec.toFixed(3),
-        "-i",
-        videoPath,
-        "-frames:v",
-        "1",
-        framePath,
-      ],
-    })
-    return true
-  } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") throw err
-    return false
-  }
+): Promise<void> {
+  // -ss before -i uses the fast keyframe seek, which is reliable even for
+  // large high-bitrate sources.
+  await runFfmpeg({
+    timeoutMs: EXTRACT_TIMEOUT_MS,
+    signal,
+    args: [
+      "-v",
+      "error",
+      "-y",
+      "-ss",
+      seekSec.toFixed(3),
+      "-i",
+      videoPath,
+      "-vf",
+      "scale=min(1280\\,iw):-2",
+      "-pix_fmt",
+      "rgb24",
+      "-frames:v",
+      "1",
+      framePath,
+    ],
+  })
 }

@@ -5,15 +5,9 @@ import type {
   UserSearchResult,
 } from "@alloy/api"
 
-import {
-  captureThumbnail,
-  type CapturedThumbnail,
-  prepareSelectedClipFile,
-  thumbnailFromImageUrl,
-} from "@/components/upload/new-clip-helpers"
+import { prepareSelectedClipFile } from "@/components/upload/new-clip-helpers"
 import type { PublishClipResult } from "@/components/upload/upload-flow-context"
 import type { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
-import { clientLogger } from "@/lib/client-log"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import type { AlloyDesktop } from "@/lib/desktop"
 
@@ -121,18 +115,6 @@ async function prepareCapturePublishPayload({
   })
   const selected = await prepareSelectedClipFile(file)
   throwIfAborted(signal)
-  const posterAtMs = Math.min(1000, Math.max(0, selected.durationMs - 100))
-  const thumbnail = await capturePoster(
-    exported.thumbUrl,
-    selected.file,
-    posterAtMs,
-  )
-  throwIfAborted(signal)
-  const thumbBlurHash =
-    thumbnail.blurHash ??
-    exported.thumbBlurHash ??
-    item.thumbBlurHash ??
-    (await hashPosterBlob(desktop, thumbnail.blob))
 
   return {
     file: selected.file,
@@ -146,8 +128,6 @@ async function prepareCapturePublishPayload({
     height: selected.height,
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
-    thumbBlob: thumbnail.blob,
-    thumbBlurHash,
     mentionedUserIds: mentions.map((mention) => mention.id),
     localCaptureId: item.id,
   }
@@ -165,39 +145,5 @@ function estimatedExportSizeBytes(
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) {
     throw new DOMException("Upload aborted", "AbortError")
-  }
-}
-
-/**
- * Prefers the library poster when one is available; otherwise samples the
- * selected video file near the publish point.
- */
-async function capturePoster(
-  thumbUrl: string | null,
-  file: File,
-  posterAtMs: number,
-): Promise<CapturedThumbnail> {
-  if (thumbUrl) {
-    try {
-      return await thumbnailFromImageUrl(thumbUrl)
-    } catch {
-      // Fall through to capturing from the video file.
-    }
-  }
-  return captureThumbnail(file, posterAtMs)
-}
-
-async function hashPosterBlob(
-  desktop: AlloyDesktop,
-  blob: Blob,
-): Promise<string | null> {
-  if (!desktop.recording.hashLibraryThumbnail) return null
-  try {
-    return await desktop.recording.hashLibraryThumbnail(
-      new Uint8Array(await blob.arrayBuffer()),
-    )
-  } catch (cause) {
-    clientLogger.warn("[upload] Could not compute poster BlurHash.", cause)
-    return null
   }
 }

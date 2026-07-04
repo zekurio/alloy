@@ -305,9 +305,8 @@ export const clipsPlaybackRoutes = new Hono()
   )
   /**
    * GET /api/clips/:id/thumbnail — poster image for the player and
-   * queue/grid cards. Returns 404 when the desktop client didn't ship
-   * one (intentional — the UI falls back to a gradient placeholder,
-   * which it does for unencoded clips too).
+   * queue/grid cards. Returns 404 when the media pipeline could not extract a
+   * usable non-uniform poster frame; the UI falls back to a placeholder.
    */
   .get("/:id/thumbnail", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")

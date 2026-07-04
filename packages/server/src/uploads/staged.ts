@@ -1,9 +1,6 @@
 import type { AcceptedContentType, UploadTicket } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
-import {
-  clipStorageForKey,
-  clipStorageForUploadRole,
-} from "@alloy/server/storage/index"
+import { clipStorage, clipStorageForKey } from "@alloy/server/storage/index"
 
 const logger = createLogger("uploads")
 
@@ -14,23 +11,6 @@ export function stagedSourceKey(
   return `uploads/${recordingId}/source${sourceExtension(contentType)}`
 }
 
-/** Staged target for the client-rendered poster image. */
-export function stagedThumbKey(recordingId: string): string {
-  return `uploads/${recordingId}/thumb.jpg`
-}
-
-export async function mintStagedUploadUrl(input: {
-  key: string
-  contentType: string
-  maxBytes: number
-  expiresInSec: number
-  userId: string
-  clipId: string
-  role: "video" | "thumb"
-}): Promise<UploadTicket> {
-  return clipStorageForUploadRole(input.role).mintUploadUrl(input)
-}
-
 export async function mintStagedUpload(input: {
   key: string
   contentType: string
@@ -38,9 +18,8 @@ export async function mintStagedUpload(input: {
   expiresInSec: number
   userId: string
   clipId: string
-  role: "video" | "thumb"
-}) {
-  return clipStorageForUploadRole(input.role).mintUploadUrl(input)
+}): Promise<UploadTicket> {
+  return clipStorage.mintUploadUrl(input)
 }
 
 export async function resolveStagedUpload(key: string) {

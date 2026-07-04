@@ -17,7 +17,6 @@ import {
   EXPORT_HOST,
   MEDIA_PROTOCOL,
 } from "./recording-library-shared"
-import { ensureCaptureBlurHash } from "./recording-library-thumbnails"
 
 /**
  * Normalized exports rendered to the userData export folder, keyed by export
@@ -58,11 +57,6 @@ export async function exportRecordingLibraryItem(
     segments[0].startMs <= 50 &&
     segments[0].endMs >= sourceDurationMs - 50
 
-  // The source capture's hash is a representative placeholder for edited
-  // exports too. If it is missing, the publish flow hashes the exact poster
-  // blob before initiating the upload.
-  const thumbBlurHash = await ensureCaptureBlurHash(item)
-
   if (fullSource && contentTypeForFile(item.fileName) === "video/mp4") {
     await assertUploadMp4File(item.filename)
     return {
@@ -74,8 +68,6 @@ export async function exportRecordingLibraryItem(
       durationMs: sourceDurationMs,
       width: item.width,
       height: item.height,
-      thumbBlurHash,
-      thumbUrl: item.thumbnailUrl,
     }
   }
 
@@ -115,10 +107,6 @@ export async function exportRecordingLibraryItem(
     durationMs: totalMs,
     width: item.width,
     height: item.height,
-    thumbBlurHash,
-    // The source capture's poster stands in for the trimmed export; the web
-    // layer falls back to capturing a frame from the file when it's missing.
-    thumbUrl: item.thumbnailUrl,
   }
 }
 

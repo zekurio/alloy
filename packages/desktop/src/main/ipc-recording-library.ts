@@ -9,7 +9,6 @@ import {
   normalizeLibraryDownloadRequest,
   normalizeLibraryExportRequest,
   normalizeLibraryMetaPatch,
-  normalizeLibraryThumbnailHashRequest,
   normalizeLibraryThumbnailSaveRequest,
 } from "./ipc-normalizers"
 import {
@@ -131,16 +130,6 @@ function registerRecordingLibraryImportIpc(windows: Windows): void {
       const { storeRecordingThumbnail } =
         await import("./recording-library-thumbnails")
       storeRecordingThumbnail(normalized.id, normalized.data)
-    },
-  )
-  ipcMain.handle(
-    IPC.hashRecordingLibraryThumbnail,
-    async (event, request: unknown) => {
-      requireMainSender(windows, event)
-      const normalized = normalizeLibraryThumbnailHashRequest(request)
-      if (!normalized) throw new Error("Invalid thumbnail hash request.")
-      const { imageBufferBlurHash } = await import("./image-blurhash")
-      return imageBufferBlurHash(normalized)
     },
   )
 }
