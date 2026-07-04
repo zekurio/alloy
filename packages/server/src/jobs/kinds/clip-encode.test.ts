@@ -154,6 +154,48 @@ if (!testDatabaseUrl) {
     assert.equal(updated?.encodeRunId, null)
   })
 
+  test("matching sweep fingerprint with permanent thumbnail failure skips without taking a clip lease", async () => {
+    const facts = {
+      height: 1080,
+      sourceFps: 60,
+      sourceContentType: "video/mp4",
+      sourceCodecs: "avc1.64002A,mp4a.40.2",
+      trimStartMs: null,
+      trimEndMs: null,
+    }
+    const row = await insertClip({
+      status: "ready",
+      encodeFingerprint: encodeFingerprint(
+        TranscodingConfigSchema.parse({}),
+        facts,
+      ),
+      facts,
+      thumbKey: null,
+      thumbFailedAt: new Date(),
+    })
+    const registration = getJobKind("clip.encode")
+    assert.ok(registration)
+
+    await registration.handler(
+      { clipId: row.clipId, trigger: "sweep" },
+      contextFor(),
+    )
+
+    const [updated] = await db
+      .select({
+        status: clip.status,
+        encodeAttempt: clip.encode_attempt,
+        encodeRunId: clip.encode_run_id,
+      })
+      .from(clip)
+      .where(eq(clip.id, row.clipId))
+      .limit(1)
+
+    assert.equal(updated?.status, "ready")
+    assert.equal(updated?.encodeAttempt, 0)
+    assert.equal(updated?.encodeRunId, null)
+  })
+
   test("admin retry of a failed clip.encode job flips the clip to processing", async () => {
     const row = await insertClip({ status: "processing" })
     const id = await store.enqueue(
@@ -240,6 +282,8 @@ if (!testDatabaseUrl) {
       trimStartMs: number | null
       trimEndMs: number | null
     }
+    thumbKey?: string | null
+    thumbFailedAt?: Date | null
   }): Promise<{ clipId: string; encodeRunId: string | null }> {
     const userId = crypto.randomUUID()
     const clipId = crypto.randomUUID()
@@ -254,6 +298,15 @@ if (!testDatabaseUrl) {
       title: "Test clip",
       status: options.status,
       source_key: options.facts ? `source/${clipId}` : null,
+      // Ready clips need a thumbnail: the fingerprint skip treats a
+      // thumb-less ready clip as incomplete and re-runs the encode.
+      thumb_key:
+        options.thumbKey === undefined
+          ? options.status === "ready"
+            ? `thumb/${clipId}`
+            : null
+          : options.thumbKey,
+      thumb_failed_at: options.thumbFailedAt ?? null,
       source_content_type: options.facts?.sourceContentType ?? null,
       source_codecs: options.facts?.sourceCodecs ?? null,
       source_fps: options.facts?.sourceFps ?? null,

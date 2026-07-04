@@ -1,6 +1,8 @@
-const SAMPLE_MAX_DIMENSION = 64
-const CHANNEL_RANGE_THRESHOLD = 3
-const LUMA_VARIANCE_THRESHOLD = 1
+import {
+  UNIFORM_IMAGE_CHANNEL_RANGE_THRESHOLD,
+  UNIFORM_IMAGE_SAMPLE_MAX_DIMENSION,
+  UNIFORM_IMAGE_VARIANCE_THRESHOLD,
+} from "@alloy/contracts"
 
 interface ImageDataLike {
   readonly data: ArrayLike<number>
@@ -44,10 +46,10 @@ export function isUniformImageData(imageData: ImageDataLike): boolean {
   const mean = lumaSum / pixelCount
   const variance = lumaSquares / pixelCount - mean * mean
   return (
-    maxR - minR <= CHANNEL_RANGE_THRESHOLD &&
-    maxG - minG <= CHANNEL_RANGE_THRESHOLD &&
-    maxB - minB <= CHANNEL_RANGE_THRESHOLD &&
-    variance <= LUMA_VARIANCE_THRESHOLD
+    maxR - minR <= UNIFORM_IMAGE_CHANNEL_RANGE_THRESHOLD &&
+    maxG - minG <= UNIFORM_IMAGE_CHANNEL_RANGE_THRESHOLD &&
+    maxB - minB <= UNIFORM_IMAGE_CHANNEL_RANGE_THRESHOLD &&
+    variance <= UNIFORM_IMAGE_VARIANCE_THRESHOLD
   )
 }
 
@@ -60,7 +62,7 @@ export function isUniformCanvasImage(
 
   const scale = Math.min(
     1,
-    SAMPLE_MAX_DIMENSION / Math.max(sourceWidth, sourceHeight),
+    UNIFORM_IMAGE_SAMPLE_MAX_DIMENSION / Math.max(sourceWidth, sourceHeight),
   )
   const sampleCanvas = document.createElement("canvas")
   sampleCanvas.width = Math.max(1, Math.round(sourceWidth * scale))

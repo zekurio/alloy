@@ -8,11 +8,14 @@ export interface MediaRow {
   sourceKey: string | null
   sourceContentType: string | null
   sourceSizeBytes: number | null
+  sourceDurationMs: number | null
   cutKey: string | null
   thumbKey: string | null
   thumbBlurHash: string | null
+  thumbFailedAt: Date | null
   trimStartMs: number | null
   trimEndMs: number | null
+  durationMs: number | null
   encodeAttempt: number
 }
 
@@ -34,6 +37,7 @@ export interface MediaSourcePatch {
 export interface MediaThumbPatch {
   thumbKey: string | null
   thumbBlurHash: string | null
+  thumbFailedAt?: Date | null
 }
 
 export interface MediaStageTier {
@@ -108,10 +112,14 @@ export interface MediaStore {
     runId: string,
     patch: MediaThumbPatch,
   ): Promise<boolean>
+  /** Clear a thumbnail-only lease after success or transient extraction error. */
+  finishThumbnailBackfill(id: string, runId: string): Promise<boolean>
+  /** Mark content as permanently unsuitable for poster extraction. */
+  commitThumbFailed(id: string, runId: string): Promise<boolean>
   /**
-   * Transitions the row to publicly playable once source+poster are committed,
-   * while the encode ladder continues under the same lease. Does not touch
-   * encode_pipeline/encode_progress; only commitReady owns those.
+   * Transitions the row to publicly playable once source and thumbnail state
+   * are committed, while the encode ladder continues under the same lease. Does
+   * not touch encode_pipeline/encode_progress; only commitReady owns those.
    */
   commitPlayable(id: string, runId: string): Promise<boolean>
   /**

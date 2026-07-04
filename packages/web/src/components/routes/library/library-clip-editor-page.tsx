@@ -258,8 +258,8 @@ function useClipEditorMedia(
     durationMs: localItem?.durationMs ?? null,
     enabled: processing && Boolean(localItem),
   })
-  // While the server still owes us a thumbnail, the upload queue may hold the
-  // poster the client rendered at publish time (a local object URL).
+  // While the server still owes us a thumbnail, the upload queue may hold an
+  // existing local library poster for the pending card.
   const uploadQueue = useUploadFlowControls().queue
   const queueEntry = processing
     ? uploadQueue.find((item) => item.kind === "upload" && item.id === row.id)

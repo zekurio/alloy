@@ -16,9 +16,8 @@ import {
   expectedLadder,
   persistedSourceFps,
 } from "@alloy/server/media/encode-fingerprint"
-import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { faststartPath } from "@alloy/server/media/mp4-layout"
-import { extractPoster } from "@alloy/server/media/poster"
+import { extractPoster, type ExtractedPoster } from "@alloy/server/media/poster"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
 import {
   encodeRendition,
@@ -34,15 +33,11 @@ import {
 import {
   deleteStagedUpload,
   downloadStagedUploadToFile,
-  resolveStagedUpload,
 } from "@alloy/server/uploads/staged"
 import {
   cleanupTickets,
-  selectThumbTicketKey,
   selectVideoTicketKey,
-  THUMB_UPLOAD_MAX_BYTES,
 } from "@alloy/server/uploads/tickets"
-import sharp from "sharp"
 
 import { abortMediaProcessing } from "./media-abort"
 import {
@@ -188,6 +183,63 @@ export async function runMediaProcessing(
   }
 }
 
+export async function runThumbnailBackfill(
+  store: MediaStore,
+  id: string,
+  row: MediaRow,
+  runId: string,
+  signal: AbortSignal,
+): Promise<void> {
+  const workDir = await makeMediaWorkDir(id)
+  const uploadedKeys: string[] = []
+  const retainedKeys = new Set<string>()
+  if (row.sourceKey) retainedKeys.add(row.sourceKey)
+  if (row.cutKey) retainedKeys.add(row.cutKey)
+  if (row.thumbKey) retainedKeys.add(row.thumbKey)
+
+  try {
+    const media = await materializeEffectiveMedia(store, id, row, runId, {
+      workDir,
+      signal,
+    })
+    await ensureStillPresent(store, id, runId, signal)
+
+    const poster = await extractPosterBestEffort(media.path, workDir, {
+      durationMs: media.durationMs,
+      signal,
+    })
+    if (poster.kind === "transient-error") {
+      await store.finishThumbnailBackfill(id, runId)
+      return
+    }
+    if (poster.kind === "permanent-empty") {
+      await store.commitThumbFailed(id, runId)
+      return
+    }
+
+    const thumb = await publishRunThumbnail(
+      id,
+      runId,
+      poster.poster,
+      uploadedKeys,
+    )
+    if (!(await store.commitThumb(id, runId, thumb)))
+      throw abortMediaProcessing()
+    retainedKeys.add(thumb.thumbKey)
+    if (!(await store.finishThumbnailBackfill(id, runId)))
+      throw abortMediaProcessing()
+    store.publishUpsert(row.authorId, id)
+  } catch (err) {
+    await retainRowAssetKeys(store, id, retainedKeys)
+    await cleanupFailedRun(uploadedKeys, retainedKeys)
+    throw err
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch((err) => {
+      logger.warn(`failed to remove thumbnail work dir ${workDir}:`, err)
+    })
+  }
+}
+
 async function runPipelineInWorkDir({
   store,
   id,
@@ -318,40 +370,30 @@ async function runPipelineInWorkDir({
 
   await ensureStillPresent(store, id, runId, signal)
   // Publish the poster before the encode ladder so viewers see a real
-  // thumbnail for the whole encode instead of only the BlurHash. Posters
-  // normally come from clients (rendered image + BlurHash shipped at
-  // initiate); the server only validates and republishes them. When no client
-  // poster exists at all, extract a frame server-side so every clip has an
-  // og:image and card thumbnail.
-  let thumb = await republishUploadedThumbnail(
-    store,
-    id,
-    runId,
-    row,
-    uploadedKeys,
-    { keepExisting: !trim },
-  )
-  if (!thumb.thumbKey) {
-    const poster = await extractPoster(mediaPath, workDir, {
-      durationMs,
-      signal,
-    })
-    if (poster) {
-      const thumbKey = runScopedThumbKey(id, runId)
-      await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
-      uploadedKeys.push(thumbKey)
-      thumb = { thumbKey, thumbBlurHash: poster.blurHash }
-    } else if (row.thumbKey) {
-      // Extraction is best-effort; a possibly pre-trim poster beats
-      // committing no poster at all and blanking cards and og:image.
-      thumb = {
-        thumbKey: row.thumbKey,
-        thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
-      }
-    }
-  }
+  // thumbnail for the whole encode instead of only the BlurHash. Extraction is
+  // best-effort: first publishes can proceed without a thumbnail, while
+  // re-runs keep any previously committed thumbnail when no usable frame exists.
+  const poster = await extractPosterBestEffort(mediaPath, workDir, {
+    durationMs,
+    signal,
+  })
+  const thumb =
+    poster.kind === "thumbnail"
+      ? await publishRunThumbnail(id, runId, poster.poster, uploadedKeys)
+      : row.thumbKey
+        ? {
+            thumbKey: row.thumbKey,
+            thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
+          }
+        : { thumbKey: null, thumbBlurHash: null }
   const { thumbKey, thumbBlurHash } = thumb
-  if (!(await store.commitThumb(id, runId, { thumbKey, thumbBlurHash })))
+  if (
+    !(await store.commitThumb(id, runId, {
+      thumbKey,
+      thumbBlurHash,
+      thumbFailedAt: poster.kind === "permanent-empty" ? new Date() : undefined,
+    }))
+  )
     throw abortMediaProcessing()
   // Early readiness applies only to the first publish. A reprocess of a
   // previously-ready clip (trim) still has rendition rows encoded from the
@@ -527,6 +569,67 @@ function trimRange(
   return { startMs: row.trimStartMs, endMs }
 }
 
+async function materializeEffectiveMedia(
+  store: MediaStore,
+  id: string,
+  row: MediaRow,
+  runId: string,
+  options: { workDir: string; signal: AbortSignal },
+): Promise<{ path: string; durationMs: number }> {
+  if (!(await store.commitStage(id, runId, "downloading")))
+    throw abortMediaProcessing()
+  const mediaPath = join(options.workDir, "media.mp4")
+  if (row.cutKey) {
+    await clipStorage.downloadToFile(row.cutKey, mediaPath)
+    return {
+      path: mediaPath,
+      durationMs:
+        row.durationMs ??
+        row.sourceDurationMs ??
+        (await probeMedia(mediaPath)).durationMs,
+    }
+  }
+
+  if (!row.sourceKey) throw new Error("Clip is missing source media")
+  const sourcePath = join(options.workDir, "source")
+  await clipStorage.downloadToFile(row.sourceKey, sourcePath)
+
+  const sourceDurationMs =
+    row.sourceDurationMs ?? (await probeMedia(sourcePath)).durationMs
+  const trim = trimRange(row, sourceDurationMs)
+  if (!trim) {
+    return {
+      path: sourcePath,
+      durationMs: row.durationMs ?? sourceDurationMs,
+    }
+  }
+
+  await trimToMp4(sourcePath, mediaPath, { ...trim, signal: options.signal })
+  return {
+    path: mediaPath,
+    durationMs: row.durationMs ?? trim.endMs - trim.startMs,
+  }
+}
+
+async function extractPosterBestEffort(
+  mediaPath: string,
+  workDir: string,
+  opts: { durationMs: number; signal: AbortSignal },
+): Promise<
+  | { kind: "thumbnail"; poster: ExtractedPoster }
+  | { kind: "permanent-empty" }
+  | { kind: "transient-error" }
+> {
+  try {
+    const poster = await extractPoster(mediaPath, workDir, opts)
+    return poster ? { kind: "thumbnail", poster } : { kind: "permanent-empty" }
+  } catch (err) {
+    if (opts.signal.aborted) throw err
+    logger.warn(`poster extraction failed transiently for ${mediaPath}:`, err)
+    return { kind: "transient-error" }
+  }
+}
+
 async function pruneStaleAssets(
   row: Pick<MediaRow, "sourceKey" | "cutKey" | "thumbKey">,
   previousRenditionKeys: readonly string[],
@@ -548,77 +651,16 @@ async function pruneStaleAssets(
   )
 }
 
-/**
- * Republish the desktop-uploaded poster when one was staged for this run,
- * otherwise keep the current poster only when the caller says the visible
- * media did not change.
- */
-async function republishUploadedThumbnail(
-  store: MediaStore,
+async function publishRunThumbnail(
   id: string,
   runId: string,
-  row: MediaRow,
+  poster: ExtractedPoster,
   uploadedKeys: string[],
-  options: { keepExisting: boolean },
-): Promise<{ thumbKey: string | null; thumbBlurHash: string | null }> {
-  const fallback =
-    options.keepExisting && row.thumbKey
-      ? {
-          thumbKey: row.thumbKey,
-          thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
-        }
-      : { thumbKey: null, thumbBlurHash: null }
-
-  const uploadedThumbKey = await selectThumbTicketKey({
-    type: store.target,
-    id,
-  })
-  if (!uploadedThumbKey) return fallback
-  const stagedThumb = await resolveStagedUpload(uploadedThumbKey)
-  if (!stagedThumb) return fallback
-
-  if (stagedThumb.size > THUMB_UPLOAD_MAX_BYTES) {
-    logger.warn(
-      `rejected oversized staged poster for ${id}: ${stagedThumb.size} bytes`,
-    )
-    return fallback
-  }
-
-  const buf = Buffer.from(
-    await new Response(stagedThumb.stream()).arrayBuffer(),
-  )
-  const jpeg = await normalizeStagedPosterToJpeg(buf, id)
-  if (!jpeg) return fallback
-
+): Promise<{ thumbKey: string; thumbBlurHash: string }> {
   const thumbKey = runScopedThumbKey(id, runId)
-  await clipThumbnailStorage.put(thumbKey, jpeg, "image/jpeg")
+  await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
   uploadedKeys.push(thumbKey)
-  return { thumbKey, thumbBlurHash: normalizeBlurHash(row.thumbBlurHash) }
-}
-
-/**
- * The published poster is always JPEG. Older clients may upload WebP, so keep
- * accepting it and normalize during publish.
- */
-async function normalizeStagedPosterToJpeg(
-  buf: Buffer,
-  id: string,
-): Promise<Buffer | null> {
-  const asJpeg = validateImageBytes(buf, "image/jpeg")
-  if (asJpeg.ok) return buf
-
-  const asWebp = validateImageBytes(buf, "image/webp")
-  if (!asWebp.ok) {
-    logger.warn(`rejected staged poster for ${id}: ${asWebp.error}`)
-    return null
-  }
-
-  try {
-    return await sharp(buf).jpeg({ quality: 82 }).toBuffer()
-  } catch (err) {
-    logger.warn(`failed to convert staged poster for ${id}:`, err)
-    return null
-  }
+  return { thumbKey, thumbBlurHash: poster.blurHash }
 }
 
 async function cleanupFailedRun(

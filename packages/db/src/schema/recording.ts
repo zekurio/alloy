@@ -20,9 +20,9 @@ export const UPLOAD_TICKET_TARGET = ["clip"] as const
 export type UploadTicketTarget = (typeof UPLOAD_TICKET_TARGET)[number]
 
 /**
- * Short-lived record of a staged upload destination (video or poster) for a
- * clip being created. No FK to the clip table — cleanup is explicit (the
- * delete/finalize flows drop tickets by target), and rows expire.
+ * Short-lived record of a staged source upload destination for a clip being
+ * created. No FK to the clip table — cleanup is explicit (the delete/finalize
+ * flows drop tickets by target), and rows expire.
  */
 export const uploadTicket = pgTable(
   "upload_ticket",

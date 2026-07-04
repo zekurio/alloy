@@ -44,11 +44,14 @@ const mediaRowSelect = {
   sourceKey: clip.source_key,
   sourceContentType: clip.source_content_type,
   sourceSizeBytes: clip.source_size_bytes,
+  sourceDurationMs: clip.source_duration_ms,
   cutKey: clip.cut_key,
   thumbKey: clip.thumb_key,
   thumbBlurHash: clip.thumb_blur_hash,
+  thumbFailedAt: clip.thumb_failed_at,
   trimStartMs: clip.trim_start_ms,
   trimEndMs: clip.trim_end_ms,
+  durationMs: clip.duration_ms,
   encodeAttempt: clip.encode_attempt,
 } as const
 
@@ -66,14 +69,20 @@ function sourcePatchToColumns(patch: MediaSourcePatch) {
     duration_ms: patch.durationMs,
     width: patch.width,
     height: patch.height,
+    thumb_failed_at: null,
   }
 }
 
 function thumbPatchToColumns(patch: MediaThumbPatch) {
-  return {
+  const columns = {
     thumb_key: patch.thumbKey,
     thumb_blur_hash: patch.thumbBlurHash,
   }
+  if (patch.thumbFailedAt === undefined && patch.thumbKey) {
+    return { ...columns, thumb_failed_at: null }
+  }
+  if (patch.thumbFailedAt === undefined) return columns
+  return { ...columns, thumb_failed_at: patch.thumbFailedAt }
 }
 
 export const clipMediaStore: MediaStore = {
@@ -241,6 +250,39 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .update(clip)
       .set({ ...thumbPatchToColumns(patch), updated_at: new Date() })
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+      .returning({ id: clip.id })
+    return Boolean(row)
+  },
+
+  async finishThumbnailBackfill(id, runId) {
+    const [row] = await db
+      .update(clip)
+      .set({
+        ...clearedStageColumns,
+        encode_progress: 100,
+        encode_run_id: null,
+        encode_locked_at: null,
+        failure_reason: null,
+        updated_at: new Date(),
+      })
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+      .returning({ id: clip.id })
+    return Boolean(row)
+  },
+
+  async commitThumbFailed(id, runId) {
+    const [row] = await db
+      .update(clip)
+      .set({
+        ...clearedStageColumns,
+        thumb_failed_at: new Date(),
+        encode_progress: 100,
+        encode_run_id: null,
+        encode_locked_at: null,
+        failure_reason: null,
+        updated_at: new Date(),
+      })
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
