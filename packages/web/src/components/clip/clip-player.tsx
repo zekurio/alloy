@@ -12,13 +12,13 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useMemo, useState } from "react"
 
-import type {
-  RenditionPlayback,
-  RenditionSource,
+import {
+  resolvePlayback,
+  type RenditionPlayback,
+  type RenditionSource,
 } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
-import { canPlaySource } from "@/lib/media-capability"
 
 // Rendition names are resolution tiers ("1080p60"), so "source" never collides.
 const SOURCE_QUALITY_ID = "source"
@@ -26,14 +26,12 @@ const SOURCE_QUALITY_ID = "source"
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
   clipId: string
-  /** MIME type of the uploaded source; absent while the clip is processing. */
-  sourceContentType?: string | null
+  /** MIME type of the default playback asset; absent while the clip is processing. */
+  playbackContentType?: string | null
   /** RFC 6381 codecs of the source; null for clips probed before the column. */
   sourceCodecs?: string | null
   /** Cache-busting version of the published source; changes on republish. */
   sourceVersion?: string | null
-  /** Whether the source endpoint serves a derived cut (always MP4). */
-  trimmed?: boolean
   /** Committed quality tiers, highest first. Empty for pre-backfill clips. */
   renditions?: ClipRenditionRef[]
   thumbnail?: string | null
@@ -57,10 +55,9 @@ const DEFAULT_ASPECT_RATIO = 16 / 9
 
 function ClipPlayer({
   clipId,
-  sourceContentType,
+  playbackContentType,
   sourceCodecs,
   sourceVersion,
-  trimmed = false,
   renditions = [],
   thumbnail,
   thumbnailBlurHash,
@@ -108,15 +105,14 @@ function ClipPlayer({
     [clipId],
   )
 
-  // Quality tiers best-first with the source on top: the source endpoint
-  // serves the original upload, or the derived cut for trimmed clips.
+  // Quality tiers best-first with the source endpoint on top.
   const sources = useMemo((): RenditionSource[] => {
     return [
       {
         name: SOURCE_QUALITY_ID,
         url: clipSourceFileUrl(clipId, apiOrigin(), sourceVersion ?? undefined),
         codecs: sourceCodecs ?? "",
-        contentType: trimmed ? "video/mp4" : (sourceContentType ?? "video/mp4"),
+        contentType: playbackContentType ?? "video/mp4",
       },
       ...renditions.map((rendition) => ({
         name: rendition.name,
@@ -130,14 +126,7 @@ function ClipPlayer({
         contentType: "video/mp4",
       })),
     ]
-  }, [
-    clipId,
-    renditions,
-    sourceCodecs,
-    sourceContentType,
-    sourceVersion,
-    trimmed,
-  ])
+  }, [clipId, playbackContentType, renditions, sourceCodecs, sourceVersion])
 
   const renditionPlayback = useMemo(
     (): RenditionPlayback => ({
@@ -149,18 +138,13 @@ function ClipPlayer({
     [fallbackQuality, scopedSelection, sources],
   )
 
-  // The menu only offers tiers this browser can decode, mirroring the
-  // engine's own capability filter so the highlight matches what plays.
-  const playableSources = useMemo(
-    () =>
-      sources.filter((source) =>
-        canPlaySource(source.contentType, source.codecs),
-      ),
-    [sources],
+  const { playable, active } = useMemo(
+    () => resolvePlayback(sources, selectedQualityId),
+    [sources, selectedQualityId],
   )
 
   const qualityOptions = useMemo(() => {
-    return playableSources.map((source) => {
+    return playable.map((source) => {
       if (source.name === SOURCE_QUALITY_ID) {
         return { id: source.name, label: t("Source") }
       }
@@ -174,15 +158,7 @@ function ClipPlayer({
           : source.name,
       }
     })
-  }, [playableSources, renditions])
-
-  // An unplayable or missing selection plays the best playable tier; the
-  // menu highlight follows the same resolution.
-  const activeQualityId =
-    (
-      playableSources.find((source) => source.name === selectedQualityId) ??
-      playableSources[0]
-    )?.name ?? selectedQualityId
+  }, [playable, renditions])
 
   const handlePlaybackError = useCallback(
     (message: string) => {
@@ -200,7 +176,7 @@ function ClipPlayer({
 
   const aspectRatio = aspectRatioProp ?? DEFAULT_ASPECT_RATIO
 
-  if (!sourceContentType && renditions.length === 0) {
+  if (!playbackContentType && renditions.length === 0) {
     const unavailable = status === "failed"
     return (
       <div
@@ -262,7 +238,7 @@ function ClipPlayer({
       className={className}
       sourceIdentity={clipId}
       qualityOptions={qualityOptions}
-      selectedQualityId={activeQualityId}
+      selectedQualityId={active?.name ?? selectedQualityId}
       onSelectQuality={pinQuality}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}

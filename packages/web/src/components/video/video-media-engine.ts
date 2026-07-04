@@ -40,6 +40,24 @@ const STALL_POLL_MS = 1_000
 const SEEK_GRACE_MS = 1_000
 
 /**
+ * Capability-filtered tiers plus the effective active tier: the selected
+ * name when playable, else the best playable tier (index 0, best-first),
+ * else null. Shared by the engine and the player's quality menu so the
+ * highlight always matches what actually plays.
+ */
+export function resolvePlayback(
+  sources: RenditionSource[],
+  selected: string,
+): { playable: RenditionSource[]; active: RenditionSource | null } {
+  const playable = sources.filter((source) =>
+    canPlaySource(source.contentType, source.codecs),
+  )
+  const active =
+    playable.find((source) => source.name === selected) ?? playable[0] ?? null
+  return { playable, active }
+}
+
+/**
  * Resolve what the <video> element should actually play. File sources map to
  * an object URL; URL sources with renditions play the selected tier, falling
  * back to the best playable tier if the selection is missing or unplayable.
@@ -74,23 +92,14 @@ export function useMediaEngine(
     return () => revokeObjectUrl(url, "media source URL")
   }, [spec])
 
-  const playable = useMemo(
+  const { playable, active } = useMemo(
     () =>
       spec.kind === "url" && renditionPlayback
-        ? renditionPlayback.sources.filter((source) =>
-            canPlaySource(source.contentType, source.codecs),
-          )
-        : [],
+        ? resolvePlayback(renditionPlayback.sources, renditionPlayback.selected)
+        : { playable: [], active: null },
     [renditionPlayback, spec],
   )
   const sourcesKey = playable.map((source) => source.url).join("|")
-
-  // A selected-but-unplayable or missing name falls back to the best
-  // playable tier (index 0, since `sources` is ordered best-first).
-  const active =
-    playable.find((source) => source.name === renditionPlayback?.selected) ??
-    playable[0] ??
-    null
   const activeUrl = active?.url ?? null
   const activeIndex = active ? playable.indexOf(active) : -1
 

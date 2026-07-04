@@ -78,6 +78,8 @@ export interface ClipRow {
   gameId: string | null
   privacy: ClipPrivacy
   sourceContentType: string | null
+  /** MIME type of the default playback bytes (`/source/file`): video/mp4 when a derived trim cut shadows the source, else the source content type. Null while nothing playable is committed. */
+  playbackContentType: string | null
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
   sourceCodecs: string | null

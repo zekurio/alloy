@@ -29,12 +29,12 @@ export function clipDownloadActionSupported(row: ClipRow): boolean {
   return (
     clipDownloadsSupported() &&
     row.status === "ready" &&
-    Boolean(row.sourceContentType)
+    Boolean(row.playbackContentType)
   )
 }
 
 export function clipBrowserDownloadActionSupported(row: ClipRow): boolean {
-  return row.status === "ready" && Boolean(row.sourceContentType)
+  return row.status === "ready" && Boolean(row.playbackContentType)
 }
 
 export function useClipDownloadAction(

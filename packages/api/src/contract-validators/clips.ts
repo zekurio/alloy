@@ -68,6 +68,7 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
     "description",
     "game",
     "sourceContentType",
+    "playbackContentType",
     "sourceVideoCodec",
     "sourceAudioCodec",
     "sourceCodecs",

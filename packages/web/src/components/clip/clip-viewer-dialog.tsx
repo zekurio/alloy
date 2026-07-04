@@ -304,10 +304,9 @@ function ClipViewerDialogBody({
           >
             <ClipPlayer
               clipId={row.id}
-              sourceContentType={row.sourceContentType}
+              playbackContentType={row.playbackContentType}
               sourceCodecs={row.sourceCodecs}
               sourceVersion={row.sourceVersion}
-              trimmed={row.trimStartMs !== null}
               renditions={row.renditions}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}
