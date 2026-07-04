@@ -208,10 +208,13 @@ async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
   // Keeps decoded frames drawable to canvas when the media is served from
   // the API origin; harmless for same-origin and object URLs.
   video.crossOrigin = "anonymous"
-  video.src = mediaUrl
 
   try {
-    await videoEvent(video, "loadedmetadata")
+    const metadataLoaded = videoEvent(video, "loadedmetadata", {
+      alreadyDone: () => video.readyState >= HTMLMediaElement.HAVE_METADATA,
+    })
+    video.src = mediaUrl
+    await metadataLoaded
     const durationSec = video.duration
     if (!Number.isFinite(durationSec) || !(durationSec > 0)) {
       return EMPTY_FILMSTRIP
