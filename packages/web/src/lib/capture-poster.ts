@@ -155,17 +155,45 @@ async function capturePosterBlob(
       durationMs && durationMs > 0 ? durationMs / 1000 : video.duration
     if (!Number.isFinite(durationSec) || !(durationSec > 0)) return null
 
-    const seeked = videoEvent(video, "seeked")
-    video.currentTime = Math.min(1, durationSec / 2)
-    await seeked
-    const frame = await drawVideoFrameJpeg(video, {
-      height: POSTER_HEIGHT,
-      quality: POSTER_QUALITY,
-    })
-    return frame?.blob ?? null
+    let lastError: unknown = null
+    for (const timeSec of posterCandidateTimes(durationSec)) {
+      try {
+        const seeked = videoEvent(video, "seeked")
+        video.currentTime = timeSec
+        await seeked
+        const frame = await drawVideoFrameJpeg(video, {
+          height: POSTER_HEIGHT,
+          quality: POSTER_QUALITY,
+        })
+        if (frame) return frame.blob
+      } catch (cause) {
+        lastError = cause
+      }
+    }
+
+    if (lastError instanceof Error) throw lastError
+    return null
   } finally {
     teardownVideoElement(video)
   }
+}
+
+function posterCandidateTimes(durationSec: number): number[] {
+  const maxTime = durationSec > 0.1 ? durationSec - 0.05 : durationSec
+  const result: number[] = []
+  for (const timeSec of [
+    Math.min(1, durationSec / 2),
+    durationSec * 0.1,
+    durationSec * 0.25,
+    durationSec * 0.5,
+    durationSec * 0.75,
+  ]) {
+    const clamped = Math.min(Math.max(0, timeSec), maxTime)
+    if (result.every((existing) => Math.abs(existing - clamped) > 0.05)) {
+      result.push(clamped)
+    }
+  }
+  return result.length > 0 ? result : [0]
 }
 
 async function persistPoster(id: string, blob: Blob): Promise<void> {

@@ -128,11 +128,9 @@ async function prepareCapturePublishPayload({
     posterAtMs,
   )
   throwIfAborted(signal)
-  const thumbBlurHash =
-    thumbnail.blurHash ??
-    exported.thumbBlurHash ??
-    item.thumbBlurHash ??
-    (await hashPosterBlob(desktop, thumbnail.blob))
+  const thumbBlurHash = thumbnail
+    ? (thumbnail.blurHash ?? (await hashPosterBlob(desktop, thumbnail.blob)))
+    : null
 
   return {
     file: selected.file,
@@ -146,7 +144,7 @@ async function prepareCapturePublishPayload({
     height: selected.height,
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
-    thumbBlob: thumbnail.blob,
+    thumbBlob: thumbnail?.blob ?? null,
     thumbBlurHash,
     mentionedUserIds: mentions.map((mention) => mention.id),
     localCaptureId: item.id,
@@ -176,15 +174,21 @@ async function capturePoster(
   thumbUrl: string | null,
   file: File,
   posterAtMs: number,
-): Promise<CapturedThumbnail> {
+): Promise<CapturedThumbnail | null> {
   if (thumbUrl) {
     try {
       return await thumbnailFromImageUrl(thumbUrl)
-    } catch {
+    } catch (cause) {
+      clientLogger.warn("[upload] Cached poster is not usable.", cause)
       // Fall through to capturing from the video file.
     }
   }
-  return captureThumbnail(file, posterAtMs)
+  try {
+    return await captureThumbnail(file, posterAtMs)
+  } catch (cause) {
+    clientLogger.warn("[upload] Could not capture a usable poster.", cause)
+    return null
+  }
 }
 
 async function hashPosterBlob(
