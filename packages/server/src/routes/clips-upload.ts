@@ -3,6 +3,7 @@ import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
+import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
 import { extractPoster } from "@alloy/server/media/poster"
@@ -18,13 +19,7 @@ import { clipThumbnailStorage } from "@alloy/server/storage/index"
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
-import {
-  IdParam,
-  PosterBody,
-  TRIM_MIN_RANGE_MS,
-  TrimBody,
-  UpdateBody,
-} from "./clips-helpers"
+import { IdParam, PosterBody, TrimBody, UpdateBody } from "./clips-helpers"
 import {
   selectClipForMutation,
   updatedClipResponse,
@@ -32,9 +27,6 @@ import {
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
 import { zValidator } from "./validation"
-
-/** Slack when deciding whether a requested trim still covers the full clip. */
-const TRIM_FULL_RANGE_TOLERANCE_MS = 50
 
 export const clipsUploadRoutes = new Hono()
   .route("/", clipsUploadLifecycleRoutes)
@@ -209,24 +201,23 @@ export const clipsUploadRoutes = new Hono()
         return badRequest(c, "Clip duration is unknown")
       }
 
-      const startMs = Math.max(0, body.startMs)
-      const endMs = Math.min(durationMs, body.endMs)
-      if (endMs - startMs < TRIM_MIN_RANGE_MS) {
-        return badRequest(c, "The trimmed range is too short")
-      }
+      const resolved = resolveTrimRange({
+        startMs: body.startMs,
+        endMs: body.endMs,
+        durationMs,
+      })
+      if (resolved.kind === "invalid") return badRequest(c, resolved.reason)
       // A full-range request clears an existing trim; without one to clear
       // there is nothing to do.
-      const fullRange =
-        startMs <= TRIM_FULL_RANGE_TOLERANCE_MS &&
-        endMs >= durationMs - TRIM_FULL_RANGE_TOLERANCE_MS
       if (
-        fullRange &&
+        resolved.kind === "full-range" &&
         row.trim_start_ms === null &&
         row.trim_end_ms === null &&
         row.cut_key === null
       ) {
         return badRequest(c, "The trim covers the whole clip")
       }
+      const range = resolved.kind === "range" ? resolved : null
 
       // The status flip is the concurrency guard against other mutations;
       // the null lease additionally excludes a first-ingest run that is
@@ -235,8 +226,8 @@ export const clipsUploadRoutes = new Hono()
       const [accepted] = await db
         .update(clip)
         .set({
-          trim_start_ms: fullRange ? null : startMs,
-          trim_end_ms: fullRange ? null : endMs,
+          trim_start_ms: range?.startMs ?? null,
+          trim_end_ms: range?.endMs ?? null,
           status: "processing",
           encode_progress: 0,
           encode_attempt: 0,
