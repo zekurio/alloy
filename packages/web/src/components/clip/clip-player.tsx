@@ -86,16 +86,25 @@ function ClipPlayer({
   const pendingPoster = useImageLoaded(poster)
 
   // Selection is scoped to the clip: the viewers reuse one ClipPlayer across
-  // navigation, and a manual pin — or an automatic error fallback — on one
-  // clip must not carry over to the next.
+  // navigation, and a manual pin — or an automatic fallback — on one clip
+  // must not carry over to the next. `pinned` marks a menu choice, which
+  // opts that clip out of stall-based downgrades.
   const [selection, setSelection] = useState({
     clipId,
     name: SOURCE_QUALITY_ID,
+    pinned: false,
   })
-  const selectedQualityId =
-    selection.clipId === clipId ? selection.name : SOURCE_QUALITY_ID
-  const selectQuality = useCallback(
-    (name: string) => setSelection({ clipId, name }),
+  const scopedSelection =
+    selection.clipId === clipId
+      ? selection
+      : { clipId, name: SOURCE_QUALITY_ID, pinned: false }
+  const selectedQualityId = scopedSelection.name
+  const pinQuality = useCallback(
+    (name: string) => setSelection({ clipId, name, pinned: true }),
+    [clipId],
+  )
+  const fallbackQuality = useCallback(
+    (name: string) => setSelection({ clipId, name, pinned: false }),
     [clipId],
   )
 
@@ -133,10 +142,11 @@ function ClipPlayer({
   const renditionPlayback = useMemo(
     (): RenditionPlayback => ({
       sources,
-      selected: selectedQualityId,
-      onFallback: selectQuality,
+      selected: scopedSelection.name,
+      pinned: scopedSelection.pinned,
+      onFallback: fallbackQuality,
     }),
-    [selectQuality, selectedQualityId, sources],
+    [fallbackQuality, scopedSelection, sources],
   )
 
   // The menu only offers tiers this browser can decode, mirroring the
@@ -253,7 +263,7 @@ function ClipPlayer({
       sourceIdentity={clipId}
       qualityOptions={qualityOptions}
       selectedQualityId={activeQualityId}
-      onSelectQuality={selectQuality}
+      onSelectQuality={pinQuality}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       onPlaybackError={handlePlaybackError}
