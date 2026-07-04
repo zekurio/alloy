@@ -9,7 +9,7 @@ import {
   noContent,
   payloadTooLarge,
 } from "@alloy/server/runtime/http-response"
-import { clipStorageForUploadRole } from "@alloy/server/storage/index"
+import { clipStorage } from "@alloy/server/storage/index"
 import { deleteStagedUpload } from "@alloy/server/uploads/staged"
 import { and, eq, gt, isNull } from "drizzle-orm"
 import { Hono } from "hono"
@@ -21,7 +21,6 @@ const logger = createLogger("assets")
 
 type UploadTicketRecord = {
   id: string
-  role: "video" | "thumb"
 }
 
 type ResolvedUploadTicket = {
@@ -38,7 +37,6 @@ export const storageRoute = new Hono()
       payload: { k: key, ct: expectedContentType, mb: maxBytes },
       ticket,
     } = resolved
-    const storage = clipStorageForUploadRole(ticket.role)
 
     const contentType = c.req.header("content-type")
     if (contentType && contentType !== expectedContentType) {
@@ -51,12 +49,12 @@ export const storageRoute = new Hono()
 
     let limitTripped = false
 
-    if (await storage.resolve(key)) {
+    if (await clipStorage.resolve(key)) {
       return conflict(c, "Upload ticket has already been used")
     }
 
     try {
-      await storage.put(
+      await clipStorage.put(
         key,
         limitUploadBody(c.req.raw.body, maxBytes, () => {
           limitTripped = true
@@ -64,7 +62,7 @@ export const storageRoute = new Hono()
         expectedContentType,
       )
     } catch (err) {
-      await deletePartialUpload(key, ticket.role)
+      await deletePartialUpload(key)
       if (limitTripped) {
         return payloadTooLarge(c, "Upload exceeded declared size")
       }
@@ -91,7 +89,7 @@ export const storageRoute = new Hono()
     if (!c.req.raw.body) return badRequest(c, "Empty upload body")
 
     try {
-      await clipStorageForUploadRole(resolved.ticket.role).writeUploadPart({
+      await clipStorage.writeUploadPart({
         key: payload.k,
         partNumber,
         partSizeBytes,
@@ -117,7 +115,7 @@ export const storageRoute = new Hono()
     if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
 
     try {
-      await clipStorageForUploadRole(ticket.role).completeUpload({
+      await clipStorage.completeUpload({
         key: payload.k,
         contentType: payload.ct,
         maxBytes: payload.mb,
@@ -161,7 +159,7 @@ async function resolveUploadTicket(
   }
 
   const [ticket] = await db
-    .select({ id: uploadTicket.id, role: uploadTicket.role })
+    .select({ id: uploadTicket.id })
     .from(uploadTicket)
     .where(
       and(
@@ -239,12 +237,9 @@ function limitUploadBody(
   })
 }
 
-async function deletePartialUpload(
-  key: string,
-  role: UploadTicketRecord["role"],
-): Promise<void> {
+async function deletePartialUpload(key: string): Promise<void> {
   try {
-    await clipStorageForUploadRole(role).delete(key)
+    await clipStorage.delete(key)
   } catch (err) {
     logger.warn(`failed to remove partial upload ${key}:`, err)
   }

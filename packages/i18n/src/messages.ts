@@ -34,7 +34,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "{resolution} · {fps} FPS": "{resolution} · {fps} FPS",
   "{used} used": "{used} verwendet",
   "≈ {size}/hr": "≈ {size}/Std.",
-  "2D canvas context unavailable": "2D canvas context unavailable",
   "A browser window may open to sign in. Return here once you're done.":
     "Vielleicht öffnet sich ein Browserfenster zum Anmelden. Komm danach hierher zurück.",
   "A new version has been downloaded.":
@@ -143,7 +142,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Buffer storage": "Pufferspeicher",
   Cancel: "Abbrechen",
   "Cancel reply": "Antwort abbrechen",
-  "canvas.toBlob returned null": "canvas.toBlob hat null zurückgegeben",
   Capture: "Aufnahme",
   "Capture audio from": "Audio aufnehmen von",
   "Capture folder": "Aufnahmeordner",
@@ -250,17 +248,9 @@ export const DE_MESSAGES: Record<string, string> = {
   "Cool shadows": "Kühle Schatten",
   "Copy error": "Fehler kopieren",
   "Copy link": "Link kopieren",
-  "Could not capture thumbnail": "Vorschaubild konnte nicht erstellt werden",
   "Could not clear staged import.":
     "Der vorbereitete Import konnte nicht aufgeräumt werden.",
-  "Could not encode thumbnail": "Vorschaubild konnte nicht kodiert werden",
-  "Could not fetch poster image ({status})":
-    "Posterbild konnte nicht abgerufen werden ({status})",
   "Could not import clip.": "Clip konnte nicht importiert werden.",
-  "Could not load video frame for thumbnail capture":
-    "Videobild für die Vorschau konnte nicht geladen werden",
-  "Could not load video metadata for thumbnail capture":
-    "Videometadaten für die Vorschau konnten nicht geladen werden",
   "Could not prepare clip.": "Clip konnte nicht vorbereitet werden.",
   "Could not reach server.": "Server konnte nicht erreicht werden.",
   "Could not read video dimensions.":
@@ -980,8 +970,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Search...": "Suchen...",
   Security: "Sicherheit",
   Seek: "Spulen",
-  "Seek failed during thumbnail capture":
-    "Spulen ist während der Vorschau-Erstellung fehlgeschlagen",
   "Select the display Alloy should use for desktop capture.":
     "Wähle das Display, das Alloy für die Desktop-Aufnahme verwenden soll.",
   "Server + Device": "Server + Gerät",
@@ -1034,8 +1022,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Source: "Quelle",
   "Source clips count toward your quota. Encoded copies do not.":
     "Quell-Clips zählen zu deinem Kontingent. Kodierte Kopien nicht.",
-  "Source dimensions unavailable for thumbnail":
-    "Quellabmessungen für Vorschaubild nicht verfügbar",
   "Source resolution": "Quellauflösung",
   Space: "Leertaste",
   "Split at playhead (S)": "Am Abspielkopf teilen (S)",
@@ -1244,8 +1230,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Videocodec, Hardware-Beschleunigung, Qualität, Audio und die Qualitätsstufen-Leiter für neue Uploads.",
   'Video decode failed in "{label}": {message}':
     "Videodekodierung in „{label}“ fehlgeschlagen: {message}",
-  "Video dimensions unavailable for thumbnail":
-    "Videoabmessungen für Vorschaubild nicht verfügbar",
   "Video encoder": "Video-Encoder",
   "Video encoding": "Codierung",
   "Video loading was aborted.": "Das Laden des Videos wurde abgebrochen.",

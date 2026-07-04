@@ -1,11 +1,9 @@
 import {
   ACCEPTED_CLIP_CONTENT_TYPES,
-  ACCEPTED_THUMB_CONTENT_TYPES,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TAG_MAX_LENGTH,
   CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
-  isBlurHash,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
@@ -219,10 +217,6 @@ export const InitiateBody = z
     // run derives the cut, so trims ride along instead of being client-cut.
     trimStartMs: z.number().int().min(0).optional(),
     trimEndMs: z.number().int().positive().optional(),
-    thumbBlurHash: z.string().refine(isBlurHash, "Invalid BlurHash").optional(),
-    thumbContentType: z
-      .enum(ACCEPTED_THUMB_CONTENT_TYPES)
-      .default("image/jpeg"),
   })
   .superRefine((body, ctx) => {
     if (body.trimStartMs === undefined && body.trimEndMs === undefined) return
