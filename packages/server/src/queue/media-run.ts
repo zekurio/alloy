@@ -10,7 +10,7 @@ import { configStore } from "@alloy/server/config/store"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { mp4Layout, remuxToFastStart } from "@alloy/server/media/mp4-layout"
 import { extractPoster } from "@alloy/server/media/poster"
-import { probeMedia } from "@alloy/server/media/probe"
+import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
 import {
   effectiveLadder,
   encodeRendition,
@@ -235,11 +235,7 @@ async function runPipelineInWorkDir({
     sourceContentType: sourceAsset.contentType,
     sourceVideoCodec: sourceAsset.videoCodec,
     sourceAudioCodec: sourceAsset.audioCodec,
-    sourceCodecs: sourceProbe.videoCodecString
-      ? [sourceProbe.videoCodecString, sourceProbe.audioCodecString]
-          .filter((value): value is string => !!value)
-          .join(",")
-      : null,
+    sourceCodecs: sourceCodecsString(sourceProbe),
     sourceSizeBytes: sourceAsset.sizeBytes,
     sourceDurationMs: sourceProbe.durationMs,
     cutKey,
