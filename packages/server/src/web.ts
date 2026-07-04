@@ -5,6 +5,10 @@ import { Readable } from "node:stream"
 import type { PublicAuthConfig } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
+import {
+  renditionIsH264,
+  sourceIsBroadlyDecodable,
+} from "@alloy/server/clips/codecs"
 import { eq } from "drizzle-orm"
 import type { Context, Hono } from "hono"
 
@@ -155,9 +159,9 @@ async function clipHead(pathname: string): Promise<string> {
           origin,
         ).toString()
       : null
-    // Social video embeds are only reliable for H.264/AAC. Legacy rendition
-    // rows without codec metadata predate configurable codecs and were H.264.
-    // Prefer the tier flagged for link previews, then any H.264 tier.
+    // Social video embeds are only reliable for H.264/AAC. Source codec
+    // metadata is required; legacy null sourceCodecs must fall through to the
+    // rendition/stream fallbacks below.
     const renditionRows = row.renditionRows ?? []
     const ogRendition =
       renditionRows.find(
@@ -168,19 +172,36 @@ async function clipHead(pathname: string): Promise<string> {
     const embeddableSource =
       row.sourceContentType === "video/mp4" ||
       row.sourceContentType === "video/webm"
-    const videoUrl = ogRendition
+    const playbackSourceKey = row.cutKey ?? row.sourceKey
+    const ogSource =
+      playbackSourceKey &&
+      sourceIsBroadlyDecodable(row.sourceCodecs) &&
+      (row.cutKey !== null || embeddableSource)
+        ? {
+            key: playbackSourceKey,
+            contentType: row.cutKey ? "video/mp4" : row.sourceContentType,
+          }
+        : null
+    const videoUrl = ogSource
       ? new URL(
-          `/api/clips/${row.id}/rendition/${ogRendition.name}/file.mp4?v=${clipAssetVersion(ogRendition.key)}`,
+          `/api/clips/${row.id}/source/file?v=${clipAssetVersion(ogSource.key)}`,
           origin,
         ).toString()
-      : renditionRows.length === 0 && row.sourceKey && embeddableSource
-        ? new URL(`/api/clips/${row.id}/stream`, origin).toString()
-        : null
-    const videoType = ogRendition
-      ? "video/mp4"
-      : (row.sourceContentType ?? "video/mp4")
-    const width = ogRendition?.width ?? row.width
-    const height = ogRendition?.height ?? row.height
+      : ogRendition
+        ? new URL(
+            `/api/clips/${row.id}/rendition/${ogRendition.name}/file.mp4?v=${clipAssetVersion(ogRendition.key)}`,
+            origin,
+          ).toString()
+        : renditionRows.length === 0 && row.sourceKey && embeddableSource
+          ? new URL(`/api/clips/${row.id}/stream`, origin).toString()
+          : null
+    const videoType = ogSource
+      ? (ogSource.contentType ?? "video/mp4")
+      : ogRendition
+        ? "video/mp4"
+        : (row.sourceContentType ?? "video/mp4")
+    const width = ogSource ? row.width : (ogRendition?.width ?? row.width)
+    const height = ogSource ? row.height : (ogRendition?.height ?? row.height)
 
     return [
       `<title>${htmlEscape(row.title)} | alloy</title>`,
@@ -213,14 +234,6 @@ async function clipHead(pathname: string): Promise<string> {
     logger.error("failed to build clip metadata:", error)
     return ""
   }
-}
-
-function renditionIsH264(codecs: string | null | undefined): boolean {
-  if (!codecs) return true
-  return codecs
-    .split(",")
-    .map((codec) => codec.trim().toLowerCase())
-    .some((codec) => codec.startsWith("avc1."))
 }
 
 function withInjectedHead(indexHtml: string, head: string): string {

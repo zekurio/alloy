@@ -13,18 +13,33 @@ export const FULL_CLIP_TOLERANCE_MS = 50
  */
 export function useTrimPlayback({
   initialDurationMs,
+  initialTrim,
   canTrim = true,
 }: {
   initialDurationMs: number
+  initialTrim?: { startMs: number; endMs: number }
   canTrim?: boolean
 }) {
   const playerRef = useRef<VideoPlayerHandle | null>(null)
   const [playing, setPlaying] = useState(false)
   const [durationMs, setDurationMs] = useState(initialDurationMs)
-  const [trim, setTrim] = useState({
-    startMs: 0,
-    endMs: initialDurationMs,
-  })
+  const [trim, setTrim] = useState(() =>
+    initialTrim
+      ? {
+          startMs: Math.min(
+            Math.max(0, initialTrim.startMs),
+            Math.max(0, initialDurationMs - MIN_TRIM_MS),
+          ),
+          endMs: Math.max(
+            Math.min(initialDurationMs, initialTrim.endMs),
+            Math.min(initialDurationMs, initialTrim.startMs + MIN_TRIM_MS),
+          ),
+        }
+      : {
+          startMs: 0,
+          endMs: initialDurationMs,
+        },
+  )
   // The playhead position lives outside React state: the playback loop
   // publishes it every animation frame, and rendering it through setState
   // would reconcile the whole editor subtree at 60fps. Leaf components

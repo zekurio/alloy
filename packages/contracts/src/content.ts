@@ -78,9 +78,13 @@ export interface ClipRow {
   gameId: string | null
   privacy: ClipPrivacy
   sourceContentType: string | null
+  /** MIME type of the default playback bytes (`/source/file`): video/mp4 when a derived trim cut shadows the source, else the source content type. Null while nothing playable is committed. */
+  playbackContentType: string | null
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
+  sourceCodecs: string | null
   sourceSizeBytes: number | null
+  sourceDurationMs: number | null
   /** Cache-busting version of the published source bytes; changes on republish. */
   sourceVersion: string | null
   /** Encoded quality tiers, highest first; empty until the pipeline commits. */
@@ -94,6 +98,8 @@ export interface ClipRow {
   viewCount: number
   likeCount: number
   commentCount: number
+  trimStartMs: number | null
+  trimEndMs: number | null
   status: ClipStatus
   encodeProgress: number
   failureReason: string | null
@@ -112,6 +118,13 @@ export type ClipFeedSort = ClipListSort | "recommended"
 
 export const CLIP_TITLE_MAX_LENGTH = 100
 export const CLIP_DESCRIPTION_MAX_LENGTH = 2000
+
+/**
+ * Trim-scrubber sprite sheet layout, shared between the server tile pass and
+ * the client slicer: frame count cells tiled this many columns wide.
+ */
+export const CLIP_SCRUBBER_FRAME_COUNT = 16
+export const CLIP_SCRUBBER_COLUMNS = 4
 
 export interface ClipPage {
   items: ClipRow[]
@@ -142,6 +155,13 @@ export interface InitiateClipInput {
   width?: number
   height?: number
   durationMs?: number
+  /**
+   * Kept source range in the uploaded file's timeline. The raw upload is
+   * stored untouched; the media run derives the cut server-side. Both bounds
+   * or neither.
+   */
+  trimStartMs?: number
+  trimEndMs?: number
   /**
    * Client-computed BlurHash of the clip's poster frame. The server validates
    * and publishes it only when the uploaded thumbnail image is accepted.
@@ -179,6 +199,14 @@ export interface UpdateClipInput {
 export interface TrimClipInput {
   startMs: number
   endMs: number
+}
+
+/**
+ * Re-poster request: extract the frame at `timeMs` (source-time; the server
+ * clamps it into the trim range) and publish it as the clip's thumbnail.
+ */
+export interface SetClipPosterInput {
+  timeMs: number
 }
 
 export interface ClipLikeState {

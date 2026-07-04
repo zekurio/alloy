@@ -19,7 +19,6 @@ import { copyTextToClipboard } from "@/lib/clipboard"
 import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
-import { trimFileToMp4 } from "@/lib/trim-file"
 
 export interface LibraryWebUploadAction {
   available: boolean
@@ -100,13 +99,14 @@ export function useLibraryWebUploadAction(): LibraryWebUploadAction {
 
       setPublishing(true)
       try {
-        // Trimming and poster capture are slow, so hand them to the upload
-        // queue as a deferred job: the editor closes immediately and the cut
-        // runs off the picked File in the background.
+        // Poster capture is slow, so hand it to the upload queue as a
+        // deferred job: the editor closes immediately and the capture runs
+        // off the picked File in the background. The file itself uploads
+        // untouched — the server derives the trim cut at ingest.
         const result = await publishClip({
           kind: "deferred",
           title: metadata.title,
-          sizeBytes: estimatedUploadSizeBytes(current, metadata),
+          sizeBytes: current.sizeBytes,
           thumbUrl: null,
           thumbBlurHash: null,
           prepare: (signal) =>
@@ -159,52 +159,38 @@ async function prepareWebUploadPayload(
   signal: AbortSignal,
 ): Promise<PublishPayload> {
   throwIfAborted(signal)
-  const sourceFile = metadata.trimmed
-    ? await trimFileToMp4(selected.file, {
-        startMs: metadata.trim.startMs,
-        endMs: metadata.trim.endMs,
-        signal,
-      })
-    : selected.file
-  throwIfAborted(signal)
-  // Re-validate and re-probe: the cut file has its own duration/dimensions and
-  // must clear the same upload checks a freshly picked file does.
-  const prepared = await prepareSelectedClipFile(sourceFile)
-  throwIfAborted(signal)
-  // Sample the poster from the cut file — the keyframe snap means the original
-  // frame at the requested start may not survive the trim.
+  // Sample the poster from inside the kept range so it survives the server
+  // trim; the server's keyframe-snapped cut then re-extracts only when this
+  // client capture never arrives.
+  const rangeStartMs = metadata.trimmed ? metadata.trim.startMs : 0
+  const rangeEndMs = metadata.trimmed
+    ? metadata.trim.endMs
+    : selected.durationMs
   const thumbnail = await captureThumbnail(
-    prepared.file,
-    Math.min(1000, Math.max(0, prepared.durationMs - 100)),
+    selected.file,
+    rangeStartMs + Math.min(1000, Math.max(0, rangeEndMs - rangeStartMs - 100)),
+    rangeStartMs,
+    rangeStartMs,
   )
 
   return {
-    file: prepared.file,
-    contentType: prepared.contentType,
+    file: selected.file,
+    contentType: selected.contentType,
     title: metadata.title,
     description: nullableClipDescription(metadata.description),
     gameId: metadata.game?.id ?? null,
     privacy: metadata.privacy,
-    width: prepared.width,
-    height: prepared.height,
-    durationMs: prepared.durationMs,
-    sizeBytes: prepared.sizeBytes,
+    width: selected.width,
+    height: selected.height,
+    durationMs: selected.durationMs,
+    sizeBytes: selected.sizeBytes,
     thumbBlob: thumbnail.blob,
     thumbBlurHash: thumbnail.blurHash,
     mentionedUserIds: metadata.mentions.map((mention) => mention.id),
     tags: parseTagString(metadata.tags),
+    trimStartMs: metadata.trimmed ? metadata.trim.startMs : undefined,
+    trimEndMs: metadata.trimmed ? metadata.trim.endMs : undefined,
   }
-}
-
-function estimatedUploadSizeBytes(
-  selected: SelectedFile,
-  metadata: WebUploadMetadata,
-): number {
-  if (!metadata.trimmed || !(selected.durationMs > 0)) return selected.sizeBytes
-  const ratio =
-    Math.max(0, metadata.trim.endMs - metadata.trim.startMs) /
-    selected.durationMs
-  return Math.max(1, Math.round(selected.sizeBytes * Math.min(1, ratio)))
 }
 
 function throwIfAborted(signal: AbortSignal): void {

@@ -2,7 +2,7 @@ import {
   type ClipRenditionRef,
   clipRenditionFileUrl,
   type ClipStatus,
-  clipStreamUrl,
+  clipSourceFileUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
@@ -12,17 +12,24 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useMemo, useState } from "react"
 
-import type { RenditionPlayback } from "@/components/video/video-media-engine"
+import {
+  resolvePlayback,
+  type RenditionPlayback,
+  type RenditionSource,
+} from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
 
-const AUTO_QUALITY_ID = "auto"
+// Rendition names are resolution tiers ("1080p60"), so "source" never collides.
+const SOURCE_QUALITY_ID = "source"
 
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
   clipId: string
-  /** MIME type of the uploaded source; absent while the clip is processing. */
-  sourceContentType?: string | null
+  /** MIME type of the default playback asset; absent while the clip is processing. */
+  playbackContentType?: string | null
+  /** RFC 6381 codecs of the source; null for clips probed before the column. */
+  sourceCodecs?: string | null
   /** Cache-busting version of the published source; changes on republish. */
   sourceVersion?: string | null
   /** Committed quality tiers, highest first. Empty for pre-backfill clips. */
@@ -48,7 +55,8 @@ const DEFAULT_ASPECT_RATIO = 16 / 9
 
 function ClipPlayer({
   clipId,
-  sourceContentType,
+  playbackContentType,
+  sourceCodecs,
   sourceVersion,
   renditions = [],
   thumbnail,
@@ -74,12 +82,39 @@ function ClipPlayer({
   // Poster shown while the clip has no playable media yet (processing/failed).
   const pendingPoster = useImageLoaded(poster)
 
-  const [selectedQualityId, setSelectedQualityId] = useState(AUTO_QUALITY_ID)
+  // Selection is scoped to the clip: the viewers reuse one ClipPlayer across
+  // navigation, and a manual pin — or an automatic fallback — on one clip
+  // must not carry over to the next. `pinned` marks a menu choice, which
+  // opts that clip out of stall-based downgrades.
+  const [selection, setSelection] = useState({
+    clipId,
+    name: SOURCE_QUALITY_ID,
+    pinned: false,
+  })
+  const scopedSelection =
+    selection.clipId === clipId
+      ? selection
+      : { clipId, name: SOURCE_QUALITY_ID, pinned: false }
+  const selectedQualityId = scopedSelection.name
+  const pinQuality = useCallback(
+    (name: string) => setSelection({ clipId, name, pinned: true }),
+    [clipId],
+  )
+  const fallbackQuality = useCallback(
+    (name: string) => setSelection({ clipId, name, pinned: false }),
+    [clipId],
+  )
 
-  const renditionPlayback = useMemo((): RenditionPlayback | null => {
-    if (renditions.length === 0) return null
-    return {
-      sources: renditions.map((rendition) => ({
+  // Quality tiers best-first with the source endpoint on top.
+  const sources = useMemo((): RenditionSource[] => {
+    return [
+      {
+        name: SOURCE_QUALITY_ID,
+        url: clipSourceFileUrl(clipId, apiOrigin(), sourceVersion ?? undefined),
+        codecs: sourceCodecs ?? "",
+        contentType: playbackContentType ?? "video/mp4",
+      },
+      ...renditions.map((rendition) => ({
         name: rendition.name,
         url: clipRenditionFileUrl(
           clipId,
@@ -88,30 +123,42 @@ function ClipPlayer({
           rendition.version,
         ),
         codecs: rendition.codecs,
+        contentType: "video/mp4",
       })),
-      selected:
-        selectedQualityId !== AUTO_QUALITY_ID ? selectedQualityId : null,
-    }
-  }, [clipId, renditions, selectedQualityId])
+    ]
+  }, [clipId, playbackContentType, renditions, sourceCodecs, sourceVersion])
 
-  // Fallback for clips without renditions: the stream endpoint serves the
-  // stored source until the backfill reaches them.
-  const fallbackSrc = clipStreamUrl(
-    clipId,
-    apiOrigin(),
-    sourceVersion ?? undefined,
+  const renditionPlayback = useMemo(
+    (): RenditionPlayback => ({
+      sources,
+      selected: scopedSelection.name,
+      pinned: scopedSelection.pinned,
+      onFallback: fallbackQuality,
+    }),
+    [fallbackQuality, scopedSelection, sources],
+  )
+
+  const { playable, active } = useMemo(
+    () => resolvePlayback(sources, selectedQualityId),
+    [sources, selectedQualityId],
   )
 
   const qualityOptions = useMemo(() => {
-    if (renditions.length === 0) return []
-    return [
-      { id: AUTO_QUALITY_ID, label: t("Auto") },
-      ...renditions.map((rendition) => ({
-        id: rendition.name,
-        label: renditionQualityLabel(rendition, renditions),
-      })),
-    ]
-  }, [renditions])
+    return playable.map((source) => {
+      if (source.name === SOURCE_QUALITY_ID) {
+        return { id: source.name, label: t("Source") }
+      }
+      const rendition = renditions.find(
+        (candidate) => candidate.name === source.name,
+      )
+      return {
+        id: source.name,
+        label: rendition
+          ? renditionQualityLabel(rendition, renditions)
+          : source.name,
+      }
+    })
+  }, [playable, renditions])
 
   const handlePlaybackError = useCallback(
     (message: string) => {
@@ -129,7 +176,7 @@ function ClipPlayer({
 
   const aspectRatio = aspectRatioProp ?? DEFAULT_ASPECT_RATIO
 
-  if (!sourceContentType && renditions.length === 0) {
+  if (!playbackContentType && renditions.length === 0) {
     const unavailable = status === "failed"
     return (
       <div
@@ -180,7 +227,7 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={fallbackSrc}
+      src={sources[0].url}
       renditionPlayback={renditionPlayback}
       poster={poster}
       posterBlurHash={thumbnailBlurHash}
@@ -191,8 +238,8 @@ function ClipPlayer({
       className={className}
       sourceIdentity={clipId}
       qualityOptions={qualityOptions}
-      selectedQualityId={selectedQualityId}
-      onSelectQuality={setSelectedQualityId}
+      selectedQualityId={active?.name ?? selectedQualityId}
+      onSelectQuality={pinQuality}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       onPlaybackError={handlePlaybackError}

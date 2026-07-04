@@ -51,7 +51,14 @@ export const clip = pgTable(
     source_content_type: text(),
     source_video_codec: text(),
     source_audio_codec: text(),
+    // RFC 6381 codec parameter string of the stored source (e.g.
+    // "avc1.64002a,mp4a.40.2") for canPlayType negotiation; null = not
+    // probed yet (legacy rows, backfilled lazily).
+    source_codecs: text(),
     source_size_bytes: bigint({ mode: "number" }),
+    // Full duration of the stored source; `duration_ms` stays the effective
+    // playback duration (equals the trim cut's duration for trimmed clips).
+    source_duration_ms: integer(),
     // Nullable: populated by the finalize step after probing. Clips in
     // 'pending' or 'failed' status may be missing some or all of these.
     duration_ms: integer(),
@@ -68,10 +75,14 @@ export const clip = pgTable(
     like_count: integer().notNull().default(0),
     comment_count: integer().notNull().default(0),
 
-    // Pending owner-requested trim (source-time ms). The media pipeline cuts
-    // the stored source to this range on its next run and clears both.
+    // Owner trim range in source-time ms. Virtual: the source is never
+    // modified; the media pipeline derives a stream-copy cut + renditions from
+    // this persisted range. Null = untrimmed.
     trim_start_ms: integer(),
     trim_end_ms: integer(),
+    // Storage key of the derived stream-copy cut for trimmed clips; null =
+    // untrimmed.
+    cut_key: text(),
 
     status: text().$type<ClipStatus>().notNull().default("pending"),
     // Fingerprint of the media pipeline that committed the current renditions

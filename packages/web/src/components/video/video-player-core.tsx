@@ -241,8 +241,8 @@ export function PlayerCore({
   ])
 
   const reportError = useCallback(() => {
-    // The engine may recover by switching sources (native HLS degrading to
-    // the progressive fallback); the media key change resets load state.
+    // The engine may recover by stepping down one playable quality tier;
+    // the media key change resets load state.
     if (onMediaError()) return
     const video = videoRef.current
     const message = mediaErrorMessage(video)
