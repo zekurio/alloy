@@ -24,7 +24,7 @@
         },
         Foundation::{
             CloseHandle, ERROR_ACCESS_DENIED, GetLastError, HGLOBAL, HWND, INVALID_HANDLE_VALUE,
-            LPARAM, POINT, RECT, WAIT_TIMEOUT,
+            LPARAM, POINT, RECT, STILL_ACTIVE,
         },
         Graphics::{
             Gdi::{
@@ -58,7 +58,7 @@
             },
             Memory::{GlobalLock, GlobalSize, GlobalUnlock},
             Threading::{
-                OpenProcess, QueryFullProcessImageNameW, WaitForSingleObject,
+                GetExitCodeProcess, OpenProcess, QueryFullProcessImageNameW,
                 PROCESS_QUERY_LIMITED_INFORMATION,
             },
         },
@@ -149,7 +149,13 @@
                 // grace period into a detect/clear flap.
                 return GetLastError() == ERROR_ACCESS_DENIED;
             }
-            let alive = WaitForSingleObject(handle, 0) == WAIT_TIMEOUT;
+            // WaitForSingleObject needs SYNCHRONIZE access, which this
+            // query-limited handle does not carry — the wait always fails and
+            // every process reads as dead. GetExitCodeProcess only needs
+            // PROCESS_QUERY_LIMITED_INFORMATION.
+            let mut exit_code = 0u32;
+            let alive = GetExitCodeProcess(handle, &mut exit_code) != 0
+                && exit_code == STILL_ACTIVE as u32;
             CloseHandle(handle);
             alive
         }
