@@ -19,12 +19,22 @@ export interface QueueItem {
   title: string
   /** Which transport this row belongs to. */
   kind: "upload" | "download"
+  /** Coarse phase for aggregate labels (e.g. the global pill). */
+  phase?: "upload" | "processing" | "download"
   status: QueueItemStatus
   /** 0-100. `queued` items should pass 0. */
   progress: number
   /** False for handoff states that have no meaningful numeric progress. */
   showProgress?: boolean
-  /** Short status detail: "0:41 remaining", "H.264 1080p", etc. */
+  /**
+   * True while progress is real but not yet numerically meaningful — bytes
+   * flushed and awaiting the server, or an encode that has not reported a
+   * percentage yet. Surfaces render an indeterminate sweep instead of a 0% bar.
+   */
+  indeterminate?: boolean
+  /** Short phase label ("Uploading", "Encoding 1080p (2/3)", "Failed"). */
+  label?: string
+  /** Longer status detail: byte counts, an error message, etc. */
   detail: string
   /** Hue 0-360, retained for thumbnail placeholders where needed. */
   hue: number

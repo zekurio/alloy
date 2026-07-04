@@ -1,7 +1,10 @@
 import type {
   AdminCreateGameInput,
+  AdminFailedJobsPage,
   AdminGameRow,
+  AdminJobsSummary,
   AdminRuntimeConfig,
+  AdminSweepKind,
   AdminUpdateGameInput,
   AdminUpdateUserInput,
   AdminUsersResponse,
@@ -19,8 +22,10 @@ import {
 
 import type { ApiContext } from "./client"
 import {
+  validateAdminFailedJobsPage,
   validateAdminGameRow,
   validateAdminGameRows,
+  validateAdminJobsSummary,
   validateAdminReEncodeResponse,
   validateAdminUsersResponse,
   validateAdminUserStorageRow,
@@ -35,8 +40,17 @@ export {
 } from "@alloy/contracts"
 export type {
   AdminCreateGameInput,
+  AdminFailedJob,
+  AdminFailedJobsPage,
   AdminGameRow,
   AdminIntegrationsConfig,
+  AdminJobKindRow,
+  AdminJobsSummary,
+  AdminJobsSweeps,
+  AdminRenditionSweepSummary,
+  AdminStorageGcSummary,
+  AdminStorageVerifySummary,
+  AdminSweepKind,
   AdminLimitsConfig,
   AdminOAuthProvider,
   AdminRuntimeConfig,
@@ -145,6 +159,68 @@ async function reEncodeAllClips(
   return readJsonOrThrow(res, validateAdminReEncodeResponse)
 }
 
+async function fetchJobsSummary(
+  context: ApiContext,
+): Promise<AdminJobsSummary> {
+  const res = await context.rpc.api.admin.jobs.summary.$get()
+  return readJsonOrThrow(res, validateAdminJobsSummary)
+}
+
+async function fetchFailedJobs(
+  context: ApiContext,
+  options: { kind?: string; cursor?: string; limit?: number } = {},
+): Promise<AdminFailedJobsPage> {
+  const res = await context.rpc.api.admin.jobs.failed.$get({
+    query: {
+      ...(options.kind ? { kind: options.kind } : {}),
+      ...(options.cursor ? { cursor: options.cursor } : {}),
+      ...(options.limit ? { limit: String(options.limit) } : {}),
+    },
+  })
+  return readJsonOrThrow(res, validateAdminFailedJobsPage)
+}
+
+async function retryJob(context: ApiContext, jobId: string): Promise<void> {
+  const res = await context.rpc.api.admin.jobs[":id"].retry.$post({
+    param: { id: jobId },
+  })
+  await readSuccessJson(res)
+}
+
+async function discardJob(context: ApiContext, jobId: string): Promise<void> {
+  const res = await context.rpc.api.admin.jobs[":id"].discard.$post({
+    param: { id: jobId },
+  })
+  await readSuccessJson(res)
+}
+
+async function runJobSweep(
+  context: ApiContext,
+  kind: AdminSweepKind,
+  mode: "stale" | "force" = "stale",
+): Promise<void> {
+  const res = await context.rpc.api.admin.jobs.sweeps[":kind"].$post({
+    param: { kind },
+    json: { mode },
+  })
+  await readSuccessJson(res)
+}
+
+async function setJobKindPaused(
+  context: ApiContext,
+  kind: string,
+  paused: boolean,
+): Promise<void> {
+  const res = paused
+    ? await context.rpc.api.admin.jobs.kinds[":kind"].pause.$post({
+        param: { kind },
+      })
+    : await context.rpc.api.admin.jobs.kinds[":kind"].resume.$post({
+        param: { kind },
+      })
+  await readSuccessJson(res)
+}
+
 async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
   const res = await context.rpc.api.admin.users.$get()
   return readJsonOrThrow(res, validateAdminUsersResponse)
@@ -247,6 +323,18 @@ export function createAdminApi(context: ApiContext) {
     fetchTranscodingCapabilities: (options?: { refresh?: boolean }) =>
       fetchTranscodingCapabilities(context, options),
     reEncodeAllClips: () => reEncodeAllClips(context),
+    fetchJobsSummary: () => fetchJobsSummary(context),
+    fetchFailedJobs: (options?: {
+      kind?: string
+      cursor?: string
+      limit?: number
+    }) => fetchFailedJobs(context, options),
+    retryJob: (jobId: string) => retryJob(context, jobId),
+    discardJob: (jobId: string) => discardJob(context, jobId),
+    runJobSweep: (kind: AdminSweepKind, mode?: "stale" | "force") =>
+      runJobSweep(context, kind, mode),
+    setJobKindPaused: (kind: string, paused: boolean) =>
+      setJobKindPaused(context, kind, paused),
     fetchUsers: () => fetchUsers(context),
     createUser: (input: AdminCreateUserInput) => createUser(context, input),
     updateUser: (userId: string, input: AdminUpdateUserInput) =>

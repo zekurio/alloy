@@ -11,6 +11,7 @@ import { removeClipDownload, useClipDownloads } from "@/lib/clip-downloads"
 import {
   clipKeys,
   useInvalidateClips,
+  useReEncodeClipMutation,
   useUploadQueueQuery,
 } from "@/lib/clip-queries"
 import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
@@ -64,7 +65,15 @@ function useServerQueueSync(
       const clipId = active.clipId
       if (!clipId) continue
       const row = rowsById.get(clipId)
-      if (row && row.status !== "pending" && active.status !== "uploading") {
+      // Only hand off once the server has taken ownership (processing/ready).
+      // A row flipping to "failed" must NOT evict the local entry: it still
+      // holds preparedPayload for a re-begin retry, and the failed server twin
+      // stays hidden behind localClipIds until then.
+      if (
+        row &&
+        (row.status === "processing" || row.status === "ready") &&
+        active.status !== "uploading"
+      ) {
         const retained = retainedThumbsRef.current.get(clipId)
         if (retained && retained !== active.thumbUrl) {
           revokeUploadThumbUrl(retained, "retained upload thumbnail URL")
@@ -215,7 +224,42 @@ function useRunUpload(
     },
     [activeRef, bump, invalidateClips],
   )
-  return useCallback(
+  const beginUpload = useCallback(
+    async (entry: ActiveUpload, payload: PublishPayload) => {
+      // Retained so a local failure (before or during byte upload) can retry
+      // from the same prepared payload without re-running the editor flow.
+      entry.preparedPayload = payload
+      entry.title = payload.title
+      entry.hue = stableHue(payload.title)
+      entry.bytesTotal = payload.sizeBytes
+      entry.bytesLoaded = 0
+      entry.localCaptureId = payload.localCaptureId ?? entry.localCaptureId
+      entry.thumbBlurHash = payload.thumbBlurHash ?? entry.thumbBlurHash
+      if (!entry.thumbUrl) {
+        entry.thumbUrl = createObjectUrl(
+          payload.thumbBlob,
+          "upload thumbnail URL",
+        )
+      }
+      entry.status = "initiating"
+      bump()
+
+      const { clipId, completion } = await startUpload(
+        payload,
+        entry,
+        bump,
+        invalidateClips,
+      )
+      void completion.then(
+        () => finishActiveUpload(entry),
+        (err) => failActiveUpload(entry, err),
+      )
+      return clipId
+    },
+    [invalidateClips, bump, finishActiveUpload, failActiveUpload],
+  )
+
+  const runUpload = useCallback(
     async (input: PublishClipInput) => {
       const localId = `local-${Math.random().toString(36).slice(2)}`
       const deferred = isDeferredPublishPayload(input)
@@ -241,41 +285,12 @@ function useRunUpload(
         void linkLocalCaptureToClip(entry.localCaptureId, entry.clipId)
       }
 
-      const beginPreparedUpload = async (payload: PublishPayload) => {
-        entry.title = payload.title
-        entry.hue = stableHue(payload.title)
-        entry.bytesTotal = payload.sizeBytes
-        entry.bytesLoaded = 0
-        entry.localCaptureId = payload.localCaptureId ?? entry.localCaptureId
-        entry.thumbBlurHash = payload.thumbBlurHash ?? entry.thumbBlurHash
-        if (!entry.thumbUrl) {
-          entry.thumbUrl = createObjectUrl(
-            payload.thumbBlob,
-            "upload thumbnail URL",
-          )
-        }
-        entry.status = "initiating"
-        bump()
-
-        const { clipId, completion } = await startUpload(
-          payload,
-          entry,
-          bump,
-          invalidateClips,
-        )
-        void completion.then(
-          () => finishActiveUpload(entry),
-          (err) => failActiveUpload(entry, err),
-        )
-        return clipId
-      }
-
       if (deferred) {
         void input
           .prepare(entry.abort.signal)
           .then((payload) => {
             entry.abort.signal.throwIfAborted()
-            return beginPreparedUpload(payload)
+            return beginUpload(entry, payload)
           })
           .catch((err: unknown) => failActiveUpload(entry, err))
 
@@ -283,7 +298,7 @@ function useRunUpload(
       }
 
       try {
-        const clipId = await beginPreparedUpload(input)
+        const clipId = await beginUpload(entry, input)
         return { clipId }
       } catch (err) {
         failActiveUpload(entry, err)
@@ -291,8 +306,35 @@ function useRunUpload(
         throw err
       }
     },
-    [invalidateClips, bump, activeRef, finishActiveUpload, failActiveUpload],
+    [activeRef, bump, beginUpload, failActiveUpload],
   )
+
+  const retryUpload = useCallback(
+    (localId: string) => {
+      const entry = activeRef.current.get(localId)
+      if (!entry || entry.status !== "error" || !entry.preparedPayload) return
+      const payload = entry.preparedPayload
+      // A retry is a fresh attempt with a new clip id: /initiate rejects a
+      // duplicate client id, so any half-created server clip is dropped first.
+      const staleClipId = entry.serverClipCreated ? entry.clipId : undefined
+      entry.abort = new AbortController()
+      entry.clipId = undefined
+      entry.serverClipCreated = false
+      entry.errorMessage = undefined
+      entry.bytesLoaded = 0
+      entry.status = "initiating"
+      bump()
+      if (staleClipId) {
+        void deleteUploadClipBestEffort(staleClipId, "upload retry")
+      }
+      void beginUpload(entry, payload).catch((err: unknown) =>
+        failActiveUpload(entry, err),
+      )
+    },
+    [activeRef, bump, beginUpload, failActiveUpload],
+  )
+
+  return { runUpload, retryUpload }
 }
 
 export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
@@ -324,8 +366,13 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
   }, [])
 
   useServerQueueSync(serverQueue, activeRef, retainedThumbsRef, bump)
-  const runUpload = useRunUpload(activeRef, retainedThumbsRef, bump)
+  const { runUpload, retryUpload } = useRunUpload(
+    activeRef,
+    retainedThumbsRef,
+    bump,
+  )
   const cancelRow = useCancelRow(activeRef, retainedThumbsRef, bump)
+  const reEncode = useReEncodeClipMutation()
   const downloads = useClipDownloads()
   const releaseRetainedThumb = useCallback(
     (clipId: string) => {
@@ -348,7 +395,13 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
       localEntries.map((e) => e.clipId).filter((x): x is string => Boolean(x)),
     )
     const fromLocal = localEntries.map((e) =>
-      localToQueueItem(e, () => cancelRow(e.localId, e.clipId ?? null)),
+      localToQueueItem(e, {
+        onCancel: () => cancelRow(e.localId, e.clipId ?? null),
+        // A local failure re-begins the upload from its retained payload; a
+        // server-side encode failure (a bare server row) re-encodes instead.
+        onRetry:
+          e.status === "error" ? () => retryUpload(e.localId) : undefined,
+      }),
     )
     const fromServer = serverQueue
       .filter((row) => !localClipIds.has(row.id) && !dismissed.has(row.id))
@@ -358,6 +411,10 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
           onOpen: row.status === "ready" ? () => onOpenClip(row) : undefined,
           onCopyLink:
             row.status === "ready" ? () => copyClipLink(row) : undefined,
+          onRetry:
+            row.status === "failed"
+              ? () => reEncode.mutate({ clipId: row.id })
+              : undefined,
           onDismiss:
             row.status === "ready"
               ? () => {
@@ -393,6 +450,8 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
     serverQueue,
     downloads,
     cancelRow,
+    retryUpload,
+    reEncode,
     onOpenClip,
     dismissed,
     dismiss,

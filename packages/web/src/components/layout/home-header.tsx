@@ -15,6 +15,7 @@ import type { ReactNode } from "react"
 
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
+import { UploadStatusPill } from "@/components/upload/upload-status-pill"
 import { alloyDesktop } from "@/lib/desktop"
 
 import { HeaderToolbarSlot, useHeaderToolbarNode } from "./header-toolbar"
@@ -71,6 +72,7 @@ export function HomeHeader() {
       >
         <SearchResultsPopover />
       </AppHeaderSearch>
+      <UploadStatusPill />
       {toolbarNode ? (
         <AppHeaderToolbar>
           <HeaderToolbarSlot />

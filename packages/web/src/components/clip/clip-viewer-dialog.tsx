@@ -43,6 +43,7 @@ import {
 import { ClipMeta } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
 import { MobileClipViewerBody } from "./clip-viewer-mobile"
+import { useClipRetry } from "./use-clip-retry"
 import { useClipViewerDelete } from "./use-clip-viewer-delete"
 
 interface ClipViewerDialogProps {
@@ -209,6 +210,7 @@ function ClipViewerDialogBody({
     : null
   const initialFocusRef = useRef<HTMLDivElement>(null)
   const deleteFlow = useClipViewerDelete({ row, onDeleted })
+  const retry = useClipRetry(row)
 
   const canNavigate = Boolean(onNavigate)
   const showPrev = canNavigate
@@ -313,6 +315,14 @@ function ClipViewerDialogBody({
               fallbackSeed={row.gameId ?? row.id}
               status={row.status}
               encodeProgress={row.encodeProgress}
+              encodeStage={row.encodeStage}
+              encodeTier={row.encodeTier}
+              encodeTierIndex={row.encodeTierIndex}
+              encodeTierCount={row.encodeTierCount}
+              failureReason={row.failureReason}
+              canRetry={retry.canRetry}
+              onRetry={retry.onRetry}
+              retryPending={retry.retryPending}
               aspectRatio={16 / 9}
               className="h-full w-full overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
@@ -323,6 +333,7 @@ function ClipViewerDialogBody({
           <div className="min-h-0 overflow-y-auto px-1 pt-4 sm:pt-6 lg:px-4 lg:pt-3 lg:pb-4 xl:px-5 xl:pt-4 xl:pb-5">
             <ClipMeta
               clipId={row.id}
+              status={row.status}
               authorId={row.authorId}
               title={row.title}
               game={gameLabel}

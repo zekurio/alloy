@@ -13,6 +13,10 @@ const queueSelectShape = {
   title: clip.title,
   status: clip.status,
   encodeProgress: clip.encode_progress,
+  encodeStage: clip.encode_stage,
+  encodeTier: clip.encode_tier,
+  encodeTierIndex: clip.encode_tier_index,
+  encodeTierCount: clip.encode_tier_count,
   failureReason: clip.failure_reason,
   thumbKey: clip.thumb_key,
   thumbBlurHash: clip.thumb_blur_hash,
@@ -25,6 +29,10 @@ function serialize(row: {
   title: string
   status: (typeof clip.$inferSelect)["status"]
   encodeProgress: number
+  encodeStage: QueueClip["encodeStage"]
+  encodeTier: string | null
+  encodeTierIndex: number | null
+  encodeTierCount: number | null
   failureReason: string | null
   thumbKey: string | null
   thumbBlurHash: string | null
@@ -38,6 +46,10 @@ function serialize(row: {
     title: row.title,
     status: row.status,
     encodeProgress: row.encodeProgress,
+    encodeStage: row.encodeStage,
+    encodeTier: row.encodeTier,
+    encodeTierIndex: row.encodeTierIndex,
+    encodeTierCount: row.encodeTierCount,
     failureReason: row.failureReason,
     gameSlug: row.gameSlug,
     hasThumb: row.thumbKey !== null,

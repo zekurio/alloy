@@ -25,7 +25,7 @@ export function DesktopQualitySettings() {
 
       <hr className="border-border" />
 
-      <SettingsSubsection title={t("Encoding")}>
+      <SettingsSubsection title={t("Video encoding")}>
         <EncodingSettingsGrid
           settings={settings}
           status={status}

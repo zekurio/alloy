@@ -109,7 +109,6 @@ export function TranscodingSettingsContent({
   const saved = config.transcoding
   const [form, setForm] = useState<TranscodingForm>(() => formFromConfig(saved))
   const [saving, setSaving] = useState(false)
-  const [reEncodePending, setReEncodePending] = useState(false)
   const [redetecting, setRedetecting] = useState(false)
   const queryClient = useQueryClient()
   const capabilitiesQuery = useQuery(adminTranscodingCapabilitiesQueryOptions())
@@ -195,27 +194,6 @@ export function TranscodingSettingsContent({
       toast.error(errorMessage(cause, t("Couldn't detect encoders")))
     } finally {
       setRedetecting(false)
-    }
-  }
-
-  async function reEncodeAll() {
-    if (reEncodePending) return
-    setReEncodePending(true)
-    try {
-      const result = await api.admin.reEncodeAllClips()
-      toast.success(
-        result.hasMore
-          ? t("Re-encode started for {count} clips; run again for the rest.", {
-              count: result.enqueued,
-            })
-          : t("Re-encode started for {count} clips.", {
-              count: result.enqueued,
-            }),
-      )
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't start re-encode")))
-    } finally {
-      setReEncodePending(false)
     }
   }
 
@@ -585,23 +563,12 @@ export function TranscodingSettingsContent({
           ) : null}
         </div>
 
-        <div className="border-border flex items-start justify-between gap-4 border-t pt-6">
+        <div className="border-border border-t pt-6">
           <p className="text-foreground-dim text-xs">
             {t(
-              "Changes apply to new uploads. Re-encode existing clips to regenerate their renditions with the current tiers.",
+              "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match; you can also trigger a sweep from the Jobs panel.",
             )}
           </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={reEncodeAll}
-            disabled={reEncodePending}
-            className="shrink-0"
-          >
-            <RefreshCwIcon />
-            {reEncodePending ? t("Starting...") : t("Re-encode clips")}
-          </Button>
         </div>
       </SectionContent>
       {!inSettingsDialog && (

@@ -4,14 +4,21 @@ import {
   type ClipStatus,
   clipSourceFileUrl,
   clipThumbnailUrl,
+  type EncodeStage,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import { Button } from "@alloy/ui/components/button"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
+import { RefreshCwIcon } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 
+import {
+  encodeStageLabel,
+  QueueProgressBar,
+} from "@/components/upload/queue-progress"
 import {
   resolvePlayback,
   type RenditionPlayback,
@@ -39,6 +46,17 @@ interface ClipPlayerProps {
   fallbackSeed?: string | number
   status?: ClipStatus
   encodeProgress?: number
+  /** Active encode stage, for the processing-state label over the poster. */
+  encodeStage?: EncodeStage | null
+  encodeTier?: string | null
+  encodeTierIndex?: number | null
+  encodeTierCount?: number | null
+  /** Human-readable failure detail shown in the failed state. */
+  failureReason?: string | null
+  /** Owner/admin viewers get a Retry affordance in the failed state. */
+  canRetry?: boolean
+  onRetry?: () => void
+  retryPending?: boolean
   onPlayThreshold?: () => void
   onEnded?: () => void
   onPlaybackError?: (message: string) => void
@@ -64,6 +82,14 @@ function ClipPlayer({
   fallbackSeed,
   status,
   encodeProgress = 0,
+  encodeStage = null,
+  encodeTier = null,
+  encodeTierIndex = null,
+  encodeTierCount = null,
+  failureReason = null,
+  canRetry = false,
+  onRetry,
+  retryPending = false,
   onPlayThreshold,
   onEnded,
   onPlaybackError,
@@ -210,16 +236,45 @@ function ClipPlayer({
               onLoad={pendingPoster.markLoaded}
             />
           ) : null}
-          <div aria-hidden className="absolute inset-0 bg-black/40" />
-          <span className="relative z-10">
-            {unavailable
-              ? t("Playback unavailable.")
-              : encodeProgress > 0
-                ? t("Preparing playback... {percent}%", {
-                    percent: encodeProgress,
-                  })
-                : t("Preparing playback...")}
-          </span>
+          <div aria-hidden className="absolute inset-0 bg-black/45" />
+          <div className="relative z-10 flex w-full max-w-xs flex-col items-center gap-3 px-6 text-center">
+            {unavailable ? (
+              <>
+                <span className="text-sm text-white/85">
+                  {failureReason ?? t("Playback unavailable.")}
+                </span>
+                {canRetry && onRetry ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={onRetry}
+                    disabled={retryPending}
+                  >
+                    <RefreshCwIcon />
+                    {retryPending ? t("Retrying…") : t("Retry")}
+                  </Button>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <span className="text-sm font-medium text-white/90">
+                  {encodeStageLabel({
+                    stage: encodeStage,
+                    tier: encodeTier,
+                    tierIndex: encodeTierIndex,
+                    tierCount: encodeTierCount,
+                  })}
+                  {encodeProgress > 0 ? ` · ${encodeProgress}%` : ""}
+                </span>
+                <QueueProgressBar
+                  value={encodeProgress}
+                  indeterminate={encodeProgress <= 0}
+                  className="w-full"
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
     )
