@@ -1,18 +1,12 @@
 import type { ClipRow } from "@alloy/api"
-import type { RecordingEvent } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 
-import { clientLogger } from "@/lib/client-log"
 import { useDeleteClipMutation } from "@/lib/clip-queries"
-import {
-  alloyDesktop,
-  onLibraryCapturesChanged,
-  type RecordingLibraryItem,
-} from "@/lib/desktop"
 
 import { finishLocalClipDelete } from "../routes/library/library-local-actions"
+import { useLocalClipPlayback } from "./use-local-clip-playback"
 
 export function useClipViewerDelete({
   row,
@@ -21,7 +15,7 @@ export function useClipViewerDelete({
   row: ClipRow
   onDeleted?: () => void
 }) {
-  const localItem = useLocalClipLibraryItem(row.id)
+  const localItem = useLocalClipPlayback(row.id).localItem
   const deleteMutation = useDeleteClipMutation()
   const [open, setOpen] = useState(false)
   const [deletingLocal, setDeletingLocal] = useState(false)
@@ -61,56 +55,4 @@ export function useClipViewerDelete({
     localItem,
     confirm,
   }
-}
-
-function useLocalClipLibraryItem(clipId: string): RecordingLibraryItem | null {
-  const [localItem, setLocalItem] = useState<RecordingLibraryItem | null>(null)
-
-  useEffect(() => {
-    const desktop = alloyDesktop()
-    if (!desktop) {
-      setLocalItem(null)
-      return
-    }
-
-    let active = true
-    const refresh = async () => {
-      try {
-        const snapshot = await desktop.recording.getLibrary()
-        if (!active) return
-        setLocalItem(
-          snapshot.items.find((item) => item.uploadedClipId === clipId) ?? null,
-        )
-      } catch (cause) {
-        clientLogger.warn(
-          `[clip-viewer] Failed to scan local library for clip ${clipId}.`,
-          cause,
-        )
-      }
-    }
-
-    void refresh()
-    const offLibrary = onLibraryCapturesChanged(() => {
-      void refresh()
-    })
-    const offRecording = desktop.recording.onEvent((event) => {
-      if (localLibraryEventMayChangeClipLinks(event)) void refresh()
-    })
-
-    return () => {
-      active = false
-      offLibrary()
-      offRecording()
-    }
-  }, [clipId])
-
-  return localItem
-}
-
-function localLibraryEventMayChangeClipLinks(event: RecordingEvent): boolean {
-  return (
-    event.type === "capture-ready" ||
-    event.type === "settings" ||
-    event.type === "library-download"
-  )
 }
