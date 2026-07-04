@@ -116,10 +116,13 @@ function SweepStats({ sweeps }: { sweeps: AdminJobsSweeps }) {
         finishedAt={sweeps.renditionSweep?.finishedAt ?? null}
         primary={
           sweeps.renditionSweep
-            ? tStale(sweeps.renditionSweep.enqueued)
+            ? tRenditionSweepPrimary(sweeps.renditionSweep)
             : t("Not run yet")
         }
-        emphasis={(sweeps.renditionSweep?.enqueued ?? 0) > 0}
+        emphasis={
+          sweeps.renditionSweep?.mode === "stale" &&
+          sweeps.renditionSweep.enqueued > 0
+        }
         detail={
           sweeps.renditionSweep
             ? t("{upToDate} up to date · {adopted} adopted", {
@@ -170,6 +173,19 @@ function SweepStats({ sweeps }: { sweeps: AdminJobsSweeps }) {
       />
     </div>
   )
+}
+
+function tRenditionSweepPrimary(
+  sweep: NonNullable<AdminJobsSweeps["renditionSweep"]>,
+): string {
+  if (sweep.mode === "force") return tForcedReencoded(sweep.enqueued)
+  return tStale(sweep.enqueued)
+}
+
+function tForcedReencoded(count: number): string {
+  return count === 1
+    ? t("{count} clip re-encoded (forced)", { count })
+    : t("{count} clips re-encoded (forced)", { count })
 }
 
 function tStale(count: number): string {
