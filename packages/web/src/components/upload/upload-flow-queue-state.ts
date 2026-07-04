@@ -235,7 +235,7 @@ function useRunUpload(
       entry.bytesLoaded = 0
       entry.localCaptureId = payload.localCaptureId ?? entry.localCaptureId
       entry.thumbBlurHash = payload.thumbBlurHash ?? entry.thumbBlurHash
-      if (!entry.thumbUrl) {
+      if (!entry.thumbUrl && payload.thumbBlob) {
         entry.thumbUrl = createObjectUrl(
           payload.thumbBlob,
           "upload thumbnail URL",
@@ -275,7 +275,9 @@ function useRunUpload(
         abort: new AbortController(),
         thumbUrl: deferred
           ? input.thumbUrl
-          : createObjectUrl(input.thumbBlob, "upload thumbnail URL"),
+          : input.thumbBlob
+            ? createObjectUrl(input.thumbBlob, "upload thumbnail URL")
+            : null,
         thumbBlurHash: input.thumbBlurHash,
       }
       activeRef.current.set(localId, entry)
