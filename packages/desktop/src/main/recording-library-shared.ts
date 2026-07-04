@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto"
 import type { Stats } from "node:fs"
-import { extname } from "node:path"
+
+import { contentTypeForFile } from "@alloy/contracts"
+
+export { contentTypeForFile }
 
 export const MEDIA_PROTOCOL = "alloy-capture"
 export const MEDIA_HOST = "media"
@@ -37,19 +40,4 @@ export function titleForCapture(createdAt: string): string {
 export function clampMs(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min
   return Math.min(max, Math.max(min, Math.round(value)))
-}
-
-export function contentTypeForFile(fileName: string): string {
-  switch (extname(fileName).toLowerCase()) {
-    case ".mp4":
-      return "video/mp4"
-    case ".mov":
-      return "video/quicktime"
-    case ".mkv":
-      return "video/x-matroska"
-    case ".webm":
-      return "video/webm"
-    default:
-      return "application/octet-stream"
-  }
 }
