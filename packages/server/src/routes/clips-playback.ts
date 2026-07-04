@@ -7,6 +7,10 @@ import {
   resolveClipAccess,
 } from "@alloy/server/clips/access"
 import { clipAssetVersion } from "@alloy/server/clips/asset-version"
+import {
+  renditionIsH264,
+  sourceIsBroadlyDecodable,
+} from "@alloy/server/clips/codecs"
 import { selectClipRenditions } from "@alloy/server/clips/renditions"
 import {
   clipScrubberKey,
@@ -121,8 +125,21 @@ export const clipsPlaybackRoutes = new Hono()
     const renditions = await selectClipRenditions(id)
     const preferred =
       renditions.find((rendition) => rendition.is_og) ?? renditions[0]
+    const h264 =
+      renditions.find(
+        (rendition) => rendition.is_og && renditionIsH264(rendition.codecs),
+      ) ??
+      renditions.find((rendition) => renditionIsH264(rendition.codecs)) ??
+      null
+    // The cut normally wins for privacy. HEVC/AV1 cuts are undecodable for
+    // this endpoint's plain-video consumers, and the H.264 tier is encoded
+    // from the cut so nothing trimmed-away leaks.
     const selected = row.cut_key
-      ? cutOrSourceAsset(row)
+      ? sourceIsBroadlyDecodable(row.source_codecs)
+        ? cutOrSourceAsset(row)
+        : h264
+          ? { key: h264.storage_key, contentType: "video/mp4" }
+          : cutOrSourceAsset(row)
       : preferred
         ? { key: preferred.storage_key, contentType: "video/mp4" }
         : cutOrSourceAsset(row)
