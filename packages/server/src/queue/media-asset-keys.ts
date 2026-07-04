@@ -1,5 +1,7 @@
 import { clipAssetDir } from "@alloy/server/storage/driver"
 
+// Every published clip asset key must classify correctly in storage routing.
+
 /**
  * Published asset keys are scoped to the encode lease's runId so two runs
  * that ever overlap on the same clip (stale-lease takeover) can never write
