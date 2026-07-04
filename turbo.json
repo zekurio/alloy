@@ -21,7 +21,12 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "outputs": []
+      "outputs": [],
+      "env": [
+        "ALLOY_TEST_DATABASE_URL",
+        "ALLOY_UPLOAD_HMAC_SECRET",
+        "ALLOY_VIEWER_COOKIE_SECRET"
+      ]
     },
     "dev": {
       "cache": false,
