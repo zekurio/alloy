@@ -148,9 +148,12 @@ async function capturePosterBlob(
   // Keeps decoded frames drawable to canvas across the capture protocol's
   // cross-origin boundary.
   video.crossOrigin = "anonymous"
-  video.src = mediaUrl
   try {
-    await videoEvent(video, "loadedmetadata")
+    const metadataLoaded = videoEvent(video, "loadedmetadata", {
+      alreadyDone: () => video.readyState >= HTMLMediaElement.HAVE_METADATA,
+    })
+    video.src = mediaUrl
+    await metadataLoaded
     const durationSec =
       durationMs && durationMs > 0 ? durationMs / 1000 : video.duration
     if (!Number.isFinite(durationSec) || !(durationSec > 0)) return null
