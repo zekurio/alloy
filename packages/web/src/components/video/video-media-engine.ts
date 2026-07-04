@@ -21,19 +21,34 @@ export interface RenditionPlayback {
   sources: RenditionSource[]
   /** Always a concrete name — no null/Auto. */
   selected: string
+  /**
+   * True when the viewer chose the tier from the quality menu. Pinned tiers
+   * opt out of stall-based downgrades; fatal media errors still step down.
+   */
+  pinned: boolean
   /** Called when the active tier fails and a lower playable tier exists. */
   onFallback: (name: string) => void
 }
+
+/** Consecutive `waiting` events within the window that trigger a downgrade. */
+const STALL_EVENT_LIMIT = 4
+const STALL_EVENT_WINDOW_MS = 30_000
+/** Playback frozen for this long while playing triggers a downgrade. */
+const STALL_FREEZE_MS = 5_000
+const STALL_POLL_MS = 1_000
+/** Buffer misses right after a seek are normal, not a bandwidth signal. */
+const SEEK_GRACE_MS = 1_000
 
 /**
  * Resolve what the <video> element should actually play. File sources map to
  * an object URL; URL sources with renditions play the selected tier, falling
  * back to the best playable tier if the selection is missing or unplayable.
- * The player routes media element errors through `onMediaError`, which steps
- * down exactly one tier on a fatal decode/network error — there is no
- * stall/freeze detection or automatic upgrade. `mediaKey` identifies the
- * element's effective media: it changes exactly when the element will
- * reload, so the player can capture resume state.
+ * Two signals step down one playable tier (never up, fireshare-style): a
+ * fatal media error routed through `onMediaError`, and — unless the viewer
+ * pinned a tier — repeated buffering or a multi-second freeze during
+ * playback. `mediaKey` identifies the element's effective media: it changes
+ * exactly when the element will reload, so the player can capture resume
+ * state.
  */
 export function useMediaEngine(
   spec: SourceSpec,
@@ -85,6 +100,69 @@ export function useMediaEngine(
     renditionPlayback?.onFallback(next.name)
     return true
   }, [activeIndex, playable, renditionPlayback])
+
+  // Stall-based downgrade: repeated `waiting` events within a rolling window,
+  // or playback frozen for several seconds, both signal that the active tier
+  // outruns the connection. Suppressed for pinned tiers and around seeks
+  // (keyframe-aligned buffer misses are normal), and paused in hidden tabs
+  // where browsers throttle media on purpose.
+  const stallFallbackName =
+    !renditionPlayback?.pinned && activeIndex >= 0
+      ? (playable[activeIndex + 1]?.name ?? null)
+      : null
+  const onFallback = renditionPlayback?.onFallback
+  useEffect(() => {
+    if (!stallFallbackName || !activeUrl || !onFallback) return
+    const video = videoRef.current
+    if (!video) return
+
+    const stepDown = () => onFallback(stallFallbackName)
+
+    let lastSeekAt = 0
+    const onSeeking = () => {
+      lastSeekAt = Date.now()
+    }
+    const waitingTimestamps: number[] = []
+    const onWaiting = () => {
+      if (video.paused || video.seeking) return
+      const now = Date.now()
+      if (now - lastSeekAt < SEEK_GRACE_MS) return
+      waitingTimestamps.push(now)
+      while (
+        waitingTimestamps.length > 0 &&
+        now - waitingTimestamps[0] > STALL_EVENT_WINDOW_MS
+      ) {
+        waitingTimestamps.shift()
+      }
+      if (waitingTimestamps.length >= STALL_EVENT_LIMIT) stepDown()
+    }
+    video.addEventListener("seeking", onSeeking)
+    video.addEventListener("waiting", onWaiting)
+
+    let lastTime = video.currentTime
+    let frozenSince: number | null = null
+    const poll = window.setInterval(() => {
+      if (
+        video.paused ||
+        video.ended ||
+        video.seeking ||
+        document.hidden ||
+        video.currentTime !== lastTime
+      ) {
+        lastTime = video.currentTime
+        frozenSince = null
+        return
+      }
+      frozenSince ??= Date.now()
+      if (Date.now() - frozenSince >= STALL_FREEZE_MS) stepDown()
+    }, STALL_POLL_MS)
+
+    return () => {
+      video.removeEventListener("seeking", onSeeking)
+      video.removeEventListener("waiting", onWaiting)
+      window.clearInterval(poll)
+    }
+  }, [activeUrl, onFallback, stallFallbackName, videoRef])
 
   // Surface a loading state while the element reloads for a rendition change
   // within the same source set (manual pin or a fallback step-down). New
