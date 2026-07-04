@@ -25,6 +25,7 @@ if (!testDatabaseUrl) {
   const { getJobKind } = await import("../registry")
   await import("./clip-encode")
   await import("./renditions-sweep")
+  const jobSummaries = await import("../summaries")
   const { eq, inArray } = await import("drizzle-orm")
 
   const config = TranscodingConfigSchema.parse({})
@@ -78,6 +79,7 @@ if (!testDatabaseUrl) {
     })
 
     assert.equal((await selectSummary()).scanned, 4)
+    assert.equal((await selectSummary()).mode, "stale")
     assert.equal((await selectSummary()).upToDate, 1)
     assert.equal((await selectSummary()).enqueued, 1)
     assert.equal((await selectSummary()).quarantined, 1)
@@ -203,8 +205,29 @@ if (!testDatabaseUrl) {
     })
     assert.equal(rows[0]?.priority, 90)
     assert.equal((await selectSummary()).scanned, 1)
+    assert.equal((await selectSummary()).mode, "force")
     assert.equal((await selectSummary()).enqueued, 1)
     assert.equal((await selectSummary()).upToDate, 0)
+  })
+
+  test("job sweep summaries coerce legacy missing mode to stale", async () => {
+    await db.insert(instanceSetting).values({
+      key: "renditionSweep",
+      value: {
+        finishedAt: new Date().toISOString(),
+        scanned: 2,
+        upToDate: 0,
+        adopted: 0,
+        enqueued: 2,
+        unprobed: 0,
+        quarantined: 0,
+      },
+      updated_at: new Date(),
+    })
+
+    const sweeps = await jobSummaries.readJobSweeps()
+    assert.equal(sweeps.renditionSweep?.mode, "stale")
+    assert.equal(sweeps.renditionSweep?.enqueued, 2)
   })
 
   async function runSweep(mode: "stale" | "force"): Promise<void> {

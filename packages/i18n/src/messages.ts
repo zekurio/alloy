@@ -1335,6 +1335,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Verify clip": "Clip prüfen",
   "View clip": "Clip ansehen",
   "{checked} assets checked": "{checked} Assets geprüft",
+  "{count} clip re-encoded (forced)": "{count} Clip neu kodiert (erzwungen)",
+  "{count} clips re-encoded (forced)": "{count} Clips neu kodiert (erzwungen)",
   "{count} removed": "{count} entfernt",
   "{count} repaired": "{count} repariert",
   "{count} stale clip": "{count} veralteter Clip",
