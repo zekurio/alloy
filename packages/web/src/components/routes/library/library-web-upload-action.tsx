@@ -170,6 +170,7 @@ async function prepareWebUploadPayload(
     selected.file,
     rangeStartMs + Math.min(1000, Math.max(0, rangeEndMs - rangeStartMs - 100)),
     rangeStartMs,
+    rangeStartMs,
   )
 
   return {

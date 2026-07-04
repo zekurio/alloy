@@ -128,5 +128,14 @@ test("buildAudioCodecString maps aac profiles", () => {
     "mp4a.40.2",
   )
   assert.equal(buildAudioCodecString({ codec_name: "aac" }), "mp4a.40.2")
-  assert.equal(buildAudioCodecString({ codec_name: "opus" }), null)
+})
+
+test("buildAudioCodecString keeps non-AAC audio visible to capability checks", () => {
+  // Dropping unknown audio would make an H.264+AC-3 source look fully
+  // playable and play silently; the (mapped) codec name fails canPlayType
+  // in browsers lacking the codec instead.
+  assert.equal(buildAudioCodecString({ codec_name: "opus" }), "opus")
+  assert.equal(buildAudioCodecString({ codec_name: "ac3" }), "ac-3")
+  assert.equal(buildAudioCodecString({ codec_name: "eac3" }), "ec-3")
+  assert.equal(buildAudioCodecString({ codec_name: "" }), null)
 })

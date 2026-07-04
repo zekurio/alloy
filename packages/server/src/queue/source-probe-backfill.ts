@@ -14,6 +14,8 @@ import { makeMediaWorkDir } from "./media-run-helpers"
 
 const logger = createLogger("queue")
 
+const ITEM_PAUSE_MS = 2000
+
 let backfillStarted = false
 let backfillStopped = false
 
@@ -52,6 +54,9 @@ async function runSourceProbeBackfill(): Promise<void> {
       logger.warn(`source probe backfill failed for clip ${row.id}:`, err)
       return null
     })
+    // A breather between items so a large legacy library's boot crawl never
+    // contends with fresh-upload encodes for CPU and disk.
+    await sleep(ITEM_PAUSE_MS)
     if (!result) continue
     updated += 1
     if (result.remuxed) remuxed += 1
@@ -89,6 +94,16 @@ async function nextBackfillRow(
     .limit(1)
   if (!row?.sourceKey) return null
   return { ...row, sourceKey: row.sourceKey }
+}
+
+// Unref'd so the pause never keeps a stopping process alive; the loop
+// re-checks `backfillStopped` on wake.
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve()
+    }, ms).unref()
+  })
 }
 
 async function backfillSourceProbe(
