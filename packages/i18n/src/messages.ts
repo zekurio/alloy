@@ -819,6 +819,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Press Enter to add {name}": "Drück Enter, um {name} hinzuzufügen.",
   "Press Enter to add #{tag}": "Drück Enter, um #{tag} hinzuzufügen.",
   "Press keys…": "Tasten drücken…",
+  "Preview unavailable in this browser — scrubbing and trimming still work.":
+    "Vorschau in diesem Browser nicht verfügbar — Scrubbing und Zuschneiden funktionieren weiterhin.",
   "Previous clip": "Vorheriger Clip",
   "Previous library item": "Vorheriges Bibliothekselement",
   "Previous slide": "Vorherige Folie",

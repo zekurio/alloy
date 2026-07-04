@@ -1,6 +1,7 @@
 import {
   type ClipRow,
   clipOriginalFileUrl,
+  clipRenditionFileUrl,
   clipScrubberFileUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
@@ -34,6 +35,7 @@ import {
 } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
+import { canPlaySource } from "@/lib/media-capability"
 import { useSpriteSheetFilmstrip } from "@/lib/media-filmstrip"
 
 import { ClipEditorTabs } from "./library-clip-editor-details"
@@ -221,6 +223,28 @@ function useClipEditorMedia(
   // background detail refetch lands.
   const mediaVersion = row.sourceVersion ?? ""
   const streamSrc = clipOriginalFileUrl(row.id, apiOrigin())
+  const sourcePlayable = canPlaySource(
+    row.sourceContentType ?? "video/mp4",
+    row.sourceCodecs ?? "",
+  )
+  const playableRendition =
+    sourcePlayable || row.trimStartMs !== null
+      ? undefined
+      : row.renditions.find((rendition) =>
+          canPlaySource("video/mp4", rendition.codecs),
+        )
+  // For untrimmed clips, rendition time maps 1:1 to source time, so trim math
+  // stays anchored to the original source even when previewing a rendition.
+  const previewSrc = sourcePlayable
+    ? streamSrc
+    : playableRendition
+      ? clipRenditionFileUrl(
+          row.id,
+          playableRendition.name,
+          apiOrigin(),
+          playableRendition.version,
+        )
+      : null
   const filmstrip = useSpriteSheetFilmstrip(
     processing ? null : clipScrubberFileUrl(row.id, apiOrigin()),
   )
@@ -246,7 +270,11 @@ function useClipEditorMedia(
     serverPoster ?? localPoster ?? localItem?.thumbnailUrl ?? queuePoster
   const posterBlurHash = row.thumbBlurHash ?? localItem?.thumbBlurHash ?? null
   const fallbackSeed = row.gameId ?? localItem?.groupLabel ?? row.id
-  const playbackSrc = processing ? (localItem?.mediaUrl ?? null) : streamSrc
+  const playbackSrc = processing ? (localItem?.mediaUrl ?? null) : previewSrc
+  const previewUnavailable =
+    !processing &&
+    Boolean(row.sourceContentType || row.renditions.length > 0) &&
+    previewSrc === null
   const aspectRatio = mediaAspectRatio(
     row.width ?? localItem?.width,
     row.height ?? localItem?.height,
@@ -287,6 +315,7 @@ function useClipEditorMedia(
     playbackSrc,
     poster,
     posterBlurHash,
+    previewUnavailable,
     publishHandoffPoster,
     setCloudFrameReady,
     streamSrc,
@@ -388,6 +417,16 @@ function ClipEditorPreviewPlaceholder({
           decoding="async"
           onLoad={poster.markLoaded}
         />
+      ) : null}
+      {media.previewUnavailable ? (
+        <>
+          <div aria-hidden className="absolute inset-0 bg-black/40" />
+          <span className="relative z-10 flex size-full items-center justify-center px-4 text-center text-sm text-white/80">
+            {t(
+              "Preview unavailable in this browser — scrubbing and trimming still work.",
+            )}
+          </span>
+        </>
       ) : null}
     </div>
   )
