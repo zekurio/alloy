@@ -182,6 +182,7 @@ function safeCaptureBase(
   value: string,
   { fallback }: { fallback: string },
 ): string {
+  // Imported filenames need a base after unsafe characters are stripped.
   return value.replace(/[^A-Za-z0-9 ._-]/g, "_").trim() || fallback
 }
 

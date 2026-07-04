@@ -23,27 +23,24 @@ async function applyLikeCountDelta(
   tx: Tx,
   clipId: string,
   delta: SQL,
-  fallback: number,
 ): Promise<number> {
   const [row] = await tx
     .update(clip)
     .set({ like_count: delta })
     .where(eq(clip.id, clipId))
     .returning({ likeCount: clip.like_count })
-  return row?.likeCount ?? fallback
+  if (!row) throw new Error("Clip not found while updating like count.")
+  return row.likeCount
 }
 
-async function readLikeCount(
-  tx: Tx,
-  clipId: string,
-  fallback: number,
-): Promise<number> {
+async function readLikeCount(tx: Tx, clipId: string): Promise<number> {
   const [row] = await tx
     .select({ likeCount: clip.like_count })
     .from(clip)
     .where(eq(clip.id, clipId))
     .limit(1)
-  return row?.likeCount ?? fallback
+  if (!row) throw new Error("Clip not found while reading like count.")
+  return row.likeCount
 }
 
 export const clipsEngagementRoutes = new Hono()
@@ -86,9 +83,9 @@ export const clipsEngagementRoutes = new Hono()
           .onConflictDoNothing()
           .returning({ clipId: clipLike.clip_id })
         if (inserted.length > 0) {
-          return applyLikeCountDelta(tx, id, sql`${clip.like_count} + 1`, 0)
+          return applyLikeCountDelta(tx, id, sql`${clip.like_count} + 1`)
         }
-        return readLikeCount(tx, id, 0)
+        return readLikeCount(tx, id)
       })
 
       return likeState(c, true, likeCount)
@@ -118,10 +115,9 @@ export const clipsEngagementRoutes = new Hono()
             tx,
             id,
             sql`GREATEST(0, ${clip.like_count} - 1)`,
-            0,
           )
         }
-        return readLikeCount(tx, id, target.row.like_count)
+        return readLikeCount(tx, id)
       })
 
       return likeState(c, false, likeCount)
