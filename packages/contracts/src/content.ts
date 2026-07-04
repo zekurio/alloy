@@ -147,6 +147,13 @@ export interface InitiateClipInput {
   height?: number
   durationMs?: number
   /**
+   * Kept source range in the uploaded file's timeline. The raw upload is
+   * stored untouched; the media run derives the cut server-side. Both bounds
+   * or neither.
+   */
+  trimStartMs?: number
+  trimEndMs?: number
+  /**
    * Client-computed BlurHash of the clip's poster frame. The server validates
    * and publishes it only when the uploaded thumbnail image is accepted.
    */

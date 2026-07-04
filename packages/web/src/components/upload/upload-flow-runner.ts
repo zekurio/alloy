@@ -80,6 +80,8 @@ export async function startUpload(
     width: payload.width,
     height: payload.height,
     durationMs: Math.round(payload.durationMs),
+    trimStartMs: payload.trimStartMs,
+    trimEndMs: payload.trimEndMs,
     thumbBlurHash: payload.thumbBlurHash ?? undefined,
     thumbContentType: thumbContentTypeForBlob(payload.thumbBlob),
   })

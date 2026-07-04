@@ -152,6 +152,10 @@ export const clipsUploadLifecycleRoutes = new Hono()
               width: body.width ?? null,
               height: body.height ?? null,
               duration_ms: body.durationMs ?? null,
+              // Kept source range applied by the media run at first ingest —
+              // the raw upload is stored untouched and the run derives the cut.
+              trim_start_ms: body.trimStartMs ?? null,
+              trim_end_ms: body.trimEndMs ?? null,
               // Client-provided poster placeholder; media finalization preserves
               // it because the server does not derive poster frames or hashes.
               thumb_blur_hash: body.thumbBlurHash ?? null,
