@@ -12,19 +12,28 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useMemo, useState } from "react"
 
-import type { RenditionPlayback } from "@/components/video/video-media-engine"
+import type {
+  RenditionPlayback,
+  RenditionSource,
+} from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
+import { canPlaySource } from "@/lib/media-capability"
 
-const AUTO_QUALITY_ID = "auto"
+// Rendition names are resolution tiers ("1080p60"), so "source" never collides.
+const SOURCE_QUALITY_ID = "source"
 
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
   clipId: string
   /** MIME type of the uploaded source; absent while the clip is processing. */
   sourceContentType?: string | null
+  /** RFC 6381 codecs of the source; null for clips probed before the column. */
+  sourceCodecs?: string | null
   /** Cache-busting version of the published source; changes on republish. */
   sourceVersion?: string | null
+  /** Whether the source endpoint serves a derived cut (always MP4). */
+  trimmed?: boolean
   /** Committed quality tiers, highest first. Empty for pre-backfill clips. */
   renditions?: ClipRenditionRef[]
   thumbnail?: string | null
@@ -49,7 +58,9 @@ const DEFAULT_ASPECT_RATIO = 16 / 9
 function ClipPlayer({
   clipId,
   sourceContentType,
+  sourceCodecs,
   sourceVersion,
+  trimmed = false,
   renditions = [],
   thumbnail,
   thumbnailBlurHash,
@@ -74,12 +85,19 @@ function ClipPlayer({
   // Poster shown while the clip has no playable media yet (processing/failed).
   const pendingPoster = useImageLoaded(poster)
 
-  const [selectedQualityId, setSelectedQualityId] = useState(AUTO_QUALITY_ID)
+  const [selectedQualityId, setSelectedQualityId] = useState(SOURCE_QUALITY_ID)
 
-  const renditionPlayback = useMemo((): RenditionPlayback | null => {
-    if (renditions.length === 0) return null
-    return {
-      sources: renditions.map((rendition) => ({
+  // Quality tiers best-first with the source on top: the source endpoint
+  // serves the original upload, or the derived cut for trimmed clips.
+  const sources = useMemo((): RenditionSource[] => {
+    return [
+      {
+        name: SOURCE_QUALITY_ID,
+        url: clipSourceFileUrl(clipId, apiOrigin(), sourceVersion ?? undefined),
+        codecs: sourceCodecs ?? "",
+        contentType: trimmed ? "video/mp4" : (sourceContentType ?? "video/mp4"),
+      },
+      ...renditions.map((rendition) => ({
         name: rendition.name,
         url: clipRenditionFileUrl(
           clipId,
@@ -88,30 +106,61 @@ function ClipPlayer({
           rendition.version,
         ),
         codecs: rendition.codecs,
+        contentType: "video/mp4",
       })),
-      selected:
-        selectedQualityId !== AUTO_QUALITY_ID ? selectedQualityId : null,
-    }
-  }, [clipId, renditions, selectedQualityId])
-
-  // Fallback for clips without renditions: the source endpoint serves the
-  // default playback asset, which is the cut for trimmed clips.
-  const fallbackSrc = clipSourceFileUrl(
+    ]
+  }, [
     clipId,
-    apiOrigin(),
-    sourceVersion ?? undefined,
+    renditions,
+    sourceCodecs,
+    sourceContentType,
+    sourceVersion,
+    trimmed,
+  ])
+
+  const renditionPlayback = useMemo(
+    (): RenditionPlayback => ({
+      sources,
+      selected: selectedQualityId,
+      onFallback: setSelectedQualityId,
+    }),
+    [selectedQualityId, sources],
+  )
+
+  // The menu only offers tiers this browser can decode, mirroring the
+  // engine's own capability filter so the highlight matches what plays.
+  const playableSources = useMemo(
+    () =>
+      sources.filter((source) =>
+        canPlaySource(source.contentType, source.codecs),
+      ),
+    [sources],
   )
 
   const qualityOptions = useMemo(() => {
-    if (renditions.length === 0) return []
-    return [
-      { id: AUTO_QUALITY_ID, label: t("Auto") },
-      ...renditions.map((rendition) => ({
-        id: rendition.name,
-        label: renditionQualityLabel(rendition, renditions),
-      })),
-    ]
-  }, [renditions])
+    return playableSources.map((source) => {
+      if (source.name === SOURCE_QUALITY_ID) {
+        return { id: source.name, label: t("Source") }
+      }
+      const rendition = renditions.find(
+        (candidate) => candidate.name === source.name,
+      )
+      return {
+        id: source.name,
+        label: rendition
+          ? renditionQualityLabel(rendition, renditions)
+          : source.name,
+      }
+    })
+  }, [playableSources, renditions])
+
+  // An unplayable or missing selection plays the best playable tier; the
+  // menu highlight follows the same resolution.
+  const activeQualityId =
+    (
+      playableSources.find((source) => source.name === selectedQualityId) ??
+      playableSources[0]
+    )?.name ?? selectedQualityId
 
   const handlePlaybackError = useCallback(
     (message: string) => {
@@ -180,7 +229,7 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={fallbackSrc}
+      src={sources[0].url}
       renditionPlayback={renditionPlayback}
       poster={poster}
       posterBlurHash={thumbnailBlurHash}
@@ -191,7 +240,7 @@ function ClipPlayer({
       className={className}
       sourceIdentity={clipId}
       qualityOptions={qualityOptions}
-      selectedQualityId={selectedQualityId}
+      selectedQualityId={activeQualityId}
       onSelectQuality={setSelectedQualityId}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
