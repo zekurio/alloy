@@ -6,6 +6,10 @@ import {
   type TranscodingConfig,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
+import {
+  clipScrubberKey,
+  publishScrubberSheet,
+} from "@alloy/server/clips/scrubber"
 import { configStore } from "@alloy/server/config/store"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { faststartPath } from "@alloy/server/media/mp4-layout"
@@ -364,6 +368,22 @@ async function runPipelineInWorkDir({
     ...(thumbKey ? [thumbKey] : []),
   ])
   await cleanupTickets({ type: store.target, id }, "completed staged upload")
+  if (!(await clipThumbnailStorage.resolve(clipScrubberKey(id)))) {
+    try {
+      // Warm the trim scrubber while the source is already on disk. The
+      // editor's first open otherwise re-downloads the source and blocks on
+      // generation; best-effort, the lazy path regenerates it.
+      await publishScrubberSheet({
+        clipId: id,
+        sourcePath,
+        workDir,
+        durationMs: sourceProbe.durationMs,
+        signal,
+      })
+    } catch (err) {
+      logger.warn(`scrubber sheet warmup failed for ${id}:`, err)
+    }
+  }
   completeWork()
   store.publishUpsert(row.authorId, id)
 }
