@@ -84,12 +84,6 @@ export interface RecordingLibraryExport {
   durationMs: number
   width: number | null
   height: number | null
-  thumbBlurHash: string | null
-  /**
-   * The source capture's cached poster, when one exists; the web layer falls
-   * back to capturing a frame from the exported file itself.
-   */
-  thumbUrl: string | null
 }
 
 export interface RecordingLibraryImportResult {

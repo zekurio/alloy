@@ -114,7 +114,6 @@ export class FsStorageDriver implements StorageDriver {
 
   async mintUploadUrl(input: MintUploadUrlInput) {
     const expiresAt = Math.floor(Date.now() / 1000) + input.expiresInSec
-    const chunked = input.role === "video"
     const payload: UploadTokenPayload = {
       k: input.key,
       ct: input.contentType,
@@ -122,17 +121,15 @@ export class FsStorageDriver implements StorageDriver {
       exp: expiresAt,
       uid: input.userId,
       cid: input.clipId,
-      m: chunked ? "fs-chunked" : "single",
-      cs: chunked ? FS_UPLOAD_CHUNK_SIZE_BYTES : undefined,
+      m: "fs-chunked",
+      cs: FS_UPLOAD_CHUNK_SIZE_BYTES,
     }
     return mintFsUploadTicket({
       payload,
       publicBaseUrl: this.opts.publicBaseUrl,
       secret: this.opts.hmacSecret,
-      headers: chunked ? {} : undefined,
-      strategy: chunked
-        ? { type: "chunked", chunkSizeBytes: FS_UPLOAD_CHUNK_SIZE_BYTES }
-        : { type: "single" },
+      headers: {},
+      strategy: { type: "chunked", chunkSizeBytes: FS_UPLOAD_CHUNK_SIZE_BYTES },
     })
   }
 

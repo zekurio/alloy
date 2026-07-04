@@ -46,8 +46,6 @@ const recording: AlloyDesktopRecordingApi = {
     ipcRenderer.invoke(IPC.discardRecordingLibraryStagedImport, id),
   saveLibraryCaptureThumbnail: (id, data) =>
     ipcRenderer.invoke(IPC.saveRecordingLibraryCaptureThumbnail, { id, data }),
-  hashLibraryThumbnail: (data) =>
-    ipcRenderer.invoke(IPC.hashRecordingLibraryThumbnail, data),
   downloadClip: (request) =>
     ipcRenderer.invoke(IPC.downloadRecordingLibraryClip, request),
   cancelClipDownload: (clipId) =>

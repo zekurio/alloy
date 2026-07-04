@@ -1,8 +1,4 @@
-import type {
-  GameAssetRole,
-  UploadTicket,
-  UploadTicketRole,
-} from "@alloy/contracts"
+import type { GameAssetRole, UploadTicket } from "@alloy/contracts"
 
 export interface ResolvedObject {
   stream: (opts?: {
@@ -35,7 +31,6 @@ export interface MintUploadUrlInput {
   userId: string
   /** Bind the ticket to the reserved clip row (defence-in-depth). */
   clipId: string
-  role: UploadTicketRole
 }
 
 export interface WriteUploadPartInput {

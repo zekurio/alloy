@@ -7,7 +7,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
   ACCEPT_LIST,
-  captureThumbnail,
   prepareSelectedClipFile,
   type PublishPayload,
   type SelectedFile,
@@ -159,20 +158,6 @@ async function prepareWebUploadPayload(
   signal: AbortSignal,
 ): Promise<PublishPayload> {
   throwIfAborted(signal)
-  // Sample the poster from inside the kept range so it survives the server
-  // trim; the server's keyframe-snapped cut then re-extracts only when this
-  // client capture never arrives.
-  const rangeStartMs = metadata.trimmed ? metadata.trim.startMs : 0
-  const rangeEndMs = metadata.trimmed
-    ? metadata.trim.endMs
-    : selected.durationMs
-  const thumbnail = await captureThumbnail(
-    selected.file,
-    rangeStartMs + Math.min(1000, Math.max(0, rangeEndMs - rangeStartMs - 100)),
-    rangeStartMs,
-    rangeStartMs,
-  )
-
   return {
     file: selected.file,
     contentType: selected.contentType,
@@ -184,8 +169,6 @@ async function prepareWebUploadPayload(
     height: selected.height,
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
-    thumbBlob: thumbnail.blob,
-    thumbBlurHash: thumbnail.blurHash,
     mentionedUserIds: metadata.mentions.map((mention) => mention.id),
     tags: parseTagString(metadata.tags),
     trimStartMs: metadata.trimmed ? metadata.trim.startMs : undefined,

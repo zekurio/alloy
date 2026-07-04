@@ -4,6 +4,7 @@ import type {
   AdminJobsSweeps,
   AdminSweepKind,
 } from "@alloy/api"
+import { ADMIN_SWEEP_KINDS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
@@ -54,6 +55,7 @@ const JOB_KIND_LABELS: Record<string, string> = {
   "clip.renditions-sweep": t("Rendition sweep"),
   "clip.source-probe-sweep": t("Source probe sweep"),
   "clip.source-probe": t("Source probe"),
+  "clip.thumbnail-sweep": t("Thumbnail sweep"),
   "clip.verify-assets": t("Verify assets"),
   "clip.verify": t("Verify clip"),
   "storage.orphan-gc": t("Storage cleanup"),
@@ -64,11 +66,9 @@ const JOB_KIND_LABELS: Record<string, string> = {
   "jobs.prune": t("Prune job history"),
 }
 
-const SWEEP_KINDS: ReadonlySet<string> = new Set<AdminSweepKind>([
-  "clip.renditions-sweep",
-  "clip.verify-assets",
-  "storage.orphan-gc",
-])
+const SWEEP_KINDS: ReadonlySet<string> = new Set<AdminSweepKind>(
+  ADMIN_SWEEP_KINDS,
+)
 
 function kindLabel(kind: string): string {
   return JOB_KIND_LABELS[kind] ?? kind
