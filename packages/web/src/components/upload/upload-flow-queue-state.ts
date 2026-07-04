@@ -372,7 +372,10 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
     bump,
   )
   const cancelRow = useCancelRow(activeRef, retainedThumbsRef, bump)
-  const reEncode = useReEncodeClipMutation()
+  // Depend on the stable `mutate` fn, not the mutation result: `useMutation`
+  // returns a fresh object every render, and an unstable dep here loops the
+  // queue memo → setQueueState → context re-render cycle until React aborts.
+  const reEncodeClip = useReEncodeClipMutation().mutate
   const downloads = useClipDownloads()
   const releaseRetainedThumb = useCallback(
     (clipId: string) => {
@@ -413,7 +416,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
             row.status === "ready" ? () => copyClipLink(row) : undefined,
           onRetry:
             row.status === "failed"
-              ? () => reEncode.mutate({ clipId: row.id })
+              ? () => reEncodeClip({ clipId: row.id })
               : undefined,
           onDismiss:
             row.status === "ready"
@@ -451,7 +454,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
     downloads,
     cancelRow,
     retryUpload,
-    reEncode,
+    reEncodeClip,
     onOpenClip,
     dismissed,
     dismiss,
