@@ -2,6 +2,7 @@ import type { AdminRuntimeConfig } from "@alloy/api"
 import type { ReactNode } from "react"
 
 import { AdminGamesCard } from "@/components/admin/admin-games-card"
+import { AdminJobsCard } from "@/components/admin/admin-jobs-card"
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
 import {
   type AdminConfigContextValue,
@@ -56,4 +57,8 @@ export function AdminUsersPanel() {
 
 export function AdminGamesPanel() {
   return <AdminGamesCard hideHeader />
+}
+
+export function AdminJobsPanel() {
+  return <AdminJobsCard hideHeader />
 }

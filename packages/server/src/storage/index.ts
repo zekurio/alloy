@@ -33,6 +33,7 @@ class ConfiguredStorageDriver implements StorageDriver {
   mintDownloadUrl: StorageDriver["mintDownloadUrl"] = (...args) =>
     this.driver().mintDownloadUrl(...args)
   delete: StorageDriver["delete"] = (...args) => this.driver().delete(...args)
+  list: StorageDriver["list"] = (...args) => this.driver().list(...args)
   downloadToFile: StorageDriver["downloadToFile"] = (...args) =>
     this.driver().downloadToFile(...args)
   uploadFromFile: StorageDriver["uploadFromFile"] = (...args) =>

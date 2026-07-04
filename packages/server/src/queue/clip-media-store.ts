@@ -8,9 +8,9 @@ import {
 import { db } from "@alloy/server/db/index"
 import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
-import { and, eq, isNull, lt, ne, or, sql } from "drizzle-orm"
+import { and, eq, lt, sql } from "drizzle-orm"
 
-import { encodeLeaseConditions, RETRY_DELAY_INTERVAL } from "./lease-conditions"
+import { encodeLeaseConditions } from "./lease-conditions"
 import type {
   MediaRow,
   MediaSourcePatch,
@@ -23,13 +23,20 @@ const logger = createLogger("queue")
 const leaseConditions = () =>
   encodeLeaseConditions({
     status: clip.status,
-    encodeProgress: clip.encode_progress,
     encodeLockedAt: clip.encode_locked_at,
+    encodeRunId: clip.encode_run_id,
   })
 
 // Ready rows stay ready across a reprocess run so `stream` access (which is
 // gated on status = 'ready') keeps serving the committed assets meanwhile.
 const keepReadyStatus = sql`case when ${clip.status} = 'ready' then 'ready' else 'processing' end`
+
+const clearedStageColumns = {
+  encode_stage: null,
+  encode_tier: null,
+  encode_tier_index: null,
+  encode_tier_count: null,
+}
 
 const mediaRowSelect = {
   id: clip.id,
@@ -52,6 +59,7 @@ function sourcePatchToColumns(patch: MediaSourcePatch) {
     source_video_codec: patch.sourceVideoCodec,
     source_audio_codec: patch.sourceAudioCodec,
     source_codecs: patch.sourceCodecs,
+    source_fps: patch.sourceFps,
     source_size_bytes: patch.sourceSizeBytes,
     source_duration_ms: patch.sourceDurationMs,
     cut_key: patch.cutKey,
@@ -71,27 +79,6 @@ function thumbPatchToColumns(patch: MediaThumbPatch) {
 export const clipMediaStore: MediaStore = {
   target: "clip",
 
-  async selectNextLeasableId(inFlight) {
-    const rows = await db
-      .select({ id: clip.id })
-      .from(clip)
-      .where(
-        and(
-          ...leaseConditions(),
-          or(
-            isNull(clip.failure_reason),
-            lt(
-              clip.updated_at,
-              sql`now() - interval '${sql.raw(RETRY_DELAY_INTERVAL)}'`,
-            ),
-          ),
-        ),
-      )
-      .orderBy(clip.updated_at)
-      .limit(inFlight.size + 1)
-    return rows.find((row) => !inFlight.has(row.id))?.id ?? null
-  },
-
   async lease(id, runId): Promise<MediaRow | null> {
     const [row] = await db
       .update(clip)
@@ -101,10 +88,13 @@ export const clipMediaStore: MediaStore = {
         // works; only genuinely unfinished rows show as processing.
         status: keepReadyStatus,
         encode_run_id: runId,
-        encode_locked_at: new Date(),
+        // DB now(), not a JS Date: the freshness check compares against
+        // Postgres now(), and JS-serialized timestamps skew by the server's
+        // timezone offset on timestamp-without-tz columns.
+        encode_locked_at: sql`now()`,
         encode_attempt: sql`${clip.encode_attempt} + 1`,
         failure_reason: null,
-        updated_at: new Date(),
+        updated_at: sql`now()`,
       })
       .where(and(eq(clip.id, id), ...leaseConditions()))
       .returning(mediaRowSelect)
@@ -114,7 +104,7 @@ export const clipMediaStore: MediaStore = {
   async heartbeat(id, runId) {
     const rows = await db
       .update(clip)
-      .set({ encode_locked_at: new Date() })
+      .set({ encode_locked_at: sql`now()` })
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return rows.length > 0
@@ -124,44 +114,51 @@ export const clipMediaStore: MediaStore = {
     await db
       .update(clip)
       .set({
+        ...clearedStageColumns,
         encode_run_id: null,
         encode_locked_at: null,
         failure_reason: reason.slice(0, 500),
         updated_at: new Date(),
       })
-      .where(
-        and(
-          eq(clip.id, id),
-          eq(clip.encode_run_id, runId),
-          ne(clip.status, "ready"),
-        ),
-      )
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
   },
 
-  async markFailed(id, reason) {
+  async markFailed(id, runId, reason, encodeFailedFingerprint) {
     try {
       const [row] = await db
         .select({ status: clip.status })
         .from(clip)
-        .where(eq(clip.id, id))
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
         .limit(1)
       if (row?.status === "ready") {
         await db
           .update(clip)
-          .set({ failure_reason: reason.slice(0, 500), updated_at: new Date() })
-          .where(eq(clip.id, id))
+          .set({
+            ...clearedStageColumns,
+            encode_run_id: null,
+            encode_locked_at: null,
+            encode_failed_fingerprint: sql`coalesce(${encodeFailedFingerprint}, ${clip.encode_failed_fingerprint})`,
+            failure_reason: reason.slice(0, 500),
+            updated_at: new Date(),
+          })
+          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        void publishClipUpsertById(id)
         return
       }
-      await db
+      const [failed] = await db
         .update(clip)
         .set({
+          ...clearedStageColumns,
           status: "failed",
           encode_run_id: null,
           encode_locked_at: null,
+          encode_failed_fingerprint: sql`coalesce(${encodeFailedFingerprint}, ${clip.encode_failed_fingerprint})`,
           failure_reason: reason.slice(0, 500),
           updated_at: new Date(),
         })
-        .where(eq(clip.id, id))
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        .returning({ id: clip.id })
+      if (!failed) return
       await cleanupTickets({ type: "clip", id }, `terminal clip ${id} upload`)
       void publishClipUpsertById(id)
     } catch (err) {
@@ -190,6 +187,23 @@ export const clipMediaStore: MediaStore = {
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
+  },
+
+  async commitStage(id, runId, stage, tier) {
+    const [row] = await db
+      .update(clip)
+      .set({
+        encode_stage: stage,
+        encode_tier: tier?.name ?? null,
+        encode_tier_index: tier?.index ?? null,
+        encode_tier_count: tier?.count ?? null,
+        updated_at: new Date(),
+      })
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+      .returning({ id: clip.id })
+    if (!row) return false
+    void publishClipUpsertById(id)
+    return true
   },
 
   async commitProgress(id, runId, pct) {
@@ -248,8 +262,11 @@ export const clipMediaStore: MediaStore = {
         .set({
           ...sourcePatchToColumns(patch),
           ...thumbPatchToColumns(patch),
+          ...clearedStageColumns,
           status: "ready",
           encode_pipeline: MEDIA_PIPELINE_VERSION,
+          encode_fingerprint: patch.encodeFingerprint,
+          encode_failed_fingerprint: null,
           encode_progress: 100,
           encode_run_id: null,
           encode_locked_at: null,

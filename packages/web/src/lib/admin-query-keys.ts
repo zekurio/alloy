@@ -1,6 +1,11 @@
-import { queryOptions } from "@tanstack/react-query"
+import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query"
 
 import { api } from "@/lib/api"
+
+// Ephemeral admin panels poll instead of subscribing to an SSE channel: the
+// settings dialog is short-lived and admin-only, so a 3s refetch while mounted
+// is cheaper than fanning job events out to every admin.
+const JOBS_REFETCH_INTERVAL_MS = 3000
 
 export const adminKeys = {
   all: ["admin"] as const,
@@ -9,6 +14,31 @@ export const adminKeys = {
     [...adminKeys.all, "transcoding-capabilities"] as const,
   users: () => [...adminKeys.all, "users"] as const,
   games: () => [...adminKeys.all, "games"] as const,
+  jobsSummary: () => [...adminKeys.all, "jobs", "summary"] as const,
+  jobsFailed: (kind: string | null) =>
+    [...adminKeys.all, "jobs", "failed", kind ?? "all"] as const,
+}
+
+export function adminJobsSummaryQueryOptions() {
+  return queryOptions({
+    queryKey: adminKeys.jobsSummary(),
+    queryFn: () => api.admin.fetchJobsSummary(),
+    refetchInterval: JOBS_REFETCH_INTERVAL_MS,
+  })
+}
+
+export function adminFailedJobsQueryOptions(kind: string | null) {
+  return infiniteQueryOptions({
+    queryKey: adminKeys.jobsFailed(kind),
+    queryFn: ({ pageParam }) =>
+      api.admin.fetchFailedJobs({
+        ...(kind ? { kind } : {}),
+        ...(pageParam ? { cursor: pageParam } : {}),
+      }),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
+    refetchInterval: JOBS_REFETCH_INTERVAL_MS,
+  })
 }
 
 export function adminRuntimeConfigQueryOptions() {

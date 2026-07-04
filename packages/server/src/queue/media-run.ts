@@ -11,13 +11,18 @@ import {
   publishScrubberSheet,
 } from "@alloy/server/clips/scrubber"
 import { configStore } from "@alloy/server/config/store"
+import {
+  encodeFingerprint,
+  expectedLadder,
+  persistedSourceFps,
+} from "@alloy/server/media/encode-fingerprint"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { faststartPath } from "@alloy/server/media/mp4-layout"
 import { extractPoster } from "@alloy/server/media/poster"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
 import {
-  effectiveLadder,
   encodeRendition,
+  type LadderStep,
 } from "@alloy/server/media/renditions"
 import { trimToMp4 } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
@@ -56,6 +61,71 @@ import { makeMediaWorkDir } from "./media-run-helpers"
 import type { MediaRenditionRecord, MediaRow, MediaStore } from "./media-store"
 
 const logger = createLogger("queue")
+const SOURCE_PHASE_COST = 1
+const POSTER_PHASE_COST = 0.4
+const FINALIZE_PHASE_COST = 0.4
+// Must equal SOURCE + POSTER + FINALIZE phase costs; kept as an exact decimal
+// literal because float summation (1 + 0.4 + 0.4) drifts off 1.8.
+const BASE_PHASE_COST = 1.8
+
+interface EncodeProgressStep {
+  height: number
+  fps: number
+}
+
+export function encodeProgressTotalCost(
+  steps: readonly EncodeProgressStep[],
+): number {
+  return (
+    BASE_PHASE_COST +
+    steps.reduce((total, step) => total + encodeTierCost(step), 0)
+  )
+}
+
+export function encodeProgressPercent(options: {
+  totalCost: number
+  completedCost: number
+  phaseCost: number
+  fraction: number
+}): number {
+  const fraction = Math.max(0, Math.min(1, options.fraction))
+  return Math.min(
+    99,
+    Math.floor(
+      ((options.completedCost + options.phaseCost * fraction) /
+        options.totalCost) *
+        100,
+    ),
+  )
+}
+
+function encodeTierCost(step: EncodeProgressStep): number {
+  return step.height * step.fps
+}
+
+function makeEncodeProgressTracker(
+  steps: readonly LadderStep[],
+  writeProgress: (pct: number) => void,
+) {
+  const totalCost = encodeProgressTotalCost(steps)
+  let completedCost = 0
+  const writeAt = (phaseCost: number, fraction: number) =>
+    writeProgress(
+      encodeProgressPercent({
+        totalCost,
+        completedCost,
+        phaseCost,
+        fraction,
+      }),
+    )
+  return {
+    writeAt,
+    complete(phaseCost: number) {
+      completedCost += phaseCost
+      writeAt(0, 0)
+    },
+  }
+}
 
 async function ensureStillPresent(
   store: MediaStore,
@@ -144,6 +214,8 @@ async function runPipelineInWorkDir({
     throw new Error("Recording is missing source content type")
 
   const rawSourcePath = join(workDir, "source")
+  if (!(await store.commitStage(id, runId, "downloading")))
+    throw abortMediaProcessing()
   if (row.sourceKey) {
     await clipStorage.downloadToFile(row.sourceKey, rawSourcePath)
   } else {
@@ -165,7 +237,8 @@ async function runPipelineInWorkDir({
   await ensureStillPresent(store, id, runId, signal)
 
   if (!(await store.beginProcessing(id, runId))) throw abortMediaProcessing()
-  store.publishUpsert(row.authorId, id)
+  if (!(await store.commitStage(id, runId, "processing")))
+    throw abortMediaProcessing()
 
   const sourceProbe = await probeMedia(sourcePath)
   const trim = trimRange(row, sourceProbe.durationMs)
@@ -183,39 +256,27 @@ async function runPipelineInWorkDir({
   }
   await ensureStillPresent(store, id, runId, signal)
 
-  const mediaContentType = trim ? "video/mp4" : sourceContentType
   const durationMs = cutProbe?.durationMs ?? sourceProbe.durationMs
-  const browserSafe =
-    mediaContentType === "video/mp4" &&
-    sourceProbe.videoCodecString?.startsWith("avc1.") === true &&
-    (sourceProbe.audioCodec === null ||
-      sourceProbe.audioCodecString?.startsWith("mp4a.40.") === true)
-
-  const transcodingConfig = configStore.get("transcoding")
-  const ladder = effectiveLadder(transcodingConfig, {
+  const sourceCodecs = sourceCodecsString(sourceProbe)
+  const sourceFps = persistedSourceFps(sourceProbe.fps)
+  const fingerprintFacts = {
     height: sourceProbe.height,
-    fps: sourceProbe.fps,
-    browserSafe,
-  })
+    sourceFps,
+    sourceContentType,
+    sourceCodecs,
+    trimStartMs: row.trimStartMs,
+    trimEndMs: row.trimEndMs,
+  }
+  const transcodingConfig = configStore.get("transcoding")
+  const ladder = expectedLadder(transcodingConfig, fingerprintFacts)
+  const fingerprint = encodeFingerprint(transcodingConfig, fingerprintFacts)
 
-  // Work units: source publish, poster, one per rendition tier, finalize.
-  // Rendition units advance fractionally with ffmpeg progress, so the SSE
-  // progress bar reflects real encode time.
-  const totalWork = 1 + 1 + ladder.length + 1
-  let completedWork = 0
   const writeProgress = makeMediaProgressWriter({
     id,
     commit: (pct) => store.commitProgress(id, runId, pct),
     onCommitted: (pct) => store.publishProgress(row.authorId, id, pct),
   })
-  const progressAt = (fraction: number) =>
-    writeProgress(
-      Math.min(99, Math.floor(((completedWork + fraction) / totalWork) * 100)),
-    )
-  const completeWork = () => {
-    completedWork += 1
-    progressAt(0)
-  }
+  const progress = makeEncodeProgressTracker(ladder, writeProgress)
 
   const sourceAsset: SourceAsset = row.sourceKey
     ? {
@@ -240,7 +301,8 @@ async function runPipelineInWorkDir({
     sourceContentType: sourceAsset.contentType,
     sourceVideoCodec: sourceAsset.videoCodec,
     sourceAudioCodec: sourceAsset.audioCodec,
-    sourceCodecs: sourceCodecsString(sourceProbe),
+    sourceCodecs,
+    sourceFps,
     sourceSizeBytes: sourceAsset.sizeBytes,
     sourceDurationMs: sourceProbe.durationMs,
     cutKey,
@@ -252,7 +314,7 @@ async function runPipelineInWorkDir({
     throw abortMediaProcessing()
   retainSourceAsset(sourceAsset, !row.sourceKey)
   if (cutKey) retainPublishedKey(cutKey)
-  completeWork()
+  progress.complete(SOURCE_PHASE_COST)
 
   await ensureStillPresent(store, id, runId, signal)
   // Publish the poster before the encode ladder so viewers see a real
@@ -300,7 +362,7 @@ async function runPipelineInWorkDir({
     throw abortMediaProcessing()
   if (thumbKey) retainPublishedKey(thumbKey)
   store.publishUpsert(row.authorId, id)
-  completeWork()
+  progress.complete(POSTER_PHASE_COST)
 
   // Encode the quality ladder. Uploaded under run-scoped keys; committed
   // atomically with the ready transition below.
@@ -308,6 +370,15 @@ async function runPipelineInWorkDir({
   let hardwareFailed = false
   for (const step of ladder) {
     await ensureStillPresent(store, id, runId, signal)
+    const tierCost = encodeTierCost(step)
+    if (
+      !(await store.commitStage(id, runId, "encoding", {
+        name: step.name,
+        index: renditions.length + 1,
+        count: ladder.length,
+      }))
+    )
+      throw abortMediaProcessing()
     const encodeConfig =
       hardwareFailed || transcodingConfig.hardwareAcceleration === "none"
         ? { ...transcodingConfig, hardwareAcceleration: "none" as const }
@@ -319,7 +390,7 @@ async function runPipelineInWorkDir({
       step,
       durationMs,
       signal,
-      onProgress: progressAt,
+      onProgress: (fraction) => progress.writeAt(tierCost, fraction),
       onHardwareFailed: () => {
         hardwareFailed = true
       },
@@ -342,12 +413,14 @@ async function runPipelineInWorkDir({
       codecs: encoded.codecs,
       sizeBytes: encoded.sizeBytes,
     })
-    completeWork()
+    progress.complete(tierCost)
   }
 
   await ensureStillPresent(store, id, runId, signal)
   // Snapshot the outgoing rendition keys before commitReady replaces the rows.
   const previousAssets = await store.currentAssetKeys(id)
+  if (!(await store.commitStage(id, runId, "finalizing")))
+    throw abortMediaProcessing()
   const committed = await store.commitReady(
     id,
     runId,
@@ -355,6 +428,7 @@ async function runPipelineInWorkDir({
       ...sourcePatch,
       thumbKey,
       thumbBlurHash,
+      encodeFingerprint: fingerprint,
     },
     renditions,
   )
@@ -384,7 +458,7 @@ async function runPipelineInWorkDir({
       logger.warn(`scrubber sheet warmup failed for ${id}:`, err)
     }
   }
-  completeWork()
+  progress.complete(FINALIZE_PHASE_COST)
   store.publishUpsert(row.authorId, id)
 }
 

@@ -16,6 +16,7 @@ import {
   clipScrubberKey,
   ensureClipScrubberSheet,
 } from "@alloy/server/clips/scrubber"
+import { enqueueClipVerify } from "@alloy/server/jobs/kinds/storage-verify"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
@@ -81,7 +82,12 @@ function cutOrSourceAsset(row: {
 async function serveClipAsset(
   c: Context,
   asset: { key: string; contentType: string },
-  opts: { cacheControl: string; etag: string; unavailable: string },
+  opts: {
+    cacheControl: string
+    clipId: string
+    etag: string
+    unavailable: string
+  },
 ): Promise<Response> {
   const direct = await redirectToStorageUrl(
     c,
@@ -94,6 +100,12 @@ async function serveClipAsset(
   const resolved = await clipStorage.resolve(asset.key)
   if (!resolved) {
     logger.error(`bytes missing under ${asset.key}`)
+    void enqueueClipVerify(opts.clipId).catch((err) => {
+      logger.warn(
+        `failed to enqueue storage verification for ${opts.clipId}:`,
+        err,
+      )
+    })
     return notFound(c, opts.unavailable)
   }
 
@@ -158,6 +170,7 @@ export const clipsPlaybackRoutes = new Hono()
         version,
         row.privacy,
       ),
+      clipId: id,
       etag: `"src-${version}"`,
       unavailable: "Stream unavailable",
     })
@@ -182,6 +195,7 @@ export const clipsPlaybackRoutes = new Hono()
         version,
         row.privacy,
       ),
+      clipId: id,
       etag: `"src-${version}"`,
       unavailable: "Source unavailable",
     })
@@ -206,6 +220,7 @@ export const clipsPlaybackRoutes = new Hono()
       { key: row.source_key, contentType: row.source_content_type },
       {
         cacheControl: "private, max-age=300",
+        clipId: id,
         etag: `"orig-${clipAssetVersion(row.source_key)}"`,
         unavailable: "Source unavailable",
       },
@@ -281,6 +296,7 @@ export const clipsPlaybackRoutes = new Hono()
             version,
             row.privacy,
           ),
+          clipId: id,
           etag: `"rnd-${version}"`,
           unavailable: "Rendition unavailable",
         },

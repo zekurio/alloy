@@ -45,6 +45,7 @@ export type {
   ClipRenditionRef,
   ClipRow,
   ClipStatus,
+  EncodeStage,
   InitiateClipInput,
   InitiateClipResponse,
   QueueClip,
@@ -203,6 +204,16 @@ async function trimClip(
   return readJsonOrThrow(res, validateClipRow)
 }
 
+async function reEncodeClip(
+  context: ApiContext,
+  clipId: string,
+): Promise<ClipRow> {
+  const res = await context.rpc.api.clips[":id"]["re-encode"].$post({
+    param: { id: clipId },
+  })
+  return readJsonOrThrow(res, validateClipRow)
+}
+
 async function setClipPoster(
   context: ApiContext,
   clipId: string,
@@ -268,6 +279,7 @@ export function createClipsApi(context: ApiContext) {
       updateClip(context, clipId, input),
     trim: (clipId: string, input: TrimClipInput) =>
       trimClip(context, clipId, input),
+    reEncode: (clipId: string) => reEncodeClip(context, clipId),
     setPoster: (clipId: string, input: SetClipPosterInput) =>
       setClipPoster(context, clipId, input),
     fetchLikeState: (clipId: string) => fetchLikeState(context, clipId),

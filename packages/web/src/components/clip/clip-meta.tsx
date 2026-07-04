@@ -1,4 +1,9 @@
-import type { ClipGameRef, ClipMentionRef, ClipPrivacy } from "@alloy/api"
+import type {
+  ClipGameRef,
+  ClipMentionRef,
+  ClipPrivacy,
+  ClipStatus,
+} from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
 import {
   AlertDialog,
@@ -31,6 +36,7 @@ import {
   HeartIcon,
   MoreHorizontalIcon,
   PencilIcon,
+  RefreshCwIcon,
   Share2Icon,
   StarIcon,
   Trash2Icon,
@@ -47,6 +53,7 @@ import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import {
   useDeleteClipMutation,
   useLikeStateQuery,
+  useReEncodeClipMutation,
   useToggleLikeMutation,
 } from "@/lib/clip-queries"
 import { errorMessage } from "@/lib/error-message"
@@ -65,6 +72,8 @@ import { renderHashtagTokens } from "./description-tokens"
 interface ClipMetaProps {
   /** Clip id — powers each field's PATCH and the delete action. */
   clipId: string
+  /** Encode status — gates the "Re-encode" action to settled clips. */
+  status: ClipStatus
   authorId: string
   title: string
   game: string
@@ -102,6 +111,7 @@ interface ClipMetaProps {
 
 function ClipMeta({
   clipId,
+  status,
   authorId,
   title,
   game,
@@ -134,6 +144,7 @@ function ClipMeta({
 
   const deleteMutation = useDeleteClipMutation()
   const deleting = deletePending ?? deleteMutation.isPending
+  const reEncodeMutation = useReEncodeClipMutation()
 
   const likeStateQuery = useLikeStateQuery(clipId, { enabled: canLike })
   const likeMutation = useToggleLikeMutation()
@@ -281,6 +292,17 @@ function ClipMeta({
                     <DropdownMenuItem onClick={onEdit}>
                       <PencilIcon /> {t("Edit")}
                     </DropdownMenuItem>
+                    {/* Re-encode is rejected server-side while a clip is still
+                        processing; only offer it once settled (ready/failed),
+                        matching UploadedClipCardMenu. */}
+                    {status === "ready" || status === "failed" ? (
+                      <DropdownMenuItem
+                        onClick={() => reEncodeMutation.mutate({ clipId })}
+                        disabled={reEncodeMutation.isPending}
+                      >
+                        <RefreshCwIcon /> {t("Re-encode")}
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       variant="destructive"

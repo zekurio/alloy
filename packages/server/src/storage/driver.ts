@@ -18,6 +18,11 @@ export interface ResolvedObject {
   lastModified: Date | null
 }
 
+export interface ListedObject {
+  key: string
+  lastModified: Date | null
+}
+
 export interface MintUploadUrlInput {
   /** Opaque storage key the bytes will land at. Must already be unique. */
   key: string
@@ -101,6 +106,9 @@ export interface StorageDriver {
 
   /** Best-effort delete; missing keys must not throw. */
   delete(key: string): Promise<void>
+
+  /** Recursively list objects under a storage prefix. */
+  list(prefix: string): AsyncIterable<ListedObject>
 
   /**
    * Materialize a stored object as a local file — media processing needs a

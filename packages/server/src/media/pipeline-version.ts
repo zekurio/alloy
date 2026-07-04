@@ -6,7 +6,8 @@
  *
  * Bump this whenever a code change alters the committed output format, so
  * existing libraries heal on deploy instead of serving stale-format
- * renditions (settings-only changes don't need a bump — the admin re-encode
- * action covers those).
+ * renditions. Settings-only changes don't need a bump because the encode
+ * fingerprint includes the running config, so sweeps can find and heal those
+ * clips without an operator pressing the admin re-encode button.
  */
 export const MEDIA_PIPELINE_VERSION = "3"

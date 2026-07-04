@@ -4,10 +4,12 @@ import {
   link,
   mkdir,
   open,
+  readdir,
   rename,
   rmdir,
   rm,
   stat,
+  utimes,
   writeFile,
 } from "node:fs/promises"
 import { Readable } from "node:stream"
@@ -17,6 +19,7 @@ import {
   dirname,
   isAbsolute,
   normalize,
+  relative,
   resolve,
 } from "@alloy/server/runtime/path"
 
@@ -254,7 +257,10 @@ export class FsStorageDriver implements StorageDriver {
     } catch (err) {
       if (!isCopyFallbackError(err)) throw err
       await copyFile(localPath, dst)
+      const stats = await stat(dst)
+      return { size: stats.size }
     }
+    await markLinkedPublishTime(dst)
     const stats = await stat(dst)
     return { size: stats.size }
   }
@@ -277,7 +283,10 @@ export class FsStorageDriver implements StorageDriver {
       const tmp = `${dst}.${crypto.randomUUID()}.tmp`
       await copyFile(src, tmp)
       await rename(tmp, dst)
+      const stats = await stat(dst)
+      return { size: stats.size }
     }
+    await markLinkedPublishTime(dst)
     const stats = await stat(dst)
     return { size: stats.size }
   }
@@ -291,6 +300,28 @@ export class FsStorageDriver implements StorageDriver {
     }
     await rm(this.partDir(key), { recursive: true, force: true })
     await this.pruneEmptyAncestors(dirname(full))
+  }
+
+  async *list(
+    prefix: string,
+  ): AsyncIterable<{ key: string; lastModified: Date | null }> {
+    const root = normalize(resolve(this.opts.root))
+    const start = this.fullPath(prefix)
+    let stats: Awaited<ReturnType<typeof stat>>
+    try {
+      stats = await stat(start)
+    } catch (err) {
+      if (isOsErrorCode(err, "ENOENT")) return
+      throw err
+    }
+    if (!stats.isDirectory()) return
+
+    for await (const entry of walkFiles(start)) {
+      yield {
+        key: relative(root, entry.path),
+        lastModified: entry.lastModified,
+      }
+    }
   }
 
   private partDir(key: string): string {
@@ -321,6 +352,38 @@ export class FsStorageDriver implements StorageDriver {
       current = dirname(current)
     }
   }
+}
+
+async function* walkFiles(
+  dir: string,
+): AsyncIterable<{ path: string; lastModified: Date | null }> {
+  const entries = await readdir(dir, { withFileTypes: true }).catch((err) => {
+    if (isOsErrorCode(err, "ENOENT")) return
+    throw err
+  })
+  if (!entries) return
+  for (const entry of entries) {
+    const path = `${dir}/${entry.name}`
+    if (entry.isDirectory()) {
+      yield* walkFiles(path)
+      continue
+    }
+    if (!entry.isFile()) continue
+    const stats = await stat(path).catch((err) => {
+      if (isOsErrorCode(err, "ENOENT")) return null
+      throw err
+    })
+    if (!stats) continue
+    yield { path, lastModified: stats.mtime ?? null }
+  }
+}
+
+async function markLinkedPublishTime(path: string): Promise<void> {
+  // Hardlinks inherit the source inode's timestamps. Refresh after publish so
+  // mtime reflects when the storage object became visible, not when the source
+  // upload/work file was originally written.
+  const now = new Date()
+  await utimes(path, now, now)
 }
 
 function fspCreateReadStream(

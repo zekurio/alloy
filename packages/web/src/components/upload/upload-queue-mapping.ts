@@ -6,6 +6,8 @@ import type { RecordingLibraryDownload } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
 
+import type { PublishPayload } from "./new-clip-helpers"
+import { encodeStageLabel } from "./queue-progress"
 import type { QueueItem, QueueItemStatus } from "./upload-queue-types"
 
 export interface ActiveUpload {
@@ -22,45 +24,63 @@ export interface ActiveUpload {
   abort: AbortController
   thumbUrl: string | null
   thumbBlurHash: string | null
+  /** Retained after a prepared upload begins so a local failure can retry. */
+  preparedPayload?: PublishPayload
+}
+
+interface LocalRowHandlers {
+  onCancel: () => void
+  onRetry?: () => void
 }
 
 export function localToQueueItem(
   e: ActiveUpload,
-  onCancel: () => void,
+  handlers: LocalRowHandlers,
 ): QueueItem {
+  // Byte progress is uncapped: 100% means the bytes are flushed. The entry then
+  // flips to "finalizing" (an indeterminate wait for the server) and, once the
+  // server row appears, to a server-driven processing row.
   const pct =
     e.bytesTotal > 0
-      ? Math.min(99, Math.floor((e.bytesLoaded / e.bytesTotal) * 100))
+      ? Math.min(100, Math.floor((e.bytesLoaded / e.bytesTotal) * 100))
       : 0
   let status: QueueItemStatus
-  let detail: string
+  let label: string
+  let detail = ""
   let progress = 0
   let showProgress = false
+  let indeterminate = false
   switch (e.status) {
     case "preparing":
       status = "preparing"
-      detail = t("Preparing...")
+      label = t("Preparing…")
+      indeterminate = true
       break
     case "initiating":
       status = "queued"
-      detail = "Reserving slot…"
+      label = t("Reserving slot…")
+      indeterminate = true
       break
     case "uploading":
       status = "uploading"
       progress = pct
       showProgress = true
+      label = t("Uploading")
       detail =
         e.bytesTotal > 0
           ? `${formatBytes(e.bytesLoaded)} / ${formatBytes(e.bytesTotal)}`
-          : t("Uploading…")
+          : ""
       break
     case "finalizing":
       status = "uploading"
-      detail = "Finalizing…"
+      label = t("Finalizing upload…")
+      indeterminate = true
+      showProgress = true
       break
     case "error":
       status = "failed"
-      detail = e.errorMessage ?? "Upload failed"
+      label = t("Failed")
+      detail = e.errorMessage ?? t("Upload failed")
       break
   }
   return {
@@ -68,14 +88,18 @@ export function localToQueueItem(
     localCaptureId: e.localCaptureId,
     title: e.title,
     kind: "upload",
+    phase: "upload",
     status,
     progress,
     showProgress,
+    indeterminate,
+    label,
     detail,
     hue: e.hue,
     thumbUrl: e.thumbUrl,
     thumbBlurHash: e.thumbBlurHash,
-    onCancel,
+    onCancel: handlers.onCancel,
+    onRetry: handlers.onRetry,
   }
 }
 
@@ -92,39 +116,48 @@ export function downloadToQueueItem(
   handlers: DownloadHandlers,
 ): QueueItem {
   let status: QueueItemStatus
-  let detail: string
-  let progress: number
+  let label: string
+  let detail = ""
+  let progress = 0
+  let showProgress = false
+  let indeterminate = false
   switch (download.status) {
     case "downloading":
       status = "downloading"
-      progress =
-        download.totalBytes && download.totalBytes > 0
-          ? Math.min(
-              99,
-              Math.floor((download.receivedBytes / download.totalBytes) * 100),
-            )
-          : 0
-      detail = download.totalBytes
-        ? `${formatBytes(download.receivedBytes)} / ${formatBytes(download.totalBytes)}`
-        : formatBytes(download.receivedBytes)
+      label = t("Downloading")
+      showProgress = true
+      if (download.totalBytes && download.totalBytes > 0) {
+        progress = Math.min(
+          100,
+          Math.floor((download.receivedBytes / download.totalBytes) * 100),
+        )
+        detail = `${formatBytes(download.receivedBytes)} / ${formatBytes(download.totalBytes)}`
+      } else {
+        indeterminate = true
+        detail = formatBytes(download.receivedBytes)
+      }
       break
     case "completed":
       status = "downloaded"
       progress = 100
-      detail = "Saved to library"
+      label = t("Saved to library")
       break
     case "failed":
       status = "failed"
-      progress = 0
-      detail = download.error ?? "Download failed"
+      label = t("Failed")
+      detail = download.error ?? t("Download failed")
       break
   }
   return {
     id: `download:${download.clipId}`,
     title: download.title,
     kind: "download",
+    phase: "download",
     status,
     progress,
+    showProgress,
+    indeterminate,
+    label,
     detail,
     hue: stableHue(download.clipId),
     thumbUrl: clipThumbnailUrl(download.clipId, apiOrigin()),
@@ -138,6 +171,7 @@ interface ServerRowHandlers {
   onCancel: () => void
   onOpen?: () => void
   onCopyLink?: () => void
+  onRetry?: () => void
   onDismiss?: () => void
   thumbFallbackUrl?: string | null
   onThumbLoad?: () => void
@@ -153,34 +187,52 @@ export function serverToQueueItem(
   handlers: ServerRowHandlers,
 ): QueueItem {
   let status: QueueItemStatus
-  let detail: string
+  let label: string
+  let detail = ""
   let progress = 0
+  let showProgress = false
+  let indeterminate = false
   switch (row.status) {
     case "pending":
       status = "queued"
-      detail = "Awaiting upload"
+      label = t("Awaiting upload")
+      indeterminate = true
       break
     case "processing":
       status = "uploading"
-      progress = Math.max(0, Math.min(99, Math.floor(row.encodeProgress)))
-      detail = "Finalizing…"
+      // The server self-caps encodeProgress at 99 until the clip is ready, so
+      // the client never needs to cap it again; 100 only ever means published.
+      progress = Math.max(0, Math.min(100, Math.floor(row.encodeProgress)))
+      showProgress = true
+      indeterminate = progress <= 0
+      label = encodeStageLabel({
+        stage: row.encodeStage,
+        tier: row.encodeTier,
+        tierIndex: row.encodeTierIndex,
+        tierCount: row.encodeTierCount,
+      })
       break
     case "ready":
       status = "published"
       progress = 100
-      detail = "Ready"
+      label = t("Ready")
       break
     case "failed":
       status = "failed"
-      detail = row.failureReason ?? "Upload failed"
+      label = t("Failed")
+      detail = row.failureReason ?? t("Upload failed")
       break
   }
   return {
     id: row.id,
     title: row.title,
     kind: "upload",
+    phase: row.status === "processing" ? "processing" : "upload",
     status,
     progress,
+    showProgress,
+    indeterminate,
+    label,
     detail,
     hue: stableHue(row.gameId ?? row.id),
     thumbUrl: queueThumbnailUrl(row),
@@ -190,6 +242,7 @@ export function serverToQueueItem(
     onCancel: handlers.onCancel,
     onOpen: handlers.onOpen,
     onCopyLink: handlers.onCopyLink,
+    onRetry: handlers.onRetry,
     onDismiss: handlers.onDismiss,
   }
 }
