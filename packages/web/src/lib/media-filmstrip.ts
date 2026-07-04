@@ -5,6 +5,8 @@ import {
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
+import { teardownVideoElement, videoEvent } from "./video-events"
+
 /**
  * Renderer-side filmstrip sampling with two sources: evenly spaced frames
  * decoded by seeking a detached `<video>` element (local captures and picked
@@ -178,8 +180,6 @@ function clampMs(ms: number, durationMs: number): number {
   return Math.min(durationMs, Math.max(0, ms))
 }
 
-const FRAME_EVENT_TIMEOUT_MS = 15000
-
 async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
   const video = document.createElement("video")
   video.preload = "auto"
@@ -216,12 +216,7 @@ async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
       durationMs: Math.round(durationSec * 1000),
     }
   } finally {
-    video.removeAttribute("src")
-    try {
-      video.load()
-    } catch {
-      // Some mobile browsers throw while tearing down blob-backed media.
-    }
+    teardownVideoElement(video)
   }
 }
 
@@ -312,31 +307,4 @@ async function seekFrameObjectUrl(
     url: URL.createObjectURL(blob),
     aspect: canvas.width / canvas.height,
   }
-}
-
-function videoEvent(
-  video: HTMLVideoElement,
-  eventName: "loadedmetadata" | "seeked",
-): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    const cleanup = () => {
-      window.clearTimeout(timeoutId)
-      video.removeEventListener(eventName, onEvent)
-      video.removeEventListener("error", onError)
-    }
-    const onEvent = () => {
-      cleanup()
-      resolve()
-    }
-    const onError = () => {
-      cleanup()
-      reject(new Error(video.error?.message ?? "Video element error"))
-    }
-    const timeoutId = window.setTimeout(() => {
-      cleanup()
-      reject(new Error(`Timed out waiting for ${eventName}`))
-    }, FRAME_EVENT_TIMEOUT_MS)
-    video.addEventListener(eventName, onEvent, { once: true })
-    video.addEventListener("error", onError, { once: true })
-  })
 }
