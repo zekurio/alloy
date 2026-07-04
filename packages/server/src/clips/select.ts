@@ -147,6 +147,7 @@ export function toPublicClipRow<
   }))
   return {
     ...rest,
+    playbackContentType: row.cutKey ? "video/mp4" : row.sourceContentType,
     // Derived from the storage key so it changes exactly when a republish
     // (trim, remux) swaps the bytes — the key itself never leaves the server.
     sourceVersion: row.cutKey
