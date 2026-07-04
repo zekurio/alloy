@@ -69,6 +69,14 @@ export interface ClipRenditionRef {
   version: string
 }
 
+export const ENCODE_STAGE = [
+  "downloading",
+  "processing",
+  "encoding",
+  "finalizing",
+] as const
+export type EncodeStage = (typeof ENCODE_STAGE)[number]
+
 export interface ClipRow {
   id: string
   authorId: string
@@ -102,6 +110,10 @@ export interface ClipRow {
   trimEndMs: number | null
   status: ClipStatus
   encodeProgress: number
+  encodeStage: EncodeStage | null
+  encodeTier: string | null
+  encodeTierIndex: number | null
+  encodeTierCount: number | null
   failureReason: string | null
   createdAt: IsoDateString
   updatedAt: IsoDateString
@@ -219,6 +231,10 @@ export interface QueueClip {
   title: string
   status: ClipStatus
   encodeProgress: number
+  encodeStage: EncodeStage | null
+  encodeTier: string | null
+  encodeTierIndex: number | null
+  encodeTierCount: number | null
   failureReason: string | null
   hasThumb: boolean
   thumbVersion: string | null

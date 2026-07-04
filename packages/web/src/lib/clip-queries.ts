@@ -5,6 +5,8 @@ import type {
   UpdateClipInput,
   UserClip,
 } from "@alloy/api"
+import { t } from "@alloy/i18n"
+import { toast } from "@alloy/ui/lib/toast"
 import {
   type InfiniteData,
   type QueryClient,
@@ -18,6 +20,7 @@ import { useCallback } from "react"
 import { api } from "./api"
 import { clipKeys } from "./clip-query-keys"
 import { useUploadQueueStream } from "./clip-queue-stream"
+import { errorMessage } from "./error-message"
 import { invalidateGameQueries } from "./game-queries"
 import { invalidateStorageUsage } from "./user-queries"
 
@@ -245,6 +248,47 @@ export function useTrimClipMutation() {
       void qc.invalidateQueries({ queryKey: clipKeys.all })
       void invalidateGameQueries(qc)
       void invalidateStorageUsage(qc)
+    },
+  })
+}
+
+export function useReEncodeClipMutation() {
+  const qc = useQueryClient()
+
+  return useMutation<ClipRow, Error, { clipId: string }, ClipsSnapshot>({
+    mutationFn: ({ clipId }) => api.clips.reEncode(clipId),
+    onMutate: async ({ clipId }) => {
+      await qc.cancelQueries({ queryKey: clipKeys.all })
+      const snap = snapshotClips(qc)
+      // Only a failed clip visibly changes state. A ready clip stays playable
+      // from its committed renditions while it re-encodes, so leave its player
+      // alone rather than flashing it into a "preparing" placeholder.
+      const current = qc.getQueryData<ClipRow>(clipKeys.detail(clipId))
+      if (current?.status === "failed") {
+        patchClipInCaches(qc, clipId, {
+          status: "processing",
+          encodeProgress: 0,
+          encodeStage: null,
+          encodeTier: null,
+          encodeTierIndex: null,
+          encodeTierCount: null,
+          failureReason: null,
+        })
+      }
+      return snap
+    },
+    onError: (cause, _vars, context) => {
+      if (context) restoreClips(qc, context)
+      toast.error(errorMessage(cause, t("Couldn't start re-encode")))
+    },
+    onSuccess: (row) => {
+      // Server-canonical state; the detail query's refetch interval takes over
+      // polling until the re-encode publishes.
+      patchClipInCaches(qc, row.id, row)
+      toast.success(t("Re-encode started."))
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: clipKeys.all })
     },
   })
 }

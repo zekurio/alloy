@@ -3,12 +3,11 @@ import { createLogger } from "@alloy/logging"
 import { serve } from "@hono/node-server"
 
 import { signInConfigError } from "./auth/sign-in-config"
-import { startChallengeSweeper, stopChallengeSweeper } from "./auth/webauthn"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
+import { startJobs, stopJobs } from "./jobs"
 import { configureTranscode } from "./media/transcode-settings"
-import { startQueue, stopQueue } from "./queue"
 import { requestShutdown } from "./runtime/shutdown"
 
 const logger = createLogger("server")
@@ -57,19 +56,15 @@ const server = serve(
 
 const SHUTDOWN_GRACE_MS = 5000
 
-void startQueue().catch((err) => {
-  logger.error("failed to start queue:", err)
+void startJobs().catch((err) => {
+  logger.error("failed to start jobs:", err)
 })
-
-// Background TTL cleanup for auth challenges, kept off the request path.
-startChallengeSweeper()
 
 let shuttingDown = false
 const shutdown = () => {
   if (shuttingDown) return
   shuttingDown = true
   requestShutdown()
-  stopChallengeSweeper()
   const forceShutdown = setTimeout(() => {
     logger.warn("forcing shutdown after graceful deadline")
     closeAllConnections(server)
@@ -78,9 +73,9 @@ const shutdown = () => {
 
   // Stop background work before the HTTP server goes away so in-flight media
   // jobs get a chance to flush state.
-  void stopQueue()
+  void stopJobs()
     .catch((err) => {
-      logger.error("failed to stop queue cleanly:", err)
+      logger.error("failed to stop background workers cleanly:", err)
     })
     .finally(() => {
       server.close(() => {

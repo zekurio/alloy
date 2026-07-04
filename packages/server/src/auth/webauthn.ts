@@ -6,7 +6,6 @@ import {
   type UserPasskey,
   userPasskey,
 } from "@alloy/db/auth-schema"
-import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
@@ -20,7 +19,7 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server"
-import { and, eq, gt, lt } from "drizzle-orm"
+import { and, eq, gt } from "drizzle-orm"
 
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 import {
@@ -28,12 +27,9 @@ import {
   type WebAuthnChallengeContext,
 } from "./webauthn-origin"
 
-const logger = createLogger("webauthn")
-
 const RP_NAME = "alloy"
 const REGISTRATION_TTL_MS = 15 * 60 * 1000
 const AUTHENTICATION_TTL_MS = 5 * 60 * 1000
-const CHALLENGE_SWEEP_INTERVAL_MS = 5 * 60 * 1000
 
 type RegistrationPayload = {
   email?: string
@@ -67,37 +63,6 @@ function transports(
         .map((part) => part.trim())
         .filter(isAuthenticatorTransport)
     : undefined
-}
-
-async function deleteExpiredChallenges(): Promise<void> {
-  await db.delete(authChallenge).where(lt(authChallenge.expires_at, new Date()))
-}
-
-let sweepTimer: ReturnType<typeof setInterval> | null = null
-
-function sweepExpiredChallenges(): void {
-  void deleteExpiredChallenges().catch((err) =>
-    logger.error("expired challenge sweep failed:", err),
-  )
-}
-
-/**
- * Periodically purge expired challenges in the background. Keeping this OFF the
- * request path is what makes passkey sign-in fast: `consumeChallenge` already
- * rejects expired rows, so cleanup is pure housekeeping, not correctness.
- */
-export function startChallengeSweeper(): void {
-  if (sweepTimer) return
-  sweepExpiredChallenges()
-  sweepTimer = setInterval(sweepExpiredChallenges, CHALLENGE_SWEEP_INTERVAL_MS)
-  // Don't keep the process alive just for the sweeper.
-  sweepTimer.unref()
-}
-
-export function stopChallengeSweeper(): void {
-  if (!sweepTimer) return
-  clearInterval(sweepTimer)
-  sweepTimer = null
 }
 
 async function createChallenge(input: {

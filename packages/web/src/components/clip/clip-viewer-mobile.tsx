@@ -43,6 +43,7 @@ import { ClipPlayer } from "./clip-player"
 import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 import { renderHashtagTokens } from "./description-tokens"
+import { useClipRetry } from "./use-clip-retry"
 import { useClipViewerDelete } from "./use-clip-viewer-delete"
 
 const MOBILE_SWIPE_HINT_SEEN_KEY = "alloy.mobileClipSwipeHintSeen"
@@ -110,6 +111,7 @@ function MobileClipViewerBody({
   const navigate = useNavigate()
   const deleteFlow = useClipViewerDelete({ row, onDeleted })
   const deleting = deleteFlow.pending
+  const retry = useClipRetry(row)
 
   /* ---- comments panel ---- */
   const [commentsOpen, setCommentsOpen] = useState(false)
@@ -320,6 +322,14 @@ function MobileClipViewerBody({
               fallbackSeed={row.gameId ?? row.id}
               status={row.status}
               encodeProgress={row.encodeProgress}
+              encodeStage={row.encodeStage}
+              encodeTier={row.encodeTier}
+              encodeTierIndex={row.encodeTierIndex}
+              encodeTierCount={row.encodeTierCount}
+              failureReason={row.failureReason}
+              canRetry={retry.canRetry}
+              onRetry={retry.onRetry}
+              retryPending={retry.retryPending}
               maxDisplayHeight={
                 isLandscape ? "100dvh" : t("min(72dvh, calc(100dvh - 18rem))")
               }
