@@ -34,6 +34,18 @@ export function cursorRequiredString(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value : null
 }
 
+// Postgres timestamptz::text output, e.g. "2026-07-04 12:34:56.123456+00".
+// Validated before a decoded cursor value is cast back to ::timestamptz so a
+// crafted cursor can't raise a DB error mid-query.
+const TIMESTAMPTZ_TEXT =
+  /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}(:\d{2}){0,2}$/
+
+export function cursorTimestamptzText(value: unknown): string | null {
+  return typeof value === "string" && TIMESTAMPTZ_TEXT.test(value)
+    ? value
+    : null
+}
+
 export function cursorFiniteNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null
 }

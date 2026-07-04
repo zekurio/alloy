@@ -6,6 +6,8 @@ import {
   validateIntegerInRange,
   validateIsoDateString,
   validateNonNegativeInteger,
+  validateNullableEnumString,
+  validateNullablePositiveInteger,
   validateNullableRequiredString,
   validateNullableString,
   validatePositiveInteger,
@@ -15,6 +17,7 @@ import {
 } from "@alloy/api/runtime-validation"
 import {
   CLIP_STATUS,
+  ENCODE_STAGE,
   type ClipLikeState,
   type InitiateClipResponse,
   type QueueClip,
@@ -24,6 +27,7 @@ import {
 
 import { validateLikeState, validateNullableBlurHash } from "./shared"
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
+const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
 function validateQueueClip(value: unknown): QueueClip {
   const row = objectRecord(value, "queue clip")
   validateRequiredString(row.id, "Invalid queue response: id is required")
@@ -47,6 +51,7 @@ function validateQueueClip(value: unknown): QueueClip {
     100,
     "Invalid queue response: encodeProgress must be an integer between 0 and 100",
   )
+  validateQueueStageFields(row)
   validateNullableString(
     row.failureReason,
     "Invalid queue response: failureReason must be string or null",
@@ -72,6 +77,34 @@ function validateQueueClip(value: unknown): QueueClip {
     "Invalid queue response: thumbBlurHash",
   )
   return value as QueueClip
+}
+
+function validateQueueStageFields(row: Record<string, unknown>) {
+  if (row.encodeStage !== undefined) {
+    validateNullableEnumString(
+      row.encodeStage,
+      ENCODE_STAGE_SET,
+      "Invalid queue response: encodeStage is invalid",
+    )
+  }
+  if (row.encodeTier !== undefined) {
+    validateNullableString(
+      row.encodeTier,
+      "Invalid queue response: encodeTier must be string or null",
+    )
+  }
+  if (row.encodeTierIndex !== undefined) {
+    validateNullablePositiveInteger(
+      row.encodeTierIndex,
+      "Invalid queue response: encodeTierIndex must be a positive integer or null",
+    )
+  }
+  if (row.encodeTierCount !== undefined) {
+    validateNullablePositiveInteger(
+      row.encodeTierCount,
+      "Invalid queue response: encodeTierCount must be a positive integer or null",
+    )
+  }
 }
 
 export function validateQueueClips(value: unknown): QueueClip[] {

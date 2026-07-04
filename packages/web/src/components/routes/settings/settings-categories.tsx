@@ -27,6 +27,7 @@ import {
   FilmIcon,
   Gamepad2Icon,
   LanguagesIcon,
+  ListChecksIcon,
   type LucideIcon,
   PaletteIcon,
   ServerIcon,
@@ -42,6 +43,7 @@ import type { ComponentType } from "react"
 import {
   AdminAppearancePanel,
   AdminGamesPanel,
+  AdminJobsPanel,
   AdminTranscodingPanel,
   AdminUsersPanel,
 } from "@/components/routes/settings/admin-tab-content"
@@ -474,6 +476,27 @@ const ADMIN_CATEGORIES = categoryDrafts([
     ["games", "custom games", "artwork", "cover", "hero", "logo", "icon"],
     Gamepad2Icon,
     AdminGamesPanel,
+  ],
+  [
+    "jobs",
+    t("Jobs"),
+    t("Background jobs"),
+    t("Background jobs, sweeps, and failures."),
+    [
+      "background jobs",
+      "queue",
+      "sweeps",
+      "rendition sweep",
+      "storage verify",
+      "storage cleanup",
+      "orphan gc",
+      "failed jobs",
+      "retry",
+      "pause",
+      "re-encode",
+    ],
+    ListChecksIcon,
+    AdminJobsPanel,
   ],
 ])
 

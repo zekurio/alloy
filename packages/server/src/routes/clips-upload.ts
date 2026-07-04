@@ -3,18 +3,25 @@ import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
+import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
 import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
+import {
+  enqueueClipEncode,
+  requeueClipEncode,
+} from "@alloy/server/jobs/kinds/clip-encode"
 import { extractPoster } from "@alloy/server/media/poster"
-import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
 import { withClipSourceWorkDir } from "@alloy/server/queue/media-run-helpers"
 import {
   badRequest,
   conflict,
   deleted,
+  notFound,
 } from "@alloy/server/runtime/http-response"
+import { rateLimiter } from "@alloy/server/runtime/rate-limit"
+import { requestIp } from "@alloy/server/runtime/request-ip"
 import { clipThumbnailStorage } from "@alloy/server/storage/index"
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
@@ -27,6 +34,14 @@ import {
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
 import { zValidator } from "./validation"
+
+// Owner/admin re-encode is non-destructive but enqueues real transcode work,
+// so it sits behind a per-IP limiter like the auth routes.
+const reEncodeRateLimit = rateLimiter({
+  windowMs: 60_000,
+  max: 10,
+  key: requestIp,
+})
 
 export const clipsUploadRoutes = new Hono()
   .route("/", clipsUploadLifecycleRoutes)
@@ -246,8 +261,73 @@ export const clipsUploadRoutes = new Hono()
       if (!accepted) return conflict(c, "Clip is already processing")
 
       void publishClipUpsert(row.author_id, id)
-      enqueueClipMediaProcessing(id)
+      await enqueueClipEncode(id, { trigger: "trim", priority: 10 })
 
+      return updatedClipResponse(c, id)
+    },
+  )
+  .post(
+    "/:id/re-encode",
+    requireSession,
+    reEncodeRateLimit,
+    zValidator("param", IdParam),
+    async (c) => {
+      const viewerId = c.var.viewerId
+      const { id } = c.req.valid("param")
+
+      const access = await selectClipForMutation(c, {
+        id,
+        viewerId,
+        statuses: ["ready", "failed"],
+        allowAdmin: true,
+      })
+      if ("response" in access) return access.response
+      const row = access.row
+
+      if (row.status === "failed") {
+        // The encode handler no-ops on failed clips, so flip it back to
+        // processing before enqueueing. Guarded on the null lease so a run that
+        // just took over isn't clobbered.
+        if (!(await resetFailedClipForEncode(id))) {
+          return conflict(c, "Clip is already processing")
+        }
+
+        void publishClipUpsert(row.author_id, id)
+        await enqueueClipEncode(id, { trigger: "reencode", priority: 10 })
+        return updatedClipResponse(c, id)
+      }
+
+      // Ready clip: re-encode in place, keeping it publicly playable from its
+      // committed renditions. Rejected while a live run holds the clip lease,
+      // mirroring the trim guard.
+      const result = await requeueClipEncode(id, {
+        trigger: "reencode",
+        priority: 10,
+      })
+      if (!result.ok) {
+        if (result.reason === "active-lease") {
+          return conflict(c, "Clip is already processing")
+        }
+        return notFound(c)
+      }
+
+      // The requeued run leaves the clip ready+100, where the watch page's
+      // refetchInterval stops polling and never picks up the fresh renditions.
+      // Reset encode_progress so polling resumes; guarded like trim on the null
+      // lease, and the response re-selects regardless so a run that already
+      // leased (progress owned by the run) is tolerated.
+      await db
+        .update(clip)
+        .set({ encode_progress: 0, updated_at: new Date() })
+        .where(
+          and(
+            eq(clip.id, id),
+            eq(clip.status, "ready"),
+            isNull(clip.encode_run_id),
+          ),
+        )
+
+      void publishClipUpsert(row.author_id, id)
       return updatedClipResponse(c, id)
     },
   )

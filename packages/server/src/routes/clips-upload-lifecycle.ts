@@ -7,7 +7,10 @@ import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
-import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
+import {
+  enqueueClipEncode,
+  wakeClipEncodeQueue,
+} from "@alloy/server/jobs/kinds/clip-encode"
 import {
   badRequest,
   conflict,
@@ -347,27 +350,32 @@ export const clipsUploadLifecycleRoutes = new Hono()
         return badRequest(c, "Upload size did not match declared size")
       }
 
-      const [transitioned] = await db
-        .update(clip)
-        .set({
-          status: "processing",
-          source_size_bytes: stagedUpload.size,
-          updated_at: new Date(),
-        })
-        .where(
-          and(
-            eq(clip.id, id),
-            eq(clip.author_id, viewerId),
-            eq(clip.status, "pending"),
-          ),
-        )
-        .returning({ id: clip.id })
+      const transitioned = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(clip)
+          .set({
+            status: "processing",
+            source_size_bytes: stagedUpload.size,
+            updated_at: new Date(),
+          })
+          .where(
+            and(
+              eq(clip.id, id),
+              eq(clip.author_id, viewerId),
+              eq(clip.status, "pending"),
+            ),
+          )
+          .returning({ id: clip.id })
+        if (!row) return null
+        await enqueueClipEncode(id, { trigger: "upload", priority: 10, tx })
+        return row
+      })
       if (!transitioned) {
         return conflict(c, "Clip is already being finalized")
       }
+      wakeClipEncodeQueue()
 
       void publishClipUpsert(viewerId, id)
-      enqueueClipMediaProcessing(id)
 
       return updatedClipResponse(c, id)
     },

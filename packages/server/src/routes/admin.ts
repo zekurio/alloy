@@ -3,23 +3,20 @@ import {
   RenditionTierConfigSchema,
   VideoCodecSchema,
 } from "@alloy/contracts"
-import { clip } from "@alloy/db/schema"
 import { requireAdmin } from "@alloy/server/auth/session"
 import { configStore } from "@alloy/server/config/store"
-import { db } from "@alloy/server/db/index"
+import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
+import { enqueueStorageVerify } from "@alloy/server/jobs/kinds/storage-verify"
 import { probeTranscodingCapabilities } from "@alloy/server/media/capabilities"
-import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import { batchProgress } from "@alloy/server/runtime/http-response"
-import { inArray, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
 import { adminGamesRoute } from "./admin-games"
 import { adminRuntimeConfigResponse } from "./admin-helpers"
+import { adminJobsRoute } from "./admin-jobs"
 import { adminUsersRoute } from "./admin-users"
 import { zValidator } from "./validation"
-
-const RE_ENCODE_BATCH_LIMIT = 100
 
 const RuntimeConfigPatch = z.object({
   setupComplete: z.boolean().optional(),
@@ -48,6 +45,7 @@ export const adminRoute = new Hono()
   .use("*", requireAdmin)
   .route("/", adminUsersRoute)
   .route("/", adminGamesRoute)
+  .route("/", adminJobsRoute)
   .get("/runtime-config", (c) => {
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
@@ -96,39 +94,10 @@ export const adminRoute = new Hono()
     )
   })
   .post("/clips/re-encode", async (c) => {
-    const rows = await db
-      .select({ id: clip.id })
-      .from(clip)
-      .where(inArray(clip.status, ["ready", "failed"]))
-      .orderBy(clip.created_at)
-      .limit(RE_ENCODE_BATCH_LIMIT + 1)
-    const batch = rows.slice(0, RE_ENCODE_BATCH_LIMIT)
-    if (batch.length === 0) {
-      return batchProgress(c, "enqueued", 0, false)
-    }
-    const ids = batch.map((r) => r.id)
-    await db
-      .update(clip)
-      .set({
-        // Ready clips stay publicly playable from their committed assets
-        // while the re-encode runs; only failed rows re-enter processing.
-        status: sql`case when ${clip.status} = 'ready' then 'ready' else 'processing' end`,
-        encode_progress: 0,
-        encode_run_id: null,
-        encode_locked_at: null,
-        encode_attempt: 0,
-        failure_reason: null,
-        updated_at: new Date(),
-      })
-      .where(inArray(clip.id, ids))
-
-    for (const id of ids) {
-      enqueueClipMediaProcessing(id)
-    }
-    return batchProgress(
-      c,
-      "enqueued",
-      ids.length,
-      rows.length > RE_ENCODE_BATCH_LIMIT,
-    )
+    await enqueueRenditionsSweep("force", { runAt: new Date() })
+    return batchProgress(c, "enqueued", 1, false)
+  })
+  .post("/clips/verify-storage", async (c) => {
+    await enqueueStorageVerify({ runAt: new Date() })
+    return batchProgress(c, "enqueued", 1, false)
   })

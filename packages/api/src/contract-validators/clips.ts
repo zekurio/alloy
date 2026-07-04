@@ -5,6 +5,7 @@ import {
   validateIntegerInRange,
   validateIsoDateString,
   validateNonNegativeInteger,
+  validateNullableEnumString,
   validateNullableNonNegativeInteger,
   validateNullablePositiveInteger,
   validateNullableRequiredString,
@@ -15,6 +16,7 @@ import {
 import {
   CLIP_PRIVACY,
   CLIP_STATUS,
+  ENCODE_STAGE,
   type ClipPage,
   type ClipRow,
 } from "@alloy/contracts"
@@ -27,6 +29,7 @@ import {
 } from "./shared"
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
+const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
 function assertNoStorageKey(value: Record<string, unknown>, label: string) {
   if ("storageKey" in value) {
     throw new Error(`Invalid ${label} response: storageKey must not be public`)
@@ -45,6 +48,7 @@ export function validateClipRow(value: unknown): ClipRow {
   validateClipIdentityFields(row)
   validateClipMetadataFields(row)
   validateClipCounters(row)
+  validateClipStageFields(row)
   validateClipTimestamps(row)
   validateClipRelationships(row)
   return value as ClipRow
@@ -123,6 +127,34 @@ function validateClipCounters(row: Record<string, unknown>) {
     100,
     "Invalid clip response: encodeProgress must be an integer between 0 and 100",
   )
+}
+
+function validateClipStageFields(row: Record<string, unknown>) {
+  if (row.encodeStage !== undefined) {
+    validateNullableEnumString(
+      row.encodeStage,
+      ENCODE_STAGE_SET,
+      "Invalid clip response: encodeStage is invalid",
+    )
+  }
+  if (row.encodeTier !== undefined) {
+    validateNullableString(
+      row.encodeTier,
+      "Invalid clip response: encodeTier must be string or null",
+    )
+  }
+  if (row.encodeTierIndex !== undefined) {
+    validateNullablePositiveInteger(
+      row.encodeTierIndex,
+      "Invalid clip response: encodeTierIndex must be a positive integer or null",
+    )
+  }
+  if (row.encodeTierCount !== undefined) {
+    validateNullablePositiveInteger(
+      row.encodeTierCount,
+      "Invalid clip response: encodeTierCount must be a positive integer or null",
+    )
+  }
 }
 
 function validateClipTimestamps(row: Record<string, unknown>) {

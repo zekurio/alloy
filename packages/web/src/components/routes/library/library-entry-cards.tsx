@@ -1,15 +1,33 @@
 import { type ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import { Button } from "@alloy/ui/components/button"
 import { ClipCard } from "@alloy/ui/components/clip-card"
-import { cn } from "@alloy/ui/lib/utils"
-import { GlobeIcon, Link2Icon, LockIcon, MonitorIcon } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@alloy/ui/components/dropdown-menu"
+import {
+  GlobeIcon,
+  Link2Icon,
+  LockIcon,
+  MonitorIcon,
+  MoreHorizontalIcon,
+  RefreshCwIcon,
+} from "lucide-react"
 import { useMemo } from "react"
 import type { ComponentType } from "react"
 
+import {
+  encodeStageLabel,
+  QueueProgressBar,
+} from "@/components/upload/queue-progress"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { gameHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
+import { useReEncodeClipMutation } from "@/lib/clip-queries"
 import { formatRelativeTime } from "@/lib/date-format"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 
@@ -199,6 +217,7 @@ export function UploadedClipCard({
       thumbnailLabel={t("Edit {title}", { title: card.title })}
       onThumbnailClick={onOpen}
       onThumbnailIntent={onIntent}
+      thumbnailOverlay={<UploadedClipCardMenu row={row} />}
       metaContent={
         <LibraryCardMeta
           source={source}
@@ -210,13 +229,51 @@ export function UploadedClipCard({
   )
 }
 
+/**
+ * Owner actions overlaid on a library clip card. The library only lists the
+ * viewer's own clips, so ownership is implied; the server re-verifies it.
+ * Only offered once the clip is settled (ready or failed) — a re-encode
+ * request is rejected while one is already running.
+ */
+function UploadedClipCardMenu({ row }: { row: ClipRow }) {
+  const reEncode = useReEncodeClipMutation()
+  if (row.status !== "ready" && row.status !== "failed") return null
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("Clip actions")}
+            className="size-7 rounded-full bg-black/45 text-white/85 opacity-0 backdrop-blur-sm transition-opacity group-hover/clip-card:opacity-100 hover:bg-black/60 hover:text-white focus-visible:opacity-100 data-popup-open:opacity-100"
+          >
+            <MoreHorizontalIcon />
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="min-w-[150px]">
+        <DropdownMenuItem
+          onClick={() => reEncode.mutate({ clipId: row.id })}
+          disabled={reEncode.isPending}
+        >
+          <RefreshCwIcon /> {t("Re-encode")}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function transferFromClipRow(row: ClipRow): QueueItem | undefined {
   if (row.status === "ready") return undefined
 
   const failed = row.status === "failed"
   const processing = row.status === "processing"
+  // Uncapped: the server self-caps encodeProgress at 99 until the clip is
+  // ready, so the card only ever hits 100 once playback is committed.
   const progress = processing
-    ? Math.max(0, Math.min(99, Math.floor(row.encodeProgress)))
+    ? Math.max(0, Math.min(100, Math.floor(row.encodeProgress)))
     : 0
 
   return {
@@ -225,84 +282,86 @@ function transferFromClipRow(row: ClipRow): QueueItem | undefined {
     kind: "upload",
     status: failed ? "failed" : processing ? "uploading" : "queued",
     progress,
-    detail: failed
-      ? (row.failureReason ?? t("Upload failed"))
+    showProgress: processing,
+    indeterminate: processing ? progress <= 0 : true,
+    label: failed
+      ? t("Failed")
       : processing
-        ? "Finalizing…"
+        ? encodeStageLabel({
+            stage: row.encodeStage,
+            tier: row.encodeTier,
+            tierIndex: row.encodeTierIndex,
+            tierCount: row.encodeTierCount,
+          })
         : t("Local"),
+    detail: failed ? (row.failureReason ?? t("Upload failed")) : "",
     hue: 0,
   }
 }
 
+/**
+ * Compact transfer state for the card meta line: a stage label plus a thin
+ * progress bar (no numeric percent — the bar carries it in this tight space).
+ */
 function LibraryTransferMeta({ transfer }: { transfer: QueueItem }) {
-  const meta = transferMeta(transfer)
-  if (!meta) return null
-
-  return (
-    <span
-      className={cn(
-        "inline-flex min-w-0 shrink-0 items-center gap-1 whitespace-nowrap",
-        meta.tone,
-      )}
-      title={transfer.detail ? `${meta.label}: ${transfer.detail}` : meta.label}
-      aria-label={
-        transfer.detail ? `${meta.label}: ${transfer.detail}` : meta.label
-      }
-    >
-      <span>{meta.label}</span>
-      {meta.showPercent ? (
-        <span className="tabular-nums">{meta.progress}%</span>
-      ) : null}
-    </span>
-  )
-}
-
-function transferMeta(transfer: QueueItem): {
-  label: string
-  progress: number
-  showPercent: boolean
-  tone: string
-} | null {
   if (transfer.status === "published" || transfer.status === "downloaded") {
     return null
   }
 
   if (transfer.status === "failed") {
-    return {
-      label: t("Failed"),
-      progress: 0,
-      showPercent: false,
-      tone: "text-destructive",
-    }
+    return (
+      <span
+        className="text-destructive inline-flex shrink-0 items-center gap-1 whitespace-nowrap"
+        title={transfer.detail || t("Failed")}
+      >
+        {t("Failed")}
+        {transfer.onRetry ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("Retry")}
+            title={t("Retry")}
+            onClick={(event) => {
+              event.stopPropagation()
+              transfer.onRetry?.()
+            }}
+            className="text-destructive hover:text-foreground size-6"
+          >
+            <RefreshCwIcon />
+          </Button>
+        ) : null}
+      </span>
+    )
   }
 
-  if (transfer.status === "preparing") {
-    return {
-      label: t("Preparing..."),
-      progress: 0,
-      showPercent: false,
-      tone: "text-accent",
-    }
+  const idle =
+    transfer.status === "queued" ||
+    transfer.status === "paused" ||
+    transfer.status === "preparing"
+  if (idle) {
+    return (
+      <span className="text-foreground-muted shrink-0 whitespace-nowrap">
+        {transfer.label ?? t("Local")}
+      </span>
+    )
   }
 
-  if (transfer.status === "queued" || transfer.status === "paused") {
-    return {
-      label: t("Local"),
-      progress: 0,
-      showPercent: false,
-      tone: "text-foreground-muted",
-    }
-  }
-
-  const progress = Math.max(0, Math.min(99, transfer.progress))
-  return {
-    label: transfer.detail.toLowerCase().includes("finalizing")
-      ? t("Processing")
-      : transfer.kind === "download"
-        ? t("Download")
-        : t("Upload"),
-    progress,
-    showPercent: transfer.showProgress !== false,
-    tone: "text-accent",
-  }
+  const title = transfer.detail
+    ? `${transfer.label}: ${transfer.detail}`
+    : transfer.label
+  return (
+    <span
+      className="text-accent inline-flex min-w-0 items-center gap-1.5"
+      title={title}
+      aria-label={title}
+    >
+      <span className="shrink-0 whitespace-nowrap">{transfer.label}</span>
+      <QueueProgressBar
+        value={transfer.progress}
+        indeterminate={transfer.indeterminate}
+        className="w-14 shrink-0"
+      />
+    </span>
+  )
 }

@@ -1,8 +1,10 @@
 import {
   CLIP_PRIVACY,
   CLIP_STATUS,
+  ENCODE_STAGE,
   type ClipPrivacy,
   type ClipStatus,
+  type EncodeStage,
 } from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
@@ -59,6 +61,8 @@ export const clip = pgTable(
     // Full duration of the stored source; `duration_ms` stays the effective
     // playback duration (equals the trim cut's duration for trimmed clips).
     source_duration_ms: integer(),
+    // Rounded probe fps; 0 = probed but unknown; null = not yet probed.
+    source_fps: integer(),
     // Nullable: populated by the finalize step after probing. Clips in
     // 'pending' or 'failed' status may be missing some or all of these.
     duration_ms: integer(),
@@ -89,7 +93,18 @@ export const clip = pgTable(
     // (null = legacy/pre-fingerprint). The rendition backfill re-encodes clips
     // whose value differs from the running pipeline's.
     encode_pipeline: text(),
+    // Canonical desired-state JSON stamped by commitReady; null = never
+    // verified under the fingerprint model.
+    encode_fingerprint: text(),
+    // Desired state whose encode terminally failed; quarantines the clip from
+    // sweeps until config changes or an operator retries.
+    encode_failed_fingerprint: text(),
     encode_progress: integer().notNull().default(0),
+    // Transient stage labels for the active encode run; cleared on commitReady/markFailed.
+    encode_stage: text().$type<EncodeStage>(),
+    encode_tier: text(),
+    encode_tier_index: integer(),
+    encode_tier_count: integer(),
     encode_run_id: uuid(),
     encode_locked_at: timestamp(),
     encode_attempt: integer().notNull().default(0),
@@ -109,6 +124,9 @@ export const clip = pgTable(
       .on(t.view_count.desc(), t.like_count.desc(), t.created_at.desc(), t.id)
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
+    index("clip_ready_fingerprint_idx")
+      .on(t.id)
+      .where(sql`${t.status} = 'ready' and ${t.source_key} is not null`),
     index("clip_game_created_idx").on(t.game_id, t.created_at),
     index("clip_ready_visible_game_top_idx")
       .on(
@@ -126,6 +144,10 @@ export const clip = pgTable(
     check(
       "clip_status_check",
       sql`${t.status} in (${sql.raw(sqlStringList(CLIP_STATUS))})`,
+    ),
+    check(
+      "clip_encode_stage_check",
+      sql`${t.encode_stage} is null or ${t.encode_stage} in (${sql.raw(sqlStringList(ENCODE_STAGE))})`,
     ),
     check(
       "clip_source_size_bytes_safe_check",
