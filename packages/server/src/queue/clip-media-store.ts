@@ -85,6 +85,18 @@ function thumbPatchToColumns(patch: MediaThumbPatch) {
   return { ...columns, thumb_failed_at: patch.thumbFailedAt }
 }
 
+function finishedThumbnailLeaseColumns(patch: { thumb_failed_at?: Date } = {}) {
+  return {
+    ...clearedStageColumns,
+    ...patch,
+    encode_progress: 100,
+    encode_run_id: null,
+    encode_locked_at: null,
+    failure_reason: null,
+    updated_at: new Date(),
+  }
+}
+
 export const clipMediaStore: MediaStore = {
   target: "clip",
 
@@ -258,14 +270,7 @@ export const clipMediaStore: MediaStore = {
   async finishThumbnailBackfill(id, runId) {
     const [row] = await db
       .update(clip)
-      .set({
-        ...clearedStageColumns,
-        encode_progress: 100,
-        encode_run_id: null,
-        encode_locked_at: null,
-        failure_reason: null,
-        updated_at: new Date(),
-      })
+      .set(finishedThumbnailLeaseColumns())
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
@@ -274,15 +279,7 @@ export const clipMediaStore: MediaStore = {
   async commitThumbFailed(id, runId) {
     const [row] = await db
       .update(clip)
-      .set({
-        ...clearedStageColumns,
-        thumb_failed_at: new Date(),
-        encode_progress: 100,
-        encode_run_id: null,
-        encode_locked_at: null,
-        failure_reason: null,
-        updated_at: new Date(),
-      })
+      .set(finishedThumbnailLeaseColumns({ thumb_failed_at: new Date() }))
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)

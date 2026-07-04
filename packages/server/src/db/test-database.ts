@@ -11,6 +11,7 @@ export async function prepareTestDatabase(name: string): Promise<string> {
 
   const client = createPostgresPool(maintenanceUrl.toString(), { max: 1 })
   try {
+    // Postgres DDL cannot bind identifiers; quoteIdentifier doubles trusted names.
     await client.query(
       `drop database if exists ${quoteIdentifier(database)} with (force)`,
     )
