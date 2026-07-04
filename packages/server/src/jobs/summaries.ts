@@ -7,12 +7,17 @@ import {
 import { instanceSetting } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { inArray } from "drizzle-orm"
-import type { z } from "zod"
+import { z } from "zod"
 
 // Instance-setting keys the sweep handlers write their last-run summaries to.
 const RENDITION_SWEEP_KEY = "renditionSweep"
 const STORAGE_VERIFY_KEY = "storageVerify"
 const STORAGE_GC_KEY = "storageGc"
+
+const PersistedRenditionSweepSummarySchema =
+  AdminRenditionSweepSummarySchema.extend({
+    mode: z.enum(["stale", "force"]).default("stale"),
+  })
 
 export async function readJobSweeps(): Promise<AdminJobsSweeps> {
   const rows = await db
@@ -29,7 +34,7 @@ export async function readJobSweeps(): Promise<AdminJobsSweeps> {
   return {
     renditionSweep: parseSummary(
       values.get(RENDITION_SWEEP_KEY),
-      AdminRenditionSweepSummarySchema,
+      PersistedRenditionSweepSummarySchema,
     ),
     storageVerify: parseSummary(
       values.get(STORAGE_VERIFY_KEY),
