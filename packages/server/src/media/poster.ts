@@ -19,19 +19,22 @@ export interface ExtractedPoster {
 }
 
 /**
- * Fallback poster for clips whose client never shipped one: grab a frame a
- * bit into the video (fast keyframe seek), retry at the first frame when the
- * seek lands outside the stream, and return a JPEG + BlurHash matching what
- * client-rendered posters provide. Returns null when extraction fails — a
- * missing poster must never fail the media run.
+ * Poster frame extraction: grab a frame at the requested timestamp — or a
+ * bit into the video when none is given (fast keyframe seek) — retry at the
+ * first frame when the seek lands outside the stream, and return a JPEG +
+ * BlurHash matching what client-rendered posters provide. Returns null when
+ * extraction fails — a missing poster must never fail the media run.
  */
 export async function extractPoster(
   videoPath: string,
   workDir: string,
-  opts: { durationMs: number; signal?: AbortSignal },
+  opts: { durationMs: number; atMs?: number; signal?: AbortSignal },
 ): Promise<ExtractedPoster | null> {
   const framePath = join(workDir, "poster-frame.png")
-  const seekSec = Math.max(0, (opts.durationMs / 1000) * 0.1)
+  const seekSec = Math.max(
+    0,
+    opts.atMs !== undefined ? opts.atMs / 1000 : (opts.durationMs / 1000) * 0.1,
+  )
 
   const extracted =
     (await extractFrame(videoPath, framePath, seekSec, opts.signal)) ||

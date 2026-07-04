@@ -1,3 +1,5 @@
+import { rm } from "node:fs/promises"
+
 import { normalizeTags } from "@alloy/contracts"
 import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
@@ -5,17 +7,26 @@ import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
+import { extractPoster } from "@alloy/server/media/poster"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
+import { makeMediaWorkDir } from "@alloy/server/queue/media-run-helpers"
 import {
   badRequest,
   conflict,
   deleted,
 } from "@alloy/server/runtime/http-response"
+import { join } from "@alloy/server/runtime/path"
+import {
+  clipAssetDir,
+  clipStorage,
+  clipThumbnailStorage,
+} from "@alloy/server/storage/index"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 
 import {
   IdParam,
+  PosterBody,
   TRIM_MIN_RANGE_MS,
   TrimBody,
   UpdateBody,
@@ -103,6 +114,70 @@ export const clipsUploadRoutes = new Hono()
         }
       })
 
+      void publishClipUpsert(row.author_id, id)
+
+      return updatedClipResponse(c, id)
+    },
+  )
+  .post(
+    "/:id/poster",
+    requireSession,
+    zValidator("param", IdParam),
+    zValidator("json", PosterBody),
+    async (c) => {
+      const viewerId = c.var.viewerId
+      const { id } = c.req.valid("param")
+      const body = c.req.valid("json")
+
+      const access = await selectClipForMutation(c, {
+        id,
+        viewerId,
+        statuses: ["ready"],
+        allowAdmin: true,
+      })
+      if ("response" in access) return access.response
+      const row = access.row
+
+      if (!row.source_key) return badRequest(c, "Clip has no source media")
+      const durationMs = row.source_duration_ms ?? row.duration_ms
+      if (durationMs == null || durationMs <= 0) {
+        return badRequest(c, "Clip duration is unknown")
+      }
+
+      // Timestamps are source-time; clamp into the virtual trim range so the
+      // poster always shows a frame the published clip actually contains.
+      const rangeStart = row.trim_start_ms ?? 0
+      const rangeEnd = row.trim_end_ms ?? durationMs
+      const timeMs = Math.min(Math.max(body.timeMs, rangeStart), rangeEnd)
+
+      const poster = await extractSourcePoster(row.source_key, {
+        atMs: timeMs,
+        durationMs,
+      })
+      if (!poster) return badRequest(c, "Could not extract a poster frame")
+
+      const thumbKey = `${clipAssetDir(id)}/thumb-${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}.jpg`
+      await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
+
+      // Guarded on "ready" so a trim/reprocess that started meanwhile (which
+      // republishes its own thumbnail) can't be clobbered.
+      const [updated] = await db
+        .update(clip)
+        .set({
+          thumb_key: thumbKey,
+          thumb_blur_hash: poster.blurHash,
+          updated_at: new Date(),
+        })
+        .where(and(eq(clip.id, id), eq(clip.status, "ready")))
+        .returning({ id: clip.id })
+      if (!updated) {
+        await clipThumbnailStorage.delete(thumbKey)
+        return conflict(c, "Clip is already processing")
+      }
+
+      if (row.thumb_key && row.thumb_key !== thumbKey) {
+        await clipThumbnailStorage.delete(row.thumb_key)
+      }
       void publishClipUpsert(row.author_id, id)
 
       return updatedClipResponse(c, id)
@@ -219,3 +294,17 @@ export const clipsUploadRoutes = new Hono()
     await deleteClipRowAndAssets(row)
     return deleted(c)
   })
+
+async function extractSourcePoster(
+  sourceKey: string,
+  opts: { atMs: number; durationMs: number },
+) {
+  const workDir = await makeMediaWorkDir("poster")
+  try {
+    const sourcePath = join(workDir, "source")
+    await clipStorage.downloadToFile(sourceKey, sourcePath)
+    return await extractPoster(sourcePath, workDir, opts)
+  } finally {
+    await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
+  }
+}

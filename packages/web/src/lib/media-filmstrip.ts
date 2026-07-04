@@ -1,11 +1,15 @@
+import {
+  CLIP_SCRUBBER_COLUMNS,
+  CLIP_SCRUBBER_FRAME_COUNT,
+} from "@alloy/contracts"
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
 /**
- * Renderer-side filmstrip sampling: evenly spaced frames decoded by seeking a
- * detached `<video>` element and drawing to canvas, so local captures
- * (`alloy-capture://`), uploaded clips (http stream), and picked upload Files
- * (object URLs) get identical treatment with no client-side demuxer.
+ * Renderer-side filmstrip sampling with two sources: evenly spaced frames
+ * decoded by seeking a detached `<video>` element (local captures and picked
+ * upload Files), or cells sliced from a server-rendered sprite sheet
+ * (uploaded clips). Neither needs a client-side demuxer.
  */
 
 export const FILMSTRIP_FRAME_COUNT = 16
@@ -42,30 +46,56 @@ const EMPTY_FILMSTRIP: MediaFilmstrip = {
 const filmstripCache = new Map<string, Promise<MediaFilmstrip>>()
 
 export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
-  let pending = filmstripCache.get(mediaUrl)
+  return cachedFilmstrip(mediaUrl, extractFilmstrip)
+}
+
+export function spriteSheetFilmstrip(
+  sheetUrl: string,
+): Promise<MediaFilmstrip> {
+  return cachedFilmstrip(sheetUrl, extractSpriteFilmstrip)
+}
+
+function cachedFilmstrip(
+  url: string,
+  extract: (url: string) => Promise<MediaFilmstrip>,
+): Promise<MediaFilmstrip> {
+  let pending = filmstripCache.get(url)
   if (!pending) {
-    pending = extractFilmstrip(mediaUrl).catch(() => {
-      filmstripCache.delete(mediaUrl)
+    pending = extract(url).catch(() => {
+      filmstripCache.delete(url)
       return EMPTY_FILMSTRIP
     })
-    filmstripCache.set(mediaUrl, pending)
+    filmstripCache.set(url, pending)
   }
   return pending
 }
 
 export function useMediaFilmstrip(mediaUrl: string | null): MediaFilmstrip {
+  return useFilmstrip(mediaUrl, mediaFilmstrip)
+}
+
+export function useSpriteSheetFilmstrip(
+  sheetUrl: string | null,
+): MediaFilmstrip {
+  return useFilmstrip(sheetUrl, spriteSheetFilmstrip)
+}
+
+function useFilmstrip(
+  url: string | null,
+  load: (url: string) => Promise<MediaFilmstrip>,
+): MediaFilmstrip {
   const [strip, setStrip] = useState(EMPTY_FILMSTRIP)
   useEffect(() => {
     setStrip(EMPTY_FILMSTRIP)
-    if (!mediaUrl) return
+    if (!url) return
     let cancelled = false
-    void mediaFilmstrip(mediaUrl).then((result) => {
+    void load(url).then((result) => {
       if (!cancelled) setStrip(result)
     })
     return () => {
       cancelled = true
     }
-  }, [mediaUrl])
+  }, [url, load])
   return strip
 }
 
@@ -192,6 +222,58 @@ async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
     } catch {
       // Some mobile browsers throw while tearing down blob-backed media.
     }
+  }
+}
+
+/**
+ * Slice the server's scrubber sprite sheet into per-frame object URLs so the
+ * trim bar consumes it exactly like a locally sampled strip. The sheet's
+ * duration isn't knowable from the image — callers already have it from the
+ * clip row.
+ */
+async function extractSpriteFilmstrip(
+  sheetUrl: string,
+): Promise<MediaFilmstrip> {
+  const image = new Image()
+  // Keeps the sheet drawable to canvas when served from the API origin.
+  image.crossOrigin = "anonymous"
+  image.decoding = "async"
+  image.src = sheetUrl
+  await image.decode()
+
+  const rows = Math.ceil(CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS)
+  const cellWidth = Math.floor(image.naturalWidth / CLIP_SCRUBBER_COLUMNS)
+  const cellHeight = Math.floor(image.naturalHeight / rows)
+  if (!cellWidth || !cellHeight) return EMPTY_FILMSTRIP
+
+  const frames: string[] = []
+  for (let i = 0; i < CLIP_SCRUBBER_FRAME_COUNT; i++) {
+    const canvas = document.createElement("canvas")
+    canvas.width = cellWidth
+    canvas.height = cellHeight
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return EMPTY_FILMSTRIP
+    ctx.drawImage(
+      image,
+      (i % CLIP_SCRUBBER_COLUMNS) * cellWidth,
+      Math.floor(i / CLIP_SCRUBBER_COLUMNS) * cellHeight,
+      cellWidth,
+      cellHeight,
+      0,
+      0,
+      cellWidth,
+      cellHeight,
+    )
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", FRAME_QUALITY)
+    }).catch(() => null)
+    if (!blob) return EMPTY_FILMSTRIP
+    frames.push(URL.createObjectURL(blob))
+  }
+  return {
+    frames,
+    aspect: cellWidth / cellHeight,
+    durationMs: null,
   }
 }
 

@@ -249,6 +249,10 @@ export const InitiateBody = z
     }
   })
 
+export const PosterBody = z.object({
+  timeMs: z.number().int().min(0),
+})
+
 export const TrimBody = z
   .object({
     startMs: z.number().int().min(0),

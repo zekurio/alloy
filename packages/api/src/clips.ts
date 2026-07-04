@@ -5,6 +5,7 @@ import type {
   InitiateClipResponse,
   QueueClip,
   QueueEvent,
+  SetClipPosterInput,
   TrimClipInput,
   UpdateClipInput,
 } from "@alloy/contracts"
@@ -48,6 +49,7 @@ export type {
   InitiateClipResponse,
   QueueClip,
   QueueEvent,
+  SetClipPosterInput,
   TrimClipInput,
   UpdateClipInput,
   UploadTicket,
@@ -109,6 +111,14 @@ export function clipSourceFileUrl(
 export function clipOriginalFileUrl(clipId: string, origin?: string): string {
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, "/original/file"),
+    {},
+    origin,
+  )
+}
+
+export function clipScrubberFileUrl(clipId: string, origin?: string): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/scrubber/file"),
     {},
     origin,
   )
@@ -205,6 +215,18 @@ async function trimClip(
   return readJsonOrThrow(res, validateClipRow)
 }
 
+async function setClipPoster(
+  context: ApiContext,
+  clipId: string,
+  input: SetClipPosterInput,
+): Promise<ClipRow> {
+  const res = await context.rpc.api.clips[":id"].poster.$post({
+    param: { id: clipId },
+    json: input,
+  })
+  return readJsonOrThrow(res, validateClipRow)
+}
+
 async function fetchLikeState(
   context: ApiContext,
   clipId: string,
@@ -258,6 +280,8 @@ export function createClipsApi(context: ApiContext) {
       updateClip(context, clipId, input),
     trim: (clipId: string, input: TrimClipInput) =>
       trimClip(context, clipId, input),
+    setPoster: (clipId: string, input: SetClipPosterInput) =>
+      setClipPoster(context, clipId, input),
     fetchLikeState: (clipId: string) => fetchLikeState(context, clipId),
     like: (clipId: string) => setClipLike(context, clipId, true),
     unlike: (clipId: string) => setClipLike(context, clipId, false),
