@@ -23,7 +23,11 @@ function useRecordingSnapshot(recording: AlloyDesktopRecordingApi | null) {
   const [status, setStatus] = useState<RecordingStatus | null>(null)
 
   useEffect(() => {
-    if (!recording) return
+    if (!recording) {
+      setSettings(null)
+      setStatus(null)
+      return
+    }
 
     let cancelled = false
     let receivedSettingsEvent = false
@@ -51,6 +55,8 @@ function useRecordingSnapshot(recording: AlloyDesktopRecordingApi | null) {
     return () => {
       cancelled = true
       unsubscribe()
+      setSettings(null)
+      setStatus(null)
     }
   }, [recording])
 
