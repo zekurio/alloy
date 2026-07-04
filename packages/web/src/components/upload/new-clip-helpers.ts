@@ -38,9 +38,6 @@ export interface PublishPayload {
   height: number
   durationMs: number
   sizeBytes: number
-  thumbBlob: Blob | null
-  /** Client-computed BlurHash for the poster frame, when available. */
-  thumbBlurHash: string | null
   /**
    * Kept source range in the uploaded file's timeline; the server derives the
    * cut at ingest. Absent when the whole file is kept or the file was already
@@ -140,9 +137,4 @@ export function fileExtensionLabel(filename: string): string | null {
   return ext.toUpperCase()
 }
 
-export {
-  captureThumbnail,
-  thumbnailFromImageUrl,
-  type CapturedThumbnail,
-} from "./new-clip-media"
 export { type ProbedFile, probeFile }

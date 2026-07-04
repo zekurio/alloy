@@ -9,15 +9,6 @@ export interface UploadTarget {
   id: string
 }
 
-/** Default poster image content type when the client doesn't pick one. */
-export const THUMB_UPLOAD_CONTENT_TYPE = "image/jpeg"
-
-/**
- * Hard cap for the uploaded poster image. The client renders a small JPEG
- * (<2 MB); this leaves headroom while keeping the staged upload bounded.
- */
-export const THUMB_UPLOAD_MAX_BYTES = 4 * 1024 * 1024
-
 function targetMatch(target: UploadTarget) {
   return and(
     eq(uploadTicket.target_type, target.type),
@@ -31,32 +22,18 @@ export async function createUploadTickets(input: {
   videoKey: string
   videoContentType: string
   videoBytes: number
-  thumbKey: string
-  thumbContentType?: string
   expiresAt: Date
 }): Promise<void> {
-  await db.insert(uploadTicket).values([
-    {
-      owner_id: input.ownerId,
-      target_type: input.target.type,
-      target_id: input.target.id,
-      role: "video",
-      storage_key: input.videoKey,
-      content_type: input.videoContentType,
-      expected_bytes: input.videoBytes,
-      expires_at: input.expiresAt,
-    },
-    {
-      owner_id: input.ownerId,
-      target_type: input.target.type,
-      target_id: input.target.id,
-      role: "thumb",
-      storage_key: input.thumbKey,
-      content_type: input.thumbContentType ?? THUMB_UPLOAD_CONTENT_TYPE,
-      expected_bytes: THUMB_UPLOAD_MAX_BYTES,
-      expires_at: input.expiresAt,
-    },
-  ])
+  await db.insert(uploadTicket).values({
+    owner_id: input.ownerId,
+    target_type: input.target.type,
+    target_id: input.target.id,
+    role: "video",
+    storage_key: input.videoKey,
+    content_type: input.videoContentType,
+    expected_bytes: input.videoBytes,
+    expires_at: input.expiresAt,
+  })
 }
 
 export async function assertUsableVideoTicket(input: {
@@ -84,7 +61,7 @@ export async function assertUsableVideoTicket(input: {
 
 async function selectTicketKey(
   target: UploadTarget,
-  role: "video" | "thumb",
+  role: "video",
 ): Promise<string | null> {
   const [ticket] = await db
     .select({ storageKey: uploadTicket.storage_key })
@@ -96,7 +73,7 @@ async function selectTicketKey(
 
 async function selectTicket(
   target: UploadTarget,
-  role: "video" | "thumb",
+  role: "video",
 ): Promise<{
   storageKey: string
 } | null> {
@@ -118,16 +95,6 @@ export function selectVideoTicketKey(
 
 export function selectVideoTicket(target: UploadTarget) {
   return selectTicket(target, "video")
-}
-
-export function selectThumbTicket(target: UploadTarget) {
-  return selectTicket(target, "thumb")
-}
-
-export function selectThumbTicketKey(
-  target: UploadTarget,
-): Promise<string | null> {
-  return selectTicketKey(target, "thumb")
 }
 
 export async function selectTicketKeys(

@@ -15,7 +15,7 @@ import {
   ENCODE_LEASE_STALE_INTERVAL,
   ENCODE_LEASE_STALE_MS,
 } from "../../queue/lease-conditions"
-import { runMediaProcessing } from "../../queue/media-run"
+import { runMediaProcessing, runThumbnailBackfill } from "../../queue/media-run"
 import { abortActiveJobByDedup } from "../dispatcher"
 import { defineJobKind, type JobHandlerContext } from "../registry"
 import {
@@ -121,7 +121,8 @@ async function runClipEncode(
 ): Promise<void> {
   const row = await selectClipEncodeLease(payload.clipId)
   if (!row || (row.status !== "processing" && row.status !== "ready")) return
-  if (await shouldSkipMatchingFingerprint(payload, row)) return
+  const matchingAction = await matchingFingerprintAction(payload, row)
+  if (matchingAction === "skip") return
 
   const leased = await clipMediaStore.lease(payload.clipId, ctx.runId)
   if (!leased) {
@@ -141,13 +142,23 @@ async function runClipEncode(
   }
 
   try {
-    await runMediaProcessing(
-      clipMediaStore,
-      payload.clipId,
-      leased,
-      ctx.runId,
-      ctx.signal,
-    )
+    if (matchingAction === "thumbnail") {
+      await runThumbnailBackfill(
+        clipMediaStore,
+        payload.clipId,
+        leased,
+        ctx.runId,
+        ctx.signal,
+      )
+    } else {
+      await runMediaProcessing(
+        clipMediaStore,
+        payload.clipId,
+        leased,
+        ctx.runId,
+        ctx.signal,
+      )
+    }
     if (ctx.signal.aborted && ctx.signal.reason === "shutdown") {
       await clipMediaStore.releaseLease(
         payload.clipId,
@@ -219,6 +230,9 @@ async function selectClipEncodeLease(clipId: string): Promise<{
   encodeLockedAt: Date | null
   fresh: boolean
   encodeFingerprint: string | null
+  sourceKey: string | null
+  thumbKey: string | null
+  thumbFailedAt: Date | null
   facts: FingerprintSourceFacts | null
 } | null> {
   const [row] = await db
@@ -227,6 +241,9 @@ async function selectClipEncodeLease(clipId: string): Promise<{
       encodeLockedAt: clip.encode_locked_at,
       fresh: sql<boolean>`coalesce(${clip.encode_run_id} is not null and ${clip.encode_locked_at} >= now() - interval '${sql.raw(ENCODE_LEASE_STALE_INTERVAL)}', false)`,
       encodeFingerprint: clip.encode_fingerprint,
+      sourceKey: clip.source_key,
+      thumbKey: clip.thumb_key,
+      thumbFailedAt: clip.thumb_failed_at,
       height: clip.height,
       sourceFps: clip.source_fps,
       sourceContentType: clip.source_content_type,
@@ -261,17 +278,20 @@ async function selectClipEncodeFacts(
   return row?.facts ?? null
 }
 
-async function shouldSkipMatchingFingerprint(
+async function matchingFingerprintAction(
   payload: z.infer<typeof ClipEncodePayloadSchema>,
   row: NonNullable<Awaited<ReturnType<typeof selectClipEncodeLease>>>,
-): Promise<boolean> {
-  if (payload.trigger === "reencode") return false
-  if (row.status !== "ready" || !row.facts) return false
+): Promise<"full" | "skip" | "thumbnail"> {
+  if (payload.trigger === "reencode") return "full"
+  if (row.status !== "ready" || !row.facts) return "full"
   if (
     row.encodeFingerprint !==
     encodeFingerprint(configStore.get("transcoding"), row.facts)
   ) {
-    return false
+    return "full"
+  }
+  if (!row.thumbKey && !row.thumbFailedAt && row.sourceKey) {
+    return "thumbnail"
   }
   await db
     .update(clip)
@@ -283,7 +303,7 @@ async function shouldSkipMatchingFingerprint(
         isNull(clip.encode_run_id),
       ),
     )
-  return true
+  return "skip"
 }
 
 function failedFingerprint(

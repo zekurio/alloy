@@ -69,11 +69,12 @@ export const clip = pgTable(
     width: integer(),
     height: integer(),
 
-    // Poster image. The desktop client uploads a rendered JPEG + BlurHash on
-    // upload; media processing validates and publishes it. A missing thumbnail
-    // leaves this null rather than failing the clip — the UI shows a placeholder.
+    // Poster image. Media processing extracts a server-generated JPEG +
+    // BlurHash. A missing thumbnail leaves this null rather than failing the
+    // clip — the UI shows a placeholder.
     thumb_key: text(),
     thumb_blur_hash: text(),
+    thumb_failed_at: timestamp(),
 
     view_count: integer().notNull().default(0),
     like_count: integer().notNull().default(0),
@@ -127,6 +128,11 @@ export const clip = pgTable(
     index("clip_ready_fingerprint_idx")
       .on(t.id)
       .where(sql`${t.status} = 'ready' and ${t.source_key} is not null`),
+    index("clip_thumbnail_sweep_idx")
+      .on(t.id)
+      .where(
+        sql`${t.status} = 'ready' and ${t.source_key} is not null and ${t.thumb_key} is null and ${t.thumb_failed_at} is null`,
+      ),
     index("clip_game_created_idx").on(t.game_id, t.created_at),
     index("clip_ready_visible_game_top_idx")
       .on(

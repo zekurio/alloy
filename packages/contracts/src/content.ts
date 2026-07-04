@@ -1,6 +1,5 @@
 import type {
   AcceptedContentType,
-  AcceptedThumbContentType,
   ClipPrivacy,
   ClipStatus,
   GameSource,
@@ -174,24 +173,16 @@ export interface InitiateClipInput {
    */
   trimStartMs?: number
   trimEndMs?: number
-  /**
-   * Client-computed BlurHash of the clip's poster frame. The server validates
-   * and publishes it only when the uploaded thumbnail image is accepted.
-   */
-  thumbBlurHash?: string
-  /** Poster format the client will upload; defaults to JPEG. */
-  thumbContentType?: AcceptedThumbContentType
 }
 
+/**
+ * Clip thumbnails are generated server-side during media processing. A clip may
+ * temporarily have no thumbnail while processing, or permanently when no
+ * non-uniform poster frame can be extracted.
+ */
 export interface InitiateClipResponse {
   clipId: string
   ticket: UploadTicket
-  /**
-   * Upload target for the client-rendered poster image. The desktop
-   * client uploads its thumbnail here so the server never has to extract a
-   * frame. Best-effort: a clip without a published thumbnail still works.
-   */
-  thumbTicket: UploadTicket
 }
 
 export interface UpdateClipInput {

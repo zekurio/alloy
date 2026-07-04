@@ -1,4 +1,3 @@
-import type { UploadTicketRole } from "@alloy/contracts"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
@@ -74,12 +73,6 @@ export const gameAssetStorage: StorageDriver = new ConfiguredStorageDriver(
   "games",
 )
 export const dataStorage: StorageDriver = userStorage
-
-export function clipStorageForUploadRole(
-  role: UploadTicketRole,
-): StorageDriver {
-  return role === "thumb" ? clipThumbnailStorage : clipStorage
-}
 
 export function clipStorageForKey(key: string): StorageDriver {
   return isClipThumbnailKey(key) ? clipThumbnailStorage : clipStorage

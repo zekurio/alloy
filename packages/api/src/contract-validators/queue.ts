@@ -149,7 +149,6 @@ export function validateInitiateClipResponse(
     "Invalid initiate clip response: clipId is required",
   )
   validateUploadTicket(response.ticket)
-  validateUploadTicket(response.thumbTicket)
   return value as InitiateClipResponse
 }
 

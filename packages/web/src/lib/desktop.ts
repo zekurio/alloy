@@ -95,7 +95,6 @@ export interface AlloyDesktopRecordingApi {
   /** Deletes a picked file from the temporary import stage. */
   discardStagedLibraryImport?(id: string): Promise<void>
   saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
-  hashLibraryThumbnail?(data: Uint8Array): Promise<string | null>
   /**
    * Persists an uploaded clip into the local capture library. Progress
    * streams out as "library-download" recording events.

@@ -5,7 +5,7 @@ const VIDEO_EVENT_TIMEOUT_MS = 15000
 /**
  * Await a media element event with a timeout, rejecting on element errors.
  * Shared by everything that samples frames from a detached element
- * (filmstrip, capture poster, upload thumbnail capture).
+ * (filmstrip and capture poster).
  */
 export function videoEvent(
   video: HTMLVideoElement,
