@@ -233,15 +233,9 @@ export const clipsPlaybackRoutes = new Hono()
       return notFound(c, "Scrubber unavailable")
     }
 
-    const exists = await ensureClipScrubberSheet({
-      clipId: id,
-      sourceKey: row.source_key,
-      durationMs,
-    })
-    if (!exists) return notFound(c, "Scrubber unavailable")
-
     // The sheet derives from the immutable source, so the source version
-    // makes a stable validator for the lifetime of the clip.
+    // makes a stable validator for the lifetime of the clip — check it
+    // before touching storage so revalidations stay free.
     const etag = `"scrub-${clipAssetVersion(row.source_key)}"`
     const cacheControl = "private, max-age=86400"
     c.header("ETag", etag)
@@ -249,6 +243,13 @@ export const clipsPlaybackRoutes = new Hono()
       c.header("Cache-Control", cacheControl)
       return c.body(null, 304)
     }
+
+    const exists = await ensureClipScrubberSheet({
+      clipId: id,
+      sourceKey: row.source_key,
+      durationMs,
+    })
+    if (!exists) return notFound(c, "Scrubber unavailable")
 
     return await streamThumbnail(
       c,

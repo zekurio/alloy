@@ -36,9 +36,14 @@ export async function extractPoster(
     opts.atMs !== undefined ? opts.atMs / 1000 : (opts.durationMs / 1000) * 0.1,
   )
 
+  // The frame-0 retry only applies to automatic placement: an explicit
+  // timestamp is clamped into the clip's trim range by the caller, and
+  // falling back to 0 could surface trimmed-away footage.
   const extracted =
     (await extractFrame(videoPath, framePath, seekSec, opts.signal)) ||
-    (seekSec > 0 && (await extractFrame(videoPath, framePath, 0, opts.signal)))
+    (opts.atMs === undefined &&
+      seekSec > 0 &&
+      (await extractFrame(videoPath, framePath, 0, opts.signal)))
   if (!extracted) {
     logger.warn(`poster extraction failed for ${videoPath}`)
     return null

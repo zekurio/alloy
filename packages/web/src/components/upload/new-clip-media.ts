@@ -30,6 +30,9 @@ export async function captureThumbnail(
   file: File,
   atMs: number,
   fallbackAtMs?: number,
+  // Floor for every retry candidate — a trimmed upload's poster must never
+  // sample a frame before the kept range even when the requested seeks fail.
+  minMs = 0,
 ): Promise<CapturedThumbnail> {
   const { video, cleanup } = createVideoSession(file, "auto")
 
@@ -40,11 +43,14 @@ export async function captureThumbnail(
     )
 
     const duration = Number.isFinite(video.duration) ? video.duration : null
-    const minTime = duration !== null && duration > 0.1 ? 0.001 : 0
+    const minTime = Math.max(
+      minMs / 1000,
+      duration !== null && duration > 0.1 ? 0.001 : 0,
+    )
     const maxTime =
       duration === null
-        ? Math.max(0, atMs / 1000)
-        : Math.max(0, duration - 0.05)
+        ? Math.max(minTime, atMs / 1000)
+        : Math.max(minTime, duration - 0.05)
     const candidateTimes = uniqueThumbnailTimes(
       [atMs, fallbackAtMs, 1000, 100, 0],
       minTime,

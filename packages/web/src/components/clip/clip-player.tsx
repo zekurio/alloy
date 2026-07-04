@@ -85,7 +85,19 @@ function ClipPlayer({
   // Poster shown while the clip has no playable media yet (processing/failed).
   const pendingPoster = useImageLoaded(poster)
 
-  const [selectedQualityId, setSelectedQualityId] = useState(SOURCE_QUALITY_ID)
+  // Selection is scoped to the clip: the viewers reuse one ClipPlayer across
+  // navigation, and a manual pin — or an automatic error fallback — on one
+  // clip must not carry over to the next.
+  const [selection, setSelection] = useState({
+    clipId,
+    name: SOURCE_QUALITY_ID,
+  })
+  const selectedQualityId =
+    selection.clipId === clipId ? selection.name : SOURCE_QUALITY_ID
+  const selectQuality = useCallback(
+    (name: string) => setSelection({ clipId, name }),
+    [clipId],
+  )
 
   // Quality tiers best-first with the source on top: the source endpoint
   // serves the original upload, or the derived cut for trimmed clips.
@@ -122,9 +134,9 @@ function ClipPlayer({
     (): RenditionPlayback => ({
       sources,
       selected: selectedQualityId,
-      onFallback: setSelectedQualityId,
+      onFallback: selectQuality,
     }),
-    [selectedQualityId, sources],
+    [selectQuality, selectedQualityId, sources],
   )
 
   // The menu only offers tiers this browser can decode, mirroring the
@@ -241,7 +253,7 @@ function ClipPlayer({
       sourceIdentity={clipId}
       qualityOptions={qualityOptions}
       selectedQualityId={activeQualityId}
-      onSelectQuality={setSelectedQualityId}
+      onSelectQuality={selectQuality}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       onPlaybackError={handlePlaybackError}

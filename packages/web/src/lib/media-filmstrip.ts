@@ -230,8 +230,10 @@ async function extractSpriteFilmstrip(
   sheetUrl: string,
 ): Promise<MediaFilmstrip> {
   const image = new Image()
-  // Keeps the sheet drawable to canvas when served from the API origin.
-  image.crossOrigin = "anonymous"
+  // The sheet route is owner-gated behind the session cookie, so the CORS
+  // request must carry credentials on split-origin deployments; the server's
+  // trusted-origin CORS config allows it, and it keeps the canvas untainted.
+  image.crossOrigin = "use-credentials"
   image.decoding = "async"
   image.src = sheetUrl
   await image.decode()

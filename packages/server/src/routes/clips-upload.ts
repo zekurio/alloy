@@ -9,6 +9,7 @@ import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
 import { extractPoster } from "@alloy/server/media/poster"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
+import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
 import { makeMediaWorkDir } from "@alloy/server/queue/media-run-helpers"
 import {
   badRequest,
@@ -16,12 +17,8 @@ import {
   deleted,
 } from "@alloy/server/runtime/http-response"
 import { join } from "@alloy/server/runtime/path"
-import {
-  clipAssetDir,
-  clipStorage,
-  clipThumbnailStorage,
-} from "@alloy/server/storage/index"
-import { and, eq } from "drizzle-orm"
+import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
+import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
 import {
@@ -146,9 +143,10 @@ export const clipsUploadRoutes = new Hono()
 
       // Timestamps are source-time; clamp into the virtual trim range so the
       // poster always shows a frame the published clip actually contains.
-      const rangeStart = row.trim_start_ms ?? 0
-      const rangeEnd = row.trim_end_ms ?? durationMs
-      const timeMs = Math.min(Math.max(body.timeMs, rangeStart), rangeEnd)
+      const timeMs = Math.min(
+        Math.max(body.timeMs, row.trim_start_ms ?? 0),
+        row.trim_end_ms ?? durationMs,
+      )
 
       const poster = await extractSourcePoster(row.source_key, {
         atMs: timeMs,
@@ -156,11 +154,12 @@ export const clipsUploadRoutes = new Hono()
       })
       if (!poster) return badRequest(c, "Could not extract a poster frame")
 
-      const thumbKey = `${clipAssetDir(id)}/thumb-${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}.jpg`
+      const thumbKey = runScopedThumbKey(id, crypto.randomUUID())
       await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
 
-      // Guarded on "ready" so a trim/reprocess that started meanwhile (which
-      // republishes its own thumbnail) can't be clobbered.
+      // Guarded on "ready" plus a null encode lease: a reprocess that started
+      // meanwhile republishes its own thumbnail at commitReady and would
+      // silently clobber this one.
       const [updated] = await db
         .update(clip)
         .set({
@@ -168,7 +167,13 @@ export const clipsUploadRoutes = new Hono()
           thumb_blur_hash: poster.blurHash,
           updated_at: new Date(),
         })
-        .where(and(eq(clip.id, id), eq(clip.status, "ready")))
+        .where(
+          and(
+            eq(clip.id, id),
+            eq(clip.status, "ready"),
+            isNull(clip.encode_run_id),
+          ),
+        )
         .returning({ id: clip.id })
       if (!updated) {
         await clipThumbnailStorage.delete(thumbKey)
@@ -212,51 +217,29 @@ export const clipsUploadRoutes = new Hono()
       if (endMs - startMs < TRIM_MIN_RANGE_MS) {
         return badRequest(c, "The trimmed range is too short")
       }
-      if (
+      // A full-range request clears an existing trim; without one to clear
+      // there is nothing to do.
+      const fullRange =
         startMs <= TRIM_FULL_RANGE_TOLERANCE_MS &&
         endMs >= durationMs - TRIM_FULL_RANGE_TOLERANCE_MS
+      if (
+        fullRange &&
+        row.trim_start_ms === null &&
+        row.trim_end_ms === null &&
+        row.cut_key === null
       ) {
-        if (
-          row.trim_start_ms !== null ||
-          row.trim_end_ms !== null ||
-          row.cut_key !== null
-        ) {
-          const [accepted] = await db
-            .update(clip)
-            .set({
-              trim_start_ms: null,
-              trim_end_ms: null,
-              status: "processing",
-              encode_progress: 0,
-              encode_attempt: 0,
-              failure_reason: null,
-              updated_at: new Date(),
-            })
-            .where(
-              and(
-                eq(clip.id, id),
-                eq(clip.author_id, row.author_id),
-                eq(clip.status, "ready"),
-              ),
-            )
-            .returning({ id: clip.id })
-          if (!accepted) return conflict(c, "Clip is already processing")
-
-          void publishClipUpsert(row.author_id, id)
-          enqueueClipMediaProcessing(id)
-
-          return updatedClipResponse(c, id)
-        }
         return badRequest(c, "The trim covers the whole clip")
       }
 
-      // The status flip doubles as the concurrency guard: a clip mid-encode
-      // is no longer "ready", so two trims can't race each other.
+      // The status flip is the concurrency guard against other mutations;
+      // the null lease additionally excludes a first-ingest run that is
+      // already "ready" but still encoding its ladder — its commitReady
+      // would otherwise clobber this trim's processing state.
       const [accepted] = await db
         .update(clip)
         .set({
-          trim_start_ms: startMs,
-          trim_end_ms: endMs,
+          trim_start_ms: fullRange ? null : startMs,
+          trim_end_ms: fullRange ? null : endMs,
           status: "processing",
           encode_progress: 0,
           encode_attempt: 0,
@@ -268,6 +251,7 @@ export const clipsUploadRoutes = new Hono()
             eq(clip.id, id),
             eq(clip.author_id, row.author_id),
             eq(clip.status, "ready"),
+            isNull(clip.encode_run_id),
           ),
         )
         .returning({ id: clip.id })

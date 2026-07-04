@@ -171,7 +171,7 @@ async function clipHead(pathname: string): Promise<string> {
     const playbackSourceKey = row.cutKey ?? row.sourceKey
     const ogSource =
       playbackSourceKey &&
-      row.sourceCodecs?.startsWith("avc1.") === true &&
+      sourceIsBroadlyDecodable(row.sourceCodecs) &&
       (row.cutKey !== null || embeddableSource)
         ? {
             key: playbackSourceKey,
@@ -238,6 +238,19 @@ function renditionIsH264(codecs: string | null | undefined): boolean {
     .split(",")
     .map((codec) => codec.trim().toLowerCase())
     .some((codec) => codec.startsWith("avc1."))
+}
+
+/**
+ * Whether embed scrapers' plain `<video>` players can be expected to decode
+ * the source: H.264 video and, when an audio entry is present, AAC. A source
+ * with e.g. AC-3 audio would play silently, so embeds prefer the AAC og
+ * rendition instead.
+ */
+function sourceIsBroadlyDecodable(codecs: string | null): boolean {
+  if (!codecs) return false
+  const parts = codecs.split(",").map((codec) => codec.trim().toLowerCase())
+  if (!parts[0]?.startsWith("avc1.")) return false
+  return parts.slice(1).every((codec) => codec.startsWith("mp4a.40."))
 }
 
 function withInjectedHead(indexHtml: string, head: string): string {

@@ -101,10 +101,12 @@ export async function startClipDownload(row: ClipRow): Promise<void> {
   const accepted = await desktop.recording.downloadClip({
     clipId: row.id,
     title: row.title,
-    // The download endpoint serves the original source, matching the
-    // contentType/sizeBytes declared below; /stream serves the top rendition.
+    // The download endpoint serves the derived MP4 cut for trimmed clips and
+    // the stored source otherwise; the shell picks the saved file's
+    // extension from this contentType, and corrects sizeBytes from the
+    // response's Content-Length once the transfer starts.
     mediaUrl: clipDownloadUrl(row.id, apiOrigin()),
-    contentType: row.sourceContentType,
+    contentType: row.trimStartMs !== null ? "video/mp4" : row.sourceContentType,
     sizeBytes: row.sourceSizeBytes,
     durationMs: row.durationMs,
     width: row.width,

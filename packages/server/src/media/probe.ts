@@ -124,9 +124,18 @@ export function buildVideoCodecString(
   return null
 }
 
+const AUDIO_CODEC_NAME_TO_RFC6381: Record<string, string> = {
+  ac3: "ac-3",
+  eac3: "ec-3",
+}
+
 /**
  * RFC 6381 audio codec string. Sources may carry AAC profiles beyond LC;
- * rendition audio remains ffmpeg AAC-LC. Exported for unit tests.
+ * rendition audio remains ffmpeg AAC-LC. Non-AAC audio falls back to its
+ * (mapped) ffprobe codec name so the string still fails `canPlayType` in
+ * browsers lacking the codec — dropping it entirely would make an
+ * H.264+AC-3 source look fully playable and play silently. Exported for
+ * unit tests.
  */
 export function buildAudioCodecString(
   stream: Pick<FfprobeStream, "codec_name" | "profile">,
@@ -136,7 +145,8 @@ export function buildAudioCodecString(
     if (stream.profile === "HE-AACv2") return "mp4a.40.29"
     return "mp4a.40.2"
   }
-  return null
+  if (!stream.codec_name) return null
+  return AUDIO_CODEC_NAME_TO_RFC6381[stream.codec_name] ?? stream.codec_name
 }
 
 function hexByte(value: number): string {

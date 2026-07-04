@@ -163,7 +163,7 @@ async function runPipelineInWorkDir({
   store.publishUpsert(row.authorId, id)
 
   const sourceProbe = await probeMedia(sourcePath)
-  const trim = trimRange(row)
+  const trim = trimRange(row, sourceProbe.durationMs)
   let mediaPath = sourcePath
   let cutKey: string | null = null
   let cutProbe: Awaited<ReturnType<typeof probeMedia>> | null = null
@@ -274,12 +274,25 @@ async function runPipelineInWorkDir({
       await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
       uploadedKeys.push(thumbKey)
       thumb = { thumbKey, thumbBlurHash: poster.blurHash }
+    } else if (row.thumbKey) {
+      // Extraction is best-effort; a possibly pre-trim poster beats
+      // committing no poster at all and blanking cards and og:image.
+      thumb = {
+        thumbKey: row.thumbKey,
+        thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
+      }
     }
   }
   const { thumbKey, thumbBlurHash } = thumb
   if (!(await store.commitThumb(id, runId, { thumbKey, thumbBlurHash })))
     throw abortMediaProcessing()
-  if (!(await store.commitPlayable(id, runId))) throw abortMediaProcessing()
+  // Early readiness applies only to the first publish. A reprocess of a
+  // previously-ready clip (trim) still has rendition rows encoded from the
+  // old media; going ready here would serve trimmed-away footage through
+  // them, so those runs stay processing until commitReady atomically
+  // replaces the rendition set.
+  if (!row.sourceKey && !(await store.commitPlayable(id, runId)))
+    throw abortMediaProcessing()
   if (thumbKey) retainPublishedKey(thumbKey)
   store.publishUpsert(row.authorId, id)
   completeWork()
@@ -400,12 +413,23 @@ async function encodeRenditionWithFallback(options: {
   }
 }
 
+/**
+ * Ingest-time trims (from /initiate) are validated only against the
+ * client-declared duration, so clamp against the probed reality here. A
+ * start beyond the media is a hard failure — silently publishing footage the
+ * uploader asked to cut would be worse than a failed clip.
+ */
 function trimRange(
   row: Pick<MediaRow, "trimStartMs" | "trimEndMs">,
+  sourceDurationMs: number,
 ): { startMs: number; endMs: number } | null {
   if (row.trimStartMs == null || row.trimEndMs == null) return null
-  if (row.trimEndMs <= row.trimStartMs) return null
-  return { startMs: row.trimStartMs, endMs: row.trimEndMs }
+  if (row.trimStartMs >= sourceDurationMs) {
+    throw new Error("The trim range lies outside the media duration")
+  }
+  const endMs = Math.min(row.trimEndMs, sourceDurationMs)
+  if (endMs <= row.trimStartMs) return null
+  return { startMs: row.trimStartMs, endMs }
 }
 
 async function pruneStaleAssets(
