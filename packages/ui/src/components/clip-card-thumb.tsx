@@ -40,24 +40,18 @@ export function ClipCardThumb({
   buttonRef,
 }: ClipCardThumbProps) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
-  const imageRef = useRef<HTMLImageElement | null>(null)
   const timerRef = useRef<number | null>(null)
   const hoveredRef = useRef(false)
   const shouldPreviewRef = useRef(false)
   const preloadedThumbnailRef = useRef<string | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [previewMounted, setPreviewMounted] = useState(false)
-  const [thumbnailLoaded, setThumbnailLoaded] = useState(false)
-  const [thumbnailFailed, setThumbnailFailed] = useState(false)
-  const [thumbnailFallbackFailed, setThumbnailFallbackFailed] = useState(false)
+  const [loadedThumbnail, setLoadedThumbnail] = useState<string | null>(null)
+  const [failedThumbnail, setFailedThumbnail] = useState<string | null>(null)
+  const [failedFallbackThumbnail, setFailedFallbackThumbnail] = useState<
+    string | null
+  >(null)
   const [pointerActivated, setPointerActivated] = useState(false)
-
-  useEffect(() => {
-    setThumbnailFailed(false)
-    setThumbnailFallbackFailed(false)
-    const image = imageRef.current
-    setThumbnailLoaded(Boolean(image?.complete && image.naturalWidth > 0))
-  }, [thumbnail, thumbnailFallback])
 
   useEffect(() => {
     return () => {
@@ -70,12 +64,24 @@ export function ClipCardThumb({
   const canPreview = Boolean(streamUrl)
 
   const activeThumbnail =
-    thumbnail && !thumbnailFailed
+    thumbnail && failedThumbnail !== thumbnail
       ? thumbnail
-      : thumbnailFallback && !thumbnailFallbackFailed
+      : thumbnailFallback && failedFallbackThumbnail !== thumbnailFallback
         ? thumbnailFallback
         : undefined
   const activeBlurHash = thumbnailBlurHash ?? thumbnailFallbackBlurHash
+  const thumbnailLoaded = Boolean(
+    activeThumbnail && loadedThumbnail === activeThumbnail,
+  )
+
+  const setImageRef = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (!image || !activeThumbnail) return
+      if (!image.complete || image.naturalWidth <= 0) return
+      setLoadedThumbnail(activeThumbnail)
+    },
+    [activeThumbnail],
+  )
 
   const preloadThumbnail = () => {
     if (!activeThumbnail) return
@@ -208,7 +214,7 @@ export function ClipCardThumb({
 
       {activeThumbnail ? (
         <img
-          ref={imageRef}
+          ref={setImageRef}
           src={activeThumbnail}
           alt={title}
           className={cn(
@@ -218,14 +224,14 @@ export function ClipCardThumb({
           )}
           loading="lazy"
           decoding="async"
-          onLoad={() => setThumbnailLoaded(true)}
+          onLoad={() => setLoadedThumbnail(activeThumbnail)}
           onError={() => {
-            setThumbnailLoaded(false)
+            setLoadedThumbnail(null)
             if (activeThumbnail === thumbnail) {
-              setThumbnailFailed(true)
+              setFailedThumbnail(activeThumbnail)
               return
             }
-            setThumbnailFallbackFailed(true)
+            setFailedFallbackThumbnail(activeThumbnail)
           }}
         />
       ) : null}
