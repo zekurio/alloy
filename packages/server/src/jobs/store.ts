@@ -66,6 +66,13 @@ export interface ListedJobs {
 
 export type JobTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
+const jobEventSelect = {
+  id: job.id,
+  kind: job.kind,
+  progress: job.progress,
+  stage: job.stage,
+} as const
+
 export async function enqueue(
   kind: string,
   payload: unknown,
@@ -159,13 +166,7 @@ export async function heartbeat(
   const [row] = await db
     .update(job)
     .set({ locked_at: sql`now()`, updated_at: sql`now()` })
-    .where(
-      and(
-        eq(job.id, id),
-        eq(job.lease_token, leaseToken),
-        eq(job.status, "running"),
-      ),
-    )
+    .where(leasedRunningJob(id, leaseToken))
     .returning({ id: job.id })
   return Boolean(row)
 }
@@ -185,32 +186,15 @@ export async function complete(
         finished_at: sql`now()`,
         updated_at: sql`now()`,
       })
-      .where(
-        and(
-          eq(job.id, id),
-          eq(job.lease_token, leaseToken),
-          eq(job.status, "running"),
-        ),
-      )
-      .returning({
-        id: job.id,
-        kind: job.kind,
-        progress: job.progress,
-        stage: job.stage,
-      })
+      .where(leasedRunningJob(id, leaseToken))
+      .returning(jobEventSelect)
     if (!row) return null
     const registration = getJobKind(row.kind)
     if (registration) await rearmRecurringJob(tx, registration)
     return row
   })
   if (!updated) return false
-  publishJobEvent({
-    jobId: updated.id,
-    kind: updated.kind,
-    status: "completed",
-    progress: updated.progress,
-    stage: updated.stage,
-  })
+  publishJobStatus(updated, "completed")
   return true
 }
 
@@ -232,13 +216,7 @@ export async function fail(
         stage: job.stage,
       })
       .from(job)
-      .where(
-        and(
-          eq(job.id, id),
-          eq(job.lease_token, leaseToken),
-          eq(job.status, "running"),
-        ),
-      )
+      .where(leasedRunningJob(id, leaseToken))
       .limit(1)
     if (!row) return { changed: false, willRetry: false, row: null }
 
@@ -264,13 +242,7 @@ export async function fail(
           error,
           updated_at: sql`now()`,
         })
-        .where(
-          and(
-            eq(job.id, id),
-            eq(job.lease_token, leaseToken),
-            eq(job.status, "running"),
-          ),
-        )
+        .where(leasedRunningJob(id, leaseToken))
         .returning({ id: job.id })
       return { changed: Boolean(updated), willRetry, row }
     }
@@ -285,13 +257,7 @@ export async function fail(
         error,
         updated_at: sql`now()`,
       })
-      .where(
-        and(
-          eq(job.id, id),
-          eq(job.lease_token, leaseToken),
-          eq(job.status, "running"),
-        ),
-      )
+      .where(leasedRunningJob(id, leaseToken))
       .returning({ id: job.id })
     if (updated && registration) await rearmRecurringJob(tx, registration)
     return { changed: Boolean(updated), willRetry: false, row }
@@ -300,13 +266,7 @@ export async function fail(
   if (!result.changed || !result.row) {
     return { changed: result.changed, willRetry: result.willRetry }
   }
-  publishJobEvent({
-    jobId: result.row.id,
-    kind: result.row.kind,
-    status: result.willRetry ? "pending" : "failed",
-    progress: result.row.progress,
-    stage: result.row.stage,
-  })
+  publishJobStatus(result.row, result.willRetry ? "pending" : "failed")
   if (result.willRetry) publishQueueWake(requireJobKind(result.row.kind).queue)
   return { changed: result.changed, willRetry: result.willRetry }
 }
@@ -322,20 +282,9 @@ export async function cancel(id: string): Promise<boolean> {
       updated_at: sql`now()`,
     })
     .where(and(eq(job.id, id), inArray(job.status, ["pending", "running"])))
-    .returning({
-      id: job.id,
-      kind: job.kind,
-      progress: job.progress,
-      stage: job.stage,
-    })
+    .returning(jobEventSelect)
   if (!row) return false
-  publishJobEvent({
-    jobId: row.id,
-    kind: row.kind,
-    status: "cancelled",
-    progress: row.progress,
-    stage: row.stage,
-  })
+  publishJobStatus(row, "cancelled")
   return true
 }
 
@@ -359,20 +308,9 @@ export async function cancelByKindDedup(
         inArray(job.status, ["pending", "running"]),
       ),
     )
-    .returning({
-      id: job.id,
-      kind: job.kind,
-      progress: job.progress,
-      stage: job.stage,
-    })
+    .returning(jobEventSelect)
   for (const row of rows) {
-    publishJobEvent({
-      jobId: row.id,
-      kind: row.kind,
-      status: "cancelled",
-      progress: row.progress,
-      stage: row.stage,
-    })
+    publishJobStatus(row, "cancelled")
   }
   return rows.length
 }
@@ -410,12 +348,7 @@ export async function retry(jobId: string): Promise<boolean> {
         updated_at: sql`now()`,
       })
       .where(and(eq(job.id, jobId), eq(job.status, "failed")))
-      .returning({
-        id: job.id,
-        kind: job.kind,
-        progress: job.progress,
-        stage: job.stage,
-      })
+      .returning(jobEventSelect)
     if (!updated) return null
     return { ...updated, payload: current.payload }
   })
@@ -427,13 +360,7 @@ export async function retry(jobId: string): Promise<boolean> {
     // still re-armed, but skip the side-state restore rather than throw.
     if (parsed.success) await registration.onRetry(parsed.data)
   }
-  publishJobEvent({
-    jobId: row.id,
-    kind: row.kind,
-    status: "pending",
-    progress: row.progress,
-    stage: row.stage,
-  })
+  publishJobStatus(row, "pending")
   if (registration) publishQueueWake(registration.queue)
   return true
 }
@@ -444,56 +371,15 @@ export async function snooze(
   runAt: Date,
 ): Promise<boolean> {
   const row = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select({
-        id: job.id,
-        kind: job.kind,
-        dedup_key: job.dedup_key,
-      })
-      .from(job)
-      .where(
-        and(
-          eq(job.id, id),
-          eq(job.lease_token, leaseToken),
-          eq(job.status, "running"),
-        ),
-      )
-      .limit(1)
+    const current = await selectLeasedJobForPending(tx, id, leaseToken)
     if (!current) return null
-    const pendingFields = await absorbPendingTwin(tx, current, { runAt })
-    const [updated] = await tx
-      .update(job)
-      .set({
-        status: "pending",
-        ...pendingFields,
-        attempt: sql`greatest(${job.attempt} - 1, 0)`,
-        lease_token: null,
-        locked_at: null,
-        updated_at: sql`now()`,
-      })
-      .where(
-        and(
-          eq(job.id, id),
-          eq(job.lease_token, leaseToken),
-          eq(job.status, "running"),
-        ),
-      )
-      .returning({
-        id: job.id,
-        kind: job.kind,
-        progress: job.progress,
-        stage: job.stage,
-      })
-    return updated ?? null
+    return moveLeasedJobToPending(tx, current, leaseToken, {
+      runAt,
+      attempt: sql`greatest(${job.attempt} - 1, 0)`,
+    })
   })
   if (!row) return false
-  publishJobEvent({
-    jobId: row.id,
-    kind: row.kind,
-    status: "pending",
-    progress: row.progress,
-    stage: row.stage,
-  })
+  publishJobStatus(row, "pending")
   publishQueueWake(requireJobKind(row.kind).queue)
   return true
 }
@@ -519,20 +405,9 @@ export async function setProgress(
         lt(job.progress, pct),
       ),
     )
-    .returning({
-      id: job.id,
-      kind: job.kind,
-      progress: job.progress,
-      stage: job.stage,
-    })
+    .returning(jobEventSelect)
   if (!row) return false
-  publishJobEvent({
-    jobId: row.id,
-    kind: row.kind,
-    status: "running",
-    progress: row.progress,
-    stage: row.stage,
-  })
+  publishJobStatus(row, "running")
   return true
 }
 
@@ -541,57 +416,14 @@ export async function releaseForShutdown(
   leaseToken: string,
 ): Promise<boolean> {
   const row = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select({
-        id: job.id,
-        kind: job.kind,
-        dedup_key: job.dedup_key,
-      })
-      .from(job)
-      .where(
-        and(
-          eq(job.id, id),
-          eq(job.lease_token, leaseToken),
-          eq(job.status, "running"),
-        ),
-      )
-      .limit(1)
+    const current = await selectLeasedJobForPending(tx, id, leaseToken)
     if (!current) return null
-    const pendingFields = await absorbPendingTwin(tx, current, {
+    return moveLeasedJobToPending(tx, current, leaseToken, {
       runAt: sql`now()`,
     })
-    const [updated] = await tx
-      .update(job)
-      .set({
-        status: "pending",
-        ...pendingFields,
-        lease_token: null,
-        locked_at: null,
-        updated_at: sql`now()`,
-      })
-      .where(
-        and(
-          eq(job.id, id),
-          eq(job.lease_token, leaseToken),
-          eq(job.status, "running"),
-        ),
-      )
-      .returning({
-        id: job.id,
-        kind: job.kind,
-        progress: job.progress,
-        stage: job.stage,
-      })
-    return updated ?? null
   })
   if (!row) return false
-  publishJobEvent({
-    jobId: row.id,
-    kind: row.kind,
-    status: "pending",
-    progress: row.progress,
-    stage: row.stage,
-  })
+  publishJobStatus(row, "pending")
   return true
 }
 
@@ -745,6 +577,76 @@ async function markClaimedFailed(
 ): Promise<boolean> {
   const result = await fail(id, leaseToken, message, false)
   return result.changed
+}
+
+function leasedRunningJob(id: string, leaseToken: string) {
+  return and(
+    eq(job.id, id),
+    eq(job.lease_token, leaseToken),
+    eq(job.status, "running"),
+  )
+}
+
+function publishJobStatus(
+  row: { id: string; kind: string; progress: number; stage: string | null },
+  status: JobStatus,
+): void {
+  publishJobEvent({
+    jobId: row.id,
+    kind: row.kind,
+    status,
+    progress: row.progress,
+    stage: row.stage,
+  })
+}
+
+async function selectLeasedJobForPending(
+  tx: JobTransaction,
+  id: string,
+  leaseToken: string,
+) {
+  const [row] = await tx
+    .select({
+      id: job.id,
+      kind: job.kind,
+      dedup_key: job.dedup_key,
+    })
+    .from(job)
+    .where(leasedRunningJob(id, leaseToken))
+    .limit(1)
+  return row ?? null
+}
+
+async function moveLeasedJobToPending(
+  tx: JobTransaction,
+  row: { id: string; kind: string; dedup_key: string | null },
+  leaseToken: string,
+  input: { runAt: Date | SQL; attempt?: SQL },
+) {
+  const pendingFields = await absorbPendingTwin(tx, row, { runAt: input.runAt })
+  const [updated] = await tx
+    .update(job)
+    .set(
+      input.attempt === undefined
+        ? {
+            status: "pending",
+            ...pendingFields,
+            lease_token: null,
+            locked_at: null,
+            updated_at: sql`now()`,
+          }
+        : {
+            status: "pending",
+            ...pendingFields,
+            attempt: input.attempt,
+            lease_token: null,
+            locked_at: null,
+            updated_at: sql`now()`,
+          },
+    )
+    .where(leasedRunningJob(row.id, leaseToken))
+    .returning(jobEventSelect)
+  return updated ?? null
 }
 
 function pendingDedupPredicate() {
