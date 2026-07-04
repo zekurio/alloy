@@ -1,5 +1,3 @@
-import { rm } from "node:fs/promises"
-
 import { normalizeTags } from "@alloy/contracts"
 import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
@@ -10,14 +8,13 @@ import { getGameRefById } from "@alloy/server/games/ref"
 import { extractPoster } from "@alloy/server/media/poster"
 import { enqueueClipMediaProcessing } from "@alloy/server/queue/index"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
-import { makeMediaWorkDir } from "@alloy/server/queue/media-run-helpers"
+import { withClipSourceWorkDir } from "@alloy/server/queue/media-run-helpers"
 import {
   badRequest,
   conflict,
   deleted,
 } from "@alloy/server/runtime/http-response"
-import { join } from "@alloy/server/runtime/path"
-import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
+import { clipThumbnailStorage } from "@alloy/server/storage/index"
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -279,16 +276,11 @@ export const clipsUploadRoutes = new Hono()
     return deleted(c)
   })
 
-async function extractSourcePoster(
+function extractSourcePoster(
   sourceKey: string,
   opts: { atMs: number; durationMs: number },
 ) {
-  const workDir = await makeMediaWorkDir("poster")
-  try {
-    const sourcePath = join(workDir, "source")
-    await clipStorage.downloadToFile(sourceKey, sourcePath)
-    return await extractPoster(sourcePath, workDir, opts)
-  } finally {
-    await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
-  }
+  return withClipSourceWorkDir("poster", sourceKey, ({ workDir, sourcePath }) =>
+    extractPoster(sourcePath, workDir, opts),
+  )
 }

@@ -17,6 +17,7 @@ import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { Hono } from "hono"
+import type { Context } from "hono"
 import { stream } from "hono/streaming"
 import { z } from "zod"
 
@@ -56,6 +57,51 @@ function versionedCacheControl(
   return mediaCacheControl(privacy)
 }
 
+/**
+ * The clip's default playback bytes: the stream-copy cut shadows the stored
+ * source so trimmed-away footage never serves from a public endpoint.
+ */
+function cutOrSourceAsset(row: {
+  cut_key: string | null
+  source_key: string | null
+  source_content_type: string | null
+}): { key: string; contentType: string } | null {
+  if (row.cut_key) return { key: row.cut_key, contentType: "video/mp4" }
+  if (row.source_key && row.source_content_type) {
+    return { key: row.source_key, contentType: row.source_content_type }
+  }
+  return null
+}
+
+/** Shared serve pipeline: storage redirect, else resolve + range streaming. */
+async function serveClipAsset(
+  c: Context,
+  asset: { key: string; contentType: string },
+  opts: { cacheControl: string; etag: string; unavailable: string },
+): Promise<Response> {
+  const direct = await redirectToStorageUrl(
+    c,
+    clipStorage,
+    { key: asset.key, contentType: asset.contentType || undefined },
+    opts.cacheControl,
+  )
+  if (direct) return direct
+
+  const resolved = await clipStorage.resolve(asset.key)
+  if (!resolved) {
+    logger.error(`bytes missing under ${asset.key}`)
+    return notFound(c, opts.unavailable)
+  }
+
+  return streamResolved(
+    c,
+    resolved,
+    asset.contentType || resolved.contentType,
+    opts.cacheControl,
+    { etag: opts.etag },
+  )
+}
+
 export const clipsPlaybackRoutes = new Hono()
   /**
    * GET /api/clips/:id/stream — progressive playback bytes. Trimmed clips
@@ -76,55 +122,28 @@ export const clipsPlaybackRoutes = new Hono()
     const preferred =
       renditions.find((rendition) => rendition.is_og) ?? renditions[0]
     const selected = row.cut_key
-      ? { key: row.cut_key, contentType: "video/mp4" }
+      ? cutOrSourceAsset(row)
       : preferred
         ? { key: preferred.storage_key, contentType: "video/mp4" }
-        : row.source_key && row.source_content_type
-          ? {
-              key: row.source_key,
-              contentType: row.source_content_type,
-            }
-          : null
+        : cutOrSourceAsset(row)
 
     if (!selected) {
       return notFound(c, "Stream unavailable")
     }
 
     const version = clipAssetVersion(selected.key)
-    const etag = `"src-${version}"`
     // Published bytes are immutable under run-scoped keys, so a request
     // naming the current version can cache forever while unversioned requests
     // keep the short TTL so a republish propagates.
-    const cacheControl = versionedCacheControl(
-      c.req.query("v"),
-      version,
-      row.privacy,
-    )
-
-    const direct = await redirectToStorageUrl(
-      c,
-      clipStorage,
-      {
-        key: selected.key,
-        contentType: selected.contentType || undefined,
-      },
-      cacheControl,
-    )
-    if (direct) return direct
-
-    const resolved = await clipStorage.resolve(selected.key)
-    if (!resolved) {
-      logger.error(`bytes missing for ready clip ${id}`)
-      return notFound(c, "Stream unavailable")
-    }
-
-    return streamResolved(
-      c,
-      resolved,
-      selected.contentType || resolved.contentType,
-      cacheControl,
-      { etag },
-    )
+    return serveClipAsset(c, selected, {
+      cacheControl: versionedCacheControl(
+        c.req.query("v"),
+        version,
+        row.privacy,
+      ),
+      etag: `"src-${version}"`,
+      unavailable: "Stream unavailable",
+    })
   })
   /**
    * GET /api/clips/:id/source/file — the default playback tier. Trimmed clips
@@ -136,43 +155,19 @@ export const clipsPlaybackRoutes = new Hono()
     if (!access.accessible) return clipAccessResponse(c, access)
     const row = access.row
 
-    const selected = row.cut_key
-      ? { key: row.cut_key, contentType: "video/mp4" }
-      : row.source_key && row.source_content_type
-        ? { key: row.source_key, contentType: row.source_content_type }
-        : null
+    const selected = cutOrSourceAsset(row)
     if (!selected) return notFound(c, "Source unavailable")
 
     const version = clipAssetVersion(selected.key)
-    const cacheControl = versionedCacheControl(
-      c.req.query("v"),
-      version,
-      row.privacy,
-    )
-    const direct = await redirectToStorageUrl(
-      c,
-      clipStorage,
-      {
-        key: selected.key,
-        contentType: selected.contentType || undefined,
-      },
-      cacheControl,
-    )
-    if (direct) return direct
-
-    const resolved = await clipStorage.resolve(selected.key)
-    if (!resolved) {
-      logger.error(`source bytes missing for clip ${id}`)
-      return notFound(c, "Source unavailable")
-    }
-
-    return streamResolved(
-      c,
-      resolved,
-      selected.contentType || resolved.contentType,
-      cacheControl,
-      { etag: `"src-${version}"` },
-    )
+    return serveClipAsset(c, selected, {
+      cacheControl: versionedCacheControl(
+        c.req.query("v"),
+        version,
+        row.privacy,
+      ),
+      etag: `"src-${version}"`,
+      unavailable: "Source unavailable",
+    })
   })
   /**
    * GET /api/clips/:id/original/file — the uncut stored source for the owner
@@ -189,31 +184,14 @@ export const clipsPlaybackRoutes = new Hono()
       return notFound(c, "Source unavailable")
     }
 
-    const version = clipAssetVersion(row.source_key)
-    const cacheControl = "private, max-age=300"
-    const direct = await redirectToStorageUrl(
+    return serveClipAsset(
       c,
-      clipStorage,
+      { key: row.source_key, contentType: row.source_content_type },
       {
-        key: row.source_key,
-        contentType: row.source_content_type || undefined,
+        cacheControl: "private, max-age=300",
+        etag: `"orig-${clipAssetVersion(row.source_key)}"`,
+        unavailable: "Source unavailable",
       },
-      cacheControl,
-    )
-    if (direct) return direct
-
-    const resolved = await clipStorage.resolve(row.source_key)
-    if (!resolved) {
-      logger.error(`original source bytes missing for clip ${id}`)
-      return notFound(c, "Source unavailable")
-    }
-
-    return streamResolved(
-      c,
-      resolved,
-      row.source_content_type || resolved.contentType,
-      cacheControl,
-      { etag: `"orig-${version}"` },
     )
   })
   /**
@@ -277,29 +255,19 @@ export const clipsPlaybackRoutes = new Hono()
       if (!rendition) return notFound(c, "Rendition unavailable")
 
       const version = clipAssetVersion(rendition.storage_key)
-      const cacheControl = versionedCacheControl(
-        c.req.query("v"),
-        version,
-        row.privacy,
-      )
-
-      const direct = await redirectToStorageUrl(
+      return serveClipAsset(
         c,
-        clipStorage,
         { key: rendition.storage_key, contentType: "video/mp4" },
-        cacheControl,
+        {
+          cacheControl: versionedCacheControl(
+            c.req.query("v"),
+            version,
+            row.privacy,
+          ),
+          etag: `"rnd-${version}"`,
+          unavailable: "Rendition unavailable",
+        },
       )
-      if (direct) return direct
-
-      const resolved = await clipStorage.resolve(rendition.storage_key)
-      if (!resolved) {
-        logger.error(`rendition bytes missing for clip ${id} ${name}`)
-        return notFound(c, "Rendition unavailable")
-      }
-
-      return streamResolved(c, resolved, "video/mp4", cacheControl, {
-        etag: `"rnd-${version}"`,
-      })
     },
   )
   /**
@@ -367,23 +335,11 @@ export const clipsPlaybackRoutes = new Hono()
     if (!access.accessible) return clipAccessResponse(c, access)
     const row = access.row
 
-    const selected = row.cut_key
-      ? {
-          key: row.cut_key,
-          contentType: "video/mp4",
-          filename: downloadFilename(row),
-        }
-      : row.source_key && row.source_content_type
-        ? {
-            key: row.source_key,
-            contentType: row.source_content_type,
-            filename: downloadFilename(row),
-          }
-        : null
-
-    if (!selected) {
+    const asset = cutOrSourceAsset(row)
+    if (!asset) {
       return notFound(c, "Unknown download")
     }
+    const selected = { ...asset, filename: downloadFilename(row) }
 
     const dlCacheControl =
       row.privacy === "public" ? "public, max-age=300" : "private, max-age=300"

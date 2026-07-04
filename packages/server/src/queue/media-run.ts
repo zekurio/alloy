@@ -8,7 +8,7 @@ import {
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
-import { mp4Layout, remuxToFastStart } from "@alloy/server/media/mp4-layout"
+import { faststartPath } from "@alloy/server/media/mp4-layout"
 import { extractPoster } from "@alloy/server/media/poster"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
 import {
@@ -148,15 +148,16 @@ async function runPipelineInWorkDir({
     await downloadStagedUploadToFile(uploadKey, rawSourcePath)
   }
 
-  let sourcePath = rawSourcePath
-  if (!row.sourceKey && sourceContentType === "video/mp4") {
-    const layout = await mp4Layout(rawSourcePath)
-    if (layout === "trailing-moov") {
-      const remuxedPath = join(workDir, "source-faststart.mp4")
-      await remuxToFastStart(rawSourcePath, remuxedPath, signal)
-      sourcePath = remuxedPath
-    }
-  }
+  // Committed sources were normalized at first ingest (or by the probe
+  // backfill); only fresh uploads need the faststart check.
+  const sourcePath = row.sourceKey
+    ? rawSourcePath
+    : await faststartPath(
+        rawSourcePath,
+        join(workDir, "source-faststart.mp4"),
+        sourceContentType,
+        signal,
+      )
   await ensureStillPresent(store, id, runId, signal)
 
   if (!(await store.beginProcessing(id, runId))) throw abortMediaProcessing()
@@ -466,53 +467,39 @@ async function republishUploadedThumbnail(
   uploadedKeys: string[],
   options: { keepExisting: boolean },
 ): Promise<{ thumbKey: string | null; thumbBlurHash: string | null }> {
+  const fallback =
+    options.keepExisting && row.thumbKey
+      ? {
+          thumbKey: row.thumbKey,
+          thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
+        }
+      : { thumbKey: null, thumbBlurHash: null }
+
   const uploadedThumbKey = await selectThumbTicketKey({
     type: store.target,
     id,
   })
-  if (uploadedThumbKey) {
-    const stagedThumb = await resolveStagedUpload(uploadedThumbKey)
-    if (stagedThumb) {
-      if (stagedThumb.size > THUMB_UPLOAD_MAX_BYTES) {
-        logger.warn(
-          `rejected oversized staged poster for ${id}: ${stagedThumb.size} bytes`,
-        )
-        return options.keepExisting ? publishedThumbnail(row) : noThumbnail()
-      }
+  if (!uploadedThumbKey) return fallback
+  const stagedThumb = await resolveStagedUpload(uploadedThumbKey)
+  if (!stagedThumb) return fallback
 
-      const buf = Buffer.from(
-        await new Response(stagedThumb.stream()).arrayBuffer(),
-      )
-      const jpeg = await normalizeStagedPosterToJpeg(buf, id)
-      if (!jpeg) {
-        return options.keepExisting ? publishedThumbnail(row) : noThumbnail()
-      }
-
-      const thumbKey = runScopedThumbKey(id, runId)
-      await clipThumbnailStorage.put(thumbKey, jpeg, "image/jpeg")
-      uploadedKeys.push(thumbKey)
-      return { thumbKey, thumbBlurHash: normalizeBlurHash(row.thumbBlurHash) }
-    }
-    return options.keepExisting ? publishedThumbnail(row) : noThumbnail()
+  if (stagedThumb.size > THUMB_UPLOAD_MAX_BYTES) {
+    logger.warn(
+      `rejected oversized staged poster for ${id}: ${stagedThumb.size} bytes`,
+    )
+    return fallback
   }
-  return options.keepExisting ? publishedThumbnail(row) : noThumbnail()
-}
 
-function noThumbnail(): {
-  thumbKey: string | null
-  thumbBlurHash: string | null
-} {
-  return { thumbKey: null, thumbBlurHash: null }
-}
+  const buf = Buffer.from(
+    await new Response(stagedThumb.stream()).arrayBuffer(),
+  )
+  const jpeg = await normalizeStagedPosterToJpeg(buf, id)
+  if (!jpeg) return fallback
 
-function publishedThumbnail(
-  row: Pick<MediaRow, "thumbKey" | "thumbBlurHash">,
-): { thumbKey: string | null; thumbBlurHash: string | null } {
-  if (!row.thumbKey) return { thumbKey: null, thumbBlurHash: null }
-  return {
-    thumbKey: row.thumbKey,
-    thumbBlurHash: normalizeBlurHash(row.thumbBlurHash),
-  }
+  const thumbKey = runScopedThumbKey(id, runId)
+  await clipThumbnailStorage.put(thumbKey, jpeg, "image/jpeg")
+  uploadedKeys.push(thumbKey)
+  return { thumbKey, thumbBlurHash: normalizeBlurHash(row.thumbBlurHash) }
 }
 
 /**

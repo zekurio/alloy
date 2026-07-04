@@ -71,18 +71,6 @@ export function uploadQueueStreamUrl(origin?: string): string {
   return resolvePublicUrlWithQuery("/api/events/clips/queue", {}, origin)
 }
 
-export function clipStreamUrl(
-  clipId: string,
-  origin?: string,
-  version?: string,
-): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/stream"),
-    { v: version },
-    origin,
-  )
-}
-
 export function clipRenditionFileUrl(
   clipId: string,
   name: string,

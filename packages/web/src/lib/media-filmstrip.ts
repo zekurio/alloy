@@ -5,7 +5,12 @@ import {
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
-import { teardownVideoElement, videoEvent } from "./video-events"
+import {
+  canvasJpegBlob,
+  drawVideoFrameJpeg,
+  teardownVideoElement,
+  videoEvent,
+} from "./video-events"
 
 /**
  * Renderer-side filmstrip sampling with two sources: evenly spaced frames
@@ -41,11 +46,25 @@ const EMPTY_FILMSTRIP: MediaFilmstrip = {
 }
 
 /**
- * Frames are extracted once per media URL and kept for the session — the
- * same lifetime the desktop's on-disk frame cache used to provide. Failures
- * don't cache, so a remount retries after transient (network) errors.
+ * Frames are extracted once per media URL and cached with a small LRU-ish
+ * cap; evicted strips revoke their frame object URLs so long browsing
+ * sessions don't pin every visited clip's frames in memory. Failures don't
+ * cache, so a remount retries after transient (network) errors.
  */
 const filmstripCache = new Map<string, Promise<MediaFilmstrip>>()
+const MAX_FILMSTRIP_CACHE_ENTRIES = 24
+
+function evictStaleFilmstrips(): void {
+  while (filmstripCache.size > MAX_FILMSTRIP_CACHE_ENTRIES) {
+    const oldest = filmstripCache.keys().next().value
+    if (oldest === undefined) return
+    const pending = filmstripCache.get(oldest)
+    filmstripCache.delete(oldest)
+    void pending?.then((strip) => {
+      for (const frame of strip.frames) URL.revokeObjectURL(frame)
+    })
+  }
+}
 
 export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
   return cachedFilmstrip(mediaUrl, extractFilmstrip)
@@ -68,6 +87,7 @@ function cachedFilmstrip(
       return EMPTY_FILMSTRIP
     })
     filmstripCache.set(url, pending)
+    evictStaleFilmstrips()
   }
   return pending
 }
@@ -261,9 +281,7 @@ async function extractSpriteFilmstrip(
       cellWidth,
       cellHeight,
     )
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob(resolve, "image/jpeg", FRAME_QUALITY)
-    }).catch(() => null)
+    const blob = await canvasJpegBlob(canvas, FRAME_QUALITY)
     if (!blob) return EMPTY_FILMSTRIP
     frames.push(URL.createObjectURL(blob))
   }
@@ -285,28 +303,13 @@ async function seekFrameObjectUrl(
   } catch {
     return null
   }
-  // An unsupported codec parses metadata but never decodes a frame; skip
-  // instead of drawing black cells.
-  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return null
-  const srcW = video.videoWidth
-  const srcH = video.videoHeight
-  if (!srcW || !srcH) return null
-
-  const canvas = document.createElement("canvas")
-  canvas.height = FRAME_HEIGHT
-  canvas.width = Math.max(1, Math.round((srcW / srcH) * FRAME_HEIGHT))
-  const ctx = canvas.getContext("2d")
-  if (!ctx) return null
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, "image/jpeg", FRAME_QUALITY)
-  }).catch(() => null)
-  // toBlob rejects/throws on tainted canvases (cross-origin media without
-  // CORS headers) — treat as no frame rather than failing the whole strip.
-  if (!blob) return null
+  const frame = await drawVideoFrameJpeg(video, {
+    height: FRAME_HEIGHT,
+    quality: FRAME_QUALITY,
+  })
+  if (!frame) return null
   return {
-    url: URL.createObjectURL(blob),
-    aspect: canvas.width / canvas.height,
+    url: URL.createObjectURL(frame.blob),
+    aspect: frame.width / frame.height,
   }
 }
