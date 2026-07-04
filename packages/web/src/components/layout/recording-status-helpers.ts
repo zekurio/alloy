@@ -83,9 +83,6 @@ export function captureTargetLabel(
   if (status?.activeGame) {
     return t("{game} is being captured", { game: status.activeGame })
   }
-  if (status?.replayActive && status.currentCapture?.game) {
-    return t("{game} is ready", { game: status.currentCapture.game.name })
-  }
   return t("Alloy will start capturing when you launch a game.")
 }
 
@@ -96,11 +93,7 @@ export function statusLabel(
   if (!settings) return t("Loading capture")
   if (settings.captureMode === "display") return t("Display capture")
   if (!settings.enabled) return t("Capture off")
-  return (
-    status?.activeGame ??
-    status?.currentCapture?.game?.name ??
-    t("Waiting for game")
-  )
+  return status?.activeGame ?? t("Waiting for game")
 }
 
 export function statusActive(status: RecordingStatus | null): boolean {

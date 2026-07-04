@@ -60,9 +60,9 @@ export function DesktopRecordingStatus({
     <RecordingStatusPopover
       active={statusActive(state.status)}
       activeGame={
-        state.status?.activeGameDetail ??
-        state.status?.currentCapture?.game ??
-        null
+        state.settings?.enabled
+          ? (state.status?.activeGameDetail ?? null)
+          : null
       }
       desktop={desktop}
       displays={state.displays}
