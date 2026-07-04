@@ -90,7 +90,13 @@ export function DesktopRecordingProvider({
     let receivedStatusEvent = false
 
     async function load() {
-      if (!recording) return
+      if (!recording) {
+        setSettings(null)
+        setStatus(null)
+        setStorageInfo(null)
+        setPhase("idle")
+        return
+      }
       setPhase("loading")
       try {
         unsubscribe = recording.onEvent((event: RecordingEvent) => {
@@ -127,6 +133,9 @@ export function DesktopRecordingProvider({
     return () => {
       cancelled = true
       unsubscribe?.()
+      setSettings(null)
+      setStatus(null)
+      setStorageInfo(null)
     }
   }, [recording])
 

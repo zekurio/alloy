@@ -43,6 +43,28 @@ export interface RecordingLibraryItem {
   modifiedAt: string
 }
 
+export function contentTypeForFile(fileName: string): string {
+  switch (fileNameExtension(fileName)) {
+    case ".mp4":
+      return "video/mp4"
+    case ".mov":
+      return "video/quicktime"
+    case ".mkv":
+      return "video/x-matroska"
+    case ".webm":
+      return "video/webm"
+    default:
+      return "application/octet-stream"
+  }
+}
+
+function fileNameExtension(fileName: string): string {
+  const baseName = fileName.split(/[\\/]/).at(-1) ?? ""
+  const extensionIndex = baseName.lastIndexOf(".")
+  if (extensionIndex <= 0) return ""
+  return baseName.slice(extensionIndex).toLowerCase()
+}
+
 /** One source range of an edited sequence, in playback order. */
 export interface RecordingLibraryExportSegment {
   startMs: number

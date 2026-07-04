@@ -100,7 +100,14 @@ export function useLibrarySnapshot(
   useEffect(() => {
     if (!desktop) return
     return desktop.recording.onEvent((event) => {
-      if (event.type === "capture-ready" || event.type === "settings") {
+      const completedDownload =
+        event.type === "library-download" &&
+        event.download.status === "completed"
+      if (
+        event.type === "capture-ready" ||
+        event.type === "settings" ||
+        completedDownload
+      ) {
         window.setTimeout(() => {
           invalidateLibrarySnapshot(queryClient)
         }, 250)
