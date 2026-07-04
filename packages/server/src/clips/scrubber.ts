@@ -37,6 +37,25 @@ export function ensureClipScrubberSheet(input: {
   return pending
 }
 
+export async function publishScrubberSheet(input: {
+  clipId: string
+  sourcePath: string
+  workDir: string
+  durationMs: number
+  signal?: AbortSignal
+}): Promise<void> {
+  const sheetPath = join(input.workDir, "scrubber.jpg")
+  await generateScrubberSheet(input.sourcePath, sheetPath, {
+    durationMs: input.durationMs,
+    signal: input.signal,
+  })
+  await clipThumbnailStorage.put(
+    clipScrubberKey(input.clipId),
+    await readFile(sheetPath),
+    "image/jpeg",
+  )
+}
+
 async function generateSheet(
   key: string,
   input: { clipId: string; sourceKey: string; durationMs: number },
@@ -48,15 +67,12 @@ async function generateSheet(
       `scrubber-${input.clipId}`,
       input.sourceKey,
       async ({ workDir, sourcePath }) => {
-        const sheetPath = join(workDir, "scrubber.jpg")
-        await generateScrubberSheet(sourcePath, sheetPath, {
+        await publishScrubberSheet({
+          clipId: input.clipId,
+          sourcePath,
+          workDir,
           durationMs: input.durationMs,
         })
-        await clipThumbnailStorage.put(
-          key,
-          await readFile(sheetPath),
-          "image/jpeg",
-        )
       },
     )
     return true
