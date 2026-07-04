@@ -81,6 +81,20 @@ const H264_PROFILE_IDC: Record<string, number> = {
 }
 
 /**
+ * Combined RFC 6381 codec list for the clip row's `source_codecs` column;
+ * null when the video codec string is unknown so clients fall back to a
+ * container-only capability check.
+ */
+export function sourceCodecsString(
+  probe: Pick<MediaProbe, "videoCodecString" | "audioCodecString">,
+): string | null {
+  if (!probe.videoCodecString) return null
+  return [probe.videoCodecString, probe.audioCodecString]
+    .filter((value): value is string => !!value)
+    .join(",")
+}
+
+/**
  * RFC 6381 video codec string from ffprobe stream fields. Exported for unit
  * tests; callers go through {@link probeMedia}.
  */
