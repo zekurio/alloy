@@ -117,6 +117,13 @@ export type ClipFeedSort = ClipListSort | "recommended"
 export const CLIP_TITLE_MAX_LENGTH = 100
 export const CLIP_DESCRIPTION_MAX_LENGTH = 2000
 
+/**
+ * Trim-scrubber sprite sheet layout, shared between the server tile pass and
+ * the client slicer: frame count cells tiled this many columns wide.
+ */
+export const CLIP_SCRUBBER_FRAME_COUNT = 16
+export const CLIP_SCRUBBER_COLUMNS = 4
+
 export interface ClipPage {
   items: ClipRow[]
   nextCursor: string | null
@@ -190,6 +197,14 @@ export interface UpdateClipInput {
 export interface TrimClipInput {
   startMs: number
   endMs: number
+}
+
+/**
+ * Re-poster request: extract the frame at `timeMs` (source-time; the server
+ * clamps it into the trim range) and publish it as the clip's thumbnail.
+ */
+export interface SetClipPosterInput {
+  timeMs: number
 }
 
 export interface ClipLikeState {

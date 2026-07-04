@@ -1,6 +1,12 @@
-import { type ClipRow, clipOriginalFileUrl, clipThumbnailUrl } from "@alloy/api"
+import {
+  type ClipRow,
+  clipOriginalFileUrl,
+  clipScrubberFileUrl,
+  clipThumbnailUrl,
+} from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
+import { Button } from "@alloy/ui/components/button"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Progress } from "@alloy/ui/components/progress"
@@ -10,7 +16,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { CloudIcon } from "lucide-react"
+import { CloudIcon, ImageIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
@@ -23,11 +29,12 @@ import {
   useClipQuery,
   useDeleteClipMutation,
   seedClipDetailInCache,
+  useSetClipPosterMutation,
   useTrimClipMutation,
 } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
-import { useMediaFilmstrip } from "@/lib/media-filmstrip"
+import { useSpriteSheetFilmstrip } from "@/lib/media-filmstrip"
 
 import { ClipEditorTabs } from "./library-clip-editor-details"
 import { DeleteServerBackedDialog } from "./library-delete-dialog"
@@ -159,6 +166,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
           media={media}
           playback={playback}
           processing={processing}
+          canManage={canManage}
           prevEntry={prevEntry}
           nextEntry={nextEntry}
         />
@@ -213,7 +221,9 @@ function useClipEditorMedia(
   // background detail refetch lands.
   const mediaVersion = row.sourceVersion ?? ""
   const streamSrc = clipOriginalFileUrl(row.id, apiOrigin())
-  const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
+  const filmstrip = useSpriteSheetFilmstrip(
+    processing ? null : clipScrubberFileUrl(row.id, apiOrigin()),
+  )
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : undefined
@@ -292,6 +302,7 @@ function ClipEditorStage({
   media,
   playback,
   processing,
+  canManage,
   prevEntry,
   nextEntry,
 }: {
@@ -299,6 +310,7 @@ function ClipEditorStage({
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
   processing: boolean
+  canManage: boolean
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
 }) {
@@ -337,7 +349,12 @@ function ClipEditorStage({
       {processing ? (
         <ClipProcessingNotice progress={row.encodeProgress} />
       ) : (
-        <ClipEditorTrimControls media={media} playback={playback} />
+        <ClipEditorTrimControls
+          clipId={row.id}
+          media={media}
+          playback={playback}
+          canManage={canManage}
+        />
       )}
     </section>
   )
@@ -377,15 +394,26 @@ function ClipEditorPreviewPlaceholder({
 }
 
 function ClipEditorTrimControls({
+  clipId,
   media,
   playback,
+  canManage,
 }: {
+  clipId: string
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
+  canManage: boolean
 }) {
   return (
     <>
-      <TrimTransportControls playback={playback} />
+      <TrimTransportControls
+        playback={playback}
+        trailing={
+          canManage ? (
+            <SetPosterButton clipId={clipId} playback={playback} />
+          ) : undefined
+        }
+      />
       <LibraryTrimBar
         frames={media.filmstrip.frames}
         frameAspect={media.filmstrip.aspect}
@@ -403,6 +431,42 @@ function ClipEditorTrimControls({
         onMove={playback.handleTrimMove}
       />
     </>
+  )
+}
+
+/**
+ * Publishes the paused frame as the clip's poster — the server extracts it
+ * from the stored source at the playhead's source-time position.
+ */
+function SetPosterButton({
+  clipId,
+  playback,
+}: {
+  clipId: string
+  playback: ClipEditorPlaybackState
+}) {
+  const mutation = useSetClipPosterMutation()
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={mutation.isPending}
+      onClick={() => {
+        playback.playerRef.current?.pause()
+        mutation.mutate(
+          { clipId, timeMs: Math.round(playback.getCurrentMs()) },
+          {
+            onSuccess: () => toast.success(t("Poster updated")),
+            onError: (cause) =>
+              toast.error(cause.message || t("Couldn't update the poster")),
+          },
+        )
+      }}
+    >
+      {mutation.isPending ? <Spinner className="size-4" /> : <ImageIcon />}
+      {t("Use frame as poster")}
+    </Button>
   )
 }
 

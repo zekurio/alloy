@@ -249,6 +249,22 @@ export function useTrimClipMutation() {
   })
 }
 
+export function useSetClipPosterMutation() {
+  const qc = useQueryClient()
+
+  return useMutation<ClipRow, Error, { clipId: string; timeMs: number }>({
+    mutationFn: ({ clipId, timeMs }) => api.clips.setPoster(clipId, { timeMs }),
+    onSuccess: (row) => {
+      // thumbVersion changes with the new thumb key, so cards and players
+      // pick up the new poster without a manual cache bust.
+      patchClipInCaches(qc, row.id, row)
+    },
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: clipKeys.all })
+    },
+  })
+}
+
 export function useDeleteClipMutation() {
   const qc = useQueryClient()
 
