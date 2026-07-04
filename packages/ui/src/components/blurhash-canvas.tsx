@@ -1,5 +1,7 @@
+import { isBlurHash } from "@alloy/contracts/blurhash"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useRef } from "react"
+import { decode } from "blurhash"
+import { useLayoutEffect, useRef } from "react"
 
 type DecodedBlurHash = {
   pixels: Uint8ClampedArray
@@ -7,24 +9,11 @@ type DecodedBlurHash = {
   height: number
 }
 
-type WorkerResponse =
-  | (DecodedBlurHash & { id: number; error?: undefined })
-  | { id: number; error: string }
-
 const DEFAULT_DECODE_WIDTH = 20
 const DEFAULT_DECODE_HEIGHT = 20
 const MAX_CACHE_ENTRIES = 256
 
-let worker: Worker | null = null
-let nextRequestId = 1
 const cache = new Map<string, DecodedBlurHash>()
-const pending = new Map<
-  number,
-  {
-    resolve: (value: DecodedBlurHash) => void
-    reject: (error: Error) => void
-  }
->()
 
 function cacheKey(hash: string, width: number, height: number): string {
   return `${hash}:${width}x${height}`
@@ -38,60 +27,25 @@ function rememberDecoded(key: string, decoded: DecodedBlurHash): void {
   if (oldest !== undefined) cache.delete(oldest)
 }
 
-function blurHashWorker(): Worker {
-  if (worker) return worker
-  worker = new Worker(new URL("../lib/blurhash-worker.ts", import.meta.url), {
-    type: "module",
-  })
-  worker.addEventListener(
-    "message",
-    ({ data }: MessageEvent<WorkerResponse>) => {
-      const request = pending.get(data.id)
-      if (!request) return
-      pending.delete(data.id)
-      if (data.error !== undefined) {
-        request.reject(new Error(data.error))
-        return
-      }
-      const decoded = {
-        pixels: data.pixels,
-        width: data.width,
-        height: data.height,
-      }
-      request.resolve(decoded)
-    },
-  )
-  worker.addEventListener("error", (event) => {
-    const error = new Error(event.message || "BlurHash worker failed")
-    for (const [id, request] of pending) {
-      pending.delete(id)
-      request.reject(error)
-    }
-  })
-  return worker
-}
-
 function decodeBlurHash(
   hash: string,
   width: number,
   height: number,
-): Promise<DecodedBlurHash> {
+): DecodedBlurHash {
   const key = cacheKey(hash, width, height)
   const cached = cache.get(key)
-  if (cached) return Promise.resolve(cached)
+  if (cached) {
+    rememberDecoded(key, cached)
+    return cached
+  }
 
-  return new Promise((resolve, reject) => {
-    const id = nextRequestId++
-    pending.set(id, {
-      resolve: (decoded) => {
-        rememberDecoded(key, decoded)
-        resolve(decoded)
-      },
-      reject,
-    })
-    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- Worker.postMessage does not take a targetOrigin.
-    blurHashWorker().postMessage({ id, hash, width, height })
-  })
+  const decoded = {
+    pixels: decode(hash, width, height),
+    width,
+    height,
+  }
+  rememberDecoded(key, decoded)
+  return decoded
 }
 
 export function BlurHashCanvas({
@@ -110,36 +64,29 @@ export function BlurHashCanvas({
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const contained = typeof aspectRatio === "number" && aspectRatio > 0
-  const { width, height } = decodeSize(contained ? aspectRatio : undefined)
+  const size = decodeSize(contained ? aspectRatio : undefined)
+  const validHash = hash && isBlurHash(hash) ? hash : null
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !hash) return
+    if (!canvas || !validHash) return
+    const decoded = decodeBlurHash(validHash, size.width, size.height)
+    const context = canvas.getContext("2d")
+    if (!context) return
+    canvas.width = decoded.width
+    canvas.height = decoded.height
+    const imageData = context.createImageData(decoded.width, decoded.height)
+    imageData.data.set(decoded.pixels)
+    context.putImageData(imageData, 0, 0)
+  }, [size.height, size.width, validHash])
 
-    let cancelled = false
-    void decodeBlurHash(hash, width, height)
-      .then((decoded) => {
-        if (cancelled) return
-        const context = canvas.getContext("2d")
-        if (!context) return
-        canvas.width = decoded.width
-        canvas.height = decoded.height
-        const imageData = context.createImageData(decoded.width, decoded.height)
-        imageData.data.set(decoded.pixels)
-        context.putImageData(imageData, 0, 0)
-      })
-      .catch(() => undefined)
-
-    return () => {
-      cancelled = true
-    }
-  }, [hash, height, width])
-
-  if (!hash) return null
+  if (!validHash) return null
 
   return (
     <canvas
       ref={canvasRef}
+      width={size.width}
+      height={size.height}
       aria-hidden
       className={cn(
         "pointer-events-none absolute inset-0 size-full",
