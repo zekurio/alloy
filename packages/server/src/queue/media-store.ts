@@ -7,6 +7,7 @@ export interface MediaRow {
   sourceKey: string | null
   sourceContentType: string | null
   sourceSizeBytes: number | null
+  cutKey: string | null
   thumbKey: string | null
   thumbBlurHash: string | null
   trimStartMs: number | null
@@ -19,7 +20,10 @@ export interface MediaSourcePatch {
   sourceContentType: string
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
+  sourceCodecs: string | null
   sourceSizeBytes: number
+  sourceDurationMs: number
+  cutKey: string | null
   durationMs: number
   width: number
   height: number
@@ -73,7 +77,7 @@ export interface MediaStore {
   commitProgress(id: string, runId: string, pct: number): Promise<boolean>
   /** Side-channel progress signal (SSE for clips). */
   publishProgress(authorId: string, id: string, pct: number): void
-  /** Commit the (possibly trimmed) source asset; false if lease lost. */
+  /** Commit source facts plus the current virtual cut reference. */
   commitSource(
     id: string,
     runId: string,
@@ -85,6 +89,12 @@ export interface MediaStore {
     runId: string,
     patch: MediaThumbPatch,
   ): Promise<boolean>
+  /**
+   * Transitions the row to publicly playable once source+poster are committed,
+   * while the encode ladder continues under the same lease. Does not touch
+   * encode_pipeline/encode_progress; only commitReady owns those.
+   */
+  commitPlayable(id: string, runId: string): Promise<boolean>
   /**
    * Final ready transition. Replaces the row's rendition set in the same
    * transaction so readers never observe a half-committed ladder.
@@ -98,6 +108,7 @@ export interface MediaStore {
   /** Current asset keys, so a failing run never deletes live assets. */
   currentAssetKeys(id: string): Promise<{
     sourceKey: string | null
+    cutKey: string | null
     thumbKey: string | null
     renditionKeys: string[]
   } | null>

@@ -1,11 +1,14 @@
-import { ALL_FORMATS, CanvasSink, Input } from "mediabunny"
 import { useEffect, useState } from "react"
 
-import { createCaptureSource } from "@/lib/capture-source"
 import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import { clientLogger } from "./client-log"
+import {
+  drawVideoFrameJpeg,
+  teardownVideoElement,
+  videoEvent,
+} from "./video-events"
 
 const POSTER_HEIGHT = 360
 const POSTER_QUALITY = 0.82
@@ -138,56 +141,31 @@ async function capturePosterBlob(
   mediaUrl: string,
   durationMs: number | null,
 ): Promise<Blob | null> {
-  const input = new Input({
-    formats: ALL_FORMATS,
-    source: createCaptureSource(mediaUrl),
-  })
+  const video = document.createElement("video")
+  video.preload = "auto"
+  video.muted = true
+  video.playsInline = true
+  // Keeps decoded frames drawable to canvas across the capture protocol's
+  // cross-origin boundary.
+  video.crossOrigin = "anonymous"
+  video.src = mediaUrl
   try {
-    const track = await input.getPrimaryVideoTrack()
-    if (!track || !(await track.canDecode())) return null
-
+    await videoEvent(video, "loadedmetadata")
     const durationSec =
-      durationMs && durationMs > 0
-        ? durationMs / 1000
-        : await input.computeDuration()
-    if (!(durationSec > 0)) return null
+      durationMs && durationMs > 0 ? durationMs / 1000 : video.duration
+    if (!Number.isFinite(durationSec) || !(durationSec > 0)) return null
 
-    const sink = new CanvasSink(track, { height: POSTER_HEIGHT })
-    const timestamp = Math.min(1, durationSec / 2)
-    for await (const wrapped of sink.canvasesAtTimestamps([timestamp])) {
-      if (!wrapped) continue
-      return canvasJpegBlob(wrapped.canvas)
-    }
-    return null
-  } finally {
-    input.dispose()
-  }
-}
-
-async function canvasJpegBlob(
-  canvas: HTMLCanvasElement | OffscreenCanvas,
-): Promise<Blob> {
-  if (
-    typeof OffscreenCanvas !== "undefined" &&
-    canvas instanceof OffscreenCanvas
-  ) {
-    return canvas.convertToBlob({
-      type: "image/jpeg",
+    const seeked = videoEvent(video, "seeked")
+    video.currentTime = Math.min(1, durationSec / 2)
+    await seeked
+    const frame = await drawVideoFrameJpeg(video, {
+      height: POSTER_HEIGHT,
       quality: POSTER_QUALITY,
     })
+    return frame?.blob ?? null
+  } finally {
+    teardownVideoElement(video)
   }
-
-  const htmlCanvas = canvas as HTMLCanvasElement
-  return new Promise<Blob>((resolve, reject) => {
-    htmlCanvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob)
-        else reject(new Error("canvas.toBlob returned null"))
-      },
-      "image/jpeg",
-      POSTER_QUALITY,
-    )
-  })
 }
 
 async function persistPoster(id: string, blob: Blob): Promise<void> {

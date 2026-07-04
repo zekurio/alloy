@@ -1,6 +1,13 @@
-import { type ClipRow, clipStreamUrl, clipThumbnailUrl } from "@alloy/api"
+import {
+  type ClipRow,
+  clipOriginalFileUrl,
+  clipRenditionFileUrl,
+  clipScrubberFileUrl,
+  clipThumbnailUrl,
+} from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
+import { Button } from "@alloy/ui/components/button"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Progress } from "@alloy/ui/components/progress"
@@ -10,7 +17,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { CloudIcon } from "lucide-react"
+import { CloudIcon, ImageIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
@@ -23,11 +30,13 @@ import {
   useClipQuery,
   useDeleteClipMutation,
   seedClipDetailInCache,
+  useSetClipPosterMutation,
   useTrimClipMutation,
 } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
-import { useMediaFilmstrip } from "@/lib/media-filmstrip"
+import { canPlaySource } from "@/lib/media-capability"
+import { useSpriteSheetFilmstrip } from "@/lib/media-filmstrip"
 
 import { ClipEditorTabs } from "./library-clip-editor-details"
 import { DeleteServerBackedDialog } from "./library-delete-dialog"
@@ -101,7 +110,11 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
   const processing = row.status !== "ready" || row.encodeProgress < 100
   const canTrim = isOwner && !processing
   const playback = useTrimPlayback({
-    initialDurationMs: row.durationMs ?? 0,
+    initialDurationMs: row.sourceDurationMs ?? row.durationMs ?? 0,
+    initialTrim:
+      row.trimStartMs !== null && row.trimEndMs !== null
+        ? { startMs: row.trimStartMs, endMs: row.trimEndMs }
+        : undefined,
     canTrim,
   })
   const { playerRef, trim, trimmed, rangeMs } = playback
@@ -155,6 +168,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
           media={media}
           playback={playback}
           processing={processing}
+          canManage={canManage}
           prevEntry={prevEntry}
           nextEntry={nextEntry}
         />
@@ -208,12 +222,32 @@ function useClipEditorMedia(
   // from thumb/status fields would reload the <video> mid-playback whenever a
   // background detail refetch lands.
   const mediaVersion = row.sourceVersion ?? ""
-  const streamSrc = clipStreamUrl(
-    row.id,
-    apiOrigin(),
-    row.sourceVersion ?? undefined,
+  const streamSrc = clipOriginalFileUrl(row.id, apiOrigin())
+  const sourcePlayable = canPlaySource(
+    row.sourceContentType ?? "video/mp4",
+    row.sourceCodecs ?? "",
   )
-  const filmstrip = useMediaFilmstrip(processing ? null : streamSrc)
+  const playableRendition =
+    sourcePlayable || row.trimStartMs !== null
+      ? undefined
+      : row.renditions.find((rendition) =>
+          canPlaySource("video/mp4", rendition.codecs),
+        )
+  // For untrimmed clips, rendition time maps 1:1 to source time, so trim math
+  // stays anchored to the original source even when previewing a rendition.
+  const previewSrc = sourcePlayable
+    ? streamSrc
+    : playableRendition
+      ? clipRenditionFileUrl(
+          row.id,
+          playableRendition.name,
+          apiOrigin(),
+          playableRendition.version,
+        )
+      : null
+  const filmstrip = useSpriteSheetFilmstrip(
+    processing ? null : clipScrubberFileUrl(row.id, apiOrigin()),
+  )
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : undefined
@@ -236,7 +270,11 @@ function useClipEditorMedia(
     serverPoster ?? localPoster ?? localItem?.thumbnailUrl ?? queuePoster
   const posterBlurHash = row.thumbBlurHash ?? localItem?.thumbBlurHash ?? null
   const fallbackSeed = row.gameId ?? localItem?.groupLabel ?? row.id
-  const playbackSrc = processing ? (localItem?.mediaUrl ?? null) : streamSrc
+  const playbackSrc = processing ? (localItem?.mediaUrl ?? null) : previewSrc
+  const previewUnavailable =
+    !processing &&
+    Boolean(row.sourceContentType || row.renditions.length > 0) &&
+    previewSrc === null
   const aspectRatio = mediaAspectRatio(
     row.width ?? localItem?.width,
     row.height ?? localItem?.height,
@@ -277,6 +315,7 @@ function useClipEditorMedia(
     playbackSrc,
     poster,
     posterBlurHash,
+    previewUnavailable,
     publishHandoffPoster,
     setCloudFrameReady,
     streamSrc,
@@ -292,6 +331,7 @@ function ClipEditorStage({
   media,
   playback,
   processing,
+  canManage,
   prevEntry,
   nextEntry,
 }: {
@@ -299,6 +339,7 @@ function ClipEditorStage({
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
   processing: boolean
+  canManage: boolean
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
 }) {
@@ -337,7 +378,12 @@ function ClipEditorStage({
       {processing ? (
         <ClipProcessingNotice progress={row.encodeProgress} />
       ) : (
-        <ClipEditorTrimControls media={media} playback={playback} />
+        <ClipEditorTrimControls
+          clipId={row.id}
+          media={media}
+          playback={playback}
+          canManage={canManage}
+        />
       )}
     </section>
   )
@@ -372,20 +418,41 @@ function ClipEditorPreviewPlaceholder({
           onLoad={poster.markLoaded}
         />
       ) : null}
+      {media.previewUnavailable ? (
+        <>
+          <div aria-hidden className="absolute inset-0 bg-black/40" />
+          <span className="relative z-10 flex size-full items-center justify-center px-4 text-center text-sm text-white/80">
+            {t(
+              "Preview unavailable in this browser — scrubbing and trimming still work.",
+            )}
+          </span>
+        </>
+      ) : null}
     </div>
   )
 }
 
 function ClipEditorTrimControls({
+  clipId,
   media,
   playback,
+  canManage,
 }: {
+  clipId: string
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
+  canManage: boolean
 }) {
   return (
     <>
-      <TrimTransportControls playback={playback} />
+      <TrimTransportControls
+        playback={playback}
+        trailing={
+          canManage ? (
+            <SetPosterButton clipId={clipId} playback={playback} />
+          ) : undefined
+        }
+      />
       <LibraryTrimBar
         frames={media.filmstrip.frames}
         frameAspect={media.filmstrip.aspect}
@@ -403,6 +470,42 @@ function ClipEditorTrimControls({
         onMove={playback.handleTrimMove}
       />
     </>
+  )
+}
+
+/**
+ * Publishes the paused frame as the clip's poster — the server extracts it
+ * from the stored source at the playhead's source-time position.
+ */
+function SetPosterButton({
+  clipId,
+  playback,
+}: {
+  clipId: string
+  playback: ClipEditorPlaybackState
+}) {
+  const mutation = useSetClipPosterMutation()
+  return (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      disabled={mutation.isPending}
+      onClick={() => {
+        playback.playerRef.current?.pause()
+        mutation.mutate(
+          { clipId, timeMs: Math.round(playback.getCurrentMs()) },
+          {
+            onSuccess: () => toast.success(t("Poster updated")),
+            onError: (cause) =>
+              toast.error(cause.message || t("Couldn't update the poster")),
+          },
+        )
+      }}
+    >
+      {mutation.isPending ? <Spinner className="size-4" /> : <ImageIcon />}
+      {t("Use frame as poster")}
+    </Button>
   )
 }
 

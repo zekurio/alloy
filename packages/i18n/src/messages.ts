@@ -362,6 +362,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't unlink": "Verknüpfung konnte nicht aufgehoben werden",
   "Couldn't update backdrop": "Hintergrund konnte nicht aktualisiert werden",
   "Couldn't update like": "Like konnte nicht aktualisiert werden",
+  "Couldn't update the poster": "Poster konnte nicht aktualisiert werden",
   "Couldn't update user": "Nutzer konnte nicht aktualisiert werden",
   "Couldn't update visibility": "Sichtbarkeit konnte nicht aktualisiert werden",
   "Couldn't upload artwork": "Artwork konnte nicht hochgeladen werden",
@@ -804,6 +805,7 @@ export const DE_MESSAGES: Record<string, string> = {
   portrait: "Hochformat",
   Post: "Posten",
   "Posted and link copied": "Veröffentlicht und Link kopiert",
+  "Poster updated": "Poster aktualisiert",
   "Posted, but couldn't copy the link":
     "Veröffentlicht, aber der Link konnte nicht kopiert werden",
   "Posting...": "Wird gepostet...",
@@ -817,6 +819,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Press Enter to add {name}": "Drück Enter, um {name} hinzuzufügen.",
   "Press Enter to add #{tag}": "Drück Enter, um #{tag} hinzuzufügen.",
   "Press keys…": "Tasten drücken…",
+  "Preview unavailable in this browser — scrubbing and trimming still work.":
+    "Vorschau in diesem Browser nicht verfügbar — Scrubbing und Zuschneiden funktionieren weiterhin.",
   "Previous clip": "Vorheriger Clip",
   "Previous library item": "Vorheriges Bibliothekselement",
   "Previous slide": "Vorherige Folie",
@@ -1194,6 +1198,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Uploads are unavailable in this browser":
     "Uploads sind in diesem Browser nicht verfügbar",
   "Use Display Capture": "Bildschirmaufnahme verwenden",
+  "Use frame as poster": "Frame als Poster verwenden",
   "Use Game Capture": "Spielaufnahme verwenden",
   user: "Nutzer",
   User: "Nutzer",

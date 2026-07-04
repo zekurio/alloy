@@ -10,6 +10,10 @@ import {
 import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
+import {
+  resolveTrimRange,
+  TRIM_MIN_RANGE_MS,
+} from "@alloy/server/clips/trim-range"
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
 import { and, desc, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm"
@@ -196,26 +200,67 @@ const TagsInput = z
   .max(CLIP_TAGS_MAX)
   .optional()
 
-export const InitiateBody = z.object({
-  clientClipId: z.uuid().optional(),
-  filename: z.string().min(1).max(255),
-  contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
-  sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-  title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
-  description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-  gameId: z.uuid().nullable().optional(),
-  privacy: z.enum(CLIP_PRIVACY).default("public"),
-  mentionedUserIds: z.array(z.uuid()).optional(),
-  tags: TagsInput,
-  width: z.number().int().positive().max(32_768).optional(),
-  height: z.number().int().positive().max(32_768).optional(),
-  durationMs: z.number().int().positive().optional(),
-  thumbBlurHash: z.string().refine(isBlurHash, "Invalid BlurHash").optional(),
-  thumbContentType: z.enum(ACCEPTED_THUMB_CONTENT_TYPES).default("image/jpeg"),
-})
+export const InitiateBody = z
+  .object({
+    clientClipId: z.uuid().optional(),
+    filename: z.string().min(1).max(255),
+    contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
+    sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
+    description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
+    gameId: z.uuid().nullable().optional(),
+    privacy: z.enum(CLIP_PRIVACY).default("public"),
+    mentionedUserIds: z.array(z.uuid()).optional(),
+    tags: TagsInput,
+    width: z.number().int().positive().max(32_768).optional(),
+    height: z.number().int().positive().max(32_768).optional(),
+    durationMs: z.number().int().positive().optional(),
+    // Kept source range: the raw upload is stored untouched and the media
+    // run derives the cut, so trims ride along instead of being client-cut.
+    trimStartMs: z.number().int().min(0).optional(),
+    trimEndMs: z.number().int().positive().optional(),
+    thumbBlurHash: z.string().refine(isBlurHash, "Invalid BlurHash").optional(),
+    thumbContentType: z
+      .enum(ACCEPTED_THUMB_CONTENT_TYPES)
+      .default("image/jpeg"),
+  })
+  .superRefine((body, ctx) => {
+    if (body.trimStartMs === undefined && body.trimEndMs === undefined) return
+    if (body.trimStartMs === undefined || body.trimEndMs === undefined) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Trim requires both trimStartMs and trimEndMs",
+        path: ["trimStartMs"],
+      })
+      return
+    }
+    if (body.durationMs === undefined) {
+      if (body.trimEndMs - body.trimStartMs < TRIM_MIN_RANGE_MS) {
+        ctx.addIssue({
+          code: "custom",
+          message: "The trimmed range is too short",
+          path: ["trimEndMs"],
+        })
+      }
+      return
+    }
+    const resolved = resolveTrimRange({
+      startMs: body.trimStartMs,
+      endMs: body.trimEndMs,
+      durationMs: body.durationMs,
+    })
+    if (resolved.kind === "invalid") {
+      ctx.addIssue({
+        code: "custom",
+        message: resolved.reason,
+        path: ["trimEndMs"],
+      })
+    }
+  })
 
-/** Smallest media range a trim may keep, in ms. */
-export const TRIM_MIN_RANGE_MS = 1000
+export const PosterBody = z.object({
+  timeMs: z.number().int().min(0),
+})
 
 export const TrimBody = z
   .object({

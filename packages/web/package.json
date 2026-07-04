@@ -13,7 +13,6 @@
     "@alloy/contracts": "workspace:*",
     "@alloy/env": "workspace:*",
     "@alloy/i18n": "workspace:*",
-    "@alloy/media": "workspace:*",
     "@alloy/ui": "workspace:*",
     "@base-ui/react": "1.4.1",
     "@fontsource-variable/dm-sans": "5.2.8",
@@ -26,7 +25,6 @@
     "@tanstack/router-plugin": "1.167.22",
     "@vitejs/plugin-react": "5.2.0",
     "lucide-react": "1.8.0",
-    "mediabunny": "1.46.0",
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "vite": "8.0.16"

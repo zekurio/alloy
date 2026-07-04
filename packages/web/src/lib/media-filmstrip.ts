@@ -1,21 +1,22 @@
 import {
-  ALL_FORMATS,
-  BlobSource,
-  CanvasSink,
-  Input,
-  type Source,
-} from "mediabunny"
+  CLIP_SCRUBBER_COLUMNS,
+  CLIP_SCRUBBER_FRAME_COUNT,
+} from "@alloy/contracts"
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
-import { createCaptureSource } from "@/lib/capture-source"
+import {
+  canvasJpegBlob,
+  drawVideoFrameJpeg,
+  teardownVideoElement,
+  videoEvent,
+} from "./video-events"
 
 /**
- * Renderer-side filmstrip sampling: evenly spaced frames decoded with
- * mediabunny over the same byte-range transport the preview engine uses, so
- * local captures (`alloy-capture://`) and uploaded clips (http stream) get
- * identical treatment. Picked upload Files are read directly from a
- * `BlobSource` instead, keyed by their (unique) object URL.
+ * Renderer-side filmstrip sampling with two sources: evenly spaced frames
+ * decoded by seeking a detached `<video>` element (local captures and picked
+ * upload Files), or cells sliced from a server-rendered sprite sheet
+ * (uploaded clips). Neither needs a client-side demuxer.
  */
 
 export const FILMSTRIP_FRAME_COUNT = 16
@@ -45,44 +46,78 @@ const EMPTY_FILMSTRIP: MediaFilmstrip = {
 }
 
 /**
- * Frames are extracted once per media URL and kept for the session — the
- * same lifetime the desktop's on-disk frame cache used to provide. Failures
- * don't cache, so a remount retries after transient (network) errors.
+ * Frames are extracted once per media URL and cached with a small LRU-ish
+ * cap; evicted strips revoke their frame object URLs so long browsing
+ * sessions don't pin every visited clip's frames in memory. Failures don't
+ * cache, so a remount retries after transient (network) errors.
  */
 const filmstripCache = new Map<string, Promise<MediaFilmstrip>>()
+const MAX_FILMSTRIP_CACHE_ENTRIES = 24
 
-export function mediaFilmstrip(
-  mediaUrl: string,
-  blob?: Blob,
+function evictStaleFilmstrips(): void {
+  while (filmstripCache.size > MAX_FILMSTRIP_CACHE_ENTRIES) {
+    const oldest = filmstripCache.keys().next().value
+    if (oldest === undefined) return
+    const pending = filmstripCache.get(oldest)
+    filmstripCache.delete(oldest)
+    void pending?.then((strip) => {
+      for (const frame of strip.frames) URL.revokeObjectURL(frame)
+    })
+  }
+}
+
+export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
+  return cachedFilmstrip(mediaUrl, extractFilmstrip)
+}
+
+export function spriteSheetFilmstrip(
+  sheetUrl: string,
 ): Promise<MediaFilmstrip> {
-  let pending = filmstripCache.get(mediaUrl)
+  return cachedFilmstrip(sheetUrl, extractSpriteFilmstrip)
+}
+
+function cachedFilmstrip(
+  url: string,
+  extract: (url: string) => Promise<MediaFilmstrip>,
+): Promise<MediaFilmstrip> {
+  let pending = filmstripCache.get(url)
   if (!pending) {
-    const source = blob ? new BlobSource(blob) : createCaptureSource(mediaUrl)
-    pending = extractFilmstrip(source).catch(() => {
-      filmstripCache.delete(mediaUrl)
+    pending = extract(url).catch(() => {
+      filmstripCache.delete(url)
       return EMPTY_FILMSTRIP
     })
-    filmstripCache.set(mediaUrl, pending)
+    filmstripCache.set(url, pending)
+    evictStaleFilmstrips()
   }
   return pending
 }
 
-export function useMediaFilmstrip(
-  mediaUrl: string | null,
-  blob?: Blob,
+export function useMediaFilmstrip(mediaUrl: string | null): MediaFilmstrip {
+  return useFilmstrip(mediaUrl, mediaFilmstrip)
+}
+
+export function useSpriteSheetFilmstrip(
+  sheetUrl: string | null,
+): MediaFilmstrip {
+  return useFilmstrip(sheetUrl, spriteSheetFilmstrip)
+}
+
+function useFilmstrip(
+  url: string | null,
+  load: (url: string) => Promise<MediaFilmstrip>,
 ): MediaFilmstrip {
   const [strip, setStrip] = useState(EMPTY_FILMSTRIP)
   useEffect(() => {
     setStrip(EMPTY_FILMSTRIP)
-    if (!mediaUrl) return
+    if (!url) return
     let cancelled = false
-    void mediaFilmstrip(mediaUrl, blob).then((result) => {
+    void load(url).then((result) => {
       if (!cancelled) setStrip(result)
     })
     return () => {
       cancelled = true
     }
-  }, [mediaUrl, blob])
+  }, [url, load])
   return strip
 }
 
@@ -165,31 +200,35 @@ function clampMs(ms: number, durationMs: number): number {
   return Math.min(durationMs, Math.max(0, ms))
 }
 
-async function extractFilmstrip(source: Source): Promise<MediaFilmstrip> {
-  const input = new Input({
-    formats: ALL_FORMATS,
-    source,
-  })
-  try {
-    const track = await input.getPrimaryVideoTrack()
-    if (!track || !(await track.canDecode())) return EMPTY_FILMSTRIP
-    const durationSec = await input.computeDuration()
-    if (!(durationSec > 0)) return EMPTY_FILMSTRIP
+async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
+  const video = document.createElement("video")
+  video.preload = "auto"
+  video.muted = true
+  video.playsInline = true
+  // Keeps decoded frames drawable to canvas when the media is served from
+  // the API origin; harmless for same-origin and object URLs.
+  video.crossOrigin = "anonymous"
+  video.src = mediaUrl
 
-    const sink = new CanvasSink(track, { height: FRAME_HEIGHT })
-    const timestamps = Array.from(
-      { length: FILMSTRIP_FRAME_COUNT },
-      (_, i) => ((i + 0.5) / FILMSTRIP_FRAME_COUNT) * durationSec,
-    )
+  try {
+    await videoEvent(video, "loadedmetadata")
+    const durationSec = video.duration
+    if (!Number.isFinite(durationSec) || !(durationSec > 0)) {
+      return EMPTY_FILMSTRIP
+    }
+
     const frames: string[] = []
     let aspect: number | null = null
-    for await (const wrapped of sink.canvasesAtTimestamps(timestamps)) {
-      // A gap (e.g. an undecodable region) just yields fewer cells; the
-      // strip stretches the neighbors over it.
-      if (wrapped) {
-        aspect ??= wrapped.canvas.width / wrapped.canvas.height
-        frames.push(await canvasObjectUrl(wrapped.canvas))
-      }
+    for (let i = 0; i < FILMSTRIP_FRAME_COUNT; i++) {
+      // A failed seek (e.g. an undecodable region) just yields fewer cells;
+      // the strip stretches the neighbors over it.
+      const frame = await seekFrameObjectUrl(
+        video,
+        ((i + 0.5) / FILMSTRIP_FRAME_COUNT) * durationSec,
+      )
+      if (!frame) continue
+      aspect ??= frame.aspect
+      frames.push(frame.url)
     }
     return {
       frames,
@@ -197,28 +236,80 @@ async function extractFilmstrip(source: Source): Promise<MediaFilmstrip> {
       durationMs: Math.round(durationSec * 1000),
     }
   } finally {
-    input.dispose()
+    teardownVideoElement(video)
   }
 }
 
-async function canvasObjectUrl(
-  canvas: HTMLCanvasElement | OffscreenCanvas,
-): Promise<string> {
-  const blob =
-    canvas instanceof OffscreenCanvas
-      ? await canvas.convertToBlob({
-          type: "image/jpeg",
-          quality: FRAME_QUALITY,
-        })
-      : await new Promise<Blob>((resolve, reject) => {
-          canvas.toBlob(
-            (result) => {
-              if (result) resolve(result)
-              else reject(new Error("canvas.toBlob returned null"))
-            },
-            "image/jpeg",
-            FRAME_QUALITY,
-          )
-        })
-  return URL.createObjectURL(blob)
+/**
+ * Slice the server's scrubber sprite sheet into per-frame object URLs so the
+ * trim bar consumes it exactly like a locally sampled strip. The sheet's
+ * duration isn't knowable from the image — callers already have it from the
+ * clip row.
+ */
+async function extractSpriteFilmstrip(
+  sheetUrl: string,
+): Promise<MediaFilmstrip> {
+  const image = new Image()
+  // The sheet route is owner-gated behind the session cookie, so the CORS
+  // request must carry credentials on split-origin deployments; the server's
+  // trusted-origin CORS config allows it, and it keeps the canvas untainted.
+  image.crossOrigin = "use-credentials"
+  image.decoding = "async"
+  image.src = sheetUrl
+  await image.decode()
+
+  const rows = Math.ceil(CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS)
+  const cellWidth = Math.floor(image.naturalWidth / CLIP_SCRUBBER_COLUMNS)
+  const cellHeight = Math.floor(image.naturalHeight / rows)
+  if (!cellWidth || !cellHeight) return EMPTY_FILMSTRIP
+
+  const frames: string[] = []
+  for (let i = 0; i < CLIP_SCRUBBER_FRAME_COUNT; i++) {
+    const canvas = document.createElement("canvas")
+    canvas.width = cellWidth
+    canvas.height = cellHeight
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return EMPTY_FILMSTRIP
+    ctx.drawImage(
+      image,
+      (i % CLIP_SCRUBBER_COLUMNS) * cellWidth,
+      Math.floor(i / CLIP_SCRUBBER_COLUMNS) * cellHeight,
+      cellWidth,
+      cellHeight,
+      0,
+      0,
+      cellWidth,
+      cellHeight,
+    )
+    const blob = await canvasJpegBlob(canvas, FRAME_QUALITY)
+    if (!blob) return EMPTY_FILMSTRIP
+    frames.push(URL.createObjectURL(blob))
+  }
+  return {
+    frames,
+    aspect: cellWidth / cellHeight,
+    durationMs: null,
+  }
+}
+
+async function seekFrameObjectUrl(
+  video: HTMLVideoElement,
+  timeSec: number,
+): Promise<{ url: string; aspect: number } | null> {
+  try {
+    const seeked = videoEvent(video, "seeked")
+    video.currentTime = timeSec
+    await seeked
+  } catch {
+    return null
+  }
+  const frame = await drawVideoFrameJpeg(video, {
+    height: FRAME_HEIGHT,
+    quality: FRAME_QUALITY,
+  })
+  if (!frame) return null
+  return {
+    url: URL.createObjectURL(frame.blob),
+    aspect: frame.width / frame.height,
+  }
 }

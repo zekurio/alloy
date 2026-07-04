@@ -3,7 +3,7 @@ import {
   type ClipPrivacy,
   type ClipRow,
   clipRenditionFileUrl,
-  clipStreamUrl,
+  clipSourceFileUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
@@ -11,6 +11,7 @@ import { stableHue } from "@alloy/ui/lib/stable-hash"
 
 import { formatRelativeTime } from "./date-format"
 import { apiOrigin } from "./env"
+import { canPlaySource } from "./media-capability"
 import { formatCount } from "./number-format"
 import { type UserAvatar, userAvatar } from "./user-display"
 
@@ -56,13 +57,21 @@ export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
 
 /**
  * Hover previews are muted, small, and often several at once — the lowest
- * rendition tier is plenty and a large bandwidth win over the full stream,
- * which stays the fallback for clips without renditions.
+ * rendition tier this browser can decode is plenty and a large bandwidth win
+ * over the full stream, which stays the fallback for clips without a playable
+ * rendition.
  */
 function previewStreamUrl(row: ClipRow): string {
-  const lowest = row.renditions[row.renditions.length - 1]
+  const playable = row.renditions.filter((rendition) =>
+    canPlaySource("video/mp4", rendition.codecs),
+  )
+  const lowest = playable[playable.length - 1]
   if (!lowest) {
-    return clipStreamUrl(row.id, apiOrigin(), row.sourceVersion ?? undefined)
+    return clipSourceFileUrl(
+      row.id,
+      apiOrigin(),
+      row.sourceVersion ?? undefined,
+    )
   }
   return clipRenditionFileUrl(row.id, lowest.name, apiOrigin(), lowest.version)
 }

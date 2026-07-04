@@ -68,8 +68,10 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
     "description",
     "game",
     "sourceContentType",
+    "playbackContentType",
     "sourceVideoCodec",
     "sourceAudioCodec",
+    "sourceCodecs",
     "failureReason",
     "authorImage",
   ] as const) {
@@ -91,7 +93,13 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
 }
 
 function validateClipCounters(row: Record<string, unknown>) {
-  for (const key of ["sourceSizeBytes", "durationMs"] as const) {
+  for (const key of [
+    "sourceSizeBytes",
+    "sourceDurationMs",
+    "durationMs",
+    "trimStartMs",
+    "trimEndMs",
+  ] as const) {
     validateNullableNonNegativeInteger(
       row[key],
       `Invalid clip response: ${key} must be a non-negative integer or null`,

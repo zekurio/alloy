@@ -10,6 +10,7 @@ import {
   SquareIcon,
 } from "lucide-react"
 import { useSyncExternalStore } from "react"
+import type { ReactNode } from "react"
 
 import { formatTrimMs } from "@/lib/media-time"
 
@@ -27,8 +28,11 @@ export function BackToLibraryButton() {
 /** Transport row above the trim bar: play/stop/reset plus the time readout. */
 export function TrimTransportControls({
   playback,
+  trailing,
 }: {
   playback: TrimPlayback
+  /** Extra editor actions rendered at the row's right edge. */
+  trailing?: ReactNode
 }) {
   const { playing, trimmed, rangeMs, trim } = playback
   return (
@@ -79,6 +83,9 @@ export function TrimTransportControls({
           {formatTrimMs(trim.startMs)} {"–"}
           {formatTrimMs(trim.endMs)}
         </span>
+      ) : null}
+      {trailing ? (
+        <div className="ml-auto flex items-center gap-1">{trailing}</div>
       ) : null}
     </div>
   )

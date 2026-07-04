@@ -5,6 +5,7 @@ import type {
   InitiateClipResponse,
   QueueClip,
   QueueEvent,
+  SetClipPosterInput,
   TrimClipInput,
   UpdateClipInput,
 } from "@alloy/contracts"
@@ -48,6 +49,7 @@ export type {
   InitiateClipResponse,
   QueueClip,
   QueueEvent,
+  SetClipPosterInput,
   TrimClipInput,
   UpdateClipInput,
   UploadTicket,
@@ -69,18 +71,6 @@ export function uploadQueueStreamUrl(origin?: string): string {
   return resolvePublicUrlWithQuery("/api/events/clips/queue", {}, origin)
 }
 
-export function clipStreamUrl(
-  clipId: string,
-  origin?: string,
-  version?: string,
-): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/stream"),
-    { v: version },
-    origin,
-  )
-}
-
 export function clipRenditionFileUrl(
   clipId: string,
   name: string,
@@ -90,6 +80,34 @@ export function clipRenditionFileUrl(
   return resolvePublicUrlWithQuery(
     publicClipPath(clipId, `/rendition/${encodeURIComponent(name)}/file.mp4`),
     { v: version },
+    origin,
+  )
+}
+
+export function clipSourceFileUrl(
+  clipId: string,
+  origin?: string,
+  version?: string,
+): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/source/file"),
+    { v: version },
+    origin,
+  )
+}
+
+export function clipOriginalFileUrl(clipId: string, origin?: string): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/original/file"),
+    {},
+    origin,
+  )
+}
+
+export function clipScrubberFileUrl(clipId: string, origin?: string): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, "/scrubber/file"),
+    {},
     origin,
   )
 }
@@ -185,6 +203,18 @@ async function trimClip(
   return readJsonOrThrow(res, validateClipRow)
 }
 
+async function setClipPoster(
+  context: ApiContext,
+  clipId: string,
+  input: SetClipPosterInput,
+): Promise<ClipRow> {
+  const res = await context.rpc.api.clips[":id"].poster.$post({
+    param: { id: clipId },
+    json: input,
+  })
+  return readJsonOrThrow(res, validateClipRow)
+}
+
 async function fetchLikeState(
   context: ApiContext,
   clipId: string,
@@ -238,6 +268,8 @@ export function createClipsApi(context: ApiContext) {
       updateClip(context, clipId, input),
     trim: (clipId: string, input: TrimClipInput) =>
       trimClip(context, clipId, input),
+    setPoster: (clipId: string, input: SetClipPosterInput) =>
+      setClipPoster(context, clipId, input),
     fetchLikeState: (clipId: string) => fetchLikeState(context, clipId),
     like: (clipId: string) => setClipLike(context, clipId, true),
     unlike: (clipId: string) => setClipLike(context, clipId, false),

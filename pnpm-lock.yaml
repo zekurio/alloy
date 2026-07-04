@@ -290,9 +290,6 @@ importers:
       '@alloy/i18n':
         specifier: workspace:*
         version: link:../i18n
-      '@alloy/media':
-        specifier: workspace:*
-        version: link:../media
       '@alloy/ui':
         specifier: workspace:*
         version: link:../ui
@@ -329,9 +326,6 @@ importers:
       lucide-react:
         specifier: 1.8.0
         version: 1.8.0(react@19.2.5)
-      mediabunny:
-        specifier: 1.46.0
-        version: 1.46.0
       react:
         specifier: 19.2.5
         version: 19.2.5

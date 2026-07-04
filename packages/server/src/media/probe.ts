@@ -81,6 +81,20 @@ const H264_PROFILE_IDC: Record<string, number> = {
 }
 
 /**
+ * Combined RFC 6381 codec list for the clip row's `source_codecs` column;
+ * null when the video codec string is unknown so clients fall back to a
+ * container-only capability check.
+ */
+export function sourceCodecsString(
+  probe: Pick<MediaProbe, "videoCodecString" | "audioCodecString">,
+): string | null {
+  if (!probe.videoCodecString) return null
+  return [probe.videoCodecString, probe.audioCodecString]
+    .filter((value): value is string => !!value)
+    .join(",")
+}
+
+/**
  * RFC 6381 video codec string from ffprobe stream fields. Exported for unit
  * tests; callers go through {@link probeMedia}.
  */
@@ -96,10 +110,11 @@ export function buildVideoCodecString(
     return `avc1.${hexByte(profileIdc)}00${hexByte(stream.level)}`
   }
   if (stream.codec_name === "hevc") {
-    // Renditions are always written with hvc1 sample entries (`-tag:v hvc1`
-    // in every encoder branch); Safari only plays HEVC signaled as hvc1.
+    // Raw uploaded sources can carry hev1 sample entries, and Safari refuses
+    // HEVC that is mis-signaled. Renditions still use hvc1 (`-tag:v hvc1`).
     if (stream.level === undefined) return null
-    return `hvc1.1.6.L${stream.level}.B0`
+    const tag = stream.codec_tag_string === "hev1" ? "hev1" : "hvc1"
+    return `${tag}.1.6.L${stream.level}.B0`
   }
   if (stream.codec_name === "av1") {
     if (stream.level === undefined) return null
@@ -109,15 +124,29 @@ export function buildVideoCodecString(
   return null
 }
 
+const AUDIO_CODEC_NAME_TO_RFC6381: Record<string, string> = {
+  ac3: "ac-3",
+  eac3: "ec-3",
+}
+
 /**
- * RFC 6381 audio codec string. Rendition audio is always ffmpeg's `aac`
- * encoder, which produces AAC-LC. Exported for unit tests.
+ * RFC 6381 audio codec string. Sources may carry AAC profiles beyond LC;
+ * rendition audio remains ffmpeg AAC-LC. Non-AAC audio falls back to its
+ * (mapped) ffprobe codec name so the string still fails `canPlayType` in
+ * browsers lacking the codec — dropping it entirely would make an
+ * H.264+AC-3 source look fully playable and play silently. Exported for
+ * unit tests.
  */
 export function buildAudioCodecString(
-  stream: Pick<FfprobeStream, "codec_name">,
+  stream: Pick<FfprobeStream, "codec_name" | "profile">,
 ): string | null {
-  if (stream.codec_name === "aac") return "mp4a.40.2"
-  return null
+  if (stream.codec_name === "aac") {
+    if (stream.profile === "HE-AAC") return "mp4a.40.5"
+    if (stream.profile === "HE-AACv2") return "mp4a.40.29"
+    return "mp4a.40.2"
+  }
+  if (!stream.codec_name) return null
+  return AUDIO_CODEC_NAME_TO_RFC6381[stream.codec_name] ?? stream.codec_name
 }
 
 function hexByte(value: number): string {
