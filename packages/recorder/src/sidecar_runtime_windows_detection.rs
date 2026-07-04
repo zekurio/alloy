@@ -23,7 +23,8 @@
             QDC_ONLY_ACTIVE_PATHS,
         },
         Foundation::{
-            CloseHandle, HGLOBAL, HWND, INVALID_HANDLE_VALUE, LPARAM, POINT, RECT, WAIT_TIMEOUT,
+            CloseHandle, ERROR_ACCESS_DENIED, GetLastError, HGLOBAL, HWND, INVALID_HANDLE_VALUE,
+            LPARAM, POINT, RECT, WAIT_TIMEOUT,
         },
         Graphics::{
             Gdi::{
@@ -142,7 +143,11 @@
         unsafe {
             let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, process_id);
             if handle.is_null() {
-                return false;
+                // Anti-cheat drivers (Vanguard, EAC) strip handle rights on
+                // protected game processes: access-denied means the process
+                // exists, and treating it as dead collapses the game-ended
+                // grace period into a detect/clear flap.
+                return GetLastError() == ERROR_ACCESS_DENIED;
             }
             let alive = WaitForSingleObject(handle, 0) == WAIT_TIMEOUT;
             CloseHandle(handle);

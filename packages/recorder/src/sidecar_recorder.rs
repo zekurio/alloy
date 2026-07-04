@@ -607,6 +607,10 @@ impl Recorder {
             return None;
         }
 
+        eprintln!(
+            "[{SIDE_CAR_NAME}] game '{}' ended: window and process gone",
+            active_game.game.name
+        );
         self.active_game = None;
         self.focused = false;
         self.missing_game_ticks = 0;
@@ -638,6 +642,10 @@ impl Recorder {
                 .clone()
                 .filter(|game| !detected_game_allowed(game, &settings))
             {
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] game '{}' ended: no longer passes detection rules",
+                    active_game.game.name
+                );
                 self.active_game = None;
                 self.focused = false;
                 self.missing_game_ticks = 0;
@@ -737,6 +745,10 @@ impl Recorder {
             .clone()
             .filter(|game| !is_detected_game_alive(game))?;
 
+        eprintln!(
+            "[{SIDE_CAR_NAME}] game '{}' cleared: window closed while starting capture",
+            active_game.game.name
+        );
         self.active_game = None;
         self.focused = false;
         self.missing_game_ticks = 0;
