@@ -189,57 +189,6 @@ export function PlayerCore({
     if (video) video.muted = initialMuted
   }, [initialMuted])
 
-  useEffect(() => {
-    // A changed `identity` means a different clip. A changed media key with
-    // the same identity is a source swap for the same clip (e.g. a quality
-    // switch or an automatic downgrade).
-    const previous = prevSourceRef.current
-    const isNewMedia = !previous || previous.identity !== identity
-    // Load state only resets when the element will actually reload (a new
-    // effective media URL). An identity change with an unchanged URL never
-    // re-fires `loadedmetadata`, so entering "loading" there would strand the
-    // spinner over a playing video.
-    const isElementReload = !previous || previous.mediaKey !== mediaKey
-    if (!isNewMedia && !isElementReload) return
-    prevSourceRef.current = { identity, mediaKey }
-
-    if (isElementReload) {
-      playRequestIdRef.current += 1
-      setStatus({ kind: "loading" })
-      setBufferedEnd(0)
-      hasRenderedFrameRef.current = false
-      setHasRenderedFrame(false)
-    }
-    clearBuffering()
-    clearChromeHideTimer()
-    setChromeVisible(!(isCoarsePointer && autoPlay))
-
-    if (isNewMedia) {
-      // Brand-new clip: start from the beginning.
-      resumeRef.current = null
-      lastTimeRef.current = 0
-      setDuration(0)
-      setCurrentTime(0)
-      setPlayingState(false)
-    } else {
-      // Same clip, different source: resume where the viewer was. Capture
-      // the position/playing state now, before the element load resets them,
-      // and leave the scrubber untouched so the UI doesn't jump to zero.
-      resumeRef.current = {
-        time: lastTimeRef.current,
-        play: playingRef.current,
-      }
-    }
-  }, [
-    autoPlay,
-    clearBuffering,
-    clearChromeHideTimer,
-    identity,
-    isCoarsePointer,
-    setPlayingState,
-    mediaKey,
-  ])
-
   const reportError = useCallback(() => {
     // The engine may recover by stepping down one playable quality tier;
     // the media key change resets load state.
@@ -550,12 +499,82 @@ export function PlayerCore({
     clearBuffering()
   }, [clearBuffering, handleLoadedData])
 
+  useEffect(() => {
+    // A changed `identity` means a different clip. A changed media key with
+    // the same identity is a source swap for the same clip (e.g. a quality
+    // switch or an automatic downgrade).
+    const previous = prevSourceRef.current
+    const isNewMedia = !previous || previous.identity !== identity
+    // Load state only resets when the element will actually reload (a new
+    // effective media URL). An identity change with an unchanged URL never
+    // re-fires `loadedmetadata`, so entering "loading" there would strand the
+    // spinner over a playing video.
+    const isElementReload = !previous || previous.mediaKey !== mediaKey
+    if (!isNewMedia && !isElementReload) return
+    prevSourceRef.current = { identity, mediaKey }
+
+    if (isElementReload) {
+      playRequestIdRef.current += 1
+      setStatus({ kind: "loading" })
+      setBufferedEnd(0)
+      hasRenderedFrameRef.current = false
+      setHasRenderedFrame(false)
+    }
+    clearBuffering()
+    clearChromeHideTimer()
+    setChromeVisible(!(isCoarsePointer && autoPlay))
+
+    if (isNewMedia) {
+      // Brand-new clip: start from the beginning.
+      resumeRef.current = null
+      lastTimeRef.current = 0
+      setDuration(0)
+      setCurrentTime(0)
+      setPlayingState(false)
+    } else {
+      // Same clip, different source: resume where the viewer was. Capture
+      // the position/playing state now, before the element load resets them,
+      // and leave the scrubber untouched so the UI doesn't jump to zero.
+      resumeRef.current = {
+        time: lastTimeRef.current,
+        play: playingRef.current,
+      }
+    }
+
+    if (!isElementReload) return
+    const video = videoRef.current
+    if (!video) return
+    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+      handleLoadedMetadata()
+    }
+    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+      handleLoadedData()
+    }
+  }, [
+    autoPlay,
+    clearBuffering,
+    clearChromeHideTimer,
+    handleLoadedData,
+    handleLoadedMetadata,
+    identity,
+    isCoarsePointer,
+    mediaKey,
+    setPlayingState,
+  ])
+
   const posterVisible = Boolean(poster) && !hasRenderedFrame
 
   const handleTimeUpdate = useCallback(() => {
     syncTime()
     syncBuffered()
   }, [syncBuffered, syncTime])
+
+  const handlePlaying = useCallback(() => {
+    clearBuffering()
+    const video = videoRef.current
+    if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
+    handleLoadedData()
+  }, [clearBuffering, handleLoadedData])
 
   const handleChromePointerMove = useCallback(() => {
     if (isCoarsePointer) return
@@ -615,7 +634,7 @@ export function PlayerCore({
       onCanPlay={handleCanPlay}
       onWaiting={handleWaiting}
       onStalled={handleWaiting}
-      onPlaying={clearBuffering}
+      onPlaying={handlePlaying}
       onDurationChange={syncTime}
       onTimeUpdate={handleTimeUpdate}
       onProgress={syncBuffered}
