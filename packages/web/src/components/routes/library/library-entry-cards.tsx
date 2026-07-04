@@ -3,17 +3,10 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@alloy/ui/components/dropdown-menu"
-import {
   GlobeIcon,
   Link2Icon,
   LockIcon,
   MonitorIcon,
-  MoreHorizontalIcon,
   RefreshCwIcon,
 } from "lucide-react"
 import { useMemo } from "react"
@@ -27,7 +20,6 @@ import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { gameHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
-import { useReEncodeClipMutation } from "@/lib/clip-queries"
 import { formatRelativeTime } from "@/lib/date-format"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 
@@ -217,7 +209,6 @@ export function UploadedClipCard({
       thumbnailLabel={t("Edit {title}", { title: card.title })}
       onThumbnailClick={onOpen}
       onThumbnailIntent={onIntent}
-      thumbnailOverlay={<UploadedClipCardMenu row={row} />}
       metaContent={
         <LibraryCardMeta
           source={source}
@@ -226,42 +217,6 @@ export function UploadedClipCard({
         />
       }
     />
-  )
-}
-
-/**
- * Owner actions overlaid on a library clip card. The library only lists the
- * viewer's own clips, so ownership is implied; the server re-verifies it.
- * Only offered once the clip is settled (ready or failed) — a re-encode
- * request is rejected while one is already running.
- */
-function UploadedClipCardMenu({ row }: { row: ClipRow }) {
-  const reEncode = useReEncodeClipMutation()
-  if (row.status !== "ready" && row.status !== "failed") return null
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("Clip actions")}
-            className="size-7 rounded-full bg-black/45 text-white/85 opacity-0 backdrop-blur-sm transition-opacity group-hover/clip-card:opacity-100 hover:bg-black/60 hover:text-white focus-visible:opacity-100 data-popup-open:opacity-100"
-          >
-            <MoreHorizontalIcon />
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end" className="min-w-[150px]">
-        <DropdownMenuItem
-          onClick={() => reEncode.mutate({ clipId: row.id })}
-          disabled={reEncode.isPending}
-        >
-          <RefreshCwIcon /> {t("Re-encode")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }
 
