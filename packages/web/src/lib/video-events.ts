@@ -1,9 +1,11 @@
+import { isUniformCanvasImage } from "./uniform-image"
+
 const VIDEO_EVENT_TIMEOUT_MS = 15000
 
 /**
  * Await a media element event with a timeout, rejecting on element errors.
  * Shared by everything that samples frames from a detached element
- * (filmstrip, capture poster, upload thumbnail capture).
+ * (filmstrip and capture poster).
  */
 export function videoEvent(
   video: HTMLVideoElement,
@@ -84,6 +86,7 @@ export async function drawVideoFrameJpeg(
   const ctx = canvas.getContext("2d")
   if (!ctx) return null
   ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+  if (isUniformCanvasImage(canvas, canvas.width, canvas.height)) return null
 
   const blob = await canvasJpegBlob(canvas, opts.quality)
   if (!blob) return null

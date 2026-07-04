@@ -23,14 +23,11 @@ import {
   mintStagedUpload,
   resolveStagedUpload,
   stagedSourceKey,
-  stagedThumbKey,
 } from "@alloy/server/uploads/staged"
 import {
   assertUsableVideoTicket,
   createUploadTickets,
-  selectThumbTicket,
   selectVideoTicket,
-  THUMB_UPLOAD_MAX_BYTES,
 } from "@alloy/server/uploads/tickets"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
@@ -113,7 +110,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
 
       const clipId = body.clientClipId ?? crypto.randomUUID()
       const uploadKey = stagedSourceKey(clipId, body.contentType)
-      const thumbUploadKey = stagedThumbKey(clipId)
       const privacy = body.privacy ?? "public"
       const trim =
         body.trimStartMs !== undefined &&
@@ -179,9 +175,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
                   ? trim.endMs
                   : null
                 : (body.trimEndMs ?? null),
-              // Client-provided poster placeholder; media finalization preserves
-              // it because the server does not derive poster frames or hashes.
-              thumb_blur_hash: body.thumbBlurHash ?? null,
               status: "pending",
             })
             .onConflictDoNothing()
@@ -234,16 +227,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
           expiresInSec,
           userId: viewerId,
           clipId,
-          role: "video",
-        })
-        const thumbUpload = await mintStagedUpload({
-          key: thumbUploadKey,
-          contentType: body.thumbContentType,
-          maxBytes: THUMB_UPLOAD_MAX_BYTES,
-          expiresInSec,
-          userId: viewerId,
-          clipId,
-          role: "thumb",
         })
         await createUploadTickets({
           target: { type: "clip", id: clipId },
@@ -251,20 +234,14 @@ export const clipsUploadLifecycleRoutes = new Hono()
           videoKey: uploadKey,
           videoContentType: body.contentType,
           videoBytes: body.sizeBytes,
-          thumbKey: thumbUploadKey,
-          thumbContentType: body.thumbContentType,
           expiresAt,
         })
         return c.json({
           clipId,
           ticket: videoUpload,
-          thumbTicket: thumbUpload,
         })
       } catch (err) {
-        await cleanupFailedInitiate(clipId, [
-          { key: uploadKey },
-          { key: thumbUploadKey },
-        ])
+        await cleanupFailedInitiate(clipId, [{ key: uploadKey }])
         throw err
       }
     },
@@ -399,13 +376,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
       await deleteStagedUploads(
         [
           await selectVideoTicket({ type: "clip", id }).then((ticket) =>
-            ticket
-              ? {
-                  key: ticket.storageKey,
-                }
-              : null,
-          ),
-          await selectThumbTicket({ type: "clip", id }).then((ticket) =>
             ticket
               ? {
                   key: ticket.storageKey,

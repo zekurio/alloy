@@ -310,6 +310,7 @@ function ClipViewerDialogBody({
               sourceCodecs={row.sourceCodecs}
               sourceVersion={row.sourceVersion}
               renditions={row.renditions}
+              durationMs={row.durationMs}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}
               fallbackSeed={row.gameId ?? row.id}

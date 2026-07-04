@@ -19,7 +19,7 @@ import { copyTextToClipboard } from "@/lib/clipboard"
 import { alloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { useInvalidateGames } from "@/lib/game-queries"
-import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
+import { revokeObjectUrl } from "@/lib/object-url"
 
 import {
   isDeferredPublishPayload,
@@ -234,13 +234,6 @@ function useRunUpload(
       entry.bytesTotal = payload.sizeBytes
       entry.bytesLoaded = 0
       entry.localCaptureId = payload.localCaptureId ?? entry.localCaptureId
-      entry.thumbBlurHash = payload.thumbBlurHash ?? entry.thumbBlurHash
-      if (!entry.thumbUrl) {
-        entry.thumbUrl = createObjectUrl(
-          payload.thumbBlob,
-          "upload thumbnail URL",
-        )
-      }
       entry.status = "initiating"
       bump()
 
@@ -273,10 +266,8 @@ function useRunUpload(
         bytesLoaded: 0,
         status: deferred ? "preparing" : "initiating",
         abort: new AbortController(),
-        thumbUrl: deferred
-          ? input.thumbUrl
-          : createObjectUrl(input.thumbBlob, "upload thumbnail URL"),
-        thumbBlurHash: input.thumbBlurHash,
+        thumbUrl: deferred ? input.thumbUrl : null,
+        thumbBlurHash: deferred ? input.thumbBlurHash : null,
       }
       activeRef.current.set(localId, entry)
       bump()

@@ -6,6 +6,7 @@ import {
   clipThumbnailUrl,
   type EncodeStage,
 } from "@alloy/api"
+import { contentTypeForFile, type RecordingLibraryItem } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
@@ -26,9 +27,14 @@ import {
 } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
+import { canPlaySource } from "@/lib/media-capability"
+
+import { useLocalClipPlayback } from "./use-local-clip-playback"
 
 // Rendition names are resolution tiers ("1080p60"), so "source" never collides.
 const SOURCE_QUALITY_ID = "source"
+const LOCAL_QUALITY_ID = "local"
+const LOCAL_DURATION_TOLERANCE_MS = 1500
 
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
@@ -41,6 +47,7 @@ interface ClipPlayerProps {
   sourceVersion?: string | null
   /** Committed quality tiers, highest first. Empty for pre-backfill clips. */
   renditions?: ClipRenditionRef[]
+  durationMs?: number | null
   thumbnail?: string | null
   thumbnailBlurHash?: string | null
   fallbackSeed?: string | number
@@ -77,6 +84,7 @@ function ClipPlayer({
   sourceCodecs,
   sourceVersion,
   renditions = [],
+  durationMs = null,
   thumbnail,
   thumbnailBlurHash,
   fallbackSeed,
@@ -114,13 +122,13 @@ function ClipPlayer({
   // opts that clip out of stall-based downgrades.
   const [selection, setSelection] = useState({
     clipId,
-    name: SOURCE_QUALITY_ID,
+    name: LOCAL_QUALITY_ID,
     pinned: false,
   })
   const scopedSelection =
     selection.clipId === clipId
       ? selection
-      : { clipId, name: SOURCE_QUALITY_ID, pinned: false }
+      : { clipId, name: LOCAL_QUALITY_ID, pinned: false }
   const selectedQualityId = scopedSelection.name
   const pinQuality = useCallback(
     (name: string) => setSelection({ clipId, name, pinned: true }),
@@ -131,9 +139,12 @@ function ClipPlayer({
     [clipId],
   )
 
-  // Quality tiers best-first with the source endpoint on top.
+  const localPlayback = useLocalClipPlayback(clipId)
+  const remotelyPlayable = Boolean(playbackContentType || renditions.length > 0)
+
+  // Quality tiers best-first, with a compatible local capture ahead of remote.
   const sources = useMemo((): RenditionSource[] => {
-    return [
+    const remoteSources = [
       {
         name: SOURCE_QUALITY_ID,
         url: clipSourceFileUrl(clipId, apiOrigin(), sourceVersion ?? undefined),
@@ -152,7 +163,33 @@ function ClipPlayer({
         contentType: "video/mp4",
       })),
     ]
-  }, [clipId, playbackContentType, renditions, sourceCodecs, sourceVersion])
+
+    if (!remotelyPlayable) return remoteSources
+    if (!localPlayback.settled) return remoteSources
+    const localItem = localPlayback.items.find((item) =>
+      canUseLocalPlayback(item, durationMs),
+    )
+    if (!localItem) return remoteSources
+
+    return [
+      {
+        name: LOCAL_QUALITY_ID,
+        url: localItem.mediaUrl,
+        codecs: "",
+        contentType: contentTypeForFile(localItem.fileName),
+      },
+      ...remoteSources,
+    ]
+  }, [
+    clipId,
+    durationMs,
+    localPlayback,
+    playbackContentType,
+    remotelyPlayable,
+    renditions,
+    sourceCodecs,
+    sourceVersion,
+  ])
 
   const renditionPlayback = useMemo(
     (): RenditionPlayback => ({
@@ -171,6 +208,9 @@ function ClipPlayer({
 
   const qualityOptions = useMemo(() => {
     return playable.map((source) => {
+      if (source.name === LOCAL_QUALITY_ID) {
+        return { id: source.name, label: t("Local") }
+      }
       if (source.name === SOURCE_QUALITY_ID) {
         return { id: source.name, label: t("Source") }
       }
@@ -201,9 +241,11 @@ function ClipPlayer({
   )
 
   const aspectRatio = aspectRatioProp ?? DEFAULT_ASPECT_RATIO
+  const firstSource = sources[0]
+  const waitingForLocalPlayback = remotelyPlayable && !localPlayback.settled
 
-  if (!playbackContentType && renditions.length === 0) {
-    const unavailable = status === "failed"
+  if (!remotelyPlayable || waitingForLocalPlayback) {
+    const unavailable = !remotelyPlayable && status === "failed"
     return (
       <div
         className={className}
@@ -256,7 +298,7 @@ function ClipPlayer({
                   </Button>
                 ) : null}
               </>
-            ) : (
+            ) : !remotelyPlayable ? (
               <>
                 <span className="text-sm font-medium text-white/90">
                   {encodeStageLabel({
@@ -273,7 +315,7 @@ function ClipPlayer({
                   className="w-full"
                 />
               </>
-            )}
+            ) : null}
           </div>
         </div>
       </div>
@@ -282,7 +324,7 @@ function ClipPlayer({
 
   return (
     <VideoPlayer
-      src={sources[0].url}
+      src={firstSource.url}
       renditionPlayback={renditionPlayback}
       poster={poster}
       posterBlurHash={thumbnailBlurHash}
@@ -301,6 +343,26 @@ function ClipPlayer({
       autoPlay={autoPlay}
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
     />
+  )
+}
+
+function canUseLocalPlayback(
+  item: RecordingLibraryItem,
+  durationMs: number | null,
+): boolean {
+  if (!canPlaySource(contentTypeForFile(item.fileName), "")) return false
+  if (!durationMatches(item.durationMs, durationMs)) return false
+  return true
+}
+
+function durationMatches(
+  localDurationMs: number | null,
+  clipDurationMs: number | null,
+): boolean {
+  if (!(localDurationMs && localDurationMs > 0)) return false
+  if (!(clipDurationMs && clipDurationMs > 0)) return false
+  return (
+    Math.abs(localDurationMs - clipDurationMs) <= LOCAL_DURATION_TOLERANCE_MS
   )
 }
 

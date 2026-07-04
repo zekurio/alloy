@@ -419,11 +419,12 @@ export type AdminRuntimeConfig = z.infer<typeof AdminRuntimeConfigSchema>
 
 /**
  * Sweep kinds an admin can trigger manually from the jobs dashboard. Only these
- * three have "run now" affordances; every other kind runs on its own schedule
+ * four have "run now" affordances; every other kind runs on its own schedule
  * or in response to uploads/playback.
  */
 export const ADMIN_SWEEP_KINDS = [
   "clip.renditions-sweep",
+  "clip.thumbnail-sweep",
   "clip.verify-assets",
   "storage.orphan-gc",
 ] as const

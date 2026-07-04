@@ -155,6 +155,7 @@ export const clipsUploadRoutes = new Hono()
       const poster = await extractSourcePoster(row.source_key, {
         atMs: timeMs,
         durationMs,
+        allowUniform: true,
       })
       if (!poster) return badRequest(c, "Could not extract a poster frame")
 
@@ -169,6 +170,7 @@ export const clipsUploadRoutes = new Hono()
         .set({
           thumb_key: thumbKey,
           thumb_blur_hash: poster.blurHash,
+          thumb_failed_at: null,
           updated_at: new Date(),
         })
         .where(
@@ -349,7 +351,7 @@ export const clipsUploadRoutes = new Hono()
 
 function extractSourcePoster(
   sourceKey: string,
-  opts: { atMs: number; durationMs: number },
+  opts: { atMs: number; durationMs: number; allowUniform: boolean },
 ) {
   return withClipSourceWorkDir("poster", sourceKey, ({ workDir, sourcePath }) =>
     extractPoster(sourcePath, workDir, opts),

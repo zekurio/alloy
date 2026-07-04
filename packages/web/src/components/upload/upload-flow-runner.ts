@@ -1,8 +1,4 @@
 import { uploadToTicket } from "@alloy/api"
-import {
-  ACCEPTED_THUMB_CONTENT_TYPES,
-  type AcceptedThumbContentType,
-} from "@alloy/contracts"
 
 import { api } from "@/lib/api"
 import { clientLogger } from "@/lib/client-log"
@@ -10,19 +6,6 @@ import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
 
 import type { PublishPayload } from "./new-clip-helpers"
 import type { ActiveUpload } from "./upload-queue-mapping"
-
-const ACCEPTED_THUMB_CONTENT_TYPE_SET = new Set<string>(
-  ACCEPTED_THUMB_CONTENT_TYPES,
-)
-
-function thumbContentTypeForBlob(
-  blob: Blob,
-): AcceptedThumbContentType | undefined {
-  const contentType = blob.type.toLowerCase()
-  return ACCEPTED_THUMB_CONTENT_TYPE_SET.has(contentType)
-    ? (contentType as AcceptedThumbContentType)
-    : undefined
-}
 
 export async function deleteUploadClipBestEffort(
   clipId: string,
@@ -82,8 +65,6 @@ export async function startUpload(
     durationMs: Math.round(payload.durationMs),
     trimStartMs: payload.trimStartMs,
     trimEndMs: payload.trimEndMs,
-    thumbBlurHash: payload.thumbBlurHash ?? undefined,
-    thumbContentType: thumbContentTypeForBlob(payload.thumbBlob),
   })
   const { clipId } = initiate
 
@@ -122,21 +103,6 @@ async function completeUpload(
     },
     entry.abort.signal,
   )
-
-  try {
-    await uploadToTicket(
-      initiate.thumbTicket,
-      payload.thumbBlob,
-      () => undefined,
-      entry.abort.signal,
-    )
-  } catch (cause) {
-    if ((cause as Error).name === "AbortError") throw cause
-    clientLogger.warn(
-      `[upload] Failed to upload poster for clip ${clipId}; continuing.`,
-      cause,
-    )
-  }
 
   entry.status = "finalizing"
   bump()

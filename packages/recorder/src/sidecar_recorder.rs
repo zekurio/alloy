@@ -97,6 +97,7 @@ impl Recorder {
                 return Err(error);
             }
             self.shutdown_obs();
+            self.clear_active_game("detection stopped");
             self.refresh_codec_capabilities();
             let status = self.status();
             emit_event(RecordingEvent::Status {
@@ -607,20 +608,7 @@ impl Recorder {
             return None;
         }
 
-        eprintln!(
-            "[{SIDE_CAR_NAME}] game '{}' ended: window and process gone",
-            active_game.game.name
-        );
-        self.active_game = None;
-        self.focused = false;
-        self.missing_game_ticks = 0;
-        self.last_error = None;
-        let status = self.status();
-        emit_event(RecordingEvent::GameEnded {
-            game: active_game.game.clone(),
-            status,
-        });
-        Some(active_game.game)
+        self.clear_active_game("window and process gone")
     }
 
     fn tick(&mut self) {
@@ -637,24 +625,12 @@ impl Recorder {
         let settings = self.settings.clone().unwrap_or_default();
         let previous_game_key = self.active_game.as_ref().map(|game| game.window_key.clone());
         let game_boundary = if settings.capture_mode == RecordingCaptureMode::Game {
-            if let Some(active_game) = self
+            if self
                 .active_game
-                .clone()
-                .filter(|game| !detected_game_allowed(game, &settings))
+                .as_ref()
+                .is_some_and(|game| !detected_game_allowed(game, &settings))
             {
-                eprintln!(
-                    "[{SIDE_CAR_NAME}] game '{}' ended: no longer passes detection rules",
-                    active_game.game.name
-                );
-                self.active_game = None;
-                self.focused = false;
-                self.missing_game_ticks = 0;
-                self.last_error = None;
-                let status = self.status();
-                emit_event(RecordingEvent::GameEnded {
-                    game: active_game.game.clone(),
-                    status,
-                });
+                self.clear_active_game("no longer passes detection rules");
                 Some(GameBoundaryReason::Disallowed)
             } else {
                 let active_game = self.active_game.clone();
@@ -662,11 +638,13 @@ impl Recorder {
                     .map(|_| GameBoundaryReason::Closed)
             }
         } else {
-            self.active_game = None;
+            let game_boundary = self
+                .clear_active_game("capture mode is no longer game capture")
+                .map(|_| GameBoundaryReason::Changed);
             self.focused = false;
             self.missing_game_ticks = 0;
             self.active_display = selected_display(&settings);
-            None
+            game_boundary
         };
         let current_game_key = self.active_game.as_ref().map(|game| game.window_key.clone());
         let game_switched = previous_game_key.is_some()
@@ -740,16 +718,20 @@ impl Recorder {
     }
 
     fn clear_closed_active_game(&mut self) -> Option<RecordingGame> {
-        let active_game = self
-            .active_game
-            .clone()
+        self.active_game
+            .as_ref()
             .filter(|game| !is_detected_game_alive(game))?;
 
+        self.clear_active_game("window closed while starting capture")
+    }
+
+    fn clear_active_game(&mut self, reason: &str) -> Option<RecordingGame> {
+        let active_game = self.active_game.take()?;
+
         eprintln!(
-            "[{SIDE_CAR_NAME}] game '{}' cleared: window closed while starting capture",
+            "[{SIDE_CAR_NAME}] game '{}' ended: {reason}",
             active_game.game.name
         );
-        self.active_game = None;
         self.focused = false;
         self.missing_game_ticks = 0;
         self.last_error = None;
