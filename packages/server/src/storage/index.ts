@@ -85,6 +85,8 @@ export function clipStorageForKey(key: string): StorageDriver {
 }
 
 function isClipThumbnailKey(key: string): boolean {
+  // Every clip asset key generator must classify correctly here; routing is
+  // asserted by storage/routing.test.ts.
   const filename = key.slice(key.lastIndexOf("/") + 1).toLowerCase()
   return (
     filename === "thumb.jpg" ||
