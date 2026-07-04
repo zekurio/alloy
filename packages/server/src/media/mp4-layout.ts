@@ -39,7 +39,25 @@ export async function mp4Layout(path: string): Promise<Mp4Layout> {
   }
 }
 
-export async function remuxToFastStart(
+/**
+ * Normalize an ingested MP4 for progressive playback: when the moov trails
+ * the media data, stream-copy remux to faststart and return the remuxed
+ * path; otherwise (already streamable, unknown layout, or not MP4 at all)
+ * return the input path untouched.
+ */
+export async function faststartPath(
+  srcPath: string,
+  outPath: string,
+  contentType: string | null,
+  signal?: AbortSignal,
+): Promise<string> {
+  if (contentType !== "video/mp4") return srcPath
+  if ((await mp4Layout(srcPath)) !== "trailing-moov") return srcPath
+  await remuxToFastStart(srcPath, outPath, signal)
+  return outPath
+}
+
+async function remuxToFastStart(
   srcPath: string,
   outPath: string,
   signal?: AbortSignal,

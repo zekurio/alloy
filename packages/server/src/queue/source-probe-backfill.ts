@@ -1,16 +1,14 @@
-import { rm } from "node:fs/promises"
-
 import { clip } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
-import { mp4Layout, remuxToFastStart } from "@alloy/server/media/mp4-layout"
+import { faststartPath } from "@alloy/server/media/mp4-layout"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
 import { join } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 import { and, eq, gt, isNotNull, isNull } from "drizzle-orm"
 
 import { runScopedSourceKey } from "./media-asset-keys"
-import { makeMediaWorkDir } from "./media-run-helpers"
+import { withClipSourceWorkDir } from "./media-run-helpers"
 
 const logger = createLogger("queue")
 
@@ -106,60 +104,56 @@ function sleep(ms: number): Promise<void> {
   })
 }
 
-async function backfillSourceProbe(
+function backfillSourceProbe(
   row: BackfillRow,
 ): Promise<{ remuxed: boolean } | null> {
-  const workDir = await makeMediaWorkDir(`probe-${row.id}`)
-  try {
-    const sourcePath = join(workDir, "source")
-    await clipStorage.downloadToFile(row.sourceKey, sourcePath)
-
-    let probePath = sourcePath
-    let remuxedKey: string | null = null
-    if (
-      row.sourceContentType === "video/mp4" &&
-      (await mp4Layout(sourcePath)) === "trailing-moov"
-    ) {
-      const remuxedPath = join(workDir, "source-faststart.mp4")
-      await remuxToFastStart(sourcePath, remuxedPath)
-      probePath = remuxedPath
-      remuxedKey = runScopedSourceKey(row.id, crypto.randomUUID())
-    }
-
-    const probe = await probeMedia(probePath)
-    const uploaded = remuxedKey
-      ? await clipStorage.uploadFromFile(probePath, remuxedKey, "video/mp4")
-      : null
-
-    // Guarded on the row still being idle with the same source so a trim run
-    // that started meanwhile (which writes this metadata itself) wins.
-    const [accepted] = await db
-      .update(clip)
-      .set({
-        source_codecs: sourceCodecsString(probe),
-        source_duration_ms: probe.durationMs,
-        ...(remuxedKey && uploaded
-          ? { source_key: remuxedKey, source_size_bytes: uploaded.size }
-          : {}),
-        updated_at: new Date(),
-      })
-      .where(
-        and(
-          eq(clip.id, row.id),
-          eq(clip.status, "ready"),
-          isNull(clip.encode_run_id),
-          eq(clip.source_key, row.sourceKey),
-        ),
+  return withClipSourceWorkDir(
+    `probe-${row.id}`,
+    row.sourceKey,
+    async ({ workDir, sourcePath }) => {
+      const probePath = await faststartPath(
+        sourcePath,
+        join(workDir, "source-faststart.mp4"),
+        row.sourceContentType,
       )
-      .returning({ id: clip.id })
-    if (!accepted) {
-      if (remuxedKey) await clipStorage.delete(remuxedKey)
-      return null
-    }
+      const remuxedKey =
+        probePath === sourcePath
+          ? null
+          : runScopedSourceKey(row.id, crypto.randomUUID())
 
-    if (remuxedKey) await clipStorage.delete(row.sourceKey)
-    return { remuxed: remuxedKey !== null }
-  } finally {
-    await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
-  }
+      const probe = await probeMedia(probePath)
+      const uploaded = remuxedKey
+        ? await clipStorage.uploadFromFile(probePath, remuxedKey, "video/mp4")
+        : null
+
+      // Guarded on the row still being idle with the same source so a trim
+      // run that started meanwhile (which writes this metadata itself) wins.
+      const [accepted] = await db
+        .update(clip)
+        .set({
+          source_codecs: sourceCodecsString(probe),
+          source_duration_ms: probe.durationMs,
+          ...(remuxedKey && uploaded
+            ? { source_key: remuxedKey, source_size_bytes: uploaded.size }
+            : {}),
+          updated_at: new Date(),
+        })
+        .where(
+          and(
+            eq(clip.id, row.id),
+            eq(clip.status, "ready"),
+            isNull(clip.encode_run_id),
+            eq(clip.source_key, row.sourceKey),
+          ),
+        )
+        .returning({ id: clip.id })
+      if (!accepted) {
+        if (remuxedKey) await clipStorage.delete(remuxedKey)
+        return null
+      }
+
+      if (remuxedKey) await clipStorage.delete(row.sourceKey)
+      return { remuxed: remuxedKey !== null }
+    },
+  )
 }

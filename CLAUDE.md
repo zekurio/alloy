@@ -1,4 +1,4 @@
-# CLAUDE.md
+@AGENTS.md
 
 ## Picking the right models for workflows and subagents
 

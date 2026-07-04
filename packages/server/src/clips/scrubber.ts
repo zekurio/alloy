@@ -1,14 +1,10 @@
-import { readFile, rm } from "node:fs/promises"
+import { readFile } from "node:fs/promises"
 
 import { createLogger } from "@alloy/logging"
 import { generateScrubberSheet } from "@alloy/server/media/scrubber"
-import { makeMediaWorkDir } from "@alloy/server/queue/media-run-helpers"
+import { withClipSourceWorkDir } from "@alloy/server/queue/media-run-helpers"
 import { join } from "@alloy/server/runtime/path"
-import {
-  clipAssetKey,
-  clipStorage,
-  clipThumbnailStorage,
-} from "@alloy/server/storage/index"
+import { clipAssetKey, clipThumbnailStorage } from "@alloy/server/storage/index"
 
 const logger = createLogger("clips")
 
@@ -47,20 +43,25 @@ async function generateSheet(
 ): Promise<boolean> {
   if (await clipThumbnailStorage.resolve(key)) return true
 
-  const workDir = await makeMediaWorkDir(`scrubber-${input.clipId}`)
   try {
-    const sourcePath = join(workDir, "source")
-    await clipStorage.downloadToFile(input.sourceKey, sourcePath)
-    const sheetPath = join(workDir, "scrubber.jpg")
-    await generateScrubberSheet(sourcePath, sheetPath, {
-      durationMs: input.durationMs,
-    })
-    await clipThumbnailStorage.put(key, await readFile(sheetPath), "image/jpeg")
+    await withClipSourceWorkDir(
+      `scrubber-${input.clipId}`,
+      input.sourceKey,
+      async ({ workDir, sourcePath }) => {
+        const sheetPath = join(workDir, "scrubber.jpg")
+        await generateScrubberSheet(sourcePath, sheetPath, {
+          durationMs: input.durationMs,
+        })
+        await clipThumbnailStorage.put(
+          key,
+          await readFile(sheetPath),
+          "image/jpeg",
+        )
+      },
+    )
     return true
   } catch (err) {
     logger.warn(`scrubber sheet generation failed for ${input.clipId}:`, err)
     return false
-  } finally {
-    await rm(workDir, { recursive: true, force: true }).catch(() => undefined)
   }
 }

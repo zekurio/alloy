@@ -4,6 +4,11 @@ import { canvasBlurHash } from "@alloy/ui/lib/blurhash-encode"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { requireObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 import { formatBytes } from "@/lib/storage-format"
+import {
+  canvasJpegBlob,
+  teardownVideoElement,
+  videoEvent,
+} from "@/lib/video-events"
 
 import type { SelectedFile } from "./new-clip-helpers"
 
@@ -11,8 +16,6 @@ const VIDEO_LOAD_TIMEOUT_MS = 15000
 const THUMB_MAX_BYTES = 2 * 1024 * 1024
 const THUMB_DIMENSIONS = [1280, 960, 720] as const
 const THUMB_QUALITIES = [0.85, 0.75, 0.65] as const
-
-type VideoEventName = "loadedmetadata" | "loadeddata" | "seeked"
 
 type VideoSession = {
   video: HTMLVideoElement
@@ -70,12 +73,11 @@ export async function captureThumbnail(
           return await drawThumbnail(video)
         }
 
-        await waitForVideoEvent(
-          video,
-          "loadeddata",
-          t("Could not load video frame for thumbnail capture"),
-          () => video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
-        )
+        await videoEvent(video, "loadeddata", {
+          failureMessage: t("Could not load video frame for thumbnail capture"),
+          alreadyDone: () =>
+            video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA,
+        })
         return await drawThumbnail(video)
       } catch (err) {
         lastError = err
@@ -182,12 +184,7 @@ function createVideoSession(
     video,
     cleanup: () => {
       revokeObjectUrl(url, "video file URL")
-      video.removeAttribute("src")
-      try {
-        video.load()
-      } catch {
-        // Some mobile browsers throw while tearing down blob-backed media.
-      }
+      teardownVideoElement(video)
     },
   }
 }
@@ -196,12 +193,10 @@ async function loadVideoMetadata(
   video: HTMLVideoElement,
   failureMessage: string,
 ): Promise<void> {
-  const metadataLoaded = waitForVideoEvent(
-    video,
-    "loadedmetadata",
+  const metadataLoaded = videoEvent(video, "loadedmetadata", {
     failureMessage,
-    () => video.readyState >= HTMLMediaElement.HAVE_METADATA,
-  )
+    alreadyDone: () => video.readyState >= HTMLMediaElement.HAVE_METADATA,
+  })
   video.load()
   await metadataLoaded
 }
@@ -209,38 +204,6 @@ async function loadVideoMetadata(
 function videoErrorMessage(video: HTMLVideoElement, fallback: string): string {
   const message = video.error?.message
   return message ? t("{fallback}: {message}", { fallback, message }) : fallback
-}
-
-function waitForVideoEvent(
-  video: HTMLVideoElement,
-  eventName: VideoEventName,
-  failureMessage: string,
-  isAlreadyReady?: () => boolean,
-): Promise<void> {
-  if (isAlreadyReady?.()) return Promise.resolve()
-
-  return new Promise<void>((resolve, reject) => {
-    let timeoutId = 0
-    const cleanup = () => {
-      window.clearTimeout(timeoutId)
-      video.removeEventListener(eventName, onEvent)
-      video.removeEventListener("error", onError)
-    }
-    const onEvent = () => {
-      cleanup()
-      resolve()
-    }
-    const onError = () => {
-      cleanup()
-      reject(new Error(videoErrorMessage(video, failureMessage)))
-    }
-    timeoutId = window.setTimeout(() => {
-      cleanup()
-      reject(new Error(failureMessage))
-    }, VIDEO_LOAD_TIMEOUT_MS)
-    video.addEventListener(eventName, onEvent, { once: true })
-    video.addEventListener("error", onError, { once: true })
-  })
 }
 
 async function seekVideo(
@@ -252,7 +215,7 @@ async function seekVideo(
     return false
   }
 
-  const seeked = waitForVideoEvent(video, "seeked", failureMessage)
+  const seeked = videoEvent(video, "seeked", { failureMessage })
   video.currentTime = targetTime
   await seeked
   return true
@@ -272,20 +235,13 @@ function thumbnailSize(
 
 // Clip posters are standardized on JPEG so uploaded and local-only thumbnails
 // use the same broadly inspectable image format.
-function encodeCanvasAsJpeg(
+async function encodeCanvasAsJpeg(
   canvas: HTMLCanvasElement,
   quality: number,
 ): Promise<Blob> {
-  return new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (blob) => {
-        if (blob) resolve(blob)
-        else reject(new Error(t("canvas.toBlob returned null")))
-      },
-      "image/jpeg",
-      quality,
-    )
-  })
+  const blob = await canvasJpegBlob(canvas, quality)
+  if (!blob) throw new Error(t("canvas.toBlob returned null"))
+  return blob
 }
 
 async function drawThumbnail(
