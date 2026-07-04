@@ -59,12 +59,6 @@ interface ClipCardProps extends ComponentProps<"article"> {
   titleLabel?: string
   thumbnailRef?: Ref<HTMLButtonElement>
   metaVariant?: "default" | "showcase"
-  /**
-   * Floating controls over the thumbnail's top-right corner (e.g. an actions
-   * menu). Rendered as a sibling of the thumbnail button, so interactive
-   * elements stay valid HTML.
-   */
-  thumbnailOverlay?: ReactNode
 }
 
 type ClipCardLabelLinkProps = {
@@ -117,7 +111,6 @@ function ClipCard({
   titleLabel,
   thumbnailRef,
   metaVariant = "default",
-  thumbnailOverlay,
   ...props
 }: ClipCardProps) {
   const showAttributionRow = Boolean(author || game)
@@ -143,9 +136,6 @@ function ClipCard({
           label={thumbnailLabel ?? title}
           buttonRef={thumbnailRef}
         />
-        {thumbnailOverlay ? (
-          <div className="absolute top-2 right-2 z-10">{thumbnailOverlay}</div>
-        ) : null}
       </div>
       <div
         className={cn(
