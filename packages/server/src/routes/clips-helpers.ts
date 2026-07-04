@@ -10,6 +10,10 @@ import {
 import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
+import {
+  resolveTrimRange,
+  TRIM_MIN_RANGE_MS,
+} from "@alloy/server/clips/trim-range"
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
 import { and, desc, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm"
@@ -196,9 +200,6 @@ const TagsInput = z
   .max(CLIP_TAGS_MAX)
   .optional()
 
-/** Smallest media range a trim may keep, in ms. */
-export const TRIM_MIN_RANGE_MS = 1000
-
 export const InitiateBody = z
   .object({
     clientClipId: z.uuid().optional(),
@@ -233,17 +234,25 @@ export const InitiateBody = z
       })
       return
     }
-    if (body.trimEndMs - body.trimStartMs < TRIM_MIN_RANGE_MS) {
-      ctx.addIssue({
-        code: "custom",
-        message: "The trimmed range is too short",
-        path: ["trimEndMs"],
-      })
+    if (body.durationMs === undefined) {
+      if (body.trimEndMs - body.trimStartMs < TRIM_MIN_RANGE_MS) {
+        ctx.addIssue({
+          code: "custom",
+          message: "The trimmed range is too short",
+          path: ["trimEndMs"],
+        })
+      }
+      return
     }
-    if (body.durationMs !== undefined && body.trimEndMs > body.durationMs) {
+    const resolved = resolveTrimRange({
+      startMs: body.trimStartMs,
+      endMs: body.trimEndMs,
+      durationMs: body.durationMs,
+    })
+    if (resolved.kind === "invalid") {
       ctx.addIssue({
         code: "custom",
-        message: "The trimmed range exceeds the clip duration",
+        message: resolved.reason,
         path: ["trimEndMs"],
       })
     }

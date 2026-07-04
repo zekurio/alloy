@@ -3,6 +3,7 @@ import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
+import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
@@ -111,6 +112,16 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const uploadKey = stagedSourceKey(clipId, body.contentType)
       const thumbUploadKey = stagedThumbKey(clipId)
       const privacy = body.privacy ?? "public"
+      const trim =
+        body.trimStartMs !== undefined &&
+        body.trimEndMs !== undefined &&
+        body.durationMs !== undefined
+          ? resolveTrimRange({
+              startMs: body.trimStartMs,
+              endMs: body.trimEndMs,
+              durationMs: body.durationMs,
+            })
+          : null
 
       let gameRef: Awaited<ReturnType<typeof getGameRefById>> = null
       if (body.gameId !== undefined && body.gameId !== null) {
@@ -153,9 +164,18 @@ export const clipsUploadLifecycleRoutes = new Hono()
               height: body.height ?? null,
               duration_ms: body.durationMs ?? null,
               // Kept source range applied by the media run at first ingest —
-              // the raw upload is stored untouched and the run derives the cut.
-              trim_start_ms: body.trimStartMs ?? null,
-              trim_end_ms: body.trimEndMs ?? null,
+              // full-range requests are dropped and the raw upload is stored
+              // untouched while the run derives any real cut.
+              trim_start_ms: trim
+                ? trim.kind === "range"
+                  ? trim.startMs
+                  : null
+                : (body.trimStartMs ?? null),
+              trim_end_ms: trim
+                ? trim.kind === "range"
+                  ? trim.endMs
+                  : null
+                : (body.trimEndMs ?? null),
               // Client-provided poster placeholder; media finalization preserves
               // it because the server does not derive poster frames or hashes.
               thumb_blur_hash: body.thumbBlurHash ?? null,
