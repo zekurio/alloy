@@ -1,4 +1,5 @@
 import {
+  OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
@@ -122,6 +123,7 @@ const AllauthOidcAppSettingsSchema = z.object({
   button_color: z.string().trim().optional(),
   button_text_color: z.string().trim().optional(),
   username_claim: z.string().trim().min(1).optional(),
+  avatar_claim: z.string().trim().min(1).optional(),
   quota_claim: z.string().trim().min(1).optional(),
   role_claim: z.string().trim().min(1).optional(),
 })
@@ -194,6 +196,7 @@ function parseSocialProviders(raw: string | undefined): ParsedSocialProviders {
       fetchUserInfo: settings.fetch_userinfo ?? true,
       authParams: authParams(settings.auth_params),
       usernameClaim: settings.username_claim ?? OAUTH_USERNAME_CLAIM_DEFAULT,
+      avatarClaim: settings.avatar_claim ?? OAUTH_AVATAR_CLAIM_DEFAULT,
       quotaClaim: settings.quota_claim ?? OAUTH_QUOTA_CLAIM_DEFAULT,
       roleClaim: settings.role_claim ?? OAUTH_ROLE_CLAIM_DEFAULT,
     }
@@ -240,6 +243,10 @@ export function parseServerEnv(source: EnvSource = process.env) {
       ALLOY_OPEN_REGISTRATIONS: envBool(false),
       ALLOY_PASSKEY_ENABLED: envBool(true),
       ALLOY_REQUIRE_AUTH_TO_BROWSE: envBool(true),
+      // OAuth avatar sync refuses provider avatar URLs that resolve to
+      // private/loopback addresses (SSRF guard). Self-hosted LAN IdPs whose
+      // avatar URLs live on the private network can opt back in here.
+      ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS: envBool(false),
       ALLOY_DEFAULT_STORAGE_QUOTA_BYTES: optionalPositiveIntegerOrNull(),
       ALLOY_UPLOAD_TTL_SEC: z.coerce
         .number()
@@ -328,6 +335,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
     openRegistrations: raw.ALLOY_OPEN_REGISTRATIONS,
     passkeyEnabled: raw.ALLOY_PASSKEY_ENABLED,
     requireAuthToBrowse: raw.ALLOY_REQUIRE_AUTH_TO_BROWSE,
+    oauthAvatarAllowPrivateUrls: raw.ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS,
     limits: {
       defaultStorageQuotaBytes: raw.ALLOY_DEFAULT_STORAGE_QUOTA_BYTES,
       uploadTtlSec: raw.ALLOY_UPLOAD_TTL_SEC,

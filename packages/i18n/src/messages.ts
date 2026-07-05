@@ -48,6 +48,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Add: "Hinzufügen",
   "Add {title} to the timeline": "{title} zur Zeitleiste hinzufügen",
   "Add a comment…": "Kommentar hinzufügen…",
+  "Add an avatar and banner so people recognize you.":
+    "Füge Avatar und Banner hinzu, damit andere dich wiedererkennen.",
   "Add a description…": "Beschreibung hinzufügen…",
   "Add clip details before the upload starts.":
     "Füge die Clip-Details hinzu, bevor der Upload startet.",
@@ -57,6 +59,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Add artwork after creating the game.":
     "Füge nach dem Erstellen des Spiels Artwork hinzu.",
   "Add banner": "Banner hinzufügen",
+  "Add or replace avatar": "Avatar hinzufügen oder ersetzen",
+  "Add or replace banner": "Banner hinzufügen oder ersetzen",
   "Add clips from the library to start editing":
     "Füge Clips aus der Bibliothek hinzu, um mit dem Bearbeiten zu beginnen",
   "Add crossfade": "Überblendung hinzufügen",
@@ -126,6 +130,9 @@ export const DE_MESSAGES: Record<string, string> = {
   Available: "Verfügbar",
   "Avatar removed": "Avatar entfernt",
   "Avatar updated": "Avatar aktualisiert",
+  "Avatar imported from {provider}": "Avatar von {provider} importiert",
+  "Avatar imported from your sign-in provider":
+    "Avatar von deinem Anmeldeanbieter importiert",
   "Back to elements": "Zurück zu Elementen",
   "Back to library": "Zurück zur Bibliothek",
   "Background checks": "Prüfung im Hintergrund",
@@ -186,6 +193,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Clear search": "Suche löschen",
   "Clear shortcut": "Verknüpfung löschen",
   "Click media to edit.": "Medien zum Bearbeiten anklicken.",
+  "Click the avatar or banner to add media.":
+    "Klicke auf Avatar oder Banner, um Medien hinzuzufügen.",
   clip: "Clip",
   Clip: "Clip",
   "Clip actions": "Clip-Aktionen",
@@ -984,6 +993,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Servers: "Server",
   Settings: "Einstellungen",
   "Settings sections": "Einstellungsabschnitte",
+  "Set up your profile": "Richte dein Profil ein",
   Share: "Teilen",
   "Share clip": "Clip teilen",
   Shift: "Shift",
