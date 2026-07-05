@@ -6,6 +6,7 @@ import type {
 } from "@alloy/api"
 import { ADMIN_SWEEP_KINDS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
+import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -37,6 +38,7 @@ import {
   RotateCcwIcon,
   XIcon,
 } from "lucide-react"
+import { useId } from "react"
 
 import {
   adminFailedJobsQueryOptions,
@@ -259,7 +261,7 @@ function KindTable({ kinds }: { kinds: AdminJobKindRow[] }) {
           {t("Compact queue controls. Counts update while this panel is open.")}
         </p>
       </div>
-      <div className="border-border bg-surface-raised/20 divide-border overflow-hidden rounded-lg border">
+      <div className="border-border bg-surface-raised/20 overflow-hidden rounded-lg border">
         {kinds.map((row) => (
           <KindRow key={row.kind} row={row} />
         ))}
@@ -270,6 +272,7 @@ function KindTable({ kinds }: { kinds: AdminJobKindRow[] }) {
 
 function KindRow({ row }: { row: AdminJobKindRow }) {
   const queryClient = useQueryClient()
+  const pauseLabelId = useId()
 
   const pauseMutation = useMutation({
     mutationFn: (paused: boolean) =>
@@ -335,12 +338,14 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
           </span>
         )}
         <div className="text-foreground-muted flex items-center gap-2 text-xs">
-          <span>{row.paused ? t("Paused") : t("Enabled")}</span>
+          <span id={pauseLabelId}>
+            {row.paused ? t("Paused") : t("Enabled")}
+          </span>
           <Switch
             size="sm"
             checked={!row.paused}
             disabled={pauseMutation.isPending}
-            aria-label={row.paused ? t("Resume") : t("Pause")}
+            aria-labelledby={pauseLabelId}
             onCheckedChange={(next) => pauseMutation.mutate(!next)}
           />
         </div>
@@ -351,9 +356,9 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
 
 function QueuePill({ queue }: { queue: string }) {
   return (
-    <span className="border-border bg-background text-foreground-muted inline-flex h-5 shrink-0 items-center rounded-md border px-2 text-xs font-medium">
+    <Badge size="text" className="bg-background shrink-0">
       {QUEUE_LABELS[queue] ?? queue.charAt(0).toUpperCase() + queue.slice(1)}
-    </span>
+    </Badge>
   )
 }
 
@@ -522,9 +527,9 @@ function FailedJobRow({
             {kindLabel(job.kind)}
           </span>
           {job.attempt > 1 ? (
-            <span className="border-border bg-background text-foreground-muted inline-flex h-5 shrink-0 items-center rounded-md border px-2 text-xs font-medium">
+            <Badge size="text" className="bg-background shrink-0">
               {t("Attempt {n}", { n: job.attempt })}
-            </span>
+            </Badge>
           ) : null}
           {job.finishedAt ? (
             <span className="text-foreground-muted text-2xs shrink-0">
