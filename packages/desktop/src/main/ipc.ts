@@ -5,6 +5,7 @@ import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 import type { ConnectResult, ProbeResult } from "@/shared/ipc"
 import { IPC } from "@/shared/ipc"
 
+import { getAutostartState, setAutostartEnabled } from "./autostart"
 import { loginViaBrowser } from "./browser-login"
 import {
   requireControllableWindow,
@@ -72,6 +73,7 @@ export function registerIpc(windows: Windows): void {
   registerServerIpc(windows)
   registerRecordingIpc(windows)
   registerUpdateIpc(windows)
+  registerAutostartIpc(windows)
 }
 
 function registerRecordingEvents(): void {
@@ -111,6 +113,17 @@ function registerUpdateIpc(windows: Windows): void {
   ipcMain.handle(IPC.restartToInstallUpdate, (event) => {
     requireDesktopSender(windows, event)
     restartToInstallUpdate()
+  })
+}
+
+function registerAutostartIpc(windows: Windows): void {
+  ipcMain.handle(IPC.getAutostart, (event) => {
+    requireMainSender(windows, event)
+    return getAutostartState()
+  })
+  ipcMain.handle(IPC.setAutostart, (event, enabled: unknown) => {
+    requireMainSender(windows, event)
+    return setAutostartEnabled(enabled === true)
   })
 }
 

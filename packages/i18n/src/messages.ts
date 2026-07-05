@@ -245,6 +245,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Constant quality": "Konstante Qualität",
   "Continue with {displayName}": "Mit {displayName} fortfahren",
   "Continue with a passkey": "Mit Passkey fortfahren",
+  "Control whether Alloy starts when you sign in.":
+    "Steuere, ob Alloy beim Anmelden gestartet wird.",
   "Cool shadows": "Kühle Schatten",
   "Copy error": "Fehler kopieren",
   "Copy link": "Link kopieren",
@@ -355,6 +357,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't update backdrop": "Hintergrund konnte nicht aktualisiert werden",
   "Couldn't update like": "Like konnte nicht aktualisiert werden",
   "Couldn't update the poster": "Poster konnte nicht aktualisiert werden",
+  "Couldn't update the startup setting.":
+    "Start-Einstellung konnte nicht gespeichert werden.",
   "Couldn't update user": "Nutzer konnte nicht aktualisiert werden",
   "Couldn't update visibility": "Sichtbarkeit konnte nicht aktualisiert werden",
   "Couldn't upload artwork": "Artwork konnte nicht hochgeladen werden",
@@ -590,6 +594,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Language and regional settings.": "Sprach- und Regionaleinstellungen.",
   "Last used": "Zuletzt verwendet",
   Latest: "Stabil",
+  "Launches in the background so your games are captured right away.":
+    "Startet im Hintergrund, damit deine Spiele sofort aufgenommen werden.",
   Library: "Bibliothek",
   Like: "Liken",
   "Like clip": "Clip liken",
@@ -649,8 +655,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Make your profile and clips visible again.":
     "Mach dein Profil und deine Clips wieder sichtbar.",
   "Manage Audio": "Audio verwalten",
-  "Manage connected servers and desktop updates.":
-    "Verbundene Server und Desktop-Updates verwalten.",
+  "Manage servers, startup behavior, and desktop updates.":
+    "Server, Startverhalten und Desktop-Updates verwalten.",
   "Manage linked accounts and passkeys for this account.":
     "Verknüpfte Konten und Passkeys für dieses Konto verwalten.",
   "Manage linked OAuth sign-in methods.":
@@ -1029,8 +1035,10 @@ export const DE_MESSAGES: Record<string, string> = {
   Standard: "Standard",
   Star: "Stern",
   Starred: "Markiert",
+  "Start Alloy when you sign in": "Alloy beim Anmelden starten",
   "Start render": "Rendern starten",
   "Start typing to search": "Tippe los, um zu suchen",
+  Startup: "Autostart",
   "Stereo AAC bitrate applied to every rendition.":
     "Stereo-AAC-Bitrate, die auf jede Qualitätsstufe angewendet wird.",
   Stop: "Stoppen",

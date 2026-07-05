@@ -1,4 +1,5 @@
 import type {
+  AlloyDesktopAutostartApi,
   AlloyDesktopUpdatesApi,
   PublicAuthConfig,
   RecordingActionResult,
@@ -98,6 +99,8 @@ export const IPC = {
   minimizeWindow: "alloy:minimize-window",
   toggleMaximizeWindow: "alloy:toggle-maximize-window",
   closeWindow: "alloy:close-window",
+  getAutostart: "alloy:get-autostart",
+  setAutostart: "alloy:set-autostart",
   getUpdateState: "alloy:get-update-state",
   getUpdateChannel: "alloy:get-update-channel",
   setUpdateChannel: "alloy:set-update-channel",
@@ -231,4 +234,5 @@ export interface AlloyDesktopMarker {
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
   updates: AlloyDesktopUpdatesApi
+  autostart: AlloyDesktopAutostartApi
 }

@@ -1,4 +1,7 @@
-import type { AlloyDesktopUpdatesApi } from "@alloy/contracts"
+import type {
+  AlloyDesktopAutostartApi,
+  AlloyDesktopUpdatesApi,
+} from "@alloy/contracts"
 import { contextBridge, ipcRenderer } from "electron"
 
 import type {
@@ -90,6 +93,11 @@ const updates: AlloyDesktopUpdatesApi = {
   },
 }
 
+const autostart: AlloyDesktopAutostartApi = {
+  getState: () => ipcRenderer.invoke(IPC.getAutostart),
+  setEnabled: (enabled) => ipcRenderer.invoke(IPC.setAutostart, enabled),
+}
+
 const marker: AlloyDesktopMarker = {
   platform: process.platform,
   // The main window is frameless; the web app header provides the draggable
@@ -104,6 +112,7 @@ const marker: AlloyDesktopMarker = {
   servers,
   recording,
   updates,
+  autostart,
 }
 
 contextBridge.exposeInMainWorld("alloyDesktop", marker)

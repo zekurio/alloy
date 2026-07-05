@@ -1,4 +1,5 @@
 import type {
+  AlloyDesktopAutostartApi,
   AlloyDesktopUpdatesApi,
   RecordingActionResult,
   RecordingDisplay,
@@ -140,6 +141,8 @@ export interface AlloyDesktop {
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
   updates?: AlloyDesktopUpdatesApi
+  /** Missing on desktop shells that predate the autostart toggle. */
+  autostart?: AlloyDesktopAutostartApi
 }
 
 export function alloyDesktop(): AlloyDesktop | null {
