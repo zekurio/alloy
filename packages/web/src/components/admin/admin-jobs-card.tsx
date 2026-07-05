@@ -6,7 +6,6 @@ import type {
 } from "@alloy/api"
 import { ADMIN_SWEEP_KINDS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -66,6 +65,12 @@ const JOB_KIND_LABELS: Record<string, string> = {
   "jobs.prune": t("Prune job history"),
 }
 
+const QUEUE_LABELS: Record<string, string> = {
+  encode: t("Encode"),
+  io: t("I/O"),
+  maintenance: t("Maintenance"),
+}
+
 const SWEEP_KINDS: ReadonlySet<string> = new Set<AdminSweepKind>(
   ADMIN_SWEEP_KINDS,
 )
@@ -89,7 +94,7 @@ export function AdminJobsCard({ hideHeader }: { hideHeader?: boolean }) {
       <Spinner className="size-4" />
     </div>
   ) : (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <SweepStats sweeps={summaryQuery.data.sweeps} />
       <KindTable kinds={summaryQuery.data.kinds} />
       <FailedJobs />
@@ -110,67 +115,79 @@ export function AdminJobsCard({ hideHeader }: { hideHeader?: boolean }) {
 
 function SweepStats({ sweeps }: { sweeps: AdminJobsSweeps }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
-      <SweepStatCard
-        title={t("Renditions")}
-        finishedAt={sweeps.renditionSweep?.finishedAt ?? null}
-        primary={
-          sweeps.renditionSweep
-            ? tRenditionSweepPrimary(sweeps.renditionSweep)
-            : t("Not run yet")
-        }
-        emphasis={
-          sweeps.renditionSweep?.mode === "stale" &&
-          sweeps.renditionSweep.enqueued > 0
-        }
-        detail={
-          sweeps.renditionSweep
-            ? t("{upToDate} up to date · {adopted} adopted", {
-                upToDate: sweeps.renditionSweep.upToDate,
-                adopted: sweeps.renditionSweep.adopted,
-              })
-            : null
-        }
-      />
-      <SweepStatCard
-        title={t("Storage verify")}
-        finishedAt={sweeps.storageVerify?.finishedAt ?? null}
-        primary={
-          sweeps.storageVerify
-            ? sweeps.storageVerify.repaired > 0
-              ? t("{count} repaired", { count: sweeps.storageVerify.repaired })
-              : t("All assets present")
-            : t("Not run yet")
-        }
-        emphasis={(sweeps.storageVerify?.repaired ?? 0) > 0}
-        detail={
-          sweeps.storageVerify
-            ? t("{checked} assets checked", {
-                checked: sweeps.storageVerify.checked,
-              })
-            : null
-        }
-      />
-      <SweepStatCard
-        title={t("Storage cleanup")}
-        finishedAt={sweeps.storageGc?.finishedAt ?? null}
-        primary={
-          sweeps.storageGc
-            ? t("{count} removed", {
-                count:
-                  sweeps.storageGc.deletedOrphanObjects +
-                  sweeps.storageGc.deletedStaleAssets,
-              })
-            : t("Not run yet")
-        }
-        detail={
-          sweeps.storageGc
-            ? t("{scanned} objects scanned", {
-                scanned: sweeps.storageGc.scanned,
-              })
-            : null
-        }
-      />
+    <div className="border-border bg-surface-raised/30 overflow-hidden rounded-lg border">
+      <div className="border-border flex items-start justify-between gap-3 border-b px-3 py-2.5">
+        <div>
+          <h3 className="text-sm font-semibold">{t("Recent maintenance")}</h3>
+          <p className="text-foreground-dim text-xs">
+            {t("Last results from automatic cleanup and verification sweeps.")}
+          </p>
+        </div>
+      </div>
+      <div className="divide-border grid divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+        <SweepStatItem
+          title={t("Renditions")}
+          finishedAt={sweeps.renditionSweep?.finishedAt ?? null}
+          primary={
+            sweeps.renditionSweep
+              ? tRenditionSweepPrimary(sweeps.renditionSweep)
+              : t("Not run yet")
+          }
+          emphasis={
+            sweeps.renditionSweep?.mode === "stale" &&
+            sweeps.renditionSweep.enqueued > 0
+          }
+          detail={
+            sweeps.renditionSweep
+              ? t("{upToDate} up to date · {adopted} adopted", {
+                  upToDate: sweeps.renditionSweep.upToDate,
+                  adopted: sweeps.renditionSweep.adopted,
+                })
+              : null
+          }
+        />
+        <SweepStatItem
+          title={t("Storage verify")}
+          finishedAt={sweeps.storageVerify?.finishedAt ?? null}
+          primary={
+            sweeps.storageVerify
+              ? sweeps.storageVerify.repaired > 0
+                ? t("{count} repaired", {
+                    count: sweeps.storageVerify.repaired,
+                  })
+                : t("All assets present")
+              : t("Not run yet")
+          }
+          emphasis={(sweeps.storageVerify?.repaired ?? 0) > 0}
+          detail={
+            sweeps.storageVerify
+              ? t("{checked} assets checked", {
+                  checked: sweeps.storageVerify.checked,
+                })
+              : null
+          }
+        />
+        <SweepStatItem
+          title={t("Storage cleanup")}
+          finishedAt={sweeps.storageGc?.finishedAt ?? null}
+          primary={
+            sweeps.storageGc
+              ? t("{count} removed", {
+                  count:
+                    sweeps.storageGc.deletedOrphanObjects +
+                    sweeps.storageGc.deletedStaleAssets,
+                })
+              : t("Not run yet")
+          }
+          detail={
+            sweeps.storageGc
+              ? t("{scanned} objects scanned", {
+                  scanned: sweeps.storageGc.scanned,
+                })
+              : null
+          }
+        />
+      </div>
     </div>
   )
 }
@@ -194,7 +211,7 @@ function tStale(count: number): string {
     : t("{count} stale clips", { count })
 }
 
-function SweepStatCard({
+function SweepStatItem({
   title,
   primary,
   detail,
@@ -208,25 +225,26 @@ function SweepStatCard({
   emphasis?: boolean
 }) {
   return (
-    <div className="border-border bg-muted/20 flex flex-col gap-0.5 rounded-lg border p-3">
-      <span className="text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase">
-        {title}
-      </span>
-      <span
+    <div className="flex min-w-0 flex-col gap-0.5 px-3 py-2.5">
+      <div className="text-foreground text-xs font-medium">{title}</div>
+      <div
         className={cn(
-          "text-sm font-semibold",
+          "truncate text-sm font-semibold",
           emphasis ? "text-warning" : "text-foreground",
         )}
+        title={primary}
       >
         {primary}
-      </span>
+      </div>
       {detail ? (
-        <span className="text-foreground-dim text-xs">{detail}</span>
+        <div className="text-foreground-dim truncate text-xs" title={detail}>
+          {detail}
+        </div>
       ) : null}
       {finishedAt ? (
-        <span className="text-foreground-muted text-2xs">
+        <div className="text-foreground-muted text-xs">
           {formatRelativeTime(finishedAt)}
-        </span>
+        </div>
       ) : null}
     </div>
   )
@@ -234,9 +252,14 @@ function SweepStatCard({
 
 function KindTable({ kinds }: { kinds: AdminJobKindRow[] }) {
   return (
-    <div className="flex flex-col gap-2">
-      <span className="text-sm font-semibold">{t("Job kinds")}</span>
-      <div className="border-border divide-border divide-y overflow-hidden rounded-lg border">
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-sm font-semibold">{t("Job types")}</h3>
+        <p className="text-foreground-dim text-xs">
+          {t("Compact queue controls. Counts update while this panel is open.")}
+        </p>
+      </div>
+      <div className="border-border bg-surface-raised/20 divide-border overflow-hidden rounded-lg border">
         {kinds.map((row) => (
           <KindRow key={row.kind} row={row} />
         ))}
@@ -274,49 +297,63 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
     : t("On demand")
 
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 p-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-medium">
+    <div className="border-border grid gap-3 border-b p-3 last:border-b-0 lg:grid-cols-[minmax(12rem,1fr)_minmax(17rem,24rem)_auto] lg:items-center">
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <h4 className="truncate text-sm font-medium">
             {kindLabel(row.kind)}
-          </span>
-          <Badge variant="outline" className="shrink-0 text-xs">
-            {row.queue}
-          </Badge>
+          </h4>
+          <QueuePill queue={row.queue} />
         </div>
-        <span className="text-foreground-muted text-xs">{scheduleHint}</span>
+        <p className="text-foreground-dim mt-0.5 text-xs">{scheduleHint}</p>
       </div>
 
-      <div className="flex items-center gap-3">
-        <CountPill label={t("Pending")} value={row.pending} />
-        <CountPill
+      <div className="bg-background/60 border-border grid grid-cols-3 overflow-hidden rounded-md border">
+        <CountCell label={t("Pending")} value={row.pending} />
+        <CountCell
           label={t("Running")}
           value={row.running}
           tone={row.running > 0 ? "active" : "muted"}
         />
-        <CountPill
+        <CountCell
           label={t("Failed")}
           value={row.failed}
           tone={row.failed > 0 ? "danger" : "muted"}
         />
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 lg:justify-end">
         {SWEEP_KINDS.has(row.kind) ? (
           <RunNowAction
             kind={row.kind}
             pending={sweepMutation.isPending}
             onRun={(mode) => sweepMutation.mutate(mode)}
           />
-        ) : null}
-        <Switch
-          checked={!row.paused}
-          disabled={pauseMutation.isPending}
-          aria-label={row.paused ? t("Resume") : t("Pause")}
-          onCheckedChange={(next) => pauseMutation.mutate(!next)}
-        />
+        ) : (
+          <span className="text-foreground-faint text-xs">
+            {t("Automatic")}
+          </span>
+        )}
+        <div className="text-foreground-muted flex items-center gap-2 text-xs">
+          <span>{row.paused ? t("Paused") : t("Enabled")}</span>
+          <Switch
+            size="sm"
+            checked={!row.paused}
+            disabled={pauseMutation.isPending}
+            aria-label={row.paused ? t("Resume") : t("Pause")}
+            onCheckedChange={(next) => pauseMutation.mutate(!next)}
+          />
+        </div>
       </div>
     </div>
+  )
+}
+
+function QueuePill({ queue }: { queue: string }) {
+  return (
+    <span className="border-border bg-background text-foreground-muted inline-flex h-5 shrink-0 items-center rounded-md border px-2 text-xs font-medium">
+      {QUEUE_LABELS[queue] ?? queue.charAt(0).toUpperCase() + queue.slice(1)}
+    </span>
   )
 }
 
@@ -339,7 +376,7 @@ function RunNowAction({
         onClick={() => onRun("stale")}
       >
         <PlayIcon />
-        {t("Run now")}
+        {pending ? t("Starting...") : t("Run")}
       </Button>
     )
   }
@@ -349,7 +386,7 @@ function RunNowAction({
         render={
           <Button type="button" variant="outline" size="sm" disabled={pending}>
             <PlayIcon />
-            {t("Run now")}
+            {pending ? t("Starting...") : t("Run")}
             <ChevronDownIcon />
           </Button>
         }
@@ -366,7 +403,7 @@ function RunNowAction({
   )
 }
 
-function CountPill({
+function CountCell({
   label,
   value,
   tone = "muted",
@@ -376,7 +413,8 @@ function CountPill({
   tone?: "muted" | "active" | "danger"
 }) {
   return (
-    <div className="flex flex-col items-center leading-tight">
+    <div className="border-border flex min-w-0 items-center justify-between gap-2 border-r px-2.5 py-2 last:border-r-0">
+      <span className="text-foreground-muted truncate text-xs">{label}</span>
       <span
         className={cn(
           "text-sm font-semibold tabular-nums",
@@ -386,9 +424,6 @@ function CountPill({
         )}
       >
         {value}
-      </span>
-      <span className="text-foreground-muted text-2xs tracking-[0.04em] uppercase">
-        {label}
       </span>
     </div>
   )
@@ -424,8 +459,13 @@ function FailedJobs() {
     null
 
   return (
-    <div className="flex flex-col gap-2">
-      <span className="text-sm font-semibold">{t("Failed jobs")}</span>
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-sm font-semibold">{t("Failed jobs")}</h3>
+        <p className="text-foreground-dim text-xs">
+          {t("Retry or discard failures after checking the error message.")}
+        </p>
+      </div>
       {!failedQuery.data ? (
         <div className="text-foreground-muted grid place-items-center py-4">
           <Spinner className="size-4" />
@@ -482,9 +522,9 @@ function FailedJobRow({
             {kindLabel(job.kind)}
           </span>
           {job.attempt > 1 ? (
-            <Badge variant="outline" className="shrink-0 text-xs">
+            <span className="border-border bg-background text-foreground-muted inline-flex h-5 shrink-0 items-center rounded-md border px-2 text-xs font-medium">
               {t("Attempt {n}", { n: job.attempt })}
-            </Badge>
+            </span>
           ) : null}
           {job.finishedAt ? (
             <span className="text-foreground-muted text-2xs shrink-0">
