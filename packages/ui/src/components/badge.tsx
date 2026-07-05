@@ -7,7 +7,7 @@ const badgeVariants = cva(
   cn(
     "group/badge inline-flex h-5 items-center gap-1.5 px-2",
     "overflow-hidden rounded-md border whitespace-nowrap",
-    "font-mono text-2xs leading-3 font-medium tracking-[0.06em] uppercase",
+    "font-medium",
     "transition-colors",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:outline-none",
     "[&>svg]:pointer-events-none [&>svg]:size-2.5",
@@ -37,9 +37,16 @@ const badgeVariants = cva(
         ghost: "border-transparent bg-transparent text-foreground-muted",
         link: "border-transparent bg-transparent text-accent underline-offset-4 hover:underline",
       },
+      size: {
+        default: "font-mono text-2xs leading-3 tracking-[0.06em] uppercase",
+        // Plain-text badge for real words ("You", "Disabled", queue names)
+        // instead of the mono/uppercase micro-tag treatment.
+        text: "font-sans text-xs",
+      },
     },
     defaultVariants: {
       variant: "default",
+      size: "default",
     },
   },
 )
@@ -47,17 +54,18 @@ const badgeVariants = cva(
 function Badge({
   className,
   variant = "default",
+  size = "default",
   render,
   ...props
 }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
   return useRender({
     defaultTagName: "span",
     props: mergeProps<"span">(
-      { className: cn(badgeVariants({ variant }), className) },
+      { className: cn(badgeVariants({ variant, size }), className) },
       props,
     ),
     render,
-    state: { slot: "badge", variant },
+    state: { slot: "badge", variant, size },
   })
 }
 

@@ -375,12 +375,12 @@ function UserListRow({
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-medium">{name}</span>
             {isSelf ? (
-              <Badge variant="outline" className="shrink-0 text-xs">
+              <Badge variant="outline" size="text" className="shrink-0">
                 {t("You")}
               </Badge>
             ) : null}
             {isDisabled ? (
-              <Badge variant="destructive" className="shrink-0 text-xs">
+              <Badge variant="destructive" size="text" className="shrink-0">
                 {t("Disabled")}
               </Badge>
             ) : null}

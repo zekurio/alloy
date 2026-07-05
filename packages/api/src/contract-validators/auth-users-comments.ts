@@ -13,7 +13,6 @@ import {
   validateOptionalUrlString,
   validateRequiredString,
   validateString,
-  validateStringArray,
 } from "@alloy/api/runtime-validation"
 import {
   type AdminUsersResponse,
@@ -93,10 +92,6 @@ export function validateLoginBackdropsResponse(
   value: unknown,
 ): LoginBackdropsResponse {
   const response = objectRecord(value, "login backdrops response")
-  validateStringArray(
-    response.clipIds,
-    "Invalid login backdrops response: clipIds must be an array of strings",
-  )
   validateArray(
     response.clips,
     "Invalid login backdrops response: clips must be an array",

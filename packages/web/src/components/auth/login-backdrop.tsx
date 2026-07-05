@@ -143,7 +143,7 @@ export function LoginBackdrop({
   const rows = buildRows(urls, ROW_COUNT)
 
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden bg-[oklch(12%_0.01_250)]">
+    <div className="bg-surface-sunken pointer-events-none absolute inset-0 overflow-hidden">
       <div
         className="absolute top-1/2 left-1/2 flex h-[170%] w-[170%] flex-col justify-center gap-3"
         style={{
@@ -164,7 +164,9 @@ export function LoginBackdrop({
       <div
         aria-hidden
         className="absolute inset-0"
-        style={{ backgroundColor: `rgb(5 6 9 / ${darkenOpacity})` }}
+        style={{
+          backgroundColor: `color-mix(in oklab, var(--surface-sunken) ${darkenOpacity * 100}%, transparent)`,
+        }}
       />
       <style>{`@keyframes login-backdrop-marquee { from { transform: translateX(0) } to { transform: translateX(-50%) } }`}</style>
     </div>
