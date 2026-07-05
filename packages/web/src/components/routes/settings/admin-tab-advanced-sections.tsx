@@ -217,7 +217,7 @@ export function TranscodingSettingsContent({
               {capabilities?.version ? (
                 <Badge
                   variant={capabilities.jellyfin ? "accent" : "default"}
-                  className="font-sans text-xs tracking-normal normal-case"
+                  size="text"
                 >
                   {ffmpegBadgeLabel(capabilities)}
                 </Badge>
@@ -773,17 +773,19 @@ function LadderPreviewRadio({
   checked: boolean
   onChange: () => void
 }) {
+  // The accessible name keeps the "link preview" context while containing the
+  // visible "Preview"/"Use" text (WCAG 2.5.3 Label in Name).
   return (
     <label
       className="group flex cursor-pointer items-center justify-center rounded-md"
-      title={t("Link preview")}
+      title={checked ? t("Link preview") : t("Use as link preview")}
     >
       <input
         type="radio"
         name={name}
         checked={checked}
         className="peer sr-only"
-        aria-label={t("Link preview")}
+        aria-label={checked ? t("Link preview") : t("Use as link preview")}
         onChange={onChange}
       />
       <span className="border-input text-foreground-muted peer-focus-visible:border-ring peer-focus-visible:ring-ring/50 peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary group-hover:border-border-strong inline-flex h-7 min-w-14 items-center justify-center rounded-md border px-2 text-xs font-medium transition-colors peer-focus-visible:ring-3">
