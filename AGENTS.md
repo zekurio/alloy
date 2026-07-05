@@ -1,9 +1,97 @@
-# AGENTS.md
+# Repository Guidelines
 
 This file gives AI agents the repo-specific context they need when working in Alloy.
 
 - The default branch in this repo is `dev`.
 - Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
+
+## Project Overview
+
+Alloy is an open-source, self-hostable alternative to Medal.tv: a Windows desktop
+app records gameplay clips locally and publishes them to a self-hosted server;
+the web app handles browsing, playback, profiles, comments, search, and admin.
+
+This repository is a VERY EARLY WIP. Proposing sweeping changes that improve
+long-term maintainability is encouraged.
+
+### Core Priorities
+
+1. Performance first.
+2. Reliability first.
+3. Keep behavior predictable under many interactions and during failures (upload
+   fails, playback errors, requests error out).
+
+If a tradeoff is required, choose correctness and robustness over short-term
+convenience. Long-term maintainability is a core priority: before adding new
+functionality, check if there is shared logic that can be extracted to a
+separate module. Duplicate logic across multiple files is a code smell. Don't
+be afraid to change existing code; don't take shortcuts by adding local logic.
+
+## Architecture & Data Flow
+
+pnpm + Turbo monorepo with four product packages and shared libraries under
+`packages/*`. Four transport seams:
+
+- Browser ↔ server: HTTP via the typed client in `packages/api`.
+- Web renderer ↔ Electron main: narrow `contextBridge`/`ipcMain.handle` IPC
+  (`packages/desktop/src/preload/*.ts`, `src/main/ipc.ts`).
+- Electron ↔ recorder: newline-delimited JSON over stdin/stdout
+  (`packages/desktop/src/main/recording-sidecar-client.ts` ↔
+  `packages/recorder/src/sidecar_runtime.rs`).
+- Server ↔ PostgreSQL/filesystem: Drizzle (`packages/db`) + storage drivers
+  (`packages/server/src/storage/`).
+
+Clip pipeline (upload → encode → playback):
+
+1. Web initiates upload and gets a signed ticket
+   (`packages/web/src/components/upload/upload-flow-runner.ts`,
+   `packages/server/src/routes/clips-upload-lifecycle.ts`).
+2. Bytes go to `POST /api/assets/upload/:token`
+   (`packages/server/src/storage/fs-upload-route.ts`).
+3. Finalization enqueues a `clip.encode` job
+   (`packages/server/src/jobs/kinds/clip-encode.ts`); the dispatcher runs jobs
+   across `encode`/`io`/`maintenance` queues with leases and retries
+   (`packages/server/src/jobs/dispatcher.ts`).
+4. The media pipeline probes, trims, extracts a poster, and encodes renditions
+   (`packages/server/src/queue/media-run.ts`), using packet-copy MP4 helpers
+   from `packages/media`.
+5. Playback routes serve stream/source/rendition/thumbnail with range support
+   (`packages/server/src/routes/clips-playback*.ts`).
+
+The desktop shell is thin: a trusted overlay window plus a main window that
+loads the server-hosted web app. Login uses an RFC 8252 loopback flow in the
+system browser (`packages/desktop/src/main/browser-login.ts`).
+
+## Key Directories
+
+- `packages/server` - Hono API server for auth, clips, uploads, playback, feeds, search, notifications, admin, storage, and encoding jobs.
+- `packages/web` - React 19 + TanStack Router/Query frontend for the Alloy web app.
+- `packages/desktop` - Electron desktop shell for connecting to an Alloy server and controlling local recording.
+- `packages/recorder` - Windows-only Rust OBS recording sidecar built as `alloy-recorder`.
+- `packages/media` - Shared isomorphic MP4 packet-copy/trim helpers (no re-encoding).
+- `packages/api` - Typed client helpers for calling the server API from the web app.
+- `packages/contracts` - Shared TypeScript contracts and types used across packages.
+- `packages/db` - Drizzle (PostgreSQL) schema, migrations, and database exports.
+- `packages/env` - Shared environment variable parsing and runtime configuration helpers.
+- `packages/i18n` - Translation messages and localization utilities.
+- `packages/logging` - Shared logging utilities.
+- `packages/ui` - Shared React UI components (Base UI + Tailwind, shadcn-style), hooks, and design utilities.
+- `nix/` - Server package (`package.nix`), NixOS module (`module.nix`); `devenv.nix` provides the dev shell.
+- `scripts/` - Release version stamping/verification, Nix node_modules pruning, benchmarks.
+
+## Development Commands
+
+Run from the repo root unless noted:
+
+- `pnpm dev` - `db:push` then server + web dev; `pnpm dev:all` adds desktop.
+- `pnpm build` / `pnpm start` - build all via Turbo / run the server.
+- `pnpm db:generate` / `db:migrate` / `db:push` / `db:studio` - Drizzle workflows (`packages/db/drizzle.config.ts`).
+- `pnpm fmt` / `pnpm lint` / `pnpm typecheck` / `pnpm test` - oxfmt, oxlint, `tsc`, `turbo run test`. `pnpm verify` runs all four (fmt as check).
+- `pnpm --filter @alloy/server test` - server test suite (`tsx --test 'src/**/*.test.ts'`).
+- `pnpm recorder:build[:release]` - cargo build of the sidecar (skips on non-Windows unless forced).
+- `pnpm desktop:dist:win[:installer]` - Windows desktop packaging.
+- Recorder checks (in `packages/recorder`): `cargo fmt --check`, `cargo clippy --all-targets --locked -- -D warnings`, `cargo test --locked`.
+- Nix: `nix build .#alloy` builds the server package; `nix flake check` validates it.
 
 ## Branch Names
 
@@ -19,7 +107,7 @@ Valid types are `feat`, `fix`, `docs`, `chore`, `refactor`, and `test`. Scopes a
 
 Examples: `fix(web): add upload UI`, `docs: update contributing guide`, `chore: cleanup build scripts`.
 
-## Style Guide
+## Code Conventions & Common Patterns
 
 ### General Principles
 
@@ -121,22 +209,66 @@ Use snake_case for field names so column names don't need to be redefined as str
 
 ```ts
 // Good
-const table = sqliteTable("session", {
+const table = pgTable("session", {
   id: text().primaryKey(),
   project_id: text().notNull(),
   created_at: integer().notNull(),
 })
 
 // Bad
-const table = sqliteTable("session", {
+const table = pgTable("session", {
   id: text("id").primaryKey(),
   projectID: text("project_id").notNull(),
   createdAt: integer("created_at").notNull(),
 })
 ```
 
-## Testing
+### Established Patterns to Follow
 
+- Server routes: Hono handlers with `zValidator` + zod input schemas; return
+  explicit response helpers (`badRequest`, `unauthorized`, `notFound`, ...)
+  from `packages/server/src/runtime/http-response.ts` rather than throwing.
+- Background work: define jobs with `defineJobKind(...)` in
+  `packages/server/src/jobs/kinds/`; the dispatcher passes a context object.
+  The media pipeline is parameterized by the `MediaStore` interface
+  (`packages/server/src/queue/media-store.ts`).
+- Web data: TanStack Query `queryOptions`/`infiniteQueryOptions` in
+  `packages/web/src/lib/*-queries.ts`; all requests go through `createApi()`
+  (`packages/web/src/lib/api.ts`). Routes are file-based
+  (`packages/web/src/routes/`) with `beforeLoad` guards from
+  `packages/web/src/lib/auth-guards.ts`.
+- Desktop: renderers only reach the main process through the preload bridges;
+  add new IPC channels in `packages/desktop/src/main/ipc.ts` plus the matching
+  preload. Sidecar protocol changes must update both
+  `packages/desktop/src/main/recording-sidecar-protocol.ts` and
+  `packages/recorder/src/sidecar_types.rs`.
+- Fire-and-forget async uses `void promise.catch(...)`; do not leave floating
+  promises.
+- Shared cross-package types/constants belong in `packages/contracts` (zod
+  schemas where runtime validation matters, plain types otherwise).
+
+## Important Files
+
+- Entry points: `packages/server/src/index.ts` (app in `src/app.ts`, web-shell mount in `src/web.ts`), `packages/web/src/main.tsx` + `src/router.tsx`, `packages/desktop/src/main/index.ts` (+ `src/preload/*.ts`, `src/renderer/main.tsx`), `packages/recorder/src/sidecar_runtime.rs` (`fn main()`).
+- DB: schema in `packages/db/src/schema/*.ts`, generated SQL in `packages/db/drizzle/`, migration runner in `packages/db/src/runtime/migrate.ts`.
+- Config: `turbo.json`, `pnpm-workspace.yaml`, `tsconfig.base.json` (strict; `@/*` maps to each package's `src/`), `.oxfmtrc.json`, `.oxlintrc.json`, `.env.example` (documented env vars — `DATABASE_URL`, `ALLOY_*` auth/storage/transcoding knobs, `VITE_SERVER_URL`).
+- Nix: `flake.nix` (x86_64-linux server package + NixOS module), `devenv.nix` (dev shell: Node 24, pnpm, PostgreSQL 17, ffmpeg, Rust, Electron; auto-creates `.env` and a local Postgres).
+- Release: `.github/RELEASING.md`, `.github/workflows/{ci,recorder-ci,release}.yml`, `scripts/update-release-package-versions.mjs`.
+
+## Runtime/Tooling Preferences
+
+- Node 24 and `pnpm@11.4.0` (pinned via `packageManager`); never use npm, yarn, or Bun.
+- Turbo orchestrates package tasks; prefer root scripts or `pnpm --filter @alloy/<pkg> <script>`.
+- Formatting is oxfmt, linting is oxlint (type-aware, `no-console` is an error) — not Prettier/ESLint. 80-col width, 2-space indent, no semicolons, double quotes.
+- TypeScript is strict ESM (`verbatimModuleSyntax`, `noEmit`); packages typecheck with `tsc --noEmit`.
+- Recorder is Rust stable; it only builds on Windows (build script skips elsewhere).
+- Local dev shell comes from devenv + direnv; server deployment is via the Nix flake / NixOS module, not GitHub artifacts.
+
+## Testing & QA
+
+- Server tests use the Node test runner via tsx: `pnpm --filter @alloy/server test` (files: `packages/server/src/**/*.test.ts`). DB-backed suites provision per-suite databases through `packages/server/src/db/test-database.ts` using `ALLOY_TEST_DATABASE_URL`.
+- Recorder tests are inline Rust unit tests: `cargo test --locked` in `packages/recorder`.
+- Other packages currently have no test suites; `pnpm test` runs everything via Turbo.
 - Avoid mocks as much as possible
 - Test actual implementation, do not duplicate logic into tests
 - Run package-specific tests from the package that owns them when available. Use root-level `pnpm fmt`, `pnpm lint`, and `pnpm typecheck` for repo-wide checks.
@@ -156,42 +288,3 @@ checks for these. Builds should only be issued when actually warranted.
 
 If your task doesn't fit in either Coding or Nix land, it's up to the user to
 ask for verification. You may propose steps.
-
-## Package Roles
-
-- `packages/server` - Hono API server for auth, clips, uploads, playback, feeds, search, notifications, admin, storage, and encoding jobs.
-- `packages/web` - React/TanStack frontend for the Alloy web app.
-- `packages/desktop` - Electron desktop shell for connecting to an Alloy server and controlling local recording.
-- `packages/recorder` - Rust recording sidecar built as `alloy-recorder`.
-- `packages/api` - Typed client helpers for calling the server API from the web app.
-- `packages/contracts` - Shared TypeScript contracts and types used across packages.
-- `packages/db` - Drizzle database schema, migrations, and database exports.
-- `packages/env` - Shared environment variable parsing and runtime configuration helpers.
-- `packages/i18n` - Translation messages and localization utilities.
-- `packages/logging` - Shared logging utilities.
-- `packages/ui` - Shared React UI components, styles, hooks, and design utilities.
-
-## Project Snapshot
-
-Alloy is an open-source and self-hostable alternative to Medal.tv.
-
-This repository is a VERY EARLY WIP. Proposing sweeping changes that improve
-long-term maintainability is encouraged.
-
-## Core Priorities
-
-1. Performance first.
-2. Reliability first.
-3. Keep behavior predictable under many interactions and during failures (upload
-   fails, playback errors, requests error out).
-
-If a tradeoff is required, choose correctness and robustness over short-term
-convenience.
-
-## Maintainability
-
-Long-term maintainability is a core priority. If you add new functionality,
-first check if there is shared logic that can be extracted to a separate module.
-Duplicate logic across multiple files is a code smell and should be avoided.
-Don't be afraid to change existing code. Don't take shortcuts by just adding
-local logic to solve a problem.
