@@ -150,7 +150,7 @@ function AdminGameListRow({ game }: { game: AdminGameRow }) {
           {game.slug}
         </span>
       </div>
-      <Badge variant={isCustom ? "accent" : "secondary"}>
+      <Badge variant={isCustom ? "accent" : "secondary"} size="text">
         {isCustom ? t("Custom") : t("SteamGridDB")}
       </Badge>
       <span className="text-foreground-muted text-xs tabular-nums">
