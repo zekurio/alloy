@@ -6,6 +6,7 @@ import { db } from "@alloy/server/db/index"
 import { and, eq } from "drizzle-orm"
 
 import { assertCanRemoveAdmin, findUserByEmail } from "./identity"
+import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
 import { generateUniqueUsername, slugifyUsername } from "./username"
@@ -16,7 +17,7 @@ export async function resolveSignInUser(input: {
   profile: OAuthProfile
   provider: OAuthProviderConfig
   tokens: StoredTokens
-}): Promise<string> {
+}): Promise<{ userId: string; created: boolean }> {
   const existingAccount = await findLinkedAccount(
     input.provider.providerId,
     input.profile.providerAccountId,
@@ -24,7 +25,7 @@ export async function resolveSignInUser(input: {
   if (existingAccount) {
     await updateLinkedAccount(existingAccount.id, input.profile, input.tokens)
     await syncOAuthUserRole(existingAccount.user_id, input.profile)
-    return existingAccount.user_id
+    return { userId: existingAccount.user_id, created: false }
   }
 
   if (!input.profile.email) {
@@ -42,14 +43,15 @@ export async function resolveSignInUser(input: {
       "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings.",
     )
   }
+  const created = !existingUser
 
   const userId = await db.transaction(async (tx) => {
     const row =
       existingUser ??
       (await createOAuthUser(input.profile, async (values) => {
-        const [created] = await tx.insert(user).values(values).returning()
-        if (!created) throw new Error("Could not create user.")
-        return created
+        const [inserted] = await tx.insert(user).values(values).returning()
+        if (!inserted) throw new Error("Could not create user.")
+        return inserted
       }))
 
     const [linked] = await tx
@@ -81,7 +83,8 @@ export async function resolveSignInUser(input: {
   })
 
   await syncOAuthUserRole(userId, input.profile)
-  return userId
+  await syncOAuthAvatar(userId, input.profile)
+  return { userId, created }
 }
 
 export async function linkAccountToUser(input: {
@@ -99,6 +102,7 @@ export async function linkAccountToUser(input: {
   }
   if (existing) {
     await updateLinkedAccount(existing.id, input.profile, input.tokens)
+    await syncOAuthAvatar(input.userId, input.profile)
     return
   }
 
@@ -113,6 +117,7 @@ export async function linkAccountToUser(input: {
       ),
     )
   await syncOAuthUserRole(input.userId, input.profile)
+  await syncOAuthAvatar(input.userId, input.profile)
 }
 
 async function findLinkedAccount(

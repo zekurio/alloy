@@ -125,6 +125,7 @@ test("maps Paperless-style OIDC JSON to Alloy provider config", () => {
       max_age: "60",
     },
     usernameClaim: "preferred_username",
+    avatarClaim: "picture",
     quotaClaim: "quota_gib",
     roleClaim: "groups",
   })
@@ -145,6 +146,7 @@ test("maps Discord OIDC JSON to subject-claim config", () => {
             discovery_url:
               "https://discord.com/.well-known/openid-configuration",
             username_claim: "preferred_username",
+            avatar_claim: "custom_picture",
             button_color: "5865F2",
             button_text_color: "ffffff",
             icon_url: "https://cdn.simpleicons.org/discord/white",
@@ -182,6 +184,7 @@ test("maps Discord OIDC JSON to subject-claim config", () => {
     fetchUserInfo: true,
     authParams: undefined,
     usernameClaim: "preferred_username",
+    avatarClaim: "custom_picture",
     quotaClaim: "alloy_quota",
     roleClaim: "alloy_role",
   })

@@ -26,6 +26,7 @@ import {
 import {
   callbackURLForProvider,
   callbackURLWithOAuthError,
+  callbackURLWithWelcome,
   loginURLWithOAuthError,
   normalizeCallbackURL,
   oauthClient,
@@ -153,14 +154,18 @@ export async function finishOAuthCallback(
       return { redirectTo: payload.callbackURL }
     }
 
-    const userId = await resolveSignInUser({
+    const { userId, created } = await resolveSignInUser({
       profile,
       provider,
       tokens: storedTokens(tokens),
     })
     const { tokens: sessionTokens } = await createSession(c, userId)
     setSessionCookies(c, sessionTokens)
-    return { redirectTo: payload.callbackURL }
+    return {
+      redirectTo: created
+        ? callbackURLWithWelcome(payload.callbackURL, provider.providerId)
+        : payload.callbackURL,
+    }
   } catch (cause) {
     logger.warn(
       `${payload.mode} callback failed for ${provider.providerId}:`,

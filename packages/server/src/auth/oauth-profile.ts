@@ -1,4 +1,5 @@
 import {
+  OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
@@ -53,6 +54,10 @@ export async function profileFromTokens(
   if (!providerAccountId) throw new Error("OAuth profile is missing a subject.")
 
   return {
+    avatarUrl: httpUrlClaim(
+      raw,
+      provider.avatarClaim ?? OAUTH_AVATAR_CLAIM_DEFAULT,
+    ),
     email: normalizedEmail,
     emailVerified: raw.email_verified === true || raw.verified === true,
     providerAccountId,
@@ -86,6 +91,17 @@ function stringClaim(
   return typeof value === "string" && value.trim().length > 0
     ? value.trim()
     : null
+}
+
+function httpUrlClaim(
+  profile: Record<string, unknown>,
+  key: string,
+): string | null {
+  const value = stringClaim(profile, key)
+  if (!value || !URL.canParse(value)) return null
+  const url = new URL(value)
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null
+  return url.toString()
 }
 
 function roleFromProfile(

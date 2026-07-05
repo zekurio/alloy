@@ -1,67 +1,36 @@
 import { Buffer } from "node:buffer"
 
-import { userAssetImagePath } from "@alloy/contracts"
-import { user } from "@alloy/db/auth-schema"
-import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
-import { db } from "@alloy/server/db/index"
-import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { errorResult, notFound } from "@alloy/server/runtime/http-response"
-import type { ResolvedObject } from "@alloy/server/storage/driver"
-import { userAssetKey, userStorage } from "@alloy/server/storage/index"
-import { eq } from "drizzle-orm"
+import type {
+  ResolvedObject,
+  UserAssetRole,
+} from "@alloy/server/storage/driver"
+import { userStorage } from "@alloy/server/storage/index"
+import {
+  EXT_FOR_CONTENT_TYPE,
+  removeUserAsset,
+  uploadUserAsset,
+  USER_ASSET_LIMITS,
+  type UserAssetUpdateResult,
+} from "@alloy/server/users/user-assets"
 import { type Context, Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import sharp from "sharp"
 import { z } from "zod"
 
 import {
   DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC,
   redirectToStorageUrl,
 } from "./media-redirect"
-import { toPublicUser, type UserRow } from "./users-helpers"
 import { zValidator } from "./validation"
-
-const logger = createLogger("users")
-
-type UserAssetRole = "avatar" | "banner"
-
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
-const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
-const USER_ASSET_CONTENT_TYPE = "image/webp"
-const USER_ASSET_EXT = ".webp"
-const USER_ASSET_KEY_RE =
-  /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner)\.webp$/i
-
-const USER_ASSET_TARGETS = {
-  avatar: { width: 512, height: 512 },
-  banner: { width: 1500, height: 375 },
-} as const
-
-// Maps each asset role to the `user` column that stores its public path.
-const USER_ASSET_COLUMN: Record<UserAssetRole, "image" | "banner"> = {
-  avatar: "image",
-  banner: "banner",
-}
-
-const USER_ASSET_LIMITS: Record<
-  UserAssetRole,
-  { label: string; maxBytes: number }
-> = {
-  avatar: { label: "Avatar", maxBytes: MAX_AVATAR_BYTES },
-  banner: { label: "Banner", maxBytes: MAX_BANNER_BYTES },
-}
-
-const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
-  "image/jpeg": ".jpg",
-  "image/png": ".png",
-  "image/webp": ".webp",
-}
 
 const UserAssetUploadForm = z.object({
   file: z.instanceof(File, { message: "Expected an uploaded image file" }),
 })
+
+const USER_ASSET_KEY_RE =
+  /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner)\.webp$/i
 
 function validateUserAssetFile(
   role: UserAssetRole,
@@ -107,114 +76,6 @@ function assetEtag(key: string, resolved: ResolvedObject): string {
   )}"`
 }
 
-async function fetchRow(userId: string): Promise<UserRow | null> {
-  const [row] = await db.select().from(user).where(eq(user.id, userId)).limit(1)
-  return row ?? null
-}
-
-async function fetchUpdatedPublicUser(userId: string) {
-  const row = await fetchRow(userId)
-  return row ? toPublicUser(row) : null
-}
-
-async function deleteOldAssets(
-  userId: string,
-  role: UserAssetRole,
-): Promise<void> {
-  const exts = [
-    ...new Set([...Object.values(EXT_FOR_CONTENT_TYPE), USER_ASSET_EXT]),
-  ]
-  await Promise.all(
-    exts.map((ext) => userStorage.delete(userAssetKey(userId, role, ext))),
-  )
-}
-
-async function resizeUserAsset(
-  bytes: Buffer,
-  role: UserAssetRole,
-): Promise<Buffer> {
-  const target = USER_ASSET_TARGETS[role]
-  // rotate() with no angle applies the EXIF orientation; "fill" matches the
-  // old ImageMagick `WxH!` forced-exact resize.
-  return await sharp(bytes)
-    .rotate()
-    .resize(target.width, target.height, { fit: "fill" })
-    .webp()
-    .toBuffer()
-}
-
-type UserAssetUpdateResult =
-  | {
-      ok: true
-      user: NonNullable<Awaited<ReturnType<typeof fetchUpdatedPublicUser>>>
-    }
-  | { ok: false; status: 400 | 413 | 500; error: string }
-
-async function uploadUserAsset(input: {
-  viewerId: string
-  role: UserAssetRole
-  bytes: Uint8Array
-  contentType: string
-}): Promise<UserAssetUpdateResult> {
-  const limit = USER_ASSET_LIMITS[input.role]
-  const buf = Buffer.from(input.bytes)
-  if (buf.byteLength === 0) {
-    return { ok: false, status: 400, error: "Empty image data" }
-  }
-  if (buf.byteLength > limit.maxBytes) {
-    return {
-      ok: false,
-      status: 413,
-      error: `${limit.label} too large. Max ${limit.maxBytes / 1024 / 1024} MB`,
-    }
-  }
-
-  const validation = validateImageBytes(buf, input.contentType)
-  if (!validation.ok) {
-    return { ok: false, status: 400, error: validation.error }
-  }
-
-  let resized: Buffer
-  try {
-    resized = await resizeUserAsset(buf, input.role)
-  } catch (cause) {
-    logger.error(`failed to process ${input.role} upload:`, cause)
-    return { ok: false, status: 400, error: "Could not process image" }
-  }
-
-  const key = userAssetKey(input.viewerId, input.role, USER_ASSET_EXT)
-  await deleteOldAssets(input.viewerId, input.role)
-  await userStorage.put(key, resized, USER_ASSET_CONTENT_TYPE)
-
-  const updatedAt = new Date()
-  const patch: Partial<typeof user.$inferInsert> = { updated_at: updatedAt }
-  patch[USER_ASSET_COLUMN[input.role]] = userAssetImagePath(key, updatedAt)
-
-  await db.update(user).set(patch).where(eq(user.id, input.viewerId))
-
-  const updated = await fetchUpdatedPublicUser(input.viewerId)
-  if (!updated) {
-    return { ok: false, status: 500, error: "User update did not persist" }
-  }
-  return { ok: true, user: updated }
-}
-
-async function removeUserAsset(
-  viewerId: string,
-  role: UserAssetRole,
-): Promise<UserAssetUpdateResult> {
-  await deleteOldAssets(viewerId, role)
-  const patch: Partial<typeof user.$inferInsert> = { updated_at: new Date() }
-  patch[USER_ASSET_COLUMN[role]] = null
-  await db.update(user).set(patch).where(eq(user.id, viewerId))
-
-  const updated = await fetchUpdatedPublicUser(viewerId)
-  if (!updated) {
-    return { ok: false, status: 500, error: "User update did not persist" }
-  }
-  return { ok: true, user: updated }
-}
-
 async function uploadUserAssetResponse(
   viewerId: string,
   role: UserAssetRole,
@@ -225,7 +86,7 @@ async function uploadUserAssetResponse(
 
   const bytes = new Uint8Array(await file.arrayBuffer())
   return uploadUserAsset({
-    viewerId,
+    userId: viewerId,
     role,
     bytes,
     contentType: file.type,

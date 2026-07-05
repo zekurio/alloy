@@ -1,4 +1,5 @@
 import {
+  OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
@@ -41,6 +42,7 @@ const OAuthProviderBaseSchema = z.object({
     .min(1)
     .max(128)
     .default(OAUTH_USERNAME_CLAIM_DEFAULT),
+  avatarClaim: z.string().min(1).max(128).default(OAUTH_AVATAR_CLAIM_DEFAULT),
   quotaClaim: z.string().min(1).max(128).default(OAUTH_QUOTA_CLAIM_DEFAULT),
   roleClaim: z.string().min(1).max(128).default(OAUTH_ROLE_CLAIM_DEFAULT),
 })

@@ -5,6 +5,7 @@ import type { UserStatus } from "./shared"
 export type UsernameClaim = string
 
 export const OAUTH_USERNAME_CLAIM_DEFAULT = "preferred_username"
+export const OAUTH_AVATAR_CLAIM_DEFAULT = "picture"
 
 export const OAUTH_QUOTA_CLAIM_DEFAULT = "alloy_quota"
 export const OAUTH_ROLE_CLAIM_DEFAULT = "alloy_role"
@@ -58,6 +59,7 @@ const OAuthProviderConfigFields = {
   fetchUserInfo: z.boolean().optional(),
   authParams: z.record(z.string(), z.string()).optional(),
   usernameClaim: NonEmptyStringSchema.optional(),
+  avatarClaim: NonEmptyStringSchema.optional(),
   quotaClaim: NonEmptyStringSchema.optional(),
   roleClaim: NonEmptyStringSchema.optional(),
 }
