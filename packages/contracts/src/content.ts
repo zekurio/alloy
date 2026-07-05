@@ -26,6 +26,9 @@ export interface UserSummary {
 export const USER_ASSET_PATH_PREFIX = "/api/assets/users/"
 export const LEGACY_USER_ASSET_PATH_PREFIX = "/storage/user-assets/"
 
+/** Query param appended to post-auth redirects to open the profile-setup prompt. */
+export const WELCOME_QUERY_KEY = "welcome"
+
 export function userAssetImagePath(key: string, updatedAt: Date): string {
   const version = updatedAt.getTime().toString(36)
   return `${USER_ASSET_PATH_PREFIX}${key}?v=${version}`

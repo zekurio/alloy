@@ -64,7 +64,10 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
         invalidateAuthConfig()
         await completeAuthSessionFlow({
           invalidateRouter: () => router.invalidate(),
-          navigate: () => navigate({ to: redirectTo }),
+          navigate: () =>
+            redirectTo === "/"
+              ? navigate({ to: "/", search: { welcome: "1" } })
+              : navigate({ to: redirectTo }),
         })
       } catch (cause) {
         toastAuthAttemptFailure(

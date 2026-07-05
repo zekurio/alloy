@@ -1,6 +1,7 @@
 import {
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
   type OAuthProviderConfig,
+  WELCOME_QUERY_KEY,
 } from "@alloy/contracts"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { env } from "@alloy/server/env"
@@ -194,6 +195,15 @@ export function callbackURLWithOAuthError(
 ): string {
   const url = new URL(callbackURL)
   url.searchParams.set("oauth_error", oauthErrorMessage(cause))
+  return url.toString()
+}
+
+export function callbackURLWithWelcome(
+  callbackURL: string,
+  providerId: string,
+): string {
+  const url = new URL(callbackURL)
+  url.searchParams.set(WELCOME_QUERY_KEY, providerId)
   return url.toString()
 }
 

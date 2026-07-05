@@ -3,6 +3,7 @@ import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
 import { memo, useCallback } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
+import { WelcomeProfileDialog } from "@/components/auth/welcome-profile-dialog"
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import {
   RouteErrorState,
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/(app)/_app")({
 })
 
 function AppLayout() {
-  const { clip, comment, settings } = Route.useSearch()
+  const { clip, comment, settings, welcome } = Route.useSearch()
   const session = useSuspenseSession()
   const navigate = useNavigate()
 
@@ -75,6 +76,14 @@ function AppLayout() {
     })
   }, [navigate])
 
+  const handleCloseWelcome = useCallback(() => {
+    void navigate({
+      to: ".",
+      search: (prev: AppSearch) => ({ ...prev, welcome: undefined }),
+      replace: true,
+    })
+  }, [navigate])
+
   const handleNavigateSettings = useCallback(
     (section: string) => {
       void navigate({
@@ -108,6 +117,10 @@ function AppLayout() {
         section={session ? (settings ?? null) : null}
         onNavigate={handleNavigateSettings}
         onClose={handleCloseSettings}
+      />
+      <WelcomeProfileDialog
+        welcome={session ? (welcome ?? null) : null}
+        onClose={handleCloseWelcome}
       />
     </AppSearchProvider>
   )

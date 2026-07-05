@@ -1,4 +1,5 @@
 import {
+  OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
@@ -122,6 +123,7 @@ const AllauthOidcAppSettingsSchema = z.object({
   button_color: z.string().trim().optional(),
   button_text_color: z.string().trim().optional(),
   username_claim: z.string().trim().min(1).optional(),
+  avatar_claim: z.string().trim().min(1).optional(),
   quota_claim: z.string().trim().min(1).optional(),
   role_claim: z.string().trim().min(1).optional(),
 })
@@ -194,6 +196,7 @@ function parseSocialProviders(raw: string | undefined): ParsedSocialProviders {
       fetchUserInfo: settings.fetch_userinfo ?? true,
       authParams: authParams(settings.auth_params),
       usernameClaim: settings.username_claim ?? OAUTH_USERNAME_CLAIM_DEFAULT,
+      avatarClaim: settings.avatar_claim ?? OAUTH_AVATAR_CLAIM_DEFAULT,
       quotaClaim: settings.quota_claim ?? OAUTH_QUOTA_CLAIM_DEFAULT,
       roleClaim: settings.role_claim ?? OAUTH_ROLE_CLAIM_DEFAULT,
     }
