@@ -23,6 +23,9 @@ if (!testDatabaseUrl) {
   const storageRoot = await mkdtemp(join(tmpdir(), "alloy-oauth-avatar-"))
   const usersRoot = join(storageRoot, "users")
   process.env.ALLOY_STORAGE_FS_USERS_PATH = usersRoot
+  // The fixture image server binds to loopback, which the default SSRF guard
+  // rejects; opt in like a LAN deployment would.
+  process.env.ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS = "1"
 
   // Static imports would capture env before this test installs database/storage paths.
   const testDatabase = await import("@alloy/server/db/test-database")
@@ -131,6 +134,25 @@ if (!testDatabaseUrl) {
     const server = await serveAvatar({
       contentType: "text/html",
       body: "<p>not an image</p>",
+    })
+
+    try {
+      await syncOAuthAvatar(userId, oauthProfile(server.url))
+    } finally {
+      await server.close()
+    }
+
+    assert.equal(await selectImage(userId), null)
+    assert.equal(server.requests(), 1)
+  })
+
+  test("skips provider avatars in unsupported image formats", async () => {
+    const userId = crypto.randomUUID()
+    await insertUser({ userId, image: null })
+    // Passes the transport-level image/* check; parseImageBytes rejects gif.
+    const server = await serveAvatar({
+      contentType: "image/gif",
+      body: Buffer.from("GIF89a"),
     })
 
     try {

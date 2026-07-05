@@ -243,6 +243,10 @@ export function parseServerEnv(source: EnvSource = process.env) {
       ALLOY_OPEN_REGISTRATIONS: envBool(false),
       ALLOY_PASSKEY_ENABLED: envBool(true),
       ALLOY_REQUIRE_AUTH_TO_BROWSE: envBool(true),
+      // OAuth avatar sync refuses provider avatar URLs that resolve to
+      // private/loopback addresses (SSRF guard). Self-hosted LAN IdPs whose
+      // avatar URLs live on the private network can opt back in here.
+      ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS: envBool(false),
       ALLOY_DEFAULT_STORAGE_QUOTA_BYTES: optionalPositiveIntegerOrNull(),
       ALLOY_UPLOAD_TTL_SEC: z.coerce
         .number()
@@ -331,6 +335,7 @@ export function parseServerEnv(source: EnvSource = process.env) {
     openRegistrations: raw.ALLOY_OPEN_REGISTRATIONS,
     passkeyEnabled: raw.ALLOY_PASSKEY_ENABLED,
     requireAuthToBrowse: raw.ALLOY_REQUIRE_AUTH_TO_BROWSE,
+    oauthAvatarAllowPrivateUrls: raw.ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS,
     limits: {
       defaultStorageQuotaBytes: raw.ALLOY_DEFAULT_STORAGE_QUOTA_BYTES,
       uploadTtlSec: raw.ALLOY_UPLOAD_TTL_SEC,

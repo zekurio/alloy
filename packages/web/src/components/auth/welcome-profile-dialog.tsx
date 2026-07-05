@@ -16,6 +16,7 @@ import {
 } from "@alloy/ui/components/dialog"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon, Pencil } from "lucide-react"
+import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 
 import { ImageCropDialog } from "@/components/media/image-crop-dialog"
@@ -37,15 +38,31 @@ export function WelcomeProfileDialog({
   welcome,
   onClose,
 }: WelcomeProfileDialogProps) {
-  if (welcome === null) return null
-  return <WelcomeProfileDialogContent welcome={welcome} onClose={onClose} />
+  // Keep the last non-null value mounted so the dialog can animate out after
+  // the URL param clears, mirroring SettingsDialog's visibleSection pattern.
+  const [visibleWelcome, setVisibleWelcome] = useState(welcome)
+  useEffect(() => {
+    if (welcome !== null) setVisibleWelcome(welcome)
+  }, [welcome])
+
+  const activeWelcome = welcome ?? visibleWelcome
+  if (activeWelcome === null) return null
+  return (
+    <WelcomeProfileDialogContent
+      welcome={activeWelcome}
+      open={welcome !== null}
+      onClose={onClose}
+    />
+  )
 }
 
 function WelcomeProfileDialogContent({
   welcome,
+  open,
   onClose,
 }: {
   welcome: string
+  open: boolean
   onClose: () => void
 }) {
   const session = useSuspenseSession()
@@ -55,6 +72,9 @@ function WelcomeProfileDialogContent({
     image: user?.image ?? "",
     banner: user?.banner ?? "",
   })
+  // Snapshot of the avatar at first render: the provenance caption must only
+  // describe the synced provider avatar, never one the user picked here.
+  const [initialImage] = useState(() => user?.image ?? "")
   const providerName =
     welcome === "1"
       ? null
@@ -67,12 +87,15 @@ function WelcomeProfileDialogContent({
   const avatarStyle = { background: avatar.bg, color: avatar.fg }
   const bannerSrc = userImageSrc(media.profileBanner)
   const previewName = displayName(user)
-  const providerCaption =
-    !providerName && welcome !== "1" && media.profileImage
-      ? t("Avatar imported from your sign-in provider")
-      : providerName && media.profileImage
-        ? t("Avatar imported from {provider}", { provider: providerName })
-        : null
+  const syncedAvatarShown =
+    welcome !== "1" &&
+    initialImage !== "" &&
+    media.profileImage === initialImage
+  const providerCaption = !syncedAvatarShown
+    ? null
+    : providerName
+      ? t("Avatar imported from {provider}", { provider: providerName })
+      : t("Avatar imported from your sign-in provider")
   return (
     <>
       {media.fileInputs}
@@ -94,7 +117,7 @@ function WelcomeProfileDialogContent({
           }
         }}
       />
-      <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
         <DialogContent variant="secondary" className="max-w-[520px]">
           <DialogHeader>
             <DialogTitle>{t("Set up your profile")}</DialogTitle>

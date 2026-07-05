@@ -49,9 +49,9 @@ export async function resolveSignInUser(input: {
     const row =
       existingUser ??
       (await createOAuthUser(input.profile, async (values) => {
-        const [created] = await tx.insert(user).values(values).returning()
-        if (!created) throw new Error("Could not create user.")
-        return created
+        const [inserted] = await tx.insert(user).values(values).returning()
+        if (!inserted) throw new Error("Could not create user.")
+        return inserted
       }))
 
     const [linked] = await tx
