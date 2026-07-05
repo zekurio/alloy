@@ -97,7 +97,7 @@ const AUDIO_BITRATES = [64, 96, 128, 160, 192, 256, 320] as const
 const COMMON_TIER_HEIGHTS = [2160, 1440, 1080, 720, 480, 360, 240, 144]
 
 const LADDER_GRID_CLASS =
-  "sm:grid sm:grid-cols-[minmax(4.5rem,auto)_6rem_5rem_7rem_minmax(10rem,1fr)_5.5rem_2rem] sm:items-center sm:gap-3"
+  "sm:grid sm:grid-cols-[7rem_6rem_5rem_7rem_minmax(10rem,1fr)_5.5rem_2rem] sm:items-center sm:gap-3"
 
 export function TranscodingSettingsContent({
   config,
@@ -215,7 +215,10 @@ export function TranscodingSettingsContent({
             </span>
             <div className="flex min-w-0 items-center gap-2">
               {capabilities?.version ? (
-                <Badge variant={capabilities.jellyfin ? "accent" : "default"}>
+                <Badge
+                  variant={capabilities.jellyfin ? "accent" : "default"}
+                  className="font-sans text-xs tracking-normal normal-case"
+                >
                   {ffmpegBadgeLabel(capabilities)}
                 </Badge>
               ) : null}
@@ -453,7 +456,7 @@ export function TranscodingSettingsContent({
           <div className="border-border overflow-hidden rounded-lg border">
             <div
               className={cn(
-                "bg-muted/30 text-foreground-muted text-2xs hidden px-3 py-2 font-medium tracking-[0.06em] uppercase",
+                "bg-muted/30 text-foreground-muted hidden px-3 py-2 text-xs font-medium",
                 LADDER_GRID_CLASS,
               )}
             >
@@ -475,7 +478,7 @@ export function TranscodingSettingsContent({
                   )}
                 >
                   <div className="flex min-w-16 flex-col gap-1.5 sm:min-w-0">
-                    <span className="text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase sm:hidden">
+                    <span className="text-foreground-muted text-xs font-medium sm:hidden">
                       {t("Rendition")}
                     </span>
                     <span className="bg-muted text-foreground-muted text-2xs w-fit rounded px-1.5 py-0.5 font-mono">
@@ -526,7 +529,7 @@ export function TranscodingSettingsContent({
                     onChange={(codec) => updateTier(index, { codec })}
                   />
                   <div className="ml-auto flex items-center justify-center gap-1.5 self-end sm:ml-0 sm:self-center">
-                    <span className="text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase sm:hidden">
+                    <span className="text-foreground-muted text-xs font-medium sm:hidden">
                       {t("Link preview")}
                     </span>
                     <LadderPreviewRadio
@@ -670,7 +673,7 @@ function LadderField({
       <label
         htmlFor={id}
         className={cn(
-          "text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase",
+          "text-foreground-muted text-xs font-medium",
           hideLabelOnDesktop && "sm:hidden",
         )}
       >
@@ -717,7 +720,7 @@ function LadderCodecField({
       <label
         htmlFor={id}
         className={cn(
-          "text-foreground-muted text-2xs font-medium tracking-[0.06em] uppercase",
+          "text-foreground-muted text-xs font-medium",
           hideLabelOnDesktop && "sm:hidden",
         )}
       >
@@ -772,7 +775,7 @@ function LadderPreviewRadio({
 }) {
   return (
     <label
-      className="group flex size-8 cursor-pointer items-center justify-center rounded-md"
+      className="group flex cursor-pointer items-center justify-center rounded-md"
       title={t("Link preview")}
     >
       <input
@@ -783,8 +786,8 @@ function LadderPreviewRadio({
         aria-label={t("Link preview")}
         onChange={onChange}
       />
-      <span className="border-input peer-focus-visible:border-ring peer-focus-visible:ring-ring/50 peer-checked:border-primary group-hover:border-border-strong grid size-4 place-items-center rounded-full border transition-colors peer-focus-visible:ring-3 peer-checked:[&>span]:opacity-100">
-        <span className="bg-primary size-2 rounded-full opacity-0 transition-opacity" />
+      <span className="border-input text-foreground-muted peer-focus-visible:border-ring peer-focus-visible:ring-ring/50 peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary group-hover:border-border-strong inline-flex h-7 min-w-14 items-center justify-center rounded-md border px-2 text-xs font-medium transition-colors peer-focus-visible:ring-3">
+        {checked ? t("Preview") : t("Use")}
       </span>
     </label>
   )
