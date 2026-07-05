@@ -53,6 +53,7 @@ import {
   StorageUsageCard,
 } from "@/components/routes/settings/data-card"
 import { DesktopAudioSettings } from "@/components/routes/settings/desktop/desktop-audio-settings"
+import { DesktopAutostartSettings } from "@/components/routes/settings/desktop/desktop-autostart-settings"
 import {
   DesktopCaptureSettings,
   DesktopStoragePanel,
@@ -186,6 +187,13 @@ function DesktopAppPanel() {
         )}
       >
         <DesktopServerSettings />
+      </SettingsSubsection>
+      <hr className="border-border" />
+      <SettingsSubsection
+        title={t("Startup")}
+        description={t("Control whether Alloy starts when you sign in.")}
+      >
+        <DesktopAutostartSettings />
       </SettingsSubsection>
       <hr className="border-border" />
       <SettingsSubsection
@@ -393,9 +401,13 @@ const DESKTOP_CATEGORIES = categoryDrafts([
     "desktop-app",
     t("App"),
     t("App"),
-    t("Manage connected servers and desktop updates."),
+    t("Manage servers, startup behavior, and desktop updates."),
     [
       "desktop servers",
+      "autostart",
+      "startup",
+      "launch at login",
+      "start with windows",
       "switch server",
       "saved servers",
       "updates",

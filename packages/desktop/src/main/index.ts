@@ -9,6 +9,7 @@ import {
   assetCacheProtocolScheme,
   registerAssetCacheProtocol,
 } from "./asset-cache"
+import { WINDOWS_APP_USER_MODEL_ID, wasLaunchedAtLogin } from "./autostart"
 import { registerIpc } from "./ipc"
 import { installCrashLogging, installFileLogSink } from "./logging"
 import {
@@ -32,7 +33,6 @@ import { createAlloyTray } from "./tray"
 import { initAutoUpdater } from "./updater"
 import { Windows } from "./windows"
 
-const WINDOWS_APP_USER_MODEL_ID = "dev.zekurio.alloy.desktop"
 const USER_DATA_DIR_NAME = "Alloy Desktop"
 const SESSION_DATA_DIR_NAME = "session"
 const LOGS_DIR_NAME = "logs"
@@ -95,7 +95,9 @@ function startApp(): void {
         app.quit()
       },
     })
-    await openInitialWindow(windows)
+    // Launched as a login item: stay in the tray and keep the recording
+    // backend warm; the user opens a window from the tray when needed.
+    if (!wasLaunchedAtLogin()) await openInitialWindow(windows)
     scheduleBackgroundStartup()
 
     app.on("activate", () => {
