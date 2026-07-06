@@ -1,3 +1,9 @@
+use crate::sidecar_windows_com::{
+    active_audio_endpoint_devices, create_mm_device_enumerator, endpoint_friendly_name,
+    endpoint_id, initialize_com, uninitialize_com, ComPtr,
+};
+use windows_sys::Win32::Media::Audio::{eCapture, eRender};
+
 fn default_audio_devices() -> Vec<RecordingAudioDeviceSelection> {
     vec![
         RecordingAudioDeviceSelection {
@@ -90,51 +96,64 @@ fn platform_gpu_labels() -> Vec<String> {
 }
 
 fn windows_audio_devices() -> Vec<RecordingAudioDeviceSelection> {
-    let script = "Get-CimInstance Win32_PnPEntity -Filter \"PNPClass = 'AudioEndpoint'\" | Select-Object Name,PNPDeviceID | ConvertTo-Json -Compress";
-    let Some(output) = command_output(
-        "powershell.exe",
-        &[
-            "-NoProfile",
-            "-ExecutionPolicy",
-            "Bypass",
-            "-Command",
-            script,
-        ],
-    ) else {
-        return Vec::new();
-    };
-
-    let Ok(value) = serde_json::from_str::<Value>(&output) else {
-        return Vec::new();
-    };
-    let entries: Vec<&Value> = match &value {
-        Value::Array(items) => items.iter().collect(),
-        Value::Object(_) => vec![&value],
-        _ => Vec::new(),
-    };
-
-    entries
-        .into_iter()
-        .filter_map(|entry| {
-            let label = entry.get("Name")?.as_str()?.to_string();
-            let pnp_id = entry.get("PNPDeviceID")?.as_str()?;
-            let id = pnp_id.rsplit('\\').next().unwrap_or(pnp_id).to_lowercase();
-            let kind = if id.starts_with("{0.0.0.00000000}") {
-                RecordingAudioDeviceKind::Output
-            } else {
-                RecordingAudioDeviceKind::Input
-            };
-
-            Some(RecordingAudioDeviceSelection {
-                id,
-                label,
-                kind,
-                enabled: false,
-                volume: 100,
-            })
-        })
-        .collect()
+    unsafe {
+        let Some(uninitialize) = initialize_com() else {
+            return Vec::new();
+        };
+        let devices = enumerate_active_audio_devices().unwrap_or_default();
+        if uninitialize {
+            uninitialize_com();
+        }
+        devices
+    }
 }
+
+
+unsafe fn enumerate_active_audio_devices() -> Option<Vec<RecordingAudioDeviceSelection>> {
+    let enumerator = create_mm_device_enumerator()?;
+    let mut devices = Vec::new();
+
+    collect_active_audio_devices(
+        &enumerator,
+        eRender,
+        RecordingAudioDeviceKind::Output,
+        &mut devices,
+    );
+    collect_active_audio_devices(
+        &enumerator,
+        eCapture,
+        RecordingAudioDeviceKind::Input,
+        &mut devices,
+    );
+
+    Some(devices)
+}
+
+unsafe fn collect_active_audio_devices(
+    enumerator: &ComPtr,
+    data_flow: i32,
+    kind: RecordingAudioDeviceKind,
+    devices: &mut Vec<RecordingAudioDeviceSelection>,
+) {
+    let Some(audio_devices) = active_audio_endpoint_devices(enumerator, data_flow) else {
+        return;
+    };
+    for device in audio_devices {
+        let Some(id) = endpoint_id(&device) else {
+            continue;
+        };
+        devices.push(RecordingAudioDeviceSelection {
+            label: endpoint_friendly_name(&device).unwrap_or_else(|| id.clone()),
+            id,
+            kind: kind.clone(),
+            enabled: false,
+            volume: 100,
+        });
+    }
+}
+
+
+
 
 fn audio_application_from_game(
     game: &DetectedGame,

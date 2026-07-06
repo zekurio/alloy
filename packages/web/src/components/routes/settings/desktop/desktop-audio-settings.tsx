@@ -553,9 +553,8 @@ function mergeAudioDevices(
     byId.set(audioDeviceKey(device), device)
   }
   for (const device of selected) {
-    const key = audioDeviceKey(device)
-    const availableDevice = byId.get(key)
-    byId.set(key, {
+    const availableDevice = availableAudioDeviceForSelection(available, device)
+    byId.set(audioDeviceKey(availableDevice ?? device), {
       ...(availableDevice ?? device),
       enabled: device.enabled,
       volume: device.volume,
@@ -590,8 +589,7 @@ function upsertAudioDevice(
   devices: RecordingAudioDeviceSelection[],
   device: RecordingAudioDeviceSelection,
 ): RecordingAudioDeviceSelection[] {
-  const key = audioDeviceKey(device)
-  const next = devices.filter((item) => audioDeviceKey(item) !== key)
+  const next = devices.filter((item) => !sameAudioDeviceSelection(item, device))
   return [...next, device]
 }
 
@@ -603,6 +601,27 @@ function upsertAudioApplication(
     ...applications.filter((item) => item.id !== application.id),
     application,
   ]
+}
+
+function availableAudioDeviceForSelection(
+  available: RecordingAudioDeviceSelection[],
+  selected: RecordingAudioDeviceSelection,
+): RecordingAudioDeviceSelection | undefined {
+  return (
+    available.find(
+      (device) => audioDeviceKey(device) === audioDeviceKey(selected),
+    ) ?? available.find((device) => sameAudioDeviceSelection(device, selected))
+  )
+}
+
+function sameAudioDeviceSelection(
+  left: RecordingAudioDeviceSelection,
+  right: RecordingAudioDeviceSelection,
+): boolean {
+  return (
+    audioDeviceKey(left) === audioDeviceKey(right) ||
+    (left.kind === right.kind && left.label === right.label)
+  )
 }
 
 function audioDeviceKey(device: RecordingAudioDeviceSelection): string {

@@ -15,9 +15,9 @@ export function mergeAudioDevices(
 
   for (const device of available) byKey.set(audioDeviceKey(device), device)
   for (const device of selected) {
-    const key = audioDeviceKey(device)
-    byKey.set(key, {
-      ...(byKey.get(key) ?? device),
+    const availableDevice = availableAudioDeviceForSelection(available, device)
+    byKey.set(audioDeviceKey(availableDevice ?? device), {
+      ...(availableDevice ?? device),
       enabled: device.enabled,
       volume: device.volume,
     })
@@ -30,10 +30,11 @@ export function toggleAudioDevice(
   current: RecordingSettings["audioDevices"],
   device: RecordingSettings["audioDevices"][number],
 ): RecordingSettings["audioDevices"] {
-  const key = audioDeviceKey(device)
-  const existing = current.find((item) => audioDeviceKey(item) === key)
+  const existing = current.find((item) =>
+    sameAudioDeviceSelection(item, device),
+  )
   return [
-    ...current.filter((item) => audioDeviceKey(item) !== key),
+    ...current.filter((item) => !sameAudioDeviceSelection(item, device)),
     {
       ...device,
       volume: existing?.volume ?? device.volume,
@@ -49,6 +50,27 @@ export function audioDeviceMultiSelectLabel(
   if (selected.length === 0) return t("Off")
   if (selected.length === 1) return selected[0]?.label ?? "Off"
   return t("{count} selected", { count: selected.length })
+}
+
+function availableAudioDeviceForSelection(
+  available: RecordingSettings["audioDevices"],
+  selected: RecordingSettings["audioDevices"][number],
+): RecordingSettings["audioDevices"][number] | undefined {
+  return (
+    available.find(
+      (device) => audioDeviceKey(device) === audioDeviceKey(selected),
+    ) ?? available.find((device) => sameAudioDeviceSelection(device, selected))
+  )
+}
+
+function sameAudioDeviceSelection(
+  left: RecordingSettings["audioDevices"][number],
+  right: RecordingSettings["audioDevices"][number],
+): boolean {
+  return (
+    audioDeviceKey(left) === audioDeviceKey(right) ||
+    (left.kind === right.kind && left.label === right.label)
+  )
 }
 
 function audioDeviceKey(
