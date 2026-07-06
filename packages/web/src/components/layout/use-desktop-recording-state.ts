@@ -74,6 +74,15 @@ function useRecordingDisplays(
 ) {
   const [displays, setDisplays] = useState<RecordingDisplay[]>([])
   const [displayLoading, setDisplayLoading] = useState(false)
+  const previewAttemptRef = useRef<{
+    attempted: boolean
+    captureMode: RecordingSettings["captureMode"] | undefined
+    recording: AlloyDesktopRecordingApi | null
+  }>({
+    attempted: false,
+    captureMode: undefined,
+    recording: null,
+  })
 
   useEffect(() => {
     if (!recording || !displayPickerOpen) return
@@ -96,9 +105,20 @@ function useRecordingDisplays(
   }, [displayPickerOpen, recording])
 
   useEffect(() => {
-    if (!recording || captureMode !== "display") return
-    if (displays.some((display) => display.thumbnailDataUrl)) return
+    const previewAttempt = previewAttemptRef.current
+    if (
+      previewAttempt.captureMode !== captureMode ||
+      previewAttempt.recording !== recording
+    ) {
+      previewAttempt.attempted = false
+      previewAttempt.captureMode = captureMode
+      previewAttempt.recording = recording
+    }
 
+    if (!recording || captureMode !== "display") return
+    if (previewAttempt.attempted) return
+
+    previewAttempt.attempted = true
     let cancelled = false
     void recording
       .listDisplays()
@@ -111,7 +131,7 @@ function useRecordingDisplays(
     return () => {
       cancelled = true
     }
-  }, [captureMode, displays, recording])
+  }, [captureMode, recording])
 
   return { displays, displayLoading }
 }
