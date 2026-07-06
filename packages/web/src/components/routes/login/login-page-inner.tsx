@@ -11,6 +11,7 @@ import { authClient } from "@/lib/auth-client"
 import { useLoginRedirect } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 import { usePasskeySupport } from "@/lib/passkey-support"
+import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 import { OAuthSignIn } from "./oauth-sign-in"
 import { PasskeySignIn } from "./passkey-sign-in"
@@ -115,28 +116,21 @@ export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
 
 function DesktopLoginPage() {
   const desktop = alloyDesktop()
-  const [serverUrl, setServerUrl] = useState<string | null>(null)
-  const [loaded, setLoaded] = useState(false)
+  const { data: serverUrl, loading } = useDesktopQuery(
+    desktop
+      ? async () => {
+          const currentServer = await desktop.servers.getCurrentServer()
+          return (
+            currentServer ??
+            (await desktop.servers.getServers())?.[0]?.serverUrl ??
+            null
+          )
+        }
+      : null,
+    [desktop],
+  )
+  const loaded = !loading
   const [pending, setPending] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadServer() {
-      const currentServer = await desktop?.servers.getCurrentServer()
-      const savedServer =
-        currentServer ?? (await desktop?.servers.getServers())?.[0]?.serverUrl
-      if (cancelled) return
-      setServerUrl(savedServer ?? null)
-      setLoaded(true)
-    }
-
-    void loadServer()
-
-    return () => {
-      cancelled = true
-    }
-  }, [desktop])
 
   async function onSignIn() {
     if (!desktop || pending) return

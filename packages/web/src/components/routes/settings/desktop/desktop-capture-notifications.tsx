@@ -18,9 +18,10 @@ import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
 import { FolderOpenIcon, PlayIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 import { useDesktopRecording } from "./desktop-recording-context"
 
@@ -63,24 +64,11 @@ export function NotificationSoundsSection({
     openNotificationSoundsFolder,
     previewNotificationSound,
   } = useDesktopRecording()
-  const [library, setLibrary] =
-    useState<RecordingNotificationSoundLibrary>(EMPTY_LIBRARY)
-
-  async function refreshLibrary() {
-    setLibrary(await listNotificationSounds())
-  }
-
-  useEffect(() => {
-    let cancelled = false
-    async function load() {
-      const next = await listNotificationSounds()
-      if (!cancelled) setLibrary(next)
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [listNotificationSounds])
+  const { data, refetch } = useDesktopQuery(
+    () => listNotificationSounds(),
+    [listNotificationSounds],
+  )
+  const library = data ?? EMPTY_LIBRARY
 
   return (
     <SettingsSubsection title={t("Sounds")}>
@@ -105,7 +93,7 @@ export function NotificationSoundsSection({
             }
             onOpenFolder={() => void openNotificationSoundsFolder(row.id)}
             onPreview={() => void previewNotificationSound(row.id)}
-            onRefresh={() => void refreshLibrary()}
+            onRefresh={refetch}
           />
         ))}
       </div>
