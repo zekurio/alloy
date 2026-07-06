@@ -58,10 +58,11 @@ type AdminConfigSetter = Dispatch<SetStateAction<AdminRuntimeConfig | null>>
 
 type TranscodingConfig = AdminRuntimeConfig["transcoding"]
 
-// A tier stays a plain numeric shape while edited; blank inputs become NaN so
-// the row can flag "required" without ever leaving a config-shaped hole.
+// A tier keeps config-shaped numeric fields while edited; blank inputs become
+// NaN so the row can flag "required" without ever leaving a config-shaped hole.
 // `codec` is null when the tier follows the global default codec.
 type LadderTier = {
+  id: string
   height: number
   maxFps: number
   maxrateKbps: number
@@ -471,7 +472,7 @@ export function TranscodingSettingsContent({
             <div className="divide-border divide-y">
               {form.tiers.map((tier, index) => (
                 <div
-                  key={index}
+                  key={tier.id}
                   className={cn(
                     "flex flex-wrap items-start gap-3 p-3",
                     LADDER_GRID_CLASS,
@@ -609,6 +610,7 @@ export function TranscodingSettingsContent({
       if (prev.tiers.length >= 6) return prev
       const height = nextTierHeight(prev.tiers)
       const tier: LadderTier = {
+        id: crypto.randomUUID(),
         height,
         maxFps: 60,
         maxrateKbps: suggestMaxrateKbps(height),
@@ -834,6 +836,7 @@ function formFromConfig(transcoding: TranscodingConfig): TranscodingForm {
     quality: transcoding.quality,
     audioBitrateKbps: transcoding.audioBitrateKbps,
     tiers: transcoding.tiers.map((tier) => ({
+      id: crypto.randomUUID(),
       height: tier.height,
       maxFps: tier.maxFps,
       maxrateKbps: tier.maxrateKbps,
