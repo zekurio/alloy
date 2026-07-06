@@ -48,9 +48,10 @@ import {
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import {
+  type InfiniteData,
   type QueryClient,
+  useInfiniteQuery,
   useMutation,
-  useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
 import {
@@ -93,19 +94,19 @@ interface AdminUsersCardProps {
 }
 
 function useAdminUsersQuery() {
-  const usersQuery = useQuery(adminUsersQueryOptions())
-  const { refetch } = usersQuery
-  const refresh = useCallback(async () => {
-    await refetch()
-  }, [refetch])
+  const usersQuery = useInfiniteQuery(adminUsersQueryOptions())
   const loadError = usersQuery.error
     ? errorMessage(usersQuery.error, t("Failed to load users"))
     : null
 
   return {
-    users: usersQuery.data?.users ?? null,
+    users: usersQuery.data
+      ? usersQuery.data.pages.flatMap((page) => page.users)
+      : null,
     loadError,
-    refresh,
+    hasNextPage: usersQuery.hasNextPage,
+    isFetchingNextPage: usersQuery.isFetchingNextPage,
+    fetchNextPage: usersQuery.fetchNextPage,
   }
 }
 
@@ -156,26 +157,36 @@ function useToggleAdminUserStatus() {
 }
 
 function setAdminUserCacheRow(queryClient: QueryClient, updated: AdminUserRow) {
-  queryClient.setQueryData<AdminUsersResponse>(adminKeys.users(), (current) =>
-    current
-      ? {
-          ...current,
-          users: current.users.map((row) =>
-            row.id === updated.id ? updated : row,
-          ),
-        }
-      : current,
+  queryClient.setQueryData<InfiniteData<AdminUsersResponse>>(
+    adminKeys.users(),
+    (current) =>
+      current
+        ? {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              users: page.users.map((row) =>
+                row.id === updated.id ? updated : row,
+              ),
+            })),
+          }
+        : current,
   )
 }
 
 function removeAdminUserCacheRow(queryClient: QueryClient, userId: string) {
-  queryClient.setQueryData<AdminUsersResponse>(adminKeys.users(), (current) =>
-    current
-      ? {
-          ...current,
-          users: current.users.filter((row) => row.id !== userId),
-        }
-      : current,
+  queryClient.setQueryData<InfiniteData<AdminUsersResponse>>(
+    adminKeys.users(),
+    (current) =>
+      current
+        ? {
+            ...current,
+            pages: current.pages.map((page) => ({
+              ...page,
+              users: page.users.filter((row) => row.id !== userId),
+            })),
+          }
+        : current,
   )
 }
 
@@ -279,8 +290,17 @@ export function AdminUsersCard({
   currentUserId,
   hideHeader,
 }: AdminUsersCardProps) {
-  const { users, loadError, busyId, onDelete, onToggleStatus, onUpdate } =
-    useAdminUsers(currentUserId)
+  const {
+    users,
+    loadError,
+    busyId,
+    onDelete,
+    onToggleStatus,
+    onUpdate,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useAdminUsers(currentUserId)
 
   const content = loadError ? (
     <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
@@ -293,14 +313,28 @@ export function AdminUsersCard({
   ) : users.length === 0 ? (
     <p className="text-foreground-muted text-sm">{t("No users yet.")}</p>
   ) : (
-    <UsersList
-      users={users}
-      currentUserId={currentUserId}
-      busyId={busyId}
-      onUpdate={onUpdate}
-      onToggleStatus={onToggleStatus}
-      onDelete={onDelete}
-    />
+    <div className="flex flex-col gap-3">
+      <UsersList
+        users={users}
+        currentUserId={currentUserId}
+        busyId={busyId}
+        onUpdate={onUpdate}
+        onToggleStatus={onToggleStatus}
+        onDelete={onDelete}
+      />
+      {hasNextPage ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="self-center"
+          disabled={isFetchingNextPage}
+          onClick={() => fetchNextPage()}
+        >
+          {isFetchingNextPage ? t("Loading…") : t("Load more")}
+        </Button>
+      ) : null}
+    </div>
   )
 
   if (hideHeader) {

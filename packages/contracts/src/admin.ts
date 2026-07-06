@@ -360,6 +360,7 @@ export interface AdminUserStorageRow {
 
 export interface AdminUsersResponse {
   users: AdminUserStorageRow[]
+  nextCursor: string | null
 }
 
 export interface AdminUpdateUserInput {

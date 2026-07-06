@@ -1,8 +1,10 @@
 import type {
   AdminOAuthProvider,
   AdminRuntimeConfig,
+  AdminUserStorageRow,
   OAuthProviderConfig,
   RuntimeConfig,
+  UserStatus,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
@@ -11,7 +13,7 @@ import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "@alloy/server/storage/quota"
-import { and, desc, inArray, ne, sql } from "drizzle-orm"
+import { and, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm"
 
 function toAdminOAuthProvider(
   provider: OAuthProviderConfig,
@@ -59,24 +61,33 @@ async function selectClipCountsByUserIds(
   return new Map(rows.map((row) => [row.userId, row.count]))
 }
 
-export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
-  const rows = await db
-    .select({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      image: user.image,
-      role: user.role,
-      status: user.status,
-      disabledAt: user.disabled_at,
-      createdAt: user.created_at,
-      storageQuotaBytes: user.storage_quota_bytes,
-    })
-    .from(user)
-    .where(targetUserIds ? inArray(user.id, targetUserIds) : undefined)
-    .orderBy(desc(user.created_at))
-    .limit(targetUserIds ? targetUserIds.length : 100)
+const adminUserColumns = {
+  id: user.id,
+  username: user.username,
+  email: user.email,
+  image: user.image,
+  role: user.role,
+  status: user.status,
+  disabledAt: user.disabled_at,
+  createdAt: user.created_at,
+  storageQuotaBytes: user.storage_quota_bytes,
+}
 
+interface AdminUserBaseRow {
+  id: string
+  username: string
+  email: string
+  image: string | null
+  role: string | null
+  status: UserStatus
+  disabledAt: Date | null
+  createdAt: Date
+  storageQuotaBytes: number | null
+}
+
+async function enrichUserRows(
+  rows: AdminUserBaseRow[],
+): Promise<AdminUserStorageRow[]> {
   const userIds = rows.map((row) => row.id)
   const [usage, clipCounts] = await Promise.all([
     selectSourceStorageUsedBytesByUserIds(db, userIds),
@@ -84,10 +95,70 @@ export async function selectAdminUserStorageRows(targetUserIds?: string[]) {
   ])
 
   return rows.map((row) => ({
-    ...row,
+    id: row.id,
+    username: row.username,
+    email: row.email,
+    image: row.image,
+    role: row.role,
+    status: row.status,
     createdAt: isoDate(row.createdAt),
     disabledAt: nullableIsoDate(row.disabledAt),
+    storageQuotaBytes: row.storageQuotaBytes,
     storageUsedBytes: usage.get(row.id) ?? 0,
     clipCount: clipCounts.get(row.id) ?? 0,
   }))
+}
+
+export async function selectAdminUserStorageRows(
+  targetUserIds: string[],
+): Promise<AdminUserStorageRow[]> {
+  const rows = await db
+    .select(adminUserColumns)
+    .from(user)
+    .where(inArray(user.id, targetUserIds))
+    .orderBy(desc(user.created_at))
+    .limit(targetUserIds.length)
+  return enrichUserRows(rows)
+}
+
+export interface AdminUserStoragePage {
+  users: AdminUserStorageRow[]
+  nextCursor: { createdAt: string; id: string } | null
+}
+
+export async function selectAdminUserStoragePage(options: {
+  cursor: { createdAt: string; id: string } | null
+  limit: number
+}): Promise<AdminUserStoragePage> {
+  const rows = await db
+    .select({
+      ...adminUserColumns,
+      // Full-precision text for the pagination cursor; created_at is a plain
+      // timestamp, so it's cast back with ::timestamp on the next page.
+      createdAtText: sql<string>`${user.created_at}::text`,
+    })
+    .from(user)
+    .where(
+      options.cursor
+        ? or(
+            lt(user.created_at, sql`${options.cursor.createdAt}::timestamp`),
+            and(
+              eq(user.created_at, sql`${options.cursor.createdAt}::timestamp`),
+              lt(user.id, options.cursor.id),
+            ),
+          )
+        : undefined,
+    )
+    .orderBy(desc(user.created_at), desc(user.id))
+    .limit(options.limit + 1)
+
+  const page = rows.slice(0, options.limit)
+  const last = page.at(-1)
+  return {
+    users: await enrichUserRows(page),
+    nextCursor:
+      rows.length > options.limit && last
+        ? { createdAt: last.createdAtText, id: last.id }
+        : null,
+  }
 }

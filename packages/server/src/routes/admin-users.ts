@@ -16,11 +16,24 @@ import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
-import { selectAdminUserStorageRows } from "./admin-helpers"
+import {
+  selectAdminUserStoragePage,
+  selectAdminUserStorageRows,
+} from "./admin-helpers"
+import {
+  cursorTimestampText,
+  decodeCursorPayload,
+  encodeCursorPayload,
+} from "./cursor-codec"
 import { optionalTrimmedString, zValidator } from "./validation"
 
 const UserIdParam = z.object({
   id: z.string().uuid(),
+})
+
+const UsersQuery = z.object({
+  cursor: z.string().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
 })
 
 const StorageQuotaValue = z
@@ -84,9 +97,30 @@ async function updateAdminUser(id: string, patch: z.infer<typeof UserPatch>) {
   return row ?? null
 }
 
+function decodeUsersCursor(
+  value: string | undefined,
+): { createdAt: string; id: string } | null {
+  const payload = decodeCursorPayload(value)
+  if (!payload) return null
+  // createdAt is cast back to ::timestamp and id to uuid in the query, so a
+  // crafted cursor with a bad shape would raise a DB error — reject it here.
+  const createdAt = cursorTimestampText(payload.createdAt)
+  const id = z.string().uuid().safeParse(payload.id)
+  if (!createdAt || !id.success) return null
+  return { createdAt, id: id.data }
+}
+
 export const adminUsersRoute = new Hono()
-  .get("/users", async (c) => {
-    return c.json({ users: await selectAdminUserStorageRows() })
+  .get("/users", zValidator("query", UsersQuery), async (c) => {
+    const query = c.req.valid("query")
+    const page = await selectAdminUserStoragePage({
+      cursor: decodeUsersCursor(query.cursor),
+      limit: query.limit,
+    })
+    return c.json({
+      users: page.users,
+      nextCursor: page.nextCursor ? encodeCursorPayload(page.nextCursor) : null,
+    })
   })
   .post("/users", zValidator("json", CreateUserBody), async (c) => {
     try {

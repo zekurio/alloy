@@ -185,6 +185,10 @@ export function validateAdminUsersResponse(value: unknown): AdminUsersResponse {
     response.users,
     "Invalid admin users response: users must be an array",
   ).map(validateAdminUserStorageRow)
+  validateNullableString(
+    response.nextCursor,
+    "Invalid admin users response: nextCursor must be a string or null",
+  )
   return value as AdminUsersResponse
 }
 

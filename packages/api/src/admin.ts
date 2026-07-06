@@ -221,8 +221,16 @@ async function setJobKindPaused(
   await readSuccessJson(res)
 }
 
-async function fetchUsers(context: ApiContext): Promise<AdminUsersResponse> {
-  const res = await context.rpc.api.admin.users.$get()
+async function fetchUsers(
+  context: ApiContext,
+  options: { cursor?: string; limit?: number } = {},
+): Promise<AdminUsersResponse> {
+  const res = await context.rpc.api.admin.users.$get({
+    query: {
+      ...(options.cursor ? { cursor: options.cursor } : {}),
+      ...(options.limit ? { limit: String(options.limit) } : {}),
+    },
+  })
   return readJsonOrThrow(res, validateAdminUsersResponse)
 }
 
@@ -335,7 +343,8 @@ export function createAdminApi(context: ApiContext) {
       runJobSweep(context, kind, mode),
     setJobKindPaused: (kind: string, paused: boolean) =>
       setJobKindPaused(context, kind, paused),
-    fetchUsers: () => fetchUsers(context),
+    fetchUsers: (options?: { cursor?: string; limit?: number }) =>
+      fetchUsers(context, options),
     createUser: (input: AdminCreateUserInput) => createUser(context, input),
     updateUser: (userId: string, input: AdminUpdateUserInput) =>
       updateUser(context, userId, input),
