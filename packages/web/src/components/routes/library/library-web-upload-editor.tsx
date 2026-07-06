@@ -1,4 +1,4 @@
-import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
+import type { ClipPrivacy } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { ChevronUpIcon, Link2Icon, Loader2Icon, UploadIcon } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import {
@@ -17,13 +17,7 @@ import {
   type SelectedFile,
 } from "@/components/upload/new-clip-helpers"
 import { VideoPlayer } from "@/components/video/video-player"
-import {
-  CLIP_DESCRIPTION_MAX,
-  formatTags,
-  normalizeClipDescription,
-  normalizeClipTitle,
-  parseTagString,
-} from "@/lib/clip-fields"
+import { CLIP_DESCRIPTION_MAX, formatTags } from "@/lib/clip-fields"
 import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 
 import { TrimTransportControls } from "./library-editor-shared"
@@ -33,6 +27,7 @@ import type {
   LibraryWebUploadAction,
   WebUploadMetadata,
 } from "./library-web-upload-action"
+import { useClipMetadataDraft } from "./use-clip-metadata-draft"
 import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 
 /**
@@ -81,16 +76,28 @@ function WebUploadEditorInner({
   const filmstrip = useMediaFilmstrip(previewUrl)
   const aspectRatio = mediaAspectRatio(selected.width, selected.height)
 
-  const [title, setTitle] = useState(stripExtension(selected.name))
-  const [description, setDescription] = useState("")
-  const [game, setGame] = useState<GameRow | null>(null)
-  const [mentions, setMentions] = useState<UserSearchResult[]>([])
-  const [tags, setTags] = useState("")
-
-  const normalizedTitle = normalizeClipTitle(title)
-  const normalizedDescription = normalizeClipDescription(description)
-  const titleInvalid = normalizedTitle.length === 0
-  const descriptionInvalid = normalizedDescription.length > CLIP_DESCRIPTION_MAX
+  const {
+    title,
+    setTitle,
+    description,
+    setDescription,
+    game,
+    setGame,
+    mentions,
+    setMentions,
+    tags,
+    setTags,
+    normalizedTitle,
+    normalizedDescription,
+    titleInvalid,
+    descriptionInvalid,
+  } = useClipMetadataDraft({
+    title: stripExtension(selected.name),
+    description: "",
+    game: null,
+    mentions: [],
+    tags: [],
+  })
   const canPublish =
     !pending && !titleInvalid && !descriptionInvalid && rangeMs >= MIN_TRIM_MS
 
@@ -107,7 +114,7 @@ function WebUploadEditorInner({
     onPublish({
       title: normalizedTitle,
       description: normalizedDescription,
-      tags,
+      tags: formatTags(tags),
       game,
       privacy,
       mentions,
@@ -172,8 +179,8 @@ function WebUploadEditorInner({
               onGameChange={setGame}
               mentions={mentions}
               onMentionsChange={setMentions}
-              tags={parseTagString(tags)}
-              onTagsChange={(next) => setTags(formatTags(next))}
+              tags={tags}
+              onTagsChange={setTags}
               disabled={pending}
               titleInvalid={titleInvalid}
               gameInvalid={false}

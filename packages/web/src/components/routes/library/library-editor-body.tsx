@@ -1,4 +1,4 @@
-import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
+import type { ClipPrivacy } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
@@ -52,8 +52,9 @@ import {
   readLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
-import { captureMentionsFromUsers, sameIdSet } from "./library-metadata"
+import { captureMentionsFromUsers } from "./library-metadata"
 import { LibraryTrimBar } from "./library-trim-bar"
+import { useClipMetadataDraft } from "./use-clip-metadata-draft"
 import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 
 /**
@@ -85,13 +86,39 @@ export function EditorBody({
   const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
   const { playerRef, trim, rangeMs } = playback
 
-  const [title, setTitle] = useState(item.title)
-  const [description, setDescription] = useState(item.description ?? "")
-  const [tags, setTags] = useState(item.tags ?? "")
-  const [game, setGame] = useState<GameRow | null>(item.displayGame)
-  const [mentions, setMentions] = useState<UserSearchResult[]>(item.mentions)
   const [savedMetadata, setSavedMetadata] = useState(() =>
     savedLocalMetadata(item),
+  )
+  const {
+    title,
+    setTitle,
+    description,
+    setDescription,
+    game,
+    setGame,
+    mentions,
+    setMentions,
+    tags,
+    setTags,
+    normalizedTitle,
+    normalizedDescription,
+    mentionIds,
+    titleInvalid,
+    titleChanged,
+    descriptionChanged,
+    gameChanged,
+    mentionsChanged,
+    tagsChanged,
+    dirty,
+  } = useClipMetadataDraft(
+    {
+      title: item.title,
+      description: item.description ?? "",
+      game: item.displayGame,
+      mentions: item.mentions,
+      tags: parseTagString(item.tags ?? ""),
+    },
+    savedMetadata,
   )
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -141,27 +168,11 @@ export function EditorBody({
   })
   const filmstrip = useMediaFilmstrip(item.mediaUrl)
   const aspectRatio = mediaAspectRatio(item.width, item.height)
-  const normalizedTitle = normalizeClipTitle(title)
-  const normalizedDescription = normalizeClipDescription(description)
-  const normalizedTags = parseTagString(tags)
-  const mentionIds = mentions.map((mention) => mention.id)
   const publishLocked =
     item.uploadedClipId !== null ||
     queue.some(
       (entry) => entry.kind === "upload" && entry.localCaptureId === item.id,
     )
-  const titleChanged = normalizedTitle !== savedMetadata.title
-  const descriptionChanged = normalizedDescription !== savedMetadata.description
-  const tagsChanged = !sameIdSet(normalizedTags, savedMetadata.tags)
-  const mentionsChanged = !sameIdSet(mentionIds, savedMetadata.mentionIds)
-  const gameChanged = (game?.id ?? null) !== savedMetadata.gameId
-  const dirty =
-    titleChanged ||
-    descriptionChanged ||
-    tagsChanged ||
-    mentionsChanged ||
-    gameChanged
-  const titleInvalid = normalizedTitle.length === 0
   const canPublish =
     !saving &&
     !publishing &&
@@ -187,7 +198,7 @@ export function EditorBody({
         ...(descriptionChanged
           ? { description: normalizedDescription || null }
           : {}),
-        ...(tagsChanged ? { tags: formatTags(normalizedTags) || null } : {}),
+        ...(tagsChanged ? { tags: formatTags(tags) || null } : {}),
         ...(mentionsChanged
           ? { mentions: captureMentionsFromUsers(mentions) }
           : {}),
@@ -201,11 +212,10 @@ export function EditorBody({
       const result = await desktop.recording.updateLibraryCapture(patch)
       setTitle(normalizedTitle)
       setDescription(normalizedDescription)
-      setTags(formatTags(normalizedTags))
       setSavedMetadata({
         title: normalizedTitle,
         description: normalizedDescription,
-        tags: normalizedTags,
+        tags,
         mentionIds,
         gameId: game?.id ?? null,
       })
@@ -228,7 +238,6 @@ export function EditorBody({
   const handlePublish = async (privacy: ClipPrivacy) => {
     if (publishLocked) return
     const pickedGame = game
-    const normalizedTitle = normalizeClipTitle(title)
     if (normalizedTitle.length === 0) return
 
     if (description.trim().length > CLIP_DESCRIPTION_MAX) {
@@ -248,7 +257,7 @@ export function EditorBody({
         trim: { startMs: trim.startMs, endMs: trim.endMs },
         title: normalizedTitle,
         description,
-        tags,
+        tags: formatTags(tags),
         game: pickedGame,
         privacy,
         mentions,
@@ -358,8 +367,8 @@ export function EditorBody({
             onGameChange={setGame}
             mentions={mentions}
             onMentionsChange={setMentions}
-            tags={parseTagString(tags)}
-            onTagsChange={(next) => setTags(formatTags(next))}
+            tags={tags}
+            onTagsChange={setTags}
             disabled={saving || publishing || deleting}
             titleInvalid={titleInvalid}
             gameInvalid={false}
