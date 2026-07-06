@@ -32,8 +32,8 @@ import {
 import { useHeaderToolbar } from "@/components/layout/header-toolbar"
 import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { useAppSearch } from "@/components/search/app-search"
+import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
-import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
@@ -75,7 +75,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const [groupKey, setGroupKey] = useState<string | null>(null)
   const importAction = useLibraryImportAction(desktop)
   const webUploadAction = useLibraryWebUploadAction()
-  const { queue } = useUploadFlowControls()
+  const { queue } = useUploadQueue()
   const model = useLibraryContentModel({
     desktop,
     kind: "all",

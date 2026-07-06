@@ -1,4 +1,4 @@
-import { createContext } from "react"
+import { createContext, useContext } from "react"
 
 import type { PublishClipInput } from "./new-clip-helpers"
 import type { QueueItem } from "./upload-queue-types"
@@ -12,8 +12,11 @@ export type PublishClipFn = (
   payload: PublishClipInput,
 ) => Promise<PublishClipResult>
 
-export interface UploadFlowControls {
+export interface UploadQueueState {
   queue: QueueItem[]
+}
+
+export interface UploadFlowActions {
   setQueueState: (state: UploadQueueState | null) => void
   /** Stable delegate to the currently registered upload runner. */
   publishClip: PublishClipFn
@@ -25,8 +28,25 @@ export interface UploadFlowControls {
   setPublishClip: (fn: PublishClipFn | null) => void
 }
 
-export interface UploadQueueState {
-  queue: QueueItem[]
+// Two contexts on purpose: upload progress changes frequently, while actions
+// stay stable so publish-only consumers avoid per-progress re-renders.
+export const UploadQueueContext = createContext<UploadQueueState | null>(null)
+export const UploadActionsContext = createContext<UploadFlowActions | null>(
+  null,
+)
+
+export function useUploadQueue(): UploadQueueState {
+  const value = useContext(UploadQueueContext)
+  if (!value) {
+    throw new Error("useUploadQueue must be used within UploadFlowProvider")
+  }
+  return value
 }
 
-export const UploadFlowContext = createContext<UploadFlowControls | null>(null)
+export function useUploadActions(): UploadFlowActions {
+  const value = useContext(UploadActionsContext)
+  if (!value) {
+    throw new Error("useUploadActions must be used within UploadFlowProvider")
+  }
+  return value
+}

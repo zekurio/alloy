@@ -6,8 +6,8 @@ import type { AppSearch } from "@/lib/app-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import type { PublishClipInput } from "./new-clip-helpers"
+import { useUploadActions } from "./upload-flow-context"
 import { useUploadQueueState } from "./upload-flow-queue-state"
-import { useUploadFlowControls } from "./use-upload-flow-controls"
 
 export function UploadFlow() {
   return (
@@ -26,7 +26,7 @@ function UploadFlowInner() {
 }
 
 function AuthedUploadFlow() {
-  const { setPublishClip, setQueueState } = useUploadFlowControls()
+  const { setPublishClip, setQueueState } = useUploadActions()
   const navigate = useNavigate()
   const handleOpenClip = useCallback(
     (row: QueueClip) => {
