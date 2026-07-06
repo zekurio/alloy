@@ -10,7 +10,7 @@ import {
 } from "@alloy/ui/components/alert-dialog"
 import { toast } from "@alloy/ui/lib/toast"
 import { useRouter } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -25,12 +25,8 @@ function isDisabledSessionUser(
 export function ReactivateAccountPrompt() {
   const session = useSuspenseSession()
   const router = useRouter()
-  const [open, setOpen] = useState(() => isDisabledSessionUser(session?.user))
+  const open = isDisabledSessionUser(session?.user)
   const [pending, setPending] = useState(false)
-
-  useEffect(() => {
-    setOpen(isDisabledSessionUser(session?.user))
-  }, [session?.user])
 
   if (!session || !open) return null
 
@@ -40,7 +36,6 @@ export function ReactivateAccountPrompt() {
     try {
       await api.users.reactivateAccount()
       toast.success(t("Account reactivated"))
-      setOpen(false)
       await router.invalidate()
     } catch (cause) {
       toast.error(errorMessage(cause, t("Couldn't reactivate account")))

@@ -12,7 +12,7 @@ import {
   TooltipTrigger,
 } from "@alloy/ui/components/tooltip"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
 import { LoginForm } from "@/components/routes/login/login-page-inner"
@@ -209,20 +209,18 @@ export function LoginAppearancePreview({
     authConfig.openRegistrations &&
     (authConfig.passkeyEnabled || authConfig.providers.length > 0)
 
-  useEffect(() => {
-    if (!canSignUp && mode === "sign-up") setMode("login")
-  }, [canSignUp, mode])
+  const previewMode = canSignUp ? mode : "login"
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <div className="text-foreground-muted text-xs">
-          {mode === "login"
+          {previewMode === "login"
             ? t("Login page preview")
             : t("Sign-up page preview")}
         </div>
         <ModeToggle
-          mode={mode}
+          mode={previewMode}
           onChange={setMode}
           signUpDisabled={!canSignUp}
         />
@@ -232,7 +230,7 @@ export function LoginAppearancePreview({
           must not start an actual sign-in flow. */}
       <div className="border-border/80 bg-background h-[480px] overflow-hidden rounded-xl border select-none">
         <div className="pointer-events-none h-full w-full">
-          <AuthPreviewContent mode={mode} config={authConfig} />
+          <AuthPreviewContent mode={previewMode} config={authConfig} />
         </div>
       </div>
 
