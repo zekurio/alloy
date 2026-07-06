@@ -13,7 +13,7 @@
         thread,
         time::Duration,
     };
-    use windows_sys::core::{BOOL, GUID, HRESULT, IUnknown_Vtbl, PWSTR};
+    use windows_sys::core::BOOL;
     use windows_sys::Win32::{
         Devices::Display::{
             DisplayConfigGetDeviceInfo, GetDisplayConfigBufferSizes, QueryDisplayConfig,
@@ -39,18 +39,11 @@
                 Ok as GDIP_OK,
             },
         },
-        Media::Audio::{
-            AudioSessionStateActive, AudioSessionStateInactive, DEVICE_STATE_ACTIVE,
-            MMDeviceEnumerator, eRender,
-        },
         Security::Cryptography::{
             CryptBinaryToStringW, CRYPT_STRING_BASE64, CRYPT_STRING_NOCRLF,
         },
         System::{
-            Com::{
-                CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
-                COINIT_APARTMENTTHREADED, STATFLAG_NONAME, STATSTG,
-            },
+            Com::{STATFLAG_NONAME, STATSTG},
             Com::StructuredStorage::{CreateStreamOnHGlobal, GetHGlobalFromStream},
             Diagnostics::ToolHelp::{
                 CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,

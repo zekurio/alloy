@@ -6,7 +6,6 @@
         sync::{Mutex, MutexGuard},
         time::Instant,
     };
-    use windows_sys::Win32::Media::Audio::{eCapture, eCommunications, eConsole};
 
     const IID_IAUDIO_METER_INFORMATION: GUID =
         GUID::from_u128(0xc02216f6_8c67_4b5b_9d00_d008e73e0064);
@@ -103,7 +102,7 @@
 
             drop(meters);
             if uninitialize {
-                CoUninitialize();
+                uninitialize_com();
             }
         }
     }
@@ -129,17 +128,7 @@
 
     unsafe fn collect_audio_level_meters() -> AudioLevelMeters {
         let mut meters = AudioLevelMeters::default();
-        let mut enumerator_ptr: *mut c_void = ptr::null_mut();
-        if !succeeded(CoCreateInstance(
-            &MMDeviceEnumerator,
-            ptr::null_mut(),
-            CLSCTX_ALL,
-            &IID_IMM_DEVICE_ENUMERATOR,
-            &mut enumerator_ptr,
-        )) {
-            return meters;
-        }
-        let Some(enumerator) = ComPtr::new(enumerator_ptr) else {
+        let Some(enumerator) = create_mm_device_enumerator() else {
             return meters;
         };
 
@@ -158,45 +147,14 @@
         kind: RecordingAudioDeviceKind,
         meters: &mut AudioLevelMeters,
     ) {
-        let enumerator_vtbl = com_vtbl::<IMMDeviceEnumeratorVtbl>(enumerator.as_ptr());
         let default_id = default_endpoint_id(enumerator, data_flow, eConsole);
         let communications_id = default_endpoint_id(enumerator, data_flow, eCommunications);
 
-        let mut collection_ptr: *mut c_void = ptr::null_mut();
-        if !succeeded(((*enumerator_vtbl).EnumAudioEndpoints)(
-            enumerator.as_ptr(),
-            data_flow,
-            DEVICE_STATE_ACTIVE,
-            &mut collection_ptr,
-        )) {
-            return;
-        }
-        let Some(collection) = ComPtr::new(collection_ptr) else {
+        let Some(devices) = active_audio_endpoint_devices(enumerator, data_flow) else {
             return;
         };
-        let collection_vtbl = com_vtbl::<IMMDeviceCollectionVtbl>(collection.as_ptr());
 
-        let mut device_count = 0u32;
-        if !succeeded(((*collection_vtbl).GetCount)(
-            collection.as_ptr(),
-            &mut device_count,
-        )) {
-            return;
-        }
-
-        for index in 0..device_count {
-            let mut device_ptr: *mut c_void = ptr::null_mut();
-            if !succeeded(((*collection_vtbl).Item)(
-                collection.as_ptr(),
-                index,
-                &mut device_ptr,
-            )) {
-                continue;
-            }
-            let Some(device) = ComPtr::new(device_ptr) else {
-                continue;
-            };
-
+        for device in devices {
             let Some(id) = endpoint_id(&device) else {
                 continue;
             };
@@ -240,17 +198,6 @@
         }
         let device = ComPtr::new(device_ptr)?;
         endpoint_id(&device)
-    }
-
-    /// WASAPI endpoint id (`{0.0.x.00000000}.{guid}`), lowercased to match the
-    /// ids `windows_audio_devices()` derives from the endpoint PNP device ids.
-    unsafe fn endpoint_id(device: &ComPtr) -> Option<String> {
-        let device_vtbl = com_vtbl::<IMMDeviceVtbl>(device.as_ptr());
-        let mut raw: PWSTR = ptr::null_mut();
-        if !succeeded(((*device_vtbl).GetId)(device.as_ptr(), &mut raw)) {
-            return None;
-        }
-        string_from_cotaskmem_pwstr(raw).map(|id| id.to_ascii_lowercase())
     }
 
     unsafe fn activate_device_meter(device: &ComPtr) -> Option<ComPtr> {

@@ -611,7 +611,19 @@ fn selected_audio_devices(settings: &RecordingSettings) -> Vec<RecordingAudioDev
         .filter(|device| device.enabled)
         .cloned()
         .collect();
-    if !selected.is_empty() || !settings.audio_devices.is_empty() {
+    if !selected.is_empty() {
+        let available = platform_audio_devices();
+        if available.is_empty() {
+            return selected;
+        }
+        return dedupe_audio_devices(
+            selected
+                .into_iter()
+                .map(|device| resolve_audio_device_selection(device, &available))
+                .collect(),
+        );
+    }
+    if !settings.audio_devices.is_empty() {
         return selected;
     }
 
@@ -619,6 +631,36 @@ fn selected_audio_devices(settings: &RecordingSettings) -> Vec<RecordingAudioDev
         .into_iter()
         .filter(|device| device.enabled)
         .collect()
+}
+
+fn resolve_audio_device_selection(
+    device: RecordingAudioDeviceSelection,
+    available: &[RecordingAudioDeviceSelection],
+) -> RecordingAudioDeviceSelection {
+    if is_virtual_audio_device_selection(&device) {
+        return device;
+    }
+
+    available
+        .iter()
+        .find(|available_device| {
+            available_device.kind == device.kind && available_device.id == device.id
+        })
+        .or_else(|| {
+            available.iter().find(|available_device| {
+                available_device.kind == device.kind && available_device.label == device.label
+            })
+        })
+        .map(|available_device| RecordingAudioDeviceSelection {
+            enabled: device.enabled,
+            volume: device.volume,
+            ..available_device.clone()
+        })
+        .unwrap_or(device)
+}
+
+fn is_virtual_audio_device_selection(device: &RecordingAudioDeviceSelection) -> bool {
+    matches!(device.id.as_str(), "default" | "communications")
 }
 
 fn selected_audio_applications(
