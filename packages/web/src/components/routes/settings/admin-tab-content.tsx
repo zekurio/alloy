@@ -4,14 +4,9 @@ import type { ReactNode } from "react"
 import { AdminGamesCard } from "@/components/admin/admin-games-card"
 import { AdminJobsCard } from "@/components/admin/admin-jobs-card"
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
-import {
-  type AdminConfigContextValue,
-  useAdminConfigContext,
-} from "@/components/routes/settings/admin-config-context"
-import {
-  AppearanceSettingsContent,
-  TranscodingSettingsContent,
-} from "@/components/routes/settings/admin-tab-advanced-sections"
+import { AppearanceSettingsContent } from "@/components/routes/settings/admin-appearance-settings"
+import { useAdminConfigContext } from "@/components/routes/settings/admin-config-context"
+import { TranscodingSettingsContent } from "@/components/routes/settings/admin-transcoding-settings"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
 
 function AdminLoadError({ message }: { message: string }) {
@@ -26,26 +21,21 @@ function AdminLoadError({ message }: { message: string }) {
  * Wraps a panel body that needs the loaded admin config, handling the load-error
  * and not-yet-loaded states so each panel stays focused on its own content.
  */
-function withAdminConfig(
-  render: (
-    config: AdminRuntimeConfig,
-    ctx: AdminConfigContextValue,
-  ) => ReactNode,
-) {
+function withAdminConfig(render: (config: AdminRuntimeConfig) => ReactNode) {
   return function AdminConfigPanel() {
     const ctx = useAdminConfigContext()
     if (ctx.loadError) return <AdminLoadError message={ctx.loadError} />
     if (!ctx.config) return null
-    return <>{render(ctx.config, ctx)}</>
+    return <>{render(ctx.config)}</>
   }
 }
 
-export const AdminAppearancePanel = withAdminConfig((config, ctx) => (
-  <AppearanceSettingsContent config={config} setConfig={ctx.setConfig} />
+export const AdminAppearancePanel = withAdminConfig((config) => (
+  <AppearanceSettingsContent config={config} />
 ))
 
-export const AdminTranscodingPanel = withAdminConfig((config, ctx) => (
-  <TranscodingSettingsContent config={config} setConfig={ctx.setConfig} />
+export const AdminTranscodingPanel = withAdminConfig((config) => (
+  <TranscodingSettingsContent config={config} />
 ))
 
 export function AdminUsersPanel() {
