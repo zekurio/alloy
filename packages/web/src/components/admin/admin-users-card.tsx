@@ -49,6 +49,7 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import {
   type QueryClient,
+  useMutation,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
@@ -59,8 +60,8 @@ import {
   UserCheckIcon,
   UserXIcon,
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
-import type { Dispatch, FormEvent, SetStateAction } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
+import type { FormEvent } from "react"
 
 import { adminKeys, adminUsersQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
@@ -79,6 +80,10 @@ type AdminUserRow = AdminUserStorageRow
 type AdminUserEditableFields = {
   role: "admin" | "user"
   storageQuotaBytes: number | null
+}
+type UpdateAdminUserVariables = {
+  user: AdminUserRow
+  next: AdminUserEditableFields
 }
 
 interface AdminUsersCardProps {
@@ -104,54 +109,49 @@ function useAdminUsersQuery() {
   }
 }
 
-function useDeleteAdminUser({
-  busyId,
-  setBusyId,
-}: {
-  busyId: string | null
-  setBusyId: Dispatch<SetStateAction<string | null>>
-}) {
+function useDeleteAdminUser() {
   const queryClient = useQueryClient()
-  return async (user: AdminUserRow) => {
-    if (busyId) return
-    setBusyId(user.id)
-    try {
-      await api.admin.deleteUser(user.id)
+  const { isPending, mutate, variables } = useMutation({
+    mutationFn: (user: AdminUserRow) => api.admin.deleteUser(user.id),
+    onSuccess: (_result, user) => {
+      removeAdminUserCacheRow(queryClient, user.id)
       toast.success(t("User removed"))
-      await queryClient.invalidateQueries({ queryKey: adminKeys.users() })
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't remove user")))
-    } finally {
-      setBusyId(null)
-    }
+    },
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't remove user"))),
+  })
+  const onDelete = useCallback((user: AdminUserRow) => mutate(user), [mutate])
+
+  return {
+    busyId: isPending ? (variables?.id ?? null) : null,
+    onDelete,
   }
 }
 
-function useToggleAdminUserStatus({
-  busyId,
-  setBusyId,
-}: {
-  busyId: string | null
-  setBusyId: Dispatch<SetStateAction<string | null>>
-}) {
+function useToggleAdminUserStatus() {
   const queryClient = useQueryClient()
-  return async (user: AdminUserRow) => {
-    if (busyId) return
-    const nextStatus = user.status === "disabled" ? "active" : "disabled"
-    setBusyId(user.id)
-    try {
-      const updated = await api.admin.updateUser(user.id, {
-        status: nextStatus,
-      })
+  const { isPending, mutate, variables } = useMutation({
+    mutationFn: (user: AdminUserRow) =>
+      api.admin.updateUser(user.id, {
+        status: user.status === "disabled" ? "active" : "disabled",
+      }),
+    onSuccess: (updated) => {
       setAdminUserCacheRow(queryClient, updated)
       toast.success(
-        nextStatus === "disabled" ? t("User disabled") : t("User enabled"),
+        updated.status === "disabled" ? t("User disabled") : t("User enabled"),
       )
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't update user")))
-    } finally {
-      setBusyId(null)
-    }
+    },
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't update user"))),
+  })
+  const onToggleStatus = useCallback(
+    (user: AdminUserRow) => mutate(user),
+    [mutate],
+  )
+
+  return {
+    busyId: isPending ? (variables?.id ?? null) : null,
+    onToggleStatus,
   }
 }
 
@@ -163,6 +163,17 @@ function setAdminUserCacheRow(queryClient: QueryClient, updated: AdminUserRow) {
           users: current.users.map((row) =>
             row.id === updated.id ? updated : row,
           ),
+        }
+      : current,
+  )
+}
+
+function removeAdminUserCacheRow(queryClient: QueryClient, userId: string) {
+  queryClient.setQueryData<AdminUsersResponse>(adminKeys.users(), (current) =>
+    current
+      ? {
+          ...current,
+          users: current.users.filter((row) => row.id !== userId),
         }
       : current,
   )
@@ -185,41 +196,21 @@ function adminUserFieldsEqual(
   )
 }
 
-function useUpdateAdminUser({
-  busyId,
-  currentUserId,
-  setBusyId,
-}: {
-  busyId: string | null
-  currentUserId: string
-  setBusyId: Dispatch<SetStateAction<string | null>>
-}) {
+function useUpdateAdminUser(currentUserId: string) {
   const queryClient = useQueryClient()
-  return async (
-    user: AdminUserRow,
-    next: AdminUserEditableFields,
-  ): Promise<boolean> => {
-    if (busyId) return false
-    const current = adminUserEditableFields(user)
-    const roleChanged = current.role !== next.role
-    const quotaChanged = current.storageQuotaBytes !== next.storageQuotaBytes
-    if (!roleChanged && !quotaChanged) return true
+  const { isPending, mutateAsync, variables } = useMutation({
+    mutationFn: ({ user, next }: UpdateAdminUserVariables) => {
+      const current = adminUserEditableFields(user)
+      const roleChanged = current.role !== next.role
+      const quotaChanged = current.storageQuotaBytes !== next.storageQuotaBytes
 
-    if (user.id === currentUserId && roleChanged && next.role !== "admin") {
-      toast.error(
-        t(
-          "Demote yourself from the profile page after promoting another admin first.",
-        ),
-      )
-      return false
-    }
-
-    setBusyId(user.id)
-    try {
-      const updated = await api.admin.updateUser(user.id, {
+      return api.admin.updateUser(user.id, {
         ...(roleChanged ? { role: next.role } : {}),
         ...(quotaChanged ? { storageQuotaBytes: next.storageQuotaBytes } : {}),
       })
+    },
+    onSuccess: async (updated, { user, next }) => {
+      const quotaChanged = user.storageQuotaBytes !== next.storageQuotaBytes
       setAdminUserCacheRow(queryClient, updated)
       if (updated.id === currentUserId && quotaChanged) {
         await queryClient.invalidateQueries({
@@ -227,31 +218,53 @@ function useUpdateAdminUser({
         })
       }
       toast.success(t("User updated"))
-      return true
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't update user")))
-      return false
-    } finally {
-      setBusyId(null)
-    }
+    },
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't update user"))),
+  })
+  const onUpdate = useCallback(
+    (user: AdminUserRow, next: AdminUserEditableFields): Promise<boolean> => {
+      const current = adminUserEditableFields(user)
+      const roleChanged = current.role !== next.role
+      const quotaChanged = current.storageQuotaBytes !== next.storageQuotaBytes
+      if (!roleChanged && !quotaChanged) return Promise.resolve(true)
+
+      if (user.id === currentUserId && roleChanged && next.role !== "admin") {
+        toast.error(
+          t(
+            "Demote yourself from the profile page after promoting another admin first.",
+          ),
+        )
+        return Promise.resolve(false)
+      }
+
+      return mutateAsync({ user, next }).then(
+        () => true,
+        () => false,
+      )
+    },
+    [currentUserId, mutateAsync],
+  )
+
+  return {
+    busyId: isPending ? (variables?.user.id ?? null) : null,
+    onUpdate,
   }
 }
 
 function useAdminUserMutations(currentUserId: string) {
-  const [busyId, setBusyId] = useState<string | null>(null)
-  const mutationState = { busyId, setBusyId }
-  const onDelete = useDeleteAdminUser(mutationState)
-  const onToggleStatus = useToggleAdminUserStatus(mutationState)
-  const onUpdate = useUpdateAdminUser({
-    ...mutationState,
-    currentUserId,
-  })
+  const deleteMutation = useDeleteAdminUser()
+  const toggleStatusMutation = useToggleAdminUserStatus()
+  const updateMutation = useUpdateAdminUser(currentUserId)
 
   return {
-    busyId,
-    onDelete,
-    onToggleStatus,
-    onUpdate,
+    busyId:
+      deleteMutation.busyId ??
+      toggleStatusMutation.busyId ??
+      updateMutation.busyId,
+    onDelete: deleteMutation.onDelete,
+    onToggleStatus: toggleStatusMutation.onToggleStatus,
+    onUpdate: updateMutation.onUpdate,
   }
 }
 
@@ -339,7 +352,7 @@ function UsersList({
   )
 }
 
-function UserListRow({
+const UserListRow = memo(function UserListRow({
   user,
   currentUserId,
   busy,
@@ -487,7 +500,7 @@ function UserListRow({
       </div>
     </ListItem>
   )
-}
+})
 
 function EditUserDialog({
   user,
