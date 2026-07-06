@@ -4,9 +4,9 @@ import {
   USER_ASSET_PATH_PREFIX,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { pastelAvatarColors, pastelBannerGradient } from "@alloy/ui/lib/pastel"
 import { cn } from "@alloy/ui/lib/utils"
-import { useEffect, useState } from "react"
 
 import { apiOrigin } from "./env"
 
@@ -24,7 +24,6 @@ const USER_ASSET_PATH_PREFIXES = [
   LEGACY_USER_ASSET_PATH_PREFIX,
 ] as const
 const userImageSrcCache = new Map<string, string>()
-const loadedUserBannerSrcs = new Set<string>()
 
 function displayUsername(username: string): string {
   const value = username.trim()
@@ -199,35 +198,27 @@ export function UserBanner({
 }
 
 function UserBannerImage({ src }: { src: string }) {
-  const [status, setStatus] = useState<"loading" | "loaded" | "error">(() =>
-    loadedUserBannerSrcs.has(src) ? "loaded" : "loading",
-  )
-
-  useEffect(() => {
-    setStatus(loadedUserBannerSrcs.has(src) ? "loaded" : "loading")
-  }, [src])
+  const image = useImageLoaded(src)
 
   return (
     <>
       <img
         key={src}
+        ref={image.ref}
         src={src}
         alt=""
         aria-hidden
         decoding="async"
         fetchPriority="high"
         loading="eager"
-        onLoad={() => {
-          loadedUserBannerSrcs.add(src)
-          setStatus("loaded")
-        }}
-        onError={() => setStatus("error")}
+        onLoad={image.markLoaded}
+        onError={image.markError}
         className={cn(
           "absolute inset-0 size-full rounded-[inherit] object-cover brightness-90 transition-opacity duration-150",
-          status === "loaded" ? "opacity-100" : "opacity-0",
+          image.status === "loaded" ? "opacity-100" : "opacity-0",
         )}
       />
-      {status === "loading" ? (
+      {image.status === "loading" ? (
         <div
           aria-hidden
           className="bg-muted absolute inset-0 rounded-[inherit]"

@@ -1,6 +1,7 @@
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { cn } from "@alloy/ui/lib/utils"
 import { Avatar } from "@base-ui/react/avatar"
-import { Children, isValidElement, useEffect, useState } from "react"
+import { Children, isValidElement } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 const avatarRootSizeClasses = [
@@ -19,8 +20,6 @@ const avatarBadgeSizeClasses = [
   "group-data-[size=xl]/avatar:size-3.5",
   "group-data-[size=2xl]/avatar:size-5",
 ]
-
-const loadedAvatarImageSrcs = new Set<string>()
 
 function getAvatarImageKey(children: ReactNode): string {
   return Children.toArray(children).reduce<string>((imageKey, child) => {
@@ -80,22 +79,9 @@ function AvatarImage({
   onLoadingStatusChange,
   ...props
 }: Avatar.Image.Props) {
-  const initialStatus = src
-    ? loadedAvatarImageSrcs.has(src)
-      ? "loaded"
-      : "loading"
-    : "idle"
-  const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">(
-    initialStatus,
-  )
-
-  useEffect(() => {
-    setStatus(
-      src ? (loadedAvatarImageSrcs.has(src) ? "loaded" : "loading") : "idle",
-    )
-  }, [src])
-
-  const showLoadingMask = !!src && status !== "loaded" && status !== "error"
+  const image = useImageLoaded(src)
+  const showLoadingMask =
+    !!src && image.status !== "loaded" && image.status !== "error"
 
   return (
     <>
@@ -103,10 +89,7 @@ function AvatarImage({
         data-slot="avatar-image"
         src={src}
         onLoadingStatusChange={(nextStatus) => {
-          if (src && nextStatus === "loaded") {
-            loadedAvatarImageSrcs.add(src)
-          }
-          setStatus(nextStatus)
+          image.setStatus(nextStatus)
           onLoadingStatusChange?.(nextStatus)
         }}
         className={cn("size-full object-cover", className)}
