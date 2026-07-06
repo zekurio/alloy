@@ -1,4 +1,37 @@
-import { useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+
+// Owns the chrome bar's visibility plus the auto-hide timer. Kept out of
+// PlayerCore so the timer ref and its scheduling can't be poked from unrelated
+// code paths; the auto-hide effect and pointer handlers stay in the player and
+// drive it through the returned setters.
+export function useVideoChromeVisibility(isCoarsePointer: boolean) {
+  const [chromeVisible, setChromeVisible] = useState(true)
+  const chromeHideTimerRef = useRef<number | null>(null)
+
+  const clearChromeHideTimer = useCallback(() => {
+    if (chromeHideTimerRef.current === null) return
+    window.clearTimeout(chromeHideTimerRef.current)
+    chromeHideTimerRef.current = null
+  }, [])
+
+  const scheduleChromeHide = useCallback(
+    (delayMs = isCoarsePointer ? 2600 : 1600) => {
+      clearChromeHideTimer()
+      chromeHideTimerRef.current = window.setTimeout(() => {
+        setChromeVisible(false)
+        chromeHideTimerRef.current = null
+      }, delayMs)
+    },
+    [clearChromeHideTimer, isCoarsePointer],
+  )
+
+  return {
+    chromeVisible,
+    setChromeVisible,
+    scheduleChromeHide,
+    clearChromeHideTimer,
+  }
+}
 
 const PLAY_THRESHOLD_CAP_SEC = 10
 const PLAY_THRESHOLD_FRACTION = 0.5
