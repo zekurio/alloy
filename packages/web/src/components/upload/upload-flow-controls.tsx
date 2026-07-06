@@ -2,8 +2,10 @@ import { useCallback, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import {
+  UploadActionsContext,
+  type UploadFlowActions,
   type PublishClipFn,
-  UploadFlowContext,
+  UploadQueueContext,
   type UploadQueueState,
 } from "./upload-flow-context"
 
@@ -30,19 +32,24 @@ export function UploadFlowProvider({ children }: { children: ReactNode }) {
     setQueueStateValue(state ?? emptyQueueState)
   }, [])
 
-  const value = useMemo(
+  const queueValue = useMemo<UploadQueueState>(
+    () => ({ queue: queueState.queue }),
+    [queueState.queue],
+  )
+  const actions = useMemo<UploadFlowActions>(
     () => ({
-      ...queueState,
       setQueueState,
       publishClip,
       setPublishClip,
     }),
-    [queueState, setQueueState, publishClip, setPublishClip],
+    [setQueueState, publishClip, setPublishClip],
   )
 
   return (
-    <UploadFlowContext.Provider value={value}>
-      {children}
-    </UploadFlowContext.Provider>
+    <UploadActionsContext.Provider value={actions}>
+      <UploadQueueContext.Provider value={queueValue}>
+        {children}
+      </UploadQueueContext.Provider>
+    </UploadActionsContext.Provider>
   )
 }

@@ -6,8 +6,10 @@ import type {
 } from "@alloy/api"
 
 import { prepareSelectedClipFile } from "@/components/upload/new-clip-helpers"
-import type { PublishClipResult } from "@/components/upload/upload-flow-context"
-import type { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
+import type {
+  PublishClipFn,
+  PublishClipResult,
+} from "@/components/upload/upload-flow-context"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import type { AlloyDesktop } from "@/lib/desktop"
 
@@ -49,7 +51,7 @@ export async function exportAndPublishCapture({
   game: GameRow | null
   privacy: ClipPrivacy
   mentions: UserSearchResult[]
-  publishClip: ReturnType<typeof useUploadFlowControls>["publishClip"]
+  publishClip: PublishClipFn
   posterUrl?: string | null
 }): Promise<PublishClipResult> {
   return publishClip({

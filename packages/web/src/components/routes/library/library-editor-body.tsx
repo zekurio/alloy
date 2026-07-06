@@ -13,7 +13,10 @@ import { ChevronUpIcon, Link2Icon, SaveIcon, UploadIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
-import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
+import {
+  useUploadActions,
+  useUploadQueue,
+} from "@/components/upload/upload-flow-context"
 import { VideoPlayer } from "@/components/video/video-player"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
@@ -76,7 +79,8 @@ export function EditorBody({
   onRequestDelete: () => void
 }) {
   const navigate = useNavigate()
-  const { publishClip, queue } = useUploadFlowControls()
+  const { publishClip } = useUploadActions()
+  const { queue } = useUploadQueue()
 
   const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
   const { playerRef, trim, rangeMs } = playback
