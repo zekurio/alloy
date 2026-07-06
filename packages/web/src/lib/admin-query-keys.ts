@@ -1,11 +1,21 @@
+import type { AdminJobsSummary } from "@alloy/api"
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query"
 
 import { api } from "@/lib/api"
 
 // Ephemeral admin panels poll instead of subscribing to an SSE channel: the
-// settings dialog is short-lived and admin-only, so a 3s refetch while mounted
-// is cheaper than fanning job events out to every admin.
-const JOBS_REFETCH_INTERVAL_MS = 3000
+// settings dialog is short-lived and admin-only, so a refetch while mounted is
+// cheaper than fanning job events out to every admin. Poll fast while jobs are
+// moving, then back off hard once the queues go idle so an open panel isn't
+// hitting the server every few seconds when nothing can change.
+const JOBS_ACTIVE_REFETCH_INTERVAL_MS = 3000
+const JOBS_IDLE_REFETCH_INTERVAL_MS = 30000
+
+export function hasActiveJobs(summary: AdminJobsSummary | undefined): boolean {
+  return (
+    summary?.kinds.some((kind) => kind.pending > 0 || kind.running > 0) ?? false
+  )
+}
 
 export const adminKeys = {
   all: ["admin"] as const,
@@ -23,11 +33,19 @@ export function adminJobsSummaryQueryOptions() {
   return queryOptions({
     queryKey: adminKeys.jobsSummary(),
     queryFn: () => api.admin.fetchJobsSummary(),
-    refetchInterval: JOBS_REFETCH_INTERVAL_MS,
+    refetchInterval: (query) =>
+      hasActiveJobs(query.state.data)
+        ? JOBS_ACTIVE_REFETCH_INTERVAL_MS
+        : JOBS_IDLE_REFETCH_INTERVAL_MS,
   })
 }
 
-export function adminFailedJobsQueryOptions(kind: string | null) {
+// Failed jobs only grow while other jobs are running, so the caller passes the
+// current activity so this list slows down alongside the summary when idle.
+export function adminFailedJobsQueryOptions(
+  kind: string | null,
+  jobsActive = false,
+) {
   return infiniteQueryOptions({
     queryKey: adminKeys.jobsFailed(kind),
     queryFn: ({ pageParam }) =>
@@ -37,7 +55,9 @@ export function adminFailedJobsQueryOptions(kind: string | null) {
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
-    refetchInterval: JOBS_REFETCH_INTERVAL_MS,
+    refetchInterval: jobsActive
+      ? JOBS_ACTIVE_REFETCH_INTERVAL_MS
+      : JOBS_IDLE_REFETCH_INTERVAL_MS,
   })
 }
 
