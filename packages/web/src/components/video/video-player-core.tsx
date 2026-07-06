@@ -21,7 +21,11 @@ import {
 import { useMediaEngine } from "./video-media-engine"
 import { useActiveVideoPlayer } from "./video-player-active"
 import type { PlayerCoreProps } from "./video-player-core-types"
-import { usePlayingTimeSync, usePlayThreshold } from "./video-player-hooks"
+import {
+  usePlayingTimeSync,
+  usePlayThreshold,
+  useVideoChromeVisibility,
+} from "./video-player-hooks"
 import {
   BareShell,
   ChromeBar,
@@ -74,7 +78,6 @@ export function PlayerCore({
   const playingRef = useRef(false)
   const volumeRef = useRef(1)
   const mutedRef = useRef(initialMuted)
-  const chromeHideTimerRef = useRef<number | null>(null)
   const lastTimeRef = useRef(0)
   const playRequestIdRef = useRef(0)
   const hasRenderedFrameRef = useRef(false)
@@ -94,25 +97,14 @@ export function PlayerCore({
   const [volume, setVolumeState] = useState(1)
   const [muted, setMutedState] = useState(initialMuted)
   const [hasRenderedFrame, setHasRenderedFrame] = useState(false)
-  const [chromeVisible, setChromeVisible] = useState(true)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
 
-  const clearChromeHideTimer = useCallback(() => {
-    if (chromeHideTimerRef.current === null) return
-    window.clearTimeout(chromeHideTimerRef.current)
-    chromeHideTimerRef.current = null
-  }, [])
-
-  const scheduleChromeHide = useCallback(
-    (delayMs = isCoarsePointer ? 2600 : 1600) => {
-      clearChromeHideTimer()
-      chromeHideTimerRef.current = window.setTimeout(() => {
-        setChromeVisible(false)
-        chromeHideTimerRef.current = null
-      }, delayMs)
-    },
-    [clearChromeHideTimer, isCoarsePointer],
-  )
+  const {
+    chromeVisible,
+    setChromeVisible,
+    scheduleChromeHide,
+    clearChromeHideTimer,
+  } = useVideoChromeVisibility(isCoarsePointer)
 
   const onTimeUpdateRef = useRef(onTimeUpdate)
   const onPlayingChangeRef = useRef(onPlayingChange)
