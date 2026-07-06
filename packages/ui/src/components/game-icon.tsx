@@ -1,7 +1,7 @@
+import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { pastelAvatarColors } from "@alloy/ui/lib/pastel"
 import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
-import { useEffect, useState } from "react"
 import type { ComponentProps } from "react"
 
 const gameIconVariants = cva(
@@ -43,16 +43,13 @@ function GameIcon({
   style,
   ...props
 }: GameIconProps) {
-  const [ok, setOk] = useState(src != null)
+  const image = useImageLoaded(src)
+  const ok = image.status !== "error"
   const fallbackColors = pastelAvatarColors(name)
   const fallbackStyle =
     ok && src
       ? style
       : { background: fallbackColors.bg, color: fallbackColors.fg, ...style }
-
-  useEffect(() => {
-    setOk(src != null)
-  }, [src])
 
   return (
     <span
@@ -63,10 +60,12 @@ function GameIcon({
     >
       {src && ok ? (
         <img
+          ref={image.ref}
           src={src}
           alt=""
           className="block size-full object-contain"
-          onError={() => setOk(false)}
+          onLoad={image.markLoaded}
+          onError={image.markError}
         />
       ) : (
         name.slice(0, 1)
