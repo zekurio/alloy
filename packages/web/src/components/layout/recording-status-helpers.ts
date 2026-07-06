@@ -7,41 +7,6 @@ import { t } from "@alloy/i18n"
 
 export type SaveRecordingSettings = (next: RecordingSettings) => Promise<void>
 
-export function mergeAudioDevices(
-  available: RecordingSettings["audioDevices"],
-  selected: RecordingSettings["audioDevices"],
-): RecordingSettings["audioDevices"] {
-  const byKey = new Map<string, RecordingSettings["audioDevices"][number]>()
-
-  for (const device of available) byKey.set(audioDeviceKey(device), device)
-  for (const device of selected) {
-    const availableDevice = availableAudioDeviceForSelection(available, device)
-    byKey.set(audioDeviceKey(availableDevice ?? device), {
-      ...(availableDevice ?? device),
-      enabled: device.enabled,
-      volume: device.volume,
-    })
-  }
-
-  return [...byKey.values()]
-}
-
-export function toggleAudioDevice(
-  current: RecordingSettings["audioDevices"],
-  device: RecordingSettings["audioDevices"][number],
-): RecordingSettings["audioDevices"] {
-  const existing = current.find((item) =>
-    sameAudioDeviceSelection(item, device),
-  )
-  return [
-    ...current.filter((item) => !sameAudioDeviceSelection(item, device)),
-    {
-      ...device,
-      volume: existing?.volume ?? device.volume,
-    },
-  ]
-}
-
 export function audioDeviceMultiSelectLabel(
   selected: RecordingSettings["audioDevices"],
   settings: RecordingSettings | null,
@@ -50,33 +15,6 @@ export function audioDeviceMultiSelectLabel(
   if (selected.length === 0) return t("Off")
   if (selected.length === 1) return selected[0]?.label ?? "Off"
   return t("{count} selected", { count: selected.length })
-}
-
-function availableAudioDeviceForSelection(
-  available: RecordingSettings["audioDevices"],
-  selected: RecordingSettings["audioDevices"][number],
-): RecordingSettings["audioDevices"][number] | undefined {
-  return (
-    available.find(
-      (device) => audioDeviceKey(device) === audioDeviceKey(selected),
-    ) ?? available.find((device) => sameAudioDeviceSelection(device, selected))
-  )
-}
-
-function sameAudioDeviceSelection(
-  left: RecordingSettings["audioDevices"][number],
-  right: RecordingSettings["audioDevices"][number],
-): boolean {
-  return (
-    audioDeviceKey(left) === audioDeviceKey(right) ||
-    (left.kind === right.kind && left.label === right.label)
-  )
-}
-
-function audioDeviceKey(
-  device: RecordingSettings["audioDevices"][number],
-): string {
-  return `${device.kind}:${device.id}`
 }
 
 export function selectedDisplay(

@@ -108,7 +108,6 @@ fn windows_audio_devices() -> Vec<RecordingAudioDeviceSelection> {
     }
 }
 
-
 unsafe fn enumerate_active_audio_devices() -> Option<Vec<RecordingAudioDeviceSelection>> {
     let enumerator = create_mm_device_enumerator()?;
     let mut devices = Vec::new();
@@ -151,9 +150,6 @@ unsafe fn collect_active_audio_devices(
         });
     }
 }
-
-
-
 
 fn audio_application_from_game(
     game: &DetectedGame,

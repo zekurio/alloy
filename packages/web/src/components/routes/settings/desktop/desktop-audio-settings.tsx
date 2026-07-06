@@ -27,6 +27,11 @@ import {
 import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
+import {
+  mergeAudioDevices,
+  upsertAudioDevice,
+} from "@/lib/audio-device-selection"
+
 import { alloyDesktop, DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-bridge"
 import { useDesktopRecording } from "./desktop-recording-context"
 import {
@@ -543,27 +548,6 @@ function AudioLevelMeter({ peak, active }: { peak: number; active: boolean }) {
   )
 }
 
-function mergeAudioDevices(
-  available: RecordingAudioDeviceSelection[],
-  selected: RecordingAudioDeviceSelection[],
-): RecordingAudioDeviceSelection[] {
-  const byId = new Map<string, RecordingAudioDeviceSelection>()
-
-  for (const device of available) {
-    byId.set(audioDeviceKey(device), device)
-  }
-  for (const device of selected) {
-    const availableDevice = availableAudioDeviceForSelection(available, device)
-    byId.set(audioDeviceKey(availableDevice ?? device), {
-      ...(availableDevice ?? device),
-      enabled: device.enabled,
-      volume: device.volume,
-    })
-  }
-
-  return [...byId.values()]
-}
-
 function mergeAudioApplications(
   available: RecordingAudioApplicationSelection[],
   selected: RecordingAudioApplicationSelection[],
@@ -585,14 +569,6 @@ function mergeAudioApplications(
   return [...byId.values()]
 }
 
-function upsertAudioDevice(
-  devices: RecordingAudioDeviceSelection[],
-  device: RecordingAudioDeviceSelection,
-): RecordingAudioDeviceSelection[] {
-  const next = devices.filter((item) => !sameAudioDeviceSelection(item, device))
-  return [...next, device]
-}
-
 function upsertAudioApplication(
   applications: RecordingAudioApplicationSelection[],
   application: RecordingAudioApplicationSelection,
@@ -601,31 +577,6 @@ function upsertAudioApplication(
     ...applications.filter((item) => item.id !== application.id),
     application,
   ]
-}
-
-function availableAudioDeviceForSelection(
-  available: RecordingAudioDeviceSelection[],
-  selected: RecordingAudioDeviceSelection,
-): RecordingAudioDeviceSelection | undefined {
-  return (
-    available.find(
-      (device) => audioDeviceKey(device) === audioDeviceKey(selected),
-    ) ?? available.find((device) => sameAudioDeviceSelection(device, selected))
-  )
-}
-
-function sameAudioDeviceSelection(
-  left: RecordingAudioDeviceSelection,
-  right: RecordingAudioDeviceSelection,
-): boolean {
-  return (
-    audioDeviceKey(left) === audioDeviceKey(right) ||
-    (left.kind === right.kind && left.label === right.label)
-  )
-}
-
-function audioDeviceKey(device: RecordingAudioDeviceSelection): string {
-  return `${device.kind}:${device.id}`
 }
 
 function sliderValue(value: number | readonly number[]): number {

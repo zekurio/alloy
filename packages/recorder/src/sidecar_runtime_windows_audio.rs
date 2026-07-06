@@ -28,7 +28,6 @@
         candidates: Vec<GameDetection>,
     }
 
-
     #[repr(C)]
     #[allow(non_snake_case)]
     struct IAudioSessionManager2Vtbl {
@@ -114,7 +113,6 @@
             sessions
         }
     }
-
 
     unsafe fn enumerate_active_audio_sessions() -> Option<HashMap<u32, AudioSessionProcess>> {
         let enumerator = create_mm_device_enumerator()?;
@@ -230,11 +228,6 @@
         }
         string_from_cotaskmem_pwstr(raw)
     }
-
-
-
-
-
 
     pub(super) fn application_icon_data_url(path: &str) -> Option<String> {
         unsafe {

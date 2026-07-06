@@ -30,18 +30,20 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
 
+import {
+  mergeAudioDevices,
+  toggleAudioDevice,
+} from "@/lib/audio-device-selection"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 
 import { DisplayPickerDialog } from "./recording-display-picker"
 import {
   audioDeviceMultiSelectLabel,
   captureTargetLabel,
-  mergeAudioDevices,
   type SaveRecordingSettings,
   selectedDisplay,
   statusActive,
   statusLabel,
-  toggleAudioDevice,
 } from "./recording-status-helpers"
 import { useDesktopRecordingState } from "./use-desktop-recording-state"
 
