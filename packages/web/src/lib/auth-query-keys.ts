@@ -1,13 +1,22 @@
 import { t } from "@alloy/i18n"
 import { queryOptions } from "@tanstack/react-query"
 
+import { api } from "./api"
 import { authClient } from "./auth-client"
 import { errorMessage } from "./error-message"
 
 const authKeys = {
   all: ["auth"] as const,
+  backdrops: () => [...authKeys.all, "backdrops"] as const,
   accounts: () => [...authKeys.all, "accounts"] as const,
   passkeys: () => [...authKeys.all, "passkeys"] as const,
+}
+
+export function backdropsQueryOptions() {
+  return queryOptions({
+    queryKey: authKeys.backdrops(),
+    queryFn: () => api.authConfig.fetchBackdrops(),
+  })
 }
 
 export function linkedAccountsQueryOptions() {

@@ -1,7 +1,8 @@
 import { clipThumbnailUrl } from "@alloy/api"
-import { useEffect, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { useEffect, useMemo, useState } from "react"
 
-import { api } from "@/lib/api"
+import { backdropsQueryOptions } from "@/lib/auth-query-keys"
 import { apiOrigin } from "@/lib/env"
 
 type LoginBackdropProps = {
@@ -112,31 +113,18 @@ export function LoginBackdrop({
   darkenOpacity,
 }: LoginBackdropProps) {
   const reducedMotion = usePrefersReducedMotion()
-  const [urls, setUrls] = useState<string[]>([])
-
-  useEffect(() => {
-    if (!enabled) {
-      setUrls([])
-      return
-    }
-    let cancelled = false
-    void api.authConfig
-      .fetchBackdrops()
-      .then(({ clips }) => {
-        if (cancelled) return
-        setUrls(
-          clips.map((clip) =>
-            clipThumbnailUrl(clip.id, apiOrigin(), clip.thumbVersion),
-          ),
-        )
-      })
-      .catch(() => {
-        if (!cancelled) setUrls([])
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [enabled])
+  const { data, isError } = useQuery({
+    ...backdropsQueryOptions(),
+    enabled,
+  })
+  const urls = useMemo(() => {
+    if (!enabled || isError) return []
+    return (
+      data?.clips.map((clip) =>
+        clipThumbnailUrl(clip.id, apiOrigin(), clip.thumbVersion),
+      ) ?? []
+    )
+  }, [data, enabled, isError])
 
   if (!enabled || urls.length === 0) return null
 

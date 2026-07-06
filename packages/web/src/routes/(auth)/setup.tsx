@@ -1,12 +1,13 @@
 import { t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
+import { useMutation } from "@tanstack/react-query"
 import {
   createFileRoute,
   Link,
   redirect,
   useNavigate,
 } from "@tanstack/react-router"
-import { Suspense, lazy, useEffect, useState } from "react"
+import { Suspense, lazy, useEffect, useRef } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -86,26 +87,24 @@ function AdminAccountStep() {
 
 function CompleteSetupStep() {
   const navigate = useNavigate()
-  const [message, setMessage] = useState<string | null>(null)
+  const hasSubmitted = useRef(false)
+  const { error, mutate } = useMutation({
+    mutationFn: () => api.admin.updateRuntimeConfig({ setupComplete: true }),
+    onSuccess: () => {
+      invalidateAuthConfig()
+      void navigate({ to: "/" })
+    },
+  })
 
   useEffect(() => {
-    let cancelled = false
-    async function completeSetup() {
-      try {
-        await api.admin.updateRuntimeConfig({ setupComplete: true })
-        invalidateAuthConfig()
-        if (!cancelled) void navigate({ to: "/" })
-      } catch (cause) {
-        if (!cancelled) {
-          setMessage(errorMessage(cause, t("Couldn't complete setup")))
-        }
-      }
-    }
-    void completeSetup()
-    return () => {
-      cancelled = true
-    }
-  }, [navigate])
+    if (hasSubmitted.current) return
+    hasSubmitted.current = true
+    mutate()
+  }, [mutate])
+
+  const message = error
+    ? errorMessage(error, t("Couldn't complete setup"))
+    : null
 
   return (
     <div className="w-full max-w-sm">
