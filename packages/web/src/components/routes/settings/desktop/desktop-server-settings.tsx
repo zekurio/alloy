@@ -9,7 +9,11 @@ import { useEffect, useState } from "react"
 import type { FormEvent } from "react"
 import { flushSync } from "react-dom"
 
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+
+import { DesktopAutostartSettings } from "./desktop-autostart-settings"
 import { alloyDesktop, type DesktopSavedServer } from "./desktop-bridge"
+import { DesktopUpdateSettings } from "./desktop-update-settings"
 
 type Phase = "idle" | "loading" | "connecting"
 
@@ -120,6 +124,35 @@ export function DesktopServerSettings() {
         connectTo={connectTo}
         forgetServer={forgetServer}
       />
+    </div>
+  )
+}
+
+export function DesktopAppPanel() {
+  return (
+    <div className="flex flex-col gap-6">
+      <SettingsSubsection
+        title={t("Servers")}
+        description={t(
+          "Add, switch between, or forget connected Alloy servers.",
+        )}
+      >
+        <DesktopServerSettings />
+      </SettingsSubsection>
+      <hr className="border-border" />
+      <SettingsSubsection
+        title={t("Startup")}
+        description={t("Control whether Alloy starts when you sign in.")}
+      >
+        <DesktopAutostartSettings />
+      </SettingsSubsection>
+      <hr className="border-border" />
+      <SettingsSubsection
+        title={t("Updates")}
+        description={t("Switch latest or unstable desktop releases.")}
+      >
+        <DesktopUpdateSettings />
+      </SettingsSubsection>
     </div>
   )
 }

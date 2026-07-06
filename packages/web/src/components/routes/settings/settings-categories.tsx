@@ -37,37 +37,22 @@ import {
   VideoIcon,
   Volume2Icon,
 } from "lucide-react"
-import { useMemo, useState } from "react"
-import type { ComponentType } from "react"
+import { lazy, useMemo, useState } from "react"
+import type { ComponentType, LazyExoticComponent } from "react"
 
-import {
-  AdminAppearancePanel,
-  AdminGamesPanel,
-  AdminJobsPanel,
-  AdminTranscodingPanel,
-  AdminUsersPanel,
-} from "@/components/routes/settings/admin-tab-content"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
 import {
   ClipDataCard,
   StorageUsageCard,
 } from "@/components/routes/settings/data-card"
-import { DesktopAudioSettings } from "@/components/routes/settings/desktop/desktop-audio-settings"
-import { DesktopAutostartSettings } from "@/components/routes/settings/desktop/desktop-autostart-settings"
-import {
-  DesktopCaptureSettings,
-  DesktopStoragePanel,
-} from "@/components/routes/settings/desktop/desktop-capture-settings"
-import { DesktopQualitySettings } from "@/components/routes/settings/desktop/desktop-quality-settings"
-import { DesktopServerSettings } from "@/components/routes/settings/desktop/desktop-server-settings"
-import { DesktopUpdateSettings } from "@/components/routes/settings/desktop/desktop-update-settings"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SecuritySettings } from "@/components/routes/settings/security-settings"
-import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 
 export type SettingsGroup = "account" | "desktop" | "admin"
+
+type SettingsPanelComponent = ComponentType | LazyExoticComponent<ComponentType>
 
 export interface SettingsCategory {
   id: string
@@ -84,7 +69,7 @@ export interface SettingsCategory {
   keywords?: string[]
   icon: LucideIcon
   group: SettingsGroup
-  Panel: ComponentType
+  Panel: SettingsPanelComponent
 }
 
 type SettingsCategoryDraft = Omit<SettingsCategory, "group">
@@ -95,7 +80,7 @@ type SettingsCategorySpec = readonly [
   description: string,
   keywords: string[],
   icon: LucideIcon,
-  Panel: ComponentType,
+  Panel: SettingsPanelComponent,
 ]
 
 export const SETTINGS_GROUPS: { id: SettingsGroup; label: string }[] = [
@@ -103,6 +88,68 @@ export const SETTINGS_GROUPS: { id: SettingsGroup; label: string }[] = [
   { id: "desktop", label: t("Desktop") },
   { id: "admin", label: t("Administration") },
 ]
+
+const DesktopCapturePanel = lazy(() =>
+  import("@/components/routes/settings/desktop/desktop-capture-settings").then(
+    (module) => ({
+      default: module.DesktopCapturePanel,
+    }),
+  ),
+)
+
+const DesktopQualitySettings = lazy(() =>
+  import("@/components/routes/settings/desktop/desktop-quality-settings").then(
+    (module) => ({
+      default: module.DesktopQualitySettings,
+    }),
+  ),
+)
+
+const DesktopAudioSettings = lazy(() =>
+  import("@/components/routes/settings/desktop/desktop-audio-settings").then(
+    (module) => ({
+      default: module.DesktopAudioSettings,
+    }),
+  ),
+)
+
+const DesktopAppPanel = lazy(() =>
+  import("@/components/routes/settings/desktop/desktop-server-settings").then(
+    (module) => ({
+      default: module.DesktopAppPanel,
+    }),
+  ),
+)
+
+const AdminAppearancePanel = lazy(() =>
+  import("@/components/routes/settings/admin-tab-content").then((module) => ({
+    default: module.AdminAppearancePanel,
+  })),
+)
+
+const AdminTranscodingPanel = lazy(() =>
+  import("@/components/routes/settings/admin-tab-content").then((module) => ({
+    default: module.AdminTranscodingPanel,
+  })),
+)
+
+const AdminUsersPanel = lazy(() =>
+  import("@/components/routes/settings/admin-tab-content").then((module) => ({
+    default: module.AdminUsersPanel,
+  })),
+)
+
+const AdminGamesPanel = lazy(() =>
+  import("@/components/routes/settings/admin-tab-content").then((module) => ({
+    default: module.AdminGamesPanel,
+  })),
+)
+
+const AdminJobsPanel = lazy(() =>
+  import("@/components/routes/settings/admin-tab-content").then((module) => ({
+    default: module.AdminJobsPanel,
+  })),
+)
 
 function withSettingsGroup(
   group: SettingsGroup,
@@ -156,52 +203,6 @@ function AccountDataPanel() {
       <ClipDataCard />
       <hr className="border-border" />
       <DangerZoneCard />
-    </div>
-  )
-}
-
-function DesktopCapturePanel() {
-  return (
-    <div className="flex flex-col gap-6">
-      <DesktopCaptureSettings />
-      <hr className="border-border" />
-      <SettingsSubsection
-        title={t("Storage")}
-        description={t(
-          "Choose where clips are saved and review local disk usage.",
-        )}
-      >
-        <DesktopStoragePanel />
-      </SettingsSubsection>
-    </div>
-  )
-}
-
-function DesktopAppPanel() {
-  return (
-    <div className="flex flex-col gap-6">
-      <SettingsSubsection
-        title={t("Servers")}
-        description={t(
-          "Add, switch between, or forget connected Alloy servers.",
-        )}
-      >
-        <DesktopServerSettings />
-      </SettingsSubsection>
-      <hr className="border-border" />
-      <SettingsSubsection
-        title={t("Startup")}
-        description={t("Control whether Alloy starts when you sign in.")}
-      >
-        <DesktopAutostartSettings />
-      </SettingsSubsection>
-      <hr className="border-border" />
-      <SettingsSubsection
-        title={t("Updates")}
-        description={t("Switch latest or unstable desktop releases.")}
-      >
-        <DesktopUpdateSettings />
-      </SettingsSubsection>
     </div>
   )
 }
