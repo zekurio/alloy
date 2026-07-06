@@ -12,7 +12,7 @@ import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cn } from "@alloy/ui/lib/utils"
 import { MaximizeIcon, PauseIcon, PlayIcon, SettingsIcon } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import type {
   CSSProperties,
   FocusEventHandler,
@@ -61,6 +61,8 @@ export type LoadStatus =
   | { kind: "loading" }
   | { kind: "ready" }
   | { kind: "error"; message: string }
+
+type ChromeBarSize = "default" | "compact"
 
 /* ─── Shells ───────────────────────────────────────────────────────── */
 
@@ -319,7 +321,7 @@ export function ChromeBar({
   selectedQualityId,
   onSelectQuality,
 }: {
-  size?: "default" | "compact"
+  size?: ChromeBarSize
   containerRef: RefObject<HTMLDivElement | null>
   visible?: boolean
   playing: boolean
@@ -343,6 +345,7 @@ export function ChromeBar({
   const chromeInteractive = visible
   const showEdgeScrubber = isCoarsePointer
   const edgeScrubberInteractive = !visible
+  const portalContainer = containerRef.current ?? undefined
 
   useEffect(() => {
     if (typeof document === "undefined") return
@@ -369,12 +372,11 @@ export function ChromeBar({
               : t("pointer-events-none"),
           )}
         >
-          <VideoScrubber
+          <ChromeEdgeTimeline
             currentTime={currentTime}
             duration={duration}
             bufferedEnd={bufferedEnd}
             onSeek={onSeek}
-            variant="edge"
           />
         </div>
       ) : null}
@@ -398,111 +400,224 @@ export function ChromeBar({
             size === "compact" && "min-h-[64px]",
           )}
         >
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={playing ? t("Pause") : t("Play")}
-            onClick={onTogglePlay}
-            className={cn(
-              videoChromeIconClass,
-              size === "compact" && "size-[56px]",
-            )}
-          >
-            {playing ? (
-              <PauseIcon className={videoChromeGlyphClass} />
-            ) : (
-              <PlayIcon className={videoChromeGlyphClass} />
-            )}
-          </Button>
-
-          <VolumeControl
+          <ChromeLeadingControls
+            size={size}
+            playing={playing}
             muted={muted}
             volume={volume}
+            isCoarsePointer={isCoarsePointer}
+            onTogglePlay={onTogglePlay}
             onToggleMute={onToggleMute}
             onVolumeChange={onVolumeChange}
-            showSlider={!isCoarsePointer}
-            iconGlyphClassName={videoChromeGlyphClass}
-            iconClassName={cn(
-              videoChromeIconClass,
-              size === "compact" && "size-[56px]",
-            )}
           />
 
-          <div className="min-w-0 flex-1 px-[2px]">
-            <VideoScrubber
-              currentTime={currentTime}
-              duration={duration}
-              bufferedEnd={bufferedEnd}
-              onSeek={onSeek}
-              variant="translucent"
-            />
-          </div>
+          <ChromeTimeline
+            currentTime={currentTime}
+            duration={duration}
+            bufferedEnd={bufferedEnd}
+            onSeek={onSeek}
+          />
 
-          {qualityOptions && qualityOptions.length > 1 && onSelectQuality ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={t("Playback quality")}
-                    className={cn(
-                      videoChromeIconClass,
-                      size === "compact" && "size-[56px]",
-                    )}
-                  >
-                    <SettingsIcon className={videoChromeGlyphClass} />
-                  </Button>
-                }
-              />
-              <DropdownMenuContent
-                align="end"
-                side="top"
-                // Keep the menu inside the fullscreen element so it stays
-                // visible while the player is fullscreen.
-                portalContainer={containerRef.current ?? undefined}
-              >
-                <DropdownMenuRadioGroup
-                  value={selectedQualityId}
-                  onValueChange={onSelectQuality}
-                >
-                  {qualityOptions.map((option) => (
-                    <DropdownMenuRadioItem key={option.id} value={option.id}>
-                      {option.label}
-                      {option.detail ? (
-                        <span className="text-foreground-dim ml-auto pl-3 text-xs">
-                          {option.detail}
-                        </span>
-                      ) : null}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-
-          {fullscreenSupported ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              aria-label={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")}
-              onClick={onToggleFullscreen}
-              className={cn(
-                videoChromeIconClass,
-                size === "compact" && "size-[56px]",
-              )}
-            >
-              <MaximizeIcon className={videoChromeGlyphClass} />
-            </Button>
-          ) : null}
+          <ChromeTrailingControls
+            size={size}
+            portalContainer={portalContainer}
+            fullscreenSupported={fullscreenSupported}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={onToggleFullscreen}
+            qualityOptions={qualityOptions}
+            selectedQualityId={selectedQualityId}
+            onSelectQuality={onSelectQuality}
+          />
         </div>
       </div>
     </>
   )
 }
+
+const ChromeLeadingControls = memo(function ChromeLeadingControls({
+  size,
+  playing,
+  muted,
+  volume,
+  isCoarsePointer,
+  onTogglePlay,
+  onToggleMute,
+  onVolumeChange,
+}: {
+  size: ChromeBarSize
+  playing: boolean
+  muted: boolean
+  volume: number
+  isCoarsePointer: boolean
+  onTogglePlay: () => void
+  onToggleMute: () => void
+  onVolumeChange: (v: number) => void
+}) {
+  return (
+    <>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        aria-label={playing ? t("Pause") : t("Play")}
+        onClick={onTogglePlay}
+        className={cn(
+          videoChromeIconClass,
+          size === "compact" && "size-[56px]",
+        )}
+      >
+        {playing ? (
+          <PauseIcon className={videoChromeGlyphClass} />
+        ) : (
+          <PlayIcon className={videoChromeGlyphClass} />
+        )}
+      </Button>
+
+      <VolumeControl
+        muted={muted}
+        volume={volume}
+        onToggleMute={onToggleMute}
+        onVolumeChange={onVolumeChange}
+        showSlider={!isCoarsePointer}
+        iconGlyphClassName={videoChromeGlyphClass}
+        iconClassName={cn(
+          videoChromeIconClass,
+          size === "compact" && "size-[56px]",
+        )}
+      />
+    </>
+  )
+})
+
+const ChromeTimeline = memo(function ChromeTimeline({
+  currentTime,
+  duration,
+  bufferedEnd,
+  onSeek,
+}: {
+  currentTime: number
+  duration: number
+  bufferedEnd: number
+  onSeek: (sec: number) => void
+}) {
+  return (
+    <div className="min-w-0 flex-1 px-[2px]">
+      <VideoScrubber
+        currentTime={currentTime}
+        duration={duration}
+        bufferedEnd={bufferedEnd}
+        onSeek={onSeek}
+        variant="translucent"
+      />
+    </div>
+  )
+})
+
+const ChromeEdgeTimeline = memo(function ChromeEdgeTimeline({
+  currentTime,
+  duration,
+  bufferedEnd,
+  onSeek,
+}: {
+  currentTime: number
+  duration: number
+  bufferedEnd: number
+  onSeek: (sec: number) => void
+}) {
+  return (
+    <VideoScrubber
+      currentTime={currentTime}
+      duration={duration}
+      bufferedEnd={bufferedEnd}
+      onSeek={onSeek}
+      variant="edge"
+    />
+  )
+})
+
+const ChromeTrailingControls = memo(function ChromeTrailingControls({
+  size,
+  portalContainer,
+  fullscreenSupported,
+  isFullscreen,
+  onToggleFullscreen,
+  qualityOptions,
+  selectedQualityId,
+  onSelectQuality,
+}: {
+  size: ChromeBarSize
+  portalContainer: HTMLDivElement | undefined
+  fullscreenSupported: boolean
+  isFullscreen: boolean
+  onToggleFullscreen: () => void
+  qualityOptions: QualityOption[] | undefined
+  selectedQualityId: string | undefined
+  onSelectQuality: ((qualityId: string) => void) | undefined
+}) {
+  return (
+    <>
+      {qualityOptions && qualityOptions.length > 1 && onSelectQuality ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("Playback quality")}
+                className={cn(
+                  videoChromeIconClass,
+                  size === "compact" && "size-[56px]",
+                )}
+              >
+                <SettingsIcon className={videoChromeGlyphClass} />
+              </Button>
+            }
+          />
+          <DropdownMenuContent
+            align="end"
+            side="top"
+            // Keep the menu inside the fullscreen element so it stays
+            // visible while the player is fullscreen.
+            portalContainer={portalContainer}
+          >
+            <DropdownMenuRadioGroup
+              value={selectedQualityId}
+              onValueChange={onSelectQuality}
+            >
+              {qualityOptions.map((option) => (
+                <DropdownMenuRadioItem key={option.id} value={option.id}>
+                  {option.label}
+                  {option.detail ? (
+                    <span className="text-foreground-dim ml-auto pl-3 text-xs">
+                      {option.detail}
+                    </span>
+                  ) : null}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
+
+      {fullscreenSupported ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={isFullscreen ? t("Exit fullscreen") : t("Fullscreen")}
+          onClick={onToggleFullscreen}
+          className={cn(
+            videoChromeIconClass,
+            size === "compact" && "size-[56px]",
+          )}
+        >
+          <MaximizeIcon className={videoChromeGlyphClass} />
+        </Button>
+      ) : null}
+    </>
+  )
+})
 
 /* ─── Load overlay ─────────────────────────────────────────────────── */
 
