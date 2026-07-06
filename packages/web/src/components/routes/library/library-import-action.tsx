@@ -25,8 +25,9 @@ import {
   type RecordingLibraryStagedImport,
 } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
+import { formatBytes } from "@/lib/storage-format"
 
-import { formatLibraryBytes, refreshLibrarySnapshotCache } from "./library-data"
+import { refreshLibrarySnapshotCache } from "./library-data"
 
 export interface LibraryImportAction {
   available: boolean
@@ -271,7 +272,7 @@ function StagedImportSummary({
   staged: RecordingLibraryStagedImport
 }) {
   const details = [
-    formatLibraryBytes(staged.sizeBytes),
+    formatBytes(staged.sizeBytes),
     formatStagedDuration(staged.durationMs),
     staged.width && staged.height ? `${staged.width}x${staged.height}` : null,
   ].filter((value): value is string => value !== null)

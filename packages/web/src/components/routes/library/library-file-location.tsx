@@ -26,8 +26,8 @@ import {
 import { ClipMetadataSection } from "@/components/clip/clip-metadata-editor"
 import { clientLogger } from "@/lib/client-log"
 import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
+import { formatBytes } from "@/lib/storage-format"
 
-import { formatLibraryBytes } from "./library-data"
 import { deleteLocalLibraryCopy } from "./library-local-actions"
 
 type LocationDeleteAction = {
@@ -149,7 +149,7 @@ function LocationMenu({
         {hasSize ? (
           <span className="text-foreground-faint font-normal">
             {"("}
-            {formatLibraryBytes(sizeBytes)}
+            {formatBytes(sizeBytes)}
             {")"}
           </span>
         ) : null}
