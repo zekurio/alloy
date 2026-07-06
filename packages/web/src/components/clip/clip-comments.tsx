@@ -425,10 +425,17 @@ function CommentRowView({
       toast.error(t("Sign in to like comments"))
       return
     }
-    toggleLike.mutate({
-      commentId: comment.id,
-      nextLiked: !comment.likedByViewer,
-    })
+    toggleLike.mutate(
+      {
+        commentId: comment.id,
+        nextLiked: !comment.likedByViewer,
+      },
+      {
+        onError: (err) => {
+          toast.error(errorMessage(err, t("Couldn't update like")))
+        },
+      },
+    )
   }
 
   function onPinToggle() {
