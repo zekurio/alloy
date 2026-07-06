@@ -80,9 +80,12 @@ export function adminTranscodingCapabilitiesQueryOptions() {
 }
 
 export function adminUsersQueryOptions() {
-  return queryOptions({
+  return infiniteQueryOptions({
     queryKey: adminKeys.users(),
-    queryFn: () => api.admin.fetchUsers(),
+    queryFn: ({ pageParam }) =>
+      api.admin.fetchUsers(pageParam ? { cursor: pageParam } : {}),
+    initialPageParam: null as string | null,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
   })
 }
 
