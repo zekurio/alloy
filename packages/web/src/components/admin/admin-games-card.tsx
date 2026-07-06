@@ -1,18 +1,8 @@
 import type { AdminGameRow, GameAssetRole } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@alloy/ui/components/alert-dialog"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Input } from "@alloy/ui/components/input"
@@ -164,6 +154,7 @@ function AdminGameListRow({ game }: { game: AdminGameRow }) {
 function CustomGameActions({ game }: { game: AdminGameRow }) {
   const qc = useQueryClient()
   const [deleting, setDeleting] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   const handleDelete = async () => {
     setDeleting(true)
@@ -181,36 +172,27 @@ function CustomGameActions({ game }: { game: AdminGameRow }) {
   return (
     <div className="flex items-center gap-1">
       <EditGameDialog game={game} />
-      <AlertDialog>
-        <AlertDialogTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              aria-label={t("Delete game")}
-            >
-              <Trash2Icon />
-            </Button>
-          }
-        />
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("Delete this game?")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t(
-                "Its artwork is removed and any clips lose their game tag. This can't be undone.",
-              )}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-            <AlertDialogAction disabled={deleting} onClick={handleDelete}>
-              {t("Delete")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label={t("Delete game")}
+        onClick={() => setDeleteOpen(true)}
+      >
+        <Trash2Icon />
+      </Button>
+      <ConfirmDeleteDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={t("Delete this game?")}
+        description={t(
+          "Its artwork is removed and any clips lose their game tag. This can't be undone.",
+        )}
+        confirmLabel={t("Delete")}
+        pendingLabel={t("Delete")}
+        pending={deleting}
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }
