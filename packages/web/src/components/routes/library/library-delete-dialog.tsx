@@ -1,15 +1,6 @@
 import { t } from "@alloy/i18n"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@alloy/ui/components/alert-dialog"
 import { Checkbox } from "@alloy/ui/components/checkbox"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { useEffect, useState } from "react"
 
 import type { RecordingLibraryItem } from "@/lib/desktop"
@@ -45,42 +36,31 @@ export function DeleteServerBackedDialog({
     noun === "clip" ? t("Delete clip") : t("Delete {noun}", { noun })
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{deleteTitle}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {t(
-              '"{title}" will be removed from the server. This can\'t be undone.',
-              { title },
-            )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {localItem ? (
-          <label className="flex cursor-pointer items-center gap-2.5 text-sm">
-            <Checkbox
-              checked={deleteLocal}
-              onCheckedChange={(checked) => setDeleteLocal(checked === true)}
-              disabled={pending}
-            />
-            <span className="text-foreground-muted">
-              {t("Also delete the local copy on this device")}
-            </span>
-          </label>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>
-            {t("Cancel")}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={() => onConfirm(deleteLocal)}
+    <ConfirmDeleteDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={deleteTitle}
+      description={t(
+        '"{title}" will be removed from the server. This can\'t be undone.',
+        { title },
+      )}
+      confirmLabel={deleteAction}
+      pendingLabel={t("Deleting...")}
+      pending={pending}
+      onConfirm={() => onConfirm(deleteLocal)}
+    >
+      {localItem ? (
+        <label className="flex cursor-pointer items-center gap-2.5 text-sm">
+          <Checkbox
+            checked={deleteLocal}
+            onCheckedChange={(checked) => setDeleteLocal(checked === true)}
             disabled={pending}
-          >
-            {pending ? t("Deleting...") : deleteAction}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+          />
+          <span className="text-foreground-muted">
+            {t("Also delete the local copy on this device")}
+          </span>
+        </label>
+      ) : null}
+    </ConfirmDeleteDialog>
   )
 }

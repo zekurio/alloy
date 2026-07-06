@@ -1,16 +1,6 @@
 import { t, tp } from "@alloy/i18n"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"
@@ -90,6 +80,8 @@ function DeleteClipsRow({
   pending: boolean
   onDeleteAllClips: () => Promise<void>
 }) {
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
   return (
     <SettingRow
       className="py-4 first:pt-4 last:pb-4"
@@ -98,36 +90,27 @@ function DeleteClipsRow({
         "Permanently removes every clip you uploaded. This can't be undone.",
       )}
     >
-      <AlertDialog>
-        <AlertDialogTrigger
-          render={
-            <Button type="button" variant="danger" size="sm">
-              <Trash2Icon />
-              {t("Delete clips")}
-            </Button>
-          }
+      <>
+        <Button
+          type="button"
+          variant="danger"
+          size="sm"
+          onClick={() => setDeleteOpen(true)}
+        >
+          <Trash2Icon />
+          {t("Delete clips")}
+        </Button>
+        <ConfirmDeleteDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title={t("Delete all clips?")}
+          description={t("This permanently removes every clip you uploaded.")}
+          confirmLabel={t("Delete clips")}
+          pendingLabel={t("Deleting...")}
+          pending={pending}
+          onConfirm={onDeleteAllClips}
         />
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("Delete all clips?")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("This permanently removes every clip you uploaded.")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>
-              {t("Cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={onDeleteAllClips}
-              disabled={pending}
-            >
-              {pending ? t("Deleting...") : t("Delete clips")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      </>
     </SettingRow>
   )
 }

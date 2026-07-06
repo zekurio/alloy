@@ -6,16 +6,6 @@ import type {
 } from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@alloy/ui/components/alert-dialog"
-import {
   Avatar,
   AvatarFallback,
   AvatarImage,
@@ -43,7 +33,7 @@ import {
   UserMinusIcon,
   UserPlusIcon,
 } from "lucide-react"
-import { useCallback, useState } from "react"
+import { useCallback } from "react"
 import type { ReactNode } from "react"
 
 import { useSession } from "@/lib/auth-client"
@@ -51,7 +41,6 @@ import { shareUrlWithFallback } from "@/lib/browser-share"
 import { currentUrlWithoutSearchOrHash } from "@/lib/browser-url"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import {
-  useDeleteClipMutation,
   useLikeStateQuery,
   useReEncodeClipMutation,
   useToggleLikeMutation,
@@ -100,10 +89,8 @@ interface ClipMetaProps {
   mentions: ClipMentionRef[]
   /** Structured hashtags, rendered as a chip row below the description. */
   tags: string[]
-  /** Fired after a successful delete — e.g. closes the player modal. */
-  onDeleted?: () => void
-  onRequestDelete?: () => void
-  deletePending?: boolean
+  onRequestDelete: () => void
+  deletePending: boolean
   onEdit?: () => void
   /** Desktop-only "save to this device" affordance, slotted by the viewer. */
   downloadAction?: ReactNode
@@ -125,7 +112,6 @@ function ClipMeta({
   likes,
   mentions,
   tags,
-  onDeleted,
   onRequestDelete,
   deletePending,
   onEdit,
@@ -139,11 +125,9 @@ function ClipMeta({
   const isAdmin = viewerRole === "admin"
   const canManage = isOwner || isAdmin
   const canLike = viewerId !== null
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const hasDescription = Boolean(description && description.trim().length > 0)
 
-  const deleteMutation = useDeleteClipMutation()
-  const deleting = deletePending ?? deleteMutation.isPending
+  const deleting = deletePending
   const reEncodeMutation = useReEncodeClipMutation()
 
   const likeStateQuery = useLikeStateQuery(clipId, { enabled: canLike })
@@ -178,19 +162,6 @@ function ClipMeta({
       },
     )
   }, [canLike, clipId, liked, likeMutation])
-
-  const handleDelete = useCallback(() => {
-    deleteMutation.mutate(
-      { clipId },
-      {
-        onSuccess: () => {
-          toast.success(t("Clip deleted"))
-          onDeleted?.()
-        },
-        onError: () => toast.error(t("Couldn't delete clip")),
-      },
-    )
-  }, [clipId, deleteMutation, onDeleted])
 
   const handleShare = useCallback(async () => {
     if (privacy === "private") {
@@ -307,10 +278,7 @@ function ClipMeta({
                     <DropdownMenuItem
                       variant="destructive"
                       disabled={deleting}
-                      onClick={() => {
-                        if (onRequestDelete) onRequestDelete()
-                        else setDeleteDialogOpen(true)
-                      }}
+                      onClick={onRequestDelete}
                     >
                       <Trash2Icon /> {t("Delete")}
                     </DropdownMenuItem>
@@ -416,31 +384,6 @@ function ClipMeta({
       ) : null}
 
       <ClipTagsRow tags={tags} className="pt-0.5" />
-
-      {onRequestDelete ? null : (
-        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{t("Delete this clip?")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                {t("This can't be undone.")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleting}>
-                {t("Cancel")}
-              </AlertDialogCancel>
-              <AlertDialogAction
-                variant="destructive"
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                {deleting ? t("Deleting…") : t("Delete clip")}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
     </section>
   )
 }
