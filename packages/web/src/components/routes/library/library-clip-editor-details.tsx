@@ -36,14 +36,13 @@ import type { ComponentType } from "react"
 import { ClipComments } from "@/components/clip/clip-comments"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import { absoluteClipHref } from "@/lib/app-paths"
-import { normalizeClipDescription, normalizeClipTitle } from "@/lib/clip-fields"
 import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { type RecordingLibraryItem } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 
 import { ClipFileLocation } from "./library-file-location"
-import { sameIdSet } from "./library-metadata"
+import { useClipMetadataDraft } from "./use-clip-metadata-draft"
 
 type VisibilityIntent = "post" | "unpost" | "create-link" | "disable-link"
 
@@ -189,37 +188,47 @@ function ClipDetailsForm({
   trimPending,
   onSaveTrim,
 }: ClipDetailsProps) {
-  const [title, setTitle] = useState(row.title)
-  const [description, setDescription] = useState(row.description ?? "")
-  const [game, setGame] = useState<GameRow | null>(() => gameRowFromRef(row))
-  const [mentions, setMentions] = useState<UserSearchResult[]>(() =>
-    (row.mentions ?? []).map(mentionToSearchResult),
+  const {
+    title,
+    setTitle,
+    description,
+    setDescription,
+    game,
+    setGame,
+    mentions,
+    setMentions,
+    tags,
+    setTags,
+    normalizedTitle,
+    normalizedDescription,
+    mentionIds,
+    titleInvalid,
+    titleChanged,
+    descriptionChanged,
+    gameChanged,
+    mentionsChanged,
+    tagsChanged,
+    dirty,
+  } = useClipMetadataDraft(
+    {
+      title: row.title,
+      description: row.description ?? "",
+      game: gameRowFromRef(row),
+      mentions: (row.mentions ?? []).map(mentionToSearchResult),
+      tags: row.tags,
+    },
+    {
+      title: row.title,
+      description: row.description ?? "",
+      gameId: row.gameRef?.id ?? null,
+      mentionIds: (row.mentions ?? []).map((mention) => mention.id),
+      tags: row.tags,
+    },
   )
-  const [tags, setTags] = useState<string[]>(row.tags)
   const saveMutation = useUpdateClipMutation()
   const visibilityMutation = useUpdateClipMutation()
   const saving = saveMutation.isPending
   const visibilityPending = visibilityMutation.isPending
-
-  const trimmedTitle = normalizeClipTitle(title)
-  const trimmedDescription = normalizeClipDescription(description)
-  const currentDescription = row.description ?? ""
-  const originalMentionIds = (row.mentions ?? []).map((m) => m.id)
-  const mentionIds = mentions.map((m) => m.id)
-
-  const titleChanged = trimmedTitle !== row.title && trimmedTitle.length > 0
-  const descriptionChanged = trimmedDescription !== currentDescription.trim()
-  const gameChanged = (game?.id ?? null) !== (row.gameRef?.id ?? null)
-  const mentionsChanged = !sameIdSet(mentionIds, originalMentionIds)
-  const tagsChanged = !sameIdSet(tags, row.tags)
-
-  const dirty =
-    titleChanged ||
-    descriptionChanged ||
-    gameChanged ||
-    mentionsChanged ||
-    tagsChanged
-  const titleInvalid = trimmedTitle.length === 0
 
   const copyClipLink = async (clip: ClipRow = row) => {
     return copyTextToClipboard(
@@ -262,8 +271,8 @@ function ClipDetailsForm({
     if (canSaveTrim) onSaveTrim()
     if (!dirty) return
     const input: Parameters<typeof saveMutation.mutate>[0]["input"] = {}
-    if (titleChanged) input.title = trimmedTitle
-    if (descriptionChanged) input.description = trimmedDescription
+    if (titleChanged) input.title = normalizedTitle
+    if (descriptionChanged) input.description = normalizedDescription
     if (gameChanged) input.gameId = game?.id ?? null
     if (mentionsChanged) input.mentionedUserIds = mentionIds
     if (tagsChanged) input.tags = tags
