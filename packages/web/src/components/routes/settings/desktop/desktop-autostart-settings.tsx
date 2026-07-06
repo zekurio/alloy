@@ -3,31 +3,27 @@ import { t } from "@alloy/i18n"
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
-import { useEffect, useState } from "react"
+import { useState } from "react"
+
+import { useDesktopQuery } from "@/lib/use-desktop-query"
 
 import { alloyDesktop } from "./desktop-bridge"
 
 export function DesktopAutostartSettings() {
   const autostart = alloyDesktop()?.autostart
-  const [state, setState] = useState<DesktopAutostartState | null>(null)
-  const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    if (!autostart) return
-
-    let cancelled = false
+  const { data: state, setData: setState } = useDesktopQuery(
     autostart
-      .getState()
-      .then((loaded) => {
-        if (!cancelled) setState(loaded)
-      })
-      .catch(() => {
-        if (!cancelled) setState({ supported: false, enabled: false })
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [autostart])
+      ? () =>
+          autostart.getState().catch(
+            (): DesktopAutostartState => ({
+              supported: false,
+              enabled: false,
+            }),
+          )
+      : null,
+    [autostart],
+  )
+  const [busy, setBusy] = useState(false)
 
   if (!autostart) return null
   const activeAutostart = autostart
@@ -60,7 +56,7 @@ export function DesktopAutostartSettings() {
             )}
           </p>
         </div>
-        {state === null ? (
+        {state === undefined ? (
           <Skeleton className="h-5 w-9 rounded-full" />
         ) : state.supported ? (
           <Switch
