@@ -38,6 +38,23 @@ jobs:
       - name: Ensure release semver changed
         run: node scripts/verify-release-version-change.mjs "${{ github.event.pull_request.base.sha }}"
 
+  nix:
+    name: Nix package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check Nix flake
+        run: nix flake check --print-build-logs
+
   checks:
     name: pnpm checks
     runs-on: ubuntu-latest
