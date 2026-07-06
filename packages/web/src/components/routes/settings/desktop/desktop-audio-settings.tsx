@@ -27,6 +27,11 @@ import {
 import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
+import {
+  mergeAudioDevices,
+  upsertAudioDevice,
+} from "@/lib/audio-device-selection"
+
 import { alloyDesktop, DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-bridge"
 import { useDesktopRecording } from "./desktop-recording-context"
 import {
@@ -543,28 +548,6 @@ function AudioLevelMeter({ peak, active }: { peak: number; active: boolean }) {
   )
 }
 
-function mergeAudioDevices(
-  available: RecordingAudioDeviceSelection[],
-  selected: RecordingAudioDeviceSelection[],
-): RecordingAudioDeviceSelection[] {
-  const byId = new Map<string, RecordingAudioDeviceSelection>()
-
-  for (const device of available) {
-    byId.set(audioDeviceKey(device), device)
-  }
-  for (const device of selected) {
-    const key = audioDeviceKey(device)
-    const availableDevice = byId.get(key)
-    byId.set(key, {
-      ...(availableDevice ?? device),
-      enabled: device.enabled,
-      volume: device.volume,
-    })
-  }
-
-  return [...byId.values()]
-}
-
 function mergeAudioApplications(
   available: RecordingAudioApplicationSelection[],
   selected: RecordingAudioApplicationSelection[],
@@ -586,15 +569,6 @@ function mergeAudioApplications(
   return [...byId.values()]
 }
 
-function upsertAudioDevice(
-  devices: RecordingAudioDeviceSelection[],
-  device: RecordingAudioDeviceSelection,
-): RecordingAudioDeviceSelection[] {
-  const key = audioDeviceKey(device)
-  const next = devices.filter((item) => audioDeviceKey(item) !== key)
-  return [...next, device]
-}
-
 function upsertAudioApplication(
   applications: RecordingAudioApplicationSelection[],
   application: RecordingAudioApplicationSelection,
@@ -603,10 +577,6 @@ function upsertAudioApplication(
     ...applications.filter((item) => item.id !== application.id),
     application,
   ]
-}
-
-function audioDeviceKey(device: RecordingAudioDeviceSelection): string {
-  return `${device.kind}:${device.id}`
 }
 
 function sliderValue(value: number | readonly number[]): number {

@@ -61,6 +61,8 @@ type ProcHandler = c_void;
 type SignalHandler = c_void;
 type SignalCallback = unsafe extern "C" fn(*mut c_void, *mut CallData);
 
+mod sidecar_windows_com;
+
 include!("sidecar_types.rs");
 include!("sidecar_game_detection.rs");
 include!("sidecar_recorder.rs");

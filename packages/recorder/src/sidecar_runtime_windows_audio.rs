@@ -1,7 +1,4 @@
     const S_OK: HRESULT = 0;
-    const RPC_E_CHANGED_MODE: HRESULT = 0x80010106u32 as HRESULT;
-    const IID_IMM_DEVICE_ENUMERATOR: GUID =
-        GUID::from_u128(0xa95664d2_9614_4f35_a746_de8db63617e6);
     const IID_IAUDIO_SESSION_MANAGER2: GUID =
         GUID::from_u128(0x77aa99a0_1bd6_484f_8bc7_2c654c9a9b6f);
     const IID_IAUDIO_SESSION_CONTROL2: GUID =
@@ -29,67 +26,6 @@
         foreground_process_id: Option<u32>,
         settings: &'a RecordingSettings,
         candidates: Vec<GameDetection>,
-    }
-
-    struct ComPtr(*mut c_void);
-
-    impl ComPtr {
-        fn new(ptr: *mut c_void) -> Option<Self> {
-            if ptr.is_null() {
-                None
-            } else {
-                Some(Self(ptr))
-            }
-        }
-
-        fn as_ptr(&self) -> *mut c_void {
-            self.0
-        }
-    }
-
-    impl Drop for ComPtr {
-        fn drop(&mut self) {
-            unsafe {
-                release_com(self.0);
-            }
-        }
-    }
-
-    #[repr(C)]
-    #[allow(non_snake_case)]
-    struct IMMDeviceEnumeratorVtbl {
-        base: IUnknown_Vtbl,
-        EnumAudioEndpoints:
-            unsafe extern "system" fn(*mut c_void, i32, u32, *mut *mut c_void) -> HRESULT,
-        GetDefaultAudioEndpoint:
-            unsafe extern "system" fn(*mut c_void, i32, i32, *mut *mut c_void) -> HRESULT,
-        GetDevice: usize,
-        RegisterEndpointNotificationCallback: usize,
-        UnregisterEndpointNotificationCallback: usize,
-    }
-
-    #[repr(C)]
-    #[allow(non_snake_case)]
-    struct IMMDeviceCollectionVtbl {
-        base: IUnknown_Vtbl,
-        GetCount: unsafe extern "system" fn(*mut c_void, *mut u32) -> HRESULT,
-        Item: unsafe extern "system" fn(*mut c_void, u32, *mut *mut c_void) -> HRESULT,
-    }
-
-    #[repr(C)]
-    #[allow(non_snake_case)]
-    struct IMMDeviceVtbl {
-        base: IUnknown_Vtbl,
-        Activate: unsafe extern "system" fn(
-            *mut c_void,
-            *const GUID,
-            u32,
-            *const c_void,
-            *mut *mut c_void,
-        ) -> HRESULT,
-        OpenPropertyStore: usize,
-        GetId: unsafe extern "system" fn(*mut c_void, *mut PWSTR) -> HRESULT,
-        GetState: usize,
     }
 
     #[repr(C)]
@@ -172,70 +108,17 @@
             };
             let sessions = enumerate_active_audio_sessions().unwrap_or_default();
             if uninitialize {
-                CoUninitialize();
+                uninitialize_com();
             }
             sessions
         }
     }
 
-    unsafe fn initialize_com() -> Option<bool> {
-        let hr = CoInitializeEx(ptr::null(), COINIT_APARTMENTTHREADED as u32);
-        if succeeded(hr) {
-            Some(true)
-        } else if hr == RPC_E_CHANGED_MODE {
-            Some(false)
-        } else {
-            None
-        }
-    }
-
     unsafe fn enumerate_active_audio_sessions() -> Option<HashMap<u32, AudioSessionProcess>> {
-        let mut enumerator_ptr: *mut c_void = ptr::null_mut();
-        if !succeeded(CoCreateInstance(
-            &MMDeviceEnumerator,
-            ptr::null_mut(),
-            CLSCTX_ALL,
-            &IID_IMM_DEVICE_ENUMERATOR,
-            &mut enumerator_ptr,
-        )) {
-            return None;
-        }
-        let enumerator = ComPtr::new(enumerator_ptr)?;
-        let enumerator_vtbl = com_vtbl::<IMMDeviceEnumeratorVtbl>(enumerator.as_ptr());
-
-        let mut collection_ptr: *mut c_void = ptr::null_mut();
-        if !succeeded(((*enumerator_vtbl).EnumAudioEndpoints)(
-            enumerator.as_ptr(),
-            eRender,
-            DEVICE_STATE_ACTIVE,
-            &mut collection_ptr,
-        )) {
-            return None;
-        }
-        let collection = ComPtr::new(collection_ptr)?;
-        let collection_vtbl = com_vtbl::<IMMDeviceCollectionVtbl>(collection.as_ptr());
-
-        let mut device_count = 0u32;
-        if !succeeded(((*collection_vtbl).GetCount)(
-            collection.as_ptr(),
-            &mut device_count,
-        )) {
-            return None;
-        }
-
+        let enumerator = create_mm_device_enumerator()?;
         let mut sessions = HashMap::new();
-        for index in 0..device_count {
-            let mut device_ptr: *mut c_void = ptr::null_mut();
-            if !succeeded(((*collection_vtbl).Item)(
-                collection.as_ptr(),
-                index,
-                &mut device_ptr,
-            )) {
-                continue;
-            }
-            if let Some(device) = ComPtr::new(device_ptr) {
-                let _ = collect_device_audio_sessions(device.as_ptr(), &mut sessions);
-            }
+        for device in active_audio_endpoint_devices(&enumerator, eRender)? {
+            let _ = collect_device_audio_sessions(device.as_ptr(), &mut sessions);
         }
 
         Some(sessions)
@@ -344,57 +227,6 @@
             return None;
         }
         string_from_cotaskmem_pwstr(raw)
-    }
-
-    unsafe fn query_interface(ptr: *mut c_void, iid: &GUID) -> Option<ComPtr> {
-        let mut interface: *mut c_void = ptr::null_mut();
-        let unknown_vtbl = com_vtbl::<IUnknown_Vtbl>(ptr);
-        if succeeded(((*unknown_vtbl).QueryInterface)(
-            ptr,
-            iid,
-            &mut interface,
-        )) {
-            ComPtr::new(interface)
-        } else {
-            None
-        }
-    }
-
-    unsafe fn release_com(ptr: *mut c_void) {
-        if ptr.is_null() {
-            return;
-        }
-        let unknown_vtbl = com_vtbl::<IUnknown_Vtbl>(ptr);
-        ((*unknown_vtbl).Release)(ptr);
-    }
-
-    unsafe fn com_vtbl<T>(ptr: *mut c_void) -> *const T {
-        *(ptr as *mut *const T)
-    }
-
-    fn succeeded(hr: HRESULT) -> bool {
-        hr >= 0
-    }
-
-    unsafe fn string_from_cotaskmem_pwstr(raw: PWSTR) -> Option<String> {
-        if raw.is_null() {
-            return None;
-        }
-
-        let mut len = 0usize;
-        while *raw.add(len) != 0 {
-            len += 1;
-        }
-        let value = String::from_utf16_lossy(std::slice::from_raw_parts(raw, len))
-            .trim()
-            .to_string();
-        CoTaskMemFree(raw as *const c_void);
-
-        if value.is_empty() {
-            None
-        } else {
-            Some(value)
-        }
     }
 
     pub(super) fn application_icon_data_url(path: &str) -> Option<String> {
