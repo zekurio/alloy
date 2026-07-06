@@ -44,6 +44,7 @@ import {
   adminFailedJobsQueryOptions,
   adminJobsSummaryQueryOptions,
   adminKeys,
+  hasActiveJobs,
 } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { formatRelativeTime } from "@/lib/date-format"
@@ -99,7 +100,7 @@ export function AdminJobsCard({ hideHeader }: { hideHeader?: boolean }) {
     <div className="flex flex-col gap-5">
       <SweepStats sweeps={summaryQuery.data.sweeps} />
       <KindTable kinds={summaryQuery.data.kinds} />
-      <FailedJobs />
+      <FailedJobs jobsActive={hasActiveJobs(summaryQuery.data)} />
     </div>
   )
 
@@ -434,9 +435,11 @@ function CountCell({
   )
 }
 
-function FailedJobs() {
+function FailedJobs({ jobsActive }: { jobsActive: boolean }) {
   const queryClient = useQueryClient()
-  const failedQuery = useInfiniteQuery(adminFailedJobsQueryOptions(null))
+  const failedQuery = useInfiniteQuery(
+    adminFailedJobsQueryOptions(null, jobsActive),
+  )
   const jobs = failedQuery.data?.pages.flatMap((page) => page.items) ?? []
 
   const invalidate = () => {
