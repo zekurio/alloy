@@ -5,6 +5,8 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { RefreshCcwIcon } from "lucide-react"
 import { useState } from "react"
 
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+
 import { AllowedGamesSection } from "./desktop-capture-games"
 import { HotkeysSection } from "./desktop-capture-hotkeys"
 import { NotificationSoundsSection } from "./desktop-capture-notifications"
@@ -76,6 +78,23 @@ export function DesktopCaptureSettings() {
       <hr className="border-border" />
 
       <NotificationSoundsSection settings={settings} busy={busy} save={save} />
+    </div>
+  )
+}
+
+export function DesktopCapturePanel() {
+  return (
+    <div className="flex flex-col gap-6">
+      <DesktopCaptureSettings />
+      <hr className="border-border" />
+      <SettingsSubsection
+        title={t("Storage")}
+        description={t(
+          "Choose where clips are saved and review local disk usage.",
+        )}
+      >
+        <DesktopStoragePanel />
+      </SettingsSubsection>
     </div>
   )
 }
