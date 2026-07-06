@@ -3,9 +3,8 @@ import { createFileRoute, redirect, useRouter } from "@tanstack/react-router"
 import { useCallback, useEffect, useState } from "react"
 
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
-import { api } from "@/lib/api"
 import { goBackInBrowserHistory } from "@/lib/browser-url"
-import { seedClipDetailInCache } from "@/lib/clip-queries"
+import { clipDetailQueryOptions } from "@/lib/clip-queries"
 import { parseClipRouteSearch } from "@/lib/clip-route-search"
 
 export const Route = createFileRoute("/(app)/_app/games/$gameId/clips/$clipId")(
@@ -13,8 +12,9 @@ export const Route = createFileRoute("/(app)/_app/games/$gameId/clips/$clipId")(
     validateSearch: parseClipRouteSearch,
     loader: async ({ context, params }) => {
       try {
-        const clip = await api.clips.fetchById(params.clipId)
-        seedClipDetailInCache(context.queryClient, clip)
+        const clip = await context.queryClient.ensureQueryData(
+          clipDetailQueryOptions(params.clipId),
+        )
         return { clip }
       } catch (error) {
         if (
