@@ -1,15 +1,6 @@
 import { t } from "@alloy/i18n"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@alloy/ui/components/alert-dialog"
 import { AppMain } from "@alloy/ui/components/app-shell"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
@@ -198,27 +189,15 @@ function DeleteLocalCaptureDialog({
   onConfirm: () => void
 }) {
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t("Delete this capture?")}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {t("The file will be moved to your system trash.")}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={pending}>
-            {t("Cancel")}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={onConfirm}
-            disabled={pending}
-          >
-            {pending ? t("Deleting...") : t("Delete capture")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDeleteDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("Delete this capture?")}
+      description={t("The file will be moved to your system trash.")}
+      confirmLabel={t("Delete capture")}
+      pendingLabel={t("Deleting...")}
+      pending={pending}
+      onConfirm={onConfirm}
+    />
   )
 }

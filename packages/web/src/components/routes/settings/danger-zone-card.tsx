@@ -11,6 +11,7 @@ import {
   AlertDialogTrigger,
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"
@@ -188,6 +189,8 @@ function DeleteAccountRow({
   pendingAction: "disable" | "reactivate" | "delete" | null
   onDelete: () => Promise<void>
 }) {
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
   return (
     <SettingRow
       className="py-4 first:pt-4 last:pb-4"
@@ -196,38 +199,29 @@ function DeleteAccountRow({
         "Permanently removes your account and clips. Can't be undone.",
       )}
     >
-      <AlertDialog>
-        <AlertDialogTrigger
-          render={
-            <Button type="button" variant="danger" size="sm">
-              <Trash2Icon />
-              {t("Delete account")}
-            </Button>
+      <>
+        <Button
+          type="button"
+          variant="danger"
+          size="sm"
+          onClick={() => setDeleteOpen(true)}
+        >
+          <Trash2Icon />
+          {t("Delete account")}
+        </Button>
+        <ConfirmDeleteDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title={t("Delete your account?")}
+          description={t("This can't be undone.")}
+          confirmLabel={t("Delete account")}
+          pendingLabel={
+            pendingAction === "delete" ? t("Deleting...") : t("Delete account")
           }
+          pending={pending}
+          onConfirm={onDelete}
         />
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("Delete your account?")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("This can't be undone.")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={pending}>
-              {t("Cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              onClick={onDelete}
-              disabled={pending}
-            >
-              {pendingAction === "delete"
-                ? t("Deleting...")
-                : t("Delete account")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      </>
     </SettingRow>
   )
 }
