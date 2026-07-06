@@ -1,8 +1,8 @@
 import { t } from "@alloy/i18n"
 import { useMemo } from "react"
 
+import { useUploadQueue } from "./upload-flow-context"
 import { isCompletedQueueStatus, type QueueItem } from "./upload-queue-types"
-import { useUploadFlowControls } from "./use-upload-flow-controls"
 
 export interface UploadQueueSummary {
   /** Active + failed rows worth surfacing (completed rows are dropped). */
@@ -22,7 +22,7 @@ export interface UploadQueueSummary {
  * so the pill can render nothing.
  */
 export function useUploadQueueSummary(): UploadQueueSummary | null {
-  const { queue } = useUploadFlowControls()
+  const { queue } = useUploadQueue()
   return useMemo(() => {
     const relevant = queue.filter(
       (item) => !isCompletedQueueStatus(item.status),

@@ -20,7 +20,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { CloudIcon, ImageIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
-import { useUploadFlowControls } from "@/components/upload/use-upload-flow-controls"
+import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
 import { useCapturePoster } from "@/lib/capture-poster"
@@ -260,7 +260,7 @@ function useClipEditorMedia(
   })
   // While the server still owes us a thumbnail, the upload queue may hold an
   // existing local library poster for the pending card.
-  const uploadQueue = useUploadFlowControls().queue
+  const uploadQueue = useUploadQueue().queue
   const queueEntry = processing
     ? uploadQueue.find((item) => item.kind === "upload" && item.id === row.id)
     : undefined
