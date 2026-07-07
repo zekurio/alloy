@@ -18,8 +18,7 @@ if (!testDatabaseUrl) {
   const thumbnailsRoot = join(storageRoot, "thumbnails")
   process.env.ALLOY_STORAGE_FS_CLIPS_PATH = clipsRoot
   process.env.ALLOY_STORAGE_FS_THUMBNAILS_PATH = thumbnailsRoot
-  process.env.ALLOY_STORAGE_FS_USERS_PATH = join(storageRoot, "users")
-  process.env.ALLOY_STORAGE_FS_GAMES_PATH = join(storageRoot, "games")
+  process.env.ALLOY_STORAGE_FS_ASSETS_PATH = join(storageRoot, "assets")
 
   const testDatabase = await import("@alloy/server/db/test-database")
   await testDatabase.prepareTestDatabase("storage-verify")

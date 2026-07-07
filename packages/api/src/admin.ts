@@ -31,7 +31,7 @@ import {
   validateAdminUserStorageRow,
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
-import { readSuccessJson } from "./mutations"
+import { readDeletedJson, readSuccessJson } from "./mutations"
 
 export {
   OAUTH_QUOTA_CLAIM_DEFAULT,
@@ -290,7 +290,7 @@ async function deleteGame(context: ApiContext, gameId: string): Promise<void> {
   const res = await context.rpc.api.admin.games[":id"].$delete({
     param: { id: gameId },
   })
-  await readSuccessJson(res)
+  await readDeletedJson(res)
 }
 
 async function uploadGameAsset(

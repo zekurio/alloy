@@ -152,11 +152,16 @@ export function clipAssetKey(clipId: string, role: ClipAssetRole): string {
   return `${clipAssetDir(clipId)}/${role}${CLIP_ASSET_EXTENSION[role]}`
 }
 
-function userAssetDir(userId: string): string {
-  const hex = userId.replace(/-/g, "")
+// Shared by userAssetKey and gameAssetKey: both are sharded by id under the
+// same configured assets root. The `users` vs `games` distinction lives in
+// the URL prefix (USER_ASSET_PATH_PREFIX / GAME_ASSET_PATH_PREFIX) and the
+// serving route, not in the key shape, which the key-validation regexes in
+// users-upload.ts and admin-games.ts assume is bare `aa/bb/<id>/<role>.ext`.
+function shardedAssetDir(id: string): string {
+  const hex = id.replace(/-/g, "")
   const aa = hex.slice(0, 2)
   const bb = hex.slice(2, 4)
-  return `${aa}/${bb}/${userId}`
+  return `${aa}/${bb}/${id}`
 }
 
 export type UserAssetRole = "avatar" | "banner"
@@ -166,14 +171,7 @@ export function userAssetKey(
   role: UserAssetRole,
   ext: string,
 ): string {
-  return `${userAssetDir(userId)}/${role}${ext}`
-}
-
-function gameAssetDir(gameId: string): string {
-  const hex = gameId.replace(/-/g, "")
-  const aa = hex.slice(0, 2)
-  const bb = hex.slice(2, 4)
-  return `${aa}/${bb}/${gameId}`
+  return `${shardedAssetDir(userId)}/${role}${ext}`
 }
 
 export function gameAssetKey(
@@ -181,7 +179,7 @@ export function gameAssetKey(
   role: GameAssetRole,
   ext: string,
 ): string {
-  return `${gameAssetDir(gameId)}/${role}${ext}`
+  return `${shardedAssetDir(gameId)}/${role}${ext}`
 }
 
 export type { UploadTicket, UploadTicketStrategy } from "@alloy/contracts"

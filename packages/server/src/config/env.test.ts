@@ -47,8 +47,7 @@ test("configures filesystem thumbnail storage separately", () => {
     baseEnv({
       ALLOY_STORAGE_FS_CLIPS_PATH: "/tank/alloy/clips",
       ALLOY_STORAGE_FS_THUMBNAILS_PATH: "/fast/alloy/thumbnails",
-      ALLOY_STORAGE_FS_USERS_PATH: "/var/lib/alloy/assets",
-      ALLOY_STORAGE_FS_GAMES_PATH: "/var/lib/alloy/games",
+      ALLOY_STORAGE_FS_ASSETS_PATH: "/var/lib/alloy/assets",
     }),
   )
 
@@ -57,8 +56,7 @@ test("configures filesystem thumbnail storage separately", () => {
     fs: {
       clipsPath: "/tank/alloy/clips",
       thumbnailsPath: "/fast/alloy/thumbnails",
-      usersPath: "/var/lib/alloy/assets",
-      gamesPath: "/var/lib/alloy/games",
+      assetsPath: "/var/lib/alloy/assets",
     },
   })
 })

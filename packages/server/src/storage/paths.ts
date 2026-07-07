@@ -1,7 +1,7 @@
 import type { StorageConfig } from "@alloy/contracts"
 import { isAbsolute, resolve } from "@alloy/server/runtime/path"
 
-export type StorageNamespace = "clips" | "thumbnails" | "users" | "games"
+export type StorageNamespace = "clips" | "thumbnails" | "assets"
 
 export function configuredFilesystemStoragePath(
   config: StorageConfig["fs"],
@@ -9,8 +9,7 @@ export function configuredFilesystemStoragePath(
 ): string {
   if (namespace === "clips") return config.clipsPath
   if (namespace === "thumbnails") return config.thumbnailsPath
-  if (namespace === "games") return config.gamesPath
-  return config.usersPath
+  return config.assetsPath
 }
 
 export function filesystemStorageRoot(path: string): string {

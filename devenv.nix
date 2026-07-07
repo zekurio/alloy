@@ -64,7 +64,7 @@ in
     ALLOY_STORAGE_DRIVER = "fs";
     ALLOY_STORAGE_FS_CLIPS_PATH = "${config.devenv.root}/data/storage/clips";
     ALLOY_STORAGE_FS_THUMBNAILS_PATH = "${config.devenv.root}/data/storage/thumbnails";
-    ALLOY_STORAGE_FS_USERS_PATH = "${config.devenv.root}/data/storage/users";
+    ALLOY_STORAGE_FS_ASSETS_PATH = "${config.devenv.root}/data/storage/assets";
 
     # Desktop app: run the Nix-provided Electron (electron-vite reads
     # ELECTRON_EXEC_PATH) and skip the npm package's unusable binary download.
@@ -118,8 +118,7 @@ ALLOY_UPLOAD_TTL_SEC=900
 ALLOY_STORAGE_DRIVER=fs
 ALLOY_STORAGE_FS_CLIPS_PATH=../../data/storage/clips
 ALLOY_STORAGE_FS_THUMBNAILS_PATH=../../data/storage/thumbnails
-ALLOY_STORAGE_FS_USERS_PATH=../../data/storage/users
-ALLOY_STORAGE_FS_GAMES_PATH=../../data/storage/games
+ALLOY_STORAGE_FS_ASSETS_PATH=../../data/storage/assets
 EOF
       chmod 600 "$alloy_env_file"
       echo "Created .env with generated local secrets" >&2
