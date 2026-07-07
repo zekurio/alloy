@@ -9,6 +9,10 @@ recorder. The desktop app records and edits local captures, then publishes them
 to the server; the web app handles browsing, playback, profiles, comments,
 search, library management, setup, and admin settings.
 
+> **AI Disclaimer & Warning:** This is a personal project developed in my free
+> time. I use AI to assist with development. I do my best to follow best
+> practices and keep the code maintainable.
+
 ## Installation
 
 ### Desktop
@@ -16,9 +20,9 @@ search, library management, setup, and admin settings.
 Alloy Desktop currently targets Windows x64. Install the latest stable desktop
 build from the [latest GitHub Release](https://github.com/zekurio/alloy/releases/latest).
 
-Unstable desktop builds are workflow artifacts from `dev`, not GitHub
-Releases. Download the latest unstable Electron artifact from
-[desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/dev/desktop-release-assets.zip).
+Unstable desktop builds are also published as GitHub Releases, tagged
+`vX.Y.Z-unstable.<date>.<run>` and marked as prereleases. Install the newest
+one from the [Releases page](https://github.com/zekurio/alloy/releases).
 
 ### Server
 
@@ -74,9 +78,11 @@ libraries are both treated as packages so the workspace graph stays explicit.
 | `packages/recorder`  | Rust recording sidecar built as `alloy-recorder`; bundled by desktop release builds.                                     |
 | `packages/api`       | Typed client helpers and runtime validators for browser and desktop clients calling the server API.                      |
 | `packages/contracts` | Shared TypeScript contracts used across the server, web app, desktop app, and recorder-facing flows.                     |
+| `packages/media`     | Shared isomorphic MP4 packet-copy/trim helpers (no re-encoding) used for local clip trimming.                            |
 | `packages/db`        | Drizzle schema, migrations, connection helpers, and migration helpers.                                                   |
 | `packages/env`       | Shared environment parsing, URL normalization, and local `.env` loading helpers.                                         |
 | `packages/ui`        | Shared React UI components, hooks, styles, and design utilities.                                                         |
+| `packages/i18n`      | Shared translation messages and localization utilities for the web and desktop apps.                                     |
 | `packages/logging`   | Tiny shared logging facade.                                                                                              |
 | `nix`                | Nix package and NixOS module definitions.                                                                                |
 
@@ -204,11 +210,12 @@ nix.settings = {
 
 ### Storage
 
-Storage is configured declaratively. Alloy stores clip media, clip thumbnails,
-and user assets on the server filesystem. Set `ALLOY_STORAGE_DRIVER=fs`,
+Storage is configured declaratively. Alloy stores clip media, clip
+thumbnails, and other assets (user avatars/banners, admin-authored game art)
+on the server filesystem. Set `ALLOY_STORAGE_DRIVER=fs`,
 `ALLOY_STORAGE_FS_CLIPS_PATH`, `ALLOY_STORAGE_FS_THUMBNAILS_PATH`, and
-`ALLOY_STORAGE_FS_USERS_PATH`. The NixOS module defaults these to paths under
-`/var/lib/alloy/storage`.
+`ALLOY_STORAGE_FS_ASSETS_PATH`. The NixOS module defaults these to paths
+under `/var/lib/alloy/storage`.
 
 ### OAuth
 
@@ -272,13 +279,15 @@ configured runtime contains `obs.dll`.
 
 ## Releases
 
-Alloy publishes GitHub Releases only for latest builds. Latest releases use tags
-named `vX.Y.Z` and attach the Windows installer, Electron updater metadata
-(`latest.yml`), blockmaps, and checksums.
+Alloy publishes GitHub Releases for both channels. Latest releases build from
+`main`, use tags named `vX.Y.Z`, and are marked as the GitHub "latest"
+release. Unstable releases build from `dev` on every desktop-affecting push,
+use tags named `vX.Y.Z-unstable.<date>.<run>`, and are marked as prereleases.
+Both channels attach the Windows installer, Electron updater metadata
+(`latest.yml` or `unstable.yml`), blockmaps, and checksums.
 
-Unstable desktop builds are workflow artifacts from `dev`, not GitHub
-Releases. Download the latest unstable Electron artifact from
-[desktop-release-assets.zip](https://nightly.link/zekurio/alloy/workflows/release/dev/desktop-release-assets.zip).
+Browse all releases, including unstable prereleases, on the
+[Releases page](https://github.com/zekurio/alloy/releases).
 
 Server releases are distributed through the Nix flake package and NixOS module.
 For reproducible deployments, pin the exact release tag in your flake input.

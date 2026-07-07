@@ -28,7 +28,13 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { QueryClient } from "@tanstack/react-query"
-import { PencilIcon, PlusIcon, Trash2Icon, UploadIcon } from "lucide-react"
+import {
+  ImageIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UploadIcon,
+} from "lucide-react"
 import { useRef, useState } from "react"
 import type { FormEvent } from "react"
 
@@ -36,11 +42,15 @@ import { adminGamesQueryOptions, adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 
-const ASSET_FIELDS: { role: GameAssetRole; label: string }[] = [
-  { role: "grid", label: t("Cover") },
-  { role: "hero", label: t("Banner") },
-  { role: "logo", label: t("Logo") },
-  { role: "icon", label: t("Icon") },
+const ASSET_FIELDS: {
+  role: GameAssetRole
+  label: string
+  description: string
+}[] = [
+  { role: "grid", label: t("Cover"), description: t("Vertical box art") },
+  { role: "hero", label: t("Banner"), description: t("Wide page header") },
+  { role: "logo", label: t("Logo"), description: t("Transparent wordmark") },
+  { role: "icon", label: t("Icon"), description: t("Square app tile") },
 ]
 
 function setAdminGameCacheRow(qc: QueryClient, game: AdminGameRow): void {
@@ -157,11 +167,13 @@ function CustomGameActions({ game }: { game: AdminGameRow }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const handleDelete = async () => {
+    if (deleting) return
     setDeleting(true)
     try {
       await api.admin.deleteGame(game.id)
       removeAdminGameCacheRow(qc, game.id)
       toast.success(t("Game deleted"))
+      setDeleteOpen(false)
     } catch (cause) {
       toast.error(errorMessage(cause, t("Couldn't delete game")))
     } finally {
@@ -189,10 +201,72 @@ function CustomGameActions({ game }: { game: AdminGameRow }) {
           "Its artwork is removed and any clips lose their game tag. This can't be undone.",
         )}
         confirmLabel={t("Delete")}
-        pendingLabel={t("Delete")}
+        pendingLabel={t("Deleting")}
         pending={deleting}
         onConfirm={handleDelete}
-      />
+      >
+        <DeleteGamePreview game={game} />
+      </ConfirmDeleteDialog>
+    </div>
+  )
+}
+
+function DeleteGamePreview({ game }: { game: AdminGameRow }) {
+  const clipCount =
+    game.clipCount === 1
+      ? t("1 linked clip")
+      : t("{count} linked clips", { count: game.clipCount })
+
+  return (
+    <div className="border-border bg-surface-raised/40 flex flex-col gap-3 rounded-lg border p-3">
+      <div className="flex items-center gap-3">
+        <GameIcon
+          src={game.iconUrl ?? game.logoUrl ?? game.gridUrl}
+          name={game.name}
+          className="size-10 rounded-md [&_img]:object-contain"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">{game.name}</div>
+          <div className="text-foreground-muted truncate text-xs">
+            {game.slug} · {clipCount}
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {ASSET_FIELDS.map((asset) => {
+          const currentUrl = game[GAME_ASSET_URL[asset.role]] as string | null
+
+          return (
+            <div
+              key={asset.role}
+              className="border-border bg-surface-sunken flex items-center gap-2 rounded-md border p-2"
+            >
+              <div className="border-border/70 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded border">
+                {currentUrl ? (
+                  <GameIcon
+                    src={currentUrl}
+                    name={`${game.name} ${asset.label}`}
+                    className="size-full rounded-none"
+                  />
+                ) : (
+                  <ImageIcon
+                    className="text-foreground-faint size-4"
+                    aria-hidden
+                  />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-xs font-semibold">
+                  {asset.label}
+                </div>
+                <div className="text-foreground-faint truncate text-xs">
+                  {currentUrl ? t("Uploaded") : t("Not set")}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }
@@ -236,36 +310,73 @@ function CreateGameDialog() {
           </Button>
         }
       />
-      <ResponsiveDialogContent>
+      <ResponsiveDialogContent className="md:max-w-[560px]">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{t("New custom game")}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            {t("Add artwork after creating the game.")}
+            {t("Create the record first, then add each artwork role.")}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
           <ResponsiveDialogBody className="flex flex-col gap-4">
-            <Field>
-              <FieldLabel htmlFor="new-game-name">{t("Name")}</FieldLabel>
-              <Input
-                id="new-game-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={120}
-                required
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="new-game-release">
-                {t("Release date")}
-              </FieldLabel>
-              <Input
-                id="new-game-release"
-                type="date"
-                value={releaseDate}
-                onChange={(e) => setReleaseDate(e.target.value)}
-              />
-            </Field>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor="new-game-name">{t("Name")}</FieldLabel>
+                <Input
+                  id="new-game-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={120}
+                  required
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="new-game-release">
+                  {t("Release date")}
+                </FieldLabel>
+                <Input
+                  id="new-game-release"
+                  type="date"
+                  value={releaseDate}
+                  onChange={(e) => setReleaseDate(e.target.value)}
+                />
+              </Field>
+            </div>
+            <div className="border-border bg-surface-raised/30 flex flex-col gap-3 rounded-lg border p-3">
+              <div className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold">
+                  {t("Artwork roles")}
+                </span>
+                <span className="text-foreground-muted text-xs">
+                  {t(
+                    "After creating the game, upload these assets in the edit dialog.",
+                  )}
+                </span>
+              </div>
+              <div className="grid gap-2 md:grid-cols-2">
+                {ASSET_FIELDS.map((asset) => (
+                  <div
+                    key={asset.role}
+                    className="border-border bg-surface-sunken flex items-center gap-2 rounded-md border p-2"
+                  >
+                    <div className="border-border/70 flex size-9 shrink-0 items-center justify-center rounded border">
+                      <ImageIcon
+                        className="text-foreground-faint size-4"
+                        aria-hidden
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-xs font-semibold">
+                        {asset.label}
+                      </div>
+                      <div className="text-foreground-muted truncate text-xs">
+                        {asset.description}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>
             <ResponsiveDialogClose
@@ -328,36 +439,38 @@ function EditGameDialog({ game }: { game: AdminGameRow }) {
           </Button>
         }
       />
-      <ResponsiveDialogContent>
+      <ResponsiveDialogContent className="md:max-w-[640px]">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{game.name}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>{game.slug}</ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
-        <ResponsiveDialogBody className="flex flex-col gap-4">
+        <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
           <form onSubmit={handleSave} className="flex flex-col gap-4">
-            <Field>
-              <FieldLabel htmlFor={`game-name-${game.id}`}>
-                {t("Name")}
-              </FieldLabel>
-              <Input
-                id={`game-name-${game.id}`}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={120}
-                required
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor={`game-release-${game.id}`}>
-                {t("Release date")}
-              </FieldLabel>
-              <Input
-                id={`game-release-${game.id}`}
-                type="date"
-                value={releaseDate}
-                onChange={(e) => setReleaseDate(e.target.value)}
-              />
-            </Field>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field>
+                <FieldLabel htmlFor={`game-name-${game.id}`}>
+                  {t("Name")}
+                </FieldLabel>
+                <Input
+                  id={`game-name-${game.id}`}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  maxLength={120}
+                  required
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor={`game-release-${game.id}`}>
+                  {t("Release date")}
+                </FieldLabel>
+                <Input
+                  id={`game-release-${game.id}`}
+                  type="date"
+                  value={releaseDate}
+                  onChange={(e) => setReleaseDate(e.target.value)}
+                />
+              </Field>
+            </div>
             <Button
               type="submit"
               disabled={saving || name.trim().length === 0}
@@ -367,15 +480,23 @@ function EditGameDialog({ game }: { game: AdminGameRow }) {
             </Button>
           </form>
 
-          <div className="border-border flex flex-col gap-2 border-t pt-4">
-            <span className="text-sm font-semibold">{t("Artwork")}</span>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="border-border flex flex-col gap-3 border-t pt-4">
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm font-semibold">{t("Artwork")}</span>
+              <span className="text-foreground-muted text-xs">
+                {t(
+                  "Each role has its own shape — the preview shows what's live.",
+                )}
+              </span>
+            </div>
+            <div className="grid gap-2.5 md:grid-cols-2">
               {ASSET_FIELDS.map((asset) => (
                 <GameAssetField
                   key={asset.role}
                   game={game}
                   role={asset.role}
                   label={asset.label}
+                  description={asset.description}
                 />
               ))}
             </div>
@@ -402,10 +523,12 @@ function GameAssetField({
   game,
   role,
   label,
+  description,
 }: {
   game: AdminGameRow
   role: GameAssetRole
   label: string
+  description: string
 }) {
   const qc = useQueryClient()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -438,30 +561,45 @@ function GameAssetField({
   }
 
   return (
-    <div className="border-border flex items-center gap-2 rounded-md border p-2">
-      <GameIcon
-        src={currentUrl}
-        name={label}
-        className="size-8 shrink-0 rounded [&_img]:object-contain"
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-xs font-semibold">{label}</span>
-        <div className="flex items-center gap-1">
+    <div className="border-border bg-surface-raised/40 flex flex-col gap-3 rounded-lg border p-3">
+      <div className="border-border bg-surface-sunken flex h-28 items-center justify-center overflow-hidden rounded-md border">
+        {currentUrl ? (
+          <GameIcon
+            src={currentUrl}
+            name={game.name}
+            className="size-full rounded-none"
+          />
+        ) : (
+          <ImageIcon className="text-foreground-faint size-5" aria-hidden />
+        )}
+      </div>
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm leading-none font-semibold">{label}</span>
+          <span className="text-foreground-muted truncate text-xs">
+            {description}
+          </span>
+          <span className="text-foreground-faint text-xs">
+            {currentUrl ? t("Uploaded") : t("Not set")}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
           <Button
             type="button"
-            variant="ghost"
-            size="icon-sm"
+            variant="secondary"
+            size="sm"
             aria-label={t("Upload {label}", { label })}
             disabled={busy}
             onClick={() => inputRef.current?.click()}
           >
             {busy ? <Spinner className="size-3.5" /> : <UploadIcon />}
+            {currentUrl ? t("Replace") : t("Upload")}
           </Button>
           {currentUrl ? (
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
+              size="sm"
               aria-label={t("Remove {label}", { label })}
               disabled={busy}
               onClick={clear}

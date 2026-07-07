@@ -21,8 +21,8 @@ if (!testDatabaseUrl) {
   )
 } else {
   const storageRoot = await mkdtemp(join(tmpdir(), "alloy-oauth-avatar-"))
-  const usersRoot = join(storageRoot, "users")
-  process.env.ALLOY_STORAGE_FS_USERS_PATH = usersRoot
+  const assetsRoot = join(storageRoot, "assets")
+  process.env.ALLOY_STORAGE_FS_ASSETS_PATH = assetsRoot
   // The fixture image server binds to loopback, which the default SSRF guard
   // rejects; opt in like a LAN deployment would.
   process.env.ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS = "1"
@@ -56,8 +56,8 @@ if (!testDatabaseUrl) {
 
   beforeEach(async () => {
     await database.db.delete(authSchema.user)
-    await rm(usersRoot, { recursive: true, force: true })
-    await mkdir(usersRoot, { recursive: true })
+    await rm(assetsRoot, { recursive: true, force: true })
+    await mkdir(assetsRoot, { recursive: true })
   })
 
   test("uploads a provider avatar for a user without an image", async () => {
@@ -84,7 +84,7 @@ if (!testDatabaseUrl) {
     assert.equal(server.requests(), 1)
     assert.equal(
       await fileExists(
-        join(usersRoot, userAssetKey(userId, "avatar", ".webp")),
+        join(assetsRoot, userAssetKey(userId, "avatar", ".webp")),
       ),
       true,
     )
