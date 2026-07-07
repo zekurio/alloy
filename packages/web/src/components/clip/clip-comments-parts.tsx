@@ -1,4 +1,5 @@
 import { COMMENT_BODY_MAX_LENGTH } from "@alloy/api"
+import { MENTION_PATTERN } from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import {
   AlertDialog,
@@ -33,15 +34,18 @@ import {
   PinIcon,
   PinOffIcon,
   SendHorizontalIcon,
-  SmileIcon,
   Trash2Icon,
   XIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import type { Ref } from "react"
 
+import { userProfileHref } from "@/lib/app-paths"
 import { formatCount } from "@/lib/number-format"
-import type { UserChipData } from "@/lib/user-display"
+import { displayName, type UserChipData } from "@/lib/user-display"
+import { useUserSearchQuery } from "@/lib/user-queries"
+
+import { CommentEmojiPicker } from "./comment-emoji-picker"
 
 type Sort = "top" | "new"
 
@@ -146,10 +150,75 @@ export function CommentComposer({
   onCancelReply?: () => void
   onSubmit: () => void
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const setTextareaRef = useCallback(
+    (node: HTMLTextAreaElement | null) => {
+      textareaRef.current = node
+      if (typeof inputRef === "function") {
+        inputRef(node)
+        return
+      }
+      if (inputRef) inputRef.current = node
+    },
+    [inputRef],
+  )
+  const [activeMention, setActiveMention] = useState<{
+    start: number
+    end: number
+    query: string
+  } | null>(null)
+  const mentionQuery = useUserSearchQuery(activeMention?.query ?? "")
+  const updateActiveMention = useCallback((value: string, caret: number) => {
+    const beforeCaret = value.slice(0, caret)
+    const match = beforeCaret.match(/(^|\s)@([^\s@/\\]*)$/u)
+    if (!match || !match[2]) {
+      setActiveMention(null)
+      return
+    }
+    setActiveMention({
+      start: caret - match[2].length - 1,
+      end: caret,
+      query: match[2],
+    })
+  }, [])
+  const selectMention = useCallback(
+    (username: string) => {
+      if (!activeMention) return
+      const input = textareaRef.current
+      const next = `${draft.slice(0, activeMention.start)}@${username} ${draft.slice(activeMention.end)}`
+      const caret = activeMention.start + username.length + 2
+      onDraftChange(next)
+      setActiveMention(null)
+      window.setTimeout(() => {
+        input?.focus()
+        input?.setSelectionRange(caret, caret)
+      }, 0)
+    },
+    [activeMention, draft, onDraftChange],
+  )
+  const insertEmoji = useCallback(
+    (emoji: string) => {
+      const input = textareaRef.current
+      if (!input) {
+        onDraftChange(`${draft}${emoji}`)
+        return
+      }
+      const start = input.selectionStart
+      const end = input.selectionEnd
+      const next = `${draft.slice(0, start)}${emoji}${draft.slice(end)}`
+      onDraftChange(next)
+      window.setTimeout(() => {
+        input.focus()
+        const caret = start + emoji.length
+        input.setSelectionRange(caret, caret)
+      }, 0)
+    },
+    [draft, onDraftChange],
+  )
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 rounded-md border border-border bg-input p-2",
+        "relative flex flex-col gap-2 rounded-md border border-border bg-input p-2",
         "transition-[border-color,background-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
         "focus-within:border-accent-border focus-within:bg-surface-raised",
       )}
@@ -189,11 +258,31 @@ export function CommentComposer({
         </Avatar>
 
         <textarea
-          ref={inputRef}
+          ref={setTextareaRef}
           data-slot="comment-input"
           placeholder={placeholder}
           value={draft}
-          onChange={(e) => onDraftChange(e.target.value)}
+          onChange={(e) => {
+            onDraftChange(e.target.value)
+            updateActiveMention(e.target.value, e.target.selectionStart)
+          }}
+          onClick={(e) =>
+            updateActiveMention(
+              e.currentTarget.value,
+              e.currentTarget.selectionStart,
+            )
+          }
+          onKeyUp={(e) => {
+            if (e.key === "Escape" || e.key === " ") {
+              setActiveMention(null)
+              return
+            }
+            updateActiveMention(
+              e.currentTarget.value,
+              e.currentTarget.selectionStart,
+            )
+          }}
+          onBlur={() => window.setTimeout(() => setActiveMention(null), 120)}
           rows={2}
           maxLength={COMMENT_BODY_MAX_LENGTH}
           className={cn(
@@ -202,17 +291,32 @@ export function CommentComposer({
           )}
         />
       </div>
+      {activeMention && mentionQuery.data?.length ? (
+        <div className="border-border bg-popover absolute top-full left-12 z-20 mt-1 max-h-56 w-64 overflow-y-auto rounded-md border p-1 shadow-md">
+          {mentionQuery.data.slice(0, 8).map((user) => (
+            <button
+              key={user.id}
+              type="button"
+              className="hover:bg-surface-raised flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm"
+              onMouseDown={(event) => {
+                event.preventDefault()
+                selectMention(user.username)
+              }}
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {displayName(user)}
+              </span>
+              <span className="text-foreground-faint shrink-0 text-xs">
+                @{user.username}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("Emoji")}
-            type="button"
-          >
-            <SmileIcon />
-          </Button>
+          <CommentEmojiPicker onSelect={insertEmoji} />
         </div>
 
         <div className="flex items-center gap-1.5">
@@ -249,6 +353,7 @@ export function CommentBody({
   isLong,
   edited,
   deleted = false,
+  mentions = [],
   onToggle,
 }: {
   body: string
@@ -256,6 +361,7 @@ export function CommentBody({
   isLong: boolean
   edited: boolean
   deleted?: boolean
+  mentions?: string[]
   onToggle: () => void
 }) {
   return (
@@ -268,7 +374,7 @@ export function CommentBody({
           isLong && !expanded && "line-clamp-4",
         )}
       >
-        {body}
+        {renderMentionTokens(body, mentions)}
         {edited ? (
           <span className="text-foreground-faint ml-1 text-xs">
             {t("(edited)")}
@@ -292,6 +398,39 @@ export function CommentBody({
       ) : null}
     </>
   )
+}
+
+function renderMentionTokens(body: string, mentions: string[]) {
+  if (mentions.length === 0) return body
+  const mentionSet = new Set(mentions.map((mention) => mention.toLowerCase()))
+  const parts: React.ReactNode[] = []
+  let offset = 0
+  for (const match of body.matchAll(MENTION_PATTERN)) {
+    const rawUsername = match[1]
+    if (!rawUsername) continue
+    const atOffset = match[0].lastIndexOf("@")
+    const start = (match.index ?? 0) + atOffset
+    const trailingPunctuation = rawUsername.match(/[.,!?;:)\]}]+$/u)?.[0] ?? ""
+    const username = trailingPunctuation
+      ? rawUsername.slice(0, -trailingPunctuation.length)
+      : rawUsername
+    if (!mentionSet.has(username.toLowerCase())) continue
+    if (start > offset) parts.push(body.slice(offset, start))
+    parts.push(
+      <Link
+        key={`${start}:${username}`}
+        to={userProfileHref(username)}
+        className="text-accent font-medium hover:underline"
+      >
+        @{username}
+      </Link>,
+    )
+    if (trailingPunctuation) parts.push(trailingPunctuation)
+    offset = start + 1 + rawUsername.length
+  }
+  if (offset === 0) return body
+  if (offset < body.length) parts.push(body.slice(offset))
+  return parts
 }
 
 export function CommentActions({

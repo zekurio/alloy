@@ -1,5 +1,6 @@
 import { normalizeTags } from "@alloy/contracts"
 import { clip, clipMention, clipTag } from "@alloy/db/schema"
+import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
@@ -12,6 +13,7 @@ import {
   requeueClipEncode,
 } from "@alloy/server/jobs/kinds/clip-encode"
 import { extractPoster } from "@alloy/server/media/poster"
+import { createNotification } from "@alloy/server/notifications/service"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
 import { withClipSourceWorkDir } from "@alloy/server/queue/media-run-helpers"
 import {
@@ -34,6 +36,8 @@ import {
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
 import { zValidator } from "./validation"
+
+const logger = createLogger("clips-upload")
 
 // Owner/admin re-encode is non-destructive but enqueues real transcode work,
 // so it sits behind a per-IP limiter like the auth routes.
@@ -87,6 +91,15 @@ export const clipsUploadRoutes = new Hono()
         body.mentionedUserIds !== undefined
           ? await resolveMentionIds(body.mentionedUserIds, row.author_id)
           : undefined
+      const existingMentionedIds =
+        mentionedIds !== undefined
+          ? (
+              await db
+                .select({ mentionedUserId: clipMention.mentioned_user_id })
+                .from(clipMention)
+                .where(eq(clipMention.clip_id, id))
+            ).map((mention) => mention.mentionedUserId)
+          : []
 
       const tags =
         body.tags !== undefined ? normalizeTags(body.tags) : undefined
@@ -116,6 +129,20 @@ export const clipsUploadRoutes = new Hono()
       })
 
       void publishClipUpsert(row.author_id, id)
+      if (mentionedIds !== undefined) {
+        const existingMentionedIdSet = new Set(existingMentionedIds)
+        for (const mentionedId of mentionedIds) {
+          if (existingMentionedIdSet.has(mentionedId)) continue
+          void createNotification({
+            recipientId: mentionedId,
+            actorId: viewerId,
+            kind: "clip_mention",
+            clipId: id,
+          }).catch((error) =>
+            logger.error("notification fan-out failed", error),
+          )
+        }
+      }
 
       return updatedClipResponse(c, id)
     },

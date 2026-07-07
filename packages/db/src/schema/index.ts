@@ -2,12 +2,14 @@ export * from "./clip"
 export * from "./game"
 export * from "./instance"
 export * from "./job"
+export * from "./notification"
 export * from "./recording"
 export * from "./social"
 
 import {
   clip,
   clipComment,
+  clipCommentMention,
   clipCommentLike,
   clipLike,
   clipMention,
@@ -18,6 +20,7 @@ import {
 import { game, gameDetectionMapping, gameFollow } from "./game"
 import { instanceSetting } from "./instance"
 import { job } from "./job"
+import { notification } from "./notification"
 import { uploadTicket } from "./recording"
 import { block, follow } from "./social"
 
@@ -34,6 +37,7 @@ export const domainSchema = {
   clipComment,
   clipCommentLike,
   clipMention,
+  clipCommentMention,
   clipTag,
   follow,
   game,
@@ -41,5 +45,6 @@ export const domainSchema = {
   gameDetectionMapping,
   instanceSetting,
   job,
+  notification,
   block,
 } as const

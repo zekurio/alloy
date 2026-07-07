@@ -287,6 +287,22 @@ export const clipMention = pgTable(
   ],
 )
 
+export const clipCommentMention = pgTable(
+  "clip_comment_mention",
+  {
+    comment_id: uuid()
+      .notNull()
+      .references(() => clipComment.id, { onDelete: "cascade" }),
+    mentioned_user_id: uuid()
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+  },
+  (t) => [
+    primaryKey({ columns: [t.comment_id, t.mentioned_user_id] }),
+    index("clip_comment_mention_user_idx").on(t.mentioned_user_id),
+  ],
+)
+
 export const clipTag = pgTable(
   "clip_tag",
   {

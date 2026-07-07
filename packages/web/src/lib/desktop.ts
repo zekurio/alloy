@@ -129,6 +129,16 @@ export interface AlloyDesktopRecordingApi {
   revealCapture(filename: string): Promise<void>
 }
 
+export interface DesktopNotificationInput {
+  title: string
+  body: string
+  targetPath: string
+}
+
+export interface AlloyDesktopNotificationsApi {
+  show(input: DesktopNotificationInput): Promise<void>
+}
+
 export interface AlloyDesktop {
   platform: string
   titlebarOverlay: boolean
@@ -143,6 +153,7 @@ export interface AlloyDesktop {
   updates?: AlloyDesktopUpdatesApi
   /** Missing on desktop shells that predate the autostart toggle. */
   autostart?: AlloyDesktopAutostartApi
+  notifications?: AlloyDesktopNotificationsApi
 }
 
 export function alloyDesktop(): AlloyDesktop | null {

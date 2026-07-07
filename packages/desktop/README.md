@@ -15,7 +15,7 @@ cookie jar.
 
 There are two trust surfaces:
 
-- `src/renderer`: bundled trusted overlay/connect UI with `window.alloyNative`.
+- `src/renderer`: bundled trusted connect UI with `window.alloyNative`.
 - Main window: remote server origin with the narrower `window.alloyDesktop`
   bridge.
 
@@ -33,8 +33,8 @@ resources as the immutable fallback recorder runtime.
 ```text
 packages/desktop/
   src/main/      Electron lifecycle, windows, IPC, auth, tray, recorder client
-  src/preload/   contextBridge scripts for overlay, web app, and HUD
-  src/renderer/  React connect screen and recording HUD
+  src/preload/   contextBridge scripts for the connect window and web app
+  src/renderer/  React connect screen
   src/shared/    IPC channel names and payload types
   scripts/       Electron runtime and icon helpers
   assets/        Desktop icons and build resources

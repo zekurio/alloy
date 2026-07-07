@@ -1,12 +1,19 @@
-import type { CommentRow } from "@alloy/contracts"
+import { parseMentionUsernames, type CommentRow } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
-import { clip, clipComment, clipCommentLike } from "@alloy/db/schema"
+import {
+  clip,
+  clipComment,
+  clipCommentLike,
+  clipCommentMention,
+} from "@alloy/db/schema"
+import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import {
   clipAccessResponse,
   resolveClipAccess,
 } from "@alloy/server/clips/access"
 import { db } from "@alloy/server/db/index"
+import { createNotification } from "@alloy/server/notifications/service"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import {
   booleanFlag,
@@ -18,7 +25,7 @@ import {
   likeState,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import {
@@ -37,8 +44,11 @@ import {
   UpdateBody,
 } from "./clip-comments-helpers"
 import { IdParam } from "./clips-helpers"
+import { resolveMentionUsernames } from "./clips-upload-helpers"
 import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
 import { zValidator } from "./validation"
+
+const logger = createLogger("clip-comments")
 
 export const clipCommentsRoutes = new Hono()
   .get(
@@ -92,21 +102,23 @@ export const clipCommentsRoutes = new Hono()
       })
       if (!access.accessible) return clipAccessResponse(c, access)
 
-      let resolvedParentId: string | null = null
-      if (parentId) {
-        const [parent] = await db
-          .select({
-            id: clipComment.id,
-            clipId: clipComment.clip_id,
-          })
-          .from(clipComment)
-          .where(eq(clipComment.id, parentId))
-          .limit(1)
-        if (!parent || parent.clipId !== id) {
-          return notFound(c, "Parent comment not found")
-        }
-        resolvedParentId = parent.id
+      const parent = parentId
+        ? (
+            await db
+              .select({
+                id: clipComment.id,
+                clipId: clipComment.clip_id,
+                authorId: clipComment.author_id,
+              })
+              .from(clipComment)
+              .where(eq(clipComment.id, parentId))
+              .limit(1)
+          )[0]
+        : null
+      if (parentId && (!parent || parent.clipId !== id)) {
+        return notFound(c, "Parent comment not found")
       }
+      const resolvedParentId = parent?.id ?? null
 
       const [inserted] = await db.transaction(async (tx) => {
         const rows = await tx
@@ -125,6 +137,54 @@ export const clipCommentsRoutes = new Hono()
         return rows
       })
       if (!inserted) return internalServerError(c, "Insert failed")
+
+      const mentionUserIds = await resolveMentionUsernames(
+        parseMentionUsernames(body),
+        viewerId,
+      )
+      if (mentionUserIds.length > 0) {
+        await db
+          .insert(clipCommentMention)
+          .values(
+            mentionUserIds.map((mentionedUserId) => ({
+              comment_id: inserted.id,
+              mentioned_user_id: mentionedUserId,
+            })),
+          )
+          .onConflictDoNothing()
+      }
+      const mentionedUsers =
+        mentionUserIds.length > 0
+          ? await db
+              .select({ id: user.id, username: user.username })
+              .from(user)
+              .where(inArray(user.id, mentionUserIds))
+          : []
+      const mentionedUsernames = mentionedUsers.map((row) =>
+        row.username.toLowerCase(),
+      )
+      const alreadyNotified = new Set<string>()
+      const commentNotification = parent
+        ? { recipientId: parent.authorId, kind: "comment_reply" as const }
+        : { recipientId: access.row.author_id, kind: "clip_comment" as const }
+      alreadyNotified.add(commentNotification.recipientId)
+      void createNotification({
+        recipientId: commentNotification.recipientId,
+        actorId: viewerId,
+        kind: commentNotification.kind,
+        clipId: id,
+        commentId: inserted.id,
+      }).catch((error) => logger.error("notification fan-out failed", error))
+      for (const recipientId of mentionUserIds) {
+        if (alreadyNotified.has(recipientId)) continue
+        void createNotification({
+          recipientId,
+          actorId: viewerId,
+          kind: "comment_mention",
+          clipId: id,
+          commentId: inserted.id,
+        }).catch((error) => logger.error("notification fan-out failed", error))
+      }
 
       const [authorRow] = await db
         .select(userSummarySelectShape)
@@ -152,6 +212,7 @@ export const clipCommentsRoutes = new Hono()
               displayUsername: "",
               image: null,
             },
+        mentions: mentionedUsernames,
         replies: [],
       }
       return c.json(out, 201)
@@ -177,15 +238,34 @@ export const clipCommentsRoutes = new Hono()
         return forbidden(c)
       }
 
-      const [updated] = await db
-        .update(clipComment)
-        .set({ body, edited_at: new Date() })
-        .where(eq(clipComment.id, commentId))
-        .returning({
-          id: clipComment.id,
-          body: clipComment.body,
-          editedAt: clipComment.edited_at,
-        })
+      const mentionUserIds = await resolveMentionUsernames(
+        parseMentionUsernames(body),
+        viewerId,
+      )
+
+      const [updated] = await db.transaction(async (tx) => {
+        const rows = await tx
+          .update(clipComment)
+          .set({ body, edited_at: new Date() })
+          .where(eq(clipComment.id, commentId))
+          .returning({
+            id: clipComment.id,
+            body: clipComment.body,
+            editedAt: clipComment.edited_at,
+          })
+        await tx
+          .delete(clipCommentMention)
+          .where(eq(clipCommentMention.comment_id, commentId))
+        if (mentionUserIds.length > 0) {
+          await tx.insert(clipCommentMention).values(
+            mentionUserIds.map((mentionedUserId) => ({
+              comment_id: commentId,
+              mentioned_user_id: mentionedUserId,
+            })),
+          )
+        }
+        return rows
+      })
       if (!updated) {
         return internalServerError(c, "Comment update did not persist")
       }
@@ -242,7 +322,9 @@ export const clipCommentsRoutes = new Hono()
             .from(clipComment)
             .where(eq(clipComment.id, commentId))
             .limit(1)
-          return row ? { liked: true, likeCount: row.likeCount } : null
+          return row
+            ? { liked: true, likeCount: row.likeCount, created: false }
+            : null
         }
         const [row] = await tx
           .update(clipComment)
@@ -250,9 +332,23 @@ export const clipCommentsRoutes = new Hono()
           .where(eq(clipComment.id, commentId))
           .returning({ likeCount: clipComment.like_count })
         if (!row) return null
-        return { liked: true, likeCount: row.likeCount }
+        return { liked: true, likeCount: row.likeCount, created: true }
       })
       if (!result) return notFound(c)
+      if (
+        result.created &&
+        viewerId === target.clipAuthorId &&
+        target.commentAuthorId !== viewerId
+      ) {
+        void createNotification({
+          recipientId: target.commentAuthorId,
+          actorId: viewerId,
+          kind: "comment_like",
+          clipId: target.clipId,
+          commentId: target.commentId,
+          dedupKey: `comment_like:${target.commentId}:${viewerId}`,
+        }).catch((error) => logger.error("notification fan-out failed", error))
+      }
       return likeState(c, result.liked, result.likeCount)
     },
   )

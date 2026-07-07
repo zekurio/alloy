@@ -61,6 +61,7 @@ export const IPC = {
   getCurrentServer: "alloy:get-current-server",
   forgetServer: "alloy:forget-server",
   openSettings: "alloy:open-settings",
+  showNotification: "alloy:show-notification",
   getRecordingSettings: "alloy:get-recording-settings",
   setRecordingSettings: "alloy:set-recording-settings",
   restartRecordingBackend: "alloy:restart-recording-backend",
@@ -218,6 +219,16 @@ export interface AlloyDesktopRecordingApi {
   ): Promise<void>
 }
 
+export interface DesktopNotificationInput {
+  title: string
+  body: string
+  targetPath: string
+}
+
+export interface AlloyDesktopNotificationsApi {
+  show(input: DesktopNotificationInput): Promise<void>
+}
+
 /**
  * Desktop bridge exposed to the configured Alloy web app. Native side effects
  * stay behind explicit IPC handlers; no raw Electron APIs reach the renderer.
@@ -235,4 +246,5 @@ export interface AlloyDesktopMarker {
   recording: AlloyDesktopRecordingApi
   updates: AlloyDesktopUpdatesApi
   autostart: AlloyDesktopAutostartApi
+  notifications: AlloyDesktopNotificationsApi
 }

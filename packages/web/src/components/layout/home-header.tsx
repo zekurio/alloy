@@ -13,10 +13,12 @@ import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
+import { NotificationBell } from "@/components/notifications/notification-bell"
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
 import { UploadStatusPill } from "@/components/upload/upload-status-pill"
 import { alloyDesktop } from "@/lib/desktop"
+import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { HeaderToolbarSlot, useHeaderToolbarNode } from "./header-toolbar"
 
@@ -25,6 +27,7 @@ export function HomeHeader() {
   const toolbarNode = useHeaderToolbarNode()
   const inputRef = useRef<HTMLInputElement>(null)
   const desktop = alloyDesktop()
+  const session = useSuspenseSession()
 
   const onKeyDown = useCallback((event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") {
@@ -73,6 +76,7 @@ export function HomeHeader() {
         <SearchResultsPopover />
       </AppHeaderSearch>
       <UploadStatusPill />
+      {session ? <NotificationBell /> : null}
       {toolbarNode ? (
         <AppHeaderToolbar>
           <HeaderToolbarSlot />
