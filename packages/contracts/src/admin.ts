@@ -139,17 +139,12 @@ export const FilesystemStorageConfigSchema = z.looseObject({
    */
   thumbnailsPath: NonEmptyStringSchema,
   /**
-   * Filesystem root for user-owned assets such as avatars, banners, and
-   * profile backgrounds. Relative paths resolve from the server working
-   * directory; absolute paths are used as-is.
+   * Filesystem root for miscellaneous assets: user avatars/banners/profile
+   * backgrounds and admin-authored game assets (hero, grid, logo, icon).
+   * Relative paths resolve from the server working directory; absolute
+   * paths are used as-is.
    */
-  usersPath: NonEmptyStringSchema,
-  /**
-   * Filesystem root for admin-authored game assets (hero, grid, logo, icon).
-   * Relative paths resolve from the server working directory; absolute paths
-   * are used as-is.
-   */
-  gamesPath: NonEmptyStringSchema,
+  assetsPath: NonEmptyStringSchema,
 })
 
 export type FilesystemStorageConfig = z.infer<

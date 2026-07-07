@@ -35,7 +35,7 @@ let
   fsStoragePaths = [
     cfg.storage.fs.clipsPath
     cfg.storage.fs.thumbnailsPath
-    cfg.storage.fs.usersPath
+    cfg.storage.fs.assetsPath
   ];
   serverExternalWritePaths = lib.unique (
     lib.optionals (managedStateDirectory == null) [ cfg.stateDir ]
@@ -73,12 +73,16 @@ in
     )
     (lib.mkRenamedOptionModule
       [ "services" "alloy-server" "userAssetsStorageDir" ]
+      [ "services" "alloy-server" "storage" "fs" "assetsPath" ]
+    )
+    (lib.mkRenamedOptionModule
       [ "services" "alloy-server" "storage" "fs" "usersPath" ]
+      [ "services" "alloy-server" "storage" "fs" "assetsPath" ]
     )
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "storageDir" ] ''
       Configure services.alloy-server.storage.fs.clipsPath and
       services.alloy-server.storage.fs.thumbnailsPath and
-      services.alloy-server.storage.fs.usersPath directly.
+      services.alloy-server.storage.fs.assetsPath directly.
     '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "configFile" ] ''
       Alloy no longer reads mutable config.json. Use typed NixOS options under
@@ -311,7 +315,7 @@ in
           "fs"
         ];
         default = "fs";
-        description = "Storage backend for clips, thumbnails, and user assets. Only filesystem storage is supported.";
+        description = "Storage backend for clips, thumbnails, and other assets. Only filesystem storage is supported.";
       };
 
       fs = {
@@ -329,11 +333,11 @@ in
           description = "Filesystem root for clip thumbnails.";
         };
 
-        usersPath = lib.mkOption {
+        assetsPath = lib.mkOption {
           type = lib.types.path;
-          default = "${cfg.stateDir}/storage/users";
-          defaultText = lib.literalExpression ''"\${config.services.alloy-server.stateDir}/storage/users"'';
-          description = "Filesystem root for user assets such as avatars and banners.";
+          default = "${cfg.stateDir}/storage/assets";
+          defaultText = lib.literalExpression ''"\${config.services.alloy-server.stateDir}/storage/assets"'';
+          description = "Filesystem root for misc assets: user avatars/banners and admin-authored game assets.";
         };
       };
 
@@ -460,7 +464,7 @@ in
           ALLOY_STORAGE_DRIVER = cfg.storage.driver;
           ALLOY_STORAGE_FS_CLIPS_PATH = toString cfg.storage.fs.clipsPath;
           ALLOY_STORAGE_FS_THUMBNAILS_PATH = toString cfg.storage.fs.thumbnailsPath;
-          ALLOY_STORAGE_FS_USERS_PATH = toString cfg.storage.fs.usersPath;
+          ALLOY_STORAGE_FS_ASSETS_PATH = toString cfg.storage.fs.assetsPath;
           PGHOST = cfg.database.host;
           PGUSER = cfg.database.user;
           PGDATABASE = cfg.database.name;

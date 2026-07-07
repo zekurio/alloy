@@ -68,11 +68,10 @@ export const clipStorage: StorageDriver = new ConfiguredStorageDriver("clips")
 export const clipThumbnailStorage: StorageDriver = new ConfiguredStorageDriver(
   "thumbnails",
 )
-export const userStorage: StorageDriver = new ConfiguredStorageDriver("users")
-export const gameAssetStorage: StorageDriver = new ConfiguredStorageDriver(
-  "games",
-)
-export const dataStorage: StorageDriver = userStorage
+export const assetStorage: StorageDriver = new ConfiguredStorageDriver("assets")
+export const userStorage: StorageDriver = assetStorage
+export const gameAssetStorage: StorageDriver = assetStorage
+export const dataStorage: StorageDriver = assetStorage
 
 export function clipStorageForKey(key: string): StorageDriver {
   return isClipThumbnailKey(key) ? clipThumbnailStorage : clipStorage
