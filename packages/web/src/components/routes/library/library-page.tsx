@@ -1,7 +1,6 @@
 import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
-import { Button } from "@alloy/ui/components/button"
 import {
   Empty,
   EmptyDescription,
@@ -11,16 +10,10 @@ import {
 } from "@alloy/ui/components/empty"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
+import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import {
-  BanIcon,
-  GlobeIcon,
-  HardDriveIcon,
-  LibraryIcon,
-  Loader2Icon,
-  UploadIcon,
-} from "lucide-react"
+import { BanIcon, GlobeIcon, HardDriveIcon, LibraryIcon } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 import type { ReactNode } from "react"
 
@@ -29,8 +22,6 @@ import {
   FilterDropdown,
   type FilterDropdownOption,
 } from "@/components/clip/filter-dropdown"
-import { useHeaderToolbar } from "@/components/layout/header-toolbar"
-import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { useAppSearch } from "@/components/search/app-search"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
@@ -53,16 +44,6 @@ import {
   type LibraryKindFilter,
 } from "./library-entries"
 import { LibraryCaptureCard, UploadedClipCard } from "./library-entry-cards"
-import {
-  ImportClipDetailsDialog,
-  type LibraryImportAction,
-  useLibraryImportAction,
-} from "./library-import-action"
-import {
-  LibraryWebUploadButton,
-  useLibraryWebUploadAction,
-} from "./library-web-upload-action"
-import { WebUploadEditor } from "./library-web-upload-editor"
 
 export function LibraryPage() {
   return <LibraryContent desktop={alloyDesktop()} />
@@ -73,8 +54,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   const queryClient = useQueryClient()
   const { deferredQuery } = useAppSearch()
   const [groupKey, setGroupKey] = useState<string | null>(null)
-  const importAction = useLibraryImportAction(desktop)
-  const webUploadAction = useLibraryWebUploadAction()
   const { queue } = useUploadQueue()
   const model = useLibraryContentModel({
     desktop,
@@ -82,48 +61,6 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     query: deferredQuery,
     groupKey,
   })
-  const toolbar = useMemo(
-    () =>
-      createHeaderToolbarControls({
-        desktop: (
-          <>
-            <LibraryPrimaryAction
-              desktop={desktop}
-              importAction={importAction}
-              webUploadAction={webUploadAction}
-            />
-            <LibraryToolbar
-              groups={model.groups}
-              groupKey={groupKey}
-              onGroupChange={setGroupKey}
-            />
-          </>
-        ),
-        mobile: (
-          <LibraryToolbar
-            groups={model.groups}
-            groupKey={groupKey}
-            triggerVariant="icon"
-            onGroupChange={setGroupKey}
-          />
-        ),
-      }),
-    [
-      desktop,
-      importAction.available,
-      importAction.committing,
-      importAction.picking,
-      importAction.start,
-      webUploadAction.available,
-      webUploadAction.picking,
-      webUploadAction.publishing,
-      webUploadAction.selected,
-      webUploadAction.select,
-      model.groups,
-      groupKey,
-    ],
-  )
-  useHeaderToolbar(toolbar)
   const warmCloudClip = useCallback(
     (row: ClipRow) => warmClipDetailCache(queryClient, row),
     [queryClient],
@@ -142,12 +79,15 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     return { byClipId, byLocalCaptureId }
   }, [queue])
 
-  if (webUploadAction.selected) {
-    return <WebUploadEditor action={webUploadAction} />
-  }
-
   return (
     <AppMain>
+      <PageToolbar>
+        <LibraryToolbar
+          groups={model.groups}
+          groupKey={groupKey}
+          onGroupChange={setGroupKey}
+        />
+      </PageToolbar>
       <section className="flex w-full flex-col gap-6">
         <LibraryBody
           entries={model.entries}
@@ -172,49 +112,8 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           }}
           onCloudIntent={warmCloudClip}
         />
-        <ImportClipDetailsDialog action={importAction} />
       </section>
     </AppMain>
-  )
-}
-
-function LibraryPrimaryAction({
-  desktop,
-  importAction,
-  webUploadAction,
-}: {
-  desktop: AlloyDesktop | null
-  importAction: LibraryImportAction
-  webUploadAction: ReturnType<typeof useLibraryWebUploadAction>
-}) {
-  if (!desktop) return <LibraryWebUploadButton action={webUploadAction} />
-
-  return (
-    <Button
-      type="button"
-      variant="primary"
-      size="sm"
-      disabled={
-        !importAction.available ||
-        importAction.picking ||
-        importAction.committing
-      }
-      title={
-        importAction.available
-          ? t("Import clip")
-          : t("Import is unavailable in this desktop build")
-      }
-      onClick={() => {
-        void importAction.start()
-      }}
-    >
-      {importAction.picking ? (
-        <Loader2Icon className="animate-spin" />
-      ) : (
-        <UploadIcon />
-      )}
-      {importAction.picking ? t("Opening...") : t("Import clip")}
-    </Button>
   )
 }
 
@@ -281,12 +180,10 @@ function useLibraryContentModel({
 function LibraryToolbar({
   groups,
   groupKey,
-  triggerVariant = "chip",
   onGroupChange,
 }: {
   groups: LibraryGroupView[]
   groupKey: string | null
-  triggerVariant?: "chip" | "icon"
   onGroupChange: (groupKey: string | null) => void
 }) {
   const ALL_GAMES = "__all"
@@ -307,8 +204,6 @@ function LibraryToolbar({
 
   return (
     <FilterDropdown
-      triggerLabel={t("Filter by game")}
-      triggerVariant={triggerVariant}
       value={groupKey ?? ALL_GAMES}
       options={options}
       searchPlaceholder={t("Search games…")}

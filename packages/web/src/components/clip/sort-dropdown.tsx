@@ -6,7 +6,6 @@ import {
 } from "@alloy/ui/components/dropdown-menu"
 import { cn } from "@alloy/ui/lib/utils"
 import {
-  ArrowUpDownIcon,
   Clock3Icon,
   EyeIcon,
   HistoryIcon,
@@ -15,11 +14,7 @@ import {
 } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
 
-import {
-  filterLabelClass,
-  ToolbarChipTrigger,
-  ToolbarIconButton,
-} from "./toolbar-controls"
+import { filterLabelClass, ToolbarChipTrigger } from "./toolbar-controls"
 
 export type SortDropdownOption<K extends string> = {
   key: K
@@ -30,8 +25,6 @@ export type SortDropdownOption<K extends string> = {
 type SortDropdownProps<K extends string> = {
   /** Optional uppercase label rendered before the trigger (e.g. "Sort"). */
   label?: string
-  triggerLabel?: string
-  triggerVariant?: "chip" | "icon"
   value: K
   options: ReadonlyArray<SortDropdownOption<K>>
   contentClassName?: string
@@ -48,8 +41,6 @@ type SortDropdownProps<K extends string> = {
 
 export function SortDropdown<K extends string>({
   label,
-  triggerLabel,
-  triggerVariant = "chip",
   value,
   options,
   contentClassName,
@@ -64,23 +55,14 @@ export function SortDropdown<K extends string>({
       <DropdownMenu>
         <DropdownMenuTrigger
           render={
-            triggerVariant === "icon" ? (
-              <ToolbarIconButton
-                aria-label={triggerLabel ?? label ?? "Sort"}
-                title={triggerLabel ?? label ?? "Sort"}
-              >
-                {currentIcon ?? <ArrowUpDownIcon />}
-              </ToolbarIconButton>
-            ) : (
-              <ToolbarChipTrigger icon={currentIcon} label={current?.label} />
-            )
+            <ToolbarChipTrigger icon={currentIcon} label={current?.label} />
           }
         />
         <DropdownMenuContent
-          align={triggerVariant === "icon" ? "end" : "start"}
+          align="start"
           className={cn(
             "alloy-blur border-white/8",
-            triggerVariant === "icon" ? "!w-40 !min-w-40" : "!w-40 !min-w-40",
+            "!w-40 !min-w-40",
             contentClassName,
           )}
         >

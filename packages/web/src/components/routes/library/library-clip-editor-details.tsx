@@ -33,6 +33,7 @@ import {
 import { useState } from "react"
 import type { ComponentType } from "react"
 
+import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
 import { ClipComments } from "@/components/clip/clip-comments"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import { absoluteClipHref } from "@/lib/app-paths"
@@ -42,7 +43,6 @@ import { type RecordingLibraryItem } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 
 import { ClipFileLocation } from "./library-file-location"
-import { useClipMetadataDraft } from "./use-clip-metadata-draft"
 
 type VisibilityIntent = "post" | "unpost" | "create-link" | "disable-link"
 

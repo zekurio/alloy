@@ -12,6 +12,17 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import { ChevronUpIcon, Link2Icon, SaveIcon, UploadIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
+import {
+  MediaStage,
+  mediaAspectRatio,
+} from "@/components/clip-editor/media-stage"
+import { TrimTransportControls } from "@/components/clip-editor/transport-controls"
+import { TrimBar } from "@/components/clip-editor/trim-bar"
+import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
+import {
+  MIN_TRIM_MS,
+  useTrimPlayback,
+} from "@/components/clip-editor/use-trim-playback"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import {
   useUploadActions,
@@ -39,7 +50,6 @@ import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 
 import { exportAndPublishCapture } from "./library-capture-publish"
 import { type LibraryItemView } from "./library-data"
-import { TrimTransportControls } from "./library-editor-shared"
 import {
   LibraryEntryNavButton,
   type NavigableLibraryEntry,
@@ -51,11 +61,7 @@ import {
   LibraryHandoffPosterOverlay,
   readLibraryHandoffPoster,
 } from "./library-handoff-poster"
-import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
 import { captureMentionsFromUsers } from "./library-metadata"
-import { LibraryTrimBar } from "./library-trim-bar"
-import { useClipMetadataDraft } from "./use-clip-metadata-draft"
-import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 
 /**
  * Medal-style publish screen: the capture fills the space on the left with a
@@ -310,7 +316,7 @@ export function EditorBody({
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
       <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
         <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
-          <LibraryMediaStage aspectRatio={aspectRatio}>
+          <MediaStage aspectRatio={aspectRatio}>
             <VideoPlayer
               src={item.mediaUrl}
               sourceIdentity={item.id}
@@ -335,11 +341,11 @@ export function EditorBody({
               poster={handoffPoster}
               ready={localFrameReady}
             />
-          </LibraryMediaStage>
+          </MediaStage>
 
           <TrimTransportControls playback={playback} />
 
-          <LibraryTrimBar
+          <TrimBar
             frames={filmstrip.frames}
             frameAspect={filmstrip.aspect}
             durationMs={playback.durationMs}

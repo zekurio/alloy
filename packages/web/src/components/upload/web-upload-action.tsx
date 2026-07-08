@@ -1,12 +1,9 @@
 import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
 import { toast } from "@alloy/ui/lib/toast"
-import { Loader2Icon, UploadIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
-  ACCEPT_LIST,
   prepareSelectedClipFile,
   type PublishPayload,
   type SelectedFile,
@@ -19,7 +16,7 @@ import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
-export interface LibraryWebUploadAction {
+export interface WebUploadAction {
   available: boolean
   picking: boolean
   publishing: boolean
@@ -44,7 +41,7 @@ export interface WebUploadMetadata {
   trimmed: boolean
 }
 
-export function useLibraryWebUploadAction(): LibraryWebUploadAction {
+export function useWebUploadAction(): WebUploadAction {
   const { publishClip } = useUploadActions()
   const [picking, setPicking] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -178,50 +175,4 @@ async function prepareWebUploadPayload(
 
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw new DOMException("Upload aborted", "AbortError")
-}
-
-export function LibraryWebUploadButton({
-  action,
-}: {
-  action: LibraryWebUploadAction
-}) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const pending = action.picking || action.publishing
-
-  return (
-    <>
-      <input
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT_LIST}
-        className="hidden"
-        onChange={(event) => {
-          const file = event.currentTarget.files?.[0] ?? null
-          event.currentTarget.value = ""
-          void action.select(file)
-        }}
-      />
-      <Button
-        type="button"
-        variant="primary"
-        size="sm"
-        disabled={!action.available || pending || action.selected !== null}
-        title={
-          action.available
-            ? t("Upload clip")
-            : t("Uploads are unavailable in this browser")
-        }
-        onClick={() => {
-          inputRef.current?.click()
-        }}
-      >
-        {action.picking ? (
-          <Loader2Icon className="animate-spin" />
-        ) : (
-          <UploadIcon />
-        )}
-        {action.picking ? t("Reading...") : t("Upload clip")}
-      </Button>
-    </>
-  )
 }

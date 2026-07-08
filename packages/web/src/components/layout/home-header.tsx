@@ -2,9 +2,9 @@ import { t } from "@alloy/i18n"
 import { AlloyLogo } from "@alloy/ui/components/alloy-logo"
 import {
   AppHeader,
+  AppHeaderActions,
   AppHeaderBrand,
   AppHeaderSearch,
-  AppHeaderToolbar,
   AppHeaderWindowControls,
 } from "@alloy/ui/components/app-header"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
@@ -16,15 +16,13 @@ import type { ReactNode } from "react"
 import { NotificationBell } from "@/components/notifications/notification-bell"
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
+import { GlobalUploadControl } from "@/components/upload/global-upload-control"
 import { UploadStatusPill } from "@/components/upload/upload-status-pill"
 import { alloyDesktop } from "@/lib/desktop"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
-import { HeaderToolbarSlot, useHeaderToolbarNode } from "./header-toolbar"
-
 export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
-  const toolbarNode = useHeaderToolbarNode()
   const inputRef = useRef<HTMLInputElement>(null)
   const desktop = alloyDesktop()
   const session = useSuspenseSession()
@@ -75,13 +73,11 @@ export function HomeHeader() {
       >
         <SearchResultsPopover />
       </AppHeaderSearch>
-      <UploadStatusPill />
-      {session ? <NotificationBell /> : null}
-      {toolbarNode ? (
-        <AppHeaderToolbar>
-          <HeaderToolbarSlot />
-        </AppHeaderToolbar>
-      ) : null}
+      <AppHeaderActions>
+        {session ? <GlobalUploadControl /> : null}
+        <UploadStatusPill />
+        {session ? <NotificationBell /> : null}
+      </AppHeaderActions>
       {desktop?.titlebarOverlay ? (
         <AppHeaderWindowControls
           onMinimize={() => {

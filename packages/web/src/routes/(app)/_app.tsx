@@ -9,7 +9,6 @@ import {
   RouteErrorState,
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
-import { HeaderToolbarProvider } from "@/components/layout/header-toolbar"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
@@ -98,14 +97,12 @@ function AppLayout() {
   return (
     <AppSearchProvider>
       <UploadFlowProvider>
-        <HeaderToolbarProvider>
-          <AppShell>
-            <AppChrome />
-            <Outlet />
-            <UploadFlow />
-            <MobileBottomNav />
-          </AppShell>
-        </HeaderToolbarProvider>
+        <AppShell>
+          <AppChrome />
+          <Outlet />
+          <UploadFlow />
+          <MobileBottomNav />
+        </AppShell>
       </UploadFlowProvider>
       <ClipViewerDialog
         clipId={clip ?? null}
@@ -157,13 +154,11 @@ function AppRouteStateShell({ children }: { children: ReactNode }) {
   return (
     <AppSearchProvider>
       <UploadFlowProvider>
-        <HeaderToolbarProvider>
-          <AppShell>
-            <AppChrome />
-            <AppMain>{children}</AppMain>
-            <UploadFlow />
-          </AppShell>
-        </HeaderToolbarProvider>
+        <AppShell>
+          <AppChrome />
+          <AppMain>{children}</AppMain>
+          <UploadFlow />
+        </AppShell>
       </UploadFlowProvider>
     </AppSearchProvider>
   )

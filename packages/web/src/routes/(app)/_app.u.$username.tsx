@@ -83,7 +83,7 @@ function UserProfileLayout() {
     <AppMain className="!px-0 !py-0">
       <div
         aria-hidden={gated ? true : undefined}
-        className={gated ? t("pointer-events-none select-none") : undefined}
+        className={gated ? "pointer-events-none select-none" : undefined}
       >
         {profileError ? (
           <EmptyState
