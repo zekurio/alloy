@@ -79,6 +79,7 @@ export function SortDropdown<K extends string>({
         <DropdownMenuContent
           align={triggerVariant === "icon" ? "end" : "start"}
           className={cn(
+            "alloy-blur border-white/8",
             triggerVariant === "icon" ? "!w-40 !min-w-40" : "!w-40 !min-w-40",
             contentClassName,
           )}
