@@ -54,7 +54,7 @@ export function GameDetailPageInner({
   })
 
   return (
-    <AppMain className="!px-0 !py-0">
+    <AppMain className="!px-0 !pt-0">
       <div className="flex w-full flex-col gap-6">
         {error ? (
           <EmptyState
@@ -71,7 +71,7 @@ export function GameDetailPageInner({
         ) : (
           <>
             <GameHeader game={game} viewerId={viewerId ?? null} />
-            <div className="flex flex-col px-4 pb-4 md:px-6 md:pb-6">
+            <div className="flex flex-col px-4 md:px-6">
               <PageToolbar>
                 <SortDropdown
                   value={sort}
