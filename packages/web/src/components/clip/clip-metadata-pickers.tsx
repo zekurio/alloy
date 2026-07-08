@@ -12,6 +12,7 @@ import {
   forwardRef,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -117,6 +118,10 @@ type PickerInputShellProps = {
   disabled: boolean
   label: string
   completion?: string | null
+  /** Combobox wiring: associated listbox id, its open state, active option id. */
+  listboxId?: string
+  listExpanded?: boolean
+  activeOptionId?: string
 } & Omit<ComponentPropsWithoutRef<"span">, "onChange" | "onKeyDown">
 
 const PickerInputShell = forwardRef<HTMLSpanElement, PickerInputShellProps>(
@@ -131,6 +136,9 @@ const PickerInputShell = forwardRef<HTMLSpanElement, PickerInputShellProps>(
       disabled,
       label,
       completion,
+      listboxId,
+      listExpanded,
+      activeOptionId,
       className,
       ...props
     },
@@ -169,6 +177,11 @@ const PickerInputShell = forwardRef<HTMLSpanElement, PickerInputShellProps>(
             disabled={disabled}
             placeholder={placeholder}
             aria-label={label}
+            role={listboxId ? "combobox" : undefined}
+            aria-autocomplete={listboxId ? "list" : undefined}
+            aria-expanded={listboxId ? Boolean(listExpanded) : undefined}
+            aria-controls={listExpanded ? listboxId : undefined}
+            aria-activedescendant={activeOptionId}
             className="placeholder:text-foreground-muted relative z-10 w-full bg-transparent text-sm leading-4 font-semibold outline-none placeholder:font-semibold"
           />
         </span>
@@ -271,20 +284,30 @@ function PeopleSearchPopover({
   const { open, draft, debouncedDraft, setDraft, setOpen, inputRef, rootRef } =
     useInlinePicker()
   const searchQuery = useUserSearchQuery(debouncedDraft)
+  const listboxId = useId()
+  const [activeIndex, setActiveIndex] = useState(0)
 
   const candidates = useMemo(() => {
     const rows = searchQuery.data ?? []
     return rows.filter((row) => !selectedIds.has(row.id) && row.id !== viewerId)
   }, [searchQuery.data, selectedIds, viewerId])
 
+  useEffect(() => {
+    setActiveIndex(0)
+  }, [candidates])
+
   const trimmed = debouncedDraft.trim()
   const isSearching = searchQuery.isFetching && trimmed.length > 0
-  const suggestion = candidates[0] ?? null
+  const listOpen =
+    open &&
+    debouncedDraft === draft &&
+    trimmed.length > 0 &&
+    candidates.length > 0
+  const suggestion = listOpen ? (candidates[activeIndex] ?? null) : null
   const suggestionChip = suggestion ? userChipData(suggestion) : null
 
-  const acceptSuggestion = () => {
-    if (!suggestion) return
-    onPick(suggestion)
+  const pick = (user: UserSearchResult) => {
+    onPick(user)
     setDraft("")
     inputRef.current?.focus()
   }
@@ -292,41 +315,109 @@ function PeopleSearchPopover({
   return (
     <div ref={rootRef} className="relative w-56 max-w-full">
       {open ? (
-        <PickerInputShell
-          icon={<AtSignIcon className="text-foreground-muted size-4" />}
-          value={draft}
-          onChange={setDraft}
-          onKeyDown={(event) => {
-            if (
-              event.key === "Enter" ||
-              event.key === "Tab" ||
-              event.key === "ArrowRight"
-            ) {
-              if (suggestion) {
+        <>
+          <PickerInputShell
+            icon={<AtSignIcon className="text-foreground-muted size-4" />}
+            value={draft}
+            onChange={setDraft}
+            onKeyDown={(event) => {
+              if (listOpen && event.key === "ArrowDown") {
                 event.preventDefault()
-                acceptSuggestion()
+                setActiveIndex((index) => (index + 1) % candidates.length)
+                return
               }
-            } else if (event.key === "Escape") {
-              event.preventDefault()
-              setOpen(false)
-              setDraft("")
+              if (listOpen && event.key === "ArrowUp") {
+                event.preventDefault()
+                setActiveIndex(
+                  (index) =>
+                    (index - 1 + candidates.length) % candidates.length,
+                )
+                return
+              }
+              if (
+                event.key === "Enter" ||
+                event.key === "Tab" ||
+                event.key === "ArrowRight"
+              ) {
+                if (suggestion) {
+                  event.preventDefault()
+                  pick(suggestion)
+                }
+                return
+              }
+              if (event.key === "Escape") {
+                event.preventDefault()
+                setOpen(false)
+                setDraft("")
+              }
+            }}
+            inputRef={inputRef}
+            placeholder={t("Search people...")}
+            disabled={disabled}
+            label={t("Search people")}
+            completion={suggestionChip?.name ?? null}
+            listboxId={listboxId}
+            listExpanded={listOpen}
+            activeOptionId={
+              listOpen ? `${listboxId}-option-${activeIndex}` : undefined
             }
-          }}
-          inputRef={inputRef}
-          placeholder={t("Search people...")}
-          disabled={disabled}
-          label={t("Search people")}
-          completion={suggestionChip?.name ?? null}
-          title={
-            suggestionChip
-              ? t("Press Enter to add {name}", {
-                  name: suggestionChip.name,
-                })
-              : isSearching || trimmed.length > 0
-                ? t("No inline match")
-                : undefined
-          }
-        />
+            title={
+              suggestionChip
+                ? t("Press Enter to add {name}", {
+                    name: suggestionChip.name,
+                  })
+                : isSearching || trimmed.length > 0
+                  ? t("No inline match")
+                  : undefined
+            }
+          />
+          {listOpen ? (
+            <div
+              id={listboxId}
+              role="listbox"
+              className="border-border bg-popover absolute top-full left-0 z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border p-1 shadow-md"
+            >
+              {candidates.map((user, index) => {
+                const chip = userChipData(user)
+                return (
+                  <button
+                    id={`${listboxId}-option-${index}`}
+                    key={user.id}
+                    type="button"
+                    role="option"
+                    aria-selected={index === activeIndex}
+                    className={cn(
+                      "hover:bg-surface-raised flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+                      index === activeIndex && "bg-surface-raised",
+                    )}
+                    onMouseDown={(event) => {
+                      event.preventDefault()
+                      pick(user)
+                    }}
+                  >
+                    <Avatar size="sm" className="shrink-0">
+                      {chip.avatar.src ? (
+                        <AvatarImage src={chip.avatar.src} alt={chip.name} />
+                      ) : null}
+                      <AvatarFallback
+                        style={{
+                          backgroundColor: chip.avatar.bg,
+                          color: chip.avatar.fg,
+                        }}
+                      >
+                        {chip.avatar.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="min-w-0 flex-1 truncate">{chip.name}</span>
+                    <span className="text-foreground-faint shrink-0 text-xs">
+                      @{user.username}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : null}
+        </>
       ) : (
         <PickerChipTrigger
           icon={<AtSignIcon />}
@@ -392,6 +483,9 @@ function HashtagInputPopover({
   const { open, draft, debouncedDraft, setDraft, setOpen, inputRef, rootRef } =
     useInlinePicker()
   const searchQuery = useTagSearchQuery(debouncedDraft)
+  const listboxId = useId()
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [suggestionFocused, setSuggestionFocused] = useState(false)
 
   const commit = (raw: string) => {
     const tag = sanitizeTag(raw)
@@ -407,49 +501,119 @@ function HashtagInputPopover({
     () => (searchQuery.data ?? []).filter((tag) => !selected.has(tag)),
     [searchQuery.data, selected],
   )
-  const suggestion = suggestions[0] ?? null
+
+  useEffect(() => {
+    setActiveIndex(0)
+    setSuggestionFocused(false)
+  }, [suggestions])
+
+  const listOpen =
+    open &&
+    debouncedDraft === draft &&
+    draft.trim().length > 0 &&
+    suggestions.length > 0
+  const suggestion = listOpen ? (suggestions[activeIndex] ?? null) : null
 
   return (
     <div ref={rootRef} className="relative w-56 max-w-full">
       {open ? (
-        <PickerInputShell
-          icon={<HashIcon className="text-foreground-muted size-4" />}
-          value={draft}
-          onChange={(next) => setDraft(sanitizeTag(next))}
-          onKeyDown={(e) => {
-            if (
-              e.key === "Tab" ||
-              e.key === "ArrowRight" ||
-              (e.key === "Enter" && suggestion)
-            ) {
-              e.preventDefault()
-              if (suggestion) commit(suggestion)
-            } else if (e.key === "Enter" || e.key === " " || e.key === ",") {
-              e.preventDefault()
-              commit(draft)
-            } else if (
-              e.key === "Backspace" &&
-              draft === "" &&
-              value.length > 0
-            ) {
-              onChange(value.slice(0, -1))
-            } else if (e.key === "Escape") {
-              e.preventDefault()
-              setOpen(false)
-              setDraft("")
+        <>
+          <PickerInputShell
+            icon={<HashIcon className="text-foreground-muted size-4" />}
+            value={draft}
+            onChange={(next) => setDraft(sanitizeTag(next))}
+            onKeyDown={(e) => {
+              if (listOpen && e.key === "ArrowDown") {
+                e.preventDefault()
+                setSuggestionFocused(true)
+                setActiveIndex((index) => (index + 1) % suggestions.length)
+                return
+              }
+              if (listOpen && e.key === "ArrowUp") {
+                e.preventDefault()
+                setSuggestionFocused(true)
+                setActiveIndex(
+                  (index) =>
+                    (index - 1 + suggestions.length) % suggestions.length,
+                )
+                return
+              }
+              if (e.key === "Tab" || e.key === "ArrowRight") {
+                if (suggestion) {
+                  e.preventDefault()
+                  commit(suggestion)
+                }
+                return
+              }
+              // Enter commits the highlighted suggestion only once the user
+              // has explicitly navigated the list; otherwise it adds the tag
+              // exactly as typed, so a near-match suggestion never silently
+              // overrides it.
+              if (e.key === "Enter") {
+                e.preventDefault()
+                commit(suggestionFocused && suggestion ? suggestion : draft)
+                return
+              }
+              if (e.key === " " || e.key === ",") {
+                e.preventDefault()
+                commit(draft)
+                return
+              }
+              if (e.key === "Backspace" && draft === "" && value.length > 0) {
+                onChange(value.slice(0, -1))
+                return
+              }
+              if (e.key === "Escape") {
+                e.preventDefault()
+                setOpen(false)
+                setDraft("")
+              }
+            }}
+            inputRef={inputRef}
+            placeholder={t("Add hashtag...")}
+            disabled={disabled}
+            label={t("Add hashtag")}
+            completion={suggestion}
+            listboxId={listboxId}
+            listExpanded={listOpen}
+            activeOptionId={
+              listOpen ? `${listboxId}-option-${activeIndex}` : undefined
             }
-          }}
-          inputRef={inputRef}
-          placeholder={t("Add hashtag...")}
-          disabled={disabled}
-          label={t("Add hashtag")}
-          completion={suggestion}
-          title={
-            suggestion
-              ? t("Press Enter to add #{tag}", { tag: suggestion })
-              : t("Type a tag and press Enter")
-          }
-        />
+            title={
+              suggestion
+                ? t("Press Tab to add #{tag}", { tag: suggestion })
+                : t("Type a tag and press Enter")
+            }
+          />
+          {listOpen ? (
+            <div
+              id={listboxId}
+              role="listbox"
+              className="border-border bg-popover absolute top-full left-0 z-20 mt-1 max-h-56 w-full overflow-y-auto rounded-md border p-1 shadow-md"
+            >
+              {suggestions.map((tag, index) => (
+                <button
+                  id={`${listboxId}-option-${index}`}
+                  key={tag}
+                  type="button"
+                  role="option"
+                  aria-selected={index === activeIndex}
+                  className={cn(
+                    "hover:bg-surface-raised flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+                    index === activeIndex && "bg-surface-raised",
+                  )}
+                  onMouseDown={(event) => {
+                    event.preventDefault()
+                    commit(tag)
+                  }}
+                >
+                  <HashIcon className="text-foreground-faint size-3.5 shrink-0" />
+                  <span className="min-w-0 flex-1 truncate">{tag}</span>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </>
       ) : (
         <PickerChipTrigger
           icon={<HashIcon />}
