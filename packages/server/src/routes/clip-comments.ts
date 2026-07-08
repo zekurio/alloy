@@ -209,7 +209,6 @@ export const clipCommentsRoutes = new Hono()
           : {
               id: viewerId,
               username: "",
-              displayUsername: "",
               image: null,
             },
         mentions: mentionedUsernames,

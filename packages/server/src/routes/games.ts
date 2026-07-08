@@ -230,7 +230,6 @@ export const gamesRoute = new Hono()
         .select({
           id: user.id,
           username: user.username,
-          displayUsername: user.display_username,
           image: user.image,
           clipCount: sql<number>`count(*)::int`,
         })
@@ -242,7 +241,7 @@ export const gamesRoute = new Hono()
             ...publicClipListingConditions(),
           ),
         )
-        .groupBy(user.id, user.username, user.display_username, user.image)
+        .groupBy(user.id, user.username, user.image)
         .orderBy(desc(sql`count(*)`), user.username)
         .limit(limit)
 

@@ -214,7 +214,7 @@ export const authDesktopRoute = new Hono()
         codeChallenge: codeChallenge.data,
         redirectUri: redirect.toString(),
         state,
-        username: session.user.display_username || session.user.username,
+        username: session.user.username,
       }),
     )
   })

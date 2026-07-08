@@ -27,7 +27,6 @@ export type AuthUser = {
   email: string
   emailVerified: boolean
   username: string
-  displayUsername: string
   image: string | null
   banner: string | null
   role: "user" | "admin"

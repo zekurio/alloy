@@ -51,7 +51,7 @@ export function ClipAuthorLink({
         {avatar.src ? <AvatarImage src={avatar.src} alt={author} /> : null}
         <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
       </Avatar>
-      <span className={textClassName}>@{handle}</span>
+      <span className={textClassName}>{handle}</span>
     </Link>
   )
 }

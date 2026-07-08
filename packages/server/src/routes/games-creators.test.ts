@@ -32,7 +32,6 @@ if (!testDatabaseUrl) {
       .values({
         email: `${username}@example.test`,
         username,
-        display_username: username,
         ...(disabled
           ? { status: "disabled" as const, disabled_at: new Date() }
           : {}),

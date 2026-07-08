@@ -66,7 +66,6 @@ function localClipScore(item: LibraryItemView, needle: string): number | null {
       item.filename,
       item.description,
       item.tags,
-      item.mentions.map((mention) => mention.displayUsername),
       item.mentions.map((mention) => mention.username),
     ]).includes(needle)
   ) {

@@ -13,7 +13,6 @@ import { apiOrigin } from "./env"
 type DisplayUser = {
   id?: string
   username?: string | null
-  displayUsername?: string | null
   email?: string | null
   image?: string | null
   banner?: string | null
@@ -24,11 +23,6 @@ const USER_ASSET_PATH_PREFIXES = [
   LEGACY_USER_ASSET_PATH_PREFIX,
 ] as const
 const userImageSrcCache = new Map<string, string>()
-
-function displayUsername(username: string): string {
-  const value = username.trim()
-  return value.startsWith("@") ? value : `@${value}`
-}
 
 export function userImageSrc(
   src: string | null | undefined,
@@ -86,11 +80,8 @@ function normalizeUserAssetPath(value: string, prefix: string): string {
  */
 export function displayName(user: DisplayUser | null | undefined): string {
   if (!user) return t("user")
-  if (user.displayUsername && user.displayUsername.trim()) {
-    return displayUsername(user.displayUsername)
-  }
   if (user.username && user.username.trim()) {
-    return displayUsername(user.username)
+    return user.username.trim()
   }
   if (user.email) return user.email.split("@")[0] ?? "user"
   return t("user")
@@ -112,9 +103,6 @@ function displayInitials(value: string): string {
 
 function avatarInitialsSource(user: DisplayUser | null | undefined): string {
   if (user?.username && user.username.trim()) return user.username.trim()
-  if (user?.displayUsername && user.displayUsername.trim()) {
-    return user.displayUsername.trim()
-  }
   if (user?.email && user.email.trim()) return user.email.split("@")[0] ?? ""
   return displayName(user)
 }

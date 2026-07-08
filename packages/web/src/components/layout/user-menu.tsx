@@ -69,9 +69,9 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
   }
 
   const user = session.user
-  const handle = user.username ?? user.displayUsername ?? null
+  const handle = user.username ?? null
   const email = user.email ?? null
-  const primaryLabel = handle ? `@${handle}` : chip.name
+  const primaryLabel = handle ?? chip.name
   const accountMenuLabel = t("Open account menu for {name}", {
     name: chip.name,
   })

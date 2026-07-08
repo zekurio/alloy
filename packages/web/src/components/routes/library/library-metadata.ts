@@ -8,7 +8,6 @@ export function captureMentionsFromUsers(
   return mentions.map((mention) => ({
     id: mention.id,
     username: mention.username,
-    displayUsername: mention.displayUsername,
     image: mention.image,
   }))
 }

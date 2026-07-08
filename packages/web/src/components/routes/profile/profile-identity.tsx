@@ -99,7 +99,7 @@ export function ProfileIdentity({
               {/* Name row */}
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
                 <h1 className="text-foreground truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
-                  @{handle}
+                  {handle}
                 </h1>
               </div>
 

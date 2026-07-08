@@ -39,14 +39,12 @@ export function toLikePattern(raw: string): string {
 export const userSummarySelectShape = {
   id: user.id,
   username: user.username,
-  displayUsername: user.display_username,
   image: user.image,
 }
 
 type UserSummaryFields = {
   id: string
   username: string
-  displayUsername: string
   image: string | null
 }
 
@@ -54,7 +52,6 @@ export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
   return {
     id: row.id,
     username: row.username,
-    displayUsername: row.displayUsername,
     image: row.image,
   }
 }
@@ -62,14 +59,12 @@ export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
 export function serialiseNullableUserSummary(row: {
   id: string | null
   username: string | null
-  displayUsername: string | null
   image: string | null
 }): UserSummary | null {
   if (!row.id) return null
   return serialiseUserSummary({
     id: row.id,
     username: row.username ?? "",
-    displayUsername: row.displayUsername ?? "",
     image: row.image,
   })
 }
@@ -95,10 +90,7 @@ export async function searchVisibleUsers({
 }) {
   const pattern = toLikePattern(q.trim())
   const conditions: SQL[] = [
-    requiredSql(
-      or(ilike(user.display_username, pattern), ilike(user.username, pattern)),
-      "user search text filter",
-    ),
+    requiredSql(ilike(user.username, pattern), "user search text filter"),
   ]
   if (viewerId) {
     conditions.push(ne(user.id, viewerId))

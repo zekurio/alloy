@@ -7,7 +7,6 @@ import {
   validateNullableDateString,
   validateNullableString,
   validateRequiredString,
-  validateString,
 } from "@alloy/api/runtime-validation"
 import {
   type GameCreatorsResponse,
@@ -26,10 +25,6 @@ export function validateUserSummary(
       `Invalid ${label} response: ${key} is required`,
     )
   }
-  validateString(
-    row.displayUsername,
-    `Invalid ${label} response: displayUsername is required`,
-  )
   validateNullableString(
     row.image,
     `Invalid ${label} response: image must be string or null`,

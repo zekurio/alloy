@@ -327,7 +327,7 @@ function ClipMeta({
                   "focus-visible:text-accent focus-visible:outline-none",
                 )}
               >
-                <span className="truncate">@{uploader.name}</span>
+                <span className="truncate">{uploader.name}</span>
               </Link>
               {canFollow ? (
                 <Button
