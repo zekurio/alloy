@@ -1,8 +1,5 @@
+import { JOB_QUEUES, type JobKind, type JobQueue } from "@alloy/contracts"
 import type { z } from "zod"
-
-export const JOB_QUEUES = ["encode", "io", "maintenance"] as const
-
-export type JobQueue = (typeof JOB_QUEUES)[number]
 
 export interface JobHandlerContext {
   signal: AbortSignal
@@ -23,7 +20,7 @@ export interface JobRetry {
 }
 
 export interface RegisteredJobKind<Schema extends z.ZodType = z.ZodType> {
-  kind: string
+  kind: JobKind
   queue: JobQueue
   schema: Schema
   defaultPriority: number

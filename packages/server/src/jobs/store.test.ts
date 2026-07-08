@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
 import { after, beforeEach, test } from "node:test"
 
+import type { JobKind } from "@alloy/contracts"
+
 const testDatabaseUrl = process.env.ALLOY_TEST_DATABASE_URL
 
 if (!testDatabaseUrl) {
@@ -22,8 +24,12 @@ if (!testDatabaseUrl) {
 
   const PayloadSchema = z.object({ value: z.string().optional() }).default({})
 
+  // Synthetic kinds exercised only by this suite; they are intentionally not
+  // part of the canonical JOB_KINDS contract list.
+  const testKind = (kind: string) => kind as JobKind
+
   defineJobKind({
-    kind: "test.order",
+    kind: testKind("test.order"),
     queue: "maintenance",
     schema: PayloadSchema,
     defaultPriority: 50,
@@ -32,7 +38,7 @@ if (!testDatabaseUrl) {
   })
 
   defineJobKind({
-    kind: "test.dedup",
+    kind: testKind("test.dedup"),
     queue: "maintenance",
     schema: PayloadSchema,
     defaultPriority: 50,
@@ -41,7 +47,7 @@ if (!testDatabaseUrl) {
   })
 
   defineJobKind({
-    kind: "test.singleton",
+    kind: testKind("test.singleton"),
     queue: "maintenance",
     schema: PayloadSchema,
     defaultPriority: 50,
@@ -50,7 +56,7 @@ if (!testDatabaseUrl) {
   })
 
   defineJobKind({
-    kind: "test.recurring",
+    kind: testKind("test.recurring"),
     queue: "maintenance",
     schema: PayloadSchema,
     defaultPriority: 70,
@@ -60,7 +66,7 @@ if (!testDatabaseUrl) {
   })
 
   defineJobKind({
-    kind: "test.retry",
+    kind: testKind("test.retry"),
     queue: "maintenance",
     schema: PayloadSchema,
     defaultPriority: 50,
@@ -69,7 +75,7 @@ if (!testDatabaseUrl) {
   })
 
   defineJobKind({
-    kind: "test.snooze",
+    kind: testKind("test.snooze"),
     queue: "maintenance",
     schema: PayloadSchema,
     defaultPriority: 50,
