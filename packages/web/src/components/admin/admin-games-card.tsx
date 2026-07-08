@@ -35,12 +35,13 @@ import {
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { FormEvent } from "react"
 
 import { adminGamesQueryOptions, adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
+import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 const ASSET_FIELDS: {
   role: GameAssetRole
@@ -276,7 +277,17 @@ function CreateGameDialog() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [releaseDate, setReleaseDate] = useState("")
+  const [assets, setAssets] = useState<Partial<Record<GameAssetRole, File>>>({})
   const [saving, setSaving] = useState(false)
+
+  const setAsset = (role: GameAssetRole, file: File | null) => {
+    setAssets((old) => {
+      const next = { ...old }
+      if (file) next[role] = file
+      else delete next[role]
+      return next
+    })
+  }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -287,11 +298,13 @@ function CreateGameDialog() {
       const created = await api.admin.createGame({
         name: trimmed,
         releaseDate: releaseDatePayload(releaseDate),
+        assets,
       })
       setAdminGameCacheRow(qc, created)
       toast.success(t("Game created"))
       setName("")
       setReleaseDate("")
+      setAssets({})
       setOpen(false)
     } catch (cause) {
       toast.error(errorMessage(cause, t("Couldn't create game")))
@@ -310,15 +323,15 @@ function CreateGameDialog() {
           </Button>
         }
       />
-      <ResponsiveDialogContent className="md:max-w-[560px]">
+      <ResponsiveDialogContent className="md:max-w-[640px]">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>{t("New custom game")}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            {t("Create the record first, then add each artwork role.")}
+            {t("Name the game and attach its artwork in one step.")}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
-          <ResponsiveDialogBody className="flex flex-col gap-4">
+          <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
             <div className="grid gap-4 md:grid-cols-2">
               <Field>
                 <FieldLabel htmlFor="new-game-name">{t("Name")}</FieldLabel>
@@ -342,38 +355,23 @@ function CreateGameDialog() {
                 />
               </Field>
             </div>
-            <div className="border-border bg-surface-raised/30 flex flex-col gap-3 rounded-lg border p-3">
+            <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold">
-                  {t("Artwork roles")}
-                </span>
+                <span className="text-sm font-semibold">{t("Artwork")}</span>
                 <span className="text-foreground-muted text-xs">
-                  {t(
-                    "After creating the game, upload these assets in the edit dialog.",
-                  )}
+                  {t("Optional — each role has its own shape.")}
                 </span>
               </div>
-              <div className="grid gap-2 md:grid-cols-2">
+              <div className="grid gap-2.5 md:grid-cols-2">
                 {ASSET_FIELDS.map((asset) => (
-                  <div
+                  <CreateGameAssetField
                     key={asset.role}
-                    className="border-border bg-surface-sunken flex items-center gap-2 rounded-md border p-2"
-                  >
-                    <div className="border-border/70 flex size-9 shrink-0 items-center justify-center rounded border">
-                      <ImageIcon
-                        className="text-foreground-faint size-4"
-                        aria-hidden
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="truncate text-xs font-semibold">
-                        {asset.label}
-                      </div>
-                      <div className="text-foreground-muted truncate text-xs">
-                        {asset.description}
-                      </div>
-                    </div>
-                  </div>
+                    role={asset.role}
+                    label={asset.label}
+                    description={asset.description}
+                    file={assets[asset.role] ?? null}
+                    onSelect={(file) => setAsset(asset.role, file)}
+                  />
                 ))}
               </div>
             </div>
@@ -387,12 +385,97 @@ function CreateGameDialog() {
               }
             />
             <Button type="submit" disabled={saving || name.trim().length === 0}>
+              {saving ? <Spinner className="size-3.5" /> : null}
               {t("Create")}
             </Button>
           </ResponsiveDialogFooter>
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
+  )
+}
+
+function CreateGameAssetField({
+  role,
+  label,
+  description,
+  file,
+  onSelect,
+}: {
+  role: GameAssetRole
+  label: string
+  description: string
+  file: File | null
+  onSelect: (file: File | null) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!file) {
+      setPreviewUrl(null)
+      return
+    }
+    const url = createObjectUrl(file, `game ${role} preview`)
+    setPreviewUrl(url)
+    return () => revokeObjectUrl(url, `game ${role} preview`)
+  }, [file, role])
+
+  return (
+    <div className="border-border bg-surface-raised/40 flex flex-col gap-3 rounded-lg border p-3">
+      <div className="border-border bg-surface-sunken flex h-28 items-center justify-center overflow-hidden rounded-md border">
+        {previewUrl ? (
+          <img src={previewUrl} alt="" className="size-full object-contain" />
+        ) : (
+          <ImageIcon className="text-foreground-faint size-5" aria-hidden />
+        )}
+      </div>
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm leading-none font-semibold">{label}</span>
+          <span className="text-foreground-muted truncate text-xs">
+            {description}
+          </span>
+          <span className="text-foreground-faint truncate text-xs">
+            {file ? file.name : t("Not set")}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            aria-label={t("Choose {label}", { label })}
+            onClick={() => inputRef.current?.click()}
+          >
+            <UploadIcon />
+            {file ? t("Replace") : t("Choose")}
+          </Button>
+          {file ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={t("Remove {label}", { label })}
+              onClick={() => onSelect(null)}
+            >
+              <Trash2Icon />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const next = e.target.files?.[0]
+          e.target.value = ""
+          if (next) onSelect(next)
+        }}
+      />
+    </div>
   )
 }
 

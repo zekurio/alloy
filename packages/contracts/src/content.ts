@@ -410,10 +410,8 @@ export interface AdminGameRow extends GameRow {
 export interface AdminCreateGameInput {
   name: string
   releaseDate?: string | null
-  heroUrl?: string | null
-  gridUrl?: string | null
-  logoUrl?: string | null
-  iconUrl?: string | null
+  /** Artwork uploaded alongside the metadata in one multipart request. */
+  assets?: Partial<Record<GameAssetRole, File>>
 }
 
 export interface AdminUpdateGameInput {
