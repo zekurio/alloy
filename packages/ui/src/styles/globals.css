@@ -158,6 +158,9 @@
    login frame, whose darkened backdrop stays dark in every theme. */
 :root,
 .dark {
+  /* Align native form controls and scrollbars with the active dark palette. */
+  color-scheme: dark;
+
   /* Fonts */
   --font-sans:
     "DM Sans Variable", ui-sans-serif, system-ui, -apple-system, Segoe UI,
@@ -331,6 +334,9 @@
    resolve `var(--neutral-*)` at use-time, so inverting the neutral scale here
    cascades automatically; only tokens hardcoded in :root need restating. */
 :root.light {
+  /* Align native form controls and scrollbars with the active light palette. */
+  color-scheme: light;
+
   /* Inverted neutral scale: 0 = lightest (background), 900 = darkest (text) */
   --neutral-0: oklch(0.99 0 0);
   --neutral-50: oklch(0.975 0 0);

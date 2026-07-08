@@ -243,6 +243,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Checking for updates": "Suche nach Updates",
   Choose: "Auswählen",
   "Choose {label}": "{label} auswählen",
+  "Choose date": "Datum wählen",
   "Choose an Alloy server to sign in.":
     "Wähle einen Alloy-Server zum Anmelden aus.",
   "Choose an MP4 video file.": "Wähle eine MP4-Videodatei aus.",
@@ -258,6 +259,9 @@ export const DE_MESSAGES: Record<string, string> = {
     "Wähle, wo Clips gespeichert werden, und prüfe die lokale Festplattennutzung.",
   Clean: "Sauber",
   "Clear {label}": "{label} löschen",
+  "Clear date": "Datum löschen",
+  "Next month": "Nächster Monat",
+  "Previous month": "Vorheriger Monat",
   "Clear all": "Alles löschen",
   "Clear search": "Suche löschen",
   "Clear shortcut": "Verknüpfung löschen",

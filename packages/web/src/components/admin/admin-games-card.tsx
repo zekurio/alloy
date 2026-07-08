@@ -3,6 +3,7 @@ import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
+import { DatePicker } from "@alloy/ui/components/date-picker"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Input } from "@alloy/ui/components/input"
@@ -347,11 +348,10 @@ function CreateGameDialog() {
                 <FieldLabel htmlFor="new-game-release">
                   {t("Release date")}
                 </FieldLabel>
-                <Input
+                <DatePicker
                   id="new-game-release"
-                  type="date"
                   value={releaseDate}
-                  onChange={(e) => setReleaseDate(e.target.value)}
+                  onValueChange={setReleaseDate}
                 />
               </Field>
             </div>
@@ -546,11 +546,10 @@ function EditGameDialog({ game }: { game: AdminGameRow }) {
                 <FieldLabel htmlFor={`game-release-${game.id}`}>
                   {t("Release date")}
                 </FieldLabel>
-                <Input
+                <DatePicker
                   id={`game-release-${game.id}`}
-                  type="date"
                   value={releaseDate}
-                  onChange={(e) => setReleaseDate(e.target.value)}
+                  onValueChange={setReleaseDate}
                 />
               </Field>
             </div>
