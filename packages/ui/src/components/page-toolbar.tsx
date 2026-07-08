@@ -46,7 +46,9 @@ function PageToolbar({
     >
       <div
         className={cn(
-          "flex min-w-0 items-center gap-1.5 px-4 py-2 md:px-6",
+          // Fixed row height so every route's toolbar matches regardless of
+          // whether it holds 32px chips or 28px dropdown triggers.
+          "flex min-h-12 min-w-0 items-center gap-1.5 px-4 py-2 md:px-6",
           rail &&
             "no-scrollbar overflow-x-auto overflow-y-hidden [&>*]:shrink-0",
         )}

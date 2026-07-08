@@ -30,6 +30,7 @@ const FeedQuery = z
     filter: FilterEnum.default("all"),
     sort: FeedSortEnum.default("recent"),
     gameId: z.uuid().optional(),
+    authorId: z.uuid().optional(),
     limit: limitQueryParam(50, 20),
     cursor: z.string().optional(),
   })
@@ -48,6 +49,7 @@ export const feedRoute = new Hono()
       filter,
       sort,
       gameId,
+      authorId,
       limit,
       cursor: rawCursor,
     } = c.req.valid("query")
@@ -64,6 +66,7 @@ export const feedRoute = new Hono()
     if (filter === "game") {
       if (!gameId) return badRequest(c, "gameId is required")
       conditions.push(eq(clip.game_id, gameId))
+      if (authorId) conditions.push(eq(clip.author_id, authorId))
     }
 
     if (filter === "following") {

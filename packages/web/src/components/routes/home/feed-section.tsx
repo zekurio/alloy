@@ -7,7 +7,7 @@ import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"
-import { useFeedInfiniteQuery } from "@/lib/feed-queries"
+import { feedFilterId, useFeedInfiniteQuery } from "@/lib/feed-queries"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
@@ -39,11 +39,6 @@ function emptyHint(filter: FeedFilter): string {
     case "game":
       return t("Be the first to post one.")
   }
-}
-
-function filterId(filter: FeedFilter): string {
-  if (filter.kind === "game") return `game:${filter.gameId}`
-  return filter.kind
 }
 
 function FeedSentinelStatus({
@@ -143,7 +138,7 @@ function FeedSectionBody({
 }
 
 function useFeedSectionState(filter: FeedFilter, sort: ClipFeedSort) {
-  const feedId = `${filterId(filter)}:${sort}`
+  const feedId = `${feedFilterId(filter)}:${sort}`
   const {
     data,
     error,

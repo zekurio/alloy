@@ -10,8 +10,20 @@ import {
 import { api } from "./api"
 
 function filterKey(filter: FeedFilter): readonly unknown[] {
-  if (filter.kind === "game") return ["game", filter.gameId] as const
-  return [filter.kind] as const
+  if (filter.kind !== "game") return [filter.kind] as const
+  if (filter.authorId) {
+    return ["game", filter.gameId, filter.authorId] as const
+  }
+  return ["game", filter.gameId] as const
+}
+
+/**
+ * Stable string identity for a feed filter — derived from the query key so
+ * cache keys and UI ids (toasts, list keys) can never disagree about what
+ * distinguishes two filters.
+ */
+export function feedFilterId(filter: FeedFilter): string {
+  return filterKey(filter).join(":")
 }
 
 export const feedKeys = {

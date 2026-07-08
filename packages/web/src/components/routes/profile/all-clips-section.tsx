@@ -77,7 +77,7 @@ export function AllClipsSection({
 
   return (
     <section>
-      <PageToolbar>
+      <PageToolbar rail={false}>
         <ClipsFilterBar
           username={username}
           sort={sort}

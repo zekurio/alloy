@@ -37,6 +37,9 @@ export const gameKeys = {
       ...gameKeys.detailScope(gameId),
       { viewerId: viewerId ?? "anonymous" },
     ] as const,
+  /** Top creators chip rail on `/games/:gameId`. */
+  creators: (gameId: string) =>
+    [...gameKeys.detailScope(gameId), "creators"] as const,
 }
 
 export function useSteamGridDBStatusQuery(): UseQueryResult<SteamGridDBStatus> {
@@ -145,6 +148,18 @@ export function gameQueryOptions(gameId: string, viewerId: string | null) {
     queryFn: () => api.games.fetchById(gameId),
     enabled: gameId.length > 0,
   })
+}
+
+export function gameCreatorsQueryOptions(gameId: string) {
+  return queryOptions({
+    queryKey: gameKeys.creators(gameId),
+    queryFn: () => api.games.fetchCreators(gameId),
+    enabled: gameId.length > 0,
+  })
+}
+
+export function useGameCreatorsQuery(gameId: string) {
+  return useQuery(gameCreatorsQueryOptions(gameId))
 }
 
 function normaliseLookupNames(names: readonly string[]): readonly string[] {

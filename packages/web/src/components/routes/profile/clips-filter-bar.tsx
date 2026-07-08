@@ -1,12 +1,12 @@
 import { t } from "@alloy/i18n"
 import { GameIcon } from "@alloy/ui/components/game-icon"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { GlobeIcon } from "lucide-react"
 
 import {
-  FilterDropdown,
-  type FilterDropdownOption,
-} from "@/components/clip/filter-dropdown"
+  FilterChipRail,
+  type FilterChipOption,
+} from "@/components/clip/filter-chip-rail"
 import {
   SortDropdown,
   type SortDropdownOption,
@@ -46,46 +46,49 @@ export function ClipsFilterBar({
   gameSlug,
   gameOptions,
 }: ClipsFilterBarProps) {
-  const navigate = useNavigate()
-  const gameFilterOptions: FilterDropdownOption<string>[] = [
+  const gameFilterOptions: FilterChipOption<string>[] = [
     { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
     ...gameOptions.map((g) => ({
       key: g.slug,
       label: g.name,
       icon: <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />,
-      count: g.count,
     })),
   ]
 
   return (
     <>
-      <SortDropdown
-        value={sort}
-        options={SORT_OPTIONS}
-        renderOptionLink={(opt, active) => (
-          <Link
-            to="/u/$username/all"
-            params={{ username }}
-            search={profileAllSearchFor(opt.key, gameSlug)}
-            data-active={active ? "true" : undefined}
-          />
-        )}
-      />
-
       {gameOptions.length > 0 ? (
-        <FilterDropdown
-          value={gameSlug ?? ALL_GAMES}
+        <FilterChipRail
+          activeKey={gameSlug ?? ALL_GAMES}
           options={gameFilterOptions}
-          searchPlaceholder={t("Search games…")}
-          onSelect={(key) => {
-            void navigate({
-              to: "/u/$username/all",
-              params: { username },
-              search: profileAllSearchFor(sort, key === ALL_GAMES ? null : key),
-            })
-          }}
+          renderOptionLink={(opt, active) => (
+            <Link
+              to="/u/$username/all"
+              params={{ username }}
+              search={profileAllSearchFor(
+                sort,
+                opt.key === ALL_GAMES ? null : opt.key,
+              )}
+              data-active={active ? "true" : undefined}
+            />
+          )}
         />
       ) : null}
+
+      <div className="shrink-0">
+        <SortDropdown
+          value={sort}
+          options={SORT_OPTIONS}
+          renderOptionLink={(opt, active) => (
+            <Link
+              to="/u/$username/all"
+              params={{ username }}
+              search={profileAllSearchFor(opt.key, gameSlug)}
+              data-active={active ? "true" : undefined}
+            />
+          )}
+        />
+      </div>
     </>
   )
 }

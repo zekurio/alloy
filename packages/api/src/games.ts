@@ -1,4 +1,5 @@
 import type {
+  GameCreatorsResponse,
   GameDetail,
   GameListRow,
   GameNameLookupResponse,
@@ -10,6 +11,7 @@ import type {
 import type { ApiContext } from "./client"
 import {
   booleanFlagResponseValidator,
+  validateGameCreatorsResponse,
   validateGameDetail,
   validateGameListRows,
   validateGameNameLookupResponse,
@@ -23,6 +25,8 @@ import { readPostDeleteJson } from "./mutations"
 import { queryParams } from "./paths"
 
 export type {
+  GameCreator,
+  GameCreatorsResponse,
   GameDetail,
   GameListRow,
   GameNameLookupResponse,
@@ -99,6 +103,18 @@ async function fetchGameById(
   return readJsonOrThrow(res, validateGameDetail)
 }
 
+async function fetchGameCreators(
+  context: ApiContext,
+  gameId: number | string,
+  limit?: number,
+): Promise<GameCreatorsResponse> {
+  const res = await context.rpc.api.games[":slug"].creators.$get({
+    param: { slug: String(gameId) },
+    query: queryParams({ limit }),
+  })
+  return readJsonOrThrow(res, validateGameCreatorsResponse)
+}
+
 async function setGameFollow(
   context: ApiContext,
   gameId: number | string,
@@ -142,6 +158,8 @@ export function createGamesApi(context: ApiContext) {
       fetchAllGames(context, params),
     fetchById: (gameId: number | string) => fetchGameById(context, gameId),
     fetchBySlug: (slug: string) => fetchGameById(context, slug),
+    fetchCreators: (gameId: number | string, limit?: number) =>
+      fetchGameCreators(context, gameId, limit),
     favorite: (gameId: number | string) => setGameFollow(context, gameId, true),
     unfavorite: (gameId: number | string) =>
       setGameFollow(context, gameId, false),

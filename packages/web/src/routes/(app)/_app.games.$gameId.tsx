@@ -17,6 +17,7 @@ export const Route = createFileRoute("/(app)/_app/games/$gameId")({
   validateSearch: parseGameSearch,
   loaderDeps: ({ search }) => ({
     sort: search.sort,
+    creator: search.creator,
   }),
   loader: ({ context, deps, params }) => {
     const gamePromise = context.queryClient.fetchQuery(
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/(app)/_app/games/$gameId")({
       .then((game) =>
         context.queryClient.prefetchInfiniteQuery(
           feedInfiniteQueryOptions(
-            { kind: "game", gameId: game.id },
+            { kind: "game", gameId: game.id, authorId: deps.creator },
             gameClipsSort(deps),
           ),
         ),
@@ -44,7 +45,11 @@ function GameDetailPage() {
 
   return (
     <Suspense fallback={null}>
-      <GameDetailPageInner gameId={gameId} sort={sort} />
+      <GameDetailPageInner
+        gameId={gameId}
+        sort={sort}
+        creator={search.creator ?? null}
+      />
       <Outlet />
     </Suspense>
   )

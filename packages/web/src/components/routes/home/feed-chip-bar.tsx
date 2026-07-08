@@ -1,12 +1,13 @@
 import type { FeedFilter } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Link } from "@tanstack/react-router"
 import { GlobeIcon, UsersIcon } from "lucide-react"
-import type { ReactNode } from "react"
 
-import { FilterCarousel } from "@/components/filter-carousel"
+import {
+  FilterChipRail,
+  type FilterChipOption,
+} from "@/components/clip/filter-chip-rail"
 import { useFeedChipsQuery } from "@/lib/feed-queries"
 import type { HomeSearch } from "@/lib/home-search"
 
@@ -16,12 +17,6 @@ const SCOPE_FOLLOWING = "following"
 type FeedChipBarProps = {
   filter: FeedFilter
   search: HomeSearch
-}
-
-type FeedChipOption = {
-  key: string
-  label: string
-  icon: ReactNode
 }
 
 function filterKey(filter: FeedFilter): string {
@@ -45,7 +40,7 @@ export function FeedChipBar({ filter, search }: FeedChipBarProps) {
   const games = data?.games ?? []
   const activeKey = filterKey(filter)
 
-  const options: FeedChipOption[] = [
+  const options: FilterChipOption<string>[] = [
     { key: SCOPE_ALL, label: t("All"), icon: <GlobeIcon /> },
     { key: SCOPE_FOLLOWING, label: t("Following"), icon: <UsersIcon /> },
     ...games.map((game) => ({
@@ -56,18 +51,12 @@ export function FeedChipBar({ filter, search }: FeedChipBarProps) {
   ]
 
   return (
-    <FilterCarousel className="min-w-0 flex-1">
-      {options.map((option) => (
-        <Chip
-          key={option.key}
-          size="xl"
-          data-active={option.key === activeKey ? "true" : undefined}
-          render={<Link to="/" search={searchForKey(search, option.key)} />}
-        >
-          {option.icon}
-          {option.label}
-        </Chip>
-      ))}
-    </FilterCarousel>
+    <FilterChipRail
+      options={options}
+      activeKey={activeKey}
+      renderOptionLink={(option) => (
+        <Link to="/" search={searchForKey(search, option.key)} />
+      )}
+    />
   )
 }
