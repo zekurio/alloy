@@ -27,12 +27,13 @@ import { useNavigate } from "@tanstack/react-router"
 import {
   AtSignIcon,
   BellIcon,
+  BellRingIcon,
   HeartIcon,
   MessageSquareIcon,
   UserPlusIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type CSSProperties } from "react"
 
 import { formatRelativeTime } from "@/lib/date-format"
 import { alloyDesktop } from "@/lib/desktop"
@@ -108,7 +109,17 @@ export function NotificationBell() {
           </Badge>
         ) : null}
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 max-w-[calc(100vw-1rem)] p-0">
+      <PopoverContent
+        align="end"
+        className="alloy-blur w-96 max-w-[calc(100vw-1rem)] gap-0 border p-0 ring-0"
+        style={
+          {
+            "--alloy-blur-opacity": "90%",
+            "--alloy-blur-blur": "28px",
+            "--alloy-blur-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
+          } as CSSProperties
+        }
+      >
         <div className="border-border flex items-center justify-between gap-3 border-b px-3 py-2.5">
           <div className="text-sm font-semibold">{t("Notifications")}</div>
           <Button
@@ -127,14 +138,21 @@ export function NotificationBell() {
           </div>
         ) : null}
         {alloyDesktop() === null && permission === "default" ? (
-          <div className="border-border border-b px-3 py-2">
+          <div className="border-border flex items-center gap-2.5 border-b px-3 py-2">
+            <BellRingIcon
+              className="text-foreground-faint size-3.5 shrink-0"
+              aria-hidden
+            />
+            <span className="text-foreground-muted min-w-0 flex-1 truncate text-xs">
+              {t("Browser notifications")}
+            </span>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="sm"
-              className="w-full"
+              className="text-accent hover:text-accent shrink-0"
               onClick={enableBrowserNotifications}
             >
-              {t("Enable browser notifications")}
+              {t("Enable")}
             </Button>
           </div>
         ) : null}
