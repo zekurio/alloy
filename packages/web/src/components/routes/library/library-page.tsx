@@ -1,21 +1,13 @@
 import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMainColumn, AppMainScroll } from "@alloy/ui/components/app-shell"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@alloy/ui/components/empty"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { BanIcon, GlobeIcon, HardDriveIcon, LibraryIcon } from "lucide-react"
+import { BanIcon, GlobeIcon } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
-import type { ReactNode } from "react"
 
 import { ClipGrid } from "@/components/clip/clip-grid"
 import {
@@ -26,6 +18,7 @@ import {
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
+import { EmptyState } from "@/components/feedback/empty-state"
 import { useAppSearch } from "@/components/search/app-search"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
@@ -275,10 +268,12 @@ function LibraryBody({
   if (entries.length === 0) {
     if (error) {
       return (
-        <LibraryEmpty
-          icon={<HardDriveIcon />}
+        <EmptyState
+          seed="library-scan-error"
+          size="lg"
+          fill
           title={t("Couldn't scan the library")}
-          description={error}
+          hint={error}
         />
       )
     }
@@ -289,19 +284,23 @@ function LibraryBody({
 
     if (!hasAnything) {
       return (
-        <LibraryEmpty
-          icon={<LibraryIcon />}
+        <EmptyState
+          seed="library-empty"
+          size="lg"
+          fill
           title={t("Your library is empty")}
-          description={t("Captures and clips will appear here.")}
+          hint={t("Captures and clips will appear here.")}
         />
       )
     }
 
     return (
-      <LibraryEmpty
-        icon={<LibraryIcon />}
+      <EmptyState
+        seed="library-no-captures"
+        size="lg"
+        fill
         title={t("No captures here")}
-        description={
+        hint={
           query.trim()
             ? t("Try a different search or filter.")
             : t("Pick another game or add a capture.")
@@ -339,28 +338,5 @@ function LibraryBody({
         )
       })}
     </ClipGrid>
-  )
-}
-
-export function LibraryEmpty({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: ReactNode
-  title: string
-  description: string
-  children?: ReactNode
-}) {
-  return (
-    <Empty className="min-h-[22rem] bg-transparent">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">{icon}</EmptyMedia>
-        <EmptyTitle>{title}</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
-      </EmptyHeader>
-      {children}
-    </Empty>
   )
 }

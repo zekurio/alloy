@@ -17,7 +17,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { CloudIcon, ImageIcon } from "lucide-react"
+import { ImageIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import {
@@ -30,6 +30,7 @@ import {
   MIN_TRIM_MS,
   useTrimPlayback,
 } from "@/components/clip-editor/use-trim-playback"
+import { EmptyState } from "@/components/feedback/empty-state"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
@@ -66,7 +67,6 @@ import {
   setLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { finishLocalClipDelete } from "./library-local-actions"
-import { LibraryEmpty } from "./library-page"
 
 /**
  * Edit view for an already-uploaded clip: the same stage-and-trimmer layout
@@ -82,15 +82,16 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
     return (
       <AppMain>
         {query.isError ? (
-          <LibraryEmpty
-            icon={<CloudIcon />}
+          <EmptyState
+            seed="library-clip-not-found"
+            size="lg"
+            fill
             title={t("Clip not found")}
-            description={t(
+            hint={t(
               "It may have been deleted, or you may not have access to it.",
             )}
-          >
-            <BackToLibraryButton />
-          </LibraryEmpty>
+            action={<BackToLibraryButton />}
+          />
         ) : (
           <LoadingState className="py-16" />
         )}

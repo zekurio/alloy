@@ -8,13 +8,6 @@ import {
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@alloy/ui/components/empty"
-import {
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -35,6 +28,7 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 
+import { EmptyState } from "@/components/feedback/empty-state"
 import { formatRelativeTime } from "@/lib/date-format"
 import { alloyDesktop } from "@/lib/desktop"
 import {
@@ -180,17 +174,12 @@ export function NotificationBell() {
             </>
           ) : null}
           {!listQuery.isPending && items.length === 0 ? (
-            <Empty className="py-8">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <BellIcon />
-                </EmptyMedia>
-                <EmptyTitle>{t("No notifications yet")}</EmptyTitle>
-                <EmptyDescription>
-                  {t("Follows, comments, likes, and mentions appear here.")}
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <EmptyState
+              seed="notifications-empty"
+              size="sm"
+              title={t("No notifications yet")}
+              hint={t("Follows, comments, likes, and mentions appear here.")}
+            />
           ) : null}
         </div>
       </PopoverContent>
