@@ -1,5 +1,6 @@
 import { user } from "@alloy/db/auth-schema"
 import { block, clip, follow } from "@alloy/db/schema"
+import { createLogger } from "@alloy/logging"
 import { createZipStream } from "@alloy/server/archive/zip-stream"
 import { clearSessionCookies } from "@alloy/server/auth/cookies"
 import { assertCanRemoveAdmin } from "@alloy/server/auth/identity"
@@ -11,6 +12,7 @@ import {
 } from "@alloy/server/auth/session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"
+import { createNotification } from "@alloy/server/notifications/service"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import {
   accountState,
@@ -49,6 +51,8 @@ import {
   resolveUserTarget,
 } from "./users-relationship"
 import { limitQueryParam, zValidator } from "./validation"
+
+const logger = createLogger("users")
 
 const ClipBatchQuery = z.object({
   limit: limitQueryParam(100, 100),
@@ -279,7 +283,7 @@ export const usersRoute = new Hono()
       const target = result.target
       const targetId = target.id
 
-      await db
+      const rows = await db
         .insert(follow)
         .values({
           id: crypto.randomUUID(),
@@ -287,7 +291,15 @@ export const usersRoute = new Hono()
           following_id: targetId,
         })
         .onConflictDoNothing()
-
+        .returning({ id: follow.id })
+      if (rows.length > 0) {
+        void createNotification({
+          recipientId: targetId,
+          actorId: viewerId,
+          kind: "follow",
+          dedupKey: `follow:${viewerId}`,
+        }).catch((error) => logger.error("notification fan-out failed", error))
+      }
       return booleanFlag(c, "following", true)
     },
   )

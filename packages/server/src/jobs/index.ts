@@ -1,5 +1,6 @@
 import "./kinds/clip-encode"
 import "./kinds/maintenance"
+import "./kinds/notification-retention"
 import "./kinds/renditions-sweep"
 import "./kinds/source-probe"
 import "./kinds/storage-verify"

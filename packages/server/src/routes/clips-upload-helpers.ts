@@ -55,6 +55,21 @@ export async function resolveMentionIds(
   return rows.map((row) => row.id)
 }
 
+export async function resolveMentionUsernames(
+  usernames: ReadonlyArray<string>,
+  actorId: string,
+): Promise<string[]> {
+  const deduped = [
+    ...new Set(usernames.map((username) => username.toLowerCase())),
+  ]
+  if (deduped.length === 0) return []
+  const rows = await db
+    .select({ id: user.id })
+    .from(user)
+    .where(inArray(sql`lower(${user.username})`, deduped))
+  return rows.flatMap((row) => (row.id === actorId ? [] : [row.id]))
+}
+
 export async function markUploadFailed(
   authorId: string,
   clipId: string,

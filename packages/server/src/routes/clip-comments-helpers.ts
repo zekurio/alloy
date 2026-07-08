@@ -5,7 +5,12 @@ import {
   type UserSummary,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
-import { clipComment, clipCommentLike } from "@alloy/db/schema"
+import {
+  clip,
+  clipComment,
+  clipCommentLike,
+  clipCommentMention,
+} from "@alloy/db/schema"
 import { resolveClipAccess } from "@alloy/server/clips/access"
 import { db } from "@alloy/server/db/index"
 import {
@@ -56,8 +61,13 @@ export async function resolveCommentEngagementTarget(
   c: Context,
 ) {
   const [row] = await db
-    .select({ clipId: clipComment.clip_id })
+    .select({
+      clipId: clipComment.clip_id,
+      commentAuthorId: clipComment.author_id,
+      clipAuthorId: clip.author_id,
+    })
     .from(clipComment)
+    .innerJoin(clip, eq(clipComment.clip_id, clip.id))
     .where(eq(clipComment.id, commentId))
     .limit(1)
   if (!row) {
@@ -73,7 +83,13 @@ export async function resolveCommentEngagementTarget(
     policy: "engagement",
   })
   if (!target.accessible) return target
-  return { accessible: true as const }
+  return {
+    accessible: true as const,
+    commentId,
+    commentAuthorId: row.commentAuthorId,
+    clipId: row.clipId,
+    clipAuthorId: row.clipAuthorId,
+  }
 }
 
 export async function listClipComments({
@@ -259,6 +275,7 @@ async function buildCommentTree(
   const ids = rows.map((r) => r.id)
   const likedByViewer = new Set<string>()
   const likedByAuthor = new Set<string>()
+  const mentionsByCommentId = new Map<string, string[]>()
   if (ids.length > 0) {
     const likes = await db
       .select({
@@ -270,6 +287,19 @@ async function buildCommentTree(
     for (const l of likes) {
       if (l.userId === clipAuthorId) likedByAuthor.add(l.commentId)
       if (viewerId && l.userId === viewerId) likedByViewer.add(l.commentId)
+    }
+    const mentions = await db
+      .select({
+        commentId: clipCommentMention.comment_id,
+        username: user.username,
+      })
+      .from(clipCommentMention)
+      .innerJoin(user, eq(clipCommentMention.mentioned_user_id, user.id))
+      .where(inArray(clipCommentMention.comment_id, ids))
+    for (const mention of mentions) {
+      const existing = mentionsByCommentId.get(mention.commentId) ?? []
+      existing.push(mention.username.toLowerCase())
+      mentionsByCommentId.set(mention.commentId, existing)
     }
   }
 
@@ -289,6 +319,7 @@ async function buildCommentTree(
       createdAt: isoDate(r.createdAt),
       editedAt: nullableIsoDate(r.editedAt),
       author: serialiseUserSummary(r.author),
+      mentions: mentionsByCommentId.get(r.id) ?? [],
       replies: [],
     })
   }

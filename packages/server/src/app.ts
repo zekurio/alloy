@@ -16,6 +16,7 @@ import { clips } from "./routes/clips"
 import { eventsRoute } from "./routes/events"
 import { feedRoute } from "./routes/feed"
 import { gamesRoute } from "./routes/games"
+import { notificationsRoute } from "./routes/notifications"
 import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
 import { tagsRoute } from "./routes/tags"
@@ -182,6 +183,7 @@ const apiApp = new Hono()
   .route("/api/tags", tagsRoute)
   .route("/api/users", usersRoute)
   .route("/api/users", usersUploadRoute)
+  .route("/api/notifications", notificationsRoute)
   .route("/api/events", eventsRoute)
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
