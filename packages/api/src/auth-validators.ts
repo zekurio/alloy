@@ -16,7 +16,6 @@ import {
   validateNullablePositiveInteger,
   validateNullableString,
   validateRequiredString,
-  validateString,
   validateUrlString,
 } from "./runtime-validation"
 
@@ -38,9 +37,6 @@ export function validateAuthUser(value: unknown): AuthUser {
       user[key],
       `Invalid auth user response: ${key} is required`,
     )
-  }
-  for (const key of ["displayUsername"] as const) {
-    validateString(user[key], `Invalid auth user response: ${key} is required`)
   }
   validateBoolean(
     user.emailVerified,

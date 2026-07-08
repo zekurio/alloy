@@ -195,7 +195,7 @@ export function ClipRowItem({
       <SearchItemText title={row.title} active={active}>
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
           <span>{label}</span>
-          <span>@{row.authorUsername}</span>
+          <span>{row.authorUsername}</span>
           <span>
             {formatCount(row.viewCount)} {tp(row.viewCount, "view", "views")}
           </span>
@@ -295,7 +295,7 @@ export function UserRowItem({
   onSelect: () => void
 }) {
   const chip = userChipData(row)
-  const handle = row.displayUsername || row.username
+  const handle = row.username
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <Avatar size="lg" className="rounded-full">
@@ -319,7 +319,7 @@ export function UserRowItem({
           {chip.name}
         </div>
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
-          <span>@{handle}</span>
+          <span>{handle}</span>
           <span>
             {formatCount(row.clipCount)} {tp(row.clipCount, "clip", "clips")}
           </span>

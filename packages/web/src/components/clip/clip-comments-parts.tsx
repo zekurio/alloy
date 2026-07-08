@@ -52,7 +52,7 @@ import {
 import { userProfileHref } from "@/lib/app-paths"
 import { formatCount } from "@/lib/number-format"
 import { useDebouncedValue } from "@/lib/use-debounced-value"
-import { displayName, type UserChipData } from "@/lib/user-display"
+import type { UserChipData } from "@/lib/user-display"
 import { useUserSearchQuery } from "@/lib/user-queries"
 
 import { CommentEmojiPicker } from "./comment-emoji-picker"
@@ -399,12 +399,7 @@ export function CommentComposer({
                 selectMention(user.username)
               }}
             >
-              <span className="min-w-0 flex-1 truncate">
-                {displayName(user)}
-              </span>
-              <span className="text-foreground-faint shrink-0 text-xs">
-                @{user.username}
-              </span>
+              <span className="min-w-0 flex-1 truncate">{user.username}</span>
             </button>
           ))}
         </div>

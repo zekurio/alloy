@@ -33,7 +33,7 @@ export function UserFollowRow({
   const [following, setFollowing] = useState(initiallyFollowing)
   const followMutation = useToggleUserFollowMutation(user.username)
   const chip = userChipData(user)
-  const handle = user.displayUsername || user.username
+  const handle = user.username
 
   useEffect(() => {
     setFollowing(initiallyFollowing)
@@ -76,7 +76,7 @@ export function UserFollowRow({
             {chip.name}
           </span>
           <span className="text-foreground-faint block truncate text-xs">
-            @{handle}
+            {handle}
           </span>
         </span>
       </Link>

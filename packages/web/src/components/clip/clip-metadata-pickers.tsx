@@ -236,6 +236,7 @@ function PersonChip({
   disabled: boolean
 }) {
   const chip = userChipData(user)
+  const label = user.username
 
   return (
     <span
@@ -246,7 +247,7 @@ function PersonChip({
     >
       <Avatar size="sm">
         {chip.avatar.src ? (
-          <AvatarImage src={chip.avatar.src} alt={chip.name} />
+          <AvatarImage src={chip.avatar.src} alt={label} />
         ) : null}
         <AvatarFallback
           style={{ backgroundColor: chip.avatar.bg, color: chip.avatar.fg }}
@@ -255,11 +256,11 @@ function PersonChip({
         </AvatarFallback>
       </Avatar>
       <span className="max-w-[10rem] min-w-0 truncate font-medium">
-        {chip.name}
+        {label}
       </span>
       <button
         type="button"
-        aria-label={t("Remove {name}", { name: chip.name })}
+        aria-label={t("Remove {name}", { name: label })}
         onClick={onRemove}
         disabled={disabled}
         className="text-foreground-faint hover:text-foreground transition-colors"
@@ -304,7 +305,7 @@ function PeopleSearchPopover({
     trimmed.length > 0 &&
     candidates.length > 0
   const suggestion = listOpen ? (candidates[activeIndex] ?? null) : null
-  const suggestionChip = suggestion ? userChipData(suggestion) : null
+  const suggestionLabel = suggestion ? suggestion.username : null
 
   const pick = (user: UserSearchResult) => {
     onPick(user)
@@ -355,17 +356,15 @@ function PeopleSearchPopover({
             placeholder={t("Search people...")}
             disabled={disabled}
             label={t("Search people")}
-            completion={suggestionChip?.name ?? null}
+            completion={suggestionLabel}
             listboxId={listboxId}
             listExpanded={listOpen}
             activeOptionId={
               listOpen ? `${listboxId}-option-${activeIndex}` : undefined
             }
             title={
-              suggestionChip
-                ? t("Press Enter to add {name}", {
-                    name: suggestionChip.name,
-                  })
+              suggestionLabel
+                ? t("Press Enter to add {name}", { name: suggestionLabel })
                 : isSearching || trimmed.length > 0
                   ? t("No inline match")
                   : undefined
@@ -379,6 +378,7 @@ function PeopleSearchPopover({
             >
               {candidates.map((user, index) => {
                 const chip = userChipData(user)
+                const label = user.username
                 return (
                   <button
                     id={`${listboxId}-option-${index}`}
@@ -397,7 +397,7 @@ function PeopleSearchPopover({
                   >
                     <Avatar size="sm" className="shrink-0">
                       {chip.avatar.src ? (
-                        <AvatarImage src={chip.avatar.src} alt={chip.name} />
+                        <AvatarImage src={chip.avatar.src} alt={label} />
                       ) : null}
                       <AvatarFallback
                         style={{
@@ -408,10 +408,7 @@ function PeopleSearchPopover({
                         {chip.avatar.initials}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="min-w-0 flex-1 truncate">{chip.name}</span>
-                    <span className="text-foreground-faint shrink-0 text-xs">
-                      @{user.username}
-                    </span>
+                    <span className="min-w-0 flex-1 truncate">{label}</span>
                   </button>
                 )
               })}

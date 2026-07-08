@@ -422,7 +422,6 @@ if (!testDatabaseUrl) {
       id,
       email: `${username}-${id}@example.test`,
       username,
-      display_username: username,
     })
     return { id }
   }
