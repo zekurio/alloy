@@ -19,9 +19,9 @@ import type { ReactNode } from "react"
 
 import { ClipGrid } from "@/components/clip/clip-grid"
 import {
-  FilterDropdown,
-  type FilterDropdownOption,
-} from "@/components/clip/filter-dropdown"
+  FilterChipRail,
+  type FilterChipOption,
+} from "@/components/clip/filter-chip-rail"
 import { useAppSearch } from "@/components/search/app-search"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
@@ -81,7 +81,7 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
 
   return (
     <AppMain>
-      <PageToolbar>
+      <PageToolbar rail={false}>
         <LibraryToolbar
           groups={model.groups}
           groupKey={groupKey}
@@ -187,12 +187,11 @@ function LibraryToolbar({
   onGroupChange: (groupKey: string | null) => void
 }) {
   const ALL_GAMES = "__all"
-  const options: FilterDropdownOption<string>[] = [
+  const options: FilterChipOption<string>[] = [
     { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
     ...groups.map((group) => ({
       key: group.key,
       label: group.label,
-      count: group.totalCount,
       icon:
         group.kind === "no-game" ? (
           <BanIcon />
@@ -203,10 +202,9 @@ function LibraryToolbar({
   ]
 
   return (
-    <FilterDropdown
-      value={groupKey ?? ALL_GAMES}
+    <FilterChipRail
       options={options}
-      searchPlaceholder={t("Search games…")}
+      activeKey={groupKey ?? ALL_GAMES}
       onSelect={(key) => onGroupChange(key === ALL_GAMES ? null : key)}
     />
   )

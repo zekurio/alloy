@@ -5,15 +5,15 @@ import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { Link, useSearch } from "@tanstack/react-router"
 import { GlobeIcon, HashIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import {
-  FilterDropdown,
-  type FilterDropdownOption,
-} from "@/components/clip/filter-dropdown"
+  FilterChipRail,
+  type FilterChipOption,
+} from "@/components/clip/filter-chip-rail"
 import {
   SortDropdown,
   type SortDropdownOption,
@@ -44,7 +44,7 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
     <AppMain className="!px-4 md:!px-6">
       <div className="flex w-full flex-col">
         <TagHeader tag={tag} clipCount={summary?.clipCount} />
-        <PageToolbar>
+        <PageToolbar rail={false}>
           <TagFilterBar tag={tag} search={search} games={summary?.games} />
         </PageToolbar>
 
@@ -92,57 +92,57 @@ function TagFilterBar({
   search: TagSearch
   games: GameListRow[] | undefined
 }) {
-  const navigate = useNavigate()
   const filters = tagFilters(search)
   const activeGameId = filters.gameId
   const ALL_GAMES = "__all"
 
-  const gameOptions: FilterDropdownOption<string>[] = [
+  const gameOptions: FilterChipOption<string>[] = [
     { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
     ...(games ?? []).map((g) => ({
       key: g.id,
       label: g.name,
       icon: <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />,
-      count: g.clipCount,
     })),
   ]
 
   return (
     <>
-      <SortDropdown
-        value={filters.sort}
-        options={SORTS}
-        contentClassName="w-40"
-        renderOptionLink={(opt, active) => (
-          <Link
-            to="/tags/$tag"
-            params={{ tag }}
-            search={{
-              ...search,
-              sort: opt.key === "top" ? undefined : opt.key,
-            }}
-            data-active={active ? "true" : undefined}
-          />
-        )}
-      />
-
       {games && games.length > 0 ? (
-        <FilterDropdown
-          value={activeGameId ?? ALL_GAMES}
+        <FilterChipRail
+          activeKey={activeGameId ?? ALL_GAMES}
           options={gameOptions}
-          searchPlaceholder={t("Search games…")}
-          onSelect={(key) => {
-            void navigate({
-              to: "/tags/$tag",
-              params: { tag },
-              search: {
+          renderOptionLink={(opt, active) => (
+            <Link
+              to="/tags/$tag"
+              params={{ tag }}
+              search={{
                 ...search,
-                game: key === ALL_GAMES ? undefined : key,
-              },
-            })
-          }}
+                game: opt.key === ALL_GAMES ? undefined : opt.key,
+              }}
+              data-active={active ? "true" : undefined}
+            />
+          )}
         />
       ) : null}
+
+      <div className="shrink-0">
+        <SortDropdown
+          value={filters.sort}
+          options={SORTS}
+          contentClassName="w-40"
+          renderOptionLink={(opt, active) => (
+            <Link
+              to="/tags/$tag"
+              params={{ tag }}
+              search={{
+                ...search,
+                sort: opt.key === "top" ? undefined : opt.key,
+              }}
+              data-active={active ? "true" : undefined}
+            />
+          )}
+        />
+      </div>
     </>
   )
 }
