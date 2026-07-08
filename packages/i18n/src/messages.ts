@@ -11,11 +11,11 @@ export const DE_MESSAGES: Record<string, string> = {
     "Benachrichtigungen konnten nicht als gelesen markiert werden",
   "Couldn't mark notification as read":
     "Benachrichtigung konnte nicht als gelesen markiert werden",
-  "Enable browser notifications": "Browser-Benachrichtigungen aktivieren",
   "Follows, comments, likes, and mentions appear here.":
     "Follower, Kommentare, Likes und Erwähnungen erscheinen hier.",
   Food: "Essen",
   Gestures: "Gesten",
+  "Browser notifications": "Browser-Benachrichtigungen",
   Hearts: "Herzen",
   "Mark all read": "Alle als gelesen markieren",
   "New comment": "Neuer Kommentar",
