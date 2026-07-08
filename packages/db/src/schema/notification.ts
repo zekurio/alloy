@@ -29,6 +29,7 @@ export const notification = pgTable(
     comment_id: uuid().references(() => clipComment.id, {
       onDelete: "cascade",
     }),
+    // Dedup keys are permanent; unlike-then-relike must not re-notify.
     dedup_key: text(),
     read_at: timestamp({ withTimezone: true }),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),

@@ -1,6 +1,5 @@
+import type { DesktopNotificationInput } from "@alloy/contracts"
 import { Notification } from "electron"
-
-import type { DesktopNotificationInput } from "@/shared/ipc"
 
 import type { Windows } from "./windows"
 
@@ -15,7 +14,6 @@ export function showDesktopNotification(
     body: notification.body,
   })
   toast.on("click", () => {
-    windows.showPrimary()
     windows.showAndNavigate(notification.targetPath)
   })
   toast.show()

@@ -1,5 +1,6 @@
 import type {
   AlloyDesktopAutostartApi,
+  AlloyDesktopNotificationsApi,
   AlloyDesktopUpdatesApi,
   RecordingActionResult,
   RecordingDisplay,
@@ -27,6 +28,8 @@ import type {
 // truth shared with the desktop main process); re-exported here so existing
 // consumer imports keep working.
 export type {
+  AlloyDesktopNotificationsApi,
+  DesktopNotificationInput,
   RecordingCaptureMention,
   RecordingLibraryItem,
   RecordingLibraryDownload,
@@ -127,16 +130,6 @@ export interface AlloyDesktopRecordingApi {
   stopAudioLevels(): Promise<void>
   saveReplayClip(request: SaveReplayClipRequest): Promise<RecordingActionResult>
   revealCapture(filename: string): Promise<void>
-}
-
-export interface DesktopNotificationInput {
-  title: string
-  body: string
-  targetPath: string
-}
-
-export interface AlloyDesktopNotificationsApi {
-  show(input: DesktopNotificationInput): Promise<void>
 }
 
 export interface AlloyDesktop {

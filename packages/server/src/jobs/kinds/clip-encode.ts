@@ -1,4 +1,5 @@
 import { clip } from "@alloy/db/schema"
+import { createLogger } from "@alloy/logging"
 import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
@@ -6,6 +7,7 @@ import {
   encodeFingerprint,
   type FingerprintSourceFacts,
 } from "@alloy/server/media/encode-fingerprint"
+import { createStoredClipMentionNotifications } from "@alloy/server/notifications/service"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import { and, eq, isNull, sql } from "drizzle-orm"
 import { z } from "zod"
@@ -29,6 +31,7 @@ import {
 } from "../store"
 
 const CLIP_ENCODE_KIND = "clip.encode"
+const logger = createLogger("jobs")
 const SNOOZE_JITTER_MS = 1000
 
 const ClipEncodePayloadSchema = z.object({
@@ -122,7 +125,12 @@ async function runClipEncode(
   const row = await selectClipEncodeLease(payload.clipId)
   if (!row || (row.status !== "processing" && row.status !== "ready")) return
   const matchingAction = await matchingFingerprintAction(payload, row)
-  if (matchingAction === "skip") return
+  if (matchingAction === "skip") {
+    if (payload.trigger === "upload") {
+      await fanOutReadyClipMentions(payload.clipId)
+    }
+    return
+  }
 
   const leased = await clipMediaStore.lease(payload.clipId, ctx.runId)
   if (!leased) {
@@ -166,6 +174,9 @@ async function runClipEncode(
         "Media processing interrupted by shutdown",
       )
     }
+    if (payload.trigger === "upload") {
+      await fanOutReadyClipMentions(payload.clipId)
+    }
   } catch (err) {
     if (ctx.signal.aborted && ctx.signal.reason === "shutdown") {
       await clipMediaStore.releaseLease(
@@ -176,6 +187,18 @@ async function runClipEncode(
     }
     throw err
   }
+}
+
+async function fanOutReadyClipMentions(clipId: string): Promise<void> {
+  const [ready] = await db
+    .select({ id: clip.id })
+    .from(clip)
+    .where(and(eq(clip.id, clipId), eq(clip.status, "ready")))
+    .limit(1)
+  if (!ready) return
+  await createStoredClipMentionNotifications(clipId).catch((error) =>
+    logger.error("notification fan-out failed", error),
+  )
 }
 
 async function handleClipEncodeFailed(

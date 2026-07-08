@@ -1,5 +1,6 @@
 import type {
   AlloyDesktopAutostartApi,
+  AlloyDesktopNotificationsApi,
   AlloyDesktopUpdatesApi,
   PublicAuthConfig,
   RecordingActionResult,
@@ -28,6 +29,8 @@ import type {
 // truth shared with the web app); re-exported here so existing consumer
 // imports keep working.
 export type {
+  AlloyDesktopNotificationsApi,
+  DesktopNotificationInput,
   RecordingCaptureMention,
   RecordingLibraryItem,
   RecordingLibraryDownload,
@@ -217,16 +220,6 @@ export interface AlloyDesktopRecordingApi {
   previewNotificationSound(
     sound: RecordingNotificationSoundEvent,
   ): Promise<void>
-}
-
-export interface DesktopNotificationInput {
-  title: string
-  body: string
-  targetPath: string
-}
-
-export interface AlloyDesktopNotificationsApi {
-  show(input: DesktopNotificationInput): Promise<void>
 }
 
 /**

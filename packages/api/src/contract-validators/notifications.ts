@@ -63,12 +63,7 @@ export function validateNotificationList(
     row.nextCursor,
     "Invalid notifications response: nextCursor must be nullable string",
   )
-  if (typeof row.unreadCount !== "number" || row.unreadCount < 0) {
-    throw new Error(
-      "Invalid notifications response: unreadCount must be a non-negative number",
-    )
-  }
-  return { items, nextCursor: row.nextCursor, unreadCount: row.unreadCount }
+  return { items, nextCursor: row.nextCursor }
 }
 
 export function validateNotificationStreamEvent(

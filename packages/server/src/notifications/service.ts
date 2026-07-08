@@ -4,7 +4,7 @@ import type {
   NotificationListResponse,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
-import { clip, clipComment, notification } from "@alloy/db/schema"
+import { clip, clipComment, clipMention, notification } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm"
@@ -23,6 +23,13 @@ import {
 import { publishNotification } from "./events"
 
 export type NotificationRow = typeof notification.$inferSelect
+
+export class InvalidNotificationCursorError extends Error {
+  constructor() {
+    super("Invalid cursor")
+    this.name = "InvalidNotificationCursorError"
+  }
+}
 
 export async function createNotification(input: {
   recipientId: string
@@ -50,6 +57,29 @@ export async function createNotification(input: {
   const items = await hydrateNotifications([row])
   const item = items[0]
   if (item) publishNotification(input.recipientId, item)
+}
+
+export async function createStoredClipMentionNotifications(
+  clipId: string,
+): Promise<void> {
+  const rows = await db
+    .select({
+      recipientId: clipMention.mentioned_user_id,
+      actorId: clip.author_id,
+    })
+    .from(clipMention)
+    .innerJoin(clip, eq(clipMention.clip_id, clip.id))
+    .where(eq(clipMention.clip_id, clipId))
+
+  for (const row of rows) {
+    await createNotification({
+      recipientId: row.recipientId,
+      actorId: row.actorId,
+      kind: "clip_mention",
+      clipId,
+      dedupKey: `clip_mention:${clipId}`,
+    })
+  }
 }
 
 export async function hydrateNotifications(
@@ -124,6 +154,9 @@ export async function listNotifications(
   input: { cursor?: string; limit: number },
 ): Promise<NotificationListResponse> {
   const cursor = decodeNotificationCursor(input.cursor)
+  if (input.cursor && !cursor) {
+    throw new InvalidNotificationCursorError()
+  }
   const conditions = [eq(notification.recipient_id, viewerId)]
   if (cursor) {
     conditions.push(
@@ -153,7 +186,6 @@ export async function listNotifications(
             id: last.id,
           })
         : null,
-    unreadCount: await countUnread(viewerId),
   }
 }
 

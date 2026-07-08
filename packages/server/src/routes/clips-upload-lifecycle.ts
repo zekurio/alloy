@@ -11,7 +11,6 @@ import {
   enqueueClipEncode,
   wakeClipEncodeQueue,
 } from "@alloy/server/jobs/kinds/clip-encode"
-import { createNotification } from "@alloy/server/notifications/service"
 import {
   badRequest,
   conflict,
@@ -217,14 +216,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
       }
 
       void publishClipUpsert(viewerId, clipId)
-      for (const mentionedId of mentionedIds) {
-        void createNotification({
-          recipientId: mentionedId,
-          actorId: viewerId,
-          kind: "clip_mention",
-          clipId,
-        }).catch((error) => logger.error("notification fan-out failed", error))
-      }
 
       const expiresInSec = configStore.get("limits").uploadTtlSec
       const expiresAt = new Date(Date.now() + expiresInSec * 1000)

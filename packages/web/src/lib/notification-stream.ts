@@ -33,6 +33,7 @@ function bindNotificationStream(input: {
   const handleSnapshot = (ev: MessageEvent<string>) => {
     const snapshot = parseSnapshot(ev.data)
     if (!snapshot) return
+    setInitialError(false)
     queryClient.setQueryData(
       notificationKeys.unreadCount(),
       snapshot.unreadCount,

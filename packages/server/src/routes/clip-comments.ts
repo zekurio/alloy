@@ -229,7 +229,13 @@ export const clipCommentsRoutes = new Hono()
       const { body } = c.req.valid("json")
 
       const [existing] = await db
-        .select({ id: clipComment.id, authorId: clipComment.author_id })
+        .select({
+          id: clipComment.id,
+          authorId: clipComment.author_id,
+          body: clipComment.body,
+          clipId: clipComment.clip_id,
+          parentId: clipComment.parent_id,
+        })
         .from(clipComment)
         .where(eq(clipComment.id, commentId))
         .limit(1)
@@ -238,9 +244,36 @@ export const clipCommentsRoutes = new Hono()
         return forbidden(c)
       }
 
+      const mentionUsernames = parseMentionUsernames(body)
+      const previousMentionUsernames = new Set(
+        parseMentionUsernames(existing.body),
+      )
+      const addedMentionUsernames = mentionUsernames.filter(
+        (username) => !previousMentionUsernames.has(username),
+      )
       const mentionUserIds = await resolveMentionUsernames(
-        parseMentionUsernames(body),
+        mentionUsernames,
         viewerId,
+      )
+      const addedMentionUserIds = await resolveMentionUsernames(
+        addedMentionUsernames,
+        viewerId,
+      )
+      const [commentNotificationTarget] = existing.parentId
+        ? await db
+            .select({ recipientId: clipComment.author_id })
+            .from(clipComment)
+            .where(eq(clipComment.id, existing.parentId))
+            .limit(1)
+        : await db
+            .select({ recipientId: clip.author_id })
+            .from(clip)
+            .where(eq(clip.id, existing.clipId))
+            .limit(1)
+      const alreadyNotified = new Set(
+        commentNotificationTarget
+          ? [commentNotificationTarget.recipientId]
+          : [],
       )
 
       const [updated] = await db.transaction(async (tx) => {
@@ -268,6 +301,16 @@ export const clipCommentsRoutes = new Hono()
       })
       if (!updated) {
         return internalServerError(c, "Comment update did not persist")
+      }
+      for (const recipientId of addedMentionUserIds) {
+        if (alreadyNotified.has(recipientId)) continue
+        void createNotification({
+          recipientId,
+          actorId: viewerId,
+          kind: "comment_mention",
+          clipId: existing.clipId,
+          commentId,
+        }).catch((error) => logger.error("notification fan-out failed", error))
       }
       return c.json({
         id: updated.id,

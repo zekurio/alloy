@@ -1,4 +1,6 @@
 import type { NotificationItem, NotificationListResponse } from "@alloy/api"
+import { t } from "@alloy/i18n"
+import { toast } from "@alloy/ui/lib/toast"
 import {
   type InfiniteData,
   infiniteQueryOptions,
@@ -8,6 +10,7 @@ import {
 } from "@tanstack/react-query"
 
 import { api } from "./api"
+import { errorMessage } from "./error-message"
 
 export const notificationKeys = {
   all: ["notifications"] as const,
@@ -18,6 +21,8 @@ export const notificationKeys = {
 type NotificationListData =
   | InfiniteData<NotificationListResponse, string | null>
   | undefined
+
+const pageZeroNotificationLimit = 50
 
 export function notificationsInfiniteQueryOptions(limit = 30) {
   return infiniteQueryOptions({
@@ -42,16 +47,29 @@ export function prependNotification(
 ): NotificationListData {
   if (!data) {
     return {
-      pages: [{ items: [item], nextCursor: null, unreadCount: 1 }],
+      pages: [{ items: [item], nextCursor: null }],
       pageParams: [null],
     }
+  }
+  if (
+    data.pages.some((page) =>
+      page.items.some((current) => current.id === item.id),
+    )
+  ) {
+    return data
   }
   const [first, ...rest] = data.pages
   return {
     ...data,
     pages: first
-      ? [{ ...first, items: [item, ...first.items] }, ...rest]
-      : [{ items: [item], nextCursor: null, unreadCount: 1 }],
+      ? [
+          {
+            ...first,
+            items: [item, ...first.items].slice(0, pageZeroNotificationLimit),
+          },
+          ...rest,
+        ]
+      : [{ items: [item], nextCursor: null }],
   }
 }
 
@@ -117,6 +135,9 @@ export function useMarkNotificationReadMutation() {
         markNotificationRead(old, id),
       )
     },
+    onError: (cause) => {
+      toast.error(errorMessage(cause, t("Couldn't mark notification as read")))
+    },
   })
 }
 
@@ -128,6 +149,11 @@ export function useMarkAllNotificationsReadMutation() {
       qc.setQueryData(notificationKeys.unreadCount(), 0)
       qc.setQueryData<NotificationListData>(notificationKeys.list(), (old) =>
         markAllNotificationsRead(old),
+      )
+    },
+    onError: (cause) => {
+      toast.error(
+        errorMessage(cause, t("Couldn't mark all notifications as read")),
       )
     },
   })

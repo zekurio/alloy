@@ -26,7 +26,6 @@ export interface NotificationItem {
 export interface NotificationListResponse {
   items: NotificationItem[]
   nextCursor: string | null
-  unreadCount: number
 }
 
 export type NotificationStreamEvent = {

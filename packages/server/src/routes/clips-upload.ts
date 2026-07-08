@@ -129,7 +129,7 @@ export const clipsUploadRoutes = new Hono()
       })
 
       void publishClipUpsert(row.author_id, id)
-      if (mentionedIds !== undefined) {
+      if (mentionedIds !== undefined && row.status === "ready") {
         const existingMentionedIdSet = new Set(existingMentionedIds)
         for (const mentionedId of mentionedIds) {
           if (existingMentionedIdSet.has(mentionedId)) continue
@@ -138,6 +138,7 @@ export const clipsUploadRoutes = new Hono()
             actorId: viewerId,
             kind: "clip_mention",
             clipId: id,
+            dedupKey: `clip_mention:${id}`,
           }).catch((error) =>
             logger.error("notification fan-out failed", error),
           )

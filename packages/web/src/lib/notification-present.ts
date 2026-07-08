@@ -1,5 +1,7 @@
 import type { NotificationItem } from "@alloy/api"
 
+import { clientLogger } from "@/lib/client-log"
+
 import { alloyDesktop } from "./desktop"
 import { notificationDisplay } from "./notification-display"
 
@@ -13,11 +15,18 @@ export function presentNotification(
   const display = notificationDisplay(item)
   const desktop = alloyDesktop()
   if (desktop?.notifications) {
-    void desktop.notifications.show({
-      title: display.title,
-      body: display.body,
-      targetPath: display.targetPath,
-    })
+    void desktop.notifications
+      .show({
+        title: display.title,
+        body: display.body,
+        targetPath: display.targetPath,
+      })
+      .catch((cause) => {
+        clientLogger.warn(
+          `[notifications] Failed to show desktop notification ${item.id}.`,
+          cause,
+        )
+      })
     return
   }
   if (

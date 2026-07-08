@@ -10,6 +10,12 @@ export interface NotificationDisplay {
   targetPath: string
 }
 
+export interface NotificationRowParts {
+  before: string
+  actor: string
+  after: string
+}
+
 export function notificationTargetPath(item: NotificationItem): string {
   if (item.kind === "follow") return userProfileHref(item.actor.username)
   return item.clip ? `/clips/${encodeURIComponent(item.clip.id)}` : "/"
@@ -18,17 +24,50 @@ export function notificationTargetPath(item: NotificationItem): string {
 export function notificationDisplay(
   item: NotificationItem,
 ): NotificationDisplay {
-  const actor = displayName(item.actor)
-  const targetPath = notificationTargetPath(item)
-  if (item.kind === "follow") {
-    return {
-      title: t("New follower"),
-      body: t("{actor} followed you", { actor }),
-      targetPath,
-    }
+  return {
+    title: notificationTitle(item.kind),
+    body: notificationBody(item, displayName(item.actor)),
+    targetPath: notificationTargetPath(item),
   }
-  const body = notificationBody(item, actor)
-  return { title: t("New notification"), body, targetPath }
+}
+
+/**
+ * Splits the translated body around the actor's name so the UI can emphasize
+ * it without hardcoding word order. The body is translated with a sentinel
+ * in the actor slot, then cut at the sentinel — locales that place the actor
+ * mid-sentence keep their natural order.
+ */
+export function notificationRowParts(
+  item: NotificationItem,
+): NotificationRowParts {
+  const body = notificationBody(item, ACTOR_SENTINEL)
+  const cut = body.indexOf(ACTOR_SENTINEL)
+  if (cut === -1) return { before: body, actor: "", after: "" }
+  return {
+    before: body.slice(0, cut),
+    actor: displayName(item.actor),
+    after: body.slice(cut + ACTOR_SENTINEL.length),
+  }
+}
+
+const ACTOR_SENTINEL = "\u0000"
+
+function notificationTitle(kind: NotificationItem["kind"]): string {
+  switch (kind) {
+    case "follow":
+      return t("New follower")
+    case "clip_like":
+      return t("Clip liked")
+    case "clip_comment":
+      return t("New comment")
+    case "comment_reply":
+      return t("New reply")
+    case "clip_mention":
+    case "comment_mention":
+      return t("You were mentioned")
+    case "comment_like":
+      return t("Comment liked")
+  }
 }
 
 function notificationBody(item: NotificationItem, actor: string): string {

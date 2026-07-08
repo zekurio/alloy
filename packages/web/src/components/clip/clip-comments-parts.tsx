@@ -37,11 +37,21 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react"
-import { useCallback, useRef, useState } from "react"
-import type { Ref } from "react"
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 
 import { userProfileHref } from "@/lib/app-paths"
 import { formatCount } from "@/lib/number-format"
+import { useDebouncedValue } from "@/lib/use-debounced-value"
 import { displayName, type UserChipData } from "@/lib/user-display"
 import { useUserSearchQuery } from "@/lib/user-queries"
 
@@ -162,12 +172,31 @@ export function CommentComposer({
     },
     [inputRef],
   )
+  const mentionListboxId = useId()
   const [activeMention, setActiveMention] = useState<{
     start: number
     end: number
     query: string
   } | null>(null)
-  const mentionQuery = useUserSearchQuery(activeMention?.query ?? "")
+  const [mentionActiveIndex, setMentionActiveIndex] = useState(0)
+  const mentionQueryText = activeMention?.query ?? ""
+  const debouncedMentionQuery = useDebouncedValue(mentionQueryText, 180)
+  const mentionQuery = useUserSearchQuery(debouncedMentionQuery)
+  const mentionSuggestions = useMemo(
+    () => mentionQuery.data?.slice(0, 8) ?? [],
+    [mentionQuery.data],
+  )
+  const activeMentionIndex =
+    mentionSuggestions.length > 0
+      ? Math.min(mentionActiveIndex, mentionSuggestions.length - 1)
+      : 0
+  const mentionListOpen =
+    activeMention !== null &&
+    debouncedMentionQuery === activeMention.query &&
+    mentionSuggestions.length > 0
+  useEffect(() => {
+    setMentionActiveIndex(0)
+  }, [mentionSuggestions])
   const updateActiveMention = useCallback((value: string, caret: number) => {
     const beforeCaret = value.slice(0, caret)
     const match = beforeCaret.match(/(^|\s)@([^\s@/\\]*)$/u)
@@ -214,6 +243,46 @@ export function CommentComposer({
       }, 0)
     },
     [draft, onDraftChange],
+  )
+  const onMentionKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (!mentionListOpen) {
+        if (event.key === "Escape" && activeMention) setActiveMention(null)
+        return
+      }
+      if (event.key === "ArrowDown") {
+        event.preventDefault()
+        setMentionActiveIndex(
+          (index) => (index + 1) % mentionSuggestions.length,
+        )
+        return
+      }
+      if (event.key === "ArrowUp") {
+        event.preventDefault()
+        setMentionActiveIndex(
+          (index) =>
+            (index - 1 + mentionSuggestions.length) % mentionSuggestions.length,
+        )
+        return
+      }
+      if (event.key === "Enter") {
+        event.preventDefault()
+        const user = mentionSuggestions[activeMentionIndex]
+        if (user) selectMention(user.username)
+        return
+      }
+      if (event.key === "Escape") {
+        event.preventDefault()
+        setActiveMention(null)
+      }
+    },
+    [
+      activeMention,
+      activeMentionIndex,
+      mentionListOpen,
+      mentionSuggestions,
+      selectMention,
+    ],
   )
   return (
     <div
@@ -272,9 +341,17 @@ export function CommentComposer({
               e.currentTarget.selectionStart,
             )
           }
+          onKeyDown={onMentionKeyDown}
           onKeyUp={(e) => {
             if (e.key === "Escape" || e.key === " ") {
               setActiveMention(null)
+              return
+            }
+            if (
+              e.key === "ArrowDown" ||
+              e.key === "ArrowUp" ||
+              e.key === "Enter"
+            ) {
               return
             }
             updateActiveMention(
@@ -283,6 +360,15 @@ export function CommentComposer({
             )
           }}
           onBlur={() => window.setTimeout(() => setActiveMention(null), 120)}
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={mentionListOpen}
+          aria-controls={mentionListOpen ? mentionListboxId : undefined}
+          aria-activedescendant={
+            mentionListOpen
+              ? `${mentionListboxId}-option-${activeMentionIndex}`
+              : undefined
+          }
           rows={2}
           maxLength={COMMENT_BODY_MAX_LENGTH}
           className={cn(
@@ -291,13 +377,23 @@ export function CommentComposer({
           )}
         />
       </div>
-      {activeMention && mentionQuery.data?.length ? (
-        <div className="border-border bg-popover absolute top-full left-12 z-20 mt-1 max-h-56 w-64 overflow-y-auto rounded-md border p-1 shadow-md">
-          {mentionQuery.data.slice(0, 8).map((user) => (
+      {mentionListOpen ? (
+        <div
+          id={mentionListboxId}
+          role="listbox"
+          className="border-border bg-popover absolute top-full left-12 z-20 mt-1 max-h-56 w-64 overflow-y-auto rounded-md border p-1 shadow-md"
+        >
+          {mentionSuggestions.map((user, index) => (
             <button
+              id={`${mentionListboxId}-option-${index}`}
               key={user.id}
               type="button"
-              className="hover:bg-surface-raised flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm"
+              role="option"
+              aria-selected={index === activeMentionIndex}
+              className={cn(
+                "hover:bg-surface-raised flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm",
+                index === activeMentionIndex ? "bg-surface-raised" : null,
+              )}
               onMouseDown={(event) => {
                 event.preventDefault()
                 selectMention(user.username)
@@ -403,7 +499,7 @@ export function CommentBody({
 function renderMentionTokens(body: string, mentions: string[]) {
   if (mentions.length === 0) return body
   const mentionSet = new Set(mentions.map((mention) => mention.toLowerCase()))
-  const parts: React.ReactNode[] = []
+  const parts: ReactNode[] = []
   let offset = 0
   for (const match of body.matchAll(MENTION_PATTERN)) {
     const rawUsername = match[1]
