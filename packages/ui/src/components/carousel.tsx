@@ -115,13 +115,39 @@ function Carousel({
   )
 }
 
-function CarouselContent({ className, ...props }: ComponentProps<"div">) {
+/** Edge fade masks: soften clipped slides at whichever edges can scroll. */
+const FADE_BOTH =
+  "[mask-image:linear-gradient(to_right,transparent,black_2rem,black_calc(100%-2rem),transparent)]"
+const FADE_LEFT =
+  "[mask-image:linear-gradient(to_right,transparent,black_2rem)]"
+const FADE_RIGHT =
+  "[mask-image:linear-gradient(to_right,black_calc(100%-2rem),transparent)]"
+
+function edgeFadeClass(canScrollPrev: boolean, canScrollNext: boolean) {
+  if (canScrollPrev && canScrollNext) return FADE_BOTH
+  if (canScrollPrev) return FADE_LEFT
+  if (canScrollNext) return FADE_RIGHT
+  return undefined
+}
+
+function CarouselContent({
+  className,
+  edgeFade = false,
+  ...props
+}: ComponentProps<"div"> & {
+  /** Fade out clipped slides at scrollable edges instead of hard-cutting. */
+  edgeFade?: boolean
+}) {
   const carousel = useCarousel()
 
   return (
     <div
       ref={carousel.carouselRef}
-      className="[transform:translateZ(0)] overflow-hidden [contain:paint] [backface-visibility:hidden]"
+      className={cn(
+        "[transform:translateZ(0)] overflow-hidden [contain:paint] [backface-visibility:hidden]",
+        edgeFade &&
+          edgeFadeClass(carousel.canScrollPrev, carousel.canScrollNext),
+      )}
       data-slot="carousel-content"
     >
       <div
