@@ -86,13 +86,15 @@ const NullableReleaseDate = z.iso
   .nullable()
   .optional()
 
-const CreateGameBody = z.object({
+// One-step creation: metadata and artwork arrive in a single multipart form,
+// so a game never exists without the assets the admin picked for it.
+const CreateGameForm = z.object({
   name: requiredTrimmedString(120),
-  releaseDate: NullableReleaseDate,
-  heroUrl: NullableUrl,
-  gridUrl: NullableUrl,
-  logoUrl: NullableUrl,
-  iconUrl: NullableUrl,
+  releaseDate: z.iso.datetime({ offset: true }).optional(),
+  hero: z.instanceof(File).optional(),
+  grid: z.instanceof(File).optional(),
+  logo: z.instanceof(File).optional(),
+  icon: z.instanceof(File).optional(),
 })
 
 const UpdateGameBody = z
@@ -120,8 +122,25 @@ const GameAssetUploadForm = z.object({
 
 export const adminGamesRoute = new Hono()
   .get("/games", async (c) => c.json(await listAdminGames()))
-  .post("/games", zValidator("json", CreateGameBody), async (c) => {
-    const body = c.req.valid("json")
+  .post("/games", zValidator("form", CreateGameForm), async (c) => {
+    const body = c.req.valid("form")
+
+    // Validate and process every provided artwork upfront so a bad image
+    // fails the request before the game row exists.
+    const assets: { role: GameAssetRole; bytes: Buffer }[] = []
+    for (const role of GAME_ASSET_ROLES) {
+      const file = body[role]
+      if (!file) continue
+      const prepared = await prepareGameAsset(role, file)
+      if (!prepared.ok) {
+        return errorResult(c, {
+          status: prepared.status,
+          error: `${role}: ${prepared.error}`,
+        })
+      }
+      assets.push({ role, bytes: prepared.bytes })
+    }
+
     const slug = await availableCustomGameSlug(body.name, null)
     const [inserted] = await db
       .insert(game)
@@ -130,10 +149,24 @@ export const adminGamesRoute = new Hono()
         name: body.name,
         slug,
         release_date: body.releaseDate ? new Date(body.releaseDate) : null,
-        ...(await urlAssetColumns(body)),
       })
       .returning({ id: game.id })
     if (!inserted) return badRequest(c, "Could not create game")
+
+    if (assets.length > 0) {
+      const updatedAt = new Date()
+      const patch: Partial<typeof game.$inferInsert> = {
+        updated_at: updatedAt,
+      }
+      for (const asset of assets) {
+        Object.assign(
+          patch,
+          await storeGameAsset(inserted.id, asset.role, asset.bytes, updatedAt),
+        )
+      }
+      await db.update(game).set(patch).where(eq(game.id, inserted.id))
+    }
+
     const result = await loadAdminGame(inserted.id)
     return result.ok ? c.json(result.game, 201) : errorResult(c, result)
   })
@@ -307,11 +340,14 @@ async function blurHashForUrl(url: string): Promise<string | null> {
   }
 }
 
-async function uploadGameAsset(
-  gameId: string,
+type PreparedGameAsset =
+  | { ok: true; bytes: Buffer }
+  | { ok: false; status: ContentfulStatusCode; error: string }
+
+async function prepareGameAsset(
   role: GameAssetRole,
   file: File,
-): Promise<AdminGameResult> {
+): Promise<PreparedGameAsset> {
   if (file.size === 0) {
     return { ok: false, status: 400, error: "Empty image data" }
   }
@@ -330,25 +366,44 @@ async function uploadGameAsset(
   const validation = validateImageBytes(buf, file.type)
   if (!validation.ok) return { ok: false, status: 400, error: validation.error }
 
-  let processed: Buffer
   try {
-    processed = await processGameAsset(role, buf)
+    return { ok: true, bytes: await processGameAsset(role, buf) }
   } catch (cause) {
-    logger.error(`failed to process ${role} upload for ${gameId}:`, cause)
+    logger.error(`failed to process ${role} image:`, cause)
     return { ok: false, status: 400, error: "Could not process image" }
   }
+}
 
+async function storeGameAsset(
+  gameId: string,
+  role: GameAssetRole,
+  bytes: Buffer,
+  updatedAt: Date,
+): Promise<Partial<typeof game.$inferInsert>> {
   const key = gameAssetKey(gameId, role, GAME_ASSET_EXT)
-  await gameAssetStorage.put(key, processed, GAME_ASSET_CONTENT_TYPE)
+  await gameAssetStorage.put(key, bytes, GAME_ASSET_CONTENT_TYPE)
 
-  const updatedAt = new Date()
-  const patch: Partial<typeof game.$inferInsert> = { updated_at: updatedAt }
+  const patch: Partial<typeof game.$inferInsert> = {}
   patch[GAME_ASSET_URL_COLUMN[role]] = gameAssetImagePath(key, updatedAt)
   const blurColumn = GAME_ASSET_BLUR_COLUMN[role]
   if (blurColumn) {
-    patch[blurColumn] = await imageBlurHashFromBytes(processed).catch(
-      () => null,
-    )
+    patch[blurColumn] = await imageBlurHashFromBytes(bytes).catch(() => null)
+  }
+  return patch
+}
+
+async function uploadGameAsset(
+  gameId: string,
+  role: GameAssetRole,
+  file: File,
+): Promise<AdminGameResult> {
+  const prepared = await prepareGameAsset(role, file)
+  if (!prepared.ok) return prepared
+
+  const updatedAt = new Date()
+  const patch: Partial<typeof game.$inferInsert> = {
+    updated_at: updatedAt,
+    ...(await storeGameAsset(gameId, role, prepared.bytes, updatedAt)),
   }
   await db.update(game).set(patch).where(eq(game.id, gameId))
 
