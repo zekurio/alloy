@@ -29,6 +29,8 @@ export function createFeedApi(context: ApiContext) {
           sort: params.sort,
           gameId:
             params.filter.kind === "game" ? params.filter.gameId : undefined,
+          authorId:
+            params.filter.kind === "game" ? params.filter.authorId : undefined,
           limit: params.limit,
           cursor: params.cursor,
         }),

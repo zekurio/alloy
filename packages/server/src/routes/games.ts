@@ -22,8 +22,9 @@ import {
   steamgriddbStatus,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { and, eq, ilike, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, ilike, isNull, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
+import { z } from "zod"
 
 import { publicClipListingConditions } from "./clips-helpers"
 import {
@@ -36,7 +37,11 @@ import {
   steamgriddbErrorResponse,
   SlugParam,
 } from "./games-helpers"
-import { zValidator } from "./validation"
+import { limitQueryParam, zValidator } from "./validation"
+
+const CreatorsQuery = z.object({
+  limit: limitQueryParam(24, 12),
+})
 
 type ResolvedGameRef =
   | { row: GameRow; response?: never }
@@ -211,6 +216,39 @@ export const gamesRoute = new Hono()
       clipCount,
     })
   })
+  .get(
+    "/:slug/creators",
+    zValidator("param", SlugParam),
+    zValidator("query", CreatorsQuery),
+    async (c) => {
+      const { slug } = c.req.valid("param")
+      const { limit } = c.req.valid("query")
+      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
+      if (resolved.response) return resolved.response
+
+      const creators = await db
+        .select({
+          id: user.id,
+          username: user.username,
+          displayUsername: user.display_username,
+          image: user.image,
+          clipCount: sql<number>`count(*)::int`,
+        })
+        .from(clip)
+        .innerJoin(user, eq(clip.author_id, user.id))
+        .where(
+          and(
+            eq(clip.game_id, resolved.row.id),
+            ...publicClipListingConditions(),
+          ),
+        )
+        .groupBy(user.id, user.username, user.display_username, user.image)
+        .orderBy(desc(sql`count(*)`), user.username)
+        .limit(limit)
+
+      return c.json({ creators })
+    },
+  )
   .post(
     "/:slug/follow",
     requireSession,

@@ -10,8 +10,11 @@ import {
 import { api } from "./api"
 
 function filterKey(filter: FeedFilter): readonly unknown[] {
-  if (filter.kind === "game") return ["game", filter.gameId] as const
-  return [filter.kind] as const
+  if (filter.kind !== "game") return [filter.kind] as const
+  if (filter.authorId) {
+    return ["game", filter.gameId, filter.authorId] as const
+  }
+  return ["game", filter.gameId] as const
 }
 
 export const feedKeys = {

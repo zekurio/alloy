@@ -42,8 +42,9 @@ function emptyHint(filter: FeedFilter): string {
 }
 
 function filterId(filter: FeedFilter): string {
-  if (filter.kind === "game") return `game:${filter.gameId}`
-  return filter.kind
+  if (filter.kind !== "game") return filter.kind
+  if (filter.authorId) return `game:${filter.gameId}:${filter.authorId}`
+  return `game:${filter.gameId}`
 }
 
 function FeedSentinelStatus({
