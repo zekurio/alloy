@@ -105,6 +105,7 @@ export function FilterDropdown<K extends string>({
         <ComboboxContent
           align={triggerVariant === "icon" ? "end" : "start"}
           className={cn(
+            "alloy-blur border ring-0",
             triggerVariant === "icon" ? "!w-64 !min-w-64" : "!w-56 !min-w-56",
             contentClassName,
           )}
