@@ -9,7 +9,7 @@ import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
 import { homeFeedFilter, type HomeSearch } from "@/lib/home-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
-import { FeedFilterDropdown } from "./feed-filter-dropdown"
+import { FeedChipBar } from "./feed-chip-bar"
 import { FeedSection } from "./feed-section"
 
 export function HomePageInner() {
@@ -43,9 +43,9 @@ export function HomePageInner() {
 
   return (
     <AppMain>
-      <PageToolbar>
-        <FeedFilterDropdown filter={filter} search={toolbarSearch} />
-        {sortControl}
+      <PageToolbar rail={false} className="-mt-4 md:-mt-6">
+        <FeedChipBar filter={filter} search={toolbarSearch} />
+        <div className="shrink-0">{sortControl}</div>
       </PageToolbar>
       <section className="flex w-full flex-col gap-6">
         <FeedSection filter={filter} sort={sort} viewerId={viewerId} />

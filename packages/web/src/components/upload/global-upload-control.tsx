@@ -24,19 +24,31 @@ const loadWebUploadEditor = async () => {
 const ImportClipDetailsDialog = lazy(loadImportClipDialog)
 const WebUploadEditor = lazy(loadWebUploadEditor)
 
+type GlobalUploadControlVariant = "header" | "bottom-nav"
+
 /**
- * Global "Upload" entry point, mounted once in the header so a clip can be
- * started from any route instead of only from the library page. Branches on
- * the desktop shell: the desktop app imports an already-recorded file via
- * the sidecar's staged-import flow, the browser picks a file and opens the
- * trim/metadata editor. Both flows render their own dialog, so this stays a
- * single always-present trigger regardless of which one fires.
+ * Global "Upload" entry point, mounted wherever the app exposes the upload
+ * affordance. Branches on the desktop shell: the desktop app imports an
+ * already-recorded file via the sidecar's staged-import flow, the browser
+ * picks a file and opens the trim/metadata editor. Each mount owns its own
+ * state and dialog surface so header and bottom-nav instances remain
+ * independent.
  */
-export function GlobalUploadControl() {
+export function GlobalUploadControl({
+  variant = "header",
+}: {
+  variant?: GlobalUploadControlVariant
+}) {
   const desktop = alloyDesktop()
   const importAction = useImportClipAction(desktop)
   const webUploadAction = useWebUploadAction()
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const triggerSize = variant === "header" ? "sm" : "icon"
+  const triggerClassName =
+    variant === "header" ? "max-md:hidden" : "size-11 rounded-full px-0"
+  const triggerLabel = t("Upload clip")
+  const triggerAriaLabel = variant === "bottom-nav" ? triggerLabel : undefined
 
   if (desktop) {
     const pending = importAction.picking || importAction.committing
@@ -45,11 +57,13 @@ export function GlobalUploadControl() {
         <Button
           type="button"
           variant="primary"
-          size="sm"
+          size={triggerSize}
           disabled={!importAction.available || pending}
+          className={triggerClassName}
+          aria-label={triggerAriaLabel}
           title={
-            importAction.available
-              ? t("Upload clip")
+            variant === "bottom-nav" || importAction.available
+              ? triggerLabel
               : t("Import is unavailable in this desktop build")
           }
           onClick={() => {
@@ -58,8 +72,7 @@ export function GlobalUploadControl() {
             void importAction.start()
           }}
         >
-          {pending ? <Loader2Icon className="animate-spin" /> : <UploadIcon />}
-          <span className="max-md:hidden">{t("Upload")}</span>
+          <UploadTriggerContent pending={pending} variant={variant} />
         </Button>
         {importAction.staged !== null ? (
           <Suspense fallback={null}>
@@ -87,15 +100,17 @@ export function GlobalUploadControl() {
       <Button
         type="button"
         variant="primary"
-        size="sm"
+        size={triggerSize}
+        className={triggerClassName}
+        aria-label={triggerAriaLabel}
         disabled={
           !webUploadAction.available ||
           pending ||
           webUploadAction.selected !== null
         }
         title={
-          webUploadAction.available
-            ? t("Upload clip")
+          variant === "bottom-nav" || webUploadAction.available
+            ? triggerLabel
             : t("Uploads are unavailable in this browser")
         }
         onClick={() => {
@@ -104,14 +119,28 @@ export function GlobalUploadControl() {
           inputRef.current?.click()
         }}
       >
-        {pending ? <Loader2Icon className="animate-spin" /> : <UploadIcon />}
-        <span className="max-md:hidden">{t("Upload")}</span>
+        <UploadTriggerContent pending={pending} variant={variant} />
       </Button>
       {webUploadAction.selected !== null ? (
         <Suspense fallback={null}>
           <WebUploadEditor action={webUploadAction} />
         </Suspense>
       ) : null}
+    </>
+  )
+}
+
+function UploadTriggerContent({
+  pending,
+  variant,
+}: {
+  pending: boolean
+  variant: GlobalUploadControlVariant
+}) {
+  return (
+    <>
+      {pending ? <Loader2Icon className="animate-spin" /> : <UploadIcon />}
+      {variant === "header" ? <span>{t("Upload")}</span> : null}
     </>
   )
 }
