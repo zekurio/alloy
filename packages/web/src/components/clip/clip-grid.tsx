@@ -17,7 +17,10 @@ export function ClipGrid({ className, ...props }: ComponentProps<"div">) {
         // Columns floor at 380px (the `TopClipsRow` deck slide width) and
         // stretch with `1fr` to fill the row, so there's no dead right gutter.
         "grid gap-x-4 gap-y-6 [grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr))]",
-        "[&>*]:[contain-intrinsic-size:260px] [&>*]:[content-visibility:auto]",
+        // content-visibility inside a scroll container has known iOS WebKit
+        // scroll-geometry bugs (wrong scrollHeight, unscrollable regions), so
+        // the render-skipping optimization is desktop-only.
+        "md:[&>*]:[contain-intrinsic-size:260px] md:[&>*]:[content-visibility:auto]",
       )}
       className={className}
       {...props}

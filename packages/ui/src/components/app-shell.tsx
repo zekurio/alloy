@@ -25,6 +25,13 @@ function AppShell({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
+const scrollRegionClass = cn(
+  "overflow-x-hidden overflow-y-auto p-4 md:p-6",
+  // Clear the fixed mobile bottom-nav (hidden on md+) so the last row of
+  // content isn't trapped behind it.
+  "max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)]",
+)
+
 /**
  * Main content region. Scrolls vertically; responsive side padding
  * (16px mobile -> 24px desktop) stays even on every side.
@@ -33,13 +40,35 @@ function AppMain({ className, ...props }: ComponentProps<"main">) {
   return (
     <main
       data-slot="app-main"
-      className={cn(
-        "overflow-x-hidden overflow-y-auto p-4 md:p-6",
-        // Clear the fixed mobile bottom-nav (hidden on md+) so the last row of
-        // content isn't trapped behind it.
-        "max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)]",
-        className,
-      )}
+      className={cn(scrollRegionClass, className)}
+      {...props}
+    />
+  )
+}
+
+/**
+ * AppMain variant for pages that pin a toolbar above the scrolling region:
+ * a non-scrolling column filling the main grid area. Render a pinned row
+ * (e.g. `PageToolbar pinned`) followed by `AppMainScroll`. Pinning by
+ * structure avoids `position: sticky` inside a scroll container, which is
+ * unreliable in mobile WebKit.
+ */
+function AppMainColumn({ className, ...props }: ComponentProps<"main">) {
+  return (
+    <main
+      data-slot="app-main"
+      className={cn("flex min-h-0 flex-col overflow-hidden", className)}
+      {...props}
+    />
+  )
+}
+
+/** Scrolling content region of `AppMainColumn`; carries AppMain's padding. */
+function AppMainScroll({ className, ...props }: ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="app-main-scroll"
+      className={cn("min-h-0 flex-1", scrollRegionClass, className)}
       {...props}
     />
   )
@@ -66,4 +95,4 @@ function DividerV({
   )
 }
 
-export { AppMain, AppShell, DividerV }
+export { AppMain, AppMainColumn, AppMainScroll, AppShell, DividerV }
