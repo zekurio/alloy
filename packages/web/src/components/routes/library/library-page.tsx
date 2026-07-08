@@ -1,6 +1,6 @@
 import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { AppMain } from "@alloy/ui/components/app-shell"
+import { AppMainColumn, AppMainScroll } from "@alloy/ui/components/app-shell"
 import {
   Empty,
   EmptyDescription,
@@ -80,40 +80,42 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
   }, [queue])
 
   return (
-    <AppMain>
-      <PageToolbar rail={false}>
+    <AppMainColumn>
+      <PageToolbar pinned rail={false}>
         <LibraryToolbar
           groups={model.groups}
           groupKey={groupKey}
           onGroupChange={setGroupKey}
         />
       </PageToolbar>
-      <section className="flex w-full flex-col gap-6">
-        <LibraryBody
-          entries={model.entries}
-          transferByClipId={transferMaps.byClipId}
-          transferByLocalCaptureId={transferMaps.byLocalCaptureId}
-          loading={model.loading}
-          error={model.error}
-          hasAnything={model.hasAnything}
-          query={deferredQuery}
-          onOpenLocal={(item) => {
-            void navigate({
-              to: "/library/$captureId",
-              params: { captureId: item.id },
-            })
-          }}
-          onOpenCloud={(row) => {
-            warmCloudClip(row)
-            void navigate({
-              to: "/library/clips/$clipId",
-              params: { clipId: row.id },
-            })
-          }}
-          onCloudIntent={warmCloudClip}
-        />
-      </section>
-    </AppMain>
+      <AppMainScroll>
+        <section className="flex w-full flex-col gap-6">
+          <LibraryBody
+            entries={model.entries}
+            transferByClipId={transferMaps.byClipId}
+            transferByLocalCaptureId={transferMaps.byLocalCaptureId}
+            loading={model.loading}
+            error={model.error}
+            hasAnything={model.hasAnything}
+            query={deferredQuery}
+            onOpenLocal={(item) => {
+              void navigate({
+                to: "/library/$captureId",
+                params: { captureId: item.id },
+              })
+            }}
+            onOpenCloud={(row) => {
+              warmCloudClip(row)
+              void navigate({
+                to: "/library/clips/$clipId",
+                params: { clipId: row.id },
+              })
+            }}
+            onCloudIntent={warmCloudClip}
+          />
+        </section>
+      </AppMainScroll>
+    </AppMainColumn>
   )
 }
 
