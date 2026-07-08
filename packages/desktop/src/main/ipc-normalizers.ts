@@ -274,8 +274,6 @@ function normalizeCaptureMention(
   return {
     id: record.id,
     username: typeof record.username === "string" ? record.username : "",
-    displayUsername:
-      typeof record.displayUsername === "string" ? record.displayUsername : "",
     image: typeof record.image === "string" ? record.image : null,
   }
 }

@@ -170,9 +170,9 @@ function ProfileMenuItems() {
   }
 
   const user = session.user
-  const handle = user.username ?? user.displayUsername ?? null
+  const handle = user.username ?? null
   const email = user.email ?? null
-  const primaryLabel = handle ? `@${handle}` : chip.name
+  const primaryLabel = handle ?? chip.name
 
   async function onSignOut() {
     try {

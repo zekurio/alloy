@@ -55,7 +55,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
   if (!first) return null
   const others = mentions.length - 1
   const preview = mentions.slice(0, 3)
-  const firstHandle = first.displayUsername || first.username
+  const firstHandle = first.username
 
   return (
     <>
@@ -87,7 +87,7 @@ function ClipMentionsRow({ mentions }: ClipMentionsRowProps) {
               "hover:text-accent focus-visible:text-accent focus-visible:outline-none",
             )}
           >
-            @{firstHandle}
+            {firstHandle}
           </Link>
           {others > 0
             ? t(" and {count} {label}", {

@@ -161,8 +161,7 @@ export const searchRoute = new Hono().get(
 
     const matchRank = sql<number>`CASE
       WHEN ${clip.title} ILIKE ${pattern} THEN 0
-      WHEN ${user.display_username} ILIKE ${pattern}
-        OR ${user.username} ILIKE ${pattern} THEN 1
+      WHEN ${user.username} ILIKE ${pattern} THEN 1
       WHEN ${game.name} ILIKE ${pattern}
         OR ${clip.game} ILIKE ${pattern} THEN 2
       WHEN ${clip.description} ILIKE ${pattern} THEN 3
@@ -181,7 +180,6 @@ export const searchRoute = new Hono().get(
             or(
               ilike(clip.title, pattern),
               ilike(clip.description, pattern),
-              ilike(user.display_username, pattern),
               ilike(user.username, pattern),
               ilike(game.name, pattern),
               ilike(clip.game, pattern),
@@ -209,15 +207,7 @@ export const searchRoute = new Hono().get(
             publicClipPrivacyCondition(),
           ),
         )
-        .where(
-          and(
-            or(
-              ilike(user.display_username, pattern),
-              ilike(user.username, pattern),
-            ),
-            isNull(user.disabled_at),
-          ),
-        )
+        .where(and(ilike(user.username, pattern), isNull(user.disabled_at)))
         .groupBy(user.id)
         .orderBy(sql`count(${clip.id}) desc`, user.username)
         .limit(limit),

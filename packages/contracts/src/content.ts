@@ -19,7 +19,6 @@ export interface PublicUser {
 export interface UserSummary {
   id: string
   username: string
-  displayUsername: string
   image: string | null
 }
 

@@ -9,7 +9,6 @@ import type { ClipPrivacy } from "./shared"
 export interface RecordingCaptureMention {
   id: string
   username: string
-  displayUsername: string
   image: string | null
 }
 

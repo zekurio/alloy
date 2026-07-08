@@ -80,7 +80,6 @@ async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
     .select({
       id: user.id,
       username: user.username,
-      displayUsername: user.display_username,
       image: user.image,
     })
     .from(clipMention)
