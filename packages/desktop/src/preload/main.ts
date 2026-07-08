@@ -6,6 +6,7 @@ import { contextBridge, ipcRenderer } from "electron"
 
 import type {
   AlloyDesktopMarker,
+  AlloyDesktopNotificationsApi,
   AlloyDesktopRecordingApi,
   AlloyDesktopServerApi,
 } from "@/shared/ipc"
@@ -98,6 +99,10 @@ const autostart: AlloyDesktopAutostartApi = {
   setEnabled: (enabled) => ipcRenderer.invoke(IPC.setAutostart, enabled),
 }
 
+const notifications: AlloyDesktopNotificationsApi = {
+  show: (input) => ipcRenderer.invoke(IPC.showNotification, input),
+}
+
 const marker: AlloyDesktopMarker = {
   platform: process.platform,
   // The main window is frameless; the web app header provides the draggable
@@ -113,6 +118,7 @@ const marker: AlloyDesktopMarker = {
   recording,
   updates,
   autostart,
+  notifications,
 }
 
 contextBridge.exposeInMainWorld("alloyDesktop", marker)

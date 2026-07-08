@@ -189,6 +189,21 @@ export class Windows {
     void openWebSettings(win, origin)
   }
 
+  showAndNavigate(path: string): void {
+    if (!path.startsWith("/")) {
+      this.showPrimary()
+      return
+    }
+    const win = this.main
+    const origin = this.mainOrigin
+    if (!win || win.isDestroyed() || !origin) {
+      this.showPrimary()
+      return
+    }
+    showWindow(win)
+    void openWebPath(win, origin, path)
+  }
+
   showPrimary(): boolean {
     const win = this.main ?? this.overlay
     if (!win || win.isDestroyed()) return false

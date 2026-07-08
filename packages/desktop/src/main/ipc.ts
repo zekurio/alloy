@@ -7,6 +7,7 @@ import { IPC } from "@/shared/ipc"
 
 import { getAutostartState, setAutostartEnabled } from "./autostart"
 import { loginViaBrowser } from "./browser-login"
+import { showDesktopNotification } from "./desktop-notification"
 import {
   requireControllableWindow,
   requireDesktopSender,
@@ -74,6 +75,7 @@ export function registerIpc(windows: Windows): void {
   registerRecordingIpc(windows)
   registerUpdateIpc(windows)
   registerAutostartIpc(windows)
+  registerNotificationIpc(windows)
 }
 
 function registerRecordingEvents(): void {
@@ -124,6 +126,13 @@ function registerAutostartIpc(windows: Windows): void {
   ipcMain.handle(IPC.setAutostart, (event, enabled: unknown) => {
     requireMainSender(windows, event)
     return setAutostartEnabled(enabled === true)
+  })
+}
+
+function registerNotificationIpc(windows: Windows): void {
+  ipcMain.handle(IPC.showNotification, (event, input: unknown) => {
+    requireMainSender(windows, event)
+    showDesktopNotification(windows, input)
   })
 }
 

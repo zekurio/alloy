@@ -1,4 +1,5 @@
 import { clip, clipLike, clipView } from "@alloy/db/schema"
+import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { applyViewerCookie, resolveViewer } from "@alloy/server/auth/viewer-key"
 import {
@@ -6,6 +7,7 @@ import {
   resolveClipAccess,
 } from "@alloy/server/clips/access"
 import { db } from "@alloy/server/db/index"
+import { createNotification } from "@alloy/server/notifications/service"
 import {
   booleanFlag,
   likeState,
@@ -16,6 +18,8 @@ import { Hono } from "hono"
 
 import { IdParam } from "./clips-helpers"
 import { zValidator } from "./validation"
+
+const logger = createLogger("clips-engagement")
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
@@ -76,19 +80,36 @@ export const clipsEngagementRoutes = new Hono()
       })
       if (!target.accessible) return clipAccessResponse(c, target)
 
-      const likeCount = await db.transaction(async (tx) => {
+      const result = await db.transaction(async (tx) => {
         const inserted = await tx
           .insert(clipLike)
           .values({ clip_id: id, user_id: viewerId })
           .onConflictDoNothing()
           .returning({ clipId: clipLike.clip_id })
         if (inserted.length > 0) {
-          return applyLikeCountDelta(tx, id, sql`${clip.like_count} + 1`)
+          return {
+            likeCount: await applyLikeCountDelta(
+              tx,
+              id,
+              sql`${clip.like_count} + 1`,
+            ),
+            created: true,
+          }
         }
-        return readLikeCount(tx, id)
+        return { likeCount: await readLikeCount(tx, id), created: false }
       })
 
-      return likeState(c, true, likeCount)
+      if (result.created) {
+        void createNotification({
+          recipientId: target.row.author_id,
+          actorId: viewerId,
+          kind: "clip_like",
+          clipId: id,
+          dedupKey: `clip_like:${id}:${viewerId}`,
+        }).catch((error) => logger.error("notification fan-out failed", error))
+      }
+
+      return likeState(c, true, result.likeCount)
     },
   )
   .delete(

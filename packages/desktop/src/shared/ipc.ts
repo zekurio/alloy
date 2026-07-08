@@ -1,5 +1,6 @@
 import type {
   AlloyDesktopAutostartApi,
+  AlloyDesktopNotificationsApi,
   AlloyDesktopUpdatesApi,
   PublicAuthConfig,
   RecordingActionResult,
@@ -28,6 +29,8 @@ import type {
 // truth shared with the web app); re-exported here so existing consumer
 // imports keep working.
 export type {
+  AlloyDesktopNotificationsApi,
+  DesktopNotificationInput,
   RecordingCaptureMention,
   RecordingLibraryItem,
   RecordingLibraryDownload,
@@ -61,6 +64,7 @@ export const IPC = {
   getCurrentServer: "alloy:get-current-server",
   forgetServer: "alloy:forget-server",
   openSettings: "alloy:open-settings",
+  showNotification: "alloy:show-notification",
   getRecordingSettings: "alloy:get-recording-settings",
   setRecordingSettings: "alloy:set-recording-settings",
   restartRecordingBackend: "alloy:restart-recording-backend",
@@ -235,4 +239,5 @@ export interface AlloyDesktopMarker {
   recording: AlloyDesktopRecordingApi
   updates: AlloyDesktopUpdatesApi
   autostart: AlloyDesktopAutostartApi
+  notifications: AlloyDesktopNotificationsApi
 }

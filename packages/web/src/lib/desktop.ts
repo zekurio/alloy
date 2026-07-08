@@ -1,5 +1,6 @@
 import type {
   AlloyDesktopAutostartApi,
+  AlloyDesktopNotificationsApi,
   AlloyDesktopUpdatesApi,
   RecordingActionResult,
   RecordingDisplay,
@@ -27,6 +28,8 @@ import type {
 // truth shared with the desktop main process); re-exported here so existing
 // consumer imports keep working.
 export type {
+  AlloyDesktopNotificationsApi,
+  DesktopNotificationInput,
   RecordingCaptureMention,
   RecordingLibraryItem,
   RecordingLibraryDownload,
@@ -143,6 +146,7 @@ export interface AlloyDesktop {
   updates?: AlloyDesktopUpdatesApi
   /** Missing on desktop shells that predate the autostart toggle. */
   autostart?: AlloyDesktopAutostartApi
+  notifications?: AlloyDesktopNotificationsApi
 }
 
 export function alloyDesktop(): AlloyDesktop | null {

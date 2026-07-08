@@ -3,6 +3,40 @@ export const DE_MESSAGES: Record<string, string> = {
   " and {count} {label}": "und {count} {label}",
   ". Do you want to show their profile anyway?":
     ". Möchtest du das Profil trotzdem anzeigen?",
+  Activities: "Aktivitäten",
+  Animals: "Tiere",
+  "Clip liked": "Clip geliked",
+  "Comment liked": "Kommentar geliked",
+  "Couldn't mark all notifications as read":
+    "Benachrichtigungen konnten nicht als gelesen markiert werden",
+  "Couldn't mark notification as read":
+    "Benachrichtigung konnte nicht als gelesen markiert werden",
+  "Enable browser notifications": "Browser-Benachrichtigungen aktivieren",
+  "Follows, comments, likes, and mentions appear here.":
+    "Follower, Kommentare, Likes und Erwähnungen erscheinen hier.",
+  Food: "Essen",
+  Gestures: "Gesten",
+  Hearts: "Herzen",
+  "Mark all read": "Alle als gelesen markieren",
+  "New comment": "Neuer Kommentar",
+  "New follower": "Neuer Follower",
+  "New reply": "Neue Antwort",
+  "No notifications yet": "Noch keine Benachrichtigungen",
+  Notifications: "Benachrichtigungen",
+  Objects: "Objekte",
+  "Recently used": "Zuletzt verwendet",
+  "Reconnecting…": "Verbindung wird wiederhergestellt…",
+  Symbols: "Symbole",
+  "You were mentioned": "Du wurdest erwähnt",
+  "{actor} commented on your clip": "{actor} hat deinen Clip kommentiert",
+  "{actor} followed you": "{actor} folgt dir jetzt",
+  "{actor} liked your clip": "{actor} hat deinen Clip geliked",
+  "{actor} liked your comment": "{actor} hat deinen Kommentar geliked",
+  "{actor} mentioned you in a clip": "{actor} hat dich in einem Clip erwähnt",
+  "{actor} mentioned you in a comment":
+    "{actor} hat dich in einem Kommentar erwähnt",
+  "{actor} replied to your comment":
+    "{actor} hat auf deinen Kommentar geantwortet",
   "…": "…",
   '"{label}" has no video track.': "„{label}“ hat keine Videospur.",
   '"{label}": the {codec} video codec can\'t be decoded for preview.':

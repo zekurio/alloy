@@ -519,6 +519,7 @@ function CommentRowView({
 
         <CommentBody
           body={isDeleted ? t("Deleted comment") : comment.body}
+          mentions={comment.mentions}
           expanded={expanded}
           isLong={isLong}
           edited={!isDeleted && comment.editedAt !== null}
