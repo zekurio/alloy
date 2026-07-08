@@ -29,7 +29,6 @@ type ClipsFilterBarProps = {
   sort: ProfileAllSort
   gameSlug: string | null
   gameOptions: GameOption[]
-  triggerVariant?: "chip" | "icon"
 }
 
 const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileAllSort>> = [
@@ -46,7 +45,6 @@ export function ClipsFilterBar({
   sort,
   gameSlug,
   gameOptions,
-  triggerVariant = "chip",
 }: ClipsFilterBarProps) {
   const navigate = useNavigate()
   const gameFilterOptions: FilterDropdownOption<string>[] = [
@@ -62,8 +60,6 @@ export function ClipsFilterBar({
   return (
     <>
       <SortDropdown
-        triggerLabel={t("Sort clips")}
-        triggerVariant={triggerVariant}
         value={sort}
         options={SORT_OPTIONS}
         renderOptionLink={(opt, active) => (
@@ -78,8 +74,6 @@ export function ClipsFilterBar({
 
       {gameOptions.length > 0 ? (
         <FilterDropdown
-          triggerLabel={t("Filter by game")}
-          triggerVariant={triggerVariant}
           value={gameSlug ?? ALL_GAMES}
           options={gameFilterOptions}
           searchPlaceholder={t("Search games…")}

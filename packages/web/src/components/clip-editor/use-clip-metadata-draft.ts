@@ -7,8 +7,6 @@ import {
   normalizeClipTitle,
 } from "@/lib/clip-fields"
 
-import { sameIdSet } from "./library-metadata"
-
 // The four clip editors (desktop publish, server clip dialog, web upload, and
 // the metadata sheet) all drive the same title/description/game/mentions/tags
 // form. Tags are canonical `string[]` here to match ClipMetadataEditor; callers
@@ -102,4 +100,11 @@ export function useClipMetadataDraft(
     tagsChanged,
     dirty,
   }
+}
+
+function sameIdSet(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false
+  const set = new Set(a)
+  for (const id of b) if (!set.has(id)) return false
+  return true
 }

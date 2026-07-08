@@ -3,6 +3,7 @@ import { t, tp } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
+import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { GlobeIcon, HashIcon } from "lucide-react"
@@ -18,8 +19,6 @@ import {
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
-import { useHeaderToolbar } from "@/components/layout/header-toolbar"
-import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { sanitizeTag } from "@/lib/clip-fields"
 import { formatCount } from "@/lib/number-format"
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -40,35 +39,14 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const tag = sanitizeTag(rawTag)
   const filters = tagFilters(search)
   const { data: summary } = useTagSummaryQuery(tag)
-  const toolbarSearchKey = JSON.stringify(search)
-  const toolbarSearch = useMemo(() => search, [toolbarSearchKey])
-  const toolbar = useMemo(
-    () =>
-      createHeaderToolbarControls({
-        desktop: (
-          <TagFilterBar
-            tag={tag}
-            search={toolbarSearch}
-            games={summary?.games}
-          />
-        ),
-        mobile: (
-          <TagFilterBar
-            tag={tag}
-            search={toolbarSearch}
-            games={summary?.games}
-            triggerVariant="icon"
-          />
-        ),
-      }),
-    [summary?.games, tag, toolbarSearch],
-  )
-  useHeaderToolbar(toolbar)
 
   return (
     <AppMain className="!px-4 md:!px-6">
-      <div className="flex w-full flex-col gap-5 md:gap-6">
+      <div className="flex w-full flex-col">
         <TagHeader tag={tag} clipCount={summary?.clipCount} />
+        <PageToolbar>
+          <TagFilterBar tag={tag} search={search} games={summary?.games} />
+        </PageToolbar>
 
         <TagClipsSection tag={tag} filters={filters} viewerId={viewerId} />
       </div>
@@ -91,20 +69,16 @@ function TagHeader({
   clipCount: number | undefined
 }) {
   return (
-    <header className="flex min-w-0 items-start gap-3">
-      <span className="border-border bg-surface-raised text-foreground-muted flex size-10 shrink-0 items-center justify-center rounded-lg border">
-        <HashIcon className="size-5" />
-      </span>
-      <div className="min-w-0">
-        <h1 className="text-foreground min-w-0 truncate text-2xl font-bold tracking-tight md:text-3xl">
-          {tag}
-        </h1>
-        {clipCount === undefined ? null : (
-          <p className="text-foreground-muted mt-0.5 text-sm font-semibold tabular-nums">
-            {clipCountLabel(clipCount)}
-          </p>
-        )}
-      </div>
+    <header className="mb-5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 md:mb-6">
+      <h1 className="text-foreground flex min-w-0 items-center gap-1 truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
+        <HashIcon className="text-foreground-faint size-[0.85em] shrink-0" />
+        <span className="min-w-0 truncate">{tag}</span>
+      </h1>
+      {clipCount === undefined ? null : (
+        <span className="text-foreground-muted shrink-0 text-sm font-medium tabular-nums">
+          {clipCountLabel(clipCount)}
+        </span>
+      )}
     </header>
   )
 }
@@ -113,12 +87,10 @@ function TagFilterBar({
   tag,
   search,
   games,
-  triggerVariant = "chip",
 }: {
   tag: string
   search: TagSearch
   games: GameListRow[] | undefined
-  triggerVariant?: "chip" | "icon"
 }) {
   const navigate = useNavigate()
   const filters = tagFilters(search)
@@ -138,8 +110,6 @@ function TagFilterBar({
   return (
     <>
       <SortDropdown
-        triggerLabel={t("Sort clips")}
-        triggerVariant={triggerVariant}
         value={filters.sort}
         options={SORTS}
         contentClassName="w-40"
@@ -158,8 +128,6 @@ function TagFilterBar({
 
       {games && games.length > 0 ? (
         <FilterDropdown
-          triggerLabel={t("Filter by game")}
-          triggerVariant={triggerVariant}
           value={activeGameId ?? ALL_GAMES}
           options={gameOptions}
           searchPlaceholder={t("Search games…")}

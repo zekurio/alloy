@@ -1,4 +1,3 @@
-import { Button } from "@alloy/ui/components/button"
 import { Chip } from "@alloy/ui/components/chip"
 import { cn } from "@alloy/ui/lib/utils"
 import { ChevronDownIcon } from "lucide-react"
@@ -7,27 +6,6 @@ import type { ComponentProps, ReactNode } from "react"
 /** Uppercase label rendered before a toolbar trigger (e.g. "Sort", "Game"). */
 export const filterLabelClass =
   "inline-flex h-7 items-center pr-0.5 text-2xs leading-3 font-semibold tracking-wide text-foreground-faint uppercase"
-
-export const toolbarIconButtonClass =
-  "h-7 min-w-7 rounded-md border-transparent bg-transparent px-1.5 text-foreground-muted shadow-none hover:border-border hover:bg-surface-raised/60 hover:text-foreground max-md:size-10 max-md:min-w-10 max-md:px-0 max-md:hover:border-transparent max-md:hover:bg-transparent [&_svg:not([class*='size-'])]:size-3.5"
-
-/**
- * Icon-only toolbar trigger. Defaults to the secondary/sm look shared by the
- * sort and filter dropdowns; pass `size`/`className` to tweak per call site.
- */
-export function ToolbarIconButton({
-  className,
-  ...props
-}: ComponentProps<typeof Button>) {
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      className={cn(toolbarIconButtonClass, className)}
-      {...props}
-    />
-  )
-}
 
 /**
  * Compact chip trigger showing the active option's icon + label and a trailing

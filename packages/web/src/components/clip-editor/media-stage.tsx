@@ -1,7 +1,7 @@
 import { cn } from "@alloy/ui/lib/utils"
 import type { CSSProperties, ReactNode } from "react"
 
-export function LibraryMediaStage({
+export function MediaStage({
   children,
   className,
   aspectRatio,

@@ -10,15 +10,11 @@ import {
 } from "@alloy/ui/components/combobox"
 import { InputGroupAddon } from "@alloy/ui/components/input-group"
 import { cn } from "@alloy/ui/lib/utils"
-import { FunnelIcon, SearchIcon } from "lucide-react"
+import { SearchIcon } from "lucide-react"
 import { useState } from "react"
 import type { ReactNode } from "react"
 
-import {
-  filterLabelClass,
-  ToolbarChipTrigger,
-  ToolbarIconButton,
-} from "./toolbar-controls"
+import { filterLabelClass, ToolbarChipTrigger } from "./toolbar-controls"
 
 /** Once the option count crosses this, the popup grows a search field. */
 const SEARCH_THRESHOLD = 8
@@ -35,8 +31,6 @@ export type FilterDropdownOption<K extends string> = {
 type FilterDropdownProps<K extends string> = {
   /** Optional uppercase label rendered before the trigger (e.g. "Game"). */
   label?: string
-  triggerLabel?: string
-  triggerVariant?: "chip" | "icon"
   value: K
   options: ReadonlyArray<FilterDropdownOption<K>>
   onSelect: (key: K) => void
@@ -55,8 +49,6 @@ type FilterDropdownProps<K extends string> = {
  */
 export function FilterDropdown<K extends string>({
   label,
-  triggerLabel,
-  triggerVariant = "chip",
   value,
   options,
   onSelect,
@@ -89,24 +81,14 @@ export function FilterDropdown<K extends string>({
       >
         <ComboboxTrigger
           render={
-            triggerVariant === "icon" ? (
-              <ToolbarIconButton
-                className="max-w-[8rem]"
-                aria-label={triggerLabel ?? label ?? t("Filter")}
-                title={triggerLabel ?? label ?? t("Filter")}
-              >
-                {current?.icon ?? <FunnelIcon />}
-              </ToolbarIconButton>
-            ) : (
-              <ToolbarChipTrigger icon={current?.icon} label={current?.label} />
-            )
+            <ToolbarChipTrigger icon={current?.icon} label={current?.label} />
           }
         />
         <ComboboxContent
-          align={triggerVariant === "icon" ? "end" : "start"}
+          align="start"
           className={cn(
             "alloy-blur border ring-0",
-            triggerVariant === "icon" ? "!w-64 !min-w-64" : "!w-56 !min-w-56",
+            "!w-56 !min-w-56",
             contentClassName,
           )}
         >

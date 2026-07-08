@@ -20,6 +20,16 @@ import { useNavigate } from "@tanstack/react-router"
 import { CloudIcon, ImageIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
+import {
+  MediaStage,
+  mediaAspectRatio,
+} from "@/components/clip-editor/media-stage"
+import { TrimTransportControls } from "@/components/clip-editor/transport-controls"
+import { TrimBar } from "@/components/clip-editor/trim-bar"
+import {
+  MIN_TRIM_MS,
+  useTrimPlayback,
+} from "@/components/clip-editor/use-trim-playback"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import { VideoPlayer } from "@/components/video/video-player"
 import { useSession } from "@/lib/auth-client"
@@ -40,10 +50,7 @@ import { useSpriteSheetFilmstrip } from "@/lib/media-filmstrip"
 
 import { ClipEditorTabs } from "./library-clip-editor-details"
 import { DeleteServerBackedDialog } from "./library-delete-dialog"
-import {
-  BackToLibraryButton,
-  TrimTransportControls,
-} from "./library-editor-shared"
+import { BackToLibraryButton } from "./library-editor-shared"
 import {
   LibraryEntryNavButton,
   type NavigableLibraryEntry,
@@ -59,10 +66,7 @@ import {
   setLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { finishLocalClipDelete } from "./library-local-actions"
-import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
 import { LibraryEmpty } from "./library-page"
-import { LibraryTrimBar } from "./library-trim-bar"
-import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
 
 /**
  * Edit view for an already-uploaded clip: the same stage-and-trimmer layout
@@ -345,7 +349,7 @@ function ClipEditorStage({
 }) {
   return (
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
-      <LibraryMediaStage aspectRatio={media.aspectRatio}>
+      <MediaStage aspectRatio={media.aspectRatio}>
         {media.playbackSrc ? (
           <VideoPlayer
             src={media.playbackSrc}
@@ -373,7 +377,7 @@ function ClipEditorStage({
           poster={media.publishHandoffPoster}
           ready={media.cloudFrameReady}
         />
-      </LibraryMediaStage>
+      </MediaStage>
 
       {processing ? (
         <ClipProcessingNotice progress={row.encodeProgress} />
@@ -453,7 +457,7 @@ function ClipEditorTrimControls({
           ) : undefined
         }
       />
-      <LibraryTrimBar
+      <TrimBar
         frames={media.filmstrip.frames}
         frameAspect={media.filmstrip.aspect}
         durationMs={playback.durationMs}
