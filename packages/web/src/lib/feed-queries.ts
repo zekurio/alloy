@@ -17,6 +17,15 @@ function filterKey(filter: FeedFilter): readonly unknown[] {
   return ["game", filter.gameId] as const
 }
 
+/**
+ * Stable string identity for a feed filter — derived from the query key so
+ * cache keys and UI ids (toasts, list keys) can never disagree about what
+ * distinguishes two filters.
+ */
+export function feedFilterId(filter: FeedFilter): string {
+  return filterKey(filter).join(":")
+}
+
 export const feedKeys = {
   all: ["feed"] as const,
   chips: () => [...feedKeys.all, "chips"] as const,
