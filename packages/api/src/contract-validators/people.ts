@@ -9,7 +9,11 @@ import {
   validateRequiredString,
   validateString,
 } from "@alloy/api/runtime-validation"
-import { type UserListRow, type UserSummary } from "@alloy/contracts"
+import {
+  type GameCreatorsResponse,
+  type UserListRow,
+  type UserSummary,
+} from "@alloy/contracts"
 
 export function validateUserSummary(
   value: unknown,
@@ -51,6 +55,25 @@ export function validateUserListRow(value: unknown): UserListRow {
     "Invalid user list response: clipCount must be a non-negative integer",
   )
   return value as UserListRow
+}
+
+export function validateGameCreatorsResponse(
+  value: unknown,
+): GameCreatorsResponse {
+  const response = objectRecord(value, "game creators")
+  validateArray(
+    response.creators,
+    "Invalid game creators response: creators must be an array",
+  ).map((item) => {
+    const row = objectRecord(item, "game creator")
+    validateUserSummary(row, "game creator")
+    validateNonNegativeInteger(
+      row.clipCount,
+      "Invalid game creators response: clipCount must be a non-negative integer",
+    )
+    return row
+  })
+  return value as GameCreatorsResponse
 }
 
 export function validateAccountStateResponse(value: unknown): {

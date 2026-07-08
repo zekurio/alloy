@@ -289,7 +289,7 @@ export interface CommentPage {
 export type FeedFilter =
   | { kind: "all" }
   | { kind: "following" }
-  | { kind: "game"; gameId: string }
+  | { kind: "game"; gameId: string; authorId?: string }
 
 export interface FeedPageParams {
   filter: FeedFilter
@@ -316,6 +316,14 @@ export interface FeedChipGame {
 
 export interface FeedChipsResponse {
   games: FeedChipGame[]
+}
+
+export interface GameCreator extends UserSummary {
+  clipCount: number
+}
+
+export interface GameCreatorsResponse {
+  creators: GameCreator[]
 }
 
 export interface TagClipsParams {
