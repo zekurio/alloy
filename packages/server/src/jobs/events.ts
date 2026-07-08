@@ -1,6 +1,5 @@
+import type { JobQueue } from "@alloy/contracts"
 import type { JobStatus } from "@alloy/db/schema"
-
-import type { JobQueue } from "./registry"
 
 export interface JobEvent {
   jobId: string

@@ -4,7 +4,13 @@ import type {
   AdminJobsSweeps,
   AdminSweepKind,
 } from "@alloy/api"
-import { ADMIN_SWEEP_KINDS } from "@alloy/contracts"
+import {
+  ADMIN_SWEEP_KINDS,
+  isJobKind,
+  isJobQueue,
+  type JobKind,
+  type JobQueue,
+} from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
@@ -52,7 +58,9 @@ import { errorMessage } from "@/lib/error-message"
 
 const RENDITIONS_SWEEP_KIND = "clip.renditions-sweep"
 
-const JOB_KIND_LABELS: Record<string, string> = {
+// Exhaustive over the contracts JOB_KINDS list: adding a job kind without a
+// dashboard label fails typecheck here.
+const JOB_KIND_LABELS: Record<JobKind, string> = {
   "clip.encode": t("Encode clip"),
   "clip.renditions-sweep": t("Rendition sweep"),
   "clip.source-probe-sweep": t("Source probe sweep"),
@@ -66,9 +74,10 @@ const JOB_KIND_LABELS: Record<string, string> = {
   "clip.reconcile": t("Reconcile encodes"),
   "auth.sweep-challenges": t("Sweep sign-in challenges"),
   "jobs.prune": t("Prune job history"),
+  "notification.prune": t("Prune notifications"),
 }
 
-const QUEUE_LABELS: Record<string, string> = {
+const QUEUE_LABELS: Record<JobQueue, string> = {
   encode: t("Encode"),
   io: t("I/O"),
   maintenance: t("Maintenance"),
@@ -79,7 +88,7 @@ const SWEEP_KINDS: ReadonlySet<string> = new Set<AdminSweepKind>(
 )
 
 function kindLabel(kind: string): string {
-  return JOB_KIND_LABELS[kind] ?? kind
+  return isJobKind(kind) ? JOB_KIND_LABELS[kind] : kind
 }
 
 export function AdminJobsCard({ hideHeader }: { hideHeader?: boolean }) {
@@ -358,7 +367,9 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
 function QueuePill({ queue }: { queue: string }) {
   return (
     <Badge size="text" className="bg-background shrink-0">
-      {QUEUE_LABELS[queue] ?? queue.charAt(0).toUpperCase() + queue.slice(1)}
+      {isJobQueue(queue)
+        ? QUEUE_LABELS[queue]
+        : queue.charAt(0).toUpperCase() + queue.slice(1)}
     </Badge>
   )
 }
