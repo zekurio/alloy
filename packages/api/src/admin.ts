@@ -270,7 +270,16 @@ async function createGame(
   context: ApiContext,
   input: AdminCreateGameInput,
 ): Promise<AdminGameRow> {
-  const res = await context.rpc.api.admin.games.$post({ json: input })
+  const res = await context.rpc.api.admin.games.$post({
+    form: {
+      name: input.name,
+      ...(input.releaseDate ? { releaseDate: input.releaseDate } : {}),
+      ...(input.assets?.hero ? { hero: input.assets.hero } : {}),
+      ...(input.assets?.grid ? { grid: input.assets.grid } : {}),
+      ...(input.assets?.logo ? { logo: input.assets.logo } : {}),
+      ...(input.assets?.icon ? { icon: input.assets.icon } : {}),
+    },
+  })
   return readJsonOrThrow(res, validateAdminGameRow)
 }
 

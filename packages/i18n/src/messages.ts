@@ -208,6 +208,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Checking...": "Wird geprüft...",
   "Checking encoders...": "Encoder werden geprüft...",
   "Checking for updates": "Suche nach Updates",
+  Choose: "Auswählen",
+  "Choose {label}": "{label} auswählen",
   "Choose an Alloy server to sign in.":
     "Wähle einen Alloy-Server zum Anmelden aus.",
   "Choose an MP4 video file.": "Wähle eine MP4-Videodatei aus.",
@@ -729,6 +731,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Mute: "Stumm",
   Name: "Name",
   "Name (optional)": "Name (optional)",
+  "Name the game and attach its artwork in one step.":
+    "Benenne das Spiel und füge sein Artwork in einem Schritt hinzu.",
   "Network error while loading the video.":
     "Netzwerkfehler beim Laden des Videos.",
   "Never record": "Nie aufnehmen",
@@ -811,6 +815,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Öffne Alloy in der Desktop-App, um auf diesem Gerät gespeicherte Aufnahmen zu bearbeiten.",
   "Open draft {title}": "Entwurf {title} öffnen",
   Optional: "Optional",
+  "Optional — each role has its own shape.":
+    "Optional — jede Rolle hat ihre eigene Form.",
   or: "oder",
   Original: "Original",
   other: "weiterer Nutzer",
@@ -957,6 +963,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Render saved to your library": "Rendering in deiner Bibliothek gespeichert",
   "Render video": "Video rendern",
   "Rendering video": "Video wird gerendert",
+  Replace: "Ersetzen",
   "Replay buffer": "Replay-Puffer",
   "Replay buffer active": "Replay-Puffer aktiv",
   "Replay buffer started": "Replay-Puffer gestartet",
