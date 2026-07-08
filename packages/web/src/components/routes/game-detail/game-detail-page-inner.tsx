@@ -71,7 +71,7 @@ export function GameDetailPageInner({
 
   return (
     <AppMain className="!px-0 !pt-0">
-      <div className="flex w-full flex-col gap-6">
+      <div className="flex w-full flex-col">
         {error ? (
           <EmptyState
             seed={`game-${gameId}-error`}

@@ -33,7 +33,7 @@ export function FilterCarousel({ children, className }: FilterCarouselProps) {
       className={cn("group", className)}
       opts={{ align: "start", dragFree: true }}
     >
-      <CarouselContent className="-ml-2">
+      <CarouselContent className="-ml-2" edgeFade>
         {Children.map(children, (child) =>
           child == null ? null : (
             <CarouselItem className="basis-auto pl-2">{child}</CarouselItem>
