@@ -1,5 +1,6 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { cn } from "@alloy/ui/lib/utils"
 import { Loader2Icon, UploadIcon } from "lucide-react"
 import { Suspense, lazy, useRef } from "react"
 
@@ -137,9 +138,16 @@ function UploadTriggerContent({
   pending: boolean
   variant: GlobalUploadControlVariant
 }) {
+  // Match the 22px glyphs of the neighboring bottom-nav tabs; the explicit
+  // size- class opts out of Button's default svg sizing.
+  const iconClass = variant === "bottom-nav" ? "size-[22px]" : undefined
   return (
     <>
-      {pending ? <Loader2Icon className="animate-spin" /> : <UploadIcon />}
+      {pending ? (
+        <Loader2Icon className={cn("animate-spin", iconClass)} />
+      ) : (
+        <UploadIcon className={iconClass} />
+      )}
       {variant === "header" ? <span>{t("Upload")}</span> : null}
     </>
   )

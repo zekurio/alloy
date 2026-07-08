@@ -1,5 +1,5 @@
 import type { ClipFeedSort } from "@alloy/api"
-import { AppMain } from "@alloy/ui/components/app-shell"
+import { AppMainColumn, AppMainScroll } from "@alloy/ui/components/app-shell"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Link, useSearch } from "@tanstack/react-router"
 import { useMemo } from "react"
@@ -42,14 +42,16 @@ export function HomePageInner() {
   )
 
   return (
-    <AppMain>
-      <PageToolbar rail={false} className="-mt-4 md:-mt-6">
+    <AppMainColumn>
+      <PageToolbar pinned rail={false}>
         <FeedChipBar filter={filter} search={toolbarSearch} />
         <div className="shrink-0">{sortControl}</div>
       </PageToolbar>
-      <section className="flex w-full flex-col gap-6">
-        <FeedSection filter={filter} sort={sort} viewerId={viewerId} />
-      </section>
-    </AppMain>
+      <AppMainScroll>
+        <section className="flex w-full flex-col gap-6">
+          <FeedSection filter={filter} sort={sort} viewerId={viewerId} />
+        </section>
+      </AppMainScroll>
+    </AppMainColumn>
   )
 }

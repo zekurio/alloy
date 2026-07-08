@@ -80,7 +80,7 @@ function UserProfileLayout() {
   const gated = isBlockedView && !revealed
 
   return (
-    <AppMain className="!px-0 !py-0">
+    <AppMain className="!px-0 !pt-0">
       <div
         aria-hidden={gated ? true : undefined}
         className={gated ? "pointer-events-none select-none" : undefined}
@@ -103,7 +103,7 @@ function UserProfileLayout() {
           <ProfileIdentitySkeleton />
         )}
 
-        <div className="px-4 pb-4 md:px-6 md:pb-6">
+        <div className="px-4 md:px-6">
           <ProfileTabsNav username={username} />
           <Outlet />
         </div>
