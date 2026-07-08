@@ -63,7 +63,7 @@ function movedPastTrimThreshold(
   )
 }
 
-export function LibraryTrimBar({
+export function TrimBar({
   frames,
   frameAspect,
   durationMs,

@@ -10,18 +10,18 @@ import {
 } from "@alloy/ui/components/dropdown-menu"
 import { ChevronUpIcon, Link2Icon, Loader2Icon, UploadIcon } from "lucide-react"
 
-import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
-import { TrimTransportControls } from "@/components/routes/library/library-editor-shared"
 import {
-  LibraryMediaStage,
+  MediaStage,
   mediaAspectRatio,
-} from "@/components/routes/library/library-media-stage"
-import { LibraryTrimBar } from "@/components/routes/library/library-trim-bar"
-import { useClipMetadataDraft } from "@/components/routes/library/use-clip-metadata-draft"
+} from "@/components/clip-editor/media-stage"
+import { TrimTransportControls } from "@/components/clip-editor/transport-controls"
+import { TrimBar } from "@/components/clip-editor/trim-bar"
+import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
 import {
   MIN_TRIM_MS,
   useTrimPlayback,
-} from "@/components/routes/library/use-trim-playback"
+} from "@/components/clip-editor/use-trim-playback"
+import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import {
   stripExtension,
   type SelectedFile,
@@ -47,6 +47,7 @@ export function WebUploadEditor({ action }: { action: WebUploadAction }) {
       onOpenChange={(next) => {
         if (!next) action.discard()
       }}
+      disablePointerDismissal
     >
       <DialogViewportContent className="flex flex-col p-0">
         {open && action.selected && action.previewUrl ? (
@@ -133,7 +134,7 @@ function WebUploadEditorInner({
       <section className="flex min-h-0 w-full flex-1 flex-col">
         <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
           <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
-            <LibraryMediaStage aspectRatio={aspectRatio}>
+            <MediaStage aspectRatio={aspectRatio}>
               <VideoPlayer
                 src={previewUrl}
                 sourceIdentity={previewUrl}
@@ -148,11 +149,11 @@ function WebUploadEditorInner({
                 onEnded={playback.handleEnded}
                 className="overflow-hidden rounded-md"
               />
-            </LibraryMediaStage>
+            </MediaStage>
 
             <TrimTransportControls playback={playback} />
 
-            <LibraryTrimBar
+            <TrimBar
               frames={filmstrip.frames}
               frameAspect={filmstrip.aspect}
               durationMs={playback.durationMs}

@@ -1,16 +1,28 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Loader2Icon, UploadIcon } from "lucide-react"
-import { useRef } from "react"
+import { Suspense, lazy, useRef } from "react"
 
-import {
-  ImportClipDetailsDialog,
-  useLibraryImportAction,
-} from "@/components/routes/library/library-import-action"
-import { ACCEPT_LIST } from "@/components/upload/new-clip-helpers"
-import { useWebUploadAction } from "@/components/upload/web-upload-action"
-import { WebUploadEditor } from "@/components/upload/web-upload-editor"
 import { alloyDesktop } from "@/lib/desktop"
+
+import { useImportClipAction } from "./import-clip-action"
+import { ACCEPT_LIST } from "./new-clip-helpers"
+import { useWebUploadAction } from "./web-upload-action"
+
+const loadImportClipDialog = async () => {
+  // Static import would pull this dialog into the eager header chunk.
+  const module = await import("./import-clip-dialog")
+  return { default: module.ImportClipDetailsDialog }
+}
+
+const loadWebUploadEditor = async () => {
+  // Static import would pull the editor surface into the eager header chunk.
+  const module = await import("./web-upload-editor")
+  return { default: module.WebUploadEditor }
+}
+
+const ImportClipDetailsDialog = lazy(loadImportClipDialog)
+const WebUploadEditor = lazy(loadWebUploadEditor)
 
 /**
  * Global "Upload" entry point, mounted once in the header so a clip can be
@@ -22,7 +34,7 @@ import { alloyDesktop } from "@/lib/desktop"
  */
 export function GlobalUploadControl() {
   const desktop = alloyDesktop()
-  const importAction = useLibraryImportAction(desktop)
+  const importAction = useImportClipAction(desktop)
   const webUploadAction = useWebUploadAction()
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -41,13 +53,19 @@ export function GlobalUploadControl() {
               : t("Import is unavailable in this desktop build")
           }
           onClick={() => {
+            // Warm the chunk; lazy() re-fetches on mount if this fails.
+            void loadImportClipDialog().catch(() => {})
             void importAction.start()
           }}
         >
           {pending ? <Loader2Icon className="animate-spin" /> : <UploadIcon />}
           <span className="max-md:hidden">{t("Upload")}</span>
         </Button>
-        <ImportClipDetailsDialog action={importAction} />
+        {importAction.staged !== null ? (
+          <Suspense fallback={null}>
+            <ImportClipDetailsDialog action={importAction} />
+          </Suspense>
+        ) : null}
       </>
     )
   }
@@ -81,13 +99,19 @@ export function GlobalUploadControl() {
             : t("Uploads are unavailable in this browser")
         }
         onClick={() => {
+          // Warm the chunk; lazy() re-fetches on mount if this fails.
+          void loadWebUploadEditor().catch(() => {})
           inputRef.current?.click()
         }}
       >
         {pending ? <Loader2Icon className="animate-spin" /> : <UploadIcon />}
         <span className="max-md:hidden">{t("Upload")}</span>
       </Button>
-      <WebUploadEditor action={webUploadAction} />
+      {webUploadAction.selected !== null ? (
+        <Suspense fallback={null}>
+          <WebUploadEditor action={webUploadAction} />
+        </Suspense>
+      ) : null}
     </>
   )
 }

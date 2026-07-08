@@ -39,19 +39,13 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const tag = sanitizeTag(rawTag)
   const filters = tagFilters(search)
   const { data: summary } = useTagSummaryQuery(tag)
-  const toolbarSearchKey = JSON.stringify(search)
-  const toolbarSearch = useMemo(() => search, [toolbarSearchKey])
 
   return (
     <AppMain className="!px-4 md:!px-6">
       <div className="flex w-full flex-col">
         <TagHeader tag={tag} clipCount={summary?.clipCount} />
         <PageToolbar>
-          <TagFilterBar
-            tag={tag}
-            search={toolbarSearch}
-            games={summary?.games}
-          />
+          <TagFilterBar tag={tag} search={search} games={summary?.games} />
         </PageToolbar>
 
         <TagClipsSection tag={tag} filters={filters} viewerId={viewerId} />
