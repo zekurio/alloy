@@ -3,6 +3,7 @@ import { Suspense, lazy } from "react"
 
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 import { userClipsQueryOptions } from "@/lib/clip-queries"
+import { librarySort, parseLibrarySearch } from "@/lib/library-search"
 
 const loadLibraryPage = async () => {
   const module = await import("@/components/routes/library/library-page")
@@ -12,6 +13,7 @@ const loadLibraryPage = async () => {
 const LibraryPage = lazy(loadLibraryPage)
 
 export const Route = createFileRoute("/(app)/_app/library/")({
+  validateSearch: parseLibrarySearch,
   beforeLoad: requireStrictAuthBeforeLoad,
   loader: ({ context }) => {
     const handle = context.session?.user.username
@@ -23,9 +25,10 @@ export const Route = createFileRoute("/(app)/_app/library/")({
 })
 
 function LibraryIndexPage() {
+  const search = Route.useSearch()
   return (
     <Suspense fallback={null}>
-      <LibraryPage />
+      <LibraryPage sort={librarySort(search)} />
     </Suspense>
   )
 }

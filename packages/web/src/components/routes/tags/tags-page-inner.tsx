@@ -69,7 +69,7 @@ function TagHeader({
   clipCount: number | undefined
 }) {
   return (
-    <header className="mb-5 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 md:mb-6">
+    <header className="mb-4 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 md:mb-6">
       <h1 className="text-foreground flex min-w-0 items-center gap-1 truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
         <HashIcon className="text-foreground-faint size-[0.85em] shrink-0" />
         <span className="min-w-0 truncate">{tag}</span>

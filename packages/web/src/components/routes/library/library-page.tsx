@@ -12,7 +12,7 @@ import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { BanIcon, GlobeIcon, HardDriveIcon, LibraryIcon } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 import type { ReactNode } from "react"
@@ -22,12 +22,17 @@ import {
   FilterChipRail,
   type FilterChipOption,
 } from "@/components/clip/filter-chip-rail"
+import {
+  SortDropdown,
+  type SortDropdownOption,
+} from "@/components/clip/sort-dropdown"
 import { useAppSearch } from "@/components/search/app-search"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
+import type { LibrarySort } from "@/lib/library-search"
 
 import {
   buildLibraryGroups,
@@ -45,11 +50,22 @@ import {
 } from "./library-entries"
 import { LibraryCaptureCard, UploadedClipCard } from "./library-entry-cards"
 
-export function LibraryPage() {
-  return <LibraryContent desktop={alloyDesktop()} />
+const LIBRARY_SORT_OPTIONS: ReadonlyArray<SortDropdownOption<LibrarySort>> = [
+  { key: "recent", label: t("Newest") },
+  { key: "oldest", label: t("Oldest") },
+]
+
+export function LibraryPage({ sort }: { sort: LibrarySort }) {
+  return <LibraryContent desktop={alloyDesktop()} sort={sort} />
 }
 
-function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
+function LibraryContent({
+  desktop,
+  sort,
+}: {
+  desktop: AlloyDesktop | null
+  sort: LibrarySort
+}) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { deferredQuery } = useAppSearch()
@@ -61,6 +77,11 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
     query: deferredQuery,
     groupKey,
   })
+  // Entries arrive newest-first from the model; "oldest" is its mirror.
+  const orderedEntries = useMemo(
+    () => (sort === "oldest" ? model.entries.toReversed() : model.entries),
+    [model.entries, sort],
+  )
   const warmCloudClip = useCallback(
     (row: ClipRow) => warmClipDetailCache(queryClient, row),
     [queryClient],
@@ -87,11 +108,27 @@ function LibraryContent({ desktop }: { desktop: AlloyDesktop | null }) {
           groupKey={groupKey}
           onGroupChange={setGroupKey}
         />
+        <div className="shrink-0">
+          <SortDropdown
+            value={sort}
+            options={LIBRARY_SORT_OPTIONS}
+            renderOptionLink={(opt, active) => (
+              <Link
+                to="/library"
+                search={{
+                  // The default sort stays out of the URL.
+                  sort: opt.key === "recent" ? undefined : opt.key,
+                }}
+                data-active={active ? "true" : undefined}
+              />
+            )}
+          />
+        </div>
       </PageToolbar>
       <AppMainScroll>
         <section className="flex w-full flex-col gap-6">
           <LibraryBody
-            entries={model.entries}
+            entries={orderedEntries}
             transferByClipId={transferMaps.byClipId}
             transferByLocalCaptureId={transferMaps.byLocalCaptureId}
             loading={model.loading}
