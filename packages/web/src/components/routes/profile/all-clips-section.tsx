@@ -1,10 +1,9 @@
 import type { UserClip } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useMemo } from "react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
-import { useHeaderToolbar } from "@/components/layout/header-toolbar"
-import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { compareDateAsc, compareDateDesc } from "@/lib/date-format"
 import type { ProfileAllSort } from "@/lib/profile-all-search"
 import { useQueryErrorToast } from "@/lib/use-query-error-toast"
@@ -76,33 +75,16 @@ export function AllClipsSection({
     return sortClips(byGame, sort)
   }, [clips, gameSlug, sort])
 
-  const toolbar = useMemo(
-    () =>
-      createHeaderToolbarControls({
-        desktop: (
-          <ClipsFilterBar
-            username={username}
-            sort={sort}
-            gameSlug={gameSlug}
-            gameOptions={gameOptions}
-          />
-        ),
-        mobile: (
-          <ClipsFilterBar
-            username={username}
-            sort={sort}
-            gameSlug={gameSlug}
-            gameOptions={gameOptions}
-            triggerVariant="icon"
-          />
-        ),
-      }),
-    [gameOptions, gameSlug, sort, username],
-  )
-  useHeaderToolbar(toolbar)
-
   return (
     <section>
+      <PageToolbar>
+        <ClipsFilterBar
+          username={username}
+          sort={sort}
+          gameSlug={gameSlug}
+          gameOptions={gameOptions}
+        />
+      </PageToolbar>
       <ClipSectionContent
         rows={visible}
         error={error}

@@ -1,7 +1,7 @@
 import type { ClipPrivacy } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
+import { Dialog, DialogViewportContent } from "@alloy/ui/components/dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,9 +9,19 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { ChevronUpIcon, Link2Icon, Loader2Icon, UploadIcon } from "lucide-react"
-import { useEffect } from "react"
 
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
+import { TrimTransportControls } from "@/components/routes/library/library-editor-shared"
+import {
+  LibraryMediaStage,
+  mediaAspectRatio,
+} from "@/components/routes/library/library-media-stage"
+import { LibraryTrimBar } from "@/components/routes/library/library-trim-bar"
+import { useClipMetadataDraft } from "@/components/routes/library/use-clip-metadata-draft"
+import {
+  MIN_TRIM_MS,
+  useTrimPlayback,
+} from "@/components/routes/library/use-trim-playback"
 import {
   stripExtension,
   type SelectedFile,
@@ -20,41 +30,40 @@ import { VideoPlayer } from "@/components/video/video-player"
 import { CLIP_DESCRIPTION_MAX, formatTags } from "@/lib/clip-fields"
 import { useMediaFilmstrip } from "@/lib/media-filmstrip"
 
-import { TrimTransportControls } from "./library-editor-shared"
-import { LibraryMediaStage, mediaAspectRatio } from "./library-media-stage"
-import { LibraryTrimBar } from "./library-trim-bar"
-import type {
-  LibraryWebUploadAction,
-  WebUploadMetadata,
-} from "./library-web-upload-action"
-import { useClipMetadataDraft } from "./use-clip-metadata-draft"
-import { MIN_TRIM_MS, useTrimPlayback } from "./use-trim-playback"
+import type { WebUploadAction, WebUploadMetadata } from "./web-upload-action"
 
 /**
  * Web upload editor: the same stage-and-trimmer layout as the library clip
- * editor, driven off the locally picked File. Renders as the main content
- * region (the app sidebar and header stay in place), and trim, metadata, and
+ * editor, driven off the locally picked File, presented as a global
+ * full-viewport dialog reachable from any route. Trim, metadata, and
  * Post/Create Link all happen here before a single byte is uploaded — the
  * file uploads untouched and the server derives the trim cut at ingest.
  */
-export function WebUploadEditor({
-  action,
-}: {
-  action: LibraryWebUploadAction
-}) {
-  if (!action.selected || !action.previewUrl) return null
+export function WebUploadEditor({ action }: { action: WebUploadAction }) {
+  const open = action.selected !== null && action.previewUrl !== null
   return (
-    <WebUploadEditorInner
-      // Reset editor state when a different file is picked.
-      key={`${action.selected.name}:${action.selected.sizeBytes}`}
-      selected={action.selected}
-      previewUrl={action.previewUrl}
-      pending={action.publishing}
-      onCancel={action.discard}
-      onPublish={(metadata) => {
-        void action.publish(metadata)
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) action.discard()
       }}
-    />
+    >
+      <DialogViewportContent className="flex flex-col p-0">
+        {open && action.selected && action.previewUrl ? (
+          <WebUploadEditorInner
+            // Reset editor state when a different file is picked.
+            key={`${action.selected.name}:${action.selected.sizeBytes}`}
+            selected={action.selected}
+            previewUrl={action.previewUrl}
+            pending={action.publishing}
+            onCancel={action.discard}
+            onPublish={(metadata) => {
+              void action.publish(metadata)
+            }}
+          />
+        ) : null}
+      </DialogViewportContent>
+    </Dialog>
   )
 }
 
@@ -101,14 +110,6 @@ function WebUploadEditorInner({
   const canPublish =
     !pending && !titleInvalid && !descriptionInvalid && rangeMs >= MIN_TRIM_MS
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !pending) onCancel()
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [pending, onCancel])
-
   const submit = (privacy: ClipPrivacy) => {
     if (!canPublish) return
     onPublish({
@@ -124,7 +125,7 @@ function WebUploadEditorInner({
   }
 
   return (
-    <AppMain className="flex min-h-0 flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-4 overflow-y-auto p-4 md:p-6">
       <h1 className="text-foreground text-base font-semibold">
         {t("Upload clip")}
       </h1>
@@ -244,6 +245,6 @@ function WebUploadEditorInner({
           </aside>
         </div>
       </section>
-    </AppMain>
+    </div>
   )
 }

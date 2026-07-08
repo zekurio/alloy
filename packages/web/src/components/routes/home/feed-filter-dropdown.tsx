@@ -14,7 +14,6 @@ import type { HomeSearch } from "@/lib/home-search"
 type FeedFilterDropdownProps = {
   filter: FeedFilter
   search: HomeSearch
-  triggerVariant?: "chip" | "icon"
 }
 
 const SCOPE_ALL = "all"
@@ -39,7 +38,6 @@ function searchForKey(search: HomeSearch, key: string): HomeSearch {
 export function FeedFilterDropdown({
   filter,
   search,
-  triggerVariant,
 }: FeedFilterDropdownProps) {
   const navigate = useNavigate()
   const { data } = useFeedChipsQuery()
@@ -59,8 +57,6 @@ export function FeedFilterDropdown({
     <FilterDropdown
       value={filterKey(filter)}
       options={options}
-      triggerLabel={t("Filter")}
-      triggerVariant={triggerVariant}
       searchPlaceholder={t("Search games…")}
       onSelect={(key) => {
         void navigate({ to: "/", search: searchForKey(search, key) })

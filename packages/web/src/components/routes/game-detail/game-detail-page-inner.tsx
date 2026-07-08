@@ -1,14 +1,12 @@
 import type { ClipFeedSort } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
+import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link } from "@tanstack/react-router"
-import { useMemo } from "react"
 
 import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
-import { useHeaderToolbar } from "@/components/layout/header-toolbar"
-import { createHeaderToolbarControls } from "@/components/layout/header-toolbar-controls"
 import { FeedSection } from "@/components/routes/home/feed-section"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
@@ -30,44 +28,20 @@ export function GameDetailPageInner({
   const session = useSuspenseSession()
   const viewerId = session?.user.id
 
-  const toolbar = useMemo(() => {
-    const renderOptionLink = (
-      opt: (typeof CLIP_SORT_OPTIONS)[number],
-      active: boolean,
-    ) => (
-      <Link
-        to="/games/$gameId"
-        params={{ gameId }}
-        search={{
-          // The default sort stays out of the URL.
-          sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
-        }}
-        data-active={active ? "true" : undefined}
-      />
-    )
-
-    return createHeaderToolbarControls({
-      desktop: (
-        <SortDropdown
-          value={sort}
-          options={CLIP_SORT_OPTIONS}
-          contentClassName="w-40"
-          renderOptionLink={renderOptionLink}
-        />
-      ),
-      mobile: (
-        <SortDropdown
-          triggerVariant="icon"
-          triggerLabel={t("Sort")}
-          value={sort}
-          options={CLIP_SORT_OPTIONS}
-          contentClassName="!w-40 !min-w-40"
-          renderOptionLink={renderOptionLink}
-        />
-      ),
-    })
-  }, [gameId, sort])
-  useHeaderToolbar(toolbar)
+  const renderOptionLink = (
+    opt: (typeof CLIP_SORT_OPTIONS)[number],
+    active: boolean,
+  ) => (
+    <Link
+      to="/games/$gameId"
+      params={{ gameId }}
+      search={{
+        // The default sort stays out of the URL.
+        sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
+      }}
+      data-active={active ? "true" : undefined}
+    />
+  )
 
   const {
     data: game,
@@ -97,7 +71,15 @@ export function GameDetailPageInner({
         ) : (
           <>
             <GameHeader game={game} viewerId={viewerId ?? null} />
-            <div className="flex flex-col gap-4 px-4 pb-4 md:px-6 md:pb-6">
+            <div className="flex flex-col px-4 pb-4 md:px-6 md:pb-6">
+              <PageToolbar>
+                <SortDropdown
+                  value={sort}
+                  options={CLIP_SORT_OPTIONS}
+                  contentClassName="w-40"
+                  renderOptionLink={renderOptionLink}
+                />
+              </PageToolbar>
               <FeedSection
                 filter={{ kind: "game", gameId: game.id }}
                 sort={sort}

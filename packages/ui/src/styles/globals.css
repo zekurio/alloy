@@ -910,10 +910,6 @@
     padding-inline: 0.5rem;
   }
 
-  [data-slot="app-header"]:has([data-slot="app-header-actions"]) {
-    grid-template-columns: 2.75rem minmax(0, 1fr) max-content max-content;
-  }
-
   [data-slot="app-header-brand"] {
     justify-self: start;
   }
@@ -922,25 +918,16 @@
     grid-column-start: 2;
   }
 
-  [data-slot="app-header-toolbar"] {
-    grid-column-start: 3;
-  }
-
   [data-slot="app-header-actions"] {
     grid-column-start: 3;
     justify-self: end;
-  }
-
-  [data-slot="app-header"]:has([data-slot="app-header-toolbar"])
-    [data-slot="app-header-actions"] {
-    grid-column-start: 4;
   }
 
   [data-slot="app-header"]:has(
     [data-slot="app-header-search"][data-expanded="true"]
   ) {
     column-gap: 0;
-    grid-template-columns: 0 minmax(0, 1fr) 0 0;
+    grid-template-columns: 0 minmax(0, 1fr) 0;
     padding-inline: calc((var(--header-h) - 2rem) / 2);
   }
 
@@ -954,11 +941,7 @@
   [data-slot="app-header"]:has(
       [data-slot="app-header-search"][data-expanded="true"]
     )
-    :where(
-      [data-slot="app-header-brand"],
-      [data-slot="app-header-toolbar"],
-      [data-slot="app-header-actions"]
-    ) {
+    :where([data-slot="app-header-brand"], [data-slot="app-header-actions"]) {
     opacity: 0;
   }
 }
