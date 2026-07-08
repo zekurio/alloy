@@ -4,9 +4,9 @@ import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
-import { HardDriveIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
+import { EmptyState } from "@/components/feedback/empty-state"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
@@ -16,7 +16,6 @@ import {
   useLibraryEntryNavigation,
   useNavigateToLibraryEntry,
 } from "./library-entry-navigation"
-import { LibraryEmpty } from "./library-page"
 
 export function LibraryEditorPage({
   captureId,
@@ -30,10 +29,12 @@ export function LibraryEditorPage({
   if (!desktop) {
     return (
       <AppMain>
-        <LibraryEmpty
-          icon={<HardDriveIcon />}
+        <EmptyState
+          seed="library-desktop-only"
+          size="lg"
+          fill
           title={t("The library is only available in Alloy Desktop")}
-          description={t(
+          hint={t(
             "Open Alloy in the desktop app to edit captures stored on this device.",
           )}
         />
@@ -102,13 +103,14 @@ function LibraryEditorContent({
   if (error) {
     return (
       <AppMain>
-        <LibraryEmpty
-          icon={<HardDriveIcon />}
+        <EmptyState
+          seed="library-scan-error"
+          size="lg"
+          fill
           title={t("Couldn't scan the library")}
-          description={error}
-        >
-          <BackToLibraryButton />
-        </LibraryEmpty>
+          hint={error}
+          action={<BackToLibraryButton />}
+        />
       </AppMain>
     )
   }
@@ -140,15 +142,14 @@ function LibraryEditorContent({
   if (!item) {
     return (
       <AppMain>
-        <LibraryEmpty
-          icon={<HardDriveIcon />}
+        <EmptyState
+          seed="library-capture-not-found"
+          size="lg"
+          fill
           title={t("Capture not found")}
-          description={t(
-            "It may have been moved or deleted from the capture folder.",
-          )}
-        >
-          <BackToLibraryButton />
-        </LibraryEmpty>
+          hint={t("It may have been moved or deleted from the capture folder.")}
+          action={<BackToLibraryButton />}
+        />
       </AppMain>
     )
   }
