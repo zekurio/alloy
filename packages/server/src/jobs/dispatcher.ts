@@ -1,3 +1,4 @@
+import { JOB_QUEUES, type JobQueue } from "@alloy/contracts"
 import { createLogger, runWithLogContext } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
@@ -5,11 +6,9 @@ import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 
 import { subscribeToQueueWake } from "./events"
 import {
-  JOB_QUEUES,
   getJobKind,
   registeredKindsForQueue,
   type JobHandlerContext,
-  type JobQueue,
 } from "./registry"
 import {
   claim,

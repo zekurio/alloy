@@ -28,6 +28,11 @@
         "ALLOY_VIEWER_COOKIE_SECRET"
       ]
     },
+    "@alloy/i18n#test": {
+      "dependsOn": ["^build"],
+      "outputs": [],
+      "inputs": ["$TURBO_DEFAULT$", "../*/src/**/*.{ts,tsx}"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

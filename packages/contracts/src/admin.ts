@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+import type { JobKind } from "./jobs"
 import type { UserStatus } from "./shared"
 
 export type UsernameClaim = string
@@ -425,7 +426,7 @@ export const ADMIN_SWEEP_KINDS = [
   "clip.thumbnail-sweep",
   "clip.verify-assets",
   "storage.orphan-gc",
-] as const
+] as const satisfies readonly JobKind[]
 export type AdminSweepKind = (typeof ADMIN_SWEEP_KINDS)[number]
 
 const NonNegativeIntSchema = z.number().int().nonnegative()

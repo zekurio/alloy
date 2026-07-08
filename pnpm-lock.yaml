@@ -163,7 +163,14 @@ importers:
         specifier: 4.3.6
         version: 4.3.6
 
-  packages/i18n: {}
+  packages/i18n:
+    devDependencies:
+      tsx:
+        specifier: 4.22.4
+        version: 4.22.4
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
 
   packages/logging: {}
 
