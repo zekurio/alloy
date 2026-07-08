@@ -63,8 +63,7 @@ export function TrimTransportControls({
       </span>
       {trimmed ? (
         <span className="text-foreground-faint text-sm tabular-nums">
-          {t("Trimmed to")}
-          {formatTrimMs(trim.startMs)} {"–"}
+          {t("Trimmed to")} {formatTrimMs(trim.startMs)} {"–"}{" "}
           {formatTrimMs(trim.endMs)}
         </span>
       ) : null}
