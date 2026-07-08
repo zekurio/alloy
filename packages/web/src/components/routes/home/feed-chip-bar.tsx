@@ -1,23 +1,28 @@
 import type { FeedFilter } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import { Chip } from "@alloy/ui/components/chip"
 import { GameIcon } from "@alloy/ui/components/game-icon"
-import { useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { GlobeIcon, UsersIcon } from "lucide-react"
+import type { ReactNode } from "react"
 
-import {
-  FilterDropdown,
-  type FilterDropdownOption,
-} from "@/components/clip/filter-dropdown"
+import { FilterCarousel } from "@/components/filter-carousel"
 import { useFeedChipsQuery } from "@/lib/feed-queries"
 import type { HomeSearch } from "@/lib/home-search"
 
-type FeedFilterDropdownProps = {
+const SCOPE_ALL = "all"
+const SCOPE_FOLLOWING = "following"
+
+type FeedChipBarProps = {
   filter: FeedFilter
   search: HomeSearch
 }
 
-const SCOPE_ALL = "all"
-const SCOPE_FOLLOWING = "following"
+type FeedChipOption = {
+  key: string
+  label: string
+  icon: ReactNode
+}
 
 function filterKey(filter: FeedFilter): string {
   if (filter.kind === "game") return `game:${filter.gameId}`
@@ -35,32 +40,34 @@ function searchForKey(search: HomeSearch, key: string): HomeSearch {
   return { ...search, feed: undefined, game: undefined }
 }
 
-export function FeedFilterDropdown({
-  filter,
-  search,
-}: FeedFilterDropdownProps) {
-  const navigate = useNavigate()
+export function FeedChipBar({ filter, search }: FeedChipBarProps) {
   const { data } = useFeedChipsQuery()
   const games = data?.games ?? []
+  const activeKey = filterKey(filter)
 
-  const options: FilterDropdownOption<string>[] = [
+  const options: FeedChipOption[] = [
     { key: SCOPE_ALL, label: t("All"), icon: <GlobeIcon /> },
     { key: SCOPE_FOLLOWING, label: t("Following"), icon: <UsersIcon /> },
-    ...games.map((g) => ({
-      key: `game:${g.id}`,
-      label: g.name,
-      icon: <GameIcon src={g.iconUrl ?? g.logoUrl} name={g.name} />,
+    ...games.map((game) => ({
+      key: `game:${game.id}`,
+      label: game.name,
+      icon: <GameIcon src={game.iconUrl ?? game.logoUrl} name={game.name} />,
     })),
   ]
 
   return (
-    <FilterDropdown
-      value={filterKey(filter)}
-      options={options}
-      searchPlaceholder={t("Search games…")}
-      onSelect={(key) => {
-        void navigate({ to: "/", search: searchForKey(search, key) })
-      }}
-    />
+    <FilterCarousel className="min-w-0 flex-1">
+      {options.map((option) => (
+        <Chip
+          key={option.key}
+          size="xl"
+          data-active={option.key === activeKey ? "true" : undefined}
+          render={<Link to="/" search={searchForKey(search, option.key)} />}
+        >
+          {option.icon}
+          {option.label}
+        </Chip>
+      ))}
+    </FilterCarousel>
   )
 }

@@ -28,6 +28,7 @@ import { Suspense } from "react"
 import type { ReactNode } from "react"
 
 import { StorageQuotaCompact } from "@/components/storage-quota"
+import { GlobalUploadControl } from "@/components/upload/global-upload-control"
 import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useOpenSettings } from "@/lib/use-open-settings"
@@ -42,6 +43,7 @@ import { useNavFlags } from "./use-nav-flags"
  */
 export function MobileBottomNav() {
   const { isHome, isGames, isLibrary } = useNavFlags()
+  const session = useSuspenseSession()
 
   return (
     <nav
@@ -52,7 +54,12 @@ export function MobileBottomNav() {
         "pb-[env(safe-area-inset-bottom)]",
       )}
     >
-      <div className="grid h-[var(--bottomnav-h)] grid-cols-4 items-stretch">
+      <div
+        className={cn(
+          "grid h-[var(--bottomnav-h)] items-stretch",
+          session ? "grid-cols-5" : "grid-cols-4",
+        )}
+      >
         <BottomNavLink
           to="/"
           active={isHome}
@@ -65,6 +72,11 @@ export function MobileBottomNav() {
           label={t("Library")}
           icon={<LibraryIcon />}
         />
+        {session ? (
+          <div className="flex items-center justify-center">
+            <GlobalUploadControl variant="bottom-nav" />
+          </div>
+        ) : null}
         <BottomNavLink
           to="/games"
           active={isGames}
