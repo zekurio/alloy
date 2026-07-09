@@ -263,10 +263,11 @@ function ClipMeta({
                     <DropdownMenuItem onClick={onEdit}>
                       <PencilIcon /> {t("Edit")}
                     </DropdownMenuItem>
-                    {/* Re-encode is rejected server-side while a clip is still
-                        processing; only offer it once settled (ready/failed),
-                        matching UploadedClipCardMenu. */}
-                    {status === "ready" || status === "failed" ? (
+                    {/* Failed clips offer the owner an encode retry; a ready
+                        clip's re-encode is admin-only operator tooling,
+                        matching the server-side gate. Both are rejected
+                        server-side while the clip is still processing. */}
+                    {status === "failed" || (status === "ready" && isAdmin) ? (
                       <DropdownMenuItem
                         onClick={() => reEncodeMutation.mutate({ clipId })}
                         disabled={reEncodeMutation.isPending}
