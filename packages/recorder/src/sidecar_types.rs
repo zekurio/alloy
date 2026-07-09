@@ -207,11 +207,19 @@ enum RecordingAudioMode {
     Applications,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "kebab-case")]
 enum RecordingAudioDeviceKind {
     Output,
     Input,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+struct RecordingAudioDevice {
+    id: String,
+    label: String,
+    kind: RecordingAudioDeviceKind,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -445,7 +453,7 @@ struct RecordingStatus {
     replay_buffer_seconds: u32,
     available_gpus: Vec<String>,
     available_codecs: Vec<RecordingCodec>,
-    available_audio_devices: Vec<RecordingAudioDeviceSelection>,
+    available_audio_devices: Vec<RecordingAudioDevice>,
     available_audio_applications: Vec<RecordingAudioApplicationSelection>,
     telemetry: Option<RecordingTelemetry>,
     message: Option<String>,
@@ -573,6 +581,11 @@ struct VideoGraph {
     source_kind: OutputSourceKind,
 }
 
+struct AudioGraph {
+    scene: *mut ObsScene,
+    sources: Vec<*mut ObsSource>,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ActiveOutputKind {
     ReplayBuffer,
@@ -659,7 +672,7 @@ struct Recorder {
     codec_caps_failed_probe: Option<(CodecCapsKey, Instant)>,
     cached_gpus: Vec<String>,
     cached_gpus_at: Option<Instant>,
-    cached_audio_devices: Vec<RecordingAudioDeviceSelection>,
+    cached_audio_devices: Vec<RecordingAudioDevice>,
     cached_audio_devices_at: Option<Instant>,
     cached_audio_applications: Vec<RecordingAudioApplicationSelection>,
     cached_audio_applications_at: Option<Instant>,
@@ -684,7 +697,7 @@ struct ActiveSession {
     video_codec: RecordingCodec,
     video_graph: VideoGraph,
     video_config: ObsVideoConfig,
-    audio_sources: Vec<*mut ObsSource>,
+    audio_graph: AudioGraph,
     source_kind: OutputSourceKind,
     output_config: OutputConfig,
     capture: RecordingCapture,
@@ -720,7 +733,7 @@ impl Default for RecordingSettings {
             allowed_games: Vec::new(),
             denied_games: Vec::new(),
             audio_mode: RecordingAudioMode::Devices,
-            audio_devices: default_audio_devices()
+            audio_devices: default_audio_device_selections()
                 .into_iter()
                 .filter(|device| device.kind == RecordingAudioDeviceKind::Output)
                 .collect(),

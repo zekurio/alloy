@@ -1,53 +1,51 @@
 use crate::sidecar_windows_com::{
-    active_audio_endpoint_devices, create_mm_device_enumerator, endpoint_friendly_name,
-    endpoint_id, initialize_com, uninitialize_com, ComPtr,
+    active_audio_endpoint_devices, create_mm_device_enumerator, default_endpoint_id,
+    endpoint_friendly_name, endpoint_id, initialize_com, uninitialize_com, ComPtr,
 };
-use windows_sys::Win32::Media::Audio::{eCapture, eRender};
+use windows_sys::Win32::Media::Audio::{eCapture, eCommunications, eConsole, eRender};
 
-fn default_audio_devices() -> Vec<RecordingAudioDeviceSelection> {
+fn default_audio_devices() -> Vec<RecordingAudioDevice> {
     vec![
-        RecordingAudioDeviceSelection {
+        RecordingAudioDevice {
             id: "default".to_string(),
             label: "Default output".to_string(),
             kind: RecordingAudioDeviceKind::Output,
-            enabled: true,
-            volume: 100,
         },
-        RecordingAudioDeviceSelection {
+        RecordingAudioDevice {
             id: "default".to_string(),
             label: "Default microphone".to_string(),
             kind: RecordingAudioDeviceKind::Input,
-            enabled: false,
-            volume: 100,
-        },
-        RecordingAudioDeviceSelection {
-            id: "communications".to_string(),
-            label: "Default communication output".to_string(),
-            kind: RecordingAudioDeviceKind::Output,
-            enabled: false,
-            volume: 100,
-        },
-        RecordingAudioDeviceSelection {
-            id: "communications".to_string(),
-            label: "Default communication microphone".to_string(),
-            kind: RecordingAudioDeviceKind::Input,
-            enabled: false,
-            volume: 100,
         },
     ]
 }
 
-fn dedupe_audio_devices(
-    devices: Vec<RecordingAudioDeviceSelection>,
-) -> Vec<RecordingAudioDeviceSelection> {
-    let mut seen = HashSet::new();
-    devices
+fn default_audio_device_selections() -> Vec<RecordingAudioDeviceSelection> {
+    default_audio_devices()
         .into_iter()
-        .filter(|device| seen.insert(format!("{:?}:{}", device.kind, device.id)))
+        .map(|device| RecordingAudioDeviceSelection {
+            enabled: device.kind == RecordingAudioDeviceKind::Output,
+            volume: 100,
+            id: device.id,
+            label: device.label,
+            kind: device.kind,
+        })
         .collect()
 }
 
-fn platform_audio_devices() -> Vec<RecordingAudioDeviceSelection> {
+fn dedupe_audio_devices(devices: Vec<RecordingAudioDevice>) -> Vec<RecordingAudioDevice> {
+    let mut seen = HashSet::new();
+    devices
+        .into_iter()
+        .filter(|device| seen.insert((device.kind.clone(), device.id.clone())))
+        .collect()
+}
+
+fn platform_audio_devices(obs: Option<&LibObs>) -> Result<Vec<RecordingAudioDevice>, String> {
+    if let Some(obs) = obs {
+        // SAFETY: The caller only supplies a started libobs instance. Property
+        // handles are owned and destroyed inside `audio_devices`.
+        return unsafe { obs.audio_devices() };
+    }
     windows_audio_devices()
 }
 
@@ -95,12 +93,12 @@ fn platform_gpu_labels() -> Vec<String> {
     }
 }
 
-fn windows_audio_devices() -> Vec<RecordingAudioDeviceSelection> {
+fn windows_audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
     unsafe {
         let Some(uninitialize) = initialize_com() else {
-            return Vec::new();
+            return Err("Could not initialize COM for audio-device discovery.".to_string());
         };
-        let devices = enumerate_active_audio_devices().unwrap_or_default();
+        let devices = enumerate_active_audio_devices();
         if uninitialize {
             uninitialize_com();
         }
@@ -108,8 +106,9 @@ fn windows_audio_devices() -> Vec<RecordingAudioDeviceSelection> {
     }
 }
 
-unsafe fn enumerate_active_audio_devices() -> Option<Vec<RecordingAudioDeviceSelection>> {
-    let enumerator = create_mm_device_enumerator()?;
+unsafe fn enumerate_active_audio_devices() -> Result<Vec<RecordingAudioDevice>, String> {
+    let enumerator = create_mm_device_enumerator()
+        .ok_or_else(|| "Could not create the Windows audio-device enumerator.".to_string())?;
     let mut devices = Vec::new();
 
     collect_active_audio_devices(
@@ -117,37 +116,79 @@ unsafe fn enumerate_active_audio_devices() -> Option<Vec<RecordingAudioDeviceSel
         eRender,
         RecordingAudioDeviceKind::Output,
         &mut devices,
-    );
+    )?;
     collect_active_audio_devices(
         &enumerator,
         eCapture,
         RecordingAudioDeviceKind::Input,
         &mut devices,
-    );
+    )?;
 
-    Some(devices)
+    sort_audio_devices(&mut devices);
+    Ok(devices)
 }
 
 unsafe fn collect_active_audio_devices(
     enumerator: &ComPtr,
     data_flow: i32,
     kind: RecordingAudioDeviceKind,
-    devices: &mut Vec<RecordingAudioDeviceSelection>,
-) {
+    devices: &mut Vec<RecordingAudioDevice>,
+) -> Result<(), String> {
     let Some(audio_devices) = active_audio_endpoint_devices(enumerator, data_flow) else {
-        return;
+        return Err(format!("Windows audio endpoint enumeration failed for {kind:?}."));
     };
     for device in audio_devices {
         let Some(id) = endpoint_id(&device) else {
             continue;
         };
-        devices.push(RecordingAudioDeviceSelection {
+        devices.push(RecordingAudioDevice {
             label: endpoint_friendly_name(&device).unwrap_or_else(|| id.clone()),
             id,
             kind: kind.clone(),
-            enabled: false,
-            volume: 100,
         });
+    }
+    Ok(())
+}
+
+fn sort_audio_devices(devices: &mut [RecordingAudioDevice]) {
+    devices.sort_by(|a, b| {
+        audio_device_kind_order(&a.kind)
+            .cmp(&audio_device_kind_order(&b.kind))
+            .then_with(|| {
+                a.label
+                    .to_lowercase()
+                    .cmp(&b.label.to_lowercase())
+            })
+            .then_with(|| a.id.cmp(&b.id))
+    });
+}
+
+fn audio_device_kind_order(kind: &RecordingAudioDeviceKind) -> u8 {
+    match kind {
+        RecordingAudioDeviceKind::Output => 0,
+        RecordingAudioDeviceKind::Input => 1,
+    }
+}
+
+fn platform_default_audio_device_id(kind: &RecordingAudioDeviceKind) -> Option<String> {
+    unsafe {
+        let uninitialize = initialize_com()?;
+        let enumerator = create_mm_device_enumerator();
+        let id = enumerator.as_ref().and_then(|enumerator| {
+            let (data_flow, role) = default_audio_endpoint_selector(kind);
+            default_endpoint_id(enumerator, data_flow, role)
+        });
+        if uninitialize {
+            uninitialize_com();
+        }
+        id
+    }
+}
+
+fn default_audio_endpoint_selector(kind: &RecordingAudioDeviceKind) -> (i32, i32) {
+    match kind {
+        RecordingAudioDeviceKind::Output => (eRender, eConsole),
+        RecordingAudioDeviceKind::Input => (eCapture, eCommunications),
     }
 }
 
@@ -188,6 +229,19 @@ fn audio_application_id_from_parts(
         return format!("class:{}", class_name.to_ascii_lowercase());
     }
     format!("process:{process_id}")
+}
+
+fn obs_window_selector(title: &str, class_name: &str, executable: &str) -> String {
+    format!(
+        "{}:{}:{}",
+        obs_window_selector_component(title),
+        obs_window_selector_component(class_name),
+        obs_window_selector_component(executable)
+    )
+}
+
+fn obs_window_selector_component(value: &str) -> String {
+    value.replace('#', "#22").replace(':', "#3A")
 }
 
 fn available_audio_applications(
@@ -291,4 +345,140 @@ fn platform_application_audio_source_id() -> Option<&'static str> {
 fn cstring_path(path: &Path) -> Result<CString, String> {
     CString::new(path.to_string_lossy().replace('\\', "/").into_bytes())
         .map_err(|_| format!("Path contains a nul byte: {}", path.display()))
+}
+
+#[cfg(test)]
+mod audio_device_tests {
+    use super::{
+        default_audio_endpoint_selector, obs_window_selector, resolve_audio_device_selection,
+        sort_audio_devices, validate_and_dedupe_audio_selections, RecordingAudioDevice,
+        RecordingAudioDeviceKind, RecordingAudioDeviceSelection, eCapture, eCommunications,
+    };
+
+    fn available(id: &str, label: &str, kind: RecordingAudioDeviceKind) -> RecordingAudioDevice {
+        RecordingAudioDevice {
+            id: id.to_string(),
+            label: label.to_string(),
+            kind,
+        }
+    }
+
+    fn selected(
+        id: &str,
+        label: &str,
+        kind: RecordingAudioDeviceKind,
+    ) -> RecordingAudioDeviceSelection {
+        RecordingAudioDeviceSelection {
+            id: id.to_string(),
+            label: label.to_string(),
+            kind,
+            enabled: true,
+            volume: 80,
+        }
+    }
+
+    #[test]
+    fn resolve_audio_device_selection_keeps_exact_endpoint_identity() {
+        let device = selected("endpoint-a", "Old label", RecordingAudioDeviceKind::Output);
+        let available = vec![available(
+            "endpoint-a",
+            "Current label",
+            RecordingAudioDeviceKind::Output,
+        )];
+
+        let result = resolve_audio_device_selection(device, &available);
+
+        assert_eq!(result.label, "Current label");
+    }
+
+    #[test]
+    fn resolve_audio_device_selection_migrates_one_legacy_label_match() {
+        let device = selected("stale", "Speakers", RecordingAudioDeviceKind::Output);
+        let available = vec![available(
+            "endpoint-a",
+            "Speakers",
+            RecordingAudioDeviceKind::Output,
+        )];
+
+        let result = resolve_audio_device_selection(device, &available);
+
+        assert_eq!(result.id, "endpoint-a");
+    }
+
+    #[test]
+    fn resolve_audio_device_selection_leaves_ambiguous_legacy_label_unresolved() {
+        let device = selected("stale", "Speakers", RecordingAudioDeviceKind::Output);
+        let available = vec![
+            available(
+                "endpoint-a",
+                "Speakers",
+                RecordingAudioDeviceKind::Output,
+            ),
+            available(
+                "endpoint-b",
+                "Speakers",
+                RecordingAudioDeviceKind::Output,
+            ),
+        ];
+
+        let result = resolve_audio_device_selection(device, &available);
+
+        assert_eq!(result.id, "stale");
+    }
+
+    #[test]
+    fn sort_audio_devices_is_stable_across_enumeration_order() {
+        let mut devices = vec![
+            available("input-b", "Zulu", RecordingAudioDeviceKind::Input),
+            available("output-b", "same", RecordingAudioDeviceKind::Output),
+            available("output-a", "Same", RecordingAudioDeviceKind::Output),
+        ];
+
+        sort_audio_devices(&mut devices);
+
+        assert_eq!(
+            devices
+                .into_iter()
+                .map(|device| device.id)
+                .collect::<Vec<_>>(),
+            ["output-a", "output-b", "input-b"]
+        );
+    }
+
+    #[test]
+    fn obs_window_selector_escapes_hashes_and_colons() {
+        assert_eq!(
+            obs_window_selector("A:B#C", "Class:1", "game#.exe"),
+            "A#3AB#22C:Class#3A1:game#22.exe"
+        );
+    }
+
+    #[test]
+    fn default_microphone_uses_the_communications_role() {
+        assert_eq!(
+            default_audio_endpoint_selector(&RecordingAudioDeviceKind::Input),
+            (eCapture, eCommunications)
+        );
+    }
+
+    #[test]
+    fn validate_audio_selections_rejects_duplicate_volumes() {
+        let available = vec![available(
+            "endpoint-a",
+            "Speakers",
+            RecordingAudioDeviceKind::Output,
+        )];
+        let first = selected(
+            "endpoint-a",
+            "Speakers",
+            RecordingAudioDeviceKind::Output,
+        );
+        let mut second = first.clone();
+        second.volume = 40;
+
+        let error = validate_and_dedupe_audio_selections(vec![first, second], &available)
+            .expect_err("different duplicate volumes must fail");
+
+        assert!(error.contains("different volumes"), "{error}");
+    }
 }

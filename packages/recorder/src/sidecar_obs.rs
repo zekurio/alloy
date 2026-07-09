@@ -86,12 +86,10 @@ unsafe fn release_output_graph(
     video_encoder: *mut ObsEncoder,
     audio_encoder: *mut ObsEncoder,
     video_graph: VideoGraph,
-    audio_sources: Vec<*mut ObsSource>,
+    audio_graph: AudioGraph,
 ) {
     (obs.obs_set_output_source)(0, ptr::null_mut());
-    for index in 0..MAX_AUDIO_SOURCES {
-        (obs.obs_set_output_source)(audio_output_index(index), ptr::null_mut());
-    }
+    (obs.obs_set_output_source)(1, ptr::null_mut());
 
     if !output.is_null() {
         (obs.obs_output_release)(output);
@@ -103,7 +101,7 @@ unsafe fn release_output_graph(
         (obs.obs_encoder_release)(audio_encoder);
     }
     release_video_graph(obs, video_graph);
-    release_audio_sources(obs, audio_sources);
+    release_audio_graph(obs, audio_graph);
 }
 
 unsafe fn release_output_only(
@@ -136,11 +134,12 @@ unsafe fn release_video_graph(obs: &LibObs, graph: VideoGraph) {
     }
 }
 
-unsafe fn release_audio_sources(obs: &LibObs, audio_sources: Vec<*mut ObsSource>) {
-    for index in 0..MAX_AUDIO_SOURCES {
-        (obs.obs_set_output_source)(audio_output_index(index), ptr::null_mut());
+unsafe fn release_audio_graph(obs: &LibObs, audio_graph: AudioGraph) {
+    (obs.obs_set_output_source)(1, ptr::null_mut());
+    if !audio_graph.scene.is_null() {
+        (obs.obs_scene_release)(audio_graph.scene);
     }
-    for audio_source in audio_sources {
+    for audio_source in audio_graph.sources {
         if !audio_source.is_null() {
             (obs.obs_source_remove)(audio_source);
             (obs.obs_source_release)(audio_source);
@@ -148,8 +147,11 @@ unsafe fn release_audio_sources(obs: &LibObs, audio_sources: Vec<*mut ObsSource>
     }
 }
 
-fn audio_output_index(source_index: usize) -> u32 {
-    u32::try_from(source_index + 1).unwrap_or(1)
+fn empty_audio_graph() -> AudioGraph {
+    AudioGraph {
+        scene: ptr::null_mut(),
+        sources: Vec::new(),
+    }
 }
 
 unsafe fn configure_video_encoder(
@@ -504,23 +506,37 @@ unsafe fn create_scaled_video_scene(
 struct AudioSourceConfig {
     source_id: &'static str,
     name: String,
+    selector: String,
     device_id: Option<String>,
     window: Option<String>,
     priority: Option<i64>,
     volume: f32,
 }
 
+impl AudioSourceConfig {
+    fn effective_value(&self) -> &str {
+        self.device_id
+            .as_deref()
+            .or(self.window.as_deref())
+            .unwrap_or("unknown")
+    }
+}
+
 const OBS_WINDOW_PRIORITY_EXE: i64 = 2;
 
-unsafe fn create_audio_sources(
+unsafe fn create_audio_graph(
     obs: &LibObs,
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
-) -> Result<Vec<*mut ObsSource>, String> {
-    let configs = audio_source_configs(settings, game)?;
+) -> Result<AudioGraph, String> {
+    let configs = audio_source_configs(obs, settings, game)?;
+    let scene = (obs.obs_scene_create_private)(c"alloy_audio_scene".as_ptr());
+    if scene.is_null() {
+        return Err("Could not create OBS audio scene.".to_string());
+    }
     let mut sources = Vec::new();
 
-    for config in configs.into_iter().take(MAX_AUDIO_SOURCES) {
+    for config in configs {
         let source_settings = obs.create_data();
         let source = (|| {
             if let Some(device_id) = config.device_id.as_deref() {
@@ -539,26 +555,44 @@ unsafe fn create_audio_sources(
         let source = match source {
             Ok(source) => source,
             Err(error) => {
-                release_audio_sources(obs, sources);
+                release_audio_graph(obs, AudioGraph { scene, sources });
                 return Err(error);
             }
         };
 
         (obs.obs_source_set_audio_mixers)(source, 1);
         (obs.obs_source_set_volume)(source, config.volume);
-        (obs.obs_set_output_source)(audio_output_index(sources.len()), source);
+        if (obs.obs_scene_add)(scene, source).is_null() {
+            (obs.obs_source_remove)(source);
+            (obs.obs_source_release)(source);
+            release_audio_graph(obs, AudioGraph { scene, sources });
+            return Err("Could not add capture source to OBS audio scene.".to_string());
+        }
+        eprintln!(
+            "[{SIDE_CAR_NAME}] configured audio source selector={} effective={} scene=alloy_audio_scene mixer=1",
+            config.selector,
+            config.effective_value(),
+        );
         sources.push(source);
     }
 
-    Ok(sources)
+    let output_source = (obs.obs_scene_get_source)(scene);
+    if output_source.is_null() {
+        release_audio_graph(obs, AudioGraph { scene, sources });
+        return Err("OBS audio scene did not expose an output source.".to_string());
+    }
+    (obs.obs_source_set_audio_mixers)(output_source, 1);
+    (obs.obs_set_output_source)(1, output_source);
+    Ok(AudioGraph { scene, sources })
 }
 
 fn audio_source_configs(
+    obs: &LibObs,
     settings: &RecordingSettings,
     game: Option<&DetectedGame>,
 ) -> Result<Vec<AudioSourceConfig>, String> {
     match settings.audio_mode {
-        RecordingAudioMode::Devices => Ok(selected_audio_devices(settings)
+        RecordingAudioMode::Devices => Ok(selected_audio_devices(obs, settings, None)?
             .into_iter()
             .map(audio_device_source_config)
             .collect()),
@@ -578,10 +612,12 @@ fn audio_source_configs(
                         .filter(|application| !application.window.is_empty())
                         .map(|application| AudioSourceConfig {
                             source_id,
-                            name: format!(
-                                "alloy_application_audio_{}",
-                                file_slug(&application.name)
+                            name: audio_source_name(
+                                "application",
+                                &application.name,
+                                &application.window,
                             ),
+                            selector: application.id,
                             device_id: None,
                             window: Some(application.window),
                             priority: Some(OBS_WINDOW_PRIORITY_EXE),
@@ -593,7 +629,11 @@ fn audio_source_configs(
             // Microphones aren't application playback streams, so input devices
             // stay capturable in applications mode for voice-over.
             configs.extend(
-                selected_audio_devices(settings)
+                selected_audio_devices(
+                    obs,
+                    settings,
+                    Some(&RecordingAudioDeviceKind::Input),
+                )?
                     .into_iter()
                     .filter(|device| device.kind == RecordingAudioDeviceKind::Input)
                     .map(audio_device_source_config),
@@ -604,38 +644,42 @@ fn audio_source_configs(
     }
 }
 
-fn selected_audio_devices(settings: &RecordingSettings) -> Vec<RecordingAudioDeviceSelection> {
+fn selected_audio_devices(
+    obs: &LibObs,
+    settings: &RecordingSettings,
+    selected_kind: Option<&RecordingAudioDeviceKind>,
+) -> Result<Vec<RecordingAudioDeviceSelection>, String> {
     let selected: Vec<_> = settings
         .audio_devices
         .iter()
-        .filter(|device| device.enabled)
+        .filter(|device| {
+            device.enabled && selected_kind.is_none_or(|kind| device.kind == *kind)
+        })
         .cloned()
         .collect();
     if !selected.is_empty() {
-        let available = platform_audio_devices();
-        if available.is_empty() {
-            return selected;
-        }
-        return dedupe_audio_devices(
-            selected
-                .into_iter()
-                .map(|device| resolve_audio_device_selection(device, &available))
-                .collect(),
-        );
+        let available = platform_audio_devices(Some(obs))?;
+        let resolved = selected
+            .into_iter()
+            .map(|device| resolve_audio_device_selection(device, &available))
+            .collect::<Vec<_>>();
+        return validate_and_dedupe_audio_selections(resolved, &available);
     }
     if !settings.audio_devices.is_empty() {
-        return selected;
+        return Ok(selected);
     }
 
-    default_audio_devices()
+    Ok(default_audio_device_selections()
         .into_iter()
-        .filter(|device| device.enabled)
-        .collect()
+        .filter(|device| {
+            device.enabled && selected_kind.is_none_or(|kind| device.kind == *kind)
+        })
+        .collect())
 }
 
 fn resolve_audio_device_selection(
     device: RecordingAudioDeviceSelection,
-    available: &[RecordingAudioDeviceSelection],
+    available: &[RecordingAudioDevice],
 ) -> RecordingAudioDeviceSelection {
     if is_virtual_audio_device_selection(&device) {
         return device;
@@ -647,20 +691,84 @@ fn resolve_audio_device_selection(
             available_device.kind == device.kind && available_device.id == device.id
         })
         .or_else(|| {
-            available.iter().find(|available_device| {
+            let mut candidates = available.iter().filter(|available_device| {
                 available_device.kind == device.kind && available_device.label == device.label
-            })
+            });
+            let candidate = candidates.next()?;
+            candidates.next().is_none().then_some(candidate)
         })
         .map(|available_device| RecordingAudioDeviceSelection {
+            id: available_device.id.clone(),
+            label: available_device.label.clone(),
+            kind: available_device.kind.clone(),
             enabled: device.enabled,
             volume: device.volume,
-            ..available_device.clone()
         })
         .unwrap_or(device)
 }
 
 fn is_virtual_audio_device_selection(device: &RecordingAudioDeviceSelection) -> bool {
-    matches!(device.id.as_str(), "default" | "communications")
+    device.id == "default"
+}
+
+fn validate_and_dedupe_audio_selections(
+    devices: Vec<RecordingAudioDeviceSelection>,
+    available: &[RecordingAudioDevice],
+) -> Result<Vec<RecordingAudioDeviceSelection>, String> {
+    let mut selected = Vec::<RecordingAudioDeviceSelection>::new();
+    for device in devices {
+        if !is_virtual_audio_device_selection(&device)
+            && !available.iter().any(|available_device| {
+                available_device.kind == device.kind && available_device.id == device.id
+            })
+        {
+            eprintln!(
+                "[{SIDE_CAR_NAME}] rejected unavailable audio selector {:?}:{} ({})",
+                device.kind, device.id, device.label
+            );
+            return Err(format!(
+                "Audio device {} ({}) is unavailable.",
+                device.label, device.id
+            ));
+        }
+
+        if let Some(existing) = selected.iter().find(|selected_device| {
+            selected_device.kind == device.kind && selected_device.id == device.id
+        }) {
+            if existing.volume != device.volume {
+                return Err(format!(
+                    "Audio device {} is selected more than once with different volumes.",
+                    device.label
+                ));
+            }
+            continue;
+        }
+        selected.push(device);
+    }
+
+    for kind in [
+        RecordingAudioDeviceKind::Output,
+        RecordingAudioDeviceKind::Input,
+    ] {
+        let captures_default = selected
+            .iter()
+            .any(|device| device.kind == kind && device.id == "default");
+        if !captures_default {
+            continue;
+        }
+        let Some(default_id) = platform_default_audio_device_id(&kind) else {
+            continue;
+        };
+        if selected
+            .iter()
+            .any(|device| device.kind == kind && device.id == default_id)
+        {
+            return Err(format!(
+                "The default {kind:?} and its current endpoint are both selected; disable one to avoid duplicate audio."
+            ));
+        }
+    }
+    Ok(selected)
 }
 
 fn selected_audio_applications(
@@ -699,12 +807,27 @@ fn audio_device_source_config(device: RecordingAudioDeviceSelection) -> AudioSou
 
     AudioSourceConfig {
         source_id,
-        name: format!("alloy_{prefix}_audio_{}", file_slug(&device.label)),
+        name: audio_source_name(prefix, &device.label, &device.id),
+        selector: format!("{:?}:{}", device.kind, device.id),
         device_id: Some(device.id),
         window: None,
         priority: None,
         volume: audio_volume(device.volume),
     }
+}
+
+fn audio_source_name(prefix: &str, label: &str, target: &str) -> String {
+    format!(
+        "alloy_{prefix}_audio_{}_{:08x}",
+        file_slug(label),
+        stable_audio_target_hash(target)
+    )
+}
+
+fn stable_audio_target_hash(target: &str) -> u32 {
+    target.bytes().fold(2_166_136_261, |hash, byte| {
+        (hash ^ u32::from(byte)).wrapping_mul(16_777_619)
+    })
 }
 
 fn audio_volume(volume: u32) -> f32 {

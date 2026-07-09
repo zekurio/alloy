@@ -183,6 +183,24 @@ pub(crate) unsafe fn active_audio_endpoint_devices(
     Some(devices)
 }
 
+pub(crate) unsafe fn default_endpoint_id(
+    enumerator: &ComPtr,
+    data_flow: i32,
+    role: i32,
+) -> Option<String> {
+    let enumerator_vtbl = com_vtbl::<IMMDeviceEnumeratorVtbl>(enumerator.as_ptr());
+    let mut device_ptr: *mut c_void = ptr::null_mut();
+    if !succeeded(((*enumerator_vtbl).GetDefaultAudioEndpoint)(
+        enumerator.as_ptr(),
+        data_flow,
+        role,
+        &mut device_ptr,
+    )) {
+        return None;
+    }
+    endpoint_id(&ComPtr::new(device_ptr)?)
+}
+
 /// WASAPI endpoint id (`{0.0.x.00000000}.{guid}`), lowercased to match
 /// persisted recorder audio-device ids and UI merge keys.
 pub(crate) unsafe fn endpoint_id(device: &ComPtr) -> Option<String> {
