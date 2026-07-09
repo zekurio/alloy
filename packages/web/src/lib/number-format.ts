@@ -1,4 +1,5 @@
-import { getRuntimeLocale, tp } from "@alloy/i18n"
+import { getRuntimeLocale } from "@alloy/i18n"
+
 const COUNT_UNITS = ["k", "m", "b", "t"] as const
 
 /** 1,3k / 12,4k / 842 — truncated so counts never round up. */
@@ -23,20 +24,4 @@ export function formatCount(value: number): string {
     : scaled.toFixed(1).replace(".", getRuntimeLocale() === "de" ? "," : ".")
 
   return `${sign}${formatted}${COUNT_UNITS[unitIndex]}`
-}
-
-/**
- * Compact count label for section headers, e.g. "1 game", "4 clips",
- * "99+ clips". Counts past 99 collapse to "99+" so the header stays tidy
- * instead of rendering arbitrarily large totals.
- */
-export function headerCountLabel(
-  count: number,
-  singular: string,
-  plural = `${singular}s`,
-): string {
-  const safe = Number.isFinite(count) ? Math.trunc(Math.max(0, count)) : 0
-  const display = safe > 99 ? "99+" : String(safe)
-  const noun = tp(safe, singular, plural)
-  return `${display} ${noun}`
 }

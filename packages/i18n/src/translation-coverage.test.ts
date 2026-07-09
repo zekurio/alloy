@@ -21,7 +21,12 @@ const sourceRoots = readdirSync(packagesDir, { withFileTypes: true })
   .map((entry) => join(packagesDir, entry.name))
   .filter((dir) => {
     const manifest = readManifest(join(dir, "package.json"))
-    return manifest?.dependencies?.["@alloy/i18n"] !== undefined
+    return (
+      manifest?.dependencies?.["@alloy/i18n"] !== undefined ||
+      // The desktop package consumes @alloy/i18n from devDependencies since
+      // electron-vite bundles everything; both sections count as "depends on".
+      manifest?.devDependencies?.["@alloy/i18n"] !== undefined
+    )
   })
   .map((dir) => join(dir, "src"))
 
@@ -44,6 +49,30 @@ test("every literal translation key has a German translation", () => {
   )
 })
 
+// Keys consumed through dynamic t() calls that static extraction can't see:
+// comment-emoji-picker.tsx renders t(group.label) over EMOJI_GROUPS.
+const DYNAMIC_KEYS: Record<string, true> = {
+  Smileys: true,
+  Gestures: true,
+  Hearts: true,
+  Animals: true,
+  Food: true,
+  Activities: true,
+  Objects: true,
+  Symbols: true,
+}
+
+test("every German translation corresponds to a used key", () => {
+  const orphaned = Object.keys(DE_MESSAGES)
+    .filter((key) => !usedKeys.has(key) && !Object.hasOwn(DYNAMIC_KEYS, key))
+    .sort()
+  assert.deepEqual(
+    orphaned,
+    [],
+    `Remove stale entries from packages/i18n/src/messages.ts (or add them to DYNAMIC_KEYS if reached via a dynamic call):\n${orphaned.join("\n")}`,
+  )
+})
+
 test("German translations only use placeholders present in their key", () => {
   const violations = Object.entries(DE_MESSAGES)
     .filter(([key, value]) => {
@@ -54,9 +83,10 @@ test("German translations only use placeholders present in their key", () => {
   assert.deepEqual(violations, [])
 })
 
-function readManifest(
-  path: string,
-): { dependencies?: Record<string, string> } | null {
+function readManifest(path: string): {
+  dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+} | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(path, "utf8"))
     if (typeof parsed !== "object" || parsed === null) return null
