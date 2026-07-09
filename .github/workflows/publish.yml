@@ -282,21 +282,21 @@ jobs:
             const previousTag = process.env.PREVIOUS_TAG;
             const { owner, repo } = context.repo;
 
-            let generatedNotes = "";
-            try {
-              const response = await github.rest.repos.generateReleaseNotes({
-                owner,
-                repo,
-                tag_name: tag,
-                target_commitish: process.env.RELEASE_REF,
-                previous_tag_name: previousTag || undefined,
-              });
-              generatedNotes = response.data.body.trim();
-            } catch (error) {
-              core.warning(`Could not generate GitHub release notes: ${error.message}`);
-              generatedNotes = previousTag
-                ? `Full changelog: https://github.com/${owner}/${repo}/compare/${previousTag}...${tag}`
-                : `Changes are included from ${process.env.RELEASE_REF}.`;
+            let generatedNotes = "Initial stable release.";
+            if (previousTag) {
+              try {
+                const response = await github.rest.repos.generateReleaseNotes({
+                  owner,
+                  repo,
+                  tag_name: tag,
+                  target_commitish: process.env.RELEASE_REF,
+                  previous_tag_name: previousTag,
+                });
+                generatedNotes = response.data.body.trim();
+              } catch (error) {
+                core.warning(`Could not generate GitHub release notes: ${error.message}`);
+                generatedNotes = `Full changelog: https://github.com/${owner}/${repo}/compare/${previousTag}...${tag}`;
+              }
             }
 
             const body = [
