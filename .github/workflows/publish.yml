@@ -282,28 +282,32 @@ jobs:
             const previousTag = process.env.PREVIOUS_TAG;
             const { owner, repo } = context.repo;
 
-            let generatedNotes = "Initial stable release.";
+            const releaseNotesRequest = {
+              owner,
+              repo,
+              tag_name: tag,
+              target_commitish: process.env.RELEASE_REF,
+            };
             if (previousTag) {
-              try {
-                const response = await github.rest.repos.generateReleaseNotes({
-                  owner,
-                  repo,
-                  tag_name: tag,
-                  target_commitish: process.env.RELEASE_REF,
-                  previous_tag_name: previousTag,
-                });
-                generatedNotes = response.data.body.trim();
-              } catch (error) {
-                core.warning(`Could not generate GitHub release notes: ${error.message}`);
-                generatedNotes = `Full changelog: https://github.com/${owner}/${repo}/compare/${previousTag}...${tag}`;
-              }
+              releaseNotesRequest.previous_tag_name = previousTag;
+            }
+
+            let generatedNotes = "";
+            try {
+              const response = await github.rest.repos.generateReleaseNotes(releaseNotesRequest);
+              generatedNotes = response.data.body.trim();
+            } catch (error) {
+              core.warning(`Could not generate GitHub release notes: ${error.message}`);
+              generatedNotes = previousTag
+                ? `**Full Changelog**: https://github.com/${owner}/${repo}/compare/${previousTag}...${tag}`
+                : `**Full Changelog**: https://github.com/${owner}/${repo}/commits/${tag}`;
             }
 
             const body = [
-              "## Desktop Release",
+              "## Latest Desktop Release",
               "",
               "Download the Windows x64 installer from the assets below.",
-              "Auto-update clients use `latest.yml` and the matching blockmap asset attached to this release.",
+              "Auto-update clients on this channel use `latest.yml` and the matching blockmap asset attached to this release.",
               "",
               "## Server Nix Package",
               "",
