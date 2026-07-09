@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1783099865334,
-      "tag": "0000_loud_mentallo",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1783112654219,
-      "tag": "0001_lumpy_zarek",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1783120236879,
-      "tag": "0002_lying_echo",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1783170171711,
-      "tag": "0003_icy_pandemic",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1783170454200,
-      "tag": "0004_needy_bushwacker",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1783174217970,
-      "tag": "0005_rich_sersi",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1783205072666,
-      "tag": "0006_concerned_vermin",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1783456125884,
-      "tag": "0007_glamorous_dreaming_celestial",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1783547710467,
-      "tag": "0008_burly_bromley",
+      "when": 1783591694111,
+      "tag": "0000_mute_vin_gonzales",
       "breakpoints": true
     }
   ]
