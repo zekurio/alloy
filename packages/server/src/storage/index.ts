@@ -1,74 +1,26 @@
 import { secretStore } from "@alloy/server/config/secret-store"
-import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
+import { resolve } from "@alloy/server/runtime/path"
 
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
-import {
-  configuredFilesystemStoragePath,
-  filesystemStorageRoot,
-  type StorageNamespace,
-} from "./paths"
+import { configuredFilesystemStoragePath, type StorageNamespace } from "./paths"
 
-const uploadHmacSecret = secretStore.get("uploadHmacSecret")
-
-class ConfiguredStorageDriver implements StorageDriver {
-  private cachedKey: string | null = null
-  private cachedDriver: StorageDriver | null = null
-
-  constructor(private readonly namespace: StorageNamespace) {}
-
-  put: StorageDriver["put"] = (...args) => this.driver().put(...args)
-  resolve: StorageDriver["resolve"] = (...args) =>
-    this.driver().resolve(...args)
-  mintUploadUrl: StorageDriver["mintUploadUrl"] = (...args) =>
-    this.driver().mintUploadUrl(...args)
-  writeUploadPart: StorageDriver["writeUploadPart"] = (...args) =>
-    this.driver().writeUploadPart(...args)
-  completeUpload: StorageDriver["completeUpload"] = (...args) =>
-    this.driver().completeUpload(...args)
-  abortUpload: StorageDriver["abortUpload"] = (...args) =>
-    this.driver().abortUpload(...args)
-  mintDownloadUrl: StorageDriver["mintDownloadUrl"] = (...args) =>
-    this.driver().mintDownloadUrl(...args)
-  delete: StorageDriver["delete"] = (...args) => this.driver().delete(...args)
-  list: StorageDriver["list"] = (...args) => this.driver().list(...args)
-  downloadToFile: StorageDriver["downloadToFile"] = (...args) =>
-    this.driver().downloadToFile(...args)
-  uploadFromFile: StorageDriver["uploadFromFile"] = (...args) =>
-    this.driver().uploadFromFile(...args)
-  copy: StorageDriver["copy"] = (...args) => this.driver().copy(...args)
-
-  private driver(): StorageDriver {
-    const storage = configStore.get("storage")
-    const fsPath = configuredFilesystemStoragePath(storage.fs, this.namespace)
-    const cacheKey = JSON.stringify({
-      namespace: this.namespace,
-      driver: storage.driver,
-      fsPath,
-    })
-
-    if (this.cachedDriver && this.cachedKey === cacheKey) {
-      return this.cachedDriver
-    }
-
-    const driver = new FsStorageDriver({
-      root: filesystemStorageRoot(fsPath),
-      publicBaseUrl: env.PUBLIC_SERVER_URL,
-      hmacSecret: uploadHmacSecret,
-    })
-
-    this.cachedKey = cacheKey
-    this.cachedDriver = driver
-    return driver
-  }
+// Storage config is deploy-time env, so each namespace binds to its root once
+// at load. Namespaces map to distinct roots on disk; the `user`/`game`/`data`
+// aliases all share the assets root (the URL prefix, not the root, separates
+// them — see storage/paths.ts and the key generators in driver.ts).
+function createFsStorage(namespace: StorageNamespace): StorageDriver {
+  return new FsStorageDriver({
+    root: resolve(configuredFilesystemStoragePath(env.storage, namespace)),
+    publicBaseUrl: env.PUBLIC_SERVER_URL,
+    hmacSecret: secretStore.get("uploadHmacSecret"),
+  })
 }
 
-export const clipStorage: StorageDriver = new ConfiguredStorageDriver("clips")
-export const clipThumbnailStorage: StorageDriver = new ConfiguredStorageDriver(
-  "thumbnails",
-)
-export const assetStorage: StorageDriver = new ConfiguredStorageDriver("assets")
+export const clipStorage: StorageDriver = createFsStorage("clips")
+export const clipThumbnailStorage: StorageDriver = createFsStorage("thumbnails")
+export const assetStorage: StorageDriver = createFsStorage("assets")
 export const userStorage: StorageDriver = assetStorage
 export const gameAssetStorage: StorageDriver = assetStorage
 export const dataStorage: StorageDriver = assetStorage

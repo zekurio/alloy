@@ -32,10 +32,6 @@ import {
   streamResolved,
   streamThumbnail,
 } from "./clips-playback-streams"
-import {
-  DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC,
-  redirectToStorageUrl,
-} from "./media-redirect"
 import { zValidator } from "./validation"
 
 const logger = createLogger("clips")
@@ -78,7 +74,7 @@ function cutOrSourceAsset(row: {
   return null
 }
 
-/** Shared serve pipeline: storage redirect, else resolve + range streaming. */
+/** Shared serve pipeline: resolve + range streaming. */
 async function serveClipAsset(
   c: Context,
   asset: { key: string; contentType: string },
@@ -89,14 +85,6 @@ async function serveClipAsset(
     unavailable: string
   },
 ): Promise<Response> {
-  const direct = await redirectToStorageUrl(
-    c,
-    clipStorage,
-    { key: asset.key, contentType: asset.contentType || undefined },
-    opts.cacheControl,
-  )
-  if (direct) return direct
-
   const resolved = await clipStorage.resolve(asset.key)
   if (!resolved) {
     logger.error(`bytes missing under ${asset.key}`)
@@ -327,21 +315,6 @@ export const clipsPlaybackRoutes = new Hono()
         ? "public, max-age=86400"
         : "private, max-age=86400"
 
-    // Redirect responses cache for less than the signed URL lives; the
-    // 24h proxy caching (and its constant ETag) would keep serving a
-    // Location whose signature has expired.
-    const directCacheControl =
-      row.privacy === "public" && row.status === "ready"
-        ? `public, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`
-        : `private, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`
-    const direct = await redirectToStorageUrl(
-      c,
-      clipThumbnailStorage,
-      { key },
-      directCacheControl,
-    )
-    if (direct) return direct
-
     const etag = thumbnailEtag(key)
     c.header("ETag", etag)
     c.header("Cache-Control", thumbCacheControl)
@@ -375,18 +348,6 @@ export const clipsPlaybackRoutes = new Hono()
 
     const dlCacheControl =
       row.privacy === "public" ? "public, max-age=300" : "private, max-age=300"
-
-    const direct = await redirectToStorageUrl(
-      c,
-      clipStorage,
-      {
-        key: selected.key,
-        contentType: selected.contentType || undefined,
-        contentDisposition: contentDisposition(selected.filename),
-      },
-      dlCacheControl,
-    )
-    if (direct) return direct
 
     const resolved = await clipStorage.resolve(selected.key)
     if (!resolved) {

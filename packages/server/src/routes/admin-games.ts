@@ -34,10 +34,6 @@ import type { ContentfulStatusCode } from "hono/utils/http-status"
 import sharp from "sharp"
 import { z } from "zod"
 
-import {
-  DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC,
-  redirectToStorageUrl,
-} from "./media-redirect"
 import { requiredTrimmedString, zValidator } from "./validation"
 
 const logger = createLogger("admin-games")
@@ -450,14 +446,6 @@ export const gameAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
   if (!key || !GAME_ASSET_KEY_RE.test(key)) {
     return notFound(c)
   }
-
-  const direct = await redirectToStorageUrl(
-    c,
-    gameAssetStorage,
-    { key },
-    `public, max-age=${DIRECT_MEDIA_REDIRECT_MAX_AGE_SEC}`,
-  )
-  if (direct) return direct
 
   const resolved = await gameAssetStorage.resolve(key)
   if (!resolved) return notFound(c)
