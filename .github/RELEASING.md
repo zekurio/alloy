@@ -26,8 +26,19 @@ Dispatch the **publish** workflow from the Actions tab (it only runs on
 3. Commits `chore: release vX.Y.Z` to `dev` and tags that commit `vX.Y.Z`
    (pushed atomically).
 4. Builds the Windows desktop installer from the tagged commit.
-5. Publishes the GitHub Release with generated notes, the installer,
+5. Publishes the GitHub Release with categorized generated notes, the installer,
    `latest.yml`, blockmap, and checksums.
+
+## Changelog Policy
+
+GitHub generates release notes from merged pull requests and the categories in
+`.github/release.yml`. New pull requests receive a `changelog:*` label from
+their conventional title. Maintainers should replace the automated category
+when necessary; `changelog:skip` excludes a pull request from release notes.
+
+If a release interval has no pull requests (for example, because it contains
+direct commits), the publish workflow instead creates the same readable,
+conventional-commit categories from the commits between the release tags.
 
 ## Version Policy
 
