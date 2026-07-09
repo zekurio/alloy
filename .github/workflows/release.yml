@@ -1,6 +1,10 @@
 name: Release
 
 on:
+  # Recovery/bootstrap lever: branch-creation pushes skip paths-filtered push
+  # triggers (the first stable release hit this), and reruns need a manual way
+  # to produce a release from the current head.
+  workflow_dispatch:
   push:
     branches:
       - dev
