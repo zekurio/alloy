@@ -116,11 +116,6 @@ impl Recorder {
             return Err(error);
         }
 
-        // Re-evaluate capture targets right away so outputs stopped by this
-        // reconfigure (or enabled by it) resume without waiting for the next
-        // detection tick.
-        self.tick();
-
         self.refresh_codec_capabilities();
         let status = self.status();
         emit_event(RecordingEvent::Status {

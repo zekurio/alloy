@@ -175,10 +175,23 @@ impl Recorder {
             self.cached_audio_devices_at,
             HARDWARE_DISCOVERY_CACHE_TTL,
         ) {
-            let mut devices = default_audio_devices();
-            devices.extend(platform_audio_devices());
-            self.cached_audio_devices = dedupe_audio_devices(devices);
-            self.cached_audio_devices_at = Some(Instant::now());
+            match platform_audio_devices(self.obs.as_ref()) {
+                Ok(physical_devices) => {
+                    let mut devices = default_audio_devices();
+                    devices.extend(physical_devices);
+                    self.cached_audio_devices = dedupe_audio_devices(devices);
+                    self.cached_audio_devices_at = Some(Instant::now());
+                }
+                Err(error) => {
+                    if self.cached_audio_devices.is_empty() {
+                        self.cached_audio_devices = default_audio_devices();
+                    }
+                    eprintln!(
+                        "[{SIDE_CAR_NAME}] keeping the last audio-device inventory: {error}"
+                    );
+                    self.cached_audio_devices_at = Some(Instant::now());
+                }
+            }
         }
     }
 

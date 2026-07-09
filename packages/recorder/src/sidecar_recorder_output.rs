@@ -42,7 +42,7 @@ impl Recorder {
         let output_quality = effective_quality_for_base(settings, video_config.base);
         let mut capture = capture;
         let owns_capture = shared_capture.is_none();
-        let (mut video_graph, audio_sources) =
+        let (mut video_graph, audio_graph) =
             if let Some((_video_config, shared_kind)) = shared_capture {
                 source_kind = shared_kind;
                 capture.source = recording_source_from_kind(source_kind);
@@ -53,7 +53,7 @@ impl Recorder {
                         output_source: ptr::null_mut(),
                         source_kind,
                     },
-                    Vec::new(),
+                    empty_audio_graph(),
                 )
             } else {
                 // SAFETY: OBS is initialized above and this owner session is
@@ -65,8 +65,8 @@ impl Recorder {
                     (obs.obs_set_output_source)(0, video_graph.output_source);
                 }
 
-                let audio_sources = match unsafe { create_audio_sources(obs, settings, game) } {
-                    Ok(audio_sources) => audio_sources,
+                let audio_graph = match unsafe { create_audio_graph(obs, settings, game) } {
+                    Ok(audio_graph) => audio_graph,
                     Err(error) => {
                         unsafe {
                             release_output_graph(
@@ -75,13 +75,13 @@ impl Recorder {
                                 ptr::null_mut(),
                                 ptr::null_mut(),
                                 video_graph,
-                                Vec::new(),
+                                empty_audio_graph(),
                             );
                         }
                         return Err(error);
                     }
                 };
-                (video_graph, audio_sources)
+                (video_graph, audio_graph)
             };
 
         let video_settings = unsafe { obs.create_data() };
@@ -104,7 +104,11 @@ impl Recorder {
                         ptr::null_mut(),
                         ptr::null_mut(),
                         video_graph,
-                        if owns_capture { audio_sources } else { Vec::new() },
+                        if owns_capture {
+                            audio_graph
+                        } else {
+                            empty_audio_graph()
+                        },
                     );
                 }
                 return Err(error);
@@ -131,7 +135,11 @@ impl Recorder {
                         video_encoder,
                         ptr::null_mut(),
                         video_graph,
-                        if owns_capture { audio_sources } else { Vec::new() },
+                        if owns_capture {
+                            audio_graph
+                        } else {
+                            empty_audio_graph()
+                        },
                     );
                 }
                 return Err(error);
@@ -165,7 +173,7 @@ impl Recorder {
                     video_encoder,
                     audio_encoder,
                     video_graph,
-                    audio_sources,
+                    audio_graph,
                 );
             }
             return Err(error);
@@ -241,7 +249,11 @@ impl Recorder {
                         video_encoder,
                         audio_encoder,
                         video_graph,
-                        if owns_capture { audio_sources } else { Vec::new() },
+                        if owns_capture {
+                            audio_graph
+                        } else {
+                            empty_audio_graph()
+                        },
                     );
                 }
                 return Err(error);
@@ -258,7 +270,11 @@ impl Recorder {
                         video_encoder,
                         audio_encoder,
                         video_graph,
-                        if owns_capture { audio_sources } else { Vec::new() },
+                        if owns_capture {
+                            audio_graph
+                        } else {
+                            empty_audio_graph()
+                        },
                     );
                 }
                 return Err(error);
@@ -283,7 +299,11 @@ impl Recorder {
                     video_encoder,
                     audio_encoder,
                     video_graph,
-                    if owns_capture { audio_sources } else { Vec::new() },
+                    if owns_capture {
+                        audio_graph
+                    } else {
+                        empty_audio_graph()
+                    },
                 );
             }
             return Err(error);
@@ -300,7 +320,7 @@ impl Recorder {
             video_codec,
             video_graph,
             video_config,
-            audio_sources,
+            audio_graph,
             source_kind,
             output_config,
             capture,
@@ -380,7 +400,7 @@ impl Recorder {
                 session.video_encoder,
                 session.audio_encoder,
                 session.video_graph,
-                session.audio_sources,
+                session.audio_graph,
             );
         } else {
             release_output_only(obs, session.output, session.video_encoder, session.audio_encoder);

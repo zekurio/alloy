@@ -290,7 +290,7 @@ function unavailableRecordingStatus(
     replayBufferSeconds: settings.replayBufferSeconds,
     availableGpus: [],
     availableCodecs: ["h264"],
-    availableAudioDevices: settings.audioDevices,
+    availableAudioDevices: [],
     availableAudioApplications: settings.audioApplications,
     telemetry: null,
     message,

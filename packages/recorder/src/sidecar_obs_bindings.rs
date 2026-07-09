@@ -29,6 +29,17 @@ struct LibObs {
     obs_data_set_string: unsafe extern "C" fn(*mut ObsData, *const c_char, *const c_char),
     obs_data_set_int: unsafe extern "C" fn(*mut ObsData, *const c_char, i64),
     obs_data_set_bool: unsafe extern "C" fn(*mut ObsData, *const c_char, bool),
+    obs_get_source_properties: unsafe extern "C" fn(*const c_char) -> *mut ObsProperties,
+    obs_properties_destroy: unsafe extern "C" fn(*mut ObsProperties),
+    obs_properties_get:
+        unsafe extern "C" fn(*mut ObsProperties, *const c_char) -> *mut ObsProperty,
+    obs_property_get_type: unsafe extern "C" fn(*mut ObsProperty) -> i32,
+    obs_property_list_format: unsafe extern "C" fn(*mut ObsProperty) -> i32,
+    obs_property_list_item_count: unsafe extern "C" fn(*mut ObsProperty) -> usize,
+    obs_property_list_item_name:
+        unsafe extern "C" fn(*mut ObsProperty, usize) -> *const c_char,
+    obs_property_list_item_string:
+        unsafe extern "C" fn(*mut ObsProperty, usize) -> *const c_char,
     obs_source_create: unsafe extern "C" fn(
         *const c_char,
         *const c_char,
@@ -168,6 +179,26 @@ impl LibObs {
             obs_data_set_string: load_symbol(&library, b"obs_data_set_string\0")?,
             obs_data_set_int: load_symbol(&library, b"obs_data_set_int\0")?,
             obs_data_set_bool: load_symbol(&library, b"obs_data_set_bool\0")?,
+            obs_get_source_properties: load_symbol(
+                &library,
+                b"obs_get_source_properties\0",
+            )?,
+            obs_properties_destroy: load_symbol(&library, b"obs_properties_destroy\0")?,
+            obs_properties_get: load_symbol(&library, b"obs_properties_get\0")?,
+            obs_property_get_type: load_symbol(&library, b"obs_property_get_type\0")?,
+            obs_property_list_format: load_symbol(&library, b"obs_property_list_format\0")?,
+            obs_property_list_item_count: load_symbol(
+                &library,
+                b"obs_property_list_item_count\0",
+            )?,
+            obs_property_list_item_name: load_symbol(
+                &library,
+                b"obs_property_list_item_name\0",
+            )?,
+            obs_property_list_item_string: load_symbol(
+                &library,
+                b"obs_property_list_item_string\0",
+            )?,
             obs_source_create: load_symbol(&library, b"obs_source_create\0")?,
             obs_source_release: load_symbol(&library, b"obs_source_release\0")?,
             obs_source_remove: load_symbol(&library, b"obs_source_remove\0")?,
@@ -516,5 +547,73 @@ impl LibObs {
             CString::new(key).map_err(|_| "OBS setting key contained a nul byte.".to_string())?;
         (self.obs_data_set_bool)(data, key.as_ptr(), value);
         Ok(())
+    }
+
+    unsafe fn audio_devices(&self) -> Result<Vec<RecordingAudioDevice>, String> {
+        let mut devices = self.audio_devices_for_source(
+            platform_audio_output_source_id(),
+            RecordingAudioDeviceKind::Output,
+        )?;
+        devices.extend(self.audio_devices_for_source(
+            platform_audio_input_source_id(),
+            RecordingAudioDeviceKind::Input,
+        )?);
+        sort_audio_devices(&mut devices);
+        Ok(devices)
+    }
+
+    unsafe fn audio_devices_for_source(
+        &self,
+        source_id: &str,
+        kind: RecordingAudioDeviceKind,
+    ) -> Result<Vec<RecordingAudioDevice>, String> {
+        let source_id = CString::new(source_id)
+            .map_err(|_| "OBS source id contained a nul byte.".to_string())?;
+        let properties = (self.obs_get_source_properties)(source_id.as_ptr());
+        if properties.is_null() {
+            return Err(format!(
+                "OBS source {} did not expose properties.",
+                source_id.to_string_lossy()
+            ));
+        }
+
+        let result = (|| {
+            let property =
+                (self.obs_properties_get)(properties, c"device_id".as_ptr());
+            if property.is_null()
+                || (self.obs_property_get_type)(property) != OBS_PROPERTY_LIST
+                || (self.obs_property_list_format)(property) != OBS_COMBO_FORMAT_STRING
+            {
+                return Err(format!(
+                    "OBS source {} has no string-list device_id property.",
+                    source_id.to_string_lossy()
+                ));
+            }
+
+            let mut devices = Vec::new();
+            for index in 0..(self.obs_property_list_item_count)(property) {
+                let id = (self.obs_property_list_item_string)(property, index);
+                let label = (self.obs_property_list_item_name)(property, index);
+                if id.is_null() || label.is_null() {
+                    continue;
+                }
+                let id = CStr::from_ptr(id).to_string_lossy();
+                if id.is_empty() || id.eq_ignore_ascii_case("communications") {
+                    continue;
+                }
+                devices.push(RecordingAudioDevice {
+                    id: if id.eq_ignore_ascii_case("default") {
+                        "default".to_string()
+                    } else {
+                        id.to_ascii_lowercase()
+                    },
+                    label: CStr::from_ptr(label).to_string_lossy().into_owned(),
+                    kind: kind.clone(),
+                });
+            }
+            Ok(devices)
+        })();
+        (self.obs_properties_destroy)(properties);
+        result
     }
 }
