@@ -1,3 +1,4 @@
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { createElement } from "react"
 import type { ReactNode } from "react"
@@ -15,7 +16,7 @@ function getCloseAction(id: string | number) {
   return createElement(
     Button,
     { size: "sm", onClick: () => toast.dismiss(id) },
-    "Close",
+    t("Close"),
   )
 }
 
