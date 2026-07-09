@@ -149,7 +149,7 @@ export function DesktopAppPanel() {
       <hr className="border-border" />
       <SettingsSubsection
         title={t("Updates")}
-        description={t("Switch latest or unstable desktop releases.")}
+        description={t("Keep the desktop app up to date.")}
       >
         <DesktopUpdateSettings />
       </SettingsSubsection>

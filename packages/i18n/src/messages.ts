@@ -371,8 +371,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Aufnahmeeinstellungen konnten nicht gespeichert werden.",
   "Couldn't save transcoding settings":
     "Transkodierungs-Einstellungen konnten nicht gespeichert werden",
-  "Couldn't save update channel.":
-    "Update-Kanal konnte nicht gespeichert werden.",
   "Couldn't scan the library": "Bibliothek konnte nicht gescannt werden",
   "Couldn't search": "Suche fehlgeschlagen",
   "Couldn't share clip": "Clip konnte nicht geteilt werden",
@@ -586,10 +584,10 @@ export const DE_MESSAGES: Record<string, string> = {
   kbps: "kbps",
   "Keep between 1 and 6 rendition tiers.":
     "Behalte zwischen 1 und 6 Qualitätsstufen bei.",
+  "Keep the desktop app up to date.": "Halte die Desktop-App aktuell.",
   landscape: "Querformat",
   Language: "Sprache",
   "Last used": "Zuletzt verwendet",
-  Latest: "Stabil",
   "Launches in the background so your games are captured right away.":
     "Startet im Hintergrund, damit deine Spiele sofort aufgenommen werden.",
   Library: "Bibliothek",
@@ -819,7 +817,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Refresh: "Aktualisieren",
   "Refresh processes": "Prozesse aktualisieren",
   Register: "Registrieren",
-  "Release builds": "Stabile Builds",
   "Release date": "Erscheinungsdatum",
   Released: "Veröffentlicht",
   "Remove avatar": "Avatar entfernen",
@@ -949,8 +946,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Storage quota (GiB)": "Speicherkontingent (GiB)",
   "Swipe to navigate": "Zum Navigieren wischen",
   Switch: "Wechseln",
-  "Switch latest or unstable desktop releases.":
-    "Wechsle zwischen stabilen und instabilen Desktop-Releases.",
   System: "System",
   "Tag people": "Nutzer markieren",
   Tagged: "Markiert",
@@ -1026,10 +1021,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Unpin: "Lösen",
   Unpost: "Zurückziehen",
   "Unposting...": "Wird zurückgezogen...",
-  Unstable: "Instabil",
-  "Unstable builds": "Instabile Builds",
   Untitled: "Ohne Titel",
-  "Update channel set to {channel}.": "Update-Kanal auf {channel} gesetzt.",
   "Update ready": "Update bereit",
   "Update role and storage quota for {username}.":
     "Aktualisiere Rolle und Speicherkontingent für {username}.",

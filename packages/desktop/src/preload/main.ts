@@ -81,8 +81,6 @@ const recording: AlloyDesktopRecordingApi = {
 
 const updates: AlloyDesktopUpdatesApi = {
   getState: () => ipcRenderer.invoke(IPC.getUpdateState),
-  getChannel: () => ipcRenderer.invoke(IPC.getUpdateChannel),
-  setChannel: (channel) => ipcRenderer.invoke(IPC.setUpdateChannel, channel),
   checkForUpdates: () => ipcRenderer.invoke(IPC.checkForUpdates),
   restartToInstall: () => ipcRenderer.invoke(IPC.restartToInstallUpdate),
   onState: (listener) => {

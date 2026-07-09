@@ -106,8 +106,6 @@ export const IPC = {
   getAutostart: "alloy:get-autostart",
   setAutostart: "alloy:set-autostart",
   getUpdateState: "alloy:get-update-state",
-  getUpdateChannel: "alloy:get-update-channel",
-  setUpdateChannel: "alloy:set-update-channel",
   checkForUpdates: "alloy:check-for-updates",
   restartToInstallUpdate: "alloy:restart-to-install-update",
   updateEvent: "alloy:update-event",

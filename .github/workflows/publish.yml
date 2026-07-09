@@ -1,0 +1,340 @@
+name: publish
+
+run-name: "release ${{ inputs.version || inputs.bump }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Bump major, minor, or patch"
+        required: false
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+      version:
+        description: "Exact version override (optional, e.g. 1.2.3)"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Preflight
+    if: github.ref == 'refs/heads/dev'
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      tag: ${{ steps.release.outputs.tag }}
+      ref: ${{ steps.release.outputs.ref }}
+      previous_tag: ${{ steps.release.outputs.previous_tag }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: corepack pnpm fmt:check
+
+      - name: Run lint
+        run: corepack pnpm lint:github
+
+      - name: Run typecheck
+        run: corepack pnpm typecheck
+
+      - id: release
+        name: Resolve version, commit, and tag
+        shell: bash
+        env:
+          INPUT_BUMP: ${{ inputs.bump }}
+          INPUT_VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current="$(node -e '
+            const { readFileSync } = require("node:fs");
+            const version = JSON.parse(readFileSync("package.json", "utf8")).version;
+            if (!/^[0-9]+\.[0-9]+\.[0-9]+$/.test(String(version))) {
+              console.error(`Invalid package.json version: ${version}`);
+              process.exit(1);
+            }
+            console.log(version);
+          ')"
+
+          release_published() {
+            gh release view "$1" --json isDraft --jq 'if .isDraft then "draft" else "published" end' 2>/dev/null |
+              grep -qx "published"
+          }
+
+          if [[ -n "$INPUT_VERSION" ]]; then
+            if [[ ! "$INPUT_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "Version override must be plain semver, got: $INPUT_VERSION" >&2
+              exit 1
+            fi
+            version="$INPUT_VERSION"
+          elif ! git rev-parse -q --verify "refs/tags/v$current" >/dev/null; then
+            # The checked-in version was bumped but never tagged: a previous
+            # run failed after its release commit. Release the pending version
+            # instead of bumping again.
+            echo "Recovering untagged version $current."
+            version="$current"
+          elif ! release_published "v$current"; then
+            # The tag exists but the release never published: a previous run
+            # failed after tagging. Finish that release instead of bumping.
+            echo "Recovering unpublished release v$current."
+            version="$current"
+          else
+            version="$(CURRENT="$current" BUMP="$INPUT_BUMP" node -e '
+              const [major, minor, patch] = process.env.CURRENT.split(".").map(Number);
+              const bump = process.env.BUMP || "patch";
+              if (bump === "major") console.log(`${major + 1}.0.0`);
+              else if (bump === "minor") console.log(`${major}.${minor + 1}.0`);
+              else console.log(`${major}.${minor}.${patch + 1}`);
+            ')"
+          fi
+
+          tag="v$version"
+
+          previous_tag="$(
+            git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname |
+              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |
+              grep -Fxv "$tag" |
+              head -n 1 || true
+          )"
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            if release_published "$tag"; then
+              echo "Release $tag is already published." >&2
+              exit 1
+            fi
+            # Rebuild the pending release from the exact tagged commit.
+            ref="$(git rev-list -n 1 "$tag")"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            if [[ "$version" != "$current" ]]; then
+              node scripts/update-release-package-versions.mjs "$version"
+              git add package.json \
+                packages/desktop/package.json \
+                packages/recorder/package.json \
+                packages/recorder/Cargo.toml \
+                packages/recorder/Cargo.lock
+              git commit -m "chore: release $tag"
+            fi
+
+            git tag "$tag"
+            git push --atomic origin dev "refs/tags/$tag"
+            ref="$(git rev-parse HEAD)"
+          fi
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "ref=$ref"
+            echo "previous_tag=$previous_tag"
+          } >> "$GITHUB_OUTPUT"
+
+  desktop:
+    name: Build Windows desktop release
+    needs: [preflight]
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.preflight.outputs.ref }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.4.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: corepack pnpm install --frozen-lockfile
+
+      - name: Stage OBS runtime
+        shell: pwsh
+        env:
+          OBS_STUDIO_VERSION: 32.1.2
+        run: |
+          $ErrorActionPreference = "Stop"
+          $archive = Join-Path $env:RUNNER_TEMP "obs-studio.zip"
+          $runtimeDir = Join-Path $env:RUNNER_TEMP "obs-runtime"
+          $downloadUrl = "https://github.com/obsproject/obs-studio/releases/download/$env:OBS_STUDIO_VERSION/OBS-Studio-$env:OBS_STUDIO_VERSION-Windows-x64.zip"
+
+          Invoke-WebRequest -Uri $downloadUrl -OutFile $archive
+
+          if (Test-Path $runtimeDir) {
+            Remove-Item -LiteralPath $runtimeDir -Recurse -Force
+          }
+          New-Item -ItemType Directory -Path $runtimeDir | Out-Null
+          Expand-Archive -Path $archive -DestinationPath $runtimeDir
+
+          $obsDll = Join-Path $runtimeDir "bin\64bit\obs.dll"
+          if (!(Test-Path $obsDll)) {
+            Write-Error "Downloaded OBS runtime is invalid; missing $obsDll."
+          }
+
+          "ALLOY_OBS_RUNTIME_DIR=$runtimeDir" >> $env:GITHUB_ENV
+          "ALLOY_REQUIRE_OBS_RUNTIME=1" >> $env:GITHUB_ENV
+
+      - name: Build desktop installer
+        env:
+          NODE_ENV: production
+        run: corepack pnpm --filter @alloy/desktop dist:win:installer
+
+      - name: Validate desktop release assets
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $releaseDir = "packages/desktop/release"
+
+          if (-not (Get-ChildItem -LiteralPath $releaseDir -Filter "*.exe" -File)) {
+            Write-Error "No Windows installer was produced in $releaseDir."
+          }
+          if (-not (Test-Path (Join-Path $releaseDir "latest.yml"))) {
+            Write-Error "No Electron updater metadata (latest.yml) was produced in $releaseDir."
+          }
+          if (-not (Get-ChildItem -LiteralPath $releaseDir -Filter "*.blockmap" -File)) {
+            Write-Error "No Electron blockmap was produced in $releaseDir."
+          }
+
+      - name: Upload desktop release assets
+        uses: actions/upload-artifact@v7
+        with:
+          name: desktop-release-assets
+          path: |
+            packages/desktop/release/*.exe
+            packages/desktop/release/*.blockmap
+            packages/desktop/release/latest.yml
+          if-no-files-found: error
+
+  publish:
+    name: Publish GitHub release
+    needs:
+      - preflight
+      - desktop
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download desktop release assets
+        uses: actions/download-artifact@v8
+        with:
+          name: desktop-release-assets
+          path: release-assets
+
+      - name: Generate release checksums
+        shell: bash
+        run: |
+          tmp="$(mktemp)"
+          (
+            cd release-assets
+            find . -maxdepth 1 -type f -printf '%P\n' | sort | while IFS= read -r file; do
+              sha256sum "$file"
+            done
+          ) > "$tmp"
+          mv "$tmp" release-assets/checksums.txt
+          cat release-assets/checksums.txt
+
+      - name: Write release notes
+        uses: actions/github-script@v8
+        env:
+          RELEASE_TAG: ${{ needs.preflight.outputs.tag }}
+          RELEASE_REF: ${{ needs.preflight.outputs.ref }}
+          PREVIOUS_TAG: ${{ needs.preflight.outputs.previous_tag }}
+        with:
+          script: |
+            const fs = require("node:fs");
+
+            const tag = process.env.RELEASE_TAG;
+            const previousTag = process.env.PREVIOUS_TAG;
+            const { owner, repo } = context.repo;
+
+            let generatedNotes = "";
+            try {
+              const response = await github.rest.repos.generateReleaseNotes({
+                owner,
+                repo,
+                tag_name: tag,
+                target_commitish: process.env.RELEASE_REF,
+                previous_tag_name: previousTag || undefined,
+              });
+              generatedNotes = response.data.body.trim();
+            } catch (error) {
+              core.warning(`Could not generate GitHub release notes: ${error.message}`);
+              generatedNotes = previousTag
+                ? `Full changelog: https://github.com/${owner}/${repo}/compare/${previousTag}...${tag}`
+                : `Changes are included from ${process.env.RELEASE_REF}.`;
+            }
+
+            const body = [
+              "## Desktop Release",
+              "",
+              "Download the Windows x64 installer from the assets below.",
+              "Auto-update clients use `latest.yml` and the matching blockmap asset attached to this release.",
+              "",
+              "## Server Nix Package",
+              "",
+              "Use the flake package or NixOS module for server deployments.",
+              "For reproducible deployments, pin this release tag in your flake input.",
+              "",
+              "```nix",
+              `inputs.alloy.url = "github:${owner}/${repo}/${tag}";`,
+              "```",
+              "",
+              "## Checksums",
+              "",
+              "See `checksums.txt` in the release assets.",
+              "",
+              generatedNotes,
+            ].join("\n");
+
+            fs.writeFileSync("release-notes.md", `${body}\n`);
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ needs.preflight.outputs.tag }}
+          target_commitish: ${{ needs.preflight.outputs.ref }}
+          name: ${{ needs.preflight.outputs.tag }}
+          body_path: release-notes.md
+          prerelease: false
+          make_latest: true
+          files: |
+            release-assets/*.exe
+            release-assets/*.blockmap
+            release-assets/latest.yml
+            release-assets/checksums.txt
+          fail_on_unmatched_files: true

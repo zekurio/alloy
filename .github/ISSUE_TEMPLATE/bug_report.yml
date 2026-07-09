@@ -1,0 +1,84 @@
+name: Bug report
+description: Report a defect in the desktop app, recorder, server, or web app
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of Alloy is affected?
+      options:
+        - Desktop app
+        - Recorder / clip capture
+        - Server / API
+        - Web app
+        - Upload / encoding pipeline
+        - Packaging / Nix
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: >-
+        Release tag or version, e.g. `v1.0.0`. For server deployments, the
+        pinned flake input or commit.
+      placeholder: v1.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, and what went wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: >-
+        OS and version. Add the browser for web issues, the GPU for recording
+        issues, and the deployment method for server issues.
+      placeholder: |
+        - OS: Windows 11 24H2
+        - Browser: Firefox 140
+        - GPU: RTX 4070
+        - Deployment: NixOS module
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >-
+        Relevant log output. Desktop logs live at
+        `%LOCALAPPDATA%\Alloy Desktop\logs`; server logs come from your
+        service manager (e.g. `journalctl -u alloy-server`). Rendered as
+        code, no backticks needed.
+      render: text
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true

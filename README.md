@@ -20,10 +20,6 @@ search, library management, setup, and admin settings.
 Alloy Desktop currently targets Windows x64. Install the latest stable desktop
 build from the [latest GitHub Release](https://github.com/zekurio/alloy/releases/latest).
 
-Unstable desktop builds are also published as GitHub Releases, tagged
-`vX.Y.Z-unstable.<date>.<run>` and marked as prereleases. Install the newest
-one from the [Releases page](https://github.com/zekurio/alloy/releases).
-
 ### Server
 
 The NixOS module is the preferred server deployment path today.
@@ -279,14 +275,11 @@ configured runtime contains `obs.dll`.
 
 ## Releases
 
-Alloy publishes GitHub Releases for both channels. Latest releases build from
-`main`, use tags named `vX.Y.Z`, and are marked as the GitHub "latest"
-release. Unstable releases build from `dev` on every desktop-affecting push,
-use tags named `vX.Y.Z-unstable.<date>.<run>`, and are marked as prereleases.
-Both channels attach the Windows installer, Electron updater metadata
-(`latest.yml` or `unstable.yml`), blockmaps, and checksums.
+Alloy publishes a GitHub Release for every version. Releases are cut from
+`dev` by the publish workflow, tagged `vX.Y.Z`, and attach the Windows
+installer, Electron updater metadata (`latest.yml`), blockmaps, and checksums.
 
-Browse all releases, including unstable prereleases, on the
+Browse all releases on the
 [Releases page](https://github.com/zekurio/alloy/releases).
 
 Server releases are distributed through the Nix flake package and NixOS module.
@@ -305,6 +298,12 @@ Most packages have a README with local commands and package-specific notes:
 - `packages/server/README.md`
 - `packages/ui/README.md`
 - `packages/web/README.md`
+
+## Contributing
+
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for development setup, branch
+and commit conventions, and the PR checklist. Bugs and feature requests go
+through the [issue templates](https://github.com/zekurio/alloy/issues/new/choose).
 
 ## License
 

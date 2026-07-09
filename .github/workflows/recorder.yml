@@ -1,27 +1,25 @@
-name: Recorder CI
+name: recorder
 
 on:
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - "packages/recorder/**"
-      - ".github/workflows/recorder-ci.yml"
+      - ".github/workflows/recorder.yml"
   push:
     branches:
-      - main
       - dev
     paths:
       - "packages/recorder/**"
-      - ".github/workflows/recorder-ci.yml"
+      - ".github/workflows/recorder.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: recorder-ci-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
