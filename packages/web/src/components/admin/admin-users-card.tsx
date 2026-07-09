@@ -59,6 +59,7 @@ import {
   SaveIcon,
   Trash2Icon,
   UserCheckIcon,
+  UserPlusIcon,
   UserXIcon,
 } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
@@ -302,7 +303,7 @@ export function AdminUsersCard({
     fetchNextPage,
   } = useAdminUsers(currentUserId)
 
-  const content = loadError ? (
+  const list = loadError ? (
     <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
       {loadError}
     </div>
@@ -313,7 +314,7 @@ export function AdminUsersCard({
   ) : users.length === 0 ? (
     <p className="text-foreground-muted text-sm">{t("No users yet.")}</p>
   ) : (
-    <div className="flex flex-col gap-3">
+    <>
       <UsersList
         users={users}
         currentUserId={currentUserId}
@@ -334,6 +335,15 @@ export function AdminUsersCard({
           {isFetchingNextPage ? t("Loading…") : t("Load more")}
         </Button>
       ) : null}
+    </>
+  )
+
+  const content = (
+    <div className="flex flex-col gap-3">
+      <div className="flex justify-end">
+        <CreateUserDialog />
+      </div>
+      {list}
     </div>
   )
 
@@ -678,6 +688,140 @@ function EditUserDialog({
             >
               <SaveIcon />
               {saving ? t("Saving…") : t("Save")}
+            </Button>
+          </ResponsiveDialogFooter>
+        </form>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  )
+}
+
+function CreateUserDialog() {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
+  const [role, setRole] = useState<"admin" | "user">("user")
+
+  useEffect(() => {
+    if (open) {
+      setEmail("")
+      setUsername("")
+      setRole("user")
+    }
+  }, [open])
+
+  const { isPending, mutate } = useMutation({
+    mutationFn: (input: {
+      email: string
+      username?: string
+      role: "admin" | "user"
+    }) => api.admin.createUser(input),
+    onSuccess: () => {
+      toast.success(t("User created"))
+      setOpen(false)
+      return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
+    },
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't create user"))),
+  })
+
+  function onSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (isPending) return
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) return
+    const trimmedUsername = username.trim()
+    mutate({
+      email: trimmedEmail,
+      ...(trimmedUsername ? { username: trimmedUsername } : {}),
+      role,
+    })
+  }
+
+  return (
+    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+      <ResponsiveDialogTrigger
+        render={
+          <Button variant="secondary" size="sm">
+            <UserPlusIcon />
+            {t("Add user")}
+          </Button>
+        }
+      />
+      <ResponsiveDialogContent variant="secondary">
+        <form onSubmit={onSubmit}>
+          <ResponsiveDialogHeader>
+            <ResponsiveDialogTitle>{t("Create user")}</ResponsiveDialogTitle>
+            <ResponsiveDialogDescription>
+              {t(
+                "They can claim the account by signing in with an identity provider that uses this email.",
+              )}
+            </ResponsiveDialogDescription>
+          </ResponsiveDialogHeader>
+          <ResponsiveDialogBody className="flex flex-col gap-4">
+            <Field>
+              <FieldLabel htmlFor="create-user-email">{t("Email")}</FieldLabel>
+              <Input
+                id="create-user-email"
+                type="email"
+                required
+                autoComplete="off"
+                value={email}
+                disabled={isPending}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="create-user-username">
+                {t("Username")}
+              </FieldLabel>
+              <Input
+                id="create-user-username"
+                value={username}
+                placeholder={t("Optional")}
+                disabled={isPending}
+                onChange={(e) => setUsername(e.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="create-user-role">{t("Role")}</FieldLabel>
+              <Select
+                value={role}
+                onValueChange={(v) => setRole(v as "admin" | "user")}
+                disabled={isPending}
+              >
+                <SelectTrigger id="create-user-role">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user">{t("User")}</SelectItem>
+                  <SelectItem value="admin">{t("Admin")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </ResponsiveDialogBody>
+          <ResponsiveDialogFooter>
+            <ResponsiveDialogClose
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={isPending}
+                />
+              }
+            >
+              {t("Cancel")}
+            </ResponsiveDialogClose>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isPending}
+            >
+              <UserPlusIcon />
+              {isPending ? t("Creating…") : t("Create")}
             </Button>
           </ResponsiveDialogFooter>
         </form>
