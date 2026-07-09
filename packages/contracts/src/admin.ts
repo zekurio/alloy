@@ -103,6 +103,39 @@ export const AdminOAuthProviderSchema = z
 
 export type AdminOAuthProvider = z.infer<typeof AdminOAuthProviderSchema>
 
+/**
+ * Which auth config sections are env-managed. A locked key is sourced from its
+ * ALLOY_* environment variable and rejects admin writes until the variable is
+ * unset (Immich-style declarative override).
+ */
+export const AuthConfigLocksSchema = z.looseObject({
+  openRegistrations: z.boolean(),
+  passkeyEnabled: z.boolean(),
+  requireAuthToBrowse: z.boolean(),
+  oauthProviders: z.boolean(),
+})
+
+export type AuthConfigLocks = z.infer<typeof AuthConfigLocksSchema>
+
+export interface AdminAuthConfigPatch {
+  openRegistrations?: boolean
+  passkeyEnabled?: boolean
+  requireAuthToBrowse?: boolean
+}
+
+/**
+ * Admin submission shape for the OAuth provider list. `clientSecret` is
+ * write-only; absent or empty keeps the provider's stored secret. Fields with
+ * server-side defaults (claims, pkce, uidClaim, ...) may be omitted.
+ */
+export type AdminOAuthProviderInput = Partial<OAuthProviderConfig> & {
+  providerId: string
+  displayName: string
+  clientId: string
+  enabled: boolean
+  clientSecret?: string
+}
+
 export const AdminLimitsConfigSchema = z.looseObject({
   defaultStorageQuotaBytes: NullablePositiveIntegerSchema,
   uploadTtlSec: PositiveIntegerSchema,
@@ -125,10 +158,7 @@ export type AdminIntegrationsConfig = z.infer<
   typeof AdminIntegrationsConfigSchema
 >
 
-export const STORAGE_DRIVER_TYPES = ["fs"] as const
-export type StorageDriverType = (typeof STORAGE_DRIVER_TYPES)[number]
-
-export const FilesystemStorageConfigSchema = z.looseObject({
+export const StorageConfigSchema = z.looseObject({
   /**
    * Filesystem root for clip sources and derived clip media. Relative paths
    * resolve from the server working directory; absolute paths are used as-is.
@@ -146,15 +176,6 @@ export const FilesystemStorageConfigSchema = z.looseObject({
    * paths are used as-is.
    */
   assetsPath: NonEmptyStringSchema,
-})
-
-export type FilesystemStorageConfig = z.infer<
-  typeof FilesystemStorageConfigSchema
->
-
-export const StorageConfigSchema = z.looseObject({
-  driver: z.enum(STORAGE_DRIVER_TYPES).default("fs"),
-  fs: FilesystemStorageConfigSchema,
 })
 
 export type StorageConfig = z.infer<typeof StorageConfigSchema>
@@ -411,6 +432,7 @@ export const AdminRuntimeConfigSchema = z.looseObject({
   transcoding: TranscodingConfigSchema,
   jobs: JobsConfigSchema,
   integrations: AdminIntegrationsConfigSchema,
+  authLocks: AuthConfigLocksSchema,
   authBaseURL: UrlStringSchema,
 })
 

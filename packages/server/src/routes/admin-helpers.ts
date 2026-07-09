@@ -9,6 +9,7 @@ import type {
 import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { secretStore } from "@alloy/server/config/secret-store"
+import { authEnvLocks } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
@@ -40,6 +41,7 @@ export function adminRuntimeConfigResponse(
       steamgriddbApiKeySet: secretStore.get("steamgriddbApiKey").length > 0,
       steamgriddbConfigured: secretStore.get("steamgriddbApiKey").length > 0,
     },
+    authLocks: authEnvLocks(),
     authBaseURL: env.PUBLIC_SERVER_URL,
   }
 }

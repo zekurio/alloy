@@ -4,11 +4,25 @@ import {
   VideoCodecSchema,
 } from "@alloy/contracts"
 import { requireAdmin } from "@alloy/server/auth/session"
-import { configStore } from "@alloy/server/config/store"
+import { signInConfigError } from "@alloy/server/auth/sign-in-config"
+import {
+  OAuthProviderSubmissionSchema,
+  type OAuthProviderSubmission,
+} from "@alloy/server/config/oauth-schema"
+import {
+  authEnvLocks,
+  configStore,
+  setAuthToggles,
+  setOAuthProviders,
+} from "@alloy/server/config/store"
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
 import { enqueueStorageVerify } from "@alloy/server/jobs/kinds/storage-verify"
 import { probeTranscodingCapabilities } from "@alloy/server/media/capabilities"
-import { batchProgress } from "@alloy/server/runtime/http-response"
+import {
+  badRequest,
+  batchProgress,
+  conflict,
+} from "@alloy/server/runtime/http-response"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -20,6 +34,42 @@ import { zValidator } from "./validation"
 
 const RuntimeConfigPatch = z.object({
   setupComplete: z.boolean().optional(),
+})
+
+const AuthConfigPatch = z
+  .object({
+    openRegistrations: z.boolean().optional(),
+    passkeyEnabled: z.boolean().optional(),
+    requireAuthToBrowse: z.boolean().optional(),
+  })
+  .refine(
+    (patch) =>
+      patch.openRegistrations !== undefined ||
+      patch.passkeyEnabled !== undefined ||
+      patch.requireAuthToBrowse !== undefined,
+    { message: "No updates provided" },
+  )
+
+// Mirrors OAuthProvidersSchema's array-level constraints for the submission
+// shape (write-only clientSecret per provider).
+const OAuthProvidersBody = z.object({
+  providers: z
+    .array(OAuthProviderSubmissionSchema)
+    .max(16)
+    .superRefine((providers, ctx) => {
+      const seen = new Set<string>()
+      for (const [index, provider] of providers.entries()) {
+        if (!seen.has(provider.providerId)) {
+          seen.add(provider.providerId)
+          continue
+        }
+        ctx.addIssue({
+          code: "custom",
+          path: [index, "providerId"],
+          message: "Provider ID must be unique.",
+        })
+      }
+    }),
 })
 
 const TranscodingPatch = z.object({
@@ -57,6 +107,74 @@ export const adminRoute = new Hono()
       if (body.setupComplete !== undefined) {
         await configStore.set("setupComplete", body.setupComplete)
       }
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+    },
+  )
+  .patch("/auth-config", zValidator("json", AuthConfigPatch), async (c) => {
+    const patch = c.req.valid("json")
+    const locks = authEnvLocks()
+    for (const key of [
+      "openRegistrations",
+      "passkeyEnabled",
+      "requireAuthToBrowse",
+    ] as const) {
+      if (patch[key] !== undefined && locks[key]) {
+        return badRequest(
+          c,
+          "This setting is env-managed. Unset its ALLOY_* environment variable to edit it here.",
+        )
+      }
+    }
+
+    // Turning passkeys off must leave a usable sign-in method (and one an
+    // active admin can actually use) — same lockout guard as provider edits.
+    if (patch.passkeyEnabled === false) {
+      const error = await signInConfigError({
+        passkeyEnabled: false,
+        oauthProviders: configStore.get("oauthProviders"),
+      })
+      if (error) return conflict(c, error)
+    }
+
+    await setAuthToggles(patch)
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+  .put(
+    "/oauth-providers",
+    zValidator("json", OAuthProvidersBody),
+    async (c) => {
+      if (authEnvLocks().oauthProviders) {
+        return badRequest(
+          c,
+          "OAuth providers are managed by the ALLOY_SOCIALACCOUNT_PROVIDERS environment variable. Unset it to edit providers here.",
+        )
+      }
+
+      const submissions = c.req.valid("json").providers
+      // Non-empty submitted secrets become the new stored secret; absent or
+      // empty keeps the provider's existing one (write-only semantics).
+      const newSecrets: Record<string, string> = {}
+      for (const submission of submissions) {
+        const secret = submission.clientSecret?.trim()
+        if (secret) newSecrets[submission.providerId] = secret
+      }
+      const providers = submissions.map(
+        ({
+          clientSecret: _clientSecret,
+          ...provider
+        }: OAuthProviderSubmission) => provider,
+      )
+
+      const error = await signInConfigError(
+        {
+          passkeyEnabled: configStore.get("passkeyEnabled"),
+          oauthProviders: providers,
+        },
+        (providerId) => Object.hasOwn(newSecrets, providerId),
+      )
+      if (error) return conflict(c, error)
+
+      await setOAuthProviders(providers, newSecrets)
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )

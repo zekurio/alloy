@@ -1,8 +1,10 @@
 import type {
+  AdminAuthConfigPatch,
   AdminCreateGameInput,
   AdminFailedJobsPage,
   AdminGameRow,
   AdminJobsSummary,
+  AdminOAuthProviderInput,
   AdminRuntimeConfig,
   AdminSweepKind,
   AdminUpdateGameInput,
@@ -32,10 +34,13 @@ import {
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { readDeletedJson, readSuccessJson } from "./mutations"
-
 export {
+  OAUTH_AVATAR_CLAIM_DEFAULT,
+  OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
+  OAUTH_CLIENT_SECRET_POST_AUTH_METHOD,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
+  OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "@alloy/contracts"
 export type {
@@ -52,6 +57,8 @@ export type {
   AdminStorageVerifySummary,
   AdminSweepKind,
   AdminLimitsConfig,
+  AdminAuthConfigPatch,
+  AdminOAuthProviderInput,
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminStorageConfig,
@@ -67,6 +74,7 @@ export type {
   TranscodingCapabilities,
   TranscodingConfig,
   TranscodingEncoderProbe,
+  OAuthTokenAuthMethod,
   UsernameClaim,
   VideoCodec,
 } from "@alloy/contracts"
@@ -137,6 +145,24 @@ async function updateTranscodingConfig(
   patch: TranscodingConfigPatch,
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin.transcoding.$patch({ json: patch })
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
+}
+
+async function updateAuthConfig(
+  context: ApiContext,
+  patch: AdminAuthConfigPatch,
+): Promise<AdminRuntimeConfig> {
+  const res = await context.rpc.api.admin["auth-config"].$patch({ json: patch })
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
+}
+
+async function updateOAuthProviders(
+  context: ApiContext,
+  providers: AdminOAuthProviderInput[],
+): Promise<AdminRuntimeConfig> {
+  const res = await context.rpc.api.admin["oauth-providers"].$put({
+    json: { providers },
+  })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
 }
 
@@ -337,6 +363,10 @@ export function createAdminApi(context: ApiContext) {
       updateAppearanceConfig(context, patch),
     updateTranscodingConfig: (patch: TranscodingConfigPatch) =>
       updateTranscodingConfig(context, patch),
+    updateAuthConfig: (patch: AdminAuthConfigPatch) =>
+      updateAuthConfig(context, patch),
+    updateOAuthProviders: (providers: AdminOAuthProviderInput[]) =>
+      updateOAuthProviders(context, providers),
     fetchTranscodingCapabilities: (options?: { refresh?: boolean }) =>
       fetchTranscodingCapabilities(context, options),
     reEncodeAllClips: () => reEncodeAllClips(context),

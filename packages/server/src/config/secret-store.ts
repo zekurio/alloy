@@ -1,6 +1,8 @@
 import type { OAuthProviderConfig } from "@alloy/contracts"
 import { env } from "@alloy/server/env"
 
+import { storedOAuthClientSecret } from "./store"
+
 type SecretMap = {
   viewerCookieSecret: string
   uploadHmacSecret: string
@@ -11,12 +13,15 @@ export const secretStore = {
   get<K extends keyof SecretMap>(key: K): SecretMap[K] {
     return env[key]
   },
-  /** Resolve an OAuth client secret by provider id ("" when unset). */
+  /**
+   * Resolve an OAuth client secret by provider id ("" when unset), from
+   * whichever source owns the provider list (env JSON or the settings table).
+   */
   oauthClientSecret(providerId: string): string {
-    return env.oauthClientSecrets[providerId] ?? ""
+    return storedOAuthClientSecret(providerId)
   },
   hasOAuthClientSecret(providerId: string): boolean {
-    return (env.oauthClientSecrets[providerId] ?? "").length > 0
+    return storedOAuthClientSecret(providerId).length > 0
   },
 } as const
 
