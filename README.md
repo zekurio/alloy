@@ -212,9 +212,9 @@ nix.settings = {
 
 Storage is configured declaratively. Alloy stores clip media, clip
 thumbnails, and other assets (user avatars/banners, admin-authored game art)
-on the server filesystem. Set `ALLOY_STORAGE_DRIVER=fs`,
-`ALLOY_STORAGE_FS_CLIPS_PATH`, `ALLOY_STORAGE_FS_THUMBNAILS_PATH`, and
-`ALLOY_STORAGE_FS_ASSETS_PATH`. The NixOS module defaults these to paths
+on the server filesystem. Set `ALLOY_STORAGE_FS_CLIPS_PATH`,
+`ALLOY_STORAGE_FS_THUMBNAILS_PATH`, and `ALLOY_STORAGE_FS_ASSETS_PATH`. The
+NixOS module defaults these to paths
 under `/var/lib/alloy/storage`.
 
 ### OAuth
