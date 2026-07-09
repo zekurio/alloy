@@ -20,6 +20,7 @@ import {
   badRequest,
   conflict,
   deleted,
+  forbidden,
   notFound,
 } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
@@ -326,6 +327,11 @@ export const clipsUploadRoutes = new Hono()
         await enqueueClipEncode(id, { trigger: "reencode", priority: 10 })
         return updatedClipResponse(c, id)
       }
+
+      // Re-encoding a ready clip is full transcode work for something that
+      // already plays — operator tooling, not a recovery path. Owners keep the
+      // failed-clip retry above; this stays admin-only.
+      if (c.var.session.user.role !== "admin") return forbidden(c)
 
       // Ready clip: re-encode in place, keeping it publicly playable from its
       // committed renditions. Rejected while a live run holds the clip lease,
