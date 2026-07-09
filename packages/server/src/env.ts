@@ -61,6 +61,18 @@ function envBool(defaultValue: boolean) {
   }, z.boolean())
 }
 
+// An unset (or empty) variable parses to null: the setting is DB-owned and
+// editable in the admin UI. An explicit value makes the key env-managed and
+// locks the admin UI for it.
+function envBoolOrNull() {
+  return z.preprocess((value) => {
+    if (value === undefined || value === "") return null
+    if (typeof value === "boolean" || value === null) return value
+    if (typeof value !== "string") return value
+    return boolValues.get(value.trim().toLowerCase()) ?? value
+  }, z.boolean().nullable())
+}
+
 function optionalPositiveIntegerOrNull() {
   return z
     .preprocess((value) => {
@@ -240,9 +252,9 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .transform((value) =>
           normalizeTrustedOrigins(value, defaultPublicServerUrl),
         ),
-      ALLOY_OPEN_REGISTRATIONS: envBool(false),
-      ALLOY_PASSKEY_ENABLED: envBool(true),
-      ALLOY_REQUIRE_AUTH_TO_BROWSE: envBool(true),
+      ALLOY_OPEN_REGISTRATIONS: envBoolOrNull(),
+      ALLOY_PASSKEY_ENABLED: envBoolOrNull(),
+      ALLOY_REQUIRE_AUTH_TO_BROWSE: envBoolOrNull(),
       // OAuth avatar sync refuses provider avatar URLs that resolve to
       // private/loopback addresses (SSRF guard). Self-hosted LAN IdPs whose
       // avatar URLs live on the private network can opt back in here.
@@ -254,7 +266,6 @@ export function parseServerEnv(source: EnvSource = process.env) {
         .min(60)
         .max(24 * 60 * 60)
         .default(900),
-      ALLOY_STORAGE_DRIVER: z.enum(["fs"]).default("fs"),
       ALLOY_STORAGE_FS_CLIPS_PATH: z
         .string()
         .trim()
@@ -300,12 +311,9 @@ export function parseServerEnv(source: EnvSource = process.env) {
   }
 
   const storage: StorageConfig = {
-    driver: raw.ALLOY_STORAGE_DRIVER,
-    fs: {
-      clipsPath: raw.ALLOY_STORAGE_FS_CLIPS_PATH,
-      thumbnailsPath: raw.ALLOY_STORAGE_FS_THUMBNAILS_PATH,
-      assetsPath: raw.ALLOY_STORAGE_FS_ASSETS_PATH,
-    },
+    clipsPath: raw.ALLOY_STORAGE_FS_CLIPS_PATH,
+    thumbnailsPath: raw.ALLOY_STORAGE_FS_THUMBNAILS_PATH,
+    assetsPath: raw.ALLOY_STORAGE_FS_ASSETS_PATH,
   }
 
   const viewerCookieSecret = requiredSecret(
@@ -315,8 +323,8 @@ export function parseServerEnv(source: EnvSource = process.env) {
   const uploadHmacSecret = requiredSecret(source, "ALLOY_UPLOAD_HMAC_SECRET")
   const steamgriddbApiKey = envText(source, "ALLOY_STEAMGRIDDB_API_KEY") ?? ""
   const socialProviders = envText(source, "ALLOY_SOCIALACCOUNT_PROVIDERS")
-  const { oauthProviders, oauthClientSecrets } =
-    parseSocialProviders(socialProviders)
+  const envSocialProviders =
+    socialProviders === undefined ? null : parseSocialProviders(socialProviders)
   const ffmpegPath = resolveFfmpegPath(raw.ALLOY_FFMPEG_PATH)
 
   return {
@@ -326,9 +334,14 @@ export function parseServerEnv(source: EnvSource = process.env) {
     PORT: raw.PORT,
     WEB_DIST_DIR: raw.WEB_DIST_DIR,
     TRUSTED_ORIGINS: raw.TRUSTED_ORIGINS,
-    openRegistrations: raw.ALLOY_OPEN_REGISTRATIONS,
-    passkeyEnabled: raw.ALLOY_PASSKEY_ENABLED,
-    requireAuthToBrowse: raw.ALLOY_REQUIRE_AUTH_TO_BROWSE,
+    // null = env var unset → the setting is DB-owned (admin UI editable).
+    authEnv: {
+      openRegistrations: raw.ALLOY_OPEN_REGISTRATIONS,
+      passkeyEnabled: raw.ALLOY_PASSKEY_ENABLED,
+      requireAuthToBrowse: raw.ALLOY_REQUIRE_AUTH_TO_BROWSE,
+      oauthProviders: envSocialProviders?.oauthProviders ?? null,
+      oauthClientSecrets: envSocialProviders?.oauthClientSecrets ?? null,
+    },
     oauthAvatarAllowPrivateUrls: raw.ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS,
     limits: {
       defaultStorageQuotaBytes: raw.ALLOY_DEFAULT_STORAGE_QUOTA_BYTES,
@@ -344,8 +357,6 @@ export function parseServerEnv(source: EnvSource = process.env) {
     viewerCookieSecret,
     uploadHmacSecret,
     steamgriddbApiKey,
-    oauthProviders,
-    oauthClientSecrets,
   } as const
 }
 

@@ -30,18 +30,6 @@ test("rejects missing required internal signing secrets", () => {
   )
 })
 
-test("rejects unsupported storage driver", () => {
-  assert.throws(
-    () =>
-      parseServerEnv(
-        baseEnv({
-          ALLOY_STORAGE_DRIVER: "s3",
-        }),
-      ),
-    /ALLOY_STORAGE_DRIVER/,
-  )
-})
-
 test("configures filesystem thumbnail storage separately", () => {
   const parsed = parseServerEnv(
     baseEnv({
@@ -52,12 +40,9 @@ test("configures filesystem thumbnail storage separately", () => {
   )
 
   assert.deepEqual(parsed.storage, {
-    driver: "fs",
-    fs: {
-      clipsPath: "/tank/alloy/clips",
-      thumbnailsPath: "/fast/alloy/thumbnails",
-      assetsPath: "/var/lib/alloy/assets",
-    },
+    clipsPath: "/tank/alloy/clips",
+    thumbnailsPath: "/fast/alloy/thumbnails",
+    assetsPath: "/var/lib/alloy/assets",
   })
 })
 
@@ -99,9 +84,12 @@ test("maps Paperless-style OIDC JSON to Alloy provider config", () => {
     }),
   )
 
-  assert.deepEqual(parsed.oauthClientSecrets, { zitadel: "client-secret" })
-  assert.equal(parsed.oauthProviders.length, 1)
-  assert.deepEqual(parsed.oauthProviders[0], {
+  assert.deepEqual(parsed.authEnv.oauthClientSecrets, {
+    zitadel: "client-secret",
+  })
+  assert.ok(parsed.authEnv.oauthProviders)
+  assert.equal(parsed.authEnv.oauthProviders.length, 1)
+  assert.deepEqual(parsed.authEnv.oauthProviders[0], {
     providerId: "zitadel",
     displayName: "Zitadel",
     clientId: "client-id",
@@ -160,10 +148,11 @@ test("maps Discord OIDC JSON to subject-claim config", () => {
     }),
   )
 
-  assert.deepEqual(parsed.oauthClientSecrets, {
+  assert.deepEqual(parsed.authEnv.oauthClientSecrets, {
     discord: "discord-client-secret",
   })
-  assert.deepEqual(parsed.oauthProviders[0], {
+  assert.ok(parsed.authEnv.oauthProviders)
+  assert.deepEqual(parsed.authEnv.oauthProviders[0], {
     providerId: "discord",
     displayName: "Discord",
     clientId: "discord-client-id",

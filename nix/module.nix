@@ -119,6 +119,11 @@ in
       S3-compatible storage support has been removed. Configure filesystem
       storage through services.alloy-server.storage.fs.
     '')
+    (lib.mkRemovedOptionModule [ "services" "alloy-server" "storage" "driver" ] ''
+      Only filesystem storage is supported, so the storage backend selector has
+      been removed. Configure filesystem storage through
+      services.alloy-server.storage.fs.
+    '')
     (lib.mkRemovedOptionModule [ "services" "alloy-server" "integrations" "steamgriddb" "apiKeyFile" ] ''
       Put ALLOY_STEAMGRIDDB_API_KEY in services.alloy-server.environmentFile,
       or set ALLOY_STEAMGRIDDB_API_KEY through services.alloy-server.environment.
@@ -275,22 +280,37 @@ in
     };
 
     auth = {
+      # null leaves the setting DB-owned and editable in the admin UI. An
+      # explicit value makes it env-managed: the server uses it and the admin
+      # UI shows the setting read-only (declarative override).
       openRegistrations = lib.mkOption {
-        type = lib.types.bool;
-        default = false;
-        description = "Allow sign-up through enabled registration methods.";
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        description = ''
+          Allow sign-up through enabled registration methods. When null the
+          setting is managed in the admin UI (server default: false); setting
+          it here locks the admin UI control.
+        '';
       };
 
       passkeyEnabled = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Enable passkey sign-in and account bootstrap.";
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        description = ''
+          Enable passkey sign-in and account bootstrap. When null the setting
+          is managed in the admin UI (server default: true); setting it here
+          locks the admin UI control.
+        '';
       };
 
       requireAuthToBrowse = lib.mkOption {
-        type = lib.types.bool;
-        default = true;
-        description = "Require sign-in before browsing clips, games, and profiles.";
+        type = lib.types.nullOr lib.types.bool;
+        default = null;
+        description = ''
+          Require sign-in before browsing clips, games, and profiles. When
+          null the setting is managed in the admin UI (server default: true);
+          setting it here locks the admin UI control.
+        '';
       };
     };
 
@@ -310,14 +330,6 @@ in
     };
 
     storage = {
-      driver = lib.mkOption {
-        type = lib.types.enum [
-          "fs"
-        ];
-        default = "fs";
-        description = "Storage backend for clips, thumbnails, and other assets. Only filesystem storage is supported.";
-      };
-
       fs = {
         clipsPath = lib.mkOption {
           type = lib.types.path;
@@ -457,17 +469,22 @@ in
           PORT = toString cfg.port;
           PUBLIC_SERVER_URL = cfg.publicServerUrl;
           TRUSTED_ORIGINS = lib.concatStringsSep "," ([ cfg.publicServerUrl ] ++ cfg.trustedOrigins);
-          ALLOY_OPEN_REGISTRATIONS = lib.boolToString cfg.auth.openRegistrations;
-          ALLOY_PASSKEY_ENABLED = lib.boolToString cfg.auth.passkeyEnabled;
-          ALLOY_REQUIRE_AUTH_TO_BROWSE = lib.boolToString cfg.auth.requireAuthToBrowse;
           ALLOY_UPLOAD_TTL_SEC = toString cfg.limits.uploadTtlSec;
-          ALLOY_STORAGE_DRIVER = cfg.storage.driver;
           ALLOY_STORAGE_FS_CLIPS_PATH = toString cfg.storage.fs.clipsPath;
           ALLOY_STORAGE_FS_THUMBNAILS_PATH = toString cfg.storage.fs.thumbnailsPath;
           ALLOY_STORAGE_FS_ASSETS_PATH = toString cfg.storage.fs.assetsPath;
           PGHOST = cfg.database.host;
           PGUSER = cfg.database.user;
           PGDATABASE = cfg.database.name;
+        }
+        // lib.optionalAttrs (cfg.auth.openRegistrations != null) {
+          ALLOY_OPEN_REGISTRATIONS = lib.boolToString cfg.auth.openRegistrations;
+        }
+        // lib.optionalAttrs (cfg.auth.passkeyEnabled != null) {
+          ALLOY_PASSKEY_ENABLED = lib.boolToString cfg.auth.passkeyEnabled;
+        }
+        // lib.optionalAttrs (cfg.auth.requireAuthToBrowse != null) {
+          ALLOY_REQUIRE_AUTH_TO_BROWSE = lib.boolToString cfg.auth.requireAuthToBrowse;
         }
         // lib.optionalAttrs (cfg.limits.defaultStorageQuotaBytes != null) {
           ALLOY_DEFAULT_STORAGE_QUOTA_BYTES = toString cfg.limits.defaultStorageQuotaBytes;

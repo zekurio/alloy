@@ -57,11 +57,10 @@ in
     # Dev serves the web app from Vite (5173); the server adds its own public
     # origin to the trusted set on top of this.
     TRUSTED_ORIGINS = "http://localhost:5173,http://127.0.0.1:5173";
-    ALLOY_OPEN_REGISTRATIONS = "false";
-    ALLOY_PASSKEY_ENABLED = "true";
-    ALLOY_REQUIRE_AUTH_TO_BROWSE = "true";
+    # Auth toggles are intentionally NOT set here: unset variables leave them
+    # DB-owned, so dev exercises the admin-UI-managed path (the default for
+    # self-hosters). Export ALLOY_OPEN_REGISTRATIONS etc. to test env locking.
     ALLOY_UPLOAD_TTL_SEC = "900";
-    ALLOY_STORAGE_DRIVER = "fs";
     ALLOY_STORAGE_FS_CLIPS_PATH = "${config.devenv.root}/data/storage/clips";
     ALLOY_STORAGE_FS_THUMBNAILS_PATH = "${config.devenv.root}/data/storage/thumbnails";
     ALLOY_STORAGE_FS_ASSETS_PATH = "${config.devenv.root}/data/storage/assets";
@@ -110,12 +109,8 @@ TRUSTED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ALLOY_VIEWER_COOKIE_SECRET=$alloy_viewer_cookie_secret
 ALLOY_UPLOAD_HMAC_SECRET=$alloy_upload_hmac_secret
 
-ALLOY_OPEN_REGISTRATIONS=false
-ALLOY_PASSKEY_ENABLED=true
-ALLOY_REQUIRE_AUTH_TO_BROWSE=true
 ALLOY_UPLOAD_TTL_SEC=900
 
-ALLOY_STORAGE_DRIVER=fs
 ALLOY_STORAGE_FS_CLIPS_PATH=../../data/storage/clips
 ALLOY_STORAGE_FS_THUMBNAILS_PATH=../../data/storage/thumbnails
 ALLOY_STORAGE_FS_ASSETS_PATH=../../data/storage/assets

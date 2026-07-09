@@ -27,6 +27,7 @@ import {
   FilmIcon,
   Gamepad2Icon,
   LanguagesIcon,
+  KeyRoundIcon,
   ListChecksIcon,
   type LucideIcon,
   PaletteIcon,
@@ -124,6 +125,12 @@ const DesktopAppPanel = lazy(() =>
 const AdminAppearancePanel = lazy(() =>
   import("@/components/routes/settings/admin-tab-content").then((module) => ({
     default: module.AdminAppearancePanel,
+  })),
+)
+
+const AdminAuthPanel = lazy(() =>
+  import("@/components/routes/settings/admin-tab-content").then((module) => ({
+    default: module.AdminAuthPanel,
   })),
 )
 
@@ -438,6 +445,28 @@ const ADMIN_CATEGORIES = categoryDrafts([
     ],
     PaletteIcon,
     AdminAppearancePanel,
+  ],
+  [
+    "authentication",
+    t("Authentication"),
+    t("Authentication"),
+    t("Registration, passkeys, browsing access, and OAuth sign-in providers."),
+    [
+      "auth",
+      "authentication",
+      "oauth",
+      "oidc",
+      "sso",
+      "registrations",
+      "registration",
+      "passkey",
+      "passkeys",
+      "open registrations",
+      "require sign-in",
+      "providers",
+    ],
+    KeyRoundIcon,
+    AdminAuthPanel,
   ],
   [
     "transcoding",

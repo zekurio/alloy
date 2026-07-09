@@ -4,6 +4,7 @@ import {
   WELCOME_QUERY_KEY,
 } from "@alloy/contracts"
 import { secretStore } from "@alloy/server/config/secret-store"
+import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import {
@@ -23,6 +24,11 @@ import {
 import { getEnabledProviderConfig } from "./oauth-config"
 
 const oauthClientCache = new Map<string, Promise<Configuration>>()
+
+// Provider metadata and secrets are runtime-mutable (admin settings). Drop
+// discovered client configurations on any config change so the next sign-in
+// re-discovers with the current endpoints and secret.
+configStore.subscribe(() => oauthClientCache.clear())
 
 export function requireEnabledProvider(
   providerId: string,
