@@ -1,23 +1,7 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-
-import {
-  isDesktopUpdateChannel,
-  type DesktopUpdateChannel,
-  type DesktopUpdateState,
-} from "@alloy/contracts"
+import type { DesktopUpdateState } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
-
-import {
-  getSavedUpdateChannelOverride,
-  saveUpdateChannelOverride,
-} from "./server-store"
-import {
-  isDesktopUpdateForChannel,
-  resolveDesktopUpdateChannel,
-} from "./update-channel"
 
 // electron-updater is CommonJS with a lazy `autoUpdater` getter; read from the
 // default import so Rollup does not capture an undefined named binding.
@@ -27,11 +11,9 @@ const logger = createLogger("updater")
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 const INITIAL_UPDATE_CHECK_DELAY_MS = 30 * 1000
-const CHANNEL_SWITCH_CHECK_DELAY_MS = 2 * 1000
 const UPDATE_DOWNLOAD_DELAY_MS = 10 * 1000
 
 let state: DesktopUpdateState = idleUpdateState()
-let updateChannel: DesktopUpdateChannel | null = null
 let initialized = false
 let checkInterval: ReturnType<typeof setInterval> | null = null
 let pendingCheckTimer: ReturnType<typeof setTimeout> | null = null
@@ -43,33 +25,6 @@ const stateListeners = new Set<(state: DesktopUpdateState) => void>()
 /** Current auto-update state, served to the web app over the desktop bridge. */
 export function getUpdateState(): DesktopUpdateState {
   return state
-}
-
-export function getUpdateChannel(): DesktopUpdateChannel {
-  if (updateChannel) return updateChannel
-  updateChannel = selectedUpdateChannel()
-  return updateChannel
-}
-
-export function setUpdateChannel(value: unknown): DesktopUpdateChannel {
-  if (!isDesktopUpdateChannel(value)) throw new Error("Invalid update channel.")
-
-  const previousChannel = getUpdateChannel()
-  saveUpdateChannelOverride(value === installedUpdateChannel() ? null : value)
-  updateChannel = value
-
-  if (previousChannel === value) return value
-
-  clearPendingDownload()
-  setState(idleUpdateState())
-
-  if (app.isPackaged && initialized) {
-    configureAutoUpdater(value)
-    ensureBackgroundChecks()
-    scheduleUpdateCheck(CHANNEL_SWITCH_CHECK_DELAY_MS)
-  }
-
-  return value
 }
 
 /** Runs an immediate user-requested update check. */
@@ -113,16 +68,6 @@ export function restartToInstallUpdate(): void {
   autoUpdater.quitAndInstall(true, true)
 }
 
-function installedUpdateChannel(): DesktopUpdateChannel {
-  return (
-    readPackagedUpdateChannel() ?? resolveDesktopUpdateChannel(app.getVersion())
-  )
-}
-
-function selectedUpdateChannel(): DesktopUpdateChannel {
-  return getSavedUpdateChannelOverride() ?? installedUpdateChannel()
-}
-
 function setState(next: DesktopUpdateState): void {
   if (
     next.status === state.status &&
@@ -149,9 +94,7 @@ function idleUpdateState(): DesktopUpdateState {
  * Background auto-update from the GitHub releases feed. electron-builder
  * embeds `app-update.yml` (from the `publish` config) into packaged builds,
  * which is where the updater finds the repo; published releases expose
- * `latest.yml` or `unstable.yml` plus the installer. The app starts on the
- * channel in its packaged release metadata unless the user selected another
- * channel, accepts only matching update versions, downloads in the background,
+ * `latest.yml` plus the installer. The updater downloads in the background
  * and surfaces a "restart to update" entry in the web app sidebar via the
  * bridge state above.
  */
@@ -159,15 +102,16 @@ export function initAutoUpdater(): void {
   if (initialized) return
   initialized = true
 
-  const channel = getUpdateChannel()
-
   if (!app.isPackaged) {
     logger.info("skipping update checks in development")
     return
   }
 
   autoUpdater.logger = logger
-  configureAutoUpdater(channel)
+  autoUpdater.allowPrerelease = false
+  autoUpdater.allowDowngrade = false
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = false
 
   autoUpdater.on("checking-for-update", () => {
     if (state.status === "idle") {
@@ -179,31 +123,15 @@ export function initAutoUpdater(): void {
     setState(idleUpdateState())
   })
   autoUpdater.on("update-available", (info) => {
-    const channel = getUpdateChannel()
-    if (!isDesktopUpdateForChannel(info.version, channel)) {
-      logger.warn(`ignoring ${info.version} update from non-${channel} channel`)
-      setState(idleUpdateState())
-      return
-    }
-
     logger.info(`update available: ${info.version}`)
     setState({
       ...idleUpdateState(),
       status: "downloading",
       version: info.version,
     })
-    scheduleUpdateDownload(info.version, channel)
+    scheduleUpdateDownload(info.version)
   })
   autoUpdater.on("update-downloaded", (info) => {
-    const channel = getUpdateChannel()
-    if (!isDesktopUpdateForChannel(info.version, channel)) {
-      logger.warn(
-        `downloaded ${info.version} update from non-${channel} channel; ignoring`,
-      )
-      setState(idleUpdateState())
-      return
-    }
-
     logger.info(`update ${info.version} downloaded; waiting for restart`)
     setState({
       ...idleUpdateState(),
@@ -224,79 +152,6 @@ export function initAutoUpdater(): void {
 
   ensureBackgroundChecks()
   scheduleUpdateCheck(INITIAL_UPDATE_CHECK_DELAY_MS)
-}
-
-function configureAutoUpdater(channel: DesktopUpdateChannel): void {
-  const installedChannel = installedUpdateChannel()
-  const allowsPrerelease = channel === "unstable"
-  const allowsDowngrade = allowsPrerelease || channel !== installedChannel
-  autoUpdater.channel = channel
-  autoUpdater.allowPrerelease = allowsPrerelease
-  autoUpdater.allowDowngrade = allowsDowngrade
-  autoUpdater.autoDownload = false
-  autoUpdater.autoInstallOnAppQuit = false
-  logger.info(
-    `using ${channel} update channel (allowPrerelease=${allowsPrerelease}, allowDowngrade=${allowsDowngrade})`,
-  )
-}
-
-function readPackagedUpdateChannel(): DesktopUpdateChannel | null {
-  return (
-    readResourceUpdateChannel() ??
-    readPackageJsonUpdateChannel() ??
-    readAppUpdateYamlChannel()
-  )
-}
-
-function readResourceUpdateChannel(): DesktopUpdateChannel | null {
-  const channel = readTextFile(
-    join(process.resourcesPath, "assets", "update-channel"),
-  )?.trim()
-  return isDesktopUpdateChannel(channel) ? channel : null
-}
-
-function readPackageJsonUpdateChannel(): DesktopUpdateChannel | null {
-  try {
-    const parsed: unknown = JSON.parse(
-      readFileSync(join(app.getAppPath(), "package.json"), "utf8"),
-    )
-    if (!parsed || typeof parsed !== "object") return null
-
-    const build = (parsed as { build?: unknown }).build
-    if (!build || typeof build !== "object") return null
-
-    const publish = (build as { publish?: unknown }).publish
-    if (!Array.isArray(publish)) return null
-
-    const firstPublish = publish[0]
-    if (!firstPublish || typeof firstPublish !== "object") return null
-
-    const channel = (firstPublish as { channel?: unknown }).channel
-    return isDesktopUpdateChannel(channel) ? channel : null
-  } catch {
-    return null
-  }
-}
-
-function readAppUpdateYamlChannel(): DesktopUpdateChannel | null {
-  const raw = readTextFile(join(process.resourcesPath, "app-update.yml"))
-  if (!raw) return null
-
-  for (const line of raw.split(/\r?\n/)) {
-    const match = /^channel:\s*["']?([^"'\s]+)["']?\s*$/.exec(line)
-    if (!match) continue
-    return isDesktopUpdateChannel(match[1]) ? match[1] : null
-  }
-
-  return null
-}
-
-function readTextFile(path: string): string | null {
-  try {
-    return readFileSync(path, "utf8")
-  } catch {
-    return null
-  }
 }
 
 function ensureBackgroundChecks(): void {
@@ -348,18 +203,14 @@ async function runUpdateCheck(
   return state
 }
 
-function scheduleUpdateDownload(
-  version: string,
-  channel: DesktopUpdateChannel,
-): void {
+function scheduleUpdateDownload(version: string): void {
   clearPendingDownload()
   pendingDownloadTimer = setTimeout(() => {
     pendingDownloadTimer = null
     if (
       downloadInFlight ||
       state.status !== "downloading" ||
-      state.version !== version ||
-      getUpdateChannel() !== channel
+      state.version !== version
     ) {
       return
     }

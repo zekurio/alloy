@@ -97,18 +97,10 @@ Release builds require `obs.dll` in either the staged or configured runtime.
 
 ## Release
 
-Desktop ships on the latest `vX.Y.Z` channel and the unstable
-`vX.Y.Z-unstable.YYYYMMDD.<run>` channel. The release workflow stamps the
-desktop package version and Electron updater channel before building, so latest
-builds publish `latest.yml` and unstable builds publish `unstable.yml`.
-
-Packaged builds default their updater channel from the installed app's
-`assets/update-channel` marker, then fall back to release metadata and the
-installed app version when the marker is missing. Users can switch between
-Latest (`latest.yml`) and Unstable (`unstable.yml`) from Desktop > Updates.
-Only an explicit user override is saved in `preferences.json`; otherwise updates
-follow the installed build's channel. Latest accepts only plain semver update
-versions; Unstable accepts only versions matching `-unstable.YYYYMMDD.<run>`.
+Desktop releases ship on a single channel. The publish workflow stamps the
+desktop package version before building and publishes `latest.yml` next to the
+Windows installer, so packaged builds auto-update from the GitHub releases feed.
+Check for updates or restart into a downloaded update from Desktop > Updates.
 
 GitHub Release assets are desktop-only: the unsigned Windows NSIS installer,
 blockmap, updater metadata, and checksums from `packages/desktop/release`.

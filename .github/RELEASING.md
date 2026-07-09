@@ -1,12 +1,8 @@
 # Releasing
 
-Alloy has two GitHub Release channels for the desktop updater:
-
-- **Latest**: built from `main` pushes, tagged `vX.Y.Z`, marked as the latest
-  GitHub Release, and exposed through `latest.yml`.
-- **Unstable**: built from desktop-impacting `dev` pushes, tagged
-  `vX.Y.Z-unstable.YYYYMMDD.<run>`, published as a prerelease, and exposed
-  through `unstable.yml`.
+Alloy has a single long-lived branch (`dev`) and a single release channel.
+Releases are cut on demand by the **publish** workflow, tagged `vX.Y.Z`, and
+named after the tag.
 
 Server distribution is handled by the Nix flake package and NixOS module. We do
 not attach server artifacts to GitHub Releases.
@@ -16,39 +12,29 @@ auto-update files:
 
 - `Alloy-Desktop-...exe`
 - the installer `.blockmap`
-- `latest.yml` or `unstable.yml`
+- `latest.yml`
 - `checksums.txt`
 
-Publishing a latest release also triggers the **Nix Cache** workflow for the
-flake package. Prerelease unstable builds do not.
+## Cutting a Release
 
-Desktop auto-update follows the installed build's channel unless the user has
-set an explicit override. Latest builds look at `latest.yml` and reject
-unstable versions. Unstable builds look at `unstable.yml` and reject plain
-semver versions.
+Dispatch the **publish** workflow from the Actions tab (it only runs on
+`dev`). Pick a `bump` of `patch`, `minor`, or `major`, or set an exact
+`version` override. The workflow then:
 
-## Branch Policy
-
-- `main` is the release branch. Pushing to `main` publishes a latest release
-  using the checked-in package version.
-- `dev` is the integration branch. Desktop-impacting pushes publish
-  unstable prereleases.
-- Feature branches should target `dev` unless they are release fixes for
-  `main`.
-- Protect both `main` and `dev`. Release publishing runs with write
-  permissions for trusted branch pushes, so these branches should only receive
-  trusted merges.
+1. Runs formatting, lint, and typecheck against the current `dev` head.
+2. Stamps the new version into all release version files.
+3. Commits `chore: release vX.Y.Z` to `dev` and tags that commit `vX.Y.Z`
+   (pushed atomically).
+4. Builds the Windows desktop installer from the tagged commit.
+5. Publishes the GitHub Release with generated notes, the installer,
+   `latest.yml`, blockmap, and checksums.
 
 ## Version Policy
 
-The checked-in package version is the source of truth.
+The checked-in package version is the source of truth and always matches the
+newest release tag. The publish workflow is the only thing that bumps it.
 
-- Latest releases use the exact checked-in plain semver, such as `1.2.3`.
-- Unstable releases use that same version with an unstable suffix, such as
-  `1.2.3-unstable.20260622.456`.
-- The release workflow does not increment the version.
-
-All release version files must match before any desktop artifact is published:
+These release version files are stamped together and must always match:
 
 - `package.json`
 - `packages/desktop/package.json`
@@ -56,64 +42,21 @@ All release version files must match before any desktop artifact is published:
 - `packages/recorder/Cargo.toml`
 - `packages/recorder/Cargo.lock`
 
-## Latest Releases
+## Desktop Auto-Update
 
-1. On `dev`, bump the package version to the intended stable version.
-
-   ```sh
-   node scripts/update-release-package-versions.mjs X.Y.Z --desktop-channel latest
-   ```
-
-2. Open a PR from `dev` into `main`.
-
-3. CI runs the release version guard for `dev` -> `main` PRs. It fails if
-   the root semver is unchanged from `main` or if release version files do not
-   match.
-
-4. Merge the PR into `main`.
-
-5. The **Release** workflow creates or reuses tag `vX.Y.Z` on the merge commit,
-   builds the Windows desktop installer, attaches only desktop/update assets,
-   and publishes the GitHub Release.
-
-Manual versioned latest releases are intentionally deprecated. A stable release
-is created by merging the versioned release PR to `main`.
-
-## Unstable Builds
-
-Unstable builds are produced automatically when the **Release** workflow
-receives a desktop-impacting push to `dev`. Server-only, web-only, and
-documentation-only pushes do not create desktop artifacts.
-
-The workflow stamps the checked-in package version with the UTC date and GitHub
-run number for Electron updater metadata. For example, checked-in version
-`0.2.0` produces `0.2.0-unstable.YYYYMMDD.<run>`.
-It also stamps the packaged desktop `assets/update-channel` marker to
-`unstable`, so fresh installs follow `unstable.yml` without relying on saved
-preferences.
-
-Unstable prereleases upload:
-
-- the Windows desktop installer
-- `unstable.yml`
-- blockmaps
-- `checksums.txt`
-
-For unstable server deployments, pin the development branch or an exact commit
-in your flake input.
-
-## Custom Release Notes
-
-No custom bot is required. The release workflow uses the built-in
-`GITHUB_TOKEN`, asks GitHub to generate the changelog for the matching channel,
-and prepends Alloy-specific deployment notes:
-
-- which desktop updater manifest is attached
-- how to pin the matching Nix flake input
+Packaged desktop builds update from the GitHub releases feed through
+`latest.yml`. There is a single update channel and prereleases are never
+published, so every install converges on the newest release.
 
 ## Recovery
 
-If validation fails, fix the issue and push again; no artifact is published. If
-a build fails after the tag is created, rerun the failed workflow from the same
-commit. If a release was already published with bad assets, delete the release
-and tag, then rerun from the corrected commit.
+The workflow converges on finishing a pending release instead of duplicating
+it:
+
+- Preflight validation fails: nothing is committed or tagged. Fix `dev` and
+  dispatch again.
+- A run fails after the release commit and tag were pushed: dispatch again.
+  Preflight detects that the checked-in version has no published release and
+  rebuilds it from the exact tagged commit instead of bumping again.
+- A release was published with bad assets: delete the release (keep or delete
+  the tag), then dispatch again.

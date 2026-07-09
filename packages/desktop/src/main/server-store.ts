@@ -3,7 +3,6 @@ import { dirname, join } from "node:path"
 
 import {
   normalizeRecordingSettings,
-  type DesktopUpdateChannel,
   type RecordingSettings,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
@@ -113,16 +112,4 @@ export function saveRecordingSettings(
   const recording = normalizeRecordingSettings(settings)
   writeState({ ...state, recording })
   return recording
-}
-
-export function getSavedUpdateChannelOverride(): DesktopUpdateChannel | null {
-  return readState().updateChannelOverride
-}
-
-export function saveUpdateChannelOverride(
-  channel: DesktopUpdateChannel | null,
-): DesktopUpdateChannel | null {
-  const state = readState()
-  writeState({ ...state, updateChannelOverride: channel })
-  return channel
 }

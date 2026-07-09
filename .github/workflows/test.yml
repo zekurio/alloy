@@ -1,13 +1,11 @@
-name: CI
+name: test
 
 on:
   pull_request:
     branches:
-      - main
       - dev
   push:
     branches:
-      - main
       - dev
   workflow_dispatch:
 
@@ -15,29 +13,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  release-version:
-    name: Release version guard
-    if: ${{ github.event_name == 'pull_request' && github.base_ref == 'main' && github.head_ref == 'dev' }}
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
-        with:
-          node-version: 24
-
-      - name: Ensure release semver changed
-        run: node scripts/verify-release-version-change.mjs "${{ github.event.pull_request.base.sha }}"
-
   nix:
     name: Nix package
     runs-on: ubuntu-latest

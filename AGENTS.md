@@ -3,7 +3,7 @@
 This file gives AI agents the repo-specific context they need when working in Alloy.
 
 - The default branch in this repo is `dev`.
-- Local `main` ref may not exist; use `dev` or `origin/dev` for diffs.
+- `dev` is the only long-lived branch; use `dev` or `origin/dev` for diffs.
 
 ## Project Overview
 
@@ -77,7 +77,7 @@ system browser (`packages/desktop/src/main/browser-login.ts`).
 - `packages/logging` - Shared logging utilities.
 - `packages/ui` - Shared React UI components (Base UI + Tailwind, shadcn-style), hooks, and design utilities.
 - `nix/` - Server package (`package.nix`), NixOS module (`module.nix`); `devenv.nix` provides the dev shell.
-- `scripts/` - Release version stamping/verification, Nix node_modules pruning, benchmarks.
+- `scripts/` - Release version stamping, Nix node_modules pruning, benchmarks.
 
 ## Development Commands
 
@@ -253,7 +253,12 @@ const table = pgTable("session", {
 - DB: schema in `packages/db/src/schema/*.ts`, generated SQL in `packages/db/drizzle/`, migration runner in `packages/db/src/runtime/migrate.ts`.
 - Config: `turbo.json`, `pnpm-workspace.yaml`, `tsconfig.base.json` (strict; `@/*` maps to each package's `src/`), `.oxfmtrc.json`, `.oxlintrc.json`, `.env.example` (documented env vars — `DATABASE_URL`, `ALLOY_*` auth/storage/transcoding knobs, `VITE_SERVER_URL`).
 - Nix: `flake.nix` (x86_64-linux server package + NixOS module), `devenv.nix` (dev shell: Node 24, pnpm, PostgreSQL 17, ffmpeg, Rust, Electron; auto-creates `.env` and a local Postgres).
-- Release: `.github/RELEASING.md`, `.github/workflows/{ci,recorder-ci,release}.yml`, `scripts/update-release-package-versions.mjs`.
+- Release/CI: `.github/RELEASING.md`,
+  `.github/workflows/{test,recorder,publish}.yml`, and
+  `scripts/update-release-package-versions.mjs`. The publish workflow runs via
+  `workflow_dispatch` from `dev`, tags/names releases as `vX.Y.Z`, and uses
+  only `latest.yml` for desktop auto-update; no prereleases or alternate
+  channels.
 
 ## Runtime/Tooling Preferences
 
