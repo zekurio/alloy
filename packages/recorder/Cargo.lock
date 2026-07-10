@@ -13,7 +13,7 @@ dependencies = [
 
 [[package]]
 name = "alloy-recorder"
-version = "1.0.2"
+version = "1.0.3"
 dependencies = [
  "chrono",
  "libloading",
