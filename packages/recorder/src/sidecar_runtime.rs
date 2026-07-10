@@ -581,9 +581,10 @@ fn response_for_id(response: &Response, id: u64) -> Response {
 }
 
 fn request_expired(request: &Request, now_unix_ms: u128) -> bool {
-    request
-        .deadline_unix_ms
-        .is_some_and(|deadline| now_unix_ms >= u128::from(deadline))
+    request.method != "configure"
+        && request
+            .deadline_unix_ms
+            .is_some_and(|deadline| now_unix_ms >= u128::from(deadline))
 }
 
 #[cfg(test)]
@@ -591,10 +592,10 @@ mod request_expired_tests {
     use super::{request_expired, Request};
     use serde_json::Value;
 
-    fn request(deadline_unix_ms: Option<u64>) -> Request {
+    fn request(method: &str, deadline_unix_ms: Option<u64>) -> Request {
         Request {
             id: 1,
-            method: "configure".to_string(),
+            method: method.to_string(),
             params: Value::Null,
             deadline_unix_ms,
         }
@@ -602,17 +603,31 @@ mod request_expired_tests {
 
     #[test]
     fn request_without_deadline_remains_compatible() {
-        assert!(!request_expired(&request(None), 10_000));
+        assert!(!request_expired(&request("saveReplayClip", None), 10_000));
     }
 
     #[test]
     fn request_before_deadline_remains_valid() {
-        assert!(!request_expired(&request(Some(10_000)), 9_999));
+        assert!(!request_expired(
+            &request("saveReplayClip", Some(10_000)),
+            9_999
+        ));
     }
 
     #[test]
     fn request_at_deadline_is_expired() {
-        assert!(request_expired(&request(Some(10_000)), 10_000));
+        assert!(request_expired(
+            &request("saveReplayClip", Some(10_000)),
+            10_000
+        ));
+    }
+
+    #[test]
+    fn configure_remains_valid_after_deadline() {
+        assert!(!request_expired(
+            &request("configure", Some(10_000)),
+            10_000
+        ));
     }
 }
 

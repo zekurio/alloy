@@ -337,13 +337,10 @@ fn start_game_capture_hook_wait(game: Option<&DetectedGame>) -> GameCaptureHookW
     eprintln!(
         "[{SIDE_CAR_NAME}] waiting for OBS game capture hook for {target} [{target_window}]..."
     );
-    eprintln!(
-        "[{SIDE_CAR_NAME}] waiting for successful graphics hook for {target}... retry attempt #1"
-    );
 
     GameCaptureHookWait {
         started_at: Instant::now(),
-        last_logged_attempt: 1,
+        last_logged_attempt: 0,
     }
 }
 
@@ -1093,6 +1090,21 @@ mod game_capture_hook_poll_tests {
 
         assert_eq!(
             game_capture_hook_poll(&wait(now), now, false, false),
+            GameCaptureHookPoll::Closed
+        );
+    }
+
+    #[test]
+    fn closed_capture_target_wins_over_hook_timeout() {
+        let started_at = Instant::now();
+
+        assert_eq!(
+            game_capture_hook_poll(
+                &wait(started_at),
+                started_at + GAME_CAPTURE_HOOK_RETRY_INTERVAL * GAME_CAPTURE_HOOK_MAX_RETRIES,
+                false,
+                false,
+            ),
             GameCaptureHookPoll::Closed
         );
     }

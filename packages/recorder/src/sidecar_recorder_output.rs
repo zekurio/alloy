@@ -1,3 +1,9 @@
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GameCaptureHookRefresh {
+    Continue,
+    TargetClosed,
+}
+
 impl Recorder {
     fn start_output(
         &mut self,
@@ -303,52 +309,65 @@ impl Recorder {
         })
     }
 
-    fn refresh_game_capture_hook(&mut self) -> Result<(), String> {
-        let settings = self.settings.clone().unwrap_or_default();
-        let game = self.active_game.clone();
+    fn refresh_game_capture_hook(&mut self) -> Result<GameCaptureHookRefresh, String> {
+        let Some(session) = self.replay_session.as_ref() else {
+            return Ok(GameCaptureHookRefresh::Continue);
+        };
+        let Some(wait) = session.game_capture_hook_wait.as_ref() else {
+            return Ok(GameCaptureHookRefresh::Continue);
+        };
         let obs = self
             .obs
             .as_ref()
             .ok_or_else(|| "OBS is not initialized.".to_string())?;
-        let Some(session) = self.replay_session.as_mut() else {
-            return Ok(());
-        };
-        let Some(wait) = session.game_capture_hook_wait.as_ref() else {
-            return Ok(());
-        };
-
         let poll = game_capture_hook_poll(
             wait,
             Instant::now(),
             unsafe { game_capture_source_hooked(obs, session.video_graph.source) },
-            game.as_ref().is_some_and(is_detected_game_alive),
+            self.active_game
+                .as_ref()
+                .is_some_and(is_detected_game_alive),
         );
         match poll {
             GameCaptureHookPoll::Ready => {
-                session.game_capture_hook_wait = None;
+                if let Some(session) = self.replay_session.as_mut() {
+                    session.game_capture_hook_wait = None;
+                }
                 eprintln!(
                     "[{SIDE_CAR_NAME}] OBS game capture hook ready for {}.",
-                    game_capture_target_name(game.as_ref())
+                    game_capture_target_name(self.active_game.as_ref())
                 );
-                return Ok(());
+                return Ok(GameCaptureHookRefresh::Continue);
             }
-            GameCaptureHookPoll::Closed => return Ok(()),
+            GameCaptureHookPoll::Closed => {
+                return Ok(GameCaptureHookRefresh::TargetClosed);
+            }
             GameCaptureHookPoll::Waiting(retry_attempt) => {
                 if retry_attempt <= wait.last_logged_attempt {
-                    return Ok(());
+                    return Ok(GameCaptureHookRefresh::Continue);
                 }
-                if let Some(wait) = session.game_capture_hook_wait.as_mut() {
+                if let Some(wait) = self
+                    .replay_session
+                    .as_mut()
+                    .and_then(|session| session.game_capture_hook_wait.as_mut())
+                {
                     wait.last_logged_attempt = retry_attempt;
                 }
                 eprintln!(
                     "[{SIDE_CAR_NAME}] waiting for successful graphics hook for {}... retry attempt #{retry_attempt}",
-                    game_capture_target_name(game.as_ref())
+                    game_capture_target_name(self.active_game.as_ref())
                 );
-                return Ok(());
+                return Ok(GameCaptureHookRefresh::Continue);
             }
             GameCaptureHookPoll::TimedOut => {}
         }
 
+        let settings = self.settings.as_ref().cloned().unwrap_or_default();
+        let game = self.active_game.clone();
+        let session = self
+            .replay_session
+            .as_mut()
+            .ok_or_else(|| "Replay session is not active.".to_string())?;
         let error = game_capture_hook_timeout_message(game.as_ref());
         eprintln!("[{SIDE_CAR_NAME}] {error} Attempting display capture fallback.");
         let fallback_graph = match unsafe {
@@ -386,7 +405,7 @@ impl Recorder {
             "[{SIDE_CAR_NAME}] display capture fallback is active for {}.",
             game_capture_target_name(game.as_ref())
         );
-        Ok(())
+        Ok(GameCaptureHookRefresh::Continue)
     }
 
     unsafe fn stop_output(&self, session: ActiveSession) -> Result<(), String> {

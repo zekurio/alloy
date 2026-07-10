@@ -598,7 +598,6 @@
         rect_dimensions(&monitor_info.rcMonitor)
     }
 
-    const MIN_VALID_WINDOW_DIMENSION_SUM: u32 = 1120;
     const ADVANCED_COLOR_ENABLED_FLAG: u32 = 0b10;
 
     pub fn refresh_capture_metadata(game: &mut DetectedGame) {
@@ -610,37 +609,13 @@
 
             let fullscreen_dimensions = fullscreen_monitor_dimensions(hwnd);
             game.fullscreen = fullscreen_dimensions.is_some();
-            if let Some(dimensions) = fullscreen_dimensions.or_else(|| {
-                window_dimensions(hwnd).filter(|dimensions| valid_window_dimensions(*dimensions))
-            }) {
+            if let Some(dimensions) = fullscreen_dimensions
+                .or_else(|| window_dimensions(hwnd))
+                .filter(|dimensions| valid_capture_dimensions(*dimensions))
+            {
                 game.capture_dimensions = Some(dimensions);
             }
             game.hdr_enabled = window_hdr_enabled(hwnd);
-        }
-    }
-
-    fn valid_window_dimensions(dimensions: VideoDimensions) -> bool {
-        dimensions.width.saturating_add(dimensions.height) >= MIN_VALID_WINDOW_DIMENSION_SUM
-    }
-
-    #[cfg(test)]
-    mod valid_window_dimensions_tests {
-        use super::{valid_window_dimensions, VideoDimensions};
-
-        #[test]
-        fn normal_game_window_is_valid() {
-            assert!(valid_window_dimensions(VideoDimensions {
-                width: 1280,
-                height: 720,
-            }));
-        }
-
-        #[test]
-        fn transient_tiny_game_window_is_invalid() {
-            assert!(!valid_window_dimensions(VideoDimensions {
-                width: 320,
-                height: 200,
-            }));
         }
     }
 

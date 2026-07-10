@@ -10,12 +10,26 @@ const AUDIO_APPLICATION_DISCOVERY_CACHE_TTL: Duration = Duration::from_secs(10);
 /// attempt spins a full OBS instance up and back down.
 const CODEC_PROBE_RETRY_COOLDOWN: Duration = Duration::from_secs(30);
 const TELEMETRY_EVENT_INTERVAL: Duration = Duration::from_secs(10);
+const MIN_VALID_CAPTURE_DIMENSION_SUM: u32 = 1120;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum GameBoundaryReason {
     Closed,
     Changed,
     Disallowed,
+}
+
+fn valid_capture_dimensions(dimensions: VideoDimensions) -> bool {
+    dimensions.width.saturating_add(dimensions.height) >= MIN_VALID_CAPTURE_DIMENSION_SUM
+}
+
+fn preserve_capture_dimensions(
+    previous: Option<VideoDimensions>,
+    observed: Option<VideoDimensions>,
+) -> Option<VideoDimensions> {
+    observed
+        .filter(|dimensions| valid_capture_dimensions(*dimensions))
+        .or_else(|| previous.filter(|dimensions| valid_capture_dimensions(*dimensions)))
 }
 
 impl Recorder {
@@ -546,9 +560,16 @@ impl Recorder {
             .map(|game| game.window_key.clone());
 
         if let Some(detection) = detected {
-            let detected = detection.game;
+            let mut detected = detection.game;
             let focused = detection.focused;
             let is_new = previous_key.as_deref() != Some(detected.window_key.as_str());
+            detected.capture_dimensions = preserve_capture_dimensions(
+                self.active_game
+                    .as_ref()
+                    .filter(|_| !is_new)
+                    .and_then(|game| game.capture_dimensions),
+                detected.capture_dimensions,
+            );
             self.missing_game_ticks = 0;
             self.focused = focused;
             self.active_game = Some(detected.clone());
@@ -869,7 +890,11 @@ impl Recorder {
     }
 
     fn refresh_active_output_for_focus(&mut self) -> Result<(), String> {
-        self.refresh_game_capture_hook()?;
+        if self.refresh_game_capture_hook()? == GameCaptureHookRefresh::TargetClosed {
+            self.clear_closed_active_game();
+            self.stop_active_replay_buffer()?;
+            return Ok(());
+        }
         self.refresh_active_pause()?;
         self.refresh_active_source()
     }
@@ -917,4 +942,61 @@ impl Recorder {
         Ok(())
     }
 
+}
+
+#[cfg(test)]
+mod preserve_capture_dimensions_tests {
+    use super::{preserve_capture_dimensions, VideoDimensions};
+
+    #[test]
+    fn invalid_observation_preserves_last_usable_dimensions() {
+        let previous = Some(VideoDimensions {
+            width: 1920,
+            height: 1080,
+        });
+
+        assert_eq!(
+            preserve_capture_dimensions(
+                previous,
+                Some(VideoDimensions {
+                    width: 0,
+                    height: 0,
+                }),
+            ),
+            previous
+        );
+    }
+
+    #[test]
+    fn valid_observation_replaces_previous_dimensions() {
+        let observed = Some(VideoDimensions {
+            width: 2560,
+            height: 1440,
+        });
+
+        assert_eq!(
+            preserve_capture_dimensions(
+                Some(VideoDimensions {
+                    width: 1920,
+                    height: 1080,
+                }),
+                observed,
+            ),
+            observed
+        );
+    }
+
+    #[test]
+    fn invalid_initial_observation_is_discarded() {
+        assert_eq!(
+            preserve_capture_dimensions(
+                None,
+                Some(VideoDimensions {
+                    width: 320,
+                    height: 200,
+                }),
+            ),
+            None
+        );
+    }
 }
