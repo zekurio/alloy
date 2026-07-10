@@ -147,10 +147,14 @@ export type RecordingNotificationSoundLibrary = Record<
   RecordingNotificationSoundOption[]
 >
 
-export interface RecordingAudioDeviceSelection {
+/** An audio device currently exposed by the capture backend. */
+export interface RecordingAudioDevice {
   id: string
   label: string
   kind: RecordingAudioDeviceKind
+}
+
+export interface RecordingAudioDeviceSelection extends RecordingAudioDevice {
   enabled: boolean
   volume: number
 }
@@ -373,7 +377,7 @@ export interface RecordingStatus {
   /** Video codecs the selected recorder encoder/GPU can create. */
   availableCodecs: RecordingCodec[]
   /** Audio devices the capture backend can create OBS sources for. */
-  availableAudioDevices: RecordingAudioDeviceSelection[]
+  availableAudioDevices: RecordingAudioDevice[]
   /** Application audio sources available for process-only capture. */
   availableAudioApplications: RecordingAudioApplicationSelection[]
   telemetry: RecordingTelemetry | null

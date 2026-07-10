@@ -314,7 +314,7 @@
             let executable_for_obs = executable.clone().unwrap_or_default();
             let window = window_info
                 .map(|window| window.window.clone())
-                .unwrap_or_else(|| format!("::{executable_for_obs}"));
+                .unwrap_or_else(|| super::obs_window_selector("", "", &executable_for_obs));
             if window == "::" {
                 continue;
             }
@@ -494,11 +494,10 @@
         let class_name = window_class(hwnd);
         let path = process_path(process_id);
         let executable = process_executable(path.as_deref()).unwrap_or_default();
-        let obs_window = Some(format!(
-            "{}:{}:{}",
-            title.clone().unwrap_or_default(),
-            class_name.clone().unwrap_or_default(),
-            executable
+        let obs_window = Some(super::obs_window_selector(
+            title.as_deref().unwrap_or_default(),
+            class_name.as_deref().unwrap_or_default(),
+            &executable,
         ));
         let fullscreen_dimensions = fullscreen_monitor_dimensions(hwnd);
         let capture_dimensions = fullscreen_dimensions.or_else(|| window_dimensions(hwnd));
@@ -563,11 +562,10 @@
             return 1;
         }
 
-        let window = format!(
-            "{}:{}:{}",
-            title.clone().unwrap_or_default(),
-            class_name.clone().unwrap_or_default(),
-            executable.unwrap_or_default()
+        let window = super::obs_window_selector(
+            title.as_deref().unwrap_or_default(),
+            class_name.as_deref().unwrap_or_default(),
+            executable.as_deref().unwrap_or_default(),
         );
         context.windows.insert(
             process_id,

@@ -1,0 +1,66 @@
+name: Categorize changelog entry
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions:
+  issues: write
+
+jobs:
+  categorize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add a changelog category
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const pull = context.payload.pull_request;
+            const labels = pull.labels.map((label) => label.name);
+            if (labels.some((label) => label.startsWith("changelog:"))) return;
+
+            const match = pull.title.match(/^(?<type>\w+)(?:\([^)]*\))?(?<breaking>!)?:/i);
+            const category = match?.groups?.type?.toLowerCase();
+            const label = match?.groups?.breaking
+              ? "changelog:breaking"
+              : ({
+                  feat: "changelog:feature",
+                  fix: "changelog:bugfix",
+                  perf: "changelog:performance",
+                  docs: "changelog:documentation",
+                  refactor: "changelog:improvement",
+                }[category] ?? "changelog:other");
+
+            const labelsToCreate = {
+              "changelog:breaking": "b60205",
+              "changelog:feature": "0e8a16",
+              "changelog:bugfix": "d73a4a",
+              "changelog:performance": "5319e7",
+              "changelog:documentation": "0075ca",
+              "changelog:improvement": "fbca04",
+              "changelog:other": "ededed",
+              "changelog:skip": "ffffff",
+            };
+
+            for (const [name, color] of Object.entries(labelsToCreate)) {
+              try {
+                await github.rest.issues.getLabel({
+                  ...context.repo,
+                  name,
+                });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                await github.rest.issues.createLabel({
+                  ...context.repo,
+                  name,
+                  color,
+                  description: "Category for generated release notes",
+                });
+              }
+            }
+
+            await github.rest.issues.addLabels({
+              ...context.repo,
+              issue_number: pull.number,
+              labels: [label],
+            });
