@@ -1,0 +1,26 @@
+changelog:
+  categories:
+    - title: "🚨 Breaking changes"
+      labels:
+        - "changelog:breaking"
+    - title: "✨ Features"
+      labels:
+        - "changelog:feature"
+    - title: "🐛 Bug fixes"
+      labels:
+        - "changelog:bugfix"
+    - title: "⚡ Performance"
+      labels:
+        - "changelog:performance"
+    - title: "🛠️ Improvements"
+      labels:
+        - "changelog:improvement"
+    - title: "📚 Documentation"
+      labels:
+        - "changelog:documentation"
+    - title: "Other changes"
+      labels:
+        - "changelog:other"
+  exclude:
+    labels:
+      - "changelog:skip"

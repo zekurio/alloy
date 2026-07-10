@@ -1,71 +1,76 @@
-import type { RecordingAudioDeviceSelection } from "@alloy/contracts"
+import type {
+  RecordingAudioDevice,
+  RecordingAudioDeviceSelection,
+} from "@alloy/contracts"
+
+export interface RecordingAudioDeviceView extends RecordingAudioDeviceSelection {
+  available: boolean
+}
 
 export function mergeAudioDevices(
-  available: RecordingAudioDeviceSelection[],
+  available: RecordingAudioDevice[],
   selected: RecordingAudioDeviceSelection[],
-): RecordingAudioDeviceSelection[] {
-  const byKey = new Map<string, RecordingAudioDeviceSelection>()
+): RecordingAudioDeviceView[] {
+  const selectedByKey = new Map(
+    selected.map((device) => [audioDeviceKey(device), device]),
+  )
+  const byKey = new Map<string, RecordingAudioDeviceView>()
 
-  for (const device of available) byKey.set(audioDeviceKey(device), device)
-  for (const device of selected) {
-    const availableDevice = availableAudioDeviceForSelection(available, device)
-    byKey.set(audioDeviceKey(availableDevice ?? device), {
-      ...(availableDevice ?? device),
-      enabled: device.enabled,
-      volume: device.volume,
+  for (const device of available) {
+    const selection = selectedByKey.get(audioDeviceKey(device))
+    byKey.set(audioDeviceKey(device), {
+      ...device,
+      enabled: selection?.enabled ?? false,
+      volume: selection?.volume ?? 100,
+      available: true,
     })
   }
+  for (const device of selected) {
+    if (byKey.has(audioDeviceKey(device))) continue
+    byKey.set(audioDeviceKey(device), { ...device, available: false })
+  }
 
-  return [...byKey.values()]
+  return [...byKey.values()].sort(compareAudioDevices)
 }
 
 export function toggleAudioDevice(
   current: RecordingAudioDeviceSelection[],
   device: RecordingAudioDeviceSelection,
 ): RecordingAudioDeviceSelection[] {
-  const existing = current.find((item) =>
-    sameAudioDeviceSelection(item, device),
+  const index = current.findIndex(
+    (item) => audioDeviceKey(item) === audioDeviceKey(device),
   )
-  return [
-    ...current.filter((item) => !sameAudioDeviceSelection(item, device)),
-    {
-      ...device,
-      volume: existing?.volume ?? device.volume,
-    },
-  ]
+  if (index < 0) return [...current, device]
+
+  return current.map((item, itemIndex) =>
+    itemIndex === index ? { ...device, volume: item.volume } : item,
+  )
 }
 
 export function upsertAudioDevice(
   devices: RecordingAudioDeviceSelection[],
   device: RecordingAudioDeviceSelection,
 ): RecordingAudioDeviceSelection[] {
-  return [
-    ...devices.filter((item) => !sameAudioDeviceSelection(item, device)),
-    device,
-  ]
+  const index = devices.findIndex(
+    (item) => audioDeviceKey(item) === audioDeviceKey(device),
+  )
+  if (index < 0) return [...devices, device]
+
+  return devices.map((item, itemIndex) => (itemIndex === index ? device : item))
 }
 
-function availableAudioDeviceForSelection(
-  available: RecordingAudioDeviceSelection[],
-  selected: RecordingAudioDeviceSelection,
-): RecordingAudioDeviceSelection | undefined {
+function compareAudioDevices(
+  left: RecordingAudioDevice,
+  right: RecordingAudioDevice,
+): number {
   return (
-    available.find(
-      (device) => audioDeviceKey(device) === audioDeviceKey(selected),
-    ) ?? available.find((device) => sameAudioDeviceSelection(device, selected))
+    Number(left.kind === "input") - Number(right.kind === "input") ||
+    Number(right.id === "default") - Number(left.id === "default") ||
+    left.label.localeCompare(right.label, undefined, { sensitivity: "base" }) ||
+    left.id.localeCompare(right.id)
   )
 }
 
-function sameAudioDeviceSelection(
-  left: RecordingAudioDeviceSelection,
-  right: RecordingAudioDeviceSelection,
-): boolean {
-  return (
-    audioDeviceKey(left) === audioDeviceKey(right) ||
-    (left.kind === right.kind && left.label === right.label)
-  )
-}
-
-function audioDeviceKey(device: RecordingAudioDeviceSelection): string {
+function audioDeviceKey(device: RecordingAudioDevice): string {
   return `${device.kind}:${device.id}`
 }

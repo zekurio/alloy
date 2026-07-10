@@ -153,9 +153,9 @@ export function DesktopRecordingProvider({
 
     const options = { id: `desktop-recording-status:${toastKey}` }
     if (backend === "missing") {
-      toast.warning(message, options)
+      toast.warning(t(message), options)
     } else {
-      toast.error(message, options)
+      toast.error(t(message), options)
     }
   }, [status?.backend, status?.message])
 

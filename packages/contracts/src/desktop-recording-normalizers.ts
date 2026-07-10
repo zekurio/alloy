@@ -87,16 +87,30 @@ export function normalizeAudioDevices(
     const id = normalizeNonEmptyString(record.id)
     if (!id) return []
 
+    const kind = normalizeLiteral(
+      record.kind,
+      RECORDING_AUDIO_DEVICE_KINDS,
+      "output",
+    )
+    const migratedId =
+      kind === "input" && id === "communications" ? "default" : id
+
     return [
       {
-        id,
-        label: normalizeNonEmptyString(record.label) ?? id,
-        kind: normalizeLiteral(
-          record.kind,
-          RECORDING_AUDIO_DEVICE_KINDS,
-          "output",
-        ),
-        enabled: typeof record.enabled === "boolean" ? record.enabled : true,
+        id: migratedId,
+        label:
+          migratedId === "default" && id === "communications"
+            ? "Default microphone"
+            : (normalizeNonEmptyString(record.label) ?? migratedId),
+        kind,
+        // OBS cannot follow the Windows communications-role output alias. Keep
+        // the old row visible for user intent, but never continue capturing it.
+        enabled:
+          kind === "output" && id === "communications"
+            ? false
+            : typeof record.enabled === "boolean"
+              ? record.enabled
+              : true,
         volume: normalizeAudioVolume(record.volume),
       },
     ]

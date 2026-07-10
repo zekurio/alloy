@@ -16,3 +16,10 @@
 ## Additional Notes
 
 - Mention risks, dependencies, or alternatives considered.
+
+## Changelog
+
+Release notes are grouped from a `changelog:*` label. The workflow adds a
+category from the conventional PR title; maintainers can replace it with a
+more accurate category, or use `changelog:skip` for changes that should not be
+published in the changelog.

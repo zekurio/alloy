@@ -109,8 +109,7 @@
 
     struct DeviceLevelMeter {
         kind: RecordingAudioDeviceKind,
-        /// Endpoint id plus the "default"/"communications" aliases the settings
-        /// UI uses for the virtual default-device rows.
+        /// Endpoint id plus the "default" alias used by the settings UI.
         ids: Vec<String>,
         meter: ComPtr,
     }
@@ -147,8 +146,11 @@
         kind: RecordingAudioDeviceKind,
         meters: &mut AudioLevelMeters,
     ) {
-        let default_id = default_endpoint_id(enumerator, data_flow, eConsole);
-        let communications_id = default_endpoint_id(enumerator, data_flow, eCommunications);
+        let default_role = match kind {
+            RecordingAudioDeviceKind::Output => eConsole,
+            RecordingAudioDeviceKind::Input => eCommunications,
+        };
+        let default_id = default_endpoint_id(enumerator, data_flow, default_role);
 
         let Some(devices) = active_audio_endpoint_devices(enumerator, data_flow) else {
             return;
@@ -165,9 +167,6 @@
             let mut ids = vec![id.clone()];
             if default_id.as_deref() == Some(id.as_str()) {
                 ids.push("default".to_string());
-            }
-            if communications_id.as_deref() == Some(id.as_str()) {
-                ids.push("communications".to_string());
             }
             meters.devices.push(DeviceLevelMeter {
                 kind: kind.clone(),

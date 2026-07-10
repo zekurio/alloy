@@ -1,11 +1,11 @@
 import type {
   RecordingAudioApplicationSelection,
   RecordingAudioDeviceKind,
-  RecordingAudioDeviceSelection,
   RecordingAudioLevel,
   RecordingSettings,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
+import { Button } from "@alloy/ui/components/button"
 import { Checkbox } from "@alloy/ui/components/checkbox"
 import {
   Select,
@@ -22,13 +22,15 @@ import {
   AppWindowIcon,
   MicIcon,
   Volume2Icon,
+  XIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import {
   mergeAudioDevices,
+  type RecordingAudioDeviceView,
   upsertAudioDevice,
 } from "@/lib/audio-device-selection"
 
@@ -102,9 +104,9 @@ function audioLevelKey(
 
 function deviceLevel(
   levels: ReadonlyMap<string, number> | null,
-  device: RecordingAudioDeviceSelection,
+  device: RecordingAudioDeviceView,
 ): number | null {
-  if (!levels) return null
+  if (!levels || !device.available) return null
   return (
     levels.get(
       audioLevelKey({
@@ -130,6 +132,14 @@ function applicationLevel(
 export function DesktopAudioSettings() {
   const { settings, status, busy, save } = useDesktopRecording()
   const levels = useAudioLevels()
+  const devices = useMemo(
+    () =>
+      mergeAudioDevices(
+        status?.availableAudioDevices ?? [],
+        settings?.audioDevices ?? [],
+      ),
+    [settings?.audioDevices, status?.availableAudioDevices],
+  )
 
   if (!settings || !status) {
     return (
@@ -140,10 +150,6 @@ export function DesktopAudioSettings() {
     )
   }
 
-  const devices = mergeAudioDevices(
-    status.availableAudioDevices,
-    settings.audioDevices,
-  )
   const applications = mergeAudioApplications(
     status.availableAudioApplications,
     settings.audioApplications,
@@ -225,7 +231,7 @@ function AudioDeviceList({
   levels,
   kinds,
 }: {
-  devices: RecordingAudioDeviceSelection[]
+  devices: RecordingAudioDeviceView[]
   settings: RecordingSettings
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
@@ -273,17 +279,38 @@ function AudioDeviceList({
                   id={`desktop-recording-audio-device-${device.kind}-${device.id}`}
                   icon={<Icon className="size-4" />}
                   title={device.label}
-                  subtitle={AUDIO_DEVICE_KIND_LABELS[device.kind]}
+                  subtitle={
+                    device.available
+                      ? AUDIO_DEVICE_KIND_LABELS[device.kind]
+                      : t("Unavailable")
+                  }
                   enabled={device.enabled}
                   volume={device.volume}
+                  available={device.available}
                   level={deviceLevel(levels, device)}
                   busy={busy}
+                  onRemove={
+                    device.available
+                      ? undefined
+                      : () =>
+                          void save({
+                            ...settings,
+                            audioDevices: settings.audioDevices.filter(
+                              (selection) =>
+                                selection.kind !== device.kind ||
+                                selection.id !== device.id,
+                            ),
+                          })
+                  }
                   onChange={(patch) =>
                     void save({
                       ...settings,
                       audioDevices: upsertAudioDevice(settings.audioDevices, {
-                        ...device,
-                        ...patch,
+                        id: device.id,
+                        label: device.label,
+                        kind: device.kind,
+                        enabled: patch.enabled ?? device.enabled,
+                        volume: patch.volume ?? device.volume,
                       }),
                     })
                   }
@@ -329,6 +356,7 @@ function AudioApplicationList({
           subtitle={application.executable ?? application.window}
           enabled={application.enabled}
           volume={application.volume}
+          available
           level={applicationLevel(levels, application)}
           busy={busy}
           onChange={(patch) =>
@@ -382,8 +410,10 @@ function AudioRow({
   subtitle,
   enabled,
   volume,
+  available,
   level,
   busy,
+  onRemove,
   onChange,
 }: {
   id: string
@@ -392,9 +422,11 @@ function AudioRow({
   subtitle?: string | null
   enabled: boolean
   volume: number
+  available: boolean
   /** Live linear peak 0..1 pre-volume, or null when metering is unavailable. */
   level: number | null
   busy: boolean
+  onRemove?: () => void
   onChange: (patch: { enabled?: boolean; volume?: number }) => void
 }) {
   const [draftVolume, setDraftVolume] = useState<number | null>(null)
@@ -406,13 +438,13 @@ function AudioRow({
         <Checkbox
           id={id}
           checked={enabled}
-          disabled={busy}
+          disabled={busy || (!available && !enabled)}
           onCheckedChange={(checked) => onChange({ enabled: checked === true })}
         />
         <span
           className={cn(
             "bg-surface-raised text-foreground-muted flex size-7 shrink-0 items-center justify-center overflow-hidden rounded-md transition-opacity",
-            !enabled && "opacity-50",
+            (!enabled || !available) && "opacity-50",
           )}
         >
           {icon}
@@ -421,7 +453,7 @@ function AudioRow({
           htmlFor={id}
           className={cn(
             "min-w-0 flex-1 cursor-pointer transition-opacity",
-            !enabled && "opacity-50",
+            (!enabled || !available) && "opacity-50",
           )}
         >
           <span className="block truncate text-sm font-medium">{title}</span>
@@ -431,13 +463,26 @@ function AudioRow({
             </span>
           ) : null}
         </label>
+        {onRemove ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            disabled={busy}
+            aria-label={t("Remove unavailable device")}
+            title={t("Remove unavailable device")}
+            onClick={onRemove}
+          >
+            <XIcon className="size-4" />
+          </Button>
+        ) : null}
         <div className="flex w-36 items-center gap-3 sm:w-52">
           <Slider
             min={0}
             max={100}
             step={1}
             value={[displayVolume]}
-            disabled={busy || !enabled}
+            disabled={busy || !enabled || !available}
             onValueChange={(value) => setDraftVolume(sliderValue(value))}
             onValueCommitted={(value) => {
               setDraftVolume(null)

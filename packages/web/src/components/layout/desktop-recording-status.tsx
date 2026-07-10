@@ -32,6 +32,7 @@ import type { CSSProperties, ReactNode } from "react"
 
 import {
   mergeAudioDevices,
+  type RecordingAudioDeviceView,
   toggleAudioDevice,
 } from "@/lib/audio-device-selection"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
@@ -357,14 +358,16 @@ function RecordingAudioSettings({
           <ArrowRightIcon className="size-3.5" />
         </Button>
       </div>
-      <AudioRow
-        icon={<Volume2Icon className="size-4" />}
-        label={t("Audio source")}
-        kind="output"
-        devices={audioDevices}
-        settings={settings}
-        onSave={onSave}
-      />
+      {settings?.audioMode !== "applications" ? (
+        <AudioRow
+          icon={<Volume2Icon className="size-4" />}
+          label={t("Audio source")}
+          kind="output"
+          devices={audioDevices}
+          settings={settings}
+          onSave={onSave}
+        />
+      ) : null}
       <AudioRow
         icon={<MicIcon className="size-4" />}
         label={t("Microphone source")}
@@ -475,12 +478,13 @@ function AudioRow({
   icon: ReactNode
   label: string
   kind: "output" | "input"
-  devices: RecordingSettings["audioDevices"]
+  devices: RecordingAudioDeviceView[]
   settings: RecordingSettings | null
   onSave: SaveRecordingSettings
 }) {
   const options = devices.filter((device) => device.kind === kind)
   const selected = options.filter((device) => device.enabled)
+  const hasUnavailableSelection = selected.some((device) => !device.available)
   const disabled = !settings || options.length === 0
 
   return (
@@ -499,6 +503,7 @@ function AudioRow({
             >
               <span className="truncate">
                 {audioDeviceMultiSelectLabel(selected, settings)}
+                {hasUnavailableSelection ? ` · ${t("Unavailable")}` : ""}
               </span>
               <ChevronDownIcon className="text-foreground-dim size-4" />
             </Button>
@@ -509,18 +514,25 @@ function AudioRow({
             <DropdownMenuCheckboxItem
               key={`${device.kind}:${device.id}`}
               checked={device.enabled}
+              disabled={!device.available && !device.enabled}
               onCheckedChange={(checked) => {
                 if (!settings) return
                 void onSave({
                   ...settings,
                   audioDevices: toggleAudioDevice(settings.audioDevices, {
-                    ...device,
+                    id: device.id,
+                    label: device.label,
+                    kind: device.kind,
                     enabled: checked === true,
+                    volume: device.volume,
                   }),
                 })
               }}
             >
-              <span className="truncate">{device.label}</span>
+              <span className="truncate">
+                {device.label}
+                {!device.available ? ` (${t("Unavailable")})` : ""}
+              </span>
             </DropdownMenuCheckboxItem>
           ))}
         </DropdownMenuContent>
