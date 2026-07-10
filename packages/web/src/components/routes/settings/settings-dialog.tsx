@@ -6,6 +6,11 @@ import {
   DialogTitle,
 } from "@alloy/ui/components/dialog"
 import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@alloy/ui/components/input-group"
+import {
   Select,
   SelectContent,
   SelectGroup,
@@ -171,17 +176,19 @@ function SettingsDialogContent({
         <div className="text-foreground px-2.5 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
           {t("Settings")}
         </div>
-        <div className="relative mb-1">
-          <SearchIcon className="text-foreground-faint pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
-          <input
+        <InputGroup className="mb-1">
+          <InputGroupAddon>
+            <SearchIcon className="size-3.5" />
+          </InputGroupAddon>
+          <InputGroupInput
             type="search"
             value={query}
             onChange={(event) => setQuery(event.currentTarget.value)}
             placeholder={t("Search settings")}
             aria-label={t("Search settings")}
-            className="border-border bg-background placeholder:text-foreground-faint focus-visible:border-accent-border focus-visible:ring-accent-border/20 h-9 w-full rounded-lg border pr-2 pl-8 text-sm outline-none focus-visible:ring-2 sm:h-8 [&::-webkit-search-cancel-button]:appearance-none"
+            className="[&::-webkit-search-cancel-button]:appearance-none"
           />
-        </div>
+        </InputGroup>
         {SETTINGS_GROUPS.map((group) => {
           const items = matches.filter(
             (match) => match.category.group === group.id,

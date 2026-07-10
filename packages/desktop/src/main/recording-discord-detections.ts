@@ -8,6 +8,7 @@ import {
 } from "node:fs"
 import { basename, dirname, join } from "node:path"
 
+import { isObjectRecord } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app, net } from "electron"
 
@@ -230,9 +231,7 @@ function writeDetectionCache(
 }
 
 function recordValue(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null
-    ? (value as Record<string, unknown>)
-    : null
+  return isObjectRecord(value) ? value : null
 }
 
 function arrayValue(value: unknown): unknown[] {

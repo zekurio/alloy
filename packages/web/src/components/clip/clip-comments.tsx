@@ -9,6 +9,7 @@ import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
+import { AlertCircleIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentProps, MutableRefObject } from "react"
 
@@ -275,7 +276,7 @@ function ClipComments({
         ) : commentsQuery.error && comments.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6">
             <EmptyState
-              seed={`comments-${clipId}-error`}
+              icon={AlertCircleIcon}
               size="lg"
               title={t("Couldn't load comments")}
               hint={t("Try again in a moment.")}
@@ -298,6 +299,7 @@ function ClipComments({
         ) : comments.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6">
             <EmptyState
+              kaomoji
               seed={`comments-${clipId}`}
               size="lg"
               title={t("No comments yet")}

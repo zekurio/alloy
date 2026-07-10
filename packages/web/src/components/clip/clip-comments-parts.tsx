@@ -17,6 +17,7 @@ import {
   AvatarImage,
 } from "@alloy/ui/components/avatar"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -108,8 +109,8 @@ export function CommentsSortDropdown({
 
 export function CommentAuthHint({ canSignUp }: { canSignUp: boolean }) {
   return (
-    <div className="border-border bg-input rounded-md border px-3 py-2.5">
-      <p className="text-foreground-faint text-sm">
+    <Callout tone="neutral">
+      <p className="text-sm">
         <Link
           to="/login"
           className="text-foreground font-medium hover:underline"
@@ -129,7 +130,7 @@ export function CommentAuthHint({ canSignUp }: { canSignUp: boolean }) {
         ) : null}{" "}
         {t("to comment")}
       </p>
-    </div>
+    </Callout>
   )
 }
 

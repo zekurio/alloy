@@ -1,6 +1,7 @@
 import type { DesktopUpdateState, DesktopUpdateStatus } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Card } from "@alloy/ui/components/card"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
@@ -56,71 +57,69 @@ export function DesktopUpdateSettings() {
   }
 
   return (
-    <div className="border-border bg-surface-raised/40 rounded-md border px-3 py-3">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <StatusDot status={updateState.status} />
-          <div className="min-w-0">
-            <div className="text-sm font-medium">
-              {updateStatusTitle(updateState.status)}
-            </div>
-            <div className="text-foreground-dim mt-0.5 truncate text-xs">
-              {updateVersionSummary(updateState)}
-            </div>
+    <Card className="flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <StatusDot status={updateState.status} />
+        <div className="min-w-0">
+          <div className="text-sm font-medium">
+            {updateStatusTitle(updateState.status)}
+          </div>
+          <div className="text-foreground-dim mt-0.5 truncate text-xs">
+            {updateVersionSummary(updateState)}
           </div>
         </div>
-
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
-          {updateState.status === "downloaded" ? (
-            <Button
-              type="button"
-              size="sm"
-              className="w-full sm:w-auto"
-              disabled={phase === "restarting"}
-              onClick={() => void restartToInstall()}
-            >
-              {phase === "restarting" ? (
-                <>
-                  <Spinner />
-                  {t("Restarting...")}
-                </>
-              ) : (
-                <>
-                  <RefreshCcwIcon className="size-3.5" />
-                  {t("Restart")}
-                </>
-              )}
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              size="sm"
-              variant="secondary"
-              className="w-full sm:w-auto"
-              disabled={checkDisabled}
-              onClick={() => void checkForUpdates()}
-            >
-              {checkBusy ? (
-                <>
-                  <Spinner />
-                  {t("Checking...")}
-                </>
-              ) : updateState.status === "downloading" ? (
-                <>
-                  <Spinner />
-                  {t("Downloading...")}
-                </>
-              ) : (
-                <>
-                  <SearchIcon className="size-3.5" />
-                  {t("Check for updates")}
-                </>
-              )}
-            </Button>
-          )}
-        </div>
       </div>
-    </div>
+
+      <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center lg:w-auto">
+        {updateState.status === "downloaded" ? (
+          <Button
+            type="button"
+            size="sm"
+            className="w-full sm:w-auto"
+            disabled={phase === "restarting"}
+            onClick={() => void restartToInstall()}
+          >
+            {phase === "restarting" ? (
+              <>
+                <Spinner />
+                {t("Restarting...")}
+              </>
+            ) : (
+              <>
+                <RefreshCcwIcon className="size-3.5" />
+                {t("Restart")}
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            className="w-full sm:w-auto"
+            disabled={checkDisabled}
+            onClick={() => void checkForUpdates()}
+          >
+            {checkBusy ? (
+              <>
+                <Spinner />
+                {t("Checking...")}
+              </>
+            ) : updateState.status === "downloading" ? (
+              <>
+                <Spinner />
+                {t("Downloading...")}
+              </>
+            ) : (
+              <>
+                <SearchIcon className="size-3.5" />
+                {t("Check for updates")}
+              </>
+            )}
+          </Button>
+        )}
+      </div>
+    </Card>
   )
 }
 

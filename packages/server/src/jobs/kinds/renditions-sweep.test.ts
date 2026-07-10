@@ -48,7 +48,7 @@ if (!testDatabaseUrl) {
     await db.delete(instanceSetting)
   })
 
-  test("stale mode skips current, quarantined, and unprobed clips", async () => {
+  test("stale mode repairs stale and unprobed clips", async () => {
     const current = await insertClip({
       encodeFingerprint: encodeFingerprint(config, defaultFacts()),
     })
@@ -70,10 +70,11 @@ if (!testDatabaseUrl) {
     const rows = await clipEncodeJobs()
     assert.deepEqual(
       rows.map((row) => row.dedupKey),
-      [stale],
+      [stale, unprobed].sort(),
     )
-    assert.equal(rows[0]?.priority, 90)
-    assert.deepEqual(rows[0]?.payload, {
+    const staleJob = rows.find((row) => row.dedupKey === stale)
+    assert.equal(staleJob?.priority, 90)
+    assert.deepEqual(staleJob?.payload, {
       clipId: stale,
       trigger: "sweep",
     })
@@ -81,7 +82,7 @@ if (!testDatabaseUrl) {
     assert.equal((await selectSummary()).scanned, 4)
     assert.equal((await selectSummary()).mode, "stale")
     assert.equal((await selectSummary()).upToDate, 1)
-    assert.equal((await selectSummary()).enqueued, 1)
+    assert.equal((await selectSummary()).enqueued, 2)
     assert.equal((await selectSummary()).quarantined, 1)
     assert.equal((await selectSummary()).unprobed, 1)
     assert.equal((await selectSummary()).adopted, 0)
@@ -241,6 +242,7 @@ if (!testDatabaseUrl) {
     encodeFailedFingerprint?: string | null
     encodePipeline?: string | null
     facts?: TestFacts
+    thumbKey?: string | null
   }): Promise<string> {
     const clipId = crypto.randomUUID()
     const userId = crypto.randomUUID()
@@ -267,6 +269,8 @@ if (!testDatabaseUrl) {
       encode_fingerprint: options.encodeFingerprint ?? null,
       encode_failed_fingerprint: options.encodeFailedFingerprint ?? null,
       encode_progress: 100,
+      thumb_key:
+        options.thumbKey === undefined ? `thumb/${clipId}` : options.thumbKey,
     })
     return clipId
   }

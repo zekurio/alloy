@@ -22,7 +22,10 @@ export const adminKeys = {
   runtimeConfig: () => [...adminKeys.all, "runtime-config"] as const,
   transcodingCapabilities: () =>
     [...adminKeys.all, "transcoding-capabilities"] as const,
-  users: () => [...adminKeys.all, "users"] as const,
+  users: (search?: string) =>
+    search
+      ? ([...adminKeys.all, "users", search] as const)
+      : ([...adminKeys.all, "users"] as const),
   games: () => [...adminKeys.all, "games"] as const,
   jobsSummary: () => [...adminKeys.all, "jobs", "summary"] as const,
   jobsFailed: (kind: string | null) =>
@@ -79,11 +82,13 @@ export function adminTranscodingCapabilitiesQueryOptions() {
   })
 }
 
-export function adminUsersQueryOptions() {
+export function adminUsersQueryOptions(search = "") {
   return infiniteQueryOptions({
-    queryKey: adminKeys.users(),
+    queryKey: adminKeys.users(search),
     queryFn: ({ pageParam }) =>
-      api.admin.fetchUsers(pageParam ? { cursor: pageParam } : {}),
+      api.admin.fetchUsers(
+        pageParam ? { cursor: pageParam, search } : { search },
+      ),
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   })

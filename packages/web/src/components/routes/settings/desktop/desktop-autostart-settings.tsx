@@ -1,5 +1,6 @@
 import type { DesktopAutostartState } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
+import { Card } from "@alloy/ui/components/card"
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
@@ -44,32 +45,30 @@ export function DesktopAutostartSettings() {
   }
 
   return (
-    <div className="border-border bg-surface-raised/40 rounded-md border px-3 py-3">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm font-medium">
-            {t("Start Alloy when you sign in")}
-          </div>
-          <p className="text-foreground-dim mt-0.5 text-xs">
-            {t(
-              "Launches in the background so your games are captured right away.",
-            )}
-          </p>
+    <Card className="flex-row items-center justify-between gap-4 p-3">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">
+          {t("Start Alloy when you sign in")}
         </div>
-        {state === undefined ? (
-          <Skeleton className="h-5 w-9 rounded-full" />
-        ) : state.supported ? (
-          <Switch
-            checked={state.enabled}
-            disabled={busy}
-            onCheckedChange={(enabled) => void toggle(enabled)}
-          />
-        ) : (
-          <span className="text-foreground-faint shrink-0 text-xs">
-            {t("Unavailable in this build")}
-          </span>
-        )}
+        <p className="text-foreground-dim mt-0.5 text-xs">
+          {t(
+            "Launches in the background so your games are captured right away.",
+          )}
+        </p>
       </div>
-    </div>
+      {state === undefined ? (
+        <Skeleton className="h-5 w-9 rounded-full" />
+      ) : state.supported ? (
+        <Switch
+          checked={state.enabled}
+          disabled={busy}
+          onCheckedChange={(enabled) => void toggle(enabled)}
+        />
+      ) : (
+        <span className="text-foreground-faint shrink-0 text-xs">
+          {t("Unavailable in this build")}
+        </span>
+      )}
+    </Card>
   )
 }

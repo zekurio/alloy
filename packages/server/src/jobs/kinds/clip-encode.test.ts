@@ -243,9 +243,9 @@ if (!testDatabaseUrl) {
     assert.equal(updated?.encodeProgress, 0)
   })
 
-  test("clip.reconcile enqueues one encode job for a stuck clip", async () => {
+  test("maintenance enqueues one encode job for a stuck clip", async () => {
     const row = await insertClip({ status: "processing" })
-    const registration = getJobKind("clip.reconcile")
+    const registration = getJobKind("maintenance.run")
     assert.ok(registration)
 
     await registration.handler({}, contextFor())

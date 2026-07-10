@@ -1,4 +1,5 @@
 import { t } from "@alloy/i18n"
+import { fieldControlClassName } from "@alloy/ui/lib/field-control"
 import { cn } from "@alloy/ui/lib/utils"
 import { XIcon } from "lucide-react"
 import { useState } from "react"
@@ -65,9 +66,8 @@ export function HotkeyInput({
         onKeyDown={handleKeyDown}
         onBlur={() => setListening(false)}
         className={cn(
-          "border-border bg-input inline-flex h-9 min-w-28 items-center justify-center rounded-lg border px-3 font-mono text-xs font-medium transition-colors outline-none sm:h-8",
-          "hover:border-border-strong hover:bg-surface-raised focus-visible:border-accent-border focus-visible:ring-accent-border/20 focus-visible:ring-2 focus-visible:ring-inset",
-          "disabled:cursor-not-allowed disabled:opacity-50",
+          fieldControlClassName,
+          "inline-flex h-9 min-w-28 items-center justify-center px-3 font-mono text-xs font-medium sm:h-8",
           listening && "border-accent-border ring-accent-border/20 ring-2",
           !value && !listening && "text-foreground-faint font-sans",
           showClear && "pr-7",

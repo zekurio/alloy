@@ -189,6 +189,10 @@ export function validateAdminUsersResponse(value: unknown): AdminUsersResponse {
     response.nextCursor,
     "Invalid admin users response: nextCursor must be a string or null",
   )
+  validateNonNegativeInteger(
+    response.total,
+    "Invalid admin users response: total must be a non-negative integer",
+  )
   return value as AdminUsersResponse
 }
 

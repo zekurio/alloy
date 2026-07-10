@@ -14,7 +14,7 @@ import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "@alloy/server/storage/quota"
-import { and, desc, eq, inArray, lt, ne, or, sql } from "drizzle-orm"
+import { and, desc, eq, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
 
 function toAdminOAuthProvider(
   provider: OAuthProviderConfig,
@@ -126,12 +126,38 @@ export async function selectAdminUserStorageRows(
 export interface AdminUserStoragePage {
   users: AdminUserStorageRow[]
   nextCursor: { createdAt: string; id: string } | null
+  total: number
+}
+
+function adminUserSearch(search: string | undefined) {
+  if (!search) return undefined
+  const pattern = `%${search}%`
+  return or(ilike(user.email, pattern), ilike(user.username, pattern))
 }
 
 export async function selectAdminUserStoragePage(options: {
   cursor: { createdAt: string; id: string } | null
   limit: number
+  search?: string
 }): Promise<AdminUserStoragePage> {
+  const searchFilter = adminUserSearch(options.search)
+  const pageFilter = options.cursor
+    ? and(
+        searchFilter,
+        or(
+          lt(user.created_at, sql`${options.cursor.createdAt}::timestamp`),
+          and(
+            eq(user.created_at, sql`${options.cursor.createdAt}::timestamp`),
+            lt(user.id, options.cursor.id),
+          ),
+        ),
+      )
+    : searchFilter
+
+  const [{ total }] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(user)
+    .where(searchFilter)
   const rows = await db
     .select({
       ...adminUserColumns,
@@ -140,17 +166,7 @@ export async function selectAdminUserStoragePage(options: {
       createdAtText: sql<string>`${user.created_at}::text`,
     })
     .from(user)
-    .where(
-      options.cursor
-        ? or(
-            lt(user.created_at, sql`${options.cursor.createdAt}::timestamp`),
-            and(
-              eq(user.created_at, sql`${options.cursor.createdAt}::timestamp`),
-              lt(user.id, options.cursor.id),
-            ),
-          )
-        : undefined,
-    )
+    .where(pageFilter)
     .orderBy(desc(user.created_at), desc(user.id))
     .limit(options.limit + 1)
 
@@ -158,6 +174,7 @@ export async function selectAdminUserStoragePage(options: {
   const last = page.at(-1)
   return {
     users: await enrichUserRows(page),
+    total,
     nextCursor:
       rows.length > options.limit && last
         ? { createdAt: last.createdAtText, id: last.id }

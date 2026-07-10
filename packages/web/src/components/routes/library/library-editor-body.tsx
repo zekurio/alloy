@@ -1,6 +1,7 @@
 import type { ClipPrivacy } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Card } from "@alloy/ui/components/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -363,7 +364,11 @@ export function EditorBody({
           />
         </section>
 
-        <aside className="border-border bg-surface/60 flex min-w-0 flex-col gap-5 self-stretch rounded-md border p-4 lg:min-h-0 lg:overflow-y-auto">
+        <Card
+          tone="surface"
+          role="complementary"
+          className="min-w-0 gap-5 self-stretch overflow-visible p-4 lg:min-h-0 lg:overflow-y-auto"
+        >
           <ClipMetadataEditor
             title={title}
             onTitleChange={setTitle}
@@ -449,7 +454,7 @@ export function EditorBody({
               </DropdownMenu>
             </div>
           </div>
-        </aside>
+        </Card>
       </div>
     </section>
   )

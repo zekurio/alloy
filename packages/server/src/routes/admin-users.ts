@@ -34,6 +34,7 @@ const UserIdParam = z.object({
 const UsersQuery = z.object({
   cursor: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
+  search: z.string().trim().max(100).optional(),
 })
 
 const StorageQuotaValue = z
@@ -116,10 +117,12 @@ export const adminUsersRoute = new Hono()
     const page = await selectAdminUserStoragePage({
       cursor: decodeUsersCursor(query.cursor),
       limit: query.limit,
+      search: query.search,
     })
     return c.json({
       users: page.users,
       nextCursor: page.nextCursor ? encodeCursorPayload(page.nextCursor) : null,
+      total: page.total,
     })
   })
   .post("/users", zValidator("json", CreateUserBody), async (c) => {

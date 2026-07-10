@@ -13,20 +13,13 @@ export const JOB_QUEUES = ["encode", "io", "maintenance"] as const
 export type JobQueue = (typeof JOB_QUEUES)[number]
 
 export const JOB_KINDS = [
-  "auth.sweep-challenges",
   "clip.encode",
-  "clip.reap-pending",
-  "clip.reconcile",
   "clip.renditions-sweep",
-  "clip.source-probe",
-  "clip.source-probe-sweep",
-  "clip.thumbnail-sweep",
   "clip.verify",
   "clip.verify-assets",
-  "jobs.prune",
+  "maintenance.run",
   "notification.prune",
   "storage.orphan-gc",
-  "upload.reap-tickets",
 ] as const
 export type JobKind = (typeof JOB_KINDS)[number]
 

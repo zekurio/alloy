@@ -175,7 +175,7 @@ export function NotificationBell() {
           ) : null}
           {!listQuery.isPending && items.length === 0 ? (
             <EmptyState
-              seed="notifications-empty"
+              icon={BellIcon}
               size="sm"
               title={t("No notifications yet")}
               hint={t("Follows, comments, likes, and mentions appear here.")}

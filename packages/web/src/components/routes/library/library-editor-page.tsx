@@ -4,6 +4,7 @@ import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
+import { FileQuestionIcon, FolderXIcon, MonitorIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -30,7 +31,7 @@ export function LibraryEditorPage({
     return (
       <AppMain>
         <EmptyState
-          seed="library-desktop-only"
+          icon={MonitorIcon}
           size="lg"
           fill
           title={t("The library is only available in Alloy Desktop")}
@@ -104,7 +105,7 @@ function LibraryEditorContent({
     return (
       <AppMain>
         <EmptyState
-          seed="library-scan-error"
+          icon={FolderXIcon}
           size="lg"
           fill
           title={t("Couldn't scan the library")}
@@ -143,7 +144,7 @@ function LibraryEditorContent({
     return (
       <AppMain>
         <EmptyState
-          seed="library-capture-not-found"
+          icon={FileQuestionIcon}
           size="lg"
           fill
           title={t("Capture not found")}

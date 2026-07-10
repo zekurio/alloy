@@ -30,7 +30,6 @@ function ProfileTaggedTab() {
       <ClipSectionContent
         rows={clips}
         error={error}
-        errorSeed="profile-tagged-error"
         errorTitle={t("Couldn't load tagged clips")}
         emptySeed="profile-tagged-empty"
         emptyTitle={t("No tagged clips yet")}

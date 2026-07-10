@@ -1,6 +1,7 @@
 import type { GameRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Card } from "@alloy/ui/components/card"
 import {
   Dialog,
   DialogBody,
@@ -166,7 +167,7 @@ function StagedImportSummary({
   ].filter((value): value is string => value !== null)
 
   return (
-    <div className="border-border bg-surface-raised/60 flex min-w-0 items-center gap-3 rounded-md border p-3">
+    <Card className="min-w-0 flex-row items-center gap-3 p-3">
       <FileTypeChip fileName={staged.fileName} />
       <div className="min-w-0">
         <p className="text-foreground truncate text-sm font-semibold">
@@ -178,7 +179,7 @@ function StagedImportSummary({
           </p>
         ) : null}
       </div>
-    </div>
+    </Card>
   )
 }
 

@@ -11,7 +11,6 @@ import {
   enqueueStorageOrphanGc,
   enqueueStorageVerify,
 } from "@alloy/server/jobs/kinds/storage-verify"
-import { enqueueThumbnailSweep } from "@alloy/server/jobs/kinds/thumbnail-sweep"
 import { registeredJobKinds } from "@alloy/server/jobs/registry"
 import {
   discardFailed,
@@ -146,9 +145,6 @@ function runSweep(
   const runAt = new Date()
   if (kind === "clip.renditions-sweep") {
     return enqueueRenditionsSweep(mode, { runAt })
-  }
-  if (kind === "clip.thumbnail-sweep") {
-    return enqueueThumbnailSweep(mode, { runAt })
   }
   if (kind === "clip.verify-assets") return enqueueStorageVerify({ runAt })
   return enqueueStorageOrphanGc({ runAt })
