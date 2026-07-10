@@ -1216,6 +1216,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Require sign-in to browse": "Anmeldung zum Browsen erforderlich",
   "Role claim": "Rollen-Claim",
   Scopes: "Scopes",
+  "Secure the authorization flow with Proof Key for Code Exchange.":
+    "Sichere den Autorisierungsablauf mit Proof Key for Code Exchange ab.",
   "Separate scopes with spaces.": "Trenne Scopes mit Leerzeichen.",
   "Token auth method": "Token-Auth-Methode",
   "Token URL": "Token-URL",
