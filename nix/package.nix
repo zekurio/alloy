@@ -14,7 +14,7 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-rS1V7CiyRo5lAjLHDapJhW0EnBIhyChpa8JYbELoJXA=",
+  pnpmDepsHash ? "sha256-Veqn/e6c0jnQcoI79GDlq2Nl705IWfAYetRdt65ceLc=",
 }:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
@@ -25,7 +25,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
     inherit pnpm;
-    fetcherVersion = 3;
+    fetcherVersion = 4;
     hash = pnpmDepsHash;
   };
 
