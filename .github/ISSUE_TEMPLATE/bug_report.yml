@@ -1,7 +1,12 @@
 name: Bug report
 description: Report a defect in the desktop app, recorder, server, or web app
-labels: ["bug"]
 body:
+  - type: markdown
+    attributes:
+      value: >-
+        Thanks for helping improve Alloy. If this issue could expose user data,
+        bypass authentication, or compromise a server or desktop, stop here and
+        [report it privately](https://github.com/zekurio/alloy/security/advisories/new).
   - type: dropdown
     id: area
     attributes:
@@ -14,6 +19,8 @@ body:
         - Web app
         - Upload / encoding pipeline
         - Packaging / Nix
+        - Documentation
+        - Accessibility
         - Other
     validations:
       required: true
@@ -75,6 +82,11 @@ body:
         service manager (e.g. `journalctl -u alloy-server`). Rendered as
         code, no backticks needed.
       render: text
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Screenshots, recordings, or anything else that may help.
   - type: checkboxes
     id: checklist
     attributes:
