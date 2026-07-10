@@ -101,25 +101,7 @@ async function writeReleaseNotes({
     }
   }
 
-  const body = [
-    "## Desktop app",
-    "",
-    "- Download the Windows x64 installer from the assets below.",
-    "- Auto-updates use `latest.yml` and the matching blockmap attached to this release.",
-    "",
-    "## Server",
-    "",
-    "- This tag is the source release for self-hosted server deployments.",
-    "- No separate server binary is attached.",
-    "",
-    "## Other assets",
-    "",
-    "- `checksums.txt` contains SHA-256 checksums for the attached files.",
-    "",
-    generatedNotes,
-  ].join("\n")
-
-  fs.writeFileSync("release-notes.md", `${body}\n`)
+  fs.writeFileSync("release-notes.md", `${generatedNotes}\n`)
 }
 
 module.exports = { writeReleaseNotes }
