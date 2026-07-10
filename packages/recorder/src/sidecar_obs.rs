@@ -227,8 +227,15 @@ fn gpu_adapter(settings: &RecordingSettings) -> u32 {
 
 static GAME_CAPTURE_HOOKED: AtomicBool = AtomicBool::new(false);
 const GAME_CAPTURE_HOOK_RETRY_INTERVAL: Duration = Duration::from_secs(2);
-const GAME_CAPTURE_HOOK_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const GAME_CAPTURE_HOOK_MAX_RETRIES: u32 = 20;
+
+#[derive(Debug, PartialEq, Eq)]
+enum GameCaptureHookPoll {
+    Ready,
+    Waiting(u32),
+    Closed,
+    TimedOut,
+}
 
 unsafe fn create_video_source(
     obs: &LibObs,
@@ -322,11 +329,7 @@ unsafe extern "C" fn game_capture_unhooked(_data: *mut c_void, _cd: *mut CallDat
     GAME_CAPTURE_HOOKED.store(false, Ordering::SeqCst);
 }
 
-unsafe fn wait_for_game_capture_hook(
-    obs: &LibObs,
-    source: *mut ObsSource,
-    game: Option<&DetectedGame>,
-) -> Result<(), String> {
+fn start_game_capture_hook_wait(game: Option<&DetectedGame>) -> GameCaptureHookWait {
     let target = game_capture_target_name(game);
     let target_window = game_capture_target_window(game)
         .filter(|window| !window.trim().is_empty())
@@ -334,47 +337,37 @@ unsafe fn wait_for_game_capture_hook(
     eprintln!(
         "[{SIDE_CAR_NAME}] waiting for OBS game capture hook for {target} [{target_window}]..."
     );
+    eprintln!(
+        "[{SIDE_CAR_NAME}] waiting for successful graphics hook for {target}... retry attempt #1"
+    );
 
-    for retry_attempt in 0..GAME_CAPTURE_HOOK_MAX_RETRIES {
-        if game_capture_source_hooked(obs, source) {
-            eprintln!(
-                "[{SIDE_CAR_NAME}] OBS game capture hook ready for {target}."
-            );
-            return Ok(());
-        }
-        if game.is_some_and(|game| !is_detected_game_alive(game)) {
-            return Err(game_capture_target_closed_message(game));
-        }
-        eprintln!(
-            "[{SIDE_CAR_NAME}] waiting for successful graphics hook for {target}... retry attempt #{}",
-            retry_attempt + 1
-        );
-        let retry_deadline = Instant::now() + GAME_CAPTURE_HOOK_RETRY_INTERVAL;
-        loop {
-            let now = Instant::now();
-            if now >= retry_deadline {
-                break;
-            }
-            let sleep_for = (retry_deadline - now).min(GAME_CAPTURE_HOOK_POLL_INTERVAL);
-            thread::sleep(sleep_for);
-            if game_capture_source_hooked(obs, source) {
-                eprintln!(
-                    "[{SIDE_CAR_NAME}] OBS game capture hook ready for {target}."
-                );
-                return Ok(());
-            }
-            if game.is_some_and(|game| !is_detected_game_alive(game)) {
-                return Err(game_capture_target_closed_message(game));
-            }
-        }
+    GameCaptureHookWait {
+        started_at: Instant::now(),
+        last_logged_attempt: 1,
     }
-
-    Err(game_capture_hook_timeout_message(game))
 }
 
-fn game_capture_target_closed_message(game: Option<&DetectedGame>) -> String {
-    let target = game_capture_target_name(game);
-    format!("OBS game capture stopped because {target} closed.")
+fn game_capture_hook_poll(
+    wait: &GameCaptureHookWait,
+    now: Instant,
+    hooked: bool,
+    target_alive: bool,
+) -> GameCaptureHookPoll {
+    if hooked {
+        return GameCaptureHookPoll::Ready;
+    }
+    if !target_alive {
+        return GameCaptureHookPoll::Closed;
+    }
+
+    let elapsed = now.saturating_duration_since(wait.started_at);
+    if elapsed >= GAME_CAPTURE_HOOK_RETRY_INTERVAL * GAME_CAPTURE_HOOK_MAX_RETRIES {
+        return GameCaptureHookPoll::TimedOut;
+    }
+
+    GameCaptureHookPoll::Waiting(
+        (elapsed.as_millis() / GAME_CAPTURE_HOOK_RETRY_INTERVAL.as_millis()) as u32 + 1,
+    )
 }
 
 fn game_capture_hook_timeout_message(game: Option<&DetectedGame>) -> String {
@@ -1051,6 +1044,72 @@ unsafe fn output_last_error(obs: &LibObs, output: *mut ObsOutput) -> Option<Stri
         None
     } else {
         Some(message)
+    }
+}
+
+#[cfg(test)]
+mod game_capture_hook_poll_tests {
+    use super::{
+        game_capture_hook_poll, GameCaptureHookPoll, GameCaptureHookWait,
+        GAME_CAPTURE_HOOK_MAX_RETRIES, GAME_CAPTURE_HOOK_RETRY_INTERVAL,
+    };
+    use std::time::Instant;
+
+    fn wait(started_at: Instant) -> GameCaptureHookWait {
+        GameCaptureHookWait {
+            started_at,
+            last_logged_attempt: 1,
+        }
+    }
+
+    #[test]
+    fn hooked_capture_is_ready_immediately() {
+        let now = Instant::now();
+
+        assert_eq!(
+            game_capture_hook_poll(&wait(now), now, true, true),
+            GameCaptureHookPoll::Ready
+        );
+    }
+
+    #[test]
+    fn unhooked_capture_advances_retry_attempt_without_blocking() {
+        let started_at = Instant::now();
+
+        assert_eq!(
+            game_capture_hook_poll(
+                &wait(started_at),
+                started_at + GAME_CAPTURE_HOOK_RETRY_INTERVAL,
+                false,
+                true,
+            ),
+            GameCaptureHookPoll::Waiting(2)
+        );
+    }
+
+    #[test]
+    fn closed_capture_target_stops_waiting() {
+        let now = Instant::now();
+
+        assert_eq!(
+            game_capture_hook_poll(&wait(now), now, false, false),
+            GameCaptureHookPoll::Closed
+        );
+    }
+
+    #[test]
+    fn unhooked_capture_times_out_after_all_attempts() {
+        let started_at = Instant::now();
+
+        assert_eq!(
+            game_capture_hook_poll(
+                &wait(started_at),
+                started_at + GAME_CAPTURE_HOOK_RETRY_INTERVAL * GAME_CAPTURE_HOOK_MAX_RETRIES,
+                false,
+                true,
+            ),
+            GameCaptureHookPoll::TimedOut
+        );
     }
 }
 

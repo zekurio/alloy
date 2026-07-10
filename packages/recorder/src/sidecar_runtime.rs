@@ -92,6 +92,19 @@ fn handle_io_request(request: &Request, status: &Mutex<RecordingStatus>) -> Opti
                 snapshot_status(status)
             }))
         }
+        "playNotificationSound" => Some(
+            match serde_json::from_value::<PlayNotificationSoundParams>(request.params.clone()) {
+                Ok(params) => match play_notification_sound(params) {
+                    Ok(()) => response_ok(request.id, json!(null), || snapshot_status(status)),
+                    Err(error) => response_error(request.id, error, snapshot_status(status)),
+                },
+                Err(error) => response_error(
+                    request.id,
+                    format!("Invalid notification sound params: {error}"),
+                    snapshot_status(status),
+                ),
+            },
+        ),
         _ => None,
     }
 }
@@ -141,19 +154,6 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
                 recorder.status(),
             ),
         },
-        "playNotificationSound" => {
-            match serde_json::from_value::<PlayNotificationSoundParams>(request.params) {
-                Ok(params) => match play_notification_sound(params) {
-                    Ok(()) => response_ok(request.id, json!(null), || recorder.status()),
-                    Err(error) => response_error(request.id, error, recorder.status()),
-                },
-                Err(error) => response_error(
-                    request.id,
-                    format!("Invalid notification sound params: {error}"),
-                    recorder.status(),
-                ),
-            }
-        }
         "shutdown" => {
             recorder.shutdown();
             response_ok(request.id, recorder.status(), || recorder.status())
@@ -580,6 +580,42 @@ fn response_for_id(response: &Response, id: u64) -> Response {
     }
 }
 
+fn request_expired(request: &Request, now_unix_ms: u128) -> bool {
+    request
+        .deadline_unix_ms
+        .is_some_and(|deadline| now_unix_ms >= u128::from(deadline))
+}
+
+#[cfg(test)]
+mod request_expired_tests {
+    use super::{request_expired, Request};
+    use serde_json::Value;
+
+    fn request(deadline_unix_ms: Option<u64>) -> Request {
+        Request {
+            id: 1,
+            method: "configure".to_string(),
+            params: Value::Null,
+            deadline_unix_ms,
+        }
+    }
+
+    #[test]
+    fn request_without_deadline_remains_compatible() {
+        assert!(!request_expired(&request(None), 10_000));
+    }
+
+    #[test]
+    fn request_before_deadline_remains_valid() {
+        assert!(!request_expired(&request(Some(10_000)), 9_999));
+    }
+
+    #[test]
+    fn request_at_deadline_is_expired() {
+        assert!(request_expired(&request(Some(10_000)), 10_000));
+    }
+}
+
 fn main() {
     let (tx, rx) = mpsc::channel::<Request>();
     let status = Arc::new(Mutex::new(Recorder::default().status()));
@@ -622,8 +658,20 @@ fn main() {
         let timeout = next_tick.saturating_duration_since(Instant::now());
         match recv_recorder_request(&rx, &mut pending_requests, timeout) {
             Ok(batch) => {
-                let should_shutdown = batch.request.method == "shutdown";
-                let response = handle_request(&mut recorder, batch.request);
+                let expired = request_expired(&batch.request, timestamp_millis());
+                let should_shutdown = !expired && batch.request.method == "shutdown";
+                let response = if expired {
+                    response_error(
+                        batch.request.id,
+                        format!(
+                            "Recording sidecar {} request expired before execution.",
+                            batch.request.method
+                        ),
+                        recorder.status(),
+                    )
+                } else {
+                    handle_request(&mut recorder, batch.request)
+                };
                 publish_status(&status, &recorder);
                 for id in batch.superseded_configure_ids {
                     write_response(response_for_id(&response, id));

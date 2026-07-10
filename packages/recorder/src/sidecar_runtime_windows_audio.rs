@@ -598,8 +598,6 @@
         rect_dimensions(&monitor_info.rcMonitor)
     }
 
-    pub(super) const WINDOW_DIMENSION_RETRY_INTERVAL: Duration = Duration::from_secs(2);
-    pub(super) const WINDOW_DIMENSION_MAX_RETRIES: u32 = 20;
     const MIN_VALID_WINDOW_DIMENSION_SUM: u32 = 1120;
     const ADVANCED_COLOR_ENABLED_FLAG: u32 = 0b10;
 
@@ -612,52 +610,38 @@
 
             let fullscreen_dimensions = fullscreen_monitor_dimensions(hwnd);
             game.fullscreen = fullscreen_dimensions.is_some();
-            game.capture_dimensions = stable_capture_dimensions(hwnd, fullscreen_dimensions);
+            if let Some(dimensions) = fullscreen_dimensions.or_else(|| {
+                window_dimensions(hwnd).filter(|dimensions| valid_window_dimensions(*dimensions))
+            }) {
+                game.capture_dimensions = Some(dimensions);
+            }
             game.hdr_enabled = window_hdr_enabled(hwnd);
         }
     }
 
-    unsafe fn stable_capture_dimensions(
-        hwnd: HWND,
-        fullscreen_dimensions: Option<VideoDimensions>,
-    ) -> Option<VideoDimensions> {
-        if fullscreen_dimensions.is_some() {
-            return fullscreen_dimensions;
-        }
-
-        let mut dimensions = window_dimensions(hwnd);
-        for retry_attempt in 0..WINDOW_DIMENSION_MAX_RETRIES {
-            if !window_dimensions_need_retry(dimensions) {
-                return dimensions;
-            }
-            if IsWindow(hwnd) == 0 {
-                return None;
-            }
-            eprintln!(
-                "[{SIDE_CAR_NAME}] waiting for game window size before OBS video reset... retry attempt #{}",
-                retry_attempt + 1
-            );
-            thread::sleep(WINDOW_DIMENSION_RETRY_INTERVAL);
-            dimensions = window_dimensions(hwnd);
-        }
-
-        if window_dimensions_need_retry(dimensions) {
-            eprintln!(
-                "[{SIDE_CAR_NAME}] game window size stayed unavailable or too small; falling back to display-sized OBS base."
-            );
-            None
-        } else {
-            dimensions
-        }
+    fn valid_window_dimensions(dimensions: VideoDimensions) -> bool {
+        dimensions.width.saturating_add(dimensions.height) >= MIN_VALID_WINDOW_DIMENSION_SUM
     }
 
-    pub(super) fn window_dimensions_need_retry(dimensions: Option<VideoDimensions>) -> bool {
-        dimensions.is_none_or(|dimensions| {
-            dimensions
-                .width
-                .saturating_add(dimensions.height)
-                < MIN_VALID_WINDOW_DIMENSION_SUM
-        })
+    #[cfg(test)]
+    mod valid_window_dimensions_tests {
+        use super::{valid_window_dimensions, VideoDimensions};
+
+        #[test]
+        fn normal_game_window_is_valid() {
+            assert!(valid_window_dimensions(VideoDimensions {
+                width: 1280,
+                height: 720,
+            }));
+        }
+
+        #[test]
+        fn transient_tiny_game_window_is_invalid() {
+            assert!(!valid_window_dimensions(VideoDimensions {
+                width: 320,
+                height: 200,
+            }));
+        }
     }
 
     unsafe fn window_dimensions(hwnd: HWND) -> Option<VideoDimensions> {

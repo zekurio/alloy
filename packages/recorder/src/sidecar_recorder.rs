@@ -869,6 +869,7 @@ impl Recorder {
     }
 
     fn refresh_active_output_for_focus(&mut self) -> Result<(), String> {
+        self.refresh_game_capture_hook()?;
         self.refresh_active_pause()?;
         self.refresh_active_source()
     }

@@ -42,7 +42,7 @@ impl Recorder {
         let output_quality = effective_quality_for_base(settings, video_config.base);
         let mut capture = capture;
         let owns_capture = shared_capture.is_none();
-        let (mut video_graph, audio_graph) =
+        let (video_graph, audio_graph) =
             if let Some((_video_config, shared_kind)) = shared_capture {
                 source_kind = shared_kind;
                 capture.source = recording_source_from_kind(source_kind);
@@ -146,38 +146,6 @@ impl Recorder {
             }
         };
         unsafe { (obs.obs_encoder_set_audio)(audio_encoder, (obs.obs_get_audio)()) };
-
-        let capture_ready = if owns_capture {
-            // SAFETY: this owner session holds the live OBS graph created for
-            // the current libobs instance, and the fallback path consumes it
-            // only through `video_graph`.
-            unsafe {
-                Self::ensure_game_capture_ready_or_fallback(
-                    obs,
-                    settings,
-                    game,
-                    video_config.base,
-                    &mut source_kind,
-                    &mut video_graph,
-                    &mut capture,
-                )
-            }
-        } else {
-            Ok(())
-        };
-        if let Err(error) = capture_ready {
-            unsafe {
-                release_output_graph(
-                    obs,
-                    ptr::null_mut(),
-                    video_encoder,
-                    audio_encoder,
-                    video_graph,
-                    audio_graph,
-                );
-            }
-            return Err(error);
-        }
 
         let output_settings = unsafe { obs.create_data() };
         let output_id = match &output_config {
@@ -310,6 +278,8 @@ impl Recorder {
         }
 
         let can_pause = unsafe { (obs.obs_output_can_pause)(output) };
+        let game_capture_hook_wait = (owns_capture && source_kind == OutputSourceKind::Game)
+            .then(|| start_game_capture_hook_wait(game));
         Ok(ActiveSession {
             kind,
             output,
@@ -326,51 +296,96 @@ impl Recorder {
             capture,
             target_game_key: game.map(|game| game.window_key.clone()),
             game_content_expires_at: None,
+            game_capture_hook_wait,
             can_pause,
             paused: false,
             owns_capture,
         })
     }
 
-    unsafe fn ensure_game_capture_ready_or_fallback(
-        obs: &LibObs,
-        settings: &RecordingSettings,
-        game: Option<&DetectedGame>,
-        base_dimensions: VideoDimensions,
-        source_kind: &mut OutputSourceKind,
-        video_graph: &mut VideoGraph,
-        capture: &mut RecordingCapture,
-    ) -> Result<(), String> {
-        if *source_kind != OutputSourceKind::Game {
+    fn refresh_game_capture_hook(&mut self) -> Result<(), String> {
+        let settings = self.settings.clone().unwrap_or_default();
+        let game = self.active_game.clone();
+        let obs = self
+            .obs
+            .as_ref()
+            .ok_or_else(|| "OBS is not initialized.".to_string())?;
+        let Some(session) = self.replay_session.as_mut() else {
             return Ok(());
-        }
+        };
+        let Some(wait) = session.game_capture_hook_wait.as_ref() else {
+            return Ok(());
+        };
 
-        if let Err(error) = wait_for_game_capture_hook(obs, video_graph.source, game) {
-            if game.is_some_and(|game| !is_detected_game_alive(game)) {
-                return Err(error);
+        let poll = game_capture_hook_poll(
+            wait,
+            Instant::now(),
+            unsafe { game_capture_source_hooked(obs, session.video_graph.source) },
+            game.as_ref().is_some_and(is_detected_game_alive),
+        );
+        match poll {
+            GameCaptureHookPoll::Ready => {
+                session.game_capture_hook_wait = None;
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] OBS game capture hook ready for {}.",
+                    game_capture_target_name(game.as_ref())
+                );
+                return Ok(());
             }
-
-            eprintln!("[{SIDE_CAR_NAME}] {error} Attempting display capture fallback.");
-            let fallback_kind = OutputSourceKind::Display;
-            let fallback_graph =
-                create_video_graph(obs, settings, game, fallback_kind, base_dimensions).map_err(
-                    |fallback_error| {
-                        format!("{error} Display capture fallback also failed: {fallback_error}")
-                    },
-                )?;
-
-            (obs.obs_set_output_source)(0, ptr::null_mut());
-            let previous_graph = std::mem::replace(video_graph, fallback_graph);
-            release_video_graph(obs, previous_graph);
-            *source_kind = fallback_kind;
-            (obs.obs_set_output_source)(0, video_graph.output_source);
-            capture.source = recording_source_from_kind(*source_kind);
-            eprintln!(
-                "[{SIDE_CAR_NAME}] display capture fallback is active for {}.",
-                game_capture_target_name(game)
-            );
+            GameCaptureHookPoll::Closed => return Ok(()),
+            GameCaptureHookPoll::Waiting(retry_attempt) => {
+                if retry_attempt <= wait.last_logged_attempt {
+                    return Ok(());
+                }
+                if let Some(wait) = session.game_capture_hook_wait.as_mut() {
+                    wait.last_logged_attempt = retry_attempt;
+                }
+                eprintln!(
+                    "[{SIDE_CAR_NAME}] waiting for successful graphics hook for {}... retry attempt #{retry_attempt}",
+                    game_capture_target_name(game.as_ref())
+                );
+                return Ok(());
+            }
+            GameCaptureHookPoll::TimedOut => {}
         }
 
+        let error = game_capture_hook_timeout_message(game.as_ref());
+        eprintln!("[{SIDE_CAR_NAME}] {error} Attempting display capture fallback.");
+        let fallback_graph = match unsafe {
+            create_video_graph(
+                obs,
+                &settings,
+                game.as_ref(),
+                OutputSourceKind::Display,
+                session.video_config.base,
+            )
+        } {
+            Ok(graph) => graph,
+            Err(fallback_error) => {
+                session.game_capture_hook_wait = Some(GameCaptureHookWait {
+                    started_at: Instant::now(),
+                    last_logged_attempt: 0,
+                });
+                return Err(format!(
+                    "{error} Display capture fallback also failed: {fallback_error}"
+                ));
+            }
+        };
+
+        unsafe {
+            // `obs_set_output_source` retains the new scene and releases the
+            // previous one, so switch channels before releasing our graph.
+            (obs.obs_set_output_source)(0, fallback_graph.output_source);
+            let previous_graph = std::mem::replace(&mut session.video_graph, fallback_graph);
+            release_video_graph(obs, previous_graph);
+        }
+        session.source_kind = OutputSourceKind::Display;
+        session.capture.source = recording_source_from_kind(session.source_kind);
+        session.game_capture_hook_wait = None;
+        eprintln!(
+            "[{SIDE_CAR_NAME}] display capture fallback is active for {}.",
+            game_capture_target_name(game.as_ref())
+        );
         Ok(())
     }
 

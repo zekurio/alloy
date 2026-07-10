@@ -54,6 +54,8 @@ struct Request {
     method: String,
     #[serde(default)]
     params: Value,
+    #[serde(default, rename = "deadlineUnixMs")]
+    deadline_unix_ms: Option<u64>,
 }
 
 #[derive(Serialize)]
@@ -703,9 +705,16 @@ struct ActiveSession {
     capture: RecordingCapture,
     target_game_key: Option<String>,
     game_content_expires_at: Option<Instant>,
+    game_capture_hook_wait: Option<GameCaptureHookWait>,
     can_pause: bool,
     paused: bool,
     owns_capture: bool,
+}
+
+#[derive(Debug)]
+struct GameCaptureHookWait {
+    started_at: Instant,
+    last_logged_attempt: u32,
 }
 
 #[derive(Debug, Deserialize)]
