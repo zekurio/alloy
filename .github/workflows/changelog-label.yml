@@ -1,4 +1,4 @@
-name: Categorize changelog entry
+name: categorize changelog entry
 
 on:
   pull_request_target:
