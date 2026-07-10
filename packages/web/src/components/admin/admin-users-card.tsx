@@ -1,4 +1,4 @@
-import type { AdminUsersResponse, AdminUserStorageRow } from "@alloy/api"
+import type { AdminUserStorageRow } from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
 import {
   AlertDialog,
@@ -18,8 +18,15 @@ import {
 } from "@alloy/ui/components/avatar"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@alloy/ui/components/input-group"
 import { List, ListItem } from "@alloy/ui/components/list"
 import {
   ResponsiveDialog,
@@ -48,7 +55,6 @@ import {
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import {
-  type InfiniteData,
   type QueryClient,
   useInfiniteQuery,
   useMutation,
@@ -61,10 +67,13 @@ import {
   UserCheckIcon,
   UserPlusIcon,
   UserXIcon,
+  XIcon,
+  SearchIcon,
 } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useState } from "react"
 import type { FormEvent } from "react"
 
+import { ListEmpty } from "@/components/feedback/empty-state"
 import { adminKeys, adminUsersQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -94,8 +103,8 @@ interface AdminUsersCardProps {
   hideHeader?: boolean
 }
 
-function useAdminUsersQuery() {
-  const usersQuery = useInfiniteQuery(adminUsersQueryOptions())
+function useAdminUsersQuery(search: string) {
+  const usersQuery = useInfiniteQuery(adminUsersQueryOptions(search))
   const loadError = usersQuery.error
     ? errorMessage(usersQuery.error, t("Failed to load users"))
     : null
@@ -104,6 +113,7 @@ function useAdminUsersQuery() {
     users: usersQuery.data
       ? usersQuery.data.pages.flatMap((page) => page.users)
       : null,
+    total: usersQuery.data?.pages[0]?.total ?? 0,
     loadError,
     hasNextPage: usersQuery.hasNextPage,
     isFetchingNextPage: usersQuery.isFetchingNextPage,
@@ -115,8 +125,8 @@ function useDeleteAdminUser() {
   const queryClient = useQueryClient()
   const { isPending, mutate, variables } = useMutation({
     mutationFn: (user: AdminUserRow) => api.admin.deleteUser(user.id),
-    onSuccess: (_result, user) => {
-      removeAdminUserCacheRow(queryClient, user.id)
+    onSuccess: () => {
+      removeAdminUserCacheRow(queryClient)
       toast.success(t("User removed"))
     },
     onError: (cause) =>
@@ -138,7 +148,7 @@ function useToggleAdminUserStatus() {
         status: user.status === "disabled" ? "active" : "disabled",
       }),
     onSuccess: (updated) => {
-      setAdminUserCacheRow(queryClient, updated)
+      setAdminUserCacheRow(queryClient)
       toast.success(
         updated.status === "disabled" ? t("User disabled") : t("User enabled"),
       )
@@ -157,38 +167,12 @@ function useToggleAdminUserStatus() {
   }
 }
 
-function setAdminUserCacheRow(queryClient: QueryClient, updated: AdminUserRow) {
-  queryClient.setQueryData<InfiniteData<AdminUsersResponse>>(
-    adminKeys.users(),
-    (current) =>
-      current
-        ? {
-            ...current,
-            pages: current.pages.map((page) => ({
-              ...page,
-              users: page.users.map((row) =>
-                row.id === updated.id ? updated : row,
-              ),
-            })),
-          }
-        : current,
-  )
+function setAdminUserCacheRow(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: adminKeys.users() })
 }
 
-function removeAdminUserCacheRow(queryClient: QueryClient, userId: string) {
-  queryClient.setQueryData<InfiniteData<AdminUsersResponse>>(
-    adminKeys.users(),
-    (current) =>
-      current
-        ? {
-            ...current,
-            pages: current.pages.map((page) => ({
-              ...page,
-              users: page.users.filter((row) => row.id !== userId),
-            })),
-          }
-        : current,
-  )
+function removeAdminUserCacheRow(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: adminKeys.users() })
 }
 
 function adminUserEditableFields(user: AdminUserRow): AdminUserEditableFields {
@@ -223,7 +207,7 @@ function useUpdateAdminUser(currentUserId: string) {
     },
     onSuccess: async (updated, { user, next }) => {
       const quotaChanged = user.storageQuotaBytes !== next.storageQuotaBytes
-      setAdminUserCacheRow(queryClient, updated)
+      setAdminUserCacheRow(queryClient)
       if (updated.id === currentUserId && quotaChanged) {
         await queryClient.invalidateQueries({
           queryKey: userKeys.storage(),
@@ -280,9 +264,9 @@ function useAdminUserMutations(currentUserId: string) {
   }
 }
 
-function useAdminUsers(currentUserId: string) {
+function useAdminUsers(currentUserId: string, search: string) {
   return {
-    ...useAdminUsersQuery(),
+    ...useAdminUsersQuery(search),
     ...useAdminUserMutations(currentUserId),
   }
 }
@@ -291,8 +275,11 @@ export function AdminUsersCard({
   currentUserId,
   hideHeader,
 }: AdminUsersCardProps) {
+  const [search, setSearch] = useState("")
+  const normalizedSearch = search.trim()
   const {
     users,
+    total,
     loadError,
     busyId,
     onDelete,
@@ -301,18 +288,18 @@ export function AdminUsersCard({
     hasNextPage,
     isFetchingNextPage,
     fetchNextPage,
-  } = useAdminUsers(currentUserId)
+  } = useAdminUsers(currentUserId, normalizedSearch)
 
   const list = loadError ? (
-    <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
-      {loadError}
-    </div>
+    <Callout tone="destructive">{loadError}</Callout>
   ) : users === null ? (
     <div className="text-foreground-muted grid place-items-center py-3">
       <Spinner className="size-4" />
     </div>
   ) : users.length === 0 ? (
-    <p className="text-foreground-muted text-sm">{t("No users yet.")}</p>
+    <ListEmpty
+      title={normalizedSearch ? t("No users found") : t("No users yet")}
+    />
   ) : (
     <>
       <UsersList
@@ -340,8 +327,36 @@ export function AdminUsersCard({
 
   const content = (
     <div className="flex flex-col gap-3">
-      <div className="flex justify-end">
-        <CreateUserDialog />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <span className="text-foreground-muted text-sm tabular-nums">
+          {tp(total, "user", "users")}
+        </span>
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <InputGroup className="w-full sm:max-w-xs">
+            <InputGroupAddon>
+              <SearchIcon />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("Search users")}
+              aria-label={t("Search users")}
+            />
+            {search ? (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={t("Clear search")}
+                  onClick={() => setSearch("")}
+                >
+                  <XIcon />
+                </InputGroupButton>
+              </InputGroupAddon>
+            ) : null}
+          </InputGroup>
+          <CreateUserDialog />
+        </div>
       </div>
       {list}
     </div>
@@ -743,7 +758,7 @@ function CreateUserDialog() {
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
       <ResponsiveDialogTrigger
         render={
-          <Button variant="secondary" size="sm">
+          <Button variant="primary">
             <UserPlusIcon />
             {t("Add user")}
           </Button>

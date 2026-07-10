@@ -58,11 +58,34 @@ const emptyMediaVariants = cva(
     variants: {
       variant: {
         default: "bg-transparent",
-        icon: "flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-foreground [&_svg:not([class*='size-'])]:size-4",
+        icon: "flex shrink-0 items-center justify-center rounded-lg bg-muted text-foreground",
+      },
+      size: {
+        sm: "",
+        md: "",
+        lg: "",
       },
     },
+    compoundVariants: [
+      {
+        variant: "icon",
+        size: "sm",
+        className: "size-8 [&_svg:not([class*='size-'])]:size-4",
+      },
+      {
+        variant: "icon",
+        size: "md",
+        className: "size-10 [&_svg:not([class*='size-'])]:size-5",
+      },
+      {
+        variant: "icon",
+        size: "lg",
+        className: "size-12 [&_svg:not([class*='size-'])]:size-6",
+      },
+    ],
     defaultVariants: {
       variant: "default",
+      size: "sm",
     },
   },
 )
@@ -70,13 +93,14 @@ const emptyMediaVariants = cva(
 function EmptyMedia({
   className,
   variant = "default",
+  size = "sm",
   ...props
 }: ComponentProps<"div"> & VariantProps<typeof emptyMediaVariants>) {
   return (
     <div
       data-slot="empty-icon"
       data-variant={variant}
-      className={cn(emptyMediaVariants({ variant, className }))}
+      className={cn(emptyMediaVariants({ variant, size, className }))}
       {...props}
     />
   )
@@ -99,7 +123,7 @@ function EmptyDescription({ className, ...props }: ComponentProps<"p">) {
       as="p"
       slot="empty-description"
       className={cn(
-        "text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "text-sm/relaxed text-foreground-muted [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className,
       )}
       {...props}

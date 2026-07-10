@@ -194,8 +194,7 @@ async function abortTicketUpload(uploadUrl: string): Promise<void> {
   try {
     await fetch(uploadUrl, { method: "DELETE" })
   } catch {
-    // Best effort: the server's `upload.reap-tickets` cleanup job also removes
-    // expired tickets.
+    // Best effort: server maintenance also removes expired tickets.
   }
 }
 

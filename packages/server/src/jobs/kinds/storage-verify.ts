@@ -27,7 +27,6 @@ const logger = createLogger("jobs")
 const CLIP_VERIFY_ASSETS_KIND = "clip.verify-assets"
 const CLIP_VERIFY_KIND = "clip.verify"
 const STORAGE_ORPHAN_GC_KIND = "storage.orphan-gc"
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000
 const PAGE_SIZE = 500
 // Comfortably above encode timeout ceilings and lease-retry cycles, so
 // in-flight runs' freshly uploaded objects are never collected.
@@ -102,7 +101,6 @@ defineJobKind({
   schema: EmptyPayloadSchema,
   defaultPriority: 70,
   retry: { maxAttempts: 1, backoffMs: 60_000 },
-  schedule: { everyMs: WEEK_MS, runAtBoot: true },
   handler: runStorageVerify,
 })
 
@@ -123,10 +121,6 @@ defineJobKind({
   schema: EmptyPayloadSchema,
   defaultPriority: 80,
   retry: { maxAttempts: 1, backoffMs: 60_000 },
-  // GC is intentionally not run at boot, while verification is. That gives
-  // normal deployments a practical offset; exact weekly phase alignment is
-  // not important because both jobs are idempotent.
-  schedule: { everyMs: WEEK_MS, runAtBoot: false },
   handler: runStorageOrphanGc,
 })
 

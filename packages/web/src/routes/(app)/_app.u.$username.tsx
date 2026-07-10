@@ -1,6 +1,7 @@
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
+import { UserXIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -87,7 +88,7 @@ function UserProfileLayout() {
       >
         {profileError ? (
           <EmptyState
-            seed={`profile-error-${username}`}
+            icon={UserXIcon}
             size="lg"
             title={t("Couldn't load profile")}
           />

@@ -18,7 +18,6 @@ import { enqueueClipEncode } from "./clip-encode"
 const logger = createLogger("jobs")
 
 const CLIP_RENDITIONS_SWEEP_KIND = "clip.renditions-sweep"
-const EVERY_DAY_MS = 24 * 60 * 60 * 1000
 const PAGE_SIZE = 500
 const SWEEP_SUMMARY_KEY = "renditionSweep"
 
@@ -41,6 +40,8 @@ interface SweepClipRow {
   encodeFingerprint: string | null
   encodeFailedFingerprint: string | null
   encodePipeline: string | null
+  thumbKey: string | null
+  thumbFailedAt: Date | null
 }
 
 interface SweepRenditionRow {
@@ -69,7 +70,6 @@ defineJobKind({
   schema: RenditionsSweepPayloadSchema,
   defaultPriority: 50,
   retry: { maxAttempts: 1, backoffMs: 60_000 },
-  schedule: { everyMs: EVERY_DAY_MS, runAtBoot: true },
   handler: runRenditionsSweep,
 })
 
@@ -128,6 +128,8 @@ async function runRenditionsSweep(
       summary.scanned += 1
       if (row.height === null || row.sourceFps === null) {
         summary.unprobed += 1
+        await enqueueClipEncode(row.id, { trigger: "sweep", priority: 90 })
+        summary.enqueued += 1
         continue
       }
 
@@ -143,7 +145,12 @@ async function runRenditionsSweep(
       const ladder = expectedLadder(config, facts)
 
       if (row.encodeFingerprint === expected) {
-        summary.upToDate += 1
+        if (needsThumbnail(row)) {
+          await enqueueClipEncode(row.id, { trigger: "sweep", priority: 90 })
+          summary.enqueued += 1
+        } else {
+          summary.upToDate += 1
+        }
         continue
       }
 
@@ -162,6 +169,10 @@ async function runRenditionsSweep(
         }))
       ) {
         summary.adopted += 1
+        if (needsThumbnail(row)) {
+          await enqueueClipEncode(row.id, { trigger: "sweep", priority: 90 })
+          summary.enqueued += 1
+        }
         continue
       }
 
@@ -192,6 +203,8 @@ async function selectSweepPage(cursor: string | null): Promise<SweepClipRow[]> {
       encodeFingerprint: clip.encode_fingerprint,
       encodeFailedFingerprint: clip.encode_failed_fingerprint,
       encodePipeline: clip.encode_pipeline,
+      thumbKey: clip.thumb_key,
+      thumbFailedAt: clip.thumb_failed_at,
     })
     .from(clip)
     .where(
@@ -203,6 +216,10 @@ async function selectSweepPage(cursor: string | null): Promise<SweepClipRow[]> {
     )
     .orderBy(clip.id)
     .limit(PAGE_SIZE)
+}
+
+function needsThumbnail(row: SweepClipRow): boolean {
+  return row.thumbKey === null && row.thumbFailedAt === null
 }
 
 async function selectRenditionsForPage(

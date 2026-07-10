@@ -1,5 +1,6 @@
 import type { ClipRow } from "@alloy/api"
 import { LoadingState } from "@alloy/ui/components/loading-state"
+import { AlertCircleIcon } from "lucide-react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -9,7 +10,6 @@ type EmptyStateSize = "sm" | "md" | "lg"
 type ClipSectionContentProps = {
   rows: readonly ClipRow[] | null
   error: unknown
-  errorSeed: string
   errorTitle: string
   errorSize?: EmptyStateSize
   emptySeed: string
@@ -23,7 +23,6 @@ type ClipSectionContentProps = {
 export function ClipSectionContent({
   rows,
   error,
-  errorSeed,
   errorTitle,
   errorSize = "md",
   emptySeed,
@@ -37,6 +36,7 @@ export function ClipSectionContent({
     if (rows.length === 0) {
       return (
         <EmptyState
+          kaomoji
           seed={emptySeed}
           size={emptySize}
           title={emptyTitle}
@@ -55,7 +55,9 @@ export function ClipSectionContent({
   }
 
   if (error) {
-    return <EmptyState seed={errorSeed} size={errorSize} title={errorTitle} />
+    return (
+      <EmptyState icon={AlertCircleIcon} size={errorSize} title={errorTitle} />
+    )
   }
 
   return <LoadingState />

@@ -2,11 +2,18 @@ import type { AdminGameRow, GameAssetRole } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
+import { Card } from "@alloy/ui/components/card"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { DatePicker } from "@alloy/ui/components/date-picker"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Input } from "@alloy/ui/components/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@alloy/ui/components/input-group"
 import { List, ListItem } from "@alloy/ui/components/list"
 import {
   ResponsiveDialog,
@@ -33,12 +40,14 @@ import {
   ImageIcon,
   PencilIcon,
   PlusIcon,
+  SearchIcon,
   Trash2Icon,
   UploadIcon,
 } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-import type { FormEvent } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { FormEvent, ReactNode } from "react"
 
+import { ListEmpty } from "@/components/feedback/empty-state"
 import { adminGamesQueryOptions, adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -84,6 +93,16 @@ function releaseDatePayload(value: string): string | null {
 
 export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
   const { data: games, isPending, error } = useQuery(adminGamesQueryOptions())
+  const [search, setSearch] = useState("")
+  const filteredGames = useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase()
+    if (!games || !normalizedSearch) return games ?? []
+    return games.filter((game) => {
+      const name = game.name.toLocaleLowerCase()
+      const slug = game.slug.toLocaleLowerCase()
+      return name.includes(normalizedSearch) || slug.includes(normalizedSearch)
+    })
+  }, [games, search])
 
   const summary =
     games && games.length > 0
@@ -94,7 +113,7 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
 
   const body = (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         {hideHeader ? (
           <span className="text-foreground-muted text-sm tabular-nums">
             {summary}
@@ -104,20 +123,35 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
             {t("Create and manage custom games and their artwork.")}
           </p>
         )}
-        <CreateGameDialog />
+        <div className="flex w-full items-center gap-2 sm:w-auto">
+          <InputGroup className="w-full sm:max-w-xs">
+            <InputGroupAddon align="inline-start">
+              <SearchIcon className="text-foreground-muted size-4" />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("Search games")}
+              aria-label={t("Search games")}
+            />
+          </InputGroup>
+          <CreateGameDialog />
+        </div>
       </div>
 
       {error ? (
-        <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
+        <Callout tone="destructive">
           {errorMessage(error, t("Couldn't load games"))}
-        </div>
+        </Callout>
       ) : isPending ? (
         <Spinner className="size-5" />
       ) : games.length === 0 ? (
-        <p className="text-foreground-muted text-sm">{t("No games yet.")}</p>
+        <ListEmpty title={t("No games yet")} />
+      ) : filteredGames.length === 0 ? (
+        <ListEmpty title={t("No games found")} />
       ) : (
         <List>
-          {games.map((game) => (
+          {filteredGames.map((game) => (
             <AdminGameListRow key={game.id} game={game} />
           ))}
         </List>
@@ -220,7 +254,7 @@ function DeleteGamePreview({ game }: { game: AdminGameRow }) {
       : t("{count} linked clips", { count: game.clipCount })
 
   return (
-    <div className="border-border bg-surface-raised/40 flex flex-col gap-3 rounded-lg border p-3">
+    <Card className="gap-3 p-3">
       <div className="flex items-center gap-3">
         <GameIcon
           src={game.iconUrl ?? game.logoUrl ?? game.gridUrl}
@@ -269,7 +303,7 @@ function DeleteGamePreview({ game }: { game: AdminGameRow }) {
           )
         })}
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -318,7 +352,7 @@ function CreateGameDialog() {
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
       <ResponsiveDialogTrigger
         render={
-          <Button type="button" size="sm">
+          <Button type="button">
             <PlusIcon />
             {t("Add game")}
           </Button>
@@ -395,6 +429,98 @@ function CreateGameDialog() {
   )
 }
 
+/**
+ * Shared "asset field" card shell for {@link CreateGameAssetField} and
+ * {@link GameAssetField} — a preview well, label/description/status block,
+ * and a primary upload action plus optional remove action.
+ */
+function AssetFieldCard({
+  label,
+  description,
+  status,
+  preview,
+  primaryLabel,
+  primaryIcon,
+  primaryAriaLabel,
+  primaryDisabled,
+  showRemove,
+  removeAriaLabel,
+  removeDisabled,
+  onRemove,
+  onFileSelected,
+}: {
+  label: string
+  description: string
+  status: string
+  preview: ReactNode
+  primaryLabel: string
+  primaryIcon: ReactNode
+  primaryAriaLabel: string
+  primaryDisabled?: boolean
+  showRemove: boolean
+  removeAriaLabel: string
+  removeDisabled?: boolean
+  onRemove: () => void
+  onFileSelected: (file: File) => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <Card className="gap-3 p-3">
+      <div className="border-border bg-surface-sunken flex h-28 items-center justify-center overflow-hidden rounded-md border">
+        {preview}
+      </div>
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="text-sm leading-none font-semibold">{label}</span>
+          <span className="text-foreground-muted truncate text-xs">
+            {description}
+          </span>
+          <span className="text-foreground-faint truncate text-xs">
+            {status}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            aria-label={primaryAriaLabel}
+            disabled={primaryDisabled}
+            onClick={() => inputRef.current?.click()}
+          >
+            {primaryIcon}
+            {primaryLabel}
+          </Button>
+          {showRemove ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={removeAriaLabel}
+              disabled={removeDisabled}
+              onClick={onRemove}
+            >
+              <Trash2Icon />
+            </Button>
+          ) : null}
+        </div>
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ""
+          if (file) onFileSelected(file)
+        }}
+      />
+    </Card>
+  )
+}
+
 function CreateGameAssetField({
   role,
   label,
@@ -408,7 +534,6 @@ function CreateGameAssetField({
   file: File | null
   onSelect: (file: File | null) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   useEffect(() => {
@@ -422,60 +547,25 @@ function CreateGameAssetField({
   }, [file, role])
 
   return (
-    <div className="border-border bg-surface-raised/40 flex flex-col gap-3 rounded-lg border p-3">
-      <div className="border-border bg-surface-sunken flex h-28 items-center justify-center overflow-hidden rounded-md border">
-        {previewUrl ? (
+    <AssetFieldCard
+      label={label}
+      description={description}
+      status={file ? file.name : t("Not set")}
+      preview={
+        previewUrl ? (
           <img src={previewUrl} alt="" className="size-full object-contain" />
         ) : (
           <ImageIcon className="text-foreground-faint size-5" aria-hidden />
-        )}
-      </div>
-      <div className="flex items-end justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-sm leading-none font-semibold">{label}</span>
-          <span className="text-foreground-muted truncate text-xs">
-            {description}
-          </span>
-          <span className="text-foreground-faint truncate text-xs">
-            {file ? file.name : t("Not set")}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            aria-label={t("Choose {label}", { label })}
-            onClick={() => inputRef.current?.click()}
-          >
-            <UploadIcon />
-            {file ? t("Replace") : t("Choose")}
-          </Button>
-          {file ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={t("Remove {label}", { label })}
-              onClick={() => onSelect(null)}
-            >
-              <Trash2Icon />
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const next = e.target.files?.[0]
-          e.target.value = ""
-          if (next) onSelect(next)
-        }}
-      />
-    </div>
+        )
+      }
+      primaryLabel={file ? t("Replace") : t("Choose")}
+      primaryIcon={<UploadIcon />}
+      primaryAriaLabel={t("Choose {label}", { label })}
+      showRemove={file !== null}
+      removeAriaLabel={t("Remove {label}", { label })}
+      onRemove={() => onSelect(null)}
+      onFileSelected={(next) => onSelect(next)}
+    />
   )
 }
 
@@ -613,7 +703,6 @@ function GameAssetField({
   description: string
 }) {
   const qc = useQueryClient()
-  const inputRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const currentUrl = game[GAME_ASSET_URL[role]] as string | null
 
@@ -643,9 +732,12 @@ function GameAssetField({
   }
 
   return (
-    <div className="border-border bg-surface-raised/40 flex flex-col gap-3 rounded-lg border p-3">
-      <div className="border-border bg-surface-sunken flex h-28 items-center justify-center overflow-hidden rounded-md border">
-        {currentUrl ? (
+    <AssetFieldCard
+      label={label}
+      description={description}
+      status={currentUrl ? t("Uploaded") : t("Not set")}
+      preview={
+        currentUrl ? (
           <GameIcon
             src={currentUrl}
             name={game.name}
@@ -653,55 +745,17 @@ function GameAssetField({
           />
         ) : (
           <ImageIcon className="text-foreground-faint size-5" aria-hidden />
-        )}
-      </div>
-      <div className="flex items-end justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-sm leading-none font-semibold">{label}</span>
-          <span className="text-foreground-muted truncate text-xs">
-            {description}
-          </span>
-          <span className="text-foreground-faint text-xs">
-            {currentUrl ? t("Uploaded") : t("Not set")}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            aria-label={t("Upload {label}", { label })}
-            disabled={busy}
-            onClick={() => inputRef.current?.click()}
-          >
-            {busy ? <Spinner className="size-3.5" /> : <UploadIcon />}
-            {currentUrl ? t("Replace") : t("Upload")}
-          </Button>
-          {currentUrl ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={t("Remove {label}", { label })}
-              disabled={busy}
-              onClick={clear}
-            >
-              <Trash2Icon />
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0]
-          e.target.value = ""
-          if (file) void upload(file)
-        }}
-      />
-    </div>
+        )
+      }
+      primaryLabel={currentUrl ? t("Replace") : t("Upload")}
+      primaryIcon={busy ? <Spinner className="size-3.5" /> : <UploadIcon />}
+      primaryAriaLabel={t("Upload {label}", { label })}
+      primaryDisabled={busy}
+      showRemove={currentUrl !== null}
+      removeAriaLabel={t("Remove {label}", { label })}
+      removeDisabled={busy}
+      onRemove={clear}
+      onFileSelected={(file) => void upload(file)}
+    />
   )
 }

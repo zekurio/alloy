@@ -3,6 +3,7 @@ import { t } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
+import { AlertCircleIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
@@ -110,7 +111,7 @@ function FeedSectionBody({
   if (!hasData && error) {
     return (
       <EmptyState
-        seed={`feed-${feedId}-error`}
+        icon={AlertCircleIcon}
         size="lg"
         title={t("Couldn't load feed")}
       />
@@ -120,6 +121,7 @@ function FeedSectionBody({
   if (!hasRows) {
     return (
       <EmptyState
+        kaomoji
         seed={`feed-${feedId}-empty`}
         size="lg"
         title={emptyTitle(filter)}
