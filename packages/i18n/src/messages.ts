@@ -1174,12 +1174,16 @@ export const DE_MESSAGES: Record<string, string> = {
   "Avatar claim": "Avatar-Claim",
   "Button color": "Button-Farbe",
   "Button text color": "Button-Textfarbe",
+  "Callback URL": "Callback-URL",
+  "Callback URL copied": "Callback-URL kopiert",
   "Client ID": "Client-ID",
   "Client secret": "Client-Secret",
   "Client secret basic": "Client Secret Basic",
   "Client secret post": "Client Secret Post",
   "Configure external OIDC and OAuth sign-in providers.":
     "Konfiguriere externe OIDC- und OAuth-Anbieter für die Anmeldung.",
+  "Copy callback URL": "Callback-URL kopieren",
+  "Couldn't copy callback URL": "Callback-URL konnte nicht kopiert werden",
   "Couldn't save OAuth providers":
     "OAuth-Anbieter konnten nicht gespeichert werden",
   "Couldn't update authentication":
@@ -1205,6 +1209,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Quota claim": "Kontingent-Claim",
   "Redirect signed-out visitors to login before they can browse.":
     "Leite abgemeldete Besucher zum Login weiter, bevor sie browsen können.",
+  "Register this redirect URI with the provider.":
+    "Registriere diese Redirect-URI beim Anbieter.",
   "Registration, passkeys, browsing access, and OAuth sign-in providers.":
     "Registrierung, Passkeys, Browsing-Zugriff und OAuth-Anmeldeanbieter.",
   "Require sign-in to browse": "Anmeldung zum Browsen erforderlich",
@@ -1215,8 +1221,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Token URL": "Token-URL",
   "UID claim": "UID-Claim",
   Unchanged: "Unverändert",
-  "Use proof key for code exchange when supported.":
-    "Verwende Proof Key for Code Exchange, wenn unterstützt.",
   "User info URL": "Userinfo-URL",
   "Username claim": "Nutzername-Claim",
   "Users may lose this sign-in method immediately.":

@@ -57,6 +57,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import {
   ChevronDownIcon,
+  CopyIcon,
   PencilIcon,
   PlusIcon,
   Trash2Icon,
@@ -68,6 +69,7 @@ import type { ComponentProps, FormEvent } from "react"
 import { ListEmpty } from "@/components/feedback/empty-state"
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
+import { copyTextToClipboard } from "@/lib/clipboard"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
 
@@ -227,6 +229,7 @@ export function AuthSettingsContent({
                   providers={config.oauthProviders}
                   provider={null}
                   providerIndex={null}
+                  authBaseURL={config.authBaseURL}
                   pending={providerPending}
                   onSave={saveProviders}
                 />
@@ -249,6 +252,7 @@ export function AuthSettingsContent({
                     provider={provider}
                     providerIndex={index}
                     providers={config.oauthProviders}
+                    authBaseURL={config.authBaseURL}
                     readOnly={config.authLocks.oauthProviders}
                     pending={providerPending}
                     onSave={saveProviders}
@@ -353,6 +357,7 @@ function ProviderRow({
   provider,
   providerIndex,
   providers,
+  authBaseURL,
   readOnly,
   pending,
   onSave,
@@ -360,6 +365,7 @@ function ProviderRow({
   provider: AdminOAuthProvider
   providerIndex: number
   providers: AdminOAuthProvider[]
+  authBaseURL: string
   readOnly: boolean
   pending: boolean
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
@@ -421,6 +427,7 @@ function ProviderRow({
               providers={providers}
               provider={provider}
               providerIndex={providerIndex}
+              authBaseURL={authBaseURL}
               pending={pending}
               onSave={onSave}
             />
@@ -472,12 +479,14 @@ function ProviderDialog({
   providers,
   provider,
   providerIndex,
+  authBaseURL,
   pending,
   onSave,
 }: {
   providers: AdminOAuthProvider[]
   provider: AdminOAuthProvider | null
   providerIndex: number | null
+  authBaseURL: string
   pending: boolean
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
 }) {
@@ -578,6 +587,14 @@ function ProviderDialog({
                 onChange={(value) => changeDraft({ displayName: value })}
                 maxLength={64}
                 required
+              />
+              <CallbackUrlField
+                id={
+                  editing
+                    ? `callback-url-${provider.providerId}`
+                    : "new-callback-url"
+                }
+                value={callbackURLForProvider(authBaseURL, draft.providerId)}
               />
               <TextField
                 id={
@@ -725,14 +742,13 @@ function ProviderDialog({
                       </SelectContent>
                     </Select>
                   </Field>
-                  <ToggleCard
-                    label={t("PKCE")}
-                    description={t(
-                      "Use proof key for code exchange when supported.",
-                    )}
-                    checked={draft.pkce}
-                    onCheckedChange={(pkce) => changeDraft({ pkce })}
-                  />
+                  <label className="flex items-center gap-2 self-end pb-2.5 text-sm font-medium">
+                    <Switch
+                      checked={draft.pkce}
+                      onCheckedChange={(pkce) => changeDraft({ pkce })}
+                    />
+                    {t("PKCE")}
+                  </label>
                   <TextField
                     id={
                       editing
@@ -841,6 +857,51 @@ function ProviderDialog({
       </ResponsiveDialogContent>
     </ResponsiveDialog>
   )
+}
+
+function CallbackUrlField({ id, value }: { id: string; value: string }) {
+  async function copyCallbackUrl() {
+    const copied = await copyTextToClipboard(value, {
+      action: "copy OAuth callback URL",
+    })
+    if (copied) {
+      toast.success(t("Callback URL copied"))
+    } else {
+      toast.error(t("Couldn't copy callback URL"))
+    }
+  }
+
+  return (
+    <Field className="md:col-span-2">
+      <FieldLabel htmlFor={id}>{t("Callback URL")}</FieldLabel>
+      <div className="flex gap-2">
+        <Input id={id} value={value} readOnly className="font-mono" />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="shrink-0"
+          aria-label={t("Copy callback URL")}
+          onClick={() => void copyCallbackUrl()}
+        >
+          <CopyIcon />
+        </Button>
+      </div>
+      <FieldDescription>
+        {t("Register this redirect URI with the provider.")}
+      </FieldDescription>
+    </Field>
+  )
+}
+
+function callbackURLForProvider(
+  authBaseURL: string,
+  providerId: string,
+): string {
+  const base = authBaseURL.endsWith("/")
+    ? authBaseURL.slice(0, -1)
+    : authBaseURL
+  return `${base}/api/auth/oauth2/callback/${providerId.trim() || "{providerId}"}`
 }
 
 function TextField({
