@@ -28,6 +28,7 @@ export interface SidecarRequest {
   id: number
   method: SidecarMethod
   params?: unknown
+  deadlineUnixMs: number
 }
 
 export interface SidecarResponse {
