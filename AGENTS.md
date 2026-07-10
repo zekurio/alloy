@@ -107,6 +107,15 @@ Valid types are `feat`, `fix`, `docs`, `chore`, `refactor`, and `test`. Scopes a
 
 Examples: `fix(web): add upload UI`, `docs: update contributing guide`, `chore: cleanup build scripts`.
 
+### Release Changelogs
+
+GitHub Release notes are grouped by one `changelog:*` label per pull request.
+The PR-label workflow derives the category from a conventional PR title, but
+maintainers can replace it with the most accurate category or use
+`changelog:skip` to exclude the PR. Keep PR titles conventional so release
+notes classify correctly. If a release contains direct commits instead of PRs,
+the publish workflow groups their conventional commit subjects as a fallback.
+
 ## Code Conventions & Common Patterns
 
 ### General Principles
