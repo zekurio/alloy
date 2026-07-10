@@ -115,7 +115,12 @@ export class RecordingSidecarClient {
     if (!child) throw new Error("Recording sidecar is not available.")
 
     const id = this.nextId++
-    const request: SidecarRequest = { id, method, params }
+    const request: SidecarRequest = {
+      id,
+      method,
+      params,
+      deadlineUnixMs: Date.now() + SIDECAR_TIMEOUT_MS,
+    }
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id)

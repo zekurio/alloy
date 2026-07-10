@@ -2,7 +2,7 @@
         audio_application_id_from_parts, clean_user_facing_process_name, detected_game_from_parts,
         normalized_path, user_facing_process_name, DetectedGame, GameDetection,
         ProcessDisplayName, RecordingAudioApplicationSelection, RecordingDisplay,
-        RecordingGameProcess, RecordingSettings, VideoDimensions, SIDE_CAR_NAME,
+        RecordingGameProcess, RecordingSettings, VideoDimensions, valid_capture_dimensions,
     };
     use std::{
         collections::{HashMap, HashSet},
@@ -500,7 +500,9 @@
             &executable,
         ));
         let fullscreen_dimensions = fullscreen_monitor_dimensions(hwnd);
-        let capture_dimensions = fullscreen_dimensions.or_else(|| window_dimensions(hwnd));
+        let capture_dimensions = fullscreen_dimensions
+            .or_else(|| window_dimensions(hwnd))
+            .filter(|dimensions| valid_capture_dimensions(*dimensions));
         let game = detected_game_from_parts(
             process_id,
             path,

@@ -598,9 +598,6 @@
         rect_dimensions(&monitor_info.rcMonitor)
     }
 
-    pub(super) const WINDOW_DIMENSION_RETRY_INTERVAL: Duration = Duration::from_secs(2);
-    pub(super) const WINDOW_DIMENSION_MAX_RETRIES: u32 = 20;
-    const MIN_VALID_WINDOW_DIMENSION_SUM: u32 = 1120;
     const ADVANCED_COLOR_ENABLED_FLAG: u32 = 0b10;
 
     pub fn refresh_capture_metadata(game: &mut DetectedGame) {
@@ -612,52 +609,14 @@
 
             let fullscreen_dimensions = fullscreen_monitor_dimensions(hwnd);
             game.fullscreen = fullscreen_dimensions.is_some();
-            game.capture_dimensions = stable_capture_dimensions(hwnd, fullscreen_dimensions);
+            if let Some(dimensions) = fullscreen_dimensions
+                .or_else(|| window_dimensions(hwnd))
+                .filter(|dimensions| valid_capture_dimensions(*dimensions))
+            {
+                game.capture_dimensions = Some(dimensions);
+            }
             game.hdr_enabled = window_hdr_enabled(hwnd);
         }
-    }
-
-    unsafe fn stable_capture_dimensions(
-        hwnd: HWND,
-        fullscreen_dimensions: Option<VideoDimensions>,
-    ) -> Option<VideoDimensions> {
-        if fullscreen_dimensions.is_some() {
-            return fullscreen_dimensions;
-        }
-
-        let mut dimensions = window_dimensions(hwnd);
-        for retry_attempt in 0..WINDOW_DIMENSION_MAX_RETRIES {
-            if !window_dimensions_need_retry(dimensions) {
-                return dimensions;
-            }
-            if IsWindow(hwnd) == 0 {
-                return None;
-            }
-            eprintln!(
-                "[{SIDE_CAR_NAME}] waiting for game window size before OBS video reset... retry attempt #{}",
-                retry_attempt + 1
-            );
-            thread::sleep(WINDOW_DIMENSION_RETRY_INTERVAL);
-            dimensions = window_dimensions(hwnd);
-        }
-
-        if window_dimensions_need_retry(dimensions) {
-            eprintln!(
-                "[{SIDE_CAR_NAME}] game window size stayed unavailable or too small; falling back to display-sized OBS base."
-            );
-            None
-        } else {
-            dimensions
-        }
-    }
-
-    pub(super) fn window_dimensions_need_retry(dimensions: Option<VideoDimensions>) -> bool {
-        dimensions.is_none_or(|dimensions| {
-            dimensions
-                .width
-                .saturating_add(dimensions.height)
-                < MIN_VALID_WINDOW_DIMENSION_SUM
-        })
     }
 
     unsafe fn window_dimensions(hwnd: HWND) -> Option<VideoDimensions> {

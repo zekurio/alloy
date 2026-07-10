@@ -1,17 +1,10 @@
 fn play_notification_sound(params: PlayNotificationSoundParams) -> Result<(), String> {
     let path = PathBuf::from(params.path);
-    let file = fs::File::open(&path).map_err(|error| {
-        format!(
-            "Failed to open notification sound {}: {error}",
-            path.display()
-        )
-    })?;
-
     let volume = params.volume.clamp(0.0, 1.0);
     thread::Builder::new()
         .name("alloy-notification-sound".to_string())
         .spawn(move || {
-            if let Err(error) = play_notification_sound_blocking(path, file, volume) {
+            if let Err(error) = play_notification_sound_blocking(path, volume) {
                 eprintln!("[{SIDE_CAR_NAME}] failed to play notification sound: {error}");
             }
         })
@@ -21,9 +14,14 @@ fn play_notification_sound(params: PlayNotificationSoundParams) -> Result<(), St
 
 fn play_notification_sound_blocking(
     path: PathBuf,
-    file: fs::File,
     volume: f32,
 ) -> Result<(), String> {
+    let file = fs::File::open(&path).map_err(|error| {
+        format!(
+            "Failed to open notification sound {}: {error}",
+            path.display()
+        )
+    })?;
     let mut handle = rodio::DeviceSinkBuilder::open_default_sink()
         .map_err(|error| format!("Failed to open default audio output: {error}"))?;
     handle.log_on_drop(false);
