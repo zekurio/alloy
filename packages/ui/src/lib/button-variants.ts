@@ -42,7 +42,9 @@ const buttonVariants = cva(
         sm: "h-7 px-3.5 text-xs leading-4",
         md: "h-9 px-4 text-sm leading-4 sm:h-8",
         lg: "h-10 px-5 text-md leading-5 sm:h-9",
-        icon: "size-8 px-0",
+        // Tracks the Input/Select control-height contract (h-9 sm:h-8) so an
+        // icon button can sit in the same row as a form control.
+        icon: "size-9 px-0 sm:size-8",
         "icon-xs": "size-5 px-0",
         "icon-sm": "size-6 px-0",
         "icon-lg": "size-9 px-0",

@@ -8,6 +8,7 @@ import { deriveRenditionNames } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { Input } from "@alloy/ui/components/input"
 import {
   InputGroup,
@@ -39,7 +40,6 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 import { useEffect, useId, useMemo, useState } from "react"
-import type { ReactNode } from "react"
 
 import {
   compatTierCodec,
@@ -242,11 +242,12 @@ export function TranscodingSettingsContent({
           </SettingRow>
 
           {compatCodec !== "h264" ? (
-            <TranscodingNotice tone="warning">
+            <Callout tone="warning" className="text-xs">
+              <TriangleAlertIcon />
               {t(
                 "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1 on the link preview tier, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.",
               )}
-            </TranscodingNotice>
+            </Callout>
           ) : null}
 
           <SettingRow
@@ -303,7 +304,8 @@ export function TranscodingSettingsContent({
           </SettingRow>
 
           {selectedProbe && selectedProbe.status !== "ok" ? (
-            <TranscodingNotice tone="danger">
+            <Callout tone="destructive" className="text-xs">
+              <TriangleAlertIcon />
               {selectedProbe.status === "missing"
                 ? t(
                     "This ffmpeg build has no {backend} encoder for {codec}. Pick another backend or install jellyfin-ffmpeg.",
@@ -326,7 +328,7 @@ export function TranscodingSettingsContent({
                   {selectedProbe.error}
                 </span>
               ) : null}
-            </TranscodingNotice>
+            </Callout>
           ) : null}
 
           {form.hardwareAcceleration === "vaapi" ? (
@@ -529,9 +531,10 @@ export function TranscodingSettingsContent({
           </div>
 
           {validation.formMessage ? (
-            <TranscodingNotice tone="danger">
+            <Callout tone="destructive" className="text-xs">
+              <TriangleAlertIcon />
               {validation.formMessage}
-            </TranscodingNotice>
+            </Callout>
           ) : null}
         </div>
 
@@ -762,32 +765,5 @@ function LadderPreviewRadio({
         {checked ? t("Preview") : t("Use")}
       </span>
     </label>
-  )
-}
-
-function TranscodingNotice({
-  tone,
-  children,
-}: {
-  tone: "warning" | "danger"
-  children: ReactNode
-}) {
-  return (
-    <div
-      className={cn(
-        "text-foreground-dim flex gap-2 rounded-lg border p-3 text-xs leading-relaxed",
-        tone === "warning"
-          ? "border-warning/30 bg-warning/5"
-          : "border-destructive/30 bg-destructive/5",
-      )}
-    >
-      <TriangleAlertIcon
-        className={cn(
-          "mt-0.5 size-4 shrink-0",
-          tone === "warning" ? "text-warning" : "text-destructive",
-        )}
-      />
-      <div className="min-w-0">{children}</div>
-    </div>
   )
 }

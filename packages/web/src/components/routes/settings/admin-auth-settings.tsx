@@ -27,8 +27,10 @@ import {
 } from "@alloy/ui/components/alert-dialog"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
+import { Card } from "@alloy/ui/components/card"
 import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
+import { List, ListItem } from "@alloy/ui/components/list"
 import {
   ResponsiveDialog,
   ResponsiveDialogBody,
@@ -40,12 +42,7 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "@alloy/ui/components/responsive-dialog"
-import {
-  Section,
-  SectionContent,
-  SectionHeader,
-  SectionTitle,
-} from "@alloy/ui/components/section"
+import { Section, SectionContent } from "@alloy/ui/components/section"
 import {
   Select,
   SelectContent,
@@ -53,14 +50,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
+import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
+import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { ChevronDownIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
 import type { ComponentProps, FormEvent } from "react"
 
+import { ListEmpty } from "@/components/feedback/empty-state"
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -191,19 +191,9 @@ export function AuthSettingsContent({
   }
 
   return (
-    <div className="flex flex-col gap-8">
-      <Section>
-        <SectionHeader>
-          <div className="min-w-0">
-            <SectionTitle>{t("Sign-in & access")}</SectionTitle>
-            <p className="text-foreground-muted mt-1 text-sm">
-              {t(
-                "Control how users register, sign in, and browse this server.",
-              )}
-            </p>
-          </div>
-        </SectionHeader>
-        <SectionContent className="flex flex-col gap-4">
+    <Section>
+      <SectionContent className="flex flex-col gap-6 py-0">
+        <div className="flex flex-col">
           {AUTH_TOGGLES.map((item) => (
             <AuthToggleRow
               key={item.key}
@@ -214,53 +204,57 @@ export function AuthSettingsContent({
               onChange={(next) => updateToggle(item.key, next)}
             />
           ))}
-        </SectionContent>
-      </Section>
+        </div>
 
-      <Section>
-        <SectionHeader>
-          <div className="min-w-0">
-            <SectionTitle>{t("OAuth providers")}</SectionTitle>
-            <p className="text-foreground-muted mt-1 text-sm">
-              {t("Configure external OIDC and OAuth sign-in providers.")}
-            </p>
-            {config.authLocks.oauthProviders ? (
-              <EnvManagedNote envName="ALLOY_SOCIALACCOUNT_PROVIDERS" />
-            ) : null}
-          </div>
-          {config.authLocks.oauthProviders ? null : (
-            <ProviderDialog
-              providers={config.oauthProviders}
-              provider={null}
-              providerIndex={null}
-              pending={providerPending}
-              onSave={saveProviders}
-            />
-          )}
-        </SectionHeader>
-        <SectionContent className="flex flex-col gap-3">
-          {config.oauthProviders.length === 0 ? (
-            <p className="text-foreground-muted text-sm">
-              {t("No OAuth providers configured.")}
-            </p>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {config.oauthProviders.map((provider, index) => (
-                <ProviderRow
-                  key={provider.providerId}
-                  provider={provider}
-                  providerIndex={index}
+        <div className="border-border flex flex-col gap-4 border-t pt-6">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-sm font-semibold">
+                {t("OAuth providers")}
+              </span>
+              <p className="text-foreground-dim text-xs">
+                {t("Configure external OIDC and OAuth sign-in providers.")}
+              </p>
+            </div>
+            {config.authLocks.oauthProviders ? null : (
+              <div className="shrink-0">
+                <ProviderDialog
                   providers={config.oauthProviders}
-                  readOnly={config.authLocks.oauthProviders}
+                  provider={null}
+                  providerIndex={null}
                   pending={providerPending}
                   onSave={saveProviders}
                 />
+              </div>
+            )}
+          </div>
+          {config.authLocks.oauthProviders ? (
+            <EnvManagedNote
+              envName="ALLOY_SOCIALACCOUNT_PROVIDERS"
+              className="mt-0"
+            />
+          ) : null}
+          {config.oauthProviders.length === 0 ? (
+            <ListEmpty title={t("No OAuth providers configured")} />
+          ) : (
+            <List>
+              {config.oauthProviders.map((provider, index) => (
+                <ListItem key={provider.providerId} className="items-stretch">
+                  <ProviderRow
+                    provider={provider}
+                    providerIndex={index}
+                    providers={config.oauthProviders}
+                    readOnly={config.authLocks.oauthProviders}
+                    pending={providerPending}
+                    onSave={saveProviders}
+                  />
+                </ListItem>
               ))}
-            </div>
+            </List>
           )}
-        </SectionContent>
-      </Section>
-    </div>
+        </div>
+      </SectionContent>
+    </Section>
   )
 }
 
@@ -278,27 +272,75 @@ function AuthToggleRow({
   onChange: (next: boolean) => void
 }) {
   return (
-    <div className="border-border/70 bg-surface-raised/30 flex items-start justify-between gap-4 rounded-lg border p-3">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">{item.label}</div>
-        <p className="text-foreground-dim mt-0.5 text-xs">{item.description}</p>
-        {locked ? <EnvManagedNote envName={item.envName} /> : null}
-      </div>
+    <SettingRow
+      title={item.label}
+      description={
+        locked ? (
+          <>
+            {item.description}
+            <EnvManagedNote envName={item.envName} />
+          </>
+        ) : (
+          item.description
+        )
+      }
+      align="start"
+    >
       <Switch
         checked={checked}
         onCheckedChange={onChange}
         disabled={locked || pending}
-        className="shrink-0"
       />
-    </div>
+    </SettingRow>
   )
 }
 
-function EnvManagedNote({ envName }: { envName: string }) {
+function EnvManagedNote({
+  envName,
+  className,
+}: {
+  envName: string
+  className?: string
+}) {
+  // Rendered as a span so it can live inside SettingRow's <p> description.
   return (
-    <p className="text-foreground-muted mt-1 text-xs">
-      {t("Managed by environment variable")}: {envName}
-    </p>
+    <span
+      className={cn(
+        "text-foreground-muted mt-1 flex flex-wrap items-center gap-1 text-xs",
+        className,
+      )}
+    >
+      {t("Managed by environment variable")}:{" "}
+      <code className="bg-surface-raised text-foreground-dim rounded px-1 py-px font-mono text-[11px]">
+        {envName}
+      </code>
+    </span>
+  )
+}
+
+function ToggleCard({
+  label,
+  description,
+  checked,
+  onCheckedChange,
+}: {
+  label: string
+  description: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+}) {
+  return (
+    <Card className="flex-row items-center justify-between gap-4 self-end p-3">
+      <div className="min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
+      </div>
+      <Switch
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        className="shrink-0"
+      />
+    </Card>
   )
 }
 
@@ -325,7 +367,7 @@ function ProviderRow({
   }
 
   return (
-    <div className="border-border/70 bg-surface-raised/30 flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+    <Card className="min-w-0 flex-1 flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <div className="truncate text-sm font-medium">
@@ -396,7 +438,7 @@ function ProviderRow({
           </AlertDialog>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
 
@@ -540,19 +582,12 @@ function ProviderDialog({
                 onChange={(value) => changeDraft({ discoveryUrl: value })}
                 type="url"
               />
-              <div className="border-border/70 flex items-center justify-between gap-4 self-end rounded-lg border p-3">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">{t("Enabled")}</div>
-                  <p className="text-foreground-dim mt-0.5 text-xs">
-                    {t("Allow users to sign in with this provider.")}
-                  </p>
-                </div>
-                <Switch
-                  checked={draft.enabled}
-                  onCheckedChange={(enabled) => changeDraft({ enabled })}
-                  className="shrink-0"
-                />
-              </div>
+              <ToggleCard
+                label={t("Enabled")}
+                description={t("Allow users to sign in with this provider.")}
+                checked={draft.enabled}
+                onCheckedChange={(enabled) => changeDraft({ enabled })}
+              />
             </div>
 
             <div className="border-border/70 rounded-lg border">
@@ -656,19 +691,14 @@ function ProviderDialog({
                       </SelectContent>
                     </Select>
                   </Field>
-                  <div className="border-border/70 flex items-center justify-between gap-4 rounded-lg border p-3">
-                    <div className="min-w-0">
-                      <div className="text-sm font-medium">{t("PKCE")}</div>
-                      <p className="text-foreground-dim mt-0.5 text-xs">
-                        {t("Use proof key for code exchange when supported.")}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={draft.pkce}
-                      onCheckedChange={(pkce) => changeDraft({ pkce })}
-                      className="shrink-0"
-                    />
-                  </div>
+                  <ToggleCard
+                    label={t("PKCE")}
+                    description={t(
+                      "Use proof key for code exchange when supported.",
+                    )}
+                    checked={draft.pkce}
+                    onCheckedChange={(pkce) => changeDraft({ pkce })}
+                  />
                   <TextField
                     id={
                       editing

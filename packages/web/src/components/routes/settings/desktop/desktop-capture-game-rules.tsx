@@ -1,6 +1,7 @@
 import type { RecordingAllowedGame } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { List, ListItem } from "@alloy/ui/components/list"
 import { Gamepad2Icon, Trash2Icon } from "lucide-react"
 import type { ReactNode } from "react"
 
@@ -47,19 +48,20 @@ export function RuleGroup({
       </div>
 
       {games.length > 0 ? (
-        <div className="divide-border divide-y">
+        <List>
           {games.map((game) => (
-            <div
-              key={game.id}
-              className="flex min-h-14 items-center gap-3 py-2.5"
-            >
-              <span className="bg-surface-raised text-foreground-muted grid size-8 shrink-0 place-items-center rounded-md">
-                <GameIcon game={game} fallbackIcon={fallbackIcon} />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{game.name}</div>
-                <div className="text-foreground-dim mt-0.5 truncate text-xs">
-                  {game.path ?? game.executable ?? game.windowClass}
+            <ListItem key={game.id}>
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="bg-surface-raised text-foreground-muted grid size-8 shrink-0 place-items-center rounded-md">
+                  <GameIcon game={game} fallbackIcon={fallbackIcon} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">
+                    {game.name}
+                  </div>
+                  <div className="text-foreground-dim mt-0.5 truncate text-xs">
+                    {game.path ?? game.executable ?? game.windowClass}
+                  </div>
                 </div>
               </div>
               <Button
@@ -69,13 +71,14 @@ export function RuleGroup({
                 disabled={busy}
                 title={t("Remove {name}", { name: game.name })}
                 aria-label={t("Remove {name}", { name: game.name })}
+                className="shrink-0"
                 onClick={() => onRemove(game.id)}
               >
                 <Trash2Icon className="size-3.5" />
               </Button>
-            </div>
+            </ListItem>
           ))}
-        </div>
+        </List>
       ) : (
         <div className="text-foreground-dim flex min-h-12 items-center gap-2 py-2 text-xs">
           <span className="bg-surface-raised grid size-8 shrink-0 place-items-center rounded-md">

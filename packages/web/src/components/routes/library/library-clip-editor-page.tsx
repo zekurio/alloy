@@ -8,6 +8,7 @@ import {
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Button } from "@alloy/ui/components/button"
+import { Card } from "@alloy/ui/components/card"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Progress } from "@alloy/ui/components/progress"
@@ -17,7 +18,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { ImageIcon } from "lucide-react"
+import { ImageIcon, VideoOffIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import {
@@ -83,7 +84,7 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
       <AppMain>
         {query.isError ? (
           <EmptyState
-            seed="library-clip-not-found"
+            icon={VideoOffIcon}
             size="lg"
             fill
             title={t("Clip not found")}
@@ -178,7 +179,11 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
           nextEntry={nextEntry}
         />
 
-        <aside className="border-border bg-surface/60 flex min-w-0 flex-col self-stretch overflow-hidden rounded-md border lg:min-h-0">
+        <Card
+          tone="surface"
+          role="complementary"
+          className="min-w-0 self-stretch lg:min-h-0"
+        >
           <ClipEditorTabs
             row={row}
             localItem={localItem}
@@ -189,7 +194,7 @@ function ClipEditorBody({ row }: { row: ClipRow }) {
             trimPending={trimMutation.isPending}
             onSaveTrim={handleSaveTrim}
           />
-        </aside>
+        </Card>
       </div>
 
       <DeleteClipDialog
@@ -616,7 +621,7 @@ function useServerBackedClipDelete({
 function ClipProcessingNotice({ progress }: { progress: number }) {
   const clamped = Math.max(0, Math.min(100, progress))
   return (
-    <div className="border-border bg-surface/60 flex items-center gap-3 rounded-md border p-3">
+    <Card tone="surface" className="flex-row items-center gap-3 p-3">
       <Spinner className="size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-foreground text-sm font-medium">
@@ -628,7 +633,7 @@ function ClipProcessingNotice({ progress }: { progress: number }) {
         {clamped}
         {"%"}
       </span>
-    </div>
+    </Card>
   )
 }
 

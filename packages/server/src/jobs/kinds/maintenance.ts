@@ -15,61 +15,31 @@ import { enqueueClipEncode } from "./clip-encode"
 
 const logger = createLogger("jobs")
 
-const EVERY_5_MINUTES_MS = 5 * 60 * 1000
 const EVERY_10_MINUTES_MS = 10 * 60 * 1000
 const EVERY_DAY_MS = 24 * 60 * 60 * 1000
+let lastPruneAt = 0
 
 const EmptyPayloadSchema = z.object({}).default({})
 
 defineJobKind({
-  kind: "clip.reap-pending",
+  kind: "maintenance.run",
   queue: "maintenance",
   schema: EmptyPayloadSchema,
   defaultPriority: 50,
   retry: { maxAttempts: 3, backoffMs: 60_000 },
   schedule: { everyMs: EVERY_10_MINUTES_MS, runAtBoot: true },
-  handler: reapPendingClips,
+  handler: runMaintenance,
 })
 
-defineJobKind({
-  kind: "upload.reap-tickets",
-  queue: "maintenance",
-  schema: EmptyPayloadSchema,
-  defaultPriority: 50,
-  retry: { maxAttempts: 3, backoffMs: 60_000 },
-  schedule: { everyMs: EVERY_10_MINUTES_MS, runAtBoot: true },
-  handler: reapExpiredUploadTickets,
-})
-
-defineJobKind({
-  kind: "auth.sweep-challenges",
-  queue: "maintenance",
-  schema: EmptyPayloadSchema,
-  defaultPriority: 50,
-  retry: { maxAttempts: 3, backoffMs: 60_000 },
-  schedule: { everyMs: EVERY_5_MINUTES_MS, runAtBoot: true },
-  handler: sweepExpiredChallenges,
-})
-
-defineJobKind({
-  kind: "clip.reconcile",
-  queue: "maintenance",
-  schema: EmptyPayloadSchema,
-  defaultPriority: 70,
-  retry: { maxAttempts: 3, backoffMs: 60_000 },
-  schedule: { everyMs: EVERY_10_MINUTES_MS, runAtBoot: true },
-  handler: reconcileClipEncodeJobs,
-})
-
-defineJobKind({
-  kind: "jobs.prune",
-  queue: "maintenance",
-  schema: EmptyPayloadSchema,
-  defaultPriority: 50,
-  retry: { maxAttempts: 3, backoffMs: 60_000 },
-  schedule: { everyMs: EVERY_DAY_MS, runAtBoot: true },
-  handler: pruneJobs,
-})
+async function runMaintenance(): Promise<void> {
+  await reapPendingClips()
+  await reapExpiredUploadTickets()
+  await sweepExpiredChallenges()
+  await reconcileClipEncodeJobs()
+  if (Date.now() - lastPruneAt < EVERY_DAY_MS) return
+  await pruneJobs()
+  lastPruneAt = Date.now()
+}
 
 async function reapPendingClips(): Promise<void> {
   const stale = await db

@@ -13,7 +13,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@alloy/ui/components/dialog"
-import { Input } from "@alloy/ui/components/input"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@alloy/ui/components/input-group"
+import { List, ListItem } from "@alloy/ui/components/list"
 import { Spinner } from "@alloy/ui/components/spinner"
 import {
   AppWindowIcon,
@@ -191,15 +196,16 @@ export function AllowedGamesSection({
           </DialogClose>
           <DialogBody className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <div className="relative min-w-0 flex-1">
-                <SearchIcon className="text-foreground-faint pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-                <Input
+              <InputGroup className="min-w-0 flex-1">
+                <InputGroupAddon>
+                  <SearchIcon />
+                </InputGroupAddon>
+                <InputGroupInput
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t("Search processes")}
-                  className="pl-9"
                 />
-              </div>
+              </InputGroup>
               <Button
                 type="button"
                 variant="secondary"
@@ -217,14 +223,14 @@ export function AllowedGamesSection({
               </Button>
             </div>
 
-            <div className="border-border h-[340px] overflow-y-auto overscroll-contain rounded-md border">
+            <div className="border-border h-[340px] overflow-y-auto overscroll-contain rounded-md border p-2">
               {loadingProcesses && processes.length === 0 ? (
                 <div className="text-foreground-muted flex h-full items-center justify-center gap-2 text-sm">
                   <Spinner />
                   {t("Loading processes")}
                 </div>
               ) : filteredProcesses.length > 0 ? (
-                <div className="divide-border divide-y">
+                <List>
                   {filteredProcesses.map((process) => {
                     const game = allowedGameFromProcess(process)
                     const selected =
@@ -232,33 +238,33 @@ export function AllowedGamesSection({
                         ? selectedDenyKeys.has(allowedGameKey(game))
                         : selectedAllowKeys.has(allowedGameKey(game))
                     return (
-                      <div
-                        key={process.id}
-                        className="flex min-h-16 items-center gap-3 px-3 py-2.5"
-                      >
-                        <span className="bg-surface-raised text-foreground-muted grid size-8 shrink-0 place-items-center rounded-md">
-                          <ProcessIcon process={process} />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">
-                            {process.name}
-                          </div>
-                          <div className="text-foreground-dim mt-0.5 truncate text-xs">
-                            {process.windowTitle ??
-                              process.executable ??
-                              `PID ${process.processId}`}
-                          </div>
-                          {process.path ? (
-                            <div className="text-foreground-faint mt-0.5 truncate text-xs">
-                              {process.path}
+                      <ListItem key={process.id}>
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
+                          <span className="bg-surface-raised text-foreground-muted grid size-8 shrink-0 place-items-center rounded-md">
+                            <ProcessIcon process={process} />
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-medium">
+                              {process.name}
                             </div>
-                          ) : null}
+                            <div className="text-foreground-dim mt-0.5 truncate text-xs">
+                              {process.windowTitle ??
+                                process.executable ??
+                                `PID ${process.processId}`}
+                            </div>
+                            {process.path ? (
+                              <div className="text-foreground-faint mt-0.5 truncate text-xs">
+                                {process.path}
+                              </div>
+                            ) : null}
+                          </div>
                         </div>
                         <Button
                           type="button"
                           variant={selected ? "secondary" : "default"}
                           size="sm"
                           disabled={busy || selected}
+                          className="shrink-0"
                           onClick={() => {
                             if (pickerMode) void addGame(game, pickerMode)
                           }}
@@ -276,10 +282,10 @@ export function AllowedGamesSection({
                               ? t("Block")
                               : t("Add")}
                         </Button>
-                      </div>
+                      </ListItem>
                     )
                   })}
-                </div>
+                </List>
               ) : (
                 <div className="text-foreground-dim flex h-full items-center justify-center px-4 text-center text-sm">
                   {t("No matching processes found.")}

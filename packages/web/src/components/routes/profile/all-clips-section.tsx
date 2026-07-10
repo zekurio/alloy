@@ -88,7 +88,6 @@ export function AllClipsSection({
       <ClipSectionContent
         rows={visible}
         error={error}
-        errorSeed="profile-all-error"
         errorTitle={t("Couldn't load clips")}
         emptySeed={`profile-all-empty-${gameSlug ?? "none"}`}
         emptyTitle={

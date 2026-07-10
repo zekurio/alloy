@@ -64,7 +64,8 @@ export function formatRelativeTime(
 ): string {
   const date = validDate(value)
   if (!date) return ""
-  const delta = Math.max(0, now - date.getTime())
+  const delta = date.getTime() - now
+  const absoluteDelta = Math.abs(delta)
   const minute = 60_000
   const hour = 60 * minute
   const day = 24 * hour
@@ -75,10 +76,16 @@ export function formatRelativeTime(
       style: "short",
     },
   )
-  if (delta < minute) return formatter.format(0, "second")
-  if (delta < hour)
-    return formatter.format(-Math.floor(delta / minute), "minute")
-  if (delta < day) return formatter.format(-Math.floor(delta / hour), "hour")
-  if (delta < 7 * day) return formatter.format(-Math.floor(delta / day), "day")
+  if (absoluteDelta < minute) return formatter.format(0, "second")
+  if (absoluteDelta < hour)
+    return formatter.format(relativeUnit(delta, minute), "minute")
+  if (absoluteDelta < day)
+    return formatter.format(relativeUnit(delta, hour), "hour")
+  if (absoluteDelta < 7 * day)
+    return formatter.format(relativeUnit(delta, day), "day")
   return formatShortDate(date)
+}
+
+function relativeUnit(delta: number, unit: number): number {
+  return delta < 0 ? Math.ceil(delta / unit) : Math.floor(delta / unit)
 }

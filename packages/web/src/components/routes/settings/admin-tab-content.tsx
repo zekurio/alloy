@@ -1,4 +1,5 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
+import { Callout } from "@alloy/ui/components/callout"
 import type { ReactNode } from "react"
 
 import { AdminGamesCard } from "@/components/admin/admin-games-card"
@@ -11,11 +12,7 @@ import { TranscodingSettingsContent } from "@/components/routes/settings/admin-t
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
 
 function AdminLoadError({ message }: { message: string }) {
-  return (
-    <div className="border-destructive/40 bg-destructive/5 text-destructive rounded-md border p-3 text-sm">
-      {message}
-    </div>
-  )
+  return <Callout tone="destructive">{message}</Callout>
 }
 
 /**

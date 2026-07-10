@@ -28,7 +28,6 @@ function ProfileLikedTab() {
       <ClipSectionContent
         rows={clips}
         error={error}
-        errorSeed="profile-liked-error"
         errorTitle={t("Couldn't load liked clips")}
         emptySeed="profile-liked-empty"
         emptyTitle={t("No liked clips yet")}

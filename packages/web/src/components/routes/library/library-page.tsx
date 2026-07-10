@@ -6,7 +6,7 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { BanIcon, GlobeIcon } from "lucide-react"
+import { BanIcon, FolderXIcon, GlobeIcon, SearchXIcon } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 
 import { ClipGrid } from "@/components/clip/clip-grid"
@@ -269,7 +269,7 @@ function LibraryBody({
     if (error) {
       return (
         <EmptyState
-          seed="library-scan-error"
+          icon={FolderXIcon}
           size="lg"
           fill
           title={t("Couldn't scan the library")}
@@ -285,6 +285,7 @@ function LibraryBody({
     if (!hasAnything) {
       return (
         <EmptyState
+          kaomoji
           seed="library-empty"
           size="lg"
           fill
@@ -296,7 +297,7 @@ function LibraryBody({
 
     return (
       <EmptyState
-        seed="library-no-captures"
+        icon={SearchXIcon}
         size="lg"
         fill
         title={t("No captures here")}

@@ -6,7 +6,7 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link, useSearch } from "@tanstack/react-router"
-import { GlobeIcon, HashIcon } from "lucide-react"
+import { GlobeIcon, HashIcon, TagIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
@@ -187,7 +187,7 @@ function TagClipsSection({
   if (rows.length === 0) {
     return (
       <EmptyState
-        seed={`tag-${tag}-empty`}
+        icon={TagIcon}
         size="lg"
         title={t("No clips tagged #{tag}", { tag })}
         hint={t("Try a different game.")}

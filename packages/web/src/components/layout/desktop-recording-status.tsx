@@ -440,7 +440,7 @@ function RecordingCaptureTarget({
         <Button
           type="button"
           variant="outline"
-          className="h-9 w-full"
+          className="w-full"
           onClick={() =>
             void onSave({
               ...settings,
@@ -456,7 +456,7 @@ function RecordingCaptureTarget({
         <Button
           type="button"
           variant="outline"
-          className="h-9 w-full"
+          className="w-full"
           onClick={onOpenDisplayPicker}
         >
           <MonitorIcon className="size-4" />
@@ -497,9 +497,8 @@ function AudioRow({
             <Button
               type="button"
               variant="secondary"
-              size="sm"
               disabled={disabled}
-              className="h-9 w-full min-w-0 justify-between gap-2 px-3"
+              className="w-full min-w-0 justify-between gap-2 px-3"
             >
               <span className="truncate">
                 {audioDeviceMultiSelectLabel(selected, settings)}

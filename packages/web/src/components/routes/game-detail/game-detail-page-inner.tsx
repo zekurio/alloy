@@ -9,7 +9,7 @@ import {
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link } from "@tanstack/react-router"
-import { UsersIcon } from "lucide-react"
+import { AlertCircleIcon, UsersIcon } from "lucide-react"
 
 import {
   FilterChipRail,
@@ -74,7 +74,7 @@ export function GameDetailPageInner({
       <div className="flex w-full flex-col">
         {error ? (
           <EmptyState
-            seed={`game-${gameId}-error`}
+            icon={AlertCircleIcon}
             size="lg"
             title={t("Couldn't load this game")}
           />

@@ -1,10 +1,10 @@
-import { GAME_ASSET_PATH_PREFIX } from "@alloy/contracts"
+import { GAME_ASSET_PATH_PREFIX, isObjectRecord } from "@alloy/contracts"
 
 export function objectRecord(
   value: unknown,
   label: string,
 ): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isObjectRecord(value)) {
     throw new Error(`Invalid ${label} response`)
   }
   return value as Record<string, unknown>
