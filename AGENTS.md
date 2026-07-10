@@ -263,7 +263,7 @@ const table = pgTable("session", {
 - Config: `turbo.json`, `pnpm-workspace.yaml`, `tsconfig.base.json` (strict; `@/*` maps to each package's `src/`), `.oxfmtrc.json`, `.oxlintrc.json`, `.env.example` (documented env vars — `DATABASE_URL`, `ALLOY_*` auth/storage/transcoding knobs, `VITE_SERVER_URL`).
 - Nix: `flake.nix` (x86_64-linux server package + NixOS module), `devenv.nix` (dev shell: Node 24, pnpm, PostgreSQL 17, ffmpeg, Rust, Electron; auto-creates `.env` and a local Postgres).
 - Release/CI: `.github/RELEASING.md`,
-  `.github/workflows/{test,recorder,publish}.yml`, and
+  `.github/workflows/{test,recorder,publish,refresh-release-notes}.yml`, and
   `scripts/update-release-package-versions.mjs`. The publish workflow runs via
   `workflow_dispatch` from `dev`, tags/names releases as `vX.Y.Z`, and uses
   only `latest.yml` for desktop auto-update; no prereleases or alternate
