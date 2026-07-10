@@ -2,4 +2,4 @@ blank_issues_enabled: false
 contact_links:
   - name: Security vulnerability
     url: https://github.com/zekurio/alloy/security/advisories/new
-    about: Report security issues privately through a GitHub security advisory.
+    about: Report security issues privately using the security report template.

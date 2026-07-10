@@ -1,0 +1,39 @@
+name: Label issues by area
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add the area label
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const body = context.payload.issue.body ?? "";
+            const area = body.match(/^### Area\s*\n+([^\n]+)/m)?.[1]?.trim();
+            const labelsByArea = {
+              "Desktop app": "desktop",
+              "Recorder / clip capture": "recorder",
+              "Server / API": "server",
+              "Web app": "web",
+              "Upload / encoding pipeline": "server",
+              "Packaging / Nix": "server",
+              Documentation: "documentation",
+              Accessibility: "accessibility",
+              "Maintenance / technical debt": "tech-debt",
+            };
+            const label = labelsByArea[area];
+            if (!label) return;
+
+            await github.rest.issues.addLabels({
+              ...context.repo,
+              issue_number: context.issue.number,
+              labels: [label],
+            });

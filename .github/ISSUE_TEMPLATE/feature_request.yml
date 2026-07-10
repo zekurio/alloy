@@ -1,6 +1,6 @@
 name: Feature request
 description: Propose a new feature or improvement
-labels: ["enhancement"]
+labels: ["nice to have"]
 body:
   - type: dropdown
     id: area
@@ -14,6 +14,9 @@ body:
         - Web app
         - Upload / encoding pipeline
         - Packaging / Nix
+        - Documentation
+        - Accessibility
+        - Maintenance / technical debt
         - Other
     validations:
       required: true
@@ -38,6 +41,11 @@ body:
     attributes:
       label: Alternatives considered
       description: Workarounds you use today or other approaches you ruled out.
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Mockups, examples, or links that help explain the idea.
   - type: checkboxes
     id: checklist
     attributes:
