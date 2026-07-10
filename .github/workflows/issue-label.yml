@@ -1,4 +1,4 @@
-name: Label issues by area
+name: label issues by area
 
 on:
   issues:

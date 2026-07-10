@@ -40,13 +40,6 @@ If a release interval has no pull requests (for example, because it contains
 direct commits), the publish workflow instead creates the same readable,
 conventional-commit categories from the commits between the release tags.
 
-## Refreshing Published Release Notes
-
-The **refresh release notes** workflow rewrites the body of an existing GitHub
-Release from its tag and the current changelog labels. It never changes tags,
-versions, or attached assets. Dispatch it with the release tag; it finds the
-previous release tag automatically, or accepts one as an override.
-
 ## Version Policy
 
 The checked-in package version is the source of truth and always matches the
