@@ -1,11 +1,5 @@
 <p align="center">
-  <img src="./public/logo.png" alt="Alloy" width="120" />
-</p>
-
-<h1 align="center">Alloy</h1>
-
-<p align="center">
-  Your gameplay clips, on your server.
+  <img src="./public/alloy-wordmark.svg" alt="Alloy" width="318" />
 </p>
 
 Alloy is an open-source, self-hosted alternative to Medal.tv. The Windows app
