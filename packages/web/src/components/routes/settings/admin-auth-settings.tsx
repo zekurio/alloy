@@ -26,7 +26,6 @@ import {
   AlertDialogTrigger,
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
-import { Card } from "@alloy/ui/components/card"
 import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import { List, ListItem } from "@alloy/ui/components/list"
@@ -327,7 +326,7 @@ function EnvManagedNote({
   )
 }
 
-function ToggleCard({
+function ToggleField({
   label,
   description,
   checked,
@@ -339,7 +338,7 @@ function ToggleCard({
   onCheckedChange: (checked: boolean) => void
 }) {
   return (
-    <Card className="flex-row items-center justify-between gap-4 self-end p-3">
+    <div className="flex items-center justify-between gap-4 self-end">
       <div className="min-w-0">
         <div className="text-sm font-medium">{label}</div>
         <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
@@ -349,7 +348,7 @@ function ToggleCard({
         onCheckedChange={onCheckedChange}
         className="shrink-0"
       />
-    </Card>
+    </div>
   )
 }
 
@@ -633,7 +632,7 @@ function ProviderDialog({
                 onChange={(value) => changeDraft({ discoveryUrl: value })}
                 type="url"
               />
-              <ToggleCard
+              <ToggleField
                 label={t("Enabled")}
                 description={t("Allow users to sign in with this provider.")}
                 checked={draft.enabled}
@@ -742,13 +741,14 @@ function ProviderDialog({
                       </SelectContent>
                     </Select>
                   </Field>
-                  <label className="flex items-center gap-2 self-end pb-2.5 text-sm font-medium">
-                    <Switch
-                      checked={draft.pkce}
-                      onCheckedChange={(pkce) => changeDraft({ pkce })}
-                    />
-                    {t("PKCE")}
-                  </label>
+                  <ToggleField
+                    label={t("PKCE")}
+                    description={t(
+                      "Secure the authorization flow with Proof Key for Code Exchange.",
+                    )}
+                    checked={draft.pkce}
+                    onCheckedChange={(pkce) => changeDraft({ pkce })}
+                  />
                   <TextField
                     id={
                       editing
