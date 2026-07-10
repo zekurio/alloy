@@ -25,7 +25,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@alloy/ui/components/alert-dialog"
-import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import { Card } from "@alloy/ui/components/card"
 import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
@@ -56,7 +55,13 @@ import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
-import { ChevronDownIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  ChevronDownIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UserKeyIcon,
+} from "lucide-react"
 import { useState } from "react"
 import type { ComponentProps, FormEvent } from "react"
 
@@ -239,7 +244,7 @@ export function AuthSettingsContent({
           ) : (
             <List>
               {config.oauthProviders.map((provider, index) => (
-                <ListItem key={provider.providerId} className="items-stretch">
+                <ListItem key={provider.providerId}>
                   <ProviderRow
                     provider={provider}
                     providerIndex={index}
@@ -359,6 +364,15 @@ function ProviderRow({
   pending: boolean
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
 }) {
+  async function toggleEnabled(enabled: boolean) {
+    const nextProviders = providers.map((current, index) =>
+      index === providerIndex
+        ? { ...providerToInput(current), enabled }
+        : providerToInput(current),
+    )
+    await onSave(nextProviders)
+  }
+
   async function deleteProvider() {
     const nextProviders = providers
       .filter((_, index) => index !== providerIndex)
@@ -367,78 +381,90 @@ function ProviderRow({
   }
 
   return (
-    <Card className="min-w-0 flex-1 flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <div className="flex flex-wrap items-center gap-2">
+    <>
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <span
+          className="border-border inline-flex size-8 shrink-0 items-center justify-center rounded-md border"
+          style={{
+            backgroundColor: provider.buttonColor,
+            color: provider.buttonTextColor,
+          }}
+        >
+          {provider.iconUrl ? (
+            <img
+              src={provider.iconUrl}
+              alt=""
+              className="size-4 object-contain"
+            />
+          ) : (
+            <UserKeyIcon className="size-4" />
+          )}
+        </span>
+        <div className="min-w-0">
           <div className="truncate text-sm font-medium">
             {provider.displayName}
           </div>
-          <Badge
-            variant={provider.enabled ? "accent" : "secondary"}
-            size="text"
-          >
-            {provider.enabled ? t("Enabled") : t("Disabled")}
-          </Badge>
-          <Badge
-            variant={provider.clientSecretSet ? "default" : "outline"}
-            size="text"
-          >
-            {provider.clientSecretSet ? t("Secret set") : t("No secret")}
-          </Badge>
+          <p className="text-foreground-dim truncate font-mono text-xs">
+            {provider.providerId}
+          </p>
         </div>
-        <p className="text-foreground-muted mt-1 font-mono text-xs">
-          {provider.providerId}
-        </p>
       </div>
-      {readOnly ? null : (
-        <div className="flex items-center gap-2 sm:shrink-0">
-          <ProviderDialog
-            providers={providers}
-            provider={provider}
-            providerIndex={providerIndex}
-            pending={pending}
-            onSave={onSave}
-          />
-          <AlertDialog>
-            <AlertDialogTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                >
-                  <Trash2Icon />
-                  {t("Delete")}
-                </Button>
-              }
+      <div className="flex shrink-0 items-center gap-1">
+        <Switch
+          checked={provider.enabled}
+          disabled={readOnly || pending}
+          onCheckedChange={(enabled) => void toggleEnabled(enabled)}
+        />
+        {readOnly ? null : (
+          <>
+            <ProviderDialog
+              providers={providers}
+              provider={provider}
+              providerIndex={providerIndex}
+              pending={pending}
+              onSave={onSave}
             />
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>
-                  {t("Delete OAuth provider?")}
-                </AlertDialogTitle>
-                <AlertDialogDescription>
-                  {t("Users may lose this sign-in method immediately.")}
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel disabled={pending}>
-                  {t("Cancel")}
-                </AlertDialogCancel>
-                <AlertDialogAction
-                  variant="destructive"
-                  onClick={deleteProvider}
-                  disabled={pending}
-                >
-                  {pending ? t("Deleting") : t("Delete")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      )}
-    </Card>
+            <AlertDialog>
+              <AlertDialogTrigger
+                render={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label={t("Delete")}
+                    disabled={pending}
+                  >
+                    <Trash2Icon />
+                  </Button>
+                }
+              />
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {t("Delete OAuth provider?")}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {t("Users may lose this sign-in method immediately.")}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={pending}>
+                    {t("Cancel")}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    variant="destructive"
+                    onClick={deleteProvider}
+                    disabled={pending}
+                  >
+                    {pending ? t("Deleting") : t("Delete")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </>
+        )}
+      </div>
+    </>
   )
 }
 
@@ -496,14 +522,22 @@ function ProviderDialog({
     >
       <ResponsiveDialogTrigger
         render={
-          <Button
-            type="button"
-            size="sm"
-            variant={editing ? "outline" : "primary"}
-          >
-            {editing ? <PencilIcon /> : <PlusIcon />}
-            {editing ? t("Edit") : t("Add provider")}
-          </Button>
+          editing ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label={t("Edit")}
+              disabled={pending}
+            >
+              <PencilIcon />
+            </Button>
+          ) : (
+            <Button type="button" size="sm" variant="primary">
+              <PlusIcon />
+              {t("Add provider")}
+            </Button>
+          )
         }
       />
       <ResponsiveDialogContent className="md:max-w-[760px]">
