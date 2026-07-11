@@ -146,7 +146,7 @@ function GameCreatorChips({
         key: row.id,
         label: chip.name,
         icon: (
-          <Avatar className="size-4.5">
+          <Avatar size="sm">
             {chip.avatar.src ? (
               <AvatarImage src={chip.avatar.src} alt="" />
             ) : null}
