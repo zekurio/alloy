@@ -139,7 +139,7 @@ function GameCreatorChips({
   if (creators.length === 0) return null
 
   const options: FilterChipOption<string>[] = [
-    { key: ALL_CREATORS, label: t("All creators"), icon: <UsersIcon /> },
+    { key: ALL_CREATORS, label: t("All users"), icon: <UsersIcon /> },
     ...creators.map((row) => {
       const chip = userChipData(row)
       return {

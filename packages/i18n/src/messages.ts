@@ -6,7 +6,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "{count} linked clips": "{count} verknüpfte Clips",
   "1 linked clip": "1 verknüpfter Clip",
   Activities: "Aktivitäten",
-  "All creators": "Alle Creators",
+  "All users": "Alle Nutzer",
   Animals: "Tiere",
   "Clip liked": "Clip geliked",
   "Comment liked": "Kommentar geliked",
@@ -16,8 +16,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Benachrichtigung konnte nicht als gelesen markiert werden",
   "Couldn’t load games": "Spiele konnten nicht geladen werden",
   "ffmpeg not detected": "ffmpeg nicht erkannt",
-  "Follow creators to populate this tab.":
-    "Folge Creators, um diesen Tab zu füllen.",
+  "Follow users to populate this tab.":
+    "Folge Nutzern, um diesen Tab zu füllen.",
   "Edit thumbnail": "Vorschaubild bearbeiten",
   "Each role has its own shape — the preview shows what's live.":
     "Jede Rolle hat ihre eigene Form — die Vorschau zeigt, was live ist.",
@@ -38,7 +38,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "New reply": "Neue Antwort",
   "No captures here": "Keine Aufnahmen hier",
   "No notifications yet": "Noch keine Benachrichtigungen",
-  "Nothing found for {query}. Try a different title, game, file, or creator.":
+  "Nothing found for {query}. Try a different title, game, file, or user.":
     "Keine Treffer für {query}. Probiere einen anderen Titel, ein anderes Spiel, eine andere Datei oder einen anderen Nutzer.",
   Objects: "Objekte",
   Notifications: "Benachrichtigungen",
