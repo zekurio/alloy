@@ -444,7 +444,7 @@ function SearchResultsBody({
         icon={<SearchIcon />}
         title={t("No matches")}
         hint={t(
-          "Nothing found for {query}. Try a different title, game, file, or creator.",
+          "Nothing found for {query}. Try a different title, game, file, or user.",
           { query: quote(query) },
         )}
       />

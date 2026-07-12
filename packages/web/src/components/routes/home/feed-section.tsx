@@ -36,7 +36,7 @@ function emptyHint(filter: FeedFilter): string {
     case "all":
       return t("Come back when others have uploaded some clips.")
     case "following":
-      return t("Follow creators to populate this tab.")
+      return t("Follow users to populate this tab.")
     case "game":
       return t("Be the first to post one.")
   }
