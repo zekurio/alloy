@@ -1,6 +1,6 @@
 {
   "name": "@alloy/desktop",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "Alloy desktop app",
   "type": "module",
