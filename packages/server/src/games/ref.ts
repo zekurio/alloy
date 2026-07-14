@@ -1,16 +1,14 @@
-import {
-  normalizeBlurHash,
-  type ClipGameRef,
-  type GameRow,
-  type GameSource,
-} from "@alloy/contracts"
-import { clip, clipView, game, gameFollow } from "@alloy/db/schema"
+import { type ClipGameRef, type GameRow } from "@alloy/contracts"
+import { game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
-import { nullableIsoDate } from "@alloy/server/runtime/date"
-import { and, eq, ilike, inArray, like, or, type SQL, sql } from "drizzle-orm"
+import { eq, inArray, like, or } from "drizzle-orm"
 
-import { exactNameKey, normalizedNameKey } from "./name-match"
+import {
+  gameSelectShape,
+  type GameMetadataRow,
+  serialiseGameRow,
+} from "./game-row"
 import { gameSlug } from "./slug"
 import { getGameAssets, getGameById } from "./steamgriddb"
 
@@ -18,47 +16,14 @@ const logger = createLogger("steamgriddb")
 
 const GAME_REF_REFRESH_MS = 7 * 24 * 60 * 60 * 1000
 
-export const gameSelectShape = {
-  id: game.id,
-  steamgriddbId: game.steamgriddb_id,
-  source: game.source,
-  name: game.name,
-  slug: game.slug,
-  releaseDate: game.release_date,
-  heroUrl: game.hero_url,
-  heroBlurHash: game.hero_blur_hash,
-  gridUrl: game.grid_url,
-  gridBlurHash: game.grid_blur_hash,
-  logoUrl: game.logo_url,
-  iconUrl: game.icon_url,
-} as const
-
-type GameMetadataRow = {
-  id: string
-  steamgriddbId: number | null
-  source: GameSource
-  name: string
-  slug: string
-  releaseDate: Date | string | null
-  heroUrl: string | null
-  heroBlurHash: string | null
-  gridUrl: string | null
-  gridBlurHash: string | null
-  logoUrl: string | null
-  iconUrl: string | null
-}
+export { gameSelectShape, serialiseGameRow } from "./game-row"
+export {
+  type IndexedGameNameLookupCandidate,
+  lookupIndexedGamesByName,
+} from "./indexed-name-lookup"
 
 type CachedGameMetadataRow = GameMetadataRow & {
   updatedAt: Date | string
-}
-
-export type IndexedGameNameLookupCandidate = {
-  game: GameRow
-  exact: boolean
-  normalized: boolean
-  score: number
-  personalScore: number
-  clipCount: number
 }
 
 const pendingGameLoads = new Map<number, Promise<GameRow | null>>()
@@ -94,23 +59,6 @@ export function clipGameRefFromSnapshot(input: {
   name: string | null
 }): ClipGameRef {
   return gameRowFromSnapshot(input)
-}
-
-export function serialiseGameRow(row: GameMetadataRow): GameRow {
-  return {
-    id: row.id,
-    steamgriddbId: row.steamgriddbId,
-    source: row.source,
-    name: row.name,
-    slug: row.slug,
-    releaseDate: nullableIsoDate(row.releaseDate),
-    heroUrl: row.heroUrl,
-    heroBlurHash: normalizeBlurHash(row.heroBlurHash),
-    gridUrl: row.gridUrl,
-    gridBlurHash: normalizeBlurHash(row.gridBlurHash),
-    logoUrl: row.logoUrl,
-    iconUrl: row.iconUrl,
-  }
 }
 
 async function availableGameSlug(
@@ -362,124 +310,4 @@ export async function getSteamGridDBGameRefBySlug(
   }
 
   return null
-}
-
-export async function lookupIndexedGamesByName(
-  names: string[],
-  viewerId: string | null,
-): Promise<Map<string, IndexedGameNameLookupCandidate[]>> {
-  const queries = uniqueLookupQueries(names)
-  const matches = new Map<string, IndexedGameNameLookupCandidate[]>()
-  for (const name of queries) matches.set(exactNameKey(name), [])
-  if (queries.length === 0) return matches
-
-  const matchCondition = indexedGameMatchCondition(queries)
-  if (!matchCondition) return matches
-
-  const viewerClipCount = viewerId
-    ? sql<number>`count(distinct case when ${clip.author_id} = ${viewerId}::uuid then ${clip.id} end)::int`
-    : sql<number>`0`
-  const viewerViewCount = viewerId
-    ? sql<number>`count(distinct ${clipView.clip_id})::int`
-    : sql<number>`0`
-  const followed = viewerId
-    ? sql<number>`max(case when ${gameFollow.id} is null then 0 else 1 end)::int`
-    : sql<number>`0`
-
-  const rows = await db
-    .select({
-      ...gameSelectShape,
-      clipNames: sql<
-        string[]
-      >`coalesce(array_remove(array_agg(distinct ${clip.game}), null), ARRAY[]::text[])`,
-      clipCount: sql<number>`count(distinct ${clip.id})::int`,
-      viewerClipCount,
-      viewerViewCount,
-      followed,
-    })
-    .from(game)
-    .leftJoin(clip, eq(clip.game_id, game.id))
-    .leftJoin(
-      clipView,
-      and(
-        eq(clipView.clip_id, clip.id),
-        viewerId ? sql`${clipView.user_id} = ${viewerId}::uuid` : sql`false`,
-      ),
-    )
-    .leftJoin(
-      gameFollow,
-      and(
-        eq(gameFollow.game_id, game.id),
-        viewerId ? sql`${gameFollow.user_id} = ${viewerId}::uuid` : sql`false`,
-      ),
-    )
-    .where(matchCondition)
-    .groupBy(game.id)
-
-  for (const row of rows) {
-    const gameRow = serialiseGameRow(row)
-    const searchableNames = [gameRow.name, ...row.clipNames.filter(Boolean)]
-    const personalScore =
-      Number(row.followed) * 1_000 +
-      Number(row.viewerClipCount) * 100 +
-      Number(row.viewerViewCount) * 10
-    const score = personalScore + Number(row.clipCount)
-
-    for (const name of queries) {
-      const exact = searchableNames.some(
-        (candidate) => exactNameKey(candidate) === exactNameKey(name),
-      )
-      const normalized = searchableNames.some(
-        (candidate) => normalizedNameKey(candidate) === normalizedNameKey(name),
-      )
-      if (!exact && !normalized) continue
-
-      matches.get(exactNameKey(name))?.push({
-        game: gameRow,
-        exact,
-        normalized,
-        score,
-        personalScore,
-        clipCount: Number(row.clipCount),
-      })
-    }
-  }
-
-  for (const candidates of matches.values()) {
-    candidates.sort((a, b) => {
-      if (b.score !== a.score) return b.score - a.score
-      return a.game.name.localeCompare(b.game.name)
-    })
-  }
-
-  return matches
-}
-
-function uniqueLookupQueries(names: string[]): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const name of names) {
-    const trimmed = name.trim()
-    if (!trimmed) continue
-    const key = exactNameKey(trimmed)
-    if (seen.has(key)) continue
-    seen.add(key)
-    result.push(trimmed)
-  }
-  return result
-}
-
-function indexedGameMatchCondition(names: string[]): SQL | undefined {
-  const exactKeys = names.map(exactNameKey)
-  const conditions: SQL[] = [
-    inArray(sql<string>`lower(${game.name})`, exactKeys),
-    inArray(sql<string>`lower(${clip.game})`, exactKeys),
-  ]
-
-  for (const name of names) {
-    const pattern = `%${name}%`
-    conditions.push(ilike(game.name, pattern), ilike(clip.game, pattern))
-  }
-
-  return or(...conditions)
 }

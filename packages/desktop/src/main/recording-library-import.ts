@@ -182,8 +182,9 @@ function safeCaptureBase(
   value: string,
   { fallback }: { fallback: string },
 ): string {
-  // Imported filenames need a base after unsafe characters are stripped.
-  return value.replace(/[^A-Za-z0-9 ._-]/g, "_").trim() || fallback
+  const safe = value.replace(/[^A-Za-z0-9 ._-]/g, "_").trim()
+  if (safe.length > 0) return safe
+  return fallback
 }
 
 async function moveFile(source: string, destination: string): Promise<void> {
