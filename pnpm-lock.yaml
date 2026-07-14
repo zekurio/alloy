@@ -50,8 +50,8 @@ importers:
         specifier: 4.12.29
         version: 4.12.29
       react:
-        specifier: 19.2.5
-        version: 19.2.5
+        specifier: 19.2.7
+        version: 19.2.7
     devDependencies:
       '@types/react':
         specifier: 19.2.17
@@ -3310,6 +3310,10 @@ packages:
 
   react@19.2.5:
     resolution: {integrity: sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA==}
+    engines: {node: '>=0.10.0'}
+
+  react@19.2.7:
+    resolution: {integrity: sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==}
     engines: {node: '>=0.10.0'}
 
   read-binary-file-arch@1.0.6:
@@ -6586,6 +6590,8 @@ snapshots:
   react-refresh@0.18.0: {}
 
   react@19.2.5: {}
+
+  react@19.2.7: {}
 
   read-binary-file-arch@1.0.6:
     dependencies:
