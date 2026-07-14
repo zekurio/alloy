@@ -28,7 +28,7 @@ import {
 } from "./recording-library"
 import { destroyRecordingNotificationSoundPlayer } from "./recording-notification-sounds"
 import { getRecordingSettings, getStartupServerUrl } from "./server-store"
-import { hasValidSession } from "./session"
+import { hasStoredSession, watchAuthCookiePersistence } from "./session"
 import { createAlloyTray } from "./tray"
 import { initAutoUpdater } from "./updater"
 import { Windows } from "./windows"
@@ -36,7 +36,6 @@ import { Windows } from "./windows"
 const USER_DATA_DIR_NAME = "Alloy Desktop"
 const SESSION_DATA_DIR_NAME = "session"
 const LOGS_DIR_NAME = "logs"
-const STARTUP_SESSION_VALIDATION_TIMEOUT_MS = 2500
 const BACKGROUND_STARTUP_DELAY_MS = 1000
 
 const logger = createLogger("main")
@@ -80,6 +79,7 @@ function startApp(): void {
     Menu.setApplicationMenu(null)
     registerRecordingLibraryProtocol()
     registerAssetCacheProtocol()
+    watchAuthCookiePersistence()
 
     registerIpc(windows)
     createAlloyTray({
@@ -138,11 +138,7 @@ async function shutdownWithDeadline(): Promise<void> {
 async function openInitialWindow(windows: Windows): Promise<void> {
   const startupServerUrl = getStartupServerUrl()
   if (startupServerUrl) {
-    if (
-      await hasValidSession(startupServerUrl, {
-        timeoutMs: STARTUP_SESSION_VALIDATION_TIMEOUT_MS,
-      })
-    ) {
+    if (await hasStoredSession(startupServerUrl)) {
       windows.connectTo(startupServerUrl)
       return
     }

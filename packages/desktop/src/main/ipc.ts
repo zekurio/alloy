@@ -49,7 +49,7 @@ import {
   rememberServer,
   saveRecordingSettings,
 } from "./server-store"
-import { clearRemoteWebCache, hasValidSession } from "./session"
+import { clearRemoteWebCache, hasStoredSession } from "./session"
 import {
   checkForUpdatesNow,
   getUpdateState,
@@ -60,8 +60,6 @@ import type { Windows } from "./windows"
 
 const SETUP_REQUIRED_ERROR =
   "This Alloy server needs setup. Finish setup in your browser, then connect again."
-const CONNECT_SESSION_VALIDATION_TIMEOUT_MS = 2500
-
 /**
  * Register the overlay's privileged IPC surface. Handlers are intentionally
  * thin: validate input, mutate persisted state, drive the windows. All channels
@@ -154,15 +152,11 @@ function registerServerIpc(windows: Windows): void {
         return { ok: false, error: SETUP_REQUIRED_ERROR }
       }
 
-      // Electron can't run passkeys/embedded OAuth, so unless a stored session
-      // is still valid we authenticate in the system browser and inject the
-      // resulting session before loading the app.
-      const needsBrowserLogin =
-        forceBrowserLogin ||
-        !(await hasValidSession(result.serverUrl, {
-          timeoutMs: CONNECT_SESSION_VALIDATION_TIMEOUT_MS,
-        }))
-      if (needsBrowserLogin) {
+      // Let the server and web app validate stored credentials during normal
+      // navigation. A separate validation request could rotate a refresh token
+      // and strand it if the request is interrupted. Browser login is only
+      // required when no usable local auth cookie exists.
+      if (forceBrowserLogin || !(await hasStoredSession(result.serverUrl))) {
         const login = await loginViaBrowser(result.serverUrl)
         if (!login.ok) return { ok: false, error: login.error }
       }
