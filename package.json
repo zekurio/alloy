@@ -22,6 +22,7 @@
     "db:migrate": "pnpm --filter @alloy/db db:migrate",
     "db:push": "pnpm --filter @alloy/db db:push",
     "db:studio": "pnpm --filter @alloy/db db:studio",
+    "audit": "pnpm audit",
     "fmt": "oxfmt .",
     "fmt:check": "oxfmt --check .",
     "lint": "oxlint .",
@@ -32,13 +33,16 @@
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@types/node": "25.6.0",
+    "@types/node": "24.13.3",
     "@types/pg": "8.20.0",
-    "oxfmt": "0.53.0",
-    "oxlint": "1.68.0",
-    "oxlint-tsgolint": "0.23.0",
-    "turbo": "2.9.16",
-    "typescript": "6.0.3"
+    "oxfmt": "0.58.0",
+    "oxlint": "1.73.0",
+    "oxlint-tsgolint": "0.24.0",
+    "turbo": "2.10.4",
+    "typescript": "7.0.2"
   },
-  "packageManager": "pnpm@11.4.0"
+  "engines": {
+    "node": ">=24"
+  },
+  "packageManager": "pnpm@11.13.0"
 }

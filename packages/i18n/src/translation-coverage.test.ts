@@ -4,7 +4,16 @@ import { dirname, join, relative } from "node:path"
 import { test } from "node:test"
 import { fileURLToPath } from "node:url"
 
-import ts from "typescript"
+import {
+  isCallExpression,
+  isIdentifier,
+  isNoSubstitutionTemplateLiteral,
+  isStringLiteral,
+  type Expression,
+  type Node,
+  type SourceFile,
+} from "typescript/unstable/ast"
+import { API } from "typescript/unstable/sync"
 
 import { DE_MESSAGES } from "./messages"
 
@@ -104,12 +113,32 @@ function placeholders(value: string): Set<string> {
 }
 
 function extractTranslationKeys(roots: string[]): Map<string, string> {
+  const api = new API({ cwd: dirname(packagesDir) })
+  const snapshot = api.updateSnapshot({
+    openProjects: roots.map((root) => join(root, "../tsconfig.json")),
+  })
   const keys = new Map<string, string>()
   for (const root of roots) {
+    const project = snapshot
+      .getProjects()
+      .find((candidate) => dirname(candidate.configFileName) === dirname(root))
+    if (project === undefined) {
+      throw new Error(`TypeScript did not load a project for ${root}`)
+    }
     for (const file of sourceFiles(root)) {
-      collectFileKeys(file, keys, `packages/${relative(packagesDir, file)}`)
+      const sourceFile = project.program.getSourceFile(file)
+      if (sourceFile === undefined) {
+        throw new Error(`TypeScript did not load ${file}`)
+      }
+      collectFileKeys(
+        sourceFile,
+        keys,
+        `packages/${relative(packagesDir, file)}`,
+      )
     }
   }
+  snapshot.dispose()
+  api.close()
   return keys
 }
 
@@ -129,25 +158,17 @@ function sourceFiles(dir: string): string[] {
 }
 
 function collectFileKeys(
-  file: string,
+  sourceFile: SourceFile,
   keys: Map<string, string>,
   displayPath: string,
 ): void {
-  const source = readFileSync(file, "utf8")
-  if (!/\b(t|tp|translate|translatePlural)\(/.test(source)) return
+  if (!/\b(t|tp|translate|translatePlural)\(/.test(sourceFile.text)) return
 
-  const sourceFile = ts.createSourceFile(
-    file,
-    source,
-    ts.ScriptTarget.Latest,
-    true,
-    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  )
   const addKey = (key: string) => {
     if (!keys.has(key)) keys.set(key, displayPath)
   }
-  const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+  const visit = (node: Node): void => {
+    if (isCallExpression(node) && isIdentifier(node.expression)) {
       const name = node.expression.text
       if (name === "t" || name === "translate") {
         const key = literalText(node.arguments[name === "t" ? 0 : 1])
@@ -163,14 +184,14 @@ function collectFileKeys(
         }
       }
     }
-    ts.forEachChild(node, visit)
+    node.forEachChild(visit)
   }
   visit(sourceFile)
 }
 
-function literalText(node: ts.Expression | undefined): string | null {
+function literalText(node: Expression | undefined): string | null {
   if (node === undefined) return null
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+  if (isStringLiteral(node) || isNoSubstitutionTemplateLiteral(node)) {
     return node.text
   }
   return null

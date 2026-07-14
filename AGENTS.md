@@ -271,7 +271,7 @@ const table = pgTable("session", {
 
 ## Runtime/Tooling Preferences
 
-- Node 24 and `pnpm@11.4.0` (pinned via `packageManager`); never use npm, yarn, or Bun.
+- Node 24 and `pnpm@11.13.0` (pinned via `packageManager`); never use npm, yarn, or Bun.
 - Turbo orchestrates package tasks; prefer root scripts or `pnpm --filter @alloy/<pkg> <script>`.
 - Formatting is oxfmt, linting is oxlint (type-aware, `no-console` is an error) — not Prettier/ESLint. 80-col width, 2-space indent, no semicolons, double quotes.
 - TypeScript is strict ESM (`verbatimModuleSyntax`, `noEmit`); packages typecheck with `tsc --noEmit`.
