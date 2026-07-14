@@ -66,15 +66,34 @@ jobs:
       - name: Run typecheck
         run: corepack pnpm typecheck
 
+      - name: Prepare test environment
+        shell: bash
+        # Server modules parse these values at import time. Generate ephemeral
+        # credentials because DB-backed tests skip when PostgreSQL is unavailable.
+        run: |
+          node <<'NODE'
+          const { randomBytes } = require("node:crypto")
+          const { appendFileSync } = require("node:fs")
+
+          const envFile = process.env.GITHUB_ENV
+          if (!envFile) throw new Error("GITHUB_ENV is not set")
+
+          const databaseUrl = new URL("postgresql://127.0.0.1:5432/alloy")
+          databaseUrl.username = "alloy"
+          databaseUrl.password = randomBytes(24).toString("hex")
+          appendFileSync(
+            envFile,
+            [
+              `DATABASE_URL=${databaseUrl.toString()}`,
+              `ALLOY_VIEWER_COOKIE_SECRET=${randomBytes(32).toString("hex")}`,
+              `ALLOY_UPLOAD_HMAC_SECRET=${randomBytes(32).toString("hex")}`,
+              "",
+            ].join("\n"),
+          )
+          NODE
+
       - name: Run tests
         run: corepack pnpm test
-        # Server modules parse env at import time, so tests that touch them
-        # need a syntactically valid config even without a live database
-        # (DB-backed tests skip when the server is unreachable).
-        env:
-          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/alloy
-          ALLOY_VIEWER_COOKIE_SECRET: ci-only-viewer-cookie-secret-0123456789
-          ALLOY_UPLOAD_HMAC_SECRET: ci-only-upload-hmac-secret-0123456789
 
       - name: Build server and web
         run: corepack pnpm turbo run build --filter=@alloy/server --filter=@alloy/web

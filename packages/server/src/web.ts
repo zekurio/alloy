@@ -3,36 +3,20 @@ import { stat, readFile } from "node:fs/promises"
 import { Readable } from "node:stream"
 
 import type { PublicAuthConfig } from "@alloy/contracts"
-import { user } from "@alloy/db/auth-schema"
-import { createLogger } from "@alloy/logging"
-import {
-  renditionIsH264,
-  sourceIsBroadlyDecodable,
-} from "@alloy/server/clips/codecs"
-import { eq } from "drizzle-orm"
 import type { Context, Hono } from "hono"
 
 import { buildPublicAuthConfig } from "./auth/public-config"
 import { getSession } from "./auth/session"
-import { clipAssetVersion } from "./clips/asset-version"
-import { selectClipById } from "./clips/select"
 import { configStore } from "./config/store"
-import { db } from "./db"
 import { env } from "./env"
-import { clipGameRefFromSnapshot } from "./games/ref"
 import { isAbsolute, join, relative, resolve } from "./runtime/path"
-
-const logger = createLogger("web")
+import { clipHead } from "./web-clip-head"
+import { htmlEscape } from "./web-html"
 
 const HEAD_MARKER = "<!-- alloy:head -->"
 const BOOTSTRAP_MARKER = "<!-- alloy:bootstrap -->"
-// Game-scoped pretty URLs and the game-agnostic /clips/:id permalink both
-// resolve to the same clip head metadata.
-const CLIP_PERMALINK_RE = /^(?:\/games\/[^/]+)?\/clips\/([^/]+)\/?$/
 const DEFAULT_WEB_DIST_DIR = "../../build/www"
 const PUBLIC_WEB_PATHS = new Set(["/login", "/setup", "/sign-up"])
-
-type MetadataClip = NonNullable<Awaited<ReturnType<typeof selectClipById>>>
 
 type WebMount = {
   distDir: string
@@ -98,141 +82,6 @@ async function resolveWebMount(): Promise<WebMount | null> {
   return {
     distDir,
     indexHtml: await readFile(indexPath, "utf8"),
-  }
-}
-
-function htmlEscape(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-}
-
-function metaName(name: string, content: string): string {
-  return `<meta name="${name}" content="${htmlEscape(content)}" />`
-}
-
-function metaProperty(property: string, content: string): string {
-  return `<meta property="${property}" content="${htmlEscape(content)}" />`
-}
-
-async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
-  const row = await selectClipById(id)
-  if (!row) return null
-  if (row.status !== "ready") return null
-  if (row.privacy !== "public" && row.privacy !== "unlisted") return null
-
-  const [author] = await db
-    .select({ disabledAt: user.disabled_at })
-    .from(user)
-    .where(eq(user.id, row.authorId))
-    .limit(1)
-  if (author?.disabledAt) return null
-
-  return row
-}
-
-async function clipHead(pathname: string): Promise<string> {
-  const match = CLIP_PERMALINK_RE.exec(pathname)
-  const clipId = match?.[1]
-  if (!clipId) return ""
-
-  try {
-    const row = await visiblePublicClip(clipId)
-    if (!row) return ""
-
-    const origin = env.PUBLIC_SERVER_URL
-    const gameName =
-      row.gameId === null
-        ? row.game?.trim() || "Uncategorised"
-        : clipGameRefFromSnapshot({
-            id: row.gameId,
-            name: row.game,
-          }).name
-    const description =
-      row.description?.trim() ||
-      `${row.authorUsername} shared a ${gameName} clip on alloy.`
-    const poster = row.thumbKey
-      ? new URL(
-          `/api/clips/${row.id}/thumbnail?v=${clipAssetVersion(row.thumbKey)}`,
-          origin,
-        ).toString()
-      : null
-    // Social video embeds are only reliable for H.264/AAC. Source codec
-    // metadata is required; legacy null sourceCodecs must fall through to the
-    // rendition/stream fallbacks below.
-    const renditionRows = row.renditionRows ?? []
-    const ogRendition =
-      renditionRows.find(
-        (rendition) => rendition.og && renditionIsH264(rendition.codecs),
-      ) ??
-      renditionRows.find((rendition) => renditionIsH264(rendition.codecs)) ??
-      null
-    const embeddableSource =
-      row.sourceContentType === "video/mp4" ||
-      row.sourceContentType === "video/webm"
-    const playbackSourceKey = row.cutKey ?? row.sourceKey
-    const ogSource =
-      playbackSourceKey &&
-      sourceIsBroadlyDecodable(row.sourceCodecs) &&
-      (row.cutKey !== null || embeddableSource)
-        ? {
-            key: playbackSourceKey,
-            contentType: row.cutKey ? "video/mp4" : row.sourceContentType,
-          }
-        : null
-    const videoUrl = ogSource
-      ? new URL(
-          `/api/clips/${row.id}/source/file?v=${clipAssetVersion(ogSource.key)}`,
-          origin,
-        ).toString()
-      : ogRendition
-        ? new URL(
-            `/api/clips/${row.id}/rendition/${ogRendition.name}/file.mp4?v=${clipAssetVersion(ogRendition.key)}`,
-            origin,
-          ).toString()
-        : renditionRows.length === 0 && row.sourceKey && embeddableSource
-          ? new URL(`/api/clips/${row.id}/stream`, origin).toString()
-          : null
-    const videoType = ogSource
-      ? (ogSource.contentType ?? "video/mp4")
-      : ogRendition
-        ? "video/mp4"
-        : (row.sourceContentType ?? "video/mp4")
-    const width = ogSource ? row.width : (ogRendition?.width ?? row.width)
-    const height = ogSource ? row.height : (ogRendition?.height ?? row.height)
-
-    return [
-      `<title>${htmlEscape(row.title)} | alloy</title>`,
-      metaName("description", description),
-      metaProperty("og:site_name", "alloy"),
-      metaProperty("og:type", "video.other"),
-      metaProperty("og:title", row.title),
-      metaProperty("og:description", description),
-      ...(poster ? [metaProperty("og:image", poster)] : []),
-      ...(videoUrl
-        ? [
-            metaProperty("og:video", videoUrl),
-            metaProperty("og:video:url", videoUrl),
-            ...(videoUrl.startsWith("https:")
-              ? [metaProperty("og:video:secure_url", videoUrl)]
-              : []),
-            metaProperty("og:video:type", videoType),
-            ...(width ? [metaProperty("og:video:width", String(width))] : []),
-            ...(height
-              ? [metaProperty("og:video:height", String(height))]
-              : []),
-          ]
-        : []),
-      metaName("twitter:card", "summary_large_image"),
-      metaName("twitter:title", row.title),
-      metaName("twitter:description", description),
-      ...(poster ? [metaName("twitter:image", poster)] : []),
-    ].join("\n    ")
-  } catch (error) {
-    logger.error("failed to build clip metadata:", error)
-    return ""
   }
 }
 

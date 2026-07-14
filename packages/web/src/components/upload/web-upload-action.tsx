@@ -5,10 +5,14 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
   prepareSelectedClipFile,
+  type PublishClipInput,
   type PublishPayload,
   type SelectedFile,
 } from "@/components/upload/new-clip-helpers"
-import { useUploadActions } from "@/components/upload/upload-flow-context"
+import {
+  type PublishClipFn,
+  useUploadActions,
+} from "@/components/upload/upload-flow-context"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import { copyTextToClipboard } from "@/lib/clipboard"
@@ -42,15 +46,34 @@ export interface WebUploadMetadata {
 }
 
 export function useWebUploadAction(): WebUploadAction {
-  const { publishClip } = useUploadActions()
-  const [picking, setPicking] = useState(false)
+  const actions = useUploadActions()
   const [publishing, setPublishing] = useState(false)
+  const selection = useWebUploadSelection(publishing)
+  const publish = usePublishSelectedFile(
+    actions.publishClip,
+    selection.selected,
+    publishing,
+    selection.clear,
+    setPublishing,
+  )
+
+  return {
+    available: typeof File !== "undefined",
+    picking: selection.picking,
+    publishing,
+    selected: selection.selected,
+    previewUrl: selection.previewUrl,
+    select: selection.select,
+    discard: selection.discard,
+    publish,
+  }
+}
+
+function useWebUploadSelection(publishing: boolean) {
+  const [picking, setPicking] = useState(false)
   const [selected, setSelected] = useState<SelectedFile | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const available = typeof File !== "undefined"
-
-  // Revoke the preview URL on unmount without re-running the effect (and
-  // tearing the URL down) every time the selection changes.
+  // Keep the latest URL available to the unmount-only cleanup.
   const previewUrlRef = useRef<string | null>(null)
   previewUrlRef.current = previewUrl
   useEffect(
@@ -58,14 +81,13 @@ export function useWebUploadAction(): WebUploadAction {
     [],
   )
 
-  const clearSelection = useCallback(() => {
+  const clear = useCallback(() => {
     setSelected(null)
     setPreviewUrl((current) => {
       revokeObjectUrl(current, "upload preview URL")
       return null
     })
   }, [])
-
   const select = useCallback(
     async (file: File | null) => {
       if (!file || picking || publishing || selected) return
@@ -82,71 +104,72 @@ export function useWebUploadAction(): WebUploadAction {
     },
     [picking, publishing, selected],
   )
-
   const discard = useCallback(() => {
     if (publishing) return
-    clearSelection()
-  }, [publishing, clearSelection])
+    clear()
+  }, [publishing, clear])
 
-  const publish = useCallback(
+  return { picking, selected, previewUrl, select, discard, clear }
+}
+
+function usePublishSelectedFile(
+  publishClip: PublishClipFn,
+  selected: SelectedFile | null,
+  publishing: boolean,
+  clearSelection: () => void,
+  setPublishing: (value: boolean) => void,
+) {
+  return useCallback(
     async (metadata: WebUploadMetadata) => {
-      const current = selected
-      if (!current || publishing) return
-
+      if (!selected || publishing) return
       setPublishing(true)
       try {
-        // Poster capture is slow, so hand it to the upload queue as a
-        // deferred job: the editor closes immediately and the capture runs
-        // off the picked File in the background. The file itself uploads
-        // untouched — the server derives the trim cut at ingest.
-        const result = await publishClip({
-          kind: "deferred",
-          title: metadata.title,
-          sizeBytes: current.sizeBytes,
-          thumbUrl: null,
-          thumbBlurHash: null,
-          prepare: (signal) =>
-            prepareWebUploadPayload(current, metadata, signal),
-        })
+        const result = await publishClip(
+          createDeferredWebUpload(selected, metadata),
+        )
         if (!result.clipId) return
-
         clearSelection()
-        if (metadata.privacy === "unlisted") {
-          const copied = await copyTextToClipboard(
-            absoluteClipHref(
-              metadata.game?.slug ?? null,
-              result.clipId,
-              publicOrigin(),
-            ),
-            { action: "copy uploaded clip link" },
-          )
-          if (copied) {
-            toast.success(t("Link copied to clipboard"))
-          } else {
-            toast.error(t("Couldn't copy the clip link"))
-          }
-          return
-        }
-        toast.success(t("Upload started"))
+        await showUploadStarted(metadata, result.clipId)
       } catch (cause) {
         toast.error(errorMessage(cause, t("Could not start upload.")))
       } finally {
         setPublishing(false)
       }
     },
-    [publishClip, publishing, selected, clearSelection],
+    [publishClip, selected, publishing, clearSelection, setPublishing],
   )
+}
 
+function createDeferredWebUpload(
+  selected: SelectedFile,
+  metadata: WebUploadMetadata,
+): PublishClipInput {
+  // Poster capture is slow, so the queue prepares it after the editor closes.
+  // The original file uploads untouched; the server applies the trim at ingest.
   return {
-    available,
-    picking,
-    publishing,
-    selected,
-    previewUrl,
-    select,
-    discard,
-    publish,
+    kind: "deferred",
+    title: metadata.title,
+    sizeBytes: selected.sizeBytes,
+    thumbUrl: null,
+    thumbBlurHash: null,
+    prepare: (signal) => prepareWebUploadPayload(selected, metadata, signal),
   }
+}
+
+async function showUploadStarted(metadata: WebUploadMetadata, clipId: string) {
+  if (metadata.privacy !== "unlisted") {
+    toast.success(t("Upload started"))
+    return
+  }
+  const copied = await copyTextToClipboard(
+    absoluteClipHref(metadata.game?.slug ?? null, clipId, publicOrigin()),
+    { action: "copy uploaded clip link" },
+  )
+  if (copied) {
+    toast.success(t("Link copied to clipboard"))
+    return
+  }
+  toast.error(t("Couldn't copy the clip link"))
 }
 
 async function prepareWebUploadPayload(

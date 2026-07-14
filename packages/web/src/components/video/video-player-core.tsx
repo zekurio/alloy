@@ -1,25 +1,13 @@
 import { t } from "@alloy/i18n"
-import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
-import {
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import type { MouseEvent, MouseEventHandler } from "react"
 
 import { errorMessage } from "@/lib/error-message"
-import {
-  exitFullscreenBestEffort,
-  isFullscreenElement,
-  requestFullscreenBestEffort,
-} from "@/lib/fullscreen"
 
 import { useMediaEngine } from "./video-media-engine"
 import { useActiveVideoPlayer } from "./video-player-active"
+import { useVideoPlayerControls } from "./video-player-controls"
 import type { PlayerCoreProps } from "./video-player-core-types"
 import {
   usePlayingTimeSync,
@@ -32,7 +20,6 @@ import {
   ChromeShell,
   LoadOverlay,
   type LoadStatus,
-  type VideoKeyCommand,
 } from "./video-player-shell"
 import { VideoFrame } from "./video-player-video"
 import { isInterruptedPlayRequest, mediaErrorMessage } from "./video-source"
@@ -266,144 +253,23 @@ export function PlayerCore({
 
   usePlayingTimeSync(playing, syncTime)
 
-  useImperativeHandle(
-    playerRef,
-    () => ({
-      play: () => playInternal(),
-      pause: () => pauseInternal(),
-      seek: (seconds: number, keepPlaying?: boolean) =>
-        seekInternal(seconds, keepPlaying),
-      getCurrentTime: () => videoRef.current?.currentTime ?? 0,
-      getDuration: () => {
-        const value = videoRef.current?.duration ?? 0
-        return Number.isFinite(value) ? value : 0
-      },
-      setVolume: (next: number) => {
-        const clamped = Math.max(0, Math.min(1, next))
-        volumeRef.current = clamped
-        setVolumeState(clamped)
-        const video = videoRef.current
-        if (video) video.volume = clamped
-      },
-      setMuted: (next: boolean) => {
-        mutedRef.current = next
-        setMutedState(next)
-        const video = videoRef.current
-        if (video) video.muted = next
-      },
-      setPlaybackRate: (rate: number) => {
-        const video = videoRef.current
-        if (video) video.playbackRate = rate
-      },
-    }),
-    [pauseInternal, playInternal, seekInternal],
-  )
-
-  const togglePlay = useCallback(() => {
-    const video = videoRef.current
-    if (!video) return
-    if (video.paused || video.ended) {
-      void playInternal()
-    } else {
-      pauseInternal()
-    }
-  }, [pauseInternal, playInternal])
-
-  const toggleMute = useCallback(() => {
-    setMutedState((current) => {
-      const next = !current
-      mutedRef.current = next
-      const video = videoRef.current
-      if (video) video.muted = next
-      return next
-    })
-  }, [])
-
-  const setVolume = useCallback((next: number) => {
-    const clamped = Math.max(0, Math.min(1, next))
-    volumeRef.current = clamped
-    setVolumeState(clamped)
-    setMutedState((currentMuted) => {
-      const nextMuted = clamped > 0 ? false : currentMuted
-      mutedRef.current = nextMuted
-      const video = videoRef.current
-      if (video) {
-        video.volume = clamped
-        video.muted = nextMuted
-      }
-      return nextMuted
-    })
-  }, [])
-
-  const volumeBy = useCallback(
-    (delta: number) => {
-      setVolume(volumeRef.current + delta)
-    },
-    [setVolume],
-  )
-
-  const seekBy = useCallback(
-    (deltaSec: number) => {
-      const video = videoRef.current
-      if (!video) return
-      seekInternal((video.currentTime || 0) + deltaSec)
-    },
-    [seekInternal],
-  )
-
-  const toggleFullscreen = useCallback(() => {
-    const el = containerRef.current
-    if (!el) return
-    if (isFullscreenElement(el)) {
-      exitFullscreenBestEffort("video player")
-    } else {
-      requestFullscreenBestEffort(el, "video player")
-    }
-  }, [])
-
-  const onFullscreenChange = useCallback(() => {
-    const nextIsFullscreen = isFullscreenElement(containerRef.current)
-    if (nextIsFullscreen && isCoarsePointer) screen.orientation?.unlock?.()
-    setChromeVisible(true)
-  }, [isCoarsePointer])
-
-  useEffect(() => {
-    onFullscreenChange()
-  }, [onFullscreenChange])
-  useDocumentEvent("fullscreenchange", onFullscreenChange)
-
-  const keyCommand = useMemo<VideoKeyCommand>(
-    () => ({
-      togglePlay,
-      toggleMute,
-      seekBy,
-      seekTo: (seconds) =>
-        seekInternal(Number.isFinite(seconds) ? seconds : duration),
-      seekPercent: (percent) => {
-        const start = Math.max(0, shortcutBounds?.start ?? 0)
-        const end =
-          shortcutBounds?.end !== undefined &&
-          Number.isFinite(shortcutBounds.end)
-            ? shortcutBounds.end
-            : duration
-        const span = Math.max(0, end - start)
-        seekInternal(start + span * Math.min(1, Math.max(0, percent)))
-      },
-      volumeBy,
-      toggleFullscreen,
-    }),
-    [
+  const { keyCommand, setVolume, toggleFullscreen, toggleMute, togglePlay } =
+    useVideoPlayerControls({
+      containerRef,
       duration,
-      seekBy,
+      isCoarsePointer,
+      mutedRef,
+      pauseInternal,
+      playerRef,
+      playInternal,
       seekInternal,
-      shortcutBounds?.end,
-      shortcutBounds?.start,
-      toggleFullscreen,
-      toggleMute,
-      togglePlay,
-      volumeBy,
-    ],
-  )
+      setChromeVisible,
+      setMutedState,
+      setVolumeState,
+      shortcutBounds,
+      videoRef,
+      volumeRef,
+    })
 
   const { activatePlayer, focusPlayerContainer } = useActiveVideoPlayer({
     autoPlay,
