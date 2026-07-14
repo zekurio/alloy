@@ -1,6 +1,6 @@
 import type { DesktopAutostartState } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Card } from "@alloy/ui/components/card"
+import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
@@ -45,17 +45,12 @@ export function DesktopAutostartSettings() {
   }
 
   return (
-    <Card className="flex-row items-center justify-between gap-4 p-3">
-      <div className="min-w-0">
-        <div className="text-sm font-medium">
-          {t("Start Alloy when you sign in")}
-        </div>
-        <p className="text-foreground-dim mt-0.5 text-xs">
-          {t(
-            "Launches in the background so your games are captured right away.",
-          )}
-        </p>
-      </div>
+    <SettingRow
+      title={t("Start Alloy when you sign in")}
+      description={t(
+        "Launches in the background so your games are captured right away.",
+      )}
+    >
       {state === undefined ? (
         <Skeleton className="h-5 w-9 rounded-full" />
       ) : state.supported ? (
@@ -69,6 +64,6 @@ export function DesktopAutostartSettings() {
           {t("Unavailable in this build")}
         </span>
       )}
-    </Card>
+    </SettingRow>
   )
 }

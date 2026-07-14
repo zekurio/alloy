@@ -1,7 +1,6 @@
 import type { DesktopUpdateState, DesktopUpdateStatus } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { Card } from "@alloy/ui/components/card"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
@@ -57,7 +56,7 @@ export function DesktopUpdateSettings() {
   }
 
   return (
-    <Card className="flex-col gap-3 p-3 lg:flex-row lg:items-center lg:justify-between">
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 items-center gap-2.5">
         <StatusDot status={updateState.status} />
         <div className="min-w-0">
@@ -119,7 +118,7 @@ export function DesktopUpdateSettings() {
           </Button>
         )}
       </div>
-    </Card>
+    </div>
   )
 }
 
