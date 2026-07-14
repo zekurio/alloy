@@ -99,6 +99,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Vielleicht öffnet sich ein Browserfenster zum Anmelden. Komm danach hierher zurück.",
   "A new version has been downloaded.":
     "Eine neue Version wurde heruntergeladen.",
+  "A new version is available to download.":
+    "Eine neue Version steht zum Herunterladen bereit.",
   Account: "Konto",
   "Account & data": "Konto & Daten",
   "Account deleted": "Konto gelöscht",
@@ -141,6 +143,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Alloy: "Alloy",
   "Alloy {version} has been downloaded.":
     "Alloy {version} wurde heruntergeladen.",
+  "Alloy {version} is available to download.":
+    "Alloy {version} steht zum Herunterladen bereit.",
   "Alloy auto-detects games. Add manual rules when detection needs a nudge.":
     "Alloy erkennt Spiele automatisch. Füge manuelle Regeln hinzu, wenn die Erkennung mal nachhelfen muss.",
   "Alloy will start capturing when you launch a game.":
@@ -299,6 +303,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't change the capture folder.":
     "Aufnahmeordner konnte nicht geändert werden.",
   "Couldn't check for updates.": "Updates konnten nicht gesucht werden.",
+  "Couldn't download the update.":
+    "Das Update konnte nicht heruntergeladen werden.",
   "Couldn't complete setup": "Einrichtung konnte nicht abgeschlossen werden",
   "Couldn't connect to server.":
     "Verbindung zum Server konnte nicht hergestellt werden.",
@@ -466,6 +472,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Download a zip archive with the original files for your clips.":
     "Lade ein ZIP-Archiv mit den Originaldateien deiner Clips herunter.",
   "Download clips": "Clips herunterladen",
+  "Download update": "Update herunterladen",
   "Download failed.": "Download fehlgeschlagen.",
   "Downloading {progress}%": "{progress}% werden heruntergeladen",
   "Downloading...": "Wird heruntergeladen...",
@@ -847,11 +854,14 @@ export const DE_MESSAGES: Record<string, string> = {
   "Resolution, frame rate, encoder, and replay buffer.":
     "Auflösung, Bildrate, Encoder und Replay-Puffer.",
   Restart: "Neustart",
+  "Install and restart": "Installieren und neu starten",
+  "Installing...": "Wird installiert...",
   "Restart to update": "Zum Aktualisieren neu starten",
   "Restart the capture component if recording gets stuck.":
     "Starte die Aufnahmekomponente neu, wenn die Aufnahme hängen bleibt.",
   "Restarting...": "Neustart...",
   "Restarting…": "Neustart…",
+  "Starting download…": "Download wird gestartet…",
   Retry: "Wiederholen",
   "Retrying…": "Wird wiederholt…",
   "Reveal in folder": "Im Ordner anzeigen",
@@ -1028,6 +1038,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Unpost: "Zurückziehen",
   "Unposting...": "Wird zurückgezogen...",
   Untitled: "Ohne Titel",
+  "Update available": "Update verfügbar",
   "Update ready": "Update bereit",
   "Update role and storage quota for {username}.":
     "Aktualisiere Rolle und Speicherkontingent für {username}.",
