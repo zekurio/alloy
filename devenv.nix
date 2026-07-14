@@ -12,6 +12,7 @@ let
     zlib
     zstd
   ];
+  pnpmPackage = import ./nix/pnpm.nix { inherit (pkgs) pnpm; };
 in
 {
   imports = lib.optional (builtins.pathExists ./devenv.local.nix) ./devenv.local.nix;
@@ -27,13 +28,13 @@ in
     package = pkgs.nodejs_24;
     pnpm = {
       enable = true;
-      package = pkgs.pnpm;
+      package = pnpmPackage;
     };
   };
 
   # https://devenv.sh/packages/
   packages = with pkgs; [
-    pnpm
+    pnpmPackage
     postgresql_17
     # Rendition transcoding and poster extraction in the media pipeline.
     ffmpeg-headless
