@@ -15,24 +15,21 @@
     "@alloy/env": "workspace:*",
     "@alloy/i18n": "workspace:*",
     "@alloy/ui": "workspace:*",
-    "@base-ui/react": "1.4.1",
-    "@fontsource-variable/dm-sans": "5.2.8",
-    "@fontsource/ibm-plex-mono": "5.2.7",
-    "@simplewebauthn/browser": "13.3.0",
-    "@tailwindcss/vite": "4.2.4",
-    "@tanstack/react-form": "1.29.1",
-    "@tanstack/react-query": "5.99.2",
-    "@tanstack/react-router": "1.168.23",
-    "@tanstack/router-plugin": "1.167.22",
-    "@vitejs/plugin-react": "5.2.0",
-    "lucide-react": "1.8.0",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
-    "vite": "8.0.16"
+    "@base-ui/react": "1.6.0",
+    "@tailwindcss/vite": "4.3.2",
+    "@tanstack/react-form": "1.33.1",
+    "@tanstack/react-query": "5.101.2",
+    "@tanstack/react-router": "1.170.17",
+    "@tanstack/router-plugin": "1.168.19",
+    "@vitejs/plugin-react": "6.0.3",
+    "lucide-react": "1.24.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "vite": "8.1.4"
   },
   "devDependencies": {
-    "@types/react": "19.2.14",
+    "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "tsx": "4.22.4"
+    "tsx": "4.23.0"
   }
 }
