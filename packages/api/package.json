@@ -16,7 +16,7 @@
     "@alloy/server": "workspace:*",
     "@simplewebauthn/browser": "13.3.0",
     "hono": "4.12.29",
-    "react": "19.2.7"
+    "react": "19.2.5"
   },
   "devDependencies": {
     "@types/react": "19.2.17"
