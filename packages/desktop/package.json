@@ -27,7 +27,7 @@
     "@alloy/recorder": "workspace:*",
     "@alloy/ui": "workspace:*",
     "@tailwindcss/vite": "4.2.4",
-    "@types/react": "19.2.14",
+    "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.2.0",
     "blurhash": "2.0.5",
@@ -38,8 +38,8 @@
     "lucide-react": "1.8.0",
     "mediabunny": "1.46.0",
     "png-to-ico": "3.0.1",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "vite": "8.0.16"
   },
   "build": {
