@@ -4,14 +4,14 @@ import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import { RefreshCcwIcon, SearchIcon } from "lucide-react"
+import { DownloadIcon, RefreshCcwIcon, SearchIcon } from "lucide-react"
 import { useState } from "react"
 
 import { useDesktopUpdateState } from "@/lib/desktop-updates"
 
 import { alloyDesktop } from "./desktop-bridge"
 
-type Phase = "idle" | "checking" | "restarting"
+type Phase = "idle" | "checking" | "downloading" | "installing"
 
 export function DesktopUpdateSettings() {
   const updates = alloyDesktop()?.updates
@@ -22,15 +22,15 @@ export function DesktopUpdateSettings() {
   const activeUpdates = updates
 
   const canCheck = typeof activeUpdates.checkForUpdates === "function"
+  const canDownload = typeof activeUpdates.downloadUpdate === "function"
   const checkBusy = phase === "checking" || updateState.status === "checking"
+  const downloadBusy =
+    phase === "downloading" || updateState.status === "downloading"
   const checkDisabled =
-    !canCheck ||
-    phase !== "idle" ||
-    updateState.status === "checking" ||
-    updateState.status === "downloading"
+    !canCheck || phase !== "idle" || updateState.status !== "idle"
 
   async function restartToInstall() {
-    setPhase("restarting")
+    setPhase("installing")
     try {
       await activeUpdates.restartToInstall()
     } catch (cause) {
@@ -39,6 +39,18 @@ export function DesktopUpdateSettings() {
     }
   }
 
+  async function downloadUpdate() {
+    if (!activeUpdates.downloadUpdate) return
+
+    setPhase("downloading")
+    try {
+      await activeUpdates.downloadUpdate()
+    } catch (cause) {
+      toast.error(errorText(cause, t("Couldn't download the update.")))
+    } finally {
+      setPhase("idle")
+    }
+  }
   async function checkForUpdates() {
     if (!activeUpdates.checkForUpdates) return
 
@@ -75,18 +87,38 @@ export function DesktopUpdateSettings() {
             type="button"
             size="sm"
             className="w-full sm:w-auto"
-            disabled={phase === "restarting"}
+            disabled={phase === "installing"}
             onClick={() => void restartToInstall()}
           >
-            {phase === "restarting" ? (
+            {phase === "installing" ? (
               <>
                 <Spinner />
-                {t("Restarting...")}
+                {t("Installing...")}
               </>
             ) : (
               <>
                 <RefreshCcwIcon className="size-3.5" />
-                {t("Restart")}
+                {t("Install and restart")}
+              </>
+            )}
+          </Button>
+        ) : updateState.status === "available" ? (
+          <Button
+            type="button"
+            size="sm"
+            className="w-full sm:w-auto"
+            disabled={!canDownload || downloadBusy}
+            onClick={() => void downloadUpdate()}
+          >
+            {downloadBusy ? (
+              <>
+                <Spinner />
+                {t("Downloading...")}
+              </>
+            ) : (
+              <>
+                <DownloadIcon className="size-3.5" />
+                {t("Download update")}
               </>
             )}
           </Button>
@@ -129,7 +161,9 @@ function StatusDot({ status }: { status: DesktopUpdateStatus }) {
         "size-1.5 shrink-0 rounded-full",
         status === "downloaded"
           ? "bg-success"
-          : status === "checking" || status === "downloading"
+          : status === "available" ||
+              status === "checking" ||
+              status === "downloading"
             ? "bg-accent"
             : "bg-foreground-dim",
       )}
@@ -141,6 +175,8 @@ function updateStatusTitle(status: DesktopUpdateStatus): string {
   switch (status) {
     case "checking":
       return t("Checking for updates")
+    case "available":
+      return t("Update available")
     case "downloading":
       return t("Downloading update")
     case "downloaded":

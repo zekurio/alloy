@@ -36,6 +36,7 @@ import {
 import { getRecordingSettings, saveRecordingSettings } from "./server-store"
 import {
   checkForUpdatesNow,
+  downloadUpdateNow,
   getUpdateState,
   onUpdateStateChange,
   restartToInstallUpdate,
@@ -81,6 +82,10 @@ function registerUpdateIpc(windows: Windows): void {
   ipcMain.handle(IPC.checkForUpdates, (event) => {
     requireDesktopSender(windows, event)
     return checkForUpdatesNow()
+  })
+  ipcMain.handle(IPC.downloadUpdate, (event) => {
+    requireDesktopSender(windows, event)
+    return downloadUpdateNow()
   })
   ipcMain.handle(IPC.restartToInstallUpdate, (event) => {
     requireDesktopSender(windows, event)
