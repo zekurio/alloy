@@ -60,6 +60,19 @@ function publicClipPath(clipId: string, suffix: string): string {
   return `/api/clips/${encodedPathSegment(clipId)}${suffix}`
 }
 
+function versionedClipAssetUrl(
+  clipId: string,
+  suffix: string,
+  origin?: string,
+  version?: string,
+): string {
+  return resolvePublicUrlWithQuery(
+    publicClipPath(clipId, suffix),
+    { v: version },
+    origin,
+  )
+}
+
 export function parseQueueSnapshotPayload(data: string): QueueClip[] | null {
   return parseJsonPayload(data, validateQueueClips)
 }
@@ -78,10 +91,11 @@ export function clipRenditionFileUrl(
   origin?: string,
   version?: string,
 ): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, `/rendition/${encodeURIComponent(name)}/file.mp4`),
-    { v: version },
+  return versionedClipAssetUrl(
+    clipId,
+    `/rendition/${encodeURIComponent(name)}/file.mp4`,
     origin,
+    version,
   )
 }
 
@@ -90,11 +104,7 @@ export function clipSourceFileUrl(
   origin?: string,
   version?: string,
 ): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/source/file"),
-    { v: version },
-    origin,
-  )
+  return versionedClipAssetUrl(clipId, "/source/file", origin, version)
 }
 
 export function clipOriginalFileUrl(clipId: string, origin?: string): string {
@@ -118,11 +128,7 @@ export function clipThumbnailUrl(
   origin?: string,
   version?: string,
 ): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/thumbnail"),
-    { v: version },
-    origin,
-  )
+  return versionedClipAssetUrl(clipId, "/thumbnail", origin, version)
 }
 
 export function clipDownloadUrl(clipId: string, origin?: string): string {

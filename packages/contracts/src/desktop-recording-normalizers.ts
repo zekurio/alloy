@@ -210,8 +210,9 @@ export function normalizeLiteral<const T extends readonly (string | number)[]>(
   allowed: T,
   fallback: T[number],
 ): T[number] {
-  // Unknown persisted settings use defaults for version tolerance.
-  return allowed.find((allowedValue) => allowedValue === value) ?? fallback
+  const normalized = allowed.find((allowedValue) => allowedValue === value)
+  if (normalized !== undefined) return normalized
+  return fallback
 }
 
 /**

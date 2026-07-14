@@ -106,6 +106,29 @@ async function serveClipAsset(
   )
 }
 
+function serveVersionedClipAsset(
+  c: Context,
+  asset: { key: string; contentType: string },
+  options: {
+    clipId: string
+    privacy: ClipPrivacy
+    etagPrefix: string
+    unavailable: string
+  },
+): Promise<Response> {
+  const version = clipAssetVersion(asset.key)
+  return serveClipAsset(c, asset, {
+    cacheControl: versionedCacheControl(
+      c.req.query("v"),
+      version,
+      options.privacy,
+    ),
+    clipId: options.clipId,
+    etag: `"${options.etagPrefix}-${version}"`,
+    unavailable: options.unavailable,
+  })
+}
+
 export const clipsPlaybackRoutes = new Hono()
   /**
    * GET /api/clips/:id/stream — progressive playback bytes. Trimmed clips
@@ -148,18 +171,10 @@ export const clipsPlaybackRoutes = new Hono()
       return notFound(c, "Stream unavailable")
     }
 
-    const version = clipAssetVersion(selected.key)
-    // Published bytes are immutable under run-scoped keys, so a request
-    // naming the current version can cache forever while unversioned requests
-    // keep the short TTL so a republish propagates.
-    return serveClipAsset(c, selected, {
-      cacheControl: versionedCacheControl(
-        c.req.query("v"),
-        version,
-        row.privacy,
-      ),
+    return serveVersionedClipAsset(c, selected, {
       clipId: id,
-      etag: `"src-${version}"`,
+      privacy: row.privacy,
+      etagPrefix: "src",
       unavailable: "Stream unavailable",
     })
   })
@@ -176,15 +191,10 @@ export const clipsPlaybackRoutes = new Hono()
     const selected = cutOrSourceAsset(row)
     if (!selected) return notFound(c, "Source unavailable")
 
-    const version = clipAssetVersion(selected.key)
-    return serveClipAsset(c, selected, {
-      cacheControl: versionedCacheControl(
-        c.req.query("v"),
-        version,
-        row.privacy,
-      ),
+    return serveVersionedClipAsset(c, selected, {
       clipId: id,
-      etag: `"src-${version}"`,
+      privacy: row.privacy,
+      etagPrefix: "src",
       unavailable: "Source unavailable",
     })
   })
@@ -274,18 +284,13 @@ export const clipsPlaybackRoutes = new Hono()
       )
       if (!rendition) return notFound(c, "Rendition unavailable")
 
-      const version = clipAssetVersion(rendition.storage_key)
-      return serveClipAsset(
+      return serveVersionedClipAsset(
         c,
         { key: rendition.storage_key, contentType: "video/mp4" },
         {
-          cacheControl: versionedCacheControl(
-            c.req.query("v"),
-            version,
-            row.privacy,
-          ),
           clipId: id,
-          etag: `"rnd-${version}"`,
+          privacy: row.privacy,
+          etagPrefix: "rnd",
           unavailable: "Rendition unavailable",
         },
       )

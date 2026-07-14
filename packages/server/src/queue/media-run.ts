@@ -1,10 +1,6 @@
 import { rm, stat } from "node:fs/promises"
 
-import {
-  normalizeBlurHash,
-  type AcceptedContentType,
-  type TranscodingConfig,
-} from "@alloy/contracts"
+import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import {
   clipScrubberKey,
@@ -17,19 +13,10 @@ import {
   persistedSourceFps,
 } from "@alloy/server/media/encode-fingerprint"
 import { faststartPath } from "@alloy/server/media/mp4-layout"
-import { extractPoster, type ExtractedPoster } from "@alloy/server/media/poster"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
-import {
-  encodeRendition,
-  type LadderStep,
-} from "@alloy/server/media/renditions"
 import { trimToMp4 } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
-import {
-  clipStorage,
-  clipStorageForKey,
-  clipThumbnailStorage,
-} from "@alloy/server/storage/index"
+import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import {
   deleteStagedUpload,
   downloadStagedUploadToFile,
@@ -44,94 +31,39 @@ import {
   runScopedCutKey,
   runScopedRenditionKey,
   runScopedSourceKey,
-  runScopedThumbKey,
 } from "./media-asset-keys"
+import {
+  encodeTierCost,
+  FINALIZE_PHASE_COST,
+  makeEncodeProgressTracker,
+  POSTER_PHASE_COST,
+  SOURCE_PHASE_COST,
+} from "./media-encode-progress"
 import { makeMediaProgressWriter } from "./media-progress"
 import {
   type Asset,
   publishOriginalSource,
   type SourceAsset,
 } from "./media-publish"
-import { makeMediaWorkDir } from "./media-run-helpers"
+import { encodeRenditionWithFallback } from "./media-rendition-encode"
+import {
+  extractPosterBestEffort,
+  publishRunThumbnail,
+  trimRange,
+} from "./media-run-input"
+import {
+  ensureStillPresent,
+  pruneStaleAssets,
+  withMediaRunWorkspace,
+} from "./media-run-workspace"
 import type { MediaRenditionRecord, MediaRow, MediaStore } from "./media-store"
+export {
+  encodeProgressPercent,
+  encodeProgressTotalCost,
+} from "./media-encode-progress"
+export { runThumbnailBackfill } from "./media-thumbnail-backfill"
 
 const logger = createLogger("queue")
-const SOURCE_PHASE_COST = 1
-const POSTER_PHASE_COST = 0.4
-const FINALIZE_PHASE_COST = 0.4
-// Must equal SOURCE + POSTER + FINALIZE phase costs; kept as an exact decimal
-// literal because float summation (1 + 0.4 + 0.4) drifts off 1.8.
-const BASE_PHASE_COST = 1.8
-
-interface EncodeProgressStep {
-  height: number
-  fps: number
-}
-
-export function encodeProgressTotalCost(
-  steps: readonly EncodeProgressStep[],
-): number {
-  return (
-    BASE_PHASE_COST +
-    steps.reduce((total, step) => total + encodeTierCost(step), 0)
-  )
-}
-
-export function encodeProgressPercent(options: {
-  totalCost: number
-  completedCost: number
-  phaseCost: number
-  fraction: number
-}): number {
-  const fraction = Math.max(0, Math.min(1, options.fraction))
-  return Math.min(
-    99,
-    Math.floor(
-      ((options.completedCost + options.phaseCost * fraction) /
-        options.totalCost) *
-        100,
-    ),
-  )
-}
-
-function encodeTierCost(step: EncodeProgressStep): number {
-  return step.height * step.fps
-}
-
-function makeEncodeProgressTracker(
-  steps: readonly LadderStep[],
-  writeProgress: (pct: number) => void,
-) {
-  const totalCost = encodeProgressTotalCost(steps)
-  let completedCost = 0
-  const writeAt = (phaseCost: number, fraction: number) =>
-    writeProgress(
-      encodeProgressPercent({
-        totalCost,
-        completedCost,
-        phaseCost,
-        fraction,
-      }),
-    )
-  return {
-    writeAt,
-    complete(phaseCost: number) {
-      completedCost += phaseCost
-      writeAt(0, 0)
-    },
-  }
-}
-
-async function ensureStillPresent(
-  store: MediaStore,
-  id: string,
-  runId: string,
-  signal: AbortSignal,
-): Promise<void> {
-  signal.throwIfAborted()
-  if (await store.stillPresent(id, runId)) return
-  throw abortMediaProcessing()
-}
 
 /**
  * Run the media pipeline for one leased clip. Downloads the source, applies a
@@ -145,99 +77,37 @@ export async function runMediaProcessing(
   runId: string,
   signal: AbortSignal,
 ): Promise<void> {
-  const workDir = await makeMediaWorkDir(id)
-  const uploadedKeys: string[] = []
-  const retainedKeys = new Set<string>()
-  if (row.sourceKey) retainedKeys.add(row.sourceKey)
-  if (row.cutKey) retainedKeys.add(row.cutKey)
-  if (row.thumbKey) retainedKeys.add(row.thumbKey)
   let sourcePublishedForRetry = false
-  try {
-    await runPipelineInWorkDir({
+  await withMediaRunWorkspace(
+    {
       store,
       id,
       row,
-      runId,
-      signal,
-      workDir,
-      uploadedKeys,
-      retainSourceAsset: (asset, publishedByRun) => {
-        retainedKeys.add(asset.storageKey)
-        if (publishedByRun) sourcePublishedForRetry = true
+      cleanupLabel: "media processing",
+      onFailure: async () => {
+        if (!sourcePublishedForRetry) return
+        await deleteStagedUpload(
+          await selectVideoTicketKey({ type: store.target, id }),
+        )
       },
-      retainPublishedKey: (key) => retainedKeys.add(key),
-    })
-  } catch (err) {
-    await retainRowAssetKeys(store, id, retainedKeys)
-    await cleanupFailedRun(uploadedKeys, retainedKeys)
-    if (sourcePublishedForRetry) {
-      await deleteStagedUpload(
-        await selectVideoTicketKey({ type: store.target, id }),
-      )
-    }
-    throw err
-  } finally {
-    await rm(workDir, { recursive: true, force: true }).catch((err) => {
-      logger.warn(`failed to remove media processing work dir ${workDir}:`, err)
-    })
-  }
-}
-
-export async function runThumbnailBackfill(
-  store: MediaStore,
-  id: string,
-  row: MediaRow,
-  runId: string,
-  signal: AbortSignal,
-): Promise<void> {
-  const workDir = await makeMediaWorkDir(id)
-  const uploadedKeys: string[] = []
-  const retainedKeys = new Set<string>()
-  if (row.sourceKey) retainedKeys.add(row.sourceKey)
-  if (row.cutKey) retainedKeys.add(row.cutKey)
-  if (row.thumbKey) retainedKeys.add(row.thumbKey)
-
-  try {
-    const media = await materializeEffectiveMedia(store, id, row, runId, {
-      workDir,
-      signal,
-    })
-    await ensureStillPresent(store, id, runId, signal)
-
-    const poster = await extractPosterBestEffort(media.path, workDir, {
-      durationMs: media.durationMs,
-      signal,
-    })
-    if (poster.kind === "transient-error") {
-      await store.finishThumbnailBackfill(id, runId)
-      return
-    }
-    if (poster.kind === "permanent-empty") {
-      await store.commitThumbFailed(id, runId)
-      return
-    }
-
-    const thumb = await publishRunThumbnail(
-      id,
-      runId,
-      poster.poster,
-      uploadedKeys,
-    )
-    if (!(await store.commitThumb(id, runId, thumb)))
-      throw abortMediaProcessing()
-    retainedKeys.add(thumb.thumbKey)
-    if (!(await store.finishThumbnailBackfill(id, runId)))
-      throw abortMediaProcessing()
-    store.publishUpsert(row.authorId, id)
-  } catch (err) {
-    await retainRowAssetKeys(store, id, retainedKeys)
-    await cleanupFailedRun(uploadedKeys, retainedKeys)
-    throw err
-  } finally {
-    await rm(workDir, { recursive: true, force: true }).catch((err) => {
-      logger.warn(`failed to remove thumbnail work dir ${workDir}:`, err)
-    })
-  }
+    },
+    async (workspace) => {
+      await runPipelineInWorkDir({
+        store,
+        id,
+        row,
+        runId,
+        signal,
+        workDir: workspace.workDir,
+        uploadedKeys: workspace.uploadedKeys,
+        retainSourceAsset: (asset, publishedByRun) => {
+          workspace.retainedKeys.add(asset.storageKey)
+          if (publishedByRun) sourcePublishedForRetry = true
+        },
+        retainPublishedKey: (key) => workspace.retainedKeys.add(key),
+      })
+    },
+  )
 }
 
 async function runPipelineInWorkDir({
@@ -454,7 +324,6 @@ async function runPipelineInWorkDir({
   }
 
   await ensureStillPresent(store, id, runId, signal)
-  // Snapshot the outgoing rendition keys before commitReady replaces the rows.
   const previousAssets = await store.currentAssetKeys(id)
   if (!(await store.commitStage(id, runId, "finalizing")))
     throw abortMediaProcessing()
@@ -497,213 +366,4 @@ async function runPipelineInWorkDir({
   }
   progress.complete(FINALIZE_PHASE_COST)
   store.publishUpsert(row.authorId, id)
-}
-
-async function encodeRenditionWithFallback(options: {
-  srcPath: string
-  outDir: string
-  config: TranscodingConfig
-  step: Parameters<typeof encodeRendition>[3]
-  durationMs: number
-  signal: AbortSignal
-  onProgress: (fraction: number) => void
-  onHardwareFailed: () => void
-}) {
-  try {
-    return await encodeRendition(
-      options.srcPath,
-      options.outDir,
-      options.config,
-      options.step,
-      {
-        durationMs: options.durationMs,
-        signal: options.signal,
-        onProgress: options.onProgress,
-      },
-    )
-  } catch (err) {
-    // A cancelled run rejects with AbortError — not an encoder failure, so it
-    // must not trigger the software fallback.
-    if (options.signal.aborted) throw err
-    if (options.config.hardwareAcceleration === "none") throw err
-    logger.warn(
-      `hardware ${options.config.hardwareAcceleration} encode failed for ${options.step.height}p; falling back to software:`,
-      err,
-    )
-    options.onHardwareFailed()
-    return encodeRendition(
-      options.srcPath,
-      options.outDir,
-      { ...options.config, hardwareAcceleration: "none" },
-      options.step,
-      {
-        durationMs: options.durationMs,
-        signal: options.signal,
-        onProgress: options.onProgress,
-      },
-    )
-  }
-}
-
-/**
- * Ingest-time trims (from /initiate) are validated only against the
- * client-declared duration, so clamp against the probed reality here. A
- * start beyond the media is a hard failure — silently publishing footage the
- * uploader asked to cut would be worse than a failed clip.
- */
-function trimRange(
-  row: Pick<MediaRow, "trimStartMs" | "trimEndMs">,
-  sourceDurationMs: number,
-): { startMs: number; endMs: number } | null {
-  if (row.trimStartMs == null || row.trimEndMs == null) return null
-  if (row.trimStartMs >= sourceDurationMs) {
-    throw new Error("The trim range lies outside the media duration")
-  }
-  const endMs = Math.min(row.trimEndMs, sourceDurationMs)
-  if (endMs <= row.trimStartMs) return null
-  return { startMs: row.trimStartMs, endMs }
-}
-
-async function materializeEffectiveMedia(
-  store: MediaStore,
-  id: string,
-  row: MediaRow,
-  runId: string,
-  options: { workDir: string; signal: AbortSignal },
-): Promise<{ path: string; durationMs: number }> {
-  if (!(await store.commitStage(id, runId, "downloading")))
-    throw abortMediaProcessing()
-  const mediaPath = join(options.workDir, "media.mp4")
-  if (row.cutKey) {
-    await clipStorage.downloadToFile(row.cutKey, mediaPath)
-    return {
-      path: mediaPath,
-      durationMs:
-        row.durationMs ??
-        row.sourceDurationMs ??
-        (await probeMedia(mediaPath)).durationMs,
-    }
-  }
-
-  if (!row.sourceKey) throw new Error("Clip is missing source media")
-  const sourcePath = join(options.workDir, "source")
-  await clipStorage.downloadToFile(row.sourceKey, sourcePath)
-
-  const sourceDurationMs =
-    row.sourceDurationMs ?? (await probeMedia(sourcePath)).durationMs
-  const trim = trimRange(row, sourceDurationMs)
-  if (!trim) {
-    return {
-      path: sourcePath,
-      durationMs: row.durationMs ?? sourceDurationMs,
-    }
-  }
-
-  await trimToMp4(sourcePath, mediaPath, { ...trim, signal: options.signal })
-  return {
-    path: mediaPath,
-    durationMs: row.durationMs ?? trim.endMs - trim.startMs,
-  }
-}
-
-async function extractPosterBestEffort(
-  mediaPath: string,
-  workDir: string,
-  opts: { durationMs: number; signal: AbortSignal },
-): Promise<
-  | { kind: "thumbnail"; poster: ExtractedPoster }
-  | { kind: "permanent-empty" }
-  | { kind: "transient-error" }
-> {
-  try {
-    const poster = await extractPoster(mediaPath, workDir, opts)
-    return poster ? { kind: "thumbnail", poster } : { kind: "permanent-empty" }
-  } catch (err) {
-    if (opts.signal.aborted) throw err
-    logger.warn(`poster extraction failed transiently for ${mediaPath}:`, err)
-    return { kind: "transient-error" }
-  }
-}
-
-async function pruneStaleAssets(
-  row: Pick<MediaRow, "sourceKey" | "cutKey" | "thumbKey">,
-  previousRenditionKeys: readonly string[],
-  retainedKeys: Iterable<string>,
-): Promise<void> {
-  const retained = new Set(retainedKeys)
-  const previousKeys = new Set([
-    row.sourceKey,
-    row.cutKey,
-    row.thumbKey,
-    ...previousRenditionKeys,
-  ])
-  previousKeys.delete(null)
-
-  await deleteAssetsBestEffort(
-    [...previousKeys].filter((key): key is string => key !== null),
-    retained,
-    "stale recording asset",
-  )
-}
-
-async function publishRunThumbnail(
-  id: string,
-  runId: string,
-  poster: ExtractedPoster,
-  uploadedKeys: string[],
-): Promise<{ thumbKey: string; thumbBlurHash: string }> {
-  const thumbKey = runScopedThumbKey(id, runId)
-  await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
-  uploadedKeys.push(thumbKey)
-  return { thumbKey, thumbBlurHash: poster.blurHash }
-}
-
-async function cleanupFailedRun(
-  uploadedKeys: readonly string[],
-  retainedKeys: ReadonlySet<string>,
-): Promise<void> {
-  await deleteAssetsBestEffort(
-    new Set(uploadedKeys),
-    retainedKeys,
-    "failed media processing asset",
-  )
-}
-
-/**
- * A competing run may have published while this run was failing; never delete
- * whatever the row currently points at. Best-effort: if the read fails,
- * uploadedKeys are run-scoped, so deleting them is safe regardless.
- */
-async function retainRowAssetKeys(
-  store: MediaStore,
-  id: string,
-  retainedKeys: Set<string>,
-): Promise<void> {
-  try {
-    const fresh = await store.currentAssetKeys(id)
-    if (fresh?.sourceKey) retainedKeys.add(fresh.sourceKey)
-    if (fresh?.cutKey) retainedKeys.add(fresh.cutKey)
-    if (fresh?.thumbKey) retainedKeys.add(fresh.thumbKey)
-    for (const key of fresh?.renditionKeys ?? []) retainedKeys.add(key)
-  } catch (err) {
-    logger.warn(`failed to retain row asset keys for ${id}:`, err)
-  }
-}
-
-async function deleteAssetsBestEffort(
-  keys: Iterable<string>,
-  retainedKeys: ReadonlySet<string>,
-  label: string,
-): Promise<void> {
-  await Promise.all(
-    [...keys]
-      .filter((key) => !retainedKeys.has(key))
-      .map(async (key) => {
-        try {
-          await clipStorageForKey(key).delete(key)
-        } catch (err) {
-          logger.warn(`failed to delete ${label} ${key}:`, err)
-        }
-      }),
-  )
 }

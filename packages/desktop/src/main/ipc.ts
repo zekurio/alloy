@@ -2,25 +2,17 @@ import { normalizeRecordingSettings } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 
-import type { ConnectResult, ProbeResult } from "@/shared/ipc"
 import { IPC } from "@/shared/ipc"
 
 import { getAutostartState, setAutostartEnabled } from "./autostart"
-import { loginViaBrowser } from "./browser-login"
 import { showDesktopNotification } from "./desktop-notification"
-import {
-  requireControllableWindow,
-  requireDesktopSender,
-  requireDesktopServerStateSender,
-  requireMainSender,
-  requireOverlaySender,
-} from "./ipc-guards"
+import { requireDesktopSender, requireMainSender } from "./ipc-guards"
 import {
   isNotificationSoundEvent,
   normalizeSaveReplayClipRequest,
 } from "./ipc-normalizers"
 import { registerRecordingLibraryIpc } from "./ipc-recording-library"
-import { probeServer } from "./probe"
+import { registerServerIpc } from "./ipc-server"
 import {
   configureRecordingBackend,
   emitRecordingSettingsEvent,
@@ -41,15 +33,7 @@ import {
   listNotificationSoundLibrary,
   playRecordingNotificationSound,
 } from "./recording-notification-sounds"
-import {
-  forgetServer,
-  getRecordingSettings,
-  getSavedServers,
-  getStartupServerUrl,
-  rememberServer,
-  saveRecordingSettings,
-} from "./server-store"
-import { clearRemoteWebCache, hasStoredSession } from "./session"
+import { getRecordingSettings, saveRecordingSettings } from "./server-store"
 import {
   checkForUpdatesNow,
   getUpdateState,
@@ -58,8 +42,6 @@ import {
 } from "./updater"
 import type { Windows } from "./windows"
 
-const SETUP_REQUIRED_ERROR =
-  "This Alloy server needs setup. Finish setup in your browser, then connect again."
 /**
  * Register the overlay's privileged IPC surface. Handlers are intentionally
  * thin: validate input, mutate persisted state, drive the windows. All channels
@@ -122,105 +104,6 @@ function registerNotificationIpc(windows: Windows): void {
     requireMainSender(windows, event)
     showDesktopNotification(windows, input)
   })
-}
-
-function registerServerIpc(windows: Windows): void {
-  ipcMain.handle(IPC.probe, (event, url: unknown): Promise<ProbeResult> => {
-    requireOverlaySender(windows, event)
-    if (typeof url !== "string") {
-      return Promise.resolve({ ok: false, error: "Enter a server URL." })
-    }
-    return probeServer(url)
-  })
-
-  ipcMain.handle(
-    IPC.connect,
-    async (event, url: unknown, options: unknown): Promise<ConnectResult> => {
-      requireDesktopSender(windows, event)
-      if (typeof url !== "string") {
-        return { ok: false, error: "Enter a server URL." }
-      }
-      const forceBrowserLogin = connectOptions(options).forceBrowserLogin
-      // Re-probe before committing so we only ever persist + load a URL we just
-      // confirmed is a reachable Alloy server.
-      const result = await probeServer(url)
-      if (!result.ok) return { ok: false, error: result.error }
-      if (result.config.setupRequired) {
-        await shell
-          .openExternal(new URL("/setup", result.serverUrl).toString())
-          .catch(() => undefined)
-        return { ok: false, error: SETUP_REQUIRED_ERROR }
-      }
-
-      // Let the server and web app validate stored credentials during normal
-      // navigation. A separate validation request could rotate a refresh token
-      // and strand it if the request is interrupted. Browser login is only
-      // required when no usable local auth cookie exists.
-      if (forceBrowserLogin || !(await hasStoredSession(result.serverUrl))) {
-        const login = await loginViaBrowser(result.serverUrl)
-        if (!login.ok) return { ok: false, error: login.error }
-      }
-
-      rememberServer(result.serverUrl)
-      await clearRemoteWebCache()
-      windows.connectTo(result.serverUrl)
-      return { ok: true, serverUrl: result.serverUrl }
-    },
-  )
-  ipcMain.handle(IPC.openConnect, (event) => {
-    requireDesktopSender(windows, event)
-    windows.openConnect()
-  })
-  ipcMain.handle(IPC.openLibrary, (event) => {
-    requireMainSender(windows, event)
-    windows.openLibrary()
-  })
-
-  ipcMain.handle(IPC.getStartupServer, (event): string | null => {
-    requireOverlaySender(windows, event)
-    return getStartupServerUrl()
-  })
-  ipcMain.handle(IPC.getServers, (event) => {
-    requireDesktopServerStateSender(windows, event)
-    return getSavedServers()
-  })
-  ipcMain.handle(IPC.getCurrentServer, (event) => {
-    requireDesktopServerStateSender(windows, event)
-    return windows.currentServerUrl()
-  })
-  ipcMain.handle(IPC.forgetServer, (event, url: unknown) => {
-    requireDesktopSender(windows, event)
-    if (typeof url !== "string") return getSavedServers()
-    return forgetServer(url)
-  })
-  ipcMain.handle(IPC.openSettings, (event) => {
-    requireDesktopSender(windows, event)
-    windows.openSettings()
-  })
-  ipcMain.handle(IPC.minimizeWindow, (event) => {
-    const window = requireControllableWindow(windows, event)
-    window.minimize()
-  })
-  ipcMain.handle(IPC.toggleMaximizeWindow, (event) => {
-    const window = requireControllableWindow(windows, event)
-    if (window.isMaximized()) {
-      window.unmaximize()
-      return
-    }
-    window.maximize()
-  })
-  ipcMain.handle(IPC.closeWindow, (event) => {
-    const window = requireControllableWindow(windows, event)
-    window.close()
-  })
-}
-
-function connectOptions(value: unknown): { forceBrowserLogin: boolean } {
-  if (!value || typeof value !== "object") return { forceBrowserLogin: false }
-  return {
-    forceBrowserLogin:
-      (value as { forceBrowserLogin?: unknown }).forceBrowserLogin === true,
-  }
 }
 
 function registerRecordingIpc(windows: Windows): void {

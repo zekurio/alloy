@@ -17,30 +17,7 @@ import type { LibraryItemView } from "./library-data"
 
 const ACCEPTED_EXPORT_TYPES = new Set<AcceptedContentType>(["video/mp4"])
 
-function acceptedContentType(value: string): AcceptedContentType {
-  if (ACCEPTED_EXPORT_TYPES.has(value as AcceptedContentType)) {
-    return value as AcceptedContentType
-  }
-  throw new Error("Exported clip type is not supported for upload.")
-}
-
-/**
- * Enqueues a capture publish job. The upload flow owns the slow export/probe
- * work so the editor can return to the library immediately.
- */
-export async function exportAndPublishCapture({
-  desktop,
-  item,
-  trim,
-  title,
-  description,
-  tags,
-  game,
-  privacy,
-  mentions,
-  publishClip,
-  posterUrl,
-}: {
+type CapturePublishInput = {
   desktop: AlloyDesktop
   item: LibraryItemView
   trim: { startMs: number; endMs: number }
@@ -53,57 +30,41 @@ export async function exportAndPublishCapture({
   mentions: UserSearchResult[]
   publishClip: PublishClipFn
   posterUrl?: string | null
-}): Promise<PublishClipResult> {
-  return publishClip({
+}
+
+function acceptedContentType(value: string): AcceptedContentType {
+  if (ACCEPTED_EXPORT_TYPES.has(value as AcceptedContentType)) {
+    return value as AcceptedContentType
+  }
+  throw new Error("Exported clip type is not supported for upload.")
+}
+
+/**
+ * Enqueues a capture publish job. The upload flow owns the slow export/probe
+ * work so the editor can return to the library immediately.
+ */
+export async function exportAndPublishCapture(
+  input: CapturePublishInput,
+): Promise<PublishClipResult> {
+  return input.publishClip({
     kind: "deferred",
-    title,
-    sizeBytes: estimatedExportSizeBytes(item, trim),
-    thumbUrl: posterUrl ?? item.thumbnailUrl,
-    thumbBlurHash: item.thumbBlurHash,
-    localCaptureId: item.id,
-    prepare: (signal) =>
-      prepareCapturePublishPayload({
-        desktop,
-        item,
-        trim,
-        title,
-        description,
-        tags,
-        game,
-        privacy,
-        mentions,
-        signal,
-      }),
+    title: input.title,
+    sizeBytes: estimatedExportSizeBytes(input.item, input.trim),
+    thumbUrl: input.posterUrl ?? input.item.thumbnailUrl,
+    thumbBlurHash: input.item.thumbBlurHash,
+    localCaptureId: input.item.id,
+    prepare: (signal) => prepareCapturePublishPayload(input, signal),
   })
 }
 
-async function prepareCapturePublishPayload({
-  desktop,
-  item,
-  trim,
-  title,
-  description,
-  tags,
-  game,
-  privacy,
-  mentions,
-  signal,
-}: {
-  desktop: AlloyDesktop
-  item: LibraryItemView
-  trim: { startMs: number; endMs: number }
-  title: string
-  description: string
-  tags: string
-  game: GameRow | null
-  privacy: ClipPrivacy
-  mentions: UserSearchResult[]
-  signal: AbortSignal
-}) {
+async function prepareCapturePublishPayload(
+  input: CapturePublishInput,
+  signal: AbortSignal,
+) {
   throwIfAborted(signal)
-  const exported = await desktop.recording.exportLibraryCapture({
-    id: item.id,
-    segments: [{ startMs: trim.startMs, endMs: trim.endMs }],
+  const exported = await input.desktop.recording.exportLibraryCapture({
+    id: input.item.id,
+    segments: [{ startMs: input.trim.startMs, endMs: input.trim.endMs }],
   })
   throwIfAborted(signal)
   const response = await fetch(exported.mediaUrl, { signal })
@@ -121,17 +82,17 @@ async function prepareCapturePublishPayload({
   return {
     file: selected.file,
     contentType: selected.contentType,
-    title,
-    description: nullableClipDescription(description),
-    tags: parseTagString(tags),
-    gameId: game?.id ?? null,
-    privacy,
+    title: input.title,
+    description: nullableClipDescription(input.description),
+    tags: parseTagString(input.tags),
+    gameId: input.game?.id ?? null,
+    privacy: input.privacy,
     width: selected.width,
     height: selected.height,
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
-    mentionedUserIds: mentions.map((mention) => mention.id),
-    localCaptureId: item.id,
+    mentionedUserIds: input.mentions.map((mention) => mention.id),
+    localCaptureId: input.item.id,
   }
 }
 
