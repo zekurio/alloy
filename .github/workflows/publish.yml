@@ -75,6 +75,8 @@ jobs:
           INPUT_VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # JavaScript template expressions must remain literal for node -e.
+          # shellcheck disable=SC2016
           current="$(node -e '
             const { readFileSync } = require("node:fs");
             const version = JSON.parse(readFileSync("package.json", "utf8")).version;
@@ -108,6 +110,7 @@ jobs:
             echo "Recovering unpublished release v$current."
             version="$current"
           else
+            # shellcheck disable=SC2016
             version="$(CURRENT="$current" BUMP="$INPUT_BUMP" node -e '
               const [major, minor, patch] = process.env.CURRENT.split(".").map(Number);
               const bump = process.env.BUMP || "patch";
