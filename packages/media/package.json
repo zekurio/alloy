@@ -10,6 +10,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "mediabunny": "1.46.0"
+    "mediabunny": "1.50.8"
   }
 }
