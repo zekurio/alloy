@@ -82,6 +82,7 @@ const recording: AlloyDesktopRecordingApi = {
 const updates: AlloyDesktopUpdatesApi = {
   getState: () => ipcRenderer.invoke(IPC.getUpdateState),
   checkForUpdates: () => ipcRenderer.invoke(IPC.checkForUpdates),
+  downloadUpdate: () => ipcRenderer.invoke(IPC.downloadUpdate),
   restartToInstall: () => ipcRenderer.invoke(IPC.restartToInstallUpdate),
   onState: (listener) => {
     const handler = (_event: unknown, state: unknown) => {

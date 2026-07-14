@@ -11,13 +11,10 @@ const logger = createLogger("updater")
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
 const INITIAL_UPDATE_CHECK_DELAY_MS = 30 * 1000
-const UPDATE_DOWNLOAD_DELAY_MS = 10 * 1000
-
 let state: DesktopUpdateState = idleUpdateState()
 let initialized = false
 let checkInterval: ReturnType<typeof setInterval> | null = null
 let pendingCheckTimer: ReturnType<typeof setTimeout> | null = null
-let pendingDownloadTimer: ReturnType<typeof setTimeout> | null = null
 let checkInFlight = false
 let downloadInFlight = false
 const stateListeners = new Set<(state: DesktopUpdateState) => void>()
@@ -38,7 +35,38 @@ export async function checkForUpdatesNow(): Promise<DesktopUpdateState> {
 
   ensureBackgroundChecks()
   clearPendingCheck()
-  return runUpdateCheck({ force: true })
+  return runUpdateCheck()
+}
+
+/** Downloads the pending update only after an explicit user action. */
+export async function downloadUpdateNow(): Promise<DesktopUpdateState> {
+  if (!app.isPackaged) {
+    logger.info("manual update download skipped in development")
+    return state
+  }
+
+  if (!initialized) initAutoUpdater()
+  if (downloadInFlight || state.status === "downloaded") return state
+  if (state.status !== "available" || !state.version) {
+    logger.warn("download requested but no update is available; ignoring")
+    return state
+  }
+
+  const version = state.version
+  downloadInFlight = true
+  setState({ ...idleUpdateState(), status: "downloading", version })
+  try {
+    await autoUpdater.downloadUpdate()
+    return state
+  } catch (cause) {
+    logger.warn("update download failed:", cause)
+    if (getUpdateState().status !== "downloaded") {
+      setState({ ...idleUpdateState(), status: "available", version })
+    }
+    throw cause
+  } finally {
+    downloadInFlight = false
+  }
 }
 
 /** Subscribe to update-state changes (used to push events to windows). */
@@ -94,9 +122,8 @@ function idleUpdateState(): DesktopUpdateState {
  * Background auto-update from the GitHub releases feed. electron-builder
  * embeds `app-update.yml` (from the `publish` config) into packaged builds,
  * which is where the updater finds the repo; published releases expose
- * `latest.yml` plus the installer. The updater downloads in the background
- * and surfaces a "restart to update" entry in the web app sidebar via the
- * bridge state above.
+ * `latest.yml` plus the installer. Checks run in the background, while download
+ * and installation remain explicit user actions surfaced through the web app.
  */
 export function initAutoUpdater(): void {
   if (initialized) return
@@ -126,10 +153,9 @@ export function initAutoUpdater(): void {
     logger.info(`update available: ${info.version}`)
     setState({
       ...idleUpdateState(),
-      status: "downloading",
+      status: "available",
       version: info.version,
     })
-    scheduleUpdateDownload(info.version)
   })
   autoUpdater.on("update-downloaded", (info) => {
     logger.info(`update ${info.version} downloaded; waiting for restart`)
@@ -145,7 +171,7 @@ export function initAutoUpdater(): void {
   // checks are routine for a desktop app, so log at warn rather than error.
   autoUpdater.on("error", (cause) => {
     logger.warn("update check failed:", cause)
-    if (state.status !== "downloaded") {
+    if (state.status === "checking") {
       setState(idleUpdateState())
     }
   })
@@ -175,69 +201,26 @@ function scheduleUpdateCheck(delayMs: number): void {
   clearPendingCheck()
   pendingCheckTimer = setTimeout(() => {
     pendingCheckTimer = null
-    void runUpdateCheck()
+    void runUpdateCheck().catch(() => {
+      // Failures already surface through the updater's error event and logs.
+    })
   }, delayMs)
 }
 
-async function runUpdateCheck(
-  options: { force?: boolean } = {},
-): Promise<DesktopUpdateState> {
-  if (checkInFlight) return state
-  if (state.status === "downloaded" || state.status === "downloading") {
-    return state
-  }
-  if (!options.force && state.status !== "idle") return state
+async function runUpdateCheck(): Promise<DesktopUpdateState> {
+  if (checkInFlight || state.status !== "idle") return state
 
   checkInFlight = true
-  if (state.status === "idle") {
-    setState({ ...idleUpdateState(), status: "checking" })
+  setState({ ...idleUpdateState(), status: "checking" })
+  try {
+    await autoUpdater.checkForUpdates()
+    return state
+  } finally {
+    checkInFlight = false
   }
-  await autoUpdater
-    .checkForUpdates()
-    .catch(() => {
-      // Failures already surface through the "error" event.
-    })
-    .finally(() => {
-      checkInFlight = false
-    })
-  return state
 }
-
-function scheduleUpdateDownload(version: string): void {
-  clearPendingDownload()
-  pendingDownloadTimer = setTimeout(() => {
-    pendingDownloadTimer = null
-    if (
-      downloadInFlight ||
-      state.status !== "downloading" ||
-      state.version !== version
-    ) {
-      return
-    }
-
-    downloadInFlight = true
-    void autoUpdater
-      .downloadUpdate()
-      .catch((cause) => {
-        logger.warn("update download failed:", cause)
-        if (state.status !== "downloaded") {
-          setState(idleUpdateState())
-        }
-      })
-      .finally(() => {
-        downloadInFlight = false
-      })
-  }, UPDATE_DOWNLOAD_DELAY_MS)
-}
-
 function clearPendingCheck(): void {
   if (!pendingCheckTimer) return
   clearTimeout(pendingCheckTimer)
   pendingCheckTimer = null
-}
-
-function clearPendingDownload(): void {
-  if (!pendingDownloadTimer) return
-  clearTimeout(pendingDownloadTimer)
-  pendingDownloadTimer = null
 }

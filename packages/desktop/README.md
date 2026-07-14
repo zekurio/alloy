@@ -99,8 +99,8 @@ Release builds require `obs.dll` in either the staged or configured runtime.
 
 Desktop releases ship on a single channel. The publish workflow stamps the
 desktop package version before building and publishes `latest.yml` next to the
-Windows installer, so packaged builds auto-update from the GitHub releases feed.
-Check for updates or restart into a downloaded update from Desktop > Updates.
+Windows installer, so packaged builds check the GitHub releases feed in the
+background. Download and install updates manually from Desktop > Updates.
 
 GitHub Release assets are desktop-only: the unsigned Windows NSIS installer,
 blockmap, updater metadata, and checksums from `packages/desktop/release`.

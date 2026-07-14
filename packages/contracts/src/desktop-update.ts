@@ -6,9 +6,9 @@
 export type DesktopUpdateStatus =
   | "idle"
   | "checking"
+  | "available"
   | "downloading"
   | "downloaded"
-
 export interface DesktopUpdateState {
   status: DesktopUpdateStatus
   /** Version currently running on this machine, e.g. "0.1.0". */
@@ -22,6 +22,8 @@ export interface AlloyDesktopUpdatesApi {
   getState(): Promise<DesktopUpdateState>
   /** Runs an immediate update check instead of waiting for the background interval. */
   checkForUpdates?(): Promise<DesktopUpdateState>
+  /** Downloads the available update after the user confirms the action. */
+  downloadUpdate?(): Promise<DesktopUpdateState>
   /** Quits and installs the downloaded update; no-op when none is ready. */
   restartToInstall(): Promise<void>
   onState(listener: (state: DesktopUpdateState) => void): () => void
