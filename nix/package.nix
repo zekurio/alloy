@@ -14,7 +14,7 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-qHkRCUyLi73UzQa/GAD84Yf5zV4+aTACzrQSNKS/clA=",
+  pnpmDepsHash ? "sha256-hPVdoXEF863acGpY1xnt76QqtPXLM3OqNDMaF2RUMDU=",
 }:
 
 stdenvNoCC.mkDerivation (finalAttrs: {
