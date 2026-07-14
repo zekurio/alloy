@@ -50,8 +50,8 @@ importers:
         specifier: 4.12.29
         version: 4.12.29
       react:
-        specifier: 19.2.7
-        version: 19.2.7
+        specifier: 19.2.5
+        version: 19.2.5
     devDependencies:
       '@types/react':
         specifier: 19.2.17
@@ -3252,10 +3252,6 @@ packages:
     resolution: {integrity: sha512-llUJLzz1zTUBrskt2pwZgLq59AemifIftw4aB7JxOqf1HY2FDaGDxgwpAPVzHU1kdWabH7FauP4i1oEeer2WCA==}
     engines: {node: '>=0.10.0'}
 
-  react@19.2.7:
-    resolution: {integrity: sha512-HNe9WslTbXmFK8o8cmwgAeJFSBvt1bPdHCVKtaaV+WlAN36mpT4hcRpwbf3fY56ar2oIXzsBpOAiIRHAdY0OlQ==}
-    engines: {node: '>=0.10.0'}
-
   read-binary-file-arch@1.0.6:
     resolution: {integrity: sha512-BNg9EN3DD3GsDXX7Aa8O4p92sryjkmzYYgmgTAc6CA4uGLEDzFfxOxugu21akOxpcXHiEgsYkC6nPsQvLLLmEg==}
     hasBin: true
@@ -4009,7 +4005,7 @@ snapshots:
       node-gyp: 11.5.0
       ora: 5.4.1
       read-binary-file-arch: 1.0.6
-      semver: 7.8.2
+      semver: 7.8.5
       tar: 7.5.16
       yargs: 17.7.2
     transitivePeerDependencies:
@@ -4378,7 +4374,7 @@ snapshots:
 
   '@npmcli/fs@4.0.0':
     dependencies:
-      semver: 7.8.2
+      semver: 7.8.5
 
   '@oxc-project/types@0.133.0': {}
 
@@ -5829,7 +5825,7 @@ snapshots:
       es6-error: 4.1.1
       matcher: 3.0.0
       roarr: 2.15.4
-      semver: 7.8.2
+      semver: 7.8.5
       serialize-error: 7.0.1
     optional: true
 
@@ -6184,11 +6180,11 @@ snapshots:
 
   node-abi@4.31.0:
     dependencies:
-      semver: 7.8.2
+      semver: 7.8.5
 
   node-api-version@0.2.1:
     dependencies:
-      semver: 7.8.2
+      semver: 7.8.5
 
   node-gyp@11.5.0:
     dependencies:
@@ -6198,7 +6194,7 @@ snapshots:
       make-fetch-happen: 14.0.3
       nopt: 8.1.0
       proc-log: 5.0.0
-      semver: 7.8.2
+      semver: 7.8.5
       tar: 7.5.16
       tinyglobby: 0.2.17
       which: 5.0.0
@@ -6463,8 +6459,6 @@ snapshots:
   react-refresh@0.18.0: {}
 
   react@19.2.5: {}
-
-  react@19.2.7: {}
 
   read-binary-file-arch@1.0.6:
     dependencies:
