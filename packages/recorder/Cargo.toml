@@ -12,7 +12,7 @@ chrono = { version = "0.4", default-features = false, features = [
   "clock",
   "std",
 ] }
-libloading = "0.8"
+libloading = "0.9"
 regex = "1"
 rodio = "0.22.2"
 serde = { version = "1", features = ["derive"] }
