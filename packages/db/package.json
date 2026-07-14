@@ -20,8 +20,8 @@
     "@alloy/env": "workspace:*",
     "@alloy/logging": "workspace:*",
     "drizzle-orm": "0.45.2",
-    "pg": "8.21.0",
-    "zod": "4.3.6"
+    "pg": "8.22.0",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "drizzle-kit": "0.31.10"
