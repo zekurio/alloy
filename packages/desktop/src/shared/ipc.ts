@@ -64,6 +64,7 @@ export const IPC = {
   getCurrentServer: "alloy:get-current-server",
   forgetServer: "alloy:forget-server",
   openSettings: "alloy:open-settings",
+  reloadApp: "alloy:reload-app",
   showNotification: "alloy:show-notification",
   getRecordingSettings: "alloy:get-recording-settings",
   setRecordingSettings: "alloy:set-recording-settings",
@@ -234,6 +235,7 @@ export interface AlloyDesktopMarker {
   openConnect(): Promise<void>
   openLibrary(): Promise<void>
   openSettings(): Promise<void>
+  reloadApp(): Promise<void>
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
   updates: AlloyDesktopUpdatesApi
