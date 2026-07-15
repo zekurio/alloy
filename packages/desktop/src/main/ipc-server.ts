@@ -92,6 +92,12 @@ function registerServerWindowControlIpc(windows: Windows): void {
     requireDesktopSender(windows, event)
     windows.openSettings()
   })
+  ipcMain.handle(IPC.reloadApp, (event) => {
+    const window = requireControllableWindow(windows, event)
+    setTimeout(() => {
+      if (!window.isDestroyed()) window.webContents.reloadIgnoringCache()
+    }, 0)
+  })
   ipcMain.handle(IPC.minimizeWindow, (event) => {
     const window = requireControllableWindow(windows, event)
     window.minimize()

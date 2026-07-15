@@ -113,6 +113,7 @@ const marker: AlloyDesktopMarker = {
   openConnect: () => ipcRenderer.invoke(IPC.openConnect),
   openLibrary: () => ipcRenderer.invoke(IPC.openLibrary),
   openSettings: () => ipcRenderer.invoke(IPC.openSettings),
+  reloadApp: () => ipcRenderer.invoke(IPC.reloadApp),
   servers,
   recording,
   updates,

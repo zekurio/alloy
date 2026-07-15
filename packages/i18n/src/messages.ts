@@ -287,8 +287,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Connection timed out.": "Zeitüberschreitung bei der Verbindung.",
   "Continue with {displayName}": "Mit {displayName} fortfahren",
   "Continue with a passkey": "Mit Passkey fortfahren",
-  "Control whether Alloy starts when you sign in.":
-    "Steuere, ob Alloy beim Anmelden gestartet wird.",
   "Copy error": "Fehler kopieren",
   "Copy link": "Link kopieren",
   "Could not clear staged import.":
@@ -590,7 +588,6 @@ export const DE_MESSAGES: Record<string, string> = {
   kbps: "kbps",
   "Keep between 1 and 6 rendition tiers.":
     "Behalte zwischen 1 und 6 Qualitätsstufen bei.",
-  "Keep the desktop app up to date.": "Halte die Desktop-App aktuell.",
   landscape: "Querformat",
   Language: "Sprache",
   "Last used": "Zuletzt verwendet",
@@ -953,7 +950,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Starred: "Markiert",
   "Start Alloy when you sign in": "Alloy beim Anmelden starten",
   "Start typing to search": "Tippe los, um zu suchen",
-  Startup: "Autostart",
   "Stereo AAC bitrate applied to every rendition.":
     "Stereo-AAC-Bitrate, die auf jede Qualitätsstufe angewendet wird.",
   Stop: "Stoppen",

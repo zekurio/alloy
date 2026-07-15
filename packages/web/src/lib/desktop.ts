@@ -141,6 +141,8 @@ export interface AlloyDesktop {
   openConnect(): Promise<void>
   openLibrary(): Promise<void>
   openSettings(): Promise<void>
+  /** Missing on desktop shells that predate deployment recovery. */
+  reloadApp?(): Promise<void>
   servers: AlloyDesktopServerApi
   recording: AlloyDesktopRecordingApi
   updates?: AlloyDesktopUpdatesApi
