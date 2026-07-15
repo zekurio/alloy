@@ -140,19 +140,10 @@ export function DesktopAppPanel() {
         <DesktopServerSettings />
       </SettingsSubsection>
       <hr className="border-border" />
-      <SettingsSubsection
-        title={t("Startup")}
-        description={t("Control whether Alloy starts when you sign in.")}
-      >
+      <div className="flex flex-col">
         <DesktopAutostartSettings />
-      </SettingsSubsection>
-      <hr className="border-border" />
-      <SettingsSubsection
-        title={t("Updates")}
-        description={t("Keep the desktop app up to date.")}
-      >
         <DesktopUpdateSettings />
-      </SettingsSubsection>
+      </div>
     </div>
   )
 }
