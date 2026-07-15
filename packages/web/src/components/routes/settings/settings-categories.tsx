@@ -7,7 +7,6 @@ import {
   t,
   type Locale,
 } from "@alloy/i18n"
-import { Section, SectionContent } from "@alloy/ui/components/section"
 import {
   Select,
   SelectContent,
@@ -239,46 +238,44 @@ function PreferencesPanel() {
   }
 
   return (
-    <Section>
-      <SectionContent className="py-0">
-        <SettingRow
-          title={t("Theme")}
-          description={t("Choose how Alloy looks.")}
-          htmlFor="theme"
-        >
-          <Select value={theme} onValueChange={changeTheme}>
-            <SelectTrigger id="theme" size="sm" className="w-40">
-              <SelectValue>{THEME_LABELS[theme]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent align="end">
-              {THEMES.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {THEME_LABELS[option]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </SettingRow>
-        <SettingRow
-          title={t("Language")}
-          description={t("Choose the language used by Alloy.")}
-          htmlFor="locale"
-        >
-          <Select value={locale} onValueChange={changeLocale}>
-            <SelectTrigger id="locale" size="sm" className="w-40">
-              <SelectValue>{LOCALE_LABELS[locale]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent align="end">
-              {SUPPORTED_LOCALES.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {LOCALE_LABELS[option]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </SettingRow>
-      </SectionContent>
-    </Section>
+    <div className="flex flex-col">
+      <SettingRow
+        title={t("Theme")}
+        description={t("Choose how Alloy looks.")}
+        htmlFor="theme"
+      >
+        <Select value={theme} onValueChange={changeTheme}>
+          <SelectTrigger id="theme" size="sm" className="w-40">
+            <SelectValue>{THEME_LABELS[theme]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent align="end">
+            {THEMES.map((option) => (
+              <SelectItem key={option} value={option}>
+                {THEME_LABELS[option]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingRow>
+      <SettingRow
+        title={t("Language")}
+        description={t("Choose the language used by Alloy.")}
+        htmlFor="locale"
+      >
+        <Select value={locale} onValueChange={changeLocale}>
+          <SelectTrigger id="locale" size="sm" className="w-40">
+            <SelectValue>{LOCALE_LABELS[locale]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent align="end">
+            {SUPPORTED_LOCALES.map((option) => (
+              <SelectItem key={option} value={option}>
+                {LOCALE_LABELS[option]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </SettingRow>
+    </div>
   )
 }
 

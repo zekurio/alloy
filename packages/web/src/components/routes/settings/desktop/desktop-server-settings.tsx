@@ -140,10 +140,13 @@ export function DesktopAppPanel() {
         <DesktopServerSettings />
       </SettingsSubsection>
       <hr className="border-border" />
-      <div className="flex flex-col">
+      <SettingsSubsection
+        title={t("Startup & updates")}
+        description={t("Control launch behavior and desktop app updates.")}
+      >
         <DesktopAutostartSettings />
         <DesktopUpdateSettings />
-      </div>
+      </SettingsSubsection>
     </div>
   )
 }
@@ -209,7 +212,7 @@ function SavedServerList({
 }) {
   if (phase === "loading") {
     return (
-      <div className="text-foreground-muted flex h-16 items-center justify-center gap-2 text-sm">
+      <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />
         {t("Loading servers")}
       </div>
@@ -218,7 +221,7 @@ function SavedServerList({
 
   if (servers.length === 0) {
     return (
-      <p className="text-foreground-muted text-sm">
+      <p className="text-foreground-dim text-xs">
         {t("No saved servers yet.")}
       </p>
     )
@@ -260,7 +263,7 @@ function SavedServerRow({
   forgetServer: (serverUrl: string) => Promise<void>
 }) {
   return (
-    <div className="not-last:border-border flex min-h-14 items-center gap-2 py-2.5 not-last:border-b first:pt-0 last:pb-0">
+    <div className="not-last:border-border flex items-center gap-2 py-3 not-last:border-b first:pt-0 last:pb-0">
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <span className="truncate text-sm font-medium">
@@ -273,9 +276,8 @@ function SavedServerRow({
             </span>
           ) : null}
         </div>
-        <div className="text-foreground-faint mt-0.5 text-xs">
-          {t("Last used")}
-          {formatLastConnected(server.lastConnectedAt)}
+        <div className="text-foreground-dim mt-0.5 text-xs">
+          {t("Last used")} {formatLastConnected(server.lastConnectedAt)}
         </div>
       </div>
 

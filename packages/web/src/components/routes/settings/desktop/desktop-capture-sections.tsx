@@ -1,35 +1,40 @@
 import type { RecordingSettings, RecordingStatus } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
+import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
+import type { ReactNode } from "react"
 
 export function ModeSection({
   settings,
   status,
   busy,
   save,
+  children,
 }: {
   settings: RecordingSettings
   status: RecordingStatus
   busy: boolean
   save: (next: RecordingSettings) => Promise<void>
+  /** Extra rows stacked below the capture toggle in the same row group. */
+  children?: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold">{t("Capture with Alloy")}</div>
-          <p className="text-foreground-dim mt-0.5 text-xs">
-            {t(
-              "Auto-detect a game or display and keep the replay buffer ready.",
-            )}
-          </p>
-        </div>
-        <Switch
-          checked={settings.enabled}
-          disabled={busy}
-          onCheckedChange={(enabled) => void save({ ...settings, enabled })}
-        />
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col">
+        <SettingRow
+          title={t("Capture with Alloy")}
+          description={t(
+            "Auto-detect a game or display and keep the replay buffer ready.",
+          )}
+        >
+          <Switch
+            checked={settings.enabled}
+            disabled={busy}
+            onCheckedChange={(enabled) => void save({ ...settings, enabled })}
+          />
+        </SettingRow>
+        {children}
       </div>
 
       <div

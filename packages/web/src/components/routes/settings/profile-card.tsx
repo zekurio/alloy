@@ -250,15 +250,15 @@ export function ProfileCard({
         }}
       >
         <Section>
-          <SectionContent className="flex flex-col gap-3.5 py-0">
+          <SectionContent className="flex flex-col gap-3 py-0">
             {/* Live profile preview — a miniature of the real profile header.
                 Click the banner or avatar to change or remove it. */}
             <div>
               <div className="mb-2 flex items-baseline justify-between gap-3">
-                <div className="text-foreground text-sm font-medium">
+                <h3 className="text-foreground text-sm font-semibold">
                   {t("Profile preview")}
-                </div>
-                <p className="text-foreground-faint hidden text-xs sm:block">
+                </h3>
+                <p className="text-foreground-dim hidden text-xs sm:block">
                   {t("Click media to edit.")}
                 </p>
               </div>

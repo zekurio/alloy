@@ -158,37 +158,41 @@ export function DesktopAudioSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <SettingRow
-        title={t("Capture audio from")}
-        description={t(
-          "Record individual playback and capture devices, or per-application audio streams.",
-        )}
-        htmlFor="desktop-recording-audio-mode"
-      >
-        <Select
-          value={settings.audioMode}
-          disabled={controlsDisabled}
-          onValueChange={(value) => {
-            const audioMode = asLiteral(value, DESKTOP_RECORDING_AUDIO_MODES)
-            if (audioMode) void save({ ...settings, audioMode })
-          }}
+      <div className="flex flex-col">
+        <SettingRow
+          title={t("Capture audio from")}
+          description={t(
+            "Record individual playback and capture devices, or per-application audio streams.",
+          )}
+          htmlFor="desktop-recording-audio-mode"
         >
-          <SelectTrigger
-            id="desktop-recording-audio-mode"
-            size="sm"
-            className="w-40"
+          <Select
+            value={settings.audioMode}
+            disabled={controlsDisabled}
+            onValueChange={(value) => {
+              const audioMode = asLiteral(value, DESKTOP_RECORDING_AUDIO_MODES)
+              if (audioMode) void save({ ...settings, audioMode })
+            }}
           >
-            <SelectValue>{AUDIO_MODE_LABELS[settings.audioMode]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent align="end">
-            {DESKTOP_RECORDING_AUDIO_MODES.map((mode) => (
-              <SelectItem key={mode} value={mode}>
-                {AUDIO_MODE_LABELS[mode]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </SettingRow>
+            <SelectTrigger
+              id="desktop-recording-audio-mode"
+              size="sm"
+              className="w-40"
+            >
+              <SelectValue>{AUDIO_MODE_LABELS[settings.audioMode]}</SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end">
+              {DESKTOP_RECORDING_AUDIO_MODES.map((mode) => (
+                <SelectItem key={mode} value={mode}>
+                  {AUDIO_MODE_LABELS[mode]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
+      </div>
+
+      <hr className="border-border" />
 
       {settings.audioMode === "devices" ? (
         <AudioDeviceList
@@ -251,7 +255,7 @@ function AudioDeviceList({
     // are no microphones rather than showing a full empty state.
     if (kinds) return null
     return (
-      <p className="text-foreground-dim py-2 text-xs">
+      <p className="text-foreground-dim text-xs">
         {t("No audio devices are available.")}
       </p>
     )
@@ -267,8 +271,8 @@ function AudioDeviceList({
 
         const Icon = AUDIO_DEVICE_ICONS[group.kind]
         return (
-          <section key={group.kind} className="flex flex-col gap-2">
-            <h3 className="border-border text-foreground flex items-center gap-2 border-b pb-2 text-sm font-semibold">
+          <section key={group.kind} className="flex flex-col gap-3">
+            <h3 className="text-foreground flex items-center gap-2 text-sm font-semibold">
               <Icon className="text-foreground-muted size-4" />
               {group.title}
             </h3>
@@ -339,7 +343,7 @@ function AudioApplicationList({
 }) {
   if (applications.length === 0) {
     return (
-      <p className="text-foreground-dim py-2 text-xs">
+      <p className="text-foreground-dim text-xs">
         {t("Running applications outputting audio will appear here.")}
       </p>
     )
@@ -433,7 +437,7 @@ function AudioRow({
   const displayVolume = draftVolume ?? volume
 
   return (
-    <div className="not-last:border-border flex flex-col py-2.5 not-last:border-b first:pt-0 last:pb-0">
+    <div className="not-last:border-border flex flex-col py-3 not-last:border-b first:pt-0 last:pb-0">
       <div className="flex items-center gap-3">
         <Checkbox
           id={id}

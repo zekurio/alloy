@@ -1,7 +1,6 @@
 import { t, tp } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
-import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
@@ -54,7 +53,6 @@ function DownloadClipsRow() {
 
   return (
     <SettingRow
-      className="py-4 first:pt-4 last:pb-4"
       title={t("Download clips")}
       description={t(
         "Download a zip archive with the original files for your clips.",
@@ -84,7 +82,6 @@ function DeleteClipsRow({
 
   return (
     <SettingRow
-      className="py-4 first:pt-4 last:pb-4"
       title={t("Delete clips")}
       description={t(
         "Permanently removes every clip you uploaded. This can't be undone.",
@@ -116,24 +113,16 @@ function DeleteClipsRow({
 }
 
 export function StorageUsageCard() {
-  return (
-    <Section>
-      <SectionContent className="py-0">
-        <StorageQuota />
-      </SectionContent>
-    </Section>
-  )
+  return <StorageQuota className="py-0" />
 }
 
 export function ClipDataCard() {
   const { pending, onDeleteAllClips } = useDeleteAllClipsAction()
 
   return (
-    <Section>
-      <SectionContent className="py-0">
-        <DownloadClipsRow />
-        <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
-      </SectionContent>
-    </Section>
+    <div className="flex flex-col">
+      <DownloadClipsRow />
+      <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
+    </div>
   )
 }

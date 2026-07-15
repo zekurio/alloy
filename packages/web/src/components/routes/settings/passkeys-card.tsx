@@ -24,13 +24,13 @@ import {
 } from "@alloy/ui/components/dialog"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import { List, ListItem } from "@alloy/ui/components/list"
-import { Section, SectionContent } from "@alloy/ui/components/section"
 import { toast } from "@alloy/ui/lib/toast"
 import { PencilIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react"
 import { useEffect, useState } from "react"
 import type { FormEvent } from "react"
 
 import { LimitedInput } from "@/components/form/limited-field"
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { authClient } from "@/lib/auth-client"
 import { toastAuthAttemptFailure } from "@/lib/auth-flow"
 import { formatCalendarDate } from "@/lib/date-format"
@@ -69,39 +69,31 @@ export function PasskeysCard({
   }
 
   return (
-    <Section>
-      <SectionContent className="flex flex-col gap-3 py-0">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="text-sm font-medium">{t("Passkeys")}</div>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              {t(
-                "Sign in without a password using your device or hardware key.",
-              )}
-            </p>
-          </div>
-          <AddPasskeyDialog onAdded={onRefresh} />
-        </div>
-
-        {passkeys.length > 0 ? (
-          <List>
-            {passkeys.map((passkey) => (
-              <PasskeyRow
-                key={passkey.id}
-                passkey={passkey}
-                removing={deletingId === passkey.id}
-                onDelete={() => onDelete(passkey)}
-                onRefresh={onRefresh}
-              />
-            ))}
-          </List>
-        ) : (
-          <p className="text-foreground-muted text-sm">
-            {t("No passkeys yet. Add one for faster, password-free sign-in.")}
-          </p>
-        )}
-      </SectionContent>
-    </Section>
+    <SettingsSubsection
+      title={t("Passkeys")}
+      description={t(
+        "Sign in without a password using your device or hardware key.",
+      )}
+      action={<AddPasskeyDialog onAdded={onRefresh} />}
+    >
+      {passkeys.length > 0 ? (
+        <List>
+          {passkeys.map((passkey) => (
+            <PasskeyRow
+              key={passkey.id}
+              passkey={passkey}
+              removing={deletingId === passkey.id}
+              onDelete={() => onDelete(passkey)}
+              onRefresh={onRefresh}
+            />
+          ))}
+        </List>
+      ) : (
+        <p className="text-foreground-dim text-xs">
+          {t("No passkeys yet. Add one for faster, password-free sign-in.")}
+        </p>
+      )}
+    </SettingsSubsection>
   )
 }
 

@@ -85,10 +85,10 @@ function BackdropTreatmentControls({
 }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      <div className="min-w-0 space-y-2">
+      <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between gap-3 text-sm font-medium">
           <span>{t("Blur")}</span>
-          <span className="text-foreground-muted text-xs">
+          <span className="text-foreground-dim text-xs tabular-nums">
             {blurPx}
             {t("px")}
           </span>
@@ -102,10 +102,10 @@ function BackdropTreatmentControls({
           onValueChange={(value) => onBlurPxChange(sliderValue(value))}
         />
       </div>
-      <div className="min-w-0 space-y-2">
+      <div className="flex min-w-0 flex-col gap-2">
         <div className="flex items-center justify-between gap-3 text-sm font-medium">
           <span>{t("Darkening")}</span>
-          <span className="text-foreground-muted text-xs">
+          <span className="text-foreground-dim text-xs tabular-nums">
             {Math.round(darkenOpacity * 100)}
             {"%"}
           </span>
@@ -214,7 +214,7 @@ export function LoginAppearancePreview({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-foreground-muted text-xs">
+        <div className="text-foreground-dim text-xs">
           {previewMode === "login"
             ? t("Login page preview")
             : t("Sign-up page preview")}
@@ -228,7 +228,7 @@ export function LoginAppearancePreview({
 
       {/* Non-interactive: the preview renders the real auth buttons, but clicks
           must not start an actual sign-in flow. */}
-      <div className="border-border/80 bg-background h-[480px] overflow-hidden rounded-xl border select-none">
+      <div className="border-border bg-background h-[480px] overflow-hidden rounded-lg border select-none">
         <div className="pointer-events-none h-full w-full">
           <AuthPreviewContent mode={previewMode} config={authConfig} />
         </div>

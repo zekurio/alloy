@@ -41,7 +41,7 @@ export function QualitySection({
   const activePreset = selectedQualityPreset(settings)
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {RECORDING_QUALITY_PRESET_OPTIONS.map((preset) => (
         <PresetCard
           key={preset.id}
@@ -225,7 +225,7 @@ function PresetCard({
       {active ? (
         <CheckIcon className="text-accent absolute top-2 right-2 size-3.5" />
       ) : null}
-      <span className="pr-5 text-sm font-semibold">{label}</span>
+      <span className="pr-5 text-sm font-medium">{label}</span>
       <span className="text-foreground-dim text-xs">{spec}</span>
       <span className="text-foreground-faint text-xs">{hourly}</span>
     </button>

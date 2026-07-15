@@ -12,7 +12,6 @@ import {
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
-import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate, useRouter } from "@tanstack/react-router"
@@ -123,7 +122,6 @@ function DisableAccountRow({
 }) {
   return (
     <SettingRow
-      className="py-4 first:pt-4 last:pb-4"
       title={disabledAt ? t("Reactivate account") : t("Disable account")}
       description={
         disabledAt
@@ -193,7 +191,6 @@ function DeleteAccountRow({
 
   return (
     <SettingRow
-      className="py-4 first:pt-4 last:pb-4"
       title={t("Delete account")}
       description={t(
         "Permanently removes your account and clips. Can't be undone.",
@@ -230,11 +227,9 @@ export function DangerZoneCard() {
   const actions = useAccountDangerActions()
 
   return (
-    <Section>
-      <SectionContent className="py-0">
-        <DisableAccountRow {...actions} />
-        <DeleteAccountRow {...actions} />
-      </SectionContent>
-    </Section>
+    <div className="flex flex-col">
+      <DisableAccountRow {...actions} />
+      <DeleteAccountRow {...actions} />
+    </div>
   )
 }
