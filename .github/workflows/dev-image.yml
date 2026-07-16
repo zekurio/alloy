@@ -1,0 +1,52 @@
+name: dev image
+
+run-name: "dev image ${{ github.sha }}"
+
+on:
+  push:
+    branches:
+      - dev
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    name: publish unstable image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: checkout exact commit
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.sha }}
+
+      - name: install nix
+        uses: cachix/install-nix-action@a49548c11d9846ad46ecc0115273879b045f001c # v31.10.7
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: build image
+        run: nix build .#dockerImage --print-build-logs --out-link result
+
+      - name: load image
+        run: docker load --input result
+
+      - name: authenticate to ghcr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: push unstable image
+        shell: bash
+        run: |
+          source_tag="$(nix eval --raw .#dockerImage.imageTag)"
+          image="ghcr.io/${GITHUB_REPOSITORY,,}:unstable"
+          docker tag "alloy:$source_tag" "$image"
+          docker push "$image"
