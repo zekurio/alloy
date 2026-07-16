@@ -21,7 +21,9 @@ export function DesktopQualitySettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <QualitySection settings={settings} busy={busy} save={save} />
+      <SettingsSubsection title={t("Quality preset")}>
+        <QualitySection settings={settings} busy={busy} save={save} />
+      </SettingsSubsection>
 
       <hr className="border-border" />
 

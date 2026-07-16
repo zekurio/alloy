@@ -29,43 +29,37 @@ export function DesktopCaptureSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <ModeSection
-        settings={settings}
-        status={status}
-        busy={busy}
-        save={save}
-      />
-
-      <SettingRow
-        title={t("Recording sidecar")}
-        description={t(
-          "Restart the capture component if recording gets stuck.",
-        )}
-        className="border-b-0!"
-      >
-        <Button
-          type="button"
-          size="sm"
-          variant="secondary"
-          disabled={busy || restarting}
-          onClick={() => {
-            setRestarting(true)
-            void restartBackend().finally(() => setRestarting(false))
-          }}
-        >
-          {restarting ? (
-            <>
-              <Spinner />
-              {t("Restarting...")}
-            </>
-          ) : (
-            <>
-              <RefreshCcwIcon className="size-3.5" />
-              {t("Restart")}
-            </>
+      <ModeSection settings={settings} status={status} busy={busy} save={save}>
+        <SettingRow
+          title={t("Recording sidecar")}
+          description={t(
+            "Restart the capture component if recording gets stuck.",
           )}
-        </Button>
-      </SettingRow>
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            disabled={busy || restarting}
+            onClick={() => {
+              setRestarting(true)
+              void restartBackend().finally(() => setRestarting(false))
+            }}
+          >
+            {restarting ? (
+              <>
+                <Spinner />
+                {t("Restarting...")}
+              </>
+            ) : (
+              <>
+                <RefreshCcwIcon className="size-3.5" />
+                {t("Restart")}
+              </>
+            )}
+          </Button>
+        </SettingRow>
+      </ModeSection>
 
       <hr className="border-border" />
 

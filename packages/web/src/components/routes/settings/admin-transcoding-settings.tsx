@@ -39,6 +39,7 @@ import {
   HARDWARE_ACCELERATION_LABELS,
   VIDEO_CODEC_LABELS,
 } from "@/components/routes/settings/admin-transcoding-validation"
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import {
   adminKeys,
@@ -135,17 +136,14 @@ export function TranscodingSettingsContent({
   return (
     <Section>
       <SectionContent className="flex flex-col gap-6 py-0">
-        <p className="text-foreground-dim text-xs">
-          {t(
-            "How the server transcodes new uploads: video codec, optional GPU encoding, quality, audio, and the ladder of renditions used for quality switching.",
-          )}
-        </p>
-
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-sm font-semibold">
-              {t("Codec & encoding")}
-            </span>
+        <SettingsSubsection
+          title={t("Codec & encoding")}
+          description={
+            capabilitiesQuery.isLoading
+              ? t("Detecting encoders...")
+              : (capabilities?.version ?? t("ffmpeg not detected"))
+          }
+          action={
             <div className="flex min-w-0 items-center gap-2">
               {capabilities?.version ? (
                 <Badge
@@ -167,14 +165,8 @@ export function TranscodingSettingsContent({
                 {redetecting ? t("Detecting...") : t("Re-detect")}
               </Button>
             </div>
-          </div>
-
-          <p className="text-foreground-dim -mt-2 text-xs">
-            {capabilitiesQuery.isLoading
-              ? t("Detecting encoders...")
-              : (capabilities?.version ?? t("ffmpeg not detected"))}
-          </p>
-
+          }
+        >
           <SettingRow
             title={t("Video codec")}
             description={t(
@@ -206,7 +198,7 @@ export function TranscodingSettingsContent({
           </SettingRow>
 
           {compatCodec !== "h264" ? (
-            <Callout tone="warning" className="text-xs">
+            <Callout tone="warning" className="my-3 text-xs">
               <TriangleAlertIcon />
               {t(
                 "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1 on the link preview tier, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.",
@@ -268,7 +260,7 @@ export function TranscodingSettingsContent({
           </SettingRow>
 
           {selectedProbe && selectedProbe.status !== "ok" ? (
-            <Callout tone="destructive" className="text-xs">
+            <Callout tone="destructive" className="my-3 text-xs">
               <TriangleAlertIcon />
               {selectedProbe.status === "missing"
                 ? t(
@@ -327,11 +319,11 @@ export function TranscodingSettingsContent({
               </div>
             </SettingRow>
           ) : null}
-        </div>
+        </SettingsSubsection>
 
-        <div className="border-border flex flex-col gap-4 border-t pt-6">
-          <span className="text-sm font-semibold">{t("Audio")}</span>
+        <hr className="border-border" />
 
+        <SettingsSubsection title={t("Audio")}>
           <SettingRow
             title={t("Audio bitrate")}
             description={t("Stereo AAC bitrate applied to every rendition.")}
@@ -363,7 +355,9 @@ export function TranscodingSettingsContent({
               </SelectContent>
             </Select>
           </SettingRow>
-        </div>
+        </SettingsSubsection>
+
+        <hr className="border-border" />
 
         <TranscodingLadder
           form={form}
@@ -371,13 +365,13 @@ export function TranscodingSettingsContent({
           setForm={setForm}
         />
 
-        <div className="border-border border-t pt-6">
-          <p className="text-foreground-dim text-xs">
-            {t(
-              "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match; you can also trigger a sweep from the Jobs panel.",
-            )}
-          </p>
-        </div>
+        <hr className="border-border" />
+
+        <p className="text-foreground-dim text-xs">
+          {t(
+            "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match; you can also trigger a sweep from the Jobs panel.",
+          )}
+        </p>
       </SectionContent>
       {!inSettingsDialog && (
         <SectionFooter>

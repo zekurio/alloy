@@ -34,19 +34,25 @@ export function SettingsPanel({
 export function SettingsSubsection({
   title,
   description,
+  action,
   children,
 }: {
-  title: string
-  description?: string
+  title: ReactNode
+  description?: ReactNode
+  /** Optional control rendered to the right of the header. */
+  action?: ReactNode
   children: ReactNode
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h3 className="text-foreground text-sm font-semibold">{title}</h3>
-        {description ? (
-          <p className="text-foreground-dim text-xs">{description}</p>
-        ) : null}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <h3 className="text-foreground text-sm font-semibold">{title}</h3>
+          {description ? (
+            <p className="text-foreground-dim text-xs">{description}</p>
+          ) : null}
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </div>
       <div className="flex flex-col">{children}</div>
     </div>

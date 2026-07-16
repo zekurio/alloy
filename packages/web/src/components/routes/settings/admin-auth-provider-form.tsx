@@ -110,7 +110,7 @@ export function OAuthProviderForm({
         />
       </div>
 
-      <div className="border-border/70 rounded-lg border">
+      <div className="border-border rounded-lg border">
         <Button
           type="button"
           variant="ghost"
@@ -148,7 +148,7 @@ function AdvancedProviderFields({
   onChange: (next: Partial<ProviderDraft>) => void
 }) {
   return (
-    <div className="border-border/70 grid gap-4 border-t p-3 md:grid-cols-2">
+    <div className="border-border grid gap-4 border-t p-3 md:grid-cols-2">
       <ProviderTextField
         fieldId="authorization-url"
         editingProviderId={editingProviderId}

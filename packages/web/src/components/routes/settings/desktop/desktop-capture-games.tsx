@@ -33,6 +33,7 @@ import {
 import { useEffect, useMemo, useState } from "react"
 
 import { mobileSurfaceCloseButtonClassName } from "@/components/app/mobile-close-button"
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
 import { RuleGroup } from "./desktop-capture-game-rules"
 import { useDesktopRecording } from "./desktop-recording-context"
@@ -132,47 +133,43 @@ export function AllowedGamesSection({
   }
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="text-sm font-semibold">{t("Game detection")}</div>
-          <p className="text-foreground-dim mt-0.5 text-xs">
-            {t(
-              "Alloy auto-detects games. Add manual rules when detection needs a nudge.",
-            )}
-          </p>
-        </div>
+    <SettingsSubsection
+      title={t("Game detection")}
+      description={t(
+        "Alloy auto-detects games. Add manual rules when detection needs a nudge.",
+      )}
+    >
+      <div className="flex flex-col gap-4">
+        <RuleGroup
+          title={t("Always record")}
+          description={t(
+            "Manual includes for games the automatic detector misses.",
+          )}
+          games={settings.allowedGames}
+          busy={busy}
+          addLabel={t("Add include")}
+          addIcon={<PlusIcon className="size-3.5" />}
+          emptyText={t("No manual includes.")}
+          fallbackIcon={<Gamepad2Icon className="size-4" />}
+          onAdd={() => setPickerMode("allow")}
+          onRemove={(id) => void removeGame(id, "allow")}
+        />
+
+        <RuleGroup
+          title={t("Never record")}
+          description={t(
+            "Manual excludes for launchers, tools, or apps that look game-like.",
+          )}
+          games={settings.deniedGames}
+          busy={busy}
+          addLabel={t("Add exclude")}
+          addIcon={<PlusIcon className="size-3.5" />}
+          emptyText={t("No manual excludes.")}
+          fallbackIcon={<BanIcon className="size-4" />}
+          onAdd={() => setPickerMode("deny")}
+          onRemove={(id) => void removeGame(id, "deny")}
+        />
       </div>
-
-      <RuleGroup
-        title={t("Always record")}
-        description={t(
-          "Manual includes for games the automatic detector misses.",
-        )}
-        games={settings.allowedGames}
-        busy={busy}
-        addLabel={t("Add include")}
-        addIcon={<PlusIcon className="size-3.5" />}
-        emptyText={t("No manual includes.")}
-        fallbackIcon={<Gamepad2Icon className="size-4" />}
-        onAdd={() => setPickerMode("allow")}
-        onRemove={(id) => void removeGame(id, "allow")}
-      />
-
-      <RuleGroup
-        title={t("Never record")}
-        description={t(
-          "Manual excludes for launchers, tools, or apps that look game-like.",
-        )}
-        games={settings.deniedGames}
-        busy={busy}
-        addLabel={t("Add exclude")}
-        addIcon={<PlusIcon className="size-3.5" />}
-        emptyText={t("No manual excludes.")}
-        fallbackIcon={<BanIcon className="size-4" />}
-        onAdd={() => setPickerMode("deny")}
-        onRemove={(id) => void removeGame(id, "deny")}
-      />
 
       <Dialog
         open={pickerOpen}
@@ -295,7 +292,7 @@ export function AllowedGamesSection({
           </DialogBody>
         </DialogContent>
       </Dialog>
-    </div>
+    </SettingsSubsection>
   )
 }
 
