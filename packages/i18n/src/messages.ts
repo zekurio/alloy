@@ -287,6 +287,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Connection timed out.": "Zeitüberschreitung bei der Verbindung.",
   "Continue with {displayName}": "Mit {displayName} fortfahren",
   "Continue with a passkey": "Mit Passkey fortfahren",
+  "Control launch behavior and desktop app updates.":
+    "Steuere das Startverhalten und Desktop-App-Updates.",
   "Copy error": "Fehler kopieren",
   "Copy link": "Link kopieren",
   "Could not clear staged import.":
@@ -564,8 +566,6 @@ export const DE_MESSAGES: Record<string, string> = {
   High: "Hoch",
   Home: "Start",
   Hotkeys: "Hotkeys",
-  "How the server transcodes new uploads: video codec, optional GPU encoding, quality, audio, and the ladder of renditions used for quality switching.":
-    "Wie der Server neue Uploads transkodiert: Videocodec, optionale GPU-Kodierung, Qualität, Audio und die Stufenleiter an Qualitätsstufen für den Qualitätswechsel.",
   Icon: "Symbol",
   "image/jpeg": "image/jpeg",
   "Import clip": "Clip importieren",
@@ -783,6 +783,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Public: "Öffentlich",
   px: "px",
   Quality: "Qualität",
+  "Quality preset": "Qualitätsvoreinstellung",
   "Quit Alloy": "Alloy beenden",
   "Quota must be blank or a positive GiB value within the safe integer range.":
     "Das Kontingent muss leer oder ein positiver GiB-Wert im sicheren Ganzzahlbereich sein.",
@@ -950,6 +951,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Starred: "Markiert",
   "Start Alloy when you sign in": "Alloy beim Anmelden starten",
   "Start typing to search": "Tippe los, um zu suchen",
+  "Startup & updates": "Start & Updates",
   "Stereo AAC bitrate applied to every rendition.":
     "Stereo-AAC-Bitrate, die auf jede Qualitätsstufe angewendet wird.",
   Stop: "Stoppen",

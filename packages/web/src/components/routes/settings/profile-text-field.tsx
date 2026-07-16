@@ -66,7 +66,9 @@ export function ProfileTextField({
         aria-describedby={invalid ? `${field.name}-error` : hintId}
       />
       {description ? (
-        <FieldDescription id={hintId}>{description}</FieldDescription>
+        <FieldDescription id={hintId} className="text-foreground-dim text-xs">
+          {description}
+        </FieldDescription>
       ) : null}
       <FieldError
         id={`${field.name}-error`}

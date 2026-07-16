@@ -147,10 +147,10 @@ function SoundCard({
   const controlsDisabled = busy || !sound.enabled
 
   return (
-    <div className="not-last:border-border flex flex-col gap-3 py-4 not-last:border-b first:pt-0 last:pb-0">
+    <div className="not-last:border-border flex flex-col gap-3 py-3 not-last:border-b first:pt-0 last:pb-0">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-sm font-semibold">{title}</div>
+          <div className="text-sm font-medium">{title}</div>
           <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
         </div>
         <Switch
@@ -168,7 +168,7 @@ function SoundCard({
       >
         <label
           htmlFor={`sound-effect-${title}`}
-          className="text-foreground-muted text-xs font-medium"
+          className="text-foreground-dim text-xs font-medium"
         >
           {t("Sound effect")}
         </label>
@@ -230,7 +230,7 @@ function SoundCard({
           controlsDisabled && "opacity-50",
         )}
       >
-        <span className="text-foreground-muted text-xs font-medium">
+        <span className="text-foreground-dim text-xs font-medium">
           {t("Volume")}
         </span>
         <div className="flex w-48 items-center gap-3">

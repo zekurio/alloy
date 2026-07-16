@@ -22,6 +22,8 @@ import { PlusIcon, Trash2Icon, TriangleAlertIcon } from "lucide-react"
 import { useId, useMemo } from "react"
 import type { Dispatch, ReactNode, SetStateAction } from "react"
 
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+
 import {
   effectiveOgTierIndex,
   firstTierError,
@@ -111,9 +113,12 @@ export function TranscodingLadder({
   }
 
   return (
-    <div className="border-border flex flex-col gap-3 border-t pt-6">
-      <div className="flex items-center justify-between gap-3">
-        <span className="text-sm font-semibold">{t("Rendition ladder")}</span>
+    <SettingsSubsection
+      title={t("Rendition ladder")}
+      description={t(
+        "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.",
+      )}
+      action={
         <Button
           type="button"
           variant="outline"
@@ -125,13 +130,8 @@ export function TranscodingLadder({
           <PlusIcon />
           {t("Add tier")}
         </Button>
-      </div>
-      <p className="text-foreground-dim text-xs">
-        {t(
-          "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.",
-        )}
-      </p>
-
+      }
+    >
       <div className="border-border overflow-hidden rounded-lg border">
         <LadderHeader />
         <div className="divide-border divide-y">
@@ -223,12 +223,12 @@ export function TranscodingLadder({
         </div>
       </div>
       {validation.formMessage ? (
-        <Callout tone="destructive" className="text-xs">
+        <Callout tone="destructive" className="mt-3 text-xs">
           <TriangleAlertIcon />
           {validation.formMessage}
         </Callout>
       ) : null}
-    </div>
+    </SettingsSubsection>
   )
 }
 

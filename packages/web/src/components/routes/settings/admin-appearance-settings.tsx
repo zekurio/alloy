@@ -6,6 +6,7 @@ import {
   SectionContent,
   SectionFooter,
 } from "@alloy/ui/components/section"
+import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
@@ -103,23 +104,20 @@ export function AppearanceSettingsContent({
 
   return (
     <Section>
-      <SectionContent className="flex flex-col gap-4 py-0">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-sm font-medium">{t("Login backdrop")}</div>
-            <p className="text-foreground-dim mt-0.5 text-xs">
-              {t(
-                "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
-              )}
-            </p>
-          </div>
+      <SectionContent className="flex flex-col gap-6 py-0">
+        <SettingRow
+          title={t("Login backdrop")}
+          description={t(
+            "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
+          )}
+          align="start"
+        >
           <Switch
             checked={splash.enabled}
             onCheckedChange={updateSplashEnabled}
             disabled={enabledPending}
-            className="shrink-0"
           />
-        </div>
+        </SettingRow>
 
         <LoginAppearancePreview
           config={config}

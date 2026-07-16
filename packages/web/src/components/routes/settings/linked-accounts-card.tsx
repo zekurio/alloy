@@ -3,12 +3,12 @@ import type { LinkedAccount } from "@alloy/api/auth"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { List, ListItem } from "@alloy/ui/components/list"
-import { Section, SectionContent } from "@alloy/ui/components/section"
 import { toast } from "@alloy/ui/lib/toast"
 import { useRouter } from "@tanstack/react-router"
 import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { authClient, useSession } from "@/lib/auth-client"
 import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
 import { consumeCurrentQueryParam } from "@/lib/browser-url"
@@ -48,25 +48,20 @@ export function LinkedAccountsCard({
   })
 
   return (
-    <Section>
-      <SectionContent className="flex flex-col gap-3 py-0">
-        <div>
-          <div className="text-sm font-medium">{t("Linked accounts")}</div>
-          <p className="text-foreground-dim mt-0.5 text-xs">
-            {t("Connect additional sign-in methods to your account.")}
-          </p>
-        </div>
-        <AccountsList
-          accounts={accounts}
-          config={config}
-          hasPasskeySignIn={hasPasskeySignIn}
-          linkingProviderId={actions.linkingProviderId}
-          unlinkingId={actions.unlinkingId}
-          onLink={actions.onLink}
-          onUnlink={actions.onUnlink}
-        />
-      </SectionContent>
-    </Section>
+    <SettingsSubsection
+      title={t("Linked accounts")}
+      description={t("Connect additional sign-in methods to your account.")}
+    >
+      <AccountsList
+        accounts={accounts}
+        config={config}
+        hasPasskeySignIn={hasPasskeySignIn}
+        linkingProviderId={actions.linkingProviderId}
+        unlinkingId={actions.unlinkingId}
+        onLink={actions.onLink}
+        onUnlink={actions.onUnlink}
+      />
+    </SettingsSubsection>
   )
 }
 

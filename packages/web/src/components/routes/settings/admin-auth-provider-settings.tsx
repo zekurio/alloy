@@ -35,6 +35,8 @@ import { useState } from "react"
 import type { FormEvent } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
+import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
 import { OAuthProviderForm } from "./admin-auth-provider-form"
 import type { ProviderDraft } from "./admin-auth-provider-utils"
@@ -55,59 +57,51 @@ export function OAuthProviderSettings({
 }) {
   const readOnly = config.authLocks.oauthProviders
   return (
-    <div className="border-border flex flex-col gap-4 border-t pt-6">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-sm font-semibold">{t("OAuth providers")}</span>
-          <p className="text-foreground-dim text-xs">
-            {t("Configure external OIDC and OAuth sign-in providers.")}
-          </p>
-        </div>
-        {readOnly ? null : (
-          <div className="shrink-0">
-            <ProviderDialog
-              providers={config.oauthProviders}
-              provider={null}
-              providerIndex={null}
-              authBaseURL={config.authBaseURL}
-              pending={pending}
-              onSave={onSave}
-            />
-          </div>
+    <SettingsSubsection
+      title={t("OAuth providers")}
+      description={t("Configure external OIDC and OAuth sign-in providers.")}
+      action={
+        readOnly ? null : (
+          <ProviderDialog
+            providers={config.oauthProviders}
+            provider={null}
+            providerIndex={null}
+            authBaseURL={config.authBaseURL}
+            pending={pending}
+            onSave={onSave}
+          />
+        )
+      }
+    >
+      <div className="flex flex-col gap-3">
+        {readOnly ? <OAuthProvidersEnvNote /> : null}
+        {config.oauthProviders.length === 0 ? (
+          <ListEmpty title={t("No OAuth providers configured")} />
+        ) : (
+          <List>
+            {config.oauthProviders.map((provider, index) => (
+              <ListItem key={provider.providerId}>
+                <ProviderRow
+                  provider={provider}
+                  providerIndex={index}
+                  providers={config.oauthProviders}
+                  authBaseURL={config.authBaseURL}
+                  readOnly={readOnly}
+                  pending={pending}
+                  onSave={onSave}
+                />
+              </ListItem>
+            ))}
+          </List>
         )}
       </div>
-      {readOnly ? <OAuthProvidersEnvNote /> : null}
-      {config.oauthProviders.length === 0 ? (
-        <ListEmpty title={t("No OAuth providers configured")} />
-      ) : (
-        <List>
-          {config.oauthProviders.map((provider, index) => (
-            <ListItem key={provider.providerId}>
-              <ProviderRow
-                provider={provider}
-                providerIndex={index}
-                providers={config.oauthProviders}
-                authBaseURL={config.authBaseURL}
-                readOnly={readOnly}
-                pending={pending}
-                onSave={onSave}
-              />
-            </ListItem>
-          ))}
-        </List>
-      )}
-    </div>
+    </SettingsSubsection>
   )
 }
 
 function OAuthProvidersEnvNote() {
   return (
-    <span className="text-foreground-muted flex flex-wrap items-center gap-1 text-xs">
-      {t("Managed by environment variable")}:{" "}
-      <code className="bg-surface-raised text-foreground-dim rounded px-1 py-px font-mono text-[11px]">
-        ALLOY_SOCIALACCOUNT_PROVIDERS
-      </code>
-    </span>
+    <EnvManagedNote envName="ALLOY_SOCIALACCOUNT_PROVIDERS" className="mt-0" />
   )
 }
 

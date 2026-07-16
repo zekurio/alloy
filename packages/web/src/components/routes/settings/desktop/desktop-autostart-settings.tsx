@@ -60,7 +60,7 @@ export function DesktopAutostartSettings() {
           onCheckedChange={(enabled) => void toggle(enabled)}
         />
       ) : (
-        <span className="text-foreground-faint shrink-0 text-xs">
+        <span className="text-foreground-dim shrink-0 text-xs">
           {t("Unavailable in this build")}
         </span>
       )}

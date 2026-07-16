@@ -8,10 +8,10 @@ import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
-import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
+import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -107,6 +107,8 @@ export function AuthSettingsContent({
           ))}
         </div>
 
+        <hr className="border-border" />
+
         <OAuthProviderSettings
           config={config}
           pending={providerPending}
@@ -151,28 +153,5 @@ function AuthToggleRow({
         disabled={locked || pending}
       />
     </SettingRow>
-  )
-}
-
-function EnvManagedNote({
-  envName,
-  className,
-}: {
-  envName: string
-  className?: string
-}) {
-  // Rendered as a span so it can live inside SettingRow's <p> description.
-  return (
-    <span
-      className={cn(
-        "text-foreground-muted mt-1 flex flex-wrap items-center gap-1 text-xs",
-        className,
-      )}
-    >
-      {t("Managed by environment variable")}:{" "}
-      <code className="bg-surface-raised text-foreground-dim rounded px-1 py-px font-mono text-[11px]">
-        {envName}
-      </code>
-    </span>
   )
 }
