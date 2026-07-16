@@ -54,7 +54,7 @@ async function recoverFromDeployment(
   if (!rememberReloadedAssetSignature(latestAssetSignature)) return
 
   const desktop = alloyDesktop()
-  if (desktop?.reloadApp) {
+  if (desktop) {
     void desktop.reloadApp().catch(() => window.location.reload())
     return
   }

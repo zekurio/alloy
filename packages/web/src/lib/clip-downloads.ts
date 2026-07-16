@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react"
 import { clientLogger } from "@/lib/client-log"
 import {
   alloyDesktop,
+  desktopSupports,
   notifyLibraryCapturesChanged,
   type RecordingLibraryDownload,
 } from "@/lib/desktop"
@@ -24,8 +25,7 @@ let started = false
 
 /** True when the desktop shell is new enough to persist clips locally. */
 export function clipDownloadsSupported(): boolean {
-  const desktop = alloyDesktop()
-  return typeof desktop?.recording.downloadClip === "function"
+  return desktopSupports("recording.downloadClip")
 }
 
 function emit(): void {

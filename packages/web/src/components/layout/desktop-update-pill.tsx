@@ -27,13 +27,12 @@ export function DesktopUpdatePill() {
   const downloaded = status === "downloaded"
 
   const runAction = () => {
-    const updates = alloyDesktop()?.updates
-    if (!updates) return
+    const desktop = alloyDesktop()
+    if (!desktop) return
 
     if (status === "available") {
-      if (!updates.downloadUpdate) return
       setPending(true)
-      void updates
+      void desktop.updates
         .downloadUpdate()
         .catch(() => toast.error(t("Couldn't download the update.")))
         .finally(() => setPending(false))
@@ -42,7 +41,7 @@ export function DesktopUpdatePill() {
 
     if (!downloaded) return
     setPending(true)
-    void updates.restartToInstall().catch(() => {
+    void desktop.updates.restartToInstall().catch(() => {
       toast.error(t("Couldn't restart to update."))
       setPending(false)
     })

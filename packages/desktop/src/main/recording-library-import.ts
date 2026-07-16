@@ -4,16 +4,15 @@ import { constants, mkdirSync, statSync } from "node:fs"
 import { copyFile, readdir, rename, stat, unlink } from "node:fs/promises"
 import { basename, extname, join, resolve } from "node:path"
 
-import { t } from "@alloy/i18n"
-import { createLogger } from "@alloy/logging"
-import { app } from "electron"
-
 import type {
   RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryFilesImportResult,
   RecordingLibraryImportResult,
   RecordingLibraryStagedImport,
-} from "@/shared/ipc"
+} from "@alloy/contracts"
+import { t } from "@alloy/i18n"
+import { createLogger } from "@alloy/logging"
+import { app } from "electron"
 
 import { probeVideoFileMeta } from "./media"
 import {

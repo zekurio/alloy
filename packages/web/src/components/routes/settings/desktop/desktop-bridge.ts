@@ -10,13 +10,8 @@ import {
   RECORDING_RESOLUTIONS,
 } from "@alloy/contracts"
 
-import {
-  alloyDesktop as readAlloyDesktop,
-  type AlloyDesktop,
-  type DesktopSavedServer,
-} from "@/lib/desktop"
-
-export type { DesktopSavedServer }
+export { alloyDesktop } from "@/lib/desktop"
+export type { DesktopSavedServer } from "@/lib/desktop"
 
 export const DESKTOP_RECORDING_ENCODERS = RECORDING_ENCODERS
 export const DESKTOP_RECORDING_CODECS = RECORDING_CODECS
@@ -27,7 +22,3 @@ export const DESKTOP_RECORDING_AUDIO_MODES = RECORDING_AUDIO_MODES
 export const DESKTOP_RECORDING_AUDIO_DEVICE_KINDS = RECORDING_AUDIO_DEVICE_KINDS
 export const DESKTOP_RECORDING_BUFFER_STORAGE = RECORDING_BUFFER_STORAGE
 export const DESKTOP_RECORDING_QUALITY_PRESETS = RECORDING_QUALITY_PRESETS
-
-export function alloyDesktop(): AlloyDesktop | null {
-  return readAlloyDesktop()
-}

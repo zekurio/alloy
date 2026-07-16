@@ -10,10 +10,9 @@ import {
 } from "node:fs"
 import { dirname, extname, join } from "node:path"
 
+import type { RecordingLibraryItem } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
-
-import type { RecordingLibraryItem } from "@/shared/ipc"
 
 import { imageFileBlurHash } from "./image-blurhash"
 import { findRecordingLibraryItem } from "./recording-library-scan"

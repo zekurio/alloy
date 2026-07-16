@@ -1,18 +1,21 @@
-import { normalizeRecordingSettings } from "@alloy/contracts"
+import {
+  desktopBridgeChannel,
+  normalizeRecordingSettings,
+} from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 
-import { IPC } from "@/shared/ipc"
-
 import { getAutostartState, setAutostartEnabled } from "./autostart"
 import { showDesktopNotification } from "./desktop-notification"
+import type {
+  BridgeHandlerFragment,
+  BridgeHandlerMap,
+  DesktopBridgeInvokePath,
+} from "./ipc-bridge"
 import { requireDesktopSender, requireMainSender } from "./ipc-guards"
-import {
-  isNotificationSoundEvent,
-  normalizeSaveReplayClipRequest,
-} from "./ipc-normalizers"
-import { registerRecordingLibraryIpc } from "./ipc-recording-library"
-import { registerServerIpc } from "./ipc-server"
+import { isNotificationSoundEvent } from "./ipc-normalizers"
+import { recordingLibraryBridgeHandlers } from "./ipc-recording-library"
+import { registerOverlayIpc, serverBridgeHandlers } from "./ipc-server"
 import {
   configureRecordingBackend,
   emitRecordingSettingsEvent,
@@ -22,8 +25,6 @@ import {
   listRecordingDisplays,
   onRecordingEvent,
   restartRecordingBackend,
-  resolveRevealableCapturePath,
-  saveReplayClip,
   stopAudioLevels,
   subscribeRecordingAudioLevels,
 } from "./recording"
@@ -44,114 +45,136 @@ import {
 import type { Windows } from "./windows"
 
 /**
- * Register the overlay's privileged IPC surface. Handlers are intentionally
- * thin: validate input, mutate persisted state, drive the windows. All channels
- * are request/response (`handle`) so the overlay gets typed results back.
+ * Register the desktop bridge's privileged IPC surface. The merged handler
+ * map is exhaustive over the invokable `DESKTOP_BRIDGE` contract paths in
+ * both directions, so the contract and the main process cannot drift.
+ * Handlers are intentionally thin: validate input, mutate persisted state,
+ * drive the windows. Every bridge channel is request/response (`handle`) so
+ * callers get typed results back; the contract's event members are push
+ * broadcasts registered in {@link registerBridgeEvents}.
  */
-export function registerIpc(windows: Windows): void {
-  registerRecordingEvents()
-  registerServerIpc(windows)
-  registerRecordingIpc(windows)
-  registerUpdateIpc(windows)
-  registerAutostartIpc(windows)
-  registerNotificationIpc(windows)
+export function registerBridge(windows: Windows): void {
+  registerBridgeEvents()
+  registerOverlayIpc(windows)
+
+  const handlers: BridgeHandlerMap = {
+    ...serverBridgeHandlers,
+    ...recordingSettingsBridgeHandlers,
+    ...recordingStorageBridgeHandlers,
+    ...recordingLibraryBridgeHandlers,
+    ...recordingSoundBridgeHandlers,
+    ...recordingSourceBridgeHandlers,
+    ...updateBridgeHandlers,
+    ...autostartBridgeHandlers,
+    ...notificationBridgeHandlers,
+  }
+  // Object.keys loses the literal key type; the map is a closed Record over
+  // exactly these paths.
+  const paths = Object.keys(handlers) as DesktopBridgeInvokePath[]
+  for (const path of paths) {
+    const { guard, handle } = handlers[path]
+    ipcMain.handle(desktopBridgeChannel(path), (event, ...args: unknown[]) => {
+      guard(windows, event)
+      return handle(windows, event, ...args)
+    })
+  }
 }
 
-function registerRecordingEvents(): void {
+/** Contract event members: pushed to every live window, no invoke handler. */
+function registerBridgeEvents(): void {
+  const recordingEventChannel = desktopBridgeChannel("recording.onEvent")
   onRecordingEvent((recordingEvent) => {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) {
-        window.webContents.send(IPC.recordingEvent, recordingEvent)
+        window.webContents.send(recordingEventChannel, recordingEvent)
       }
     }
   })
-}
-
-function registerUpdateIpc(windows: Windows): void {
+  const updateStateChannel = desktopBridgeChannel("updates.onState")
   onUpdateStateChange((state) => {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) {
-        window.webContents.send(IPC.updateEvent, state)
+        window.webContents.send(updateStateChannel, state)
       }
     }
   })
-  ipcMain.handle(IPC.getUpdateState, (event) => {
-    requireDesktopSender(windows, event)
-    return getUpdateState()
-  })
-  ipcMain.handle(IPC.checkForUpdates, (event) => {
-    requireDesktopSender(windows, event)
-    return checkForUpdatesNow()
-  })
-  ipcMain.handle(IPC.downloadUpdate, (event) => {
-    requireDesktopSender(windows, event)
-    return downloadUpdateNow()
-  })
-  ipcMain.handle(IPC.restartToInstallUpdate, (event) => {
-    requireDesktopSender(windows, event)
-    restartToInstallUpdate()
-  })
 }
 
-function registerAutostartIpc(windows: Windows): void {
-  ipcMain.handle(IPC.getAutostart, (event) => {
-    requireMainSender(windows, event)
-    return getAutostartState()
-  })
-  ipcMain.handle(IPC.setAutostart, (event, enabled: unknown) => {
-    requireMainSender(windows, event)
-    return setAutostartEnabled(enabled === true)
-  })
-}
+const updateBridgeHandlers = {
+  "updates.getState": {
+    guard: requireDesktopSender,
+    handle: () => getUpdateState(),
+  },
+  "updates.checkForUpdates": {
+    guard: requireDesktopSender,
+    handle: () => checkForUpdatesNow(),
+  },
+  "updates.downloadUpdate": {
+    guard: requireDesktopSender,
+    handle: () => downloadUpdateNow(),
+  },
+  "updates.restartToInstall": {
+    guard: requireDesktopSender,
+    handle: () => {
+      restartToInstallUpdate()
+    },
+  },
+} satisfies BridgeHandlerFragment
 
-function registerNotificationIpc(windows: Windows): void {
-  ipcMain.handle(IPC.showNotification, (event, input: unknown) => {
-    requireMainSender(windows, event)
-    showDesktopNotification(windows, input)
-  })
-}
+const autostartBridgeHandlers = {
+  "autostart.getState": {
+    guard: requireMainSender,
+    handle: () => getAutostartState(),
+  },
+  "autostart.setEnabled": {
+    guard: requireMainSender,
+    handle: (_windows, _event, enabled: unknown) =>
+      setAutostartEnabled(enabled === true),
+  },
+} satisfies BridgeHandlerFragment
 
-function registerRecordingIpc(windows: Windows): void {
-  registerRecordingSettingsIpc(windows)
-  registerRecordingStorageIpc(windows)
-  registerRecordingLibraryIpc(windows)
-  registerRecordingSoundIpc(windows)
-  registerRecordingSourceIpc(windows)
-  registerRecordingActionIpc(windows)
-}
+const notificationBridgeHandlers = {
+  "notifications.show": {
+    guard: requireMainSender,
+    handle: (windows, _event, input: unknown) => {
+      showDesktopNotification(windows, input)
+    },
+  },
+} satisfies BridgeHandlerFragment
 
-function registerRecordingSettingsIpc(windows: Windows): void {
-  ipcMain.handle(IPC.getRecordingSettings, (event) => {
-    requireMainSender(windows, event)
-    return getRecordingSettings()
-  })
-  ipcMain.handle(IPC.setRecordingSettings, async (event, settings: unknown) => {
-    requireMainSender(windows, event)
-    const saved = saveRecordingSettings(normalizeRecordingSettings(settings))
-    emitRecordingSettingsEvent()
-    void configureRecordingBackend()
-    configureRecordingHotkeys(saved)
-    return saved
-  })
-  ipcMain.handle(IPC.restartRecordingBackend, (event) => {
-    requireMainSender(windows, event)
-    return restartRecordingBackend()
-  })
-  ipcMain.handle(IPC.getRecordingStatus, (event) => {
-    requireMainSender(windows, event)
-    return getRecordingStatus()
-  })
-}
+const recordingSettingsBridgeHandlers = {
+  "recording.getSettings": {
+    guard: requireMainSender,
+    handle: () => getRecordingSettings(),
+  },
+  "recording.setSettings": {
+    guard: requireMainSender,
+    handle: (_windows, _event, settings: unknown) => {
+      const saved = saveRecordingSettings(normalizeRecordingSettings(settings))
+      emitRecordingSettingsEvent()
+      void configureRecordingBackend()
+      configureRecordingHotkeys(saved)
+      return saved
+    },
+  },
+  "recording.restartBackend": {
+    guard: requireMainSender,
+    handle: () => restartRecordingBackend(),
+  },
+  "recording.getStatus": {
+    guard: requireMainSender,
+    handle: () => getRecordingStatus(),
+  },
+} satisfies BridgeHandlerFragment
 
-function registerRecordingStorageIpc(windows: Windows): void {
-  ipcMain.handle(IPC.getRecordingStorageInfo, (event) => {
-    requireMainSender(windows, event)
-    return getRecordingStorageInfo()
-  })
-  ipcMain.handle(
-    IPC.selectOutputFolder,
-    async (event): Promise<string | null> => {
-      requireMainSender(windows, event)
+const recordingStorageBridgeHandlers = {
+  "recording.getStorageInfo": {
+    guard: requireMainSender,
+    handle: () => getRecordingStorageInfo(),
+  },
+  "recording.selectOutputFolder": {
+    guard: requireMainSender,
+    handle: async (_windows, event): Promise<string | null> => {
       const parent = BrowserWindow.fromWebContents(event.sender)
       const options: Electron.OpenDialogOptions = {
         title: t("Choose capture folder"),
@@ -172,27 +195,25 @@ function registerRecordingStorageIpc(windows: Windows): void {
       configureRecordingHotkeys(saved)
       return folder
     },
-  )
-}
+  },
+} satisfies BridgeHandlerFragment
 
-function registerRecordingSoundIpc(windows: Windows): void {
-  ipcMain.handle(IPC.listNotificationSounds, (event) => {
-    requireMainSender(windows, event)
-    return listNotificationSoundLibrary()
-  })
-  ipcMain.handle(
-    IPC.openNotificationSoundsFolder,
-    async (event, sound: unknown): Promise<void> => {
-      requireMainSender(windows, event)
+const recordingSoundBridgeHandlers = {
+  "recording.listNotificationSounds": {
+    guard: requireMainSender,
+    handle: () => listNotificationSoundLibrary(),
+  },
+  "recording.openNotificationSoundsFolder": {
+    guard: requireMainSender,
+    handle: async (_windows, _event, sound: unknown): Promise<void> => {
       if (!isNotificationSoundEvent(sound)) return
       const openError = await shell.openPath(ensureNotificationSoundsDir())
       if (openError) throw new Error(openError)
     },
-  )
-  ipcMain.handle(
-    IPC.previewNotificationSound,
-    async (event, sound: unknown): Promise<void> => {
-      requireMainSender(windows, event)
+  },
+  "recording.previewNotificationSound": {
+    guard: requireMainSender,
+    handle: async (_windows, _event, sound: unknown): Promise<void> => {
       if (!isNotificationSoundEvent(sound)) return
       // Audition the configured sound regardless of whether the event is
       // enabled, so users can hear their pick before turning it on.
@@ -202,37 +223,24 @@ function registerRecordingSoundIpc(windows: Windows): void {
         enabled: true,
       })
     },
-  )
-}
+  },
+} satisfies BridgeHandlerFragment
 
-function registerRecordingSourceIpc(windows: Windows): void {
-  ipcMain.handle(IPC.listGameProcesses, async (event) => {
-    requireMainSender(windows, event)
-    return listGameProcesses()
-  })
-  ipcMain.handle(IPC.listRecordingDisplays, async (event) => {
-    requireMainSender(windows, event)
-    return listRecordingDisplays()
-  })
-  ipcMain.handle(IPC.subscribeRecordingAudioLevels, async (event) => {
-    requireMainSender(windows, event)
-    return subscribeRecordingAudioLevels()
-  })
-  ipcMain.handle(IPC.stopAudioLevels, async (event) => {
-    requireMainSender(windows, event)
-    return stopAudioLevels()
-  })
-}
-
-function registerRecordingActionIpc(windows: Windows): void {
-  ipcMain.handle(IPC.saveReplayClip, (event, request: unknown) => {
-    requireMainSender(windows, event)
-    return saveReplayClip(normalizeSaveReplayClipRequest(request))
-  })
-  ipcMain.handle(IPC.revealRecordingCapture, (event, filename: unknown) => {
-    requireMainSender(windows, event)
-    if (typeof filename !== "string" || filename.length === 0) return
-    const capturePath = resolveRevealableCapturePath(filename)
-    if (capturePath) shell.showItemInFolder(capturePath)
-  })
-}
+const recordingSourceBridgeHandlers = {
+  "recording.listGameProcesses": {
+    guard: requireMainSender,
+    handle: () => listGameProcesses(),
+  },
+  "recording.listDisplays": {
+    guard: requireMainSender,
+    handle: () => listRecordingDisplays(),
+  },
+  "recording.subscribeAudioLevels": {
+    guard: requireMainSender,
+    handle: () => subscribeRecordingAudioLevels(),
+  },
+  "recording.stopAudioLevels": {
+    guard: requireMainSender,
+    handle: () => stopAudioLevels(),
+  },
+} satisfies BridgeHandlerFragment

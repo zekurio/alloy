@@ -1,12 +1,11 @@
 import { existsSync, mkdirSync, statSync } from "node:fs"
 import { basename, dirname, extname, join } from "node:path"
 
-import { app } from "electron"
-
 import type {
   RecordingLibraryExportRequest,
   RecordingLibraryExportSegment,
-} from "@/shared/ipc"
+} from "@alloy/contracts"
+import { app } from "electron"
 
 import { assertUploadMp4File, remuxToUploadMp4, trimMp4 } from "./media"
 import { findRecordingLibraryItem } from "./recording-library-scan"

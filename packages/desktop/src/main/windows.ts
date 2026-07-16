@@ -236,6 +236,9 @@ export class Windows {
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
+        // Lets the sandboxed preload report the app version in
+        // `alloyDesktop.bridge` without an extra IPC round trip.
+        additionalArguments: [`--alloy-app-version=${app.getVersion()}`],
       },
     })
 

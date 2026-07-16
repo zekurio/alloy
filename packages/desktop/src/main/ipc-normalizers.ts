@@ -2,17 +2,14 @@ import {
   CLIP_PRIVACY,
   RECORDING_NOTIFICATION_SOUND_EVENTS,
   type ClipPrivacy,
+  type RecordingCaptureMention,
+  type RecordingLibraryCommitStagedImportRequest,
+  type RecordingLibraryDownloadRequest,
+  type RecordingLibraryExportRequest,
+  type RecordingLibraryExportSegment,
+  type RecordingLibraryMetaPatch,
   type RecordingNotificationSoundEvent,
 } from "@alloy/contracts"
-
-import type {
-  RecordingCaptureMention,
-  RecordingLibraryCommitStagedImportRequest,
-  RecordingLibraryDownloadRequest,
-  RecordingLibraryExportRequest,
-  RecordingLibraryExportSegment,
-  RecordingLibraryMetaPatch,
-} from "@/shared/ipc"
 
 export function isNotificationSoundEvent(
   value: unknown,
@@ -20,33 +17,6 @@ export function isNotificationSoundEvent(
   return RECORDING_NOTIFICATION_SOUND_EVENTS.includes(
     value as RecordingNotificationSoundEvent,
   )
-}
-
-export function normalizeActionRequest(value: unknown): {
-  requestedAtUnixMs: number
-} {
-  const record =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {}
-  return {
-    requestedAtUnixMs: normalizeUnixMs(record.requestedAtUnixMs),
-  }
-}
-
-export function normalizeSaveReplayClipRequest(value: unknown): {
-  requestedAtUnixMs: number
-  durationSeconds: number
-} {
-  const request = normalizeActionRequest(value)
-  const record =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {}
-  return {
-    ...request,
-    durationSeconds: normalizeDurationSeconds(record.durationSeconds),
-  }
 }
 
 const EXPORT_SEGMENTS_MAX = 100
@@ -118,19 +88,15 @@ export function normalizeLibraryCommitStagedImportRequest(
 }
 
 export function normalizeLibraryThumbnailSaveRequest(
-  value: unknown,
+  id: unknown,
+  data: unknown,
 ): { id: string; data: Uint8Array } | null {
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  if (typeof record.id !== "string" || record.id.length === 0) return null
-  if (!(record.data instanceof Uint8Array)) return null
-  if (
-    record.data.byteLength === 0 ||
-    record.data.byteLength > THUMBNAIL_MAX_BYTES
-  ) {
+  if (typeof id !== "string" || id.length === 0) return null
+  if (!(data instanceof Uint8Array)) return null
+  if (data.byteLength === 0 || data.byteLength > THUMBNAIL_MAX_BYTES) {
     return null
   }
-  return { id: record.id, data: record.data }
+  return { id, data }
 }
 
 const DOWNLOAD_TITLE_MAX = 200
@@ -282,16 +248,4 @@ function normalizeTrimMs(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(0, Math.trunc(value))
     : 0
-}
-
-function normalizeUnixMs(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.trunc(value)
-    : Date.now()
-}
-
-function normalizeDurationSeconds(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.min(600, Math.max(15, Math.round(value)))
-    : 90
 }

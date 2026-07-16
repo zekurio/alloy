@@ -1,13 +1,12 @@
 import {
   DEFAULT_RECORDING_SETTINGS,
   normalizeRecordingSettings,
+  type DesktopSavedServer,
   type RecordingSettings,
 } from "@alloy/contracts"
 
-import type { SavedServer } from "@/shared/ipc"
-
 export interface DesktopState {
-  servers: SavedServer[]
+  servers: DesktopSavedServer[]
   recording: RecordingSettings
   /** Stable identity for this install, registered with the server for sync. */
   deviceId: string | null
@@ -24,7 +23,7 @@ export function normalizeState(parsed: Record<string, unknown>): DesktopState {
   const servers = Array.isArray(parsed.servers)
     ? parsed.servers
         .map(normalizeSavedServer)
-        .filter((server): server is SavedServer => server !== null)
+        .filter((server): server is DesktopSavedServer => server !== null)
     : []
 
   return {
@@ -35,17 +34,17 @@ export function normalizeState(parsed: Record<string, unknown>): DesktopState {
 }
 
 export function upsertServer(
-  servers: SavedServer[],
+  servers: DesktopSavedServer[],
   serverUrl: string,
   now: Date = new Date(),
-): SavedServer[] {
+): DesktopSavedServer[] {
   return dedupeServers([
     { serverUrl, lastConnectedAt: now.toISOString() },
     ...servers.filter((server) => server.serverUrl !== serverUrl),
   ]).slice(0, MAX_SAVED_SERVERS)
 }
 
-function normalizeSavedServer(value: unknown): SavedServer | null {
+function normalizeSavedServer(value: unknown): DesktopSavedServer | null {
   if (typeof value !== "object" || value === null) return null
   const record = value as Record<string, unknown>
   if (typeof record.serverUrl !== "string") return null
@@ -58,9 +57,9 @@ function normalizeSavedServer(value: unknown): SavedServer | null {
   }
 }
 
-function dedupeServers(servers: SavedServer[]): SavedServer[] {
+function dedupeServers(servers: DesktopSavedServer[]): DesktopSavedServer[] {
   const seen = new Set<string>()
-  const unique: SavedServer[] = []
+  const unique: DesktopSavedServer[] = []
   for (const server of servers) {
     if (seen.has(server.serverUrl)) continue
     seen.add(server.serverUrl)

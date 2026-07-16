@@ -11,28 +11,28 @@ import { useDesktopQuery } from "@/lib/use-desktop-query"
 import { alloyDesktop } from "./desktop-bridge"
 
 export function DesktopAutostartSettings() {
-  const autostart = alloyDesktop()?.autostart
+  const desktop = alloyDesktop()
   const { data: state, setData: setState } = useDesktopQuery(
-    autostart
+    desktop
       ? () =>
-          autostart.getState().catch(
+          desktop.autostart.getState().catch(
             (): DesktopAutostartState => ({
               supported: false,
               enabled: false,
             }),
           )
       : null,
-    [autostart],
+    [desktop],
   )
   const [busy, setBusy] = useState(false)
 
-  if (!autostart) return null
-  const activeAutostart = autostart
+  if (!desktop) return null
+  const autostart = desktop.autostart
 
   async function toggle(enabled: boolean) {
     setBusy(true)
     try {
-      setState(await activeAutostart.setEnabled(enabled))
+      setState(await autostart.setEnabled(enabled))
     } catch (cause) {
       toast.error(
         cause instanceof Error

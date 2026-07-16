@@ -1,11 +1,10 @@
 import { Worker } from "node:worker_threads"
 
-import { createLogger } from "@alloy/logging"
-
 import type {
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
-} from "@/shared/ipc"
+} from "@alloy/contracts"
+import { createLogger } from "@alloy/logging"
 
 import { cachedAssetUrl } from "./asset-cache"
 import { readCaptureManifest } from "./recording-library-manifest"

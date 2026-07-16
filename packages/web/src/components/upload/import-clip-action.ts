@@ -31,17 +31,13 @@ export function useImportClipAction(
     null,
   )
 
-  const available =
-    !!desktop?.recording.importLibraryFiles &&
-    !!desktop.recording.commitStagedLibraryImport &&
-    !!desktop.recording.discardStagedLibraryImport
+  const available = desktop !== null
 
   const start = useCallback(async () => {
-    const pick = desktop?.recording.importLibraryFiles
-    if (!pick || !available || picking || committing || staged) return
+    if (!desktop || picking || committing || staged) return
     setPicking(true)
     try {
-      const result = await pick()
+      const result = await desktop.recording.importLibraryFiles()
       if (result.canceled) return
       if (result.failed.length > 0) {
         const [first] = result.failed
@@ -68,15 +64,14 @@ export function useImportClipAction(
     } finally {
       setPicking(false)
     }
-  }, [available, committing, desktop, picking, staged])
+  }, [committing, desktop, picking, staged])
 
   const discard = useCallback(async () => {
     const current = staged
-    const discardStaged = desktop?.recording.discardStagedLibraryImport
-    if (!current || !discardStaged || committing) return
+    if (!current || !desktop || committing) return
     setStaged(null)
     try {
-      await discardStaged(current.id)
+      await desktop.recording.discardStagedLibraryImport(current.id)
     } catch (cause) {
       toast.error(errorMessage(cause, t("Could not clear staged import.")))
     }
@@ -85,12 +80,11 @@ export function useImportClipAction(
   const commit = useCallback(
     async ({ title, game }: { title: string; game: GameRow }) => {
       const current = staged
-      const commitStaged = desktop?.recording.commitStagedLibraryImport
-      if (!current || !commitStaged || committing) return
+      if (!current || !desktop || committing) return
 
       setCommitting(true)
       try {
-        const result = await commitStaged({
+        const result = await desktop.recording.commitStagedLibraryImport({
           id: current.id,
           title: normalizeClipTitle(title),
           gameName: game.name,

@@ -60,7 +60,6 @@ export {
   defaultOutputFolder,
   defaultReplayScratchFolder,
   getRecordingStorageInfo,
-  resolveRevealableCapturePath,
 } from "./recording-storage"
 
 const logger = createLogger("recording")
