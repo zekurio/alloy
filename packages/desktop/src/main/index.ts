@@ -75,7 +75,7 @@ function startApp(): void {
   app.whenReady().then(async () => {
     // Drop Electron's default File/Edit/View/Window menu for a clean,
     // app-driven chrome. (Standard editing shortcuts still work in web content
-    // on Windows/Linux; revisit if macOS support needs its app menu back.)
+    // on Windows; revisit if macOS support needs its app menu back.)
     Menu.setApplicationMenu(null)
     registerRecordingLibraryProtocol()
     registerAssetCacheProtocol()

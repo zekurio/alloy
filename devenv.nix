@@ -42,11 +42,6 @@ in
     rustc
     rustfmt
     clippy
-    # NixOS-patched Electron for the desktop app. The npm `electron` package is
-    # kept only for its TypeScript types (its prebuilt binary can't run on NixOS
-    # without an FHS shim), so the runtime comes from here instead. Major must
-    # track the npm `electron` devDependency in packages/desktop.
-    electron_42
   ] ++ nativeLibs;
 
   # Single source of truth for the static dev environment.
@@ -66,10 +61,6 @@ in
     ALLOY_STORAGE_FS_THUMBNAILS_PATH = "${config.devenv.root}/data/storage/thumbnails";
     ALLOY_STORAGE_FS_ASSETS_PATH = "${config.devenv.root}/data/storage/assets";
 
-    # Desktop app: run the Nix-provided Electron (electron-vite reads
-    # ELECTRON_EXEC_PATH) and skip the npm package's unusable binary download.
-    ELECTRON_EXEC_PATH = "${pkgs.electron_42}/bin/electron";
-    ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
   };
 
   # Start one repo-local postgres for all active shells. It listens on a

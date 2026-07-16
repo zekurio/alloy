@@ -2,8 +2,8 @@ packages:
   - "packages/*"
 
 allowBuilds:
-  # Electron's prebuilt binary is downloaded via Nix (electron_42) instead, so
-  # its npm postinstall is intentionally disabled (see ELECTRON_SKIP_BINARY_DOWNLOAD).
+  # Download Electron only when the macOS/Windows desktop app is run, keeping
+  # server installs and CI free of the large platform binary.
   electron: false
   # electron-builder pulls this in for Squirrel.Windows support. Alloy's first
   # Windows target is NSIS, so keep this transitive build script disabled.

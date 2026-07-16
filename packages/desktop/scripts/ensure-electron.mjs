@@ -108,10 +108,6 @@ function getPlatformPath() {
   switch (process.platform) {
     case "darwin":
       return "Electron.app/Contents/MacOS/Electron"
-    case "freebsd":
-    case "openbsd":
-    case "linux":
-      return "electron"
     case "win32":
       return "electron.exe"
     default:
