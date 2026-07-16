@@ -14,7 +14,7 @@ export function presentNotification(
   if (document.visibilityState === "visible") return
   const display = notificationDisplay(item)
   const desktop = alloyDesktop()
-  if (desktop?.notifications) {
+  if (desktop) {
     void desktop.notifications
       .show({
         title: display.title,

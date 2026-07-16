@@ -1,15 +1,14 @@
 import { renameSync, mkdirSync } from "node:fs"
 import { basename, extname, resolve } from "node:path"
 
-import type { RecordingCapture } from "@alloy/contracts"
-import { createLogger } from "@alloy/logging"
-import { shell } from "electron"
-
 import type {
+  RecordingCapture,
   RecordingLibraryItem,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
-} from "@/shared/ipc"
+} from "@alloy/contracts"
+import { createLogger } from "@alloy/logging"
+import { shell } from "electron"
 
 import {
   correctCaptureDurationMs,
@@ -31,7 +30,6 @@ import {
   isCaptureId,
   titleForCapture,
 } from "./recording-library-shared"
-import { currentOutputFolder } from "./recording-storage"
 
 const logger = createLogger("library")
 
@@ -181,24 +179,6 @@ export async function deleteRecordingLibraryItem(id: string): Promise<void> {
   } catch (cause) {
     logger.warn("failed to prune deleted recording thumbnails:", cause)
   }
-}
-
-export function openRecordingLibraryFolder(): void {
-  const folder = currentOutputFolder()
-  const openError = shell.openPath(folder)
-  void openError.then((message) => {
-    if (message) logger.warn("failed to open library folder:", message)
-  })
-}
-
-export function openRecordingLibraryItem(id: string): void {
-  const item = findRecordingLibraryItem(id)
-  if (!item) return
-
-  const openError = shell.openPath(item.filename)
-  void openError.then((message) => {
-    if (message) logger.warn("failed to open library capture:", message)
-  })
 }
 
 export function revealRecordingLibraryItem(id: string): void {

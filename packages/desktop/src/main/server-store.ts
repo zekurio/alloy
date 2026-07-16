@@ -3,12 +3,11 @@ import { dirname, join } from "node:path"
 
 import {
   normalizeRecordingSettings,
+  type DesktopSavedServer,
   type RecordingSettings,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
-
-import type { SavedServer } from "@/shared/ipc"
 
 import {
   EMPTY_STATE,
@@ -61,18 +60,18 @@ export function getStartupServerUrl(): string | null {
   return state.servers[0]?.serverUrl ?? null
 }
 
-export function getSavedServers(): SavedServer[] {
+export function getSavedServers(): DesktopSavedServer[] {
   return readState().servers
 }
 
-export function rememberServer(serverUrl: string): SavedServer[] {
+export function rememberServer(serverUrl: string): DesktopSavedServer[] {
   const state = readState()
   const servers = upsertServer(state.servers, serverUrl)
   writeState({ ...state, servers })
   return servers
 }
 
-export function forgetServer(serverUrl: string): SavedServer[] {
+export function forgetServer(serverUrl: string): DesktopSavedServer[] {
   const state = readState()
   const servers = state.servers.filter(
     (server) => server.serverUrl !== serverUrl,

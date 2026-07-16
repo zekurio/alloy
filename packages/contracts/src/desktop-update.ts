@@ -21,9 +21,9 @@ export interface DesktopUpdateState {
 export interface AlloyDesktopUpdatesApi {
   getState(): Promise<DesktopUpdateState>
   /** Runs an immediate update check instead of waiting for the background interval. */
-  checkForUpdates?(): Promise<DesktopUpdateState>
+  checkForUpdates(): Promise<DesktopUpdateState>
   /** Downloads the available update after the user confirms the action. */
-  downloadUpdate?(): Promise<DesktopUpdateState>
+  downloadUpdate(): Promise<DesktopUpdateState>
   /** Quits and installs the downloaded update; no-op when none is ready. */
   restartToInstall(): Promise<void>
   onState(listener: (state: DesktopUpdateState) => void): () => void

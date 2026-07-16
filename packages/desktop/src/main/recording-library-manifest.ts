@@ -3,16 +3,13 @@ import { dirname, join } from "node:path"
 
 import type {
   RecordingCaptureKind,
+  RecordingCaptureMention,
   RecordingCaptureSource,
   RecordingGameGuess,
+  RecordingLibraryItem,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
-
-import type {
-  RecordingCaptureMention,
-  RecordingLibraryItem,
-} from "@/shared/ipc"
 
 const logger = createLogger("library")
 
