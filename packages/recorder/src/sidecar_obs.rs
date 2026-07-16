@@ -837,6 +837,15 @@ unsafe fn configure_game_capture_source(
     }
     obs.set_string(data, "window", obs_window)?;
     obs.set_string(data, "capture_window", obs_window)?;
+    // Cap hook-side backbuffer copies to the output framerate. OBS defaults
+    // this off and then copies at up to 2x the output fps on every game
+    // present; on high-fps games (uncapped competitive titles) that floods
+    // the game's present path with redundant full-resolution copies into an
+    // unsynchronized shared texture, which manifests as bursts of stale
+    // (duplicated) frames in the recording while gameplay and OBS render
+    // stats stay clean. We encode at a fixed fps, so copies beyond that rate
+    // are pure overhead.
+    obs.set_bool(data, "limit_framerate", true)?;
     obs.set_string(data, "rgb10a2_space", game_capture_rgb10a2_space(game))?;
     Ok(())
 }
