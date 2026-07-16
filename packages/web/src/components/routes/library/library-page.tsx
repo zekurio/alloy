@@ -6,7 +6,15 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { BanIcon, FolderXIcon, GlobeIcon, SearchXIcon } from "lucide-react"
+import {
+  BanIcon,
+  CloudIcon,
+  FolderXIcon,
+  GlobeIcon,
+  LayersIcon,
+  MonitorIcon,
+  SearchXIcon,
+} from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 
 import { ClipGrid } from "@/components/clip/clip-grid"
@@ -25,7 +33,7 @@ import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
-import type { LibrarySort } from "@/lib/library-search"
+import type { LibrarySort, LibrarySource } from "@/lib/library-search"
 
 import {
   buildLibraryGroups,
@@ -48,16 +56,31 @@ const LIBRARY_SORT_OPTIONS: ReadonlyArray<SortDropdownOption<LibrarySort>> = [
   { key: "oldest", label: t("Oldest") },
 ]
 
-export function LibraryPage({ sort }: { sort: LibrarySort }) {
-  return <LibraryContent desktop={alloyDesktop()} sort={sort} />
+const LIBRARY_SOURCE_OPTIONS: ReadonlyArray<SortDropdownOption<LibrarySource>> =
+  [
+    { key: "all", label: t("All sources"), icon: <LayersIcon /> },
+    { key: "server", label: t("Server"), icon: <CloudIcon /> },
+    { key: "local", label: t("Local"), icon: <MonitorIcon /> },
+  ]
+
+export function LibraryPage({
+  sort,
+  source,
+}: {
+  sort: LibrarySort
+  source: LibrarySource
+}) {
+  return <LibraryContent desktop={alloyDesktop()} sort={sort} source={source} />
 }
 
 function LibraryContent({
   desktop,
   sort,
+  source,
 }: {
   desktop: AlloyDesktop | null
   sort: LibrarySort
+  source: LibrarySource
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -67,6 +90,10 @@ function LibraryContent({
   const model = useLibraryContentModel({
     desktop,
     kind: "all",
+    // Without the desktop bridge there are no local captures and the source
+    // dropdown is hidden, so a stray ?source= in the URL must not blank the
+    // library.
+    source: desktop ? source : "all",
     query: deferredQuery,
     groupKey,
   })
@@ -101,7 +128,24 @@ function LibraryContent({
           groupKey={groupKey}
           onGroupChange={setGroupKey}
         />
-        <div className="shrink-0">
+        <div className="flex shrink-0 items-center gap-2">
+          {desktop ? (
+            <SortDropdown
+              value={source}
+              options={LIBRARY_SOURCE_OPTIONS}
+              renderOptionLink={(opt, active) => (
+                <Link
+                  to="/library"
+                  search={{
+                    // The default source stays out of the URL.
+                    source: opt.key === "all" ? undefined : opt.key,
+                    sort: sort === "recent" ? undefined : sort,
+                  }}
+                  data-active={active ? "true" : undefined}
+                />
+              )}
+            />
+          ) : null}
           <SortDropdown
             value={sort}
             options={LIBRARY_SORT_OPTIONS}
@@ -111,6 +155,7 @@ function LibraryContent({
                 search={{
                   // The default sort stays out of the URL.
                   sort: opt.key === "recent" ? undefined : opt.key,
+                  source: source === "all" ? undefined : source,
                 }}
                 data-active={active ? "true" : undefined}
               />
@@ -152,11 +197,13 @@ function LibraryContent({
 function useLibraryContentModel({
   desktop,
   kind,
+  source,
   query,
   groupKey,
 }: {
   desktop: AlloyDesktop | null
   kind: LibraryKindFilter
+  source: LibrarySource
   query: string
   groupKey: string | null
 }) {
@@ -198,9 +245,10 @@ function useLibraryContentModel({
       uploaded,
       active,
       kind,
+      source,
       query,
     })
-  }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, query])
+  }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, source, query])
   const loading =
     (desktop !== null && !snapshot && !error) ||
     (handle.length > 0 && uploadedQuery.isLoading)

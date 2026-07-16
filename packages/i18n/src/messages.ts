@@ -140,6 +140,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Administration: "Administration",
   All: "Alle",
   "All games": "Alle Spiele",
+  "All sources": "Alle Quellen",
   Alloy: "Alloy",
   "Alloy {version} has been downloaded.":
     "Alloy {version} wurde heruntergeladen.",
@@ -901,6 +902,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Wähle das Display, das Alloy für die Desktop-Aufnahme verwenden soll.",
   "Server + Device": "Server + Gerät",
   "Server only": "Nur Server",
+  Server: "Server",
   "Server URL": "Server-URL",
   Servers: "Server",
   Settings: "Einstellungen",
