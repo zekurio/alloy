@@ -33,7 +33,7 @@
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck && pnpm test"
   },
   "devDependencies": {
-    "@types/node": "24.13.3",
+    "@types/node": "26.1.1",
     "@types/pg": "8.20.0",
     "oxfmt": "0.58.0",
     "oxlint": "1.73.0",
