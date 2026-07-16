@@ -4,6 +4,7 @@ import type {
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
 } from "@/lib/desktop"
+import type { LibrarySource } from "@/lib/library-search"
 
 import {
   gameNameKey,
@@ -107,6 +108,7 @@ export function buildLibraryEntries({
   uploaded,
   active,
   kind,
+  source,
   query,
 }: {
   snapshot: RecordingLibrarySnapshot | null
@@ -114,6 +116,7 @@ export function buildLibraryEntries({
   uploaded: ClipRow[]
   active: LibraryGroupView | null
   kind: LibraryKindFilter
+  source: LibrarySource
   query: string
 }): LibraryEntry[] {
   const cloudIds = new Set(uploaded.map((row) => row.id))
@@ -127,22 +130,26 @@ export function buildLibraryEntries({
     if (serverId && cloudIds.has(serverId)) localByClipId.set(serverId, item)
   }
 
-  const local: LibraryEntry[] = filterLibraryItems(localItems, {
-    localKeys: active?.localKeys ?? null,
-    kind,
-    query,
-  }).map((item) => {
-    const view = enrichLibraryItem(item, gamesByName)
-    return {
-      type: "local",
-      key: `local:${view.id}`,
-      createdAt: view.createdAt,
-      status: "local",
-      item: view,
-    }
-  })
+  const localVisible = source !== "server"
+  const local: LibraryEntry[] = localVisible
+    ? filterLibraryItems(localItems, {
+        localKeys: active?.localKeys ?? null,
+        kind,
+        query,
+      }).map((item) => {
+        const view = enrichLibraryItem(item, gamesByName)
+        return {
+          type: "local",
+          key: `local:${view.id}`,
+          createdAt: view.createdAt,
+          status: "local",
+          item: view,
+        }
+      })
+    : []
 
-  const cloudVisible = kind === "all" || kind === "replay"
+  const cloudVisible =
+    source !== "local" && (kind === "all" || kind === "replay")
   const cloud: LibraryEntry[] = cloudVisible
     ? filterUploadedClips(uploaded, query, active).map((row) => {
         const localItem = localByClipId.get(row.id) ?? null
