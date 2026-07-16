@@ -15,25 +15,22 @@ import { alloyDesktop } from "./desktop-bridge"
 type Phase = "idle" | "checking" | "downloading" | "installing"
 
 export function DesktopUpdateSettings() {
-  const updates = alloyDesktop()?.updates
+  const desktop = alloyDesktop()
   const updateState = useDesktopUpdateState()
   const [phase, setPhase] = useState<Phase>("idle")
 
-  if (!updates) return null
-  const activeUpdates = updates
+  if (!desktop) return null
+  const updates = desktop.updates
 
-  const canCheck = typeof activeUpdates.checkForUpdates === "function"
-  const canDownload = typeof activeUpdates.downloadUpdate === "function"
   const checkBusy = phase === "checking" || updateState.status === "checking"
   const downloadBusy =
     phase === "downloading" || updateState.status === "downloading"
-  const checkDisabled =
-    !canCheck || phase !== "idle" || updateState.status !== "idle"
+  const checkDisabled = phase !== "idle" || updateState.status !== "idle"
 
   async function restartToInstall() {
     setPhase("installing")
     try {
-      await activeUpdates.restartToInstall()
+      await updates.restartToInstall()
     } catch (cause) {
       toast.error(errorText(cause, t("Couldn't restart to update.")))
       setPhase("idle")
@@ -41,11 +38,9 @@ export function DesktopUpdateSettings() {
   }
 
   async function downloadUpdate() {
-    if (!activeUpdates.downloadUpdate) return
-
     setPhase("downloading")
     try {
-      await activeUpdates.downloadUpdate()
+      await updates.downloadUpdate()
     } catch (cause) {
       toast.error(errorText(cause, t("Couldn't download the update.")))
     } finally {
@@ -53,11 +48,9 @@ export function DesktopUpdateSettings() {
     }
   }
   async function checkForUpdates() {
-    if (!activeUpdates.checkForUpdates) return
-
     setPhase("checking")
     try {
-      const state = await activeUpdates.checkForUpdates()
+      const state = await updates.checkForUpdates()
       if (state.status === "idle") {
         toast.success(t("No updates found."))
       }
@@ -101,7 +94,7 @@ export function DesktopUpdateSettings() {
         <Button
           type="button"
           size="sm"
-          disabled={!canDownload || downloadBusy}
+          disabled={downloadBusy}
           onClick={() => void downloadUpdate()}
         >
           {downloadBusy ? (

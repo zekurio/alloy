@@ -246,9 +246,14 @@ const table = pgTable("session", {
   (`packages/web/src/lib/api.ts`). Routes are file-based
   (`packages/web/src/routes/`) with `beforeLoad` guards from
   `packages/web/src/lib/auth-guards.ts`.
-- Desktop: renderers only reach the main process through the preload bridges;
-  add new IPC channels in `packages/desktop/src/main/ipc.ts` plus the matching
-  preload. Sidecar protocol changes must update both
+- Desktop: renderers only reach the main process through preload bridges. The
+  web-facing bridge is defined once in
+  `packages/contracts/src/desktop-bridge.ts`; it is additive-only because the
+  server-hosted web app and desktop shell can update independently. Add a
+  contract entry plus its typed handler fragment rather than hand-writing
+  channels or preload wrappers. Gate new web features with `desktopSupports`
+  from `packages/web/src/lib/desktop.ts`, never by probing optional members.
+  Sidecar protocol changes must update both
   `packages/desktop/src/main/recording-sidecar-protocol.ts` and
   `packages/recorder/src/sidecar_types.rs`.
 - Fire-and-forget async uses `void promise.catch(...)`; do not leave floating

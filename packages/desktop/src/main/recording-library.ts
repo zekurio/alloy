@@ -5,18 +5,17 @@
  * - `recording-library-protocol` — the `alloy-capture://` media protocol.
  * - `recording-library-scan` — disk scanning, grouping, and snapshots.
  * - `recording-library-store` — manifest mutations (remember/update/import/
- *   delete) and open/reveal actions.
+ *   delete) and reveal actions.
  * - `recording-library-export` — trimmed exports for publishing.
  */
 import { rmSync } from "node:fs"
 import { join } from "node:path"
 
-import { app } from "electron"
-
 import type {
   RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryExportRequest,
-} from "@/shared/ipc"
+} from "@alloy/contracts"
+import { app } from "electron"
 
 export {
   recordingLibraryProtocolScheme,
@@ -25,8 +24,6 @@ export {
 export { getRecordingLibrarySnapshot } from "./recording-library-scan"
 export {
   deleteRecordingLibraryItem,
-  openRecordingLibraryFolder,
-  openRecordingLibraryItem,
   rememberRecordingLibraryCapture,
   revealRecordingLibraryItem,
   updateRecordingLibraryCaptureMeta,

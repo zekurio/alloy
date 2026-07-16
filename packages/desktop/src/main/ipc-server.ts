@@ -1,9 +1,10 @@
+import type { DesktopConnectResult } from "@alloy/contracts"
 import { ipcMain, shell } from "electron"
 
-import type { ConnectResult, ProbeResult } from "@/shared/ipc"
-import { IPC } from "@/shared/ipc"
+import { OVERLAY_GET_STARTUP_SERVER_CHANNEL } from "@/shared/ipc"
 
 import { loginViaBrowser } from "./browser-login"
+import type { BridgeHandlerFragment } from "./ipc-bridge"
 import {
   requireControllableWindow,
   requireDesktopSender,
@@ -24,32 +25,36 @@ import type { Windows } from "./windows"
 const SETUP_REQUIRED_ERROR =
   "This Alloy server needs setup. Finish setup in your browser, then connect again."
 
-export function registerServerIpc(windows: Windows): void {
-  registerServerConnectionIpc(windows)
-  registerServerNavigationIpc(windows)
-  registerServerStateIpc(windows)
-  registerServerWindowControlIpc(windows)
+/**
+ * Overlay-only channels, deliberately outside the web bridge contract. The
+ * bundled connect screen is the only sender allowed to read the startup
+ * server.
+ */
+export function registerOverlayIpc(windows: Windows): void {
+  ipcMain.handle(OVERLAY_GET_STARTUP_SERVER_CHANNEL, (event): string | null => {
+    requireOverlaySender(windows, event)
+    return getStartupServerUrl()
+  })
 }
 
-function registerServerConnectionIpc(windows: Windows): void {
-  ipcMain.handle(IPC.probe, (event, url: unknown): Promise<ProbeResult> => {
-    requireOverlaySender(windows, event)
-    if (typeof url !== "string") {
-      return Promise.resolve({ ok: false, error: "Enter a server URL." })
-    }
-    return probeServer(url)
-  })
-
-  ipcMain.handle(
-    IPC.connect,
-    async (event, url: unknown, options: unknown): Promise<ConnectResult> => {
-      requireDesktopSender(windows, event)
+/** Server connection, navigation, and window-control bridge handlers. */
+export const serverBridgeHandlers = {
+  // `servers.connect` serves both the overlay's first connect and the
+  // connected app's server switcher, so it takes the wider desktop guard.
+  "servers.connect": {
+    guard: requireDesktopSender,
+    handle: async (
+      windows,
+      _event,
+      url: unknown,
+      options: unknown,
+    ): Promise<DesktopConnectResult> => {
       if (typeof url !== "string") {
         return { ok: false, error: "Enter a server URL." }
       }
       const forceBrowserLogin = connectOptions(options).forceBrowserLogin
-      // Re-probe before committing so we only ever persist + load a URL we just
-      // confirmed is a reachable Alloy server.
+      // Re-probe before committing so we only ever persist + load a URL we
+      // just confirmed is a reachable Alloy server.
       const result = await probeServer(url)
       if (!result.ok) return { ok: false, error: result.error }
       if (result.config.setupRequired) {
@@ -73,73 +78,72 @@ function registerServerConnectionIpc(windows: Windows): void {
       windows.connectTo(result.serverUrl)
       return { ok: true, serverUrl: result.serverUrl }
     },
-  )
-}
-
-function registerServerNavigationIpc(windows: Windows): void {
-  ipcMain.handle(IPC.openConnect, (event) => {
-    requireDesktopSender(windows, event)
-    windows.openConnect()
-  })
-  ipcMain.handle(IPC.openLibrary, (event) => {
-    requireMainSender(windows, event)
-    windows.openLibrary()
-  })
-}
-
-function registerServerWindowControlIpc(windows: Windows): void {
-  ipcMain.handle(IPC.openSettings, (event) => {
-    requireDesktopSender(windows, event)
-    windows.openSettings()
-  })
-  ipcMain.handle(IPC.reloadApp, (event) => {
-    const window = requireControllableWindow(windows, event)
-    setTimeout(() => {
-      if (!window.isDestroyed()) window.webContents.reloadIgnoringCache()
-    }, 0)
-  })
-  ipcMain.handle(IPC.minimizeWindow, (event) => {
-    const window = requireControllableWindow(windows, event)
-    window.minimize()
-  })
-  ipcMain.handle(IPC.toggleMaximizeWindow, (event) => {
-    const window = requireControllableWindow(windows, event)
-    if (window.isMaximized()) {
-      window.unmaximize()
-      return
-    }
-    window.maximize()
-  })
-  ipcMain.handle(IPC.closeWindow, (event) => {
-    const window = requireControllableWindow(windows, event)
-    window.close()
-  })
-}
-
-function registerServerStateIpc(windows: Windows): void {
-  ipcMain.handle(IPC.getStartupServer, (event): string | null => {
-    requireOverlaySender(windows, event)
-    return getStartupServerUrl()
-  })
-  ipcMain.handle(IPC.getServers, (event) => {
-    requireDesktopServerStateSender(windows, event)
-    return getSavedServers()
-  })
-  ipcMain.handle(IPC.getCurrentServer, (event) => {
-    requireDesktopServerStateSender(windows, event)
-    return windows.currentServerUrl()
-  })
-  ipcMain.handle(IPC.forgetServer, (event, url: unknown) => {
-    requireDesktopSender(windows, event)
-    if (typeof url !== "string") return getSavedServers()
-    return forgetServer(url)
-  })
-}
+  },
+  "servers.getServers": {
+    guard: requireDesktopServerStateSender,
+    handle: () => getSavedServers(),
+  },
+  "servers.getCurrentServer": {
+    guard: requireDesktopServerStateSender,
+    handle: (windows) => windows.currentServerUrl(),
+  },
+  "servers.forgetServer": {
+    guard: requireDesktopSender,
+    handle: (_windows, _event, url: unknown) => {
+      if (typeof url !== "string") return getSavedServers()
+      return forgetServer(url)
+    },
+  },
+  openConnect: {
+    guard: requireDesktopSender,
+    handle: (windows) => {
+      windows.openConnect()
+    },
+  },
+  openSettings: {
+    guard: requireDesktopSender,
+    handle: (windows) => {
+      windows.openSettings()
+    },
+  },
+  reloadApp: {
+    guard: requireMainSender,
+    handle: (windows, event) => {
+      const window = requireControllableWindow(windows, event)
+      setTimeout(() => {
+        if (!window.isDestroyed()) window.webContents.reloadIgnoringCache()
+      }, 0)
+    },
+  },
+  minimizeWindow: {
+    guard: requireMainSender,
+    handle: (windows, event) => {
+      requireControllableWindow(windows, event).minimize()
+    },
+  },
+  toggleMaximizeWindow: {
+    guard: requireMainSender,
+    handle: (windows, event) => {
+      const window = requireControllableWindow(windows, event)
+      if (window.isMaximized()) {
+        window.unmaximize()
+        return
+      }
+      window.maximize()
+    },
+  },
+  closeWindow: {
+    guard: requireMainSender,
+    handle: (windows, event) => {
+      requireControllableWindow(windows, event).close()
+    },
+  },
+} satisfies BridgeHandlerFragment
 
 function connectOptions(value: unknown): { forceBrowserLogin: boolean } {
   if (!value || typeof value !== "object") return { forceBrowserLogin: false }
   return {
     forceBrowserLogin:
-      (value as { forceBrowserLogin?: unknown }).forceBrowserLogin === true,
+      "forceBrowserLogin" in value && value.forceBrowserLogin === true,
   }
 }

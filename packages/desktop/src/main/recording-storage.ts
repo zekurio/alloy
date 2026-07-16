@@ -1,5 +1,5 @@
 import { mkdirSync, readdirSync, statfsSync, statSync } from "node:fs"
-import { isAbsolute, join, relative, resolve } from "node:path"
+import { join } from "node:path"
 
 import type { RecordingStorageInfo } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
@@ -33,21 +33,6 @@ export async function getRecordingStorageInfo(): Promise<RecordingStorageInfo> {
     availableBytes: fsInfo.availableBytes,
     clipsBytes,
   }
-}
-
-export function resolveRevealableCapturePath(filename: string): string | null {
-  if (!/\.(mp4|mkv|mov|webm)$/i.test(filename)) return null
-
-  const capturePath = resolve(filename)
-  const relativePath = relative(resolve(currentOutputFolder()), capturePath)
-  if (
-    relativePath.length > 0 &&
-    !relativePath.startsWith("..") &&
-    !isAbsolute(relativePath)
-  ) {
-    return capturePath
-  }
-  return null
 }
 
 export function currentOutputFolder(): string {

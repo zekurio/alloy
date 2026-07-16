@@ -20,8 +20,9 @@ let started = false
 function ensureStarted(): void {
   if (started) return
   started = true
-  const updates = alloyDesktop()?.updates
-  if (!updates) return
+  const desktop = alloyDesktop()
+  if (!desktop) return
+  const updates = desktop.updates
 
   let receivedStateEvent = false
   updates.onState((next) => {
@@ -62,13 +63,12 @@ function subscribe(listener: () => void): () => void {
 
 /**
  * Auto-update state of the desktop shell hosting this page. Always "idle" in
- * a regular browser or on desktop shells that predate the updates bridge, so
- * update UI renders nothing outside the desktop app.
+ * a regular browser, so update UI renders nothing outside the desktop app.
  */
 export function useDesktopUpdateState(): DesktopUpdateState {
   return useSyncExternalStore(
     subscribe,
-    () => (alloyDesktop()?.updates ? snapshot : IDLE_STATE),
+    () => (alloyDesktop() ? snapshot : IDLE_STATE),
     () => IDLE_STATE,
   )
 }

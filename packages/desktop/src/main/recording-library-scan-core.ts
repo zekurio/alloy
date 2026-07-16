@@ -10,13 +10,10 @@ import { basename, dirname, extname, join, relative, resolve } from "node:path"
 import type {
   RecordingCaptureKind,
   RecordingCaptureSource,
-} from "@alloy/contracts"
-
-import type {
   RecordingLibraryGroup,
   RecordingLibraryItem,
   RecordingLibrarySnapshot,
-} from "@/shared/ipc"
+} from "@alloy/contracts"
 
 import type { CaptureManifest } from "./recording-library-manifest"
 import {

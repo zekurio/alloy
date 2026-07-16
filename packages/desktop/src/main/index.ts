@@ -10,7 +10,7 @@ import {
   registerAssetCacheProtocol,
 } from "./asset-cache"
 import { WINDOWS_APP_USER_MODEL_ID, wasLaunchedAtLogin } from "./autostart"
-import { registerIpc } from "./ipc"
+import { registerBridge } from "./ipc"
 import { installCrashLogging, installFileLogSink } from "./logging"
 import {
   configureRecordingBackend,
@@ -81,7 +81,7 @@ function startApp(): void {
     registerAssetCacheProtocol()
     watchAuthCookiePersistence()
 
-    registerIpc(windows)
+    registerBridge(windows)
     createAlloyTray({
       showAlloy: () => showOrOpenInitialWindow(windows),
       openLibrary: () => {
