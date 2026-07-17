@@ -267,7 +267,9 @@ function ClipViewerDialogBody({
           aria-label={t("Previous clip")}
           disabled={prevDisabled}
           className={cn(
-            "absolute top-1/2 right-full z-40 h-12 w-[calc((100dvw-100%)/2)] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+            // h/w carry the lg: prefix so they beat the icon-size default
+            // (sm:size-8) in the cascade; the buttons only render at lg+.
+            "absolute top-1/2 right-full z-40 lg:h-12 lg:w-[calc((100dvw-100%)/2)] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
             "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
             "hidden lg:inline-flex",
           )}
@@ -284,7 +286,7 @@ function ClipViewerDialogBody({
           aria-label={t("Next clip")}
           disabled={nextDisabled}
           className={cn(
-            "absolute top-1/2 left-full z-40 h-12 w-[calc((100dvw-100%)/2)] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+            "absolute top-1/2 left-full z-40 lg:h-12 lg:w-[calc((100dvw-100%)/2)] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
             "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
             "hidden lg:inline-flex",
           )}
