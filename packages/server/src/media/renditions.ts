@@ -6,6 +6,7 @@ import {
   type TranscodingConfig,
   type VideoCodec,
 } from "@alloy/contracts"
+import { createLogger } from "@alloy/logging"
 import { join } from "@alloy/server/runtime/path"
 
 import {
@@ -16,6 +17,8 @@ import {
 import { runFfmpeg, transcodeTimeoutMs } from "./ffmpeg"
 import { probeMedia } from "./probe"
 import { transcodeSettings } from "./transcode-settings"
+
+const logger = createLogger("media")
 
 /**
  * Keyframe interval target. Progressive MP4 seeks land on keyframes, so a
@@ -111,6 +114,12 @@ export function buildRenditionArgs(options: {
   config: TranscodingConfig
   srcPath: string
   step: LadderStep
+  /**
+   * Source-time cut applied on the decode side: `-ss` before `-i` plus an
+   * output duration. With a re-encode this is frame-exact — ffmpeg decodes
+   * from the preceding keyframe and discards frames before the seek point.
+   */
+  trim?: { startMs: number; endMs: number }
 }): string[] {
   const gop = Math.round(options.step.fps * GOP_SECONDS)
   const filters = [
@@ -124,8 +133,12 @@ export function buildRenditionArgs(options: {
     "error",
     "-y",
     ...buildEncoderGlobalArgs(options.config),
+    ...(options.trim ? ["-ss", String(options.trim.startMs / 1000)] : []),
     "-i",
     options.srcPath,
+    ...(options.trim
+      ? ["-t", String((options.trim.endMs - options.trim.startMs) / 1000)]
+      : []),
     "-map",
     "0:v:0",
     "-map",
@@ -162,6 +175,8 @@ export interface EncodedRendition {
   height: number
   width: number
   fps: number
+  /** Probed output duration — the cut length when a trim was applied. */
+  durationMs: number
   /** RFC 6381 codec string; empty when it could not be derived. */
   codecs: string
   sizeBytes: number
@@ -169,7 +184,9 @@ export interface EncodedRendition {
 
 /**
  * Encode one ladder step from `srcPath` into `outDir` as a progressive
- * (faststart) MP4. `onProgress` receives 0..1.
+ * (faststart) MP4. `onProgress` receives 0..1. `durationMs` is the expected
+ * output duration — the trim length when `trim` is set — and drives both the
+ * encode timeout and progress mapping.
  */
 export async function encodeRendition(
   srcPath: string,
@@ -178,6 +195,7 @@ export async function encodeRendition(
   step: LadderStep,
   opts: {
     durationMs: number
+    trim?: { startMs: number; endMs: number }
     signal?: AbortSignal
     onProgress?: (fraction: number) => void
   },
@@ -193,7 +211,7 @@ export async function encodeRendition(
       if (durationSec <= 0) return
       opts.onProgress?.(Math.min(1, outTimeSec / durationSec))
     },
-    args: buildRenditionArgs({ config, srcPath, step }),
+    args: buildRenditionArgs({ config, srcPath, step, trim: opts.trim }),
   })
 
   const filePath = join(outDir, MEDIA_FILENAME)
@@ -204,10 +222,62 @@ export async function encodeRendition(
     height: probed.height,
     width: probed.width,
     fps: Math.round(probed.fps ?? step.fps),
+    durationMs: probed.durationMs,
     codecs: [probed.videoCodecString, probed.audioCodecString]
       .filter((value): value is string => !!value)
       .join(","),
     sizeBytes,
+  }
+}
+
+/**
+ * {@link encodeRendition} with a one-shot software fallback: when the
+ * configured hardware encoder fails, the step is retried with
+ * `hardwareAcceleration: "none"` and `onHardwareFailed` is invoked so the
+ * caller can skip hardware for subsequent steps.
+ */
+export async function encodeRenditionWithFallback(options: {
+  srcPath: string
+  outDir: string
+  config: TranscodingConfig
+  step: LadderStep
+  durationMs: number
+  trim?: { startMs: number; endMs: number }
+  signal?: AbortSignal
+  onProgress?: (fraction: number) => void
+  onHardwareFailed?: () => void
+}): Promise<EncodedRendition> {
+  const opts = {
+    durationMs: options.durationMs,
+    trim: options.trim,
+    signal: options.signal,
+    onProgress: options.onProgress,
+  }
+  try {
+    return await encodeRendition(
+      options.srcPath,
+      options.outDir,
+      options.config,
+      options.step,
+      opts,
+    )
+  } catch (err) {
+    // A cancelled run rejects with AbortError — not an encoder failure, so it
+    // must not trigger the software fallback.
+    if (options.signal?.aborted) throw err
+    if (options.config.hardwareAcceleration === "none") throw err
+    logger.warn(
+      `hardware ${options.config.hardwareAcceleration} encode failed for ${options.step.height}p; falling back to software:`,
+      err,
+    )
+    options.onHardwareFailed?.()
+    return encodeRendition(
+      options.srcPath,
+      options.outDir,
+      { ...options.config, hardwareAcceleration: "none" },
+      options.step,
+      opts,
+    )
   }
 }
 

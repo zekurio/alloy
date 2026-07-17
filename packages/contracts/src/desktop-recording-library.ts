@@ -38,6 +38,13 @@ export interface RecordingLibraryItem {
   privacy: ClipPrivacy | null
   /** Server/client clip id this capture is being or has been published as. */
   uploadedClipId: string | null
+  /**
+   * Persisted non-destructive trim range in source time, or null when the
+   * capture is untrimmed. The source file is never rewritten; exports and
+   * publishes derive the cut from these bounds.
+   */
+  trimStartMs: number | null
+  trimEndMs: number | null
   createdAt: string
   modifiedAt: string
 }
@@ -91,6 +98,17 @@ export interface RecordingLibraryMetaPatch {
   uploadedClipId?: string | null
 }
 
+/**
+ * Persists or clears a capture's non-destructive trim range. Both bounds
+ * null clears the trim; otherwise both must be integers with
+ * `0 <= trimStartMs < trimEndMs`.
+ */
+export interface RecordingLibraryTrimUpdate {
+  id: string
+  trimStartMs: number | null
+  trimEndMs: number | null
+}
+
 export interface RecordingLibraryMetaUpdateResult {
   /** Stable capture id after the metadata edit. */
   id: string
@@ -105,6 +123,12 @@ export interface RecordingLibraryExport {
   durationMs: number
   width: number | null
   height: number | null
+  /**
+   * Milliseconds of extra leading material included because the packet-copy
+   * cut snapped to the preceding keyframe; the requested range begins at
+   * this offset within the exported file (0 for full-file exports).
+   */
+  startOffsetMs: number
 }
 
 export interface RecordingLibraryImportResult {

@@ -1,7 +1,8 @@
 import { createLogger } from "@alloy/logging"
+import { configStore } from "@alloy/server/config/store"
 import { type ExtractedPoster, extractPoster } from "@alloy/server/media/poster"
 import { probeMedia } from "@alloy/server/media/probe"
-import { trimToMp4 } from "@alloy/server/media/trim"
+import { encodeExactCut } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 
@@ -66,10 +67,21 @@ export async function materializeEffectiveMedia(
     }
   }
 
-  await trimToMp4(sourcePath, mediaPath, { ...trim, signal: options.signal })
+  // Defensive path for legacy trimmed rows without a committed cut: rebuild
+  // the exact cut so poster frames come from the footage the owner kept.
+  const sourceProbe = await probeMedia(sourcePath)
+  const cut = await encodeExactCut({
+    sourcePath,
+    outDir: join(options.workDir, "cut"),
+    config: configStore.get("transcoding"),
+    source: sourceProbe,
+    startMs: trim.startMs,
+    endMs: trim.endMs,
+    signal: options.signal,
+  })
   return {
-    path: mediaPath,
-    durationMs: row.durationMs ?? trim.endMs - trim.startMs,
+    path: cut.filePath,
+    durationMs: row.durationMs ?? cut.durationMs,
   }
 }
 

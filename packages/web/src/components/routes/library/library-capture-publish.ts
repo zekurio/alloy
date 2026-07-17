@@ -11,7 +11,7 @@ import type {
   PublishClipResult,
 } from "@/components/upload/upload-flow-context"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
-import type { AlloyDesktop } from "@/lib/desktop"
+import { desktopSupports, type AlloyDesktop } from "@/lib/desktop"
 
 import type { LibraryItemView } from "./library-data"
 
@@ -21,6 +21,8 @@ type CapturePublishInput = {
   desktop: AlloyDesktop
   item: LibraryItemView
   trim: { startMs: number; endMs: number }
+  /** Whether `trim` is a real sub-range of the source (editor `trimmed`). */
+  trimmed: boolean
   /** Already normalized and non-empty. */
   title: string
   description: string
@@ -93,6 +95,16 @@ async function prepareCapturePublishPayload(
     sizeBytes: selected.sizeBytes,
     mentionedUserIds: input.mentions.map((mention) => mention.id),
     localCaptureId: input.item.id,
+    // Bridge v2 exports report the keyframe-snap offset; sending the exact
+    // file-relative range lets the server cut the requested frames out of
+    // the slightly longer packet-copy file. Full-range publishes send none.
+    ...(input.trimmed && desktopSupports("recording.setLibraryCaptureTrim")
+      ? {
+          trimStartMs: exported.startOffsetMs,
+          trimEndMs:
+            exported.startOffsetMs + (input.trim.endMs - input.trim.startMs),
+        }
+      : {}),
   }
 }
 

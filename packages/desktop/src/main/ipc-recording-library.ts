@@ -9,6 +9,7 @@ import {
   normalizeLibraryExportRequest,
   normalizeLibraryMetaPatch,
   normalizeLibraryThumbnailSaveRequest,
+  normalizeLibraryTrimUpdate,
 } from "./ipc-normalizers"
 import {
   deleteRecordingLibraryItem,
@@ -18,6 +19,7 @@ import {
   getRecordingLibrarySnapshot,
   revealRecordingLibraryItem,
   stageRecordingLibraryVideoFiles,
+  setRecordingLibraryCaptureTrim,
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library"
 import {
@@ -51,6 +53,14 @@ export const recordingLibraryBridgeHandlers = {
       const patch = normalizeLibraryMetaPatch(request)
       if (!patch) throw new Error("Invalid capture metadata request.")
       return updateRecordingLibraryCaptureMeta(patch)
+    },
+  },
+  "recording.setLibraryCaptureTrim": {
+    guard: requireMainSender,
+    handle: (_windows, _event, request: unknown) => {
+      const update = normalizeLibraryTrimUpdate(request)
+      if (!update) throw new Error("Invalid trim request.")
+      return setRecordingLibraryCaptureTrim(update)
     },
   },
   "recording.deleteLibraryCapture": {

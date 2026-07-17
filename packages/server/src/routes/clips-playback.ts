@@ -59,7 +59,7 @@ function versionedCacheControl(
 }
 
 /**
- * The clip's default playback bytes: the stream-copy cut shadows the stored
+ * The clip's default playback bytes: the derived cut shadows the stored
  * source so trimmed-away footage never serves from a public endpoint.
  */
 function cutOrSourceAsset(row: {
@@ -132,8 +132,8 @@ function serveVersionedClipAsset(
 export const clipsPlaybackRoutes = new Hono()
   /**
    * GET /api/clips/:id/stream — progressive playback bytes. Trimmed clips
-   * serve their stream-copy cut. Untrimmed clips serve the og rendition, then
-   * the top rendition, then the stored source while the ladder is unavailable.
+   * serve their exact cut. Untrimmed clips serve the og rendition, then the
+   * top rendition, then the stored source while the ladder is unavailable.
    */
   .get("/:id/stream", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
@@ -154,9 +154,11 @@ export const clipsPlaybackRoutes = new Hono()
       ) ??
       renditions.find((rendition) => renditionIsH264(rendition.codecs)) ??
       null
-    // The cut normally wins for privacy. HEVC/AV1 cuts are undecodable for
-    // this endpoint's plain-video consumers, and the H.264 tier is encoded
-    // from the cut so nothing trimmed-away leaks.
+    // The cut normally wins for privacy. New cuts are exact H.264 re-encodes,
+    // but legacy stream-copy cuts carry the source codec: when that codec is
+    // undecodable for this endpoint's plain-video consumers, prefer an H.264
+    // tier (encoded with the same trim range, so nothing trimmed-away leaks)
+    // and fall back to the cut when no rendition exists.
     const selected = row.cut_key
       ? sourceIsBroadlyDecodable(row.source_codecs)
         ? cutOrSourceAsset(row)
@@ -180,7 +182,7 @@ export const clipsPlaybackRoutes = new Hono()
   })
   /**
    * GET /api/clips/:id/source/file — the default playback tier. Trimmed clips
-   * serve their stream-copy cut so trimmed-away footage stays unexposed.
+   * serve their exact cut so trimmed-away footage stays unexposed.
    */
   .get("/:id/source/file", zValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")

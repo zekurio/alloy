@@ -41,9 +41,9 @@ import {
 } from "@/lib/clip-fields"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import {
+  desktopSupports,
   notifyLibraryCapturesChanged,
   type AlloyDesktop,
-  type RecordingLibraryMetaPatch,
 } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
@@ -90,8 +90,13 @@ export function EditorBody({
   const { publishClip } = useUploadActions()
   const { queue } = useUploadQueue()
 
-  const playback = useTrimPlayback({ initialDurationMs: item.durationMs ?? 0 })
-  const { playerRef, trim, rangeMs } = playback
+  const trimSupported = desktopSupports("recording.setLibraryCaptureTrim")
+  const playback = useTrimPlayback({
+    initialDurationMs: item.durationMs ?? 0,
+    initialTrim: persistedTrim(item) ?? undefined,
+  })
+  const { playerRef, trim, trimmed, rangeMs } = playback
+  const [savedTrim, setSavedTrim] = useState(() => persistedTrim(item))
 
   const [savedMetadata, setSavedMetadata] = useState(() =>
     savedLocalMetadata(item),
@@ -145,6 +150,13 @@ export function EditorBody({
   useEffect(() => {
     setSavedMetadata(itemSavedMetadata)
   }, [itemSavedMetadata])
+  const itemSavedTrim = useMemo(
+    () => persistedTrim(item),
+    [item.trimStartMs, item.trimEndMs],
+  )
+  useEffect(() => {
+    setSavedTrim(itemSavedTrim)
+  }, [itemSavedTrim])
 
   useEffect(() => {
     if (!resolvedGame) return
@@ -195,40 +207,65 @@ export function EditorBody({
     togglePlayback: playback.togglePlayback,
   })
 
+  // Full-range == no trim: the persisted state for an untrimmed capture is
+  // null on both bounds, matching FULL_CLIP_TOLERANCE_MS semantics.
+  const currentTrim = trimmed
+    ? { startMs: Math.round(trim.startMs), endMs: Math.round(trim.endMs) }
+    : null
+  const trimDirty =
+    trimSupported &&
+    playback.durationMs > 0 &&
+    !sameTrimRange(currentTrim, savedTrim)
+
   const handleSave = async () => {
-    if (saving || publishing || deleting || titleInvalid || !dirty) return
+    if (saving || publishing || deleting || titleInvalid) return
+    if (!dirty && !trimDirty) return
     setSaving(true)
     try {
-      const patch: RecordingLibraryMetaPatch = {
-        id: item.id,
-        ...(titleChanged ? { title: normalizedTitle } : {}),
-        ...(descriptionChanged
-          ? { description: normalizedDescription || null }
-          : {}),
-        ...(tagsChanged ? { tags: formatTags(tags) || null } : {}),
-        ...(mentionsChanged
-          ? { mentions: captureMentionsFromUsers(mentions) }
-          : {}),
-        ...(gameChanged
-          ? {
-              gameName: game?.name ?? null,
-              gameIconUrl: game ? (game.iconUrl ?? game.logoUrl) : null,
-            }
-          : {}),
+      // Trim and metadata persist through independent bridge calls, like the
+      // uploaded-clip editor. Trim saves first: a metadata save may move the
+      // capture's file, retiring the id the trim call looks up.
+      if (trimDirty) {
+        await desktop.recording.setLibraryCaptureTrim({
+          id: item.id,
+          trimStartMs: currentTrim ? currentTrim.startMs : null,
+          trimEndMs: currentTrim ? currentTrim.endMs : null,
+        })
+        setSavedTrim(currentTrim)
       }
-      const result = await desktop.recording.updateLibraryCapture(patch)
-      setTitle(normalizedTitle)
-      setDescription(normalizedDescription)
-      setSavedMetadata({
-        title: normalizedTitle,
-        description: normalizedDescription,
-        tags,
-        mentionIds,
-        gameId: game?.id ?? null,
-      })
+      const result = dirty
+        ? await desktop.recording.updateLibraryCapture({
+            id: item.id,
+            ...(titleChanged ? { title: normalizedTitle } : {}),
+            ...(descriptionChanged
+              ? { description: normalizedDescription || null }
+              : {}),
+            ...(tagsChanged ? { tags: formatTags(tags) || null } : {}),
+            ...(mentionsChanged
+              ? { mentions: captureMentionsFromUsers(mentions) }
+              : {}),
+            ...(gameChanged
+              ? {
+                  gameName: game?.name ?? null,
+                  gameIconUrl: game ? (game.iconUrl ?? game.logoUrl) : null,
+                }
+              : {}),
+          })
+        : null
+      if (result) {
+        setTitle(normalizedTitle)
+        setDescription(normalizedDescription)
+        setSavedMetadata({
+          title: normalizedTitle,
+          description: normalizedDescription,
+          tags,
+          mentionIds,
+          gameId: game?.id ?? null,
+        })
+      }
       notifyLibraryCapturesChanged()
       toast.success(t("Capture updated"))
-      if (result.id !== item.id) {
+      if (result && result.id !== item.id) {
         void navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
@@ -262,6 +299,7 @@ export function EditorBody({
         desktop,
         item,
         trim: { startMs: trim.startMs, endMs: trim.endMs },
+        trimmed,
         title: normalizedTitle,
         description,
         tags: formatTags(tags),
@@ -297,10 +335,10 @@ export function EditorBody({
     }
   }
 
-  const primaryPublishes = !dirty
+  const primaryPublishes = !dirty && !trimDirty
   const primaryDisabled = primaryPublishes
     ? !canPublish
-    : saving || publishing || deleting || titleInvalid || !dirty
+    : saving || publishing || deleting || titleInvalid
   const primaryLabel = primaryPublishes
     ? publishLocked
       ? t("Uploading…")
@@ -468,4 +506,24 @@ function savedLocalMetadata(item: LibraryItemView) {
     mentionIds: item.mentions.map((mention) => mention.id),
     gameId: item.displayGame?.id ?? null,
   }
+}
+
+/**
+ * The trim persisted on the capture, or null when untrimmed. The typeof
+ * checks also cover shells older than the trim fields, where both are
+ * undefined at runtime.
+ */
+function persistedTrim(item: LibraryItemView) {
+  return typeof item.trimStartMs === "number" &&
+    typeof item.trimEndMs === "number"
+    ? { startMs: item.trimStartMs, endMs: item.trimEndMs }
+    : null
+}
+
+function sameTrimRange(
+  a: { startMs: number; endMs: number } | null,
+  b: { startMs: number; endMs: number } | null,
+): boolean {
+  if (a === null || b === null) return a === b
+  return a.startMs === b.startMs && a.endMs === b.endMs
 }

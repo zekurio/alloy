@@ -320,6 +320,30 @@ test("buildRenditionArgs keeps libx264 shape", () => {
   assert.equal(args.at(-1), "media.mp4")
 })
 
+test("buildRenditionArgs seeks before the input for a frame-exact trim", () => {
+  const args = buildRenditionArgs({
+    config: FULL_CONFIG,
+    srcPath: "source.mp4",
+    step: effectiveLadder(FULL_CONFIG, {
+      height: 1080,
+      fps: 60,
+      browserSafe: false,
+    })[0]!,
+    trim: { startMs: 2500, endMs: 6500 },
+  })
+  assert.deepEqual(args.slice(0, 9), [
+    "-v",
+    "error",
+    "-y",
+    "-ss",
+    "2.5",
+    "-i",
+    "source.mp4",
+    "-t",
+    "4",
+  ])
+})
+
 test("buildRenditionArgs tags hevc and omits x264-only scenecut arg", () => {
   const config = TranscodingConfigSchema.parse({ videoCodec: "hevc" })
   const args = buildRenditionArgs({
