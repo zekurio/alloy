@@ -8,6 +8,7 @@ import {
   type RecordingLibraryExportRequest,
   type RecordingLibraryExportSegment,
   type RecordingLibraryMetaPatch,
+  type RecordingLibraryTrimUpdate,
   type RecordingNotificationSoundEvent,
 } from "@alloy/contracts"
 
@@ -242,6 +243,34 @@ function normalizeCaptureMention(
     username: typeof record.username === "string" ? record.username : "",
     image: typeof record.image === "string" ? record.image : null,
   }
+}
+
+/**
+ * Returns a sanitized trim update, or null when the request lacks a usable
+ * id or carries a non-finite, negative, or inverted range. Both bounds null
+ * means "clear the trim".
+ */
+export function normalizeLibraryTrimUpdate(
+  value: unknown,
+): RecordingLibraryTrimUpdate | null {
+  if (typeof value !== "object" || value === null) return null
+  const record = value as Record<string, unknown>
+  if (typeof record.id !== "string" || record.id.length === 0) return null
+  if (record.trimStartMs === null && record.trimEndMs === null) {
+    return { id: record.id, trimStartMs: null, trimEndMs: null }
+  }
+  const trimStartMs = normalizeTrimBoundMs(record.trimStartMs)
+  const trimEndMs = normalizeTrimBoundMs(record.trimEndMs)
+  if (trimStartMs === null || trimEndMs === null) return null
+  if (trimEndMs <= trimStartMs) return null
+  return { id: record.id, trimStartMs, trimEndMs }
+}
+
+/** Non-negative finite ms clamped to a safe integer, or null. */
+function normalizeTrimBoundMs(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null
+  if (value < 0) return null
+  return Math.min(Math.round(value), Number.MAX_SAFE_INTEGER)
 }
 
 function normalizeTrimMs(value: unknown): number {

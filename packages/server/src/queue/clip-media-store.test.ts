@@ -87,6 +87,7 @@ if (!testDatabaseUrl) {
           sourceSizeBytes: 1024,
           sourceDurationMs: 1000,
           cutKey: null,
+          cutCodecs: null,
           durationMs: 1000,
           width: 1280,
           height: 720,

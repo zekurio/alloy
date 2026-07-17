@@ -11,6 +11,7 @@ import type {
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
   RecordingLibrarySnapshot,
+  RecordingLibraryTrimUpdate,
 } from "./desktop-recording-library"
 import type {
   RecordingDisplay,
@@ -40,7 +41,7 @@ import type { AlloyDesktopUpdatesApi } from "./desktop-update"
  * - The web app gates on `bridge.version` via {@link desktopBridgeSupports};
  *   it must never sniff members with `typeof` checks.
  */
-export const DESKTOP_BRIDGE_VERSION = 1
+export const DESKTOP_BRIDGE_VERSION = 2
 
 /** Handshake info exposed as `alloyDesktop.bridge`. */
 export interface AlloyDesktopBridgeInfo {
@@ -87,6 +88,14 @@ export interface AlloyDesktopRecordingApi {
   /** Persists draft upload metadata for a capture across app restarts. */
   updateLibraryCapture(
     patch: RecordingLibraryMetaPatch,
+  ): Promise<RecordingLibraryMetaUpdateResult>
+  /**
+   * Persists a non-destructive trim range for a capture, or clears it when
+   * both bounds are null. Playback and publish read the trim as metadata;
+   * the capture's source file is never rewritten.
+   */
+  setLibraryCaptureTrim(
+    request: RecordingLibraryTrimUpdate,
   ): Promise<RecordingLibraryMetaUpdateResult>
   /** Moves a capture's file to the OS trash and forgets its metadata. */
   deleteLibraryCapture(id: string): Promise<void>
@@ -200,6 +209,7 @@ export const DESKTOP_BRIDGE = {
     revealLibraryCapture: { since: 1 },
     exportLibraryCapture: { since: 1 },
     updateLibraryCapture: { since: 1 },
+    setLibraryCaptureTrim: { since: 2 },
     deleteLibraryCapture: { since: 1 },
     importLibraryFiles: { since: 1 },
     commitStagedLibraryImport: { since: 1 },

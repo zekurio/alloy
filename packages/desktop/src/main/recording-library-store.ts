@@ -6,6 +6,7 @@ import type {
   RecordingLibraryItem,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
+  RecordingLibraryTrimUpdate,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { shell } from "electron"
@@ -90,22 +91,7 @@ export function updateRecordingLibraryCaptureMeta(
 
   const manifest = readCaptureManifest()
   let key = manifestKey(item.filename)
-  const entry: CaptureManifestEntry = manifest.captures[key] ?? {
-    id: item.id,
-    filename: item.filename,
-    title: item.title,
-    kind: item.kind,
-    source: item.source,
-    gameName: item.gameName,
-    gameIconUrl: null,
-    gameGuess: item.gameGuess,
-    sizeBytes: item.sizeBytes,
-    durationMs: item.durationMs,
-    width: item.width,
-    height: item.height,
-    createdAt: item.createdAt,
-    updatedAt: new Date().toISOString(),
-  }
+  const entry = manifest.captures[key] ?? seedManifestEntry(item)
 
   if (patch.title !== undefined) entry.title = patch.title
   if (!isCaptureId(entry.id)) entry.id = item.id
@@ -133,6 +119,78 @@ export function updateRecordingLibraryCaptureMeta(
   writeCaptureManifest(manifest)
   invalidateRecordingLibrarySnapshot()
   return { id: entry.id }
+}
+
+/**
+ * Persists or clears a capture's non-destructive trim range. Both bounds
+ * null clears the trim; otherwise the range must be integers with
+ * `0 <= start < end`. The source file is never rewritten.
+ */
+export function setRecordingLibraryCaptureTrim(
+  update: RecordingLibraryTrimUpdate,
+): RecordingLibraryMetaUpdateResult {
+  const item = findRecordingLibraryItem(update.id)
+  if (!item) throw new Error("Capture not found.")
+
+  const range = requireTrimRange(update)
+  const manifest = readCaptureManifest()
+  const key = manifestKey(item.filename)
+  const entry = manifest.captures[key] ?? seedManifestEntry(item)
+  if (!isCaptureId(entry.id)) entry.id = item.id
+
+  if (range) {
+    entry.trimStartMs = range.startMs
+    entry.trimEndMs = range.endMs
+  } else {
+    delete entry.trimStartMs
+    delete entry.trimEndMs
+  }
+  entry.updatedAt = new Date().toISOString()
+
+  manifest.captures[key] = entry
+  writeCaptureManifest(manifest)
+  invalidateRecordingLibrarySnapshot()
+  return { id: entry.id }
+}
+
+/** Validated trim range from an update, or null when the update clears it. */
+function requireTrimRange(
+  update: RecordingLibraryTrimUpdate,
+): { startMs: number; endMs: number } | null {
+  if (update.trimStartMs === null && update.trimEndMs === null) return null
+  const startMs = update.trimStartMs
+  const endMs = update.trimEndMs
+  if (
+    startMs === null ||
+    endMs === null ||
+    !Number.isInteger(startMs) ||
+    !Number.isInteger(endMs) ||
+    startMs < 0 ||
+    endMs <= startMs
+  ) {
+    throw new Error("Invalid trim range.")
+  }
+  return { startMs, endMs }
+}
+
+/** Fresh manifest entry for a capture scanned from disk rather than recorded. */
+function seedManifestEntry(item: RecordingLibraryItem): CaptureManifestEntry {
+  return {
+    id: item.id,
+    filename: item.filename,
+    title: item.title,
+    kind: item.kind,
+    source: item.source,
+    gameName: item.gameName,
+    gameIconUrl: null,
+    gameGuess: item.gameGuess,
+    sizeBytes: item.sizeBytes,
+    durationMs: item.durationMs,
+    width: item.width,
+    height: item.height,
+    createdAt: item.createdAt,
+    updatedAt: new Date().toISOString(),
+  }
 }
 
 function moveDisplayCaptureToGameFolder(

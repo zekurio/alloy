@@ -29,6 +29,8 @@ export interface MediaSourcePatch {
   sourceSizeBytes: number
   sourceDurationMs: number
   cutKey: string | null
+  /** RFC 6381 codecs of the committed cut; null when `cutKey` is null. */
+  cutCodecs: string | null
   durationMs: number
   width: number
   height: number
