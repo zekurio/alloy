@@ -53,6 +53,9 @@ interface RecordingSidecarClientOptions {
 }
 
 const SIDECAR_TIMEOUT_MS = 20_000
+const SIDECAR_SHUTDOWN_REQUEST_TIMEOUT_MS = 1_500
+const SIDECAR_GRACEFUL_EXIT_TIMEOUT_MS = 750
+const SIDECAR_FORCED_EXIT_TIMEOUT_MS = 500
 const RESPAWN_DELAY_MS = 3_000
 const RESPAWN_STREAK_RESET_MS = 60_000
 const MAX_CONSECUTIVE_RESPAWNS = 5
@@ -148,19 +151,38 @@ export class RecordingSidecarClient {
   async shutdown(): Promise<void> {
     this.shutdownRequested = true
     this.cancelRespawn()
-    if (!this.child) return
+    const child = this.child
+    if (!child) return
+
+    // The shutdown response precedes final process cleanup. Killing immediately
+    // after it can leave the executable locked by Windows and break NSIS updates.
+    const exited = new Promise<void>((resolve) => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        resolve()
+        return
+      }
+      child.once("exit", () => resolve())
+    })
 
     try {
       await Promise.race([
         this.request<RecordingStatus>("shutdown"),
-        new Promise((resolve) => setTimeout(resolve, 2000)),
+        delay(SIDECAR_SHUTDOWN_REQUEST_TIMEOUT_MS),
       ])
     } catch {
-      // The process may already be exiting; below we still close it.
+      // The process may already be exiting; below we still wait for it.
     }
 
-    this.child.stdin.end()
-    this.child.kill()
+    child.stdin.end()
+    const exitedGracefully = await settledWithin(
+      exited,
+      SIDECAR_GRACEFUL_EXIT_TIMEOUT_MS,
+    )
+    if (!exitedGracefully) {
+      child.kill()
+      await settledWithin(exited, SIDECAR_FORCED_EXIT_TIMEOUT_MS)
+    }
+
     this.child = null
     this.reader?.close()
     this.reader = null
@@ -412,4 +434,18 @@ export class RecordingSidecarClient {
     this.queuedConfigure = null
     queued.reject(error)
   }
+}
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs))
+}
+
+async function settledWithin(
+  promise: Promise<void>,
+  durationMs: number,
+): Promise<boolean> {
+  return Promise.race([
+    promise.then(() => true),
+    delay(durationMs).then(() => false),
+  ])
 }
