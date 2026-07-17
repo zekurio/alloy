@@ -1,0 +1,1 @@
+ALTER TABLE "clip" ADD COLUMN "cut_codecs" text;

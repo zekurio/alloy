@@ -12,14 +12,14 @@ import {
   normalizeLibraryTrimUpdate,
 } from "./ipc-normalizers"
 import {
-  deleteRecordingLibraryItem,
   commitRecordingLibraryStagedImport,
+  deleteRecordingLibraryItem,
   discardRecordingLibraryStagedImport,
   exportRecordingLibraryItem,
   getRecordingLibrarySnapshot,
   revealRecordingLibraryItem,
-  stageRecordingLibraryVideoFiles,
   setRecordingLibraryCaptureTrim,
+  stageRecordingLibraryVideoFiles,
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library"
 import {

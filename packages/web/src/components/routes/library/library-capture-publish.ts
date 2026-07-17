@@ -98,11 +98,13 @@ async function prepareCapturePublishPayload(
     // Bridge v2 exports report the keyframe-snap offset; sending the exact
     // file-relative range lets the server cut the requested frames out of
     // the slightly longer packet-copy file. Full-range publishes send none.
+    // Rounded at this boundary because the initiate schema requires integers.
     ...(input.trimmed && desktopSupports("recording.setLibraryCaptureTrim")
       ? {
-          trimStartMs: exported.startOffsetMs,
-          trimEndMs:
-            exported.startOffsetMs + (input.trim.endMs - input.trim.startMs),
+          trimStartMs: Math.round(exported.startOffsetMs),
+          trimEndMs: Math.round(
+            exported.startOffsetMs + input.trim.endMs - input.trim.startMs,
+          ),
         }
       : {}),
   }

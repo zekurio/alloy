@@ -154,13 +154,14 @@ export const clipsPlaybackRoutes = new Hono()
       ) ??
       renditions.find((rendition) => renditionIsH264(rendition.codecs)) ??
       null
-    // The cut normally wins for privacy. New cuts are exact H.264 re-encodes,
-    // but legacy stream-copy cuts carry the source codec: when that codec is
+    // The cut normally wins for privacy. Exact cuts commit their own codec
+    // string and are always broadly decodable H.264; legacy stream-copy cuts
+    // (null cut_codecs) carry the source codec. When the cut's codec is
     // undecodable for this endpoint's plain-video consumers, prefer an H.264
     // tier (encoded with the same trim range, so nothing trimmed-away leaks)
     // and fall back to the cut when no rendition exists.
     const selected = row.cut_key
-      ? sourceIsBroadlyDecodable(row.source_codecs)
+      ? sourceIsBroadlyDecodable(row.cut_codecs ?? row.source_codecs)
         ? cutOrSourceAsset(row)
         : h264
           ? { key: h264.storage_key, contentType: "video/mp4" }

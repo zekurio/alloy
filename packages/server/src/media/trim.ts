@@ -2,6 +2,7 @@ import type { TranscodingConfig } from "@alloy/contracts"
 
 import {
   encodeRenditionWithFallback,
+  evenFloor,
   type EncodedRendition,
   type LadderStep,
 } from "./renditions"
@@ -78,7 +79,7 @@ function exactCutStep(source: {
 }): LadderStep {
   const fps = Math.max(1, Math.round(source.fps ?? CUT_FALLBACK_FPS))
   // The scale filter emits -2:<height>, so odd source heights round to even.
-  const height = Math.floor(source.height / 2) * 2
+  const height = evenFloor(source.height)
   const maxrateKbps = Math.min(
     CUT_MAX_MAXRATE_KBPS,
     Math.max(

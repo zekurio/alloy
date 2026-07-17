@@ -172,6 +172,7 @@ async function runPipelineInWorkDir({
   let posterMediaPath = sourcePath
   let cutKey: string | null = null
   let cutDurationMs: number | null = null
+  let cutCodecs: string | null = null
   if (trim) {
     const cut = await encodeExactCut({
       sourcePath,
@@ -190,6 +191,8 @@ async function runPipelineInWorkDir({
     uploadedKeys.push(cutKey)
     posterMediaPath = cut.filePath
     cutDurationMs = cut.durationMs
+    // Probe-derived; empty when the codec string could not be built.
+    cutCodecs = cut.codecs || null
   }
   await ensureStillPresent(store, id, runId, signal)
 
@@ -242,6 +245,7 @@ async function runPipelineInWorkDir({
     sourceSizeBytes: sourceAsset.sizeBytes,
     sourceDurationMs: sourceProbe.durationMs,
     cutKey,
+    cutCodecs,
     durationMs,
     width: sourceProbe.width,
     height: sourceProbe.height,

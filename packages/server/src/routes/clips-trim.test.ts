@@ -180,6 +180,38 @@ if (!testDatabaseUrl) {
     const hevcResponse = await routeApp.request(`/api/clips/${clipId}/stream`)
     assert.equal(hevcResponse.status, 200)
     assert.equal(await hevcResponse.text(), "cut-bytes")
+
+    // An exact cut commits its own codec string: it wins over renditions
+    // even when the source codec is undecodable.
+    const renditionKey = runScopedRenditionKey(clipId, runId, "720p")
+    await clipStorage.put(
+      renditionKey,
+      encoder.encode("rendition-bytes"),
+      "video/mp4",
+    )
+    await db.insert(clipRendition).values({
+      clip_id: clipId,
+      name: "720p",
+      is_og: true,
+      height: 720,
+      width: 1280,
+      fps: 60,
+      storage_key: renditionKey,
+      codecs: "avc1.64002a,mp4a.40.2",
+      size_bytes: 1000,
+    })
+    // Legacy stream-copy cut (null cut_codecs) defers to the H.264 tier...
+    const legacyResponse = await routeApp.request(`/api/clips/${clipId}/stream`)
+    assert.equal(legacyResponse.status, 200)
+    assert.equal(await legacyResponse.text(), "rendition-bytes")
+    // ...while a committed exact cut serves its own broadly decodable bytes.
+    await db
+      .update(clip)
+      .set({ cut_codecs: "avc1.64001e,mp4a.40.2" })
+      .where(eq(clip.id, clipId))
+    const exactResponse = await routeApp.request(`/api/clips/${clipId}/stream`)
+    assert.equal(exactResponse.status, 200)
+    assert.equal(await exactResponse.text(), "cut-bytes")
   })
 
   async function insertUser(username: string): Promise<{ id: string }> {

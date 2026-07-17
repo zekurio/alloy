@@ -281,7 +281,7 @@ export async function encodeRenditionWithFallback(options: {
   }
 }
 
-function evenFloor(value: number): number {
+export function evenFloor(value: number): number {
   return Math.floor(value / 2) * 2
 }
 
