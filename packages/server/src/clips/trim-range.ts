@@ -21,7 +21,15 @@ export function resolveTrimRange(input: {
 }): ResolvedTrimRange {
   const startMs = Math.max(0, input.startMs)
   const endMs = Math.min(input.durationMs, input.endMs)
-  if (endMs - startMs < TRIM_MIN_RANGE_MS) {
+  // Client probes and packet math can disagree by a few ms, so a range that
+  // legitimately reaches the media tail may overshoot `durationMs` slightly.
+  // The requested range must meet the minimum, but the clamped range only
+  // has to come within the full-range tolerance of it — otherwise a
+  // minimum-length trim ending at the tail would be rejected.
+  if (
+    input.endMs - input.startMs < TRIM_MIN_RANGE_MS ||
+    endMs - startMs < TRIM_MIN_RANGE_MS - TRIM_FULL_RANGE_TOLERANCE_MS
+  ) {
     return { kind: "invalid", reason: "The trimmed range is too short" }
   }
   if (

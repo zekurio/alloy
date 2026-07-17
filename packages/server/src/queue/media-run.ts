@@ -14,7 +14,8 @@ import {
 } from "@alloy/server/media/encode-fingerprint"
 import { faststartPath } from "@alloy/server/media/mp4-layout"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
-import { trimToMp4 } from "@alloy/server/media/trim"
+import { encodeRenditionWithFallback } from "@alloy/server/media/renditions"
+import { encodeExactCut } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import {
@@ -45,7 +46,6 @@ import {
   publishOriginalSource,
   type SourceAsset,
 } from "./media-publish"
-import { encodeRenditionWithFallback } from "./media-rendition-encode"
 import {
   extractPosterBestEffort,
   publishRunThumbnail,
@@ -164,21 +164,39 @@ async function runPipelineInWorkDir({
 
   const sourceProbe = await probeMedia(sourcePath)
   const trim = trimRange(row, sourceProbe.durationMs)
-  let mediaPath = sourcePath
+  const transcodingConfig = configStore.get("transcoding")
+  let hardwareFailed = false
+  // The frame-exact H.264 cut is the clip's canonical playback media and the
+  // poster source. Renditions encode from the original with the same range,
+  // so every published asset is a first-generation encode of the source.
+  let posterMediaPath = sourcePath
   let cutKey: string | null = null
-  let cutProbe: Awaited<ReturnType<typeof probeMedia>> | null = null
+  let cutDurationMs: number | null = null
+  let cutCodecs: string | null = null
   if (trim) {
-    const cutPath = join(workDir, "cut.mp4")
-    await trimToMp4(sourcePath, cutPath, { ...trim, signal })
-    cutProbe = await probeMedia(cutPath)
+    const cut = await encodeExactCut({
+      sourcePath,
+      outDir: join(workDir, "cut"),
+      config: transcodingConfig,
+      source: sourceProbe,
+      startMs: trim.startMs,
+      endMs: trim.endMs,
+      signal,
+      onHardwareFailed: () => {
+        hardwareFailed = true
+      },
+    })
     cutKey = runScopedCutKey(id, runId)
-    await clipStorage.uploadFromFile(cutPath, cutKey, "video/mp4")
+    await clipStorage.uploadFromFile(cut.filePath, cutKey, "video/mp4")
     uploadedKeys.push(cutKey)
-    mediaPath = cutPath
+    posterMediaPath = cut.filePath
+    cutDurationMs = cut.durationMs
+    // Probe-derived; empty when the codec string could not be built.
+    cutCodecs = cut.codecs || null
   }
   await ensureStillPresent(store, id, runId, signal)
 
-  const durationMs = cutProbe?.durationMs ?? sourceProbe.durationMs
+  const durationMs = cutDurationMs ?? sourceProbe.durationMs
   const sourceCodecs = sourceCodecsString(sourceProbe)
   const sourceFps = persistedSourceFps(sourceProbe.fps)
   const fingerprintFacts = {
@@ -189,7 +207,6 @@ async function runPipelineInWorkDir({
     trimStartMs: row.trimStartMs,
     trimEndMs: row.trimEndMs,
   }
-  const transcodingConfig = configStore.get("transcoding")
   const ladder = expectedLadder(transcodingConfig, fingerprintFacts)
   const fingerprint = encodeFingerprint(transcodingConfig, fingerprintFacts)
 
@@ -228,6 +245,7 @@ async function runPipelineInWorkDir({
     sourceSizeBytes: sourceAsset.sizeBytes,
     sourceDurationMs: sourceProbe.durationMs,
     cutKey,
+    cutCodecs,
     durationMs,
     width: sourceProbe.width,
     height: sourceProbe.height,
@@ -243,7 +261,7 @@ async function runPipelineInWorkDir({
   // thumbnail for the whole encode instead of only the BlurHash. Extraction is
   // best-effort: first publishes can proceed without a thumbnail, while
   // re-runs keep any previously committed thumbnail when no usable frame exists.
-  const poster = await extractPosterBestEffort(mediaPath, workDir, {
+  const poster = await extractPosterBestEffort(posterMediaPath, workDir, {
     durationMs,
     signal,
   })
@@ -274,7 +292,6 @@ async function runPipelineInWorkDir({
 
   // Run-scoped rendition keys stay unpublished until the ready transition.
   const renditions: MediaRenditionRecord[] = []
-  let hardwareFailed = false
   for (const step of ladder) {
     await ensureStillPresent(store, id, runId, signal)
     const tierCost = encodeTierCost(step)
@@ -291,7 +308,8 @@ async function runPipelineInWorkDir({
         ? { ...transcodingConfig, hardwareAcceleration: "none" as const }
         : transcodingConfig
     const encoded = await encodeRenditionWithFallback({
-      srcPath: mediaPath,
+      srcPath: sourcePath,
+      trim: trim ?? undefined,
       outDir: join(workDir, `rendition-${step.name}`),
       config: encodeConfig,
       step,

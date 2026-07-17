@@ -39,9 +39,10 @@ export interface PublishPayload {
   durationMs: number
   sizeBytes: number
   /**
-   * Kept source range in the uploaded file's timeline; the server derives the
-   * cut at ingest. Absent when the whole file is kept or the file was already
-   * cut client-side (desktop).
+   * Kept source range in the uploaded file's timeline; the server derives
+   * the cut at ingest. Desktop publishes of a trimmed capture send the exact
+   * range within the exported (keyframe-snapped) file. Absent when the whole
+   * file is kept.
    */
   trimStartMs?: number
   trimEndMs?: number

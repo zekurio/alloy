@@ -47,6 +47,13 @@ export interface CaptureManifestEntry {
   privacy?: RecordingLibraryItem["privacy"]
   /** Server clip id this capture was published as, once an upload finished. */
   uploadedClipId?: string | null
+  /**
+   * Non-destructive trim range in source time, both present for a trimmed
+   * capture. Optional so manifests written before trims existed keep
+   * parsing; cleared trims drop both fields.
+   */
+  trimStartMs?: number
+  trimEndMs?: number
 }
 
 export function readCaptureManifest(): CaptureManifest {

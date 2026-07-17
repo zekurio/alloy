@@ -1,6 +1,7 @@
 import {
   assertUploadMp4Compatible,
   type OutputSinks,
+  snappedTrimStartMs,
   trimToMp4Target,
   withMp4Output,
 } from "@alloy/media"
@@ -86,13 +87,14 @@ export async function probeDurationMs(
 /**
  * Cut `[startMs, endMs]` out of `srcPath` into an upload-compatible MP4 at
  * `outPath` without re-encoding. The cut start snaps to the nearest preceding
- * video keyframe.
+ * video keyframe; the returned `startOffsetMs` reports how far into the
+ * output the requested start sits because of that snap.
  */
 export async function trimMp4(
   srcPath: string,
   outPath: string,
   opts: { startMs: number; endMs: number },
-): Promise<void> {
+): Promise<{ startOffsetMs: number }> {
   const input = new Input({
     source: new FilePathSource(srcPath),
     formats: ALL_FORMATS,
@@ -103,12 +105,34 @@ export async function trimMp4(
     const audio = await input.getPrimaryAudioTrack()
     assertUploadMp4Compatible(video.codec, audio?.codec ?? null)
 
-    await trimToMp4Target({
+    return await trimToMp4Target({
       input,
       target: new FilePathTarget(outPath),
       startMs: opts.startMs,
       endMs: opts.endMs,
     })
+  } finally {
+    input.dispose()
+  }
+}
+
+/**
+ * Offset (ms) of `startMs` within a packet-copy cut of `srcPath` starting at
+ * that time — the leading material the keyframe snap prepends. Resolves the
+ * same deterministic snap `trimMp4` performs without copying any packets, so
+ * it reconstructs the offset of a previously written cut.
+ */
+export async function trimStartOffsetMs(
+  srcPath: string,
+  startMs: number,
+): Promise<number> {
+  const input = new Input({
+    source: new FilePathSource(srcPath),
+    formats: ALL_FORMATS,
+  })
+  try {
+    const snappedMs = await snappedTrimStartMs(input, startMs)
+    return Math.max(0, Math.round(Math.max(0, startMs) - snappedMs))
   } finally {
     input.dispose()
   }

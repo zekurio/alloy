@@ -31,6 +31,16 @@ test("resolveTrimRange rejects ranges that become too short after clamping", () 
   )
 })
 
+test("resolveTrimRange tolerates a min-length range overshooting the tail", () => {
+  // Client probes and packet math can disagree by a few ms: a minimum-length
+  // trim ending at the media tail may overshoot durationMs slightly. The
+  // clamp shaves the overshoot without rejecting the range.
+  assert.deepEqual(
+    resolveTrimRange({ startMs: 4_003, endMs: 5_003, durationMs: 5_000 }),
+    { kind: "range", startMs: 4_003, endMs: 5_000 },
+  )
+})
+
 test("resolveTrimRange detects exact full-range bounds", () => {
   assert.deepEqual(
     resolveTrimRange({ startMs: 0, endMs: 5_000, durationMs: 5_000 }),

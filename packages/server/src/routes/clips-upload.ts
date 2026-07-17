@@ -1,5 +1,5 @@
 import { normalizeTags } from "@alloy/contracts"
-import { clip, clipMention, clipTag } from "@alloy/db/schema"
+import { clip, clipMention, clipRendition, clipTag } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
@@ -16,6 +16,7 @@ import { extractPoster } from "@alloy/server/media/poster"
 import { createNotification } from "@alloy/server/notifications/service"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
 import { withClipSourceWorkDir } from "@alloy/server/queue/media-run-helpers"
+import { deleteAssetsBestEffort } from "@alloy/server/queue/media-run-workspace"
 import {
   badRequest,
   conflict,
@@ -290,6 +291,23 @@ export const clipsUploadRoutes = new Hono()
         )
         .returning({ id: clip.id })
       if (!accepted) return conflict(c, "Clip is already processing")
+
+      // Fireshare-style eager invalidation: the accepted trim makes existing
+      // renditions stale, so drop their records before playback can select
+      // them; the previously committed cut keeps the clip's cut_key until the
+      // run's commitSource swaps in the new exact cut. The records are the
+      // only reference the run's stale-asset prune reads (currentAssetKeys),
+      // so capture the storage keys and delete the objects here instead of
+      // leaking them to the orphan GC.
+      const staleRenditions = await db
+        .select({ storageKey: clipRendition.storage_key })
+        .from(clipRendition)
+        .where(eq(clipRendition.clip_id, id))
+      await db.delete(clipRendition).where(eq(clipRendition.clip_id, id))
+      await deleteAssetsBestEffort(
+        staleRenditions.map((rendition) => rendition.storageKey),
+        "pre-trim rendition",
+      )
 
       void publishClipUpsert(row.author_id, id)
       await enqueueClipEncode(id, { trigger: "trim", priority: 10 })

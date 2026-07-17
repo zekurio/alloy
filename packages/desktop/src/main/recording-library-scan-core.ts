@@ -15,7 +15,10 @@ import type {
   RecordingLibrarySnapshot,
 } from "@alloy/contracts"
 
-import type { CaptureManifest } from "./recording-library-manifest"
+import type {
+  CaptureManifest,
+  CaptureManifestEntry,
+} from "./recording-library-manifest"
 import {
   captureId,
   MEDIA_HOST,
@@ -182,6 +185,7 @@ function libraryItemForFile(
   const kind = manifestEntry?.kind ?? collection.kind
   const mediaUrl = `${MEDIA_PROTOCOL}://${MEDIA_HOST}/${id}`
   const thumbnailVersion = `${Math.round(stat.mtimeMs)}-${stat.size}`
+  const trim = manifestTrim(manifestEntry, manifestEntry?.durationMs ?? null)
 
   return {
     id,
@@ -210,8 +214,31 @@ function libraryItemForFile(
     mentions: manifestEntry?.mentions ?? [],
     privacy: manifestEntry?.privacy ?? null,
     uploadedClipId: manifestEntry?.uploadedClipId ?? null,
+    trimStartMs: trim ? trim.startMs : null,
+    trimEndMs: trim ? trim.endMs : null,
     createdAt,
     modifiedAt,
+  }
+}
+
+/**
+ * A manifest trim range fitted into the capture's known duration. Invalid or
+ * out-of-bounds ranges resolve to null so a stale trim can't outlive a
+ * replaced or corrected file.
+ */
+function manifestTrim(
+  entry: CaptureManifestEntry | undefined,
+  durationMs: number | null,
+): { startMs: number; endMs: number } | null {
+  const startMs = entry?.trimStartMs
+  const endMs = entry?.trimEndMs
+  if (typeof startMs !== "number" || typeof endMs !== "number") return null
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
+  if (startMs < 0 || endMs <= startMs) return null
+  if (durationMs !== null && startMs >= durationMs) return null
+  return {
+    startMs,
+    endMs: durationMs !== null ? Math.min(endMs, durationMs) : endMs,
   }
 }
 

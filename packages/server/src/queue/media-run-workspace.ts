@@ -42,8 +42,8 @@ export async function withMediaRunWorkspace(
     await retainRowAssetKeys(options.store, options.id, retainedKeys)
     await deleteAssetsBestEffort(
       new Set(uploadedKeys),
-      retainedKeys,
       "failed media processing asset",
+      retainedKeys,
     )
     if (options.onFailure) await options.onFailure()
     throw err
@@ -84,8 +84,8 @@ export async function pruneStaleAssets(
 
   await deleteAssetsBestEffort(
     [...previousKeys].filter((key): key is string => key !== null),
-    retained,
     "stale recording asset",
+    retained,
   )
 }
 
@@ -110,14 +110,15 @@ async function retainRowAssetKeys(
   }
 }
 
-async function deleteAssetsBestEffort(
+/** Best-effort storage deletion for keys no row references anymore. */
+export async function deleteAssetsBestEffort(
   keys: Iterable<string>,
-  retainedKeys: ReadonlySet<string>,
   label: string,
+  retainedKeys?: ReadonlySet<string>,
 ): Promise<void> {
   await Promise.all(
     [...keys]
-      .filter((key) => !retainedKeys.has(key))
+      .filter((key) => !retainedKeys?.has(key))
       .map(async (key) => {
         try {
           await clipStorageForKey(key).delete(key)

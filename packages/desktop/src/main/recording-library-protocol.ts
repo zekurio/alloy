@@ -137,10 +137,15 @@ function rangedFileResponse(filename: string, request: Request): Response {
     headers["Content-Range"] = `bytes ${range.start}-${range.end}/${size}`
   }
 
-  const stream = createReadStream(
-    filename,
-    range ? { start: range.start, end: range.end } : undefined,
-  )
+  const stream = createReadStream(filename, {
+    ...(range ? { start: range.start, end: range.end } : undefined),
+    // Node's 64 KiB default starves Chromium's media element on high-bitrate
+    // captures (up to ~55 Mbps at 120fps): each chunk crosses the Node→web
+    // stream bridge on the main-process event loop, so per-chunk overhead —
+    // not disk speed — bounds throughput. Large chunks keep the decoder fed
+    // even when the main process is busy.
+    highWaterMark: 4 * 1024 * 1024,
+  })
   return new Response(fileBodyStream(stream), {
     status: range ? 206 : 200,
     headers,

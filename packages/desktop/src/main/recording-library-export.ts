@@ -7,7 +7,12 @@ import type {
 } from "@alloy/contracts"
 import { app } from "electron"
 
-import { assertUploadMp4File, remuxToUploadMp4, trimMp4 } from "./media"
+import {
+  assertUploadMp4File,
+  remuxToUploadMp4,
+  trimMp4,
+  trimStartOffsetMs,
+} from "./media"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
   captureId,
@@ -67,6 +72,7 @@ export async function exportRecordingLibraryItem(
       durationMs: sourceDurationMs,
       width: item.width,
       height: item.height,
+      startOffsetMs: 0,
     }
   }
 
@@ -82,17 +88,12 @@ export async function exportRecordingLibraryItem(
   const out = join(exportFolder(), `${exportId}.mp4`)
   mkdirSync(dirname(out), { recursive: true })
 
-  if (!existsSync(out) || statSync(out).size === 0) {
-    if (fullSource) {
-      await remuxToUploadMp4(item.filename, out)
-    } else {
-      // Packet copy — the cut start snaps to the preceding keyframe.
-      await trimMp4(item.filename, out, {
-        startMs: segments[0].startMs,
-        endMs: segments[0].endMs,
-      })
-    }
-  }
+  const startOffsetMs = await renderExportFile(
+    item.filename,
+    out,
+    fullSource,
+    segments,
+  )
 
   const stat = statSync(out)
   exportedCaptureFiles.set(exportId, out)
@@ -106,7 +107,39 @@ export async function exportRecordingLibraryItem(
     durationMs: totalMs,
     width: item.width,
     height: item.height,
+    startOffsetMs,
   }
+}
+
+/**
+ * Ensures the normalized export file exists at `outPath` and returns how far
+ * into it the requested range starts. Fresh trims report the packet-copy
+ * keyframe snap; cached trims recompute the same deterministic snap from the
+ * source without copying packets; full-source remuxes start at 0.
+ */
+async function renderExportFile(
+  srcPath: string,
+  outPath: string,
+  fullSource: boolean,
+  segments: RecordingLibraryExportSegment[],
+): Promise<number> {
+  const cached = existsSync(outPath) && statSync(outPath).size > 0
+  if (fullSource) {
+    if (!cached) await remuxToUploadMp4(srcPath, outPath)
+    return 0
+  }
+  if (cached) {
+    // The cached file was cut with the same sanitized segment start (it is
+    // part of the cache key), so re-resolving the snap yields the offset the
+    // cut was written with.
+    return trimStartOffsetMs(srcPath, segments[0].startMs)
+  }
+  // Packet copy — the cut start snaps to the preceding keyframe.
+  const cut = await trimMp4(srcPath, outPath, {
+    startMs: segments[0].startMs,
+    endMs: segments[0].endMs,
+  })
+  return cut.startOffsetMs
 }
 
 /**

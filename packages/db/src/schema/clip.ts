@@ -85,9 +85,12 @@ export const clip = pgTable(
     // this persisted range. Null = untrimmed.
     trim_start_ms: integer(),
     trim_end_ms: integer(),
-    // Storage key of the derived stream-copy cut for trimmed clips; null =
-    // untrimmed.
+    // Storage key of the derived cut for trimmed clips; null = untrimmed.
     cut_key: text(),
+    // RFC 6381 codec string of the committed cut. Null for legacy
+    // stream-copy cuts, which carry the source codecs; exact-cut commits
+    // always write it.
+    cut_codecs: text(),
 
     status: text().$type<ClipStatus>().notNull().default("pending"),
     // Fingerprint of the media pipeline that committed the current renditions

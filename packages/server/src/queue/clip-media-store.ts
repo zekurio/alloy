@@ -66,6 +66,7 @@ function sourcePatchToColumns(patch: MediaSourcePatch) {
     source_size_bytes: patch.sourceSizeBytes,
     source_duration_ms: patch.sourceDurationMs,
     cut_key: patch.cutKey,
+    cut_codecs: patch.cutCodecs,
     duration_ms: patch.durationMs,
     width: patch.width,
     height: patch.height,
