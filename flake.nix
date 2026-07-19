@@ -1,5 +1,5 @@
 {
-  description = "alloy";
+  description = "Open-source and self-hostable alternative to Medal.tv";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
