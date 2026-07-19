@@ -28,7 +28,7 @@
     "@simplewebauthn/server": "13.3.2",
     "blurhash": "2.0.5",
     "drizzle-orm": "0.45.2",
-    "hono": "4.12.30",
+    "hono": "4.12.31",
     "openid-client": "6.8.4",
     "pg": "8.22.0",
     "sharp": "0.35.3",

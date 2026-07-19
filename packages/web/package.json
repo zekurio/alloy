@@ -20,9 +20,9 @@
     "@tanstack/react-form": "1.33.2",
     "@tanstack/react-query": "5.101.2",
     "@tanstack/react-router": "1.170.18",
-    "@tanstack/router-plugin": "1.168.20",
+    "@tanstack/router-plugin": "1.168.23",
     "@vitejs/plugin-react": "6.0.3",
-    "lucide-react": "1.24.0",
+    "lucide-react": "1.25.0",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "vite": "8.1.5"
