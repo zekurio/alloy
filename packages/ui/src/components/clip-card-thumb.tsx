@@ -220,7 +220,10 @@ export function ClipCardThumb({
           className={cn(
             CLIP_MEDIA_CLASS,
             "transition-opacity duration-200 ease-out",
-            thumbnailLoaded ? "opacity-100" : "opacity-0",
+            // Hide the still while the preview plays; the contained video box
+            // can be sub-pixel smaller than the thumbnail, which otherwise
+            // leaves a sliver of the thumbnail visible along the edges.
+            thumbnailLoaded && !previewing ? "opacity-100" : "opacity-0",
           )}
           loading="lazy"
           decoding="async"
