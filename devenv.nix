@@ -36,6 +36,9 @@ in
   packages = with pkgs; [
     pnpmPackage
     postgresql_17
+    typescript-language-server
+    nixd
+    nil
     # Rendition transcoding and poster extraction in the media pipeline.
     ffmpeg-headless
     cargo
