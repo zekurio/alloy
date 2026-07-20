@@ -46,10 +46,14 @@ export {
 } from "@alloy/contracts"
 export {
   DEFAULT_GENERIC_WEBHOOK_TEMPLATE,
+  DISCORD_OAUTH_PRESET,
+  DISCORD_PROVIDER_ID,
   isDiscordWebhookUrl,
   isValidWebhookTemplate,
+  OAUTH_PROVIDER_PRESETS,
   WEBHOOK_TEMPLATE_PLACEHOLDERS,
 } from "@alloy/contracts"
+export type { OAuthProviderPreset } from "@alloy/contracts"
 export type {
   AdminWebhooksConfig,
   GenericWebhookConfig,
