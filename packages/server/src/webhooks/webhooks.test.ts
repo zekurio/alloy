@@ -8,6 +8,22 @@ import {
 } from "@alloy/contracts"
 
 import { discordAnnouncePayload, type ClipAnnouncement } from "./deliver"
+import { WEBHOOK_LOGO_PNG, WEBHOOK_TEST_THUMBNAIL_JPEG } from "./embed-assets"
+
+test("embedded webhook assets decode to valid images", () => {
+  // PNG signature
+  assert.deepEqual(
+    [...WEBHOOK_LOGO_PNG.subarray(0, 4)],
+    [0x89, 0x50, 0x4e, 0x47],
+  )
+  // JPEG SOI marker
+  assert.deepEqual(
+    [...WEBHOOK_TEST_THUMBNAIL_JPEG.subarray(0, 2)],
+    [0xff, 0xd8],
+  )
+  assert.ok(WEBHOOK_LOGO_PNG.length > 1000)
+  assert.ok(WEBHOOK_TEST_THUMBNAIL_JPEG.length > 1000)
+})
 
 const BASE_ANNOUNCEMENT: ClipAnnouncement = {
   clipUrl: "https://alloy.example/clips/6f1c2b1e",

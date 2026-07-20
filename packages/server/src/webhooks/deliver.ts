@@ -55,25 +55,23 @@ export function testTemplateValues(): WebhookTemplateValues {
 }
 
 /**
- * Fully-populated sample announcement for the admin "send test" flow, so the
- * test message previews the real embed — author, game, duration, and a
- * bundled blurred thumbnail served from the web build's public assets.
+ * Fully-populated sample announcement for the admin "send test" flow: the
+ * test message is exactly the announcement embed, with every data point
+ * (author, game, duration, thumbnail) filled from server-embedded assets so
+ * it renders regardless of web-build deploy state.
  */
 export function discordTestPayload(): DiscordMessagePayload {
-  return {
-    ...discordAnnouncePayload({
-      clipUrl: serverOrigin(),
-      title: "Test clip — announcements will look like this",
-      authorUsername: "Alloy",
-      authorImage: "/logo.png",
-      authorDiscordId: null,
-      game: "Alloy",
-      durationMs: 27_000,
-      thumbnailUrl: `${serverOrigin()}/webhook-test-thumbnail.jpg`,
-      createdAt: new Date(),
-    }),
-    content: "Webhook test — public clips will be announced like this.",
-  }
+  return discordAnnouncePayload({
+    clipUrl: serverOrigin(),
+    title: "Insane ace clutch — webhook test",
+    authorUsername: "alloy",
+    authorImage: "/api/assets/webhook/logo.png",
+    authorDiscordId: null,
+    game: "Counter-Strike 2",
+    durationMs: 27_000,
+    thumbnailUrl: `${serverOrigin()}/api/assets/webhook/test-thumbnail.jpg`,
+    createdAt: new Date(),
+  })
 }
 
 export interface DiscordMessagePayload {
@@ -82,21 +80,21 @@ export interface DiscordMessagePayload {
   embeds: unknown[]
 }
 
-/** Rich-embed payload for the first-party Discord announcement. */
+/**
+ * Rich-embed payload for the first-party Discord announcement. Styled after
+ * link-preview bots like FxTwitter: linked author line, linked title, a
+ * "game · duration" detail line, the thumbnail as full-width image, and an
+ * instance-branded footer with the publish timestamp.
+ */
 export function discordAnnouncePayload(
   announcement: ClipAnnouncement,
 ): DiscordMessagePayload {
-  const fields: { name: string; value: string; inline: boolean }[] = []
-  if (announcement.game) {
-    fields.push({ name: "Game", value: announcement.game, inline: true })
-  }
-  if (announcement.durationMs !== null && announcement.durationMs > 0) {
-    fields.push({
-      name: "Duration",
-      value: formatDuration(announcement.durationMs),
-      inline: true,
-    })
-  }
+  const details = [
+    announcement.game,
+    announcement.durationMs !== null && announcement.durationMs > 0
+      ? formatDuration(announcement.durationMs)
+      : null,
+  ].filter((part): part is string => part !== null)
   return {
     // Credit the author's linked Discord account: the mention renders their
     // live Discord name, while allowed_mentions keeps it from pinging them.
@@ -108,19 +106,24 @@ export function discordAnnouncePayload(
       : {}),
     embeds: [
       {
-        title: announcement.title,
-        url: announcement.clipUrl,
-        color: EMBED_COLOR,
         author: {
           name: announcement.authorUsername,
+          url: `${serverOrigin()}/u/${encodeURIComponent(announcement.authorUsername)}`,
           ...(announcement.authorImage
             ? { icon_url: absoluteUrl(announcement.authorImage) }
             : {}),
         },
+        title: announcement.title,
+        url: announcement.clipUrl,
+        ...(details.length > 0 ? { description: details.join(" · ") } : {}),
+        color: EMBED_COLOR,
         ...(announcement.thumbnailUrl
           ? { image: { url: announcement.thumbnailUrl } }
           : {}),
-        ...(fields.length > 0 ? { fields } : {}),
+        footer: {
+          text: "Alloy",
+          icon_url: `${serverOrigin()}/api/assets/webhook/logo.png`,
+        },
         timestamp: announcement.createdAt.toISOString(),
       },
     ],
