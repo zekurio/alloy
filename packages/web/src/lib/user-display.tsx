@@ -13,6 +13,7 @@ import { apiOrigin } from "./env"
 type DisplayUser = {
   id?: string
   username?: string | null
+  displayName?: string | null
   email?: string | null
   image?: string | null
   banner?: string | null
@@ -75,16 +76,20 @@ function normalizeUserAssetPath(value: string, prefix: string): string {
   return resolvePublicUrl(nextPath, apiOrigin())
 }
 
-/**
- * Pulls a stable display label from the handle, then the email local part.
- */
+/** Freeform profile label, falling back to the stable username handle. */
 export function displayName(user: DisplayUser | null | undefined): string {
   if (!user) return t("user")
-  if (user.username && user.username.trim()) {
-    return user.username.trim()
-  }
+  if (user.displayName?.trim()) return user.displayName.trim()
+  if (user.username?.trim()) return user.username.trim()
   if (user.email) return user.email.split("@")[0] ?? "user"
   return t("user")
+}
+
+/** Cosmetic handle; usernames are stored without the leading @. */
+export function userHandle(
+  user: Pick<DisplayUser, "username"> | null | undefined,
+): string {
+  return user?.username?.trim() ? `@${user.username.trim()}` : ""
 }
 
 /** Up to two uppercase letters from a stable user identity. */
@@ -102,8 +107,6 @@ function displayInitials(value: string): string {
 }
 
 function avatarInitialsSource(user: DisplayUser | null | undefined): string {
-  if (user?.username && user.username.trim()) return user.username.trim()
-  if (user?.email && user.email.trim()) return user.email.split("@")[0] ?? ""
   return displayName(user)
 }
 

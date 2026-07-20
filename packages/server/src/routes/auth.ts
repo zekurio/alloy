@@ -1,4 +1,9 @@
-import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/contracts"
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from "@alloy/contracts"
 import { user, userPasskey } from "@alloy/db/auth-schema"
 import {
   clearSessionCookies,
@@ -11,6 +16,7 @@ import {
   normalizeEmail,
   setupRequired,
   updateUserIdentity,
+  validateDisplayName,
   validateUsername,
 } from "@alloy/server/auth/identity"
 import {
@@ -66,6 +72,7 @@ import {
 const SignUpOptionsBody = z.object({
   email: z.string().trim().email(),
   username: requiredTrimmedString(),
+  displayName: requiredTrimmedString(DISPLAY_NAME_MAX_LENGTH).optional(),
 })
 
 const PasskeyVerifyBody = z.object({
@@ -83,6 +90,11 @@ const UpdateUserBody = z.object({
     .string()
     .min(USERNAME_MIN_LENGTH)
     .max(USERNAME_MAX_LENGTH)
+    .optional(),
+  displayName: z
+    .string()
+    .min(DISPLAY_NAME_MIN_LENGTH)
+    .max(DISPLAY_NAME_MAX_LENGTH)
     .optional(),
 })
 
@@ -163,15 +175,22 @@ export const authRoute = new Hono()
 
         const email = normalizeEmail(body.email)
         const username = validateUsername(body.username)
+        const displayName = validateDisplayName(body.displayName ?? username)
         const existing = await findUserByEmail(email)
         const registration = await beginPasskeyRegistration({
           identifier: email,
           origin: c.req.header("origin"),
-          payload: { email, username, setupFirstAdmin },
+          payload: {
+            email,
+            username,
+            displayName,
+            setupFirstAdmin,
+          },
           user: {
             id: existing && setupFirstAdmin ? existing.id : crypto.randomUUID(),
             email,
             username,
+            display_name: displayName,
           },
         })
         return c.json(registration)

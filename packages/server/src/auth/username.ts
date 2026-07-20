@@ -5,7 +5,7 @@ import { user } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
 import { eq, sql } from "drizzle-orm"
 
-const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
+const USERNAME_DISALLOWED_RE = /[\s@\p{Cc}\p{Cs}/\\]/u
 const USERNAME_DOT_SEGMENTS = new Set([".", ".."])
 const MAX_LEN = USERNAME_MAX_LENGTH
 const MIN_LEN = USERNAME_MIN_LENGTH
@@ -19,7 +19,9 @@ export function normalizeUsername(input: string): string {
     )
   }
   if (USERNAME_DISALLOWED_RE.test(username)) {
-    throw new Error("Username cannot contain slashes or control characters.")
+    throw new Error(
+      "Username cannot contain whitespace, @, slashes, or control characters.",
+    )
   }
   if (USERNAME_DOT_SEGMENTS.has(username)) {
     throw new Error("Username cannot be a path dot-segment.")

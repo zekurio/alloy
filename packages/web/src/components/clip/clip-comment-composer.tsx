@@ -291,7 +291,12 @@ export function CommentComposer({
                 selectMention(user.username)
               }}
             >
-              <span className="min-w-0 flex-1 truncate">{user.username}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{user.displayName}</span>
+                <span className="text-foreground-faint block truncate text-xs">
+                  @{user.username}
+                </span>
+              </span>
             </button>
           ))}
         </div>

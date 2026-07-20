@@ -10,6 +10,7 @@ import type { RegistrationResponseJSON } from "@simplewebauthn/server"
 type PasskeyRegistrationPayload = {
   email?: unknown
   username?: unknown
+  displayName?: unknown
   setupFirstAdmin?: unknown
 }
 
@@ -37,6 +38,10 @@ export async function completePasskeySignUp({
     const { user: row } = await createRegistrationUserInTransaction(tx, {
       email: String(payload.email ?? ""),
       username: String(payload.username ?? ""),
+      displayName:
+        typeof payload.displayName === "string"
+          ? payload.displayName
+          : undefined,
       setupFirstAdmin: payload.setupFirstAdmin === true,
     })
 

@@ -151,6 +151,7 @@ export const clipCommentWriteRoutes = new Hono()
           : {
               id: viewerId,
               username: "",
+              displayName: "",
               image: null,
             },
         mentions: mentionedUsernames,

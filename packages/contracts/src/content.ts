@@ -10,6 +10,7 @@ import type {
 export interface PublicUser {
   id: string
   username: string
+  displayName: string
   image: string | null
   banner: string | null
   createdAt: IsoDateString
@@ -19,6 +20,7 @@ export interface PublicUser {
 export interface UserSummary {
   id: string
   username: string
+  displayName: string
   image: string | null
 }
 
@@ -124,6 +126,7 @@ export interface ClipRow {
   createdAt: IsoDateString
   updatedAt: IsoDateString
   authorUsername: string
+  authorDisplayName: string
   authorImage: string | null
   gameRef: ClipGameRef | null
   mentions?: ClipMentionRef[]

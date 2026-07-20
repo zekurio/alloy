@@ -29,7 +29,7 @@ import { useSession } from "@/lib/auth-client"
 import { sanitizeTag } from "@/lib/clip-fields"
 import { useTagSearchQuery } from "@/lib/tag-queries"
 import { useDebouncedValue } from "@/lib/use-debounced-value"
-import { userChipData } from "@/lib/user-display"
+import { userChipData, userHandle } from "@/lib/user-display"
 import { useUserSearchQuery } from "@/lib/user-queries"
 
 export function useOutsideDismiss<T extends HTMLElement>(
@@ -236,7 +236,7 @@ function PersonChip({
   disabled: boolean
 }) {
   const chip = userChipData(user)
-  const label = user.username
+  const label = userHandle(user)
 
   return (
     <span
@@ -305,7 +305,7 @@ function PeopleSearchPopover({
     trimmed.length > 0 &&
     candidates.length > 0
   const suggestion = listOpen ? (candidates[activeIndex] ?? null) : null
-  const suggestionLabel = suggestion ? suggestion.username : null
+  const suggestionLabel = suggestion ? userHandle(suggestion) : null
 
   const pick = (user: UserSearchResult) => {
     onPick(user)
@@ -378,7 +378,7 @@ function PeopleSearchPopover({
             >
               {candidates.map((user, index) => {
                 const chip = userChipData(user)
-                const label = user.username
+                const label = userHandle(user)
                 return (
                   <button
                     id={`${listboxId}-option-${index}`}
@@ -408,7 +408,12 @@ function PeopleSearchPopover({
                         {chip.avatar.initials}
                       </AvatarFallback>
                     </Avatar>
-                    <span className="min-w-0 flex-1 truncate">{label}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{chip.name}</span>
+                      <span className="text-foreground-faint block truncate text-xs">
+                        {label}
+                      </span>
+                    </span>
                   </button>
                 )
               })}

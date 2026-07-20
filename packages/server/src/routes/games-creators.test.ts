@@ -32,6 +32,7 @@ if (!testDatabaseUrl) {
       .values({
         email: `${username}@example.test`,
         username,
+        display_name: username,
         ...(disabled
           ? { status: "disabled" as const, disabled_at: new Date() }
           : {}),
@@ -87,7 +88,12 @@ if (!testDatabaseUrl) {
   await seedClips(disabledUser.id, arena.id, 2)
 
   type CreatorsBody = {
-    creators: Array<{ id: string; username: string; clipCount: number }>
+    creators: Array<{
+      id: string
+      username: string
+      displayName: string
+      clipCount: number
+    }>
   }
 
   test("creators ranks visible public clips only", async () => {

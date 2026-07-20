@@ -347,14 +347,20 @@ function ClipMeta({
                 </Button>
               ) : null}
             </div>
-            {followerCount !== null ? (
-              <div className="text-foreground-faint mt-0.5 text-xs">
-                <span className="text-foreground-muted">
-                  {formatCount(followerCount)}
-                </span>{" "}
-                {tp(followerCount, "follower", "followers")}
-              </div>
-            ) : null}
+            <div className="text-foreground-faint mt-0.5 flex items-center gap-1.5 text-xs">
+              <span>@{uploader.handle}</span>
+              {followerCount !== null ? (
+                <>
+                  <span>•</span>
+                  <span>
+                    <span className="text-foreground-muted">
+                      {formatCount(followerCount)}
+                    </span>{" "}
+                    {tp(followerCount, "follower", "followers")}
+                  </span>
+                </>
+              ) : null}
+            </div>
           </div>
         </div>
 

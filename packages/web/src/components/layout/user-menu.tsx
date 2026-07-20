@@ -29,7 +29,7 @@ import { StorageQuotaCompact } from "@/components/storage-quota"
 import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useOpenSettings } from "@/lib/use-open-settings"
-import { useUserChipData } from "@/lib/user-display"
+import { userHandle, useUserChipData } from "@/lib/user-display"
 
 type UserMenuVariant = "compact" | "rail"
 
@@ -70,8 +70,8 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
 
   const user = session.user
   const handle = user.username ?? null
-  const email = user.email ?? null
-  const primaryLabel = handle ?? chip.name
+  const accountHandle = userHandle(user)
+  const primaryLabel = chip.name
   const accountMenuLabel = t("Open account menu for {name}", {
     name: chip.name,
   })
@@ -111,9 +111,9 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
                 <span className="text-foreground truncate text-sm font-semibold">
                   {primaryLabel}
                 </span>
-                {email ? (
+                {accountHandle ? (
                   <span className="text-foreground-faint truncate text-xs">
-                    {email}
+                    {accountHandle}
                   </span>
                 ) : null}
               </span>
@@ -145,9 +145,9 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
               <span className="text-foreground truncate text-sm font-semibold">
                 {primaryLabel}
               </span>
-              {email ? (
+              {accountHandle ? (
                 <span className="text-foreground-faint truncate text-xs">
-                  {email}
+                  {accountHandle}
                 </span>
               ) : null}
             </div>

@@ -1,3 +1,7 @@
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  DISPLAY_NAME_MIN_LENGTH,
+} from "@alloy/contracts"
 import { type NewUser, type User, user } from "@alloy/db/auth-schema"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
@@ -21,6 +25,22 @@ export function normalizeEmail(email: string): string {
 
 export function validateUsername(value: string): string {
   return normalizeUsername(value)
+}
+
+export function validateDisplayName(value: string): string {
+  const displayName = value.trim()
+  if (
+    displayName.length < DISPLAY_NAME_MIN_LENGTH ||
+    displayName.length > DISPLAY_NAME_MAX_LENGTH
+  ) {
+    throw new Error(
+      `Display name must be between ${DISPLAY_NAME_MIN_LENGTH} and ${DISPLAY_NAME_MAX_LENGTH} characters.`,
+    )
+  }
+  if (/[\p{Cc}\p{Cs}]/u.test(displayName)) {
+    throw new Error("Display name cannot contain control characters.")
+  }
+  return displayName
 }
 
 export type AuthTransaction = Parameters<
@@ -87,6 +107,7 @@ export async function assertCanRemoveAdmin(
 export async function createUserIdentity(input: {
   email: string
   username?: string
+  displayName?: string
   role?: "user" | "admin"
 }): Promise<User> {
   return createUserIdentityWith(db, input)
@@ -97,6 +118,7 @@ async function createUserIdentityWith(
   input: {
     email: string
     username?: string
+    displayName?: string
     role?: "user" | "admin"
   },
 ): Promise<User> {
@@ -109,6 +131,9 @@ async function createUserIdentityWith(
     email,
     email_verified: true,
     username,
+    display_name: input.displayName
+      ? validateDisplayName(input.displayName)
+      : username,
     role: input.role ?? "user",
     storage_quota_bytes: configStore.get("limits").defaultStorageQuotaBytes,
   }
@@ -131,6 +156,7 @@ async function createOrClaimSetupUserWith(
   input: {
     email: string
     username: string
+    displayName?: string
   },
 ): Promise<{ user: User; created: boolean }> {
   const email = normalizeEmail(input.email)
@@ -150,6 +176,9 @@ async function createOrClaimSetupUserWith(
         status: "active",
         disabled_at: null,
         username,
+        display_name: input.displayName
+          ? validateDisplayName(input.displayName)
+          : existing.display_name || username,
         updated_at: now,
       })
       .where(eq(user.id, existing.id))
@@ -161,6 +190,7 @@ async function createOrClaimSetupUserWith(
     user: await createUserIdentityWith(executor, {
       email,
       username: input.username,
+      displayName: input.displayName,
       role: "admin",
     }),
     created: true,
@@ -172,6 +202,7 @@ export async function createRegistrationUserInTransaction(
   input: {
     email: string
     username: string
+    displayName?: string
     setupFirstAdmin: boolean
   },
 ): Promise<{ user: User; created: boolean }> {
@@ -188,7 +219,11 @@ export async function createRegistrationUserInTransaction(
     ) {
       throw new Error("Initial setup is already complete.")
     }
-    return createOrClaimSetupUserWith(tx, { email, username })
+    return createOrClaimSetupUserWith(tx, {
+      email,
+      username,
+      displayName: input.displayName,
+    })
   }
 
   if (!configStore.get("passkeyEnabled")) {
@@ -209,6 +244,7 @@ export async function createRegistrationUserInTransaction(
     user: await createUserIdentityWith(tx, {
       email,
       username,
+      displayName: input.displayName,
       role: "user",
     }),
     created: true,
@@ -217,7 +253,7 @@ export async function createRegistrationUserInTransaction(
 
 export async function updateUserIdentity(
   userId: string,
-  input: { email?: string; username?: string },
+  input: { email?: string; username?: string; displayName?: string },
 ): Promise<User> {
   const patch: Partial<NewUser> = { updated_at: new Date() }
   if (input.email !== undefined) {
@@ -233,6 +269,9 @@ export async function updateUserIdentity(
     const username = validateUsername(input.username)
     await assertUsernameAvailable(db, username, userId)
     patch.username = username
+  }
+  if (input.displayName !== undefined) {
+    patch.display_name = validateDisplayName(input.displayName)
   }
   const [updated] = await db
     .update(user)

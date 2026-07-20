@@ -138,6 +138,7 @@ type WebhooksConfigPatch = {
 type AdminCreateUserInput = {
   email: string
   username?: string
+  displayName?: string
   role?: "user" | "admin"
 }
 

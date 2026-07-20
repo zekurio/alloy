@@ -13,7 +13,7 @@ import { formatRelativeTime } from "./date-format"
 import { apiOrigin } from "./env"
 import { canPlaySource } from "./media-capability"
 import { formatCount } from "./number-format"
-import { type UserAvatar, userAvatar } from "./user-display"
+import { displayName, type UserAvatar, userAvatar } from "./user-display"
 
 export function hueForGame(game: string | null | undefined): number {
   if (!game) return 220
@@ -28,7 +28,7 @@ interface ClipCardData {
   gameRef: ClipGameRef | null
   /** Display label for the author. */
   author: string
-  /** Lowercase handle (`user.username`) — always use this for profile links. */
+  /** Stable handle (`user.username`) — always use this for profile links. */
   authorUsername: string
   authorId: string
   /** Uploader's avatar image URL when set — `null` when none is available. */
@@ -78,18 +78,20 @@ function previewStreamUrl(row: ClipRow): string {
 
 export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
   const game = clipGameLabel(row)
-  const authorAvatar = userAvatar({
+  const author = {
     id: row.authorId,
     username: row.authorUsername,
+    displayName: row.authorDisplayName,
     image: row.authorImage,
-  })
+  }
+  const authorAvatar = userAvatar(author)
   return {
     clipId: row.id,
     title: row.title,
     game,
     gameSlug: row.gameRef?.slug ?? null,
     gameRef: row.gameRef,
-    author: row.authorUsername,
+    author: displayName(author),
     authorUsername: row.authorUsername,
     authorId: row.authorId,
     authorImage: authorAvatar.src ?? null,

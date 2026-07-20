@@ -136,7 +136,13 @@ export function validateAdminUserStorageRow(
   value: unknown,
 ): AdminUserStorageRow {
   const row = objectRecord(value, "admin user")
-  for (const key of ["id", "username", "email", "createdAt"] as const) {
+  for (const key of [
+    "id",
+    "username",
+    "displayName",
+    "email",
+    "createdAt",
+  ] as const) {
     validateRequiredString(
       row[key],
       `Invalid admin user response: ${key} is required`,
@@ -279,7 +285,13 @@ export function validateCommentLikeState(value: unknown): {
 
 export function validatePublicUser(value: unknown): PublicUser {
   const row = objectRecord(value, "user")
-  for (const key of ["id", "username", "createdAt", "updatedAt"] as const) {
+  for (const key of [
+    "id",
+    "username",
+    "displayName",
+    "createdAt",
+    "updatedAt",
+  ] as const) {
     validateRequiredString(
       row[key],
       `Invalid user response: ${key} is required`,

@@ -28,7 +28,7 @@ import { commentListQueryOptions } from "@/lib/comment-queries"
 import { formatRelativeTime } from "@/lib/date-format"
 import { apiOrigin } from "@/lib/env"
 import { formatCount } from "@/lib/number-format"
-import { userAvatar } from "@/lib/user-display"
+import { displayName, userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
 import {
@@ -198,12 +198,14 @@ function ClipViewerDialogBody({
 }: ClipViewerDialogBodyProps) {
   const navigate = useNavigate()
   const handle = row.authorUsername
-  const author = handle
-  const avatar = userAvatar({
+  const authorUser = {
     id: row.authorId,
     username: handle,
+    displayName: row.authorDisplayName,
     image: row.authorImage,
-  })
+  }
+  const author = displayName(authorUser)
+  const avatar = userAvatar(authorUser)
   const gameLabel = clipGameLabel(row)
   const thumbnail = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)

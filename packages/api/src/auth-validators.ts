@@ -30,6 +30,7 @@ export function validateAuthUser(value: unknown): AuthUser {
     "id",
     "email",
     "username",
+    "displayName",
     "createdAt",
     "updatedAt",
   ] as const) {

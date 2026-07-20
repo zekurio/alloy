@@ -55,7 +55,13 @@ export function validateClipRow(value: unknown): ClipRow {
 }
 
 function validateClipIdentityFields(row: Record<string, unknown>) {
-  for (const key of ["id", "authorId", "title", "authorUsername"] as const) {
+  for (const key of [
+    "id",
+    "authorId",
+    "title",
+    "authorUsername",
+    "authorDisplayName",
+  ] as const) {
     validateRequiredString(
       row[key],
       `Invalid clip response: ${key} is required`,

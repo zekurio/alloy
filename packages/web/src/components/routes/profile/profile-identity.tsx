@@ -8,7 +8,12 @@ import { cn } from "@alloy/ui/lib/utils"
 
 import { ProfileActions } from "@/components/profile/profile-actions"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
-import { userAvatar, UserBanner } from "@/lib/user-display"
+import {
+  displayName,
+  userAvatar,
+  userHandle,
+  UserBanner,
+} from "@/lib/user-display"
 
 import { IdentityStats } from "./identity-stats"
 
@@ -34,6 +39,7 @@ export function ProfileIdentity({
 }: ProfileIdentityProps) {
   const { user, counts } = profile
   const handle = user.username
+  const name = displayName(user)
   const avatar = userAvatar(user)
   const isSelf = viewer?.isSelf ?? currentUserId === user.id
   const showProfileAction =
@@ -83,7 +89,7 @@ export function ProfileIdentity({
             {avatar.src ? (
               <AvatarImage
                 src={avatar.src}
-                alt={handle}
+                alt={name}
                 fetchPriority="high"
                 loading="eager"
               />
@@ -99,12 +105,15 @@ export function ProfileIdentity({
               {/* Name row */}
               <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
                 <h1 className="text-foreground truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
-                  {handle}
+                  {name}
                 </h1>
+              </div>
+              <div className="text-foreground-faint truncate text-sm">
+                {userHandle(user)}
               </div>
 
               {/* Stats */}
-              <div className="mt-0.5">
+              <div className="mt-1">
                 <IdentityStats handle={handle} counts={counts} />
               </div>
             </div>

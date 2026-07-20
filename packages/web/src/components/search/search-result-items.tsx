@@ -21,7 +21,7 @@ import { apiOrigin } from "@/lib/env"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { formatCount } from "@/lib/number-format"
 import type { UserListRow } from "@/lib/search-api"
-import { userChipData } from "@/lib/user-display"
+import { userChipData, userHandle } from "@/lib/user-display"
 
 import type { LibraryItemView } from "../routes/library/library-data"
 
@@ -295,7 +295,7 @@ export function UserRowItem({
   onSelect: () => void
 }) {
   const chip = userChipData(row)
-  const handle = row.username
+  const handle = userHandle(row)
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
       <Avatar size="lg" className="rounded-full">

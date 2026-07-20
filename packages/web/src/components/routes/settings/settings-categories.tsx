@@ -198,6 +198,7 @@ function ProfilePanel() {
         key={user.id}
         userId={user.id}
         initialUsername={user.username ?? ""}
+        initialDisplayName={user.displayName ?? user.username ?? ""}
         image={user.image ?? ""}
         banner={(user as { banner?: string | null }).banner ?? ""}
         email={user.email ?? ""}
@@ -291,8 +292,9 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
     "profile",
     t("Profile"),
     null,
-    t("Edit your username, email, avatar, and sign-in methods."),
+    t("Edit your display name, username, email, avatar, and sign-in methods."),
     [
+      "display name",
       "username",
       "email",
       "avatar",

@@ -329,6 +329,7 @@ if (!testDatabaseUrl) {
       id: userId,
       email: `${clipId}@example.test`,
       username: `user-${clipId.slice(0, 8)}`,
+      display_name: `User ${clipId.slice(0, 8)}`,
     })
     await database.db.insert(schema.clip).values({
       id: clipId,

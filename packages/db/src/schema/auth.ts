@@ -30,6 +30,7 @@ export const user = pgTable(
     email: text().notNull().unique(),
     email_verified: boolean().notNull().default(false),
     username: text().notNull(),
+    display_name: text().notNull(),
     image: text(),
     banner: text(),
     role: text().$type<UserRole>().notNull().default("user"),

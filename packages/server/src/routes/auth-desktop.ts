@@ -158,11 +158,11 @@ function authorizePage(input: {
   codeChallenge: string
   redirectUri: string
   state: string
-  username: string
+  identity: string
 }): string {
   return `<!doctype html><html><head><meta charset="utf-8"><title>Authorize Alloy Desktop</title>
 <style>${DESKTOP_AUTHORIZE_PAGE_STYLE}</style></head>
-<body><header><a class="brand" href="/"><img src="/logo.png" alt=""><span>alloy</span></a></header><div class="shell"><main class="panel"><div class="copy"><h1>Authorize Alloy Desktop</h1><p>Signed in as ${escapeHtml(input.username)}. Continue only if you opened the Alloy desktop app.</p></div>
+<body><header><a class="brand" href="/"><img src="/logo.png" alt=""><span>alloy</span></a></header><div class="shell"><main class="panel"><div class="copy"><h1>Authorize Alloy Desktop</h1><p>Signed in as ${escapeHtml(input.identity)}. Continue only if you opened the Alloy desktop app.</p></div>
 <form method="post" action="/api/auth/desktop/authorize">
 <input type="hidden" name="redirect_uri" value="${escapeHtml(input.redirectUri)}">
 <input type="hidden" name="state" value="${escapeHtml(input.state)}">
@@ -214,7 +214,10 @@ export const authDesktopRoute = new Hono()
         codeChallenge: codeChallenge.data,
         redirectUri: redirect.toString(),
         state,
-        username: session.user.username,
+        identity:
+          session.user.display_name === session.user.username
+            ? `@${session.user.username}`
+            : `${session.user.display_name} (@${session.user.username})`,
       }),
     )
   })

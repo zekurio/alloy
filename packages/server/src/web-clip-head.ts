@@ -66,7 +66,7 @@ function buildClipHead(row: MetadataClip): string {
   const socialDescription = clipSocialDescription(row)
   const seoDescription =
     row.description?.trim() ||
-    `${row.authorUsername} shared a ${clipGameName(row)} clip on alloy.`
+    `${row.authorDisplayName} shared a ${clipGameName(row)} clip on alloy.`
   const poster = clipSocialPoster(row, origin)
   const video = clipSocialVideo(row, origin)
   const clipUrl = new URL(`/clips/${row.id}`, origin).toString()
@@ -97,7 +97,7 @@ function buildClipHead(row: MetadataClip): string {
     `<link rel="canonical" href="${htmlEscape(clipUrl)}" />`,
     metaProperty("og:url", clipUrl),
     metaProperty("theme-color", EMBED_THEME_COLOR),
-    metaProperty("twitter:title", row.authorUsername),
+    metaProperty("twitter:title", clipAuthorLabel(row)),
     metaName("description", seoDescription),
     ...socialTwitterVideoTags(video),
     ...socialVideoTags(video),
@@ -109,13 +109,19 @@ function buildClipHead(row: MetadataClip): string {
         : []),
     `<link rel="apple-touch-icon" href="${htmlEscape(authorAvatar)}" />`,
     metaProperty("twitter:card", video.url ? "player" : "summary_large_image"),
-    metaProperty("og:title", row.authorUsername),
+    metaProperty("og:title", clipAuthorLabel(row)),
     metaProperty("og:description", socialDescription),
     metaProperty("og:site_name", "alloy"),
     `<link rel="icon" type="image/png" sizes="256x256" href="${htmlEscape(favicon)}" />`,
-    `<link rel="alternate" type="application/json+oembed" href="${htmlEscape(oembedUrl)}" title="${htmlEscape(row.authorUsername)}" />`,
+    `<link rel="alternate" type="application/json+oembed" href="${htmlEscape(oembedUrl)}" title="${htmlEscape(row.authorDisplayName)}" />`,
     `<link rel="alternate" type="application/activity+json" href="${htmlEscape(activityUrl)}" />`,
   ].join("\n    ")
+}
+
+export function clipAuthorLabel(row: MetadataClip): string {
+  return row.authorDisplayName === row.authorUsername
+    ? `@${row.authorUsername}`
+    : `${row.authorDisplayName} (@${row.authorUsername})`
 }
 
 export function clipSocialDescription(row: MetadataClip): string {

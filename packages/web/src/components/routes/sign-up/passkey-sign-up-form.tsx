@@ -14,10 +14,15 @@ import {
   completeAuthSessionFlow,
   toastAuthAttemptFailure,
 } from "@/lib/auth-flow"
-import { validateEmail, validateUsername } from "@/lib/form-validators"
+import {
+  validateDisplayName,
+  validateEmail,
+  validateUsername,
+} from "@/lib/form-validators"
 import { invalidateAuthConfig } from "@/lib/session-suspense"
 
 type PasskeySignUpFormState = {
+  displayName: string
   username: string
   email: string
 }
@@ -51,6 +56,7 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
       try {
         const { error } = await authClient.passkey.signUp({
           email: form.email.trim(),
+          displayName: form.displayName.trim(),
           username: form.username.trim(),
         })
         if (error) {
@@ -146,6 +152,30 @@ function PasskeyAccountField({
   )
 }
 
+function DisplayNameField(props: {
+  disabled: boolean
+  field: StringFieldController
+  submissionAttempts: number
+}) {
+  const { errors, invalid } = getFieldValidationState(
+    props.field.state.meta,
+    props.submissionAttempts,
+  )
+
+  return (
+    <PasskeyAccountField
+      label={t("Display name")}
+      icon={<UserIcon />}
+      autoComplete="name"
+      placeholder={t("Your name")}
+      field={props.field}
+      invalid={invalid}
+      errors={errors}
+      disabled={props.disabled}
+    />
+  )
+}
+
 function UsernameField(props: {
   disabled: boolean
   field: StringFieldController
@@ -159,6 +189,7 @@ function UsernameField(props: {
   return (
     <PasskeyAccountField
       label={t("Username")}
+      description={t("Your profile link and @mention handle.")}
       icon={<UserIcon />}
       autoCapitalize="none"
       autoComplete="username"
@@ -212,6 +243,7 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
   const submit = usePasskeySignUpSubmit(props)
   const form = useForm({
     defaultValues: {
+      displayName: "",
       username: "",
       email: "",
     } as PasskeySignUpFormState,
@@ -231,6 +263,21 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
       }}
       className="flex flex-col gap-5"
     >
+      <form.Field
+        name="displayName"
+        validators={{
+          onChange: ({ value }) => validateDisplayName(value),
+        }}
+      >
+        {(field) => (
+          <DisplayNameField
+            disabled={isSubmitting}
+            field={field}
+            submissionAttempts={submissionAttempts}
+          />
+        )}
+      </form.Field>
+
       <form.Field
         name="username"
         validators={{

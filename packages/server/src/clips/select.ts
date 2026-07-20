@@ -53,6 +53,7 @@ export const clipSelectShape = {
   createdAt: clip.created_at,
   updatedAt: clip.updated_at,
   authorUsername: user.username,
+  authorDisplayName: user.display_name,
   authorImage: user.image,
   gameRef: gameSelectShape,
   // Bare, lowercase tags aggregated from the join table so every list/detail
@@ -80,6 +81,7 @@ async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
     .select({
       id: user.id,
       username: user.username,
+      displayName: user.display_name,
       image: user.image,
     })
     .from(clipMention)

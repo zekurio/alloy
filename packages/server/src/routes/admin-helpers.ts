@@ -80,6 +80,7 @@ async function selectClipCountsByUserIds(
 const adminUserColumns = {
   id: user.id,
   username: user.username,
+  displayName: user.display_name,
   email: user.email,
   image: user.image,
   role: user.role,
@@ -92,6 +93,7 @@ const adminUserColumns = {
 interface AdminUserBaseRow {
   id: string
   username: string
+  displayName: string
   email: string
   image: string | null
   role: string | null
@@ -113,6 +115,7 @@ async function enrichUserRows(
   return rows.map((row) => ({
     id: row.id,
     username: row.username,
+    displayName: row.displayName,
     email: row.email,
     image: row.image,
     role: row.role,
@@ -146,7 +149,11 @@ export interface AdminUserStoragePage {
 function adminUserSearch(search: string | undefined) {
   if (!search) return undefined
   const pattern = `%${search}%`
-  return or(ilike(user.email, pattern), ilike(user.username, pattern))
+  return or(
+    ilike(user.email, pattern),
+    ilike(user.username, pattern),
+    ilike(user.display_name, pattern),
+  )
 }
 
 export async function selectAdminUserStoragePage(options: {

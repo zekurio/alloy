@@ -13,6 +13,7 @@ export type OAuthChallengePayload = {
 
 export type OAuthProfile = {
   avatarUrl: string | null
+  displayNameHint: string | null
   email: string | null
   emailVerified: boolean
   providerAccountId: string

@@ -9,6 +9,8 @@ import type { ClipPrivacy } from "./shared"
 export interface RecordingCaptureMention {
   id: string
   username: string
+  /** Added additively; older desktop manifests only contain username. */
+  displayName?: string
   image: string | null
 }
 

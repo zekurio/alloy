@@ -1,5 +1,6 @@
 import {
   DISCORD_PROVIDER_ID,
+  DISPLAY_NAME_MAX_LENGTH,
   discordCdnAvatarUrl,
   OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
@@ -59,6 +60,11 @@ export async function profileFromTokens(
     avatarUrl:
       httpUrlClaim(raw, provider.avatarClaim ?? OAUTH_AVATAR_CLAIM_DEFAULT) ??
       presetAvatarUrl(provider, raw),
+    displayNameHint:
+      (stringClaim(raw, "name") ?? usernameHint)?.slice(
+        0,
+        DISPLAY_NAME_MAX_LENGTH,
+      ) ?? null,
     email: normalizedEmail,
     emailVerified: raw.email_verified === true || raw.verified === true,
     providerAccountId,

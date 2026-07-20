@@ -28,6 +28,7 @@ export function publicAuthUserRow(row: User) {
     email: row.email,
     emailVerified: row.email_verified,
     username: row.username,
+    displayName: row.display_name,
     image: row.image,
     banner: row.banner,
     role: row.role,

@@ -36,6 +36,7 @@ type RegistrationPayload = {
   setupFirstAdmin?: boolean
   userId?: string
   username?: string
+  displayName?: string
 }
 
 const AUTHENTICATOR_TRANSPORTS = new Set<string>([
@@ -112,7 +113,7 @@ export async function beginPasskeyRegistration(input: {
   identifier: string
   origin?: string
   payload: RegistrationPayload
-  user: Pick<User, "id" | "email" | "username"> & {
+  user: Pick<User, "id" | "email" | "username" | "display_name"> & {
     passkeys?: UserPasskey[]
   }
 }) {
@@ -127,7 +128,7 @@ export async function beginPasskeyRegistration(input: {
     rpID: context.rpId,
     userID: Buffer.from(input.user.id, "utf8"),
     userName: input.user.email,
-    userDisplayName: input.user.username,
+    userDisplayName: input.user.display_name,
     attestationType: "none",
     excludeCredentials,
     authenticatorSelection: {

@@ -5,7 +5,11 @@ import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { and, eq } from "drizzle-orm"
 
-import { assertCanRemoveAdmin, findUserByEmail } from "./identity"
+import {
+  assertCanRemoveAdmin,
+  findUserByEmail,
+  validateDisplayName,
+} from "./identity"
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
@@ -203,6 +207,9 @@ async function createOAuthUser(
     email: profile.email,
     email_verified: profile.emailVerified,
     username,
+    display_name: profile.displayNameHint
+      ? validateDisplayName(profile.displayNameHint)
+      : username,
     role: profile.role ?? "user",
     storage_quota_bytes:
       profile.storageQuotaBytes === undefined

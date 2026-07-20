@@ -182,6 +182,7 @@ if (!testDatabaseUrl) {
       id: input.userId,
       email: `${input.userId}@example.test`,
       username: `user-${input.userId.slice(0, 8)}`,
+      display_name: `User ${input.userId.slice(0, 8)}`,
       image: input.image,
     })
   }
@@ -198,6 +199,7 @@ if (!testDatabaseUrl) {
   function oauthProfile(avatarUrl: string | null): OAuthProfile {
     return {
       avatarUrl,
+      displayNameHint: "OAuth User",
       email: "user@example.test",
       emailVerified: true,
       providerAccountId: "provider-account",

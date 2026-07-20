@@ -266,6 +266,7 @@ export type TranscodingCapabilities = z.infer<
 export interface AdminUserStorageRow {
   id: string
   username: string
+  displayName: string
   email: string
   image: string | null
   role: string | null

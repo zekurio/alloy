@@ -134,6 +134,7 @@ function mentionToSearchResult(ref: ClipMentionRef): UserSearchResult {
   return {
     id: ref.id,
     username: ref.username,
+    displayName: ref.displayName,
     image: ref.image,
   }
 }

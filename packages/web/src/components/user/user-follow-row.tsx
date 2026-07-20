@@ -12,7 +12,7 @@ import { UserPlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { errorMessage } from "@/lib/error-message"
-import { userChipData } from "@/lib/user-display"
+import { userChipData, userHandle } from "@/lib/user-display"
 import { useToggleUserFollowMutation } from "@/lib/user-queries"
 
 /**
@@ -33,7 +33,7 @@ export function UserFollowRow({
   const [following, setFollowing] = useState(initiallyFollowing)
   const followMutation = useToggleUserFollowMutation(user.username)
   const chip = userChipData(user)
-  const handle = user.username
+  const handle = userHandle(user)
 
   useEffect(() => {
     setFollowing(initiallyFollowing)

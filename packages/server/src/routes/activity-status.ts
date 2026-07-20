@@ -49,10 +49,9 @@ export const activityStatusRoute = new Hono().get("/:id", async (c) => {
     media_attachments: activityMedia(row, origin),
     account: {
       id: row.authorId,
-      display_name: row.authorUsername,
-      // Discord qualifies any present Mastodon username as @user@host. Alloy
-      // has no separate federated handle, so omit those compatibility fields
-      // and let display_name be the complete author identity.
+      display_name: row.authorDisplayName,
+      username: row.authorUsername,
+      acct: row.authorUsername,
       url: profileUrl,
       uri: profileUrl,
       created_at: row.createdAt.toISOString(),

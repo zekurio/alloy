@@ -27,6 +27,8 @@ export type UserStatus = (typeof USER_STATUSES)[number]
 
 export const USERNAME_MIN_LENGTH = 1
 export const USERNAME_MAX_LENGTH = 24
+export const DISPLAY_NAME_MIN_LENGTH = 1
+export const DISPLAY_NAME_MAX_LENGTH = 50
 
 export const ACCEPTED_IMAGE_CONTENT_TYPES = [
   "image/jpeg",

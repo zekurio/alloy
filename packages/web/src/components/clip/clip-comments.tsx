@@ -27,7 +27,12 @@ import {
 import { formatRelativeTime } from "@/lib/date-format"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
-import { displayName, userAvatar, useUserChipData } from "@/lib/user-display"
+import {
+  displayName,
+  userAvatar,
+  userHandle,
+  useUserChipData,
+} from "@/lib/user-display"
 
 import {
   CommentActions,
@@ -493,6 +498,9 @@ function CommentRowView({
         <div className="flex items-baseline gap-2 leading-4">
           <span className="text-foreground text-[0.9375rem] font-semibold">
             {authorName}
+          </span>
+          <span className="text-foreground-faint text-xs">
+            {userHandle(comment.author)}
           </span>
           {comment.author.id === clipAuthorId ? (
             <span className="bg-accent-soft text-accent inline-flex items-center rounded-sm px-1.5 py-0.5 text-[0.6875rem] leading-3 font-semibold tracking-wide uppercase">

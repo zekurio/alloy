@@ -192,12 +192,14 @@ export function CreateUserDialog() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState("")
+  const [displayName, setDisplayName] = useState("")
   const [username, setUsername] = useState("")
   const [role, setRole] = useState<"admin" | "user">("user")
 
   useEffect(() => {
     if (!open) return
     setEmail("")
+    setDisplayName("")
     setUsername("")
     setRole("user")
   }, [open])
@@ -206,6 +208,7 @@ export function CreateUserDialog() {
     mutationFn: (input: {
       email: string
       username?: string
+      displayName?: string
       role: "admin" | "user"
     }) => api.admin.createUser(input),
     onSuccess: () => {
@@ -223,9 +226,11 @@ export function CreateUserDialog() {
     const trimmedEmail = email.trim()
     if (!trimmedEmail) return
     const trimmedUsername = username.trim()
+    const trimmedDisplayName = displayName.trim()
     mutate({
       email: trimmedEmail,
       ...(trimmedUsername ? { username: trimmedUsername } : {}),
+      ...(trimmedDisplayName ? { displayName: trimmedDisplayName } : {}),
       role,
     })
   }
@@ -261,6 +266,18 @@ export function CreateUserDialog() {
                 value={email}
                 disabled={isPending}
                 onChange={(event) => setEmail(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="create-user-display-name">
+                {t("Display name")}
+              </FieldLabel>
+              <Input
+                id="create-user-display-name"
+                value={displayName}
+                placeholder={t("Optional")}
+                disabled={isPending}
+                onChange={(event) => setDisplayName(event.target.value)}
               />
             </Field>
             <Field>

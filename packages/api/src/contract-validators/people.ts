@@ -19,7 +19,7 @@ export function validateUserSummary(
   label = "user",
 ): UserSummary {
   const row = objectRecord(value, label)
-  for (const key of ["id", "username"] as const) {
+  for (const key of ["id", "username", "displayName"] as const) {
     validateRequiredString(
       row[key],
       `Invalid ${label} response: ${key} is required`,

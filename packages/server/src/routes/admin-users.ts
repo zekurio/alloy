@@ -1,4 +1,4 @@
-import { USER_STATUSES } from "@alloy/contracts"
+import { DISPLAY_NAME_MAX_LENGTH, USER_STATUSES } from "@alloy/contracts"
 import { user, USER_ROLES } from "@alloy/db/auth-schema"
 import {
   assertCanRemoveAdmin,
@@ -47,6 +47,7 @@ const StorageQuotaValue = z
 const CreateUserBody = z.object({
   email: z.string().trim().email(),
   username: optionalTrimmedString(),
+  displayName: optionalTrimmedString(DISPLAY_NAME_MAX_LENGTH),
   role: z.enum(USER_ROLES).default("user"),
 })
 
@@ -131,6 +132,7 @@ export const adminUsersRoute = new Hono()
       const created = await createUserIdentity({
         email: body.email,
         username: body.username,
+        displayName: body.displayName,
         role: body.role,
       })
       const [row] = await selectAdminUserStorageRows([created.id])
