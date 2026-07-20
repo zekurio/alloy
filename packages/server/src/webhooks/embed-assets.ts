@@ -4,8 +4,8 @@
  * Discord fetching any URL — including from loopback/non-public instances.
  *
  * - logo: public/logo.png scaled to 96px via `ffmpeg -i public/logo.png -vf scale=96:96`
- * - test thumbnail: a public clip thumbnail, blurred beyond recognition via
- *   `ffmpeg -i thumb.jpg -vf "scale=960:-2,gblur=sigma=14" -q:v 6`
+ * - test thumbnail: synthetic accent-gradient placeholder with the logo
+ *   watermark via `ffmpeg -f lavfi -i gradients=... -i logo.png -filter_complex overlay`
  * - test avatar: accent-colored placeholder via
  *   `ffmpeg -f lavfi -i "color=c=0x5d4f96:s=64x64" -frames:v 1 avatar.png`
  */
