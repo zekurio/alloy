@@ -8,11 +8,14 @@ import {
 
 const CLIP_ID = "7311ad7b-072b-4004-aacb-498de53b722b"
 const SNOWCODE =
+  "660866676659555353000359017052595401705652525670000002017056616003045755015954540166686621666754"
+const LEGACY_SNOWCODE =
   "660866676659555353000359017052595401705652525670000002017056616003045755015954540166"
 
 test("Discord activity IDs use FxEmbed's numeric snowcode format", () => {
   assert.equal(encodeDiscordActivityId(CLIP_ID), SNOWCODE)
   assert.equal(decodeDiscordActivityId(SNOWCODE), CLIP_ID)
+  assert.equal(decodeDiscordActivityId(LEGACY_SNOWCODE), CLIP_ID)
 })
 
 test("Discord activity IDs reject malformed and non-clip payloads", () => {

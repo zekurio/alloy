@@ -5,11 +5,12 @@ const UUID_RE =
 
 /**
  * Encodes a clip UUID as the numeric Mastodon-style status ID Discord expects.
- * This is FxEmbed's snowcode format, narrowed to Alloy's single `{ i: id }`
+ * This is FxEmbed's snowcode format, narrowed to Alloy's `{ i: id, v: 2 }`
  * payload so decoding untrusted route parameters does not require JSON.parse.
+ * The layout version gives each Discord status response a fresh cache key.
  */
 export function encodeDiscordActivityId(clipId: string): string {
-  return `"i":"${clipId}"`
+  return `"i":"${clipId}","v":2`
     .split("")
     .map((character) => {
       const index = SNOWCODE_CHARACTERS.indexOf(character)
@@ -30,7 +31,9 @@ export function decodeDiscordActivityId(snowcode: string): string | null {
   const decoded = pairs
     .map((pair) => SNOWCODE_CHARACTERS[Number(pair)] ?? "")
     .join("")
-  const match = /^"i":"([^"]+)"$/.exec(decoded)
+  // Keep decoding the original unversioned IDs so already-shared links remain
+  // resolvable after the cache-busting layout change.
+  const match = /^"i":"([^"]+)"(?:,"v":2)?$/.exec(decoded)
   if (!match?.[1] || !UUID_RE.test(match[1])) return null
   return match[1].toLowerCase()
 }

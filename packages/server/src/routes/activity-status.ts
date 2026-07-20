@@ -2,7 +2,6 @@ import { decodeDiscordActivityId } from "@alloy/server/discord-activity-id"
 import { env } from "@alloy/server/env"
 import { notFound } from "@alloy/server/runtime/http-response"
 import {
-  clipDetailLine,
   clipSocialPoster,
   clipSocialVideo,
   visiblePublicClip,
@@ -40,7 +39,7 @@ export const activityStatusRoute = new Hono().get("/:id", async (c) => {
     in_reply_to_id: null,
     in_reply_to_account_id: null,
     language: null,
-    content: activityContent(row),
+    content: activityContent(row, clipUrl),
     spoiler_text: "",
     visibility: "public",
     application: {
@@ -51,10 +50,11 @@ export const activityStatusRoute = new Hono().get("/:id", async (c) => {
     account: {
       id: row.authorId,
       display_name: row.authorUsername,
-      // Discord normally renders Mastodon accounts as "name (@acct)". Alloy
-      // has one username, so empty account handles leave one author name only.
-      username: "",
-      acct: "",
+      // Keeping all three identity fields equal lets Discord collapse the
+      // Mastodon identity to one Alloy username instead of appending a remote
+      // "(@username@host)" handle.
+      username: row.authorUsername,
+      acct: row.authorUsername,
       url: profileUrl,
       uri: profileUrl,
       created_at: row.createdAt.toISOString(),
@@ -84,12 +84,10 @@ export const activityStatusRoute = new Hono().get("/:id", async (c) => {
   })
 })
 
-function activityContent(row: MetadataClip): string {
-  const detailLine = clipDetailLine(row)
+function activityContent(row: MetadataClip, clipUrl: string): string {
   return [
-    activityText(row.title),
+    `<b><a href="${htmlEscape(clipUrl)}">${activityText(row.title)}</a></b>`,
     row.description?.trim() ? activityText(row.description.trim()) : null,
-    detailLine ? `<b>${htmlEscape(detailLine)}</b>` : null,
   ]
     .filter((part): part is string => part !== null)
     .join("<br><br>")
