@@ -63,8 +63,6 @@ export interface ClipAnnouncement {
   game: string | null
   /** Game page URL; null renders the game name as plain text. */
   gameUrl: string | null
-  /** Game artwork (server-relative or absolute) for the embed thumbnail. */
-  gameImageUrl: string | null
   durationMs: number | null
   /** Absolute URL of the embed image; null = no thumbnail. */
   thumbnailUrl: string | null
@@ -122,7 +120,6 @@ export function discordTestPayload(): DiscordMessagePayload {
     authorDiscordId: null,
     game: "Terraria",
     gameUrl: `${serverOrigin()}/games`,
-    gameImageUrl: `attachment://${LOGO_ATTACHMENT_NAME}`,
     durationMs: 27_000,
     thumbnailUrl: `attachment://${TEST_THUMBNAIL_ATTACHMENT_NAME}`,
     createdAt: new Date(),
@@ -176,11 +173,6 @@ export function discordAnnouncePayload(
         url: announcement.clipUrl,
         ...(details.length > 0 ? { description: details.join(" · ") } : {}),
         color: EMBED_COLOR,
-        // Game artwork sits in the small top-right thumbnail slot; the clip
-        // poster stays the full-width image below.
-        ...(announcement.gameImageUrl
-          ? { thumbnail: { url: absoluteUrl(announcement.gameImageUrl) } }
-          : {}),
         ...(announcement.thumbnailUrl
           ? { image: { url: announcement.thumbnailUrl } }
           : {}),

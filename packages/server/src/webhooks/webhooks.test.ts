@@ -33,7 +33,6 @@ const BASE_ANNOUNCEMENT: ClipAnnouncement = {
   authorDiscordId: null,
   game: null,
   gameUrl: null,
-  gameImageUrl: null,
   durationMs: 30_000,
   thumbnailUrl: null,
   createdAt: new Date("2025-01-01T00:00:00Z"),
