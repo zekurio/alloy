@@ -1269,9 +1269,13 @@ export const DE_MESSAGES: Record<string, string> = {
   "Publish webhooks": "Webhooks veröffentlichen",
   "Retract webhook announce": "Webhook-Ankündigung zurückziehen",
   "Send test": "Test senden",
+  "Send a sample announcement to the saved endpoint.":
+    "Sende eine Beispiel-Ankündigung an den gespeicherten Endpunkt.",
+  "Test webhook": "Webhook testen",
+  "Save your changes to send a test message":
+    "Speichere deine Änderungen, um eine Testnachricht zu senden",
   "Send the JSON template below for every clip that becomes public.":
     "Sende die JSON-Vorlage unten für jeden Clip, der öffentlich wird.",
-  "Sending...": "Wird gesendet...",
   "Test message sent": "Testnachricht gesendet",
   "The template must be valid JSON.": "Die Vorlage muss gültiges JSON sein.",
   "This doesn't look like a Discord webhook URL (https://discord.com/api/webhooks/...).":

@@ -15,17 +15,35 @@ export class DiscordWebhookError extends Error {
 const ExecuteResponseSchema = z.object({ id: z.string() })
 
 /**
+ * File uploaded alongside a webhook execute. Embeds reference it via
+ * `attachment://{name}`, so images render without Discord ever fetching a
+ * URL — works from loopback and non-public instances alike.
+ */
+export interface DiscordWebhookFile {
+  name: string
+  data: Uint8Array
+  contentType: string
+}
+
+/**
  * Execute a Discord webhook with `?wait=true` so Discord returns the created
- * message; the message id is what later retraction deletes.
+ * message; the message id is what later retraction deletes. Files are sent
+ * as multipart form data with the payload in `payload_json`.
  */
 export async function executeDiscordWebhook(
   webhookUrl: string,
   payload: unknown,
+  files: DiscordWebhookFile[] = [],
 ): Promise<{ messageId: string }> {
   const res = await discordFetch(`${webhookUrl}?wait=true`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
+    // fetch derives the correct content-type (JSON vs multipart boundary).
+    ...(files.length > 0
+      ? { body: multipartBody(payload, files) }
+      : {
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
   })
   if (!res.ok) throw await responseError(res, "Discord webhook execute failed")
   const parsed = ExecuteResponseSchema.safeParse(await res.json())
@@ -51,6 +69,22 @@ export async function deleteDiscordWebhookMessage(
   })
   if (res.ok || res.status === 404) return
   throw await responseError(res, "Discord webhook message delete failed")
+}
+
+function multipartBody(
+  payload: unknown,
+  files: DiscordWebhookFile[],
+): FormData {
+  const form = new FormData()
+  form.append("payload_json", JSON.stringify(payload))
+  for (const [index, file] of files.entries()) {
+    form.append(
+      `files[${index}]`,
+      new Blob([new Uint8Array(file.data)], { type: file.contentType }),
+      file.name,
+    )
+  }
+  return form
 }
 
 function discordFetch(url: string, init: RequestInit): Promise<Response> {

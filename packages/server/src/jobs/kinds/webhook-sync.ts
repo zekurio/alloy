@@ -1,12 +1,16 @@
-import { DISCORD_PROVIDER_ID, type WebhooksConfig } from "@alloy/contracts"
-import { authAccount, user } from "@alloy/db/auth-schema"
-import { clip } from "@alloy/db/schema"
+import type { WebhooksConfig } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import {
   announceTemplateValues,
+  clipPublicUrl,
+  clipThumbnailUrl,
+  discordAnnounceFiles,
   discordAnnouncePayload,
+  gamePublicUrl,
   postGenericWebhook,
   type ClipAnnouncement,
 } from "@alloy/server/webhooks/deliver"
@@ -118,7 +122,6 @@ type ClipAnnounceState = ClipAnnouncement & {
   privacy: typeof clip.$inferSelect.privacy
   announcedAt: Date | null
   announceMessageId: string | null
-  authorId: string
 }
 
 async function selectClipAnnounceState(
@@ -130,9 +133,9 @@ async function selectClipAnnounceState(
       privacy: clip.privacy,
       announcedAt: clip.announced_at,
       announceMessageId: clip.announce_message_id,
-      authorId: clip.author_id,
       title: clip.title,
       game: clip.game,
+      gameSlug: game.slug,
       durationMs: clip.duration_ms,
       thumbKey: clip.thumb_key,
       createdAt: clip.created_at,
@@ -141,21 +144,21 @@ async function selectClipAnnounceState(
     })
     .from(clip)
     .innerJoin(user, eq(user.id, clip.author_id))
+    .leftJoin(game, eq(game.id, clip.game_id))
     .where(eq(clip.id, clipId))
     .limit(1)
   if (!row) return null
   return {
-    clipId,
+    clipUrl: clipPublicUrl(clipId),
     status: row.status,
     privacy: row.privacy,
     announcedAt: row.announcedAt,
     announceMessageId: row.announceMessageId,
-    authorId: row.authorId,
-    authorDiscordId: null,
     title: row.title,
     game: row.game,
+    gameUrl: row.gameSlug !== null ? gamePublicUrl(row.gameSlug) : null,
     durationMs: row.durationMs,
-    hasThumbnail: row.thumbKey !== null,
+    thumbnailUrl: row.thumbKey !== null ? clipThumbnailUrl(clipId) : null,
     createdAt: row.createdAt,
     authorUsername: row.authorUsername ?? "unknown",
     authorImage: row.authorImage,
@@ -178,12 +181,8 @@ async function announce(
     ? (
         await executeDiscordWebhook(
           config.discord.webhookUrl,
-          discordAnnouncePayload({
-            ...announcement,
-            authorDiscordId: await linkedDiscordAccountId(
-              announcement.authorId,
-            ),
-          }),
+          discordAnnouncePayload(announcement),
+          discordAnnounceFiles(),
         )
       ).messageId
     : null
@@ -217,21 +216,6 @@ async function announce(
       logger.error(`generic webhook announce failed for clip ${clipId}`, err),
     )
   }
-}
-
-/** Snowflake of the author's linked Discord account, if any. */
-async function linkedDiscordAccountId(userId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ providerAccountId: authAccount.provider_account_id })
-    .from(authAccount)
-    .where(
-      and(
-        eq(authAccount.user_id, userId),
-        eq(authAccount.provider_id, DISCORD_PROVIDER_ID),
-      ),
-    )
-    .limit(1)
-  return row?.providerAccountId ?? null
 }
 
 async function retract(

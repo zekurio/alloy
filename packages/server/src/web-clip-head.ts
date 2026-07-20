@@ -49,9 +49,12 @@ async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
 
 function buildClipHead(row: MetadataClip): string {
   const origin = env.PUBLIC_SERVER_URL
-  const description =
+  const baseDescription =
     row.description?.trim() ||
     `${row.authorUsername} shared a ${clipGameName(row)} clip on alloy.`
+  // FxTwitter-style engagement line; per-count so zeroes stay out of the way.
+  const stats = statsLine(row)
+  const description = stats ? `${baseDescription}\n\n${stats}` : baseDescription
   const poster = row.thumbKey
     ? new URL(
         `/api/clips/${row.id}/thumbnail?v=${clipAssetVersion(row.thumbKey)}`,
@@ -74,6 +77,25 @@ function buildClipHead(row: MetadataClip): string {
     metaName("twitter:description", description),
     ...(poster ? [metaName("twitter:image", poster)] : []),
   ].join("\n    ")
+}
+
+function statsLine(row: MetadataClip): string {
+  return [
+    row.likeCount > 0 ? `❤️ ${compactCount(row.likeCount)}` : null,
+    row.viewCount > 0 ? `👁 ${compactCount(row.viewCount)}` : null,
+    row.commentCount > 0 ? `💬 ${compactCount(row.commentCount)}` : null,
+  ]
+    .filter((part) => part !== null)
+    .join("   ")
+}
+
+const COMPACT_COUNT_FORMAT = new Intl.NumberFormat("en", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+})
+
+function compactCount(value: number): string {
+  return COMPACT_COUNT_FORMAT.format(value)
 }
 
 function clipGameName(row: MetadataClip): string {
