@@ -16,6 +16,8 @@ export interface ClipAnnouncement {
   authorUsername: string
   /** Server-relative path or absolute URL; null = no avatar. */
   authorImage: string | null
+  /** Linked Discord account snowflake; null = author has no linked Discord. */
+  authorDiscordId: string | null
   game: string | null
   durationMs: number | null
   hasThumbnail: boolean
@@ -63,6 +65,14 @@ export function discordAnnouncePayload(
     })
   }
   return {
+    // Credit the author's linked Discord account: the mention renders their
+    // live Discord name, while allowed_mentions keeps it from pinging them.
+    ...(announcement.authorDiscordId
+      ? {
+          content: `<@${announcement.authorDiscordId}>`,
+          allowed_mentions: { parse: [] },
+        }
+      : {}),
     embeds: [
       {
         title: announcement.title,

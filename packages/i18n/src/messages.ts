@@ -1239,6 +1239,9 @@ export const DE_MESSAGES: Record<string, string> = {
   "Users may lose this sign-in method immediately.":
     "Nutzer könnten diese Anmeldemethode sofort verlieren.",
   "(unchanged)": "(unverändert)",
+  "Add {displayName}": "{displayName} hinzufügen",
+  "Create an application in the {displayName} developer portal, register the callback URL below, and paste its client credentials.":
+    "Erstelle eine Anwendung im {displayName}-Entwicklerportal, registriere die untenstehende Callback-URL und füge die Client-Zugangsdaten ein.",
   "A webhook URL is required to announce clips.":
     "Zum Ankündigen von Clips wird eine Webhook-URL benötigt.",
   "Announce clips in a Discord channel when they become public. The message is removed again when a clip stops being public.":

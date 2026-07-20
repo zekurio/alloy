@@ -7,6 +7,38 @@ import {
   renderWebhookTemplate,
 } from "@alloy/contracts"
 
+import { discordAnnouncePayload, type ClipAnnouncement } from "./deliver"
+
+const BASE_ANNOUNCEMENT: ClipAnnouncement = {
+  clipId: "6f1c2b1e-0000-4000-8000-000000000000",
+  title: "Ace clutch",
+  authorUsername: "zekurio",
+  authorImage: null,
+  authorDiscordId: null,
+  game: null,
+  durationMs: 30_000,
+  hasThumbnail: false,
+  createdAt: new Date("2025-01-01T00:00:00Z"),
+}
+
+test("discordAnnouncePayload mentions a linked Discord account without pinging", () => {
+  const payload = discordAnnouncePayload({
+    ...BASE_ANNOUNCEMENT,
+    authorDiscordId: "80351110224678912",
+  }) as { content?: string; allowed_mentions?: unknown }
+  assert.equal(payload.content, "<@80351110224678912>")
+  assert.deepEqual(payload.allowed_mentions, { parse: [] })
+})
+
+test("discordAnnouncePayload omits the mention when no account is linked", () => {
+  const payload = discordAnnouncePayload(BASE_ANNOUNCEMENT) as {
+    content?: string
+    allowed_mentions?: unknown
+  }
+  assert.equal(payload.content, undefined)
+  assert.equal(payload.allowed_mentions, undefined)
+})
+
 test("isDiscordWebhookUrl accepts canonical webhook URLs", () => {
   assert.equal(
     isDiscordWebhookUrl("https://discord.com/api/webhooks/123456/abc-DEF_ghi"),
