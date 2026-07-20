@@ -50,11 +50,9 @@ export const activityStatusRoute = new Hono().get("/:id", async (c) => {
     account: {
       id: row.authorId,
       display_name: row.authorUsername,
-      // Keeping all three identity fields equal lets Discord collapse the
-      // Mastodon identity to one Alloy username instead of appending a remote
-      // "(@username@host)" handle.
-      username: row.authorUsername,
-      acct: row.authorUsername,
+      // Discord qualifies any present Mastodon username as @user@host. Alloy
+      // has no separate federated handle, so omit those compatibility fields
+      // and let display_name be the complete author identity.
       url: profileUrl,
       uri: profileUrl,
       created_at: row.createdAt.toISOString(),
