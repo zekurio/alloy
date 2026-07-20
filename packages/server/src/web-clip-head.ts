@@ -49,12 +49,16 @@ async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
 
 function buildClipHead(row: MetadataClip): string {
   const origin = env.PUBLIC_SERVER_URL
-  const baseDescription =
+  // FxTwitter-style social card: the author is the bold top line (og:title),
+  // and the body carries the clip title plus the author's own description.
+  // No engagement counts — unfurlers snapshot tags at post time, so counts
+  // would be permanently frozen (and near-zero for publish announcements).
+  const socialDescription = [row.title, row.description?.trim() || null]
+    .filter((part): part is string => part !== null)
+    .join("\n\n")
+  const seoDescription =
     row.description?.trim() ||
     `${row.authorUsername} shared a ${clipGameName(row)} clip on alloy.`
-  // FxTwitter-style engagement line; per-count so zeroes stay out of the way.
-  const stats = statsLine(row)
-  const description = stats ? `${baseDescription}\n\n${stats}` : baseDescription
   const poster = row.thumbKey
     ? new URL(
         `/api/clips/${row.id}/thumbnail?v=${clipAssetVersion(row.thumbKey)}`,
@@ -65,37 +69,18 @@ function buildClipHead(row: MetadataClip): string {
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
-    metaName("description", description),
+    metaName("description", seoDescription),
     metaProperty("og:site_name", "alloy"),
     metaProperty("og:type", "video.other"),
-    metaProperty("og:title", row.title),
-    metaProperty("og:description", description),
+    metaProperty("og:title", row.authorUsername),
+    metaProperty("og:description", socialDescription),
     ...(poster ? [metaProperty("og:image", poster)] : []),
     ...socialVideoTags(video),
     metaName("twitter:card", "summary_large_image"),
-    metaName("twitter:title", row.title),
-    metaName("twitter:description", description),
+    metaName("twitter:title", row.authorUsername),
+    metaName("twitter:description", socialDescription),
     ...(poster ? [metaName("twitter:image", poster)] : []),
   ].join("\n    ")
-}
-
-function statsLine(row: MetadataClip): string {
-  return [
-    row.likeCount > 0 ? `❤️ ${compactCount(row.likeCount)}` : null,
-    row.viewCount > 0 ? `👁 ${compactCount(row.viewCount)}` : null,
-    row.commentCount > 0 ? `💬 ${compactCount(row.commentCount)}` : null,
-  ]
-    .filter((part) => part !== null)
-    .join("   ")
-}
-
-const COMPACT_COUNT_FORMAT = new Intl.NumberFormat("en", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-})
-
-function compactCount(value: number): string {
-  return COMPACT_COUNT_FORMAT.format(value)
 }
 
 function clipGameName(row: MetadataClip): string {
