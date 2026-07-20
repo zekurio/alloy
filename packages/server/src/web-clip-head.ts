@@ -66,9 +66,19 @@ function buildClipHead(row: MetadataClip): string {
       ).toString()
     : null
   const video = socialVideo(row, origin)
+  // FxTwitter-style author avatar: link unfurlers (Discord) render the page's
+  // apple-touch-icon as the round icon next to the embed title, so point it
+  // at the author's avatar per clip page. This link is injected before the
+  // static /logo.png one in index.html, so crawlers pick it first.
+  const authorAvatar = row.authorImage
+    ? new URL(row.authorImage, origin).toString()
+    : null
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
+    ...(authorAvatar
+      ? [`<link rel="apple-touch-icon" href="${htmlEscape(authorAvatar)}" />`]
+      : []),
     metaName("description", seoDescription),
     metaProperty("og:site_name", "alloy"),
     metaProperty("og:type", "video.other"),
