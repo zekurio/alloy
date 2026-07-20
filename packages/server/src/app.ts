@@ -39,8 +39,12 @@ const BROWSE_API_PREFIXES = [
 
 const BROWSE_API_PATTERNS = [/^\/api\/users\/(?!me(?:\/|$))[^/]+(?:\/.*)?$/]
 
+// Includes the playback files referenced by clip OpenGraph tags
+// (source/file, rendition mp4s): link unfurlers like Discord must be able
+// to fetch og:video anonymously for shared public clips. Clip-level privacy
+// still applies — these routes resolve access per clip.
 const SHAREABLE_CLIP_ASSET_RE =
-  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:stream|thumbnail)$/i
+  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:stream|thumbnail|source\/file|rendition\/[A-Za-z0-9-]+\/file\.mp4)$/i
 const SHAREABLE_CLIP_DETAIL_RE =
   /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SHAREABLE_CLIP_COMMENTS_RE =
