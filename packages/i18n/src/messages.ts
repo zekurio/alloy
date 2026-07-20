@@ -1269,6 +1269,9 @@ export const DE_MESSAGES: Record<string, string> = {
   "Publish webhooks": "Webhooks veröffentlichen",
   "Retract webhook announce": "Webhook-Ankündigung zurückziehen",
   "Send test": "Test senden",
+  "Send a sample announcement to the saved endpoint.":
+    "Sende eine Beispiel-Ankündigung an den gespeicherten Endpunkt.",
+  "Test webhook": "Webhook testen",
   "Save your changes to send a test message":
     "Speichere deine Änderungen, um eine Testnachricht zu senden",
   "Send the JSON template below for every clip that becomes public.":

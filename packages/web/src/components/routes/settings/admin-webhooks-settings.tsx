@@ -107,12 +107,6 @@ export function WebhooksSettingsContent({
       : null
   const valid = !discordUrlMessage && !templateMessage && !genericUrlMessage
 
-  // The test uses the *stored* config, so it stays disabled while the draft
-  // has unsaved changes or the active target has no saved endpoint yet.
-  const testConfigured =
-    tab === "discord" ? saved.discord.webhookUrlSet : saved.generic.url !== ""
-  const testDisabled = testing || dirty || !testConfigured
-
   async function save() {
     if (saving || !dirty) return
     if (!valid) {
@@ -170,28 +164,10 @@ export function WebhooksSettingsContent({
             setTab(value === "generic" ? "generic" : "discord")
           }
         >
-          <div className="flex items-center justify-between gap-3">
-            <TabsList className="min-w-0 flex-1">
-              <TabsTrigger value="discord">{t("Discord")}</TabsTrigger>
-              <TabsTrigger value="generic">{t("Custom webhook")}</TabsTrigger>
-            </TabsList>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => sendTest(tab)}
-              disabled={testDisabled}
-              title={
-                dirty
-                  ? t("Save your changes to send a test message")
-                  : undefined
-              }
-              className="shrink-0"
-            >
-              {testing ? <Spinner className="size-3.5" /> : <SendIcon />}
-              {t("Send test")}
-            </Button>
-          </div>
+          <TabsList>
+            <TabsTrigger value="discord">{t("Discord")}</TabsTrigger>
+            <TabsTrigger value="generic">{t("Custom webhook")}</TabsTrigger>
+          </TabsList>
 
           <TabsContent value="discord" className="flex flex-col">
             <p className="text-foreground-dim py-3 text-xs">
@@ -247,6 +223,13 @@ export function WebhooksSettingsContent({
                 ) : null}
               </div>
             </SettingRow>
+            <TestWebhookRow
+              target="discord"
+              configured={saved.discord.webhookUrlSet}
+              dirty={dirty}
+              testing={testing}
+              onSendTest={sendTest}
+            />
           </TabsContent>
 
           <TabsContent value="generic" className="flex flex-col">
@@ -322,6 +305,13 @@ export function WebhooksSettingsContent({
                 ) : null}
               </div>
             </SettingRow>
+            <TestWebhookRow
+              target="generic"
+              configured={saved.generic.url !== ""}
+              dirty={dirty}
+              testing={testing}
+              onSendTest={sendTest}
+            />
           </TabsContent>
         </Tabs>
       </SectionContent>
@@ -353,5 +343,43 @@ export function WebhooksSettingsContent({
         </SectionFooter>
       )}
     </Section>
+  )
+}
+
+// The test always runs against the *stored* config, so it stays disabled
+// while the draft has unsaved changes or no endpoint has been saved yet.
+function TestWebhookRow({
+  target,
+  configured,
+  dirty,
+  testing,
+  onSendTest,
+}: {
+  target: WebhookTestTarget
+  configured: boolean
+  dirty: boolean
+  testing: boolean
+  onSendTest: (target: WebhookTestTarget) => Promise<void>
+}) {
+  return (
+    <SettingRow
+      title={t("Test webhook")}
+      description={
+        dirty
+          ? t("Save your changes to send a test message")
+          : t("Send a sample announcement to the saved endpoint.")
+      }
+    >
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => void onSendTest(target)}
+        disabled={testing || dirty || !configured}
+      >
+        {testing ? <Spinner className="size-3.5" /> : <SendIcon />}
+        {t("Send test")}
+      </Button>
+    </SettingRow>
   )
 }
