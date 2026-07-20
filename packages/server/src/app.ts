@@ -25,7 +25,6 @@ import { userAssetsRoute, usersUploadRoute } from "./routes/users-upload"
 import { internalServerError, unauthorized } from "./runtime/http-response"
 import { storageRoute } from "./storage/fs-upload-route"
 import { mountWeb } from "./web"
-import { webhookEmbedAssetsRoute } from "./webhooks/embed-assets-route"
 
 const requestLogger = createLogger("http")
 const logger = createLogger("api")
@@ -189,7 +188,6 @@ const apiApp = new Hono()
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)
   .route("/api/assets/games", gameAssetsRoute)
-  .route("/api/assets/webhook", webhookEmbedAssetsRoute)
   .onError((err, c) => {
     const requestId =
       getLogContext().req ?? c.res.headers.get("X-Request-Id") ?? undefined

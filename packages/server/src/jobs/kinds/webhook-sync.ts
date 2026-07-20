@@ -8,6 +8,7 @@ import {
   announceTemplateValues,
   clipPublicUrl,
   clipThumbnailUrl,
+  discordAnnounceFiles,
   discordAnnouncePayload,
   postGenericWebhook,
   type ClipAnnouncement,
@@ -186,6 +187,7 @@ async function announce(
               announcement.authorId,
             ),
           }),
+          discordAnnounceFiles(),
         )
       ).messageId
     : null

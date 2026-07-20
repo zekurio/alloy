@@ -3,35 +3,43 @@ import {
   type GenericWebhookConfig,
   type WebhookTemplateValues,
 } from "@alloy/contracts"
-import { isLoopbackHostname } from "@alloy/env"
 import { env } from "@alloy/server/env"
+
+import type { DiscordWebhookFile } from "./discord"
+import { WEBHOOK_LOGO_PNG, WEBHOOK_TEST_THUMBNAIL_JPEG } from "./embed-assets"
 
 const REQUEST_TIMEOUT_MS = 10_000
 
 // Alloy accent (dark theme) as a Discord embed color integer.
 const EMBED_COLOR = 0x5d4f96
 
-// Discord's media proxy cannot fetch loopback origins, so local-dev embeds
-// fall back to repo-hosted copies of the brand/test assets. Pinned to the
-// commit that added them: valid immediately and immutable after merge.
-const REPO_ASSET_FALLBACK_BASE =
-  "https://raw.githubusercontent.com/zekurio/alloy/a6cb7e91d3747fb7f9e998bef3f2c40e42e3828c/public"
+// The brand/test images are uploaded with the webhook execute and referenced
+// via attachment:// — Discord never fetches a URL for them, so they render
+// from loopback and non-public instances exactly like from production.
+const LOGO_ATTACHMENT_NAME = "alloy-logo.png"
+const TEST_THUMBNAIL_ATTACHMENT_NAME = "test-thumbnail.jpg"
 
-function originIsLoopback(): boolean {
-  const url = URL.parse(serverOrigin())
-  return url !== null && isLoopbackHostname(url.hostname)
+const LOGO_FILE: DiscordWebhookFile = {
+  name: LOGO_ATTACHMENT_NAME,
+  data: WEBHOOK_LOGO_PNG,
+  contentType: "image/png",
 }
 
-function embedLogoUrl(): string {
-  if (originIsLoopback()) return `${REPO_ASSET_FALLBACK_BASE}/logo.png`
-  return `${serverOrigin()}/api/assets/webhook/logo.png`
+/** Files to upload alongside a real clip announcement (footer logo). */
+export function discordAnnounceFiles(): DiscordWebhookFile[] {
+  return [LOGO_FILE]
 }
 
-function embedTestThumbnailUrl(): string {
-  if (originIsLoopback()) {
-    return `${REPO_ASSET_FALLBACK_BASE}/webhook-test-thumbnail.jpg`
-  }
-  return `${serverOrigin()}/api/assets/webhook/test-thumbnail.jpg`
+/** Files to upload alongside the admin test message (logo + sample thumbnail). */
+export function discordTestFiles(): DiscordWebhookFile[] {
+  return [
+    LOGO_FILE,
+    {
+      name: TEST_THUMBNAIL_ATTACHMENT_NAME,
+      data: WEBHOOK_TEST_THUMBNAIL_JPEG,
+      contentType: "image/jpeg",
+    },
+  ]
 }
 
 export interface ClipAnnouncement {
@@ -81,19 +89,19 @@ export function testTemplateValues(): WebhookTemplateValues {
 /**
  * Fully-populated sample announcement for the admin "send test" flow: the
  * test message is exactly the announcement embed, with every data point
- * (author, game, duration, thumbnail) filled from server-embedded assets so
- * it renders regardless of web-build deploy state.
+ * (author, game, duration, thumbnail) filled. Images come from the uploaded
+ * attachments in {@link discordTestFiles}, never from URLs.
  */
 export function discordTestPayload(): DiscordMessagePayload {
   return discordAnnouncePayload({
     clipUrl: serverOrigin(),
     title: "Insane ace clutch — webhook test",
     authorUsername: "alloy",
-    authorImage: embedLogoUrl(),
+    authorImage: `attachment://${LOGO_ATTACHMENT_NAME}`,
     authorDiscordId: null,
     game: "Counter-Strike 2",
     durationMs: 27_000,
-    thumbnailUrl: embedTestThumbnailUrl(),
+    thumbnailUrl: `attachment://${TEST_THUMBNAIL_ATTACHMENT_NAME}`,
     createdAt: new Date(),
   })
 }
@@ -146,7 +154,7 @@ export function discordAnnouncePayload(
           : {}),
         footer: {
           text: "alloy",
-          icon_url: embedLogoUrl(),
+          icon_url: `attachment://${LOGO_ATTACHMENT_NAME}`,
         },
         timestamp: announcement.createdAt.toISOString(),
       },
@@ -199,6 +207,7 @@ function serverOrigin(): string {
 
 function absoluteUrl(pathOrUrl: string): string {
   if (pathOrUrl.startsWith("/")) return `${serverOrigin()}${pathOrUrl}`
+  // attachment:// references and already-absolute URLs pass through.
   return pathOrUrl
 }
 

@@ -1,6 +1,7 @@
 /**
- * Small binary assets embedded in the server so webhook embeds never depend
- * on the web build being deployed (or on deploy ordering).
+ * Small binary assets uploaded as attachments with Discord webhook executes
+ * (referenced via attachment:// in the embed), so images render without
+ * Discord fetching any URL — including from loopback/non-public instances.
  *
  * - logo: public/logo.png scaled to 96px via `ffmpeg -i public/logo.png -vf scale=96:96`
  * - test thumbnail: a public clip thumbnail, blurred beyond recognition via
