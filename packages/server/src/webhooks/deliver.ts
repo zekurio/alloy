@@ -113,13 +113,14 @@ export function testTemplateValues(): WebhookTemplateValues {
 export function discordTestPayload(): DiscordMessagePayload {
   return discordAnnouncePayload({
     clipUrl: serverOrigin(),
-    title: "Insane ace clutch — webhook test",
+    // Sample data matches the bundled thumbnail (a blurred Terraria scene).
+    title: "Moon Lord down — webhook test",
     // A clearly user-shaped sample author, so the embed's author line is not
     // mistaken for instance branding (that lives in the footer).
     authorUsername: "clip-author",
     authorImage: `attachment://${TEST_AVATAR_ATTACHMENT_NAME}`,
     authorDiscordId: null,
-    game: "Counter-Strike 2",
+    game: "Terraria",
     gameUrl: `${serverOrigin()}/games`,
     gameImageUrl: `attachment://${LOGO_ATTACHMENT_NAME}`,
     durationMs: 27_000,
