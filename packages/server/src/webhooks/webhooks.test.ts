@@ -7,48 +7,27 @@ import {
   renderWebhookTemplate,
 } from "@alloy/contracts"
 
-import { discordAnnouncePayload, type ClipAnnouncement } from "./deliver"
-import { WEBHOOK_LOGO_PNG, WEBHOOK_TEST_THUMBNAIL_JPEG } from "./embed-assets"
+import { announceTemplateValues, discordAnnouncePayload } from "./deliver"
 
-test("embedded webhook assets decode to valid images", () => {
-  // PNG signature
-  assert.deepEqual(
-    [...WEBHOOK_LOGO_PNG.subarray(0, 4)],
-    [0x89, 0x50, 0x4e, 0x47],
-  )
-  // JPEG SOI marker
-  assert.deepEqual(
-    [...WEBHOOK_TEST_THUMBNAIL_JPEG.subarray(0, 2)],
-    [0xff, 0xd8],
-  )
-  assert.ok(WEBHOOK_LOGO_PNG.length > 1000)
-  assert.ok(WEBHOOK_TEST_THUMBNAIL_JPEG.length > 1000)
-})
-
-const BASE_ANNOUNCEMENT: ClipAnnouncement = {
-  clipUrl: "https://alloy.example/clips/6f1c2b1e",
-  title: "Ace clutch",
-  authorUsername: "zekurio",
-  authorImage: null,
-  game: null,
-  gameUrl: null,
-  durationMs: 30_000,
-  thumbnailUrl: null,
-  createdAt: new Date("2025-01-01T00:00:00Z"),
-}
-
-test("discordAnnouncePayload links the game and escapes markdown", () => {
-  const payload = discordAnnouncePayload({
-    ...BASE_ANNOUNCEMENT,
-    game: "Game [Beta]",
-    gameUrl: "https://alloy.example/games/game-beta",
-    durationMs: 87_000,
+// The Discord announcement must stay a bare link with no embeds: providing
+// any embed suppresses Discord's unfurler, which is the only way to get a
+// playable video preview.
+test("discordAnnouncePayload is the bare clip link", () => {
+  const announcement = {
+    clipUrl: "https://alloy.example/clips/6f1c2b1e",
+    title: "Ace clutch",
+    authorUsername: "zekurio",
+    game: "CS2",
+  }
+  assert.deepEqual(discordAnnouncePayload(announcement), {
+    content: "https://alloy.example/clips/6f1c2b1e",
   })
-  const embed = payload.embeds[0] as { description?: string }
-  assert.equal(
-    embed.description,
-    "[Game \\[Beta\\]](https://alloy.example/games/game-beta) · 1:27",
-  )
+  assert.deepEqual(announceTemplateValues(announcement), {
+    clipUrl: "https://alloy.example/clips/6f1c2b1e",
+    title: "Ace clutch",
+    author: "zekurio",
+    game: "CS2",
+  })
 })
 
 test("isDiscordWebhookUrl accepts canonical webhook URLs", () => {

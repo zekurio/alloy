@@ -29,7 +29,6 @@ import {
   success,
 } from "@alloy/server/runtime/http-response"
 import {
-  discordTestFiles,
   discordTestPayload,
   postGenericWebhook,
   testTemplateValues,
@@ -307,7 +306,6 @@ export const adminRoute = new Hono()
         await executeDiscordWebhook(
           config.discord.webhookUrl,
           discordTestPayload(),
-          discordTestFiles(),
         )
       } catch (err) {
         return badRequest(c, errorMessage(err, "Discord webhook test failed"))

@@ -5,78 +5,17 @@ import {
 } from "@alloy/contracts"
 import { env } from "@alloy/server/env"
 
-import type { DiscordWebhookFile } from "./discord"
-import {
-  WEBHOOK_LOGO_PNG,
-  WEBHOOK_TEST_AVATAR_PNG,
-  WEBHOOK_TEST_THUMBNAIL_JPEG,
-} from "./embed-assets"
-
 const REQUEST_TIMEOUT_MS = 10_000
-
-// Alloy accent (dark theme) as a Discord embed color integer.
-const EMBED_COLOR = 0x5d4f96
-
-// The brand/test images are uploaded with the webhook execute and referenced
-// via attachment:// — Discord never fetches a URL for them, so they render
-// from loopback and non-public instances exactly like from production.
-const LOGO_ATTACHMENT_NAME = "alloy-logo.png"
-const TEST_THUMBNAIL_ATTACHMENT_NAME = "test-thumbnail.jpg"
-const TEST_AVATAR_ATTACHMENT_NAME = "test-avatar.png"
-
-const LOGO_FILE: DiscordWebhookFile = {
-  name: LOGO_ATTACHMENT_NAME,
-  data: WEBHOOK_LOGO_PNG,
-  contentType: "image/png",
-}
-
-/** Files to upload alongside a real clip announcement (footer logo). */
-export function discordAnnounceFiles(): DiscordWebhookFile[] {
-  return [LOGO_FILE]
-}
-
-/** Files to upload alongside the admin test message (logo, thumbnail, avatar). */
-export function discordTestFiles(): DiscordWebhookFile[] {
-  return [
-    LOGO_FILE,
-    {
-      name: TEST_THUMBNAIL_ATTACHMENT_NAME,
-      data: WEBHOOK_TEST_THUMBNAIL_JPEG,
-      contentType: "image/jpeg",
-    },
-    {
-      name: TEST_AVATAR_ATTACHMENT_NAME,
-      data: WEBHOOK_TEST_AVATAR_PNG,
-      contentType: "image/png",
-    },
-  ]
-}
 
 export interface ClipAnnouncement {
   clipUrl: string
   title: string
   authorUsername: string
-  /** Server-relative path or absolute URL; null = no avatar. */
-  authorImage: string | null
   game: string | null
-  /** Game page URL; null renders the game name as plain text. */
-  gameUrl: string | null
-  durationMs: number | null
-  /** Absolute URL of the embed image; null = no thumbnail. */
-  thumbnailUrl: string | null
-  createdAt: Date
 }
 
 export function clipPublicUrl(clipId: string): string {
   return `${serverOrigin()}/clips/${clipId}`
-}
-
-export function clipThumbnailUrl(clipId: string): string {
-  return `${serverOrigin()}/api/clips/${clipId}/thumbnail`
-}
-
-export function gamePublicUrl(slug: string): string {
-  return `${serverOrigin()}/games/${encodeURIComponent(slug)}`
 }
 
 export function announceTemplateValues(
@@ -100,76 +39,28 @@ export function testTemplateValues(): WebhookTemplateValues {
   }
 }
 
-/**
- * Fully-populated sample announcement for the admin "send test" flow: the
- * test message is exactly the announcement embed, with every data point
- * (author, game, duration, thumbnail) filled. Images come from the uploaded
- * attachments in {@link discordTestFiles}, never from URLs.
- */
-export function discordTestPayload(): DiscordMessagePayload {
-  return discordAnnouncePayload({
-    clipUrl: serverOrigin(),
-    // Sample data matches the bundled thumbnail (a blurred Terraria scene).
-    title: "Moon Lord down — webhook test",
-    // A clearly user-shaped sample author, so the embed's author line is not
-    // mistaken for instance branding (that lives in the footer).
-    authorUsername: "clip-author",
-    authorImage: `attachment://${TEST_AVATAR_ATTACHMENT_NAME}`,
-    game: "Terraria",
-    gameUrl: `${serverOrigin()}/games`,
-    durationMs: 27_000,
-    thumbnailUrl: `attachment://${TEST_THUMBNAIL_ATTACHMENT_NAME}`,
-    createdAt: new Date(),
-  })
-}
-
 export interface DiscordMessagePayload {
-  embeds: unknown[]
+  content: string
 }
 
 /**
- * Rich-embed payload for the first-party Discord announcement. Styled after
- * link-preview bots like FxTwitter: linked author line, linked title, a
- * "game · duration" detail line, the thumbnail as full-width image, and an
- * instance-branded footer with the publish timestamp.
+ * Discord announcement: the bare clip link. Custom webhook embeds cannot
+ * contain playable video (the embed `video` field is reserved for Discord's
+ * own unfurler), so the message is the URL and Discord unfurls it through
+ * the clip page's OpenGraph tags — title, author/game description with
+ * engagement stats, and an inline video player.
  */
 export function discordAnnouncePayload(
   announcement: ClipAnnouncement,
 ): DiscordMessagePayload {
-  const details = [
-    announcement.game
-      ? announcement.gameUrl
-        ? `[${escapeMarkdownLinkText(announcement.game)}](${announcement.gameUrl})`
-        : announcement.game
-      : null,
-    announcement.durationMs !== null && announcement.durationMs > 0
-      ? formatDuration(announcement.durationMs)
-      : null,
-  ].filter((part): part is string => part !== null)
+  return { content: announcement.clipUrl }
+}
+
+/** Admin "send test" message; there is no clip to link, so plain text. */
+export function discordTestPayload(): DiscordMessagePayload {
   return {
-    embeds: [
-      {
-        author: {
-          name: announcement.authorUsername,
-          url: `${serverOrigin()}/u/${encodeURIComponent(announcement.authorUsername)}`,
-          ...(announcement.authorImage
-            ? { icon_url: absoluteUrl(announcement.authorImage) }
-            : {}),
-        },
-        title: announcement.title,
-        url: announcement.clipUrl,
-        ...(details.length > 0 ? { description: details.join(" · ") } : {}),
-        color: EMBED_COLOR,
-        ...(announcement.thumbnailUrl
-          ? { image: { url: announcement.thumbnailUrl } }
-          : {}),
-        footer: {
-          text: "alloy",
-          icon_url: `attachment://${LOGO_ATTACHMENT_NAME}`,
-        },
-        timestamp: announcement.createdAt.toISOString(),
-      },
-    ],
+    content:
+      "Alloy webhook test — public clips will be posted here as links that unfurl into a playable preview.",
   }
 }
 
@@ -214,23 +105,4 @@ export async function postGenericWebhook(
 
 function serverOrigin(): string {
   return env.PUBLIC_SERVER_URL.replace(/\/+$/, "")
-}
-
-function absoluteUrl(pathOrUrl: string): string {
-  if (pathOrUrl.startsWith("/")) return `${serverOrigin()}${pathOrUrl}`
-  // attachment:// references and already-absolute URLs pass through.
-  return pathOrUrl
-}
-
-// Game names are untrusted display text inside a markdown link; escape the
-// characters that would terminate or restructure the link.
-function escapeMarkdownLinkText(text: string): string {
-  return text.replace(/[\\[\]]/g, (match) => `\\${match}`)
-}
-
-function formatDuration(durationMs: number): string {
-  const totalSeconds = Math.round(durationMs / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${String(seconds).padStart(2, "0")}`
 }

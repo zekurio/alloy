@@ -178,7 +178,7 @@ export function WebhooksSettingsContent({
             <SettingRow
               title={t("Announce public clips")}
               description={t(
-                "Post an embed for every clip that becomes public.",
+                "Post the clip link for every clip that becomes public; Discord unfurls it into a playable preview.",
               )}
             >
               <Switch
