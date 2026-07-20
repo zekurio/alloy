@@ -2,7 +2,9 @@ import type {
   AdminOAuthProvider,
   AdminOAuthProviderInput,
   AdminRuntimeConfig,
+  OAuthProviderPreset,
 } from "@alloy/api"
+import { OAUTH_PROVIDER_PRESETS } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import {
   AlertDialog,
@@ -30,18 +32,23 @@ import {
 } from "@alloy/ui/components/responsive-dialog"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
-import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
+import { PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
 import type { FormEvent } from "react"
 
+import { ProviderGlyph } from "@/components/auth/provider-glyph"
 import { ListEmpty } from "@/components/feedback/empty-state"
 import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
-import { OAuthProviderForm } from "./admin-auth-provider-form"
+import {
+  OAuthProviderForm,
+  OAuthProviderPresetForm,
+} from "./admin-auth-provider-form"
 import type { ProviderDraft } from "./admin-auth-provider-utils"
 import {
   draftToInput,
+  presetToDraft,
   providerToDraft,
   providerToInput,
 } from "./admin-auth-provider-utils"
@@ -62,14 +69,33 @@ export function OAuthProviderSettings({
       description={t("Configure external OIDC and OAuth sign-in providers.")}
       action={
         readOnly ? null : (
-          <ProviderDialog
-            providers={config.oauthProviders}
-            provider={null}
-            providerIndex={null}
-            authBaseURL={config.authBaseURL}
-            pending={pending}
-            onSave={onSave}
-          />
+          <div className="flex shrink-0 items-center gap-2">
+            {OAUTH_PROVIDER_PRESETS.filter(
+              (preset) =>
+                !config.oauthProviders.some(
+                  (provider) => provider.providerId === preset.providerId,
+                ),
+            ).map((preset) => (
+              <ProviderDialog
+                key={preset.providerId}
+                providers={config.oauthProviders}
+                provider={null}
+                providerIndex={null}
+                preset={preset}
+                authBaseURL={config.authBaseURL}
+                pending={pending}
+                onSave={onSave}
+              />
+            ))}
+            <ProviderDialog
+              providers={config.oauthProviders}
+              provider={null}
+              providerIndex={null}
+              authBaseURL={config.authBaseURL}
+              pending={pending}
+              onSave={onSave}
+            />
+          </div>
         )
       }
     >
@@ -150,15 +176,11 @@ function ProviderRow({
             color: provider.buttonTextColor,
           }}
         >
-          {provider.iconUrl ? (
-            <img
-              src={provider.iconUrl}
-              alt=""
-              className="size-4 object-contain"
-            />
-          ) : (
-            <UserKeyIcon className="size-4" />
-          )}
+          <ProviderGlyph
+            providerId={provider.providerId}
+            iconUrl={provider.iconUrl}
+            className="size-4"
+          />
         </span>
         <div className="min-w-0">
           <div className="truncate text-sm font-medium">
@@ -261,6 +283,7 @@ function ProviderDialog({
   providers,
   provider,
   providerIndex,
+  preset,
   authBaseURL,
   pending,
   onSave,
@@ -268,6 +291,7 @@ function ProviderDialog({
   providers: AdminOAuthProvider[]
   provider: AdminOAuthProvider | null
   providerIndex: number | null
+  preset?: OAuthProviderPreset
   authBaseURL: string
   pending: boolean
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
@@ -275,12 +299,12 @@ function ProviderDialog({
   const [open, setOpen] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [draft, setDraft] = useState<ProviderDraft>(() =>
-    providerToDraft(provider),
+    preset ? presetToDraft(preset) : providerToDraft(provider),
   )
   const editing = provider !== null && providerIndex !== null
 
   function resetDraft() {
-    setDraft(providerToDraft(provider))
+    setDraft(preset ? presetToDraft(preset) : providerToDraft(provider))
     setAdvancedOpen(false)
   }
 
@@ -318,6 +342,14 @@ function ProviderDialog({
             >
               <PencilIcon />
             </Button>
+          ) : preset ? (
+            <Button type="button" size="sm" variant="outline">
+              <ProviderGlyph
+                providerId={preset.providerId}
+                className="size-4"
+              />
+              {t("Add {displayName}", { displayName: preset.displayName })}
+            </Button>
           ) : (
             <Button type="button" size="sm" variant="primary">
               <PlusIcon />
@@ -329,25 +361,46 @@ function ProviderDialog({
       <ResponsiveDialogContent className="md:max-w-[760px]">
         <ResponsiveDialogHeader>
           <ResponsiveDialogTitle>
-            {editing ? t("Edit OAuth provider") : t("Add OAuth provider")}
+            {editing
+              ? t("Edit OAuth provider")
+              : preset
+                ? t("Add {displayName}", { displayName: preset.displayName })
+                : t("Add OAuth provider")}
           </ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            {t("Provider secrets are write-only and never shown after saving.")}
+            {preset && !editing
+              ? t(
+                  "Create an application in the {displayName} developer portal, register the callback URL below, and paste its client credentials.",
+                  { displayName: preset.displayName },
+                )
+              : t(
+                  "Provider secrets are write-only and never shown after saving.",
+                )}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
           <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
-            <OAuthProviderForm
-              draft={draft}
-              editingProviderId={provider?.providerId ?? null}
-              clientSecretSet={provider?.clientSecretSet ?? false}
-              authBaseURL={authBaseURL}
-              advancedOpen={advancedOpen}
-              onAdvancedOpenChange={setAdvancedOpen}
-              onChange={(next) =>
-                setDraft((current) => ({ ...current, ...next }))
-              }
-            />
+            {preset && !editing ? (
+              <OAuthProviderPresetForm
+                draft={draft}
+                authBaseURL={authBaseURL}
+                onChange={(next) =>
+                  setDraft((current) => ({ ...current, ...next }))
+                }
+              />
+            ) : (
+              <OAuthProviderForm
+                draft={draft}
+                editingProviderId={provider?.providerId ?? null}
+                clientSecretSet={provider?.clientSecretSet ?? false}
+                authBaseURL={authBaseURL}
+                advancedOpen={advancedOpen}
+                onAdvancedOpenChange={setAdvancedOpen}
+                onChange={(next) =>
+                  setDraft((current) => ({ ...current, ...next }))
+                }
+              />
+            )}
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>
             <ResponsiveDialogClose
