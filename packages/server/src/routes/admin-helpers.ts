@@ -2,9 +2,11 @@ import type {
   AdminOAuthProvider,
   AdminRuntimeConfig,
   AdminUserStorageRow,
+  AdminWebhooksConfig,
   OAuthProviderConfig,
   RuntimeConfig,
   UserStatus,
+  WebhooksConfig,
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
@@ -15,6 +17,17 @@ import { env } from "@alloy/server/env"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { selectSourceStorageUsedBytesByUserIds } from "@alloy/server/storage/quota"
 import { and, desc, eq, ilike, inArray, lt, ne, or, sql } from "drizzle-orm"
+
+// The Discord webhook URL embeds a secret token: expose only its presence.
+function toAdminWebhooksConfig(config: WebhooksConfig): AdminWebhooksConfig {
+  return {
+    discord: {
+      enabled: config.discord.enabled,
+      webhookUrlSet: config.discord.webhookUrl.length > 0,
+    },
+    generic: config.generic,
+  }
+}
 
 function toAdminOAuthProvider(
   provider: OAuthProviderConfig,
@@ -37,6 +50,7 @@ export function adminRuntimeConfigResponse(
     ...config,
     oauthProviders: config.oauthProviders.map(toAdminOAuthProvider),
     storage: config.storage,
+    webhooks: toAdminWebhooksConfig(config.webhooks),
     integrations: {
       steamgriddbApiKeySet: secretStore.get("steamgriddbApiKey").length > 0,
       steamgriddbConfigured: secretStore.get("steamgriddbApiKey").length > 0,

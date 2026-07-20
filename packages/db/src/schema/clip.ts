@@ -76,6 +76,14 @@ export const clip = pgTable(
     thumb_blur_hash: text(),
     thumb_failed_at: timestamp(),
 
+    // Publish-webhook reconciler state (webhook.sync job). announced_at set =
+    // the clip's current public run has been announced; the message id is
+    // present only when a Discord webhook message was posted (generic-only
+    // announces store just the timestamp). Cleared on retraction so a later
+    // flip back to public re-announces.
+    announced_at: timestamp(),
+    announce_message_id: text(),
+
     view_count: integer().notNull().default(0),
     like_count: integer().notNull().default(0),
     comment_count: integer().notNull().default(0),
