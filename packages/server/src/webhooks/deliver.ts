@@ -3,12 +3,36 @@ import {
   type GenericWebhookConfig,
   type WebhookTemplateValues,
 } from "@alloy/contracts"
+import { isLoopbackHostname } from "@alloy/env"
 import { env } from "@alloy/server/env"
 
 const REQUEST_TIMEOUT_MS = 10_000
 
 // Alloy accent (dark theme) as a Discord embed color integer.
 const EMBED_COLOR = 0x5d4f96
+
+// Discord's media proxy cannot fetch loopback origins, so local-dev embeds
+// fall back to repo-hosted copies of the brand/test assets. Pinned to the
+// commit that added them: valid immediately and immutable after merge.
+const REPO_ASSET_FALLBACK_BASE =
+  "https://raw.githubusercontent.com/zekurio/alloy/a6cb7e91d3747fb7f9e998bef3f2c40e42e3828c/public"
+
+function originIsLoopback(): boolean {
+  const url = URL.parse(serverOrigin())
+  return url !== null && isLoopbackHostname(url.hostname)
+}
+
+function embedLogoUrl(): string {
+  if (originIsLoopback()) return `${REPO_ASSET_FALLBACK_BASE}/logo.png`
+  return `${serverOrigin()}/api/assets/webhook/logo.png`
+}
+
+function embedTestThumbnailUrl(): string {
+  if (originIsLoopback()) {
+    return `${REPO_ASSET_FALLBACK_BASE}/webhook-test-thumbnail.jpg`
+  }
+  return `${serverOrigin()}/api/assets/webhook/test-thumbnail.jpg`
+}
 
 export interface ClipAnnouncement {
   clipUrl: string
@@ -65,11 +89,11 @@ export function discordTestPayload(): DiscordMessagePayload {
     clipUrl: serverOrigin(),
     title: "Insane ace clutch — webhook test",
     authorUsername: "alloy",
-    authorImage: "/api/assets/webhook/logo.png",
+    authorImage: embedLogoUrl(),
     authorDiscordId: null,
     game: "Counter-Strike 2",
     durationMs: 27_000,
-    thumbnailUrl: `${serverOrigin()}/api/assets/webhook/test-thumbnail.jpg`,
+    thumbnailUrl: embedTestThumbnailUrl(),
     createdAt: new Date(),
   })
 }
@@ -121,8 +145,8 @@ export function discordAnnouncePayload(
           ? { image: { url: announcement.thumbnailUrl } }
           : {}),
         footer: {
-          text: "Alloy",
-          icon_url: `${serverOrigin()}/api/assets/webhook/logo.png`,
+          text: "alloy",
+          icon_url: embedLogoUrl(),
         },
         timestamp: announcement.createdAt.toISOString(),
       },
