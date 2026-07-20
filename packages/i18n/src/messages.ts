@@ -1264,8 +1264,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Sende einen JSON-Payload in eigenem Format an einen beliebigen Endpunkt, wenn ein Clip öffentlich wird.",
   "Placeholders: [clip_url], [title], [author], [game]. Values are escaped automatically.":
     "Platzhalter: [clip_url], [title], [author], [game]. Werte werden automatisch escapet.",
-  "Post an embed for every clip that becomes public.":
-    "Poste ein Embed für jeden Clip, der öffentlich wird.",
+  "Post the clip link for every clip that becomes public; Discord unfurls it into a playable preview.":
+    "Poste den Clip-Link für jeden Clip, der öffentlich wird; Discord zeigt ihn als abspielbare Vorschau an.",
   "Publish webhooks": "Webhooks veröffentlichen",
   "Retract webhook announce": "Webhook-Ankündigung zurückziehen",
   "Send test": "Test senden",
