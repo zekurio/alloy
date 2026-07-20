@@ -11,7 +11,7 @@ const REQUEST_TIMEOUT_MS = 10_000
 const EMBED_COLOR = 0x5d4f96
 
 export interface ClipAnnouncement {
-  clipId: string
+  clipUrl: string
   title: string
   authorUsername: string
   /** Server-relative path or absolute URL; null = no avatar. */
@@ -20,7 +20,8 @@ export interface ClipAnnouncement {
   authorDiscordId: string | null
   game: string | null
   durationMs: number | null
-  hasThumbnail: boolean
+  /** Absolute URL of the embed image; null = no thumbnail. */
+  thumbnailUrl: string | null
   createdAt: Date
 }
 
@@ -28,11 +29,15 @@ export function clipPublicUrl(clipId: string): string {
   return `${serverOrigin()}/clips/${clipId}`
 }
 
+export function clipThumbnailUrl(clipId: string): string {
+  return `${serverOrigin()}/api/clips/${clipId}/thumbnail`
+}
+
 export function announceTemplateValues(
   announcement: ClipAnnouncement,
 ): WebhookTemplateValues {
   return {
-    clipUrl: clipPublicUrl(announcement.clipId),
+    clipUrl: announcement.clipUrl,
     title: announcement.title,
     author: announcement.authorUsername,
     game: announcement.game ?? "",
@@ -49,10 +54,38 @@ export function testTemplateValues(): WebhookTemplateValues {
   }
 }
 
+/**
+ * Fully-populated sample announcement for the admin "send test" flow, so the
+ * test message previews the real embed — author, game, duration, and a
+ * bundled blurred thumbnail served from the web build's public assets.
+ */
+export function discordTestPayload(): DiscordMessagePayload {
+  return {
+    ...discordAnnouncePayload({
+      clipUrl: serverOrigin(),
+      title: "Test clip — announcements will look like this",
+      authorUsername: "Alloy",
+      authorImage: "/logo.png",
+      authorDiscordId: null,
+      game: "Alloy",
+      durationMs: 27_000,
+      thumbnailUrl: `${serverOrigin()}/webhook-test-thumbnail.jpg`,
+      createdAt: new Date(),
+    }),
+    content: "Webhook test — public clips will be announced like this.",
+  }
+}
+
+export interface DiscordMessagePayload {
+  content?: string
+  allowed_mentions?: { parse: string[] }
+  embeds: unknown[]
+}
+
 /** Rich-embed payload for the first-party Discord announcement. */
 export function discordAnnouncePayload(
   announcement: ClipAnnouncement,
-): unknown {
+): DiscordMessagePayload {
   const fields: { name: string; value: string; inline: boolean }[] = []
   if (announcement.game) {
     fields.push({ name: "Game", value: announcement.game, inline: true })
@@ -76,7 +109,7 @@ export function discordAnnouncePayload(
     embeds: [
       {
         title: announcement.title,
-        url: clipPublicUrl(announcement.clipId),
+        url: announcement.clipUrl,
         color: EMBED_COLOR,
         author: {
           name: announcement.authorUsername,
@@ -84,12 +117,8 @@ export function discordAnnouncePayload(
             ? { icon_url: absoluteUrl(announcement.authorImage) }
             : {}),
         },
-        ...(announcement.hasThumbnail
-          ? {
-              image: {
-                url: `${serverOrigin()}/api/clips/${announcement.clipId}/thumbnail`,
-              },
-            }
+        ...(announcement.thumbnailUrl
+          ? { image: { url: announcement.thumbnailUrl } }
           : {}),
         ...(fields.length > 0 ? { fields } : {}),
         timestamp: announcement.createdAt.toISOString(),

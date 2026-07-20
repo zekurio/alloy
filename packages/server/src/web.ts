@@ -160,6 +160,12 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     serveFile(c, "/robots.txt", "public, max-age=86400"),
   )
 
+  // Blurred sample thumbnail referenced by the admin webhook test embed;
+  // must be publicly fetchable so Discord can render the test message.
+  app.on(["GET", "HEAD"], "/webhook-test-thumbnail.jpg", (c) =>
+    serveFile(c, "/webhook-test-thumbnail.jpg", "public, max-age=86400"),
+  )
+
   app.on(["GET", "HEAD"], "*", async (c) => {
     const pathname = new URL(c.req.url).pathname
     if (pathname === "/health" || pathname.startsWith("/api/")) {

@@ -6,6 +6,8 @@ import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import {
   announceTemplateValues,
+  clipPublicUrl,
+  clipThumbnailUrl,
   discordAnnouncePayload,
   postGenericWebhook,
   type ClipAnnouncement,
@@ -145,7 +147,7 @@ async function selectClipAnnounceState(
     .limit(1)
   if (!row) return null
   return {
-    clipId,
+    clipUrl: clipPublicUrl(clipId),
     status: row.status,
     privacy: row.privacy,
     announcedAt: row.announcedAt,
@@ -155,7 +157,7 @@ async function selectClipAnnounceState(
     title: row.title,
     game: row.game,
     durationMs: row.durationMs,
-    hasThumbnail: row.thumbKey !== null,
+    thumbnailUrl: row.thumbKey !== null ? clipThumbnailUrl(clipId) : null,
     createdAt: row.createdAt,
     authorUsername: row.authorUsername ?? "unknown",
     authorImage: row.authorImage,

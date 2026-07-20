@@ -13,14 +13,20 @@ import {
   SectionFooter,
 } from "@alloy/ui/components/section"
 import { SettingRow } from "@alloy/ui/components/setting-row"
+import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@alloy/ui/components/tabs"
 import { Textarea } from "@alloy/ui/components/textarea"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { SaveIcon, SendIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
-import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
@@ -57,9 +63,10 @@ export function WebhooksSettingsContent({
 }) {
   const saved = config.webhooks
   const queryClient = useQueryClient()
+  const [tab, setTab] = useState<WebhookTestTarget>("discord")
   const [form, setForm] = useState<WebhooksForm>(() => formFromConfig(saved))
   const [saving, setSaving] = useState(false)
-  const [testing, setTesting] = useState<WebhookTestTarget | null>(null)
+  const [testing, setTesting] = useState(false)
 
   // The saved config is the source of truth: reset the draft whenever the
   // server hands back a new one.
@@ -100,6 +107,12 @@ export function WebhooksSettingsContent({
       : null
   const valid = !discordUrlMessage && !templateMessage && !genericUrlMessage
 
+  // The test uses the *stored* config, so it stays disabled while the draft
+  // has unsaved changes or the active target has no saved endpoint yet.
+  const testConfigured =
+    tab === "discord" ? saved.discord.webhookUrlSet : saved.generic.url !== ""
+  const testDisabled = testing || dirty || !testConfigured
+
   async function save() {
     if (saving || !dirty) return
     if (!valid) {
@@ -135,14 +148,14 @@ export function WebhooksSettingsContent({
 
   async function sendTest(target: WebhookTestTarget) {
     if (testing) return
-    setTesting(target)
+    setTesting(true)
     try {
       await api.admin.sendWebhookTest(target)
       toast.success(t("Test message sent"))
     } catch (cause) {
       toast.error(errorMessage(cause, t("Couldn't send the test message")))
     } finally {
-      setTesting(null)
+      setTesting(false)
     }
   }
 
@@ -150,161 +163,167 @@ export function WebhooksSettingsContent({
 
   return (
     <Section>
-      <SectionContent className="flex flex-col gap-6 py-0">
-        <SettingsSubsection
-          title={t("Discord")}
-          description={t(
-            "Announce clips in a Discord channel when they become public. The message is removed again when a clip stops being public.",
-          )}
-          action={
+      <SectionContent className="flex flex-col gap-4 py-0">
+        <Tabs
+          value={tab}
+          onValueChange={(value) =>
+            setTab(value === "generic" ? "generic" : "discord")
+          }
+        >
+          <div className="flex items-center justify-between gap-3">
+            <TabsList className="min-w-0 flex-1">
+              <TabsTrigger value="discord">{t("Discord")}</TabsTrigger>
+              <TabsTrigger value="generic">{t("Custom webhook")}</TabsTrigger>
+            </TabsList>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => sendTest("discord")}
-              disabled={
-                testing !== null || dirty || !saved.discord.webhookUrlSet
+              onClick={() => sendTest(tab)}
+              disabled={testDisabled}
+              title={
+                dirty
+                  ? t("Save your changes to send a test message")
+                  : undefined
               }
               className="shrink-0"
             >
-              <SendIcon />
-              {testing === "discord" ? t("Sending...") : t("Send test")}
+              {testing ? <Spinner className="size-3.5" /> : <SendIcon />}
+              {t("Send test")}
             </Button>
-          }
-        >
-          <SettingRow
-            title={t("Announce public clips")}
-            description={t("Post an embed for every clip that becomes public.")}
-          >
-            <Switch
-              checked={form.discordEnabled}
-              onCheckedChange={(checked) =>
-                setForm((prev) => ({ ...prev, discordEnabled: checked }))
-              }
-            />
-          </SettingRow>
-          <SettingRow
-            title={t("Webhook URL")}
-            description={t(
-              "Create a webhook in your Discord channel settings and paste its URL. The URL contains a secret and is never shown again.",
-            )}
-            htmlFor="webhooks-discord-url"
-            align="start"
-          >
-            <div className="flex w-72 max-w-full flex-col gap-1.5">
-              <Input
-                id="webhooks-discord-url"
-                type="password"
-                value={form.discordUrl}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    discordUrl: event.target.value,
-                    discordUrlDirty: true,
-                  }))
-                }
-                placeholder={
-                  saved.discord.webhookUrlSet
-                    ? t("(unchanged)")
-                    : "https://discord.com/api/webhooks/..."
-                }
-                autoComplete="off"
-                aria-invalid={discordUrlMessage ? true : undefined}
-              />
-              {discordUrlMessage ? (
-                <p className="text-destructive text-2xs">{discordUrlMessage}</p>
-              ) : null}
-            </div>
-          </SettingRow>
-        </SettingsSubsection>
+          </div>
 
-        <hr className="border-border" />
-
-        <SettingsSubsection
-          title={t("Custom webhook")}
-          description={t(
-            "POST a JSON payload of your own shape to any endpoint when a clip becomes public.",
-          )}
-          action={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => sendTest("generic")}
-              disabled={testing !== null || dirty || saved.generic.url === ""}
-              className="shrink-0"
+          <TabsContent value="discord" className="flex flex-col">
+            <p className="text-foreground-dim py-3 text-xs">
+              {t(
+                "Announce clips in a Discord channel when they become public. The message is removed again when a clip stops being public.",
+              )}
+            </p>
+            <SettingRow
+              title={t("Announce public clips")}
+              description={t(
+                "Post an embed for every clip that becomes public.",
+              )}
             >
-              <SendIcon />
-              {testing === "generic" ? t("Sending...") : t("Send test")}
-            </Button>
-          }
-        >
-          <SettingRow
-            title={t("Announce public clips")}
-            description={t(
-              "Send the JSON template below for every clip that becomes public.",
-            )}
-          >
-            <Switch
-              checked={form.genericEnabled}
-              onCheckedChange={(checked) =>
-                setForm((prev) => ({ ...prev, genericEnabled: checked }))
-              }
-            />
-          </SettingRow>
-          <SettingRow
-            title={t("Webhook URL")}
-            description={t("Endpoint that receives the JSON POST.")}
-            htmlFor="webhooks-generic-url"
-            align="start"
-          >
-            <div className="flex w-72 max-w-full flex-col gap-1.5">
-              <Input
-                id="webhooks-generic-url"
-                value={form.genericUrl}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    genericUrl: event.target.value,
-                  }))
+              <Switch
+                checked={form.discordEnabled}
+                onCheckedChange={(checked) =>
+                  setForm((prev) => ({ ...prev, discordEnabled: checked }))
                 }
-                placeholder="https://example.com/hooks/alloy"
-                autoComplete="off"
-                aria-invalid={genericUrlMessage ? true : undefined}
               />
-              {genericUrlMessage ? (
-                <p className="text-destructive text-2xs">{genericUrlMessage}</p>
-              ) : null}
-            </div>
-          </SettingRow>
-          <SettingRow
-            title={t("JSON template")}
-            description={t(
-              "Placeholders: [clip_url], [title], [author], [game]. Values are escaped automatically.",
-            )}
-            htmlFor="webhooks-generic-template"
-            align="start"
-          >
-            <div className="flex w-72 max-w-full flex-col gap-1.5">
-              <Textarea
-                id="webhooks-generic-template"
-                value={form.genericTemplate}
-                onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    genericTemplate: event.target.value,
-                  }))
+            </SettingRow>
+            <SettingRow
+              title={t("Webhook URL")}
+              description={t(
+                "Create a webhook in your Discord channel settings and paste its URL. The URL contains a secret and is never shown again.",
+              )}
+              htmlFor="webhooks-discord-url"
+              align="start"
+            >
+              <div className="flex w-72 max-w-full flex-col gap-1.5">
+                <Input
+                  id="webhooks-discord-url"
+                  type="password"
+                  value={form.discordUrl}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      discordUrl: event.target.value,
+                      discordUrlDirty: true,
+                    }))
+                  }
+                  placeholder={
+                    saved.discord.webhookUrlSet
+                      ? t("(unchanged)")
+                      : "https://discord.com/api/webhooks/..."
+                  }
+                  autoComplete="off"
+                  aria-invalid={discordUrlMessage ? true : undefined}
+                />
+                {discordUrlMessage ? (
+                  <p className="text-destructive text-2xs">
+                    {discordUrlMessage}
+                  </p>
+                ) : null}
+              </div>
+            </SettingRow>
+          </TabsContent>
+
+          <TabsContent value="generic" className="flex flex-col">
+            <p className="text-foreground-dim py-3 text-xs">
+              {t(
+                "POST a JSON payload of your own shape to any endpoint when a clip becomes public.",
+              )}
+            </p>
+            <SettingRow
+              title={t("Announce public clips")}
+              description={t(
+                "Send the JSON template below for every clip that becomes public.",
+              )}
+            >
+              <Switch
+                checked={form.genericEnabled}
+                onCheckedChange={(checked) =>
+                  setForm((prev) => ({ ...prev, genericEnabled: checked }))
                 }
-                rows={5}
-                className="font-mono text-xs"
-                aria-invalid={templateMessage ? true : undefined}
               />
-              {templateMessage ? (
-                <p className="text-destructive text-2xs">{templateMessage}</p>
-              ) : null}
-            </div>
-          </SettingRow>
-        </SettingsSubsection>
+            </SettingRow>
+            <SettingRow
+              title={t("Webhook URL")}
+              description={t("Endpoint that receives the JSON POST.")}
+              htmlFor="webhooks-generic-url"
+              align="start"
+            >
+              <div className="flex w-72 max-w-full flex-col gap-1.5">
+                <Input
+                  id="webhooks-generic-url"
+                  value={form.genericUrl}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      genericUrl: event.target.value,
+                    }))
+                  }
+                  placeholder="https://example.com/hooks/alloy"
+                  autoComplete="off"
+                  aria-invalid={genericUrlMessage ? true : undefined}
+                />
+                {genericUrlMessage ? (
+                  <p className="text-destructive text-2xs">
+                    {genericUrlMessage}
+                  </p>
+                ) : null}
+              </div>
+            </SettingRow>
+            <SettingRow
+              title={t("JSON template")}
+              description={t(
+                "Placeholders: [clip_url], [title], [author], [game]. Values are escaped automatically.",
+              )}
+              htmlFor="webhooks-generic-template"
+              align="start"
+            >
+              <div className="flex w-72 max-w-full flex-col gap-1.5">
+                <Textarea
+                  id="webhooks-generic-template"
+                  value={form.genericTemplate}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      genericTemplate: event.target.value,
+                    }))
+                  }
+                  rows={5}
+                  className="font-mono text-xs"
+                  aria-invalid={templateMessage ? true : undefined}
+                />
+                {templateMessage ? (
+                  <p className="text-destructive text-2xs">{templateMessage}</p>
+                ) : null}
+              </div>
+            </SettingRow>
+          </TabsContent>
+        </Tabs>
       </SectionContent>
       {!inSettingsDialog && (
         <SectionFooter>
