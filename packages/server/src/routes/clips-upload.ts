@@ -12,6 +12,7 @@ import {
   enqueueClipEncode,
   requeueClipEncode,
 } from "@alloy/server/jobs/kinds/clip-encode"
+import { enqueueWebhookSync } from "@alloy/server/jobs/kinds/webhook-sync"
 import { extractPoster } from "@alloy/server/media/poster"
 import { createNotification } from "@alloy/server/notifications/service"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
@@ -131,6 +132,17 @@ export const clipsUploadRoutes = new Hono()
       })
 
       void publishClipUpsert(row.author_id, id)
+
+      // Any privacy transition to or from public changes whether the clip
+      // should be announced externally; the reconciler converges either way.
+      if (
+        body.privacy !== undefined &&
+        body.privacy !== row.privacy &&
+        (body.privacy === "public" || row.privacy === "public")
+      ) {
+        await enqueueWebhookSync(id)
+      }
+
       if (mentionedIds !== undefined && row.status === "ready") {
         const existingMentionedIdSet = new Set(existingMentionedIds)
         for (const mentionedId of mentionedIds) {

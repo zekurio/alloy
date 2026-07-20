@@ -1,7 +1,10 @@
 import {
   HardwareAccelerationSchema,
+  isDiscordWebhookUrl,
+  isValidWebhookTemplate,
   RenditionTierConfigSchema,
   VideoCodecSchema,
+  WEBHOOK_TEST_TARGETS,
 } from "@alloy/contracts"
 import { requireAdmin } from "@alloy/server/auth/session"
 import { signInConfigError } from "@alloy/server/auth/sign-in-config"
@@ -18,11 +21,18 @@ import {
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
 import { enqueueStorageVerify } from "@alloy/server/jobs/kinds/storage-verify"
 import { probeTranscodingCapabilities } from "@alloy/server/media/capabilities"
+import { errorMessage } from "@alloy/server/runtime/error-message"
 import {
   badRequest,
   batchProgress,
   conflict,
+  success,
 } from "@alloy/server/runtime/http-response"
+import {
+  postGenericWebhook,
+  testTemplateValues,
+} from "@alloy/server/webhooks/deliver"
+import { executeDiscordWebhook } from "@alloy/server/webhooks/discord"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -79,6 +89,28 @@ const TranscodingPatch = z.object({
   quality: z.number().int().min(10).max(51).optional(),
   audioBitrateKbps: z.number().int().min(64).max(320).optional(),
   tiers: z.array(RenditionTierConfigSchema).min(1).max(6).optional(),
+})
+
+const WebhooksPatch = z.object({
+  discord: z
+    .object({
+      enabled: z.boolean().optional(),
+      // Write-only: absent keeps the stored URL, "" clears it, non-empty
+      // replaces it (validated below).
+      webhookUrl: z.string().trim().optional(),
+    })
+    .optional(),
+  generic: z
+    .object({
+      enabled: z.boolean().optional(),
+      url: z.string().trim().optional(),
+      template: z.string().optional(),
+    })
+    .optional(),
+})
+
+const WebhookTestBody = z.object({
+  target: z.enum(WEBHOOK_TEST_TARGETS),
 })
 
 const AppearancePatch = z.object({
@@ -210,6 +242,84 @@ export const adminRoute = new Hono()
         vaapiDevice: configStore.get("transcoding").vaapiDevice,
       }),
     )
+  })
+  .patch("/webhooks", zValidator("json", WebhooksPatch), async (c) => {
+    const patch = c.req.valid("json")
+    const current = configStore.get("webhooks")
+
+    const webhookUrl =
+      patch.discord?.webhookUrl !== undefined
+        ? patch.discord.webhookUrl
+        : current.discord.webhookUrl
+    if (
+      patch.discord?.webhookUrl !== undefined &&
+      patch.discord.webhookUrl !== "" &&
+      !isDiscordWebhookUrl(patch.discord.webhookUrl)
+    ) {
+      return badRequest(
+        c,
+        "The Discord webhook URL must look like https://discord.com/api/webhooks/{id}/{token}.",
+      )
+    }
+
+    const next = {
+      discord: {
+        enabled: patch.discord?.enabled ?? current.discord.enabled,
+        webhookUrl,
+      },
+      generic: {
+        enabled: patch.generic?.enabled ?? current.generic.enabled,
+        url: patch.generic?.url ?? current.generic.url,
+        template: patch.generic?.template ?? current.generic.template,
+      },
+    }
+
+    if (next.discord.enabled && next.discord.webhookUrl === "") {
+      return badRequest(c, "A Discord webhook URL is required to enable it.")
+    }
+    if (next.generic.enabled && next.generic.url === "") {
+      return badRequest(c, "A webhook URL is required to enable it.")
+    }
+    if (next.generic.url !== "" && !/^https?:\/\//.test(next.generic.url)) {
+      return badRequest(c, "The webhook URL must be an http(s) URL.")
+    }
+    if (
+      next.generic.template !== "" &&
+      !isValidWebhookTemplate(next.generic.template)
+    ) {
+      return badRequest(c, "The webhook template must be valid JSON.")
+    }
+
+    await configStore.set("webhooks", next)
+    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+  })
+  .post("/webhooks/test", zValidator("json", WebhookTestBody), async (c) => {
+    const { target } = c.req.valid("json")
+    const config = configStore.get("webhooks")
+
+    if (target === "discord") {
+      if (!config.discord.webhookUrl) {
+        return badRequest(c, "No Discord webhook URL is configured.")
+      }
+      try {
+        await executeDiscordWebhook(config.discord.webhookUrl, {
+          content: "Alloy webhook test — clip announcements will look richer.",
+        })
+      } catch (err) {
+        return badRequest(c, errorMessage(err, "Discord webhook test failed"))
+      }
+      return success(c)
+    }
+
+    if (!config.generic.url) {
+      return badRequest(c, "No webhook URL is configured.")
+    }
+    try {
+      await postGenericWebhook(config.generic, testTemplateValues())
+    } catch (err) {
+      return badRequest(c, errorMessage(err, "Webhook test failed"))
+    }
+    return success(c)
   })
   .post("/clips/re-encode", async (c) => {
     await enqueueRenditionsSweep("force", { runAt: new Date() })

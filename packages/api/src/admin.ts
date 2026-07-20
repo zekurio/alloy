@@ -16,6 +16,7 @@ import type {
   RenditionTierConfig,
   TranscodingCapabilities,
   VideoCodec,
+  WebhookTestTarget,
 } from "@alloy/contracts"
 import {
   AdminRuntimeConfigSchema,
@@ -42,6 +43,18 @@ export {
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_TOKEN_AUTH_METHODS,
   OAUTH_USERNAME_CLAIM_DEFAULT,
+} from "@alloy/contracts"
+export {
+  DEFAULT_GENERIC_WEBHOOK_TEMPLATE,
+  isDiscordWebhookUrl,
+  isValidWebhookTemplate,
+  WEBHOOK_TEMPLATE_PLACEHOLDERS,
+} from "@alloy/contracts"
+export type {
+  AdminWebhooksConfig,
+  GenericWebhookConfig,
+  WebhooksConfig,
+  WebhookTestTarget,
 } from "@alloy/contracts"
 export type {
   AdminCreateGameInput,
@@ -105,6 +118,19 @@ type TranscodingConfigPatch = {
   tiers?: RenditionTierConfig[]
 }
 
+type WebhooksConfigPatch = {
+  discord?: {
+    enabled?: boolean
+    /** Write-only: absent keeps the stored URL, "" clears, non-empty replaces. */
+    webhookUrl?: string
+  }
+  generic?: {
+    enabled?: boolean
+    url?: string
+    template?: string
+  }
+}
+
 type AdminCreateUserInput = {
   email: string
   username?: string
@@ -146,6 +172,24 @@ async function updateTranscodingConfig(
 ): Promise<AdminRuntimeConfig> {
   const res = await context.rpc.api.admin.transcoding.$patch({ json: patch })
   return readJsonOrThrow(res, validateAdminRuntimeConfig)
+}
+
+async function updateWebhooksConfig(
+  context: ApiContext,
+  patch: WebhooksConfigPatch,
+): Promise<AdminRuntimeConfig> {
+  const res = await context.rpc.api.admin.webhooks.$patch({ json: patch })
+  return readJsonOrThrow(res, validateAdminRuntimeConfig)
+}
+
+async function sendWebhookTest(
+  context: ApiContext,
+  target: WebhookTestTarget,
+): Promise<void> {
+  const res = await context.rpc.api.admin.webhooks.test.$post({
+    json: { target },
+  })
+  await readSuccessJson(res)
 }
 
 async function updateAuthConfig(
@@ -366,6 +410,10 @@ export function createAdminApi(context: ApiContext) {
       updateTranscodingConfig(context, patch),
     updateAuthConfig: (patch: AdminAuthConfigPatch) =>
       updateAuthConfig(context, patch),
+    updateWebhooksConfig: (patch: WebhooksConfigPatch) =>
+      updateWebhooksConfig(context, patch),
+    sendWebhookTest: (target: WebhookTestTarget) =>
+      sendWebhookTest(context, target),
     updateOAuthProviders: (providers: AdminOAuthProviderInput[]) =>
       updateOAuthProviders(context, providers),
     fetchTranscodingCapabilities: (options?: { refresh?: boolean }) =>
