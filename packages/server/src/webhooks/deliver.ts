@@ -58,8 +58,6 @@ export interface ClipAnnouncement {
   authorUsername: string
   /** Server-relative path or absolute URL; null = no avatar. */
   authorImage: string | null
-  /** Linked Discord account snowflake; null = author has no linked Discord. */
-  authorDiscordId: string | null
   game: string | null
   /** Game page URL; null renders the game name as plain text. */
   gameUrl: string | null
@@ -117,7 +115,6 @@ export function discordTestPayload(): DiscordMessagePayload {
     // mistaken for instance branding (that lives in the footer).
     authorUsername: "clip-author",
     authorImage: `attachment://${TEST_AVATAR_ATTACHMENT_NAME}`,
-    authorDiscordId: null,
     game: "Terraria",
     gameUrl: `${serverOrigin()}/games`,
     durationMs: 27_000,
@@ -127,8 +124,6 @@ export function discordTestPayload(): DiscordMessagePayload {
 }
 
 export interface DiscordMessagePayload {
-  content?: string
-  allowed_mentions?: { parse: string[] }
   embeds: unknown[]
 }
 
@@ -152,14 +147,6 @@ export function discordAnnouncePayload(
       : null,
   ].filter((part): part is string => part !== null)
   return {
-    // Credit the author's linked Discord account: the mention renders their
-    // live Discord name, while allowed_mentions keeps it from pinging them.
-    ...(announcement.authorDiscordId
-      ? {
-          content: `<@${announcement.authorDiscordId}>`,
-          allowed_mentions: { parse: [] },
-        }
-      : {}),
     embeds: [
       {
         author: {

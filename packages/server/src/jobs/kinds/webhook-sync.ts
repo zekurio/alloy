@@ -1,5 +1,5 @@
-import { DISCORD_PROVIDER_ID, type WebhooksConfig } from "@alloy/contracts"
-import { authAccount, user } from "@alloy/db/auth-schema"
+import type { WebhooksConfig } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
 import { clip, game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
@@ -122,7 +122,6 @@ type ClipAnnounceState = ClipAnnouncement & {
   privacy: typeof clip.$inferSelect.privacy
   announcedAt: Date | null
   announceMessageId: string | null
-  authorId: string
 }
 
 async function selectClipAnnounceState(
@@ -134,7 +133,6 @@ async function selectClipAnnounceState(
       privacy: clip.privacy,
       announcedAt: clip.announced_at,
       announceMessageId: clip.announce_message_id,
-      authorId: clip.author_id,
       title: clip.title,
       game: clip.game,
       gameSlug: game.slug,
@@ -156,8 +154,6 @@ async function selectClipAnnounceState(
     privacy: row.privacy,
     announcedAt: row.announcedAt,
     announceMessageId: row.announceMessageId,
-    authorId: row.authorId,
-    authorDiscordId: null,
     title: row.title,
     game: row.game,
     gameUrl: row.gameSlug !== null ? gamePublicUrl(row.gameSlug) : null,
@@ -185,12 +181,7 @@ async function announce(
     ? (
         await executeDiscordWebhook(
           config.discord.webhookUrl,
-          discordAnnouncePayload({
-            ...announcement,
-            authorDiscordId: await linkedDiscordAccountId(
-              announcement.authorId,
-            ),
-          }),
+          discordAnnouncePayload(announcement),
           discordAnnounceFiles(),
         )
       ).messageId
@@ -225,21 +216,6 @@ async function announce(
       logger.error(`generic webhook announce failed for clip ${clipId}`, err),
     )
   }
-}
-
-/** Snowflake of the author's linked Discord account, if any. */
-async function linkedDiscordAccountId(userId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ providerAccountId: authAccount.provider_account_id })
-    .from(authAccount)
-    .where(
-      and(
-        eq(authAccount.user_id, userId),
-        eq(authAccount.provider_id, DISCORD_PROVIDER_ID),
-      ),
-    )
-    .limit(1)
-  return row?.providerAccountId ?? null
 }
 
 async function retract(
