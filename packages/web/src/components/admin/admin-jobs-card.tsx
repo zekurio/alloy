@@ -77,8 +77,6 @@ const JOB_KIND_LABELS: Record<JobKind, string> = {
   "storage.orphan-gc": t("Storage cleanup"),
   "maintenance.run": t("Maintenance"),
   "notification.prune": t("Prune notifications"),
-  "webhook.retract": t("Retract webhook announce"),
-  "webhook.sync": t("Publish webhooks"),
 }
 
 const SWEEP_KINDS: ReadonlySet<string> = new Set<AdminSweepKind>(

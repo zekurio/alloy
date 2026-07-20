@@ -1,6 +1,4 @@
 import {
-  DISCORD_PROVIDER_ID,
-  discordCdnAvatarUrl,
   OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_QUOTA_CLAIM_DEFAULT,
   OAUTH_ROLE_CLAIM_DEFAULT,
@@ -56,9 +54,10 @@ export async function profileFromTokens(
   if (!providerAccountId) throw new Error("OAuth profile is missing a subject.")
 
   return {
-    avatarUrl:
-      httpUrlClaim(raw, provider.avatarClaim ?? OAUTH_AVATAR_CLAIM_DEFAULT) ??
-      presetAvatarUrl(provider, raw),
+    avatarUrl: httpUrlClaim(
+      raw,
+      provider.avatarClaim ?? OAUTH_AVATAR_CLAIM_DEFAULT,
+    ),
     email: normalizedEmail,
     emailVerified: raw.email_verified === true || raw.verified === true,
     providerAccountId,
@@ -81,17 +80,6 @@ export function storedTokens(
       expiresIn === undefined ? null : new Date(Date.now() + expiresIn * 1000),
     scope: tokens.scope ?? null,
   }
-}
-
-// Preset-specific avatar handling: Discord's userinfo returns an avatar
-// *hash*, not a URL, so the CDN URL must be constructed server-side from the
-// user id + hash. Applies only when the plain URL claim yielded nothing.
-function presetAvatarUrl(
-  provider: OAuthProviderConfig,
-  raw: Record<string, unknown>,
-): string | null {
-  if (provider.providerId !== DISCORD_PROVIDER_ID) return null
-  return discordCdnAvatarUrl(raw.id, raw.avatar)
 }
 
 function stringClaim(

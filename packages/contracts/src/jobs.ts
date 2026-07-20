@@ -20,8 +20,6 @@ export const JOB_KINDS = [
   "maintenance.run",
   "notification.prune",
   "storage.orphan-gc",
-  "webhook.retract",
-  "webhook.sync",
 ] as const
 export type JobKind = (typeof JOB_KINDS)[number]
 

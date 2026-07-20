@@ -9,7 +9,6 @@ import { AppearanceSettingsContent } from "@/components/routes/settings/admin-ap
 import { AuthSettingsContent } from "@/components/routes/settings/admin-auth-settings"
 import { useAdminConfigContext } from "@/components/routes/settings/admin-config-context"
 import { TranscodingSettingsContent } from "@/components/routes/settings/admin-transcoding-settings"
-import { WebhooksSettingsContent } from "@/components/routes/settings/admin-webhooks-settings"
 import { useRequireAuthStrict } from "@/lib/auth-hooks"
 
 function AdminLoadError({ message }: { message: string }) {
@@ -39,10 +38,6 @@ export const AdminAuthPanel = withAdminConfig((config) => (
 
 export const AdminTranscodingPanel = withAdminConfig((config) => (
   <TranscodingSettingsContent config={config} />
-))
-
-export const AdminWebhooksPanel = withAdminConfig((config) => (
-  <WebhooksSettingsContent config={config} />
 ))
 
 export function AdminUsersPanel() {

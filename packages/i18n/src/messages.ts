@@ -1238,49 +1238,4 @@ export const DE_MESSAGES: Record<string, string> = {
   "Username claim": "Nutzername-Claim",
   "Users may lose this sign-in method immediately.":
     "Nutzer könnten diese Anmeldemethode sofort verlieren.",
-  "(unchanged)": "(unverändert)",
-  "Add {displayName}": "{displayName} hinzufügen",
-  "Create an application in the {displayName} developer portal, register the callback URL below, and paste its client credentials.":
-    "Erstelle eine Anwendung im {displayName}-Entwicklerportal, registriere die untenstehende Callback-URL und füge die Client-Zugangsdaten ein.",
-  "A webhook URL is required to announce clips.":
-    "Zum Ankündigen von Clips wird eine Webhook-URL benötigt.",
-  "Announce clips in a Discord channel when they become public. The message is removed again when a clip stops being public.":
-    "Kündige Clips in einem Discord-Kanal an, sobald sie öffentlich werden. Die Nachricht wird wieder entfernt, wenn ein Clip nicht mehr öffentlich ist.",
-  "Announce public clips to Discord or any endpoint via webhooks.":
-    "Kündige öffentliche Clips per Webhook auf Discord oder einem beliebigen Endpunkt an.",
-  "Announce public clips": "Öffentliche Clips ankündigen",
-  "Couldn't save webhook settings":
-    "Webhook-Einstellungen konnten nicht gespeichert werden",
-  "Couldn't send the test message":
-    "Testnachricht konnte nicht gesendet werden",
-  "Create a webhook in your Discord channel settings and paste its URL. The URL contains a secret and is never shown again.":
-    "Erstelle einen Webhook in den Discord-Kanaleinstellungen und füge dessen URL ein. Die URL enthält ein Geheimnis und wird nie wieder angezeigt.",
-  "Custom webhook": "Eigener Webhook",
-  Discord: "Discord",
-  "Endpoint that receives the JSON POST.":
-    "Endpunkt, der den JSON-POST empfängt.",
-  "JSON template": "JSON-Vorlage",
-  "POST a JSON payload of your own shape to any endpoint when a clip becomes public.":
-    "Sende einen JSON-Payload in eigenem Format an einen beliebigen Endpunkt, wenn ein Clip öffentlich wird.",
-  "Placeholders: [clip_url], [title], [author], [game]. Values are escaped automatically.":
-    "Platzhalter: [clip_url], [title], [author], [game]. Werte werden automatisch escapet.",
-  "Post the clip link for every clip that becomes public; Discord unfurls it into a playable preview.":
-    "Poste den Clip-Link für jeden Clip, der öffentlich wird; Discord zeigt ihn als abspielbare Vorschau an.",
-  "Publish webhooks": "Webhooks veröffentlichen",
-  "Retract webhook announce": "Webhook-Ankündigung zurückziehen",
-  "Send test": "Test senden",
-  "Send a sample announcement to the saved endpoint.":
-    "Sende eine Beispiel-Ankündigung an den gespeicherten Endpunkt.",
-  "Test webhook": "Webhook testen",
-  "Save your changes to send a test message":
-    "Speichere deine Änderungen, um eine Testnachricht zu senden",
-  "Send the JSON template below for every clip that becomes public.":
-    "Sende die JSON-Vorlage unten für jeden Clip, der öffentlich wird.",
-  "Test message sent": "Testnachricht gesendet",
-  "The template must be valid JSON.": "Die Vorlage muss gültiges JSON sein.",
-  "This doesn't look like a Discord webhook URL (https://discord.com/api/webhooks/...).":
-    "Das sieht nicht nach einer Discord-Webhook-URL aus (https://discord.com/api/webhooks/...).",
-  "Webhook URL": "Webhook-URL",
-  "Webhook settings saved": "Webhook-Einstellungen gespeichert",
-  Webhooks: "Webhooks",
 }
