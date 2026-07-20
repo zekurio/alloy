@@ -34,8 +34,11 @@ export const oembedRoute = new Hono().get(
     c.header("Cache-Control", "public, max-age=300")
     return c.json({
       version: "1.0",
-      type: "link",
-      title: row.title,
+      // Discord only applies FxTwitter's author/footer layout to rich oEmbed
+      // resources. The title is deliberately inert; OpenGraph owns the visible
+      // author/title and description fields.
+      type: "rich",
+      title: "Embed",
       provider_name: "alloy",
       provider_url: origin,
       ...(detailLine

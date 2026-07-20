@@ -12,8 +12,8 @@ import { env } from "./env"
 import { isAbsolute, join, relative, resolve } from "./runtime/path"
 import { clipHead } from "./web-clip-head"
 import { htmlEscape } from "./web-html"
+import { withPageHead } from "./web-page-head"
 
-const HEAD_MARKER = "<!-- alloy:head -->"
 const BOOTSTRAP_MARKER = "<!-- alloy:bootstrap -->"
 const DEFAULT_WEB_DIST_DIR = "../../build/www"
 const PUBLIC_WEB_PATHS = new Set(["/login", "/setup", "/sign-up"])
@@ -83,11 +83,6 @@ async function resolveWebMount(): Promise<WebMount | null> {
     distDir,
     indexHtml: await readFile(indexPath, "utf8"),
   }
-}
-
-function withInjectedHead(indexHtml: string, head: string): string {
-  if (!head) return indexHtml
-  return indexHtml.replace(HEAD_MARKER, `${head}\n    ${HEAD_MARKER}`)
 }
 
 /**
@@ -185,7 +180,7 @@ export async function mountWeb(app: Hono): Promise<Hono> {
       throw new Error("secure headers nonce missing for app shell")
     }
     const html = withInjectedBootstrap(
-      withInjectedHead(webMount.indexHtml, head),
+      withPageHead(webMount.indexHtml, head),
       bootstrapScript(await buildPublicAuthConfig(), nonce),
     )
     return c.html(html)

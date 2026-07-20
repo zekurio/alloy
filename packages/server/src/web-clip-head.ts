@@ -14,6 +14,7 @@ import { clipGameRefFromSnapshot } from "./games/ref"
 import { htmlEscape } from "./web-html"
 
 const logger = createLogger("web")
+const EMBED_THEME_COLOR = "#5d4f96"
 const CLIP_PERMALINK_RE = /^(?:\/games\/[^/]+)?\/clips\/([^/]+)\/?$/
 
 export type MetadataClip = NonNullable<
@@ -74,35 +75,42 @@ function buildClipHead(row: MetadataClip): string {
       ).toString()
     : null
   const video = socialVideo(row, origin)
+  const clipUrl = new URL(`/clips/${row.id}`, origin).toString()
   // FxTwitter-style author avatar: link unfurlers (Discord) render the page's
-  // apple-touch-icon as the round icon next to the embed title, so point it
-  // at the author's avatar per clip page. This link is injected before the
-  // static /logo.png one in index.html, so crawlers pick it first.
-  const authorAvatar = row.authorImage
-    ? new URL(row.authorImage, origin).toString()
-    : null
+  // apple-touch-icon as the round icon next to the embed title, so replace the
+  // app shell's generic icon with the author's avatar per clip page.
+  const authorAvatar = new URL(
+    row.authorImage ?? "/logo.png",
+    origin,
+  ).toString()
   // FxTwitter-style footer: the oEmbed provider_name renders as the bottom
-  // "alloy" line (with favicon) and supersedes the og:site_name top line,
-  // which is therefore omitted. The endpoint also carries the game/duration
+  // "alloy" line (with favicon). The endpoint also carries the game/duration
   // line via author_name.
   const oembedUrl = new URL(`/api/oembed?clip=${row.id}`, origin).toString()
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
-    ...(authorAvatar
-      ? [`<link rel="apple-touch-icon" href="${htmlEscape(authorAvatar)}" />`]
-      : []),
+    `<link rel="canonical" href="${htmlEscape(clipUrl)}" />`,
+    `<link rel="apple-touch-icon" href="${htmlEscape(authorAvatar)}" />`,
     metaName("description", seoDescription),
     `<link rel="alternate" type="application/json+oembed" href="${htmlEscape(oembedUrl)}" title="${htmlEscape(row.authorUsername)}" />`,
+    metaProperty("theme-color", EMBED_THEME_COLOR),
+    metaProperty("og:url", clipUrl),
+    metaProperty("og:site_name", "alloy"),
     metaProperty("og:type", "video.other"),
     metaProperty("og:title", row.authorUsername),
     metaProperty("og:description", socialDescription),
     ...(poster ? [metaProperty("og:image", poster)] : []),
     ...socialVideoTags(video),
-    metaName("twitter:card", "summary_large_image"),
+    metaName("twitter:card", video.url ? "player" : "summary_large_image"),
     metaName("twitter:title", row.authorUsername),
     metaName("twitter:description", socialDescription),
-    ...(poster ? [metaName("twitter:image", poster)] : []),
+    ...socialTwitterVideoTags(video),
+    ...(video.url
+      ? [metaName("twitter:image", "0")]
+      : poster
+        ? [metaName("twitter:image", poster)]
+        : []),
   ].join("\n    ")
 }
 
@@ -175,6 +183,22 @@ function socialVideoTags(video: ReturnType<typeof socialVideo>): string[] {
     ...(video.height
       ? [metaProperty("og:video:height", String(video.height))]
       : []),
+  ]
+}
+
+function socialTwitterVideoTags(
+  video: ReturnType<typeof socialVideo>,
+): string[] {
+  if (!video.url) return []
+  return [
+    ...(video.height
+      ? [metaName("twitter:player:height", String(video.height))]
+      : []),
+    ...(video.width
+      ? [metaName("twitter:player:width", String(video.width))]
+      : []),
+    metaName("twitter:player:stream", video.url),
+    metaName("twitter:player:stream:content_type", video.type),
   ]
 }
 
