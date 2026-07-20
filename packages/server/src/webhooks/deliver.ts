@@ -6,7 +6,11 @@ import {
 import { env } from "@alloy/server/env"
 
 import type { DiscordWebhookFile } from "./discord"
-import { WEBHOOK_LOGO_PNG, WEBHOOK_TEST_THUMBNAIL_JPEG } from "./embed-assets"
+import {
+  WEBHOOK_LOGO_PNG,
+  WEBHOOK_TEST_AVATAR_PNG,
+  WEBHOOK_TEST_THUMBNAIL_JPEG,
+} from "./embed-assets"
 
 const REQUEST_TIMEOUT_MS = 10_000
 
@@ -18,6 +22,7 @@ const EMBED_COLOR = 0x5d4f96
 // from loopback and non-public instances exactly like from production.
 const LOGO_ATTACHMENT_NAME = "alloy-logo.png"
 const TEST_THUMBNAIL_ATTACHMENT_NAME = "test-thumbnail.jpg"
+const TEST_AVATAR_ATTACHMENT_NAME = "test-avatar.png"
 
 const LOGO_FILE: DiscordWebhookFile = {
   name: LOGO_ATTACHMENT_NAME,
@@ -30,7 +35,7 @@ export function discordAnnounceFiles(): DiscordWebhookFile[] {
   return [LOGO_FILE]
 }
 
-/** Files to upload alongside the admin test message (logo + sample thumbnail). */
+/** Files to upload alongside the admin test message (logo, thumbnail, avatar). */
 export function discordTestFiles(): DiscordWebhookFile[] {
   return [
     LOGO_FILE,
@@ -38,6 +43,11 @@ export function discordTestFiles(): DiscordWebhookFile[] {
       name: TEST_THUMBNAIL_ATTACHMENT_NAME,
       data: WEBHOOK_TEST_THUMBNAIL_JPEG,
       contentType: "image/jpeg",
+    },
+    {
+      name: TEST_AVATAR_ATTACHMENT_NAME,
+      data: WEBHOOK_TEST_AVATAR_PNG,
+      contentType: "image/png",
     },
   ]
 }
@@ -51,6 +61,10 @@ export interface ClipAnnouncement {
   /** Linked Discord account snowflake; null = author has no linked Discord. */
   authorDiscordId: string | null
   game: string | null
+  /** Game page URL; null renders the game name as plain text. */
+  gameUrl: string | null
+  /** Game artwork (server-relative or absolute) for the embed thumbnail. */
+  gameImageUrl: string | null
   durationMs: number | null
   /** Absolute URL of the embed image; null = no thumbnail. */
   thumbnailUrl: string | null
@@ -63,6 +77,10 @@ export function clipPublicUrl(clipId: string): string {
 
 export function clipThumbnailUrl(clipId: string): string {
   return `${serverOrigin()}/api/clips/${clipId}/thumbnail`
+}
+
+export function gamePublicUrl(slug: string): string {
+  return `${serverOrigin()}/games/${encodeURIComponent(slug)}`
 }
 
 export function announceTemplateValues(
@@ -96,10 +114,14 @@ export function discordTestPayload(): DiscordMessagePayload {
   return discordAnnouncePayload({
     clipUrl: serverOrigin(),
     title: "Insane ace clutch — webhook test",
-    authorUsername: "alloy",
-    authorImage: `attachment://${LOGO_ATTACHMENT_NAME}`,
+    // A clearly user-shaped sample author, so the embed's author line is not
+    // mistaken for instance branding (that lives in the footer).
+    authorUsername: "clip-author",
+    authorImage: `attachment://${TEST_AVATAR_ATTACHMENT_NAME}`,
     authorDiscordId: null,
     game: "Counter-Strike 2",
+    gameUrl: `${serverOrigin()}/games`,
+    gameImageUrl: `attachment://${LOGO_ATTACHMENT_NAME}`,
     durationMs: 27_000,
     thumbnailUrl: `attachment://${TEST_THUMBNAIL_ATTACHMENT_NAME}`,
     createdAt: new Date(),
@@ -122,7 +144,11 @@ export function discordAnnouncePayload(
   announcement: ClipAnnouncement,
 ): DiscordMessagePayload {
   const details = [
-    announcement.game,
+    announcement.game
+      ? announcement.gameUrl
+        ? `[${escapeMarkdownLinkText(announcement.game)}](${announcement.gameUrl})`
+        : announcement.game
+      : null,
     announcement.durationMs !== null && announcement.durationMs > 0
       ? formatDuration(announcement.durationMs)
       : null,
@@ -149,6 +175,11 @@ export function discordAnnouncePayload(
         url: announcement.clipUrl,
         ...(details.length > 0 ? { description: details.join(" · ") } : {}),
         color: EMBED_COLOR,
+        // Game artwork sits in the small top-right thumbnail slot; the clip
+        // poster stays the full-width image below.
+        ...(announcement.gameImageUrl
+          ? { thumbnail: { url: absoluteUrl(announcement.gameImageUrl) } }
+          : {}),
         ...(announcement.thumbnailUrl
           ? { image: { url: announcement.thumbnailUrl } }
           : {}),
@@ -209,6 +240,12 @@ function absoluteUrl(pathOrUrl: string): string {
   if (pathOrUrl.startsWith("/")) return `${serverOrigin()}${pathOrUrl}`
   // attachment:// references and already-absolute URLs pass through.
   return pathOrUrl
+}
+
+// Game names are untrusted display text inside a markdown link; escape the
+// characters that would terminate or restructure the link.
+function escapeMarkdownLinkText(text: string): string {
+  return text.replace(/[\\[\]]/g, (match) => `\\${match}`)
 }
 
 function formatDuration(durationMs: number): string {

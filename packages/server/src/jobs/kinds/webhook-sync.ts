@@ -1,6 +1,6 @@
 import { DISCORD_PROVIDER_ID, type WebhooksConfig } from "@alloy/contracts"
 import { authAccount, user } from "@alloy/db/auth-schema"
-import { clip } from "@alloy/db/schema"
+import { clip, game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
@@ -10,6 +10,7 @@ import {
   clipThumbnailUrl,
   discordAnnounceFiles,
   discordAnnouncePayload,
+  gamePublicUrl,
   postGenericWebhook,
   type ClipAnnouncement,
 } from "@alloy/server/webhooks/deliver"
@@ -136,6 +137,9 @@ async function selectClipAnnounceState(
       authorId: clip.author_id,
       title: clip.title,
       game: clip.game,
+      gameSlug: game.slug,
+      gameGridUrl: game.grid_url,
+      gameIconUrl: game.icon_url,
       durationMs: clip.duration_ms,
       thumbKey: clip.thumb_key,
       createdAt: clip.created_at,
@@ -144,6 +148,7 @@ async function selectClipAnnounceState(
     })
     .from(clip)
     .innerJoin(user, eq(user.id, clip.author_id))
+    .leftJoin(game, eq(game.id, clip.game_id))
     .where(eq(clip.id, clipId))
     .limit(1)
   if (!row) return null
@@ -157,6 +162,8 @@ async function selectClipAnnounceState(
     authorDiscordId: null,
     title: row.title,
     game: row.game,
+    gameUrl: row.gameSlug !== null ? gamePublicUrl(row.gameSlug) : null,
+    gameImageUrl: row.gameGridUrl ?? row.gameIconUrl,
     durationMs: row.durationMs,
     thumbnailUrl: row.thumbKey !== null ? clipThumbnailUrl(clipId) : null,
     createdAt: row.createdAt,

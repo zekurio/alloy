@@ -32,6 +32,8 @@ const BASE_ANNOUNCEMENT: ClipAnnouncement = {
   authorImage: null,
   authorDiscordId: null,
   game: null,
+  gameUrl: null,
+  gameImageUrl: null,
   durationMs: 30_000,
   thumbnailUrl: null,
   createdAt: new Date("2025-01-01T00:00:00Z"),
@@ -44,6 +46,20 @@ test("discordAnnouncePayload mentions a linked Discord account without pinging",
   })
   assert.equal(payload.content, "<@80351110224678912>")
   assert.deepEqual(payload.allowed_mentions, { parse: [] })
+})
+
+test("discordAnnouncePayload links the game and escapes markdown", () => {
+  const payload = discordAnnouncePayload({
+    ...BASE_ANNOUNCEMENT,
+    game: "Game [Beta]",
+    gameUrl: "https://alloy.example/games/game-beta",
+    durationMs: 87_000,
+  })
+  const embed = payload.embeds[0] as { description?: string }
+  assert.equal(
+    embed.description,
+    "[Game \\[Beta\\]](https://alloy.example/games/game-beta) · 1:27",
+  )
 })
 
 test("discordAnnouncePayload omits the mention when no account is linked", () => {
