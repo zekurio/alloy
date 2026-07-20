@@ -62,9 +62,7 @@ function buildClipHead(row: MetadataClip): string {
   // and the body carries the clip title plus the author's own description.
   // No engagement counts — unfurlers snapshot tags at post time, so counts
   // would be permanently frozen (and near-zero for publish announcements).
-  const socialDescription = [row.title, row.description?.trim() || null]
-    .filter((part): part is string => part !== null)
-    .join("\n\n")
+  const socialDescription = clipSocialDescription(row)
   const seoDescription =
     row.description?.trim() ||
     `${row.authorUsername} shared a ${clipGameName(row)} clip on alloy.`
@@ -83,35 +81,43 @@ function buildClipHead(row: MetadataClip): string {
     row.authorImage ?? "/logo.png",
     origin,
   ).toString()
-  // FxTwitter-style footer: the oEmbed provider_name renders as the bottom
-  // "alloy" line (with favicon). The endpoint also carries the game/duration
-  // line via author_name.
-  const oembedUrl = new URL(`/api/oembed?clip=${row.id}`, origin).toString()
+  // Discord combines the rich oEmbed fields with these OpenGraph fields in a
+  // non-standard way. FxEmbed's proven layout puts body/details in oEmbed,
+  // while og:site_name plus the favicon remain available for the footer.
+  // Version the discovery URL so Discord cannot reuse the previous field
+  // layout from its independent oEmbed cache after an Alloy upgrade.
+  const oembedUrl = new URL(`/api/oembed?clip=${row.id}&v=2`, origin).toString()
+  const favicon = new URL("/logo.png", origin).toString()
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
     `<link rel="canonical" href="${htmlEscape(clipUrl)}" />`,
-    `<link rel="apple-touch-icon" href="${htmlEscape(authorAvatar)}" />`,
-    metaName("description", seoDescription),
-    `<link rel="alternate" type="application/json+oembed" href="${htmlEscape(oembedUrl)}" title="${htmlEscape(row.authorUsername)}" />`,
-    metaProperty("theme-color", EMBED_THEME_COLOR),
     metaProperty("og:url", clipUrl),
-    metaProperty("og:site_name", "alloy"),
-    metaProperty("og:type", "video.other"),
+    metaProperty("theme-color", EMBED_THEME_COLOR),
+    metaProperty("twitter:title", row.authorUsername),
+    metaName("description", seoDescription),
+    ...socialTwitterVideoTags(video),
+    ...socialVideoTags(video),
+    ...(poster ? [metaProperty("og:image", poster)] : []),
+    ...(video.url
+      ? [metaProperty("twitter:image", "0")]
+      : poster
+        ? [metaProperty("twitter:image", poster)]
+        : []),
+    `<link rel="apple-touch-icon" href="${htmlEscape(authorAvatar)}" />`,
+    metaProperty("twitter:card", video.url ? "player" : "summary_large_image"),
     metaProperty("og:title", row.authorUsername),
     metaProperty("og:description", socialDescription),
-    ...(poster ? [metaProperty("og:image", poster)] : []),
-    ...socialVideoTags(video),
-    metaName("twitter:card", video.url ? "player" : "summary_large_image"),
-    metaName("twitter:title", row.authorUsername),
-    metaName("twitter:description", socialDescription),
-    ...socialTwitterVideoTags(video),
-    ...(video.url
-      ? [metaName("twitter:image", "0")]
-      : poster
-        ? [metaName("twitter:image", poster)]
-        : []),
+    metaProperty("og:site_name", "alloy"),
+    `<link rel="icon" type="image/png" sizes="256x256" href="${htmlEscape(favicon)}" />`,
+    `<link rel="alternate" type="application/json+oembed" href="${htmlEscape(oembedUrl)}" title="${htmlEscape(row.authorUsername)}" />`,
   ].join("\n    ")
+}
+
+export function clipSocialDescription(row: MetadataClip): string {
+  return [row.title, row.description?.trim() || null]
+    .filter((part): part is string => part !== null)
+    .join("\n\n")
 }
 
 export function clipGameName(row: MetadataClip): string {
@@ -172,7 +178,6 @@ function socialVideoTags(video: ReturnType<typeof socialVideo>): string[] {
   if (!video.url) return []
   return [
     metaProperty("og:video", video.url),
-    metaProperty("og:video:url", video.url),
     ...(video.url.startsWith("https:")
       ? [metaProperty("og:video:secure_url", video.url)]
       : []),
@@ -192,13 +197,13 @@ function socialTwitterVideoTags(
   if (!video.url) return []
   return [
     ...(video.height
-      ? [metaName("twitter:player:height", String(video.height))]
+      ? [metaProperty("twitter:player:height", String(video.height))]
       : []),
     ...(video.width
-      ? [metaName("twitter:player:width", String(video.width))]
+      ? [metaProperty("twitter:player:width", String(video.width))]
       : []),
-    metaName("twitter:player:stream", video.url),
-    metaName("twitter:player:stream:content_type", video.type),
+    metaProperty("twitter:player:stream", video.url),
+    metaProperty("twitter:player:stream:content_type", video.type),
   ]
 }
 
