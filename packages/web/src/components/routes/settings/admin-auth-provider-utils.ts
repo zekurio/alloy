@@ -1,7 +1,6 @@
 import type {
   AdminOAuthProvider,
   AdminOAuthProviderInput,
-  OAuthProviderPreset,
   OAuthTokenAuthMethod,
 } from "@alloy/api"
 import {
@@ -56,28 +55,6 @@ const EMPTY_PROVIDER_DRAFT: ProviderDraft = {
   buttonColor: "",
   buttonTextColor: "",
   iconUrl: "",
-}
-
-/**
- * Draft prefilled from a first-party preset: everything except the client
- * credentials is filled in, so the preset dialog only asks for ID + secret.
- */
-export function presetToDraft(preset: OAuthProviderPreset): ProviderDraft {
-  return {
-    ...EMPTY_PROVIDER_DRAFT,
-    providerId: preset.providerId,
-    displayName: preset.displayName,
-    authorizationUrl: preset.authorizationUrl,
-    tokenUrl: preset.tokenUrl,
-    userInfoUrl: preset.userInfoUrl,
-    scopes: preset.scopes.join(" "),
-    uidClaim: preset.uidClaim,
-    usernameClaim: preset.usernameClaim,
-    avatarClaim: preset.avatarClaim,
-    buttonColor: preset.buttonColor,
-    buttonTextColor: preset.buttonTextColor,
-    pkce: preset.pkce,
-  }
 }
 
 export function providerToDraft(

@@ -16,9 +16,7 @@ import { htmlEscape } from "./web-html"
 const logger = createLogger("web")
 const CLIP_PERMALINK_RE = /^(?:\/games\/[^/]+)?\/clips\/([^/]+)\/?$/
 
-export type MetadataClip = NonNullable<
-  Awaited<ReturnType<typeof selectClipById>>
->
+type MetadataClip = NonNullable<Awaited<ReturnType<typeof selectClipById>>>
 
 export async function clipHead(pathname: string): Promise<string> {
   const clipId = CLIP_PERMALINK_RE.exec(pathname)?.[1]
@@ -33,13 +31,7 @@ export async function clipHead(pathname: string): Promise<string> {
   }
 }
 
-/**
- * Clip row for public metadata surfaces (social head tags, oEmbed): ready,
- * public or unlisted, and not authored by a disabled account.
- */
-export async function visiblePublicClip(
-  id: string,
-): Promise<MetadataClip | null> {
+async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
   const row = await selectClipById(id)
   if (!row) return null
   if (row.status !== "ready") return null
@@ -57,14 +49,7 @@ export async function visiblePublicClip(
 
 function buildClipHead(row: MetadataClip): string {
   const origin = env.PUBLIC_SERVER_URL
-  // FxTwitter-style social card: the author is the bold top line (og:title),
-  // and the body carries the clip title plus the author's own description.
-  // No engagement counts — unfurlers snapshot tags at post time, so counts
-  // would be permanently frozen (and near-zero for publish announcements).
-  const socialDescription = [row.title, row.description?.trim() || null]
-    .filter((part): part is string => part !== null)
-    .join("\n\n")
-  const seoDescription =
+  const description =
     row.description?.trim() ||
     `${row.authorUsername} shared a ${clipGameName(row)} clip on alloy.`
   const poster = row.thumbKey
@@ -74,39 +59,24 @@ function buildClipHead(row: MetadataClip): string {
       ).toString()
     : null
   const video = socialVideo(row, origin)
-  // FxTwitter-style author avatar: link unfurlers (Discord) render the page's
-  // apple-touch-icon as the round icon next to the embed title, so point it
-  // at the author's avatar per clip page. This link is injected before the
-  // static /logo.png one in index.html, so crawlers pick it first.
-  const authorAvatar = row.authorImage
-    ? new URL(row.authorImage, origin).toString()
-    : null
-  // FxTwitter-style footer: the oEmbed provider_name renders as the bottom
-  // "alloy" line (with favicon) and supersedes the og:site_name top line,
-  // which is therefore omitted. The endpoint also carries the game/duration
-  // line via author_name.
-  const oembedUrl = new URL(`/api/oembed?clip=${row.id}`, origin).toString()
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
-    ...(authorAvatar
-      ? [`<link rel="apple-touch-icon" href="${htmlEscape(authorAvatar)}" />`]
-      : []),
-    metaName("description", seoDescription),
-    `<link rel="alternate" type="application/json+oembed" href="${htmlEscape(oembedUrl)}" title="${htmlEscape(row.authorUsername)}" />`,
+    metaName("description", description),
+    metaProperty("og:site_name", "alloy"),
     metaProperty("og:type", "video.other"),
-    metaProperty("og:title", row.authorUsername),
-    metaProperty("og:description", socialDescription),
+    metaProperty("og:title", row.title),
+    metaProperty("og:description", description),
     ...(poster ? [metaProperty("og:image", poster)] : []),
     ...socialVideoTags(video),
     metaName("twitter:card", "summary_large_image"),
-    metaName("twitter:title", row.authorUsername),
-    metaName("twitter:description", socialDescription),
+    metaName("twitter:title", row.title),
+    metaName("twitter:description", description),
     ...(poster ? [metaName("twitter:image", poster)] : []),
   ].join("\n    ")
 }
 
-export function clipGameName(row: MetadataClip): string {
+function clipGameName(row: MetadataClip): string {
   if (row.gameId === null) return row.game?.trim() || "Uncategorised"
   return clipGameRefFromSnapshot({ id: row.gameId, name: row.game }).name
 }

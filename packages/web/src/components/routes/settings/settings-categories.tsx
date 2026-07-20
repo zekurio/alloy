@@ -36,7 +36,6 @@ import {
   UsersIcon,
   VideoIcon,
   Volume2Icon,
-  WebhookIcon,
 } from "lucide-react"
 import { lazy, useMemo, useState } from "react"
 import type { ComponentType, LazyExoticComponent } from "react"
@@ -137,12 +136,6 @@ const AdminAuthPanel = lazy(() =>
 const AdminTranscodingPanel = lazy(() =>
   import("@/components/routes/settings/admin-tab-content").then((module) => ({
     default: module.AdminTranscodingPanel,
-  })),
-)
-
-const AdminWebhooksPanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminWebhooksPanel,
   })),
 )
 
@@ -500,24 +493,6 @@ const ADMIN_CATEGORIES = categoryDrafts([
     ],
     FilmIcon,
     AdminTranscodingPanel,
-  ],
-  [
-    "webhooks",
-    t("Webhooks"),
-    t("Webhooks"),
-    t("Announce public clips to Discord or any endpoint via webhooks."),
-    [
-      "webhooks",
-      "discord",
-      "announce",
-      "announcements",
-      "notifications",
-      "integrations",
-      "publish",
-      "json template",
-    ],
-    WebhookIcon,
-    AdminWebhooksPanel,
   ],
   [
     "users",

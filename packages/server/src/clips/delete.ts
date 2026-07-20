@@ -2,10 +2,6 @@ import { clip, clipRendition } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { cancelClipEncode } from "@alloy/server/jobs/kinds/clip-encode"
-import {
-  enqueueWebhookRetract,
-  wakeWebhookQueue,
-} from "@alloy/server/jobs/kinds/webhook-sync"
 import { clipStorageForKey } from "@alloy/server/storage/index"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { eq } from "drizzle-orm"
@@ -23,16 +19,7 @@ export async function deleteClipRowAndAssets(
     .select({ storageKey: clipRendition.storage_key })
     .from(clipRendition)
     .where(eq(clipRendition.clip_id, row.id))
-  // The clip row disappears here, so the webhook reconciler could never read
-  // it: retract the Discord announcement via a one-shot job that carries the
-  // message id, enqueued atomically with the delete.
-  await db.transaction(async (tx) => {
-    await tx.delete(clip).where(eq(clip.id, row.id))
-    if (row.announce_message_id) {
-      await enqueueWebhookRetract(row.announce_message_id, { tx })
-    }
-  })
-  if (row.announce_message_id) wakeWebhookQueue()
+  await db.delete(clip).where(eq(clip.id, row.id))
 
   const keys = [
     row.source_key,

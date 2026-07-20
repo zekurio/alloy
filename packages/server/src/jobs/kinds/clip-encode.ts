@@ -29,7 +29,6 @@ import {
   type EnqueueOptions,
   wakeQueueForKind,
 } from "../store"
-import { enqueueWebhookSync } from "./webhook-sync"
 
 const CLIP_ENCODE_KIND = "clip.encode"
 const logger = createLogger("jobs")
@@ -128,7 +127,7 @@ async function runClipEncode(
   const matchingAction = await matchingFingerprintAction(payload, row)
   if (matchingAction === "skip") {
     if (payload.trigger === "upload") {
-      await fanOutReadyClipPublish(payload.clipId)
+      await fanOutReadyClipMentions(payload.clipId)
     }
     return
   }
@@ -176,7 +175,7 @@ async function runClipEncode(
       )
     }
     if (payload.trigger === "upload") {
-      await fanOutReadyClipPublish(payload.clipId)
+      await fanOutReadyClipMentions(payload.clipId)
     }
   } catch (err) {
     if (ctx.signal.aborted && ctx.signal.reason === "shutdown") {
@@ -190,9 +189,7 @@ async function runClipEncode(
   }
 }
 
-// First-publish fan-out: mention notifications plus the publish-webhook
-// reconciler (which itself checks privacy and announces only public clips).
-async function fanOutReadyClipPublish(clipId: string): Promise<void> {
+async function fanOutReadyClipMentions(clipId: string): Promise<void> {
   const [ready] = await db
     .select({ id: clip.id })
     .from(clip)
@@ -202,7 +199,6 @@ async function fanOutReadyClipPublish(clipId: string): Promise<void> {
   await createStoredClipMentionNotifications(clipId).catch((error) =>
     logger.error("notification fan-out failed", error),
   )
-  await enqueueWebhookSync(clipId)
 }
 
 async function handleClipEncodeFailed(
