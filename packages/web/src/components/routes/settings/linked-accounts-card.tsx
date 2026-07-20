@@ -5,10 +5,9 @@ import { Button } from "@alloy/ui/components/button"
 import { List, ListItem } from "@alloy/ui/components/list"
 import { toast } from "@alloy/ui/lib/toast"
 import { useRouter } from "@tanstack/react-router"
-import { Link2OffIcon, LinkIcon } from "lucide-react"
+import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
-import { ProviderGlyph } from "@/components/auth/provider-glyph"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { authClient, useSession } from "@/lib/auth-client"
 import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
@@ -340,11 +339,11 @@ function ProviderIcon({ provider }: { provider?: Provider }) {
         color: provider?.buttonTextColor,
       }}
     >
-      <ProviderGlyph
-        providerId={provider?.providerId ?? ""}
-        iconUrl={provider?.iconUrl}
-        className="size-4"
-      />
+      {provider?.iconUrl ? (
+        <img src={provider.iconUrl} alt="" className="size-4 object-contain" />
+      ) : (
+        <UserKeyIcon className="size-4" />
+      )}
     </span>
   )
 }

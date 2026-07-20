@@ -138,53 +138,6 @@ export function OAuthProviderForm({
   )
 }
 
-/**
- * Minimal form for first-party presets: endpoints, scopes, claims, and
- * styling come from the preset, so only the client credentials (and the
- * callback URL to register) are surfaced.
- */
-export function OAuthProviderPresetForm({
-  draft,
-  authBaseURL,
-  onChange,
-}: {
-  draft: ProviderDraft
-  authBaseURL: string
-  onChange: (next: Partial<ProviderDraft>) => void
-}) {
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <CallbackUrlField
-        id={providerFieldId("preset-callback-url", draft.providerId)}
-        value={callbackURLForProvider(authBaseURL, draft.providerId)}
-      />
-      <ProviderTextField
-        fieldId="preset-client-id"
-        editingProviderId={draft.providerId}
-        label={t("Client ID")}
-        value={draft.clientId}
-        onChange={(clientId) => onChange({ clientId })}
-        required
-      />
-      <ProviderTextField
-        fieldId="preset-client-secret"
-        editingProviderId={draft.providerId}
-        label={t("Client secret")}
-        value={draft.clientSecret}
-        onChange={(clientSecret) => onChange({ clientSecret })}
-        type="password"
-        required
-      />
-      <ToggleField
-        label={t("Enabled")}
-        description={t("Allow users to sign in with this provider.")}
-        checked={draft.enabled}
-        onCheckedChange={(enabled) => onChange({ enabled })}
-      />
-    </div>
-  )
-}
-
 function AdvancedProviderFields({
   draft,
   editingProviderId,

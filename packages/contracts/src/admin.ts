@@ -6,7 +6,6 @@ import {
   OAuthProviderConfigSchema,
 } from "./admin-auth"
 import type { UserStatus } from "./shared"
-import { AdminWebhooksConfigSchema, WebhooksConfigSchema } from "./webhooks"
 
 export {
   AdminOAuthProviderSchema,
@@ -292,11 +291,9 @@ export interface AdminUpdateUserInput {
 export const RUNTIME_CONFIG_VERSION = 1
 
 /**
- * Server runtime configuration. Most fields are deploy-time env/Nix config;
- * DB-backed instance settings cover setup completion, login appearance,
- * transcoding, jobs, and webhooks. `webhooks.discord.webhookUrl` embeds a
- * secret token — admin responses expose it only via {@link AdminRuntimeConfigSchema}
- * as a presence flag.
+ * Secret-free server configuration as exposed through admin responses. Most
+ * fields are deploy-time env/Nix config; DB-backed instance settings currently
+ * cover setup completion and login appearance.
  */
 export const RuntimeConfigSchema = z.looseObject({
   runtimeConfigVersion: PositiveIntegerSchema.refine(
@@ -313,7 +310,6 @@ export const RuntimeConfigSchema = z.looseObject({
   appearance: AppearanceConfigSchema,
   transcoding: TranscodingConfigSchema,
   jobs: JobsConfigSchema,
-  webhooks: WebhooksConfigSchema,
 })
 
 export type RuntimeConfig = z.infer<typeof RuntimeConfigSchema>
@@ -337,7 +333,6 @@ export const AdminRuntimeConfigSchema = z.looseObject({
   appearance: AppearanceConfigSchema,
   transcoding: TranscodingConfigSchema,
   jobs: JobsConfigSchema,
-  webhooks: AdminWebhooksConfigSchema,
   integrations: AdminIntegrationsConfigSchema,
   authLocks: AuthConfigLocksSchema,
   authBaseURL: UrlStringSchema,

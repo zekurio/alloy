@@ -3,14 +3,12 @@ import {
   JobsConfigSchema,
   RUNTIME_CONFIG_VERSION,
   TranscodingConfigSchema,
-  WebhooksConfigSchema,
   type AppearanceConfig,
   type AuthConfigLocks,
   type JobsConfig,
   type OAuthProviderConfig,
   type RuntimeConfig,
   type TranscodingConfig,
-  type WebhooksConfig,
 } from "@alloy/contracts"
 import { instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
@@ -50,14 +48,8 @@ const DEFAULT_APPEARANCE: AppearanceConfig = AppearanceConfigSchema.parse({
 })
 const DEFAULT_TRANSCODING: TranscodingConfig = TranscodingConfigSchema.parse({})
 const DEFAULT_JOBS: JobsConfig = JobsConfigSchema.parse({})
-const DEFAULT_WEBHOOKS: WebhooksConfig = WebhooksConfigSchema.parse({})
 
-type DbOwnedConfigKey =
-  | "setupComplete"
-  | "appearance"
-  | "transcoding"
-  | "jobs"
-  | "webhooks"
+type DbOwnedConfigKey = "setupComplete" | "appearance" | "transcoding" | "jobs"
 
 let setupSetting = deepFreeze(DEFAULT_SETUP)
 let authSetting = deepFreeze(DEFAULT_AUTH)
@@ -66,7 +58,6 @@ let oauthClientSecretsSetting: Readonly<Record<string, string>> = deepFreeze({})
 let appearanceSetting = deepFreeze(DEFAULT_APPEARANCE)
 let transcodingSetting = deepFreeze(DEFAULT_TRANSCODING)
 let jobsSetting = deepFreeze(DEFAULT_JOBS)
-let webhooksSetting = deepFreeze(DEFAULT_WEBHOOKS)
 let state = freezeRuntimeConfig(buildRuntimeConfig())
 
 type Listener = (
@@ -90,7 +81,6 @@ function buildRuntimeConfig(): RuntimeConfig {
     appearance: appearanceSetting,
     transcoding: transcodingSetting,
     jobs: jobsSetting,
-    webhooks: webhooksSetting,
   }
 }
 
@@ -239,7 +229,6 @@ export async function initializeConfigStore(): Promise<void> {
     appearanceValue,
     transcodingValue,
     jobsValue,
-    webhooksValue,
   ] = await Promise.all([
     readSetting("setup"),
     readSetting("auth"),
@@ -248,7 +237,6 @@ export async function initializeConfigStore(): Promise<void> {
     readSetting("appearance"),
     readSetting("transcoding"),
     readSetting("jobs"),
-    readSetting("webhooks"),
   ])
 
   setupSetting = deepFreeze(SetupSettingSchema.parse(setupValue ?? {}))
@@ -266,9 +254,6 @@ export async function initializeConfigStore(): Promise<void> {
     TranscodingConfigSchema.parse(transcodingValue ?? DEFAULT_TRANSCODING),
   )
   jobsSetting = deepFreeze(JobsConfigSchema.parse(jobsValue ?? DEFAULT_JOBS))
-  webhooksSetting = deepFreeze(
-    WebhooksConfigSchema.parse(webhooksValue ?? DEFAULT_WEBHOOKS),
-  )
   refreshState()
 }
 
@@ -279,8 +264,7 @@ function assertDbOwnedKey(
     key !== "setupComplete" &&
     key !== "appearance" &&
     key !== "transcoding" &&
-    key !== "jobs" &&
-    key !== "webhooks"
+    key !== "jobs"
   ) {
     throw new Error(
       `Runtime config key "${String(key)}" is declarative and must be set with environment variables or Nix options.`,
@@ -327,14 +311,6 @@ export const configStore: ConfigStore = {
       const nextJobs = JobsConfigSchema.parse(value)
       await writeSetting("jobs", nextJobs)
       jobsSetting = deepFreeze(nextJobs)
-      refreshState()
-      return
-    }
-
-    if (key === "webhooks") {
-      const nextWebhooks = WebhooksConfigSchema.parse(value)
-      await writeSetting("webhooks", nextWebhooks)
-      webhooksSetting = deepFreeze(nextWebhooks)
       refreshState()
       return
     }
