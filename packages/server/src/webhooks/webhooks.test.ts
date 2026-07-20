@@ -8,35 +8,47 @@ import {
 } from "@alloy/contracts"
 
 import { discordAnnouncePayload, type ClipAnnouncement } from "./deliver"
+import { WEBHOOK_LOGO_PNG, WEBHOOK_TEST_THUMBNAIL_JPEG } from "./embed-assets"
+
+test("embedded webhook assets decode to valid images", () => {
+  // PNG signature
+  assert.deepEqual(
+    [...WEBHOOK_LOGO_PNG.subarray(0, 4)],
+    [0x89, 0x50, 0x4e, 0x47],
+  )
+  // JPEG SOI marker
+  assert.deepEqual(
+    [...WEBHOOK_TEST_THUMBNAIL_JPEG.subarray(0, 2)],
+    [0xff, 0xd8],
+  )
+  assert.ok(WEBHOOK_LOGO_PNG.length > 1000)
+  assert.ok(WEBHOOK_TEST_THUMBNAIL_JPEG.length > 1000)
+})
 
 const BASE_ANNOUNCEMENT: ClipAnnouncement = {
-  clipId: "6f1c2b1e-0000-4000-8000-000000000000",
+  clipUrl: "https://alloy.example/clips/6f1c2b1e",
   title: "Ace clutch",
   authorUsername: "zekurio",
   authorImage: null,
-  authorDiscordId: null,
   game: null,
+  gameUrl: null,
   durationMs: 30_000,
-  hasThumbnail: false,
+  thumbnailUrl: null,
   createdAt: new Date("2025-01-01T00:00:00Z"),
 }
 
-test("discordAnnouncePayload mentions a linked Discord account without pinging", () => {
+test("discordAnnouncePayload links the game and escapes markdown", () => {
   const payload = discordAnnouncePayload({
     ...BASE_ANNOUNCEMENT,
-    authorDiscordId: "80351110224678912",
-  }) as { content?: string; allowed_mentions?: unknown }
-  assert.equal(payload.content, "<@80351110224678912>")
-  assert.deepEqual(payload.allowed_mentions, { parse: [] })
-})
-
-test("discordAnnouncePayload omits the mention when no account is linked", () => {
-  const payload = discordAnnouncePayload(BASE_ANNOUNCEMENT) as {
-    content?: string
-    allowed_mentions?: unknown
-  }
-  assert.equal(payload.content, undefined)
-  assert.equal(payload.allowed_mentions, undefined)
+    game: "Game [Beta]",
+    gameUrl: "https://alloy.example/games/game-beta",
+    durationMs: 87_000,
+  })
+  const embed = payload.embeds[0] as { description?: string }
+  assert.equal(
+    embed.description,
+    "[Game \\[Beta\\]](https://alloy.example/games/game-beta) · 1:27",
+  )
 })
 
 test("isDiscordWebhookUrl accepts canonical webhook URLs", () => {

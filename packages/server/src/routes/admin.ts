@@ -29,6 +29,8 @@ import {
   success,
 } from "@alloy/server/runtime/http-response"
 import {
+  discordTestFiles,
+  discordTestPayload,
   postGenericWebhook,
   testTemplateValues,
 } from "@alloy/server/webhooks/deliver"
@@ -302,9 +304,11 @@ export const adminRoute = new Hono()
         return badRequest(c, "No Discord webhook URL is configured.")
       }
       try {
-        await executeDiscordWebhook(config.discord.webhookUrl, {
-          content: "Alloy webhook test — clip announcements will look richer.",
-        })
+        await executeDiscordWebhook(
+          config.discord.webhookUrl,
+          discordTestPayload(),
+          discordTestFiles(),
+        )
       } catch (err) {
         return badRequest(c, errorMessage(err, "Discord webhook test failed"))
       }
