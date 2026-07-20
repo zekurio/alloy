@@ -16,7 +16,9 @@ import { htmlEscape } from "./web-html"
 const logger = createLogger("web")
 const CLIP_PERMALINK_RE = /^(?:\/games\/[^/]+)?\/clips\/([^/]+)\/?$/
 
-type MetadataClip = NonNullable<Awaited<ReturnType<typeof selectClipById>>>
+export type MetadataClip = NonNullable<
+  Awaited<ReturnType<typeof selectClipById>>
+>
 
 export async function clipHead(pathname: string): Promise<string> {
   const clipId = CLIP_PERMALINK_RE.exec(pathname)?.[1]
@@ -31,7 +33,13 @@ export async function clipHead(pathname: string): Promise<string> {
   }
 }
 
-async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
+/**
+ * Clip row for public metadata surfaces (social head tags, oEmbed): ready,
+ * public or unlisted, and not authored by a disabled account.
+ */
+export async function visiblePublicClip(
+  id: string,
+): Promise<MetadataClip | null> {
   const row = await selectClipById(id)
   if (!row) return null
   if (row.status !== "ready") return null
@@ -73,6 +81,11 @@ function buildClipHead(row: MetadataClip): string {
   const authorAvatar = row.authorImage
     ? new URL(row.authorImage, origin).toString()
     : null
+  // FxTwitter-style footer: the oEmbed provider_name renders as the bottom
+  // "alloy" line (with favicon) and supersedes the og:site_name top line,
+  // which is therefore omitted. The endpoint also carries the game/duration
+  // line via author_name.
+  const oembedUrl = new URL(`/api/oembed?clip=${row.id}`, origin).toString()
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
@@ -80,7 +93,7 @@ function buildClipHead(row: MetadataClip): string {
       ? [`<link rel="apple-touch-icon" href="${htmlEscape(authorAvatar)}" />`]
       : []),
     metaName("description", seoDescription),
-    metaProperty("og:site_name", "alloy"),
+    `<link rel="alternate" type="application/json+oembed" href="${htmlEscape(oembedUrl)}" title="${htmlEscape(row.authorUsername)}" />`,
     metaProperty("og:type", "video.other"),
     metaProperty("og:title", row.authorUsername),
     metaProperty("og:description", socialDescription),
@@ -93,7 +106,7 @@ function buildClipHead(row: MetadataClip): string {
   ].join("\n    ")
 }
 
-function clipGameName(row: MetadataClip): string {
+export function clipGameName(row: MetadataClip): string {
   if (row.gameId === null) return row.game?.trim() || "Uncategorised"
   return clipGameRefFromSnapshot({ id: row.gameId, name: row.game }).name
 }
