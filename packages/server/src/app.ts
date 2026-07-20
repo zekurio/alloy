@@ -7,6 +7,7 @@ import { NONCE, secureHeaders } from "hono/secure-headers"
 import { getSession } from "./auth/session"
 import { configStore } from "./config/store"
 import { env } from "./env"
+import { activityStatusRoute } from "./routes/activity-status"
 import { adminRoute } from "./routes/admin"
 import { gameAssetsRoute } from "./routes/admin-games"
 import { authRoute } from "./routes/auth"
@@ -190,6 +191,7 @@ const apiApp = new Hono()
   .route("/api/users", usersUploadRoute)
   .route("/api/notifications", notificationsRoute)
   .route("/api/events", eventsRoute)
+  .route("/api/v1/statuses", activityStatusRoute)
   .route("/api/oembed", oembedRoute)
   .route("/api/assets", storageRoute)
   .route("/api/assets/users", userAssetsRoute)

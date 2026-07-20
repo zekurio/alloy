@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm"
 import { clipAssetVersion } from "./clips/asset-version"
 import { selectClipById } from "./clips/select"
 import { db } from "./db"
+import { encodeDiscordActivityId } from "./discord-activity-id"
 import { env } from "./env"
 import { clipGameRefFromSnapshot } from "./games/ref"
 import { htmlEscape } from "./web-html"
@@ -66,13 +67,8 @@ function buildClipHead(row: MetadataClip): string {
   const seoDescription =
     row.description?.trim() ||
     `${row.authorUsername} shared a ${clipGameName(row)} clip on alloy.`
-  const poster = row.thumbKey
-    ? new URL(
-        `/api/clips/${row.id}/thumbnail?v=${clipAssetVersion(row.thumbKey)}`,
-        origin,
-      ).toString()
-    : null
-  const video = socialVideo(row, origin)
+  const poster = clipSocialPoster(row, origin)
+  const video = clipSocialVideo(row, origin)
   const clipUrl = new URL(`/clips/${row.id}`, origin).toString()
   // FxTwitter-style author avatar: link unfurlers (Discord) render the page's
   // apple-touch-icon as the round icon next to the embed title, so replace the
@@ -88,6 +84,13 @@ function buildClipHead(row: MetadataClip): string {
   // layout from its independent oEmbed cache after an Alloy upgrade.
   const oembedUrl = new URL(`/api/oembed?clip=${row.id}&v=2`, origin).toString()
   const favicon = new URL("/logo.png", origin).toString()
+  // FxEmbed's current Discord layout is a Mastodon compatibility path. The
+  // numeric snowcode convinces Discord to resolve /api/v1/statuses/:id and use
+  // its explicit account, media, content, and timestamp fields.
+  const activityUrl = new URL(
+    `/users/${encodeURIComponent(row.authorUsername)}/statuses/${encodeDiscordActivityId(row.id)}`,
+    origin,
+  ).toString()
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
@@ -111,6 +114,7 @@ function buildClipHead(row: MetadataClip): string {
     metaProperty("og:site_name", "alloy"),
     `<link rel="icon" type="image/png" sizes="256x256" href="${htmlEscape(favicon)}" />`,
     `<link rel="alternate" type="application/json+oembed" href="${htmlEscape(oembedUrl)}" title="${htmlEscape(row.authorUsername)}" />`,
+    `<link rel="alternate" type="application/activity+json" href="${htmlEscape(activityUrl)}" />`,
   ].join("\n    ")
 }
 
@@ -125,7 +129,31 @@ export function clipGameName(row: MetadataClip): string {
   return clipGameRefFromSnapshot({ id: row.gameId, name: row.game }).name
 }
 
-function socialVideo(row: MetadataClip, origin: string) {
+/** "Game · duration" line; either part may be missing. */
+export function clipDetailLine(row: MetadataClip): string {
+  const hasGame = row.gameId !== null || Boolean(row.game?.trim())
+  return [
+    hasGame ? clipGameName(row) : null,
+    row.durationMs !== null && row.durationMs > 0
+      ? formatDuration(row.durationMs)
+      : null,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(" · ")
+}
+
+export function clipSocialPoster(
+  row: MetadataClip,
+  origin: string,
+): string | null {
+  if (!row.thumbKey) return null
+  return new URL(
+    `/api/clips/${row.id}/thumbnail?v=${clipAssetVersion(row.thumbKey)}`,
+    origin,
+  ).toString()
+}
+
+export function clipSocialVideo(row: MetadataClip, origin: string) {
   // Social video embeds are only reliable for H.264/AAC. Source codec metadata
   // is required; legacy null sourceCodecs must use the rendition fallbacks.
   const renditionRows = row.renditionRows ?? []
@@ -174,7 +202,14 @@ function socialVideo(row: MetadataClip, origin: string) {
   }
 }
 
-function socialVideoTags(video: ReturnType<typeof socialVideo>): string[] {
+function formatDuration(durationMs: number): string {
+  const totalSeconds = Math.round(durationMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${String(seconds).padStart(2, "0")}`
+}
+
+function socialVideoTags(video: ReturnType<typeof clipSocialVideo>): string[] {
   if (!video.url) return []
   return [
     metaProperty("og:video", video.url),
@@ -192,7 +227,7 @@ function socialVideoTags(video: ReturnType<typeof socialVideo>): string[] {
 }
 
 function socialTwitterVideoTags(
-  video: ReturnType<typeof socialVideo>,
+  video: ReturnType<typeof clipSocialVideo>,
 ): string[] {
   if (!video.url) return []
   return [
