@@ -188,8 +188,7 @@ export const usersRoute = new Hono()
     if (!session) return c.json({ viewer: null, counts: null })
 
     const viewerId = session.user.id
-    const isAdmin =
-      (session.user as { role?: string | null } | undefined)?.role === "admin"
+    const isAdmin = session.user.role === "admin"
     const isSelf = viewerId === row.id
     const [viewer, counts] = await Promise.all([
       resolveViewerState(viewerId, row.id),

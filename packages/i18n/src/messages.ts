@@ -568,7 +568,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Home: "Start",
   Hotkeys: "Hotkeys",
   Icon: "Symbol",
-  "image/jpeg": "image/jpeg",
   "Import clip": "Clip importieren",
   "Import clips": "Clips importieren",
   "Import is unavailable in this desktop build":
@@ -589,7 +588,6 @@ export const DE_MESSAGES: Record<string, string> = {
   kbps: "kbps",
   "Keep between 1 and 6 rendition tiers.":
     "Behalte zwischen 1 und 6 Qualitätsstufen bei.",
-  landscape: "Querformat",
   Language: "Sprache",
   "Last used": "Zuletzt verwendet",
   "Launches in the background so your games are captured right away.":
@@ -653,7 +651,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Memory: "Arbeitsspeicher",
   Meta: "Meta",
   "Microphone source": "Mikrofonquelle",
-  "min(72dvh, calc(100dvh - 18rem))": "min(72dvh, calc(100dvh - 18rem))",
   Minimize: "Minimieren",
   more: "mehr",
   "More clip options": "Weitere Clip-Optionen",
@@ -754,9 +751,6 @@ export const DE_MESSAGES: Record<string, string> = {
     "Wird abgespielt, wenn Alloy anfängt, Replay-Clips bereitzuhalten.",
   "Played when the replay hotkey starts saving a clip.":
     "Wird abgespielt, wenn der Replay-Hotkey anfängt, einen Clip zu speichern.",
-  "pointer-events-auto": "pointer-events-auto",
-  "pointer-events-none": "pointer-events-none",
-  portrait: "Hochformat",
   Post: "Posten",
   "Posted and link copied": "Veröffentlicht und Link kopiert",
   "Poster updated": "Poster aktualisiert",
@@ -920,7 +914,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Show more": "Mehr anzeigen",
   "Show profile": "Profil anzeigen",
   "Show this profile?": "Dieses Profil anzeigen?",
-  "shrink-0": "shrink-0",
   "Sign in": "Anmelden",
   "Sign in to {serverLabel} in your browser to continue.":
     "Melde dich in deinem Browser bei {serverLabel} an, um fortzufahren.",

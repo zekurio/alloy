@@ -204,7 +204,12 @@ fn candidate_game_detection_match(
     }
 
     if let Some(name) = windows_store_game_name(path) {
-        if known_game_window_is_plausible(capture_dimensions, class_name) {
+        // WindowsApps contains ordinary packaged desktop software too. Unlike
+        // a curated executable match, the path alone is not positive evidence
+        // that the process is a game.
+        if class_is_game_like(class_name)
+            && capture_dimensions.is_some_and(has_valid_game_dimensions)
+        {
             return Some(CandidateGameMatch {
                 id: Some(format!("windows-store:{}", detection_slug(&name))),
                 source: RecordingGameGuessSource::WindowsStore,
@@ -873,5 +878,47 @@ mod tests {
                 .expect("embedded non-game detections should parse");
 
         assert!(!entries.is_empty());
+    }
+
+    #[test]
+    fn packaged_desktop_apps_are_not_detected_as_windows_store_games() {
+        let settings = RecordingSettings::default();
+        let dimensions = Some(VideoDimensions {
+            width: 1920,
+            height: 1080,
+        });
+
+        assert!(
+            candidate_game_detection_match(
+                Some(
+                    r"C:\Program Files\WindowsApps\Contoso.Editor_1.0.0.0_x64__abc\Editor.exe",
+                ),
+                Some("Editor.exe"),
+                Some("Editor"),
+                Some("Chrome_WidgetWin_1"),
+                dimensions,
+                &settings,
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn game_like_windows_store_apps_remain_detectable() {
+        let detected = candidate_game_detection_match(
+            Some(r"C:\Program Files\WindowsApps\Microsoft.Halo_1.0.0.0_x64__abc\Halo.exe"),
+            Some("Halo.exe"),
+            Some("Halo"),
+            Some("UnityWndClass"),
+            Some(VideoDimensions {
+                width: 1920,
+                height: 1080,
+            }),
+            &RecordingSettings::default(),
+        );
+
+        assert!(detected.is_some_and(|match_| {
+            matches!(match_.source, RecordingGameGuessSource::WindowsStore)
+        }));
     }
 }

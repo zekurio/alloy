@@ -16,7 +16,6 @@ import {
   parseClipListCursor,
   publicClipListingConditions,
 } from "./clips-helpers"
-import { serialiseGameListRow } from "./games-helpers"
 import { clipTagFilter } from "./tag-filter"
 import { limitQueryParam, zValidator } from "./validation"
 
@@ -122,11 +121,9 @@ export const tagsRoute = new Hono()
 
     return c.json({
       clipCount: summary[0]?.clipCount ?? 0,
-      games: rows.map((row) =>
-        serialiseGameListRow({
-          ...serialiseGameRow(row),
-          clipCount: row.clipCount,
-        }),
-      ),
+      games: rows.map((row) => ({
+        ...serialiseGameRow(row),
+        clipCount: row.clipCount,
+      })),
     })
   })

@@ -32,8 +32,6 @@ import {
   LookupBody,
   ResolveBody,
   SearchQuery,
-  serialiseGame,
-  serialiseGameListRow,
   steamgriddbErrorResponse,
   SlugParam,
 } from "./games-helpers"
@@ -138,7 +136,7 @@ export const gamesRoute = new Hono()
       const { steamgriddbId } = c.req.valid("json")
       const resolved = await resolveSteamGridDBGameRef(c, steamgriddbId)
       if (resolved.response) return resolved.response
-      return c.json(serialiseGame(resolved.row))
+      return c.json(resolved.row)
     },
   )
   .post(
@@ -167,12 +165,10 @@ export const gamesRoute = new Hono()
       .offset(offset)
 
     return c.json(
-      rows.map((row) =>
-        serialiseGameListRow({
-          ...serialiseGameRow(row),
-          clipCount: row.clipCount,
-        }),
-      ),
+      rows.map((row) => ({
+        ...serialiseGameRow(row),
+        clipCount: row.clipCount,
+      })),
     )
   })
   .get("/:slug", zValidator("param", SlugParam), async (c) => {
@@ -210,7 +206,7 @@ export const gamesRoute = new Hono()
       .where(and(eq(clip.game_id, gameId), ...publicClipListingConditions()))
 
     return c.json({
-      ...serialiseGame(resolved.row),
+      ...resolved.row,
       viewer,
       favouritesCount,
       clipCount,
