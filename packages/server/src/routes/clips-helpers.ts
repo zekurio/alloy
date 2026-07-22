@@ -297,21 +297,3 @@ export function downloadFilename(row: PlaybackClipRow): string {
   const base = row.title.trim().replace(/[/\\?%*:|"<>]/g, "-") || row.id
   return `${base}.${extensionForContentType(row.source_content_type ?? "")}`
 }
-
-export async function readAll(
-  stream: ReadableStream<Uint8Array>,
-): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for await (const chunk of stream) {
-    chunks.push(chunk)
-    size += chunk.byteLength
-  }
-  const out = new Uint8Array(size)
-  let offset = 0
-  for (const chunk of chunks) {
-    out.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return out
-}

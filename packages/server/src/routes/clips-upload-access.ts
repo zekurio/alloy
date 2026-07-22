@@ -23,13 +23,6 @@ export async function updatedClipResponse(c: Context, clipId: string) {
   return c.json(toPublicClipRow(updated))
 }
 
-async function canAdminMutateClip(c: Context): Promise<boolean> {
-  const session = await getSession(c)
-  return (
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
-  )
-}
-
 export async function selectClipForMutation(
   c: Context,
   input: {
@@ -48,7 +41,7 @@ export async function selectClipForMutation(
 
   const canMutate =
     row.author_id === input.viewerId ||
-    (input.allowAdmin === true && (await canAdminMutateClip(c)))
+    (input.allowAdmin === true && (await getSession(c))?.user.role === "admin")
   if (!canMutate) return { response: forbidden(c) }
 
   if (input.statuses && !input.statuses.includes(row.status)) {

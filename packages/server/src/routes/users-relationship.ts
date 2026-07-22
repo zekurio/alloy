@@ -13,7 +13,7 @@ import { resolveTarget, type UserRow } from "./users-helpers"
 
 type UserTargetResult = { target: UserRow } | { response: Response }
 
-export async function hasBlockingRelationship(
+async function hasBlockingRelationship(
   viewerId: string,
   targetId: string,
 ): Promise<boolean> {

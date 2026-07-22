@@ -28,7 +28,7 @@ async function peekClipViewer(c: Context): Promise<ClipViewer> {
   if (!session) return null
   return {
     id: session.user.id,
-    role: (session.user as { role?: string | null }).role ?? null,
+    role: session.user.role,
   }
 }
 

@@ -13,14 +13,12 @@ import {
   imageBlurHashFromBytes,
 } from "@alloy/server/media/blurhash"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
-import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
-import { notFound } from "@alloy/server/runtime/http-response"
-import type { ResolvedObject } from "@alloy/server/storage/driver"
 import { gameAssetKey, gameAssetStorage } from "@alloy/server/storage/index"
 import { eq } from "drizzle-orm"
-import { Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 import sharp from "sharp"
+
+import { immutableImageAssetsRoute } from "./immutable-image-assets"
 
 const logger = createLogger("admin-games")
 
@@ -179,55 +177,7 @@ async function blurHashForUrl(url: string): Promise<string | null> {
   }
 }
 
-function assetEtag(key: string, resolved: ResolvedObject): string {
-  const modified = resolved.lastModified?.getTime() ?? 0
-  return `"${Buffer.from(`${key}:${resolved.size}:${modified}`).toString(
-    "base64url",
-  )}"`
-}
-
-async function readAll(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
-  const chunks: Uint8Array[] = []
-  let size = 0
-  for await (const chunk of stream) {
-    chunks.push(chunk)
-    size += chunk.byteLength
-  }
-  const out = Buffer.alloc(size)
-  let offset = 0
-  for (const chunk of chunks) {
-    out.set(chunk, offset)
-    offset += chunk.byteLength
-  }
-  return out
-}
-
-export const gameAssetsRoute = new Hono().get("/:key{.+}", async (c) => {
-  const key = c.req.param("key") ?? ""
-  if (!key || !GAME_ASSET_KEY_RE.test(key)) return notFound(c)
-
-  const resolved = await gameAssetStorage.resolve(key)
-  if (!resolved) return notFound(c)
-  const etag = assetEtag(key, resolved)
-
-  c.header("ETag", etag)
-  if (resolved.lastModified) {
-    c.header("Last-Modified", resolved.lastModified.toUTCString())
-  }
-  c.header("Cache-Control", "public, max-age=86400, immutable")
-
-  if (ifNoneMatchSatisfied(c.req.header("if-none-match"), etag)) {
-    return c.body(null, 304)
-  }
-
-  c.header("Content-Type", resolved.contentType)
-  const buf = await readAll(resolved.stream())
-  c.header("Content-Length", String(buf.byteLength))
-
-  return c.body(
-    buf.buffer.slice(
-      buf.byteOffset,
-      buf.byteOffset + buf.byteLength,
-    ) as ArrayBuffer,
-  )
-})
+export const gameAssetsRoute = immutableImageAssetsRoute(
+  gameAssetStorage,
+  GAME_ASSET_KEY_RE,
+)
