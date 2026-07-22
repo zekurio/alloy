@@ -67,9 +67,6 @@ export function ChromeBar({
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
-  const chromeInteractive = visible
-  const showEdgeScrubber = isCoarsePointer
-  const edgeScrubberInteractive = !visible
   const portalContainer = containerRef.current ?? undefined
 
   useEffect(() => {
@@ -88,15 +85,8 @@ export function ChromeBar({
 
   return (
     <>
-      {showEdgeScrubber && !chromeInteractive ? (
-        <div
-          className={cn(
-            "absolute inset-x-0 bottom-0 z-30",
-            edgeScrubberInteractive
-              ? t("pointer-events-auto")
-              : t("pointer-events-none"),
-          )}
-        >
+      {isCoarsePointer && !visible ? (
+        <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30">
           <ChromeTimeline
             currentTime={currentTime}
             duration={duration}
@@ -114,7 +104,7 @@ export function ChromeBar({
           "pointer-events-none absolute inset-x-0 bottom-0 isolate z-20 flex items-center gap-1 px-1 pt-2 pb-[env(safe-area-inset-bottom)] transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
           "bg-gradient-to-t from-black via-black/30 to-transparent pt-10",
           visible ? "translate-y-0 opacity-100" : "translate-y-1 opacity-0",
-          chromeInteractive && "pointer-events-auto",
+          visible && "pointer-events-auto",
           "data-[pinned=true]:translate-y-0 data-[pinned=true]:opacity-100",
           isFullscreen &&
             "pr-[max(2px,calc(env(safe-area-inset-right)+2px))] pl-[max(2px,calc(env(safe-area-inset-left)+2px))]",

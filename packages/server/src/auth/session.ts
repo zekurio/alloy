@@ -105,13 +105,8 @@ async function selectSessionByAccessHash(
   return row
 }
 
-async function resolveSession(
-  headers: Headers | Context,
-): Promise<SessionData | null> {
-  const accessToken =
-    "req" in headers
-      ? readAccessCookie(headers)
-      : cookieTokenFromHeaders(headers, "alloy_access")
+async function resolveSession(c: Context): Promise<SessionData | null> {
+  const accessToken = readAccessCookie(c)
   if (accessToken) {
     const data = await selectSessionByAccessHash(
       await hashSessionToken(accessToken),
@@ -119,41 +114,16 @@ async function resolveSession(
     if (data) return data
   }
 
-  if ("req" in headers) {
-    return (await refreshSession(headers))?.data ?? null
-  }
-  return null
+  return (await refreshSession(c))?.data ?? null
 }
 
-export async function getSession(
-  headers: Headers | Context,
-): Promise<SessionData | null> {
-  if (!("req" in headers)) return resolveSession(headers)
-
-  const cached = requestSessionCache.get(headers)
+export async function getSession(c: Context): Promise<SessionData | null> {
+  const cached = requestSessionCache.get(c)
   if (cached) return cached
 
-  const session = resolveSession(headers)
-  requestSessionCache.set(headers, session)
+  const session = resolveSession(c)
+  requestSessionCache.set(c, session)
   return session
-}
-
-function cookieTokenFromHeaders(
-  headers: Headers,
-  cookieName: string,
-): string | null {
-  const cookie = headers.get("cookie")
-  if (!cookie) return null
-  for (const part of cookie.split(";")) {
-    const [name, ...rest] = part.trim().split("=")
-    if (name !== cookieName) continue
-    try {
-      return decodeURIComponent(rest.join("="))
-    } catch {
-      return null
-    }
-  }
-  return null
 }
 
 export async function deleteCurrentSession(c: Context): Promise<void> {

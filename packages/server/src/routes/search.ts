@@ -18,7 +18,6 @@ import {
   publicClipListingConditions,
   publicClipPrivacyCondition,
 } from "./clips-helpers"
-import { serialiseGameListRow } from "./games-helpers"
 import {
   serialiseUserListRow,
   toLikePattern,
@@ -37,10 +36,6 @@ const SearchQuery = z.object({
   limit: limitQueryParam(20, 8),
 })
 
-function visibleGameClipConditions() {
-  return publicClipListingConditions()
-}
-
 async function countVisibleClipsForSteamGridDBIds(
   steamgriddbIds: number[],
 ): Promise<Map<number, { gameId: string; clipCount: number }>> {
@@ -56,7 +51,7 @@ async function countVisibleClipsForSteamGridDBIds(
     .innerJoin(user, eq(clip.author_id, user.id))
     .where(
       and(
-        ...visibleGameClipConditions(),
+        ...publicClipListingConditions(),
         inArray(game.steamgriddb_id, steamgriddbIds),
       ),
     )
@@ -91,7 +86,7 @@ async function searchSteamGridDBGames(
       if (!countRow) continue
       const ref = refs.get(countRow.gameId)
       if (!ref) continue
-      rows.push(serialiseGameListRow({ ...ref, clipCount: countRow.clipCount }))
+      rows.push({ ...ref, clipCount: countRow.clipCount })
       if (rows.length >= limit) break
     }
 
@@ -116,7 +111,7 @@ async function searchLocalGameSnapshots(
     .innerJoin(user, eq(clip.author_id, user.id))
     .where(
       and(
-        ...visibleGameClipConditions(),
+        ...publicClipListingConditions(),
         or(
           ilike(game.name, pattern),
           ilike(game.slug, pattern),
@@ -128,12 +123,10 @@ async function searchLocalGameSnapshots(
     .orderBy(sql`count(${clip.id}) desc`, game.name)
     .limit(limit)
 
-  return rows.map((row) =>
-    serialiseGameListRow({
-      ...serialiseGameRow(row),
-      clipCount: row.clipCount,
-    }),
-  )
+  return rows.map((row) => ({
+    ...serialiseGameRow(row),
+    clipCount: row.clipCount,
+  }))
 }
 
 function mergeGameResults(

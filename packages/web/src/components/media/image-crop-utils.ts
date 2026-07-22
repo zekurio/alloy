@@ -228,7 +228,7 @@ export function readElementSize(node: HTMLElement | null) {
 }
 
 export function preferredOutputType(type: string) {
-  return type === "image/png" || type === "image/webp" ? type : t("image/jpeg")
+  return type === "image/png" || type === "image/webp" ? type : "image/jpeg"
 }
 
 export async function readFileAsDataUrl(file: File): Promise<string> {

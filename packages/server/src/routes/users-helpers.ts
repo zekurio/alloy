@@ -56,19 +56,6 @@ export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
   }
 }
 
-export function serialiseNullableUserSummary(row: {
-  id: string | null
-  username: string | null
-  image: string | null
-}): UserSummary | null {
-  if (!row.id) return null
-  return serialiseUserSummary({
-    id: row.id,
-    username: row.username ?? "",
-    image: row.image,
-  })
-}
-
 export function serialiseUserListRow(
   row: UserSummaryFields & { createdAt: Date | string; clipCount: number },
 ): UserListRow {

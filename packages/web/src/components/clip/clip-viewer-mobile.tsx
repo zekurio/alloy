@@ -234,7 +234,7 @@ function MobileClipViewerBody({
         className="h-dvh w-dvw rounded-none border-0 shadow-none"
       >
         <div
-          data-orientation={isLandscape ? t("landscape") : t("portrait")}
+          data-orientation={isLandscape ? "landscape" : "portrait"}
           className="relative flex h-full flex-col bg-[oklch(12%_0.01_250)]"
           onTouchStart={onTouchStart}
           onTouchEnd={onTouchEnd}
@@ -308,7 +308,7 @@ function MobileClipViewerBody({
             tabIndex={-1}
             className={cn(
               "relative z-10 outline-none",
-              isLandscape ? "flex min-h-0 flex-1 items-center" : t("shrink-0"),
+              isLandscape ? "flex min-h-0 flex-1 items-center" : "shrink-0",
             )}
           >
             <ClipPlayer
@@ -332,7 +332,7 @@ function MobileClipViewerBody({
               onRetry={retry.onRetry}
               retryPending={retry.retryPending}
               maxDisplayHeight={
-                isLandscape ? "100dvh" : t("min(72dvh, calc(100dvh - 18rem))")
+                isLandscape ? "100dvh" : "min(72dvh, calc(100dvh - 18rem))"
               }
               chromeSize="compact"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}

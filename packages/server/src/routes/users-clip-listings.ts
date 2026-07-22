@@ -58,13 +58,13 @@ export async function listUserGames(
     .limit(limit)
     .offset(offset)
 
-  const enriched = rows.map((row) => ({
-    ...serialiseGameRow(row),
-    clipCount: row.clipCount,
-    lastClippedAt: row.lastClippedAt,
-  }))
-
-  return enriched.map(serialiseProfileGameRow)
+  return rows.map((row) =>
+    serialiseProfileGameRow({
+      ...serialiseGameRow(row),
+      clipCount: row.clipCount,
+      lastClippedAt: row.lastClippedAt,
+    }),
+  )
 }
 
 async function visibleClipConditions(
@@ -74,8 +74,7 @@ async function visibleClipConditions(
 ): Promise<SQL[]> {
   const session = await getSession(c)
   const isOwner = session?.user.id === row.id
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
+  const isAdmin = session?.user.role === "admin"
   const canSeeUploads = includeOwnerUploads && (isOwner || isAdmin)
   const conditions: SQL[] = [
     eq(clip.author_id, row.id),
@@ -92,8 +91,7 @@ async function visibleClipConditions(
 
 export async function listTaggedClips(row: UserRow, c: Context) {
   const session = await getSession(c)
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
+  const isAdmin = session?.user.role === "admin"
 
   const conditions: SQL[] = [
     eq(clipMention.mentioned_user_id, row.id),
@@ -119,8 +117,7 @@ export async function listTaggedClips(row: UserRow, c: Context) {
 export async function listLikedClips(row: UserRow, c: Context) {
   const session = await getSession(c)
   const isOwner = session?.user.id === row.id
-  const isAdmin =
-    (session?.user as { role?: string | null } | undefined)?.role === "admin"
+  const isAdmin = session?.user.role === "admin"
 
   const conditions: SQL[] = [
     eq(clipLike.user_id, row.id),

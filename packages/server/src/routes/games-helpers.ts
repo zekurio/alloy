@@ -1,4 +1,4 @@
-import type { GameListRow, GameRow, ProfileGameRow } from "@alloy/contracts"
+import type { GameRow, ProfileGameRow } from "@alloy/contracts"
 import {
   SteamGridDBError,
   SteamGridDBNotConfiguredError,
@@ -41,24 +41,11 @@ export const GamesListQuery = z.object({
   offset: offsetQueryParam(),
 })
 
-export function serialiseGame(row: GameRow): GameRow {
-  return row
-}
-
-export function serialiseGameListRow(
-  row: GameRow & { clipCount: number },
-): GameListRow {
-  return {
-    ...serialiseGame(row),
-    clipCount: row.clipCount,
-  }
-}
-
 export function serialiseProfileGameRow(
   row: GameRow & { clipCount: number; lastClippedAt: Date | string },
 ): ProfileGameRow {
   return {
-    ...serialiseGameListRow(row),
+    ...row,
     lastClippedAt: isoDate(row.lastClippedAt),
   }
 }
