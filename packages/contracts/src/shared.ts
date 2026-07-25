@@ -10,7 +10,7 @@ export type ClipStatus = (typeof CLIP_STATUS)[number]
 export const RECORDING_KIND = ["clip"] as const
 export type RecordingKind = (typeof RECORDING_KIND)[number]
 
-export const UPLOAD_TICKET_ROLE = ["video"] as const
+export const UPLOAD_TICKET_ROLE = ["video", "scrubber"] as const
 export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
 
 export const USER_ROLES = ["user", "admin"] as const

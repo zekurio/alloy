@@ -7,7 +7,10 @@ import {
   runScopedSourceKey,
   runScopedThumbKey,
 } from "@alloy/server/queue/media-asset-keys"
-import { stagedSourceKey } from "@alloy/server/uploads/staged"
+import {
+  stagedScrubberKey,
+  stagedSourceKey,
+} from "@alloy/server/uploads/staged"
 
 import {
   clipAssetKey,
@@ -51,9 +54,10 @@ test("run-scoped media asset keys route to their configured storage drivers", ()
   )
 })
 
-test("staged source upload keys route to clip storage", () => {
+test("staged upload keys route to clip storage", () => {
   assert.equal(
     clipStorageForKey(stagedSourceKey(clipId, "video/mp4")),
     clipStorage,
   )
+  assert.equal(clipStorageForKey(stagedScrubberKey(clipId)), clipStorage)
 })

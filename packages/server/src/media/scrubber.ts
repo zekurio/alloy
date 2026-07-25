@@ -1,11 +1,12 @@
 import {
   CLIP_SCRUBBER_COLUMNS,
   CLIP_SCRUBBER_FRAME_COUNT,
+  CLIP_SCRUBBER_FRAME_HEIGHT,
+  CLIP_SCRUBBER_ROWS,
 } from "@alloy/contracts"
 
 import { runFfmpeg, transcodeTimeoutMs } from "./ffmpeg"
 
-const SCRUBBER_FRAME_HEIGHT = 96
 /** ffmpeg MJPEG quality scale (2 best – 31 worst). */
 const SCRUBBER_JPEG_QUALITY = 5
 
@@ -19,7 +20,6 @@ export async function generateScrubberSheet(
   outPath: string,
   opts: { durationMs: number; signal?: AbortSignal },
 ): Promise<void> {
-  const rows = Math.ceil(CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS)
   const frameIntervalSec = Math.max(
     0.001,
     opts.durationMs / 1000 / CLIP_SCRUBBER_FRAME_COUNT,
@@ -34,7 +34,7 @@ export async function generateScrubberSheet(
       "-i",
       sourcePath,
       "-vf",
-      `fps=1/${frameIntervalSec.toFixed(3)},scale=-2:${SCRUBBER_FRAME_HEIGHT},tile=${CLIP_SCRUBBER_COLUMNS}x${rows}`,
+      `fps=1/${frameIntervalSec.toFixed(3)},scale=-2:${CLIP_SCRUBBER_FRAME_HEIGHT},tile=${CLIP_SCRUBBER_COLUMNS}x${CLIP_SCRUBBER_ROWS}`,
       "-frames:v",
       "1",
       "-q:v",

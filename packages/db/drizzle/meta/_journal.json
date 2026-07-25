@@ -29,6 +29,13 @@
       "when": 1784555028334,
       "tag": "0003_hard_bushwacker",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1784968040227,
+      "tag": "0004_last_proudstar",
+      "breakpoints": true
     }
   ]
 }

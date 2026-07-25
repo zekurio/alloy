@@ -80,6 +80,17 @@ async function prepareCapturePublishPayload(
   })
   const selected = await prepareSelectedClipFile(file)
   throwIfAborted(signal)
+  const scrubber =
+    !input.trimmed && desktopSupports("recording.getLibraryCaptureScrubber")
+      ? await input.desktop.recording
+          .getLibraryCaptureScrubber(input.item.id)
+          .then((bytes) =>
+            bytes
+              ? new Blob([bytes.slice().buffer], { type: "image/jpeg" })
+              : undefined,
+          )
+          .catch(() => undefined)
+      : undefined
 
   return {
     file: selected.file,
@@ -93,6 +104,7 @@ async function prepareCapturePublishPayload(
     height: selected.height,
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
+    ...(scrubber ? { scrubber } : {}),
     mentionedUserIds: input.mentions.map((mention) => mention.id),
     localCaptureId: input.item.id,
     // Bridge v2 exports report the keyframe-snap offset; sending the exact

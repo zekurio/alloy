@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
+import { scheduleBackgroundMediaWork } from "./background-media-work"
 import { clientLogger } from "./client-log"
 import {
   drawVideoFrameJpeg,
@@ -83,7 +84,10 @@ async function resolveCapturePoster({
 }: ResolvedCapturePosterOptions): Promise<string | null> {
   if (await thumbnailExists(thumbnailUrl)) return null
 
-  const blob = await capturePosterBlob(mediaUrl, durationMs)
+  const blob = await scheduleBackgroundMediaWork(
+    `poster:${id}:${thumbnailUrl}`,
+    (signal) => capturePosterBlob(mediaUrl, durationMs, signal),
+  )
   if (!blob) return null
 
   const url = createObjectUrl(blob, "capture poster URL")
@@ -140,6 +144,7 @@ async function thumbnailExists(url: string): Promise<boolean> {
 async function capturePosterBlob(
   mediaUrl: string,
   durationMs: number | null,
+  signal: AbortSignal,
 ): Promise<Blob | null> {
   const video = document.createElement("video")
   video.preload = "auto"
@@ -151,6 +156,7 @@ async function capturePosterBlob(
   try {
     const metadataLoaded = videoEvent(video, "loadedmetadata", {
       alreadyDone: () => video.readyState >= HTMLMediaElement.HAVE_METADATA,
+      signal,
     })
     video.src = mediaUrl
     await metadataLoaded
@@ -161,7 +167,7 @@ async function capturePosterBlob(
     let lastError: unknown = null
     for (const timeSec of posterCandidateTimes(durationSec)) {
       try {
-        const seeked = videoEvent(video, "seeked")
+        const seeked = videoEvent(video, "seeked", { signal })
         video.currentTime = timeSec
         await seeked
         const frame = await drawVideoFrameJpeg(video, {
@@ -170,6 +176,7 @@ async function capturePosterBlob(
         })
         if (frame) return frame.blob
       } catch (cause) {
+        if (signal.aborted) throw cause
         lastError = cause
       }
     }

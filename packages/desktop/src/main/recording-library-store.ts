@@ -237,6 +237,13 @@ export async function deleteRecordingLibraryItem(id: string): Promise<void> {
   } catch (cause) {
     logger.warn("failed to prune deleted recording thumbnails:", cause)
   }
+  try {
+    const { pruneRecordingScrubbers } =
+      await import("./recording-library-scrubbers")
+    pruneRecordingScrubbers(id, "")
+  } catch (cause) {
+    logger.warn("failed to prune deleted recording scrubbers:", cause)
+  }
 }
 
 export function revealRecordingLibraryItem(id: string): void {
