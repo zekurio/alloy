@@ -285,11 +285,29 @@ const table = pgTable("session", {
 
 ## Testing & QA
 
-- Server tests use the Node test runner via tsx: `pnpm --filter @alloy/server test` (files: `packages/server/src/**/*.test.ts`). DB-backed suites provision per-suite databases through `packages/server/src/db/test-database.ts` using `ALLOY_TEST_DATABASE_URL`.
+Tests are tiered by what they require, and the filename declares the tier:
+
+| Pattern           | Requires       | Command           |
+| ----------------- | -------------- | ----------------- |
+| `*.test.ts`       | nothing        | `pnpm test`       |
+| `*.db.test.ts`    | PostgreSQL     | `pnpm test:db`    |
+| `*.media.test.ts` | ffmpeg on PATH | `pnpm test:media` |
+
+`pnpm test:all` runs all three; CI runs them as separate steps so a red tier
+names its own cause.
+
+- A tier must fail when its prerequisite is missing, never skip. Suites that
+  silently self-skip look identical to passing ones and rot unnoticed - this is
+  exactly how the DB tier went unrun in CI for its whole life. Put a suite in
+  the tier that matches its needs instead of guarding it at runtime.
+- DB suites provision an isolated per-suite database through
+  `packages/server/src/db/test-database.ts`, cloned from `ALLOY_TEST_DATABASE_URL`.
 - Recorder tests are inline Rust unit tests: `cargo test --locked` in `packages/recorder`.
-- Other packages currently have no test suites; `pnpm test` runs everything via Turbo.
 - Avoid mocks as much as possible
 - Test actual implementation, do not duplicate logic into tests
+- Prefer pushing logic into pure functions over reaching for a heavier tier: a
+  decision that only reads plain values belongs in `*.test.ts`, even when its
+  caller happens to sit behind HTTP or the database.
 - Run package-specific tests from the package that owns them when available. Use root-level `pnpm fmt`, `pnpm lint`, and `pnpm typecheck` for repo-wide checks.
 
 ## Task Completion Requirements
