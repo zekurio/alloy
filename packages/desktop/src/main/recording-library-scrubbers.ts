@@ -1,8 +1,9 @@
 import {
-  existsSync,
+  closeSync,
+  fstatSync,
   mkdirSync,
+  openSync,
   readFileSync,
-  statSync,
   writeFileSync,
 } from "node:fs"
 import { dirname, join } from "node:path"
@@ -23,16 +24,20 @@ export function readRecordingScrubber(id: string): Uint8Array | null {
   const item = findRecordingLibraryItem(id)
   if (!item) return null
   const path = scrubberPathForItem(item.id, item.filename)
-  if (!path || !existsSync(path)) return null
+  if (!path) return null
 
+  // Sized and read through one descriptor: checking the path instead would let
+  // a concurrent write swap the file between the guard and the read.
+  let fd: number | null = null
   try {
-    const cachedStat = statSync(path)
-    if (cachedStat.size === 0 || cachedStat.size > CLIP_SCRUBBER_MAX_BYTES) {
-      return null
-    }
-    return readFileSync(path)
+    fd = openSync(path, "r")
+    const size = fstatSync(fd).size
+    if (size === 0 || size > CLIP_SCRUBBER_MAX_BYTES) return null
+    return readFileSync(fd)
   } catch {
     return null
+  } finally {
+    if (fd !== null) closeSync(fd)
   }
 }
 
