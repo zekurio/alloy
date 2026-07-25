@@ -23,8 +23,9 @@ export function DesktopScrubberGenerator() {
         void desktop.recording
           .getLibrary()
           .then((snapshot) => {
+            const capturePath = comparablePath(event.capture.filename)
             const item = snapshot.items.find(
-              (entry) => entry.filename === event.capture.filename,
+              (entry) => comparablePath(entry.filename) === capturePath,
             )
             if (item) return desktopMediaFilmstrip(desktop, item)
           })
@@ -39,4 +40,13 @@ export function DesktopScrubberGenerator() {
   }, [desktop])
 
   return null
+}
+
+/**
+ * Library filenames are `resolve()`d by the scan, while the sidecar reports the
+ * path OBS wrote, so the two can differ by separator alone. Compare them the
+ * way the main process keys its capture manifest.
+ */
+function comparablePath(path: string): string {
+  return path.replace(/\\/g, "/").toLowerCase()
 }

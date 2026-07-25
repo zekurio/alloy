@@ -14,6 +14,10 @@ let running = false
 /**
  * Runs expensive detached-video decoding one job at a time. Starting visible
  * playback aborts the current job and retries it after every player pauses.
+ *
+ * An aborted job is re-invoked through the same `run` reference, so `run` must
+ * be resumable: park partial results in the closure rather than recomputing
+ * them, or repeated play/pause will starve the job forever.
  */
 export function scheduleBackgroundMediaWork<T>(
   key: string,

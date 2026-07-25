@@ -2,24 +2,20 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  readdirSync,
-  rmSync,
   statSync,
   writeFileSync,
-  type Dirent,
-  type Stats,
 } from "node:fs"
-import { dirname, extname, join } from "node:path"
+import { dirname, join } from "node:path"
 
 import { CLIP_SCRUBBER_MAX_BYTES } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
-import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
-  thumbnailSignature,
-  VIDEO_EXTENSIONS,
-} from "./recording-library-shared"
+  captureCachePath,
+  pruneCaptureCache,
+} from "./recording-library-cache-files"
+import { findRecordingLibraryItem } from "./recording-library-scan"
 
 const logger = createLogger("library")
 
@@ -66,34 +62,11 @@ export function storeRecordingScrubber(
 
 /** Drops scrubbers generated from another version of the same capture. */
 export function pruneRecordingScrubbers(id: string, keep: string): void {
-  let entries: Dirent[]
-  try {
-    entries = readdirSync(scrubberFolder(), { withFileTypes: true })
-  } catch {
-    return
-  }
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.startsWith(`${id}-`)) continue
-    const path = join(scrubberFolder(), entry.name)
-    if (path === keep) continue
-    try {
-      rmSync(path, { force: true })
-    } catch {
-      // Best effort — a locked stale file can be removed on the next save.
-    }
-  }
+  pruneCaptureCache(scrubberFolder(), id, keep)
 }
 
 function scrubberPathForItem(id: string, filename: string): string | null {
-  if (!VIDEO_EXTENSIONS.has(extname(filename).toLowerCase())) return null
-
-  let stat: Stats
-  try {
-    stat = statSync(filename)
-  } catch {
-    return null
-  }
-  return join(scrubberFolder(), `${thumbnailSignature(id, stat)}.jpg`)
+  return captureCachePath(scrubberFolder(), id, filename)
 }
 
 function scrubberFolder(): string {

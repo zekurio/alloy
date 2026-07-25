@@ -144,6 +144,12 @@ export const CLIP_DESCRIPTION_MAX_LENGTH = 2000
 export const CLIP_SCRUBBER_FRAME_COUNT = 16
 export const CLIP_SCRUBBER_COLUMNS = 4
 export const CLIP_SCRUBBER_FRAME_HEIGHT = 96
+export const CLIP_SCRUBBER_ROWS = Math.ceil(
+  CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS,
+)
+/** Every sheet is tiled to this exact height, whoever generated it. */
+export const CLIP_SCRUBBER_SHEET_HEIGHT =
+  CLIP_SCRUBBER_ROWS * CLIP_SCRUBBER_FRAME_HEIGHT
 export const CLIP_SCRUBBER_MAX_BYTES = 2 * 1024 * 1024
 
 export interface ClipPage {

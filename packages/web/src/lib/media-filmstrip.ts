@@ -2,6 +2,8 @@ import {
   CLIP_SCRUBBER_COLUMNS,
   CLIP_SCRUBBER_FRAME_COUNT,
   CLIP_SCRUBBER_FRAME_HEIGHT,
+  CLIP_SCRUBBER_ROWS,
+  CLIP_SCRUBBER_SHEET_HEIGHT,
   desktopBridgeSupports,
 } from "@alloy/contracts"
 import type { AlloyDesktop, RecordingLibraryItem } from "@alloy/contracts"
@@ -9,6 +11,8 @@ import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
 import { scheduleBackgroundMediaWork } from "./background-media-work"
+import { clientLogger } from "./client-log"
+import { isUniformCanvasImage } from "./uniform-image"
 import {
   canvasJpegBlob,
   teardownVideoElement,
@@ -33,18 +37,11 @@ export interface MediaFilmstrip {
   frames: string[]
   /** Width/height ratio of the decoded frames (display-corrected). */
   aspect: number
-  /**
-   * Duration measured from the media itself. More trustworthy than recorded
-   * metadata, which can overshoot (replay saves report the requested buffer
-   * window even when the buffer held less footage).
-   */
-  durationMs: number | null
 }
 
 const EMPTY_FILMSTRIP: MediaFilmstrip = {
   frames: [],
   aspect: DEFAULT_FRAME_ASPECT,
-  durationMs: null,
 }
 
 /**
@@ -69,11 +66,16 @@ function evictStaleFilmstrips(): void {
 }
 
 export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
-  return cachedFilmstrip(mediaUrl, () =>
-    scheduleBackgroundMediaWork(`filmstrip:${mediaUrl}`, (signal) =>
-      extractFilmstrip(mediaUrl, signal),
-    ),
-  )
+  return cachedFilmstrip(mediaUrl, () => {
+    const progress: SpriteProgress = { canvas: null, sampled: new Set() }
+    return scheduleBackgroundMediaWork(
+      `filmstrip:${mediaUrl}`,
+      async (signal) =>
+        filmstripFromSpriteBlob(
+          await generateFilmstripSprite(mediaUrl, progress, signal),
+        ),
+    )
+  })
 }
 
 export function spriteSheetFilmstrip(
@@ -115,11 +117,12 @@ export function desktopMediaFilmstrip(
     return mediaFilmstrip(item.mediaUrl)
   }
   const key = `desktop-filmstrip:${item.id}:${item.modifiedAt}:${item.sizeBytes}`
-  return cachedFilmstrip(key, () =>
-    scheduleBackgroundMediaWork(key, (signal) =>
-      loadDesktopFilmstrip(desktop, item, signal),
-    ),
-  )
+  return cachedFilmstrip(key, () => {
+    const progress: SpriteProgress = { canvas: null, sampled: new Set() }
+    return scheduleBackgroundMediaWork(key, (signal) =>
+      loadDesktopFilmstrip(desktop, item, progress, signal),
+    )
+  })
 }
 
 export function useDesktopMediaFilmstrip(
@@ -247,6 +250,7 @@ function clampMs(ms: number, durationMs: number): number {
 async function loadDesktopFilmstrip(
   desktop: AlloyDesktop,
   item: RecordingLibraryItem,
+  progress: SpriteProgress,
   signal: AbortSignal,
 ): Promise<MediaFilmstrip> {
   const cached = await desktop.recording.getLibraryCaptureScrubber(item.id)
@@ -254,33 +258,43 @@ async function loadDesktopFilmstrip(
     try {
       return await filmstripFromSpriteBlob(
         new Blob([cached.slice().buffer], { type: "image/jpeg" }),
-        item.durationMs,
       )
     } catch {
       // A partial/corrupt cache entry is replaced by a fresh sprite below.
     }
   }
 
-  const generated = await generateFilmstripSprite(item.mediaUrl, signal)
-  await desktop.recording.saveLibraryCaptureScrubber(
-    item.id,
-    new Uint8Array(await generated.blob.arrayBuffer()),
-  )
-  return filmstripFromSpriteBlob(generated.blob, generated.durationMs)
+  const sprite = await generateFilmstripSprite(item.mediaUrl, progress, signal)
+  // Persisting is an optimization. A failed write must not cost the caller the
+  // strip that a full seek pass just produced, or an unwritable cache folder
+  // would leave the trim editor permanently blank and regenerating forever.
+  const bytes = new Uint8Array(await sprite.arrayBuffer())
+  void desktop.recording
+    .saveLibraryCaptureScrubber(item.id, bytes)
+    .catch((cause: unknown) => {
+      clientLogger.warn("[filmstrip] Could not cache the scrubber.", cause)
+    })
+  return filmstripFromSpriteBlob(sprite)
 }
 
-async function extractFilmstrip(
-  mediaUrl: string,
-  signal: AbortSignal,
-): Promise<MediaFilmstrip> {
-  const generated = await generateFilmstripSprite(mediaUrl, signal)
-  return filmstripFromSpriteBlob(generated.blob, generated.durationMs)
+/**
+ * Sampling state that outlives a scheduler abort. The background scheduler
+ * re-invokes the same `run` closure once playback releases, so parking the
+ * canvas and the set of drawn cells here means a paused/resumed trim editor
+ * resumes the seek pass instead of restarting it at frame 0. Without it a
+ * long capture can never finish its strip, because play/pause is the very
+ * interaction the strip exists to support.
+ */
+interface SpriteProgress {
+  canvas: HTMLCanvasElement | null
+  sampled: Set<number>
 }
 
 async function generateFilmstripSprite(
   mediaUrl: string,
+  progress: SpriteProgress,
   signal: AbortSignal,
-): Promise<{ blob: Blob; durationMs: number }> {
+): Promise<Blob> {
   const video = document.createElement("video")
   video.preload = "auto"
   video.muted = true
@@ -301,10 +315,10 @@ async function generateFilmstripSprite(
       throw new Error("Video duration is unavailable.")
     }
 
-    const rows = Math.ceil(CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS)
-    let canvas: HTMLCanvasElement | null = null
-    let ctx: CanvasRenderingContext2D | null = null
-    for (let i = 0; i < FILMSTRIP_FRAME_COUNT; i++) {
+    let canvas = progress.canvas
+    let ctx = canvas?.getContext("2d") ?? null
+    for (let i = 0; i < CLIP_SCRUBBER_FRAME_COUNT; i++) {
+      if (progress.sampled.has(i)) continue
       signal.throwIfAborted()
       try {
         const seeked = videoEvent(video, "seeked", { signal })
@@ -312,59 +326,117 @@ async function generateFilmstripSprite(
           ((i + 0.5) / CLIP_SCRUBBER_FRAME_COUNT) * durationSec
         await seeked
       } catch (cause) {
+        // A failed seek (e.g. an undecodable region) leaves the cell empty;
+        // it is filled from a sampled neighbour once the pass finishes.
         if (signal.aborted) throw cause
         continue
       }
-      if (
-        video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
-        !video.videoWidth ||
-        !video.videoHeight
-      ) {
-        continue
-      }
+      if (!isDecodableVideoFrame(video)) continue
       if (!canvas) {
-        const cellWidth = Math.max(
-          1,
-          Math.round(
-            (video.videoWidth / video.videoHeight) * CLIP_SCRUBBER_FRAME_HEIGHT,
-          ),
-        )
-        canvas = document.createElement("canvas")
-        canvas.width = cellWidth * CLIP_SCRUBBER_COLUMNS
-        canvas.height = CLIP_SCRUBBER_FRAME_HEIGHT * rows
+        canvas = createSpriteCanvas(video)
         ctx = canvas.getContext("2d")
+        progress.canvas = canvas
       }
-      if (!canvas || !ctx) continue
-      const cellWidth = canvas.width / CLIP_SCRUBBER_COLUMNS
-      ctx.drawImage(
-        video,
-        0,
-        0,
-        video.videoWidth,
-        video.videoHeight,
-        (i % CLIP_SCRUBBER_COLUMNS) * cellWidth,
-        Math.floor(i / CLIP_SCRUBBER_COLUMNS) * CLIP_SCRUBBER_FRAME_HEIGHT,
-        cellWidth,
-        CLIP_SCRUBBER_FRAME_HEIGHT,
-      )
+      if (!ctx) break
+      drawSpriteCell(ctx, i, video, {
+        x: 0,
+        y: 0,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      })
+      progress.sampled.add(i)
     }
-    if (!canvas) throw new Error("No filmstrip frames could be decoded.")
+    if (!canvas || !ctx || progress.sampled.size === 0) {
+      throw new Error("No filmstrip frames could be decoded.")
+    }
+    fillUnsampledSpriteCells(ctx, progress.sampled)
     const blob = await canvasJpegBlob(canvas, FRAME_QUALITY)
     if (!blob) throw new Error("Could not encode filmstrip sprite.")
-    return { blob, durationMs: Math.round(durationSec * 1000) }
+    return blob
   } finally {
     teardownVideoElement(video)
   }
 }
 
-async function filmstripFromSpriteBlob(
-  blob: Blob,
-  durationMs: number | null,
-): Promise<MediaFilmstrip> {
+/**
+ * Same guards as `drawVideoFrameJpeg`: a codec the renderer cannot decode
+ * still parses metadata and reports current data, but draws as a uniform
+ * black cell. The sprite is persisted and uploaded, so sampling one would
+ * bake that black cell in permanently.
+ */
+function isDecodableVideoFrame(video: HTMLVideoElement): boolean {
+  if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return false
+  if (!video.videoWidth || !video.videoHeight) return false
+  return !isUniformCanvasImage(video, video.videoWidth, video.videoHeight)
+}
+
+function createSpriteCanvas(video: HTMLVideoElement): HTMLCanvasElement {
+  const canvas = document.createElement("canvas")
+  canvas.width =
+    Math.max(
+      1,
+      Math.round(
+        (video.videoWidth / video.videoHeight) * CLIP_SCRUBBER_FRAME_HEIGHT,
+      ),
+    ) * CLIP_SCRUBBER_COLUMNS
+  canvas.height = CLIP_SCRUBBER_SHEET_HEIGHT
+  return canvas
+}
+
+function drawSpriteCell(
+  ctx: CanvasRenderingContext2D,
+  index: number,
+  source: CanvasImageSource,
+  sourceRect: { x: number; y: number; width: number; height: number },
+): void {
+  const cellWidth = ctx.canvas.width / CLIP_SCRUBBER_COLUMNS
+  ctx.drawImage(
+    source,
+    sourceRect.x,
+    sourceRect.y,
+    sourceRect.width,
+    sourceRect.height,
+    (index % CLIP_SCRUBBER_COLUMNS) * cellWidth,
+    Math.floor(index / CLIP_SCRUBBER_COLUMNS) * CLIP_SCRUBBER_FRAME_HEIGHT,
+    cellWidth,
+    CLIP_SCRUBBER_FRAME_HEIGHT,
+  )
+}
+
+/**
+ * Stretches the nearest sampled cell over every cell that failed to decode,
+ * matching how the old per-frame strip let neighbours cover a gap. Without
+ * this the sheet keeps untouched (black) cells, which the desktop cache and
+ * the server promotion would then treat as the capture's real scrubber.
+ */
+function fillUnsampledSpriteCells(
+  ctx: CanvasRenderingContext2D,
+  sampled: Set<number>,
+): void {
+  if (sampled.size === CLIP_SCRUBBER_FRAME_COUNT) return
+  const cellWidth = ctx.canvas.width / CLIP_SCRUBBER_COLUMNS
+  const sampledCells = [...sampled]
+  for (let i = 0; i < CLIP_SCRUBBER_FRAME_COUNT; i++) {
+    if (sampled.has(i)) continue
+    const nearest = sampledCells.reduce((best, index) =>
+      Math.abs(index - i) < Math.abs(best - i) ? index : best,
+    )
+    // Drawing the canvas onto itself reads a snapshot taken before the draw.
+    drawSpriteCell(ctx, i, ctx.canvas, {
+      x: (nearest % CLIP_SCRUBBER_COLUMNS) * cellWidth,
+      y:
+        Math.floor(nearest / CLIP_SCRUBBER_COLUMNS) *
+        CLIP_SCRUBBER_FRAME_HEIGHT,
+      width: cellWidth,
+      height: CLIP_SCRUBBER_FRAME_HEIGHT,
+    })
+  }
+}
+
+async function filmstripFromSpriteBlob(blob: Blob): Promise<MediaFilmstrip> {
   const url = URL.createObjectURL(blob)
   try {
-    const strip = await extractSpriteFilmstrip(url)
-    return { ...strip, durationMs }
+    return await extractSpriteFilmstrip(url)
   } finally {
     URL.revokeObjectURL(url)
   }
@@ -372,9 +444,7 @@ async function filmstripFromSpriteBlob(
 
 /**
  * Slice the server's scrubber sprite sheet into per-frame object URLs so the
- * trim bar consumes it exactly like a locally sampled strip. The sheet's
- * duration isn't knowable from the image — callers already have it from the
- * clip row.
+ * trim bar consumes it exactly like a locally sampled strip.
  */
 async function extractSpriteFilmstrip(
   sheetUrl: string,
@@ -388,9 +458,8 @@ async function extractSpriteFilmstrip(
   image.src = sheetUrl
   await image.decode()
 
-  const rows = Math.ceil(CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS)
   const cellWidth = Math.floor(image.naturalWidth / CLIP_SCRUBBER_COLUMNS)
-  const cellHeight = Math.floor(image.naturalHeight / rows)
+  const cellHeight = Math.floor(image.naturalHeight / CLIP_SCRUBBER_ROWS)
   if (!cellWidth || !cellHeight) return EMPTY_FILMSTRIP
 
   const frames: string[] = []
@@ -415,9 +484,5 @@ async function extractSpriteFilmstrip(
     if (!blob) return EMPTY_FILMSTRIP
     frames.push(URL.createObjectURL(blob))
   }
-  return {
-    frames,
-    aspect: cellWidth / cellHeight,
-    durationMs: null,
-  }
+  return { frames, aspect: cellWidth / cellHeight }
 }

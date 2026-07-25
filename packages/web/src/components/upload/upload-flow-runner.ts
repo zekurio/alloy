@@ -1,4 +1,5 @@
 import { uploadToTicket } from "@alloy/api"
+import type { UploadTicket } from "@alloy/contracts"
 
 import { api } from "@/lib/api"
 import { clientLogger } from "@/lib/client-log"
@@ -122,9 +123,7 @@ async function completeUpload(
 
 async function uploadOptionalScrubber(
   clipId: string,
-  ticket: NonNullable<
-    Awaited<ReturnType<typeof api.clips.initiate>>["scrubberTicket"]
-  >,
+  ticket: UploadTicket,
   scrubber: Blob,
   signal: AbortSignal,
 ): Promise<void> {

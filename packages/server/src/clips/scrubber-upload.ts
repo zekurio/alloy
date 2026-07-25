@@ -1,8 +1,7 @@
 import {
   CLIP_SCRUBBER_COLUMNS,
-  CLIP_SCRUBBER_FRAME_COUNT,
-  CLIP_SCRUBBER_FRAME_HEIGHT,
   CLIP_SCRUBBER_MAX_BYTES,
+  CLIP_SCRUBBER_SHEET_HEIGHT,
 } from "@alloy/contracts"
 import { clipThumbnailStorage } from "@alloy/server/storage/index"
 import { resolveStagedUpload } from "@alloy/server/uploads/staged"
@@ -11,10 +10,12 @@ import sharp from "sharp"
 
 import { clipScrubberKey } from "./scrubber"
 
-const SCRUBBER_HEIGHT =
-  Math.ceil(CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS) *
-  CLIP_SCRUBBER_FRAME_HEIGHT
 const SCRUBBER_MAX_WIDTH = 8192
+/**
+ * Floor on cell width, so a technically well-formed but degenerate sheet
+ * (e.g. 4x384) cannot replace the pipeline's real one.
+ */
+const SCRUBBER_MIN_CELL_WIDTH = 32
 
 /**
  * Validates and sanitizes the optional desktop-generated sprite before it
@@ -28,7 +29,8 @@ export async function promoteUploadedScrubber(
   if (
     !ticket ||
     ticket.contentType !== "image/jpeg" ||
-    ticket.expectedBytes > CLIP_SCRUBBER_MAX_BYTES
+    ticket.expectedBytes > CLIP_SCRUBBER_MAX_BYTES ||
+    ticket.expiresAt <= new Date()
   ) {
     return false
   }
@@ -58,15 +60,16 @@ export async function normalizeUploadedScrubber(
     throw new Error("Scrubber exceeds the allowed size.")
   }
   const image = sharp(bytes, {
-    limitInputPixels: SCRUBBER_MAX_WIDTH * SCRUBBER_HEIGHT,
+    limitInputPixels: SCRUBBER_MAX_WIDTH * CLIP_SCRUBBER_SHEET_HEIGHT,
   })
   const metadata = await image.metadata()
   if (
     metadata.format !== "jpeg" ||
-    metadata.height !== SCRUBBER_HEIGHT ||
+    metadata.height !== CLIP_SCRUBBER_SHEET_HEIGHT ||
     !metadata.width ||
     metadata.width > SCRUBBER_MAX_WIDTH ||
-    metadata.width % CLIP_SCRUBBER_COLUMNS !== 0
+    metadata.width % CLIP_SCRUBBER_COLUMNS !== 0 ||
+    metadata.width / CLIP_SCRUBBER_COLUMNS < SCRUBBER_MIN_CELL_WIDTH
   ) {
     throw new Error("Scrubber has an invalid sprite layout.")
   }

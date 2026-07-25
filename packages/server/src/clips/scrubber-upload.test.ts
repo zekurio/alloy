@@ -2,52 +2,48 @@ import assert from "node:assert/strict"
 import { test } from "node:test"
 
 import {
-  CLIP_SCRUBBER_COLUMNS,
-  CLIP_SCRUBBER_FRAME_COUNT,
-  CLIP_SCRUBBER_FRAME_HEIGHT,
   CLIP_SCRUBBER_MAX_BYTES,
+  CLIP_SCRUBBER_SHEET_HEIGHT,
 } from "@alloy/contracts"
 import sharp from "sharp"
 
 import { normalizeUploadedScrubber } from "./scrubber-upload"
 
-const SCRUBBER_HEIGHT =
-  Math.ceil(CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS) *
-  CLIP_SCRUBBER_FRAME_HEIGHT
-
-test("normalizeUploadedScrubber accepts and normalizes the desktop sprite", async () => {
-  const source = await sharp({
+function spriteJpeg(width: number, height: number): Promise<Buffer> {
+  return sharp({
     create: {
-      width: 684,
-      height: SCRUBBER_HEIGHT,
+      width,
+      height,
       channels: 3,
       background: { r: 40, g: 120, b: 220 },
     },
   })
     .jpeg()
     .toBuffer()
+}
 
-  const normalized = await normalizeUploadedScrubber(source)
+test("normalizeUploadedScrubber accepts and normalizes the desktop sprite", async () => {
+  const normalized = await normalizeUploadedScrubber(
+    await spriteJpeg(684, CLIP_SCRUBBER_SHEET_HEIGHT),
+  )
   const metadata = await sharp(normalized).metadata()
   assert.equal(metadata.format, "jpeg")
   assert.equal(metadata.width, 684)
-  assert.equal(metadata.height, SCRUBBER_HEIGHT)
+  assert.equal(metadata.height, CLIP_SCRUBBER_SHEET_HEIGHT)
 })
 
 test("normalizeUploadedScrubber rejects the wrong sprite layout", async () => {
-  const source = await sharp({
-    create: {
-      width: 684,
-      height: SCRUBBER_HEIGHT - 1,
-      channels: 3,
-      background: { r: 0, g: 0, b: 0 },
-    },
-  })
-    .jpeg()
-    .toBuffer()
-
   await assert.rejects(
-    normalizeUploadedScrubber(source),
+    normalizeUploadedScrubber(
+      await spriteJpeg(684, CLIP_SCRUBBER_SHEET_HEIGHT - 1),
+    ),
+    /invalid sprite layout/,
+  )
+})
+
+test("normalizeUploadedScrubber rejects a degenerate cell width", async () => {
+  await assert.rejects(
+    normalizeUploadedScrubber(await spriteJpeg(4, CLIP_SCRUBBER_SHEET_HEIGHT)),
     /invalid sprite layout/,
   )
 })

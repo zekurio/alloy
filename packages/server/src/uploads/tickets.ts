@@ -99,12 +99,14 @@ async function selectTicket(
   storageKey: string
   contentType: string
   expectedBytes: number
+  expiresAt: Date
 } | null> {
   const [ticket] = await db
     .select({
       storageKey: uploadTicket.storage_key,
       contentType: uploadTicket.content_type,
       expectedBytes: uploadTicket.expected_bytes,
+      expiresAt: uploadTicket.expires_at,
     })
     .from(uploadTicket)
     .where(and(targetMatch(target), eq(uploadTicket.role, role)))
