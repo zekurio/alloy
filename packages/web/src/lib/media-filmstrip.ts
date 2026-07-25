@@ -1,13 +1,16 @@
 import {
   CLIP_SCRUBBER_COLUMNS,
   CLIP_SCRUBBER_FRAME_COUNT,
+  CLIP_SCRUBBER_FRAME_HEIGHT,
+  desktopBridgeSupports,
 } from "@alloy/contracts"
+import type { AlloyDesktop, RecordingLibraryItem } from "@alloy/contracts"
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
+import { scheduleBackgroundMediaWork } from "./background-media-work"
 import {
   canvasJpegBlob,
-  drawVideoFrameJpeg,
   teardownVideoElement,
   videoEvent,
 } from "./video-events"
@@ -19,9 +22,8 @@ import {
  * (uploaded clips). Neither needs a client-side demuxer.
  */
 
-export const FILMSTRIP_FRAME_COUNT = 16
+export const FILMSTRIP_FRAME_COUNT = CLIP_SCRUBBER_FRAME_COUNT
 /** Decode height of a strip frame; cells crop the rest with object-cover. */
-const FRAME_HEIGHT = 96
 const FRAME_QUALITY = 0.7
 /** Aspect assumed until the first frame decodes (captures are 16:9). */
 const DEFAULT_FRAME_ASPECT = 16 / 9
@@ -67,26 +69,30 @@ function evictStaleFilmstrips(): void {
 }
 
 export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
-  return cachedFilmstrip(mediaUrl, extractFilmstrip)
+  return cachedFilmstrip(mediaUrl, () =>
+    scheduleBackgroundMediaWork(`filmstrip:${mediaUrl}`, (signal) =>
+      extractFilmstrip(mediaUrl, signal),
+    ),
+  )
 }
 
 export function spriteSheetFilmstrip(
   sheetUrl: string,
 ): Promise<MediaFilmstrip> {
-  return cachedFilmstrip(sheetUrl, extractSpriteFilmstrip)
+  return cachedFilmstrip(sheetUrl, () => extractSpriteFilmstrip(sheetUrl))
 }
 
 function cachedFilmstrip(
-  url: string,
-  extract: (url: string) => Promise<MediaFilmstrip>,
+  key: string,
+  extract: () => Promise<MediaFilmstrip>,
 ): Promise<MediaFilmstrip> {
-  let pending = filmstripCache.get(url)
+  let pending = filmstripCache.get(key)
   if (!pending) {
-    pending = extract(url).catch(() => {
-      filmstripCache.delete(url)
+    pending = extract().catch(() => {
+      filmstripCache.delete(key)
       return EMPTY_FILMSTRIP
     })
-    filmstripCache.set(url, pending)
+    filmstripCache.set(key, pending)
     evictStaleFilmstrips()
   }
   return pending
@@ -94,6 +100,44 @@ function cachedFilmstrip(
 
 export function useMediaFilmstrip(mediaUrl: string | null): MediaFilmstrip {
   return useFilmstrip(mediaUrl, mediaFilmstrip)
+}
+
+export function desktopMediaFilmstrip(
+  desktop: AlloyDesktop,
+  item: RecordingLibraryItem,
+): Promise<MediaFilmstrip> {
+  if (
+    !desktopBridgeSupports(
+      desktop.bridge.version,
+      "recording.getLibraryCaptureScrubber",
+    )
+  ) {
+    return mediaFilmstrip(item.mediaUrl)
+  }
+  const key = `desktop-filmstrip:${item.id}:${item.modifiedAt}:${item.sizeBytes}`
+  return cachedFilmstrip(key, () =>
+    scheduleBackgroundMediaWork(key, (signal) =>
+      loadDesktopFilmstrip(desktop, item, signal),
+    ),
+  )
+}
+
+export function useDesktopMediaFilmstrip(
+  desktop: AlloyDesktop,
+  item: RecordingLibraryItem,
+): MediaFilmstrip {
+  const [strip, setStrip] = useState(EMPTY_FILMSTRIP)
+  useEffect(() => {
+    let cancelled = false
+    setStrip(EMPTY_FILMSTRIP)
+    void desktopMediaFilmstrip(desktop, item).then((result) => {
+      if (!cancelled) setStrip(result)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [desktop, item.id, item.mediaUrl, item.modifiedAt, item.sizeBytes])
+  return strip
 }
 
 export function useSpriteSheetFilmstrip(
@@ -200,7 +244,43 @@ function clampMs(ms: number, durationMs: number): number {
   return Math.min(durationMs, Math.max(0, ms))
 }
 
-async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
+async function loadDesktopFilmstrip(
+  desktop: AlloyDesktop,
+  item: RecordingLibraryItem,
+  signal: AbortSignal,
+): Promise<MediaFilmstrip> {
+  const cached = await desktop.recording.getLibraryCaptureScrubber(item.id)
+  if (cached) {
+    try {
+      return await filmstripFromSpriteBlob(
+        new Blob([cached.slice().buffer], { type: "image/jpeg" }),
+        item.durationMs,
+      )
+    } catch {
+      // A partial/corrupt cache entry is replaced by a fresh sprite below.
+    }
+  }
+
+  const generated = await generateFilmstripSprite(item.mediaUrl, signal)
+  await desktop.recording.saveLibraryCaptureScrubber(
+    item.id,
+    new Uint8Array(await generated.blob.arrayBuffer()),
+  )
+  return filmstripFromSpriteBlob(generated.blob, generated.durationMs)
+}
+
+async function extractFilmstrip(
+  mediaUrl: string,
+  signal: AbortSignal,
+): Promise<MediaFilmstrip> {
+  const generated = await generateFilmstripSprite(mediaUrl, signal)
+  return filmstripFromSpriteBlob(generated.blob, generated.durationMs)
+}
+
+async function generateFilmstripSprite(
+  mediaUrl: string,
+  signal: AbortSignal,
+): Promise<{ blob: Blob; durationMs: number }> {
   const video = document.createElement("video")
   video.preload = "auto"
   video.muted = true
@@ -212,34 +292,81 @@ async function extractFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
   try {
     const metadataLoaded = videoEvent(video, "loadedmetadata", {
       alreadyDone: () => video.readyState >= HTMLMediaElement.HAVE_METADATA,
+      signal,
     })
     video.src = mediaUrl
     await metadataLoaded
     const durationSec = video.duration
     if (!Number.isFinite(durationSec) || !(durationSec > 0)) {
-      return EMPTY_FILMSTRIP
+      throw new Error("Video duration is unavailable.")
     }
 
-    const frames: string[] = []
-    let aspect: number | null = null
+    const rows = Math.ceil(CLIP_SCRUBBER_FRAME_COUNT / CLIP_SCRUBBER_COLUMNS)
+    let canvas: HTMLCanvasElement | null = null
+    let ctx: CanvasRenderingContext2D | null = null
     for (let i = 0; i < FILMSTRIP_FRAME_COUNT; i++) {
-      // A failed seek (e.g. an undecodable region) just yields fewer cells;
-      // the strip stretches the neighbors over it.
-      const frame = await seekFrameObjectUrl(
+      signal.throwIfAborted()
+      try {
+        const seeked = videoEvent(video, "seeked", { signal })
+        video.currentTime =
+          ((i + 0.5) / CLIP_SCRUBBER_FRAME_COUNT) * durationSec
+        await seeked
+      } catch (cause) {
+        if (signal.aborted) throw cause
+        continue
+      }
+      if (
+        video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+        !video.videoWidth ||
+        !video.videoHeight
+      ) {
+        continue
+      }
+      if (!canvas) {
+        const cellWidth = Math.max(
+          1,
+          Math.round(
+            (video.videoWidth / video.videoHeight) * CLIP_SCRUBBER_FRAME_HEIGHT,
+          ),
+        )
+        canvas = document.createElement("canvas")
+        canvas.width = cellWidth * CLIP_SCRUBBER_COLUMNS
+        canvas.height = CLIP_SCRUBBER_FRAME_HEIGHT * rows
+        ctx = canvas.getContext("2d")
+      }
+      if (!canvas || !ctx) continue
+      const cellWidth = canvas.width / CLIP_SCRUBBER_COLUMNS
+      ctx.drawImage(
         video,
-        ((i + 0.5) / FILMSTRIP_FRAME_COUNT) * durationSec,
+        0,
+        0,
+        video.videoWidth,
+        video.videoHeight,
+        (i % CLIP_SCRUBBER_COLUMNS) * cellWidth,
+        Math.floor(i / CLIP_SCRUBBER_COLUMNS) * CLIP_SCRUBBER_FRAME_HEIGHT,
+        cellWidth,
+        CLIP_SCRUBBER_FRAME_HEIGHT,
       )
-      if (!frame) continue
-      aspect ??= frame.aspect
-      frames.push(frame.url)
     }
-    return {
-      frames,
-      aspect: aspect ?? DEFAULT_FRAME_ASPECT,
-      durationMs: Math.round(durationSec * 1000),
-    }
+    if (!canvas) throw new Error("No filmstrip frames could be decoded.")
+    const blob = await canvasJpegBlob(canvas, FRAME_QUALITY)
+    if (!blob) throw new Error("Could not encode filmstrip sprite.")
+    return { blob, durationMs: Math.round(durationSec * 1000) }
   } finally {
     teardownVideoElement(video)
+  }
+}
+
+async function filmstripFromSpriteBlob(
+  blob: Blob,
+  durationMs: number | null,
+): Promise<MediaFilmstrip> {
+  const url = URL.createObjectURL(blob)
+  try {
+    const strip = await extractSpriteFilmstrip(url)
+    return { ...strip, durationMs }
+  } finally {
+    URL.revokeObjectURL(url)
   }
 }
 
@@ -292,27 +419,5 @@ async function extractSpriteFilmstrip(
     frames,
     aspect: cellWidth / cellHeight,
     durationMs: null,
-  }
-}
-
-async function seekFrameObjectUrl(
-  video: HTMLVideoElement,
-  timeSec: number,
-): Promise<{ url: string; aspect: number } | null> {
-  try {
-    const seeked = videoEvent(video, "seeked")
-    video.currentTime = timeSec
-    await seeked
-  } catch {
-    return null
-  }
-  const frame = await drawVideoFrameJpeg(video, {
-    height: FRAME_HEIGHT,
-    quality: FRAME_QUALITY,
-  })
-  if (!frame) return null
-  return {
-    url: URL.createObjectURL(frame.blob),
-    aspect: frame.width / frame.height,
   }
 }

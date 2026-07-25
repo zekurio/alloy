@@ -149,6 +149,9 @@ export function validateInitiateClipResponse(
     "Invalid initiate clip response: clipId is required",
   )
   validateUploadTicket(response.ticket)
+  if (response.scrubberTicket !== undefined) {
+    validateUploadTicket(response.scrubberTicket)
+  }
   return value as InitiateClipResponse
 }
 

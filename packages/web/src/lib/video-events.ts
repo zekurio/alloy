@@ -10,8 +10,13 @@ const VIDEO_EVENT_TIMEOUT_MS = 15000
 export function videoEvent(
   video: HTMLVideoElement,
   eventName: "loadedmetadata" | "loadeddata" | "seeked",
-  opts?: { failureMessage?: string; alreadyDone?: () => boolean },
+  opts?: {
+    failureMessage?: string
+    alreadyDone?: () => boolean
+    signal?: AbortSignal
+  },
 ): Promise<void> {
+  if (opts?.signal?.aborted) return Promise.reject(abortError())
   if (opts?.alreadyDone?.()) return Promise.resolve()
 
   return new Promise<void>((resolve, reject) => {
@@ -19,6 +24,7 @@ export function videoEvent(
       window.clearTimeout(timeoutId)
       video.removeEventListener(eventName, onEvent)
       video.removeEventListener("error", onError)
+      opts?.signal?.removeEventListener("abort", onAbort)
     }
     const onEvent = () => {
       cleanup()
@@ -30,6 +36,10 @@ export function videoEvent(
       const fallback = opts?.failureMessage ?? "Video element error"
       reject(new Error(detail ? `${fallback}: ${detail}` : fallback))
     }
+    const onAbort = () => {
+      cleanup()
+      reject(abortError())
+    }
     const timeoutId = window.setTimeout(() => {
       cleanup()
       reject(
@@ -38,7 +48,12 @@ export function videoEvent(
     }, VIDEO_EVENT_TIMEOUT_MS)
     video.addEventListener(eventName, onEvent, { once: true })
     video.addEventListener("error", onError, { once: true })
+    opts?.signal?.addEventListener("abort", onAbort, { once: true })
   })
+}
+
+function abortError(): DOMException {
+  return new DOMException("Media work was interrupted.", "AbortError")
 }
 
 /** Detach the element's source and abort any in-flight loading. */

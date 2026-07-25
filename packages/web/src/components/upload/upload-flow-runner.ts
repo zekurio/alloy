@@ -51,6 +51,7 @@ export async function startUpload(
     filename: payload.file.name,
     contentType: payload.contentType,
     sizeBytes: payload.sizeBytes,
+    scrubberSizeBytes: payload.scrubber?.size,
     title: payload.title,
     description: payload.description ?? undefined,
     gameId: payload.gameId,
@@ -103,12 +104,39 @@ async function completeUpload(
     },
     entry.abort.signal,
   )
+  if (payload.scrubber && initiate.scrubberTicket) {
+    await uploadOptionalScrubber(
+      clipId,
+      initiate.scrubberTicket,
+      payload.scrubber,
+      entry.abort.signal,
+    )
+  }
 
   entry.status = "finalizing"
   bump()
 
   await api.clips.finalize(clipId)
   void invalidateClips()
+}
+
+async function uploadOptionalScrubber(
+  clipId: string,
+  ticket: NonNullable<
+    Awaited<ReturnType<typeof api.clips.initiate>>["scrubberTicket"]
+  >,
+  scrubber: Blob,
+  signal: AbortSignal,
+): Promise<void> {
+  try {
+    await uploadToTicket(ticket, scrubber, () => undefined, signal)
+  } catch (cause) {
+    if (signal.aborted) throw cause
+    clientLogger.warn(
+      `[upload] Could not send optional scrubber for ${clipId}; the server will generate it.`,
+      cause,
+    )
+  }
 }
 
 export async function linkLocalCaptureToClip(

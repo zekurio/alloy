@@ -1,3 +1,4 @@
+import type { UploadTicketRole } from "@alloy/contracts"
 import { uploadTicket, type UploadTicketTarget } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { deleteStagedUploads } from "@alloy/server/uploads/staged"
@@ -22,18 +23,38 @@ export async function createUploadTickets(input: {
   videoKey: string
   videoContentType: string
   videoBytes: number
+  scrubber?: {
+    key: string
+    bytes: number
+  }
   expiresAt: Date
 }): Promise<void> {
-  await db.insert(uploadTicket).values({
-    owner_id: input.ownerId,
-    target_type: input.target.type,
-    target_id: input.target.id,
-    role: "video",
-    storage_key: input.videoKey,
-    content_type: input.videoContentType,
-    expected_bytes: input.videoBytes,
-    expires_at: input.expiresAt,
-  })
+  await db.insert(uploadTicket).values([
+    {
+      owner_id: input.ownerId,
+      target_type: input.target.type,
+      target_id: input.target.id,
+      role: "video",
+      storage_key: input.videoKey,
+      content_type: input.videoContentType,
+      expected_bytes: input.videoBytes,
+      expires_at: input.expiresAt,
+    },
+    ...(input.scrubber
+      ? [
+          {
+            owner_id: input.ownerId,
+            target_type: input.target.type,
+            target_id: input.target.id,
+            role: "scrubber" as const,
+            storage_key: input.scrubber.key,
+            content_type: "image/jpeg",
+            expected_bytes: input.scrubber.bytes,
+            expires_at: input.expiresAt,
+          },
+        ]
+      : []),
+  ])
 }
 
 export async function assertUsableVideoTicket(input: {
@@ -61,7 +82,7 @@ export async function assertUsableVideoTicket(input: {
 
 async function selectTicketKey(
   target: UploadTarget,
-  role: "video",
+  role: UploadTicketRole,
 ): Promise<string | null> {
   const [ticket] = await db
     .select({ storageKey: uploadTicket.storage_key })
@@ -73,13 +94,17 @@ async function selectTicketKey(
 
 async function selectTicket(
   target: UploadTarget,
-  role: "video",
+  role: UploadTicketRole,
 ): Promise<{
   storageKey: string
+  contentType: string
+  expectedBytes: number
 } | null> {
   const [ticket] = await db
     .select({
       storageKey: uploadTicket.storage_key,
+      contentType: uploadTicket.content_type,
+      expectedBytes: uploadTicket.expected_bytes,
     })
     .from(uploadTicket)
     .where(and(targetMatch(target), eq(uploadTicket.role, role)))
@@ -95,6 +120,10 @@ export function selectVideoTicketKey(
 
 export function selectVideoTicket(target: UploadTarget) {
   return selectTicket(target, "video")
+}
+
+export function selectScrubberTicket(target: UploadTarget) {
+  return selectTicket(target, "scrubber")
 }
 
 export async function selectTicketKeys(
