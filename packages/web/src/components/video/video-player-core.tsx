@@ -3,6 +3,7 @@ import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { MouseEvent, MouseEventHandler } from "react"
 
+import { suspendBackgroundMediaWork } from "@/lib/background-media-work"
 import { errorMessage } from "@/lib/error-message"
 
 import { useMediaEngine } from "./video-media-engine"
@@ -252,6 +253,11 @@ export function PlayerCore({
   }, [playbackRate])
 
   usePlayingTimeSync(playing, syncTime)
+
+  useEffect(() => {
+    if (!playing) return
+    return suspendBackgroundMediaWork()
+  }, [playing])
 
   const { keyCommand, setVolume, toggleFullscreen, toggleMute, togglePlay } =
     useVideoPlayerControls({

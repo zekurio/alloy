@@ -47,7 +47,7 @@ import {
 } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
-import { useMediaFilmstrip } from "@/lib/media-filmstrip"
+import { useDesktopMediaFilmstrip } from "@/lib/media-filmstrip"
 
 import { exportAndPublishCapture } from "./library-capture-publish"
 import { type LibraryItemView } from "./library-data"
@@ -185,7 +185,7 @@ export function EditorBody({
     durationMs: item.durationMs,
     enabled: true,
   })
-  const filmstrip = useMediaFilmstrip(item.mediaUrl)
+  const filmstrip = useDesktopMediaFilmstrip(desktop, item)
   const aspectRatio = mediaAspectRatio(item.width, item.height)
   const publishLocked =
     item.uploadedClipId !== null ||

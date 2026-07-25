@@ -1,11 +1,8 @@
 import {
   existsSync,
   mkdirSync,
-  readdirSync,
-  rmSync,
   statSync,
   writeFileSync,
-  type Dirent,
   type Stats,
 } from "node:fs"
 import { dirname, extname, join } from "node:path"
@@ -15,6 +12,10 @@ import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
 import { imageFileBlurHash } from "./image-blurhash"
+import {
+  captureCachePath,
+  pruneCaptureCache,
+} from "./recording-library-cache-files"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
   thumbnailSignature,
@@ -34,18 +35,9 @@ export type ThumbnailSource = Pick<
 >
 
 export function cachedRecordingThumbnail(item: ThumbnailSource): string | null {
-  if (!VIDEO_EXTENSIONS.has(extname(item.filename).toLowerCase())) return null
-
-  let stat: Stats
-  try {
-    stat = statSync(item.filename)
-  } catch {
-    return null
-  }
-
-  const out = thumbnailPath(item.id, stat)
-  if (existsSync(out)) return out
-  return null
+  const out = captureCachePath(thumbnailFolder(), item.id, item.filename)
+  if (!out || !existsSync(out)) return null
+  return out
 }
 
 export function storeRecordingThumbnail(
@@ -82,24 +74,7 @@ export function storeRecordingThumbnail(
 
 /** Drops thumbnails generated from an older mtime/size of the same capture. */
 export function pruneStaleThumbnails(id: string, keep: string): void {
-  const folder = thumbnailFolder()
-  let entries: Dirent[]
-  try {
-    entries = readdirSync(folder, { withFileTypes: true })
-  } catch {
-    return
-  }
-  for (const entry of entries) {
-    if (!entry.isFile()) continue
-    if (!entry.name.startsWith(`${id}-`)) continue
-    const path = join(folder, entry.name)
-    if (path === keep) continue
-    try {
-      rmSync(path, { force: true })
-    } catch {
-      // Best effort — a locked stale file just lingers until the next pass.
-    }
-  }
+  pruneCaptureCache(thumbnailFolder(), id, keep)
 }
 
 /**

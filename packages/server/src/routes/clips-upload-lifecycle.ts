@@ -3,6 +3,7 @@ import { clip, clipMention, clipTag } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
+import { promoteUploadedScrubber } from "@alloy/server/clips/scrubber-upload"
 import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
@@ -22,11 +23,13 @@ import {
   deleteStagedUploads,
   mintStagedUpload,
   resolveStagedUpload,
+  stagedScrubberKey,
   stagedSourceKey,
 } from "@alloy/server/uploads/staged"
 import {
   assertUsableVideoTicket,
   createUploadTickets,
+  selectTicketKeys,
   selectVideoTicket,
 } from "@alloy/server/uploads/tickets"
 import { and, eq } from "drizzle-orm"
@@ -110,6 +113,8 @@ export const clipsUploadLifecycleRoutes = new Hono()
 
       const clipId = body.clientClipId ?? crypto.randomUUID()
       const uploadKey = stagedSourceKey(clipId, body.contentType)
+      const scrubberSizeBytes = body.scrubberSizeBytes ?? null
+      const scrubberKey = scrubberSizeBytes ? stagedScrubberKey(clipId) : null
       const privacy = body.privacy ?? "public"
       const trim =
         body.trimStartMs !== undefined &&
@@ -228,20 +233,43 @@ export const clipsUploadLifecycleRoutes = new Hono()
           userId: viewerId,
           clipId,
         })
+        const scrubberUpload =
+          scrubberKey && scrubberSizeBytes
+            ? await mintStagedUpload({
+                key: scrubberKey,
+                contentType: "image/jpeg",
+                maxBytes: scrubberSizeBytes,
+                expiresInSec,
+                userId: viewerId,
+                clipId,
+              })
+            : null
         await createUploadTickets({
           target: { type: "clip", id: clipId },
           ownerId: viewerId,
           videoKey: uploadKey,
           videoContentType: body.contentType,
           videoBytes: body.sizeBytes,
+          ...(scrubberKey && scrubberSizeBytes
+            ? {
+                scrubber: {
+                  key: scrubberKey,
+                  bytes: scrubberSizeBytes,
+                },
+              }
+            : {}),
           expiresAt,
         })
         return c.json({
           clipId,
           ticket: videoUpload,
+          ...(scrubberUpload ? { scrubberTicket: scrubberUpload } : {}),
         })
       } catch (err) {
-        await cleanupFailedInitiate(clipId, [{ key: uploadKey }])
+        await cleanupFailedInitiate(clipId, [
+          { key: uploadKey },
+          { key: scrubberKey },
+        ])
         throw err
       }
     },
@@ -327,6 +355,12 @@ export const clipsUploadLifecycleRoutes = new Hono()
         return badRequest(c, "Upload size did not match declared size")
       }
 
+      try {
+        await promoteUploadedScrubber(id)
+      } catch (err) {
+        logger.warn(`uploaded scrubber rejected for ${id}:`, err)
+      }
+
       const transitioned = await db.transaction(async (tx) => {
         const [row] = await tx
           .update(clip)
@@ -374,15 +408,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
       const row = access.row
 
       await deleteStagedUploads(
-        [
-          await selectVideoTicket({ type: "clip", id }).then((ticket) =>
-            ticket
-              ? {
-                  key: ticket.storageKey,
-                }
-              : null,
-          ),
-        ],
+        await selectTicketKeys({ type: "clip", id }),
         "failed staged upload",
       )
       await markUploadFailed(row.author_id, id, "Upload failed")

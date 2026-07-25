@@ -1,5 +1,6 @@
 import {
   CLIP_PRIVACY,
+  CLIP_SCRUBBER_MAX_BYTES,
   RECORDING_NOTIFICATION_SOUND_EVENTS,
   type ClipPrivacy,
   type RecordingCaptureMention,
@@ -50,7 +51,6 @@ export function normalizeLibraryExportRequest(
 }
 
 const THUMBNAIL_MAX_BYTES = 10 * 1024 * 1024
-
 const COMMIT_STAGED_IMPORT_ID_MAX = 128
 const COMMIT_STAGED_IMPORT_TITLE_MAX = 200
 const COMMIT_STAGED_IMPORT_GAME_NAME_MAX = 200
@@ -95,6 +95,18 @@ export function normalizeLibraryThumbnailSaveRequest(
   if (typeof id !== "string" || id.length === 0) return null
   if (!(data instanceof Uint8Array)) return null
   if (data.byteLength === 0 || data.byteLength > THUMBNAIL_MAX_BYTES) {
+    return null
+  }
+  return { id, data }
+}
+
+export function normalizeLibraryScrubberSaveRequest(
+  id: unknown,
+  data: unknown,
+): { id: string; data: Uint8Array } | null {
+  if (typeof id !== "string" || id.length === 0) return null
+  if (!(data instanceof Uint8Array)) return null
+  if (data.byteLength === 0 || data.byteLength > CLIP_SCRUBBER_MAX_BYTES) {
     return null
   }
   return { id, data }
