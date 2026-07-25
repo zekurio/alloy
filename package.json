@@ -29,8 +29,11 @@
     "lint:github": "pnpm lint",
     "lint:ci": "pnpm lint",
     "test": "turbo run test",
+    "test:db": "turbo run test:db",
+    "test:media": "turbo run test:media",
+    "test:all": "turbo run test test:db test:media",
     "typecheck": "turbo run typecheck",
-    "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck && pnpm test"
+    "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck && pnpm test:all"
   },
   "devDependencies": {
     "@types/node": "26.1.1",
