@@ -12,17 +12,26 @@ export interface SidecarConfig {
   discordDetectionCachePath: string | null
 }
 
-export type SidecarMethod =
-  | "version"
-  | "configure"
-  | "status"
-  | "listGameProcesses"
-  | "listDisplays"
-  | "saveReplayClip"
-  | "playNotificationSound"
-  | "subscribeAudioLevels"
-  | "stopAudioLevels"
-  | "shutdown"
+/**
+ * Every method the sidecar answers. Kept as a value, not a bare union, so
+ * `recording-sidecar-protocol.test.ts` can check it against the match arms in
+ * `packages/recorder/src/sidecar_runtime.rs` - the recorder only compiles on
+ * Windows, so that seam has no other cross-language guard.
+ */
+export const SIDECAR_METHODS = [
+  "version",
+  "configure",
+  "status",
+  "listGameProcesses",
+  "listDisplays",
+  "saveReplayClip",
+  "playNotificationSound",
+  "subscribeAudioLevels",
+  "stopAudioLevels",
+  "shutdown",
+] as const
+
+export type SidecarMethod = (typeof SIDECAR_METHODS)[number]
 
 export interface SidecarRequest {
   id: number

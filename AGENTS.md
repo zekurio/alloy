@@ -302,6 +302,15 @@ names its own cause.
   the tier that matches its needs instead of guarding it at runtime.
 - DB suites provision an isolated per-suite database through
   `packages/server/src/db/test-database.ts`, cloned from `ALLOY_TEST_DATABASE_URL`.
+- The four transport seams are guarded by invariant tests, because a mismatch
+  there fails at runtime on a user's machine rather than at compile time:
+  `packages/contracts/src/desktop-bridge.test.ts` (bridge is additive-only -
+  when bumping `DESKTOP_BRIDGE_VERSION`, move the previous version's paths into
+  that file's `SHIPPED` table), `packages/db/src/drizzle-drift.test.ts` (schema
+  has no un-migrated changes), and
+  `packages/desktop/src/main/recording-sidecar-protocol.test.ts` (TS methods
+  match the Rust dispatch; the recorder cannot compile on Linux CI, so this
+  reads the Rust source as text).
 - Recorder tests are inline Rust unit tests: `cargo test --locked` in `packages/recorder`.
 - Avoid mocks as much as possible
 - Test actual implementation, do not duplicate logic into tests
