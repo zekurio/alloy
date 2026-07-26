@@ -58,7 +58,13 @@ let oauthClientSecretsSetting: Readonly<Record<string, string>> = deepFreeze({})
 let appearanceSetting = deepFreeze(DEFAULT_APPEARANCE)
 let transcodingSetting = deepFreeze(DEFAULT_TRANSCODING)
 let jobsSetting = deepFreeze(DEFAULT_JOBS)
-let state = freezeRuntimeConfig(buildRuntimeConfig())
+// Built on first read rather than at import: buildRuntimeConfig() reads env,
+// and importing this module must not validate the environment as a side effect.
+let state: Readonly<RuntimeConfig> | null = null
+
+function currentState(): Readonly<RuntimeConfig> {
+  return (state ??= freezeRuntimeConfig(buildRuntimeConfig()))
+}
 
 type Listener = (
   next: Readonly<RuntimeConfig>,
@@ -192,7 +198,7 @@ function notify(next: RuntimeConfig, prev: RuntimeConfig): void {
 }
 
 function refreshState(): void {
-  const prev = state
+  const prev = currentState()
   state = freezeRuntimeConfig(buildRuntimeConfig())
   notify(state, prev)
 }
@@ -284,10 +290,10 @@ interface ConfigStore {
 
 export const configStore: ConfigStore = {
   get(key) {
-    return state[key]
+    return currentState()[key]
   },
   getAll() {
-    return structuredClone(state)
+    return structuredClone(currentState())
   },
   async set(key, value) {
     assertDbOwnedKey(key)

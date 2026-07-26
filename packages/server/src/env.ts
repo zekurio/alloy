@@ -16,6 +16,7 @@ import {
   resolveFfmpegPath,
   resolveFfprobePath,
 } from "./media/transcode-settings"
+import { lazy } from "./runtime/lazy"
 
 // Deploy-time env is the only source for server policy, storage, integrations,
 // OAuth, and secret material. Instance UI/state settings live in Postgres.
@@ -230,4 +231,9 @@ export function parseServerEnv(source: EnvSource = process.env) {
 
 export type ServerEnv = ReturnType<typeof parseServerEnv>
 
-export const env = parseServerEnv()
+/**
+ * Parsed on first property read, not at import, so importing a module never
+ * validates env as a side effect. `src/index.ts` reads env immediately, so a
+ * misconfigured deploy still fails at boot.
+ */
+export const env = lazy(parseServerEnv)
