@@ -1,21 +1,25 @@
 import { secretStore } from "@alloy/server/config/secret-store"
 import { env } from "@alloy/server/env"
+import { lazy } from "@alloy/server/runtime/lazy"
 import { resolve } from "@alloy/server/runtime/path"
 
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 import { configuredFilesystemStoragePath, type StorageNamespace } from "./paths"
 
-// Storage config is deploy-time env, so each namespace binds to its root once
-// at load. Namespaces map to distinct roots on disk; the `user`/`game`/`data`
-// aliases all share the assets root (the URL prefix, not the root, separates
-// them — see storage/paths.ts and the key generators in driver.ts).
+// Storage config is deploy-time env, so each namespace binds to its root once,
+// on first use. Namespaces map to distinct roots on disk; the `user`/`game`/
+// `data` aliases all share the assets root (the URL prefix, not the root,
+// separates them — see storage/paths.ts and the key generators in driver.ts).
 function createFsStorage(namespace: StorageNamespace): StorageDriver {
-  return new FsStorageDriver({
-    root: resolve(configuredFilesystemStoragePath(env.storage, namespace)),
-    publicBaseUrl: env.PUBLIC_SERVER_URL,
-    hmacSecret: secretStore.get("uploadHmacSecret"),
-  })
+  return lazy(
+    () =>
+      new FsStorageDriver({
+        root: resolve(configuredFilesystemStoragePath(env.storage, namespace)),
+        publicBaseUrl: env.PUBLIC_SERVER_URL,
+        hmacSecret: secretStore.get("uploadHmacSecret"),
+      }),
+  )
 }
 
 export const clipStorage: StorageDriver = createFsStorage("clips")
