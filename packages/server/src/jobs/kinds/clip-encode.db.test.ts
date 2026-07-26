@@ -1,23 +1,22 @@
 import assert from "node:assert/strict"
 import { after, beforeEach, test } from "node:test"
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
-await prepareTestDatabase("clip-encode")
+import { TranscodingConfigSchema } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, job } from "@alloy/db/schema"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
+import { clipMediaStore } from "@alloy/server/queue/clip-media-store"
+import { ENCODE_LEASE_STALE_MS } from "@alloy/server/queue/lease-conditions"
+import { eq, sql } from "drizzle-orm"
 
-const { clip, job } = await import("@alloy/db/schema")
-const { user } = await import("@alloy/db/auth-schema")
-const { db, client } = await import("@alloy/server/db/index")
-const { clipMediaStore } = await import("@alloy/server/queue/clip-media-store")
-const { encodeFingerprint } =
-  await import("@alloy/server/media/encode-fingerprint")
-const { TranscodingConfigSchema } = await import("@alloy/contracts")
-const { ENCODE_LEASE_STALE_MS } =
-  await import("@alloy/server/queue/lease-conditions")
-const { getJobKind } = await import("../registry")
-const store = await import("../store")
-await import("./clip-encode")
-await import("./maintenance")
-const { eq, sql } = await import("drizzle-orm")
+import { getJobKind } from "../registry"
+import "./clip-encode"
+import "./maintenance"
+import { claim, enqueue, fail, retry } from "../store"
+
+await prepareTestDatabase("clip-encode")
 
 after(() => client.end())
 
@@ -40,12 +39,12 @@ test("fresh clip lease snoozes the job without consuming an attempt", async () =
   assert.ok(seeded?.lockedAt)
   const lockedAt = seeded.lockedAt
 
-  const id = await store.enqueue(
+  const id = await enqueue(
     "clip.encode",
     { clipId: row.clipId, trigger: "upload" },
     { dedupKey: row.clipId, priority: 10 },
   )
-  const claimed = await store.claim(["clip.encode"], crypto.randomUUID())
+  const claimed = await claim(["clip.encode"], crypto.randomUUID())
   assert.ok(claimed)
 
   const registration = getJobKind("clip.encode")
@@ -188,15 +187,15 @@ test("matching sweep fingerprint with permanent thumbnail failure skips without 
 
 test("admin retry of a failed clip.encode job flips the clip to processing", async () => {
   const row = await insertClip({ status: "processing" })
-  const id = await store.enqueue(
+  const id = await enqueue(
     "clip.encode",
     { clipId: row.clipId, trigger: "upload" },
     { dedupKey: row.clipId },
   )
-  const claimed = await store.claim(["clip.encode"], crypto.randomUUID())
+  const claimed = await claim(["clip.encode"], crypto.randomUUID())
   // Terminal (non-retryable) failure, then quarantine the clip as the encode
   // handler's onFailed path would.
-  await store.fail(id, claimed?.lease_token ?? "", "boom", false)
+  await fail(id, claimed?.lease_token ?? "", "boom", false)
   await db
     .update(clip)
     .set({
@@ -207,7 +206,7 @@ test("admin retry of a failed clip.encode job flips the clip to processing", asy
     })
     .where(eq(clip.id, row.clipId))
 
-  assert.equal(await store.retry(id), true)
+  assert.equal(await retry(id), true)
 
   const [job_row] = await db
     .select({ status: job.status, attempt: job.attempt })

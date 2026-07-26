@@ -1,17 +1,19 @@
 import assert from "node:assert/strict"
 import { after, test } from "node:test"
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
+import { user } from "@alloy/db/auth-schema"
+import { clip, game } from "@alloy/db/schema"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { Hono } from "hono"
+
+import { feedRoute } from "./feed"
+import { gamesRoute } from "./games"
+
 await prepareTestDatabase("games-creators")
 
 // Dynamic imports are required here because DB modules read DATABASE_URL at
 // module load time, after prepareTestDatabase installs the isolated test URL.
-const { user } = await import("@alloy/db/auth-schema")
-const { clip, game } = await import("@alloy/db/schema")
-const { db, client } = await import("@alloy/server/db/index")
-const { Hono } = await import("hono")
-const { feedRoute } = await import("./feed")
-const { gamesRoute } = await import("./games")
 
 after(() => client.end())
 

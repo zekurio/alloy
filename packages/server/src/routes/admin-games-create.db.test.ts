@@ -4,24 +4,25 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { after, test } from "node:test"
 
+import { game } from "@alloy/db/schema"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { gameAssetKey } from "@alloy/server/storage/driver"
+import { eq } from "drizzle-orm"
+import { Hono } from "hono"
 import sharp from "sharp"
+
+import { adminGamesRoute } from "./admin-games"
 
 const storageRoot = await mkdtemp(join(tmpdir(), "alloy-admin-games-"))
 const assetsRoot = join(storageRoot, "assets")
 process.env.ALLOY_STORAGE_FS_ASSETS_PATH = assetsRoot
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
 await prepareTestDatabase("admin-games-create")
 
 // Dynamic imports are required here because DB and storage modules read
 // env at module load time, after prepareTestDatabase installs the isolated
 // test URL and the assets path above is set.
-const { game } = await import("@alloy/db/schema")
-const { db, client } = await import("@alloy/server/db/index")
-const { gameAssetKey } = await import("@alloy/server/storage/driver")
-const { Hono } = await import("hono")
-const { adminGamesRoute } = await import("./admin-games")
-const { eq } = await import("drizzle-orm")
 
 after(async () => {
   await client.end()
