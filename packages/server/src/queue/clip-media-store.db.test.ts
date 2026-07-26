@@ -1,14 +1,14 @@
 import assert from "node:assert/strict"
 import { after, beforeEach, test } from "node:test"
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
-await prepareTestDatabase("clip-media-store")
+import { user } from "@alloy/db/auth-schema"
+import { clip } from "@alloy/db/schema"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { clipMediaStore } from "@alloy/server/queue/clip-media-store"
+import { eq, sql } from "drizzle-orm"
 
-const { clip } = await import("@alloy/db/schema")
-const { user } = await import("@alloy/db/auth-schema")
-const { db, client } = await import("@alloy/server/db/index")
-const { clipMediaStore } = await import("@alloy/server/queue/clip-media-store")
-const { eq, sql } = await import("drizzle-orm")
+await prepareTestDatabase("clip-media-store")
 
 after(() => client.end())
 

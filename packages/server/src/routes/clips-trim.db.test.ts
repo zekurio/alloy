@@ -4,27 +4,27 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { after, beforeEach, test } from "node:test"
 
+import { authSession, user } from "@alloy/db/auth-schema"
+import { clip, clipRendition, job } from "@alloy/db/schema"
+import { hashSessionToken } from "@alloy/server/auth/tokens"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import {
+  runScopedCutKey,
+  runScopedRenditionKey,
+  runScopedSourceKey,
+} from "@alloy/server/queue/media-asset-keys"
+import { clips } from "@alloy/server/routes/clips"
+import { clipStorage } from "@alloy/server/storage/index"
+import { eq } from "drizzle-orm"
+import { Hono } from "hono"
+
 const storageRoot = await mkdtemp(join(tmpdir(), "alloy-clips-trim-"))
 process.env.ALLOY_STORAGE_FS_CLIPS_PATH = join(storageRoot, "clips")
 process.env.ALLOY_STORAGE_FS_THUMBNAILS_PATH = join(storageRoot, "thumbnails")
 process.env.ALLOY_STORAGE_FS_ASSETS_PATH = join(storageRoot, "assets")
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
 await prepareTestDatabase("clips-trim")
-
-// Dynamic imports are required because these modules import db/index and
-// storage/index, which read DATABASE_URL / storage paths at import time;
-// prepareTestDatabase and the env assignments above must run first.
-const { authSession, user } = await import("@alloy/db/auth-schema")
-const { clip, clipRendition, job } = await import("@alloy/db/schema")
-const { hashSessionToken } = await import("@alloy/server/auth/tokens")
-const { db, client } = await import("@alloy/server/db/index")
-const { runScopedCutKey, runScopedRenditionKey, runScopedSourceKey } =
-  await import("@alloy/server/queue/media-asset-keys")
-const { clips } = await import("@alloy/server/routes/clips")
-const { clipStorage } = await import("@alloy/server/storage/index")
-const { eq } = await import("drizzle-orm")
-const { Hono } = await import("hono")
 
 const routeApp = new Hono().route("/api/clips", clips)
 

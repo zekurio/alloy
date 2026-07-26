@@ -7,6 +7,12 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { after, beforeEach, test } from "node:test"
 
+import { user } from "@alloy/db/auth-schema"
+import { syncOAuthAvatar } from "@alloy/server/auth/oauth-avatar"
+import { client, db } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { userAssetKey } from "@alloy/server/storage/driver"
+import { eq } from "drizzle-orm"
 import sharp from "sharp"
 
 import type { OAuthProfile } from "./oauth-types"
@@ -19,15 +25,9 @@ process.env.ALLOY_STORAGE_FS_ASSETS_PATH = assetsRoot
 process.env.ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS = "1"
 
 // Static imports would capture env before this test installs database/storage paths.
-const testDatabase = await import("@alloy/server/db/test-database")
-await testDatabase.prepareTestDatabase("oauth-avatar")
+await prepareTestDatabase("oauth-avatar")
 
 // Static imports would capture env before this test installs database/storage paths.
-const authSchema = await import("@alloy/db/auth-schema")
-const database = await import("@alloy/server/db/index")
-const { userAssetKey } = await import("@alloy/server/storage/driver")
-const { syncOAuthAvatar } = await import("@alloy/server/auth/oauth-avatar")
-const { eq } = await import("drizzle-orm")
 
 const avatarPng = await sharp({
   create: {
@@ -41,12 +41,12 @@ const avatarPng = await sharp({
   .toBuffer()
 
 after(async () => {
-  await database.client.end()
+  await client.end()
   await rm(storageRoot, { recursive: true, force: true })
 })
 
 beforeEach(async () => {
-  await database.db.delete(authSchema.user)
+  await db.delete(user)
   await rm(assetsRoot, { recursive: true, force: true })
   await mkdir(assetsRoot, { recursive: true })
 })
@@ -167,7 +167,7 @@ async function insertUser(input: {
   userId: string
   image: string | null
 }): Promise<void> {
-  await database.db.insert(authSchema.user).values({
+  await db.insert(user).values({
     id: input.userId,
     email: `${input.userId}@example.test`,
     username: `user-${input.userId.slice(0, 8)}`,
@@ -176,10 +176,10 @@ async function insertUser(input: {
 }
 
 async function selectImage(userId: string): Promise<string | null> {
-  const [row] = await database.db
-    .select({ image: authSchema.user.image })
-    .from(authSchema.user)
-    .where(eq(authSchema.user.id, userId))
+  const [row] = await db
+    .select({ image: user.image })
+    .from(user)
+    .where(eq(user.id, userId))
     .limit(1)
   return row?.image ?? null
 }

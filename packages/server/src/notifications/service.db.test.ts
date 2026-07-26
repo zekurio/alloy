@@ -14,10 +14,19 @@ import {
   notification,
 } from "@alloy/db/schema"
 import { hashSessionToken } from "@alloy/server/auth/tokens"
+import { db, client } from "@alloy/server/db/index"
 import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { getJobKind } from "@alloy/server/jobs/registry"
 import { subscribeToNotifications } from "@alloy/server/notifications/events"
+import {
+  createNotification,
+  createStoredClipMentionNotifications,
+} from "@alloy/server/notifications/service"
+import { clips } from "@alloy/server/routes/clips"
+import { notificationsRoute } from "@alloy/server/routes/notifications"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
+import "@alloy/server/jobs/kinds/notification-retention"
 
 test("parseMentionUsernames lowercases, dedupes, skips emails, and keeps widened username tokens", () => {
   assert.deepEqual(parseMentionUsernames("hi @alice @Bob a@b.com @alice"), [
@@ -31,17 +40,6 @@ test("parseMentionUsernames lowercases, dedupes, skips emails, and keeps widened
 })
 
 await prepareTestDatabase("notifications")
-
-// Dynamic imports are required because these modules import db/index, which
-// reads DATABASE_URL at import time; prepareTestDatabase installs it first.
-const { db, client } = await import("@alloy/server/db/index")
-const { createNotification, createStoredClipMentionNotifications } =
-  await import("@alloy/server/notifications/service")
-const { clips } = await import("@alloy/server/routes/clips")
-const { notificationsRoute } =
-  await import("@alloy/server/routes/notifications")
-const { getJobKind } = await import("@alloy/server/jobs/registry")
-await import("@alloy/server/jobs/kinds/notification-retention")
 
 const routeApp = new Hono()
   .route("/api/clips", clips)

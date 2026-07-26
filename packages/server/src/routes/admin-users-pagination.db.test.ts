@@ -1,16 +1,18 @@
 import assert from "node:assert/strict"
 import { after, beforeEach, test } from "node:test"
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
+import { user } from "@alloy/db/auth-schema"
+import { createUserIdentity } from "@alloy/server/auth/identity"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { eq, sql } from "drizzle-orm"
+
+import { selectAdminUserStoragePage } from "./admin-helpers"
+
 await prepareTestDatabase("admin-users-pagination")
 
 // Dynamic imports are required here because DB modules read DATABASE_URL at
 // module load time, after prepareTestDatabase installs the isolated test URL.
-const { selectAdminUserStoragePage } = await import("./admin-helpers")
-const { createUserIdentity } = await import("@alloy/server/auth/identity")
-const { user } = await import("@alloy/db/auth-schema")
-const { db, client } = await import("@alloy/server/db/index")
-const { eq, sql } = await import("drizzle-orm")
 
 after(() => client.end())
 

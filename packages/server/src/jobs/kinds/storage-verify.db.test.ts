@@ -4,42 +4,47 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { after, beforeEach, test } from "node:test"
 
+import { TranscodingConfigSchema } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, clipRendition, instanceSetting, job } from "@alloy/db/schema"
+import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
+import { client, db } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
+import {
+  runScopedCutKey,
+  runScopedRenditionKey,
+  runScopedSourceKey,
+  runScopedThumbKey,
+} from "@alloy/server/queue/media-asset-keys"
+import { clipAssetDir, clipAssetKey } from "@alloy/server/storage/driver"
+import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
+import { eq } from "drizzle-orm"
+
+import { getJobKind } from "../registry"
+import { verifyClipAssets } from "./storage-verify"
+
 const storageRoot = await mkdtemp(join(tmpdir(), "alloy-storage-verify-"))
 const clipsRoot = join(storageRoot, "clips")
 const thumbnailsRoot = join(storageRoot, "thumbnails")
 process.env.ALLOY_STORAGE_FS_CLIPS_PATH = clipsRoot
 process.env.ALLOY_STORAGE_FS_THUMBNAILS_PATH = thumbnailsRoot
 process.env.ALLOY_STORAGE_FS_ASSETS_PATH = join(storageRoot, "assets")
+await prepareTestDatabase("storage-verify")
 
-const testDatabase = await import("@alloy/server/db/test-database")
-await testDatabase.prepareTestDatabase("storage-verify")
-
-const contracts = await import("@alloy/contracts")
-const authSchema = await import("@alloy/db/auth-schema")
-const schema = await import("@alloy/db/schema")
-const database = await import("@alloy/server/db/index")
-const fingerprint = await import("@alloy/server/media/encode-fingerprint")
-const mediaKeys = await import("@alloy/server/queue/media-asset-keys")
-const storageDriver = await import("@alloy/server/storage/driver")
-const storage = await import("@alloy/server/storage/index")
-const registry = await import("../registry")
-await import("./storage-verify")
-const storageVerify = await import("./storage-verify")
-const drizzle = await import("drizzle-orm")
-
-const config = contracts.TranscodingConfigSchema.parse({})
+const config = TranscodingConfigSchema.parse({})
 const oldDate = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000)
 
 after(async () => {
-  await database.client.end()
+  await client.end()
   await rm(storageRoot, { recursive: true, force: true })
 })
 
 beforeEach(async () => {
-  await database.db.delete(schema.job)
-  await database.db.delete(schema.clip)
-  await database.db.delete(authSchema.user)
-  await database.db.delete(schema.instanceSetting)
+  await db.delete(job)
+  await db.delete(clip)
+  await db.delete(user)
+  await db.delete(instanceSetting)
   await rm(clipsRoot, { recursive: true, force: true })
   await rm(thumbnailsRoot, { recursive: true, force: true })
   await mkdir(clipsRoot, { recursive: true })
@@ -48,34 +53,34 @@ beforeEach(async () => {
 
 test("missing rendition row is deleted and repair encode is enqueued", async () => {
   const clipId = await insertClip()
-  const sourceKey = mediaKeys.runScopedSourceKey(clipId, runId("111111111111"))
-  const presentKey = mediaKeys.runScopedRenditionKey(
+  const sourceKey = runScopedSourceKey(clipId, runId("111111111111"))
+  const presentKey = runScopedRenditionKey(
     clipId,
     runId("222222222222"),
     "720p",
   )
-  const missingKey = mediaKeys.runScopedRenditionKey(
+  const missingKey = runScopedRenditionKey(
     clipId,
     runId("333333333333"),
     "480p",
   )
-  await storage.clipStorage.put(sourceKey, bytes(), "video/mp4")
-  await storage.clipStorage.put(presentKey, bytes(), "video/mp4")
-  await database.db
-    .update(schema.clip)
+  await clipStorage.put(sourceKey, bytes(), "video/mp4")
+  await clipStorage.put(presentKey, bytes(), "video/mp4")
+  await db
+    .update(clip)
     .set({
       source_key: sourceKey,
       encode_fingerprint: expectedFingerprint(),
     })
-    .where(drizzle.eq(schema.clip.id, clipId))
-  await database.db
-    .insert(schema.clipRendition)
+    .where(eq(clip.id, clipId))
+  await db
+    .insert(clipRendition)
     .values([
       rendition(clipId, "720p", presentKey),
       rendition(clipId, "480p", missingKey),
     ])
 
-  const summary = await storageVerify.verifyClipAssets(clipId)
+  const summary = await verifyClipAssets(clipId)
 
   assert.equal(summary.missingRenditions, 1)
   assert.equal(summary.repaired, 1)
@@ -92,20 +97,20 @@ test("missing rendition row is deleted and repair encode is enqueued", async () 
 
 test("guarded repair is skipped when an encode lease is active", async () => {
   const clipId = await insertClip()
-  const sourceKey = mediaKeys.runScopedSourceKey(clipId, runId("444444444444"))
-  const cutKey = mediaKeys.runScopedCutKey(clipId, runId("555555555555"))
-  await storage.clipStorage.put(sourceKey, bytes(), "video/mp4")
-  await database.db
-    .update(schema.clip)
+  const sourceKey = runScopedSourceKey(clipId, runId("444444444444"))
+  const cutKey = runScopedCutKey(clipId, runId("555555555555"))
+  await clipStorage.put(sourceKey, bytes(), "video/mp4")
+  await db
+    .update(clip)
     .set({
       source_key: sourceKey,
       cut_key: cutKey,
       encode_fingerprint: expectedFingerprint(),
       encode_run_id: crypto.randomUUID(),
     })
-    .where(drizzle.eq(schema.clip.id, clipId))
+    .where(eq(clip.id, clipId))
 
-  const summary = await storageVerify.verifyClipAssets(clipId)
+  const summary = await verifyClipAssets(clipId)
   const row = await selectClip(clipId)
 
   assert.equal(summary.missingCuts, 1)
@@ -117,25 +122,23 @@ test("guarded repair is skipped when an encode lease is active", async () => {
 
 test("missing source quarantines while surviving renditions keep status ready", async () => {
   const clipId = await insertClip()
-  const sourceKey = mediaKeys.runScopedSourceKey(clipId, runId("666666666666"))
-  const renditionKey = mediaKeys.runScopedRenditionKey(
+  const sourceKey = runScopedSourceKey(clipId, runId("666666666666"))
+  const renditionKey = runScopedRenditionKey(
     clipId,
     runId("777777777777"),
     "720p",
   )
-  await storage.clipStorage.put(renditionKey, bytes(), "video/mp4")
-  await database.db
-    .update(schema.clip)
+  await clipStorage.put(renditionKey, bytes(), "video/mp4")
+  await db
+    .update(clip)
     .set({
       source_key: sourceKey,
       encode_fingerprint: expectedFingerprint(),
     })
-    .where(drizzle.eq(schema.clip.id, clipId))
-  await database.db
-    .insert(schema.clipRendition)
-    .values(rendition(clipId, "720p", renditionKey))
+    .where(eq(clip.id, clipId))
+  await db.insert(clipRendition).values(rendition(clipId, "720p", renditionKey))
 
-  const summary = await storageVerify.verifyClipAssets(clipId)
+  const summary = await verifyClipAssets(clipId)
   const row = await selectClip(clipId)
 
   assert.equal(summary.missingSources, 1)
@@ -149,15 +152,15 @@ test("missing source quarantines while surviving renditions keep status ready", 
 
 test("missing source with no playable bytes marks clip failed", async () => {
   const clipId = await insertClip()
-  await database.db
-    .update(schema.clip)
+  await db
+    .update(clip)
     .set({
-      source_key: mediaKeys.runScopedSourceKey(clipId, runId("888888888888")),
+      source_key: runScopedSourceKey(clipId, runId("888888888888")),
       encode_fingerprint: expectedFingerprint(),
     })
-    .where(drizzle.eq(schema.clip.id, clipId))
+    .where(eq(clip.id, clipId))
 
-  const summary = await storageVerify.verifyClipAssets(clipId)
+  const summary = await verifyClipAssets(clipId)
   const row = await selectClip(clipId)
 
   assert.equal(summary.missingSources, 1)
@@ -167,87 +170,67 @@ test("missing source with no playable bytes marks clip failed", async () => {
 })
 
 test("deleteClipRowAndAssets removes rendition files", async () => {
-  const clipsDelete = await import("@alloy/server/clips/delete")
   const clipId = await insertClip()
-  const sourceKey = mediaKeys.runScopedSourceKey(clipId, runId("999999999999"))
-  const thumbKey = mediaKeys.runScopedThumbKey(clipId, runId("aaaaaaaaaaaa"))
-  const renditionKey = mediaKeys.runScopedRenditionKey(
+  const sourceKey = runScopedSourceKey(clipId, runId("999999999999"))
+  const thumbKey = runScopedThumbKey(clipId, runId("aaaaaaaaaaaa"))
+  const renditionKey = runScopedRenditionKey(
     clipId,
     runId("bbbbbbbbbbbb"),
     "720p",
   )
-  await storage.clipStorage.put(sourceKey, bytes(), "video/mp4")
-  await storage.clipThumbnailStorage.put(thumbKey, bytes(), "image/jpeg")
-  await storage.clipThumbnailStorage.put(
-    storageDriver.clipAssetKey(clipId, "scrubber"),
+  await clipStorage.put(sourceKey, bytes(), "video/mp4")
+  await clipThumbnailStorage.put(thumbKey, bytes(), "image/jpeg")
+  await clipThumbnailStorage.put(
+    clipAssetKey(clipId, "scrubber"),
     bytes(),
     "image/jpeg",
   )
-  await storage.clipStorage.put(renditionKey, bytes(), "video/mp4")
-  await database.db
-    .update(schema.clip)
+  await clipStorage.put(renditionKey, bytes(), "video/mp4")
+  await db
+    .update(clip)
     .set({ source_key: sourceKey, thumb_key: thumbKey })
-    .where(drizzle.eq(schema.clip.id, clipId))
-  await database.db
-    .insert(schema.clipRendition)
-    .values(rendition(clipId, "720p", renditionKey))
+    .where(eq(clip.id, clipId))
+  await db.insert(clipRendition).values(rendition(clipId, "720p", renditionKey))
   const row = await selectRawClip(clipId)
   assert.ok(row)
 
-  await clipsDelete.deleteClipRowAndAssets(row)
+  await deleteClipRowAndAssets(row)
 
-  assert.equal(await storage.clipStorage.resolve(sourceKey), null)
-  assert.equal(await storage.clipStorage.resolve(renditionKey), null)
-  assert.equal(await storage.clipThumbnailStorage.resolve(thumbKey), null)
+  assert.equal(await clipStorage.resolve(sourceKey), null)
+  assert.equal(await clipStorage.resolve(renditionKey), null)
+  assert.equal(await clipThumbnailStorage.resolve(thumbKey), null)
   assert.equal(
-    await storage.clipThumbnailStorage.resolve(
-      storageDriver.clipAssetKey(clipId, "scrubber"),
-    ),
+    await clipThumbnailStorage.resolve(clipAssetKey(clipId, "scrubber")),
     null,
   )
 })
 
 test("orphan gc removes only old orphan and stale run-stamped assets", async () => {
-  const registration = registry.getJobKind("storage.orphan-gc")
+  const registration = getJobKind("storage.orphan-gc")
   assert.ok(registration)
   const existingClipId = await insertClip()
   const orphanOldId = crypto.randomUUID()
   const orphanYoungId = crypto.randomUUID()
   const orphanThumbId = crypto.randomUUID()
-  const liveSource = mediaKeys.runScopedSourceKey(
-    existingClipId,
-    runId("cccccccccccc"),
-  )
-  const staleAsset = mediaKeys.runScopedRenditionKey(
+  const liveSource = runScopedSourceKey(existingClipId, runId("cccccccccccc"))
+  const staleAsset = runScopedRenditionKey(
     existingClipId,
     runId("dddddddddddd"),
     "720p",
   )
-  const youngAsset = mediaKeys.runScopedCutKey(
-    existingClipId,
-    runId("eeeeeeeeeeee"),
-  )
-  const unknownAsset = `${storageDriver.clipAssetDir(existingClipId)}/notes.txt`
-  const orphanOld = mediaKeys.runScopedSourceKey(
-    orphanOldId,
-    runId("abababababab"),
-  )
-  const orphanYoung = mediaKeys.runScopedSourceKey(
-    orphanYoungId,
-    runId("bcbcbcbcbcbc"),
-  )
-  const orphanThumb = mediaKeys.runScopedThumbKey(
-    orphanThumbId,
-    runId("cdcdcdcdcdcd"),
-  )
+  const youngAsset = runScopedCutKey(existingClipId, runId("eeeeeeeeeeee"))
+  const unknownAsset = `${clipAssetDir(existingClipId)}/notes.txt`
+  const orphanOld = runScopedSourceKey(orphanOldId, runId("abababababab"))
+  const orphanYoung = runScopedSourceKey(orphanYoungId, runId("bcbcbcbcbcbc"))
+  const orphanThumb = runScopedThumbKey(orphanThumbId, runId("cdcdcdcdcdcd"))
 
-  await storage.clipStorage.put(liveSource, bytes(), "video/mp4")
-  await storage.clipStorage.put(staleAsset, bytes(), "video/mp4")
-  await storage.clipStorage.put(youngAsset, bytes(), "video/mp4")
-  await storage.clipStorage.put(unknownAsset, bytes(), "text/plain")
-  await storage.clipStorage.put(orphanOld, bytes(), "video/mp4")
-  await storage.clipStorage.put(orphanYoung, bytes(), "video/mp4")
-  await storage.clipThumbnailStorage.put(orphanThumb, bytes(), "image/jpeg")
+  await clipStorage.put(liveSource, bytes(), "video/mp4")
+  await clipStorage.put(staleAsset, bytes(), "video/mp4")
+  await clipStorage.put(youngAsset, bytes(), "video/mp4")
+  await clipStorage.put(unknownAsset, bytes(), "text/plain")
+  await clipStorage.put(orphanOld, bytes(), "video/mp4")
+  await clipStorage.put(orphanYoung, bytes(), "video/mp4")
+  await clipThumbnailStorage.put(orphanThumb, bytes(), "image/jpeg")
   await mkdir(clipsRoot, { recursive: true })
   await writeFile(join(clipsRoot, "loose-file"), "unknown")
   await Promise.all([
@@ -257,41 +240,41 @@ test("orphan gc removes only old orphan and stale run-stamped assets", async () 
     setThumbMtime(orphanThumb, oldDate),
     utimes(join(clipsRoot, "loose-file"), oldDate, oldDate),
   ])
-  await database.db
-    .update(schema.clip)
+  await db
+    .update(clip)
     .set({ source_key: liveSource })
-    .where(drizzle.eq(schema.clip.id, existingClipId))
+    .where(eq(clip.id, existingClipId))
 
   await registration.handler({}, contextFor())
 
-  assert.ok(await storage.clipStorage.resolve(liveSource))
-  assert.equal(await storage.clipStorage.resolve(staleAsset), null)
-  assert.ok(await storage.clipStorage.resolve(youngAsset))
-  assert.ok(await storage.clipStorage.resolve(unknownAsset))
-  assert.equal(await storage.clipStorage.resolve(orphanOld), null)
-  assert.ok(await storage.clipStorage.resolve(orphanYoung))
-  assert.equal(await storage.clipThumbnailStorage.resolve(orphanThumb), null)
+  assert.ok(await clipStorage.resolve(liveSource))
+  assert.equal(await clipStorage.resolve(staleAsset), null)
+  assert.ok(await clipStorage.resolve(youngAsset))
+  assert.ok(await clipStorage.resolve(unknownAsset))
+  assert.equal(await clipStorage.resolve(orphanOld), null)
+  assert.ok(await clipStorage.resolve(orphanYoung))
+  assert.equal(await clipThumbnailStorage.resolve(orphanThumb), null)
   assert.ok(await fileExists(join(clipsRoot, "loose-file")))
   assert.equal((await selectSummary("storageGc")).deletedOrphanObjects, 2)
   assert.equal((await selectSummary("storageGc")).deletedStaleAssets, 1)
 })
 
 test("orphan gc does not touch old upload staging debris", async () => {
-  const registration = registry.getJobKind("storage.orphan-gc")
+  const registration = getJobKind("storage.orphan-gc")
   assert.ok(registration)
   const clipId = crypto.randomUUID()
   const uploadKey = `uploads/${clipId}/source.mp4`
 
-  await storage.clipStorage.put(uploadKey, bytes(), "video/mp4")
+  await clipStorage.put(uploadKey, bytes(), "video/mp4")
   await setClipMtime(uploadKey, oldDate)
 
   await registration.handler({}, contextFor())
 
-  assert.ok(await storage.clipStorage.resolve(uploadKey))
+  assert.ok(await clipStorage.resolve(uploadKey))
 })
 
 test("aborted orphan gc writes no summary record", async () => {
-  const registration = registry.getJobKind("storage.orphan-gc")
+  const registration = getJobKind("storage.orphan-gc")
   assert.ok(registration)
   const controller = new AbortController()
   controller.abort()
@@ -304,12 +287,12 @@ test("aborted orphan gc writes no summary record", async () => {
 async function insertClip(): Promise<string> {
   const clipId = crypto.randomUUID()
   const userId = crypto.randomUUID()
-  await database.db.insert(authSchema.user).values({
+  await db.insert(user).values({
     id: userId,
     email: `${clipId}@example.test`,
     username: `user-${clipId.slice(0, 8)}`,
   })
-  await database.db.insert(schema.clip).values({
+  await db.insert(clip).values({
     id: clipId,
     author_id: userId,
     title: "Test clip",
@@ -341,71 +324,67 @@ function rendition(clipId: string, name: string, storageKey: string) {
 }
 
 async function renditionNames(clipId: string): Promise<string[]> {
-  const rows = await database.db
-    .select({ name: schema.clipRendition.name })
-    .from(schema.clipRendition)
-    .where(drizzle.eq(schema.clipRendition.clip_id, clipId))
-    .orderBy(schema.clipRendition.name)
+  const rows = await db
+    .select({ name: clipRendition.name })
+    .from(clipRendition)
+    .where(eq(clipRendition.clip_id, clipId))
+    .orderBy(clipRendition.name)
   return rows.map((row) => row.name)
 }
 
 async function clipEncodeJobs() {
-  return database.db
+  return db
     .select({
-      dedupKey: schema.job.dedup_key,
-      priority: schema.job.priority,
-      payload: schema.job.payload,
+      dedupKey: job.dedup_key,
+      priority: job.priority,
+      payload: job.payload,
     })
-    .from(schema.job)
-    .where(drizzle.eq(schema.job.kind, "clip.encode"))
-    .orderBy(schema.job.dedup_key)
+    .from(job)
+    .where(eq(job.kind, "clip.encode"))
+    .orderBy(job.dedup_key)
 }
 
 async function selectClip(clipId: string) {
-  const [row] = await database.db
+  const [row] = await db
     .select({
-      status: schema.clip.status,
-      cutKey: schema.clip.cut_key,
-      encodeFingerprint: schema.clip.encode_fingerprint,
-      encodeFailedFingerprint: schema.clip.encode_failed_fingerprint,
-      failureReason: schema.clip.failure_reason,
+      status: clip.status,
+      cutKey: clip.cut_key,
+      encodeFingerprint: clip.encode_fingerprint,
+      encodeFailedFingerprint: clip.encode_failed_fingerprint,
+      failureReason: clip.failure_reason,
     })
-    .from(schema.clip)
-    .where(drizzle.eq(schema.clip.id, clipId))
+    .from(clip)
+    .where(eq(clip.id, clipId))
     .limit(1)
   return row ?? null
 }
 
 async function selectRawClip(clipId: string) {
-  const [row] = await database.db
-    .select()
-    .from(schema.clip)
-    .where(drizzle.eq(schema.clip.id, clipId))
-    .limit(1)
+  const [row] = await db.select().from(clip).where(eq(clip.id, clipId)).limit(1)
   return row ?? null
 }
 
 async function selectSummary(key: string): Promise<Record<string, number>> {
-  const [row] = await database.db
-    .select({ value: schema.instanceSetting.value })
-    .from(schema.instanceSetting)
-    .where(drizzle.eq(schema.instanceSetting.key, key))
+  const [row] = await db
+    .select({ value: instanceSetting.value })
+    .from(instanceSetting)
+    .where(eq(instanceSetting.key, key))
     .limit(1)
   assert.ok(row)
   return row.value as Record<string, number>
 }
 
 async function selectSummaryOrNull(key: string): Promise<unknown | null> {
-  const [row] = await database.db
-    .select({ value: schema.instanceSetting.value })
-    .from(schema.instanceSetting)
-    .where(drizzle.eq(schema.instanceSetting.key, key))
+  const [row] = await db
+    .select({ value: instanceSetting.value })
+    .from(instanceSetting)
+    .where(eq(instanceSetting.key, key))
     .limit(1)
   return row?.value ?? null
 }
 
 function expectedFingerprint(): string {
-  return fingerprint.encodeFingerprint(config, defaultFacts())
+  return encodeFingerprint(config, defaultFacts())
 }
 
 function defaultFacts() {

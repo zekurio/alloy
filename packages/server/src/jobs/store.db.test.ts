@@ -2,16 +2,25 @@ import assert from "node:assert/strict"
 import { after, beforeEach, test } from "node:test"
 
 import type { JobKind } from "@alloy/contracts"
+import { job } from "@alloy/db/schema"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { eq, sql } from "drizzle-orm"
+import { z } from "zod"
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
+import { defineJobKind } from "./registry"
+import {
+  claim,
+  complete,
+  discardFailed,
+  enqueue,
+  fail,
+  nextPendingRunByKind,
+  retry,
+  snooze,
+} from "./store"
+
 await prepareTestDatabase("store")
-
-const { job } = await import("@alloy/db/schema")
-const { db, client } = await import("@alloy/server/db/index")
-const { defineJobKind } = await import("./registry")
-const store = await import("./store")
-const { eq, sql } = await import("drizzle-orm")
-const { z } = await import("zod")
 
 const PayloadSchema = z.object({ value: z.string().optional() }).default({})
 
@@ -81,7 +90,7 @@ beforeEach(async () => {
 })
 
 test("claim orders due jobs by priority then run_at", async () => {
-  await store.enqueue(
+  await enqueue(
     "test.order",
     { value: "late-low" },
     {
@@ -89,7 +98,7 @@ test("claim orders due jobs by priority then run_at", async () => {
       runAt: secondsAgo(10),
     },
   )
-  await store.enqueue(
+  await enqueue(
     "test.order",
     { value: "early-default" },
     {
@@ -97,7 +106,7 @@ test("claim orders due jobs by priority then run_at", async () => {
       runAt: secondsAgo(30),
     },
   )
-  await store.enqueue(
+  await enqueue(
     "test.order",
     { value: "late-default" },
     {
@@ -106,9 +115,9 @@ test("claim orders due jobs by priority then run_at", async () => {
     },
   )
 
-  const first = await store.claim(["test.order"], crypto.randomUUID())
-  const second = await store.claim(["test.order"], crypto.randomUUID())
-  const third = await store.claim(["test.order"], crypto.randomUUID())
+  const first = await claim(["test.order"], crypto.randomUUID())
+  const second = await claim(["test.order"], crypto.randomUUID())
+  const third = await claim(["test.order"], crypto.randomUUID())
 
   assert.equal(payloadValue(first), "late-low")
   assert.equal(payloadValue(second), "early-default")
@@ -116,7 +125,7 @@ test("claim orders due jobs by priority then run_at", async () => {
 })
 
 test("dedup upsert replaces payload and takes min priority and run_at", async () => {
-  const firstId = await store.enqueue(
+  const firstId = await enqueue(
     "test.dedup",
     { value: "old" },
     {
@@ -125,7 +134,7 @@ test("dedup upsert replaces payload and takes min priority and run_at", async ()
       dedupKey: "same",
     },
   )
-  const secondId = await store.enqueue(
+  const secondId = await enqueue(
     "test.dedup",
     { value: "new" },
     {
@@ -137,7 +146,7 @@ test("dedup upsert replaces payload and takes min priority and run_at", async ()
 
   assert.equal(secondId, firstId)
 
-  const claimed = await store.claim(["test.dedup"], crypto.randomUUID())
+  const claimed = await claim(["test.dedup"], crypto.randomUUID())
 
   assert.equal(payloadValue(claimed), "new")
   assert.equal(claimed?.priority, 10)
@@ -145,15 +154,15 @@ test("dedup upsert replaces payload and takes min priority and run_at", async ()
 })
 
 test("pending dedup row coexists with a running row", async () => {
-  const firstId = await store.enqueue(
+  const firstId = await enqueue(
     "test.dedup",
     { value: "running" },
     {
       dedupKey: "same",
     },
   )
-  const running = await store.claim(["test.dedup"], crypto.randomUUID())
-  const secondId = await store.enqueue(
+  const running = await claim(["test.dedup"], crypto.randomUUID())
+  const secondId = await enqueue(
     "test.dedup",
     { value: "pending" },
     {
@@ -174,15 +183,15 @@ test("pending dedup row coexists with a running row", async () => {
 })
 
 test("singleton claim skips pending while same singleton is running", async () => {
-  await store.enqueue(
+  await enqueue(
     "test.singleton",
     { value: "running" },
     {
       dedupKey: "test.singleton",
     },
   )
-  await store.claim(["test.singleton"], crypto.randomUUID())
-  await store.enqueue(
+  await claim(["test.singleton"], crypto.randomUUID())
+  await enqueue(
     "test.singleton",
     { value: "pending" },
     {
@@ -190,35 +199,35 @@ test("singleton claim skips pending while same singleton is running", async () =
     },
   )
 
-  assert.equal(await store.claim(["test.singleton"], crypto.randomUUID()), null)
+  assert.equal(await claim(["test.singleton"], crypto.randomUUID()), null)
 })
 
 test("stale running jobs are taken over after the lease window", async () => {
-  const id = await store.enqueue("test.order", { value: "stale" })
-  await store.claim(["test.order"], crypto.randomUUID())
+  const id = await enqueue("test.order", { value: "stale" })
+  await claim(["test.order"], crypto.randomUUID())
   await db
     .update(job)
     .set({ locked_at: sql`now() - interval '3 minutes'` })
     .where(eq(job.id, id))
 
-  const claimed = await store.claim(["test.order"], crypto.randomUUID())
+  const claimed = await claim(["test.order"], crypto.randomUUID())
 
   assert.equal(claimed?.id, id)
   assert.equal(claimed?.attempt, 2)
 })
 
 test("recurring completion re-arms the next singleton row transactionally", async () => {
-  const id = await store.enqueue(
+  const id = await enqueue(
     "test.recurring",
     {},
     {
       dedupKey: "test.recurring",
     },
   )
-  const claimed = await store.claim(["test.recurring"], crypto.randomUUID())
+  const claimed = await claim(["test.recurring"], crypto.randomUUID())
 
   assert.equal(claimed?.id, id)
-  assert.equal(await store.complete(id, claimed?.lease_token ?? ""), true)
+  assert.equal(await complete(id, claimed?.lease_token ?? ""), true)
 
   const rows = await db
     .select({ status: job.status, dedupKey: job.dedup_key })
@@ -235,29 +244,26 @@ test("recurring completion re-arms the next singleton row transactionally", asyn
 })
 
 test("retry uses linear backoff from the current attempt", async () => {
-  const id = await store.enqueue("test.retry", {})
-  const first = await store.claim(["test.retry"], crypto.randomUUID())
+  const id = await enqueue("test.retry", {})
+  const first = await claim(["test.retry"], crypto.randomUUID())
 
   assert.equal(first?.attempt, 1)
-  assert.deepEqual(
-    await store.fail(id, first?.lease_token ?? "", "fail", true),
-    {
-      changed: true,
-      willRetry: true,
-    },
-  )
-  assert.equal(await store.claim(["test.retry"], crypto.randomUUID()), null)
+  assert.deepEqual(await fail(id, first?.lease_token ?? "", "fail", true), {
+    changed: true,
+    willRetry: true,
+  })
+  assert.equal(await claim(["test.retry"], crypto.randomUUID()), null)
 
   await db
     .update(job)
     .set({ run_at: sql`now() - interval '1 second'` })
     .where(eq(job.id, id))
 
-  const second = await store.claim(["test.retry"], crypto.randomUUID())
+  const second = await claim(["test.retry"], crypto.randomUUID())
 
   assert.equal(second?.attempt, 2)
   assert.deepEqual(
-    await store.fail(id, second?.lease_token ?? "", "fail again", true),
+    await fail(id, second?.lease_token ?? "", "fail again", true),
     {
       changed: true,
       willRetry: true,
@@ -273,23 +279,20 @@ test("retry uses linear backoff from the current attempt", async () => {
 })
 
 test("snooze returns to pending without consuming an attempt", async () => {
-  const id = await store.enqueue("test.snooze", {})
-  const first = await store.claim(["test.snooze"], crypto.randomUUID())
+  const id = await enqueue("test.snooze", {})
+  const first = await claim(["test.snooze"], crypto.randomUUID())
 
   assert.equal(first?.attempt, 1)
-  assert.equal(
-    await store.snooze(id, first?.lease_token ?? "", secondsAgo(1)),
-    true,
-  )
+  assert.equal(await snooze(id, first?.lease_token ?? "", secondsAgo(1)), true)
 
-  const second = await store.claim(["test.snooze"], crypto.randomUUID())
+  const second = await claim(["test.snooze"], crypto.randomUUID())
 
   assert.equal(second?.id, id)
   assert.equal(second?.attempt, 1)
 })
 
 test("snooze absorbs pending dedup twin", async () => {
-  const runningId = await store.enqueue(
+  const runningId = await enqueue(
     "test.snooze",
     { value: "running" },
     {
@@ -298,8 +301,8 @@ test("snooze absorbs pending dedup twin", async () => {
       dedupKey: "same",
     },
   )
-  const running = await store.claim(["test.snooze"], crypto.randomUUID())
-  await store.enqueue(
+  const running = await claim(["test.snooze"], crypto.randomUUID())
+  await enqueue(
     "test.snooze",
     { value: "pending" },
     {
@@ -311,7 +314,7 @@ test("snooze absorbs pending dedup twin", async () => {
 
   assert.equal(running?.id, runningId)
   assert.equal(
-    await store.snooze(runningId, running?.lease_token ?? "", secondsAgo(5)),
+    await snooze(runningId, running?.lease_token ?? "", secondsAgo(5)),
     true,
   )
 
@@ -333,7 +336,7 @@ test("snooze absorbs pending dedup twin", async () => {
 })
 
 test("retry absorbs pending dedup twin", async () => {
-  const failedId = await store.enqueue(
+  const failedId = await enqueue(
     "test.retry",
     { value: "failed" },
     {
@@ -341,17 +344,17 @@ test("retry absorbs pending dedup twin", async () => {
       dedupKey: "same",
     },
   )
-  const running = await store.claim(["test.retry"], crypto.randomUUID())
+  const running = await claim(["test.retry"], crypto.randomUUID())
 
   assert.deepEqual(
-    await store.fail(failedId, running?.lease_token ?? "", "fail", false),
+    await fail(failedId, running?.lease_token ?? "", "fail", false),
     {
       changed: true,
       willRetry: false,
     },
   )
 
-  await store.enqueue(
+  await enqueue(
     "test.retry",
     { value: "pending" },
     {
@@ -361,7 +364,7 @@ test("retry absorbs pending dedup twin", async () => {
     },
   )
 
-  assert.equal(await store.retry(failedId), true)
+  assert.equal(await retry(failedId), true)
 
   const rows = await db
     .select({
@@ -381,19 +384,19 @@ test("retry absorbs pending dedup twin", async () => {
 })
 
 test("discardFailed deletes only terminally failed rows", async () => {
-  const id = await store.enqueue("test.retry", {})
-  const running = await store.claim(["test.retry"], crypto.randomUUID())
-  await store.fail(id, running?.lease_token ?? "", "boom", false)
+  const id = await enqueue("test.retry", {})
+  const running = await claim(["test.retry"], crypto.randomUUID())
+  await fail(id, running?.lease_token ?? "", "boom", false)
 
-  assert.equal(await store.discardFailed(id), true)
+  assert.equal(await discardFailed(id), true)
   assert.equal(
     (await db.select({ id: job.id }).from(job).where(eq(job.id, id))).length,
     0,
   )
 
-  const pendingId = await store.enqueue("test.retry", {})
-  await store.claim(["test.retry"], crypto.randomUUID())
-  assert.equal(await store.discardFailed(pendingId), false)
+  const pendingId = await enqueue("test.retry", {})
+  await claim(["test.retry"], crypto.randomUUID())
+  assert.equal(await discardFailed(pendingId), false)
   assert.equal(
     (await db.select({ id: job.id }).from(job).where(eq(job.id, pendingId)))
       .length,
@@ -402,18 +405,10 @@ test("discardFailed deletes only terminally failed rows", async () => {
 })
 
 test("nextPendingRunByKind reports the earliest pending run per kind", async () => {
-  await store.enqueue(
-    "test.order",
-    { value: "late" },
-    { runAt: secondsAgo(10) },
-  )
-  await store.enqueue(
-    "test.order",
-    { value: "early" },
-    { runAt: secondsAgo(30) },
-  )
+  await enqueue("test.order", { value: "late" }, { runAt: secondsAgo(10) })
+  await enqueue("test.order", { value: "early" }, { runAt: secondsAgo(30) })
 
-  const next = await store.nextPendingRunByKind()
+  const next = await nextPendingRunByKind()
   const runAt = next.get("test.order")
 
   assert.ok(runAt && runAt <= secondsAgo(20))

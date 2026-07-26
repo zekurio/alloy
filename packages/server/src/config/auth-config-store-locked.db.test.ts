@@ -2,6 +2,18 @@ import assert from "node:assert/strict"
 import { after, beforeEach, test } from "node:test"
 
 import type { OAuthProviderConfig } from "@alloy/contracts"
+import { instanceSetting } from "@alloy/db/schema"
+import { client, db } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+
+import {
+  authEnvLocks,
+  configStore,
+  initializeConfigStore,
+  setAuthToggles,
+  setOAuthProviders,
+  storedOAuthClientSecret,
+} from "./store"
 
 process.env.ALLOY_OPEN_REGISTRATIONS = "true"
 process.env.ALLOY_PASSKEY_ENABLED = ""
@@ -23,21 +35,7 @@ process.env.ALLOY_SOCIALACCOUNT_PROVIDERS = JSON.stringify({
   },
 })
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
 await prepareTestDatabase("auth-config-store-locked")
-
-// Dynamic imports are required because env and DB modules read process.env at
-// module load time, after prepareTestDatabase installs the isolated test URL.
-const { instanceSetting } = await import("@alloy/db/schema")
-const { client, db } = await import("@alloy/server/db/index")
-const {
-  authEnvLocks,
-  configStore,
-  initializeConfigStore,
-  setAuthToggles,
-  setOAuthProviders,
-  storedOAuthClientSecret,
-} = await import("./store")
 
 after(() => client.end())
 

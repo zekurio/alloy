@@ -1,23 +1,24 @@
 import assert from "node:assert/strict"
 import { after, beforeEach, test } from "node:test"
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
-await prepareTestDatabase("renditions-sweep")
+import { TranscodingConfigSchema } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, clipRendition, instanceSetting, job } from "@alloy/db/schema"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import {
+  encodeFingerprint,
+  expectedLadder,
+} from "@alloy/server/media/encode-fingerprint"
+import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
+import { eq, inArray } from "drizzle-orm"
 
-const { TranscodingConfigSchema } = await import("@alloy/contracts")
-const { user } = await import("@alloy/db/auth-schema")
-const { clip, clipRendition, instanceSetting, job } =
-  await import("@alloy/db/schema")
-const { db, client } = await import("@alloy/server/db/index")
-const { encodeFingerprint, expectedLadder } =
-  await import("@alloy/server/media/encode-fingerprint")
-const { MEDIA_PIPELINE_VERSION } =
-  await import("@alloy/server/media/pipeline-version")
-const { getJobKind } = await import("../registry")
-await import("./clip-encode")
-await import("./renditions-sweep")
-const jobSummaries = await import("../summaries")
-const { eq, inArray } = await import("drizzle-orm")
+import { getJobKind } from "../registry"
+import "./clip-encode"
+import "./renditions-sweep"
+import { readJobSweeps } from "../summaries"
+
+await prepareTestDatabase("renditions-sweep")
 
 const config = TranscodingConfigSchema.parse({})
 
@@ -217,7 +218,7 @@ test("job sweep summaries coerce legacy missing mode to stale", async () => {
     updated_at: new Date(),
   })
 
-  const sweeps = await jobSummaries.readJobSweeps()
+  const sweeps = await readJobSweeps()
   assert.equal(sweeps.renditionSweep?.mode, "stale")
   assert.equal(sweeps.renditionSweep?.enqueued, 2)
 })
