@@ -4,35 +4,33 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { after, beforeEach, test } from "node:test"
 
+import { CLIP_SCRUBBER_SHEET_HEIGHT } from "@alloy/contracts"
+import { user } from "@alloy/db/auth-schema"
+import { clip, uploadTicket } from "@alloy/db/schema"
+import { clipScrubberKey } from "@alloy/server/clips/scrubber"
+import { promoteUploadedScrubber } from "@alloy/server/clips/scrubber-upload"
+import { db, client } from "@alloy/server/db/index"
+import { prepareTestDatabase } from "@alloy/server/db/test-database"
+import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
+import {
+  stagedScrubberKey,
+  stagedSourceKey,
+} from "@alloy/server/uploads/staged"
+import {
+  cleanupTickets,
+  createUploadTickets,
+  selectScrubberTicket,
+  selectTicketKeys,
+} from "@alloy/server/uploads/tickets"
+import { eq } from "drizzle-orm"
+import sharp from "sharp"
+
 const storageRoot = await mkdtemp(join(tmpdir(), "alloy-scrubber-ticket-"))
 process.env.ALLOY_STORAGE_FS_CLIPS_PATH = join(storageRoot, "clips")
 process.env.ALLOY_STORAGE_FS_THUMBNAILS_PATH = join(storageRoot, "thumbnails")
 process.env.ALLOY_STORAGE_FS_ASSETS_PATH = join(storageRoot, "assets")
 
-const { prepareTestDatabase } = await import("@alloy/server/db/test-database")
 await prepareTestDatabase("scrubber-ticket")
-
-// Dynamic imports are required because these modules read DATABASE_URL and
-// the storage paths at import time; the env assignments above must run first.
-const { CLIP_SCRUBBER_SHEET_HEIGHT } = await import("@alloy/contracts")
-const { user } = await import("@alloy/db/auth-schema")
-const { clip, uploadTicket } = await import("@alloy/db/schema")
-const { clipScrubberKey } = await import("@alloy/server/clips/scrubber")
-const { promoteUploadedScrubber } =
-  await import("@alloy/server/clips/scrubber-upload")
-const { db, client } = await import("@alloy/server/db/index")
-const { clipStorage, clipThumbnailStorage } =
-  await import("@alloy/server/storage/index")
-const { stagedScrubberKey, stagedSourceKey } =
-  await import("@alloy/server/uploads/staged")
-const {
-  cleanupTickets,
-  createUploadTickets,
-  selectScrubberTicket,
-  selectTicketKeys,
-} = await import("@alloy/server/uploads/tickets")
-const { eq } = await import("drizzle-orm")
-const sharp = (await import("sharp")).default
 
 after(async () => {
   await client.end()
