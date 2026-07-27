@@ -1,3 +1,4 @@
+import type { AuthUser } from "@alloy/contracts"
 import { useSyncExternalStore } from "react"
 
 import { createAuthActions } from "./auth-actions"
@@ -26,21 +27,7 @@ export interface CreateAuthOptions {
   redirect?: AuthRedirect
 }
 
-export type AuthUser = {
-  id: string
-  email: string
-  emailVerified: boolean
-  username: string
-  displayName: string | null
-  image: string | null
-  banner: string | null
-  role: "user" | "admin"
-  status: "active" | "disabled"
-  disabledAt: string | null
-  storageQuotaBytes: number | null
-  createdAt: string
-  updatedAt: string
-}
+export type { AuthUser }
 
 export type SessionData = {
   session: {

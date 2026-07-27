@@ -11,12 +11,16 @@ import { Hono } from "hono"
  *
  * Discord renders fediverse posts with a dedicated layout — author avatar,
  * `display name (@handle)`, body text, inline player, instance footer — which
- * is far richer than an OpenGraph unfurl. It reaches this route by following
- * the `application/activity+json` alternate link in the clip head, parsing the
- * host as a Mastodon instance and calling the standard REST path itself.
+ * is far richer than an OpenGraph unfurl.
  *
- * The path segment is the clip uuid encoded as digits, because that layout is
- * only used when the status id looks like a Mastodon id. See `status-id.ts`.
+ * It does not fetch the `application/activity+json` href in the clip head.
+ * That href is matched against Mastodon's canonical ActivityPub object shape
+ * (`/users/{user}/statuses/{id}`) purely to recognise a fediverse post; Discord
+ * then derives this REST path from the host and id and requests it. So the
+ * advertised path and the served path are deliberately different, and the
+ * advertised one must keep the `/users/.../statuses/...` shape.
+ *
+ * The id segment is the clip uuid encoded as digits — see `status-id.ts`.
  */
 export const activityRoute = new Hono().get("/statuses/:id", async (c) => {
   const clipId = decodeClipStatusId(c.req.param("id"))

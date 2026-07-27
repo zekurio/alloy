@@ -50,6 +50,7 @@ test("serializes auth sessions for the public API contract", () => {
         email: "admin@example.com",
         emailVerified: true,
         username: "admin",
+        displayName: null,
         image: null,
         banner: null,
         role: "admin",

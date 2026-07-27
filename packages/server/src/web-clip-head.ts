@@ -6,7 +6,7 @@ import {
   embedVideo,
   type EmbedVideo,
 } from "./clips/embed-media"
-import { encodeClipStatusId } from "./clips/status-id"
+import { mastodonStatusHref } from "./clips/status-id"
 import { env } from "./env"
 import { clipGameName } from "./games/ref"
 import { htmlEscape } from "./web-html"
@@ -41,7 +41,7 @@ function buildClipHead(row: MetadataClip): string {
   const poster = embedPosterUrl(row, origin)
   const video = embedVideo(row, origin)
   const permalink = new URL(`/clips/${row.id}`, origin).toString()
-  const statusId = encodeClipStatusId(row.id)
+  const statusHref = mastodonStatusHref(row.authorUsername, row.id, origin)
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
@@ -49,13 +49,16 @@ function buildClipHead(row: MetadataClip): string {
     // Discord prefers the Mastodon status document over these OpenGraph tags
     // and renders it with avatar, author line and an inline player. Everything
     // below stays as the fallback for crawlers that ignore the link.
-    ...(statusId
-      ? [
-          linkAlternate(
-            "application/activity+json",
-            new URL(`/api/v1/statuses/${statusId}`, origin).toString(),
-          ),
-        ]
+    //
+    // This href is a *pattern*, not a fetchable URL: Discord matches it against
+    // Mastodon's canonical ActivityPub object shape `/users/{user}/statuses/
+    // {id}` to recognise a fediverse post, then derives `/api/v1/statuses/{id}`
+    // and fetches that instead. FxEmbed advertises the same shape and serves a
+    // 302 there, proving the advertised path is never requested. Pointing this
+    // directly at /api/v1/... means Discord never matches, and silently falls
+    // back to the OpenGraph tags below.
+    ...(statusHref
+      ? [linkAlternate("application/activity+json", statusHref)]
       : []),
     metaName("theme-color", BRAND_COLOR),
     metaProperty("og:site_name", "alloy"),

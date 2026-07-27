@@ -1,7 +1,13 @@
 import assert from "node:assert/strict"
 import { test } from "node:test"
 
-import { decodeClipStatusId, encodeClipStatusId } from "./status-id"
+import {
+  decodeClipStatusId,
+  encodeClipStatusId,
+  mastodonStatusHref,
+} from "./status-id"
+
+const ORIGIN = "https://clips.example.com"
 
 test("encodeClipStatusId produces a digits-only id", () => {
   const encoded = encodeClipStatusId("0b7d3f2a-1c44-4e8b-9f10-2ab5c6d7e8f9")
@@ -54,4 +60,36 @@ test("decodeClipStatusId rejects non-numeric ids", () => {
 
 test("decodeClipStatusId rejects values wider than 128 bits", () => {
   assert.equal(decodeClipStatusId((2n ** 128n).toString(10)), null)
+})
+
+test("the advertised href keeps Mastodon's ActivityPub object shape", () => {
+  // Discord matches this shape to recognise a fediverse post, then derives
+  // /api/v1/statuses/{id} itself. Advertising the REST path directly means no
+  // match and a silent fallback to OpenGraph — regressions here are invisible
+  // except by posting a link in Discord, hence the test.
+  assert.equal(
+    mastodonStatusHref(
+      "zekurio",
+      "0b7d3f2a-1c44-4e8b-9f10-2ab5c6d7e8f9",
+      ORIGIN,
+    ),
+    `${ORIGIN}/users/zekurio/statuses/15271826189086941860723332107912866041`,
+  )
+})
+
+test("the advertised href escapes the username", () => {
+  const href = mastodonStatusHref(
+    "we/ird name",
+    "0b7d3f2a-1c44-4e8b-9f10-2ab5c6d7e8f9",
+    ORIGIN,
+  )
+  // A slash in a handle must not invent extra path segments.
+  assert.equal(
+    href,
+    `${ORIGIN}/users/we%2Fird%20name/statuses/15271826189086941860723332107912866041`,
+  )
+})
+
+test("the advertised href is omitted for a non-uuid clip id", () => {
+  assert.equal(mastodonStatusHref("zekurio", "not-a-uuid", ORIGIN), null)
 })
