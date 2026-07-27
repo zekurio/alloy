@@ -39,6 +39,7 @@ export function publicAuthUserRow(row: User): AuthUser {
     status: row.status,
     disabledAt: nullableIsoDate(row.disabled_at),
     storageQuotaBytes: row.storage_quota_bytes,
+    clipAnnouncementsEnabled: row.clip_announcements_enabled,
     createdAt: isoDate(row.created_at),
     updatedAt: isoDate(row.updated_at),
   }

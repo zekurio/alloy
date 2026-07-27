@@ -90,6 +90,7 @@ const UpdateUserBody = z.object({
     .optional(),
   // Empty string is meaningful here: it clears the display name.
   displayName: z.string().max(DISPLAY_NAME_MAX_LENGTH).optional(),
+  clipAnnouncementsEnabled: z.boolean().optional(),
 })
 
 const UuidParam = z.object({
