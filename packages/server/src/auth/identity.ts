@@ -221,7 +221,12 @@ export async function createRegistrationUserInTransaction(
 
 export async function updateUserIdentity(
   userId: string,
-  input: { email?: string; username?: string; displayName?: string },
+  input: {
+    email?: string
+    username?: string
+    displayName?: string
+    clipAnnouncementsEnabled?: boolean
+  },
 ): Promise<User> {
   const patch: Partial<NewUser> = { updated_at: new Date() }
   if (input.email !== undefined) {
@@ -240,6 +245,9 @@ export async function updateUserIdentity(
   }
   if (input.displayName !== undefined) {
     patch.display_name = normalizeDisplayName(input.displayName)
+  }
+  if (input.clipAnnouncementsEnabled !== undefined) {
+    patch.clip_announcements_enabled = input.clipAnnouncementsEnabled
   }
   const [updated] = await db
     .update(user)

@@ -980,8 +980,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Das gleitende Zeitfenster, das der Clip-Hotkey speichert.",
   "The selected {backend} encoder isn't available for {codec} on this server.":
     "Der ausgewählte {backend}-Encoder ist für {codec} auf diesem Server nicht verfügbar.",
-  "Theme, language, and regional settings.":
-    "Theme-, Sprach- und Regionaleinstellungen.",
+  "Theme, language, and announcement settings.":
+    "Theme-, Sprach- und Ankündigungseinstellungen.",
   "They can claim the account by signing in with an identity provider that uses this email.":
     "Das Konto kann übernommen werden, indem man sich über einen Identitätsanbieter mit dieser E-Mail anmeldet.",
   "They'll be able to sign in and their clips will be visible again.":
@@ -1237,4 +1237,56 @@ export const DE_MESSAGES: Record<string, string> = {
   "Username claim": "Nutzername-Claim",
   "Users may lose this sign-in method immediately.":
     "Nutzer könnten diese Anmeldemethode sofort verlieren.",
+  "Add webhook": "Webhook hinzufügen",
+  "Announce my clips": "Meine Clips ankündigen",
+  "Announce published clips to Discord or your own endpoint.":
+    "Kündige veröffentlichte Clips auf Discord oder deinem eigenen Endpunkt an.",
+  "Announcements off": "Ankündigungen aus",
+  "Announcements on": "Ankündigungen an",
+  "Couldn't create webhook": "Webhook konnte nicht erstellt werden",
+  "Couldn't delete webhook": "Webhook konnte nicht gelöscht werden",
+  "Couldn't load webhooks": "Webhooks konnten nicht geladen werden",
+  "Couldn't save preference": "Einstellung konnte nicht gespeichert werden",
+  "Couldn't save webhook": "Webhook konnte nicht gespeichert werden",
+  "Couldn't send test": "Test konnte nicht gesendet werden",
+  "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
+  "Delete this webhook?": "Diesen Webhook löschen?",
+  "Delete webhook": "Webhook löschen",
+  "Deliver webhook": "Webhook zustellen",
+  Discord: "Discord",
+  "Discord renders the clip link as a playable preview.":
+    "Discord rendert den Clip-Link als abspielbare Vorschau.",
+  "Edit webhook": "Webhook bearbeiten",
+  "Enable webhook": "Webhook aktivieren",
+  "Endpoint URL": "Endpunkt-URL",
+  "Every public clip is announced once per webhook. Authors can opt out in their preferences.":
+    "Jeder öffentliche Clip wird pro Webhook einmal angekündigt. Autoren können dies in ihren Einstellungen abwählen.",
+  "Failing since {time}": "Fehlerhaft seit {time}",
+  Generic: "Generisch",
+  "It stops receiving announcements. Clips it already received are not re-sent if you add it back.":
+    "Er erhält keine Ankündigungen mehr. Bereits zugestellte Clips werden nicht erneut gesendet, wenn du ihn wieder hinzufügst.",
+  "Leave blank to keep the current URL.":
+    "Leer lassen, um die aktuelle URL zu behalten.",
+  "Leave blank to keep the current secret.":
+    "Leer lassen, um das aktuelle Secret zu behalten.",
+  "Let this server post your public clips to the webhooks it has configured.":
+    "Erlaube diesem Server, deine öffentlichen Clips an seine konfigurierten Webhooks zu senden.",
+  "Never used": "Nie verwendet",
+  "New webhook": "Neuer Webhook",
+  "No webhooks yet": "Noch keine Webhooks",
+  Provider: "Anbieter",
+  "Public clips are announced here as soon as they finish encoding.":
+    "Öffentliche Clips werden hier angekündigt, sobald ihre Kodierung fertig ist.",
+  "Send test": "Test senden",
+  "Signing secret": "Signatur-Secret",
+  "Test delivered": "Test zugestellt",
+  "Used to sign each payload so your endpoint can verify it.":
+    "Wird verwendet, um jede Nutzlast zu signieren, damit dein Endpunkt sie verifizieren kann.",
+  "Webhook created": "Webhook erstellt",
+  "Webhook deleted": "Webhook gelöscht",
+  "Webhook saved": "Webhook gespeichert",
+  Webhooks: "Webhooks",
+  "Your endpoint receives a signed JSON payload.":
+    "Dein Endpunkt erhält eine signierte JSON-Nutzlast.",
+  "e.g. #clips": "z. B. #clips",
 }

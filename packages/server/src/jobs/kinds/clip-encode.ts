@@ -9,6 +9,7 @@ import {
 } from "@alloy/server/media/encode-fingerprint"
 import { createStoredClipMentionNotifications } from "@alloy/server/notifications/service"
 import { errorMessage } from "@alloy/server/runtime/error-message"
+import { dispatchClipPublished } from "@alloy/server/webhooks/publish"
 import { and, eq, isNull, sql } from "drizzle-orm"
 import { z } from "zod"
 
@@ -129,6 +130,7 @@ async function runClipEncode(
     if (payload.trigger === "upload") {
       await fanOutReadyClipMentions(payload.clipId)
     }
+    announceClipPublished(payload.clipId)
     return
   }
 
@@ -177,6 +179,7 @@ async function runClipEncode(
     if (payload.trigger === "upload") {
       await fanOutReadyClipMentions(payload.clipId)
     }
+    announceClipPublished(payload.clipId)
   } catch (err) {
     if (ctx.signal.aborted && ctx.signal.reason === "shutdown") {
       await clipMediaStore.releaseLease(
@@ -187,6 +190,20 @@ async function runClipEncode(
     }
     throw err
   }
+}
+
+/**
+ * Hand a freshly ready clip to the webhook dispatcher.
+ *
+ * Not gated on the trigger: the delivery ledger makes a re-encode or trim a
+ * no-op, while a clip that went public before any webhook existed still gets
+ * announced the next time it is processed. Never awaited — a webhook problem
+ * must not fail, and therefore re-run, an encode.
+ */
+function announceClipPublished(clipId: string): void {
+  void dispatchClipPublished(clipId).catch((error) =>
+    logger.error("webhook dispatch failed", error),
+  )
 }
 
 async function fanOutReadyClipMentions(clipId: string): Promise<void> {

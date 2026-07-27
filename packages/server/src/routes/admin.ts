@@ -30,6 +30,7 @@ import { adminGamesRoute } from "./admin-games"
 import { adminRuntimeConfigResponse } from "./admin-helpers"
 import { adminJobsRoute } from "./admin-jobs"
 import { adminUsersRoute } from "./admin-users"
+import { adminWebhooksRoute } from "./admin-webhooks"
 import { zValidator } from "./validation"
 
 const RuntimeConfigPatch = z.object({
@@ -96,6 +97,7 @@ export const adminRoute = new Hono()
   .route("/", adminUsersRoute)
   .route("/", adminGamesRoute)
   .route("/", adminJobsRoute)
+  .route("/", adminWebhooksRoute)
   .get("/runtime-config", (c) => {
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })

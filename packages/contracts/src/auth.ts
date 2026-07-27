@@ -20,6 +20,7 @@ export interface AuthUser {
   status: UserStatus
   disabledAt: IsoDateString | null
   storageQuotaBytes: number | null
+  clipAnnouncementsEnabled: boolean
   createdAt: IsoDateString
   updatedAt: IsoDateString
 }

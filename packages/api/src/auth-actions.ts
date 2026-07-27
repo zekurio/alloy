@@ -232,6 +232,7 @@ function createUserActions(request: RequestFn, store: SessionStore) {
       name?: string
       username?: string
       displayName?: string
+      clipAnnouncementsEnabled?: boolean
     }) => {
       const update = await result(
         AUTH_PATHS.user,

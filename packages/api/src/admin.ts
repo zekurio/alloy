@@ -11,6 +11,10 @@ import type {
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
+  AdminWebhookInput,
+  AdminWebhookPatch,
+  AdminWebhookRow,
+  AdminWebhookTestResult,
   GameAssetRole,
   HardwareAcceleration,
   RenditionTierConfig,
@@ -31,6 +35,9 @@ import {
   validateAdminReEncodeResponse,
   validateAdminUsersResponse,
   validateAdminUserStorageRow,
+  validateAdminWebhookRow,
+  validateAdminWebhookRows,
+  validateAdminWebhookTestResult,
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
 import { readDeletedJson, readSuccessJson } from "./mutations"
@@ -66,6 +73,10 @@ export type {
   AdminUpdateUserInput,
   AdminUsersResponse,
   AdminUserStorageRow,
+  AdminWebhookInput,
+  AdminWebhookPatch,
+  AdminWebhookRow,
+  AdminWebhookTestResult,
   AppearanceConfig,
   GameAssetRole,
   HardwareAcceleration,
@@ -355,6 +366,51 @@ async function deleteGameAsset(
   return readJsonOrThrow(res, validateAdminGameRow)
 }
 
+async function fetchWebhooks(context: ApiContext): Promise<AdminWebhookRow[]> {
+  const res = await context.rpc.api.admin.webhooks.$get()
+  return readJsonOrThrow(res, validateAdminWebhookRows)
+}
+
+async function createWebhook(
+  context: ApiContext,
+  input: AdminWebhookInput,
+): Promise<AdminWebhookRow> {
+  const res = await context.rpc.api.admin.webhooks.$post({ json: input })
+  return readJsonOrThrow(res, validateAdminWebhookRow)
+}
+
+async function updateWebhook(
+  context: ApiContext,
+  webhookId: string,
+  input: AdminWebhookPatch,
+): Promise<AdminWebhookRow> {
+  const res = await context.rpc.api.admin.webhooks[":id"].$patch({
+    param: { id: webhookId },
+    json: input,
+  })
+  return readJsonOrThrow(res, validateAdminWebhookRow)
+}
+
+async function deleteWebhook(
+  context: ApiContext,
+  webhookId: string,
+): Promise<void> {
+  const res = await context.rpc.api.admin.webhooks[":id"].$delete({
+    param: { id: webhookId },
+  })
+  await readDeletedJson(res)
+}
+
+async function testWebhook(
+  context: ApiContext,
+  webhookId: string,
+): Promise<AdminWebhookTestResult> {
+  const res = await context.rpc.api.admin.webhooks[":id"].test.$post({
+    param: { id: webhookId },
+  })
+  return readJsonOrThrow(res, validateAdminWebhookTestResult)
+}
+
 export function createAdminApi(context: ApiContext) {
   return {
     fetchRuntimeConfig: () => fetchRuntimeConfig(context),
@@ -401,5 +457,11 @@ export function createAdminApi(context: ApiContext) {
       uploadGameAsset(context, gameId, role, blob),
     deleteGameAsset: (gameId: string, role: GameAssetRole) =>
       deleteGameAsset(context, gameId, role),
+    fetchWebhooks: () => fetchWebhooks(context),
+    createWebhook: (input: AdminWebhookInput) => createWebhook(context, input),
+    updateWebhook: (webhookId: string, input: AdminWebhookPatch) =>
+      updateWebhook(context, webhookId, input),
+    deleteWebhook: (webhookId: string) => deleteWebhook(context, webhookId),
+    testWebhook: (webhookId: string) => testWebhook(context, webhookId),
   }
 }

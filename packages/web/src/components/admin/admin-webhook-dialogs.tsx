@@ -1,0 +1,330 @@
+import type { AdminWebhookRow } from "@alloy/api"
+import { WEBHOOK_PROVIDERS, type WebhookProvider } from "@alloy/contracts"
+import { t } from "@alloy/i18n"
+import { Button } from "@alloy/ui/components/button"
+import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
+import { Input } from "@alloy/ui/components/input"
+import {
+  ResponsiveDialog,
+  ResponsiveDialogBody,
+  ResponsiveDialogClose,
+  ResponsiveDialogContent,
+  ResponsiveDialogDescription,
+  ResponsiveDialogFooter,
+  ResponsiveDialogHeader,
+  ResponsiveDialogTitle,
+  ResponsiveDialogTrigger,
+} from "@alloy/ui/components/responsive-dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@alloy/ui/components/select"
+import { Spinner } from "@alloy/ui/components/spinner"
+import { toast } from "@alloy/ui/lib/toast"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { PencilIcon, PlusIcon } from "lucide-react"
+import { useEffect, useState } from "react"
+import type { FormEvent } from "react"
+
+import { api } from "@/lib/api"
+import { errorMessage } from "@/lib/error-message"
+
+import {
+  setAdminWebhookCacheRow,
+  WEBHOOK_PROVIDER_LABELS,
+  WEBHOOK_URL_PLACEHOLDERS,
+} from "./admin-webhook-data"
+
+export function CreateWebhookDialog() {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [provider, setProvider] = useState<WebhookProvider>("discord")
+  const [url, setUrl] = useState("")
+  const [secret, setSecret] = useState("")
+
+  useEffect(() => {
+    if (open) return
+    setName("")
+    setProvider("discord")
+    setUrl("")
+    setSecret("")
+  }, [open])
+
+  const { isPending, mutate } = useMutation({
+    mutationFn: () =>
+      api.admin.createWebhook({
+        name: name.trim(),
+        provider,
+        url: url.trim(),
+        ...(provider === "generic" && secret ? { secret } : {}),
+      }),
+    onSuccess: (created) => {
+      setAdminWebhookCacheRow(queryClient, created)
+      toast.success(t("Webhook created"))
+      setOpen(false)
+    },
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't create webhook"))),
+  })
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault()
+    if (isPending) return
+    mutate()
+  }
+
+  return (
+    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+      <ResponsiveDialogTrigger
+        render={
+          <Button type="button">
+            <PlusIcon />
+            {t("Add webhook")}
+          </Button>
+        }
+      />
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>{t("New webhook")}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
+            {t(
+              "Public clips are announced here as soon as they finish encoding.",
+            )}
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
+        <form onSubmit={handleSubmit}>
+          <ResponsiveDialogBody className="flex flex-col gap-4">
+            <Field>
+              <FieldLabel htmlFor="new-webhook-name">{t("Name")}</FieldLabel>
+              <Input
+                id="new-webhook-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={t("e.g. #clips")}
+                maxLength={80}
+                required
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="new-webhook-provider">
+                {t("Provider")}
+              </FieldLabel>
+              <Select
+                value={provider}
+                onValueChange={(value) => {
+                  if (value === "discord" || value === "generic") {
+                    setProvider(value)
+                  }
+                }}
+              >
+                <SelectTrigger id="new-webhook-provider" size="sm">
+                  <SelectValue>{WEBHOOK_PROVIDER_LABELS[provider]}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {WEBHOOK_PROVIDERS.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {WEBHOOK_PROVIDER_LABELS[option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <FieldDescription>
+                {provider === "discord"
+                  ? t("Discord renders the clip link as a playable preview.")
+                  : t("Your endpoint receives a signed JSON payload.")}
+              </FieldDescription>
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="new-webhook-url">
+                {t("Endpoint URL")}
+              </FieldLabel>
+              <Input
+                id="new-webhook-url"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder={WEBHOOK_URL_PLACEHOLDERS[provider]}
+                type="url"
+                required
+              />
+            </Field>
+            {provider === "generic" ? (
+              <Field>
+                <FieldLabel htmlFor="new-webhook-secret">
+                  {t("Signing secret")}
+                </FieldLabel>
+                <Input
+                  id="new-webhook-secret"
+                  value={secret}
+                  onChange={(event) => setSecret(event.target.value)}
+                  type="password"
+                  autoComplete="off"
+                  maxLength={200}
+                />
+                <FieldDescription>
+                  {t(
+                    "Used to sign each payload so your endpoint can verify it.",
+                  )}
+                </FieldDescription>
+              </Field>
+            ) : null}
+          </ResponsiveDialogBody>
+          <ResponsiveDialogFooter>
+            <ResponsiveDialogClose
+              render={
+                <Button type="button" variant="ghost" disabled={isPending} />
+              }
+            >
+              {t("Cancel")}
+            </ResponsiveDialogClose>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isPending}
+            >
+              {isPending ? <Spinner className="size-3.5" /> : null}
+              {isPending ? t("Saving…") : t("Save")}
+            </Button>
+          </ResponsiveDialogFooter>
+        </form>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  )
+}
+
+export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
+  const queryClient = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState(webhook.name)
+  const [url, setUrl] = useState("")
+  const [secret, setSecret] = useState("")
+
+  useEffect(() => {
+    if (!open) return
+    setName(webhook.name)
+    // Both start blank: the stored URL may be masked and the secret is never
+    // sent back, so an empty field means "keep what is stored".
+    setUrl("")
+    setSecret("")
+  }, [open, webhook.name])
+
+  const { isPending, mutate } = useMutation({
+    mutationFn: () =>
+      api.admin.updateWebhook(webhook.id, {
+        name: name.trim(),
+        ...(url.trim() ? { url: url.trim() } : {}),
+        ...(webhook.provider === "generic" && secret ? { secret } : {}),
+      }),
+    onSuccess: (updated) => {
+      setAdminWebhookCacheRow(queryClient, updated)
+      toast.success(t("Webhook saved"))
+      setOpen(false)
+    },
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't save webhook"))),
+  })
+
+  const handleSubmit = (event: FormEvent) => {
+    event.preventDefault()
+    if (isPending) return
+    mutate()
+  }
+
+  return (
+    <ResponsiveDialog open={open} onOpenChange={setOpen}>
+      <ResponsiveDialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={t("Edit webhook")}
+          >
+            <PencilIcon />
+          </Button>
+        }
+      />
+      <ResponsiveDialogContent>
+        <ResponsiveDialogHeader>
+          <ResponsiveDialogTitle>{t("Edit webhook")}</ResponsiveDialogTitle>
+          <ResponsiveDialogDescription>
+            {WEBHOOK_PROVIDER_LABELS[webhook.provider]} · {webhook.url}
+          </ResponsiveDialogDescription>
+        </ResponsiveDialogHeader>
+        <form onSubmit={handleSubmit}>
+          <ResponsiveDialogBody className="flex flex-col gap-4">
+            <Field>
+              <FieldLabel htmlFor="edit-webhook-name">{t("Name")}</FieldLabel>
+              <Input
+                id="edit-webhook-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                maxLength={80}
+                required
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="edit-webhook-url">
+                {t("Endpoint URL")}
+              </FieldLabel>
+              <Input
+                id="edit-webhook-url"
+                value={url}
+                onChange={(event) => setUrl(event.target.value)}
+                placeholder={WEBHOOK_URL_PLACEHOLDERS[webhook.provider]}
+                type="url"
+              />
+              <FieldDescription>
+                {t("Leave blank to keep the current URL.")}
+              </FieldDescription>
+            </Field>
+            {webhook.provider === "generic" ? (
+              <Field>
+                <FieldLabel htmlFor="edit-webhook-secret">
+                  {t("Signing secret")}
+                </FieldLabel>
+                <Input
+                  id="edit-webhook-secret"
+                  value={secret}
+                  onChange={(event) => setSecret(event.target.value)}
+                  type="password"
+                  autoComplete="off"
+                  maxLength={200}
+                />
+                <FieldDescription>
+                  {webhook.secretSet
+                    ? t("Leave blank to keep the current secret.")
+                    : t(
+                        "Used to sign each payload so your endpoint can verify it.",
+                      )}
+                </FieldDescription>
+              </Field>
+            ) : null}
+          </ResponsiveDialogBody>
+          <ResponsiveDialogFooter>
+            <ResponsiveDialogClose
+              render={
+                <Button type="button" variant="ghost" disabled={isPending} />
+              }
+            >
+              {t("Cancel")}
+            </ResponsiveDialogClose>
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              disabled={isPending}
+            >
+              {isPending ? <Spinner className="size-3.5" /> : null}
+              {isPending ? t("Saving…") : t("Save")}
+            </Button>
+          </ResponsiveDialogFooter>
+        </form>
+      </ResponsiveDialogContent>
+    </ResponsiveDialog>
+  )
+}

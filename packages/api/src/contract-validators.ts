@@ -1,4 +1,5 @@
 export * from "./contract-validators/admin-jobs"
+export * from "./contract-validators/admin-webhooks"
 export * from "./contract-validators/clips"
 export * from "./contract-validators/queue"
 export * from "./contract-validators/feed-search"

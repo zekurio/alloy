@@ -5,6 +5,7 @@ import type { ReactNode } from "react"
 import { AdminGamesCard } from "@/components/admin/admin-games-card"
 import { AdminJobsCard } from "@/components/admin/admin-jobs-card"
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
+import { AdminWebhooksCard } from "@/components/admin/admin-webhooks-card"
 import { AppearanceSettingsContent } from "@/components/routes/settings/admin-appearance-settings"
 import { AuthSettingsContent } from "@/components/routes/settings/admin-auth-settings"
 import { useAdminConfigContext } from "@/components/routes/settings/admin-config-context"
@@ -53,4 +54,8 @@ export function AdminGamesPanel() {
 
 export function AdminJobsPanel() {
   return <AdminJobsCard hideHeader />
+}
+
+export function AdminWebhooksPanel() {
+  return <AdminWebhooksCard hideHeader />
 }

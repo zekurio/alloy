@@ -27,6 +27,7 @@ export const adminKeys = {
       ? ([...adminKeys.all, "users", search] as const)
       : ([...adminKeys.all, "users"] as const),
   games: () => [...adminKeys.all, "games"] as const,
+  webhooks: () => [...adminKeys.all, "webhooks"] as const,
   jobsSummary: () => [...adminKeys.all, "jobs", "summary"] as const,
   jobsFailed: (kind: string | null) =>
     [...adminKeys.all, "jobs", "failed", kind ?? "all"] as const,
@@ -98,5 +99,12 @@ export function adminGamesQueryOptions() {
   return queryOptions({
     queryKey: adminKeys.games(),
     queryFn: () => api.admin.fetchGames(),
+  })
+}
+
+export function adminWebhooksQueryOptions() {
+  return queryOptions({
+    queryKey: adminKeys.webhooks(),
+    queryFn: () => api.admin.fetchWebhooks(),
   })
 }

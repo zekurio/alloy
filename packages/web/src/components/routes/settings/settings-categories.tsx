@@ -36,10 +36,12 @@ import {
   UsersIcon,
   VideoIcon,
   Volume2Icon,
+  WebhookIcon,
 } from "lucide-react"
 import { lazy, useMemo, useState } from "react"
 import type { ComponentType, LazyExoticComponent } from "react"
 
+import { ClipAnnouncementRow } from "@/components/routes/settings/clip-announcement-settings"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
 import {
   ClipDataCard,
@@ -154,6 +156,12 @@ const AdminGamesPanel = lazy(() =>
 const AdminJobsPanel = lazy(() =>
   import("@/components/routes/settings/admin-tab-content").then((module) => ({
     default: module.AdminJobsPanel,
+  })),
+)
+
+const AdminWebhooksPanel = lazy(() =>
+  import("@/components/routes/settings/admin-tab-content").then((module) => ({
+    default: module.AdminWebhooksPanel,
   })),
 )
 
@@ -276,6 +284,7 @@ function PreferencesPanel() {
           </SelectContent>
         </Select>
       </SettingRow>
+      <ClipAnnouncementRow />
     </div>
   )
 }
@@ -305,7 +314,7 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
     "preferences",
     t("Preferences"),
     t("Preferences"),
-    t("Theme, language, and regional settings."),
+    t("Theme, language, and announcement settings."),
     [
       "theme",
       "appearance",
@@ -316,6 +325,10 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
       "language",
       "locale",
       "settings",
+      "announcements",
+      "announce clips",
+      "webhooks",
+      "discord",
     ],
     LanguagesIcon,
     PreferencesPanel,
@@ -533,6 +546,23 @@ const ADMIN_CATEGORIES = categoryDrafts([
     ],
     ListChecksIcon,
     AdminJobsPanel,
+  ],
+  [
+    "webhooks",
+    t("Webhooks"),
+    null,
+    t("Announce published clips to Discord or your own endpoint."),
+    [
+      "webhooks",
+      "discord",
+      "announcements",
+      "announce clips",
+      "integrations",
+      "signing secret",
+      "hmac",
+    ],
+    WebhookIcon,
+    AdminWebhooksPanel,
   ],
 ])
 
