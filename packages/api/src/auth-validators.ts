@@ -43,6 +43,10 @@ export function validateAuthUser(value: unknown): AuthUser {
     "Invalid auth user response: emailVerified must be boolean",
   )
   validateNullableString(
+    user.displayName,
+    "Invalid auth user response: displayName must be string or null",
+  )
+  validateNullableString(
     user.image,
     "Invalid auth user response: image must be string or null",
   )

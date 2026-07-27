@@ -30,6 +30,9 @@ export const user = pgTable(
     email: text().notNull().unique(),
     email_verified: boolean().notNull().default(false),
     username: text().notNull(),
+    // Free-form label shown instead of the handle. Null means "no display name
+    // set" — readers fall back to username rather than storing a copy of it.
+    display_name: text(),
     image: text(),
     banner: text(),
     role: text().$type<UserRole>().notNull().default("user"),

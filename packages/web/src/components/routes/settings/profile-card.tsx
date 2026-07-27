@@ -26,7 +26,11 @@ import type { useClickAnchor } from "@/hooks/use-click-anchor"
 import { authClient } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
 import { errorMessage } from "@/lib/error-message"
-import { validateEmail, validateUsername } from "@/lib/form-validators"
+import {
+  validateDisplayName,
+  validateEmail,
+  validateUsername,
+} from "@/lib/form-validators"
 import {
   normalizeProfileIdentity,
   profileIdentityChanged,
@@ -42,6 +46,7 @@ import { useProfileMedia } from "./use-profile-media"
 type ProfileCardProps = {
   userId: string
   initialUsername: string
+  initialDisplayName: string
   image: string
   banner: string
   email: string
@@ -57,7 +62,7 @@ type IdentityTextFieldConfig = {
   autoComplete: string
   description?: ReactNode
   label: string
-  name: "username" | "email"
+  name: "username" | "email" | "displayName"
   onChangeValue?: (value: string) => string
   type: "email" | "text"
   validate: (value: string) => string | undefined
@@ -98,6 +103,7 @@ const CENTER_EDIT_OVERLAY = (
 export function ProfileCard({
   userId,
   initialUsername,
+  initialDisplayName,
   image,
   banner,
   email,
@@ -111,6 +117,7 @@ export function ProfileCard({
   const initialIdentity = {
     email,
     username: initialUsername,
+    displayName: initialDisplayName,
   }
   const form = useForm({
     defaultValues: initialIdentity,
@@ -139,8 +146,9 @@ export function ProfileCard({
     form.reset({
       email,
       username: initialUsername,
+      displayName: initialDisplayName,
     })
-  }, [email, form, initialUsername])
+  }, [email, form, initialUsername, initialDisplayName])
 
   // Media (avatar, banner) applies as soon as it uploads; only the identity
   // fields go through the dialog's unified save bar.
@@ -204,6 +212,14 @@ export function ProfileCard({
 
   const identityTextFields: ReadonlyArray<IdentityTextFieldConfig> = [
     {
+      autoComplete: "nickname",
+      description: t("Shown instead of your username. Leave empty to use it."),
+      label: t("Display name"),
+      name: "displayName",
+      type: "text",
+      validate: validateDisplayName,
+    },
+    {
       autoComplete: "username",
       label: t("Username"),
       name: "username",
@@ -265,17 +281,23 @@ export function ProfileCard({
 
               <form.Subscribe
                 selector={(state) =>
-                  [state.values.email, state.values.username] as const
+                  [
+                    state.values.email,
+                    state.values.username,
+                    state.values.displayName,
+                  ] as const
                 }
               >
-                {([currentEmail, currentUsername]) => {
+                {([currentEmail, currentUsername, currentDisplayName]) => {
                   const normalizedIdentity = normalizeProfileIdentity({
                     email: currentEmail,
                     username: currentUsername,
+                    displayName: currentDisplayName,
                   })
                   const identityUser = {
                     id: userId,
                     username: normalizedIdentity.username || null,
+                    displayName: normalizedIdentity.displayName || null,
                     email: normalizedIdentity.email || email,
                     image: media.profileImage || null,
                   }

@@ -1,4 +1,8 @@
-import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/contracts"
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from "@alloy/contracts"
 import { user, userPasskey } from "@alloy/db/auth-schema"
 import {
   clearSessionCookies,
@@ -84,6 +88,8 @@ const UpdateUserBody = z.object({
     .min(USERNAME_MIN_LENGTH)
     .max(USERNAME_MAX_LENGTH)
     .optional(),
+  // Empty string is meaningful here: it clears the display name.
+  displayName: z.string().max(DISPLAY_NAME_MAX_LENGTH).optional(),
 })
 
 const UuidParam = z.object({

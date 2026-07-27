@@ -17,12 +17,14 @@ import { eventsRoute } from "./routes/events"
 import { feedRoute } from "./routes/feed"
 import { gamesRoute } from "./routes/games"
 import { notificationsRoute } from "./routes/notifications"
+import { oembedRoute } from "./routes/oembed"
 import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
 import { tagsRoute } from "./routes/tags"
 import { usersRoute } from "./routes/users"
 import { userAssetsRoute, usersUploadRoute } from "./routes/users-upload"
 import { internalServerError, unauthorized } from "./runtime/http-response"
+import { isShareableClipRequest } from "./runtime/shareable-paths"
 import { storageRoute } from "./storage/fs-upload-route"
 import { mountWeb } from "./web"
 
@@ -39,29 +41,11 @@ const BROWSE_API_PREFIXES = [
 
 const BROWSE_API_PATTERNS = [/^\/api\/users\/(?!me(?:\/|$))[^/]+(?:\/.*)?$/]
 
-const SHAREABLE_CLIP_ASSET_RE =
-  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:stream|thumbnail)$/i
-const SHAREABLE_CLIP_DETAIL_RE =
-  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const SHAREABLE_CLIP_COMMENTS_RE =
-  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/comments$/i
-const SHAREABLE_CLIP_VIEW_RE =
-  /^\/api\/clips\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/view$/i
 const REQUEST_ID_RE = /^[\w-]{1,64}$/
 
 function requestIdForHeader(value: string | undefined): string {
   if (value && REQUEST_ID_RE.test(value)) return value
   return crypto.randomUUID().slice(0, 8)
-}
-
-function isShareableClipRequest(method: string, path: string): boolean {
-  if (SHAREABLE_CLIP_ASSET_RE.test(path)) {
-    return method === "GET" || method === "HEAD"
-  }
-  if (SHAREABLE_CLIP_DETAIL_RE.test(path)) return method === "GET"
-  if (SHAREABLE_CLIP_COMMENTS_RE.test(path)) return method === "GET"
-  if (SHAREABLE_CLIP_VIEW_RE.test(path)) return method === "POST"
-  return false
 }
 
 const requireAuthToBrowse = createMiddleware(async (c, next) => {
@@ -172,6 +156,7 @@ const apiApp = new Hono()
     }
   })
   .get("/health", (c) => c.json({ status: "ok" }))
+  .route("/api/oembed", oembedRoute)
   .route("/api/auth", authRoute)
   .route("/api/auth-config", authConfigRoute)
   .route("/api/setup", setupRoute)

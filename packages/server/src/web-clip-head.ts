@@ -1,29 +1,29 @@
-import { user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
-import {
-  renditionIsH264,
-  sourceIsBroadlyDecodable,
-} from "@alloy/server/clips/codecs"
-import { eq } from "drizzle-orm"
 
-import { clipAssetVersion } from "./clips/asset-version"
-import { selectClipById } from "./clips/select"
-import { db } from "./db"
+import { selectEmbeddableClip } from "./clips/access"
+import {
+  embedPosterUrl,
+  embedVideo,
+  type EmbedVideo,
+} from "./clips/embed-media"
+import { clipAccentColor, clipEmbedDescription } from "./clips/embed-text"
+import { clipIdFromPath } from "./clips/permalink"
 import { env } from "./env"
-import { clipGameRefFromSnapshot } from "./games/ref"
+import { clipGameName } from "./games/ref"
 import { htmlEscape } from "./web-html"
 
 const logger = createLogger("web")
-const CLIP_PERMALINK_RE = /^(?:\/games\/[^/]+)?\/clips\/([^/]+)\/?$/
 
-type MetadataClip = NonNullable<Awaited<ReturnType<typeof selectClipById>>>
+type MetadataClip = NonNullable<
+  Awaited<ReturnType<typeof selectEmbeddableClip>>
+>
 
 export async function clipHead(pathname: string): Promise<string> {
-  const clipId = CLIP_PERMALINK_RE.exec(pathname)?.[1]
+  const clipId = clipIdFromPath(pathname)
   if (!clipId) return ""
 
   try {
-    const row = await visiblePublicClip(clipId)
+    const row = await selectEmbeddableClip(clipId)
     return row ? buildClipHead(row) : ""
   } catch (error) {
     logger.error("failed to build clip metadata:", error)
@@ -31,40 +31,31 @@ export async function clipHead(pathname: string): Promise<string> {
   }
 }
 
-async function visiblePublicClip(id: string): Promise<MetadataClip | null> {
-  const row = await selectClipById(id)
-  if (!row) return null
-  if (row.status !== "ready") return null
-  if (row.privacy !== "public" && row.privacy !== "unlisted") return null
-
-  const [author] = await db
-    .select({ disabledAt: user.disabled_at })
-    .from(user)
-    .where(eq(user.id, row.authorId))
-    .limit(1)
-  if (author?.disabledAt) return null
-
-  return row
-}
-
 function buildClipHead(row: MetadataClip): string {
   const origin = env.PUBLIC_SERVER_URL
-  const description =
-    row.description?.trim() ||
-    `${row.authorUsername} shared a ${clipGameName(row)} clip on alloy.`
-  const poster = row.thumbKey
-    ? new URL(
-        `/api/clips/${row.id}/thumbnail?v=${clipAssetVersion(row.thumbKey)}`,
-        origin,
-      ).toString()
-    : null
-  const video = socialVideo(row, origin)
+  const gameName = clipGameName(row)
+  const description = clipEmbedDescription({ ...row, gameName })
+  const poster = embedPosterUrl(row, origin)
+  const video = embedVideo(row, origin)
+  const permalink = new URL(`/clips/${row.id}`, origin).toString()
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
     metaName("description", description),
+    // Supplies the bold author line above the title — the slot YouTube fills
+    // with the channel name. OpenGraph has no equivalent field, so without this
+    // the embed jumps straight from the site name to the title.
+    linkAlternate(
+      "application/json+oembed",
+      new URL(
+        `/api/oembed?url=${encodeURIComponent(permalink)}`,
+        origin,
+      ).toString(),
+    ),
+    metaName("theme-color", clipAccentColor(gameName)),
     metaProperty("og:site_name", "alloy"),
     metaProperty("og:type", "video.other"),
+    metaProperty("og:url", permalink),
     metaProperty("og:title", row.title),
     metaProperty("og:description", description),
     ...(poster ? [metaProperty("og:image", poster)] : []),
@@ -76,62 +67,8 @@ function buildClipHead(row: MetadataClip): string {
   ].join("\n    ")
 }
 
-function clipGameName(row: MetadataClip): string {
-  if (row.gameId === null) return row.game?.trim() || "Uncategorised"
-  return clipGameRefFromSnapshot({ id: row.gameId, name: row.game }).name
-}
-
-function socialVideo(row: MetadataClip, origin: string) {
-  // Social video embeds are only reliable for H.264/AAC. Source codec metadata
-  // is required; legacy null sourceCodecs must use the rendition fallbacks.
-  const renditionRows = row.renditionRows ?? []
-  const rendition =
-    renditionRows.find(
-      (candidate) => candidate.og && renditionIsH264(candidate.codecs),
-    ) ??
-    renditionRows.find((candidate) => renditionIsH264(candidate.codecs)) ??
-    null
-  const embeddableSource =
-    row.sourceContentType === "video/mp4" ||
-    row.sourceContentType === "video/webm"
-  const playbackSourceKey = row.cutKey ?? row.sourceKey
-  const source =
-    playbackSourceKey &&
-    sourceIsBroadlyDecodable(row.sourceCodecs) &&
-    (row.cutKey !== null || embeddableSource)
-      ? {
-          key: playbackSourceKey,
-          contentType: row.cutKey ? "video/mp4" : row.sourceContentType,
-        }
-      : null
-  const url = source
-    ? new URL(
-        `/api/clips/${row.id}/source/file?v=${clipAssetVersion(source.key)}`,
-        origin,
-      ).toString()
-    : rendition
-      ? new URL(
-          `/api/clips/${row.id}/rendition/${rendition.name}/file.mp4?v=${clipAssetVersion(rendition.key)}`,
-          origin,
-        ).toString()
-      : renditionRows.length === 0 && row.sourceKey && embeddableSource
-        ? new URL(`/api/clips/${row.id}/stream`, origin).toString()
-        : null
-
-  return {
-    url,
-    type: source
-      ? (source.contentType ?? "video/mp4")
-      : rendition
-        ? "video/mp4"
-        : (row.sourceContentType ?? "video/mp4"),
-    width: source ? row.width : (rendition?.width ?? row.width),
-    height: source ? row.height : (rendition?.height ?? row.height),
-  }
-}
-
-function socialVideoTags(video: ReturnType<typeof socialVideo>): string[] {
-  if (!video.url) return []
+function socialVideoTags(video: EmbedVideo | null): string[] {
+  if (!video) return []
   return [
     metaProperty("og:video", video.url),
     metaProperty("og:video:url", video.url),
@@ -150,6 +87,10 @@ function socialVideoTags(video: ReturnType<typeof socialVideo>): string[] {
 
 function metaName(name: string, content: string): string {
   return `<meta name="${name}" content="${htmlEscape(content)}" />`
+}
+
+function linkAlternate(type: string, href: string): string {
+  return `<link rel="alternate" type="${type}" href="${htmlEscape(href)}" />`
 }
 
 function metaProperty(property: string, content: string): string {

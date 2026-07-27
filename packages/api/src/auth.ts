@@ -1,3 +1,4 @@
+import type { AuthUser } from "@alloy/contracts"
 import { useSyncExternalStore } from "react"
 
 import { createAuthActions } from "./auth-actions"
@@ -11,7 +12,11 @@ import { createApiClient } from "./client"
 import { errorFrom, toError } from "./error"
 import { readJsonOrThrow } from "./http"
 
-export { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/contracts"
+export {
+  DISPLAY_NAME_MAX_LENGTH,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from "@alloy/contracts"
 
 type AuthError = { message: string }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>
@@ -22,20 +27,7 @@ export interface CreateAuthOptions {
   redirect?: AuthRedirect
 }
 
-export type AuthUser = {
-  id: string
-  email: string
-  emailVerified: boolean
-  username: string
-  image: string | null
-  banner: string | null
-  role: "user" | "admin"
-  status: "active" | "disabled"
-  disabledAt: string | null
-  storageQuotaBytes: number | null
-  createdAt: string
-  updatedAt: string
-}
+export type { AuthUser }
 
 export type SessionData = {
   session: {

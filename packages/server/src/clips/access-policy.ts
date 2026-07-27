@@ -16,6 +16,13 @@ export const CLIP_ACCESS_POLICIES = {
     notReadyError: "Not found",
     readiness: "ready",
   },
+  // Anonymous social-crawler surfaces (app-shell head, Mastodon status doc).
+  // Same rules as `engagement`, named separately so those call sites read as
+  // what they are.
+  embed: {
+    notReadyError: "Not found",
+    readiness: "ready",
+  },
   stream: {
     notReadyError: "Clip not ready",
     readiness: "ready",

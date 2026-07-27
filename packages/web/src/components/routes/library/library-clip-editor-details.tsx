@@ -1,10 +1,4 @@
-import {
-  type ClipMentionRef,
-  type ClipPrivacy,
-  type ClipRow,
-  type GameRow,
-  type UserSearchResult,
-} from "@alloy/api"
+import { type ClipPrivacy, type ClipRow, type GameRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import {
@@ -130,14 +124,6 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
   }
 }
 
-function mentionToSearchResult(ref: ClipMentionRef): UserSearchResult {
-  return {
-    id: ref.id,
-    username: ref.username,
-    image: ref.image,
-  }
-}
-
 export function ClipEditorTabs(props: ClipDetailsProps) {
   const { row } = props
   const [tab, setTab] = useState("details")
@@ -213,7 +199,7 @@ function ClipDetailsForm({
       title: row.title,
       description: row.description ?? "",
       game: gameRowFromRef(row),
-      mentions: (row.mentions ?? []).map(mentionToSearchResult),
+      mentions: row.mentions ?? [],
       tags: row.tags,
     },
     {

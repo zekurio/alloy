@@ -61,6 +61,15 @@ export function clipGameRefFromSnapshot(input: {
   return gameRowFromSnapshot(input)
 }
 
+/** Human label for a clip's game, covering the uncategorised snapshot case. */
+export function clipGameName(row: {
+  gameId: string | null
+  game: string | null
+}): string {
+  if (row.gameId === null) return row.game?.trim() || "Uncategorised"
+  return clipGameRefFromSnapshot({ id: row.gameId, name: row.game }).name
+}
+
 async function availableGameSlug(
   name: string,
   steamgriddbId: number,

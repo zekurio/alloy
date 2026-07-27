@@ -62,7 +62,10 @@ import {
   LibraryHandoffPosterOverlay,
   readLibraryHandoffPoster,
 } from "./library-handoff-poster"
-import { captureMentionsFromUsers } from "./library-metadata"
+import {
+  captureMentionsFromUsers,
+  usersFromCaptureMentions,
+} from "./library-metadata"
 
 /**
  * Medal-style publish screen: the capture fills the space on the left with a
@@ -127,7 +130,7 @@ export function EditorBody({
       title: item.title,
       description: item.description ?? "",
       game: item.displayGame,
-      mentions: item.mentions,
+      mentions: usersFromCaptureMentions(item.mentions),
       tags: parseTagString(item.tags ?? ""),
     },
     savedMetadata,

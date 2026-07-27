@@ -8,6 +8,7 @@ import {
   type ClipAccessPolicyName,
   type ClipViewer,
 } from "@alloy/server/clips/access-policy"
+import { selectClipById } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { errorResult } from "@alloy/server/runtime/http-response"
 import { eq } from "drizzle-orm"
@@ -81,4 +82,31 @@ export async function resolveClipAccess({
 
 export function clipAccessResponse(c: Context, access: ClipAccessDenied) {
   return errorResult(c, access)
+}
+
+/**
+ * Load a clip exactly as an anonymous visitor sees it, in the rich shape the
+ * embed surfaces need. Shares evaluateClipAccess with resolveClipAccess so the
+ * app shell, the Mastodon status document and the API cannot drift on who may
+ * see what.
+ */
+export async function selectEmbeddableClip(id: string) {
+  const row = await selectClipById(id)
+  if (!row) return null
+
+  const [author] = await db
+    .select({ disabledAt: user.disabled_at })
+    .from(user)
+    .where(eq(user.id, row.authorId))
+    .limit(1)
+
+  const decision = evaluateClipAccess({
+    authorDisabledAt: author?.disabledAt ?? null,
+    authorId: row.authorId,
+    policy: "embed",
+    privacy: row.privacy,
+    status: row.status,
+    viewer: null,
+  })
+  return decision.accessible ? row : null
 }
