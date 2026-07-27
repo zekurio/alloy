@@ -1,12 +1,3 @@
-export function stableHash(seed: string | number): number {
-  const value = String(seed)
-  let hash = 0
-  for (let i = 0; i < value.length; i++) {
-    hash = (hash * 31 + value.charCodeAt(i)) >>> 0
-  }
-  return hash
-}
-
-export function stableHue(seed: string | number): number {
-  return stableHash(seed) % 360
-}
+// Lives in contracts so the server can derive the same per-game accent for
+// social embeds; re-exported here so UI code keeps its existing import path.
+export { stableHash, stableHue } from "@alloy/contracts"

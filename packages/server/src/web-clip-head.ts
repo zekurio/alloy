@@ -6,22 +6,20 @@ import {
   embedVideo,
   type EmbedVideo,
 } from "./clips/embed-media"
-import { mastodonStatusHref } from "./clips/status-id"
+import { clipAccentColor, clipEmbedDescription } from "./clips/embed-text"
+import { clipIdFromPath } from "./clips/permalink"
 import { env } from "./env"
 import { clipGameName } from "./games/ref"
 import { htmlEscape } from "./web-html"
 
 const logger = createLogger("web")
-const CLIP_PERMALINK_RE = /^(?:\/games\/[^/]+)?\/clips\/([^/]+)\/?$/
-/** `--brand-blue` from the UI theme; colours the embed's accent bar. */
-const BRAND_COLOR = "#0091ff"
 
 type MetadataClip = NonNullable<
   Awaited<ReturnType<typeof selectEmbeddableClip>>
 >
 
 export async function clipHead(pathname: string): Promise<string> {
-  const clipId = CLIP_PERMALINK_RE.exec(pathname)?.[1]
+  const clipId = clipIdFromPath(pathname)
   if (!clipId) return ""
 
   try {
@@ -35,32 +33,26 @@ export async function clipHead(pathname: string): Promise<string> {
 
 function buildClipHead(row: MetadataClip): string {
   const origin = env.PUBLIC_SERVER_URL
-  const description =
-    row.description?.trim() ||
-    `${row.authorUsername} shared a ${clipGameName(row)} clip on alloy.`
+  const gameName = clipGameName(row)
+  const description = clipEmbedDescription({ ...row, gameName })
   const poster = embedPosterUrl(row, origin)
   const video = embedVideo(row, origin)
   const permalink = new URL(`/clips/${row.id}`, origin).toString()
-  const statusHref = mastodonStatusHref(row.authorUsername, row.id, origin)
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,
     metaName("description", description),
-    // Discord prefers the Mastodon status document over these OpenGraph tags
-    // and renders it with avatar, author line and an inline player. Everything
-    // below stays as the fallback for crawlers that ignore the link.
-    //
-    // This href is a *pattern*, not a fetchable URL: Discord matches it against
-    // Mastodon's canonical ActivityPub object shape `/users/{user}/statuses/
-    // {id}` to recognise a fediverse post, then derives `/api/v1/statuses/{id}`
-    // and fetches that instead. FxEmbed advertises the same shape and serves a
-    // 302 there, proving the advertised path is never requested. Pointing this
-    // directly at /api/v1/... means Discord never matches, and silently falls
-    // back to the OpenGraph tags below.
-    ...(statusHref
-      ? [linkAlternate("application/activity+json", statusHref)]
-      : []),
-    metaName("theme-color", BRAND_COLOR),
+    // Supplies the bold author line above the title — the slot YouTube fills
+    // with the channel name. OpenGraph has no equivalent field, so without this
+    // the embed jumps straight from the site name to the title.
+    linkAlternate(
+      "application/json+oembed",
+      new URL(
+        `/api/oembed?url=${encodeURIComponent(permalink)}`,
+        origin,
+      ).toString(),
+    ),
+    metaName("theme-color", clipAccentColor(gameName)),
     metaProperty("og:site_name", "alloy"),
     metaProperty("og:type", "video.other"),
     metaProperty("og:url", permalink),

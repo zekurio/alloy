@@ -7,7 +7,6 @@ import { NONCE, secureHeaders } from "hono/secure-headers"
 import { getSession } from "./auth/session"
 import { configStore } from "./config/store"
 import { env } from "./env"
-import { activityRoute } from "./routes/activity"
 import { adminRoute } from "./routes/admin"
 import { gameAssetsRoute } from "./routes/admin-games"
 import { authRoute } from "./routes/auth"
@@ -18,6 +17,7 @@ import { eventsRoute } from "./routes/events"
 import { feedRoute } from "./routes/feed"
 import { gamesRoute } from "./routes/games"
 import { notificationsRoute } from "./routes/notifications"
+import { oembedRoute } from "./routes/oembed"
 import { searchRoute } from "./routes/search"
 import { setupRoute } from "./routes/setup"
 import { tagsRoute } from "./routes/tags"
@@ -156,7 +156,7 @@ const apiApp = new Hono()
     }
   })
   .get("/health", (c) => c.json({ status: "ok" }))
-  .route("/api/v1", activityRoute)
+  .route("/api/oembed", oembedRoute)
   .route("/api/auth", authRoute)
   .route("/api/auth-config", authConfigRoute)
   .route("/api/setup", setupRoute)

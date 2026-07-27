@@ -94,28 +94,19 @@ export async function selectEmbeddableClip(id: string) {
   const row = await selectClipById(id)
   if (!row) return null
 
-  // The author columns the Mastodon account object needs ride along with the
-  // disabled_at check rather than bloating clipSelectShape, which would leak
-  // them into every public clip payload.
   const [author] = await db
-    .select({
-      disabledAt: user.disabled_at,
-      banner: user.banner,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at,
-    })
+    .select({ disabledAt: user.disabled_at })
     .from(user)
     .where(eq(user.id, row.authorId))
     .limit(1)
-  if (!author) return null
 
   const decision = evaluateClipAccess({
-    authorDisabledAt: author.disabledAt,
+    authorDisabledAt: author?.disabledAt ?? null,
     authorId: row.authorId,
     policy: "embed",
     privacy: row.privacy,
     status: row.status,
     viewer: null,
   })
-  return decision.accessible ? { ...row, author } : null
+  return decision.accessible ? row : null
 }

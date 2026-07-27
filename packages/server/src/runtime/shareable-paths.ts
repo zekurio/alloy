@@ -19,9 +19,9 @@ const SHAREABLE_CLIP_VIEW_RE = new RegExp(
   String.raw`^/api/clips/${CLIP_ID}/view$`,
   "i",
 )
-// The Mastodon status document Discord fetches to build the rich embed. Its id
-// segment is the clip uuid encoded as digits (see clips/status-id.ts).
-const SHAREABLE_STATUS_RE = /^\/api\/v1\/statuses\/\d{1,39}$/
+// The oEmbed document, which supplies the embed's author line. The handler
+// validates the url query itself and only ever resolves our own permalinks.
+const SHAREABLE_OEMBED_RE = /^\/api\/oembed\/?$/
 
 /**
  * Paths an anonymous visitor may reach even when the instance is set to
@@ -29,7 +29,7 @@ const SHAREABLE_STATUS_RE = /^\/api\/v1\/statuses\/\d{1,39}$/
  * Everything here is public-clip scoped; the handlers still enforce privacy.
  */
 export function isShareableClipRequest(method: string, path: string): boolean {
-  if (SHAREABLE_CLIP_ASSET_RE.test(path) || SHAREABLE_STATUS_RE.test(path)) {
+  if (SHAREABLE_CLIP_ASSET_RE.test(path) || SHAREABLE_OEMBED_RE.test(path)) {
     return method === "GET" || method === "HEAD"
   }
   if (SHAREABLE_CLIP_DETAIL_RE.test(path)) return method === "GET"

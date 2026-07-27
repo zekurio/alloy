@@ -33,26 +33,12 @@ test("embedded video files are reachable anonymously", () => {
   }
 })
 
-test("the Mastodon status document is reachable anonymously", () => {
-  assert.equal(
-    isShareableClipRequest(
-      "GET",
-      "/api/v1/statuses/15271826189086941860723332107912866041",
-    ),
-    true,
-  )
-  assert.equal(
-    isShareableClipRequest(
-      "HEAD",
-      "/api/v1/statuses/15271826189086941860723332107912866041",
-    ),
-    true,
-  )
-})
-
-test("a non-numeric status id is not shareable", () => {
-  assert.equal(isShareableClipRequest("GET", `/api/v1/statuses/${CLIP}`), false)
-  assert.equal(isShareableClipRequest("GET", "/api/v1/statuses/abc"), false)
+test("the oEmbed document is reachable anonymously", () => {
+  // Discord fetches this for the embed's author line; a 401 here silently
+  // costs the author line without otherwise breaking the embed.
+  assert.equal(isShareableClipRequest("GET", "/api/oembed"), true)
+  assert.equal(isShareableClipRequest("HEAD", "/api/oembed"), true)
+  assert.equal(isShareableClipRequest("POST", "/api/oembed"), false)
 })
 
 test("HEAD and GET differ per surface", () => {
