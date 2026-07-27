@@ -28,6 +28,10 @@ export type UserStatus = (typeof USER_STATUSES)[number]
 export const USERNAME_MIN_LENGTH = 1
 export const USERNAME_MAX_LENGTH = 24
 
+// Display names are optional and free-form, so they get more room than the
+// handle. Clearing one is sending an empty string, which stores null.
+export const DISPLAY_NAME_MAX_LENGTH = 48
+
 export const ACCEPTED_IMAGE_CONTENT_TYPES = [
   "image/jpeg",
   "image/png",

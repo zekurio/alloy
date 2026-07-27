@@ -39,12 +39,14 @@ export function toLikePattern(raw: string): string {
 export const userSummarySelectShape = {
   id: user.id,
   username: user.username,
+  displayName: user.display_name,
   image: user.image,
 }
 
 type UserSummaryFields = {
   id: string
   username: string
+  displayName: string | null
   image: string | null
 }
 
@@ -52,6 +54,7 @@ export function serialiseUserSummary(row: UserSummaryFields): UserSummary {
   return {
     id: row.id,
     username: row.username,
+    displayName: row.displayName,
     image: row.image,
   }
 }
@@ -116,6 +119,7 @@ export function toPublicUser(row: UserRow): PublicUser {
   return {
     id: row.id,
     username: row.username,
+    displayName: row.display_name,
     image: row.image,
     banner: row.banner,
     createdAt: isoDate(row.created_at),

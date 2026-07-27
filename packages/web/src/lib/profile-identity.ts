@@ -1,6 +1,7 @@
 type ProfileIdentityFields = {
   email: string
   username: string
+  displayName: string
 }
 
 export function normalizeProfileIdentity(
@@ -9,6 +10,7 @@ export function normalizeProfileIdentity(
   return {
     email: value.email.trim(),
     username: value.username.trim(),
+    displayName: value.displayName.trim(),
   }
 }
 
@@ -28,6 +30,11 @@ export function profileIdentityPatch(
   }
   if (normalizedCurrent.username !== normalizedInitial.username) {
     patch.username = normalizedCurrent.username
+  }
+  // An empty string is a real value here — it is how the user clears their
+  // display name, so this must not be folded into "unchanged".
+  if (normalizedCurrent.displayName !== normalizedInitial.displayName) {
+    patch.displayName = normalizedCurrent.displayName
   }
 
   return patch

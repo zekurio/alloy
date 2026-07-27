@@ -11,7 +11,11 @@ import { createApiClient } from "./client"
 import { errorFrom, toError } from "./error"
 import { readJsonOrThrow } from "./http"
 
-export { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/contracts"
+export {
+  DISPLAY_NAME_MAX_LENGTH,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from "@alloy/contracts"
 
 type AuthError = { message: string }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>
@@ -27,6 +31,7 @@ export type AuthUser = {
   email: string
   emailVerified: boolean
   username: string
+  displayName: string | null
   image: string | null
   banner: string | null
   role: "user" | "admin"

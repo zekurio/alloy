@@ -191,6 +191,7 @@ function ProfilePanel() {
         key={user.id}
         userId={user.id}
         initialUsername={user.username ?? ""}
+        initialDisplayName={user.displayName ?? ""}
         image={user.image ?? ""}
         banner={(user as { banner?: string | null }).banner ?? ""}
         email={user.email ?? ""}

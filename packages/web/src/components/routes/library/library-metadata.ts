@@ -11,3 +11,14 @@ export function captureMentionsFromUsers(
     image: mention.image,
   }))
 }
+
+/**
+ * Capture drafts are persisted on disk by the desktop app and deliberately
+ * store only enough to rehydrate the picker, so they carry no display name.
+ * A fresh one arrives with the next user search.
+ */
+export function usersFromCaptureMentions(
+  mentions: RecordingCaptureMention[],
+): UserSearchResult[] {
+  return mentions.map((mention) => ({ ...mention, displayName: null }))
+}

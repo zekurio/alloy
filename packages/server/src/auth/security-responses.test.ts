@@ -25,6 +25,7 @@ test("serializes auth sessions for the public API contract", () => {
         email: "admin@example.com",
         email_verified: true,
         username: "admin",
+        display_name: null,
         image: null,
         banner: null,
         role: "admin",

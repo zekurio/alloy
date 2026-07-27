@@ -10,6 +10,7 @@ import type {
 export interface PublicUser {
   id: string
   username: string
+  displayName: string | null
   image: string | null
   banner: string | null
   createdAt: IsoDateString
@@ -19,7 +20,20 @@ export interface PublicUser {
 export interface UserSummary {
   id: string
   username: string
+  displayName: string | null
   image: string | null
+}
+
+/**
+ * The one place that decides what to render for a user: their display name
+ * when set, otherwise the handle. Never store the fallback — a user who later
+ * renames should not be stuck showing a stale copy.
+ */
+export function userDisplayLabel(user: {
+  username: string
+  displayName?: string | null
+}): string {
+  return user.displayName?.trim() || user.username
 }
 
 export const USER_ASSET_PATH_PREFIX = "/api/assets/users/"
@@ -124,6 +138,7 @@ export interface ClipRow {
   createdAt: IsoDateString
   updatedAt: IsoDateString
   authorUsername: string
+  authorDisplayName: string | null
   authorImage: string | null
   gameRef: ClipGameRef | null
   mentions?: ClipMentionRef[]

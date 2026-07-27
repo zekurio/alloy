@@ -13,7 +13,7 @@ import { formatRelativeTime } from "./date-format"
 import { apiOrigin } from "./env"
 import { canPlaySource } from "./media-capability"
 import { formatCount } from "./number-format"
-import { type UserAvatar, userAvatar } from "./user-display"
+import { displayName, type UserAvatar, userAvatar } from "./user-display"
 
 export function hueForGame(game: string | null | undefined): number {
   if (!game) return 220
@@ -89,7 +89,10 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     game,
     gameSlug: row.gameRef?.slug ?? null,
     gameRef: row.gameRef,
-    author: row.authorUsername,
+    author: displayName({
+      username: row.authorUsername,
+      displayName: row.authorDisplayName,
+    }),
     authorUsername: row.authorUsername,
     authorId: row.authorId,
     authorImage: authorAvatar.src ?? null,
