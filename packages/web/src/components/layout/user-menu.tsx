@@ -70,8 +70,11 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
 
   const user = session.user
   const handle = user.username ?? null
-  const email = user.email ?? null
-  const primaryLabel = handle ?? chip.name
+  // chip.name already resolves display name → handle, so the second line is
+  // only worth rendering when a display name is actually set and it would say
+  // something different. Otherwise the handle stands alone.
+  const primaryLabel = chip.name
+  const secondaryLabel = handle && handle !== primaryLabel ? handle : null
   const accountMenuLabel = t("Open account menu for {name}", {
     name: chip.name,
   })
@@ -111,9 +114,9 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
                 <span className="text-foreground truncate text-sm font-semibold">
                   {primaryLabel}
                 </span>
-                {email ? (
+                {secondaryLabel ? (
                   <span className="text-foreground-faint truncate text-xs">
-                    {email}
+                    @{secondaryLabel}
                   </span>
                 ) : null}
               </span>
@@ -145,9 +148,9 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
               <span className="text-foreground truncate text-sm font-semibold">
                 {primaryLabel}
               </span>
-              {email ? (
+              {secondaryLabel ? (
                 <span className="text-foreground-faint truncate text-xs">
-                  {email}
+                  @{secondaryLabel}
                 </span>
               ) : null}
             </div>

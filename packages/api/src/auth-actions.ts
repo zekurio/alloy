@@ -231,6 +231,7 @@ function createUserActions(request: RequestFn, store: SessionStore) {
       email?: string
       name?: string
       username?: string
+      displayName?: string
     }) => {
       const update = await result(
         AUTH_PATHS.user,

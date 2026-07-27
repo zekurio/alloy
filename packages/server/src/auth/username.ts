@@ -1,11 +1,18 @@
 import { randomBytes } from "node:crypto"
 
-import { USERNAME_MAX_LENGTH, USERNAME_MIN_LENGTH } from "@alloy/contracts"
+import {
+  DISPLAY_NAME_MAX_LENGTH,
+  USERNAME_MAX_LENGTH,
+  USERNAME_MIN_LENGTH,
+} from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
 import { eq, sql } from "drizzle-orm"
 
 const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
+// Newlines and other control characters would break the single-line label in
+// embeds, chips and the Mastodon status document.
+const DISPLAY_NAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}]/u
 const USERNAME_DOT_SEGMENTS = new Set([".", ".."])
 const MAX_LEN = USERNAME_MAX_LENGTH
 const MIN_LEN = USERNAME_MIN_LENGTH
@@ -25,6 +32,25 @@ export function normalizeUsername(input: string): string {
     throw new Error("Username cannot be a path dot-segment.")
   }
   return username
+}
+
+/**
+ * Display names are free-form, so only length and control characters are
+ * policed — no uniqueness, no slug rules. An empty value clears the field
+ * rather than storing a blank string readers would have to special-case.
+ */
+export function normalizeDisplayName(input: string): string | null {
+  const displayName = input.trim()
+  if (!displayName) return null
+  if (displayName.length > DISPLAY_NAME_MAX_LENGTH) {
+    throw new Error(
+      `Display name must be at most ${DISPLAY_NAME_MAX_LENGTH} characters.`,
+    )
+  }
+  if (DISPLAY_NAME_DISALLOWED_RE.test(displayName)) {
+    throw new Error("Display name cannot contain control characters.")
+  }
+  return displayName
 }
 
 export function slugifyUsername(input: string): string {

@@ -7,7 +7,11 @@ import {
   hasAdminSignInMethodForConfig,
   hasAdminSignInMethodWith,
 } from "./sign-in-config"
-import { generateUniqueUsername, normalizeUsername } from "./username"
+import {
+  generateUniqueUsername,
+  normalizeDisplayName,
+  normalizeUsername,
+} from "./username"
 export {
   countUserPasskeys,
   deleteUserPasskeyPreservingSignIn,
@@ -217,7 +221,7 @@ export async function createRegistrationUserInTransaction(
 
 export async function updateUserIdentity(
   userId: string,
-  input: { email?: string; username?: string },
+  input: { email?: string; username?: string; displayName?: string },
 ): Promise<User> {
   const patch: Partial<NewUser> = { updated_at: new Date() }
   if (input.email !== undefined) {
@@ -233,6 +237,9 @@ export async function updateUserIdentity(
     const username = validateUsername(input.username)
     await assertUsernameAvailable(db, username, userId)
     patch.username = username
+  }
+  if (input.displayName !== undefined) {
+    patch.display_name = normalizeDisplayName(input.displayName)
   }
   const [updated] = await db
     .update(user)

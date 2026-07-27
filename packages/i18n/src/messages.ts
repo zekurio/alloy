@@ -466,6 +466,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Display capture": "Bildschirmaufnahme",
   "Display capture off": "Bildschirmaufnahme aus",
   "Display capture ready": "Bildschirmaufnahme bereit",
+  "Display name can be at most {max} characters":
+    "Der Anzeigename darf höchstens {max} Zeichen lang sein",
+  "Display name can't contain control characters":
+    "Der Anzeigename darf keine Steuerzeichen enthalten",
   "Don't have an account?": "Noch kein Konto?",
   Done: "Fertig",
   Download: "Herunterladen",
@@ -914,6 +918,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Show more": "Mehr anzeigen",
   "Show profile": "Profil anzeigen",
   "Show this profile?": "Dieses Profil anzeigen?",
+  "Shown instead of your username. Leave empty to use it.":
+    "Wird anstelle deines Nutzernamens angezeigt. Leer lassen, um ihn zu verwenden.",
   "Sign in": "Anmelden",
   "Sign in to {serverLabel} in your browser to continue.":
     "Melde dich in deinem Browser bei {serverLabel} an, um fortzufahren.",

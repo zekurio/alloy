@@ -1,3 +1,4 @@
+import type { AuthUser } from "@alloy/contracts"
 import type { AuthSession, User } from "@alloy/db/auth-schema"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 
@@ -22,12 +23,16 @@ type PublicSessionData = {
   user: User
 }
 
-export function publicAuthUserRow(row: User) {
+export function publicAuthUserRow(row: User): AuthUser {
+  // Return type is annotated deliberately: the client validates this payload
+  // with a runtime cast, so without it a missing field compiles clean and only
+  // shows up as a silently-undefined value in the UI.
   return {
     id: row.id,
     email: row.email,
     emailVerified: row.email_verified,
     username: row.username,
+    displayName: row.display_name,
     image: row.image,
     banner: row.banner,
     role: row.role,
