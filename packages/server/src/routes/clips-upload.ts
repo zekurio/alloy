@@ -27,6 +27,7 @@ import {
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { requestIp } from "@alloy/server/runtime/request-ip"
 import { clipThumbnailStorage } from "@alloy/server/storage/index"
+import { dispatchClipPublished } from "@alloy/server/webhooks/publish"
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -131,6 +132,17 @@ export const clipsUploadRoutes = new Hono()
       })
 
       void publishClipUpsert(row.author_id, id)
+      // A clip that was already encoded and is only now being made public
+      // never passes through the encode job's announce path.
+      if (
+        body.privacy === "public" &&
+        row.privacy !== "public" &&
+        row.status === "ready"
+      ) {
+        void dispatchClipPublished(id).catch((error) =>
+          logger.error("webhook dispatch failed", error),
+        )
+      }
       if (mentionedIds !== undefined && row.status === "ready") {
         const existingMentionedIdSet = new Set(existingMentionedIds)
         for (const mentionedId of mentionedIds) {

@@ -39,6 +39,9 @@ export const user = pgTable(
     status: text().$type<UserStatus>().notNull().default("active"),
     disabled_at: timestamp(),
     storage_quota_bytes: bigint({ mode: "number" }),
+    // Opt-out for instance webhooks. Positive polarity: false means this
+    // author's clips are never announced.
+    clip_announcements_enabled: boolean().notNull().default(true),
     created_at: timestamp().notNull().defaultNow(),
     updated_at: timestamp().notNull().defaultNow(),
   },

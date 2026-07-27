@@ -72,6 +72,10 @@ export function validateAuthUser(value: unknown): AuthUser {
     user.storageQuotaBytes,
     "Invalid auth user response: storageQuotaBytes must be a positive integer or null",
   )
+  validateBoolean(
+    user.clipAnnouncementsEnabled,
+    "Invalid auth user response: clipAnnouncementsEnabled must be boolean",
+  )
   validateIsoDateString(
     user.createdAt,
     "Invalid auth user response: createdAt must be a date string",

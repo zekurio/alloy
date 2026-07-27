@@ -5,6 +5,7 @@ export * from "./job"
 export * from "./notification"
 export * from "./recording"
 export * from "./social"
+export * from "./webhook"
 
 import {
   clip,
@@ -23,6 +24,7 @@ import { job } from "./job"
 import { notification } from "./notification"
 import { uploadTicket } from "./recording"
 import { block, follow } from "./social"
+import { webhook, webhookDelivery } from "./webhook"
 
 /**
  * Application (non-auth) tables. Combined with `authSchema` into `dbSchema`
@@ -47,4 +49,6 @@ export const domainSchema = {
   job,
   notification,
   block,
+  webhook,
+  webhookDelivery,
 } as const
