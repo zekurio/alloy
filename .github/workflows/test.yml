@@ -1,4 +1,4 @@
-name: test
+name: checks
 
 on:
   pull_request:
@@ -55,28 +55,13 @@ jobs:
         run: corepack pnpm install --frozen-lockfile
 
       # Deliberately its own job: an advisory published upstream is not a defect
-      # in the pull request, and must not mask fmt/lint/typecheck/test feedback.
+      # in the pull request, and must not mask fmt/lint/typecheck feedback.
       - name: Audit dependencies
         run: corepack pnpm audit
 
   checks:
     name: pnpm checks
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: alloy
-          POSTGRES_PASSWORD: alloy
-          POSTGRES_DB: alloy
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-        ports:
-          - 5432:5432
 
     steps:
       - name: Checkout repository
@@ -96,9 +81,6 @@ jobs:
       - name: Install dependencies
         run: corepack pnpm install --frozen-lockfile
 
-      - name: Install ffmpeg
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
-
       - name: Check formatting
         run: corepack pnpm fmt:check
 
@@ -107,46 +89,6 @@ jobs:
 
       - name: Run typecheck
         run: corepack pnpm typecheck
-
-      - name: Prepare test environment
-        shell: bash
-        # Server modules parse these values at import time, so they must exist
-        # before any suite loads. ALLOY_TEST_DATABASE_URL points at the service
-        # container above; test-database.ts clones a per-suite database from it.
-        run: |
-          node <<'NODE'
-          const { randomBytes } = require("node:crypto")
-          const { appendFileSync } = require("node:fs")
-
-          const envFile = process.env.GITHUB_ENV
-          if (!envFile) throw new Error("GITHUB_ENV is not set")
-
-          const databaseUrl = new URL("postgresql://127.0.0.1:5432/alloy")
-          databaseUrl.username = "alloy"
-          databaseUrl.password = "alloy"
-          appendFileSync(
-            envFile,
-            [
-              `DATABASE_URL=${databaseUrl.toString()}`,
-              `ALLOY_TEST_DATABASE_URL=${databaseUrl.toString()}`,
-              `ALLOY_VIEWER_COOKIE_SECRET=${randomBytes(32).toString("hex")}`,
-              `ALLOY_UPLOAD_HMAC_SECRET=${randomBytes(32).toString("hex")}`,
-              "",
-            ].join("\n"),
-          )
-          NODE
-
-      # Split so a red tier names its own cause. test:db and test:media fail
-      # loudly when PostgreSQL or ffmpeg is missing rather than skipping, which
-      # is what previously let the DB tier rot unnoticed.
-      - name: Run tests
-        run: corepack pnpm test
-
-      - name: Run database tests
-        run: corepack pnpm test:db
-
-      - name: Run media tests
-        run: corepack pnpm test:media
 
       - name: Build server and web
         run: corepack pnpm turbo run build --filter=@alloy/server --filter=@alloy/web

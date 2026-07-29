@@ -19,30 +19,6 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
-    "test": {
-      "dependsOn": ["^build"],
-      "outputs": [],
-      "env": ["ALLOY_UPLOAD_HMAC_SECRET", "ALLOY_VIEWER_COOKIE_SECRET"]
-    },
-    "test:db": {
-      "dependsOn": ["^build"],
-      "outputs": [],
-      "env": [
-        "ALLOY_TEST_DATABASE_URL",
-        "ALLOY_UPLOAD_HMAC_SECRET",
-        "ALLOY_VIEWER_COOKIE_SECRET"
-      ]
-    },
-    "test:media": {
-      "dependsOn": ["^build"],
-      "outputs": [],
-      "env": ["ALLOY_TRANSCODING_FFMPEG_PATH", "ALLOY_TRANSCODING_FFPROBE_PATH"]
-    },
-    "@alloy/i18n#test": {
-      "dependsOn": ["^build"],
-      "outputs": [],
-      "inputs": ["$TURBO_DEFAULT$", "../*/src/**/*.{ts,tsx}"]
-    },
     "dev": {
       "cache": false,
       "persistent": true

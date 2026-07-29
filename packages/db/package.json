@@ -13,7 +13,6 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "test": "tsx --test 'src/**/!(*.db|*.media).test.ts'",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

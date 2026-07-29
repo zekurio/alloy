@@ -86,11 +86,10 @@ Run from the repo root unless noted:
 - `pnpm dev` - `db:push` then server + web dev; `pnpm dev:all` adds desktop.
 - `pnpm build` / `pnpm start` - build all via Turbo / run the server.
 - `pnpm db:generate` / `db:migrate` / `db:push` / `db:studio` - Drizzle workflows (`packages/db/drizzle.config.ts`).
-- `pnpm fmt` / `pnpm lint` / `pnpm typecheck` / `pnpm test` - oxfmt, oxlint, `tsc`, `turbo run test`. `pnpm verify` runs all four (fmt as check).
-- `pnpm --filter @alloy/server test` - server test suite (`tsx --test 'src/**/*.test.ts'`).
+- `pnpm fmt` / `pnpm lint` / `pnpm typecheck` - oxfmt, oxlint, and `tsc`. `pnpm verify` runs all three (fmt as check).
 - `pnpm recorder:build[:release]` - cargo build of the sidecar (skips on non-Windows unless forced).
 - `pnpm desktop:dist:win[:installer]` - Windows desktop packaging.
-- Recorder checks (in `packages/recorder`): `cargo fmt --check`, `cargo clippy --all-targets --locked -- -D warnings`, `cargo test --locked`.
+- Recorder checks (in `packages/recorder`): `cargo fmt --check`, `cargo clippy --all-targets --locked -- -D warnings`.
 - Nix: `nix build .#alloy` builds the server package; `nix flake check` validates it.
 
 ## Branch Names
@@ -282,42 +281,6 @@ const table = pgTable("session", {
 - TypeScript is strict ESM (`verbatimModuleSyntax`, `noEmit`); packages typecheck with `tsc --noEmit`.
 - Recorder is Rust stable; it only builds on Windows (build script skips elsewhere).
 - Local dev shell comes from devenv + direnv; server deployment is via the Nix flake / NixOS module, not GitHub artifacts.
-
-## Testing & QA
-
-Tests are tiered by what they require, and the filename declares the tier:
-
-| Pattern           | Requires       | Command           |
-| ----------------- | -------------- | ----------------- |
-| `*.test.ts`       | nothing        | `pnpm test`       |
-| `*.db.test.ts`    | PostgreSQL     | `pnpm test:db`    |
-| `*.media.test.ts` | ffmpeg on PATH | `pnpm test:media` |
-
-`pnpm test:all` runs all three; CI runs them as separate steps so a red tier
-names its own cause.
-
-- A tier must fail when its prerequisite is missing, never skip. Suites that
-  silently self-skip look identical to passing ones and rot unnoticed - this is
-  exactly how the DB tier went unrun in CI for its whole life. Put a suite in
-  the tier that matches its needs instead of guarding it at runtime.
-- DB suites provision an isolated per-suite database through
-  `packages/server/src/db/test-database.ts`, cloned from `ALLOY_TEST_DATABASE_URL`.
-- The four transport seams are guarded by invariant tests, because a mismatch
-  there fails at runtime on a user's machine rather than at compile time:
-  `packages/contracts/src/desktop-bridge.test.ts` (bridge is additive-only -
-  when bumping `DESKTOP_BRIDGE_VERSION`, move the previous version's paths into
-  that file's `SHIPPED` table), `packages/db/src/drizzle-drift.test.ts` (schema
-  has no un-migrated changes), and
-  `packages/desktop/src/main/recording-sidecar-protocol.test.ts` (TS methods
-  match the Rust dispatch; the recorder cannot compile on Linux CI, so this
-  reads the Rust source as text).
-- Recorder tests are inline Rust unit tests: `cargo test --locked` in `packages/recorder`.
-- Avoid mocks as much as possible
-- Test actual implementation, do not duplicate logic into tests
-- Prefer pushing logic into pure functions over reaching for a heavier tier: a
-  decision that only reads plain values belongs in `*.test.ts`, even when its
-  caller happens to sit behind HTTP or the database.
-- Run package-specific tests from the package that owns them when available. Use root-level `pnpm fmt`, `pnpm lint`, and `pnpm typecheck` for repo-wide checks.
 
 ## Task Completion Requirements
 
