@@ -62,23 +62,13 @@ pnpm lint       # lint (type-aware; no-console is an error)
 pnpm typecheck  # tsc --noEmit across packages
 ```
 
-## Testing
-
-- Server tests: `pnpm --filter @alloy/server test`. DB-backed suites
-  provision per-suite databases through `ALLOY_TEST_DATABASE_URL`.
-- Recorder tests (Windows): `cargo test --locked` in `packages/recorder`,
-  along with `cargo fmt --check` and
-  `cargo clippy --all-targets --locked -- -D warnings`.
-- Prefer testing real behavior over mocks; don't duplicate implementation
-  logic into tests.
-
 ## Submitting a PR
 
-1. Make sure `pnpm verify` passes (fmt check, lint, typecheck, tests).
+1. Make sure `pnpm verify` passes (fmt check, lint, and typecheck).
 2. Open the PR against `dev` and fill in the pull request template, including
    how you verified the change.
-3. CI runs formatting, lint, typecheck, tests, a server/web build, and a Nix
-   flake check. Recorder changes additionally run the Rust checks on Windows.
+3. CI runs formatting, lint, typecheck, a server/web build, and a Nix flake
+   check. Recorder changes additionally run the Rust checks on Windows.
 
 Releases are tagged from `dev` by maintainers; see
 [RELEASING.md](RELEASING.md) for the release process.
