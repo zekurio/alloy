@@ -1,0 +1,43 @@
+name: nix
+
+# Runs only when packaging-relevant inputs change. Source-only breakage is
+# caught by the turbo build in checks on PRs and by the dev image build on
+# dev, which builds the same package derivation.
+on:
+  pull_request:
+    paths:
+      - "nix/**"
+      - "flake.nix"
+      - "flake.lock"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "scripts/**"
+      - ".github/workflows/nix.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  nix:
+    name: Nix package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check Nix flake
+        run: nix flake check --print-build-logs
