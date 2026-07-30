@@ -340,7 +340,11 @@ function ClipPlayer({
       maxDisplayHeight={maxDisplayHeight}
       chromeSize={chromeSize}
       className={className}
-      sourceIdentity={clipId}
+      // A re-trim rebases the clip's timeline under the same id; folding the
+      // cut version into the identity turns that swap into a clean "new
+      // media" reset instead of resuming the old playhead partway into the
+      // new cut. Quality switches share the version and still resume.
+      sourceIdentity={`${clipId}:${sourceVersion ?? ""}`}
       qualityOptions={qualityOptions}
       selectedQualityId={active?.name ?? selectedQualityId}
       onSelectQuality={pinQuality}
