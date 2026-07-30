@@ -12,6 +12,7 @@ import {
   isFullscreenElement,
   requestFullscreenBestEffort,
 } from "@/lib/fullscreen"
+import { flushPlayerVolume, writePlayerVolume } from "@/lib/player-volume"
 
 import type { PlayerCoreProps } from "./video-player-core-types"
 import type { VideoKeyCommand } from "./video-player-shell"
@@ -51,6 +52,42 @@ export function useVideoPlayerControls({
   videoRef,
   volumeRef,
 }: VideoPlayerControlsOptions) {
+  const setMuted = useCallback(
+    (next: boolean) => {
+      mutedRef.current = next
+      setMutedState(next)
+      const video = videoRef.current
+      if (video) video.muted = next || audioMixerEngagedRef.current
+      writePlayerVolume({ volume: volumeRef.current, muted: next })
+    },
+    [audioMixerEngagedRef, mutedRef, setMutedState, videoRef, volumeRef],
+  )
+
+  const setVolume = useCallback(
+    (next: number) => {
+      const clamped = Math.max(0, Math.min(1, next))
+      const nextMuted = clamped > 0 ? false : mutedRef.current
+      volumeRef.current = clamped
+      mutedRef.current = nextMuted
+      setVolumeState(clamped)
+      setMutedState(nextMuted)
+      const video = videoRef.current
+      if (video) {
+        video.volume = clamped
+        video.muted = nextMuted || audioMixerEngagedRef.current
+      }
+      writePlayerVolume({ volume: clamped, muted: nextMuted })
+    },
+    [
+      audioMixerEngagedRef,
+      mutedRef,
+      setMutedState,
+      setVolumeState,
+      videoRef,
+      volumeRef,
+    ],
+  )
+
   useImperativeHandle(
     playerRef,
     () => ({
@@ -63,35 +100,14 @@ export function useVideoPlayerControls({
         const value = videoRef.current?.duration ?? 0
         return Number.isFinite(value) ? value : 0
       },
-      setVolume: (next: number) => {
-        const clamped = Math.max(0, Math.min(1, next))
-        volumeRef.current = clamped
-        setVolumeState(clamped)
-        const video = videoRef.current
-        if (video) video.volume = clamped
-      },
-      setMuted: (next: boolean) => {
-        mutedRef.current = next
-        setMutedState(next)
-        const video = videoRef.current
-        if (video) video.muted = next || audioMixerEngagedRef.current
-      },
+      setVolume,
+      setMuted,
       setPlaybackRate: (rate: number) => {
         const video = videoRef.current
         if (video) video.playbackRate = rate
       },
     }),
-    [
-      audioMixerEngagedRef,
-      mutedRef,
-      pauseInternal,
-      playInternal,
-      seekInternal,
-      setMutedState,
-      setVolumeState,
-      videoRef,
-      volumeRef,
-    ],
+    [pauseInternal, playInternal, seekInternal, setMuted, setVolume, videoRef],
   )
 
   const togglePlay = useCallback(() => {
@@ -104,40 +120,9 @@ export function useVideoPlayerControls({
     pauseInternal()
   }, [pauseInternal, playInternal, videoRef])
 
-  const toggleMute = useCallback(() => {
-    setMutedState((current) => {
-      const next = !current
-      mutedRef.current = next
-      const video = videoRef.current
-      if (video) video.muted = next || audioMixerEngagedRef.current
-      return next
-    })
-  }, [audioMixerEngagedRef, mutedRef, setMutedState, videoRef])
-
-  const setVolume = useCallback(
-    (next: number) => {
-      const clamped = Math.max(0, Math.min(1, next))
-      volumeRef.current = clamped
-      setVolumeState(clamped)
-      setMutedState((currentMuted) => {
-        const nextMuted = clamped > 0 ? false : currentMuted
-        mutedRef.current = nextMuted
-        const video = videoRef.current
-        if (video) {
-          video.volume = clamped
-          video.muted = nextMuted || audioMixerEngagedRef.current
-        }
-        return nextMuted
-      })
-    },
-    [
-      audioMixerEngagedRef,
-      mutedRef,
-      setMutedState,
-      setVolumeState,
-      videoRef,
-      volumeRef,
-    ],
+  const toggleMute = useCallback(
+    () => setMuted(!mutedRef.current),
+    [mutedRef, setMuted],
   )
 
   const volumeBy = useCallback(
@@ -210,5 +195,12 @@ export function useVideoPlayerControls({
     ],
   )
 
-  return { keyCommand, setVolume, toggleFullscreen, toggleMute, togglePlay }
+  return {
+    keyCommand,
+    setVolume,
+    finishVolumeChange: flushPlayerVolume,
+    toggleFullscreen,
+    toggleMute,
+    togglePlay,
+  }
 }

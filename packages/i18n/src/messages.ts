@@ -167,8 +167,9 @@ export const DE_MESSAGES: Record<string, string> = {
   Audio: "Audio",
   "Audio bitrate": "Audio-Bitrate",
   "Audio level": "Audiopegel",
+  "Audio mixer unavailable for this clip.":
+    "Der Audiomixer ist für diesen Clip nicht verfügbar.",
   "Audio settings": "Audioeinstellungen",
-  "Awaiting upload": "Warten auf Upload",
   "Audio source": "Audioquelle",
   "Audio tracks": "Audiospuren",
   "Audio tracks could not be loaded. Playing the mixed track instead.":
@@ -180,11 +181,12 @@ export const DE_MESSAGES: Record<string, string> = {
     "Erkenne ein Spiel oder Display automatisch und halte den Replay-Puffer bereit.",
   AV1: "AV1",
   Available: "Verfügbar",
-  "Avatar removed": "Avatar entfernt",
-  "Avatar updated": "Avatar aktualisiert",
   "Avatar imported from {provider}": "Avatar von {provider} importiert",
   "Avatar imported from your sign-in provider":
     "Avatar von deinem Anmeldeanbieter importiert",
+  "Avatar removed": "Avatar entfernt",
+  "Avatar updated": "Avatar aktualisiert",
+  "Awaiting upload": "Warten auf Upload",
   "Back to library": "Zurück zur Bibliothek",
   Banner: "Banner",
   "Banner removed": "Banner entfernt",
@@ -619,6 +621,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Load more": "Mehr laden",
   Loading: "Lädt",
   "Loading audio settings": "Audioeinstellungen werden geladen",
+  "Loading audio tracks…": "Audiospuren werden geladen…",
   "Loading capture": "Aufnahme wird geladen",
   "Loading capture settings": "Aufnahmeeinstellungen werden geladen",
   "Loading displays": "Displays werden geladen",
@@ -851,6 +854,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Reply to {authorName}…": "Antwort an {authorName}…",
   "Replying to": "Antwort auf",
   required: "erforderlich",
+  "Reset mix": "Mix zurücksetzen",
   "Reset trim": "Zuschnitt zurücksetzen",
   Resolution: "Auflösung",
   "Resolution, frame rate, encoder, and replay buffer.":

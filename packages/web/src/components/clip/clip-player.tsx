@@ -114,7 +114,7 @@ function ClipPlayer({
   enableHorizontalSeekShortcuts,
   aspectRatio: aspectRatioProp,
 }: ClipPlayerProps) {
-  const audioMixer = useAudioTrackMixer(clipId, audioTracks)
+  const audioMixer = useAudioTrackMixer(clipId, audioTracks, durationMs)
   const poster =
     thumbnail === undefined
       ? clipThumbnailUrl(clipId, apiOrigin())
@@ -344,7 +344,7 @@ function ClipPlayer({
       qualityOptions={qualityOptions}
       selectedQualityId={active?.name ?? selectedQualityId}
       onSelectQuality={pinQuality}
-      audioMixer={audioTracks.length > 0 ? audioMixer : undefined}
+      audioMixer={audioMixer.tracks.length >= 2 ? audioMixer : undefined}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       onPlaybackError={handlePlaybackError}

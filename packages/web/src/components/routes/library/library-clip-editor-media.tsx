@@ -184,7 +184,16 @@ export function ClipEditorStage({
   nextEntry: NavigableLibraryEntry | null
 }) {
   const playerVolume = useExternalVideoVolume(playback.playerRef)
-  const audioMixer = useAudioTrackMixer(row.id, row.audioTracks ?? [])
+  const audioMixer = useAudioTrackMixer(row.id, row.audioTracks, row.durationMs)
+  // Trimmed previews use the uncut source timeline; supporting canonical-cut
+  // stems here needs an explicit trim offset before the clocks can be synced.
+  const editorAudioMixer =
+    media.playbackSrc &&
+    row.trimStartMs === null &&
+    row.trimEndMs === null &&
+    audioMixer.tracks.length >= 2
+      ? audioMixer
+      : undefined
   return (
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
       <MediaStage aspectRatio={media.aspectRatio}>
@@ -202,8 +211,7 @@ export function ClipEditorStage({
             playerRef={playback.playerRef}
             onTimeUpdate={playback.handleTimeUpdate}
             onPlayingChange={playback.setPlaying}
-            onVolumeStateChange={playerVolume.onVolumeStateChange}
-            audioMixer={audioMixer.tracks.length > 0 ? audioMixer : undefined}
+            audioMixer={editorAudioMixer}
             onFrameReady={() => media.setCloudFrameReady(true)}
             onEnded={playback.handleEnded}
             className="overflow-hidden rounded-md"
@@ -230,8 +238,12 @@ export function ClipEditorStage({
           media={media}
           playback={playback}
           canManage={canManage}
-          playerVolume={playerVolume}
-          audioMixer={media.playbackSrc ? audioMixer : undefined}
+          playerVolume={
+            media.playbackSrc && !media.previewUnavailable
+              ? playerVolume
+              : undefined
+          }
+          audioMixer={editorAudioMixer}
         />
       )}
     </section>
@@ -293,7 +305,7 @@ function ClipEditorTrimControls({
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
   canManage: boolean
-  playerVolume: ReturnType<typeof useExternalVideoVolume>
+  playerVolume?: ReturnType<typeof useExternalVideoVolume>
   audioMixer?: AudioTrackMixerController
 }) {
   return (
@@ -306,14 +318,17 @@ function ClipEditorTrimControls({
               <SetPosterButton clipId={clipId} playback={playback} />
             ) : null}
             <AudioTrackMixerControl mixer={audioMixer} />
-            <VolumeControl
-              muted={playerVolume.state.muted}
-              volume={playerVolume.state.volume}
-              onToggleMute={playerVolume.toggleMute}
-              onVolumeChange={playerVolume.setVolume}
-              iconClassName="size-8 rounded-md"
-              iconGlyphClassName="size-4"
-            />
+            {playerVolume ? (
+              <VolumeControl
+                muted={playerVolume.state.muted}
+                volume={playerVolume.state.volume}
+                onToggleMute={playerVolume.toggleMute}
+                onVolumeChange={playerVolume.setVolume}
+                onVolumeChangeEnd={playerVolume.finishVolumeChange}
+                iconClassName="size-8 rounded-md"
+                iconGlyphClassName="size-4"
+              />
+            ) : null}
           </>
         }
       />
@@ -400,6 +415,7 @@ function ClipProcessingNotice({
           volume={playerVolume.state.volume}
           onToggleMute={playerVolume.toggleMute}
           onVolumeChange={playerVolume.setVolume}
+          onVolumeChangeEnd={playerVolume.finishVolumeChange}
           iconClassName="size-8 rounded-md"
           iconGlyphClassName="size-4"
         />

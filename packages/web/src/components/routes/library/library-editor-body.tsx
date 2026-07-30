@@ -377,7 +377,6 @@ export function EditorBody({
               playerRef={playerRef}
               onTimeUpdate={playback.handleTimeUpdate}
               onPlayingChange={playback.setPlaying}
-              onVolumeStateChange={playerVolume.onVolumeStateChange}
               onFrameReady={() => setLocalFrameReady(true)}
               onEnded={playback.handleEnded}
               className="overflow-hidden rounded-md"
@@ -399,6 +398,7 @@ export function EditorBody({
                 volume={playerVolume.state.volume}
                 onToggleMute={playerVolume.toggleMute}
                 onVolumeChange={playerVolume.setVolume}
+                onVolumeChangeEnd={playerVolume.finishVolumeChange}
                 iconClassName="size-8 rounded-md"
                 iconGlyphClassName="size-4"
               />

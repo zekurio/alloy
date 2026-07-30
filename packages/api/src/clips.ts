@@ -105,12 +105,13 @@ export function clipRenditionFileUrl(
 export function clipAudioTrackFileUrl(
   clipId: string,
   index: number,
-  version: string,
+  origin?: string,
+  version?: string,
 ): string {
   return versionedClipAssetUrl(
     clipId,
     `/audio/${index}/file.m4a`,
-    undefined,
+    origin,
     version,
   )
 }

@@ -4,6 +4,8 @@ import type {
   GameRow,
   UserSearchResult,
 } from "@alloy/api"
+import { CLIP_AUDIO_TRACKS_MAX } from "@alloy/contracts/content"
+import { isClipAudioTrackKind } from "@alloy/contracts/desktop-recording-types"
 
 import { prepareSelectedClipFile } from "@/components/upload/new-clip-helpers"
 import type {
@@ -91,10 +93,13 @@ async function prepareCapturePublishPayload(
           )
           .catch(() => undefined)
       : undefined
-  const audioTracks = input.item.audioTracks?.flatMap((track) => {
-    if (track.kind === "mix") return []
-    return [{ kind: track.kind, label: track.label }]
-  })
+  const audioTracks = input.item.audioTracks
+    ?.toSorted((left, right) => left.index - right.index)
+    .flatMap((track) => {
+      if (!isClipAudioTrackKind(track.kind)) return []
+      return [{ kind: track.kind, label: track.label }]
+    })
+    .slice(0, CLIP_AUDIO_TRACKS_MAX)
 
   return {
     file: selected.file,

@@ -44,6 +44,7 @@ export function ChromeBar({
   onTogglePlay,
   onToggleMute,
   onVolumeChange,
+  onVolumeChangeEnd,
   onSeek,
   onToggleFullscreen,
   qualityOptions,
@@ -63,6 +64,7 @@ export function ChromeBar({
   onTogglePlay: () => void
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
+  onVolumeChangeEnd: () => void
   onSeek: (sec: number) => void
   onToggleFullscreen: () => void
   qualityOptions?: QualityOption[]
@@ -131,6 +133,7 @@ export function ChromeBar({
             onTogglePlay={onTogglePlay}
             onToggleMute={onToggleMute}
             onVolumeChange={onVolumeChange}
+            onVolumeChangeEnd={onVolumeChangeEnd}
             audioMixer={audioMixer}
             portalContainer={portalContainer}
           />
@@ -168,6 +171,7 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onTogglePlay,
   onToggleMute,
   onVolumeChange,
+  onVolumeChangeEnd,
   audioMixer,
   portalContainer,
 }: {
@@ -179,6 +183,7 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onTogglePlay: () => void
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
+  onVolumeChangeEnd: () => void
   audioMixer?: AudioTrackMixerController
   portalContainer: HTMLDivElement | undefined
 }) {
@@ -207,6 +212,7 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
         volume={volume}
         onToggleMute={onToggleMute}
         onVolumeChange={onVolumeChange}
+        onVolumeChangeEnd={onVolumeChangeEnd}
         showSlider={!isCoarsePointer}
         iconGlyphClassName={videoChromeGlyphClass}
         iconClassName={cn(
