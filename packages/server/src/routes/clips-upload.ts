@@ -283,6 +283,16 @@ export const clipsUploadRoutes = new Hono()
         return badRequest(c, "The trim covers the whole clip")
       }
       const range = resolved.kind === "range" ? resolved : null
+      // A stale client must not turn an unchanged edit point into a full
+      // re-encode. Re-encoding is an explicit owner/admin action elsewhere.
+      if (
+        range &&
+        range.startMs === row.trim_start_ms &&
+        range.endMs === row.trim_end_ms &&
+        row.cut_key !== null
+      ) {
+        return badRequest(c, "The trim is unchanged")
+      }
 
       // The status flip is the concurrency guard against other mutations;
       // the null lease additionally excludes a first-ingest run that is

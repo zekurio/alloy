@@ -6,6 +6,26 @@ export const MIN_TRIM_MS = 1000
 /** Tolerance when deciding whether the trim still covers the full clip. */
 export const FULL_CLIP_TOLERANCE_MS = 50
 
+export type TrimRange = { startMs: number; endMs: number }
+
+/** Persisted trim representation: a full-range selection is stored as null. */
+export function toPersistedTrimRange(
+  trim: TrimRange,
+  trimmed: boolean,
+): TrimRange | null {
+  return trimmed
+    ? { startMs: Math.round(trim.startMs), endMs: Math.round(trim.endMs) }
+    : null
+}
+
+export function sameTrimRange(
+  left: TrimRange | null,
+  right: TrimRange | null,
+): boolean {
+  if (left === null || right === null) return left === right
+  return left.startMs === right.startMs && left.endMs === right.endMs
+}
+
 /**
  * The single-range trim state machine shared by the local capture editor and
  * the uploaded clip editor: one kept source range, the playhead in source
@@ -17,7 +37,7 @@ export function useTrimPlayback({
   canTrim = true,
 }: {
   initialDurationMs: number
-  initialTrim?: { startMs: number; endMs: number }
+  initialTrim?: TrimRange
   canTrim?: boolean
 }) {
   const playerRef = useRef<VideoPlayerHandle | null>(null)

@@ -22,6 +22,8 @@ import { TrimBar } from "@/components/clip-editor/trim-bar"
 import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
 import {
   MIN_TRIM_MS,
+  sameTrimRange,
+  toPersistedTrimRange,
   useTrimPlayback,
 } from "@/components/clip-editor/use-trim-playback"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
@@ -223,9 +225,7 @@ export function EditorBody({
 
   // Full-range == no trim: the persisted state for an untrimmed capture is
   // null on both bounds, matching FULL_CLIP_TOLERANCE_MS semantics.
-  const currentTrim = trimmed
-    ? { startMs: Math.round(trim.startMs), endMs: Math.round(trim.endMs) }
-    : null
+  const currentTrim = toPersistedTrimRange(trim, trimmed)
   const trimDirty =
     trimSupported &&
     playback.durationMs > 0 &&
@@ -597,12 +597,4 @@ function persistedTrim(item: LibraryItemView) {
     typeof item.trimEndMs === "number"
     ? { startMs: item.trimStartMs, endMs: item.trimEndMs }
     : null
-}
-
-function sameTrimRange(
-  a: { startMs: number; endMs: number } | null,
-  b: { startMs: number; endMs: number } | null,
-): boolean {
-  if (a === null || b === null) return a === b
-  return a.startMs === b.startMs && a.endMs === b.endMs
 }
