@@ -39,5 +39,12 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
+      # Read-only on fork PRs (no secret); pushes from same-repo runs.
+      - name: Set up Cachix
+        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
+        with:
+          name: zekurio
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
       - name: Check Nix flake
         run: nix flake check --print-build-logs
