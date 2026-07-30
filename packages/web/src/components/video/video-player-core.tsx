@@ -5,7 +5,9 @@ import type { MouseEvent, MouseEventHandler } from "react"
 
 import { suspendBackgroundMediaWork } from "@/lib/background-media-work"
 import { errorMessage } from "@/lib/error-message"
+import { usePlayerVolume } from "@/lib/player-volume"
 
+import { useAudioTrackMixerEngine } from "./audio-track-mixer"
 import { useMediaEngine } from "./video-media-engine"
 import { useActiveVideoPlayer } from "./video-player-active"
 import { useVideoPlayerControls } from "./video-player-controls"
@@ -47,6 +49,7 @@ export function PlayerCore({
   onPlayThreshold,
   onFrameReady,
   onEnded,
+  audioMixer,
   chromeSize = "default",
   shortcutBounds,
   enableHorizontalSeekShortcuts = true,
@@ -63,9 +66,12 @@ export function PlayerCore({
     switchingRendition,
   } = useMediaEngine(spec, videoRef, renditionPlayback)
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const playerVolume = usePlayerVolume()
+  const initialPlayerVolumeRef = useRef(playerVolume)
   const playingRef = useRef(false)
-  const volumeRef = useRef(1)
-  const mutedRef = useRef(initialMuted)
+  const volumeRef = useRef(playerVolume.volume)
+  const mutedRef = useRef(initialMuted || playerVolume.muted)
+  const initialMutedPropRef = useRef(initialMuted)
   const lastTimeRef = useRef(0)
   const playRequestIdRef = useRef(0)
   const hasRenderedFrameRef = useRef(false)
@@ -82,8 +88,8 @@ export function PlayerCore({
   const [currentTime, setCurrentTime] = useState(0)
   const [bufferedEnd, setBufferedEnd] = useState(0)
   const [playing, setPlaying] = useState(false)
-  const [volume, setVolumeState] = useState(1)
-  const [muted, setMutedState] = useState(initialMuted)
+  const [volume, setVolumeState] = useState(playerVolume.volume)
+  const [muted, setMutedState] = useState(initialMuted || playerVolume.muted)
   const [hasRenderedFrame, setHasRenderedFrame] = useState(false)
   const isCoarsePointer = useMediaQuery("(pointer: coarse)")
 
@@ -162,13 +168,6 @@ export function PlayerCore({
     onPlayingChangeRef.current?.(next)
   }, [])
 
-  useEffect(() => {
-    mutedRef.current = initialMuted
-    setMutedState(initialMuted)
-    const video = videoRef.current
-    if (video) video.muted = initialMuted
-  }, [initialMuted])
-
   const reportError = useCallback(() => {
     // The engine may recover by stepping down one playable quality tier;
     // the media key change resets load state.
@@ -237,14 +236,44 @@ export function PlayerCore({
     [playInternal, shortcutBounds?.end, shortcutBounds?.start],
   )
 
+  const audioMixerEngine = useAudioTrackMixerEngine({
+    mixer: audioMixer,
+    videoRef,
+    volume,
+    muted,
+  })
+  const audioMixerEngaged = audioMixerEngine.engaged
+  const audioMixerEngagedRef = audioMixerEngine.engagedRef
+
   useEffect(() => {
+    if (initialMutedPropRef.current === initialMuted) return
+    initialMutedPropRef.current = initialMuted
+    mutedRef.current = initialMuted
+    setMutedState(initialMuted)
+    const video = videoRef.current
+    if (video) video.muted = initialMuted || audioMixerEngagedRef.current
+  }, [audioMixerEngagedRef, initialMuted])
+
+  useEffect(() => {
+    if (initialPlayerVolumeRef.current === playerVolume) return
+    volumeRef.current = playerVolume.volume
+    mutedRef.current = playerVolume.muted
+    setVolumeState(playerVolume.volume)
+    setMutedState(playerVolume.muted)
     const video = videoRef.current
     if (!video) return
+    video.volume = playerVolume.volume
+    video.muted = playerVolume.muted || audioMixerEngagedRef.current
+  }, [audioMixerEngagedRef, playerVolume])
+
+  useEffect(() => {
     volumeRef.current = volume
     mutedRef.current = muted
+    const video = videoRef.current
+    if (!video) return
     video.volume = volume
-    video.muted = muted
-  }, [volume, muted])
+    video.muted = muted || audioMixerEngaged
+  }, [audioMixerEngaged, muted, volume])
 
   useEffect(() => {
     const video = videoRef.current
@@ -259,23 +288,30 @@ export function PlayerCore({
     return suspendBackgroundMediaWork()
   }, [playing])
 
-  const { keyCommand, setVolume, toggleFullscreen, toggleMute, togglePlay } =
-    useVideoPlayerControls({
-      containerRef,
-      duration,
-      isCoarsePointer,
-      mutedRef,
-      pauseInternal,
-      playerRef,
-      playInternal,
-      seekInternal,
-      setChromeVisible,
-      setMutedState,
-      setVolumeState,
-      shortcutBounds,
-      videoRef,
-      volumeRef,
-    })
+  const {
+    keyCommand,
+    setVolume,
+    finishVolumeChange,
+    toggleFullscreen,
+    toggleMute,
+    togglePlay,
+  } = useVideoPlayerControls({
+    containerRef,
+    audioMixerEngagedRef,
+    duration,
+    isCoarsePointer,
+    mutedRef,
+    pauseInternal,
+    playerRef,
+    playInternal,
+    seekInternal,
+    setChromeVisible,
+    setMutedState,
+    setVolumeState,
+    shortcutBounds,
+    videoRef,
+    volumeRef,
+  })
 
   const { activatePlayer, focusPlayerContainer } = useActiveVideoPlayer({
     autoPlay,
@@ -322,7 +358,7 @@ export function PlayerCore({
     setDuration(nextDuration)
     setBufferedEnd(0)
     element.volume = volumeRef.current
-    element.muted = mutedRef.current
+    element.muted = mutedRef.current || audioMixerEngagedRef.current
     element.playbackRate = playbackRate
     setStatus({ kind: "ready" })
     clearBuffering()
@@ -349,7 +385,14 @@ export function PlayerCore({
       if (autoPlay) void playInternal(false)
     }
     syncBuffered()
-  }, [autoPlay, clearBuffering, playbackRate, playInternal, syncBuffered])
+  }, [
+    audioMixerEngagedRef,
+    autoPlay,
+    clearBuffering,
+    playbackRate,
+    playInternal,
+    syncBuffered,
+  ])
 
   const handleLoadedData = useCallback(() => {
     if (hasRenderedFrameRef.current) return
@@ -490,7 +533,7 @@ export function PlayerCore({
       posterVisible={posterVisible}
       autoPlay={autoPlay}
       loop={loop}
-      muted={muted}
+      muted={muted || audioMixerEngaged}
       onPointerDown={focusPlayerContainer}
       onClick={clickHandler}
       onLoadedMetadata={handleLoadedMetadata}
@@ -561,11 +604,13 @@ export function PlayerCore({
           onTogglePlay={togglePlay}
           onToggleMute={toggleMute}
           onVolumeChange={setVolume}
+          onVolumeChangeEnd={finishVolumeChange}
           onSeek={(seconds) => seekInternal(seconds)}
           onToggleFullscreen={toggleFullscreen}
           qualityOptions={qualityOptions}
           selectedQualityId={selectedQualityId}
           onSelectQuality={onSelectQuality}
+          audioMixer={audioMixer}
         />
       }
     >

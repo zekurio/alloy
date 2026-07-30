@@ -35,6 +35,9 @@ export {
 export { uploadToTicket } from "./clip-upload"
 export type {
   AcceptedContentType,
+  ClipAudioTrackInput,
+  ClipAudioTrackKind,
+  ClipAudioTrackRef,
   ClipFeedSort,
   ClipGameRef,
   ClipListSort,
@@ -94,6 +97,20 @@ export function clipRenditionFileUrl(
   return versionedClipAssetUrl(
     clipId,
     `/rendition/${encodeURIComponent(name)}/file.mp4`,
+    origin,
+    version,
+  )
+}
+
+export function clipAudioTrackFileUrl(
+  clipId: string,
+  index: number,
+  origin?: string,
+  version?: string,
+): string {
+  return versionedClipAssetUrl(
+    clipId,
+    `/audio/${index}/file.m4a`,
     origin,
     version,
   )

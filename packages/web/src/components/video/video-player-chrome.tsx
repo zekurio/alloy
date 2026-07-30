@@ -16,6 +16,10 @@ import type { RefObject } from "react"
 
 import { isFullscreenElement, isFullscreenSupported } from "@/lib/fullscreen"
 
+import {
+  AudioTrackMixerControl,
+  type AudioTrackMixerController,
+} from "./audio-track-mixer"
 import type { QualityOption } from "./video-player-types"
 import { VideoScrubber } from "./video-scrubber"
 import { VolumeControl } from "./video-volume-control"
@@ -40,11 +44,13 @@ export function ChromeBar({
   onTogglePlay,
   onToggleMute,
   onVolumeChange,
+  onVolumeChangeEnd,
   onSeek,
   onToggleFullscreen,
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
+  audioMixer,
 }: {
   size?: ChromeBarSize
   containerRef: RefObject<HTMLDivElement | null>
@@ -58,11 +64,13 @@ export function ChromeBar({
   onTogglePlay: () => void
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
+  onVolumeChangeEnd: () => void
   onSeek: (sec: number) => void
   onToggleFullscreen: () => void
   qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
+  audioMixer?: AudioTrackMixerController
 }) {
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -125,6 +133,9 @@ export function ChromeBar({
             onTogglePlay={onTogglePlay}
             onToggleMute={onToggleMute}
             onVolumeChange={onVolumeChange}
+            onVolumeChangeEnd={onVolumeChangeEnd}
+            audioMixer={audioMixer}
+            portalContainer={portalContainer}
           />
 
           <ChromeTimeline
@@ -160,6 +171,9 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onTogglePlay,
   onToggleMute,
   onVolumeChange,
+  onVolumeChangeEnd,
+  audioMixer,
+  portalContainer,
 }: {
   size: ChromeBarSize
   playing: boolean
@@ -169,6 +183,9 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onTogglePlay: () => void
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
+  onVolumeChangeEnd: () => void
+  audioMixer?: AudioTrackMixerController
+  portalContainer: HTMLDivElement | undefined
 }) {
   return (
     <>
@@ -195,12 +212,20 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
         volume={volume}
         onToggleMute={onToggleMute}
         onVolumeChange={onVolumeChange}
+        onVolumeChangeEnd={onVolumeChangeEnd}
         showSlider={!isCoarsePointer}
         iconGlyphClassName={videoChromeGlyphClass}
         iconClassName={cn(
           videoChromeIconClass,
           size === "compact" && "size-[56px]",
         )}
+      />
+
+      <AudioTrackMixerControl
+        mixer={audioMixer}
+        portalContainer={portalContainer}
+        chrome
+        className={cn(size === "compact" && "size-[56px]")}
       />
     </>
   )

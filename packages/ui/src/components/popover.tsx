@@ -15,6 +15,7 @@ function PopoverContent({
   align = "center",
   alignOffset = 0,
   anchor,
+  portalContainer,
   side = "bottom",
   sideOffset = 4,
   ...props
@@ -22,9 +23,11 @@ function PopoverContent({
   Pick<
     Popover.Positioner.Props,
     "align" | "alignOffset" | "anchor" | "side" | "sideOffset"
-  >) {
+  > & {
+    portalContainer?: Popover.Portal.Props["container"]
+  }) {
   return (
-    <Popover.Portal>
+    <Popover.Portal container={portalContainer}>
       <Popover.Positioner
         align={align}
         alignOffset={alignOffset}
