@@ -1,4 +1,4 @@
-import { clip, clipRendition } from "@alloy/db/schema"
+import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
@@ -28,6 +28,7 @@ const ClipVerifyPayloadSchema = z.object({ clipId: z.uuid() })
 export interface VerifyClipAssetsSummary {
   checked: number
   missingRenditions: number
+  missingAudioTracks: number
   missingCuts: number
   missingThumbs: number
   missingSources: number
@@ -46,10 +47,17 @@ interface VerifyClipRow {
   sourceCodecs: string | null
   trimStartMs: number | null
   trimEndMs: number | null
+  audioTrackFingerprint: string | null
 }
 
 interface VerifyRenditionRow {
   id: string
+  storageKey: string
+}
+
+interface VerifyAudioTrackRow {
+  clipId: string
+  index: number
   storageKey: string
 }
 
@@ -131,6 +139,7 @@ export async function verifyClipAssets(
   const row = await selectVerifyClip(clipId)
   if (!row) return emptyVerifySummary()
   const renditions = await selectVerifyRenditions(clipId)
+  const audioTracks = await selectVerifyAudioTracks(clipId)
   const summary = emptyVerifySummary()
 
   const sourceMissing = row.sourceKey
@@ -146,6 +155,12 @@ export async function verifyClipAssets(
     missingRenditions.push(rendition)
   }
 
+  const missingAudioTracks: VerifyAudioTrackRow[] = []
+  for (const track of audioTracks) {
+    if (await objectExists(track.storageKey, summary)) continue
+    missingAudioTracks.push(track)
+  }
+
   const cutMissing = row.cutKey
     ? !(await objectExists(row.cutKey, summary))
     : false
@@ -156,6 +171,7 @@ export async function verifyClipAssets(
 
   summary.missingSources = sourceMissing ? 1 : 0
   summary.missingRenditions = missingRenditions.length
+  summary.missingAudioTracks = missingAudioTracks.length
   summary.missingCuts = cutMissing ? 1 : 0
   summary.missingThumbs = thumbMissing ? 1 : 0
 
@@ -169,13 +185,19 @@ export async function verifyClipAssets(
     return summary
   }
 
-  if (missingRenditions.length === 0 && !cutMissing && !thumbMissing) {
+  if (
+    missingRenditions.length === 0 &&
+    missingAudioTracks.length === 0 &&
+    !cutMissing &&
+    !thumbMissing
+  ) {
     return summary
   }
 
   summary.repaired = (await repairMissingDerivedAssets({
     row,
     missingRenditions,
+    missingAudioTracks,
     cutMissing,
     thumbMissing,
   }))
@@ -211,7 +233,7 @@ async function runStorageVerify(
   summary.finishedAt = new Date()
   await writeStorageMaintenanceSummary(STORAGE_VERIFY_SUMMARY_KEY, summary)
   logger.info(
-    `storage verify complete: checked=${summary.checked} missingRenditions=${summary.missingRenditions} missingCuts=${summary.missingCuts} missingThumbs=${summary.missingThumbs} missingSources=${summary.missingSources} repaired=${summary.repaired}`,
+    `storage verify complete: checked=${summary.checked} missingRenditions=${summary.missingRenditions} missingAudioTracks=${summary.missingAudioTracks} missingCuts=${summary.missingCuts} missingThumbs=${summary.missingThumbs} missingSources=${summary.missingSources} repaired=${summary.repaired}`,
   )
 }
 
@@ -229,6 +251,7 @@ async function selectVerifyClip(clipId: string): Promise<VerifyClipRow | null> {
       sourceCodecs: clip.source_codecs,
       trimStartMs: clip.trim_start_ms,
       trimEndMs: clip.trim_end_ms,
+      audioTrackFingerprint: clip.audio_track_fingerprint,
     })
     .from(clip)
     .where(eq(clip.id, clipId))
@@ -244,6 +267,19 @@ function selectVerifyRenditions(clipId: string): Promise<VerifyRenditionRow[]> {
     })
     .from(clipRendition)
     .where(eq(clipRendition.clip_id, clipId))
+}
+
+function selectVerifyAudioTracks(
+  clipId: string,
+): Promise<VerifyAudioTrackRow[]> {
+  return db
+    .select({
+      clipId: clipAudioTrack.clip_id,
+      index: clipAudioTrack.idx,
+      storageKey: clipAudioTrack.storage_key,
+    })
+    .from(clipAudioTrack)
+    .where(eq(clipAudioTrack.clip_id, clipId))
 }
 
 async function objectExists(
@@ -274,6 +310,7 @@ async function quarantineMissingSource(options: {
 function repairMissingDerivedAssets(options: {
   row: VerifyClipRow
   missingRenditions: VerifyRenditionRow[]
+  missingAudioTracks: VerifyAudioTrackRow[]
   cutMissing: boolean
   thumbMissing: boolean
 }): Promise<boolean> {
@@ -297,6 +334,16 @@ function repairMissingDerivedAssets(options: {
           options.missingRenditions.map((rendition) => rendition.id),
         ),
       )
+    }
+    for (const track of options.missingAudioTracks) {
+      await tx
+        .delete(clipAudioTrack)
+        .where(
+          and(
+            eq(clipAudioTrack.clip_id, track.clipId),
+            eq(clipAudioTrack.idx, track.index),
+          ),
+        )
     }
     await enqueueClipEncode(options.row.id, {
       trigger: "repair",
@@ -332,6 +379,7 @@ function failedFingerprint(row: VerifyClipRow): string | null {
     sourceCodecs: row.sourceCodecs,
     trimStartMs: row.trimStartMs,
     trimEndMs: row.trimEndMs,
+    audioTrackFingerprint: row.audioTrackFingerprint,
   })
 }
 
@@ -356,6 +404,7 @@ function addVerifySummary(
 ): void {
   target.checked += source.checked
   target.missingRenditions += source.missingRenditions
+  target.missingAudioTracks += source.missingAudioTracks
   target.missingCuts += source.missingCuts
   target.missingThumbs += source.missingThumbs
   target.missingSources += source.missingSources
@@ -366,6 +415,7 @@ function emptyVerifySummary(): VerifyClipAssetsSummary {
   return {
     checked: 0,
     missingRenditions: 0,
+    missingAudioTracks: 0,
     missingCuts: 0,
     missingThumbs: 0,
     missingSources: 0,

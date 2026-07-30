@@ -37,6 +37,7 @@ interface SweepClipRow {
   sourceCodecs: string | null
   trimStartMs: number | null
   trimEndMs: number | null
+  audioTrackFingerprint: string | null
   encodeFingerprint: string | null
   encodeFailedFingerprint: string | null
   encodePipeline: string | null
@@ -140,6 +141,7 @@ async function runRenditionsSweep(
         sourceCodecs: row.sourceCodecs,
         trimStartMs: row.trimStartMs,
         trimEndMs: row.trimEndMs,
+        audioTrackFingerprint: row.audioTrackFingerprint,
       }
       const expected = encodeFingerprint(config, facts)
       const ladder = expectedLadder(config, facts)
@@ -200,6 +202,7 @@ async function selectSweepPage(cursor: string | null): Promise<SweepClipRow[]> {
       sourceCodecs: clip.source_codecs,
       trimStartMs: clip.trim_start_ms,
       trimEndMs: clip.trim_end_ms,
+      audioTrackFingerprint: clip.audio_track_fingerprint,
       encodeFingerprint: clip.encode_fingerprint,
       encodeFailedFingerprint: clip.encode_failed_fingerprint,
       encodePipeline: clip.encode_pipeline,
@@ -258,6 +261,9 @@ async function adoptMatchingRenditions(options: {
   renditions: SweepRenditionRow[]
 }): Promise<boolean> {
   if (options.row.encodePipeline !== MEDIA_PIPELINE_VERSION) return false
+  // Adoption only compares rendition rows, so exclude rows whose desired
+  // state also includes audio stems.
+  if (options.row.audioTrackFingerprint !== null) return false
   const fixes = adoptionFixes(options.renditions, options.ladder)
   if (!fixes) return false
 

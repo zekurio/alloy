@@ -70,7 +70,7 @@ export async function ensureStillPresent(
 
 export async function pruneStaleAssets(
   row: Pick<MediaRow, "sourceKey" | "cutKey" | "thumbKey">,
-  previousRenditionKeys: readonly string[],
+  previousDerivedKeys: readonly string[],
   retainedKeys: Iterable<string>,
 ): Promise<void> {
   const retained = new Set(retainedKeys)
@@ -78,7 +78,7 @@ export async function pruneStaleAssets(
     row.sourceKey,
     row.cutKey,
     row.thumbKey,
-    ...previousRenditionKeys,
+    ...previousDerivedKeys,
   ])
   previousKeys.delete(null)
 
@@ -105,6 +105,7 @@ async function retainRowAssetKeys(
     if (fresh?.cutKey) retainedKeys.add(fresh.cutKey)
     if (fresh?.thumbKey) retainedKeys.add(fresh.thumbKey)
     for (const key of fresh?.renditionKeys ?? []) retainedKeys.add(key)
+    for (const key of fresh?.audioTrackKeys ?? []) retainedKeys.add(key)
   } catch (err) {
     logger.warn(`failed to retain row asset keys for ${id}:`, err)
   }

@@ -1,4 +1,5 @@
-import { clip, clipRendition } from "@alloy/db/schema"
+import { CLIP_AUDIO_TRACKS_MAX } from "@alloy/contracts/content"
+import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { clipScrubberKey } from "@alloy/server/clips/scrubber"
 import { db } from "@alloy/server/db/index"
@@ -19,6 +20,10 @@ const PAGE_SIZE = 500
 // in-flight runs' freshly uploaded objects are never collected.
 const ORPHAN_SAFETY_MARGIN_MS = 48 * 60 * 60 * 1000
 const STORAGE_GC_SUMMARY_KEY = "storageGc"
+const AUDIO_TRACK_ASSET_RE = new RegExp(
+  `^audio-[0-${CLIP_AUDIO_TRACKS_MAX - 1}]-[0-9a-f]{12}\\.m4a$`,
+  "i",
+)
 
 interface StorageGcSummary {
   finishedAt: Date
@@ -170,6 +175,16 @@ async function selectLiveKeys(
   for (const rendition of renditions) {
     liveKeys.get(rendition.clipId)?.add(rendition.storageKey)
   }
+  const audioTracks = await db
+    .select({
+      clipId: clipAudioTrack.clip_id,
+      storageKey: clipAudioTrack.storage_key,
+    })
+    .from(clipAudioTrack)
+    .where(inArray(clipAudioTrack.clip_id, clipIds))
+  for (const track of audioTracks) {
+    liveKeys.get(track.clipId)?.add(track.storageKey)
+  }
   return liveKeys
 }
 
@@ -201,6 +216,7 @@ function isRunStampedFilename(filename: string): boolean {
     /^source-[0-9a-f]{12}$/i.test(filename) ||
     /^cut-[0-9a-f]{12}\.mp4$/i.test(filename) ||
     /^rendition-.+-[0-9a-f]{12}\.mp4$/i.test(filename) ||
+    AUDIO_TRACK_ASSET_RE.test(filename) ||
     /^thumb-[0-9a-f]{12}\.jpg$/i.test(filename)
   )
 }

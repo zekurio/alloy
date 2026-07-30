@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto"
+
 import type { TranscodingConfig } from "@alloy/contracts"
 import { sourceIsBroadlyDecodable } from "@alloy/server/clips/codecs"
 
@@ -11,6 +13,8 @@ export interface FingerprintSourceFacts {
   sourceCodecs: string | null
   trimStartMs: number | null
   trimEndMs: number | null
+  /** Probed stem count/codecs plus validated semantic metadata. */
+  audioTrackFingerprint: string | null
 }
 
 export function browserSafeSource(
@@ -53,6 +57,14 @@ export function encodeFingerprint(
       facts.trimStartMs === null || facts.trimEndMs === null
         ? null
         : [facts.trimStartMs, facts.trimEndMs],
+    ...(facts.audioTrackFingerprint
+      ? {
+          at: createHash("sha256")
+            .update(facts.audioTrackFingerprint)
+            .digest("hex")
+            .slice(0, 16),
+        }
+      : {}),
     steps: expectedLadder(config, facts).map((step) => ({
       n: step.name,
       h: step.height,
