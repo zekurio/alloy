@@ -97,7 +97,7 @@ interface ClipDetailsProps {
   canManage: boolean
   onRequestDelete: () => void
   deleting: boolean
-  /** True while the stage holds a valid, uncommitted trim. */
+  /** True while the stage holds a valid, uncommitted trim change. */
   canSaveTrim: boolean
   /** True while a saved trim is being applied on the server. */
   trimPending: boolean

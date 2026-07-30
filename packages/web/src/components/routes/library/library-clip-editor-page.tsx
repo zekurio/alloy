@@ -11,6 +11,8 @@ import { useCallback, useState } from "react"
 
 import {
   MIN_TRIM_MS,
+  sameTrimRange,
+  toPersistedTrimRange,
   useTrimPlayback,
 } from "@/components/clip-editor/use-trim-playback"
 import { EmptyState } from "@/components/feedback/empty-state"
@@ -125,8 +127,12 @@ function ClipEditorBody({
   })
   const { playerRef, trim, trimmed, rangeMs } = playback
   const trimMutation = useTrimClipMutation()
+  const trimChanged = !sameTrimRange(
+    toPersistedTrimRange(trim, trimmed),
+    initialTrim ?? null,
+  )
   const canSaveTrim =
-    canTrim && trimmed && rangeMs >= MIN_TRIM_MS && !trimMutation.isPending
+    canTrim && trimChanged && rangeMs >= MIN_TRIM_MS && !trimMutation.isPending
   const media = useClipEditorMedia(row, processing, localItem)
   const deleteFlow = useServerBackedClipDelete({
     row,
