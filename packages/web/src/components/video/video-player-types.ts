@@ -1,5 +1,9 @@
 import type { MouseEventHandler, Ref } from "react"
 
+import type { PlayerVolumeState } from "@/lib/player-volume"
+
+import type { AudioTrackMixerController } from "./audio-track-mixer"
+
 export interface VideoPlayerHandle {
   play(): Promise<void>
   pause(): void
@@ -28,6 +32,8 @@ export type SharedPlayerProps = {
   onPlayThreshold?: () => void
   onFrameReady?: () => void
   onEnded?: () => void
+  onVolumeStateChange?: (state: PlayerVolumeState) => void
+  audioMixer?: AudioTrackMixerController
   chromeSize?: "default" | "compact"
   shortcutBounds?: {
     start: number

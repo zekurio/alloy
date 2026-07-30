@@ -14,6 +14,7 @@ import {
   validateString,
 } from "@alloy/api/runtime-validation"
 import {
+  CLIP_AUDIO_TRACK_KINDS,
   CLIP_PRIVACY,
   CLIP_STATUS,
   ENCODE_STAGE,
@@ -27,6 +28,9 @@ import {
   validateGameSource,
   validateNullableBlurHash,
 } from "./shared"
+const CLIP_AUDIO_TRACK_KIND_SET: ReadonlySet<string> = new Set(
+  CLIP_AUDIO_TRACK_KINDS,
+)
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
@@ -216,6 +220,29 @@ function validateClipRelationships(row: Record<string, unknown>) {
       "Invalid clip rendition response: version is required",
     )
   })
+  if (row.audioTracks !== undefined) {
+    validateArray(
+      row.audioTracks,
+      "Invalid clip response: audioTracks must be an array",
+    ).map((entry) => {
+      const track = objectRecord(entry, "clip audio track")
+      validateNonNegativeInteger(
+        track.index,
+        "Invalid clip audio track response: index must be a non-negative integer",
+      )
+      validateEnumString(
+        track.kind,
+        CLIP_AUDIO_TRACK_KIND_SET,
+        "Invalid clip audio track response: kind is invalid",
+      )
+      for (const key of ["label", "codecs", "version"] as const) {
+        validateString(
+          track[key],
+          `Invalid clip audio track response: ${key} must be a string`,
+        )
+      }
+    })
+  }
   if (row.mentions !== undefined) {
     validateArray(
       row.mentions,

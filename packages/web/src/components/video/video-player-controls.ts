@@ -17,6 +17,7 @@ import type { PlayerCoreProps } from "./video-player-core-types"
 import type { VideoKeyCommand } from "./video-player-shell"
 
 interface VideoPlayerControlsOptions {
+  audioMixerEngagedRef: MutableRefObject<boolean>
   containerRef: RefObject<HTMLDivElement | null>
   duration: number
   isCoarsePointer: boolean
@@ -34,6 +35,7 @@ interface VideoPlayerControlsOptions {
 }
 
 export function useVideoPlayerControls({
+  audioMixerEngagedRef,
   containerRef,
   duration,
   isCoarsePointer,
@@ -72,14 +74,24 @@ export function useVideoPlayerControls({
         mutedRef.current = next
         setMutedState(next)
         const video = videoRef.current
-        if (video) video.muted = next
+        if (video) video.muted = next || audioMixerEngagedRef.current
       },
       setPlaybackRate: (rate: number) => {
         const video = videoRef.current
         if (video) video.playbackRate = rate
       },
     }),
-    [pauseInternal, playInternal, seekInternal],
+    [
+      audioMixerEngagedRef,
+      mutedRef,
+      pauseInternal,
+      playInternal,
+      seekInternal,
+      setMutedState,
+      setVolumeState,
+      videoRef,
+      volumeRef,
+    ],
   )
 
   const togglePlay = useCallback(() => {
@@ -97,10 +109,10 @@ export function useVideoPlayerControls({
       const next = !current
       mutedRef.current = next
       const video = videoRef.current
-      if (video) video.muted = next
+      if (video) video.muted = next || audioMixerEngagedRef.current
       return next
     })
-  }, [mutedRef, setMutedState, videoRef])
+  }, [audioMixerEngagedRef, mutedRef, setMutedState, videoRef])
 
   const setVolume = useCallback(
     (next: number) => {
@@ -113,12 +125,19 @@ export function useVideoPlayerControls({
         const video = videoRef.current
         if (video) {
           video.volume = clamped
-          video.muted = nextMuted
+          video.muted = nextMuted || audioMixerEngagedRef.current
         }
         return nextMuted
       })
     },
-    [mutedRef, setMutedState, setVolumeState, videoRef, volumeRef],
+    [
+      audioMixerEngagedRef,
+      mutedRef,
+      setMutedState,
+      setVolumeState,
+      videoRef,
+      volumeRef,
+    ],
   )
 
   const volumeBy = useCallback(

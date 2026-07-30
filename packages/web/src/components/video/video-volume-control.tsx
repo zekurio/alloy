@@ -3,7 +3,30 @@ import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react"
 import { useCallback, useRef, useState } from "react"
-import type { PointerEvent } from "react"
+import type { PointerEvent, RefObject } from "react"
+
+import { readPlayerVolume, type PlayerVolumeState } from "@/lib/player-volume"
+
+import type { VideoPlayerHandle } from "./video-player-types"
+
+export function useExternalVideoVolume(
+  playerRef: RefObject<VideoPlayerHandle | null>,
+) {
+  const [state, setState] = useState(readPlayerVolume)
+  const onVolumeStateChange = useCallback(
+    (next: PlayerVolumeState) => setState(next),
+    [],
+  )
+  const toggleMute = useCallback(
+    () => playerRef.current?.setMuted(!state.muted),
+    [playerRef, state.muted],
+  )
+  const setVolume = useCallback(
+    (volume: number) => playerRef.current?.setVolume(volume),
+    [playerRef],
+  )
+  return { state, onVolumeStateChange, toggleMute, setVolume }
+}
 
 export function VolumeControl({
   muted,

@@ -25,7 +25,16 @@ import { TrimTransportControls } from "@/components/clip-editor/transport-contro
 import { TrimBar } from "@/components/clip-editor/trim-bar"
 import { useTrimPlayback } from "@/components/clip-editor/use-trim-playback"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
-import { VideoPlayer } from "@/components/video/video-player"
+import {
+  AudioTrackMixerControl,
+  type AudioTrackMixerController,
+  useAudioTrackMixer,
+} from "@/components/video/audio-track-mixer"
+import {
+  useExternalVideoVolume,
+  VideoPlayer,
+  VolumeControl,
+} from "@/components/video/video-player"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { useSetClipPosterMutation } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
@@ -174,6 +183,8 @@ export function ClipEditorStage({
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
 }) {
+  const playerVolume = useExternalVideoVolume(playback.playerRef)
+  const audioMixer = useAudioTrackMixer(row.id, row.audioTracks ?? [])
   return (
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
       <MediaStage aspectRatio={media.aspectRatio}>
@@ -191,6 +202,8 @@ export function ClipEditorStage({
             playerRef={playback.playerRef}
             onTimeUpdate={playback.handleTimeUpdate}
             onPlayingChange={playback.setPlaying}
+            onVolumeStateChange={playerVolume.onVolumeStateChange}
+            audioMixer={audioMixer.tracks.length > 0 ? audioMixer : undefined}
             onFrameReady={() => media.setCloudFrameReady(true)}
             onEnded={playback.handleEnded}
             className="overflow-hidden rounded-md"
@@ -207,13 +220,18 @@ export function ClipEditorStage({
       </MediaStage>
 
       {processing ? (
-        <ClipProcessingNotice progress={row.encodeProgress} />
+        <ClipProcessingNotice
+          progress={row.encodeProgress}
+          playerVolume={media.playbackSrc ? playerVolume : undefined}
+        />
       ) : (
         <ClipEditorTrimControls
           clipId={row.id}
           media={media}
           playback={playback}
           canManage={canManage}
+          playerVolume={playerVolume}
+          audioMixer={media.playbackSrc ? audioMixer : undefined}
         />
       )}
     </section>
@@ -268,20 +286,35 @@ function ClipEditorTrimControls({
   media,
   playback,
   canManage,
+  playerVolume,
+  audioMixer,
 }: {
   clipId: string
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
   canManage: boolean
+  playerVolume: ReturnType<typeof useExternalVideoVolume>
+  audioMixer?: AudioTrackMixerController
 }) {
   return (
     <>
       <TrimTransportControls
         playback={playback}
         trailing={
-          canManage ? (
-            <SetPosterButton clipId={clipId} playback={playback} />
-          ) : undefined
+          <>
+            {canManage ? (
+              <SetPosterButton clipId={clipId} playback={playback} />
+            ) : null}
+            <AudioTrackMixerControl mixer={audioMixer} />
+            <VolumeControl
+              muted={playerVolume.state.muted}
+              volume={playerVolume.state.volume}
+              onToggleMute={playerVolume.toggleMute}
+              onVolumeChange={playerVolume.setVolume}
+              iconClassName="size-8 rounded-md"
+              iconGlyphClassName="size-4"
+            />
+          </>
         }
       />
       <TrimBar
@@ -340,7 +373,13 @@ function SetPosterButton({
   )
 }
 
-function ClipProcessingNotice({ progress }: { progress: number }) {
+function ClipProcessingNotice({
+  progress,
+  playerVolume,
+}: {
+  progress: number
+  playerVolume?: ReturnType<typeof useExternalVideoVolume>
+}) {
   const clamped = Math.max(0, Math.min(100, progress))
   return (
     <Card tone="surface" className="flex-row items-center gap-3 p-3">
@@ -355,6 +394,16 @@ function ClipProcessingNotice({ progress }: { progress: number }) {
         {clamped}
         {"%"}
       </span>
+      {playerVolume ? (
+        <VolumeControl
+          muted={playerVolume.state.muted}
+          volume={playerVolume.state.volume}
+          onToggleMute={playerVolume.toggleMute}
+          onVolumeChange={playerVolume.setVolume}
+          iconClassName="size-8 rounded-md"
+          iconGlyphClassName="size-4"
+        />
+      ) : null}
     </Card>
   )
 }

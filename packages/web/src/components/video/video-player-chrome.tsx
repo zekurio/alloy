@@ -16,6 +16,10 @@ import type { RefObject } from "react"
 
 import { isFullscreenElement, isFullscreenSupported } from "@/lib/fullscreen"
 
+import {
+  AudioTrackMixerControl,
+  type AudioTrackMixerController,
+} from "./audio-track-mixer"
 import type { QualityOption } from "./video-player-types"
 import { VideoScrubber } from "./video-scrubber"
 import { VolumeControl } from "./video-volume-control"
@@ -45,6 +49,7 @@ export function ChromeBar({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
+  audioMixer,
 }: {
   size?: ChromeBarSize
   containerRef: RefObject<HTMLDivElement | null>
@@ -63,6 +68,7 @@ export function ChromeBar({
   qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
+  audioMixer?: AudioTrackMixerController
 }) {
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -125,6 +131,8 @@ export function ChromeBar({
             onTogglePlay={onTogglePlay}
             onToggleMute={onToggleMute}
             onVolumeChange={onVolumeChange}
+            audioMixer={audioMixer}
+            portalContainer={portalContainer}
           />
 
           <ChromeTimeline
@@ -160,6 +168,8 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onTogglePlay,
   onToggleMute,
   onVolumeChange,
+  audioMixer,
+  portalContainer,
 }: {
   size: ChromeBarSize
   playing: boolean
@@ -169,6 +179,8 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onTogglePlay: () => void
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
+  audioMixer?: AudioTrackMixerController
+  portalContainer: HTMLDivElement | undefined
 }) {
   return (
     <>
@@ -201,6 +213,13 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
           videoChromeIconClass,
           size === "compact" && "size-[56px]",
         )}
+      />
+
+      <AudioTrackMixerControl
+        mixer={audioMixer}
+        portalContainer={portalContainer}
+        chrome
+        className={cn(size === "compact" && "size-[56px]")}
       />
     </>
   )

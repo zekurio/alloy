@@ -92,6 +92,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "{kbps} kbps": "{kbps} kbps",
   "{label} · No longer configured": "{label} · Nicht mehr konfiguriert",
   "{label} is required": "{label} ist erforderlich",
+  "{label} volume": "Lautstärke von {label}",
   "{resolution} · {fps} FPS": "{resolution} · {fps} FPS",
   "{used} used": "{used} verwendet",
   "≈ {size}/hr": "≈ {size}/Std.",
@@ -169,6 +170,9 @@ export const DE_MESSAGES: Record<string, string> = {
   "Audio settings": "Audioeinstellungen",
   "Awaiting upload": "Warten auf Upload",
   "Audio source": "Audioquelle",
+  "Audio tracks": "Audiospuren",
+  "Audio tracks could not be loaded. Playing the mixed track instead.":
+    "Audiospuren konnten nicht geladen werden. Stattdessen wird die gemischte Spur abgespielt.",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
   Author: "Autor",
   Auto: "Auto",
@@ -664,6 +668,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Most viewed": "Meiste Aufrufe",
   "Move trim window": "Trimmfenster verschieben",
   Mute: "Stumm",
+  "Mute {label}": "{label} stummschalten",
   Name: "Name",
   "Name (optional)": "Name (optional)",
   "Name the game and attach its artwork in one step.":
@@ -1033,6 +1038,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Unlink: "Trennen",
   Unlisted: "Nicht gelistet",
   Unmute: "Stummschaltung aufheben",
+  "Unmute {label}": "Stummschaltung von {label} aufheben",
   Unpin: "Lösen",
   Unpost: "Zurückziehen",
   "Unposting...": "Wird zurückgezogen...",

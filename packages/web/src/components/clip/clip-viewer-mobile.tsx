@@ -317,6 +317,7 @@ function MobileClipViewerBody({
               sourceCodecs={row.sourceCodecs}
               sourceVersion={row.sourceVersion}
               renditions={row.renditions}
+              audioTracks={row.audioTracks}
               durationMs={row.durationMs}
               thumbnail={thumbnail}
               thumbnailBlurHash={row.thumbBlurHash}

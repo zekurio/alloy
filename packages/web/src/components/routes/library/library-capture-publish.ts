@@ -91,6 +91,10 @@ async function prepareCapturePublishPayload(
           )
           .catch(() => undefined)
       : undefined
+  const audioTracks = input.item.audioTracks?.flatMap((track) => {
+    if (track.kind === "mix") return []
+    return [{ kind: track.kind, label: track.label }]
+  })
 
   return {
     file: selected.file,
@@ -105,6 +109,7 @@ async function prepareCapturePublishPayload(
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
     ...(scrubber ? { scrubber } : {}),
+    ...(audioTracks && audioTracks.length > 0 ? { audioTracks } : {}),
     mentionedUserIds: input.mentions.map((mention) => mention.id),
     localCaptureId: input.item.id,
     // Bridge v2 exports report the keyframe-snap offset; sending the exact
