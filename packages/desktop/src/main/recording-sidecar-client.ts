@@ -54,8 +54,8 @@ interface RecordingSidecarClientOptions {
 
 const SIDECAR_TIMEOUT_MS = 20_000
 const SIDECAR_SHUTDOWN_REQUEST_TIMEOUT_MS = 1_500
-const SIDECAR_GRACEFUL_EXIT_TIMEOUT_MS = 750
-const SIDECAR_FORCED_EXIT_TIMEOUT_MS = 500
+const SIDECAR_GRACEFUL_EXIT_TIMEOUT_MS = 1_500
+const SIDECAR_FORCED_EXIT_TIMEOUT_MS = 1_500
 const RESPAWN_DELAY_MS = 3_000
 const RESPAWN_STREAK_RESET_MS = 60_000
 const MAX_CONSECUTIVE_RESPAWNS = 5
@@ -148,11 +148,12 @@ export class RecordingSidecarClient {
     })
   }
 
-  async shutdown(): Promise<void> {
+  /** Resolves false when the process did not exit within the deadlines. */
+  async shutdown(): Promise<boolean> {
     this.shutdownRequested = true
     this.cancelRespawn()
     const child = this.child
-    if (!child) return
+    if (!child) return true
 
     // The shutdown response precedes final process cleanup. Killing immediately
     // after it can leave the executable locked by Windows and break NSIS updates.
@@ -178,10 +179,10 @@ export class RecordingSidecarClient {
       exited,
       SIDECAR_GRACEFUL_EXIT_TIMEOUT_MS,
     )
-    if (!exitedGracefully) {
-      child.kill()
-      await settledWithin(exited, SIDECAR_FORCED_EXIT_TIMEOUT_MS)
-    }
+    if (!exitedGracefully) child.kill()
+    const exitedAfterKill =
+      exitedGracefully ||
+      (await settledWithin(exited, SIDECAR_FORCED_EXIT_TIMEOUT_MS))
 
     this.child = null
     this.reader?.close()
@@ -189,6 +190,7 @@ export class RecordingSidecarClient {
     const error = new Error("Recording sidecar was shut down.")
     this.rejectPending(error)
     this.rejectQueuedConfigure(error)
+    return exitedAfterKill
   }
 
   private sendConfigure(

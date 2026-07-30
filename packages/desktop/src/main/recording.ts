@@ -198,14 +198,18 @@ export async function stopAudioLevels(): Promise<void> {
   }
 }
 
-export async function shutdownRecordingBackend(): Promise<void> {
+/** Resolves false when a sidecar process may still be running afterwards. */
+export async function shutdownRecordingBackend(): Promise<boolean> {
   const client = sidecarClient
   sidecarClient = null
-  await client?.shutdown()
+  return (await client?.shutdown()) ?? true
 }
 
 export async function restartRecordingBackend(): Promise<RecordingStatus> {
-  await shutdownRecordingBackend()
+  const stopped = await shutdownRecordingBackend()
+  if (!stopped) {
+    logger.warn("previous sidecar may still be exiting; spawning a new one")
+  }
   return configureRecordingBackend()
 }
 
