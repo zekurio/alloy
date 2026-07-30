@@ -23,6 +23,10 @@ export function useTrimPlayback({
   const playerRef = useRef<VideoPlayerHandle | null>(null)
   const [playing, setPlaying] = useState(false)
   const [durationMs, setDurationMs] = useState(initialDurationMs)
+  // Mount-time fact: whether the trim was seeded from persisted bounds. A
+  // seeded end is a real cut point, so duration adoption must never treat it
+  // as an "untouched full range" and expand it.
+  const seededTrimRef = useRef(initialTrim !== undefined)
   const [trim, setTrim] = useState(() =>
     initialTrim
       ? {
@@ -91,10 +95,13 @@ export function useTrimPlayback({
       setDurationMs(reported)
       setTrim((current) => ({
         startMs: Math.min(current.startMs, Math.max(0, reported - MIN_TRIM_MS)),
-        // An untouched full-range trim simply adopts the new duration.
+        // An untouched full-range trim simply adopts the new duration. A
+        // seeded trim keeps its end — even one that happens to sit at the
+        // previously known duration — and only clamps into the real media.
         endMs:
           current.endMs <= 0 ||
-          current.endMs >= durationMs - FULL_CLIP_TOLERANCE_MS
+          (!seededTrimRef.current &&
+            current.endMs >= durationMs - FULL_CLIP_TOLERANCE_MS)
             ? reported
             : Math.min(current.endMs, reported),
       }))

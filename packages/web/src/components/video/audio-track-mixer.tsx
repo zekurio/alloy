@@ -27,7 +27,26 @@ const SCHEDULE_LEAD_SECONDS = 0.02
 const GAIN_SMOOTHING_SECONDS = 0.01
 const CLICK_RAMP_SECONDS = 0.008
 const AUDIO_CONTEXT_RESUME_TIMEOUT_MS = 4_000
-const EMPTY_TRACKS: readonly ClipAudioTrackRef[] = []
+const EMPTY_TRACKS: readonly MixerAudioTrack[] = []
+
+/**
+ * Minimal track shape the mixer needs. Server clip stems
+ * ({@link ClipAudioTrackRef}) and local desktop capture tracks both satisfy
+ * it; how the encoded bytes load is the caller's concern via
+ * {@link MixerTrackLoader}.
+ */
+export interface MixerAudioTrack {
+  index: number
+  label: string
+  /** Cache-busting version, when the source has one. */
+  version?: string
+}
+
+/** Fetches one track's encoded bytes for WebAudio decoding. */
+export type MixerTrackLoader = (
+  track: MixerAudioTrack,
+  signal: AbortSignal,
+) => Promise<ArrayBuffer>
 
 type TrackMix = {
   index: number
@@ -45,7 +64,8 @@ type MixerEngineBinding = {
 export type AudioTrackMixerController = {
   key: string
   clipId: string
-  tracks: readonly ClipAudioTrackRef[]
+  tracks: readonly MixerAudioTrack[]
+  loadTrack: MixerTrackLoader
   values: readonly TrackMix[]
   status: MixerEngineStatus
   getValues: () => readonly TrackMix[]
@@ -63,6 +83,35 @@ export function useAudioTrackMixer(
   clipId: string,
   tracks: readonly ClipAudioTrackRef[],
   durationMs?: number | null,
+): AudioTrackMixerController {
+  const loadTrack = useCallback<MixerTrackLoader>(
+    async (track, signal) => {
+      const response = await api.request(
+        clipAudioTrackFileUrl(clipId, track.index, undefined, track.version),
+        { init: { signal } },
+      )
+      if (!response.ok) {
+        throw new Error(
+          `Audio track ${track.index} returned ${response.status}`,
+        )
+      }
+      return response.arrayBuffer()
+    },
+    [clipId],
+  )
+  return useAudioTrackMixerWithLoader(clipId, tracks, durationMs, loadTrack)
+}
+
+/**
+ * {@link useAudioTrackMixer} with a caller-supplied track loader, for media
+ * whose stems are not served by the clip API — e.g. local desktop captures,
+ * whose tracks come off the capture file via the desktop bridge.
+ */
+export function useAudioTrackMixerWithLoader(
+  clipId: string,
+  tracks: readonly MixerAudioTrack[],
+  durationMs: number | null | undefined,
+  loadTrack: MixerTrackLoader,
 ): AudioTrackMixerController {
   // Decoded PCM is intentionally bounded to short clips. Long clips need a
   // streaming MediaElementAudioSourceNode mixer instead of AudioBuffers.
@@ -164,6 +213,7 @@ export function useAudioTrackMixer(
       key,
       clipId,
       tracks: availableTracks,
+      loadTrack,
       values,
       status,
       getValues,
@@ -179,6 +229,7 @@ export function useAudioTrackMixer(
       clipId,
       getValues,
       key,
+      loadTrack,
       prepare,
       reset,
       setEngineStatus,
@@ -433,7 +484,7 @@ export function useAudioTrackMixerEngine({
 
     void Promise.all([
       resumeAudioContext(context),
-      loadTrackBuffers(runtime, currentMixer.clipId, currentMixer.tracks),
+      loadTrackBuffers(runtime, currentMixer),
     ])
       .then(([, buffers]) => {
         if (runtimeRef.current !== runtime) return
@@ -709,30 +760,14 @@ export function AudioTrackMixerControl({
 
 async function loadTrackBuffers(
   runtime: MixerRuntime,
-  clipId: string,
-  tracks: readonly ClipAudioTrackRef[],
+  mixer: AudioTrackMixerController,
 ): Promise<Array<readonly [number, AudioBuffer]>> {
   const buffers: Array<readonly [number, AudioBuffer]> = []
-  for (const track of tracks) {
-    buffers.push([track.index, await loadTrackBuffer(runtime, clipId, track)])
+  for (const track of mixer.tracks) {
+    const encoded = await mixer.loadTrack(track, runtime.abort.signal)
+    buffers.push([track.index, await runtime.context.decodeAudioData(encoded)])
   }
   return buffers
-}
-
-async function loadTrackBuffer(
-  runtime: MixerRuntime,
-  clipId: string,
-  track: ClipAudioTrackRef,
-): Promise<AudioBuffer> {
-  const response = await api.request(
-    clipAudioTrackFileUrl(clipId, track.index, undefined, track.version),
-    { init: { signal: runtime.abort.signal } },
-  )
-  if (!response.ok) {
-    throw new Error(`Audio track ${track.index} returned ${response.status}`)
-  }
-  const encoded = await response.arrayBuffer()
-  return runtime.context.decodeAudioData(encoded)
 }
 
 function createAudioContext(): AudioContext | null {
@@ -940,16 +975,16 @@ function teardownRuntime(runtime: MixerRuntime): void {
 
 function audioTrackMixerKey(
   clipId: string,
-  tracks: readonly ClipAudioTrackRef[],
+  tracks: readonly MixerAudioTrack[],
 ): string {
   return `${clipId}:${tracks
-    .map((track) => `${track.index}:${track.version}`)
+    .map((track) => `${track.index}:${track.version ?? ""}`)
     .join(",")}`
 }
 
 function readTrackMixes(
   clipId: string,
-  tracks: readonly ClipAudioTrackRef[],
+  tracks: readonly MixerAudioTrack[],
 ): TrackMix[] {
   const stored = mixerMemory.get(clipId)
   return tracks.map(
@@ -960,7 +995,7 @@ function readTrackMixes(
 function normalizeTrackMixes(
   values: readonly TrackMix[],
   clipId: string,
-  tracks: readonly ClipAudioTrackRef[],
+  tracks: readonly MixerAudioTrack[],
 ): TrackMix[] {
   const current = new Map(values.map((value) => [value.index, value]))
   const stored = mixerMemory.get(clipId)

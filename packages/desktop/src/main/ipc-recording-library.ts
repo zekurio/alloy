@@ -140,6 +140,22 @@ export const recordingLibraryBridgeHandlers = {
       storeRecordingScrubber(normalized.id, normalized.data)
     },
   },
+  "recording.getLibraryCaptureAudioTrackUrl": {
+    guard: requireMainSender,
+    handle: async (_windows, _event, id: unknown, index: unknown) => {
+      if (
+        typeof id !== "string" ||
+        typeof index !== "number" ||
+        !Number.isInteger(index) ||
+        index < 0
+      ) {
+        return null
+      }
+      const { recordingCaptureAudioTrackUrl } =
+        await import("./recording-library-audio-tracks")
+      return recordingCaptureAudioTrackUrl(id, index)
+    },
+  },
   "recording.downloadClip": {
     guard: requireMainSender,
     handle: (windows, _event, request: unknown) => {

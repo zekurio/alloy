@@ -41,7 +41,7 @@ import type { AlloyDesktopUpdatesApi } from "./desktop-update"
  * - The web app gates on `bridge.version` via {@link desktopBridgeSupports};
  *   it must never sniff members with `typeof` checks.
  */
-export const DESKTOP_BRIDGE_VERSION = 3
+export const DESKTOP_BRIDGE_VERSION = 4
 
 /** Handshake info exposed as `alloyDesktop.bridge`. */
 export interface AlloyDesktopBridgeInfo {
@@ -113,6 +113,17 @@ export interface AlloyDesktopRecordingApi {
   getLibraryCaptureScrubber(id: string): Promise<Uint8Array | null>
   /** Persists a renderer-generated JPEG scrubber sprite for a local capture. */
   saveLibraryCaptureScrubber(id: string, data: Uint8Array): Promise<void>
+  /**
+   * Fetchable `alloy-capture://` URL for one audio track of a local
+   * multi-track capture, extracting the stem to a local cache on first use.
+   * `index` is the capture's zero-based container audio track index (0 is
+   * the embedded mix; stems occupy 1..N). Null when the capture or track
+   * does not exist.
+   */
+  getLibraryCaptureAudioTrackUrl(
+    id: string,
+    index: number,
+  ): Promise<string | null>
   /**
    * Persists an uploaded clip into the local capture library. Progress
    * streams out as "library-download" recording events.
@@ -221,6 +232,7 @@ export const DESKTOP_BRIDGE = {
     saveLibraryCaptureThumbnail: { since: 1 },
     getLibraryCaptureScrubber: { since: 3 },
     saveLibraryCaptureScrubber: { since: 3 },
+    getLibraryCaptureAudioTrackUrl: { since: 4 },
     downloadClip: { since: 1 },
     cancelClipDownload: { since: 1 },
     listClipDownloads: { since: 1 },

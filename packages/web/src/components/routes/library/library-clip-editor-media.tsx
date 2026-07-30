@@ -9,7 +9,6 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Card } from "@alloy/ui/components/card"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
-import { Progress } from "@alloy/ui/components/progress"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { toast } from "@alloy/ui/lib/toast"
@@ -24,6 +23,10 @@ import {
 import { TrimTransportControls } from "@/components/clip-editor/transport-controls"
 import { TrimBar } from "@/components/clip-editor/trim-bar"
 import { useTrimPlayback } from "@/components/clip-editor/use-trim-playback"
+import {
+  encodeStageLabel,
+  QueueProgressBar,
+} from "@/components/upload/queue-progress"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import {
   AudioTrackMixerControl,
@@ -229,7 +232,7 @@ export function ClipEditorStage({
 
       {processing ? (
         <ClipProcessingNotice
-          progress={row.encodeProgress}
+          row={row}
           playerVolume={media.playbackSrc ? playerVolume : undefined}
         />
       ) : (
@@ -388,27 +391,40 @@ function SetPosterButton({
   )
 }
 
+/**
+ * Encode progress under the stage, presented with the same stage label and
+ * bar the library cards and the watch overlay use, so the running job reads
+ * identically on every clip surface.
+ */
 function ClipProcessingNotice({
-  progress,
+  row,
   playerVolume,
 }: {
-  progress: number
+  row: ClipRow
   playerVolume?: ReturnType<typeof useExternalVideoVolume>
 }) {
-  const clamped = Math.max(0, Math.min(100, progress))
+  // Uncapped: the server self-caps encodeProgress at 99 until the clip is
+  // ready, so the notice only ever hits 100 once playback is committed.
+  const progress = Math.max(0, Math.min(100, Math.floor(row.encodeProgress)))
   return (
     <Card tone="surface" className="flex-row items-center gap-3 p-3">
       <Spinner className="size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-foreground text-sm font-medium">
-          {t("Processing clip...")}
+          {encodeStageLabel({
+            stage: row.encodeStage,
+            tier: row.encodeTier,
+            tierIndex: row.encodeTierIndex,
+            tierCount: row.encodeTierCount,
+          })}
         </p>
-        <Progress value={clamped} className="mt-1.5" />
+        <QueueProgressBar
+          value={progress}
+          indeterminate={progress <= 0}
+          showPercent
+          className="mt-1.5"
+        />
       </div>
-      <span className="text-foreground-muted text-sm tabular-nums">
-        {clamped}
-        {"%"}
-      </span>
       {playerVolume ? (
         <VolumeControl
           muted={playerVolume.state.muted}

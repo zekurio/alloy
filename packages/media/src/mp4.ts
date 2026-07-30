@@ -101,6 +101,41 @@ export async function withMp4Output(
 }
 
 /**
+ * Copy one audio track of `input` into an audio-only fragmented MP4 written
+ * to `target`, without re-encoding. Timestamps are preserved verbatim so the
+ * extracted stem stays aligned with the source's playback timeline. Does not
+ * dispose `input`; the caller owns its lifecycle.
+ */
+export async function extractAudioTrackToMp4Target(opts: {
+  input: Input
+  target: Target
+  /** Zero-based container audio track index. */
+  trackIndex: number
+  signal?: AbortSignal
+}): Promise<void> {
+  const track = (await opts.input.getAudioTracks())[opts.trackIndex]
+  if (!track) throw new Error("Audio extract source has no such audio track")
+
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
+    target: opts.target,
+  })
+  try {
+    const source = new EncodedAudioPacketSource(
+      track.codec ?? throwUnknownCodec("audio"),
+    )
+    output.addAudioTrack(source)
+    await output.start()
+    await copyAudioPackets(track, source, 0, undefined, opts.signal)
+    source.close()
+    await output.finalize()
+  } catch (err) {
+    await output.cancel().catch(() => undefined)
+    throw err
+  }
+}
+
+/**
  * Cut `[startMs, endMs]` out of `input` into a fragmented MP4 written to
  * `target`, without re-encoding. Every AAC audio track is preserved. The cut
  * start snaps to the nearest preceding video keyframe; the returned

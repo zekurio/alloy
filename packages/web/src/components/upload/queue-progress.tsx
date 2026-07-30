@@ -9,9 +9,11 @@ import type { ReactNode } from "react"
 import { isCompletedQueueStatus, type QueueItem } from "./upload-queue-types"
 
 /**
- * Localized stage label for an encode run, shared by the upload queue mapping,
- * the library cards, the global pill, and the watch-page overlay so every
- * surface reads the same wording. Tier metadata is only shown for the
+ * Localized stage label for an encode run, shared by the upload queue
+ * mapping, the library cards, the clip editor's processing notice, and the
+ * watch-page overlay so every surface reads the same wording. (The header
+ * pill deliberately excludes encode runs — processing progress is contextual
+ * to the clip and library views.) Tier metadata is only shown for the
  * per-tier encoding stage; everything else collapses to a single verb.
  */
 export function encodeStageLabel(input: {
@@ -76,9 +78,9 @@ export function QueueProgressBar({
 }
 
 /**
- * A single upload/download/processing row: thumbnail, title, stage label +
- * progress, and the contextual actions the caller wired onto the item. Used by
- * the global upload pill's popover; library cards use the bare
+ * A single upload/download row: thumbnail, title, stage label + progress,
+ * and the contextual actions the caller wired onto the item. Used by the
+ * global upload pill's popover; library cards use the bare
  * {@link QueueProgressBar} instead because their meta line is space-limited.
  */
 export function QueueItemRow({ item }: { item: QueueItem }) {

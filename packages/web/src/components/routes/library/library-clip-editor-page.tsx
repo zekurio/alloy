@@ -74,27 +74,53 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
     )
   }
 
+  const processing = row.status !== "ready" || row.encodeProgress < 100
+
   return (
     <AppMain className="p-4 md:p-6">
       {/* Keyed by clip id: edits reset when navigating between clips, but
-          survive background detail refetches. */}
-      <ClipEditorBody key={row.id} row={row} />
+          survive background detail refetches. Also keyed by the processing
+          flag: the stage previews the raw local capture while the encode
+          runs, so playback state must re-seed once the server preview (the
+          timeline the trim bounds describe) takes over. */}
+      <ClipEditorBody
+        key={`${row.id}:${processing ? "processing" : "ready"}`}
+        row={row}
+        processing={processing}
+      />
     </AppMain>
   )
 }
 
-function ClipEditorBody({ row }: { row: ClipRow }) {
+function ClipEditorBody({
+  row,
+  processing,
+}: {
+  row: ClipRow
+  processing: boolean
+}) {
   const navigation = useLibraryEntryNavigation({ type: "cloud", id: row.id })
   const { localItem, prevEntry, nextEntry } = navigation
   const { canManage, isOwner } = useClipEditorPermissions(row)
-  const processing = row.status !== "ready" || row.encodeProgress < 100
   const canTrim = isOwner && !processing
+  // While processing, the stage plays the raw local capture. The persisted
+  // trim bounds describe the exported upload's timeline (they carry the
+  // keyframe-snap offset), so applying them to the raw file would seek the
+  // preview past its real start.
+  const initialTrim =
+    !processing && row.trimStartMs !== null && row.trimEndMs !== null
+      ? { startMs: row.trimStartMs, endMs: row.trimEndMs }
+      : undefined
   const playback = useTrimPlayback({
-    initialDurationMs: row.sourceDurationMs ?? row.durationMs ?? 0,
-    initialTrim:
-      row.trimStartMs !== null && row.trimEndMs !== null
-        ? { startMs: row.trimStartMs, endMs: row.trimEndMs }
-        : undefined,
+    // The editor timeline is the uncut source's. durationMs (the cut's
+    // length) understates it, so when the source duration is missing the
+    // seeded trim must still fit — clamping bounds into the cut's shorter
+    // timeline would corrupt them.
+    initialDurationMs: Math.max(
+      row.sourceDurationMs ?? row.durationMs ?? 0,
+      initialTrim?.endMs ?? 0,
+    ),
+    initialTrim,
     canTrim,
   })
   const { playerRef, trim, trimmed, rangeMs } = playback

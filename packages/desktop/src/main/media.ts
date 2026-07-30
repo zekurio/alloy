@@ -1,5 +1,6 @@
 import {
   assertUploadMp4Compatible,
+  extractAudioTrackToMp4Target,
   type OutputSinks,
   snappedTrimStartMs,
   trimToMp4Target,
@@ -178,6 +179,31 @@ export async function remuxToUploadMp4(
         )
       },
     )
+  } finally {
+    input.dispose()
+  }
+}
+
+/**
+ * Copy one audio track of `srcPath` into an audio-only MP4 at `outPath`
+ * without re-encoding. `trackIndex` is the zero-based container audio track
+ * index; timestamps are preserved so the stem shares the source's timeline.
+ */
+export async function extractAudioTrackMp4(
+  srcPath: string,
+  outPath: string,
+  trackIndex: number,
+): Promise<void> {
+  const input = new Input({
+    source: new FilePathSource(srcPath),
+    formats: ALL_FORMATS,
+  })
+  try {
+    await extractAudioTrackToMp4Target({
+      input,
+      target: new FilePathTarget(outPath),
+      trackIndex,
+    })
   } finally {
     input.dispose()
   }
