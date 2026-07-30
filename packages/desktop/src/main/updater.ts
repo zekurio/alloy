@@ -1,11 +1,43 @@
+import { join } from "node:path"
+
 import type { DesktopUpdateState } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
 
-// electron-updater is CommonJS with a lazy `autoUpdater` getter; read from the
-// default import so Rollup does not capture an undefined named binding.
-const autoUpdater = electronUpdater.autoUpdater
+import { updaterCacheRoot } from "./app-paths"
+import { shutdownRecordingBackend } from "./recording"
+
+// electron-updater is CommonJS; use the default import so Rollup preserves its
+// runtime exports. The adapter keeps updater artifacts in the OS temp folder.
+const autoUpdater = new electronUpdater.NsisUpdater(null, {
+  get version() {
+    return app.getVersion()
+  },
+  get name() {
+    return app.getName()
+  },
+  get isPackaged() {
+    return app.isPackaged
+  },
+  get appUpdateConfigPath() {
+    return app.isPackaged
+      ? join(process.resourcesPath, "app-update.yml")
+      : join(app.getAppPath(), "dev-app-update.yml")
+  },
+  get userDataPath() {
+    return app.getPath("userData")
+  },
+  get baseCachePath() {
+    return updaterCacheRoot()
+  },
+  whenReady: () => app.whenReady(),
+  relaunch: () => app.relaunch(),
+  quit: () => app.quit(),
+  onQuit: (handler) => {
+    app.once("quit", (_event, exitCode) => handler(exitCode))
+  },
+})
 
 const logger = createLogger("updater")
 
@@ -17,6 +49,7 @@ let checkInterval: ReturnType<typeof setInterval> | null = null
 let pendingCheckTimer: ReturnType<typeof setTimeout> | null = null
 let checkInFlight = false
 let downloadInFlight = false
+let installInFlight = false
 const stateListeners = new Set<(state: DesktopUpdateState) => void>()
 
 /** Current auto-update state, served to the web app over the desktop bridge. */
@@ -84,15 +117,29 @@ export function onUpdateStateChange(
  * No-op unless a download has finished, so a stale renderer can't quit the
  * app for nothing.
  */
-export function restartToInstallUpdate(): void {
+export async function restartToInstallUpdate(): Promise<void> {
+  if (installInFlight) return
   if (state.status !== "downloaded") {
     logger.warn("restart requested but no update is downloaded; ignoring")
     return
   }
+
+  installInFlight = true
+  try {
+    logger.info("stopping recording backend before update install")
+    await shutdownRecordingBackend()
+  } catch (cause) {
+    installInFlight = false
+    logger.warn(
+      "update install aborted because recorder shutdown failed:",
+      cause,
+    )
+    throw cause
+  }
+
   logger.info(`restarting to install ${state.version ?? "update"}`)
-  // Silent install + relaunch. The before-quit sidecar shutdown still runs:
-  // quitAndInstall goes through the normal quit flow, and the installer fires
-  // on the final quit.
+  // electron-updater launches NSIS before app.quit(), so every packaged child
+  // must already be gone before this call or Windows will lock its executable.
   autoUpdater.quitAndInstall(true, true)
 }
 

@@ -13,7 +13,7 @@ const MAX_LOG_FILES = 14
 
 /**
  * Mirror every log record into a per-run file under the app's logs
- * directory (%LOCALAPPDATA%/Alloy Desktop/logs). The packaged Windows app has
+ * directory (%APPDATA%/Alloy Desktop/logs). The packaged Windows app has
  * no console attached, so without a file sink production logs are lost
  * entirely. Writes are synchronous so the lines leading up to a crash make it
  * to disk; log volume is low enough that this is safe.

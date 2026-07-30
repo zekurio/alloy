@@ -88,12 +88,12 @@ Release builds require `obs.dll` in either the staged or configured runtime.
 - Capture manifest (titles, upload metadata, game info): `%APPDATA%\Alloy Desktop\recording-library.json`
 - Capture thumbnails + BlurHash metadata: `%APPDATA%\Alloy Desktop\recording-thumbnails`
 - Remote asset cache (game icons etc.): `%APPDATA%\Alloy Desktop\asset-cache`
-- Browser session/cache: `%LOCALAPPDATA%\Alloy Desktop\session`
-- Logs: `%LOCALAPPDATA%\Alloy Desktop\logs`
+- Browser session/cache: `%APPDATA%\Alloy Desktop\session`
+- Logs: `%APPDATA%\Alloy Desktop\logs`
+- Temporary updater downloads: `%TEMP%\Alloy`
 - Replay scratch: `%TEMP%\Alloy\replay-buffer`
 - Default captures: `%USERPROFILE%\Videos\Alloy`
 - Bundled recorder/OBS runtime: installed app `resources`
-- Future mutable recorder runtime: `%LOCALAPPDATA%\Alloy Desktop\runtime`
 
 ## Release
 

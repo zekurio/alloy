@@ -1,10 +1,8 @@
-import { mkdirSync } from "node:fs"
-import { join } from "node:path"
-
 import { detectLocale, setRuntimeLocale } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow, Menu, protocol } from "electron"
 
+import { cleanupLegacyLocalAppData, configureAppPaths } from "./app-paths"
 import {
   assetCacheProtocolScheme,
   registerAssetCacheProtocol,
@@ -33,10 +31,8 @@ import { createAlloyTray } from "./tray"
 import { initAutoUpdater } from "./updater"
 import { Windows } from "./windows"
 
-const USER_DATA_DIR_NAME = "Alloy Desktop"
-const SESSION_DATA_DIR_NAME = "session"
-const LOGS_DIR_NAME = "logs"
 const BACKGROUND_STARTUP_DELAY_MS = 1000
+const LEGACY_APP_DATA_CLEANUP_DELAY_MS = 10_000
 
 const logger = createLogger("main")
 
@@ -131,7 +127,7 @@ function startApp(): void {
 async function shutdownWithDeadline(): Promise<void> {
   await Promise.race([
     shutdownRecordingBackend().catch(() => undefined),
-    new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+    new Promise<void>((resolve) => setTimeout(resolve, 6000)),
   ])
 }
 
@@ -153,24 +149,6 @@ async function openInitialWindow(windows: Windows): Promise<void> {
 async function showOrOpenInitialWindow(windows: Windows): Promise<void> {
   if (windows.showPrimary()) return
   await openInitialWindow(windows)
-}
-
-function configureAppPaths(): void {
-  const roamingAppData = app.getPath("appData")
-  const localAppData = process.env.LOCALAPPDATA || roamingAppData
-
-  const roamingRoot = join(roamingAppData, USER_DATA_DIR_NAME)
-  const localRoot = join(localAppData, USER_DATA_DIR_NAME)
-  const sessionDataPath = join(localRoot, SESSION_DATA_DIR_NAME)
-  const logsPath = join(localRoot, LOGS_DIR_NAME)
-
-  for (const path of [roamingRoot, sessionDataPath, logsPath]) {
-    mkdirSync(path, { recursive: true })
-  }
-
-  app.setPath("userData", roamingRoot)
-  app.setPath("sessionData", sessionDataPath)
-  app.setAppLogsPath(logsPath)
 }
 
 function scheduleBackgroundStartup(): void {
@@ -196,6 +174,12 @@ function scheduleBackgroundStartup(): void {
     }
   }, BACKGROUND_STARTUP_DELAY_MS)
   timer.unref?.()
+
+  const cleanupTimer = setTimeout(
+    cleanupLegacyLocalAppData,
+    LEGACY_APP_DATA_CLEANUP_DELAY_MS,
+  )
+  cleanupTimer.unref?.()
 }
 
 function runBackgroundStartupTask(name: string, task: () => void): void {
