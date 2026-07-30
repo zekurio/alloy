@@ -1,6 +1,7 @@
 import type { ClipGameRef, GameListRow } from "./content-games"
 import type {
   AcceptedContentType,
+  ClipAudioTrackKind,
   ClipPrivacy,
   ClipStatus,
   IsoDateString,
@@ -89,6 +90,54 @@ export interface ClipRenditionRef {
   version: string
 }
 
+/**
+ * One isolated audio stem of a clip, extracted server-side from a multi-track
+ * source. The default full mix is embedded in the clip's video assets (source,
+ * cut, renditions) and is never listed here; stems exist only for clips whose
+ * recording carried per-source audio tracks. Stem bytes are served from
+ * `/api/clips/:id/audio/:index/file.m4a` (with the same immutable `?v=`
+ * cache-busting convention as renditions) and share the playback timeline of
+ * the clip's canonical cut, so player time maps 1:1 onto stem time.
+ */
+export interface ClipAudioTrackRef {
+  /**
+   * Zero-based stem index; keys the stem file URL. Stem i is container audio
+   * track i + 1 of the uploaded file (container track 0 is the mix, which is
+   * embedded in the video assets and never listed). Indices are contiguous,
+   * ordered as recorded, and stable for the life of the clip's current cut;
+   * a re-trim re-derives all stems and bumps every version together.
+   */
+  index: number
+  kind: ClipAudioTrackKind
+  /** Human-readable source label, e.g. "VALORANT", "Microphone", "Discord". */
+  label: string
+  /** RFC 6381 codec string for the stem, e.g. "mp4a.40.2". */
+  codecs: string
+  /** Cache-busting version of this stem's bytes; changes on re-encode. */
+  version: string
+}
+
+/**
+ * Most stems a clip may carry. The recording backend writes at most 6 audio
+ * tracks (libobs MAX_AUDIO_MIXES), one of which is the mix.
+ */
+export const CLIP_AUDIO_TRACKS_MAX = 5
+/** Longest a stem label may be, in characters (after trimming). */
+export const CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH = 64
+
+/**
+ * Stem metadata attached at upload time by Alloy Desktop. Positional: entry i
+ * describes container audio track i + 1 (the leading mix track is never
+ * hinted). The server re-probes the file and drops all hints when the counts
+ * disagree; it never fails the upload over them. At most
+ * {@link CLIP_AUDIO_TRACKS_MAX} entries; labels are clamped to
+ * {@link CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH}.
+ */
+export interface ClipAudioTrackInput {
+  kind: ClipAudioTrackKind
+  label: string
+}
+
 export const ENCODE_STAGE = [
   "downloading",
   "processing",
@@ -117,6 +166,8 @@ export interface ClipRow {
   sourceVersion: string | null
   /** Encoded quality tiers, highest first; empty until the pipeline commits. */
   renditions: ClipRenditionRef[]
+  /** Per-source audio stems, ordered by index; empty when the clip has only the mixed track. */
+  audioTracks: ClipAudioTrackRef[]
   durationMs: number | null
   width: number | null
   height: number | null
@@ -205,6 +256,8 @@ export interface InitiateClipInput {
    */
   trimStartMs?: number
   trimEndMs?: number
+  /** Stem roles/labels for multi-track uploads; see ClipAudioTrackInput. */
+  audioTracks?: ClipAudioTrackInput[]
 }
 
 /**
