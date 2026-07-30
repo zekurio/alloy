@@ -3,13 +3,38 @@ import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Volume1Icon, Volume2Icon, VolumeXIcon } from "lucide-react"
 import { useCallback, useRef, useState } from "react"
-import type { PointerEvent } from "react"
+import type { PointerEvent, RefObject } from "react"
+
+import { flushPlayerVolume, usePlayerVolume } from "@/lib/player-volume"
+
+import type { VideoPlayerHandle } from "./video-player-types"
+
+export function useExternalVideoVolume(
+  playerRef: RefObject<VideoPlayerHandle | null>,
+) {
+  const state = usePlayerVolume()
+  const toggleMute = useCallback(
+    () => playerRef.current?.setMuted(!state.muted),
+    [playerRef, state.muted],
+  )
+  const setVolume = useCallback(
+    (volume: number) => playerRef.current?.setVolume(volume),
+    [playerRef],
+  )
+  return {
+    state,
+    toggleMute,
+    setVolume,
+    finishVolumeChange: flushPlayerVolume,
+  }
+}
 
 export function VolumeControl({
   muted,
   volume,
   onToggleMute,
   onVolumeChange,
+  onVolumeChangeEnd,
   showSlider = true,
   className,
   iconClassName,
@@ -20,6 +45,7 @@ export function VolumeControl({
   volume: number
   onToggleMute: () => void
   onVolumeChange: (next: number) => void
+  onVolumeChangeEnd?: () => void
   showSlider?: boolean
   /** Extra classes on the outer wrapper — useful when the control is placed in an external toolbar row. */
   className?: string
@@ -76,6 +102,7 @@ export function VolumeControl({
     e.currentTarget.releasePointerCapture(e.pointerId)
     draggingIdRef.current = null
     setDragging(false)
+    onVolumeChangeEnd?.()
   }
 
   return (
@@ -134,6 +161,7 @@ export function VolumeControl({
               onVolumeChange(Math.min(1, effective + 0.1))
             }
           }}
+          onKeyUp={() => onVolumeChangeEnd?.()}
           className={cn(
             "absolute bottom-[calc(100%+0.45rem)] left-1/2 z-10 flex h-32 w-10 -translate-x-1/2 cursor-pointer touch-none items-center justify-center overflow-visible rounded-full py-5",
             "border border-white/15 bg-[oklch(12%_0.01_250)]/60 opacity-0 shadow-[0_18px_54px_-18px_rgb(0_0_0_/_0.72)] ring-1 ring-[oklch(12%_0.01_250)]/15 backdrop-blur-xl transition-[opacity,transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",

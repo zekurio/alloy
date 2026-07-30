@@ -29,7 +29,11 @@ import {
   useUploadActions,
   useUploadQueue,
 } from "@/components/upload/upload-flow-context"
-import { VideoPlayer } from "@/components/video/video-player"
+import {
+  useExternalVideoVolume,
+  VideoPlayer,
+  VolumeControl,
+} from "@/components/video/video-player"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
 import {
@@ -99,6 +103,7 @@ export function EditorBody({
     initialTrim: persistedTrim(item) ?? undefined,
   })
   const { playerRef, trim, trimmed, rangeMs } = playback
+  const playerVolume = useExternalVideoVolume(playerRef)
   const [savedTrim, setSavedTrim] = useState(() => persistedTrim(item))
 
   const [savedMetadata, setSavedMetadata] = useState(() =>
@@ -385,7 +390,20 @@ export function EditorBody({
             />
           </MediaStage>
 
-          <TrimTransportControls playback={playback} />
+          <TrimTransportControls
+            playback={playback}
+            trailing={
+              <VolumeControl
+                muted={playerVolume.state.muted}
+                volume={playerVolume.state.volume}
+                onToggleMute={playerVolume.toggleMute}
+                onVolumeChange={playerVolume.setVolume}
+                onVolumeChangeEnd={playerVolume.finishVolumeChange}
+                iconClassName="size-8 rounded-md"
+                iconGlyphClassName="size-4"
+              />
+            }
+          />
 
           <TrimBar
             frames={filmstrip.frames}

@@ -20,6 +20,7 @@ import {
   type ClipPage,
   type ClipRow,
 } from "@alloy/contracts"
+import { normalizeClipAudioTrackKind } from "@alloy/contracts/shared"
 
 import { validateUserSummary } from "./people"
 import {
@@ -215,6 +216,24 @@ function validateClipRelationships(row: Record<string, unknown>) {
       rendition.version,
       "Invalid clip rendition response: version is required",
     )
+  })
+  validateArray(
+    row.audioTracks,
+    "Invalid clip response: audioTracks must be an array",
+  ).map((entry) => {
+    const track = objectRecord(entry, "clip audio track")
+    assertNoStorageKey(track, "clip audio track")
+    validateNonNegativeInteger(
+      track.index,
+      "Invalid clip audio track response: index must be a non-negative integer",
+    )
+    track.kind = normalizeClipAudioTrackKind(track.kind)
+    for (const key of ["label", "codecs", "version"] as const) {
+      validateString(
+        track[key],
+        `Invalid clip audio track response: ${key} must be a string`,
+      )
+    }
   })
   if (row.mentions !== undefined) {
     validateArray(
