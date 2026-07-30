@@ -7,6 +7,12 @@ import {
   AppHeaderSearch,
   AppHeaderWindowControls,
 } from "@alloy/ui/components/app-header"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@alloy/ui/components/tooltip"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
@@ -41,7 +47,15 @@ export function HomeHeader() {
 
   return (
     <AppHeader>
-      <AppHeaderBrand showText className="max-md:hidden">
+      <AppHeaderBrand
+        showText
+        className="max-md:hidden"
+        renderLogo={(logo) => (
+          <Link to="/" aria-label={t("Home")} className="shrink-0">
+            {logo}
+          </Link>
+        )}
+      >
         <HeaderNavigation />
       </AppHeaderBrand>
       <Link
@@ -105,22 +119,24 @@ function HeaderNavigation() {
   const history = useHeaderNavigationHistory()
 
   return (
-    <div className="hidden items-center gap-1 md:flex">
-      <HeaderNavigationButton
-        label={t("Go back")}
-        disabled={!history.canGoBack}
-        onClick={history.goBack}
-      >
-        <ChevronLeftIcon />
-      </HeaderNavigationButton>
-      <HeaderNavigationButton
-        label={t("Go forward")}
-        disabled={!history.canGoForward}
-        onClick={history.goForward}
-      >
-        <ChevronRightIcon />
-      </HeaderNavigationButton>
-    </div>
+    <TooltipProvider delay={300}>
+      <div className="hidden items-center gap-1 md:flex">
+        <HeaderNavigationButton
+          label={t("Go back")}
+          disabled={!history.canGoBack}
+          onClick={history.goBack}
+        >
+          <ChevronLeftIcon />
+        </HeaderNavigationButton>
+        <HeaderNavigationButton
+          label={t("Go forward")}
+          disabled={!history.canGoForward}
+          onClick={history.goForward}
+        >
+          <ChevronRightIcon />
+        </HeaderNavigationButton>
+      </div>
+    </TooltipProvider>
   )
 }
 
@@ -195,15 +211,21 @@ function HeaderNavigationButton({
   children: ReactNode
 }) {
   return (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="text-foreground-muted hover:text-foreground focus-visible:ring-ring focus-visible:ring-offset-background active:text-foreground-muted disabled:text-foreground-faint grid size-9 place-items-center rounded-md border-0 bg-transparent p-0 transition-colors outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-5"
-    >
-      {children}
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={label}
+            disabled={disabled}
+            onClick={onClick}
+            className="text-foreground-muted hover:text-foreground focus-visible:ring-ring focus-visible:ring-offset-background active:text-foreground-muted disabled:text-foreground-faint grid size-9 place-items-center rounded-md border-0 bg-transparent p-0 transition-colors outline-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-45 [&_svg]:size-5"
+          >
+            {children}
+          </button>
+        }
+      />
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
   )
 }

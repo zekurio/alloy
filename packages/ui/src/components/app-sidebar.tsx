@@ -66,9 +66,9 @@ const SIDEBAR_ITEM_STYLE: NavItemStyle = {
     "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
     "data-active:text-accent",
-    // Active bar indicator — -right-2 cancels the rail's px-2 inset so the bar
-    // hugs the sidebar's right border.
-    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-right-2",
+    // The 7px offset clears the rail's right inset while staying inside its
+    // 1px border, where overflow-hidden will not clip the indicator.
+    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-right-[7px]",
     "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
     "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
     "data-active:before:content-['']",

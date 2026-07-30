@@ -13,10 +13,8 @@ function AppHeader({ className, ...props }: ComponentProps<"header">) {
       className={cn(
         "relative grid min-w-0 grid-flow-col auto-cols-auto items-center gap-2 px-2 sm:gap-3 sm:px-5 md:pl-0",
         "[grid-template-columns:auto_minmax(0,1fr)]",
-        // Desktop: left cluster / centered search / right cluster. The equal
-        // 1fr flanks keep the search genuinely centered regardless of how wide
-        // either cluster is.
-        "md:[grid-template-columns:minmax(0,1fr)_minmax(12rem,32rem)_minmax(0,1fr)]",
+        // Desktop: left cluster / centered search / right cluster.
+        "md:[grid-template-columns:var(--header-grid)]",
         "h-[var(--header-h)] border-b border-border bg-surface",
         className,
       )}
@@ -29,9 +27,24 @@ function AppHeaderBrand({
   className,
   size = 32,
   showText = false,
+  renderLogo,
   children,
   ...props
-}: ComponentProps<"div"> & { size?: number; showText?: boolean }) {
+}: ComponentProps<"div"> & {
+  size?: number
+  showText?: boolean
+  renderLogo?: (logo: ReactNode) => ReactNode
+}) {
+  const logo = (
+    <AlloyLogo
+      size={size}
+      showText={showText}
+      spacing={8}
+      className="shrink-0"
+      textClassName="max-md:hidden"
+    />
+  )
+
   return (
     <div
       data-slot="app-header-brand"
@@ -42,12 +55,7 @@ function AppHeaderBrand({
       )}
       {...props}
     >
-      <AlloyLogo
-        size={size}
-        showText={showText}
-        spacing={8}
-        textClassName="max-md:hidden"
-      />
+      {renderLogo ? renderLogo(logo) : logo}
       {children ? (
         // Extra controls (e.g. back/forward navigation) sit directly next to
         // the wordmark.
@@ -293,7 +301,10 @@ function AppHeaderWindowControls({
   return (
     <div
       data-slot="app-header-window-controls"
-      className={cn("flex h-full items-stretch justify-self-end", className)}
+      className={cn(
+        "flex h-full shrink-0 items-stretch justify-self-end",
+        className,
+      )}
       {...props}
     >
       <WindowControlButton aria-label={t("Minimize")} onClick={onMinimize}>

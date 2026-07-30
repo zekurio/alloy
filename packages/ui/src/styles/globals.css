@@ -225,9 +225,11 @@
   --shadow-inset-top: inset 0 1px 0 0 oklch(1 0 0 / 0.04);
 
   /* Layout dims */
-  /* Rail width = 8px inset + 44px hit target + 8px inset. */
+  /* Rail width = 8px inset + 44px hit target + 7px inset + 1px border. */
   --sidebar-rail: 60px;
   --header-h: 52px;
+  --header-grid: minmax(min-content, 1fr) minmax(12rem, 32rem)
+    minmax(min-content, 1fr);
   --bottomnav-h: 60px;
 
   --background: var(--neutral-0);
@@ -947,10 +949,9 @@
    browser. */
 .is-desktop-titlebar [data-slot="app-header"] {
   -webkit-app-region: drag;
-  /* Mirrors the md: header grid (left cluster / centered search / right
-     cluster). Restated here so narrow desktop windows keep the desktop layout
-     — this rule outranks the <48rem mobile override above. */
-  grid-template-columns: minmax(0, 1fr) minmax(12rem, 32rem) minmax(0, 1fr);
+  /* Restated here so narrow desktop windows keep the desktop layout — this
+     rule outranks the <48rem mobile override above. */
+  grid-template-columns: var(--header-grid);
   gap: 0.75rem;
   /* The brand zone owns its left inset; the window controls sit flush against
      the right edge inside the actions cluster. */
@@ -964,7 +965,7 @@
 .is-desktop-titlebar
   [data-slot="app-header"]
   :where(
-    button,
+    button:not(:disabled),
     a,
     input,
     [role="button"],

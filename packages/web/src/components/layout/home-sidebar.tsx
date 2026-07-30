@@ -33,10 +33,10 @@ export function HomeSidebar() {
             <SidebarNav />
           </Suspense>
         </AppSidebarGroup>
-        <div className="mt-auto flex flex-col items-center gap-1.5 px-2">
+        <AppSidebarGroup className="mt-auto gap-1.5">
           <DesktopRecordingStatus />
           <DesktopUpdatePill />
-        </div>
+        </AppSidebarGroup>
       </TooltipProvider>
     </AppSidebar>
   )

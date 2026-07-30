@@ -7,29 +7,20 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import { Link, useNavigate, useRouter } from "@tanstack/react-router"
-import {
-  ChevronDownIcon,
-  LogInIcon,
-  LogOutIcon,
-  SettingsIcon,
-  UserIcon,
-} from "lucide-react"
+import { Link } from "@tanstack/react-router"
+import { ChevronDownIcon, LogInIcon } from "lucide-react"
 import { Suspense } from "react"
 
-import { StorageQuotaCompact } from "@/components/storage-quota"
-import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { useSuspenseSession } from "@/lib/session-suspense"
-import { useOpenSettings } from "@/lib/use-open-settings"
 import { useUserChipData } from "@/lib/user-display"
+
+import { AccountMenuItems, avatarTint } from "./account-menu"
 
 /**
  * Header account entry point: avatar + display name (or handle) + chevron,
@@ -46,16 +37,13 @@ export function UserMenu({ className }: { className?: string }) {
 
 function UserMenuInner({ className }: { className?: string }) {
   const session = useSuspenseSession()
-  const router = useRouter()
-  const navigate = useNavigate()
-  const openSettings = useOpenSettings()
   const chip = useUserChipData(session?.user)
 
   if (!session) {
     return (
       <Link
         to="/login"
-        className={buttonVariants({ variant: "ghost", size: "sm", className })}
+        className={buttonVariants({ variant: "ghost", size: "md", className })}
       >
         <LogInIcon />
         {t("Sign in")}
@@ -63,24 +51,11 @@ function UserMenuInner({ className }: { className?: string }) {
     )
   }
 
-  const user = session.user
-  const handle = user.username ?? null
+  const handle = session.user.username ?? null
   // chip.name already resolves display name → handle, so the trigger shows a
   // single label; the menu header adds the @handle when it differs.
   const primaryLabel = chip.name
   const secondaryLabel = handle && handle !== primaryLabel ? handle : null
-  async function onSignOut() {
-    try {
-      await completeSignOutFlow({
-        invalidateRouter: () => router.invalidate(),
-        navigate: () => navigate({ to: "/login", replace: true }),
-      })
-    } catch (cause) {
-      toast.error(
-        reportAuthFlowFailure("sign-out", t("Couldn't sign out"), cause),
-      )
-    }
-  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -132,37 +107,10 @@ function UserMenuInner({ className }: { className?: string }) {
           ) : null}
         </div>
         <DropdownMenuSeparator />
-        {handle ? (
-          <DropdownMenuItem
-            render={<Link to="/u/$username" params={{ username: handle }} />}
-          >
-            <UserIcon />
-            {t("Profile")}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem onClick={openSettings}>
-          <SettingsIcon />
-          {t("Settings")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <div className="px-3 py-2">
-          <StorageQuotaCompact />
-        </div>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={onSignOut}>
-          <LogOutIcon />
-          {t("Sign out")}
-        </DropdownMenuItem>
+        <AccountMenuItems handle={handle} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
-}
-
-function avatarTint(avatar: { bg?: string; fg?: string }) {
-  return {
-    background: avatar.bg ?? "var(--neutral-200)",
-    color: avatar.fg ?? "var(--foreground)",
-  }
 }
 
 function UserMenuSkeleton({ className }: { className?: string }) {
@@ -170,7 +118,7 @@ function UserMenuSkeleton({ className }: { className?: string }) {
     <div
       data-slot="user-menu-skeleton"
       className={cn(
-        "flex h-9 w-24 items-center justify-center gap-2 rounded-md",
+        "flex h-9 w-36 items-center justify-center gap-2 rounded-md",
         className,
       )}
       aria-hidden

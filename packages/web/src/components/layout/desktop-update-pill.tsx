@@ -83,7 +83,7 @@ export function DesktopUpdatePill() {
             type="button"
             aria-disabled={busy || undefined}
             onClick={runAction}
-            aria-label={status === "downloading" ? label : detail}
+            aria-label={busy ? label : detail}
             className={cn(
               "grid size-11 shrink-0 place-items-center rounded-md",
               "text-accent bg-accent/12",

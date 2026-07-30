@@ -7,7 +7,7 @@ function AppShell({ className, ...props }: ComponentProps<"div">) {
       data-slot="app-shell"
       className={cn(
         "relative grid h-dvh w-full overflow-hidden bg-background",
-        // Mobile: single column; navigation lives in a swipe drawer.
+        // Mobile: single column; navigation lives in a fixed bottom nav.
         "[grid-template-columns:1fr]",
         "[grid-template-rows:var(--header-h)_1fr]",
         "[grid-template-areas:'header''main']",
