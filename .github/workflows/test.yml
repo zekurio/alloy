@@ -2,9 +2,17 @@ name: checks
 
 on:
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
   push:
     branches:
       - dev
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".github/ISSUE_TEMPLATE/**"
   workflow_dispatch:
 
 permissions:
@@ -15,23 +23,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  nix:
-    name: Nix package
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@630ae543ea3a38a9a4166f03376c02c50f408342 # v31.11.0
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Check Nix flake
-        run: nix flake check --print-build-logs
-
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

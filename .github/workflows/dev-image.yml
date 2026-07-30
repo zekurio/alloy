@@ -2,10 +2,26 @@ name: dev image
 
 run-name: "dev image ${{ github.sha }}"
 
+# Only rebuild when inputs of the server image change; desktop, recorder,
+# and docs-only merges do not affect it.
 on:
   push:
     branches:
       - dev
+    paths:
+      - "packages/**"
+      - "!packages/desktop/**"
+      - "!packages/recorder/**"
+      - "nix/**"
+      - "flake.nix"
+      - "flake.lock"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "turbo.json"
+      - "scripts/**"
+      - ".github/workflows/dev-image.yml"
+      - "!**/*.md"
 
 permissions:
   contents: read

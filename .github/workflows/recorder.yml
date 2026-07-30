@@ -44,6 +44,9 @@ jobs:
 
   checks:
     name: cargo checks
+    # The weekly cron exists for the rustsec audit; skip the 2x-billed
+    # Windows job there since code did not change.
+    if: github.event_name != 'schedule'
     runs-on: windows-latest
 
     defaults:
