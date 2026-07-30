@@ -225,8 +225,8 @@
   --shadow-inset-top: inset 0 1px 0 0 oklch(1 0 0 / 0.04);
 
   /* Layout dims */
-  --sidebar-rail: 52px;
-  --sidebar-expanded: 260px;
+  /* Rail width = 8px inset + 44px hit target + 8px inset. */
+  --sidebar-rail: 60px;
   --header-h: 52px;
   --bottomnav-h: 60px;
 
@@ -721,18 +721,6 @@
     animation: alloy-text-shimmer 2.4s linear infinite;
   }
 
-  /* Recording status label scroll — when a long game name overflows the sidebar
-     status row, slide it left and back (ping-pong) so the full name is legible.
-     The shift distance is supplied per-element via --rec-shift. */
-  @keyframes recording-marquee {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(var(--rec-shift, 0px));
-    }
-  }
-
   @media (prefers-reduced-motion: reduce) {
     .animate-text-shimmer {
       animation: none;
@@ -959,22 +947,20 @@
    browser. */
 .is-desktop-titlebar [data-slot="app-header"] {
   -webkit-app-region: drag;
-  grid-template-columns: var(--sidebar-expanded) minmax(12rem, 1fr);
+  /* Mirrors the md: header grid (left cluster / centered search / right
+     cluster). Restated here so narrow desktop windows keep the desktop layout
+     — this rule outranks the <48rem mobile override above. */
+  grid-template-columns: minmax(0, 1fr) minmax(12rem, 32rem) minmax(0, 1fr);
   gap: 0.75rem;
-  padding-right: 0;
-  /* The brand zone owns its left inset so its divider lands on the sidebar
-     edge; keep the header flush-left here. */
+  /* The brand zone owns its left inset; the window controls sit flush against
+     the right edge inside the actions cluster. */
   padding-left: 0;
+  padding-right: 0;
 }
 
-.is-desktop-titlebar [data-slot="app-header-brand"] {
-  justify-content: flex-start;
-}
-
-.is-desktop-titlebar [data-slot="app-header-actions"] {
-  padding-right: 0.5rem;
-}
-
+/* Everything interactive in the title bar must opt out of the drag region.
+   `button` covers the nav arrows, upload trigger, notification bell, window
+   controls, and the header user-menu trigger; `a` covers the sign-in link. */
 .is-desktop-titlebar
   [data-slot="app-header"]
   :where(

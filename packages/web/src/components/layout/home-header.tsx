@@ -21,6 +21,8 @@ import { UploadStatusPill } from "@/components/upload/upload-status-pill"
 import { alloyDesktop } from "@/lib/desktop"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
+import { UserMenu } from "./user-menu"
+
 export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -73,24 +75,28 @@ export function HomeHeader() {
       >
         <SearchResultsPopover />
       </AppHeaderSearch>
-      <AppHeaderActions>
+      <AppHeaderActions className="h-full gap-1.5">
+        {/* Trailing cluster: upload · notifications · account. Grouped so
+            moving it to the other side of the header is a single JSX move. */}
         {session ? <GlobalUploadControl /> : null}
         <UploadStatusPill />
         {session ? <NotificationBell /> : null}
+        <UserMenu className="max-md:hidden" />
+        {desktop?.titlebarOverlay ? (
+          <AppHeaderWindowControls
+            className="ml-1"
+            onMinimize={() => {
+              void desktop.minimizeWindow()
+            }}
+            onToggleMaximize={() => {
+              void desktop.toggleMaximizeWindow()
+            }}
+            onClose={() => {
+              void desktop.closeWindow()
+            }}
+          />
+        ) : null}
       </AppHeaderActions>
-      {desktop?.titlebarOverlay ? (
-        <AppHeaderWindowControls
-          onMinimize={() => {
-            void desktop.minimizeWindow()
-          }}
-          onToggleMaximize={() => {
-            void desktop.toggleMaximizeWindow()
-          }}
-          onClose={() => {
-            void desktop.closeWindow()
-          }}
-        />
-      ) : null}
     </AppHeader>
   )
 }

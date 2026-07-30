@@ -11,8 +11,8 @@ function AppShell({ className, ...props }: ComponentProps<"div">) {
         "[grid-template-columns:1fr]",
         "[grid-template-rows:var(--header-h)_1fr]",
         "[grid-template-areas:'header''main']",
-        // Desktop (md+): classic sidebar rail + main, header spans both.
-        "md:[grid-template-columns:var(--sidebar-expanded)_1fr]",
+        // Desktop (md+): icon-only sidebar rail + main, header spans both.
+        "md:[grid-template-columns:var(--sidebar-rail)_1fr]",
         "md:[grid-template-rows:var(--header-h)_1fr]",
         "md:[grid-template-areas:'header_header''sidebar_main']",
         "[&_[data-slot=app-sidebar]]:[grid-area:sidebar]",

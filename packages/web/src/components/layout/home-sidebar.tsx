@@ -1,108 +1,114 @@
 import { t } from "@alloy/i18n"
 import {
   AppSidebar,
-  AppSidebarFooter,
   AppSidebarGroup,
   AppSidebarItem,
 } from "@alloy/ui/components/app-sidebar"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@alloy/ui/components/tooltip"
 import { Link } from "@tanstack/react-router"
 import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
 import { Suspense } from "react"
+import type { ComponentProps, ReactNode } from "react"
 
 import { DesktopRecordingStatus } from "./desktop-recording-status"
 import { DesktopUpdatePill } from "./desktop-update-pill"
 import { useNavFlags } from "./use-nav-flags"
-import { UserMenu } from "./user-menu"
 
+/**
+ * Permanent icon-only navigation rail. Labels live in tooltips; the user menu
+ * moved to the header, so the rail only carries navigation plus the
+ * device-local capture/update cluster at the bottom.
+ */
 export function HomeSidebar() {
   return (
     <AppSidebar className="hidden md:flex">
-      <HomeSidebarContent />
+      <TooltipProvider delay={300}>
+        <AppSidebarGroup>
+          <Suspense fallback={<SidebarNavFallback />}>
+            <SidebarNav />
+          </Suspense>
+        </AppSidebarGroup>
+        <div className="mt-auto flex flex-col items-center gap-1.5 px-2">
+          <DesktopRecordingStatus />
+          <DesktopUpdatePill />
+        </div>
+      </TooltipProvider>
     </AppSidebar>
   )
 }
 
-function HomeSidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  return (
-    <>
-      <AppSidebarGroup>
-        <Suspense fallback={<SidebarTopFallback />}>
-          <SidebarTop onNavigate={onNavigate} />
-        </Suspense>
-      </AppSidebarGroup>
-      {/* Capture status sits above the footer's separator; the user menu stays
-          below it. The wrapping div pins the cluster to the bottom and
-          neutralizes the footer's own mt-auto. */}
-      <div className="mt-auto">
-        <DesktopRecordingStatus placement="sidebar" />
-        <AppSidebarFooter>
-          <SidebarFooter />
-        </AppSidebarFooter>
-      </div>
-    </>
-  )
-}
-
-function SidebarTop({ onNavigate }: { onNavigate?: () => void }) {
-  const { isHome, isGames, isLibrary } = useNavFlags()
+function SidebarNav() {
+  const flags = useNavFlags()
 
   return (
     <>
-      <AppSidebarItem
-        active={isHome}
-        title={t("Home")}
-        onClick={onNavigate}
+      <SidebarNavItem
+        active={flags.isHome}
+        label={t("Home")}
         render={<Link to="/" />}
       >
         <HomeIcon />
-        <span>{t("Home")}</span>
-      </AppSidebarItem>
-      <AppSidebarItem
-        active={isLibrary}
-        title={t("Library")}
-        onClick={onNavigate}
+      </SidebarNavItem>
+      <SidebarNavItem
+        active={flags.isLibrary}
+        label={t("Library")}
         render={<Link to="/library" />}
       >
         <LibraryIcon />
-        <span>{t("Library")}</span>
-      </AppSidebarItem>
-      <AppSidebarItem
-        active={isGames}
-        title={t("Games")}
-        onClick={onNavigate}
+      </SidebarNavItem>
+      <SidebarNavItem
+        active={flags.isGames}
+        label={t("Games")}
         render={<Link to="/games" />}
       >
         <GamepadIcon />
-        <span>{t("Games")}</span>
-      </AppSidebarItem>
+      </SidebarNavItem>
     </>
   )
 }
 
-function SidebarTopFallback() {
+function SidebarNavFallback() {
   return (
     <>
-      <AppSidebarItem title={t("Home")}>
+      <SidebarNavItem label={t("Home")}>
         <HomeIcon />
-        <span>{t("Home")}</span>
-      </AppSidebarItem>
-      <AppSidebarItem title={t("Library")}>
+      </SidebarNavItem>
+      <SidebarNavItem label={t("Library")}>
         <LibraryIcon />
-        <span>{t("Library")}</span>
-      </AppSidebarItem>
-      <AppSidebarItem title={t("Games")}>
+      </SidebarNavItem>
+      <SidebarNavItem label={t("Games")}>
         <GamepadIcon />
-        <span>{t("Games")}</span>
-      </AppSidebarItem>
+      </SidebarNavItem>
     </>
   )
 }
 
-function SidebarFooter() {
+function SidebarNavItem({
+  active,
+  label,
+  render,
+  children,
+}: {
+  active?: boolean
+  label: string
+  render?: ComponentProps<typeof AppSidebarItem>["render"]
+  children: ReactNode
+}) {
   return (
-    <>
-      <DesktopUpdatePill />
-      <UserMenu variant="rail" />
-    </>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <AppSidebarItem active={active} aria-label={label} render={render}>
+            {children}
+          </AppSidebarItem>
+        }
+      />
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   )
 }
