@@ -9,6 +9,8 @@ const PROBE_TIMEOUT_MS = 30_000
 const KILL_GRACE_MS = 5_000
 
 export interface FfprobeStream {
+  /** Absolute container stream index, matching ffmpeg's `0:<index>` map. */
+  index: number
   codec_type: string
   codec_name: string
   codec_tag_string: string
@@ -19,11 +21,12 @@ export interface FfprobeStream {
   /** Fraction string like "30/1" or "24000/1001"; "0/0" when unknown. */
   avg_frame_rate?: string
   pix_fmt?: string
+  start_time?: string
 }
 
 export interface FfprobeOutput {
   streams: FfprobeStream[]
-  format: { duration?: string }
+  format: { duration?: string; start_time?: string }
 }
 
 export class FfprobeError extends Error {
@@ -139,6 +142,7 @@ function parseFfprobeJson(stdout: string): FfprobeOutput | null {
           typeof stream === "object" && stream !== null,
       )
       .map((stream) => ({
+        index: numberField(stream.index) ?? -1,
         codec_type: stringField(stream.codec_type) ?? "",
         codec_name: stringField(stream.codec_name) ?? "",
         codec_tag_string: stringField(stream.codec_tag_string) ?? "",
@@ -148,8 +152,12 @@ function parseFfprobeJson(stdout: string): FfprobeOutput | null {
         level: numberField(stream.level),
         avg_frame_rate: stringField(stream.avg_frame_rate),
         pix_fmt: stringField(stream.pix_fmt),
+        start_time: stringField(stream.start_time),
       })),
-    format: { duration: stringField(format.duration) },
+    format: {
+      duration: stringField(format.duration),
+      start_time: stringField(format.start_time),
+    },
   }
 }
 

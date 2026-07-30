@@ -20,6 +20,14 @@ export function runScopedCutKey(clipId: string, runId: string): string {
   return `${clipAssetDir(clipId)}/cut-${runKeyStamp(runId)}.mp4`
 }
 
+export function runScopedAudioTrackKey(
+  clipId: string,
+  runId: string,
+  index: number,
+): string {
+  return `${clipAssetDir(clipId)}/audio-${index}-${runKeyStamp(runId)}.m4a`
+}
+
 export function runScopedRenditionKey(
   clipId: string,
   runId: string,

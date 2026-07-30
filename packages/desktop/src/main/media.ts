@@ -102,8 +102,11 @@ export async function trimMp4(
   try {
     const video = await input.getPrimaryVideoTrack()
     if (!video) throw new Error("Trim source has no video track")
-    const audio = await input.getPrimaryAudioTrack()
-    assertUploadMp4Compatible(video.codec, audio?.codec ?? null)
+    const audios = await input.getAudioTracks()
+    assertUploadMp4Compatible(
+      video.codec,
+      audios.map((track) => track.codec),
+    )
 
     return await trimToMp4Target({
       input,
@@ -154,17 +157,25 @@ export async function remuxToUploadMp4(
   try {
     const video = await input.getPrimaryVideoTrack()
     if (!video) throw new Error("Remux source has no video track")
-    const audio = await input.getPrimaryAudioTrack()
+    const audios = await input.getAudioTracks()
     const videoCodec = video.codec ?? throwUnknownCodec("video")
-    const audioCodec = audio?.codec ?? null
-    assertUploadMp4Compatible(videoCodec, audioCodec)
+    assertUploadMp4Compatible(
+      videoCodec,
+      audios.map((track) => track.codec),
+    )
 
     await withMp4Output(
       new FilePathTarget(outPath),
       video,
-      audio,
+      audios,
       async (sinks) => {
-        await appendSegment(input, sinks, 0, videoCodec, audioCodec)
+        await appendSegment(
+          input,
+          sinks,
+          0,
+          videoCodec,
+          audios.map((track) => track.codec),
+        )
       },
     )
   } finally {
@@ -181,8 +192,11 @@ export async function assertUploadMp4File(srcPath: string): Promise<void> {
   try {
     const video = await input.getPrimaryVideoTrack()
     if (!video) throw new Error("MP4 upload source has no video track")
-    const audio = await input.getPrimaryAudioTrack()
-    assertUploadMp4Compatible(video.codec, audio?.codec ?? null)
+    const audios = await input.getAudioTracks()
+    assertUploadMp4Compatible(
+      video.codec,
+      audios.map((track) => track.codec),
+    )
   } finally {
     input.dispose()
   }
@@ -231,14 +245,14 @@ export async function concatMp4Segments(
   try {
     const video = await first.getPrimaryVideoTrack()
     if (!video) throw new Error("Concat source has no video track")
-    const audio = await first.getPrimaryAudioTrack()
+    const firstAudios = await first.getAudioTracks()
+    const firstAudioCodecs = firstAudios.map((track) => track.codec)
     const videoCodec = video.codec
-    const audioCodec = audio?.codec ?? null
 
     await withMp4Output(
       new FilePathTarget(outPath),
       video,
-      audio,
+      firstAudios,
       async (sinks) => {
         let offsetSec = 0
         for (const path of segmentPaths) {
@@ -255,7 +269,7 @@ export async function concatMp4Segments(
               sinks,
               offsetSec,
               videoCodec,
-              audioCodec,
+              firstAudioCodecs,
             )
           } finally {
             if (input !== first) input.dispose()
@@ -277,13 +291,19 @@ async function appendSegment(
   sinks: OutputSinks,
   offsetSec: number,
   videoCodec: InputVideoTrack["codec"],
-  audioCodec: InputAudioTrack["codec"] | null,
+  audioCodecs: readonly (InputAudioTrack["codec"] | null)[],
 ): Promise<number> {
   const video = await input.getPrimaryVideoTrack()
   if (!video) throw new Error("Concat segment has no video track")
-  const audio = await input.getPrimaryAudioTrack()
-  if (video.codec !== videoCodec || (audio?.codec ?? null) !== audioCodec) {
+  const audios = await input.getAudioTracks()
+  if (video.codec !== videoCodec) {
     throw new Error("Concat segments carry mismatched codecs")
+  }
+  if (
+    audios.length !== audioCodecs.length ||
+    audios.some((track, index) => (track.codec ?? null) !== audioCodecs[index])
+  ) {
+    throw new Error("Concat segments carry mismatched audio tracks")
   }
 
   const videoSink = new EncodedPacketSink(video)
@@ -303,20 +323,21 @@ async function appendSegment(
     videoEndSec = Math.max(videoEndSec, timestamp + (packet.duration || 0))
   }
 
-  if (audio && sinks.audio) {
-    const audioSink = new EncodedPacketSink(audio)
+  for (const [index, track] of audios.entries()) {
+    const sink = sinks.audios[index]
+    if (!sink) throw new Error("Missing MP4 audio output sink")
+    const audioSink = new EncodedPacketSink(track)
     const meta = {
-      decoderConfig: (await audio.getDecoderConfig()) ?? undefined,
+      decoderConfig: (await track.getDecoderConfig()) ?? undefined,
     }
     const firstAudio = await audioSink.getFirstPacket()
-    if (firstAudio) {
-      for await (const packet of audioSink.packets(firstAudio)) {
-        const timestamp = packet.timestamp - baseSec + offsetSec
-        // Audio leading the first video frame would rebase negative; trade it
-        // for the muxer's monotonic, non-negative contract.
-        if (timestamp < offsetSec) continue
-        await sinks.audio.add(packet.clone({ timestamp }), meta)
-      }
+    if (!firstAudio) continue
+    for await (const packet of audioSink.packets(firstAudio)) {
+      const timestamp = packet.timestamp - baseSec + offsetSec
+      // Audio leading the first video frame would rebase negative; trade it
+      // for the muxer's monotonic, non-negative contract.
+      if (timestamp < offsetSec) continue
+      await sink.add(packet.clone({ timestamp }), meta)
     }
   }
 

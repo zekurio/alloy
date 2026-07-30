@@ -162,6 +162,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
               privacy,
               source_content_type: body.contentType,
               source_size_bytes: body.sizeBytes,
+              pending_audio_tracks: body.audioTracks ?? null,
               // Client-probed hints so placeholders keep the media's shape
               // while processing; the media run re-probes and overwrites them.
               width: body.width ?? null,

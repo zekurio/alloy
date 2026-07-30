@@ -1,11 +1,16 @@
 import {
   ACCEPTED_CLIP_CONTENT_TYPES,
+  CLIP_AUDIO_TRACK_KINDS,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_SCRUBBER_MAX_BYTES,
   CLIP_TAG_MAX_LENGTH,
   CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
 } from "@alloy/contracts"
+import {
+  CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH,
+  CLIP_AUDIO_TRACKS_MAX,
+} from "@alloy/contracts/content"
 import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
@@ -199,6 +204,16 @@ const TagsInput = z
   .max(CLIP_TAGS_MAX)
   .optional()
 
+const AudioTracksInput = z
+  .array(
+    z.object({
+      kind: z.enum(CLIP_AUDIO_TRACK_KINDS),
+      label: z.string().trim().min(1).max(CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH),
+    }),
+  )
+  .max(CLIP_AUDIO_TRACKS_MAX)
+  .optional()
+
 export const InitiateBody = z
   .object({
     clientClipId: z.uuid().optional(),
@@ -217,6 +232,7 @@ export const InitiateBody = z
     privacy: z.enum(CLIP_PRIVACY).default("public"),
     mentionedUserIds: z.array(z.uuid()).optional(),
     tags: TagsInput,
+    audioTracks: AudioTracksInput,
     width: z.number().int().positive().max(32_768).optional(),
     height: z.number().int().positive().max(32_768).optional(),
     durationMs: z.number().int().positive().optional(),

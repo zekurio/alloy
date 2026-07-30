@@ -1,4 +1,4 @@
-import { clip, clipRendition } from "@alloy/db/schema"
+import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { cancelClipEncode } from "@alloy/server/jobs/kinds/clip-encode"
@@ -19,6 +19,10 @@ export async function deleteClipRowAndAssets(
     .select({ storageKey: clipRendition.storage_key })
     .from(clipRendition)
     .where(eq(clipRendition.clip_id, row.id))
+  const audioTrackRows = await db
+    .select({ storageKey: clipAudioTrack.storage_key })
+    .from(clipAudioTrack)
+    .where(eq(clipAudioTrack.clip_id, row.id))
   await db.delete(clip).where(eq(clip.id, row.id))
 
   const keys = [
@@ -26,6 +30,7 @@ export async function deleteClipRowAndAssets(
     row.cut_key,
     row.thumb_key,
     ...renditionRows.map((rendition) => rendition.storageKey),
+    ...audioTrackRows.map((track) => track.storageKey),
     // Deterministic derived asset; deleting a never-generated key is a no-op.
     clipScrubberKey(row.id),
   ].filter((key): key is string => Boolean(key))
