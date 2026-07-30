@@ -1,4 +1,5 @@
 import type {
+  RecordingCaptureAudioTrack,
   RecordingCaptureKind,
   RecordingCaptureSource,
   RecordingGameGuess,
@@ -45,6 +46,8 @@ export interface RecordingLibraryItem {
    */
   trimStartMs: number | null
   trimEndMs: number | null
+  /** Audio track layout of the capture file; absent for single-track captures. */
+  audioTracks?: RecordingCaptureAudioTrack[]
   createdAt: string
   modifiedAt: string
 }
