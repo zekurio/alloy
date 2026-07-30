@@ -1,6 +1,13 @@
 {
   description = "Open-source and self-hostable alternative to Medal.tv";
 
+  nixConfig = {
+    extra-substituters = [ "https://zekurio.cachix.org" ];
+    extra-trusted-public-keys = [
+      "zekurio.cachix.org-1:mv0mACvSLZtBkXXh5YDPPXmFBJ/eO+VkSzep6LJZrAg="
+    ];
+  };
+
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
