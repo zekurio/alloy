@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
 import type {
+  RecordingCaptureAudioTrack,
   RecordingCaptureKind,
   RecordingCaptureMention,
   RecordingCaptureSource,
@@ -35,6 +36,8 @@ export interface CaptureManifestEntry {
   durationMs: number | null
   width: number | null
   height: number | null
+  /** Omitted for captures recorded with only the fallback mix track. */
+  audioTracks?: RecordingCaptureAudioTrack[]
   createdAt: string
   updatedAt: string
   /**
