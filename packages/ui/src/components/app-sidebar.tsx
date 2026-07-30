@@ -9,7 +9,7 @@ function AppSidebar({ className, ...props }: ComponentProps<"aside">) {
       data-slot="app-sidebar"
       className={cn(
         "relative z-10 flex h-full flex-col overflow-hidden",
-        "w-[var(--sidebar-expanded)] border-r border-border bg-surface-sunken py-3",
+        "w-[var(--sidebar-rail)] border-r border-border bg-surface-sunken py-3",
         className,
       )}
       {...props}
@@ -21,7 +21,10 @@ function AppSidebarGroup({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="app-sidebar-group"
-      className={cn("flex flex-col gap-1 px-1.5 py-2 first:pt-0", className)}
+      className={cn(
+        "flex flex-col items-center gap-1 px-2 py-2 first:pt-0",
+        className,
+      )}
       {...props}
     />
   )
@@ -57,14 +60,15 @@ function useNavItem(
 const SIDEBAR_ITEM_STYLE: NavItemStyle = {
   slot: "app-sidebar-item",
   className: cn(
-    "group/app-sidebar-item relative flex h-11 w-full items-center justify-start gap-3 rounded-md px-3",
-    "text-base font-medium text-foreground-muted",
+    "group/app-sidebar-item relative flex size-11 shrink-0 items-center justify-center rounded-md",
+    "text-foreground-muted",
     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
     "data-active:text-accent",
-    // active bar indicator
-    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-right-1.5",
+    // The 7px offset clears the rail's right inset while staying inside its
+    // 1px border, where overflow-hidden will not clip the indicator.
+    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-right-[7px]",
     "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
     "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
     "data-active:before:content-['']",
@@ -95,19 +99,6 @@ function AppSidebarItem(props: NavItemProps) {
   return useNavItem(SIDEBAR_ITEM_STYLE, props)
 }
 
-function AppSidebarFooter({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="app-sidebar-footer"
-      className={cn(
-        "mt-auto border-t border-border px-1.5 pt-2 pb-0",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 function AppBottomNav({ className, ...props }: ComponentProps<"nav">) {
   return (
     <nav
@@ -131,7 +122,6 @@ export {
   AppBottomNav,
   AppBottomNavItem,
   AppSidebar,
-  AppSidebarFooter,
   AppSidebarGroup,
   AppSidebarItem,
 }

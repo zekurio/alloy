@@ -1,4 +1,9 @@
 import { t } from "@alloy/i18n"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@alloy/ui/components/tooltip"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { DownloadIcon, RefreshCwIcon } from "lucide-react"
@@ -8,9 +13,10 @@ import { alloyDesktop } from "@/lib/desktop"
 import { useDesktopUpdateState } from "@/lib/desktop-updates"
 
 /**
- * Device-local "update ready" pill pinned in the nav rail footer, just above
- * the user menu. Renders nothing in a regular browser or until an update is
- * available, downloading, or ready to install.
+ * Device-local "update ready" control pinned in the nav rail's bottom cluster.
+ * Icon-only to fit the rail; the state and version details live in a tooltip.
+ * Renders nothing in a regular browser or until an update is available,
+ * downloading, or ready to install.
  */
 export function DesktopUpdatePill() {
   const { status, version } = useDesktopUpdateState()
@@ -25,8 +31,10 @@ export function DesktopUpdatePill() {
   }
 
   const downloaded = status === "downloaded"
+  const busy = status === "downloading" || pending
 
   const runAction = () => {
+    if (busy) return
     const desktop = alloyDesktop()
     if (!desktop) return
 
@@ -56,7 +64,7 @@ export function DesktopUpdatePill() {
       : status === "available"
         ? t("Update available")
         : t("Downloading update")
-  const tooltip = version
+  const detail = version
     ? status === "available"
       ? t("Alloy {version} is available to download.", { version })
       : t("Alloy {version} has been downloaded.", { version })
@@ -65,25 +73,36 @@ export function DesktopUpdatePill() {
       : t("A new version has been downloaded.")
 
   return (
-    <button
-      type="button"
-      disabled={status === "downloading" || pending}
-      onClick={runAction}
-      aria-label={status === "downloading" ? label : tooltip}
-      title={status === "downloading" ? undefined : tooltip}
-      className={cn(
-        "mb-1.5 flex h-8 w-full items-center gap-2 rounded-md px-2.5",
-        "text-accent bg-accent/12 text-xs font-medium",
-        "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-        status !== "downloading"
-          ? "cursor-pointer hover:bg-accent/20"
-          : "cursor-default opacity-80",
-        "[&_svg]:size-3.5 [&_svg]:shrink-0",
-      )}
-    >
-      {downloaded ? <RefreshCwIcon /> : <DownloadIcon />}
-      <span className="truncate">{label}</span>
-    </button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          // aria-disabled (with a guarded click handler) instead of the
+          // disabled attribute so the control keeps emitting hover events and
+          // the tooltip still explains the downloading state.
+          <button
+            type="button"
+            aria-disabled={busy || undefined}
+            onClick={runAction}
+            aria-label={busy ? label : detail}
+            className={cn(
+              "grid size-11 shrink-0 place-items-center rounded-md",
+              "text-accent bg-accent/12",
+              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+              busy
+                ? "cursor-default opacity-80"
+                : "cursor-pointer hover:bg-accent/20",
+              "[&_svg]:size-5 [&_svg]:shrink-0",
+            )}
+          >
+            {downloaded ? <RefreshCwIcon /> : <DownloadIcon />}
+          </button>
+        }
+      />
+      <TooltipContent side="right" className="flex-col items-start gap-0.5">
+        <span className="font-medium">{label}</span>
+        <span className="opacity-80">{detail}</span>
+      </TooltipContent>
+    </Tooltip>
   )
 }

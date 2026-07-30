@@ -7,60 +7,43 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { UserAvatarButton } from "@alloy/ui/components/user-avatar-button"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
-import { toast } from "@alloy/ui/lib/toast"
-import { Link, useNavigate, useRouter } from "@tanstack/react-router"
-import {
-  ChevronDownIcon,
-  LogInIcon,
-  LogOutIcon,
-  SettingsIcon,
-  UserIcon,
-} from "lucide-react"
+import { cn } from "@alloy/ui/lib/utils"
+import { Link } from "@tanstack/react-router"
+import { ChevronDownIcon, LogInIcon } from "lucide-react"
 import { Suspense } from "react"
 
-import { StorageQuotaCompact } from "@/components/storage-quota"
-import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { useSuspenseSession } from "@/lib/session-suspense"
-import { useOpenSettings } from "@/lib/use-open-settings"
 import { useUserChipData } from "@/lib/user-display"
 
-type UserMenuVariant = "compact" | "rail"
+import { AccountMenuItems, avatarTint } from "./account-menu"
 
-export function UserMenu({
-  variant = "compact",
-}: {
-  variant?: UserMenuVariant
-}) {
+/**
+ * Header account entry point: avatar + display name (or handle) + chevron,
+ * opening a downward account menu. Signed-out sessions render a sign-in link
+ * in the same slot.
+ */
+export function UserMenu({ className }: { className?: string }) {
   return (
-    <Suspense fallback={<UserAvatarSkeleton variant={variant} />}>
-      <UserMenuInner variant={variant} />
+    <Suspense fallback={<UserMenuSkeleton className={className} />}>
+      <UserMenuInner className={className} />
     </Suspense>
   )
 }
 
-function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
+function UserMenuInner({ className }: { className?: string }) {
   const session = useSuspenseSession()
-  const router = useRouter()
-  const navigate = useNavigate()
-  const openSettings = useOpenSettings()
   const chip = useUserChipData(session?.user)
 
   if (!session) {
     return (
       <Link
         to="/login"
-        className={buttonVariants({
-          variant: "ghost",
-          size: "sm",
-          className: variant === "rail" ? "w-full justify-start" : undefined,
-        })}
+        className={buttonVariants({ variant: "ghost", size: "md", className })}
       >
         <LogInIcon />
         {t("Sign in")}
@@ -68,143 +51,78 @@ function UserMenuInner({ variant }: { variant: UserMenuVariant }) {
     )
   }
 
-  const user = session.user
-  const handle = user.username ?? null
-  // chip.name already resolves display name → handle, so the second line is
-  // only worth rendering when a display name is actually set and it would say
-  // something different. Otherwise the handle stands alone.
+  const handle = session.user.username ?? null
+  // chip.name already resolves display name → handle, so the trigger shows a
+  // single label; the menu header adds the @handle when it differs.
   const primaryLabel = chip.name
   const secondaryLabel = handle && handle !== primaryLabel ? handle : null
-  const accountMenuLabel = t("Open account menu for {name}", {
-    name: chip.name,
-  })
-  async function onSignOut() {
-    try {
-      await completeSignOutFlow({
-        invalidateRouter: () => router.invalidate(),
-        navigate: () => navigate({ to: "/login", replace: true }),
-      })
-    } catch (cause) {
-      toast.error(
-        reportAuthFlowFailure("sign-out", t("Couldn't sign out"), cause),
-      )
-    }
-  }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          variant === "rail" ? (
-            <button
-              type="button"
-              aria-label={accountMenuLabel}
-              className="group text-foreground-muted hover:bg-surface-raised hover:text-foreground focus-visible:ring-ring data-popup-open:bg-surface-raised flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] focus-visible:ring-2 focus-visible:outline-none"
-            >
-              <span className="inline-flex shrink-0">
-                <Avatar size="nav" style={avatarTint(chip.avatar)}>
-                  {chip.avatar.src ? (
-                    <AvatarImage src={chip.avatar.src} alt="" />
-                  ) : null}
-                  <AvatarFallback style={avatarTint(chip.avatar)}>
-                    {chip.avatar.initials}
-                  </AvatarFallback>
-                </Avatar>
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-foreground truncate text-sm font-semibold">
-                  {primaryLabel}
-                </span>
-                {secondaryLabel ? (
-                  <span className="text-foreground-faint truncate text-xs">
-                    @{secondaryLabel}
-                  </span>
-                ) : null}
-              </span>
-              <ChevronDownIcon className="text-foreground-faint size-4 shrink-0 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)] group-data-popup-open:rotate-180" />
-            </button>
-          ) : (
-            <UserAvatarButton
-              avatar={chip.avatar}
-              name={chip.name}
+          <button
+            type="button"
+            aria-label={t("Open account menu for {name}", { name: chip.name })}
+            className={cn(
+              "group flex h-9 max-w-52 min-w-0 items-center gap-2 rounded-md px-1.5",
+              "hover:bg-surface-raised data-popup-open:bg-surface-raised",
+              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+              className,
+            )}
+          >
+            <Avatar
               size="nav"
-              aria-label={accountMenuLabel}
-            />
-          )
+              className="shrink-0"
+              style={avatarTint(chip.avatar)}
+            >
+              {chip.avatar.src ? (
+                <AvatarImage src={chip.avatar.src} alt="" />
+              ) : null}
+              <AvatarFallback style={avatarTint(chip.avatar)}>
+                {chip.avatar.initials}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-foreground min-w-0 truncate text-sm font-semibold">
+              {primaryLabel}
+            </span>
+            <ChevronDownIcon className="text-foreground-faint size-4 shrink-0 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)] group-data-popup-open:rotate-180" />
+          </button>
         }
       />
       <DropdownMenuContent
-        align={variant === "rail" ? "start" : "end"}
-        side={variant === "rail" ? "top" : "bottom"}
+        align="end"
+        side="bottom"
         sideOffset={6}
-        className={
-          variant === "rail"
-            ? "alloy-blur text-foreground w-(--anchor-width) border-white/8"
-            : "alloy-blur text-foreground min-w-[220px] border-white/8"
-        }
+        className="alloy-blur text-foreground min-w-[220px] border-white/8"
       >
-        {variant === "compact" ? (
-          <>
-            <div className="flex flex-col gap-0.5 px-3 py-2">
-              <span className="text-foreground truncate text-sm font-semibold">
-                {primaryLabel}
-              </span>
-              {secondaryLabel ? (
-                <span className="text-foreground-faint truncate text-xs">
-                  @{secondaryLabel}
-                </span>
-              ) : null}
-            </div>
-            <DropdownMenuSeparator />
-          </>
-        ) : null}
-        {handle ? (
-          <DropdownMenuItem
-            render={<Link to="/u/$username" params={{ username: handle }} />}
-          >
-            <UserIcon />
-            {t("Profile")}
-          </DropdownMenuItem>
-        ) : null}
-        <DropdownMenuItem onClick={openSettings}>
-          <SettingsIcon />
-          {t("Settings")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <div className="px-3 py-2">
-          <StorageQuotaCompact />
+        <div className="flex flex-col gap-0.5 px-3 py-2">
+          <span className="text-foreground truncate text-sm font-semibold">
+            {primaryLabel}
+          </span>
+          {secondaryLabel ? (
+            <span className="text-foreground-faint truncate text-xs">
+              @{secondaryLabel}
+            </span>
+          ) : null}
         </div>
         <DropdownMenuSeparator />
-        <DropdownMenuItem variant="destructive" onClick={onSignOut}>
-          <LogOutIcon />
-          {t("Sign out")}
-        </DropdownMenuItem>
+        <AccountMenuItems handle={handle} />
       </DropdownMenuContent>
     </DropdownMenu>
   )
 }
 
-function avatarTint(avatar: { bg?: string; fg?: string }) {
-  return {
-    background: avatar.bg ?? "var(--neutral-200)",
-    color: avatar.fg ?? "var(--foreground)",
-  }
-}
-
-function UserAvatarSkeleton({ variant }: { variant: UserMenuVariant }) {
+function UserMenuSkeleton({ className }: { className?: string }) {
   return (
-    <UserAvatarSkeletonFrame
-      className={
-        variant === "rail"
-          ? "flex h-11 w-full items-center gap-2.5 px-2"
-          : "inline-flex size-8 shrink-0 items-center justify-center"
-      }
-    />
-  )
-}
-
-function UserAvatarSkeletonFrame({ className }: { className: string }) {
-  return (
-    <div data-slot="user-avatar-skeleton" className={className} aria-hidden>
+    <div
+      data-slot="user-menu-skeleton"
+      className={cn(
+        "flex h-9 w-36 items-center justify-center gap-2 rounded-md",
+        className,
+      )}
+      aria-hidden
+    >
       <Spinner className="size-4" />
     </div>
   )
