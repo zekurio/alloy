@@ -3,8 +3,16 @@ import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
 
+import {
+  configureRecordingBackend,
+  shutdownRecordingBackend,
+} from "./recording"
+
 // electron-updater is CommonJS with a lazy `autoUpdater` getter; read from the
-// default import so Rollup does not capture an undefined named binding.
+// default import so Rollup does not capture an undefined named binding. Do
+// not construct an updater with a custom app adapter: AppUpdater only builds
+// its HTTP executor when no adapter is supplied, so a custom adapter silently
+// breaks every update check at runtime.
 const autoUpdater = electronUpdater.autoUpdater
 
 const logger = createLogger("updater")
@@ -17,6 +25,7 @@ let checkInterval: ReturnType<typeof setInterval> | null = null
 let pendingCheckTimer: ReturnType<typeof setTimeout> | null = null
 let checkInFlight = false
 let downloadInFlight = false
+let installInFlight = false
 const stateListeners = new Set<(state: DesktopUpdateState) => void>()
 
 /** Current auto-update state, served to the web app over the desktop bridge. */
@@ -84,15 +93,33 @@ export function onUpdateStateChange(
  * No-op unless a download has finished, so a stale renderer can't quit the
  * app for nothing.
  */
-export function restartToInstallUpdate(): void {
+export async function restartToInstallUpdate(): Promise<void> {
+  if (installInFlight) return
   if (state.status !== "downloaded") {
     logger.warn("restart requested but no update is downloaded; ignoring")
     return
   }
+
+  installInFlight = true
+  logger.info("stopping recording backend before update install")
+  const recorderStopped = await shutdownRecordingBackend().catch(
+    (cause: unknown) => {
+      logger.warn("recorder shutdown failed before update install:", cause)
+      return false
+    },
+  )
+  if (!recorderStopped) {
+    // A live sidecar keeps the packaged OBS DLLs open and NSIS would hit
+    // locked files mid-upgrade. Deliberately do not respawn the backend here:
+    // the old process may still be exiting, and a second recorder would fight
+    // it over devices. The update stays downloaded so the user can retry.
+    installInFlight = false
+    throw new Error("The recorder did not stop. Try restarting again.")
+  }
+
   logger.info(`restarting to install ${state.version ?? "update"}`)
-  // Silent install + relaunch. The before-quit sidecar shutdown still runs:
-  // quitAndInstall goes through the normal quit flow, and the installer fires
-  // on the final quit.
+  // electron-updater launches NSIS before app.quit(), so every packaged child
+  // must already be gone before this call or Windows will lock its executable.
   autoUpdater.quitAndInstall(true, true)
 }
 
@@ -171,6 +198,21 @@ export function initAutoUpdater(): void {
   // checks are routine for a desktop app, so log at warn rather than error.
   autoUpdater.on("error", (cause) => {
     logger.warn("update check failed:", cause)
+    if (installInFlight) {
+      // quitAndInstall is fire-and-forget: when the staged installer is gone
+      // (AV quarantine, disk cleanup) it dispatches an error instead of
+      // quitting. The recorder was already stopped, so bring it back and
+      // drop to idle so background checks re-discover the update.
+      installInFlight = false
+      logger.warn("update install did not start; restarting recording backend")
+      void configureRecordingBackend().catch((restartCause: unknown) => {
+        logger.warn("failed to restart recording backend:", restartCause)
+      })
+      setState(idleUpdateState())
+      ensureBackgroundChecks()
+      scheduleUpdateCheck(0)
+      return
+    }
     if (state.status === "checking") {
       setState(idleUpdateState())
     }

@@ -115,9 +115,7 @@ const updateBridgeHandlers = {
   },
   "updates.restartToInstall": {
     guard: requireDesktopSender,
-    handle: () => {
-      restartToInstallUpdate()
-    },
+    handle: () => restartToInstallUpdate(),
   },
 } satisfies BridgeHandlerFragment
 

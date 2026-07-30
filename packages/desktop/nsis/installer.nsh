@@ -6,11 +6,50 @@
 # manages the same entry through app.setLoginItemSettings().
 
 !include "nsDialogs.nsh"
+!include "getProcessInfo.nsh"
 
 !define AUTOSTART_RUN_KEY "Software\Microsoft\Windows\CurrentVersion\Run"
 # Task Manager's per-entry enable/disable state lives here; stale disable
 # markers would keep a re-enabled entry dead, so it is cleared alongside.
 !define AUTOSTART_APPROVED_KEY "Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run"
+!define RECORDER_EXECUTABLE_FILENAME "alloy-recorder.exe"
+# electron-updater's installer cache: sanitizeFileName(package name) +
+# "-updater" (app-builder-lib appInfo.ts). Must follow a package rename.
+!define UPDATER_CACHE_DIR "@alloydesktop-updater"
+# Legacy Local root retired by the session/logs migration in app-paths.ts;
+# the dir name must stay in sync with USER_DATA_DIR_NAME there.
+!define LOCAL_APP_DATA_DIR "Alloy Desktop"
+
+# Defining customCheckAppRunning suppresses electron-builder's process-info
+# include and pid declaration, so provide both before delegating to its normal
+# app shutdown flow.
+Var pid
+
+!macro customCheckAppRunning
+  !insertmacro IS_POWERSHELL_AVAILABLE
+  !insertmacro _CHECK_APP_RUNNING
+
+  # The Electron process can be gone while its child recorder is still
+  # unloading OBS DLLs. Do not let install/uninstall touch resources until the
+  # child has definitely exited. electron-builder's FIND_PROCESS/KILL_PROCESS
+  # are scoped to the install dir (PowerShell) or the current user (tasklist
+  # fallback on per-user installs), so another user's recorder is never hit.
+  StrCpy $R1 0
+  recorderCheck:
+    !insertmacro FIND_PROCESS "${RECORDER_EXECUTABLE_FILENAME}" $R0
+    ${if} $R0 != 0
+      Goto recorderStopped
+    ${endif}
+    ${if} $R1 >= 3
+      Abort "Cannot stop ${RECORDER_EXECUTABLE_FILENAME}. Close it in Task Manager and try again."
+    ${endif}
+    DetailPrint "Stopping ${RECORDER_EXECUTABLE_FILENAME}."
+    !insertmacro KILL_PROCESS "${RECORDER_EXECUTABLE_FILENAME}" 1
+    IntOp $R1 $R1 + 1
+    Sleep 1000
+    Goto recorderCheck
+  recorderStopped:
+!macroend
 
 !macro customPageAfterChangeDir
   Var /GLOBAL autostartCheckbox
@@ -71,5 +110,22 @@
   ${ifNot} ${isUpdated}
     DeleteRegValue HKCU "${AUTOSTART_RUN_KEY}" "${APP_ID}"
     DeleteRegValue HKCU "${AUTOSTART_APPROVED_KEY}" "${APP_ID}"
+
+    # These leftovers live in the *user's* profile even on a per-machine
+    # install, where SHELL_CONTEXT points $LOCALAPPDATA at ProgramData; flip
+    # to the current user like electron-builder's own installer-store writes.
+    ${if} $installMode == "all"
+      SetShellVarContext current
+    ${endif}
+    # electron-updater's installer cache; electron-builder never cleans it.
+    RMDir /r "$LOCALAPPDATA\${UPDATER_CACHE_DIR}"
+    # Session/logs left in Local when the in-app migration never ran —
+    # transient cache and diagnostics, not user data.
+    RMDir /r "$LOCALAPPDATA\${LOCAL_APP_DATA_DIR}"
+    # Replay scratch and other transient temp state (recording-storage.ts).
+    RMDir /r "$TEMP\Alloy"
+    ${if} $installMode == "all"
+      SetShellVarContext all
+    ${endif}
   ${endif}
 !macroend
