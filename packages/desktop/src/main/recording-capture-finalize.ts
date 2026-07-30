@@ -1,6 +1,7 @@
 import { copyFileSync, renameSync, rmSync, statSync } from "node:fs"
 
 import type { RecordingCapture } from "@alloy/contracts"
+import { normalizeCaptureAudioTracks } from "@alloy/contracts/desktop-recording-normalizers"
 import { createLogger } from "@alloy/logging"
 
 const logger = createLogger("recording")
@@ -10,15 +11,21 @@ const pendingFinalizes = new Map<string, Promise<RecordingCapture>>()
 export function finalizeRecordingCapture(
   capture: RecordingCapture,
 ): Promise<RecordingCapture> {
-  if (!capture.postProcess) return Promise.resolve(clearedCapture(capture))
+  const normalizedCapture = {
+    ...capture,
+    audioTracks: normalizeCaptureAudioTracks(capture.audioTracks),
+  }
+  if (!normalizedCapture.postProcess) {
+    return Promise.resolve(clearedCapture(normalizedCapture))
+  }
 
-  const pending = pendingFinalizes.get(capture.filename)
+  const pending = pendingFinalizes.get(normalizedCapture.filename)
   if (pending) return pending
 
-  const task = runFinalize(capture).finally(() => {
-    pendingFinalizes.delete(capture.filename)
+  const task = runFinalize(normalizedCapture).finally(() => {
+    pendingFinalizes.delete(normalizedCapture.filename)
   })
-  pendingFinalizes.set(capture.filename, task)
+  pendingFinalizes.set(normalizedCapture.filename, task)
   return task
 }
 

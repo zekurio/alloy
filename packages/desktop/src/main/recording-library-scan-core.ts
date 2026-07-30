@@ -216,6 +216,7 @@ function libraryItemForFile(
     uploadedClipId: manifestEntry?.uploadedClipId ?? null,
     trimStartMs: trim ? trim.startMs : null,
     trimEndMs: trim ? trim.endMs : null,
+    audioTracks: manifestEntry?.audioTracks,
     createdAt,
     modifiedAt,
   }

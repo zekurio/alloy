@@ -54,16 +54,52 @@ unsafe fn create_audio_encoder(
     obs: &LibObs,
     id: &str,
     settings: *mut ObsData,
+    mixer_idx: usize,
 ) -> Result<*mut ObsEncoder, String> {
     let id =
         CString::new(id).map_err(|_| "OBS audio encoder id contained a nul byte.".to_string())?;
-    let name = CString::new("alloy_audio_encoder").expect("static string has no nul byte");
-    let encoder =
-        (obs.obs_audio_encoder_create)(id.as_ptr(), name.as_ptr(), settings, 0, ptr::null_mut());
+    let name = CString::new(format!("alloy_audio_encoder_{mixer_idx}"))
+        .expect("generated audio encoder name has no nul byte");
+    let encoder = (obs.obs_audio_encoder_create)(
+        id.as_ptr(),
+        name.as_ptr(),
+        settings,
+        mixer_idx,
+        ptr::null_mut(),
+    );
     if encoder.is_null() {
-        return Err("Could not create OBS audio encoder.".to_string());
+        return Err(format!(
+            "Could not create OBS audio encoder for mixer {mixer_idx}."
+        ));
     }
     Ok(encoder)
+}
+
+unsafe fn create_audio_encoders(
+    obs: &LibObs,
+    id: &str,
+    track_count: usize,
+) -> Result<Vec<*mut ObsEncoder>, String> {
+    debug_assert!(track_count <= MAX_AUDIO_MIXES);
+    let settings = obs.create_data();
+    let result = (|| {
+        obs.set_int(settings, "bitrate", 160)?;
+        let mut encoders = Vec::with_capacity(track_count);
+        for mixer_idx in 0..track_count {
+            let encoder = match create_audio_encoder(obs, id, settings, mixer_idx) {
+                Ok(encoder) => encoder,
+                Err(error) => {
+                    release_audio_encoders(obs, encoders);
+                    return Err(error);
+                }
+            };
+            (obs.obs_encoder_set_audio)(encoder, (obs.obs_get_audio)());
+            encoders.push(encoder);
+        }
+        Ok(encoders)
+    })();
+    obs.release_data(settings);
+    result
 }
 
 unsafe fn create_output(
@@ -84,12 +120,13 @@ unsafe fn release_output_graph(
     obs: &LibObs,
     output: *mut ObsOutput,
     video_encoder: *mut ObsEncoder,
-    audio_encoder: *mut ObsEncoder,
+    audio_encoders: Vec<*mut ObsEncoder>,
     video_graph: VideoGraph,
     audio_graph: AudioGraph,
 ) {
-    (obs.obs_set_output_source)(0, ptr::null_mut());
-    (obs.obs_set_output_source)(1, ptr::null_mut());
+    if !video_graph.output_source.is_null() {
+        (obs.obs_set_output_source)(0, ptr::null_mut());
+    }
 
     if !output.is_null() {
         (obs.obs_output_release)(output);
@@ -97,27 +134,16 @@ unsafe fn release_output_graph(
     if !video_encoder.is_null() {
         (obs.obs_encoder_release)(video_encoder);
     }
-    if !audio_encoder.is_null() {
-        (obs.obs_encoder_release)(audio_encoder);
-    }
+    release_audio_encoders(obs, audio_encoders);
     release_video_graph(obs, video_graph);
     release_audio_graph(obs, audio_graph);
 }
 
-unsafe fn release_output_only(
-    obs: &LibObs,
-    output: *mut ObsOutput,
-    video_encoder: *mut ObsEncoder,
-    audio_encoder: *mut ObsEncoder,
-) {
-    if !output.is_null() {
-        (obs.obs_output_release)(output);
-    }
-    if !video_encoder.is_null() {
-        (obs.obs_encoder_release)(video_encoder);
-    }
-    if !audio_encoder.is_null() {
-        (obs.obs_encoder_release)(audio_encoder);
+unsafe fn release_audio_encoders(obs: &LibObs, audio_encoders: Vec<*mut ObsEncoder>) {
+    for audio_encoder in audio_encoders {
+        if !audio_encoder.is_null() {
+            (obs.obs_encoder_release)(audio_encoder);
+        }
     }
 }
 
@@ -135,22 +161,25 @@ unsafe fn release_video_graph(obs: &LibObs, graph: VideoGraph) {
 }
 
 unsafe fn release_audio_graph(obs: &LibObs, audio_graph: AudioGraph) {
-    (obs.obs_set_output_source)(1, ptr::null_mut());
-    if !audio_graph.scene.is_null() {
-        (obs.obs_scene_release)(audio_graph.scene);
-    }
-    for audio_source in audio_graph.sources {
-        if !audio_source.is_null() {
-            (obs.obs_source_remove)(audio_source);
-            (obs.obs_source_release)(audio_source);
+    clear_audio_output_sources(obs, audio_graph.sources.len());
+    release_audio_sources(obs, audio_graph.sources);
+}
+
+unsafe fn release_audio_sources(obs: &LibObs, sources: Vec<*mut ObsSource>) {
+    for source in sources {
+        if !source.is_null() {
+            (obs.obs_source_remove)(source);
+            (obs.obs_source_release)(source);
         }
     }
 }
 
-fn empty_audio_graph() -> AudioGraph {
-    AudioGraph {
-        scene: ptr::null_mut(),
-        sources: Vec::new(),
+unsafe fn clear_audio_output_sources(obs: &LibObs, source_count: usize) {
+    for source_index in 0..source_count {
+        (obs.obs_set_output_source)(
+            AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
+            ptr::null_mut(),
+        );
     }
 }
 
@@ -203,9 +232,13 @@ fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
     }
 }
 
-fn estimated_replay_buffer_mb(settings: &RecordingSettings, quality: &EffectiveQuality) -> u32 {
+fn estimated_replay_buffer_mb(
+    settings: &RecordingSettings,
+    quality: &EffectiveQuality,
+    audio_track_count: usize,
+) -> u32 {
     let video_kbps = target_bitrate_kbps(quality);
-    let audio_kbps = 320;
+    let audio_kbps = 160_u32.saturating_mul(audio_track_count as u32);
     let megabytes = u64::from(video_kbps.saturating_add(audio_kbps))
         .saturating_mul(u64::from(settings.replay_buffer_seconds))
         / 8_000;
@@ -501,6 +534,8 @@ struct AudioSourceConfig {
     window: Option<String>,
     priority: Option<i64>,
     volume: f32,
+    track_kind: RecordingAudioTrackKind,
+    track_label: String,
 }
 
 impl AudioSourceConfig {
@@ -520,13 +555,35 @@ unsafe fn create_audio_graph(
     game: Option<&DetectedGame>,
 ) -> Result<AudioGraph, String> {
     let configs = audio_source_configs(obs, settings, game)?;
-    let scene = (obs.obs_scene_create_private)(c"alloy_audio_scene".as_ptr());
-    if scene.is_null() {
-        return Err("Could not create OBS audio scene.".to_string());
+    if configs.len() > MAX_OUTPUT_CHANNELS - AUDIO_OUTPUT_CHANNEL_BASE as usize {
+        return Err(format!(
+            "OBS supports at most {} simultaneous audio sources.",
+            MAX_OUTPUT_CHANNELS - AUDIO_OUTPUT_CHANNEL_BASE as usize
+        ));
     }
-    let mut sources = Vec::new();
 
-    for config in configs {
+    let multi_track = configs.len() >= 2 && configs.len() <= MAX_AUDIO_MIXES - 1;
+    if configs.len() > MAX_AUDIO_MIXES - 1 {
+        eprintln!(
+            "[{SIDE_CAR_NAME}] configured {} audio sources, but per-source stems support at most {}; falling back to a single mixed audio track.",
+            configs.len(),
+            MAX_AUDIO_MIXES - 1,
+        );
+    }
+    let mut graph = AudioGraph {
+        sources: Vec::with_capacity(configs.len()),
+        tracks: if multi_track {
+            vec![RecordingCaptureAudioTrack {
+                index: 0,
+                kind: RecordingAudioTrackKind::Mix,
+                label: "Mix".to_string(),
+            }]
+        } else {
+            Vec::new()
+        },
+    };
+
+    for (source_index, config) in configs.into_iter().enumerate() {
         let source_settings = obs.create_data();
         let source = (|| {
             if let Some(device_id) = config.device_id.as_deref() {
@@ -545,35 +602,37 @@ unsafe fn create_audio_graph(
         let source = match source {
             Ok(source) => source,
             Err(error) => {
-                release_audio_graph(obs, AudioGraph { scene, sources });
+                release_audio_graph(obs, graph);
                 return Err(error);
             }
         };
 
-        (obs.obs_source_set_audio_mixers)(source, 1);
+        let stem_index = multi_track.then_some(source_index + 1);
+        let mixers = 1 | stem_index.map_or(0, |index| 1 << index);
+        (obs.obs_source_set_audio_mixers)(source, mixers);
         (obs.obs_source_set_volume)(source, config.volume);
-        if (obs.obs_scene_add)(scene, source).is_null() {
-            (obs.obs_source_remove)(source);
-            (obs.obs_source_release)(source);
-            release_audio_graph(obs, AudioGraph { scene, sources });
-            return Err("Could not add capture source to OBS audio scene.".to_string());
-        }
+        (obs.obs_set_output_source)(
+            AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
+            source,
+        );
         eprintln!(
-            "[{SIDE_CAR_NAME}] configured audio source selector={} effective={} scene=alloy_audio_scene mixer=1",
+            "[{SIDE_CAR_NAME}] configured audio source selector={} effective={} channel={} mixers={mixers:#010b}",
             config.selector,
             config.effective_value(),
+            AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
         );
-        sources.push(source);
+        graph.sources.push(source);
+
+        if let Some(stem_index) = stem_index {
+            graph.tracks.push(RecordingCaptureAudioTrack {
+                index: stem_index as u32,
+                kind: config.track_kind,
+                label: config.track_label,
+            });
+        }
     }
 
-    let output_source = (obs.obs_scene_get_source)(scene);
-    if output_source.is_null() {
-        release_audio_graph(obs, AudioGraph { scene, sources });
-        return Err("OBS audio scene did not expose an output source.".to_string());
-    }
-    (obs.obs_source_set_audio_mixers)(output_source, 1);
-    (obs.obs_set_output_source)(1, output_source);
-    Ok(AudioGraph { scene, sources })
+    Ok(graph)
 }
 
 fn audio_source_configs(
@@ -596,22 +655,32 @@ fn audio_source_configs(
                         "Application audio capture requires OBS process audio support.".to_string(),
                     );
                 };
+                let game_application_id = game.map(audio_application_id);
                 configs.extend(
                     applications
                         .into_iter()
                         .filter(|application| !application.window.is_empty())
-                        .map(|application| AudioSourceConfig {
-                            source_id,
-                            name: audio_source_name(
-                                "application",
-                                &application.name,
-                                &application.window,
-                            ),
-                            selector: application.id,
-                            device_id: None,
-                            window: Some(application.window),
-                            priority: Some(OBS_WINDOW_PRIORITY_EXE),
-                            volume: audio_volume(application.volume),
+                        .map(|application| {
+                            let track_kind = recording_audio_track_kind(
+                                source_id,
+                                game_application_id.as_deref()
+                                    == Some(application.id.as_str()),
+                            );
+                            AudioSourceConfig {
+                                source_id,
+                                name: audio_source_name(
+                                    "application",
+                                    &application.name,
+                                    &application.window,
+                                ),
+                                selector: application.id,
+                                device_id: None,
+                                window: Some(application.window),
+                                priority: Some(OBS_WINDOW_PRIORITY_EXE),
+                                volume: audio_volume(application.volume),
+                                track_kind,
+                                track_label: application.name,
+                            }
                         }),
                 );
             }
@@ -803,7 +872,28 @@ fn audio_device_source_config(device: RecordingAudioDeviceSelection) -> AudioSou
         window: None,
         priority: None,
         volume: audio_volume(device.volume),
+        track_kind: recording_audio_track_kind(source_id, false),
+        track_label: device.label,
     }
+}
+
+fn recording_audio_track_kind(
+    source_id: &str,
+    captures_game_application: bool,
+) -> RecordingAudioTrackKind {
+    if captures_game_application {
+        return RecordingAudioTrackKind::Game;
+    }
+    if source_id == platform_audio_input_source_id() {
+        return RecordingAudioTrackKind::Microphone;
+    }
+    if source_id == platform_audio_output_source_id() {
+        return RecordingAudioTrackKind::Desktop;
+    }
+    if platform_application_audio_source_id() == Some(source_id) {
+        return RecordingAudioTrackKind::Application;
+    }
+    RecordingAudioTrackKind::Other
 }
 
 fn audio_source_name(prefix: &str, label: &str, target: &str) -> String {
