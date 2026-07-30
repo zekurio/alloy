@@ -11,7 +11,7 @@ import {
 import { toast } from "@alloy/ui/lib/toast"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { ChevronUpIcon, Link2Icon, SaveIcon, UploadIcon } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 
 import {
   MediaStage,
@@ -29,6 +29,11 @@ import {
   useUploadActions,
   useUploadQueue,
 } from "@/components/upload/upload-flow-context"
+import {
+  AudioTrackMixerControl,
+  useAudioTrackMixerWithLoader,
+  type MixerTrackLoader,
+} from "@/components/video/audio-track-mixer"
 import {
   useExternalVideoVolume,
   VideoPlayer,
@@ -104,6 +109,7 @@ export function EditorBody({
   })
   const { playerRef, trim, trimmed, rangeMs } = playback
   const playerVolume = useExternalVideoVolume(playerRef)
+  const audioMixer = useLocalCaptureAudioMixer(desktop, item)
   const [savedTrim, setSavedTrim] = useState(() => persistedTrim(item))
 
   const [savedMetadata, setSavedMetadata] = useState(() =>
@@ -377,6 +383,7 @@ export function EditorBody({
               playerRef={playerRef}
               onTimeUpdate={playback.handleTimeUpdate}
               onPlayingChange={playback.setPlaying}
+              audioMixer={audioMixer}
               onFrameReady={() => setLocalFrameReady(true)}
               onEnded={playback.handleEnded}
               className="overflow-hidden rounded-md"
@@ -393,15 +400,18 @@ export function EditorBody({
           <TrimTransportControls
             playback={playback}
             trailing={
-              <VolumeControl
-                muted={playerVolume.state.muted}
-                volume={playerVolume.state.volume}
-                onToggleMute={playerVolume.toggleMute}
-                onVolumeChange={playerVolume.setVolume}
-                onVolumeChangeEnd={playerVolume.finishVolumeChange}
-                iconClassName="size-8 rounded-md"
-                iconGlyphClassName="size-4"
-              />
+              <>
+                <AudioTrackMixerControl mixer={audioMixer} />
+                <VolumeControl
+                  muted={playerVolume.state.muted}
+                  volume={playerVolume.state.volume}
+                  onToggleMute={playerVolume.toggleMute}
+                  onVolumeChange={playerVolume.setVolume}
+                  onVolumeChangeEnd={playerVolume.finishVolumeChange}
+                  iconClassName="size-8 rounded-md"
+                  iconGlyphClassName="size-4"
+                />
+              </>
             }
           />
 
@@ -517,6 +527,54 @@ export function EditorBody({
       </div>
     </section>
   )
+}
+
+/**
+ * Per-source audio mixing for a local capture: the stage's `<video>` element
+ * only ever plays the capture's embedded mix (track 0), so the mixer decodes
+ * the per-source stem tracks through the desktop bridge's stem cache. Both
+ * the stems and the raw capture share one timeline, so no trim gating is
+ * needed here (unlike the uploaded-clip editor, whose canonical cut rebases
+ * time). Undefined when unsupported or the capture has fewer than two stems.
+ */
+function useLocalCaptureAudioMixer(
+  desktop: AlloyDesktop,
+  item: LibraryItemView,
+) {
+  const supported = desktopSupports("recording.getLibraryCaptureAudioTrackUrl")
+  const stemTracks = useMemo(
+    () =>
+      supported
+        ? (item.audioTracks ?? []).filter(
+            (track) => track.index > 0 && track.kind !== "mix",
+          )
+        : [],
+    [item.audioTracks, supported],
+  )
+  const loadTrack = useCallback<MixerTrackLoader>(
+    async (track, signal) => {
+      const url = await desktop.recording.getLibraryCaptureAudioTrackUrl(
+        item.id,
+        track.index,
+      )
+      if (!url) throw new Error(`Audio track ${track.index} is unavailable`)
+      const response = await fetch(url, { signal })
+      if (!response.ok) {
+        throw new Error(
+          `Audio track ${track.index} returned ${response.status}`,
+        )
+      }
+      return response.arrayBuffer()
+    },
+    [desktop, item.id],
+  )
+  const mixer = useAudioTrackMixerWithLoader(
+    item.id,
+    stemTracks,
+    item.durationMs,
+    loadTrack,
+  )
+  return mixer.tracks.length >= 2 ? mixer : undefined
 }
 
 function savedLocalMetadata(item: LibraryItemView) {

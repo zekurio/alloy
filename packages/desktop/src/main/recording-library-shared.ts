@@ -8,6 +8,7 @@ export { contentTypeForFile }
 export const MEDIA_PROTOCOL = "alloy-capture"
 export const MEDIA_HOST = "media"
 export const THUMBNAIL_HOST = "thumbnail"
+export const AUDIO_HOST = "audio"
 export const EXPORT_HOST = "export"
 export const VIDEO_EXTENSIONS = new Set([".mp4", ".mkv", ".mov", ".webm"])
 
