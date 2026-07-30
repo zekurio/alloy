@@ -9,6 +9,7 @@ import type {
   RecordingGameGuess,
   RecordingLibraryItem,
 } from "@alloy/contracts"
+import { normalizeCaptureAudioTracks } from "@alloy/contracts/desktop-recording-normalizers"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
@@ -65,7 +66,15 @@ export function readCaptureManifest(): CaptureManifest {
     if (!isCaptureManifest(parsed)) throw new Error("Invalid manifest.")
     return {
       version: 1,
-      captures: parsed.captures,
+      captures: Object.fromEntries(
+        Object.entries(parsed.captures).map(([key, entry]) => [
+          key,
+          {
+            ...entry,
+            audioTracks: normalizeCaptureAudioTracks(entry.audioTracks),
+          },
+        ]),
+      ),
     }
   } catch {
     return { version: 1, captures: {} }

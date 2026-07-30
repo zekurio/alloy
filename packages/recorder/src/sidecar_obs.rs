@@ -80,6 +80,7 @@ unsafe fn create_audio_encoders(
     id: &str,
     track_count: usize,
 ) -> Result<Vec<*mut ObsEncoder>, String> {
+    debug_assert!(track_count <= MAX_AUDIO_MIXES);
     let settings = obs.create_data();
     let result = (|| {
         obs.set_int(settings, "bitrate", 160)?;
@@ -123,8 +124,9 @@ unsafe fn release_output_graph(
     video_graph: VideoGraph,
     audio_graph: AudioGraph,
 ) {
-    (obs.obs_set_output_source)(0, ptr::null_mut());
-    clear_audio_output_sources(obs, audio_graph.sources.len());
+    if !video_graph.output_source.is_null() {
+        (obs.obs_set_output_source)(0, ptr::null_mut());
+    }
 
     if !output.is_null() {
         (obs.obs_output_release)(output);
@@ -134,22 +136,7 @@ unsafe fn release_output_graph(
     }
     release_audio_encoders(obs, audio_encoders);
     release_video_graph(obs, video_graph);
-    release_audio_sources(obs, audio_graph.sources);
-}
-
-unsafe fn release_output_only(
-    obs: &LibObs,
-    output: *mut ObsOutput,
-    video_encoder: *mut ObsEncoder,
-    audio_encoders: Vec<*mut ObsEncoder>,
-) {
-    if !output.is_null() {
-        (obs.obs_output_release)(output);
-    }
-    if !video_encoder.is_null() {
-        (obs.obs_encoder_release)(video_encoder);
-    }
-    release_audio_encoders(obs, audio_encoders);
+    release_audio_graph(obs, audio_graph);
 }
 
 unsafe fn release_audio_encoders(obs: &LibObs, audio_encoders: Vec<*mut ObsEncoder>) {
@@ -193,13 +180,6 @@ unsafe fn clear_audio_output_sources(obs: &LibObs, source_count: usize) {
             AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
             ptr::null_mut(),
         );
-    }
-}
-
-fn empty_audio_graph() -> AudioGraph {
-    AudioGraph {
-        sources: Vec::new(),
-        tracks: Vec::new(),
     }
 }
 
@@ -252,9 +232,13 @@ fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
     }
 }
 
-fn estimated_replay_buffer_mb(settings: &RecordingSettings, quality: &EffectiveQuality) -> u32 {
+fn estimated_replay_buffer_mb(
+    settings: &RecordingSettings,
+    quality: &EffectiveQuality,
+    audio_track_count: usize,
+) -> u32 {
     let video_kbps = target_bitrate_kbps(quality);
-    let audio_kbps = 320;
+    let audio_kbps = 160_u32.saturating_mul(audio_track_count as u32);
     let megabytes = u64::from(video_kbps.saturating_add(audio_kbps))
         .saturating_mul(u64::from(settings.replay_buffer_seconds))
         / 8_000;
@@ -578,7 +562,14 @@ unsafe fn create_audio_graph(
         ));
     }
 
-    let multi_track = configs.len() >= 2;
+    let multi_track = configs.len() >= 2 && configs.len() <= MAX_AUDIO_MIXES - 1;
+    if configs.len() > MAX_AUDIO_MIXES - 1 {
+        eprintln!(
+            "[{SIDE_CAR_NAME}] configured {} audio sources, but per-source stems support at most {}; falling back to a single mixed audio track.",
+            configs.len(),
+            MAX_AUDIO_MIXES - 1,
+        );
+    }
     let mut graph = AudioGraph {
         sources: Vec::with_capacity(configs.len()),
         tracks: if multi_track {
@@ -616,8 +607,7 @@ unsafe fn create_audio_graph(
             }
         };
 
-        let stem_index = (multi_track && source_index < MAX_AUDIO_MIXES - 1)
-            .then_some(source_index + 1);
+        let stem_index = multi_track.then_some(source_index + 1);
         let mixers = 1 | stem_index.map_or(0, |index| 1 << index);
         (obs.obs_source_set_audio_mixers)(source, mixers);
         (obs.obs_source_set_volume)(source, config.volume);
@@ -626,7 +616,7 @@ unsafe fn create_audio_graph(
             source,
         );
         eprintln!(
-            "[{SIDE_CAR_NAME}] configured audio source selector={} effective={} channel={} mixers={mixers:#08b}",
+            "[{SIDE_CAR_NAME}] configured audio source selector={} effective={} channel={} mixers={mixers:#010b}",
             config.selector,
             config.effective_value(),
             AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
@@ -665,6 +655,7 @@ fn audio_source_configs(
                         "Application audio capture requires OBS process audio support.".to_string(),
                     );
                 };
+                let game_application_id = game.map(audio_application_id);
                 configs.extend(
                     applications
                         .into_iter()
@@ -672,9 +663,8 @@ fn audio_source_configs(
                         .map(|application| {
                             let track_kind = recording_audio_track_kind(
                                 source_id,
-                                game.is_some_and(|game| {
-                                    application.id == audio_application_id(game)
-                                }),
+                                game_application_id.as_deref()
+                                    == Some(application.id.as_str()),
                             );
                             AudioSourceConfig {
                                 source_id,

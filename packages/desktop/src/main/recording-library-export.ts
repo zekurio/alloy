@@ -72,7 +72,6 @@ export async function exportRecordingLibraryItem(
       durationMs: sourceDurationMs,
       width: item.width,
       height: item.height,
-      audioTracks: item.audioTracks,
       startOffsetMs: 0,
     }
   }
@@ -108,7 +107,6 @@ export async function exportRecordingLibraryItem(
     durationMs: totalMs,
     width: item.width,
     height: item.height,
-    audioTracks: item.audioTracks,
     startOffsetMs,
   }
 }

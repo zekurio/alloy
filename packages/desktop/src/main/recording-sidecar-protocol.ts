@@ -52,8 +52,6 @@ export interface SidecarEventEnvelope {
   event: RecordingEvent
 }
 
-export const MULTI_TRACK_AUDIO_CAPABILITY = "multi-track-audio"
-
 export interface RecordingSidecarVersion {
   name: string
   version: string

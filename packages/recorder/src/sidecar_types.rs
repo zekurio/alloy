@@ -360,9 +360,9 @@ enum RecordingBufferStorage {
 }
 
 /// Mirrors `RecordingAudioTrackKind` in
-/// `packages/contracts/src/shared.ts`; the serialized strings must match the
-/// TS union exactly.
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+/// `packages/contracts/src/desktop-recording-types.ts`; the serialized strings
+/// must match the TS union exactly.
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "kebab-case")]
 enum RecordingAudioTrackKind {
     Mix,
@@ -375,7 +375,7 @@ enum RecordingAudioTrackKind {
 
 /// Mirrors `RecordingCaptureAudioTrack` in
 /// `packages/contracts/src/desktop-recording-types.ts`.
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RecordingCaptureAudioTrack {
     /// Zero-based audio track index in the container file.
@@ -741,7 +741,6 @@ struct ActiveSession {
     game_capture_hook_wait: Option<GameCaptureHookWait>,
     can_pause: bool,
     paused: bool,
-    owns_capture: bool,
 }
 
 #[derive(Debug)]
