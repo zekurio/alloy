@@ -202,7 +202,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Capture not found": "Aufnahme nicht gefunden",
   "Capture off": "Aufnahme aus",
   "Capture settings": "Aufnahmeeinstellungen",
-  "Capture status": "Aufnahmestatus",
   "Capture status: {label}": "Aufnahmestatus: {label}",
   "Capture updated": "Aufnahme aktualisiert",
   "Capture with Alloy": "Mit Alloy aufnehmen",

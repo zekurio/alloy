@@ -13,7 +13,8 @@ function AppHeader({ className, ...props }: ComponentProps<"header">) {
       className={cn(
         "relative grid min-w-0 grid-flow-col auto-cols-auto items-center gap-2 px-2 sm:gap-3 sm:px-5 md:pl-0",
         "[grid-template-columns:auto_minmax(0,1fr)]",
-        "md:[grid-template-columns:var(--sidebar-expanded)_minmax(12rem,1fr)]",
+        // Desktop: left cluster / centered search / right cluster.
+        "md:[grid-template-columns:var(--header-grid)]",
         "h-[var(--header-h)] border-b border-border bg-surface",
         className,
       )}
@@ -26,35 +27,39 @@ function AppHeaderBrand({
   className,
   size = 32,
   showText = false,
+  renderLogo,
   children,
   ...props
-}: ComponentProps<"div"> & { size?: number; showText?: boolean }) {
+}: ComponentProps<"div"> & {
+  size?: number
+  showText?: boolean
+  renderLogo?: (logo: ReactNode) => ReactNode
+}) {
+  const logo = (
+    <AlloyLogo
+      size={size}
+      showText={showText}
+      spacing={8}
+      className="shrink-0"
+      textClassName="max-md:hidden"
+    />
+  )
+
   return (
     <div
       data-slot="app-header-brand"
       className={cn(
-        "flex min-w-0 items-center justify-self-start md:h-full md:w-[var(--sidebar-expanded)] md:border-r md:border-border",
+        // pl-3.5 optically centers the 32px mark over the 60px sidebar rail.
+        "flex min-w-0 items-center justify-self-start md:pl-3.5",
         className,
       )}
       {...props}
     >
-      {/* Left inset roughly tracks the sidebar nav items so the mark sits above
-          them. Alignment — not a divider — ties the header and sidebar
-          together; the sidebar's own border is the only line. */}
-      <div className="flex shrink-0 items-center md:pl-3">
-        <AlloyLogo
-          size={size}
-          showText={showText}
-          spacing={8}
-          textClassName="max-md:hidden"
-        />
-      </div>
+      {renderLogo ? renderLogo(logo) : logo}
       {children ? (
-        // Pushed to the right edge of the brand column so the controls sit
-        // flush against the sidebar separator; pr-3 mirrors the logo's inset.
-        <div className="flex items-center gap-2 pl-3 md:ml-auto md:pr-3 md:pl-4">
-          {children}
-        </div>
+        // Extra controls (e.g. back/forward navigation) sit directly next to
+        // the wordmark.
+        <div className="flex items-center gap-1 pl-2">{children}</div>
       ) : null}
     </div>
   )
@@ -296,7 +301,10 @@ function AppHeaderWindowControls({
   return (
     <div
       data-slot="app-header-window-controls"
-      className={cn("flex h-full items-stretch justify-self-end", className)}
+      className={cn(
+        "flex h-full shrink-0 items-stretch justify-self-end",
+        className,
+      )}
       {...props}
     >
       <WindowControlButton aria-label={t("Minimize")} onClick={onMinimize}>

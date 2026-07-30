@@ -12,28 +12,23 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import { Link, useNavigate, useRouter } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import {
   GamepadIcon,
   HomeIcon,
   LibraryIcon,
   LogInIcon,
-  LogOutIcon,
-  SettingsIcon,
   UserIcon,
 } from "lucide-react"
 import { Suspense } from "react"
 import type { ReactNode } from "react"
 
-import { StorageQuotaCompact } from "@/components/storage-quota"
 import { GlobalUploadControl } from "@/components/upload/global-upload-control"
-import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
 import { useSuspenseSession } from "@/lib/session-suspense"
-import { useOpenSettings } from "@/lib/use-open-settings"
 import { useUserChipData } from "@/lib/user-display"
 
+import { AccountMenuItems, avatarTint } from "./account-menu"
 import { useNavFlags } from "./use-nav-flags"
 
 /**
@@ -155,9 +150,6 @@ function ProfileTab() {
 
 function ProfileMenuItems() {
   const session = useSuspenseSession()
-  const router = useRouter()
-  const navigate = useNavigate()
-  const openSettings = useOpenSettings()
   const chip = useUserChipData(session?.user)
 
   if (!session) {
@@ -173,19 +165,6 @@ function ProfileMenuItems() {
   const handle = user.username ?? null
   const email = user.email ?? null
   const primaryLabel = handle ?? chip.name
-
-  async function onSignOut() {
-    try {
-      await completeSignOutFlow({
-        invalidateRouter: () => router.invalidate(),
-        navigate: () => navigate({ to: "/login", replace: true }),
-      })
-    } catch (cause) {
-      toast.error(
-        reportAuthFlowFailure("sign-out", t("Couldn't sign out"), cause),
-      )
-    }
-  }
 
   return (
     <>
@@ -210,27 +189,7 @@ function ProfileMenuItems() {
         </div>
       </div>
       <DropdownMenuSeparator />
-      {handle ? (
-        <DropdownMenuItem
-          render={<Link to="/u/$username" params={{ username: handle }} />}
-        >
-          <UserIcon />
-          {t("Profile")}
-        </DropdownMenuItem>
-      ) : null}
-      <DropdownMenuItem onClick={openSettings}>
-        <SettingsIcon />
-        {t("Settings")}
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <div className="px-3 py-2">
-        <StorageQuotaCompact />
-      </div>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem variant="destructive" onClick={onSignOut}>
-        <LogOutIcon />
-        {t("Sign out")}
-      </DropdownMenuItem>
+      <AccountMenuItems handle={handle} />
     </>
   )
 }
@@ -261,11 +220,4 @@ function ProfileTabIcon() {
       </AvatarFallback>
     </Avatar>
   )
-}
-
-function avatarTint(avatar: { bg?: string; fg?: string }) {
-  return {
-    background: avatar.bg ?? "var(--neutral-200)",
-    color: avatar.fg ?? "var(--foreground)",
-  }
 }

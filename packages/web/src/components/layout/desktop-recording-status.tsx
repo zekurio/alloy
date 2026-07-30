@@ -18,6 +18,11 @@ import {
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
 import { Switch } from "@alloy/ui/components/switch"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@alloy/ui/components/tooltip"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   ArrowRightIcon,
@@ -27,7 +32,7 @@ import {
   MonitorIcon,
   Volume2Icon,
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo } from "react"
 import type { CSSProperties, ReactNode } from "react"
 
 import {
@@ -48,43 +53,30 @@ import {
 } from "./recording-status-helpers"
 import { useDesktopRecordingState } from "./use-desktop-recording-state"
 
-export function DesktopRecordingStatus({
-  placement = "header",
-}: {
-  placement?: "header" | "sidebar"
-}) {
+export function DesktopRecordingStatus() {
   const desktop = alloyDesktop()
   const recording = desktop?.recording ?? null
   const state = useDesktopRecordingState(recording)
 
   if (!desktop || !recording) return null
 
-  const popover = (
-    <RecordingStatusPopover
-      active={statusActive(state.status)}
-      activeGame={
-        state.settings?.enabled
-          ? (state.status?.activeGameDetail ?? null)
-          : null
-      }
-      desktop={desktop}
-      displays={state.displays}
-      label={statusLabel(state.settings, state.status)}
-      placement={placement}
-      settings={state.settings}
-      status={state.status}
-      onOpenDisplayPicker={() => state.setDisplayPickerOpen(true)}
-      onSave={state.save}
-    />
-  )
-
   return (
     <>
-      {placement === "sidebar" ? (
-        <div className="px-1.5 pb-2">{popover}</div>
-      ) : (
-        popover
-      )}
+      <RecordingStatusPopover
+        active={statusActive(state.status)}
+        activeGame={
+          state.settings?.enabled
+            ? (state.status?.activeGameDetail ?? null)
+            : null
+        }
+        desktop={desktop}
+        displays={state.displays}
+        label={statusLabel(state.settings, state.status)}
+        settings={state.settings}
+        status={state.status}
+        onOpenDisplayPicker={() => state.setDisplayPickerOpen(true)}
+        onSave={state.save}
+      />
       <DisplayPickerDialog
         displays={state.displays}
         loading={state.displayLoading}
@@ -97,77 +89,16 @@ export function DesktopRecordingStatus({
 }
 
 /**
- * Sidebar capture-status label. Centers the icon + name when they fit; once the
- * name is too wide, it pins the icon left and slides the name back and forth so
- * the whole thing stays readable in the narrow rail.
+ * Icon-only capture-status trigger for the sidebar rail. The status text lives
+ * in a tooltip (and the aria-label); the popover opens to the right of the
+ * rail.
  */
-function SidebarStatusLabel({
-  icon,
-  label,
-}: {
-  icon: ReactNode
-  label: string
-}) {
-  const wrapRef = useRef<HTMLSpanElement>(null)
-  const textRef = useRef<HTMLSpanElement>(null)
-  const [shift, setShift] = useState(0)
-
-  useEffect(() => {
-    const wrap = wrapRef.current
-    const text = textRef.current
-    if (!wrap || !text) return
-    const measure = () => {
-      const overflow = text.scrollWidth - wrap.clientWidth
-      setShift(overflow > 1 ? overflow : 0)
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(wrap)
-    observer.observe(text)
-    return () => observer.disconnect()
-  }, [label])
-
-  const overflowing = shift > 0
-  return (
-    <span
-      className={cn(
-        "flex min-w-0 flex-1 items-center gap-1.5",
-        overflowing ? "justify-start" : "justify-center",
-      )}
-    >
-      <span className="flex size-4 shrink-0 items-center justify-center">
-        {icon}
-      </span>
-      <span ref={wrapRef} className="min-w-0 overflow-hidden">
-        <span
-          ref={textRef}
-          className="inline-block text-sm font-semibold whitespace-nowrap"
-          style={
-            overflowing
-              ? ({
-                  "--rec-shift": `-${shift}px`,
-                  animation: `recording-marquee ${Math.max(
-                    3,
-                    Math.round(shift / 25),
-                  )}s linear infinite alternate`,
-                } as CSSProperties)
-              : undefined
-          }
-        >
-          {label}
-        </span>
-      </span>
-    </span>
-  )
-}
-
 function RecordingStatusPopover({
   active,
   activeGame,
   desktop,
   displays,
   label,
-  placement,
   settings,
   status,
   onOpenDisplayPicker,
@@ -178,61 +109,56 @@ function RecordingStatusPopover({
   desktop: AlloyDesktop
   displays: RecordingDisplay[]
   label: string
-  placement: "header" | "sidebar"
   settings: RecordingSettings | null
   status: RecordingStatus | null
   onOpenDisplayPicker: () => void
   onSave: SaveRecordingSettings
 }) {
-  const sidebar = placement === "sidebar"
   const icon =
     activeGame && settings?.captureMode !== "display" ? (
       <GameIcon
         src={activeGame.iconUrl}
         name={activeGame.name}
-        className="size-4"
+        className="size-5"
       />
     ) : settings?.captureMode === "display" ? (
-      <MonitorIcon className="text-foreground-muted size-4" />
+      <MonitorIcon className="size-5" />
     ) : (
-      <Gamepad2Icon className="size-4 shrink-0 text-current" />
+      <Gamepad2Icon className="size-5 shrink-0 text-current" />
     )
+  const statusText = t("Capture status: {label}", { label })
   return (
     <Popover>
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            title={t("Capture status")}
-            aria-label={t("Capture status: {label}", { label })}
-            className={cn(
-              "hidden min-w-0 appearance-none items-center border-0 bg-transparent text-left outline-none md:inline-flex",
-              "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              sidebar
-                ? "h-9 w-full justify-center gap-2 rounded-md px-2 transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] hover:bg-surface-raised data-popup-open:bg-surface-raised"
-                : "h-8 w-36 gap-1 p-0",
-              active
-                ? "text-foreground hover:text-foreground active:text-foreground focus:text-foreground data-open:text-foreground data-popup-open:text-foreground"
-                : "text-foreground-muted hover:text-foreground-muted active:text-foreground-muted focus:text-foreground-muted data-open:text-foreground-muted data-popup-open:text-foreground-muted",
-            )}
-          >
-            {sidebar ? (
-              <SidebarStatusLabel icon={icon} label={label} />
-            ) : (
-              <span className="flex w-full min-w-0 items-center gap-1">
-                {icon}
-                <span className="min-w-0 truncate text-sm font-semibold">
-                  {label}
-                </span>
-              </span>
-            )}
-          </button>
-        }
-      />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <PopoverTrigger
+              render={
+                <button
+                  type="button"
+                  aria-label={statusText}
+                  className={cn(
+                    "flex size-11 shrink-0 appearance-none items-center justify-center rounded-md border-0 bg-transparent outline-none",
+                    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+                    "hover:bg-surface-raised data-popup-open:bg-surface-raised",
+                    "focus-visible:ring-ring focus-visible:ring-2",
+                    active
+                      ? "text-foreground"
+                      : "text-foreground-muted hover:text-foreground",
+                  )}
+                >
+                  {icon}
+                </button>
+              }
+            />
+          }
+        />
+        <TooltipContent side="right">{statusText}</TooltipContent>
+      </Tooltip>
       <PopoverContent
-        align={sidebar ? "start" : "center"}
-        side={sidebar ? "top" : "bottom"}
-        sideOffset={8}
+        align="end"
+        side="right"
+        sideOffset={12}
         className="alloy-blur w-[26rem] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0"
         style={
           {

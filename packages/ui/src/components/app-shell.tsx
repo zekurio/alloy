@@ -7,12 +7,12 @@ function AppShell({ className, ...props }: ComponentProps<"div">) {
       data-slot="app-shell"
       className={cn(
         "relative grid h-dvh w-full overflow-hidden bg-background",
-        // Mobile: single column; navigation lives in a swipe drawer.
+        // Mobile: single column; navigation lives in a fixed bottom nav.
         "[grid-template-columns:1fr]",
         "[grid-template-rows:var(--header-h)_1fr]",
         "[grid-template-areas:'header''main']",
-        // Desktop (md+): classic sidebar rail + main, header spans both.
-        "md:[grid-template-columns:var(--sidebar-expanded)_1fr]",
+        // Desktop (md+): icon-only sidebar rail + main, header spans both.
+        "md:[grid-template-columns:var(--sidebar-rail)_1fr]",
         "md:[grid-template-rows:var(--header-h)_1fr]",
         "md:[grid-template-areas:'header_header''sidebar_main']",
         "[&_[data-slot=app-sidebar]]:[grid-area:sidebar]",
