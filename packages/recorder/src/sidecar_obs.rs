@@ -562,7 +562,7 @@ unsafe fn create_audio_graph(
         ));
     }
 
-    let multi_track = configs.len() >= 2 && configs.len() <= MAX_AUDIO_MIXES - 1;
+    let multi_track = configs.len() >= 2 && configs.len() < MAX_AUDIO_MIXES;
     if configs.len() > MAX_AUDIO_MIXES - 1 {
         eprintln!(
             "[{SIDE_CAR_NAME}] configured {} audio sources, but per-source stems support at most {}; falling back to a single mixed audio track.",
