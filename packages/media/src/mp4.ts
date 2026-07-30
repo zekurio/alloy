@@ -28,36 +28,57 @@ export const UPLOAD_MP4_AUDIO_CODECS = new Set(["aac"])
 
 /**
  * Reject sources whose codecs the upload pipeline cannot accept, before any
- * bytes are written. Keeps unsupported media from producing a local file the
- * server would later refuse.
+ * bytes are written. The audio argument remains scalar-compatible for older
+ * callers while accepting every track for multi-track validation.
  */
 export function assertUploadMp4Compatible(
   videoCodec: InputVideoTrack["codec"],
-  audioCodec: InputAudioTrack["codec"] | null,
+  audioCodec:
+    | InputAudioTrack["codec"]
+    | readonly InputAudioTrack["codec"][]
+    | null,
 ): void {
   if (!videoCodec || !UPLOAD_MP4_VIDEO_CODECS.has(videoCodec)) {
     throw new Error("Only H.264, HEVC, or AV1 video can be uploaded.")
   }
-  if (audioCodec && !UPLOAD_MP4_AUDIO_CODECS.has(audioCodec)) {
+  const audioCodecs = Array.isArray(audioCodec) ? audioCodec : [audioCodec]
+  if (
+    audioCodecs.some((codec) => codec && !UPLOAD_MP4_AUDIO_CODECS.has(codec))
+  ) {
     throw new Error("Only AAC audio can be uploaded.")
   }
 }
 
 export interface OutputSinks {
   video: EncodedVideoPacketSource
+  /** First audio sink, retained for backward-compatible single-track callers. */
   audio: EncodedAudioPacketSource | null
+  /** All audio sinks in input track order. */
+  audios: readonly EncodedAudioPacketSource[]
 }
 
 /**
  * Runs `copy` against a fragmented-MP4 output configured for the given tracks,
- * finalizing on success and cancelling on failure.
+ * finalizing on success and cancelling on failure. Passing one audio track is
+ * backward compatible and discovers sibling audio tracks from its input;
+ * passing an array lets multi-track-aware callers drive every sink directly.
  */
 export async function withMp4Output(
   target: Target,
   video: InputVideoTrack,
-  audio: InputAudioTrack | null,
+  audio: InputAudioTrack | readonly InputAudioTrack[] | null,
   copy: (sinks: OutputSinks) => Promise<void>,
 ): Promise<void> {
+  const audios = Array.isArray(audio)
+    ? [...audio]
+    : audio
+      ? await video.input.getAudioTracks()
+      : []
+  assertUploadMp4Compatible(
+    video.codec,
+    audios.map((track) => track.codec),
+  )
+
   const output = new Output({
     format: new Mp4OutputFormat({ fastStart: "fragmented" }),
     target,
@@ -67,15 +88,36 @@ export async function withMp4Output(
       video.codec ?? throwUnknownCodec("video"),
     )
     output.addVideoTrack(videoSource)
-    const audioSource = audio
-      ? new EncodedAudioPacketSource(audio.codec ?? throwUnknownCodec("audio"))
-      : null
-    if (audioSource) output.addAudioTrack(audioSource)
+    const audioSources = audios.map((track) => {
+      const source = new EncodedAudioPacketSource(
+        track.codec ?? throwUnknownCodec("audio"),
+      )
+      output.addAudioTrack(source)
+      return source
+    })
 
     await output.start()
-    await copy({ video: videoSource, audio: audioSource })
+    await copy({
+      video: videoSource,
+      audio: audioSources[0] ?? null,
+      audios: audioSources,
+    })
+
+    // Older full-remux callers only know about `sinks.audio`. Preserve their
+    // sibling tracks automatically. Multi-track-aware callers pass an array
+    // and own packet selection/rebasing themselves (needed for cuts/concat).
+    if (!Array.isArray(audio) && audio && audios.length > 1) {
+      const firstVideo = await new EncodedPacketSink(video).getFirstPacket()
+      const baseSec = firstVideo?.timestamp ?? 0
+      for (const [index, track] of audios.slice(1).entries()) {
+        const source = audioSources[index + 1]
+        if (!source) throw new Error("Missing MP4 audio output sink")
+        await copyAudioPackets(track, source, baseSec, undefined)
+      }
+    }
+
     videoSource.close()
-    audioSource?.close()
+    for (const source of audioSources) source.close()
     await output.finalize()
   } catch (err) {
     await output.cancel().catch(() => undefined)
@@ -85,10 +127,10 @@ export async function withMp4Output(
 
 /**
  * Cut `[startMs, endMs]` out of `input` into a fragmented MP4 written to
- * `target`, without re-encoding. The cut start snaps to the nearest preceding
- * video keyframe; the returned `startOffsetMs` is how far into the output the
- * requested start actually sits because of that snap. Does not dispose
- * `input`; the caller owns its lifecycle.
+ * `target`, without re-encoding. Every AAC audio track is preserved. The cut
+ * start snaps to the nearest preceding video keyframe; the returned
+ * `startOffsetMs` is how far into the output the requested start actually sits
+ * because of that snap. Does not dispose `input`; the caller owns it.
  */
 export async function trimToMp4Target(opts: {
   input: Input
@@ -104,17 +146,20 @@ export async function trimToMp4Target(opts: {
 
   const video = await opts.input.getPrimaryVideoTrack()
   if (!video) throw new Error(`${label} has no video track`)
-  const audio = await opts.input.getPrimaryAudioTrack()
+  const audios = await opts.input.getAudioTracks()
+  assertUploadMp4Compatible(
+    video.codec,
+    audios.map((track) => track.codec),
+  )
 
   const endSec = Math.max(opts.startMs + 1, opts.endMs) / 1000
-
   const videoSink = new EncodedPacketSink(video)
   const startPacket = await trimStartKeyPacket(videoSink, opts.startMs)
   if (!startPacket) throw new Error(`${label} has no video key packet`)
   // All output timestamps are rebased onto the keyframe the cut snaps to.
   const baseSec = startPacket.timestamp
 
-  await withMp4Output(opts.target, video, audio, async (sinks) => {
+  await withMp4Output(opts.target, video, audios, async (sinks) => {
     const videoMeta = {
       decoderConfig: (await video.getDecoderConfig()) ?? undefined,
     }
@@ -128,8 +173,10 @@ export async function trimToMp4Target(opts: {
         videoMeta,
       )
     }
-    if (audio && sinks.audio) {
-      await copyAudioPackets(audio, sinks.audio, baseSec, endSec, opts.signal)
+    for (const [index, track] of audios.entries()) {
+      const source = sinks.audios[index]
+      if (!source) throw new Error("Missing MP4 audio output sink")
+      await copyAudioPackets(track, source, baseSec, endSec, opts.signal)
     }
   })
 
@@ -159,10 +206,7 @@ export async function snappedTrimStartMs(
   return packet.timestamp * 1000
 }
 
-/**
- * The key packet a cut starting at `startMs` begins on: the nearest one at
- * or before that time, falling back to the file's first key packet.
- */
+/** The nearest key packet at or before the requested start. */
 async function trimStartKeyPacket(sink: EncodedPacketSink, startMs: number) {
   return (
     (await sink.getKeyPacket(Math.max(0, startMs) / 1000, {
@@ -173,9 +217,8 @@ async function trimStartKeyPacket(sink: EncodedPacketSink, startMs: number) {
 
 /**
  * Copy audio packets in `[baseSec, endSec)`, rebased to `baseSec`. Packets
- * whose rebased timestamp is negative (the frame straddling the cut point)
- * are dropped to satisfy the muxer's monotonic, non-negative contract — at the
- * cost of at most one audio frame (~20ms) of leading silence.
+ * whose rebased timestamp is negative are dropped to satisfy the muxer's
+ * monotonic, non-negative contract, costing at most one AAC frame (~20ms).
  */
 export async function copyAudioPackets(
   audio: InputAudioTrack,

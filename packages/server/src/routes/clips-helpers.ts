@@ -1,5 +1,6 @@
 import {
   ACCEPTED_CLIP_CONTENT_TYPES,
+  CLIP_AUDIO_TRACK_KINDS,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_SCRUBBER_MAX_BYTES,
   CLIP_TAG_MAX_LENGTH,
@@ -199,6 +200,16 @@ const TagsInput = z
   .max(CLIP_TAGS_MAX)
   .optional()
 
+const AudioTracksInput = z
+  .array(
+    z.object({
+      kind: z.enum(CLIP_AUDIO_TRACK_KINDS),
+      label: z.string().trim().min(1).max(64),
+    }),
+  )
+  .max(5)
+  .optional()
+
 export const InitiateBody = z
   .object({
     clientClipId: z.uuid().optional(),
@@ -217,6 +228,7 @@ export const InitiateBody = z
     privacy: z.enum(CLIP_PRIVACY).default("public"),
     mentionedUserIds: z.array(z.uuid()).optional(),
     tags: TagsInput,
+    audioTracks: AudioTracksInput,
     width: z.number().int().positive().max(32_768).optional(),
     height: z.number().int().positive().max(32_768).optional(),
     durationMs: z.number().int().positive().optional(),

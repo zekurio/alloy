@@ -1,5 +1,11 @@
 import { normalizeTags } from "@alloy/contracts"
-import { clip, clipMention, clipRendition, clipTag } from "@alloy/db/schema"
+import {
+  clip,
+  clipAudioTrack,
+  clipMention,
+  clipRendition,
+  clipTag,
+} from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
@@ -305,9 +311,9 @@ export const clipsUploadRoutes = new Hono()
       if (!accepted) return conflict(c, "Clip is already processing")
 
       // Fireshare-style eager invalidation: the accepted trim makes existing
-      // renditions stale, so drop their records before playback can select
-      // them; the previously committed cut keeps the clip's cut_key until the
-      // run's commitSource swaps in the new exact cut. The records are the
+      // renditions and stems stale, so drop their records before playback can
+      // select them. The previously committed cut keeps the clip's cut_key
+      // until commitSource swaps in the new exact cut. These records are the
       // only reference the run's stale-asset prune reads (currentAssetKeys),
       // so capture the storage keys and delete the objects here instead of
       // leaking them to the orphan GC.
@@ -315,10 +321,18 @@ export const clipsUploadRoutes = new Hono()
         .select({ storageKey: clipRendition.storage_key })
         .from(clipRendition)
         .where(eq(clipRendition.clip_id, id))
+      const staleAudioTracks = await db
+        .select({ storageKey: clipAudioTrack.storage_key })
+        .from(clipAudioTrack)
+        .where(eq(clipAudioTrack.clip_id, id))
       await db.delete(clipRendition).where(eq(clipRendition.clip_id, id))
+      await db.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
       await deleteAssetsBestEffort(
-        staleRenditions.map((rendition) => rendition.storageKey),
-        "pre-trim rendition",
+        [
+          ...staleRenditions.map((rendition) => rendition.storageKey),
+          ...staleAudioTracks.map((track) => track.storageKey),
+        ],
+        "pre-trim derived asset",
       )
 
       void publishClipUpsert(row.author_id, id)

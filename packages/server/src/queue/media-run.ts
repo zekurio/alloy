@@ -2,11 +2,13 @@ import { rm, stat } from "node:fs/promises"
 
 import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
+import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import {
   clipScrubberKey,
   publishScrubberSheet,
 } from "@alloy/server/clips/scrubber"
 import { configStore } from "@alloy/server/config/store"
+import { extractAudioStems } from "@alloy/server/media/audio-stems"
 import {
   encodeFingerprint,
   expectedLadder,
@@ -29,6 +31,7 @@ import {
 
 import { abortMediaProcessing } from "./media-abort"
 import {
+  runScopedAudioTrackKey,
   runScopedCutKey,
   runScopedRenditionKey,
   runScopedSourceKey,
@@ -56,7 +59,12 @@ import {
   pruneStaleAssets,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
-import type { MediaRenditionRecord, MediaRow, MediaStore } from "./media-store"
+import type {
+  MediaAudioTrackRecord,
+  MediaRenditionRecord,
+  MediaRow,
+  MediaStore,
+} from "./media-store"
 export {
   encodeProgressPercent,
   encodeProgressTotalCost,
@@ -163,6 +171,10 @@ async function runPipelineInWorkDir({
     throw abortMediaProcessing()
 
   const sourceProbe = await probeMedia(sourcePath)
+  const audioTrackHints = validatedAudioTrackHints(
+    row,
+    sourceProbe.audioTracks.length,
+  )
   const trim = trimRange(row, sourceProbe.durationMs)
   const transcodingConfig = configStore.get("transcoding")
   let hardwareFailed = false
@@ -206,6 +218,15 @@ async function runPipelineInWorkDir({
     sourceCodecs,
     trimStartMs: row.trimStartMs,
     trimEndMs: row.trimEndMs,
+    audioTrackFingerprint: audioTrackHints.length
+      ? JSON.stringify({
+          hints: audioTrackHints,
+          tracks: sourceProbe.audioTracks.slice(1).map((track) => ({
+            codec: track.codec,
+            codecs: track.codecString,
+          })),
+        })
+      : null,
   }
   const ladder = expectedLadder(transcodingConfig, fingerprintFacts)
   const fingerprint = encodeFingerprint(transcodingConfig, fingerprintFacts)
@@ -244,6 +265,8 @@ async function runPipelineInWorkDir({
     sourceFps,
     sourceSizeBytes: sourceAsset.sizeBytes,
     sourceDurationMs: sourceProbe.durationMs,
+    pendingAudioTracks: audioTrackHints.length ? audioTrackHints : null,
+    audioTrackFingerprint: fingerprintFacts.audioTrackFingerprint,
     cutKey,
     cutCodecs,
     durationMs,
@@ -290,7 +313,36 @@ async function runPipelineInWorkDir({
   store.publishUpsert(row.authorId, id)
   progress.complete(POSTER_PHASE_COST)
 
-  // Run-scoped rendition keys stay unpublished until the ready transition.
+  // Run-scoped stem and rendition keys stay unpublished until commitReady.
+  // Stems use the original source and the exact same trim bounds as the
+  // canonical cut, rather than deriving from a rendition's mixed audio.
+  const audioTracks: MediaAudioTrackRecord[] = []
+  if (audioTrackHints.length > 0) {
+    const extracted = await extractAudioStems({
+      sourcePath,
+      outDir: join(workDir, "audio-stems"),
+      sourceTracks: sourceProbe.audioTracks,
+      hints: audioTrackHints,
+      trim: trim ?? undefined,
+      canonicalDurationMs: durationMs,
+      signal,
+    })
+    for (const stem of extracted) {
+      const storageKey = runScopedAudioTrackKey(id, runId, stem.index)
+      await clipStorage.uploadFromFile(stem.filePath, storageKey, "audio/mp4")
+      uploadedKeys.push(storageKey)
+      audioTracks.push({
+        index: stem.index,
+        kind: stem.kind,
+        label: stem.label,
+        storageKey,
+        codecs: stem.codecs,
+        sizeBytes: stem.sizeBytes,
+        version: clipAssetVersion(storageKey),
+      })
+    }
+  }
+
   const renditions: MediaRenditionRecord[] = []
   for (const step of ladder) {
     await ensureStillPresent(store, id, runId, signal)
@@ -355,16 +407,25 @@ async function runPipelineInWorkDir({
       encodeFingerprint: fingerprint,
     },
     renditions,
+    audioTracks,
   )
   if (!committed) throw abortMediaProcessing()
   // The row now points at the newly published assets. Any previous asset that
   // was not retained is orphaned; prune it best-effort after publish.
-  await pruneStaleAssets(row, previousAssets?.renditionKeys ?? [], [
-    sourceAsset.storageKey,
-    ...(cutKey ? [cutKey] : []),
-    ...renditions.map((rendition) => rendition.storageKey),
-    ...(thumbKey ? [thumbKey] : []),
-  ])
+  await pruneStaleAssets(
+    row,
+    [
+      ...(previousAssets?.renditionKeys ?? []),
+      ...(previousAssets?.audioTrackKeys ?? []),
+    ],
+    [
+      sourceAsset.storageKey,
+      ...(cutKey ? [cutKey] : []),
+      ...renditions.map((rendition) => rendition.storageKey),
+      ...audioTracks.map((track) => track.storageKey),
+      ...(thumbKey ? [thumbKey] : []),
+    ],
+  )
   await cleanupTickets({ type: store.target, id }, "completed staged upload")
   if (!(await clipThumbnailStorage.resolve(clipScrubberKey(id)))) {
     try {
@@ -384,4 +445,18 @@ async function runPipelineInWorkDir({
   }
   progress.complete(FINALIZE_PHASE_COST)
   store.publishUpsert(row.authorId, id)
+}
+
+function validatedAudioTrackHints(
+  row: MediaRow,
+  probedAudioTrackCount: number,
+) {
+  if (row.pendingAudioTracks === null) return []
+  const hints = row.pendingAudioTracks
+  const expectedHintCount = Math.max(0, probedAudioTrackCount - 1)
+  if (hints.length === expectedHintCount) return hints
+  logger.warn(
+    `discarding audio stem hints for ${row.id}: expected ${expectedHintCount}, received ${hints.length}`,
+  )
+  return []
 }

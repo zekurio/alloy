@@ -11,6 +11,8 @@ export interface FingerprintSourceFacts {
   sourceCodecs: string | null
   trimStartMs: number | null
   trimEndMs: number | null
+  /** Probed stem count/codecs plus validated semantic metadata. */
+  audioTrackFingerprint: string | null
 }
 
 export function browserSafeSource(
@@ -53,6 +55,7 @@ export function encodeFingerprint(
       facts.trimStartMs === null || facts.trimEndMs === null
         ? null
         : [facts.trimStartMs, facts.trimEndMs],
+    ...(facts.audioTrackFingerprint ? { at: facts.audioTrackFingerprint } : {}),
     steps: expectedLadder(config, facts).map((step) => ({
       n: step.name,
       h: step.height,

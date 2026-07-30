@@ -290,6 +290,7 @@ async function selectClipEncodeLease(clipId: string): Promise<{
       sourceCodecs: clip.source_codecs,
       trimStartMs: clip.trim_start_ms,
       trimEndMs: clip.trim_end_ms,
+      audioTrackFingerprint: clip.audio_track_fingerprint,
     })
     .from(clip)
     .where(eq(clip.id, clipId))
@@ -307,6 +308,7 @@ async function selectClipEncodeLease(clipId: string): Promise<{
             sourceCodecs: row.sourceCodecs,
             trimStartMs: row.trimStartMs,
             trimEndMs: row.trimEndMs,
+            audioTrackFingerprint: row.audioTrackFingerprint,
           },
   }
 }

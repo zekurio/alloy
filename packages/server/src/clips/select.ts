@@ -1,7 +1,12 @@
-import { normalizeBlurHash, type ClipMentionRef } from "@alloy/contracts"
+import {
+  normalizeBlurHash,
+  type ClipAudioTrackKind,
+  type ClipMentionRef,
+} from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import {
   clip,
+  clipAudioTrack,
   clipMention,
   clipRendition,
   clipTag,
@@ -61,6 +66,17 @@ export const clipSelectShape = {
   tags: sql<
     string[]
   >`coalesce((select array_agg(${clipTag.tag} order by ${clipTag.tag}) from ${clipTag} where ${clipTag.clip_id} = ${clip.id}), '{}')`,
+  // Committed stem metadata. Storage keys never enter the public select;
+  // versions are persisted alongside each atomically published stem.
+  audioTrackRows: sql<
+    {
+      index: number
+      kind: ClipAudioTrackKind
+      label: string
+      codecs: string
+      version: string
+    }[]
+  >`coalesce((select json_agg(json_build_object('index', ${clipAudioTrack.idx}, 'kind', ${clipAudioTrack.kind}, 'label', ${clipAudioTrack.label}, 'codecs', ${clipAudioTrack.codecs}, 'version', ${clipAudioTrack.version}) order by ${clipAudioTrack.idx}) from ${clipAudioTrack} where ${clipAudioTrack.clip_id} = ${clip.id}), '[]'::json)`,
   // Committed quality tiers, highest first. Keys are aggregated for version
   // derivation and stripped before the row leaves the server.
   renditionRows: sql<
@@ -123,6 +139,13 @@ export function toPublicClipRow<
     gameId: string | null
     game: string | null
     gameRef?: Parameters<typeof serialiseGameRow>[0] | null
+    audioTrackRows?: {
+      index: number
+      kind: ClipAudioTrackKind
+      label: string
+      codecs: string
+      version: string
+    }[]
     renditionRows?: {
       name: string
       og: boolean
@@ -138,6 +161,7 @@ export function toPublicClipRow<
     sourceKey: _sourceKey,
     cutKey: _cutKey,
     gameRef,
+    audioTrackRows,
     renditionRows,
     ...rest
   } = row
@@ -161,6 +185,7 @@ export function toPublicClipRow<
         ? clipAssetVersion(row.sourceKey)
         : null,
     renditions,
+    audioTracks: audioTrackRows ?? [],
     gameRef: gameRef
       ? serialiseGameRow(gameRef)
       : row.gameId !== null

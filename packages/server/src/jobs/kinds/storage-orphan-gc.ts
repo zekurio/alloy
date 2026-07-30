@@ -1,4 +1,4 @@
-import { clip, clipRendition } from "@alloy/db/schema"
+import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { clipScrubberKey } from "@alloy/server/clips/scrubber"
 import { db } from "@alloy/server/db/index"
@@ -170,6 +170,16 @@ async function selectLiveKeys(
   for (const rendition of renditions) {
     liveKeys.get(rendition.clipId)?.add(rendition.storageKey)
   }
+  const audioTracks = await db
+    .select({
+      clipId: clipAudioTrack.clip_id,
+      storageKey: clipAudioTrack.storage_key,
+    })
+    .from(clipAudioTrack)
+    .where(inArray(clipAudioTrack.clip_id, clipIds))
+  for (const track of audioTracks) {
+    liveKeys.get(track.clipId)?.add(track.storageKey)
+  }
   return liveKeys
 }
 
@@ -201,6 +211,7 @@ function isRunStampedFilename(filename: string): boolean {
     /^source-[0-9a-f]{12}$/i.test(filename) ||
     /^cut-[0-9a-f]{12}\.mp4$/i.test(filename) ||
     /^rendition-.+-[0-9a-f]{12}\.mp4$/i.test(filename) ||
+    /^audio-[0-4]-[0-9a-f]{12}\.m4a$/i.test(filename) ||
     /^thumb-[0-9a-f]{12}\.jpg$/i.test(filename)
   )
 }

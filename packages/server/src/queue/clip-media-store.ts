@@ -1,4 +1,4 @@
-import { clip, clipRendition } from "@alloy/db/schema"
+import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import {
   publishClipProgress,
@@ -45,6 +45,8 @@ const mediaRowSelect = {
   sourceContentType: clip.source_content_type,
   sourceSizeBytes: clip.source_size_bytes,
   sourceDurationMs: clip.source_duration_ms,
+  pendingAudioTracks: clip.pending_audio_tracks,
+  audioTrackFingerprint: clip.audio_track_fingerprint,
   cutKey: clip.cut_key,
   thumbKey: clip.thumb_key,
   thumbBlurHash: clip.thumb_blur_hash,
@@ -65,6 +67,8 @@ function sourcePatchToColumns(patch: MediaSourcePatch) {
     source_fps: patch.sourceFps,
     source_size_bytes: patch.sourceSizeBytes,
     source_duration_ms: patch.sourceDurationMs,
+    pending_audio_tracks: patch.pendingAudioTracks,
+    audio_track_fingerprint: patch.audioTrackFingerprint,
     cut_key: patch.cutKey,
     cut_codecs: patch.cutCodecs,
     duration_ms: patch.durationMs,
@@ -295,7 +299,7 @@ export const clipMediaStore: MediaStore = {
     return Boolean(row)
   },
 
-  async commitReady(id, runId, patch, renditions) {
+  async commitReady(id, runId, patch, renditions, audioTracks) {
     return db.transaction(async (tx) => {
       const [updated] = await tx
         .update(clip)
@@ -318,6 +322,7 @@ export const clipMediaStore: MediaStore = {
       if (!updated) return false
 
       await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
+      await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
       if (renditions.length > 0) {
         await tx.insert(clipRendition).values(
           renditions.map((rendition) => ({
@@ -330,6 +335,20 @@ export const clipMediaStore: MediaStore = {
             storage_key: rendition.storageKey,
             codecs: rendition.codecs,
             size_bytes: rendition.sizeBytes,
+          })),
+        )
+      }
+      if (audioTracks.length > 0) {
+        await tx.insert(clipAudioTrack).values(
+          audioTracks.map((track) => ({
+            clip_id: id,
+            idx: track.index,
+            kind: track.kind,
+            label: track.label,
+            storage_key: track.storageKey,
+            codecs: track.codecs,
+            size_bytes: track.sizeBytes,
+            version: track.version,
           })),
         )
       }
@@ -352,9 +371,14 @@ export const clipMediaStore: MediaStore = {
       .select({ storageKey: clipRendition.storage_key })
       .from(clipRendition)
       .where(eq(clipRendition.clip_id, id))
+    const audioTrackRows = await db
+      .select({ storageKey: clipAudioTrack.storage_key })
+      .from(clipAudioTrack)
+      .where(eq(clipAudioTrack.clip_id, id))
     return {
       ...row,
       renditionKeys: renditionRows.map((rendition) => rendition.storageKey),
+      audioTrackKeys: audioTrackRows.map((track) => track.storageKey),
     }
   },
 
