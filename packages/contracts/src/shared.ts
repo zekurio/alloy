@@ -10,8 +10,13 @@ export type ClipStatus = (typeof CLIP_STATUS)[number]
 export const RECORDING_KIND = ["clip"] as const
 export type RecordingKind = (typeof RECORDING_KIND)[number]
 
-// Semantic role of one isolated audio stem recorded alongside the combined
-// mix. Stems let players rebalance sources (game vs voice) after the fact.
+/**
+ * Semantic role of one isolated audio stem recorded alongside the combined
+ * mix. Stems let players rebalance sources (game vs voice) after the fact.
+ * `desktop` means system/loopback output audio, not screen capture. The list
+ * may grow; consumers must coerce unknown kinds with
+ * {@link normalizeClipAudioTrackKind} instead of rejecting the track.
+ */
 export const CLIP_AUDIO_TRACK_KINDS = [
   "game",
   "microphone",
@@ -21,15 +26,17 @@ export const CLIP_AUDIO_TRACK_KINDS = [
 ] as const
 export type ClipAudioTrackKind = (typeof CLIP_AUDIO_TRACK_KINDS)[number]
 
-// Track roles as reported by the recording backend. Audio track 0 of a
-// multi-track capture is always the full "mix" of every enabled source; the
-// remaining tracks are per-source stems using the clip stem kinds above.
-export const RECORDING_AUDIO_TRACK_KINDS = [
-  "mix",
-  ...CLIP_AUDIO_TRACK_KINDS,
-] as const
-export type RecordingAudioTrackKind =
-  (typeof RECORDING_AUDIO_TRACK_KINDS)[number]
+/**
+ * Coerces a possibly-foreign kind value to a known one. Unknown kinds map to
+ * "other" so version skew between recorder, server, and web never rejects a
+ * track (or the clip carrying it) over a cosmetic classification.
+ */
+export function normalizeClipAudioTrackKind(
+  value: unknown,
+): ClipAudioTrackKind {
+  const known = CLIP_AUDIO_TRACK_KINDS.find((kind) => kind === value)
+  return known ?? "other"
+}
 
 export const UPLOAD_TICKET_ROLE = ["video", "scrubber"] as const
 export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]
