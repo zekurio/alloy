@@ -78,7 +78,6 @@ export interface MediaAudioTrackRecord {
   storageKey: string
   codecs: string
   sizeBytes: number
-  version: string
 }
 
 /**

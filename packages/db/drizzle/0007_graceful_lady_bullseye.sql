@@ -6,7 +6,6 @@ CREATE TABLE "clip_audio_track" (
 	"codecs" text NOT NULL,
 	"storage_key" text NOT NULL,
 	"size_bytes" bigint NOT NULL,
-	"version" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "clip_audio_track_clip_id_idx_pk" PRIMARY KEY("clip_id","idx"),
 	CONSTRAINT "clip_audio_track_idx_check" CHECK ("clip_audio_track"."idx" >= 0 and "clip_audio_track"."idx" < 5),

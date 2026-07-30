@@ -102,8 +102,11 @@ export async function trimMp4(
   try {
     const video = await input.getPrimaryVideoTrack()
     if (!video) throw new Error("Trim source has no video track")
-    const audio = await input.getPrimaryAudioTrack()
-    assertUploadMp4Compatible(video.codec, audio?.codec ?? null)
+    const audios = await input.getAudioTracks()
+    assertUploadMp4Compatible(
+      video.codec,
+      audios.map((track) => track.codec),
+    )
 
     return await trimToMp4Target({
       input,
@@ -154,7 +157,6 @@ export async function remuxToUploadMp4(
   try {
     const video = await input.getPrimaryVideoTrack()
     if (!video) throw new Error("Remux source has no video track")
-    const audio = await input.getPrimaryAudioTrack()
     const audios = await input.getAudioTracks()
     const videoCodec = video.codec ?? throwUnknownCodec("video")
     assertUploadMp4Compatible(
@@ -165,7 +167,7 @@ export async function remuxToUploadMp4(
     await withMp4Output(
       new FilePathTarget(outPath),
       video,
-      audio,
+      audios,
       async (sinks) => {
         await appendSegment(
           input,
@@ -190,8 +192,11 @@ export async function assertUploadMp4File(srcPath: string): Promise<void> {
   try {
     const video = await input.getPrimaryVideoTrack()
     if (!video) throw new Error("MP4 upload source has no video track")
-    const audio = await input.getPrimaryAudioTrack()
-    assertUploadMp4Compatible(video.codec, audio?.codec ?? null)
+    const audios = await input.getAudioTracks()
+    assertUploadMp4Compatible(
+      video.codec,
+      audios.map((track) => track.codec),
+    )
   } finally {
     input.dispose()
   }
@@ -240,16 +245,14 @@ export async function concatMp4Segments(
   try {
     const video = await first.getPrimaryVideoTrack()
     if (!video) throw new Error("Concat source has no video track")
-    const audio = await first.getPrimaryAudioTrack()
-    const firstAudioCodecs = (await first.getAudioTracks()).map(
-      (track) => track.codec,
-    )
+    const firstAudios = await first.getAudioTracks()
+    const firstAudioCodecs = firstAudios.map((track) => track.codec)
     const videoCodec = video.codec
 
     await withMp4Output(
       new FilePathTarget(outPath),
       video,
-      audio,
+      firstAudios,
       async (sinks) => {
         let offsetSec = 0
         for (const path of segmentPaths) {

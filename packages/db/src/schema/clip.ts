@@ -224,11 +224,12 @@ export const clipAudioTrack = pgTable(
     codecs: text().notNull(),
     storage_key: text().notNull(),
     size_bytes: bigint({ mode: "number" }).notNull(),
-    version: text().notNull(),
     created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
     primaryKey({ columns: [t.clip_id, t.idx] }),
+    // Keep these SQL literals aligned with CLIP_AUDIO_TRACKS_MAX and
+    // CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH from @alloy/contracts/content.
     check("clip_audio_track_idx_check", sql`${t.idx} >= 0 and ${t.idx} < 5`),
     check(
       "clip_audio_track_kind_check",

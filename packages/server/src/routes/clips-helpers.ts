@@ -7,6 +7,10 @@ import {
   CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
 } from "@alloy/contracts"
+import {
+  CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH,
+  CLIP_AUDIO_TRACKS_MAX,
+} from "@alloy/contracts/content"
 import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
@@ -204,10 +208,10 @@ const AudioTracksInput = z
   .array(
     z.object({
       kind: z.enum(CLIP_AUDIO_TRACK_KINDS),
-      label: z.string().trim().min(1).max(64),
+      label: z.string().trim().min(1).max(CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH),
     }),
   )
-  .max(5)
+  .max(CLIP_AUDIO_TRACKS_MAX)
   .optional()
 
 export const InitiateBody = z

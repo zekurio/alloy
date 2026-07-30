@@ -261,7 +261,8 @@ async function adoptMatchingRenditions(options: {
   renditions: SweepRenditionRow[]
 }): Promise<boolean> {
   if (options.row.encodePipeline !== MEDIA_PIPELINE_VERSION) return false
-  // Rendition rows alone cannot prove that all expected stem assets exist.
+  // Adoption only compares rendition rows, so exclude rows whose desired
+  // state also includes audio stems.
   if (options.row.audioTrackFingerprint !== null) return false
   const fixes = adoptionFixes(options.renditions, options.ladder)
   if (!fixes) return false

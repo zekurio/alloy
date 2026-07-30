@@ -51,29 +51,21 @@ export function assertUploadMp4Compatible(
 
 export interface OutputSinks {
   video: EncodedVideoPacketSource
-  /** First audio sink, retained for backward-compatible single-track callers. */
-  audio: EncodedAudioPacketSource | null
   /** All audio sinks in input track order. */
   audios: readonly EncodedAudioPacketSource[]
 }
 
 /**
  * Runs `copy` against a fragmented-MP4 output configured for the given tracks,
- * finalizing on success and cancelling on failure. Passing one audio track is
- * backward compatible and discovers sibling audio tracks from its input;
- * passing an array lets multi-track-aware callers drive every sink directly.
+ * finalizing on success and cancelling on failure. The callback owns every
+ * output sink; no packets are copied implicitly.
  */
 export async function withMp4Output(
   target: Target,
   video: InputVideoTrack,
-  audio: InputAudioTrack | readonly InputAudioTrack[] | null,
+  audios: readonly InputAudioTrack[],
   copy: (sinks: OutputSinks) => Promise<void>,
 ): Promise<void> {
-  const audios = Array.isArray(audio)
-    ? [...audio]
-    : audio
-      ? await video.input.getAudioTracks()
-      : []
   assertUploadMp4Compatible(
     video.codec,
     audios.map((track) => track.codec),
@@ -97,24 +89,7 @@ export async function withMp4Output(
     })
 
     await output.start()
-    await copy({
-      video: videoSource,
-      audio: audioSources[0] ?? null,
-      audios: audioSources,
-    })
-
-    // Older full-remux callers only know about `sinks.audio`. Preserve their
-    // sibling tracks automatically. Multi-track-aware callers pass an array
-    // and own packet selection/rebasing themselves (needed for cuts/concat).
-    if (!Array.isArray(audio) && audio && audios.length > 1) {
-      const firstVideo = await new EncodedPacketSink(video).getFirstPacket()
-      const baseSec = firstVideo?.timestamp ?? 0
-      for (const [index, track] of audios.slice(1).entries()) {
-        const source = audioSources[index + 1]
-        if (!source) throw new Error("Missing MP4 audio output sink")
-        await copyAudioPackets(track, source, baseSec, undefined)
-      }
-    }
+    await copy({ video: videoSource, audios: audioSources })
 
     videoSource.close()
     for (const source of audioSources) source.close()

@@ -348,7 +348,6 @@ export const clipMediaStore: MediaStore = {
             storage_key: track.storageKey,
             codecs: track.codecs,
             size_bytes: track.sizeBytes,
-            version: track.version,
           })),
         )
       }

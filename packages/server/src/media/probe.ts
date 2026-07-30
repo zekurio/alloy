@@ -1,7 +1,7 @@
 import { runFfprobe, type FfprobeStream } from "./ffprobe"
 
 export interface MediaAudioProbe {
-  /** Zero-based index among audio streams, matching ffmpeg's `0:a:<index>`. */
+  /** Absolute container stream index, matching ffmpeg's `0:<index>` map. */
   index: number
   codec: string
   /** RFC 6381 codec parameter string, when derivable. */
@@ -42,7 +42,8 @@ export async function probeMedia(
   )
   if (!video) throw new Error("No video track found")
   const audioStreams = probed.streams.filter(
-    (stream) => stream.codec_type === "audio" && stream.codec_name,
+    (stream) =>
+      stream.codec_type === "audio" && stream.codec_name && stream.index >= 0,
   )
   const audio = audioStreams[0]
 
@@ -63,8 +64,8 @@ export async function probeMedia(
     fps: parseFrameRate(video.avg_frame_rate),
     videoCodecString: buildVideoCodecString(video),
     audioCodecString: audio ? buildAudioCodecString(audio) : null,
-    audioTracks: audioStreams.map((stream, index) => ({
-      index,
+    audioTracks: audioStreams.map((stream) => ({
+      index: stream.index,
       codec: stream.codec_name,
       codecString: buildAudioCodecString(stream),
     })),

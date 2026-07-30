@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto"
 
 import type { ClipPrivacy } from "@alloy/contracts"
+import { CLIP_AUDIO_TRACKS_MAX } from "@alloy/contracts/content"
 import { clipAudioTrack } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import {
@@ -41,7 +42,11 @@ const logger = createLogger("clips")
 
 const AudioTrackParam = z.object({
   id: z.uuid(),
-  index: z.coerce.number().int().min(0).max(4),
+  index: z
+    .string()
+    .regex(/^\d$/)
+    .transform(Number)
+    .refine((index) => index < CLIP_AUDIO_TRACKS_MAX),
 })
 
 const RenditionParam = z.object({

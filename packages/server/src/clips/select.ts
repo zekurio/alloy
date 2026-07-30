@@ -66,17 +66,17 @@ export const clipSelectShape = {
   tags: sql<
     string[]
   >`coalesce((select array_agg(${clipTag.tag} order by ${clipTag.tag}) from ${clipTag} where ${clipTag.clip_id} = ${clip.id}), '{}')`,
-  // Committed stem metadata. Storage keys never enter the public select;
-  // versions are persisted alongside each atomically published stem.
+  // Committed stem metadata. Keys are aggregated for version derivation and
+  // stripped before the row leaves the server.
   audioTrackRows: sql<
     {
       index: number
       kind: ClipAudioTrackKind
       label: string
       codecs: string
-      version: string
+      key: string
     }[]
-  >`coalesce((select json_agg(json_build_object('index', ${clipAudioTrack.idx}, 'kind', ${clipAudioTrack.kind}, 'label', ${clipAudioTrack.label}, 'codecs', ${clipAudioTrack.codecs}, 'version', ${clipAudioTrack.version}) order by ${clipAudioTrack.idx}) from ${clipAudioTrack} where ${clipAudioTrack.clip_id} = ${clip.id}), '[]'::json)`,
+  >`coalesce((select json_agg(json_build_object('index', ${clipAudioTrack.idx}, 'kind', ${clipAudioTrack.kind}, 'label', ${clipAudioTrack.label}, 'codecs', ${clipAudioTrack.codecs}, 'key', ${clipAudioTrack.storage_key}) order by ${clipAudioTrack.idx}) from ${clipAudioTrack} where ${clipAudioTrack.clip_id} = ${clip.id}), '[]'::json)`,
   // Committed quality tiers, highest first. Keys are aggregated for version
   // derivation and stripped before the row leaves the server.
   renditionRows: sql<
@@ -144,7 +144,7 @@ export function toPublicClipRow<
       kind: ClipAudioTrackKind
       label: string
       codecs: string
-      version: string
+      key: string
     }[]
     renditionRows?: {
       name: string
@@ -174,6 +174,13 @@ export function toPublicClipRow<
     codecs: rendition.codecs,
     version: clipAssetVersion(rendition.key),
   }))
+  const audioTracks = (audioTrackRows ?? []).map((track) => ({
+    index: track.index,
+    kind: track.kind,
+    label: track.label,
+    codecs: track.codecs,
+    version: clipAssetVersion(track.key),
+  }))
   return {
     ...rest,
     playbackContentType: row.cutKey ? "video/mp4" : row.sourceContentType,
@@ -185,7 +192,7 @@ export function toPublicClipRow<
         ? clipAssetVersion(row.sourceKey)
         : null,
     renditions,
-    audioTracks: audioTrackRows ?? [],
+    audioTracks,
     gameRef: gameRef
       ? serialiseGameRow(gameRef)
       : row.gameId !== null

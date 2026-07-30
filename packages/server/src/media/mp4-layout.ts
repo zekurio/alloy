@@ -71,14 +71,13 @@ async function remuxToFastStart(
       "-y",
       "-i",
       srcPath,
-      // ffmpeg's default selection keeps only one stream of each type. An
-      // explicit map preserves the full mix plus every per-source audio stem.
+      // ffmpeg's default selection keeps only one stream of each type. Map all
+      // video and audio while excluding data/timecode streams that MP4 may not
+      // accept during a packet-copy remux.
       "-map",
-      "0",
-      "-map_metadata",
-      "0",
-      "-map_chapters",
-      "0",
+      "0:v",
+      "-map",
+      "0:a",
       "-c",
       "copy",
       "-movflags",

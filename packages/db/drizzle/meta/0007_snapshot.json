@@ -1,5 +1,5 @@
 {
-  "id": "e984519a-d80d-4277-a11a-a8135158334a",
+  "id": "c0f3de04-8f56-41e6-8183-cbb4a0b7119d",
   "prevId": "9e18dbbf-2ac6-4c48-8102-1f7b8dbdc70f",
   "version": "7",
   "dialect": "postgresql",
@@ -555,12 +555,6 @@
         "size_bytes": {
           "name": "size_bytes",
           "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "version": {
-          "name": "version",
-          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
