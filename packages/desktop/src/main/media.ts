@@ -186,7 +186,8 @@ export async function remuxToUploadMp4(
 
 /**
  * Copy the listed container audio tracks of `srcPath` into audio-only MP4s
- * without re-encoding, sharing one parsed input across all outputs.
+ * without re-encoding. One parsed input is shared across all outputs (the
+ * MP4 index is read once, though each track still walks its packets).
  * Timestamps are preserved so each stem shares the capture's timeline.
  */
 export async function extractCaptureAudioStems(

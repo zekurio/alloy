@@ -11,6 +11,7 @@ import {
 import { join } from "node:path"
 
 import type { RecordingLibraryItem } from "@alloy/contracts"
+import { isClipAudioTrackKind } from "@alloy/contracts/desktop-recording-types"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
@@ -65,7 +66,15 @@ export async function recordingCaptureAudioTrackFile(
   index: number,
 ): Promise<string | null> {
   const item = findRecordingLibraryItem(id)
-  if (!item?.audioTracks?.some((track) => track.index === index)) return null
+  const track = item?.audioTracks?.find(
+    (candidate) => candidate.index === index,
+  )
+  // Track 0 is the embedded mix (already served by the media route), and
+  // only stem-kind tracks are extracted — anything else could trigger the
+  // extraction job yet never be satisfied by it.
+  if (!item || !track || index <= 0 || !isClipAudioTrackKind(track.kind)) {
+    return null
+  }
 
   let stat: Stats
   try {
@@ -118,20 +127,27 @@ async function extractAllStems(
   const { extractCaptureAudioStems } = await import("./media")
   mkdirSync(audioTrackFolder(), { recursive: true })
 
-  // One job per capture version extracts every stem: MP4 interleaves audio
-  // with video, so per-stem extraction would re-read the whole capture once
-  // per track. Written to temp names and renamed only after every stem
+  // One job per capture version extracts every missing mixer-relevant stem
+  // (the same narrowing the publish path applies) through a single parsed
+  // input. Written to temp names and renamed only after every stem
   // succeeded, so a failed job never leaves a partial set under cache keys.
   const stems = (item.audioTracks ?? [])
-    .filter((track) => track.index > 0)
+    .filter((track) => track.index > 0 && isClipAudioTrackKind(track.kind))
     .map((track) => ({
       trackIndex: track.index,
-      outPath: `${stemPath(signature, track.index)}.partial`,
+      finalPath: stemPath(signature, track.index),
     }))
+    .filter((stem) => !existsSync(stem.finalPath))
+    .map((stem) => ({ ...stem, outPath: `${stem.finalPath}.partial` }))
+  if (stems.length === 0) return
+
   try {
     await extractCaptureAudioStems(item.filename, stems)
     for (const stem of stems) {
-      renameSync(stem.outPath, stem.outPath.slice(0, -".partial".length))
+      renameSync(stem.outPath, stem.finalPath)
+      // rename keeps the temp file's write time; stamp the outputs as most
+      // recently used so the sweep below cannot see them as stale.
+      touchStem(stem.finalPath)
     }
   } finally {
     for (const stem of stems) rmSync(stem.outPath, { force: true })
@@ -145,11 +161,16 @@ async function extractAllStems(
   }
 
   pruneCaptureCache(audioTrackFolder(), item.id, { prefix: `${signature}.` })
-  sweepAudioTrackCache()
+  sweepAudioTrackCache(new Set(stems.map((stem) => stem.finalPath)))
 }
 
-/** Evicts least-recently-served stems once the folder exceeds its budget. */
-function sweepAudioTrackCache(): void {
+/**
+ * Evicts least-recently-served stems once the folder exceeds its budget.
+ * `protectedPaths` (the triggering job's own fresh outputs) are never
+ * evicted — overshooting the budget until the next sweep beats evicting the
+ * stems the current request just paid to extract.
+ */
+function sweepAudioTrackCache(protectedPaths: ReadonlySet<string>): void {
   const folder = audioTrackFolder()
   let names: string[]
   try {
@@ -161,6 +182,9 @@ function sweepAudioTrackCache(): void {
   const entries: Array<{ path: string; sizeBytes: number; mtimeMs: number }> =
     []
   for (const name of names) {
+    // In-flight jobs of other captures own the .partial files; they are
+    // neither evictable nor worth budgeting.
+    if (name.endsWith(".partial")) continue
     const path = join(folder, name)
     try {
       const stat = statSync(path)
@@ -180,11 +204,13 @@ function sweepAudioTrackCache(): void {
   entries.sort((a, b) => a.mtimeMs - b.mtimeMs)
   for (const entry of entries) {
     if (total <= MAX_AUDIO_TRACK_CACHE_BYTES) break
+    if (protectedPaths.has(entry.path)) continue
     try {
       rmSync(entry.path, { force: true })
       total -= entry.sizeBytes
     } catch {
-      // Locked entries (an open ranged read) just survive this sweep.
+      // Removal is best-effort; a failure just defers to the next sweep.
+      // (Readers that already opened a removed file keep their handle.)
     }
   }
 }

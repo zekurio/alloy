@@ -103,8 +103,9 @@ export async function withMp4Output(
 /**
  * Furthest a stem's first packet may sit into the timeline before decoded
  * PCM (which starts at the first sample) would audibly desync from video.
- * Matches the server-side stem tolerance in
- * `packages/server/src/media/audio-stems.ts`.
+ * Mirrors the *start* tolerance of the server-side extractor
+ * (`packages/server/src/media/audio-stems.ts`); duration and mid-stream gap
+ * validation is out of scope for a packet copy.
  */
 const MAX_STEM_LEAD_SEC = 0.06
 
