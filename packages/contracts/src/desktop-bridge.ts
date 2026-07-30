@@ -115,10 +115,10 @@ export interface AlloyDesktopRecordingApi {
   saveLibraryCaptureScrubber(id: string, data: Uint8Array): Promise<void>
   /**
    * Fetchable `alloy-capture://` URL for one audio track of a local
-   * multi-track capture, extracting the stem to a local cache on first use.
-   * `index` is the capture's zero-based container audio track index (0 is
-   * the embedded mix; stems occupy 1..N). Null when the capture or track
-   * does not exist.
+   * multi-track capture, extracting the capture's stems to a local cache on
+   * first use. `index` is the capture's zero-based container audio track
+   * index (0 is the embedded mix; stems occupy 1..N). Null when the capture
+   * or track does not exist or its stems cannot be extracted.
    */
   getLibraryCaptureAudioTrackUrl(
     id: string,

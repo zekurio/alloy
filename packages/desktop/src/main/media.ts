@@ -185,25 +185,26 @@ export async function remuxToUploadMp4(
 }
 
 /**
- * Copy one audio track of `srcPath` into an audio-only MP4 at `outPath`
- * without re-encoding. `trackIndex` is the zero-based container audio track
- * index; timestamps are preserved so the stem shares the source's timeline.
+ * Copy the listed container audio tracks of `srcPath` into audio-only MP4s
+ * without re-encoding, sharing one parsed input across all outputs.
+ * Timestamps are preserved so each stem shares the capture's timeline.
  */
-export async function extractAudioTrackMp4(
+export async function extractCaptureAudioStems(
   srcPath: string,
-  outPath: string,
-  trackIndex: number,
+  outputs: ReadonlyArray<{ trackIndex: number; outPath: string }>,
 ): Promise<void> {
   const input = new Input({
     source: new FilePathSource(srcPath),
     formats: ALL_FORMATS,
   })
   try {
-    await extractAudioTrackToMp4Target({
-      input,
-      target: new FilePathTarget(outPath),
-      trackIndex,
-    })
+    for (const output of outputs) {
+      await extractAudioTrackToMp4Target({
+        input,
+        target: new FilePathTarget(output.outPath),
+        trackIndex: output.trackIndex,
+      })
+    }
   } finally {
     input.dispose()
   }
