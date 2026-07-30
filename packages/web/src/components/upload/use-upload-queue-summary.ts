@@ -5,7 +5,11 @@ import { useUploadQueue } from "./upload-flow-context"
 import { isCompletedQueueStatus, type QueueItem } from "./upload-queue-types"
 
 export interface UploadQueueSummary {
-  /** Active + failed rows worth surfacing (completed rows are dropped). */
+  /**
+   * Active + failed rows worth surfacing. Completed rows are dropped, and so
+   * are server-side encode ("processing") rows: their progress belongs to the
+   * library view, not the header.
+   */
   items: QueueItem[]
   activeCount: number
   failedCount: number
@@ -17,15 +21,16 @@ export interface UploadQueueSummary {
 }
 
 /**
- * Collapses the app-wide upload/download/processing queue into the compact
- * shape the global status pill needs. Returns null when nothing is in flight
- * so the pill can render nothing.
+ * Collapses the app-wide upload/download queue into the compact shape the
+ * global status pill needs. Returns null when nothing is in flight so the
+ * pill can render nothing.
  */
 export function useUploadQueueSummary(): UploadQueueSummary | null {
   const { queue } = useUploadQueue()
   return useMemo(() => {
     const relevant = queue.filter(
-      (item) => !isCompletedQueueStatus(item.status),
+      (item) =>
+        !isCompletedQueueStatus(item.status) && item.phase !== "processing",
     )
     if (relevant.length === 0) return null
 
@@ -58,9 +63,6 @@ export function useUploadQueueSummary(): UploadQueueSummary | null {
 function pillLabel(active: QueueItem[], failedCount: number): string {
   if (active.length === 0) return t("{count} failed", { count: failedCount })
   if (active.some((item) => item.phase === "upload")) return t("Uploading…")
-  if (active.some((item) => item.phase === "processing")) {
-    return t("Processing clips")
-  }
   if (active.some((item) => item.phase === "download")) return t("Downloading")
   return t("Uploading…")
 }

@@ -14,10 +14,11 @@ import { QueueItemRow } from "./queue-progress"
 import { useUploadQueueSummary } from "./use-upload-queue-summary"
 
 /**
- * App-wide upload/processing status pill, mounted in the header so it follows
- * the user across every route. Renders nothing while the queue is idle; once
- * anything is uploading, processing, or failed it shows a compact trigger and
- * a popover listing each row with its cancel/retry/open actions.
+ * App-wide transfer status pill, mounted in the header so it follows the user
+ * across every route. Renders nothing while the queue is idle; once anything
+ * is uploading, downloading, or failed it shows a compact trigger and a
+ * popover listing each row with its cancel/retry/open actions. Server-side
+ * encode progress is deliberately excluded — it lives in the library view.
  */
 export function UploadStatusPill() {
   const [open, setOpen] = useState(false)
