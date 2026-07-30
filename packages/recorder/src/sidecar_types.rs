@@ -359,6 +359,31 @@ enum RecordingBufferStorage {
     Disk,
 }
 
+/// Mirrors `RecordingAudioTrackKind` in
+/// `packages/contracts/src/desktop-recording-types.ts`; the serialized strings
+/// must match the TS union exactly.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum RecordingAudioTrackKind {
+    Mix,
+    Game,
+    Microphone,
+    Desktop,
+    Application,
+    Other,
+}
+
+/// Mirrors `RecordingCaptureAudioTrack` in
+/// `packages/contracts/src/desktop-recording-types.ts`.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RecordingCaptureAudioTrack {
+    /// Zero-based audio track index in the container file.
+    index: u32,
+    kind: RecordingAudioTrackKind,
+    label: String,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct RecordingCapture {
@@ -373,6 +398,9 @@ struct RecordingCapture {
     source: RecordingCaptureSource,
     kind: RecordingCaptureKind,
     post_process: Option<RecordingCapturePostProcess>,
+    /// Audio track layout of the file; omitted for single-track captures.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    audio_tracks: Option<Vec<RecordingCaptureAudioTrack>>,
     created_at: String,
 }
 
@@ -584,8 +612,12 @@ struct VideoGraph {
 }
 
 struct AudioGraph {
-    scene: *mut ObsScene,
+    /// Audio capture sources attached directly to OBS output channels
+    /// `AUDIO_OUTPUT_CHANNEL_BASE + i` in order.
     sources: Vec<*mut ObsSource>,
+    /// Track layout being recorded: empty when a single pre-mixed track is
+    /// produced, otherwise `[mix, stem, ...]` matching encoder mixer indices.
+    tracks: Vec<RecordingCaptureAudioTrack>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -693,7 +725,8 @@ struct ActiveSession {
     kind: ActiveOutputKind,
     output: *mut ObsOutput,
     video_encoder: *mut ObsEncoder,
-    audio_encoder: *mut ObsEncoder,
+    /// One AAC encoder per recorded audio track; encoder `i` reads mixer `i`.
+    audio_encoders: Vec<*mut ObsEncoder>,
     video_encoder_id: String,
     audio_encoder_id: String,
     video_codec: RecordingCodec,
@@ -708,7 +741,6 @@ struct ActiveSession {
     game_capture_hook_wait: Option<GameCaptureHookWait>,
     can_pause: bool,
     paused: bool,
-    owns_capture: bool,
 }
 
 #[derive(Debug)]

@@ -39,6 +39,11 @@ const OBS_SCALE_BILINEAR: i32 = 3;
 const OBS_BOUNDS_SCALE_INNER: i32 = 2;
 const OBS_ALIGN_CENTER: u32 = 0;
 const SPEAKERS_STEREO: i32 = 2;
+// Mirrors libobs MAX_AUDIO_MIXES: an output records at most six audio tracks.
+const MAX_AUDIO_MIXES: usize = 6;
+// Output channel 0 is video; libobs exposes 64 independently routed sources.
+const AUDIO_OUTPUT_CHANNEL_BASE: u32 = 1;
+const MAX_OUTPUT_CHANNELS: usize = 64;
 const OBS_VIDEO_SUCCESS: i32 = 0;
 const OBS_ENCODER_AUDIO: c_int = 0;
 const OBS_ENCODER_VIDEO: c_int = 1;

@@ -13,14 +13,8 @@ impl Recorder {
         capture: RecordingCapture,
         output_config: OutputConfig,
     ) -> Result<ActiveSession, String> {
-        let mut source_kind = source_kind(settings, game);
-        let shared_capture = self.capture_owner_session().map(|session| {
-            (session.video_config, session.source_kind)
-        });
-        let video_config = match shared_capture {
-            Some((video_config, _)) => video_config,
-            None => self.ensure_obs_for_source(settings, game, source_kind)?,
-        };
+        let source_kind = source_kind(settings, game);
+        let video_config = self.ensure_obs_for_source(settings, game, source_kind)?;
         let obs = self
             .obs
             .as_ref()
@@ -47,48 +41,27 @@ impl Recorder {
 
         let output_quality = effective_quality_for_base(settings, video_config.base);
         let mut capture = capture;
-        let owns_capture = shared_capture.is_none();
-        let (video_graph, audio_graph) =
-            if let Some((_video_config, shared_kind)) = shared_capture {
-                source_kind = shared_kind;
-                capture.source = recording_source_from_kind(source_kind);
-                (
-                    VideoGraph {
-                        scene: ptr::null_mut(),
-                        source: ptr::null_mut(),
-                        output_source: ptr::null_mut(),
-                        source_kind,
-                    },
-                    empty_audio_graph(),
-                )
-            } else {
-                // SAFETY: OBS is initialized above and this owner session is
-                // creating sources for the same libobs instance.
-                let video_graph = unsafe {
-                    create_video_graph(obs, settings, game, source_kind, video_config.base)?
-                };
-                unsafe {
-                    (obs.obs_set_output_source)(0, video_graph.output_source);
-                }
+        // SAFETY: OBS is initialized above and this session is creating sources
+        // for the same libobs instance.
+        let video_graph = unsafe {
+            create_video_graph(obs, settings, game, source_kind, video_config.base)?
+        };
+        unsafe {
+            (obs.obs_set_output_source)(0, video_graph.output_source);
+        }
 
-                let audio_graph = match unsafe { create_audio_graph(obs, settings, game) } {
-                    Ok(audio_graph) => audio_graph,
-                    Err(error) => {
-                        unsafe {
-                            release_output_graph(
-                                obs,
-                                ptr::null_mut(),
-                                ptr::null_mut(),
-                                ptr::null_mut(),
-                                video_graph,
-                                empty_audio_graph(),
-                            );
-                        }
-                        return Err(error);
-                    }
-                };
-                (video_graph, audio_graph)
-            };
+        let audio_graph = match unsafe { create_audio_graph(obs, settings, game) } {
+            Ok(audio_graph) => audio_graph,
+            Err(error) => {
+                unsafe {
+                    (obs.obs_set_output_source)(0, ptr::null_mut());
+                    release_video_graph(obs, video_graph);
+                }
+                return Err(error);
+            }
+        };
+        capture.audio_tracks =
+            (!audio_graph.tracks.is_empty()).then(|| audio_graph.tracks.clone());
 
         let video_settings = unsafe { obs.create_data() };
         let video_encoder = unsafe {
@@ -108,13 +81,9 @@ impl Recorder {
                         obs,
                         ptr::null_mut(),
                         ptr::null_mut(),
-                        ptr::null_mut(),
+                        Vec::new(),
                         video_graph,
-                        if owns_capture {
-                            audio_graph
-                        } else {
-                            empty_audio_graph()
-                        },
+                        audio_graph,
                     );
                 }
                 return Err(error);
@@ -122,36 +91,25 @@ impl Recorder {
         };
         unsafe { (obs.obs_encoder_set_video)(video_encoder, (obs.obs_get_video)()) };
 
-        let audio_settings = unsafe { obs.create_data() };
-        let audio_encoder = unsafe {
-            let result = (|| {
-                obs.set_int(audio_settings, "bitrate", 160)?;
-                create_audio_encoder(obs, &audio_encoder_id, audio_settings)
-            })();
-            obs.release_data(audio_settings);
-            result
-        };
-        let audio_encoder = match audio_encoder {
-            Ok(audio_encoder) => audio_encoder,
+        let audio_track_count = audio_graph.tracks.len().clamp(1, MAX_AUDIO_MIXES);
+        let audio_encoders = match unsafe {
+            create_audio_encoders(obs, &audio_encoder_id, audio_track_count)
+        } {
+            Ok(audio_encoders) => audio_encoders,
             Err(error) => {
                 unsafe {
                     release_output_graph(
                         obs,
                         ptr::null_mut(),
                         video_encoder,
-                        ptr::null_mut(),
+                        Vec::new(),
                         video_graph,
-                        if owns_capture {
-                            audio_graph
-                        } else {
-                            empty_audio_graph()
-                        },
+                        audio_graph,
                     );
                 }
                 return Err(error);
             }
         };
-        unsafe { (obs.obs_encoder_set_audio)(audio_encoder, (obs.obs_get_audio)()) };
 
         let output_settings = unsafe { obs.create_data() };
         let output_id = match &output_config {
@@ -205,6 +163,7 @@ impl Recorder {
                             i64::from(estimated_replay_buffer_mb(
                                 settings,
                                 &output_quality,
+                                audio_track_count,
                             )),
                         )
                     };
@@ -221,13 +180,9 @@ impl Recorder {
                         obs,
                         ptr::null_mut(),
                         video_encoder,
-                        audio_encoder,
+                        audio_encoders,
                         video_graph,
-                        if owns_capture {
-                            audio_graph
-                        } else {
-                            empty_audio_graph()
-                        },
+                        audio_graph,
                     );
                 }
                 return Err(error);
@@ -242,13 +197,9 @@ impl Recorder {
                         obs,
                         ptr::null_mut(),
                         video_encoder,
-                        audio_encoder,
+                        audio_encoders,
                         video_graph,
-                        if owns_capture {
-                            audio_graph
-                        } else {
-                            empty_audio_graph()
-                        },
+                        audio_graph,
                     );
                 }
                 return Err(error);
@@ -258,7 +209,9 @@ impl Recorder {
             (obs.obs_output_update)(output, output_settings);
             obs.release_data(output_settings);
             (obs.obs_output_set_video_encoder)(output, video_encoder);
-            (obs.obs_output_set_audio_encoder)(output, audio_encoder, 0);
+            for (track_index, audio_encoder) in audio_encoders.iter().enumerate() {
+                (obs.obs_output_set_audio_encoder)(output, *audio_encoder, track_index);
+            }
         }
 
         if unsafe { !(obs.obs_output_start)(output) } {
@@ -271,26 +224,22 @@ impl Recorder {
                     obs,
                     output,
                     video_encoder,
-                    audio_encoder,
+                    audio_encoders,
                     video_graph,
-                    if owns_capture {
-                        audio_graph
-                    } else {
-                        empty_audio_graph()
-                    },
+                    audio_graph,
                 );
             }
             return Err(error);
         }
 
         let can_pause = unsafe { (obs.obs_output_can_pause)(output) };
-        let game_capture_hook_wait = (owns_capture && source_kind == OutputSourceKind::Game)
+        let game_capture_hook_wait = (source_kind == OutputSourceKind::Game)
             .then(|| start_game_capture_hook_wait(game));
         Ok(ActiveSession {
             kind,
             output,
             video_encoder,
-            audio_encoder,
+            audio_encoders,
             video_encoder_id,
             audio_encoder_id,
             video_codec,
@@ -305,7 +254,6 @@ impl Recorder {
             game_capture_hook_wait,
             can_pause,
             paused: false,
-            owns_capture,
         })
     }
 
@@ -427,18 +375,14 @@ impl Recorder {
             thread::sleep(Duration::from_millis(100));
         }
 
-        if session.owns_capture {
-            release_output_graph(
-                obs,
-                session.output,
-                session.video_encoder,
-                session.audio_encoder,
-                session.video_graph,
-                session.audio_graph,
-            );
-        } else {
-            release_output_only(obs, session.output, session.video_encoder, session.audio_encoder);
-        }
+        release_output_graph(
+            obs,
+            session.output,
+            session.video_encoder,
+            session.audio_encoders,
+            session.video_graph,
+            session.audio_graph,
+        );
         Ok(())
     }
 

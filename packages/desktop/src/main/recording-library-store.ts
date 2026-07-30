@@ -54,6 +54,7 @@ export function rememberRecordingLibraryCapture(
     durationMs: capture.durationMs,
     width: capture.width,
     height: capture.height,
+    audioTracks: capture.audioTracks,
     createdAt: capture.createdAt,
     updatedAt: new Date().toISOString(),
   }
@@ -188,6 +189,7 @@ function seedManifestEntry(item: RecordingLibraryItem): CaptureManifestEntry {
     durationMs: item.durationMs,
     width: item.width,
     height: item.height,
+    audioTracks: item.audioTracks,
     createdAt: item.createdAt,
     updatedAt: new Date().toISOString(),
   }

@@ -56,6 +56,7 @@ fn sidecar_version() -> SidecarVersion {
             "game-capture",
             "audio-devices",
             "audio-applications",
+            "multi-track-audio",
             "game-processes",
             "display-capture",
             "displays",

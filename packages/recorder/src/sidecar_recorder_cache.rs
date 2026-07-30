@@ -234,9 +234,7 @@ impl Recorder {
     }
 
     fn capture_owner_session(&self) -> Option<&ActiveSession> {
-        self.replay_session
-            .as_ref()
-            .filter(|session| session.owns_capture)
+        self.replay_session.as_ref()
     }
 
     fn has_active_outputs(&self) -> bool {
