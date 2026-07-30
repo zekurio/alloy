@@ -78,7 +78,8 @@ body:
       label: Logs
       description: >-
         Relevant log output. Desktop logs live at
-        `%APPDATA%\Alloy Desktop\logs`; server logs come from your
+        `%APPDATA%\Alloy Desktop\logs` (older versions:
+        `%LOCALAPPDATA%\Alloy Desktop\logs`); server logs come from your
         service manager (e.g. `journalctl -u alloy-server`). Rendered as
         code, no backticks needed.
       render: text

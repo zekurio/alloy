@@ -90,7 +90,7 @@ Release builds require `obs.dll` in either the staged or configured runtime.
 - Remote asset cache (game icons etc.): `%APPDATA%\Alloy Desktop\asset-cache`
 - Browser session/cache: `%APPDATA%\Alloy Desktop\session`
 - Logs: `%APPDATA%\Alloy Desktop\logs`
-- Temporary updater downloads: `%TEMP%\Alloy`
+- Updater installer cache: `%LOCALAPPDATA%\@alloydesktop-updater`
 - Replay scratch: `%TEMP%\Alloy\replay-buffer`
 - Default captures: `%USERPROFILE%\Videos\Alloy`
 - Bundled recorder/OBS runtime: installed app `resources`

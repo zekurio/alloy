@@ -148,11 +148,12 @@ export class RecordingSidecarClient {
     })
   }
 
-  async shutdown(): Promise<void> {
+  /** Resolves false when the process did not exit within the deadlines. */
+  async shutdown(): Promise<boolean> {
     this.shutdownRequested = true
     this.cancelRespawn()
     const child = this.child
-    if (!child) return
+    if (!child) return true
 
     // The shutdown response precedes final process cleanup. Killing immediately
     // after it can leave the executable locked by Windows and break NSIS updates.
@@ -189,9 +190,7 @@ export class RecordingSidecarClient {
     const error = new Error("Recording sidecar was shut down.")
     this.rejectPending(error)
     this.rejectQueuedConfigure(error)
-    if (!exitedAfterKill) {
-      throw new Error("Recording sidecar did not exit during shutdown.")
-    }
+    return exitedAfterKill
   }
 
   private sendConfigure(

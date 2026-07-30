@@ -1,43 +1,19 @@
-import { join } from "node:path"
-
 import type { DesktopUpdateState } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
 
-import { updaterCacheRoot } from "./app-paths"
-import { shutdownRecordingBackend } from "./recording"
+import {
+  configureRecordingBackend,
+  shutdownRecordingBackend,
+} from "./recording"
 
-// electron-updater is CommonJS; use the default import so Rollup preserves its
-// runtime exports. The adapter keeps updater artifacts in the OS temp folder.
-const autoUpdater = new electronUpdater.NsisUpdater(null, {
-  get version() {
-    return app.getVersion()
-  },
-  get name() {
-    return app.getName()
-  },
-  get isPackaged() {
-    return app.isPackaged
-  },
-  get appUpdateConfigPath() {
-    return app.isPackaged
-      ? join(process.resourcesPath, "app-update.yml")
-      : join(app.getAppPath(), "dev-app-update.yml")
-  },
-  get userDataPath() {
-    return app.getPath("userData")
-  },
-  get baseCachePath() {
-    return updaterCacheRoot()
-  },
-  whenReady: () => app.whenReady(),
-  relaunch: () => app.relaunch(),
-  quit: () => app.quit(),
-  onQuit: (handler) => {
-    app.once("quit", (_event, exitCode) => handler(exitCode))
-  },
-})
+// electron-updater is CommonJS with a lazy `autoUpdater` getter; read from the
+// default import so Rollup does not capture an undefined named binding. Do
+// not construct an updater with a custom app adapter: AppUpdater only builds
+// its HTTP executor when no adapter is supplied, so a custom adapter silently
+// breaks every update check at runtime.
+const autoUpdater = electronUpdater.autoUpdater
 
 const logger = createLogger("updater")
 
@@ -125,16 +101,20 @@ export async function restartToInstallUpdate(): Promise<void> {
   }
 
   installInFlight = true
-  try {
-    logger.info("stopping recording backend before update install")
-    await shutdownRecordingBackend()
-  } catch (cause) {
+  logger.info("stopping recording backend before update install")
+  const recorderStopped = await shutdownRecordingBackend().catch(
+    (cause: unknown) => {
+      logger.warn("recorder shutdown failed before update install:", cause)
+      return false
+    },
+  )
+  if (!recorderStopped) {
+    // A live sidecar keeps the packaged OBS DLLs open and NSIS would hit
+    // locked files mid-upgrade. Deliberately do not respawn the backend here:
+    // the old process may still be exiting, and a second recorder would fight
+    // it over devices. The update stays downloaded so the user can retry.
     installInFlight = false
-    logger.warn(
-      "update install aborted because recorder shutdown failed:",
-      cause,
-    )
-    throw cause
+    throw new Error("The recorder did not stop. Try restarting again.")
   }
 
   logger.info(`restarting to install ${state.version ?? "update"}`)
@@ -218,6 +198,21 @@ export function initAutoUpdater(): void {
   // checks are routine for a desktop app, so log at warn rather than error.
   autoUpdater.on("error", (cause) => {
     logger.warn("update check failed:", cause)
+    if (installInFlight) {
+      // quitAndInstall is fire-and-forget: when the staged installer is gone
+      // (AV quarantine, disk cleanup) it dispatches an error instead of
+      // quitting. The recorder was already stopped, so bring it back and
+      // drop to idle so background checks re-discover the update.
+      installInFlight = false
+      logger.warn("update install did not start; restarting recording backend")
+      void configureRecordingBackend().catch((restartCause: unknown) => {
+        logger.warn("failed to restart recording backend:", restartCause)
+      })
+      setState(idleUpdateState())
+      ensureBackgroundChecks()
+      scheduleUpdateCheck(0)
+      return
+    }
     if (state.status === "checking") {
       setState(idleUpdateState())
     }

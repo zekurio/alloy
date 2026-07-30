@@ -2,7 +2,7 @@ import { detectLocale, setRuntimeLocale } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow, Menu, protocol } from "electron"
 
-import { cleanupLegacyLocalAppData, configureAppPaths } from "./app-paths"
+import { configureAppPaths } from "./app-paths"
 import {
   assetCacheProtocolScheme,
   registerAssetCacheProtocol,
@@ -32,16 +32,18 @@ import { initAutoUpdater } from "./updater"
 import { Windows } from "./windows"
 
 const BACKGROUND_STARTUP_DELAY_MS = 1000
-const LEGACY_APP_DATA_CLEANUP_DELAY_MS = 10_000
 
 const logger = createLogger("main")
 
 app.setName("Alloy")
 setRuntimeLocale(detectLocale([app.getLocale()]))
-configureAppPaths()
+const appPathWarnings = configureAppPaths()
 installFileLogSink()
 installCrashLogging()
 logger.info(`Alloy Desktop ${app.getVersion()} starting`)
+// Path migration runs before the log sink exists; surface its findings now
+// so blocked migrations are diagnosable from bug-report logs.
+for (const warning of appPathWarnings) logger.warn(warning)
 // Privileged schemes must all be declared in this single pre-ready call.
 protocol.registerSchemesAsPrivileged([
   recordingLibraryProtocolScheme(),
@@ -174,12 +176,6 @@ function scheduleBackgroundStartup(): void {
     }
   }, BACKGROUND_STARTUP_DELAY_MS)
   timer.unref?.()
-
-  const cleanupTimer = setTimeout(
-    cleanupLegacyLocalAppData,
-    LEGACY_APP_DATA_CLEANUP_DELAY_MS,
-  )
-  cleanupTimer.unref?.()
 }
 
 function runBackgroundStartupTask(name: string, task: () => void): void {

@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, renameSync, rmdirSync, rmSync } from "node:fs"
+import { existsSync, mkdirSync, renameSync, rmdirSync } from "node:fs"
 import { join } from "node:path"
 
 import { app } from "electron"
@@ -6,75 +6,73 @@ import { app } from "electron"
 const USER_DATA_DIR_NAME = "Alloy Desktop"
 const SESSION_DATA_DIR_NAME = "session"
 const LOGS_DIR_NAME = "logs"
-const UPDATER_TEMP_DIR_NAME = "Alloy"
-const LEGACY_UPDATER_CACHE_DIR_NAME = "@alloydesktop-updater"
 
 /**
  * Keep every persistent per-user file under Roaming. Older builds split the
  * Chromium session and logs into Local, so move those directories before
- * Electron opens either one.
+ * Electron opens either one. Runs before the file log sink exists, so it
+ * returns warnings for the caller to log once logging is up.
  */
-export function configureAppPaths(): void {
+export function configureAppPaths(): string[] {
   const roamingRoot = join(app.getPath("appData"), USER_DATA_DIR_NAME)
   mkdirSync(roamingRoot, { recursive: true })
 
-  const localRoot = join(
-    process.env.LOCALAPPDATA || app.getPath("appData"),
-    USER_DATA_DIR_NAME,
-  )
-  const sessionDataPath = migrateLegacyDirectory(
-    join(localRoot, SESSION_DATA_DIR_NAME),
-    join(roamingRoot, SESSION_DATA_DIR_NAME),
-  )
-  const logsPath = migrateLegacyDirectory(
-    join(localRoot, LOGS_DIR_NAME),
-    join(roamingRoot, LOGS_DIR_NAME),
-  )
+  const warnings: string[] = []
+  // The Local/Roaming split only exists on Windows; elsewhere there is no
+  // legacy location to migrate away from.
+  const localRoot = process.env.LOCALAPPDATA
+    ? join(process.env.LOCALAPPDATA, USER_DATA_DIR_NAME)
+    : null
+  const sessionDataPath = localRoot
+    ? migrateLegacyDirectory(
+        join(localRoot, SESSION_DATA_DIR_NAME),
+        join(roamingRoot, SESSION_DATA_DIR_NAME),
+        warnings,
+      )
+    : join(roamingRoot, SESSION_DATA_DIR_NAME)
+  const logsPath = localRoot
+    ? migrateLegacyDirectory(
+        join(localRoot, LOGS_DIR_NAME),
+        join(roamingRoot, LOGS_DIR_NAME),
+        warnings,
+      )
+    : join(roamingRoot, LOGS_DIR_NAME)
 
   for (const path of [sessionDataPath, logsPath]) {
     mkdirSync(path, { recursive: true })
   }
 
-  removeEmptyDirectory(localRoot)
+  if (localRoot) removeEmptyDirectory(localRoot)
   app.setPath("userData", roamingRoot)
   app.setPath("sessionData", sessionDataPath)
   app.setAppLogsPath(logsPath)
+  return warnings
 }
 
-/** Updater downloads are transient and do not belong beside persistent data. */
-export function updaterCacheRoot(): string {
-  return join(app.getPath("temp"), UPDATER_TEMP_DIR_NAME)
-}
-
-/**
- * Fixed installers stop creating this cache, but the first upgrade can still
- * be running from it. Cleanup is delayed by the caller and retried next launch
- * if Windows still has an installer file open.
- */
-export function cleanupLegacyLocalAppData(): void {
-  const localAppData = process.env.LOCALAPPDATA
-  if (!localAppData) return
+function migrateLegacyDirectory(
+  source: string,
+  destination: string,
+  warnings: string[],
+): string {
+  if (!existsSync(source)) return destination
 
   try {
-    rmSync(join(localAppData, LEGACY_UPDATER_CACHE_DIR_NAME), {
-      recursive: true,
-      force: true,
-    })
-  } catch {
-    // The installer may still be exiting after relaunching the app.
-  }
-
-  removeEmptyDirectory(join(localAppData, USER_DATA_DIR_NAME))
-}
-
-function migrateLegacyDirectory(source: string, destination: string): string {
-  if (!existsSync(source) || existsSync(destination)) return destination
-
-  try {
+    // An empty destination (e.g. created by a run that never wrote anything)
+    // must not strand the legacy data; rename refuses to overwrite, so drop
+    // it first. rmdir fails on a non-empty destination, landing in the catch.
+    if (existsSync(destination)) rmdirSync(destination)
     renameSync(source, destination)
     return destination
   } catch {
-    // Preserve the existing session/logs when migration is temporarily blocked.
+    if (existsSync(destination)) {
+      warnings.push(
+        `legacy data at ${source} was left in place; ${destination} already has data`,
+      )
+      return destination
+    }
+    warnings.push(
+      `could not move ${source} to ${destination}; staying on the legacy path`,
+    )
     return source
   }
 }
