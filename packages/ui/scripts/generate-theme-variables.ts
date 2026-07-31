@@ -6,6 +6,7 @@
  *
  * Run with `pnpm --filter @alloy/ui theme:variables`.
  */
+import { spawnSync } from "node:child_process"
 import { readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -253,6 +254,15 @@ export const THEME_VARIABLES_BY_NAME: ReadonlyMap<string, ThemeVariable> =
 `
 
   await writeFile(OUTPUT, file, "utf8")
+
+  // Format the emitted file with the workspace oxfmt so a fresh run reproduces
+  // the committed file byte for byte instead of dirtying the tree.
+  const oxfmt = spawnSync(join(root, "../../node_modules/.bin/oxfmt"), [OUTPUT])
+  if (oxfmt.error) throw oxfmt.error
+  if (oxfmt.status !== 0) {
+    throw new Error(`oxfmt exited with status ${oxfmt.status}`)
+  }
+
   process.stdout.write(
     `theme-variables: ${variables.length} tokens in ${groups.length} groups\n`,
   )

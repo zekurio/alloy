@@ -169,6 +169,25 @@ export function useClipEditorMedia(
 export type ClipEditorMediaState = ReturnType<typeof useClipEditorMedia>
 export type ClipEditorPlaybackState = ReturnType<typeof useTrimPlayback>
 
+/** The trim editor's volume control, bound to the preview player's volume. */
+export function EditorVolumeControl({
+  playerVolume,
+}: {
+  playerVolume: ReturnType<typeof useExternalVideoVolume>
+}) {
+  return (
+    <VolumeControl
+      muted={playerVolume.state.muted}
+      volume={playerVolume.state.volume}
+      onToggleMute={playerVolume.toggleMute}
+      onVolumeChange={playerVolume.setVolume}
+      onVolumeChangeEnd={playerVolume.finishVolumeChange}
+      iconClassName="size-8 rounded-md"
+      iconGlyphClassName="size-4"
+    />
+  )
+}
+
 /**
  * Stem mixer for the editor preview, or undefined when the preview can't be
  * mixed. Trimmed previews use the uncut source timeline; supporting canonical
@@ -331,15 +350,7 @@ function ClipEditorTrimControls({
             ) : null}
             <AudioTrackMixerControl mixer={audioMixer} />
             {playerVolume ? (
-              <VolumeControl
-                muted={playerVolume.state.muted}
-                volume={playerVolume.state.volume}
-                onToggleMute={playerVolume.toggleMute}
-                onVolumeChange={playerVolume.setVolume}
-                onVolumeChangeEnd={playerVolume.finishVolumeChange}
-                iconClassName="size-8 rounded-md"
-                iconGlyphClassName="size-4"
-              />
+              <EditorVolumeControl playerVolume={playerVolume} />
             ) : null}
           </>
         }
@@ -440,15 +451,7 @@ export function ClipProcessingNotice({
         />
       </div>
       {playerVolume ? (
-        <VolumeControl
-          muted={playerVolume.state.muted}
-          volume={playerVolume.state.volume}
-          onToggleMute={playerVolume.toggleMute}
-          onVolumeChange={playerVolume.setVolume}
-          onVolumeChangeEnd={playerVolume.finishVolumeChange}
-          iconClassName="size-8 rounded-md"
-          iconGlyphClassName="size-4"
-        />
+        <EditorVolumeControl playerVolume={playerVolume} />
       ) : null}
     </Card>
   )

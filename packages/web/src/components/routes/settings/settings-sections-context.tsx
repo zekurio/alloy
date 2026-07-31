@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from "react"
+import { createContext, useCallback, useContext, useState } from "react"
 import type { ReactNode } from "react"
 
 export interface SettingsSection {
@@ -13,14 +7,14 @@ export interface SettingsSection {
   element: HTMLElement
 }
 
-interface SettingsSectionsContextValue {
-  /** Registered subsections of the open panel, in document order. */
-  sections: SettingsSection[]
-  register: (section: SettingsSection) => () => void
-}
+/** Registered subsections of the open panel, in document order. */
+const SettingsSectionsContext = createContext<SettingsSection[]>([])
 
-const SettingsSectionsContext =
-  createContext<SettingsSectionsContextValue | null>(null)
+// Registration lives in its own context so subsections, which only need the
+// stable register function, don't re-render every time a sibling registers.
+const RegisterSettingsSectionContext = createContext<
+  ((section: SettingsSection) => () => void) | null
+>(null)
 
 /**
  * Collects the subsections the open panel renders so the sidebar can list them
@@ -49,23 +43,23 @@ export function SettingsSectionsProvider({
       )
   }, [])
 
-  const value = useMemo(() => ({ sections, register }), [register, sections])
-
   return (
-    <SettingsSectionsContext.Provider value={value}>
-      {children}
-    </SettingsSectionsContext.Provider>
+    <RegisterSettingsSectionContext.Provider value={register}>
+      <SettingsSectionsContext.Provider value={sections}>
+        {children}
+      </SettingsSectionsContext.Provider>
+    </RegisterSettingsSectionContext.Provider>
   )
 }
 
 /** Subsections of the open panel, empty outside a provider. */
 export function useSettingsSections(): SettingsSection[] {
-  return useContext(SettingsSectionsContext)?.sections ?? []
+  return useContext(SettingsSectionsContext)
 }
 
 /** Registers a subsection; returns the ref callback to attach to its element. */
 export function useRegisterSettingsSection(id: string, label: string | null) {
-  const register = useContext(SettingsSectionsContext)?.register
+  const register = useContext(RegisterSettingsSectionContext)
   return useCallback(
     (element: HTMLElement | null) => {
       if (!register || !label || !element) return

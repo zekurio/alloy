@@ -15,9 +15,9 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useMemo } from "react"
 
 /**
- * Fluxer-style token grid. Edits are written straight back into the CSS text
- * rather than kept as a parallel structure, so the grid and the editor below it
- * are always describing the same document.
+ * Grid of Alloy's theme tokens. Edits are written straight back into the CSS
+ * text rather than kept as a parallel structure, so the grid and the editor
+ * below it are always describing the same document.
  */
 export function ThemeTokenEditor({
   css,

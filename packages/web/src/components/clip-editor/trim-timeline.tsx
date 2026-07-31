@@ -81,7 +81,7 @@ export function TrimTimeline({
   const viewportRef = useRef<HTMLDivElement | null>(null)
   const contentRef = useRef<HTMLDivElement | null>(null)
   const gestureRef = useRef<Gesture | null>(null)
-  const pointersRef = useRef(new Map<number, number>())
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>())
   const [width, setWidth] = useState(0)
   const [zoom, setZoom] = useState(0)
   // Left edge of the rendered strip, in source time. The strip covers more
@@ -177,14 +177,20 @@ export function TrimTimeline({
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!ready || e.button !== 0) return
     e.currentTarget.setPointerCapture(e.pointerId)
-    pointersRef.current.set(e.pointerId, e.clientX)
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     setGesturing(true)
 
     if (pointersRef.current.size === 2) {
       const [first, second] = [...pointersRef.current.values()]
       gestureRef.current = {
         kind: "pinch",
-        startDistance: Math.max(1, Math.abs((first ?? 0) - (second ?? 0))),
+        startDistance: Math.max(
+          1,
+          Math.hypot(
+            (first?.x ?? 0) - (second?.x ?? 0),
+            (first?.y ?? 0) - (second?.y ?? 0),
+          ),
+        ),
         startZoom: zoom,
       }
       return
@@ -210,14 +216,17 @@ export function TrimTimeline({
 
   const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
     if (!pointersRef.current.has(e.pointerId)) return
-    pointersRef.current.set(e.pointerId, e.clientX)
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     const gesture = gestureRef.current
     if (!gesture) return
 
     if (gesture.kind === "pinch") {
       const [first, second] = [...pointersRef.current.values()]
       if (first === undefined || second === undefined) return
-      const distance = Math.max(1, Math.abs(first - second))
+      const distance = Math.max(
+        1,
+        Math.hypot(first.x - second.x, first.y - second.y),
+      )
       setZoom(clampZoom(gesture.startZoom * (distance / gesture.startDistance)))
       return
     }
@@ -226,9 +235,15 @@ export function TrimTimeline({
     const deltaMs = (e.clientX - gesture.startX) / zoom
     // Dragging right pulls earlier material under the playhead, like sliding
     // a filmstrip past a fixed gate.
-    if (gesture.kind === "pan") onScrub(gesture.startMs - deltaMs)
-    else if (gesture.edge === "start") onStartChange(gesture.startMs + deltaMs)
-    else onEndChange(gesture.startMs + deltaMs)
+    if (gesture.kind === "pan") {
+      onScrub(gesture.startMs - deltaMs)
+      return
+    }
+    if (gesture.edge === "start") {
+      onStartChange(gesture.startMs + deltaMs)
+      return
+    }
+    onEndChange(gesture.startMs + deltaMs)
   }
 
   const finishPointer = (e: PointerEvent<HTMLDivElement>) => {
@@ -236,16 +251,20 @@ export function TrimTimeline({
     if (e.currentTarget.hasPointerCapture(e.pointerId)) {
       e.currentTarget.releasePointerCapture(e.pointerId)
     }
+    if (pointersRef.current.size === 0) setGesturing(false)
     const gesture = gestureRef.current
-    if (gesture?.kind === "pinch") {
+    if (!gesture) return
+    if (gesture.kind === "pinch") {
       // Lifting one finger of a pinch hands the drag back to the other.
       const [remaining] = [...pointersRef.current.entries()]
-      if (remaining) startPan(remaining[0], remaining[1])
-      else gestureRef.current = null
-    } else if (gesture && gesture.pointerId === e.pointerId) {
-      gestureRef.current = null
+      if (!remaining) {
+        gestureRef.current = null
+        return
+      }
+      startPan(remaining[0], remaining[1].x)
+      return
     }
-    if (pointersRef.current.size === 0) setGesturing(false)
+    if (gesture.pointerId === e.pointerId) gestureRef.current = null
   }
 
   const handleKeyDown =
@@ -255,11 +274,17 @@ export function TrimTimeline({
       const apply = (deltaMs: number) => {
         e.preventDefault()
         e.stopPropagation()
-        if (edge === "start") onStartChange(startMs + deltaMs)
-        else onEndChange(endMs + deltaMs)
+        if (edge === "start") {
+          onStartChange(startMs + deltaMs)
+          return
+        }
+        onEndChange(endMs + deltaMs)
       }
-      if (e.key === "ArrowLeft") apply(-stepMs)
-      else if (e.key === "ArrowRight") apply(stepMs)
+      if (e.key === "ArrowLeft") {
+        apply(-stepMs)
+        return
+      }
+      if (e.key === "ArrowRight") apply(stepMs)
     }
 
   // Only the part of the strip that has media is painted; the rest of the

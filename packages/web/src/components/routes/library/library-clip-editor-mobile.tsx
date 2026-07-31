@@ -57,7 +57,10 @@ interface MobileClipEditorProps {
   initialTrim: TrimRange | undefined
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
-  tabs: Omit<Parameters<typeof ClipEditorTabs>[0], "row">
+  tabs: Omit<Parameters<typeof ClipEditorTabs>[0], "row" | "onSaveTrim"> & {
+    /** Resolves true only when the trim was persisted. */
+    onSaveTrim: () => Promise<boolean>
+  }
 }
 
 /**
@@ -94,8 +97,12 @@ export function MobileClipEditor({
         canSaveTrim={tabs.canSaveTrim}
         trimPending={tabs.trimPending}
         onSaveTrim={() => {
-          tabs.onSaveTrim()
-          setTrimming(false)
+          // Stay in the trim view while the save is pending (the button shows
+          // "Saving…") and on failure, so the unsaved handles remain editable;
+          // the mutation already toasts the error.
+          void tabs.onSaveTrim().then((saved) => {
+            if (saved) setTrimming(false)
+          })
         }}
         onCancel={() => {
           playback.playerRef.current?.pause()
@@ -133,7 +140,13 @@ export function MobileClipEditor({
             }}
             onPlayingChange={playback.setPlaying}
             audioMixer={audioMixer}
-            onFrameReady={() => media.setCloudFrameReady(true)}
+            onFrameReady={() => {
+              media.setCloudFrameReady(true)
+              // Switching views mounts a fresh element at zero; catch it up to
+              // the playhead the trim view (or a cancel) left off at.
+              playback.seek(playback.getCurrentMs())
+            }}
+            onEnded={playback.handleEnded}
             className="overflow-hidden rounded-md"
           />
         ) : (

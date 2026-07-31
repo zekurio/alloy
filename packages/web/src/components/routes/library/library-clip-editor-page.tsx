@@ -156,25 +156,27 @@ function ClipEditorBody({
     togglePlayback: playback.togglePlayback,
   })
 
+  // Resolves true only when the trim was persisted, so callers that leave a
+  // trim UI on save (the mobile trim view) can stay put on failure.
   const handleSaveTrim = () => {
-    if (!canSaveTrim) return
+    if (!canSaveTrim) return Promise.resolve(false)
     playerRef.current?.pause()
-    trimMutation.mutate(
-      {
+    return trimMutation
+      .mutateAsync({
         clipId: row.id,
         startMs: Math.round(trim.startMs),
         endMs: Math.round(trim.endMs),
-      },
-      {
-        onSuccess: () => {
-          toast.success(t("Trim saved — the clip is reprocessing"))
-          playback.setTrim({ startMs: 0, endMs: 0 })
-          playback.setCurrentMs(0)
-        },
-        onError: (cause) =>
-          toast.error(cause.message || "Couldn't trim the clip"),
-      },
-    )
+      })
+      .then(() => {
+        toast.success(t("Trim saved — the clip is reprocessing"))
+        playback.setTrim({ startMs: 0, endMs: 0 })
+        playback.setCurrentMs(0)
+        return true
+      })
+      .catch((cause: Error) => {
+        toast.error(cause.message || "Couldn't trim the clip")
+        return false
+      })
   }
 
   const tabs = {

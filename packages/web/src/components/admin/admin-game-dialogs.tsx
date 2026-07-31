@@ -31,9 +31,11 @@ import {
   GAME_ASSET_ROLES,
   GAME_ASSET_URL,
   releaseDatePayload,
+  setAdminGameArtworkRow,
   setAdminGameCacheRow,
 } from "./admin-game-data"
 import { GameArtworkStencil } from "./game-artwork-stencil"
+import type { GameArtworkSlot } from "./game-artwork-stencil"
 
 export function CreateGameDialog() {
   const queryClient = useQueryClient()
@@ -95,45 +97,25 @@ export function CreateGameDialog() {
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
           <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="new-game-name">{t("Name")}</FieldLabel>
-                <Input
-                  id="new-game-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={120}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="new-game-release">
-                  {t("Release date")}
-                </FieldLabel>
-                <DatePicker
-                  id="new-game-release"
-                  value={releaseDate}
-                  onValueChange={setReleaseDate}
-                />
-              </Field>
-            </div>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold">{t("Artwork")}</span>
-                <span className="text-foreground-muted text-xs">
-                  {t("Optional — click a slot to fill it in.")}
-                </span>
-              </div>
-              <GameArtworkStencil
-                name={name}
-                releaseDate={releaseDate}
-                slot={(role) => ({
-                  src: previews[role] ?? null,
-                  onSelect: (file) => setAsset(role, file),
-                  onRemove: () => setAsset(role, null),
-                })}
-              />
-            </div>
+            <GameDetailFields
+              nameId="new-game-name"
+              releaseDateId="new-game-release"
+              name={name}
+              onNameChange={setName}
+              releaseDate={releaseDate}
+              onReleaseDateChange={setReleaseDate}
+            />
+            <GameArtworkSection
+              className="flex flex-col gap-3"
+              hint={t("Optional — click a slot to fill it in.")}
+              name={name}
+              releaseDate={releaseDate}
+              slot={(role) => ({
+                src: previews[role] ?? null,
+                onSelect: (file) => setAsset(role, file),
+                onRemove: () => setAsset(role, null),
+              })}
+            />
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>
             <ResponsiveDialogClose
@@ -162,35 +144,50 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
     dateInputValue(game.releaseDate),
   )
   const [saving, setSaving] = useState(false)
-  // Artwork applies immediately; only one slot is ever in flight at a time.
-  const [busyRole, setBusyRole] = useState<GameAssetRole | null>(null)
+  // Artwork applies immediately, and slots are independent: a logo upload can
+  // still be in flight while a hero crop applies, so busy is tracked per role.
+  const [busyRoles, setBusyRoles] = useState<ReadonlySet<GameAssetRole>>(
+    new Set(),
+  )
 
+  const setRoleBusy = (role: GameAssetRole, busy: boolean) => {
+    setBusyRoles((old) => {
+      const next = new Set(old)
+      if (busy) next.add(role)
+      else next.delete(role)
+      return next
+    })
+  }
+
+  // Resolves false on failure so the crop dialog can stay open for a retry.
   const uploadAsset = async (role: GameAssetRole, file: File) => {
-    setBusyRole(role)
+    setRoleBusy(role, true)
     try {
-      setAdminGameCacheRow(
+      setAdminGameArtworkRow(
         queryClient,
         await api.admin.uploadGameAsset(game.id, role, file),
       )
       toast.success(t("Artwork updated"))
+      return true
     } catch (cause) {
       toast.error(errorMessage(cause, t("Couldn't upload artwork")))
+      return false
     } finally {
-      setBusyRole(null)
+      setRoleBusy(role, false)
     }
   }
 
   const clearAsset = async (role: GameAssetRole) => {
-    setBusyRole(role)
+    setRoleBusy(role, true)
     try {
-      setAdminGameCacheRow(
+      setAdminGameArtworkRow(
         queryClient,
         await api.admin.deleteGameAsset(game.id, role),
       )
     } catch (cause) {
       toast.error(errorMessage(cause, t("Couldn't remove artwork")))
     } finally {
-      setBusyRole(null)
+      setRoleBusy(role, false)
     }
   }
 
@@ -235,30 +232,14 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
         </ResponsiveDialogHeader>
         <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
           <form onSubmit={handleSave} className="flex flex-col gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor={`game-name-${game.id}`}>
-                  {t("Name")}
-                </FieldLabel>
-                <Input
-                  id={`game-name-${game.id}`}
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={120}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor={`game-release-${game.id}`}>
-                  {t("Release date")}
-                </FieldLabel>
-                <DatePicker
-                  id={`game-release-${game.id}`}
-                  value={releaseDate}
-                  onValueChange={setReleaseDate}
-                />
-              </Field>
-            </div>
+            <GameDetailFields
+              nameId={`game-name-${game.id}`}
+              releaseDateId={`game-release-${game.id}`}
+              name={name}
+              onNameChange={setName}
+              releaseDate={releaseDate}
+              onReleaseDateChange={setReleaseDate}
+            />
             <Button
               type="submit"
               disabled={saving || name.trim().length === 0}
@@ -268,26 +249,20 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
             </Button>
           </form>
 
-          <div className="border-border flex flex-col gap-3 border-t pt-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold">{t("Artwork")}</span>
-              <span className="text-foreground-muted text-xs">
-                {t("Click a slot to replace or remove what's live.")}
-              </span>
-            </div>
-            <GameArtworkStencil
-              name={name}
-              releaseDate={releaseDate}
-              slot={(role) => ({
-                src: game[GAME_ASSET_URL[role]] as string | null,
-                busy: busyRole === role,
-                // Returned, not fired and forgotten: the crop dialog stays on
-                // "Applying…" until the upload lands.
-                onSelect: (file) => uploadAsset(role, file),
-                onRemove: () => void clearAsset(role),
-              })}
-            />
-          </div>
+          <GameArtworkSection
+            className="border-border flex flex-col gap-3 border-t pt-4"
+            hint={t("Click a slot to replace or remove what's live.")}
+            name={name}
+            releaseDate={releaseDate}
+            slot={(role) => ({
+              src: game[GAME_ASSET_URL[role]] as string | null,
+              busy: busyRoles.has(role),
+              // Returned, not fired and forgotten: the crop dialog stays on
+              // "Applying…" until the upload lands.
+              onSelect: (file) => uploadAsset(role, file),
+              onRemove: () => void clearAsset(role),
+            })}
+          />
         </ResponsiveDialogBody>
         <ResponsiveDialogFooter>
           <ResponsiveDialogClose
@@ -296,6 +271,69 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
         </ResponsiveDialogFooter>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
+  )
+}
+
+function GameDetailFields({
+  nameId,
+  releaseDateId,
+  name,
+  onNameChange,
+  releaseDate,
+  onReleaseDateChange,
+}: {
+  nameId: string
+  releaseDateId: string
+  name: string
+  onNameChange: (value: string) => void
+  releaseDate: string
+  onReleaseDateChange: (value: string) => void
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field>
+        <FieldLabel htmlFor={nameId}>{t("Name")}</FieldLabel>
+        <Input
+          id={nameId}
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          maxLength={120}
+          required
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={releaseDateId}>{t("Release date")}</FieldLabel>
+        <DatePicker
+          id={releaseDateId}
+          value={releaseDate}
+          onValueChange={onReleaseDateChange}
+        />
+      </Field>
+    </div>
+  )
+}
+
+function GameArtworkSection({
+  className,
+  hint,
+  name,
+  releaseDate,
+  slot,
+}: {
+  className: string
+  hint: string
+  name: string
+  releaseDate: string
+  slot: (role: GameAssetRole) => GameArtworkSlot
+}) {
+  return (
+    <div className={className}>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm font-semibold">{t("Artwork")}</span>
+        <span className="text-foreground-muted text-xs">{hint}</span>
+      </div>
+      <GameArtworkStencil name={name} releaseDate={releaseDate} slot={slot} />
+    </div>
   )
 }
 

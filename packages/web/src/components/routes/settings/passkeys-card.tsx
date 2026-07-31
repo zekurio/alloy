@@ -27,7 +27,7 @@ import { List, ListItem } from "@alloy/ui/components/list"
 import { toast } from "@alloy/ui/lib/toast"
 import { PencilIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react"
 import { useEffect, useState } from "react"
-import type { FormEvent } from "react"
+import type { FormEvent, ReactElement, ReactNode } from "react"
 
 import { LimitedInput } from "@/components/form/limited-field"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
@@ -135,42 +135,89 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label={t("Add passkey")}
-          >
-            <PlusIcon />
-          </Button>
-        }
-      />
+    <PasskeyNameDialog
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label={t("Add passkey")}
+        >
+          <PlusIcon />
+        </Button>
+      }
+      title={t("Add a passkey")}
+      description={t(
+        "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.",
+      )}
+      fieldId="passkey-name"
+      fieldLabel={t("Name (optional)")}
+      name={name}
+      onNameChange={setName}
+      busy={adding}
+      onSubmit={onSubmit}
+      submitAction={
+        <Button type="submit" variant="primary" size="sm" disabled={adding}>
+          {adding ? t("Waiting for authenticator…") : t("Register")}
+        </Button>
+      }
+    />
+  )
+}
+
+/**
+ * Shared scaffolding for the add/rename passkey dialogs: an icon-button
+ * trigger opening a name form with the cancel action wired to close.
+ */
+function PasskeyNameDialog({
+  open,
+  onOpenChange,
+  trigger,
+  title,
+  description,
+  fieldId,
+  fieldLabel,
+  name,
+  onNameChange,
+  busy,
+  onSubmit,
+  submitAction,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  trigger: ReactElement
+  title: string
+  description: string
+  fieldId: string
+  fieldLabel: string
+  name: string
+  onNameChange: (name: string) => void
+  busy: boolean
+  onSubmit: (e: FormEvent<HTMLFormElement>) => void
+  submitAction: ReactNode
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger render={trigger} />
       <DialogContent variant="secondary">
         <form onSubmit={onSubmit}>
           <DialogHeader>
-            <DialogTitle>{t("Add a passkey")}</DialogTitle>
-            <DialogDescription>
-              {t(
-                "Your browser will prompt you to use Touch ID, Face ID, Windows Hello, or a security key.",
-              )}
-            </DialogDescription>
+            <DialogTitle>{title}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
           <DialogBody>
             <Field>
-              <FieldLabel htmlFor="passkey-name">
-                {t("Name (optional)")}
-              </FieldLabel>
+              <FieldLabel htmlFor={fieldId}>{fieldLabel}</FieldLabel>
               <LimitedInput
-                id="passkey-name"
+                id={fieldId}
                 type="text"
                 value={name}
                 maxLength={64}
                 placeholder={t("e.g. Laptop, YubiKey")}
-                onChange={(e) => setName(e.target.value)}
-                disabled={adding}
+                onChange={(e) => onNameChange(e.target.value)}
+                disabled={busy}
               />
             </Field>
           </DialogBody>
@@ -179,14 +226,12 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
               type="button"
               variant="ghost"
               size="sm"
-              disabled={adding}
-              onClick={() => setOpen(false)}
+              disabled={busy}
+              onClick={() => onOpenChange(false)}
             >
               {t("Cancel")}
             </Button>
-            <Button type="submit" variant="primary" size="sm" disabled={adding}>
-              {adding ? t("Waiting for authenticator…") : t("Register")}
-            </Button>
+            {submitAction}
           </DialogFooter>
         </form>
       </DialogContent>
@@ -305,65 +350,38 @@ function EditPasskeyDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("Rename passkey")}
-          >
-            <PencilIcon className="size-3.5" />
-          </Button>
-        }
-      />
-      <DialogContent variant="secondary">
-        <form onSubmit={onSubmit}>
-          <DialogHeader>
-            <DialogTitle>{t("Rename passkey")}</DialogTitle>
-            <DialogDescription>
-              {t("Give this passkey a name so you can recognise it later.")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogBody>
-            <Field>
-              <FieldLabel htmlFor={`passkey-name-${passkey.id}`}>
-                {t("Name")}
-              </FieldLabel>
-              <LimitedInput
-                id={`passkey-name-${passkey.id}`}
-                type="text"
-                value={name}
-                maxLength={64}
-                placeholder={t("e.g. Laptop, YubiKey")}
-                onChange={(e) => setName(e.target.value)}
-                disabled={saving}
-              />
-            </Field>
-          </DialogBody>
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={saving}
-              onClick={() => setOpen(false)}
-            >
-              {t("Cancel")}
-            </Button>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              disabled={saving || !dirty}
-            >
-              <SaveIcon />
-              {saving ? t("Saving…") : t("Save")}
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <PasskeyNameDialog
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t("Rename passkey")}
+        >
+          <PencilIcon className="size-3.5" />
+        </Button>
+      }
+      title={t("Rename passkey")}
+      description={t("Give this passkey a name so you can recognise it later.")}
+      fieldId={`passkey-name-${passkey.id}`}
+      fieldLabel={t("Name")}
+      name={name}
+      onNameChange={setName}
+      busy={saving}
+      onSubmit={onSubmit}
+      submitAction={
+        <Button
+          type="submit"
+          variant="primary"
+          size="sm"
+          disabled={saving || !dirty}
+        >
+          <SaveIcon />
+          {saving ? t("Saving…") : t("Save")}
+        </Button>
+      }
+    />
   )
 }

@@ -21,32 +21,39 @@ export function ClipAnnouncementRow() {
     user?.clipAnnouncementsEnabled ?? false,
   )
 
+  // Skip the mirror while a save is in flight so a concurrent session
+  // revalidation delivering the stale value can't revert the optimistic
+  // toggle; when pending clears, the effect re-runs and syncs to the
+  // authoritative session value.
   useEffect(() => {
-    if (user) setEnabled(user.clipAnnouncementsEnabled)
-  }, [user])
+    if (!user || pending) return
+    setEnabled(user.clipAnnouncementsEnabled)
+  }, [user, pending])
 
   if (!user) return null
 
-  async function change(next: boolean) {
+  function change(next: boolean) {
     const previous = enabled
     setEnabled(next)
     setPending(true)
-    try {
-      const { error } = await authClient.updateUser({
-        clipAnnouncementsEnabled: next,
+    void authClient
+      .updateUser({ clipAnnouncementsEnabled: next })
+      .then(({ error }) => {
+        if (error) {
+          setEnabled(previous)
+          toast.error(errorMessage(error, t("Couldn't save preference")))
+          return
+        }
+        toast.success(next ? t("Announcements on") : t("Announcements off"))
       })
-      if (error) {
+      // updateUser only rejects when the session refetch after a successful
+      // save fails; the store still holds the stale value then, so revert to
+      // stay consistent with it.
+      .catch((cause) => {
         setEnabled(previous)
-        toast.error(errorMessage(error, t("Couldn't save preference")))
-        return
-      }
-      toast.success(next ? t("Announcements on") : t("Announcements off"))
-    } catch (cause) {
-      setEnabled(previous)
-      toast.error(errorMessage(cause, t("Couldn't save preference")))
-    } finally {
-      setPending(false)
-    }
+        toast.error(errorMessage(cause, t("Couldn't save preference")))
+      })
+      .finally(() => setPending(false))
   }
 
   return (
@@ -61,7 +68,7 @@ export function ClipAnnouncementRow() {
         id={CLIP_ANNOUNCEMENTS_ID}
         checked={enabled}
         disabled={pending}
-        onCheckedChange={(next) => void change(next)}
+        onCheckedChange={change}
       />
     </SettingRow>
   )

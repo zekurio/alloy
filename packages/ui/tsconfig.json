@@ -3,11 +3,12 @@
   "compilerOptions": {
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/*"],
       "@alloy/ui/*": ["./src/*"]
     }
   },
   "include": ["."],
-  "exclude": ["node_modules", "dist", "scripts"]
+  "exclude": ["node_modules", "dist"]
 }

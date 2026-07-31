@@ -6,6 +6,7 @@ import type { RecordingEvent, RecordingStatus } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
+import { SidecarConfigureQueue } from "./recording-sidecar-configure"
 import {
   errorText,
   sidecarCwd,
@@ -30,19 +31,6 @@ interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (reason: Error) => void
   timeout: ReturnType<typeof setTimeout>
-}
-
-interface InFlightConfigure {
-  key: string
-  promise: Promise<RecordingStatus>
-}
-
-interface QueuedConfigure {
-  key: string
-  config: SidecarConfig
-  promise: Promise<RecordingStatus>
-  resolve: (value: RecordingStatus) => void
-  reject: (reason: Error) => void
 }
 
 interface RecordingSidecarClientOptions {
@@ -70,12 +58,10 @@ export class RecordingSidecarClient {
   private readonly config: () => SidecarConfig
   private readonly emitEvent: (event: RecordingEvent) => void
   private readonly pending = new Map<number, PendingRequest>()
+  private readonly configureQueue: SidecarConfigureQueue
   private child: ChildProcessWithoutNullStreams | null = null
   private reader: Interface | null = null
   private nextId = 1
-  private appliedConfigKey: string | null = null
-  private inFlightConfigure: InFlightConfigure | null = null
-  private queuedConfigure: QueuedConfigure | null = null
   private lastStatus: RecordingStatus
   private shutdownRequested = false
   private respawnTimer: ReturnType<typeof setTimeout> | null = null
@@ -87,6 +73,11 @@ export class RecordingSidecarClient {
     this.config = options.config
     this.emitEvent = options.emitEvent
     this.lastStatus = options.initialStatus
+    this.configureQueue = new SidecarConfigureQueue({
+      request: (method, params) =>
+        this.request<RecordingStatus>(method, params),
+      isShutdown: () => this.shutdownRequested,
+    })
   }
 
   /**
@@ -95,17 +86,7 @@ export class RecordingSidecarClient {
    */
   async configure(config: SidecarConfig): Promise<RecordingStatus> {
     this.ensureProcess()
-    const key = JSON.stringify(config)
-    if (this.inFlightConfigure?.key === key) {
-      this.resolveQueuedConfigureWith(this.inFlightConfigure.promise)
-      return this.inFlightConfigure.promise
-    }
-    if (this.inFlightConfigure) return this.queueConfigure(key, config)
-    if (this.queuedConfigure?.key === key) return this.queuedConfigure.promise
-    if (this.appliedConfigKey === key) {
-      return this.request<RecordingStatus>("status")
-    }
-    return this.sendConfigure(key, config)
+    return this.configureQueue.configure(config)
   }
 
   async version(): Promise<RecordingSidecarVersion> {
@@ -189,92 +170,8 @@ export class RecordingSidecarClient {
     this.reader = null
     const error = new Error("Recording sidecar was shut down.")
     this.rejectPending(error)
-    this.rejectQueuedConfigure(error)
+    this.configureQueue.rejectQueuedConfigure(error)
     return exitedAfterKill
-  }
-
-  private sendConfigure(
-    key: string,
-    config: SidecarConfig,
-  ): Promise<RecordingStatus> {
-    const promise = this.request<RecordingStatus>("configure", config)
-      .then(
-        (status) => {
-          if (this.inFlightConfigure?.key === key) {
-            this.appliedConfigKey = key
-          }
-          return status
-        },
-        (cause: unknown) => {
-          throw cause instanceof Error
-            ? cause
-            : new Error("Recording sidecar configure failed.")
-        },
-      )
-      .finally(() => {
-        if (this.inFlightConfigure?.key === key) this.inFlightConfigure = null
-        this.flushQueuedConfigure()
-      })
-    this.inFlightConfigure = { key, promise }
-    return promise
-  }
-
-  private queueConfigure(
-    key: string,
-    config: SidecarConfig,
-  ): Promise<RecordingStatus> {
-    if (this.queuedConfigure) {
-      this.queuedConfigure.key = key
-      this.queuedConfigure.config = config
-      return this.queuedConfigure.promise
-    }
-
-    let resolveQueued: (value: RecordingStatus) => void = () => undefined
-    let rejectQueued: (reason: Error) => void = () => undefined
-    const promise = new Promise<RecordingStatus>((resolve, reject) => {
-      resolveQueued = resolve
-      rejectQueued = reject
-    })
-    this.queuedConfigure = {
-      key,
-      config,
-      promise,
-      resolve: resolveQueued,
-      reject: rejectQueued,
-    }
-    return promise
-  }
-
-  private flushQueuedConfigure() {
-    const queued = this.queuedConfigure
-    if (!queued || this.inFlightConfigure || this.shutdownRequested) return
-
-    this.queuedConfigure = null
-    if (this.appliedConfigKey === queued.key) {
-      void this.request<RecordingStatus>("status").then(
-        queued.resolve,
-        (cause: unknown) =>
-          queued.reject(
-            cause instanceof Error
-              ? cause
-              : new Error("Recording sidecar status failed."),
-          ),
-      )
-      return
-    }
-
-    void this.sendConfigure(queued.key, queued.config).then(
-      queued.resolve,
-      queued.reject,
-    )
-  }
-
-  private resolveQueuedConfigureWith(promise: Promise<RecordingStatus>) {
-    const queued = this.queuedConfigure
-    if (!queued) return
-
-    this.queuedConfigure = null
-    void promise.then(queued.resolve, queued.reject)
   }
 
   private ensureProcess() {
@@ -293,9 +190,7 @@ export class RecordingSidecarClient {
     this.child = child
     this.shutdownRequested = false
     this.spawnedAt = Date.now()
-    this.appliedConfigKey = null
-    this.inFlightConfigure = null
-    this.queuedConfigure = null
+    this.configureQueue.reset()
     child.stdin.setDefaultEncoding("utf8")
 
     this.reader = createInterface({ input: child.stdout })
@@ -316,11 +211,9 @@ export class RecordingSidecarClient {
 
     // A fresh process knows nothing: push the current config before any
     // queued request reaches it (stdin order guarantees this runs first).
-    void this.sendConfigure(JSON.stringify(config), config).catch(
-      (cause: unknown) => {
-        logger.warn("recording sidecar startup configure failed:", cause)
-      },
-    )
+    void this.configureQueue.configure(config).catch((cause: unknown) => {
+      logger.warn("recording sidecar startup configure failed:", cause)
+    })
   }
 
   private handleLine(line: string) {
@@ -378,10 +271,8 @@ export class RecordingSidecarClient {
     this.child = null
     this.reader?.close()
     this.reader = null
-    this.appliedConfigKey = null
-    this.inFlightConfigure = null
     const error = new Error(message)
-    this.rejectQueuedConfigure(error)
+    this.configureQueue.fail(error)
     const status = { ...this.lastStatus, backend: "error" as const, message }
     this.lastStatus = status
     this.rejectPending(error)
@@ -427,14 +318,6 @@ export class RecordingSidecarClient {
       pending.reject(error)
     }
     this.pending.clear()
-  }
-
-  private rejectQueuedConfigure(error: Error) {
-    const queued = this.queuedConfigure
-    if (!queued) return
-
-    this.queuedConfigure = null
-    queued.reject(error)
   }
 }
 

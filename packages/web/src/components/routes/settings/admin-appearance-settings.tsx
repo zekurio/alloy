@@ -101,9 +101,9 @@ export function AppearanceSettingsContent({
       })
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success(t("Login backdrop appearance saved"))
+      toast.success(t("Appearance settings saved"))
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't save backdrop appearance")))
+      toast.error(errorMessage(cause, t("Couldn't save appearance settings")))
     } finally {
       setTreatmentPending(false)
     }

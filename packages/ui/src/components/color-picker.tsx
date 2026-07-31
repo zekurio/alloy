@@ -13,7 +13,7 @@ import {
   type Hsva,
 } from "@alloy/ui/lib/color"
 import { cn } from "@alloy/ui/lib/utils"
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useRef, useState } from "react"
 import type { CSSProperties, PointerEvent, RefObject } from "react"
 
 const FALLBACK: Hsva = { h: 0, s: 0, v: 0, a: 1 }
@@ -38,13 +38,31 @@ export function ColorPicker({
   disabled?: boolean
   className?: string
 }) {
-  const hsva = useMemo(() => {
+  // HSVA is component state, not derived from `value` each render: achromatic
+  // colours (white/black/gray) project to hue 0 / saturation 0, so re-deriving
+  // would snap the hue rail back and make it inert until saturation is raised.
+  const [hsva, setHsva] = useState<Hsva>(() => {
     const rgba = parseCssColor(value)
     return rgba ? rgbaToHsva(rgba) : FALLBACK
-  }, [value])
+  })
+
+  // Sync from the prop only when it changes to a colour that no longer matches
+  // our own RGB projection, so external updates land but our own emits echoing
+  // back don't wipe hue/saturation through gray.
+  const [syncedValue, setSyncedValue] = useState(value)
+  if (value !== syncedValue) {
+    setSyncedValue(value)
+    const rgba = parseCssColor(value)
+    if (rgba && formatCssColor(rgba) !== formatCssColor(hsvaToRgba(hsva))) {
+      setHsva(rgbaToHsva(rgba))
+    }
+  }
 
   const emit = useCallback(
-    (next: Hsva) => onValueChange(formatCssColor(hsvaToRgba(next))),
+    (next: Hsva) => {
+      setHsva(next)
+      onValueChange(formatCssColor(hsvaToRgba(next)))
+    },
     [onValueChange],
   )
 
@@ -162,8 +180,20 @@ function Rail({
       onPointerDown={track}
       onKeyDown={(event) => {
         const step = event.shiftKey ? 0.1 : 0.01
-        if (event.key === "ArrowLeft") onChange(Math.max(0, position - step))
-        if (event.key === "ArrowRight") onChange(Math.min(1, position + step))
+        const next =
+          event.key === "ArrowLeft"
+            ? Math.max(0, position - step)
+            : event.key === "ArrowRight"
+              ? Math.min(1, position + step)
+              : event.key === "Home"
+                ? 0
+                : event.key === "End"
+                  ? 1
+                  : null
+        if (next === null) return
+        // Arrow keys and Home/End scroll the page otherwise.
+        event.preventDefault()
+        onChange(next)
       }}
     >
       {kind === "alpha" ? (

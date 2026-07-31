@@ -22,7 +22,11 @@ import { GAME_ASSET_FIELDS } from "./admin-game-data"
 export type GameArtworkSlot = {
   src: string | null
   busy?: boolean
-  onSelect: (file: File) => void | Promise<void>
+  /**
+   * Resolving `false` signals the upload failed, so the crop dialog stays open
+   * for a retry; `void`/`true` means the file was accepted.
+   */
+  onSelect: (file: File) => void | boolean | Promise<void | boolean>
   onRemove: () => void
 }
 
@@ -158,10 +162,11 @@ export function GameArtworkStencil({
         }}
         onApply={async ({ blob }) => {
           if (!cropping) return
-          await slot(cropping.role).onSelect(
+          const accepted = await slot(cropping.role).onSelect(
             new File([blob], cropping.file.name, { type: blob.type }),
           )
-          setCropping(null)
+          // A failed upload keeps the dialog open so the framing isn't lost.
+          if (accepted !== false) setCropping(null)
         }}
       />
     </div>

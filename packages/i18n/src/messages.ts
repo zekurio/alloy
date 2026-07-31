@@ -159,6 +159,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Always record": "Immer aufnehmen",
   App: "App",
   Appearance: "Aussehen",
+  "Appearance settings saved": "Erscheinungsbild-Einstellungen gespeichert",
   "Apple VideoToolbox": "Apple VideoToolbox",
   Applications: "Anwendungen",
   Apply: "Anwenden",
@@ -380,9 +381,10 @@ export const DE_MESSAGES: Record<string, string> = {
     "Neustart zum Aktualisieren ist fehlgeschlagen.",
   "Couldn't restart recording sidecar.":
     "Aufnahme-Sidecar konnte nicht neu gestartet werden.",
+  "Couldn't read that file": "Diese Datei konnte nicht gelesen werden",
   "Couldn't save": "Konnte nicht gespeichert werden",
-  "Couldn't save backdrop appearance":
-    "Hintergrund-Aussehen konnte nicht gespeichert werden",
+  "Couldn't save appearance settings":
+    "Erscheinungsbild-Einstellungen konnten nicht gespeichert werden",
   "Couldn't save changes": "Änderungen konnten nicht gespeichert werden",
   "Couldn't save recording settings.":
     "Aufnahmeeinstellungen konnten nicht gespeichert werden.",
@@ -642,8 +644,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Login: "Login",
   "Login appearance": "Login-Aussehen",
   "Login backdrop": "Login-Hintergrund",
-  "Login backdrop appearance saved":
-    "Aussehen des Login-Hintergrunds gespeichert",
   "Login backdrop disabled": "Login-Hintergrund deaktiviert",
   "Login backdrop enabled": "Login-Hintergrund aktiviert",
   "Login page preview": "Vorschau der Login-Seite",
@@ -1367,4 +1367,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "by {author}": "von {author}",
   "This replaces your current custom CSS. You can edit it afterwards.":
     "Dies ersetzt dein aktuelles eigenes CSS. Du kannst es danach bearbeiten.",
+  "CSS written by someone else can load remote resources and change or overlay any part of the interface. Only apply themes from people you trust.":
+    "CSS von anderen kann externe Ressourcen laden und jeden Teil der Oberfläche verändern oder überlagern. Wende nur Themes von Personen an, denen du vertraust.",
 }

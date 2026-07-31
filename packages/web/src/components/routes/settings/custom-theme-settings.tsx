@@ -192,7 +192,11 @@ export function CustomThemeSettings() {
           type="file"
           accept=".css,text/css"
           className="hidden"
-          onChange={(event) => void readImport(event.target.files?.[0])}
+          onChange={(event) =>
+            void readImport(event.target.files?.[0]).catch(() =>
+              toast.error(t("Couldn't read that file")),
+            )
+          }
         />
         <ThemeImportDialog
           css={pendingImport}

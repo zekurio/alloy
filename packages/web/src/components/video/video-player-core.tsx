@@ -7,7 +7,7 @@ import { suspendBackgroundMediaWork } from "@/lib/background-media-work"
 import { errorMessage } from "@/lib/error-message"
 import { usePlayerVolume } from "@/lib/player-volume"
 
-import { useAudioTrackMixerEngine } from "./audio-track-mixer"
+import { useAudioTrackMixerEngine } from "./audio-track-mixer-engine"
 import { useMediaEngine } from "./video-media-engine"
 import { useActiveVideoPlayer } from "./video-player-active"
 import { useVideoPlayerControls } from "./video-player-controls"

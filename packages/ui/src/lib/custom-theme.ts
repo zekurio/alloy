@@ -105,9 +105,9 @@ export function applyCustomTheme(
 }
 
 /**
- * Theme file header, in the BetterDiscord `@name`/`@author` format that Fluxer
- * and the wider theme ecosystem already use — so a theme exported from Alloy
- * carries its name into other tools, and one written elsewhere keeps it here.
+ * Theme file header, in the BetterDiscord `@name`/`@author` format the wider
+ * theme ecosystem already uses — so a theme exported from Alloy carries its
+ * name into other tools, and one written elsewhere keeps it here.
  */
 export interface ThemeMetadata {
   name: string
@@ -165,14 +165,35 @@ export function themeFileName(name: string): string {
   return `${slug || "theme"}.theme.css`
 }
 
+// Commented-out declarations (`/* --accent: red; */`) are dead text: readers
+// strip comments first and writers pass comment matches through untouched.
+const COMMENT = String.raw`\/\*[\s\S]*?\*\/`
+
+function stripComments(css: string): string {
+  return css.replace(new RegExp(COMMENT, "g"), "")
+}
+
+/**
+ * One declaration of `name`. The lookbehind keeps `--accent` from matching the
+ * tail of a longer token, and the terminator accepts a closing brace or end of
+ * input so a final declaration without `;` is still one declaration — not text
+ * a writer would miss and duplicate.
+ */
+function declarationSource(name: string): string {
+  return String.raw`(?<![\w-])${name}\s*:\s*[^;{}]*?(?:;|(?=\s*\})|$)`
+}
+
 /**
  * Token values declared anywhere in the CSS, so the token grid reflects what
  * the editor says. A `--var` set inside a non-root selector is reported the
- * same as a root one — the editor treats the document as one flat set.
+ * same as a root one — the editor treats the document as one flat set. When a
+ * token is declared more than once the last occurrence wins, like the cascade.
  */
 export function readTokenOverrides(css: string): Record<string, string> {
   const overrides: Record<string, string> = {}
-  for (const [, name, value] of css.matchAll(/(--[\w-]+)\s*:\s*([^;{}]+);/g)) {
+  for (const [, name, value] of stripComments(css).matchAll(
+    /(--[\w-]+)\s*:\s*([^;{}]+)/g,
+  )) {
     if (name && value && THEME_VARIABLES_BY_NAME.has(name)) {
       overrides[name] = value.trim()
     }
@@ -181,17 +202,21 @@ export function readTokenOverrides(css: string): Record<string, string> {
 }
 
 /**
- * Sets a token in the CSS text, rewriting the existing declaration in place
- * when there is one so the author's own formatting and comments survive.
+ * Sets a token in the CSS text, rewriting the existing declarations in place
+ * when there are any so the author's own formatting and comments survive.
+ * Every live occurrence is rewritten — the reader reports the last one, so
+ * rewriting only the first would make edits appear to do nothing.
  */
 export function writeTokenOverride(
   css: string,
   name: string,
   value: string,
 ): string {
-  const declaration = new RegExp(`${name}\\s*:\\s*[^;{}]+;`)
-  if (declaration.test(css)) {
-    return css.replace(declaration, `${name}: ${value};`)
+  const declaration = declarationSource(name)
+  if (new RegExp(declaration).test(stripComments(css))) {
+    return css.replace(new RegExp(`${COMMENT}|${declaration}`, "g"), (match) =>
+      match.startsWith("/*") ? match : `${name}: ${value};`,
+    )
   }
 
   const trimmed = css.trimEnd()
@@ -199,10 +224,13 @@ export function writeTokenOverride(
   return `${trimmed}${separator}:root {\n  ${name}: ${value};\n}\n`
 }
 
-/** Drops a token's declaration, and any `:root` block left empty by that. */
+/** Drops a token's declarations, and any `:root` block left empty by that. */
 export function clearTokenOverride(css: string, name: string): string {
   return css
-    .replace(new RegExp(`\\s*${name}\\s*:\\s*[^;{}]+;`, "g"), "")
+    .replace(
+      new RegExp(`${COMMENT}|\\s*${declarationSource(name)}`, "g"),
+      (match) => (match.startsWith("/*") ? match : ""),
+    )
     .replace(/:root\s*\{\s*\}\n?/g, "")
     .trimStart()
 }

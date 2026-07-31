@@ -118,15 +118,21 @@ function useSectionInView(
       setActiveId(current.id)
     }
 
-    const onScroll = () => {
+    const schedule = () => {
       if (frame) return
       frame = requestAnimationFrame(update)
     }
 
     update()
-    scroller.addEventListener("scroll", onScroll, { passive: true })
+    scroller.addEventListener("scroll", schedule, { passive: true })
+    // Async content growing an earlier section shifts every later heading
+    // without a scroll event, so resizes feed the same recompute.
+    const observer = new ResizeObserver(schedule)
+    observer.observe(scroller)
+    for (const section of sections) observer.observe(section.element)
     return () => {
-      scroller.removeEventListener("scroll", onScroll)
+      scroller.removeEventListener("scroll", schedule)
+      observer.disconnect()
       if (frame) cancelAnimationFrame(frame)
     }
   }, [scrollRef, sections])
