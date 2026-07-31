@@ -1,16 +1,17 @@
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { cn } from "@alloy/ui/lib/utils"
 import { Avatar } from "@base-ui/react/avatar"
+import { UserIcon } from "lucide-react"
 import { Children, isValidElement } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 const avatarRootSizeClasses = [
-  "data-[size=sm]:size-5 data-[size=sm]:text-[8px]",
-  "data-[size=md]:size-7 data-[size=md]:text-[11px]",
-  "data-[size=nav]:size-8 data-[size=nav]:text-xs",
-  "data-[size=lg]:size-9 data-[size=lg]:text-[14px]",
-  "data-[size=xl]:size-12 data-[size=xl]:text-[18px]",
-  "data-[size=2xl]:size-24 data-[size=2xl]:text-[28px]",
+  "data-[size=sm]:size-5",
+  "data-[size=md]:size-7",
+  "data-[size=nav]:size-8",
+  "data-[size=lg]:size-9",
+  "data-[size=xl]:size-12",
+  "data-[size=2xl]:size-24",
 ]
 
 const avatarBadgeSizeClasses = [
@@ -60,8 +61,7 @@ function AvatarRoot({
       data-ring={ring || undefined}
       className={cn(
         "group/avatar relative inline-flex shrink-0 overflow-hidden select-none",
-        "items-center justify-center rounded-full bg-neutral-200 font-semibold text-foreground",
-        "leading-none",
+        "items-center justify-center rounded-full bg-neutral-200 text-foreground",
         ...avatarRootSizeClasses,
         "data-[ring=true]:shadow-[0_0_0_1.5px_var(--background),0_0_0_3px_var(--accent)]",
         className,
@@ -106,7 +106,15 @@ function AvatarImage({
   )
 }
 
-function AvatarFallback({ className, ...props }: Avatar.Fallback.Props) {
+/**
+ * Placeholder shown when a user has no avatar image: a person glyph on the
+ * caller-supplied tint. Children are only for the rare non-user avatar.
+ */
+function AvatarFallback({
+  className,
+  children,
+  ...props
+}: Avatar.Fallback.Props) {
   return (
     <Avatar.Fallback
       data-slot="avatar-fallback"
@@ -115,7 +123,9 @@ function AvatarFallback({ className, ...props }: Avatar.Fallback.Props) {
         className,
       )}
       {...props}
-    />
+    >
+      {children ?? <UserIcon aria-hidden className="size-[55%]" />}
+    </Avatar.Fallback>
   )
 }
 

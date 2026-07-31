@@ -79,9 +79,7 @@ function UserMenuInner({ className }: { className?: string }) {
               {chip.avatar.src ? (
                 <AvatarImage src={chip.avatar.src} alt="" />
               ) : null}
-              <AvatarFallback style={avatarTint(chip.avatar)}>
-                {chip.avatar.initials}
-              </AvatarFallback>
+              <AvatarFallback style={avatarTint(chip.avatar)} />
             </Avatar>
             <span className="text-foreground min-w-0 truncate text-sm font-semibold">
               {primaryLabel}

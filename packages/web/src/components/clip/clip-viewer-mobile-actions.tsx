@@ -49,7 +49,7 @@ export function ClipAuthorLink({
     <Link to="/u/$username" params={{ username: handle }} className={className}>
       <Avatar size={size} style={avatarStyle}>
         {avatar.src ? <AvatarImage src={avatar.src} alt={author} /> : null}
-        <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
+        <AvatarFallback style={avatarStyle} />
       </Avatar>
       <span className={textClassName}>{handle}</span>
     </Link>

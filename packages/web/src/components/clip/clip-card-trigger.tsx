@@ -73,7 +73,6 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
       title={card.title}
       author={card.author}
       authorImage={card.authorImage}
-      authorInitials={card.authorAvatar.initials}
       authorAvatarBg={card.authorAvatar.bg}
       authorAvatarFg={card.authorAvatar.fg}
       authorHref={authorHref}

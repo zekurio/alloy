@@ -3,17 +3,24 @@ import { t } from "@alloy/i18n"
 import type { QueryClient } from "@tanstack/react-query"
 
 import { adminKeys } from "@/lib/admin-query-keys"
+import { invalidateGameQueries } from "@/lib/game-queries"
 
-export const GAME_ASSET_FIELDS: {
-  role: GameAssetRole
-  label: string
-  description: string
-}[] = [
-  { role: "grid", label: t("Cover"), description: t("Vertical box art") },
-  { role: "hero", label: t("Banner"), description: t("Wide page header") },
-  { role: "logo", label: t("Logo"), description: t("Transparent wordmark") },
-  { role: "icon", label: t("Icon"), description: t("Square app tile") },
+export const GAME_ASSET_ROLES: GameAssetRole[] = [
+  "grid",
+  "hero",
+  "logo",
+  "icon",
 ]
+
+export const GAME_ASSET_FIELDS: Record<
+  GameAssetRole,
+  { label: string; description: string }
+> = {
+  grid: { label: t("Cover"), description: t("Vertical box art") },
+  hero: { label: t("Banner"), description: t("Wide page header") },
+  logo: { label: t("Logo"), description: t("Transparent wordmark") },
+  icon: { label: t("Icon"), description: t("Square app tile") },
+}
 
 export const GAME_ASSET_URL: Record<GameAssetRole, keyof AdminGameRow> = {
   grid: "gridUrl",
@@ -32,6 +39,19 @@ export function setAdminGameCacheRow(
       ? old.map((item) => (item.id === game.id ? game : item))
       : [game, ...old]
   })
+}
+
+/**
+ * Cache update for artwork changes. The admin row carries the new cache-busted
+ * URLs, but the public game queries (lists, detail, search, combobox) embed
+ * them too, so they must be refetched or they keep serving the stale artwork.
+ */
+export function setAdminGameArtworkRow(
+  queryClient: QueryClient,
+  game: AdminGameRow,
+): void {
+  setAdminGameCacheRow(queryClient, game)
+  void invalidateGameQueries(queryClient)
 }
 
 export function removeAdminGameCacheRow(

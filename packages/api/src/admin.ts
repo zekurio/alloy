@@ -1,46 +1,57 @@
 import type {
   AdminAuthConfigPatch,
   AdminCreateGameInput,
-  AdminFailedJobsPage,
-  AdminGameRow,
-  AdminJobsSummary,
   AdminOAuthProviderInput,
-  AdminRuntimeConfig,
   AdminSweepKind,
   AdminUpdateGameInput,
   AdminUpdateUserInput,
-  AdminUsersResponse,
-  AdminUserStorageRow,
   AdminWebhookInput,
   AdminWebhookPatch,
-  AdminWebhookRow,
-  AdminWebhookTestResult,
   GameAssetRole,
-  HardwareAcceleration,
-  RenditionTierConfig,
-  TranscodingCapabilities,
-  VideoCodec,
-} from "@alloy/contracts"
-import {
-  AdminRuntimeConfigSchema,
-  TranscodingCapabilitiesSchema,
 } from "@alloy/contracts"
 
-import type { ApiContext } from "./client"
+import type {
+  AppearanceConfigPatch,
+  RuntimeConfigPatch,
+  TranscodingConfigPatch,
+} from "./admin-config"
 import {
-  validateAdminFailedJobsPage,
-  validateAdminGameRow,
-  validateAdminGameRows,
-  validateAdminJobsSummary,
-  validateAdminReEncodeResponse,
-  validateAdminUsersResponse,
-  validateAdminUserStorageRow,
-  validateAdminWebhookRow,
-  validateAdminWebhookRows,
-  validateAdminWebhookTestResult,
-} from "./contract-validators"
-import { readJsonOrThrow } from "./http"
-import { readDeletedJson, readSuccessJson } from "./mutations"
+  fetchRuntimeConfig,
+  fetchTranscodingCapabilities,
+  updateAppearanceConfig,
+  updateAuthConfig,
+  updateOAuthProviders,
+  updateRuntimeConfig,
+  updateTranscodingConfig,
+} from "./admin-config"
+import {
+  discardJob,
+  fetchFailedJobs,
+  fetchJobsSummary,
+  reEncodeAllClips,
+  retryJob,
+  runJobSweep,
+  setJobKindPaused,
+} from "./admin-jobs"
+import type { AdminCreateUserInput } from "./admin-resources"
+import {
+  createGame,
+  createUser,
+  createWebhook,
+  deleteGame,
+  deleteGameAsset,
+  deleteUser,
+  deleteWebhook,
+  fetchGames,
+  fetchUsers,
+  fetchWebhooks,
+  testWebhook,
+  updateGame,
+  updateUser,
+  updateWebhook,
+  uploadGameAsset,
+} from "./admin-resources"
+import type { ApiContext } from "./client"
 export {
   OAUTH_AVATAR_CLAIM_DEFAULT,
   OAUTH_CLIENT_SECRET_BASIC_AUTH_METHOD,
@@ -94,322 +105,6 @@ export {
   HARDWARE_ACCELERATIONS,
   TRANSCODE_VIDEO_CODECS,
 } from "@alloy/contracts"
-
-type RuntimeConfigPatch = {
-  setupComplete?: boolean
-}
-
-type AppearanceConfigPatch = {
-  loginSplash?: {
-    enabled?: boolean
-    blurPx?: number
-    darkenOpacity?: number
-  }
-}
-
-type TranscodingConfigPatch = {
-  videoCodec?: VideoCodec
-  hardwareAcceleration?: HardwareAcceleration
-  vaapiDevice?: string
-  quality?: number
-  audioBitrateKbps?: number
-  tiers?: RenditionTierConfig[]
-}
-
-type AdminCreateUserInput = {
-  email: string
-  username?: string
-  role?: "user" | "admin"
-}
-
-function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
-  return AdminRuntimeConfigSchema.parse(value)
-}
-
-async function fetchRuntimeConfig(
-  context: ApiContext,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["runtime-config"].$get()
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function updateRuntimeConfig(
-  context: ApiContext,
-  input: RuntimeConfigPatch,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["runtime-config"].$patch({
-    json: input,
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function updateAppearanceConfig(
-  context: ApiContext,
-  patch: AppearanceConfigPatch,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin.appearance.$patch({ json: patch })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function updateTranscodingConfig(
-  context: ApiContext,
-  patch: TranscodingConfigPatch,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin.transcoding.$patch({ json: patch })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function updateAuthConfig(
-  context: ApiContext,
-  patch: AdminAuthConfigPatch,
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["auth-config"].$patch({ json: patch })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function updateOAuthProviders(
-  context: ApiContext,
-  providers: AdminOAuthProviderInput[],
-): Promise<AdminRuntimeConfig> {
-  const res = await context.rpc.api.admin["oauth-providers"].$put({
-    json: { providers },
-  })
-  return readJsonOrThrow(res, validateAdminRuntimeConfig)
-}
-
-async function fetchTranscodingCapabilities(
-  context: ApiContext,
-  options?: { refresh?: boolean },
-): Promise<TranscodingCapabilities> {
-  const res = await context.rpc.api.admin.transcoding.capabilities.$get({
-    query: options?.refresh ? { refresh: "true" } : {},
-  })
-  return readJsonOrThrow(res, (value) =>
-    TranscodingCapabilitiesSchema.parse(value),
-  )
-}
-
-async function reEncodeAllClips(
-  context: ApiContext,
-): Promise<{ enqueued: number; hasMore: boolean }> {
-  const res = await context.rpc.api.admin.clips["re-encode"].$post()
-  return readJsonOrThrow(res, validateAdminReEncodeResponse)
-}
-
-async function fetchJobsSummary(
-  context: ApiContext,
-): Promise<AdminJobsSummary> {
-  const res = await context.rpc.api.admin.jobs.summary.$get()
-  return readJsonOrThrow(res, validateAdminJobsSummary)
-}
-
-async function fetchFailedJobs(
-  context: ApiContext,
-  options: { kind?: string; cursor?: string; limit?: number } = {},
-): Promise<AdminFailedJobsPage> {
-  const res = await context.rpc.api.admin.jobs.failed.$get({
-    query: {
-      ...(options.kind ? { kind: options.kind } : {}),
-      ...(options.cursor ? { cursor: options.cursor } : {}),
-      ...(options.limit ? { limit: String(options.limit) } : {}),
-    },
-  })
-  return readJsonOrThrow(res, validateAdminFailedJobsPage)
-}
-
-async function retryJob(context: ApiContext, jobId: string): Promise<void> {
-  const res = await context.rpc.api.admin.jobs[":id"].retry.$post({
-    param: { id: jobId },
-  })
-  await readSuccessJson(res)
-}
-
-async function discardJob(context: ApiContext, jobId: string): Promise<void> {
-  const res = await context.rpc.api.admin.jobs[":id"].discard.$post({
-    param: { id: jobId },
-  })
-  await readSuccessJson(res)
-}
-
-async function runJobSweep(
-  context: ApiContext,
-  kind: AdminSweepKind,
-  mode: "stale" | "force" = "stale",
-): Promise<void> {
-  const res = await context.rpc.api.admin.jobs.sweeps[":kind"].$post({
-    param: { kind },
-    json: { mode },
-  })
-  await readSuccessJson(res)
-}
-
-async function setJobKindPaused(
-  context: ApiContext,
-  kind: string,
-  paused: boolean,
-): Promise<void> {
-  const res = paused
-    ? await context.rpc.api.admin.jobs.kinds[":kind"].pause.$post({
-        param: { kind },
-      })
-    : await context.rpc.api.admin.jobs.kinds[":kind"].resume.$post({
-        param: { kind },
-      })
-  await readSuccessJson(res)
-}
-
-async function fetchUsers(
-  context: ApiContext,
-  options: { cursor?: string; limit?: number; search?: string } = {},
-): Promise<AdminUsersResponse> {
-  const res = await context.rpc.api.admin.users.$get({
-    query: {
-      ...(options.cursor ? { cursor: options.cursor } : {}),
-      ...(options.limit ? { limit: String(options.limit) } : {}),
-      ...(options.search ? { search: options.search } : {}),
-    },
-  })
-  return readJsonOrThrow(res, validateAdminUsersResponse)
-}
-
-async function createUser(
-  context: ApiContext,
-  input: AdminCreateUserInput,
-): Promise<AdminUserStorageRow> {
-  const res = await context.rpc.api.admin.users.$post({ json: input })
-  return readJsonOrThrow(res, validateAdminUserStorageRow)
-}
-
-async function updateUser(
-  context: ApiContext,
-  userId: string,
-  input: AdminUpdateUserInput,
-): Promise<AdminUserStorageRow> {
-  const res = await context.rpc.api.admin.users[":id"].$patch({
-    param: { id: userId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateAdminUserStorageRow)
-}
-
-async function deleteUser(context: ApiContext, userId: string): Promise<void> {
-  const res = await context.rpc.api.admin.users[":id"].$delete({
-    param: { id: userId },
-  })
-  await readSuccessJson(res)
-}
-
-async function fetchGames(context: ApiContext): Promise<AdminGameRow[]> {
-  const res = await context.rpc.api.admin.games.$get()
-  return readJsonOrThrow(res, validateAdminGameRows)
-}
-
-async function createGame(
-  context: ApiContext,
-  input: AdminCreateGameInput,
-): Promise<AdminGameRow> {
-  const res = await context.rpc.api.admin.games.$post({
-    form: {
-      name: input.name,
-      ...(input.releaseDate ? { releaseDate: input.releaseDate } : {}),
-      ...(input.assets?.hero ? { hero: input.assets.hero } : {}),
-      ...(input.assets?.grid ? { grid: input.assets.grid } : {}),
-      ...(input.assets?.logo ? { logo: input.assets.logo } : {}),
-      ...(input.assets?.icon ? { icon: input.assets.icon } : {}),
-    },
-  })
-  return readJsonOrThrow(res, validateAdminGameRow)
-}
-
-async function updateGame(
-  context: ApiContext,
-  gameId: string,
-  input: AdminUpdateGameInput,
-): Promise<AdminGameRow> {
-  const res = await context.rpc.api.admin.games[":id"].$patch({
-    param: { id: gameId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateAdminGameRow)
-}
-
-async function deleteGame(context: ApiContext, gameId: string): Promise<void> {
-  const res = await context.rpc.api.admin.games[":id"].$delete({
-    param: { id: gameId },
-  })
-  await readDeletedJson(res)
-}
-
-async function uploadGameAsset(
-  context: ApiContext,
-  gameId: string,
-  role: GameAssetRole,
-  blob: Blob,
-): Promise<AdminGameRow> {
-  const file =
-    blob instanceof File ? blob : new File([blob], role, { type: blob.type })
-  const res = await context.rpc.api.admin.games[":id"].assets[":role"].$post({
-    param: { id: gameId, role },
-    form: { file },
-  })
-  return readJsonOrThrow(res, validateAdminGameRow)
-}
-
-async function deleteGameAsset(
-  context: ApiContext,
-  gameId: string,
-  role: GameAssetRole,
-): Promise<AdminGameRow> {
-  const res = await context.rpc.api.admin.games[":id"].assets[":role"].$delete({
-    param: { id: gameId, role },
-  })
-  return readJsonOrThrow(res, validateAdminGameRow)
-}
-
-async function fetchWebhooks(context: ApiContext): Promise<AdminWebhookRow[]> {
-  const res = await context.rpc.api.admin.webhooks.$get()
-  return readJsonOrThrow(res, validateAdminWebhookRows)
-}
-
-async function createWebhook(
-  context: ApiContext,
-  input: AdminWebhookInput,
-): Promise<AdminWebhookRow> {
-  const res = await context.rpc.api.admin.webhooks.$post({ json: input })
-  return readJsonOrThrow(res, validateAdminWebhookRow)
-}
-
-async function updateWebhook(
-  context: ApiContext,
-  webhookId: string,
-  input: AdminWebhookPatch,
-): Promise<AdminWebhookRow> {
-  const res = await context.rpc.api.admin.webhooks[":id"].$patch({
-    param: { id: webhookId },
-    json: input,
-  })
-  return readJsonOrThrow(res, validateAdminWebhookRow)
-}
-
-async function deleteWebhook(
-  context: ApiContext,
-  webhookId: string,
-): Promise<void> {
-  const res = await context.rpc.api.admin.webhooks[":id"].$delete({
-    param: { id: webhookId },
-  })
-  await readDeletedJson(res)
-}
-
-async function testWebhook(
-  context: ApiContext,
-  webhookId: string,
-): Promise<AdminWebhookTestResult> {
-  const res = await context.rpc.api.admin.webhooks[":id"].test.$post({
-    param: { id: webhookId },
-  })
-  return readJsonOrThrow(res, validateAdminWebhookTestResult)
-}
 
 export function createAdminApi(context: ApiContext) {
   return {

@@ -20,7 +20,8 @@ export async function buildPublicAuthConfig(): Promise<PublicAuthConfig> {
   const setupStatus = configStore.get("setupComplete")
     ? { adminAccountRequired: false, setupRequired: false }
     : await getSetupStatus()
-  const loginSplash = configStore.get("appearance").loginSplash
+  const appearance = configStore.get("appearance")
+  const loginSplash = appearance.loginSplash
 
   return {
     ...setupStatus,
@@ -34,5 +35,6 @@ export async function buildPublicAuthConfig(): Promise<PublicAuthConfig> {
       blurPx: loginSplash.blurPx,
       darkenOpacity: loginSplash.darkenOpacity,
     },
+    appearance: { customCss: appearance.customCss },
   }
 }

@@ -6,14 +6,19 @@ import {
   SectionContent,
   SectionFooter,
 } from "@alloy/ui/components/section"
-import { SettingRow } from "@alloy/ui/components/setting-row"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
+import { Textarea } from "@alloy/ui/components/textarea"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { SaveIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { LoginAppearancePreview } from "@/components/routes/admin-settings/login-appearance-preview"
+import {
+  SettingsSections,
+  SettingsSubsection,
+} from "@/components/routes/settings/settings-panel"
 import { useSettingsSaveBar } from "@/components/routes/settings/settings-save-context"
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
@@ -41,13 +46,22 @@ export function AppearanceSettingsContent({
     }),
     [draftBlurPx, draftDarkenOpacity, splash],
   )
+  const [draftCustomCss, setDraftCustomCss] = useState(
+    config.appearance.customCss,
+  )
   const treatmentChanged =
-    draftBlurPx !== splash.blurPx || draftDarkenOpacity !== splash.darkenOpacity
+    draftBlurPx !== splash.blurPx ||
+    draftDarkenOpacity !== splash.darkenOpacity ||
+    draftCustomCss !== config.appearance.customCss
 
   useEffect(() => {
     setDraftBlurPx(splash.blurPx)
     setDraftDarkenOpacity(splash.darkenOpacity)
   }, [splash.blurPx, splash.darkenOpacity])
+
+  useEffect(() => {
+    setDraftCustomCss(config.appearance.customCss)
+  }, [config.appearance.customCss])
 
   async function updateSplashEnabled(next: boolean) {
     if (enabledPending) return
@@ -71,6 +85,7 @@ export function AppearanceSettingsContent({
   function cancelTreatment() {
     setDraftBlurPx(splash.blurPx)
     setDraftDarkenOpacity(splash.darkenOpacity)
+    setDraftCustomCss(config.appearance.customCss)
   }
 
   async function saveTreatment() {
@@ -82,12 +97,13 @@ export function AppearanceSettingsContent({
           blurPx: draftBlurPx,
           darkenOpacity: draftDarkenOpacity,
         },
+        customCss: draftCustomCss,
       })
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success(t("Login backdrop appearance saved"))
+      toast.success(t("Appearance settings saved"))
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't save backdrop appearance")))
+      toast.error(errorMessage(cause, t("Couldn't save appearance settings")))
     } finally {
       setTreatmentPending(false)
     }
@@ -104,30 +120,59 @@ export function AppearanceSettingsContent({
 
   return (
     <Section>
-      <SectionContent className="flex flex-col gap-6 py-0">
-        <SettingRow
-          title={t("Login backdrop")}
-          description={t(
-            "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
-          )}
-          align="start"
-        >
-          <Switch
-            checked={splash.enabled}
-            onCheckedChange={updateSplashEnabled}
-            disabled={enabledPending}
-          />
-        </SettingRow>
+      <SectionContent className="py-0">
+        <SettingsSections>
+          <SettingsSubsection
+            id="instance-theme"
+            title={t("Instance theme")}
+            description={t(
+              "CSS applied to everyone on this server, including the login page. Users can turn it off for their own browser.",
+            )}
+          >
+            <Textarea
+              value={draftCustomCss}
+              spellCheck={false}
+              onChange={(event) => setDraftCustomCss(event.target.value)}
+              placeholder={":root {\n  --accent: #7c5cff;\n}"}
+              aria-label={t("Instance CSS")}
+              className="min-h-48 font-mono text-xs"
+            />
+          </SettingsSubsection>
 
-        <LoginAppearancePreview
-          config={config}
-          splash={previewSplash}
-          blurPx={draftBlurPx}
-          darkenOpacity={draftDarkenOpacity}
-          controlsDisabled={treatmentPending}
-          onBlurPxChange={setDraftBlurPx}
-          onDarkenOpacityChange={setDraftDarkenOpacity}
-        />
+          <SettingsSubsection
+            id="login-backdrop"
+            title={t("Login backdrop")}
+            description={t(
+              "The generated wall of clip thumbnails behind the login form.",
+            )}
+          >
+            <SettingRows>
+              <SettingRow
+                title={t("Show the backdrop")}
+                description={t(
+                  "Show a sloped, scrolling wall of random public clip thumbnails behind the login form.",
+                )}
+                align="start"
+              >
+                <Switch
+                  checked={splash.enabled}
+                  onCheckedChange={updateSplashEnabled}
+                  disabled={enabledPending}
+                />
+              </SettingRow>
+            </SettingRows>
+
+            <LoginAppearancePreview
+              config={config}
+              splash={previewSplash}
+              blurPx={draftBlurPx}
+              darkenOpacity={draftDarkenOpacity}
+              controlsDisabled={treatmentPending}
+              onBlurPxChange={setDraftBlurPx}
+              onDarkenOpacityChange={setDraftDarkenOpacity}
+            />
+          </SettingsSubsection>
+        </SettingsSections>
       </SectionContent>
       {!inSettingsDialog && (
         <SectionFooter>

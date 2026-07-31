@@ -5,26 +5,39 @@ export function MediaStage({
   children,
   className,
   aspectRatio,
+  maxHeight,
 }: {
   children: ReactNode
   className?: string
   aspectRatio?: number
+  /**
+   * Caps the frame's height (e.g. `"38dvh"`), narrowing it to keep the aspect
+   * ratio instead of letterboxing. Without it the frame is width-driven.
+   */
+  maxHeight?: string
 }) {
-  const frameStyle =
-    aspectRatio && Number.isFinite(aspectRatio)
-      ? ({ aspectRatio: String(aspectRatio) } satisfies CSSProperties)
-      : undefined
+  const ratio =
+    aspectRatio && Number.isFinite(aspectRatio) ? aspectRatio : 16 / 9
+  const frameStyle = {
+    aspectRatio: String(ratio),
+    ...(maxHeight
+      ? { maxHeight, width: `min(100%, calc(${maxHeight} * ${ratio}))` }
+      : {}),
+  } satisfies CSSProperties
 
   return (
     <div
       className={cn(
-        "relative flex aspect-video w-full items-center justify-center overflow-hidden",
+        "relative flex w-full items-center justify-center overflow-hidden",
+        // A capped frame sizes the stage; otherwise the stage reserves the
+        // media box up front so the poster doesn't shift the page on load.
+        maxHeight ? "min-h-0" : "aspect-video",
         "lg:min-h-0 lg:flex-1 lg:aspect-auto",
         className,
       )}
     >
       <div
-        className="relative aspect-video w-full max-w-full lg:h-full lg:max-h-full lg:w-auto"
+        className="relative w-full max-w-full lg:h-full lg:max-h-full lg:w-auto"
         style={frameStyle}
       >
         {children}

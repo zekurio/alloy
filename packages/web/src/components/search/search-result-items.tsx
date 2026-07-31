@@ -305,9 +305,7 @@ export function UserRowItem({
             backgroundColor: chip.avatar.bg,
             color: chip.avatar.fg,
           }}
-        >
-          {chip.avatar.initials}
-        </AvatarFallback>
+        />
       </Avatar>
       <div className="min-w-0 flex-1">
         <div

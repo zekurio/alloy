@@ -77,8 +77,7 @@ function ProfileAvatarPreview({
 
   return (
     // Fills the sized wrapper button so the preview avatar tracks the
-    // responsive size-16/size-24 zone; the `2xl` token supplies the initials
-    // text size.
+    // responsive size-16/size-24 zone.
     <Avatar size="2xl" style={style} className="!size-full">
       {showImage && avatar.src ? (
         <AvatarImage
@@ -88,7 +87,7 @@ function ProfileAvatarPreview({
           loading="eager"
         />
       ) : null}
-      <AvatarFallback style={style}>{avatar.initials}</AvatarFallback>
+      <AvatarFallback style={style} />
     </Avatar>
   )
 }

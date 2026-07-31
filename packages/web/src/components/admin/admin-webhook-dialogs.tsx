@@ -27,7 +27,7 @@ import { toast } from "@alloy/ui/lib/toast"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { PencilIcon, PlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
-import type { FormEvent } from "react"
+import type { FormEvent, ReactNode } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -81,9 +81,8 @@ export function CreateWebhookDialog() {
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
       <ResponsiveDialogTrigger
         render={
-          <Button type="button">
+          <Button type="button" size="icon" aria-label={t("Add webhook")}>
             <PlusIcon />
-            {t("Add webhook")}
           </Button>
         }
       />
@@ -98,17 +97,12 @@ export function CreateWebhookDialog() {
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
           <ResponsiveDialogBody className="flex flex-col gap-4">
-            <Field>
-              <FieldLabel htmlFor="new-webhook-name">{t("Name")}</FieldLabel>
-              <Input
-                id="new-webhook-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={t("e.g. #clips")}
-                maxLength={80}
-                required
-              />
-            </Field>
+            <WebhookNameField
+              id="new-webhook-name"
+              value={name}
+              onValueChange={setName}
+              placeholder={t("e.g. #clips")}
+            />
             <Field>
               <FieldLabel htmlFor="new-webhook-provider">
                 {t("Provider")}
@@ -152,44 +146,17 @@ export function CreateWebhookDialog() {
               />
             </Field>
             {provider === "generic" ? (
-              <Field>
-                <FieldLabel htmlFor="new-webhook-secret">
-                  {t("Signing secret")}
-                </FieldLabel>
-                <Input
-                  id="new-webhook-secret"
-                  value={secret}
-                  onChange={(event) => setSecret(event.target.value)}
-                  type="password"
-                  autoComplete="off"
-                  maxLength={200}
-                />
-                <FieldDescription>
-                  {t(
-                    "Used to sign each payload so your endpoint can verify it.",
-                  )}
-                </FieldDescription>
-              </Field>
+              <WebhookSecretField
+                id="new-webhook-secret"
+                value={secret}
+                onValueChange={setSecret}
+                description={t(
+                  "Used to sign each payload so your endpoint can verify it.",
+                )}
+              />
             ) : null}
           </ResponsiveDialogBody>
-          <ResponsiveDialogFooter>
-            <ResponsiveDialogClose
-              render={
-                <Button type="button" variant="ghost" disabled={isPending} />
-              }
-            >
-              {t("Cancel")}
-            </ResponsiveDialogClose>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              disabled={isPending}
-            >
-              {isPending ? <Spinner className="size-3.5" /> : null}
-              {isPending ? t("Saving…") : t("Save")}
-            </Button>
-          </ResponsiveDialogFooter>
+          <WebhookDialogFooter isPending={isPending} />
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -257,16 +224,11 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
           <ResponsiveDialogBody className="flex flex-col gap-4">
-            <Field>
-              <FieldLabel htmlFor="edit-webhook-name">{t("Name")}</FieldLabel>
-              <Input
-                id="edit-webhook-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                maxLength={80}
-                required
-              />
-            </Field>
+            <WebhookNameField
+              id="edit-webhook-name"
+              value={name}
+              onValueChange={setName}
+            />
             <Field>
               <FieldLabel htmlFor="edit-webhook-url">
                 {t("Endpoint URL")}
@@ -283,48 +245,92 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
               </FieldDescription>
             </Field>
             {webhook.provider === "generic" ? (
-              <Field>
-                <FieldLabel htmlFor="edit-webhook-secret">
-                  {t("Signing secret")}
-                </FieldLabel>
-                <Input
-                  id="edit-webhook-secret"
-                  value={secret}
-                  onChange={(event) => setSecret(event.target.value)}
-                  type="password"
-                  autoComplete="off"
-                  maxLength={200}
-                />
-                <FieldDescription>
-                  {webhook.secretSet
+              <WebhookSecretField
+                id="edit-webhook-secret"
+                value={secret}
+                onValueChange={setSecret}
+                description={
+                  webhook.secretSet
                     ? t("Leave blank to keep the current secret.")
                     : t(
                         "Used to sign each payload so your endpoint can verify it.",
-                      )}
-                </FieldDescription>
-              </Field>
+                      )
+                }
+              />
             ) : null}
           </ResponsiveDialogBody>
-          <ResponsiveDialogFooter>
-            <ResponsiveDialogClose
-              render={
-                <Button type="button" variant="ghost" disabled={isPending} />
-              }
-            >
-              {t("Cancel")}
-            </ResponsiveDialogClose>
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              disabled={isPending}
-            >
-              {isPending ? <Spinner className="size-3.5" /> : null}
-              {isPending ? t("Saving…") : t("Save")}
-            </Button>
-          </ResponsiveDialogFooter>
+          <WebhookDialogFooter isPending={isPending} />
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
+  )
+}
+
+function WebhookNameField({
+  id,
+  value,
+  onValueChange,
+  placeholder,
+}: {
+  id: string
+  value: string
+  onValueChange: (value: string) => void
+  placeholder?: string
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{t("Name")}</FieldLabel>
+      <Input
+        id={id}
+        value={value}
+        onChange={(event) => onValueChange(event.target.value)}
+        placeholder={placeholder}
+        maxLength={80}
+        required
+      />
+    </Field>
+  )
+}
+
+function WebhookSecretField({
+  id,
+  value,
+  onValueChange,
+  description,
+}: {
+  id: string
+  value: string
+  onValueChange: (value: string) => void
+  description: ReactNode
+}) {
+  return (
+    <Field>
+      <FieldLabel htmlFor={id}>{t("Signing secret")}</FieldLabel>
+      <Input
+        id={id}
+        value={value}
+        onChange={(event) => onValueChange(event.target.value)}
+        type="password"
+        autoComplete="off"
+        maxLength={200}
+      />
+      <FieldDescription>{description}</FieldDescription>
+    </Field>
+  )
+}
+
+function WebhookDialogFooter({ isPending }: { isPending: boolean }) {
+  return (
+    <ResponsiveDialogFooter>
+      <ResponsiveDialogClose
+        render={<Button type="button" variant="ghost" disabled={isPending} />}
+      >
+        {t("Cancel")}
+      </ResponsiveDialogClose>
+      <Button type="submit" variant="primary" size="sm" disabled={isPending}>
+        {isPending ? <Spinner className="size-3.5" /> : null}
+        {isPending ? t("Saving…") : t("Save")}
+      </Button>
+    </ResponsiveDialogFooter>
   )
 }

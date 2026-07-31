@@ -76,7 +76,7 @@ export function AdminUsersCard({
     <div className="flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span className="text-foreground-muted text-sm tabular-nums">
-          {tp(adminUsers.total, "user", "users")}
+          {adminUsers.total} {tp(adminUsers.total, "user", "users")}
         </span>
         <div className="flex w-full items-center gap-2 sm:w-auto">
           <InputGroup className="w-full sm:max-w-xs">

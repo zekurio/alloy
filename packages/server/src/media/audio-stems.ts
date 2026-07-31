@@ -63,9 +63,16 @@ export async function extractAudioStems(options: {
   })
   if (plans.length === 0) return []
 
-  await runInitialStemFfmpeg({
+  await runStemFfmpeg({
     sourcePath: options.sourcePath,
-    plans,
+    outputArgs: plans.flatMap((plan) =>
+      stemOutputArgs({
+        sourceStreamIndex: plan.sourceTrack.index,
+        filePath: plan.filePath,
+        copy: plan.copy,
+        trim: options.trim,
+      }),
+    ),
     trim: options.trim,
     canonicalDurationMs: options.canonicalDurationMs,
     signal: options.signal,
@@ -88,8 +95,12 @@ export async function extractAudioStems(options: {
 
     await runStemFfmpeg({
       sourcePath: options.sourcePath,
-      sourceStreamIndex: plan.sourceTrack.index,
-      filePath: plan.filePath,
+      outputArgs: stemOutputArgs({
+        sourceStreamIndex: plan.sourceTrack.index,
+        filePath: plan.filePath,
+        copy: false,
+        trim: options.trim,
+      }),
       trim: options.trim,
       canonicalDurationMs: options.canonicalDurationMs,
       signal: options.signal,
@@ -111,43 +122,9 @@ export async function extractAudioStems(options: {
   return stems
 }
 
-async function runInitialStemFfmpeg(options: {
-  sourcePath: string
-  plans: readonly StemPlan[]
-  trim?: { startMs: number; endMs: number }
-  canonicalDurationMs: number
-  signal?: AbortSignal
-  onProgress?: (fraction: number) => void
-}): Promise<void> {
-  const durationSec = options.canonicalDurationMs / 1000
-  await runFfmpeg({
-    timeoutMs: transcodeTimeoutMs(options.canonicalDurationMs),
-    signal: options.signal,
-    onProgress: (outTimeSec) => {
-      if (durationSec <= 0) return
-      options.onProgress?.(Math.min(1, outTimeSec / durationSec))
-    },
-    args: [
-      "-v",
-      "error",
-      "-y",
-      ...inputArgs(options.sourcePath, options.trim),
-      ...options.plans.flatMap((plan) =>
-        stemOutputArgs({
-          sourceStreamIndex: plan.sourceTrack.index,
-          filePath: plan.filePath,
-          copy: plan.copy,
-          trim: options.trim,
-        }),
-      ),
-    ],
-  })
-}
-
 async function runStemFfmpeg(options: {
   sourcePath: string
-  sourceStreamIndex: number
-  filePath: string
+  outputArgs: readonly string[]
   trim?: { startMs: number; endMs: number }
   canonicalDurationMs: number
   signal?: AbortSignal
@@ -166,12 +143,7 @@ async function runStemFfmpeg(options: {
       "error",
       "-y",
       ...inputArgs(options.sourcePath, options.trim),
-      ...stemOutputArgs({
-        sourceStreamIndex: options.sourceStreamIndex,
-        filePath: options.filePath,
-        copy: false,
-        trim: options.trim,
-      }),
+      ...options.outputArgs,
     ],
   })
 }

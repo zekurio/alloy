@@ -12,7 +12,7 @@ import {
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
-import { SettingRow } from "@alloy/ui/components/setting-row"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { EyeOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
@@ -227,9 +227,9 @@ export function DangerZoneCard() {
   const actions = useAccountDangerActions()
 
   return (
-    <div className="flex flex-col">
+    <SettingRows>
       <DisableAccountRow {...actions} />
       <DeleteAccountRow {...actions} />
-    </div>
+    </SettingRows>
   )
 }

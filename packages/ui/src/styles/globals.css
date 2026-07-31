@@ -191,17 +191,19 @@
   --space-11: 48px;
   --space-12: 64px;
 
-  /* Neutral scale — dark, pure-grey variant. Swap via [data-neutral] below. */
-  --neutral-0: oklch(0.19 0 0);
-  --neutral-50: oklch(0.23 0 0);
-  --neutral-100: oklch(0.27 0 0);
-  --neutral-150: oklch(0.31 0 0);
-  --neutral-200: oklch(0.35 0 0);
-  --neutral-300: oklch(0.41 0 0);
-  --neutral-400: oklch(0.5 0 0);
-  --neutral-500: oklch(0.6 0 0);
-  --neutral-600: oklch(0.7 0 0);
-  --neutral-700: oklch(0.8 0 0);
+  /* Neutral scale — dark, pure-grey variant. Swap via [data-neutral] below.
+     The low end sits near black; steps 0-300 stay ~0.04-0.07 apart so
+     surfaces, inputs, and borders remain distinguishable at that depth. */
+  --neutral-0: oklch(0.11 0 0);
+  --neutral-50: oklch(0.15 0 0);
+  --neutral-100: oklch(0.19 0 0);
+  --neutral-150: oklch(0.235 0 0);
+  --neutral-200: oklch(0.27 0 0);
+  --neutral-300: oklch(0.34 0 0);
+  --neutral-400: oklch(0.45 0 0);
+  --neutral-500: oklch(0.57 0 0);
+  --neutral-600: oklch(0.68 0 0);
+  --neutral-700: oklch(0.79 0 0);
   --neutral-800: oklch(0.9 0 0);
   --neutral-900: oklch(0.98 0 0);
 
@@ -235,17 +237,17 @@
   --background: var(--neutral-0);
   --surface: var(--neutral-50);
   --surface-raised: var(--neutral-100);
-  --surface-sunken: oklch(0.15 0 0);
+  --surface-sunken: oklch(0.07 0 0);
 
   --foreground: var(--neutral-900);
   --foreground-muted: var(--neutral-700);
   --foreground-dim: var(--neutral-600);
-  /* Decoupled from --neutral-500 (0.6) — that was the right step on the
-     neutral scale but too low-contrast for UI copy. 0.65 stays visibly
-     subordinate to --foreground-dim (0.7) while remaining readable
-     against --background (0.19) for meta labels, timestamps, and
+  /* Decoupled from --neutral-500 (0.57) — that was the right step on the
+     neutral scale but too low-contrast for UI copy. 0.63 stays visibly
+     subordinate to --foreground-dim (0.68) while remaining readable
+     against --background (0.11) for meta labels, timestamps, and
      separators across the app. */
-  --foreground-faint: oklch(0.65 0 0);
+  --foreground-faint: oklch(0.63 0 0);
 
   --border: var(--neutral-200);
   --border-strong: var(--neutral-300);
@@ -303,34 +305,36 @@
 
 /* Neutral tone variants — swap on :root[data-neutral="..."] ─────────────── */
 :root[data-neutral="cool"] {
-  --neutral-0: oklch(0.2 0.01 260);
-  --neutral-50: oklch(0.24 0.012 260);
-  --neutral-100: oklch(0.28 0.014 260);
-  --neutral-150: oklch(0.32 0.015 260);
-  --neutral-200: oklch(0.36 0.016 260);
-  --neutral-300: oklch(0.42 0.016 260);
-  --neutral-400: oklch(0.5 0.016 260);
-  --surface-sunken: oklch(0.17 0.01 260);
+  --neutral-0: oklch(0.12 0.012 260);
+  --neutral-50: oklch(0.16 0.014 260);
+  --neutral-100: oklch(0.2 0.016 260);
+  --neutral-150: oklch(0.245 0.017 260);
+  --neutral-200: oklch(0.28 0.018 260);
+  --neutral-300: oklch(0.35 0.018 260);
+  --neutral-400: oklch(0.45 0.018 260);
+  --surface-sunken: oklch(0.08 0.012 260);
 }
 :root[data-neutral="warm"] {
-  --neutral-0: oklch(0.2 0.008 60);
-  --neutral-50: oklch(0.24 0.01 60);
-  --neutral-100: oklch(0.28 0.012 60);
-  --neutral-150: oklch(0.32 0.013 60);
-  --neutral-200: oklch(0.36 0.014 60);
-  --neutral-300: oklch(0.42 0.014 60);
-  --neutral-400: oklch(0.5 0.014 60);
-  --surface-sunken: oklch(0.17 0.008 60);
+  --neutral-0: oklch(0.12 0.01 60);
+  --neutral-50: oklch(0.16 0.012 60);
+  --neutral-100: oklch(0.2 0.014 60);
+  --neutral-150: oklch(0.245 0.015 60);
+  --neutral-200: oklch(0.28 0.016 60);
+  --neutral-300: oklch(0.35 0.016 60);
+  --neutral-400: oklch(0.45 0.016 60);
+  --surface-sunken: oklch(0.08 0.01 60);
 }
+/* The pre-darkening default palette, kept as an opt-in for anyone who wants
+   the lighter surfaces back. */
 :root[data-neutral="elevated"] {
-  --neutral-0: oklch(0.23 0 0);
-  --neutral-50: oklch(0.27 0 0);
-  --neutral-100: oklch(0.31 0 0);
-  --neutral-150: oklch(0.35 0 0);
-  --neutral-200: oklch(0.39 0 0);
-  --neutral-300: oklch(0.45 0 0);
-  --neutral-400: oklch(0.52 0 0);
-  --surface-sunken: oklch(0.19 0 0);
+  --neutral-0: oklch(0.19 0 0);
+  --neutral-50: oklch(0.23 0 0);
+  --neutral-100: oklch(0.27 0 0);
+  --neutral-150: oklch(0.31 0 0);
+  --neutral-200: oklch(0.35 0 0);
+  --neutral-300: oklch(0.41 0 0);
+  --neutral-400: oklch(0.5 0 0);
+  --surface-sunken: oklch(0.15 0 0);
 }
 
 /* Light theme — applied via the `.light` class on <html>. Most semantic tokens

@@ -49,6 +49,7 @@ export function LinkedAccountsCard({
 
   return (
     <SettingsSubsection
+      id="linked-accounts"
       title={t("Linked accounts")}
       description={t("Connect additional sign-in methods to your account.")}
     >

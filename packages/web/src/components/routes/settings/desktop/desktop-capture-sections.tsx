@@ -1,9 +1,11 @@
 import type { RecordingSettings, RecordingStatus } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { SettingRow } from "@alloy/ui/components/setting-row"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
 import type { ReactNode } from "react"
+
+import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
 export function ModeSection({
   settings,
@@ -20,8 +22,8 @@ export function ModeSection({
   children?: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-col">
+    <SettingsSubsection id="recording" title={t("Recording")}>
+      <SettingRows>
         <SettingRow
           title={t("Capture with Alloy")}
           description={t(
@@ -35,7 +37,7 @@ export function ModeSection({
           />
         </SettingRow>
         {children}
-      </div>
+      </SettingRows>
 
       <div
         className={cn(
@@ -53,7 +55,7 @@ export function ModeSection({
           {captureStatusLabel(settings, status)}
         </span>
       </div>
-    </div>
+    </SettingsSubsection>
   )
 }
 

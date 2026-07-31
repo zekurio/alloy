@@ -11,7 +11,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@alloy/ui/components/input-group"
-import { List, ListItem } from "@alloy/ui/components/list"
+import { MediaCard, MediaCardGrid } from "@alloy/ui/components/media-card"
 import {
   Section,
   SectionContent,
@@ -31,6 +31,7 @@ import { errorMessage } from "@/lib/error-message"
 
 import {
   GAME_ASSET_FIELDS,
+  GAME_ASSET_ROLES,
   GAME_ASSET_URL,
   removeAdminGameCacheRow,
 } from "./admin-game-data"
@@ -95,11 +96,11 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
       ) : filteredGames.length === 0 ? (
         <ListEmpty title={t("No games found")} />
       ) : (
-        <List>
+        <MediaCardGrid>
           {filteredGames.map((game) => (
-            <AdminGameListRow key={game.id} game={game} />
+            <AdminGameCard key={game.id} game={game} />
           ))}
-        </List>
+        </MediaCardGrid>
       )}
     </div>
   )
@@ -116,29 +117,30 @@ export function AdminGamesCard({ hideHeader }: { hideHeader?: boolean }) {
   )
 }
 
-function AdminGameListRow({ game }: { game: AdminGameRow }) {
+function AdminGameCard({ game }: { game: AdminGameRow }) {
   const isCustom = game.source === "custom"
+
   return (
-    <ListItem className="items-center gap-3">
-      <GameIcon
-        src={game.iconUrl ?? game.logoUrl ?? game.gridUrl}
-        name={game.name}
-        className="size-8 rounded-md [&_img]:object-contain"
-      />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-semibold">{game.name}</span>
-        <span className="text-foreground-muted truncate text-xs">
-          {game.slug}
-        </span>
-      </div>
-      <Badge variant={isCustom ? "accent" : "secondary"} size="text">
-        {isCustom ? t("Custom") : t("SteamGridDB")}
-      </Badge>
-      <span className="text-foreground-muted text-xs tabular-nums">
-        {game.clipCount} {game.clipCount === 1 ? t("clip") : t("clips")}
-      </span>
-      {isCustom ? <CustomGameActions game={game} /> : null}
-    </ListItem>
+    <MediaCard
+      media={
+        <GameIcon
+          // The grid asset is the portrait cover; the others are square or wide
+          // and only stand in when a game has no cover yet.
+          src={game.gridUrl ?? game.logoUrl ?? game.iconUrl}
+          name={game.name}
+          className="size-full rounded-none text-3xl [&_img]:object-cover"
+        />
+      }
+      badge={
+        <Badge variant={isCustom ? "accent" : "secondary"} size="text">
+          {isCustom ? t("Custom") : t("SteamGridDB")}
+        </Badge>
+      }
+      actions={isCustom ? <CustomGameActions game={game} /> : null}
+      title={game.name}
+      subtitle={game.slug}
+      meta={`${game.clipCount} ${game.clipCount === 1 ? t("clip") : t("clips")}`}
+    />
   )
 }
 
@@ -163,16 +165,16 @@ function CustomGameActions({ game }: { game: AdminGameRow }) {
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center">
       <EditGameDialog game={game} />
       <Button
         type="button"
         variant="ghost"
-        size="icon"
+        size="icon-sm"
         aria-label={t("Delete game")}
         onClick={() => setDeleteOpen(true)}
       >
-        <Trash2Icon />
+        <Trash2Icon className="size-3.5" />
       </Button>
       <ConfirmDeleteDialog
         open={deleteOpen}
@@ -214,19 +216,19 @@ function DeleteGamePreview({ game }: { game: AdminGameRow }) {
         </div>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {GAME_ASSET_FIELDS.map((asset) => {
-          const currentUrl = game[GAME_ASSET_URL[asset.role]] as string | null
+        {GAME_ASSET_ROLES.map((role) => {
+          const currentUrl = game[GAME_ASSET_URL[role]] as string | null
 
           return (
             <div
-              key={asset.role}
+              key={role}
               className="border-border bg-surface-sunken flex items-center gap-2 rounded-md border p-2"
             >
               <div className="border-border/70 flex size-10 shrink-0 items-center justify-center overflow-hidden rounded border">
                 {currentUrl ? (
                   <GameIcon
                     src={currentUrl}
-                    name={`${game.name} ${asset.label}`}
+                    name={`${game.name} ${GAME_ASSET_FIELDS[role].label}`}
                     className="size-full rounded-none"
                   />
                 ) : (
@@ -238,7 +240,7 @@ function DeleteGamePreview({ game }: { game: AdminGameRow }) {
               </div>
               <div className="min-w-0">
                 <div className="truncate text-xs font-semibold">
-                  {asset.label}
+                  {GAME_ASSET_FIELDS[role].label}
                 </div>
                 <div className="text-foreground-faint truncate text-xs">
                   {currentUrl ? t("Uploaded") : t("Not set")}

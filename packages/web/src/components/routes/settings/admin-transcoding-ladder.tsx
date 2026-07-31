@@ -114,6 +114,7 @@ export function TranscodingLadder({
 
   return (
     <SettingsSubsection
+      id="ladder"
       title={t("Rendition ladder")}
       description={t(
         "Every upload is encoded into these renditions. Tiers above the source resolution are skipped, and the selected link preview tier powers social embeds.",
@@ -122,13 +123,13 @@ export function TranscodingLadder({
         <Button
           type="button"
           variant="outline"
-          size="sm"
+          size="icon"
           onClick={addTier}
           disabled={form.tiers.length >= 6}
+          aria-label={t("Add tier")}
           className="shrink-0"
         >
           <PlusIcon />
-          {t("Add tier")}
         </Button>
       }
     >
@@ -223,7 +224,7 @@ export function TranscodingLadder({
         </div>
       </div>
       {validation.formMessage ? (
-        <Callout tone="destructive" className="mt-3 text-xs">
+        <Callout tone="destructive" className="text-xs">
           <TriangleAlertIcon />
           {validation.formMessage}
         </Callout>

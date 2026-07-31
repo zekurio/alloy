@@ -3,6 +3,7 @@ import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { Card } from "@alloy/ui/components/card"
 import { LoadingState } from "@alloy/ui/components/loading-state"
+import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -31,6 +32,7 @@ import {
   ClipEditorStage,
   useClipEditorMedia,
 } from "./library-clip-editor-media"
+import { MobileClipEditor } from "./library-clip-editor-mobile"
 import { DeleteServerBackedDialog } from "./library-delete-dialog"
 import { BackToLibraryButton } from "./library-editor-shared"
 import {
@@ -101,6 +103,9 @@ function ClipEditorBody({
   row: ClipRow
   processing: boolean
 }) {
+  // Matches the app shell's mobile breakpoint (the bottom nav takes over
+  // below md), so the touch editor and the mobile chrome appear together.
+  const desktopLayout = useMediaQuery("(min-width: 768px)")
   const navigation = useLibraryEntryNavigation({ type: "cloud", id: row.id })
   const { localItem, prevEntry, nextEntry } = navigation
   const { canManage, isOwner } = useClipEditorPermissions(row)
@@ -151,57 +156,75 @@ function ClipEditorBody({
     togglePlayback: playback.togglePlayback,
   })
 
+  // Resolves true only when the trim was persisted, so callers that leave a
+  // trim UI on save (the mobile trim view) can stay put on failure.
   const handleSaveTrim = () => {
-    if (!canSaveTrim) return
+    if (!canSaveTrim) return Promise.resolve(false)
     playerRef.current?.pause()
-    trimMutation.mutate(
-      {
+    return trimMutation
+      .mutateAsync({
         clipId: row.id,
         startMs: Math.round(trim.startMs),
         endMs: Math.round(trim.endMs),
-      },
-      {
-        onSuccess: () => {
-          toast.success(t("Trim saved — the clip is reprocessing"))
-          playback.setTrim({ startMs: 0, endMs: 0 })
-          playback.setCurrentMs(0)
-        },
-        onError: (cause) =>
-          toast.error(cause.message || "Couldn't trim the clip"),
-      },
-    )
+      })
+      .then(() => {
+        toast.success(t("Trim saved — the clip is reprocessing"))
+        playback.setTrim({ startMs: 0, endMs: 0 })
+        playback.setCurrentMs(0)
+        return true
+      })
+      .catch((cause: Error) => {
+        toast.error(cause.message || "Couldn't trim the clip")
+        return false
+      })
+  }
+
+  const tabs = {
+    localItem,
+    canManage,
+    onRequestDelete: deleteFlow.openDialog,
+    deleting: deleteFlow.pending,
+    canSaveTrim,
+    trimPending: trimMutation.isPending,
+    onSaveTrim: handleSaveTrim,
   }
 
   return (
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
-      <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
-        <ClipEditorStage
+      {desktopLayout ? (
+        <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
+          <ClipEditorStage
+            row={row}
+            media={media}
+            playback={playback}
+            processing={processing}
+            canManage={canManage}
+            prevEntry={prevEntry}
+            nextEntry={nextEntry}
+          />
+
+          <Card
+            tone="surface"
+            role="complementary"
+            className="min-w-0 self-stretch lg:min-h-0"
+          >
+            <ClipEditorTabs row={row} {...tabs} />
+          </Card>
+        </div>
+      ) : (
+        <MobileClipEditor
           row={row}
           media={media}
           playback={playback}
           processing={processing}
           canManage={canManage}
+          canTrim={canTrim}
+          initialTrim={initialTrim}
           prevEntry={prevEntry}
           nextEntry={nextEntry}
+          tabs={tabs}
         />
-
-        <Card
-          tone="surface"
-          role="complementary"
-          className="min-w-0 self-stretch lg:min-h-0"
-        >
-          <ClipEditorTabs
-            row={row}
-            localItem={localItem}
-            canManage={canManage}
-            onRequestDelete={deleteFlow.openDialog}
-            deleting={deleteFlow.pending}
-            canSaveTrim={canSaveTrim}
-            trimPending={trimMutation.isPending}
-            onSaveTrim={handleSaveTrim}
-          />
-        </Card>
-      </div>
+      )}
 
       <DeleteClipDialog
         open={deleteFlow.open}

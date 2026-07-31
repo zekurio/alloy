@@ -35,9 +35,7 @@ function UserAvatar({
       ) : null}
       <AvatarFallback
         style={{ backgroundColor: chip.avatar.bg, color: chip.avatar.fg }}
-      >
-        {chip.avatar.initials}
-      </AvatarFallback>
+      />
     </Avatar>
   )
 }

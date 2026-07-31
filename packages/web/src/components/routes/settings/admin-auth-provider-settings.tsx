@@ -58,6 +58,7 @@ export function OAuthProviderSettings({
   const readOnly = config.authLocks.oauthProviders
   return (
     <SettingsSubsection
+      id="oauth-providers"
       title={t("OAuth providers")}
       description={t("Configure external OIDC and OAuth sign-in providers.")}
       action={
@@ -319,9 +320,13 @@ function ProviderDialog({
               <PencilIcon />
             </Button>
           ) : (
-            <Button type="button" size="sm" variant="primary">
+            <Button
+              type="button"
+              size="icon"
+              variant="primary"
+              aria-label={t("Add provider")}
+            >
               <PlusIcon />
-              {t("Add provider")}
             </Button>
           )
         }

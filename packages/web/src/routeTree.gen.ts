@@ -9,41 +9,41 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as authSetupRouteImport } from './routes/(auth)/setup'
-import { Route as authAuthRouteImport } from './routes/(auth)/_auth'
 import { Route as appAppRouteImport } from './routes/(app)/_app'
+import { Route as authAuthRouteImport } from './routes/(auth)/_auth'
+import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as appAppIndexRouteImport } from './routes/(app)/_app.index'
-import { Route as authAuthSignUpRouteImport } from './routes/(auth)/_auth.sign-up'
-import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
-import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
 import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
-import { Route as appAppLibraryIndexRouteImport } from './routes/(app)/_app.library.index'
-import { Route as appAppGamesIndexRouteImport } from './routes/(app)/_app.games.index'
-import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
-import { Route as appAppTagsTagRouteImport } from './routes/(app)/_app.tags.$tag'
-import { Route as appAppLibraryCaptureIdRouteImport } from './routes/(app)/_app.library.$captureId'
-import { Route as appAppGamesGameIdRouteImport } from './routes/(app)/_app.games.$gameId'
-import { Route as appAppGSlugRouteImport } from './routes/(app)/_app.g.$slug'
+import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
+import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
+import { Route as authAuthSignUpRouteImport } from './routes/(auth)/_auth.sign-up'
 import { Route as appAppClipsClipIdRouteImport } from './routes/(app)/_app.clips.$clipId'
-import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
-import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
-import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
-import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
-import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
+import { Route as appAppGSlugRouteImport } from './routes/(app)/_app.g.$slug'
+import { Route as appAppGamesIndexRouteImport } from './routes/(app)/_app.games.index'
+import { Route as appAppGamesGameIdRouteImport } from './routes/(app)/_app.games.$gameId'
+import { Route as appAppLibraryIndexRouteImport } from './routes/(app)/_app.library.index'
+import { Route as appAppLibraryCaptureIdRouteImport } from './routes/(app)/_app.library.$captureId'
+import { Route as appAppTagsTagRouteImport } from './routes/(app)/_app.tags.$tag'
+import { Route as appAppUUsernameRouteImport } from './routes/(app)/_app.u.$username'
 import { Route as appAppLibraryClipsClipIdRouteImport } from './routes/(app)/_app.library.clips.$clipId'
+import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
+import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
+import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
+import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
+import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
 import { Route as appAppGamesGameIdClipsClipIdRouteImport } from './routes/(app)/_app.games.$gameId.clips.$clipId'
 
-const authSetupRoute = authSetupRouteImport.update({
-  id: '/(auth)/setup',
-  path: '/setup',
+const appAppRoute = appAppRouteImport.update({
+  id: '/(app)/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const authAuthRoute = authAuthRouteImport.update({
   id: '/(auth)/_auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const appAppRoute = appAppRouteImport.update({
-  id: '/(app)/_app',
+const authSetupRoute = authSetupRouteImport.update({
+  id: '/(auth)/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const appAppIndexRoute = appAppIndexRouteImport.update({
@@ -51,29 +51,34 @@ const appAppIndexRoute = appAppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => appAppRoute,
 } as any)
-const authAuthSignUpRoute = authAuthSignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => authAuthRoute,
-} as any)
-const authAuthLoginRoute = authAuthLoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => authAuthRoute,
+const appAppGamesRoute = appAppGamesRouteImport.update({
+  id: '/games',
+  path: '/games',
+  getParentRoute: () => appAppRoute,
 } as any)
 const appAppSettingsRoute = appAppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => appAppRoute,
 } as any)
-const appAppGamesRoute = appAppGamesRouteImport.update({
-  id: '/games',
-  path: '/games',
+const authAuthLoginRoute = authAuthLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => authAuthRoute,
+} as any)
+const authAuthSignUpRoute = authAuthSignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => authAuthRoute,
+} as any)
+const appAppClipsClipIdRoute = appAppClipsClipIdRouteImport.update({
+  id: '/clips/$clipId',
+  path: '/clips/$clipId',
   getParentRoute: () => appAppRoute,
 } as any)
-const appAppLibraryIndexRoute = appAppLibraryIndexRouteImport.update({
-  id: '/library/',
-  path: '/library/',
+const appAppGSlugRoute = appAppGSlugRouteImport.update({
+  id: '/g/$slug',
+  path: '/g/$slug',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppGamesIndexRoute = appAppGamesIndexRouteImport.update({
@@ -81,14 +86,14 @@ const appAppGamesIndexRoute = appAppGamesIndexRouteImport.update({
   path: '/',
   getParentRoute: () => appAppGamesRoute,
 } as any)
-const appAppUUsernameRoute = appAppUUsernameRouteImport.update({
-  id: '/u/$username',
-  path: '/u/$username',
-  getParentRoute: () => appAppRoute,
+const appAppGamesGameIdRoute = appAppGamesGameIdRouteImport.update({
+  id: '/$gameId',
+  path: '/$gameId',
+  getParentRoute: () => appAppGamesRoute,
 } as any)
-const appAppTagsTagRoute = appAppTagsTagRouteImport.update({
-  id: '/tags/$tag',
-  path: '/tags/$tag',
+const appAppLibraryIndexRoute = appAppLibraryIndexRouteImport.update({
+  id: '/library/',
+  path: '/library/',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppLibraryCaptureIdRoute = appAppLibraryCaptureIdRouteImport.update({
@@ -96,45 +101,15 @@ const appAppLibraryCaptureIdRoute = appAppLibraryCaptureIdRouteImport.update({
   path: '/library/$captureId',
   getParentRoute: () => appAppRoute,
 } as any)
-const appAppGamesGameIdRoute = appAppGamesGameIdRouteImport.update({
-  id: '/$gameId',
-  path: '/$gameId',
-  getParentRoute: () => appAppGamesRoute,
-} as any)
-const appAppGSlugRoute = appAppGSlugRouteImport.update({
-  id: '/g/$slug',
-  path: '/g/$slug',
+const appAppTagsTagRoute = appAppTagsTagRouteImport.update({
+  id: '/tags/$tag',
+  path: '/tags/$tag',
   getParentRoute: () => appAppRoute,
 } as any)
-const appAppClipsClipIdRoute = appAppClipsClipIdRouteImport.update({
-  id: '/clips/$clipId',
-  path: '/clips/$clipId',
+const appAppUUsernameRoute = appAppUUsernameRouteImport.update({
+  id: '/u/$username',
+  path: '/u/$username',
   getParentRoute: () => appAppRoute,
-} as any)
-const appAppUUsernameIndexRoute = appAppUUsernameIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => appAppUUsernameRoute,
-} as any)
-const appAppUUsernameTaggedRoute = appAppUUsernameTaggedRouteImport.update({
-  id: '/tagged',
-  path: '/tagged',
-  getParentRoute: () => appAppUUsernameRoute,
-} as any)
-const appAppUUsernameLikedRoute = appAppUUsernameLikedRouteImport.update({
-  id: '/liked',
-  path: '/liked',
-  getParentRoute: () => appAppUUsernameRoute,
-} as any)
-const appAppUUsernameFeedRoute = appAppUUsernameFeedRouteImport.update({
-  id: '/feed',
-  path: '/feed',
-  getParentRoute: () => appAppUUsernameRoute,
-} as any)
-const appAppUUsernameAllRoute = appAppUUsernameAllRouteImport.update({
-  id: '/all',
-  path: '/all',
-  getParentRoute: () => appAppUUsernameRoute,
 } as any)
 const appAppLibraryClipsClipIdRoute =
   appAppLibraryClipsClipIdRouteImport.update({
@@ -142,6 +117,31 @@ const appAppLibraryClipsClipIdRoute =
     path: '/library/clips/$clipId',
     getParentRoute: () => appAppRoute,
   } as any)
+const appAppUUsernameIndexRoute = appAppUUsernameIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => appAppUUsernameRoute,
+} as any)
+const appAppUUsernameAllRoute = appAppUUsernameAllRouteImport.update({
+  id: '/all',
+  path: '/all',
+  getParentRoute: () => appAppUUsernameRoute,
+} as any)
+const appAppUUsernameFeedRoute = appAppUUsernameFeedRouteImport.update({
+  id: '/feed',
+  path: '/feed',
+  getParentRoute: () => appAppUUsernameRoute,
+} as any)
+const appAppUUsernameLikedRoute = appAppUUsernameLikedRouteImport.update({
+  id: '/liked',
+  path: '/liked',
+  getParentRoute: () => appAppUUsernameRoute,
+} as any)
+const appAppUUsernameTaggedRoute = appAppUUsernameTaggedRouteImport.update({
+  id: '/tagged',
+  path: '/tagged',
+  getParentRoute: () => appAppUUsernameRoute,
+} as any)
 const appAppGamesGameIdClipsClipIdRoute =
   appAppGamesGameIdClipsClipIdRouteImport.update({
     id: '/clips/$clipId',
@@ -299,11 +299,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/(auth)/setup': {
-      id: '/(auth)/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof authSetupRouteImport
+    '/(app)/_app': {
+      id: '/(app)/_app'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof appAppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(auth)/_auth': {
@@ -313,11 +313,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authAuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/(app)/_app': {
-      id: '/(app)/_app'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof appAppRouteImport
+    '/(auth)/setup': {
+      id: '/(auth)/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof authSetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/(app)/_app/': {
@@ -327,19 +327,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppIndexRouteImport
       parentRoute: typeof appAppRoute
     }
-    '/(auth)/_auth/sign-up': {
-      id: '/(auth)/_auth/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof authAuthSignUpRouteImport
-      parentRoute: typeof authAuthRoute
-    }
-    '/(auth)/_auth/login': {
-      id: '/(auth)/_auth/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof authAuthLoginRouteImport
-      parentRoute: typeof authAuthRoute
+    '/(app)/_app/games': {
+      id: '/(app)/_app/games'
+      path: '/games'
+      fullPath: '/games'
+      preLoaderRoute: typeof appAppGamesRouteImport
+      parentRoute: typeof appAppRoute
     }
     '/(app)/_app/settings': {
       id: '/(app)/_app/settings'
@@ -348,18 +341,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppSettingsRouteImport
       parentRoute: typeof appAppRoute
     }
-    '/(app)/_app/games': {
-      id: '/(app)/_app/games'
-      path: '/games'
-      fullPath: '/games'
-      preLoaderRoute: typeof appAppGamesRouteImport
+    '/(auth)/_auth/login': {
+      id: '/(auth)/_auth/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof authAuthLoginRouteImport
+      parentRoute: typeof authAuthRoute
+    }
+    '/(auth)/_auth/sign-up': {
+      id: '/(auth)/_auth/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof authAuthSignUpRouteImport
+      parentRoute: typeof authAuthRoute
+    }
+    '/(app)/_app/clips/$clipId': {
+      id: '/(app)/_app/clips/$clipId'
+      path: '/clips/$clipId'
+      fullPath: '/clips/$clipId'
+      preLoaderRoute: typeof appAppClipsClipIdRouteImport
       parentRoute: typeof appAppRoute
     }
-    '/(app)/_app/library/': {
-      id: '/(app)/_app/library/'
-      path: '/library'
-      fullPath: '/library/'
-      preLoaderRoute: typeof appAppLibraryIndexRouteImport
+    '/(app)/_app/g/$slug': {
+      id: '/(app)/_app/g/$slug'
+      path: '/g/$slug'
+      fullPath: '/g/$slug'
+      preLoaderRoute: typeof appAppGSlugRouteImport
       parentRoute: typeof appAppRoute
     }
     '/(app)/_app/games/': {
@@ -369,18 +376,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppGamesIndexRouteImport
       parentRoute: typeof appAppGamesRoute
     }
-    '/(app)/_app/u/$username': {
-      id: '/(app)/_app/u/$username'
-      path: '/u/$username'
-      fullPath: '/u/$username'
-      preLoaderRoute: typeof appAppUUsernameRouteImport
-      parentRoute: typeof appAppRoute
+    '/(app)/_app/games/$gameId': {
+      id: '/(app)/_app/games/$gameId'
+      path: '/$gameId'
+      fullPath: '/games/$gameId'
+      preLoaderRoute: typeof appAppGamesGameIdRouteImport
+      parentRoute: typeof appAppGamesRoute
     }
-    '/(app)/_app/tags/$tag': {
-      id: '/(app)/_app/tags/$tag'
-      path: '/tags/$tag'
-      fullPath: '/tags/$tag'
-      preLoaderRoute: typeof appAppTagsTagRouteImport
+    '/(app)/_app/library/': {
+      id: '/(app)/_app/library/'
+      path: '/library'
+      fullPath: '/library/'
+      preLoaderRoute: typeof appAppLibraryIndexRouteImport
       parentRoute: typeof appAppRoute
     }
     '/(app)/_app/library/$captureId': {
@@ -390,25 +397,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppLibraryCaptureIdRouteImport
       parentRoute: typeof appAppRoute
     }
-    '/(app)/_app/games/$gameId': {
-      id: '/(app)/_app/games/$gameId'
-      path: '/$gameId'
-      fullPath: '/games/$gameId'
-      preLoaderRoute: typeof appAppGamesGameIdRouteImport
-      parentRoute: typeof appAppGamesRoute
-    }
-    '/(app)/_app/g/$slug': {
-      id: '/(app)/_app/g/$slug'
-      path: '/g/$slug'
-      fullPath: '/g/$slug'
-      preLoaderRoute: typeof appAppGSlugRouteImport
+    '/(app)/_app/tags/$tag': {
+      id: '/(app)/_app/tags/$tag'
+      path: '/tags/$tag'
+      fullPath: '/tags/$tag'
+      preLoaderRoute: typeof appAppTagsTagRouteImport
       parentRoute: typeof appAppRoute
     }
-    '/(app)/_app/clips/$clipId': {
-      id: '/(app)/_app/clips/$clipId'
-      path: '/clips/$clipId'
-      fullPath: '/clips/$clipId'
-      preLoaderRoute: typeof appAppClipsClipIdRouteImport
+    '/(app)/_app/u/$username': {
+      id: '/(app)/_app/u/$username'
+      path: '/u/$username'
+      fullPath: '/u/$username'
+      preLoaderRoute: typeof appAppUUsernameRouteImport
+      parentRoute: typeof appAppRoute
+    }
+    '/(app)/_app/library/clips/$clipId': {
+      id: '/(app)/_app/library/clips/$clipId'
+      path: '/library/clips/$clipId'
+      fullPath: '/library/clips/$clipId'
+      preLoaderRoute: typeof appAppLibraryClipsClipIdRouteImport
       parentRoute: typeof appAppRoute
     }
     '/(app)/_app/u/$username/': {
@@ -418,18 +425,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppUUsernameIndexRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    '/(app)/_app/u/$username/tagged': {
-      id: '/(app)/_app/u/$username/tagged'
-      path: '/tagged'
-      fullPath: '/u/$username/tagged'
-      preLoaderRoute: typeof appAppUUsernameTaggedRouteImport
-      parentRoute: typeof appAppUUsernameRoute
-    }
-    '/(app)/_app/u/$username/liked': {
-      id: '/(app)/_app/u/$username/liked'
-      path: '/liked'
-      fullPath: '/u/$username/liked'
-      preLoaderRoute: typeof appAppUUsernameLikedRouteImport
+    '/(app)/_app/u/$username/all': {
+      id: '/(app)/_app/u/$username/all'
+      path: '/all'
+      fullPath: '/u/$username/all'
+      preLoaderRoute: typeof appAppUUsernameAllRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
     '/(app)/_app/u/$username/feed': {
@@ -439,19 +439,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppUUsernameFeedRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    '/(app)/_app/u/$username/all': {
-      id: '/(app)/_app/u/$username/all'
-      path: '/all'
-      fullPath: '/u/$username/all'
-      preLoaderRoute: typeof appAppUUsernameAllRouteImport
+    '/(app)/_app/u/$username/liked': {
+      id: '/(app)/_app/u/$username/liked'
+      path: '/liked'
+      fullPath: '/u/$username/liked'
+      preLoaderRoute: typeof appAppUUsernameLikedRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    '/(app)/_app/library/clips/$clipId': {
-      id: '/(app)/_app/library/clips/$clipId'
-      path: '/library/clips/$clipId'
-      fullPath: '/library/clips/$clipId'
-      preLoaderRoute: typeof appAppLibraryClipsClipIdRouteImport
-      parentRoute: typeof appAppRoute
+    '/(app)/_app/u/$username/tagged': {
+      id: '/(app)/_app/u/$username/tagged'
+      path: '/tagged'
+      fullPath: '/u/$username/tagged'
+      preLoaderRoute: typeof appAppUUsernameTaggedRouteImport
+      parentRoute: typeof appAppUUsernameRoute
     }
     '/(app)/_app/games/$gameId/clips/$clipId': {
       id: '/(app)/_app/games/$gameId/clips/$clipId'

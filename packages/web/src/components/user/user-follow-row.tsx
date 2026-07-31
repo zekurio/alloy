@@ -67,9 +67,7 @@ export function UserFollowRow({
           ) : null}
           <AvatarFallback
             style={{ backgroundColor: chip.avatar.bg, color: chip.avatar.fg }}
-          >
-            {chip.avatar.initials}
-          </AvatarFallback>
+          />
         </Avatar>
         <span className="min-w-0 flex-1">
           <span className="text-foreground block truncate text-sm">

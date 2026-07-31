@@ -165,9 +165,7 @@ function WelcomeProfileDialogContent({
                     {avatar.src ? (
                       <AvatarImage src={avatar.src} alt={previewName} />
                     ) : null}
-                    <AvatarFallback style={avatarStyle}>
-                      {avatar.initials}
-                    </AvatarFallback>
+                    <AvatarFallback style={avatarStyle} />
                   </Avatar>
                   <MediaEditOverlay>
                     <Pencil className="size-4 text-white" />

@@ -1,7 +1,10 @@
 import { t } from "@alloy/i18n"
 import { Spinner } from "@alloy/ui/components/spinner"
 
-import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+import {
+  SettingsSections,
+  SettingsSubsection,
+} from "@/components/routes/settings/settings-panel"
 
 import { EncodingSettingsGrid } from "./desktop-capture-encoding"
 import { QualitySection, ReplayBufferSection } from "./desktop-capture-quality"
@@ -20,14 +23,12 @@ export function DesktopQualitySettings() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <SettingsSubsection title={t("Quality preset")}>
+    <SettingsSections>
+      <SettingsSubsection id="quality-preset" title={t("Quality preset")}>
         <QualitySection settings={settings} busy={busy} save={save} />
       </SettingsSubsection>
 
-      <hr className="border-border" />
-
-      <SettingsSubsection title={t("Video encoding")}>
+      <SettingsSubsection id="video-encoding" title={t("Video encoding")}>
         <EncodingSettingsGrid
           settings={settings}
           status={status}
@@ -36,14 +37,12 @@ export function DesktopQualitySettings() {
         />
       </SettingsSubsection>
 
-      <hr className="border-border" />
-
       <ReplayBufferSection
         settings={settings}
         busy={busy}
         setSettings={setSettings}
         save={save}
       />
-    </div>
+    </SettingsSections>
   )
 }

@@ -81,4 +81,6 @@ export function makeEncodeProgressTracker(
   }
 }
 
+export type EncodeProgressTracker = ReturnType<typeof makeEncodeProgressTracker>
+
 export { FINALIZE_PHASE_COST, POSTER_PHASE_COST, SOURCE_PHASE_COST }

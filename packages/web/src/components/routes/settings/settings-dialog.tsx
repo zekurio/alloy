@@ -22,9 +22,8 @@ import {
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
 import { SearchIcon, XIcon } from "lucide-react"
-import { Suspense, useEffect, useMemo, useState } from "react"
+import { Suspense, useEffect, useMemo, useRef, useState } from "react"
 
-import { mobileSurfaceCloseButtonClassName } from "@/components/app/mobile-close-button"
 import { AdminConfigProvider } from "@/components/routes/settings/admin-config-context"
 import { DesktopRecordingProvider } from "@/components/routes/settings/desktop/desktop-recording-context"
 import {
@@ -32,12 +31,13 @@ import {
   SETTINGS_GROUPS,
   useSettingsCategories,
 } from "@/components/routes/settings/settings-categories"
-import { SettingsPanel } from "@/components/routes/settings/settings-panel"
 import { SettingsSaveBar } from "@/components/routes/settings/settings-save-bar"
 import {
   SettingsSaveProvider,
   useSettingsSaveState,
 } from "@/components/routes/settings/settings-save-context"
+import { SettingsSectionNav } from "@/components/routes/settings/settings-section-nav"
+import { SettingsSectionsProvider } from "@/components/routes/settings/settings-sections-context"
 
 interface SettingsDialogProps {
   section: string | null
@@ -109,15 +109,6 @@ function SettingsDialogRoot({
       >
         <DialogTitle className="sr-only">{t("Settings")}</DialogTitle>
         {body}
-        <DialogClose
-          aria-label={t("Close settings")}
-          className={cn(
-            mobileSurfaceCloseButtonClassName,
-            "absolute top-2 right-2 z-10 sm:top-3 sm:right-3",
-          )}
-        >
-          <XIcon />
-        </DialogClose>
       </DialogContent>
     </Dialog>
   )
@@ -133,6 +124,7 @@ function SettingsDialogContent({
   onNavigate: (section: string) => void
 }) {
   const ActivePanel = active.Panel
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   const { dirty, requestAttention } = useSettingsSaveState()
   // Switching tabs unmounts the active panel and would silently drop its
   // edits, so it gets the same unsaved-changes guard as closing.
@@ -171,9 +163,9 @@ function SettingsDialogContent({
   }, [categories, normalized])
 
   return (
-    <>
-      <nav className="border-border bg-background hidden w-60 shrink-0 flex-col gap-1 overflow-y-auto border-r p-4 sm:flex">
-        <div className="text-foreground px-2.5 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
+    <SettingsSectionsProvider>
+      <nav className="border-border bg-background hidden w-64 shrink-0 flex-col gap-1 overflow-y-auto border-r p-5 sm:flex">
+        <div className="text-foreground px-2.5 pb-3 text-lg font-semibold tracking-[var(--tracking-tight)]">
           {t("Settings")}
         </div>
         <InputGroup className="mb-1">
@@ -205,27 +197,33 @@ function SettingsDialogContent({
                 const Icon = category.icon
                 const isActive = category.id === active.id
                 return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => navigateTo(category.id)}
-                    className={cn(
-                      "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
-                      isActive
-                        ? "bg-surface-raised text-foreground font-medium"
-                        : "text-foreground-dim hover:text-foreground hover:bg-white/[0.03]",
-                    )}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    <span className="flex min-w-0 flex-col">
-                      <span className="truncate">{category.label}</span>
-                      {hint ? (
-                        <span className="text-foreground-faint truncate text-xs font-normal capitalize">
-                          {hint}
-                        </span>
-                      ) : null}
-                    </span>
-                  </button>
+                  <div key={category.id} className="flex flex-col">
+                    <button
+                      type="button"
+                      onClick={() => navigateTo(category.id)}
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-md px-2.5 py-2.5 text-left text-sm transition-colors",
+                        isActive
+                          ? "bg-surface-raised text-foreground font-medium"
+                          : "text-foreground-dim hover:text-foreground hover:bg-white/[0.03]",
+                      )}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      <span className="flex min-w-0 flex-col">
+                        <span className="truncate">{category.label}</span>
+                        {hint ? (
+                          <span className="text-foreground-faint truncate text-xs font-normal capitalize">
+                            {hint}
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                    {/* Searching filters the list down to what matched; the
+                        subsections of one tab would only bury that. */}
+                    {isActive && !normalized ? (
+                      <SettingsSectionNav scrollRef={scrollRef} />
+                    ) : null}
+                  </div>
                 )
               })}
             </div>
@@ -239,11 +237,21 @@ function SettingsDialogContent({
       </nav>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="border-border bg-background border-b sm:hidden">
-          <div className="text-foreground px-4 pt-3 pr-12 pb-2 text-lg font-semibold tracking-[var(--tracking-tight)]">
-            {t("Settings")}
+        {/* Discord-style title bar: the category name and the close button stay
+            pinned while the panel below them scrolls. */}
+        <header className="border-border bg-background flex shrink-0 flex-col gap-3 border-b px-5 py-3 sm:px-10">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-foreground truncate text-base font-medium">
+              {active.title ?? active.label}
+            </h2>
+            <DialogClose
+              aria-label={t("Close settings")}
+              className="text-foreground-muted hover:bg-surface-raised hover:text-foreground focus-visible:ring-ring focus-visible:ring-offset-background grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            >
+              <XIcon className="size-4" />
+            </DialogClose>
           </div>
-          <div className="px-4 pb-3">
+          <div className="sm:hidden">
             <Select
               value={active.id}
               onValueChange={(value) => {
@@ -285,22 +293,20 @@ function SettingsDialogContent({
               </SelectContent>
             </Select>
           </div>
-        </div>
+        </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-5 max-sm:pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:py-7 sm:pr-12 sm:pl-8">
-          <SettingsPanel
-            title={active.title ?? active.label}
-            description={active.description}
-          >
-            <Suspense fallback={<PanelLoading />}>
-              <ActivePanel />
-            </Suspense>
-          </SettingsPanel>
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto px-5 py-6 max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:py-8 sm:pr-14 sm:pl-10"
+        >
+          <Suspense fallback={<PanelLoading />}>
+            <ActivePanel />
+          </Suspense>
         </div>
 
         <SettingsSaveBar />
       </div>
-    </>
+    </SettingsSectionsProvider>
   )
 }
 

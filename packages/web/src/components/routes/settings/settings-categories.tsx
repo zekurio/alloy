@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
-import { SettingRow } from "@alloy/ui/components/setting-row"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import {
   getStoredTheme,
   setStoredTheme,
@@ -42,6 +42,7 @@ import { lazy, useMemo, useState } from "react"
 import type { ComponentType, LazyExoticComponent } from "react"
 
 import { ClipAnnouncementRow } from "@/components/routes/settings/clip-announcement-settings"
+import { CustomThemeSettings } from "@/components/routes/settings/custom-theme-settings"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
 import {
   ClipDataCard,
@@ -49,6 +50,10 @@ import {
 } from "@/components/routes/settings/data-card"
 import { ProfileCard } from "@/components/routes/settings/profile-card"
 import { SecuritySettings } from "@/components/routes/settings/security-settings"
+import {
+  SettingsSections,
+  SettingsSubsection,
+} from "@/components/routes/settings/settings-panel"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -194,31 +199,48 @@ function ProfilePanel() {
   const user = session?.user
   if (!user) return null
   return (
-    <div className="flex flex-col gap-6">
-      <ProfileCard
-        key={user.id}
-        userId={user.id}
-        initialUsername={user.username ?? ""}
-        initialDisplayName={user.displayName ?? ""}
-        image={user.image ?? ""}
-        banner={(user as { banner?: string | null }).banner ?? ""}
-        email={user.email ?? ""}
-      />
-      <hr className="border-border" />
+    <SettingsSections>
+      <SettingsSubsection
+        id="identity"
+        title={t("Identity")}
+        description={t("How you appear to everyone else on this server.")}
+      >
+        <ProfileCard
+          key={user.id}
+          userId={user.id}
+          initialUsername={user.username ?? ""}
+          initialDisplayName={user.displayName ?? ""}
+          image={user.image ?? ""}
+          banner={(user as { banner?: string | null }).banner ?? ""}
+          email={user.email ?? ""}
+        />
+      </SettingsSubsection>
       <SecuritySettings />
-    </div>
+    </SettingsSections>
   )
 }
 
 function AccountDataPanel() {
   return (
-    <div className="flex flex-col gap-6">
-      <StorageUsageCard />
-      <hr className="border-border" />
-      <ClipDataCard />
-      <hr className="border-border" />
-      <DangerZoneCard />
-    </div>
+    <SettingsSections>
+      <SettingsSubsection
+        id="storage"
+        title={t("Storage")}
+        description={t("How much of your quota your clips are using.")}
+      >
+        <StorageUsageCard />
+      </SettingsSubsection>
+      <SettingsSubsection id="clips" title={t("Clips")}>
+        <ClipDataCard />
+      </SettingsSubsection>
+      <SettingsSubsection
+        id="danger-zone"
+        title={t("Danger zone")}
+        description={t("Actions here affect your whole account.")}
+      >
+        <DangerZoneCard />
+      </SettingsSubsection>
+    </SettingsSections>
   )
 }
 
@@ -247,45 +269,51 @@ function PreferencesPanel() {
   }
 
   return (
-    <div className="flex flex-col">
-      <SettingRow
-        title={t("Theme")}
-        description={t("Choose how Alloy looks.")}
-        htmlFor="theme"
-      >
-        <Select value={theme} onValueChange={changeTheme}>
-          <SelectTrigger id="theme" size="sm" className="w-40">
-            <SelectValue>{THEME_LABELS[theme]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent align="end">
-            {THEMES.map((option) => (
-              <SelectItem key={option} value={option}>
-                {THEME_LABELS[option]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </SettingRow>
-      <SettingRow
-        title={t("Language")}
-        description={t("Choose the language used by Alloy.")}
-        htmlFor="locale"
-      >
-        <Select value={locale} onValueChange={changeLocale}>
-          <SelectTrigger id="locale" size="sm" className="w-40">
-            <SelectValue>{LOCALE_LABELS[locale]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent align="end">
-            {SUPPORTED_LOCALES.map((option) => (
-              <SelectItem key={option} value={option}>
-                {LOCALE_LABELS[option]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </SettingRow>
-      <ClipAnnouncementRow />
-    </div>
+    <SettingsSections>
+      <SettingsSubsection id="interface" title={t("Interface")}>
+        <SettingRows>
+          <SettingRow
+            title={t("Theme")}
+            description={t("Choose how Alloy looks.")}
+            htmlFor="theme"
+          >
+            <Select value={theme} onValueChange={changeTheme}>
+              <SelectTrigger id="theme" size="sm" className="w-40">
+                <SelectValue>{THEME_LABELS[theme]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent align="end">
+                {THEMES.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {THEME_LABELS[option]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <SettingRow
+            title={t("Language")}
+            description={t("Choose the language used by Alloy.")}
+            htmlFor="locale"
+          >
+            <Select value={locale} onValueChange={changeLocale}>
+              <SelectTrigger id="locale" size="sm" className="w-40">
+                <SelectValue>{LOCALE_LABELS[locale]}</SelectValue>
+              </SelectTrigger>
+              <SelectContent align="end">
+                {SUPPORTED_LOCALES.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {LOCALE_LABELS[option]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingRow>
+          <ClipAnnouncementRow />
+        </SettingRows>
+      </SettingsSubsection>
+
+      <CustomThemeSettings />
+    </SettingsSections>
   )
 }
 
@@ -312,9 +340,9 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
   ],
   [
     "preferences",
-    t("Preferences"),
-    t("Preferences"),
-    t("Theme, language, and announcement settings."),
+    t("General"),
+    t("General"),
+    t("Theme, language, custom CSS, and announcement settings."),
     [
       "theme",
       "appearance",
@@ -325,10 +353,15 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
       "language",
       "locale",
       "settings",
+      "preferences",
+      "general",
       "announcements",
       "announce clips",
       "webhooks",
       "discord",
+      "custom css",
+      "custom theme",
+      "theme tokens",
     ],
     LanguagesIcon,
     PreferencesPanel,
@@ -440,8 +473,8 @@ const ADMIN_CATEGORIES = categoryDrafts([
   [
     "appearance",
     t("Appearance"),
-    t("Login appearance"),
-    t("Edit the generated clip backdrop shown on the login page."),
+    t("Appearance"),
+    t("Instance-wide custom CSS and the generated login backdrop."),
     [
       "login backdrop",
       "splash",
@@ -449,6 +482,9 @@ const ADMIN_CATEGORIES = categoryDrafts([
       "darkening",
       "custom backdrop",
       "regenerate",
+      "custom css",
+      "instance theme",
+      "branding",
     ],
     PaletteIcon,
     AdminAppearancePanel,

@@ -59,18 +59,16 @@ export type {
   UploadTicket,
 } from "@alloy/contracts"
 
-function publicClipPath(clipId: string, suffix: string): string {
-  return `/api/clips/${encodedPathSegment(clipId)}${suffix}`
-}
-
 function versionedClipAssetUrl(
   clipId: string,
   suffix: string,
   origin?: string,
   version?: string,
 ): string {
+  // An undefined version is dropped from the query, so unversioned asset URLs
+  // share this helper too.
   return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, suffix),
+    `/api/clips/${encodedPathSegment(clipId)}${suffix}`,
     { v: version },
     origin,
   )
@@ -125,19 +123,11 @@ export function clipSourceFileUrl(
 }
 
 export function clipOriginalFileUrl(clipId: string, origin?: string): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/original/file"),
-    {},
-    origin,
-  )
+  return versionedClipAssetUrl(clipId, "/original/file", origin)
 }
 
 export function clipScrubberFileUrl(clipId: string, origin?: string): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/scrubber/file"),
-    {},
-    origin,
-  )
+  return versionedClipAssetUrl(clipId, "/scrubber/file", origin)
 }
 
 export function clipThumbnailUrl(
@@ -149,11 +139,7 @@ export function clipThumbnailUrl(
 }
 
 export function clipDownloadUrl(clipId: string, origin?: string): string {
-  return resolvePublicUrlWithQuery(
-    publicClipPath(clipId, "/download"),
-    {},
-    origin,
-  )
+  return versionedClipAssetUrl(clipId, "/download", origin)
 }
 
 async function fetchClipById(

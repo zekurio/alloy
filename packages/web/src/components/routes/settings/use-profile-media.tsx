@@ -15,11 +15,11 @@ import { invalidateProfileIdentityCaches } from "@/lib/user-queries"
 
 import { MediaDropdownContent, type MediaKind } from "./profile-media-controls"
 
-const UPLOAD_SUCCESS_MESSAGE: Record<CropMode, string> = {
+// Profile settings only ever crop in "avatar" or "banner" mode; the other
+// modes fall back to the generic message.
+const UPLOAD_SUCCESS_MESSAGE: Partial<Record<CropMode, string>> = {
   avatar: t("Avatar updated"),
   banner: t("Banner updated"),
-  // Profile settings never pick the "thumbnail" mode; kept for exhaustiveness.
-  thumbnail: t("Image updated"),
 }
 
 type ProfileMediaInput = {
@@ -131,7 +131,7 @@ function useProfileMediaMutations({
         nextUser = await api.users.uploadBanner(blob)
         setProfileBanner(nextUser.banner ?? "")
       }
-      toast.success(UPLOAD_SUCCESS_MESSAGE[mode])
+      toast.success(UPLOAD_SUCCESS_MESSAGE[mode] ?? t("Image updated"))
       await refreshProfile()
       return true
     } catch (cause) {

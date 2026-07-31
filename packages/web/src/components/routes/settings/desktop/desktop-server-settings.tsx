@@ -1,6 +1,7 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
+import { SettingRows } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
@@ -9,7 +10,10 @@ import { useEffect, useState } from "react"
 import type { FormEvent } from "react"
 import { flushSync } from "react-dom"
 
-import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
+import {
+  SettingsSections,
+  SettingsSubsection,
+} from "@/components/routes/settings/settings-panel"
 
 import { DesktopAutostartSettings } from "./desktop-autostart-settings"
 import { alloyDesktop, type DesktopSavedServer } from "./desktop-bridge"
@@ -130,8 +134,9 @@ export function DesktopServerSettings() {
 
 export function DesktopAppPanel() {
   return (
-    <div className="flex flex-col gap-6">
+    <SettingsSections>
       <SettingsSubsection
+        id="servers"
         title={t("Servers")}
         description={t(
           "Add, switch between, or forget connected Alloy servers.",
@@ -139,15 +144,17 @@ export function DesktopAppPanel() {
       >
         <DesktopServerSettings />
       </SettingsSubsection>
-      <hr className="border-border" />
       <SettingsSubsection
+        id="startup"
         title={t("Startup & updates")}
         description={t("Control launch behavior and desktop app updates.")}
       >
-        <DesktopAutostartSettings />
-        <DesktopUpdateSettings />
+        <SettingRows>
+          <DesktopAutostartSettings />
+          <DesktopUpdateSettings />
+        </SettingRows>
       </SettingsSubsection>
-    </div>
+    </SettingsSections>
   )
 }
 
@@ -228,7 +235,7 @@ function SavedServerList({
   }
 
   return (
-    <div className="flex flex-col">
+    <SettingRows>
       {servers.map((server) => (
         <SavedServerRow
           key={server.serverUrl}
@@ -243,7 +250,7 @@ function SavedServerList({
           forgetServer={forgetServer}
         />
       ))}
-    </div>
+    </SettingRows>
   )
 }
 

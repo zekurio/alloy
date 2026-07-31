@@ -1,7 +1,7 @@
 import { t, tp } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
-import { SettingRow } from "@alloy/ui/components/setting-row"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { toast } from "@alloy/ui/lib/toast"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
@@ -120,9 +120,9 @@ export function ClipDataCard() {
   const { pending, onDeleteAllClips } = useDeleteAllClipsAction()
 
   return (
-    <div className="flex flex-col">
+    <SettingRows>
       <DownloadClipsRow />
       <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
-    </div>
+    </SettingRows>
   )
 }

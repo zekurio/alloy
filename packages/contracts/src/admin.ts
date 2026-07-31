@@ -93,6 +93,10 @@ export const LoginSplashConfigSchema = z.looseObject({
 
 export type LoginSplashConfig = z.infer<typeof LoginSplashConfigSchema>
 
+export interface PublicAppearanceConfig {
+  customCss: string
+}
+
 export interface PublicLoginSplashConfig {
   enabled: boolean
   blurPx: number
@@ -113,8 +117,16 @@ export interface LoginBackdropsResponse {
   clips: LoginBackdropClip[]
 }
 
+/**
+ * Instance-wide CSS, applied to every visitor before their own custom CSS. Not
+ * validated beyond a length cap: it is authored by an admin, who already
+ * controls the server.
+ */
+export const INSTANCE_CUSTOM_CSS_MAX_LENGTH = 64_000
+
 export const AppearanceConfigSchema = z.looseObject({
   loginSplash: LoginSplashConfigSchema,
+  customCss: z.string().max(INSTANCE_CUSTOM_CSS_MAX_LENGTH).default(""),
 })
 
 export type AppearanceConfig = z.infer<typeof AppearanceConfigSchema>
@@ -386,4 +398,5 @@ export interface PublicAuthConfig {
   desktopAuth: PublicDesktopAuthConfig
   providers: PublicAuthProvider[]
   loginSplash: PublicLoginSplashConfig
+  appearance: PublicAppearanceConfig
 }

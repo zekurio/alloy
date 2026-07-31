@@ -92,57 +92,23 @@ export function displayName(user: DisplayUser | null | undefined): string {
   return t("user")
 }
 
-/** Up to two uppercase letters from a stable user identity. */
-function displayInitials(value: string): string {
-  const parts = value
-    .replace(/^@+/, "")
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-  if (parts.length === 0) return "?"
-  if (parts.length === 1) {
-    return (parts[0] ?? "?").slice(0, 2).toUpperCase()
-  }
-  const [first = "?", second = ""] = parts
-  return `${first[0] ?? "?"}${second[0] ?? ""}`.toUpperCase()
-}
-
-function avatarInitialsSource(user: DisplayUser | null | undefined): string {
-  if (user?.username && user.username.trim()) return user.username.trim()
-  if (user?.email && user.email.trim()) return user.email.split("@")[0] ?? ""
-  return displayName(user)
-}
-
-/** Avatar tint derived from user id (or display label as fallback) so each user is visually distinct. */
-function avatarTint(seed: string): { bg: string; fg: string } {
-  return pastelAvatarColors(seed || "user")
-}
-
 export type UserAvatar = {
   src?: string
-  initials: string
   bg: string
   fg: string
 }
 
-function userAvatarSrc(
-  user: DisplayUser | null | undefined,
-): string | undefined {
-  return userImageSrc(user?.image)
-}
-
 /**
  * Everything needed to render an avatar for a user. `src` may be undefined
- * (show `initials` in an `AvatarFallback` with the `bg`/`fg` tint).
+ * (show an `AvatarFallback` tinted with `bg`/`fg`). The tint is derived from
+ * the user id (or display label as fallback) so each user stays distinct.
  */
 export function userAvatar(user: DisplayUser | null | undefined): UserAvatar {
-  const name = displayName(user)
-  const initialsSource = avatarInitialsSource(user)
-  const { bg, fg } = avatarTint(user?.id ?? name)
+  const tint = pastelAvatarColors(user?.id ?? displayName(user))
   return {
-    src: userAvatarSrc(user),
-    initials: displayInitials(initialsSource),
-    bg,
-    fg,
+    src: userImageSrc(user?.image),
+    bg: tint.bg,
+    fg: tint.fg,
   }
 }
 
