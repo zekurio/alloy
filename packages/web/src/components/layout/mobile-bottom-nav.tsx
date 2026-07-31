@@ -173,9 +173,7 @@ function ProfileMenuItems() {
           {chip.avatar.src ? (
             <AvatarImage src={chip.avatar.src} alt="" />
           ) : null}
-          <AvatarFallback style={avatarTint(chip.avatar)}>
-            {chip.avatar.initials}
-          </AvatarFallback>
+          <AvatarFallback style={avatarTint(chip.avatar)} />
         </Avatar>
         <div className="flex min-w-0 flex-col">
           <span className="text-foreground truncate text-sm font-semibold">
@@ -215,9 +213,7 @@ function ProfileTabIcon() {
       style={avatarTint(chip.avatar)}
     >
       {chip.avatar.src ? <AvatarImage src={chip.avatar.src} alt="" /> : null}
-      <AvatarFallback className="text-[9px]" style={avatarTint(chip.avatar)}>
-        {chip.avatar.initials}
-      </AvatarFallback>
+      <AvatarFallback style={avatarTint(chip.avatar)} />
     </Avatar>
   )
 }

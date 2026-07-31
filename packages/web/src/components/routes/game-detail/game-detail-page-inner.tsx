@@ -151,14 +151,11 @@ function GameCreatorChips({
               <AvatarImage src={chip.avatar.src} alt="" />
             ) : null}
             <AvatarFallback
-              className="text-[8px]"
               style={{
                 backgroundColor: chip.avatar.bg,
                 color: chip.avatar.fg,
               }}
-            >
-              {chip.avatar.initials}
-            </AvatarFallback>
+            />
           </Avatar>
         ),
       }

@@ -88,9 +88,9 @@ export function ProfileIdentity({
                 loading="eager"
               />
             ) : null}
-            <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
-              {avatar.initials}
-            </AvatarFallback>
+            <AvatarFallback
+              style={{ background: avatar.bg, color: avatar.fg }}
+            />
           </Avatar>
 
           {/* Identity + action */}

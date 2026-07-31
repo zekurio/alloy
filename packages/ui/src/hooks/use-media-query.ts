@@ -3,16 +3,14 @@
 import { useEffect, useState } from "react"
 
 export function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(false)
+  // Initialize synchronously so the first render already reflects the
+  // viewport — an effect-only update would flash the non-matching layout.
+  const [matches, setMatches] = useState(
+    () => canMatchMedia() && window.matchMedia(query).matches,
+  )
 
   useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      typeof window.matchMedia !== "function"
-    ) {
-      setMatches(false)
-      return
-    }
+    if (!canMatchMedia()) return
     const mql = window.matchMedia(query)
     const onChange = () => setMatches(mql.matches)
     mql.addEventListener("change", onChange)
@@ -21,4 +19,10 @@ export function useMediaQuery(query: string): boolean {
   }, [query])
 
   return matches
+}
+
+function canMatchMedia() {
+  return (
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+  )
 }

@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
@@ -71,8 +72,8 @@ export function NotificationSoundsSection({
   const library = data ?? EMPTY_LIBRARY
 
   return (
-    <SettingsSubsection title={t("Sounds")}>
-      <div className="flex flex-col">
+    <SettingsSubsection id="sounds" title={t("Sounds")}>
+      <SettingRows>
         {SOUND_ROWS.map((row) => (
           <SoundCard
             key={row.id}
@@ -96,7 +97,7 @@ export function NotificationSoundsSection({
             onRefresh={refetch}
           />
         ))}
-      </div>
+      </SettingRows>
     </SettingsSubsection>
   )
 }
@@ -147,113 +148,114 @@ function SoundCard({
   const controlsDisabled = busy || !sound.enabled
 
   return (
-    <div className="not-last:border-border flex flex-col gap-3 py-3 not-last:border-b first:pt-0 last:pb-0">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="text-sm font-medium">{title}</div>
-          <p className="text-foreground-dim mt-0.5 text-xs">{description}</p>
-        </div>
-        <Switch
-          checked={sound.enabled}
-          disabled={busy}
-          onCheckedChange={onEnabledChange}
-        />
-      </div>
-
-      <div
-        className={cn(
-          "flex items-center justify-between gap-4 transition-opacity",
-          controlsDisabled && "opacity-50",
-        )}
-      >
-        <label
-          htmlFor={`sound-effect-${title}`}
-          className="text-foreground-dim text-xs font-medium"
-        >
-          {t("Sound effect")}
-        </label>
-        <div className="flex items-center gap-2">
-          <Select
-            value={selectedValue}
-            disabled={controlsDisabled}
-            onValueChange={(value) => {
-              if (value) onPathChange(value)
-            }}
-            onOpenChange={(open) => {
-              if (open) onRefresh()
-            }}
+    <SettingRow
+      title={title}
+      description={description}
+      align="start"
+      footer={
+        <>
+          <div
+            className={cn(
+              "flex items-center justify-between gap-4 transition-opacity",
+              controlsDisabled && "opacity-50",
+            )}
           >
-            <SelectTrigger
-              id={`sound-effect-${title}`}
-              size="sm"
-              className="w-48"
+            <label
+              htmlFor={`sound-effect-${title}`}
+              className="text-foreground-dim text-xs font-medium"
             >
-              <SelectValue placeholder={t("No sounds found")}>
-                {selectedLabel || t("No sounds found")}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent align="end">
-              {items.map((item) => (
-                <SelectItem key={item.path} value={item.path}>
-                  {soundOptionLabel(item)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon-sm"
-            disabled={busy || !selectedValue}
-            title={t("Test sound")}
-            aria-label={t("Test {title} sound", { title })}
-            onClick={onPreview}
-          >
-            <PlayIcon className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            disabled={busy}
-            onClick={onOpenFolder}
-          >
-            <FolderOpenIcon className="size-3.5" />
-            {t("Folder")}
-          </Button>
-        </div>
-      </div>
+              {t("Sound effect")}
+            </label>
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedValue}
+                disabled={controlsDisabled}
+                onValueChange={(value) => {
+                  if (value) onPathChange(value)
+                }}
+                onOpenChange={(open) => {
+                  if (open) onRefresh()
+                }}
+              >
+                <SelectTrigger
+                  id={`sound-effect-${title}`}
+                  size="sm"
+                  className="w-48"
+                >
+                  <SelectValue placeholder={t("No sounds found")}>
+                    {selectedLabel || t("No sounds found")}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {items.map((item) => (
+                    <SelectItem key={item.path} value={item.path}>
+                      {soundOptionLabel(item)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="secondary"
+                size="icon-sm"
+                disabled={busy || !selectedValue}
+                title={t("Test sound")}
+                aria-label={t("Test {title} sound", { title })}
+                onClick={onPreview}
+              >
+                <PlayIcon className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onClick={onOpenFolder}
+              >
+                <FolderOpenIcon className="size-3.5" />
+                {t("Folder")}
+              </Button>
+            </div>
+          </div>
 
-      <div
-        className={cn(
-          "flex items-center justify-between gap-4 transition-opacity",
-          controlsDisabled && "opacity-50",
-        )}
-      >
-        <span className="text-foreground-dim text-xs font-medium">
-          {t("Volume")}
-        </span>
-        <div className="flex w-48 items-center gap-3">
-          <Slider
-            min={0}
-            max={100}
-            step={1}
-            value={[displayVolume]}
-            disabled={controlsDisabled}
-            onValueChange={(value) => setDraftVolume(sliderValue(value))}
-            onValueCommitted={(value) => {
-              setDraftVolume(null)
-              onVolumeChange(sliderValue(value))
-            }}
-            className="min-w-0 flex-1"
-          />
-          <span className="text-foreground-muted w-9 shrink-0 text-right text-xs tabular-nums">
-            {displayVolume}
-            {"%"}
-          </span>
-        </div>
-      </div>
-    </div>
+          <div
+            className={cn(
+              "flex items-center justify-between gap-4 transition-opacity",
+              controlsDisabled && "opacity-50",
+            )}
+          >
+            <span className="text-foreground-dim text-xs font-medium">
+              {t("Volume")}
+            </span>
+            <div className="flex w-48 items-center gap-3">
+              <Slider
+                min={0}
+                max={100}
+                step={1}
+                value={[displayVolume]}
+                disabled={controlsDisabled}
+                onValueChange={(value) => setDraftVolume(sliderValue(value))}
+                onValueCommitted={(value) => {
+                  setDraftVolume(null)
+                  onVolumeChange(sliderValue(value))
+                }}
+                className="min-w-0 flex-1"
+              />
+              <span className="text-foreground-muted w-9 shrink-0 text-right text-xs tabular-nums">
+                {displayVolume}
+                {"%"}
+              </span>
+            </div>
+          </div>
+        </>
+      }
+    >
+      <Switch
+        checked={sound.enabled}
+        disabled={busy}
+        onCheckedChange={onEnabledChange}
+      />
+    </SettingRow>
   )
 }
 

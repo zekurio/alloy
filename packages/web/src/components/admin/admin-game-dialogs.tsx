@@ -1,10 +1,8 @@
 import type { AdminGameRow, GameAssetRole } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { Card } from "@alloy/ui/components/card"
 import { DatePicker } from "@alloy/ui/components/date-picker"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
@@ -20,15 +18,9 @@ import {
 import { Spinner } from "@alloy/ui/components/spinner"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
-import {
-  ImageIcon,
-  PencilIcon,
-  PlusIcon,
-  Trash2Icon,
-  UploadIcon,
-} from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-import type { FormEvent, ReactNode } from "react"
+import { PencilIcon, PlusIcon } from "lucide-react"
+import { useEffect, useState } from "react"
+import type { FormEvent } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -36,11 +28,14 @@ import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
 import {
   dateInputValue,
-  GAME_ASSET_FIELDS,
+  GAME_ASSET_ROLES,
   GAME_ASSET_URL,
   releaseDatePayload,
+  setAdminGameArtworkRow,
   setAdminGameCacheRow,
 } from "./admin-game-data"
+import { GameArtworkStencil } from "./game-artwork-stencil"
+import type { GameArtworkSlot } from "./game-artwork-stencil"
 
 export function CreateGameDialog() {
   const queryClient = useQueryClient()
@@ -48,6 +43,7 @@ export function CreateGameDialog() {
   const [name, setName] = useState("")
   const [releaseDate, setReleaseDate] = useState("")
   const [assets, setAssets] = useState<Partial<Record<GameAssetRole, File>>>({})
+  const previews = useAssetPreviews(assets)
   const [saving, setSaving] = useState(false)
 
   const setAsset = (role: GameAssetRole, file: File | null) => {
@@ -87,9 +83,8 @@ export function CreateGameDialog() {
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
       <ResponsiveDialogTrigger
         render={
-          <Button type="button">
+          <Button type="button" size="icon" aria-label={t("Add game")}>
             <PlusIcon />
-            {t("Add game")}
           </Button>
         }
       />
@@ -102,48 +97,25 @@ export function CreateGameDialog() {
         </ResponsiveDialogHeader>
         <form onSubmit={handleSubmit}>
           <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor="new-game-name">{t("Name")}</FieldLabel>
-                <Input
-                  id="new-game-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={120}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor="new-game-release">
-                  {t("Release date")}
-                </FieldLabel>
-                <DatePicker
-                  id="new-game-release"
-                  value={releaseDate}
-                  onValueChange={setReleaseDate}
-                />
-              </Field>
-            </div>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold">{t("Artwork")}</span>
-                <span className="text-foreground-muted text-xs">
-                  {t("Optional — each role has its own shape.")}
-                </span>
-              </div>
-              <div className="grid gap-2.5 md:grid-cols-2">
-                {GAME_ASSET_FIELDS.map((asset) => (
-                  <CreateGameAssetField
-                    key={asset.role}
-                    role={asset.role}
-                    label={asset.label}
-                    description={asset.description}
-                    file={assets[asset.role] ?? null}
-                    onSelect={(file) => setAsset(asset.role, file)}
-                  />
-                ))}
-              </div>
-            </div>
+            <GameDetailFields
+              nameId="new-game-name"
+              releaseDateId="new-game-release"
+              name={name}
+              onNameChange={setName}
+              releaseDate={releaseDate}
+              onReleaseDateChange={setReleaseDate}
+            />
+            <GameArtworkSection
+              className="flex flex-col gap-3"
+              hint={t("Optional — click a slot to fill it in.")}
+              name={name}
+              releaseDate={releaseDate}
+              slot={(role) => ({
+                src: previews[role] ?? null,
+                onSelect: (file) => setAsset(role, file),
+                onRemove: () => setAsset(role, null),
+              })}
+            />
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>
             <ResponsiveDialogClose
@@ -172,6 +144,52 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
     dateInputValue(game.releaseDate),
   )
   const [saving, setSaving] = useState(false)
+  // Artwork applies immediately, and slots are independent: a logo upload can
+  // still be in flight while a hero crop applies, so busy is tracked per role.
+  const [busyRoles, setBusyRoles] = useState<ReadonlySet<GameAssetRole>>(
+    new Set(),
+  )
+
+  const setRoleBusy = (role: GameAssetRole, busy: boolean) => {
+    setBusyRoles((old) => {
+      const next = new Set(old)
+      if (busy) next.add(role)
+      else next.delete(role)
+      return next
+    })
+  }
+
+  // Resolves false on failure so the crop dialog can stay open for a retry.
+  const uploadAsset = async (role: GameAssetRole, file: File) => {
+    setRoleBusy(role, true)
+    try {
+      setAdminGameArtworkRow(
+        queryClient,
+        await api.admin.uploadGameAsset(game.id, role, file),
+      )
+      toast.success(t("Artwork updated"))
+      return true
+    } catch (cause) {
+      toast.error(errorMessage(cause, t("Couldn't upload artwork")))
+      return false
+    } finally {
+      setRoleBusy(role, false)
+    }
+  }
+
+  const clearAsset = async (role: GameAssetRole) => {
+    setRoleBusy(role, true)
+    try {
+      setAdminGameArtworkRow(
+        queryClient,
+        await api.admin.deleteGameAsset(game.id, role),
+      )
+    } catch (cause) {
+      toast.error(errorMessage(cause, t("Couldn't remove artwork")))
+    } finally {
+      setRoleBusy(role, false)
+    }
+  }
 
   const handleSave = async (event: FormEvent) => {
     event.preventDefault()
@@ -200,10 +218,10 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
           <Button
             type="button"
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             aria-label={t("Edit game")}
           >
-            <PencilIcon />
+            <PencilIcon className="size-3.5" />
           </Button>
         }
       />
@@ -214,30 +232,14 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
         </ResponsiveDialogHeader>
         <ResponsiveDialogBody className="flex flex-col gap-4 md:max-h-[70vh] md:overflow-y-auto">
           <form onSubmit={handleSave} className="flex flex-col gap-4">
-            <div className="grid gap-4 md:grid-cols-2">
-              <Field>
-                <FieldLabel htmlFor={`game-name-${game.id}`}>
-                  {t("Name")}
-                </FieldLabel>
-                <Input
-                  id={`game-name-${game.id}`}
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={120}
-                  required
-                />
-              </Field>
-              <Field>
-                <FieldLabel htmlFor={`game-release-${game.id}`}>
-                  {t("Release date")}
-                </FieldLabel>
-                <DatePicker
-                  id={`game-release-${game.id}`}
-                  value={releaseDate}
-                  onValueChange={setReleaseDate}
-                />
-              </Field>
-            </div>
+            <GameDetailFields
+              nameId={`game-name-${game.id}`}
+              releaseDateId={`game-release-${game.id}`}
+              name={name}
+              onNameChange={setName}
+              releaseDate={releaseDate}
+              onReleaseDateChange={setReleaseDate}
+            />
             <Button
               type="submit"
               disabled={saving || name.trim().length === 0}
@@ -247,27 +249,20 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
             </Button>
           </form>
 
-          <div className="border-border flex flex-col gap-3 border-t pt-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-sm font-semibold">{t("Artwork")}</span>
-              <span className="text-foreground-muted text-xs">
-                {t(
-                  "Each role has its own shape — the preview shows what's live.",
-                )}
-              </span>
-            </div>
-            <div className="grid gap-2.5 md:grid-cols-2">
-              {GAME_ASSET_FIELDS.map((asset) => (
-                <GameAssetField
-                  key={asset.role}
-                  game={game}
-                  role={asset.role}
-                  label={asset.label}
-                  description={asset.description}
-                />
-              ))}
-            </div>
-          </div>
+          <GameArtworkSection
+            className="border-border flex flex-col gap-3 border-t pt-4"
+            hint={t("Click a slot to replace or remove what's live.")}
+            name={name}
+            releaseDate={releaseDate}
+            slot={(role) => ({
+              src: game[GAME_ASSET_URL[role]] as string | null,
+              busy: busyRoles.has(role),
+              // Returned, not fired and forgotten: the crop dialog stays on
+              // "Applying…" until the upload lands.
+              onSelect: (file) => uploadAsset(role, file),
+              onRemove: () => void clearAsset(role),
+            })}
+          />
         </ResponsiveDialogBody>
         <ResponsiveDialogFooter>
           <ResponsiveDialogClose
@@ -279,206 +274,93 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
   )
 }
 
-function AssetFieldCard({
-  label,
-  description,
-  status,
-  preview,
-  primaryLabel,
-  primaryIcon,
-  primaryAriaLabel,
-  primaryDisabled,
-  showRemove,
-  removeAriaLabel,
-  removeDisabled,
-  onRemove,
-  onFileSelected,
+function GameDetailFields({
+  nameId,
+  releaseDateId,
+  name,
+  onNameChange,
+  releaseDate,
+  onReleaseDateChange,
 }: {
-  label: string
-  description: string
-  status: string
-  preview: ReactNode
-  primaryLabel: string
-  primaryIcon: ReactNode
-  primaryAriaLabel: string
-  primaryDisabled?: boolean
-  showRemove: boolean
-  removeAriaLabel: string
-  removeDisabled?: boolean
-  onRemove: () => void
-  onFileSelected: (file: File) => void
+  nameId: string
+  releaseDateId: string
+  name: string
+  onNameChange: (value: string) => void
+  releaseDate: string
+  onReleaseDateChange: (value: string) => void
 }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-
   return (
-    <Card className="gap-3 p-3">
-      <div className="border-border bg-surface-sunken flex h-28 items-center justify-center overflow-hidden rounded-md border">
-        {preview}
-      </div>
-      <div className="flex items-end justify-between gap-3">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="text-sm leading-none font-semibold">{label}</span>
-          <span className="text-foreground-muted truncate text-xs">
-            {description}
-          </span>
-          <span className="text-foreground-faint truncate text-xs">
-            {status}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            aria-label={primaryAriaLabel}
-            disabled={primaryDisabled}
-            onClick={() => inputRef.current?.click()}
-          >
-            {primaryIcon}
-            {primaryLabel}
-          </Button>
-          {showRemove ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={removeAriaLabel}
-              disabled={removeDisabled}
-              onClick={onRemove}
-            >
-              <Trash2Icon />
-            </Button>
-          ) : null}
-        </div>
-      </div>
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0]
-          event.target.value = ""
-          if (file) onFileSelected(file)
-        }}
-      />
-    </Card>
+    <div className="grid gap-4 md:grid-cols-2">
+      <Field>
+        <FieldLabel htmlFor={nameId}>{t("Name")}</FieldLabel>
+        <Input
+          id={nameId}
+          value={name}
+          onChange={(event) => onNameChange(event.target.value)}
+          maxLength={120}
+          required
+        />
+      </Field>
+      <Field>
+        <FieldLabel htmlFor={releaseDateId}>{t("Release date")}</FieldLabel>
+        <DatePicker
+          id={releaseDateId}
+          value={releaseDate}
+          onValueChange={onReleaseDateChange}
+        />
+      </Field>
+    </div>
   )
 }
 
-function CreateGameAssetField({
-  role,
-  label,
-  description,
-  file,
-  onSelect,
+function GameArtworkSection({
+  className,
+  hint,
+  name,
+  releaseDate,
+  slot,
 }: {
-  role: GameAssetRole
-  label: string
-  description: string
-  file: File | null
-  onSelect: (file: File | null) => void
+  className: string
+  hint: string
+  name: string
+  releaseDate: string
+  slot: (role: GameAssetRole) => GameArtworkSlot
 }) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  return (
+    <div className={className}>
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm font-semibold">{t("Artwork")}</span>
+        <span className="text-foreground-muted text-xs">{hint}</span>
+      </div>
+      <GameArtworkStencil name={name} releaseDate={releaseDate} slot={slot} />
+    </div>
+  )
+}
+
+/**
+ * Blob URLs for the files staged in the create dialog, rebuilt whenever a slot
+ * changes so the stencil shows the pending artwork before it is uploaded.
+ */
+function useAssetPreviews(assets: Partial<Record<GameAssetRole, File>>) {
+  const [previews, setPreviews] = useState<
+    Partial<Record<GameAssetRole, string>>
+  >({})
 
   useEffect(() => {
-    if (!file) {
-      setPreviewUrl(null)
-      return
+    const next: Partial<Record<GameAssetRole, string>> = {}
+    for (const role of GAME_ASSET_ROLES) {
+      const file = assets[role]
+      if (!file) continue
+      const url = createObjectUrl(file, `game ${role} preview`)
+      if (url) next[role] = url
     }
-    const url = createObjectUrl(file, `game ${role} preview`)
-    setPreviewUrl(url)
-    return () => revokeObjectUrl(url, `game ${role} preview`)
-  }, [file, role])
-
-  return (
-    <AssetFieldCard
-      label={label}
-      description={description}
-      status={file ? file.name : t("Not set")}
-      preview={
-        previewUrl ? (
-          <img src={previewUrl} alt="" className="size-full object-contain" />
-        ) : (
-          <ImageIcon className="text-foreground-faint size-5" aria-hidden />
-        )
+    setPreviews(next)
+    return () => {
+      for (const role of GAME_ASSET_ROLES) {
+        revokeObjectUrl(next[role], `game ${role} preview`)
       }
-      primaryLabel={file ? t("Replace") : t("Choose")}
-      primaryIcon={<UploadIcon />}
-      primaryAriaLabel={t("Choose {label}", { label })}
-      showRemove={file !== null}
-      removeAriaLabel={t("Remove {label}", { label })}
-      onRemove={() => onSelect(null)}
-      onFileSelected={(next) => onSelect(next)}
-    />
-  )
-}
-
-function GameAssetField({
-  game,
-  role,
-  label,
-  description,
-}: {
-  game: AdminGameRow
-  role: GameAssetRole
-  label: string
-  description: string
-}) {
-  const queryClient = useQueryClient()
-  const [busy, setBusy] = useState(false)
-  const currentUrl = game[GAME_ASSET_URL[role]] as string | null
-
-  const upload = async (file: File) => {
-    setBusy(true)
-    try {
-      const updated = await api.admin.uploadGameAsset(game.id, role, file)
-      setAdminGameCacheRow(queryClient, updated)
-      toast.success(t("Artwork updated"))
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't upload artwork")))
-    } finally {
-      setBusy(false)
     }
-  }
+  }, [assets])
 
-  const clear = async () => {
-    setBusy(true)
-    try {
-      const updated = await api.admin.deleteGameAsset(game.id, role)
-      setAdminGameCacheRow(queryClient, updated)
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't remove artwork")))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <AssetFieldCard
-      label={label}
-      description={description}
-      status={currentUrl ? t("Uploaded") : t("Not set")}
-      preview={
-        currentUrl ? (
-          <GameIcon
-            src={currentUrl}
-            name={game.name}
-            className="size-full rounded-none"
-          />
-        ) : (
-          <ImageIcon className="text-foreground-faint size-5" aria-hidden />
-        )
-      }
-      primaryLabel={currentUrl ? t("Replace") : t("Upload")}
-      primaryIcon={busy ? <Spinner className="size-3.5" /> : <UploadIcon />}
-      primaryAriaLabel={t("Upload {label}", { label })}
-      primaryDisabled={busy}
-      showRemove={currentUrl !== null}
-      removeAriaLabel={t("Remove {label}", { label })}
-      removeDisabled={busy}
-      onRemove={clear}
-      onFileSelected={(file) => void upload(file)}
-    />
-  )
+  return previews
 }

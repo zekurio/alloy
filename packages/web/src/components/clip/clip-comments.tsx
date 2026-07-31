@@ -486,7 +486,7 @@ function CommentRowView({
         style={avatarStyle}
       >
         {avatar.src ? <AvatarImage src={avatar.src} alt={authorName} /> : null}
-        <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
+        <AvatarFallback style={avatarStyle} />
       </Avatar>
 
       <div className="flex min-w-0 flex-1 flex-col gap-1">

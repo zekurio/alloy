@@ -251,9 +251,7 @@ function PersonChip({
         ) : null}
         <AvatarFallback
           style={{ backgroundColor: chip.avatar.bg, color: chip.avatar.fg }}
-        >
-          {chip.avatar.initials}
-        </AvatarFallback>
+        />
       </Avatar>
       <span className="max-w-[10rem] min-w-0 truncate font-medium">
         {label}
@@ -404,9 +402,7 @@ function PeopleSearchPopover({
                           backgroundColor: chip.avatar.bg,
                           color: chip.avatar.fg,
                         }}
-                      >
-                        {chip.avatar.initials}
-                      </AvatarFallback>
+                      />
                     </Avatar>
                     <span className="min-w-0 flex-1 truncate">{label}</span>
                   </button>

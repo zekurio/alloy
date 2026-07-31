@@ -22,7 +22,7 @@ import {
 } from "@alloy/ui/components/select"
 import { toast } from "@alloy/ui/lib/toast"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { PencilIcon, SaveIcon, UserPlusIcon } from "lucide-react"
+import { SaveIcon, UserPlusIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import type { FormEvent } from "react"
 
@@ -42,16 +42,20 @@ import { normalizeRole } from "./admin-user-role"
 export function EditUserDialog({
   user,
   busy,
+  open,
+  onOpenChange,
   onUpdate,
 }: {
   user: AdminUserRow
   busy: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onUpdate: (
     user: AdminUserRow,
     next: AdminUserEditableFields,
   ) => Promise<boolean>
 }) {
-  const [open, setOpen] = useState(false)
+  const setOpen = onOpenChange
   const [quotaGiB, setQuotaGiB] = useState("")
   const [role, setRole] = useState<"admin" | "user">("user")
   const [submitting, setSubmitting] = useState(false)
@@ -104,18 +108,6 @@ export function EditUserDialog({
 
   return (
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
-      <ResponsiveDialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("Edit user")}
-            disabled={busy}
-          >
-            <PencilIcon className="size-3.5" />
-          </Button>
-        }
-      />
       <ResponsiveDialogContent variant="secondary">
         <form onSubmit={onSubmit}>
           <ResponsiveDialogHeader>
@@ -234,9 +226,8 @@ export function CreateUserDialog() {
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
       <ResponsiveDialogTrigger
         render={
-          <Button variant="primary">
+          <Button variant="primary" size="icon" aria-label={t("Add user")}>
             <UserPlusIcon />
-            {t("Add user")}
           </Button>
         }
       />

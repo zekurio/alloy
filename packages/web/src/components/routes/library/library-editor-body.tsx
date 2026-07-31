@@ -40,7 +40,6 @@ import {
 import {
   useExternalVideoVolume,
   VideoPlayer,
-  VolumeControl,
 } from "@/components/video/video-player"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
@@ -62,6 +61,7 @@ import { errorMessage } from "@/lib/error-message"
 import { useDesktopMediaFilmstrip } from "@/lib/media-filmstrip"
 
 import { exportAndPublishCapture } from "./library-capture-publish"
+import { EditorVolumeControl } from "./library-clip-editor-media"
 import { type LibraryItemView } from "./library-data"
 import {
   LibraryEntryNavButton,
@@ -403,15 +403,7 @@ export function EditorBody({
             trailing={
               <>
                 <AudioTrackMixerControl mixer={audioMixer} />
-                <VolumeControl
-                  muted={playerVolume.state.muted}
-                  volume={playerVolume.state.volume}
-                  onToggleMute={playerVolume.toggleMute}
-                  onVolumeChange={playerVolume.setVolume}
-                  onVolumeChangeEnd={playerVolume.finishVolumeChange}
-                  iconClassName="size-8 rounded-md"
-                  iconGlyphClassName="size-4"
-                />
+                <EditorVolumeControl playerVolume={playerVolume} />
               </>
             }
           />

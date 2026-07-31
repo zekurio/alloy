@@ -376,9 +376,11 @@ export function GameCombobox({
                 ? t("Couldn’t load games")
                 : searchQuery.isError
                   ? t("Couldn’t reach SteamGridDB")
-                  : debouncedQuery.trim().length === 0
-                    ? t("Start typing to search")
-                    : t("No matches")}
+                  : configured === false
+                    ? t("SteamGridDB is not configured")
+                    : debouncedQuery.trim().length === 0
+                      ? t("Start typing to search")
+                      : t("No matches")}
             </ComboboxEmpty>
           </ComboboxList>
         </ComboboxContent>

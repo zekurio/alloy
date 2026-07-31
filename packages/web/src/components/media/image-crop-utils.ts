@@ -1,14 +1,23 @@
 import { t } from "@alloy/i18n"
-export type CropMode = "avatar" | "banner" | "thumbnail"
+export type CropMode =
+  | "avatar"
+  | "banner"
+  | "thumbnail"
+  | "gameHero"
+  | "gameGrid"
+  | "gameIcon"
 
 type CropConfig = {
   aspect: number
   label: string
   outputHeight: number
   outputWidth: number
-  /** "strip" spans the full stage width (banner); "cover" requires the
-   * source image to always fill the frame (avatar, thumbnail). */
+  /** "strip" spans the full stage width (wide banners); "cover" requires the
+   * source image to always fill the frame (avatar, thumbnail, game art). */
   frameFit: "strip" | "cover"
+  /** Aspect of the stage the frame is laid out in — wide frames get a wide
+   * stage, tall or square ones need the extra height. */
+  stageClass: string
 }
 
 export const CROP_CONFIG: Record<CropMode, CropConfig> = {
@@ -18,6 +27,7 @@ export const CROP_CONFIG: Record<CropMode, CropConfig> = {
     label: t("Edit avatar"),
     outputHeight: 512,
     outputWidth: 512,
+    stageClass: "aspect-[4/3]",
   },
   banner: {
     aspect: 4,
@@ -25,6 +35,7 @@ export const CROP_CONFIG: Record<CropMode, CropConfig> = {
     label: t("Edit banner"),
     outputHeight: 375,
     outputWidth: 1500,
+    stageClass: "aspect-video",
   },
   thumbnail: {
     aspect: 16 / 9,
@@ -32,6 +43,33 @@ export const CROP_CONFIG: Record<CropMode, CropConfig> = {
     label: t("Edit thumbnail"),
     outputHeight: 720,
     outputWidth: 1280,
+    stageClass: "aspect-video",
+  },
+  // Game artwork mirrors the sizes the server renders to, so the crop the
+  // admin picks is the framing that ships (see admin-game-assets.ts).
+  gameHero: {
+    aspect: 1920 / 620,
+    frameFit: "strip",
+    label: t("Edit banner"),
+    outputHeight: 620,
+    outputWidth: 1920,
+    stageClass: "aspect-video",
+  },
+  gameGrid: {
+    aspect: 2 / 3,
+    frameFit: "cover",
+    label: t("Edit cover"),
+    outputHeight: 900,
+    outputWidth: 600,
+    stageClass: "aspect-[4/3]",
+  },
+  gameIcon: {
+    aspect: 1,
+    frameFit: "cover",
+    label: t("Edit icon"),
+    outputHeight: 512,
+    outputWidth: 512,
+    stageClass: "aspect-[4/3]",
   },
 }
 

@@ -75,7 +75,7 @@ export function TrimTransportControls({
 }
 
 /** Leaf that follows the playhead store so only it re-renders per frame. */
-function TrimElapsed({ playback }: { playback: TrimPlayback }) {
+export function TrimElapsed({ playback }: { playback: TrimPlayback }) {
   const currentMs = useSyncExternalStore(
     playback.subscribeCurrentMs,
     playback.getCurrentMs,

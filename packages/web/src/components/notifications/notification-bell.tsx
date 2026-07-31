@@ -231,9 +231,7 @@ function NotificationRow({
       <span className="relative mt-0.5 shrink-0">
         <Avatar size="md">
           <AvatarImage src={avatar.src} alt="" />
-          <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }}>
-            {avatar.initials}
-          </AvatarFallback>
+          <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }} />
         </Avatar>
         <span className="border-border bg-popover absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full border">
           <KindIcon
