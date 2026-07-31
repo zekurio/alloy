@@ -1,12 +1,17 @@
 import type { DesktopUpdateState } from "@alloy/contracts"
+import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
 
 import {
   configureRecordingBackend,
-  shutdownRecordingBackend,
+  stopRecordingBackendForInstall,
 } from "./recording"
+import {
+  configureRecordingHotkeys,
+  unregisterRecordingHotkeys,
+} from "./recording-hotkeys"
 
 // electron-updater is CommonJS with a lazy `autoUpdater` getter; read from the
 // default import so Rollup does not capture an undefined named binding. Do
@@ -102,19 +107,27 @@ export async function restartToInstallUpdate(): Promise<void> {
 
   installInFlight = true
   logger.info("stopping recording backend before update install")
-  const recorderStopped = await shutdownRecordingBackend().catch(
+  // A global capture hotkey is the likeliest respawn trigger during the quit
+  // window; drop the hotkeys before stopping the backend blocks respawns.
+  unregisterRecordingHotkeys()
+  const recorderStopped = await stopRecordingBackendForInstall().catch(
     (cause: unknown) => {
       logger.warn("recorder shutdown failed before update install:", cause)
       return false
     },
   )
+  // The error listener may have recovered (and respawned recording) while
+  // the shutdown was in flight; installing now would fight that recovery.
+  if (!installInFlight) return
   if (!recorderStopped) {
     // A live sidecar keeps the packaged OBS DLLs open and NSIS would hit
-    // locked files mid-upgrade. Deliberately do not respawn the backend here:
-    // the old process may still be exiting, and a second recorder would fight
-    // it over devices. The update stays downloaded so the user can retry.
+    // locked files mid-upgrade. Respawns stay blocked until the next
+    // configureRecordingBackend call — the old process may still be exiting,
+    // and a second recorder would fight it over devices. The update stays
+    // downloaded so the user can retry.
     installInFlight = false
-    throw new Error("The recorder did not stop. Try restarting again.")
+    configureRecordingHotkeys()
+    throw new Error(t("The recorder did not stop. Try restarting again."))
   }
 
   logger.info(`restarting to install ${state.version ?? "update"}`)
@@ -201,13 +214,15 @@ export function initAutoUpdater(): void {
     if (installInFlight) {
       // quitAndInstall is fire-and-forget: when the staged installer is gone
       // (AV quarantine, disk cleanup) it dispatches an error instead of
-      // quitting. The recorder was already stopped, so bring it back and
-      // drop to idle so background checks re-discover the update.
+      // quitting. The recorder was already stopped, so bring it back —
+      // configureRecordingBackend also unblocks respawns — and drop to idle
+      // so background checks re-discover the update.
       installInFlight = false
       logger.warn("update install did not start; restarting recording backend")
       void configureRecordingBackend().catch((restartCause: unknown) => {
         logger.warn("failed to restart recording backend:", restartCause)
       })
+      configureRecordingHotkeys()
       setState(idleUpdateState())
       ensureBackgroundChecks()
       scheduleUpdateCheck(0)

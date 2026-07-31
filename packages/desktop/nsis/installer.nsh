@@ -31,9 +31,11 @@ Var pid
 
   # The Electron process can be gone while its child recorder is still
   # unloading OBS DLLs. Do not let install/uninstall touch resources until the
-  # child has definitely exited. electron-builder's FIND_PROCESS/KILL_PROCESS
-  # are scoped to the install dir (PowerShell) or the current user (tasklist
-  # fallback on per-user installs), so another user's recorder is never hit.
+  # child has definitely exited. On PowerShell-capable systems
+  # _CHECK_APP_RUNNING's install-dir-scoped scan above already covers the
+  # recorder; this loop matters for the tasklist fallback, which filters by
+  # image name (and by user on per-user installs), so another user's recorder
+  # is never hit.
   StrCpy $R1 0
   recorderCheck:
     !insertmacro FIND_PROCESS "${RECORDER_EXECUTABLE_FILENAME}" $R0
@@ -41,7 +43,10 @@ Var pid
       Goto recorderStopped
     ${endif}
     ${if} $R1 >= 3
-      Abort "Cannot stop ${RECORDER_EXECUTABLE_FILENAME}. Close it in Task Manager and try again."
+      # Details panes are hidden in every install/uninstall mode, so a bare
+      # Abort message would be swallowed; tell the user before bailing.
+      MessageBox MB_OK|MB_ICONEXCLAMATION "Cannot stop ${RECORDER_EXECUTABLE_FILENAME}. Close it in Task Manager and try again." /SD IDOK
+      Abort "Cannot stop ${RECORDER_EXECUTABLE_FILENAME}."
     ${endif}
     DetailPrint "Stopping ${RECORDER_EXECUTABLE_FILENAME}."
     !insertmacro KILL_PROCESS "${RECORDER_EXECUTABLE_FILENAME}" 1

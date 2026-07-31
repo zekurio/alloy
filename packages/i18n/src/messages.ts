@@ -983,6 +983,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Die Bibliothek ist nur in Alloy Desktop verfügbar",
   "The page may have moved, been deleted, or never existed.":
     "Die Seite wurde vielleicht verschoben, gelöscht oder hat nie existiert.",
+  "The recorder did not stop. Try restarting again.":
+    "Der Recorder wurde nicht beendet. Versuche den Neustart erneut.",
   "The rolling window the clip hotkey saves.":
     "Das gleitende Zeitfenster, das der Clip-Hotkey speichert.",
   "The selected {backend} encoder isn't available for {codec} on this server.":

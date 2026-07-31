@@ -140,6 +140,7 @@ export function emitRecordingLibraryDownloadEvent(
  * reads and recording actions rely on the config already being pushed.
  */
 export async function configureRecordingBackend(): Promise<RecordingStatus> {
+  sidecarBlockedForInstall = false
   const client = getSidecarClient()
   if (!client) {
     const status = unavailableRecordingStatus()
@@ -205,6 +206,19 @@ export async function shutdownRecordingBackend(): Promise<boolean> {
   return (await client?.shutdown()) ?? true
 }
 
+let sidecarBlockedForInstall = false
+
+/**
+ * Stops the sidecar and blocks respawns until the next
+ * `configureRecordingBackend` call, so no recording entry point (IPC,
+ * hotkeys, sounds) can spawn a fresh recorder — holding the packaged OBS
+ * DLLs open — while the NSIS installer replaces the app.
+ */
+export async function stopRecordingBackendForInstall(): Promise<boolean> {
+  sidecarBlockedForInstall = true
+  return shutdownRecordingBackend()
+}
+
 export async function restartRecordingBackend(): Promise<RecordingStatus> {
   const stopped = await shutdownRecordingBackend()
   if (!stopped) {
@@ -260,6 +274,7 @@ function currentSidecarConfig(): SidecarConfig {
 }
 
 function getSidecarClient(): RecordingSidecarClient | null {
+  if (sidecarBlockedForInstall) return null
   if (sidecarClient) return sidecarClient
 
   const executable = sidecarExecutablePath()
