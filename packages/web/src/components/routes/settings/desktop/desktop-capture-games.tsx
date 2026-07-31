@@ -178,7 +178,7 @@ export function AllowedGamesSection({
           if (!open) setPickerMode(null)
         }}
       >
-        <DialogContent className="max-w-[640px]">
+        <DialogContent className="flex h-[min(80vh,34rem)] max-w-[640px] flex-col">
           <DialogHeader className="pr-14">
             <DialogTitle>
               {pickerMode === "deny"
@@ -192,7 +192,7 @@ export function AllowedGamesSection({
           >
             <XIcon />
           </DialogClose>
-          <DialogBody className="flex flex-col gap-3">
+          <DialogBody className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex items-center gap-2">
               <InputGroup className="min-w-0 flex-1">
                 <InputGroupAddon>
@@ -221,7 +221,7 @@ export function AllowedGamesSection({
               </Button>
             </div>
 
-            <div className="border-border h-[340px] overflow-y-auto overscroll-contain rounded-md border p-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {loadingProcesses && processes.length === 0 ? (
                 <div className="text-foreground-muted flex h-full items-center justify-center gap-2 text-sm">
                   <Spinner />
