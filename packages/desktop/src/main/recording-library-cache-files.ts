@@ -29,13 +29,15 @@ export function captureCachePath(
 }
 
 /**
- * Drops every cached entry for a capture except `keep`. Pass an empty `keep`
- * to clear all of them (the capture itself was deleted).
+ * Drops every cached entry for a capture except the kept ones: `path` keeps
+ * exactly one file (thumbnail/scrubber caches), `prefix` keeps every file of
+ * the capture's current signature (audio stem cache, one file per track).
+ * Pass `{ path: "" }` to clear all of them (the capture itself was deleted).
  */
 export function pruneCaptureCache(
   folder: string,
   id: string,
-  keep: string,
+  keep: { path: string } | { prefix: string },
 ): void {
   let entries: Dirent[]
   try {
@@ -46,7 +48,11 @@ export function pruneCaptureCache(
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.startsWith(`${id}-`)) continue
     const path = join(folder, entry.name)
-    if (path === keep) continue
+    const kept =
+      "path" in keep
+        ? path === keep.path
+        : keep.prefix.length > 0 && entry.name.startsWith(keep.prefix)
+    if (kept) continue
     try {
       rmSync(path, { force: true })
     } catch {
