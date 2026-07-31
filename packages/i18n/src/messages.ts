@@ -19,8 +19,9 @@ export const DE_MESSAGES: Record<string, string> = {
   "Follow users to populate this tab.":
     "Folge Nutzern, um diesen Tab zu füllen.",
   "Edit thumbnail": "Vorschaubild bearbeiten",
-  "Each role has its own shape — the preview shows what's live.":
-    "Jede Rolle hat ihre eigene Form — die Vorschau zeigt, was live ist.",
+  "Edit cover": "Cover bearbeiten",
+  "Edit icon": "Symbol bearbeiten",
+  "Drag to scrub, pinch to zoom": "Zum Spulen ziehen, zum Zoomen kneifen",
   Deleting: "Wird gelöscht",
   Dark: "Dunkel",
   "Follows, comments, likes, and mentions appear here.":
@@ -164,6 +165,11 @@ export const DE_MESSAGES: Record<string, string> = {
   "Applying...": "Wird angewendet...",
   Artwork: "Artwork",
   "Artwork updated": "Artwork aktualisiert",
+  "Add {label}": "{label} hinzufügen",
+  "Click a slot to replace or remove what's live.":
+    "Klicke ein Feld an, um das Live-Artwork zu ersetzen oder zu entfernen.",
+  "Cover and icon stand in for the game in lists and search.":
+    "Cover und Symbol stehen in Listen und der Suche für das Spiel.",
   Audio: "Audio",
   "Audio bitrate": "Audio-Bitrate",
   "Audio level": "Audiopegel",
@@ -218,7 +224,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Checking...": "Wird geprüft...",
   "Checking for updates": "Suche nach Updates",
   Choose: "Auswählen",
-  "Choose {label}": "{label} auswählen",
+  "Change {label}": "{label} ändern",
   "Choose date": "Datum wählen",
   "Choose an Alloy server to sign in.":
     "Wähle einen Alloy-Server zum Anmelden aus.",
@@ -712,6 +718,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Not following anyone yet.": "Folgt noch niemandem.",
   "Not linked": "Nicht verknüpft",
   "Not set": "Nicht festgelegt",
+  "Optional — click a slot to fill it in.":
+    "Optional — klicke ein Feld an, um es zu füllen.",
   "NVIDIA NVENC": "NVIDIA NVENC",
   of: "von",
   Off: "Aus",
@@ -726,8 +734,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Open Alloy in the desktop app to edit captures stored on this device.":
     "Öffne Alloy in der Desktop-App, um auf diesem Gerät gespeicherte Aufnahmen zu bearbeiten.",
   Optional: "Optional",
-  "Optional — each role has its own shape.":
-    "Optional — jede Rolle hat ihre eigene Form.",
   or: "oder",
   other: "weiterer Nutzer",
   others: "weitere Nutzer",
@@ -831,6 +837,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Remove avatar": "Avatar entfernen",
   "Remove banner": "Banner entfernen",
   "Remove {label}": "{label} entfernen",
+  "Replace {label}": "{label} ersetzen",
   "Remove {name}": "{name} entfernen",
   "Remove #{tag}": "#{tag} entfernen",
   "Remove from favourites": "Aus Favoriten entfernen",
@@ -880,6 +887,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Saved on this device": "Auf diesem Gerät gespeichert",
   "Saves the configured replay buffer.":
     "Speichert den konfigurierten Replay-Puffer.",
+  "Save trim": "Zuschnitt speichern",
   "Saving...": "Wird gespeichert...",
   "Saving…": "Wird gespeichert…",
   "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1 on the link preview tier, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.":
@@ -910,6 +918,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Server: "Server",
   "Server URL": "Server-URL",
   Servers: "Server",
+  "SteamGridDB is not configured": "SteamGridDB ist nicht konfiguriert",
   Settings: "Einstellungen",
   "Settings sections": "Einstellungsabschnitte",
   "Set up your profile": "Richte dein Profil ein",
@@ -1025,6 +1034,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Zuschnitt gespeichert – der Clip wird neu verarbeitet",
   "Trim selection": "Zuschnitt-Auswahl",
   "Trim start": "Anfang abschneiden",
+  "Trim clip": "Clip zuschneiden",
   "Trimmed to": "Zugeschnitten auf",
   "Try a different game or clear the filter.":
     "Probier ein anderes Spiel oder lösch den Filter.",
@@ -1045,6 +1055,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Unpost: "Zurückziehen",
   "Unposting...": "Wird zurückgezogen...",
   Untitled: "Ohne Titel",
+  "Untitled game": "Unbenanntes Spiel",
   "Update available": "Update verfügbar",
   "Update ready": "Update bereit",
   "Update role and storage quota for {username}.":
@@ -1057,7 +1068,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Transcoding: "Transkodierung",
   Uncategorised: "Nicht kategorisiert",
   Upload: "Hochladen",
-  "Upload {label}": "{label} hochladen",
   "Upload clip": "Clip hochladen",
   "Upload started": "Upload gestartet",
   "Upload a clip and pick a game to seed this list.":
@@ -1296,4 +1306,65 @@ export const DE_MESSAGES: Record<string, string> = {
   "Your endpoint receives a signed JSON payload.":
     "Dein Endpunkt erhält eine signierte JSON-Nutzlast.",
   "e.g. #clips": "z. B. #clips",
+
+  // Settings section headings
+  "How you appear to everyone else on this server.":
+    "Wie du für alle anderen auf diesem Server erscheinst.",
+  "Danger zone": "Gefahrenzone",
+  "How much of your quota your clips are using.":
+    "Wie viel deines Kontingents deine Clips belegen.",
+  "Actions here affect your whole account.":
+    "Aktionen hier betreffen dein gesamtes Konto.",
+  "Sign-in": "Anmeldung",
+  "Who can create an account and how they authenticate.":
+    "Wer ein Konto erstellen kann und wie die Anmeldung erfolgt.",
+  "Show the backdrop": "Hintergrund anzeigen",
+  General: "Allgemein",
+  Identity: "Identität",
+  Recording: "Aufnahme",
+  "The generated wall of clip thumbnails behind the login form.":
+    "Die generierte Wand aus Clip-Vorschaubildern hinter dem Anmeldeformular.",
+
+  // Custom themes
+  Interface: "Oberfläche",
+  "Custom CSS for this browser. It applies as you type and is never shared with anyone else on this server.":
+    "Eigenes CSS für diesen Browser. Es wird beim Tippen angewendet und niemals mit anderen auf diesem Server geteilt.",
+  "Use this server's theme": "Theme dieses Servers verwenden",
+  "Apply the CSS the administrator set for everyone. Turn this off to use only your own.":
+    "Das CSS anwenden, das die Administration für alle festgelegt hat. Deaktivieren, um nur dein eigenes zu verwenden.",
+  "Use my custom CSS": "Mein eigenes CSS verwenden",
+  "Turning this off keeps your CSS but stops applying it.":
+    "Beim Deaktivieren bleibt dein CSS erhalten, wird aber nicht mehr angewendet.",
+  "Custom theme tokens": "Eigene Theme-Tokens",
+  "Fine-tune core colors and fonts. Changes here are stored as custom CSS overrides and sync with the editor below.":
+    "Kernfarben und Schriften feinjustieren. Änderungen werden als CSS-Overrides gespeichert und mit dem Editor unten synchronisiert.",
+  "Search tokens": "Tokens durchsuchen",
+  "No tokens found.": "Keine Tokens gefunden.",
+  "Pick a color for {token}": "Farbe für {token} wählen",
+  "Custom CSS overrides": "Eigene CSS-Overrides",
+  "Write CSS to override any theme token. Broken CSS can make the app unusable — clear this field to recover.":
+    "Schreibe CSS, um beliebige Theme-Tokens zu überschreiben. Fehlerhaftes CSS kann die App unbrauchbar machen — leere dieses Feld zur Wiederherstellung.",
+  "Custom CSS": "Eigenes CSS",
+  "Reset all overrides to theme default":
+    "Alle Overrides auf Theme-Standard zurücksetzen",
+  "Share this theme": "Dieses Theme teilen",
+  "Theme CSS copied": "Theme-CSS kopiert",
+  "Couldn't copy the theme": "Theme konnte nicht kopiert werden",
+  "Instance theme": "Server-Theme",
+  "CSS applied to everyone on this server, including the login page. Users can turn it off for their own browser.":
+    "CSS, das für alle auf diesem Server gilt, auch auf der Anmeldeseite. Nutzer können es für sich deaktivieren.",
+  "Instance CSS": "Server-CSS",
+  "Theme, language, custom CSS, and announcement settings.":
+    "Theme-, Sprach-, CSS- und Ankündigungseinstellungen.",
+  "Instance-wide custom CSS and the generated login backdrop.":
+    "Serverweites eigenes CSS und der generierte Anmelde-Hintergrund.",
+  "Import theme": "Theme importieren",
+  "Export theme": "Theme exportieren",
+  "Apply theme": "Theme anwenden",
+  "Theme imported": "Theme importiert",
+  "Couldn't export the theme": "Theme konnte nicht exportiert werden",
+  "That file is empty": "Diese Datei ist leer",
+  "by {author}": "von {author}",
+  "This replaces your current custom CSS. You can edit it afterwards.":
+    "Dies ersetzt dein aktuelles eigenes CSS. Du kannst es danach bearbeiten.",
 }

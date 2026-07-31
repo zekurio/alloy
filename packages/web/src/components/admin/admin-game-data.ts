@@ -4,16 +4,22 @@ import type { QueryClient } from "@tanstack/react-query"
 
 import { adminKeys } from "@/lib/admin-query-keys"
 
-export const GAME_ASSET_FIELDS: {
-  role: GameAssetRole
-  label: string
-  description: string
-}[] = [
-  { role: "grid", label: t("Cover"), description: t("Vertical box art") },
-  { role: "hero", label: t("Banner"), description: t("Wide page header") },
-  { role: "logo", label: t("Logo"), description: t("Transparent wordmark") },
-  { role: "icon", label: t("Icon"), description: t("Square app tile") },
+export const GAME_ASSET_ROLES: GameAssetRole[] = [
+  "grid",
+  "hero",
+  "logo",
+  "icon",
 ]
+
+export const GAME_ASSET_FIELDS: Record<
+  GameAssetRole,
+  { label: string; description: string }
+> = {
+  grid: { label: t("Cover"), description: t("Vertical box art") },
+  hero: { label: t("Banner"), description: t("Wide page header") },
+  logo: { label: t("Logo"), description: t("Transparent wordmark") },
+  icon: { label: t("Icon"), description: t("Square app tile") },
+}
 
 export const GAME_ASSET_URL: Record<GameAssetRole, keyof AdminGameRow> = {
   grid: "gridUrl",

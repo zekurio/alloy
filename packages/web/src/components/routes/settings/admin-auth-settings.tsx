@@ -5,13 +5,17 @@ import type {
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Section, SectionContent } from "@alloy/ui/components/section"
-import { SettingRow } from "@alloy/ui/components/setting-row"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
 import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 
 import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
+import {
+  SettingsSections,
+  SettingsSubsection,
+} from "@/components/routes/settings/settings-panel"
 import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -93,27 +97,35 @@ export function AuthSettingsContent({
 
   return (
     <Section>
-      <SectionContent className="flex flex-col gap-6 py-0">
-        <div className="flex flex-col">
-          {AUTH_TOGGLES.map((item) => (
-            <AuthToggleRow
-              key={item.key}
-              item={item}
-              checked={config[item.key]}
-              locked={config.authLocks[item.key]}
-              pending={pendingToggle === item.key}
-              onChange={(next) => updateToggle(item.key, next)}
-            />
-          ))}
-        </div>
+      <SectionContent className="py-0">
+        <SettingsSections>
+          <SettingsSubsection
+            id="sign-in"
+            title={t("Sign-in")}
+            description={t(
+              "Who can create an account and how they authenticate.",
+            )}
+          >
+            <SettingRows>
+              {AUTH_TOGGLES.map((item) => (
+                <AuthToggleRow
+                  key={item.key}
+                  item={item}
+                  checked={config[item.key]}
+                  locked={config.authLocks[item.key]}
+                  pending={pendingToggle === item.key}
+                  onChange={(next) => updateToggle(item.key, next)}
+                />
+              ))}
+            </SettingRows>
+          </SettingsSubsection>
 
-        <hr className="border-border" />
-
-        <OAuthProviderSettings
-          config={config}
-          pending={providerPending}
-          onSave={saveProviders}
-        />
+          <OAuthProviderSettings
+            config={config}
+            pending={providerPending}
+            onSave={saveProviders}
+          />
+        </SettingsSections>
       </SectionContent>
     </Section>
   )

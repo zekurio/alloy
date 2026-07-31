@@ -7,13 +7,17 @@ function SliderRoot({
   value,
   min = 0,
   max = 100,
+  // `touch` grows the control's own box so the whole row — not just the
+  // thumb's hit area — accepts a finger press.
+  size = "default",
   ...props
-}: Slider.Root.Props) {
+}: Slider.Root.Props & { size?: "default" | "touch" }) {
   const _values = Array.isArray(value)
     ? value
     : Array.isArray(defaultValue)
       ? defaultValue
       : [min]
+  const touch = size === "touch"
 
   return (
     <Slider.Root
@@ -31,13 +35,16 @@ function SliderRoot({
           "relative flex w-full touch-none items-center select-none",
           "data-disabled:opacity-50",
           "data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
+          touch && "data-horizontal:h-9",
         )}
       >
         <Slider.Track
           data-slot="slider-track"
           className={cn(
             "relative grow overflow-hidden rounded-full bg-white/20 select-none",
-            "data-horizontal:h-1 data-horizontal:w-full",
+            touch
+              ? "data-horizontal:h-1.5 data-horizontal:w-full"
+              : "data-horizontal:h-1 data-horizontal:w-full",
             "data-vertical:h-full data-vertical:w-1",
           )}
         >
@@ -51,9 +58,11 @@ function SliderRoot({
             key={index}
             data-slot="slider-thumb"
             className={cn(
-              "bg-accent relative block size-[10px] shrink-0 rounded-full",
+              "bg-accent relative block shrink-0 rounded-full",
               "transition-[box-shadow,transform] select-none",
-              "after:absolute after:-inset-2",
+              touch
+                ? "size-4 after:absolute after:-inset-3"
+                : "size-[10px] after:absolute after:-inset-2",
               "hover:scale-110 hover:ring-4 hover:ring-accent-soft",
               "focus-visible:ring-4 focus-visible:ring-accent-soft focus-visible:outline-none",
               "active:scale-110 active:ring-4 active:ring-accent-soft",

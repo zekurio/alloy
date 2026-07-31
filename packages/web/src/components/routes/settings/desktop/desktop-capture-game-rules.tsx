@@ -38,12 +38,12 @@ export function RuleGroup({
         <Button
           type="button"
           variant="secondary"
-          size="sm"
+          size="icon"
           disabled={busy}
           onClick={onAdd}
+          aria-label={addLabel}
         >
           {addIcon}
-          {addLabel}
         </Button>
       </div>
 

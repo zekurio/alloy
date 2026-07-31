@@ -81,9 +81,8 @@ export function CreateWebhookDialog() {
     <ResponsiveDialog open={open} onOpenChange={setOpen}>
       <ResponsiveDialogTrigger
         render={
-          <Button type="button">
+          <Button type="button" size="icon" aria-label={t("Add webhook")}>
             <PlusIcon />
-            {t("Add webhook")}
           </Button>
         }
       />

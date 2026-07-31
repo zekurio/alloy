@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "theme:variables": "tsx scripts/generate-theme-variables.ts"
   },
   "dependencies": {
     "@alloy/contracts": "workspace:*",

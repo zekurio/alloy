@@ -78,8 +78,7 @@ interface ClipMetaProps {
     handle: string
     name: string
     avatar: {
-      initials: string
-      /** Uploader's real avatar URL — falls through to initials on miss. */
+      /** Uploader's real avatar URL — falls through to the tinted placeholder. */
       src?: string
       bg?: string
       fg?: string
@@ -310,9 +309,7 @@ function ClipMeta({
               {uploader.avatar.src ? (
                 <AvatarImage src={uploader.avatar.src} alt={uploader.name} />
               ) : null}
-              <AvatarFallback style={avatarStyle}>
-                {uploader.avatar.initials}
-              </AvatarFallback>
+              <AvatarFallback style={avatarStyle} />
             </Avatar>
           </Link>
 

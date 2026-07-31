@@ -362,7 +362,6 @@ function ClipViewerDialogBody({
                 handle,
                 name: author,
                 avatar: {
-                  initials: avatar.initials,
                   src: avatar.src,
                   bg: avatar.bg,
                   fg: avatar.fg,

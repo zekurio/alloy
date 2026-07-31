@@ -213,9 +213,7 @@ export function CommentComposer({
           {me.avatar.src ? (
             <AvatarImage src={me.avatar.src} alt={me.name} />
           ) : null}
-          <AvatarFallback style={meAvatarStyle}>
-            {me.avatar.initials}
-          </AvatarFallback>
+          <AvatarFallback style={meAvatarStyle} />
         </Avatar>
 
         <textarea

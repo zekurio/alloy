@@ -21,7 +21,6 @@ interface ClipCardProps extends ComponentProps<"article"> {
   titleContent?: ReactNode
   author: string
   authorImage?: string | null
-  authorInitials?: string
   authorAvatarBg?: string
   authorAvatarFg?: string
   authorHref?: string | null
@@ -77,7 +76,6 @@ function ClipCard({
   titleContent,
   author,
   authorImage,
-  authorInitials,
   authorAvatarBg,
   authorAvatarFg,
   authorHref,
@@ -149,7 +147,6 @@ function ClipCard({
           <ClipCardAvatar
             author={author}
             authorImage={authorImage}
-            authorInitials={authorInitials}
             authorAvatarBg={authorAvatarBg}
             authorAvatarFg={authorAvatarFg}
             href={authorHref}
@@ -261,7 +258,6 @@ function AuthorLabel({
 function ClipCardAvatar({
   author,
   authorImage,
-  authorInitials,
   authorAvatarBg,
   authorAvatarFg,
   href,
@@ -270,14 +266,12 @@ function ClipCardAvatar({
 }: {
   author: string
   authorImage: string | null | undefined
-  authorInitials: string | undefined
   authorAvatarBg: string | undefined
   authorAvatarFg: string | undefined
   href: string | null | undefined
   renderLink: ClipCardLabelLinkRenderer | undefined
   className?: string
 }) {
-  const initials = authorInitials ?? (author.slice(0, 2).toUpperCase() || "?")
   const avatarStyle = {
     background: authorAvatarBg,
     color: authorAvatarFg,
@@ -286,7 +280,7 @@ function ClipCardAvatar({
   const avatar = (
     <Avatar aria-hidden size="lg" className={className} style={avatarStyle}>
       {authorImage ? <AvatarImage src={authorImage} alt="" /> : null}
-      <AvatarFallback style={avatarStyle}>{initials}</AvatarFallback>
+      <AvatarFallback style={avatarStyle} />
     </Avatar>
   )
 

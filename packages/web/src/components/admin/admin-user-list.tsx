@@ -8,18 +8,25 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@alloy/ui/components/alert-dialog"
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "@alloy/ui/components/avatar"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
-import { List, ListItem } from "@alloy/ui/components/list"
-import { Trash2Icon, UserCheckIcon, UserXIcon } from "lucide-react"
-import { memo } from "react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@alloy/ui/components/dropdown-menu"
+import { MediaCard, MediaCardGrid } from "@alloy/ui/components/media-card"
+import {
+  MoreVerticalIcon,
+  PencilIcon,
+  Trash2Icon,
+  UserCheckIcon,
+  UserIcon,
+  UserXIcon,
+} from "lucide-react"
+import { memo, useState } from "react"
 
 import { formatBytes } from "@/lib/storage-format"
 import { displayName, userAvatar } from "@/lib/user-display"
@@ -48,9 +55,9 @@ export function UsersList({
   onDelete,
 }: UsersListProps) {
   return (
-    <List>
+    <MediaCardGrid>
       {users.map((user) => (
-        <UserListRow
+        <UserCard
           key={user.id}
           user={user}
           currentUserId={currentUserId}
@@ -60,11 +67,11 @@ export function UsersList({
           onDelete={onDelete}
         />
       ))}
-    </List>
+    </MediaCardGrid>
   )
 }
 
-const UserListRow = memo(function UserListRow({
+const UserCard = memo(function UserCard({
   user,
   currentUserId,
   busy,
@@ -82,95 +89,131 @@ const UserListRow = memo(function UserListRow({
   onToggleStatus: (user: AdminUserRow) => void
   onDelete: (user: AdminUserRow) => void
 }) {
+  const [openDialog, setOpenDialog] = useState<
+    "edit" | "status" | "delete" | null
+  >(null)
   const isSelf = user.id === currentUserId
   const isDisabled = user.status === "disabled"
   const name = displayName(user)
   const avatar = userAvatar(user)
-  const avatarStyle = { background: avatar.bg, color: avatar.fg }
-  const clipLabel = tp(user.clipCount, "clip", "clips")
+  const storage =
+    user.storageQuotaBytes === null
+      ? formatBytes(user.storageUsedBytes)
+      : `${formatBytes(user.storageUsedBytes)} ${t("of")} ${formatBytes(user.storageQuotaBytes)}`
 
   return (
-    <ListItem>
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
-        <Avatar className="size-8 shrink-0" style={avatarStyle}>
-          {avatar.src ? <AvatarImage src={avatar.src} alt={name} /> : null}
-          <AvatarFallback style={avatarStyle}>{avatar.initials}</AvatarFallback>
-        </Avatar>
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate text-sm font-medium">{name}</span>
-            {isSelf ? (
-              <Badge variant="outline" size="text" className="shrink-0">
-                {t("You")}
-              </Badge>
-            ) : null}
-            {isDisabled ? (
-              <Badge variant="destructive" size="text" className="shrink-0">
-                {t("Disabled")}
-              </Badge>
-            ) : null}
+    <MediaCard
+      aspect="square"
+      media={
+        avatar.src ? (
+          <img
+            src={avatar.src}
+            alt=""
+            className="size-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div
+            aria-hidden
+            className="grid size-full place-items-center"
+            style={{ background: avatar.bg, color: avatar.fg }}
+          >
+            <UserIcon className="size-1/2" />
           </div>
-          <p className="text-foreground-dim truncate text-xs">{user.email}</p>
-          <p className="text-foreground-muted truncate text-xs">
-            {user.clipCount} {clipLabel} {"·"}
-            {formatBytes(user.storageUsedBytes)}
-            {user.storageQuotaBytes !== null
-              ? ` ${t("of")} ${formatBytes(user.storageQuotaBytes)}`
-              : ""}
-          </p>
-        </div>
-      </div>
+        )
+      }
+      badge={
+        isDisabled ? (
+          <Badge variant="destructive" size="text">
+            {t("Disabled")}
+          </Badge>
+        ) : null
+      }
+      actions={
+        <>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t("User actions")}
+                  disabled={busy}
+                >
+                  <MoreVerticalIcon className="size-3.5" />
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" sideOffset={6}>
+              <DropdownMenuItem onClick={() => setOpenDialog("edit")}>
+                <PencilIcon /> {t("Edit user")}
+              </DropdownMenuItem>
+              {/* Locking yourself out of the instance is never the intent. */}
+              <DropdownMenuItem
+                disabled={isSelf}
+                onClick={() => setOpenDialog("status")}
+              >
+                {isDisabled ? <UserCheckIcon /> : <UserXIcon />}
+                {isDisabled ? t("Enable user") : t("Disable user")}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={isSelf}
+                onClick={() => setOpenDialog("delete")}
+              >
+                <Trash2Icon /> {t("Delete user")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-      <div className="flex shrink-0 items-center">
-        <EditUserDialog user={user} busy={busy} onUpdate={onUpdate} />
-        <ToggleUserStatusDialog
-          user={user}
-          busy={busy}
-          isSelf={isSelf}
-          onToggleStatus={onToggleStatus}
-        />
-        <DeleteUserDialog
-          user={user}
-          busy={busy}
-          isSelf={isSelf}
-          onDelete={onDelete}
-        />
-      </div>
-    </ListItem>
+          <EditUserDialog
+            user={user}
+            busy={busy}
+            open={openDialog === "edit"}
+            onOpenChange={(next) => setOpenDialog(next ? "edit" : null)}
+            onUpdate={onUpdate}
+          />
+          <ToggleUserStatusDialog
+            user={user}
+            busy={busy}
+            open={openDialog === "status"}
+            onOpenChange={(next) => setOpenDialog(next ? "status" : null)}
+            onToggleStatus={onToggleStatus}
+          />
+          <DeleteUserDialog
+            user={user}
+            busy={busy}
+            open={openDialog === "delete"}
+            onOpenChange={(next) => setOpenDialog(next ? "delete" : null)}
+            onDelete={onDelete}
+          />
+        </>
+      }
+      title={name}
+      subtitle={user.email}
+      meta={`${user.clipCount} ${tp(user.clipCount, "clip", "clips")} · ${storage}`}
+    />
   )
 })
 
 function ToggleUserStatusDialog({
   user,
   busy,
-  isSelf,
+  open,
+  onOpenChange,
   onToggleStatus,
 }: {
   user: AdminUserRow
   busy: boolean
-  isSelf: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onToggleStatus: (user: AdminUserRow) => void
 }) {
   const isDisabled = user.status === "disabled"
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={isDisabled ? t("Enable user") : t("Disable user")}
-            disabled={busy || isSelf}
-          >
-            {isDisabled ? (
-              <UserCheckIcon className="size-3.5" />
-            ) : (
-              <UserXIcon className="size-3.5" />
-            )}
-          </Button>
-        }
-      />
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
@@ -206,28 +249,18 @@ function ToggleUserStatusDialog({
 function DeleteUserDialog({
   user,
   busy,
-  isSelf,
+  open,
+  onOpenChange,
   onDelete,
 }: {
   user: AdminUserRow
   busy: boolean
-  isSelf: boolean
+  open: boolean
+  onOpenChange: (open: boolean) => void
   onDelete: (user: AdminUserRow) => void
 }) {
   return (
-    <AlertDialog>
-      <AlertDialogTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("Delete user")}
-            disabled={busy || isSelf}
-          >
-            <Trash2Icon className="size-3.5" />
-          </Button>
-        }
-      />
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>

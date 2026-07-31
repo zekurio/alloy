@@ -134,6 +134,7 @@ export function AllowedGamesSection({
 
   return (
     <SettingsSubsection
+      id="game-detection"
       title={t("Game detection")}
       description={t(
         "Alloy auto-detects games. Add manual rules when detection needs a nudge.",

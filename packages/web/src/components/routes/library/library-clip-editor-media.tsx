@@ -166,8 +166,26 @@ export function useClipEditorMedia(
   }
 }
 
-type ClipEditorMediaState = ReturnType<typeof useClipEditorMedia>
-type ClipEditorPlaybackState = ReturnType<typeof useTrimPlayback>
+export type ClipEditorMediaState = ReturnType<typeof useClipEditorMedia>
+export type ClipEditorPlaybackState = ReturnType<typeof useTrimPlayback>
+
+/**
+ * Stem mixer for the editor preview, or undefined when the preview can't be
+ * mixed. Trimmed previews use the uncut source timeline; supporting canonical
+ * -cut stems needs an explicit trim offset before the clocks can be synced.
+ */
+export function useClipEditorAudioMixer(
+  row: ClipRow,
+  media: ClipEditorMediaState,
+): AudioTrackMixerController | undefined {
+  const mixer = useAudioTrackMixer(row.id, row.audioTracks, row.durationMs)
+  return media.playbackSrc &&
+    row.trimStartMs === null &&
+    row.trimEndMs === null &&
+    mixer.tracks.length >= 2
+    ? mixer
+    : undefined
+}
 
 export function ClipEditorStage({
   row,
@@ -187,16 +205,7 @@ export function ClipEditorStage({
   nextEntry: NavigableLibraryEntry | null
 }) {
   const playerVolume = useExternalVideoVolume(playback.playerRef)
-  const audioMixer = useAudioTrackMixer(row.id, row.audioTracks, row.durationMs)
-  // Trimmed previews use the uncut source timeline; supporting canonical-cut
-  // stems here needs an explicit trim offset before the clocks can be synced.
-  const editorAudioMixer =
-    media.playbackSrc &&
-    row.trimStartMs === null &&
-    row.trimEndMs === null &&
-    audioMixer.tracks.length >= 2
-      ? audioMixer
-      : undefined
+  const editorAudioMixer = useClipEditorAudioMixer(row, media)
   return (
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
       <MediaStage aspectRatio={media.aspectRatio}>
@@ -253,7 +262,7 @@ export function ClipEditorStage({
   )
 }
 
-function ClipEditorPreviewPlaceholder({
+export function ClipEditorPreviewPlaceholder({
   media,
 }: {
   media: ClipEditorMediaState
@@ -359,20 +368,25 @@ function ClipEditorTrimControls({
  * Publishes the paused frame as the clip's poster — the server extracts it
  * from the stored source at the playhead's source-time position.
  */
-function SetPosterButton({
+export function SetPosterButton({
   clipId,
   playback,
+  /** Icon-only, for transport rows too narrow to carry the label. */
+  compact = false,
 }: {
   clipId: string
   playback: ClipEditorPlaybackState
+  compact?: boolean
 }) {
   const mutation = useSetClipPosterMutation()
   return (
     <Button
       type="button"
       variant="ghost"
-      size="sm"
+      size={compact ? "icon" : "sm"}
       disabled={mutation.isPending}
+      aria-label={compact ? t("Use frame as poster") : undefined}
+      title={compact ? t("Use frame as poster") : undefined}
       onClick={() => {
         playback.playerRef.current?.pause()
         mutation.mutate(
@@ -386,7 +400,7 @@ function SetPosterButton({
       }}
     >
       {mutation.isPending ? <Spinner className="size-4" /> : <ImageIcon />}
-      {t("Use frame as poster")}
+      {compact ? null : t("Use frame as poster")}
     </Button>
   )
 }
@@ -396,7 +410,7 @@ function SetPosterButton({
  * bar the library cards and the watch overlay use, so the running job reads
  * identically on every clip surface.
  */
-function ClipProcessingNotice({
+export function ClipProcessingNotice({
   row,
   playerVolume,
 }: {

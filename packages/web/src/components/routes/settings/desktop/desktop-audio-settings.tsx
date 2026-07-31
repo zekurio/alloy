@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
-import { SettingRow } from "@alloy/ui/components/setting-row"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
@@ -28,6 +28,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
+import {
+  SettingsSections,
+  SettingsSubsection,
+} from "@/components/routes/settings/settings-panel"
 import {
   mergeAudioDevices,
   type RecordingAudioDeviceView,
@@ -157,42 +161,47 @@ export function DesktopAudioSettings() {
   const controlsDisabled = busy
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col">
-        <SettingRow
-          title={t("Capture audio from")}
-          description={t(
-            "Record individual playback and capture devices, or per-application audio streams.",
-          )}
-          htmlFor="desktop-recording-audio-mode"
-        >
-          <Select
-            value={settings.audioMode}
-            disabled={controlsDisabled}
-            onValueChange={(value) => {
-              const audioMode = asLiteral(value, DESKTOP_RECORDING_AUDIO_MODES)
-              if (audioMode) void save({ ...settings, audioMode })
-            }}
+    <SettingsSections>
+      <SettingsSubsection id="audio-source" title={t("Audio source")}>
+        <SettingRows>
+          <SettingRow
+            title={t("Capture audio from")}
+            description={t(
+              "Record individual playback and capture devices, or per-application audio streams.",
+            )}
+            htmlFor="desktop-recording-audio-mode"
           >
-            <SelectTrigger
-              id="desktop-recording-audio-mode"
-              size="sm"
-              className="w-40"
+            <Select
+              value={settings.audioMode}
+              disabled={controlsDisabled}
+              onValueChange={(value) => {
+                const audioMode = asLiteral(
+                  value,
+                  DESKTOP_RECORDING_AUDIO_MODES,
+                )
+                if (audioMode) void save({ ...settings, audioMode })
+              }}
             >
-              <SelectValue>{AUDIO_MODE_LABELS[settings.audioMode]}</SelectValue>
-            </SelectTrigger>
-            <SelectContent align="end">
-              {DESKTOP_RECORDING_AUDIO_MODES.map((mode) => (
-                <SelectItem key={mode} value={mode}>
-                  {AUDIO_MODE_LABELS[mode]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </SettingRow>
-      </div>
-
-      <hr className="border-border" />
+              <SelectTrigger
+                id="desktop-recording-audio-mode"
+                size="sm"
+                className="w-40"
+              >
+                <SelectValue>
+                  {AUDIO_MODE_LABELS[settings.audioMode]}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent align="end">
+                {DESKTOP_RECORDING_AUDIO_MODES.map((mode) => (
+                  <SelectItem key={mode} value={mode}>
+                    {AUDIO_MODE_LABELS[mode]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SettingRow>
+        </SettingRows>
+      </SettingsSubsection>
 
       {settings.audioMode === "devices" ? (
         <AudioDeviceList
@@ -223,7 +232,7 @@ export function DesktopAudioSettings() {
           />
         </>
       )}
-    </div>
+    </SettingsSections>
   )
 }
 
@@ -262,7 +271,7 @@ function AudioDeviceList({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <>
       {groups.map((group) => {
         const groupDevices = devices.filter(
           (device) => device.kind === group.kind,
@@ -271,12 +280,18 @@ function AudioDeviceList({
 
         const Icon = AUDIO_DEVICE_ICONS[group.kind]
         return (
-          <section key={group.kind} className="flex flex-col gap-3">
-            <h3 className="text-foreground flex items-center gap-2 text-sm font-semibold">
-              <Icon className="text-foreground-muted size-4" />
-              {group.title}
-            </h3>
-            <div className="flex flex-col">
+          <SettingsSubsection
+            key={group.kind}
+            id={`devices-${group.kind}`}
+            title={
+              <span className="flex items-center gap-2">
+                <Icon className="text-foreground-muted size-4" />
+                {group.title}
+              </span>
+            }
+            navLabel={group.title}
+          >
+            <SettingRows>
               {groupDevices.map((device) => (
                 <AudioRow
                   key={`${device.kind}:${device.id}`}
@@ -320,11 +335,11 @@ function AudioDeviceList({
                   }
                 />
               ))}
-            </div>
-          </section>
+            </SettingRows>
+          </SettingsSubsection>
         )
       })}
-    </div>
+    </>
   )
 }
 
@@ -343,41 +358,45 @@ function AudioApplicationList({
 }) {
   if (applications.length === 0) {
     return (
-      <p className="text-foreground-dim text-xs">
-        {t("Running applications outputting audio will appear here.")}
-      </p>
+      <SettingsSubsection id="applications" title={t("Applications")}>
+        <p className="text-foreground-dim text-xs">
+          {t("Running applications outputting audio will appear here.")}
+        </p>
+      </SettingsSubsection>
     )
   }
 
   return (
-    <div className="flex flex-col">
-      {applications.map((application) => (
-        <AudioRow
-          key={application.id}
-          id={`desktop-recording-audio-application-${application.id}`}
-          icon={<ApplicationAudioIcon application={application} />}
-          title={application.name}
-          subtitle={application.executable ?? application.window}
-          enabled={application.enabled}
-          volume={application.volume}
-          available
-          level={applicationLevel(levels, application)}
-          busy={busy}
-          onChange={(patch) =>
-            void save({
-              ...settings,
-              audioApplications: upsertAudioApplication(
-                settings.audioApplications,
-                {
-                  ...application,
-                  ...patch,
-                },
-              ),
-            })
-          }
-        />
-      ))}
-    </div>
+    <SettingsSubsection id="applications" title={t("Applications")}>
+      <SettingRows>
+        {applications.map((application) => (
+          <AudioRow
+            key={application.id}
+            id={`desktop-recording-audio-application-${application.id}`}
+            icon={<ApplicationAudioIcon application={application} />}
+            title={application.name}
+            subtitle={application.executable ?? application.window}
+            enabled={application.enabled}
+            volume={application.volume}
+            available
+            level={applicationLevel(levels, application)}
+            busy={busy}
+            onChange={(patch) =>
+              void save({
+                ...settings,
+                audioApplications: upsertAudioApplication(
+                  settings.audioApplications,
+                  {
+                    ...application,
+                    ...patch,
+                  },
+                ),
+              })
+            }
+          />
+        ))}
+      </SettingRows>
+    </SettingsSubsection>
   )
 }
 

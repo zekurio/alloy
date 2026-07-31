@@ -68,7 +68,7 @@ export function SecuritySettings() {
   const showPasskeys = config.passkeyEnabled && passkeys !== null
 
   return (
-    <div className="flex flex-col gap-6">
+    <>
       {showLinkedAccounts && (
         <LinkedAccountsCard
           accounts={accounts}
@@ -79,10 +79,9 @@ export function SecuritySettings() {
           onRefresh={refreshAccounts}
         />
       )}
-      {showLinkedAccounts && showPasskeys && <hr className="border-border" />}
       {showPasskeys && (
         <PasskeysCard passkeys={passkeys ?? []} onRefresh={refreshPasskeys} />
       )}
-    </div>
+    </>
   )
 }

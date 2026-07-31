@@ -380,7 +380,7 @@ export function ImageCropDialog({
           <div
             className={cn(
               "relative mx-auto w-full max-w-[560px] overflow-hidden rounded-md bg-surface-sunken",
-              mode === "avatar" ? "aspect-[4/3]" : "aspect-video",
+              config.stageClass,
             )}
             ref={setStageElement}
           >

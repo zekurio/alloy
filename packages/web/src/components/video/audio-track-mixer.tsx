@@ -623,7 +623,6 @@ export function AudioTrackMixerControl({
 }) {
   if (!mixer || mixer.tracks.length < 2) return null
   const customized = hasCustomMix(mixer.values)
-  const disabled = mixer.status === "loading" || mixer.status === "error"
   const title =
     mixer.status === "error"
       ? t("Audio mixer unavailable for this clip.")
@@ -676,85 +675,125 @@ export function AudioTrackMixerControl({
         data-video-shortcut-scope="ignore"
       >
         <PopoverTitle>{t("Audio tracks")}</PopoverTitle>
-        {mixer.status === "loading" ? (
-          <div
-            role="status"
-            className="text-foreground-muted flex items-center gap-2 text-xs"
-          >
-            <Spinner className="size-3.5" />
-            {t("Loading audio tracks…")}
-          </div>
-        ) : null}
-        {mixer.status === "error" ? (
-          <p role="alert" className="text-destructive text-xs">
-            {t("Audio mixer unavailable for this clip.")}
-          </p>
-        ) : null}
-        <div className="flex flex-col gap-3">
-          {mixer.tracks.map((track) => {
-            const value =
-              mixer.values.find(
-                (candidate) => candidate.index === track.index,
-              ) ?? defaultTrackMix(track.index)
-            const label = t("{label} volume", { label: track.label })
-            return (
-              <div key={track.index} className="flex flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium">
-                    {track.label}
-                  </span>
-                  <span className="text-foreground-dim w-10 text-right text-xs tabular-nums">
-                    {Math.round(value.gain * 100)}%
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    disabled={disabled}
-                    aria-label={t(
-                      value.muted ? "Unmute {label}" : "Mute {label}",
-                      {
-                        label: track.label,
-                      },
-                    )}
-                    onClick={() => mixer.toggleMuted(track.index)}
-                    className={cn(
-                      "size-7",
-                      value.muted && "text-foreground-faint",
-                    )}
-                  >
-                    {value.muted ? <VolumeXIcon /> : <Volume2Icon />}
-                  </Button>
-                </div>
-                <label className="block">
-                  <span className="sr-only">{label}</span>
-                  <Slider
-                    min={0}
-                    max={200}
-                    step={1}
-                    disabled={disabled}
-                    value={[value.gain * 100]}
-                    onValueChange={(next) =>
-                      mixer.setGain(track.index, sliderValue(next, 100) / 100)
-                    }
-                  />
-                </label>
-              </div>
-            )
-          })}
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={disabled || !customized}
-          onClick={mixer.reset}
-          className="self-start"
-        >
-          {t("Reset mix")}
-        </Button>
+        <AudioTrackMixerTracks mixer={mixer} />
       </PopoverContent>
     </Popover>
+  )
+}
+
+/**
+ * The mixer's track rows: one gain slider and mute toggle per stem, plus the
+ * reset action. Shared by the player chrome's popover and the touch editor's
+ * inline mixer panel.
+ */
+export function AudioTrackMixerTracks({
+  mixer,
+  touch = false,
+  className,
+}: {
+  mixer: AudioTrackMixerController
+  /** Grows sliders and toggles to finger-sized targets. */
+  touch?: boolean
+  className?: string
+}) {
+  const disabled = mixer.status === "loading" || mixer.status === "error"
+  // Being rendered is the panel's "opened" moment: load the stems for an
+  // already-customized mix, exactly like opening the popover does.
+  const prepare = mixer.prepare
+  useEffect(() => {
+    prepare()
+  }, [prepare])
+
+  return (
+    <div className={cn("flex flex-col gap-3", className)}>
+      {mixer.status === "loading" ? (
+        <div
+          role="status"
+          className="text-foreground-muted flex items-center gap-2 text-xs"
+        >
+          <Spinner className="size-3.5" />
+          {t("Loading audio tracks…")}
+        </div>
+      ) : null}
+      {mixer.status === "error" ? (
+        <p role="alert" className="text-destructive text-xs">
+          {t("Audio mixer unavailable for this clip.")}
+        </p>
+      ) : null}
+      <div className={cn("flex flex-col", touch ? "gap-1" : "gap-3")}>
+        {mixer.tracks.map((track) => {
+          const value =
+            mixer.values.find((candidate) => candidate.index === track.index) ??
+            defaultTrackMix(track.index)
+          const label = t("{label} volume", { label: track.label })
+          return (
+            <div key={track.index} className="flex flex-col gap-1.5">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate font-medium",
+                    touch ? "text-sm" : "text-xs",
+                  )}
+                >
+                  {track.label}
+                </span>
+                <span
+                  className={cn(
+                    "text-foreground-dim w-10 text-right tabular-nums",
+                    touch ? "text-sm" : "text-xs",
+                  )}
+                >
+                  {Math.round(value.gain * 100)}%
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size={touch ? "icon" : "icon-sm"}
+                  disabled={disabled}
+                  aria-label={t(
+                    value.muted ? "Unmute {label}" : "Mute {label}",
+                    {
+                      label: track.label,
+                    },
+                  )}
+                  onClick={() => mixer.toggleMuted(track.index)}
+                  className={cn(
+                    !touch && "size-7",
+                    value.muted && "text-foreground-faint",
+                  )}
+                >
+                  {value.muted ? <VolumeXIcon /> : <Volume2Icon />}
+                </Button>
+              </div>
+              <label className="block">
+                <span className="sr-only">{label}</span>
+                <Slider
+                  min={0}
+                  max={200}
+                  step={1}
+                  size={touch ? "touch" : "default"}
+                  disabled={disabled}
+                  value={[value.gain * 100]}
+                  onValueChange={(next) =>
+                    mixer.setGain(track.index, sliderValue(next, 100) / 100)
+                  }
+                />
+              </label>
+            </div>
+          )
+        })}
+      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size={touch ? "default" : "sm"}
+        disabled={disabled || !hasCustomMix(mixer.values)}
+        onClick={mixer.reset}
+        className="self-start"
+      >
+        {t("Reset mix")}
+      </Button>
+    </div>
   )
 }
 

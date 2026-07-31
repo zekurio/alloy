@@ -70,6 +70,7 @@ export function PasskeysCard({
 
   return (
     <SettingsSubsection
+      id="passkeys"
       title={t("Passkeys")}
       description={t(
         "Sign in without a password using your device or hardware key.",
@@ -137,9 +138,13 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button type="button" variant="outline" size="sm">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            aria-label={t("Add passkey")}
+          >
             <PlusIcon />
-            {t("Add passkey")}
           </Button>
         }
       />

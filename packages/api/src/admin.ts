@@ -105,6 +105,7 @@ type AppearanceConfigPatch = {
     blurPx?: number
     darkenOpacity?: number
   }
+  customCss?: string
 }
 
 type TranscodingConfigPatch = {

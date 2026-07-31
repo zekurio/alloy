@@ -7,7 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
-import { SettingRow } from "@alloy/ui/components/setting-row"
+import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { CheckIcon } from "lucide-react"
 import type { Dispatch, SetStateAction } from "react"
@@ -99,73 +99,75 @@ export function ReplayBufferSection({
   save: (next: RecordingSettings) => Promise<void>
 }) {
   return (
-    <SettingsSubsection title={t("Replay buffer")}>
-      <SettingRow
-        title={t("Replay buffer")}
-        description={t("The rolling window the clip hotkey saves.")}
-        htmlFor="desktop-recording-buffer"
-      >
-        <div className="flex w-44 items-center gap-3 sm:w-56">
-          <Slider
-            id="desktop-recording-buffer"
-            min={15}
-            max={600}
-            step={15}
-            value={[settings.replayBufferSeconds]}
-            disabled={busy}
-            onValueChange={(value) =>
-              setSettings({
-                ...settings,
-                replayBufferSeconds: sliderValue(value),
-              })
-            }
-            onValueCommitted={(value) =>
-              void save({
-                ...settings,
-                replayBufferSeconds: sliderValue(value),
-              })
-            }
-            className="min-w-0 flex-1"
-          />
-          <div className="border-border bg-surface-raised min-w-14 rounded-md border px-2 py-1 text-center text-xs font-medium">
-            {formatDuration(settings.replayBufferSeconds)}
-          </div>
-        </div>
-      </SettingRow>
-      <SettingRow
-        title={t("Buffer storage")}
-        description={t("Where replay video is kept before a clip is saved.")}
-        htmlFor="desktop-recording-buffer-storage"
-      >
-        <Select
-          value={settings.bufferStorage}
-          disabled={busy}
-          onValueChange={(value) => {
-            const bufferStorage = asLiteral(
-              value,
-              DESKTOP_RECORDING_BUFFER_STORAGE,
-            )
-            if (bufferStorage) void save({ ...settings, bufferStorage })
-          }}
+    <SettingsSubsection id="replay-buffer" title={t("Replay buffer")}>
+      <SettingRows>
+        <SettingRow
+          title={t("Replay buffer")}
+          description={t("The rolling window the clip hotkey saves.")}
+          htmlFor="desktop-recording-buffer"
         >
-          <SelectTrigger
-            id="desktop-recording-buffer-storage"
-            size="sm"
-            className="w-32"
+          <div className="flex w-44 items-center gap-3 sm:w-56">
+            <Slider
+              id="desktop-recording-buffer"
+              min={15}
+              max={600}
+              step={15}
+              value={[settings.replayBufferSeconds]}
+              disabled={busy}
+              onValueChange={(value) =>
+                setSettings({
+                  ...settings,
+                  replayBufferSeconds: sliderValue(value),
+                })
+              }
+              onValueCommitted={(value) =>
+                void save({
+                  ...settings,
+                  replayBufferSeconds: sliderValue(value),
+                })
+              }
+              className="min-w-0 flex-1"
+            />
+            <div className="border-border bg-surface-raised min-w-14 rounded-md border px-2 py-1 text-center text-xs font-medium">
+              {formatDuration(settings.replayBufferSeconds)}
+            </div>
+          </div>
+        </SettingRow>
+        <SettingRow
+          title={t("Buffer storage")}
+          description={t("Where replay video is kept before a clip is saved.")}
+          htmlFor="desktop-recording-buffer-storage"
+        >
+          <Select
+            value={settings.bufferStorage}
+            disabled={busy}
+            onValueChange={(value) => {
+              const bufferStorage = asLiteral(
+                value,
+                DESKTOP_RECORDING_BUFFER_STORAGE,
+              )
+              if (bufferStorage) void save({ ...settings, bufferStorage })
+            }}
           >
-            <SelectValue>
-              {BUFFER_STORAGE_LABELS[settings.bufferStorage]}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent align="end">
-            {DESKTOP_RECORDING_BUFFER_STORAGE.map((storage) => (
-              <SelectItem key={storage} value={storage}>
-                {BUFFER_STORAGE_LABELS[storage]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </SettingRow>
+            <SelectTrigger
+              id="desktop-recording-buffer-storage"
+              size="sm"
+              className="w-32"
+            >
+              <SelectValue>
+                {BUFFER_STORAGE_LABELS[settings.bufferStorage]}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="end">
+              {DESKTOP_RECORDING_BUFFER_STORAGE.map((storage) => (
+                <SelectItem key={storage} value={storage}>
+                  {BUFFER_STORAGE_LABELS[storage]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SettingRow>
+      </SettingRows>
     </SettingsSubsection>
   )
 }
