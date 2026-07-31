@@ -158,7 +158,9 @@ function RecordingStatusPopover({
       <PopoverContent
         align="end"
         side="right"
-        sideOffset={12}
+        // 8px matches the rail's own inset, so the gap to the rail reads the
+        // same as the gap the aligned popover leaves at the window bottom.
+        sideOffset={8}
         className="alloy-blur w-[26rem] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0"
         style={
           {

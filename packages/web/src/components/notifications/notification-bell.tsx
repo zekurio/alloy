@@ -14,6 +14,7 @@ import {
 } from "@alloy/ui/components/popover"
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Spinner } from "@alloy/ui/components/spinner"
+import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { cn } from "@alloy/ui/lib/utils"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -46,6 +47,7 @@ import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 import { userAvatar } from "@/lib/user-display"
 
 export function NotificationBell() {
+  const isMobile = useIsMobile()
   const stream = useNotificationStream({ enabled: true })
   const unreadQuery = useQuery(unreadCountQueryOptions())
   const listQuery = useInfiniteQuery(notificationsInfiniteQueryOptions())
@@ -104,7 +106,12 @@ export function NotificationBell() {
         ) : null}
       </PopoverTrigger>
       <PopoverContent
-        align="end"
+        // Mobile anchors the panel to the whole header rather than the bell, so
+        // the gaps to the header and to both screen edges are all 8px. There is
+        // no rail on mobile, so centering on the header centers on the viewport.
+        anchor={isMobile ? headerAnchor : undefined}
+        align={isMobile ? "center" : "end"}
+        sideOffset={isMobile ? 8 : 4}
         className="alloy-blur w-96 max-w-[calc(100vw-1rem)] gap-0 border p-0 ring-0"
         style={
           {
@@ -186,6 +193,9 @@ export function NotificationBell() {
     </Popover>
   )
 }
+
+const headerAnchor = () =>
+  document.querySelector<HTMLElement>('[data-slot="app-header"]')
 
 const KIND_ICONS: Record<NotificationItem["kind"], LucideIcon> = {
   follow: UserPlusIcon,
