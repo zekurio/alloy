@@ -1,4 +1,5 @@
 import type { ClipPrivacy } from "@alloy/api"
+import { isClipAudioTrackKind } from "@alloy/contracts/desktop-recording-types"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Card } from "@alloy/ui/components/card"
@@ -546,17 +547,23 @@ function useLocalCaptureAudioMixer(
     () =>
       supported
         ? (item.audioTracks ?? []).filter(
-            (track) => track.index > 0 && track.kind !== "mix",
+            // Same narrowing the publish path uses to decide which container
+            // tracks become clip stems.
+            (track) => track.index > 0 && isClipAudioTrackKind(track.kind),
           )
         : [],
     [item.audioTracks, supported],
   )
   const loadTrack = useCallback<MixerTrackLoader>(
     async (track, signal) => {
+      // The bridge call can cover a long extraction; honor teardown aborts
+      // around it even though the call itself cannot be cancelled.
+      signal.throwIfAborted()
       const url = await desktop.recording.getLibraryCaptureAudioTrackUrl(
         item.id,
         track.index,
       )
+      signal.throwIfAborted()
       if (!url) throw new Error(`Audio track ${track.index} is unavailable`)
       const response = await fetch(url, { signal })
       if (!response.ok) {
@@ -571,7 +578,9 @@ function useLocalCaptureAudioMixer(
   const mixer = useAudioTrackMixerWithLoader(
     item.id,
     stemTracks,
-    item.durationMs,
+    // Decoded PCM is bounded by duration; an unknown duration must not
+    // bypass the cap, and local captures are the likeliest to run long.
+    item.durationMs ?? Number.POSITIVE_INFINITY,
     loadTrack,
   )
   return mixer.tracks.length >= 2 ? mixer : undefined

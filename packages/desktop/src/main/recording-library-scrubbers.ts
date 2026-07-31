@@ -67,7 +67,7 @@ export function storeRecordingScrubber(
 
 /** Drops scrubbers generated from another version of the same capture. */
 export function pruneRecordingScrubbers(id: string, keep: string): void {
-  pruneCaptureCache(scrubberFolder(), id, keep)
+  pruneCaptureCache(scrubberFolder(), id, { path: keep })
 }
 
 function scrubberPathForItem(id: string, filename: string): string | null {

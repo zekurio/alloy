@@ -51,8 +51,9 @@ export function HomeHeader() {
         showText
         className="max-md:hidden"
         renderLogo={(logo) => (
-          // Flex, not inline: an inline anchor sits on a text baseline and
-          // reserves descender space under the logo, shifting it off-center.
+          // The logo is an inline-flex span; inside a block anchor it sits on
+          // a text baseline that reserves descender space below the mark. A
+          // flex anchor has no line box, so the logo centers cleanly.
           <Link
             to="/"
             aria-label={t("Home")}
