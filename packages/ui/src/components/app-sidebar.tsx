@@ -9,7 +9,9 @@ function AppSidebar({ className, ...props }: ComponentProps<"aside">) {
       data-slot="app-sidebar"
       className={cn(
         "relative z-10 flex h-full flex-col overflow-hidden",
-        "w-[var(--sidebar-rail)] border-r border-border bg-surface-sunken py-3",
+        // py matches the groups' px so rail items keep an even 8px inset on
+        // every side, including the bottom cluster.
+        "w-[var(--sidebar-rail)] border-r border-border bg-surface-sunken py-2",
         className,
       )}
       {...props}
@@ -21,10 +23,7 @@ function AppSidebarGroup({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="app-sidebar-group"
-      className={cn(
-        "flex flex-col items-center gap-1 px-2 py-2 first:pt-0",
-        className,
-      )}
+      className={cn("flex flex-col items-center gap-1 px-2", className)}
       {...props}
     />
   )

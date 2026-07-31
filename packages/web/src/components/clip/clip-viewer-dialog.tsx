@@ -233,7 +233,7 @@ function ClipViewerDialogBody({
       className={cn(
         // Below lg this branch is normally hidden by MobileClipViewerBody, but
         // we keep a sensible fallback in case the breakpoint check disagrees.
-        "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-[20px] bg-surface transition-[filter,opacity,transform] duration-100",
+        "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-xl bg-surface transition-[filter,opacity,transform] duration-100",
         "lg:[--clip-modal-margin-x:160px] lg:[--clip-modal-margin-y:20px] lg:[--clip-modal-nav-gutter:72px]",
         "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta)),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))*9/16))+var(--clip-modal-meta))]",
         "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
@@ -296,7 +296,7 @@ function ClipViewerDialogBody({
       ) : null}
       <div
         className={cn(
-          "grid h-full min-h-0 overflow-hidden rounded-[20px] bg-surface",
+          "grid h-full min-h-0 overflow-hidden rounded-xl bg-surface",
           "lg:grid-cols-[minmax(0,1fr)_var(--clip-modal-sidebar)]",
         )}
       >
@@ -328,7 +328,7 @@ function ClipViewerDialogBody({
               onRetry={retry.onRetry}
               retryPending={retry.retryPending}
               aspectRatio={16 / 9}
-              className="h-full w-full overflow-hidden rounded-[14px] shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
+              className="h-full w-full overflow-hidden rounded-lg shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
               autoPlay
               enableHorizontalSeekShortcuts={false}
