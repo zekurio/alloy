@@ -38,7 +38,7 @@ function PageToolbar({
     <div
       data-slot="page-toolbar"
       className={cn(
-        "border-b border-border bg-background",
+        "bg-background",
         !pinned && "sticky top-0 z-10 -mx-4 mb-4 md:-mx-6 md:mb-6",
         className,
       )}
