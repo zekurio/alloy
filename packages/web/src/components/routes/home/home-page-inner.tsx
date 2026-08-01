@@ -43,7 +43,7 @@ export function HomePageInner() {
 
   return (
     <AppMainColumn>
-      <PageToolbar pinned rail={false}>
+      <PageToolbar pinned rail={false} className="border-b-0">
         <FeedChipBar filter={filter} search={toolbarSearch} />
         <div className="shrink-0">{sortControl}</div>
       </PageToolbar>

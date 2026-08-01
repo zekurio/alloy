@@ -50,6 +50,15 @@ const buttonVariants = cva(
         "icon-lg": "size-9 px-0",
       },
     },
+    compoundVariants: [
+      {
+        // Icon-only ghost controls brighten their glyph instead of drawing a
+        // box around the hit target.
+        variant: "ghost",
+        size: ["icon", "icon-xs", "icon-sm", "icon-lg"],
+        className: "hover:bg-transparent",
+      },
+    ],
     defaultVariants: {
       variant: "primary",
       size: "default",

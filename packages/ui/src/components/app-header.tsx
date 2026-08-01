@@ -49,8 +49,8 @@ function AppHeaderBrand({
     <div
       data-slot="app-header-brand"
       className={cn(
-        // pl-3.5 optically centers the 32px mark over the 60px sidebar rail.
-        "flex min-w-0 items-center justify-self-start md:pl-3.5",
+        // pl-2.5 optically centers the 32px mark over the 52px sidebar rail.
+        "flex min-w-0 items-center justify-self-start md:pl-2.5",
         className,
       )}
       {...props}
@@ -214,7 +214,7 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
                 // instead of the off-white the native browser X paints.
                 "text-foreground-faint",
                 "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                "hover:bg-accent-soft hover:text-accent",
+                "hover:text-accent",
                 "focus-visible:bg-accent-soft focus-visible:text-accent",
                 "focus-visible:ring-2 focus-visible:ring-accent-border focus-visible:outline-none",
                 "[&_svg]:size-3",

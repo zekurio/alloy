@@ -65,8 +65,8 @@ function UserMenuInner({ className }: { className?: string }) {
             aria-label={t("Open account menu for {name}", { name: chip.name })}
             className={cn(
               "flex size-9 shrink-0 items-center justify-center rounded-full",
-              "hover:bg-surface-raised data-popup-open:bg-surface-raised",
-              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
+              "hover:brightness-110 data-popup-open:bg-surface-raised",
+              "transition-[background-color,filter] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
               className,
             )}

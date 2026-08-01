@@ -9,9 +9,8 @@ function AppSidebar({ className, ...props }: ComponentProps<"aside">) {
       data-slot="app-sidebar"
       className={cn(
         "relative z-10 flex h-full flex-col overflow-hidden",
-        // py matches the groups' px so rail items keep an even 8px inset on
-        // every side, including the bottom cluster.
-        "w-[var(--sidebar-rail)] border-r border-border bg-surface-sunken py-2",
+        // The 4px top inset centers the first item on the 48px page toolbar.
+        "w-[var(--sidebar-rail)] border-r border-border bg-surface-sunken py-1",
         className,
       )}
       {...props}
@@ -23,7 +22,7 @@ function AppSidebarGroup({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="app-sidebar-group"
-      className={cn("flex flex-col items-center gap-1 px-2", className)}
+      className={cn("flex flex-col items-center gap-1 px-1.5", className)}
       {...props}
     />
   )
@@ -59,15 +58,15 @@ function useNavItem(
 const SIDEBAR_ITEM_STYLE: NavItemStyle = {
   slot: "app-sidebar-item",
   className: cn(
-    "group/app-sidebar-item relative flex size-11 shrink-0 items-center justify-center rounded-md",
+    "group/app-sidebar-item relative flex size-10 shrink-0 items-center justify-center rounded-md",
     "text-foreground-muted",
     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-    "not-data-active:hover:bg-surface-raised not-data-active:hover:text-foreground",
+    "not-data-active:hover:text-foreground",
     "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
     "data-active:text-accent",
-    // The 7px offset clears the rail's right inset while staying inside its
+    // The 5px offset clears the rail's right inset while staying inside its
     // 1px border, where overflow-hidden will not clip the indicator.
-    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-right-[7px]",
+    "data-active:before:absolute data-active:before:top-1/2 data-active:before:-right-[5px]",
     "data-active:before:h-4 data-active:before:w-[2px] data-active:before:-translate-y-1/2",
     "data-active:before:bg-accent data-active:before:shadow-[0_0_6px_var(--accent-glow)]",
     "data-active:before:content-['']",

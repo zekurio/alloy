@@ -452,7 +452,7 @@ function ClipGameBadge({
       onClick={toggleFavorite}
       className={cn(
         "inline-flex h-full items-center justify-center px-2.5 transition-colors",
-        "text-foreground-faint hover:bg-white/5 hover:text-foreground",
+        "text-foreground-faint hover:text-foreground",
         "disabled:pointer-events-none disabled:opacity-50",
         isFavorite && "text-accent",
       )}

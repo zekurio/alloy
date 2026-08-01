@@ -76,14 +76,14 @@ export const THEME_VARIABLES: readonly ThemeVariable[] = [
   {
     name: "--header-h",
     label: "header h",
-    defaultValue: "60px",
+    defaultValue: "52px",
     kind: "dimension",
     groupId: "layout",
   },
   {
     name: "--sidebar-rail",
     label: "sidebar rail",
-    defaultValue: "60px",
+    defaultValue: "52px",
     kind: "dimension",
     groupId: "layout",
   },
