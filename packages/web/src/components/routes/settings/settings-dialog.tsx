@@ -246,7 +246,7 @@ function SettingsDialogContent({
             </h2>
             <DialogClose
               aria-label={t("Close settings")}
-              className="text-foreground-muted hover:bg-surface-raised hover:text-foreground focus-visible:ring-ring focus-visible:ring-offset-background grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+              className="text-foreground-muted hover:text-foreground focus-visible:ring-ring grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
             >
               <XIcon className="size-4" />
             </DialogClose>

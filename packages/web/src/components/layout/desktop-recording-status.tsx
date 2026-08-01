@@ -138,9 +138,9 @@ function RecordingStatusPopover({
                   type="button"
                   aria-label={statusText}
                   className={cn(
-                    "flex size-11 shrink-0 appearance-none items-center justify-center rounded-md border-0 bg-transparent outline-none",
+                    "flex size-10 shrink-0 appearance-none items-center justify-center rounded-md border-0 bg-transparent outline-none",
                     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                    "hover:bg-surface-raised data-popup-open:bg-surface-raised",
+                    "data-popup-open:bg-surface-raised",
                     "focus-visible:ring-ring focus-visible:ring-2",
                     active
                       ? "text-foreground"
@@ -158,9 +158,9 @@ function RecordingStatusPopover({
       <PopoverContent
         align="end"
         side="right"
-        // 8px matches the rail's own inset, so the gap to the rail reads the
-        // same as the gap the aligned popover leaves at the window bottom.
-        sideOffset={8}
+        // Account for the trigger's inset inside the rail, then leave a clear
+        // gap matching the popover's collision padding at the window bottom.
+        sideOffset={14}
         className="alloy-blur w-[26rem] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0"
         style={
           {

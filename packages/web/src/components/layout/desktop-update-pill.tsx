@@ -85,7 +85,7 @@ export function DesktopUpdatePill() {
             onClick={runAction}
             aria-label={busy ? label : detail}
             className={cn(
-              "grid size-11 shrink-0 place-items-center rounded-md",
+              "grid size-10 shrink-0 place-items-center rounded-md",
               "text-accent bg-accent/12",
               "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
