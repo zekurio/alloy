@@ -229,7 +229,8 @@
   /* Layout dims */
   /* Rail width = 8px inset + 44px hit target + 7px inset + 1px border. */
   --sidebar-rail: 60px;
-  --header-h: 52px;
+  /* Matches the rail width so the header/rail corner is square. */
+  --header-h: 60px;
   --header-grid: minmax(min-content, 1fr) minmax(12rem, 32rem)
     minmax(min-content, 1fr);
   --bottomnav-h: 60px;

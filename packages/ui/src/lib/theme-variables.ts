@@ -76,7 +76,7 @@ export const THEME_VARIABLES: readonly ThemeVariable[] = [
   {
     name: "--header-h",
     label: "header h",
-    defaultValue: "52px",
+    defaultValue: "60px",
     kind: "dimension",
     groupId: "layout",
   },

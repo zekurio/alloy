@@ -14,7 +14,7 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { ChevronDownIcon, LogInIcon } from "lucide-react"
+import { LogInIcon } from "lucide-react"
 import { Suspense } from "react"
 
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -23,9 +23,9 @@ import { useUserChipData } from "@/lib/user-display"
 import { AccountMenuItems, avatarTint } from "./account-menu"
 
 /**
- * Header account entry point: avatar + display name (or handle) + chevron,
- * opening a downward account menu. Signed-out sessions render a sign-in link
- * in the same slot.
+ * Header account entry point: an avatar-only trigger opening a downward
+ * account menu — the name lives in the menu header instead. Signed-out
+ * sessions render a sign-in link in the same slot.
  */
 export function UserMenu({ className }: { className?: string }) {
   return (
@@ -52,8 +52,8 @@ function UserMenuInner({ className }: { className?: string }) {
   }
 
   const handle = session.user.username ?? null
-  // chip.name already resolves display name → handle, so the trigger shows a
-  // single label; the menu header adds the @handle when it differs.
+  // chip.name already resolves display name → handle, so the menu header shows
+  // a single label and adds the @handle only when it differs.
   const primaryLabel = chip.name
   const secondaryLabel = handle && handle !== primaryLabel ? handle : null
   return (
@@ -64,7 +64,7 @@ function UserMenuInner({ className }: { className?: string }) {
             type="button"
             aria-label={t("Open account menu for {name}", { name: chip.name })}
             className={cn(
-              "group flex h-9 max-w-52 min-w-0 items-center gap-2 rounded-md px-1.5",
+              "flex size-9 shrink-0 items-center justify-center rounded-full",
               "hover:bg-surface-raised data-popup-open:bg-surface-raised",
               "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
@@ -81,10 +81,6 @@ function UserMenuInner({ className }: { className?: string }) {
               ) : null}
               <AvatarFallback style={avatarTint(chip.avatar)} />
             </Avatar>
-            <span className="text-foreground min-w-0 truncate text-sm font-semibold">
-              {primaryLabel}
-            </span>
-            <ChevronDownIcon className="text-foreground-faint size-4 shrink-0 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)] group-data-popup-open:rotate-180" />
           </button>
         }
       />
@@ -116,7 +112,7 @@ function UserMenuSkeleton({ className }: { className?: string }) {
     <div
       data-slot="user-menu-skeleton"
       className={cn(
-        "flex h-9 w-36 items-center justify-center gap-2 rounded-md",
+        "flex size-9 items-center justify-center rounded-full",
         className,
       )}
       aria-hidden
