@@ -128,7 +128,7 @@ function RecordingStatusPopover({
     ) : settings?.captureMode === "display" ? (
       <MonitorIcon className="size-5" />
     ) : (
-      <RadioIcon className="size-5 shrink-0 text-current" />
+      <RadioIcon className="size-5 shrink-0" />
     )
   const statusText = t("Capture status: {label}", { label })
   return (
@@ -142,20 +142,19 @@ function RecordingStatusPopover({
                   type="button"
                   aria-label={statusText}
                   className={cn(
-                    // Persistent raised chip: the bottom cluster is a device
-                    // control, so it must not read as a nav destination.
-                    "relative flex size-10 shrink-0 appearance-none items-center justify-center rounded-md border outline-none",
-                    "border-border bg-surface-raised text-foreground-muted",
+                    // Matches the rail's nav items: no chip, no border, the
+                    // glyph carries the control.
+                    "relative flex size-10 shrink-0 appearance-none items-center justify-center rounded-md border-0 bg-transparent outline-none",
                     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                    "hover:text-foreground data-popup-open:text-foreground",
                     "focus-visible:ring-ring focus-visible:ring-2",
-                    active ? "text-foreground" : "text-foreground-muted",
-                    // Status dot: faint while idle, live-red pulse while the
-                    // replay buffer is recording.
-                    "after:absolute after:top-1.5 after:right-1.5 after:size-1.5 after:rounded-full after:content-['']",
+                    "data-popup-open:text-foreground",
                     active
-                      ? "after:bg-live after:animate-pulse-dot after:shadow-[0_0_6px_var(--live)]"
-                      : "after:bg-foreground-faint",
+                      ? "text-foreground"
+                      : "text-foreground-muted hover:text-foreground",
+                    // Live indicator only while the replay buffer is
+                    // recording; an idle dot would just be visual noise.
+                    active &&
+                      "after:bg-live after:animate-pulse-dot after:absolute after:top-1 after:right-1 after:size-1.5 after:rounded-full after:shadow-[0_0_6px_var(--live)] after:content-['']",
                   )}
                 >
                   {icon}
