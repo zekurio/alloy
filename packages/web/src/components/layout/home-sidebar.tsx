@@ -10,10 +10,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@alloy/ui/components/tooltip"
+import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
 import { Suspense } from "react"
 import type { ComponentProps, ReactNode } from "react"
+
+import { alloyDesktop } from "@/lib/desktop"
 
 import { DesktopRecordingStatus } from "./desktop-recording-status"
 import { DesktopUpdatePill } from "./desktop-update-pill"
@@ -25,6 +28,8 @@ import { useNavFlags } from "./use-nav-flags"
  * device-local capture/update cluster at the bottom.
  */
 export function HomeSidebar() {
+  const desktop = alloyDesktop()
+
   return (
     <AppSidebar className="hidden md:flex">
       <TooltipProvider delay={300}>
@@ -33,7 +38,14 @@ export function HomeSidebar() {
             <SidebarNav />
           </Suspense>
         </AppSidebarGroup>
-        <AppSidebarGroup className="mt-auto gap-1.5">
+        <AppSidebarGroup
+          className={cn(
+            "mt-auto gap-1.5",
+            // Divider between navigation and the device-local cluster; only
+            // in the desktop shell, where the cluster actually has content.
+            desktop && "border-t border-border pt-3",
+          )}
+        >
           <DesktopRecordingStatus />
           <DesktopUpdatePill />
         </AppSidebarGroup>
