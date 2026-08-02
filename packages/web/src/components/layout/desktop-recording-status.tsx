@@ -30,6 +30,7 @@ import {
   Gamepad2Icon,
   MicIcon,
   MonitorIcon,
+  RadioIcon,
   Volume2Icon,
 } from "lucide-react"
 import { useMemo } from "react"
@@ -114,6 +115,9 @@ function RecordingStatusPopover({
   onOpenDisplayPicker: () => void
   onSave: SaveRecordingSettings
 }) {
+  // The trigger never shows a bare gamepad: that glyph belongs to the Games
+  // nav item. An armed-but-idle capture (or capture off) reads as a radio
+  // broadcast instead; only a real captured game shows cover art.
   const icon =
     activeGame && settings?.captureMode !== "display" ? (
       <GameIcon
@@ -124,7 +128,7 @@ function RecordingStatusPopover({
     ) : settings?.captureMode === "display" ? (
       <MonitorIcon className="size-5" />
     ) : (
-      <Gamepad2Icon className="size-5 shrink-0 text-current" />
+      <RadioIcon className="size-5 shrink-0 text-current" />
     )
   const statusText = t("Capture status: {label}", { label })
   return (
@@ -138,13 +142,20 @@ function RecordingStatusPopover({
                   type="button"
                   aria-label={statusText}
                   className={cn(
-                    "flex size-10 shrink-0 appearance-none items-center justify-center rounded-md border-0 bg-transparent outline-none",
+                    // Persistent raised chip: the bottom cluster is a device
+                    // control, so it must not read as a nav destination.
+                    "relative flex size-10 shrink-0 appearance-none items-center justify-center rounded-md border outline-none",
+                    "border-border bg-surface-raised text-foreground-muted",
                     "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                    "data-popup-open:bg-surface-raised",
+                    "hover:text-foreground data-popup-open:text-foreground",
                     "focus-visible:ring-ring focus-visible:ring-2",
+                    active ? "text-foreground" : "text-foreground-muted",
+                    // Status dot: faint while idle, live-red pulse while the
+                    // replay buffer is recording.
+                    "after:absolute after:top-1.5 after:right-1.5 after:size-1.5 after:rounded-full after:content-['']",
                     active
-                      ? "text-foreground"
-                      : "text-foreground-muted hover:text-foreground",
+                      ? "after:bg-live after:animate-pulse-dot after:shadow-[0_0_6px_var(--live)]"
+                      : "after:bg-foreground-faint",
                   )}
                 >
                   {icon}
