@@ -12,8 +12,8 @@ import { useNavFlags } from "./use-nav-flags"
 
 /**
  * Mobile primary navigation. Hidden on md+, where the sidebar rail takes over.
- * Account access lives in the header so this bar stays focused on navigation,
- * creation, and notifications.
+ * Account access lives in the header so this icon-only bar stays focused on
+ * navigation, creation, and notifications.
  */
 export function MobileBottomNav() {
   const { isHome, isGames, isLibrary } = useNavFlags()
@@ -64,9 +64,9 @@ export function MobileBottomNav() {
 }
 
 const tabClass = cn(
-  "group/tab relative flex flex-col items-center justify-center gap-1 px-1",
+  "relative flex items-center justify-center px-1",
   "[-webkit-tap-highlight-color:transparent]",
-  "text-foreground-muted text-[10px] leading-none font-medium",
+  "text-foreground-muted",
   "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
   "active:text-accent",
   "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -90,10 +90,10 @@ function BottomNavLink({
       to={to}
       data-active={active ? "" : undefined}
       aria-current={active ? "page" : undefined}
+      aria-label={label}
       className={tabClass}
     >
       {icon}
-      <span className="max-w-full truncate">{label}</span>
     </Link>
   )
 }
