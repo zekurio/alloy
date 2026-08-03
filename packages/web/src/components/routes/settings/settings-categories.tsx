@@ -22,6 +22,12 @@ import {
   type Theme,
 } from "@alloy/ui/lib/theme"
 import {
+  getStoredThemePresetId,
+  setStoredThemePreset,
+  themePresetsFor,
+  type ThemePresetMode,
+} from "@alloy/ui/lib/theme-presets"
+import {
   DatabaseIcon,
   FilmIcon,
   Gamepad2Icon,
@@ -290,6 +296,8 @@ function PreferencesPanel() {
               </SelectContent>
             </Select>
           </SettingRow>
+          <ThemePresetRow mode="dark" />
+          <ThemePresetRow mode="light" />
           <SettingRow
             title={t("Language")}
             description={t("Choose the language used by Alloy.")}
@@ -314,6 +322,44 @@ function PreferencesPanel() {
 
       <CustomThemeSettings />
     </SettingsSections>
+  )
+}
+
+function ThemePresetRow({ mode }: { mode: ThemePresetMode }) {
+  const presets = themePresetsFor(mode)
+  const [presetId, setPresetId] = useState(() => getStoredThemePresetId(mode))
+
+  function changePreset(value: string | null) {
+    if (!value || !presets.some((preset) => preset.id === value)) return
+    setPresetId(value)
+    setStoredThemePreset(mode, value)
+  }
+
+  return (
+    <SettingRow
+      title={mode === "dark" ? t("Dark theme") : t("Light theme")}
+      description={
+        mode === "dark"
+          ? t("Color palette used while Alloy is dark.")
+          : t("Color palette used while Alloy is light.")
+      }
+      htmlFor={`theme-${mode}`}
+    >
+      <Select value={presetId} onValueChange={changePreset}>
+        <SelectTrigger id={`theme-${mode}`} size="sm" className="w-40">
+          <SelectValue>
+            {presets.find((preset) => preset.id === presetId)?.label}
+          </SelectValue>
+        </SelectTrigger>
+        <SelectContent align="end">
+          {presets.map((preset) => (
+            <SelectItem key={preset.id} value={preset.id}>
+              {preset.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </SettingRow>
   )
 }
 
@@ -350,6 +396,15 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
       "dark",
       "system",
       "color scheme",
+      "palette",
+      "catppuccin",
+      "frappe",
+      "latte",
+      "nord",
+      "one dark",
+      "one light",
+      "gruvbox",
+      "rose pine",
       "language",
       "locale",
       "settings",
