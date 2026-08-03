@@ -163,7 +163,7 @@ function LibraryContent({
           />
         </div>
       </PageToolbar>
-      <AppMainScroll>
+      <AppMainScroll className="!pt-2">
         <section className="flex w-full flex-col gap-6">
           <LibraryBody
             entries={orderedEntries}

@@ -40,10 +40,9 @@ function PageToolbar({
       className={cn(
         "bg-background",
         !pinned && "sticky top-0 z-10 -mx-4 mb-4 md:-mx-6 md:mb-6",
-        // Pinned toolbars sit outside the padded scroll region. Add the
-        // missing outer inset above the controls, then offset it below so the
-        // content keeps the same starting position and the gap feels tighter.
-        pinned && "pt-2 -mb-2 md:pt-4 md:-mb-4",
+        // Pinned toolbars sit outside the padded scroll region, so give the
+        // controls the same responsive top inset as the main content.
+        pinned && "pt-2 md:pt-4",
         className,
       )}
       {...props}
