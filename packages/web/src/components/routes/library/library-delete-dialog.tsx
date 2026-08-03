@@ -9,6 +9,7 @@ export function DeleteServerBackedDialog({
   open,
   onOpenChange,
   pending,
+  error,
   title,
   noun,
   localItem,
@@ -17,6 +18,7 @@ export function DeleteServerBackedDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   pending: boolean
+  error?: string | null
   title: string
   noun: "clip" | "recording"
   localItem: RecordingLibraryItem | null
@@ -47,6 +49,7 @@ export function DeleteServerBackedDialog({
       confirmLabel={deleteAction}
       pendingLabel={t("Deleting...")}
       pending={pending}
+      error={error}
       onConfirm={() => onConfirm(deleteLocal)}
     >
       {localItem ? (

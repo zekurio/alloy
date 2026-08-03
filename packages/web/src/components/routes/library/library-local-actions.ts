@@ -49,7 +49,6 @@ export async function finishLocalClipDelete({
     setDeletingLocal(true)
     try {
       await deleteLocalLibraryCopy(localItem)
-      toast.success(t("Clip deleted from server and this device"))
     } catch (cause) {
       clientLogger.warn(
         "[library] Failed to delete local clip copy after server delete.",
@@ -69,7 +68,6 @@ export async function finishLocalClipDelete({
 
   try {
     await detachLocalServerLink({ item: localItem, serverId })
-    toast.success(t("Clip deleted from server"))
   } catch (cause) {
     clientLogger.warn(
       "[library] Failed to detach local clip link after server delete.",

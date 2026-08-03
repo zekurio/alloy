@@ -170,7 +170,7 @@ export function downloadToQueueItem(
 interface ServerRowHandlers {
   onCancel: () => void
   onOpen?: () => void
-  onCopyLink?: () => void
+  onCopyLink?: () => Promise<void>
   onRetry?: () => void
   onDismiss?: () => void
   thumbFallbackUrl?: string | null

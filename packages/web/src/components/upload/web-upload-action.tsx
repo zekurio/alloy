@@ -1,6 +1,5 @@
 import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
@@ -24,12 +23,15 @@ export interface WebUploadAction {
   available: boolean
   picking: boolean
   publishing: boolean
+  error: string | null
+  awaitingLinkCopy: boolean
   selected: SelectedFile | null
   /** Object URL for the picked file, driving the editor's preview + trimmer. */
   previewUrl: string | null
   select: (file: File | null) => Promise<void>
   discard: () => void
   publish: (metadata: WebUploadMetadata) => Promise<void>
+  retryLinkCopy: () => Promise<void>
 }
 
 export interface WebUploadMetadata {
@@ -48,24 +50,49 @@ export interface WebUploadMetadata {
 export function useWebUploadAction(): WebUploadAction {
   const actions = useUploadActions()
   const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
+  const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
   const selection = useWebUploadSelection(publishing)
+  const clear = useCallback(() => {
+    setPublishError(null)
+    setLinkToCopy(null)
+    selection.clear()
+  }, [selection.clear])
   const publish = usePublishSelectedFile(
     actions.publishClip,
     selection.selected,
     publishing,
-    selection.clear,
+    linkToCopy,
+    clear,
     setPublishing,
+    setPublishError,
+    setLinkToCopy,
   )
+  const retryLinkCopy = useRetryLinkCopy(
+    linkToCopy,
+    publishing,
+    clear,
+    setPublishing,
+    setPublishError,
+  )
+  const discard = useCallback(() => {
+    setPublishError(null)
+    setLinkToCopy(null)
+    selection.discard()
+  }, [selection.discard])
 
   return {
     available: typeof File !== "undefined",
     picking: selection.picking,
     publishing,
+    error: publishError ?? selection.error,
+    awaitingLinkCopy: linkToCopy !== null,
     selected: selection.selected,
     previewUrl: selection.previewUrl,
     select: selection.select,
-    discard: selection.discard,
+    discard,
     publish,
+    retryLinkCopy,
   }
 }
 
@@ -73,6 +100,7 @@ function useWebUploadSelection(publishing: boolean) {
   const [picking, setPicking] = useState(false)
   const [selected, setSelected] = useState<SelectedFile | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   // Keep the latest URL available to the unmount-only cleanup.
   const previewUrlRef = useRef<string | null>(null)
   previewUrlRef.current = previewUrl
@@ -82,6 +110,7 @@ function useWebUploadSelection(publishing: boolean) {
   )
 
   const clear = useCallback(() => {
+    setError(null)
     setSelected(null)
     setPreviewUrl((current) => {
       revokeObjectUrl(current, "upload preview URL")
@@ -91,13 +120,14 @@ function useWebUploadSelection(publishing: boolean) {
   const select = useCallback(
     async (file: File | null) => {
       if (!file || picking || publishing || selected) return
+      setError(null)
       setPicking(true)
       try {
         const prepared = await prepareSelectedClipFile(file)
         setSelected(prepared)
         setPreviewUrl(createObjectUrl(prepared.file, "upload preview URL"))
       } catch (cause) {
-        toast.error(errorMessage(cause, t("Could not prepare clip.")))
+        setError(errorMessage(cause, t("Could not prepare clip.")))
       } finally {
         setPicking(false)
       }
@@ -109,35 +139,86 @@ function useWebUploadSelection(publishing: boolean) {
     clear()
   }, [publishing, clear])
 
-  return { picking, selected, previewUrl, select, discard, clear }
+  return { picking, selected, previewUrl, error, select, discard, clear }
 }
 
 function usePublishSelectedFile(
   publishClip: PublishClipFn,
   selected: SelectedFile | null,
   publishing: boolean,
+  linkToCopy: string | null,
   clearSelection: () => void,
   setPublishing: (value: boolean) => void,
+  setPublishError: (value: string | null) => void,
+  setLinkToCopy: (value: string | null) => void,
 ) {
   return useCallback(
     async (metadata: WebUploadMetadata) => {
-      if (!selected || publishing) return
+      if (!selected || publishing || linkToCopy) return
+      setPublishError(null)
       setPublishing(true)
       try {
         const result = await publishClip(
           createDeferredWebUpload(selected, metadata),
         )
         if (!result.clipId) return
+        if (metadata.privacy === "unlisted") {
+          const link = absoluteClipHref(
+            metadata.game?.slug ?? null,
+            result.clipId,
+            publicOrigin(),
+          )
+          if (!(await copyUploadedClipLink(link))) {
+            setLinkToCopy(link)
+            setPublishError(
+              t("Upload started, but the clip link couldn't be copied."),
+            )
+            return
+          }
+        }
         clearSelection()
-        await showUploadStarted(metadata, result.clipId)
       } catch (cause) {
-        toast.error(errorMessage(cause, t("Could not start upload.")))
+        setPublishError(errorMessage(cause, t("Could not start upload.")))
       } finally {
         setPublishing(false)
       }
     },
-    [publishClip, selected, publishing, clearSelection, setPublishing],
+    [
+      publishClip,
+      selected,
+      publishing,
+      linkToCopy,
+      clearSelection,
+      setPublishing,
+      setPublishError,
+      setLinkToCopy,
+    ],
   )
+}
+
+function useRetryLinkCopy(
+  linkToCopy: string | null,
+  publishing: boolean,
+  clearSelection: () => void,
+  setPublishing: (value: boolean) => void,
+  setPublishError: (value: string | null) => void,
+) {
+  return useCallback(async () => {
+    if (!linkToCopy || publishing) return
+    setPublishError(null)
+    setPublishing(true)
+    try {
+      if (!(await copyUploadedClipLink(linkToCopy))) {
+        setPublishError(
+          t("Upload started, but the clip link couldn't be copied."),
+        )
+        return
+      }
+      clearSelection()
+    } finally {
+      setPublishing(false)
+    }
+  }, [linkToCopy, publishing, clearSelection, setPublishing, setPublishError])
 }
 
 function createDeferredWebUpload(
@@ -156,20 +237,8 @@ function createDeferredWebUpload(
   }
 }
 
-async function showUploadStarted(metadata: WebUploadMetadata, clipId: string) {
-  if (metadata.privacy !== "unlisted") {
-    toast.success(t("Upload started"))
-    return
-  }
-  const copied = await copyTextToClipboard(
-    absoluteClipHref(metadata.game?.slug ?? null, clipId, publicOrigin()),
-    { action: "copy uploaded clip link" },
-  )
-  if (copied) {
-    toast.success(t("Link copied to clipboard"))
-    return
-  }
-  toast.error(t("Couldn't copy the clip link"))
+async function copyUploadedClipLink(link: string) {
+  return copyTextToClipboard(link, { action: "copy uploaded clip link" })
 }
 
 async function prepareWebUploadPayload(

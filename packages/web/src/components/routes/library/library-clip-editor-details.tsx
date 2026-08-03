@@ -1,12 +1,14 @@
 import { type ClipPrivacy, type ClipRow, type GameRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import {
   Tabs,
   TabsContent,
@@ -14,10 +16,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@alloy/ui/components/tabs"
-import { toast } from "@alloy/ui/lib/toast"
 import { Link } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
+  CircleAlertIcon,
   EyeOffIcon,
   GlobeIcon,
   Link2Icon,
@@ -35,6 +37,7 @@ import { useUpdateClipMutation } from "@/lib/clip-queries"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { type RecordingLibraryItem } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import { ClipFileLocation } from "./library-file-location"
 
@@ -47,7 +50,6 @@ type VisibilityAction = {
   copyLink: boolean
   icon: ComponentType<{ className?: string }>
   success: string
-  copySuccess?: string
   copyFailure?: string
 }
 
@@ -59,7 +61,6 @@ const VISIBILITY_ACTIONS = {
     copyLink: true,
     icon: GlobeIcon,
     success: t("Clip posted"),
-    copySuccess: t("Posted and link copied"),
     copyFailure: t("Posted, but couldn't copy the link"),
   },
   unpost: {
@@ -77,7 +78,6 @@ const VISIBILITY_ACTIONS = {
     copyLink: true,
     icon: Link2Icon,
     success: t("Link created"),
-    copySuccess: t("Link created and copied"),
     copyFailure: t("Link created, but couldn't copy it"),
   },
   "disable-link": {
@@ -101,6 +101,7 @@ interface ClipDetailsProps {
   canSaveTrim: boolean
   /** True while a saved trim is being applied on the server. */
   trimPending: boolean
+  trimError: string | null
   /** Commits the stage's pending trim — Save runs it with the fields. */
   onSaveTrim: () => void
 }
@@ -171,6 +172,7 @@ function ClipDetailsForm({
   deleting,
   canSaveTrim,
   trimPending,
+  trimError,
   onSaveTrim,
 }: ClipDetailsProps) {
   const {
@@ -212,6 +214,8 @@ function ClipDetailsForm({
   )
   const saveMutation = useUpdateClipMutation()
   const visibilityMutation = useUpdateClipMutation()
+  const saveFeedback = useActionFeedback()
+  const visibilityFeedback = useActionFeedback()
   const saving = saveMutation.isPending
   const visibilityPending = visibilityMutation.isPending
 
@@ -228,25 +232,18 @@ function ClipDetailsForm({
   // publish/link actions, not draft fields like the rest of the form.
   const updateVisibility = (action: VisibilityAction) => {
     if (visibilityPending || action.privacy === row.privacy) return
-    visibilityMutation.mutate(
-      { clipId: row.id, input: { privacy: action.privacy } },
-      {
-        onSuccess: async (updated) => {
-          if (action.copyLink) {
-            const copied = await copyClipLink(updated)
-            toast[copied ? "success" : "error"](
-              copied
-                ? (action.copySuccess ?? action.success)
-                : (action.copyFailure ??
-                    "Visibility updated, but couldn't copy the link"),
-            )
-            return
-          }
-          toast.success(action.success)
-        },
-        onError: () => toast.error(t("Couldn't update visibility")),
-      },
-    )
+    void visibilityFeedback.run(async () => {
+      const updated = await visibilityMutation.mutateAsync({
+        clipId: row.id,
+        input: { privacy: action.privacy },
+      })
+      if (action.copyLink && !(await copyClipLink(updated))) {
+        throw new Error(
+          action.copyFailure ??
+            t("Visibility updated, but couldn't copy the link"),
+        )
+      }
+    }, t("Couldn't update visibility"))
   }
 
   // Save commits everything outstanding at once: the field edits and any
@@ -261,13 +258,9 @@ function ClipDetailsForm({
     if (gameChanged) input.gameId = game?.id ?? null
     if (mentionsChanged) input.mentionedUserIds = mentionIds
     if (tagsChanged) input.tags = tags
-    saveMutation.mutate(
-      { clipId: row.id, input },
-      {
-        onSuccess: () => toast.success(t("Clip updated")),
-        onError: () => toast.error(t("Couldn't save changes")),
-      },
-    )
+    void saveFeedback.run(async () => {
+      await saveMutation.mutateAsync({ clipId: row.id, input })
+    }, t("Couldn't save changes"))
   }
 
   const profileVisibilityAction =
@@ -292,6 +285,15 @@ function ClipDetailsForm({
       : t("Save")
   const PrimaryIcon = primaryPublishes ? ProfileVisibilityIcon : SaveIcon
   const showProfileVisibilityInMenu = !primaryPublishes
+  const primaryFeedback = primaryPublishes
+    ? visibilityFeedback.feedback
+    : saveFeedback.feedback
+  const actionError =
+    saveFeedback.feedback.state === "error"
+      ? saveFeedback.feedback.message
+      : visibilityFeedback.feedback.state === "error"
+        ? visibilityFeedback.feedback.message
+        : trimError
 
   return (
     <>
@@ -309,6 +311,13 @@ function ClipDetailsForm({
         disabled={saving || !canManage}
         titleInvalid={titleInvalid}
       />
+
+      {actionError ? (
+        <Callout tone="destructive" className="text-xs">
+          <CircleAlertIcon />
+          <span>{actionError}</span>
+        </Callout>
+      ) : null}
 
       <ClipFileLocation
         row={row}
@@ -337,10 +346,16 @@ function ClipDetailsForm({
             {t("Cancel")}
           </Button>
           <div className="flex items-center">
-            <Button
+            <FeedbackButton
               type="button"
               variant="primary"
               disabled={primaryDisabled}
+              state={primaryFeedback.state}
+              pendingLabel={primaryLabel}
+              successLabel={
+                primaryPublishes ? profileVisibilityAction.success : t("Saved")
+              }
+              errorLabel={t("Try again")}
               className="rounded-r-none"
               onClick={() => {
                 if (primaryPublishes) updateVisibility(profileVisibilityAction)
@@ -349,7 +364,7 @@ function ClipDetailsForm({
             >
               <PrimaryIcon />
               {primaryLabel}
-            </Button>
+            </FeedbackButton>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={

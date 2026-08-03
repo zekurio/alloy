@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@alloy/ui/components/alert-dialog"
+import { CircleAlertIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 interface ConfirmDeleteDialogProps {
@@ -21,6 +22,7 @@ interface ConfirmDeleteDialogProps {
   confirmLabel: ReactNode
   pendingLabel: ReactNode
   pending: boolean
+  error?: ReactNode
   onConfirm: () => void
   children?: ReactNode
 }
@@ -33,6 +35,7 @@ function ConfirmDeleteDialog({
   confirmLabel,
   pendingLabel,
   pending,
+  error,
   onConfirm,
   children,
 }: ConfirmDeleteDialogProps) {
@@ -44,16 +47,28 @@ function ConfirmDeleteDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         {children}
+        {error ? (
+          <p
+            role="alert"
+            className="text-destructive flex items-start gap-2 text-sm"
+          >
+            <CircleAlertIcon className="mt-0.5 size-4 shrink-0" />
+            <span>{error}</span>
+          </p>
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>
             {t("Cancel")}
           </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            onClick={onConfirm}
+            onClick={(event) => {
+              event.preventDefault()
+              onConfirm()
+            }}
             disabled={pending}
           >
-            {pending ? pendingLabel : confirmLabel}
+            {pending ? pendingLabel : error ? t("Try again") : confirmLabel}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

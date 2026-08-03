@@ -1,8 +1,8 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { messageFromUnknown } from "@alloy/ui/lib/error-message"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import type {
@@ -18,6 +18,7 @@ import {
   goBackInBrowserHistory,
 } from "@/lib/browser-url"
 import { copyTextToClipboard } from "@/lib/clipboard"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 type RouteStateVariant = "screen" | "panel"
 
@@ -37,16 +38,18 @@ function RouteErrorState({
 }: RouteErrorStateProps): ReactElement {
   const message = getErrorMessage(error) ?? "This view failed to load."
   const details = getErrorDetails(error, info)
+  const copyFeedback = useActionFeedback()
   const copyErrorDetails = useCallback(async () => {
-    const copied = await copyTextToClipboard(details ?? message, {
-      action: "copy route error details",
-    })
-    if (copied) {
-      toast.success(t("Error details copied"))
-    } else {
-      toast.error(t("Couldn't copy error details"))
-    }
-  }, [details, message])
+    await copyFeedback.run(async () => {
+      if (
+        !(await copyTextToClipboard(details ?? message, {
+          action: "copy route error details",
+        }))
+      ) {
+        throw new Error(t("Couldn't copy error details"))
+      }
+    }, t("Couldn't copy error details"))
+  }, [copyFeedback, details, message])
 
   return (
     <RouteStateFrame variant={variant}>
@@ -64,9 +67,22 @@ function RouteErrorState({
           <Button type="button" onClick={reset}>
             {t("Retry")}
           </Button>
-          <Button type="button" variant="outline" onClick={copyErrorDetails}>
+          <FeedbackButton
+            type="button"
+            variant="outline"
+            state={copyFeedback.feedback.state}
+            pendingLabel={t("Copying…")}
+            successLabel={t("Copied")}
+            errorLabel={t("Try again")}
+            title={
+              copyFeedback.feedback.state === "error"
+                ? copyFeedback.feedback.message
+                : undefined
+            }
+            onClick={copyErrorDetails}
+          >
             {t("Copy error")}
-          </Button>
+          </FeedbackButton>
         </div>
       </div>
     </RouteStateFrame>

@@ -3,7 +3,6 @@ import { t } from "@alloy/i18n"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Switch } from "@alloy/ui/components/switch"
-import { toast } from "@alloy/ui/lib/toast"
 import { useState } from "react"
 
 import { useDesktopQuery } from "@/lib/use-desktop-query"
@@ -25,16 +24,18 @@ export function DesktopAutostartSettings() {
     [desktop],
   )
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (!desktop) return null
   const autostart = desktop.autostart
 
   async function toggle(enabled: boolean) {
+    setError(null)
     setBusy(true)
     try {
       setState(await autostart.setEnabled(enabled))
     } catch (cause) {
-      toast.error(
+      setError(
         cause instanceof Error
           ? cause.message
           : t("Couldn't update the startup setting."),
@@ -47,9 +48,18 @@ export function DesktopAutostartSettings() {
   return (
     <SettingRow
       title={t("Start Alloy when you sign in")}
-      description={t(
-        "Launches in the background so your games are captured right away.",
-      )}
+      description={
+        <>
+          {t(
+            "Launches in the background so your games are captured right away.",
+          )}
+          {error ? (
+            <span role="alert" className="text-destructive mt-1 block">
+              {error}
+            </span>
+          ) : null}
+        </>
+      }
     >
       {state === undefined ? (
         <Skeleton className="h-5 w-9 rounded-full" />

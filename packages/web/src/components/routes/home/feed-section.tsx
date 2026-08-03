@@ -10,7 +10,6 @@ import { ClipCardList } from "@/components/clip/clip-card-list"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { feedFilterId, useFeedInfiniteQuery } from "@/lib/feed-queries"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 type FeedSectionProps = {
   filter: FeedFilter
@@ -152,12 +151,6 @@ function useFeedSectionState(filter: FeedFilter, sort: ClipFeedSort) {
     isPending,
     refetch,
   } = useFeedInfiniteQuery(filter, sort, { limit: FEED_PAGE_LIMIT })
-  useQueryErrorToast(error, {
-    title: t("Couldn't load feed"),
-    // Keying the toast on filter avoids stacked toasts when tabs switch.
-    toastId: `feed-${feedId}-error`,
-  })
-
   const rows = useMemo(
     () => (data ? data.pages.flatMap((page) => page.items) : []),
     [data],

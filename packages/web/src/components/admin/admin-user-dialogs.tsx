@@ -1,6 +1,7 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { Field, FieldLabel } from "@alloy/ui/components/field"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import { Field, FieldError, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
@@ -20,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
-import { toast } from "@alloy/ui/lib/toast"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { SaveIcon, UserPlusIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -50,15 +50,13 @@ export function EditUserDialog({
   busy: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
-  onUpdate: (
-    user: AdminUserRow,
-    next: AdminUserEditableFields,
-  ) => Promise<boolean>
+  onUpdate: (user: AdminUserRow, next: AdminUserEditableFields) => Promise<void>
 }) {
   const setOpen = onOpenChange
   const [quotaGiB, setQuotaGiB] = useState("")
   const [role, setRole] = useState<"admin" | "user">("user")
   const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const saving = busy || submitting
   const parsedQuota = useMemo(() => {
     try {
@@ -84,6 +82,7 @@ export function EditUserDialog({
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (saving) return
+    setSubmitError(null)
     if (nextFields && !dirty) {
       setOpen(false)
       return
@@ -93,14 +92,16 @@ export function EditUserDialog({
     try {
       storageQuotaBytes = parseQuotaGiB(quotaGiB)
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Invalid quota")))
+      setSubmitError(errorMessage(cause, t("Invalid quota")))
       return
     }
 
     setSubmitting(true)
     try {
-      const saved = await onUpdate(user, { role, storageQuotaBytes })
-      if (saved) setOpen(false)
+      await onUpdate(user, { role, storageQuotaBytes })
+      setOpen(false)
+    } catch (cause) {
+      setSubmitError(errorMessage(cause, t("Couldn't update user")))
     } finally {
       setSubmitting(false)
     }
@@ -135,6 +136,7 @@ export function EditUserDialog({
                 </SelectContent>
               </Select>
             </Field>
+            <FieldError>{submitError}</FieldError>
             <Field>
               <FieldLabel htmlFor={`quota-${user.id}`}>
                 {t("Storage quota (GiB)")}
@@ -164,15 +166,18 @@ export function EditUserDialog({
             >
               {t("Cancel")}
             </ResponsiveDialogClose>
-            <Button
+            <FeedbackButton
               type="submit"
               variant="primary"
               size="sm"
+              state={saving ? "pending" : submitError ? "error" : "idle"}
+              pendingLabel={t("Saving…")}
+              errorLabel={t("Try again")}
               disabled={saving || !dirty}
             >
               <SaveIcon />
-              {saving ? t("Saving…") : t("Save")}
-            </Button>
+              {t("Save")}
+            </FeedbackButton>
           </ResponsiveDialogFooter>
         </form>
       </ResponsiveDialogContent>
@@ -194,20 +199,20 @@ export function CreateUserDialog() {
     setRole("user")
   }, [open])
 
-  const { isPending, mutate } = useMutation({
+  const { error, isPending, mutate } = useMutation({
     mutationFn: (input: {
       email: string
       username?: string
       role: "admin" | "user"
     }) => api.admin.createUser(input),
     onSuccess: () => {
-      toast.success(t("User created"))
       setOpen(false)
       return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
     },
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't create user"))),
   })
+  const submitError = error
+    ? errorMessage(error, t("Couldn't create user"))
+    : null
 
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -254,6 +259,7 @@ export function CreateUserDialog() {
                 onChange={(event) => setEmail(event.target.value)}
               />
             </Field>
+            <FieldError>{submitError}</FieldError>
             <Field>
               <FieldLabel htmlFor="create-user-username">
                 {t("Username")}
@@ -296,15 +302,18 @@ export function CreateUserDialog() {
             >
               {t("Cancel")}
             </ResponsiveDialogClose>
-            <Button
+            <FeedbackButton
               type="submit"
               variant="primary"
               size="sm"
+              state={isPending ? "pending" : submitError ? "error" : "idle"}
+              pendingLabel={t("Creating…")}
+              errorLabel={t("Try again")}
               disabled={isPending}
             >
               <UserPlusIcon />
-              {isPending ? t("Creating…") : t("Create")}
-            </Button>
+              {t("Create")}
+            </FeedbackButton>
           </ResponsiveDialogFooter>
         </form>
       </ResponsiveDialogContent>

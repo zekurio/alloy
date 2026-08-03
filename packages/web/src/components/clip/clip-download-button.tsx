@@ -4,8 +4,13 @@ import { Button } from "@alloy/ui/components/button"
 import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import { CheckIcon, DownloadIcon, Loader2Icon } from "lucide-react"
-import { useCallback } from "react"
+import {
+  CheckIcon,
+  CircleAlertIcon,
+  DownloadIcon,
+  Loader2Icon,
+} from "lucide-react"
+import { useCallback, useState } from "react"
 
 import { startBrowserDownload } from "@/lib/browser-download"
 import {
@@ -46,9 +51,11 @@ export function useClipDownloadAction(
   saved: boolean
   /** 0–100, only meaningful while downloading. */
   progress: number
-  start: () => void
+  error: string | null
+  start: (onError?: (message: string) => void) => void
 } {
   const download = useClipDownload(row.id)
+  const [error, setError] = useState<string | null>(null)
   const supported = clipDownloadActionSupported(row)
   const downloading = download?.status === "downloading"
   const saved = alreadyLocal || download?.status === "completed"
@@ -59,16 +66,21 @@ export function useClipDownloadAction(
           Math.floor((download.receivedBytes / download.totalBytes) * 100),
         )
       : 0
-  const start = useCallback(() => {
-    void startClipDownload(row).catch((cause) => {
-      toast.error(
-        cause instanceof Error
-          ? cause.message
-          : t("Couldn't start the download"),
-      )
-    })
-  }, [row])
-  return { supported, downloading, saved, progress, start }
+  const start = useCallback(
+    (onError?: (message: string) => void) => {
+      setError(null)
+      void startClipDownload(row).catch((cause) => {
+        const message =
+          cause instanceof Error
+            ? cause.message
+            : t("Couldn't start the download")
+        setError(message)
+        onError?.(message)
+      })
+    },
+    [row],
+  )
+  return { supported, downloading, saved, progress, error, start }
 }
 
 /** Compact icon-only variant for cards and title rows. */
@@ -89,7 +101,8 @@ export function ClipDownloadIconButton({
     ? t("Saved on this device")
     : action.downloading
       ? t("Downloading…")
-      : t("Download {title} to this device", { title: row.title })
+      : (action.error ??
+        t("Download {title} to this device", { title: row.title }))
   return (
     <Button
       type="button"
@@ -126,7 +139,7 @@ export function ClipDownloadMenuItem({
       disabled={action.saved || action.downloading}
       onClick={(event) => {
         event.stopPropagation()
-        action.start()
+        action.start((message) => toast.error(message))
       }}
     >
       <ClipDownloadStatusIcon action={action} />
@@ -160,11 +173,13 @@ type ClipDownloadAction = ReturnType<typeof useClipDownloadAction>
 function ClipDownloadStatusIcon({ action }: { action: ClipDownloadAction }) {
   if (action.saved) return <CheckIcon className="text-success" />
   if (action.downloading) return <Loader2Icon className="animate-spin" />
+  if (action.error) return <CircleAlertIcon className="text-destructive" />
   return <DownloadIcon />
 }
 
 function clipDownloadMenuLabel(action: ClipDownloadAction): string {
   if (action.saved) return t("Saved on this device")
+  if (action.error) return action.error
   if (!action.downloading) return t("Download")
   return action.progress > 0
     ? t("Downloading {progress}%", { progress: action.progress })

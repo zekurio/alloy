@@ -1,12 +1,11 @@
 import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
 import {
   type QueryClient,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { useCallback, useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo } from "react"
 
 import {
   type AlloyDesktop,
@@ -65,7 +64,6 @@ function librarySnapshotErrorMessage(cause: unknown): string | null {
  */
 export function useLibrarySnapshot(
   desktop: AlloyDesktop | null,
-  { toastErrors = true }: { toastErrors?: boolean } = {},
 ): LibrarySnapshotState {
   const queryClient = useQueryClient()
   const { data, error, isFetching, refetch } = useQuery({
@@ -79,19 +77,6 @@ export function useLibrarySnapshot(
   const snapshot = desktop ? (data ?? null) : null
   const errorMessage = librarySnapshotErrorMessage(error)
   const blockingError = snapshot ? null : errorMessage
-  const lastToastedErrorRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    if (!toastErrors) return
-    if (!errorMessage) {
-      lastToastedErrorRef.current = null
-      return
-    }
-    if (lastToastedErrorRef.current === errorMessage) return
-    lastToastedErrorRef.current = errorMessage
-    toast.error(errorMessage)
-  }, [errorMessage, toastErrors])
-
   const refresh = useCallback(async () => {
     if (!desktop) return
     await refetch()

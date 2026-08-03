@@ -1,6 +1,7 @@
 import type { GameRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { Card } from "@alloy/ui/components/card"
 import {
   Dialog,
@@ -11,8 +12,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@alloy/ui/components/dialog"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Input } from "@alloy/ui/components/input"
-import { UploadIcon, VideoIcon } from "lucide-react"
+import { CircleAlertIcon, UploadIcon, VideoIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
@@ -32,6 +34,7 @@ export function ImportClipDetailsDialog({
     <ImportClipDetailsDialogInner
       staged={action.staged}
       pending={action.committing}
+      error={action.error}
       onOpenChange={(open) => {
         if (!open) void action.discard()
       }}
@@ -45,11 +48,13 @@ export function ImportClipDetailsDialog({
 function ImportClipDetailsDialogInner({
   staged,
   pending,
+  error,
   onOpenChange,
   onCommit,
 }: {
   staged: RecordingLibraryStagedImport | null
   pending: boolean
+  error: string | null
   onOpenChange: (open: boolean) => void
   onCommit: (metadata: { title: string; game: GameRow }) => void
 }) {
@@ -134,6 +139,12 @@ function ImportClipDetailsDialogInner({
                 </span>
               ) : null}
             </div>
+            {error ? (
+              <Callout tone="destructive" className="text-xs">
+                <CircleAlertIcon />
+                <span>{error}</span>
+              </Callout>
+            ) : null}
           </DialogBody>
           <DialogFooter>
             <Button
@@ -144,10 +155,17 @@ function ImportClipDetailsDialogInner({
             >
               {t("Cancel")}
             </Button>
-            <Button type="submit" variant="primary" disabled={pending}>
+            <FeedbackButton
+              type="submit"
+              variant="primary"
+              disabled={pending}
+              state={pending ? "pending" : error ? "error" : "idle"}
+              pendingLabel={t("Importing...")}
+              errorLabel={t("Try again")}
+            >
               <UploadIcon />
-              {pending ? t("Importing...") : t("Import clip")}
-            </Button>
+              {t("Import clip")}
+            </FeedbackButton>
           </DialogFooter>
         </form>
       </DialogContent>

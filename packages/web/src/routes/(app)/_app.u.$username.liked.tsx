@@ -3,7 +3,6 @@ import { createFileRoute } from "@tanstack/react-router"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { useUserLikedClipsQuery } from "@/lib/clip-queries"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import { useUserProfileViewerQuery } from "@/lib/user-queries"
 
 export const Route = createFileRoute("/(app)/_app/u/$username/liked")({
@@ -17,11 +16,6 @@ function ProfileLikedTab() {
   const clips = clipsQuery.data ?? null
   const error = clipsQuery.error ?? null
   const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
-
-  useQueryErrorToast(error, {
-    title: t("Couldn't load liked clips"),
-    toastId: "profile-liked-error",
-  })
 
   return (
     <section>

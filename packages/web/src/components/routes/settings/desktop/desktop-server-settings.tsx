@@ -1,11 +1,17 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { Input } from "@alloy/ui/components/input"
 import { SettingRows } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import { CheckCircle2Icon, LogInIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import {
+  CheckCircle2Icon,
+  CircleAlertIcon,
+  LogInIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useEffect, useState } from "react"
 import type { FormEvent } from "react"
 import { flushSync } from "react-dom"
@@ -31,12 +37,14 @@ export function DesktopServerSettings() {
     null,
   )
   const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
 
     async function load() {
       if (!serverApi) return
+      setError(null)
       setPhase("loading")
       try {
         const [savedServers, currentServer] = await Promise.all([
@@ -48,7 +56,7 @@ export function DesktopServerSettings() {
         setCurrentServerUrl(currentServer)
       } catch (cause) {
         if (!cancelled) {
-          toast.error(errorText(cause, t("Couldn't load servers.")))
+          setError(errorText(cause, t("Couldn't load servers.")))
         }
       } finally {
         if (!cancelled) setPhase("idle")
@@ -68,6 +76,7 @@ export function DesktopServerSettings() {
   async function connectTo(serverUrl: string) {
     const nextUrl = serverUrl.trim()
     if (!nextUrl || connectingServerUrl !== null) return
+    setError(null)
 
     flushSync(() => {
       setConnectingServerUrl(nextUrl)
@@ -76,7 +85,7 @@ export function DesktopServerSettings() {
     try {
       const result = await activeServerApi.connect(nextUrl)
       if (!result.ok) {
-        toast.error(result.error)
+        setError(result.error)
         setConnectingServerUrl(null)
         setPhase("idle")
         return
@@ -86,7 +95,7 @@ export function DesktopServerSettings() {
       setConnectingServerUrl(null)
       setPhase("idle")
     } catch (cause) {
-      toast.error(errorText(cause, t("Couldn't connect to server.")))
+      setError(errorText(cause, t("Couldn't connect to server.")))
       setConnectingServerUrl(null)
       setPhase("idle")
     }
@@ -99,11 +108,12 @@ export function DesktopServerSettings() {
 
   async function forgetServer(serverUrl: string) {
     if (phase === "connecting") return
+    setError(null)
     try {
       const nextServers = await activeServerApi.forgetServer(serverUrl)
       setServers(nextServers)
     } catch (cause) {
-      toast.error(errorText(cause, t("Couldn't forget server.")))
+      setError(errorText(cause, t("Couldn't forget server.")))
     }
   }
 
@@ -111,6 +121,12 @@ export function DesktopServerSettings() {
 
   return (
     <div className="flex flex-col gap-4">
+      {error ? (
+        <Callout tone="destructive" className="text-xs">
+          <CircleAlertIcon />
+          <span>{error}</span>
+        </Callout>
+      ) : null}
       <ServerConnectForm
         url={url}
         busy={busy}

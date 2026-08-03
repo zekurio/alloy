@@ -1,7 +1,7 @@
 import { cn } from "@alloy/ui/lib/utils"
 import type { ComponentProps } from "react"
 
-function AppShell({ className, ...props }: ComponentProps<"div">) {
+function AppShell({ className, children, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="app-shell"
@@ -21,7 +21,14 @@ function AppShell({ className, ...props }: ComponentProps<"div">) {
         className,
       )}
       {...props}
-    />
+    >
+      {children}
+      <span
+        aria-hidden
+        data-slot="app-bottom-left-anchor"
+        className="pointer-events-none fixed bottom-2 left-[calc(var(--sidebar-rail)+13px)] hidden size-0 md:block"
+      />
+    </div>
   )
 }
 

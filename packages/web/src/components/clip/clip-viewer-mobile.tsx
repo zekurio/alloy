@@ -4,7 +4,6 @@ import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { XIcon } from "lucide-react"
@@ -29,6 +28,7 @@ import { useLikeStateQuery, useToggleLikeMutation } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
 import { apiOrigin } from "@/lib/env"
 import { exitFullscreenBestEffort } from "@/lib/fullscreen"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 import { userAvatar } from "@/lib/user-display"
 
 import { ClipComments } from "./clip-comments"
@@ -101,6 +101,7 @@ function MobileClipViewerBody({
   /* ---- like state ---- */
   const likeQuery = useLikeStateQuery(row.id, { enabled: canLike })
   const likeMut = useToggleLikeMutation()
+  const shareFeedback = useActionFeedback()
   const pendingLiked =
     likeMut.isPending && likeMut.variables?.clipId === row.id
       ? likeMut.variables.nextLiked
@@ -163,34 +164,21 @@ function MobileClipViewerBody({
   /* ---- handlers ---- */
   const handleLike = useCallback(() => {
     if (!canLike) return
-    likeMut.mutate(
-      { clipId: row.id, nextLiked: !liked },
-      { onError: () => toast.error(t("Couldn't update like")) },
-    )
+    likeMut.mutate({ clipId: row.id, nextLiked: !liked })
   }, [canLike, row.id, liked, likeMut])
 
   const handleShare = useCallback(async () => {
-    if (row.privacy === "private") {
-      toast.error(t("Clip link is disabled"))
-      return
-    }
-
-    const url = currentUrlWithoutSearchOrHash()
-    if (url === null) {
-      toast.error(t("Couldn't share clip"))
-      return
-    }
-
-    const result = await shareUrlWithFallback(url, {
-      title: row.title,
-      action: "share clip link",
-    })
-    if (result === "copied") {
-      toast.success(t("Link copied"))
-    } else if (result === "failed") {
-      toast.error(t("Couldn't share clip"))
-    }
-  }, [row.privacy, row.title])
+    await shareFeedback.run(async () => {
+      const url = currentUrlWithoutSearchOrHash()
+      if (url === null) throw new Error(t("Couldn't share clip"))
+      const result = await shareUrlWithFallback(url, {
+        title: row.title,
+        action: "share clip link",
+      })
+      if (result === "failed") throw new Error(t("Couldn't share clip"))
+      return result !== "cancelled"
+    }, t("Couldn't share clip"))
+  }, [row.title, shareFeedback])
 
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
   const initialFocusRef = useRef<HTMLDivElement>(null)
@@ -212,7 +200,15 @@ function MobileClipViewerBody({
       <ClipBrowserDownloadMenuItem row={row} />
     ) : undefined,
     likeCount: row.likeCount,
+    likePending: likeMut.isPending,
+    likeError: likeMut.error ? t("Couldn't update like") : null,
     commentCount: row.commentCount,
+    shareState: shareFeedback.feedback.state,
+    shareError:
+      shareFeedback.feedback.state === "error"
+        ? shareFeedback.feedback.message
+        : null,
+    shareDisabled: row.privacy === "private",
     onLike: handleLike,
     onComments: () => setCommentsOpen(true),
     onShare: handleShare,
@@ -465,6 +461,7 @@ function MobileClipViewerBody({
         open={deleteFlow.open}
         onOpenChange={deleteFlow.setOpen}
         pending={deleteFlow.pending}
+        error={deleteFlow.error}
         localItem={deleteFlow.localItem}
         title={row.title}
         noun="clip"

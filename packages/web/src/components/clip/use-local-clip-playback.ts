@@ -8,7 +8,7 @@ export function useLocalClipPlayback(clipId: string): {
   localItem: RecordingLibraryItem | null
   settled: boolean
 } {
-  const library = useLibrarySnapshot(alloyDesktop(), { toastErrors: false })
+  const library = useLibrarySnapshot(alloyDesktop())
   const items = useMemo(() => {
     if (!library.snapshot) return []
     return library.snapshot.items

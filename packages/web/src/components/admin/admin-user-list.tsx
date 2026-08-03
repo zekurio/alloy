@@ -28,6 +28,7 @@ import {
 } from "lucide-react"
 import { memo, useState } from "react"
 
+import { errorMessage } from "@/lib/error-message"
 import { formatBytes } from "@/lib/storage-format"
 import { displayName, userAvatar } from "@/lib/user-display"
 
@@ -38,12 +39,9 @@ interface UsersListProps {
   users: AdminUserRow[]
   currentUserId: string
   busyId: string | null
-  onUpdate: (
-    user: AdminUserRow,
-    next: AdminUserEditableFields,
-  ) => Promise<boolean>
-  onToggleStatus: (user: AdminUserRow) => void
-  onDelete: (user: AdminUserRow) => void
+  onUpdate: (user: AdminUserRow, next: AdminUserEditableFields) => Promise<void>
+  onToggleStatus: (user: AdminUserRow) => Promise<void>
+  onDelete: (user: AdminUserRow) => Promise<void>
 }
 
 export function UsersList({
@@ -82,12 +80,9 @@ const UserCard = memo(function UserCard({
   user: AdminUserRow
   currentUserId: string
   busy: boolean
-  onUpdate: (
-    user: AdminUserRow,
-    next: AdminUserEditableFields,
-  ) => Promise<boolean>
-  onToggleStatus: (user: AdminUserRow) => void
-  onDelete: (user: AdminUserRow) => void
+  onUpdate: (user: AdminUserRow, next: AdminUserEditableFields) => Promise<void>
+  onToggleStatus: (user: AdminUserRow) => Promise<void>
+  onDelete: (user: AdminUserRow) => Promise<void>
 }) {
   const [openDialog, setOpenDialog] = useState<
     "edit" | "status" | "delete" | null
@@ -208,9 +203,20 @@ function ToggleUserStatusDialog({
   busy: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
-  onToggleStatus: (user: AdminUserRow) => void
+  onToggleStatus: (user: AdminUserRow) => Promise<void>
 }) {
   const isDisabled = user.status === "disabled"
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleToggleStatus() {
+    setError(null)
+    try {
+      await onToggleStatus(user)
+      onOpenChange(false)
+    } catch (cause) {
+      setError(errorMessage(cause, t("Couldn't update user")))
+    }
+  }
 
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -231,14 +237,19 @@ function ToggleUserStatusDialog({
                 )}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {error ? (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>{t("Cancel")}</AlertDialogCancel>
           <AlertDialogAction
             variant={isDisabled ? "primary" : "destructive"}
-            onClick={() => onToggleStatus(user)}
+            onClick={() => void handleToggleStatus()}
             disabled={busy}
           >
-            {isDisabled ? t("Enable") : t("Disable")}
+            {error ? t("Try again") : isDisabled ? t("Enable") : t("Disable")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -257,8 +268,20 @@ function DeleteUserDialog({
   busy: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
-  onDelete: (user: AdminUserRow) => void
+  onDelete: (user: AdminUserRow) => Promise<void>
 }) {
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleDelete() {
+    setError(null)
+    try {
+      await onDelete(user)
+      onOpenChange(false)
+    } catch (cause) {
+      setError(errorMessage(cause, t("Couldn't remove user")))
+    }
+  }
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -270,14 +293,19 @@ function DeleteUserDialog({
             {t("This removes their sessions and clips. It can't be undone.")}
           </AlertDialogDescription>
         </AlertDialogHeader>
+        {error ? (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
+        ) : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>{t("Cancel")}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            onClick={() => onDelete(user)}
+            onClick={() => void handleDelete()}
             disabled={busy}
           >
-            {busy ? t("Deleting…") : t("Delete")}
+            {busy ? t("Deleting…") : error ? t("Try again") : t("Delete")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

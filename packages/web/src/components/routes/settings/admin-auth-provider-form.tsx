@@ -5,6 +5,7 @@ import {
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
@@ -15,11 +16,11 @@ import {
   SelectValue,
 } from "@alloy/ui/components/select"
 import { Switch } from "@alloy/ui/components/switch"
-import { toast } from "@alloy/ui/lib/toast"
 import { ChevronDownIcon, CopyIcon } from "lucide-react"
 import type { ComponentProps } from "react"
 
 import { copyTextToClipboard } from "@/lib/clipboard"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import type { ProviderDraft } from "./admin-auth-provider-utils"
 import { callbackURLForProvider } from "./admin-auth-provider-utils"
@@ -375,15 +376,17 @@ function ToggleField({
 }
 
 function CallbackUrlField({ id, value }: { id: string; value: string }) {
+  const copyFeedback = useActionFeedback()
   async function copyCallbackUrl() {
-    const copied = await copyTextToClipboard(value, {
-      action: "copy OAuth callback URL",
-    })
-    if (copied) {
-      toast.success(t("Callback URL copied"))
-      return
-    }
-    toast.error(t("Couldn't copy callback URL"))
+    await copyFeedback.run(async () => {
+      if (
+        !(await copyTextToClipboard(value, {
+          action: "copy OAuth callback URL",
+        }))
+      ) {
+        throw new Error(t("Couldn't copy callback URL"))
+      }
+    }, t("Couldn't copy callback URL"))
   }
 
   return (
@@ -391,16 +394,25 @@ function CallbackUrlField({ id, value }: { id: string; value: string }) {
       <FieldLabel htmlFor={id}>{t("Callback URL")}</FieldLabel>
       <div className="flex gap-2">
         <Input id={id} value={value} readOnly className="font-mono" />
-        <Button
+        <FeedbackButton
           type="button"
           variant="outline"
           size="icon"
           className="shrink-0"
           aria-label={t("Copy callback URL")}
+          state={copyFeedback.feedback.state}
+          pendingLabel={<span className="sr-only">{t("Copying…")}</span>}
+          successLabel={<span className="sr-only">{t("Copied")}</span>}
+          errorLabel={<span className="sr-only">{t("Try again")}</span>}
+          title={
+            copyFeedback.feedback.state === "error"
+              ? copyFeedback.feedback.message
+              : undefined
+          }
           onClick={() => void copyCallbackUrl()}
         >
           <CopyIcon />
-        </Button>
+        </FeedbackButton>
       </div>
       <FieldDescription>
         {t("Register this redirect URI with the provider.")}

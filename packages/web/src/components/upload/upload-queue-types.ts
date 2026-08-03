@@ -44,7 +44,7 @@ export interface QueueItem {
   onThumbLoad?: () => void
   onCancel?: () => void
   onOpen?: () => void
-  onCopyLink?: () => void
+  onCopyLink?: () => Promise<void>
   onRetry?: () => void
   onDismiss?: () => void
 }

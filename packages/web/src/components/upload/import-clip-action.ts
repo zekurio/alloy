@@ -1,6 +1,5 @@
 import type { GameRow } from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useCallback, useState } from "react"
@@ -14,6 +13,7 @@ export interface ImportClipAction {
   available: boolean
   picking: boolean
   committing: boolean
+  error: string | null
   staged: RecordingLibraryStagedImport | null
   start: () => Promise<void>
   discard: () => Promise<void>
@@ -27,6 +27,7 @@ export function useImportClipAction(
   const queryClient = useQueryClient()
   const [picking, setPicking] = useState(false)
   const [committing, setCommitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [staged, setStaged] = useState<RecordingLibraryStagedImport | null>(
     null,
   )
@@ -35,13 +36,14 @@ export function useImportClipAction(
 
   const start = useCallback(async () => {
     if (!desktop || picking || committing || staged) return
+    setError(null)
     setPicking(true)
     try {
       const result = await desktop.recording.importLibraryFiles()
       if (result.canceled) return
       if (result.failed.length > 0) {
         const [first] = result.failed
-        toast.error(
+        setError(
           result.failed.length === 1
             ? t("{fileName}: {error}", {
                 error: first.error,
@@ -60,7 +62,7 @@ export function useImportClipAction(
       const [next] = result.staged
       if (next) setStaged(next)
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Could not import clip.")))
+      setError(errorMessage(cause, t("Could not import clip.")))
     } finally {
       setPicking(false)
     }
@@ -69,11 +71,12 @@ export function useImportClipAction(
   const discard = useCallback(async () => {
     const current = staged
     if (!current || !desktop || committing) return
+    setError(null)
     setStaged(null)
     try {
       await desktop.recording.discardStagedLibraryImport(current.id)
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Could not clear staged import.")))
+      setError(errorMessage(cause, t("Could not clear staged import.")))
     }
   }, [committing, desktop, staged])
 
@@ -82,6 +85,7 @@ export function useImportClipAction(
       const current = staged
       if (!current || !desktop || committing) return
 
+      setError(null)
       setCommitting(true)
       try {
         const result = await desktop.recording.commitStagedLibraryImport({
@@ -91,14 +95,13 @@ export function useImportClipAction(
           gameIconUrl: game.iconUrl ?? game.logoUrl,
         })
         await refreshLibrarySnapshotCache(queryClient, desktop)
-        toast.success(t("Clip imported to your library"))
         await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
         })
         setStaged(null)
       } catch (cause) {
-        toast.error(errorMessage(cause, t("Could not import clip.")))
+        setError(errorMessage(cause, t("Could not import clip.")))
       } finally {
         setCommitting(false)
       }
@@ -106,5 +109,14 @@ export function useImportClipAction(
     [committing, desktop, navigate, queryClient, staged],
   )
 
-  return { available, picking, committing, staged, start, discard, commit }
+  return {
+    available,
+    picking,
+    committing,
+    error,
+    staged,
+    start,
+    discard,
+    commit,
+  }
 }

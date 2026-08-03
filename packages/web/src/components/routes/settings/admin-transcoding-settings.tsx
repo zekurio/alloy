@@ -7,6 +7,7 @@ import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Input } from "@alloy/ui/components/input"
 import {
   Section,
@@ -21,7 +22,6 @@ import {
   SelectValue,
 } from "@alloy/ui/components/select"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
-import { toast } from "@alloy/ui/lib/toast"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { RefreshCwIcon, SaveIcon, TriangleAlertIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -49,7 +49,7 @@ import {
   adminTranscodingCapabilitiesQueryOptions,
 } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
-import { errorMessage } from "@/lib/error-message"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 export function TranscodingSettingsContent({
   config,
@@ -60,6 +60,8 @@ export function TranscodingSettingsContent({
   const [form, setForm] = useState<TranscodingForm>(() => formFromConfig(saved))
   const [saving, setSaving] = useState(false)
   const [redetecting, setRedetecting] = useState(false)
+  const saveFeedback = useActionFeedback()
+  const detectionFeedback = useActionFeedback()
   const queryClient = useQueryClient()
   const capabilitiesQuery = useQuery(adminTranscodingCapabilitiesQueryOptions())
   const capabilities = capabilitiesQuery.data ?? null
@@ -86,8 +88,9 @@ export function TranscodingSettingsContent({
   async function save() {
     if (saving || !dirty) return
     if (!validation.valid) {
-      if (validation.message) toast.error(validation.message)
-      return
+      throw new Error(
+        validation.message ?? t("Fix the invalid settings before saving."),
+      )
     }
     setSaving(true)
     try {
@@ -106,15 +109,13 @@ export function TranscodingSettingsContent({
         })),
       })
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
-      toast.success(t("Transcoding settings saved"))
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't save transcoding settings")))
     } finally {
       setSaving(false)
     }
   }
 
   function discard() {
+    saveFeedback.reset()
     setForm(formFromConfig(saved))
   }
 
@@ -126,15 +127,18 @@ export function TranscodingSettingsContent({
         refresh: true,
       })
       queryClient.setQueryData(adminKeys.transcodingCapabilities(), next)
-      toast.success(t("Encoder detection refreshed"))
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't detect encoders")))
     } finally {
       setRedetecting(false)
     }
   }
 
-  const inSettingsDialog = useSettingsSaveBar({ dirty, saving, save, discard })
+  const inSettingsDialog = useSettingsSaveBar({
+    dirty,
+    saving,
+    valid: validation.valid,
+    save,
+    discard,
+  })
 
   return (
     <Section>
@@ -158,19 +162,30 @@ export function TranscodingSettingsContent({
                     {ffmpegBadgeLabel(capabilities)}
                   </Badge>
                 ) : null}
-                <Button
+                <FeedbackButton
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={reDetect}
+                  state={detectionFeedback.feedback.state}
+                  pendingLabel={t("Detecting...")}
+                  successLabel={t("Detected")}
+                  errorLabel={
+                    detectionFeedback.feedback.state === "error"
+                      ? detectionFeedback.feedback.message
+                      : t("Try again")
+                  }
+                  onClick={() =>
+                    void detectionFeedback.run(
+                      reDetect,
+                      t("Couldn't detect encoders"),
+                    )
+                  }
                   disabled={redetecting || capabilitiesQuery.isLoading}
                   className="shrink-0"
                 >
-                  <RefreshCwIcon
-                    className={redetecting ? "animate-spin" : ""}
-                  />
-                  {redetecting ? t("Detecting...") : t("Re-detect")}
-                </Button>
+                  <RefreshCwIcon />
+                  {t("Re-detect")}
+                </FeedbackButton>
               </div>
             }
           >
@@ -384,17 +399,30 @@ export function TranscodingSettingsContent({
             >
               {t("Cancel")}
             </Button>
-            <Button
+            <FeedbackButton
               className="flex-1 sm:flex-initial"
               type="button"
               variant="primary"
               size="sm"
-              onClick={save}
+              state={saveFeedback.feedback.state}
+              pendingLabel={t("Saving...")}
+              successLabel={t("Saved")}
+              errorLabel={
+                saveFeedback.feedback.state === "error"
+                  ? saveFeedback.feedback.message
+                  : t("Try again")
+              }
+              onClick={() =>
+                void saveFeedback.run(
+                  save,
+                  t("Couldn't save transcoding settings"),
+                )
+              }
               disabled={saving || !dirty || !validation.valid}
             >
               <SaveIcon />
-              {saving ? t("Saving...") : t("Save")}
-            </Button>
+              {t("Save")}
+            </FeedbackButton>
           </div>
         </SectionFooter>
       )}

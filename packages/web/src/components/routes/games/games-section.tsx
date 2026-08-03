@@ -5,7 +5,6 @@ import { AlertCircleIcon } from "lucide-react"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { GameCard } from "@/components/game/game-card"
 import { useGamesListQuery } from "@/lib/game-queries"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 import { GamesGrid } from "./games-grid"
 
@@ -23,10 +22,6 @@ function GamesEmpty() {
 
 export function GamesSection() {
   const { data: games, error, isPending } = useGamesListQuery()
-  useQueryErrorToast(error, {
-    title: t("Couldn't load games"),
-    toastId: "games-list-error",
-  })
   return (
     <section>
       {games !== undefined ? (

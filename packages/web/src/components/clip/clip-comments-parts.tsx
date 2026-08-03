@@ -206,6 +206,8 @@ export function CommentActions({
   replyCount,
   repliesOpen,
   canReply,
+  canLike,
+  likePending,
   showLike = true,
   compactReplies = false,
   pinned,
@@ -221,6 +223,8 @@ export function CommentActions({
   replyCount: number
   repliesOpen: boolean
   canReply: boolean
+  canLike: boolean
+  likePending: boolean
   showLike?: boolean
   compactReplies?: boolean
   pinned: boolean
@@ -236,6 +240,7 @@ export function CommentActions({
         <CommentLikeButton
           liked={liked}
           likeCount={likeCount}
+          disabled={!canLike || likePending}
           onClick={onToggleLike}
         />
       ) : null}
@@ -338,16 +343,20 @@ export function CommentActions({
 function CommentLikeButton({
   liked,
   likeCount,
+  disabled,
   onClick,
 }: {
   liked: boolean
   likeCount: number
+  disabled: boolean
   onClick: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
+      title={!disabled ? undefined : t("Sign in to like comments")}
       aria-pressed={liked}
       className={cn(
         "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
@@ -356,6 +365,7 @@ function CommentLikeButton({
         liked ? "text-accent" : "text-foreground-faint hover:text-foreground",
         "hover:bg-surface-raised",
         "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background focus-visible:outline-none",
+        "disabled:pointer-events-none disabled:opacity-50",
       )}
     >
       <HeartIcon className={cn("size-3", liked && "fill-current")} />

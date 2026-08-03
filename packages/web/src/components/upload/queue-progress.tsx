@@ -1,10 +1,13 @@
 import type { EncodeStage } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Progress } from "@base-ui/react/progress"
 import { CopyIcon, ExternalLinkIcon, RefreshCwIcon, XIcon } from "lucide-react"
 import type { ReactNode } from "react"
+
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import { isCompletedQueueStatus, type QueueItem } from "./upload-queue-types"
 
@@ -148,11 +151,7 @@ function QueueItemActions({ item }: { item: QueueItem }) {
           <ExternalLinkIcon />
         </QueueIconButton>
       ) : null}
-      {item.onCopyLink ? (
-        <QueueIconButton label={t("Copy link")} onClick={item.onCopyLink}>
-          <CopyIcon />
-        </QueueIconButton>
-      ) : null}
+      {item.onCopyLink ? <QueueCopyButton onCopy={item.onCopyLink} /> : null}
       {failed && item.onRetry ? (
         <QueueIconButton label={t("Retry")} onClick={item.onRetry}>
           <RefreshCwIcon />
@@ -169,6 +168,33 @@ function QueueItemActions({ item }: { item: QueueItem }) {
         </QueueIconButton>
       ) : null}
     </div>
+  )
+}
+
+function QueueCopyButton({ onCopy }: { onCopy: () => Promise<void> }) {
+  const feedback = useActionFeedback()
+  const label =
+    feedback.feedback.state === "success"
+      ? t("Copied")
+      : feedback.feedback.state === "error"
+        ? feedback.feedback.message
+        : t("Copy link")
+  return (
+    <FeedbackButton
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      state={feedback.feedback.state}
+      pendingLabel={<span className="sr-only">{t("Copying…")}</span>}
+      successLabel={<span className="sr-only">{t("Copied")}</span>}
+      errorLabel={<span className="sr-only">{t("Try again")}</span>}
+      aria-label={label}
+      title={label}
+      onClick={() => void feedback.run(onCopy, t("Couldn't copy link"))}
+      className="text-foreground-muted hover:text-foreground size-7"
+    >
+      <CopyIcon />
+    </FeedbackButton>
   )
 }
 

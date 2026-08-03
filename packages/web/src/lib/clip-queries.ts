@@ -205,7 +205,6 @@ export function useReEncodeClipMutation() {
       // Server-canonical state; the detail query's refetch interval takes over
       // polling until the re-encode publishes.
       patchClipInCaches(qc, row.id, row)
-      toast.success(t("Re-encode started."))
     },
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: clipKeys.all })

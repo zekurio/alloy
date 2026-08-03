@@ -9,7 +9,8 @@ import type {
   RecordingStorageInfo,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
+import { Callout } from "@alloy/ui/components/callout"
+import { CircleAlertIcon } from "lucide-react"
 import {
   createContext,
   useCallback,
@@ -31,6 +32,7 @@ interface DesktopRecordingContextValue {
   storageInfo: RecordingStorageInfo | null
   phase: Phase
   busy: boolean
+  error: string | null
   /** Local-only update, e.g. live slider dragging before committing. */
   setSettings: Dispatch<SetStateAction<RecordingSettings | null>>
   /** Persist the given settings to the desktop shell. */
@@ -80,8 +82,8 @@ export function DesktopRecordingProvider({
     null,
   )
   const [phase, setPhase] = useState<Phase>("loading")
+  const [error, setError] = useState<string | null>(null)
   const saveSequence = useRef(0)
-  const lastStatusMessageToast = useRef<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -98,6 +100,7 @@ export function DesktopRecordingProvider({
         return
       }
       setPhase("loading")
+      setError(null)
       try {
         unsubscribe = recording.onEvent((event: RecordingEvent) => {
           if (cancelled) return
@@ -122,7 +125,7 @@ export function DesktopRecordingProvider({
         setPhase("idle")
       } catch (cause) {
         if (!cancelled) {
-          toast.error(errorText(cause, t("Couldn't load recording settings.")))
+          setError(errorText(cause, t("Couldn't load recording settings.")))
           setPhase("idle")
         }
       }
@@ -139,29 +142,10 @@ export function DesktopRecordingProvider({
     }
   }, [recording])
 
-  useEffect(() => {
-    const message = status?.message?.trim()
-    const backend = status?.backend
-    if (!message || !backend) {
-      lastStatusMessageToast.current = null
-      return
-    }
-
-    const toastKey = `${backend}:${message}`
-    if (lastStatusMessageToast.current === toastKey) return
-    lastStatusMessageToast.current = toastKey
-
-    const options = { id: `desktop-recording-status:${toastKey}` }
-    if (backend === "missing") {
-      toast.warning(t(message), options)
-    } else {
-      toast.error(t(message), options)
-    }
-  }, [status?.backend, status?.message])
-
   const save = useCallback(
     async (next: RecordingSettings) => {
       if (!recording) return
+      setError(null)
       const sequence = ++saveSequence.current
       setSettings(next)
       try {
@@ -170,7 +154,7 @@ export function DesktopRecordingProvider({
         setSettings(saved)
       } catch (cause) {
         if (sequence !== saveSequence.current) return
-        toast.error(errorText(cause, t("Couldn't save recording settings.")))
+        setError(errorText(cause, t("Couldn't save recording settings.")))
       }
     },
     [recording],
@@ -178,6 +162,7 @@ export function DesktopRecordingProvider({
 
   const chooseOutputFolder = useCallback(async () => {
     if (!recording) return
+    setError(null)
     try {
       const folder = await recording.selectOutputFolder()
       if (!folder) return
@@ -188,19 +173,20 @@ export function DesktopRecordingProvider({
       setSettings(nextSettings)
       setStorageInfo(nextStorage)
     } catch (cause) {
-      toast.error(errorText(cause, t("Couldn't change the capture folder.")))
+      setError(errorText(cause, t("Couldn't change the capture folder.")))
     }
   }, [recording])
 
   const restartBackend = useCallback(async () => {
     if (!recording) return
+    setError(null)
     setPhase("loading")
     try {
       const nextStatus = await recording.restartBackend()
       setStatus(nextStatus)
-      toast.success(t("Recording sidecar restarted."))
     } catch (cause) {
-      toast.error(errorText(cause, t("Couldn't restart recording sidecar.")))
+      setError(errorText(cause, t("Couldn't restart recording sidecar.")))
+      throw cause
     } finally {
       setPhase("idle")
     }
@@ -208,10 +194,11 @@ export function DesktopRecordingProvider({
 
   const listNotificationSounds = useCallback(async () => {
     if (!recording) return EMPTY_SOUND_LIBRARY
+    setError(null)
     try {
       return await recording.listNotificationSounds()
     } catch (cause) {
-      toast.error(errorText(cause, t("Couldn't load notification sounds.")))
+      setError(errorText(cause, t("Couldn't load notification sounds.")))
       return EMPTY_SOUND_LIBRARY
     }
   }, [recording])
@@ -219,10 +206,11 @@ export function DesktopRecordingProvider({
   const openNotificationSoundsFolder = useCallback(
     async (sound: RecordingNotificationSoundEvent) => {
       if (!recording) return
+      setError(null)
       try {
         await recording.openNotificationSoundsFolder(sound)
       } catch (cause) {
-        toast.error(errorText(cause, t("Couldn't open the sounds folder.")))
+        setError(errorText(cause, t("Couldn't open the sounds folder.")))
       }
     },
     [recording],
@@ -231,10 +219,11 @@ export function DesktopRecordingProvider({
   const previewNotificationSound = useCallback(
     async (sound: RecordingNotificationSoundEvent) => {
       if (!recording) return
+      setError(null)
       try {
         await recording.previewNotificationSound(sound)
       } catch (cause) {
-        toast.error(errorText(cause, t("Couldn't play the sound.")))
+        setError(errorText(cause, t("Couldn't play the sound.")))
       }
     },
     [recording],
@@ -242,20 +231,22 @@ export function DesktopRecordingProvider({
 
   const listGameProcesses = useCallback(async () => {
     if (!recording) return []
+    setError(null)
     try {
       return await recording.listGameProcesses()
     } catch (cause) {
-      toast.error(errorText(cause, t("Couldn't load running processes.")))
+      setError(errorText(cause, t("Couldn't load running processes.")))
       return []
     }
   }, [recording])
 
   const listDisplays = useCallback(async () => {
     if (!recording) return []
+    setError(null)
     try {
       return await recording.listDisplays()
     } catch (cause) {
-      toast.error(errorText(cause, t("Couldn't load displays.")))
+      setError(errorText(cause, t("Couldn't load displays.")))
       return []
     }
   }, [recording])
@@ -267,6 +258,7 @@ export function DesktopRecordingProvider({
       storageInfo,
       phase,
       busy: phase !== "idle",
+      error,
       setSettings,
       save,
       restartBackend,
@@ -282,6 +274,7 @@ export function DesktopRecordingProvider({
       status,
       storageInfo,
       phase,
+      error,
       save,
       restartBackend,
       chooseOutputFolder,
@@ -308,6 +301,21 @@ export function useDesktopRecording(): DesktopRecordingContextValue {
     )
   }
   return value
+}
+
+export function DesktopRecordingNotice() {
+  const { error, status } = useDesktopRecording()
+  const statusMessage = status?.message?.trim()
+  const message = error ?? (statusMessage ? t(statusMessage) : null)
+  if (!message) return null
+  return (
+    <Callout
+      tone={!error && status?.backend === "missing" ? "warning" : "destructive"}
+    >
+      <CircleAlertIcon />
+      <span>{message}</span>
+    </Callout>
+  )
 }
 
 function errorText(cause: unknown, fallback: string): string {

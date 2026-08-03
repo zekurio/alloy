@@ -2,6 +2,7 @@ import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Card } from "@alloy/ui/components/card"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   AudioLinesIcon,
@@ -96,6 +97,7 @@ export function MobileClipEditor({
         audioMixer={audioMixer}
         canSaveTrim={tabs.canSaveTrim}
         trimPending={tabs.trimPending}
+        trimError={tabs.trimError}
         onSaveTrim={() => {
           // Stay in the trim view while the save is pending (the button shows
           // "Saving…") and on failure, so the unsaved handles remain editable;
@@ -202,6 +204,7 @@ function MobileTrimView({
   audioMixer,
   canSaveTrim,
   trimPending,
+  trimError,
   onSaveTrim,
   onCancel,
 }: {
@@ -212,6 +215,7 @@ function MobileTrimView({
   audioMixer: AudioTrackMixerController | undefined
   canSaveTrim: boolean
   trimPending: boolean
+  trimError: string | null
   onSaveTrim: () => void
   onCancel: () => void
 }) {
@@ -354,17 +358,26 @@ function MobileTrimView({
         {t("Drag to scrub, pinch to zoom")}
       </p>
 
-      <Button
+      {trimError ? (
+        <p role="alert" className="text-destructive text-center text-sm">
+          {trimError}
+        </p>
+      ) : null}
+
+      <FeedbackButton
         type="button"
         variant="primary"
         size="lg"
         className="w-full"
         disabled={!canSaveTrim}
+        state={trimPending ? "pending" : trimError ? "error" : "idle"}
+        pendingLabel={t("Saving…")}
+        errorLabel={t("Try again")}
         onClick={onSaveTrim}
       >
         <SaveIcon />
-        {trimPending ? t("Saving…") : t("Save trim")}
-      </Button>
+        {t("Save trim")}
+      </FeedbackButton>
     </section>
   )
 }

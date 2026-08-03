@@ -30,6 +30,7 @@ import {
 import { useEffect, useRef, useState, type CSSProperties } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
+import { bottomLeftAppCornerAnchor } from "@/components/layout/corner-anchors"
 import { formatRelativeTime } from "@/lib/date-format"
 import { alloyDesktop } from "@/lib/desktop"
 import {
@@ -46,9 +47,17 @@ import { useNotificationStream } from "@/lib/notification-stream"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 import { userAvatar } from "@/lib/user-display"
 
-export function NotificationBell() {
+type NotificationBellVariant = "header" | "sidebar" | "bottom-nav"
+
+export function NotificationBell({
+  variant = "header",
+}: {
+  variant?: NotificationBellVariant
+}) {
   const isMobile = useIsMobile()
-  const stream = useNotificationStream({ enabled: true })
+  const stream = useNotificationStream({
+    enabled: variant === "bottom-nav" ? isMobile : !isMobile,
+  })
   const unreadQuery = useQuery(unreadCountQueryOptions())
   const listQuery = useInfiniteQuery(notificationsInfiniteQueryOptions())
   const markRead = useMarkNotificationReadMutation()
@@ -83,35 +92,56 @@ export function NotificationBell() {
     <Popover>
       <PopoverTrigger
         render={
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
             aria-label={t("Notifications")}
-            className="relative"
+            title={t("Notifications")}
+            className={cn(
+              "relative flex appearance-none items-center justify-center border-0 bg-transparent outline-none",
+              "focus-visible:ring-ring focus-visible:ring-2",
+              variant === "header" &&
+                "text-foreground hover:bg-surface-raised size-8 rounded-md",
+              variant === "sidebar" &&
+                "text-foreground-muted hover:text-foreground size-10 rounded-md [&_svg]:size-6",
+              variant === "bottom-nav" &&
+                "group/tab text-foreground-muted active:text-accent flex-col gap-1 px-1 text-[10px] leading-none font-medium [-webkit-tap-highlight-color:transparent] [&_svg]:size-[22px]",
+            )}
           />
         }
       >
-        <BellIcon
-          className={cn("size-4", ringing && "animate-bell-ring")}
-          onAnimationEnd={() => setRinging(false)}
-        />
-        {unreadCount > 0 ? (
-          <Badge
-            key={unreadCount}
-            variant="accent"
-            className="animate-badge-pop absolute -top-1 -right-1 h-4 min-w-4 justify-center px-1 text-[10px] leading-none"
-          >
-            {unreadCount > 99 ? "99+" : unreadCount}
-          </Badge>
+        <span className="relative">
+          <BellIcon
+            className={cn(
+              variant === "header" ? "size-4" : "size-[22px]",
+              ringing && "animate-bell-ring",
+            )}
+            onAnimationEnd={() => setRinging(false)}
+          />
+          {unreadCount > 0 ? (
+            <Badge
+              key={unreadCount}
+              variant="accent"
+              className="animate-badge-pop absolute -top-1.5 -right-2 h-4 min-w-4 justify-center px-1 text-[10px] leading-none"
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </Badge>
+          ) : null}
+        </span>
+        {variant === "bottom-nav" ? (
+          <span className="max-w-full truncate">{t("Notifications")}</span>
         ) : null}
       </PopoverTrigger>
       <PopoverContent
-        // Mobile anchors the panel to the whole header rather than the bell, so
-        // the gaps to the header and to both screen edges are all 8px. There is
-        // no rail on mobile, so centering on the header centers on the viewport.
-        anchor={isMobile ? headerAnchor : undefined}
-        align={isMobile ? "center" : "end"}
-        sideOffset={isMobile ? 8 : 4}
+        anchor={variant === "sidebar" ? bottomLeftAppCornerAnchor : undefined}
+        align={variant === "sidebar" ? "start" : "end"}
+        side={
+          variant === "sidebar"
+            ? "top"
+            : variant === "bottom-nav"
+              ? "top"
+              : "bottom"
+        }
+        sideOffset={variant === "sidebar" ? 0 : variant === "header" ? 4 : 8}
         className="alloy-blur w-96 max-w-[calc(100vw-1rem)] gap-0 border p-0 ring-0"
         style={
           {
@@ -193,9 +223,6 @@ export function NotificationBell() {
     </Popover>
   )
 }
-
-const headerAnchor = () =>
-  document.querySelector<HTMLElement>('[data-slot="app-header"]')
 
 const KIND_ICONS: Record<NotificationItem["kind"], LucideIcon> = {
   follow: UserPlusIcon,

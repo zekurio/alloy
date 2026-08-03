@@ -43,6 +43,7 @@ import {
 } from "@/lib/audio-device-selection"
 import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
 
+import { bottomLeftAppCornerAnchor } from "./corner-anchors"
 import { DisplayPickerDialog } from "./recording-display-picker"
 import {
   audioDeviceMultiSelectLabel,
@@ -91,8 +92,8 @@ export function DesktopRecordingStatus() {
 
 /**
  * Icon-only capture-status trigger for the sidebar rail. The status text lives
- * in a tooltip (and the aria-label); the popover opens to the right of the
- * rail.
+ * in a tooltip (and the aria-label); the popover occupies the shared
+ * bottom-left app corner.
  */
 function RecordingStatusPopover({
   active,
@@ -166,11 +167,10 @@ function RecordingStatusPopover({
         <TooltipContent side="right">{statusText}</TooltipContent>
       </Tooltip>
       <PopoverContent
-        align="end"
-        side="right"
-        // Account for the trigger's inset inside the rail, then leave a clear
-        // gap matching the popover's collision padding at the window bottom.
-        sideOffset={14}
+        anchor={bottomLeftAppCornerAnchor}
+        align="start"
+        side="top"
+        sideOffset={0}
         className="alloy-blur w-[26rem] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0"
         style={
           {

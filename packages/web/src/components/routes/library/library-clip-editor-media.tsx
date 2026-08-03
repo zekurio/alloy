@@ -6,12 +6,11 @@ import {
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
 import { Card } from "@alloy/ui/components/card"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -44,6 +43,7 @@ import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { canPlaySource } from "@/lib/media-capability"
 import { useSpriteSheetFilmstrip } from "@/lib/media-filmstrip"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import {
   LibraryEntryNavButton,
@@ -390,29 +390,38 @@ export function SetPosterButton({
   compact?: boolean
 }) {
   const mutation = useSetClipPosterMutation()
+  const feedback = useActionFeedback()
   return (
-    <Button
+    <FeedbackButton
       type="button"
       variant="ghost"
       size={compact ? "icon" : "sm"}
       disabled={mutation.isPending}
+      state={feedback.feedback.state}
+      pendingLabel={compact ? null : t("Updating…")}
+      successLabel={compact ? null : t("Poster updated")}
+      errorLabel={compact ? null : t("Try again")}
       aria-label={compact ? t("Use frame as poster") : undefined}
-      title={compact ? t("Use frame as poster") : undefined}
+      title={
+        feedback.feedback.state === "error"
+          ? feedback.feedback.message
+          : compact
+            ? t("Use frame as poster")
+            : undefined
+      }
       onClick={() => {
         playback.playerRef.current?.pause()
-        mutation.mutate(
-          { clipId, timeMs: Math.round(playback.getCurrentMs()) },
-          {
-            onSuccess: () => toast.success(t("Poster updated")),
-            onError: (cause) =>
-              toast.error(cause.message || t("Couldn't update the poster")),
-          },
-        )
+        void feedback.run(async () => {
+          await mutation.mutateAsync({
+            clipId,
+            timeMs: Math.round(playback.getCurrentMs()),
+          })
+        }, t("Couldn't update the poster"))
       }}
     >
       {mutation.isPending ? <Spinner className="size-4" /> : <ImageIcon />}
       {compact ? null : t("Use frame as poster")}
-    </Button>
+    </FeedbackButton>
   )
 }
 

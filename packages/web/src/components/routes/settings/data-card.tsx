@@ -1,8 +1,8 @@
-import { t, tp } from "@alloy/i18n"
+import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
-import { toast } from "@alloy/ui/lib/toast"
 import { DownloadIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
 
@@ -14,9 +14,11 @@ import { getQueryClient } from "@/lib/query-client"
 
 function useDeleteAllClipsAction() {
   const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const onDeleteAllClips = async () => {
-    if (pending) return
+    if (pending) return false
+    setError(null)
     setPending(true)
     try {
       let deleted = 0
@@ -28,27 +30,26 @@ function useDeleteAllClipsAction() {
         if (result.deleted === 0) break
       }
       await getQueryClient().invalidateQueries()
-      toast.success(
-        tp(deleted, "Deleted {count} clip", "Deleted {count} clips", {
-          count: deleted,
-        }),
-      )
+      return true
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't delete clips")))
+      setError(errorMessage(cause, t("Couldn't delete clips")))
+      return false
     } finally {
       setPending(false)
     }
   }
 
-  return { pending, onDeleteAllClips }
+  return { pending, error, setError, onDeleteAllClips }
 }
 
 function DownloadClipsRow() {
+  const [failed, setFailed] = useState(false)
+
   function onDownloadAllClips() {
     const started = startBrowserDownload(api.users.downloadAllClipsUrl(), {
       rel: "noopener",
     })
-    if (!started) toast.error(t("Couldn't start download"))
+    setFailed(!started)
   }
 
   return (
@@ -58,25 +59,31 @@ function DownloadClipsRow() {
         "Download a zip archive with the original files for your clips.",
       )}
     >
-      <Button
+      <FeedbackButton
         type="button"
         variant="outline"
         size="sm"
+        state={failed ? "error" : "idle"}
+        errorLabel={t("Try again")}
         onClick={onDownloadAllClips}
       >
         <DownloadIcon />
         {t("Download")}
-      </Button>
+      </FeedbackButton>
     </SettingRow>
   )
 }
 
 function DeleteClipsRow({
   pending,
+  error,
+  clearError,
   onDeleteAllClips,
 }: {
   pending: boolean
-  onDeleteAllClips: () => Promise<void>
+  error: string | null
+  clearError: () => void
+  onDeleteAllClips: () => Promise<boolean>
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -99,13 +106,21 @@ function DeleteClipsRow({
         </Button>
         <ConfirmDeleteDialog
           open={deleteOpen}
-          onOpenChange={setDeleteOpen}
+          onOpenChange={(open) => {
+            setDeleteOpen(open)
+            if (!open) clearError()
+          }}
           title={t("Delete all clips?")}
           description={t("This permanently removes every clip you uploaded.")}
           confirmLabel={t("Delete clips")}
           pendingLabel={t("Deleting...")}
           pending={pending}
-          onConfirm={onDeleteAllClips}
+          error={error}
+          onConfirm={() => {
+            void onDeleteAllClips().then((deleted) => {
+              if (deleted) setDeleteOpen(false)
+            })
+          }}
         />
       </>
     </SettingRow>
@@ -117,12 +132,18 @@ export function StorageUsageCard() {
 }
 
 export function ClipDataCard() {
-  const { pending, onDeleteAllClips } = useDeleteAllClipsAction()
+  const { pending, error, setError, onDeleteAllClips } =
+    useDeleteAllClipsAction()
 
   return (
     <SettingRows>
       <DownloadClipsRow />
-      <DeleteClipsRow pending={pending} onDeleteAllClips={onDeleteAllClips} />
+      <DeleteClipsRow
+        pending={pending}
+        error={error}
+        clearError={() => setError(null)}
+        onDeleteAllClips={onDeleteAllClips}
+      />
     </SettingRows>
   )
 }

@@ -1,6 +1,7 @@
 import type { ClipPrivacy } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { Card } from "@alloy/ui/components/card"
 import { Dialog, DialogViewportContent } from "@alloy/ui/components/dialog"
 import {
@@ -9,7 +10,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import { ChevronUpIcon, Link2Icon, Loader2Icon, UploadIcon } from "lucide-react"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import {
+  ChevronUpIcon,
+  CircleAlertIcon,
+  CopyIcon,
+  Link2Icon,
+  UploadIcon,
+} from "lucide-react"
 
 import {
   MediaStage,
@@ -58,7 +66,12 @@ export function WebUploadEditor({ action }: { action: WebUploadAction }) {
             selected={action.selected}
             previewUrl={action.previewUrl}
             pending={action.publishing}
+            error={action.error}
+            awaitingLinkCopy={action.awaitingLinkCopy}
             onCancel={action.discard}
+            onRetryLinkCopy={() => {
+              void action.retryLinkCopy()
+            }}
             onPublish={(metadata) => {
               void action.publish(metadata)
             }}
@@ -73,13 +86,19 @@ function WebUploadEditorInner({
   selected,
   previewUrl,
   pending,
+  error,
+  awaitingLinkCopy,
   onCancel,
+  onRetryLinkCopy,
   onPublish,
 }: {
   selected: SelectedFile
   previewUrl: string
   pending: boolean
+  error: string | null
+  awaitingLinkCopy: boolean
   onCancel: () => void
+  onRetryLinkCopy: () => void
   onPublish: (metadata: WebUploadMetadata) => void
 }) {
   const playback = useTrimPlayback({ initialDurationMs: selected.durationMs })
@@ -110,7 +129,11 @@ function WebUploadEditorInner({
     tags: [],
   })
   const canPublish =
-    !pending && !titleInvalid && !descriptionInvalid && rangeMs >= MIN_TRIM_MS
+    !pending &&
+    !awaitingLinkCopy &&
+    !titleInvalid &&
+    !descriptionInvalid &&
+    rangeMs >= MIN_TRIM_MS
 
   const submit = (privacy: ClipPrivacy) => {
     if (!canPublish) return
@@ -188,7 +211,7 @@ function WebUploadEditorInner({
               onMentionsChange={setMentions}
               tags={tags}
               onTagsChange={setTags}
-              disabled={pending}
+              disabled={pending || awaitingLinkCopy}
               titleInvalid={titleInvalid}
               gameInvalid={false}
             />
@@ -199,6 +222,12 @@ function WebUploadEditorInner({
                 })}
               </p>
             ) : null}
+            {error ? (
+              <Callout tone="destructive" className="text-xs">
+                <CircleAlertIcon />
+                <span>{error}</span>
+              </Callout>
+            ) : null}
 
             <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
               <Button
@@ -207,46 +236,63 @@ function WebUploadEditorInner({
                 disabled={pending}
                 onClick={onCancel}
               >
-                {t("Cancel")}
+                {awaitingLinkCopy ? t("Done") : t("Cancel")}
               </Button>
-              <div className="flex items-center">
-                <Button
+              {awaitingLinkCopy ? (
+                <FeedbackButton
                   type="button"
                   variant="primary"
-                  disabled={!canPublish}
-                  className="rounded-r-none"
-                  onClick={() => submit("public")}
+                  state={pending ? "pending" : error ? "error" : "idle"}
+                  pendingLabel={t("Copying…")}
+                  errorLabel={t("Try again")}
+                  onClick={onRetryLinkCopy}
                 >
-                  {pending ? (
-                    <Loader2Icon className="animate-spin" />
-                  ) : (
-                    <UploadIcon />
-                  )}
-                  {pending ? t("Uploading...") : t("Post")}
-                </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="icon"
-                        disabled={!canPublish}
-                        aria-label={t("More upload options")}
-                        className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
-                      />
-                    }
+                  <CopyIcon />
+                  {t("Copy link")}
+                </FeedbackButton>
+              ) : (
+                <div className="flex items-center">
+                  <FeedbackButton
+                    type="button"
+                    variant="primary"
+                    disabled={!canPublish}
+                    state={pending ? "pending" : error ? "error" : "idle"}
+                    pendingLabel={t("Uploading...")}
+                    errorLabel={t("Try again")}
+                    className="rounded-r-none"
+                    onClick={() => submit("public")}
                   >
-                    <ChevronUpIcon />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="top" className="w-52">
-                    <DropdownMenuItem onClick={() => submit("unlisted")}>
-                      <Link2Icon className="size-4" />
-                      {t("Create Link")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                    <UploadIcon />
+                    {t("Post")}
+                  </FeedbackButton>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="icon"
+                          disabled={!canPublish}
+                          aria-label={t("More upload options")}
+                          className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
+                        />
+                      }
+                    >
+                      <ChevronUpIcon />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      side="top"
+                      className="w-52"
+                    >
+                      <DropdownMenuItem onClick={() => submit("unlisted")}>
+                        <Link2Icon className="size-4" />
+                        {t("Create Link")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
           </Card>
         </div>

@@ -2,7 +2,6 @@ import { t } from "@alloy/i18n"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   useTaggedClipsQuery,
   useUserProfileViewerQuery,
@@ -19,11 +18,6 @@ function ProfileTaggedTab() {
   const clips = clipsQuery.data ?? null
   const error = clipsQuery.error ?? null
   const isSelf = viewerQuery.data?.viewer?.isSelf ?? false
-
-  useQueryErrorToast(error, {
-    title: t("Couldn't load tagged clips"),
-    toastId: "profile-tagged-error",
-  })
 
   return (
     <section>

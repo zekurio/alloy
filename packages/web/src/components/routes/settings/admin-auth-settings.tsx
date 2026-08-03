@@ -4,11 +4,12 @@ import type {
   AdminRuntimeConfig,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import { Callout } from "@alloy/ui/components/callout"
 import { Section, SectionContent } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
-import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
+import { CircleAlertIcon } from "lucide-react"
 import { useState } from "react"
 
 import { EnvManagedNote } from "@/components/routes/settings/admin-env-note"
@@ -62,17 +63,19 @@ export function AuthSettingsContent({
   const queryClient = useQueryClient()
   const [pendingToggle, setPendingToggle] = useState<AuthToggleKey | null>(null)
   const [providerPending, setProviderPending] = useState(false)
+  const [toggleError, setToggleError] = useState<string | null>(null)
+  const [providerError, setProviderError] = useState<string | null>(null)
 
   async function updateToggle(key: AuthToggleKey, next: boolean) {
     if (pendingToggle) return
+    setToggleError(null)
     setPendingToggle(key)
     try {
       const updated = await api.admin.updateAuthConfig({ [key]: next })
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success(t("Authentication setting saved"))
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't update authentication")))
+      setToggleError(errorMessage(cause, t("Couldn't update authentication")))
     } finally {
       setPendingToggle(null)
     }
@@ -80,15 +83,15 @@ export function AuthSettingsContent({
 
   async function saveProviders(providers: AdminOAuthProviderInput[]) {
     if (providerPending) return false
+    setProviderError(null)
     setProviderPending(true)
     try {
       const updated = await api.admin.updateOAuthProviders(providers)
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success(t("OAuth providers saved"))
       return true
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't save OAuth providers")))
+      setProviderError(errorMessage(cause, t("Couldn't save OAuth providers")))
       return false
     } finally {
       setProviderPending(false)
@@ -118,11 +121,18 @@ export function AuthSettingsContent({
                 />
               ))}
             </SettingRows>
+            {toggleError ? (
+              <Callout tone="destructive" className="mt-3 text-xs">
+                <CircleAlertIcon />
+                <span>{toggleError}</span>
+              </Callout>
+            ) : null}
           </SettingsSubsection>
 
           <OAuthProviderSettings
             config={config}
             pending={providerPending}
+            error={providerError}
             onSave={saveProviders}
           />
         </SettingsSections>

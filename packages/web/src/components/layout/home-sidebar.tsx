@@ -15,6 +15,10 @@ import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
 import { Suspense } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
+import { NotificationBell } from "@/components/notifications/notification-bell"
+import { UploadStatusPill } from "@/components/upload/upload-status-pill"
+import { useSuspenseSession } from "@/lib/session-suspense"
+
 import { DesktopRecordingStatus } from "./desktop-recording-status"
 import { DesktopUpdatePill } from "./desktop-update-pill"
 import { useNavFlags } from "./use-nav-flags"
@@ -22,9 +26,11 @@ import { useNavFlags } from "./use-nav-flags"
 /**
  * Permanent icon-only navigation rail. Labels live in tooltips; the user menu
  * moved to the header, so the rail only carries navigation plus the
- * device-local capture/update cluster at the bottom.
+ * account activity alongside device-local status controls.
  */
 export function HomeSidebar() {
+  const session = useSuspenseSession()
+
   return (
     <AppSidebar className="hidden md:flex">
       <TooltipProvider delay={300}>
@@ -34,6 +40,8 @@ export function HomeSidebar() {
           </Suspense>
         </AppSidebarGroup>
         <AppSidebarGroup className="mt-auto">
+          {session ? <UploadStatusPill variant="sidebar" /> : null}
+          {session ? <NotificationBell variant="sidebar" /> : null}
           <DesktopRecordingStatus />
           <DesktopUpdatePill />
         </AppSidebarGroup>

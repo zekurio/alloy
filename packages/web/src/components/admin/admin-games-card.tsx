@@ -19,7 +19,6 @@ import {
   SectionTitle,
 } from "@alloy/ui/components/section"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { toast } from "@alloy/ui/lib/toast"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ImageIcon, SearchIcon, Trash2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -147,18 +146,19 @@ function AdminGameCard({ game }: { game: AdminGameRow }) {
 function CustomGameActions({ game }: { game: AdminGameRow }) {
   const queryClient = useQueryClient()
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const handleDelete = async () => {
     if (deleting) return
+    setDeleteError(null)
     setDeleting(true)
     try {
       await api.admin.deleteGame(game.id)
       removeAdminGameCacheRow(queryClient, game.id)
-      toast.success(t("Game deleted"))
       setDeleteOpen(false)
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't delete game")))
+      setDeleteError(errorMessage(cause, t("Couldn't delete game")))
     } finally {
       setDeleting(false)
     }
@@ -178,7 +178,10 @@ function CustomGameActions({ game }: { game: AdminGameRow }) {
       </Button>
       <ConfirmDeleteDialog
         open={deleteOpen}
-        onOpenChange={setDeleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open)
+          if (!open) setDeleteError(null)
+        }}
         title={t("Delete this game?")}
         description={t(
           "Its artwork is removed and any clips lose their game tag. This can't be undone.",
@@ -186,6 +189,7 @@ function CustomGameActions({ game }: { game: AdminGameRow }) {
         confirmLabel={t("Delete")}
         pendingLabel={t("Deleting")}
         pending={deleting}
+        error={deleteError}
         onConfirm={handleDelete}
       >
         <DeleteGamePreview game={game} />

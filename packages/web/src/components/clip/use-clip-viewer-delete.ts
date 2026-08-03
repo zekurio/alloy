@@ -1,9 +1,9 @@
 import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
 import { useCallback, useState } from "react"
 
 import { useDeleteClipMutation } from "@/lib/clip-queries"
+import { errorMessage } from "@/lib/error-message"
 
 import { finishLocalClipDelete } from "../routes/library/library-local-actions"
 import { useLocalClipPlayback } from "./use-local-clip-playback"
@@ -34,13 +34,10 @@ export function useClipViewerDelete({
                 serverId: row.id,
                 setDeletingLocal,
               })
-            } else {
-              toast.success(t("Clip deleted"))
             }
             setOpen(false)
             onDeleted?.()
           },
-          onError: () => toast.error(t("Couldn't delete clip")),
         },
       )
     },
@@ -52,6 +49,9 @@ export function useClipViewerDelete({
     setOpen,
     openDialog: useCallback(() => setOpen(true), []),
     pending,
+    error: deleteMutation.error
+      ? errorMessage(deleteMutation.error, t("Couldn't delete clip"))
+      : null,
     localItem,
     confirm,
   }

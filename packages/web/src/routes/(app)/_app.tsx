@@ -15,6 +15,7 @@ import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
 import { SettingsDialog } from "@/components/routes/settings/settings-dialog"
 import { AppSearchProvider } from "@/components/search/app-search"
+import { GlobalUploadControl } from "@/components/upload/global-upload-control"
 import { UploadFlow } from "@/components/upload/upload-flow"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
 import { type AppSearch, parseAppSearch } from "@/lib/app-search"
@@ -103,6 +104,11 @@ function AppLayout() {
           <AppChrome />
           <Outlet />
           <UploadFlow />
+          {session ? (
+            <div className="fixed right-4 bottom-4 z-30 hidden md:flex">
+              <GlobalUploadControl variant="floating" />
+            </div>
+          ) : null}
           <MobileBottomNav />
         </AppShell>
       </UploadFlowProvider>

@@ -1,6 +1,6 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { toast } from "@alloy/ui/lib/toast"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
 import { StarIcon } from "lucide-react"
@@ -65,13 +65,22 @@ export function GameFavoriteButton({
   const label = isStarred ? t("Starred") : t("Star")
 
   return (
-    <Button
+    <FeedbackButton
       type="button"
       variant="ghost"
       size="icon-lg"
       aria-pressed={isStarred}
       aria-label={label}
-      title={label}
+      title={
+        mutation.error
+          ? errorMessage(mutation.error, t("Something went wrong"))
+          : label
+      }
+      state={
+        mutation.isPending ? "pending" : mutation.isError ? "error" : "idle"
+      }
+      pendingLabel={<span className="sr-only">{t("Updating…")}</span>}
+      errorLabel={<span className="sr-only">{t("Try again")}</span>}
       className={cn(
         "hover:bg-transparent",
         isStarred
@@ -80,18 +89,15 @@ export function GameFavoriteButton({
         className,
       )}
       onClick={() => {
-        mutation.mutate(
-          { gameId: String(gameId), next: !isStarred, viewerId },
-          {
-            onError: (cause) => {
-              toast.error(errorMessage(cause, t("Something went wrong")))
-            },
-          },
-        )
+        mutation.mutate({
+          gameId: String(gameId),
+          next: !isStarred,
+          viewerId,
+        })
       }}
       disabled={mutation.isPending}
     >
       <StarIcon className={cn("size-5", isStarred && "fill-current")} />
-    </Button>
+    </FeedbackButton>
   )
 }

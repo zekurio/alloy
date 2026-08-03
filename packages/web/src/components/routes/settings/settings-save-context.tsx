@@ -15,6 +15,8 @@ interface SettingsFormSnapshot {
   dirty: boolean
   /** A save is in flight. */
   saving: boolean
+  /** Invalid forms keep the shared save action disabled. */
+  valid?: boolean
 }
 
 interface SettingsFormHandlers {
@@ -36,6 +38,8 @@ interface SettingsSaveState {
   dirty: boolean
   /** Any registered form is saving. */
   saving: boolean
+  /** Every dirty registered form can currently be saved. */
+  valid: boolean
   /**
    * Bumped each time a close or tab switch is blocked by unsaved edits, so
    * the save bar can replay its attention animation per attempt.
@@ -76,7 +80,8 @@ export function SettingsSaveProvider({ children }: { children: ReactNode }) {
         if (
           current &&
           current.dirty === snapshot.dirty &&
-          current.saving === snapshot.saving
+          current.saving === snapshot.saving &&
+          current.valid === snapshot.valid
         ) {
           return prev
         }
@@ -126,21 +131,24 @@ export function SettingsSaveProvider({ children }: { children: ReactNode }) {
 
   let dirty = false
   let saving = false
+  let valid = true
   for (const snapshot of snapshots.values()) {
     dirty ||= snapshot.dirty
     saving ||= snapshot.saving
+    if (snapshot.dirty) valid &&= snapshot.valid !== false
   }
 
   const state = useMemo<SettingsSaveState>(
     () => ({
       dirty,
       saving,
+      valid,
       attention,
       requestAttention,
       saveAll,
       discardAll,
     }),
-    [dirty, saving, attention, requestAttention, saveAll, discardAll],
+    [dirty, saving, valid, attention, requestAttention, saveAll, discardAll],
   )
 
   return (
@@ -187,7 +195,11 @@ export function useSettingsSaveBar(
   // Re-register every render; the provider ignores no-op snapshot updates.
   useEffect(() => {
     formRef.current = form
-    registry?.update(id, { dirty: form.dirty, saving: form.saving }, handlers)
+    registry?.update(
+      id,
+      { dirty: form.dirty, saving: form.saving, valid: form.valid },
+      handlers,
+    )
   })
 
   useEffect(() => {
