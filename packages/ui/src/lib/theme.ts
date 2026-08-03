@@ -1,3 +1,8 @@
+import {
+  applyStoredThemePresets,
+  THEME_PRESET_STORAGE_KEYS,
+} from "@alloy/ui/lib/theme-presets"
+
 export const THEME_STORAGE_KEY = "alloy.theme"
 
 export const THEMES = ["system", "light", "dark"] as const
@@ -54,14 +59,30 @@ export function setStoredTheme(
   }
 }
 
-// Applies the stored theme and keeps "system" in sync with live OS changes.
+// Applies the stored theme and palette presets, keeps "system" in sync with
+// live OS changes, and follows preset edits made in other tabs.
 export function initTheme(storageKey = THEME_STORAGE_KEY): Theme {
   const theme = getStoredTheme(storageKey)
   applyTheme(theme)
+  applyStoredThemePresets()
 
   if (typeof window !== "undefined" && window.matchMedia) {
     window.matchMedia(DARK_QUERY).addEventListener("change", () => {
       if (getStoredTheme(storageKey) === "system") applyTheme("system")
+    })
+  }
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", (event) => {
+      // A null key means the whole store was cleared, presets included.
+      if (
+        event.key !== null &&
+        event.key !== THEME_PRESET_STORAGE_KEYS.dark &&
+        event.key !== THEME_PRESET_STORAGE_KEYS.light
+      ) {
+        return
+      }
+      applyStoredThemePresets()
     })
   }
 
