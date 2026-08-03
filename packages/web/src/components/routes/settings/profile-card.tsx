@@ -148,9 +148,11 @@ export function ProfileCard({
     profileIdentityChanged(state.values, initialIdentity),
   )
   const identitySaving = useStore(form.store, (state) => state.isSubmitting)
+  const identityValid = useStore(form.store, (state) => state.canSubmit)
   const inSettingsDialog = useSettingsSaveBar({
     dirty: identityDirty,
     saving: identitySaving,
+    valid: identityValid,
     save: () => form.handleSubmit(),
     discard: () => {
       identityFeedback.reset()
