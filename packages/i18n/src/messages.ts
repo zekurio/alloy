@@ -14,6 +14,30 @@ export const DE_MESSAGES: Record<string, string> = {
     "Benachrichtigungen konnten nicht als gelesen markiert werden",
   "Couldn't mark notification as read":
     "Benachrichtigung konnte nicht als gelesen markiert werden",
+  "Changes saved.": "Änderungen gespeichert.",
+  "Color palette used while Alloy is dark.":
+    "Farbpalette für den dunklen Alloy-Modus.",
+  "Color palette used while Alloy is light.":
+    "Farbpalette für den hellen Alloy-Modus.",
+  Copied: "Kopiert",
+  "Copying…": "Wird kopiert…",
+  "Couldn't register passkey": "Passkey konnte nicht registriert werden",
+  "Couldn't start link flow": "Verknüpfung konnte nicht gestartet werden",
+  "Couldn't trim the clip": "Clip konnte nicht zugeschnitten werden",
+  Detected: "Erkannt",
+  "Dark theme": "Dunkles Theme",
+  "Light theme": "Helles Theme",
+  "Passkey registration failed": "Passkey-Registrierung fehlgeschlagen",
+  Restarted: "Neu gestartet",
+  "Sending...": "Wird gesendet...",
+  "Sharing…": "Wird geteilt…",
+  Started: "Gestartet",
+  "Unblocking…": "Wird entsperrt…",
+  "Updating…": "Wird aktualisiert…",
+  "User actions": "Nutzeraktionen",
+  "Visibility updated, but couldn't copy the link":
+    "Sichtbarkeit aktualisiert, aber der Link konnte nicht kopiert werden",
+  "Working…": "Wird verarbeitet…",
   "Couldn’t load games": "Spiele konnten nicht geladen werden",
   "ffmpeg not detected": "ffmpeg nicht erkannt",
   "Follow users to populate this tab.":
@@ -58,6 +82,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Uploaded: "Hochgeladen",
   "Try a different search or filter.":
     "Probier eine andere Suche oder einen anderen Filter.",
+  "Try again": "Erneut versuchen",
   "Transparent wordmark": "Transparente Wortmarke",
   Theme: "Theme",
   "You were mentioned": "Du wurdest erwähnt",

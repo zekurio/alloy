@@ -12,8 +12,8 @@ import {
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
-import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate, useRouter } from "@tanstack/react-router"
 import { EyeOffIcon, RotateCcwIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
@@ -32,6 +32,7 @@ function useAccountDangerActions() {
   const [pendingAction, setPendingAction] = useState<
     "disable" | "reactivate" | "delete" | null
   >(null)
+  const [actionError, setActionError] = useState<string | null>(null)
   // The session user already carries `disabledAt`, so seed from it rather than
   // an isolated fetch that flashes a loading row each time the card mounts. The
   // handlers below keep it current after a disable/reactivate.
@@ -43,11 +44,11 @@ function useAccountDangerActions() {
 
   async function onDisable() {
     if (pending) return
+    setActionError(null)
     setPendingAction("disable")
     try {
       const state = await api.users.disableAccount()
       setDisabledAt(state.disabledAt)
-      toast.success(t("Account disabled"))
       try {
         await signOut()
       } catch (cause) {
@@ -57,7 +58,7 @@ function useAccountDangerActions() {
       await router.invalidate()
       await navigate({ to: "/login" })
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't disable account")))
+      setActionError(errorMessage(cause, t("Couldn't disable account")))
     } finally {
       setPendingAction(null)
     }
@@ -65,14 +66,14 @@ function useAccountDangerActions() {
 
   async function onReactivate() {
     if (pending) return
+    setActionError(null)
     setPendingAction("reactivate")
     try {
       await api.users.reactivateAccount()
       setDisabledAt(null)
-      toast.success(t("Account reactivated"))
       await router.invalidate()
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't reactivate account")))
+      setActionError(errorMessage(cause, t("Couldn't reactivate account")))
     } finally {
       setPendingAction(null)
     }
@@ -80,18 +81,18 @@ function useAccountDangerActions() {
 
   async function onDelete() {
     if (pending) return
+    setActionError(null)
     setPendingAction("delete")
     try {
       const { error } = await authClient.deleteUser()
       if (error) {
-        toast.error(errorMessage(error, t("Couldn't delete account")))
+        setActionError(errorMessage(error, t("Couldn't delete account")))
         return
       }
-      toast.success(t("Account deleted"))
       await router.invalidate()
       await navigate({ to: "/login" })
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Something went wrong")))
+      setActionError(errorMessage(cause, t("Something went wrong")))
     } finally {
       setPendingAction(null)
     }
@@ -101,6 +102,8 @@ function useAccountDangerActions() {
     disabledAt,
     pending,
     pendingAction,
+    actionError,
+    clearActionError: () => setActionError(null),
     onDisable,
     onReactivate,
     onDelete,
@@ -111,12 +114,14 @@ function DisableAccountRow({
   disabledAt,
   pending,
   pendingAction,
+  actionError,
   onDisable,
   onReactivate,
 }: {
   disabledAt: string | null
   pending: boolean
   pendingAction: "disable" | "reactivate" | "delete" | null
+  actionError: string | null
   onDisable: () => Promise<void>
   onReactivate: () => Promise<void>
 }) {
@@ -130,18 +135,32 @@ function DisableAccountRow({
       }
     >
       {disabledAt ? (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onReactivate}
-          disabled={pending}
-        >
-          <RotateCcwIcon />
-          {pendingAction === "reactivate"
-            ? t("Reactivating...")
-            : t("Reactivate")}
-        </Button>
+        <div className="flex flex-col items-end gap-1.5">
+          <FeedbackButton
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onReactivate}
+            disabled={pending}
+            state={
+              pendingAction === "reactivate"
+                ? "pending"
+                : actionError
+                  ? "error"
+                  : "idle"
+            }
+            pendingLabel={t("Reactivating...")}
+            errorLabel={t("Try again")}
+          >
+            <RotateCcwIcon />
+            {t("Reactivate")}
+          </FeedbackButton>
+          {actionError ? (
+            <span role="alert" className="text-destructive text-xs">
+              {actionError}
+            </span>
+          ) : null}
+        </div>
       ) : (
         <AlertDialog>
           <AlertDialogTrigger
@@ -161,6 +180,11 @@ function DisableAccountRow({
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
+            {actionError ? (
+              <p role="alert" className="text-destructive text-sm">
+                {actionError}
+              </p>
+            ) : null}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={pending}>
                 {t("Cancel")}
@@ -181,10 +205,14 @@ function DisableAccountRow({
 function DeleteAccountRow({
   pending,
   pendingAction,
+  actionError,
+  clearActionError,
   onDelete,
 }: {
   pending: boolean
   pendingAction: "disable" | "reactivate" | "delete" | null
+  actionError: string | null
+  clearActionError: () => void
   onDelete: () => Promise<void>
 }) {
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -208,7 +236,10 @@ function DeleteAccountRow({
         </Button>
         <ConfirmDeleteDialog
           open={deleteOpen}
-          onOpenChange={setDeleteOpen}
+          onOpenChange={(open) => {
+            setDeleteOpen(open)
+            if (!open) clearActionError()
+          }}
           title={t("Delete your account?")}
           description={t("This can't be undone.")}
           confirmLabel={t("Delete account")}
@@ -216,6 +247,7 @@ function DeleteAccountRow({
             pendingAction === "delete" ? t("Deleting...") : t("Delete account")
           }
           pending={pending}
+          error={actionError}
           onConfirm={onDelete}
         />
       </>

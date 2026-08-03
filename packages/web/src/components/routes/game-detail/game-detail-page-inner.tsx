@@ -22,7 +22,6 @@ import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 import { CLIP_SORT_OPTIONS, DEFAULT_CLIP_SORT } from "@/lib/clip-sort"
 import { useGameCreatorsQuery, useGameQuery } from "@/lib/game-queries"
 import { useSuspenseSession } from "@/lib/session-suspense"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import { userChipData } from "@/lib/user-display"
 
 import { GameHeader } from "./game-header"
@@ -64,11 +63,6 @@ export function GameDetailPageInner({
     error,
     isPending,
   } = useGameQuery(gameId, viewerId ?? null)
-  useQueryErrorToast(error, {
-    title: t("Couldn't load this game"),
-    toastId: `game-${gameId}-error`,
-  })
-
   return (
     <AppMain className="!px-0 !pt-0">
       <div className="flex w-full flex-col">

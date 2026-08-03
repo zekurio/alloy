@@ -1,16 +1,25 @@
 import type { PublicAuthConfig } from "@alloy/api"
 import type { LinkedAccount } from "@alloy/api/auth"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { List, ListItem } from "@alloy/ui/components/list"
-import { toast } from "@alloy/ui/lib/toast"
 import { useRouter } from "@tanstack/react-router"
-import { Link2OffIcon, LinkIcon, UserKeyIcon } from "lucide-react"
+import {
+  CircleAlertIcon,
+  Link2OffIcon,
+  LinkIcon,
+  UserKeyIcon,
+} from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { authClient, useSession } from "@/lib/auth-client"
-import { authCallbackUrl, toastAuthAttemptFailure } from "@/lib/auth-flow"
+import {
+  authCallbackUrl,
+  isAuthAttemptCancellation,
+  reportAuthFlowFailure,
+} from "@/lib/auth-flow"
 import { consumeCurrentQueryParam } from "@/lib/browser-url"
 import { errorMessage } from "@/lib/error-message"
 
@@ -53,12 +62,19 @@ export function LinkedAccountsCard({
       title={t("Linked accounts")}
       description={t("Connect additional sign-in methods to your account.")}
     >
+      {actions.actionError ? (
+        <Callout tone="destructive" className="mb-3">
+          <CircleAlertIcon />
+          <span>{actions.actionError.message}</span>
+        </Callout>
+      ) : null}
       <AccountsList
         accounts={accounts}
         config={config}
         hasPasskeySignIn={hasPasskeySignIn}
         linkingProviderId={actions.linkingProviderId}
         unlinkingId={actions.unlinkingId}
+        actionErrorTarget={actions.actionError?.target ?? null}
         onLink={actions.onLink}
         onUnlink={actions.onUnlink}
       />
@@ -84,6 +100,10 @@ function useLinkedAccountActions({
     null,
   )
   const [unlinkingId, setUnlinkingId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<{
+    target: string
+    message: string
+  } | null>(null)
 
   useEffect(() => {
     if (consumeCurrentQueryParam(OAUTH_LINKED_QUERY_KEY) !== "1") return
@@ -97,9 +117,10 @@ function useLinkedAccountActions({
         await router.invalidate()
       } catch (cause) {
         if (active) {
-          toast.error(
-            errorMessage(cause, t("Couldn't refresh linked accounts")),
-          )
+          setActionError({
+            target: "refresh",
+            message: errorMessage(cause, t("Couldn't refresh linked accounts")),
+          })
         }
       }
     })()
@@ -112,6 +133,7 @@ function useLinkedAccountActions({
   const onLink = useCallback(
     async (provider: Provider) => {
       if (linkingProviderId) return
+      setActionError(null)
       setLinkingProviderId(provider.providerId)
       try {
         const { error } = await authClient.oauth2.link({
@@ -119,15 +141,31 @@ function useLinkedAccountActions({
           callbackURL: authCallbackUrl(`/settings?${OAUTH_LINKED_QUERY_KEY}=1`),
         })
         if (error) {
-          toastAuthAttemptFailure(
+          reportAuthFlowFailure(
             "OAuth link",
-            "Couldn't start link flow",
+            t("Couldn't start link flow"),
             error,
           )
+          setActionError({
+            target: provider.providerId,
+            message: isAuthAttemptCancellation(error)
+              ? t("Auth attempt cancelled.")
+              : errorMessage(error, t("Couldn't start link flow")),
+          })
           setLinkingProviderId(null)
         }
       } catch (cause) {
-        toastAuthAttemptFailure("OAuth link", "Couldn't start link flow", cause)
+        reportAuthFlowFailure(
+          "OAuth link",
+          t("Couldn't start link flow"),
+          cause,
+        )
+        setActionError({
+          target: provider.providerId,
+          message: isAuthAttemptCancellation(cause)
+            ? t("Auth attempt cancelled.")
+            : errorMessage(cause, t("Couldn't start link flow")),
+        })
         setLinkingProviderId(null)
       }
     },
@@ -138,13 +176,15 @@ function useLinkedAccountActions({
     async (account: LinkedAccount) => {
       if (unlinkingId) return
       if (!canRemoveAccount(account, accounts, config, hasPasskeySignIn)) {
-        toast.error(
-          t(
+        setActionError({
+          target: account.id,
+          message: t(
             "This is your last enabled sign-in method. Link another before removing it.",
           ),
-        )
+        })
         return
       }
+      setActionError(null)
       setUnlinkingId(account.id)
       try {
         const { error } = await authClient.unlinkAccount({
@@ -152,14 +192,19 @@ function useLinkedAccountActions({
           accountId: account.accountId,
         })
         if (error) {
-          toast.error(errorMessage(error, t("Couldn't unlink")))
+          setActionError({
+            target: account.id,
+            message: errorMessage(error, t("Couldn't unlink")),
+          })
           return
         }
-        toast.success(t("Account unlinked"))
         await refresh()
         await router.invalidate()
       } catch (cause) {
-        toast.error(errorMessage(cause, t("Couldn't unlink")))
+        setActionError({
+          target: account.id,
+          message: errorMessage(cause, t("Couldn't unlink")),
+        })
       } finally {
         setUnlinkingId(null)
       }
@@ -170,6 +215,7 @@ function useLinkedAccountActions({
   return {
     linkingProviderId,
     unlinkingId,
+    actionError,
     onLink,
     onUnlink,
   }
@@ -181,6 +227,7 @@ type AccountsListProps = {
   hasPasskeySignIn: boolean
   linkingProviderId: string | null
   unlinkingId: string | null
+  actionErrorTarget: string | null
   onLink: (provider: Provider) => void
   onUnlink: (account: LinkedAccount) => void
 }
@@ -191,6 +238,7 @@ function AccountsList({
   hasPasskeySignIn,
   linkingProviderId,
   unlinkingId,
+  actionErrorTarget,
   onLink,
   onUnlink,
 }: AccountsListProps) {
@@ -215,6 +263,7 @@ function AccountsList({
             label={provider.displayName}
             sublabel={linkedAccountLabel(providerAccount)}
             busy={unlinkingId === providerAccount.id}
+            failed={actionErrorTarget === providerAccount.id}
             canUnlink={canRemoveAccount(
               providerAccount,
               accounts,
@@ -230,6 +279,7 @@ function AccountsList({
             provider={provider}
             label={provider.displayName}
             busy={linkingProviderId === provider.providerId}
+            failed={actionErrorTarget === provider.providerId}
             onLink={() => onLink(provider)}
           />
         )
@@ -243,6 +293,7 @@ function AccountsList({
             label: linkedAccountLabel(account),
           })}
           busy={unlinkingId === account.id}
+          failed={actionErrorTarget === account.id}
           canUnlink={canRemoveAccount(
             account,
             accounts,
@@ -266,6 +317,7 @@ function LinkRow(props: {
   provider: Provider
   label: string
   busy: boolean
+  failed: boolean
   onLink: () => void
 }) {
   return (
@@ -277,17 +329,20 @@ function LinkRow(props: {
           <p className="text-foreground-dim text-xs">{t("Not linked")}</p>
         </div>
       </div>
-      <Button
+      <FeedbackButton
         type="button"
         variant="outline"
         size="sm"
         className="shrink-0"
         disabled={props.busy}
+        state={props.busy ? "pending" : props.failed ? "error" : "idle"}
+        pendingLabel={t("Redirecting…")}
+        errorLabel={t("Try again")}
         onClick={props.onLink}
       >
         <LinkIcon />
-        {props.busy ? t("Redirecting…") : t("Link")}
-      </Button>
+        {t("Link")}
+      </FeedbackButton>
     </ListItem>
   )
 }
@@ -296,6 +351,7 @@ type AccountRowProps = {
   label: string
   sublabel: string
   busy: boolean
+  failed: boolean
   canUnlink: boolean
   onAction: () => void
   provider?: Provider
@@ -311,12 +367,15 @@ function AccountRow(props: AccountRowProps) {
           <p className="text-foreground-dim text-xs">{props.sublabel}</p>
         </div>
       </div>
-      <Button
+      <FeedbackButton
         type="button"
         variant="outline"
         size="sm"
         className="shrink-0"
         disabled={props.busy || !props.canUnlink}
+        state={props.busy ? "pending" : props.failed ? "error" : "idle"}
+        pendingLabel={t("Removing…")}
+        errorLabel={t("Try again")}
         onClick={props.onAction}
         title={
           props.canUnlink
@@ -325,8 +384,8 @@ function AccountRow(props: AccountRowProps) {
         }
       >
         <Link2OffIcon />
-        {props.busy ? t("Removing…") : t("Unlink")}
-      </Button>
+        {t("Unlink")}
+      </FeedbackButton>
     </ListItem>
   )
 }

@@ -1,5 +1,4 @@
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react"
@@ -17,11 +16,6 @@ import { MediaDropdownContent, type MediaKind } from "./profile-media-controls"
 
 // Profile settings only ever crop in "avatar" or "banner" mode; the other
 // modes fall back to the generic message.
-const UPLOAD_SUCCESS_MESSAGE: Partial<Record<CropMode, string>> = {
-  avatar: t("Avatar updated"),
-  banner: t("Banner updated"),
-}
-
 type ProfileMediaInput = {
   image: string
   banner: string
@@ -116,11 +110,13 @@ function useProfileMediaMutations({
   setProfileImage: Dispatch<SetStateAction<string>>
 }) {
   const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleImageUpload(
     blob: Blob,
     mode: CropMode,
   ): Promise<boolean> {
+    setError(null)
     setUploading(true)
     try {
       let nextUser: Awaited<ReturnType<typeof api.users.uploadAvatar>>
@@ -131,12 +127,11 @@ function useProfileMediaMutations({
         nextUser = await api.users.uploadBanner(blob)
         setProfileBanner(nextUser.banner ?? "")
       }
-      toast.success(UPLOAD_SUCCESS_MESSAGE[mode] ?? t("Image updated"))
       await refreshProfile()
       return true
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Upload failed")))
-      return false
+      setError(errorMessage(cause, t("Upload failed")))
+      throw cause
     } finally {
       setUploading(false)
     }
@@ -146,10 +141,10 @@ function useProfileMediaMutations({
     await removeProfileMedia({
       remove: api.users.removeAvatar,
       update: (nextUser) => setProfileImage(nextUser.image ?? ""),
-      success: t("Avatar removed"),
       failure: t("Couldn't remove avatar"),
       refreshProfile,
       setUploading,
+      setError,
     })
   }
 
@@ -157,10 +152,10 @@ function useProfileMediaMutations({
     await removeProfileMedia({
       remove: api.users.removeBanner,
       update: (nextUser) => setProfileBanner(nextUser.banner ?? ""),
-      success: t("Banner removed"),
       failure: t("Couldn't remove banner"),
       refreshProfile,
       setUploading,
+      setError,
     })
   }
 
@@ -168,6 +163,7 @@ function useProfileMediaMutations({
     handleImageUpload,
     handleRemoveAvatar,
     handleRemoveBanner,
+    error,
     uploading,
   }
 }
@@ -175,26 +171,26 @@ function useProfileMediaMutations({
 async function removeProfileMedia({
   remove,
   update,
-  success,
   failure,
   refreshProfile,
   setUploading,
+  setError,
 }: {
   remove: () => Promise<Awaited<ReturnType<typeof api.users.removeAvatar>>>
   update: (nextUser: Awaited<ReturnType<typeof api.users.removeAvatar>>) => void
-  success: string
   failure: string
   refreshProfile: () => Promise<void>
   setUploading: Dispatch<SetStateAction<boolean>>
+  setError: Dispatch<SetStateAction<string | null>>
 }) {
+  setError(null)
   setUploading(true)
   try {
     const nextUser = await remove()
     update(nextUser)
-    toast.success(success)
     await refreshProfile()
   } catch (cause) {
-    toast.error(errorMessage(cause, failure))
+    setError(errorMessage(cause, failure))
   } finally {
     setUploading(false)
   }
@@ -247,6 +243,7 @@ export function useProfileMedia(input: ProfileMediaInput) {
     cropMode,
     fileInputs,
     handleImageUpload: mutations.handleImageUpload,
+    error: mutations.error,
     hasBanner: !!userImageSrc(media.profileBanner),
     mediaMenu,
     openFilePicker,

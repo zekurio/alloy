@@ -1,7 +1,7 @@
 import type { ProfileViewer } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { toast } from "@alloy/ui/lib/toast"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { useNavigate } from "@tanstack/react-router"
 import { ShieldOffIcon } from "lucide-react"
 import { useState } from "react"
@@ -22,6 +22,7 @@ export function ProfileActions({
   const navigate = useNavigate()
   const followMutation = useToggleUserFollowMutation(targetHandle)
   const [unblockPending, setUnblockPending] = useState(false)
+  const [unblockError, setUnblockError] = useState<string | null>(null)
   const pending = unblockPending || followMutation.isPending
 
   if (viewer === undefined) {
@@ -63,27 +64,20 @@ export function ProfileActions({
 
   function runFollow() {
     if (pending) return
-    followMutation.mutate(
-      { next: !isFollowing },
-      {
-        onError: (cause) => {
-          toast.error(errorMessage(cause, t("Something went wrong")))
-        },
-      },
-    )
+    followMutation.mutate({ next: !isFollowing })
   }
 
   async function runUnblock() {
     if (pending) return
+    setUnblockError(null)
     setUnblockPending(true)
     const prev = activeViewer
     onChange({ ...prev, isBlocked: false })
     try {
       await api.users.unblock(targetHandle)
-      toast.success(t("User unblocked"))
     } catch (cause) {
       onChange(prev)
-      toast.error(errorMessage(cause, t("Something went wrong")))
+      setUnblockError(errorMessage(cause, t("Something went wrong")))
     } finally {
       setUnblockPending(false)
     }
@@ -91,18 +85,21 @@ export function ProfileActions({
 
   if (isBlocked) {
     return (
-      <Button
+      <FeedbackButton
         type="button"
         variant="ghost"
         size="sm"
         aria-label={t("Unblock")}
-        title={t("Unblock")}
+        title={unblockError ?? t("Unblock")}
         onClick={runUnblock}
         disabled={pending}
+        state={unblockPending ? "pending" : unblockError ? "error" : "idle"}
+        pendingLabel={t("Unblocking…")}
+        errorLabel={t("Try again")}
       >
         <ShieldOffIcon />
         {t("Unblock")}
-      </Button>
+      </FeedbackButton>
     )
   }
 
@@ -111,17 +108,32 @@ export function ProfileActions({
   }
 
   return (
-    <Button
+    <FeedbackButton
       type="button"
       variant={isFollowing ? "ghost" : "primary"}
       size="sm"
       aria-pressed={isFollowing}
       aria-label={isFollowing ? t("Unfollow") : t("Follow")}
-      title={isFollowing ? t("Unfollow") : t("Follow")}
+      title={
+        followMutation.error
+          ? errorMessage(followMutation.error, t("Something went wrong"))
+          : isFollowing
+            ? t("Unfollow")
+            : t("Follow")
+      }
       onClick={runFollow}
       disabled={pending}
+      state={
+        followMutation.isPending
+          ? "pending"
+          : followMutation.isError
+            ? "error"
+            : "idle"
+      }
+      pendingLabel={t("Updating…")}
+      errorLabel={t("Try again")}
     >
       {isFollowing ? t("Following") : t("Follow")}
-    </Button>
+    </FeedbackButton>
   )
 }

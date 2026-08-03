@@ -21,6 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import {
   InputGroup,
   InputGroupAddon,
@@ -35,7 +36,6 @@ import {
 } from "@alloy/ui/components/section"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   useInfiniteQuery,
@@ -177,8 +177,6 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
   const pauseMutation = useMutation({
     mutationFn: (paused: boolean) =>
       api.admin.setJobKindPaused(row.kind, paused),
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't update job"))),
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: adminKeys.jobsSummary() }),
   })
@@ -186,14 +184,16 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
   const sweepMutation = useMutation({
     mutationFn: (mode: "stale" | "force") =>
       api.admin.runJobSweep(row.kind as AdminSweepKind, mode),
-    onSuccess: () => toast.success(t("Job started")),
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't start job"))),
     onSettled: () =>
       queryClient.invalidateQueries({ queryKey: adminKeys.jobsSummary() }),
   })
 
   const scheduleHint = jobScheduleHint(row)
+  const actionError = sweepMutation.error
+    ? errorMessage(sweepMutation.error, t("Couldn't start job"))
+    : pauseMutation.error
+      ? errorMessage(pauseMutation.error, t("Couldn't update job"))
+      : null
 
   return (
     <ListItem>
@@ -219,6 +219,11 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
             </Badge>
           ) : null}
         </div>
+        {actionError ? (
+          <p role="alert" className="text-destructive mt-1 text-xs">
+            {actionError}
+          </p>
+        ) : null}
         <div className="text-foreground-dim mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
           <span>{scheduleHint}</span>
           {row.pending > 0 ? (
@@ -250,7 +255,15 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
         {SWEEP_KINDS.has(row.kind) ? (
           <RunNowAction
             kind={row.kind}
-            pending={sweepMutation.isPending}
+            state={
+              sweepMutation.isPending
+                ? "pending"
+                : sweepMutation.isSuccess
+                  ? "success"
+                  : sweepMutation.isError
+                    ? "error"
+                    : "idle"
+            }
             onRun={(mode) => sweepMutation.mutate(mode)}
           />
         ) : null}
@@ -284,36 +297,47 @@ function jobScheduleHint(row: AdminJobKindRow): string {
 
 function RunNowAction({
   kind,
-  pending,
+  state,
   onRun,
 }: {
   kind: string
-  pending: boolean
+  state: "idle" | "pending" | "success" | "error"
   onRun: (mode: "stale" | "force") => void
 }) {
   if (kind !== RENDITIONS_SWEEP_KIND) {
     return (
-      <Button
+      <FeedbackButton
         type="button"
         variant="outline"
         size="sm"
-        disabled={pending}
+        state={state}
+        pendingLabel={t("Starting...")}
+        successLabel={t("Started")}
+        errorLabel={t("Try again")}
         onClick={() => onRun("stale")}
       >
         <PlayIcon />
-        {pending ? t("Starting...") : t("Run")}
-      </Button>
+        {t("Run")}
+      </FeedbackButton>
     )
   }
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button type="button" variant="outline" size="sm" disabled={pending}>
+          <FeedbackButton
+            type="button"
+            variant="outline"
+            size="sm"
+            state={state}
+            pendingLabel={t("Starting...")}
+            successLabel={t("Started")}
+            errorLabel={t("Try again")}
+          >
             <PlayIcon />
-            {pending ? t("Starting...") : t("Run")}
+            {t("Run")}
             <ChevronDownIcon />
-          </Button>
+          </FeedbackButton>
         }
       />
       <DropdownMenuContent align="end">
@@ -374,16 +398,10 @@ function FailedJobs({
 
   const retryMutation = useMutation({
     mutationFn: (jobId: string) => api.admin.retryJob(jobId),
-    onSuccess: () => toast.success(t("Job queued for retry")),
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't retry job"))),
     onSettled: invalidate,
   })
   const discardMutation = useMutation({
     mutationFn: (jobId: string) => api.admin.discardJob(jobId),
-    onSuccess: () => toast.success(t("Job discarded")),
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't discard job"))),
     onSettled: invalidate,
   })
   const busyId =
@@ -415,6 +433,19 @@ function FailedJobs({
               key={job.id}
               job={job}
               busy={busyId === job.id}
+              retryError={
+                retryMutation.variables === job.id && retryMutation.error
+                  ? errorMessage(retryMutation.error, t("Couldn't retry job"))
+                  : null
+              }
+              discardError={
+                discardMutation.variables === job.id && discardMutation.error
+                  ? errorMessage(
+                      discardMutation.error,
+                      t("Couldn't discard job"),
+                    )
+                  : null
+              }
               onRetry={() => retryMutation.mutate(job.id)}
               onDiscard={() => discardMutation.mutate(job.id)}
             />
@@ -440,11 +471,15 @@ function FailedJobs({
 function FailedJobRow({
   job,
   busy,
+  retryError,
+  discardError,
   onRetry,
   onDiscard,
 }: {
   job: AdminFailedJob
   busy: boolean
+  retryError: string | null
+  discardError: string | null
   onRetry: () => void
   onDiscard: () => void
 }) {
@@ -474,6 +509,11 @@ function FailedJobRow({
             {job.error}
           </p>
         ) : null}
+        {retryError || discardError ? (
+          <p role="alert" className="text-destructive mt-0.5 text-xs">
+            {retryError ?? discardError}
+          </p>
+        ) : null}
         {job.clipId ? (
           <Link
             to="/clips/$clipId"
@@ -487,24 +527,28 @@ function FailedJobRow({
       </div>
 
       <div className="flex shrink-0 items-center">
-        <Button
+        <FeedbackButton
           variant="ghost"
           size="icon-sm"
           aria-label={t("Retry job")}
           disabled={busy}
+          state={retryError ? "error" : "idle"}
+          errorLabel={<span className="sr-only">{t("Try again")}</span>}
           onClick={onRetry}
         >
           <RotateCcwIcon className="size-3.5" />
-        </Button>
-        <Button
+        </FeedbackButton>
+        <FeedbackButton
           variant="ghost"
           size="icon-sm"
           aria-label={t("Discard job")}
           disabled={busy}
+          state={discardError ? "error" : "idle"}
+          errorLabel={<span className="sr-only">{t("Try again")}</span>}
           onClick={onDiscard}
         >
           <XIcon className="size-3.5" />
-        </Button>
+        </FeedbackButton>
       </div>
     </ListItem>
   )

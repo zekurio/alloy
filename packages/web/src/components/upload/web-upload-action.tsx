@@ -1,6 +1,5 @@
 import type { ClipPrivacy, GameRow, UserSearchResult } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
@@ -24,6 +23,7 @@ export interface WebUploadAction {
   available: boolean
   picking: boolean
   publishing: boolean
+  error: string | null
   selected: SelectedFile | null
   /** Object URL for the picked file, driving the editor's preview + trimmer. */
   previewUrl: string | null
@@ -48,6 +48,7 @@ export interface WebUploadMetadata {
 export function useWebUploadAction(): WebUploadAction {
   const actions = useUploadActions()
   const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
   const selection = useWebUploadSelection(publishing)
   const publish = usePublishSelectedFile(
     actions.publishClip,
@@ -55,12 +56,14 @@ export function useWebUploadAction(): WebUploadAction {
     publishing,
     selection.clear,
     setPublishing,
+    setPublishError,
   )
 
   return {
     available: typeof File !== "undefined",
     picking: selection.picking,
     publishing,
+    error: publishError ?? selection.error,
     selected: selection.selected,
     previewUrl: selection.previewUrl,
     select: selection.select,
@@ -73,6 +76,7 @@ function useWebUploadSelection(publishing: boolean) {
   const [picking, setPicking] = useState(false)
   const [selected, setSelected] = useState<SelectedFile | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   // Keep the latest URL available to the unmount-only cleanup.
   const previewUrlRef = useRef<string | null>(null)
   previewUrlRef.current = previewUrl
@@ -82,6 +86,7 @@ function useWebUploadSelection(publishing: boolean) {
   )
 
   const clear = useCallback(() => {
+    setError(null)
     setSelected(null)
     setPreviewUrl((current) => {
       revokeObjectUrl(current, "upload preview URL")
@@ -91,13 +96,14 @@ function useWebUploadSelection(publishing: boolean) {
   const select = useCallback(
     async (file: File | null) => {
       if (!file || picking || publishing || selected) return
+      setError(null)
       setPicking(true)
       try {
         const prepared = await prepareSelectedClipFile(file)
         setSelected(prepared)
         setPreviewUrl(createObjectUrl(prepared.file, "upload preview URL"))
       } catch (cause) {
-        toast.error(errorMessage(cause, t("Could not prepare clip.")))
+        setError(errorMessage(cause, t("Could not prepare clip.")))
       } finally {
         setPicking(false)
       }
@@ -109,7 +115,7 @@ function useWebUploadSelection(publishing: boolean) {
     clear()
   }, [publishing, clear])
 
-  return { picking, selected, previewUrl, select, discard, clear }
+  return { picking, selected, previewUrl, error, select, discard, clear }
 }
 
 function usePublishSelectedFile(
@@ -118,10 +124,12 @@ function usePublishSelectedFile(
   publishing: boolean,
   clearSelection: () => void,
   setPublishing: (value: boolean) => void,
+  setPublishError: (value: string | null) => void,
 ) {
   return useCallback(
     async (metadata: WebUploadMetadata) => {
       if (!selected || publishing) return
+      setPublishError(null)
       setPublishing(true)
       try {
         const result = await publishClip(
@@ -131,12 +139,19 @@ function usePublishSelectedFile(
         clearSelection()
         await showUploadStarted(metadata, result.clipId)
       } catch (cause) {
-        toast.error(errorMessage(cause, t("Could not start upload.")))
+        setPublishError(errorMessage(cause, t("Could not start upload.")))
       } finally {
         setPublishing(false)
       }
     },
-    [publishClip, selected, publishing, clearSelection, setPublishing],
+    [
+      publishClip,
+      selected,
+      publishing,
+      clearSelection,
+      setPublishing,
+      setPublishError,
+    ],
   )
 }
 
@@ -157,19 +172,12 @@ function createDeferredWebUpload(
 }
 
 async function showUploadStarted(metadata: WebUploadMetadata, clipId: string) {
-  if (metadata.privacy !== "unlisted") {
-    toast.success(t("Upload started"))
-    return
+  if (metadata.privacy === "unlisted") {
+    await copyTextToClipboard(
+      absoluteClipHref(metadata.game?.slug ?? null, clipId, publicOrigin()),
+      { action: "copy uploaded clip link" },
+    )
   }
-  const copied = await copyTextToClipboard(
-    absoluteClipHref(metadata.game?.slug ?? null, clipId, publicOrigin()),
-    { action: "copy uploaded clip link" },
-  )
-  if (copied) {
-    toast.success(t("Link copied to clipboard"))
-    return
-  }
-  toast.error(t("Couldn't copy the clip link"))
 }
 
 async function prepareWebUploadPayload(

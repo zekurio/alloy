@@ -1,6 +1,7 @@
 import type { ClipPrivacy } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { Card } from "@alloy/ui/components/card"
 import { Dialog, DialogViewportContent } from "@alloy/ui/components/dialog"
 import {
@@ -9,7 +10,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import { ChevronUpIcon, Link2Icon, Loader2Icon, UploadIcon } from "lucide-react"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import {
+  ChevronUpIcon,
+  CircleAlertIcon,
+  Link2Icon,
+  UploadIcon,
+} from "lucide-react"
 
 import {
   MediaStage,
@@ -58,6 +65,7 @@ export function WebUploadEditor({ action }: { action: WebUploadAction }) {
             selected={action.selected}
             previewUrl={action.previewUrl}
             pending={action.publishing}
+            error={action.error}
             onCancel={action.discard}
             onPublish={(metadata) => {
               void action.publish(metadata)
@@ -73,12 +81,14 @@ function WebUploadEditorInner({
   selected,
   previewUrl,
   pending,
+  error,
   onCancel,
   onPublish,
 }: {
   selected: SelectedFile
   previewUrl: string
   pending: boolean
+  error: string | null
   onCancel: () => void
   onPublish: (metadata: WebUploadMetadata) => void
 }) {
@@ -199,6 +209,12 @@ function WebUploadEditorInner({
                 })}
               </p>
             ) : null}
+            {error ? (
+              <Callout tone="destructive" className="text-xs">
+                <CircleAlertIcon />
+                <span>{error}</span>
+              </Callout>
+            ) : null}
 
             <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
               <Button
@@ -210,20 +226,19 @@ function WebUploadEditorInner({
                 {t("Cancel")}
               </Button>
               <div className="flex items-center">
-                <Button
+                <FeedbackButton
                   type="button"
                   variant="primary"
                   disabled={!canPublish}
+                  state={pending ? "pending" : error ? "error" : "idle"}
+                  pendingLabel={t("Uploading...")}
+                  errorLabel={t("Try again")}
                   className="rounded-r-none"
                   onClick={() => submit("public")}
                 >
-                  {pending ? (
-                    <Loader2Icon className="animate-spin" />
-                  ) : (
-                    <UploadIcon />
-                  )}
-                  {pending ? t("Uploading...") : t("Post")}
-                </Button>
+                  <UploadIcon />
+                  {t("Post")}
+                </FeedbackButton>
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={

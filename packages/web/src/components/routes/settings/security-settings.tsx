@@ -1,8 +1,9 @@
 import type { PublicAuthConfig } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
+import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { useQuery } from "@tanstack/react-query"
-import { useEffect } from "react"
+import { CircleAlertIcon, RefreshCcwIcon } from "lucide-react"
 
 import {
   LinkedAccountsCard,
@@ -26,28 +27,20 @@ function useSecurityData(config: PublicAuthConfig) {
     enabled: config.passkeyEnabled,
   })
 
-  useEffect(() => {
-    if (accountsQuery.error) {
-      toast.error(
-        errorMessage(accountsQuery.error, t("Couldn't load accounts")),
-      )
-    }
-  }, [accountsQuery.error])
-
-  useEffect(() => {
-    if (passkeysQuery.error) {
-      toast.error(
-        errorMessage(passkeysQuery.error, t("Couldn't load passkeys")),
-      )
-    }
-  }, [passkeysQuery.error])
-
   return {
     accounts: accountsQuery.data ?? null,
     passkeys: config.passkeyEnabled ? (passkeysQuery.data ?? null) : null,
     loading:
       accountsQuery.isPending ||
       (config.passkeyEnabled && passkeysQuery.isPending),
+    error: accountsQuery.error
+      ? errorMessage(accountsQuery.error, t("Couldn't load accounts"))
+      : passkeysQuery.error
+        ? errorMessage(passkeysQuery.error, t("Couldn't load passkeys"))
+        : null,
+    retry: async () => {
+      await Promise.all([accountsQuery.refetch(), passkeysQuery.refetch()])
+    },
     refreshAccounts: async () => {
       await accountsQuery.refetch()
     },
@@ -59,28 +52,54 @@ function useSecurityData(config: PublicAuthConfig) {
 
 export function SecuritySettings() {
   const config = useSuspenseAuthConfig()
-  const { accounts, passkeys, loading, refreshAccounts, refreshPasskeys } =
-    useSecurityData(config)
+  const security = useSecurityData(config)
 
-  if (loading || !accounts) return null
+  if (security.loading) return null
 
-  const showLinkedAccounts = shouldShowLinkedAccountsCard(config, accounts)
-  const showPasskeys = config.passkeyEnabled && passkeys !== null
+  if (!security.accounts) {
+    return (
+      <Callout tone="destructive">
+        <CircleAlertIcon />
+        <div className="flex flex-1 items-center justify-between gap-3">
+          <span>{security.error}</span>
+          <Button variant="outline" size="sm" onClick={security.retry}>
+            <RefreshCcwIcon />
+            {t("Try again")}
+          </Button>
+        </div>
+      </Callout>
+    )
+  }
+
+  const showLinkedAccounts = shouldShowLinkedAccountsCard(
+    config,
+    security.accounts,
+  )
+  const showPasskeys = config.passkeyEnabled && security.passkeys !== null
 
   return (
     <>
+      {security.error ? (
+        <Callout tone="destructive">
+          <CircleAlertIcon />
+          <span>{security.error}</span>
+        </Callout>
+      ) : null}
       {showLinkedAccounts && (
         <LinkedAccountsCard
-          accounts={accounts}
+          accounts={security.accounts}
           config={config}
           hasPasskeySignIn={
-            config.passkeyEnabled && (passkeys?.length ?? 0) > 0
+            config.passkeyEnabled && (security.passkeys?.length ?? 0) > 0
           }
-          onRefresh={refreshAccounts}
+          onRefresh={security.refreshAccounts}
         />
       )}
       {showPasskeys && (
-        <PasskeysCard passkeys={passkeys ?? []} onRefresh={refreshPasskeys} />
+        <PasskeysCard
+          passkeys={security.passkeys ?? []}
+          onRefresh={security.refreshPasskeys}
+        />
       )}
     </>
   )

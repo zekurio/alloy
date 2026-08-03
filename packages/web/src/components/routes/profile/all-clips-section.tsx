@@ -6,7 +6,6 @@ import { useMemo } from "react"
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { compareDateAsc, compareDateDesc } from "@/lib/date-format"
 import type { ProfileAllSort } from "@/lib/profile-all-search"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 import { ClipsFilterBar } from "./clips-filter-bar"
 
@@ -27,10 +26,6 @@ export function AllClipsSection({
   sort,
   gameSlug,
 }: AllClipsSectionProps) {
-  useQueryErrorToast(error, {
-    title: t("Couldn't load clips"),
-    toastId: "profile-all-clips-error",
-  })
   const gameOptions = useMemo(() => {
     if (!clips) return []
     const map = new Map<

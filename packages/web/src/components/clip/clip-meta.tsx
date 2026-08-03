@@ -18,8 +18,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { GameIcon } from "@alloy/ui/components/game-icon"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
@@ -48,6 +48,7 @@ import {
 import { errorMessage } from "@/lib/error-message"
 import { useGameQuery, useToggleGameFavoriteMutation } from "@/lib/game-queries"
 import { formatCount } from "@/lib/number-format"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 import {
   useToggleUserFollowMutation,
   useUserProfileQuery,
@@ -128,6 +129,7 @@ function ClipMeta({
 
   const deleting = deletePending
   const reEncodeMutation = useReEncodeClipMutation()
+  const shareFeedback = useActionFeedback()
 
   const likeStateQuery = useLikeStateQuery(clipId, { enabled: canLike })
   const likeMutation = useToggleLikeMutation()
@@ -154,47 +156,28 @@ function ClipMeta({
 
   const handleLikeToggle = useCallback(() => {
     if (!canLike) return
-    likeMutation.mutate(
-      { clipId, nextLiked: !liked },
-      {
-        onError: () => toast.error(t("Couldn't update like")),
-      },
-    )
+    likeMutation.mutate({ clipId, nextLiked: !liked })
   }, [canLike, clipId, liked, likeMutation])
 
   const handleShare = useCallback(async () => {
-    if (privacy === "private") {
-      toast.error(t("Clip link is disabled"))
-      return
-    }
-
-    const url = currentUrlWithoutSearchOrHash()
-    if (url === null) {
-      toast.error(t("Couldn't share clip"))
-      return
-    }
-
-    const result = await shareUrlWithFallback(url, {
-      title,
-      action: "share clip link",
-    })
-    if (result === "copied") {
-      toast.success(t("Link copied"))
-    } else if (result === "failed") {
-      toast.error(t("Couldn't share clip"))
-    }
-  }, [privacy, title])
+    await shareFeedback.run(async () => {
+      if (privacy === "private") throw new Error(t("Clip link is disabled"))
+      const url = currentUrlWithoutSearchOrHash()
+      if (url === null) throw new Error(t("Couldn't share clip"))
+      if (
+        (await shareUrlWithFallback(url, {
+          title,
+          action: "share clip link",
+        })) === "failed"
+      ) {
+        throw new Error(t("Couldn't share clip"))
+      }
+    }, t("Couldn't share clip"))
+  }, [privacy, shareFeedback, title])
 
   function handleFollow() {
     if (followPending || !profileViewer) return
-    followMutation.mutate(
-      { next: !isFollowing },
-      {
-        onError: (cause) => {
-          toast.error(errorMessage(cause, t("Something went wrong")))
-        },
-      },
-    )
+    followMutation.mutate({ next: !isFollowing })
   }
 
   const avatarStyle = {
@@ -214,22 +197,42 @@ function ClipMeta({
         />
 
         <div className="flex shrink-0 items-center gap-1 self-start">
-          <Button
+          <FeedbackButton
             variant={liked ? "accent-outline" : "ghost"}
             size="sm"
             onClick={handleLikeToggle}
             disabled={!canLike || likeMutation.isPending}
+            state={
+              likeMutation.isPending
+                ? "pending"
+                : likeMutation.isError
+                  ? "error"
+                  : "idle"
+            }
+            pendingLabel={<span className="sr-only">{t("Updating…")}</span>}
+            errorLabel={<span className="sr-only">{t("Try again")}</span>}
             aria-pressed={liked}
             aria-label={canLike ? t("Like clip") : t("Sign in to like")}
-            title={canLike ? undefined : t("Sign in to like")}
+            title={
+              likeMutation.error
+                ? errorMessage(likeMutation.error, t("Couldn't update like"))
+                : canLike
+                  ? undefined
+                  : t("Sign in to like")
+            }
           >
             <HeartIcon className={cn(liked && "fill-current")} />
             <span className="tabular-nums">{formatCount(likes)}</span>
-          </Button>
-          <Button
+          </FeedbackButton>
+          <FeedbackButton
             variant="ghost"
             size="icon-sm"
             onClick={handleShare}
+            state={shareFeedback.feedback.state}
+            pendingLabel={<span className="sr-only">{t("Sharing…")}</span>}
+            successLabel={<span className="sr-only">{t("Link copied")}</span>}
+            errorLabel={<span className="sr-only">{t("Try again")}</span>}
+            disabled={privacy === "private"}
             aria-label={
               privacy === "private"
                 ? t("Clip link is disabled")
@@ -240,7 +243,7 @@ function ClipMeta({
             }
           >
             <Share2Icon />
-          </Button>
+          </FeedbackButton>
           {canManage || !!downloadAction ? (
             <DropdownMenu>
               <DropdownMenuTrigger
@@ -328,12 +331,29 @@ function ClipMeta({
                 <span className="truncate">{uploader.name}</span>
               </Link>
               {canFollow ? (
-                <Button
+                <FeedbackButton
                   type="button"
                   variant={isFollowing ? "ghost" : "primary"}
                   size="sm"
                   onClick={() => void handleFollow()}
                   disabled={followPending}
+                  state={
+                    followPending
+                      ? "pending"
+                      : followMutation.isError
+                        ? "error"
+                        : "idle"
+                  }
+                  pendingLabel={t("Updating…")}
+                  errorLabel={t("Try again")}
+                  title={
+                    followMutation.error
+                      ? errorMessage(
+                          followMutation.error,
+                          t("Something went wrong"),
+                        )
+                      : undefined
+                  }
                 >
                   {isFollowing ? <UserMinusIcon /> : <UserPlusIcon />}
                   {followPending
@@ -341,7 +361,7 @@ function ClipMeta({
                     : isFollowing
                       ? t("Following")
                       : t("Follow")}
-                </Button>
+                </FeedbackButton>
               ) : null}
             </div>
             {followerCount !== null ? (
@@ -410,14 +430,7 @@ function ClipGameBadge({
       void navigate({ to: "/login" })
       return
     }
-    favoriteMutation.mutate(
-      { gameId, next: !isFavorite, viewerId },
-      {
-        onError: (cause) => {
-          toast.error(errorMessage(cause, t("Something went wrong")))
-        },
-      },
-    )
+    favoriteMutation.mutate({ gameId, next: !isFavorite, viewerId })
   }
 
   const gameBody = (
@@ -436,13 +449,15 @@ function ClipGameBadge({
       type="button"
       disabled={!canToggle || favoriteMutation.isPending}
       title={
-        !gameRef
-          ? t("Game details unavailable")
-          : viewer === null
-            ? t("Sign in to favourite")
-            : isFavorite
-              ? t("Remove from favourites")
-              : t("Add to favourites")
+        favoriteMutation.error
+          ? errorMessage(favoriteMutation.error, t("Something went wrong"))
+          : !gameRef
+            ? t("Game details unavailable")
+            : viewer === null
+              ? t("Sign in to favourite")
+              : isFavorite
+                ? t("Remove from favourites")
+                : t("Add to favourites")
       }
       aria-label={
         isFavorite
@@ -455,6 +470,7 @@ function ClipGameBadge({
         "text-foreground-faint hover:text-foreground",
         "disabled:pointer-events-none disabled:opacity-50",
         isFavorite && "text-accent",
+        favoriteMutation.isError && "text-destructive",
       )}
     >
       <StarIcon className={cn("size-4", isFavorite && "fill-current")} />

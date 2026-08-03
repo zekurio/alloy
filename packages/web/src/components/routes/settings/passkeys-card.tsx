@@ -12,6 +12,7 @@ import {
   AlertDialogTrigger,
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import {
   Dialog,
   DialogBody,
@@ -22,17 +23,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@alloy/ui/components/dialog"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Field, FieldLabel } from "@alloy/ui/components/field"
 import { List, ListItem } from "@alloy/ui/components/list"
-import { toast } from "@alloy/ui/lib/toast"
-import { PencilIcon, PlusIcon, SaveIcon, Trash2Icon } from "lucide-react"
+import {
+  CircleAlertIcon,
+  PencilIcon,
+  PlusIcon,
+  SaveIcon,
+  Trash2Icon,
+} from "lucide-react"
 import { useEffect, useState } from "react"
 import type { FormEvent, ReactElement, ReactNode } from "react"
 
 import { LimitedInput } from "@/components/form/limited-field"
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 import { authClient } from "@/lib/auth-client"
-import { toastAuthAttemptFailure } from "@/lib/auth-flow"
+import {
+  isAuthAttemptCancellation,
+  reportAuthFlowFailure,
+} from "@/lib/auth-flow"
 import { formatCalendarDate } from "@/lib/date-format"
 import { errorMessage } from "@/lib/error-message"
 import { addPasskeyWithLabel } from "@/lib/passkeys"
@@ -47,22 +57,32 @@ export function PasskeysCard({
   onRefresh: () => Promise<void>
 }) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<{
+    id: string
+    message: string
+  } | null>(null)
 
   async function onDelete(passkey: Passkey) {
     if (deletingId) return
+    setDeleteError(null)
     setDeletingId(passkey.id)
     try {
       const { error } = await authClient.passkey.deletePasskey({
         id: passkey.id,
       })
       if (error) {
-        toast.error(errorMessage(error, t("Couldn't remove passkey")))
+        setDeleteError({
+          id: passkey.id,
+          message: errorMessage(error, t("Couldn't remove passkey")),
+        })
         return
       }
-      toast.success(t("Passkey removed"))
       await onRefresh()
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Something went wrong")))
+      setDeleteError({
+        id: passkey.id,
+        message: errorMessage(cause, t("Something went wrong")),
+      })
     } finally {
       setDeletingId(null)
     }
@@ -84,7 +104,11 @@ export function PasskeysCard({
               key={passkey.id}
               passkey={passkey}
               removing={deletingId === passkey.id}
+              removeError={
+                deleteError?.id === passkey.id ? deleteError.message : null
+              }
               onDelete={() => onDelete(passkey)}
+              onDismissRemoveError={() => setDeleteError(null)}
               onRefresh={onRefresh}
             />
           ))}
@@ -102,32 +126,43 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [adding, setAdding] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (adding) return
+    setSubmitError(null)
     setAdding(true)
     try {
       const { error } = await addPasskeyWithLabel({
         label: name,
       })
       if (error) {
-        toastAuthAttemptFailure(
+        reportAuthFlowFailure(
           "passkey registration",
-          "Couldn't register passkey",
+          t("Couldn't register passkey"),
           error,
+        )
+        setSubmitError(
+          isAuthAttemptCancellation(error)
+            ? t("Auth attempt cancelled.")
+            : errorMessage(error, t("Couldn't register passkey")),
         )
         return
       }
-      toast.success(t("Passkey added"))
       setOpen(false)
       setName("")
       await onAdded()
     } catch (cause) {
-      toastAuthAttemptFailure(
+      reportAuthFlowFailure(
         "passkey registration",
-        "Passkey registration failed",
+        t("Passkey registration failed"),
         cause,
+      )
+      setSubmitError(
+        isAuthAttemptCancellation(cause)
+          ? t("Auth attempt cancelled.")
+          : errorMessage(cause, t("Passkey registration failed")),
       )
     } finally {
       setAdding(false)
@@ -137,7 +172,10 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
   return (
     <PasskeyNameDialog
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setSubmitError(null)
+      }}
       trigger={
         <Button
           type="button"
@@ -157,11 +195,19 @@ function AddPasskeyDialog({ onAdded }: { onAdded: () => Promise<void> }) {
       name={name}
       onNameChange={setName}
       busy={adding}
+      error={submitError}
       onSubmit={onSubmit}
       submitAction={
-        <Button type="submit" variant="primary" size="sm" disabled={adding}>
-          {adding ? t("Waiting for authenticator…") : t("Register")}
-        </Button>
+        <FeedbackButton
+          type="submit"
+          variant="primary"
+          size="sm"
+          state={adding ? "pending" : submitError ? "error" : "idle"}
+          pendingLabel={t("Waiting for authenticator…")}
+          errorLabel={t("Try again")}
+        >
+          {t("Register")}
+        </FeedbackButton>
       }
     />
   )
@@ -182,6 +228,7 @@ function PasskeyNameDialog({
   name,
   onNameChange,
   busy,
+  error,
   onSubmit,
   submitAction,
 }: {
@@ -195,6 +242,7 @@ function PasskeyNameDialog({
   name: string
   onNameChange: (name: string) => void
   busy: boolean
+  error: string | null
   onSubmit: (e: FormEvent<HTMLFormElement>) => void
   submitAction: ReactNode
 }) {
@@ -220,6 +268,12 @@ function PasskeyNameDialog({
                 disabled={busy}
               />
             </Field>
+            {error ? (
+              <Callout tone="destructive" className="mt-3 text-xs">
+                <CircleAlertIcon />
+                <span>{error}</span>
+              </Callout>
+            ) : null}
           </DialogBody>
           <DialogFooter>
             <Button
@@ -242,12 +296,16 @@ function PasskeyNameDialog({
 function PasskeyRow({
   passkey,
   removing,
+  removeError,
   onDelete,
+  onDismissRemoveError,
   onRefresh,
 }: {
   passkey: Passkey
   removing: boolean
+  removeError: string | null
   onDelete: () => void
+  onDismissRemoveError: () => void
   onRefresh: () => Promise<void>
 }) {
   return (
@@ -263,7 +321,11 @@ function PasskeyRow({
       </div>
       <div className="flex shrink-0 items-center">
         <EditPasskeyDialog passkey={passkey} onUpdated={onRefresh} />
-        <AlertDialog>
+        <AlertDialog
+          onOpenChange={(open) => {
+            if (!open) onDismissRemoveError()
+          }}
+        >
           <AlertDialogTrigger
             render={
               <Button
@@ -286,13 +348,22 @@ function PasskeyRow({
                 )}
               </AlertDialogDescription>
             </AlertDialogHeader>
+            {removeError ? (
+              <Callout tone="destructive">
+                <CircleAlertIcon />
+                <span>{removeError}</span>
+              </Callout>
+            ) : null}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={removing}>
                 {t("Cancel")}
               </AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
-                onClick={onDelete}
+                onClick={(event) => {
+                  event.preventDefault()
+                  onDelete()
+                }}
                 disabled={removing}
               >
                 {removing ? t("Removing…") : t("Remove passkey")}
@@ -315,6 +386,7 @@ function EditPasskeyDialog({
   const [open, setOpen] = useState(false)
   const [name, setName] = useState(passkey.name ?? "")
   const [saving, setSaving] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const currentName = passkey.name ?? ""
   const dirty = name.trim() !== currentName
 
@@ -329,6 +401,7 @@ function EditPasskeyDialog({
       setOpen(false)
       return
     }
+    setSubmitError(null)
     setSaving(true)
     try {
       const { error } = await authClient.passkey.updatePasskey({
@@ -336,14 +409,13 @@ function EditPasskeyDialog({
         name: name.trim() || undefined,
       })
       if (error) {
-        toast.error(errorMessage(error, t("Couldn't rename passkey")))
+        setSubmitError(errorMessage(error, t("Couldn't rename passkey")))
         return
       }
-      toast.success(t("Passkey renamed"))
       setOpen(false)
       await onUpdated()
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Something went wrong")))
+      setSubmitError(errorMessage(cause, t("Something went wrong")))
     } finally {
       setSaving(false)
     }
@@ -352,7 +424,10 @@ function EditPasskeyDialog({
   return (
     <PasskeyNameDialog
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setSubmitError(null)
+      }}
       trigger={
         <Button
           type="button"
@@ -370,17 +445,21 @@ function EditPasskeyDialog({
       name={name}
       onNameChange={setName}
       busy={saving}
+      error={submitError}
       onSubmit={onSubmit}
       submitAction={
-        <Button
+        <FeedbackButton
           type="submit"
           variant="primary"
           size="sm"
           disabled={saving || !dirty}
+          state={saving ? "pending" : submitError ? "error" : "idle"}
+          pendingLabel={t("Saving…")}
+          errorLabel={t("Try again")}
         >
           <SaveIcon />
-          {saving ? t("Saving…") : t("Save")}
-        </Button>
+          {t("Save")}
+        </FeedbackButton>
       }
     />
   )

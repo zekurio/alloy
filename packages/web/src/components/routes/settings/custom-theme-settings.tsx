@@ -1,5 +1,7 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import {
   InputGroup,
   InputGroupAddon,
@@ -13,8 +15,8 @@ import {
   parseThemeMetadata,
   themeFileName,
 } from "@alloy/ui/lib/custom-theme"
-import { toast } from "@alloy/ui/lib/toast"
 import {
+  CircleAlertIcon,
   DownloadIcon,
   RotateCcwIcon,
   SearchIcon,
@@ -28,6 +30,7 @@ import { ThemeImportDialog } from "@/components/routes/settings/theme-import-dia
 import { ThemeTokenEditor } from "@/components/routes/settings/theme-token-editor"
 import { startBlobDownload } from "@/lib/browser-download"
 import { useCustomThemeEditor } from "@/lib/custom-theme"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 const CSS_PLACEHOLDER = `:root {\n  --background: #08090b;\n  --accent: #7c5cff;\n}`
 
@@ -39,22 +42,25 @@ export function CustomThemeSettings() {
   const { theme, update } = useCustomThemeEditor()
   const [search, setSearch] = useState("")
   const [pendingImport, setPendingImport] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const shareFeedback = useActionFeedback()
   const fileInput = useRef<HTMLInputElement | null>(null)
 
   function shareTheme() {
-    void navigator.clipboard
-      .writeText(theme.css)
-      .then(() => toast.success(t("Theme CSS copied")))
-      .catch(() => toast.error(t("Couldn't copy the theme")))
+    void shareFeedback.run(
+      () => navigator.clipboard.writeText(theme.css),
+      t("Couldn't copy the theme"),
+    )
   }
 
   function exportTheme() {
+    setActionError(null)
     const metadata = parseThemeMetadata(theme.css)
     const file = new Blob([buildThemeFile(theme.css, metadata)], {
       type: "text/css",
     })
     if (!startBlobDownload(file, themeFileName(metadata.name))) {
-      toast.error(t("Couldn't export the theme"))
+      setActionError(t("Couldn't export the theme"))
     }
   }
 
@@ -62,9 +68,14 @@ export function CustomThemeSettings() {
     // Reset first: picking the same file twice has to re-fire `change`.
     if (fileInput.current) fileInput.current.value = ""
     if (!file) return
-    const css = await file.text()
+    setActionError(null)
+    const css = await file.text().catch(() => {
+      setActionError(t("Couldn't read that file"))
+      return null
+    })
+    if (css === null) return
     if (!css.trim()) {
-      toast.error(t("That file is empty"))
+      setActionError(t("That file is empty"))
       return
     }
     setPendingImport(css)
@@ -176,27 +187,34 @@ export function CustomThemeSettings() {
             <DownloadIcon />
             {t("Export theme")}
           </Button>
-          <Button
+          <FeedbackButton
             type="button"
             variant="primary"
             onClick={shareTheme}
             disabled={!theme.css}
+            state={shareFeedback.feedback.state}
+            pendingLabel={t("Copying…")}
+            successLabel={t("Copied")}
+            errorLabel={t("Try again")}
           >
             <Share2Icon />
             {t("Share this theme")}
-          </Button>
+          </FeedbackButton>
         </div>
+
+        {actionError ? (
+          <Callout tone="destructive" className="text-xs">
+            <CircleAlertIcon />
+            <span>{actionError}</span>
+          </Callout>
+        ) : null}
 
         <input
           ref={fileInput}
           type="file"
           accept=".css,text/css"
           className="hidden"
-          onChange={(event) =>
-            void readImport(event.target.files?.[0]).catch(() =>
-              toast.error(t("Couldn't read that file")),
-            )
-          }
+          onChange={(event) => void readImport(event.target.files?.[0])}
         />
         <ThemeImportDialog
           css={pendingImport}
@@ -206,7 +224,6 @@ export function CustomThemeSettings() {
           onApply={(css) => {
             update({ css })
             setPendingImport(null)
-            toast.success(t("Theme imported"))
           }}
         />
       </SettingsSubsection>

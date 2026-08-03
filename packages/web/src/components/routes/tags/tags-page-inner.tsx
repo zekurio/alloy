@@ -6,7 +6,7 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link, useSearch } from "@tanstack/react-router"
-import { GlobeIcon, HashIcon, TagIcon } from "lucide-react"
+import { AlertCircleIcon, GlobeIcon, HashIcon, TagIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
@@ -25,7 +25,6 @@ import { useSuspenseSession } from "@/lib/session-suspense"
 import { useTagClipsInfiniteQuery, useTagSummaryQuery } from "@/lib/tag-queries"
 import { type TagSearch, tagFilters } from "@/lib/tag-search"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 const SORTS: ReadonlyArray<SortDropdownOption<"top" | "recent">> = [
   { key: "top", label: t("Top") },
@@ -164,11 +163,6 @@ function TagClipsSection({
     isFetchingNextPage,
     isPending,
   } = useTagClipsInfiniteQuery(tag, filters)
-  useQueryErrorToast(error, {
-    title: t("Couldn't load clips"),
-    toastId: `tag-${tag}-error`,
-  })
-
   const rows = useMemo(
     () => (data ? data.pages.flatMap((page) => page.items) : []),
     [data],
@@ -182,6 +176,16 @@ function TagClipsSection({
 
   if (isPending && rows.length === 0) {
     return <LoadingState />
+  }
+
+  if (error && rows.length === 0) {
+    return (
+      <EmptyState
+        icon={AlertCircleIcon}
+        size="lg"
+        title={t("Couldn't load clips")}
+      />
+    )
   }
 
   if (rows.length === 0) {

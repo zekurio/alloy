@@ -2,7 +2,6 @@ import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { LoadingState } from "@alloy/ui/components/loading-state"
-import { toast } from "@alloy/ui/lib/toast"
 import { useNavigate } from "@tanstack/react-router"
 import { FileQuestionIcon, FolderXIcon, MonitorIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -67,6 +66,7 @@ function LibraryEditorContent({
   const { snapshot, error, refreshing, refresh, prevEntry, nextEntry } =
     navigation
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
 
   const currentEntry = navigation.currentEntry
@@ -82,11 +82,11 @@ function LibraryEditorContent({
 
   const deleteCapture = async () => {
     if (deleting || !item) return
+    setDeleteError(null)
     setDeleting(true)
     const fallback = nextEntry ?? prevEntry
     try {
       await desktop.recording.deleteLibraryCapture(item.id)
-      toast.success(t("Capture moved to the system trash"))
       void refresh()
       setDeleteDialogOpen(false)
       setDeleting(false)
@@ -96,7 +96,7 @@ function LibraryEditorContent({
         void navigate({ to: "/library", replace: true })
       }
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't delete capture")))
+      setDeleteError(errorMessage(cause, t("Couldn't delete capture")))
       setDeleting(false)
     }
   }
@@ -169,8 +169,12 @@ function LibraryEditorContent({
       />
       <DeleteLocalCaptureDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) setDeleteError(null)
+        }}
         pending={deleting}
+        error={deleteError}
         onConfirm={() => {
           void deleteCapture()
         }}
@@ -183,11 +187,13 @@ function DeleteLocalCaptureDialog({
   open,
   onOpenChange,
   pending,
+  error,
   onConfirm,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   pending: boolean
+  error: string | null
   onConfirm: () => void
 }) {
   return (
@@ -199,6 +205,7 @@ function DeleteLocalCaptureDialog({
       confirmLabel={t("Delete capture")}
       pendingLabel={t("Deleting...")}
       pending={pending}
+      error={error}
       onConfirm={onConfirm}
     />
   )

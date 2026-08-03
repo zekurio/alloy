@@ -1,5 +1,5 @@
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Loader2Icon, PlusIcon, UploadIcon } from "lucide-react"
 import { Suspense, lazy, useRef } from "react"
@@ -58,17 +58,21 @@ export function GlobalUploadControl({
     const pending = importAction.picking || importAction.committing
     return (
       <>
-        <Button
+        <FeedbackButton
           type="button"
           variant="primary"
           size={triggerSize}
           disabled={!importAction.available || pending}
+          state={pending ? "pending" : importAction.error ? "error" : "idle"}
+          pendingLabel={variant === "header" ? t("Working…") : null}
+          errorLabel={variant === "header" ? t("Try again") : null}
           className={triggerClassName}
           aria-label={triggerAriaLabel}
           title={
-            variant !== "header" || importAction.available
+            importAction.error ??
+            (variant !== "header" || importAction.available
               ? triggerLabel
-              : t("Import is unavailable in this desktop build")
+              : t("Import is unavailable in this desktop build"))
           }
           onClick={() => {
             // Warm the chunk; lazy() re-fetches on mount if this fails.
@@ -77,7 +81,7 @@ export function GlobalUploadControl({
           }}
         >
           <UploadTriggerContent pending={pending} variant={variant} />
-        </Button>
+        </FeedbackButton>
         {importAction.staged !== null ? (
           <Suspense fallback={null}>
             <ImportClipDetailsDialog action={importAction} />
@@ -101,7 +105,7 @@ export function GlobalUploadControl({
           void webUploadAction.select(file)
         }}
       />
-      <Button
+      <FeedbackButton
         type="button"
         variant="primary"
         size={triggerSize}
@@ -112,10 +116,14 @@ export function GlobalUploadControl({
           pending ||
           webUploadAction.selected !== null
         }
+        state={pending ? "pending" : webUploadAction.error ? "error" : "idle"}
+        pendingLabel={variant === "header" ? t("Working…") : null}
+        errorLabel={variant === "header" ? t("Try again") : null}
         title={
-          variant !== "header" || webUploadAction.available
+          webUploadAction.error ??
+          (variant !== "header" || webUploadAction.available
             ? triggerLabel
-            : t("Uploads are unavailable in this browser")
+            : t("Uploads are unavailable in this browser"))
         }
         onClick={() => {
           // Warm the chunk; lazy() re-fetches on mount if this fails.
@@ -124,7 +132,7 @@ export function GlobalUploadControl({
         }}
       >
         <UploadTriggerContent pending={pending} variant={variant} />
-      </Button>
+      </FeedbackButton>
       {webUploadAction.selected !== null ? (
         <Suspense fallback={null}>
           <WebUploadEditor action={webUploadAction} />

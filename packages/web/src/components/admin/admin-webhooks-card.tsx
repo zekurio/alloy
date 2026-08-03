@@ -4,6 +4,7 @@ import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { List, ListItem } from "@alloy/ui/components/list"
 import {
   Section,
@@ -13,7 +14,6 @@ import {
 } from "@alloy/ui/components/section"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
-import { toast } from "@alloy/ui/lib/toast"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { SendIcon, Trash2Icon } from "lucide-react"
 import { useState } from "react"
@@ -82,39 +82,42 @@ export function AdminWebhooksCard({ hideHeader }: { hideHeader?: boolean }) {
 function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
   const queryClient = useQueryClient()
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [toggleError, setToggleError] = useState<string | null>(null)
 
   const toggle = useMutation({
     mutationFn: (enabled: boolean) =>
       api.admin.updateWebhook(webhook.id, { enabled }),
+    onMutate: () => setToggleError(null),
     onSuccess: (updated) => setAdminWebhookCacheRow(queryClient, updated),
     onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't update webhook"))),
+      setToggleError(errorMessage(cause, t("Couldn't update webhook"))),
   })
 
   const sendTest = useMutation({
-    mutationFn: () => api.admin.testWebhook(webhook.id),
-    onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: adminKeys.webhooks() })
-      if (result.ok) {
-        toast.success(t("Test delivered"))
-        return
-      }
-      toast.error(result.error ?? t("Couldn't send test"))
+    mutationFn: async () => {
+      const result = await api.admin.testWebhook(webhook.id)
+      if (!result.ok) throw new Error(result.error ?? t("Couldn't send test"))
     },
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't send test"))),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: adminKeys.webhooks() })
+    },
   })
 
   const remove = useMutation({
     mutationFn: () => api.admin.deleteWebhook(webhook.id),
     onSuccess: () => {
       removeAdminWebhookCacheRow(queryClient, webhook.id)
-      toast.success(t("Webhook deleted"))
       setDeleteOpen(false)
     },
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't delete webhook"))),
   })
+  const actionError =
+    toggleError ??
+    (sendTest.error
+      ? errorMessage(sendTest.error, t("Couldn't send test"))
+      : null)
+  const deleteError = remove.error
+    ? errorMessage(remove.error, t("Couldn't delete webhook"))
+    : null
 
   return (
     <ListItem className="items-center gap-3">
@@ -123,6 +126,11 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
         <span className="text-foreground-muted truncate text-xs">
           {webhook.url}
         </span>
+        {actionError ? (
+          <span role="alert" className="text-destructive text-xs">
+            {actionError}
+          </span>
+        ) : null}
       </div>
       <Badge
         variant={webhook.provider === "discord" ? "accent" : "secondary"}
@@ -137,16 +145,27 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
         onCheckedChange={(next) => toggle.mutate(next)}
         aria-label={t("Enable webhook")}
       />
-      <Button
+      <FeedbackButton
         type="button"
         variant="ghost"
         size="icon"
         aria-label={t("Send test")}
-        disabled={sendTest.isPending}
+        state={
+          sendTest.isPending
+            ? "pending"
+            : sendTest.isSuccess
+              ? "success"
+              : sendTest.isError
+                ? "error"
+                : "idle"
+        }
+        pendingLabel={<span className="sr-only">{t("Sending...")}</span>}
+        successLabel={<span className="sr-only">{t("Test delivered")}</span>}
+        errorLabel={<span className="sr-only">{t("Try again")}</span>}
         onClick={() => sendTest.mutate()}
       >
-        {sendTest.isPending ? <Spinner className="size-4" /> : <SendIcon />}
-      </Button>
+        <SendIcon />
+      </FeedbackButton>
       <EditWebhookDialog webhook={webhook} />
       <Button
         type="button"
@@ -159,7 +178,10 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
       </Button>
       <ConfirmDeleteDialog
         open={deleteOpen}
-        onOpenChange={setDeleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open)
+          if (!open) remove.reset()
+        }}
         title={t("Delete this webhook?")}
         description={t(
           "It stops receiving announcements. Clips it already received are not re-sent if you add it back.",
@@ -167,6 +189,7 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
         confirmLabel={t("Delete")}
         pendingLabel={t("Deleting")}
         pending={remove.isPending}
+        error={deleteError}
         onConfirm={() => remove.mutate()}
       />
     </ListItem>

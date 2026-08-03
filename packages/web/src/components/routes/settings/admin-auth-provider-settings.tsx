@@ -16,6 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { List, ListItem } from "@alloy/ui/components/list"
 import {
   ResponsiveDialog,
@@ -30,7 +31,13 @@ import {
 } from "@alloy/ui/components/responsive-dialog"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
-import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
+import {
+  CircleAlertIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UserKeyIcon,
+} from "lucide-react"
 import { useState } from "react"
 import type { FormEvent } from "react"
 
@@ -49,10 +56,12 @@ import {
 export function OAuthProviderSettings({
   config,
   pending,
+  error,
   onSave,
 }: {
   config: AdminRuntimeConfig
   pending: boolean
+  error: string | null
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
 }) {
   const readOnly = config.authLocks.oauthProviders
@@ -75,6 +84,12 @@ export function OAuthProviderSettings({
       }
     >
       <div className="flex flex-col gap-3">
+        {error ? (
+          <Callout tone="destructive" className="text-xs">
+            <CircleAlertIcon />
+            <span>{error}</span>
+          </Callout>
+        ) : null}
         {readOnly ? <OAuthProvidersEnvNote /> : null}
         {config.oauthProviders.length === 0 ? (
           <ListEmpty title={t("No OAuth providers configured")} />

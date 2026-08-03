@@ -251,9 +251,7 @@ function useLocalClipSearch(
   },
 ) {
   const desktop = enabled ? alloyDesktop() : null
-  const { snapshot, refreshing } = useLibrarySnapshot(desktop, {
-    toastErrors: false,
-  })
+  const { snapshot, refreshing } = useLibrarySnapshot(desktop)
   const gamesByName = useLibraryGameLookup(snapshot)
   const fallbackByClipId = useMemo(() => {
     const map = new Map<string, LibraryItemView>()

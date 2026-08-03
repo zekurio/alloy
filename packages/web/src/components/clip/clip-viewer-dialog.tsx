@@ -392,6 +392,7 @@ function ClipViewerDialogBody({
         open={deleteFlow.open}
         onOpenChange={deleteFlow.setOpen}
         pending={deleteFlow.pending}
+        error={deleteFlow.error}
         localItem={deleteFlow.localItem}
         title={row.title}
         noun="clip"

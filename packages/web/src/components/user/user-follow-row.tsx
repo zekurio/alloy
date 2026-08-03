@@ -5,8 +5,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@alloy/ui/components/avatar"
-import { Button } from "@alloy/ui/components/button"
-import { toast } from "@alloy/ui/lib/toast"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Link } from "@tanstack/react-router"
 import { UserPlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -45,9 +44,8 @@ export function UserFollowRow({
     followMutation.mutate(
       { next },
       {
-        onError: (err) => {
+        onError: () => {
           setFollowing(!next)
-          toast.error(errorMessage(err, t("Something went wrong")))
         },
       },
     )
@@ -78,16 +76,30 @@ export function UserFollowRow({
           </span>
         </span>
       </Link>
-      <Button
+      <FeedbackButton
         type="button"
         size="sm"
         variant={following ? "ghost" : "primary"}
         disabled={followMutation.isPending}
+        state={
+          followMutation.isPending
+            ? "pending"
+            : followMutation.isError
+              ? "error"
+              : "idle"
+        }
+        pendingLabel={t("Updating…")}
+        errorLabel={t("Try again")}
+        title={
+          followMutation.error
+            ? errorMessage(followMutation.error, t("Something went wrong"))
+            : undefined
+        }
         onClick={toggle}
       >
         <UserPlusIcon className="size-3.5" />
         {following ? t("Following") : t("Follow")}
-      </Button>
+      </FeedbackButton>
     </li>
   )
 }

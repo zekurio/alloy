@@ -39,7 +39,10 @@ import {
 } from "@/lib/audio-device-selection"
 
 import { alloyDesktop, DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-bridge"
-import { useDesktopRecording } from "./desktop-recording-context"
+import {
+  DesktopRecordingNotice,
+  useDesktopRecording,
+} from "./desktop-recording-context"
 import {
   asLiteral,
   AUDIO_DEVICE_KIND_LABELS,
@@ -134,7 +137,7 @@ function applicationLevel(
 }
 
 export function DesktopAudioSettings() {
-  const { settings, status, busy, save } = useDesktopRecording()
+  const { settings, status, busy, error, save } = useDesktopRecording()
   const levels = useAudioLevels()
   const devices = useMemo(
     () =>
@@ -146,6 +149,7 @@ export function DesktopAudioSettings() {
   )
 
   if (!settings || !status) {
+    if (error) return <DesktopRecordingNotice />
     return (
       <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />
@@ -162,6 +166,7 @@ export function DesktopAudioSettings() {
 
   return (
     <SettingsSections>
+      <DesktopRecordingNotice />
       <SettingsSubsection id="audio-source" title={t("Audio source")}>
         <SettingRows>
           <SettingRow

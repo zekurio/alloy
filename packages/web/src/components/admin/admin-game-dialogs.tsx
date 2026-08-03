@@ -2,7 +2,8 @@ import type { AdminGameRow, GameAssetRole } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { DatePicker } from "@alloy/ui/components/date-picker"
-import { Field, FieldLabel } from "@alloy/ui/components/field"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import { Field, FieldError, FieldLabel } from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
@@ -15,8 +16,6 @@ import {
   ResponsiveDialogTitle,
   ResponsiveDialogTrigger,
 } from "@alloy/ui/components/responsive-dialog"
-import { Spinner } from "@alloy/ui/components/spinner"
-import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { PencilIcon, PlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -45,6 +44,7 @@ export function CreateGameDialog() {
   const [assets, setAssets] = useState<Partial<Record<GameAssetRole, File>>>({})
   const previews = useAssetPreviews(assets)
   const [saving, setSaving] = useState(false)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const setAsset = (role: GameAssetRole, file: File | null) => {
     setAssets((old) => {
@@ -59,6 +59,7 @@ export function CreateGameDialog() {
     event.preventDefault()
     const trimmed = name.trim()
     if (!trimmed || saving) return
+    setSubmitError(null)
     setSaving(true)
     try {
       const created = await api.admin.createGame({
@@ -67,13 +68,12 @@ export function CreateGameDialog() {
         assets,
       })
       setAdminGameCacheRow(queryClient, created)
-      toast.success(t("Game created"))
       setName("")
       setReleaseDate("")
       setAssets({})
       setOpen(false)
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't create game")))
+      setSubmitError(errorMessage(cause, t("Couldn't create game")))
     } finally {
       setSaving(false)
     }
@@ -116,6 +116,7 @@ export function CreateGameDialog() {
                 onRemove: () => setAsset(role, null),
               })}
             />
+            <FieldError>{submitError}</FieldError>
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>
             <ResponsiveDialogClose
@@ -125,10 +126,15 @@ export function CreateGameDialog() {
                 </Button>
               }
             />
-            <Button type="submit" disabled={saving || name.trim().length === 0}>
-              {saving ? <Spinner className="size-3.5" /> : null}
+            <FeedbackButton
+              type="submit"
+              state={saving ? "pending" : submitError ? "error" : "idle"}
+              pendingLabel={t("Creating…")}
+              errorLabel={t("Try again")}
+              disabled={saving || name.trim().length === 0}
+            >
               {t("Create")}
-            </Button>
+            </FeedbackButton>
           </ResponsiveDialogFooter>
         </form>
       </ResponsiveDialogContent>
@@ -144,6 +150,8 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
     dateInputValue(game.releaseDate),
   )
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [artworkError, setArtworkError] = useState<string | null>(null)
   // Artwork applies immediately, and slots are independent: a logo upload can
   // still be in flight while a hero crop applies, so busy is tracked per role.
   const [busyRoles, setBusyRoles] = useState<ReadonlySet<GameAssetRole>>(
@@ -161,16 +169,16 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
 
   // Resolves false on failure so the crop dialog can stay open for a retry.
   const uploadAsset = async (role: GameAssetRole, file: File) => {
+    setArtworkError(null)
     setRoleBusy(role, true)
     try {
       setAdminGameArtworkRow(
         queryClient,
         await api.admin.uploadGameAsset(game.id, role, file),
       )
-      toast.success(t("Artwork updated"))
       return true
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't upload artwork")))
+      setArtworkError(errorMessage(cause, t("Couldn't upload artwork")))
       return false
     } finally {
       setRoleBusy(role, false)
@@ -178,6 +186,7 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
   }
 
   const clearAsset = async (role: GameAssetRole) => {
+    setArtworkError(null)
     setRoleBusy(role, true)
     try {
       setAdminGameArtworkRow(
@@ -185,7 +194,7 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
         await api.admin.deleteGameAsset(game.id, role),
       )
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't remove artwork")))
+      setArtworkError(errorMessage(cause, t("Couldn't remove artwork")))
     } finally {
       setRoleBusy(role, false)
     }
@@ -195,6 +204,7 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
     event.preventDefault()
     const trimmed = name.trim()
     if (!trimmed || saving) return
+    setSaveError(null)
     setSaving(true)
     try {
       const updated = await api.admin.updateGame(game.id, {
@@ -202,10 +212,9 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
         releaseDate: releaseDatePayload(releaseDate),
       })
       setAdminGameCacheRow(queryClient, updated)
-      toast.success(t("Game updated"))
       setOpen(false)
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't save changes")))
+      setSaveError(errorMessage(cause, t("Couldn't save changes")))
     } finally {
       setSaving(false)
     }
@@ -240,13 +249,17 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
               releaseDate={releaseDate}
               onReleaseDateChange={setReleaseDate}
             />
-            <Button
+            <FieldError>{saveError}</FieldError>
+            <FeedbackButton
               type="submit"
+              state={saving ? "pending" : saveError ? "error" : "idle"}
+              pendingLabel={t("Saving…")}
+              errorLabel={t("Try again")}
               disabled={saving || name.trim().length === 0}
               className="self-end"
             >
               {t("Save")}
-            </Button>
+            </FeedbackButton>
           </form>
 
           <GameArtworkSection
@@ -263,6 +276,7 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
               onRemove: () => void clearAsset(role),
             })}
           />
+          <FieldError>{artworkError}</FieldError>
         </ResponsiveDialogBody>
         <ResponsiveDialogFooter>
           <ResponsiveDialogClose

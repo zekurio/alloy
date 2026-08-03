@@ -2,7 +2,13 @@ import type { AdminWebhookRow } from "@alloy/api"
 import { WEBHOOK_PROVIDERS, type WebhookProvider } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { Field, FieldDescription, FieldLabel } from "@alloy/ui/components/field"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from "@alloy/ui/components/field"
 import { Input } from "@alloy/ui/components/input"
 import {
   ResponsiveDialog,
@@ -22,8 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@alloy/ui/components/select"
-import { Spinner } from "@alloy/ui/components/spinner"
-import { toast } from "@alloy/ui/lib/toast"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { PencilIcon, PlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -54,7 +58,7 @@ export function CreateWebhookDialog() {
     setSecret("")
   }, [open])
 
-  const { isPending, mutate } = useMutation({
+  const { error, isPending, mutate } = useMutation({
     mutationFn: () =>
       api.admin.createWebhook({
         name: name.trim(),
@@ -64,12 +68,12 @@ export function CreateWebhookDialog() {
       }),
     onSuccess: (created) => {
       setAdminWebhookCacheRow(queryClient, created)
-      toast.success(t("Webhook created"))
       setOpen(false)
     },
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't create webhook"))),
   })
+  const submitError = error
+    ? errorMessage(error, t("Couldn't create webhook"))
+    : null
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
@@ -155,8 +159,9 @@ export function CreateWebhookDialog() {
                 )}
               />
             ) : null}
+            <FieldError>{submitError}</FieldError>
           </ResponsiveDialogBody>
-          <WebhookDialogFooter isPending={isPending} />
+          <WebhookDialogFooter isPending={isPending} error={submitError} />
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -179,7 +184,7 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
     setSecret("")
   }, [open, webhook.name])
 
-  const { isPending, mutate } = useMutation({
+  const { error, isPending, mutate } = useMutation({
     mutationFn: () =>
       api.admin.updateWebhook(webhook.id, {
         name: name.trim(),
@@ -188,12 +193,12 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
       }),
     onSuccess: (updated) => {
       setAdminWebhookCacheRow(queryClient, updated)
-      toast.success(t("Webhook saved"))
       setOpen(false)
     },
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't save webhook"))),
   })
+  const submitError = error
+    ? errorMessage(error, t("Couldn't save webhook"))
+    : null
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
@@ -258,8 +263,9 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
                 }
               />
             ) : null}
+            <FieldError>{submitError}</FieldError>
           </ResponsiveDialogBody>
-          <WebhookDialogFooter isPending={isPending} />
+          <WebhookDialogFooter isPending={isPending} error={submitError} />
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>
@@ -319,7 +325,13 @@ function WebhookSecretField({
   )
 }
 
-function WebhookDialogFooter({ isPending }: { isPending: boolean }) {
+function WebhookDialogFooter({
+  isPending,
+  error,
+}: {
+  isPending: boolean
+  error: string | null
+}) {
   return (
     <ResponsiveDialogFooter>
       <ResponsiveDialogClose
@@ -327,10 +339,17 @@ function WebhookDialogFooter({ isPending }: { isPending: boolean }) {
       >
         {t("Cancel")}
       </ResponsiveDialogClose>
-      <Button type="submit" variant="primary" size="sm" disabled={isPending}>
-        {isPending ? <Spinner className="size-3.5" /> : null}
-        {isPending ? t("Saving…") : t("Save")}
-      </Button>
+      <FeedbackButton
+        type="submit"
+        variant="primary"
+        size="sm"
+        state={isPending ? "pending" : error ? "error" : "idle"}
+        pendingLabel={t("Saving…")}
+        errorLabel={t("Try again")}
+        disabled={isPending}
+      >
+        {t("Save")}
+      </FeedbackButton>
     </ResponsiveDialogFooter>
   )
 }

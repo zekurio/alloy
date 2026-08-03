@@ -2,6 +2,7 @@ import type { ClipPrivacy } from "@alloy/api"
 import { isClipAudioTrackKind } from "@alloy/contracts/desktop-recording-types"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { Card } from "@alloy/ui/components/card"
 import {
   DropdownMenu,
@@ -9,9 +10,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import { toast } from "@alloy/ui/lib/toast"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { ChevronUpIcon, Link2Icon, SaveIcon, UploadIcon } from "lucide-react"
+import {
+  ChevronUpIcon,
+  CircleAlertIcon,
+  Link2Icon,
+  SaveIcon,
+  UploadIcon,
+} from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 
 import {
@@ -57,8 +64,8 @@ import {
   type AlloyDesktop,
 } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
-import { errorMessage } from "@/lib/error-message"
 import { useDesktopMediaFilmstrip } from "@/lib/media-filmstrip"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import { exportAndPublishCapture } from "./library-capture-publish"
 import { EditorVolumeControl } from "./library-clip-editor-media"
@@ -149,8 +156,10 @@ export function EditorBody({
     },
     savedMetadata,
   )
-  const [saving, setSaving] = useState(false)
-  const [publishing, setPublishing] = useState(false)
+  const saveFeedback = useActionFeedback()
+  const publishFeedback = useActionFeedback()
+  const saving = saveFeedback.feedback.state === "pending"
+  const publishing = publishFeedback.feedback.state === "pending"
 
   const resolvedGame = item.displayGame
   const itemMentionKey = item.mentions.map((mention) => mention.id).join("\0")
@@ -232,11 +241,10 @@ export function EditorBody({
     playback.durationMs > 0 &&
     !sameTrimRange(currentTrim, savedTrim)
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (saving || publishing || deleting || titleInvalid) return
     if (!dirty && !trimDirty) return
-    setSaving(true)
-    try {
+    void saveFeedback.run(async () => {
       // Trim and metadata persist through independent bridge calls, like the
       // uploaded-clip editor. Trim saves first: a metadata save may move the
       // capture's file, retiring the id the trim call looks up.
@@ -279,37 +287,28 @@ export function EditorBody({
         })
       }
       notifyLibraryCapturesChanged()
-      toast.success(t("Capture updated"))
       if (result && result.id !== item.id) {
-        void navigate({
+        await navigate({
           to: "/library/$captureId",
           params: { captureId: result.id },
           replace: true,
         })
       }
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't save changes")))
-    } finally {
-      setSaving(false)
-    }
+    }, t("Couldn't save changes"))
   }
 
-  const handlePublish = async (privacy: ClipPrivacy) => {
+  const handlePublish = (privacy: ClipPrivacy) => {
     if (publishLocked) return
     const pickedGame = game
     if (normalizedTitle.length === 0) return
-
-    if (description.trim().length > CLIP_DESCRIPTION_MAX) {
-      toast.error(
-        t("Description can be at most {max} characters", {
-          max: CLIP_DESCRIPTION_MAX,
-        }),
-      )
-      return
-    }
-
-    setPublishing(true)
-    try {
+    void publishFeedback.run(async () => {
+      if (description.trim().length > CLIP_DESCRIPTION_MAX) {
+        throw new Error(
+          t("Description can be at most {max} characters", {
+            max: CLIP_DESCRIPTION_MAX,
+          }),
+        )
+      }
       const { clipId } = await exportAndPublishCapture({
         desktop,
         item,
@@ -330,24 +329,14 @@ export function EditorBody({
           absoluteClipHref(pickedGame?.slug ?? null, clipId, publicOrigin()),
           { action: "copy published clip link" },
         )
-        if (copied) {
-          toast.success(t("Link copied to clipboard"))
-        } else {
-          toast.error(t("Couldn't copy the clip link"))
-        }
-      } else {
-        toast.success(t("Upload started"))
+        if (!copied) throw new Error(t("Couldn't copy the clip link"))
       }
 
       await navigate({
         to: "/library",
         replace: true,
       })
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't prepare clip")))
-    } finally {
-      setPublishing(false)
-    }
+    }, t("Couldn't prepare clip"))
   }
 
   const primaryPublishes = !dirty && !trimDirty
@@ -365,6 +354,15 @@ export function EditorBody({
       : t("Save")
   const PrimaryIcon = primaryPublishes ? UploadIcon : SaveIcon
   const showPostInMenu = !primaryPublishes
+  const primaryFeedback = primaryPublishes
+    ? publishFeedback.feedback
+    : saveFeedback.feedback
+  const actionError =
+    saveFeedback.feedback.state === "error"
+      ? saveFeedback.feedback.message
+      : publishFeedback.feedback.state === "error"
+        ? publishFeedback.feedback.message
+        : null
 
   return (
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
@@ -453,6 +451,13 @@ export function EditorBody({
             onRequestDelete={onRequestDelete}
           />
 
+          {actionError ? (
+            <Callout tone="destructive" className="text-xs">
+              <CircleAlertIcon />
+              <span>{actionError}</span>
+            </Callout>
+          ) : null}
+
           <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
             <Button
               type="button"
@@ -463,19 +468,23 @@ export function EditorBody({
               {t("Cancel")}
             </Button>
             <div className="flex items-center">
-              <Button
+              <FeedbackButton
                 type="button"
                 variant="primary"
                 disabled={primaryDisabled}
+                state={primaryFeedback.state}
+                pendingLabel={primaryLabel}
+                successLabel={primaryPublishes ? t("Started") : t("Saved")}
+                errorLabel={t("Try again")}
                 className="rounded-r-none"
                 onClick={() => {
-                  if (primaryPublishes) void handlePublish("public")
-                  else void handleSave()
+                  if (primaryPublishes) handlePublish("public")
+                  else handleSave()
                 }}
               >
                 <PrimaryIcon />
                 {primaryLabel}
-              </Button>
+              </FeedbackButton>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={
@@ -496,7 +505,7 @@ export function EditorBody({
                     <DropdownMenuItem
                       disabled={!canPublish}
                       onClick={() => {
-                        void handlePublish("public")
+                        handlePublish("public")
                       }}
                     >
                       <UploadIcon className="size-4" />
@@ -506,7 +515,7 @@ export function EditorBody({
                   <DropdownMenuItem
                     disabled={!canPublish}
                     onClick={() => {
-                      void handlePublish("unlisted")
+                      handlePublish("unlisted")
                     }}
                   >
                     <Link2Icon className="size-4" />

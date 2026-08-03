@@ -14,7 +14,10 @@ import {
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import {
+  CheckIcon,
+  CircleAlertIcon,
   HeartIcon,
+  LoaderCircleIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -64,6 +67,7 @@ type MobileActionButtonProps = {
   className?: string
   countClassName?: string
   ariaLabel: string
+  title?: string
 }
 
 function MobileActionButton({
@@ -74,6 +78,7 @@ function MobileActionButton({
   className,
   countClassName,
   ariaLabel,
+  title,
 }: MobileActionButtonProps) {
   return (
     <button
@@ -82,6 +87,7 @@ function MobileActionButton({
       disabled={disabled}
       className={className ?? "flex flex-col items-center gap-0.5"}
       aria-label={ariaLabel}
+      title={title}
     >
       {icon}
       {count != null ? (
@@ -151,7 +157,12 @@ type MobileActionsRailProps = {
   deleting: boolean
   downloadAction?: ReactNode
   likeCount: number
+  likePending: boolean
+  likeError: string | null
   commentCount: number
+  shareState: "idle" | "pending" | "success" | "error"
+  shareError: string | null
+  shareDisabled: boolean
   iconSizeClassName: string
   countClassName: string
   onLike: () => void
@@ -168,7 +179,12 @@ export function MobileActionsRail({
   deleting,
   downloadAction,
   likeCount,
+  likePending,
+  likeError,
   commentCount,
+  shareState,
+  shareError,
+  shareDisabled,
   iconSizeClassName,
   countClassName,
   onLike,
@@ -181,18 +197,29 @@ export function MobileActionsRail({
     <>
       <MobileActionButton
         onClick={onLike}
-        disabled={!canLike}
+        disabled={!canLike || likePending}
         className="flex flex-col items-center gap-0.5 disabled:opacity-50"
         ariaLabel={liked ? t("Unlike") : t("Like")}
+        title={likeError ?? undefined}
         count={likeCount}
         countClassName={countClassName}
         icon={
-          <HeartIcon
-            className={cn(
-              iconSizeClassName,
-              liked ? "fill-red-500 text-red-500" : "text-white",
-            )}
-          />
+          likePending ? (
+            <LoaderCircleIcon
+              className={cn(iconSizeClassName, "animate-spin text-white")}
+            />
+          ) : likeError ? (
+            <CircleAlertIcon
+              className={cn(iconSizeClassName, "text-destructive")}
+            />
+          ) : (
+            <HeartIcon
+              className={cn(
+                iconSizeClassName,
+                liked ? "fill-red-500 text-red-500" : "text-white",
+              )}
+            />
+          )
         }
       />
       <MobileActionButton
@@ -206,9 +233,27 @@ export function MobileActionsRail({
       />
       <MobileActionButton
         onClick={onShare}
+        disabled={shareDisabled || shareState === "pending"}
         className="flex flex-col items-center"
         ariaLabel={t("Share")}
-        icon={<Share2Icon className={cn(iconSizeClassName, "text-white")} />}
+        title={
+          shareDisabled ? t("Clip link is disabled") : (shareError ?? undefined)
+        }
+        icon={
+          shareState === "pending" ? (
+            <LoaderCircleIcon
+              className={cn(iconSizeClassName, "animate-spin text-white")}
+            />
+          ) : shareState === "success" ? (
+            <CheckIcon className={cn(iconSizeClassName, "text-success")} />
+          ) : shareState === "error" ? (
+            <CircleAlertIcon
+              className={cn(iconSizeClassName, "text-destructive")}
+            />
+          ) : (
+            <Share2Icon className={cn(iconSizeClassName, "text-white")} />
+          )
+        }
       />
       {canManage || downloadAction ? (
         <ClipActionsMenu
