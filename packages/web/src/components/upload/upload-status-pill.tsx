@@ -10,6 +10,8 @@ import { Link } from "@tanstack/react-router"
 import { ArrowRightIcon, Loader2Icon, TriangleAlertIcon } from "lucide-react"
 import { useState } from "react"
 
+import { bottomLeftAppCornerAnchor } from "@/components/layout/corner-anchors"
+
 import { QueueItemRow } from "./queue-progress"
 import { useUploadQueueSummary } from "./use-upload-queue-summary"
 
@@ -20,7 +22,11 @@ import { useUploadQueueSummary } from "./use-upload-queue-summary"
  * popover listing each row with its cancel/retry/open actions. Server-side
  * encode progress is deliberately excluded — it lives in the library view.
  */
-export function UploadStatusPill() {
+export function UploadStatusPill({
+  variant = "header",
+}: {
+  variant?: "header" | "sidebar"
+}) {
   const [open, setOpen] = useState(false)
   const summary = useUploadQueueSummary()
   if (!summary) return null
@@ -40,7 +46,8 @@ export function UploadStatusPill() {
               title={t("Upload status")}
               aria-label={t("Upload status: {label}", { label: summary.label })}
               className={cn(
-                "inline-flex h-8 min-w-0 appearance-none items-center gap-1.5 rounded-md border-0 bg-transparent px-1.5 text-left outline-none",
+                "inline-flex min-w-0 appearance-none items-center justify-center gap-1.5 rounded-md border-0 bg-transparent text-left outline-none",
+                variant === "sidebar" ? "size-10 p-0" : "h-8 px-1.5",
                 "focus-visible:ring-ring focus-visible:ring-offset-background focus-visible:ring-2 focus-visible:ring-offset-2",
                 "hover:bg-surface-raised data-popup-open:bg-surface-raised transition-colors",
                 failedOnly ? "text-destructive" : "text-foreground",
@@ -51,10 +58,12 @@ export function UploadStatusPill() {
               ) : (
                 <Loader2Icon className="size-4 shrink-0 animate-spin" />
               )}
-              <span className="hidden min-w-0 truncate text-sm font-semibold md:inline">
-                {summary.label}
-              </span>
-              {showPercent ? (
+              {variant === "header" ? (
+                <span className="hidden min-w-0 truncate text-sm font-semibold md:inline">
+                  {summary.label}
+                </span>
+              ) : null}
+              {showPercent && variant === "header" ? (
                 <span className="text-foreground-muted hidden text-xs tabular-nums md:inline">
                   {summary.percent}%
                 </span>
@@ -63,8 +72,10 @@ export function UploadStatusPill() {
           }
         />
         <PopoverContent
-          align="end"
-          sideOffset={8}
+          anchor={variant === "sidebar" ? bottomLeftAppCornerAnchor : undefined}
+          align={variant === "sidebar" ? "start" : "end"}
+          side={variant === "sidebar" ? "top" : "bottom"}
+          sideOffset={variant === "sidebar" ? 0 : 8}
           className="w-[22rem] max-w-[calc(100vw-1.5rem)] gap-0 p-0"
         >
           <div className="border-border flex items-center justify-between gap-3 border-b px-3 py-2.5">
