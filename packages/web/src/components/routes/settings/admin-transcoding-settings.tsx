@@ -87,7 +87,11 @@ export function TranscodingSettingsContent({
 
   async function save() {
     if (saving || !dirty) return
-    if (!validation.valid) return
+    if (!validation.valid) {
+      throw new Error(
+        validation.message ?? t("Fix the invalid settings before saving."),
+      )
+    }
     setSaving(true)
     try {
       const updated = await api.admin.updateTranscodingConfig({
@@ -128,7 +132,13 @@ export function TranscodingSettingsContent({
     }
   }
 
-  const inSettingsDialog = useSettingsSaveBar({ dirty, saving, save, discard })
+  const inSettingsDialog = useSettingsSaveBar({
+    dirty,
+    saving,
+    valid: validation.valid,
+    save,
+    discard,
+  })
 
   return (
     <Section>

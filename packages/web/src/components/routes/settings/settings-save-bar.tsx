@@ -19,7 +19,7 @@ type SaveFeedback =
  * blocked it shakes and rephrases itself as a warning.
  */
 export function SettingsSaveBar() {
-  const { dirty, saving, attention, saveAll, discardAll } =
+  const { dirty, saving, valid, attention, saveAll, discardAll } =
     useSettingsSaveState()
 
   // Warn for a moment after each blocked attempt. Compare against the last
@@ -45,7 +45,7 @@ export function SettingsSaveBar() {
   )
 
   async function handleSave() {
-    if (saving || feedback.state === "pending") return
+    if (saving || !valid || feedback.state === "pending") return
     if (resetTimer.current !== null) window.clearTimeout(resetTimer.current)
     setFeedback({ state: "pending" })
     try {
@@ -119,7 +119,7 @@ export function SettingsSaveBar() {
           pendingLabel={t("Saving…")}
           successLabel={t("Saved")}
           errorLabel={t("Try again")}
-          disabled={saving || feedback.state === "success"}
+          disabled={saving || !valid || feedback.state === "success"}
           onClick={() => void handleSave()}
         >
           <SaveIcon />

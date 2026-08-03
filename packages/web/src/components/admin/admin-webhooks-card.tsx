@@ -23,6 +23,7 @@ import { adminKeys, adminWebhooksQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { formatRelativeTime } from "@/lib/date-format"
 import { errorMessage } from "@/lib/error-message"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import {
   removeAdminWebhookCacheRow,
@@ -81,6 +82,7 @@ export function AdminWebhooksCard({ hideHeader }: { hideHeader?: boolean }) {
 
 function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
   const queryClient = useQueryClient()
+  const sendTestFeedback = useActionFeedback()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [toggleError, setToggleError] = useState<string | null>(null)
 
@@ -112,8 +114,8 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
   })
   const actionError =
     toggleError ??
-    (sendTest.error
-      ? errorMessage(sendTest.error, t("Couldn't send test"))
+    (sendTestFeedback.feedback.state === "error"
+      ? sendTestFeedback.feedback.message
       : null)
   const deleteError = remove.error
     ? errorMessage(remove.error, t("Couldn't delete webhook"))
@@ -150,19 +152,16 @@ function AdminWebhookListRow({ webhook }: { webhook: AdminWebhookRow }) {
         variant="ghost"
         size="icon"
         aria-label={t("Send test")}
-        state={
-          sendTest.isPending
-            ? "pending"
-            : sendTest.isSuccess
-              ? "success"
-              : sendTest.isError
-                ? "error"
-                : "idle"
-        }
+        state={sendTestFeedback.feedback.state}
         pendingLabel={<span className="sr-only">{t("Sending...")}</span>}
         successLabel={<span className="sr-only">{t("Test delivered")}</span>}
         errorLabel={<span className="sr-only">{t("Try again")}</span>}
-        onClick={() => sendTest.mutate()}
+        onClick={() =>
+          void sendTestFeedback.run(
+            () => sendTest.mutateAsync(),
+            t("Couldn't send test"),
+          )
+        }
       >
         <SendIcon />
       </FeedbackButton>

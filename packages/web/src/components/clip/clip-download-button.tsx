@@ -2,6 +2,7 @@ import { clipDownloadUrl, type ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
+import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   CheckIcon,
@@ -51,7 +52,7 @@ export function useClipDownloadAction(
   /** 0–100, only meaningful while downloading. */
   progress: number
   error: string | null
-  start: () => void
+  start: (onError?: (message: string) => void) => void
 } {
   const download = useClipDownload(row.id)
   const [error, setError] = useState<string | null>(null)
@@ -65,16 +66,20 @@ export function useClipDownloadAction(
           Math.floor((download.receivedBytes / download.totalBytes) * 100),
         )
       : 0
-  const start = useCallback(() => {
-    setError(null)
-    void startClipDownload(row).catch((cause) => {
-      setError(
-        cause instanceof Error
-          ? cause.message
-          : t("Couldn't start the download"),
-      )
-    })
-  }, [row])
+  const start = useCallback(
+    (onError?: (message: string) => void) => {
+      setError(null)
+      void startClipDownload(row).catch((cause) => {
+        const message =
+          cause instanceof Error
+            ? cause.message
+            : t("Couldn't start the download")
+        setError(message)
+        onError?.(message)
+      })
+    },
+    [row],
+  )
   return { supported, downloading, saved, progress, error, start }
 }
 
@@ -134,7 +139,7 @@ export function ClipDownloadMenuItem({
       disabled={action.saved || action.downloading}
       onClick={(event) => {
         event.stopPropagation()
-        action.start()
+        action.start((message) => toast.error(message))
       }}
     >
       <ClipDownloadStatusIcon action={action} />
@@ -145,26 +150,20 @@ export function ClipDownloadMenuItem({
 
 /** Browser download variant for clip action menus. */
 export function ClipBrowserDownloadMenuItem({ row }: { row: ClipRow }) {
-  const [error, setError] = useState<string | null>(null)
   if (!clipBrowserDownloadActionSupported(row)) return null
 
   return (
     <DropdownMenuItem
       onClick={(event) => {
         event.stopPropagation()
-        setError(null)
         const started = startBrowserDownload(
           clipDownloadUrl(row.id, apiOrigin()),
         )
-        if (!started) setError(t("Couldn't start download"))
+        if (!started) toast.error(t("Couldn't start download"))
       }}
     >
-      {error ? (
-        <CircleAlertIcon className="text-destructive" />
-      ) : (
-        <DownloadIcon />
-      )}
-      {error ?? t("Download")}
+      <DownloadIcon />
+      {t("Download")}
     </DropdownMenuItem>
   )
 }

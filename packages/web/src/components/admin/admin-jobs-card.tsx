@@ -64,6 +64,7 @@ import {
 import { api } from "@/lib/api"
 import { dateTime, formatRelativeTime } from "@/lib/date-format"
 import { errorMessage } from "@/lib/error-message"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 const RENDITIONS_SWEEP_KIND = "clip.renditions-sweep"
 
@@ -173,6 +174,7 @@ function KindTable({ kinds }: { kinds: AdminJobKindRow[] }) {
 
 function KindRow({ row }: { row: AdminJobKindRow }) {
   const queryClient = useQueryClient()
+  const sweepFeedback = useActionFeedback()
 
   const pauseMutation = useMutation({
     mutationFn: (paused: boolean) =>
@@ -189,11 +191,12 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
   })
 
   const scheduleHint = jobScheduleHint(row)
-  const actionError = sweepMutation.error
-    ? errorMessage(sweepMutation.error, t("Couldn't start job"))
-    : pauseMutation.error
-      ? errorMessage(pauseMutation.error, t("Couldn't update job"))
-      : null
+  const actionError =
+    sweepFeedback.feedback.state === "error"
+      ? sweepFeedback.feedback.message
+      : pauseMutation.error
+        ? errorMessage(pauseMutation.error, t("Couldn't update job"))
+        : null
 
   return (
     <ListItem>
@@ -255,16 +258,13 @@ function KindRow({ row }: { row: AdminJobKindRow }) {
         {SWEEP_KINDS.has(row.kind) ? (
           <RunNowAction
             kind={row.kind}
-            state={
-              sweepMutation.isPending
-                ? "pending"
-                : sweepMutation.isSuccess
-                  ? "success"
-                  : sweepMutation.isError
-                    ? "error"
-                    : "idle"
+            state={sweepFeedback.feedback.state}
+            onRun={(mode) =>
+              void sweepFeedback.run(
+                () => sweepMutation.mutateAsync(mode),
+                t("Couldn't start job"),
+              )
             }
-            onRun={(mode) => sweepMutation.mutate(mode)}
           />
         ) : null}
         <Switch

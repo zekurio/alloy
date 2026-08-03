@@ -1097,6 +1097,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Upload: "Hochladen",
   "Upload clip": "Clip hochladen",
   "Upload started": "Upload gestartet",
+  "Upload started, but the clip link couldn't be copied.":
+    "Der Upload wurde gestartet, aber der Clip-Link konnte nicht kopiert werden.",
   "Upload a clip and pick a game to seed this list.":
     "Lade einen Clip hoch und wähle ein Spiel, um diese Liste zu füllen.",
   "Upload failed": "Upload fehlgeschlagen",

@@ -14,6 +14,7 @@ import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import {
   ChevronUpIcon,
   CircleAlertIcon,
+  CopyIcon,
   Link2Icon,
   UploadIcon,
 } from "lucide-react"
@@ -66,7 +67,11 @@ export function WebUploadEditor({ action }: { action: WebUploadAction }) {
             previewUrl={action.previewUrl}
             pending={action.publishing}
             error={action.error}
+            awaitingLinkCopy={action.awaitingLinkCopy}
             onCancel={action.discard}
+            onRetryLinkCopy={() => {
+              void action.retryLinkCopy()
+            }}
             onPublish={(metadata) => {
               void action.publish(metadata)
             }}
@@ -82,14 +87,18 @@ function WebUploadEditorInner({
   previewUrl,
   pending,
   error,
+  awaitingLinkCopy,
   onCancel,
+  onRetryLinkCopy,
   onPublish,
 }: {
   selected: SelectedFile
   previewUrl: string
   pending: boolean
   error: string | null
+  awaitingLinkCopy: boolean
   onCancel: () => void
+  onRetryLinkCopy: () => void
   onPublish: (metadata: WebUploadMetadata) => void
 }) {
   const playback = useTrimPlayback({ initialDurationMs: selected.durationMs })
@@ -120,7 +129,11 @@ function WebUploadEditorInner({
     tags: [],
   })
   const canPublish =
-    !pending && !titleInvalid && !descriptionInvalid && rangeMs >= MIN_TRIM_MS
+    !pending &&
+    !awaitingLinkCopy &&
+    !titleInvalid &&
+    !descriptionInvalid &&
+    rangeMs >= MIN_TRIM_MS
 
   const submit = (privacy: ClipPrivacy) => {
     if (!canPublish) return
@@ -198,7 +211,7 @@ function WebUploadEditorInner({
               onMentionsChange={setMentions}
               tags={tags}
               onTagsChange={setTags}
-              disabled={pending}
+              disabled={pending || awaitingLinkCopy}
               titleInvalid={titleInvalid}
               gameInvalid={false}
             />
@@ -223,45 +236,63 @@ function WebUploadEditorInner({
                 disabled={pending}
                 onClick={onCancel}
               >
-                {t("Cancel")}
+                {awaitingLinkCopy ? t("Done") : t("Cancel")}
               </Button>
-              <div className="flex items-center">
+              {awaitingLinkCopy ? (
                 <FeedbackButton
                   type="button"
                   variant="primary"
-                  disabled={!canPublish}
                   state={pending ? "pending" : error ? "error" : "idle"}
-                  pendingLabel={t("Uploading...")}
+                  pendingLabel={t("Copying…")}
                   errorLabel={t("Try again")}
-                  className="rounded-r-none"
-                  onClick={() => submit("public")}
+                  onClick={onRetryLinkCopy}
                 >
-                  <UploadIcon />
-                  {t("Post")}
+                  <CopyIcon />
+                  {t("Copy link")}
                 </FeedbackButton>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="icon"
-                        disabled={!canPublish}
-                        aria-label={t("More upload options")}
-                        className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
-                      />
-                    }
+              ) : (
+                <div className="flex items-center">
+                  <FeedbackButton
+                    type="button"
+                    variant="primary"
+                    disabled={!canPublish}
+                    state={pending ? "pending" : error ? "error" : "idle"}
+                    pendingLabel={t("Uploading...")}
+                    errorLabel={t("Try again")}
+                    className="rounded-r-none"
+                    onClick={() => submit("public")}
                   >
-                    <ChevronUpIcon />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="top" className="w-52">
-                    <DropdownMenuItem onClick={() => submit("unlisted")}>
-                      <Link2Icon className="size-4" />
-                      {t("Create Link")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                    <UploadIcon />
+                    {t("Post")}
+                  </FeedbackButton>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          type="button"
+                          variant="primary"
+                          size="icon"
+                          disabled={!canPublish}
+                          aria-label={t("More upload options")}
+                          className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
+                        />
+                      }
+                    >
+                      <ChevronUpIcon />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      align="end"
+                      side="top"
+                      className="w-52"
+                    >
+                      <DropdownMenuItem onClick={() => submit("unlisted")}>
+                        <Link2Icon className="size-4" />
+                        {t("Create Link")}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              )}
             </div>
           </Card>
         </div>
