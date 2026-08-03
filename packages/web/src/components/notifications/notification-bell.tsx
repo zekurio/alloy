@@ -14,6 +14,7 @@ import {
 } from "@alloy/ui/components/popover"
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Spinner } from "@alloy/ui/components/spinner"
+import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { cn } from "@alloy/ui/lib/utils"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -53,7 +54,10 @@ export function NotificationBell({
 }: {
   variant?: NotificationBellVariant
 }) {
-  const stream = useNotificationStream({ enabled: true })
+  const isMobile = useIsMobile()
+  const stream = useNotificationStream({
+    enabled: variant === "bottom-nav" ? isMobile : !isMobile,
+  })
   const unreadQuery = useQuery(unreadCountQueryOptions())
   const listQuery = useInfiniteQuery(notificationsInfiniteQueryOptions())
   const markRead = useMarkNotificationReadMutation()
