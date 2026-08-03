@@ -149,7 +149,7 @@ function UploadTriggerContent({
       : variant === "floating"
         ? "!size-[22px]"
         : undefined
-  const TriggerIcon = variant === "floating" ? PlusIcon : UploadIcon
+  const TriggerIcon = variant === "header" ? UploadIcon : PlusIcon
   return (
     <>
       {pending ? (
