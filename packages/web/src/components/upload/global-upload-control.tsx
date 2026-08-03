@@ -1,7 +1,7 @@
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
-import { Loader2Icon, UploadIcon } from "lucide-react"
+import { Loader2Icon, PlusIcon, UploadIcon } from "lucide-react"
 import { Suspense, lazy, useRef } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
@@ -25,15 +25,14 @@ const loadWebUploadEditor = async () => {
 const ImportClipDetailsDialog = lazy(loadImportClipDialog)
 const WebUploadEditor = lazy(loadWebUploadEditor)
 
-type GlobalUploadControlVariant = "header" | "bottom-nav"
+type GlobalUploadControlVariant = "header" | "floating" | "bottom-nav"
 
 /**
  * Global "Upload" entry point, mounted wherever the app exposes the upload
  * affordance. Branches on the desktop shell: the desktop app imports an
  * already-recorded file via the sidecar's staged-import flow, the browser
  * picks a file and opens the trim/metadata editor. Each mount owns its own
- * state and dialog surface so header and bottom-nav instances remain
- * independent.
+ * state and dialog surface so separately mounted instances remain independent.
  */
 export function GlobalUploadControl({
   variant = "header",
@@ -47,25 +46,33 @@ export function GlobalUploadControl({
 
   const triggerSize = variant === "header" ? "sm" : "icon"
   const triggerClassName =
-    variant === "header" ? "max-md:hidden" : "size-11 rounded-full px-0"
+    variant === "header"
+      ? "max-md:hidden"
+      : variant === "floating"
+        ? "!size-12 rounded-full px-0 shadow-lg"
+        : "size-11 rounded-full px-0"
   const triggerLabel = t("Upload clip")
-  const triggerAriaLabel = variant === "bottom-nav" ? triggerLabel : undefined
+  const triggerAriaLabel = variant === "header" ? undefined : triggerLabel
 
   if (desktop) {
     const pending = importAction.picking || importAction.committing
     return (
       <>
-        <Button
+        <FeedbackButton
           type="button"
           variant="primary"
           size={triggerSize}
           disabled={!importAction.available || pending}
+          state={pending ? "pending" : importAction.error ? "error" : "idle"}
+          pendingLabel={variant === "header" ? t("Working…") : null}
+          errorLabel={variant === "header" ? t("Try again") : null}
           className={triggerClassName}
           aria-label={triggerAriaLabel}
           title={
-            variant === "bottom-nav" || importAction.available
+            importAction.error ??
+            (variant !== "header" || importAction.available
               ? triggerLabel
-              : t("Import is unavailable in this desktop build")
+              : t("Import is unavailable in this desktop build"))
           }
           onClick={() => {
             // Warm the chunk; lazy() re-fetches on mount if this fails.
@@ -74,7 +81,7 @@ export function GlobalUploadControl({
           }}
         >
           <UploadTriggerContent pending={pending} variant={variant} />
-        </Button>
+        </FeedbackButton>
         {importAction.staged !== null ? (
           <Suspense fallback={null}>
             <ImportClipDetailsDialog action={importAction} />
@@ -98,7 +105,7 @@ export function GlobalUploadControl({
           void webUploadAction.select(file)
         }}
       />
-      <Button
+      <FeedbackButton
         type="button"
         variant="primary"
         size={triggerSize}
@@ -109,10 +116,14 @@ export function GlobalUploadControl({
           pending ||
           webUploadAction.selected !== null
         }
+        state={pending ? "pending" : webUploadAction.error ? "error" : "idle"}
+        pendingLabel={variant === "header" ? t("Working…") : null}
+        errorLabel={variant === "header" ? t("Try again") : null}
         title={
-          variant === "bottom-nav" || webUploadAction.available
+          webUploadAction.error ??
+          (variant !== "header" || webUploadAction.available
             ? triggerLabel
-            : t("Uploads are unavailable in this browser")
+            : t("Uploads are unavailable in this browser"))
         }
         onClick={() => {
           // Warm the chunk; lazy() re-fetches on mount if this fails.
@@ -121,7 +132,7 @@ export function GlobalUploadControl({
         }}
       >
         <UploadTriggerContent pending={pending} variant={variant} />
-      </Button>
+      </FeedbackButton>
       {webUploadAction.selected !== null ? (
         <Suspense fallback={null}>
           <WebUploadEditor action={webUploadAction} />
@@ -140,13 +151,19 @@ function UploadTriggerContent({
 }) {
   // Match the 22px glyphs of the neighboring bottom-nav tabs; the explicit
   // size- class opts out of Button's default svg sizing.
-  const iconClass = variant === "bottom-nav" ? "size-[22px]" : undefined
+  const iconClass =
+    variant === "bottom-nav"
+      ? "size-[22px]"
+      : variant === "floating"
+        ? "!size-[22px]"
+        : undefined
+  const TriggerIcon = variant === "header" ? UploadIcon : PlusIcon
   return (
     <>
       {pending ? (
         <Loader2Icon className={cn("animate-spin", iconClass)} />
       ) : (
-        <UploadIcon className={iconClass} />
+        <TriggerIcon className={iconClass} />
       )}
       {variant === "header" ? <span>{t("Upload")}</span> : null}
     </>

@@ -4,20 +4,20 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@alloy/ui/components/avatar"
-import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import {
   Section,
   SectionContent,
   SectionFooter,
 } from "@alloy/ui/components/section"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { useForm, useStore } from "@tanstack/react-form"
-import { ImageIcon, Pencil, SaveIcon } from "lucide-react"
+import { CircleAlertIcon, ImageIcon, Pencil, SaveIcon } from "lucide-react"
 import { useEffect } from "react"
 import type { ReactNode } from "react"
 
@@ -36,6 +36,7 @@ import {
   profileIdentityChanged,
   profileIdentityPatch,
 } from "@/lib/profile-identity"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 import { displayName, userAvatar, UserBanner } from "@/lib/user-display"
 
 import { MediaEditOverlay, type MediaKind } from "./profile-media-controls"
@@ -108,6 +109,7 @@ export function ProfileCard({
   email,
 }: ProfileCardProps) {
   const media = useProfileMedia({ image, banner })
+  const identityFeedback = useActionFeedback()
   const bannerUser = {
     id: userId,
     image: media.profileImage || null,
@@ -126,18 +128,9 @@ export function ProfileCard({
         return
       }
 
-      try {
-        const { error } = await authClient.updateUser(patch)
-        if (error) {
-          toast.error(errorMessage(error, t("Couldn't save")))
-          return
-        }
-
-        toast.success(t("Saved"))
-        await media.refreshProfile()
-      } catch (cause) {
-        toast.error(errorMessage(cause, t("Something went wrong")))
-      }
+      const { error } = await authClient.updateUser(patch)
+      if (error) throw new Error(errorMessage(error, t("Couldn't save")))
+      await media.refreshProfile()
     },
   })
 
@@ -155,11 +148,16 @@ export function ProfileCard({
     profileIdentityChanged(state.values, initialIdentity),
   )
   const identitySaving = useStore(form.store, (state) => state.isSubmitting)
+  const identityValid = useStore(form.store, (state) => state.canSubmit)
   const inSettingsDialog = useSettingsSaveBar({
     dirty: identityDirty,
     saving: identitySaving,
+    valid: identityValid,
     save: () => form.handleSubmit(),
-    discard: () => form.reset(),
+    discard: () => {
+      identityFeedback.reset()
+      form.reset()
+    },
   })
 
   // A clickable region in the live profile preview. When the element already
@@ -261,7 +259,10 @@ export function ProfileCard({
         onSubmit={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          void form.handleSubmit()
+          void identityFeedback.run(
+            () => form.handleSubmit(),
+            t("Something went wrong"),
+          )
         }}
       >
         <Section>
@@ -360,6 +361,13 @@ export function ProfileCard({
               </form.Subscribe>
             </div>
 
+            {media.error ? (
+              <Callout tone="destructive" className="text-xs">
+                <CircleAlertIcon />
+                <span>{media.error}</span>
+              </Callout>
+            ) : null}
+
             {identityTextFields.map((config) => (
               <form.Field
                 key={config.name}
@@ -386,21 +394,25 @@ export function ProfileCard({
 
           {!inSettingsDialog && (
             <SectionFooter>
-              <form.Subscribe
-                selector={(state) =>
-                  [state.canSubmit, state.isSubmitting] as const
-                }
-              >
-                {([canSubmit, isSubmitting]) => (
-                  <Button
+              <form.Subscribe selector={(state) => state.canSubmit}>
+                {(canSubmit) => (
+                  <FeedbackButton
                     type="submit"
                     variant="primary"
                     size="sm"
+                    state={identityFeedback.feedback.state}
+                    pendingLabel={t("Saving…")}
+                    successLabel={t("Saved")}
+                    errorLabel={
+                      identityFeedback.feedback.state === "error"
+                        ? identityFeedback.feedback.message
+                        : t("Try again")
+                    }
                     disabled={!identityDirty || !canSubmit}
                   >
                     <SaveIcon />
-                    {isSubmitting ? t("Saving…") : t("Save")}
-                  </Button>
+                    {t("Save")}
+                  </FeedbackButton>
                 )}
               </form.Subscribe>
             </SectionFooter>

@@ -1,5 +1,4 @@
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
 import {
   useInfiniteQuery,
   useMutation,
@@ -42,16 +41,16 @@ function useAdminUsersQuery(search: string) {
 
 function useDeleteAdminUser() {
   const queryClient = useQueryClient()
-  const { isPending, mutate, variables } = useMutation({
+  const { isPending, mutateAsync, variables } = useMutation({
     mutationFn: (user: AdminUserRow) => api.admin.deleteUser(user.id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminKeys.users() })
-      toast.success(t("User removed"))
     },
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't remove user"))),
   })
-  const onDelete = useCallback((user: AdminUserRow) => mutate(user), [mutate])
+  const onDelete = useCallback(
+    (user: AdminUserRow) => mutateAsync(user).then(() => undefined),
+    [mutateAsync],
+  )
 
   return {
     busyId: isPending ? (variables?.id ?? null) : null,
@@ -61,23 +60,18 @@ function useDeleteAdminUser() {
 
 function useToggleAdminUserStatus() {
   const queryClient = useQueryClient()
-  const { isPending, mutate, variables } = useMutation({
+  const { isPending, mutateAsync, variables } = useMutation({
     mutationFn: (user: AdminUserRow) =>
       api.admin.updateUser(user.id, {
         status: user.status === "disabled" ? "active" : "disabled",
       }),
-    onSuccess: (updated) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminKeys.users() })
-      toast.success(
-        updated.status === "disabled" ? t("User disabled") : t("User enabled"),
-      )
     },
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't update user"))),
   })
   const onToggleStatus = useCallback(
-    (user: AdminUserRow) => mutate(user),
-    [mutate],
+    (user: AdminUserRow) => mutateAsync(user).then(() => undefined),
+    [mutateAsync],
   )
 
   return {
@@ -105,31 +99,26 @@ function useUpdateAdminUser(currentUserId: string) {
       if (updated.id === currentUserId && quotaChanged) {
         await queryClient.invalidateQueries({ queryKey: userKeys.storage() })
       }
-      toast.success(t("User updated"))
     },
-    onError: (cause) =>
-      toast.error(errorMessage(cause, t("Couldn't update user"))),
   })
   const onUpdate = useCallback(
-    (user: AdminUserRow, next: AdminUserEditableFields): Promise<boolean> => {
+    (user: AdminUserRow, next: AdminUserEditableFields): Promise<void> => {
       const current = adminUserEditableFields(user)
       const roleChanged = current.role !== next.role
       const quotaChanged = current.storageQuotaBytes !== next.storageQuotaBytes
-      if (!roleChanged && !quotaChanged) return Promise.resolve(true)
+      if (!roleChanged && !quotaChanged) return Promise.resolve()
 
       if (user.id === currentUserId && roleChanged && next.role !== "admin") {
-        toast.error(
-          t(
-            "Demote yourself from the profile page after promoting another admin first.",
+        return Promise.reject(
+          new Error(
+            t(
+              "Demote yourself from the profile page after promoting another admin first.",
+            ),
           ),
         )
-        return Promise.resolve(false)
       }
 
-      return mutateAsync({ user, next }).then(
-        () => true,
-        () => false,
-      )
+      return mutateAsync({ user, next }).then(() => undefined)
     },
     [currentUserId, mutateAsync],
   )

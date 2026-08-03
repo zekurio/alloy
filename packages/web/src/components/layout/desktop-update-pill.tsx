@@ -4,9 +4,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@alloy/ui/components/tooltip"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import { DownloadIcon, RefreshCwIcon } from "lucide-react"
+import { CircleAlertIcon, DownloadIcon, RefreshCwIcon } from "lucide-react"
 import { useState } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
@@ -21,6 +20,7 @@ import { useDesktopUpdateState } from "@/lib/desktop-updates"
 export function DesktopUpdatePill() {
   const { status, version } = useDesktopUpdateState()
   const [pending, setPending] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (
     status !== "available" &&
@@ -37,12 +37,13 @@ export function DesktopUpdatePill() {
     if (busy) return
     const desktop = alloyDesktop()
     if (!desktop) return
+    setError(null)
 
     if (status === "available") {
       setPending(true)
       void desktop.updates
         .downloadUpdate()
-        .catch(() => toast.error(t("Couldn't download the update.")))
+        .catch(() => setError(t("Couldn't download the update.")))
         .finally(() => setPending(false))
       return
     }
@@ -50,27 +51,31 @@ export function DesktopUpdatePill() {
     if (!downloaded) return
     setPending(true)
     void desktop.updates.restartToInstall().catch(() => {
-      toast.error(t("Couldn't restart to update."))
+      setError(t("Couldn't restart to update."))
       setPending(false)
     })
   }
 
-  const label = pending
-    ? downloaded
-      ? t("Restarting…")
-      : t("Starting download…")
-    : downloaded
-      ? t("Restart to update")
+  const label = error
+    ? t("Try again")
+    : pending
+      ? downloaded
+        ? t("Restarting…")
+        : t("Starting download…")
+      : downloaded
+        ? t("Restart to update")
+        : status === "available"
+          ? t("Update available")
+          : t("Downloading update")
+  const detail =
+    error ??
+    (version
+      ? status === "available"
+        ? t("Alloy {version} is available to download.", { version })
+        : t("Alloy {version} has been downloaded.", { version })
       : status === "available"
-        ? t("Update available")
-        : t("Downloading update")
-  const detail = version
-    ? status === "available"
-      ? t("Alloy {version} is available to download.", { version })
-      : t("Alloy {version} has been downloaded.", { version })
-    : status === "available"
-      ? t("A new version is available to download.")
-      : t("A new version has been downloaded.")
+        ? t("A new version is available to download.")
+        : t("A new version has been downloaded."))
 
   return (
     <Tooltip>
@@ -95,7 +100,13 @@ export function DesktopUpdatePill() {
               "[&_svg]:size-5 [&_svg]:shrink-0",
             )}
           >
-            {downloaded ? <RefreshCwIcon /> : <DownloadIcon />}
+            {error ? (
+              <CircleAlertIcon className="text-destructive" />
+            ) : downloaded ? (
+              <RefreshCwIcon />
+            ) : (
+              <DownloadIcon />
+            )}
           </button>
         }
       />

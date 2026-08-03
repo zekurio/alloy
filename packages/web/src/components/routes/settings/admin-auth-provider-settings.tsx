@@ -16,6 +16,7 @@ import {
   AlertDialogTrigger,
 } from "@alloy/ui/components/alert-dialog"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import { List, ListItem } from "@alloy/ui/components/list"
 import {
   ResponsiveDialog,
@@ -30,7 +31,13 @@ import {
 } from "@alloy/ui/components/responsive-dialog"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Switch } from "@alloy/ui/components/switch"
-import { PencilIcon, PlusIcon, Trash2Icon, UserKeyIcon } from "lucide-react"
+import {
+  CircleAlertIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+  UserKeyIcon,
+} from "lucide-react"
 import { useState } from "react"
 import type { FormEvent } from "react"
 
@@ -49,10 +56,12 @@ import {
 export function OAuthProviderSettings({
   config,
   pending,
+  error,
   onSave,
 }: {
   config: AdminRuntimeConfig
   pending: boolean
+  error: string | null
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
 }) {
   const readOnly = config.authLocks.oauthProviders
@@ -69,12 +78,19 @@ export function OAuthProviderSettings({
             providerIndex={null}
             authBaseURL={config.authBaseURL}
             pending={pending}
+            error={error}
             onSave={onSave}
           />
         )
       }
     >
       <div className="flex flex-col gap-3">
+        {error ? (
+          <Callout tone="destructive" className="text-xs">
+            <CircleAlertIcon />
+            <span>{error}</span>
+          </Callout>
+        ) : null}
         {readOnly ? <OAuthProvidersEnvNote /> : null}
         {config.oauthProviders.length === 0 ? (
           <ListEmpty title={t("No OAuth providers configured")} />
@@ -89,6 +105,7 @@ export function OAuthProviderSettings({
                   authBaseURL={config.authBaseURL}
                   readOnly={readOnly}
                   pending={pending}
+                  error={error}
                   onSave={onSave}
                 />
               </ListItem>
@@ -113,6 +130,7 @@ function ProviderRow({
   authBaseURL,
   readOnly,
   pending,
+  error,
   onSave,
 }: {
   provider: AdminOAuthProvider
@@ -121,6 +139,7 @@ function ProviderRow({
   authBaseURL: string
   readOnly: boolean
   pending: boolean
+  error: string | null
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
 }) {
   async function toggleEnabled(enabled: boolean) {
@@ -183,6 +202,7 @@ function ProviderRow({
             providers={providers}
             authBaseURL={authBaseURL}
             pending={pending}
+            error={error}
             onDelete={deleteProvider}
             onSave={onSave}
           />
@@ -198,6 +218,7 @@ function ProviderActions({
   providers,
   authBaseURL,
   pending,
+  error,
   onDelete,
   onSave,
 }: {
@@ -206,6 +227,7 @@ function ProviderActions({
   providers: AdminOAuthProvider[]
   authBaseURL: string
   pending: boolean
+  error: string | null
   onDelete: () => Promise<void>
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
 }) {
@@ -217,6 +239,7 @@ function ProviderActions({
         providerIndex={providerIndex}
         authBaseURL={authBaseURL}
         pending={pending}
+        error={error}
         onSave={onSave}
       />
       <AlertDialog>
@@ -240,6 +263,12 @@ function ProviderActions({
               {t("Users may lose this sign-in method immediately.")}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {error ? (
+            <Callout tone="destructive" className="text-xs">
+              <CircleAlertIcon />
+              <span>{error}</span>
+            </Callout>
+          ) : null}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={pending}>
               {t("Cancel")}
@@ -264,6 +293,7 @@ function ProviderDialog({
   providerIndex,
   authBaseURL,
   pending,
+  error,
   onSave,
 }: {
   providers: AdminOAuthProvider[]
@@ -271,6 +301,7 @@ function ProviderDialog({
   providerIndex: number | null
   authBaseURL: string
   pending: boolean
+  error: string | null
   onSave: (providers: AdminOAuthProviderInput[]) => Promise<boolean>
 }) {
   const [open, setOpen] = useState(false)
@@ -353,6 +384,12 @@ function ProviderDialog({
                 setDraft((current) => ({ ...current, ...next }))
               }
             />
+            {error ? (
+              <Callout tone="destructive" className="text-xs">
+                <CircleAlertIcon />
+                <span>{error}</span>
+              </Callout>
+            ) : null}
           </ResponsiveDialogBody>
           <ResponsiveDialogFooter>
             <ResponsiveDialogClose

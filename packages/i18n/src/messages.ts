@@ -14,6 +14,30 @@ export const DE_MESSAGES: Record<string, string> = {
     "Benachrichtigungen konnten nicht als gelesen markiert werden",
   "Couldn't mark notification as read":
     "Benachrichtigung konnte nicht als gelesen markiert werden",
+  "Changes saved.": "Änderungen gespeichert.",
+  "Color palette used while Alloy is dark.":
+    "Farbpalette für den dunklen Alloy-Modus.",
+  "Color palette used while Alloy is light.":
+    "Farbpalette für den hellen Alloy-Modus.",
+  Copied: "Kopiert",
+  "Copying…": "Wird kopiert…",
+  "Couldn't register passkey": "Passkey konnte nicht registriert werden",
+  "Couldn't start link flow": "Verknüpfung konnte nicht gestartet werden",
+  "Couldn't trim the clip": "Clip konnte nicht zugeschnitten werden",
+  Detected: "Erkannt",
+  "Dark theme": "Dunkles Theme",
+  "Light theme": "Helles Theme",
+  "Passkey registration failed": "Passkey-Registrierung fehlgeschlagen",
+  Restarted: "Neu gestartet",
+  "Sending...": "Wird gesendet...",
+  "Sharing…": "Wird geteilt…",
+  Started: "Gestartet",
+  "Unblocking…": "Wird entsperrt…",
+  "Updating…": "Wird aktualisiert…",
+  "User actions": "Nutzeraktionen",
+  "Visibility updated, but couldn't copy the link":
+    "Sichtbarkeit aktualisiert, aber der Link konnte nicht kopiert werden",
+  "Working…": "Wird verarbeitet…",
   "Couldn’t load games": "Spiele konnten nicht geladen werden",
   "ffmpeg not detected": "ffmpeg nicht erkannt",
   "Follow users to populate this tab.":
@@ -58,6 +82,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Uploaded: "Hochgeladen",
   "Try a different search or filter.":
     "Probier eine andere Suche oder einen anderen Filter.",
+  "Try again": "Erneut versuchen",
   "Transparent wordmark": "Transparente Wortmarke",
   Theme: "Theme",
   "You were mentioned": "Du wurdest erwähnt",
@@ -338,6 +363,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't forget server.": "Server konnte nicht entfernt werden.",
   "Couldn't load accounts": "Konten konnten nicht geladen werden",
   "Couldn't load clips": "Clips konnten nicht geladen werden",
+  "Couldn't load more clips": "Weitere Clips konnten nicht geladen werden",
   "Couldn't load comments": "Kommentare konnten nicht geladen werden",
   "Couldn't load display preview.":
     "Display-Vorschau konnte nicht geladen werden.",
@@ -1072,6 +1098,8 @@ export const DE_MESSAGES: Record<string, string> = {
   Upload: "Hochladen",
   "Upload clip": "Clip hochladen",
   "Upload started": "Upload gestartet",
+  "Upload started, but the clip link couldn't be copied.":
+    "Der Upload wurde gestartet, aber der Clip-Link konnte nicht kopiert werden.",
   "Upload a clip and pick a game to seed this list.":
     "Lade einen Clip hoch und wähle ein Spiel, um diese Liste zu füllen.",
   "Upload failed": "Upload fehlgeschlagen",

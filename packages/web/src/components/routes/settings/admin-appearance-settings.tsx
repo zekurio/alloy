@@ -1,6 +1,7 @@
 import type { AdminRuntimeConfig } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import {
   Section,
   SectionContent,
@@ -9,7 +10,6 @@ import {
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
 import { Textarea } from "@alloy/ui/components/textarea"
-import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { SaveIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -24,6 +24,7 @@ import { adminKeys } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { publishRuntimeConfigUpdate } from "@/lib/runtime-config-events"
+import { useActionFeedback } from "@/lib/use-action-feedback"
 
 export function AppearanceSettingsContent({
   config,
@@ -32,7 +33,9 @@ export function AppearanceSettingsContent({
 }) {
   const queryClient = useQueryClient()
   const [enabledPending, setEnabledPending] = useState(false)
+  const [enabledError, setEnabledError] = useState<string | null>(null)
   const [treatmentPending, setTreatmentPending] = useState(false)
+  const treatmentFeedback = useActionFeedback()
   const splash = config.appearance.loginSplash
   const [draftBlurPx, setDraftBlurPx] = useState(splash.blurPx)
   const [draftDarkenOpacity, setDraftDarkenOpacity] = useState(
@@ -65,6 +68,7 @@ export function AppearanceSettingsContent({
 
   async function updateSplashEnabled(next: boolean) {
     if (enabledPending) return
+    setEnabledError(null)
     setEnabledPending(true)
     try {
       const updated = await api.admin.updateAppearanceConfig({
@@ -72,17 +76,15 @@ export function AppearanceSettingsContent({
       })
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success(
-        next ? t("Login backdrop enabled") : t("Login backdrop disabled"),
-      )
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't update backdrop")))
+      setEnabledError(errorMessage(cause, t("Couldn't update backdrop")))
     } finally {
       setEnabledPending(false)
     }
   }
 
   function cancelTreatment() {
+    treatmentFeedback.reset()
     setDraftBlurPx(splash.blurPx)
     setDraftDarkenOpacity(splash.darkenOpacity)
     setDraftCustomCss(config.appearance.customCss)
@@ -101,9 +103,6 @@ export function AppearanceSettingsContent({
       })
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
-      toast.success(t("Appearance settings saved"))
-    } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't save appearance settings")))
     } finally {
       setTreatmentPending(false)
     }
@@ -154,11 +153,21 @@ export function AppearanceSettingsContent({
                 )}
                 align="start"
               >
-                <Switch
-                  checked={splash.enabled}
-                  onCheckedChange={updateSplashEnabled}
-                  disabled={enabledPending}
-                />
+                <div className="flex flex-col items-end gap-1.5">
+                  <Switch
+                    checked={splash.enabled}
+                    onCheckedChange={updateSplashEnabled}
+                    disabled={enabledPending}
+                  />
+                  {enabledError ? (
+                    <span
+                      role="alert"
+                      className="text-destructive max-w-48 text-right text-xs"
+                    >
+                      {enabledError}
+                    </span>
+                  ) : null}
+                </div>
               </SettingRow>
             </SettingRows>
 
@@ -187,17 +196,30 @@ export function AppearanceSettingsContent({
             >
               {t("Cancel")}
             </Button>
-            <Button
+            <FeedbackButton
               className="flex-1 sm:flex-initial"
               type="button"
               variant="primary"
               size="sm"
-              onClick={saveTreatment}
+              state={treatmentFeedback.feedback.state}
+              pendingLabel={t("Saving...")}
+              successLabel={t("Saved")}
+              errorLabel={
+                treatmentFeedback.feedback.state === "error"
+                  ? treatmentFeedback.feedback.message
+                  : t("Try again")
+              }
+              onClick={() =>
+                void treatmentFeedback.run(
+                  saveTreatment,
+                  t("Couldn't save appearance settings"),
+                )
+              }
               disabled={treatmentPending || !treatmentChanged}
             >
               <SaveIcon />
-              {treatmentPending ? t("Saving...") : t("Save")}
-            </Button>
+              {t("Save")}
+            </FeedbackButton>
           </div>
         </SectionFooter>
       )}

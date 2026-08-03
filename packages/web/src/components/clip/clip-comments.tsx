@@ -7,7 +7,6 @@ import {
 } from "@alloy/ui/components/avatar"
 import { Button } from "@alloy/ui/components/button"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
 import { AlertCircleIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -168,11 +167,7 @@ function ClipComments({
       (await copyTextToClipboard(url, {
         action: "copy comment link",
       }))
-    if (copied) {
-      toast.success(t("Comment link copied"))
-    } else {
-      toast.error(t("Couldn't copy comment link"))
-    }
+    return copied
   }
 
   async function submitComment() {
@@ -189,14 +184,7 @@ function ClipComments({
         setReplyTarget(null)
       }
       setDraft("")
-    } catch (err) {
-      toast.error(
-        errorMessage(
-          err,
-          replyTarget ? t("Couldn't post reply") : t("Couldn't post comment"),
-        ),
-      )
-    }
+    } catch {}
   }
 
   useEffect(() => {
@@ -375,6 +363,16 @@ function ClipComments({
         ) : (
           <CommentAuthHint canSignUp={canSignUp} />
         )}
+        {create.error ? (
+          <p role="alert" className="text-destructive mt-2 text-xs">
+            {errorMessage(
+              create.error,
+              replyTarget
+                ? t("Couldn't post reply")
+                : t("Couldn't post comment"),
+            )}
+          </p>
+        ) : null}
       </div>
     </aside>
   )
@@ -423,44 +421,28 @@ function CommentRowView({
   const isTopLevel = depth === 0
 
   function onToggleLike() {
-    if (!viewerId) {
-      toast.error(t("Sign in to like comments"))
-      return
-    }
-    toggleLike.mutate(
-      {
-        commentId: comment.id,
-        nextLiked: !comment.likedByViewer,
-      },
-      {
-        onError: (err) => {
-          toast.error(errorMessage(err, t("Couldn't update like")))
-        },
-      },
-    )
+    if (!viewerId) return
+    toggleLike.mutate({
+      commentId: comment.id,
+      nextLiked: !comment.likedByViewer,
+    })
   }
 
   function onPinToggle() {
-    togglePin.mutate(
-      { commentId: comment.id, nextPinned: !comment.pinned },
-      {
-        onError: (err) => {
-          toast.error(errorMessage(err, t("Couldn't pin")))
-        },
-      },
-    )
+    togglePin.mutate({ commentId: comment.id, nextPinned: !comment.pinned })
   }
 
   function onDelete() {
-    del.mutate(
-      { commentId: comment.id },
-      {
-        onError: (err) => {
-          toast.error(errorMessage(err, t("Couldn't delete")))
-        },
-      },
-    )
+    del.mutate({ commentId: comment.id })
   }
+
+  const actionError = toggleLike.error
+    ? errorMessage(toggleLike.error, t("Couldn't update like"))
+    : togglePin.error
+      ? errorMessage(togglePin.error, t("Couldn't pin"))
+      : del.error
+        ? errorMessage(del.error, t("Couldn't delete"))
+        : null
 
   const authorName = displayName(comment.author)
   const avatar = userAvatar(comment.author)
@@ -537,6 +519,8 @@ function CommentRowView({
           replyCount={comment.replies.length}
           repliesOpen={repliesOpen}
           canReply={canReply}
+          canLike={viewerId !== null}
+          likePending={toggleLike.isPending}
           showLike={!isDeleted}
           compactReplies={depth > 0}
           pinned={comment.pinned}
@@ -548,6 +532,12 @@ function CommentRowView({
             onStartReply({ id: comment.id, authorName: authorName })
           }
         />
+
+        {actionError ? (
+          <p role="alert" className="text-destructive text-xs">
+            {actionError}
+          </p>
+        ) : null}
 
         {repliesOpen && comment.replies.length > 0
           ? (() => {

@@ -15,7 +15,6 @@ import {
   useUserClipsQuery,
 } from "@/lib/clip-queries"
 import { useSuspenseSession } from "@/lib/session-suspense"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 import {
   taggedClipsQueryOptions,
   useProfileCachePatchers,
@@ -65,10 +64,6 @@ function UserProfileLayout() {
       }
     : null
   const profileError = profileQuery.error ?? null
-  useQueryErrorToast(profileError, {
-    title: t("Couldn't load profile"),
-    toastId: `profile-${username}-error`,
-  })
   const [revealed, setRevealed] = useState(false)
 
   // Reset the reveal gate on navigation between profiles — the query

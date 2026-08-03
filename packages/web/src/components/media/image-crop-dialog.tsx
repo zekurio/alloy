@@ -1,5 +1,6 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { Callout } from "@alloy/ui/components/callout"
 import {
   Dialog,
   DialogBody,
@@ -8,11 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@alloy/ui/components/dialog"
+import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Slider } from "@alloy/ui/components/slider"
 import { canvasBlurHash } from "@alloy/ui/lib/blurhash-encode"
-import { toast } from "@alloy/ui/lib/toast"
 import { cn } from "@alloy/ui/lib/utils"
-import { ImageIcon, Minus, Plus } from "lucide-react"
+import { CircleAlertIcon, ImageIcon, Minus, Plus } from "lucide-react"
 import {
   useCallback,
   useEffect,
@@ -84,6 +85,7 @@ export function ImageCropDialog({
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const [cropPending, setCropPending] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const stageReady = stageSize.width > 0 && stageSize.height > 0
   const cropReady = !!loadedImage && stageReady
   const controlsDisabled = !cropReady || applying || cropPending
@@ -114,6 +116,7 @@ export function ImageCropDialog({
       setLoadedImage(null)
       setStageSize({ height: 0, width: 0 })
       setCropPending(false)
+      setActionError(null)
       zoomInitializedRef.current = false
       return
     }
@@ -122,6 +125,7 @@ export function ImageCropDialog({
     setLoadedImage(null)
     setStageSize({ height: 0, width: 0 })
     setCropPending(false)
+    setActionError(null)
     zoomInitializedRef.current = false
 
     const load = async () => {
@@ -144,7 +148,7 @@ export function ImageCropDialog({
     load().catch((cause) => {
       if (active) {
         setLoadedImage(null)
-        toast.error(errorMessage(cause, t("Couldn't load image")))
+        setActionError(errorMessage(cause, t("Couldn't load image")))
       }
     })
 
@@ -317,10 +321,11 @@ export function ImageCropDialog({
   }
 
   async function handleApplyClick() {
+    setActionError(null)
     try {
       await handleApply()
     } catch (cause) {
-      toast.error(errorMessage(cause, t("Couldn't crop image")))
+      setActionError(errorMessage(cause, t("Couldn't crop image")))
     }
   }
 
@@ -449,6 +454,12 @@ export function ImageCropDialog({
             />
             <Plus className="text-foreground-faint size-4 shrink-0" />
           </div>
+          {actionError ? (
+            <Callout tone="destructive" className="text-xs">
+              <CircleAlertIcon />
+              <span>{actionError}</span>
+            </Callout>
+          ) : null}
         </DialogBody>
 
         <DialogFooter>
@@ -461,17 +472,24 @@ export function ImageCropDialog({
           >
             {t("Cancel")}
           </Button>
-          <Button
+          <FeedbackButton
             type="button"
             variant="primary"
             size="sm"
             onClick={() => void handleApplyClick()}
             disabled={applyDisabled}
+            state={
+              applying || cropPending
+                ? "pending"
+                : actionError
+                  ? "error"
+                  : "idle"
+            }
+            pendingLabel={t("Applying...")}
+            errorLabel={t("Try again")}
           >
-            {applyDisabled && (applying || cropPending)
-              ? t("Applying...")
-              : t("Apply")}
-          </Button>
+            {t("Apply")}
+          </FeedbackButton>
         </DialogFooter>
       </DialogContent>
     </Dialog>

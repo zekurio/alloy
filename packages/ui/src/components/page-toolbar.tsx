@@ -40,9 +40,6 @@ function PageToolbar({
       className={cn(
         "bg-background",
         !pinned && "sticky top-0 z-10 -mx-4 mb-4 md:-mx-6 md:mb-6",
-        // Pinned toolbars sit outside the padded scroll region, so give the
-        // controls the same responsive top inset as the main content.
-        pinned && "pt-2 md:pt-4",
         className,
       )}
       {...props}
@@ -52,6 +49,10 @@ function PageToolbar({
           // Fixed row height so every route's toolbar matches regardless of
           // whether it holds 32px chips or 28px dropdown triggers.
           "flex min-h-12 min-w-0 items-center gap-1.5 px-4 py-2 md:px-6",
+          // Pinned feed/library surfaces use the clip grid's 16px gutter on
+          // every side; toolbars below page headers retain the wider desktop
+          // inset used by those layouts.
+          pinned && "md:px-4",
           rail &&
             "no-scrollbar overflow-x-auto overflow-y-hidden [&>*]:shrink-0",
         )}

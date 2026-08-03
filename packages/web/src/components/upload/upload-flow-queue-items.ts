@@ -1,6 +1,5 @@
 import { type QueueClip } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { toast } from "@alloy/ui/lib/toast"
 import { useMemo } from "react"
 import type { MutableRefObject } from "react"
 
@@ -153,9 +152,5 @@ async function copyClipLink(row: QueueClip): Promise<void> {
     absoluteClipHref(row.gameSlug ?? null, row.id, publicOrigin()),
     { action: "copy uploaded clip link" },
   )
-  if (copied) {
-    toast.success(t("Link copied"))
-    return
-  }
-  toast.error(t("Couldn't copy link"))
+  if (!copied) throw new Error(t("Couldn't copy link"))
 }

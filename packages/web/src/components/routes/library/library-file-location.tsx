@@ -8,7 +8,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import { toast } from "@alloy/ui/lib/toast"
 import {
   ChevronDownIcon,
   CloudIcon,
@@ -118,6 +117,7 @@ function LocationMenu({
   deleteAction?: LocationDeleteAction | null
 }) {
   const [removingLocal, setRemovingLocal] = useState(false)
+  const [removeError, setRemoveError] = useState<string | null>(null)
   const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
 
   const revealLocal = () => {
@@ -127,84 +127,91 @@ function LocationMenu({
 
   const removeLocal = async () => {
     if (!localItem || removingLocal) return
+    setRemoveError(null)
     setRemovingLocal(true)
     try {
       await deleteLocalLibraryCopy(localItem)
-      toast.success(t("Local copy removed"))
     } catch (cause) {
       clientLogger.warn("[library] Failed to remove local clip copy.", cause)
-      toast.error(t("Couldn't remove the local copy"))
+      setRemoveError(t("Couldn't remove the local copy"))
     } finally {
       setRemovingLocal(false)
     }
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Chip size="xl" className="max-w-full justify-start" />}
-      >
-        {icon}
-        <span className="min-w-0 truncate">{label}</span>
-        {hasSize ? (
-          <span className="text-foreground-faint font-normal">
-            {"("}
-            {formatBytes(sizeBytes)}
-            {")"}
-          </span>
-        ) : null}
-        <ChevronDownIcon className="text-foreground-faint" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-56">
-        {localItem ? (
-          <>
-            <DropdownMenuItem onClick={revealLocal}>
-              <FolderOpenIcon />
-              {t("Reveal in folder")}
+    <div className="flex flex-col items-start gap-1.5">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Chip size="xl" className="max-w-full justify-start" />}
+        >
+          {icon}
+          <span className="min-w-0 truncate">{label}</span>
+          {hasSize ? (
+            <span className="text-foreground-faint font-normal">
+              {"("}
+              {formatBytes(sizeBytes)}
+              {")"}
+            </span>
+          ) : null}
+          <ChevronDownIcon className="text-foreground-faint" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-56">
+          {localItem ? (
+            <>
+              <DropdownMenuItem onClick={revealLocal}>
+                <FolderOpenIcon />
+                {t("Reveal in folder")}
+              </DropdownMenuItem>
+              {allowRemoveLocal ? (
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={removingLocal}
+                  onClick={() => {
+                    void removeLocal()
+                  }}
+                >
+                  <Trash2Icon />
+                  {removingLocal ? t("Removing...") : t("Remove local copy")}
+                </DropdownMenuItem>
+              ) : null}
+            </>
+          ) : downloadAction ? (
+            downloadAction
+          ) : (
+            <DropdownMenuItem disabled>
+              <CloudIcon />
+              {t("Server only")}
             </DropdownMenuItem>
-            {allowRemoveLocal ? (
+          )}
+          {localItem && downloadAction ? (
+            <>
+              <DropdownMenuSeparator />
+              {downloadAction}
+            </>
+          ) : null}
+          {deleteAction ? (
+            <>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 variant="destructive"
-                disabled={removingLocal}
-                onClick={() => {
-                  void removeLocal()
-                }}
+                disabled={deleteAction.disabled}
+                onClick={deleteAction.onSelect}
               >
                 <Trash2Icon />
-                {removingLocal ? t("Removing...") : t("Remove local copy")}
+                {deleteAction.pending
+                  ? deleteAction.pendingLabel
+                  : deleteAction.label}
               </DropdownMenuItem>
-            ) : null}
-          </>
-        ) : downloadAction ? (
-          downloadAction
-        ) : (
-          <DropdownMenuItem disabled>
-            <CloudIcon />
-            {t("Server only")}
-          </DropdownMenuItem>
-        )}
-        {localItem && downloadAction ? (
-          <>
-            <DropdownMenuSeparator />
-            {downloadAction}
-          </>
-        ) : null}
-        {deleteAction ? (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              disabled={deleteAction.disabled}
-              onClick={deleteAction.onSelect}
-            >
-              <Trash2Icon />
-              {deleteAction.pending
-                ? deleteAction.pendingLabel
-                : deleteAction.label}
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {removeError ? (
+        <span role="alert" className="text-destructive text-xs">
+          {removeError}
+        </span>
+      ) : null}
+    </div>
   )
 }

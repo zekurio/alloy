@@ -4,7 +4,6 @@ import { AppMain } from "@alloy/ui/components/app-shell"
 import { Card } from "@alloy/ui/components/card"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
-import { toast } from "@alloy/ui/lib/toast"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { VideoOffIcon } from "lucide-react"
@@ -26,6 +25,7 @@ import {
   useDeleteClipMutation,
   useTrimClipMutation,
 } from "@/lib/clip-queries"
+import { errorMessage } from "@/lib/error-message"
 
 import { ClipEditorTabs } from "./library-clip-editor-details"
 import {
@@ -168,15 +168,11 @@ function ClipEditorBody({
         endMs: Math.round(trim.endMs),
       })
       .then(() => {
-        toast.success(t("Trim saved — the clip is reprocessing"))
         playback.setTrim({ startMs: 0, endMs: 0 })
         playback.setCurrentMs(0)
         return true
       })
-      .catch((cause: Error) => {
-        toast.error(cause.message || "Couldn't trim the clip")
-        return false
-      })
+      .catch(() => false)
   }
 
   const tabs = {
@@ -186,6 +182,9 @@ function ClipEditorBody({
     deleting: deleteFlow.pending,
     canSaveTrim,
     trimPending: trimMutation.isPending,
+    trimError: trimMutation.error
+      ? errorMessage(trimMutation.error, t("Couldn't trim the clip"))
+      : null,
     onSaveTrim: handleSaveTrim,
   }
 
@@ -230,6 +229,7 @@ function ClipEditorBody({
         open={deleteFlow.open}
         onOpenChange={deleteFlow.setOpen}
         pending={deleteFlow.pending}
+        error={deleteFlow.error}
         localItem={localItem}
         title={row.title}
         onConfirm={deleteFlow.confirm}
@@ -330,12 +330,9 @@ function useServerBackedClipDelete({
                 serverId: row.id,
                 setDeletingLocal,
               })
-            } else {
-              toast.success(t("Clip deleted"))
             }
             await finishDelete({ keptLocalItem })
           },
-          onError: () => toast.error(t("Couldn't delete clip")),
         },
       )
     },
@@ -347,6 +344,9 @@ function useServerBackedClipDelete({
     setOpen,
     openDialog: useCallback(() => setOpen(true), []),
     pending,
+    error: deleteMutation.error
+      ? errorMessage(deleteMutation.error, t("Couldn't delete clip"))
+      : null,
     confirm,
   }
 }
@@ -359,6 +359,7 @@ function DeleteClipDialog({
   open,
   onOpenChange,
   pending,
+  error,
   localItem,
   title,
   onConfirm,
@@ -366,6 +367,7 @@ function DeleteClipDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   pending: boolean
+  error: string | null
   localItem: Parameters<typeof DeleteServerBackedDialog>[0]["localItem"]
   title: string
   onConfirm: (deleteLocal: boolean) => void
@@ -375,6 +377,7 @@ function DeleteClipDialog({
       open={open}
       onOpenChange={onOpenChange}
       pending={pending}
+      error={error}
       title={title}
       noun="clip"
       localItem={localItem}

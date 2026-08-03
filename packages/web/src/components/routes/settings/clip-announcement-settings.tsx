@@ -1,7 +1,6 @@
 import { t } from "@alloy/i18n"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
-import { toast } from "@alloy/ui/lib/toast"
 import { useEffect, useState } from "react"
 
 import { authClient, useSession } from "@/lib/auth-client"
@@ -16,6 +15,7 @@ const CLIP_ANNOUNCEMENTS_ID = "clip-announcements-enabled"
 export function ClipAnnouncementRow() {
   const { data: session } = useSession()
   const [pending, setPending] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const user = session?.user
   const [enabled, setEnabled] = useState(
     user?.clipAnnouncementsEnabled ?? false,
@@ -34,6 +34,7 @@ export function ClipAnnouncementRow() {
 
   function change(next: boolean) {
     const previous = enabled
+    setSaveError(null)
     setEnabled(next)
     setPending(true)
     void authClient
@@ -41,17 +42,16 @@ export function ClipAnnouncementRow() {
       .then(({ error }) => {
         if (error) {
           setEnabled(previous)
-          toast.error(errorMessage(error, t("Couldn't save preference")))
+          setSaveError(errorMessage(error, t("Couldn't save preference")))
           return
         }
-        toast.success(next ? t("Announcements on") : t("Announcements off"))
       })
       // updateUser only rejects when the session refetch after a successful
       // save fails; the store still holds the stale value then, so revert to
       // stay consistent with it.
       .catch((cause) => {
         setEnabled(previous)
-        toast.error(errorMessage(cause, t("Couldn't save preference")))
+        setSaveError(errorMessage(cause, t("Couldn't save preference")))
       })
       .finally(() => setPending(false))
   }
@@ -60,9 +60,18 @@ export function ClipAnnouncementRow() {
     <SettingRow
       title={t("Announce my clips")}
       htmlFor={CLIP_ANNOUNCEMENTS_ID}
-      description={t(
-        "Let this server post your public clips to the webhooks it has configured.",
-      )}
+      description={
+        <>
+          {t(
+            "Let this server post your public clips to the webhooks it has configured.",
+          )}
+          {saveError ? (
+            <span role="alert" className="text-destructive mt-1 block">
+              {saveError}
+            </span>
+          ) : null}
+        </>
+      }
     >
       <Switch
         id={CLIP_ANNOUNCEMENTS_ID}

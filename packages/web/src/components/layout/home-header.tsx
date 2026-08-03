@@ -13,19 +13,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@alloy/ui/components/tooltip"
+import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { Link, useRouterState } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
-import { NotificationBell } from "@/components/notifications/notification-bell"
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
-import { GlobalUploadControl } from "@/components/upload/global-upload-control"
 import { UploadStatusPill } from "@/components/upload/upload-status-pill"
 import { alloyDesktop } from "@/lib/desktop"
-import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { UserMenu } from "./user-menu"
 
@@ -33,7 +31,7 @@ export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
   const inputRef = useRef<HTMLInputElement>(null)
   const desktop = alloyDesktop()
-  const session = useSuspenseSession()
+  const isMobile = useIsMobile()
 
   const onKeyDown = useCallback((event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") {
@@ -97,12 +95,8 @@ export function HomeHeader() {
         <SearchResultsPopover />
       </AppHeaderSearch>
       <AppHeaderActions className="h-full gap-1.5">
-        {/* Trailing cluster: upload · notifications · account. Grouped so
-            moving it to the other side of the header is a single JSX move. */}
-        {session ? <GlobalUploadControl /> : null}
-        <UploadStatusPill />
-        {session ? <NotificationBell /> : null}
-        <UserMenu className="max-md:hidden" />
+        {isMobile ? <UploadStatusPill /> : null}
+        <UserMenu />
         {desktop?.titlebarOverlay ? (
           <AppHeaderWindowControls
             className="ml-1"

@@ -1,12 +1,13 @@
 import type { GameListRow } from "@alloy/api"
 import { t, tp } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
+import { Button } from "@alloy/ui/components/button"
 import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { Link, useSearch } from "@tanstack/react-router"
-import { GlobeIcon, HashIcon, TagIcon } from "lucide-react"
+import { AlertCircleIcon, GlobeIcon, HashIcon, TagIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
@@ -25,7 +26,6 @@ import { useSuspenseSession } from "@/lib/session-suspense"
 import { useTagClipsInfiniteQuery, useTagSummaryQuery } from "@/lib/tag-queries"
 import { type TagSearch, tagFilters } from "@/lib/tag-search"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
-import { useQueryErrorToast } from "@/lib/use-query-error-toast"
 
 const SORTS: ReadonlyArray<SortDropdownOption<"top" | "recent">> = [
   { key: "top", label: t("Top") },
@@ -164,24 +164,30 @@ function TagClipsSection({
     isFetchingNextPage,
     isPending,
   } = useTagClipsInfiniteQuery(tag, filters)
-  useQueryErrorToast(error, {
-    title: t("Couldn't load clips"),
-    toastId: `tag-${tag}-error`,
-  })
-
   const rows = useMemo(
     () => (data ? data.pages.flatMap((page) => page.items) : []),
     [data],
   )
+  const paginationError = Boolean(error) && rows.length > 0
 
   const sentinelRef = useInfiniteScrollSentinel(
     fetchNextPage,
-    Boolean(hasNextPage),
+    Boolean(hasNextPage) && !paginationError,
     isFetchingNextPage,
   )
 
   if (isPending && rows.length === 0) {
     return <LoadingState />
+  }
+
+  if (error && rows.length === 0) {
+    return (
+      <EmptyState
+        icon={AlertCircleIcon}
+        size="lg"
+        title={t("Couldn't load clips")}
+      />
+    )
   }
 
   if (rows.length === 0) {
@@ -202,13 +208,30 @@ function TagClipsSection({
         isOwnedByViewer={(row) => row.authorId === viewerId}
         listKey={`tag:${tag}`}
       />
-      {hasNextPage || isFetchingNextPage ? (
+      {hasNextPage || isFetchingNextPage || paginationError ? (
         <div
           ref={sentinelRef}
-          aria-hidden
           className="mt-6 flex min-h-6 items-center justify-center"
         >
-          {isFetchingNextPage ? <Spinner className="size-3" /> : null}
+          {isFetchingNextPage ? (
+            <Spinner className="size-3" />
+          ) : paginationError ? (
+            <div
+              role="alert"
+              className="text-foreground-muted flex items-center gap-2 text-xs"
+            >
+              <AlertCircleIcon className="text-destructive size-4" />
+              <span>{t("Couldn't load more clips")}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => void fetchNextPage()}
+              >
+                {t("Retry")}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
