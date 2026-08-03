@@ -124,12 +124,12 @@ function RecordingStatusPopover({
       <GameIcon
         src={activeGame.iconUrl}
         name={activeGame.name}
-        className="size-5"
+        className="size-6"
       />
     ) : settings?.captureMode === "display" ? (
-      <MonitorIcon className="size-5" />
+      <MonitorIcon className="size-6" />
     ) : (
-      <RadioIcon className="size-5 shrink-0" />
+      <RadioIcon className="size-6 shrink-0" />
     )
   const statusText = t("Capture status: {label}", { label })
   return (

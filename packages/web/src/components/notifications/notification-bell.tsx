@@ -104,7 +104,7 @@ export function NotificationBell({
               variant === "sidebar" &&
                 "text-foreground-muted hover:text-foreground size-10 rounded-md [&_svg]:size-6",
               variant === "bottom-nav" &&
-                "group/tab text-foreground-muted active:text-accent flex-col gap-1 px-1 text-[10px] leading-none font-medium [-webkit-tap-highlight-color:transparent] [&_svg]:size-[22px]",
+                "text-foreground-muted active:text-accent px-1 [-webkit-tap-highlight-color:transparent] [&_svg]:size-[22px]",
             )}
           />
         }
@@ -127,9 +127,6 @@ export function NotificationBell({
             </Badge>
           ) : null}
         </span>
-        {variant === "bottom-nav" ? (
-          <span className="max-w-full truncate">{t("Notifications")}</span>
-        ) : null}
       </PopoverTrigger>
       <PopoverContent
         anchor={variant === "sidebar" ? bottomLeftAppCornerAnchor : undefined}
