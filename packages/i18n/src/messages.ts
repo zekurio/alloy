@@ -363,6 +363,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't forget server.": "Server konnte nicht entfernt werden.",
   "Couldn't load accounts": "Konten konnten nicht geladen werden",
   "Couldn't load clips": "Clips konnten nicht geladen werden",
+  "Couldn't load more clips": "Weitere Clips konnten nicht geladen werden",
   "Couldn't load comments": "Kommentare konnten nicht geladen werden",
   "Couldn't load display preview.":
     "Display-Vorschau konnte nicht geladen werden.",

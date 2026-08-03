@@ -171,14 +171,12 @@ function MobileClipViewerBody({
     await shareFeedback.run(async () => {
       const url = currentUrlWithoutSearchOrHash()
       if (url === null) throw new Error(t("Couldn't share clip"))
-      if (
-        (await shareUrlWithFallback(url, {
-          title: row.title,
-          action: "share clip link",
-        })) === "failed"
-      ) {
-        throw new Error(t("Couldn't share clip"))
-      }
+      const result = await shareUrlWithFallback(url, {
+        title: row.title,
+        action: "share clip link",
+      })
+      if (result === "failed") throw new Error(t("Couldn't share clip"))
+      return result !== "cancelled"
     }, t("Couldn't share clip"))
   }, [row.title, shareFeedback])
 

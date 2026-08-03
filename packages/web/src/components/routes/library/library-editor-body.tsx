@@ -15,6 +15,7 @@ import { Link, useNavigate } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
   CircleAlertIcon,
+  CopyIcon,
   Link2Icon,
   SaveIcon,
   UploadIcon,
@@ -158,6 +159,7 @@ export function EditorBody({
   )
   const saveFeedback = useActionFeedback()
   const publishFeedback = useActionFeedback()
+  const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
   const saving = saveFeedback.feedback.state === "pending"
   const publishing = publishFeedback.feedback.state === "pending"
 
@@ -298,7 +300,7 @@ export function EditorBody({
   }
 
   const handlePublish = (privacy: ClipPrivacy) => {
-    if (publishLocked) return
+    if (publishLocked || linkToCopy) return
     const pickedGame = game
     if (normalizedTitle.length === 0) return
     void publishFeedback.run(async () => {
@@ -325,11 +327,17 @@ export function EditorBody({
       })
       if (!clipId) return
       if (privacy === "unlisted") {
-        const copied = await copyTextToClipboard(
-          absoluteClipHref(pickedGame?.slug ?? null, clipId, publicOrigin()),
-          { action: "copy published clip link" },
+        const link = absoluteClipHref(
+          pickedGame?.slug ?? null,
+          clipId,
+          publicOrigin(),
         )
-        if (!copied) throw new Error(t("Couldn't copy the clip link"))
+        if (!(await copyPublishedClipLink(link))) {
+          setLinkToCopy(link)
+          throw new Error(
+            t("Upload started, but the clip link couldn't be copied."),
+          )
+        }
       }
 
       await navigate({
@@ -339,24 +347,49 @@ export function EditorBody({
     }, t("Couldn't prepare clip"))
   }
 
+  const handleLinkCopy = () => {
+    if (!linkToCopy) return
+    void publishFeedback.run(async () => {
+      if (!(await copyPublishedClipLink(linkToCopy))) {
+        throw new Error(
+          t("Upload started, but the clip link couldn't be copied."),
+        )
+      }
+      setLinkToCopy(null)
+      await navigate({ to: "/library", replace: true })
+    }, t("Couldn't copy the clip link"))
+  }
+
+  const awaitingLinkCopy = linkToCopy !== null
   const primaryPublishes = !dirty && !trimDirty
-  const primaryDisabled = primaryPublishes
-    ? !canPublish
-    : saving || publishing || deleting || titleInvalid
-  const primaryLabel = primaryPublishes
-    ? publishLocked
-      ? t("Uploading…")
-      : publishing
-        ? t("Preparing...")
-        : t("Post")
-    : saving
-      ? t("Saving...")
-      : t("Save")
-  const PrimaryIcon = primaryPublishes ? UploadIcon : SaveIcon
-  const showPostInMenu = !primaryPublishes
-  const primaryFeedback = primaryPublishes
-    ? publishFeedback.feedback
-    : saveFeedback.feedback
+  const primaryDisabled = awaitingLinkCopy
+    ? publishing || deleting
+    : primaryPublishes
+      ? !canPublish
+      : saving || publishing || deleting || titleInvalid
+  const primaryLabel = awaitingLinkCopy
+    ? publishing
+      ? t("Copying…")
+      : t("Copy link")
+    : primaryPublishes
+      ? publishLocked
+        ? t("Uploading…")
+        : publishing
+          ? t("Preparing...")
+          : t("Post")
+      : saving
+        ? t("Saving...")
+        : t("Save")
+  const PrimaryIcon = awaitingLinkCopy
+    ? CopyIcon
+    : primaryPublishes
+      ? UploadIcon
+      : SaveIcon
+  const showPostInMenu = !awaitingLinkCopy && !primaryPublishes
+  const primaryFeedback =
+    awaitingLinkCopy || primaryPublishes
+      ? publishFeedback.feedback
+      : saveFeedback.feedback
   const actionError =
     saveFeedback.feedback.state === "error"
       ? saveFeedback.feedback.message
@@ -440,7 +473,7 @@ export function EditorBody({
             onMentionsChange={setMentions}
             tags={tags}
             onTagsChange={setTags}
-            disabled={saving || publishing || deleting}
+            disabled={saving || publishing || deleting || awaitingLinkCopy}
             titleInvalid={titleInvalid}
             gameInvalid={false}
             autoFocusGame={promptGame}
@@ -465,70 +498,90 @@ export function EditorBody({
               disabled={deleting || publishing || saving}
               render={<Link to="/library" />}
             >
-              {t("Cancel")}
+              {awaitingLinkCopy ? t("Done") : t("Cancel")}
             </Button>
-            <div className="flex items-center">
+            {awaitingLinkCopy ? (
               <FeedbackButton
                 type="button"
                 variant="primary"
                 disabled={primaryDisabled}
                 state={primaryFeedback.state}
                 pendingLabel={primaryLabel}
-                successLabel={primaryPublishes ? t("Started") : t("Saved")}
+                successLabel={t("Copied")}
                 errorLabel={t("Try again")}
-                className="rounded-r-none"
-                onClick={() => {
-                  if (primaryPublishes) handlePublish("public")
-                  else handleSave()
-                }}
+                onClick={handleLinkCopy}
               >
                 <PrimaryIcon />
                 {primaryLabel}
               </FeedbackButton>
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      variant="primary"
-                      size="icon"
-                      disabled={publishing || deleting || saving}
-                      aria-label={t("More post options")}
-                      className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
-                    />
-                  }
+            ) : (
+              <div className="flex items-center">
+                <FeedbackButton
+                  type="button"
+                  variant="primary"
+                  disabled={primaryDisabled}
+                  state={primaryFeedback.state}
+                  pendingLabel={primaryLabel}
+                  successLabel={primaryPublishes ? t("Started") : t("Saved")}
+                  errorLabel={t("Try again")}
+                  className="rounded-r-none"
+                  onClick={() => {
+                    if (primaryPublishes) handlePublish("public")
+                    else handleSave()
+                  }}
                 >
-                  <ChevronUpIcon />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" side="top" className="w-52">
-                  {showPostInMenu ? (
+                  <PrimaryIcon />
+                  {primaryLabel}
+                </FeedbackButton>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="icon"
+                        disabled={publishing || deleting || saving}
+                        aria-label={t("More post options")}
+                        className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
+                      />
+                    }
+                  >
+                    <ChevronUpIcon />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="top" className="w-52">
+                    {showPostInMenu ? (
+                      <DropdownMenuItem
+                        disabled={!canPublish}
+                        onClick={() => {
+                          handlePublish("public")
+                        }}
+                      >
+                        <UploadIcon className="size-4" />
+                        {t("Post")}
+                      </DropdownMenuItem>
+                    ) : null}
                     <DropdownMenuItem
                       disabled={!canPublish}
                       onClick={() => {
-                        handlePublish("public")
+                        handlePublish("unlisted")
                       }}
                     >
-                      <UploadIcon className="size-4" />
-                      {t("Post")}
+                      <Link2Icon className="size-4" />
+                      {t("Create Link")}
                     </DropdownMenuItem>
-                  ) : null}
-                  <DropdownMenuItem
-                    disabled={!canPublish}
-                    onClick={() => {
-                      handlePublish("unlisted")
-                    }}
-                  >
-                    <Link2Icon className="size-4" />
-                    {t("Create Link")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
           </div>
         </Card>
       </div>
     </section>
   )
+}
+
+async function copyPublishedClipLink(link: string) {
+  return copyTextToClipboard(link, { action: "copy published clip link" })
 }
 
 /**

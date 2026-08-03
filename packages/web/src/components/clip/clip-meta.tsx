@@ -164,14 +164,12 @@ function ClipMeta({
       if (privacy === "private") throw new Error(t("Clip link is disabled"))
       const url = currentUrlWithoutSearchOrHash()
       if (url === null) throw new Error(t("Couldn't share clip"))
-      if (
-        (await shareUrlWithFallback(url, {
-          title,
-          action: "share clip link",
-        })) === "failed"
-      ) {
-        throw new Error(t("Couldn't share clip"))
-      }
+      const result = await shareUrlWithFallback(url, {
+        title,
+        action: "share clip link",
+      })
+      if (result === "failed") throw new Error(t("Couldn't share clip"))
+      return result !== "cancelled"
     }, t("Couldn't share clip"))
   }, [privacy, shareFeedback, title])
 

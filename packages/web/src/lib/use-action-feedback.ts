@@ -23,12 +23,21 @@ export function useActionFeedback(successDuration = 1400) {
     [],
   )
 
+  // Returning false means the action was cancelled and should return to idle
+  // without displaying either success or error feedback.
   const run = useCallback(
-    async (action: () => void | Promise<void>, fallbackError: string) => {
+    async (
+      action: () => boolean | void | Promise<boolean | void>,
+      fallbackError: string,
+    ) => {
       reset()
       setFeedback({ state: "pending" })
       try {
-        await action()
+        const completed = await action()
+        if (completed === false) {
+          reset()
+          return false
+        }
         setFeedback({ state: "success" })
         resetTimer.current = window.setTimeout(reset, successDuration)
         return true

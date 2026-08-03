@@ -167,7 +167,9 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
     })
   }
 
-  // Resolves false on failure so the crop dialog can stay open for a retry.
+  // Cropped uploads rethrow so the foreground crop dialog can show the error
+  // and stay open for a retry. The artwork field also retains the message for
+  // direct uploads such as logos.
   const uploadAsset = async (role: GameAssetRole, file: File) => {
     setArtworkError(null)
     setRoleBusy(role, true)
@@ -178,8 +180,9 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
       )
       return true
     } catch (cause) {
-      setArtworkError(errorMessage(cause, t("Couldn't upload artwork")))
-      return false
+      const message = errorMessage(cause, t("Couldn't upload artwork"))
+      setArtworkError(message)
+      throw new Error(message)
     } finally {
       setRoleBusy(role, false)
     }

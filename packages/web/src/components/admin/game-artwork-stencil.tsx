@@ -69,7 +69,8 @@ export function GameArtworkStencil({
       setCropping({ role, file })
       return
     }
-    void slot(role).onSelect(file)
+    // Uncropped uploads surface their error in the parent artwork field.
+    void Promise.resolve(slot(role).onSelect(file)).catch(() => undefined)
   }
 
   const croppingBusy = cropping ? !!slot(cropping.role).busy : false
