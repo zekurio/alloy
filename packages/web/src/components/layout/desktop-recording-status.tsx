@@ -49,9 +49,10 @@ import { DisplayPickerDialog } from "./recording-display-picker"
 import {
   audioDeviceMultiSelectLabel,
   captureTargetLabel,
+  type RecordingStatusIndicator,
   type SaveRecordingSettings,
   selectedDisplay,
-  statusActive,
+  statusIndicator,
   statusLabel,
 } from "./recording-status-helpers"
 import { useDesktopRecordingState } from "./use-desktop-recording-state"
@@ -66,7 +67,7 @@ export function DesktopRecordingStatus() {
   return (
     <>
       <RecordingStatusPopover
-        active={statusActive(state.settings, state.status)}
+        indicator={statusIndicator(state.settings, state.status)}
         activeGame={
           state.settings?.enabled
             ? (state.status?.activeGameDetail ?? null)
@@ -97,7 +98,7 @@ export function DesktopRecordingStatus() {
  * bottom-left app corner.
  */
 function RecordingStatusPopover({
-  active,
+  indicator,
   activeGame,
   desktop,
   displays,
@@ -107,7 +108,7 @@ function RecordingStatusPopover({
   onOpenDisplayPicker,
   onSave,
 }: {
-  active: boolean
+  indicator: RecordingStatusIndicator
   activeGame: RecordingStatus["activeGameDetail"] | null
   desktop: AlloyDesktop
   displays: RecordingDisplay[]
@@ -144,10 +145,12 @@ function RecordingStatusPopover({
                   aria-label={statusText}
                   className={cn(
                     "data-popup-open:text-foreground",
-                    // Live indicator only while the replay buffer is
-                    // recording; an idle dot would just be visual noise.
-                    active &&
-                      "after:bg-live after:animate-pulse-dot after:absolute after:top-1 after:right-1 after:size-1.5 after:rounded-full after:shadow-[0_0_6px_var(--live)] after:content-['']",
+                    indicator !== "idle" &&
+                      "after:absolute after:top-1 after:right-1 after:size-1.5 after:rounded-full after:content-['']",
+                    indicator === "active" &&
+                      "after:bg-live after:animate-pulse-dot after:shadow-[0_0_6px_var(--live)]",
+                    indicator === "draining" &&
+                      "after:bg-warning after:shadow-[0_0_6px_var(--warning)]",
                   )}
                 >
                   {icon}
