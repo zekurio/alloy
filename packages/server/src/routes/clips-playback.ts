@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 
 import type { ClipPrivacy } from "@alloy/contracts"
 import { CLIP_AUDIO_TRACKS_MAX } from "@alloy/contracts/content"
+import { t } from "@alloy/contracts/schema"
 import { clipAudioTrack } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import {
@@ -28,7 +29,6 @@ import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import type { Context } from "hono"
 import { stream } from "hono/streaming"
-import { z } from "zod"
 
 import { contentDisposition, downloadFilename, IdParam } from "./clips-helpers"
 import {
@@ -36,22 +36,22 @@ import {
   streamResolved,
   streamThumbnail,
 } from "./clips-playback-streams"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 const logger = createLogger("clips")
 
-const AudioTrackParam = z.object({
-  id: z.uuid(),
-  index: z
+const AudioTrackParam = t.object({
+  id: t.uuid(),
+  index: t
     .string()
     .regex(/^\d$/)
     .transform(Number)
     .refine((index) => index < CLIP_AUDIO_TRACKS_MAX),
 })
 
-const RenditionParam = z.object({
-  id: z.uuid(),
-  name: z.string().min(1).max(64),
+const RenditionParam = t.object({
+  id: t.uuid(),
+  name: t.string().min(1).max(64),
 })
 
 function thumbnailEtag(key: string): string {
@@ -148,7 +148,7 @@ export const clipsPlaybackRoutes = new Hono()
    * serve their exact cut. Untrimmed clips serve the og rendition, then the
    * top rendition, then the stored source while the ladder is unavailable.
    */
-  .get("/:id/stream", zValidator("param", IdParam), async (c) => {
+  .get("/:id/stream", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({
       id,
@@ -197,7 +197,7 @@ export const clipsPlaybackRoutes = new Hono()
    * GET /api/clips/:id/source/file — the default playback tier. Trimmed clips
    * serve their exact cut so trimmed-away footage stays unexposed.
    */
-  .get("/:id/source/file", zValidator("param", IdParam), async (c) => {
+  .get("/:id/source/file", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({ id, c, policy: "stream" })
     if (!access.accessible) return clipAccessResponse(c, access)
@@ -217,7 +217,7 @@ export const clipsPlaybackRoutes = new Hono()
    * GET /api/clips/:id/original/file — the uncut stored source for the owner
    * trim editor. Re-trims must be able to expand a previous virtual trim.
    */
-  .get("/:id/original/file", zValidator("param", IdParam), async (c) => {
+  .get("/:id/original/file", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({ id, c, policy: "ownerAsset" })
     if (!access.accessible) return clipAccessResponse(c, access)
@@ -244,7 +244,7 @@ export const clipsPlaybackRoutes = new Hono()
    * owner editor, derived lazily from the uncut stored source and cached
    * under a deterministic key.
    */
-  .get("/:id/scrubber/file", zValidator("param", IdParam), async (c) => {
+  .get("/:id/scrubber/file", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({ id, c, policy: "ownerAsset" })
     if (!access.accessible) return clipAccessResponse(c, access)
@@ -287,7 +287,7 @@ export const clipsPlaybackRoutes = new Hono()
    */
   .get(
     "/:id/rendition/:name/file.mp4",
-    zValidator("param", RenditionParam),
+    tbValidator("param", RenditionParam),
     async (c) => {
       const { id, name } = c.req.valid("param")
       const access = await resolveClipAccess({ id, c, policy: "stream" })
@@ -318,7 +318,7 @@ export const clipsPlaybackRoutes = new Hono()
    */
   .get(
     "/:id/audio/:index/file.m4a",
-    zValidator("param", AudioTrackParam),
+    tbValidator("param", AudioTrackParam),
     async (c) => {
       const { id, index } = c.req.valid("param")
       const access = await resolveClipAccess({ id, c, policy: "stream" })
@@ -350,7 +350,7 @@ export const clipsPlaybackRoutes = new Hono()
    * queue/grid cards. Returns 404 when the media pipeline could not extract a
    * usable non-uniform poster frame; the UI falls back to a placeholder.
    */
-  .get("/:id/thumbnail", zValidator("param", IdParam), async (c) => {
+  .get("/:id/thumbnail", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
     const access = await resolveClipAccess({
@@ -383,7 +383,7 @@ export const clipsPlaybackRoutes = new Hono()
       thumbCacheControl,
     )
   })
-  .get("/:id/download", zValidator("param", IdParam), async (c) => {
+  .get("/:id/download", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
     const access = await resolveClipAccess({

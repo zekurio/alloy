@@ -1,4 +1,5 @@
 import { sanitizeTag } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipTag, game } from "@alloy/db/schema"
 import { clipSelectShape } from "@alloy/server/clips/select"
@@ -7,7 +8,6 @@ import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
 import { invalidCursor, notFound } from "@alloy/server/runtime/http-response"
 import { and, eq, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
-import { z } from "zod"
 
 import {
   clipListCursorCondition,
@@ -17,20 +17,20 @@ import {
   publicClipListingConditions,
 } from "./clips-helpers"
 import { clipTagFilter } from "./tag-filter"
-import { limitQueryParam, zValidator } from "./validation"
+import { limitQueryParam, tbValidator } from "./validation"
 
-const TagParam = z.object({ tag: z.string().min(1).max(64) })
+const TagParam = t.object({ tag: t.string().min(1).max(64) })
 
-const TagSearchQuery = z.object({ q: z.string().min(1).max(64) })
+const TagSearchQuery = t.object({ q: t.string().min(1).max(64) })
 
 /** How many tag suggestions the autocomplete returns. */
 const TAG_SUGGESTION_LIMIT = 8
 
-const TagClipsQuery = z.object({
-  sort: z.enum(["top", "recent"]).default("top"),
-  gameId: z.uuid().optional(),
+const TagClipsQuery = t.object({
+  sort: t.enum(["top", "recent"]).$default("top"),
+  gameId: t.uuid().optional(),
   limit: limitQueryParam(100, 50),
-  cursor: z.string().optional(),
+  cursor: t.string().optional(),
 })
 
 function publicTagClipConditions(tag: string): SQL[] {
@@ -40,7 +40,7 @@ function publicTagClipConditions(tag: string): SQL[] {
 export const tagsRoute = new Hono()
   // Prefix autocomplete for the editor. Ranks by how many public clips use a
   // tag so the most useful suggestions surface first.
-  .get("/", zValidator("query", TagSearchQuery), async (c) => {
+  .get("/", tbValidator("query", TagSearchQuery), async (c) => {
     const prefix = sanitizeTag(c.req.valid("query").q)
     if (!prefix) return c.json({ tags: [] })
     // `_` survives sanitizing and is a LIKE wildcard, so escape it.
@@ -66,8 +66,8 @@ export const tagsRoute = new Hono()
   })
   .get(
     "/:tag/clips",
-    zValidator("param", TagParam),
-    zValidator("query", TagClipsQuery),
+    tbValidator("param", TagParam),
+    tbValidator("query", TagClipsQuery),
     async (c) => {
       const tag = sanitizeTag(c.req.valid("param").tag)
       if (!tag) return notFound(c)
@@ -95,7 +95,7 @@ export const tagsRoute = new Hono()
       return c.json(clipListPage(rows, limit, sort))
     },
   )
-  .get("/:tag/games", zValidator("param", TagParam), async (c) => {
+  .get("/:tag/games", tbValidator("param", TagParam), async (c) => {
     const tag = sanitizeTag(c.req.valid("param").tag)
     if (!tag) return notFound(c)
 

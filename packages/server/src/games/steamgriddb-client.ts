@@ -3,9 +3,10 @@ import type {
   SteamGridDBGameDetail,
   SteamGridDBSearchResult,
 } from "@alloy/contracts"
+import { safeParse, t } from "@alloy/contracts/schema"
 import { secretStore } from "@alloy/server/config/secret-store"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
-import { z } from "zod"
+import type { TSchema } from "typebox"
 
 const STEAMGRIDDB_ORIGIN = "https://www.steamgriddb.com"
 const STEAMGRIDDB_API_PATH = "/api/v2"
@@ -33,50 +34,50 @@ export class SteamGridDBNotConfiguredError extends SteamGridDBError {
 }
 
 const EnvelopeShape = {
-  success: z.boolean(),
-  errors: z.array(z.string()).optional(),
+  success: t.boolean(),
+  errors: t.array(t.string()).optional(),
 }
 
 // Autocomplete row. `release_date` is a Unix timestamp in seconds when
 // present; SGDB omits it for some games (mods, unknown releases).
-const SearchResultSchema: z.ZodType<SteamGridDBSearchResult> = z.object({
-  id: z.number().int(),
-  name: z.string(),
-  release_date: z.number().int().optional(),
-  types: z.array(z.string()).optional(),
-  verified: z.boolean().optional(),
+const SearchResultSchema = t.object({
+  id: t.number().int(),
+  name: t.string(),
+  release_date: t.number().int().optional(),
+  types: t.array(t.string()).optional(),
+  verified: t.boolean().optional(),
 })
 
-const GameDetailSchema: z.ZodType<SteamGridDBGameDetail> = z.object({
-  id: z.number().int(),
-  name: z.string(),
-  release_date: z.number().int().optional().nullable(),
-  types: z.array(z.string()).optional(),
-  verified: z.boolean().optional(),
+const GameDetailSchema = t.object({
+  id: t.number().int(),
+  name: t.string(),
+  release_date: t.number().int().optional().nullable(),
+  types: t.array(t.string()).optional(),
+  verified: t.boolean().optional(),
 })
 
-const AssetSchema: z.ZodType<SteamGridDBAsset> = z.object({
-  id: z.number().int(),
-  url: z.string().url(),
-  thumb: z.string().url().optional(),
-  width: z.number().int().optional(),
-  height: z.number().int().optional(),
-  style: z.string().optional(),
-  nsfw: z.boolean().optional(),
-  humor: z.boolean().optional(),
+const AssetSchema = t.object({
+  id: t.number().int(),
+  url: t.string().url(),
+  thumb: t.string().url().optional(),
+  width: t.number().int().optional(),
+  height: t.number().int().optional(),
+  style: t.string().optional(),
+  nsfw: t.boolean().optional(),
+  humor: t.boolean().optional(),
 })
 
-const SearchEnvelope = z.object({
+const SearchEnvelope = t.object({
   ...EnvelopeShape,
-  data: z.array(SearchResultSchema).optional(),
+  data: t.array(SearchResultSchema).optional(),
 })
-const GameDetailEnvelope = z.object({
+const GameDetailEnvelope = t.object({
   ...EnvelopeShape,
   data: GameDetailSchema.optional(),
 })
-const AssetListEnvelope = z.object({
+const AssetListEnvelope = t.object({
   ...EnvelopeShape,
-  data: z.array(AssetSchema).optional(),
+  data: t.array(AssetSchema).optional(),
 })
 
 function getApiKey(): string {
@@ -89,7 +90,7 @@ function getApiKey(): string {
 
 async function sgdbFetch<T>(
   path: string,
-  envelope: z.ZodType<{ success: boolean; errors?: string[]; data?: T }>,
+  envelope: TSchema,
   query?: Record<string, string>,
 ): Promise<T | null> {
   const apiKey = getApiKey()
@@ -136,26 +137,31 @@ async function sgdbFetch<T>(
       res.status,
     )
   }
-  const parsed = envelope.safeParse(json)
+  const parsed = safeParse(envelope, json)
   if (!parsed.success) {
     throw new SteamGridDBError(
       `Unexpected SteamGridDB response shape: ${parsed.error.message}`,
       res.status,
     )
   }
-  if (!parsed.data.success) {
-    const msg = parsed.data.errors?.join(", ") ?? "unknown error"
+  const data = parsed.data as {
+    success: boolean
+    errors?: string[]
+    data?: T
+  }
+  if (!data.success) {
+    const msg = data.errors?.join(", ") ?? "unknown error"
     throw new SteamGridDBError(`SteamGridDB error: ${msg}`, res.status)
   }
   // SGDB returns `success: true` with no `data` for some empty lookups;
   // we never treat that as an error, the caller normalises.
-  return (parsed.data.data ?? null) as T | null
+  return data.data ?? null
 }
 
 export async function searchSteamGridDBGames(
   query: string,
 ): Promise<SteamGridDBSearchResult[]> {
-  const data = await sgdbFetch(
+  const data = await sgdbFetch<SteamGridDBSearchResult[]>(
     `/search/autocomplete/${encodeURIComponent(query)}`,
     SearchEnvelope,
   )
@@ -165,13 +171,16 @@ export async function searchSteamGridDBGames(
 export async function getGameById(
   steamgriddbId: number,
 ): Promise<SteamGridDBGameDetail | null> {
-  return await sgdbFetch(`/games/id/${steamgriddbId}`, GameDetailEnvelope)
+  return await sgdbFetch<SteamGridDBGameDetail>(
+    `/games/id/${steamgriddbId}`,
+    GameDetailEnvelope,
+  )
 }
 
 export async function getFirstHero(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch(
+  const data = await sgdbFetch<SteamGridDBAsset[]>(
     `/heroes/game/${steamgriddbId}`,
     AssetListEnvelope,
     { dimensions: HERO_DIMENSIONS },
@@ -182,7 +191,7 @@ export async function getFirstHero(
 export async function getFirstGrid(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch(
+  const data = await sgdbFetch<SteamGridDBAsset[]>(
     `/grids/game/${steamgriddbId}`,
     AssetListEnvelope,
     { dimensions: GRID_DIMENSIONS },
@@ -193,7 +202,7 @@ export async function getFirstGrid(
 export async function getFirstLogo(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch(
+  const data = await sgdbFetch<SteamGridDBAsset[]>(
     `/logos/game/${steamgriddbId}`,
     AssetListEnvelope,
   )
@@ -203,7 +212,7 @@ export async function getFirstLogo(
 export async function getFirstIcon(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch(
+  const data = await sgdbFetch<SteamGridDBAsset[]>(
     `/icons/game/${steamgriddbId}`,
     AssetListEnvelope,
   )

@@ -11,6 +11,7 @@ import {
   CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH,
   CLIP_AUDIO_TRACKS_MAX,
 } from "@alloy/contracts/content"
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
 import { toPublicClipRow } from "@alloy/server/clips/select"
@@ -21,7 +22,6 @@ import {
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
 import { and, desc, eq, isNull, lt, or, type SQL, sql } from "drizzle-orm"
-import { z } from "zod"
 
 import {
   cursorDate,
@@ -35,7 +35,7 @@ import {
   requiredTrimmedString,
 } from "./validation"
 
-export const IdParam = z.object({ id: z.uuid() })
+export const IdParam = t.object({ id: t.uuid() })
 
 type ClipListSort = "top" | "recent"
 
@@ -190,28 +190,28 @@ export function clipListPage<T extends ClipListPageRow>(
 // Raw tag input is sanitized/deduped/capped server-side via `normalizeTags`;
 // this only bounds the request so an enormous array can't be sent. Each entry
 // allows the leading `#` plus a little slack before sanitizing trims it.
-const TagsInput = z
-  .array(z.string().max(CLIP_TAG_MAX_LENGTH + 1))
+const TagsInput = t
+  .array(t.string().max(CLIP_TAG_MAX_LENGTH + 1))
   .max(CLIP_TAGS_MAX)
   .optional()
 
-const AudioTracksInput = z
+const AudioTracksInput = t
   .array(
-    z.object({
-      kind: z.enum(CLIP_AUDIO_TRACK_KINDS),
-      label: z.string().trim().min(1).max(CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH),
+    t.object({
+      kind: t.enum(CLIP_AUDIO_TRACK_KINDS),
+      label: t.string().trim().min(1).max(CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH),
     }),
   )
   .max(CLIP_AUDIO_TRACKS_MAX)
   .optional()
 
-export const InitiateBody = z
+export const InitiateBody = t
   .object({
-    clientClipId: z.uuid().optional(),
-    filename: z.string().min(1).max(255),
-    contentType: z.enum(ACCEPTED_CLIP_CONTENT_TYPES),
-    sizeBytes: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-    scrubberSizeBytes: z
+    clientClipId: t.uuid().optional(),
+    filename: t.string().min(1).max(255),
+    contentType: t.enum(ACCEPTED_CLIP_CONTENT_TYPES),
+    sizeBytes: t.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    scrubberSizeBytes: t
       .number()
       .int()
       .positive()
@@ -219,18 +219,18 @@ export const InitiateBody = z
       .optional(),
     title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
     description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-    gameId: z.uuid().nullable().optional(),
-    privacy: z.enum(CLIP_PRIVACY).default("public"),
-    mentionedUserIds: z.array(z.uuid()).optional(),
+    gameId: t.uuid().nullable().optional(),
+    privacy: t.enum(CLIP_PRIVACY).$default("public"),
+    mentionedUserIds: t.array(t.uuid()).optional(),
     tags: TagsInput,
     audioTracks: AudioTracksInput,
-    width: z.number().int().positive().max(32_768).optional(),
-    height: z.number().int().positive().max(32_768).optional(),
-    durationMs: z.number().int().positive().optional(),
+    width: t.number().int().positive().max(32_768).optional(),
+    height: t.number().int().positive().max(32_768).optional(),
+    durationMs: t.number().int().positive().optional(),
     // Kept source range: the raw upload is stored untouched and the media
     // run derives the cut, so trims ride along instead of being client-cut.
-    trimStartMs: z.number().int().min(0).optional(),
-    trimEndMs: z.number().int().positive().optional(),
+    trimStartMs: t.number().int().min(0).optional(),
+    trimEndMs: t.number().int().positive().optional(),
   })
   .superRefine((body, ctx) => {
     if (body.trimStartMs === undefined && body.trimEndMs === undefined) return
@@ -266,26 +266,26 @@ export const InitiateBody = z
     }
   })
 
-export const PosterBody = z.object({
-  timeMs: z.number().int().min(0),
+export const PosterBody = t.object({
+  timeMs: t.number().int().min(0),
 })
 
-export const TrimBody = z
+export const TrimBody = t
   .object({
-    startMs: z.number().int().min(0),
-    endMs: z.number().int().positive(),
+    startMs: t.number().int().min(0),
+    endMs: t.number().int().positive(),
   })
   .refine((b) => b.endMs - b.startMs >= TRIM_MIN_RANGE_MS, {
     message: "The trimmed range is too short",
     path: ["endMs"],
   })
 
-export const UpdateBody = z.object({
+export const UpdateBody = t.object({
   title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH).optional(),
   description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
-  gameId: z.uuid().nullable().optional(),
-  privacy: z.enum(CLIP_PRIVACY).optional(),
-  mentionedUserIds: z.array(z.uuid()).optional(),
+  gameId: t.uuid().nullable().optional(),
+  privacy: t.enum(CLIP_PRIVACY).optional(),
+  mentionedUserIds: t.array(t.uuid()).optional(),
   tags: TagsInput,
 })
 

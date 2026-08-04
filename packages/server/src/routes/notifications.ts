@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import {
   InvalidNotificationCursorError,
@@ -9,19 +10,18 @@ import {
 } from "@alloy/server/notifications/service"
 import { badRequest, success } from "@alloy/server/runtime/http-response"
 import { Hono } from "hono"
-import { z } from "zod"
 
-import { limitQueryParam, zValidator } from "./validation"
+import { limitQueryParam, tbValidator } from "./validation"
 
-const ListQuery = z.object({
-  cursor: z.string().optional(),
+const ListQuery = t.object({
+  cursor: t.string().optional(),
   limit: limitQueryParam(100, 30),
 })
 
-const IdParam = z.object({ id: z.uuid() })
+const IdParam = t.object({ id: t.uuid() })
 
 export const notificationsRoute = new Hono()
-  .get("/", requireSession, zValidator("query", ListQuery), async (c) => {
+  .get("/", requireSession, tbValidator("query", ListQuery), async (c) => {
     try {
       return c.json(
         await listNotifications(c.var.viewerId, c.req.valid("query")),
@@ -43,13 +43,13 @@ export const notificationsRoute = new Hono()
   .post(
     "/:id/read",
     requireSession,
-    zValidator("param", IdParam),
+    tbValidator("param", IdParam),
     async (c) => {
       await markRead(c.var.viewerId, c.req.valid("param").id)
       return success(c)
     },
   )
-  .delete("/:id", requireSession, zValidator("param", IdParam), async (c) => {
+  .delete("/:id", requireSession, tbValidator("param", IdParam), async (c) => {
     await removeNotification(c.var.viewerId, c.req.valid("param").id)
     return success(c)
   })

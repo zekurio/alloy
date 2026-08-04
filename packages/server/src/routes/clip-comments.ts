@@ -33,15 +33,15 @@ import {
   resolveCommentEngagementTarget,
 } from "./clip-comments-helpers"
 import { IdParam } from "./clips-helpers"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 const logger = createLogger("clip-comments")
 
 export const clipCommentsRoutes = new Hono()
   .get(
     "/:id/comments",
-    zValidator("param", IdParam),
-    zValidator("query", ListQuery),
+    tbValidator("param", IdParam),
+    tbValidator("query", ListQuery),
     async (c) => {
       const { id } = c.req.valid("param")
       const { sort, limit, cursor } = c.req.valid("query")
@@ -76,7 +76,7 @@ export const clipCommentsRoutes = new Hono()
   .delete(
     "/comments/:commentId",
     requireSession,
-    zValidator("param", CommentIdParam),
+    tbValidator("param", CommentIdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
@@ -97,7 +97,7 @@ export const clipCommentsRoutes = new Hono()
   .post(
     "/comments/:commentId/like",
     requireSession,
-    zValidator("param", CommentIdParam),
+    tbValidator("param", CommentIdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
@@ -152,7 +152,7 @@ export const clipCommentsRoutes = new Hono()
   .delete(
     "/comments/:commentId/like",
     requireSession,
-    zValidator("param", CommentIdParam),
+    tbValidator("param", CommentIdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
@@ -194,7 +194,7 @@ export const clipCommentsRoutes = new Hono()
   .post(
     "/comments/:commentId/pin",
     requireSession,
-    zValidator("param", CommentIdParam),
+    tbValidator("param", CommentIdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")
@@ -209,7 +209,7 @@ export const clipCommentsRoutes = new Hono()
   .delete(
     "/comments/:commentId/pin",
     requireSession,
-    zValidator("param", CommentIdParam),
+    tbValidator("param", CommentIdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")

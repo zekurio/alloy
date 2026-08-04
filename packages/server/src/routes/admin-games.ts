@@ -5,6 +5,7 @@ import {
   GAME_ASSET_ROLES,
   type GameAssetRole,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { clip, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import {
@@ -21,7 +22,6 @@ import {
 import { eq, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import { z } from "zod"
 
 import {
   deleteAllGameAssets,
@@ -30,28 +30,28 @@ import {
   storeGameAsset,
   urlAssetColumns,
 } from "./admin-game-assets"
-import { requiredTrimmedString, zValidator } from "./validation"
+import { requiredTrimmedString, tbValidator } from "./validation"
 
 export { gameAssetsRoute } from "./admin-game-assets"
 
-const NullableUrl = z.url().max(2048).nullable().optional()
-const NullableReleaseDate = z.iso
+const NullableUrl = t.url().max(2048).nullable().optional()
+const NullableReleaseDate = t.iso
   .datetime({ offset: true })
   .nullable()
   .optional()
 
 // One-step creation: metadata and artwork arrive in a single multipart form,
 // so a game never exists without the assets the admin picked for it.
-const CreateGameForm = z.object({
+const CreateGameForm = t.object({
   name: requiredTrimmedString(120),
-  releaseDate: z.iso.datetime({ offset: true }).optional(),
-  hero: z.instanceof(File).optional(),
-  grid: z.instanceof(File).optional(),
-  logo: z.instanceof(File).optional(),
-  icon: z.instanceof(File).optional(),
+  releaseDate: t.iso.datetime({ offset: true }).optional(),
+  hero: t.instanceof(File).optional(),
+  grid: t.instanceof(File).optional(),
+  logo: t.instanceof(File).optional(),
+  icon: t.instanceof(File).optional(),
 })
 
-const UpdateGameBody = z
+const UpdateGameBody = t
   .object({
     name: requiredTrimmedString(120).optional(),
     slug: requiredTrimmedString(64).optional(),
@@ -65,18 +65,18 @@ const UpdateGameBody = z
     message: "No updates provided",
   })
 
-const GameIdParam = z.object({ id: z.uuid() })
-const GameAssetParam = z.object({
-  id: z.uuid(),
-  role: z.enum(GAME_ASSET_ROLES),
+const GameIdParam = t.object({ id: t.uuid() })
+const GameAssetParam = t.object({
+  id: t.uuid(),
+  role: t.enum(GAME_ASSET_ROLES),
 })
-const GameAssetUploadForm = z.object({
-  file: z.instanceof(File, { message: "Expected an uploaded image file" }),
+const GameAssetUploadForm = t.object({
+  file: t.instanceof(File, { message: "Expected an uploaded image file" }),
 })
 
 export const adminGamesRoute = new Hono()
   .get("/games", async (c) => c.json(await listAdminGames()))
-  .post("/games", zValidator("form", CreateGameForm), async (c) => {
+  .post("/games", tbValidator("form", CreateGameForm), async (c) => {
     const body = c.req.valid("form")
 
     // Validate and process every provided artwork upfront so a bad image
@@ -126,8 +126,8 @@ export const adminGamesRoute = new Hono()
   })
   .patch(
     "/games/:id",
-    zValidator("param", GameIdParam),
-    zValidator("json", UpdateGameBody),
+    tbValidator("param", GameIdParam),
+    tbValidator("json", UpdateGameBody),
     async (c) => {
       const { id } = c.req.valid("param")
       const body = c.req.valid("json")
@@ -156,7 +156,7 @@ export const adminGamesRoute = new Hono()
       return result.ok ? c.json(result.game) : errorResult(c, result)
     },
   )
-  .delete("/games/:id", zValidator("param", GameIdParam), async (c) => {
+  .delete("/games/:id", tbValidator("param", GameIdParam), async (c) => {
     const { id } = c.req.valid("param")
     const existing = await selectCustomGame(c, id)
     if ("response" in existing) return existing.response
@@ -168,8 +168,8 @@ export const adminGamesRoute = new Hono()
   })
   .post(
     "/games/:id/assets/:role",
-    zValidator("param", GameAssetParam),
-    zValidator("form", GameAssetUploadForm),
+    tbValidator("param", GameAssetParam),
+    tbValidator("form", GameAssetUploadForm),
     async (c) => {
       const { id, role } = c.req.valid("param")
       const existing = await selectCustomGame(c, id)
@@ -181,7 +181,7 @@ export const adminGamesRoute = new Hono()
   )
   .delete(
     "/games/:id/assets/:role",
-    zValidator("param", GameAssetParam),
+    tbValidator("param", GameAssetParam),
     async (c) => {
       const { id, role } = c.req.valid("param")
       const existing = await selectCustomGame(c, id)

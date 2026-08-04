@@ -1,5 +1,4 @@
-import { z } from "zod"
-
+import { t } from "./schema"
 import type { IsoDateString } from "./shared"
 
 /**
@@ -33,39 +32,39 @@ export const WEBHOOK_EVENT_HEADER = "X-Alloy-Event"
 export const WEBHOOK_DELIVERY_HEADER = "X-Alloy-Delivery"
 export const WEBHOOK_SIGNATURE_HEADER = "X-Alloy-Signature"
 
-export const WebhookProviderSchema = z.enum(WEBHOOK_PROVIDERS)
+export const WebhookProviderSchema = t.enum(WEBHOOK_PROVIDERS)
 
 /**
  * A webhook as an admin sees it. Credentials never round-trip: `secret` is
  * reported only as `secretSet`, and a Discord `url` arrives with its token
  * segment masked, so the list stays identifiable without leaking the token.
  */
-export const AdminWebhookRowSchema = z.object({
-  id: z.string(),
-  name: z.string(),
+export const AdminWebhookRowSchema = t.object({
+  id: t.string(),
+  name: t.string(),
   provider: WebhookProviderSchema,
-  url: z.string(),
-  secretSet: z.boolean(),
-  enabled: z.boolean(),
-  lastDeliveryAt: z.string().nullable(),
-  lastDeliveryStatus: z.number().int().nullable(),
-  lastDeliveryError: z.string().nullable(),
-  consecutiveFailures: z.number().int().nonnegative(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
+  url: t.string(),
+  secretSet: t.boolean(),
+  enabled: t.boolean(),
+  lastDeliveryAt: t.string().nullable(),
+  lastDeliveryStatus: t.number().int().nullable(),
+  lastDeliveryError: t.string().nullable(),
+  consecutiveFailures: t.number().int().nonnegative(),
+  createdAt: t.string(),
+  updatedAt: t.string(),
 })
 
-export type AdminWebhookRow = z.infer<typeof AdminWebhookRowSchema>
+export type AdminWebhookRow = t.infer<typeof AdminWebhookRowSchema>
 
-export const AdminWebhookRowsSchema = z.array(AdminWebhookRowSchema)
+export const AdminWebhookRowsSchema = t.array(AdminWebhookRowSchema)
 
-export const AdminWebhookTestResultSchema = z.object({
-  ok: z.boolean(),
-  status: z.number().int().nullable(),
-  error: z.string().nullable(),
+export const AdminWebhookTestResultSchema = t.object({
+  ok: t.boolean(),
+  status: t.number().int().nullable(),
+  error: t.string().nullable(),
 })
 
-export type AdminWebhookTestResult = z.infer<
+export type AdminWebhookTestResult = t.infer<
   typeof AdminWebhookTestResultSchema
 >
 

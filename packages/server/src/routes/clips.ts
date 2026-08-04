@@ -11,10 +11,10 @@ import { clipsEngagementRoutes } from "./clips-engagement"
 import { IdParam } from "./clips-helpers"
 import { clipsPlaybackRoutes } from "./clips-playback"
 import { clipsUploadRoutes } from "./clips-upload"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 export const clips = new Hono()
-  .get("/:id", zValidator("param", IdParam), async (c) => {
+  .get("/:id", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
     const access = await resolveClipAccess({
       id,

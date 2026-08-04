@@ -1,7 +1,7 @@
+import { safeParse, t } from "@alloy/contracts/schema"
 import { job } from "@alloy/db/schema"
 import { client, db } from "@alloy/server/db/index"
 import { sql } from "drizzle-orm"
-import { z } from "zod"
 
 import { getJobKind } from "./registry"
 import { leasedRunningJob } from "./store-database"
@@ -23,12 +23,12 @@ export async function claim(
       continue
     }
 
-    const parsed = registration.schema.safeParse(row.payload)
+    const parsed = safeParse(registration.schema, row.payload)
     if (!parsed.success) {
       await markClaimedFailed(
         row.id,
         leaseToken,
-        `invalid job payload: ${z.prettifyError(parsed.error)}`,
+        `invalid job payload: ${t.prettifyError(parsed.error)}`,
       )
       continue
     }

@@ -1,10 +1,10 @@
+import { t } from "@alloy/contracts/schema"
 import { clip, instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
 import { and, eq, gt, isNotNull } from "drizzle-orm"
-import { z } from "zod"
 
 import { defineJobKind, type JobHandlerContext } from "../registry"
 import { enqueue, type EnqueueOptions } from "../store"
@@ -16,13 +16,13 @@ const CLIP_RENDITIONS_SWEEP_KIND = "clip.renditions-sweep"
 const PAGE_SIZE = 500
 const SWEEP_SUMMARY_KEY = "renditionSweep"
 
-const RenditionsSweepPayloadSchema = z
+const RenditionsSweepPayloadSchema = t
   .object({
-    mode: z.enum(["stale", "force"]).default("stale"),
+    mode: t.enum(["stale", "force"]).$default("stale"),
   })
-  .default({ mode: "stale" })
+  .$default({ mode: "stale" })
 
-type RenditionsSweepPayload = z.infer<typeof RenditionsSweepPayloadSchema>
+type RenditionsSweepPayload = t.infer<typeof RenditionsSweepPayloadSchema>
 
 interface SweepClipRow {
   id: string

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url"
 import { createEnv, postgresUrl } from "@alloy/env"
 import { loadDotenv } from "@alloy/env/node"
 import { defineConfig } from "drizzle-kit"
-import { z } from "zod"
+import { Type } from "typebox"
 
 const packageDir = dirname(fileURLToPath(import.meta.url))
 
@@ -14,7 +14,7 @@ loadDotenv(packageDir)
 loadDotenv(join(packageDir, "..", "server"))
 
 const env = createEnv(
-  z.object({
+  Type.Object({
     DATABASE_URL: postgresUrl(),
   }),
   { label: "db/drizzle" },

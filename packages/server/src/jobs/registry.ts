@@ -1,5 +1,6 @@
 import { JOB_QUEUES, type JobKind, type JobQueue } from "@alloy/contracts"
-import type { z } from "zod"
+import type { t } from "@alloy/contracts/schema"
+import type { TSchema } from "typebox"
 
 export interface JobHandlerContext {
   signal: AbortSignal
@@ -19,19 +20,19 @@ export interface JobRetry {
   backoffMs: number
 }
 
-export interface RegisteredJobKind<Schema extends z.ZodType = z.ZodType> {
+export interface RegisteredJobKind<ValueSchema extends TSchema = TSchema> {
   kind: JobKind
   queue: JobQueue
-  schema: Schema
+  schema: ValueSchema
   defaultPriority: number
   retry: JobRetry
   schedule?: JobSchedule
   handler: (
-    payload: z.infer<Schema>,
+    payload: t.infer<ValueSchema>,
     ctx: JobHandlerContext,
   ) => Promise<void> | void
   onFailed?: (
-    payload: z.infer<Schema>,
+    payload: t.infer<ValueSchema>,
     error: Error,
     willRetry: boolean,
     runId: string,
@@ -39,18 +40,18 @@ export interface RegisteredJobKind<Schema extends z.ZodType = z.ZodType> {
   // Invoked by the admin retry path after a failed job is re-armed to pending,
   // before the queue is woken. Lets a kind restore side state its handler needs
   // (e.g. clip.encode flips a quarantined clip back to processing).
-  onRetry?: (payload: z.infer<Schema>) => Promise<void> | void
+  onRetry?: (payload: t.infer<ValueSchema>) => Promise<void> | void
   extendLease?: (
-    payload: z.infer<Schema>,
+    payload: t.infer<ValueSchema>,
     ctx: JobHandlerContext,
   ) => Promise<boolean | void> | boolean | void
 }
 
 const registrations = new Map<string, RegisteredJobKind>()
 
-export function defineJobKind<Schema extends z.ZodType>(
-  definition: RegisteredJobKind<Schema>,
-): RegisteredJobKind<Schema> {
+export function defineJobKind<ValueSchema extends TSchema>(
+  definition: RegisteredJobKind<ValueSchema>,
+): RegisteredJobKind<ValueSchema> {
   if (registrations.has(definition.kind)) {
     throw new Error(`Duplicate job kind "${definition.kind}".`)
   }

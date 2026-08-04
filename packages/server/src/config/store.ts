@@ -10,32 +10,32 @@ import {
   type RuntimeConfig,
   type TranscodingConfig,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import { eq } from "drizzle-orm"
-import { z } from "zod"
 
 import { OAuthProvidersSchema } from "./oauth-schema"
 
 const logger = createLogger("config-store")
 
-const SetupSettingSchema = z.object({
-  setupComplete: z.boolean().default(false),
+const SetupSettingSchema = t.object({
+  setupComplete: t.boolean().$default(false),
 })
 
-type SetupSetting = z.infer<typeof SetupSettingSchema>
+type SetupSetting = t.infer<typeof SetupSettingSchema>
 
 // DB-side auth toggles. Each key is only consulted when its ALLOY_* env
 // variable is unset; the schema defaults double as the instance defaults.
-const AuthTogglesSchema = z.object({
-  openRegistrations: z.boolean().default(false),
-  passkeyEnabled: z.boolean().default(true),
-  requireAuthToBrowse: z.boolean().default(true),
+const AuthTogglesSchema = t.object({
+  openRegistrations: t.boolean().$default(false),
+  passkeyEnabled: t.boolean().$default(true),
+  requireAuthToBrowse: t.boolean().$default(true),
 })
 
-type AuthToggles = z.infer<typeof AuthTogglesSchema>
+type AuthToggles = t.infer<typeof AuthTogglesSchema>
 
 const DEFAULT_SETUP: SetupSetting = { setupComplete: false }
 const DEFAULT_AUTH: AuthToggles = AuthTogglesSchema.parse({})
@@ -252,7 +252,7 @@ export async function initializeConfigStore(): Promise<void> {
     OAuthProvidersSchema.parse(oauthProvidersValue ?? []),
   )
   oauthClientSecretsSetting = deepFreeze(
-    z.record(z.string(), z.string()).parse(oauthClientSecretsValue ?? {}),
+    t.record(t.string(), t.string()).parse(oauthClientSecretsValue ?? {}),
   )
   appearanceSetting = deepFreeze(
     AppearanceConfigSchema.parse(appearanceValue ?? DEFAULT_APPEARANCE),

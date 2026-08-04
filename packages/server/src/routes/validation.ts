@@ -1,68 +1,79 @@
-import { zValidator } from "@hono/zod-validator"
-import { z } from "zod"
+import { safeParse, t } from "@alloy/contracts/schema"
+import type { SchemaError, StaticInput } from "@alloy/contracts/schema"
+import type {
+  Context,
+  Env,
+  MiddlewareHandler,
+  TypedResponse,
+  ValidationTargets,
+} from "hono"
+import { validator } from "hono/validator"
+import type { StaticDecode, TSchema } from "typebox"
 
-type ZValidator = typeof zValidator
-type ZValidatorArgs = Parameters<ZValidator>
+type Hook<Value, AppEnv extends Env, Path extends string> = (
+  result:
+    | { success: true; data: Value }
+    | { success: false; error: SchemaError },
+  context: Context<AppEnv, Path>,
+) => Response | Promise<Response> | void
 
-type Issue = {
-  path: string
-  message: string
+type ExcludeResponse<Value> = Value extends Response & TypedResponse
+  ? never
+  : Value
+
+export function tbValidator<
+  const Schema extends TSchema,
+  Target extends keyof ValidationTargets,
+  AppEnv extends Env,
+  Path extends string,
+  Value extends {
+    in: { [Key in Target]: StaticInput<Schema> }
+    out: { [Key in Target]: ExcludeResponse<StaticDecode<Schema>> }
+  },
+>(
+  target: Target,
+  schema: Schema,
+  hook?: Hook<StaticDecode<Schema>, AppEnv, Path>,
+): MiddlewareHandler<AppEnv, Path, Value> {
+  return validator(target, async (value, context) => {
+    const result = safeParse(schema, value)
+    if (result.success) {
+      const response = hook?.(result, context)
+      if (response) return response
+      return result.data
+    }
+
+    const response = hook?.(result, context)
+    if (response) return response
+    return context.json(validationErrorBody(target, result.error), 400)
+  }) as unknown as MiddlewareHandler<AppEnv, Path, Value>
 }
-
-const TARGET_LABELS: Record<string, string> = {
-  cookie: "cookies",
-  form: "form data",
-  header: "headers",
-  json: "request body",
-  param: "path parameters",
-  query: "query parameters",
-}
-
-const alloyZValidator = ((
-  target: ZValidatorArgs[0],
-  schema: ZValidatorArgs[1],
-  hook?: ZValidatorArgs[2],
-  options?: ZValidatorArgs[3],
-) =>
-  zValidator(
-    target,
-    schema,
-    async (result, c) => {
-      if (!result.success) {
-        return c.json(validationErrorBody(target, result.error), 400)
-      }
-      return hook?.(result, c)
-    },
-    options,
-  )) as ZValidator
-
-export { alloyZValidator as zValidator }
 
 export function limitQueryParam(max: number, defaultValue: number) {
-  return z.coerce.number().int().min(1).max(max).default(defaultValue)
+  return t.coerce.number().int().min(1).max(max).$default(defaultValue)
 }
 
 export function offsetQueryParam(defaultValue = 0) {
-  return z.coerce.number().int().min(0).default(defaultValue)
+  return t.coerce.number().int().min(0).$default(defaultValue)
 }
 
 export function requiredTrimmedString(max?: number) {
-  const schema = z.string().trim().min(1)
+  const schema = t.string().trim().min(1)
   return max === undefined ? schema : schema.max(max)
 }
 
 export function optionalTrimmedString(max?: number) {
-  const schema = z.string().trim()
+  const schema = t.string().trim()
   return (max === undefined ? schema : schema.max(max)).optional()
 }
 
 export function optionalNullableTrimmedString(max?: number) {
-  const schema = z.string().trim()
+  const schema = t.string().trim()
   return (max === undefined ? schema : schema.max(max)).optional().nullable()
 }
 
 export function optionalBlankToNullTrimmedString(max: number) {
-  return z
+  return t
     .string()
     .trim()
     .max(max)
@@ -73,7 +84,7 @@ export function optionalBlankToNullTrimmedString(max: number) {
 }
 
 export function optionalNullableBlankToNullTrimmedString(max: number) {
-  return z
+  return t
     .string()
     .trim()
     .max(max)
@@ -88,43 +99,32 @@ export function optionalNullableBlankToNullTrimmedString(max: number) {
     )
 }
 
-function validationErrorBody(target: string, error: unknown) {
-  const issues = validationIssues(error)
+function validationErrorBody(target: string, error: SchemaError) {
+  const issues = error.issues.map((issue) => ({
+    path: issue.path.map(String).join("."),
+    message: issue.message,
+  }))
   return {
     error: validationErrorMessage(target, issues),
     issues,
   }
 }
 
-function validationErrorMessage(target: string, issues: Issue[]): string {
-  const label = TARGET_LABELS[target] ?? target
+function validationErrorMessage(
+  target: string,
+  issues: { path: string; message: string }[],
+) {
+  const labels: Record<string, string> = {
+    cookie: "cookies",
+    form: "form data",
+    header: "headers",
+    json: "request body",
+    param: "path parameters",
+    query: "query parameters",
+  }
   const first = issues[0]
-  if (!first) return `Invalid ${label}.`
-  if (!first.path) return `Invalid ${label}: ${first.message}`
-  return `Invalid ${label}: ${first.path}: ${first.message}`
-}
-
-function validationIssues(error: unknown): Issue[] {
-  if (!error || typeof error !== "object") return []
-  const rawIssues = (error as { issues?: unknown }).issues
-  if (!Array.isArray(rawIssues)) return []
-  return rawIssues.map((issue) => ({
-    path: issuePath(issue),
-    message: issueMessage(issue),
-  }))
-}
-
-function issuePath(issue: unknown): string {
-  if (!issue || typeof issue !== "object") return ""
-  const path = (issue as { path?: unknown }).path
-  if (!Array.isArray(path)) return ""
-  return path.map(String).join(".")
-}
-
-function issueMessage(issue: unknown): string {
-  if (!issue || typeof issue !== "object") return "Invalid value"
-  const message = (issue as { message?: unknown }).message
-  return typeof message === "string" && message.trim()
-    ? message.trim()
-    : "Invalid value"
+  if (!first) return `Invalid ${labels[target] ?? target}.`
+  if (!first.path)
+    return `Invalid ${labels[target] ?? target}: ${first.message}`
+  return `Invalid ${labels[target] ?? target}: ${first.path}: ${first.message}`
 }

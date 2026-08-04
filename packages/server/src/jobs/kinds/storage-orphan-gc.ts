@@ -52,7 +52,7 @@ interface GcClipRow {
 }
 
 export async function runStorageOrphanGc(
-  _payload: Record<string, never>,
+  _payload: object,
   ctx: JobHandlerContext,
 ): Promise<void> {
   const summary: StorageGcSummary = {
