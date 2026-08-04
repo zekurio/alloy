@@ -32,12 +32,10 @@ export class SteamGridDBNotConfiguredError extends SteamGridDBError {
   }
 }
 
-const EnvelopeSchema = <T extends z.ZodTypeAny>(inner: T) =>
-  z.object({
-    success: z.boolean(),
-    errors: z.array(z.string()).optional(),
-    data: inner.optional(),
-  })
+const EnvelopeShape = {
+  success: z.boolean(),
+  errors: z.array(z.string()).optional(),
+}
 
 // Autocomplete row. `release_date` is a Unix timestamp in seconds when
 // present; SGDB omits it for some games (mods, unknown releases).
@@ -68,9 +66,18 @@ const AssetSchema: z.ZodType<SteamGridDBAsset> = z.object({
   humor: z.boolean().optional(),
 })
 
-const SearchEnvelope = EnvelopeSchema(z.array(SearchResultSchema))
-const GameDetailEnvelope = EnvelopeSchema(GameDetailSchema)
-const AssetListEnvelope = EnvelopeSchema(z.array(AssetSchema))
+const SearchEnvelope = z.object({
+  ...EnvelopeShape,
+  data: z.array(SearchResultSchema).optional(),
+})
+const GameDetailEnvelope = z.object({
+  ...EnvelopeShape,
+  data: GameDetailSchema.optional(),
+})
+const AssetListEnvelope = z.object({
+  ...EnvelopeShape,
+  data: z.array(AssetSchema).optional(),
+})
 
 function getApiKey(): string {
   const key = secretStore.get("steamgriddbApiKey")
