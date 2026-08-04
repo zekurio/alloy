@@ -8,7 +8,6 @@ import {
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
 import { Slider } from "@alloy/ui/components/slider"
-import { Spinner } from "@alloy/ui/components/spinner"
 import { cn, sliderValue } from "@alloy/ui/lib/utils"
 import { AudioLinesIcon, Volume2Icon, VolumeXIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -319,7 +318,7 @@ export function AudioTrackMixerTracks({
   touch?: boolean
   className?: string
 }) {
-  const disabled = mixer.status === "loading" || mixer.status === "error"
+  const disabled = mixer.status === "error"
   // Being rendered is the panel's "opened" moment: load the stems for an
   // already-customized mix, exactly like opening the popover does.
   const prepare = mixer.prepare
@@ -329,15 +328,6 @@ export function AudioTrackMixerTracks({
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
-      {mixer.status === "loading" ? (
-        <div
-          role="status"
-          className="text-foreground-muted flex items-center gap-2 text-xs"
-        >
-          <Spinner className="size-3.5" />
-          {t("Loading audio tracks…")}
-        </div>
-      ) : null}
       {mixer.status === "error" ? (
         <p role="alert" className="text-destructive text-xs">
           {t("Audio mixer unavailable for this clip.")}
