@@ -10,6 +10,7 @@ import { Link } from "@tanstack/react-router"
 import { UserPlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
+import { useSession } from "@/lib/auth-client"
 import { errorMessage } from "@/lib/error-message"
 import { userChipData } from "@/lib/user-display"
 import { useToggleUserFollowMutation } from "@/lib/user-queries"
@@ -29,6 +30,7 @@ export function UserFollowRow({
   initiallyFollowing?: boolean
   onNavigate: () => void
 }) {
+  const { data: session } = useSession()
   const [following, setFollowing] = useState(initiallyFollowing)
   const followMutation = useToggleUserFollowMutation(user.username)
   const chip = userChipData(user)
@@ -76,30 +78,32 @@ export function UserFollowRow({
           </span>
         </span>
       </Link>
-      <FeedbackButton
-        type="button"
-        size="sm"
-        variant={following ? "ghost" : "primary"}
-        disabled={followMutation.isPending}
-        state={
-          followMutation.isPending
-            ? "pending"
-            : followMutation.isError
-              ? "error"
-              : "idle"
-        }
-        pendingLabel={t("Updating…")}
-        errorLabel={t("Try again")}
-        title={
-          followMutation.error
-            ? errorMessage(followMutation.error, t("Something went wrong"))
-            : undefined
-        }
-        onClick={toggle}
-      >
-        <UserPlusIcon className="size-3.5" />
-        {following ? t("Following") : t("Follow")}
-      </FeedbackButton>
+      {session?.user.id !== user.id ? (
+        <FeedbackButton
+          type="button"
+          size="sm"
+          variant={following ? "ghost" : "primary"}
+          disabled={followMutation.isPending}
+          state={
+            followMutation.isPending
+              ? "pending"
+              : followMutation.isError
+                ? "error"
+                : "idle"
+          }
+          pendingLabel={t("Updating…")}
+          errorLabel={t("Try again")}
+          title={
+            followMutation.error
+              ? errorMessage(followMutation.error, t("Something went wrong"))
+              : undefined
+          }
+          onClick={toggle}
+        >
+          <UserPlusIcon className="size-3.5" />
+          {following ? t("Following") : t("Follow")}
+        </FeedbackButton>
+      ) : null}
     </li>
   )
 }
