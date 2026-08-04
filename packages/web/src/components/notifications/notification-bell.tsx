@@ -102,7 +102,7 @@ export function NotificationBell({
               variant === "header" &&
                 "text-foreground hover:bg-surface-raised size-8 rounded-md",
               variant === "sidebar" &&
-                "text-foreground-muted hover:text-foreground size-10 rounded-md [&_svg]:size-6",
+                "text-foreground-muted hover:text-foreground size-10 rounded-md transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] [&_svg]:size-6",
               variant === "bottom-nav" &&
                 "text-foreground-muted active:text-accent px-1 [-webkit-tap-highlight-color:transparent] [&_svg]:size-[22px]",
             )}
