@@ -4,6 +4,7 @@ import {
   UNCATEGORISED_GAME_NAME,
   UNCATEGORISED_GAME_SLUG,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, game, gameFollow } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
@@ -30,7 +31,6 @@ import {
 } from "@alloy/server/runtime/http-response"
 import { and, desc, eq, ilike, isNull, type SQL, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
-import { z } from "zod"
 
 import { publicClipListingConditions } from "./clips-helpers"
 import {
@@ -41,9 +41,9 @@ import {
   steamgriddbErrorResponse,
   SlugParam,
 } from "./games-helpers"
-import { limitQueryParam, zValidator } from "./validation"
+import { limitQueryParam, tbValidator } from "./validation"
 
-const CreatorsQuery = z.object({
+const CreatorsQuery = t.object({
   limit: limitQueryParam(24, 12),
 })
 
@@ -104,7 +104,7 @@ export const gamesRoute = new Hono()
   .get(
     "/search",
     requireSession,
-    zValidator("query", SearchQuery),
+    tbValidator("query", SearchQuery),
     async (c) => {
       const { q } = c.req.valid("query")
       try {
@@ -125,7 +125,7 @@ export const gamesRoute = new Hono()
   .get(
     "/local-search",
     requireSession,
-    zValidator("query", SearchQuery),
+    tbValidator("query", SearchQuery),
     async (c) => {
       const { q } = c.req.valid("query")
       const pattern = `%${q.replace(/[\\%_]/g, "\\$&")}%`
@@ -141,7 +141,7 @@ export const gamesRoute = new Hono()
   .post(
     "/resolve",
     requireSession,
-    zValidator("json", ResolveBody),
+    tbValidator("json", ResolveBody),
     async (c) => {
       const { steamgriddbId } = c.req.valid("json")
       const resolved = await resolveSteamGridDBGameRef(c, steamgriddbId)
@@ -152,13 +152,13 @@ export const gamesRoute = new Hono()
   .post(
     "/lookup",
     requireSession,
-    zValidator("json", LookupBody),
+    tbValidator("json", LookupBody),
     async (c) => {
       const { names } = c.req.valid("json")
       return c.json(await lookupGamesByName(names, c.var.viewerId))
     },
   )
-  .get("/", zValidator("query", GamesListQuery), async (c) => {
+  .get("/", tbValidator("query", GamesListQuery), async (c) => {
     const { limit, offset } = c.req.valid("query")
     const uncategorisedCount = await publicUncategorisedClipCount()
     const includesUncategorised = uncategorisedCount > 0
@@ -199,7 +199,7 @@ export const gamesRoute = new Hono()
       })),
     ])
   })
-  .get("/:slug", zValidator("param", SlugParam), async (c) => {
+  .get("/:slug", tbValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
     const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
     if (resolved.response) return resolved.response
@@ -251,8 +251,8 @@ export const gamesRoute = new Hono()
   })
   .get(
     "/:slug/creators",
-    zValidator("param", SlugParam),
-    zValidator("query", CreatorsQuery),
+    tbValidator("param", SlugParam),
+    tbValidator("query", CreatorsQuery),
     async (c) => {
       const { slug } = c.req.valid("param")
       const { limit } = c.req.valid("query")
@@ -283,7 +283,7 @@ export const gamesRoute = new Hono()
   .post(
     "/:slug/follow",
     requireSession,
-    zValidator("param", SlugParam),
+    tbValidator("param", SlugParam),
     async (c) => {
       const { slug } = c.req.valid("param")
       const viewerId = c.var.viewerId
@@ -304,7 +304,7 @@ export const gamesRoute = new Hono()
   .delete(
     "/:slug/follow",
     requireSession,
-    zValidator("param", SlugParam),
+    tbValidator("param", SlugParam),
     async (c) => {
       const { slug } = c.req.valid("param")
       const viewerId = c.var.viewerId

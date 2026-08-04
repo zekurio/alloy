@@ -9,6 +9,7 @@ import {
   type AdminWebhookRow,
   type WebhookProvider,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { webhook } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
@@ -20,30 +21,29 @@ import {
 import { postWebhook } from "@alloy/server/webhooks/send"
 import { desc, eq } from "drizzle-orm"
 import { Hono } from "hono"
-import { z } from "zod"
 
-import { requiredTrimmedString, zValidator } from "./validation"
+import { requiredTrimmedString, tbValidator } from "./validation"
 
 const TEST_DISCORD_CONTENT =
   "Alloy webhook test — published clips will be posted here as links that unfurl into a playable preview."
 
-const WebhookIdParam = z.object({ id: z.uuid() })
+const WebhookIdParam = t.object({ id: t.uuid() })
 
-const CreateWebhookBody = z.object({
+const CreateWebhookBody = t.object({
   name: requiredTrimmedString(WEBHOOK_NAME_MAX_LENGTH),
-  provider: z.enum(WEBHOOK_PROVIDERS),
+  provider: t.enum(WEBHOOK_PROVIDERS),
   url: requiredTrimmedString(2048),
-  secret: z.string().trim().max(WEBHOOK_SECRET_MAX_LENGTH).optional(),
-  enabled: z.boolean().optional(),
+  secret: t.string().trim().max(WEBHOOK_SECRET_MAX_LENGTH).optional(),
+  enabled: t.boolean().optional(),
 })
 
-const UpdateWebhookBody = z
+const UpdateWebhookBody = t
   .object({
     name: requiredTrimmedString(WEBHOOK_NAME_MAX_LENGTH).optional(),
     url: requiredTrimmedString(2048).optional(),
     // Absent keeps the stored secret; "" clears it.
-    secret: z.string().trim().max(WEBHOOK_SECRET_MAX_LENGTH).optional(),
-    enabled: z.boolean().optional(),
+    secret: t.string().trim().max(WEBHOOK_SECRET_MAX_LENGTH).optional(),
+    enabled: t.boolean().optional(),
   })
   .refine((patch) => Object.keys(patch).length > 0, {
     message: "No updates provided",
@@ -57,7 +57,7 @@ export const adminWebhooksRoute = new Hono()
       .orderBy(desc(webhook.created_at))
     return c.json(rows.map(toAdminWebhookRow))
   })
-  .post("/webhooks", zValidator("json", CreateWebhookBody), async (c) => {
+  .post("/webhooks", tbValidator("json", CreateWebhookBody), async (c) => {
     const body = c.req.valid("json")
     const invalid = webhookUrlProblem(body.provider, body.url)
     if (invalid) return badRequest(c, invalid)
@@ -76,8 +76,8 @@ export const adminWebhooksRoute = new Hono()
   })
   .patch(
     "/webhooks/:id",
-    zValidator("param", WebhookIdParam),
-    zValidator("json", UpdateWebhookBody),
+    tbValidator("param", WebhookIdParam),
+    tbValidator("json", UpdateWebhookBody),
     async (c) => {
       const { id } = c.req.valid("param")
       const body = c.req.valid("json")
@@ -103,7 +103,7 @@ export const adminWebhooksRoute = new Hono()
       return c.json(toAdminWebhookRow(row))
     },
   )
-  .delete("/webhooks/:id", zValidator("param", WebhookIdParam), async (c) => {
+  .delete("/webhooks/:id", tbValidator("param", WebhookIdParam), async (c) => {
     const { id } = c.req.valid("param")
     const [row] = await db
       .delete(webhook)
@@ -114,7 +114,7 @@ export const adminWebhooksRoute = new Hono()
   })
   .post(
     "/webhooks/:id/test",
-    zValidator("param", WebhookIdParam),
+    tbValidator("param", WebhookIdParam),
     async (c) => {
       const { id } = c.req.valid("param")
       const row = await selectWebhook(id)

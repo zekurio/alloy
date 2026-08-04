@@ -4,6 +4,7 @@ import {
   type CommentRow,
   type UserSummary,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import {
   clip,
@@ -20,7 +21,6 @@ import {
 } from "@alloy/server/runtime/date"
 import { and, desc, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm"
 import type { Context } from "hono"
-import { z } from "zod"
 
 import {
   cursorDate,
@@ -32,22 +32,22 @@ import {
 import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
 import { limitQueryParam, requiredTrimmedString } from "./validation"
 
-export const CreateBody = z.object({
+export const CreateBody = t.object({
   body: requiredTrimmedString(COMMENT_BODY_MAX_LENGTH),
-  parentId: z.uuid().optional(),
+  parentId: t.uuid().optional(),
 })
 
-export const UpdateBody = z.object({
+export const UpdateBody = t.object({
   body: requiredTrimmedString(COMMENT_BODY_MAX_LENGTH),
 })
 
-export const ListQuery = z.object({
-  sort: z.enum(["top", "new"]).default("top"),
+export const ListQuery = t.object({
+  sort: t.enum(["top", "new"]).$default("top"),
   limit: limitQueryParam(100, 30),
-  cursor: z.string().optional(),
+  cursor: t.string().optional(),
 })
 
-export const CommentIdParam = z.object({ commentId: z.uuid() })
+export const CommentIdParam = t.object({ commentId: t.uuid() })
 
 export class InvalidCommentCursorError extends Error {
   constructor() {

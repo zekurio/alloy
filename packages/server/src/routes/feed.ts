@@ -1,4 +1,5 @@
 import { UNCATEGORISED_GAME_ID } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipLike, clipView, follow, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
@@ -8,7 +9,6 @@ import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
 import { badRequest, invalidCursor } from "@alloy/server/runtime/http-response"
 import { and, eq, exists, isNull, ne, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
-import { z } from "zod"
 
 import {
   clipListCursorCondition,
@@ -21,31 +21,31 @@ import {
   listRecommendedClips,
   parseRecommendedClipCursor,
 } from "./feed-recommendations"
-import { limitQueryParam, zValidator } from "./validation"
+import { limitQueryParam, tbValidator } from "./validation"
 
-const FilterEnum = z.enum(["all", "following", "game"])
-const FeedSortEnum = z.enum(["top", "recent", "recommended"])
+const FilterEnum = t.enum(["all", "following", "game"])
+const FeedSortEnum = t.enum(["top", "recent", "recommended"])
 
-const FeedQuery = z
+const FeedQuery = t
   .object({
-    filter: FilterEnum.default("all"),
-    sort: FeedSortEnum.default("recent"),
-    gameId: z.uuid().optional(),
-    authorId: z.uuid().optional(),
+    filter: FilterEnum.$default("all"),
+    sort: FeedSortEnum.$default("recent"),
+    gameId: t.uuid().optional(),
+    authorId: t.uuid().optional(),
     limit: limitQueryParam(50, 20),
-    cursor: z.string().optional(),
+    cursor: t.string().optional(),
   })
   .refine((v) => v.filter !== "game" || v.gameId !== undefined, {
     message: "gameId is required when filter=game",
     path: ["gameId"],
   })
 
-const ChipsQuery = z.object({
+const ChipsQuery = t.object({
   limit: limitQueryParam(40, 20),
 })
 
 export const feedRoute = new Hono()
-  .get("/", zValidator("query", FeedQuery), async (c) => {
+  .get("/", tbValidator("query", FeedQuery), async (c) => {
     const {
       filter,
       sort,
@@ -121,7 +121,7 @@ export const feedRoute = new Hono()
 
     return c.json(clipListPage(rows, limit, sort))
   })
-  .get("/chips", zValidator("query", ChipsQuery), async (c) => {
+  .get("/chips", tbValidator("query", ChipsQuery), async (c) => {
     const { limit } = c.req.valid("query")
 
     const session = await getSession(c)

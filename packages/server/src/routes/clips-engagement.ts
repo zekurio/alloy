@@ -17,7 +17,7 @@ import { and, eq, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { IdParam } from "./clips-helpers"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 const logger = createLogger("clips-engagement")
 
@@ -48,27 +48,32 @@ async function readLikeCount(tx: Tx, clipId: string): Promise<number> {
 }
 
 export const clipsEngagementRoutes = new Hono()
-  .get("/:id/like", requireSession, zValidator("param", IdParam), async (c) => {
-    const viewerId = c.var.viewerId
-    const { id } = c.req.valid("param")
-    const target = await resolveClipAccess({
-      id,
-      c,
-      policy: "engagement",
-    })
-    if (!target.accessible) return clipAccessResponse(c, target)
+  .get(
+    "/:id/like",
+    requireSession,
+    tbValidator("param", IdParam),
+    async (c) => {
+      const viewerId = c.var.viewerId
+      const { id } = c.req.valid("param")
+      const target = await resolveClipAccess({
+        id,
+        c,
+        policy: "engagement",
+      })
+      if (!target.accessible) return clipAccessResponse(c, target)
 
-    const [row] = await db
-      .select({ clipId: clipLike.clip_id })
-      .from(clipLike)
-      .where(and(eq(clipLike.clip_id, id), eq(clipLike.user_id, viewerId)))
-      .limit(1)
-    return booleanFlag(c, "liked", row !== undefined)
-  })
+      const [row] = await db
+        .select({ clipId: clipLike.clip_id })
+        .from(clipLike)
+        .where(and(eq(clipLike.clip_id, id), eq(clipLike.user_id, viewerId)))
+        .limit(1)
+      return booleanFlag(c, "liked", row !== undefined)
+    },
+  )
   .post(
     "/:id/like",
     requireSession,
-    zValidator("param", IdParam),
+    tbValidator("param", IdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
@@ -115,7 +120,7 @@ export const clipsEngagementRoutes = new Hono()
   .delete(
     "/:id/like",
     requireSession,
-    zValidator("param", IdParam),
+    tbValidator("param", IdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
@@ -144,7 +149,7 @@ export const clipsEngagementRoutes = new Hono()
       return likeState(c, false, likeCount)
     },
   )
-  .post("/:id/view", zValidator("param", IdParam), async (c) => {
+  .post("/:id/view", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
     const target = await resolveClipAccess({

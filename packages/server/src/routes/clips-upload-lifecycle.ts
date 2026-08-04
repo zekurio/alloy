@@ -47,7 +47,7 @@ import {
   type UploadQuotaResult,
   uploadWouldExceedQuota,
 } from "./clips-upload-helpers"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 const logger = createLogger("clips")
 
@@ -106,7 +106,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
   .post(
     "/initiate",
     requireSession,
-    zValidator("json", InitiateBody),
+    tbValidator("json", InitiateBody),
     async (c) => {
       const viewerId = c.var.viewerId
       const body = c.req.valid("json")
@@ -278,7 +278,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
   .post(
     "/:id/finalize",
     requireSession,
-    zValidator("param", IdParam),
+    tbValidator("param", IdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
@@ -395,7 +395,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
   .post(
     "/:id/fail",
     requireSession,
-    zValidator("param", IdParam),
+    tbValidator("param", IdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")

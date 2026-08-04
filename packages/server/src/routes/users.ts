@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { block, clip, follow } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
@@ -25,7 +26,6 @@ import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { and, eq, or } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
-import { z } from "zod"
 
 import { contentDisposition, downloadFilename } from "./clips-helpers"
 import {
@@ -50,16 +50,16 @@ import {
   resolveRelationshipTarget,
   resolveUserTarget,
 } from "./users-relationship"
-import { limitQueryParam, zValidator } from "./validation"
+import { limitQueryParam, tbValidator } from "./validation"
 
 const logger = createLogger("users")
 
-const ClipBatchQuery = z.object({
+const ClipBatchQuery = t.object({
   limit: limitQueryParam(100, 100),
 })
 
 export const usersRoute = new Hono()
-  .get("/search", zValidator("query", SearchQuery), async (c) => {
+  .get("/search", tbValidator("query", SearchQuery), async (c) => {
     const { q, limit } = c.req.valid("query")
     const session = await getSession(c)
     const rows = await searchVisibleUsers({
@@ -145,7 +145,7 @@ export const usersRoute = new Hono()
   .delete(
     "/me/clips",
     requireSession,
-    zValidator("query", ClipBatchQuery),
+    tbValidator("query", ClipBatchQuery),
     async (c) => {
       const { limit } = c.req.valid("query")
       const rows = await db
@@ -163,7 +163,7 @@ export const usersRoute = new Hono()
       return batchProgress(c, "deleted", batch.length, rows.length > limit)
     },
   )
-  .get("/:username", zValidator("param", UsernameParam), async (c) => {
+  .get("/:username", tbValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const result = await resolveUserTarget(c, username)
     if ("response" in result) return result.response
@@ -177,7 +177,7 @@ export const usersRoute = new Hono()
       counts,
     })
   })
-  .get("/:username/viewer", zValidator("param", UsernameParam), async (c) => {
+  .get("/:username/viewer", tbValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const sessionPromise = getSession(c)
     const result = await resolveUserTarget(c, username)
@@ -202,7 +202,7 @@ export const usersRoute = new Hono()
       counts,
     })
   })
-  .get("/:username/clips", zValidator("param", UsernameParam), async (c) => {
+  .get("/:username/clips", tbValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const result = await resolveUserTarget(c, username)
     if ("response" in result) return result.response
@@ -212,8 +212,8 @@ export const usersRoute = new Hono()
   })
   .get(
     "/:username/games",
-    zValidator("param", UsernameParam),
-    zValidator("query", UserGamesQuery),
+    tbValidator("param", UsernameParam),
+    tbValidator("query", UserGamesQuery),
     async (c) => {
       const { username } = c.req.valid("param")
       const query = c.req.valid("query")
@@ -224,7 +224,7 @@ export const usersRoute = new Hono()
       return c.json(await listUserGames(row, c, query))
     },
   )
-  .get("/:username/tagged", zValidator("param", UsernameParam), async (c) => {
+  .get("/:username/tagged", tbValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const result = await resolveUserTarget(c, username)
     if ("response" in result) return result.response
@@ -232,7 +232,7 @@ export const usersRoute = new Hono()
 
     return c.json(await listTaggedClips(row, c))
   })
-  .get("/:username/liked", zValidator("param", UsernameParam), async (c) => {
+  .get("/:username/liked", tbValidator("param", UsernameParam), async (c) => {
     const { username } = c.req.valid("param")
     const result = await resolveUserTarget(c, username)
     if ("response" in result) return result.response
@@ -242,7 +242,7 @@ export const usersRoute = new Hono()
   })
   .get(
     "/:username/followers",
-    zValidator("param", UsernameParam),
+    tbValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
       const result = await resolveUserTarget(c, username)
@@ -254,7 +254,7 @@ export const usersRoute = new Hono()
   )
   .get(
     "/:username/following",
-    zValidator("param", UsernameParam),
+    tbValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
       const result = await resolveUserTarget(c, username)
@@ -267,7 +267,7 @@ export const usersRoute = new Hono()
   .post(
     "/:username/follow",
     requireSession,
-    zValidator("param", UsernameParam),
+    tbValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
@@ -305,7 +305,7 @@ export const usersRoute = new Hono()
   .delete(
     "/:username/follow",
     requireSession,
-    zValidator("param", UsernameParam),
+    tbValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
@@ -327,7 +327,7 @@ export const usersRoute = new Hono()
   .post(
     "/:username/block",
     requireSession,
-    zValidator("param", UsernameParam),
+    tbValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
       const viewerId = c.var.viewerId
@@ -369,7 +369,7 @@ export const usersRoute = new Hono()
   .delete(
     "/:username/block",
     requireSession,
-    zValidator("param", UsernameParam),
+    tbValidator("param", UsernameParam),
     async (c) => {
       const { username } = c.req.valid("param")
       return deleteViewerBlock(c, username, c.var.viewerId)

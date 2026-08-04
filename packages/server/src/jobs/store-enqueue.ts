@@ -1,3 +1,4 @@
+import { parse } from "@alloy/contracts/schema"
 import { job } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { and, eq, inArray, sql } from "drizzle-orm"
@@ -12,7 +13,7 @@ export async function enqueue(
   options: EnqueueOptions = {},
 ): Promise<string> {
   const registration = requireJobKind(kind)
-  const parsed = registration.schema.parse(payload)
+  const parsed = parse(registration.schema, payload)
   const executor = options.tx ?? db
   const [row] = await executor
     .insert(job)

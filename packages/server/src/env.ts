@@ -6,9 +6,9 @@ import {
   OAUTH_USERNAME_CLAIM_DEFAULT,
   type OAuthProviderConfig,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { isLoopbackHostname } from "@alloy/env"
 import { loadDotenv } from "@alloy/env/node"
-import { z } from "zod"
 
 import { OAuthProvidersSchema } from "./config/oauth-schema"
 import { parseServerEnvRaw, storageConfigFromRaw } from "./env-runtime-schema"
@@ -51,48 +51,48 @@ function requiredSecret(source: EnvSource, name: string): string {
   return value
 }
 
-const ScopeSchema = z.array(z.string().trim().min(1)).optional()
-const AuthParamsSchema = z
-  .record(z.string(), z.union([z.string(), z.number(), z.boolean()]))
+const ScopeSchema = t.array(t.string().trim().min(1)).optional()
+const AuthParamsSchema = t
+  .record(t.string(), t.union([t.string(), t.number(), t.boolean()]))
   .optional()
 
-const AllauthOidcAppSettingsSchema = z.object({
-  server_url: z.string().trim().url().optional(),
-  discovery_url: z.string().trim().url().optional(),
-  authorization_url: z.string().trim().url().optional(),
-  token_url: z.string().trim().url().optional(),
-  userinfo_url: z.string().trim().url().optional(),
+const AllauthOidcAppSettingsSchema = t.object({
+  server_url: t.string().trim().url().optional(),
+  discovery_url: t.string().trim().url().optional(),
+  authorization_url: t.string().trim().url().optional(),
+  token_url: t.string().trim().url().optional(),
+  userinfo_url: t.string().trim().url().optional(),
   scope: ScopeSchema,
-  oauth_pkce_enabled: z.boolean().optional(),
-  token_auth_method: z.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
-  uid_field: z.string().trim().min(1).optional(),
-  fetch_userinfo: z.boolean().optional(),
+  oauth_pkce_enabled: t.boolean().optional(),
+  token_auth_method: t.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
+  uid_field: t.string().trim().min(1).optional(),
+  fetch_userinfo: t.boolean().optional(),
   auth_params: AuthParamsSchema,
-  enabled: z.boolean().optional(),
-  icon_url: z.string().trim().url().optional(),
-  button_color: z.string().trim().optional(),
-  button_text_color: z.string().trim().optional(),
-  username_claim: z.string().trim().min(1).optional(),
-  avatar_claim: z.string().trim().min(1).optional(),
-  quota_claim: z.string().trim().min(1).optional(),
-  role_claim: z.string().trim().min(1).optional(),
+  enabled: t.boolean().optional(),
+  icon_url: t.string().trim().url().optional(),
+  button_color: t.string().trim().optional(),
+  button_text_color: t.string().trim().optional(),
+  username_claim: t.string().trim().min(1).optional(),
+  avatar_claim: t.string().trim().min(1).optional(),
+  quota_claim: t.string().trim().min(1).optional(),
+  role_claim: t.string().trim().min(1).optional(),
 })
 
-const AllauthOidcAppSchema = z.object({
-  provider_id: z.string().trim().min(1),
-  name: z.string().trim().min(1),
-  client_id: z.string().trim().min(1),
-  secret: z.string().trim().min(1),
-  settings: AllauthOidcAppSettingsSchema.default({}),
+const AllauthOidcAppSchema = t.object({
+  provider_id: t.string().trim().min(1),
+  name: t.string().trim().min(1),
+  client_id: t.string().trim().min(1),
+  secret: t.string().trim().min(1),
+  settings: AllauthOidcAppSettingsSchema.$default({}),
 })
 
-const AllauthProvidersSchema = z
+const AllauthProvidersSchema = t
   .object({
-    openid_connect: z
+    openid_connect: t
       .object({
         SCOPE: ScopeSchema,
-        OAUTH_PKCE_ENABLED: z.boolean().optional(),
-        APPS: z.array(AllauthOidcAppSchema).default([]),
+        OAUTH_PKCE_ENABLED: t.boolean().optional(),
+        APPS: t.array(AllauthOidcAppSchema).$default([]),
       })
       .optional(),
   })
@@ -116,7 +116,7 @@ function parseSocialProviders(raw: string | undefined): ParsedSocialProviders {
   if (!parsed.success) {
     throw new Error(
       "[server/env] Invalid ALLOY_SOCIALACCOUNT_PROVIDERS:\n" +
-        JSON.stringify(z.flattenError(parsed.error).fieldErrors, null, 2),
+        JSON.stringify(t.flattenError(parsed.error).fieldErrors, null, 2),
     )
   }
 
@@ -159,7 +159,7 @@ function parseSocialProviders(raw: string | undefined): ParsedSocialProviders {
 }
 
 function authParams(
-  value: z.infer<typeof AuthParamsSchema>,
+  value: Record<string, string | number | boolean> | undefined,
 ): Record<string, string> | undefined {
   if (!value) return undefined
   const params = Object.fromEntries(

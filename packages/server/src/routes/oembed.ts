@@ -1,12 +1,12 @@
 import { userDisplayLabel } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { selectEmbeddableClip } from "@alloy/server/clips/access"
 import { clipIdFromPermalink } from "@alloy/server/clips/permalink"
 import { env } from "@alloy/server/env"
 import { badRequest, notFound } from "@alloy/server/runtime/http-response"
 import { Hono } from "hono"
-import { z } from "zod"
 
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 /**
  * oEmbed document for a clip.
@@ -19,16 +19,16 @@ import { zValidator } from "./validation"
  * iframe would make Discord embed the iframe instead of the native `og:video`
  * mp4, which plays inline and is the better experience for short clips.
  */
-const OembedQuery = z.object({
-  url: z.string().min(1),
-  format: z.enum(["json"]).optional(),
-  maxwidth: z.coerce.number().int().positive().optional(),
-  maxheight: z.coerce.number().int().positive().optional(),
+const OembedQuery = t.object({
+  url: t.string().min(1),
+  format: t.enum(["json"]).optional(),
+  maxwidth: t.coerce.number().int().positive().optional(),
+  maxheight: t.coerce.number().int().positive().optional(),
 })
 
 export const oembedRoute = new Hono().get(
   "/",
-  zValidator("query", OembedQuery),
+  tbValidator("query", OembedQuery),
   async (c) => {
     const clipId = clipIdFromPermalink(
       c.req.valid("query").url,

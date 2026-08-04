@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { authAccount } from "@alloy/db/auth-schema"
 import {
   clearOAuthStateCookie,
@@ -22,33 +23,32 @@ import {
 } from "@alloy/server/runtime/http-response"
 import { eq } from "drizzle-orm"
 import { type Context, Hono } from "hono"
-import { z } from "zod"
 
 import {
   optionalNullableTrimmedString,
   requiredTrimmedString,
-  zValidator,
+  tbValidator,
 } from "./validation"
 
-const UnlinkAccountBody = z.object({
+const UnlinkAccountBody = t.object({
   providerId: requiredTrimmedString(),
   accountId: requiredTrimmedString(),
 })
 
-const OAuthStartBody = z.object({
+const OAuthStartBody = t.object({
   providerId: requiredTrimmedString(),
   callbackURL: optionalNullableTrimmedString(),
 })
 
 async function startOAuthResponse(
   c: Context,
-  input: z.infer<typeof OAuthStartBody> & { userId?: string },
+  input: t.infer<typeof OAuthStartBody> & { userId?: string },
   fallback: string,
 ) {
   try {
     const result = input.userId
       ? await startOAuthLink(
-          input as z.infer<typeof OAuthStartBody> & {
+          input as t.infer<typeof OAuthStartBody> & {
             userId: string
           },
         )
@@ -75,7 +75,7 @@ export const authOAuthRoute = new Hono()
       .orderBy(authAccount.created_at)
     return c.json(rows.map(publicLinkedAccountRow))
   })
-  .post("/oauth/sign-in", zValidator("json", OAuthStartBody), async (c) => {
+  .post("/oauth/sign-in", tbValidator("json", OAuthStartBody), async (c) => {
     return startOAuthResponse(
       c,
       c.req.valid("json"),
@@ -85,7 +85,7 @@ export const authOAuthRoute = new Hono()
   .post(
     "/oauth/link",
     requireSession,
-    zValidator("json", OAuthStartBody),
+    tbValidator("json", OAuthStartBody),
     async (c) => {
       return startOAuthResponse(
         c,
@@ -107,7 +107,7 @@ export const authOAuthRoute = new Hono()
   .post(
     "/accounts/unlink",
     requireSession,
-    zValidator("json", UnlinkAccountBody),
+    tbValidator("json", UnlinkAccountBody),
     async (c) => {
       const body = c.req.valid("json")
       const result = await unlinkOAuthAccountPreservingSignIn({

@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { clip } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
@@ -14,7 +15,6 @@ import {
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import { dispatchClipPublished } from "@alloy/server/webhooks/publish"
 import { and, eq, isNull, sql } from "drizzle-orm"
-import { z } from "zod"
 
 import { clipMediaStore } from "../../queue/clip-media-store"
 import {
@@ -38,9 +38,9 @@ const CLIP_ENCODE_KIND = "clip.encode"
 const logger = createLogger("jobs")
 const SNOOZE_JITTER_MS = 1000
 
-const ClipEncodePayloadSchema = z.object({
-  clipId: z.uuid(),
-  trigger: z.enum([
+const ClipEncodePayloadSchema = t.object({
+  clipId: t.uuid(),
+  trigger: t.enum([
     "upload",
     "trim",
     "reencode",
@@ -50,7 +50,7 @@ const ClipEncodePayloadSchema = z.object({
   ]),
 })
 
-export type ClipEncodeTrigger = z.infer<
+export type ClipEncodeTrigger = t.infer<
   typeof ClipEncodePayloadSchema
 >["trigger"]
 
@@ -123,7 +123,7 @@ export function hasLiveClipEncodeJob(clipId: string): Promise<boolean> {
 }
 
 async function runClipEncode(
-  payload: z.infer<typeof ClipEncodePayloadSchema>,
+  payload: t.infer<typeof ClipEncodePayloadSchema>,
   ctx: JobHandlerContext,
 ): Promise<void> {
   const row = await selectClipEncodeLease(payload.clipId)
@@ -222,7 +222,7 @@ async function fanOutReadyClipMentions(clipId: string): Promise<void> {
 }
 
 async function handleClipEncodeFailed(
-  payload: z.infer<typeof ClipEncodePayloadSchema>,
+  payload: t.infer<typeof ClipEncodePayloadSchema>,
   error: Error,
   willRetry: boolean,
   runId: string,
@@ -249,7 +249,7 @@ async function handleClipEncodeFailed(
 // untouched) so the requeued run actually re-encodes instead of completing on a
 // still-quarantined clip.
 async function handleClipEncodeRetry(
-  payload: z.infer<typeof ClipEncodePayloadSchema>,
+  payload: t.infer<typeof ClipEncodePayloadSchema>,
 ): Promise<void> {
   await resetFailedClipForEncode(payload.clipId)
 }
@@ -266,7 +266,7 @@ async function selectFailedClipFacts(
 }
 
 function extendClipLease(
-  payload: z.infer<typeof ClipEncodePayloadSchema>,
+  payload: t.infer<typeof ClipEncodePayloadSchema>,
   ctx: JobHandlerContext,
 ): Promise<boolean> {
   return clipMediaStore.heartbeat(payload.clipId, ctx.runId)
@@ -328,7 +328,7 @@ async function selectClipEncodeFacts(
 }
 
 async function matchingFingerprintAction(
-  payload: z.infer<typeof ClipEncodePayloadSchema>,
+  payload: t.infer<typeof ClipEncodePayloadSchema>,
   row: NonNullable<Awaited<ReturnType<typeof selectClipEncodeLease>>>,
 ): Promise<"full" | "skip" | "thumbnail"> {
   if (payload.trigger === "reencode") return "full"

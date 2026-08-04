@@ -22,7 +22,7 @@ import { CommentIdParam, CreateBody, UpdateBody } from "./clip-comments-helpers"
 import { IdParam } from "./clips-helpers"
 import { resolveMentionUsernames } from "./clips-upload-helpers"
 import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 const logger = createLogger("clip-comments")
 
@@ -30,8 +30,8 @@ export const clipCommentWriteRoutes = new Hono()
   .post(
     "/:id/comments",
     requireSession,
-    zValidator("param", IdParam),
-    zValidator("json", CreateBody),
+    tbValidator("param", IdParam),
+    tbValidator("json", CreateBody),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
@@ -163,8 +163,8 @@ export const clipCommentWriteRoutes = new Hono()
   .patch(
     "/comments/:commentId",
     requireSession,
-    zValidator("param", CommentIdParam),
-    zValidator("json", UpdateBody),
+    tbValidator("param", CommentIdParam),
+    tbValidator("json", UpdateBody),
     async (c) => {
       const viewerId = c.var.viewerId
       const { commentId } = c.req.valid("param")

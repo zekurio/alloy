@@ -1,6 +1,5 @@
-import { z } from "zod"
-
 import type { JobKind } from "./jobs"
+import { t } from "./schema"
 
 /**
  * Sweep kinds an admin can trigger manually from the jobs dashboard. Only these
@@ -14,28 +13,28 @@ export const ADMIN_SWEEP_KINDS = [
 ] as const satisfies readonly JobKind[]
 export type AdminSweepKind = (typeof ADMIN_SWEEP_KINDS)[number]
 
-const NonNegativeIntSchema = z.number().int().nonnegative()
+const NonNegativeIntSchema = t.number().int().nonnegative()
 
-export const AdminJobKindRowSchema = z.object({
-  kind: z.string(),
-  queue: z.string(),
+export const AdminJobKindRowSchema = t.object({
+  kind: t.string(),
+  queue: t.string(),
   pending: NonNegativeIntSchema,
   running: NonNegativeIntSchema,
   failed: NonNegativeIntSchema,
   completed: NonNegativeIntSchema,
-  paused: z.boolean(),
-  schedule: z
+  paused: t.boolean(),
+  schedule: t
     .object({
-      everyMs: z.number().int().positive(),
-      nextRunAt: z.string().nullable(),
+      everyMs: t.number().int().positive(),
+      nextRunAt: t.string().nullable(),
     })
     .optional(),
 })
-export type AdminJobKindRow = z.infer<typeof AdminJobKindRowSchema>
+export type AdminJobKindRow = t.infer<typeof AdminJobKindRowSchema>
 
-export const AdminRenditionSweepSummarySchema = z.object({
-  finishedAt: z.string(),
-  mode: z.enum(["stale", "force"]),
+export const AdminRenditionSweepSummarySchema = t.object({
+  finishedAt: t.string(),
+  mode: t.enum(["stale", "force"]),
   scanned: NonNegativeIntSchema,
   upToDate: NonNegativeIntSchema,
   adopted: NonNegativeIntSchema,
@@ -43,12 +42,12 @@ export const AdminRenditionSweepSummarySchema = z.object({
   unprobed: NonNegativeIntSchema,
   quarantined: NonNegativeIntSchema,
 })
-export type AdminRenditionSweepSummary = z.infer<
+export type AdminRenditionSweepSummary = t.infer<
   typeof AdminRenditionSweepSummarySchema
 >
 
-export const AdminStorageVerifySummarySchema = z.object({
-  finishedAt: z.string(),
+export const AdminStorageVerifySummarySchema = t.object({
+  finishedAt: t.string(),
   checked: NonNegativeIntSchema,
   missingRenditions: NonNegativeIntSchema,
   missingCuts: NonNegativeIntSchema,
@@ -56,43 +55,43 @@ export const AdminStorageVerifySummarySchema = z.object({
   missingSources: NonNegativeIntSchema,
   repaired: NonNegativeIntSchema,
 })
-export type AdminStorageVerifySummary = z.infer<
+export type AdminStorageVerifySummary = t.infer<
   typeof AdminStorageVerifySummarySchema
 >
 
-export const AdminStorageGcSummarySchema = z.object({
-  finishedAt: z.string(),
+export const AdminStorageGcSummarySchema = t.object({
+  finishedAt: t.string(),
   scanned: NonNegativeIntSchema,
   deletedOrphanObjects: NonNegativeIntSchema,
   deletedStaleAssets: NonNegativeIntSchema,
 })
-export type AdminStorageGcSummary = z.infer<typeof AdminStorageGcSummarySchema>
+export type AdminStorageGcSummary = t.infer<typeof AdminStorageGcSummarySchema>
 
-export const AdminJobsSweepsSchema = z.object({
+export const AdminJobsSweepsSchema = t.object({
   renditionSweep: AdminRenditionSweepSummarySchema.nullable(),
   storageVerify: AdminStorageVerifySummarySchema.nullable(),
   storageGc: AdminStorageGcSummarySchema.nullable(),
 })
-export type AdminJobsSweeps = z.infer<typeof AdminJobsSweepsSchema>
+export type AdminJobsSweeps = t.infer<typeof AdminJobsSweepsSchema>
 
-export const AdminJobsSummarySchema = z.object({
-  kinds: z.array(AdminJobKindRowSchema),
+export const AdminJobsSummarySchema = t.object({
+  kinds: t.array(AdminJobKindRowSchema),
   sweeps: AdminJobsSweepsSchema,
 })
-export type AdminJobsSummary = z.infer<typeof AdminJobsSummarySchema>
+export type AdminJobsSummary = t.infer<typeof AdminJobsSummarySchema>
 
-export const AdminFailedJobSchema = z.object({
-  id: z.string(),
-  kind: z.string(),
-  clipId: z.string().nullable(),
-  error: z.string().nullable(),
+export const AdminFailedJobSchema = t.object({
+  id: t.string(),
+  kind: t.string(),
+  clipId: t.string().nullable(),
+  error: t.string().nullable(),
   attempt: NonNegativeIntSchema,
-  finishedAt: z.string().nullable(),
+  finishedAt: t.string().nullable(),
 })
-export type AdminFailedJob = z.infer<typeof AdminFailedJobSchema>
+export type AdminFailedJob = t.infer<typeof AdminFailedJobSchema>
 
-export const AdminFailedJobsPageSchema = z.object({
-  items: z.array(AdminFailedJobSchema),
-  nextCursor: z.string().nullable(),
+export const AdminFailedJobsPageSchema = t.object({
+  items: t.array(AdminFailedJobSchema),
+  nextCursor: t.string().nullable(),
 })
-export type AdminFailedJobsPage = z.infer<typeof AdminFailedJobsPageSchema>
+export type AdminFailedJobsPage = t.infer<typeof AdminFailedJobsPageSchema>

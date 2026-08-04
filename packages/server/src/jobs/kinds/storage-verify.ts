@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
@@ -5,7 +6,6 @@ import { db } from "@alloy/server/db/index"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
 import { clipStorageForKey } from "@alloy/server/storage/index"
 import { and, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm"
-import { z } from "zod"
 
 import { EmptyPayloadSchema } from "../payloads"
 import { defineJobKind, type JobHandlerContext } from "../registry"
@@ -23,7 +23,7 @@ const PAGE_SIZE = 500
 const STORAGE_VERIFY_SUMMARY_KEY = "storageVerify"
 const SOURCE_MISSING_REASON = "source bytes missing from storage"
 
-const ClipVerifyPayloadSchema = z.object({ clipId: z.uuid() })
+const ClipVerifyPayloadSchema = t.object({ clipId: t.uuid() })
 
 export interface VerifyClipAssetsSummary {
   checked: number
@@ -207,7 +207,7 @@ export async function verifyClipAssets(
 }
 
 async function runStorageVerify(
-  _payload: z.infer<typeof EmptyPayloadSchema>,
+  _payload: t.infer<typeof EmptyPayloadSchema>,
   ctx: JobHandlerContext,
 ): Promise<void> {
   const summary: StorageVerifySummary = {

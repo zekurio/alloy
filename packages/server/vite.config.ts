@@ -6,7 +6,6 @@ const nodeBuiltins = builtinModules.flatMap((name) => [name, `node:${name}`])
 
 const runtimePackages = [
   "@hono/node-server",
-  "@hono/zod-validator",
   "@simplewebauthn/server",
   "blurhash",
   "drizzle-orm",
@@ -14,7 +13,6 @@ const runtimePackages = [
   "openid-client",
   "pg",
   "sharp",
-  "zod",
 ]
 
 const runtimeExternal = [...nodeBuiltins, ...runtimePackages]

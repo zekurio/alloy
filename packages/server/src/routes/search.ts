@@ -1,4 +1,5 @@
 import type { GameListRow } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
@@ -12,7 +13,6 @@ import {
 import { searchGames } from "@alloy/server/games/steamgriddb"
 import { and, desc, eq, ilike, inArray, isNull, or, sql } from "drizzle-orm"
 import { Hono } from "hono"
-import { z } from "zod"
 
 import {
   publicClipListingConditions,
@@ -26,12 +26,12 @@ import {
 import {
   limitQueryParam,
   requiredTrimmedString,
-  zValidator,
+  tbValidator,
 } from "./validation"
 
 const logger = createLogger("search")
 
-const SearchQuery = z.object({
+const SearchQuery = t.object({
   q: requiredTrimmedString(120),
   limit: limitQueryParam(20, 8),
 })
@@ -147,7 +147,7 @@ function mergeGameResults(
 
 export const searchRoute = new Hono().get(
   "/",
-  zValidator("query", SearchQuery),
+  tbValidator("query", SearchQuery),
   async (c) => {
     const { q, limit } = c.req.valid("query")
     const pattern = toLikePattern(q)

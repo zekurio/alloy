@@ -1,3 +1,3 @@
-import { z } from "zod"
+import { t } from "@alloy/contracts/schema"
 
-export const EmptyPayloadSchema = z.object({}).default({})
+export const EmptyPayloadSchema = t.object({}).$default({})

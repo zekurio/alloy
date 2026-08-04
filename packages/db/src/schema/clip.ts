@@ -50,7 +50,7 @@ export const clip = pgTable(
       onDelete: "set null",
     }),
 
-    // One of `CLIP_PRIVACY`, validated via zod on write paths.
+    // One of `CLIP_PRIVACY`, validated via TypeBox on write paths.
     privacy: text().$type<ClipPrivacy>().notNull().default("public"),
 
     source_key: text(),

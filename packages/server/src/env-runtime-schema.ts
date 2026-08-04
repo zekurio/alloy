@@ -1,11 +1,11 @@
 import type { StorageConfig } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import {
   createEnv,
   normalizeOrigin,
   normalizePublicServerUrl,
   postgresUrl,
 } from "@alloy/env"
-import { z } from "zod"
 
 import { TRANSCODE_DEFAULTS } from "./media/transcode-settings"
 
@@ -43,20 +43,20 @@ export function storageConfigFromRaw(raw: {
 }
 
 function serverEnvSchema(defaultPublicServerUrl: string) {
-  return z.object({
-    NODE_ENV: z
+  return t.object({
+    NODE_ENV: t
       .enum(["development", "production", "test"])
-      .default("development"),
+      .$default("development"),
     DATABASE_URL: postgresUrl(),
-    PUBLIC_SERVER_URL: z
+    PUBLIC_SERVER_URL: t
       .url()
-      .default(defaultPublicServerUrl)
+      .$default(defaultPublicServerUrl)
       .transform(normalizePublicServerUrl),
-    PORT: z.coerce.number().int().positive().default(2552),
-    WEB_DIST_DIR: z.string().optional(),
-    TRUSTED_ORIGINS: z
+    PORT: t.coerce.number().int().positive().$default(2552),
+    WEB_DIST_DIR: t.string().optional(),
+    TRUSTED_ORIGINS: t
       .string()
-      .default(defaultPublicServerUrl)
+      .$default(defaultPublicServerUrl)
       .transform((value) =>
         normalizeTrustedOrigins(value, defaultPublicServerUrl),
       ),
@@ -68,74 +68,74 @@ function serverEnvSchema(defaultPublicServerUrl: string) {
     // avatar URLs live on the private network can opt back in here.
     ALLOY_OAUTH_AVATAR_ALLOW_PRIVATE_URLS: envBool(false),
     ALLOY_DEFAULT_STORAGE_QUOTA_BYTES: optionalPositiveIntegerOrNull(),
-    ALLOY_UPLOAD_TTL_SEC: z.coerce
+    ALLOY_UPLOAD_TTL_SEC: t.coerce
       .number()
       .int()
       .min(60)
       .max(24 * 60 * 60)
-      .default(900),
-    ALLOY_STORAGE_FS_CLIPS_PATH: z
+      .$default(900),
+    ALLOY_STORAGE_FS_CLIPS_PATH: t
       .string()
       .trim()
       .min(1)
-      .default("storage/clips"),
-    ALLOY_STORAGE_FS_THUMBNAILS_PATH: z
+      .$default("storage/clips"),
+    ALLOY_STORAGE_FS_THUMBNAILS_PATH: t
       .string()
       .trim()
       .min(1)
-      .default("storage/thumbnails"),
-    ALLOY_STORAGE_FS_ASSETS_PATH: z
+      .$default("storage/thumbnails"),
+    ALLOY_STORAGE_FS_ASSETS_PATH: t
       .string()
       .trim()
       .min(1)
-      .default("storage/assets"),
-    ALLOY_FFMPEG_PATH: z.string().trim().min(1).optional(),
-    ALLOY_FFPROBE_PATH: z.string().trim().min(1).optional(),
-    ALLOY_TRANSCODE_CONCURRENCY: z.coerce
+      .$default("storage/assets"),
+    ALLOY_FFMPEG_PATH: t.string().trim().min(1).optional(),
+    ALLOY_FFPROBE_PATH: t.string().trim().min(1).optional(),
+    ALLOY_TRANSCODE_CONCURRENCY: t.coerce
       .number()
       .int()
       .min(1)
       .max(16)
-      .default(1),
+      .$default(1),
     // 0 lets ffmpeg pick (all cores). Lower it to keep encodes from
     // starving the API on small hosts.
-    ALLOY_TRANSCODE_THREADS: z.coerce
+    ALLOY_TRANSCODE_THREADS: t.coerce
       .number()
       .int()
       .min(0)
       .max(64)
-      .default(TRANSCODE_DEFAULTS.threads),
+      .$default(TRANSCODE_DEFAULTS.threads),
   })
 }
 
 function envBool(defaultValue: boolean) {
-  return z.preprocess((value) => {
+  return t.preprocess((value) => {
     if (value === undefined || value === "") return defaultValue
     if (typeof value === "boolean") return value
     if (typeof value !== "string") return value
     return boolValues.get(value.trim().toLowerCase()) ?? value
-  }, z.boolean())
+  }, t.boolean())
 }
 
 // An unset (or empty) variable parses to null: the setting is DB-owned and
 // editable in the admin UI. An explicit value makes the key env-managed and
 // locks the admin UI for it.
 function envBoolOrNull() {
-  return z.preprocess((value) => {
+  return t.preprocess((value) => {
     if (value === undefined || value === "") return null
     if (typeof value === "boolean" || value === null) return value
     if (typeof value !== "string") return value
     return boolValues.get(value.trim().toLowerCase()) ?? value
-  }, z.boolean().nullable())
+  }, t.boolean().nullable())
 }
 
 function optionalPositiveIntegerOrNull() {
-  return z
+  return t
     .preprocess((value) => {
       if (value === undefined || value === "") return null
       return value
-    }, z.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable())
-    .default(null)
+    }, t.coerce.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable())
+    .$default(null)
 }
 
 function normalizeTrustedOrigins(

@@ -1,10 +1,9 @@
-import { z } from "zod"
-
 import {
   AdminOAuthProviderSchema,
   AuthConfigLocksSchema,
   OAuthProviderConfigSchema,
 } from "./admin-auth"
+import { t } from "./schema"
 import type { UserStatus } from "./shared"
 
 export {
@@ -29,20 +28,20 @@ export type {
   UsernameClaim,
 } from "./admin-auth"
 
-const NonEmptyStringSchema = z
+const NonEmptyStringSchema = t
   .string()
   .refine((value) => value.trim().length > 0, "must be a non-empty string")
 
-const PositiveIntegerSchema = z.number().int().positive()
+const PositiveIntegerSchema = t.number().int().positive()
 const NullablePositiveIntegerSchema = PositiveIntegerSchema.nullable()
-const UrlStringSchema = z.string().url()
+const UrlStringSchema = t.string().url()
 
-export const AdminLimitsConfigSchema = z.looseObject({
+export const AdminLimitsConfigSchema = t.looseObject({
   defaultStorageQuotaBytes: NullablePositiveIntegerSchema,
   uploadTtlSec: PositiveIntegerSchema,
 })
 
-export type AdminLimitsConfig = z.infer<typeof AdminLimitsConfigSchema>
+export type AdminLimitsConfig = t.infer<typeof AdminLimitsConfigSchema>
 
 export type LimitsConfig = AdminLimitsConfig
 
@@ -50,16 +49,16 @@ export type LimitsConfig = AdminLimitsConfig
  * Integrations as exposed to admins: secret values are reported only as
  * presence flags, never echoed back.
  */
-export const AdminIntegrationsConfigSchema = z.looseObject({
-  steamgriddbApiKeySet: z.boolean(),
-  steamgriddbConfigured: z.boolean(),
+export const AdminIntegrationsConfigSchema = t.looseObject({
+  steamgriddbApiKeySet: t.boolean(),
+  steamgriddbConfigured: t.boolean(),
 })
 
-export type AdminIntegrationsConfig = z.infer<
+export type AdminIntegrationsConfig = t.infer<
   typeof AdminIntegrationsConfigSchema
 >
 
-export const StorageConfigSchema = z.looseObject({
+export const StorageConfigSchema = t.looseObject({
   /**
    * Filesystem root for clip sources and derived clip media. Relative paths
    * resolve from the server working directory; absolute paths are used as-is.
@@ -79,19 +78,19 @@ export const StorageConfigSchema = z.looseObject({
   assetsPath: NonEmptyStringSchema,
 })
 
-export type StorageConfig = z.infer<typeof StorageConfigSchema>
+export type StorageConfig = t.infer<typeof StorageConfigSchema>
 
 export const AdminStorageConfigSchema = StorageConfigSchema
 
 export type AdminStorageConfig = StorageConfig
 
-export const LoginSplashConfigSchema = z.looseObject({
-  enabled: z.boolean(),
-  blurPx: z.number().nonnegative().max(48),
-  darkenOpacity: z.number().nonnegative().max(1),
+export const LoginSplashConfigSchema = t.looseObject({
+  enabled: t.boolean(),
+  blurPx: t.number().nonnegative().max(48),
+  darkenOpacity: t.number().nonnegative().max(1),
 })
 
-export type LoginSplashConfig = z.infer<typeof LoginSplashConfigSchema>
+export type LoginSplashConfig = t.infer<typeof LoginSplashConfigSchema>
 
 export interface PublicAppearanceConfig {
   customCss: string
@@ -124,16 +123,16 @@ export interface LoginBackdropsResponse {
  */
 export const INSTANCE_CUSTOM_CSS_MAX_LENGTH = 64_000
 
-export const AppearanceConfigSchema = z.looseObject({
+export const AppearanceConfigSchema = t.looseObject({
   loginSplash: LoginSplashConfigSchema,
-  customCss: z.string().max(INSTANCE_CUSTOM_CSS_MAX_LENGTH).default(""),
+  customCss: t.string().max(INSTANCE_CUSTOM_CSS_MAX_LENGTH).$default(""),
 })
 
-export type AppearanceConfig = z.infer<typeof AppearanceConfigSchema>
+export type AppearanceConfig = t.infer<typeof AppearanceConfigSchema>
 
 export const TRANSCODE_VIDEO_CODECS = ["h264", "hevc", "av1"] as const
-export const VideoCodecSchema = z.enum(TRANSCODE_VIDEO_CODECS)
-export type VideoCodec = z.infer<typeof VideoCodecSchema>
+export const VideoCodecSchema = t.enum(TRANSCODE_VIDEO_CODECS)
+export type VideoCodec = t.infer<typeof VideoCodecSchema>
 
 export const HARDWARE_ACCELERATIONS = [
   "none",
@@ -142,21 +141,21 @@ export const HARDWARE_ACCELERATIONS = [
   "vaapi",
   "videotoolbox",
 ] as const
-export const HardwareAccelerationSchema = z.enum(HARDWARE_ACCELERATIONS)
-export type HardwareAcceleration = z.infer<typeof HardwareAccelerationSchema>
+export const HardwareAccelerationSchema = t.enum(HARDWARE_ACCELERATIONS)
+export type HardwareAcceleration = t.infer<typeof HardwareAccelerationSchema>
 
 export const DEFAULT_VAAPI_DEVICE = "/dev/dri/renderD128"
 
-export const RenditionTierConfigSchema = z.object({
-  height: z.number().int().min(144).max(4320).multipleOf(2),
-  maxFps: z.number().int().min(1).max(240),
-  maxrateKbps: z.number().int().min(100).max(100000),
+export const RenditionTierConfigSchema = t.object({
+  height: t.number().int().min(144).max(4320).multipleOf(2),
+  maxFps: t.number().int().min(1).max(240),
+  maxrateKbps: t.number().int().min(100).max(100000),
   /** Per-tier codec override; falls back to the global `videoCodec`. */
   codec: VideoCodecSchema.optional(),
   /** Marks the tier whose rendition powers OpenGraph/social embeds; at most one. */
-  og: z.boolean().optional(),
+  og: t.boolean().optional(),
 })
-export type RenditionTierConfig = z.infer<typeof RenditionTierConfigSchema>
+export type RenditionTierConfig = t.infer<typeof RenditionTierConfigSchema>
 
 /**
  * Auto-derived rendition names for a set of tiers/steps, in input order.
@@ -204,24 +203,24 @@ export const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
  * to the equivalent rate-control knob of hardware encoders. Audio is always
  * stereo AAC for embed compatibility; only its bitrate is configurable.
  */
-export const TranscodingConfigSchema = z.looseObject({
-  videoCodec: VideoCodecSchema.default("h264"),
-  hardwareAcceleration: HardwareAccelerationSchema.default("none"),
+export const TranscodingConfigSchema = t.looseObject({
+  videoCodec: VideoCodecSchema.$default("h264"),
+  hardwareAcceleration: HardwareAccelerationSchema.$default("none"),
   // `catch` keeps config load resilient: a blank/invalid stored device falls
   // back to the default render node instead of failing startup.
-  vaapiDevice: z
+  vaapiDevice: t
     .string()
     .trim()
     .min(1)
-    .default(DEFAULT_VAAPI_DEVICE)
+    .$default(DEFAULT_VAAPI_DEVICE)
     .catch(DEFAULT_VAAPI_DEVICE),
-  quality: z.number().int().min(10).max(51).default(22),
-  audioBitrateKbps: z.number().int().min(64).max(320).default(128),
-  tiers: z
+  quality: t.number().int().min(10).max(51).$default(22),
+  audioBitrateKbps: t.number().int().min(64).max(320).$default(128),
+  tiers: t
     .array(RenditionTierConfigSchema)
     .min(1)
     .max(6)
-    .default(DEFAULT_RENDITION_TIERS)
+    .$default(DEFAULT_RENDITION_TIERS)
     .refine(
       (tiers) =>
         new Set(
@@ -238,13 +237,13 @@ export const TranscodingConfigSchema = z.looseObject({
     ),
 })
 
-export type TranscodingConfig = z.infer<typeof TranscodingConfigSchema>
+export type TranscodingConfig = t.infer<typeof TranscodingConfigSchema>
 
-export const JobsConfigSchema = z.looseObject({
-  pausedKinds: z.array(z.string()).default([]),
+export const JobsConfigSchema = t.looseObject({
+  pausedKinds: t.array(t.string()).$default([]),
 })
 
-export type JobsConfig = z.infer<typeof JobsConfigSchema>
+export type JobsConfig = t.infer<typeof JobsConfigSchema>
 
 /**
  * Result of probing the configured ffmpeg binary for encoder support. `status`
@@ -252,25 +251,25 @@ export type JobsConfig = z.infer<typeof JobsConfigSchema>
  * it is listed but a functional test encode errored (e.g. no GPU present), and
  * "ok" when a test encode succeeded.
  */
-export const TranscodingEncoderProbeSchema = z.looseObject({
+export const TranscodingEncoderProbeSchema = t.looseObject({
   codec: VideoCodecSchema,
   acceleration: HardwareAccelerationSchema,
-  encoder: z.string(),
-  status: z.enum(["ok", "failed", "missing"]),
-  error: z.string().optional(),
+  encoder: t.string(),
+  status: t.enum(["ok", "failed", "missing"]),
+  error: t.string().optional(),
 })
-export type TranscodingEncoderProbe = z.infer<
+export type TranscodingEncoderProbe = t.infer<
   typeof TranscodingEncoderProbeSchema
 >
 
-export const TranscodingCapabilitiesSchema = z.looseObject({
-  ffmpegPath: z.string(),
-  version: z.string().nullable(),
-  jellyfin: z.boolean(),
-  probedAt: z.string(),
-  encoders: z.array(TranscodingEncoderProbeSchema),
+export const TranscodingCapabilitiesSchema = t.looseObject({
+  ffmpegPath: t.string(),
+  version: t.string().nullable(),
+  jellyfin: t.boolean(),
+  probedAt: t.string(),
+  encoders: t.array(TranscodingEncoderProbeSchema),
 })
-export type TranscodingCapabilities = z.infer<
+export type TranscodingCapabilities = t.infer<
   typeof TranscodingCapabilitiesSchema
 >
 
@@ -307,16 +306,16 @@ export const RUNTIME_CONFIG_VERSION = 1
  * fields are deploy-time env/Nix config; DB-backed instance settings currently
  * cover setup completion and login appearance.
  */
-export const RuntimeConfigSchema = z.looseObject({
+export const RuntimeConfigSchema = t.looseObject({
   runtimeConfigVersion: PositiveIntegerSchema.refine(
     (value) => value === RUNTIME_CONFIG_VERSION,
     `runtimeConfigVersion must be ${RUNTIME_CONFIG_VERSION}`,
   ),
-  openRegistrations: z.boolean(),
-  setupComplete: z.boolean(),
-  passkeyEnabled: z.boolean(),
-  requireAuthToBrowse: z.boolean(),
-  oauthProviders: z.array(OAuthProviderConfigSchema),
+  openRegistrations: t.boolean(),
+  setupComplete: t.boolean(),
+  passkeyEnabled: t.boolean(),
+  requireAuthToBrowse: t.boolean(),
+  oauthProviders: t.array(OAuthProviderConfigSchema),
   limits: AdminLimitsConfigSchema,
   storage: StorageConfigSchema,
   appearance: AppearanceConfigSchema,
@@ -324,22 +323,22 @@ export const RuntimeConfigSchema = z.looseObject({
   jobs: JobsConfigSchema,
 })
 
-export type RuntimeConfig = z.infer<typeof RuntimeConfigSchema>
+export type RuntimeConfig = t.infer<typeof RuntimeConfigSchema>
 
 /**
  * Admin runtime config response. Built from {@link RuntimeConfig} plus
  * secret-presence flags — it carries no secret values.
  */
-export const AdminRuntimeConfigSchema = z.looseObject({
+export const AdminRuntimeConfigSchema = t.looseObject({
   runtimeConfigVersion: PositiveIntegerSchema.refine(
     (value) => value === RUNTIME_CONFIG_VERSION,
     `runtimeConfigVersion must be ${RUNTIME_CONFIG_VERSION}`,
   ),
-  openRegistrations: z.boolean(),
-  setupComplete: z.boolean(),
-  passkeyEnabled: z.boolean(),
-  requireAuthToBrowse: z.boolean(),
-  oauthProviders: z.array(AdminOAuthProviderSchema),
+  openRegistrations: t.boolean(),
+  setupComplete: t.boolean(),
+  passkeyEnabled: t.boolean(),
+  requireAuthToBrowse: t.boolean(),
+  oauthProviders: t.array(AdminOAuthProviderSchema),
   limits: AdminLimitsConfigSchema,
   storage: AdminStorageConfigSchema,
   appearance: AppearanceConfigSchema,
@@ -350,7 +349,7 @@ export const AdminRuntimeConfigSchema = z.looseObject({
   authBaseURL: UrlStringSchema,
 })
 
-export type AdminRuntimeConfig = z.infer<typeof AdminRuntimeConfigSchema>
+export type AdminRuntimeConfig = t.infer<typeof AdminRuntimeConfigSchema>
 
 export {
   ADMIN_SWEEP_KINDS,

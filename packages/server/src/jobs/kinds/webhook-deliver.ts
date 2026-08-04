@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { webhook, webhookDelivery } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
@@ -10,7 +11,6 @@ import {
   type WebhookSendResult,
 } from "@alloy/server/webhooks/send"
 import { eq, sql } from "drizzle-orm"
-import { z } from "zod"
 
 import { defineJobKind } from "../registry"
 import { enqueue } from "../store"
@@ -18,7 +18,7 @@ import { enqueue } from "../store"
 const WEBHOOK_DELIVER_KIND = "webhook.deliver"
 const logger = createLogger("jobs")
 
-const WebhookDeliverPayloadSchema = z.object({ deliveryId: z.uuid() })
+const WebhookDeliverPayloadSchema = t.object({ deliveryId: t.uuid() })
 
 defineJobKind({
   kind: WEBHOOK_DELIVER_KIND,
@@ -37,7 +37,7 @@ export function enqueueWebhookDelivery(deliveryId: string): Promise<string> {
 }
 
 async function runWebhookDelivery(
-  payload: z.infer<typeof WebhookDeliverPayloadSchema>,
+  payload: t.infer<typeof WebhookDeliverPayloadSchema>,
 ): Promise<void> {
   const [row] = await db
     .select({
@@ -142,7 +142,7 @@ async function skipDelivery(deliveryId: string, reason: string): Promise<void> {
 }
 
 async function markDeliveryFailed(
-  payload: z.infer<typeof WebhookDeliverPayloadSchema>,
+  payload: t.infer<typeof WebhookDeliverPayloadSchema>,
   error: Error,
   willRetry: boolean,
 ): Promise<void> {

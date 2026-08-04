@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { authChallenge } from "@alloy/db/auth-schema"
 import { clip, job, uploadTicket } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
@@ -7,7 +8,6 @@ import { client, db } from "@alloy/server/db/index"
 import { deleteStagedUpload } from "@alloy/server/uploads/staged"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { and, eq, isNull, lt, or, sql } from "drizzle-orm"
-import { z } from "zod"
 
 import { defineJobKind } from "../registry"
 import { prune } from "../store"
@@ -19,7 +19,7 @@ const EVERY_10_MINUTES_MS = 10 * 60 * 1000
 const EVERY_DAY_MS = 24 * 60 * 60 * 1000
 let lastPruneAt = 0
 
-const EmptyPayloadSchema = z.object({}).default({})
+const EmptyPayloadSchema = t.object({}).$default({})
 
 defineJobKind({
   kind: "maintenance.run",

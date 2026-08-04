@@ -4,10 +4,11 @@ import {
   AdminStorageVerifySummarySchema,
   type AdminJobsSweeps,
 } from "@alloy/contracts"
+import { safeParse, t } from "@alloy/contracts/schema"
 import { instanceSetting } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { inArray } from "drizzle-orm"
-import { z } from "zod"
+import type { TSchema } from "typebox"
 
 // Instance-setting keys the sweep handlers write their last-run summaries to.
 const RENDITION_SWEEP_KEY = "renditionSweep"
@@ -16,7 +17,7 @@ const STORAGE_GC_KEY = "storageGc"
 
 const PersistedRenditionSweepSummarySchema =
   AdminRenditionSweepSummarySchema.extend({
-    mode: z.enum(["stale", "force"]).default("stale"),
+    mode: t.enum(["stale", "force"]).$default("stale"),
   })
 
 export async function readJobSweeps(): Promise<AdminJobsSweeps> {
@@ -49,11 +50,11 @@ export async function readJobSweeps(): Promise<AdminJobsSweeps> {
 
 // Summaries are persisted jsonb written by older code paths, so a shape that no
 // longer parses is surfaced as "no data" rather than crashing the dashboard.
-function parseSummary<Schema extends z.ZodType>(
+function parseSummary<ValueSchema extends TSchema>(
   value: unknown,
-  schema: Schema,
-): z.infer<Schema> | null {
+  schema: ValueSchema,
+): t.infer<ValueSchema> | null {
   if (value === undefined) return null
-  const parsed = schema.safeParse(value)
+  const parsed = safeParse(schema, value)
   return parsed.success ? parsed.data : null
 }

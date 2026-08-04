@@ -3,6 +3,7 @@ import {
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { user, userPasskey } from "@alloy/db/auth-schema"
 import {
   clearSessionCookies,
@@ -55,7 +56,6 @@ import type {
 import { and, eq } from "drizzle-orm"
 import type { Context } from "hono"
 import { Hono } from "hono"
-import { z } from "zod"
 
 import { authDesktopRoute } from "./auth-desktop"
 import { authOAuthRoute } from "./auth-oauth-routes"
@@ -64,37 +64,37 @@ import { canOpenPasskeyRegistration, csrf } from "./auth-route-helpers"
 import {
   optionalNullableBlankToNullTrimmedString,
   requiredTrimmedString,
-  zValidator,
+  tbValidator,
 } from "./validation"
 
-const SignUpOptionsBody = z.object({
-  email: z.string().trim().email(),
+const SignUpOptionsBody = t.object({
+  email: t.string().trim().email(),
   username: requiredTrimmedString(),
 })
 
-const PasskeyVerifyBody = z.object({
-  challengeId: z.string().uuid(),
-  response: z.unknown(),
+const PasskeyVerifyBody = t.object({
+  challengeId: t.string().uuid(),
+  response: t.unknown(),
 })
 
-const PasskeyNameBody = z.object({
+const PasskeyNameBody = t.object({
   name: optionalNullableBlankToNullTrimmedString(64),
 })
 
-const UpdateUserBody = z.object({
-  email: z.string().trim().email().optional(),
-  username: z
+const UpdateUserBody = t.object({
+  email: t.string().trim().email().optional(),
+  username: t
     .string()
     .min(USERNAME_MIN_LENGTH)
     .max(USERNAME_MAX_LENGTH)
     .optional(),
   // Empty string is meaningful here: it clears the display name.
-  displayName: z.string().max(DISPLAY_NAME_MAX_LENGTH).optional(),
-  clipAnnouncementsEnabled: z.boolean().optional(),
+  displayName: t.string().max(DISPLAY_NAME_MAX_LENGTH).optional(),
+  clipAnnouncementsEnabled: t.boolean().optional(),
 })
 
-const UuidParam = z.object({
-  id: z.string().uuid(),
+const UuidParam = t.object({
+  id: t.string().uuid(),
 })
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
@@ -150,7 +150,7 @@ export const authRoute = new Hono()
   })
   .post(
     "/passkey/sign-up/options",
-    zValidator("json", SignUpOptionsBody),
+    tbValidator("json", SignUpOptionsBody),
     async (c) => {
       try {
         const body = c.req.valid("json")
@@ -189,7 +189,7 @@ export const authRoute = new Hono()
   )
   .post(
     "/passkey/sign-up/verify",
-    zValidator("json", PasskeyVerifyBody),
+    tbValidator("json", PasskeyVerifyBody),
     async (c) => {
       try {
         const body = c.req.valid("json")
@@ -226,7 +226,7 @@ export const authRoute = new Hono()
   })
   .post(
     "/passkey/sign-in/verify",
-    zValidator("json", PasskeyVerifyBody),
+    tbValidator("json", PasskeyVerifyBody),
     async (c) => {
       try {
         const body = c.req.valid("json")
@@ -289,7 +289,7 @@ export const authRoute = new Hono()
   .post(
     "/passkeys/verify",
     requireSession,
-    zValidator("json", PasskeyVerifyBody.extend(PasskeyNameBody.shape)),
+    tbValidator("json", PasskeyVerifyBody.extend(PasskeyNameBody.shape)),
     async (c) => {
       try {
         const body = c.req.valid("json")
@@ -326,8 +326,8 @@ export const authRoute = new Hono()
   .patch(
     "/passkeys/:id",
     requireSession,
-    zValidator("param", UuidParam),
-    zValidator("json", PasskeyNameBody),
+    tbValidator("param", UuidParam),
+    tbValidator("json", PasskeyNameBody),
     async (c) => {
       const { id } = c.req.valid("param")
       const { name } = c.req.valid("json")
@@ -345,7 +345,7 @@ export const authRoute = new Hono()
   .delete(
     "/passkeys/:id",
     requireSession,
-    zValidator("param", UuidParam),
+    tbValidator("param", UuidParam),
     async (c) => {
       const { id } = c.req.valid("param")
       const result = await deleteUserPasskeyPreservingSignIn({
@@ -365,7 +365,7 @@ export const authRoute = new Hono()
   .patch(
     "/user",
     requireSession,
-    zValidator("json", UpdateUserBody),
+    tbValidator("json", UpdateUserBody),
     async (c) => {
       try {
         const updated = await updateUserIdentity(

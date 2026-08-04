@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipLike, clipMention, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
@@ -6,14 +7,13 @@ import { db } from "@alloy/server/db/index"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
 import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
 import type { Context } from "hono"
-import { z } from "zod"
 
 import { publicClipPrivacyCondition } from "./clips-helpers"
 import { serialiseProfileGameRow } from "./games-helpers"
 import type { UserRow } from "./users-helpers"
 import { limitQueryParam, offsetQueryParam } from "./validation"
 
-export const UserGamesQuery = z.object({
+export const UserGamesQuery = t.object({
   limit: limitQueryParam(48, 24),
   offset: offsetQueryParam(),
 })
@@ -37,7 +37,7 @@ export async function listUserClips(row: UserRow, c: Context) {
 export async function listUserGames(
   row: UserRow,
   c: Context,
-  { limit, offset }: z.infer<typeof UserGamesQuery>,
+  { limit, offset }: t.infer<typeof UserGamesQuery>,
 ) {
   const conditions = await visibleClipConditions(row, c)
 

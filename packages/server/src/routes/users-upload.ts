@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { errorResult } from "@alloy/server/runtime/http-response"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
@@ -11,13 +12,12 @@ import {
 } from "@alloy/server/users/user-assets"
 import { type Context, Hono } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
-import { z } from "zod"
 
 import { immutableImageAssetsRoute } from "./immutable-image-assets"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
-const UserAssetUploadForm = z.object({
-  file: z.instanceof(File, { message: "Expected an uploaded image file" }),
+const UserAssetUploadForm = t.object({
+  file: t.instanceof(File, { message: "Expected an uploaded image file" }),
 })
 
 const USER_ASSET_KEY_RE =
@@ -79,7 +79,7 @@ function uploadUserAssetHandler(role: UserAssetRole) {
     c: Context<
       { Variables: { viewerId: string } },
       string,
-      { out: { form: z.infer<typeof UserAssetUploadForm> } }
+      { out: { form: t.infer<typeof UserAssetUploadForm> } }
     >,
   ) =>
     respondUserAsset(
@@ -94,13 +94,13 @@ export const usersUploadRoute = new Hono<{
   .post(
     "/me/avatar/upload",
     requireSession,
-    zValidator("form", UserAssetUploadForm),
+    tbValidator("form", UserAssetUploadForm),
     uploadUserAssetHandler("avatar"),
   )
   .post(
     "/me/banner/upload",
     requireSession,
-    zValidator("form", UserAssetUploadForm),
+    tbValidator("form", UserAssetUploadForm),
     uploadUserAssetHandler("banner"),
   )
   .delete("/me/avatar", requireSession, (c) =>
