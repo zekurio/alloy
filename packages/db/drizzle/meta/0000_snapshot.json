@@ -1956,7 +1956,7 @@
           "name": "actor_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "kind": {
           "name": "kind",
@@ -2101,7 +2101,7 @@
       "checkConstraints": {
         "notification_kind_check": {
           "name": "notification_kind_check",
-          "value": "\"notification\".\"kind\" in ('follow', 'clip_like', 'clip_comment', 'comment_reply', 'clip_mention', 'comment_mention', 'comment_like')"
+          "value": "\"notification\".\"kind\" in ('follow', 'clip_like', 'clip_comment', 'comment_reply', 'clip_mention', 'comment_mention', 'comment_like', 'clip_processing_failed')"
         }
       },
       "isRLSEnabled": false

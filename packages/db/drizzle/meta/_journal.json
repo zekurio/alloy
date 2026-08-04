@@ -8,13 +8,6 @@
       "when": 1785837473732,
       "tag": "0000_blushing_talos",
       "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1785838694741,
-      "tag": "0001_slow_chronomancer",
-      "breakpoints": true
     }
   ]
 }

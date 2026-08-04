@@ -205,14 +205,14 @@ CREATE TABLE "job" (
 CREATE TABLE "notification" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"recipient_id" uuid NOT NULL,
-	"actor_id" uuid NOT NULL,
+	"actor_id" uuid,
 	"kind" text NOT NULL,
 	"clip_id" uuid,
 	"comment_id" uuid,
 	"dedup_key" text,
 	"read_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	CONSTRAINT "notification_kind_check" CHECK ("notification"."kind" in ('follow', 'clip_like', 'clip_comment', 'comment_reply', 'clip_mention', 'comment_mention', 'comment_like'))
+	CONSTRAINT "notification_kind_check" CHECK ("notification"."kind" in ('follow', 'clip_like', 'clip_comment', 'comment_reply', 'clip_mention', 'comment_mention', 'comment_like', 'clip_processing_failed'))
 );
 --> statement-breakpoint
 CREATE TABLE "upload_ticket" (
