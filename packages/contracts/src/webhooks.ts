@@ -109,15 +109,11 @@ export interface ClipPublishedPayload {
   }
 }
 
-// The canonical webhook hosts Discord hands out, including the PTB and Canary
-// clients and the legacy discordapp.com domain.
+// The canonical webhook hosts Discord hands out, including PTB and Canary.
 const DISCORD_WEBHOOK_HOSTS = new Set([
   "discord.com",
   "ptb.discord.com",
   "canary.discord.com",
-  "discordapp.com",
-  "ptb.discordapp.com",
-  "canary.discordapp.com",
 ])
 
 export function isDiscordWebhookUrl(value: string): boolean {

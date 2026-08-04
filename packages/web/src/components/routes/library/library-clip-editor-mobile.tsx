@@ -149,7 +149,6 @@ export function MobileClipEditor({
               playback.seek(playback.getCurrentMs())
             }}
             onEnded={playback.handleEnded}
-            className="overflow-hidden rounded-md"
           />
         ) : (
           <ClipEditorPreviewPlaceholder media={media} />
@@ -263,7 +262,6 @@ function MobileTrimView({
               playback.seek(playback.getCurrentMs())
             }}
             onEnded={playback.handleEnded}
-            className="overflow-hidden rounded-md"
           />
         ) : (
           <MediaStage aspectRatio={media.aspectRatio} maxHeight="52dvh">

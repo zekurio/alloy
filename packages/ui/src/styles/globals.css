@@ -225,6 +225,8 @@
   --shadow-md: 0 4px 12px -2px oklch(0 0 0 / 0.5);
   --shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.6);
   --shadow-inset-top: inset 0 1px 0 0 oklch(1 0 0 / 0.04);
+  --floating-shadow-color: rgb(0 0 0 / 0.55);
+  --floating-shadow-strong-color: rgb(0 0 0 / 0.78);
 
   /* Layout dims */
   /* Rail width = 6px inset + 40px hit target + 5px inset + 1px border. */
@@ -371,6 +373,8 @@
   --shadow-md: 0 4px 12px -2px oklch(0 0 0 / 0.1);
   --shadow-lg: 0 16px 40px -8px oklch(0 0 0 / 0.14);
   --shadow-inset-top: inset 0 1px 0 0 oklch(1 0 0 / 0.6);
+  --floating-shadow-color: rgb(0 0 0 / 0.1);
+  --floating-shadow-strong-color: rgb(0 0 0 / 0.14);
 
   /* Deepen the lavender accent so it stays legible on white surfaces. */
   --primary: #5d4f96;
@@ -467,10 +471,12 @@
       transparent
     );
     --alloy-blur-border: rgb(255 255 255 / 0.08);
-    --alloy-blur-shadow: 0 18px 48px -24px rgb(0 0 0 / 0.55);
+    --alloy-blur-shadow: 0 18px 48px -24px var(--floating-shadow-color);
     background-color: var(--alloy-blur-bg);
     border-color: var(--alloy-blur-border);
-    box-shadow: var(--alloy-blur-shadow);
+    /* Popover and menu primitives add a later shadow-md utility. The surface
+       token must win when this shared blur treatment is explicitly applied. */
+    box-shadow: var(--alloy-blur-shadow) !important;
     -webkit-backdrop-filter: blur(var(--alloy-blur-blur));
     backdrop-filter: blur(var(--alloy-blur-blur));
   }
@@ -839,15 +845,17 @@
   flex: none;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
+  justify-content: center !important;
+  width: 20px !important;
+  height: 20px !important;
+  margin: 0 !important;
   color: var(--foreground-muted);
 }
 
 .alloy-toast-icon svg {
   width: 100%;
   height: 100%;
+  margin: 0 !important;
 }
 
 .alloy-toast > [data-content] {
@@ -886,8 +894,8 @@
   }
 
   .alloy-toast-icon {
-    width: 16px;
-    height: 16px;
+    width: 16px !important;
+    height: 16px !important;
   }
 
   .alloy-toast-title {

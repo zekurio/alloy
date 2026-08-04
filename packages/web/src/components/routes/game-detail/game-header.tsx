@@ -1,4 +1,5 @@
 import type { GameDetail } from "@alloy/api"
+import { UNCATEGORISED_GAME_ID } from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
@@ -6,6 +7,7 @@ import { useCallback, useState } from "react"
 
 import { GameLogo } from "@/components/game/game-logo"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
+import { gameDisplayName } from "@/lib/game-display-name"
 import { formatCount } from "@/lib/number-format"
 
 import { GameFavoriteButton } from "./game-favorite-button"
@@ -48,6 +50,7 @@ function GameHeroBanner({
   const logoUrl =
     game.logoUrl && failedLogoUrl !== game.logoUrl ? game.logoUrl : null
   const year = releaseYear(game.releaseDate)
+  const name = gameDisplayName(game)
   const onHeaderError = useCallback((url: string) => {
     setFailedHeaderUrls((previous) =>
       previous.includes(url) ? previous : [...previous, url],
@@ -86,7 +89,7 @@ function GameHeroBanner({
             {logoUrl ? (
               <GameLogo
                 src={logoUrl}
-                name={game.name}
+                name={name}
                 variant="header"
                 onError={() => setFailedLogoUrl(logoUrl)}
               />
@@ -97,15 +100,17 @@ function GameHeroBanner({
                   "drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] max-sm:text-xl sm:text-3xl",
                 )}
               >
-                {game.name}
+                {name}
               </h1>
             )}
-            <GameFavoriteButton
-              gameId={game.slug}
-              viewerId={viewerId}
-              viewer={game.viewer}
-              className="shrink-0 shadow-[0_6px_18px_oklch(0_0_0_/_0.35)]"
-            />
+            {game.id !== UNCATEGORISED_GAME_ID ? (
+              <GameFavoriteButton
+                gameId={game.slug}
+                viewerId={viewerId}
+                viewer={game.viewer}
+                className="shrink-0 shadow-[0_6px_18px_oklch(0_0_0_/_0.35)]"
+              />
+            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-white/75">

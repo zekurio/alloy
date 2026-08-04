@@ -1,8 +1,4 @@
-import {
-  LEGACY_USER_ASSET_PATH_PREFIX,
-  resolvePublicUrl,
-  USER_ASSET_PATH_PREFIX,
-} from "@alloy/api"
+import { resolvePublicUrl, USER_ASSET_PATH_PREFIX } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { useImageLoaded } from "@alloy/ui/hooks/use-image-loaded"
 import { pastelAvatarColors, pastelBannerGradient } from "@alloy/ui/lib/pastel"
@@ -19,10 +15,6 @@ type DisplayUser = {
   banner?: string | null
 }
 
-const USER_ASSET_PATH_PREFIXES = [
-  USER_ASSET_PATH_PREFIX,
-  LEGACY_USER_ASSET_PATH_PREFIX,
-] as const
 const userImageSrcCache = new Map<string, string>()
 
 export function userImageSrc(
@@ -33,11 +25,8 @@ export function userImageSrc(
   const cached = userImageSrcCache.get(value)
   if (cached) return cached
 
-  const matchingPathPrefix = USER_ASSET_PATH_PREFIXES.find((prefix) =>
-    value.startsWith(prefix),
-  )
-  if (matchingPathPrefix) {
-    const normalized = normalizeUserAssetPath(value, matchingPathPrefix)
+  if (value.startsWith(USER_ASSET_PATH_PREFIX)) {
+    const normalized = normalizeUserAssetPath(value)
     userImageSrcCache.set(value, normalized)
     return normalized
   }
@@ -49,13 +38,9 @@ export function userImageSrc(
 
   try {
     const url = new URL(value)
-    const urlPathPrefix = USER_ASSET_PATH_PREFIXES.find((prefix) =>
-      url.pathname.startsWith(prefix),
-    )
-    if (urlPathPrefix) {
+    if (url.pathname.startsWith(USER_ASSET_PATH_PREFIX)) {
       const normalized = normalizeUserAssetPath(
         `${url.pathname}${url.search}${url.hash}`,
-        urlPathPrefix,
       )
       userImageSrcCache.set(value, normalized)
       return normalized
@@ -68,12 +53,8 @@ export function userImageSrc(
   return value
 }
 
-function normalizeUserAssetPath(value: string, prefix: string): string {
-  const nextPath =
-    prefix === LEGACY_USER_ASSET_PATH_PREFIX
-      ? `${USER_ASSET_PATH_PREFIX}${value.slice(prefix.length)}`
-      : value
-  return resolvePublicUrl(nextPath, apiOrigin())
+function normalizeUserAssetPath(value: string): string {
+  return resolvePublicUrl(value, apiOrigin())
 }
 
 /**

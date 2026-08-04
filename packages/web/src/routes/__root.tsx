@@ -9,7 +9,7 @@ import {
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
-import { alloyDesktop } from "@/lib/desktop"
+import { alloyDesktop, desktopBridgeMismatch } from "@/lib/desktop"
 import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
 
 export const Route = createRootRouteWithContext<{
@@ -36,6 +36,7 @@ const Toaster = lazy(() =>
 )
 
 function RootLayout() {
+  const bridgeMismatch = desktopBridgeMismatch()
   // In the desktop shell with custom chrome, flag the document so the app
   // header becomes a draggable title bar (see globals.css).
   useEffect(() => {
@@ -44,6 +45,21 @@ function RootLayout() {
     root.classList.add("is-desktop-titlebar")
     return () => root.classList.remove("is-desktop-titlebar")
   }, [])
+
+  if (bridgeMismatch) {
+    return (
+      <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-8">
+        <div className="max-w-md text-center">
+          <h1 className="text-xl font-semibold">Desktop update required</h1>
+          <p className="text-muted-foreground mt-2 text-sm">
+            This Alloy server requires desktop bridge {bridgeMismatch.expected},
+            but this app provides bridge {bridgeMismatch.actual}. Update Alloy
+            Desktop to continue.
+          </p>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <>

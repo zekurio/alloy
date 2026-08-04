@@ -60,9 +60,10 @@ pnpm desktop:dist:win
 pnpm desktop:dist:win:installer
 ```
 
-The `dev` and `build` scripts build `@alloy/recorder` first. Recording needs an
-OBS runtime, but development does not require a system-wide OBS install. Stage
-the official portable OBS Windows x64 ZIP into `packages/recorder/dist`:
+The `dev` and `build` scripts build the Alloy agent from `@alloy/recorder`
+first. Its recorder lane needs an OBS runtime, but development does not require
+a system-wide OBS install. Stage the official portable OBS Windows x64 ZIP into
+`packages/recorder/dist`:
 
 ```bash
 pnpm desktop:obs:install

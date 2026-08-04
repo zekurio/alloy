@@ -1,7 +1,7 @@
 import type { NotificationItem } from "@alloy/api"
 import { t } from "@alloy/i18n"
 
-import { userProfileHref } from "./app-paths"
+import { clipHref, userProfileHref } from "./app-paths"
 import { displayName } from "./user-display"
 
 export interface NotificationDisplay {
@@ -17,8 +17,12 @@ export interface NotificationRowParts {
 }
 
 export function notificationTargetPath(item: NotificationItem): string {
-  if (item.kind === "follow") return userProfileHref(item.actor.username)
-  return item.clip ? `/clips/${encodeURIComponent(item.clip.id)}` : "/"
+  if (item.kind === "follow" && item.actor) {
+    return userProfileHref(item.actor.username)
+  }
+  return item.clip
+    ? clipHref(null, item.clip.id, { commentId: item.commentId })
+    : "/"
 }
 
 export function notificationDisplay(
@@ -26,7 +30,7 @@ export function notificationDisplay(
 ): NotificationDisplay {
   return {
     title: notificationTitle(item.kind),
-    body: notificationBody(item, displayName(item.actor)),
+    body: notificationBody(item, item.actor ? displayName(item.actor) : ""),
     targetPath: notificationTargetPath(item),
   }
 }
@@ -45,7 +49,7 @@ export function notificationRowParts(
   if (cut === -1) return { before: body, actor: "", after: "" }
   return {
     before: body.slice(0, cut),
-    actor: displayName(item.actor),
+    actor: item.actor ? displayName(item.actor) : "",
     after: body.slice(cut + ACTOR_SENTINEL.length),
   }
 }
@@ -67,6 +71,8 @@ function notificationTitle(kind: NotificationItem["kind"]): string {
       return t("You were mentioned")
     case "comment_like":
       return t("Comment liked")
+    case "clip_processing_failed":
+      return t("Processing failed")
   }
 }
 
@@ -86,5 +92,9 @@ function notificationBody(item: NotificationItem, actor: string): string {
       return t("{actor} liked your comment", { actor })
     case "follow":
       return t("{actor} followed you", { actor })
+    case "clip_processing_failed":
+      return item.clip
+        ? t("We couldn't process {title}", { title: item.clip.title })
+        : t("We couldn't process your clip")
   }
 }

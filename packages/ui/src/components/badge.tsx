@@ -2,6 +2,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 import { cva, type VariantProps } from "class-variance-authority"
+import type { ComponentProps } from "react"
 
 const badgeVariants = cva(
   cn(
@@ -69,4 +70,16 @@ function Badge({
   })
 }
 
-export { Badge, badgeVariants }
+function NumberBadge({ className, ...props }: ComponentProps<"span">) {
+  return (
+    <span
+      className={cn(
+        "bg-surface-raised text-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-background px-1 text-xs font-semibold leading-none tabular-nums",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+export { Badge, NumberBadge, badgeVariants }

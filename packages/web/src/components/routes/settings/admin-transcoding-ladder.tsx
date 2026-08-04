@@ -405,9 +405,7 @@ function LadderPreviewRadio({
         aria-label={checked ? t("Link preview") : t("Use as link preview")}
         onChange={onChange}
       />
-      <span className="border-input text-foreground-muted peer-focus-visible:border-ring peer-focus-visible:ring-ring/50 peer-checked:border-primary peer-checked:bg-primary/10 peer-checked:text-primary group-hover:border-border-strong inline-flex h-7 min-w-14 items-center justify-center rounded-md border px-2 text-xs font-medium transition-colors peer-focus-visible:ring-3">
-        {checked ? t("Preview") : t("Use")}
-      </span>
+      <span className="border-input text-foreground-muted after:bg-accent group-hover:border-border-strong peer-focus-visible:border-ring peer-focus-visible:ring-ring/50 peer-checked:border-accent-border relative inline-flex size-4 items-center justify-center rounded-full border transition-colors peer-focus-visible:ring-3 after:size-2 after:rounded-full after:opacity-0 after:transition-opacity after:content-[''] peer-checked:after:opacity-100"></span>
     </label>
   )
 }

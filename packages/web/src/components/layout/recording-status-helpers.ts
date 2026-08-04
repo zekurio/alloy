@@ -56,8 +56,11 @@ export function statusLabel(
   return status?.activeGame ?? t("Waiting for game")
 }
 
-export function statusActive(status: RecordingStatus | null): boolean {
-  return Boolean(status?.replayActive)
+export function statusActive(
+  settings: RecordingSettings | null,
+  status: RecordingStatus | null,
+): boolean {
+  return Boolean(settings?.enabled && status?.replayActive)
 }
 
 export function errorText(cause: unknown, fallback: string): string {

@@ -29,23 +29,23 @@ import type { AlloyDesktopUpdatesApi } from "./desktop-update"
  * Single source of truth for the `window.alloyDesktop` bridge the desktop
  * shell exposes to the server-hosted web app.
  *
- * The bridge is the only compatibility surface between the two: IPC channel
+ * The bridge is the contract boundary between the two: IPC channel
  * names and preload internals ship inside one desktop binary and may change
  * freely, but the JS shape below is consumed by whatever web app version the
  * connected server serves.
  *
- * Compatibility policy — the bridge is ADDITIVE-ONLY:
+ * Shape policy — the bridge is ADDITIVE-ONLY:
  * - Never remove a shipped member or change its signature or semantics.
  * - New members get `since: DESKTOP_BRIDGE_VERSION + 1` and the version
  *   constant is bumped in the same change.
- * - The web app gates on `bridge.version` via {@link desktopBridgeSupports};
- *   it must never sniff members with `typeof` checks.
+ * - Alloy 1.0 requires the current version before rendering desktop routes;
+ *   feature-by-feature compatibility gates are not supported.
  */
-export const DESKTOP_BRIDGE_VERSION = 4
+export const DESKTOP_BRIDGE_VERSION = 1
 
 /** Handshake info exposed as `alloyDesktop.bridge`. */
 export interface AlloyDesktopBridgeInfo {
-  /** Bridge contract version; compare via {@link desktopBridgeSupports}. */
+  /** Bridge contract version; Alloy 1.0 requires the current value. */
   version: number
   /** Desktop app version running this shell, e.g. "1.4.0". */
   appVersion: string
@@ -224,15 +224,15 @@ export const DESKTOP_BRIDGE = {
     revealLibraryCapture: { since: 1 },
     exportLibraryCapture: { since: 1 },
     updateLibraryCapture: { since: 1 },
-    setLibraryCaptureTrim: { since: 2 },
+    setLibraryCaptureTrim: { since: 1 },
     deleteLibraryCapture: { since: 1 },
     importLibraryFiles: { since: 1 },
     commitStagedLibraryImport: { since: 1 },
     discardStagedLibraryImport: { since: 1 },
     saveLibraryCaptureThumbnail: { since: 1 },
-    getLibraryCaptureScrubber: { since: 3 },
-    saveLibraryCaptureScrubber: { since: 3 },
-    getLibraryCaptureAudioTrackUrl: { since: 4 },
+    getLibraryCaptureScrubber: { since: 1 },
+    saveLibraryCaptureScrubber: { since: 1 },
+    getLibraryCaptureAudioTrackUrl: { since: 1 },
     downloadClip: { since: 1 },
     cancelClipDownload: { since: 1 },
     listClipDownloads: { since: 1 },
@@ -310,4 +310,9 @@ export function desktopBridgeSupports(
   path: DesktopBridgePath,
 ): boolean {
   return version >= DESKTOP_BRIDGE_METHODS[path].since
+}
+
+/** Whether the shell and server-hosted web app share the 1.0 bridge. */
+export function isCurrentDesktopBridge(version: number): boolean {
+  return version === DESKTOP_BRIDGE_VERSION
 }

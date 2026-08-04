@@ -1,7 +1,4 @@
-import {
-  CLIP_SCRUBBER_FRAME_COUNT,
-  desktopBridgeSupports,
-} from "@alloy/contracts"
+import { CLIP_SCRUBBER_FRAME_COUNT } from "@alloy/contracts"
 import type { AlloyDesktop, RecordingLibraryItem } from "@alloy/contracts"
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
@@ -92,14 +89,6 @@ export function desktopMediaFilmstrip(
   desktop: AlloyDesktop,
   item: RecordingLibraryItem,
 ): Promise<MediaFilmstrip> {
-  if (
-    !desktopBridgeSupports(
-      desktop.bridge.version,
-      "recording.getLibraryCaptureScrubber",
-    )
-  ) {
-    return mediaFilmstrip(item.mediaUrl)
-  }
   const key = `desktop-filmstrip:${item.id}:${item.modifiedAt}:${item.sizeBytes}`
   return cachedFilmstrip(key, () => {
     const progress: SpriteProgress = { canvas: null, sampled: new Set() }

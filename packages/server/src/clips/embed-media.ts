@@ -23,6 +23,7 @@ export type EmbedMediaClip = {
   sourceContentType: string | null
   sourceCodecs: string | null
   cutKey: string | null
+  cutCodecs: string | null
   renditionRows?: EmbedRendition[]
 }
 
@@ -50,10 +51,9 @@ export function embedPosterUrl(
  * Renditions win over the source: the `og`-flagged tier exists precisely to
  * power social embeds, and crawlers (Discord especially) give up on the
  * multi-hundred-megabyte originals a capture card produces. The source is only
- * a fallback for clips that have no usable rendition yet.
+ * used only when it is already a verified broadly-decodable asset.
  *
- * Embeds are only reliable for H.264/AAC. Source codec metadata is required;
- * legacy null sourceCodecs must fall back to a rendition.
+ * Embeds are only reliable for H.264/AAC and require codec metadata.
  */
 export function embedVideo(
   row: EmbedMediaClip,
@@ -83,10 +83,11 @@ export function embedVideo(
     row.sourceContentType === "video/mp4" ||
     row.sourceContentType === "video/webm"
   const playbackSourceKey = row.cutKey ?? row.sourceKey
+  const playbackCodecs = row.cutKey ? row.cutCodecs : row.sourceCodecs
 
   if (
     playbackSourceKey &&
-    sourceIsBroadlyDecodable(row.sourceCodecs) &&
+    sourceIsBroadlyDecodable(playbackCodecs) &&
     (row.cutKey !== null || embeddableSource)
   ) {
     return {
@@ -95,17 +96,6 @@ export function embedVideo(
         origin,
       ).toString(),
       type: row.cutKey ? "video/mp4" : (row.sourceContentType ?? "video/mp4"),
-      width: row.width,
-      height: row.height,
-    }
-  }
-
-  // Nothing committed yet: the range-capable stream endpoint is the only
-  // option, and only when the raw upload is already a browser-safe container.
-  if (renditionRows.length === 0 && row.sourceKey && embeddableSource) {
-    return {
-      url: new URL(`/api/clips/${row.id}/stream`, origin).toString(),
-      type: row.sourceContentType ?? "video/mp4",
       width: row.width,
       height: row.height,
     }

@@ -5,57 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1783591694111,
-      "tag": "0000_mute_vin_gonzales",
+      "when": 1785837473732,
+      "tag": "0000_blushing_talos",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1784295165128,
-      "tag": "0001_adorable_juggernaut",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1784531762214,
-      "tag": "0002_aromatic_zarda",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1784555028334,
-      "tag": "0003_hard_bushwacker",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1784968040227,
-      "tag": "0004_last_proudstar",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1785159617472,
-      "tag": "0005_moaning_miek",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1785168465078,
-      "tag": "0006_smart_whistler",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1785420973650,
-      "tag": "0007_graceful_lady_bullseye",
+      "when": 1785838694741,
+      "tag": "0001_slow_chronomancer",
       "breakpoints": true
     }
   ]

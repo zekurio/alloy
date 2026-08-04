@@ -43,11 +43,11 @@ interface ClipPlayerProps {
   clipId: string
   /** MIME type of the default playback asset; absent while the clip is processing. */
   playbackContentType?: string | null
-  /** RFC 6381 codecs of the source; null for clips probed before the column. */
+  /** RFC 6381 source codecs; null while media processing is incomplete. */
   sourceCodecs?: string | null
   /** Cache-busting version of the published source; changes on republish. */
   sourceVersion?: string | null
-  /** Committed quality tiers, highest first. Empty for pre-backfill clips. */
+  /** Committed quality tiers, highest first. Empty while none are prepared. */
   renditions?: ClipRenditionRef[]
   /** Per-source stems available for optional client-side mixing. */
   audioTracks?: ClipAudioTrackRef[]

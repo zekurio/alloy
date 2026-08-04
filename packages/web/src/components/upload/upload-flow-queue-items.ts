@@ -92,7 +92,9 @@ function useServerQueueItems(
         serverToQueueItem(row, {
           onCancel: () => handlers.cancelRow(null, row.id),
           onOpen:
-            row.status === "ready" ? () => handlers.onOpenClip(row) : undefined,
+            row.status === "ready" || row.status === "failed"
+              ? () => handlers.onOpenClip(row)
+              : undefined,
           onCopyLink:
             row.status === "ready" ? () => copyClipLink(row) : undefined,
           onRetry:

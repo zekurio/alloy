@@ -1,6 +1,6 @@
 {
   "name": "@alloy/desktop",
-  "version": "1.5.0",
+  "version": "1.0.0",
   "private": true,
   "description": "Alloy desktop app",
   "type": "module",
@@ -74,8 +74,8 @@
         ]
       },
       {
-        "from": "../recorder/dist/sidecar",
-        "to": "sidecar",
+        "from": "../recorder/dist/agent",
+        "to": "agent",
         "filter": [
           "**/*",
           "!.gitkeep",

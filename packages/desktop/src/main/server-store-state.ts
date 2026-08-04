@@ -6,6 +6,7 @@ import {
 } from "@alloy/contracts"
 
 export interface DesktopState {
+  version: 2
   servers: DesktopSavedServer[]
   recording: RecordingSettings
   /** Stable identity for this install, registered with the server for sync. */
@@ -14,12 +15,14 @@ export interface DesktopState {
 
 export const MAX_SAVED_SERVERS = 8
 export const EMPTY_STATE: DesktopState = {
+  version: 2,
   servers: [],
   recording: DEFAULT_RECORDING_SETTINGS,
   deviceId: null,
 }
 
 export function normalizeState(parsed: Record<string, unknown>): DesktopState {
+  if (parsed.version !== 2) return EMPTY_STATE
   const servers = Array.isArray(parsed.servers)
     ? parsed.servers
         .map(normalizeSavedServer)
@@ -27,6 +30,7 @@ export function normalizeState(parsed: Record<string, unknown>): DesktopState {
     : []
 
   return {
+    version: 2,
     servers: dedupeServers(servers).slice(0, MAX_SAVED_SERVERS),
     recording: normalizeRecordingSettings(parsed.recording),
     deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : null,

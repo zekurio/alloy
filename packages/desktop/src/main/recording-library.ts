@@ -8,14 +8,10 @@
  *   delete) and reveal actions.
  * - `recording-library-export` — trimmed exports for publishing.
  */
-import { rmSync } from "node:fs"
-import { join } from "node:path"
-
 import type {
   RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryExportRequest,
 } from "@alloy/contracts"
-import { app } from "electron"
 
 export {
   recordingLibraryProtocolScheme,
@@ -56,19 +52,4 @@ export async function discardRecordingLibraryStagedImport(id: string) {
   const { discardRecordingLibraryStagedImport } =
     await import("./recording-library-import")
   return discardRecordingLibraryStagedImport(id)
-}
-
-/**
- * Filmstrip frames now decode in the renderer (mediabunny); drop the legacy
- * on-disk cache without loading thumbnail or image hashing helpers at startup.
- */
-export function cleanupLegacyFilmstripCache(): void {
-  try {
-    rmSync(join(app.getPath("userData"), "recording-filmstrips"), {
-      recursive: true,
-      force: true,
-    })
-  } catch {
-    // Best effort — a locked folder just lingers.
-  }
 }

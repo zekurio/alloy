@@ -4,6 +4,7 @@ import { app, globalShortcut } from "electron"
 
 import {
   cancelReplaySaveRequestedSoundSuppression,
+  onRecordingClipHotkey,
   playReplaySaveRequestedSound,
   saveReplayClip,
 } from "./recording"
@@ -25,6 +26,10 @@ let activeActions = new Map<string, HotkeyAction[]>()
 let healthTimer: ReturnType<typeof setInterval> | null = null
 let actionInFlight = new Set<string>()
 let lastActionAt = new Map<string, number>()
+
+// Electron's RegisterHotKey path remains a useful fallback, while the
+// recorder's low-level Windows hook still receives keys consumed by games.
+onRecordingClipHotkey(() => void runNativeClipHotkey())
 
 export function configureRecordingHotkeys(
   settings: RecordingSettings = getRecordingSettings(),
@@ -74,18 +79,24 @@ async function runHotkeyActions(accelerator: string): Promise<void> {
   const requestedAtUnixMs = Date.now()
 
   await Promise.all(
-    actions.map((action) =>
-      runDebouncedAction(accelerator, action, requestedAtUnixMs),
-    ),
+    actions.map((action) => runDebouncedAction(action, requestedAtUnixMs)),
+  )
+}
+
+async function runNativeClipHotkey(): Promise<void> {
+  const settings = activeSettings
+  if (!settings?.enabled) return
+  await runDebouncedAction(
+    { type: "clip", durationSeconds: settings.replayBufferSeconds },
+    Date.now(),
   )
 }
 
 async function runDebouncedAction(
-  accelerator: string,
   action: HotkeyAction,
   requestedAtUnixMs: number,
 ): Promise<void> {
-  const key = actionKey(accelerator, action)
+  const key = actionKey(action)
   const now = Date.now()
   if (now - (lastActionAt.get(key) ?? 0) < HOTKEY_ACTION_DEBOUNCE_MS) return
   if (actionInFlight.has(key)) return
@@ -163,8 +174,10 @@ function hotkeyActionMap(
   return actions
 }
 
-function actionKey(accelerator: string, action: HotkeyAction): string {
-  return `${accelerator}:clip:${action.durationSeconds}`
+function actionKey(action: HotkeyAction): string {
+  // Providers intentionally share this key: on Windows both Electron and the
+  // native hook can observe one press, but it must save only one clip.
+  return `clip:${action.durationSeconds}`
 }
 
 function startHotkeyHealthCheck(): void {

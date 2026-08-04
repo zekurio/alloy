@@ -1,4 +1,9 @@
-import type { GameRow } from "@alloy/contracts"
+import {
+  type GameRow,
+  UNCATEGORISED_GAME_ID,
+  UNCATEGORISED_GAME_NAME,
+  UNCATEGORISED_GAME_SLUG,
+} from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, game, gameFollow } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
@@ -17,12 +22,13 @@ import {
   searchGames,
 } from "@alloy/server/games/steamgriddb"
 import {
+  badRequest,
   booleanFlag,
   errorResult,
   steamgriddbStatus,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { and, desc, eq, ilike, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, ilike, isNull, type SQL, sql } from "drizzle-orm"
 import { type Context, Hono } from "hono"
 import { z } from "zod"
 
@@ -75,6 +81,10 @@ async function resolveSteamGridDBGameRefByParam(
   c: Context,
   value: string,
 ): Promise<ResolvedGameRef> {
+  if (value === UNCATEGORISED_GAME_SLUG || value === UNCATEGORISED_GAME_ID) {
+    return { row: uncategorisedGameRow() }
+  }
+
   const steamgriddbId = Number.parseInt(value, 10)
   if (
     String(steamgriddbId) === value &&
@@ -150,32 +160,59 @@ export const gamesRoute = new Hono()
   )
   .get("/", zValidator("query", GamesListQuery), async (c) => {
     const { limit, offset } = c.req.valid("query")
-    const rows = await db
-      .select({
-        ...gameSelectShape,
-        clipCount: sql<number>`count(${clip.id})::int`,
-      })
-      .from(game)
-      .innerJoin(clip, eq(clip.game_id, game.id))
-      .innerJoin(user, eq(clip.author_id, user.id))
-      .where(and(...publicClipListingConditions()))
-      .groupBy(game.id)
-      .orderBy(sql`count(${clip.id}) desc`, game.name)
-      .limit(limit)
-      .offset(offset)
+    const uncategorisedCount = await publicUncategorisedClipCount()
+    const includesUncategorised = uncategorisedCount > 0
+    const regularLimit =
+      includesUncategorised && offset === 0 ? limit - 1 : limit
+    const regularOffset = includesUncategorised
+      ? Math.max(0, offset - 1)
+      : offset
+    const rows =
+      regularLimit > 0
+        ? await db
+            .select({
+              ...gameSelectShape,
+              clipCount: sql<number>`count(${clip.id})::int`,
+            })
+            .from(game)
+            .innerJoin(clip, eq(clip.game_id, game.id))
+            .innerJoin(user, eq(clip.author_id, user.id))
+            .where(and(...publicClipListingConditions()))
+            .groupBy(game.id)
+            .orderBy(sql`count(${clip.id}) desc`, game.name)
+            .limit(regularLimit)
+            .offset(regularOffset)
+        : []
 
-    return c.json(
-      rows.map((row) => ({
+    return c.json([
+      ...(includesUncategorised && offset === 0
+        ? [
+            {
+              ...uncategorisedGameRow(),
+              clipCount: uncategorisedCount,
+            },
+          ]
+        : []),
+      ...rows.map((row) => ({
         ...serialiseGameRow(row),
         clipCount: row.clipCount,
       })),
-    )
+    ])
   })
   .get("/:slug", zValidator("param", SlugParam), async (c) => {
     const { slug } = c.req.valid("param")
     const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
     if (resolved.response) return resolved.response
     const gameId = resolved.row.id
+
+    if (gameId === UNCATEGORISED_GAME_ID) {
+      return c.json({
+        ...resolved.row,
+        viewer: null,
+        favouritesCount: 0,
+        clipCount: await publicUncategorisedClipCount(),
+      })
+    }
 
     const session = await getSession(c)
     let viewer: { isFollowing: boolean } | null = null
@@ -221,6 +258,10 @@ export const gamesRoute = new Hono()
       const { limit } = c.req.valid("query")
       const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
+      const gameCondition: SQL =
+        resolved.row.id === UNCATEGORISED_GAME_ID
+          ? isNull(clip.game_id)
+          : eq(clip.game_id, resolved.row.id)
 
       const creators = await db
         .select({
@@ -231,12 +272,7 @@ export const gamesRoute = new Hono()
         })
         .from(clip)
         .innerJoin(user, eq(clip.author_id, user.id))
-        .where(
-          and(
-            eq(clip.game_id, resolved.row.id),
-            ...publicClipListingConditions(),
-          ),
-        )
+        .where(and(gameCondition, ...publicClipListingConditions()))
         .groupBy(user.id, user.username, user.image)
         .orderBy(desc(sql`count(*)`), user.username)
         .limit(limit)
@@ -253,6 +289,9 @@ export const gamesRoute = new Hono()
       const viewerId = c.var.viewerId
       const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
+      if (resolved.row.id === UNCATEGORISED_GAME_ID) {
+        return badRequest(c, "Uncategorised cannot be followed")
+      }
 
       await db
         .insert(gameFollow)
@@ -271,6 +310,9 @@ export const gamesRoute = new Hono()
       const viewerId = c.var.viewerId
       const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
+      if (resolved.row.id === UNCATEGORISED_GAME_ID) {
+        return badRequest(c, "Uncategorised cannot be followed")
+      }
 
       await db
         .delete(gameFollow)
@@ -284,3 +326,29 @@ export const gamesRoute = new Hono()
       return booleanFlag(c, "following", false)
     },
   )
+
+function uncategorisedGameRow(): GameRow {
+  return {
+    id: UNCATEGORISED_GAME_ID,
+    steamgriddbId: null,
+    source: "custom",
+    name: UNCATEGORISED_GAME_NAME,
+    slug: UNCATEGORISED_GAME_SLUG,
+    releaseDate: null,
+    heroUrl: null,
+    heroBlurHash: null,
+    gridUrl: null,
+    gridBlurHash: null,
+    logoUrl: null,
+    iconUrl: null,
+  }
+}
+
+async function publicUncategorisedClipCount(): Promise<number> {
+  const rows = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(clip)
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .where(and(isNull(clip.game_id), ...publicClipListingConditions()))
+  return rows[0]?.value ?? 0
+}

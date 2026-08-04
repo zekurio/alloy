@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import { UNCATEGORISED_GAME_SLUG } from "@alloy/contracts"
 import { useMemo } from "react"
 
 import { ClipCardTrigger } from "./clip-card-trigger"
@@ -20,7 +21,7 @@ export function ClipCardList({
     () =>
       rows.map((row) => ({
         id: row.id,
-        gameId: row.gameRef ? row.gameRef.slug : null,
+        gameId: row.gameRef?.slug ?? UNCATEGORISED_GAME_SLUG,
         row,
       })),
     [rows],

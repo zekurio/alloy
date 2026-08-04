@@ -161,7 +161,7 @@ async function setPaused(c: Context, kind: string, paused: boolean) {
   else current.delete(kind)
   await configStore.set("jobs", {
     ...configStore.get("jobs"),
-    pausedKinds: [...current].sort(),
+    pausedKinds: [...current].sort((a, b) => a.localeCompare(b)),
   })
   // Resuming should let a queued job start without waiting for the fallback
   // poll; pausing takes effect on the dispatcher's next claim regardless.

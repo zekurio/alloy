@@ -117,6 +117,20 @@ function markAllNotificationsRead(
   }
 }
 
+function removeNotification(
+  data: NotificationListData,
+  id: string,
+): NotificationListData {
+  if (!data) return data
+  return {
+    ...data,
+    pages: data.pages.map((page) => ({
+      ...page,
+      items: page.items.filter((item) => item.id !== id),
+    })),
+  }
+}
+
 export function useMarkNotificationReadMutation() {
   const qc = useQueryClient()
   return useMutation<string, Error, string>({
@@ -155,6 +169,30 @@ export function useMarkAllNotificationsReadMutation() {
       toast.error(
         errorMessage(cause, t("Couldn't mark all notifications as read")),
       )
+    },
+  })
+}
+
+export function useRemoveNotificationMutation() {
+  const qc = useQueryClient()
+  return useMutation<string, Error, string>({
+    mutationFn: (id) => api.notifications.remove(id).then(() => id),
+    onSuccess: (id) => {
+      const wasUnread = isNotificationUnread(
+        qc.getQueryData<NotificationListData>(notificationKeys.list()),
+        id,
+      )
+      if (wasUnread) {
+        qc.setQueryData<number>(notificationKeys.unreadCount(), (old) =>
+          Math.max(0, (old ?? 0) - 1),
+        )
+      }
+      qc.setQueryData<NotificationListData>(notificationKeys.list(), (old) =>
+        removeNotification(old, id),
+      )
+    },
+    onError: (cause) => {
+      toast.error(errorMessage(cause, t("Couldn't remove notification")))
     },
   })
 }

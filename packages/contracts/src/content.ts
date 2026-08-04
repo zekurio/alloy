@@ -4,6 +4,9 @@ export * from "./content-feed"
 export {
   GAME_ASSET_PATH_PREFIX,
   GAME_ASSET_ROLES,
+  UNCATEGORISED_GAME_ID,
+  UNCATEGORISED_GAME_NAME,
+  UNCATEGORISED_GAME_SLUG,
   gameAssetImagePath,
 } from "./content-games"
 export type {

@@ -14,7 +14,7 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { LogInIcon } from "lucide-react"
+import { ChevronDownIcon, LogInIcon } from "lucide-react"
 import { Suspense } from "react"
 
 import { useSuspenseSession } from "@/lib/session-suspense"
@@ -23,9 +23,8 @@ import { useUserChipData } from "@/lib/user-display"
 import { AccountMenuItems, avatarTint } from "./account-menu"
 
 /**
- * Header account entry point: an avatar-only trigger opening a downward
- * account menu — the name lives in the menu header instead. Signed-out
- * sessions render a sign-in link in the same slot.
+ * Header account entry point. Signed-out sessions render a sign-in link in the
+ * same slot.
  */
 export function UserMenu({ className }: { className?: string }) {
   return (
@@ -64,8 +63,8 @@ function UserMenuInner({ className }: { className?: string }) {
             type="button"
             aria-label={t("Open account menu for {name}", { name: chip.name })}
             className={cn(
-              "flex size-9 shrink-0 items-center justify-center rounded-full",
-              "hover:brightness-110 data-popup-open:bg-surface-raised",
+              "flex h-9 max-w-48 shrink-0 items-center gap-2 rounded-full py-0.5 pr-2 pl-0.5",
+              "hover:bg-surface-raised hover:brightness-110 data-popup-open:bg-surface-raised",
               "transition-[background-color,filter] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
               className,
@@ -81,6 +80,13 @@ function UserMenuInner({ className }: { className?: string }) {
               ) : null}
               <AvatarFallback style={avatarTint(chip.avatar)} />
             </Avatar>
+            <span className="min-w-0 truncate text-sm font-medium">
+              {chip.name}
+            </span>
+            <ChevronDownIcon
+              aria-hidden
+              className="text-foreground-faint size-4 shrink-0"
+            />
           </button>
         }
       />
@@ -112,7 +118,7 @@ function UserMenuSkeleton({ className }: { className?: string }) {
     <div
       data-slot="user-menu-skeleton"
       className={cn(
-        "flex size-9 items-center justify-center rounded-full",
+        "flex h-9 w-28 items-center justify-center rounded-full",
         className,
       )}
       aria-hidden

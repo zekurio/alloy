@@ -14,6 +14,8 @@ CREATE TABLE "clip" (
 	"source_size_bytes" bigint,
 	"source_duration_ms" integer,
 	"source_fps" integer,
+	"pending_audio_tracks" jsonb,
+	"audio_track_fingerprint" text,
 	"duration_ms" integer,
 	"width" integer,
 	"height" integer,
@@ -26,6 +28,7 @@ CREATE TABLE "clip" (
 	"trim_start_ms" integer,
 	"trim_end_ms" integer,
 	"cut_key" text,
+	"cut_codecs" text,
 	"status" text DEFAULT 'pending' NOT NULL,
 	"encode_pipeline" text,
 	"encode_fingerprint" text,
@@ -45,6 +48,22 @@ CREATE TABLE "clip" (
 	CONSTRAINT "clip_status_check" CHECK ("clip"."status" in ('pending', 'processing', 'ready', 'failed')),
 	CONSTRAINT "clip_encode_stage_check" CHECK ("clip"."encode_stage" is null or "clip"."encode_stage" in ('downloading', 'processing', 'encoding', 'finalizing')),
 	CONSTRAINT "clip_source_size_bytes_safe_check" CHECK ("clip"."source_size_bytes" is null or ("clip"."source_size_bytes" >= 0 and "clip"."source_size_bytes" <= 9007199254740991))
+);
+--> statement-breakpoint
+CREATE TABLE "clip_audio_track" (
+	"clip_id" uuid NOT NULL,
+	"idx" integer NOT NULL,
+	"kind" text NOT NULL,
+	"label" text NOT NULL,
+	"codecs" text NOT NULL,
+	"storage_key" text NOT NULL,
+	"size_bytes" bigint NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "clip_audio_track_clip_id_idx_pk" PRIMARY KEY("clip_id","idx"),
+	CONSTRAINT "clip_audio_track_idx_check" CHECK ("clip_audio_track"."idx" >= 0 and "clip_audio_track"."idx" < 5),
+	CONSTRAINT "clip_audio_track_kind_check" CHECK ("clip_audio_track"."kind" in ('game', 'microphone', 'desktop', 'application', 'other')),
+	CONSTRAINT "clip_audio_track_label_check" CHECK (char_length("clip_audio_track"."label") between 1 and 64 and "clip_audio_track"."label" = btrim("clip_audio_track"."label")),
+	CONSTRAINT "clip_audio_track_size_bytes_safe_check" CHECK ("clip_audio_track"."size_bytes" >= 0 and "clip_audio_track"."size_bytes" <= 9007199254740991)
 );
 --> statement-breakpoint
 CREATE TABLE "clip_comment" (
@@ -210,7 +229,7 @@ CREATE TABLE "upload_ticket" (
 	"used_at" timestamp,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "upload_ticket_storage_key_unique" UNIQUE("storage_key"),
-	CONSTRAINT "upload_ticket_role_check" CHECK ("upload_ticket"."role" in ('video')),
+	CONSTRAINT "upload_ticket_role_check" CHECK ("upload_ticket"."role" in ('video', 'scrubber')),
 	CONSTRAINT "upload_ticket_target_check" CHECK ("upload_ticket"."target_type" in ('clip')),
 	CONSTRAINT "upload_ticket_expected_bytes_safe_check" CHECK ("upload_ticket"."expected_bytes" > 0 and "upload_ticket"."expected_bytes" <= 9007199254740991)
 );
@@ -227,6 +246,38 @@ CREATE TABLE "follow" (
 	"follower_id" uuid NOT NULL,
 	"following_id" uuid NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "webhook" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"name" text NOT NULL,
+	"provider" text NOT NULL,
+	"url" text NOT NULL,
+	"secret" text,
+	"enabled" boolean DEFAULT true NOT NULL,
+	"last_delivery_at" timestamp with time zone,
+	"last_delivery_status" integer,
+	"last_delivery_error" text,
+	"consecutive_failures" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "webhook_provider_check" CHECK ("webhook"."provider" in ('discord', 'generic'))
+);
+--> statement-breakpoint
+CREATE TABLE "webhook_delivery" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"webhook_id" uuid NOT NULL,
+	"clip_id" uuid,
+	"event" text NOT NULL,
+	"dedup_key" text NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"response_status" integer,
+	"error" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"delivered_at" timestamp with time zone,
+	CONSTRAINT "webhook_delivery_event_check" CHECK ("webhook_delivery"."event" in ('clip.published')),
+	CONSTRAINT "webhook_delivery_status_check" CHECK ("webhook_delivery"."status" in ('pending', 'succeeded', 'failed'))
 );
 --> statement-breakpoint
 CREATE TABLE "auth_account" (
@@ -288,12 +339,14 @@ CREATE TABLE "user" (
 	"email" text NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
 	"username" text NOT NULL,
+	"display_name" text,
 	"image" text,
 	"banner" text,
 	"role" text DEFAULT 'user' NOT NULL,
 	"status" text DEFAULT 'active' NOT NULL,
 	"disabled_at" timestamp,
 	"storage_quota_bytes" bigint,
+	"clip_announcements_enabled" boolean DEFAULT true NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "user_email_unique" UNIQUE("email"),
@@ -321,6 +374,7 @@ CREATE TABLE "user_passkey" (
 --> statement-breakpoint
 ALTER TABLE "clip" ADD CONSTRAINT "clip_author_id_user_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip" ADD CONSTRAINT "clip_game_id_game_id_fk" FOREIGN KEY ("game_id") REFERENCES "public"."game"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "clip_audio_track" ADD CONSTRAINT "clip_audio_track_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_comment" ADD CONSTRAINT "clip_comment_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_comment" ADD CONSTRAINT "clip_comment_author_id_user_id_fk" FOREIGN KEY ("author_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clip_comment" ADD CONSTRAINT "clip_comment_parent_fk" FOREIGN KEY ("parent_id") REFERENCES "public"."clip_comment"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -348,6 +402,8 @@ ALTER TABLE "block" ADD CONSTRAINT "block_blocker_id_user_id_fk" FOREIGN KEY ("b
 ALTER TABLE "block" ADD CONSTRAINT "block_blocked_id_user_id_fk" FOREIGN KEY ("blocked_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "follow" ADD CONSTRAINT "follow_follower_id_user_id_fk" FOREIGN KEY ("follower_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "follow" ADD CONSTRAINT "follow_following_id_user_id_fk" FOREIGN KEY ("following_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_delivery" ADD CONSTRAINT "webhook_delivery_webhook_id_webhook_id_fk" FOREIGN KEY ("webhook_id") REFERENCES "public"."webhook"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "webhook_delivery" ADD CONSTRAINT "webhook_delivery_clip_id_clip_id_fk" FOREIGN KEY ("clip_id") REFERENCES "public"."clip"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth_account" ADD CONSTRAINT "auth_account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth_refresh_token" ADD CONSTRAINT "auth_refresh_token_session_id_auth_session_id_fk" FOREIGN KEY ("session_id") REFERENCES "public"."auth_session"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "auth_session" ADD CONSTRAINT "auth_session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -391,6 +447,9 @@ CREATE INDEX "upload_ticket_used_idx" ON "upload_ticket" USING btree ("used_at")
 CREATE UNIQUE INDEX "block_pair_idx" ON "block" USING btree ("blocker_id","blocked_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "follow_pair_idx" ON "follow" USING btree ("follower_id","following_id");--> statement-breakpoint
 CREATE INDEX "follow_following_idx" ON "follow" USING btree ("following_id");--> statement-breakpoint
+CREATE INDEX "webhook_enabled_idx" ON "webhook" USING btree ("enabled") WHERE "webhook"."enabled";--> statement-breakpoint
+CREATE UNIQUE INDEX "webhook_delivery_dedup_idx" ON "webhook_delivery" USING btree ("webhook_id","dedup_key");--> statement-breakpoint
+CREATE INDEX "webhook_delivery_clip_idx" ON "webhook_delivery" USING btree ("clip_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "auth_account_provider_account_idx" ON "auth_account" USING btree ("provider_id","provider_account_id");--> statement-breakpoint
 CREATE INDEX "auth_challenge_expires_at_idx" ON "auth_challenge" USING btree ("expires_at");--> statement-breakpoint
 CREATE INDEX "auth_challenge_purpose_identifier_idx" ON "auth_challenge" USING btree ("purpose","identifier");--> statement-breakpoint

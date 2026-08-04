@@ -5,7 +5,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@alloy/ui/components/avatar"
-import { Badge } from "@alloy/ui/components/badge"
+import { NumberBadge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
 import {
   Popover,
@@ -24,6 +24,8 @@ import {
   BellRingIcon,
   HeartIcon,
   MessageSquareIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
   UserPlusIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -42,6 +44,7 @@ import {
   unreadCountQueryOptions,
   useMarkAllNotificationsReadMutation,
   useMarkNotificationReadMutation,
+  useRemoveNotificationMutation,
 } from "@/lib/notification-queries"
 import { useNotificationStream } from "@/lib/notification-stream"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
@@ -62,6 +65,7 @@ export function NotificationBell({
   const listQuery = useInfiniteQuery(notificationsInfiniteQueryOptions())
   const markRead = useMarkNotificationReadMutation()
   const markAllRead = useMarkAllNotificationsReadMutation()
+  const removeNotification = useRemoveNotificationMutation()
   const navigate = useNavigate()
   const [permission, setPermission] = useState(() =>
     typeof Notification === "undefined" ? "denied" : Notification.permission,
@@ -118,13 +122,12 @@ export function NotificationBell({
             onAnimationEnd={() => setRinging(false)}
           />
           {unreadCount > 0 ? (
-            <Badge
+            <NumberBadge
               key={unreadCount}
-              variant="accent"
-              className="animate-badge-pop absolute -top-1.5 -right-2 h-4 min-w-4 justify-center px-1 text-[10px] leading-none"
+              className="animate-badge-pop absolute -top-2 -right-2"
             >
               {unreadCount > 99 ? "99+" : unreadCount}
-            </Badge>
+            </NumberBadge>
           ) : null}
         </span>
       </PopoverTrigger>
@@ -139,20 +142,22 @@ export function NotificationBell({
               : "bottom"
         }
         sideOffset={variant === "sidebar" ? 0 : variant === "header" ? 4 : 8}
-        className="alloy-blur w-96 max-w-[calc(100vw-1rem)] gap-0 border p-0 ring-0"
+        className="alloy-blur w-[22rem] max-w-[calc(100vw-1rem)] gap-0 overflow-hidden border p-0 ring-0"
         style={
           {
             "--alloy-blur-opacity": "90%",
             "--alloy-blur-blur": "28px",
-            "--alloy-blur-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
+            "--alloy-blur-shadow":
+              "0 24px 60px -28px var(--floating-shadow-strong-color)",
           } as CSSProperties
         }
       >
-        <div className="border-border flex items-center justify-between gap-3 border-b px-3 py-2.5">
+        <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
           <div className="text-sm font-semibold">{t("Notifications")}</div>
           <Button
             variant="ghost"
             size="sm"
+            className="h-auto px-0 font-medium hover:bg-transparent"
             disabled={unreadCount === 0 || markAllRead.isPending}
             onClick={() => markAllRead.mutate()}
           >
@@ -184,7 +189,7 @@ export function NotificationBell({
             </Button>
           </div>
         ) : null}
-        <div className="max-h-[28rem] overflow-y-auto p-1.5">
+        <div className="max-h-[28rem] overflow-y-auto">
           {listQuery.isPending ? <NotificationListSkeleton /> : null}
           {!listQuery.isPending && items.length > 0 ? (
             <>
@@ -196,6 +201,11 @@ export function NotificationBell({
                     if (item.readAt === null) markRead.mutate(item.id)
                     navigate({ to: notificationTargetPath(item) })
                   }}
+                  removing={
+                    removeNotification.isPending &&
+                    removeNotification.variables === item.id
+                  }
+                  onRemove={() => removeNotification.mutate(item.id)}
                 />
               ))}
               {listQuery.hasNextPage || listQuery.isFetchingNextPage ? (
@@ -212,7 +222,7 @@ export function NotificationBell({
               icon={BellIcon}
               size="sm"
               title={t("No notifications yet")}
-              hint={t("Follows, comments, likes, and mentions appear here.")}
+              hint={t("Activity and upload failures appear here.")}
             />
           ) : null}
         </div>
@@ -229,80 +239,140 @@ const KIND_ICONS: Record<NotificationItem["kind"], LucideIcon> = {
   comment_reply: MessageSquareIcon,
   clip_mention: AtSignIcon,
   comment_mention: AtSignIcon,
+  clip_processing_failed: TriangleAlertIcon,
 }
 
 // Hearts reuse the app's liked-heart red; mentions and follows carry the
 // accent since they address the viewer directly; comments stay neutral.
-const KIND_ICON_CLASSES: Record<NotificationItem["kind"], string> = {
-  follow: "text-accent",
-  clip_like: "fill-red-500 text-red-500",
-  comment_like: "fill-red-500 text-red-500",
-  clip_comment: "text-foreground-muted",
-  comment_reply: "text-foreground-muted",
-  clip_mention: "text-accent",
-  comment_mention: "text-accent",
+const KIND_BADGE_CLASSES: Record<NotificationItem["kind"], string> = {
+  follow: "bg-accent text-accent-foreground",
+  clip_like: "bg-red-500 text-white",
+  comment_like: "bg-red-500 text-white",
+  clip_comment: "bg-neutral-300 text-foreground",
+  comment_reply: "bg-neutral-300 text-foreground",
+  clip_mention: "bg-accent text-accent-foreground",
+  comment_mention: "bg-accent text-accent-foreground",
+  clip_processing_failed: "bg-destructive text-white",
 }
 
 function NotificationRow({
   item,
   onClick,
+  removing,
+  onRemove,
 }: {
   item: NotificationItem
   onClick: () => void
+  removing: boolean
+  onRemove: () => void
 }) {
-  const avatar = userAvatar(item.actor)
+  const avatar = item.actor ? userAvatar(item.actor) : null
   const parts = notificationRowParts(item)
   const KindIcon = KIND_ICONS[item.kind]
   return (
-    <button
-      type="button"
+    <div
       className={cn(
-        "flex w-full gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-surface-raised",
-        item.readAt === null && "bg-accent-soft/45",
+        "group/notification border-border/60 relative border-b transition-colors last:border-b-0 hover:bg-surface-raised/70",
+        item.readAt === null && "bg-accent-soft/15 hover:bg-accent-soft/25",
       )}
-      onClick={onClick}
     >
-      <span className="relative mt-0.5 shrink-0">
-        <Avatar size="md">
-          <AvatarImage src={avatar.src} alt="" />
-          <AvatarFallback style={{ background: avatar.bg, color: avatar.fg }} />
-        </Avatar>
-        <span className="border-border bg-popover absolute -right-1 -bottom-1 flex size-3.5 items-center justify-center rounded-full border">
-          <KindIcon
-            className={cn("size-2", KIND_ICON_CLASSES[item.kind])}
-            aria-hidden
-          />
+      <button
+        type="button"
+        className="focus-visible:ring-ring flex w-full gap-3 px-4 py-3 pr-11 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset"
+        onClick={onClick}
+      >
+        <span className="relative size-9 shrink-0">
+          {avatar ? (
+            <>
+              <Avatar size="lg">
+                <AvatarImage src={avatar.src} alt="" />
+                <AvatarFallback
+                  style={{ background: avatar.bg, color: avatar.fg }}
+                />
+              </Avatar>
+              <span
+                className={cn(
+                  "ring-popover absolute right-0 bottom-0 flex size-4 items-center justify-center rounded-full ring-2",
+                  KIND_BADGE_CLASSES[item.kind],
+                )}
+              >
+                <KindIcon
+                  className={cn(
+                    "size-2.5",
+                    (item.kind === "clip_like" ||
+                      item.kind === "comment_like") &&
+                      "fill-current",
+                  )}
+                  aria-hidden
+                />
+              </span>
+            </>
+          ) : (
+            <span
+              className={cn(
+                "flex size-9 items-center justify-center rounded-full",
+                KIND_BADGE_CLASSES[item.kind],
+              )}
+            >
+              <KindIcon className="size-3.5" aria-hidden />
+            </span>
+          )}
         </span>
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="block text-sm leading-5">
-          {parts.before}
-          <span className="font-medium">{parts.actor}</span>
-          {parts.after}
-        </span>
-        {item.commentSnippet ? (
-          <span className="text-foreground-muted line-clamp-1 text-xs">
-            {item.commentSnippet}
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm leading-5 text-pretty">
+            {parts.before}
+            <span className="font-medium">{parts.actor}</span>
+            {parts.after}
           </span>
-        ) : null}
-        <span className="text-foreground-faint mt-0.5 block truncate text-xs">
-          {formatRelativeTime(item.createdAt)}
-          {item.clip ? ` · ${item.clip.title}` : null}
+          {item.commentSnippet ? (
+            <span className="text-foreground-muted line-clamp-1 text-xs">
+              {item.commentSnippet}
+            </span>
+          ) : null}
+          <span className="text-foreground-faint mt-0.5 block truncate text-xs">
+            {formatRelativeTime(item.createdAt)}
+            {item.clip && item.kind !== "clip_processing_failed"
+              ? ` · ${item.clip.title}`
+              : null}
+          </span>
         </span>
-      </span>
+        {item.readAt === null ? (
+          <span className="sr-only">{t("Unread")}</span>
+        ) : null}
+      </button>
       {item.readAt === null ? (
-        <span className="bg-accent mt-2 size-2 shrink-0 rounded-full" />
+        <span
+          className="bg-accent pointer-events-none absolute top-1/2 right-4 size-1.5 -translate-y-1/2 rounded-full shadow-[0_0_0_3px_var(--accent-soft)] transition-opacity group-hover/notification:opacity-0"
+          aria-hidden
+        />
       ) : null}
-    </button>
+      <button
+        type="button"
+        aria-label={t("Remove notification")}
+        title={t("Remove notification")}
+        disabled={removing}
+        className="text-foreground-faint hover:text-destructive focus-visible:ring-ring absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md opacity-100 transition-[color,opacity] outline-none focus-visible:opacity-100 focus-visible:ring-2 disabled:pointer-events-none md:opacity-0 md:group-hover/notification:opacity-100"
+        onClick={onRemove}
+      >
+        {removing ? (
+          <Spinner className="size-3.5" />
+        ) : (
+          <Trash2Icon className="size-3.5" />
+        )}
+      </button>
+    </div>
   )
 }
 
 function NotificationListSkeleton() {
   return (
-    <div aria-hidden className="space-y-1">
+    <div aria-hidden>
       {[0, 1, 2].map((row) => (
-        <div key={row} className="flex gap-2.5 px-2 py-2">
-          <Skeleton className="size-7 rounded-full" />
+        <div
+          key={row}
+          className="border-border/60 flex gap-3 border-b px-4 py-3 last:border-b-0"
+        >
+          <Skeleton className="size-9 rounded-full" />
           <div className="flex-1 space-y-1.5 py-0.5">
             <Skeleton className="h-3.5 w-4/5" />
             <Skeleton className="h-3 w-2/5" />

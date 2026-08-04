@@ -59,11 +59,7 @@ import {
   parseTagString,
 } from "@/lib/clip-fields"
 import { copyTextToClipboard } from "@/lib/clipboard"
-import {
-  desktopSupports,
-  notifyLibraryCapturesChanged,
-  type AlloyDesktop,
-} from "@/lib/desktop"
+import { notifyLibraryCapturesChanged, type AlloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { useDesktopMediaFilmstrip } from "@/lib/media-filmstrip"
 import { useActionFeedback } from "@/lib/use-action-feedback"
@@ -113,7 +109,6 @@ export function EditorBody({
   const { publishClip } = useUploadActions()
   const { queue } = useUploadQueue()
 
-  const trimSupported = desktopSupports("recording.setLibraryCaptureTrim")
   const playback = useTrimPlayback({
     initialDurationMs: item.durationMs ?? 0,
     initialTrim: persistedTrim(item) ?? undefined,
@@ -239,9 +234,7 @@ export function EditorBody({
   // null on both bounds, matching FULL_CLIP_TOLERANCE_MS semantics.
   const currentTrim = toPersistedTrimRange(trim, trimmed)
   const trimDirty =
-    trimSupported &&
-    playback.durationMs > 0 &&
-    !sameTrimRange(currentTrim, savedTrim)
+    playback.durationMs > 0 && !sameTrimRange(currentTrim, savedTrim)
 
   const handleSave = () => {
     if (saving || publishing || deleting || titleInvalid) return
@@ -418,7 +411,6 @@ export function EditorBody({
               audioMixer={audioMixer}
               onFrameReady={() => setLocalFrameReady(true)}
               onEnded={playback.handleEnded}
-              className="overflow-hidden rounded-md"
             />
 
             <LibraryEntryNavButton side="left" target={prevEntry} />
@@ -590,23 +582,20 @@ async function copyPublishedClipLink(link: string) {
  * the per-source stem tracks through the desktop bridge's stem cache. Both
  * the stems and the raw capture share one timeline, so no trim gating is
  * needed here (unlike the uploaded-clip editor, whose canonical cut rebases
- * time). Undefined when unsupported or the capture has fewer than two stems.
+ * time). Undefined when the capture has fewer than two stems.
  */
 function useLocalCaptureAudioMixer(
   desktop: AlloyDesktop,
   item: LibraryItemView,
 ) {
-  const supported = desktopSupports("recording.getLibraryCaptureAudioTrackUrl")
   const stemTracks = useMemo(
     () =>
-      supported
-        ? (item.audioTracks ?? []).filter(
-            // Same narrowing the publish path uses to decide which container
-            // tracks become clip stems.
-            (track) => track.index > 0 && isClipAudioTrackKind(track.kind),
-          )
-        : [],
-    [item.audioTracks, supported],
+      (item.audioTracks ?? []).filter(
+        // Same narrowing the publish path uses to decide which container
+        // tracks become clip stems.
+        (track) => track.index > 0 && isClipAudioTrackKind(track.kind),
+      ),
+    [item.audioTracks],
   )
   const loadTrack = useCallback<MixerTrackLoader>(
     async (track, signal) => {

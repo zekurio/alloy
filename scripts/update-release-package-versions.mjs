@@ -56,7 +56,7 @@ for (const filePath of cargoPackageFiles) {
 for (const filePath of cargoLockPackageFiles) {
   const original = readFileSync(filePath, "utf8")
   const updated = original.replace(
-    /(\[\[package\]\]\nname = "alloy-recorder"\nversion = ")[^"]+(")/,
+    /(\[\[package\]\]\nname = "alloy-agent"\nversion = ")[^"]+(")/,
     `$1${version}$2`,
   )
 

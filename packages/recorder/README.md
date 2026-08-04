@@ -1,7 +1,9 @@
-# @alloy/recorder
+# Alloy agent
 
-Rust recording sidecar used by Alloy Desktop. It talks to libobs and communicates
-with Electron over newline-delimited JSON on stdio.
+Windows-native agent used by Alloy Desktop. Its latency-sensitive recorder lane
+talks to libobs; Electron owns the process and communicates over newline-delimited
+JSON on stdio. Durable media coordination belongs in this process rather than a
+second service.
 
 ## Layout
 
@@ -13,7 +15,7 @@ packages/recorder/
   src/sidecar_obs*.rs                 libobs loading and OBS graph setup
   src/sidecar_types.rs                protocol and recording data types
   scripts/build.mjs                   Cargo build + artifact staging
-  dist/                               generated recorder runtime artifact
+  dist/                               generated agent runtime artifact
 ```
 
 ## Protocol
@@ -29,9 +31,8 @@ Supported methods:
 - `saveReplayClip`
 - `shutdown`
 
-The `version` method returns the recorder semantic version, protocol version,
-and capability list. Desktop should use that to reject incompatible future
-runtime updates before calling `configure`.
+The `version` method returns the agent semantic version, protocol version, and
+capability list. Desktop requires protocol v1 before calling `configure`.
 
 ## Commands
 
@@ -64,13 +65,13 @@ The build writes:
 
 ```text
 packages/recorder/dist/
-  recorder.json
-  sidecar/alloy-recorder.exe
+  agent.json
+  agent/alloy-agent.exe
   obs-runtime/
 ```
 
 On Windows, OBS helper executables such as `obs-ffmpeg-mux.exe` are copied into
-`dist/sidecar` when present.
+`dist/agent` when present.
 
 ## Release
 

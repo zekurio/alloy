@@ -420,7 +420,7 @@
         }
 
         let blocked = [
-            "alloy-recorder.exe",
+            "alloy-agent.exe",
             "dwm.exe",
             "explorer.exe",
             "applicationframehost.exe",

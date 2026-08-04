@@ -5,6 +5,7 @@ import {
   listNotifications,
   markAllRead,
   markRead,
+  removeNotification,
 } from "@alloy/server/notifications/service"
 import { badRequest, success } from "@alloy/server/runtime/http-response"
 import { Hono } from "hono"
@@ -48,3 +49,7 @@ export const notificationsRoute = new Hono()
       return success(c)
     },
   )
+  .delete("/:id", requireSession, zValidator("param", IdParam), async (c) => {
+    await removeNotification(c.var.viewerId, c.req.valid("param").id)
+    return success(c)
+  })

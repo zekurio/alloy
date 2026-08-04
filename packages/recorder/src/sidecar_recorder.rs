@@ -35,6 +35,7 @@ fn preserve_capture_dimensions(
 impl Recorder {
     fn configure(&mut self, params: ConfigureParams) -> Result<RecordingStatus, String> {
         let settings = params.settings;
+        sidecar_hotkeys::configure(&settings);
         let output_folder = if params.output_folder.is_empty() {
             env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
         } else {

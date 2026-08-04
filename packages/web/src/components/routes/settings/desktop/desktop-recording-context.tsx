@@ -185,7 +185,7 @@ export function DesktopRecordingProvider({
       const nextStatus = await recording.restartBackend()
       setStatus(nextStatus)
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't restart recording sidecar.")))
+      setError(errorText(cause, t("Couldn't restart Alloy agent.")))
       throw cause
     } finally {
       setPhase("idle")

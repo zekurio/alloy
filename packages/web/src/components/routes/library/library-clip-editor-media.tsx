@@ -245,7 +245,6 @@ export function ClipEditorStage({
             audioMixer={editorAudioMixer}
             onFrameReady={() => media.setCloudFrameReady(true)}
             onEnded={playback.handleEnded}
-            className="overflow-hidden rounded-md"
           />
         ) : (
           <ClipEditorPreviewPlaceholder media={media} />

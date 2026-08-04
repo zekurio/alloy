@@ -100,7 +100,7 @@ async function fetchRelease(requestedVersion) {
   const response = await fetch(endpoint, {
     headers: {
       Accept: "application/vnd.github+json",
-      "User-Agent": "alloy-recorder-obs-runtime-installer",
+      "User-Agent": "alloy-agent-obs-runtime-installer",
     },
   })
 
@@ -117,7 +117,7 @@ async function fetchRelease(requestedVersion) {
 async function downloadAsset(url, destination) {
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "alloy-recorder-obs-runtime-installer",
+      "User-Agent": "alloy-agent-obs-runtime-installer",
     },
   })
 

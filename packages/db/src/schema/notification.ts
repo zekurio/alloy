@@ -21,9 +21,7 @@ export const notification = pgTable(
     recipient_id: uuid()
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    actor_id: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    actor_id: uuid().references(() => user.id, { onDelete: "cascade" }),
     kind: text().$type<NotificationKind>().notNull(),
     clip_id: uuid().references(() => clip.id, { onDelete: "cascade" }),
     comment_id: uuid().references(() => clipComment.id, {
