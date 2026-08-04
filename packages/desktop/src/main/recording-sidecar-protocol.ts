@@ -6,17 +6,18 @@ import type {
 
 export interface SidecarConfig {
   settings: RecordingSettings
+  agentStateFolder: string
   outputFolder: string
   replayScratchFolder: string
   obsRuntimeDir: string | null
   discordDetectionCachePath: string | null
 }
 
+export const ALLOY_AGENT_PROTOCOL_VERSION = 1
+
 /**
- * Every method the sidecar answers. Kept as a value, not a bare union, so
- * `recording-sidecar-protocol.test.ts` can check it against the match arms in
- * `packages/recorder/src/sidecar_runtime.rs` - the recorder only compiles on
- * Windows, so that seam has no other cross-language guard.
+ * Every method the native agent answers. Kept as a value so the Rust and
+ * TypeScript protocol surfaces can be compared mechanically.
  */
 export const SIDECAR_METHODS = [
   "version",
@@ -48,8 +49,10 @@ export interface SidecarResponse {
   status?: RecordingStatus
 }
 
+export type SidecarEvent = RecordingEvent | { type: "clip-hotkey" }
+
 export interface SidecarEventEnvelope {
-  event: RecordingEvent
+  event: SidecarEvent
 }
 
 export interface RecordingSidecarVersion {
@@ -57,6 +60,21 @@ export interface RecordingSidecarVersion {
   version: string
   protocolVersion: number
   capabilities: string[]
+}
+
+export function assertCurrentAgentVersion(
+  version: RecordingSidecarVersion,
+): void {
+  if (
+    version.name === "alloy-agent" &&
+    version.protocolVersion === ALLOY_AGENT_PROTOCOL_VERSION
+  ) {
+    return
+  }
+
+  throw new Error(
+    `Incompatible Alloy agent ${version.name} protocol ${version.protocolVersion}; expected alloy-agent protocol ${ALLOY_AGENT_PROTOCOL_VERSION}.`,
+  )
 }
 
 export function isSidecarEventEnvelope(

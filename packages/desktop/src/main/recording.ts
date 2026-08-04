@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs"
+import { join } from "node:path"
 
 import type {
   RecordingActionResult,
@@ -23,6 +24,7 @@ import { setRecordingNotificationSoundPlayer } from "./recording-notification-so
 import {
   RecordingSidecarClient,
   type SidecarConfig,
+  type SidecarEvent,
 } from "./recording-sidecar-client"
 import { obsRuntimeDir, sidecarExecutablePath } from "./recording-sidecar-paths"
 import {
@@ -47,13 +49,15 @@ function sidecarMissingMessage(): string {
     )
   }
   return t(
-    "Recording capture sidecar is not built yet. Run pnpm --filter @alloy/recorder build.",
+    "Alloy's native agent is not built yet. Run pnpm --filter @alloy/recorder build.",
   )
 }
 
 type RecordingEventListener = (event: RecordingEvent) => void
+type RecordingClipHotkeyListener = () => void
 
 const recordingEventListeners = new Set<RecordingEventListener>()
+const recordingClipHotkeyListeners = new Set<RecordingClipHotkeyListener>()
 let sidecarClient: RecordingSidecarClient | null = null
 
 export {
@@ -81,7 +85,7 @@ export async function getRecordingStatus(): Promise<RecordingStatus> {
     return status
   } catch (cause) {
     const status = errorRecordingStatus(
-      errorText(cause, t("Recording sidecar failed.")),
+      errorText(cause, t("Alloy agent failed.")),
     )
     rememberRecordingStatus(status)
     return status
@@ -119,6 +123,14 @@ export function onRecordingEvent(listener: RecordingEventListener): () => void {
   return () => recordingEventListeners.delete(listener)
 }
 
+/** Native agent hotkeys stay inside the desktop shell, never the web app. */
+export function onRecordingClipHotkey(
+  listener: RecordingClipHotkeyListener,
+): () => void {
+  recordingClipHotkeyListeners.add(listener)
+  return () => recordingClipHotkeyListeners.delete(listener)
+}
+
 export function emitRecordingSettingsEvent(): void {
   emitRecordingEvent({ type: "settings", settings: getRecordingSettings() })
 }
@@ -135,7 +147,7 @@ export function emitRecordingLibraryDownloadEvent(
 }
 
 /**
- * Push the current settings to the sidecar. This is the only path that
+ * Push the current settings to the agent. This is the only path that
  * reconfigures it: call it at startup and whenever settings change. Status
  * reads and recording actions rely on the config already being pushed.
  */
@@ -160,7 +172,7 @@ export async function configureRecordingBackend(): Promise<RecordingStatus> {
     return status
   } catch (cause) {
     const status = errorRecordingStatus(
-      errorText(cause, t("Recording sidecar failed.")),
+      errorText(cause, t("Alloy agent failed.")),
     )
     rememberRecordingStatus(status)
     emitRecordingStatusEvent(status)
@@ -222,7 +234,7 @@ export async function stopRecordingBackendForInstall(): Promise<boolean> {
 export async function restartRecordingBackend(): Promise<RecordingStatus> {
   const stopped = await shutdownRecordingBackend()
   if (!stopped) {
-    logger.warn("previous sidecar may still be exiting; spawning a new one")
+    logger.warn("previous Alloy agent may still be exiting; spawning a new one")
   }
   return configureRecordingBackend()
 }
@@ -251,7 +263,7 @@ async function runRecordingAction(
     rememberRecordingLibraryCapture(capture)
     return { ...result, status, capture }
   } catch (cause) {
-    const message = errorText(cause, t("Recording sidecar failed."))
+    const message = errorText(cause, t("Alloy agent failed."))
     const status = errorRecordingStatus(message)
     rememberRecordingStatus(status)
     return {
@@ -266,6 +278,7 @@ function currentSidecarConfig(): SidecarConfig {
   const settings = getRecordingSettings()
   return {
     settings,
+    agentStateFolder: join(app.getPath("userData"), "agent"),
     outputFolder: currentOutputFolder(),
     replayScratchFolder: defaultReplayScratchFolder(),
     obsRuntimeDir: obsRuntimeDir(),
@@ -327,7 +340,12 @@ function unavailableRecordingAction(
   }
 }
 
-function emitRecordingEvent(event: RecordingEvent): void {
+function emitRecordingEvent(event: SidecarEvent): void {
+  if (event.type === "clip-hotkey") {
+    for (const listener of recordingClipHotkeyListeners) listener()
+    return
+  }
+
   if (event.type === "telemetry") {
     logRecordingTelemetry(event.telemetry)
   } else if (event.type === "capture-ready" && event.status.telemetry) {

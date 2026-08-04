@@ -1,3 +1,7 @@
+import {
+  CLIP_MEDIA_BACKGROUND_CLASS,
+  CLIP_MEDIA_ROUNDED_CLASS,
+} from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
 import type { CSSProperties, ReactNode } from "react"
 
@@ -28,7 +32,9 @@ export function MediaStage({
   return (
     <div
       className={cn(
-        "relative flex w-full items-center justify-center overflow-hidden",
+        "relative flex w-full items-center justify-center",
+        CLIP_MEDIA_BACKGROUND_CLASS,
+        CLIP_MEDIA_ROUNDED_CLASS,
         // A capped frame sizes the stage; otherwise the stage reserves the
         // media box up front so the poster doesn't shift the page on load.
         maxHeight ? "min-h-0" : "aspect-video",

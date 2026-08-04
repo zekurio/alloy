@@ -13,7 +13,7 @@ import type {
   PublishClipResult,
 } from "@/components/upload/upload-flow-context"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
-import { desktopSupports, type AlloyDesktop } from "@/lib/desktop"
+import type { AlloyDesktop } from "@/lib/desktop"
 
 import type { LibraryItemView } from "./library-data"
 
@@ -82,17 +82,16 @@ async function prepareCapturePublishPayload(
   })
   const selected = await prepareSelectedClipFile(file)
   throwIfAborted(signal)
-  const scrubber =
-    !input.trimmed && desktopSupports("recording.getLibraryCaptureScrubber")
-      ? await input.desktop.recording
-          .getLibraryCaptureScrubber(input.item.id)
-          .then((bytes) =>
-            bytes
-              ? new Blob([bytes.slice().buffer], { type: "image/jpeg" })
-              : undefined,
-          )
-          .catch(() => undefined)
-      : undefined
+  const scrubber = !input.trimmed
+    ? await input.desktop.recording
+        .getLibraryCaptureScrubber(input.item.id)
+        .then((bytes) =>
+          bytes
+            ? new Blob([bytes.slice().buffer], { type: "image/jpeg" })
+            : undefined,
+        )
+        .catch(() => undefined)
+    : undefined
   const audioTracks = input.item.audioTracks
     ?.toSorted((left, right) => left.index - right.index)
     .flatMap((track) => {
@@ -117,11 +116,11 @@ async function prepareCapturePublishPayload(
     ...(audioTracks && audioTracks.length > 0 ? { audioTracks } : {}),
     mentionedUserIds: input.mentions.map((mention) => mention.id),
     localCaptureId: input.item.id,
-    // Bridge v2 exports report the keyframe-snap offset; sending the exact
+    // Exports report the keyframe-snap offset; sending the exact
     // file-relative range lets the server cut the requested frames out of
     // the slightly longer packet-copy file. Full-range publishes send none.
     // Rounded at this boundary because the initiate schema requires integers.
-    ...(input.trimmed && desktopSupports("recording.setLibraryCaptureTrim")
+    ...(input.trimmed
       ? {
           trimStartMs: Math.round(exported.startOffsetMs),
           trimEndMs: Math.round(

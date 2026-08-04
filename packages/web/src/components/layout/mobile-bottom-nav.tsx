@@ -5,7 +5,7 @@ import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { NotificationBell } from "@/components/notifications/notification-bell"
-import { GlobalUploadControl } from "@/components/upload/global-upload-control"
+import { UploadCenter } from "@/components/upload/upload-center"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { useNavFlags } from "./use-nav-flags"
@@ -48,7 +48,7 @@ export function MobileBottomNav() {
         />
         {session ? (
           <div className="flex items-center justify-center">
-            <GlobalUploadControl variant="bottom-nav" />
+            <UploadCenter variant="bottom-nav" />
           </div>
         ) : null}
         {session ? <NotificationBell variant="bottom-nav" /> : null}

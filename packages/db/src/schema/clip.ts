@@ -58,8 +58,8 @@ export const clip = pgTable(
     source_video_codec: text(),
     source_audio_codec: text(),
     // RFC 6381 codec parameter string of the stored source (e.g.
-    // "avc1.64002a,mp4a.40.2") for canPlayType negotiation; null = not
-    // probed yet (legacy rows, backfilled lazily).
+    // "avc1.64002a,mp4a.40.2") for canPlayType negotiation; null while the
+    // pending upload has not been probed.
     source_codecs: text(),
     source_size_bytes: bigint({ mode: "number" }),
     // Full duration of the stored source; `duration_ms` stays the effective
@@ -96,15 +96,12 @@ export const clip = pgTable(
     trim_end_ms: integer(),
     // Storage key of the derived cut for trimmed clips; null = untrimmed.
     cut_key: text(),
-    // RFC 6381 codec string of the committed cut. Null for legacy
-    // stream-copy cuts, which carry the source codecs; exact-cut commits
-    // always write it.
+    // RFC 6381 codec string of the committed cut; null for untrimmed clips.
     cut_codecs: text(),
 
     status: text().$type<ClipStatus>().notNull().default("pending"),
-    // Fingerprint of the media pipeline that committed the current renditions
-    // (null = legacy/pre-fingerprint). The rendition backfill re-encodes clips
-    // whose value differs from the running pipeline's.
+    // Media pipeline version that committed the current renditions; null until
+    // the first media run commits.
     encode_pipeline: text(),
     // Canonical desired-state JSON stamped by commitReady; null = never
     // verified under the fingerprint model.
@@ -177,7 +174,7 @@ export const clip = pgTable(
 // One row per encoded quality tier of a clip. Renditions are progressive
 // MP4s (faststart) served via range requests. Rows for a clip are replaced
 // atomically when a media run commits, so a clip either has its full ladder
-// or none (legacy/pre-backfill).
+// or none while processing.
 export const clipRendition = pgTable(
   "clip_rendition",
   {

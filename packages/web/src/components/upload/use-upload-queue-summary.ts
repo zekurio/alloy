@@ -7,8 +7,7 @@ import { isCompletedQueueStatus, type QueueItem } from "./upload-queue-types"
 export interface UploadQueueSummary {
   /**
    * Active + failed rows worth surfacing. Completed rows are dropped, and so
-   * are server-side encode ("processing") rows: their progress belongs to the
-   * library view, not the header.
+   * the center remains focused on work that still needs attention.
    */
   items: QueueItem[]
   activeCount: number
@@ -22,15 +21,14 @@ export interface UploadQueueSummary {
 
 /**
  * Collapses the app-wide upload/download queue into the compact shape the
- * global status pill needs. Returns null when nothing is in flight so the
- * pill can render nothing.
+ * upload center needs. Returns null when nothing is in flight so the center
+ * can render its empty state.
  */
 export function useUploadQueueSummary(): UploadQueueSummary | null {
   const { queue } = useUploadQueue()
   return useMemo(() => {
     const relevant = queue.filter(
-      (item) =>
-        !isCompletedQueueStatus(item.status) && item.phase !== "processing",
+      (item) => !isCompletedQueueStatus(item.status),
     )
     if (relevant.length === 0) return null
 
@@ -63,6 +61,9 @@ export function useUploadQueueSummary(): UploadQueueSummary | null {
 function pillLabel(active: QueueItem[], failedCount: number): string {
   if (active.length === 0) return t("{count} failed", { count: failedCount })
   if (active.some((item) => item.phase === "upload")) return t("Uploading…")
+  if (active.some((item) => item.phase === "processing")) {
+    return t("Processing…")
+  }
   if (active.some((item) => item.phase === "download")) return t("Downloading")
   return t("Uploading…")
 }

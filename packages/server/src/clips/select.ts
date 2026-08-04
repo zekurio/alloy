@@ -38,6 +38,7 @@ export const clipSelectShape = {
   sourceSizeBytes: clip.source_size_bytes,
   sourceDurationMs: clip.source_duration_ms,
   cutKey: clip.cut_key,
+  cutCodecs: clip.cut_codecs,
   durationMs: clip.duration_ms,
   width: clip.width,
   height: clip.height,
@@ -129,6 +130,7 @@ export function toPublicClipRow<
     sourceSizeBytes: number | null
     sourceDurationMs?: number | null
     cutKey?: string | null
+    cutCodecs?: string | null
     durationMs: number | null
     width: number | null
     height: number | null
@@ -160,6 +162,7 @@ export function toPublicClipRow<
   const {
     sourceKey: _sourceKey,
     cutKey: _cutKey,
+    cutCodecs: _cutCodecs,
     gameRef,
     audioTrackRows,
     renditionRows,

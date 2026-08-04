@@ -4,6 +4,8 @@ import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
+import { gameDisplayName } from "@/lib/game-display-name"
+
 import { GameLogo } from "./game-logo"
 
 export type GameCardData = {
@@ -26,7 +28,7 @@ type GameCardProps = {
   className?: string
 }
 
-function GameCardBody({ game }: { game: GameCardData }) {
+function GameCardBody({ game, name }: { game: GameCardData; name: string }) {
   const [heroFailed, setHeroFailed] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
   const heroSrc = game.heroUrl && !heroFailed ? game.heroUrl : null
@@ -57,7 +59,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
         {logoSrc ? (
           <GameLogo
             src={logoSrc}
-            name={game.name}
+            name={name}
             variant="card"
             loading="lazy"
             onError={() => setLogoFailed(true)}
@@ -69,7 +71,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
               "line-clamp-2 drop-shadow-[0_2px_12px_oklch(0_0_0_/_0.65)] sm:text-xl",
             )}
           >
-            {game.name}
+            {name}
           </span>
         )}
       </div>
@@ -78,6 +80,7 @@ function GameCardBody({ game }: { game: GameCardData }) {
 }
 
 export function GameCard({ game, link, className }: GameCardProps) {
+  const name = gameDisplayName(game)
   const surface = cn(
     "group/game-card relative block aspect-[16/5] overflow-hidden rounded-lg",
     "bg-neutral-900",
@@ -91,10 +94,10 @@ export function GameCard({ game, link, className }: GameCardProps) {
       <Link
         to="/games/$gameId"
         params={{ gameId: link.slug }}
-        aria-label={game.name}
+        aria-label={name}
         className={surface}
       >
-        <GameCardBody game={game} />
+        <GameCardBody game={game} name={name} />
       </Link>
     )
   }
@@ -105,17 +108,17 @@ export function GameCard({ game, link, className }: GameCardProps) {
         to="/u/$username/all"
         params={{ username: link.username }}
         search={{ game: link.slug }}
-        aria-label={t("Show clips for {game}", { game: game.name })}
+        aria-label={t("Show clips for {game}", { game: name })}
         className={surface}
       >
-        <GameCardBody game={game} />
+        <GameCardBody game={game} name={name} />
       </Link>
     )
   }
 
   return (
-    <article className={surface} aria-label={game.name}>
-      <GameCardBody game={game} />
+    <article className={surface} aria-label={name}>
+      <GameCardBody game={game} name={name} />
     </article>
   )
 }

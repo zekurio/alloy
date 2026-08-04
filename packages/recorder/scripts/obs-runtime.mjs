@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url"
 
 export const recorderDir = fileURLToPath(new URL("../", import.meta.url))
 export const distDir = join(recorderDir, "dist")
-export const sidecarResourcesDir = join(distDir, "sidecar")
+export const agentResourcesDir = join(distDir, "agent")
 export const obsResourcesDir = join(distDir, "obs-runtime")
 
 const obsHelperExecutables = [
@@ -46,7 +46,7 @@ export function stageObsHelpers() {
   for (const helper of obsHelperExecutables) {
     const helperPath = join(obsResourcesDir, "bin", "64bit", helper)
     if (existsSync(helperPath)) {
-      copyFileIfChanged(helperPath, join(sidecarResourcesDir, helper))
+      copyFileIfChanged(helperPath, join(agentResourcesDir, helper))
     }
   }
 }

@@ -38,6 +38,9 @@ pnpm db:migrate
 pnpm db:studio
 ```
 
+Alloy 1.0 requires a fresh database created from its single baseline
+migration. Server startup rejects a 1.x Drizzle migration history.
+
 ## Local Development
 
 Use a devenv shell, which runs its own Postgres on a random free localhost port

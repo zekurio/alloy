@@ -2,6 +2,11 @@ import type { EncodeStage } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
+import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
+import {
+  CLIP_MEDIA_CLASS,
+  CLIP_MEDIA_VIEWPORT_CLASS,
+} from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
 import { Progress } from "@base-ui/react/progress"
 import { CopyIcon, ExternalLinkIcon, RefreshCwIcon, XIcon } from "lucide-react"
@@ -52,12 +57,14 @@ export function QueueProgressBar({
   showPercent = false,
   className,
   label,
+  indicatorClassName,
 }: {
   value: number
   indeterminate?: boolean
   showPercent?: boolean
   className?: string
   label?: string
+  indicatorClassName?: string
 }) {
   const clamped = Math.max(0, Math.min(100, Math.round(value)))
   return (
@@ -66,11 +73,21 @@ export function QueueProgressBar({
       aria-label={label}
       className={cn("flex min-w-0 items-center gap-2", className)}
     >
-      <Progress.Track className="relative h-[3px] min-w-0 flex-1 overflow-hidden rounded-full bg-white/10">
+      <Progress.Track className="bg-foreground/10 relative h-[3px] min-w-0 flex-1 overflow-hidden rounded-full">
         {indeterminate ? (
-          <span className="animate-indeterminate bg-accent absolute inset-y-0 left-0 w-1/3 rounded-full" />
+          <span
+            className={cn(
+              "animate-indeterminate bg-accent absolute inset-y-0 left-0 w-1/3 rounded-full",
+              indicatorClassName,
+            )}
+          />
         ) : (
-          <Progress.Indicator className="bg-accent h-full rounded-full transition-all duration-300 ease-out" />
+          <Progress.Indicator
+            className={cn(
+              "bg-accent h-full rounded-full transition-all duration-300 ease-out",
+              indicatorClassName,
+            )}
+          />
         )}
       </Progress.Track>
       {showPercent && !indeterminate ? (
@@ -91,50 +108,83 @@ export function QueueItemRow({ item }: { item: QueueItem }) {
   const done = isCompletedQueueStatus(item.status)
   const inProgress = !failed && !done
   const showBar = inProgress && item.showProgress !== false
+  const tone = queueItemTone(item)
   return (
-    <div className="flex items-center gap-3">
-      <QueueThumb item={item} />
-      <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <div className="text-foreground truncate text-sm leading-tight font-medium">
-          {item.title}
-        </div>
-        {item.label ? (
-          <div
-            className={cn(
-              "truncate text-xs leading-tight",
-              failed ? "text-destructive" : "text-foreground-muted",
-            )}
-          >
-            {item.label}
+    <article className="group/row border-border hover:bg-surface-raised/60 relative flex flex-col gap-2 rounded-md border-b px-2 py-2.5 transition-colors last:border-b-0">
+      <div className="flex items-center gap-3">
+        <QueueThumb item={item} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5 pr-9">
+          <div className="text-foreground truncate text-sm leading-tight font-semibold tracking-[var(--tracking-tight)]">
+            {item.title}
           </div>
-        ) : null}
-        {showBar ? (
-          <QueueProgressBar
-            value={item.progress}
-            indeterminate={item.indeterminate}
-            showPercent={!item.indeterminate}
-            label={item.label ?? item.title}
-          />
-        ) : null}
+          {item.label ? (
+            <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
+              <span className={cn("truncate uppercase", tone.label)}>
+                {item.label}
+              </span>
+              {showBar && !item.indeterminate ? (
+                <span
+                  className={cn(
+                    "shrink-0 font-semibold tabular-nums",
+                    tone.label,
+                  )}
+                >
+                  {Math.round(item.progress)}%
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+          {failed && item.detail ? (
+            <div className="text-destructive/90 line-clamp-2 text-xs leading-snug font-medium">
+              {item.detail}
+            </div>
+          ) : null}
+        </div>
+        <div className="bg-surface-raised/95 border-border ring-border absolute top-1.5 right-1.5 flex shrink-0 items-center gap-0.5 rounded-md p-0.5 shadow-[0_4px_12px_-4px_rgb(0_0_0_/_0.35)] ring-1">
+          <QueueItemActions item={item} />
+        </div>
       </div>
-      <QueueItemActions item={item} />
-    </div>
+      {showBar ? (
+        <QueueProgressBar
+          value={item.progress}
+          indeterminate={item.indeterminate}
+          label={item.label ?? item.title}
+          indicatorClassName={tone.bar}
+        />
+      ) : null}
+    </article>
   )
+}
+
+function queueItemTone(item: QueueItem) {
+  if (item.status === "failed") {
+    return { label: "text-destructive", bar: "bg-destructive" }
+  }
+  if (item.phase === "processing") {
+    return { label: "text-warning", bar: "bg-warning" }
+  }
+  if (isCompletedQueueStatus(item.status)) {
+    return { label: "text-success", bar: "bg-success" }
+  }
+  return { label: "text-accent", bar: "bg-accent" }
 }
 
 function QueueThumb({ item }: { item: QueueItem }) {
   const thumb = item.thumbUrl ?? item.thumbFallbackUrl ?? null
   return (
     <div
-      className="bg-surface-raised h-8 w-[3.25rem] shrink-0 overflow-hidden rounded"
-      style={{ backgroundColor: `hsl(${item.hue} 32% 22%)` }}
+      className={cn(
+        CLIP_MEDIA_VIEWPORT_CLASS,
+        "h-10 w-[calc(2.5rem*16/9)] shrink-0 rounded-sm",
+      )}
     >
+      <MediaPlaceholder seed={item.hue} blurHash={item.thumbBlurHash} />
       {thumb ? (
         <img
           src={thumb}
           alt=""
           aria-hidden
-          className="h-full w-full object-cover"
+          className={CLIP_MEDIA_CLASS}
           onLoad={item.onThumbLoad}
         />
       ) : null}
@@ -145,7 +195,7 @@ function QueueThumb({ item }: { item: QueueItem }) {
 function QueueItemActions({ item }: { item: QueueItem }) {
   const failed = item.status === "failed"
   return (
-    <div className="flex shrink-0 items-center gap-0.5">
+    <>
       {item.onOpen ? (
         <QueueIconButton label={t("Open")} onClick={item.onOpen}>
           <ExternalLinkIcon />
@@ -167,7 +217,7 @@ function QueueItemActions({ item }: { item: QueueItem }) {
           <XIcon />
         </QueueIconButton>
       ) : null}
-    </div>
+    </>
   )
 }
 

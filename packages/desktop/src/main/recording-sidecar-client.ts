@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process"
 import { basename } from "node:path"
 import { createInterface, type Interface } from "node:readline"
 
-import type { RecordingEvent, RecordingStatus } from "@alloy/contracts"
+import type { RecordingStatus } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
@@ -14,15 +14,17 @@ import {
   sidecarExitMessage,
 } from "./recording-sidecar-process"
 import {
+  assertCurrentAgentVersion,
   isSidecarEventEnvelope,
   isSidecarResponse,
   type RecordingSidecarVersion,
   type SidecarConfig,
+  type SidecarEvent,
   type SidecarMethod,
   type SidecarRequest,
 } from "./recording-sidecar-protocol"
 
-export type { RecordingSidecarVersion, SidecarConfig }
+export type { RecordingSidecarVersion, SidecarConfig, SidecarEvent }
 
 const logger = createLogger("sidecar")
 
@@ -37,7 +39,7 @@ interface RecordingSidecarClientOptions {
   initialStatus: RecordingStatus
   /** Source of truth for the sidecar config, owned by the desktop shell. */
   config: () => SidecarConfig
-  emitEvent: (event: RecordingEvent) => void
+  emitEvent: (event: SidecarEvent) => void
 }
 
 const SIDECAR_TIMEOUT_MS = 20_000
@@ -56,7 +58,7 @@ const MAX_CONSECUTIVE_RESPAWNS = 5
 export class RecordingSidecarClient {
   private readonly executable: string
   private readonly config: () => SidecarConfig
-  private readonly emitEvent: (event: RecordingEvent) => void
+  private readonly emitEvent: (event: SidecarEvent) => void
   private readonly pending = new Map<number, PendingRequest>()
   private readonly configureQueue: SidecarConfigureQueue
   private child: ChildProcessWithoutNullStreams | null = null
@@ -67,6 +69,7 @@ export class RecordingSidecarClient {
   private respawnTimer: ReturnType<typeof setTimeout> | null = null
   private consecutiveRespawns = 0
   private spawnedAt = 0
+  private ready: Promise<void> | null = null
 
   constructor(executable: string, options: RecordingSidecarClientOptions) {
     this.executable = executable
@@ -75,7 +78,7 @@ export class RecordingSidecarClient {
     this.lastStatus = options.initialStatus
     this.configureQueue = new SidecarConfigureQueue({
       request: (method, params) =>
-        this.request<RecordingStatus>(method, params),
+        this.requestRaw<RecordingStatus>(method, params),
       isShutdown: () => this.shutdownRequested,
     })
   }
@@ -86,6 +89,7 @@ export class RecordingSidecarClient {
    */
   async configure(config: SidecarConfig): Promise<RecordingStatus> {
     this.ensureProcess()
+    await this.ready
     return this.configureQueue.configure(config)
   }
 
@@ -95,8 +99,13 @@ export class RecordingSidecarClient {
 
   async request<T>(method: SidecarMethod, params?: unknown): Promise<T> {
     this.ensureProcess()
+    await this.ready
+    return this.requestRaw<T>(method, params)
+  }
+
+  private requestRaw<T>(method: SidecarMethod, params?: unknown): Promise<T> {
     const child = this.child
-    if (!child) throw new Error("Recording sidecar is not available.")
+    if (!child) throw new Error("Alloy agent is not available.")
 
     const id = this.nextId++
     const request: SidecarRequest = {
@@ -108,7 +117,7 @@ export class RecordingSidecarClient {
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id)
-        reject(new Error(`Recording sidecar timed out during ${method}.`))
+        reject(new Error(`Alloy agent timed out during ${method}.`))
       }, SIDECAR_TIMEOUT_MS)
 
       this.pending.set(id, {
@@ -166,9 +175,10 @@ export class RecordingSidecarClient {
       (await settledWithin(exited, SIDECAR_FORCED_EXIT_TIMEOUT_MS))
 
     this.child = null
+    this.ready = null
     this.reader?.close()
     this.reader = null
-    const error = new Error("Recording sidecar was shut down.")
+    const error = new Error("Alloy agent was shut down.")
     this.rejectPending(error)
     this.configureQueue.rejectQueuedConfigure(error)
     return exitedAfterKill
@@ -202,18 +212,26 @@ export class RecordingSidecarClient {
         logger.warn(`${basename(this.executable)}: ${message}`)
     })
     child.on("error", (cause) =>
-      this.handleExit(errorText(cause, t("Recording sidecar failed."))),
+      this.handleExit(errorText(cause, t("Alloy agent failed."))),
     )
     child.on("exit", (code, signal) => {
       if (this.shutdownRequested) return
       this.handleExit(sidecarExitMessage(code, signal))
     })
 
-    // A fresh process knows nothing: push the current config before any
-    // queued request reaches it (stdin order guarantees this runs first).
-    void this.configureQueue.configure(config).catch((cause: unknown) => {
-      logger.warn("recording sidecar startup configure failed:", cause)
+    // The 1.0 baseline is strict: validate the binary before configuration
+    // or work. Every public request awaits this same handshake.
+    this.ready = this.startAgent(config)
+    void this.ready.catch((cause: unknown) => {
+      logger.warn("Alloy agent startup handshake failed:", cause)
     })
+  }
+
+  private async startAgent(config: SidecarConfig): Promise<void> {
+    assertCurrentAgentVersion(
+      await this.requestRaw<RecordingSidecarVersion>("version"),
+    )
+    await this.configureQueue.configure(config)
   }
 
   private handleLine(line: string) {
@@ -226,7 +244,7 @@ export class RecordingSidecarClient {
     try {
       parsed = JSON.parse(line)
     } catch (cause) {
-      logger.warn("invalid recording sidecar JSON:", cause)
+      logger.warn("invalid Alloy agent JSON:", cause)
       return
     }
 
@@ -237,7 +255,7 @@ export class RecordingSidecarClient {
     }
 
     if (!isSidecarResponse(parsed)) {
-      logger.warn("unknown recording sidecar message:", parsed)
+      logger.warn("unknown Alloy agent message:", parsed)
       return
     }
 
@@ -252,9 +270,7 @@ export class RecordingSidecarClient {
 
     if (!parsed.ok) {
       pending.reject(
-        new Error(
-          parsed.error ?? `Recording sidecar ${pending.method} failed.`,
-        ),
+        new Error(parsed.error ?? `Alloy agent ${pending.method} failed.`),
       )
       return
     }
@@ -262,13 +278,14 @@ export class RecordingSidecarClient {
     pending.resolve(parsed.result)
   }
 
-  private applyEvent(event: RecordingEvent) {
+  private applyEvent(event: SidecarEvent) {
     if ("status" in event) this.lastStatus = event.status
   }
 
   private handleExit(message: string) {
-    logger.warn("recording sidecar stopped:", message)
+    logger.warn("Alloy agent stopped:", message)
     this.child = null
+    this.ready = null
     this.reader?.close()
     this.reader = null
     const error = new Error(message)
@@ -286,21 +303,19 @@ export class RecordingSidecarClient {
    */
   private scheduleRespawn() {
     if (this.shutdownRequested || this.respawnTimer) return
-    if (!this.config().settings.enabled) return
-
     this.consecutiveRespawns =
       Date.now() - this.spawnedAt >= RESPAWN_STREAK_RESET_MS
         ? 1
         : this.consecutiveRespawns + 1
     if (this.consecutiveRespawns > MAX_CONSECUTIVE_RESPAWNS) {
-      logger.warn("recording sidecar keeps crashing; not restarting it again")
+      logger.warn("Alloy agent keeps crashing; not restarting it again")
       return
     }
 
     this.respawnTimer = setTimeout(() => {
       this.respawnTimer = null
       if (this.shutdownRequested || this.child) return
-      logger.info("restarting recording sidecar")
+      logger.info("restarting Alloy agent")
       this.ensureProcess()
     }, RESPAWN_DELAY_MS)
     this.respawnTimer.unref?.()

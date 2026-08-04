@@ -171,7 +171,6 @@ function WebUploadEditorInner({
                 onTimeUpdate={playback.handleTimeUpdate}
                 onPlayingChange={playback.setPlaying}
                 onEnded={playback.handleEnded}
-                className="overflow-hidden rounded-md"
               />
             </MediaStage>
 

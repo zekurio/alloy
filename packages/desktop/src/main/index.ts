@@ -20,7 +20,6 @@ import {
   unregisterRecordingHotkeys,
 } from "./recording-hotkeys"
 import {
-  cleanupLegacyFilmstripCache,
   recordingLibraryProtocolScheme,
   registerRecordingLibraryProtocol,
 } from "./recording-library"
@@ -37,13 +36,10 @@ const logger = createLogger("main")
 
 app.setName("Alloy")
 setRuntimeLocale(detectLocale([app.getLocale()]))
-const appPathWarnings = configureAppPaths()
+configureAppPaths()
 installFileLogSink()
 installCrashLogging()
 logger.info(`Alloy Desktop ${app.getVersion()} starting`)
-// Path migration runs before the log sink exists; surface its findings now
-// so blocked migrations are diagnosable from bug-report logs.
-for (const warning of appPathWarnings) logger.warn(warning)
 // Privileged schemes must all be declared in this single pre-ready call.
 protocol.registerSchemesAsPrivileged([
   recordingLibraryProtocolScheme(),
@@ -155,9 +151,6 @@ async function showOrOpenInitialWindow(windows: Windows): Promise<void> {
 
 function scheduleBackgroundStartup(): void {
   const timer = setTimeout(() => {
-    runBackgroundStartupTask("legacy filmstrip cleanup", () => {
-      cleanupLegacyFilmstripCache()
-    })
     runBackgroundStartupTask("Discord detection refresh", () => {
       startRecordingDiscordDetectionsRefresh()
     })
@@ -169,11 +162,9 @@ function scheduleBackgroundStartup(): void {
     runBackgroundStartupTask("recording hotkeys", () => {
       configureRecordingHotkeys(recordingSettings)
     })
-    if (recordingSettings.enabled) {
-      void configureRecordingBackend().catch((cause: unknown) => {
-        logger.warn("recording backend startup failed:", cause)
-      })
-    }
+    void configureRecordingBackend().catch((cause: unknown) => {
+      logger.warn("Alloy agent startup failed:", cause)
+    })
   }, BACKGROUND_STARTUP_DELAY_MS)
   timer.unref?.()
 }

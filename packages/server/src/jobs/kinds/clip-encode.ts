@@ -7,7 +7,10 @@ import {
   encodeFingerprint,
   type FingerprintSourceFacts,
 } from "@alloy/server/media/encode-fingerprint"
-import { createStoredClipMentionNotifications } from "@alloy/server/notifications/service"
+import {
+  createClipProcessingFailedNotification,
+  createStoredClipMentionNotifications,
+} from "@alloy/server/notifications/service"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import { dispatchClipPublished } from "@alloy/server/webhooks/publish"
 import { and, eq, isNull, sql } from "drizzle-orm"
@@ -234,6 +237,10 @@ async function handleClipEncodeFailed(
     runId,
     reason,
     failedFingerprint(await selectFailedClipFacts(payload.clipId)),
+  )
+  await createClipProcessingFailedNotification(payload.clipId, runId).catch(
+    (notificationError) =>
+      logger.error("processing failure notification failed", notificationError),
   )
 }
 

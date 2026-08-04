@@ -92,6 +92,11 @@ export interface GameListRow extends GameRow {
   clipCount: number
 }
 
+/** Synthetic game collection containing public clips without a game id. */
+export const UNCATEGORISED_GAME_ID = "00000000-0000-4000-8000-000000000000"
+export const UNCATEGORISED_GAME_SLUG = "uncategorised"
+export const UNCATEGORISED_GAME_NAME = "Uncategorised"
+
 export interface ProfileGameRow extends GameListRow {
   lastClippedAt: IsoDateString
 }

@@ -50,9 +50,9 @@ export function sidecarExitMessage(
   code: number | null,
   signal: NodeJS.Signals | null,
 ): string {
-  if (signal) return `Recording sidecar exited from ${signal}.`
-  if (code === null) return t("Recording sidecar exited.")
-  return `Recording sidecar exited with code ${code}.`
+  if (signal) return `Alloy agent exited from ${signal}.`
+  if (code === null) return t("Alloy agent exited.")
+  return `Alloy agent exited with code ${code}.`
 }
 
 function prependEnvPath(

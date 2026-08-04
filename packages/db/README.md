@@ -36,6 +36,12 @@ pnpm db:studio
 
 The root `db:*` scripts delegate to this package.
 
+## Alloy 1.0 baseline
+
+The migration directory contains one fresh 1.0 baseline. Databases created
+from the 1.x migration history are deliberately rejected by the runtime
+migrator; provision a new database instead of attempting an in-place upgrade.
+
 ## Local Database
 
 Use a devenv shell, which runs its own Postgres and exports `DATABASE_URL`, or

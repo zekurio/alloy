@@ -14,6 +14,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Benachrichtigungen konnten nicht als gelesen markiert werden",
   "Couldn't mark notification as read":
     "Benachrichtigung konnte nicht als gelesen markiert werden",
+  "Couldn't remove notification":
+    "Benachrichtigung konnte nicht entfernt werden",
   "Changes saved.": "Änderungen gespeichert.",
   "Color palette used while Alloy is dark.":
     "Farbpalette für den dunklen Alloy-Modus.",
@@ -63,6 +65,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "New reply": "Neue Antwort",
   "No captures here": "Keine Aufnahmen hier",
   "No notifications yet": "Noch keine Benachrichtigungen",
+  "Activity and upload failures appear here.":
+    "Aktivitäten und fehlgeschlagene Uploads erscheinen hier.",
   "Nothing found for {query}. Try a different title, game, file, or user.":
     "Keine Treffer für {query}. Probiere einen anderen Titel, ein anderes Spiel, eine andere Datei oder einen anderen Nutzer.",
   Objects: "Objekte",
@@ -71,6 +75,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Wähle ein anderes Spiel oder füge eine Aufnahme hinzu.",
   "Open clip: {title}": "Clip öffnen: {title}",
   "Recently used": "Zuletzt verwendet",
+  "Remove notification": "Benachrichtigung entfernen",
   "Reconnecting…": "Verbindung wird wiederhergestellt…",
   SteamGridDB: "SteamGridDB",
   "Square app tile": "Quadratische App-Kachel",
@@ -80,6 +85,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Wide page header": "Breiter Seitenkopf",
   "Vertical box art": "Vertikales Box-Artwork",
   Uploaded: "Hochgeladen",
+  Unread: "Ungelesen",
   "Try a different search or filter.":
     "Probier eine andere Suche oder einen anderen Filter.",
   "Try again": "Erneut versuchen",
@@ -405,8 +411,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't rename passkey": "Passkey konnte nicht umbenannt werden",
   "Couldn't restart to update.":
     "Neustart zum Aktualisieren ist fehlgeschlagen.",
-  "Couldn't restart recording sidecar.":
-    "Aufnahme-Sidecar konnte nicht neu gestartet werden.",
+  "Couldn't restart Alloy agent.":
+    "Der Alloy-Agent konnte nicht neu gestartet werden.",
   "Couldn't read that file": "Diese Datei konnte nicht gelesen werden",
   "Couldn't save": "Konnte nicht gespeichert werden",
   "Couldn't save appearance settings":
@@ -844,16 +850,15 @@ export const DE_MESSAGES: Record<string, string> = {
   recently: "kürzlich",
   "Record individual playback and capture devices, or per-application audio streams.":
     "Nimm einzelne Wiedergabe- und Aufnahmegeräte oder Audiostreams pro App auf.",
-  "Recording capture sidecar is not built yet. Run pnpm --filter @alloy/recorder build.":
-    "Das Aufnahme-Sidecar ist noch nicht gebaut. Führe pnpm --filter @alloy/recorder build aus.",
+  "Alloy's native agent is not built yet. Run pnpm --filter @alloy/recorder build.":
+    "Alloys nativer Agent ist noch nicht gebaut. Führe pnpm --filter @alloy/recorder build aus.",
   "Recording is unavailable because the capture component is missing. Try reinstalling Alloy.":
     "Die Aufnahme ist nicht verfügbar, weil die Aufnahmekomponente fehlt. Versuch, Alloy neu zu installieren.",
   "Recording library scan failed.":
     "Der Scan der Aufnahmebibliothek ist fehlgeschlagen.",
-  "Recording sidecar exited.": "Aufnahme-Sidecar beendet.",
-  "Recording sidecar failed.": "Aufnahme-Sidecar fehlgeschlagen.",
-  "Recording sidecar": "Aufnahme-Sidecar",
-  "Recording sidecar restarted.": "Aufnahme-Sidecar neu gestartet.",
+  "Alloy agent exited.": "Alloy-Agent beendet.",
+  "Alloy agent failed.": "Alloy-Agent fehlgeschlagen.",
+  "Alloy agent": "Alloy-Agent",
   "Redirecting…": "Weiterleitung…",
   Refresh: "Aktualisieren",
   "Refresh processes": "Prozesse aktualisieren",
@@ -1093,16 +1098,27 @@ export const DE_MESSAGES: Record<string, string> = {
   Paused: "Pausiert",
   Preview: "Vorschau",
   Processing: "Wird verarbeitet",
+  "Processing…": "Wird verarbeitet…",
+  "Processing failed": "Verarbeitung fehlgeschlagen",
   Transcoding: "Transkodierung",
   Uncategorised: "Nicht kategorisiert",
   Upload: "Hochladen",
   "Upload clip": "Clip hochladen",
+  "Upload center": "Upload-Center",
+  "Upload center: {label}": "Upload-Center: {label}",
   "Upload started": "Upload gestartet",
   "Upload started, but the clip link couldn't be copied.":
     "Der Upload wurde gestartet, aber der Clip-Link konnte nicht kopiert werden.",
   "Upload a clip and pick a game to seed this list.":
     "Lade einen Clip hoch und wähle ein Spiel, um diese Liste zu füllen.",
   "Upload failed": "Upload fehlgeschlagen",
+  empty: "leer",
+  item: "Element",
+  items: "Elemente",
+  "Nothing in the queue": "Nichts in der Warteschlange",
+  "No uploads in progress": "Keine laufenden Uploads",
+  "New uploads and processing jobs appear here.":
+    "Neue Uploads und Verarbeitungsaufträge erscheinen hier.",
   "Upload status": "Upload-Status",
   "Upload status: {label}": "Upload-Status: {label}",
   "Upload new avatar": "Neuen Avatar hochladen",
@@ -1111,6 +1127,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Uploading...": "Wird hochgeladen...",
   "Uploading…": "Wird hochgeladen…",
   Uploads: "Uploads",
+  "We couldn't process {title}": "{title} konnte nicht verarbeitet werden",
+  "We couldn't process your clip": "Dein Clip konnte nicht verarbeitet werden",
   "Uploads are unavailable in this browser":
     "Uploads sind in diesem Browser nicht verfügbar",
   Use: "Verwenden",

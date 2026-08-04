@@ -16,16 +16,13 @@ import { app } from "electron"
 const logger = createLogger("library")
 
 export interface CaptureManifest {
-  version: 1
+  version: 2
   captures: Record<string, CaptureManifestEntry>
 }
 
 export interface CaptureManifestEntry {
-  /**
-   * Stable renderer-facing id. Older manifests did not store this; those
-   * entries fall back to the path-derived id until the next manifest write.
-   */
-  id?: string
+  /** Stable renderer-facing id for this capture. */
+  id: string
   filename: string
   title: string
   kind: RecordingCaptureKind
@@ -41,21 +38,14 @@ export interface CaptureManifestEntry {
   audioTracks?: RecordingCaptureAudioTrack[]
   createdAt: string
   updatedAt: string
-  /**
-   * Draft upload metadata edited in the library. Optional so manifests
-   * written before these fields existed keep parsing.
-   */
+  /** Draft upload metadata edited in the library. */
   description?: string | null
   tags?: string | null
   mentions?: RecordingCaptureMention[]
   privacy?: RecordingLibraryItem["privacy"]
   /** Server clip id this capture was published as, once an upload finished. */
   uploadedClipId?: string | null
-  /**
-   * Non-destructive trim range in source time, both present for a trimmed
-   * capture. Optional so manifests written before trims existed keep
-   * parsing; cleared trims drop both fields.
-   */
+  /** Non-destructive trim range; cleared trims omit both fields. */
   trimStartMs?: number
   trimEndMs?: number
 }
@@ -65,7 +55,7 @@ export function readCaptureManifest(): CaptureManifest {
     const parsed: unknown = JSON.parse(readFileSync(manifestPath(), "utf8"))
     if (!isCaptureManifest(parsed)) throw new Error("Invalid manifest.")
     return {
-      version: 1,
+      version: 2,
       captures: Object.fromEntries(
         Object.entries(parsed.captures).map(([key, entry]) => [
           key,
@@ -77,7 +67,7 @@ export function readCaptureManifest(): CaptureManifest {
       ),
     }
   } catch {
-    return { version: 1, captures: {} }
+    return { version: 2, captures: {} }
   }
 }
 
@@ -121,7 +111,7 @@ function isCaptureManifest(value: unknown): value is CaptureManifest {
   return (
     typeof value === "object" &&
     value !== null &&
-    (value as { version?: unknown }).version === 1 &&
+    (value as { version?: unknown }).version === 2 &&
     typeof (value as { captures?: unknown }).captures === "object" &&
     (value as { captures?: unknown }).captures !== null
   )

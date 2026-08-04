@@ -50,7 +50,7 @@ type ClipListCursorPayload = {
 
 type ParsedClipListCursor = {
   createdAt: Date
-  id: string | null
+  id: string
   viewCount: number | null
   likeCount: number | null
 }
@@ -90,20 +90,13 @@ export function publicClipListingConditions(): SQL[] {
   ]
 }
 
-function parseLegacyClipListCursor(value: string): ParsedClipListCursor | null {
-  const createdAt = cursorDate(value)
-  return createdAt
-    ? { createdAt, id: null, viewCount: null, likeCount: null }
-    : null
-}
-
 export function parseClipListCursor(
   value: string | undefined,
   sort: ClipListSort,
 ): ParsedClipListCursor | null {
   if (!value) return null
   const payload = decodeCursorPayload(value)
-  if (!payload) return parseLegacyClipListCursor(value)
+  if (!payload) return null
   const createdAt = cursorDate(payload.createdAt)
   const id = cursorRequiredString(payload.id)
   if (payload.v !== 1 || payload.sort !== sort || !createdAt || !id) {
@@ -139,8 +132,6 @@ export function clipListCursorCondition(
   sort: ClipListSort,
 ): SQL | null {
   if (!cursor) return null
-  if (!cursor.id) return lt(clip.created_at, cursor.createdAt)
-
   const afterCreatedAt = requiredSql(
     or(
       lt(clip.created_at, cursor.createdAt),

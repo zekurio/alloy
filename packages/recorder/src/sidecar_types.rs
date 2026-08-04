@@ -75,6 +75,7 @@ struct Response {
 #[serde(rename_all = "camelCase")]
 struct ConfigureParams {
     settings: RecordingSettings,
+    agent_state_folder: PathBuf,
     output_folder: String,
     replay_scratch_folder: String,
     obs_runtime_dir: Option<PathBuf>,
@@ -530,6 +531,7 @@ struct RecordingActionResult {
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type", rename_all = "kebab-case")]
 enum RecordingEvent {
+    ClipHotkey,
     Status {
         status: RecordingStatus,
     },

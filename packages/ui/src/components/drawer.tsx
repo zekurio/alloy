@@ -28,17 +28,8 @@ const DrawerDirectionContext = createContext<DrawerSide>("bottom")
 
 function DrawerRoot({
   direction = "bottom",
-  handleOnly: _handleOnly,
   ...props
-}: Drawer.Root.Props & {
-  direction?: DrawerSide
-  /**
-   * Kept for legacy API compatibility. Base UI drawers always allow swiping
-   * from the popup surface; callers can still render DrawerHandle for a visible
-   * grip.
-   */
-  handleOnly?: boolean
-}) {
+}: Drawer.Root.Props & { direction?: DrawerSide }) {
   return (
     <DrawerDirectionContext.Provider value={direction}>
       <Drawer.Root

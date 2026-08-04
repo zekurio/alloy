@@ -4,6 +4,7 @@ import type {
   RecordingStatus,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
+import { AppSidebarItem } from "@alloy/ui/components/app-sidebar"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -65,7 +66,7 @@ export function DesktopRecordingStatus() {
   return (
     <>
       <RecordingStatusPopover
-        active={statusActive(state.status)}
+        active={statusActive(state.settings, state.status)}
         activeGame={
           state.settings?.enabled
             ? (state.status?.activeGameDetail ?? null)
@@ -139,19 +140,10 @@ function RecordingStatusPopover({
           render={
             <PopoverTrigger
               render={
-                <button
-                  type="button"
+                <AppSidebarItem
                   aria-label={statusText}
                   className={cn(
-                    // Matches the rail's nav items: no chip, no border, the
-                    // glyph carries the control.
-                    "relative flex size-10 shrink-0 appearance-none items-center justify-center rounded-md border-0 bg-transparent outline-none",
-                    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                    "focus-visible:ring-ring focus-visible:ring-2",
                     "data-popup-open:text-foreground",
-                    active
-                      ? "text-foreground"
-                      : "text-foreground-muted hover:text-foreground",
                     // Live indicator only while the replay buffer is
                     // recording; an idle dot would just be visual noise.
                     active &&
@@ -159,7 +151,7 @@ function RecordingStatusPopover({
                   )}
                 >
                   {icon}
-                </button>
+                </AppSidebarItem>
               }
             />
           }
@@ -176,7 +168,8 @@ function RecordingStatusPopover({
           {
             "--alloy-blur-opacity": "90%",
             "--alloy-blur-blur": "36px",
-            "--alloy-blur-shadow": "0 30px 80px -32px rgb(0 0 0 / 0.78)",
+            "--alloy-blur-shadow":
+              "0 30px 80px -32px var(--floating-shadow-strong-color)",
           } as CSSProperties
         }
       >

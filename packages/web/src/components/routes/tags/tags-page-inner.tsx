@@ -69,16 +69,25 @@ function TagHeader({
   clipCount: number | undefined
 }) {
   return (
-    <header className="mb-4 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5 md:mb-6">
-      <h1 className="text-foreground flex min-w-0 items-center gap-1 truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
-        <HashIcon className="text-foreground-faint size-[0.85em] shrink-0" />
-        <span className="min-w-0 truncate">{tag}</span>
-      </h1>
-      {clipCount === undefined ? null : (
-        <span className="text-foreground-muted shrink-0 text-sm font-medium tabular-nums">
-          {clipCountLabel(clipCount)}
-        </span>
-      )}
+    <header className="mb-1 flex min-w-0 items-center gap-3 py-2 sm:gap-4 sm:py-3">
+      <span className="border-border bg-surface-raised text-foreground-muted grid size-10 shrink-0 place-items-center rounded-lg border sm:size-12">
+        <HashIcon className="size-5 sm:size-6" />
+      </span>
+      <div className="min-w-0">
+        <h1 className="text-foreground text-xl leading-tight font-semibold tracking-[-0.02em] [overflow-wrap:anywhere] sm:text-2xl">
+          {tag}
+        </h1>
+        {clipCount === undefined ? (
+          <span
+            aria-hidden
+            className="bg-surface-raised mt-1 block h-4 w-16 animate-pulse rounded"
+          />
+        ) : (
+          <p className="text-foreground-muted mt-0.5 text-sm font-medium tabular-nums">
+            {clipCountLabel(clipCount)}
+          </p>
+        )}
+      </div>
     </header>
   )
 }
