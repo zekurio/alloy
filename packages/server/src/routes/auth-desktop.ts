@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import {
   consumeDesktopLinkCode,
   createDesktopLinkCode,
@@ -10,10 +11,9 @@ import {
 import { getSetupStatus } from "@alloy/server/auth/user-bootstrap"
 import { badRequest } from "@alloy/server/runtime/http-response"
 import { type Context, Hono } from "hono"
-import { z } from "zod"
 
 import { loopbackRedirect } from "./auth-desktop-helpers"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 const BASE64URL_RE = /^[A-Za-z0-9_-]+$/
 
@@ -52,7 +52,7 @@ header{
   position:absolute;
   top:2rem;
   left:1.5rem;
-  z-index:1;
+  t-index:1;
 }
 .brand{
   display:inline-flex;
@@ -176,10 +176,10 @@ async function redirectToSetupIfRequired(c: Context): Promise<Response | null> {
   return setup.setupRequired ? c.redirect("/setup", 302) : null
 }
 
-const CodeChallenge = z.string().min(32).max(128).regex(BASE64URL_RE)
-const TokenBody = z.object({
-  code: z.string().min(1),
-  codeVerifier: z.string().min(32).max(128).regex(BASE64URL_RE),
+const CodeChallenge = t.string().min(32).max(128).regex(BASE64URL_RE)
+const TokenBody = t.object({
+  code: t.string().min(1),
+  codeVerifier: t.string().min(32).max(128).regex(BASE64URL_RE),
 })
 
 export const authDesktopRoute = new Hono()
@@ -259,7 +259,7 @@ export const authDesktopRoute = new Hono()
   // Code exchange, called server-to-server by the desktop app (no cookies).
   // Mints a fresh session distinct from the browser's, so signing out of one
   // doesn't kill the other.
-  .post("/token", zValidator("json", TokenBody), async (c) => {
+  .post("/token", tbValidator("json", TokenBody), async (c) => {
     const { code, codeVerifier } = c.req.valid("json")
     const userId = await consumeDesktopLinkCode(code, codeVerifier)
     if (!userId) return badRequest(c, "Invalid or expired code.")

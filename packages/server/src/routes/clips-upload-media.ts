@@ -29,7 +29,7 @@ import {
   selectClipForMutation,
   updatedClipResponse,
 } from "./clips-upload-access"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 // Owner/admin re-encode is non-destructive but enqueues real transcode work,
 // so it sits behind a per-IP limiter like the auth routes.
@@ -43,8 +43,8 @@ export const clipsUploadMediaRoutes = new Hono()
   .post(
     "/:id/poster",
     requireSession,
-    zValidator("param", IdParam),
-    zValidator("json", PosterBody),
+    tbValidator("param", IdParam),
+    tbValidator("json", PosterBody),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
@@ -117,8 +117,8 @@ export const clipsUploadMediaRoutes = new Hono()
   .post(
     "/:id/trim",
     requireSession,
-    zValidator("param", IdParam),
-    zValidator("json", TrimBody),
+    tbValidator("param", IdParam),
+    tbValidator("json", TrimBody),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
@@ -227,7 +227,7 @@ export const clipsUploadMediaRoutes = new Hono()
     "/:id/re-encode",
     requireSession,
     reEncodeRateLimit,
-    zValidator("param", IdParam),
+    tbValidator("param", IdParam),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")

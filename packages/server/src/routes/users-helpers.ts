@@ -1,4 +1,5 @@
 import type { PublicUser, UserListRow, UserSummary } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { block, clip, follow } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
@@ -16,14 +17,13 @@ import {
   type SQL,
   sql,
 } from "drizzle-orm"
-import { z } from "zod"
 
 import { publicClipPrivacyCondition } from "./clips-helpers"
 import { limitQueryParam, requiredTrimmedString } from "./validation"
 
-export const UsernameParam = z.object({ username: z.string().min(1) })
+export const UsernameParam = t.object({ username: t.string().min(1) })
 
-export const SearchQuery = z.object({
+export const SearchQuery = t.object({
   q: requiredTrimmedString(64),
   limit: limitQueryParam(20, 8),
 })

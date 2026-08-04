@@ -4,6 +4,7 @@ import {
   RenditionTierConfigSchema,
   VideoCodecSchema,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { requireAdmin } from "@alloy/server/auth/session"
 import { signInConfigError } from "@alloy/server/auth/sign-in-config"
 import {
@@ -25,24 +26,23 @@ import {
   conflict,
 } from "@alloy/server/runtime/http-response"
 import { Hono } from "hono"
-import { z } from "zod"
 
 import { adminGamesRoute } from "./admin-games"
 import { adminRuntimeConfigResponse } from "./admin-helpers"
 import { adminJobsRoute } from "./admin-jobs"
 import { adminUsersRoute } from "./admin-users"
 import { adminWebhooksRoute } from "./admin-webhooks"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
-const RuntimeConfigPatch = z.object({
-  setupComplete: z.boolean().optional(),
+const RuntimeConfigPatch = t.object({
+  setupComplete: t.boolean().optional(),
 })
 
-const AuthConfigPatch = z
+const AuthConfigPatch = t
   .object({
-    openRegistrations: z.boolean().optional(),
-    passkeyEnabled: z.boolean().optional(),
-    requireAuthToBrowse: z.boolean().optional(),
+    openRegistrations: t.boolean().optional(),
+    passkeyEnabled: t.boolean().optional(),
+    requireAuthToBrowse: t.boolean().optional(),
   })
   .refine(
     (patch) =>
@@ -54,8 +54,8 @@ const AuthConfigPatch = z
 
 // Mirrors OAuthProvidersSchema's array-level constraints for the submission
 // shape (write-only clientSecret per provider).
-const OAuthProvidersBody = z.object({
-  providers: z
+const OAuthProvidersBody = t.object({
+  providers: t
     .array(OAuthProviderSubmissionSchema)
     .max(16)
     .superRefine((providers, ctx) => {
@@ -74,24 +74,24 @@ const OAuthProvidersBody = z.object({
     }),
 })
 
-const TranscodingPatch = z.object({
+const TranscodingPatch = t.object({
   videoCodec: VideoCodecSchema.optional(),
   hardwareAcceleration: HardwareAccelerationSchema.optional(),
-  vaapiDevice: z.string().trim().min(1).optional(),
-  quality: z.number().int().min(10).max(51).optional(),
-  audioBitrateKbps: z.number().int().min(64).max(320).optional(),
-  tiers: z.array(RenditionTierConfigSchema).min(1).max(6).optional(),
+  vaapiDevice: t.string().trim().min(1).optional(),
+  quality: t.number().int().min(10).max(51).optional(),
+  audioBitrateKbps: t.number().int().min(64).max(320).optional(),
+  tiers: t.array(RenditionTierConfigSchema).min(1).max(6).optional(),
 })
 
-const AppearancePatch = z.object({
-  loginSplash: z
+const AppearancePatch = t.object({
+  loginSplash: t
     .object({
-      enabled: z.boolean().optional(),
-      blurPx: z.number().min(0).max(48).optional(),
-      darkenOpacity: z.number().min(0).max(1).optional(),
+      enabled: t.boolean().optional(),
+      blurPx: t.number().min(0).max(48).optional(),
+      darkenOpacity: t.number().min(0).max(1).optional(),
     })
     .optional(),
-  customCss: z.string().max(INSTANCE_CUSTOM_CSS_MAX_LENGTH).optional(),
+  customCss: t.string().max(INSTANCE_CUSTOM_CSS_MAX_LENGTH).optional(),
 })
 
 export const adminRoute = new Hono()
@@ -105,7 +105,7 @@ export const adminRoute = new Hono()
   })
   .patch(
     "/runtime-config",
-    zValidator("json", RuntimeConfigPatch),
+    tbValidator("json", RuntimeConfigPatch),
     async (c) => {
       const body = c.req.valid("json")
       if (body.setupComplete !== undefined) {
@@ -114,7 +114,7 @@ export const adminRoute = new Hono()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )
-  .patch("/auth-config", zValidator("json", AuthConfigPatch), async (c) => {
+  .patch("/auth-config", tbValidator("json", AuthConfigPatch), async (c) => {
     const patch = c.req.valid("json")
     const locks = authEnvLocks()
     for (const key of [
@@ -145,7 +145,7 @@ export const adminRoute = new Hono()
   })
   .put(
     "/oauth-providers",
-    zValidator("json", OAuthProvidersBody),
+    tbValidator("json", OAuthProvidersBody),
     async (c) => {
       if (authEnvLocks().oauthProviders) {
         return badRequest(
@@ -182,7 +182,7 @@ export const adminRoute = new Hono()
       return c.json(adminRuntimeConfigResponse(configStore.getAll()))
     },
   )
-  .patch("/appearance", zValidator("json", AppearancePatch), async (c) => {
+  .patch("/appearance", tbValidator("json", AppearancePatch), async (c) => {
     const patch = c.req.valid("json")
     const current = configStore.get("appearance")
     const next = { ...current, loginSplash: { ...current.loginSplash } }
@@ -199,7 +199,7 @@ export const adminRoute = new Hono()
     await configStore.set("appearance", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })
-  .patch("/transcoding", zValidator("json", TranscodingPatch), async (c) => {
+  .patch("/transcoding", tbValidator("json", TranscodingPatch), async (c) => {
     const patch = c.req.valid("json")
     // TranscodingConfigSchema rejects an all-disabled ladder inside set().
     await configStore.set("transcoding", {

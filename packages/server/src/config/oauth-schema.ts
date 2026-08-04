@@ -5,49 +5,49 @@ import {
   OAUTH_ROLE_CLAIM_DEFAULT,
   OAUTH_USERNAME_CLAIM_DEFAULT,
 } from "@alloy/contracts"
-import { z } from "zod"
+import { t } from "@alloy/contracts/schema"
 
 const ProviderIdPattern = /^[a-z0-9-]+$/
 const HexColorPattern = /^#?[0-9a-fA-F]{6}$/
-const HexColorSchema = z
+const HexColorSchema = t
   .string()
   .trim()
   .regex(HexColorPattern, "Expected a six-digit hex color, with or without #")
   .transform((value) => (value.startsWith("#") ? value : `#${value}`))
 
-const OAuthProviderBaseSchema = z.object({
-  providerId: z
+const OAuthProviderBaseSchema = t.object({
+  providerId: t
     .string()
     .min(1)
     .max(64)
     .regex(ProviderIdPattern, "lowercase letters, digits, and dashes only"),
-  displayName: z.string().min(1).max(64),
-  clientId: z.string().min(1),
-  scopes: z.array(z.string().min(1)).optional(),
-  enabled: z.boolean().default(true),
+  displayName: t.string().min(1).max(64),
+  clientId: t.string().min(1),
+  scopes: t.array(t.string().min(1)).optional(),
+  enabled: t.boolean().$default(true),
   buttonColor: HexColorSchema.optional(),
   buttonTextColor: HexColorSchema.optional(),
-  iconUrl: z.string().url().optional(),
-  discoveryUrl: z.string().url().optional(),
-  authorizationUrl: z.string().url().optional(),
-  tokenUrl: z.string().url().optional(),
-  userInfoUrl: z.string().url().optional(),
-  pkce: z.boolean().default(true),
-  tokenAuthMethod: z.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
-  uidClaim: z.string().min(1).max(128).default("sub"),
-  fetchUserInfo: z.boolean().default(true),
-  authParams: z.record(z.string(), z.string()).optional(),
-  usernameClaim: z
+  iconUrl: t.string().url().optional(),
+  discoveryUrl: t.string().url().optional(),
+  authorizationUrl: t.string().url().optional(),
+  tokenUrl: t.string().url().optional(),
+  userInfoUrl: t.string().url().optional(),
+  pkce: t.boolean().$default(true),
+  tokenAuthMethod: t.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
+  uidClaim: t.string().min(1).max(128).$default("sub"),
+  fetchUserInfo: t.boolean().$default(true),
+  authParams: t.record(t.string(), t.string()).optional(),
+  usernameClaim: t
     .string()
     .min(1)
     .max(128)
-    .default(OAUTH_USERNAME_CLAIM_DEFAULT),
-  avatarClaim: z.string().min(1).max(128).default(OAUTH_AVATAR_CLAIM_DEFAULT),
-  quotaClaim: z.string().min(1).max(128).default(OAUTH_QUOTA_CLAIM_DEFAULT),
-  roleClaim: z.string().min(1).max(128).default(OAUTH_ROLE_CLAIM_DEFAULT),
+    .$default(OAUTH_USERNAME_CLAIM_DEFAULT),
+  avatarClaim: t.string().min(1).max(128).$default(OAUTH_AVATAR_CLAIM_DEFAULT),
+  quotaClaim: t.string().min(1).max(128).$default(OAUTH_QUOTA_CLAIM_DEFAULT),
+  roleClaim: t.string().min(1).max(128).$default(OAUTH_ROLE_CLAIM_DEFAULT),
 })
 
-const hasEndpoints = (p: z.infer<typeof OAuthProviderBaseSchema>) =>
+const hasEndpoints = (p: t.infer<typeof OAuthProviderBaseSchema>) =>
   Boolean(p.discoveryUrl) ||
   (p.authorizationUrl &&
     p.tokenUrl &&
@@ -57,8 +57,8 @@ const endpointsMessage =
   "Provide discoveryUrl, or authorizationUrl and tokenUrl plus userInfoUrl unless fetchUserInfo is false."
 
 function validateOAuthProvider(
-  provider: z.infer<typeof OAuthProviderBaseSchema>,
-  ctx: z.RefinementCtx,
+  provider: t.infer<typeof OAuthProviderBaseSchema>,
+  ctx: t.RefinementCtx,
 ): void {
   if (!hasEndpoints(provider)) {
     ctx.addIssue({
@@ -86,10 +86,10 @@ export const OAuthProviderSchema = OAuthProviderBaseSchema.superRefine(
  * `clientSecret`. Absent/empty means "keep the existing secret".
  */
 export const OAuthProviderSubmissionSchema = OAuthProviderBaseSchema.extend({
-  clientSecret: z.string().optional(),
+  clientSecret: t.string().optional(),
 }).superRefine(validateOAuthProvider)
 
-export const OAuthProvidersSchema = z
+export const OAuthProvidersSchema = t
   .array(OAuthProviderSchema)
   .max(16)
   .superRefine((providers, ctx) => {
@@ -107,6 +107,6 @@ export const OAuthProvidersSchema = z
     }
   })
 
-export type OAuthProviderSubmission = z.infer<
+export type OAuthProviderSubmission = t.infer<
   typeof OAuthProviderSubmissionSchema
 >

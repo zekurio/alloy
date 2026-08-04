@@ -1,4 +1,5 @@
 import { USER_STATUSES } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { user, USER_ROLES } from "@alloy/db/auth-schema"
 import {
   assertCanRemoveAdmin,
@@ -14,7 +15,6 @@ import {
 } from "@alloy/server/runtime/http-response"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
-import { z } from "zod"
 
 import {
   selectAdminUserStoragePage,
@@ -25,35 +25,35 @@ import {
   decodeCursorPayload,
   encodeCursorPayload,
 } from "./cursor-codec"
-import { optionalTrimmedString, zValidator } from "./validation"
+import { optionalTrimmedString, tbValidator } from "./validation"
 
-const UserIdParam = z.object({
-  id: z.string().uuid(),
+const UserIdParam = t.object({
+  id: t.string().uuid(),
 })
 
-const UsersQuery = z.object({
-  cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  search: z.string().trim().max(100).optional(),
+const UsersQuery = t.object({
+  cursor: t.string().optional(),
+  limit: t.coerce.number().int().min(1).max(100).$default(50),
+  search: t.string().trim().max(100).optional(),
 })
 
-const StorageQuotaValue = z
+const StorageQuotaValue = t
   .number()
   .int()
   .positive()
   .max(Number.MAX_SAFE_INTEGER)
   .nullable()
 
-const CreateUserBody = z.object({
-  email: z.string().trim().email(),
+const CreateUserBody = t.object({
+  email: t.string().trim().email(),
   username: optionalTrimmedString(),
-  role: z.enum(USER_ROLES).default("user"),
+  role: t.enum(USER_ROLES).$default("user"),
 })
 
-const UserPatch = z
+const UserPatch = t
   .object({
-    role: z.enum(USER_ROLES).optional(),
-    status: z.enum(USER_STATUSES).optional(),
+    role: t.enum(USER_ROLES).optional(),
+    status: t.enum(USER_STATUSES).optional(),
     storageQuotaBytes: StorageQuotaValue.optional(),
   })
   .refine(
@@ -64,7 +64,7 @@ const UserPatch = z
     { message: "No updates provided" },
   )
 
-async function updateAdminUser(id: string, patch: z.infer<typeof UserPatch>) {
+async function updateAdminUser(id: string, patch: t.infer<typeof UserPatch>) {
   const demoting = patch.role !== undefined && patch.role !== "admin"
   const disabling = patch.status === "disabled"
   // Both losing admin and being disabled remove the account's admin access, so
@@ -106,13 +106,13 @@ function decodeUsersCursor(
   // createdAt is cast back to ::timestamp and id to uuid in the query, so a
   // crafted cursor with a bad shape would raise a DB error — reject it here.
   const createdAt = cursorTimestampText(payload.createdAt)
-  const id = z.string().uuid().safeParse(payload.id)
+  const id = t.string().uuid().safeParse(payload.id)
   if (!createdAt || !id.success) return null
   return { createdAt, id: id.data }
 }
 
 export const adminUsersRoute = new Hono()
-  .get("/users", zValidator("query", UsersQuery), async (c) => {
+  .get("/users", tbValidator("query", UsersQuery), async (c) => {
     const query = c.req.valid("query")
     const page = await selectAdminUserStoragePage({
       cursor: decodeUsersCursor(query.cursor),
@@ -125,7 +125,7 @@ export const adminUsersRoute = new Hono()
       total: page.total,
     })
   })
-  .post("/users", zValidator("json", CreateUserBody), async (c) => {
+  .post("/users", tbValidator("json", CreateUserBody), async (c) => {
     try {
       const body = c.req.valid("json")
       const created = await createUserIdentity({
@@ -142,7 +142,7 @@ export const adminUsersRoute = new Hono()
       return badRequestFromCause(c, cause, "Couldn't create user.")
     }
   })
-  .delete("/users/:id", zValidator("param", UserIdParam), async (c) => {
+  .delete("/users/:id", tbValidator("param", UserIdParam), async (c) => {
     try {
       const { id } = c.req.valid("param")
       await assertCanRemoveAdmin(id)
@@ -159,8 +159,8 @@ export const adminUsersRoute = new Hono()
   })
   .patch(
     "/users/:id",
-    zValidator("param", UserIdParam),
-    zValidator("json", UserPatch),
+    tbValidator("param", UserIdParam),
+    tbValidator("json", UserPatch),
     async (c) => {
       try {
         const { id } = c.req.valid("param")

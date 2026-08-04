@@ -4,6 +4,7 @@ import {
   type AdminJobKindRow,
   type AdminSweepKind,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import type { JobStatus } from "@alloy/db/schema"
 import { configStore } from "@alloy/server/config/store"
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
@@ -27,24 +28,23 @@ import {
   success,
 } from "@alloy/server/runtime/http-response"
 import { type Context, Hono } from "hono"
-import { z } from "zod"
 
 import {
   cursorTimestamptzText,
   decodeCursorPayload,
   encodeCursorPayload,
 } from "./cursor-codec"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
-const JobIdParam = z.object({ id: z.string().uuid() })
-const KindParam = z.object({ kind: z.string().min(1) })
-const SweepBody = z.object({
-  mode: z.enum(["stale", "force"]).default("stale"),
+const JobIdParam = t.object({ id: t.string().uuid() })
+const KindParam = t.object({ kind: t.string().min(1) })
+const SweepBody = t.object({
+  mode: t.enum(["stale", "force"]).$default("stale"),
 })
-const FailedQuery = z.object({
-  kind: z.string().min(1).optional(),
-  cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(20),
+const FailedQuery = t.object({
+  kind: t.string().min(1).optional(),
+  cursor: t.string().optional(),
+  limit: t.coerce.number().int().min(1).max(100).$default(20),
 })
 
 const SWEEP_KINDS: ReadonlySet<string> = new Set(ADMIN_SWEEP_KINDS)
@@ -82,7 +82,7 @@ export const adminJobsRoute = new Hono()
       .sort((a, b) => a.kind.localeCompare(b.kind))
     return c.json({ kinds, sweeps })
   })
-  .get("/jobs/failed", zValidator("query", FailedQuery), async (c) => {
+  .get("/jobs/failed", tbValidator("query", FailedQuery), async (c) => {
     const query = c.req.valid("query")
     const cursor = decodeFailedCursor(query.cursor)
     const page = await listJobs({
@@ -101,13 +101,13 @@ export const adminJobsRoute = new Hono()
         : null,
     })
   })
-  .post("/jobs/:id/retry", zValidator("param", JobIdParam), async (c) => {
+  .post("/jobs/:id/retry", tbValidator("param", JobIdParam), async (c) => {
     if (!(await retry(c.req.valid("param").id))) {
       return notFound(c, "No failed job to retry.")
     }
     return success(c)
   })
-  .post("/jobs/:id/discard", zValidator("param", JobIdParam), async (c) => {
+  .post("/jobs/:id/discard", tbValidator("param", JobIdParam), async (c) => {
     if (!(await discardFailed(c.req.valid("param").id))) {
       return notFound(c, "No failed job to discard.")
     }
@@ -115,8 +115,8 @@ export const adminJobsRoute = new Hono()
   })
   .post(
     "/jobs/sweeps/:kind",
-    zValidator("param", KindParam),
-    zValidator("json", SweepBody),
+    tbValidator("param", KindParam),
+    tbValidator("json", SweepBody),
     async (c) => {
       const kind = c.req.valid("param").kind
       if (!SWEEP_KINDS.has(kind)) return badRequest(c, "Unknown sweep.")
@@ -124,11 +124,13 @@ export const adminJobsRoute = new Hono()
       return success(c)
     },
   )
-  .post("/jobs/kinds/:kind/pause", zValidator("param", KindParam), async (c) =>
+  .post("/jobs/kinds/:kind/pause", tbValidator("param", KindParam), async (c) =>
     setPaused(c, c.req.valid("param").kind, true),
   )
-  .post("/jobs/kinds/:kind/resume", zValidator("param", KindParam), async (c) =>
-    setPaused(c, c.req.valid("param").kind, false),
+  .post(
+    "/jobs/kinds/:kind/resume",
+    tbValidator("param", KindParam),
+    async (c) => setPaused(c, c.req.valid("param").kind, false),
   )
 
 function countFor(
@@ -178,7 +180,7 @@ function decodeFailedCursor(
   // uuid comparison — a crafted cursor with a non-timestamp/non-uuid would raise
   // a DB error, so validate both here and ignore anything malformed.
   const finishedAt = cursorTimestamptzText(payload.finishedAt)
-  const id = z.string().uuid().safeParse(payload.id)
+  const id = t.string().uuid().safeParse(payload.id)
   if (!finishedAt || !id.success) return null
   return { finishedAt, id: id.data }
 }

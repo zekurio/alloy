@@ -1,4 +1,4 @@
-import { z } from "zod"
+import { t } from "./schema"
 
 export type UsernameClaim = string
 
@@ -29,30 +29,30 @@ export type OAuthTokenAuthMethod = (typeof OAUTH_TOKEN_AUTH_METHODS)[number]
  * secrets live in the server-only secret store, never in this struct, so no
  * config read path can serialize them by accident.
  */
-const NonEmptyStringSchema = z
+const NonEmptyStringSchema = t
   .string()
   .refine((value) => value.trim().length > 0, "must be a non-empty string")
 
-const OptionalUrlStringSchema = z.string().url().optional()
+const OptionalUrlStringSchema = t.string().url().optional()
 
 const OAuthProviderConfigFields = {
   providerId: NonEmptyStringSchema,
   displayName: NonEmptyStringSchema,
   clientId: NonEmptyStringSchema,
-  scopes: z.array(z.string()).optional(),
-  enabled: z.boolean(),
-  buttonColor: z.string().optional(),
-  buttonTextColor: z.string().optional(),
+  scopes: t.array(t.string()).optional(),
+  enabled: t.boolean(),
+  buttonColor: t.string().optional(),
+  buttonTextColor: t.string().optional(),
   iconUrl: OptionalUrlStringSchema,
   discoveryUrl: OptionalUrlStringSchema,
   authorizationUrl: OptionalUrlStringSchema,
   tokenUrl: OptionalUrlStringSchema,
   userInfoUrl: OptionalUrlStringSchema,
-  pkce: z.boolean().optional(),
-  tokenAuthMethod: z.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
+  pkce: t.boolean().optional(),
+  tokenAuthMethod: t.enum(OAUTH_TOKEN_AUTH_METHODS).optional(),
   uidClaim: NonEmptyStringSchema.optional(),
-  fetchUserInfo: z.boolean().optional(),
-  authParams: z.record(z.string(), z.string()).optional(),
+  fetchUserInfo: t.boolean().optional(),
+  authParams: t.record(t.string(), t.string()).optional(),
   usernameClaim: NonEmptyStringSchema.optional(),
   avatarClaim: NonEmptyStringSchema.optional(),
   quotaClaim: NonEmptyStringSchema.optional(),
@@ -64,7 +64,7 @@ function requireOAuthClaimFields(
     quotaClaim?: string
     roleClaim?: string
   },
-  ctx: z.RefinementCtx,
+  ctx: t.RefinementCtx,
 ) {
   for (const key of ["quotaClaim", "roleClaim"] as const) {
     if (provider[key] !== undefined) continue
@@ -76,40 +76,40 @@ function requireOAuthClaimFields(
   }
 }
 
-export const OAuthProviderConfigSchema = z
+export const OAuthProviderConfigSchema = t
   .looseObject(OAuthProviderConfigFields)
   .superRefine(requireOAuthClaimFields)
 
-export type OAuthProviderConfig = z.infer<typeof OAuthProviderConfigSchema>
+export type OAuthProviderConfig = t.infer<typeof OAuthProviderConfigSchema>
 
 /**
  * Admin-facing OAuth provider. `clientSecretSet` reports whether a secret is
  * configured (read), and `clientSecret` carries a new value when the admin is
  * setting one (write-only — it is never populated on responses).
  */
-export const AdminOAuthProviderSchema = z
+export const AdminOAuthProviderSchema = t
   .looseObject({
     ...OAuthProviderConfigFields,
-    clientSecretSet: z.boolean(),
-    clientSecret: z.string().optional(),
+    clientSecretSet: t.boolean(),
+    clientSecret: t.string().optional(),
   })
   .superRefine(requireOAuthClaimFields)
 
-export type AdminOAuthProvider = z.infer<typeof AdminOAuthProviderSchema>
+export type AdminOAuthProvider = t.infer<typeof AdminOAuthProviderSchema>
 
 /**
  * Which auth config sections are env-managed. A locked key is sourced from its
  * ALLOY_* environment variable and rejects admin writes until the variable is
  * unset (Immich-style declarative override).
  */
-export const AuthConfigLocksSchema = z.looseObject({
-  openRegistrations: z.boolean(),
-  passkeyEnabled: z.boolean(),
-  requireAuthToBrowse: z.boolean(),
-  oauthProviders: z.boolean(),
+export const AuthConfigLocksSchema = t.looseObject({
+  openRegistrations: t.boolean(),
+  passkeyEnabled: t.boolean(),
+  requireAuthToBrowse: t.boolean(),
+  oauthProviders: t.boolean(),
 })
 
-export type AuthConfigLocks = z.infer<typeof AuthConfigLocksSchema>
+export type AuthConfigLocks = t.infer<typeof AuthConfigLocksSchema>
 
 export interface AdminAuthConfigPatch {
   openRegistrations?: boolean

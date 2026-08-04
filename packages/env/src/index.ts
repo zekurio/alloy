@@ -1,34 +1,52 @@
-import { z } from "zod"
+import { Type } from "typebox"
+import type { StaticDecode, TSchema } from "typebox"
+import { Decode, Errors } from "typebox/value"
 
 /**
- * Parse environment variables against a zod schema, throwing a readable
+ * Parse environment variables against a TypeBox schema, throwing a readable
  * error listing every invalid field. `label` identifies the consumer in the
  * error message (e.g. "server/env").
  */
-export function createEnv<TSchema extends z.ZodType>(
-  schema: TSchema,
+export function createEnv<Schema extends TSchema>(
+  schema: Schema,
   options: {
     label: string
     /** Defaults to `process.env`. */
     source?: Record<string, string | undefined>
   },
-): z.output<TSchema> {
-  const parsed = schema.safeParse(options.source ?? process.env)
-  if (!parsed.success) {
+): StaticDecode<Schema> {
+  try {
+    return Decode(schema, options.source ?? process.env)
+  } catch {
     throw new Error(
       `[${options.label}] Invalid environment variables:\n` +
-        JSON.stringify(z.flattenError(parsed.error).fieldErrors, null, 2),
+        JSON.stringify(
+          groupErrors(schema, options.source ?? process.env),
+          null,
+          2,
+        ),
     )
   }
-  return parsed.data
 }
 
-/** Zod schema for a postgres:// or postgresql:// connection URL. */
+function groupErrors(schema: TSchema, value: unknown) {
+  return [...Errors(schema, value)].reduce<Record<string, string[]>>(
+    (groups, error) => {
+      const key = error.instancePath.split("/")[1] ?? ""
+      groups[key] = [...(groups[key] ?? []), error.message]
+      return groups
+    },
+    {},
+  )
+}
+
+/** TypeBox schema for a postgres:// or postgresql:// connection URL. */
 export function postgresUrl() {
-  return z
-    .string()
-    .min(1)
-    .refine(isPostgresUrl, "Expected a postgres:// or postgresql:// URL")
+  return Type.Refine(
+    Type.String({ minLength: 1 }),
+    isPostgresUrl,
+    () => "Expected a postgres:// or postgresql:// URL",
+  )
 }
 
 export function isPostgresUrl(value: string): boolean {

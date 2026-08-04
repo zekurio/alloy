@@ -20,7 +20,7 @@ import {
 import { resolveMentionIds } from "./clips-upload-helpers"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
 import { clipsUploadMediaRoutes } from "./clips-upload-media"
-import { zValidator } from "./validation"
+import { tbValidator } from "./validation"
 
 const logger = createLogger("clips-upload")
 
@@ -30,8 +30,8 @@ export const clipsUploadRoutes = new Hono()
   .patch(
     "/:id",
     requireSession,
-    zValidator("param", IdParam),
-    zValidator("json", UpdateBody),
+    tbValidator("param", IdParam),
+    tbValidator("json", UpdateBody),
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
@@ -137,7 +137,7 @@ export const clipsUploadRoutes = new Hono()
       return updatedClipResponse(c, id)
     },
   )
-  .delete("/:id", requireSession, zValidator("param", IdParam), async (c) => {
+  .delete("/:id", requireSession, tbValidator("param", IdParam), async (c) => {
     const viewerId = c.var.viewerId
     const { id } = c.req.valid("param")
 

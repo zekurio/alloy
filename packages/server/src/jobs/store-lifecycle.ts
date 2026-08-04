@@ -1,3 +1,4 @@
+import { safeParse } from "@alloy/contracts/schema"
 import { job, type JobStatus } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { and, eq, inArray, lt, ne, type SQL, sql } from "drizzle-orm"
@@ -199,7 +200,7 @@ export async function retry(jobId: string): Promise<boolean> {
   if (!row) return false
   const registration = getJobKind(row.kind)
   if (registration?.onRetry) {
-    const parsed = registration.schema.safeParse(row.payload)
+    const parsed = safeParse(registration.schema, row.payload)
     // A payload that no longer parses can't be re-run meaningfully; the job is
     // still re-armed, but skip the side-state restore rather than throw.
     if (parsed.success) await registration.onRetry(parsed.data)

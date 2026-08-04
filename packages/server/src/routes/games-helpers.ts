@@ -1,11 +1,11 @@
 import type { GameRow, ProfileGameRow } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import {
   SteamGridDBError,
   SteamGridDBNotConfiguredError,
 } from "@alloy/server/games/steamgriddb"
 import { isoDate } from "@alloy/server/runtime/date"
 import { errorMessage } from "@alloy/server/runtime/error-message"
-import { z } from "zod"
 
 import {
   limitQueryParam,
@@ -13,30 +13,30 @@ import {
   requiredTrimmedString,
 } from "./validation"
 
-export const SlugParam = z.object({
-  slug: z
+export const SlugParam = t.object({
+  slug: t
     .string()
     .min(1)
     .max(64)
     .regex(/^[a-z0-9-]+$/),
 })
 
-export const SearchQuery = z.object({
+export const SearchQuery = t.object({
   q: requiredTrimmedString(120),
 })
 
-export const ResolveBody = z.object({
-  steamgriddbId: z.number().int().positive(),
+export const ResolveBody = t.object({
+  steamgriddbId: t.number().int().positive(),
 })
 
-export const LookupBody = z.object({
-  names: z
+export const LookupBody = t.object({
+  names: t
     .array(requiredTrimmedString(120))
     .max(50)
     .transform((names) => [...new Set(names)]),
 })
 
-export const GamesListQuery = z.object({
+export const GamesListQuery = t.object({
   limit: limitQueryParam(100, 100),
   offset: offsetQueryParam(),
 })
