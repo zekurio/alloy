@@ -6,6 +6,7 @@ import type {
 import { t } from "@alloy/i18n"
 
 export type SaveRecordingSettings = (next: RecordingSettings) => Promise<void>
+export type RecordingStatusIndicator = "active" | "draining" | "idle"
 
 export function audioDeviceMultiSelectLabel(
   selected: RecordingSettings["audioDevices"],
@@ -53,14 +54,19 @@ export function statusLabel(
   if (!settings) return t("Loading capture")
   if (settings.captureMode === "display") return t("Display capture")
   if (!settings.enabled) return t("Capture off")
+  if (status?.replayActive && !status.activeGame) {
+    return t("Replay buffer winding down")
+  }
   return status?.activeGame ?? t("Waiting for game")
 }
 
-export function statusActive(
+export function statusIndicator(
   settings: RecordingSettings | null,
   status: RecordingStatus | null,
-): boolean {
-  return Boolean(settings?.enabled && status?.replayActive)
+): RecordingStatusIndicator {
+  if (!settings?.enabled || !status?.replayActive) return "idle"
+  if (settings.captureMode === "game" && !status.activeGame) return "draining"
+  return "active"
 }
 
 export function errorText(cause: unknown, fallback: string): string {

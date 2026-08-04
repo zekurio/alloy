@@ -1,5 +1,10 @@
 import { AppMain, AppShell } from "@alloy/ui/components/app-shell"
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router"
+import {
+  createFileRoute,
+  Outlet,
+  useNavigate,
+  useRouterState,
+} from "@tanstack/react-router"
 import { memo, useCallback } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
@@ -32,6 +37,9 @@ function AppLayout() {
   const { clip, comment, settings, welcome } = Route.useSearch()
   const session = useSuspenseSession()
   const navigate = useNavigate()
+  const libraryEditorOpen = useRouterState({
+    select: (state) => state.location.pathname.startsWith("/library/"),
+  })
 
   const handleCloseClipModal = () => {
     void navigate({
@@ -104,7 +112,7 @@ function AppLayout() {
           <AppChrome />
           <Outlet />
           <UploadFlow />
-          {session ? (
+          {session && !libraryEditorOpen ? (
             <div className="fixed right-4 bottom-4 z-30 hidden md:flex">
               <UploadCenter variant="floating" />
             </div>

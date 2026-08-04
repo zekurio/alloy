@@ -43,6 +43,11 @@ interface RecordingSidecarClientOptions {
 }
 
 const SIDECAR_TIMEOUT_MS = 20_000
+// Video-setting changes stop the active output (up to 8 seconds), tear OBS
+// down, rediscover devices, and start it again. The recorder intentionally
+// finishes configure requests even after their caller deadline, so timing out
+// first would replace a healthy late status with a spurious backend error.
+const SIDECAR_CONFIGURE_TIMEOUT_MS = 45_000
 const SIDECAR_SHUTDOWN_REQUEST_TIMEOUT_MS = 1_500
 const SIDECAR_GRACEFUL_EXIT_TIMEOUT_MS = 1_500
 const SIDECAR_FORCED_EXIT_TIMEOUT_MS = 1_500
@@ -108,17 +113,19 @@ export class RecordingSidecarClient {
     if (!child) throw new Error("Alloy agent is not available.")
 
     const id = this.nextId++
+    const timeoutMs =
+      method === "configure" ? SIDECAR_CONFIGURE_TIMEOUT_MS : SIDECAR_TIMEOUT_MS
     const request: SidecarRequest = {
       id,
       method,
       params,
-      deadlineUnixMs: Date.now() + SIDECAR_TIMEOUT_MS,
+      deadlineUnixMs: Date.now() + timeoutMs,
     }
     return new Promise<T>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error(`Alloy agent timed out during ${method}.`))
-      }, SIDECAR_TIMEOUT_MS)
+      }, timeoutMs)
 
       this.pending.set(id, {
         method,

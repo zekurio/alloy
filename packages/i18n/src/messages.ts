@@ -883,6 +883,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Replace: "Ersetzen",
   "Replay buffer": "Replay-Puffer",
   "Replay buffer active": "Replay-Puffer aktiv",
+  "Replay buffer winding down": "Replay-Puffer läuft aus",
   "Replay buffer started": "Replay-Puffer gestartet",
   replies: "Antworten",
   reply: "Antwort",
