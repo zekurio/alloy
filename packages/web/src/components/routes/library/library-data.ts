@@ -102,7 +102,21 @@ export function useLibrarySnapshot(
 
   useEffect(() => {
     if (!desktop) return
-    return onLibraryCapturesChanged(() => {
+    return onLibraryCapturesChanged(({ deletedCaptureId }) => {
+      if (deletedCaptureId) {
+        queryClient.setQueryData<RecordingLibrarySnapshot>(
+          librarySnapshotKey,
+          (current) =>
+            current
+              ? {
+                  ...current,
+                  items: current.items.filter(
+                    (item) => item.id !== deletedCaptureId,
+                  ),
+                }
+              : current,
+        )
+      }
       invalidateLibrarySnapshot(queryClient)
     })
   }, [desktop, queryClient])

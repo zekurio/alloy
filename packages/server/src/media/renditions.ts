@@ -57,8 +57,8 @@ export interface LadderStep {
 /**
  * The tiers to actually encode for a source. Browser-safe H.264/AAC MP4
  * sources already serve their own height and above, so those tiers are skipped
- * before clamping and the ladder may be empty. Other sources keep the compat
- * behavior: configured tiers are clamped to source height and deduplicated
+ * before clamping and the ladder may be empty. For other sources, configured
+ * tiers are clamped to source height and deduplicated
  * when clamping collapses them to the same output signature (height, fps,
  * codec); the survivor keeps the highest maxrate and inherits the og flag.
  */

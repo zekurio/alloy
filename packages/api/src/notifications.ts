@@ -32,6 +32,7 @@ export interface NotificationsApi {
   unreadCount(): Promise<number>
   markRead(id: string): Promise<void>
   markAllRead(): Promise<void>
+  remove(id: string): Promise<void>
 }
 
 export function parseNotificationPayload(
@@ -92,6 +93,15 @@ async function markAllRead(context: ApiContext): Promise<void> {
   )
 }
 
+async function remove(context: ApiContext, id: string): Promise<void> {
+  await readSuccessJson(
+    await context.client.request(
+      `/api/notifications/${encodedPathSegment(id)}`,
+      { method: "DELETE" },
+    ),
+  )
+}
+
 export function createNotificationsApi(context: ApiContext): NotificationsApi {
   return {
     fetch: (params?: { cursor?: string | null; limit?: number }) =>
@@ -99,6 +109,7 @@ export function createNotificationsApi(context: ApiContext): NotificationsApi {
     unreadCount: () => unreadCount(context),
     markRead: (id: string) => markRead(context, id),
     markAllRead: () => markAllRead(context),
+    remove: (id: string) => remove(context, id),
   }
 }
 

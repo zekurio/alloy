@@ -46,12 +46,7 @@ function ResponsiveDialog({
   return (
     <ResponsiveDialogContext.Provider value={isMobile}>
       {isMobile ? (
-        <Drawer
-          open={open}
-          onOpenChange={onOpenChange}
-          direction="bottom"
-          handleOnly
-        >
+        <Drawer open={open} onOpenChange={onOpenChange} direction="bottom">
           {children}
         </Drawer>
       ) : (

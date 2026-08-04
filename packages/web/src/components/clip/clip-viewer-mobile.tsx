@@ -441,7 +441,6 @@ function MobileClipViewerBody({
             open={commentsOpen}
             onOpenChange={setCommentsOpen}
             direction="bottom"
-            handleOnly
           >
             <DrawerContent className={mobileDrawerContentClass}>
               <DrawerTitle className="sr-only">{t("Comments")}</DrawerTitle>

@@ -11,23 +11,23 @@ import {
   obsResourcesDir,
   pruneObsRuntime,
   recorderDir,
-  sidecarResourcesDir,
+  agentResourcesDir,
   stageObsHelpers,
   stageObsRuntime,
 } from "./obs-runtime.mjs"
 
 const manifestPath = join(recorderDir, "Cargo.toml")
-const binaryName = "alloy-recorder.exe"
+const binaryName = "alloy-agent.exe"
 const requireObsRuntime =
   process.argv.includes("--require-obs-runtime") ||
   process.env.ALLOY_REQUIRE_OBS_RUNTIME === "1"
 const targetTriple = process.env.CARGO_BUILD_TARGET ?? process.env.CARGO_TARGET
 
 if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
-  console.warn("Skipping alloy-recorder build: the sidecar is Windows-only.")
-  mkdirSync(sidecarResourcesDir, { recursive: true })
+  console.warn("Skipping alloy-agent build: the native agent is Windows-only.")
+  mkdirSync(agentResourcesDir, { recursive: true })
   mkdirSync(obsResourcesDir, { recursive: true })
-  writeFileSync(join(sidecarResourcesDir, ".gitkeep"), "")
+  writeFileSync(join(agentResourcesDir, ".gitkeep"), "")
   writeFileSync(join(obsResourcesDir, ".gitkeep"), "")
   writeManifest()
   process.exit(0)
@@ -57,9 +57,9 @@ if (!existsSync(builtBinary)) {
   process.exit(1)
 }
 
-mkdirSync(sidecarResourcesDir, { recursive: true })
-copyFileIfChanged(builtBinary, join(sidecarResourcesDir, binaryName))
-writeFileSync(join(sidecarResourcesDir, ".gitkeep"), "")
+mkdirSync(agentResourcesDir, { recursive: true })
+copyFileIfChanged(builtBinary, join(agentResourcesDir, binaryName))
+writeFileSync(join(agentResourcesDir, ".gitkeep"), "")
 writeManifest()
 
 stageObsRuntime(obsRuntimeSource)
@@ -87,7 +87,7 @@ function writeManifest() {
   }
 
   writeFileSync(
-    join(distDir, "recorder.json"),
+    join(distDir, "agent.json"),
     `${JSON.stringify(manifest, null, 2)}\n`,
   )
 }

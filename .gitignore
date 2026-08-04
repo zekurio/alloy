@@ -21,6 +21,7 @@ out
 image-stream
 packages/desktop/assets/icon.ico
 packages/desktop/release/
+packages/desktop/release-*/
 packages/recorder/dist/
 packages/recorder/release/
 packages/recorder/target/

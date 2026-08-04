@@ -1,3 +1,4 @@
+import { UNCATEGORISED_GAME_ID } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipLike, clipView, follow, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
@@ -5,7 +6,7 @@ import { clipSelectShape } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
 import { badRequest, invalidCursor } from "@alloy/server/runtime/http-response"
-import { and, eq, exists, ne, type SQL, sql } from "drizzle-orm"
+import { and, eq, exists, isNull, ne, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -65,7 +66,11 @@ export const feedRoute = new Hono()
 
     if (filter === "game") {
       if (!gameId) return badRequest(c, "gameId is required")
-      conditions.push(eq(clip.game_id, gameId))
+      conditions.push(
+        gameId === UNCATEGORISED_GAME_ID
+          ? isNull(clip.game_id)
+          : eq(clip.game_id, gameId),
+      )
       if (authorId) conditions.push(eq(clip.author_id, authorId))
     }
 

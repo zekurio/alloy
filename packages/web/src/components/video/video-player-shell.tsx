@@ -1,5 +1,6 @@
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
+import { CLIP_MEDIA_BACKGROUND_CLASS } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import type {
@@ -70,7 +71,8 @@ export function BareShell({
       data-mode="bare"
       tabIndex={-1}
       className={cn(
-        "relative isolate w-full overflow-hidden bg-[oklch(12%_0.01_250)]",
+        "relative isolate w-full overflow-hidden",
+        CLIP_MEDIA_BACKGROUND_CLASS,
         maxDisplayHeight && "mx-auto",
         !aspectRatio && "aspect-video",
         "focus:outline-none",
@@ -175,7 +177,7 @@ export function ChromeShell({
       style={rootSizingStyle}
       className={cn(
         "group/video relative isolate flex w-full flex-col overflow-hidden select-none",
-        barBelow ? "bg-transparent" : "bg-[oklch(12%_0.01_250)]",
+        CLIP_MEDIA_BACKGROUND_CLASS,
         isFullscreen && "h-dvh w-dvw",
         !aspectRatio && !isFullscreen && "aspect-video",
         maxDisplayHeight && !isFullscreen && "mx-auto",
@@ -186,7 +188,8 @@ export function ChromeShell({
       <div
         data-slot="video-player-media"
         className={cn(
-          "relative min-h-0 w-full overflow-hidden bg-[oklch(12%_0.01_250)]",
+          "relative min-h-0 w-full overflow-hidden",
+          CLIP_MEDIA_BACKGROUND_CLASS,
           isFullscreen && "flex-1",
         )}
         style={mediaSizingStyle}

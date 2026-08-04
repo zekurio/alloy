@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 
-import { alloyDesktop, desktopSupports } from "@/lib/desktop"
+import { alloyDesktop } from "@/lib/desktop"
 import { desktopMediaFilmstrip } from "@/lib/media-filmstrip"
 
 /**
@@ -12,9 +12,7 @@ export function DesktopScrubberGenerator() {
   const desktop = alloyDesktop()
 
   useEffect(() => {
-    if (!desktop || !desktopSupports("recording.saveLibraryCaptureScrubber")) {
-      return
-    }
+    if (!desktop) return
     const timers = new Set<number>()
     const unsubscribe = desktop.recording.onEvent((event) => {
       if (event.type !== "capture-ready") return

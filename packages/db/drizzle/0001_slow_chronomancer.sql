@@ -1,0 +1,3 @@
+ALTER TABLE "notification" DROP CONSTRAINT "notification_kind_check";--> statement-breakpoint
+ALTER TABLE "notification" ALTER COLUMN "actor_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "notification" ADD CONSTRAINT "notification_kind_check" CHECK ("notification"."kind" in ('follow', 'clip_like', 'clip_comment', 'comment_reply', 'clip_mention', 'comment_mention', 'comment_like', 'clip_processing_failed'));

@@ -1,7 +1,7 @@
 import {
-  desktopBridgeSupports,
+  DESKTOP_BRIDGE_VERSION,
+  isCurrentDesktopBridge,
   type AlloyDesktop,
-  type DesktopBridgePath,
 } from "@alloy/contracts"
 
 // Bridge and recording-library contract types live in @alloy/contracts (single
@@ -26,15 +26,16 @@ export function alloyDesktop(): AlloyDesktop | null {
   return host.alloyDesktop ?? null
 }
 
-/**
- * Whether the hosting desktop shell implements the bridge member at `path`.
- * Always false in a plain browser. This is the only sanctioned capability
- * gate: at bridge v1 every member is required, so it is equivalent to an
- * `alloyDesktop()` null check, but it becomes load-bearing for members added
- * in bridge v2+.
- */
-export function desktopSupports(path: DesktopBridgePath): boolean {
-  return desktopBridgeSupports(alloyDesktop()?.bridge.version ?? 0, path)
+export function desktopBridgeMismatch(): {
+  actual: number
+  expected: number
+} | null {
+  const desktop = alloyDesktop()
+  if (!desktop || isCurrentDesktopBridge(desktop.bridge.version)) return null
+  return {
+    actual: desktop.bridge.version,
+    expected: DESKTOP_BRIDGE_VERSION,
+  }
 }
 
 /**
@@ -44,14 +45,32 @@ export function desktopSupports(path: DesktopBridgePath): boolean {
  */
 const LIBRARY_CAPTURES_CHANGED_EVENT = "alloy:library-captures-changed"
 
-export function notifyLibraryCapturesChanged(): void {
-  window.dispatchEvent(new Event(LIBRARY_CAPTURES_CHANGED_EVENT))
+interface LibraryCapturesChangedDetail {
+  deletedCaptureId?: string
 }
 
-export function onLibraryCapturesChanged(listener: () => void): () => void {
-  window.addEventListener(LIBRARY_CAPTURES_CHANGED_EVENT, listener)
+export function notifyLibraryCapturesChanged(deletedCaptureId?: string): void {
+  window.dispatchEvent(
+    new CustomEvent<LibraryCapturesChangedDetail>(
+      LIBRARY_CAPTURES_CHANGED_EVENT,
+      { detail: { deletedCaptureId } },
+    ),
+  )
+}
+
+export function onLibraryCapturesChanged(
+  listener: (detail: LibraryCapturesChangedDetail) => void,
+): () => void {
+  const handle = (event: Event) => {
+    listener(
+      event instanceof CustomEvent
+        ? (event.detail as LibraryCapturesChangedDetail)
+        : {},
+    )
+  }
+  window.addEventListener(LIBRARY_CAPTURES_CHANGED_EVENT, handle)
   return () =>
-    window.removeEventListener(LIBRARY_CAPTURES_CHANGED_EVENT, listener)
+    window.removeEventListener(LIBRARY_CAPTURES_CHANGED_EVENT, handle)
 }
 
 /**

@@ -8,6 +8,7 @@ export const NOTIFICATION_KINDS = [
   "clip_mention",
   "comment_mention",
   "comment_like",
+  "clip_processing_failed",
 ] as const
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
@@ -15,7 +16,8 @@ export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]
 export interface NotificationItem {
   id: string
   kind: NotificationKind
-  actor: UserSummary
+  /** Null for system-generated notifications such as processing failures. */
+  actor: UserSummary | null
   clip: { id: string; title: string; thumbVersion: string | null } | null
   commentId: string | null
   commentSnippet: string | null

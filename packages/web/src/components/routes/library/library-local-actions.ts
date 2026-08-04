@@ -12,7 +12,9 @@ export async function deleteLocalLibraryCopy(
   item: RecordingLibraryItem,
 ): Promise<void> {
   await alloyDesktop()?.recording.deleteLibraryCapture(item.id)
-  notifyLibraryCapturesChanged()
+  // Remove the item from the shared snapshot before another editor renders.
+  // The background re-scan still reconciles groups and other derived fields.
+  notifyLibraryCapturesChanged(item.id)
 }
 
 export async function detachLocalServerLink({

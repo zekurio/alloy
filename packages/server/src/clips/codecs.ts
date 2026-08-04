@@ -1,5 +1,4 @@
-export function renditionIsH264(codecs: string | null | undefined): boolean {
-  if (!codecs) return true
+export function renditionIsH264(codecs: string): boolean {
   return codecs
     .split(",")
     .map((codec) => codec.trim().toLowerCase())

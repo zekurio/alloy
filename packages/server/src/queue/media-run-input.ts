@@ -1,8 +1,6 @@
 import { createLogger } from "@alloy/logging"
-import { configStore } from "@alloy/server/config/store"
 import { type ExtractedPoster, extractPoster } from "@alloy/server/media/poster"
 import { probeMedia } from "@alloy/server/media/probe"
-import { encodeExactCut } from "@alloy/server/media/trim"
 import { join } from "@alloy/server/runtime/path"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 
@@ -66,23 +64,7 @@ export async function materializeEffectiveMedia(
       durationMs: row.durationMs ?? sourceDurationMs,
     }
   }
-
-  // Defensive path for legacy trimmed rows without a committed cut: rebuild
-  // the exact cut so poster frames come from the footage the owner kept.
-  const sourceProbe = await probeMedia(sourcePath)
-  const cut = await encodeExactCut({
-    sourcePath,
-    outDir: join(options.workDir, "cut"),
-    config: configStore.get("transcoding"),
-    source: sourceProbe,
-    startMs: trim.startMs,
-    endMs: trim.endMs,
-    signal: options.signal,
-  })
-  return {
-    path: cut.filePath,
-    durationMs: row.durationMs ?? cut.durationMs,
-  }
+  throw new Error("Trimmed clip is missing its committed cut")
 }
 
 export async function extractPosterBestEffort(

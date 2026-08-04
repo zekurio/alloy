@@ -16,7 +16,6 @@ import { Suspense } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 import { NotificationBell } from "@/components/notifications/notification-bell"
-import { UploadStatusPill } from "@/components/upload/upload-status-pill"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { DesktopRecordingStatus } from "./desktop-recording-status"
@@ -40,7 +39,6 @@ export function HomeSidebar() {
           </Suspense>
         </AppSidebarGroup>
         <AppSidebarGroup className="mt-auto">
-          {session ? <UploadStatusPill variant="sidebar" /> : null}
           {session ? <NotificationBell variant="sidebar" /> : null}
           <DesktopRecordingStatus />
           <DesktopUpdatePill />

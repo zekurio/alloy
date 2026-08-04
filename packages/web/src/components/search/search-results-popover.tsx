@@ -371,7 +371,8 @@ export function SearchResultsPopover() {
             {
               "--alloy-blur-opacity": "82%",
               "--alloy-blur-blur": "28px",
-              "--alloy-blur-shadow": "0 24px 60px -28px rgb(0 0 0 / 0.78)",
+              "--alloy-blur-shadow":
+                "0 24px 60px -28px var(--floating-shadow-strong-color)",
             } as CSSProperties
           }
           onMouseDown={(event) => event.preventDefault()}

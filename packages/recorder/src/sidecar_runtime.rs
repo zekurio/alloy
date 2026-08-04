@@ -129,7 +129,9 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
     match request.method.as_str() {
         "version" => response_ok(request.id, sidecar_version(), || recorder.status()),
         "configure" => match serde_json::from_value::<ConfigureParams>(request.params) {
-            Ok(params) => match recorder.configure(params) {
+            Ok(params) => match prepare_agent_state(&params.agent_state_folder)
+                .and_then(|()| recorder.configure(params))
+            {
                 Ok(status) => response_ok(request.id, status, || recorder.status()),
                 Err(error) => response_error(request.id, error, recorder.status()),
             },
@@ -161,10 +163,19 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
         }
         method => response_error(
             request.id,
-            format!("Unknown recording sidecar method: {method}"),
+            format!("Unknown Alloy agent method: {method}"),
             recorder.status(),
         ),
     }
+}
+
+fn prepare_agent_state(path: &Path) -> Result<(), String> {
+    fs::create_dir_all(path.join("jobs")).map_err(|error| {
+        format!(
+            "Failed to create Alloy agent state folder {}: {error}",
+            path.display()
+        )
+    })
 }
 
 fn detect_game_activity(
@@ -589,6 +600,7 @@ fn request_expired(request: &Request, now_unix_ms: u128) -> bool {
 }
 
 fn main() {
+    sidecar_hotkeys::start();
     let (tx, rx) = mpsc::channel::<Request>();
     let status = Arc::new(Mutex::new(Recorder::default().status()));
 
@@ -636,7 +648,7 @@ fn main() {
                     response_error(
                         batch.request.id,
                         format!(
-                            "Recording sidecar {} request expired before execution.",
+                            "Alloy agent {} request expired before execution.",
                             batch.request.method
                         ),
                         recorder.status(),

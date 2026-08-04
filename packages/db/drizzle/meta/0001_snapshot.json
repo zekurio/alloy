@@ -1,6 +1,6 @@
 {
-  "id": "b94f58c2-3313-491a-b956-c63fadfc68b8",
-  "prevId": "98e3885e-abbe-4f20-ade5-b428c5c8201d",
+  "id": "246c5a8b-7674-4d15-8613-01526b2150c4",
+  "prevId": "9397f02c-7f84-41d4-af8a-3cfda7c84a68",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -97,6 +97,18 @@
         "source_fps": {
           "name": "source_fps",
           "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pending_audio_tracks": {
+          "name": "pending_audio_tracks",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "audio_track_fingerprint": {
+          "name": "audio_track_fingerprint",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -496,6 +508,100 @@
         "clip_source_size_bytes_safe_check": {
           "name": "clip_source_size_bytes_safe_check",
           "value": "\"clip\".\"source_size_bytes\" is null or (\"clip\".\"source_size_bytes\" >= 0 and \"clip\".\"source_size_bytes\" <= 9007199254740991)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.clip_audio_track": {
+      "name": "clip_audio_track",
+      "schema": "",
+      "columns": {
+        "clip_id": {
+          "name": "clip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "idx": {
+          "name": "idx",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "codecs": {
+          "name": "codecs",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "size_bytes": {
+          "name": "size_bytes",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "clip_audio_track_clip_id_clip_id_fk": {
+          "name": "clip_audio_track_clip_id_clip_id_fk",
+          "tableFrom": "clip_audio_track",
+          "tableTo": "clip",
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "clip_audio_track_clip_id_idx_pk": {
+          "name": "clip_audio_track_clip_id_idx_pk",
+          "columns": ["clip_id", "idx"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "clip_audio_track_idx_check": {
+          "name": "clip_audio_track_idx_check",
+          "value": "\"clip_audio_track\".\"idx\" >= 0 and \"clip_audio_track\".\"idx\" < 5"
+        },
+        "clip_audio_track_kind_check": {
+          "name": "clip_audio_track_kind_check",
+          "value": "\"clip_audio_track\".\"kind\" in ('game', 'microphone', 'desktop', 'application', 'other')"
+        },
+        "clip_audio_track_label_check": {
+          "name": "clip_audio_track_label_check",
+          "value": "char_length(\"clip_audio_track\".\"label\") between 1 and 64 and \"clip_audio_track\".\"label\" = btrim(\"clip_audio_track\".\"label\")"
+        },
+        "clip_audio_track_size_bytes_safe_check": {
+          "name": "clip_audio_track_size_bytes_safe_check",
+          "value": "\"clip_audio_track\".\"size_bytes\" >= 0 and \"clip_audio_track\".\"size_bytes\" <= 9007199254740991"
         }
       },
       "isRLSEnabled": false
@@ -1850,7 +1956,7 @@
           "name": "actor_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "kind": {
           "name": "kind",
@@ -1995,7 +2101,7 @@
       "checkConstraints": {
         "notification_kind_check": {
           "name": "notification_kind_check",
-          "value": "\"notification\".\"kind\" in ('follow', 'clip_like', 'clip_comment', 'comment_reply', 'clip_mention', 'comment_mention', 'comment_like')"
+          "value": "\"notification\".\"kind\" in ('follow', 'clip_like', 'clip_comment', 'comment_reply', 'clip_mention', 'comment_mention', 'comment_like', 'clip_processing_failed')"
         }
       },
       "isRLSEnabled": false
@@ -2170,7 +2276,7 @@
       "checkConstraints": {
         "upload_ticket_role_check": {
           "name": "upload_ticket_role_check",
-          "value": "\"upload_ticket\".\"role\" in ('video')"
+          "value": "\"upload_ticket\".\"role\" in ('video', 'scrubber')"
         },
         "upload_ticket_target_check": {
           "name": "upload_ticket_target_check",
@@ -2356,6 +2462,266 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.webhook": {
+      "name": "webhook",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "secret": {
+          "name": "secret",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "last_delivery_at": {
+          "name": "last_delivery_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_delivery_status": {
+          "name": "last_delivery_status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_delivery_error": {
+          "name": "last_delivery_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "consecutive_failures": {
+          "name": "consecutive_failures",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "webhook_enabled_idx": {
+          "name": "webhook_enabled_idx",
+          "columns": [
+            {
+              "expression": "enabled",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"webhook\".\"enabled\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "webhook_provider_check": {
+          "name": "webhook_provider_check",
+          "value": "\"webhook\".\"provider\" in ('discord', 'generic')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.webhook_delivery": {
+      "name": "webhook_delivery",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "webhook_id": {
+          "name": "webhook_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "clip_id": {
+          "name": "clip_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "event": {
+          "name": "event",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "dedup_key": {
+          "name": "dedup_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "response_status": {
+          "name": "response_status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "delivered_at": {
+          "name": "delivered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "webhook_delivery_dedup_idx": {
+          "name": "webhook_delivery_dedup_idx",
+          "columns": [
+            {
+              "expression": "webhook_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "dedup_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "webhook_delivery_clip_idx": {
+          "name": "webhook_delivery_clip_idx",
+          "columns": [
+            {
+              "expression": "clip_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "webhook_delivery_webhook_id_webhook_id_fk": {
+          "name": "webhook_delivery_webhook_id_webhook_id_fk",
+          "tableFrom": "webhook_delivery",
+          "tableTo": "webhook",
+          "columnsFrom": ["webhook_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "webhook_delivery_clip_id_clip_id_fk": {
+          "name": "webhook_delivery_clip_id_clip_id_fk",
+          "tableFrom": "webhook_delivery",
+          "tableTo": "clip",
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "webhook_delivery_event_check": {
+          "name": "webhook_delivery_event_check",
+          "value": "\"webhook_delivery\".\"event\" in ('clip.published')"
+        },
+        "webhook_delivery_status_check": {
+          "name": "webhook_delivery_status_check",
+          "value": "\"webhook_delivery\".\"status\" in ('pending', 'succeeded', 'failed')"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.auth_account": {
@@ -2824,6 +3190,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "image": {
           "name": "image",
           "type": "text",
@@ -2861,6 +3233,13 @@
           "type": "bigint",
           "primaryKey": false,
           "notNull": false
+        },
+        "clip_announcements_enabled": {
+          "name": "clip_announcements_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
         },
         "created_at": {
           "name": "created_at",

@@ -57,7 +57,7 @@ export function DesktopCaptureSettings() {
       ) : null}
       <ModeSection settings={settings} status={status} busy={busy} save={save}>
         <SettingRow
-          title={t("Recording sidecar")}
+          title={t("Alloy agent")}
           description={t(
             "Restart the capture component if recording gets stuck.",
           )}
@@ -74,7 +74,7 @@ export function DesktopCaptureSettings() {
             onClick={() => {
               void restartFeedback.run(
                 restartBackend,
-                t("Couldn't restart recording sidecar."),
+                t("Couldn't restart Alloy agent."),
               )
             }}
           >

@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import { UNCATEGORISED_GAME_SLUG } from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import { ClipCard } from "@alloy/ui/components/clip-card"
 import { useQueryClient } from "@tanstack/react-query"
@@ -33,7 +34,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
   const list = useClipList()
   const card = useMemo(() => toClipCardData(row), [row])
 
-  const gameId = card.gameRef?.slug ?? null
+  const gameId = card.gameRef?.slug ?? UNCATEGORISED_GAME_SLUG
   const gameLink = gameId ? gameHref(gameId) : null
   const authorHref = card.authorUsername
     ? userProfileHref(card.authorUsername)

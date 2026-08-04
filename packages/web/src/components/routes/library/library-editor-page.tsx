@@ -7,7 +7,11 @@ import { FileQuestionIcon, FolderXIcon, MonitorIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
-import { alloyDesktop, type AlloyDesktop } from "@/lib/desktop"
+import {
+  alloyDesktop,
+  type AlloyDesktop,
+  notifyLibraryCapturesChanged,
+} from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
 import { EditorBody } from "./library-editor-body"
@@ -63,8 +67,7 @@ function LibraryEditorContent({
   const navigate = useNavigate()
   const navigateToEntry = useNavigateToLibraryEntry()
   const navigation = useLibraryEntryNavigation({ type: "local", id: captureId })
-  const { snapshot, error, refreshing, refresh, prevEntry, nextEntry } =
-    navigation
+  const { snapshot, error, refreshing, prevEntry, nextEntry } = navigation
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -87,7 +90,10 @@ function LibraryEditorContent({
     const fallback = nextEntry ?? prevEntry
     try {
       await desktop.recording.deleteLibraryCapture(item.id)
-      void refresh()
+      // The next entry may be a cloud clip linked to a local capture. Remove
+      // this path synchronously so it cannot be selected while the re-scan is
+      // still in flight and fail playback with MEDIA_ERR_SRC_NOT_SUPPORTED.
+      notifyLibraryCapturesChanged(item.id)
       setDeleteDialogOpen(false)
       setDeleting(false)
       if (fallback) {

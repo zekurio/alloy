@@ -25,7 +25,11 @@ const loadWebUploadEditor = async () => {
 const ImportClipDetailsDialog = lazy(loadImportClipDialog)
 const WebUploadEditor = lazy(loadWebUploadEditor)
 
-type GlobalUploadControlVariant = "header" | "floating" | "bottom-nav"
+type GlobalUploadControlVariant =
+  | "header"
+  | "floating"
+  | "bottom-nav"
+  | "center"
 
 /**
  * Global "Upload" entry point, mounted wherever the app exposes the upload
@@ -44,13 +48,16 @@ export function GlobalUploadControl({
   const webUploadAction = useWebUploadAction()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const triggerSize = variant === "header" ? "sm" : "icon"
+  const triggerSize =
+    variant === "header" || variant === "center" ? "sm" : "icon"
   const triggerClassName =
     variant === "header"
       ? "max-md:hidden"
-      : variant === "floating"
-        ? "!size-12 rounded-full px-0 shadow-lg"
-        : "size-11 rounded-full px-0"
+      : variant === "center"
+        ? "shrink-0"
+        : variant === "floating"
+          ? "!size-12 rounded-full px-0 shadow-lg"
+          : "size-11 rounded-full px-0"
   const triggerLabel = t("Upload clip")
   const triggerAriaLabel = variant === "header" ? undefined : triggerLabel
 
@@ -157,7 +164,8 @@ function UploadTriggerContent({
       : variant === "floating"
         ? "!size-[22px]"
         : undefined
-  const TriggerIcon = variant === "header" ? UploadIcon : PlusIcon
+  const TriggerIcon =
+    variant === "header" || variant === "center" ? UploadIcon : PlusIcon
   return (
     <>
       {pending ? (
@@ -165,7 +173,9 @@ function UploadTriggerContent({
       ) : (
         <TriggerIcon className={iconClass} />
       )}
-      {variant === "header" ? <span>{t("Upload")}</span> : null}
+      {variant === "header" || variant === "center" ? (
+        <span>{t("Upload")}</span>
+      ) : null}
     </>
   )
 }

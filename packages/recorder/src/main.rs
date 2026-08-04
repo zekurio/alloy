@@ -1,5 +1,5 @@
 #[cfg(not(windows))]
-compile_error!("alloy-recorder is currently Windows-only.");
+compile_error!("alloy-agent is currently Windows-only.");
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
@@ -25,7 +25,7 @@ use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-const SIDE_CAR_NAME: &str = "alloy-recorder";
+const SIDE_CAR_NAME: &str = "alloy-agent";
 const RECORDER_PROTOCOL_VERSION: u32 = 1;
 const CONTENT_TYPE_MP4: &str = "video/mp4";
 const DISK_REPLAY_PREFIX: &str = "alloy-replay-buffer-";
@@ -69,6 +69,7 @@ type ProcHandler = c_void;
 type SignalHandler = c_void;
 type SignalCallback = unsafe extern "C" fn(*mut c_void, *mut CallData);
 
+mod sidecar_hotkeys;
 mod sidecar_windows_com;
 
 include!("sidecar_types.rs");

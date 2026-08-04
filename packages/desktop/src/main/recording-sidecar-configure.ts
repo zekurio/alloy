@@ -88,7 +88,7 @@ export class SidecarConfigureQueue {
         (cause: unknown) => {
           throw cause instanceof Error
             ? cause
-            : new Error("Recording sidecar configure failed.")
+            : new Error("Alloy agent configure failed.")
         },
       )
       .finally(() => {
@@ -137,7 +137,7 @@ export class SidecarConfigureQueue {
           queued.reject(
             cause instanceof Error
               ? cause
-              : new Error("Recording sidecar status failed."),
+              : new Error("Alloy agent status failed."),
           ),
         )
       return

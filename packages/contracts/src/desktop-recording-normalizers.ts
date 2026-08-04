@@ -19,12 +19,6 @@ import {
 } from "./desktop-recording-types"
 import { isObjectRecord } from "./object"
 
-const NOTIFICATION_SOUND_EVENT_ALIASES: Partial<
-  Record<RecordingNotificationSoundEvent, readonly string[]>
-> = {
-  replayBufferStarted: ["replayRecordingStarted", "recordingStarted"],
-}
-
 export function normalizeQualitySettings(
   value: unknown,
   fallback: RecordingQualitySettings,
@@ -68,13 +62,10 @@ export function normalizeNotificationSounds(
   const record = isObjectRecord(value) ? value : {}
   return {
     replayBufferStarted: normalizeNotificationSound(
-      notificationSoundValue(record, "replayBufferStarted"),
+      record.replayBufferStarted,
       "replayBufferStarted",
     ),
-    clipSaved: normalizeNotificationSound(
-      notificationSoundValue(record, "clipSaved"),
-      "clipSaved",
-    ),
+    clipSaved: normalizeNotificationSound(record.clipSaved, "clipSaved"),
   }
 }
 
@@ -88,32 +79,19 @@ export function normalizeAudioDevices(
     if (!record) return []
 
     const id = normalizeNonEmptyString(record.id)
-    if (!id) return []
+    if (!id || id === "communications") return []
 
     const kind = normalizeLiteral(
       record.kind,
       RECORDING_AUDIO_DEVICE_KINDS,
       "output",
     )
-    const migratedId =
-      kind === "input" && id === "communications" ? "default" : id
-
     return [
       {
-        id: migratedId,
-        label:
-          migratedId === "default" && id === "communications"
-            ? "Default microphone"
-            : (normalizeNonEmptyString(record.label) ?? migratedId),
+        id,
+        label: normalizeNonEmptyString(record.label) ?? id,
         kind,
-        // OBS cannot follow the Windows communications-role output alias. Keep
-        // the old row visible for user intent, but never continue capturing it.
-        enabled:
-          kind === "output" && id === "communications"
-            ? false
-            : typeof record.enabled === "boolean"
-              ? record.enabled
-              : true,
+        enabled: typeof record.enabled === "boolean" ? record.enabled : true,
         volume: normalizeAudioVolume(record.volume),
       },
     ]
@@ -250,23 +228,11 @@ export function normalizeCaptureAudioTracks(
   return tracks
 }
 
-/**
- * Resolves the single clip hotkey, migrating legacy configs that stored an
- * array of `clips` (each with its own duration) down to the first binding.
- */
 function normalizeClipHotkey(record: Record<string, unknown>): string {
-  if (typeof record.clip === "string") return record.clip
-
-  if (Array.isArray(record.clips)) {
-    for (const entry of record.clips) {
-      const hotkey = isObjectRecord(entry)
-        ? normalizeNonEmptyString(entry.hotkey)
-        : null
-      if (hotkey) return hotkey
-    }
-  }
-
-  return DEFAULT_RECORDING_SETTINGS.hotkeys.clip
+  return (
+    normalizeNonEmptyString(record.clip) ??
+    DEFAULT_RECORDING_SETTINGS.hotkeys.clip
+  )
 }
 
 function normalizeNotificationSound(
@@ -282,23 +248,6 @@ function normalizeNotificationSound(
     volume: normalizeAudioVolume(record.volume),
     path: typeof record.path === "string" ? record.path.trim() : fallback.path,
   }
-}
-
-function notificationSoundValue(
-  record: Record<string, unknown>,
-  event: RecordingNotificationSoundEvent,
-): unknown {
-  if (hasOwn(record, event)) return record[event]
-
-  for (const alias of NOTIFICATION_SOUND_EVENT_ALIASES[event] ?? []) {
-    if (hasOwn(record, alias)) return record[alias]
-  }
-
-  return undefined
-}
-
-function hasOwn(record: Record<string, unknown>, key: string): boolean {
-  return Object.prototype.hasOwnProperty.call(record, key)
 }
 
 function allowedGameKey(game: RecordingAllowedGame): string {

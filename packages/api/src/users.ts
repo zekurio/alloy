@@ -38,11 +38,7 @@ export type {
   UserSearchResult,
   UserStorageUsage,
 } from "@alloy/contracts"
-export {
-  LEGACY_USER_ASSET_PATH_PREFIX,
-  USER_ASSET_PATH_PREFIX,
-  userAssetImagePath,
-} from "@alloy/contracts"
+export { USER_ASSET_PATH_PREFIX, userAssetImagePath } from "@alloy/contracts"
 
 function usernameParam(handle: string): { username: string } {
   return { username: encodedPathSegment(handle) }

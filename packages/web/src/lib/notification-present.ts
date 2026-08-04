@@ -1,9 +1,11 @@
-import type { NotificationItem } from "@alloy/api"
+import { clipThumbnailUrl, type NotificationItem } from "@alloy/api"
 
 import { clientLogger } from "@/lib/client-log"
 
 import { alloyDesktop } from "./desktop"
+import { apiOrigin, publicOrigin } from "./env"
 import { notificationDisplay } from "./notification-display"
+import { userImageSrc } from "./user-display"
 
 export type NotificationNavigator = (options: { to: string }) => void
 
@@ -37,6 +39,18 @@ export function presentNotification(
   }
   const notification = new Notification(display.title, {
     body: display.body,
+    icon:
+      userImageSrc(item.actor?.image) ??
+      new URL("/logo.png", publicOrigin()).toString(),
+    ...(item.clip?.thumbVersion
+      ? {
+          image: clipThumbnailUrl(
+            item.clip.id,
+            apiOrigin(),
+            item.clip.thumbVersion,
+          ),
+        }
+      : {}),
     tag: item.id,
   })
   notification.onclick = () => {

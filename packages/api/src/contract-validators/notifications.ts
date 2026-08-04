@@ -30,7 +30,7 @@ export function validateNotificationItem(value: unknown): NotificationItem {
     NOTIFICATION_KIND_SET,
     "Invalid notification response: kind is invalid",
   )
-  validateUserSummary(row.actor, "notification actor")
+  if (row.actor !== null) validateUserSummary(row.actor, "notification actor")
   validateNotificationClip(row.clip)
   validateNullableString(
     row.commentId,
