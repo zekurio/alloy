@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 import { Suspense, lazy } from "react"
 
+import { LibraryEditorDialog } from "@/components/routes/library/library-editor-shared"
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -29,8 +30,13 @@ function LibraryCaptureRoute() {
   const { captureId } = Route.useParams()
   const { prompt } = Route.useSearch()
   return (
-    <Suspense fallback={null}>
-      <LibraryEditorPage captureId={captureId} promptGame={prompt === "game"} />
-    </Suspense>
+    <LibraryEditorDialog>
+      <Suspense fallback={null}>
+        <LibraryEditorPage
+          captureId={captureId}
+          promptGame={prompt === "game"}
+        />
+      </Suspense>
+    </LibraryEditorDialog>
   )
 }
