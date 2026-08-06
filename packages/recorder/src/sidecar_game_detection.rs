@@ -310,7 +310,7 @@ fn discord_game_match(executable: Option<&str>) -> Option<CandidateGameMatch> {
         name: game.name.clone(),
         aliases: game.aliases.clone(),
         icon_url: discord_icon_url(game),
-        preserve_name: false,
+        preserve_name: true,
         force_display_capture: false,
         detection_score: rule.score,
         confidence: if rule.is_launcher { 82 } else { 96 },
@@ -336,7 +336,7 @@ fn candidate_match_from_rule(rule: &GameDetectionRule) -> CandidateGameMatch {
         name: rule.title.clone(),
         aliases: Vec::new(),
         icon_url: None,
-        preserve_name: false,
+        preserve_name: true,
         force_display_capture: rule.force_display_capture,
         detection_score: CURATED_GAME_SCORE,
         confidence: 86,
@@ -480,6 +480,9 @@ fn readable_detected_game_name(
     title: Option<&str>,
     executable: Option<&str>,
 ) -> String {
+    // Authoritative detector names identify the game. Executable metadata
+    // identifies the capture target and may contain implementation labels such
+    // as "League of Legends (TM) Client" instead of the catalogue name.
     user_facing_process_name(ProcessDisplayName {
         path,
         preferred: Some(&candidate.name),
