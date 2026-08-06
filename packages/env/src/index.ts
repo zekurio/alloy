@@ -15,29 +15,45 @@ export function createEnv<Schema extends TSchema>(
     source?: Record<string, string | undefined>
   },
 ): StaticDecode<Schema> {
+  const source = { ...(options.source ?? process.env) }
   try {
-    return Decode(schema, options.source ?? process.env)
-  } catch {
+    return Decode(schema, source)
+  } catch (cause) {
     throw new Error(
       `[${options.label}] Invalid environment variables:\n` +
-        JSON.stringify(
-          groupErrors(schema, options.source ?? process.env),
-          null,
-          2,
-        ),
+        JSON.stringify(groupErrors(schema, source, cause), null, 2),
+      { cause },
     )
   }
 }
 
-function groupErrors(schema: TSchema, value: unknown) {
-  return [...Errors(schema, value)].reduce<Record<string, string[]>>(
-    (groups, error) => {
-      const key = error.instancePath.split("/")[1] ?? ""
-      groups[key] = [...(groups[key] ?? []), error.message]
-      return groups
-    },
-    {},
+function groupErrors(schema: TSchema, value: unknown, cause: unknown) {
+  return (decodeErrors(cause) ?? [...Errors(schema, value)]).reduce<
+    Record<string, string[]>
+  >((groups, error) => {
+    const key = error.instancePath.split("/")[1] ?? ""
+    groups[key] = [...(groups[key] ?? []), error.message]
+    return groups
+  }, {})
+}
+
+function decodeErrors(cause: unknown) {
+  if (!cause || typeof cause !== "object" || !("cause" in cause)) return null
+  const details = cause.cause
+  if (!details || typeof details !== "object" || !("errors" in details)) {
+    return null
+  }
+  if (!Array.isArray(details.errors)) return null
+  const errors = details.errors.filter(
+    (error): error is { instancePath: string; message: string } =>
+      typeof error === "object" &&
+      error !== null &&
+      "instancePath" in error &&
+      typeof error.instancePath === "string" &&
+      "message" in error &&
+      typeof error.message === "string",
   )
+  return errors.length > 0 ? errors : null
 }
 
 /** TypeBox schema for a postgres:// or postgresql:// connection URL. */

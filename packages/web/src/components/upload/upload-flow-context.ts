@@ -2,6 +2,7 @@ import { createContext, useContext } from "react"
 
 import type { PublishClipInput } from "./new-clip-helpers"
 import type { QueueItem } from "./upload-queue-types"
+import type { WebUploadAction } from "./web-upload-action"
 
 export interface PublishClipResult {
   /** Server clip id once the upload is queued, or null when cancelled. */
@@ -34,6 +35,9 @@ export const UploadQueueContext = createContext<UploadQueueState | null>(null)
 export const UploadActionsContext = createContext<UploadFlowActions | null>(
   null,
 )
+export const WebUploadActionContext = createContext<WebUploadAction | null>(
+  null,
+)
 
 export function useUploadQueue(): UploadQueueState {
   const value = useContext(UploadQueueContext)
@@ -47,6 +51,16 @@ export function useUploadActions(): UploadFlowActions {
   const value = useContext(UploadActionsContext)
   if (!value) {
     throw new Error("useUploadActions must be used within UploadFlowProvider")
+  }
+  return value
+}
+
+export function useWebUploadActionContext(): WebUploadAction {
+  const value = useContext(WebUploadActionContext)
+  if (!value) {
+    throw new Error(
+      "useWebUploadActionContext must be used within UploadFlowProvider",
+    )
   }
   return value
 }

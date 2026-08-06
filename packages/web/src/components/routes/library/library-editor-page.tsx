@@ -7,6 +7,7 @@ import { FileQuestionIcon, FolderXIcon, MonitorIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
+import type { WebUploadAction } from "@/components/upload/web-upload-action"
 import {
   alloyDesktop,
   type AlloyDesktop,
@@ -21,13 +22,27 @@ import {
   useNavigateToLibraryEntry,
 } from "./library-entry-navigation"
 
-export function LibraryEditorPage({
-  captureId,
-  promptGame = false,
-}: {
-  captureId: string
-  promptGame?: boolean
-}) {
+type LibraryEditorPageProps =
+  | { captureId: string; promptGame?: boolean; uploadAction?: never }
+  | { captureId?: never; promptGame?: never; uploadAction: WebUploadAction }
+
+export function LibraryEditorPage(props: LibraryEditorPageProps) {
+  if (props.uploadAction) {
+    const selected = props.uploadAction.selected
+    const previewUrl = props.uploadAction.previewUrl
+    if (!selected || !previewUrl) return null
+    return (
+      <AppMain className="p-4 md:p-6">
+        <EditorBody
+          key={`${selected.name}:${selected.sizeBytes}`}
+          uploadAction={props.uploadAction}
+          selected={selected}
+          previewUrl={previewUrl}
+        />
+      </AppMain>
+    )
+  }
+
   const desktop = alloyDesktop()
 
   if (!desktop) {
@@ -49,8 +64,8 @@ export function LibraryEditorPage({
   return (
     <LibraryEditorContent
       desktop={desktop}
-      captureId={captureId}
-      promptGame={promptGame}
+      captureId={props.captureId}
+      promptGame={props.promptGame ?? false}
     />
   )
 }

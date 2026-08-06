@@ -7,7 +7,9 @@ import {
   type PublishClipFn,
   UploadQueueContext,
   type UploadQueueState,
+  WebUploadActionContext,
 } from "./upload-flow-context"
+import { useWebUploadAction } from "./web-upload-action"
 
 const publishUnavailable: PublishClipFn = () =>
   Promise.reject(new Error("Upload queue is not available."))
@@ -44,11 +46,14 @@ export function UploadFlowProvider({ children }: { children: ReactNode }) {
     }),
     [setQueueState, publishClip, setPublishClip],
   )
+  const webUploadAction = useWebUploadAction(publishClip)
 
   return (
     <UploadActionsContext.Provider value={actions}>
       <UploadQueueContext.Provider value={queueValue}>
-        {children}
+        <WebUploadActionContext.Provider value={webUploadAction}>
+          {children}
+        </WebUploadActionContext.Provider>
       </UploadQueueContext.Provider>
     </UploadActionsContext.Provider>
   )

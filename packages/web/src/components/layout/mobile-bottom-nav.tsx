@@ -15,7 +15,11 @@ import { useNavFlags } from "./use-nav-flags"
  * Account access lives in the header so this icon-only bar stays focused on
  * navigation, creation, and notifications.
  */
-export function MobileBottomNav() {
+export function MobileBottomNav({
+  showUpload = true,
+}: {
+  showUpload?: boolean
+}) {
   const { isHome, isGames, isLibrary } = useNavFlags()
   const session = useSuspenseSession()
 
@@ -31,7 +35,11 @@ export function MobileBottomNav() {
       <div
         className={cn(
           "grid h-[var(--bottomnav-h)] items-stretch",
-          session ? "grid-cols-5" : "grid-cols-3",
+          session
+            ? showUpload
+              ? "grid-cols-5"
+              : "grid-cols-4"
+            : "grid-cols-3",
         )}
       >
         <BottomNavLink
@@ -46,7 +54,7 @@ export function MobileBottomNav() {
           label={t("Library")}
           icon={<LibraryIcon />}
         />
-        {session ? (
+        {session && showUpload ? (
           <div className="flex items-center justify-center">
             <UploadCenter variant="bottom-nav" />
           </div>

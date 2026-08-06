@@ -8,7 +8,7 @@ import { alloyDesktop } from "@/lib/desktop"
 
 import { useImportClipAction } from "./import-clip-action"
 import { ACCEPT_LIST } from "./new-clip-helpers"
-import { useWebUploadAction } from "./web-upload-action"
+import { useWebUploadActionContext } from "./upload-flow-context"
 
 const loadImportClipDialog = async () => {
   // Static import would pull this dialog into the eager header chunk.
@@ -16,14 +16,7 @@ const loadImportClipDialog = async () => {
   return { default: module.ImportClipDetailsDialog }
 }
 
-const loadWebUploadEditor = async () => {
-  // Static import would pull the editor surface into the eager header chunk.
-  const module = await import("./web-upload-editor")
-  return { default: module.WebUploadEditor }
-}
-
 const ImportClipDetailsDialog = lazy(loadImportClipDialog)
-const WebUploadEditor = lazy(loadWebUploadEditor)
 
 type GlobalUploadControlVariant =
   | "header"
@@ -35,8 +28,9 @@ type GlobalUploadControlVariant =
  * Global "Upload" entry point, mounted wherever the app exposes the upload
  * affordance. Branches on the desktop shell: the desktop app imports an
  * already-recorded file via the sidecar's staged-import flow, the browser
- * picks a file and opens the trim/metadata editor. Each mount owns its own
- * state and dialog surface so separately mounted instances remain independent.
+ * picks a file and hands it to the shared full-screen library editor flow.
+ * Browser selection state lives above every trigger so the initiating button
+ * can unmount while the editor is open without discarding the selected file.
  */
 export function GlobalUploadControl({
   variant = "header",
@@ -45,7 +39,7 @@ export function GlobalUploadControl({
 }) {
   const desktop = alloyDesktop()
   const importAction = useImportClipAction(desktop)
-  const webUploadAction = useWebUploadAction()
+  const webUploadAction = useWebUploadActionContext()
   const inputRef = useRef<HTMLInputElement>(null)
 
   const triggerSize =
@@ -133,18 +127,11 @@ export function GlobalUploadControl({
             : t("Uploads are unavailable in this browser"))
         }
         onClick={() => {
-          // Warm the chunk; lazy() re-fetches on mount if this fails.
-          void loadWebUploadEditor().catch(() => {})
           inputRef.current?.click()
         }}
       >
         <UploadTriggerContent pending={pending} variant={variant} />
       </FeedbackButton>
-      {webUploadAction.selected !== null ? (
-        <Suspense fallback={null}>
-          <WebUploadEditor action={webUploadAction} />
-        </Suspense>
-      ) : null}
     </>
   )
 }
