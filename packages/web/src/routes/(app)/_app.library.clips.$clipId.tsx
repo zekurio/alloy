@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { Suspense, lazy } from "react"
 
+import { LibraryEditorDialog } from "@/components/routes/library/library-editor-shared"
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 import { clipDetailQueryOptions } from "@/lib/clip-queries"
 
@@ -26,8 +27,10 @@ export const Route = createFileRoute("/(app)/_app/library/clips/$clipId")({
 function LibraryClipRoute() {
   const { clipId } = Route.useParams()
   return (
-    <Suspense fallback={null}>
-      <LibraryClipEditorPage clipId={clipId} />
-    </Suspense>
+    <LibraryEditorDialog>
+      <Suspense fallback={null}>
+        <LibraryClipEditorPage clipId={clipId} />
+      </Suspense>
+    </LibraryEditorDialog>
   )
 }
