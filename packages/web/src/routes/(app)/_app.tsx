@@ -5,7 +5,7 @@ import {
   useNavigate,
   useRouterState,
 } from "@tanstack/react-router"
-import { memo, useCallback } from "react"
+import { lazy, memo, Suspense, useCallback } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 import { WelcomeProfileDialog } from "@/components/auth/welcome-profile-dialog"
@@ -22,9 +22,17 @@ import { SettingsDialog } from "@/components/routes/settings/settings-dialog"
 import { AppSearchProvider } from "@/components/search/app-search"
 import { UploadCenter } from "@/components/upload/upload-center"
 import { UploadFlow } from "@/components/upload/upload-flow"
+import { useWebUploadActionContext } from "@/components/upload/upload-flow-context"
 import { UploadFlowProvider } from "@/components/upload/upload-flow-controls"
 import { type AppSearch, parseAppSearch } from "@/lib/app-search"
 import { useSuspenseSession } from "@/lib/session-suspense"
+
+const loadLibraryEditorPage = async () => {
+  const module = await import("@/components/routes/library/library-editor-page")
+  return { default: module.LibraryEditorPage }
+}
+
+const LibraryEditorPage = lazy(loadLibraryEditorPage)
 
 export const Route = createFileRoute("/(app)/_app")({
   validateSearch: parseAppSearch,
@@ -37,9 +45,6 @@ function AppLayout() {
   const { clip, comment, settings, welcome } = Route.useSearch()
   const session = useSuspenseSession()
   const navigate = useNavigate()
-  const libraryEditorOpen = useRouterState({
-    select: (state) => state.location.pathname.startsWith("/library/"),
-  })
 
   const handleCloseClipModal = () => {
     void navigate({
@@ -108,17 +113,7 @@ function AppLayout() {
     <AppSearchProvider>
       <UploadFlowProvider>
         <DesktopScrubberGenerator />
-        <AppShell>
-          <AppChrome />
-          <Outlet />
-          <UploadFlow />
-          {session && !libraryEditorOpen ? (
-            <div className="fixed right-4 bottom-4 z-30 hidden md:flex">
-              <UploadCenter variant="floating" />
-            </div>
-          ) : null}
-          <MobileBottomNav />
-        </AppShell>
+        <AppShellContent session={session !== null} />
       </UploadFlowProvider>
       <ClipViewerDialog
         clipId={clip ?? null}
@@ -136,6 +131,37 @@ function AppLayout() {
         onClose={handleCloseWelcome}
       />
     </AppSearchProvider>
+  )
+}
+
+function AppShellContent({ session }: { session: boolean }) {
+  const webUploadAction = useWebUploadActionContext()
+  const libraryEditorOpen = useRouterState({
+    select: (state) => {
+      const pathname = state.location.pathname
+      return pathname.startsWith("/library/") && pathname !== "/library/"
+    },
+  })
+  const editorOpen = libraryEditorOpen || webUploadAction.selected !== null
+
+  return (
+    <AppShell>
+      <AppChrome />
+      {webUploadAction.selected ? (
+        <Suspense fallback={null}>
+          <LibraryEditorPage uploadAction={webUploadAction} />
+        </Suspense>
+      ) : (
+        <Outlet />
+      )}
+      <UploadFlow />
+      {session && !editorOpen ? (
+        <div className="fixed right-4 bottom-4 z-30 hidden md:flex">
+          <UploadCenter variant="floating" />
+        </div>
+      ) : null}
+      <MobileBottomNav showUpload={!editorOpen} />
+    </AppShell>
   )
 }
 

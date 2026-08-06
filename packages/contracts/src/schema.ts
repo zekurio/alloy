@@ -145,13 +145,20 @@ function schema<SchemaType extends TSchema>(
           )
       }
       if (property === "catch") {
-        return (defaultValue: unknown) =>
-          schema(
-            Type.Decode(Type.Unknown(), (input) => {
-              const result = safeParse(target, input)
-              return result.success ? result.data : defaultValue
-            }),
+        return (defaultValue: unknown) => {
+          const caught = Type.Decode(Type.Unknown(), (input) => {
+            const result = safeParse(target, input)
+            return result.success ? result.data : defaultValue
+          })
+          return schema(
+            targetRecord[defaulted]
+              ? Object.assign(caught, {
+                  default: targetRecord.default,
+                  [defaulted]: true as const,
+                })
+              : caught,
           )
+        }
       }
       if (property === "refine") {
         return (

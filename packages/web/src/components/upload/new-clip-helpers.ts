@@ -8,7 +8,7 @@ import { t } from "@alloy/i18n"
 
 import { type ProbedFile, probeFile } from "./new-clip-media"
 
-/** Metadata derived from a real File for display in the modal header. */
+/** Metadata derived from a real File for display in the library editor. */
 export interface SelectedFile {
   /** The actual File the parent will upload. */
   file: File

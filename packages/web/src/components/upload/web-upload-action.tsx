@@ -8,10 +8,7 @@ import {
   type PublishPayload,
   type SelectedFile,
 } from "@/components/upload/new-clip-helpers"
-import {
-  type PublishClipFn,
-  useUploadActions,
-} from "@/components/upload/upload-flow-context"
+import type { PublishClipFn } from "@/components/upload/upload-flow-context"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import { copyTextToClipboard } from "@/lib/clipboard"
@@ -47,8 +44,9 @@ export interface WebUploadMetadata {
   trimmed: boolean
 }
 
-export function useWebUploadAction(): WebUploadAction {
-  const actions = useUploadActions()
+export function useWebUploadAction(
+  publishClip: PublishClipFn,
+): WebUploadAction {
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
@@ -59,7 +57,7 @@ export function useWebUploadAction(): WebUploadAction {
     selection.clear()
   }, [selection.clear])
   const publish = usePublishSelectedFile(
-    actions.publishClip,
+    publishClip,
     selection.selected,
     publishing,
     linkToCopy,

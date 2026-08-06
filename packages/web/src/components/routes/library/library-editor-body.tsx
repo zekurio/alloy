@@ -37,9 +37,17 @@ import {
 } from "@/components/clip-editor/use-trim-playback"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import {
+  stripExtension,
+  type SelectedFile,
+} from "@/components/upload/new-clip-helpers"
+import {
   useUploadActions,
   useUploadQueue,
 } from "@/components/upload/upload-flow-context"
+import type {
+  WebUploadAction,
+  WebUploadMetadata,
+} from "@/components/upload/web-upload-action"
 import {
   AudioTrackMixerControl,
   useAudioTrackMixerWithLoader,
@@ -61,7 +69,10 @@ import {
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { notifyLibraryCapturesChanged, type AlloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
-import { useDesktopMediaFilmstrip } from "@/lib/media-filmstrip"
+import {
+  useDesktopMediaFilmstrip,
+  useMediaFilmstrip,
+} from "@/lib/media-filmstrip"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import { exportAndPublishCapture } from "./library-capture-publish"
@@ -88,15 +99,7 @@ import {
  * simple single-range trimmer underneath, and the metadata sheet sits on the
  * right with the post/delete actions pinned to its bottom.
  */
-export function EditorBody({
-  desktop,
-  item,
-  promptGame,
-  prevEntry,
-  nextEntry,
-  deleting,
-  onRequestDelete,
-}: {
+type LocalEditorBodyProps = {
   desktop: AlloyDesktop
   item: LibraryItemView
   promptGame: boolean
@@ -104,7 +107,30 @@ export function EditorBody({
   nextEntry: NavigableLibraryEntry | null
   deleting: boolean
   onRequestDelete: () => void
-}) {
+}
+
+type UploadEditorBodyProps = {
+  uploadAction: WebUploadAction
+  selected: SelectedFile
+  previewUrl: string
+}
+
+export function EditorBody(
+  props: LocalEditorBodyProps | UploadEditorBodyProps,
+) {
+  if ("uploadAction" in props) return <UploadEditorBody {...props} />
+  return <LocalEditorBody {...props} />
+}
+
+function LocalEditorBody({
+  desktop,
+  item,
+  promptGame,
+  prevEntry,
+  nextEntry,
+  deleting,
+  onRequestDelete,
+}: LocalEditorBodyProps) {
   const navigate = useNavigate()
   const { publishClip } = useUploadActions()
   const { queue } = useUploadQueue()
@@ -558,6 +584,214 @@ export function EditorBody({
                         handlePublish("unlisted")
                       }}
                     >
+                      <Link2Icon className="size-4" />
+                      {t("Create Link")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+    </section>
+  )
+}
+
+function UploadEditorBody({
+  uploadAction,
+  selected,
+  previewUrl,
+}: UploadEditorBodyProps) {
+  const playback = useTrimPlayback({ initialDurationMs: selected.durationMs })
+  const { playerRef, trim, trimmed, rangeMs } = playback
+  const filmstrip = useMediaFilmstrip(previewUrl)
+  const aspectRatio = mediaAspectRatio(selected.width, selected.height)
+  const {
+    title,
+    setTitle,
+    description,
+    setDescription,
+    game,
+    setGame,
+    mentions,
+    setMentions,
+    tags,
+    setTags,
+    normalizedTitle,
+    normalizedDescription,
+    titleInvalid,
+    descriptionInvalid,
+  } = useClipMetadataDraft({
+    title: stripExtension(selected.name),
+    description: "",
+    game: null,
+    mentions: [],
+    tags: [],
+  })
+  const canPublish =
+    !uploadAction.publishing &&
+    !uploadAction.awaitingLinkCopy &&
+    !titleInvalid &&
+    !descriptionInvalid &&
+    rangeMs >= MIN_TRIM_MS
+
+  const publish = (privacy: ClipPrivacy) => {
+    if (!canPublish) return
+    const metadata: WebUploadMetadata = {
+      title: normalizedTitle,
+      description: normalizedDescription,
+      tags: formatTags(tags),
+      game,
+      privacy,
+      mentions,
+      trim: { startMs: trim.startMs, endMs: trim.endMs },
+      trimmed,
+    }
+    void uploadAction.publish(metadata)
+  }
+
+  return (
+    <section className="flex w-full flex-col lg:h-full lg:min-h-0">
+      <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
+        <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
+          <MediaStage aspectRatio={aspectRatio}>
+            <VideoPlayer
+              src={previewUrl}
+              sourceIdentity={previewUrl}
+              fallbackSeed={selected.name}
+              aspectRatio={aspectRatio}
+              maxDisplayHeight="100%"
+              controls={false}
+              onVideoClick={() => playback.togglePlayback()}
+              playerRef={playerRef}
+              onTimeUpdate={playback.handleTimeUpdate}
+              onPlayingChange={playback.setPlaying}
+              onEnded={playback.handleEnded}
+            />
+          </MediaStage>
+
+          <TrimTransportControls playback={playback} />
+
+          <TrimBar
+            frames={filmstrip.frames}
+            frameAspect={filmstrip.aspect}
+            durationMs={playback.durationMs}
+            startMs={trim.startMs}
+            endMs={trim.endMs}
+            subscribeCurrentMs={playback.subscribeCurrentMs}
+            getCurrentMs={playback.getCurrentMs}
+            onSeek={(sourceMs) => {
+              playerRef.current?.pause()
+              playback.seek(sourceMs)
+            }}
+            onStartChange={playback.handleTrimStartChange}
+            onEndChange={playback.handleTrimEndChange}
+            onMove={playback.handleTrimMove}
+          />
+        </section>
+
+        <Card
+          tone="surface"
+          role="complementary"
+          className="min-w-0 gap-5 self-stretch overflow-visible p-4 lg:min-h-0 lg:overflow-y-auto"
+        >
+          <ClipMetadataEditor
+            title={title}
+            onTitleChange={setTitle}
+            description={description}
+            onDescriptionChange={setDescription}
+            game={game}
+            onGameChange={setGame}
+            mentions={mentions}
+            onMentionsChange={setMentions}
+            tags={tags}
+            onTagsChange={setTags}
+            disabled={uploadAction.publishing || uploadAction.awaitingLinkCopy}
+            titleInvalid={titleInvalid}
+            gameInvalid={false}
+          />
+          {descriptionInvalid ? (
+            <p className="text-destructive text-xs">
+              {t("Description can be at most {max} characters", {
+                max: CLIP_DESCRIPTION_MAX,
+              })}
+            </p>
+          ) : null}
+          {uploadAction.error ? (
+            <Callout tone="destructive" className="text-xs">
+              <CircleAlertIcon />
+              <span>{uploadAction.error}</span>
+            </Callout>
+          ) : null}
+
+          <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={uploadAction.publishing}
+              onClick={uploadAction.discard}
+            >
+              {uploadAction.awaitingLinkCopy ? t("Done") : t("Cancel")}
+            </Button>
+            {uploadAction.awaitingLinkCopy ? (
+              <FeedbackButton
+                type="button"
+                variant="primary"
+                state={
+                  uploadAction.publishing
+                    ? "pending"
+                    : uploadAction.error
+                      ? "error"
+                      : "idle"
+                }
+                pendingLabel={t("Copying…")}
+                errorLabel={t("Try again")}
+                onClick={() => {
+                  void uploadAction.retryLinkCopy()
+                }}
+              >
+                <CopyIcon />
+                {t("Copy link")}
+              </FeedbackButton>
+            ) : (
+              <div className="flex items-center">
+                <FeedbackButton
+                  type="button"
+                  variant="primary"
+                  disabled={!canPublish}
+                  state={
+                    uploadAction.publishing
+                      ? "pending"
+                      : uploadAction.error
+                        ? "error"
+                        : "idle"
+                  }
+                  pendingLabel={t("Uploading...")}
+                  errorLabel={t("Try again")}
+                  className="rounded-r-none"
+                  onClick={() => publish("public")}
+                >
+                  <UploadIcon />
+                  {t("Post")}
+                </FeedbackButton>
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        type="button"
+                        variant="primary"
+                        size="icon"
+                        disabled={!canPublish}
+                        aria-label={t("More post options")}
+                        className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
+                      />
+                    }
+                  >
+                    <ChevronUpIcon />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" side="top" className="w-52">
+                    <DropdownMenuItem onClick={() => publish("unlisted")}>
                       <Link2Icon className="size-4" />
                       {t("Create Link")}
                     </DropdownMenuItem>

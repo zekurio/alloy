@@ -109,24 +109,28 @@ function serverEnvSchema(defaultPublicServerUrl: string) {
 }
 
 function envBool(defaultValue: boolean) {
-  return t.preprocess((value) => {
-    if (value === undefined || value === "") return defaultValue
-    if (typeof value === "boolean") return value
-    if (typeof value !== "string") return value
-    return boolValues.get(value.trim().toLowerCase()) ?? value
-  }, t.boolean())
+  return t
+    .preprocess((value) => {
+      if (value === undefined || value === "") return defaultValue
+      if (typeof value === "boolean") return value
+      if (typeof value !== "string") return value
+      return boolValues.get(value.trim().toLowerCase()) ?? value
+    }, t.boolean())
+    .$default(defaultValue)
 }
 
 // An unset (or empty) variable parses to null: the setting is DB-owned and
 // editable in the admin UI. An explicit value makes the key env-managed and
 // locks the admin UI for it.
 function envBoolOrNull() {
-  return t.preprocess((value) => {
-    if (value === undefined || value === "") return null
-    if (typeof value === "boolean" || value === null) return value
-    if (typeof value !== "string") return value
-    return boolValues.get(value.trim().toLowerCase()) ?? value
-  }, t.boolean().nullable())
+  return t
+    .preprocess((value) => {
+      if (value === undefined || value === "") return null
+      if (typeof value === "boolean" || value === null) return value
+      if (typeof value !== "string") return value
+      return boolValues.get(value.trim().toLowerCase()) ?? value
+    }, t.boolean().nullable())
+    .$default(null)
 }
 
 function optionalPositiveIntegerOrNull() {
