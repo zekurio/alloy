@@ -24,6 +24,9 @@ export function LibraryEditorDialog({ children }: { children: ReactNode }) {
         <div className="absolute right-4 bottom-4 z-10 hidden md:flex">
           <UploadCenter variant="floating" />
         </div>
+        <div className="absolute inset-x-0 bottom-0 z-10 flex h-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom))] items-center justify-center pb-[env(safe-area-inset-bottom)] md:hidden">
+          <UploadCenter variant="bottom-nav" />
+        </div>
       </DialogViewportContent>
     </Dialog>
   )
