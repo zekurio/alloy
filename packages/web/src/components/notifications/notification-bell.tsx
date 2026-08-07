@@ -1,6 +1,10 @@
 import type { NotificationItem } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import {
+  AppSidebarItem,
+  AppSidebarItemTooltip,
+} from "@alloy/ui/components/app-sidebar"
+import {
   Avatar,
   AvatarFallback,
   AvatarImage,
@@ -92,45 +96,64 @@ export function NotificationBell({
     if (typeof Notification === "undefined") return
     setPermission(await Notification.requestPermission())
   }
+  const bell = (
+    <span className="relative">
+      <BellIcon
+        className={cn(
+          variant === "header" ? "size-4" : "size-[22px]",
+          ringing && "animate-bell-ring",
+        )}
+        onAnimationEnd={() => setRinging(false)}
+      />
+      {unreadCount > 0 ? (
+        <NumberBadge
+          key={unreadCount}
+          className="animate-badge-pop absolute -top-2 -right-2"
+        >
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </NumberBadge>
+      ) : null}
+    </span>
+  )
   return (
     <Popover>
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            aria-label={t("Notifications")}
-            title={t("Notifications")}
-            className={cn(
-              "relative flex appearance-none items-center justify-center border-0 bg-transparent outline-none",
-              "focus-visible:ring-ring focus-visible:ring-2",
-              variant === "header" &&
-                "text-foreground hover:bg-surface-raised size-8 rounded-md",
-              variant === "sidebar" &&
-                "text-foreground-muted hover:text-foreground size-10 rounded-md transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)] [&_svg]:size-6",
-              variant === "bottom-nav" &&
-                "text-foreground-muted active:text-accent px-1 [-webkit-tap-highlight-color:transparent] [&_svg]:size-[22px]",
-            )}
-          />
-        }
-      >
-        <span className="relative">
-          <BellIcon
-            className={cn(
-              variant === "header" ? "size-4" : "size-[22px]",
-              ringing && "animate-bell-ring",
-            )}
-            onAnimationEnd={() => setRinging(false)}
-          />
-          {unreadCount > 0 ? (
-            <NumberBadge
-              key={unreadCount}
-              className="animate-badge-pop absolute -top-2 -right-2"
+      {variant === "sidebar" ? (
+        <AppSidebarItemTooltip
+          label={t("Notifications")}
+          render={
+            <PopoverTrigger
+              render={
+                <AppSidebarItem
+                  aria-label={t("Notifications")}
+                  className="data-popup-open:text-foreground"
+                />
+              }
             >
-              {unreadCount > 99 ? "99+" : unreadCount}
-            </NumberBadge>
-          ) : null}
-        </span>
-      </PopoverTrigger>
+              {bell}
+            </PopoverTrigger>
+          }
+        />
+      ) : (
+        <PopoverTrigger
+          render={
+            <button
+              type="button"
+              aria-label={t("Notifications")}
+              title={t("Notifications")}
+              className={cn(
+                "relative flex appearance-none items-center justify-center border-0 bg-transparent outline-none",
+                "focus-visible:ring-ring focus-visible:ring-2",
+                variant === "header" &&
+                  "text-foreground hover:bg-surface-raised size-8 rounded-md",
+                variant === "bottom-nav" &&
+                  "text-foreground-muted active:text-accent px-1 [-webkit-tap-highlight-color:transparent] [&_svg]:size-[22px]",
+              )}
+            />
+          }
+        >
+          {bell}
+        </PopoverTrigger>
+      )}
       <PopoverContent
         anchor={variant === "sidebar" ? bottomLeftAppCornerAnchor : undefined}
         align={variant === "sidebar" ? "start" : "end"}

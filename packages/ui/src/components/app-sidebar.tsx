@@ -1,7 +1,9 @@
 import { cn } from "@alloy/ui/lib/utils"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
-import type { ComponentProps } from "react"
+import type { ComponentProps, ReactNode } from "react"
+
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip"
 
 function AppSidebar({ className, ...props }: ComponentProps<"aside">) {
   return (
@@ -97,6 +99,24 @@ function AppSidebarItem(props: NavItemProps) {
   return useNavItem(SIDEBAR_ITEM_STYLE, props)
 }
 
+function AppSidebarItemTooltip({
+  label,
+  render,
+  ...props
+}: Omit<ComponentProps<typeof TooltipContent>, "children" | "side"> & {
+  label: ReactNode
+  render: ComponentProps<typeof TooltipTrigger>["render"]
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={render} />
+      <TooltipContent side="right" {...props}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
 function AppBottomNav({ className, ...props }: ComponentProps<"nav">) {
   return (
     <nav
@@ -122,4 +142,5 @@ export {
   AppSidebar,
   AppSidebarGroup,
   AppSidebarItem,
+  AppSidebarItemTooltip,
 }

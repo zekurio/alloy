@@ -1,9 +1,8 @@
 import { t } from "@alloy/i18n"
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@alloy/ui/components/tooltip"
+  AppSidebarItem,
+  AppSidebarItemTooltip,
+} from "@alloy/ui/components/app-sidebar"
 import { cn } from "@alloy/ui/lib/utils"
 import { CircleAlertIcon, DownloadIcon, RefreshCwIcon } from "lucide-react"
 import { useState } from "react"
@@ -78,42 +77,39 @@ export function DesktopUpdatePill() {
         : t("A new version has been downloaded."))
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          // aria-disabled (with a guarded click handler) instead of the
-          // disabled attribute so the control keeps emitting hover events and
-          // the tooltip still explains the downloading state.
-          <button
-            type="button"
-            aria-disabled={busy || undefined}
-            onClick={runAction}
-            aria-label={busy ? label : detail}
-            className={cn(
-              "grid size-10 shrink-0 place-items-center rounded-md",
-              "text-accent bg-accent/12",
-              "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-              busy
-                ? "cursor-default opacity-80"
-                : "cursor-pointer hover:bg-accent/20",
-              "[&_svg]:size-5 [&_svg]:shrink-0",
-            )}
-          >
-            {error ? (
-              <CircleAlertIcon className="text-destructive" />
-            ) : downloaded ? (
-              <RefreshCwIcon />
-            ) : (
-              <DownloadIcon />
-            )}
-          </button>
-        }
-      />
-      <TooltipContent side="right" className="flex-col items-start gap-0.5">
-        <span className="font-medium">{label}</span>
-        <span className="opacity-80">{detail}</span>
-      </TooltipContent>
-    </Tooltip>
+    <AppSidebarItemTooltip
+      className="flex-col items-start gap-0.5"
+      label={
+        <>
+          <span className="font-medium">{label}</span>
+          <span className="opacity-80">{detail}</span>
+        </>
+      }
+      render={
+        // aria-disabled (with a guarded click handler) instead of the
+        // disabled attribute so the control keeps emitting hover events and
+        // the tooltip still explains the downloading state.
+        <AppSidebarItem
+          type="button"
+          aria-disabled={busy || undefined}
+          onClick={runAction}
+          aria-label={busy ? label : detail}
+          className={cn(
+            "text-accent bg-accent/12",
+            busy
+              ? "cursor-default opacity-80"
+              : "cursor-pointer hover:bg-accent/20",
+          )}
+        >
+          {error ? (
+            <CircleAlertIcon className="text-destructive" />
+          ) : downloaded ? (
+            <RefreshCwIcon />
+          ) : (
+            <DownloadIcon />
+          )}
+        </AppSidebarItem>
+      }
+    />
   )
 }

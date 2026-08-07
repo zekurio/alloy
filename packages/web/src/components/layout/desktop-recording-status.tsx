@@ -4,7 +4,10 @@ import type {
   RecordingStatus,
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { AppSidebarItem } from "@alloy/ui/components/app-sidebar"
+import {
+  AppSidebarItem,
+  AppSidebarItemTooltip,
+} from "@alloy/ui/components/app-sidebar"
 import { Button } from "@alloy/ui/components/button"
 import {
   DropdownMenu,
@@ -19,11 +22,6 @@ import {
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
 import { Switch } from "@alloy/ui/components/switch"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@alloy/ui/components/tooltip"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   ArrowRightIcon,
@@ -136,31 +134,29 @@ function RecordingStatusPopover({
   const statusText = t("Capture status: {label}", { label })
   return (
     <Popover>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <PopoverTrigger
-              render={
-                <AppSidebarItem
-                  aria-label={statusText}
-                  className={cn(
-                    "data-popup-open:text-foreground",
-                    indicator !== "idle" &&
-                      "after:absolute after:top-1 after:right-1 after:size-1.5 after:rounded-full after:content-['']",
-                    indicator === "active" &&
-                      "after:bg-live after:animate-pulse-dot after:shadow-[0_0_6px_var(--live)]",
-                    indicator === "draining" &&
-                      "after:bg-warning after:shadow-[0_0_6px_var(--warning)]",
-                  )}
-                >
-                  {icon}
-                </AppSidebarItem>
-              }
-            />
-          }
-        />
-        <TooltipContent side="right">{statusText}</TooltipContent>
-      </Tooltip>
+      <AppSidebarItemTooltip
+        label={statusText}
+        render={
+          <PopoverTrigger
+            render={
+              <AppSidebarItem
+                aria-label={statusText}
+                className={cn(
+                  "data-popup-open:text-foreground",
+                  indicator !== "idle" &&
+                    "after:absolute after:top-1 after:right-1 after:size-1.5 after:rounded-full after:content-['']",
+                  indicator === "active" &&
+                    "after:bg-live after:animate-pulse-dot after:shadow-[0_0_6px_var(--live)]",
+                  indicator === "draining" &&
+                    "after:bg-warning after:shadow-[0_0_6px_var(--warning)]",
+                )}
+              >
+                {icon}
+              </AppSidebarItem>
+            }
+          />
+        }
+      />
       <PopoverContent
         anchor={bottomLeftAppCornerAnchor}
         align="start"
