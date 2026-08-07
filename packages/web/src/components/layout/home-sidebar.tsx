@@ -3,13 +3,9 @@ import {
   AppSidebar,
   AppSidebarGroup,
   AppSidebarItem,
+  AppSidebarItemTooltip,
 } from "@alloy/ui/components/app-sidebar"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@alloy/ui/components/tooltip"
+import { TooltipProvider } from "@alloy/ui/components/tooltip"
 import { Link } from "@tanstack/react-router"
 import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
 import { Suspense } from "react"
@@ -106,15 +102,13 @@ function SidebarNavItem({
   children: ReactNode
 }) {
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <AppSidebarItem active={active} aria-label={label} render={render}>
-            {children}
-          </AppSidebarItem>
-        }
-      />
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
+    <AppSidebarItemTooltip
+      label={label}
+      render={
+        <AppSidebarItem active={active} aria-label={label} render={render}>
+          {children}
+        </AppSidebarItem>
+      }
+    />
   )
 }
