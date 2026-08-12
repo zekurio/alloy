@@ -22,6 +22,7 @@ import {
 } from "@alloy/ui/components/select"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
+import { useBlocker } from "@tanstack/react-router"
 import { SearchIcon, XIcon } from "lucide-react"
 import {
   Suspense,
@@ -73,6 +74,15 @@ export function SettingsPage() {
 function SettingsPageRoot() {
   const categories = useSettingsCategories()
   const [section, setSection] = useState(DEFAULT_SETTINGS_SECTION)
+  const { dirty, requestAttention } = useSettingsSaveState()
+  useBlocker({
+    disabled: !dirty,
+    enableBeforeUnload: dirty,
+    shouldBlockFn: () => {
+      requestAttention()
+      return true
+    },
+  })
   const active =
     categories.find((category) => category.id === section) ?? categories[0]
 
