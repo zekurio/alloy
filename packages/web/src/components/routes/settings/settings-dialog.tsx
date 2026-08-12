@@ -1,4 +1,5 @@
 import { t } from "@alloy/i18n"
+import { AppMainColumn } from "@alloy/ui/components/app-shell"
 import {
   Dialog,
   DialogClose,
@@ -21,13 +22,22 @@ import {
 } from "@alloy/ui/components/select"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
+import { useBlocker } from "@tanstack/react-router"
 import { SearchIcon, XIcon } from "lucide-react"
-import { Suspense, useEffect, useMemo, useRef, useState } from "react"
+import {
+  Suspense,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
 
 import { AdminConfigProvider } from "@/components/routes/settings/admin-config-context"
 import { DesktopRecordingProvider } from "@/components/routes/settings/desktop/desktop-recording-context"
 import {
   type SettingsCategory,
+  DEFAULT_SETTINGS_SECTION,
   SETTINGS_GROUPS,
   useSettingsCategories,
 } from "@/components/routes/settings/settings-categories"
@@ -53,6 +63,45 @@ export function SettingsDialog(props: SettingsDialogProps) {
   )
 }
 
+export function SettingsPage() {
+  return (
+    <SettingsSaveProvider>
+      <SettingsPageRoot />
+    </SettingsSaveProvider>
+  )
+}
+
+function SettingsPageRoot() {
+  const categories = useSettingsCategories()
+  const [section, setSection] = useState(DEFAULT_SETTINGS_SECTION)
+  const { dirty, requestAttention } = useSettingsSaveState()
+  useBlocker({
+    disabled: !dirty,
+    enableBeforeUnload: dirty,
+    shouldBlockFn: () => {
+      requestAttention()
+      return true
+    },
+  })
+  const active =
+    categories.find((category) => category.id === section) ?? categories[0]
+
+  if (!active) return null
+
+  return (
+    <AppMainColumn className="bg-surface flex-row max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom))]">
+      <SettingsProviders categories={categories}>
+        <SettingsDialogContent
+          native
+          categories={categories}
+          active={active}
+          onNavigate={setSection}
+        />
+      </SettingsProviders>
+    </AppMainColumn>
+  )
+}
+
 function SettingsDialogRoot({
   section,
   onNavigate,
@@ -71,19 +120,13 @@ function SettingsDialogRoot({
   const active =
     categories.find((category) => category.id === activeSection) ??
     categories[0]
-  const hasAdmin = categories.some((category) => category.group === "admin")
-  const hasDesktop = categories.some((category) => category.group === "desktop")
-
-  let body = active ? (
+  const body = active ? (
     <SettingsDialogContent
       categories={categories}
       active={active}
       onNavigate={onNavigate}
     />
   ) : null
-  if (body && hasAdmin) body = <AdminConfigProvider>{body}</AdminConfigProvider>
-  if (body && hasDesktop)
-    body = <DesktopRecordingProvider>{body}</DesktopRecordingProvider>
 
   return (
     <Dialog
@@ -108,17 +151,40 @@ function SettingsDialogRoot({
         )}
       >
         <DialogTitle className="sr-only">{t("Settings")}</DialogTitle>
-        {body}
+        <SettingsProviders categories={categories}>{body}</SettingsProviders>
       </DialogContent>
     </Dialog>
   )
 }
 
+function SettingsProviders({
+  categories,
+  children,
+}: {
+  categories: SettingsCategory[]
+  children: ReactNode
+}) {
+  const withAdmin = categories.some(
+    (category) => category.group === "admin",
+  ) ? (
+    <AdminConfigProvider>{children}</AdminConfigProvider>
+  ) : (
+    children
+  )
+  return categories.some((category) => category.group === "desktop") ? (
+    <DesktopRecordingProvider>{withAdmin}</DesktopRecordingProvider>
+  ) : (
+    withAdmin
+  )
+}
+
 function SettingsDialogContent({
+  native = false,
   categories,
   active,
   onNavigate,
 }: {
+  native?: boolean
   categories: SettingsCategory[]
   active: SettingsCategory
   onNavigate: (section: string) => void
@@ -244,12 +310,14 @@ function SettingsDialogContent({
             <h2 className="text-foreground truncate text-base font-medium">
               {active.title ?? active.label}
             </h2>
-            <DialogClose
-              aria-label={t("Close settings")}
-              className="text-foreground-muted hover:text-foreground focus-visible:ring-ring grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
-            >
-              <XIcon className="size-4" />
-            </DialogClose>
+            {native ? null : (
+              <DialogClose
+                aria-label={t("Close settings")}
+                className="text-foreground-muted hover:text-foreground focus-visible:ring-ring grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
+              >
+                <XIcon className="size-4" />
+              </DialogClose>
+            )}
           </div>
           <div className="sm:hidden">
             <Select
@@ -297,7 +365,12 @@ function SettingsDialogContent({
 
         <div
           ref={scrollRef}
-          className="min-h-0 flex-1 overflow-y-auto px-5 py-6 max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:py-8 sm:pr-14 sm:pl-10"
+          className={cn(
+            "min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:py-8 sm:pr-14 sm:pl-10",
+            native
+              ? "max-sm:pb-6"
+              : "max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+          )}
         >
           <Suspense fallback={<PanelLoading />}>
             <ActivePanel />
