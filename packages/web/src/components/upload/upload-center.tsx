@@ -51,20 +51,24 @@ export function UploadCenter({
                 : t("Upload center")
             }
             title={t("Upload center")}
-            aria-hidden={open || undefined}
-            tabIndex={open ? -1 : undefined}
+            aria-hidden={variant === "floating" && open ? true : undefined}
+            tabIndex={variant === "floating" && open ? -1 : undefined}
             style={{ transformOrigin: "bottom right" }}
             className={cn(
               "relative flex appearance-none items-center justify-center border outline-none",
-              "transition-[background-color,box-shadow,transform,opacity] duration-[280ms] ease-[var(--ease-out)]",
+              "transition-[background-color,color,box-shadow,transform,opacity] duration-[280ms] ease-[var(--ease-out)]",
               "focus-visible:ring-ring focus-visible:ring-offset-background focus-visible:ring-2 focus-visible:ring-offset-2",
-              open
-                ? "pointer-events-none scale-0 -rotate-12 opacity-0 duration-[160ms]"
-                : "scale-100 rotate-0 opacity-100",
+              variant === "floating" &&
+                (open
+                  ? "pointer-events-none scale-0 -rotate-12 opacity-0 duration-[160ms]"
+                  : "scale-100 rotate-0 opacity-100"),
               variant === "floating" &&
                 "border-accent bg-accent text-accent-foreground hover:bg-accent-hover active:bg-accent-active size-12 rounded-full shadow-lg shadow-black/40 hover:shadow-xl",
               variant === "bottom-nav" &&
-                "text-foreground-muted active:text-accent size-11 rounded-full border-transparent bg-transparent px-0 [-webkit-tap-highlight-color:transparent]",
+                cn(
+                  "active:text-accent size-11 rounded-full border-transparent bg-transparent px-0 [-webkit-tap-highlight-color:transparent]",
+                  open ? "text-accent" : "text-foreground-muted",
+                ),
             )}
           />
         }
@@ -75,7 +79,9 @@ export function UploadCenter({
               "size-[22px]",
               variant === "floating"
                 ? "text-accent-foreground"
-                : "text-destructive",
+                : open
+                  ? "text-accent"
+                  : "text-destructive",
             )}
           />
         ) : summary?.activeCount ? (
@@ -102,23 +108,25 @@ export function UploadCenter({
         align="end"
         side="top"
         sideOffset={0}
+        positionerClassName={
+          variant === "bottom-nav"
+            ? "fixed! inset-x-3! top-auto! bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)]! w-auto! transform-none!"
+            : undefined
+        }
         className={cn(
           "alloy-blur w-[420px] max-w-[calc(100vw-1.5rem)] gap-0 border p-3 ring-0",
+          variant === "bottom-nav" && "w-full max-w-none",
           "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
           "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]",
         )}
         style={
           {
-            position: "fixed",
-            right: "0.75rem",
-            bottom:
-              variant === "bottom-nav"
-                ? "calc(var(--bottomnav-h) + env(safe-area-inset-bottom) + 0.75rem)"
-                : "0.75rem",
-            top: "auto",
-            left: variant === "bottom-nav" ? "0.75rem" : "auto",
-            width: variant === "bottom-nav" ? "auto" : undefined,
-            transformOrigin: "bottom right",
+            position: variant === "floating" ? "fixed" : undefined,
+            right: variant === "floating" ? "0.75rem" : undefined,
+            bottom: variant === "floating" ? "0.75rem" : undefined,
+            top: variant === "floating" ? "auto" : undefined,
+            transformOrigin:
+              variant === "bottom-nav" ? "bottom center" : "bottom right",
             "--alloy-blur-opacity": "78%",
             "--alloy-blur-blur": "32px",
             "--alloy-blur-shadow":
@@ -157,7 +165,7 @@ export function UploadCenter({
         </div>
         <div className="border-border mt-2 grid grid-cols-2 items-center gap-2 border-t pt-2">
           <Button
-            type="button"
+            nativeButton={false}
             variant="ghost"
             size="sm"
             className="text-foreground-muted w-full justify-between"

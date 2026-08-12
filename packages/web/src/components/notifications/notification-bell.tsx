@@ -1,5 +1,6 @@
 import type { NotificationItem } from "@alloy/api"
 import { t } from "@alloy/i18n"
+import { AppMainColumn } from "@alloy/ui/components/app-shell"
 import {
   AppSidebarItem,
   AppSidebarItemTooltip,
@@ -21,11 +22,12 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
 import { cn } from "@alloy/ui/lib/utils"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
 import {
   AtSignIcon,
   BellIcon,
   BellRingIcon,
+  CheckCheckIcon,
   HeartIcon,
   MessageSquareIcon,
   Trash2Icon,
@@ -61,60 +63,58 @@ export function NotificationBell({
 }: {
   variant?: NotificationBellVariant
 }) {
+  if (variant === "bottom-nav") return <BottomNavNotificationBell />
+  return <NotificationPopover variant={variant} />
+}
+
+function BottomNavNotificationBell() {
   const isMobile = useIsMobile()
-  const stream = useNotificationStream({
-    enabled: variant === "bottom-nav" ? isMobile : !isMobile,
+  const onNotificationsPage = useRouterState({
+    select: (state) => state.location.pathname === "/notifications",
   })
+  useNotificationStream({ enabled: isMobile && !onNotificationsPage })
   const unreadQuery = useQuery(unreadCountQueryOptions())
-  const listQuery = useInfiniteQuery(notificationsInfiniteQueryOptions())
-  const markRead = useMarkNotificationReadMutation()
-  const markAllRead = useMarkAllNotificationsReadMutation()
-  const removeNotification = useRemoveNotificationMutation()
-  const navigate = useNavigate()
-  const [permission, setPermission] = useState(() =>
-    typeof Notification === "undefined" ? "denied" : Notification.permission,
-  )
-  const [ringing, setRinging] = useState(false)
-  // null until the first count arrives, so the initial fetch never rings the
-  // bell — only a live increase does.
-  const lastSeenCount = useRef<number | null>(null)
-  useEffect(() => {
-    const count = unreadQuery.data
-    if (count === undefined) return
-    const prev = lastSeenCount.current
-    lastSeenCount.current = count
-    if (prev !== null && count > prev) setRinging(true)
-  }, [unreadQuery.data])
-  const sentinelRef = useInfiniteScrollSentinel(
-    listQuery.fetchNextPage,
-    Boolean(listQuery.hasNextPage),
-    listQuery.isFetchingNextPage,
-  )
-  const items = listQuery.data?.pages.flatMap((page) => page.items) ?? []
-  const unreadCount = unreadQuery.data ?? 0
-  const enableBrowserNotifications = async () => {
-    if (typeof Notification === "undefined") return
-    setPermission(await Notification.requestPermission())
-  }
-  const bell = (
-    <span className="relative">
-      <BellIcon
-        className={cn(
-          variant === "header" ? "size-4" : "size-[22px]",
-          ringing && "animate-bell-ring",
-        )}
-        onAnimationEnd={() => setRinging(false)}
+  const { ringing, stopRinging } = useRingingBell(unreadQuery.data)
+
+  return (
+    <Link
+      to="/notifications"
+      aria-label={t("Notifications")}
+      title={t("Notifications")}
+      className={cn(
+        "active:text-accent focus-visible:ring-ring relative flex items-center justify-center px-1 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 [&_svg]:size-[22px]",
+        onNotificationsPage ? "text-accent" : "text-foreground-muted",
+      )}
+    >
+      <NotificationIndicator
+        unreadCount={unreadQuery.data ?? 0}
+        ringing={ringing}
+        onAnimationEnd={stopRinging}
       />
-      {unreadCount > 0 ? (
-        <NumberBadge
-          key={unreadCount}
-          className="animate-badge-pop absolute -top-2 -right-2"
-        >
-          {unreadCount > 99 ? "99+" : unreadCount}
-        </NumberBadge>
-      ) : null}
-    </span>
+    </Link>
   )
+}
+
+function NotificationPopover({
+  variant,
+}: {
+  variant: Exclude<NotificationBellVariant, "bottom-nav">
+}) {
+  const isMobile = useIsMobile()
+  const stream = useNotificationStream({ enabled: !isMobile })
+  const unreadQuery = useQuery(unreadCountQueryOptions())
+  const markAllRead = useMarkAllNotificationsReadMutation()
+  const { ringing, stopRinging } = useRingingBell(unreadQuery.data)
+  const unreadCount = unreadQuery.data ?? 0
+  const bell = (
+    <NotificationIndicator
+      variant={variant}
+      unreadCount={unreadCount}
+      ringing={ringing}
+      onAnimationEnd={stopRinging}
+    />
+  )
+
   return (
     <Popover>
       {variant === "sidebar" ? (
@@ -140,14 +140,7 @@ export function NotificationBell({
               type="button"
               aria-label={t("Notifications")}
               title={t("Notifications")}
-              className={cn(
-                "relative flex appearance-none items-center justify-center border-0 bg-transparent outline-none",
-                "focus-visible:ring-ring focus-visible:ring-2",
-                variant === "header" &&
-                  "text-foreground hover:bg-surface-raised size-8 rounded-md",
-                variant === "bottom-nav" &&
-                  "text-foreground-muted active:text-accent px-1 [-webkit-tap-highlight-color:transparent] [&_svg]:size-[22px]",
-              )}
+              className="text-foreground hover:bg-surface-raised focus-visible:ring-ring relative flex size-8 appearance-none items-center justify-center rounded-md border-0 bg-transparent outline-none focus-visible:ring-2"
             />
           }
         >
@@ -157,14 +150,8 @@ export function NotificationBell({
       <PopoverContent
         anchor={variant === "sidebar" ? bottomLeftAppCornerAnchor : undefined}
         align={variant === "sidebar" ? "start" : "end"}
-        side={
-          variant === "sidebar"
-            ? "top"
-            : variant === "bottom-nav"
-              ? "top"
-              : "bottom"
-        }
-        sideOffset={variant === "sidebar" ? 0 : variant === "header" ? 4 : 8}
+        side={variant === "sidebar" ? "top" : "bottom"}
+        sideOffset={variant === "sidebar" ? 0 : 4}
         className="alloy-blur w-[22rem] max-w-[calc(100vw-1rem)] gap-0 overflow-hidden border p-0 ring-0"
         style={
           {
@@ -175,82 +162,205 @@ export function NotificationBell({
           } as CSSProperties
         }
       >
-        <div className="border-border flex items-center justify-between gap-3 border-b px-4 py-3">
-          <div className="text-sm font-semibold">{t("Notifications")}</div>
+        <NotificationHeader
+          unreadCount={unreadCount}
+          markingAllRead={markAllRead.isPending}
+          onMarkAllRead={() => markAllRead.mutate()}
+        />
+        <NotificationContent
+          layout="popover"
+          initialError={stream.initialError}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+export function NotificationsPage() {
+  const isMobile = useIsMobile()
+  const stream = useNotificationStream({ enabled: isMobile })
+  const unreadQuery = useQuery(unreadCountQueryOptions())
+  const markAllRead = useMarkAllNotificationsReadMutation()
+
+  return (
+    <AppMainColumn className="bg-surface max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom))]">
+      <NotificationHeader
+        unreadCount={unreadQuery.data ?? 0}
+        markingAllRead={markAllRead.isPending}
+        onMarkAllRead={() => markAllRead.mutate()}
+      />
+      <NotificationContent layout="page" initialError={stream.initialError} />
+    </AppMainColumn>
+  )
+}
+
+function useRingingBell(unreadCount: number | undefined) {
+  const [ringing, setRinging] = useState(false)
+  const lastSeenCount = useRef<number | null>(null)
+  useEffect(() => {
+    if (unreadCount === undefined) return
+    const prev = lastSeenCount.current
+    lastSeenCount.current = unreadCount
+    if (prev !== null && unreadCount > prev) setRinging(true)
+  }, [unreadCount])
+
+  return { ringing, stopRinging: () => setRinging(false) }
+}
+
+function NotificationIndicator({
+  variant = "bottom-nav",
+  unreadCount,
+  ringing,
+  onAnimationEnd,
+}: {
+  variant?: NotificationBellVariant
+  unreadCount: number
+  ringing: boolean
+  onAnimationEnd: () => void
+}) {
+  return (
+    <span className="relative">
+      <BellIcon
+        className={cn(
+          variant === "header" ? "size-4" : "size-[22px]",
+          ringing && "animate-bell-ring",
+        )}
+        onAnimationEnd={onAnimationEnd}
+      />
+      {unreadCount > 0 ? (
+        <NumberBadge
+          key={unreadCount}
+          className="animate-badge-pop absolute -top-2 -right-2"
+        >
+          {unreadCount > 99 ? "99+" : unreadCount}
+        </NumberBadge>
+      ) : null}
+    </span>
+  )
+}
+
+function NotificationHeader({
+  unreadCount,
+  markingAllRead,
+  onMarkAllRead,
+}: {
+  unreadCount: number
+  markingAllRead: boolean
+  onMarkAllRead: () => void
+}) {
+  return (
+    <header className="border-border flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
+      <h1 className="text-base font-semibold">{t("Notifications")}</h1>
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={t("Mark all read")}
+        title={t("Mark all read")}
+        disabled={unreadCount === 0 || markingAllRead}
+        onClick={onMarkAllRead}
+      >
+        <CheckCheckIcon />
+      </Button>
+    </header>
+  )
+}
+
+function NotificationContent({
+  layout,
+  initialError,
+}: {
+  layout: "page" | "popover"
+  initialError: boolean
+}) {
+  const listQuery = useInfiniteQuery(notificationsInfiniteQueryOptions())
+  const markRead = useMarkNotificationReadMutation()
+  const removeNotification = useRemoveNotificationMutation()
+  const navigate = useNavigate()
+  const [permission, setPermission] = useState(() =>
+    typeof Notification === "undefined" ? "denied" : Notification.permission,
+  )
+  const sentinelRef = useInfiniteScrollSentinel(
+    listQuery.fetchNextPage,
+    Boolean(listQuery.hasNextPage),
+    listQuery.isFetchingNextPage,
+  )
+  const items = listQuery.data?.pages.flatMap((page) => page.items) ?? []
+  const enableBrowserNotifications = async () => {
+    if (typeof Notification === "undefined") return
+    setPermission(await Notification.requestPermission())
+  }
+  return (
+    <>
+      {initialError ? (
+        <div className="text-foreground-faint border-border flex items-center gap-1.5 border-b px-3 py-1.5 text-xs">
+          <Spinner className="size-3" />
+          {t("Reconnecting…")}
+        </div>
+      ) : null}
+      {alloyDesktop() === null && permission === "default" ? (
+        <div className="border-border flex items-center gap-2.5 border-b px-3 py-2">
+          <BellRingIcon
+            className="text-foreground-faint size-3.5 shrink-0"
+            aria-hidden
+          />
+          <span className="text-foreground-muted min-w-0 flex-1 truncate text-xs">
+            {t("Browser notifications")}
+          </span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto px-0 font-medium hover:bg-transparent"
-            disabled={unreadCount === 0 || markAllRead.isPending}
-            onClick={() => markAllRead.mutate()}
+            className="text-accent hover:text-accent shrink-0"
+            onClick={enableBrowserNotifications}
           >
-            {t("Mark all read")}
+            {t("Enable")}
           </Button>
         </div>
-        {stream.initialError ? (
-          <div className="text-foreground-faint border-border flex items-center gap-1.5 border-b px-3 py-1.5 text-xs">
-            <Spinner className="size-3" />
-            {t("Reconnecting…")}
-          </div>
+      ) : null}
+      <div
+        className={cn(
+          layout === "page"
+            ? "min-h-0 flex-1 overflow-y-auto"
+            : "max-h-[28rem] overflow-y-auto",
+        )}
+      >
+        {listQuery.isPending ? <NotificationListSkeleton /> : null}
+        {!listQuery.isPending && items.length > 0 ? (
+          <>
+            {items.map((item) => (
+              <NotificationRow
+                key={item.id}
+                item={item}
+                onClick={() => {
+                  if (item.readAt === null) markRead.mutate(item.id)
+                  navigate({ to: notificationTargetPath(item) })
+                }}
+                removing={
+                  removeNotification.isPending &&
+                  removeNotification.variables === item.id
+                }
+                onRemove={() => removeNotification.mutate(item.id)}
+              />
+            ))}
+            {listQuery.hasNextPage || listQuery.isFetchingNextPage ? (
+              <div ref={sentinelRef} className="flex justify-center p-2">
+                {listQuery.isFetchingNextPage ? (
+                  <Spinner className="size-4" />
+                ) : null}
+              </div>
+            ) : null}
+          </>
         ) : null}
-        {alloyDesktop() === null && permission === "default" ? (
-          <div className="border-border flex items-center gap-2.5 border-b px-3 py-2">
-            <BellRingIcon
-              className="text-foreground-faint size-3.5 shrink-0"
-              aria-hidden
-            />
-            <span className="text-foreground-muted min-w-0 flex-1 truncate text-xs">
-              {t("Browser notifications")}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-accent hover:text-accent shrink-0"
-              onClick={enableBrowserNotifications}
-            >
-              {t("Enable")}
-            </Button>
-          </div>
+        {!listQuery.isPending && items.length === 0 ? (
+          <EmptyState
+            icon={BellIcon}
+            size={layout === "page" ? "md" : "sm"}
+            fill={layout === "page"}
+            title={t("No notifications yet")}
+            hint={t("Activity and upload failures appear here.")}
+          />
         ) : null}
-        <div className="max-h-[28rem] overflow-y-auto">
-          {listQuery.isPending ? <NotificationListSkeleton /> : null}
-          {!listQuery.isPending && items.length > 0 ? (
-            <>
-              {items.map((item) => (
-                <NotificationRow
-                  key={item.id}
-                  item={item}
-                  onClick={() => {
-                    if (item.readAt === null) markRead.mutate(item.id)
-                    navigate({ to: notificationTargetPath(item) })
-                  }}
-                  removing={
-                    removeNotification.isPending &&
-                    removeNotification.variables === item.id
-                  }
-                  onRemove={() => removeNotification.mutate(item.id)}
-                />
-              ))}
-              {listQuery.hasNextPage || listQuery.isFetchingNextPage ? (
-                <div ref={sentinelRef} className="flex justify-center p-2">
-                  {listQuery.isFetchingNextPage ? (
-                    <Spinner className="size-4" />
-                  ) : null}
-                </div>
-              ) : null}
-            </>
-          ) : null}
-          {!listQuery.isPending && items.length === 0 ? (
-            <EmptyState
-              icon={BellIcon}
-              size="sm"
-              title={t("No notifications yet")}
-              hint={t("Activity and upload failures appear here.")}
-            />
-          ) : null}
-        </div>
-      </PopoverContent>
-    </Popover>
+      </div>
+    </>
   )
 }
 
