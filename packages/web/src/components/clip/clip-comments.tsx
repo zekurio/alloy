@@ -12,7 +12,10 @@ import { AlertCircleIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentProps, MutableRefObject } from "react"
 
-import { EmptyState } from "@/components/feedback/empty-state"
+import {
+  ContentEmptyState,
+  EmptyState,
+} from "@/components/feedback/empty-state"
 import { useSession } from "@/lib/auth-client"
 import { currentUrlWithQueryParam } from "@/lib/browser-url"
 import { copyTextToClipboard } from "@/lib/clipboard"
@@ -286,8 +289,7 @@ function ClipComments({
           </div>
         ) : comments.length === 0 ? (
           <div className="flex h-full items-center justify-center p-6">
-            <EmptyState
-              kaomoji
+            <ContentEmptyState
               seed={`comments-${clipId}`}
               size="lg"
               title={t("No comments yet")}
