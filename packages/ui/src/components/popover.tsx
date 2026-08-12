@@ -12,6 +12,7 @@ function PopoverTrigger({ ...props }: Popover.Trigger.Props) {
 
 function PopoverContent({
   className,
+  positionerClassName,
   align = "center",
   alignOffset = 0,
   anchor,
@@ -25,6 +26,7 @@ function PopoverContent({
     "align" | "alignOffset" | "anchor" | "side" | "sideOffset"
   > & {
     portalContainer?: Popover.Portal.Props["container"]
+    positionerClassName?: string
   }) {
   return (
     <Popover.Portal container={portalContainer}>
@@ -34,7 +36,7 @@ function PopoverContent({
         anchor={anchor}
         side={side}
         sideOffset={sideOffset}
-        className="isolate z-50"
+        className={cn("isolate z-50", positionerClassName)}
       >
         <Popover.Popup
           data-slot="popover-content"

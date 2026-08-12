@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-import { SettingsPage } from "@/components/routes/settings/settings-dialog"
+import { NotificationsPage } from "@/components/notifications/notification-bell"
 import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 
-export const Route = createFileRoute("/(app)/_app/settings")({
+export const Route = createFileRoute("/(app)/_app/notifications")({
   beforeLoad: async ({ context }) => {
     await requireStrictAuthBeforeLoad({ context })
   },
-  component: SettingsPage,
+  component: NotificationsPage,
 })
