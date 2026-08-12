@@ -15,12 +15,13 @@ import { buttonVariants } from "@alloy/ui/lib/button-variants"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { ChevronDownIcon, LogInIcon } from "lucide-react"
-import { Suspense, useState } from "react"
+import { Suspense } from "react"
 
 import { useSuspenseSession } from "@/lib/session-suspense"
 import { useUserChipData } from "@/lib/user-display"
 
 import { AccountMenuItems, avatarTint } from "./account-menu"
+import { topRightAppCornerAnchor } from "./corner-anchors"
 
 /**
  * Header account entry point. Signed-out sessions render a sign-in link in the
@@ -35,7 +36,6 @@ export function UserMenu({ className }: { className?: string }) {
 }
 
 function UserMenuInner({ className }: { className?: string }) {
-  const [open, setOpen] = useState(false)
   const session = useSuspenseSession()
   const chip = useUserChipData(session?.user)
 
@@ -57,7 +57,7 @@ function UserMenuInner({ className }: { className?: string }) {
   const primaryLabel = chip.name
   const secondaryLabel = handle && handle !== primaryLabel ? handle : null
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu>
       <DropdownMenuTrigger
         render={
           <button
@@ -86,15 +86,13 @@ function UserMenuInner({ className }: { className?: string }) {
             </span>
             <ChevronDownIcon
               aria-hidden
-              className={cn(
-                "text-foreground-faint size-4 shrink-0 transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)] max-md:hidden",
-                open && "rotate-180",
-              )}
+              className="text-foreground-faint size-4 shrink-0 max-md:hidden"
             />
           </button>
         }
       />
       <DropdownMenuContent
+        anchor={topRightAppCornerAnchor}
         align="end"
         side="bottom"
         sideOffset={16}

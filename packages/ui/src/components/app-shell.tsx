@@ -28,6 +28,11 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
         data-slot="app-bottom-left-anchor"
         className="pointer-events-none fixed bottom-2 left-[calc(var(--sidebar-rail)+13px)] hidden size-0 md:block"
       />
+      <span
+        aria-hidden
+        data-slot="app-top-right-anchor"
+        className="pointer-events-none fixed top-[var(--header-h)] right-4 size-0"
+      />
     </div>
   )
 }
