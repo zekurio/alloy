@@ -1,5 +1,4 @@
 import { cn } from "@alloy/ui/lib/utils"
-import { cva, type VariantProps } from "class-variance-authority"
 import type { ComponentProps } from "react"
 
 function EmptySection({
@@ -52,55 +51,21 @@ function EmptyHeader({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-const emptyMediaVariants = cva(
-  "mb-2 flex shrink-0 items-center justify-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
-  {
-    variants: {
-      variant: {
-        default: "bg-transparent",
-        icon: "flex shrink-0 items-center justify-center rounded-lg bg-muted text-foreground",
-      },
-      size: {
-        sm: "",
-        md: "",
-        lg: "",
-      },
-    },
-    compoundVariants: [
-      {
-        variant: "icon",
-        size: "sm",
-        className: "size-8 [&_svg:not([class*='size-'])]:size-4",
-      },
-      {
-        variant: "icon",
-        size: "md",
-        className: "size-10 [&_svg:not([class*='size-'])]:size-5",
-      },
-      {
-        variant: "icon",
-        size: "lg",
-        className: "size-12 [&_svg:not([class*='size-'])]:size-6",
-      },
-    ],
-    defaultVariants: {
-      variant: "default",
-      size: "sm",
-    },
-  },
-)
-
 function EmptyMedia({
   className,
   variant = "default",
-  size = "sm",
   ...props
-}: ComponentProps<"div"> & VariantProps<typeof emptyMediaVariants>) {
+}: ComponentProps<"div"> & { variant?: "default" | "icon" }) {
   return (
     <div
       data-slot="empty-icon"
       data-variant={variant}
-      className={cn(emptyMediaVariants({ variant, size, className }))}
+      className={cn(
+        "mb-2 flex shrink-0 items-center justify-center [&_svg]:pointer-events-none [&_svg]:shrink-0",
+        variant === "icon" &&
+          "size-10 rounded-lg bg-muted text-foreground [&_svg:not([class*='size-'])]:size-5",
+        className,
+      )}
       {...props}
     />
   )

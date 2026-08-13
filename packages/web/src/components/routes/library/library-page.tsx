@@ -12,6 +12,7 @@ import {
   FolderXIcon,
   GlobeIcon,
   LayersIcon,
+  LibraryIcon,
   MonitorIcon,
   SearchXIcon,
 } from "lucide-react"
@@ -333,8 +334,7 @@ function LibraryBody({
     if (!hasAnything) {
       return (
         <EmptyState
-          kaomoji
-          seed="library-empty"
+          icon={LibraryIcon}
           size="lg"
           fill
           title={t("Your library is empty")}

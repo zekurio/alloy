@@ -7,7 +7,10 @@ import { AlertCircleIcon } from "lucide-react"
 import { useMemo } from "react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
-import { EmptyState } from "@/components/feedback/empty-state"
+import {
+  ContentEmptyState,
+  EmptyState,
+} from "@/components/feedback/empty-state"
 import { feedFilterId, useFeedInfiniteQuery } from "@/lib/feed-queries"
 import { useInfiniteScrollSentinel } from "@/lib/use-infinite-scroll-sentinel"
 
@@ -119,8 +122,7 @@ function FeedSectionBody({
 
   if (!hasRows) {
     return (
-      <EmptyState
-        kaomoji
+      <ContentEmptyState
         seed={`feed-${feedId}-empty`}
         size="lg"
         title={emptyTitle(filter)}

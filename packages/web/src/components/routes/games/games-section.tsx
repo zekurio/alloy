@@ -2,7 +2,10 @@ import { t } from "@alloy/i18n"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { AlertCircleIcon } from "lucide-react"
 
-import { EmptyState } from "@/components/feedback/empty-state"
+import {
+  ContentEmptyState,
+  EmptyState,
+} from "@/components/feedback/empty-state"
 import { GameCard } from "@/components/game/game-card"
 import { useGamesListQuery } from "@/lib/game-queries"
 
@@ -10,8 +13,7 @@ import { GamesGrid } from "./games-grid"
 
 function GamesEmpty() {
   return (
-    <EmptyState
-      kaomoji
+    <ContentEmptyState
       seed="games-empty"
       size="lg"
       title={t("No games yet")}

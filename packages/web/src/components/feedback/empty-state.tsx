@@ -21,15 +21,12 @@ interface EmptyStateProps extends ComponentProps<typeof Empty> {
   size?: "sm" | "md" | "lg"
   /** Fill a page-level area (min height) instead of hugging its content. */
   fill?: boolean
-  /** Lucide icon for the media slot. Ignored when `kaomoji` is set. */
+  /** Lucide icon for the media slot. */
   icon?: ComponentType<{ className?: string }>
-  /**
-   * Render a kaomoji face instead of an icon. Reserved for social/user-content
-   * empties (comments, profile clips, library) — functional and error states
-   * use icons.
-   */
-  kaomoji?: boolean
-  /** Stable face selection for the kaomoji variant. */
+}
+
+interface ContentEmptyStateProps extends Omit<EmptyStateProps, "icon"> {
+  /** Stable face selection for the kaomoji. */
   seed?: string | number
 }
 
@@ -68,54 +65,68 @@ export function ListEmpty({
   )
 }
 
-function KaomojiFace({
-  seed,
-  size,
-}: {
-  seed: EmptyStateProps["seed"]
-  size: NonNullable<EmptyStateProps["size"]>
-}) {
-  const face = useMemo(() => pickEmptyStateKaomoji(seed), [seed])
+/** Functional empty and error states use a consistent icon treatment. */
+export function EmptyState({
+  icon: Icon = CircleDashedIcon,
+  ...props
+}: EmptyStateProps) {
   return (
-    <span
-      aria-hidden
-      className={cn(
-        "font-mono leading-none text-foreground-faint select-none",
-        faceSizeClasses[size],
-      )}
-    >
-      {face}
-    </span>
+    <EmptyStateLayout
+      media={
+        <EmptyMedia variant="icon">
+          <Icon aria-hidden />
+        </EmptyMedia>
+      }
+      {...props}
+    />
   )
 }
 
-export function EmptyState({
+/** Spacious social and clip surfaces use a lightweight kaomoji treatment. */
+export function ContentEmptyState({
+  seed,
+  size = "md",
+  ...props
+}: ContentEmptyStateProps) {
+  const face = useMemo(() => pickEmptyStateKaomoji(seed), [seed])
+  return (
+    <EmptyStateLayout
+      size={size}
+      media={
+        <EmptyMedia>
+          <span
+            aria-hidden
+            className={cn(
+              "font-mono leading-none text-foreground-faint select-none",
+              faceSizeClasses[size],
+            )}
+          >
+            {face}
+          </span>
+        </EmptyMedia>
+      }
+      {...props}
+    />
+  )
+}
+
+function EmptyStateLayout({
   title,
   hint,
   action,
   size = "md",
   fill = false,
-  icon: Icon = CircleDashedIcon,
-  kaomoji = false,
-  seed,
+  media,
   className,
   ...props
-}: EmptyStateProps) {
+}: Omit<EmptyStateProps, "icon"> & { media: ReactNode }) {
   return (
     <Empty
       className={cn(sizeClasses[size], fill && "min-h-[22rem]", className)}
       {...props}
     >
       <EmptyHeader>
-        {kaomoji ? (
-          <EmptyMedia>
-            <KaomojiFace seed={seed} size={size} />
-          </EmptyMedia>
-        ) : (
-          <EmptyMedia variant="icon" size={size}>
-            <Icon aria-hidden />
-          </EmptyMedia>
-        )}
+        {media}
         <EmptyTitle>{title}</EmptyTitle>
         {hint ? <EmptyDescription>{hint}</EmptyDescription> : null}
       </EmptyHeader>
