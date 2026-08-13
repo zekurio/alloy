@@ -3,7 +3,10 @@ import { LoadingState } from "@alloy/ui/components/loading-state"
 import { AlertCircleIcon } from "lucide-react"
 
 import { ClipCardList } from "@/components/clip/clip-card-list"
-import { EmptyState } from "@/components/feedback/empty-state"
+import {
+  ContentEmptyState,
+  EmptyState,
+} from "@/components/feedback/empty-state"
 
 type EmptyStateSize = "sm" | "md" | "lg"
 
@@ -35,8 +38,7 @@ export function ClipSectionContent({
   if (rows !== null) {
     if (rows.length === 0) {
       return (
-        <EmptyState
-          kaomoji
+        <ContentEmptyState
           seed={emptySeed}
           size={emptySize}
           title={emptyTitle}
