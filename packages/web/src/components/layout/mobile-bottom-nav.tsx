@@ -11,8 +11,8 @@ import { useNavFlags } from "./use-nav-flags"
 
 /**
  * Mobile primary navigation. Hidden on md+, where the sidebar rail takes over.
- * Account access lives in the header and uploads are desktop-only, so this
- * icon-only bar stays focused on navigation and notifications.
+ * Account access lives in the header and uploads use the floating upload
+ * center, so this icon-only bar stays focused on navigation and notifications.
  */
 export function MobileBottomNav() {
   const { isHome, isGames, isLibrary } = useNavFlags()
