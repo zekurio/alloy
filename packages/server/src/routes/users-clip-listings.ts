@@ -13,6 +13,9 @@ import { serialiseProfileGameRow } from "./games-helpers"
 import type { UserRow } from "./users-helpers"
 import { limitQueryParam, offsetQueryParam } from "./validation"
 
+// Owner uploads can lack a publish stamp; public rows always have one.
+const clipListingTime = sql`coalesce(${clip.published_at}, ${clip.created_at})`
+
 export const UserGamesQuery = t.object({
   limit: limitQueryParam(48, 24),
   offset: offsetQueryParam(),
@@ -29,7 +32,7 @@ export async function listUserClips(row: UserRow, c: Context) {
     .innerJoin(user, eq(clip.author_id, user.id))
     .leftJoin(game, eq(clip.game_id, game.id))
     .where(and(...conditions))
-    .orderBy(desc(clip.created_at))
+    .orderBy(desc(clipListingTime))
     .limit(50)
   return rows.map(toPublicClipRow)
 }
@@ -41,7 +44,7 @@ export async function listUserGames(
 ) {
   const conditions = await visibleClipConditions(row, c)
 
-  const lastClippedAt = sql<Date>`max(${clip.created_at})`
+  const lastClippedAt = sql<Date>`max(${clipListingTime})`
 
   const rows = await db
     .select({
@@ -109,7 +112,7 @@ export async function listTaggedClips(row: UserRow, c: Context) {
     .innerJoin(user, eq(clip.author_id, user.id))
     .leftJoin(game, eq(clip.game_id, game.id))
     .where(and(...conditions))
-    .orderBy(desc(clip.created_at))
+    .orderBy(desc(clipListingTime))
     .limit(50)
   return rows.map(toPublicClipRow)
 }
