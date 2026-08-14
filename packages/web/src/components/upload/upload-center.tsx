@@ -24,10 +24,10 @@ import { useUploadQueueSummary } from "./use-upload-queue-summary"
 
 /**
  * The app-wide upload entry point and activity center, floating above the
- * bottom-right corner on desktop. The trigger is always available for
- * starting another upload; its popover keeps transfer and server-side
- * processing progress together instead of creating a separate error/status
- * control in the app chrome.
+ * mobile navigation or in the bottom-right corner on desktop. The trigger is
+ * always available for starting another upload; its popover keeps transfer
+ * and server-side processing progress together instead of creating a separate
+ * error/status control in the app chrome.
  */
 export function UploadCenter() {
   const [open, setOpen] = useState(false)
@@ -82,16 +82,12 @@ export function UploadCenter() {
         side="top"
         sideOffset={0}
         className={cn(
-          "alloy-blur w-[420px] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0",
+          "alloy-blur fixed right-3 top-auto bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)] max-h-[calc(100dvh-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)] w-[420px] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0 md:bottom-3 md:max-h-[calc(100dvh-1.5rem)]",
           "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
           "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]",
         )}
         style={
           {
-            position: "fixed",
-            right: "0.75rem",
-            bottom: "0.75rem",
-            top: "auto",
             transformOrigin: "bottom right",
             "--alloy-blur-opacity": "78%",
             "--alloy-blur-blur": "32px",
@@ -113,7 +109,7 @@ export function UploadCenter() {
                 })}
           </div>
         </PopoverHeader>
-        <div className="max-h-[28rem] overflow-y-auto px-2 py-2">
+        <div className="max-h-[28rem] min-h-0 flex-1 overflow-y-auto px-2 py-2">
           {summary ? (
             <div className="flex flex-col">
               {summary.items.map((item) => (
@@ -131,7 +127,7 @@ export function UploadCenter() {
             </div>
           )}
         </div>
-        <div className="border-border grid grid-cols-2 items-center gap-2 border-t p-2">
+        <div className="border-border grid shrink-0 grid-cols-2 items-center gap-2 border-t p-2">
           <Button
             nativeButton={false}
             variant="ghost"
