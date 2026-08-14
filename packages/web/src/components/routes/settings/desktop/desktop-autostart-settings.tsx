@@ -14,12 +14,10 @@ export function DesktopAutostartSettings() {
   const { data: state, setData: setState } = useDesktopQuery(
     desktop
       ? () =>
-          desktop.autostart.getState().catch(
-            (): DesktopAutostartState => ({
-              supported: false,
-              enabled: false,
-            }),
-          )
+          desktop.autostart.getState().catch((): DesktopAutostartState => ({
+            supported: false,
+            enabled: false,
+          }))
       : null,
     [desktop],
   )
