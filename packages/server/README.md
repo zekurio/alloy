@@ -38,8 +38,7 @@ pnpm db:migrate
 pnpm db:studio
 ```
 
-Alloy 1.0 requires a fresh database created from its single baseline
-migration. Server startup rejects a 1.x Drizzle migration history.
+Production startup applies pending Drizzle migrations automatically.
 
 ## Local Development
 
