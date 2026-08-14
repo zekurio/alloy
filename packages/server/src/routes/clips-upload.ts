@@ -64,14 +64,10 @@ export const clipsUploadRoutes = new Hono()
         }
       }
       if (body.privacy !== undefined) patch.privacy = body.privacy
-      // Becoming publicly listed is a publish transition only while the clip
-      // is ready; an unpublished processing clip gets stamped by the encode
-      // pipeline instead. Write-once: a privacy round-trip keeps the first
-      // stamp so re-publishing can't bump feed position.
-      const firstPublish =
-        body.privacy === "public" &&
-        row.privacy !== "public" &&
-        row.status === "ready"
+      // Write-once: a privacy round-trip keeps the first stamp so re-publishing
+      // can't bump feed position.
+      const publishRequested =
+        body.privacy === "public" && row.privacy !== "public"
 
       const mentionedIds =
         body.mentionedUserIds !== undefined
@@ -95,9 +91,12 @@ export const clipsUploadRoutes = new Hono()
           .update(clip)
           .set({
             ...patch,
-            ...(firstPublish
+            ...(body.privacy === "public"
               ? {
-                  published_at: sql`coalesce(${clip.published_at}, now())`,
+                  // Evaluate under the update lock: a processing clip can
+                  // become ready between the access read above and this write.
+                  // The encode pipeline stamps rows that are not ready yet.
+                  published_at: sql`case when ${clip.status} = 'ready' then coalesce(${clip.published_at}, now()) else ${clip.published_at} end`,
                 }
               : {}),
           })
@@ -126,9 +125,10 @@ export const clipsUploadRoutes = new Hono()
 
       void publishClipUpsert(row.author_id, id)
       // A clip that was already encoded and is only now being made public
-      // never passes through the encode job's announce path. Its OG assets
-      // are fully committed, so the announcement can go out immediately.
-      if (firstPublish) {
+      // never passes through the encode job's announce path. The dispatcher
+      // re-checks ready+public, so a still-processing clip is announced by the
+      // pipeline when it gets there instead.
+      if (publishRequested) {
         announceClipPublished(id)
       }
       if (mentionedIds !== undefined && row.status === "ready") {
