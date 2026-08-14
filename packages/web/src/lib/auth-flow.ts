@@ -101,5 +101,7 @@ export function toastAuthAttemptFailure(
     toast.warning(t("Auth attempt cancelled."))
     return
   }
-  toast.error(errorMessage(cause, fallbackMessage))
+  // Server error bodies and fallbacks are English source strings; t()
+  // localizes known messages and passes unknown ones through unchanged.
+  toast.error(t(errorMessage(cause, fallbackMessage)))
 }
