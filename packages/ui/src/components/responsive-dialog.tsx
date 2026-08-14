@@ -202,7 +202,10 @@ function ResponsiveDialogDescription({
   )
 }
 
-type ResponsiveDialogTriggerProps = ComponentProps<typeof DialogTrigger> & {
+type ResponsiveDialogTriggerProps = Omit<
+  ComponentProps<typeof DialogTrigger>,
+  "handle"
+> & {
   asChild?: boolean
 }
 
@@ -245,7 +248,10 @@ function ResponsiveDialogTrigger({
   )
 }
 
-type ResponsiveDialogCloseProps = ComponentProps<typeof DialogClose> & {
+type ResponsiveDialogCloseProps = Omit<
+  ComponentProps<typeof DialogClose>,
+  "handle"
+> & {
   asChild?: boolean
 }
 
