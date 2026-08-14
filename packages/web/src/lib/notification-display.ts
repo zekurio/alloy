@@ -128,7 +128,7 @@ export function notificationSectionLabel(id: NotificationSectionId): string {
     case "yesterday":
       return t("Yesterday")
     case "week":
-      return t("This week")
+      return t("Last 7 days")
     case "earlier":
       return t("Earlier")
   }
