@@ -15,6 +15,8 @@ import { Button } from "@alloy/ui/components/button"
 import {
   Popover,
   PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
 import { Skeleton } from "@alloy/ui/components/skeleton"
@@ -34,14 +36,16 @@ import {
   UserPlusIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useRef, useState, type CSSProperties } from "react"
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
 import { bottomLeftAppCornerAnchor } from "@/components/layout/corner-anchors"
 import { formatRelativeTime } from "@/lib/date-format"
 import { alloyDesktop } from "@/lib/desktop"
 import {
+  groupNotificationsByRecency,
   notificationRowParts,
+  notificationSectionLabel,
   notificationTargetPath,
 } from "@/lib/notification-display"
 import {
@@ -162,6 +166,7 @@ function NotificationPopover({
         }
       >
         <NotificationHeader
+          layout="popover"
           unreadCount={unreadCount}
           markingAllRead={markAllRead.isPending}
           onMarkAllRead={() => markAllRead.mutate()}
@@ -184,6 +189,7 @@ export function NotificationsPage() {
   return (
     <AppMainColumn className="bg-surface max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom))]">
       <NotificationHeader
+        layout="page"
         unreadCount={unreadQuery.data ?? 0}
         markingAllRead={markAllRead.isPending}
         onMarkAllRead={() => markAllRead.mutate()}
@@ -239,27 +245,44 @@ function NotificationIndicator({
 }
 
 function NotificationHeader({
+  layout,
   unreadCount,
   markingAllRead,
   onMarkAllRead,
 }: {
+  layout: "page" | "popover"
   unreadCount: number
   markingAllRead: boolean
   onMarkAllRead: () => void
 }) {
+  const action = (
+    <Button
+      variant="ghost"
+      size={layout === "popover" ? "icon-sm" : "icon"}
+      aria-label={t("Mark all read")}
+      title={t("Mark all read")}
+      disabled={unreadCount === 0 || markingAllRead}
+      onClick={onMarkAllRead}
+    >
+      <CheckCheckIcon />
+    </Button>
+  )
+
+  if (layout === "popover") {
+    return (
+      <PopoverHeader>
+        <PopoverTitle className="text-sm font-semibold">
+          {t("Notifications")}
+        </PopoverTitle>
+        {action}
+      </PopoverHeader>
+    )
+  }
+
   return (
     <header className="border-border flex shrink-0 items-center justify-between gap-3 border-b px-4 py-3">
       <h1 className="text-base font-semibold">{t("Notifications")}</h1>
-      <Button
-        variant="ghost"
-        size="icon"
-        aria-label={t("Mark all read")}
-        title={t("Mark all read")}
-        disabled={unreadCount === 0 || markingAllRead}
-        onClick={onMarkAllRead}
-      >
-        <CheckCheckIcon />
-      </Button>
+      {action}
     </header>
   )
 }
@@ -284,6 +307,7 @@ function NotificationContent({
     listQuery.isFetchingNextPage,
   )
   const items = listQuery.data?.pages.flatMap((page) => page.items) ?? []
+  const sections = useMemo(() => groupNotificationsByRecency(items), [items])
   const enableBrowserNotifications = async () => {
     if (typeof Notification === "undefined") return
     setPermission(await Notification.requestPermission())
@@ -323,22 +347,29 @@ function NotificationContent({
         )}
       >
         {listQuery.isPending ? <NotificationListSkeleton /> : null}
-        {!listQuery.isPending && items.length > 0 ? (
+        {!listQuery.isPending && sections.length > 0 ? (
           <>
-            {items.map((item) => (
-              <NotificationRow
-                key={item.id}
-                item={item}
-                onClick={() => {
-                  if (item.readAt === null) markRead.mutate(item.id)
-                  navigate({ to: notificationTargetPath(item) })
-                }}
-                removing={
-                  removeNotification.isPending &&
-                  removeNotification.variables === item.id
-                }
-                onRemove={() => removeNotification.mutate(item.id)}
-              />
+            {sections.map((section) => (
+              <section key={section.id}>
+                <h2 className="border-border/60 text-foreground-muted border-t border-b px-4 py-1.5 text-xs font-semibold tracking-wide uppercase first:border-t-0">
+                  {notificationSectionLabel(section.id)}
+                </h2>
+                {section.items.map((item) => (
+                  <NotificationRow
+                    key={item.id}
+                    item={item}
+                    onClick={() => {
+                      if (item.readAt === null) markRead.mutate(item.id)
+                      navigate({ to: notificationTargetPath(item) })
+                    }}
+                    removing={
+                      removeNotification.isPending &&
+                      removeNotification.variables === item.id
+                    }
+                    onRemove={() => removeNotification.mutate(item.id)}
+                  />
+                ))}
+              </section>
             ))}
             {listQuery.hasNextPage || listQuery.isFetchingNextPage ? (
               <div ref={sentinelRef} className="flex justify-center p-2">
@@ -449,7 +480,12 @@ function NotificationRow({
           )}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm leading-5 text-pretty">
+          <span
+            className={cn(
+              "block text-sm leading-5 text-pretty",
+              item.readAt === null && "font-medium",
+            )}
+          >
             {parts.before}
             <span className="font-medium">{parts.actor}</span>
             {parts.after}
@@ -459,21 +495,23 @@ function NotificationRow({
               {item.commentSnippet}
             </span>
           ) : null}
-          <span className="text-foreground-faint mt-0.5 block truncate text-xs">
-            {formatRelativeTime(item.createdAt)}
-            {item.clip ? ` · ${item.clip.title}` : null}
+          <span className="text-foreground-faint mt-0.5 flex items-center gap-1.5 text-xs">
+            {item.readAt === null ? (
+              <span
+                className="bg-accent size-1.5 shrink-0 rounded-full shadow-[0_0_0_2px_var(--accent-soft)]"
+                aria-hidden
+              />
+            ) : null}
+            <span className="truncate">
+              {formatRelativeTime(item.createdAt)}
+              {item.clip ? ` · ${item.clip.title}` : null}
+            </span>
           </span>
         </span>
         {item.readAt === null ? (
           <span className="sr-only">{t("Unread")}</span>
         ) : null}
       </button>
-      {item.readAt === null ? (
-        <span
-          className="bg-accent pointer-events-none absolute top-1/2 right-4 size-1.5 -translate-y-1/2 rounded-full shadow-[0_0_0_3px_var(--accent-soft)] transition-opacity group-hover/notification:opacity-0"
-          aria-hidden
-        />
-      ) : null}
       <button
         type="button"
         aria-label={t("Remove notification")}
