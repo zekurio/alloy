@@ -1016,7 +1016,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Tagged in clip": "Im Clip getaggt",
   "Test {title} sound": "{title}-Sound testen",
   "Test sound": "Sound testen",
-  "This week": "Diese Woche",
+  "Last 7 days": "Letzte 7 Tage",
   "The {backend} encoder for {codec} failed its test on this server. Pick another backend or check the GPU drivers.":
     "Der {backend}-Encoder für {codec} hat seinen Test auf diesem Server nicht bestanden. Wähle ein anderes Backend oder prüfe die GPU-Treiber.",
   "The browser could not decode this video.":
