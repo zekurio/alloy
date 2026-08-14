@@ -18,7 +18,7 @@ import {
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useSession } from "@/lib/auth-client"
 import {
-  invalidateDeletedClipCaches,
+  invalidateClipCaches,
   removeClipDetailFromCache,
   seedClipDetailInCache,
   useClipQuery,
@@ -288,7 +288,7 @@ function useServerBackedClipDelete({
           replace: true,
         })
         removeClipDetailFromCache(queryClient, row.id)
-        invalidateDeletedClipCaches(queryClient)
+        invalidateClipCaches(queryClient)
         return
       }
 

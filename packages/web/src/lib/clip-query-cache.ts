@@ -2,7 +2,10 @@ import type { ClipPage, ClipRow } from "@alloy/api"
 import type { InfiniteData, QueryClient } from "@tanstack/react-query"
 
 import { clipKeys } from "./clip-query-keys"
+import { feedKeys } from "./feed-queries"
 import { invalidateGameQueries } from "./game-queries"
+import { searchKeys } from "./search-api"
+import { tagKeys } from "./tag-queries"
 import { invalidateStorageUsage } from "./user-queries"
 
 export interface ClipsSnapshot {
@@ -69,9 +72,12 @@ export function removeClipDetailFromCache(qc: QueryClient, clipId: string) {
   qc.removeQueries({ queryKey: clipKeys.detail(clipId), exact: true })
 }
 
-export function invalidateDeletedClipCaches(qc: QueryClient): void {
+export function invalidateClipCaches(qc: QueryClient): void {
   void qc.invalidateQueries({ queryKey: clipKeys.all })
+  void qc.invalidateQueries({ queryKey: feedKeys.all })
   void invalidateGameQueries(qc)
+  void qc.invalidateQueries({ queryKey: tagKeys.all })
+  void qc.invalidateQueries({ queryKey: searchKeys.all })
   void invalidateStorageUsage(qc)
 }
 

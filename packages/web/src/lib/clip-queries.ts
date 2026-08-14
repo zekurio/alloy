@@ -14,7 +14,7 @@ import { api } from "./api"
 import {
   adjustClipCountsInCaches,
   type ClipsSnapshot,
-  invalidateDeletedClipCaches,
+  invalidateClipCaches,
   patchClipInCaches,
   removeClipDetailFromCache,
   removeClipFromCaches,
@@ -29,7 +29,7 @@ import { invalidateStorageUsage } from "./user-queries"
 
 export {
   adjustClipCountsInCaches,
-  invalidateDeletedClipCaches,
+  invalidateClipCaches,
   removeClipDetailFromCache,
 }
 export { clipKeys }
@@ -253,7 +253,7 @@ export function useDeleteClipMutation() {
     },
     onSettled: (_data, _error, variables) => {
       if (variables.deferInvalidation) return
-      invalidateDeletedClipCaches(qc)
+      invalidateClipCaches(qc)
     },
   })
 }

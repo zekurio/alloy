@@ -1,11 +1,14 @@
 import { type QueueClip } from "@alloy/api"
-import { useQueryClient } from "@tanstack/react-query"
+import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useReducer, useRef } from "react"
 import type { MutableRefObject } from "react"
 
-import { clipKeys, useInvalidateClips } from "@/lib/clip-queries"
+import {
+  clipKeys,
+  invalidateClipCaches,
+  useInvalidateClips,
+} from "@/lib/clip-queries"
 import { removeUploadQueueClip } from "@/lib/clip-queue-stream"
-import { useInvalidateGames } from "@/lib/game-queries"
 
 import {
   clearLocalCaptureClipLink,
@@ -42,8 +45,8 @@ export function useServerQueueSync(
   retainedThumbsRef: MutableRefObject<Map<string, string>>,
   bump: () => void,
 ) {
+  const queryClient = useQueryClient()
   const invalidateClips = useInvalidateClips()
-  const invalidateGames = useInvalidateGames()
   const readyNotifiedRef = useRef<Set<string>>(new Set())
   const thumbNotifiedRef = useRef<Set<string>>(new Set())
 
@@ -57,14 +60,14 @@ export function useServerQueueSync(
       readyNotifiedRef.current,
       thumbNotifiedRef.current,
     )
-    if (invalidations.clips) void invalidateClips()
-    if (invalidations.games) void invalidateGames()
+    if (invalidations.published) invalidateClipCaches(queryClient)
+    else if (invalidations.clips) void invalidateClips()
   }, [
     activeRef,
     retainedThumbsRef,
     bump,
     invalidateClips,
-    invalidateGames,
+    queryClient,
     serverQueue,
   ])
 }
@@ -106,7 +109,7 @@ function recordServerQueueUpdates(
   thumbNotified: Set<string>,
 ) {
   let clips = false
-  let games = false
+  let published = false
   for (const row of serverQueue) {
     if (row.hasThumb && !thumbNotified.has(row.id)) {
       thumbNotified.add(row.id)
@@ -115,10 +118,10 @@ function recordServerQueueUpdates(
     if (row.status === "ready" && !readyNotified.has(row.id)) {
       readyNotified.add(row.id)
       clips = true
-      games = true
+      published = true
     }
   }
-  return { clips, games }
+  return { clips, published }
 }
 
 export function useCancelQueueRow(
@@ -127,35 +130,18 @@ export function useCancelQueueRow(
   bump: () => void,
 ) {
   const queryClient = useQueryClient()
-  const invalidateClips = useInvalidateClips()
-  const invalidateGames = useInvalidateGames()
   return useCallback(
     (localId: string | null, clipId: string | null) => {
-      if (localId) {
-        cancelLocalUpload(
-          localId,
-          activeRef,
-          bump,
-          invalidateClips,
-          invalidateGames,
-        )
-      }
+      if (localId) cancelLocalUpload(localId, activeRef, bump, queryClient)
       if (clipId) {
         releaseRetainedThumbnail(clipId, retainedThumbsRef)
         queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (old) =>
           removeUploadQueueClip(old, clipId),
         )
-        deleteCancelledClip(clipId, invalidateClips, invalidateGames)
+        deleteCancelledClip(clipId, queryClient)
       }
     },
-    [
-      activeRef,
-      retainedThumbsRef,
-      bump,
-      invalidateClips,
-      invalidateGames,
-      queryClient,
-    ],
+    [activeRef, retainedThumbsRef, bump, queryClient],
   )
 }
 
@@ -163,8 +149,7 @@ function cancelLocalUpload(
   localId: string,
   activeRef: MutableRefObject<Map<string, ActiveUpload>>,
   bump: () => void,
-  invalidateClips: () => void,
-  invalidateGames: () => void,
+  queryClient: QueryClient,
 ) {
   const entry = activeRef.current.get(localId)
   if (!entry) return
@@ -180,10 +165,7 @@ function cancelLocalUpload(
   if (entry.serverClipCreated && entry.clipId) {
     void deleteUploadClipBestEffort(entry.clipId, "local cancel").then(
       (deleted) => {
-        if (deleted) {
-          invalidateClips()
-          invalidateGames()
-        }
+        if (deleted) invalidateClipCaches(queryClient)
       },
     )
   }
@@ -200,16 +182,9 @@ function releaseRetainedThumbnail(
   return true
 }
 
-function deleteCancelledClip(
-  clipId: string,
-  invalidateClips: () => void,
-  invalidateGames: () => void,
-) {
+function deleteCancelledClip(clipId: string, queryClient: QueryClient) {
   void deleteUploadClipBestEffort(clipId, "queue cancel").then((deleted) => {
-    if (deleted) {
-      invalidateClips()
-      invalidateGames()
-    }
+    if (deleted) invalidateClipCaches(queryClient)
   })
 }
 
