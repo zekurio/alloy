@@ -214,6 +214,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Audio tracks": "Audiospuren",
   "Audio tracks could not be loaded. Playing the mixed track instead.":
     "Audiospuren konnten nicht geladen werden. Stattdessen wird die gemischte Spur abgespielt.",
+  "An account already exists for that email address.":
+    "Für diese E-Mail-Adresse existiert bereits ein Konto.",
+  "An account already exists for that email. Sign in and link this provider from settings.":
+    "Für diese E-Mail-Adresse existiert bereits ein Konto. Melde dich an und verknüpfe diesen Anbieter in den Einstellungen.",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
   Author: "Autor",
   Auto: "Auto",
@@ -337,15 +341,30 @@ export const DE_MESSAGES: Record<string, string> = {
     "Steuere das Startverhalten und Desktop-App-Updates.",
   "Copy error": "Fehler kopieren",
   "Copy link": "Link kopieren",
+  "Could not allocate a unique username":
+    "Ein eindeutiger Nutzername konnte nicht vergeben werden",
+  "Could not claim setup user.":
+    "Der Einrichtungsnutzer konnte nicht übernommen werden.",
   "Could not clear staged import.":
     "Der vorbereitete Import konnte nicht aufgeräumt werden.",
+  "Could not create passkey challenge.":
+    "Die Passkey-Anfrage konnte nicht erstellt werden.",
+  "Could not create session.": "Sitzung konnte nicht erstellt werden.",
+  "Could not create user.": "Nutzer konnte nicht erstellt werden.",
+  "Could not link OAuth account.": "OAuth-Konto konnte nicht verknüpft werden.",
+  "Could not load session.": "Sitzung konnte nicht geladen werden.",
+  "Could not refresh session.": "Sitzung konnte nicht aktualisiert werden.",
+  "Could not start OAuth flow.": "OAuth-Vorgang konnte nicht gestartet werden.",
   "Could not import clip.": "Clip konnte nicht importiert werden.",
   "Could not prepare clip.": "Clip konnte nicht vorbereitet werden.",
   "Could not reach server.": "Server konnte nicht erreicht werden.",
   "Could not read video metadata":
     "Videometadaten konnten nicht gelesen werden",
   "Could not scan local clips.": "Lokale Clips konnten nicht gescannt werden.",
+  "Could not start sign-in.": "Anmeldung konnte nicht gestartet werden.",
+  "Could not start sign-up.": "Registrierung konnte nicht gestartet werden.",
   "Could not start upload.": "Upload konnte nicht gestartet werden.",
+  "Could not verify passkey.": "Passkey konnte nicht verifiziert werden.",
   "Couldn't change the capture folder.":
     "Aufnahmeordner konnte nicht geändert werden.",
   "Couldn't check for updates.": "Updates konnten nicht gesucht werden.",
@@ -368,6 +387,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't delete game": "Spiel konnte nicht gelöscht werden",
   "Couldn't detect encoders": "Encoder konnten nicht erkannt werden",
   "Couldn't disable account": "Konto konnte nicht deaktiviert werden",
+  "Couldn't finish passkey account setup":
+    "Einrichtung deines Passkey-Kontos konnte nicht abgeschlossen werden",
   "Couldn't forget server.": "Server konnte nicht entfernt werden.",
   "Couldn't load accounts": "Konten konnten nicht geladen werden",
   "Couldn't load clips": "Clips konnten nicht geladen werden",
@@ -409,6 +430,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't remove passkey": "Passkey konnte nicht entfernt werden",
   "Couldn't remove the local copy": "Lokale Kopie konnte nicht entfernt werden",
   "Couldn't create user": "Nutzer konnte nicht erstellt werden",
+  "Couldn't create your passkey account":
+    "Dein Passkey-Konto konnte nicht erstellt werden",
   "Couldn't remove user": "Nutzer konnte nicht entfernt werden",
   "Couldn't rename passkey": "Passkey konnte nicht umbenannt werden",
   "Couldn't restart to update.":
@@ -517,6 +540,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Der Anzeigename darf höchstens {max} Zeichen lang sein",
   "Display name can't contain control characters":
     "Der Anzeigename darf keine Steuerzeichen enthalten",
+  "Display name cannot contain control characters.":
+    "Der Anzeigename darf keine Steuerzeichen enthalten.",
   "Don't have an account?": "Noch kein Konto?",
   Done: "Fertig",
   Download: "Herunterladen",
@@ -627,7 +652,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Importing...": "Wird importiert...",
   Input: "Eingabe",
   "Intel Quick Sync": "Intel Quick Sync",
+  "Initial setup is already complete.":
+    "Die Ersteinrichtung ist bereits abgeschlossen.",
   "Invalid quota": "Ungültiges Kontingent",
+  "Invalid registration request.": "Ungültige Registrierungsanfrage.",
   "It may have been deleted, or you may not have access to it.":
     "Vielleicht wurde es gelöscht oder du hast keinen Zugriff darauf.",
   "It may have been moved or deleted from the capture folder.":
@@ -702,6 +730,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Meta: "Meta",
   "Microphone source": "Mikrofonquelle",
   Minimize: "Minimieren",
+  "Missing OAuth state.": "OAuth-Status fehlt.",
   more: "mehr",
   "More clip options": "Weitere Clip-Optionen",
   "More post options": "Weitere Post-Optionen",
@@ -738,6 +767,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "No liked clips yet": "Noch keine gelikten Clips",
   "No manual excludes.": "Keine manuellen Ausschlüsse.",
   "No manual includes.": "Keine manuellen Einträge.",
+  "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings.":
+    "Mit diesem OAuth-Konto ist kein Alloy-Konto verknüpft. Melde dich mit einer anderen Methode an und verknüpfe es in den Einstellungen.",
   "No matches": "Keine Treffer",
   "No matching processes found.": "Keine passenden Prozesse gefunden.",
   "No passkeys yet. Add one for faster, password-free sign-in.":
@@ -760,6 +791,26 @@ export const DE_MESSAGES: Record<string, string> = {
   Oldest: "Älteste",
   On: "An",
   "On Device": "Auf dem Gerät",
+  "OAuth account is already linked to another user.":
+    "Das OAuth-Konto ist bereits mit einem anderen Nutzer verknüpft.",
+  "OAuth callback URL is not trusted.":
+    "Die OAuth-Rückruf-URL ist nicht vertrauenswürdig.",
+  "OAuth profile is missing a subject.":
+    "Im OAuth-Profil fehlt eine Nutzerkennung.",
+  "OAuth profile is missing an email address.":
+    "Im OAuth-Profil fehlt eine E-Mail-Adresse.",
+  "OAuth provider changed during sign-in.":
+    "Der OAuth-Anbieter wurde während der Anmeldung geändert.",
+  "OAuth provider endpoints are incomplete.":
+    "Die Endpunkte des OAuth-Anbieters sind unvollständig.",
+  "OAuth provider is not enabled.": "Der OAuth-Anbieter ist nicht aktiviert.",
+  "OAuth sign-in did not start in this browser.":
+    "Die OAuth-Anmeldung wurde nicht in diesem Browser gestartet.",
+  "OAuth sign-in expired. Try again.":
+    "OAuth-Anmeldung abgelaufen. Versuche es erneut.",
+  "OAuth sign-in failed": "OAuth-Anmeldung fehlgeschlagen",
+  "OAuth sign-in failed.": "OAuth-Anmeldung fehlgeschlagen.",
+  "OAuth state payload is invalid.": "Die OAuth-Statusdaten sind ungültig.",
   "On Server": "Auf dem Server",
   Open: "Öffnen",
   "Open {name}'s profile": "Profil von {name} öffnen",
@@ -774,10 +825,26 @@ export const DE_MESSAGES: Record<string, string> = {
   Output: "Ausgabe",
   "Page not found": "Seite nicht gefunden",
   "Passkey added": "Passkey hinzugefügt",
+  "Passkey challenge payload is invalid.":
+    "Die Daten der Passkey-Anfrage sind ungültig.",
+  "Passkey is not registered.": "Dieser Passkey ist nicht registriert.",
+  "Passkey registration expired. Try again.":
+    "Passkey-Registrierung abgelaufen. Versuche es erneut.",
+  "Passkey registration failed.": "Passkey-Registrierung fehlgeschlagen.",
+  "Passkey registration payload is invalid.":
+    "Die Passkey-Registrierungsdaten sind ungültig.",
   "Passkey removed": "Passkey entfernt",
   "Passkey renamed": "Passkey umbenannt",
+  "Passkey sign-in expired. Try again.":
+    "Passkey-Anmeldung abgelaufen. Versuche es erneut.",
+  "Passkey sign-in failed": "Passkey-Anmeldung fehlgeschlagen",
+  "Passkey sign-in failed.": "Passkey-Anmeldung fehlgeschlagen.",
+  "Passkey sign-in is currently disabled.":
+    "Passkey-Anmeldung ist derzeit deaktiviert.",
   "Passkey sign-in is enabled, but this browser does not support passkeys.":
     "Passkey-Anmeldung ist aktiviert, aber dieser Browser unterstützt keine Passkeys.",
+  "Passkey sign-up is currently disabled.":
+    "Passkey-Registrierung ist derzeit deaktiviert.",
   "Passkey sign-up is enabled, but this browser does not support passkeys.":
     "Passkey-Registrierung ist aktiviert, aber dieser Browser unterstützt keine Passkeys.",
   Passkeys: "Passkeys",
@@ -979,12 +1046,15 @@ export const DE_MESSAGES: Record<string, string> = {
   "Sign in to like comments": "Melde dich an, um Kommentare zu liken",
   "Sign in to saved server": "Beim gespeicherten Server anmelden",
   "Sign in to star": "Melde dich an, um zu markieren",
+  "Sign in again before linking this account.":
+    "Melde dich erneut an, bevor du dieses Konto verknüpfst.",
   "Sign in without a password using your device or hardware key.":
     "Melde dich ohne Passwort mit deinem Gerät oder Hardware-Schlüssel an.",
   "Sign out": "Abmelden",
   "Sign up": "Registrieren",
   "Sign-in failed.": "Anmeldung fehlgeschlagen.",
   "Sign-in timed out.": "Zeitüberschreitung bei der Anmeldung.",
+  "Sign-up is currently closed.": "Die Registrierung ist derzeit geschlossen.",
   "Sign-up page preview": "Vorschau der Registrierungsseite",
   "Sign-ups are disabled": "Registrierungen sind deaktiviert",
   "Signed out": "Abgemeldet",
@@ -1064,6 +1134,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Title: "Titel",
   "to comment": "zu kommentieren",
   Today: "Heute",
+  "Too many requests": "Zu viele Anfragen",
   Top: "Top",
   "Transcoding settings saved": "Transkodierungs-Einstellungen gespeichert",
   "Trim end": "Ende abschneiden",
@@ -1140,6 +1211,7 @@ export const DE_MESSAGES: Record<string, string> = {
   user: "Nutzer",
   users: "Nutzer",
   User: "Nutzer",
+  "User not found.": "Nutzer nicht gefunden.",
   "User disabled": "Nutzer deaktiviert",
   "User created": "Nutzer erstellt",
   "User enabled": "Nutzer aktiviert",
@@ -1152,6 +1224,11 @@ export const DE_MESSAGES: Record<string, string> = {
   "Username can't be empty": "Der Nutzername darf nicht leer sein",
   "Username can't contain slashes or control characters":
     "Der Nutzername darf keine Schrägstriche oder Steuerzeichen enthalten",
+  "Username cannot be a path dot-segment.":
+    "Der Nutzername darf nicht nur aus Punkten bestehen.",
+  "Username cannot contain slashes or control characters.":
+    "Der Nutzername darf keine Schrägstriche oder Steuerzeichen enthalten.",
+  "Username is already taken.": "Der Nutzername ist bereits vergeben.",
   Users: "Nutzer",
   "{currentVersion} -> {version}": "{currentVersion} -> {version}",
   "VA-API": "VA-API",

@@ -19,7 +19,7 @@ export function OAuthErrorToast() {
       toast.warning(t("Auth attempt cancelled."))
       return
     }
-    toast.error(message)
+    toast.error(t(message))
   }, [location.href])
 
   return null
