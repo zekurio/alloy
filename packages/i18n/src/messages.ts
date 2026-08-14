@@ -533,6 +533,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Drag image to reposition crop":
     "Zieh das Bild, um den Ausschnitt neu zu positionieren",
   "e.g. Laptop, YubiKey": "z.B. Laptop, YubiKey",
+  Earlier: "Früher",
   Edit: "Bearbeiten",
   "Edit {title}": "{title} bearbeiten",
   "Edit avatar": "Avatar bearbeiten",
@@ -1014,6 +1015,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Tagged in clip": "Im Clip getaggt",
   "Test {title} sound": "{title}-Sound testen",
   "Test sound": "Sound testen",
+  "This week": "Diese Woche",
   "The {backend} encoder for {codec} failed its test on this server. Pick another backend or check the GPU drivers.":
     "Der {backend}-Encoder für {codec} hat seinen Test auf diesem Server nicht bestanden. Wähle ein anderes Backend oder prüfe die GPU-Treiber.",
   "The browser could not decode this video.":
@@ -1174,6 +1176,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Where replay video is kept before a clip is saved.":
     "Wo das Replay-Video aufbewahrt wird, bevor ein Clip gespeichert wird.",
   with: "mit",
+  Yesterday: "Gestern",
   You: "Du",
   "You have unsaved changes.": "Du hast ungespeicherte Änderungen.",
   "You have unsaved settings — save or discard them first.":

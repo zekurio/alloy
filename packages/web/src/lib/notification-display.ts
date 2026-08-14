@@ -2,6 +2,7 @@ import type { NotificationItem } from "@alloy/api"
 import { t } from "@alloy/i18n"
 
 import { clipHref, userProfileHref } from "./app-paths"
+import { dateTime } from "./date-format"
 import { displayName } from "./user-display"
 
 export interface NotificationDisplay {
@@ -55,6 +56,83 @@ export function notificationRowParts(
 }
 
 const ACTOR_SENTINEL = "\u0000"
+
+export type NotificationSectionId =
+  | "new"
+  | "today"
+  | "yesterday"
+  | "week"
+  | "earlier"
+
+export interface NotificationSection {
+  id: NotificationSectionId
+  items: NotificationItem[]
+}
+
+const SECTION_ORDER: NotificationSectionId[] = [
+  "new",
+  "today",
+  "yesterday",
+  "week",
+  "earlier",
+]
+
+/**
+ * Buckets a chronologically sorted notification list into recency sections.
+ * Unread items land in "new" regardless of age so they stay one glance away;
+ * read items fall into calendar buckets (today, yesterday, the last 7 days).
+ */
+export function groupNotificationsByRecency(
+  items: NotificationItem[],
+  now: Date = new Date(),
+): NotificationSection[] {
+  // Calendar-day boundaries; setDate arithmetic stays correct across DST.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const week = new Date(today)
+  week.setDate(week.getDate() - 6)
+
+  const groups = new Map<NotificationSectionId, NotificationItem[]>()
+  for (const item of items) {
+    const id = notificationSectionId(item, { today, yesterday, week })
+    const group = groups.get(id)
+    if (group) group.push(item)
+    else groups.set(id, [item])
+  }
+
+  return SECTION_ORDER.flatMap((id) => {
+    const group = groups.get(id)
+    return group ? [{ id, items: group }] : []
+  })
+}
+
+function notificationSectionId(
+  item: NotificationItem,
+  bounds: { today: Date; yesterday: Date; week: Date },
+): NotificationSectionId {
+  if (item.readAt === null) return "new"
+  const created = dateTime(item.createdAt) ?? 0
+  if (created >= bounds.today.getTime()) return "today"
+  if (created >= bounds.yesterday.getTime()) return "yesterday"
+  if (created >= bounds.week.getTime()) return "week"
+  return "earlier"
+}
+
+export function notificationSectionLabel(id: NotificationSectionId): string {
+  switch (id) {
+    case "new":
+      return t("New")
+    case "today":
+      return t("Today")
+    case "yesterday":
+      return t("Yesterday")
+    case "week":
+      return t("This week")
+    case "earlier":
+      return t("Earlier")
+  }
+}
 
 function notificationTitle(kind: NotificationItem["kind"]): string {
   switch (kind) {
