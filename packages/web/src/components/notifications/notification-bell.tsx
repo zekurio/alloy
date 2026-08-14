@@ -31,7 +31,6 @@ import {
   HeartIcon,
   MessageSquareIcon,
   Trash2Icon,
-  TriangleAlertIcon,
   UserPlusIcon,
   type LucideIcon,
 } from "lucide-react"
@@ -356,7 +355,7 @@ function NotificationContent({
             size={layout === "page" ? "md" : "sm"}
             fill={layout === "page"}
             title={t("No notifications yet")}
-            hint={t("Activity and upload failures appear here.")}
+            hint={t("Activity appears here.")}
           />
         ) : null}
       </div>
@@ -372,7 +371,6 @@ const KIND_ICONS: Record<NotificationItem["kind"], LucideIcon> = {
   comment_reply: MessageSquareIcon,
   clip_mention: AtSignIcon,
   comment_mention: AtSignIcon,
-  clip_processing_failed: TriangleAlertIcon,
 }
 
 // Hearts reuse the app's liked-heart red; mentions and follows carry the
@@ -385,7 +383,6 @@ const KIND_BADGE_CLASSES: Record<NotificationItem["kind"], string> = {
   comment_reply: "bg-neutral-300 text-foreground",
   clip_mention: "bg-accent text-accent-foreground",
   comment_mention: "bg-accent text-accent-foreground",
-  clip_processing_failed: "bg-destructive text-white",
 }
 
 function NotificationRow({
@@ -464,9 +461,7 @@ function NotificationRow({
           ) : null}
           <span className="text-foreground-faint mt-0.5 block truncate text-xs">
             {formatRelativeTime(item.createdAt)}
-            {item.clip && item.kind !== "clip_processing_failed"
-              ? ` · ${item.clip.title}`
-              : null}
+            {item.clip ? ` · ${item.clip.title}` : null}
           </span>
         </span>
         {item.readAt === null ? (

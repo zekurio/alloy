@@ -5,6 +5,7 @@ import {
   validateIntegerInRange,
   validateIsoDateString,
   validateNonNegativeInteger,
+  validateNullableDateString,
   validateNullableEnumString,
   validateNullableNonNegativeInteger,
   validateNullablePositiveInteger,
@@ -166,6 +167,10 @@ function validateClipTimestamps(row: Record<string, unknown>) {
   validateIsoDateString(
     row.updatedAt,
     "Invalid clip response: updatedAt must be a date string",
+  )
+  validateNullableDateString(
+    row.publishedAt,
+    "Invalid clip response: publishedAt must be a nullable date string",
   )
   validateNullableString(
     row.thumbKey,

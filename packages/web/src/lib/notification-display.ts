@@ -71,8 +71,6 @@ function notificationTitle(kind: NotificationItem["kind"]): string {
       return t("You were mentioned")
     case "comment_like":
       return t("Comment liked")
-    case "clip_processing_failed":
-      return t("Processing failed")
   }
 }
 
@@ -92,9 +90,5 @@ function notificationBody(item: NotificationItem, actor: string): string {
       return t("{actor} liked your comment", { actor })
     case "follow":
       return t("{actor} followed you", { actor })
-    case "clip_processing_failed":
-      return item.clip
-        ? t("We couldn't process {title}", { title: item.clip.title })
-        : t("We couldn't process your clip")
   }
 }

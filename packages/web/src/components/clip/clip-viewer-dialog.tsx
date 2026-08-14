@@ -344,7 +344,7 @@ function ClipViewerDialogBody({
               gameRef={row.gameRef}
               views={formatCount(row.viewCount)}
               viewCount={row.viewCount}
-              postedAt={formatRelativeTime(row.createdAt)}
+              postedAt={formatRelativeTime(row.publishedAt ?? row.createdAt)}
               likes={row.likeCount}
               privacy={row.privacy}
               description={row.description}

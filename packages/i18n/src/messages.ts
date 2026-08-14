@@ -65,8 +65,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "New reply": "Neue Antwort",
   "No captures here": "Keine Aufnahmen hier",
   "No notifications yet": "Noch keine Benachrichtigungen",
-  "Activity and upload failures appear here.":
-    "Aktivitäten und fehlgeschlagene Uploads erscheinen hier.",
+  "Activity appears here.": "Aktivitäten erscheinen hier.",
   "Nothing found for {query}. Try a different title, game, file, or user.":
     "Keine Treffer für {query}. Probiere einen anderen Titel, ein anderes Spiel, eine andere Datei oder einen anderen Nutzer.",
   Objects: "Objekte",
@@ -84,6 +83,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Symbols: "Symbole",
   "Wide page header": "Breiter Seitenkopf",
   "Vertical box art": "Vertikales Box-Artwork",
+  Published: "Veröffentlicht",
   Uploaded: "Hochgeladen",
   Unread: "Ungelesen",
   "Try a different search or filter.":
@@ -1100,7 +1100,6 @@ export const DE_MESSAGES: Record<string, string> = {
   Preview: "Vorschau",
   Processing: "Wird verarbeitet",
   "Processing…": "Wird verarbeitet…",
-  "Processing failed": "Verarbeitung fehlgeschlagen",
   Transcoding: "Transkodierung",
   Uncategorised: "Nicht kategorisiert",
   Upload: "Hochladen",
@@ -1128,8 +1127,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Uploading...": "Wird hochgeladen...",
   "Uploading…": "Wird hochgeladen…",
   Uploads: "Uploads",
-  "We couldn't process {title}": "{title} konnte nicht verarbeitet werden",
-  "We couldn't process your clip": "Dein Clip konnte nicht verarbeitet werden",
   "Uploads are unavailable in this browser":
     "Uploads sind in diesem Browser nicht verfügbar",
   Use: "Verwenden",

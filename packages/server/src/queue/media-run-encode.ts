@@ -15,7 +15,10 @@ import {
   encodeTierCost,
   type EncodeProgressTracker,
 } from "./media-encode-progress"
-import { ensureStillPresent } from "./media-run-workspace"
+import {
+  deleteAssetsBestEffort,
+  ensureStillPresent,
+} from "./media-run-workspace"
 import type { MediaRenditionRecord, MediaStore } from "./media-store"
 
 /**
@@ -72,7 +75,11 @@ export async function encodeAndPublishCut(options: {
 
 /**
  * Encode the ladder from the original source and upload each rendition under
- * a run-scoped key; the keys stay unpublished until commitReady.
+ * a run-scoped key; the keys stay unpublished until commitReady. The
+ * OG-flagged step encodes first regardless of ladder position and its
+ * rendition row is committed as soon as its upload lands: social embeds work
+ * from that moment, and `onOgRenditionCommitted` lets the run send the
+ * `clip.published` announcement while the remaining tiers still encode.
  */
 export async function encodeAndUploadRenditions(options: {
   store: MediaStore
@@ -88,10 +95,15 @@ export async function encodeAndUploadRenditions(options: {
   hardwareFailed: boolean
   uploadedKeys: string[]
   progress: EncodeProgressTracker
+  onOgRenditionCommitted?: (rendition: MediaRenditionRecord) => void
 }): Promise<MediaRenditionRecord[]> {
   let hardwareFailed = options.hardwareFailed
   const renditions: MediaRenditionRecord[] = []
-  for (const step of options.ladder) {
+  const steps = [
+    ...options.ladder.filter((step) => step.og),
+    ...options.ladder.filter((step) => !step.og),
+  ]
+  for (const step of steps) {
     await ensureStillPresent(
       options.store,
       options.id,
@@ -136,7 +148,7 @@ export async function encodeAndUploadRenditions(options: {
     )
     options.uploadedKeys.push(renditionKey)
     await rm(encoded.filePath, { force: true }).catch(() => undefined)
-    renditions.push({
+    const rendition: MediaRenditionRecord = {
       name: step.name,
       isOg: step.og,
       height: encoded.height,
@@ -145,7 +157,27 @@ export async function encodeAndUploadRenditions(options: {
       storageKey: renditionKey,
       codecs: encoded.codecs,
       sizeBytes: encoded.sizeBytes,
-    })
+    }
+    renditions.push(rendition)
+    if (step.og) {
+      const committed = await options.store.commitOgRendition(
+        options.id,
+        options.runId,
+        rendition,
+      )
+      if (committed) {
+        if (
+          committed.replacedStorageKey &&
+          committed.replacedStorageKey !== rendition.storageKey
+        ) {
+          await deleteAssetsBestEffort(
+            [committed.replacedStorageKey],
+            "replaced OG rendition",
+          )
+        }
+        options.onOgRenditionCommitted?.(rendition)
+      }
+    }
     options.progress.complete(tierCost)
   }
   return renditions

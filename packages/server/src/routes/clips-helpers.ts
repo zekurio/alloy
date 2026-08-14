@@ -42,14 +42,16 @@ type ClipListSort = "top" | "recent"
 type ClipListCursorPayload = {
   v: 1
   sort: ClipListSort
-  createdAt: string
+  /** Current key; falls back to the pre-publish-pipeline `createdAt` key. */
+  publishedAt?: string
+  createdAt?: string
   id: string
   viewCount?: number
   likeCount?: number
 }
 
 type ParsedClipListCursor = {
-  createdAt: Date
+  publishedAt: Date
   id: string
   viewCount: number | null
   likeCount: number | null
@@ -57,6 +59,8 @@ type ParsedClipListCursor = {
 
 type ClipListCursorRow = {
   id: string
+  publishedAt: Date | string | null
+  /** Pre-publish-moment fallback for rows that predate stamping. */
   createdAt: Date | string
   viewCount: number
   likeCount: number
@@ -97,18 +101,18 @@ export function parseClipListCursor(
   if (!value) return null
   const payload = decodeCursorPayload(value)
   if (!payload) return null
-  const createdAt = cursorDate(payload.createdAt)
+  const publishedAt = cursorDate(payload.publishedAt ?? payload.createdAt)
   const id = cursorRequiredString(payload.id)
-  if (payload.v !== 1 || payload.sort !== sort || !createdAt || !id) {
+  if (payload.v !== 1 || payload.sort !== sort || !publishedAt || !id) {
     return null
   }
   if (sort === "top") {
     const viewCount = cursorNonNegativeInteger(payload.viewCount)
     const likeCount = cursorNonNegativeInteger(payload.likeCount)
     if (viewCount === null || likeCount === null) return null
-    return { createdAt, id, viewCount, likeCount }
+    return { publishedAt, id, viewCount, likeCount }
   }
-  return { createdAt, id, viewCount: null, likeCount: null }
+  return { publishedAt, id, viewCount: null, likeCount: null }
 }
 
 function encodeClipListCursor(
@@ -118,7 +122,7 @@ function encodeClipListCursor(
   const payload: ClipListCursorPayload = {
     v: 1,
     sort,
-    createdAt: isoDate(row.createdAt),
+    publishedAt: isoDate(row.publishedAt ?? row.createdAt),
     id: row.id,
     ...(sort === "top"
       ? { viewCount: row.viewCount, likeCount: row.likeCount }
@@ -132,15 +136,15 @@ export function clipListCursorCondition(
   sort: ClipListSort,
 ): SQL | null {
   if (!cursor) return null
-  const afterCreatedAt = requiredSql(
+  const afterPublishedAt = requiredSql(
     or(
-      lt(clip.created_at, cursor.createdAt),
+      lt(clip.published_at, cursor.publishedAt),
       and(
-        eq(clip.created_at, cursor.createdAt),
+        eq(clip.published_at, cursor.publishedAt),
         sql`${clip.id} > ${cursor.id}`,
       ),
     ),
-    "clip cursor createdAt",
+    "clip cursor publishedAt",
   )
 
   if (sort === "top") {
@@ -151,7 +155,7 @@ export function clipListCursorCondition(
           eq(clip.view_count, cursor.viewCount ?? 0),
           or(
             lt(clip.like_count, cursor.likeCount ?? 0),
-            and(eq(clip.like_count, cursor.likeCount ?? 0), afterCreatedAt),
+            and(eq(clip.like_count, cursor.likeCount ?? 0), afterPublishedAt),
           ),
         ),
       ),
@@ -159,7 +163,7 @@ export function clipListCursorCondition(
     )
   }
 
-  return afterCreatedAt
+  return afterPublishedAt
 }
 
 export function clipListOrderBy(sort: ClipListSort) {
@@ -167,10 +171,10 @@ export function clipListOrderBy(sort: ClipListSort) {
     ? [
         desc(clip.view_count),
         desc(clip.like_count),
-        desc(clip.created_at),
+        desc(clip.published_at),
         clip.id,
       ]
-    : [desc(clip.created_at), clip.id]
+    : [desc(clip.published_at), clip.id]
 }
 
 export function clipListPage<T extends ClipListPageRow>(

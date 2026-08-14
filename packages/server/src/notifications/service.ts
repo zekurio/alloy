@@ -59,36 +59,6 @@ export async function createNotification(input: {
   if (item) publishNotification(input.recipientId, item)
 }
 
-/** Persist one actionable system notification for a terminal upload encode. */
-export async function createClipProcessingFailedNotification(
-  clipId: string,
-  runId: string,
-): Promise<void> {
-  const [failedClip] = await db
-    .select({ authorId: clip.author_id })
-    .from(clip)
-    .where(and(eq(clip.id, clipId), eq(clip.status, "failed")))
-    .limit(1)
-  if (!failedClip) return
-
-  const rows = await db
-    .insert(notification)
-    .values({
-      recipient_id: failedClip.authorId,
-      actor_id: null,
-      kind: "clip_processing_failed",
-      clip_id: clipId,
-      dedup_key: `clip_processing_failed:${clipId}:${runId}`,
-    })
-    .onConflictDoNothing()
-    .returning()
-  const row = rows[0]
-  if (!row) return
-  const items = await hydrateNotifications([row])
-  const item = items[0]
-  if (item) publishNotification(failedClip.authorId, item)
-}
-
 export async function createStoredClipMentionNotifications(
   clipId: string,
 ): Promise<void> {

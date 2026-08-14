@@ -213,9 +213,33 @@ export function serverToQueueItem(
       })
       break
     case "ready":
+      // The clip can stay playable after a later ladder failure; don't mistake
+      // that for a fully successful publish just because the stage was cleared.
+      if (row.failureReason) {
+        status = "failed"
+        label = t("Failed")
+        detail = row.failureReason
+        break
+      }
+      // Eager release makes the clip playable before the rendition ladder is
+      // necessarily finished. Keep that remaining work visible as ordinary
+      // processing without introducing a separate "live" status.
+      if (row.encodeStage) {
+        status = "uploading"
+        progress = Math.max(0, Math.min(100, Math.floor(row.encodeProgress)))
+        showProgress = true
+        indeterminate = progress <= 0
+        label = encodeStageLabel({
+          stage: row.encodeStage,
+          tier: row.encodeTier,
+          tierIndex: row.encodeTierIndex,
+          tierCount: row.encodeTierCount,
+        })
+        break
+      }
       status = "published"
       progress = 100
-      label = t("Ready")
+      label = t("Published")
       break
     case "failed":
       status = "failed"
@@ -227,7 +251,10 @@ export function serverToQueueItem(
     id: row.id,
     title: row.title,
     kind: "upload",
-    phase: row.status === "processing" ? "processing" : "upload",
+    phase:
+      row.status === "processing" || (row.status === "ready" && row.encodeStage)
+        ? "processing"
+        : "upload",
     status,
     progress,
     showProgress,
