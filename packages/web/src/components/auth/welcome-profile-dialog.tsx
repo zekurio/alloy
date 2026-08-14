@@ -16,7 +16,7 @@ import {
 } from "@alloy/ui/components/dialog"
 import { cn } from "@alloy/ui/lib/utils"
 import { ImageIcon, Pencil } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import { ImageCropDialog } from "@/components/media/image-crop-dialog"
@@ -75,6 +75,9 @@ function WelcomeProfileDialogContent({
   // Snapshot of the avatar at first render: the provenance caption must only
   // describe the synced provider avatar, never one the user picked here.
   const [initialImage] = useState(() => user?.image ?? "")
+  // Focus the popup itself on open instead of the first control, so the
+  // banner button doesn't show a stray focus ring when the dialog appears.
+  const popupRef = useRef<HTMLDivElement>(null)
   const providerName =
     welcome === "1"
       ? null
@@ -118,7 +121,12 @@ function WelcomeProfileDialogContent({
         }}
       />
       <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-        <DialogContent variant="secondary" className="max-w-[520px]">
+        <DialogContent
+          ref={popupRef}
+          initialFocus={popupRef}
+          variant="secondary"
+          className="max-w-[520px]"
+        >
           <DialogHeader>
             <DialogTitle>{t("Set up your profile")}</DialogTitle>
             <DialogDescription>
