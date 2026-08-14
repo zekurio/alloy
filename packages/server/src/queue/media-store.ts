@@ -149,12 +149,14 @@ export interface MediaStore {
    * ahead of the rest of the ladder, so social embeds work and the
    * `clip.published` announcement can go out while lower tiers still encode.
    * commitReady's wholesale swap supersedes this row when the run completes.
+   * Returns the replaced same-tier asset so its now-unreferenced bytes can be
+   * removed, or null when this run no longer owns the lease.
    */
   commitOgRendition(
     id: string,
     runId: string,
     rendition: MediaRenditionRecord,
-  ): Promise<boolean>
+  ): Promise<{ replacedStorageKey: string | null } | null>
   /**
    * Transactional replacement keeps readers from seeing partial ladders.
    * Stamps `published_at` under the same rule as commitPlayable, covering

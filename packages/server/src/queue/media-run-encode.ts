@@ -15,7 +15,10 @@ import {
   encodeTierCost,
   type EncodeProgressTracker,
 } from "./media-encode-progress"
-import { ensureStillPresent } from "./media-run-workspace"
+import {
+  deleteAssetsBestEffort,
+  ensureStillPresent,
+} from "./media-run-workspace"
 import type { MediaRenditionRecord, MediaStore } from "./media-store"
 
 /**
@@ -156,15 +159,24 @@ export async function encodeAndUploadRenditions(options: {
       sizeBytes: encoded.sizeBytes,
     }
     renditions.push(rendition)
-    if (
-      step.og &&
-      (await options.store.commitOgRendition(
+    if (step.og) {
+      const committed = await options.store.commitOgRendition(
         options.id,
         options.runId,
         rendition,
-      ))
-    ) {
-      options.onOgRenditionCommitted?.(rendition)
+      )
+      if (committed) {
+        if (
+          committed.replacedStorageKey &&
+          committed.replacedStorageKey !== rendition.storageKey
+        ) {
+          await deleteAssetsBestEffort(
+            [committed.replacedStorageKey],
+            "replaced OG rendition",
+          )
+        }
+        options.onOgRenditionCommitted?.(rendition)
+      }
     }
     options.progress.complete(tierCost)
   }

@@ -1,5 +1,6 @@
 import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
+import { renditionIsH264 } from "@alloy/server/clips/codecs"
 import {
   clipScrubberKey,
   publishScrubberSheet,
@@ -285,11 +286,11 @@ async function runPipelineInWorkDir({
     hardwareFailed,
     uploadedKeys,
     progress,
-    // The clip went live at commitPlayable; the announcement waits for the
-    // OG tier so social embeds resolve to a real video from the first post.
+    // The clip went live at commitPlayable. Announce once the OG tier is an
+    // embeddable H.264 rendition; non-H.264 OG tiers use the end-of-run net.
     onOgRenditionCommitted: (rendition) => {
       retainPublishedKey(rendition.storageKey)
-      announceClipPublished(id)
+      if (renditionIsH264(rendition.codecs)) announceClipPublished(id)
     },
   })
 
