@@ -90,7 +90,10 @@ function useServerQueueItems(
       .filter((row) => !localClipIds.has(row.id) && !dismissed.has(row.id))
       .map((row) =>
         serverToQueueItem(row, {
-          onCancel: () => handlers.cancelRow(null, row.id),
+          onCancel:
+            row.status === "pending" || row.status === "processing"
+              ? () => handlers.cancelRow(null, row.id)
+              : undefined,
           onOpen:
             row.status === "ready" || row.status === "failed"
               ? () => handlers.onOpenClip(row)
@@ -103,7 +106,7 @@ function useServerQueueItems(
               ? () => handlers.reEncodeClip({ clipId: row.id })
               : undefined,
           onDismiss:
-            row.status === "ready"
+            row.status === "ready" || row.status === "failed"
               ? () => {
                   handlers.releaseRetainedThumb(row.id)
                   handlers.dismiss(row.id)

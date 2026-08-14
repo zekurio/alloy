@@ -64,6 +64,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "New follower": "Neuer Follower",
   "New reply": "Neue Antwort",
   "No captures here": "Keine Aufnahmen hier",
+  "No active jobs": "Keine aktiven Aufgaben",
   "No notifications yet": "Noch keine Benachrichtigungen",
   "Activity appears here.": "Aktivitäten erscheinen hier.",
   "Nothing found for {query}. Try a different title, game, file, or user.":
@@ -74,6 +75,7 @@ export const DE_MESSAGES: Record<string, string> = {
     "Wähle ein anderes Spiel oder füge eine Aufnahme hinzu.",
   "Open clip: {title}": "Clip öffnen: {title}",
   "Recently used": "Zuletzt verwendet",
+  "Remove from queue": "Aus Warteschlange entfernen",
   "Remove notification": "Benachrichtigung entfernen",
   "Reconnecting…": "Verbindung wird wiederhergestellt…",
   SteamGridDB: "SteamGridDB",
@@ -571,7 +573,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "File Location": "Dateispeicherort",
   Finalizing: "Wird abgeschlossen",
   "Finalizing the instance state.": "Instanzstatus wird abgeschlossen.",
-  "Finalizing upload…": "Upload wird abgeschlossen…",
   "Finishing setup": "Einrichtung wird abgeschlossen",
   Folder: "Ordner",
   Follow: "Folgen",

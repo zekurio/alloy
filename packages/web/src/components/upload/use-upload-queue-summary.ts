@@ -5,10 +5,7 @@ import { useUploadQueue } from "./upload-flow-context"
 import { isCompletedQueueStatus, type QueueItem } from "./upload-queue-types"
 
 export interface UploadQueueSummary {
-  /**
-   * Active + failed rows worth surfacing. Completed rows are dropped, and so
-   * the center remains focused on work that still needs attention.
-   */
+  /** All visible queue rows, including completed and failed work. */
   items: QueueItem[]
   activeCount: number
   failedCount: number
@@ -21,19 +18,20 @@ export interface UploadQueueSummary {
 
 /**
  * Collapses the app-wide upload/download queue into the compact shape the
- * upload center needs. Returns null when nothing is in flight so the center
- * can render its empty state.
+ * upload center needs. Returns null only when the queue has no visible rows.
  */
 export function useUploadQueueSummary(): UploadQueueSummary | null {
   const { queue } = useUploadQueue()
   return useMemo(() => {
-    const relevant = queue.filter(
-      (item) => !isCompletedQueueStatus(item.status),
-    )
-    if (relevant.length === 0) return null
+    if (queue.length === 0) return null
 
-    const active = relevant.filter((item) => item.status !== "failed")
-    const failedCount = relevant.length - active.length
+    const active = queue.filter(
+      (item) =>
+        item.status !== "failed" &&
+        item.status !== "paused" &&
+        !isCompletedQueueStatus(item.status),
+    )
+    const failedCount = queue.filter((item) => item.status === "failed").length
     const determinate = active.filter(
       (item) => item.showProgress !== false && !item.indeterminate,
     )
@@ -48,7 +46,7 @@ export function useUploadQueueSummary(): UploadQueueSummary | null {
         : 0
 
     return {
-      items: relevant,
+      items: queue,
       activeCount: active.length,
       failedCount,
       percent,
@@ -59,7 +57,10 @@ export function useUploadQueueSummary(): UploadQueueSummary | null {
 }
 
 function pillLabel(active: QueueItem[], failedCount: number): string {
-  if (active.length === 0) return t("{count} failed", { count: failedCount })
+  if (active.length === 0 && failedCount > 0) {
+    return t("{count} failed", { count: failedCount })
+  }
+  if (active.length === 0) return t("No active jobs")
   if (active.some((item) => item.phase === "upload")) return t("Uploading…")
   if (active.some((item) => item.phase === "processing")) {
     return t("Processing…")
