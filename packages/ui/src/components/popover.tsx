@@ -55,7 +55,10 @@ function PopoverHeader({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
       data-slot="popover-header"
-      className={cn("flex flex-col gap-0.5 text-sm", className)}
+      className={cn(
+        "border-border flex min-h-10 shrink-0 items-center justify-between gap-3 border-b px-3 py-1.5 text-sm",
+        className,
+      )}
       {...props}
     />
   )
