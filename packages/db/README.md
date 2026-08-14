@@ -36,11 +36,11 @@ pnpm db:studio
 
 The root `db:*` scripts delegate to this package.
 
-## Alloy 1.0 baseline
+## Migrations
 
-The migration directory contains one fresh 1.0 baseline. Databases created
-from the 1.x migration history are deliberately rejected by the runtime
-migrator; provision a new database instead of attempting an in-place upgrade.
+The migration directory starts with the Alloy 1.0 baseline and grows through
+ordinary incremental migrations from there. Production startup applies pending
+Drizzle migrations automatically.
 
 ## Local Database
 

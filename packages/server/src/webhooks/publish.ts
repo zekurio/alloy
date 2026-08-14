@@ -1,9 +1,23 @@
 import { user } from "@alloy/db/auth-schema"
 import { clip, webhook, webhookDelivery } from "@alloy/db/schema"
+import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { and, eq, isNull } from "drizzle-orm"
 
 import { enqueueWebhookDelivery } from "../jobs/kinds/webhook-deliver"
+
+const logger = createLogger("webhooks")
+
+/**
+ * Fire-and-forget dispatch: a webhook problem must never fail, and therefore
+ * re-run, the encode or metadata write it rode in on, so errors are logged
+ * rather than thrown.
+ */
+export function announceClipPublished(clipId: string): void {
+  void dispatchClipPublished(clipId).catch((error) =>
+    logger.error("webhook dispatch failed", error),
+  )
+}
 
 export function clipPublishedDedupKey(clipId: string): string {
   return `clip.published:${clipId}`

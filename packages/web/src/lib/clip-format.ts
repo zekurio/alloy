@@ -101,7 +101,7 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     viewCount: row.viewCount,
     likes: formatCount(row.likeCount),
     comments: formatCount(row.commentCount),
-    postedAt: formatRelativeTime(row.createdAt, now),
+    postedAt: formatRelativeTime(row.publishedAt ?? row.createdAt, now),
     thumbnail: row.thumbKey
       ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
       : undefined,

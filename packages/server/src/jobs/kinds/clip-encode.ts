@@ -8,12 +8,9 @@ import {
   encodeFingerprint,
   type FingerprintSourceFacts,
 } from "@alloy/server/media/encode-fingerprint"
-import {
-  createClipProcessingFailedNotification,
-  createStoredClipMentionNotifications,
-} from "@alloy/server/notifications/service"
+import { createStoredClipMentionNotifications } from "@alloy/server/notifications/service"
 import { errorMessage } from "@alloy/server/runtime/error-message"
-import { dispatchClipPublished } from "@alloy/server/webhooks/publish"
+import { announceClipPublished } from "@alloy/server/webhooks/publish"
 import { and, eq, isNull, sql } from "drizzle-orm"
 
 import { clipMediaStore } from "../../queue/clip-media-store"
@@ -182,6 +179,10 @@ async function runClipEncode(
     if (payload.trigger === "upload") {
       await fanOutReadyClipMentions(payload.clipId)
     }
+    // Not gated on the trigger: the delivery ledger makes a re-encode or trim
+    // a no-op, and this is the announcement net for OG-less ladders (the
+    // OG-tier mid-run dispatch normally beats it) and for clips that went
+    // public before any webhook existed.
     announceClipPublished(payload.clipId)
   } catch (err) {
     if (ctx.signal.aborted && ctx.signal.reason === "shutdown") {
@@ -193,20 +194,6 @@ async function runClipEncode(
     }
     throw err
   }
-}
-
-/**
- * Hand a freshly ready clip to the webhook dispatcher.
- *
- * Not gated on the trigger: the delivery ledger makes a re-encode or trim a
- * no-op, while a clip that went public before any webhook existed still gets
- * announced the next time it is processed. Never awaited — a webhook problem
- * must not fail, and therefore re-run, an encode.
- */
-function announceClipPublished(clipId: string): void {
-  void dispatchClipPublished(clipId).catch((error) =>
-    logger.error("webhook dispatch failed", error),
-  )
 }
 
 async function fanOutReadyClipMentions(clipId: string): Promise<void> {
@@ -237,10 +224,6 @@ async function handleClipEncodeFailed(
     runId,
     reason,
     failedFingerprint(await selectFailedClipFacts(payload.clipId)),
-  )
-  await createClipProcessingFailedNotification(payload.clipId, runId).catch(
-    (notificationError) =>
-      logger.error("processing failure notification failed", notificationError),
   )
 }
 

@@ -98,7 +98,8 @@ function useServerQueueItems(
           onCopyLink:
             row.status === "ready" ? () => copyClipLink(row) : undefined,
           onRetry:
-            row.status === "failed"
+            row.status === "failed" ||
+            (row.status === "ready" && row.failureReason)
               ? () => handlers.reEncodeClip({ clipId: row.id })
               : undefined,
           onDismiss:

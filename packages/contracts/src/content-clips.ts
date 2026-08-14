@@ -121,6 +121,12 @@ export interface ClipRow {
   encodeTierCount: number | null
   failureReason: string | null
   createdAt: IsoDateString
+  /**
+   * First moment the clip became publicly listed (ready + public); null while
+   * it has never been published. Feeds order by this, not createdAt, so a
+   * slow encode doesn't backdate the clip.
+   */
+  publishedAt: IsoDateString | null
   updatedAt: IsoDateString
   authorUsername: string
   authorDisplayName: string | null

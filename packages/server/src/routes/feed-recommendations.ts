@@ -17,13 +17,15 @@ import {
 
 type RecommendedClipCursor = {
   score: number
-  createdAt: Date
+  publishedAt: Date
   id: string
   asOf: Date
 }
 
 type RecommendedClipPageRow = {
   id: string
+  publishedAt: Date | string | null
+  /** Pre-publish-moment fallback for rows that predate stamping. */
   createdAt: Date | string
   rankScore: number
   sourceKey: string | null
@@ -47,13 +49,13 @@ export function parseRecommendedClipCursor(
   const parsed = decodeCursorPayload(value)
   if (!parsed) return null
   const score = cursorFiniteNumber(parsed.score)
-  const createdAt = cursorDate(parsed.createdAt)
+  const publishedAt = cursorDate(parsed.publishedAt ?? parsed.createdAt)
   const id = cursorRequiredString(parsed.id)
   const asOf = cursorDate(parsed.asOf)
-  if (score === null || !createdAt || !id || !asOf) return null
+  if (score === null || !publishedAt || !id || !asOf) return null
   return {
     score,
-    createdAt,
+    publishedAt,
     id,
     asOf,
   }
@@ -62,7 +64,7 @@ export function parseRecommendedClipCursor(
 function encodeRecommendedClipCursor(cursor: RecommendedClipCursor): string {
   return encodeCursorPayload({
     score: cursor.score,
-    createdAt: isoDate(cursor.createdAt),
+    publishedAt: isoDate(cursor.publishedAt),
     id: cursor.id,
     asOf: isoDate(cursor.asOf),
   })
@@ -83,7 +85,7 @@ function recommendedClipPage(
       rows.length > limit && tail
         ? encodeRecommendedClipCursor({
             score: tail.rankScore,
-            createdAt: dateFromDateLike(tail.createdAt),
+            publishedAt: dateFromDateLike(tail.publishedAt ?? tail.createdAt),
             id: tail.id,
             asOf,
           })
@@ -97,7 +99,7 @@ function rankScore(viewerId: string | null, asOf: string) {
     (
       (${clip.like_count} + 0.1 * ${clip.view_count})
       / power(
-          extract(epoch from (${asOf}::timestamp - ${clip.created_at})) / 3600.0 + 2.0,
+          extract(epoch from (${asOf}::timestamp - ${clip.published_at})) / 3600.0 + 2.0,
           1.5
         )
     )
@@ -135,9 +137,9 @@ function recommendedCursorCondition(
       and(
         sql`abs(${score} - ${cursor.score}) < 0.000000000001`,
         or(
-          lt(clip.created_at, cursor.createdAt),
+          lt(clip.published_at, cursor.publishedAt),
           and(
-            eq(clip.created_at, cursor.createdAt),
+            eq(clip.published_at, cursor.publishedAt),
             sql`${clip.id} > ${cursor.id}`,
           ),
         ),
@@ -170,7 +172,7 @@ export async function listRecommendedClips({
     .innerJoin(user, eq(clip.author_id, user.id))
     .leftJoin(game, eq(clip.game_id, game.id))
     .where(and(...pageConditions))
-    .orderBy(sql`${score} desc`, sql`${clip.created_at} desc`, clip.id)
+    .orderBy(sql`${score} desc`, sql`${clip.published_at} desc`, clip.id)
     .limit(limit + 1)
 
   return recommendedClipPage(rows, limit, asOf)

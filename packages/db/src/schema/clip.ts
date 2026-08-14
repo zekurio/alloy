@@ -100,6 +100,11 @@ export const clip = pgTable(
     cut_codecs: text(),
 
     status: text().$type<ClipStatus>().notNull().default("pending"),
+    // First moment the clip became publicly listed (ready + public). Stamped
+    // exactly once: by commitPlayable/commitReady for clips public when the
+    // encode finishes, or by the privacy-flip route for the rest. Feeds and
+    // the clip.published webhook key off this, never off created_at.
+    published_at: timestamp(),
     // Media pipeline version that committed the current renditions; null until
     // the first media run commits.
     encode_pipeline: text(),
@@ -125,13 +130,13 @@ export const clip = pgTable(
   },
   (t) => [
     index("clip_author_idx").on(t.author_id),
-    // Home feed hot path: "newest public (or public+unlisted) clips".
-    // Filter on privacy, sort by createdAt — composite supports both.
-    index("clip_privacy_created_idx").on(t.privacy, t.created_at),
+    // Home feed hot path: "newest public clips by publish time".
+    // Filter on privacy, sort by publishedAt — composite supports both.
+    index("clip_privacy_published_idx").on(t.privacy, t.published_at),
     // Top clips are the same for every viewer: only ready public rows
     // participate, so keep the ranking columns first and in route order.
     index("clip_ready_visible_top_idx")
-      .on(t.view_count.desc(), t.like_count.desc(), t.created_at.desc(), t.id)
+      .on(t.view_count.desc(), t.like_count.desc(), t.published_at.desc(), t.id)
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
     index("clip_ready_fingerprint_idx")
@@ -142,13 +147,13 @@ export const clip = pgTable(
       .where(
         sql`${t.status} = 'ready' and ${t.source_key} is not null and ${t.thumb_key} is null and ${t.thumb_failed_at} is null`,
       ),
-    index("clip_game_created_idx").on(t.game_id, t.created_at),
+    index("clip_game_published_idx").on(t.game_id, t.published_at),
     index("clip_ready_visible_game_top_idx")
       .on(
         t.game_id,
         t.view_count.desc(),
         t.like_count.desc(),
-        t.created_at.desc(),
+        t.published_at.desc(),
         t.id,
       )
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
