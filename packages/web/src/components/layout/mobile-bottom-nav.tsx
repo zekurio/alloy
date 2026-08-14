@@ -5,21 +5,16 @@ import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
 import type { ReactNode } from "react"
 
 import { NotificationBell } from "@/components/notifications/notification-bell"
-import { UploadCenter } from "@/components/upload/upload-center"
 import { useSuspenseSession } from "@/lib/session-suspense"
 
 import { useNavFlags } from "./use-nav-flags"
 
 /**
  * Mobile primary navigation. Hidden on md+, where the sidebar rail takes over.
- * Account access lives in the header so this icon-only bar stays focused on
- * navigation, creation, and notifications.
+ * Account access lives in the header and uploads are desktop-only, so this
+ * icon-only bar stays focused on navigation and notifications.
  */
-export function MobileBottomNav({
-  showUpload = true,
-}: {
-  showUpload?: boolean
-}) {
+export function MobileBottomNav() {
   const { isHome, isGames, isLibrary } = useNavFlags()
   const session = useSuspenseSession()
 
@@ -35,11 +30,7 @@ export function MobileBottomNav({
       <div
         className={cn(
           "grid h-[var(--bottomnav-h)] items-stretch",
-          session
-            ? showUpload
-              ? "grid-cols-5"
-              : "grid-cols-4"
-            : "grid-cols-3",
+          session ? "grid-cols-4" : "grid-cols-3",
         )}
       >
         <BottomNavLink
@@ -54,11 +45,6 @@ export function MobileBottomNav({
           label={t("Library")}
           icon={<LibraryIcon />}
         />
-        {session && showUpload ? (
-          <div className="flex items-center justify-center">
-            <UploadCenter variant="bottom-nav" />
-          </div>
-        ) : null}
         {session ? <NotificationBell variant="bottom-nav" /> : null}
         <BottomNavLink
           to="/games"
