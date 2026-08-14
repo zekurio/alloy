@@ -73,7 +73,7 @@ export function localToQueueItem(
       break
     case "finalizing":
       status = "uploading"
-      label = t("Finalizing upload…")
+      label = t("Uploaded")
       indeterminate = true
       showProgress = true
       break
@@ -168,7 +168,7 @@ export function downloadToQueueItem(
 }
 
 interface ServerRowHandlers {
-  onCancel: () => void
+  onCancel?: () => void
   onOpen?: () => void
   onCopyLink?: () => Promise<void>
   onRetry?: () => void

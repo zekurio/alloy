@@ -9,7 +9,13 @@ import {
 } from "@alloy/ui/lib/media-frame"
 import { cn } from "@alloy/ui/lib/utils"
 import { Progress } from "@base-ui/react/progress"
-import { CopyIcon, ExternalLinkIcon, RefreshCwIcon, XIcon } from "lucide-react"
+import {
+  CopyIcon,
+  ExternalLinkIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+  XIcon,
+} from "lucide-react"
 import type { ReactNode } from "react"
 
 import { useActionFeedback } from "@/lib/use-action-feedback"
@@ -119,9 +125,7 @@ export function QueueItemRow({ item }: { item: QueueItem }) {
           </div>
           {item.label ? (
             <div className="flex min-w-0 items-center gap-1.5 text-xs font-medium">
-              <span className={cn("truncate uppercase", tone.label)}>
-                {item.label}
-              </span>
+              <span className={cn("truncate", tone.label)}>{item.label}</span>
               {showBar && !item.indeterminate ? (
                 <span
                   className={cn(
@@ -194,6 +198,7 @@ function QueueThumb({ item }: { item: QueueItem }) {
 
 function QueueItemActions({ item }: { item: QueueItem }) {
   const failed = item.status === "failed"
+  const completed = isCompletedQueueStatus(item.status)
   return (
     <>
       {item.onOpen ? (
@@ -207,14 +212,18 @@ function QueueItemActions({ item }: { item: QueueItem }) {
           <RefreshCwIcon />
         </QueueIconButton>
       ) : null}
-      {item.onCancel && !failed ? (
+      {item.onCancel && !failed && !completed ? (
         <QueueIconButton label={t("Cancel")} onClick={item.onCancel}>
           <XIcon />
         </QueueIconButton>
       ) : null}
       {item.onDismiss ? (
-        <QueueIconButton label={t("Dismiss")} onClick={item.onDismiss}>
-          <XIcon />
+        <QueueIconButton
+          label={t("Remove from queue")}
+          onClick={item.onDismiss}
+          destructive
+        >
+          <Trash2Icon />
         </QueueIconButton>
       ) : null}
     </>
@@ -252,10 +261,12 @@ function QueueIconButton({
   label,
   onClick,
   children,
+  destructive = false,
 }: {
   label: string
   onClick: () => void
   children: ReactNode
+  destructive?: boolean
 }) {
   return (
     <Button
@@ -265,7 +276,10 @@ function QueueIconButton({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="text-foreground-muted hover:text-foreground size-7"
+      className={cn(
+        "text-foreground-muted size-7",
+        destructive ? "hover:text-destructive" : "hover:text-foreground",
+      )}
     >
       {children}
     </Button>

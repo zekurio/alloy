@@ -157,10 +157,10 @@ function AppShellContent({ session }: { session: boolean }) {
       <UploadFlow />
       {session && !editorOpen ? (
         <div className="fixed right-4 bottom-4 z-30 hidden md:flex">
-          <UploadCenter variant="floating" />
+          <UploadCenter />
         </div>
       ) : null}
-      <MobileBottomNav showUpload={!editorOpen} />
+      <MobileBottomNav />
     </AppShell>
   )
 }

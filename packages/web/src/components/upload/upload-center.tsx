@@ -4,6 +4,8 @@ import { Button } from "@alloy/ui/components/button"
 import {
   Popover,
   PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
 import { cn } from "@alloy/ui/lib/utils"
@@ -20,22 +22,18 @@ import { GlobalUploadControl } from "./global-upload-control"
 import { QueueItemRow } from "./queue-progress"
 import { useUploadQueueSummary } from "./use-upload-queue-summary"
 
-type UploadCenterVariant = "floating" | "bottom-nav"
-
 /**
- * The app-wide upload entry point and activity center. The trigger is always
- * available for starting another upload; its popover keeps transfer and
- * server-side processing progress together instead of creating a separate
- * error/status control in the app chrome.
+ * The app-wide upload entry point and activity center, floating above the
+ * bottom-right corner on desktop. The trigger is always available for
+ * starting another upload; its popover keeps transfer and server-side
+ * processing progress together instead of creating a separate error/status
+ * control in the app chrome.
  */
-export function UploadCenter({
-  variant = "floating",
-}: {
-  variant?: UploadCenterVariant
-}) {
+export function UploadCenter() {
   const [open, setOpen] = useState(false)
   const summary = useUploadQueueSummary()
-  const count = (summary?.activeCount ?? 0) + (summary?.failedCount ?? 0)
+  const activeCount = summary?.activeCount ?? 0
+  const itemCount = summary?.items.length ?? 0
   const failedOnly =
     summary !== null && summary.activeCount === 0 && summary.failedCount > 0
 
@@ -51,56 +49,31 @@ export function UploadCenter({
                 : t("Upload center")
             }
             title={t("Upload center")}
-            aria-hidden={variant === "floating" && open ? true : undefined}
-            tabIndex={variant === "floating" && open ? -1 : undefined}
+            aria-hidden={open ? true : undefined}
+            tabIndex={open ? -1 : undefined}
             style={{ transformOrigin: "bottom right" }}
             className={cn(
               "relative flex appearance-none items-center justify-center border outline-none",
               "transition-[background-color,color,box-shadow,transform,opacity] duration-[280ms] ease-[var(--ease-out)]",
               "focus-visible:ring-ring focus-visible:ring-offset-background focus-visible:ring-2 focus-visible:ring-offset-2",
-              variant === "floating" &&
-                (open
-                  ? "pointer-events-none scale-0 -rotate-12 opacity-0 duration-[160ms]"
-                  : "scale-100 rotate-0 opacity-100"),
-              variant === "floating" &&
-                "border-accent bg-accent text-accent-foreground hover:bg-accent-hover active:bg-accent-active size-12 rounded-full shadow-lg shadow-black/40 hover:shadow-xl",
-              variant === "bottom-nav" &&
-                cn(
-                  "active:text-accent size-11 rounded-full border-transparent bg-transparent px-0 [-webkit-tap-highlight-color:transparent]",
-                  open ? "text-accent" : "text-foreground-muted",
-                ),
+              open
+                ? "pointer-events-none scale-0 -rotate-12 opacity-0 duration-[160ms]"
+                : "scale-100 rotate-0 opacity-100",
+              "border-accent bg-accent text-accent-foreground hover:bg-accent-hover active:bg-accent-active size-12 rounded-full shadow-lg shadow-black/40 hover:shadow-xl",
             )}
           />
         }
       >
         {failedOnly ? (
-          <TriangleAlertIcon
-            className={cn(
-              "size-[22px]",
-              variant === "floating"
-                ? "text-accent-foreground"
-                : open
-                  ? "text-accent"
-                  : "text-destructive",
-            )}
-          />
+          <TriangleAlertIcon className="text-accent-foreground size-[22px]" />
         ) : summary?.activeCount ? (
           <UploadCloudIcon className="size-[22px]" />
         ) : (
           <PlusIcon className="size-[22px]" />
         )}
-        {count > 0 ? (
-          <NumberBadge
-            aria-hidden
-            className={cn(
-              "absolute",
-              variant === "floating"
-                ? "-top-1 -right-1"
-                : "-top-0.5 -right-0.5",
-              summary?.failedCount && "text-destructive",
-            )}
-          >
-            {count > 99 ? "99+" : count}
+        {activeCount > 0 ? (
+          <NumberBadge aria-hidden className="absolute -top-1 -right-1">
+            {activeCount > 99 ? "99+" : activeCount}
           </NumberBadge>
         ) : null}
       </PopoverTrigger>
@@ -108,25 +81,18 @@ export function UploadCenter({
         align="end"
         side="top"
         sideOffset={0}
-        positionerClassName={
-          variant === "bottom-nav"
-            ? "fixed! inset-x-3! top-auto! bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)]! w-auto! transform-none!"
-            : undefined
-        }
         className={cn(
-          "alloy-blur w-[420px] max-w-[calc(100vw-1.5rem)] gap-0 border p-3 ring-0",
-          variant === "bottom-nav" && "w-full max-w-none",
+          "alloy-blur w-[420px] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0",
           "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
           "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]",
         )}
         style={
           {
-            position: variant === "floating" ? "fixed" : undefined,
-            right: variant === "floating" ? "0.75rem" : undefined,
-            bottom: variant === "floating" ? "0.75rem" : undefined,
-            top: variant === "floating" ? "auto" : undefined,
-            transformOrigin:
-              variant === "bottom-nav" ? "bottom center" : "bottom right",
+            position: "fixed",
+            right: "0.75rem",
+            bottom: "0.75rem",
+            top: "auto",
+            transformOrigin: "bottom right",
             "--alloy-blur-opacity": "78%",
             "--alloy-blur-blur": "32px",
             "--alloy-blur-shadow":
@@ -134,18 +100,20 @@ export function UploadCenter({
           } as CSSProperties
         }
       >
-        <div className="mb-2 flex items-center justify-between px-1">
-          <div className="text-sm font-semibold">{t("Uploads")}</div>
+        <PopoverHeader>
+          <PopoverTitle className="text-sm font-semibold">
+            {t("Uploads")}
+          </PopoverTitle>
           <div className="text-foreground-muted text-xs font-semibold tabular-nums">
-            {count === 0
+            {itemCount === 0
               ? t("empty")
               : t("{count} {label}", {
-                  count,
-                  label: count === 1 ? t("item") : t("items"),
+                  count: itemCount,
+                  label: itemCount === 1 ? t("item") : t("items"),
                 })}
           </div>
-        </div>
-        <div className="-mx-1 max-h-[28rem] overflow-y-auto">
+        </PopoverHeader>
+        <div className="max-h-[28rem] overflow-y-auto px-2 py-2">
           {summary ? (
             <div className="flex flex-col">
               {summary.items.map((item) => (
@@ -153,7 +121,7 @@ export function UploadCenter({
               ))}
             </div>
           ) : (
-            <div className="border-border mx-1 flex flex-col items-center justify-center gap-1 rounded-md border border-dashed px-6 py-8 text-center">
+            <div className="border-border flex flex-col items-center justify-center gap-1 rounded-md border border-dashed px-6 py-8 text-center">
               <p className="text-foreground text-sm font-medium">
                 {t("Nothing in the queue")}
               </p>
@@ -163,7 +131,7 @@ export function UploadCenter({
             </div>
           )}
         </div>
-        <div className="border-border mt-2 grid grid-cols-2 items-center gap-2 border-t pt-2">
+        <div className="border-border grid grid-cols-2 items-center gap-2 border-t p-2">
           <Button
             nativeButton={false}
             variant="ghost"

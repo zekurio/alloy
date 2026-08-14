@@ -1,7 +1,6 @@
 import { t } from "@alloy/i18n"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import { cn } from "@alloy/ui/lib/utils"
-import { Loader2Icon, PlusIcon, UploadIcon } from "lucide-react"
+import { Loader2Icon, UploadIcon } from "lucide-react"
 import { Suspense, lazy, useRef } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
@@ -18,11 +17,7 @@ const loadImportClipDialog = async () => {
 
 const ImportClipDetailsDialog = lazy(loadImportClipDialog)
 
-type GlobalUploadControlVariant =
-  | "header"
-  | "floating"
-  | "bottom-nav"
-  | "center"
+type GlobalUploadControlVariant = "header" | "center"
 
 /**
  * Global "Upload" entry point, mounted wherever the app exposes the upload
@@ -42,18 +37,8 @@ export function GlobalUploadControl({
   const webUploadAction = useWebUploadActionContext()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const triggerSize =
-    variant === "header" || variant === "center" ? "sm" : "icon"
-  const triggerClassName =
-    variant === "header"
-      ? "max-md:hidden"
-      : variant === "center"
-        ? "shrink-0"
-        : variant === "floating"
-          ? "!size-12 rounded-full px-0 shadow-lg"
-          : "size-11 rounded-full px-0"
+  const triggerClassName = variant === "header" ? "max-md:hidden" : "shrink-0"
   const triggerLabel = t("Upload clip")
-  const triggerAriaLabel = variant === "header" ? undefined : triggerLabel
 
   if (desktop) {
     const pending = importAction.picking || importAction.committing
@@ -62,13 +47,12 @@ export function GlobalUploadControl({
         <FeedbackButton
           type="button"
           variant="primary"
-          size={triggerSize}
+          size="sm"
           disabled={!importAction.available || pending}
           state={pending ? "pending" : importAction.error ? "error" : "idle"}
           pendingLabel={variant === "header" ? t("Working…") : null}
           errorLabel={variant === "header" ? t("Try again") : null}
           className={triggerClassName}
-          aria-label={triggerAriaLabel}
           title={
             importAction.error ??
             (variant !== "header" || importAction.available
@@ -81,7 +65,7 @@ export function GlobalUploadControl({
             void importAction.start()
           }}
         >
-          <UploadTriggerContent pending={pending} variant={variant} />
+          <UploadTriggerContent pending={pending} />
         </FeedbackButton>
         {importAction.staged !== null ? (
           <Suspense fallback={null}>
@@ -109,9 +93,8 @@ export function GlobalUploadControl({
       <FeedbackButton
         type="button"
         variant="primary"
-        size={triggerSize}
+        size="sm"
         className={triggerClassName}
-        aria-label={triggerAriaLabel}
         disabled={
           !webUploadAction.available ||
           pending ||
@@ -130,39 +113,17 @@ export function GlobalUploadControl({
           inputRef.current?.click()
         }}
       >
-        <UploadTriggerContent pending={pending} variant={variant} />
+        <UploadTriggerContent pending={pending} />
       </FeedbackButton>
     </>
   )
 }
 
-function UploadTriggerContent({
-  pending,
-  variant,
-}: {
-  pending: boolean
-  variant: GlobalUploadControlVariant
-}) {
-  // Match the 22px glyphs of the neighboring bottom-nav tabs; the explicit
-  // size- class opts out of Button's default svg sizing.
-  const iconClass =
-    variant === "bottom-nav"
-      ? "size-[22px]"
-      : variant === "floating"
-        ? "!size-[22px]"
-        : undefined
-  const TriggerIcon =
-    variant === "header" || variant === "center" ? UploadIcon : PlusIcon
+function UploadTriggerContent({ pending }: { pending: boolean }) {
   return (
     <>
-      {pending ? (
-        <Loader2Icon className={cn("animate-spin", iconClass)} />
-      ) : (
-        <TriggerIcon className={iconClass} />
-      )}
-      {variant === "header" || variant === "center" ? (
-        <span>{t("Upload")}</span>
-      ) : null}
+      {pending ? <Loader2Icon className="animate-spin" /> : <UploadIcon />}
+      <span>{t("Upload")}</span>
     </>
   )
 }
