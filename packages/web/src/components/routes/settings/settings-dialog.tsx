@@ -306,14 +306,22 @@ function SettingsDialogContent({
         {/* Discord-style title bar: the category name and the close button stay
             pinned while the panel below them scrolls. */}
         <header className="border-border bg-background flex shrink-0 flex-col gap-3 border-b px-5 py-3 sm:px-10">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-foreground truncate text-base font-medium">
+          {/* The mobile section select below already names the active section,
+              so the title only earns its row from sm up (or for the dialog's
+              close button). */}
+          <div
+            className={cn(
+              "flex items-center justify-between gap-4",
+              native && "max-sm:hidden",
+            )}
+          >
+            <h2 className="text-foreground truncate text-base font-medium max-sm:hidden">
               {active.title ?? active.label}
             </h2>
             {native ? null : (
               <DialogClose
                 aria-label={t("Close settings")}
-                className="text-foreground-muted hover:text-foreground focus-visible:ring-ring grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                className="text-foreground-muted hover:text-foreground focus-visible:ring-ring ml-auto grid size-7 shrink-0 place-items-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none"
               >
                 <XIcon className="size-4" />
               </DialogClose>
