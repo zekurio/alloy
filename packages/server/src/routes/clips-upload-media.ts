@@ -254,10 +254,11 @@ export const clipsUploadMediaRoutes = new Hono()
         return updatedClipResponse(c, id)
       }
 
-      // Re-encoding a ready clip is full transcode work for something that
-      // already plays — operator tooling, not a recovery path. Owners keep the
-      // failed-clip retry above; this stays admin-only.
-      if (c.var.session.user.role !== "admin") return forbidden(c)
+      // A ready clip carrying failure_reason is a recovery path; a clean ready
+      // re-encode is full transcode work and stays admin-only.
+      if (row.failure_reason === null && c.var.session.user.role !== "admin") {
+        return forbidden(c)
+      }
 
       // Ready clip: re-encode in place, keeping it publicly playable from its
       // committed renditions. Rejected while a live run holds the clip lease,

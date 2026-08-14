@@ -213,6 +213,14 @@ export function serverToQueueItem(
       })
       break
     case "ready":
+      // The clip can stay playable after a later ladder failure; don't mistake
+      // that for a fully successful publish just because the stage was cleared.
+      if (row.failureReason) {
+        status = "failed"
+        label = t("Failed")
+        detail = row.failureReason
+        break
+      }
       // Eager release makes the clip playable before the rendition ladder is
       // necessarily finished. Keep that remaining work visible as ordinary
       // processing without introducing a separate "live" status.
