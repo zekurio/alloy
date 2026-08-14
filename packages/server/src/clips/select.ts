@@ -57,6 +57,7 @@ export const clipSelectShape = {
   encodeTierCount: clip.encode_tier_count,
   failureReason: clip.failure_reason,
   createdAt: clip.created_at,
+  publishedAt: clip.published_at,
   updatedAt: clip.updated_at,
   authorUsername: user.username,
   authorDisplayName: user.display_name,

@@ -138,11 +138,28 @@ export interface MediaStore {
   commitThumbFailed(id: string, runId: string): Promise<boolean>
   /**
    * Transitions the row to publicly playable once source and thumbnail state
-   * are committed, while the encode ladder continues under the same lease. Does
-   * not touch encode_pipeline/encode_progress; only commitReady owns those.
+   * are committed, while the encode ladder continues under the same lease.
+   * This is the eager-release moment: when the clip is public it also stamps
+   * `published_at` (write-once) since the clip is now feed-visible. Does not
+   * touch encode_pipeline/encode_progress; only commitReady owns those.
    */
   commitPlayable(id: string, runId: string): Promise<boolean>
-  /** Transactional replacement keeps readers from seeing partial ladders. */
+  /**
+   * Publish the OpenGraph tier's rendition row the moment its upload lands,
+   * ahead of the rest of the ladder, so social embeds work and the
+   * `clip.published` announcement can go out while lower tiers still encode.
+   * commitReady's wholesale swap supersedes this row when the run completes.
+   */
+  commitOgRendition(
+    id: string,
+    runId: string,
+    rendition: MediaRenditionRecord,
+  ): Promise<boolean>
+  /**
+   * Transactional replacement keeps readers from seeing partial ladders.
+   * Stamps `published_at` under the same rule as commitPlayable, covering
+   * retried runs whose source (and thus playable transition) predates them.
+   */
   commitReady(
     id: string,
     runId: string,

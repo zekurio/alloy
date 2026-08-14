@@ -8,8 +8,8 @@ import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
 import { createNotification } from "@alloy/server/notifications/service"
 import { badRequest, deleted } from "@alloy/server/runtime/http-response"
-import { dispatchClipPublished } from "@alloy/server/webhooks/publish"
-import { eq } from "drizzle-orm"
+import { announceClipPublished } from "@alloy/server/webhooks/publish"
+import { eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { IdParam, UpdateBody } from "./clips-helpers"
@@ -64,6 +64,14 @@ export const clipsUploadRoutes = new Hono()
         }
       }
       if (body.privacy !== undefined) patch.privacy = body.privacy
+      // Becoming publicly listed is a publish transition only while the clip
+      // is ready; an unpublished processing clip gets stamped by the encode
+      // pipeline instead. Write-once: a privacy round-trip keeps the first
+      // stamp so re-publishing can't bump feed position.
+      const firstPublish =
+        body.privacy === "public" &&
+        row.privacy !== "public" &&
+        row.status === "ready"
 
       const mentionedIds =
         body.mentionedUserIds !== undefined
@@ -83,7 +91,17 @@ export const clipsUploadRoutes = new Hono()
         body.tags !== undefined ? normalizeTags(body.tags) : undefined
 
       await db.transaction(async (tx) => {
-        await tx.update(clip).set(patch).where(eq(clip.id, id))
+        await tx
+          .update(clip)
+          .set({
+            ...patch,
+            ...(firstPublish
+              ? {
+                  published_at: sql`coalesce(${clip.published_at}, now())`,
+                }
+              : {}),
+          })
+          .where(eq(clip.id, id))
 
         if (mentionedIds !== undefined) {
           await tx.delete(clipMention).where(eq(clipMention.clip_id, id))
@@ -108,15 +126,10 @@ export const clipsUploadRoutes = new Hono()
 
       void publishClipUpsert(row.author_id, id)
       // A clip that was already encoded and is only now being made public
-      // never passes through the encode job's announce path.
-      if (
-        body.privacy === "public" &&
-        row.privacy !== "public" &&
-        row.status === "ready"
-      ) {
-        void dispatchClipPublished(id).catch((error) =>
-          logger.error("webhook dispatch failed", error),
-        )
+      // never passes through the encode job's announce path. Its OG assets
+      // are fully committed, so the announcement can go out immediately.
+      if (firstPublish) {
+        announceClipPublished(id)
       }
       if (mentionedIds !== undefined && row.status === "ready") {
         const existingMentionedIdSet = new Set(existingMentionedIds)

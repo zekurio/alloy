@@ -160,6 +160,10 @@ function queueItemTone(item: QueueItem) {
   if (item.status === "failed") {
     return { label: "text-destructive", bar: "bg-destructive" }
   }
+  // Already public and watchable; the bar is the remaining encode polish.
+  if (item.status === "live") {
+    return { label: "text-success", bar: "bg-success" }
+  }
   if (item.phase === "processing") {
     return { label: "text-warning", bar: "bg-warning" }
   }

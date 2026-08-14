@@ -213,6 +213,24 @@ export function serverToQueueItem(
       })
       break
     case "ready":
+      // Eager release: status flips to ready at commitPlayable while the
+      // ladder keeps encoding under the same run. Until the final upsert
+      // clears the stage, present the row as live-but-unfinished so the
+      // remaining encode work stays visible.
+      if (row.encodeStage) {
+        status = "live"
+        progress = Math.max(0, Math.min(100, Math.floor(row.encodeProgress)))
+        showProgress = true
+        label = t("Live · {stage}", {
+          stage: encodeStageLabel({
+            stage: row.encodeStage,
+            tier: row.encodeTier,
+            tierIndex: row.encodeTierIndex,
+            tierCount: row.encodeTierCount,
+          }),
+        })
+        break
+      }
       status = "published"
       progress = 100
       label = t("Ready")
@@ -227,7 +245,10 @@ export function serverToQueueItem(
     id: row.id,
     title: row.title,
     kind: "upload",
-    phase: row.status === "processing" ? "processing" : "upload",
+    phase:
+      row.status === "processing" || status === "live"
+        ? "processing"
+        : "upload",
     status,
     progress,
     showProgress,

@@ -41,6 +41,7 @@ export async function clipPublishedPayload(
       thumbnailUrl: embedPosterUrl(row, origin),
       videoUrl: embedVideo(row, origin)?.url ?? null,
       createdAt: row.createdAt.toISOString(),
+      publishedAt: row.publishedAt?.toISOString() ?? null,
     },
     author: {
       id: row.authorId,

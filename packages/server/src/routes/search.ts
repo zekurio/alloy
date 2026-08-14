@@ -179,7 +179,7 @@ export const searchRoute = new Hono().get(
             ),
           ),
         )
-        .orderBy(matchRank, desc(clip.created_at))
+        .orderBy(matchRank, desc(clip.published_at))
         .limit(limit),
 
       searchSteamGridDBGames(q, limit),

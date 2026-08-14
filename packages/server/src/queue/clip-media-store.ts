@@ -38,6 +38,10 @@ const clearedStageColumns = {
   encode_tier_count: null,
 }
 
+// Write-once publish stamp: only public rows get one, and the first transition
+// to (ready + public) wins so a privacy round-trip can't bump feed position.
+const publishedAtStamp = sql`coalesce(${clip.published_at}, case when ${clip.privacy} = 'public' then now() end)`
+
 const mediaRowSelect = {
   id: clip.id,
   authorId: clip.author_id,
@@ -293,10 +297,51 @@ export const clipMediaStore: MediaStore = {
   async commitPlayable(id, runId) {
     const [row] = await db
       .update(clip)
-      .set({ status: "ready", updated_at: new Date() })
+      .set({
+        status: "ready",
+        published_at: publishedAtStamp,
+        updated_at: new Date(),
+      })
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
+  },
+
+  async commitOgRendition(id, runId, rendition) {
+    return db.transaction(async (tx) => {
+      const [guard] = await tx
+        .update(clip)
+        .set({ updated_at: new Date() })
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        .returning({ id: clip.id })
+      if (!guard) return false
+      await tx
+        .insert(clipRendition)
+        .values({
+          clip_id: id,
+          name: rendition.name,
+          is_og: true,
+          height: rendition.height,
+          width: rendition.width,
+          fps: rendition.fps,
+          storage_key: rendition.storageKey,
+          codecs: rendition.codecs,
+          size_bytes: rendition.sizeBytes,
+        })
+        .onConflictDoUpdate({
+          target: [clipRendition.clip_id, clipRendition.name],
+          set: {
+            is_og: true,
+            height: rendition.height,
+            width: rendition.width,
+            fps: rendition.fps,
+            storage_key: rendition.storageKey,
+            codecs: rendition.codecs,
+            size_bytes: rendition.sizeBytes,
+          },
+        })
+      return true
+    })
   },
 
   async commitReady(id, runId, patch, renditions, audioTracks) {
@@ -308,6 +353,7 @@ export const clipMediaStore: MediaStore = {
           ...thumbPatchToColumns(patch),
           ...clearedStageColumns,
           status: "ready",
+          published_at: publishedAtStamp,
           encode_pipeline: MEDIA_PIPELINE_VERSION,
           encode_fingerprint: patch.encodeFingerprint,
           encode_failed_fingerprint: null,

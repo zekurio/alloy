@@ -18,6 +18,7 @@ import {
   cleanupTickets,
   selectVideoTicketKey,
 } from "@alloy/server/uploads/tickets"
+import { announceClipPublished } from "@alloy/server/webhooks/publish"
 
 import { abortMediaProcessing } from "./media-abort"
 import {
@@ -284,6 +285,12 @@ async function runPipelineInWorkDir({
     hardwareFailed,
     uploadedKeys,
     progress,
+    // The clip went live at commitPlayable; the announcement waits for the
+    // OG tier so social embeds resolve to a real video from the first post.
+    onOgRenditionCommitted: (rendition) => {
+      retainPublishedKey(rendition.storageKey)
+      announceClipPublished(id)
+    },
   })
 
   await ensureStillPresent(store, id, runId, signal)

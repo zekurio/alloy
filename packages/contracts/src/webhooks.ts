@@ -99,6 +99,8 @@ export interface ClipPublishedPayload {
     thumbnailUrl: string | null
     videoUrl: string | null
     createdAt: IsoDateString
+    /** First public-listing moment; the announcement is keyed to this, never to upload time. */
+    publishedAt: IsoDateString | null
   }
   author: {
     id: string
