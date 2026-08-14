@@ -3,8 +3,6 @@ export type QueueItemStatus =
   | "uploading"
   | "queued"
   | "paused"
-  // Live in feeds while the encode ladder is still finishing (eager release).
-  | "live"
   | "published"
   | "downloading"
   | "downloaded"

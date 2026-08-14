@@ -83,6 +83,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Symbols: "Symbole",
   "Wide page header": "Breiter Seitenkopf",
   "Vertical box art": "Vertikales Box-Artwork",
+  Published: "Veröffentlicht",
   Uploaded: "Hochgeladen",
   Unread: "Ungelesen",
   "Try a different search or filter.":
@@ -1126,7 +1127,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Uploading...": "Wird hochgeladen...",
   "Uploading…": "Wird hochgeladen…",
   Uploads: "Uploads",
-  "Live · {stage}": "Live · {stage}",
   "Uploads are unavailable in this browser":
     "Uploads sind in diesem Browser nicht verfügbar",
   Use: "Verwenden",

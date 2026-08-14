@@ -213,27 +213,25 @@ export function serverToQueueItem(
       })
       break
     case "ready":
-      // Eager release: status flips to ready at commitPlayable while the
-      // ladder keeps encoding under the same run. Until the final upsert
-      // clears the stage, present the row as live-but-unfinished so the
-      // remaining encode work stays visible.
+      // Eager release makes the clip playable before the rendition ladder is
+      // necessarily finished. Keep that remaining work visible as ordinary
+      // processing without introducing a separate "live" status.
       if (row.encodeStage) {
-        status = "live"
+        status = "uploading"
         progress = Math.max(0, Math.min(100, Math.floor(row.encodeProgress)))
         showProgress = true
-        label = t("Live · {stage}", {
-          stage: encodeStageLabel({
-            stage: row.encodeStage,
-            tier: row.encodeTier,
-            tierIndex: row.encodeTierIndex,
-            tierCount: row.encodeTierCount,
-          }),
+        indeterminate = progress <= 0
+        label = encodeStageLabel({
+          stage: row.encodeStage,
+          tier: row.encodeTier,
+          tierIndex: row.encodeTierIndex,
+          tierCount: row.encodeTierCount,
         })
         break
       }
       status = "published"
       progress = 100
-      label = t("Ready")
+      label = t("Published")
       break
     case "failed":
       status = "failed"
@@ -246,7 +244,7 @@ export function serverToQueueItem(
     title: row.title,
     kind: "upload",
     phase:
-      row.status === "processing" || status === "live"
+      row.status === "processing" || (row.status === "ready" && row.encodeStage)
         ? "processing"
         : "upload",
     status,
