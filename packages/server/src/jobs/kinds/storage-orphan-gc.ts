@@ -19,7 +19,11 @@ import {
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { and, eq, inArray, sql } from "drizzle-orm"
 
-import { defineJobKind, type JobHandlerContext } from "../registry"
+import {
+  defineJobKind,
+  type JobFailureContext,
+  type JobHandlerContext,
+} from "../registry"
 import { enqueue, type EnqueueOptions, wakeQueueForKind } from "../store"
 import { writeStorageMaintenanceSummary } from "./storage-maintenance-summary"
 
@@ -29,6 +33,7 @@ const PAGE_SIZE = 500
 // Comfortably above encode timeout ceilings and lease-retry cycles, so
 // in-flight runs' freshly uploaded objects are never collected.
 const ORPHAN_SAFETY_MARGIN_MS = 48 * 60 * 60 * 1000
+const PREVIEW_CONFIRMATION_MAX_AGE_MS = 60 * 60 * 1000
 const STORAGE_GC_SUMMARY_KEY = "storageGc"
 const STORAGE_GC_CONFIRMATION_KEY = "storageGcConfirmation"
 const STORAGE_GC_MANIFEST_KEY = "storageGcManifest"
@@ -112,6 +117,7 @@ defineJobKind({
   retry: { maxAttempts: 1, backoffMs: 60_000 },
   adminRetryable: false,
   handler: runStorageOrphanGc,
+  onFailed: handleStorageOrphanGcFailed,
 })
 
 export function enqueueStorageOrphanGcPreview(
@@ -196,6 +202,13 @@ export async function confirmStorageOrphanGcPreview(
     if (!parsed.success) return null
     if (parsed.data.mode === "delete") return null
     if (parsed.data.previewJobId !== previewJobId) return null
+    // A preview grants short-lived permission to delete only its manifest.
+    if (
+      Date.now() - new Date(parsed.data.finishedAt).getTime() >
+      PREVIEW_CONFIRMATION_MAX_AGE_MS
+    ) {
+      return null
+    }
 
     const [manifestRow] = await tx
       .select({ value: instanceSetting.value })
@@ -272,6 +285,102 @@ async function runStorageOrphanGc(
     return
   }
   await runConfirmedStorageOrphanGc(payload, ctx)
+}
+
+async function handleStorageOrphanGcFailed(
+  payload: StorageOrphanGcPayload,
+  _error: Error,
+  ctx: JobFailureContext,
+): Promise<void> {
+  if (payload.mode === "preview" || ctx.willRetry) return
+
+  const rows = await ctx.tx
+    .select({ key: instanceSetting.key, value: instanceSetting.value })
+    .from(instanceSetting)
+    .where(
+      inArray(instanceSetting.key, [
+        STORAGE_GC_SUMMARY_KEY,
+        STORAGE_GC_MANIFEST_KEY,
+        STORAGE_GC_CONFIRMATION_KEY,
+      ]),
+    )
+    .for("update")
+  const values = new Map(rows.map((row) => [row.key, row.value]))
+  const storedSummary = safeParse(
+    AdminStorageGcSummarySchema,
+    values.get(STORAGE_GC_SUMMARY_KEY),
+  )
+  const manifest = safeParse(
+    StorageGcManifestSchema,
+    values.get(STORAGE_GC_MANIFEST_KEY),
+  )
+  const confirmation = safeParse(
+    StorageGcConfirmationSchema,
+    values.get(STORAGE_GC_CONFIRMATION_KEY),
+  )
+  const accurateSummary =
+    storedSummary.success &&
+    storedSummary.data.mode === "delete" &&
+    storedSummary.data.jobId === ctx.jobId &&
+    storedSummary.data.previewJobId === payload.previewJobId &&
+    storedSummary.data.cutoffAt === payload.cutoffAt &&
+    storedSummary.data.deleteFailures > 0
+      ? storedSummary.data
+      : null
+  const matchingManifest =
+    manifest.success &&
+    manifest.data.previewJobId === payload.previewJobId &&
+    manifest.data.cutoffAt === payload.cutoffAt
+      ? manifest.data
+      : null
+  const failureSummary = AdminStorageGcSummarySchema.parse(
+    accurateSummary ??
+      createTerminalFailureSummary(
+        payload,
+        matchingManifest,
+        confirmation.success &&
+          confirmation.data.previewJobId === payload.previewJobId &&
+          confirmation.data.jobId === ctx.jobId
+          ? confirmation.data.jobId
+          : ctx.jobId,
+      ),
+  )
+
+  await writeStorageMaintenanceSummary(
+    STORAGE_GC_SUMMARY_KEY,
+    failureSummary,
+    ctx.tx,
+  )
+  await ctx.tx
+    .delete(instanceSetting)
+    .where(
+      inArray(instanceSetting.key, [
+        STORAGE_GC_MANIFEST_KEY,
+        STORAGE_GC_CONFIRMATION_KEY,
+      ]),
+    )
+}
+
+function createTerminalFailureSummary(
+  payload: Extract<StorageOrphanGcPayload, { mode: "delete" }>,
+  manifest: StorageGcManifest | null,
+  jobId: string,
+): StorageGcSummary {
+  return {
+    ...createStorageGcSummary({
+      jobId,
+      previewJobId: payload.previewJobId,
+      mode: "delete",
+      cutoffAt: payload.cutoffAt,
+    }),
+    orphanCandidates:
+      manifest?.candidates.filter((candidate) => candidate.kind === "orphan")
+        .length ?? 0,
+    staleAssetCandidates:
+      manifest?.candidates.filter((candidate) => candidate.kind === "stale")
+        .length ?? 0,
+    deleteFailures: 1,
+  }
 }
 
 async function runStorageOrphanGcPreview(

@@ -27,6 +27,7 @@ export type JobAfterCommit = () => Promise<void> | void
 export interface JobFailureContext {
   willRetry: boolean
   runId: string
+  jobId: string
   tx: JobTransaction
 }
 

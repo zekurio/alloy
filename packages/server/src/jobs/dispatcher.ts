@@ -231,7 +231,7 @@ class JobDispatcher {
             onFailed(
               row.payload,
               err instanceof Error ? err : new Error(message),
-              { willRetry, runId, tx },
+              { willRetry, runId, jobId: row.id, tx },
             )
         : undefined,
     )
