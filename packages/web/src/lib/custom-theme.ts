@@ -44,7 +44,7 @@ export function initCustomTheme(): void {
     if (event.authConfigChanged) refreshInstanceCss()
   })
 
-  if (typeof window === "undefined") return
+  if (!globalThis.window) return
   window.addEventListener("storage", (event) => {
     // A null key means the whole store was cleared, which includes the theme.
     if (event.key !== null && !THEME_STORAGE_KEYS.includes(event.key)) return

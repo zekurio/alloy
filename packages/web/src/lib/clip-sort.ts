@@ -17,6 +17,6 @@ export const CLIP_SORT_OPTIONS: ReadonlyArray<{
   { key: "top", label: t("Top") },
 ]
 
-export function parseClipSort(value: unknown): ClipFeedSort | undefined {
-  return searchEnum(value, CLIP_SORT_KEYS)
+export function parseClipSort(cause: unknown): ClipFeedSort | undefined {
+  return searchEnum(cause, CLIP_SORT_KEYS)
 }

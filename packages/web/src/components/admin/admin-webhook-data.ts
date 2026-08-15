@@ -5,15 +5,15 @@ import type { QueryClient } from "@tanstack/react-query"
 
 import { adminKeys } from "@/lib/admin-query-keys"
 
-export const WEBHOOK_PROVIDER_LABELS: Record<WebhookProvider, string> = {
+export const WEBHOOK_PROVIDER_LABELS = {
   discord: t("Discord"),
   generic: t("Generic"),
-}
+} satisfies Record<WebhookProvider, string>
 
-export const WEBHOOK_URL_PLACEHOLDERS: Record<WebhookProvider, string> = {
+export const WEBHOOK_URL_PLACEHOLDERS = {
   discord: "https://discord.com/api/webhooks/…",
   generic: "https://example.com/hooks/alloy",
-}
+} satisfies Record<WebhookProvider, string>
 
 export function setAdminWebhookCacheRow(
   queryClient: QueryClient,

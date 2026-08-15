@@ -45,10 +45,7 @@ const SEEK_GRACE_MS = 1_000
  * else null. Shared by the engine and the player's quality menu so the
  * highlight always matches what actually plays.
  */
-export function resolvePlayback(
-  sources: RenditionSource[],
-  selected: string,
-): { playable: RenditionSource[]; active: RenditionSource | null } {
+export function resolvePlayback(sources: RenditionSource[], selected: string) {
   const playable = sources.filter((source) =>
     canPlaySource(source.contentType, source.codecs),
   )
@@ -72,12 +69,7 @@ export function useMediaEngine(
   spec: SourceSpec,
   videoRef: RefObject<HTMLVideoElement | null>,
   renditionPlayback?: RenditionPlayback | null,
-): {
-  src: string | null
-  mediaKey: string
-  onMediaError: () => boolean
-  switchingRendition: boolean
-} {
+) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [switchingRendition, setSwitchingRendition] = useState(false)
 

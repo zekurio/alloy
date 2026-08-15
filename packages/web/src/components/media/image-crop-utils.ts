@@ -20,7 +20,7 @@ type CropConfig = {
   stageClass: string
 }
 
-export const CROP_CONFIG: Record<CropMode, CropConfig> = {
+export const CROP_CONFIG = {
   avatar: {
     aspect: 1,
     frameFit: "cover",
@@ -71,7 +71,7 @@ export const CROP_CONFIG: Record<CropMode, CropConfig> = {
     outputWidth: 512,
     stageClass: "aspect-[4/3]",
   },
-}
+} satisfies Record<CropMode, CropConfig>
 
 const PAN_AXIS_EPSILON_PX = 0.5
 export const DEFAULT_PREVIEW_ZOOM = 1
@@ -273,8 +273,9 @@ export async function readFileAsDataUrl(file: File): Promise<string> {
   return await new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result)
+      const result = reader.result
+      if (result !== null && !(result instanceof ArrayBuffer)) {
+        resolve(result)
       } else {
         reject(new Error("Couldn't read image"))
       }

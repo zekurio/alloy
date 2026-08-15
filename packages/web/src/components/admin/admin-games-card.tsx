@@ -221,6 +221,7 @@ function DeleteGamePreview({ game }: { game: AdminGameRow }) {
       </div>
       <div className="grid grid-cols-2 gap-2">
         {GAME_ASSET_ROLES.map((role) => {
+          // SAFETY: GAME_ASSET_URL maps only to nullable URL fields.
           const currentUrl = game[GAME_ASSET_URL[role]] as string | null
 
           return (

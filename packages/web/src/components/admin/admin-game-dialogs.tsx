@@ -271,6 +271,7 @@ export function EditGameDialog({ game }: { game: AdminGameRow }) {
             name={name}
             releaseDate={releaseDate}
             slot={(role) => ({
+              // SAFETY: GAME_ASSET_URL maps only to nullable URL fields.
               src: game[GAME_ASSET_URL[role]] as string | null,
               busy: busyRoles.has(role),
               // Returned, not fired and forgotten: the crop dialog stays on

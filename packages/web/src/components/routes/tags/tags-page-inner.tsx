@@ -35,6 +35,7 @@ const SORTS: ReadonlyArray<SortDropdownOption<"top" | "recent">> = [
 export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const session = useSuspenseSession()
   const viewerId = session?.user.id
+  // SAFETY: This route's validateSearch function returns TagSearch.
   const search = useSearch({ strict: false }) as TagSearch
   const tag = sanitizeTag(rawTag)
   const filters = tagFilters(search)

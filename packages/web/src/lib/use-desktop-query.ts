@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import type { DependencyList, Dispatch, SetStateAction } from "react"
+import type { DependencyList } from "react"
 
 /**
  * Loads a value from a desktop-bridge (IPC) call on mount and whenever `deps`
@@ -14,12 +14,7 @@ import type { DependencyList, Dispatch, SetStateAction } from "react"
 export function useDesktopQuery<T>(
   load: (() => Promise<T>) | null | undefined,
   deps: DependencyList,
-): {
-  data: T | undefined
-  setData: Dispatch<SetStateAction<T | undefined>>
-  loading: boolean
-  refetch: () => void
-} {
+) {
   const [data, setData] = useState<T>()
   const [loading, setLoading] = useState(load != null)
   const [reloadNonce, setReloadNonce] = useState(0)

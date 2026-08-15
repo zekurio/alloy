@@ -75,7 +75,14 @@ function localClipScore(item: LibraryItemView, needle: string): number | null {
   return null
 }
 
-function normalizeSearchText(value: unknown): string {
+type LocalSearchText =
+  | string
+  | number
+  | null
+  | undefined
+  | readonly LocalSearchText[]
+
+function normalizeSearchText(value: LocalSearchText): string {
   if (Array.isArray(value)) {
     return value.map(normalizeSearchText).join(" ").trim()
   }

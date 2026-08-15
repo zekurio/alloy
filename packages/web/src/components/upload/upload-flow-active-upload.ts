@@ -64,8 +64,8 @@ function useFailActiveUpload(
   invalidateClips: () => void,
 ) {
   return useCallback(
-    (entry: ActiveUpload, err: unknown) => {
-      if ((err as Error).name === "AbortError") {
+    (entry: ActiveUpload, cause: unknown) => {
+      if (isAbortError(cause)) {
         revokeUploadThumbUrl(entry.thumbUrl, "local upload thumbnail URL")
         activeRef.current.delete(entry.localId)
         bump()
@@ -88,7 +88,8 @@ function useFailActiveUpload(
         void clearLocalCaptureClipLink(entry.localCaptureId, entry.clipId)
       }
       entry.status = "error"
-      entry.errorMessage = (err as Error).message
+      entry.errorMessage =
+        cause instanceof Error ? cause.message : "Upload failed"
       bump()
     },
     [activeRef, bump, invalidateClips],
@@ -99,7 +100,7 @@ function useBeginActiveUpload(
   bump: () => void,
   invalidateClips: () => void,
   finishUpload: (entry: ActiveUpload) => void,
-  failUpload: (entry: ActiveUpload, err: unknown) => void,
+  failUpload: (entry: ActiveUpload, cause: unknown) => void,
 ) {
   return useCallback(
     async (entry: ActiveUpload, payload: PublishPayload) => {
@@ -122,7 +123,7 @@ function useBeginActiveUpload(
       )
       void completion.then(
         () => finishUpload(entry),
-        (err) => failUpload(entry, err),
+        (cause) => failUpload(entry, cause),
       )
       return clipId
     },
@@ -137,7 +138,7 @@ function useStartActiveUpload(
     entry: ActiveUpload,
     payload: PublishPayload,
   ) => Promise<string>,
-  failUpload: (entry: ActiveUpload, err: unknown) => void,
+  failUpload: (entry: ActiveUpload, cause: unknown) => void,
 ) {
   return useCallback(
     async (input: PublishClipInput) => {
@@ -159,20 +160,24 @@ function useStartActiveUpload(
             entry.abort.signal.throwIfAborted()
             return beginUpload(entry, payload)
           })
-          .catch((err: unknown) => failUpload(entry, err))
+          .catch((cause: unknown) => failUpload(entry, cause))
         return { clipId: entry.clipId ?? null }
       }
 
       try {
         return { clipId: await beginUpload(entry, input) }
-      } catch (err) {
-        failUpload(entry, err)
-        if ((err as Error).name === "AbortError") return { clipId: null }
-        throw err
+      } catch (cause) {
+        failUpload(entry, cause)
+        if (isAbortError(cause)) return { clipId: null }
+        throw cause
       }
     },
     [activeRef, bump, beginUpload, failUpload],
   )
+}
+
+function isAbortError(cause: unknown): boolean {
+  return cause instanceof Error && cause.name === "AbortError"
 }
 
 function createActiveUpload(input: PublishClipInput): ActiveUpload {
@@ -199,7 +204,7 @@ function useRetryActiveUpload(
     entry: ActiveUpload,
     payload: PublishPayload,
   ) => Promise<string>,
-  failUpload: (entry: ActiveUpload, err: unknown) => void,
+  failUpload: (entry: ActiveUpload, cause: unknown) => void,
 ) {
   return useCallback(
     (localId: string) => {
@@ -219,8 +224,8 @@ function useRetryActiveUpload(
       if (staleClipId) {
         void deleteUploadClipBestEffort(staleClipId, "upload retry")
       }
-      void beginUpload(entry, payload).catch((err: unknown) =>
-        failUpload(entry, err),
+      void beginUpload(entry, payload).catch((cause: unknown) =>
+        failUpload(entry, cause),
       )
     },
     [activeRef, bump, beginUpload, failUpload],
