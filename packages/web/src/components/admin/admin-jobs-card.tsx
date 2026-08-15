@@ -1,9 +1,12 @@
 import type {
   AdminFailedJob,
-  AdminJobKindRow,
+  AdminJobOperations,
+  AdminJobQueueRow,
+  AdminRenditionSweepSummary,
+  AdminStorageGcSummary,
   AdminSweepKind,
 } from "@alloy/api"
-import { ADMIN_SWEEP_KINDS, isJobKind, type JobKind } from "@alloy/contracts"
+import { isJobKind, type JobKind, type JobQueue } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
@@ -15,18 +18,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@alloy/ui/components/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@alloy/ui/components/dropdown-menu"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@alloy/ui/components/input-group"
 import { List, ListItem } from "@alloy/ui/components/list"
 import {
   Section,
@@ -35,7 +28,6 @@ import {
   SectionTitle,
 } from "@alloy/ui/components/section"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { Switch } from "@alloy/ui/components/switch"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   useInfiniteQuery,
@@ -44,17 +36,9 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import {
-  ChevronDownIcon,
-  ExternalLinkIcon,
-  PlayIcon,
-  RotateCcwIcon,
-  SearchIcon,
-  XIcon,
-} from "lucide-react"
-import { useMemo, useState } from "react"
+import { ExternalLinkIcon, PlayIcon, RotateCcwIcon, XIcon } from "lucide-react"
+import { type ReactNode, useState } from "react"
 
-import { ListEmpty } from "@/components/feedback/empty-state"
 import {
   adminFailedJobsQueryOptions,
   adminJobsSummaryQueryOptions,
@@ -62,11 +46,9 @@ import {
   hasActiveJobs,
 } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
-import { dateTime, formatRelativeTime } from "@/lib/date-format"
+import { formatDateTime, formatRelativeTime } from "@/lib/date-format"
 import { errorMessage } from "@/lib/error-message"
 import { useActionFeedback } from "@/lib/use-action-feedback"
-
-const RENDITIONS_SWEEP_KIND = "clip.renditions-sweep"
 
 // Exhaustive over the contracts JOB_KINDS list: adding a job kind without a
 // dashboard label fails typecheck here.
@@ -81,9 +63,11 @@ const JOB_KIND_LABELS: Record<JobKind, string> = {
   "webhook.deliver": t("Deliver webhook"),
 }
 
-const SWEEP_KINDS: ReadonlySet<string> = new Set<AdminSweepKind>(
-  ADMIN_SWEEP_KINDS,
-)
+const QUEUE_LABELS: Record<JobQueue, string> = {
+  encode: t("Media encoding"),
+  io: t("Storage and delivery"),
+  maintenance: t("Routine maintenance"),
+}
 
 function kindLabel(kind: string): string {
   return isJobKind(kind) ? JOB_KIND_LABELS[kind] : kind
@@ -103,11 +87,12 @@ export function AdminJobsCard({ hideHeader }: { hideHeader?: boolean }) {
     </div>
   ) : (
     <div className="flex flex-col gap-5">
-      <KindTable kinds={summaryQuery.data.kinds} />
+      <QueueHealth queues={summaryQuery.data.queues} />
+      <Operations operations={summaryQuery.data.operations} />
       <FailedJobs
         jobsActive={hasActiveJobs(summaryQuery.data)}
-        failedTotal={summaryQuery.data.kinds.reduce(
-          (sum, k) => sum + k.failed,
+        failedTotal={summaryQuery.data.queues.reduce(
+          (sum, queue) => sum + queue.failed,
           0,
         )}
       />
@@ -126,230 +111,322 @@ export function AdminJobsCard({ hideHeader }: { hideHeader?: boolean }) {
   )
 }
 
-function KindTable({ kinds }: { kinds: AdminJobKindRow[] }) {
-  const [search, setSearch] = useState("")
-  const filteredKinds = useMemo(() => {
-    const normalizedSearch = search.trim().toLocaleLowerCase()
-    if (!normalizedSearch) return kinds
-    return kinds.filter((row) =>
-      kindLabel(row.kind).toLocaleLowerCase().includes(normalizedSearch),
-    )
-  }, [kinds, search])
-
+function QueueHealth({ queues }: { queues: AdminJobQueueRow[] }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-col gap-0.5">
-          <h3 className="text-sm font-semibold">{t("Job types")}</h3>
-          <p className="text-foreground-dim text-xs">
-            {t(
-              "Compact queue controls. Counts update while this panel is open.",
-            )}
-          </p>
-        </div>
-        <InputGroup className="w-full sm:max-w-xs">
-          <InputGroupAddon>
-            <SearchIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t("Search jobs")}
-            aria-label={t("Search jobs")}
-          />
-        </InputGroup>
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-sm font-semibold">{t("Queue health")}</h3>
+        <p className="text-foreground-dim text-xs">
+          {t("Current work and recent results for each worker queue.")}
+        </p>
       </div>
-      {filteredKinds.length === 0 ? (
-        <ListEmpty title={t("No matching jobs")} />
-      ) : (
-        <List>
-          {filteredKinds.map((row) => (
-            <KindRow key={row.kind} row={row} />
-          ))}
-        </List>
-      )}
+      <List>
+        {queues.map((row) => (
+          <ListItem key={row.queue}>
+            <div className="min-w-0 flex-1">
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "size-1.5 shrink-0 rounded-full",
+                    row.failed > 0
+                      ? "bg-destructive"
+                      : row.running > 0
+                        ? "bg-primary"
+                        : "bg-border-emphasis",
+                  )}
+                />
+                <h4 className="truncate text-sm font-semibold">
+                  {QUEUE_LABELS[row.queue]}
+                </h4>
+              </div>
+              <JobCounts counts={row} />
+            </div>
+          </ListItem>
+        ))}
+      </List>
     </div>
   )
 }
 
-function KindRow({ row }: { row: AdminJobKindRow }) {
-  const queryClient = useQueryClient()
-  const sweepFeedback = useActionFeedback()
-
-  const pauseMutation = useMutation({
-    mutationFn: (paused: boolean) =>
-      api.admin.setJobKindPaused(row.kind, paused),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: adminKeys.jobsSummary() }),
-  })
-
-  const sweepMutation = useMutation({
-    mutationFn: (mode: "stale" | "force") =>
-      api.admin.runJobSweep(row.kind as AdminSweepKind, mode),
-    onSettled: () =>
-      queryClient.invalidateQueries({ queryKey: adminKeys.jobsSummary() }),
-  })
-
-  const scheduleHint = jobScheduleHint(row)
-  const actionError =
-    sweepFeedback.feedback.state === "error"
-      ? sweepFeedback.feedback.message
-      : pauseMutation.error
-        ? errorMessage(pauseMutation.error, t("Couldn't update job"))
-        : null
-
+function JobCounts({
+  counts,
+}: {
+  counts: Pick<AdminJobQueueRow, "pending" | "running" | "failed" | "completed">
+}) {
   return (
-    <ListItem>
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            aria-hidden="true"
-            className={cn(
-              "size-1.5 shrink-0 rounded-full",
-              row.failed > 0
-                ? "bg-destructive"
-                : row.running > 0
-                  ? "bg-primary"
-                  : "bg-border-emphasis",
-            )}
-          />
-          <h4 className="truncate text-sm font-semibold">
-            {kindLabel(row.kind)}
-          </h4>
-          {row.paused ? (
-            <Badge size="text" variant="secondary" className="shrink-0">
-              {t("Paused")}
-            </Badge>
-          ) : null}
-        </div>
-        {actionError ? (
-          <p role="alert" className="text-destructive mt-1 text-xs">
-            {actionError}
-          </p>
-        ) : null}
-        <div className="text-foreground-dim mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-          <span>{scheduleHint}</span>
-          {row.pending > 0 ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <CountCell label={t("Pending")} value={row.pending} />
-            </>
-          ) : null}
-          {row.running > 0 ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <CountCell
-                label={t("Running")}
-                value={row.running}
-                tone="active"
-              />
-            </>
-          ) : null}
-          {row.failed > 0 ? (
-            <>
-              <span aria-hidden="true">·</span>
-              <CountCell label={t("Failed")} value={row.failed} tone="danger" />
-            </>
-          ) : null}
-        </div>
-      </div>
-
-      <div className="flex shrink-0 items-center justify-end gap-2">
-        {SWEEP_KINDS.has(row.kind) ? (
-          <RunNowAction
-            kind={row.kind}
-            state={sweepFeedback.feedback.state}
-            onRun={(mode) =>
-              void sweepFeedback.run(
-                () => sweepMutation.mutateAsync(mode),
-                t("Couldn't start job"),
-              )
-            }
-          />
-        ) : null}
-        <Switch
-          size="sm"
-          checked={!row.paused}
-          disabled={pauseMutation.isPending}
-          aria-label={row.paused ? t("Paused") : t("Enabled")}
-          onCheckedChange={(next) => pauseMutation.mutate(!next)}
-        />
-      </div>
-    </ListItem>
+    <div className="text-foreground-dim mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <CountCell label={t("Pending")} value={counts.pending} />
+      <CountCell label={t("Running")} value={counts.running} tone="active" />
+      <CountCell label={t("Failed")} value={counts.failed} tone="danger" />
+      <CountCell label={t("Completed")} value={counts.completed} />
+    </div>
   )
 }
 
-function jobScheduleHint(row: AdminJobKindRow): string {
-  if (row.schedule) {
-    if (!row.schedule.nextRunAt) return t("Scheduled")
-    const nextRunAt = dateTime(row.schedule.nextRunAt)
-    if (nextRunAt !== null && nextRunAt <= Date.now()) return t("Due now")
-    return t("Next run {when}", {
-      when: formatRelativeTime(row.schedule.nextRunAt),
-    })
-  }
-  if (row.kind === RENDITIONS_SWEEP_KIND) {
-    return t("Event triggered or manual")
-  }
-  if (SWEEP_KINDS.has(row.kind)) return t("Manual")
-  return t("Event triggered")
+function Operations({ operations }: { operations: AdminJobOperations }) {
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-0.5">
+        <h3 className="text-sm font-semibold">{t("Operations")}</h3>
+        <p className="text-foreground-dim text-xs">
+          {t("Start maintenance work and review its last completed run.")}
+        </p>
+      </div>
+      <div className="grid gap-3 xl:grid-cols-2">
+        <RenditionOperation operation={operations.renditionSweep} />
+        <StorageGcOperation operation={operations.storageGc} />
+      </div>
+    </div>
+  )
 }
 
-function RunNowAction({
-  kind,
-  state,
-  onRun,
+function RenditionOperation({
+  operation,
 }: {
-  kind: string
-  state: "idle" | "pending" | "success" | "error"
-  onRun: (mode: "stale" | "force") => void
+  operation: AdminJobOperations["renditionSweep"]
 }) {
-  if (kind !== RENDITIONS_SWEEP_KIND) {
-    return (
-      <FeedbackButton
-        type="button"
-        variant="outline"
-        size="sm"
-        state={state}
-        pendingLabel={t("Starting...")}
-        successLabel={t("Started")}
-        errorLabel={t("Try again")}
-        onClick={() => onRun("stale")}
-      >
-        <PlayIcon />
-        {t("Run")}
-      </FeedbackButton>
-    )
-  }
+  const queryClient = useQueryClient()
+  const staleFeedback = useActionFeedback()
+  const forceFeedback = useActionFeedback()
+  const mutation = useMutation({
+    mutationFn: (mode: "stale" | "force") =>
+      api.admin.runJobSweep(
+        "clip.renditions-sweep" satisfies AdminSweepKind,
+        mode,
+      ),
+    onSettled: () => invalidateJobQueries(queryClient),
+  })
+  const active = operation.pending > 0 || operation.running > 0
+  const actionError =
+    staleFeedback.feedback.state === "error"
+      ? staleFeedback.feedback.message
+      : forceFeedback.feedback.state === "error"
+        ? forceFeedback.feedback.message
+        : null
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-0.5">
+          <CardTitle>{t("Apply transcoding changes")}</CardTitle>
+          <CardDescription>
+            {t(
+              "Queue clips whose current renditions do not match the transcoding settings.",
+            )}
+          </CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <JobCounts counts={operation} />
+        <RenditionSummary summary={operation.summary} />
+        <div className="flex flex-wrap gap-2">
           <FeedbackButton
             type="button"
             variant="outline"
             size="sm"
-            state={state}
+            disabled={active || mutation.isPending}
+            state={staleFeedback.feedback.state}
             pendingLabel={t("Starting...")}
             successLabel={t("Started")}
             errorLabel={t("Try again")}
+            onClick={() => {
+              forceFeedback.reset()
+              void staleFeedback.run(
+                () => mutation.mutateAsync("stale"),
+                t("Couldn't start job"),
+              )
+            }}
           >
             <PlayIcon />
-            {t("Run")}
-            <ChevronDownIcon />
+            {t("Apply transcoding changes")}
           </FeedbackButton>
+          <FeedbackButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={active || mutation.isPending}
+            state={forceFeedback.feedback.state}
+            pendingLabel={t("Starting...")}
+            successLabel={t("Started")}
+            errorLabel={t("Try again")}
+            onClick={() => {
+              staleFeedback.reset()
+              void forceFeedback.run(
+                () => mutation.mutateAsync("force"),
+                t("Couldn't start job"),
+              )
+            }}
+          >
+            <RotateCcwIcon />
+            {t("Re-encode all")}
+          </FeedbackButton>
+        </div>
+        {actionError ? (
+          <p role="alert" className="text-destructive text-xs">
+            {actionError}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  )
+}
+
+function StorageGcOperation({
+  operation,
+}: {
+  operation: AdminJobOperations["storageGc"]
+}) {
+  const queryClient = useQueryClient()
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const mutation = useMutation({
+    mutationFn: () =>
+      api.admin.runJobSweep("storage.orphan-gc" satisfies AdminSweepKind),
+    onSuccess: () => setConfirmOpen(false),
+    onSettled: () => invalidateJobQueries(queryClient),
+  })
+  const active = operation.pending > 0 || operation.running > 0
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-0.5">
+          <CardTitle>{t("Clean orphaned storage")}</CardTitle>
+          <CardDescription>
+            {t(
+              "Delete old clip objects that are no longer referenced by the database.",
+            )}
+          </CardDescription>
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <JobCounts counts={operation} />
+        <StorageGcSummary summary={operation.summary} />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          disabled={active || mutation.isPending}
+          onClick={() => setConfirmOpen(true)}
+        >
+          <PlayIcon />
+          {t("Clean orphaned storage")}
+        </Button>
+        <ConfirmDeleteDialog
+          open={confirmOpen}
+          onOpenChange={(open) => {
+            setConfirmOpen(open)
+            if (!open) mutation.reset()
+          }}
+          title={t("Clean orphaned storage?")}
+          description={t(
+            "This permanently deletes old clip objects that are not referenced by Alloy. This action cannot be undone.",
+          )}
+          confirmLabel={t("Start cleanup")}
+          pendingLabel={t("Starting...")}
+          pending={mutation.isPending}
+          error={
+            mutation.error
+              ? errorMessage(mutation.error, t("Couldn't start job"))
+              : undefined
+          }
+          onConfirm={() => mutation.mutate()}
+        />
+      </CardContent>
+    </Card>
+  )
+}
+
+function RenditionSummary({
+  summary,
+}: {
+  summary: AdminRenditionSweepSummary | null
+}) {
+  if (!summary) return <EmptyOperationSummary />
+  return (
+    <OperationSummary finishedAt={summary.finishedAt}>
+      <SummaryValue
+        label={t("Mode")}
+        value={
+          summary.mode === "force" ? t("Re-encode all") : t("Apply changes")
         }
       />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => onRun("stale")}>
-          {t("Stale only")}
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onRun("force")}>
-          {t("Re-encode all")}
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <SummaryValue label={t("Scanned")} value={summary.scanned} />
+      <SummaryValue label={t("Queued")} value={summary.enqueued} />
+      <SummaryValue label={t("Up to date")} value={summary.upToDate} />
+      <SummaryValue label={t("Unprobed or invalid")} value={summary.unprobed} />
+      <SummaryValue label={t("Quarantined")} value={summary.quarantined} />
+    </OperationSummary>
   )
+}
+
+function StorageGcSummary({
+  summary,
+}: {
+  summary: AdminStorageGcSummary | null
+}) {
+  if (!summary) return <EmptyOperationSummary />
+  return (
+    <OperationSummary finishedAt={summary.finishedAt}>
+      <SummaryValue label={t("Scanned")} value={summary.scanned} />
+      <SummaryValue
+        label={t("Deleted orphan objects")}
+        value={summary.deletedOrphanObjects}
+      />
+      <SummaryValue
+        label={t("Deleted stale assets")}
+        value={summary.deletedStaleAssets}
+      />
+    </OperationSummary>
+  )
+}
+
+function EmptyOperationSummary() {
+  return (
+    <div className="border-border-subtle text-foreground-dim rounded-md border p-3 text-xs">
+      {t("No completed run yet")}
+    </div>
+  )
+}
+
+function OperationSummary({
+  finishedAt,
+  children,
+}: {
+  finishedAt: string
+  children: ReactNode
+}) {
+  return (
+    <div className="border-border-subtle rounded-md border p-3">
+      <p className="text-foreground-dim mb-2 text-xs">
+        {t("Last completed {time}", { time: formatDateTime(finishedAt) })}
+      </p>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
+        {children}
+      </dl>
+    </div>
+  )
+}
+
+function SummaryValue({
+  label,
+  value,
+}: {
+  label: string
+  value: string | number
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-foreground-muted truncate text-xs">{label}</dt>
+      <dd className="text-sm font-semibold tabular-nums">{value}</dd>
+    </div>
+  )
+}
+
+function invalidateJobQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: adminKeys.jobsSummary() })
+  void queryClient.invalidateQueries({ queryKey: adminKeys.jobsFailed(null) })
 }
 
 function CountCell({
@@ -490,22 +567,20 @@ function FailedJobRow({
           <span className="truncate text-sm font-medium">
             {kindLabel(job.kind)}
           </span>
-          {job.attempt > 1 ? (
-            <Badge size="text" className="bg-background shrink-0">
-              {t("Attempt {n}", { n: job.attempt })}
-            </Badge>
-          ) : null}
+          <Badge size="text" className="bg-background shrink-0">
+            {t("Attempt {n}", { n: job.attempt })}
+          </Badge>
           {job.finishedAt ? (
-            <span className="text-foreground-muted text-2xs shrink-0">
+            <span
+              className="text-foreground-muted text-2xs shrink-0"
+              title={formatDateTime(job.finishedAt)}
+            >
               {formatRelativeTime(job.finishedAt)}
             </span>
           ) : null}
         </div>
         {job.error ? (
-          <p
-            className="text-foreground-dim mt-0.5 truncate font-mono text-xs"
-            title={job.error}
-          >
+          <p className="text-foreground-dim mt-1 font-mono text-xs break-all whitespace-pre-wrap">
             {job.error}
           </p>
         ) : null}

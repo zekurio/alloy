@@ -1,12 +1,14 @@
 import {
   ADMIN_SWEEP_KINDS,
+  JOB_QUEUES,
   type AdminFailedJob,
-  type AdminJobKindRow,
+  type AdminJobOperations,
+  type AdminJobQueueRow,
   type AdminSweepKind,
+  type JobQueue,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import type { JobStatus } from "@alloy/db/schema"
-import { configStore } from "@alloy/server/config/store"
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
 import { enqueueStorageOrphanGc } from "@alloy/server/jobs/kinds/storage-orphan-gc"
 import { registeredJobKinds } from "@alloy/server/jobs/registry"
@@ -14,17 +16,15 @@ import {
   discardFailed,
   jobCounts,
   listJobs,
-  nextPendingRunByKind,
   retry,
-  wakeQueueForKind,
 } from "@alloy/server/jobs/store"
-import { readJobSweeps } from "@alloy/server/jobs/summaries"
+import { readJobOperationSummaries } from "@alloy/server/jobs/summaries"
 import {
   badRequest,
   notFound,
   success,
 } from "@alloy/server/runtime/http-response"
-import { type Context, Hono } from "hono"
+import { Hono } from "hono"
 
 import {
   cursorTimestamptzText,
@@ -48,36 +48,25 @@ const SWEEP_KINDS: ReadonlySet<string> = new Set(ADMIN_SWEEP_KINDS)
 
 export const adminJobsRoute = new Hono()
   .get("/jobs/summary", async (c) => {
-    const [counts, nextRuns, sweeps] = await Promise.all([
+    const [counts, summaries] = await Promise.all([
       jobCounts(),
-      nextPendingRunByKind(),
-      readJobSweeps(),
+      readJobOperationSummaries(),
     ])
-    const paused = new Set(configStore.get("jobs").pausedKinds)
-    const kinds = registeredJobKinds()
-      .map((registration): AdminJobKindRow => {
-        const forKind = counts.filter((row) => row.kind === registration.kind)
-        const nextRunAt = nextRuns.get(registration.kind)
-        return {
-          kind: registration.kind,
-          queue: registration.queue,
-          pending: countFor(forKind, "pending"),
-          running: countFor(forKind, "running"),
-          failed: countFor(forKind, "failed"),
-          completed: countFor(forKind, "completed"),
-          paused: paused.has(registration.kind),
-          ...(registration.schedule
-            ? {
-                schedule: {
-                  everyMs: registration.schedule.everyMs,
-                  nextRunAt: nextRunAt ? nextRunAt.toISOString() : null,
-                },
-              }
-            : {}),
-        }
-      })
-      .sort((a, b) => a.kind.localeCompare(b.kind))
-    return c.json({ kinds, sweeps })
+    const queues = JOB_QUEUES.map((queue): AdminJobQueueRow => ({
+      queue,
+      ...countsForQueue(counts, queue),
+    }))
+    const operations: AdminJobOperations = {
+      renditionSweep: {
+        ...countsForKind(counts, "clip.renditions-sweep"),
+        summary: summaries.renditionSweep,
+      },
+      storageGc: {
+        ...countsForKind(counts, "storage.orphan-gc"),
+        summary: summaries.storageGc,
+      },
+    }
+    return c.json({ queues, operations })
   })
   .get("/jobs/failed", tbValidator("query", FailedQuery), async (c) => {
     const query = c.req.valid("query")
@@ -121,20 +110,52 @@ export const adminJobsRoute = new Hono()
       return success(c)
     },
   )
-  .post("/jobs/kinds/:kind/pause", tbValidator("param", KindParam), async (c) =>
-    setPaused(c, c.req.valid("param").kind, true),
-  )
-  .post(
-    "/jobs/kinds/:kind/resume",
-    tbValidator("param", KindParam),
-    async (c) => setPaused(c, c.req.valid("param").kind, false),
-  )
 
 function countFor(
   rows: { status: JobStatus; count: number }[],
   status: JobStatus,
 ): number {
   return rows.find((row) => row.status === status)?.count ?? 0
+}
+
+function countsForKind(
+  counts: { kind: string; status: JobStatus; count: number }[],
+  kind: string,
+) {
+  const rows = counts.filter((row) => row.kind === kind)
+  return {
+    pending: countFor(rows, "pending"),
+    running: countFor(rows, "running"),
+    failed: countFor(rows, "failed"),
+    completed: countFor(rows, "completed"),
+  }
+}
+
+function countsForQueue(
+  counts: { kind: string; status: JobStatus; count: number }[],
+  queue: JobQueue,
+) {
+  const kinds: ReadonlySet<string> = new Set(
+    registeredJobKinds()
+      .filter((registration) => registration.queue === queue)
+      .map((registration) => registration.kind),
+  )
+  const rows = counts.filter((row) => kinds.has(row.kind))
+  return {
+    pending: sumFor(rows, "pending"),
+    running: sumFor(rows, "running"),
+    failed: sumFor(rows, "failed"),
+    completed: sumFor(rows, "completed"),
+  }
+}
+
+function sumFor(
+  rows: { status: JobStatus; count: number }[],
+  status: JobStatus,
+): number {
+  return rows
+    .filter((row) => row.status === status)
+    .reduce((sum, row) => sum + row.count, 0)
 }
 
 function runSweep(
@@ -146,25 +167,6 @@ function runSweep(
     return enqueueRenditionsSweep(mode, { runAt })
   }
   return enqueueStorageOrphanGc({ runAt })
-}
-
-async function setPaused(c: Context, kind: string, paused: boolean) {
-  if (
-    !registeredJobKinds().some((registration) => registration.kind === kind)
-  ) {
-    return badRequest(c, "Unknown job kind.")
-  }
-  const current = new Set(configStore.get("jobs").pausedKinds)
-  if (paused) current.add(kind)
-  else current.delete(kind)
-  await configStore.set("jobs", {
-    ...configStore.get("jobs"),
-    pausedKinds: [...current].sort((a, b) => a.localeCompare(b)),
-  })
-  // Resuming should let a queued job start without waiting for the fallback
-  // poll; pausing takes effect on the dispatcher's next claim regardless.
-  if (!paused) wakeQueueForKind(kind)
-  return success(c)
 }
 
 function decodeFailedCursor(

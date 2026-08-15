@@ -7,35 +7,39 @@ import {
   desc,
   eq,
   getTableColumns,
+  gt,
   inArray,
+  isNull,
   lt,
+  ne,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm"
 
+import { recurringJobKinds } from "./registry"
 import type { ListedJobs, ListJobsOptions } from "./store-types"
 
 export async function jobCounts(): Promise<
   Array<{ kind: string; status: JobStatus; count: number }>
 > {
+  const recurringKinds = recurringJobKinds().map(
+    (registration) => registration.kind,
+  )
   return db
     .select({ kind: job.kind, status: job.status, count: count() })
     .from(job)
+    .where(
+      or(
+        ne(job.status, "pending"),
+        sql`${job.run_at} <= now()`,
+        isNull(job.dedup_key),
+        ne(job.dedup_key, job.kind),
+        gt(job.attempt, 0),
+        notInArray(job.kind, recurringKinds),
+      ),
+    )
     .groupBy(job.kind, job.status)
-}
-
-export async function nextPendingRunByKind(): Promise<Map<string, Date>> {
-  const rows = await db
-    .select({
-      // mapWith applies the column's driver mapping — a bare sql aggregate
-      // would return the timestamptz as a string despite the Date annotation.
-      runAt: sql`min(${job.run_at})`.mapWith(job.run_at),
-      kind: job.kind,
-    })
-    .from(job)
-    .where(eq(job.status, "pending"))
-    .groupBy(job.kind)
-  return new Map(rows.map((row) => [row.kind, row.runAt]))
 }
 
 // Dismisses a terminally failed job from the admin failed list. Deletes the row

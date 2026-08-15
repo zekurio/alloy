@@ -1,7 +1,8 @@
 import {
   AdminRenditionSweepSummarySchema,
   AdminStorageGcSummarySchema,
-  type AdminJobsSweeps,
+  type AdminRenditionSweepSummary,
+  type AdminStorageGcSummary,
 } from "@alloy/contracts"
 import { safeParse, t } from "@alloy/contracts/schema"
 import { instanceSetting } from "@alloy/db/schema"
@@ -13,7 +14,10 @@ import type { TSchema } from "typebox"
 const RENDITION_SWEEP_KEY = "renditionSweep"
 const STORAGE_GC_KEY = "storageGc"
 
-export async function readJobSweeps(): Promise<AdminJobsSweeps> {
+export async function readJobOperationSummaries(): Promise<{
+  renditionSweep: AdminRenditionSweepSummary | null
+  storageGc: AdminStorageGcSummary | null
+}> {
   const rows = await db
     .select({ key: instanceSetting.key, value: instanceSetting.value })
     .from(instanceSetting)
