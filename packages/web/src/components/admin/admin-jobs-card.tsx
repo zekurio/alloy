@@ -198,6 +198,12 @@ function RenditionOperation({
     onSettled: () => invalidateJobQueries(queryClient),
   })
   const active = operation.pending > 0 || operation.running > 0
+  const actionError =
+    staleFeedback.feedback.state === "error"
+      ? staleFeedback.feedback.message
+      : forceFeedback.feedback.state === "error"
+        ? forceFeedback.feedback.message
+        : null
 
   return (
     <Card>
@@ -254,6 +260,11 @@ function RenditionOperation({
             {t("Re-encode all")}
           </FeedbackButton>
         </div>
+        {actionError ? (
+          <p role="alert" className="text-destructive text-xs">
+            {actionError}
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   )

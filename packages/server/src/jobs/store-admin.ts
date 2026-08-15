@@ -7,24 +7,38 @@ import {
   desc,
   eq,
   getTableColumns,
+  gt,
   inArray,
+  isNull,
   lt,
   ne,
+  notInArray,
   or,
   sql,
 } from "drizzle-orm"
 
+import { recurringJobKinds } from "./registry"
 import type { ListedJobs, ListJobsOptions } from "./store-types"
 
 export async function jobCounts(): Promise<
   Array<{ kind: string; status: JobStatus; count: number }>
 > {
-  // Recurring jobs keep one future pending row as their schedule. It becomes
-  // queue work only when its run time arrives.
+  const recurringKinds = recurringJobKinds().map(
+    (registration) => registration.kind,
+  )
   return db
     .select({ kind: job.kind, status: job.status, count: count() })
     .from(job)
-    .where(or(ne(job.status, "pending"), sql`${job.run_at} <= now()`))
+    .where(
+      or(
+        ne(job.status, "pending"),
+        sql`${job.run_at} <= now()`,
+        isNull(job.dedup_key),
+        ne(job.dedup_key, job.kind),
+        gt(job.attempt, 0),
+        notInArray(job.kind, recurringKinds),
+      ),
+    )
     .groupBy(job.kind, job.status)
 }
 
