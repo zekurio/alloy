@@ -1,11 +1,11 @@
 import type { ProfileViewer } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { useNavigate } from "@tanstack/react-router"
 import { ShieldOffIcon } from "lucide-react"
 import { useState } from "react"
 
+import { UserFollowButton } from "@/components/user/user-follow-button"
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
 import { useToggleUserFollowMutation } from "@/lib/user-queries"
@@ -26,33 +26,19 @@ export function ProfileActions({
   const pending = unblockPending || followMutation.isPending
 
   if (viewer === undefined) {
-    return (
-      <Button
-        type="button"
-        variant="primary"
-        size="sm"
-        aria-label={t("Follow")}
-        disabled
-      >
-        {t("Follow")}
-      </Button>
-    )
+    return <UserFollowButton following={false} disabled />
   }
 
   if (!viewer) {
     return (
-      <Button
-        type="button"
-        variant="primary"
-        size="sm"
+      <UserFollowButton
+        following={false}
         aria-label={t("Sign in to follow")}
         title={t("Sign in to follow")}
         onClick={() => {
           void navigate({ to: "/login" })
         }}
-      >
-        {t("Follow")}
-      </Button>
+      />
     )
   }
 
@@ -108,12 +94,8 @@ export function ProfileActions({
   }
 
   return (
-    <FeedbackButton
-      type="button"
-      variant={isFollowing ? "ghost" : "primary"}
-      size="sm"
-      aria-pressed={isFollowing}
-      aria-label={isFollowing ? t("Unfollow") : t("Follow")}
+    <UserFollowButton
+      following={isFollowing}
       title={
         followMutation.error
           ? errorMessage(followMutation.error, t("Something went wrong"))
@@ -130,10 +112,6 @@ export function ProfileActions({
             ? "error"
             : "idle"
       }
-      pendingLabel={t("Updating…")}
-      errorLabel={t("Try again")}
-    >
-      {isFollowing ? t("Following") : t("Follow")}
-    </FeedbackButton>
+    />
   )
 }

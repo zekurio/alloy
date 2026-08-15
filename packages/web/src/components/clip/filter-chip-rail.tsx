@@ -12,7 +12,7 @@ export type FilterChipOption<K extends string> = {
 }
 
 const responsiveChipClass = cn(
-  "h-10 px-3 text-sm leading-4",
+  "h-9 px-3 text-sm leading-4",
   "[&_svg:not([class*='size-'])]:size-[18px] [&_[data-slot=game-icon]]:size-[18px]",
   "md:h-8 md:px-2.5 md:text-sm md:leading-4",
   "md:[&_svg:not([class*='size-'])]:size-4 md:[&_[data-slot=game-icon]]:size-4",

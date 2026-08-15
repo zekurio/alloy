@@ -12,26 +12,28 @@ import {
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
 import {
-  profileAllSearchFor,
-  type ProfileAllSort,
+  profileClipSearchFor,
+  type ProfileClipSort,
 } from "@/lib/profile-all-search"
+
+export type ProfileClipTab = "all" | "liked" | "tagged"
 
 type GameOption = {
   slug: string
   name: string
-  count: number
   iconUrl: string | null
   logoUrl: string | null
 }
 
 type ClipsFilterBarProps = {
   username: string
-  sort: ProfileAllSort
+  tab: ProfileClipTab
+  sort: ProfileClipSort
   gameSlug: string | null
   gameOptions: GameOption[]
 }
 
-const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileAllSort>> = [
+const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileClipSort>> = [
   { key: "recent", label: t("Newest") },
   { key: "oldest", label: t("Oldest") },
   { key: "top", label: t("Most liked") },
@@ -42,10 +44,12 @@ const ALL_GAMES = "__all"
 
 export function ClipsFilterBar({
   username,
+  tab,
   sort,
   gameSlug,
   gameOptions,
 }: ClipsFilterBarProps) {
+  const to = PROFILE_CLIP_ROUTES[tab]
   const gameFilterOptions: FilterChipOption<string>[] = [
     { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
     ...gameOptions.map((g) => ({
@@ -63,9 +67,9 @@ export function ClipsFilterBar({
           options={gameFilterOptions}
           renderOptionLink={(opt, active) => (
             <Link
-              to="/u/$username/all"
+              to={to}
               params={{ username }}
-              search={profileAllSearchFor(
+              search={profileClipSearchFor(
                 sort,
                 opt.key === ALL_GAMES ? null : opt.key,
               )}
@@ -81,9 +85,9 @@ export function ClipsFilterBar({
           options={SORT_OPTIONS}
           renderOptionLink={(opt, active) => (
             <Link
-              to="/u/$username/all"
+              to={to}
               params={{ username }}
-              search={profileAllSearchFor(opt.key, gameSlug)}
+              search={profileClipSearchFor(opt.key, gameSlug)}
               data-active={active ? "true" : undefined}
             />
           )}
@@ -92,3 +96,9 @@ export function ClipsFilterBar({
     </>
   )
 }
+
+const PROFILE_CLIP_ROUTES = {
+  all: "/u/$username/all",
+  liked: "/u/$username/liked",
+  tagged: "/u/$username/tagged",
+} as const

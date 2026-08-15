@@ -30,12 +30,11 @@ import {
   Share2Icon,
   StarIcon,
   Trash2Icon,
-  UserMinusIcon,
-  UserPlusIcon,
 } from "lucide-react"
 import { useCallback } from "react"
 import type { ReactNode } from "react"
 
+import { UserFollowButton } from "@/components/user/user-follow-button"
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"
 import { currentUrlWithoutSearchOrHash } from "@/lib/browser-url"
@@ -330,10 +329,8 @@ function ClipMeta({
                 <span className="truncate">{uploader.name}</span>
               </Link>
               {canFollow ? (
-                <FeedbackButton
-                  type="button"
-                  variant={isFollowing ? "ghost" : "primary"}
-                  size="sm"
+                <UserFollowButton
+                  following={isFollowing}
                   onClick={() => void handleFollow()}
                   disabled={followPending}
                   state={
@@ -343,8 +340,6 @@ function ClipMeta({
                         ? "error"
                         : "idle"
                   }
-                  pendingLabel={t("Updating…")}
-                  errorLabel={t("Try again")}
                   title={
                     followMutation.error
                       ? errorMessage(
@@ -353,14 +348,7 @@ function ClipMeta({
                         )
                       : undefined
                   }
-                >
-                  {isFollowing ? <UserMinusIcon /> : <UserPlusIcon />}
-                  {followPending
-                    ? t("…")
-                    : isFollowing
-                      ? t("Following")
-                      : t("Follow")}
-                </FeedbackButton>
+                />
               ) : null}
             </div>
             {followerCount !== null ? (
