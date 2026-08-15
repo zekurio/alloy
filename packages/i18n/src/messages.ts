@@ -1301,6 +1301,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Loading…": "Wird geladen…",
   "Media encoding": "Medienkodierung",
   Mode: "Modus",
+  "More objects remain. Run another cleanup preview.":
+    "Weitere Objekte sind übrig. Starte eine weitere Bereinigungsvorschau.",
   "No completed run yet": "Noch kein abgeschlossener Lauf",
   Operations: "Aktionen",
   "Orphan candidates": "Verwaiste Kandidaten",
@@ -1312,6 +1314,10 @@ export const DE_MESSAGES: Record<string, string> = {
     "Vorschau von {time}: {count} Objekte können gelöscht werden.",
   "Preview old clip objects that are no longer referenced, then confirm their deletion.":
     "Prüfe alte Clip-Objekte ohne Datenbankverweis und bestätige danach ihre Löschung.",
+  "This preview expired. Run a new preview.":
+    "Diese Vorschau ist abgelaufen. Starte eine neue Vorschau.",
+  "This preview reached the 10,000-object batch limit. Delete it, then run another preview for the remaining objects.":
+    "Diese Vorschau hat das Limit von 10.000 Objekten erreicht. Lösche sie und starte danach eine weitere Vorschau für die übrigen Objekte.",
   "Prune auth challenges": "Anmeldeanfragen bereinigen",
   "Prune job history": "Jobverlauf bereinigen",
   "Prune notifications": "Benachrichtigungen bereinigen",

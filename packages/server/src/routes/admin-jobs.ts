@@ -10,6 +10,7 @@ import { t } from "@alloy/contracts/schema"
 import type { JobStatus } from "@alloy/db/schema"
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
 import {
+  cleanupExpiredStorageOrphanGcPreview,
   confirmStorageOrphanGcPreview,
   enqueueStorageOrphanGcPreview,
 } from "@alloy/server/jobs/kinds/storage-orphan-gc"
@@ -52,6 +53,7 @@ const SWEEP_KINDS: ReadonlySet<string> = new Set(ADMIN_SWEEP_KINDS)
 
 export const adminJobsRoute = new Hono()
   .get("/jobs/summary", async (c) => {
+    await cleanupExpiredStorageOrphanGcPreview()
     const [counts, summaries] = await Promise.all([
       jobCounts(),
       readJobOperationSummaries(),

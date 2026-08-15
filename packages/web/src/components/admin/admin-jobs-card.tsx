@@ -44,7 +44,7 @@ import {
   Trash2Icon,
   XIcon,
 } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 
 import {
   adminFailedJobsQueryOptions,
@@ -301,6 +301,22 @@ function StorageGcOperation({
   const active = operation.pending > 0 || operation.running > 0
   const preview =
     operation.summary?.mode === "preview" ? operation.summary : null
+  const [currentTime, setCurrentTime] = useState(() => Date.now())
+  useEffect(() => {
+    if (!preview?.confirmationExpiresAt) return
+    const timeout = window.setTimeout(
+      () => setCurrentTime(Date.now()),
+      Math.max(
+        0,
+        new Date(preview.confirmationExpiresAt).getTime() - Date.now() + 1,
+      ),
+    )
+    return () => window.clearTimeout(timeout)
+  }, [preview?.confirmationExpiresAt])
+  const previewExpired = preview
+    ? !preview.confirmationExpiresAt ||
+      currentTime >= new Date(preview.confirmationExpiresAt).getTime()
+    : false
   const previewCandidateCount = confirmPreview
     ? confirmPreview.orphanCandidates + confirmPreview.staleAssetCandidates
     : 0
@@ -339,7 +355,28 @@ function StorageGcOperation({
           <SearchIcon />
           {t("Preview cleanup")}
         </FeedbackButton>
-        {preview ? (
+        {previewFeedback.feedback.state === "error" ? (
+          <p role="alert" className="text-destructive text-xs">
+            {previewFeedback.feedback.message}
+          </p>
+        ) : null}
+        {preview?.hasMoreCandidates ? (
+          <Callout>
+            {t(
+              "This preview reached the 10,000-object batch limit. Delete it, then run another preview for the remaining objects.",
+            )}
+          </Callout>
+        ) : null}
+        {operation.summary?.mode === "delete" &&
+        operation.summary.hasMoreCandidates ? (
+          <Callout>
+            {t("More objects remain. Run another cleanup preview.")}
+          </Callout>
+        ) : null}
+        {previewExpired ? (
+          <Callout>{t("This preview expired. Run a new preview.")}</Callout>
+        ) : null}
+        {preview && !previewExpired ? (
           <Button
             type="button"
             variant="destructive"
@@ -353,7 +390,7 @@ function StorageGcOperation({
           </Button>
         ) : null}
         <ConfirmDeleteDialog
-          open={confirmPreview !== null}
+          open={confirmPreview !== null && !previewExpired}
           onOpenChange={(open) => {
             if (open) return
             setConfirmPreview(null)
@@ -372,7 +409,7 @@ function StorageGcOperation({
               : undefined
           }
           onConfirm={() => {
-            if (confirmPreview) {
+            if (confirmPreview && !previewExpired) {
               confirmMutation.mutate(confirmPreview.previewJobId)
             }
           }}

@@ -25,11 +25,14 @@ import {
   type JobHandlerContext,
 } from "../registry"
 import { enqueue, type EnqueueOptions, wakeQueueForKind } from "../store"
+import { leasedRunningJob } from "../store-database"
+import type { JobTransaction } from "../store-types"
 import { writeStorageMaintenanceSummary } from "./storage-maintenance-summary"
 
 const logger = createLogger("jobs")
 const STORAGE_ORPHAN_GC_KIND = "storage.orphan-gc"
 const PAGE_SIZE = 500
+const STORAGE_GC_MAX_CANDIDATES = 10_000
 // Comfortably above encode timeout ceilings and lease-retry cycles, so
 // in-flight runs' freshly uploaded objects are never collected.
 const ORPHAN_SAFETY_MARGIN_MS = 48 * 60 * 60 * 1000
@@ -67,7 +70,10 @@ const StorageGcManifestSchema = t
   .object({
     previewJobId: t.string().uuid(),
     cutoffAt: t.string().datetime({ offset: true }),
-    candidates: t.array(StorageGcCandidateSchema),
+    hasMoreCandidates: t.boolean(),
+    candidates: t
+      .array(StorageGcCandidateSchema)
+      .max(STORAGE_GC_MAX_CANDIDATES),
   })
   .strict()
 
@@ -80,7 +86,9 @@ interface StorageGcSummary {
   previewJobId: string
   mode: StorageOrphanGcPayload["mode"]
   finishedAt: string
+  confirmationExpiresAt: string | null
   cutoffAt: string
+  hasMoreCandidates: boolean
   scanned: number
   orphanCandidates: number
   staleAssetCandidates: number
@@ -204,8 +212,8 @@ export async function confirmStorageOrphanGcPreview(
     if (parsed.data.previewJobId !== previewJobId) return null
     // A preview grants short-lived permission to delete only its manifest.
     if (
-      Date.now() - new Date(parsed.data.finishedAt).getTime() >
-      PREVIEW_CONFIRMATION_MAX_AGE_MS
+      !parsed.data.confirmationExpiresAt ||
+      Date.now() >= new Date(parsed.data.confirmationExpiresAt).getTime()
     ) {
       return null
     }
@@ -272,8 +280,83 @@ function manifestMatchesSummary(
     manifest.candidates.filter((candidate) => candidate.kind === "orphan")
       .length === summary.orphanCandidates &&
     manifest.candidates.filter((candidate) => candidate.kind === "stale")
-      .length === summary.staleAssetCandidates
+      .length === summary.staleAssetCandidates &&
+    manifest.hasMoreCandidates === summary.hasMoreCandidates
   )
+}
+
+export async function cleanupExpiredStorageOrphanGcPreview(): Promise<void> {
+  await db.transaction(async (tx) => {
+    const rows = await tx
+      .select({ key: instanceSetting.key, value: instanceSetting.value })
+      .from(instanceSetting)
+      .where(
+        inArray(instanceSetting.key, [
+          STORAGE_GC_SUMMARY_KEY,
+          STORAGE_GC_MANIFEST_KEY,
+          STORAGE_GC_CONFIRMATION_KEY,
+        ]),
+      )
+      .for("update")
+    const values = new Map(rows.map((row) => [row.key, row.value]))
+    const summary = safeParse(
+      AdminStorageGcSummarySchema,
+      values.get(STORAGE_GC_SUMMARY_KEY),
+    )
+    if (
+      !summary.success ||
+      summary.data.mode !== "preview" ||
+      !summary.data.confirmationExpiresAt ||
+      Date.now() < new Date(summary.data.confirmationExpiresAt).getTime()
+    ) {
+      return
+    }
+
+    const confirmation = safeParse(
+      StorageGcConfirmationSchema,
+      values.get(STORAGE_GC_CONFIRMATION_KEY),
+    )
+    if (
+      confirmation.success &&
+      confirmation.data.previewJobId === summary.data.previewJobId
+    ) {
+      const [liveDelete] = await tx
+        .select({ id: job.id })
+        .from(job)
+        .where(
+          and(
+            eq(job.id, confirmation.data.jobId),
+            eq(job.kind, STORAGE_ORPHAN_GC_KIND),
+            inArray(job.status, ["pending", "running"]),
+          ),
+        )
+        .limit(1)
+      if (liveDelete) return
+    }
+
+    const manifest = safeParse(
+      StorageGcManifestSchema,
+      values.get(STORAGE_GC_MANIFEST_KEY),
+    )
+    if (
+      manifest.success &&
+      manifest.data.previewJobId === summary.data.previewJobId &&
+      manifest.data.cutoffAt === summary.data.cutoffAt &&
+      manifestMatchesSummary(manifest.data, summary.data)
+    ) {
+      await tx
+        .delete(instanceSetting)
+        .where(eq(instanceSetting.key, STORAGE_GC_MANIFEST_KEY))
+    }
+    if (
+      confirmation.success &&
+      confirmation.data.previewJobId === summary.data.previewJobId
+    ) {
+      await tx
+        .delete(instanceSetting)
+        .where(eq(instanceSetting.key, STORAGE_GC_CONFIRMATION_KEY))
+    }
+  })
 }
 
 async function runStorageOrphanGc(
@@ -395,6 +478,7 @@ function createTerminalFailureSummary(
     staleAssetCandidates:
       manifest?.candidates.filter((candidate) => candidate.kind === "stale")
         .length ?? 0,
+    hasMoreCandidates: manifest?.hasMoreCandidates ?? false,
     deleteFailures: 1,
   }
 }
@@ -406,6 +490,7 @@ async function runStorageOrphanGcPreview(
   const manifest: StorageGcManifest = {
     previewJobId: ctx.jobId,
     cutoffAt,
+    hasMoreCandidates: false,
     candidates: [],
   }
   const summary = createStorageGcSummary({
@@ -420,11 +505,17 @@ async function runStorageOrphanGcPreview(
     if (ctx.signal.aborted) break
     page.push(entry)
     if (page.length < PAGE_SIZE) continue
-    await processPreviewPage(page, summary, manifest, ctx.signal)
+    const reachedLimit = await processPreviewPage(
+      page,
+      summary,
+      manifest,
+      ctx.signal,
+    )
     page = []
+    if (reachedLimit) break
   }
 
-  if (!ctx.signal.aborted && page.length > 0) {
+  if (!ctx.signal.aborted && !manifest.hasMoreCandidates && page.length > 0) {
     await processPreviewPage(page, summary, manifest, ctx.signal)
   }
   if (ctx.signal.aborted) return
@@ -436,8 +527,12 @@ async function runStorageOrphanGcPreview(
   summary.staleAssetCandidates = validatedManifest.candidates.filter(
     (candidate) => candidate.kind === "stale",
   ).length
-  summary.finishedAt = new Date().toISOString()
-  await db.transaction(async (tx) => {
+  const finishedAt = new Date()
+  summary.finishedAt = finishedAt.toISOString()
+  summary.confirmationExpiresAt = new Date(
+    finishedAt.getTime() + PREVIEW_CONFIRMATION_MAX_AGE_MS,
+  ).toISOString()
+  const stored = await withActiveStorageGcLease(ctx, async (tx) => {
     await writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary, tx)
     await writeStorageMaintenanceSummary(
       STORAGE_GC_MANIFEST_KEY,
@@ -448,6 +543,7 @@ async function runStorageOrphanGcPreview(
       .delete(instanceSetting)
       .where(eq(instanceSetting.key, STORAGE_GC_CONFIRMATION_KEY))
   })
+  if (!stored) return
   logStorageGcSummary(summary)
 }
 
@@ -475,6 +571,7 @@ async function runConfirmedStorageOrphanGc(
   summary.staleAssetCandidates = manifest.candidates.filter(
     (candidate) => candidate.kind === "stale",
   ).length
+  summary.hasMoreCandidates = manifest.hasMoreCandidates
 
   for (const candidate of manifest.candidates) {
     if (ctx.signal.aborted) return
@@ -485,14 +582,17 @@ async function runConfirmedStorageOrphanGc(
 
   summary.finishedAt = new Date().toISOString()
   if (summary.deleteFailures > 0) {
-    await writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary)
+    const stored = await withActiveStorageGcLease(ctx, (tx) =>
+      writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary, tx),
+    )
+    if (!stored) return
     logStorageGcSummary(summary)
     throw new Error(
       `Storage cleanup failed to delete ${summary.deleteFailures} objects.`,
     )
   }
 
-  await db.transaction(async (tx) => {
+  const stored = await withActiveStorageGcLease(ctx, async (tx) => {
     await writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary, tx)
     await tx
       .delete(instanceSetting)
@@ -503,7 +603,25 @@ async function runConfirmedStorageOrphanGc(
         ]),
       )
   })
+  if (!stored) return
   logStorageGcSummary(summary)
+}
+
+async function withActiveStorageGcLease(
+  ctx: JobHandlerContext,
+  write: (tx: JobTransaction) => Promise<void>,
+): Promise<boolean> {
+  return db.transaction(async (tx) => {
+    const [activeJob] = await tx
+      .select({ id: job.id })
+      .from(job)
+      .where(leasedRunningJob(ctx.jobId, ctx.runId))
+      .for("update")
+      .limit(1)
+    if (!activeJob) return false
+    await write(tx)
+    return true
+  })
 }
 
 function createStorageGcSummary(input: {
@@ -515,6 +633,8 @@ function createStorageGcSummary(input: {
   return {
     ...input,
     finishedAt: new Date().toISOString(),
+    confirmationExpiresAt: null,
+    hasMoreCandidates: false,
     scanned: 0,
     orphanCandidates: 0,
     staleAssetCandidates: 0,
@@ -561,7 +681,7 @@ async function processPreviewPage(
   summary: StorageGcSummary,
   manifest: StorageGcManifest,
   signal: AbortSignal,
-): Promise<void> {
+): Promise<boolean> {
   const parsed = page.map((entry) => ({
     entry,
     parsed: parseClipStorageKey(entry.key),
@@ -578,13 +698,13 @@ async function processPreviewPage(
   const cutoff = new Date(summary.cutoffAt).getTime()
 
   for (const item of parsed) {
-    if (signal.aborted) return
+    if (signal.aborted) return false
     summary.scanned += 1
     if (!item.parsed) continue
     if (!olderThan(item.entry.lastModified, cutoff)) continue
     const row = rows.get(item.parsed.clipId)
     if (!row) {
-      manifest.candidates.push(toManifestCandidate(item.entry, "orphan"))
+      if (addManifestCandidate(manifest, item.entry, "orphan")) return true
       continue
     }
     // An active encode lease brackets publish-to-commit. During that window a
@@ -593,28 +713,35 @@ async function processPreviewPage(
     if (row.encodeRunId !== null) continue
     if (liveKeys.get(row.id)?.has(item.entry.key)) continue
     if (!isRunStampedFilename(item.parsed.filename)) continue
-    manifest.candidates.push(toManifestCandidate(item.entry, "stale"))
+    if (addManifestCandidate(manifest, item.entry, "stale")) return true
   }
+  return false
 }
 
-function toManifestCandidate(
+function addManifestCandidate(
+  manifest: StorageGcManifest,
   entry: GcEntry,
   kind: StorageGcCandidate["kind"],
-): StorageGcCandidate {
-  return { storage: entry.storageKind, key: entry.key, kind }
+): boolean {
+  if (manifest.candidates.length === STORAGE_GC_MAX_CANDIDATES) {
+    manifest.hasMoreCandidates = true
+    return true
+  }
+  manifest.candidates.push({ storage: entry.storageKind, key: entry.key, kind })
+  return false
 }
 
 async function deleteManifestCandidate(
   candidate: StorageGcCandidate,
   summary: StorageGcSummary,
 ): Promise<void> {
-  const entry = manifestEntry(candidate)
-  if (
-    (await classifyCurrentEntry(entry, summary.cutoffAt)) !== candidate.kind
-  ) {
-    return
-  }
   try {
+    const entry = manifestEntry(candidate)
+    if (
+      (await classifyCurrentEntry(entry, summary.cutoffAt)) !== candidate.kind
+    ) {
+      return
+    }
     await entry.storage.delete(entry.key)
     if (candidate.kind === "orphan") {
       summary.deletedOrphanObjects += 1
@@ -624,7 +751,7 @@ async function deleteManifestCandidate(
   } catch (error) {
     summary.deleteFailures += 1
     logger.error(
-      `storage orphan gc could not delete ${candidate.storage}:${candidate.key}`,
+      `storage orphan gc could not process ${candidate.storage}:${candidate.key}`,
       error,
     )
   }
