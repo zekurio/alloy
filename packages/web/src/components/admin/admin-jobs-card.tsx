@@ -230,12 +230,13 @@ function RenditionOperation({
             pendingLabel={t("Starting...")}
             successLabel={t("Started")}
             errorLabel={t("Try again")}
-            onClick={() =>
+            onClick={() => {
+              forceFeedback.reset()
               void staleFeedback.run(
                 () => mutation.mutateAsync("stale"),
                 t("Couldn't start job"),
               )
-            }
+            }}
           >
             <PlayIcon />
             {t("Apply transcoding changes")}
@@ -249,12 +250,13 @@ function RenditionOperation({
             pendingLabel={t("Starting...")}
             successLabel={t("Started")}
             errorLabel={t("Try again")}
-            onClick={() =>
+            onClick={() => {
+              staleFeedback.reset()
               void forceFeedback.run(
                 () => mutation.mutateAsync("force"),
                 t("Couldn't start job"),
               )
-            }
+            }}
           >
             <RotateCcwIcon />
             {t("Re-encode all")}
