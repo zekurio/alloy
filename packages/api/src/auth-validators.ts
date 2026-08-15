@@ -6,6 +6,7 @@ import type {
 
 import type { AuthUser, LinkedAccount, Passkey, SessionData } from "./auth"
 import { booleanFlagResponseValidator } from "./contract-validators"
+import type { ApiJsonInput } from "./json-value"
 import {
   objectRecord,
   validateArray,
@@ -19,12 +20,12 @@ import {
   validateUrlString,
 } from "./runtime-validation"
 
-export type JsonValidator<T> = (value: unknown) => T
+export type JsonValidator<T> = (value: ApiJsonInput) => T
 
 const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
 const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 
-export function validateAuthUser(value: unknown): AuthUser {
+export function validateAuthUser(value: ApiJsonInput): AuthUser {
   const user = objectRecord(value, "auth user")
   for (const key of [
     "id",
@@ -84,10 +85,11 @@ export function validateAuthUser(value: unknown): AuthUser {
     user.updatedAt,
     "Invalid auth user response: updatedAt must be a date string",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as AuthUser
 }
 
-function validateSessionRow(value: unknown): SessionData["session"] {
+function validateSessionRow(value: ApiJsonInput): SessionData["session"] {
   const session = objectRecord(value, "auth session")
   for (const key of ["id", "userId", "createdAt", "updatedAt"] as const) {
     validateRequiredString(
@@ -111,22 +113,26 @@ function validateSessionRow(value: unknown): SessionData["session"] {
     session.updatedAt,
     "Invalid auth session response: updatedAt must be a date string",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as SessionData["session"]
 }
 
-export function validateSessionData(value: unknown): SessionData {
+export function validateSessionData(value: ApiJsonInput): SessionData {
   const sessionData = objectRecord(value, "auth session")
   validateSessionRow(sessionData.session)
   validateAuthUser(sessionData.user)
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as SessionData
 }
 
-export function validateSessionDataOrNull(value: unknown): SessionData | null {
+export function validateSessionDataOrNull(
+  value: ApiJsonInput,
+): SessionData | null {
   if (value === null) return null
   return validateSessionData(value)
 }
 
-function validatePasskeyChallenge(value: unknown) {
+function validatePasskeyChallenge(value: ApiJsonInput) {
   const response = objectRecord(value, "passkey challenge")
   validateRequiredString(
     response.challengeId,
@@ -136,29 +142,35 @@ function validatePasskeyChallenge(value: unknown) {
   return response
 }
 
-export function validatePasskeyAuthenticationOptionsResponse(value: unknown): {
+export function validatePasskeyAuthenticationOptionsResponse(
+  value: ApiJsonInput,
+): {
   challengeId: string
   options: PublicKeyCredentialRequestOptionsJSON
 } {
   validatePasskeyChallenge(value)
+  // SAFETY: The outer fields are checked here; SimpleWebAuthn validates option details.
   return value as {
     challengeId: string
     options: PublicKeyCredentialRequestOptionsJSON
   }
 }
 
-export function validatePasskeyRegistrationOptionsResponse(value: unknown): {
+export function validatePasskeyRegistrationOptionsResponse(
+  value: ApiJsonInput,
+): {
   challengeId: string
   options: PublicKeyCredentialCreationOptionsJSON
 } {
   validatePasskeyChallenge(value)
+  // SAFETY: The outer fields are checked here; SimpleWebAuthn validates option details.
   return value as {
     challengeId: string
     options: PublicKeyCredentialCreationOptionsJSON
   }
 }
 
-export function validatePasskey(value: unknown): Passkey {
+export function validatePasskey(value: ApiJsonInput): Passkey {
   const passkey = objectRecord(value, "passkey")
   validateRequiredString(passkey.id, "Invalid passkey response: id is required")
   validateNullableString(
@@ -173,14 +185,15 @@ export function validatePasskey(value: unknown): Passkey {
     passkey.deviceType,
     "Invalid passkey response: deviceType is required",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as Passkey
 }
 
-export function validatePasskeys(value: unknown): Passkey[] {
+export function validatePasskeys(value: ApiJsonInput): Passkey[] {
   return validateArray(value, "Invalid passkeys response").map(validatePasskey)
 }
 
-export function validateLinkedAccount(value: unknown): LinkedAccount {
+export function validateLinkedAccount(value: ApiJsonInput): LinkedAccount {
   const account = objectRecord(value, "linked account")
   for (const key of ["id", "providerId", "accountId"] as const) {
     validateRequiredString(
@@ -196,32 +209,39 @@ export function validateLinkedAccount(value: unknown): LinkedAccount {
     account.createdAt,
     "Invalid linked account response: createdAt must be a date string",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as LinkedAccount
 }
 
-export function validateLinkedAccounts(value: unknown): LinkedAccount[] {
+export function validateLinkedAccounts(value: ApiJsonInput): LinkedAccount[] {
   return validateArray(value, "Invalid linked accounts response").map(
     validateLinkedAccount,
   )
 }
 
-export function validateOAuthStartResponse(value: unknown): { url: string } {
+export function validateOAuthStartResponse(value: ApiJsonInput): {
+  url: string
+} {
   const response = objectRecord(value, "OAuth start")
   validateUrlString(
     response.url,
     "Invalid OAuth start response: url must be a URL",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { url: string }
 }
 
-export function validateUserUpdateResponse(value: unknown): {
+export function validateUserUpdateResponse(value: ApiJsonInput): {
   user: AuthUser
 } {
   const response = objectRecord(value, "update user")
   validateAuthUser(response.user)
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { user: AuthUser }
 }
 
-export function validateSuccessResponse(value: unknown): { success: true } {
+export function validateSuccessResponse(value: ApiJsonInput): {
+  success: true
+} {
   return booleanFlagResponseValidator("success", true)(value)
 }

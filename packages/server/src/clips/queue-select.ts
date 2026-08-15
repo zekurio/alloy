@@ -6,7 +6,7 @@ import { desc, eq } from "drizzle-orm"
 
 import { clipAssetVersion } from "./asset-version"
 
-const queueSelectShape = {
+const queueSelection = {
   id: clip.id,
   gameId: clip.game_id,
   gameSlug: game.slug,
@@ -67,7 +67,7 @@ export async function selectQueueRowsForAuthor(
   authorId: string,
 ): Promise<QueueClip[]> {
   const rows = await db
-    .select(queueSelectShape)
+    .select(queueSelection)
     .from(clip)
     .leftJoin(game, eq(clip.game_id, game.id))
     .where(eq(clip.author_id, authorId))
@@ -80,7 +80,7 @@ export async function selectQueueRowById(
   clipId: string,
 ): Promise<QueueClip | null> {
   const [row] = await db
-    .select(queueSelectShape)
+    .select(queueSelection)
     .from(clip)
     .leftJoin(game, eq(clip.game_id, game.id))
     .where(eq(clip.id, clipId))

@@ -11,10 +11,18 @@ const loadLibraryEditorPage = async () => {
 
 const LibraryEditorPage = lazy(loadLibraryEditorPage)
 
+interface LibraryEditorSearch {
+  prompt?: "game"
+}
+
+function parseLibraryEditorSearch(search: {
+  prompt?: unknown
+}): LibraryEditorSearch {
+  return search.prompt === "game" ? { prompt: "game" } : {}
+}
+
 export const Route = createFileRoute("/(app)/_app/library/$captureId")({
-  validateSearch: (search: Record<string, unknown>): { prompt?: "game" } => ({
-    prompt: search.prompt === "game" ? "game" : undefined,
-  }),
+  validateSearch: parseLibraryEditorSearch,
   beforeLoad: async ({ context }) => {
     await requireStrictAuthBeforeLoad({ context })
     if (!alloyDesktop()) throw redirect({ to: "/" })

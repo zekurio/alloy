@@ -3,7 +3,7 @@ import { clip, clipView, game, gameFollow } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm"
 
-import { gameSelectShape, serialiseGameRow } from "./game-row"
+import { gameSelection, serialiseGameRow } from "./game-row"
 import { exactNameKey, normalizedNameKey } from "./name-match"
 
 export type IndexedGameNameLookupCandidate = {
@@ -39,7 +39,7 @@ export async function lookupIndexedGamesByName(
 
   const rows = await db
     .select({
-      ...gameSelectShape,
+      ...gameSelection,
       clipNames: sql<
         string[]
       >`coalesce(array_remove(array_agg(distinct ${clip.game}), null), ARRAY[]::text[])`,

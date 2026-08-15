@@ -59,9 +59,9 @@ export function clipDetailQueryOptions(
     },
     // Keep the previous clip visible while the next one loads so
     // route-driven modal navigation feels continuous.
-    ...(keepPreviousData
-      ? { placeholderData: (previous: ClipRow | undefined) => previous }
-      : {}),
+    placeholderData: keepPreviousData
+      ? (previous: ClipRow | undefined) => previous
+      : undefined,
   })
 }
 
@@ -124,6 +124,8 @@ export function useUpdateClipMutation() {
       // immediately overwritten by a stale response.
       await qc.cancelQueries({ queryKey: clipKeys.all })
       const snap = snapshotClips(qc)
+      // SAFETY: UpdateClipInput contains only mutable ClipRow fields with the
+      // same value types.
       patchClipInCaches(qc, clipId, input as Partial<ClipRow>)
       return snap
     },

@@ -1,3 +1,5 @@
+import type { ContractJsonInput } from "./json-value"
+
 export type IsoDateString = string
 
 export const CLIP_PRIVACY = ["public", "unlisted", "private"] as const
@@ -32,7 +34,7 @@ export type ClipAudioTrackKind = (typeof CLIP_AUDIO_TRACK_KINDS)[number]
  * track (or the clip carrying it) over a cosmetic classification.
  */
 export function normalizeClipAudioTrackKind(
-  value: unknown,
+  value: ContractJsonInput,
 ): ClipAudioTrackKind {
   const known = CLIP_AUDIO_TRACK_KINDS.find((kind) => kind === value)
   return known ?? "other"

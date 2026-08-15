@@ -32,7 +32,7 @@ const games = []
 const executables = new Map()
 
 for (const raw of payload) {
-  if (!raw || typeof raw !== "object") continue
+  if (!raw) continue
   const id = stringValue(raw.id)
   const name = stringValue(raw.name)
   if (!id || !name) continue
@@ -44,7 +44,7 @@ for (const raw of payload) {
   for (const executable of Array.isArray(raw.executables)
     ? raw.executables
     : []) {
-    if (!executable || typeof executable !== "object") continue
+    if (!executable) continue
     if (executable.os !== "win32") continue
 
     const executableName = stringValue(executable.name)
@@ -106,9 +106,7 @@ const nextPayload = {
 const existing = readExistingPayload()
 if (existing && sameDetectorPayload(existing, nextPayload)) {
   nextPayload.generatedAt =
-    typeof existing.generatedAt === "string"
-      ? existing.generatedAt
-      : nextPayload.generatedAt
+    stringValue(existing.generatedAt) || nextPayload.generatedAt
 }
 
 const nextJson = `${JSON.stringify(nextPayload, null, 2)}\n`
@@ -122,7 +120,7 @@ writeOutput(
 )
 
 function stringValue(value) {
-  return typeof value === "string" ? value.trim() : ""
+  return value?.constructor === String ? value.trim() : ""
 }
 
 function arrayStrings(value) {

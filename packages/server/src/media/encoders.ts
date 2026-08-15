@@ -14,10 +14,7 @@ export interface TranscodeEncoder {
   name: string
 }
 
-const ENCODER_MATRIX: Record<
-  VideoCodec,
-  Record<HardwareAcceleration, string | null>
-> = {
+const ENCODER_MATRIX = {
   h264: {
     none: "libx264",
     nvenc: "h264_nvenc",
@@ -39,7 +36,7 @@ const ENCODER_MATRIX: Record<
     vaapi: "av1_vaapi",
     videotoolbox: null,
   },
-}
+} satisfies Record<VideoCodec, Record<HardwareAcceleration, string | null>>
 
 export function transcodeEncoder(
   codec: VideoCodec,

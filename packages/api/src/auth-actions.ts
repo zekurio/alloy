@@ -23,7 +23,7 @@ import {
   validateUserUpdateResponse,
 } from "./auth-validators"
 import { errorFrom } from "./error"
-
+import type { ApiJsonValue } from "./json-value"
 type WebAuthnBrowser = typeof import("@simplewebauthn/browser")
 
 function loadWebAuthnBrowser(): Promise<WebAuthnBrowser> {
@@ -124,19 +124,16 @@ async function completeRegistrationChallenge<T>(
     verifyPath: string
     method: "POST"
     body?: unknown
-    extraVerifyBody?: Record<string, unknown>
+    extraVerifyBody?: Record<string, ApiJsonValue>
     validateResult: JsonValidator<T>
   },
 ): Promise<T> {
+  const init: RequestInit = { method: options.method }
+  if (options.body !== undefined) init.body = JSON.stringify(options.body)
   const [start, { startRegistration }] = await Promise.all([
     request(
       options.optionsPath,
-      {
-        method: options.method,
-        ...(options.body === undefined
-          ? {}
-          : { body: JSON.stringify(options.body) }),
-      },
+      init,
       validatePasskeyRegistrationOptionsResponse,
     ),
     loadWebAuthnBrowser(),

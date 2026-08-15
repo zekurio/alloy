@@ -35,6 +35,8 @@ export function tbValidator<
   schema: Schema,
   hook?: Hook<StaticDecode<Schema>, AppEnv, Path>,
 ): MiddlewareHandler<AppEnv, Path, Value> {
+  // SAFETY: safeParse returns the schema's decoded output on success, which
+  // matches the Hono input and output mapping declared by Value.
   return validator(target, async (value, context) => {
     const result = safeParse(schema, value)
     if (result.success) {
@@ -46,7 +48,7 @@ export function tbValidator<
     const response = hook?.(result, context)
     if (response) return response
     return context.json(validationErrorBody(target, result.error), 400)
-  }) as unknown as MiddlewareHandler<AppEnv, Path, Value>
+  }) as MiddlewareHandler<AppEnv, Path, Value>
 }
 
 export function limitQueryParam(max: number, defaultValue: number) {
@@ -114,17 +116,17 @@ function validationErrorMessage(
   target: string,
   issues: { path: string; message: string }[],
 ) {
-  const labels: Record<string, string> = {
-    cookie: "cookies",
-    form: "form data",
-    header: "headers",
-    json: "request body",
-    param: "path parameters",
-    query: "query parameters",
-  }
+  const labels = new Map<string, string>([
+    ["cookie", "cookies"],
+    ["form", "form data"],
+    ["header", "headers"],
+    ["json", "request body"],
+    ["param", "path parameters"],
+    ["query", "query parameters"],
+  ])
   const first = issues[0]
-  if (!first) return `Invalid ${labels[target] ?? target}.`
+  if (!first) return `Invalid ${labels.get(target) ?? target}.`
   if (!first.path)
-    return `Invalid ${labels[target] ?? target}: ${first.message}`
-  return `Invalid ${labels[target] ?? target}: ${first.path}: ${first.message}`
+    return `Invalid ${labels.get(target) ?? target}: ${first.message}`
+  return `Invalid ${labels.get(target) ?? target}: ${first.path}: ${first.message}`
 }

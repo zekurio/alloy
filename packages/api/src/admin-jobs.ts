@@ -15,6 +15,12 @@ import {
 import { readJsonOrThrow } from "./http"
 import { readSuccessJson } from "./mutations"
 
+type FailedJobsQuery = {
+  kind?: string
+  cursor?: string
+  limit?: string
+}
+
 export async function reEncodeAllClips(
   context: ApiContext,
 ): Promise<{ enqueued: number; hasMore: boolean }> {
@@ -33,12 +39,12 @@ export async function fetchFailedJobs(
   context: ApiContext,
   options: { kind?: string; cursor?: string; limit?: number } = {},
 ): Promise<AdminFailedJobsPage> {
+  const query: FailedJobsQuery = {}
+  if (options.kind) query.kind = options.kind
+  if (options.cursor) query.cursor = options.cursor
+  if (options.limit) query.limit = String(options.limit)
   const res = await context.rpc.api.admin.jobs.failed.$get({
-    query: {
-      ...(options.kind ? { kind: options.kind } : {}),
-      ...(options.cursor ? { cursor: options.cursor } : {}),
-      ...(options.limit ? { limit: String(options.limit) } : {}),
-    },
+    query,
   })
   return readJsonOrThrow(res, validateAdminFailedJobsPage)
 }

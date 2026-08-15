@@ -150,7 +150,22 @@ export function callbackURLForProvider(
 function compactProviderInput(
   provider: AdminOAuthProviderInput,
 ): AdminOAuthProviderInput {
-  const optionalStringKeys: (keyof AdminOAuthProviderInput)[] = [
+  type OptionalStringKey =
+    | "clientSecret"
+    | "discoveryUrl"
+    | "authorizationUrl"
+    | "tokenUrl"
+    | "userInfoUrl"
+    | "uidClaim"
+    | "usernameClaim"
+    | "avatarClaim"
+    | "quotaClaim"
+    | "roleClaim"
+    | "buttonColor"
+    | "buttonTextColor"
+    | "iconUrl"
+
+  const optionalStringKeys = [
     "clientSecret",
     "discoveryUrl",
     "authorizationUrl",
@@ -164,12 +179,10 @@ function compactProviderInput(
     "buttonColor",
     "buttonTextColor",
     "iconUrl",
-  ]
+  ] satisfies OptionalStringKey[]
   const next = { ...provider }
   for (const key of optionalStringKeys) {
-    if (typeof next[key] === "string" && next[key].trim().length === 0) {
-      delete next[key]
-    }
+    if (next[key]?.trim().length === 0) delete next[key]
   }
   if (next.scopes?.length === 0) delete next.scopes
   return next

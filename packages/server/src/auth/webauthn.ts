@@ -1,7 +1,9 @@
 import { Buffer } from "node:buffer"
 
+import { t } from "@alloy/contracts/schema"
 import {
   authChallenge,
+  type AuthChallengePayload,
   type User,
   type UserPasskey,
   userPasskey,
@@ -30,6 +32,16 @@ import {
 const RP_NAME = "alloy"
 const REGISTRATION_TTL_MS = 15 * 60 * 1000
 const AUTHENTICATION_TTL_MS = 5 * 60 * 1000
+const WebAuthnContextPayloadSchema = t.object({
+  webAuthnOrigin: t.string(),
+  webAuthnRpId: t.string(),
+})
+const RegistrationPayloadSchema = t.object({
+  email: t.string().optional(),
+  setupFirstAdmin: t.boolean().optional(),
+  userId: t.string().optional(),
+  username: t.string().optional(),
+})
 
 type RegistrationPayload = {
   email?: string
@@ -69,7 +81,7 @@ async function createChallenge(input: {
   purpose: string
   identifier: string
   challenge: string
-  payload: Record<string, unknown>
+  payload: AuthChallengePayload
   ttlMs: number
 }): Promise<{ id: string }> {
   const [challenge] = await db
@@ -222,6 +234,8 @@ export async function verifyPasskeyAuthentication(input: {
     expectedRPID: context?.rpId ?? new URL(env.PUBLIC_SERVER_URL).hostname,
     credential: {
       id: credential.passkey.credential_id,
+      // SAFETY: The decoder returns Uint8Array bytes, which is the library's
+      // runtime credential public-key representation.
       publicKey: base64UrlToBytes(credential.passkey.public_key) as Uint8Array_,
       counter: credential.passkey.counter,
       transports: transports(credential.passkey),
@@ -253,9 +267,9 @@ function currentWebAuthnContext(
 }
 
 function challengePayload(
-  payload: Record<string, unknown>,
+  payload: AuthChallengePayload,
   context: WebAuthnChallengeContext,
-): Record<string, unknown> {
+) {
   return {
     ...payload,
     webAuthnOrigin: context.origin,
@@ -264,7 +278,7 @@ function challengePayload(
 }
 
 function webAuthnContextFromPayload(
-  payload: Record<string, unknown>,
+  payload: AuthChallengePayload,
 ): WebAuthnChallengeContext | null {
   if (
     payload.webAuthnOrigin === undefined &&
@@ -272,34 +286,19 @@ function webAuthnContextFromPayload(
   ) {
     return null
   }
-  if (
-    typeof payload.webAuthnOrigin === "string" &&
-    typeof payload.webAuthnRpId === "string"
-  ) {
+  const parsed = WebAuthnContextPayloadSchema.safeParse(payload)
+  if (parsed.success)
     return {
-      origin: payload.webAuthnOrigin,
-      rpId: payload.webAuthnRpId,
+      origin: parsed.data.webAuthnOrigin,
+      rpId: parsed.data.webAuthnRpId,
     }
-  }
   throw new Error("Passkey challenge payload is invalid.")
 }
 
 function requireRegistrationPayload(
-  payload: Record<string, unknown>,
+  payload: AuthChallengePayload,
 ): RegistrationPayload {
-  if (
-    (payload.email === undefined || typeof payload.email === "string") &&
-    (payload.setupFirstAdmin === undefined ||
-      typeof payload.setupFirstAdmin === "boolean") &&
-    (payload.userId === undefined || typeof payload.userId === "string") &&
-    (payload.username === undefined || typeof payload.username === "string")
-  ) {
-    return {
-      email: payload.email,
-      setupFirstAdmin: payload.setupFirstAdmin,
-      userId: payload.userId,
-      username: payload.username,
-    }
-  }
+  const parsed = RegistrationPayloadSchema.safeParse(payload)
+  if (parsed.success) return parsed.data
   throw new Error("Passkey registration payload is invalid.")
 }

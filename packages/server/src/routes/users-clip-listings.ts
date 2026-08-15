@@ -2,9 +2,9 @@ import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipLike, clipMention, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
-import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
+import { clipSelection, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
-import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
+import { gameSelection, serialiseGameRow } from "@alloy/server/games/ref"
 import { and, desc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm"
 import type { Context } from "hono"
 
@@ -27,7 +27,7 @@ export async function listUserClips(row: UserRow, c: Context) {
   })
 
   const rows = await db
-    .select(clipSelectShape)
+    .select(clipSelection)
     .from(clip)
     .innerJoin(user, eq(clip.author_id, user.id))
     .leftJoin(game, eq(clip.game_id, game.id))
@@ -48,7 +48,7 @@ export async function listUserGames(
 
   const rows = await db
     .select({
-      ...gameSelectShape,
+      ...gameSelection,
       clipCount: sql<number>`count(${clip.id})::int`,
       lastClippedAt,
     })
@@ -106,7 +106,7 @@ export async function listTaggedClips(row: UserRow, c: Context) {
   }
 
   const rows = await db
-    .select(clipSelectShape)
+    .select(clipSelection)
     .from(clipMention)
     .innerJoin(clip, eq(clipMention.clip_id, clip.id))
     .innerJoin(user, eq(clip.author_id, user.id))
@@ -134,7 +134,7 @@ export async function listLikedClips(row: UserRow, c: Context) {
   }
 
   const rows = await db
-    .select(clipSelectShape)
+    .select(clipSelection)
     .from(clipLike)
     .innerJoin(clip, eq(clipLike.clip_id, clip.id))
     .innerJoin(user, eq(clip.author_id, user.id))

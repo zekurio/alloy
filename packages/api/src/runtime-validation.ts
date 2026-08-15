@@ -1,40 +1,56 @@
-import { GAME_ASSET_PATH_PREFIX, isObjectRecord } from "@alloy/contracts"
+import {
+  GAME_ASSET_PATH_PREFIX,
+  isBooleanValue,
+  isFiniteNumberValue,
+  isObjectRecord,
+  isStringValue,
+} from "@alloy/contracts"
+
+import type { ApiJsonInput, ApiJsonValue } from "./json-value"
 
 export function objectRecord(
-  value: unknown,
+  value: ApiJsonInput,
   label: string,
-): Record<string, unknown> {
+): Record<string, ApiJsonValue> {
   if (!isObjectRecord(value)) {
     throw new Error(`Invalid ${label} response`)
   }
-  return value as Record<string, unknown>
+  return value
 }
 
-export function validateArray(value: unknown, message: string): unknown[] {
+export function validateArray(
+  value: ApiJsonInput,
+  message: string,
+): ApiJsonValue[] {
   if (!Array.isArray(value)) throw new Error(message)
   return value
 }
 
-export function validateStringArray(value: unknown, message: string): string[] {
+export function validateStringArray(
+  value: ApiJsonInput,
+  message: string,
+): string[] {
   const items = validateArray(value, message)
-  if (items.some((item) => typeof item !== "string")) throw new Error(message)
+  if (items.some((item) => !isStringValue(item))) throw new Error(message)
+  // SAFETY: Every array element passed the string schema check above.
   return items as string[]
 }
 
 export function validateStringRecord(
-  value: unknown,
+  value: ApiJsonInput,
   label: string,
   message: string,
 ): Record<string, string> {
   const record = objectRecord(value, label)
   for (const [key, item] of Object.entries(record)) {
-    if (!key.trim() || typeof item !== "string") throw new Error(message)
+    if (!key.trim() || !isStringValue(item)) throw new Error(message)
   }
+  // SAFETY: Every record entry passed the non-empty key and string value checks.
   return record as Record<string, string>
 }
 
 export function validateBatchProgress<T extends string>(
-  value: unknown,
+  value: ApiJsonInput,
   label: string,
   countKey: T,
 ): Record<T, number> & { hasMore: boolean } {
@@ -47,32 +63,33 @@ export function validateBatchProgress<T extends string>(
     response.hasMore,
     `Invalid ${label} response: hasMore must be boolean`,
   )
+  // SAFETY: The dynamic count field and hasMore field passed their checks above.
   return value as Record<T, number> & { hasMore: boolean }
 }
 
-export function validateBoolean(value: unknown, message: string) {
-  if (typeof value !== "boolean") throw new Error(message)
+export function validateBoolean(value: ApiJsonInput, message: string) {
+  if (!isBooleanValue(value)) throw new Error(message)
 }
 
 export function validateString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string {
-  if (typeof value !== "string") throw new Error(message)
+  if (!isStringValue(value)) throw new Error(message)
 }
 
 export function validateEnumString(
-  value: unknown,
+  value: ApiJsonInput,
   allowedValues: ReadonlySet<string>,
   message: string,
 ): asserts value is string {
-  if (typeof value !== "string" || !allowedValues.has(value)) {
+  if (!isStringValue(value) || !allowedValues.has(value)) {
     throw new Error(message)
   }
 }
 
 export function validateNullableEnumString(
-  value: unknown,
+  value: ApiJsonInput,
   allowedValues: ReadonlySet<string>,
   message: string,
 ): asserts value is string | null {
@@ -80,21 +97,21 @@ export function validateNullableEnumString(
 }
 
 export function validateRequiredString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string {
-  if (typeof value !== "string" || !value.trim()) throw new Error(message)
+  if (!isStringValue(value) || !value.trim()) throw new Error(message)
 }
 
-export function validateOptionalString(value: unknown, message: string) {
+export function validateOptionalString(value: ApiJsonInput, message: string) {
   if (value !== undefined) validateString(value, message)
 }
 
 export function validateUrlString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string {
-  if (typeof value !== "string") throw new Error(message)
+  if (!isStringValue(value)) throw new Error(message)
   try {
     new URL(value)
   } catch {
@@ -102,7 +119,10 @@ export function validateUrlString(
   }
 }
 
-export function validateOptionalUrlString(value: unknown, message: string) {
+export function validateOptionalUrlString(
+  value: ApiJsonInput,
+  message: string,
+) {
   if (value !== undefined) validateUrlString(value, message)
 }
 
@@ -142,7 +162,7 @@ function isPublicAssetPath(value: string) {
 }
 
 export function validatePublicImageSrcString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string {
   validateString(value, message)
@@ -151,43 +171,43 @@ export function validatePublicImageSrcString(
 }
 
 export function validateNullablePublicImageSrcString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string | null {
   if (value !== null) validatePublicImageSrcString(value, message)
 }
 
 export function validateNullableUrlString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string | null {
   if (value !== null) validateUrlString(value, message)
 }
 
 export function validateNullableString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string | null {
   if (value !== null) validateString(value, message)
 }
 
 export function validateNullableRequiredString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string | null {
   if (value !== null) validateRequiredString(value, message)
 }
 
 export function validateNumber(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
+  if (!isFiniteNumberValue(value)) {
     throw new Error(message)
   }
 }
 
-export function validatePositiveInteger(value: unknown, message: string) {
+export function validatePositiveInteger(value: ApiJsonInput, message: string) {
   validateNumber(value, message)
   if (!Number.isInteger(value) || value <= 0) {
     throw new Error(message)
@@ -195,7 +215,7 @@ export function validatePositiveInteger(value: unknown, message: string) {
 }
 
 export function validateNonNegativeInteger(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is number {
   validateNumber(value, message)
@@ -205,21 +225,21 @@ export function validateNonNegativeInteger(
 }
 
 export function validateNullableNonNegativeInteger(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ) {
   if (value !== null) validateNonNegativeInteger(value, message)
 }
 
 export function validateNullablePositiveInteger(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ) {
   if (value !== null) validatePositiveInteger(value, message)
 }
 
 export function validateIntegerInRange(
-  value: unknown,
+  value: ApiJsonInput,
   min: number,
   max: number,
   message: string,
@@ -231,7 +251,7 @@ export function validateIntegerInRange(
 }
 
 export function validateNonNegativeNumber(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): number {
   validateNumber(value, message)
@@ -247,11 +267,11 @@ function isCanonicalIsoDateString(value: string): boolean {
 }
 
 export function validateIsoDateString(
-  value: unknown,
+  value: ApiJsonInput,
   message: string,
 ): asserts value is string {
   if (
-    typeof value !== "string" ||
+    !isStringValue(value) ||
     !value.trim() ||
     !isCanonicalIsoDateString(value)
   ) {
@@ -259,6 +279,9 @@ export function validateIsoDateString(
   }
 }
 
-export function validateNullableDateString(value: unknown, message: string) {
+export function validateNullableDateString(
+  value: ApiJsonInput,
+  message: string,
+) {
   if (value !== null) validateIsoDateString(value, message)
 }

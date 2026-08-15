@@ -22,6 +22,7 @@ import {
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
 import { Switch } from "@alloy/ui/components/switch"
+import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import {
   ArrowRightIcon,
@@ -33,7 +34,7 @@ import {
   Volume2Icon,
 } from "lucide-react"
 import { useMemo } from "react"
-import type { CSSProperties, ReactNode } from "react"
+import type { ReactNode } from "react"
 
 import {
   mergeAudioDevices,
@@ -163,14 +164,12 @@ function RecordingStatusPopover({
         side="top"
         sideOffset={0}
         className="alloy-blur w-[26rem] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0"
-        style={
-          {
-            "--alloy-blur-opacity": "90%",
-            "--alloy-blur-blur": "36px",
-            "--alloy-blur-shadow":
-              "0 30px 80px -32px var(--floating-shadow-strong-color)",
-          } as CSSProperties
-        }
+        style={cssVariables({
+          "--alloy-blur-opacity": "90%",
+          "--alloy-blur-blur": "36px",
+          "--alloy-blur-shadow":
+            "0 30px 80px -32px var(--floating-shadow-strong-color)",
+        })}
       >
         <RecordingStatusContent
           displays={displays}
@@ -329,13 +328,11 @@ function RecordingCaptureTarget({
     <>
       <div
         className="alloy-blur relative flex h-24 overflow-hidden rounded-md border text-center"
-        style={
-          {
-            "--alloy-blur-opacity": "58%",
-            "--alloy-blur-blur": "24px",
-            "--alloy-blur-shadow": "none",
-          } as CSSProperties
-        }
+        style={cssVariables({
+          "--alloy-blur-opacity": "58%",
+          "--alloy-blur-blur": "24px",
+          "--alloy-blur-shadow": "none",
+        })}
       >
         {settings?.captureMode === "display" &&
         activeDisplay?.thumbnailDataUrl ? (

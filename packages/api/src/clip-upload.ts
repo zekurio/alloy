@@ -2,7 +2,7 @@ import type { UploadTicket } from "@alloy/contracts"
 
 import { toError } from "./error"
 import { parseErrorMessagePayload } from "./http"
-
+import type { ApiJsonInput } from "./json-value"
 const UPLOAD_TIMEOUT_GRACE_MS = 30_000
 const MIN_UPLOAD_TIMEOUT_MS = 30_000
 
@@ -177,7 +177,7 @@ function ticketTimeoutMs(ticket: UploadTicket): number {
 async function postTicketControl(
   uploadUrl: string,
   suffix: string,
-  json: unknown,
+  json: ApiJsonInput,
   signal?: AbortSignal,
 ): Promise<void> {
   const res = await fetch(`${uploadUrl}/${suffix}`, {

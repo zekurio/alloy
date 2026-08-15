@@ -18,7 +18,7 @@ import {
 } from "../routes/cursor-codec"
 import {
   serialiseUserSummary,
-  userSummarySelectShape,
+  userSummarySelection,
 } from "../routes/users-helpers"
 import { publishNotification } from "./events"
 
@@ -99,7 +99,7 @@ export async function hydrateNotifications(
   const [actors, clips, comments] = await Promise.all([
     actorIds.length > 0
       ? db
-          .select(userSummarySelectShape)
+          .select(userSummarySelection)
           .from(user)
           .where(inArray(user.id, actorIds))
       : [],

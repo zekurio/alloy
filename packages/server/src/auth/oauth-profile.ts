@@ -7,9 +7,11 @@ import {
   USER_ROLES,
   type UserRole,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { configStore } from "@alloy/server/config/store"
 import {
   type Configuration,
+  type JsonObject,
   skipSubjectCheck,
   type TokenEndpointResponse,
 } from "openid-client"
@@ -19,17 +21,18 @@ import { fetchOAuthUserInfo } from "./oauth-client"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
 
 const GIB = 1024 ** 3
+const OAuthStringClaimSchema = t.string()
+const OAuthQuotaClaimSchema = t.union([t.string(), t.number()])
 
 export async function profileFromTokens(
   config: Configuration,
   provider: OAuthProviderConfig,
   tokens: TokenEndpointResponse & {
-    claims(): Record<string, unknown> | undefined
+    claims(): JsonObject | undefined
   },
 ): Promise<OAuthProfile> {
   const claims = tokens.claims() ?? {}
-  const expectedSubject =
-    typeof claims.sub === "string" ? claims.sub : skipSubjectCheck
+  const expectedSubject = stringClaim(claims, "sub") ?? skipSubjectCheck
   const userInfo =
     provider.fetchUserInfo !== false && tokens.access_token
       ? await fetchOAuthUserInfo(
@@ -82,21 +85,15 @@ export function storedTokens(
   }
 }
 
-function stringClaim(
-  profile: Record<string, unknown>,
-  key: string,
-): string | null {
+function stringClaim(profile: JsonObject, key: string): string | null {
   if (!key) return null
-  const value = profile[key]
-  return typeof value === "string" && value.trim().length > 0
-    ? value.trim()
+  const parsed = OAuthStringClaimSchema.safeParse(profile[key])
+  return parsed.success && parsed.data.trim().length > 0
+    ? parsed.data.trim()
     : null
 }
 
-function httpUrlClaim(
-  profile: Record<string, unknown>,
-  key: string,
-): string | null {
+function httpUrlClaim(profile: JsonObject, key: string): string | null {
   const value = stringClaim(profile, key)
   if (!value || !URL.canParse(value)) return null
   const url = new URL(value)
@@ -105,14 +102,18 @@ function httpUrlClaim(
 }
 
 function roleFromProfile(
-  profile: Record<string, unknown>,
+  profile: JsonObject,
   claim = OAUTH_ROLE_CLAIM_DEFAULT,
 ): UserRole | undefined {
   const value = profile[claim]
-  if (typeof value === "string") return roleFromString(value) ?? undefined
+  const stringValue = OAuthStringClaimSchema.safeParse(value)
+  if (stringValue.success) return roleFromString(stringValue.data) ?? undefined
   if (Array.isArray(value)) {
     const roles = value
-      .map((item) => (typeof item === "string" ? roleFromString(item) : null))
+      .map((item) => {
+        const parsed = OAuthStringClaimSchema.safeParse(item)
+        return parsed.success ? roleFromString(parsed.data) : null
+      })
       .filter((role): role is UserRole => role !== null)
     return roles.includes("admin") ? "admin" : roles[0]
   }
@@ -125,17 +126,13 @@ function roleFromString(value: string): UserRole | null {
 }
 
 function quotaFromProfile(
-  profile: Record<string, unknown>,
+  profile: JsonObject,
   claim = OAUTH_QUOTA_CLAIM_DEFAULT,
 ): number | null | undefined {
   const value = profile[claim]
   if (value === undefined || value === null || value === "") return undefined
-  const gib =
-    typeof value === "number"
-      ? value
-      : typeof value === "string"
-        ? Number(value)
-        : Number.NaN
+  const parsed = OAuthQuotaClaimSchema.safeParse(value)
+  const gib = parsed.success ? Number(parsed.data) : Number.NaN
   if (!Number.isFinite(gib) || gib <= 0) return undefined
   const bytes = Math.round(gib * GIB)
   if (!Number.isSafeInteger(bytes) || bytes <= 0) return undefined

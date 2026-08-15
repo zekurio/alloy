@@ -21,6 +21,18 @@ import {
 
 import { sqlStringList } from "./internal"
 
+type AuthChallengeValue =
+  | string
+  | number
+  | boolean
+  | null
+  | AuthChallengeValue[]
+  | AuthChallengePayload
+
+export type AuthChallengePayload = {
+  [key: string]: AuthChallengeValue
+}
+
 export { USER_ROLES, USER_STATUSES }
 
 export const user = pgTable(
@@ -151,7 +163,7 @@ export const authChallenge = pgTable(
     purpose: text().notNull(),
     identifier: text().notNull(),
     challenge: text().notNull(),
-    payload: jsonb().$type<Record<string, unknown>>().notNull().default({}),
+    payload: jsonb().$type<AuthChallengePayload>().notNull().default({}),
     expires_at: timestamp().notNull(),
     created_at: timestamp().notNull().defaultNow(),
   },

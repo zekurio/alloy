@@ -15,10 +15,11 @@ import {
   type SearchResults,
 } from "@alloy/contracts"
 
+import type { ApiJsonInput } from "../json-value"
 import { validateClipRow } from "./clips"
 import { validateGameListRow } from "./games-media"
 import { validateUserListRow } from "./people"
-export function validateFeedPage(value: unknown): FeedPage {
+export function validateFeedPage(value: ApiJsonInput): FeedPage {
   const page = objectRecord(value, "feed")
   validateArray(
     page.items,
@@ -28,10 +29,11 @@ export function validateFeedPage(value: unknown): FeedPage {
     page.nextCursor,
     "Invalid feed response: nextCursor must be a non-empty string or null",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as FeedPage
 }
 
-function validateFeedChipGame(value: unknown): FeedChipGame {
+function validateFeedChipGame(value: ApiJsonInput): FeedChipGame {
   const row = objectRecord(value, "feed chip game")
   validateRequiredString(row.id, "Invalid feed chips response: id is required")
   validateNullablePositiveInteger(
@@ -58,19 +60,23 @@ function validateFeedChipGame(value: unknown): FeedChipGame {
     row.clipCount,
     "Invalid feed chips response: clipCount must be a non-negative integer",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as FeedChipGame
 }
 
-export function validateFeedChipsResponse(value: unknown): FeedChipsResponse {
+export function validateFeedChipsResponse(
+  value: ApiJsonInput,
+): FeedChipsResponse {
   const response = objectRecord(value, "feed chips")
   validateArray(
     response.games,
     "Invalid feed chips response: games must be an array",
   ).map(validateFeedChipGame)
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as FeedChipsResponse
 }
 
-export function validateSearchResults(value: unknown): SearchResults {
+export function validateSearchResults(value: ApiJsonInput): SearchResults {
   const results = objectRecord(value, "search")
   validateArray(
     results.clips,
@@ -84,5 +90,6 @@ export function validateSearchResults(value: unknown): SearchResults {
     results.users,
     "Invalid search response: users must be an array",
   ).map(validateUserListRow)
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as SearchResults
 }

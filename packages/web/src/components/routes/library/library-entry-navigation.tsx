@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react"
 
 import { useSession } from "@/lib/auth-client"
 import { useUserClipsQuery, warmClipDetailCache } from "@/lib/clip-queries"
-import { alloyDesktop, type RecordingLibraryItem } from "@/lib/desktop"
+import { alloyDesktop } from "@/lib/desktop"
 
 import {
   enrichLibraryItem,
@@ -31,17 +31,7 @@ export type CurrentLibraryEntry =
   | { type: "local"; id: string }
   | { type: "cloud"; id: string }
 
-export function useLibraryEntryNavigation(current: CurrentLibraryEntry): {
-  entries: NavigableLibraryEntry[]
-  currentEntry: NavigableLibraryEntry | null
-  prevEntry: NavigableLibraryEntry | null
-  nextEntry: NavigableLibraryEntry | null
-  localItem: RecordingLibraryItem | null
-  snapshot: ReturnType<typeof useLibrarySnapshot>["snapshot"]
-  error: ReturnType<typeof useLibrarySnapshot>["error"]
-  refreshing: ReturnType<typeof useLibrarySnapshot>["refreshing"]
-  refresh: ReturnType<typeof useLibrarySnapshot>["refresh"]
-} {
+export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
   const desktop = alloyDesktop()
   const { snapshot, error, refreshing, refresh } = useLibrarySnapshot(desktop)
   const gamesByName = useLibraryGameLookup(snapshot)
@@ -230,7 +220,7 @@ export function useLibraryEditorShortcuts({
 }
 
 function isEditableTarget(event: KeyboardEvent): boolean {
-  const target = event.target as HTMLElement | null
+  const target = event.target instanceof HTMLElement ? event.target : null
   return Boolean(
     target &&
     (target.tagName === "INPUT" ||

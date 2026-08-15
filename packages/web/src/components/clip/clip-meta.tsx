@@ -119,6 +119,7 @@ function ClipMeta({
 }: ClipMetaProps) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
+  // SAFETY: The auth API includes the optional role field on session users.
   const viewerRole =
     (session?.user as { role?: string | null } | undefined)?.role ?? null
   const isOwner = viewerId !== null && viewerId === authorId

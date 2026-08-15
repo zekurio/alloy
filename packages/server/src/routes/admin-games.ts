@@ -10,7 +10,7 @@ import { clip, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import {
   availableCustomGameSlug,
-  gameSelectShape,
+  gameSelection,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
 import {
@@ -197,7 +197,7 @@ export const adminGamesRoute = new Hono()
 async function listAdminGames(): Promise<AdminGameRow[]> {
   const rows = await db
     .select({
-      ...gameSelectShape,
+      ...gameSelection,
       clipCount: sql<number>`count(${clip.id})::int`,
     })
     .from(game)
@@ -235,7 +235,7 @@ type AdminGameResult =
 async function loadAdminGame(gameId: string): Promise<AdminGameResult> {
   const [row] = await db
     .select({
-      ...gameSelectShape,
+      ...gameSelection,
       clipCount: sql<number>`count(${clip.id})::int`,
     })
     .from(game)

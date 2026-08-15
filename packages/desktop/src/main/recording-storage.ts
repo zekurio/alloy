@@ -11,6 +11,11 @@ const logger = createLogger("recording")
 
 const GB = 1_000_000_000
 
+interface FilesystemInfo {
+  totalBytes: number
+  availableBytes: number
+}
+
 /** Default capture folder when the user hasn't picked one. */
 export function defaultOutputFolder(): string {
   return join(app.getPath("videos"), "Alloy")
@@ -47,10 +52,7 @@ function ensureFolder(path: string) {
   }
 }
 
-function readFilesystemInfo(path: string): {
-  totalBytes: number
-  availableBytes: number
-} {
+function readFilesystemInfo(path: string): FilesystemInfo {
   try {
     const info = statfsSync(path)
     return {

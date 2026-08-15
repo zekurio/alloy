@@ -17,7 +17,7 @@ import {
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { Switch } from "@alloy/ui/components/switch"
-import { cn } from "@alloy/ui/lib/utils"
+import { cn, sliderValue } from "@alloy/ui/lib/utils"
 import { FolderOpenIcon, PlayIcon } from "lucide-react"
 import { useState } from "react"
 
@@ -299,8 +299,4 @@ function soundOptionLabel(option: RecordingNotificationSoundOption): string {
 
 function fileName(path: string): string {
   return path.replaceAll("\\", "/").split("/").pop() || path
-}
-
-function sliderValue(value: number | readonly number[]): number {
-  return typeof value === "number" ? value : (value[0] ?? 0)
 }

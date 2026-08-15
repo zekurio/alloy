@@ -5,7 +5,7 @@ import { db } from "@alloy/server/db/index"
 import { eq, inArray, like, or } from "drizzle-orm"
 
 import {
-  gameSelectShape,
+  gameSelection,
   type GameMetadataRow,
   serialiseGameRow,
 } from "./game-row"
@@ -16,7 +16,7 @@ const logger = createLogger("steamgriddb")
 
 const GAME_REF_REFRESH_MS = 7 * 24 * 60 * 60 * 1000
 
-export { gameSelectShape, serialiseGameRow } from "./game-row"
+export { gameSelection, serialiseGameRow } from "./game-row"
 export {
   type IndexedGameNameLookupCandidate,
   lookupIndexedGamesByName,
@@ -151,7 +151,7 @@ async function selectCachedGameRef(
   steamgriddbId: number,
 ): Promise<CachedGameMetadataRow | null> {
   const [row] = await db
-    .select({ ...gameSelectShape, updatedAt: game.updated_at })
+    .select({ ...gameSelection, updatedAt: game.updated_at })
     .from(game)
     .where(eq(game.steamgriddb_id, steamgriddbId))
     .limit(1)
@@ -162,7 +162,7 @@ async function selectCachedGameRefById(
   gameId: string,
 ): Promise<CachedGameMetadataRow | null> {
   const [row] = await db
-    .select({ ...gameSelectShape, updatedAt: game.updated_at })
+    .select({ ...gameSelection, updatedAt: game.updated_at })
     .from(game)
     .where(eq(game.id, gameId))
     .limit(1)
@@ -174,7 +174,7 @@ async function selectCachedGameRefsByIds(
 ): Promise<CachedGameMetadataRow[]> {
   if (gameIds.length === 0) return []
   return db
-    .select({ ...gameSelectShape, updatedAt: game.updated_at })
+    .select({ ...gameSelection, updatedAt: game.updated_at })
     .from(game)
     .where(inArray(game.id, gameIds))
 }
@@ -183,7 +183,7 @@ async function selectCachedGameRefBySlug(
   slug: string,
 ): Promise<CachedGameMetadataRow | null> {
   const [row] = await db
-    .select({ ...gameSelectShape, updatedAt: game.updated_at })
+    .select({ ...gameSelection, updatedAt: game.updated_at })
     .from(game)
     .where(eq(game.slug, slug))
     .limit(1)
@@ -243,7 +243,7 @@ async function loadSteamGridDBGameRef(
       target: game.steamgriddb_id,
       set: updateValues,
     })
-    .returning(gameSelectShape)
+    .returning(gameSelection)
 
   return row ? serialiseGameRow(row) : null
 }

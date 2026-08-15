@@ -37,9 +37,7 @@ function activeProfileSegment(pathname: string, username: string): TabSegment {
   const parsed = parseProfilePathname(pathname)
   if (!parsed || parsed.username !== username) return "all"
   const segment = parsed.segment
-  return TABS.some((tab) => tab.segment === segment)
-    ? (segment as TabSegment)
-    : "all"
+  return TABS.find((tab) => tab.segment === segment)?.segment ?? "all"
 }
 
 export function ProfileTabsNav({ username }: ProfileTabsNavProps) {

@@ -14,8 +14,10 @@ import {
   type UserSummary,
 } from "@alloy/contracts"
 
+import type { ApiJsonInput } from "../json-value"
+
 export function validateUserSummary(
-  value: unknown,
+  value: ApiJsonInput,
   label = "user",
 ): UserSummary {
   const row = objectRecord(value, label)
@@ -29,16 +31,17 @@ export function validateUserSummary(
     row.image,
     `Invalid ${label} response: image must be string or null`,
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UserSummary
 }
 
-export function validateUserSummaries(value: unknown): UserSummary[] {
+export function validateUserSummaries(value: ApiJsonInput): UserSummary[] {
   return validateArray(value, "Invalid users response").map((item) =>
     validateUserSummary(item),
   )
 }
 
-export function validateUserListRow(value: unknown): UserListRow {
+export function validateUserListRow(value: ApiJsonInput): UserListRow {
   const row = objectRecord(value, "user list")
   validateUserSummary(row, "user list")
   validateIsoDateString(
@@ -49,11 +52,12 @@ export function validateUserListRow(value: unknown): UserListRow {
     row.clipCount,
     "Invalid user list response: clipCount must be a non-negative integer",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UserListRow
 }
 
 export function validateGameCreatorsResponse(
-  value: unknown,
+  value: ApiJsonInput,
 ): GameCreatorsResponse {
   const response = objectRecord(value, "game creators")
   validateArray(
@@ -68,32 +72,36 @@ export function validateGameCreatorsResponse(
     )
     return row
   })
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as GameCreatorsResponse
 }
 
-export function validateAccountStateResponse(value: unknown): {
+export function validateAccountStateResponse(value: ApiJsonInput): {
   disabledAt: string | null
 } {
   validateAccountDisabledAt(value, "account state", "nullable")
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { disabledAt: string | null }
 }
 
-export function validateDisableAccountResponse(value: unknown): {
+export function validateDisableAccountResponse(value: ApiJsonInput): {
   disabledAt: string
 } {
   validateAccountDisabledAt(value, "disable account", "date")
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { disabledAt: string }
 }
 
-export function validateReactivateAccountResponse(value: unknown): {
+export function validateReactivateAccountResponse(value: ApiJsonInput): {
   disabledAt: null
 } {
   validateAccountDisabledAt(value, "reactivate account", "null")
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { disabledAt: null }
 }
 
 function validateAccountDisabledAt(
-  value: unknown,
+  value: ApiJsonInput,
   label: string,
   mode: "nullable" | "date" | "null",
 ): void {
@@ -117,7 +125,7 @@ function validateAccountDisabledAt(
   }
 }
 
-export function validateDeleteClipsResponse(value: unknown): {
+export function validateDeleteClipsResponse(value: ApiJsonInput): {
   deleted: number
   hasMore: boolean
 } {

@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { authChallenge } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
 import { randomBase64Url, sha256Base64Url } from "@alloy/server/runtime/crypto"
@@ -12,6 +13,7 @@ import { and, eq, gt, lt } from "drizzle-orm"
  */
 const DESKTOP_LINK_PURPOSE = "desktop-link"
 const DESKTOP_LINK_TTL_MS = 2 * 60 * 1000
+const DesktopLinkPayloadSchema = t.object({ userId: t.string() })
 
 export async function deleteExpiredDesktopLinkCodes(): Promise<void> {
   await db
@@ -59,6 +61,6 @@ export async function consumeDesktopLinkCode(
     )
     .returning()
   if (!row) return null
-  const userId = (row.payload as { userId?: unknown }).userId
-  return typeof userId === "string" ? userId : null
+  const parsed = DesktopLinkPayloadSchema.safeParse(row.payload)
+  return parsed.success ? parsed.data.userId : null
 }

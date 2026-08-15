@@ -22,7 +22,5 @@ export function useMediaQuery(query: string): boolean {
 }
 
 function canMatchMedia() {
-  return (
-    typeof window !== "undefined" && typeof window.matchMedia === "function"
-  )
+  return Boolean(globalThis.window?.matchMedia)
 }
