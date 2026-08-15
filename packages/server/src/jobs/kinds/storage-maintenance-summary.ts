@@ -1,11 +1,14 @@
 import { instanceSetting } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 
+import type { JobTransaction } from "../store"
+
 export async function writeStorageMaintenanceSummary(
   key: string,
   value: unknown,
+  tx?: JobTransaction,
 ): Promise<void> {
-  await db
+  await (tx ?? db)
     .insert(instanceSetting)
     .values({ key, value, updated_at: new Date() })
     .onConflictDoUpdate({

@@ -1274,7 +1274,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Apply transcoding changes": "Transkodierungsänderungen anwenden",
   "Background jobs": "Hintergrundjobs",
   "Clean orphaned storage": "Verwaiste Speicherdaten bereinigen",
-  "Clean orphaned storage?": "Verwaiste Speicherdaten bereinigen?",
   "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match; you can also trigger a sweep from the Jobs panel.":
     "Änderungen gelten für neue Uploads. Vorhandene Clips werden automatisch neu kodiert, wenn ihre Renditionen nicht mehr passen; du kannst einen Durchlauf auch im Jobs-Bereich auslösen.",
   Completed: "Abgeschlossen",
@@ -1283,8 +1282,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't discard job": "Job konnte nicht verworfen werden",
   "Couldn't retry job": "Job konnte nicht erneut versucht werden",
   "Couldn't start job": "Job konnte nicht gestartet werden",
-  "Delete old clip objects that are no longer referenced by the database.":
-    "Lösche alte Clip-Objekte, auf die die Datenbank nicht mehr verweist.",
+  "Delete failures": "Fehlgeschlagene Löschungen",
+  "Delete objects": "Objekte löschen",
+  "Delete previewed objects": "Vorgeprüfte Objekte löschen",
+  "Delete previewed objects?": "Vorgeprüfte Objekte löschen?",
   "Deleted orphan objects": "Gelöschte verwaiste Objekte",
   "Deleted stale assets": "Gelöschte veraltete Assets",
   "Discard job": "Job verwerfen",
@@ -1300,9 +1301,23 @@ export const DE_MESSAGES: Record<string, string> = {
   "Loading…": "Wird geladen…",
   "Media encoding": "Medienkodierung",
   Mode: "Modus",
+  "More objects remain. Run another cleanup preview.":
+    "Weitere Objekte sind übrig. Starte eine weitere Bereinigungsvorschau.",
   "No completed run yet": "Noch kein abgeschlossener Lauf",
   Operations: "Aktionen",
+  "Orphan candidates": "Verwaiste Kandidaten",
   Pending: "Ausstehend",
+  "Preview cleanup": "Bereinigung prüfen",
+  "Preview from {time}: {count} object is a candidate for deletion.":
+    "Vorschau von {time}: {count} Objekt kann gelöscht werden.",
+  "Preview from {time}: {count} objects are candidates for deletion.":
+    "Vorschau von {time}: {count} Objekte können gelöscht werden.",
+  "Preview old clip objects that are no longer referenced, then confirm their deletion.":
+    "Prüfe alte Clip-Objekte ohne Datenbankverweis und bestätige danach ihre Löschung.",
+  "This preview expired. Run a new preview.":
+    "Diese Vorschau ist abgelaufen. Starte eine neue Vorschau.",
+  "This preview reached the 10,000-object batch limit. Delete it, then run another preview for the remaining objects.":
+    "Diese Vorschau hat das Limit von 10.000 Objekten erreicht. Lösche sie und starte danach eine weitere Vorschau für die übrigen Objekte.",
   "Prune auth challenges": "Anmeldeanfragen bereinigen",
   "Prune job history": "Jobverlauf bereinigen",
   "Prune notifications": "Benachrichtigungen bereinigen",
@@ -1320,14 +1335,16 @@ export const DE_MESSAGES: Record<string, string> = {
     "Fehlgeschlagene Jobs nach Prüfung der Fehlermeldung erneut versuchen oder verwerfen.",
   "Routine maintenance": "Regelmäßige Wartung",
   Running: "Läuft",
+  "Run a new storage cleanup preview to recover this operation.":
+    "Starte eine neue Vorschau der Speicherbereinigung, um diesen Vorgang wiederherzustellen.",
   Scanned: "Geprüft",
-  "Start cleanup": "Bereinigung starten",
+  "Stale asset candidates": "Veraltete Asset-Kandidaten",
   "Start maintenance work and review its last completed run.":
     "Starte Wartungsarbeiten und prüfe den letzten abgeschlossenen Lauf.",
   "Storage and delivery": "Speicher und Zustellung",
   "Storage cleanup": "Speicherbereinigung",
-  "This permanently deletes old clip objects that are not referenced by Alloy. This action cannot be undone.":
-    "Dies löscht alte Clip-Objekte dauerhaft, auf die Alloy nicht mehr verweist. Diese Aktion kann nicht rückgängig gemacht werden.",
+  "This permanently deletes only the objects in the selected preview. Alloy checks each object again before deletion. This action cannot be undone.":
+    "Dies löscht dauerhaft nur die Objekte aus der ausgewählten Vorschau. Alloy prüft jedes Objekt vor dem Löschen erneut. Diese Aktion kann nicht rückgängig gemacht werden.",
   "Unprobed or invalid": "Nicht geprüft oder ungültig",
   "Up to date": "Aktuell",
   "Clean up uploads": "Uploads bereinigen",

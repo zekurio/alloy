@@ -186,6 +186,7 @@ export async function retry(jobId: string): Promise<boolean> {
       if (!current) return null
       const registration = getJobKind(current.kind)
       if (!registration) return null
+      if (registration.adminRetryable === false) return null
       const parsed = safeParse(registration.schema, current.payload)
       if (!parsed.success) return null
       await registration.onRetry?.(parsed.data, tx)
