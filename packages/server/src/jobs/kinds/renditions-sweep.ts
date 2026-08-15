@@ -108,8 +108,6 @@ async function runRenditionsSweep(
       summary.scanned += 1
       if (row.height === null || row.sourceFps === null) {
         summary.unprobed += 1
-        await enqueueClipEncode(row.id, { trigger: "sweep", priority: 90 })
-        summary.enqueued += 1
         continue
       }
 

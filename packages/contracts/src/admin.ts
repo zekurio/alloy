@@ -360,7 +360,6 @@ export {
   AdminJobsSweepsSchema,
   AdminRenditionSweepSummarySchema,
   AdminStorageGcSummarySchema,
-  AdminStorageVerifySummarySchema,
 } from "./admin-jobs"
 export type {
   AdminFailedJob,
@@ -370,7 +369,6 @@ export type {
   AdminJobsSweeps,
   AdminRenditionSweepSummary,
   AdminStorageGcSummary,
-  AdminStorageVerifySummary,
   AdminSweepKind,
 } from "./admin-jobs"
 

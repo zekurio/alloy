@@ -173,6 +173,9 @@ export async function retry(jobId: string): Promise<boolean> {
       .where(and(eq(job.id, jobId), eq(job.status, "failed")))
       .limit(1)
     if (!current) return null
+    const registration = getJobKind(current.kind)
+    if (!registration) return null
+    if (!safeParse(registration.schema, current.payload).success) return null
     const pendingFields = await absorbPendingTwin(tx, current, {
       priority: 10,
       runAt: sql`now()`,
@@ -201,8 +204,6 @@ export async function retry(jobId: string): Promise<boolean> {
   const registration = getJobKind(row.kind)
   if (registration?.onRetry) {
     const parsed = safeParse(registration.schema, row.payload)
-    // A payload that no longer parses can't be re-run meaningfully; the job is
-    // still re-armed, but skip the side-state restore rather than throw.
     if (parsed.success) await registration.onRetry(parsed.data)
   }
   publishJobStatus(row, "pending")

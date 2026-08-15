@@ -37,14 +37,7 @@ const SNOOZE_JITTER_MS = 1000
 
 const ClipEncodePayloadSchema = t.object({
   clipId: t.uuid(),
-  trigger: t.enum([
-    "upload",
-    "trim",
-    "reencode",
-    "reconcile",
-    "sweep",
-    "repair",
-  ]),
+  trigger: t.enum(["upload", "trim", "reencode", "sweep"]),
 })
 
 export type ClipEncodeTrigger = t.infer<
