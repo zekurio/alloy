@@ -13,7 +13,8 @@ const JOBS_IDLE_REFETCH_INTERVAL_MS = 30000
 
 export function hasActiveJobs(summary: AdminJobsSummary | undefined): boolean {
   return (
-    summary?.kinds.some((kind) => kind.pending > 0 || kind.running > 0) ?? false
+    summary?.queues.some((queue) => queue.pending > 0 || queue.running > 0) ??
+    false
   )
 }
 

@@ -24,20 +24,6 @@ export async function jobCounts(): Promise<
     .groupBy(job.kind, job.status)
 }
 
-export async function nextPendingRunByKind(): Promise<Map<string, Date>> {
-  const rows = await db
-    .select({
-      // mapWith applies the column's driver mapping — a bare sql aggregate
-      // would return the timestamptz as a string despite the Date annotation.
-      runAt: sql`min(${job.run_at})`.mapWith(job.run_at),
-      kind: job.kind,
-    })
-    .from(job)
-    .where(eq(job.status, "pending"))
-    .groupBy(job.kind)
-  return new Map(rows.map((row) => [row.kind, row.runAt]))
-}
-
 // Dismisses a terminally failed job from the admin failed list. Deletes the row
 // rather than cancelling it: the failed row carries no clip state (quarantine
 // lives on clip.encode_failed_fingerprint), so removing it clears the dashboard
