@@ -48,8 +48,8 @@ export interface RegisteredJobKind<ValueSchema extends TSchema = TSchema> {
     error: Error,
     ctx: JobFailureContext,
   ) => Promise<JobAfterCommit | void> | JobAfterCommit | void
-  // Invoked in the same transaction that re-arms a failed job. Lets a kind
-  // restore side state before a dispatcher can see the pending job.
+  // Invoked before a failed job is re-armed, in the same transaction. Lets a
+  // kind lock and restore side state before the job row changes.
   onRetry?: (
     payload: t.infer<ValueSchema>,
     tx: JobTransaction,

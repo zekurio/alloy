@@ -2,6 +2,7 @@ import { safeParse } from "@alloy/contracts/schema"
 import { job, type JobStatus } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { and, eq, inArray, lt, ne, type SQL, sql } from "drizzle-orm"
+import { TransactionRollbackError } from "drizzle-orm/errors"
 
 import { publishJobEvent, publishQueueWake } from "./events"
 import { rearmRecurringJob } from "./recurring"
@@ -170,47 +171,52 @@ export async function cancelByKindDedup(
 }
 
 export async function retry(jobId: string): Promise<boolean> {
-  const row = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select({
-        id: job.id,
-        kind: job.kind,
-        dedup_key: job.dedup_key,
-        payload: job.payload,
+  const row = await db
+    .transaction(async (tx) => {
+      const [current] = await tx
+        .select({
+          id: job.id,
+          kind: job.kind,
+          dedup_key: job.dedup_key,
+          payload: job.payload,
+        })
+        .from(job)
+        .where(and(eq(job.id, jobId), eq(job.status, "failed")))
+        .limit(1)
+      if (!current) return null
+      const registration = getJobKind(current.kind)
+      if (!registration) return null
+      const parsed = safeParse(registration.schema, current.payload)
+      if (!parsed.success) return null
+      await registration.onRetry?.(parsed.data, tx)
+      const pendingFields = await absorbPendingTwin(tx, current, {
+        priority: 10,
+        runAt: sql`now()`,
       })
-      .from(job)
-      .where(and(eq(job.id, jobId), eq(job.status, "failed")))
-      .limit(1)
-    if (!current) return null
-    const registration = getJobKind(current.kind)
-    if (!registration) return null
-    const parsed = safeParse(registration.schema, current.payload)
-    if (!parsed.success) return null
-    const pendingFields = await absorbPendingTwin(tx, current, {
-      priority: 10,
-      runAt: sql`now()`,
+      const [updated] = await tx
+        .update(job)
+        .set({
+          status: "pending",
+          attempt: 0,
+          ...pendingFields,
+          lease_token: null,
+          locked_at: null,
+          started_at: null,
+          finished_at: null,
+          progress: 0,
+          stage: null,
+          error: null,
+          updated_at: sql`now()`,
+        })
+        .where(and(eq(job.id, jobId), eq(job.status, "failed")))
+        .returning(jobEventSelect)
+      if (!updated) tx.rollback()
+      return { ...updated, queue: registration.queue }
     })
-    const [updated] = await tx
-      .update(job)
-      .set({
-        status: "pending",
-        attempt: 0,
-        ...pendingFields,
-        lease_token: null,
-        locked_at: null,
-        started_at: null,
-        finished_at: null,
-        progress: 0,
-        stage: null,
-        error: null,
-        updated_at: sql`now()`,
-      })
-      .where(and(eq(job.id, jobId), eq(job.status, "failed")))
-      .returning(jobEventSelect)
-    if (!updated) return null
-    await registration.onRetry?.(parsed.data, tx)
-    return { ...updated, queue: registration.queue }
-  })
+    .catch((error: unknown) => {
+      if (error instanceof TransactionRollbackError) return null
+      throw error
+    })
   if (!row) return false
   publishJobStatus(row, "pending")
   publishQueueWake(row.queue)
