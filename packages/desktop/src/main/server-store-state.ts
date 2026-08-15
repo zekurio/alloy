@@ -5,6 +5,13 @@ import {
   type RecordingSettings,
 } from "@alloy/contracts"
 
+import {
+  parseString,
+  parseUntrustedRecord,
+  type UntrustedInput,
+  type UntrustedRecord,
+} from "./runtime-validation"
+
 export interface DesktopState {
   version: 2
   servers: DesktopSavedServer[]
@@ -21,7 +28,7 @@ export const EMPTY_STATE: DesktopState = {
   deviceId: null,
 }
 
-export function normalizeState(parsed: Record<string, unknown>): DesktopState {
+export function normalizeState(parsed: UntrustedRecord): DesktopState {
   if (parsed.version !== 2) return EMPTY_STATE
   const servers = Array.isArray(parsed.servers)
     ? parsed.servers
@@ -33,7 +40,7 @@ export function normalizeState(parsed: Record<string, unknown>): DesktopState {
     version: 2,
     servers: dedupeServers(servers).slice(0, MAX_SAVED_SERVERS),
     recording: normalizeRecordingSettings(parsed.recording),
-    deviceId: typeof parsed.deviceId === "string" ? parsed.deviceId : null,
+    deviceId: parseString(parsed.deviceId),
   }
 }
 
@@ -48,16 +55,16 @@ export function upsertServer(
   ]).slice(0, MAX_SAVED_SERVERS)
 }
 
-function normalizeSavedServer(value: unknown): DesktopSavedServer | null {
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  if (typeof record.serverUrl !== "string") return null
+function normalizeSavedServer(
+  value: UntrustedInput,
+): DesktopSavedServer | null {
+  const record = parseUntrustedRecord(value)
+  const serverUrl = parseString(record?.serverUrl)
+  if (serverUrl === null) return null
   return {
-    serverUrl: record.serverUrl,
+    serverUrl,
     lastConnectedAt:
-      typeof record.lastConnectedAt === "string"
-        ? record.lastConnectedAt
-        : new Date(0).toISOString(),
+      parseString(record?.lastConnectedAt) ?? new Date(0).toISOString(),
   }
 }
 

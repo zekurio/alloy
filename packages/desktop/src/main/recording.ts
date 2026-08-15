@@ -72,7 +72,9 @@ export { cancelReplaySaveRequestedSoundSuppression } from "./recording-sound-pol
 setRecordingNotificationSoundPlayer((path, volume) => {
   const client = getSidecarClient()
   if (!client) return Promise.resolve()
-  return client.request("playNotificationSound", { path, volume })
+  return client
+    .request("playNotificationSound", { path, volume })
+    .then(() => undefined)
 })
 
 export async function getRecordingStatus(): Promise<RecordingStatus> {
@@ -80,7 +82,7 @@ export async function getRecordingStatus(): Promise<RecordingStatus> {
   if (!client) return unavailableRecordingStatus()
 
   try {
-    const status = await client.request<RecordingStatus>("status")
+    const status = await client.request("status")
     rememberRecordingStatus(status)
     return status
   } catch (cause) {
@@ -97,7 +99,7 @@ export async function listGameProcesses(): Promise<RecordingGameProcess[]> {
   if (!client) return []
 
   try {
-    return await client.request<RecordingGameProcess[]>("listGameProcesses")
+    return await client.request("listGameProcesses")
   } catch (cause) {
     logger.warn("failed to list game processes:", cause)
     return []
@@ -107,12 +109,10 @@ export async function listGameProcesses(): Promise<RecordingGameProcess[]> {
 export async function listRecordingDisplays(): Promise<RecordingDisplay[]> {
   const client = getSidecarClient()
   const obsDisplays = client
-    ? await client
-        .request<RecordingDisplay[]>("listDisplays")
-        .catch((cause) => {
-          logger.warn("failed to list OBS displays:", cause)
-          return []
-        })
+    ? await client.request("listDisplays").catch((cause) => {
+        logger.warn("failed to list OBS displays:", cause)
+        return []
+      })
     : []
 
   return listElectronRecordingDisplays(obsDisplays)
@@ -245,13 +245,13 @@ export function playReplaySaveRequestedSound(): boolean {
 
 async function runRecordingAction(
   method: "saveReplayClip",
-  params?: unknown,
+  params?: SaveReplayClipRequest,
 ): Promise<RecordingActionResult> {
   const client = getSidecarClient()
   if (!client) return unavailableRecordingAction()
 
   try {
-    const result = await client.request<RecordingActionResult>(method, params)
+    const result = await client.request(method, params)
     if (!result.ok || !result.capture) {
       rememberRecordingStatus(result.status)
       return result

@@ -15,7 +15,7 @@ function fromHere(path: string): string {
 // calls throw and abort the preload build. Fall back to no-ops so the reporter
 // degrades to plain logging instead of crashing the build.
 const stdout = process.stdout
-if (typeof stdout.clearLine !== "function") {
+if (!stdout.clearLine) {
   stdout.clearLine = () => true
   stdout.cursorTo = () => true
   stdout.moveCursor = () => true

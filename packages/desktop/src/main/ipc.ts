@@ -34,6 +34,7 @@ import {
   listNotificationSoundLibrary,
   playRecordingNotificationSound,
 } from "./recording-notification-sounds"
+import { parseBoolean, type UntrustedInput } from "./runtime-validation"
 import { getRecordingSettings, saveRecordingSettings } from "./server-store"
 import {
   checkForUpdatesNow,
@@ -68,8 +69,7 @@ export function registerBridge(windows: Windows): void {
     ...autostartBridgeHandlers,
     ...notificationBridgeHandlers,
   }
-  // Object.keys loses the literal key type; the map is a closed Record over
-  // exactly these paths.
+  // SAFETY: The exhaustive handler map is a closed record over these paths.
   const paths = Object.keys(handlers) as DesktopBridgeInvokePath[]
   for (const path of paths) {
     const { guard, handle } = handlers[path]
@@ -126,15 +126,15 @@ const autostartBridgeHandlers = {
   },
   "autostart.setEnabled": {
     guard: requireMainSender,
-    handle: (_windows, _event, enabled: unknown) =>
-      setAutostartEnabled(enabled === true),
+    handle: (_windows, _event, enabled: UntrustedInput) =>
+      setAutostartEnabled(parseBoolean(enabled) === true),
   },
 } satisfies BridgeHandlerFragment
 
 const notificationBridgeHandlers = {
   "notifications.show": {
     guard: requireMainSender,
-    handle: (windows, _event, input: unknown) => {
+    handle: (windows, _event, input: UntrustedInput) => {
       showDesktopNotification(windows, input)
     },
   },
@@ -147,7 +147,7 @@ const recordingSettingsBridgeHandlers = {
   },
   "recording.setSettings": {
     guard: requireMainSender,
-    handle: (_windows, _event, settings: unknown) => {
+    handle: (_windows, _event, settings: UntrustedInput) => {
       const saved = saveRecordingSettings(normalizeRecordingSettings(settings))
       emitRecordingSettingsEvent()
       void configureRecordingBackend()
@@ -203,7 +203,7 @@ const recordingSoundBridgeHandlers = {
   },
   "recording.openNotificationSoundsFolder": {
     guard: requireMainSender,
-    handle: async (_windows, _event, sound: unknown): Promise<void> => {
+    handle: async (_windows, _event, sound: UntrustedInput): Promise<void> => {
       if (!isNotificationSoundEvent(sound)) return
       const openError = await shell.openPath(ensureNotificationSoundsDir())
       if (openError) throw new Error(openError)
@@ -211,7 +211,7 @@ const recordingSoundBridgeHandlers = {
   },
   "recording.previewNotificationSound": {
     guard: requireMainSender,
-    handle: async (_windows, _event, sound: unknown): Promise<void> => {
+    handle: async (_windows, _event, sound: UntrustedInput): Promise<void> => {
       if (!isNotificationSoundEvent(sound)) return
       // Audition the configured sound regardless of whether the event is
       // enabled, so users can hear their pick before turning it on.

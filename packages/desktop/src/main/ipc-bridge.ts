@@ -1,7 +1,12 @@
 import type { DESKTOP_BRIDGE, DesktopBridgeMethodMeta } from "@alloy/contracts"
 import type { IpcMainInvokeEvent } from "electron"
 
+import type { UntrustedInput } from "./runtime-validation"
 import type { Windows } from "./windows"
+
+type BridgeHandlerResult = ReturnType<
+  Parameters<typeof import("electron").ipcMain.handle>[1]
+>
 
 type InvokePathsOf<T> = {
   [K in keyof T & string]: T[K] extends { event: true }
@@ -28,8 +33,8 @@ export interface BridgeHandler {
   handle(
     windows: Windows,
     event: IpcMainInvokeEvent,
-    ...args: unknown[]
-  ): unknown
+    ...args: UntrustedInput[]
+  ): BridgeHandlerResult
 }
 
 /**

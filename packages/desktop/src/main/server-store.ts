@@ -9,6 +9,7 @@ import {
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
+import { parseUntrustedRecord } from "./runtime-validation"
 import {
   EMPTY_STATE,
   type DesktopState,
@@ -34,10 +35,8 @@ function readState(): DesktopState {
   for (const path of stateFilePaths()) {
     try {
       const raw = readFileSync(path, "utf8")
-      const parsed: unknown = JSON.parse(raw)
-      if (typeof parsed === "object" && parsed !== null) {
-        return normalizeState(parsed as Record<string, unknown>)
-      }
+      const parsed = parseUntrustedRecord(JSON.parse(raw))
+      if (parsed !== null) return normalizeState(parsed)
     } catch {
       // Missing or corrupt state is expected on first launch — try fallback.
     }
