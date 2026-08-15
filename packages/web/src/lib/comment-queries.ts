@@ -1,4 +1,5 @@
 import type { CommentPage, CommentRow, CommentSort } from "@alloy/api"
+import { t } from "@alloy/contracts/schema"
 import {
   type InfiniteData,
   infiniteQueryOptions,
@@ -20,14 +21,14 @@ const commentKeys = {
     [...commentKeys.all, "list", { clipId, sort, limit }] as const,
 }
 
+const CommentQueryPayloadSchema = t.looseObject({ clipId: t.string() })
+
 function commentListFilter(clipId: string): QueryFilters {
   return {
     predicate: (q) => {
       const [root, kind, payload] = q.queryKey
-      const queryClipId =
-        payload && typeof payload === "object" && "clipId" in payload
-          ? payload.clipId
-          : undefined
+      const result = CommentQueryPayloadSchema.safeParse(payload)
+      const queryClipId = result.success ? result.data.clipId : undefined
       return root === "comments" && kind === "list" && queryClipId === clipId
     },
   }
@@ -53,6 +54,7 @@ export function commentListQueryOptions(
         limit,
         cursor: pageParam,
       }),
+    // SAFETY: The API cursor domain is string or null; null is its first page.
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: clipId.length > 0,

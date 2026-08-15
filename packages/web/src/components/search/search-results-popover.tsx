@@ -2,11 +2,12 @@ import type { ClipRow, GameListRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { useDocumentEvent } from "@alloy/ui/hooks/use-document-event"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
+import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import { useNavigate } from "@tanstack/react-router"
 import { FilmIcon, GamepadIcon, SearchIcon, UserIcon } from "lucide-react"
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
-import type { CSSProperties, RefObject } from "react"
+import type { RefObject } from "react"
 
 import {
   enrichLibraryItem,
@@ -367,14 +368,12 @@ export function SearchResultsPopover() {
             "alloy-blur overflow-hidden rounded-md border",
             "animate-in duration-100 fade-in-0 zoom-in-95",
           )}
-          style={
-            {
-              "--alloy-blur-opacity": "82%",
-              "--alloy-blur-blur": "28px",
-              "--alloy-blur-shadow":
-                "0 24px 60px -28px var(--floating-shadow-strong-color)",
-            } as CSSProperties
-          }
+          style={cssVariables({
+            "--alloy-blur-opacity": "82%",
+            "--alloy-blur-blur": "28px",
+            "--alloy-blur-shadow":
+              "0 24px 60px -28px var(--floating-shadow-strong-color)",
+          })}
           onMouseDown={(event) => event.preventDefault()}
         >
           {pending ? <SearchLoadingBar /> : null}

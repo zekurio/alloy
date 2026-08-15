@@ -57,10 +57,10 @@ interface ThemePresetTokens {
 
 export const DEFAULT_THEME_PRESET_ID = "default"
 
-export const THEME_PRESET_STORAGE_KEYS: Record<ThemePresetMode, string> = {
+export const THEME_PRESET_STORAGE_KEYS = {
   dark: "alloy.themeDark",
   light: "alloy.themeLight",
-}
+} satisfies Record<ThemePresetMode, string>
 
 /** Id of the single <style> element the active presets are written into. */
 export const THEME_PRESET_STYLE_ID = "alloy-theme-preset"
@@ -466,7 +466,7 @@ export function themePresetsFor(mode: ThemePresetMode): readonly ThemePreset[] {
 }
 
 export function getStoredThemePresetId(mode: ThemePresetMode): string {
-  if (typeof window === "undefined") return DEFAULT_THEME_PRESET_ID
+  if (!globalThis.window) return DEFAULT_THEME_PRESET_ID
 
   try {
     const stored = window.localStorage.getItem(THEME_PRESET_STORAGE_KEYS[mode])
@@ -485,7 +485,7 @@ export function getStoredThemePresetId(mode: ThemePresetMode): string {
 
 export function setStoredThemePreset(mode: ThemePresetMode, id: string): void {
   if (!themePresetsFor(mode).some((preset) => preset.id === id)) return
-  if (typeof window === "undefined") return
+  if (!globalThis.window) return
 
   try {
     window.localStorage.setItem(THEME_PRESET_STORAGE_KEYS[mode], id)
@@ -501,7 +501,7 @@ export function setStoredThemePreset(mode: ThemePresetMode, id: string): void {
  * the preset the same way they win against the bundled stylesheet.
  */
 export function applyStoredThemePresets(): void {
-  if (typeof document === "undefined") return
+  if (!globalThis.document) return
 
   const dark = presetById("dark", getStoredThemePresetId("dark"))
   const light = presetById("light", getStoredThemePresetId("light"))

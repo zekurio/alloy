@@ -29,6 +29,7 @@ export function notificationsInfiniteQueryOptions(limit = 30) {
     queryKey: notificationKeys.list(),
     queryFn: ({ pageParam }) =>
       api.notifications.fetch({ cursor: pageParam, limit }),
+    // SAFETY: The API cursor domain is string or null; null is its first page.
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   })

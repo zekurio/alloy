@@ -17,7 +17,7 @@ import {
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { cn } from "@alloy/ui/lib/utils"
+import { cn, sliderValue } from "@alloy/ui/lib/utils"
 import {
   AppWindowIcon,
   MicIcon,
@@ -57,10 +57,10 @@ const AUDIO_DEVICE_GROUPS: Array<{
   { kind: "input", title: t("Input") },
 ]
 
-const AUDIO_DEVICE_ICONS: Record<RecordingAudioDeviceKind, LucideIcon> = {
+const AUDIO_DEVICE_ICONS = {
   output: Volume2Icon,
   input: MicIcon,
-}
+} satisfies Record<RecordingAudioDeviceKind, LucideIcon>
 
 const AUDIO_LEVEL_HEARTBEAT_MS = 4000
 
@@ -650,8 +650,4 @@ function upsertAudioApplication(
     ...applications.filter((item) => item.id !== application.id),
     application,
   ]
-}
-
-function sliderValue(value: number | readonly number[]): number {
-  return typeof value === "number" ? value : (value[0] ?? 0)
 }

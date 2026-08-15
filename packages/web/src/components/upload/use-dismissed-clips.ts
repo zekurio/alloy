@@ -7,6 +7,7 @@ import {
   writeLocalStorageItem,
 } from "@/lib/browser-storage"
 import { clientLogger } from "@/lib/client-log"
+import { searchString } from "@/lib/route-search"
 
 const DISMISSED_KEY = "alloy:queue-dismissed"
 
@@ -20,7 +21,7 @@ function loadDismissed(): Set<string> {
 
   let parsed: unknown
   try {
-    parsed = JSON.parse(raw) as unknown
+    parsed = JSON.parse(raw)
   } catch (cause) {
     clientLogger.warn(
       "[upload-queue] Dismissed clip cache was malformed.",
@@ -35,7 +36,7 @@ function loadDismissed(): Set<string> {
     return new Set()
   }
 
-  const ids = new Set(parsed.filter((v) => typeof v === "string"))
+  const ids = new Set(parsed.flatMap((value) => searchString(value) ?? []))
   if (ids.size !== parsed.length) saveDismissed(ids)
   return ids
 }

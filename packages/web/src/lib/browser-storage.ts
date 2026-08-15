@@ -24,7 +24,7 @@ function warnStorageFailure(
 }
 
 function browserStorage(kind: BrowserStorageKind): Storage | null {
-  if (typeof window === "undefined") return null
+  if (!globalThis.window) return null
   try {
     return window[kind]
   } catch (cause) {

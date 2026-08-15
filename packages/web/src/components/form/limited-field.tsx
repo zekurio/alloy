@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import {
   InputGroup,
   InputGroupAddon,
@@ -8,10 +9,8 @@ import { forwardRef } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
 function characterCount(value: ComponentProps<"input">["value"]) {
-  if (typeof value === "string" || typeof value === "number") {
-    return String(value).length
-  }
-  return 0
+  if (value == null || Array.isArray(value)) return 0
+  return String(value).length
 }
 
 function LimitCounter({ current, max }: { current: number; max: number }) {
@@ -37,8 +36,11 @@ function renderLimitCounter(
   ) : null
 }
 
+const MaxLengthSchema = t.number()
+
 function maxFromLength(maxLength: string | number | undefined) {
-  return typeof maxLength === "number" ? maxLength : undefined
+  const result = MaxLengthSchema.safeParse(maxLength)
+  return result.success ? result.data : undefined
 }
 
 function renderLimitedField(input: {

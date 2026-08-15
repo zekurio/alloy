@@ -109,8 +109,8 @@ export class Windows {
     const win = this.ensureMain()
     void win
       .loadURL(url)
-      .catch((error: unknown) => {
-        logger.warn("failed to load server URL:", error)
+      .catch((cause: unknown) => {
+        logger.warn("failed to load server URL:", cause)
       })
       .finally(() => {
         if (previousOrigin) this.clearStaleMainOrigin(previousOrigin)

@@ -89,8 +89,8 @@ function useUpdateAdminUser(currentUserId: string) {
       const quotaChanged = current.storageQuotaBytes !== next.storageQuotaBytes
 
       return api.admin.updateUser(user.id, {
-        ...(roleChanged ? { role: next.role } : {}),
-        ...(quotaChanged ? { storageQuotaBytes: next.storageQuotaBytes } : {}),
+        role: roleChanged ? next.role : undefined,
+        storageQuotaBytes: quotaChanged ? next.storageQuotaBytes : undefined,
       })
     },
     onSuccess: async (updated, { user, next }) => {

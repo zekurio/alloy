@@ -98,7 +98,10 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
   ) {
     const resolvedHint = hint ?? <DefaultSearchHint />
     const hasValue =
-      onClear != null && typeof value === "string" && value.length > 0
+      onClear != null &&
+      value != null &&
+      !Array.isArray(value) &&
+      String(value).length > 0
     const wrapperRef = useRef<HTMLDivElement | null>(null)
     const inputRef = useRef<HTMLInputElement | null>(null)
     const [expanded, setExpanded] = useState(false)
@@ -106,11 +109,11 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
     const setInputRef = useCallback(
       (node: HTMLInputElement | null) => {
         inputRef.current = node
-        if (typeof ref === "function") {
-          ref(node)
+        if (ref && "current" in ref) {
+          ref.current = node
           return
         }
-        if (ref) ref.current = node
+        ref?.(node)
       },
       [ref],
     )
@@ -237,17 +240,8 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
 function useIsMacPlatform() {
   const [isMac, setIsMac] = useState(false)
   useEffect(() => {
-    if (typeof navigator === "undefined") return
-    const platform =
-      // `userAgentData.platform` is the modern API; fall back to the legacy
-      // `navigator.platform` string for browsers that don't expose it yet.
-      (
-        navigator as Navigator & {
-          userAgentData?: { platform?: string }
-        }
-      ).userAgentData?.platform ??
-      navigator.platform ??
-      ""
+    if (!globalThis.navigator) return
+    const platform = navigator.platform ?? ""
     setIsMac(/mac|iphone|ipad|ipod/i.test(platform))
   }, [])
   return isMac

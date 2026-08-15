@@ -14,6 +14,7 @@ import { FeedSection } from "./feed-section"
 
 export function HomePageInner() {
   const session = useSuspenseSession()
+  // SAFETY: The home route's validateSearch function returns HomeSearch.
   const search = useSearch({ strict: false }) as HomeSearch
   const toolbarSearchKey = JSON.stringify(search)
   const toolbarSearch = useMemo(() => search, [toolbarSearchKey])

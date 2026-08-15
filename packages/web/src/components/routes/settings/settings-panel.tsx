@@ -1,7 +1,10 @@
+import { t } from "@alloy/contracts/schema"
 import { cn } from "@alloy/ui/lib/utils"
 import type { ReactNode } from "react"
 
 import { useRegisterSettingsSection } from "@/components/routes/settings/settings-sections-context"
+
+const NavigationLabelSchema = t.string()
 
 /**
  * Stacks the subsections of a panel. Sections are separated by whitespace and
@@ -40,9 +43,10 @@ export function SettingsSubsection({
   action?: ReactNode
   children: ReactNode
 }) {
+  const titleLabel = NavigationLabelSchema.safeParse(title)
   const register = useRegisterSettingsSection(
     id,
-    navLabel ?? (typeof title === "string" ? title : null),
+    navLabel ?? (titleLabel.success ? titleLabel.data : null),
   )
 
   return (

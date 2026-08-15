@@ -7,6 +7,10 @@ import { apiOrigin, publicOrigin } from "./env"
 import { notificationDisplay } from "./notification-display"
 import { userImageSrc } from "./user-display"
 
+interface AlloyNotificationOptions extends NotificationOptions {
+  image?: string
+}
+
 export type NotificationNavigator = (options: { to: string }) => void
 
 export function presentNotification(
@@ -31,28 +35,24 @@ export function presentNotification(
       })
     return
   }
-  if (
-    typeof Notification === "undefined" ||
-    Notification.permission !== "granted"
-  ) {
+  if (!globalThis.Notification || Notification.permission !== "granted") {
     return
   }
-  const notification = new Notification(display.title, {
+  const options: AlloyNotificationOptions = {
     body: display.body,
     icon:
       userImageSrc(item.actor?.image) ??
       new URL("/logo.png", publicOrigin()).toString(),
-    ...(item.clip?.thumbVersion
-      ? {
-          image: clipThumbnailUrl(
-            item.clip.id,
-            apiOrigin(),
-            item.clip.thumbVersion,
-          ),
-        }
-      : {}),
     tag: item.id,
-  })
+  }
+  if (item.clip?.thumbVersion) {
+    options.image = clipThumbnailUrl(
+      item.clip.id,
+      apiOrigin(),
+      item.clip.thumbVersion,
+    )
+  }
+  const notification = new Notification(display.title, options)
   notification.onclick = () => {
     window.focus()
     navigate({ to: display.targetPath })

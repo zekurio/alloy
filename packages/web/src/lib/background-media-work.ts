@@ -1,12 +1,14 @@
-interface BackgroundMediaWork<T> {
-  key: string
-  run: (signal: AbortSignal) => Promise<T>
-  resolve: (value: T) => void
+interface BackgroundMediaWork {
+  run: (signal: AbortSignal) => Promise<void>
   reject: (cause: unknown) => void
+  finish: () => void
 }
 
-const pendingByKey = new Map<string, Promise<unknown>>()
-const queue: BackgroundMediaWork<unknown>[] = []
+export class BackgroundMediaWorkCache<Result> {
+  readonly pending = new Map<string, Promise<Result>>()
+}
+
+const queue: BackgroundMediaWork[] = []
 let foregroundPlaybackCount = 0
 let activeController: AbortController | null = null
 let running = false
@@ -20,21 +22,21 @@ let running = false
  * them, or repeated play/pause will starve the job forever.
  */
 export function scheduleBackgroundMediaWork<T>(
+  cache: BackgroundMediaWorkCache<T>,
   key: string,
   run: (signal: AbortSignal) => Promise<T>,
 ): Promise<T> {
-  const existing = pendingByKey.get(key)
-  if (existing) return existing as Promise<T>
+  const existing = cache.pending.get(key)
+  if (existing) return existing
 
   const pending = new Promise<T>((resolve, reject) => {
     queue.push({
-      key,
-      run,
-      resolve,
+      run: async (signal) => resolve(await run(signal)),
       reject,
-    } as BackgroundMediaWork<unknown>)
+      finish: () => cache.pending.delete(key),
+    })
   })
-  pendingByKey.set(key, pending)
+  cache.pending.set(key, pending)
   pumpBackgroundMediaWork()
   return pending
 }
@@ -63,16 +65,13 @@ function pumpBackgroundMediaWork(): void {
   activeController = new AbortController()
   void work
     .run(activeController.signal)
-    .then((result) => {
-      pendingByKey.delete(work.key)
-      work.resolve(result)
-    })
+    .then(work.finish)
     .catch((cause: unknown) => {
       if (activeController?.signal.aborted) {
         queue.unshift(work)
         return
       }
-      pendingByKey.delete(work.key)
+      work.finish()
       work.reject(cause)
     })
     .finally(() => {

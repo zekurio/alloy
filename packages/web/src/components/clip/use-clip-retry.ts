@@ -11,6 +11,7 @@ import { useReEncodeClipMutation } from "@/lib/clip-queries"
 export function useClipRetry(row: ClipRow) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
+  // SAFETY: The auth API includes the optional role field on session users.
   const role =
     (session?.user as { role?: string | null } | undefined)?.role ?? null
   const canRetry =
