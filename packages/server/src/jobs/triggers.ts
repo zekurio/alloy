@@ -14,10 +14,10 @@ export function startJobTriggers(): void {
     if (outputAffectingEqual(next.transcoding, prev.transcoding)) return
     void enqueueRenditionsSweep("stale", {
       runAt: new Date(Date.now() + 60_000),
-    }).catch((err: unknown) => {
+    }).catch((cause: unknown) => {
       logger.error(
         "failed to enqueue rendition sweep after config change:",
-        err,
+        cause,
       )
     })
   })

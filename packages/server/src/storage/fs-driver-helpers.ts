@@ -2,12 +2,16 @@ import { createReadStream } from "node:fs"
 import { readdir, stat, utimes } from "node:fs/promises"
 import { Readable } from "node:stream"
 
+import { t } from "@alloy/contracts/schema"
+
+const OsErrorSchema = t.object({ code: t.string().optional() })
+
 export async function* walkFsFiles(
   dir: string,
 ): AsyncIterable<{ path: string; lastModified: Date | null }> {
-  const entries = await readdir(dir, { withFileTypes: true }).catch((err) => {
-    if (isOsErrorCode(err, "ENOENT")) return
-    throw err
+  const entries = await readdir(dir, { withFileTypes: true }).catch((cause) => {
+    if (isOsErrorCode(cause, "ENOENT")) return
+    throw cause
   })
   if (!entries) return
   for (const entry of entries) {
@@ -17,9 +21,9 @@ export async function* walkFsFiles(
       continue
     }
     if (!entry.isFile()) continue
-    const stats = await stat(path).catch((err) => {
-      if (isOsErrorCode(err, "ENOENT")) return null
-      throw err
+    const stats = await stat(path).catch((cause) => {
+      if (isOsErrorCode(cause, "ENOENT")) return null
+      throw cause
     })
     if (!stats) continue
     yield { path, lastModified: stats.mtime ?? null }
@@ -39,6 +43,7 @@ export function fsCreateReadStream(
   start: number | undefined,
   end: number | undefined,
 ): ReadableStream<Uint8Array> {
+  // SAFETY: Readable.toWeb preserves the byte chunks from this fs read stream.
   return Readable.toWeb(
     createReadStream(path, { start, end }),
   ) as ReadableStream<Uint8Array>
@@ -70,9 +75,9 @@ export async function fileExists(path: string): Promise<boolean> {
   try {
     const stats = await stat(path)
     return stats.isFile()
-  } catch (err) {
-    if (isOsErrorCode(err, "ENOENT")) return false
-    throw err
+  } catch (cause) {
+    if (isOsErrorCode(cause, "ENOENT")) return false
+    throw cause
   }
 }
 
@@ -82,17 +87,18 @@ export function extname(value: string): string {
   return index <= 0 ? "" : base.slice(index)
 }
 
-export function isCopyFallbackError(err: unknown): boolean {
+export function isCopyFallbackError(cause: unknown): boolean {
   return (
-    isOsErrorCode(err, "EXDEV") ||
-    isOsErrorCode(err, "EACCES") ||
-    isOsErrorCode(err, "EPERM") ||
-    isOsErrorCode(err, "ENOSYS")
+    isOsErrorCode(cause, "EXDEV") ||
+    isOsErrorCode(cause, "EACCES") ||
+    isOsErrorCode(cause, "EPERM") ||
+    isOsErrorCode(cause, "ENOSYS")
   )
 }
 
-export function isOsErrorCode(err: unknown, code: string): boolean {
-  return (err as { code?: string } | null)?.code === code
+export function isOsErrorCode(cause: unknown, code: string): boolean {
+  const parsed = OsErrorSchema.safeParse(cause)
+  return parsed.success && parsed.data.code === code
 }
 
 export function contentTypeForExt(ext: string): string {

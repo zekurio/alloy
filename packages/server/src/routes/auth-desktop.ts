@@ -143,7 +143,7 @@ function requiredFormString(
   key: string,
 ): string | null {
   const value = body[key]
-  return typeof value === "string" && value.length > 0 ? value : null
+  return value && !(value instanceof File) ? value : null
 }
 
 function escapeHtml(value: string): string {

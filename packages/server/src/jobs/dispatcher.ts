@@ -91,8 +91,8 @@ class JobDispatcher {
   private async pump(): Promise<void> {
     if (this.pumpPromise) return this.pumpPromise
     this.pumpPromise = this.pumpInner()
-      .catch((err: unknown) => {
-        logger.error(`${this.spec.queue} job pump failed:`, err)
+      .catch((cause: unknown) => {
+        logger.error(`${this.spec.queue} job pump failed:`, cause)
         this.schedulePump(POLL_INTERVAL_MS)
       })
       .finally(() => {
@@ -126,8 +126,8 @@ class JobDispatcher {
             this.restUntil = Date.now() + this.spec.restMs
           this.schedulePump(this.spec.restMs)
         })
-        .catch((err: unknown) => {
-          logger.error(`${this.spec.queue} job run failed:`, err)
+        .catch((cause: unknown) => {
+          logger.error(`${this.spec.queue} job run failed:`, cause)
         })
     }
   }
@@ -180,8 +180,8 @@ class JobDispatcher {
             return
           }
           await complete(row.id, runId)
-        } catch (err) {
-          await this.handleRunError(row, runId, abort, err)
+        } catch (cause) {
+          await this.handleRunError(row, runId, abort, cause)
         } finally {
           stopHeartbeat()
         }
@@ -211,14 +211,14 @@ class JobDispatcher {
     row: NonNullable<Awaited<ReturnType<typeof claim>>>,
     runId: string,
     abort: AbortController,
-    err: unknown,
+    cause: unknown,
   ): Promise<void> {
-    if (isAbortError(err) || abort.signal.aborted) {
+    if (isAbortError(cause) || abort.signal.aborted) {
       if (this.stopping) await releaseForShutdown(row.id, runId)
       return
     }
 
-    const message = errorMessage(err, "Job failed")
+    const message = errorMessage(cause, "Job failed")
     const registration = getJobKind(row.kind)
     const onFailed = registration?.onFailed
     await fail(
@@ -230,7 +230,7 @@ class JobDispatcher {
         ? (tx, willRetry) =>
             onFailed(
               row.payload,
-              err instanceof Error ? err : new Error(message),
+              cause instanceof Error ? cause : new Error(message),
               { willRetry, runId, jobId: row.id, tx },
             )
         : undefined,
@@ -248,8 +248,8 @@ class JobDispatcher {
       if (pending || abort.signal.aborted) return
       pending = true
       this.heartbeatOnce(row, runId, abort, ctx)
-        .catch((err: unknown) => {
-          logger.error(`job lease heartbeat failed for ${row.id}:`, err)
+        .catch((cause: unknown) => {
+          logger.error(`job lease heartbeat failed for ${row.id}:`, cause)
         })
         .finally(() => {
           pending = false
@@ -342,8 +342,8 @@ function makeJobProgressWriter(opts: {
     if (now - lastWriteAt < 2000 && pct < 99) return
     lastWrittenPct = pct
     lastWriteAt = now
-    opts.commit(pct, stage).catch((err: unknown) => {
-      logger.error(`progress update failed for ${opts.id}:`, err)
+    opts.commit(pct, stage).catch((cause: unknown) => {
+      logger.error(`progress update failed for ${opts.id}:`, cause)
     })
   }
 }

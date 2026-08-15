@@ -30,8 +30,10 @@ export interface LogSink {
 const logFormat: LogFormat =
   process.env.LOG_FORMAT === "json" ? "json" : "human"
 
-function formatLogArg(value: unknown): string {
-  if (typeof value === "string") return value
+function formatLogArg(value: Parameters<typeof inspect>[0]): string {
+  if (Object.prototype.toString.call(value) === "[object String]") {
+    return String(value)
+  }
   if (value instanceof Error) {
     return value.stack ?? `${value.name}: ${value.message}`
   }
@@ -56,7 +58,7 @@ export function formatRecord(record: LogRecord, format: LogFormat): string {
     return JSON.stringify({
       ts,
       level: record.level,
-      ...(record.scope ? { scope: record.scope } : {}),
+      scope: record.scope,
       msg: record.message,
       ...Object.fromEntries(sortedContextEntries(record.context)),
     })
@@ -71,11 +73,11 @@ export function formatRecord(record: LogRecord, format: LogFormat): string {
 
 type StyleFormat = Parameters<typeof styleText>[0]
 
-const LEVEL_STYLE: Record<LogLevel, StyleFormat> = {
+const LEVEL_STYLE = {
   INFO: "green",
   WARN: "yellow",
   ERROR: ["red", "bold"],
-}
+} satisfies Record<LogLevel, StyleFormat>
 
 /**
  * Render a record with ANSI colors for terminals. `styleText` degrades to

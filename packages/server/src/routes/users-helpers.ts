@@ -36,7 +36,7 @@ export function toLikePattern(raw: string): string {
   return `%${escaped}%`
 }
 
-export const userSummarySelectShape = {
+export const userSummarySelection = {
   id: user.id,
   username: user.username,
   displayName: user.display_name,
@@ -103,7 +103,7 @@ export async function searchVisibleUsers({
 
   const rows = await db
     .select({
-      ...userSummarySelectShape,
+      ...userSummarySelection,
     })
     .from(user)
     .where(and(...conditions))
@@ -144,7 +144,7 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
 export async function listFollowers(row: UserRow) {
   const rows = await db
     .select({
-      ...userSummarySelectShape,
+      ...userSummarySelection,
     })
     .from(follow)
     .innerJoin(user, eq(user.id, follow.follower_id))
@@ -157,7 +157,7 @@ export async function listFollowers(row: UserRow) {
 export async function listFollowing(row: UserRow) {
   const rows = await db
     .select({
-      ...userSummarySelectShape,
+      ...userSummarySelection,
     })
     .from(follow)
     .innerJoin(user, eq(user.id, follow.following_id))

@@ -25,8 +25,8 @@ export function makeMediaProgressWriter(opts: {
       .then((advanced) => {
         if (advanced) opts.onCommitted(pct)
       })
-      .catch((err: unknown) => {
-        logger.error(`progress update failed for ${opts.id}:`, err)
+      .catch((cause: unknown) => {
+        logger.error(`progress update failed for ${opts.id}:`, cause)
       })
   }
 }

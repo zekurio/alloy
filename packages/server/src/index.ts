@@ -1,6 +1,6 @@
 import { migrateDatabase } from "@alloy/db"
 import { createLogger } from "@alloy/logging"
-import { serve } from "@hono/node-server"
+import { serve, type ServerType } from "@hono/node-server"
 
 import { signInConfigError } from "./auth/sign-in-config"
 import { configStore, initializeConfigStore } from "./config/store"
@@ -94,9 +94,16 @@ const shutdown = () => {
 process.on("SIGINT", shutdown)
 process.on("SIGTERM", shutdown)
 
-function closeAllConnections(value: unknown) {
-  const candidate = value as { closeAllConnections?: unknown }
-  if (typeof candidate.closeAllConnections === "function") {
-    candidate.closeAllConnections()
-  }
+interface ConnectionClosingServer {
+  closeAllConnections(): void
+}
+
+function closeAllConnections(server: ServerType): void {
+  if (supportsConnectionClose(server)) server.closeAllConnections()
+}
+
+function supportsConnectionClose(
+  server: ServerType,
+): server is ServerType & ConnectionClosingServer {
+  return "closeAllConnections" in server
 }

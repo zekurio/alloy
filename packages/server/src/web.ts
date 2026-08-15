@@ -141,6 +141,7 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     if (c.req.method === "HEAD") return c.body(null)
 
     const stream = Readable.toWeb(createReadStream(path))
+    // SAFETY: Readable.toWeb preserves the byte chunks from this fs stream.
     return c.body(stream as ReadableStream<Uint8Array>)
   }
 

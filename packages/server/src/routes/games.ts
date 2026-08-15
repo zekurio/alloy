@@ -12,7 +12,7 @@ import { getSession } from "@alloy/server/auth/session"
 import { db } from "@alloy/server/db/index"
 import { lookupGamesByName } from "@alloy/server/games/lookup"
 import {
-  gameSelectShape,
+  gameSelection,
   getSteamGridDBGameRef,
   getSteamGridDBGameRefBySlug,
   serialiseGameRow,
@@ -130,7 +130,7 @@ export const gamesRoute = new Hono()
       const { q } = c.req.valid("query")
       const pattern = `%${q.replace(/[\\%_]/g, "\\$&")}%`
       const rows = await db
-        .select(gameSelectShape)
+        .select(gameSelection)
         .from(game)
         .where(ilike(game.name, pattern))
         .orderBy(game.name)
@@ -171,7 +171,7 @@ export const gamesRoute = new Hono()
       regularLimit > 0
         ? await db
             .select({
-              ...gameSelectShape,
+              ...gameSelection,
               clipCount: sql<number>`count(${clip.id})::int`,
             })
             .from(game)

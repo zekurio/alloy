@@ -22,24 +22,21 @@ const USER_ASSET_TARGETS = {
 } as const
 
 // Maps each asset role to the `user` column that stores its public path.
-const USER_ASSET_COLUMN: Record<UserAssetRole, "image" | "banner"> = {
+const USER_ASSET_COLUMN = {
   avatar: "image",
   banner: "banner",
-}
+} satisfies Record<UserAssetRole, "image" | "banner">
 
-export const USER_ASSET_LIMITS: Record<
-  UserAssetRole,
-  { label: string; maxBytes: number }
-> = {
+export const USER_ASSET_LIMITS = {
   avatar: { label: "Avatar", maxBytes: MAX_AVATAR_BYTES },
   banner: { label: "Banner", maxBytes: MAX_BANNER_BYTES },
-}
+} satisfies Record<UserAssetRole, { label: string; maxBytes: number }>
 
-export const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
+export const EXT_FOR_CONTENT_TYPE = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
   "image/webp": ".webp",
-}
+} satisfies Record<string, string>
 
 export type UserAssetUpdateResult =
   | {
