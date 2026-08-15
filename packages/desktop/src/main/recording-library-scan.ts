@@ -17,6 +17,13 @@ import {
 } from "./recording-library-scan-core"
 import { currentOutputFolder } from "./recording-storage"
 import { getThumbnailBlurHashes } from "./recording-thumbnail-meta"
+import {
+  parseBoolean,
+  parseFiniteNumber,
+  parseString,
+  parseUntrustedRecord,
+  type UntrustedInput,
+} from "./runtime-validation"
 
 const logger = createLogger("library")
 
@@ -126,7 +133,7 @@ function recordingLibraryScanWorker(): Worker {
   return worker
 }
 
-function handleScanWorkerMessage(message: unknown): void {
+function handleScanWorkerMessage(message: UntrustedInput): void {
   if (!isScanWorkerResponse(message)) return
 
   const pending = pendingScans.get(message.id)
@@ -168,16 +175,15 @@ function rejectPendingScans(error: Error): void {
 }
 
 function isScanWorkerResponse(
-  value: unknown,
+  value: UntrustedInput,
 ): value is RecordingLibraryScanWorkerResponse {
-  if (typeof value !== "object" || value === null) return false
-  const response = value as Record<string, unknown>
+  const response = parseUntrustedRecord(value)
+  const id = parseFiniteNumber(response?.id)
+  const ok = parseBoolean(response?.ok)
+  if (response === null || id === null || ok === null) return false
   return (
-    typeof response.id === "number" &&
-    typeof response.ok === "boolean" &&
-    (response.ok
-      ? typeof response.snapshot === "object" && response.snapshot !== null
-      : typeof response.error === "string")
+    (ok && parseUntrustedRecord(response.snapshot) !== null) ||
+    (!ok && parseString(response.error) !== null)
   )
 }
 

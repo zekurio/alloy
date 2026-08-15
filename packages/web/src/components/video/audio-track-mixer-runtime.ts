@@ -50,9 +50,10 @@ export async function loadTrackBuffers(
 }
 
 export function createAudioContext(): AudioContext | null {
-  if (typeof AudioContext === "undefined") return null
+  const AudioContextConstructor = globalThis.AudioContext
+  if (!AudioContextConstructor) return null
   try {
-    return new AudioContext()
+    return new AudioContextConstructor()
   } catch {
     return null
   }

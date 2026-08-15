@@ -34,7 +34,7 @@ function updateCrc(crc: number, chunk: Uint8Array): number {
   return c
 }
 
-function dosDateTime(date = new Date()): { date: number; time: number } {
+function dosDateTime(date = new Date()) {
   const year = Math.max(1980, date.getFullYear())
   return {
     date: ((year - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate(),
@@ -187,7 +187,8 @@ function safeZipFilename(filename: string): string {
 async function openEntryStream(
   entry: ZipEntry,
 ): Promise<ReadableStream<Uint8Array> | null> {
-  return typeof entry.stream === "function" ? entry.stream() : entry.stream
+  if ("getReader" in entry.stream) return entry.stream
+  return entry.stream()
 }
 
 async function* zipChunks(

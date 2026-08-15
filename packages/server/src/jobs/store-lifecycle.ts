@@ -214,9 +214,9 @@ export async function retry(jobId: string): Promise<boolean> {
       if (!updated) tx.rollback()
       return { ...updated, queue: registration.queue }
     })
-    .catch((error: unknown) => {
-      if (error instanceof TransactionRollbackError) return null
-      throw error
+    .catch((cause: unknown) => {
+      if (cause instanceof TransactionRollbackError) return null
+      throw cause
     })
   if (!row) return false
   publishJobStatus(row, "pending")
@@ -380,10 +380,7 @@ async function absorbPendingTwin(
   }
 }
 
-function pendingFields(input: { priority?: number | SQL; runAt: Date | SQL }): {
-  priority?: number | SQL
-  run_at: Date | SQL
-} {
+function pendingFields(input: { priority?: number | SQL; runAt: Date | SQL }) {
   if (input.priority === undefined) return { run_at: input.runAt }
   return { priority: input.priority, run_at: input.runAt }
 }

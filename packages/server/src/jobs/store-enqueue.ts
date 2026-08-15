@@ -9,7 +9,7 @@ import type { EnqueueOptions } from "./store-types"
 
 export async function enqueue(
   kind: string,
-  payload: unknown,
+  payload: Parameters<typeof parse>[1],
   options: EnqueueOptions = {},
 ): Promise<string> {
   const registration = requireJobKind(kind)

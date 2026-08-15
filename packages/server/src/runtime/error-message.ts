@@ -7,9 +7,10 @@ export function errorMessage(cause: unknown, fallback: string): string {
 
 export function errorDetail(cause: unknown, fallback: string): string {
   if (cause instanceof Error) return errorMessage(cause, fallback)
-  if (typeof cause !== "string") return fallback
+  const parsed = ErrorDetailSchema.safeParse(cause)
+  if (!parsed.success) return fallback
 
-  const message = cause.trim()
+  const message = parsed.data.trim()
   return message.length > 0 ? message : fallback
 }
 
@@ -21,3 +22,6 @@ export function toError(cause: unknown, fallback: string): Error {
 export function isAbortError(cause: unknown): boolean {
   return cause instanceof Error && cause.name === "AbortError"
 }
+import { t } from "@alloy/contracts/schema"
+
+const ErrorDetailSchema = t.string()

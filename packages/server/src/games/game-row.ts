@@ -6,7 +6,7 @@ import {
 import { game } from "@alloy/db/schema"
 import { nullableIsoDate } from "@alloy/server/runtime/date"
 
-export const gameSelectShape = {
+export const gameSelection = {
   id: game.id,
   steamgriddbId: game.steamgriddb_id,
   source: game.source,

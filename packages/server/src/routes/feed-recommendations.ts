@@ -1,7 +1,7 @@
 import type { FeedPage } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, follow, game, gameFollow } from "@alloy/db/schema"
-import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
+import { clipSelection, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
 import { dateFromDateLike, isoDate } from "@alloy/server/runtime/date"
@@ -22,25 +22,9 @@ type RecommendedClipCursor = {
   asOf: Date
 }
 
-type RecommendedClipPageRow = {
-  id: string
-  publishedAt: Date | string | null
-  /** Pre-publish-moment fallback for rows that predate stamping. */
-  createdAt: Date | string
-  rankScore: number
-  sourceKey: string | null
-  sourceContentType: string | null
-  sourceVideoCodec: string | null
-  sourceAudioCodec: string | null
-  sourceSizeBytes: number | null
-  durationMs: number | null
-  width: number | null
-  height: number | null
-  thumbKey: string | null
-  thumbBlurHash: string | null
-  gameId: string | null
-  game: string | null
-}
+type RecommendedClipPageRow = Awaited<
+  ReturnType<typeof selectRecommendedClipRows>
+>[number]
 
 export function parseRecommendedClipCursor(
   value: string | undefined,
@@ -78,9 +62,15 @@ function recommendedClipPage(
   const pageRows = rows.slice(0, limit)
   const tail = pageRows[pageRows.length - 1]
   return {
-    items: pageRows.map(({ rankScore: _rankScore, ...row }) =>
-      toPublicClipRow(row),
-    ) as FeedPage["items"],
+    items: pageRows.map(({ rankScore: _rankScore, ...row }) => {
+      const clipRow = toPublicClipRow(row)
+      return {
+        ...clipRow,
+        createdAt: isoDate(clipRow.createdAt),
+        publishedAt: clipRow.publishedAt ? isoDate(clipRow.publishedAt) : null,
+        updatedAt: isoDate(clipRow.updatedAt),
+      }
+    }),
     nextCursor:
       rows.length > limit && tail
         ? encodeRecommendedClipCursor({
@@ -149,6 +139,21 @@ function recommendedCursorCondition(
   )
 }
 
+async function selectRecommendedClipRows(
+  pageConditions: SQL[],
+  score: SQL<number>,
+  limit: number,
+) {
+  return db
+    .select({ ...clipSelection, rankScore: score })
+    .from(clip)
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .leftJoin(game, eq(clip.game_id, game.id))
+    .where(and(...pageConditions))
+    .orderBy(sql`${score} desc`, sql`${clip.published_at} desc`, clip.id)
+    .limit(limit + 1)
+}
+
 export async function listRecommendedClips({
   conditions,
   cursor,
@@ -166,14 +171,7 @@ export async function listRecommendedClips({
   const cursorCondition = recommendedCursorCondition(cursor, score)
   if (cursorCondition) pageConditions.push(cursorCondition)
 
-  const rows = await db
-    .select({ ...clipSelectShape, rankScore: score })
-    .from(clip)
-    .innerJoin(user, eq(clip.author_id, user.id))
-    .leftJoin(game, eq(clip.game_id, game.id))
-    .where(and(...pageConditions))
-    .orderBy(sql`${score} desc`, sql`${clip.published_at} desc`, clip.id)
-    .limit(limit + 1)
+  const rows = await selectRecommendedClipRows(pageConditions, score, limit)
 
   return recommendedClipPage(rows, limit, asOf)
 }

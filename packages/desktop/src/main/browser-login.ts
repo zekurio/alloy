@@ -5,6 +5,11 @@ import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { shell } from "electron"
 
+import {
+  parseNonnegativeInteger,
+  parseString,
+  parseUntrustedRecord,
+} from "./runtime-validation"
 import { injectSessionCookie } from "./session"
 
 const logger = createLogger("login")
@@ -94,25 +99,20 @@ async function exchangeCode(
     body: JSON.stringify({ code, codeVerifier }),
   })
   if (!res.ok) throw new Error(`Token exchange failed (${res.status}).`)
-  const body: unknown = await res.json()
+  const body = parseUntrustedRecord(await res.json())
+  const accessToken = parseString(body?.accessToken)
+  const refreshToken = parseString(body?.refreshToken)
+  const accessExpiresAt = parseString(body?.accessExpiresAt)
+  const refreshExpiresAt = parseString(body?.refreshExpiresAt)
   if (
-    typeof body !== "object" ||
-    body === null ||
-    typeof (body as { accessToken?: unknown }).accessToken !== "string" ||
-    typeof (body as { refreshToken?: unknown }).refreshToken !== "string" ||
-    typeof (body as { accessExpiresAt?: unknown }).accessExpiresAt !==
-      "string" ||
-    typeof (body as { refreshExpiresAt?: unknown }).refreshExpiresAt !==
-      "string"
+    accessToken === null ||
+    refreshToken === null ||
+    accessExpiresAt === null ||
+    refreshExpiresAt === null
   ) {
     throw new Error("Invalid token response.")
   }
-  return body as {
-    accessToken: string
-    refreshToken: string
-    accessExpiresAt: string
-    refreshExpiresAt: string
-  }
+  return { accessToken, refreshToken, accessExpiresAt, refreshExpiresAt }
 }
 
 function randomBase64Url(byteLength: number): string {
@@ -127,9 +127,10 @@ function listen(server: Server): Promise<number> {
   return new Promise((resolve, reject) => {
     server.once("error", reject)
     server.listen(0, "127.0.0.1", () => {
-      const address = server.address()
-      if (typeof address === "object" && address !== null) {
-        resolve(address.port)
+      const address = parseUntrustedRecord(server.address())
+      const port = parseNonnegativeInteger(address?.port)
+      if (port !== null) {
+        resolve(port)
         return
       }
       reject(new Error("Could not bind loopback port."))
@@ -164,9 +165,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
         clearTimeout(timer)
         resolve(value)
       },
-      (error: unknown) => {
+      (cause: unknown) => {
         clearTimeout(timer)
-        reject(error instanceof Error ? error : new Error(String(error)))
+        reject(cause instanceof Error ? cause : new Error(String(cause)))
       },
     )
   })

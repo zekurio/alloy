@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import {
   base64UrlToBytes,
   bytesToBase64Url,
@@ -8,24 +9,34 @@ import type { UploadTicket, UploadTicketStrategy } from "./driver"
 
 export type UploadTokenMode = "single" | "fs-chunked"
 
-export interface UploadTokenPayload {
-  /** key - opaque storage key the bytes will land at */
-  k: string
-  /** contentType - MIME baked into the ticket */
-  ct: string
-  /** maxBytes - hard cap for the upload */
-  mb: number
-  /** exp - unix-seconds expiry */
-  exp: number
-  /** userId - auth-session owner the ticket was minted for */
-  uid: string
-  /** clipId - reserved clip row the ticket targets */
-  cid: string
-  /** mode - upload strategy baked into the signed ticket */
-  m?: UploadTokenMode
-  /** chunkSize - fixed part size for resumable upload strategies */
-  cs?: number
-}
+const NonBlankTokenString = t
+  .string()
+  .refine((value) => value.trim().length > 0)
+const UploadTokenPayloadSchema = t
+  .object({
+    /** key - opaque storage key the bytes will land at */
+    k: NonBlankTokenString,
+    /** contentType - MIME baked into the ticket */
+    ct: NonBlankTokenString,
+    /** maxBytes - hard cap for the upload */
+    mb: t.number().int().positive().refine(Number.isSafeInteger),
+    /** exp - unix-seconds expiry */
+    exp: t.number().int().positive().refine(Number.isSafeInteger),
+    /** userId - auth-session owner the ticket was minted for */
+    uid: NonBlankTokenString,
+    /** clipId - reserved clip row the ticket targets */
+    cid: NonBlankTokenString,
+    /** mode - upload strategy baked into the signed ticket */
+    m: t.enum(["single", "fs-chunked"]).optional(),
+    /** chunkSize - fixed part size for resumable upload strategies */
+    cs: t.number().int().positive().refine(Number.isSafeInteger).optional(),
+  })
+  .refine(
+    (payload) => payload.m !== "fs-chunked" || payload.cs !== undefined,
+    "Chunked upload tokens require a chunk size.",
+  )
+
+export type UploadTokenPayload = t.infer<typeof UploadTokenPayloadSchema>
 
 const textEncoder = new TextEncoder()
 const textDecoder = new TextDecoder()
@@ -61,59 +72,11 @@ type DecodedToken =
   | { ok: true; payload: UploadTokenPayload }
   | { ok: false; reason: "malformed" | "bad-signature" | "expired" }
 
-function parseUploadTokenPayload(value: unknown): UploadTokenPayload | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  const payload = value as Record<string, unknown>
-  if (
-    typeof payload.k !== "string" ||
-    !payload.k.trim() ||
-    typeof payload.ct !== "string" ||
-    !payload.ct.trim() ||
-    typeof payload.uid !== "string" ||
-    !payload.uid.trim() ||
-    typeof payload.cid !== "string" ||
-    !payload.cid.trim()
-  ) {
-    return null
-  }
-  if (
-    typeof payload.mb !== "number" ||
-    !Number.isSafeInteger(payload.mb) ||
-    payload.mb <= 0 ||
-    typeof payload.exp !== "number" ||
-    !Number.isSafeInteger(payload.exp) ||
-    payload.exp <= 0
-  ) {
-    return null
-  }
-  if (
-    payload.m !== undefined &&
-    payload.m !== "single" &&
-    payload.m !== "fs-chunked"
-  ) {
-    return null
-  }
-  if (
-    payload.cs !== undefined &&
-    (typeof payload.cs !== "number" ||
-      !Number.isSafeInteger(payload.cs) ||
-      payload.cs <= 0)
-  ) {
-    return null
-  }
-  if (payload.m === "fs-chunked" && payload.cs === undefined) {
-    return null
-  }
-  return {
-    k: payload.k,
-    ct: payload.ct,
-    mb: payload.mb,
-    exp: payload.exp,
-    uid: payload.uid,
-    cid: payload.cid,
-    m: payload.m,
-    cs: payload.cs,
-  }
+function parseUploadTokenPayload(
+  value: Parameters<typeof UploadTokenPayloadSchema.safeParse>[0],
+): UploadTokenPayload | null {
+  const parsed = UploadTokenPayloadSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
 }
 
 export async function decodeUploadToken(

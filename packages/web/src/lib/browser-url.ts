@@ -1,5 +1,5 @@
 export function consumeCurrentQueryParam(key: string): string | null {
-  if (typeof window === "undefined") return null
+  if (!globalThis.window) return null
 
   const url = new URL(window.location.href)
   const value = url.searchParams.get(key)
@@ -15,7 +15,7 @@ export function consumeCurrentQueryParam(key: string): string | null {
 }
 
 export function canGoBackInBrowserHistory(): boolean {
-  return typeof window !== "undefined" && window.history.length > 1
+  return Boolean(globalThis.window && window.history.length > 1)
 }
 
 export function goBackInBrowserHistory(): boolean {
@@ -25,7 +25,7 @@ export function goBackInBrowserHistory(): boolean {
 }
 
 export function currentUrlWithoutSearchOrHash(): string | null {
-  if (typeof window === "undefined") return null
+  if (!globalThis.window) return null
 
   const url = new URL(window.location.href)
   url.search = ""
@@ -37,7 +37,7 @@ export function currentUrlWithQueryParam(
   key: string,
   value: string,
 ): string | null {
-  if (typeof window === "undefined") return null
+  if (!globalThis.window) return null
 
   const url = new URL(window.location.href)
   url.hash = ""

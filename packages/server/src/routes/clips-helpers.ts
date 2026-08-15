@@ -124,9 +124,8 @@ function encodeClipListCursor(
     sort,
     publishedAt: isoDate(row.publishedAt ?? row.createdAt),
     id: row.id,
-    ...(sort === "top"
-      ? { viewCount: row.viewCount, likeCount: row.likeCount }
-      : {}),
+    viewCount: sort === "top" ? row.viewCount : undefined,
+    likeCount: sort === "top" ? row.likeCount : undefined,
   }
   return encodeCursorPayload(payload)
 }

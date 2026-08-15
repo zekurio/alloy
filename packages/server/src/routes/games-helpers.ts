@@ -51,26 +51,26 @@ export function serialiseProfileGameRow(
 }
 
 export function steamgriddbErrorResponse(
-  err: unknown,
+  cause: unknown,
 ):
   | { status: 503; error: string }
   | { status: 502; error: string }
   | { status: 500; error: string } {
-  if (err instanceof SteamGridDBNotConfiguredError) {
-    return { status: 503, error: err.message }
+  if (cause instanceof SteamGridDBNotConfiguredError) {
+    return { status: 503, error: cause.message }
   }
-  if (err instanceof SteamGridDBError) {
+  if (cause instanceof SteamGridDBError) {
     const status =
-      err.status === null ||
-      err.status >= 500 ||
-      err.status === 401 ||
-      err.status === 403
+      cause.status === null ||
+      cause.status >= 500 ||
+      cause.status === 401 ||
+      cause.status === 403
         ? 503
         : 502
-    return { status, error: err.message }
+    return { status, error: cause.message }
   }
   return {
     status: 500,
-    error: errorMessage(err, "Unknown error"),
+    error: errorMessage(cause, "Unknown error"),
   }
 }

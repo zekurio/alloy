@@ -33,10 +33,14 @@ export class SteamGridDBNotConfiguredError extends SteamGridDBError {
   }
 }
 
-const EnvelopeShape = {
+const SteamGridDbEnvelope = {
   success: t.boolean(),
   errors: t.array(t.string()).optional(),
 }
+const SteamGridDbResponse = t.object({
+  ...SteamGridDbEnvelope,
+  data: t.unknown().optional(),
+})
 
 // Autocomplete row. `release_date` is a Unix timestamp in seconds when
 // present; SGDB omits it for some games (mods, unknown releases).
@@ -67,19 +71,6 @@ const AssetSchema = t.object({
   humor: t.boolean().optional(),
 })
 
-const SearchEnvelope = t.object({
-  ...EnvelopeShape,
-  data: t.array(SearchResultSchema).optional(),
-})
-const GameDetailEnvelope = t.object({
-  ...EnvelopeShape,
-  data: GameDetailSchema.optional(),
-})
-const AssetListEnvelope = t.object({
-  ...EnvelopeShape,
-  data: t.array(AssetSchema).optional(),
-})
-
 function getApiKey(): string {
   const key = secretStore.get("steamgriddbApiKey")
   if (!key || key.length === 0) {
@@ -88,11 +79,11 @@ function getApiKey(): string {
   return key
 }
 
-async function sgdbFetch<T>(
+async function sgdbFetch<DataSchema extends TSchema>(
   path: string,
-  envelope: TSchema,
+  dataSchema: DataSchema,
   query?: Record<string, string>,
-): Promise<T | null> {
+): Promise<t.infer<DataSchema> | null> {
   const apiKey = getApiKey()
   const url = new URL(`${STEAMGRIDDB_API_PATH}${path}`, STEAMGRIDDB_ORIGIN)
   if (query) {
@@ -137,33 +128,36 @@ async function sgdbFetch<T>(
       res.status,
     )
   }
-  const parsed = safeParse(envelope, json)
+  const parsed = safeParse(SteamGridDbResponse, json)
   if (!parsed.success) {
     throw new SteamGridDBError(
       `Unexpected SteamGridDB response shape: ${parsed.error.message}`,
       res.status,
     )
   }
-  const data = parsed.data as {
-    success: boolean
-    errors?: string[]
-    data?: T
-  }
-  if (!data.success) {
-    const msg = data.errors?.join(", ") ?? "unknown error"
+  if (!parsed.data.success) {
+    const msg = parsed.data.errors?.join(", ") ?? "unknown error"
     throw new SteamGridDBError(`SteamGridDB error: ${msg}`, res.status)
   }
   // SGDB returns `success: true` with no `data` for some empty lookups;
   // we never treat that as an error, the caller normalises.
-  return data.data ?? null
+  if (parsed.data.data === undefined) return null
+  const data = safeParse(dataSchema, parsed.data.data)
+  if (!data.success) {
+    throw new SteamGridDBError(
+      `Unexpected SteamGridDB response data: ${data.error.message}`,
+      res.status,
+    )
+  }
+  return data.data
 }
 
 export async function searchSteamGridDBGames(
   query: string,
 ): Promise<SteamGridDBSearchResult[]> {
-  const data = await sgdbFetch<SteamGridDBSearchResult[]>(
+  const data = await sgdbFetch(
     `/search/autocomplete/${encodeURIComponent(query)}`,
-    SearchEnvelope,
+    t.array(SearchResultSchema),
   )
   return data ?? []
 }
@@ -171,18 +165,15 @@ export async function searchSteamGridDBGames(
 export async function getGameById(
   steamgriddbId: number,
 ): Promise<SteamGridDBGameDetail | null> {
-  return await sgdbFetch<SteamGridDBGameDetail>(
-    `/games/id/${steamgriddbId}`,
-    GameDetailEnvelope,
-  )
+  return await sgdbFetch(`/games/id/${steamgriddbId}`, GameDetailSchema)
 }
 
 export async function getFirstHero(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch<SteamGridDBAsset[]>(
+  const data = await sgdbFetch(
     `/heroes/game/${steamgriddbId}`,
-    AssetListEnvelope,
+    t.array(AssetSchema),
     { dimensions: HERO_DIMENSIONS },
   )
   return data?.[0] ?? null
@@ -191,9 +182,9 @@ export async function getFirstHero(
 export async function getFirstGrid(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch<SteamGridDBAsset[]>(
+  const data = await sgdbFetch(
     `/grids/game/${steamgriddbId}`,
-    AssetListEnvelope,
+    t.array(AssetSchema),
     { dimensions: GRID_DIMENSIONS },
   )
   return data?.[0] ?? null
@@ -202,9 +193,9 @@ export async function getFirstGrid(
 export async function getFirstLogo(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch<SteamGridDBAsset[]>(
+  const data = await sgdbFetch(
     `/logos/game/${steamgriddbId}`,
-    AssetListEnvelope,
+    t.array(AssetSchema),
   )
   return data?.[0] ?? null
 }
@@ -212,14 +203,13 @@ export async function getFirstLogo(
 export async function getFirstIcon(
   steamgriddbId: number,
 ): Promise<SteamGridDBAsset | null> {
-  const data = await sgdbFetch<SteamGridDBAsset[]>(
+  const data = await sgdbFetch(
     `/icons/game/${steamgriddbId}`,
-    AssetListEnvelope,
+    t.array(AssetSchema),
   )
   return data?.[0] ?? null
 }
 
 export function isConfigured(): boolean {
-  const key = secretStore.get("steamgriddbApiKey")
-  return typeof key === "string" && key.length > 0
+  return secretStore.get("steamgriddbApiKey").length > 0
 }

@@ -13,6 +13,8 @@ import { normalizeCaptureAudioTracks } from "@alloy/contracts/desktop-recording-
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
+import { parseUntrustedRecord, type UntrustedInput } from "./runtime-validation"
+
 const logger = createLogger("library")
 
 export interface CaptureManifest {
@@ -107,13 +109,10 @@ function manifestPath(): string {
   return join(app.getPath("userData"), "recording-library.json")
 }
 
-function isCaptureManifest(value: unknown): value is CaptureManifest {
+function isCaptureManifest(value: UntrustedInput): value is CaptureManifest {
+  const manifest = parseUntrustedRecord(value)
   return (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { version?: unknown }).version === 2 &&
-    typeof (value as { captures?: unknown }).captures === "object" &&
-    (value as { captures?: unknown }).captures !== null
+    manifest?.version === 2 && parseUntrustedRecord(manifest.captures) !== null
   )
 }
 

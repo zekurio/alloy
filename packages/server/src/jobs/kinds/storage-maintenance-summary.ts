@@ -3,9 +3,11 @@ import { db } from "@alloy/server/db/index"
 
 import type { JobTransaction } from "../store"
 
+type StorageMaintenanceSummary = (typeof instanceSetting.$inferInsert)["value"]
+
 export async function writeStorageMaintenanceSummary(
   key: string,
-  value: unknown,
+  value: StorageMaintenanceSummary,
   tx?: JobTransaction,
 ): Promise<void> {
   await (tx ?? db)

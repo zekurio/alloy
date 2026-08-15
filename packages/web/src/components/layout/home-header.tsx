@@ -144,6 +144,8 @@ function useHeaderNavigationHistory() {
   // enables forward.
   const entry = useRouterState({
     select: (state) => {
+      // SAFETY: TanStack Router stores these optional navigation fields in
+      // location state and preserves other state written by callers.
       const historyState = state.location.state as {
         __TSR_index?: number
         __TSR_key?: string
@@ -152,7 +154,7 @@ function useHeaderNavigationHistory() {
       // index) counts as the bottom of the stack.
       const index = historyState.__TSR_index
       return {
-        index: typeof index === "number" && Number.isInteger(index) ? index : 0,
+        index: index !== undefined && Number.isInteger(index) ? index : 0,
         key: historyState.__TSR_key ?? state.location.href,
       }
     },

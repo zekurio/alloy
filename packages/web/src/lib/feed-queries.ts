@@ -47,6 +47,7 @@ export function feedInfiniteQueryOptions(
         limit,
         cursor: pageParam,
       } satisfies FeedPageParams),
+    // SAFETY: The API cursor domain is string or null; null is its first page.
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,

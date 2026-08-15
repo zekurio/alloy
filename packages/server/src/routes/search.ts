@@ -3,10 +3,10 @@ import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import { clipSelectShape, toPublicClipRow } from "@alloy/server/clips/select"
+import { clipSelection, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import {
-  gameSelectShape,
+  gameSelection,
   getGameRefsByIds,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
@@ -21,7 +21,7 @@ import {
 import {
   serialiseUserListRow,
   toLikePattern,
-  userSummarySelectShape,
+  userSummarySelection,
 } from "./users-helpers"
 import {
   limitQueryParam,
@@ -103,7 +103,7 @@ async function searchLocalGameSnapshots(
 ): Promise<GameListRow[]> {
   const rows = await db
     .select({
-      ...gameSelectShape,
+      ...gameSelection,
       clipCount: sql<number>`count(${clip.id})::int`,
     })
     .from(game)
@@ -163,7 +163,7 @@ export const searchRoute = new Hono().get(
 
     const [clips, steamgriddbGames, localGames, users] = await Promise.all([
       db
-        .select(clipSelectShape)
+        .select(clipSelection)
         .from(clip)
         .innerJoin(user, eq(clip.author_id, user.id))
         .leftJoin(game, eq(clip.game_id, game.id))
@@ -187,7 +187,7 @@ export const searchRoute = new Hono().get(
 
       db
         .select({
-          ...userSummarySelectShape,
+          ...userSummarySelection,
           createdAt: user.created_at,
           clipCount: sql<number>`count(${clip.id})::int`,
         })

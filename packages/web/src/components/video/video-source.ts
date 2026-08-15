@@ -4,9 +4,9 @@ export type SourceSpec =
   | { kind: "file"; file: File }
 
 export function toSourceSpec(src: string | File): SourceSpec {
-  return typeof src === "string"
-    ? { kind: "url", url: src }
-    : { kind: "file", file: src }
+  return src instanceof File
+    ? { kind: "file", file: src }
+    : { kind: "url", url: src }
 }
 
 export function sourceSpecKey(spec: SourceSpec): string {
@@ -35,10 +35,5 @@ export function mediaErrorMessage(video: HTMLVideoElement | null): string {
 }
 
 export function isInterruptedPlayRequest(cause: unknown): boolean {
-  return (
-    typeof cause === "object" &&
-    cause !== null &&
-    "name" in cause &&
-    cause.name === "AbortError"
-  )
+  return cause instanceof Error && cause.name === "AbortError"
 }

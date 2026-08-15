@@ -42,18 +42,7 @@ export function clipBrowserDownloadActionSupported(row: ClipRow): boolean {
   return row.status === "ready" && Boolean(row.playbackContentType)
 }
 
-export function useClipDownloadAction(
-  row: ClipRow,
-  alreadyLocal = false,
-): {
-  supported: boolean
-  downloading: boolean
-  saved: boolean
-  /** 0–100, only meaningful while downloading. */
-  progress: number
-  error: string | null
-  start: (onError?: (message: string) => void) => void
-} {
+export function useClipDownloadAction(row: ClipRow, alreadyLocal = false) {
   const download = useClipDownload(row.id)
   const [error, setError] = useState<string | null>(null)
   const supported = clipDownloadActionSupported(row)

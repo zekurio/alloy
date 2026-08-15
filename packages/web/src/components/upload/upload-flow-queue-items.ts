@@ -133,13 +133,14 @@ function useServerQueueItems(
 function useDownloadQueueItems(downloads: ReturnType<typeof useClipDownloads>) {
   return useMemo(
     () =>
-      downloads.map((download) =>
-        downloadToQueueItem(download, {
+      downloads.map((download) => {
+        const libraryItemId = download.libraryItemId
+        return downloadToQueueItem(download, {
           onCancel: () => removeClipDownload(download.clipId),
-          onOpen: download.libraryItemId
+          onOpen: libraryItemId
             ? () => {
                 void alloyDesktop()?.recording.revealLibraryCapture(
-                  download.libraryItemId as string,
+                  libraryItemId,
                 )
               }
             : undefined,
@@ -147,8 +148,8 @@ function useDownloadQueueItems(downloads: ReturnType<typeof useClipDownloads>) {
             download.status !== "downloading"
               ? () => removeClipDownload(download.clipId)
               : undefined,
-        }),
-      ),
+        })
+      }),
     [downloads],
   )
 }

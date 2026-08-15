@@ -50,8 +50,7 @@ export async function deleteStagedUploads(
 ): Promise<void> {
   await Promise.all(
     Array.from(keys, async (entry) => {
-      const key =
-        typeof entry === "string" || entry === null ? entry : entry.key
+      const key = entry instanceof Object ? entry.key : entry
       if (!key) return
       try {
         await deleteStagedUpload(key)

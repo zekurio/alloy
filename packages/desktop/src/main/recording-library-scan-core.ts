@@ -233,7 +233,7 @@ function manifestTrim(
 ): { startMs: number; endMs: number } | null {
   const startMs = entry?.trimStartMs
   const endMs = entry?.trimEndMs
-  if (typeof startMs !== "number" || typeof endMs !== "number") return null
+  if (startMs === undefined || endMs === undefined) return null
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return null
   if (startMs < 0 || endMs <= startMs) return null
   if (durationMs !== null && startMs >= durationMs) return null

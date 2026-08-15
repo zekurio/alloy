@@ -34,12 +34,7 @@ export function immutableImageAssetsRoute(
     const buffer = await readAll(resolved.stream())
     c.header("Content-Length", String(buffer.byteLength))
 
-    return c.body(
-      buffer.buffer.slice(
-        buffer.byteOffset,
-        buffer.byteOffset + buffer.byteLength,
-      ) as ArrayBuffer,
-    )
+    return c.body(new Uint8Array(buffer).buffer)
   })
 }
 

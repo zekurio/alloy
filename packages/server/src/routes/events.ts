@@ -11,13 +11,11 @@ import {
 import { countUnread } from "@alloy/server/notifications/service"
 import { shutdownSignal } from "@alloy/server/runtime/shutdown"
 import { Hono } from "hono"
-import { streamSSE } from "hono/streaming"
+import { type SSEStreamingApi, streamSSE } from "hono/streaming"
 
 const HEARTBEAT_MS = 25_000
 
-type StreamSleeper = {
-  sleep(ms: number): PromiseLike<unknown>
-}
+type StreamSleeper = Pick<SSEStreamingApi, "sleep">
 
 function streamSleep(stream: StreamSleeper): (ms: number) => Promise<void> {
   return async (ms) => {
@@ -135,11 +133,7 @@ async function runPendingEventStream<T>(input: {
 }
 
 async function runHeartbeatEventStream<T>(input: {
-  stream: {
-    aborted: boolean
-    sleep(ms: number): PromiseLike<unknown>
-    writeSSE: (message: { event: string; data: string }) => Promise<void>
-  }
+  stream: Pick<SSEStreamingApi, "aborted" | "sleep" | "writeSSE">
   pending: T[]
   setWake: (wake: (() => void) | null) => void
   eventName: (event: T) => string
@@ -153,12 +147,7 @@ async function runHeartbeatEventStream<T>(input: {
 }
 
 async function streamSubscribedEvents<T>(input: {
-  stream: {
-    aborted: boolean
-    sleep(ms: number): PromiseLike<unknown>
-    onAbort(callback: () => void): void
-    writeSSE: (message: { event: string; data: string }) => Promise<void>
-  }
+  stream: Pick<SSEStreamingApi, "aborted" | "sleep" | "onAbort" | "writeSSE">
   pending: T[]
   subscribe: (push: (event: T) => void) => () => void
   writeSnapshot: () => Promise<void>

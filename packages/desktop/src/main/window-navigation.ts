@@ -101,8 +101,8 @@ export async function openWebPath(
 }
 
 export function openExternal(url: string): void {
-  void shell.openExternal(url).catch((error: unknown) => {
-    logger.warn("failed to open external URL:", error)
+  void shell.openExternal(url).catch((cause: unknown) => {
+    logger.warn("failed to open external URL:", cause)
   })
 }
 

@@ -8,9 +8,15 @@ import {
 } from "node:fs"
 import { join } from "node:path"
 
+import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import { app, net } from "electron"
 
+import {
+  StrictFiniteNumberSchema,
+  StrictStringSchema,
+  type UntrustedInput,
+} from "./runtime-validation"
 import { mainSession } from "./session"
 
 const logger = createLogger("assets")
@@ -73,6 +79,14 @@ interface AssetMeta {
   lastUsedAt: number
   sizeBytes: number
 }
+
+const AssetMetaSchema = t.object({
+  url: StrictStringSchema,
+  contentType: StrictStringSchema,
+  fetchedAt: StrictFiniteNumberSchema,
+  lastUsedAt: StrictFiniteNumberSchema,
+  sizeBytes: StrictFiniteNumberSchema,
+})
 
 const pendingFetches = new Map<string, Promise<Response>>()
 
@@ -257,16 +271,8 @@ function assetMetaPath(key: string): string {
   return join(assetCacheFolder(), `${key}.json`)
 }
 
-function isAssetMeta(value: unknown): value is AssetMeta {
-  if (typeof value !== "object" || value === null) return false
-  const meta = value as Record<string, unknown>
-  return (
-    typeof meta.url === "string" &&
-    typeof meta.contentType === "string" &&
-    typeof meta.fetchedAt === "number" &&
-    typeof meta.lastUsedAt === "number" &&
-    typeof meta.sizeBytes === "number"
-  )
+function isAssetMeta(value: UntrustedInput): value is AssetMeta {
+  return AssetMetaSchema.safeParse(value).success
 }
 
 function assetUrlFromRequest(rawUrl: string): string | null {
