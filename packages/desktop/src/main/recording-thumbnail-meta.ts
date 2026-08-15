@@ -2,8 +2,15 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
 import { isBlurHash } from "@alloy/contracts/blurhash"
+import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
+
+import {
+  StrictFiniteNumberSchema,
+  StrictStringSchema,
+  type UntrustedInput,
+} from "./runtime-validation"
 
 const logger = createLogger("library")
 
@@ -18,6 +25,11 @@ interface ThumbnailMetaFile {
   version: 1
   blurHashes: Record<string, string>
 }
+
+const ThumbnailMetaFileSchema = t.object({
+  version: StrictFiniteNumberSchema.refine((version) => version === 1),
+  blurHashes: t.record(StrictStringSchema, StrictStringSchema),
+})
 
 const MAX_ENTRIES = 2000
 
@@ -109,12 +121,11 @@ function metaPath(): string {
   return join(app.getPath("userData"), "recording-thumbnails", "meta.json")
 }
 
-function isThumbnailMetaFile(value: unknown): value is ThumbnailMetaFile {
-  if (typeof value !== "object" || value === null) return false
-  const meta = value as Record<string, unknown>
-  if (meta.version !== 1) return false
-  if (typeof meta.blurHashes !== "object" || meta.blurHashes === null) {
-    return false
-  }
-  return Object.values(meta.blurHashes).every(isBlurHash)
+function isThumbnailMetaFile(
+  value: UntrustedInput,
+): value is ThumbnailMetaFile {
+  const result = ThumbnailMetaFileSchema.safeParse(value)
+  return (
+    result.success && Object.values(result.data.blurHashes).every(isBlurHash)
+  )
 }

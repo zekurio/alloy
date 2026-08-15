@@ -2,51 +2,57 @@ import {
   CLIP_PRIVACY,
   CLIP_SCRUBBER_MAX_BYTES,
   RECORDING_NOTIFICATION_SOUND_EVENTS,
-  type ClipPrivacy,
   type RecordingCaptureMention,
   type RecordingLibraryCommitStagedImportRequest,
   type RecordingLibraryDownloadRequest,
   type RecordingLibraryExportRequest,
-  type RecordingLibraryExportSegment,
   type RecordingLibraryMetaPatch,
   type RecordingLibraryTrimUpdate,
   type RecordingNotificationSoundEvent,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
+
+import {
+  StrictFiniteNumberSchema,
+  StrictStringSchema,
+} from "./runtime-validation"
+
+const AnyIpcValueSchema = t.unknown()
+type IpcInput = Parameters<typeof AnyIpcValueSchema.safeParse>[0]
 
 export function isNotificationSoundEvent(
-  value: unknown,
+  value: IpcInput,
 ): value is RecordingNotificationSoundEvent {
-  return RECORDING_NOTIFICATION_SOUND_EVENTS.includes(
-    value as RecordingNotificationSoundEvent,
-  )
+  return RECORDING_NOTIFICATION_SOUND_EVENTS.some((event) => event === value)
 }
 
 const EXPORT_SEGMENTS_MAX = 100
+const TrimMsSchema = StrictFiniteNumberSchema.transform((value) =>
+  Math.max(0, Math.trunc(value)),
+)
+const LibraryExportEnvelopeSchema = t
+  .looseObject({
+    id: StrictStringSchema.catch("").$default(""),
+    segments: t.array(AnyIpcValueSchema).catch([]).$default([]),
+  })
+  .catch({ id: "", segments: [] })
+const LibraryExportSegmentSchema = t.looseObject({
+  startMs: TrimMsSchema.catch(0).$default(0),
+  endMs: TrimMsSchema.catch(0).$default(0),
+})
 
 export function normalizeLibraryExportRequest(
-  value: unknown,
+  value: IpcInput,
 ): RecordingLibraryExportRequest {
-  const record =
-    typeof value === "object" && value !== null
-      ? (value as Record<string, unknown>)
-      : {}
-  const segments: RecordingLibraryExportSegment[] = (
-    Array.isArray(record.segments) ? record.segments : []
-  )
-    .slice(0, EXPORT_SEGMENTS_MAX)
-    .flatMap((entry: unknown) => {
-      if (typeof entry !== "object" || entry === null) return []
-      const segment = entry as Record<string, unknown>
-      return [
-        {
-          startMs: normalizeTrimMs(segment.startMs),
-          endMs: normalizeTrimMs(segment.endMs),
-        },
-      ]
-    })
+  const request = LibraryExportEnvelopeSchema.parse(value)
   return {
-    id: typeof record.id === "string" ? record.id : "",
-    segments,
+    id: request.id,
+    segments: request.segments
+      .slice(0, EXPORT_SEGMENTS_MAX)
+      .flatMap((entry) => {
+        const result = LibraryExportSegmentSchema.safeParse(entry)
+        return result.success ? [result.data] : []
+      }),
   }
 }
 
@@ -55,61 +61,61 @@ const COMMIT_STAGED_IMPORT_ID_MAX = 128
 const COMMIT_STAGED_IMPORT_TITLE_MAX = 200
 const COMMIT_STAGED_IMPORT_GAME_NAME_MAX = 200
 const COMMIT_STAGED_IMPORT_GAME_ICON_URL_MAX = 2000
+const LibraryCommitStagedImportSchema = t.looseObject({
+  id: StrictStringSchema.min(1).max(COMMIT_STAGED_IMPORT_ID_MAX),
+  title: StrictStringSchema.trim()
+    .min(1)
+    .transform((value) => value.slice(0, COMMIT_STAGED_IMPORT_TITLE_MAX)),
+  gameName: StrictStringSchema.trim()
+    .min(1)
+    .transform((value) => value.slice(0, COMMIT_STAGED_IMPORT_GAME_NAME_MAX)),
+  gameIconUrl: StrictStringSchema.transform((value) =>
+    value.slice(0, COMMIT_STAGED_IMPORT_GAME_ICON_URL_MAX),
+  )
+    .nullable()
+    .catch(null)
+    .$default(null),
+})
 
 export function normalizeLibraryCommitStagedImportRequest(
-  value: unknown,
+  value: IpcInput,
 ): RecordingLibraryCommitStagedImportRequest | null {
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  if (
-    typeof record.id !== "string" ||
-    record.id.length === 0 ||
-    record.id.length > COMMIT_STAGED_IMPORT_ID_MAX
-  ) {
-    return null
-  }
-  if (typeof record.title !== "string") return null
-  if (typeof record.gameName !== "string") return null
-
-  const title = record.title.trim().slice(0, COMMIT_STAGED_IMPORT_TITLE_MAX)
-  const gameName = record.gameName
-    .trim()
-    .slice(0, COMMIT_STAGED_IMPORT_GAME_NAME_MAX)
-  if (title.length === 0 || gameName.length === 0) return null
-
-  return {
-    id: record.id,
-    title,
-    gameName,
-    gameIconUrl:
-      typeof record.gameIconUrl === "string"
-        ? record.gameIconUrl.slice(0, COMMIT_STAGED_IMPORT_GAME_ICON_URL_MAX)
-        : null,
-  }
+  const result = LibraryCommitStagedImportSchema.safeParse(value)
+  return result.success ? result.data : null
 }
 
+const LibraryThumbnailSaveSchema = t.looseObject({
+  id: StrictStringSchema.min(1),
+  data: t
+    .instanceof(Uint8Array)
+    .refine(
+      (data) => data.byteLength > 0 && data.byteLength <= THUMBNAIL_MAX_BYTES,
+    ),
+})
+const LibraryScrubberSaveSchema = t.looseObject({
+  id: StrictStringSchema.min(1),
+  data: t
+    .instanceof(Uint8Array)
+    .refine(
+      (data) =>
+        data.byteLength > 0 && data.byteLength <= CLIP_SCRUBBER_MAX_BYTES,
+    ),
+})
+
 export function normalizeLibraryThumbnailSaveRequest(
-  id: unknown,
-  data: unknown,
+  id: IpcInput,
+  data: IpcInput,
 ): { id: string; data: Uint8Array } | null {
-  if (typeof id !== "string" || id.length === 0) return null
-  if (!(data instanceof Uint8Array)) return null
-  if (data.byteLength === 0 || data.byteLength > THUMBNAIL_MAX_BYTES) {
-    return null
-  }
-  return { id, data }
+  const result = LibraryThumbnailSaveSchema.safeParse({ id, data })
+  return result.success ? result.data : null
 }
 
 export function normalizeLibraryScrubberSaveRequest(
-  id: unknown,
-  data: unknown,
+  id: IpcInput,
+  data: IpcInput,
 ): { id: string; data: Uint8Array } | null {
-  if (typeof id !== "string" || id.length === 0) return null
-  if (!(data instanceof Uint8Array)) return null
-  if (data.byteLength === 0 || data.byteLength > CLIP_SCRUBBER_MAX_BYTES) {
-    return null
-  }
-  return { id, data }
+  const result = LibraryScrubberSaveSchema.safeParse({ id, data })
+  return result.success ? result.data : null
 }
 
 const DOWNLOAD_TITLE_MAX = 200
@@ -117,64 +123,44 @@ const DOWNLOAD_ID_MAX = 64
 const DOWNLOAD_URL_MAX = 2000
 const DOWNLOAD_GAME_NAME_MAX = 200
 const DOWNLOAD_CONTENT_TYPE_MAX = 100
+const PositiveIntegerSchema = StrictFiniteNumberSchema.refine(
+  (value) => Number.isFinite(value) && value > 0,
+).transform(Math.round)
+const LibraryDownloadRequestSchema = t.looseObject({
+  clipId: StrictStringSchema.min(1).max(DOWNLOAD_ID_MAX),
+  title: StrictStringSchema.trim()
+    .transform((value) => value.slice(0, DOWNLOAD_TITLE_MAX))
+    .catch("")
+    .$default(""),
+  mediaUrl: StrictStringSchema.min(1).max(DOWNLOAD_URL_MAX),
+  contentType: StrictStringSchema.transform((value) =>
+    value.slice(0, DOWNLOAD_CONTENT_TYPE_MAX),
+  )
+    .nullable()
+    .catch(null)
+    .$default(null),
+  sizeBytes: PositiveIntegerSchema.nullable().catch(null).$default(null),
+  durationMs: PositiveIntegerSchema.nullable().catch(null).$default(null),
+  width: PositiveIntegerSchema.nullable().catch(null).$default(null),
+  height: PositiveIntegerSchema.nullable().catch(null).$default(null),
+  gameName: StrictStringSchema.transform((value) =>
+    value.slice(0, DOWNLOAD_GAME_NAME_MAX),
+  )
+    .nullable()
+    .catch(null)
+    .$default(null),
+})
 
 /**
  * Returns a sanitized clip download request, or null when it lacks a usable
- * clip id or media URL. The URL's origin is checked against the connected
- * server by the IPC handler, not here.
+ * clip id or media URL. The IPC handler checks the URL origin.
  */
 export function normalizeLibraryDownloadRequest(
-  value: unknown,
+  value: IpcInput,
 ): RecordingLibraryDownloadRequest | null {
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  if (
-    typeof record.clipId !== "string" ||
-    record.clipId.length === 0 ||
-    record.clipId.length > DOWNLOAD_ID_MAX
-  ) {
-    return null
-  }
-  if (
-    typeof record.mediaUrl !== "string" ||
-    record.mediaUrl.length === 0 ||
-    record.mediaUrl.length > DOWNLOAD_URL_MAX
-  ) {
-    return null
-  }
-  const title =
-    typeof record.title === "string"
-      ? record.title.trim().slice(0, DOWNLOAD_TITLE_MAX)
-      : ""
-  return {
-    clipId: record.clipId,
-    title: title || "Clip",
-    mediaUrl: record.mediaUrl,
-    contentType:
-      typeof record.contentType === "string"
-        ? record.contentType.slice(0, DOWNLOAD_CONTENT_TYPE_MAX)
-        : null,
-    sizeBytes: normalizePositiveInteger(record.sizeBytes),
-    durationMs: normalizePositiveInteger(record.durationMs),
-    width: normalizeDimension(record.width),
-    height: normalizeDimension(record.height),
-    gameName:
-      typeof record.gameName === "string"
-        ? record.gameName.slice(0, DOWNLOAD_GAME_NAME_MAX)
-        : null,
-  }
-}
-
-function normalizePositiveInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? Math.round(value)
-    : null
-}
-
-function normalizeDimension(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value > 0
-    ? Math.round(value)
-    : null
+  const result = LibraryDownloadRequestSchema.safeParse(value)
+  if (!result.success) return null
+  return { ...result.data, title: result.data.title || "Clip" }
 }
 
 const META_TITLE_MAX = 200
@@ -183,110 +169,98 @@ const META_GAME_ICON_URL_MAX = 2000
 const META_DESCRIPTION_MAX = 4000
 const META_TAGS_MAX = 500
 const META_MENTIONS_MAX = 50
+const CaptureMentionSchema = t.looseObject({
+  id: StrictStringSchema.min(1),
+  username: StrictStringSchema.catch("").$default(""),
+  image: StrictStringSchema.nullable().catch(null).$default(null),
+})
+const LibraryMetaPatchEnvelopeSchema = t.looseObject({
+  id: StrictStringSchema.min(1),
+  title: AnyIpcValueSchema.optional(),
+  gameName: AnyIpcValueSchema.optional(),
+  gameIconUrl: AnyIpcValueSchema.optional(),
+  description: AnyIpcValueSchema.optional(),
+  tags: AnyIpcValueSchema.optional(),
+  mentions: t.array(AnyIpcValueSchema).optional(),
+  privacy: AnyIpcValueSchema.optional(),
+  uploadedClipId: AnyIpcValueSchema.optional(),
+})
 
-/**
- * Returns a sanitized draft-metadata patch, or null when the request carries
- * no usable id. Unknown fields are dropped; present fields are length-capped
- * so a misbehaving page can't bloat the manifest.
- */
+/** Returns a sanitized draft-metadata patch, or null for an invalid id. */
 export function normalizeLibraryMetaPatch(
-  value: unknown,
+  value: IpcInput,
 ): RecordingLibraryMetaPatch | null {
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  if (typeof record.id !== "string" || record.id.length === 0) return null
+  const result = LibraryMetaPatchEnvelopeSchema.safeParse(value)
+  if (!result.success) return null
 
-  const patch: RecordingLibraryMetaPatch = { id: record.id }
-  if (typeof record.title === "string") {
-    const title = record.title.trim().slice(0, META_TITLE_MAX)
-    if (title.length > 0) patch.title = title
+  const patch: RecordingLibraryMetaPatch = { id: result.data.id }
+  const title = StrictStringSchema.safeParse(result.data.title)
+  if (title.success) {
+    const normalized = title.data.trim().slice(0, META_TITLE_MAX)
+    if (normalized.length > 0) patch.title = normalized
   }
-  if (typeof record.gameName === "string" || record.gameName === null) {
-    const gameName =
-      record.gameName?.trim().slice(0, META_GAME_NAME_MAX) ?? null
-    patch.gameName = gameName && gameName.length > 0 ? gameName : null
+  const gameName = StrictStringSchema.nullable().safeParse(result.data.gameName)
+  if (gameName.success) {
+    const normalized = gameName.data?.trim().slice(0, META_GAME_NAME_MAX)
+    patch.gameName = normalized && normalized.length > 0 ? normalized : null
   }
-  if (typeof record.gameIconUrl === "string" || record.gameIconUrl === null) {
+  const gameIconUrl = StrictStringSchema.nullable().safeParse(
+    result.data.gameIconUrl,
+  )
+  if (gameIconUrl.success) {
     patch.gameIconUrl =
-      record.gameIconUrl?.slice(0, META_GAME_ICON_URL_MAX) ?? null
+      gameIconUrl.data?.slice(0, META_GAME_ICON_URL_MAX) ?? null
   }
-  if (typeof record.description === "string" || record.description === null) {
-    patch.description =
-      record.description?.slice(0, META_DESCRIPTION_MAX) ?? null
+  const description = StrictStringSchema.nullable().safeParse(
+    result.data.description,
+  )
+  if (description.success) {
+    patch.description = description.data?.slice(0, META_DESCRIPTION_MAX) ?? null
   }
-  if (typeof record.tags === "string" || record.tags === null) {
-    patch.tags = record.tags?.slice(0, META_TAGS_MAX) ?? null
-  }
-  if (Array.isArray(record.mentions)) {
-    patch.mentions = record.mentions
+  const tags = StrictStringSchema.nullable().safeParse(result.data.tags)
+  if (tags.success) patch.tags = tags.data?.slice(0, META_TAGS_MAX) ?? null
+  if (result.data.mentions) {
+    patch.mentions = result.data.mentions
       .slice(0, META_MENTIONS_MAX)
-      .map(normalizeCaptureMention)
-      .filter((mention): mention is RecordingCaptureMention => mention !== null)
+      .flatMap((mention): RecordingCaptureMention[] => {
+        const parsed = CaptureMentionSchema.safeParse(mention)
+        return parsed.success ? [parsed.data] : []
+      })
   }
-  if (record.privacy === null) {
-    patch.privacy = null
-  }
-  if (isClipPrivacy(record.privacy)) patch.privacy = record.privacy
-  if (record.uploadedClipId === null) {
-    patch.uploadedClipId = null
-  }
-  if (
-    typeof record.uploadedClipId === "string" &&
-    record.uploadedClipId.length > 0 &&
-    record.uploadedClipId.length <= 64
-  ) {
-    patch.uploadedClipId = record.uploadedClipId
-  }
+  if (result.data.privacy === null) patch.privacy = null
+  const privacy = CLIP_PRIVACY.find(
+    (candidate) => candidate === result.data.privacy,
+  )
+  if (privacy !== undefined) patch.privacy = privacy
+  const uploadedClipId = StrictStringSchema.min(1)
+    .max(64)
+    .nullable()
+    .safeParse(result.data.uploadedClipId)
+  if (uploadedClipId.success) patch.uploadedClipId = uploadedClipId.data
   return patch
 }
 
-function isClipPrivacy(value: unknown): value is ClipPrivacy {
-  return CLIP_PRIVACY.includes(value as ClipPrivacy)
-}
+const TrimBoundSchema = StrictFiniteNumberSchema.refine(
+  (value) => Number.isFinite(value) && value >= 0,
+).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
+const LibraryTrimUpdateSchema = t
+  .looseObject({
+    id: StrictStringSchema.min(1),
+    trimStartMs: TrimBoundSchema.nullable(),
+    trimEndMs: TrimBoundSchema.nullable(),
+  })
+  .refine(
+    (value) =>
+      (value.trimStartMs === null && value.trimEndMs === null) ||
+      (value.trimStartMs !== null &&
+        value.trimEndMs !== null &&
+        value.trimEndMs > value.trimStartMs),
+  )
 
-function normalizeCaptureMention(
-  value: unknown,
-): RecordingCaptureMention | null {
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  if (typeof record.id !== "string" || record.id.length === 0) return null
-  return {
-    id: record.id,
-    username: typeof record.username === "string" ? record.username : "",
-    image: typeof record.image === "string" ? record.image : null,
-  }
-}
-
-/**
- * Returns a sanitized trim update, or null when the request lacks a usable
- * id or carries a non-finite, negative, or inverted range. Both bounds null
- * means "clear the trim".
- */
+/** Returns a valid trim range, a clear request, or null. */
 export function normalizeLibraryTrimUpdate(
-  value: unknown,
+  value: IpcInput,
 ): RecordingLibraryTrimUpdate | null {
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  if (typeof record.id !== "string" || record.id.length === 0) return null
-  if (record.trimStartMs === null && record.trimEndMs === null) {
-    return { id: record.id, trimStartMs: null, trimEndMs: null }
-  }
-  const trimStartMs = normalizeTrimBoundMs(record.trimStartMs)
-  const trimEndMs = normalizeTrimBoundMs(record.trimEndMs)
-  if (trimStartMs === null || trimEndMs === null) return null
-  if (trimEndMs <= trimStartMs) return null
-  return { id: record.id, trimStartMs, trimEndMs }
-}
-
-/** Non-negative finite ms clamped to a safe integer, or null. */
-function normalizeTrimBoundMs(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null
-  if (value < 0) return null
-  return Math.min(Math.round(value), Number.MAX_SAFE_INTEGER)
-}
-
-function normalizeTrimMs(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(0, Math.trunc(value))
-    : 0
+  const result = LibraryTrimUpdateSchema.safeParse(value)
+  return result.success ? result.data : null
 }

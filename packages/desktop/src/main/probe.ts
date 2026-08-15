@@ -2,17 +2,46 @@ import {
   DESKTOP_AUTH_CAPABILITY_VERSION,
   type PublicAuthConfig,
 } from "@alloy/contracts"
-import { t } from "@alloy/i18n"
+import { t } from "@alloy/contracts/schema"
+import { getRuntimeLocale, translate } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
 import type { ProbeResult } from "@/shared/ipc"
 
+import {
+  StrictBooleanSchema,
+  StrictFiniteNumberSchema,
+  StrictStringSchema,
+} from "./runtime-validation"
 import { isSecureServerUrl } from "./url-policy"
 
 const logger = createLogger("probe")
 
 const PROBE_TIMEOUT_MS = 8000
 const AUTH_CONFIG_PATH = "/api/auth-config"
+const PublicAuthConfigSchema = t.looseObject({
+  adminAccountRequired: StrictBooleanSchema,
+  setupRequired: StrictBooleanSchema,
+  openRegistrations: StrictBooleanSchema,
+  passkeyEnabled: StrictBooleanSchema,
+  requireAuthToBrowse: StrictBooleanSchema,
+  desktopAuth: t.looseObject({ version: StrictFiniteNumberSchema }),
+  providers: t.array(
+    t.looseObject({
+      providerId: StrictStringSchema,
+      displayName: StrictStringSchema,
+      buttonColor: StrictStringSchema.optional(),
+      buttonTextColor: StrictStringSchema.optional(),
+      iconUrl: StrictStringSchema.optional(),
+    }),
+  ),
+  loginSplash: t.looseObject({
+    enabled: StrictBooleanSchema,
+    blurPx: StrictFiniteNumberSchema,
+    darkenOpacity: StrictFiniteNumberSchema,
+  }),
+  appearance: t.looseObject({ customCss: StrictStringSchema }).optional(),
+})
 
 /**
  * Turn raw user input into an ordered list of candidate base URLs to probe.
@@ -49,19 +78,6 @@ export function candidateUrls(input: string): string[] {
   return bases
 }
 
-function isPublicAuthConfig(value: unknown): value is PublicAuthConfig {
-  if (typeof value !== "object" || value === null) return false
-  const v = value as Record<string, unknown>
-  return (
-    typeof v.passkeyEnabled === "boolean" &&
-    typeof v.openRegistrations === "boolean" &&
-    typeof v.setupRequired === "boolean" &&
-    typeof (v.desktopAuth as { version?: unknown } | undefined)?.version ===
-      "number" &&
-    Array.isArray(v.providers)
-  )
-}
-
 function supportsDesktopAuth(config: PublicAuthConfig): boolean {
   return config.desktopAuth.version >= DESKTOP_AUTH_CAPABILITY_VERSION
 }
@@ -79,9 +95,22 @@ async function probeOne(baseUrl: string): Promise<ProbeResult> {
     if (!res.ok) {
       return { ok: false, error: `Server responded with ${res.status}.` }
     }
-    const body: unknown = await res.json()
-    if (!isPublicAuthConfig(body)) {
+    const result = PublicAuthConfigSchema.safeParse(await res.json())
+    if (!result.success) {
       return { ok: false, error: "Not an Alloy server." }
+    }
+    // Capability version 1 predates the public appearance field. Keep that
+    // protocol version compatible and supply the current empty CSS default.
+    const body: PublicAuthConfig = {
+      adminAccountRequired: result.data.adminAccountRequired,
+      setupRequired: result.data.setupRequired,
+      openRegistrations: result.data.openRegistrations,
+      passkeyEnabled: result.data.passkeyEnabled,
+      requireAuthToBrowse: result.data.requireAuthToBrowse,
+      desktopAuth: result.data.desktopAuth,
+      providers: result.data.providers,
+      loginSplash: result.data.loginSplash,
+      appearance: result.data.appearance ?? { customCss: "" },
     }
     if (!supportsDesktopAuth(body)) {
       return {
@@ -90,11 +119,11 @@ async function probeOne(baseUrl: string): Promise<ProbeResult> {
       }
     }
     return { ok: true, serverUrl: baseUrl, config: body }
-  } catch (error) {
+  } catch (cause) {
     const reason =
-      error instanceof Error && error.name === "AbortError"
-        ? t("Connection timed out.")
-        : t("Could not reach server.")
+      cause instanceof Error && cause.name === "AbortError"
+        ? translate(getRuntimeLocale(), "Connection timed out.")
+        : translate(getRuntimeLocale(), "Could not reach server.")
     return { ok: false, error: reason }
   } finally {
     clearTimeout(timeout)
