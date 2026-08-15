@@ -44,8 +44,8 @@ function DropdownMenuContent({
         <Menu.Popup
           data-slot="dropdown-menu-content"
           className={cn(
-            "z-50 max-h-(--available-height) w-(--anchor-width) min-w-[180px]",
-            "overflow-x-hidden overflow-y-auto rounded-md bg-surface-raised p-0.5 text-foreground",
+            "z-50 max-h-(--available-height) w-(--anchor-width) min-w-[180px] max-md:min-w-48",
+            "overflow-x-hidden overflow-y-auto rounded-md bg-surface-raised p-0.5 text-foreground max-md:rounded-lg max-md:p-1",
             "border border-border-strong shadow-md",
             "duration-100 outline-none",
             "data-[side=bottom]:slide-in-from-top-2 data-[side=top]:slide-in-from-bottom-2",
@@ -112,6 +112,7 @@ function DropdownMenuItem({
         "data-[variant=destructive]:data-highlighted:bg-[oklch(0.65_0.24_25/0.14)] data-[variant=destructive]:data-highlighted:text-danger",
         "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-foreground-dim",
         "data-[variant=destructive]:[&_svg]:text-danger",
+        "max-md:h-10 max-md:rounded-lg max-md:[&_svg]:size-[18px]",
         className,
       )}
       {...props}
@@ -141,6 +142,7 @@ function DropdownMenuSubTrigger({
         "data-popup-open:bg-neutral-150 data-popup-open:text-foreground data-open:bg-neutral-150 data-open:text-foreground",
         "data-inset:pl-6",
         "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+        "max-md:h-10 max-md:rounded-lg max-md:[&_svg]:size-[18px]",
         className,
       )}
       {...props}
@@ -193,6 +195,7 @@ function DropdownMenuCheckboxItem({
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "max-md:h-10 max-md:rounded-lg max-md:[&_svg:not([class*='size-'])]:size-[18px]",
         className,
       )}
       checked={checked}
@@ -233,6 +236,7 @@ function DropdownMenuRadioItem({
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "max-md:h-10 max-md:rounded-lg max-md:[&_svg:not([class*='size-'])]:size-[18px]",
         className,
       )}
       {...props}

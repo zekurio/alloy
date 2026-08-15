@@ -176,7 +176,7 @@ export function ClipCardThumb({
 
   const interactive = Boolean(onClick)
   const surfaceClass = cn(
-    "group/clip-thumb w-full appearance-none rounded-md border-0 p-0 text-left",
+    "group/clip-thumb w-full appearance-none rounded-none border-0 p-0 text-left md:rounded-md",
     CLIP_MEDIA_VIEWPORT_CLASS,
     "transition-[transform] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
     interactive &&
@@ -209,7 +209,12 @@ export function ClipCardThumb({
   }
 
   const body = (
-    <div className={cn("absolute inset-0", CLIP_MEDIA_ROUNDED_CLASS)}>
+    <div
+      className={cn(
+        "absolute inset-0 max-md:rounded-none max-md:[clip-path:none]",
+        CLIP_MEDIA_ROUNDED_CLASS,
+      )}
+    >
       <MediaPlaceholder seed={fallbackSeed} blurHash={activeBlurHash} />
 
       {activeThumbnail ? (

@@ -13,10 +13,9 @@ import type { ComponentProps } from "react"
  *   scroll containers is unreliable in mobile WebKit.
  * - default (sticky) — for pages with content above the toolbar (banners,
  *   profile headers): bleeds edge to edge via negative margin/padding pairs
- *   matched to the container's padding (`AppMain`'s `p-4 md:p-6` or a
- *   route's own `px-4 md:px-6` wrapper) and pins to the top of the nearest
- *   scrolling ancestor once the page scrolls past it. Treat the pinning as
- *   a progressive enhancement on iOS.
+ *   matched to the shared content padding and pins to the top of the nearest
+ *   scrolling ancestor once the page scrolls past it. Treat the pinning as a
+ *   progressive enhancement on iOS.
  *
  * Sticky positioning and horizontal overflow live on SEPARATE elements:
  * a sticky element that is its own scroll container stops sticking in
@@ -39,7 +38,8 @@ function PageToolbar({
       data-slot="page-toolbar"
       className={cn(
         "bg-background",
-        !pinned && "sticky top-0 z-10 -mx-4 mb-4 md:-mx-6 md:mb-6",
+        !pinned &&
+          "sticky top-0 z-10 -mx-[var(--app-content-padding)] mb-4 md:mb-6",
         className,
       )}
       {...props}
@@ -48,11 +48,7 @@ function PageToolbar({
         className={cn(
           // Fixed row height so every route's toolbar matches regardless of
           // whether it holds 32px chips or 28px dropdown triggers.
-          "flex min-h-12 min-w-0 items-center gap-1.5 px-4 py-2 md:px-6",
-          // Pinned feed/library surfaces use the clip grid's 16px gutter on
-          // every side; toolbars below page headers retain the wider desktop
-          // inset used by those layouts.
-          pinned && "md:px-4",
+          "flex min-h-12 min-w-0 items-center gap-1.5 px-[var(--app-content-padding)] py-2",
           rail &&
             "no-scrollbar overflow-x-auto overflow-y-hidden [&>*]:shrink-0",
         )}

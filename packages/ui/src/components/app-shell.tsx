@@ -7,6 +7,7 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
       data-slot="app-shell"
       className={cn(
         "relative grid h-dvh w-full overflow-hidden bg-background",
+        "[--app-content-padding:0.75rem]",
         // Mobile: single column; navigation lives in a fixed bottom nav.
         "[grid-template-columns:1fr]",
         "[grid-template-rows:var(--header-h)_1fr]",
@@ -26,27 +27,32 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
       <span
         aria-hidden
         data-slot="app-bottom-left-anchor"
-        className="pointer-events-none fixed bottom-2 left-[calc(var(--sidebar-rail)+13px)] hidden size-0 md:block"
+        className="pointer-events-none fixed bottom-[var(--app-content-padding)] left-[calc(var(--sidebar-rail)+var(--app-content-padding))] hidden size-0 md:block"
       />
       <span
         aria-hidden
         data-slot="app-top-right-anchor"
-        className="pointer-events-none fixed top-[var(--header-h)] right-4 size-0"
+        className="pointer-events-none fixed top-[calc(var(--header-h)+var(--app-content-padding))] right-[var(--app-content-padding)] size-0"
+      />
+      <span
+        aria-hidden
+        data-slot="app-bottom-right-anchor"
+        className="pointer-events-none fixed right-[var(--app-content-padding)] bottom-[var(--app-content-padding)] hidden size-0 md:block"
       />
     </div>
   )
 }
 
 const scrollRegionClass = cn(
-  "overflow-x-hidden overflow-y-auto p-4 md:p-6",
+  "overflow-x-hidden overflow-y-auto p-[var(--app-content-padding)]",
   // Clear the fixed mobile bottom-nav (hidden on md+) so the last row of
   // content isn't trapped behind it.
-  "max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)]",
+  "max-md:pb-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+var(--app-content-padding))]",
 )
 
 /**
- * Main content region. Scrolls vertically; responsive side padding
- * (16px mobile -> 24px desktop) stays even on every side.
+ * Main content region. It scrolls vertically and uses the shared 12px shell
+ * inset on every side.
  */
 function AppMain({ className, ...props }: ComponentProps<"main">) {
   return (

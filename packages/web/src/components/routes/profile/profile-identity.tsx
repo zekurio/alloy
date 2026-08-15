@@ -93,23 +93,18 @@ export function ProfileIdentity({
             />
           </Avatar>
 
-          {/* Identity + action */}
-          <div className="flex min-w-0 flex-1 items-end gap-3">
-            <div className="min-w-0 flex-1">
-              {/* Name row */}
-              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0">
-                <h1 className="text-foreground truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
-                  {handle}
-                </h1>
-              </div>
+          {/* Identity cluster + follow action */}
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <div className="min-w-0">
+              <h1 className="text-foreground truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
+                {handle}
+              </h1>
 
-              {/* Stats */}
               <div className="mt-0.5">
                 <IdentityStats handle={handle} counts={counts} />
               </div>
             </div>
 
-            {/* Follow / action button */}
             {actionNode ? <div className="shrink-0">{actionNode}</div> : null}
           </div>
         </div>

@@ -19,16 +19,16 @@ import {
 } from "lucide-react"
 import { useState } from "react"
 
+import { bottomRightAppCornerAnchor } from "@/components/layout/corner-anchors"
+
 import { GlobalUploadControl } from "./global-upload-control"
 import { QueueItemRow } from "./queue-progress"
 import { useUploadQueueSummary } from "./use-upload-queue-summary"
 
 /**
- * The app-wide upload entry point and activity center, floating above the
- * mobile navigation or in the bottom-right corner on desktop. The trigger is
- * always available for starting another upload; its popover keeps transfer
- * and server-side processing progress together instead of creating a separate
- * error/status control in the app chrome.
+ * The desktop upload entry point and activity center. It uses the bottom-right
+ * content corner. Its popover keeps transfer and server-side processing
+ * progress together.
  */
 export function UploadCenter() {
   const [open, setOpen] = useState(false)
@@ -79,11 +79,12 @@ export function UploadCenter() {
         ) : null}
       </PopoverTrigger>
       <PopoverContent
+        anchor={bottomRightAppCornerAnchor}
         align="end"
         side="top"
         sideOffset={0}
         className={cn(
-          "alloy-blur fixed right-3 top-auto bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+0.75rem)] max-h-[calc(100dvh-var(--bottomnav-h)-env(safe-area-inset-bottom)-1.5rem)] w-[420px] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0 md:bottom-3 md:max-h-[calc(100dvh-1.5rem)]",
+          "alloy-blur max-h-[calc(100dvh-var(--header-h)-var(--app-content-padding)-var(--app-content-padding))] w-[420px] max-w-[calc(100vw-var(--sidebar-rail)-var(--app-content-padding)-var(--app-content-padding))] gap-0 overflow-hidden border p-0 ring-0",
           "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
           "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]",
         )}

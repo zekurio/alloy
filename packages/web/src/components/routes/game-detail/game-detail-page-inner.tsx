@@ -81,7 +81,7 @@ export function GameDetailPageInner({
         ) : (
           <>
             <GameHeader game={game} viewerId={viewerId ?? null} />
-            <div className="flex flex-col px-4 md:px-6">
+            <div className="flex flex-col px-[var(--app-content-padding)]">
               <PageToolbar rail={false}>
                 <GameCreatorChips
                   gameId={gameId}
