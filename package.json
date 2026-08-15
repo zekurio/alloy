@@ -32,6 +32,7 @@
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
+    "@oxlint/plugins": "1.78.0",
     "@types/node": "26.2.0",
     "@types/pg": "8.21.0",
     "oxfmt": "0.63.0",
