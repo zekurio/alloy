@@ -1,5 +1,5 @@
 import { clip } from "@alloy/db/schema"
-import { db } from "@alloy/server/db/index"
+import type { JobTransaction } from "@alloy/server/jobs/store"
 import { and, eq, isNull } from "drizzle-orm"
 
 // The encode handler no-ops on a failed clip, so a re-encode (owner/admin
@@ -10,8 +10,9 @@ import { and, eq, isNull } from "drizzle-orm"
 // and returns false so the caller can proceed without one.
 export async function resetFailedClipForEncode(
   clipId: string,
+  tx: JobTransaction,
 ): Promise<boolean> {
-  const [accepted] = await db
+  const [accepted] = await tx
     .update(clip)
     .set({
       status: "processing",

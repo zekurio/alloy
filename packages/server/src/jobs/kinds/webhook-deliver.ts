@@ -12,7 +12,7 @@ import {
 } from "@alloy/server/webhooks/send"
 import { eq, sql } from "drizzle-orm"
 
-import { defineJobKind } from "../registry"
+import { defineJobKind, type JobFailureContext } from "../registry"
 import { enqueue } from "../store"
 
 const WEBHOOK_DELIVER_KIND = "webhook.deliver"
@@ -144,12 +144,14 @@ async function skipDelivery(deliveryId: string, reason: string): Promise<void> {
 async function markDeliveryFailed(
   payload: t.infer<typeof WebhookDeliverPayloadSchema>,
   error: Error,
-  willRetry: boolean,
-): Promise<void> {
-  if (willRetry) return
-  logger.error(`webhook delivery ${payload.deliveryId} gave up:`, error)
-  await db
+  ctx: JobFailureContext,
+) {
+  if (ctx.willRetry) return
+  await ctx.tx
     .update(webhookDelivery)
     .set({ status: "failed" })
     .where(eq(webhookDelivery.id, payload.deliveryId))
+  return () => {
+    logger.error(`webhook delivery ${payload.deliveryId} gave up:`, error)
+  }
 }

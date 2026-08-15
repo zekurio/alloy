@@ -7,6 +7,7 @@ import { db } from "@alloy/server/db/index"
 import {
   enqueueClipEncode,
   requeueClipEncode,
+  wakeClipEncodeQueue,
 } from "@alloy/server/jobs/kinds/clip-encode"
 import { extractPoster } from "@alloy/server/media/poster"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
@@ -170,28 +171,6 @@ export const clipsUploadMediaRoutes = new Hono()
       // the null lease additionally excludes a first-ingest run that is
       // already "ready" but still encoding its ladder — its commitReady
       // would otherwise clobber this trim's processing state.
-      const [accepted] = await db
-        .update(clip)
-        .set({
-          trim_start_ms: range?.startMs ?? null,
-          trim_end_ms: range?.endMs ?? null,
-          status: "processing",
-          encode_progress: 0,
-          encode_attempt: 0,
-          failure_reason: null,
-          updated_at: new Date(),
-        })
-        .where(
-          and(
-            eq(clip.id, id),
-            eq(clip.author_id, row.author_id),
-            eq(clip.status, "ready"),
-            isNull(clip.encode_run_id),
-          ),
-        )
-        .returning({ id: clip.id })
-      if (!accepted) return conflict(c, "Clip is already processing")
-
       // Fireshare-style eager invalidation: the accepted trim makes existing
       // renditions and stems stale, so drop their records before playback can
       // select them. The previously committed cut keeps the clip's cut_key
@@ -199,26 +178,55 @@ export const clipsUploadMediaRoutes = new Hono()
       // only reference the run's stale-asset prune reads (currentAssetKeys),
       // so capture the storage keys and delete the objects here instead of
       // leaking them to the orphan GC.
-      const staleRenditions = await db
-        .select({ storageKey: clipRendition.storage_key })
-        .from(clipRendition)
-        .where(eq(clipRendition.clip_id, id))
-      const staleAudioTracks = await db
-        .select({ storageKey: clipAudioTrack.storage_key })
-        .from(clipAudioTrack)
-        .where(eq(clipAudioTrack.clip_id, id))
-      await db.delete(clipRendition).where(eq(clipRendition.clip_id, id))
-      await db.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
-      await deleteAssetsBestEffort(
-        [
+      const staleAssetKeys = await db.transaction(async (tx) => {
+        const [accepted] = await tx
+          .update(clip)
+          .set({
+            trim_start_ms: range?.startMs ?? null,
+            trim_end_ms: range?.endMs ?? null,
+            status: "processing",
+            encode_progress: 0,
+            encode_attempt: 0,
+            failure_reason: null,
+            updated_at: new Date(),
+          })
+          .where(
+            and(
+              eq(clip.id, id),
+              eq(clip.author_id, row.author_id),
+              eq(clip.status, "ready"),
+              isNull(clip.encode_run_id),
+            ),
+          )
+          .returning({ id: clip.id })
+        if (!accepted) return null
+
+        const staleRenditions = await tx
+          .select({ storageKey: clipRendition.storage_key })
+          .from(clipRendition)
+          .where(eq(clipRendition.clip_id, id))
+        const staleAudioTracks = await tx
+          .select({ storageKey: clipAudioTrack.storage_key })
+          .from(clipAudioTrack)
+          .where(eq(clipAudioTrack.clip_id, id))
+        await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
+        await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
+        await enqueueClipEncode(id, {
+          trigger: "trim",
+          priority: 10,
+          tx,
+        })
+        return [
           ...staleRenditions.map((rendition) => rendition.storageKey),
           ...staleAudioTracks.map((track) => track.storageKey),
-        ],
-        "pre-trim derived asset",
-      )
+        ]
+      })
+      if (!staleAssetKeys) return conflict(c, "Clip is already processing")
+      wakeClipEncodeQueue()
+
+      await deleteAssetsBestEffort(staleAssetKeys, "pre-trim derived asset")
 
       void publishClipUpsert(row.author_id, id)
-      await enqueueClipEncode(id, { trigger: "trim", priority: 10 })
 
       return updatedClipResponse(c, id)
     },
@@ -243,14 +251,23 @@ export const clipsUploadMediaRoutes = new Hono()
 
       if (row.status === "failed") {
         // The encode handler no-ops on failed clips, so flip it back to
-        // processing before enqueueing. Guarded on the null lease so a run that
-        // just took over isn't clobbered.
-        if (!(await resetFailedClipForEncode(id))) {
+        // processing in the same transaction that creates the job. The lease
+        // guard stops a run that just took over from being clobbered.
+        const queued = await db.transaction(async (tx) => {
+          if (!(await resetFailedClipForEncode(id, tx))) return false
+          await enqueueClipEncode(id, {
+            trigger: "reencode",
+            priority: 10,
+            tx,
+          })
+          return true
+        })
+        if (!queued) {
           return conflict(c, "Clip is already processing")
         }
 
+        wakeClipEncodeQueue()
         void publishClipUpsert(row.author_id, id)
-        await enqueueClipEncode(id, { trigger: "reencode", priority: 10 })
         return updatedClipResponse(c, id)
       }
 

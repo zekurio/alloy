@@ -2,10 +2,11 @@ import { safeParse } from "@alloy/contracts/schema"
 import { job, type JobStatus } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { and, eq, inArray, lt, ne, type SQL, sql } from "drizzle-orm"
+import { TransactionRollbackError } from "drizzle-orm/errors"
 
 import { publishJobEvent, publishQueueWake } from "./events"
 import { rearmRecurringJob } from "./recurring"
-import { getJobKind, requireJobKind } from "./registry"
+import { getJobKind, requireJobKind, type JobAfterCommit } from "./registry"
 import { leasedRunningJob } from "./store-database"
 import type { JobTransaction } from "./store-types"
 
@@ -48,6 +49,10 @@ export async function fail(
   leaseToken: string,
   error: string,
   retryable: boolean,
+  transition?: (
+    tx: JobTransaction,
+    willRetry: boolean,
+  ) => Promise<JobAfterCommit | void> | JobAfterCommit | void,
 ): Promise<{ changed: boolean; willRetry: boolean }> {
   const result = await db.transaction(async (tx) => {
     const [row] = await tx
@@ -89,7 +94,10 @@ export async function fail(
         })
         .where(leasedRunningJob(id, leaseToken))
         .returning({ id: job.id })
-      return { changed: Boolean(updated), willRetry, row }
+      const afterCommit = updated
+        ? await transition?.(tx, willRetry)
+        : undefined
+      return { changed: Boolean(updated), willRetry, row, afterCommit }
     }
 
     const [updated] = await tx
@@ -104,8 +112,9 @@ export async function fail(
       })
       .where(leasedRunningJob(id, leaseToken))
       .returning({ id: job.id })
+    const afterCommit = updated ? await transition?.(tx, false) : undefined
     if (updated && registration) await rearmRecurringJob(tx, registration)
-    return { changed: Boolean(updated), willRetry: false, row }
+    return { changed: Boolean(updated), willRetry: false, row, afterCommit }
   })
 
   if (!result.changed || !result.row) {
@@ -113,6 +122,7 @@ export async function fail(
   }
   publishJobStatus(result.row, result.willRetry ? "pending" : "failed")
   if (result.willRetry) publishQueueWake(requireJobKind(result.row.kind).queue)
+  await result.afterCommit?.()
   return { changed: result.changed, willRetry: result.willRetry }
 }
 
@@ -161,52 +171,55 @@ export async function cancelByKindDedup(
 }
 
 export async function retry(jobId: string): Promise<boolean> {
-  const row = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select({
-        id: job.id,
-        kind: job.kind,
-        dedup_key: job.dedup_key,
-        payload: job.payload,
+  const row = await db
+    .transaction(async (tx) => {
+      const [current] = await tx
+        .select({
+          id: job.id,
+          kind: job.kind,
+          dedup_key: job.dedup_key,
+          payload: job.payload,
+        })
+        .from(job)
+        .where(and(eq(job.id, jobId), eq(job.status, "failed")))
+        .limit(1)
+      if (!current) return null
+      const registration = getJobKind(current.kind)
+      if (!registration) return null
+      const parsed = safeParse(registration.schema, current.payload)
+      if (!parsed.success) return null
+      await registration.onRetry?.(parsed.data, tx)
+      const pendingFields = await absorbPendingTwin(tx, current, {
+        priority: 10,
+        runAt: sql`now()`,
       })
-      .from(job)
-      .where(and(eq(job.id, jobId), eq(job.status, "failed")))
-      .limit(1)
-    if (!current) return null
-    const pendingFields = await absorbPendingTwin(tx, current, {
-      priority: 10,
-      runAt: sql`now()`,
+      const [updated] = await tx
+        .update(job)
+        .set({
+          status: "pending",
+          attempt: 0,
+          ...pendingFields,
+          lease_token: null,
+          locked_at: null,
+          started_at: null,
+          finished_at: null,
+          progress: 0,
+          stage: null,
+          error: null,
+          updated_at: sql`now()`,
+        })
+        .where(and(eq(job.id, jobId), eq(job.status, "failed")))
+        .returning(jobEventSelect)
+      if (!updated) tx.rollback()
+      return { ...updated, queue: registration.queue }
     })
-    const [updated] = await tx
-      .update(job)
-      .set({
-        status: "pending",
-        attempt: 0,
-        ...pendingFields,
-        lease_token: null,
-        locked_at: null,
-        started_at: null,
-        finished_at: null,
-        progress: 0,
-        stage: null,
-        error: null,
-        updated_at: sql`now()`,
-      })
-      .where(and(eq(job.id, jobId), eq(job.status, "failed")))
-      .returning(jobEventSelect)
-    if (!updated) return null
-    return { ...updated, payload: current.payload }
-  })
+    .catch((error: unknown) => {
+      if (error instanceof TransactionRollbackError) return null
+      throw error
+    })
   if (!row) return false
-  const registration = getJobKind(row.kind)
-  if (registration?.onRetry) {
-    const parsed = safeParse(registration.schema, row.payload)
-    // A payload that no longer parses can't be re-run meaningfully; the job is
-    // still re-armed, but skip the side-state restore rather than throw.
-    if (parsed.success) await registration.onRetry(parsed.data)
-  }
   publishJobStatus(row, "pending")
-  if (registration) publishQueueWake(registration.queue)
+  publishQueueWake(row.queue)
   return true
 }
 

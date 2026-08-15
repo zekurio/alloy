@@ -20,7 +20,6 @@ import {
   ensureClipScrubberSheet,
 } from "@alloy/server/clips/scrubber"
 import { db } from "@alloy/server/db/index"
-import { enqueueClipVerify } from "@alloy/server/jobs/kinds/storage-verify"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
@@ -93,7 +92,6 @@ async function serveClipAsset(
   asset: { key: string; contentType: string },
   opts: {
     cacheControl: string
-    clipId: string
     etag: string
     unavailable: string
   },
@@ -101,12 +99,6 @@ async function serveClipAsset(
   const resolved = await clipStorage.resolve(asset.key)
   if (!resolved) {
     logger.error(`bytes missing under ${asset.key}`)
-    void enqueueClipVerify(opts.clipId).catch((err) => {
-      logger.warn(
-        `failed to enqueue storage verification for ${opts.clipId}:`,
-        err,
-      )
-    })
     return notFound(c, opts.unavailable)
   }
 
@@ -123,7 +115,6 @@ function serveVersionedClipAsset(
   c: Context,
   asset: { key: string; contentType: string },
   options: {
-    clipId: string
     privacy: ClipPrivacy
     etagPrefix: string
     unavailable: string
@@ -136,7 +127,6 @@ function serveVersionedClipAsset(
       version,
       options.privacy,
     ),
-    clipId: options.clipId,
     etag: `"${options.etagPrefix}-${version}"`,
     unavailable: options.unavailable,
   })
@@ -187,7 +177,6 @@ export const clipsPlaybackRoutes = new Hono()
     }
 
     return serveVersionedClipAsset(c, selected, {
-      clipId: id,
       privacy: row.privacy,
       etagPrefix: "src",
       unavailable: "Stream unavailable",
@@ -207,7 +196,6 @@ export const clipsPlaybackRoutes = new Hono()
     if (!selected) return notFound(c, "Source unavailable")
 
     return serveVersionedClipAsset(c, selected, {
-      clipId: id,
       privacy: row.privacy,
       etagPrefix: "src",
       unavailable: "Source unavailable",
@@ -233,7 +221,6 @@ export const clipsPlaybackRoutes = new Hono()
       { key: row.source_key, contentType: row.source_content_type },
       {
         cacheControl: "private, max-age=300",
-        clipId: id,
         etag: `"orig-${clipAssetVersion(row.source_key)}"`,
         unavailable: "Source unavailable",
       },
@@ -303,7 +290,6 @@ export const clipsPlaybackRoutes = new Hono()
         c,
         { key: rendition.storage_key, contentType: "video/mp4" },
         {
-          clipId: id,
           privacy: row.privacy,
           etagPrefix: "rnd",
           unavailable: "Rendition unavailable",
@@ -337,7 +323,6 @@ export const clipsPlaybackRoutes = new Hono()
         c,
         { key: audioTrack.storageKey, contentType: "audio/mp4" },
         {
-          clipId: id,
           privacy: access.row.privacy,
           etagPrefix: `aud-${index}`,
           unavailable: "Audio track unavailable",
