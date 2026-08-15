@@ -43,12 +43,12 @@ const jobs = new Map<string, DownloadJob>()
 /** Don't flood the renderer: progress events at most every 200ms. */
 const PROGRESS_EMIT_INTERVAL_MS = 200
 
-const EXTENSION_BY_CONTENT_TYPE: Record<string, string> = {
-  "video/mp4": ".mp4",
-  "video/quicktime": ".mov",
-  "video/x-matroska": ".mkv",
-  "video/webm": ".webm",
-}
+const EXTENSION_BY_CONTENT_TYPE = new Map([
+  ["video/mp4", ".mp4"],
+  ["video/quicktime", ".mov"],
+  ["video/x-matroska", ".mkv"],
+  ["video/webm", ".webm"],
+])
 
 export function listRecordingLibraryClipDownloads(): RecordingLibraryDownload[] {
   return [...jobs.values()].map((job) => ({ ...job.download }))
@@ -127,6 +127,7 @@ async function runDownload(
     }
 
     let lastEmitAt = 0
+    // SAFETY: Fetch and Node expose the same byte-stream interface here.
     const source = Readable.fromWeb(
       response.body as import("node:stream/web").ReadableStream,
     )
@@ -188,7 +189,7 @@ function uniqueTargetFile(
   request: RecordingLibraryDownloadRequest,
 ): string {
   const extension =
-    EXTENSION_BY_CONTENT_TYPE[request.contentType ?? ""] ?? ".mp4"
+    EXTENSION_BY_CONTENT_TYPE.get(request.contentType ?? "") ?? ".mp4"
   const safeBase =
     request.title.replace(/[^A-Za-z0-9 ._-]/g, "_").trim() || "clip"
   return uniqueCaptureFilename(root, safeBase, extension)

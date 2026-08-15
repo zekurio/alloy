@@ -3,7 +3,10 @@ import type { AlloyDesktop, RecordingLibraryItem } from "@alloy/contracts"
 import { useEffect, useState } from "react"
 import type { RefObject } from "react"
 
-import { scheduleBackgroundMediaWork } from "./background-media-work"
+import {
+  BackgroundMediaWorkCache,
+  scheduleBackgroundMediaWork,
+} from "./background-media-work"
 import { clientLogger } from "./client-log"
 import {
   EMPTY_FILMSTRIP,
@@ -15,6 +18,8 @@ import {
 } from "./media-filmstrip-sprite"
 
 export type { MediaFilmstrip } from "./media-filmstrip-sprite"
+
+const filmstripWork = new BackgroundMediaWorkCache<MediaFilmstrip>()
 
 /**
  * Renderer-side filmstrip sampling with two sources: evenly spaced frames
@@ -50,6 +55,7 @@ export function mediaFilmstrip(mediaUrl: string): Promise<MediaFilmstrip> {
   return cachedFilmstrip(mediaUrl, () => {
     const progress: SpriteProgress = { canvas: null, sampled: new Set() }
     return scheduleBackgroundMediaWork(
+      filmstripWork,
       `filmstrip:${mediaUrl}`,
       async (signal) =>
         filmstripFromSpriteBlob(
@@ -92,7 +98,7 @@ export function desktopMediaFilmstrip(
   const key = `desktop-filmstrip:${item.id}:${item.modifiedAt}:${item.sizeBytes}`
   return cachedFilmstrip(key, () => {
     const progress: SpriteProgress = { canvas: null, sampled: new Set() }
-    return scheduleBackgroundMediaWork(key, (signal) =>
+    return scheduleBackgroundMediaWork(filmstripWork, key, (signal) =>
       loadDesktopFilmstrip(desktop, item, progress, signal),
     )
   })

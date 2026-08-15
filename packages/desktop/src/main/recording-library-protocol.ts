@@ -92,14 +92,14 @@ export function registerRecordingLibraryProtocol(): void {
   })
 }
 
-const CAPTURE_CONTENT_TYPES: Record<string, string> = {
-  ".mp4": "video/mp4",
-  ".m4a": "audio/mp4",
-  ".m4v": "video/mp4",
-  ".mkv": "video/x-matroska",
-  ".mov": "video/quicktime",
-  ".webm": "video/webm",
-}
+const CAPTURE_CONTENT_TYPES = new Map([
+  [".mp4", "video/mp4"],
+  [".m4a", "audio/mp4"],
+  [".m4v", "video/mp4"],
+  [".mkv", "video/x-matroska"],
+  [".mov", "video/quicktime"],
+  [".webm", "video/webm"],
+])
 
 /**
  * Bridges a Node file stream to the DOM-typed `ReadableStream` that
@@ -110,6 +110,7 @@ function fileBodyStream(
   stream: Readable,
 ): globalThis.ReadableStream<Uint8Array> {
   const webStream: ReadableStream<Uint8Array> = Readable.toWeb(stream)
+  // SAFETY: Node and DOM ReadableStream use the same byte-stream interface.
   return webStream as globalThis.ReadableStream<Uint8Array>
 }
 
@@ -128,10 +129,10 @@ function rangedFileResponse(filename: string, request: Request): Response {
     return new Response("Not found", { status: 404 })
   }
 
-  const headers: Record<string, string> = {
+  const headers = new Headers({
     "Accept-Ranges": "bytes",
     "Content-Type":
-      CAPTURE_CONTENT_TYPES[extname(filename).toLowerCase()] ??
+      CAPTURE_CONTENT_TYPES.get(extname(filename).toLowerCase()) ??
       "application/octet-stream",
     // The renderer runs on a different origin than this protocol. The trim
     // editor samples frames into a canvas, and reading those pixels back is
@@ -140,14 +141,17 @@ function rangedFileResponse(filename: string, request: Request): Response {
     // fetch()-based readers (mediabunny) size the file off these headers.
     "Access-Control-Expose-Headers":
       "Content-Length, Content-Range, Accept-Ranges",
-  }
+  })
 
   const range =
     parseByteRange(request.headers.get("range"), size) ??
     parseQueryByteRange(request.url, size)
-  headers["Content-Length"] = String(range ? range.end - range.start + 1 : size)
+  headers.set(
+    "Content-Length",
+    String(range ? range.end - range.start + 1 : size),
+  )
   if (range) {
-    headers["Content-Range"] = `bytes ${range.start}-${range.end}/${size}`
+    headers.set("Content-Range", `bytes ${range.start}-${range.end}/${size}`)
   }
 
   const stream = createReadStream(filename, {

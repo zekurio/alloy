@@ -47,11 +47,7 @@ async function startOAuthResponse(
 ) {
   try {
     const result = input.userId
-      ? await startOAuthLink(
-          input as t.infer<typeof OAuthStartBody> & {
-            userId: string
-          },
-        )
+      ? await startOAuthLink({ ...input, userId: input.userId })
       : await startOAuthSignIn(input)
     setOAuthStateCookie(c, input.providerId, result.browserNonce)
     return urlResponse(c, result.url)

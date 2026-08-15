@@ -1,6 +1,12 @@
+import { t } from "@alloy/contracts/schema"
+
+const MessageSchema = t.string()
+const MessageObjectSchema = t.looseObject({ message: t.string() })
+
 export function messageFromUnknown(cause: unknown): string | null {
-  if (typeof cause === "string") {
-    const message = cause.trim()
+  const directMessage = MessageSchema.safeParse(cause)
+  if (directMessage.success) {
+    const message = directMessage.data.trim()
     return message.length > 0 ? message : null
   }
 
@@ -9,13 +15,9 @@ export function messageFromUnknown(cause: unknown): string | null {
     return message.length > 0 ? message : null
   }
 
-  if (
-    cause &&
-    typeof cause === "object" &&
-    "message" in cause &&
-    typeof cause.message === "string"
-  ) {
-    const message = cause.message.trim()
+  const messageObject = MessageObjectSchema.safeParse(cause)
+  if (messageObject.success) {
+    const message = messageObject.data.message.trim()
     return message.length > 0 ? message : null
   }
 

@@ -72,14 +72,61 @@ const SignUpOptionsBody = t.object({
   username: requiredTrimmedString(),
 })
 
-const PasskeyVerifyBody = t.object({
+const PublicKeyCredentialFields = {
+  id: t.string(),
+  rawId: t.string(),
+  authenticatorAttachment: t.enum(["cross-platform", "platform"]).optional(),
+  clientExtensionResults: t.record(t.string(), t.unknown()),
+  type: t.enum(["public-key"]),
+}
+const PasskeyRegistrationVerifyBody = t.object({
   challengeId: t.string().uuid(),
-  response: t.unknown(),
+  response: t.object({
+    ...PublicKeyCredentialFields,
+    response: t.object({
+      clientDataJSON: t.string(),
+      attestationObject: t.string(),
+      authenticatorData: t.string().optional(),
+      transports: t
+        .array(
+          t.enum([
+            "ble",
+            "cable",
+            "hybrid",
+            "internal",
+            "nfc",
+            "smart-card",
+            "usb",
+          ]),
+        )
+        .optional(),
+      publicKeyAlgorithm: t.number().int().optional(),
+      publicKey: t.string().optional(),
+    }),
+  }),
+})
+const PasskeyAuthenticationVerifyBody = t.object({
+  challengeId: t.string().uuid(),
+  response: t.object({
+    ...PublicKeyCredentialFields,
+    response: t.object({
+      clientDataJSON: t.string(),
+      authenticatorData: t.string(),
+      signature: t.string(),
+      userHandle: t.string().optional(),
+    }),
+  }),
 })
 
 const PasskeyNameBody = t.object({
   name: optionalNullableBlankToNullTrimmedString(64),
 })
+
+const PasskeyNamedRegistrationVerifyBody = PasskeyRegistrationVerifyBody.extend(
+  {
+    name: optionalNullableBlankToNullTrimmedString(64),
+  },
+)
 
 const UpdateUserBody = t.object({
   email: t.string().trim().email().optional(),
@@ -189,10 +236,12 @@ export const authRoute = new Hono()
   )
   .post(
     "/passkey/sign-up/verify",
-    tbValidator("json", PasskeyVerifyBody),
+    tbValidator("json", PasskeyRegistrationVerifyBody),
     async (c) => {
       try {
         const body = c.req.valid("json")
+        // SAFETY: The request schema checks the WebAuthn registration wire
+        // fields. SimpleWebAuthn validates their encoded contents.
         const response = body.response as RegistrationResponseJSON
         const { payload, verification } = await verifyPasskeyRegistration({
           challengeId: body.challengeId,
@@ -226,10 +275,12 @@ export const authRoute = new Hono()
   })
   .post(
     "/passkey/sign-in/verify",
-    tbValidator("json", PasskeyVerifyBody),
+    tbValidator("json", PasskeyAuthenticationVerifyBody),
     async (c) => {
       try {
         const body = c.req.valid("json")
+        // SAFETY: The request schema checks the WebAuthn authentication wire
+        // fields. SimpleWebAuthn validates their encoded contents.
         const { credential, verification } = await verifyPasskeyAuthentication({
           challengeId: body.challengeId,
           response: body.response as AuthenticationResponseJSON,
@@ -289,10 +340,12 @@ export const authRoute = new Hono()
   .post(
     "/passkeys/verify",
     requireSession,
-    tbValidator("json", PasskeyVerifyBody.extend(PasskeyNameBody.shape)),
+    tbValidator("json", PasskeyNamedRegistrationVerifyBody),
     async (c) => {
       try {
         const body = c.req.valid("json")
+        // SAFETY: The request schema checks the WebAuthn registration wire
+        // fields. SimpleWebAuthn validates their encoded contents.
         const response = body.response as RegistrationResponseJSON
         const { payload, verification } = await verifyPasskeyRegistration({
           challengeId: body.challengeId,

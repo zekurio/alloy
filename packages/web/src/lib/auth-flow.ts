@@ -1,4 +1,5 @@
 import { t } from "@alloy/i18n"
+import { messageFromUnknown } from "@alloy/ui/lib/error-message"
 import { toast } from "@alloy/ui/lib/toast"
 
 import { authClient } from "./auth-client"
@@ -12,8 +13,8 @@ export function authCallbackUrl(path: string): string {
 }
 
 interface CompleteAuthSessionFlowOptions {
-  invalidateRouter: () => Promise<unknown>
-  navigate?: () => Promise<unknown> | unknown
+  invalidateRouter: () => Promise<void>
+  navigate?: () => Promise<void> | void
 }
 
 export async function completeAuthSessionFlow({
@@ -29,8 +30,8 @@ export async function completeSignOutFlow({
   invalidateRouter,
   navigate,
 }: {
-  invalidateRouter: () => Promise<unknown>
-  navigate?: () => Promise<unknown> | unknown
+  invalidateRouter: () => Promise<void>
+  navigate?: () => Promise<void> | void
 }): Promise<void> {
   const { error } = await authClient.signOut()
   if (error) throw error
@@ -49,30 +50,11 @@ export function reportAuthFlowFailure(
 }
 
 function causeName(cause: unknown): string | null {
-  if (cause instanceof Error) return cause.name
-  if (
-    cause &&
-    typeof cause === "object" &&
-    "name" in cause &&
-    typeof cause.name === "string"
-  ) {
-    return cause.name
-  }
-  return null
+  return cause instanceof Error ? cause.name : null
 }
 
 function causeMessage(cause: unknown): string | null {
-  if (typeof cause === "string") return cause
-  if (cause instanceof Error) return cause.message
-  if (
-    cause &&
-    typeof cause === "object" &&
-    "message" in cause &&
-    typeof cause.message === "string"
-  ) {
-    return cause.message
-  }
-  return null
+  return messageFromUnknown(cause)
 }
 
 export function isAuthAttemptCancellation(cause: unknown): boolean {

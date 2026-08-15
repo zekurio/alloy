@@ -29,6 +29,11 @@ import {
   startRecordingLibraryClipDownload,
 } from "./recording-library-download"
 import { VIDEO_EXTENSIONS } from "./recording-library-shared"
+import {
+  parseNonnegativeInteger,
+  parseString,
+  type UntrustedInput,
+} from "./runtime-validation"
 import { sameOrigin } from "./url-policy"
 
 /** Capture-library bridge handlers; every channel is main-app-only. */
@@ -39,18 +44,19 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.revealLibraryCapture": {
     guard: requireMainSender,
-    handle: (_windows, _event, id: unknown) => {
-      if (typeof id === "string") revealRecordingLibraryItem(id)
+    handle: (_windows, _event, input: UntrustedInput) => {
+      const id = parseString(input)
+      if (id !== null) revealRecordingLibraryItem(id)
     },
   },
   "recording.exportLibraryCapture": {
     guard: requireMainSender,
-    handle: (_windows, _event, request: unknown) =>
+    handle: (_windows, _event, request: UntrustedInput) =>
       exportRecordingLibraryItem(normalizeLibraryExportRequest(request)),
   },
   "recording.updateLibraryCapture": {
     guard: requireMainSender,
-    handle: (_windows, _event, request: unknown) => {
+    handle: (_windows, _event, request: UntrustedInput) => {
       const patch = normalizeLibraryMetaPatch(request)
       if (!patch) throw new Error("Invalid capture metadata request.")
       return updateRecordingLibraryCaptureMeta(patch)
@@ -58,7 +64,7 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.setLibraryCaptureTrim": {
     guard: requireMainSender,
-    handle: (_windows, _event, request: unknown) => {
+    handle: (_windows, _event, request: UntrustedInput) => {
       const update = normalizeLibraryTrimUpdate(request)
       if (!update) throw new Error("Invalid trim request.")
       return setRecordingLibraryCaptureTrim(update)
@@ -66,8 +72,9 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.deleteLibraryCapture": {
     guard: requireMainSender,
-    handle: (_windows, _event, id: unknown) => {
-      if (typeof id === "string") return deleteRecordingLibraryItem(id)
+    handle: (_windows, _event, input: UntrustedInput) => {
+      const id = parseString(input)
+      if (id !== null) return deleteRecordingLibraryItem(id)
     },
   },
   "recording.importLibraryFiles": {
@@ -95,7 +102,7 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.commitStagedLibraryImport": {
     guard: requireMainSender,
-    handle: (_windows, _event, request: unknown) => {
+    handle: (_windows, _event, request: UntrustedInput) => {
       const normalized = normalizeLibraryCommitStagedImportRequest(request)
       if (!normalized) throw new Error("Invalid staged import request.")
       return commitRecordingLibraryStagedImport(normalized)
@@ -103,15 +110,19 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.discardStagedLibraryImport": {
     guard: requireMainSender,
-    handle: (_windows, _event, id: unknown) => {
-      if (typeof id === "string") {
-        return discardRecordingLibraryStagedImport(id)
-      }
+    handle: (_windows, _event, input: UntrustedInput) => {
+      const id = parseString(input)
+      if (id !== null) return discardRecordingLibraryStagedImport(id)
     },
   },
   "recording.saveLibraryCaptureThumbnail": {
     guard: requireMainSender,
-    handle: async (_windows, _event, id: unknown, data: unknown) => {
+    handle: async (
+      _windows,
+      _event,
+      id: UntrustedInput,
+      data: UntrustedInput,
+    ) => {
       const normalized = normalizeLibraryThumbnailSaveRequest(id, data)
       if (!normalized) throw new Error("Invalid thumbnail save request.")
       // Lazy import: keeps the image/blurhash pipeline off the startup path
@@ -123,8 +134,9 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.getLibraryCaptureScrubber": {
     guard: requireMainSender,
-    handle: async (_windows, _event, id: unknown) => {
-      if (typeof id !== "string") return null
+    handle: async (_windows, _event, input: UntrustedInput) => {
+      const id = parseString(input)
+      if (id === null) return null
       const { readRecordingScrubber } =
         await import("./recording-library-scrubbers")
       return readRecordingScrubber(id)
@@ -132,7 +144,12 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.saveLibraryCaptureScrubber": {
     guard: requireMainSender,
-    handle: async (_windows, _event, id: unknown, data: unknown) => {
+    handle: async (
+      _windows,
+      _event,
+      id: UntrustedInput,
+      data: UntrustedInput,
+    ) => {
       const normalized = normalizeLibraryScrubberSaveRequest(id, data)
       if (!normalized) throw new Error("Invalid scrubber save request.")
       const { storeRecordingScrubber } =
@@ -142,15 +159,15 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.getLibraryCaptureAudioTrackUrl": {
     guard: requireMainSender,
-    handle: async (_windows, _event, id: unknown, index: unknown) => {
-      if (
-        typeof id !== "string" ||
-        typeof index !== "number" ||
-        !Number.isInteger(index) ||
-        index < 0
-      ) {
-        return null
-      }
+    handle: async (
+      _windows,
+      _event,
+      rawId: UntrustedInput,
+      rawIndex: UntrustedInput,
+    ) => {
+      const id = parseString(rawId)
+      const index = parseNonnegativeInteger(rawIndex)
+      if (id === null || index === null) return null
       const { recordingCaptureAudioTrackUrl } =
         await import("./recording-library-audio-tracks")
       return recordingCaptureAudioTrackUrl(id, index)
@@ -158,7 +175,7 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.downloadClip": {
     guard: requireMainSender,
-    handle: (windows, _event, request: unknown) => {
+    handle: (windows, _event, request: UntrustedInput) => {
       const normalized = normalizeLibraryDownloadRequest(request)
       if (!normalized) throw new Error("Invalid clip download request.")
       const serverUrl = windows.currentServerUrl()
@@ -170,10 +187,9 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.cancelClipDownload": {
     guard: requireMainSender,
-    handle: (_windows, _event, clipId: unknown) => {
-      if (typeof clipId === "string") {
-        cancelRecordingLibraryClipDownload(clipId)
-      }
+    handle: (_windows, _event, input: UntrustedInput) => {
+      const clipId = parseString(input)
+      if (clipId !== null) cancelRecordingLibraryClipDownload(clipId)
     },
   },
   "recording.listClipDownloads": {

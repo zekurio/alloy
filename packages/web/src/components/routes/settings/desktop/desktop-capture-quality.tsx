@@ -9,6 +9,7 @@ import {
 } from "@alloy/ui/components/select"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Slider } from "@alloy/ui/components/slider"
+import { sliderValue } from "@alloy/ui/lib/utils"
 import { CheckIcon } from "lucide-react"
 import type { Dispatch, SetStateAction } from "react"
 
@@ -187,10 +188,6 @@ function applyCustomProfile(settings: RecordingSettings): RecordingSettings {
     ...applyQualitySettings(settings, settings.customQuality),
     qualityProfile: "custom",
   }
-}
-
-function sliderValue(value: number | readonly number[]): number {
-  return typeof value === "number" ? value : (value[0] ?? 0)
 }
 
 function PresetCard({

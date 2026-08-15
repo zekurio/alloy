@@ -277,24 +277,23 @@ function LocalEditorBody({
         })
         setSavedTrim(currentTrim)
       }
+      const patch: Parameters<
+        typeof desktop.recording.updateLibraryCapture
+      >[0] = { id: item.id }
+      if (titleChanged) patch.title = normalizedTitle
+      if (descriptionChanged) {
+        patch.description = normalizedDescription || null
+      }
+      if (tagsChanged) patch.tags = formatTags(tags) || null
+      if (mentionsChanged) {
+        patch.mentions = captureMentionsFromUsers(mentions)
+      }
+      if (gameChanged) {
+        patch.gameName = game?.name ?? null
+        patch.gameIconUrl = game ? (game.iconUrl ?? game.logoUrl) : null
+      }
       const result = dirty
-        ? await desktop.recording.updateLibraryCapture({
-            id: item.id,
-            ...(titleChanged ? { title: normalizedTitle } : {}),
-            ...(descriptionChanged
-              ? { description: normalizedDescription || null }
-              : {}),
-            ...(tagsChanged ? { tags: formatTags(tags) || null } : {}),
-            ...(mentionsChanged
-              ? { mentions: captureMentionsFromUsers(mentions) }
-              : {}),
-            ...(gameChanged
-              ? {
-                  gameName: game?.name ?? null,
-                  gameIconUrl: game ? (game.iconUrl ?? game.logoUrl) : null,
-                }
-              : {}),
-          })
+        ? await desktop.recording.updateLibraryCapture(patch)
         : null
       if (result) {
         setTitle(normalizedTitle)
@@ -874,13 +873,15 @@ function savedLocalMetadata(item: LibraryItemView) {
 }
 
 /**
- * The trim persisted on the capture, or null when untrimmed. The typeof
- * checks also cover shells older than the trim fields, where both are
- * undefined at runtime.
+ * The trim persisted on the capture, or null when untrimmed or malformed.
+ * Number.isFinite rejects stale bridge values without coercing strings.
  */
 function persistedTrim(item: LibraryItemView) {
-  return typeof item.trimStartMs === "number" &&
-    typeof item.trimEndMs === "number"
-    ? { startMs: item.trimStartMs, endMs: item.trimEndMs }
-    : null
+  const startMs = finiteTrimMs(item.trimStartMs)
+  const endMs = finiteTrimMs(item.trimEndMs)
+  return startMs !== null && endMs !== null ? { startMs, endMs } : null
+}
+
+function finiteTrimMs(value: number | null | undefined): number | null {
+  return Number.isFinite(value) ? Number(value) : null
 }

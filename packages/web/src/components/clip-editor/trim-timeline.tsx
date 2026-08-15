@@ -197,9 +197,10 @@ export function TrimTimeline({
     }
     if (pointersRef.current.size > 1) return
 
-    const handleEl = (e.target as Element).closest<HTMLElement>(
-      "[data-trim-handle]",
-    )
+    const handleEl =
+      e.target instanceof Element
+        ? e.target.closest<HTMLElement>("[data-trim-handle]")
+        : null
     if (handleEl && canTrim) {
       const edge = handleEl.dataset.trimHandle === "start" ? "start" : "end"
       gestureRef.current = {

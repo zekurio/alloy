@@ -14,46 +14,43 @@ import type {
 import { RECORDING_QUALITY_PRESETS } from "@alloy/contracts"
 import { getRuntimeLocale, localeToLanguageTag, t } from "@alloy/i18n"
 
-export const ENCODER_LABELS: Record<RecordingEncoder, string> = {
+export const ENCODER_LABELS = {
   hardware: t("GPU"),
   software: t("CPU"),
-}
+} satisfies Record<RecordingEncoder, string>
 
-export const CODEC_LABELS: Record<RecordingCodec, string> = {
+export const CODEC_LABELS = {
   h264: "H.264",
   hevc: "HEVC",
   av1: "AV1",
-}
+} satisfies Record<RecordingCodec, string>
 
-export const RESOLUTION_LABELS: Record<RecordingResolution, string> = {
+export const RESOLUTION_LABELS = {
   source: t("Source"),
   "720p": "720p",
   "1080p": "1080p",
   "1440p": "1440p",
   "2160p": "4K",
-}
+} satisfies Record<RecordingResolution, string>
 
 export function bitrateLabel(value: RecordingBitrate): string {
   return value === "auto" ? t("Auto") : `${value}M`
 }
 
-export const AUDIO_MODE_LABELS: Record<RecordingAudioMode, string> = {
+export const AUDIO_MODE_LABELS = {
   devices: t("Devices"),
   applications: t("Applications"),
-}
+} satisfies Record<RecordingAudioMode, string>
 
-export const AUDIO_DEVICE_KIND_LABELS: Record<
-  RecordingAudioDeviceKind,
-  string
-> = {
+export const AUDIO_DEVICE_KIND_LABELS = {
   output: t("Output"),
   input: t("Input"),
-}
+} satisfies Record<RecordingAudioDeviceKind, string>
 
-export const BUFFER_STORAGE_LABELS: Record<RecordingBufferStorage, string> = {
+export const BUFFER_STORAGE_LABELS = {
   memory: t("Memory"),
   disk: t("Disk"),
-}
+} satisfies Record<RecordingBufferStorage, string>
 
 export function gpuLabel(value: string): string {
   if (value === "auto") return t("Auto")
@@ -81,13 +78,13 @@ export function formatBytes(bytes: number): string {
 }
 
 /** Rough target Mbps per resolution at 60 FPS, used when bitrate is "Auto". */
-const AUTO_MBPS_BY_RESOLUTION: Record<RecordingResolution, number> = {
+const AUTO_MBPS_BY_RESOLUTION = {
   source: 24,
   "720p": 8,
   "1080p": 16,
   "1440p": 32,
   "2160p": 64,
-}
+} satisfies Record<RecordingResolution, number>
 
 /** Approximate bytes written per hour for the given quality. */
 export function estimateHourlyBytes(
@@ -111,14 +108,11 @@ export interface QualityPresetOption {
   bitrate: RecordingBitrate
 }
 
-const QUALITY_PROFILE_LABELS: Record<
-  Exclude<RecordingQualityProfile, "custom">,
-  string
-> = {
+const QUALITY_PROFILE_LABELS = {
   low: t("Low"),
   standard: t("Standard"),
   high: t("High"),
-}
+} satisfies Record<Exclude<RecordingQualityProfile, "custom">, string>
 
 /**
  * One-click quality presets. Each applies resolution, frame rate, and bitrate;
@@ -159,6 +153,7 @@ export function asLiteral<const T extends readonly string[]>(
   value: string | null,
   allowed: T,
 ): T[number] | null {
+  // SAFETY: includes proves value is one of the allowed tuple elements.
   return value !== null && allowed.includes(value) ? (value as T[number]) : null
 }
 
@@ -168,6 +163,7 @@ export function asNumberLiteral<const T extends readonly number[]>(
 ): T[number] | null {
   if (value === null) return null
   const numberValue = Number(value)
+  // SAFETY: includes proves numberValue is one of the allowed tuple elements.
   return allowed.includes(numberValue) ? (numberValue as T[number]) : null
 }
 

@@ -24,6 +24,7 @@ const SetupSettingSchema = t.object({
 })
 
 type SetupSetting = t.infer<typeof SetupSettingSchema>
+type StoredSettingValue = (typeof instanceSetting.$inferSelect)["value"]
 
 // DB-side auth toggles. Each key is only consulted when its ALLOY_* env
 // variable is unset; the schema defaults double as the instance defaults.
@@ -106,6 +107,8 @@ export async function setAuthToggles(
   patch: Partial<AuthToggles>,
 ): Promise<void> {
   const locks = authEnvLocks()
+  // SAFETY: Object.keys reads the closed AUTH_TOGGLE_ENV_NAMES constant, so
+  // every returned key is one of its declared properties.
   for (const key of Object.keys(AUTH_TOGGLE_ENV_NAMES) as Array<
     keyof typeof AUTH_TOGGLE_ENV_NAMES
   >) {
@@ -174,10 +177,10 @@ function freezeRuntimeConfig(config: RuntimeConfig): RuntimeConfig {
 }
 
 function deepFreeze<T>(value: T): T {
-  if (!value || typeof value !== "object" || Object.isFrozen(value)) {
+  if (!value || Object(value) !== value || Object.isFrozen(value)) {
     return value
   }
-  for (const child of Object.values(value)) {
+  for (const child of Object.values(Object(value))) {
     deepFreeze(child)
   }
   return Object.freeze(value)
@@ -199,7 +202,9 @@ function refreshState(): void {
   notify(state, prev)
 }
 
-async function readSetting(key: string): Promise<unknown | undefined> {
+async function readSetting(
+  key: string,
+): Promise<StoredSettingValue | undefined> {
   const [row] = await db
     .select({ value: instanceSetting.value })
     .from(instanceSetting)
@@ -210,7 +215,7 @@ async function readSetting(key: string): Promise<unknown | undefined> {
 
 async function writeSetting(
   key: string,
-  value: unknown,
+  value: StoredSettingValue,
   executor: Pick<typeof db, "insert"> = db,
 ): Promise<void> {
   await executor

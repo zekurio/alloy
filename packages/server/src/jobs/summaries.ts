@@ -13,6 +13,7 @@ import type { TSchema } from "typebox"
 // Instance-setting keys the sweep handlers write their last-run summaries to.
 const RENDITION_SWEEP_KEY = "renditionSweep"
 const STORAGE_GC_KEY = "storageGc"
+type StoredSummaryValue = (typeof instanceSetting.$inferSelect)["value"]
 
 export async function readJobOperationSummaries(): Promise<{
   renditionSweep: AdminRenditionSweepSummary | null
@@ -38,7 +39,7 @@ export async function readJobOperationSummaries(): Promise<{
 // Validate persisted jsonb before it reaches the admin response. Invalid data
 // is reported as no summary rather than crashing the dashboard.
 function parseSummary<ValueSchema extends TSchema>(
-  value: unknown,
+  value: StoredSummaryValue | undefined,
   schema: ValueSchema,
 ): t.infer<ValueSchema> | null {
   if (value === undefined) return null

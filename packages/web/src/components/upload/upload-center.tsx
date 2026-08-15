@@ -8,6 +8,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from "@alloy/ui/components/popover"
+import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import {
@@ -16,7 +17,7 @@ import {
   TriangleAlertIcon,
   UploadCloudIcon,
 } from "lucide-react"
-import { useState, type CSSProperties } from "react"
+import { useState } from "react"
 
 import { GlobalUploadControl } from "./global-upload-control"
 import { QueueItemRow } from "./queue-progress"
@@ -86,15 +87,13 @@ export function UploadCenter() {
           "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
           "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]",
         )}
-        style={
-          {
-            transformOrigin: "bottom right",
-            "--alloy-blur-opacity": "78%",
-            "--alloy-blur-blur": "32px",
-            "--alloy-blur-shadow":
-              "0 30px 80px -32px var(--floating-shadow-strong-color)",
-          } as CSSProperties
-        }
+        style={cssVariables({
+          transformOrigin: "bottom right",
+          "--alloy-blur-opacity": "78%",
+          "--alloy-blur-blur": "32px",
+          "--alloy-blur-shadow":
+            "0 30px 80px -32px var(--floating-shadow-strong-color)",
+        })}
       >
         <PopoverHeader>
           <PopoverTitle className="text-sm font-semibold">

@@ -16,6 +16,8 @@ import {
   type ClientAuth,
   discovery,
   fetchUserInfo,
+  type JsonObject,
+  type JsonValue,
   ResponseBodyError,
   type ServerMetadata,
   skipSubjectCheck,
@@ -98,7 +100,7 @@ export async function fetchOAuthUserInfo(
   provider: OAuthProviderConfig,
   accessToken: string,
   expectedSubject: string | typeof skipSubjectCheck,
-): Promise<Record<string, unknown>> {
+): Promise<JsonObject> {
   if (providerUsesOpenId(provider)) {
     return await fetchUserInfo(config, accessToken, expectedSubject)
   }
@@ -115,10 +117,9 @@ export async function fetchOAuthUserInfo(
       `OAuth provider user info request failed with HTTP ${res.status}.`,
     )
   }
-  const body = await res.json()
-  return body && typeof body === "object" && !Array.isArray(body)
-    ? (body as Record<string, unknown>)
-    : {}
+  // SAFETY: Response.json() accepts only JSON values after syntax validation.
+  const body = (await res.json()) as JsonValue
+  return body && body instanceof Object && !Array.isArray(body) ? body : {}
 }
 
 function oauthClientCacheKey(provider: OAuthProviderConfig): string {

@@ -22,12 +22,13 @@ export function MediaStage({
 }) {
   const ratio =
     aspectRatio && Number.isFinite(aspectRatio) ? aspectRatio : 16 / 9
-  const frameStyle = {
+  const frameStyle: CSSProperties = {
     aspectRatio: String(ratio),
-    ...(maxHeight
-      ? { maxHeight, width: `min(100%, calc(${maxHeight} * ${ratio}))` }
-      : {}),
-  } satisfies CSSProperties
+  }
+  if (maxHeight) {
+    frameStyle.maxHeight = maxHeight
+    frameStyle.width = `min(100%, calc(${maxHeight} * ${ratio}))`
+  }
 
   return (
     <div

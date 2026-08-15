@@ -10,22 +10,22 @@ export type TagSearch = {
   game?: string
 }
 
-export function parseTagSearch(search: Record<string, unknown>): TagSearch {
+interface TagSearchInput {
+  sort?: unknown
+  game?: unknown
+}
+
+export function parseTagSearch(search: TagSearchInput): TagSearch {
   const sort = searchEnum(search.sort, SORT_KEYS)
   const game = searchString(search.game)
-  return {
-    ...(sort ? { sort } : {}),
-    ...(game ? { game } : {}),
-  }
+  const parsed: TagSearch = {}
+  if (sort) parsed.sort = sort
+  if (game) parsed.game = game
+  return parsed
 }
 
 /** Resolve the effective filters, applying the page defaults. */
-export function tagFilters(search: TagSearch): {
-  sort: ClipListSort
-  gameId?: string
-} {
-  return {
-    sort: search.sort ?? "top",
-    ...(search.game ? { gameId: search.game } : {}),
-  }
+export function tagFilters(search: TagSearch) {
+  const sort: ClipListSort = search.sort ?? "top"
+  return search.game ? { sort, gameId: search.game } : { sort }
 }

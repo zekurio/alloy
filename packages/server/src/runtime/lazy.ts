@@ -1,3 +1,7 @@
+import { t } from "@alloy/contracts/schema"
+
+const LazyMethodSchema = t.instanceof(Function)
+
 /**
  * Defers construction to first property access while keeping the value's
  * shape, so `import { db }` stays a no-op until something actually reads it.
@@ -15,13 +19,16 @@
 export function lazy<T extends object>(create: () => T): T {
   let instance: T | undefined
   const resolve = () => (instance ??= create())
+  // SAFETY: The proxy exposes the same property contract as the resolved T.
   return new Proxy({} as T, {
     get(_target, property) {
       const resolved = resolve()
-      const value = Reflect.get(resolved, property, resolved)
+      // SAFETY: Proxy property keys are valid dynamic keys for the wrapped T.
+      const value = resolved[property as keyof T]
       // Bound so class methods keep their real receiver; calling them with the
       // proxy as `this` would break any implementation using private fields.
-      return typeof value === "function" ? value.bind(resolved) : value
+      const method = LazyMethodSchema.safeParse(value)
+      return method.success ? method.data.bind(resolved) : value
     },
     set(_target, property, value) {
       return Reflect.set(resolve(), property, value)

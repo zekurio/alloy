@@ -12,6 +12,7 @@ import {
   readLocalStorageItem,
   writeLocalStorageItem,
 } from "@/lib/browser-storage"
+import { searchString } from "@/lib/route-search"
 
 // Labels are translation keys resolved at render time — module-scope t()
 // would freeze them to the locale active at first import.
@@ -310,13 +311,13 @@ function loadRecentEmojis(): string[] {
   if (!raw) return []
   let parsed: unknown
   try {
-    parsed = JSON.parse(raw) as unknown
+    parsed = JSON.parse(raw)
   } catch {
     return []
   }
   if (!Array.isArray(parsed)) return []
   return parsed
-    .filter((value): value is string => typeof value === "string")
+    .flatMap((value) => searchString(value) ?? [])
     .slice(0, RECENT_EMOJI_LIMIT)
 }
 

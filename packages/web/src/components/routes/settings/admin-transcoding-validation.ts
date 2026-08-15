@@ -29,22 +29,19 @@ export type TranscodingForm = {
   tiers: LadderTier[]
 }
 
-export const VIDEO_CODEC_LABELS: Record<VideoCodec, string> = {
+export const VIDEO_CODEC_LABELS = {
   h264: t("H.264 (AVC)"),
   hevc: t("HEVC (H.265)"),
   av1: t("AV1"),
-}
+} satisfies Record<VideoCodec, string>
 
-export const HARDWARE_ACCELERATION_LABELS: Record<
-  HardwareAcceleration,
-  string
-> = {
+export const HARDWARE_ACCELERATION_LABELS = {
   none: t("Software (CPU)"),
   nvenc: t("NVIDIA NVENC"),
   qsv: t("Intel Quick Sync"),
   vaapi: t("VA-API"),
   videotoolbox: t("Apple VideoToolbox"),
-}
+} satisfies Record<HardwareAcceleration, string>
 
 export const AUDIO_BITRATES = [64, 96, 128, 160, 192, 256, 320] as const
 

@@ -14,6 +14,12 @@ import {
 } from "./ipc-guards"
 import { probeServer } from "./probe"
 import {
+  parseBoolean,
+  parseString,
+  parseUntrustedRecord,
+  type UntrustedInput,
+} from "./runtime-validation"
+import {
   forgetServer,
   getSavedServers,
   getStartupServerUrl,
@@ -24,6 +30,10 @@ import type { Windows } from "./windows"
 
 const SETUP_REQUIRED_ERROR =
   "This Alloy server needs setup. Finish setup in your browser, then connect again."
+
+interface ConnectOptions {
+  forceBrowserLogin: boolean
+}
 
 /**
  * Overlay-only channels, deliberately outside the web bridge contract. The
@@ -46,10 +56,11 @@ export const serverBridgeHandlers = {
     handle: async (
       windows,
       _event,
-      url: unknown,
-      options: unknown,
+      rawUrl: UntrustedInput,
+      options: UntrustedInput,
     ): Promise<DesktopConnectResult> => {
-      if (typeof url !== "string") {
+      const url = parseString(rawUrl)
+      if (url === null) {
         return { ok: false, error: "Enter a server URL." }
       }
       const forceBrowserLogin = connectOptions(options).forceBrowserLogin
@@ -89,8 +100,9 @@ export const serverBridgeHandlers = {
   },
   "servers.forgetServer": {
     guard: requireDesktopSender,
-    handle: (_windows, _event, url: unknown) => {
-      if (typeof url !== "string") return getSavedServers()
+    handle: (_windows, _event, input: UntrustedInput) => {
+      const url = parseString(input)
+      if (url === null) return getSavedServers()
       return forgetServer(url)
     },
   },
@@ -140,10 +152,9 @@ export const serverBridgeHandlers = {
   },
 } satisfies BridgeHandlerFragment
 
-function connectOptions(value: unknown): { forceBrowserLogin: boolean } {
-  if (!value || typeof value !== "object") return { forceBrowserLogin: false }
+function connectOptions(value: UntrustedInput): ConnectOptions {
+  const record = parseUntrustedRecord(value)
   return {
-    forceBrowserLogin:
-      "forceBrowserLogin" in value && value.forceBrowserLogin === true,
+    forceBrowserLogin: parseBoolean(record?.forceBrowserLogin) === true,
   }
 }

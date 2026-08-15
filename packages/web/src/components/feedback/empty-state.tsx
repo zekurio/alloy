@@ -30,17 +30,17 @@ interface ContentEmptyStateProps extends Omit<EmptyStateProps, "icon"> {
   seed?: string | number
 }
 
-const sizeClasses: Record<NonNullable<EmptyStateProps["size"]>, string> = {
+const sizeClasses = {
   sm: "py-8",
   md: "py-12",
   lg: "py-20",
-}
+} satisfies Record<NonNullable<EmptyStateProps["size"]>, string>
 
-const faceSizeClasses: Record<NonNullable<EmptyStateProps["size"]>, string> = {
+const faceSizeClasses = {
   sm: "text-2xl",
   md: "text-4xl",
   lg: "text-5xl",
-}
+} satisfies Record<NonNullable<EmptyStateProps["size"]>, string>
 
 /**
  * Compact placeholder for empty inline lists (settings cards, admin panels)

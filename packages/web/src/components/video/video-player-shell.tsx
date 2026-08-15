@@ -227,13 +227,14 @@ function videoPlayerSizingStyle(
     }
   }
 
-  return {
-    ...(aspectRatio ? { aspectRatio: String(aspectRatio) } : {}),
+  const style: CSSProperties = {
     maxHeight: maxDisplayHeight,
     width: aspectRatio
       ? `min(100%, calc(${maxDisplayHeight} * ${aspectRatio}))`
       : undefined,
   }
+  if (aspectRatio) style.aspectRatio = String(aspectRatio)
+  return style
 }
 
 function mediaShellSizingStyle(

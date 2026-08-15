@@ -1,6 +1,9 @@
 import type { RecordingStatus } from "@alloy/contracts"
 
-import type { SidecarConfig, SidecarMethod } from "./recording-sidecar-protocol"
+import type {
+  SidecarConfig,
+  SidecarRequest,
+} from "./recording-sidecar-protocol"
 
 interface InFlightConfigure {
   key: string
@@ -16,7 +19,10 @@ interface QueuedConfigure {
 }
 
 interface SidecarConfigureQueueOptions {
-  request: (method: SidecarMethod, params?: unknown) => Promise<RecordingStatus>
+  request: (
+    method: "configure" | "status",
+    params?: SidecarRequest["params"],
+  ) => Promise<RecordingStatus>
   /** Queued configures stop flushing once the owning client is shutting down. */
   isShutdown: () => boolean
 }

@@ -18,23 +18,17 @@ export function errorResult(
   return errorResponse(c, result.error, result.status)
 }
 
-export function booleanFlag<T extends string>(
-  c: Context,
-  key: T,
-  value: boolean,
-) {
-  return c.json({ [key]: value } as Record<T, boolean>)
+export function booleanFlag(c: Context, key: string, value: boolean) {
+  return c.json({ [key]: value })
 }
 
-export function batchProgress<T extends string>(
+export function batchProgress(
   c: Context,
-  countKey: T,
+  countKey: string,
   count: number,
   hasMore: boolean,
 ) {
-  return c.json({ [countKey]: count, hasMore } as Record<T, number> & {
-    hasMore: boolean
-  })
+  return c.json({ [countKey]: count, hasMore })
 }
 
 export function likeState(c: Context, liked: boolean, likeCount: number) {

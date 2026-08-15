@@ -57,14 +57,12 @@ export function encodeFingerprint(
       facts.trimStartMs === null || facts.trimEndMs === null
         ? null
         : [facts.trimStartMs, facts.trimEndMs],
-    ...(facts.audioTrackFingerprint
-      ? {
-          at: createHash("sha256")
-            .update(facts.audioTrackFingerprint)
-            .digest("hex")
-            .slice(0, 16),
-        }
-      : {}),
+    at: facts.audioTrackFingerprint
+      ? createHash("sha256")
+          .update(facts.audioTrackFingerprint)
+          .digest("hex")
+          .slice(0, 16)
+      : undefined,
     steps: expectedLadder(config, facts).map((step) => ({
       n: step.name,
       h: step.height,

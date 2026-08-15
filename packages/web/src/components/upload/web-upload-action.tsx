@@ -80,7 +80,7 @@ export function useWebUploadAction(
   }, [selection.discard])
 
   return {
-    available: typeof File !== "undefined",
+    available: Boolean(globalThis.File),
     picking: selection.picking,
     publishing,
     error: publishError ?? selection.error,

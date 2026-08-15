@@ -3,6 +3,7 @@ import {
   parseNotificationPayload,
   type NotificationItem,
 } from "@alloy/api"
+import { t } from "@alloy/contracts/schema"
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState } from "react"
@@ -12,12 +13,12 @@ import { bindEventSourceListeners } from "./event-source-listeners"
 import { presentNotification } from "./notification-present"
 import { notificationKeys, prependNotification } from "./notification-queries"
 
+const NotificationSnapshotSchema = t.object({ unreadCount: t.number() })
+
 function parseSnapshot(data: string): { unreadCount: number } | null {
   try {
-    const value = JSON.parse(data) as { unreadCount?: unknown }
-    return typeof value.unreadCount === "number"
-      ? { unreadCount: value.unreadCount }
-      : null
+    const result = NotificationSnapshotSchema.safeParse(JSON.parse(data))
+    return result.success ? result.data : null
   } catch {
     return null
   }

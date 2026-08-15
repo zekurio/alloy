@@ -130,7 +130,8 @@ export function TrimBar({
 
   const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
     if (!ready || e.button !== 0) return
-    const target = e.target as Element
+    if (!(e.target instanceof Element)) return
+    const target = e.target
     const handleEl = target.closest<HTMLElement>("[data-trim-handle]")
     const drag: DragState = handleEl
       ? {
