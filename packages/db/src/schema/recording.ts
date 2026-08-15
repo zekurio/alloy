@@ -14,6 +14,18 @@ import {
 import { user } from "./auth"
 import { sqlStringList } from "./internal"
 
+type UploadStateValue =
+  | string
+  | number
+  | boolean
+  | null
+  | UploadStateValue[]
+  | UploadState
+
+type UploadState = {
+  [key: string]: UploadStateValue
+}
+
 export { UPLOAD_TICKET_ROLE }
 
 export const UPLOAD_TICKET_TARGET = ["clip"] as const
@@ -38,7 +50,7 @@ export const uploadTicket = pgTable(
     storage_key: text().notNull().unique(),
     content_type: text().notNull(),
     expected_bytes: bigint({ mode: "number" }).notNull(),
-    upload_state: jsonb().$type<Record<string, unknown> | null>(),
+    upload_state: jsonb().$type<UploadState | null>(),
     expires_at: timestamp().notNull(),
     used_at: timestamp(),
     created_at: timestamp().notNull().defaultNow(),

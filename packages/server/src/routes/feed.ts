@@ -3,9 +3,9 @@ import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipLike, clipView, follow, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
-import { clipSelectShape } from "@alloy/server/clips/select"
+import { clipSelection } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
-import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
+import { gameSelection, serialiseGameRow } from "@alloy/server/games/ref"
 import { badRequest, invalidCursor } from "@alloy/server/runtime/http-response"
 import { and, eq, exists, isNull, ne, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
@@ -111,7 +111,7 @@ export const feedRoute = new Hono()
     if (cursorCondition) conditions.push(cursorCondition)
 
     const rows = await db
-      .select(clipSelectShape)
+      .select(clipSelection)
       .from(clip)
       .innerJoin(user, eq(clip.author_id, user.id))
       .leftJoin(game, eq(clip.game_id, game.id))
@@ -141,7 +141,7 @@ export const feedRoute = new Hono()
 
     const rows = await db
       .select({
-        ...gameSelectShape,
+        ...gameSelection,
         interaction,
         clipCount,
       })

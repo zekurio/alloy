@@ -121,7 +121,7 @@ async function probeEncoderMatrix(
         acceleration,
         encoder: encoder.name,
         status: result.status === 0 ? "ok" : "failed",
-        ...(result.status === 0 ? {} : { error: stderrTail(result.stderr) }),
+        error: result.status === 0 ? undefined : stderrTail(result.stderr),
       })
     }
   }

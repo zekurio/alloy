@@ -29,7 +29,7 @@ export function rateLimiter(opts: {
     },
     Math.min(opts.windowMs, MAX_SWEEP_INTERVAL_MS),
   )
-  if (typeof sweep === "object" && "unref" in sweep) sweep.unref()
+  sweep.unref()
 
   return async (c, next) => {
     const key = opts.key(c)

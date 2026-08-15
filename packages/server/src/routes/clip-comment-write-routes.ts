@@ -21,7 +21,7 @@ import { Hono } from "hono"
 import { CommentIdParam, CreateBody, UpdateBody } from "./clip-comments-helpers"
 import { IdParam } from "./clips-helpers"
 import { resolveMentionUsernames } from "./clips-upload-helpers"
-import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
+import { serialiseUserSummary, userSummarySelection } from "./users-helpers"
 import { tbValidator } from "./validation"
 
 const logger = createLogger("clip-comments")
@@ -129,7 +129,7 @@ export const clipCommentWriteRoutes = new Hono()
       }
 
       const [authorRow] = await db
-        .select(userSummarySelectShape)
+        .select(userSummarySelection)
         .from(user)
         .where(eq(user.id, viewerId))
         .limit(1)

@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process"
 
+import { t } from "@alloy/contracts/schema"
+
 import { transcodeSettings } from "./transcode-settings"
 
 /** Probing reads container metadata only; anything slower is a wedged process. */
@@ -7,6 +9,16 @@ const PROBE_TIMEOUT_MS = 30_000
 
 /** Grace period between SIGTERM and SIGKILL when stopping a stuck process. */
 const KILL_GRACE_MS = 5_000
+
+const FfprobeRecordSchema = t.record(t.string(), t.unknown())
+const FfprobeInputSchema = t.object({
+  format: FfprobeRecordSchema.catch({}).$default({}),
+  streams: t.array(t.unknown()).catch([]).$default([]),
+})
+const FfprobeStringSchema = t.string()
+const FfprobeNumberSchema = t.number().refine(Number.isFinite)
+
+type FfprobeField = t.infer<typeof FfprobeRecordSchema>[string]
 
 export interface FfprobeStream {
   /** Absolute container stream index, matching ffmpeg's `0:<index>` map. */
@@ -122,49 +134,48 @@ export function runFfprobe(
 }
 
 function parseFfprobeJson(stdout: string): FfprobeOutput | null {
-  let value: unknown
+  let value: Parameters<typeof FfprobeInputSchema.safeParse>[0]
   try {
     value = JSON.parse(stdout)
   } catch {
     return null
   }
-  if (typeof value !== "object" || value === null) return null
-  const record = value as Record<string, unknown>
-  const format =
-    typeof record.format === "object" && record.format !== null
-      ? (record.format as Record<string, unknown>)
-      : {}
-  const streams = Array.isArray(record.streams) ? record.streams : []
+  const parsed = FfprobeInputSchema.safeParse(value)
+  if (!parsed.success) return null
   return {
-    streams: streams
-      .filter(
-        (stream): stream is Record<string, unknown> =>
-          typeof stream === "object" && stream !== null,
-      )
-      .map((stream) => ({
-        index: numberField(stream.index) ?? -1,
-        codec_type: stringField(stream.codec_type) ?? "",
-        codec_name: stringField(stream.codec_name) ?? "",
-        codec_tag_string: stringField(stream.codec_tag_string) ?? "",
-        width: numberField(stream.width),
-        height: numberField(stream.height),
-        profile: stringField(stream.profile),
-        level: numberField(stream.level),
-        avg_frame_rate: stringField(stream.avg_frame_rate),
-        pix_fmt: stringField(stream.pix_fmt),
-        start_time: stringField(stream.start_time),
-      })),
+    streams: parsed.data.streams.flatMap((stream) => {
+      const streamRecord = FfprobeRecordSchema.safeParse(stream)
+      if (!streamRecord.success) return []
+      return [
+        {
+          index: numberField(streamRecord.data.index) ?? -1,
+          codec_type: stringField(streamRecord.data.codec_type) ?? "",
+          codec_name: stringField(streamRecord.data.codec_name) ?? "",
+          codec_tag_string:
+            stringField(streamRecord.data.codec_tag_string) ?? "",
+          width: numberField(streamRecord.data.width),
+          height: numberField(streamRecord.data.height),
+          profile: stringField(streamRecord.data.profile),
+          level: numberField(streamRecord.data.level),
+          avg_frame_rate: stringField(streamRecord.data.avg_frame_rate),
+          pix_fmt: stringField(streamRecord.data.pix_fmt),
+          start_time: stringField(streamRecord.data.start_time),
+        },
+      ]
+    }),
     format: {
-      duration: stringField(format.duration),
-      start_time: stringField(format.start_time),
+      duration: stringField(parsed.data.format.duration),
+      start_time: stringField(parsed.data.format.start_time),
     },
   }
 }
 
-function stringField(value: unknown): string | undefined {
-  return typeof value === "string" ? value : undefined
+function stringField(value: FfprobeField): string | undefined {
+  const parsed = FfprobeStringSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }
 
-function numberField(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+function numberField(value: FfprobeField): number | undefined {
+  const parsed = FfprobeNumberSchema.safeParse(value)
+  return parsed.success ? parsed.data : undefined
 }

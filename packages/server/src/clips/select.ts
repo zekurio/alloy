@@ -15,14 +15,14 @@ import {
 import { db } from "@alloy/server/db/index"
 import {
   clipGameRefFromSnapshot,
-  gameSelectShape,
+  gameSelection,
   serialiseGameRow,
 } from "@alloy/server/games/ref"
 import { eq, sql } from "drizzle-orm"
 
 import { clipAssetVersion } from "./asset-version"
 
-export const clipSelectShape = {
+export const clipSelection = {
   id: clip.id,
   authorId: clip.author_id,
   title: clip.title,
@@ -62,7 +62,7 @@ export const clipSelectShape = {
   authorUsername: user.username,
   authorDisplayName: user.display_name,
   authorImage: user.image,
-  gameRef: gameSelectShape,
+  gameRef: gameSelection,
   // Bare, lowercase tags aggregated from the join table so every list/detail
   // read returns them without a second round-trip.
   tags: sql<
@@ -110,7 +110,7 @@ async function selectClipMentions(clipId: string): Promise<ClipMentionRef[]> {
 
 export async function selectClipById(id: string) {
   const [row] = await db
-    .select(clipSelectShape)
+    .select(clipSelection)
     .from(clip)
     .innerJoin(user, eq(clip.author_id, user.id))
     .leftJoin(game, eq(clip.game_id, game.id))

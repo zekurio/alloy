@@ -89,13 +89,13 @@ function parseFrameRate(value: string | undefined): number | null {
 
 // profile_idc values for the H.264 profiles our ladder can produce. ffprobe
 // reports the human-readable profile name.
-const H264_PROFILE_IDC: Record<string, number> = {
-  Baseline: 0x42,
-  "Constrained Baseline": 0x42,
-  Main: 0x4d,
-  High: 0x64,
-  "High 10": 0x6e,
-}
+const H264_PROFILE_IDC = new Map<string, number>([
+  ["Baseline", 0x42],
+  ["Constrained Baseline", 0x42],
+  ["Main", 0x4d],
+  ["High", 0x64],
+  ["High 10", 0x6e],
+])
 
 /**
  * Combined RFC 6381 codec list for the clip row's `source_codecs` column;
@@ -122,7 +122,7 @@ export function buildVideoCodecString(
   >,
 ): string | null {
   if (stream.codec_name === "h264") {
-    const profileIdc = H264_PROFILE_IDC[stream.profile ?? ""]
+    const profileIdc = H264_PROFILE_IDC.get(stream.profile ?? "")
     if (profileIdc === undefined || stream.level === undefined) return null
     return `avc1.${hexByte(profileIdc)}00${hexByte(stream.level)}`
   }
@@ -141,10 +141,10 @@ export function buildVideoCodecString(
   return null
 }
 
-const AUDIO_CODEC_NAME_TO_RFC6381: Record<string, string> = {
-  ac3: "ac-3",
-  eac3: "ec-3",
-}
+const AUDIO_CODEC_NAME_TO_RFC6381 = new Map<string, string>([
+  ["ac3", "ac-3"],
+  ["eac3", "ec-3"],
+])
 
 /**
  * RFC 6381 audio codec string. Sources may carry AAC profiles beyond LC;
@@ -163,7 +163,7 @@ export function buildAudioCodecString(
     return "mp4a.40.2"
   }
   if (!stream.codec_name) return null
-  return AUDIO_CODEC_NAME_TO_RFC6381[stream.codec_name] ?? stream.codec_name
+  return AUDIO_CODEC_NAME_TO_RFC6381.get(stream.codec_name) ?? stream.codec_name
 }
 
 function hexByte(value: number): string {

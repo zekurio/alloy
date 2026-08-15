@@ -2,9 +2,9 @@ import { sanitizeTag } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipTag, game } from "@alloy/db/schema"
-import { clipSelectShape } from "@alloy/server/clips/select"
+import { clipSelection } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
-import { gameSelectShape, serialiseGameRow } from "@alloy/server/games/ref"
+import { gameSelection, serialiseGameRow } from "@alloy/server/games/ref"
 import { invalidCursor, notFound } from "@alloy/server/runtime/http-response"
 import { and, eq, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
@@ -84,7 +84,7 @@ export const tagsRoute = new Hono()
       if (cursorCondition) conditions.push(cursorCondition)
 
       const rows = await db
-        .select(clipSelectShape)
+        .select(clipSelection)
         .from(clip)
         .innerJoin(user, eq(clip.author_id, user.id))
         .leftJoin(game, eq(clip.game_id, game.id))
@@ -108,7 +108,7 @@ export const tagsRoute = new Hono()
         .where(and(...conditions)),
       db
         .select({
-          ...gameSelectShape,
+          ...gameSelection,
           clipCount: sql<number>`count(${clip.id})::int`,
         })
         .from(game)

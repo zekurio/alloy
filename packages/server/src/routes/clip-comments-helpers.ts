@@ -23,13 +23,14 @@ import { and, desc, eq, inArray, isNull, or, type SQL, sql } from "drizzle-orm"
 import type { Context } from "hono"
 
 import {
+  cursorBoolean,
   cursorDate,
   cursorNonNegativeInteger,
   cursorRequiredString,
   decodeCursorPayload,
   encodeCursorPayload,
 } from "./cursor-codec"
-import { serialiseUserSummary, userSummarySelectShape } from "./users-helpers"
+import { serialiseUserSummary, userSummarySelection } from "./users-helpers"
 import { limitQueryParam, requiredTrimmedString } from "./validation"
 
 export const CreateBody = t.object({
@@ -122,7 +123,7 @@ export async function listClipComments({
   if (cursorCondition) topLevelConditions.push(cursorCondition)
 
   const pageRows = await db
-    .select(commentSelectShape)
+    .select(commentSelection)
     .from(clipComment)
     .innerJoin(user, eq(clipComment.author_id, user.id))
     .where(and(...topLevelConditions))
@@ -138,7 +139,7 @@ export async function listClipComments({
   while (frontier.length > 0 && seen.size < 1000) {
     const batch = frontier.splice(0, frontier.length)
     const descendants = await db
-      .select(commentSelectShape)
+      .select(commentSelection)
       .from(clipComment)
       .innerJoin(user, eq(clipComment.author_id, user.id))
       .where(inArray(clipComment.parent_id, batch))
@@ -161,7 +162,7 @@ export async function listClipComments({
   }
 }
 
-const commentSelectShape = {
+const commentSelection = {
   id: clipComment.id,
   clipId: clipComment.clip_id,
   parentId: clipComment.parent_id,
@@ -170,7 +171,7 @@ const commentSelectShape = {
   pinnedAt: clipComment.pinned_at,
   createdAt: clipComment.created_at,
   editedAt: clipComment.edited_at,
-  author: userSummarySelectShape,
+  author: userSummarySelection,
 } as const
 
 type CommentRowRecord = {
@@ -203,19 +204,15 @@ function parseCommentCursor(value: string | undefined): CommentCursor | null {
   if (!value) return null
   const parsed = decodeCursorPayload(value)
   if (!parsed) return null
+  const pinned = cursorBoolean(parsed.pinned)
   const likeCount = cursorNonNegativeInteger(parsed.likeCount)
   const createdAt = cursorDate(parsed.createdAt)
   const id = cursorRequiredString(parsed.id)
-  if (
-    typeof parsed.pinned !== "boolean" ||
-    likeCount === null ||
-    !createdAt ||
-    !id
-  ) {
+  if (pinned === null || likeCount === null || !createdAt || !id) {
     return null
   }
   return {
-    pinned: parsed.pinned,
+    pinned,
     likeCount,
     createdAt,
     id,

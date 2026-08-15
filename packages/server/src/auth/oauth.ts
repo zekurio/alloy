@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { authChallenge } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
@@ -7,6 +8,7 @@ import {
   authorizationCodeGrant,
   buildAuthorizationUrl,
   calculatePKCECodeChallenge,
+  type JsonObject,
   randomPKCECodeVerifier,
   randomState,
 } from "openid-client"
@@ -38,6 +40,14 @@ import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
 import { createSession, getSession } from "./session"
 
 const logger = createLogger("oauth")
+const OAuthChallengePayloadSchema = t.object({
+  browserNonce: t.string(),
+  callbackURL: t.string(),
+  codeVerifier: t.string().optional(),
+  mode: t.enum(["sign-in", "link"]),
+  providerId: t.string(),
+  userId: t.string().optional(),
+})
 
 export { fallbackOAuthErrorRedirect } from "./oauth-client"
 
@@ -73,15 +83,15 @@ async function startOAuthFlow(input: {
   const config = await oauthClient(provider)
   const scope = scopesForProvider(provider)
 
-  const params: Record<string, string> = {
+  const params = new URLSearchParams({
     ...provider.authParams,
     redirect_uri: callbackURLForProvider(provider.providerId),
     scope,
     state,
-  }
+  })
   if (codeVerifier) {
-    params.code_challenge = await calculatePKCECodeChallenge(codeVerifier)
-    params.code_challenge_method = "S256"
+    params.set("code_challenge", await calculatePKCECodeChallenge(codeVerifier))
+    params.set("code_challenge_method", "S256")
   }
 
   const url = buildAuthorizationUrl(config, params)
@@ -184,25 +194,9 @@ export async function finishOAuthCallback(
 }
 
 function requireOAuthChallengePayload(
-  payload: Record<string, unknown>,
+  payload: JsonObject,
 ): OAuthChallengePayload {
-  if (
-    typeof payload.browserNonce === "string" &&
-    typeof payload.callbackURL === "string" &&
-    typeof payload.providerId === "string" &&
-    (payload.mode === "sign-in" || payload.mode === "link") &&
-    (payload.codeVerifier === undefined ||
-      typeof payload.codeVerifier === "string") &&
-    (payload.userId === undefined || typeof payload.userId === "string")
-  ) {
-    return {
-      browserNonce: payload.browserNonce,
-      callbackURL: payload.callbackURL,
-      codeVerifier: payload.codeVerifier,
-      mode: payload.mode,
-      providerId: payload.providerId,
-      userId: payload.userId,
-    }
-  }
+  const parsed = OAuthChallengePayloadSchema.safeParse(payload)
+  if (parsed.success) return parsed.data
   throw new Error("OAuth state payload is invalid.")
 }

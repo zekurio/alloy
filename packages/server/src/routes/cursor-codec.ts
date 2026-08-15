@@ -1,37 +1,50 @@
+import { t } from "@alloy/contracts/schema"
 import {
   base64UrlDecodeText,
   base64UrlEncodeText,
 } from "@alloy/server/encoding/base64url"
 
-type CursorPayload = Record<string, unknown>
+const CursorPayloadSchema = t.record(t.string(), t.unknown())
+const CursorStringSchema = t.string()
+const CursorNumberSchema = t.number()
+const CursorBooleanSchema = t.boolean()
+
+type CursorPayload = t.infer<typeof CursorPayloadSchema>
+type CursorValue = CursorPayload[string]
 
 export function decodeCursorPayload(
   value: string | undefined,
 ): CursorPayload | null {
   if (!value) return null
   try {
-    const parsed = JSON.parse(base64UrlDecodeText(value)) as unknown
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return null
-    }
-    return parsed as CursorPayload
+    const parsed = CursorPayloadSchema.safeParse(
+      JSON.parse(base64UrlDecodeText(value)),
+    )
+    return parsed.success ? parsed.data : null
   } catch {
     return null
   }
 }
 
-export function encodeCursorPayload(payload: object): string {
+export function encodeCursorPayload(payload: CursorPayload): string {
   return base64UrlEncodeText(JSON.stringify(payload))
 }
 
-export function cursorDate(value: unknown): Date | null {
-  if (typeof value !== "string") return null
-  const date = new Date(value)
+export function cursorDate(value: CursorValue): Date | null {
+  const parsed = CursorStringSchema.safeParse(value)
+  if (!parsed.success) return null
+  const date = new Date(parsed.data)
   return Number.isNaN(date.getTime()) ? null : date
 }
 
-export function cursorRequiredString(value: unknown): string | null {
-  return typeof value === "string" && value.trim() ? value : null
+export function cursorRequiredString(value: CursorValue): string | null {
+  const parsed = CursorStringSchema.safeParse(value)
+  return parsed.success && parsed.data.trim() ? parsed.data : null
+}
+
+export function cursorBoolean(value: CursorValue): boolean | null {
+  const parsed = CursorBooleanSchema.safeParse(value)
+  return parsed.success ? parsed.data : null
 }
 
 // Postgres timestamptz::text output, e.g. "2026-07-04 12:34:56.123456+00".
@@ -40,9 +53,10 @@ export function cursorRequiredString(value: unknown): string | null {
 const TIMESTAMPTZ_TEXT =
   /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}(:\d{2}){0,2}$/
 
-export function cursorTimestamptzText(value: unknown): string | null {
-  return typeof value === "string" && TIMESTAMPTZ_TEXT.test(value)
-    ? value
+export function cursorTimestamptzText(value: CursorValue): string | null {
+  const parsed = CursorStringSchema.safeParse(value)
+  return parsed.success && TIMESTAMPTZ_TEXT.test(parsed.data)
+    ? parsed.data
     : null
 }
 
@@ -51,16 +65,19 @@ export function cursorTimestamptzText(value: unknown): string | null {
 // cursor is validated against this (no zone offset) before casting to ::timestamp.
 const TIMESTAMP_TEXT = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d{1,6})?$/
 
-export function cursorTimestampText(value: unknown): string | null {
-  return typeof value === "string" && TIMESTAMP_TEXT.test(value) ? value : null
+export function cursorTimestampText(value: CursorValue): string | null {
+  const parsed = CursorStringSchema.safeParse(value)
+  return parsed.success && TIMESTAMP_TEXT.test(parsed.data) ? parsed.data : null
 }
 
-export function cursorFiniteNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null
+export function cursorFiniteNumber(value: CursorValue): number | null {
+  const parsed = CursorNumberSchema.safeParse(value)
+  return parsed.success && Number.isFinite(parsed.data) ? parsed.data : null
 }
 
-export function cursorNonNegativeInteger(value: unknown): number | null {
-  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
-    ? value
+export function cursorNonNegativeInteger(value: CursorValue): number | null {
+  const parsed = CursorNumberSchema.safeParse(value)
+  return parsed.success && Number.isSafeInteger(parsed.data) && parsed.data >= 0
+    ? parsed.data
     : null
 }
