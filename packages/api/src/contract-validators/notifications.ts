@@ -15,11 +15,14 @@ import {
   type NotificationStreamEvent,
 } from "@alloy/contracts"
 
+import type { ApiJsonInput } from "../json-value"
 import { validateUserSummary } from "./people"
 
 const NOTIFICATION_KIND_SET: ReadonlySet<string> = new Set(NOTIFICATION_KINDS)
 
-export function validateNotificationItem(value: unknown): NotificationItem {
+export function validateNotificationItem(
+  value: ApiJsonInput,
+): NotificationItem {
   const row = objectRecord(value, "notification")
   validateRequiredString(
     row.id,
@@ -48,11 +51,12 @@ export function validateNotificationItem(value: unknown): NotificationItem {
     row.createdAt,
     "Invalid notification response: createdAt must be a date string",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as NotificationItem
 }
 
 export function validateNotificationList(
-  value: unknown,
+  value: ApiJsonInput,
 ): NotificationListResponse {
   const row = objectRecord(value, "notifications")
   const items = validateArray(
@@ -67,7 +71,7 @@ export function validateNotificationList(
 }
 
 export function validateNotificationStreamEvent(
-  value: unknown,
+  value: ApiJsonInput,
 ): NotificationStreamEvent {
   const row = objectRecord(value, "notification event")
   if (row.type !== "notification") {
@@ -76,7 +80,7 @@ export function validateNotificationStreamEvent(
   return { type: "notification", item: validateNotificationItem(row.item) }
 }
 
-function validateNotificationClip(value: unknown): void {
+function validateNotificationClip(value: ApiJsonInput): void {
   if (value === null) return
   const row = objectRecord(value, "notification clip")
   validateRequiredString(

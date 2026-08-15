@@ -40,7 +40,7 @@ export type {
 } from "@alloy/contracts"
 export { USER_ASSET_PATH_PREFIX, userAssetImagePath } from "@alloy/contracts"
 
-function usernameParam(handle: string): { username: string } {
+function usernameParam(handle: string) {
   return { username: encodedPathSegment(handle) }
 }
 

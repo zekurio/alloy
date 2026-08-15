@@ -14,10 +14,12 @@ import {
 import { GAME_SOURCE } from "@alloy/contracts"
 import { isBlurHash } from "@alloy/contracts/blurhash"
 
+import type { ApiJsonInput, ApiJsonValue } from "../json-value"
+
 const GAME_SOURCE_SET: ReadonlySet<string> = new Set(GAME_SOURCE)
 
 export function validateAuthProviderColors(
-  provider: Record<string, unknown>,
+  provider: Record<string, ApiJsonValue>,
   label: string,
 ) {
   for (const key of ["buttonColor", "buttonTextColor"] as const) {
@@ -29,7 +31,7 @@ export function validateAuthProviderColors(
 }
 
 export function validateLikeState(
-  value: unknown,
+  value: ApiJsonInput,
   label: "clip" | "comment",
 ): void {
   const response = objectRecord(value, `${label} like`)
@@ -44,7 +46,7 @@ export function validateLikeState(
 }
 
 export function validateGameRowFields(
-  row: Record<string, unknown>,
+  row: Record<string, ApiJsonValue>,
   label: string,
 ) {
   validateRequiredString(row.id, `Invalid ${label} response: id is required`)
@@ -74,7 +76,7 @@ export function validateGameRowFields(
 }
 
 export function validateGameSource(
-  row: Record<string, unknown>,
+  row: Record<string, ApiJsonValue>,
   label: string,
 ): void {
   validateEnumString(
@@ -84,7 +86,10 @@ export function validateGameSource(
   )
 }
 
-export function validateNullableBlurHash(value: unknown, label: string): void {
+export function validateNullableBlurHash(
+  value: ApiJsonInput,
+  label: string,
+): void {
   validateNullableString(value, `${label} must be string or null`)
   if (value !== null && !isBlurHash(value)) {
     throw new Error(`${label} must be a valid BlurHash`)
@@ -92,7 +97,7 @@ export function validateNullableBlurHash(value: unknown, label: string): void {
 }
 
 export function validateBackdropTreatment(
-  splash: Record<string, unknown>,
+  splash: Record<string, ApiJsonValue>,
   label: string,
 ) {
   validateNonNegativeNumber(

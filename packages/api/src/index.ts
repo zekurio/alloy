@@ -1,3 +1,5 @@
+import { isStringValue } from "@alloy/contracts"
+
 import { createAdminApi } from "./admin"
 import { createAuthConfigApi } from "./auth-config"
 import {
@@ -22,6 +24,7 @@ export * from "./comments"
 export * from "./feed"
 export * from "./games"
 export * from "./http"
+export * from "./json-value"
 export * from "./notifications"
 export * from "./paths"
 export * from "./search"
@@ -45,10 +48,9 @@ export function createApi(
   input: string | CreateApiOptions,
   init?: RequestInit,
 ): AlloyApi {
-  const context =
-    typeof input === "string"
-      ? createApiContext({ baseURL: input, init })
-      : createApiContext(input)
+  const context = isStringValue(input)
+    ? createApiContext({ baseURL: input, init })
+    : createApiContext(input)
 
   return {
     ...context,

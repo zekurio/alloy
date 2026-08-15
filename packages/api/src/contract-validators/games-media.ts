@@ -7,6 +7,7 @@ import {
   validateNonNegativeInteger,
   validateNullablePositiveInteger,
   validateNullableUrlString,
+  validateNumber,
   validatePositiveInteger,
   validateRequiredString,
   validateStringArray,
@@ -21,6 +22,7 @@ import {
   type SteamGridDBStatus,
 } from "@alloy/contracts"
 
+import type { ApiJsonInput } from "../json-value"
 import { validateGameRowFields, validateGameSource } from "./shared"
 
 const GAME_NAME_LOOKUP_REASON = new Set([
@@ -31,14 +33,15 @@ const GAME_NAME_LOOKUP_REASON = new Set([
   "no-match",
   "ambiguous",
 ])
-export function validateGameRow(value: unknown): GameRow {
+export function validateGameRow(value: ApiJsonInput): GameRow {
   const row = objectRecord(value, "game")
   validateGameRowFields(row, "game")
   validateGameSource(row, "game")
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as GameRow
 }
 
-export function validateGameListRow(value: unknown): GameListRow {
+export function validateGameListRow(value: ApiJsonInput): GameListRow {
   const row = objectRecord(value, "game")
   validateGameRowFields(row, "game")
   validateGameSource(row, "game")
@@ -46,29 +49,31 @@ export function validateGameListRow(value: unknown): GameListRow {
     row.clipCount,
     "Invalid game response: clipCount must be a non-negative integer",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as GameListRow
 }
 
-export function validateGameListRows(value: unknown): GameListRow[] {
+export function validateGameListRows(value: ApiJsonInput): GameListRow[] {
   return validateArray(value, "Invalid games response").map(validateGameListRow)
 }
 
-export function validateGameRows(value: unknown): GameRow[] {
+export function validateGameRows(value: ApiJsonInput): GameRow[] {
   return validateArray(value, "Invalid games response").map(validateGameRow)
 }
 
-export function validateAdminGameRow(value: unknown): AdminGameRow {
+export function validateAdminGameRow(value: ApiJsonInput): AdminGameRow {
   // AdminGameRow is structurally a GameRow plus clipCount, same as GameListRow.
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return validateGameListRow(value) as AdminGameRow
 }
 
-export function validateAdminGameRows(value: unknown): AdminGameRow[] {
+export function validateAdminGameRows(value: ApiJsonInput): AdminGameRow[] {
   return validateArray(value, "Invalid admin games response").map(
     validateAdminGameRow,
   )
 }
 
-export function validateGameDetail(value: unknown): GameDetail {
+export function validateGameDetail(value: ApiJsonInput): GameDetail {
   const row = objectRecord(value, "game detail")
   validateGameRowFields(row, "game detail")
   validateGameSource(row, "game detail")
@@ -87,11 +92,12 @@ export function validateGameDetail(value: unknown): GameDetail {
     row.clipCount,
     "Invalid game detail response: clipCount must be a non-negative integer",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as GameDetail
 }
 
 export function validateGameNameLookupResponse(
-  value: unknown,
+  value: ApiJsonInput,
 ): GameNameLookupResponse {
   const response = objectRecord(value, "game name lookup")
   const results = validateArray(
@@ -105,12 +111,11 @@ export function validateGameNameLookupResponse(
       result.name,
       "Invalid game name lookup response: name is required",
     )
-    if (
-      typeof result.confidence !== "number" ||
-      !Number.isFinite(result.confidence) ||
-      result.confidence < 0 ||
-      result.confidence > 1
-    ) {
+    validateNumber(
+      result.confidence,
+      "Invalid game name lookup response: confidence must be numeric",
+    )
+    if (result.confidence < 0 || result.confidence > 1) {
       throw new Error(
         "Invalid game name lookup response: confidence must be between 0 and 1",
       )
@@ -123,20 +128,24 @@ export function validateGameNameLookupResponse(
     if (result.game !== null) validateGameRow(result.game)
   }
 
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as GameNameLookupResponse
 }
 
-export function validateSteamGridDBStatus(value: unknown): SteamGridDBStatus {
+export function validateSteamGridDBStatus(
+  value: ApiJsonInput,
+): SteamGridDBStatus {
   const status = objectRecord(value, "SteamGridDB status")
   validateBoolean(
     status.steamgriddbConfigured,
     "Invalid SteamGridDB status response: steamgriddbConfigured must be boolean",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as SteamGridDBStatus
 }
 
 function validateSteamGridDBSearchResult(
-  value: unknown,
+  value: ApiJsonInput,
 ): SteamGridDBSearchResult {
   const row = objectRecord(value, "game search")
   validatePositiveInteger(
@@ -177,18 +186,19 @@ function validateSteamGridDBSearchResult(
       "Invalid game search response: logoUrl must be a URL or null",
     )
   }
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as SteamGridDBSearchResult
 }
 
 export function validateSteamGridDBSearchResults(
-  value: unknown,
+  value: ApiJsonInput,
 ): SteamGridDBSearchResult[] {
   return validateArray(value, "Invalid game search response").map(
     validateSteamGridDBSearchResult,
   )
 }
 
-export function validateAdminReEncodeResponse(value: unknown): {
+export function validateAdminReEncodeResponse(value: ApiJsonInput): {
   enqueued: number
   hasMore: boolean
 } {

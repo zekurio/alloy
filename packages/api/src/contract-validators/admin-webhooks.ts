@@ -6,16 +6,20 @@ import {
   AdminWebhookTestResultSchema,
 } from "@alloy/contracts"
 
-export function validateAdminWebhookRow(value: unknown): AdminWebhookRow {
+import type { ApiJsonInput } from "../json-value"
+
+export function validateAdminWebhookRow(value: ApiJsonInput): AdminWebhookRow {
   return AdminWebhookRowSchema.parse(value)
 }
 
-export function validateAdminWebhookRows(value: unknown): AdminWebhookRow[] {
+export function validateAdminWebhookRows(
+  value: ApiJsonInput,
+): AdminWebhookRow[] {
   return AdminWebhookRowsSchema.parse(value)
 }
 
 export function validateAdminWebhookTestResult(
-  value: unknown,
+  value: ApiJsonInput,
 ): AdminWebhookTestResult {
   return AdminWebhookTestResultSchema.parse(value)
 }

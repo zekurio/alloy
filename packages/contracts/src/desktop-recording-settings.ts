@@ -18,12 +18,15 @@ import {
   RECORDING_ENCODERS,
   type RecordingSettings,
 } from "./desktop-recording-types"
-import { isObjectRecord } from "./object"
+import type { ContractJsonInput } from "./json-value"
+import { isBooleanValue, isObjectRecord, isStringValue } from "./object"
 
 export { DEFAULT_RECORDING_SETTINGS } from "./desktop-recording-defaults"
 export { normalizeReplayBufferSeconds } from "./desktop-recording-normalizers"
 
-export function normalizeRecordingSettings(value: unknown): RecordingSettings {
+export function normalizeRecordingSettings(
+  value: ContractJsonInput,
+): RecordingSettings {
   if (!isObjectRecord(value)) {
     return DEFAULT_RECORDING_SETTINGS
   }
@@ -34,19 +37,17 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
   const hotkeys = normalizeHotkeys(value.hotkeys)
 
   return {
-    enabled:
-      typeof value.enabled === "boolean"
-        ? value.enabled
-        : DEFAULT_RECORDING_SETTINGS.enabled,
+    enabled: isBooleanValue(value.enabled)
+      ? value.enabled
+      : DEFAULT_RECORDING_SETTINGS.enabled,
     captureMode: normalizeLiteral(
       value.captureMode,
       RECORDING_CAPTURE_MODES,
       DEFAULT_RECORDING_SETTINGS.captureMode,
     ),
-    selectedDisplayId:
-      typeof value.selectedDisplayId === "string"
-        ? value.selectedDisplayId
-        : DEFAULT_RECORDING_SETTINGS.selectedDisplayId,
+    selectedDisplayId: isStringValue(value.selectedDisplayId)
+      ? value.selectedDisplayId
+      : DEFAULT_RECORDING_SETTINGS.selectedDisplayId,
     allowedGames: normalizeAllowedGames(value.allowedGames),
     deniedGames: normalizeAllowedGames(value.deniedGames),
     audioMode: normalizeLiteral(
@@ -62,7 +63,7 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
       DEFAULT_RECORDING_SETTINGS.encoder,
     ),
     gpu:
-      typeof value.gpu === "string" && value.gpu.length > 0
+      isStringValue(value.gpu) && value.gpu.length > 0
         ? value.gpu
         : DEFAULT_RECORDING_SETTINGS.gpu,
     codec: normalizeLiteral(
@@ -83,8 +84,7 @@ export function normalizeRecordingSettings(value: unknown): RecordingSettings {
       RECORDING_BUFFER_STORAGE,
       DEFAULT_RECORDING_SETTINGS.bufferStorage,
     ),
-    outputFolder:
-      typeof value.outputFolder === "string" ? value.outputFolder : "",
+    outputFolder: isStringValue(value.outputFolder) ? value.outputFolder : "",
     hotkeys,
     notificationSounds: normalizeNotificationSounds(value.notificationSounds),
   }

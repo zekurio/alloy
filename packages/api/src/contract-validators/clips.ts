@@ -23,6 +23,7 @@ import {
 } from "@alloy/contracts"
 import { normalizeClipAudioTrackKind } from "@alloy/contracts/shared"
 
+import type { ApiJsonInput, ApiJsonValue } from "../json-value"
 import { validateUserSummary } from "./people"
 import {
   validateGameRowFields,
@@ -32,19 +33,22 @@ import {
 const CLIP_PRIVACY_SET: ReadonlySet<string> = new Set(CLIP_PRIVACY)
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
-function assertNoStorageKey(value: Record<string, unknown>, label: string) {
+function assertNoStorageKey(
+  value: Record<string, ApiJsonValue>,
+  label: string,
+) {
   if ("storageKey" in value) {
     throw new Error(`Invalid ${label} response: storageKey must not be public`)
   }
 }
 
-function validateClipGameRef(value: unknown) {
+function validateClipGameRef(value: ApiJsonInput) {
   const row = objectRecord(value, "clip game")
   validateGameRowFields(row, "clip game")
   validateGameSource(row, "clip game")
 }
 
-export function validateClipRow(value: unknown): ClipRow {
+export function validateClipRow(value: ApiJsonInput): ClipRow {
   const row = objectRecord(value, "clip")
   assertNoStorageKey(row, "clip")
   validateClipIdentityFields(row)
@@ -53,10 +57,11 @@ export function validateClipRow(value: unknown): ClipRow {
   validateClipStageFields(row)
   validateClipTimestamps(row)
   validateClipRelationships(row)
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as ClipRow
 }
 
-function validateClipIdentityFields(row: Record<string, unknown>) {
+function validateClipIdentityFields(row: Record<string, ApiJsonValue>) {
   for (const key of ["id", "authorId", "title", "authorUsername"] as const) {
     validateRequiredString(
       row[key],
@@ -69,7 +74,7 @@ function validateClipIdentityFields(row: Record<string, unknown>) {
   )
 }
 
-function validateClipMetadataFields(row: Record<string, unknown>) {
+function validateClipMetadataFields(row: Record<string, ApiJsonValue>) {
   for (const key of [
     "description",
     "game",
@@ -98,7 +103,7 @@ function validateClipMetadataFields(row: Record<string, unknown>) {
   )
 }
 
-function validateClipCounters(row: Record<string, unknown>) {
+function validateClipCounters(row: Record<string, ApiJsonValue>) {
   for (const key of [
     "sourceSizeBytes",
     "sourceDurationMs",
@@ -131,7 +136,7 @@ function validateClipCounters(row: Record<string, unknown>) {
   )
 }
 
-function validateClipStageFields(row: Record<string, unknown>) {
+function validateClipStageFields(row: Record<string, ApiJsonValue>) {
   if (row.encodeStage !== undefined) {
     validateNullableEnumString(
       row.encodeStage,
@@ -159,7 +164,7 @@ function validateClipStageFields(row: Record<string, unknown>) {
   }
 }
 
-function validateClipTimestamps(row: Record<string, unknown>) {
+function validateClipTimestamps(row: Record<string, ApiJsonValue>) {
   validateIsoDateString(
     row.createdAt,
     "Invalid clip response: createdAt must be a date string",
@@ -190,7 +195,7 @@ function validateClipTimestamps(row: Record<string, unknown>) {
   )
 }
 
-function validateClipRelationships(row: Record<string, unknown>) {
+function validateClipRelationships(row: Record<string, ApiJsonValue>) {
   if (row.gameRef !== null) {
     validateClipGameRef(row.gameRef)
   }
@@ -255,11 +260,11 @@ function validateClipRelationships(row: Record<string, unknown>) {
   )
 }
 
-export function validateClipRows(value: unknown): ClipRow[] {
+export function validateClipRows(value: ApiJsonInput): ClipRow[] {
   return validateArray(value, "Invalid clips response").map(validateClipRow)
 }
 
-export function validateClipPage(value: unknown): ClipPage {
+export function validateClipPage(value: ApiJsonInput): ClipPage {
   const page = objectRecord(value, "clips")
   validateArray(
     page.items,
@@ -269,5 +274,6 @@ export function validateClipPage(value: unknown): ClipPage {
     page.nextCursor,
     "Invalid clips response: nextCursor must be a non-empty string or null",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as ClipPage
 }
