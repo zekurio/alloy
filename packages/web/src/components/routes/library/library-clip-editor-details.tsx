@@ -16,6 +16,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@alloy/ui/components/tabs"
+import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
@@ -106,6 +107,10 @@ interface ClipDetailsProps {
   onSaveTrim: () => void
 }
 
+interface ClipEditorTabsProps extends ClipDetailsProps {
+  commentsFlow?: "column" | "page"
+}
+
 function gameRowFromRef(row: ClipRow): GameRow | null {
   const ref = row.gameRef
   if (!ref) return null
@@ -125,7 +130,10 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
   }
 }
 
-export function ClipEditorTabs(props: ClipDetailsProps) {
+export function ClipEditorTabs({
+  commentsFlow = "column",
+  ...props
+}: ClipEditorTabsProps) {
   const { row } = props
   const [tab, setTab] = useState("details")
 
@@ -156,7 +164,11 @@ export function ClipEditorTabs(props: ClipDetailsProps) {
         <ClipComments
           clipId={row.id}
           clipAuthorId={row.authorId}
-          className="h-full border-l-0"
+          showCount={false}
+          className={cn(
+            "border-l-0",
+            commentsFlow === "page" && "h-auto min-h-64 grid-rows-[auto_auto]",
+          )}
         />
       </TabsContent>
     </Tabs>

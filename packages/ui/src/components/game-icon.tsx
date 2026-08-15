@@ -57,6 +57,7 @@ function GameIcon({
       className={cn(gameIconVariants({ size }), className)}
       style={fallbackStyle}
       {...props}
+      data-slot="game-icon"
     >
       {src && ok ? (
         <img

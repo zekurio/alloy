@@ -42,7 +42,7 @@ export function TagsPageInner({ tag: rawTag }: { tag: string }) {
   const { data: summary } = useTagSummaryQuery(tag)
 
   return (
-    <AppMain className="!px-4 md:!px-6">
+    <AppMain>
       <div className="flex w-full flex-col">
         <TagHeader tag={tag} clipCount={summary?.clipCount} />
         <PageToolbar rail={false}>

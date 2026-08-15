@@ -24,8 +24,10 @@ export function ToolbarChipTrigger({
     <Chip
       size="xl"
       className={cn(
-        "h-7 w-auto max-w-[9.5rem] min-w-0 justify-start gap-1.5 rounded-md border-transparent bg-transparent px-2 text-xs leading-3 font-medium text-foreground-muted hover:border-border hover:bg-surface-raised/60 hover:text-foreground",
-        "[&_svg:not([class*='size-'])]:size-3.5",
+        "h-10 w-auto max-w-[10rem] min-w-0 justify-start gap-2 rounded-lg border-transparent bg-transparent px-3 text-sm leading-4 font-medium text-foreground-muted hover:border-border hover:bg-surface-raised/60 hover:text-foreground",
+        "[&_svg:not([class*='size-'])]:size-[18px]",
+        "md:h-7 md:max-w-[9.5rem] md:gap-1.5 md:rounded-md md:px-2 md:text-xs md:leading-3",
+        "md:[&_svg:not([class*='size-'])]:size-3.5",
         className,
       )}
       {...props}
