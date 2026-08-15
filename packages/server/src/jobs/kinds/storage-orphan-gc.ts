@@ -31,6 +31,7 @@ const PAGE_SIZE = 500
 const ORPHAN_SAFETY_MARGIN_MS = 48 * 60 * 60 * 1000
 const STORAGE_GC_SUMMARY_KEY = "storageGc"
 const STORAGE_GC_CONFIRMATION_KEY = "storageGcConfirmation"
+const STORAGE_GC_MANIFEST_KEY = "storageGcManifest"
 const AUDIO_TRACK_ASSET_RE = new RegExp(
   `^audio-[0-${CLIP_AUDIO_TRACKS_MAX - 1}]-[0-9a-f]{12}\\.m4a$`,
   "i",
@@ -50,8 +51,24 @@ const StorageGcConfirmationSchema = t.object({
   previewJobId: t.string().uuid(),
   jobId: t.string().uuid(),
 })
+const StorageGcCandidateSchema = t
+  .object({
+    storage: t.enum(["clip", "thumbnail"]),
+    key: t.string().min(1),
+    kind: t.enum(["orphan", "stale"]),
+  })
+  .strict()
+const StorageGcManifestSchema = t
+  .object({
+    previewJobId: t.string().uuid(),
+    cutoffAt: t.string().datetime({ offset: true }),
+    candidates: t.array(StorageGcCandidateSchema),
+  })
+  .strict()
 
 type StorageOrphanGcPayload = t.infer<typeof StorageOrphanGcPayloadSchema>
+type StorageGcCandidate = t.infer<typeof StorageGcCandidateSchema>
+type StorageGcManifest = t.infer<typeof StorageGcManifestSchema>
 
 interface StorageGcSummary {
   jobId: string
@@ -76,6 +93,7 @@ interface GcEntry {
   key: string
   lastModified: Date | null
   storage: StorageDriver
+  storageKind: StorageGcCandidate["storage"]
 }
 
 interface GcClipRow {
@@ -92,6 +110,7 @@ defineJobKind({
   schema: StorageOrphanGcPayloadSchema,
   defaultPriority: 80,
   retry: { maxAttempts: 1, backoffMs: 60_000 },
+  adminRetryable: false,
   handler: runStorageOrphanGc,
 })
 
@@ -178,6 +197,16 @@ export async function confirmStorageOrphanGcPreview(
     if (parsed.data.mode === "delete") return null
     if (parsed.data.previewJobId !== previewJobId) return null
 
+    const [manifestRow] = await tx
+      .select({ value: instanceSetting.value })
+      .from(instanceSetting)
+      .where(eq(instanceSetting.key, STORAGE_GC_MANIFEST_KEY))
+    const manifest = safeParse(StorageGcManifestSchema, manifestRow?.value)
+    if (!manifest.success) return null
+    if (manifest.data.previewJobId !== previewJobId) return null
+    if (manifest.data.cutoffAt !== parsed.data.cutoffAt) return null
+    if (!manifestMatchesSummary(manifest.data, parsed.data)) return null
+
     const [livePreview] = await tx
       .select({ id: job.id })
       .from(job)
@@ -222,20 +251,145 @@ export async function confirmStorageOrphanGcPreview(
   return result?.jobId ?? null
 }
 
+function manifestMatchesSummary(
+  manifest: StorageGcManifest,
+  summary: t.infer<typeof AdminStorageGcSummarySchema>,
+): boolean {
+  return (
+    manifest.candidates.filter((candidate) => candidate.kind === "orphan")
+      .length === summary.orphanCandidates &&
+    manifest.candidates.filter((candidate) => candidate.kind === "stale")
+      .length === summary.staleAssetCandidates
+  )
+}
+
 async function runStorageOrphanGc(
   payload: StorageOrphanGcPayload,
   ctx: JobHandlerContext,
 ): Promise<void> {
-  const cutoffAt =
-    payload.mode === "preview"
-      ? new Date(Date.now() - ORPHAN_SAFETY_MARGIN_MS).toISOString()
-      : payload.cutoffAt
-  const summary: StorageGcSummary = {
-    jobId: ctx.jobId,
-    previewJobId: payload.mode === "preview" ? ctx.jobId : payload.previewJobId,
-    mode: payload.mode,
-    finishedAt: new Date().toISOString(),
+  if (payload.mode === "preview") {
+    await runStorageOrphanGcPreview(ctx)
+    return
+  }
+  await runConfirmedStorageOrphanGc(payload, ctx)
+}
+
+async function runStorageOrphanGcPreview(
+  ctx: JobHandlerContext,
+): Promise<void> {
+  const cutoffAt = new Date(Date.now() - ORPHAN_SAFETY_MARGIN_MS).toISOString()
+  const manifest: StorageGcManifest = {
+    previewJobId: ctx.jobId,
     cutoffAt,
+    candidates: [],
+  }
+  const summary = createStorageGcSummary({
+    jobId: ctx.jobId,
+    previewJobId: ctx.jobId,
+    mode: "preview",
+    cutoffAt,
+  })
+  let page: GcEntry[] = []
+
+  for await (const entry of listGcEntries()) {
+    if (ctx.signal.aborted) break
+    page.push(entry)
+    if (page.length < PAGE_SIZE) continue
+    await processPreviewPage(page, summary, manifest, ctx.signal)
+    page = []
+  }
+
+  if (!ctx.signal.aborted && page.length > 0) {
+    await processPreviewPage(page, summary, manifest, ctx.signal)
+  }
+  if (ctx.signal.aborted) return
+
+  const validatedManifest = StorageGcManifestSchema.parse(manifest)
+  summary.orphanCandidates = validatedManifest.candidates.filter(
+    (candidate) => candidate.kind === "orphan",
+  ).length
+  summary.staleAssetCandidates = validatedManifest.candidates.filter(
+    (candidate) => candidate.kind === "stale",
+  ).length
+  summary.finishedAt = new Date().toISOString()
+  await db.transaction(async (tx) => {
+    await writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary, tx)
+    await writeStorageMaintenanceSummary(
+      STORAGE_GC_MANIFEST_KEY,
+      validatedManifest,
+      tx,
+    )
+    await tx
+      .delete(instanceSetting)
+      .where(eq(instanceSetting.key, STORAGE_GC_CONFIRMATION_KEY))
+  })
+  logStorageGcSummary(summary)
+}
+
+async function runConfirmedStorageOrphanGc(
+  payload: Extract<StorageOrphanGcPayload, { mode: "delete" }>,
+  ctx: JobHandlerContext,
+): Promise<void> {
+  const manifest = await readStorageGcManifest()
+  if (
+    !manifest ||
+    manifest.previewJobId !== payload.previewJobId ||
+    manifest.cutoffAt !== payload.cutoffAt
+  ) {
+    throw new Error("Storage cleanup preview is no longer available.")
+  }
+  const summary = createStorageGcSummary({
+    jobId: ctx.jobId,
+    previewJobId: payload.previewJobId,
+    mode: "delete",
+    cutoffAt: payload.cutoffAt,
+  })
+  summary.orphanCandidates = manifest.candidates.filter(
+    (candidate) => candidate.kind === "orphan",
+  ).length
+  summary.staleAssetCandidates = manifest.candidates.filter(
+    (candidate) => candidate.kind === "stale",
+  ).length
+
+  for (const candidate of manifest.candidates) {
+    if (ctx.signal.aborted) return
+    summary.scanned += 1
+    await deleteManifestCandidate(candidate, summary)
+  }
+  if (ctx.signal.aborted) return
+
+  summary.finishedAt = new Date().toISOString()
+  if (summary.deleteFailures > 0) {
+    await writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary)
+    logStorageGcSummary(summary)
+    throw new Error(
+      `Storage cleanup failed to delete ${summary.deleteFailures} objects.`,
+    )
+  }
+
+  await db.transaction(async (tx) => {
+    await writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary, tx)
+    await tx
+      .delete(instanceSetting)
+      .where(
+        inArray(instanceSetting.key, [
+          STORAGE_GC_MANIFEST_KEY,
+          STORAGE_GC_CONFIRMATION_KEY,
+        ]),
+      )
+  })
+  logStorageGcSummary(summary)
+}
+
+function createStorageGcSummary(input: {
+  jobId: string
+  previewJobId: string
+  mode: StorageGcSummary["mode"]
+  cutoffAt: string
+}): StorageGcSummary {
+  return {
+    ...input,
+    finishedAt: new Date().toISOString(),
     scanned: 0,
     orphanCandidates: 0,
     staleAssetCandidates: 0,
@@ -243,23 +397,18 @@ async function runStorageOrphanGc(
     deletedStaleAssets: 0,
     deleteFailures: 0,
   }
-  let page: GcEntry[] = []
+}
 
-  for await (const entry of listGcEntries()) {
-    if (ctx.signal.aborted) break
-    page.push(entry)
-    if (page.length < PAGE_SIZE) continue
-    await processGcPage(page, summary, ctx.signal)
-    page = []
-  }
+async function readStorageGcManifest(): Promise<StorageGcManifest | null> {
+  const [row] = await db
+    .select({ value: instanceSetting.value })
+    .from(instanceSetting)
+    .where(eq(instanceSetting.key, STORAGE_GC_MANIFEST_KEY))
+  const parsed = safeParse(StorageGcManifestSchema, row?.value)
+  return parsed.success ? parsed.data : null
+}
 
-  if (!ctx.signal.aborted && page.length > 0) {
-    await processGcPage(page, summary, ctx.signal)
-  }
-  if (ctx.signal.aborted) return
-
-  summary.finishedAt = new Date().toISOString()
-  await writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary)
+function logStorageGcSummary(summary: StorageGcSummary): void {
   logger.info(
     `storage orphan gc ${summary.mode} complete: scanned=${summary.scanned} orphanCandidates=${summary.orphanCandidates} staleAssetCandidates=${summary.staleAssetCandidates} deletedOrphanObjects=${summary.deletedOrphanObjects} deletedStaleAssets=${summary.deletedStaleAssets} deleteFailures=${summary.deleteFailures}`,
   )
@@ -271,22 +420,23 @@ async function* listGcEntries(): AsyncIterable<GcEntry> {
   // are not safely attributable to a committed clip yet and need a separate
   // policy before GC widens its deletion scope.
   for await (const entry of clipStorage.list("")) {
-    yield { ...entry, storage: clipStorage }
+    yield { ...entry, storage: clipStorage, storageKind: "clip" }
   }
   for await (const entry of clipThumbnailStorage.list("")) {
-    yield { ...entry, storage: clipThumbnailStorage }
+    yield {
+      ...entry,
+      storage: clipThumbnailStorage,
+      storageKind: "thumbnail",
+    }
   }
 }
 
-async function processGcPage(
+async function processPreviewPage(
   page: GcEntry[],
   summary: StorageGcSummary,
+  manifest: StorageGcManifest,
   signal: AbortSignal,
 ): Promise<void> {
-  if (summary.mode === "delete") {
-    await processDeletePage(page, summary, signal)
-    return
-  }
   const parsed = page.map((entry) => ({
     entry,
     parsed: parseClipStorageKey(entry.key),
@@ -309,7 +459,7 @@ async function processGcPage(
     if (!olderThan(item.entry.lastModified, cutoff)) continue
     const row = rows.get(item.parsed.clipId)
     if (!row) {
-      summary.orphanCandidates += 1
+      manifest.candidates.push(toManifestCandidate(item.entry, "orphan"))
       continue
     }
     // An active encode lease brackets publish-to-commit. During that window a
@@ -318,33 +468,49 @@ async function processGcPage(
     if (row.encodeRunId !== null) continue
     if (liveKeys.get(row.id)?.has(item.entry.key)) continue
     if (!isRunStampedFilename(item.parsed.filename)) continue
-    summary.staleAssetCandidates += 1
+    manifest.candidates.push(toManifestCandidate(item.entry, "stale"))
   }
 }
 
-async function processDeletePage(
-  page: GcEntry[],
+function toManifestCandidate(
+  entry: GcEntry,
+  kind: StorageGcCandidate["kind"],
+): StorageGcCandidate {
+  return { storage: entry.storageKind, key: entry.key, kind }
+}
+
+async function deleteManifestCandidate(
+  candidate: StorageGcCandidate,
   summary: StorageGcSummary,
-  signal: AbortSignal,
 ): Promise<void> {
-  for (const entry of page) {
-    if (signal.aborted) return
-    summary.scanned += 1
-    const candidate = await classifyCurrentEntry(entry, summary.cutoffAt)
-    if (!candidate) continue
-    if (candidate === "orphan") summary.orphanCandidates += 1
-    if (candidate === "stale") summary.staleAssetCandidates += 1
-    try {
-      await entry.storage.delete(entry.key)
-      if (candidate === "orphan") {
-        summary.deletedOrphanObjects += 1
-        continue
-      }
-      summary.deletedStaleAssets += 1
-    } catch (error) {
-      summary.deleteFailures += 1
-      logger.error(`storage orphan gc could not delete ${entry.key}`, error)
+  const entry = manifestEntry(candidate)
+  if (
+    (await classifyCurrentEntry(entry, summary.cutoffAt)) !== candidate.kind
+  ) {
+    return
+  }
+  try {
+    await entry.storage.delete(entry.key)
+    if (candidate.kind === "orphan") {
+      summary.deletedOrphanObjects += 1
+      return
     }
+    summary.deletedStaleAssets += 1
+  } catch (error) {
+    summary.deleteFailures += 1
+    logger.error(
+      `storage orphan gc could not delete ${candidate.storage}:${candidate.key}`,
+      error,
+    )
+  }
+}
+
+function manifestEntry(candidate: StorageGcCandidate): GcEntry {
+  return {
+    key: candidate.key,
+    lastModified: null,
+    storage: candidate.storage === "clip" ? clipStorage : clipThumbnailStorage,
+    storageKind: candidate.storage,
   }
 }
 

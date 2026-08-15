@@ -13,7 +13,7 @@ import {
   confirmStorageOrphanGcPreview,
   enqueueStorageOrphanGcPreview,
 } from "@alloy/server/jobs/kinds/storage-orphan-gc"
-import { registeredJobKinds } from "@alloy/server/jobs/registry"
+import { getJobKind, registeredJobKinds } from "@alloy/server/jobs/registry"
 import {
   discardFailed,
   jobCounts,
@@ -213,6 +213,7 @@ function toFailedJob(row: {
     error: row.error,
     attempt: row.attempt,
     finishedAt: row.finished_at ? row.finished_at.toISOString() : null,
+    retryable: getJobKind(row.kind)?.adminRetryable !== false,
   }
 }
 

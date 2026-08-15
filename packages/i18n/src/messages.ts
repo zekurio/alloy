@@ -1327,14 +1327,16 @@ export const DE_MESSAGES: Record<string, string> = {
     "Fehlgeschlagene Jobs nach Prüfung der Fehlermeldung erneut versuchen oder verwerfen.",
   "Routine maintenance": "Regelmäßige Wartung",
   Running: "Läuft",
+  "Run a new storage cleanup preview to recover this operation.":
+    "Starte eine neue Vorschau der Speicherbereinigung, um diesen Vorgang wiederherzustellen.",
   Scanned: "Geprüft",
   "Stale asset candidates": "Veraltete Asset-Kandidaten",
   "Start maintenance work and review its last completed run.":
     "Starte Wartungsarbeiten und prüfe den letzten abgeschlossenen Lauf.",
   "Storage and delivery": "Speicher und Zustellung",
   "Storage cleanup": "Speicherbereinigung",
-  "This permanently deletes the objects from this preview. Alloy checks each object again before deletion. This action cannot be undone.":
-    "Dies löscht die Objekte aus dieser Vorschau dauerhaft. Alloy prüft jedes Objekt vor dem Löschen erneut. Diese Aktion kann nicht rückgängig gemacht werden.",
+  "This permanently deletes only the objects in the selected preview. Alloy checks each object again before deletion. This action cannot be undone.":
+    "Dies löscht dauerhaft nur die Objekte aus der ausgewählten Vorschau. Alloy prüft jedes Objekt vor dem Löschen erneut. Diese Aktion kann nicht rückgängig gemacht werden.",
   "Unprobed or invalid": "Nicht geprüft oder ungültig",
   "Up to date": "Aktuell",
   "Clean up uploads": "Uploads bereinigen",

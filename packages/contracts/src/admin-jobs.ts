@@ -85,6 +85,7 @@ export const AdminFailedJobSchema = t.object({
   error: t.string().nullable(),
   attempt: NonNegativeIntSchema,
   finishedAt: t.string().nullable(),
+  retryable: t.boolean(),
 })
 export type AdminFailedJob = t.infer<typeof AdminFailedJobSchema>
 

@@ -285,7 +285,8 @@ function StorageGcOperation({
   operation: AdminJobOperations["storageGc"]
 }) {
   const queryClient = useQueryClient()
-  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [confirmPreview, setConfirmPreview] =
+    useState<AdminStorageGcSummary | null>(null)
   const previewMutation = useMutation({
     mutationFn: () => api.admin.previewStorageCleanup(),
     onSettled: () => invalidateJobQueries(queryClient),
@@ -294,7 +295,7 @@ function StorageGcOperation({
   const confirmMutation = useMutation({
     mutationFn: (previewJobId: string) =>
       api.admin.confirmStorageCleanup(previewJobId),
-    onSuccess: () => setConfirmOpen(false),
+    onSuccess: () => setConfirmPreview(null),
     onSettled: () => invalidateJobQueries(queryClient),
   })
   const active = operation.pending > 0 || operation.running > 0
@@ -342,21 +343,22 @@ function StorageGcOperation({
             size="sm"
             className="self-start"
             disabled={active || confirmMutation.isPending}
-            onClick={() => setConfirmOpen(true)}
+            onClick={() => setConfirmPreview(preview)}
           >
             <Trash2Icon />
             {t("Delete previewed objects")}
           </Button>
         ) : null}
         <ConfirmDeleteDialog
-          open={confirmOpen}
+          open={confirmPreview !== null}
           onOpenChange={(open) => {
-            setConfirmOpen(open)
-            if (!open) confirmMutation.reset()
+            if (open) return
+            setConfirmPreview(null)
+            confirmMutation.reset()
           }}
           title={t("Delete previewed objects?")}
           description={t(
-            "This permanently deletes the objects from this preview. Alloy checks each object again before deletion. This action cannot be undone.",
+            "This permanently deletes only the objects in the selected preview. Alloy checks each object again before deletion. This action cannot be undone.",
           )}
           confirmLabel={t("Delete objects")}
           pendingLabel={t("Starting...")}
@@ -367,17 +369,20 @@ function StorageGcOperation({
               : undefined
           }
           onConfirm={() => {
-            if (preview) confirmMutation.mutate(preview.previewJobId)
+            if (confirmPreview) {
+              confirmMutation.mutate(confirmPreview.previewJobId)
+            }
           }}
         >
-          {preview ? (
+          {confirmPreview ? (
             <p className="text-foreground-muted text-sm">
               {t(
                 "Preview from {time}: {count} objects are candidates for deletion.",
                 {
-                  time: formatDateTime(preview.finishedAt),
+                  time: formatDateTime(confirmPreview.finishedAt),
                   count:
-                    preview.orphanCandidates + preview.staleAssetCandidates,
+                    confirmPreview.orphanCandidates +
+                    confirmPreview.staleAssetCandidates,
                 },
               )}
             </p>
@@ -650,6 +655,11 @@ function FailedJobRow({
             {job.error}
           </p>
         ) : null}
+        {!job.retryable && job.kind === "storage.orphan-gc" ? (
+          <p className="text-foreground-muted mt-1 text-xs">
+            {t("Run a new storage cleanup preview to recover this operation.")}
+          </p>
+        ) : null}
         {retryError || discardError ? (
           <p role="alert" className="text-destructive mt-0.5 text-xs">
             {retryError ?? discardError}
@@ -668,17 +678,19 @@ function FailedJobRow({
       </div>
 
       <div className="flex shrink-0 items-center">
-        <FeedbackButton
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("Retry job")}
-          disabled={busy}
-          state={retryError ? "error" : "idle"}
-          errorLabel={<span className="sr-only">{t("Try again")}</span>}
-          onClick={onRetry}
-        >
-          <RotateCcwIcon className="size-3.5" />
-        </FeedbackButton>
+        {job.retryable ? (
+          <FeedbackButton
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t("Retry job")}
+            disabled={busy}
+            state={retryError ? "error" : "idle"}
+            errorLabel={<span className="sr-only">{t("Try again")}</span>}
+            onClick={onRetry}
+          >
+            <RotateCcwIcon className="size-3.5" />
+          </FeedbackButton>
+        ) : null}
         <FeedbackButton
           variant="ghost"
           size="icon-sm"
