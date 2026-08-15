@@ -156,7 +156,7 @@ function AppShellContent({ session }: { session: boolean }) {
       )}
       <UploadFlow />
       {session && !editorOpen ? (
-        <div className="fixed right-4 bottom-[calc(var(--bottomnav-h)+env(safe-area-inset-bottom)+1rem)] z-30 flex md:bottom-4">
+        <div className="fixed right-[var(--app-content-padding)] bottom-[var(--app-content-padding)] z-30 hidden md:flex">
           <UploadCenter />
         </div>
       ) : null}

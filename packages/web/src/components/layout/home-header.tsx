@@ -29,6 +29,7 @@ export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
   const inputRef = useRef<HTMLInputElement>(null)
   const desktop = alloyDesktop()
+  const closeSearch = useCallback(() => setOpen(false), [setOpen])
 
   const onKeyDown = useCallback((event: KeyboardEvent) => {
     if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") {
@@ -66,7 +67,7 @@ export function HomeHeader() {
         aria-label={t("Home")}
         className="flex items-center justify-self-start pl-1.5 md:hidden"
       >
-        <AlloyLogo size={26} />
+        <AlloyLogo size={32} />
       </Link>
       <AppHeaderSearch
         ref={inputRef}
@@ -78,6 +79,7 @@ export function HomeHeader() {
         onFocus={() => {
           if (query.trim().length > 0) setOpen(true)
         }}
+        onInteractOutside={closeSearch}
         onChange={(event) => {
           setQuery(event.target.value)
         }}

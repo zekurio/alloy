@@ -11,8 +11,8 @@ import { useNavFlags } from "./use-nav-flags"
 
 /**
  * Mobile primary navigation. Hidden on md+, where the sidebar rail takes over.
- * Account access lives in the header and uploads use the floating upload
- * center, so this icon-only bar stays focused on navigation and notifications.
+ * Account access lives in the header. This icon-only bar stays focused on
+ * navigation and notifications.
  */
 export function MobileBottomNav() {
   const { isHome, isGames, isLibrary } = useNavFlags()
@@ -23,7 +23,7 @@ export function MobileBottomNav() {
       aria-label={t("Primary")}
       className={cn(
         "fixed inset-x-0 bottom-0 z-40 md:hidden",
-        "border-border bg-surface border-t",
+        "alloy-blur border-border border-t",
         "pb-[env(safe-area-inset-bottom)]",
       )}
     >

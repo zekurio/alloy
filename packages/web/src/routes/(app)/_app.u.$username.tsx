@@ -99,7 +99,7 @@ function UserProfileLayout() {
           <ProfileIdentitySkeleton />
         )}
 
-        <div className="px-4 md:px-6">
+        <div className="px-[var(--app-content-padding)]">
           <ProfileTabsNav username={username} />
           <Outlet />
         </div>

@@ -50,6 +50,7 @@ interface ClipCommentsProps extends ComponentProps<"aside"> {
   clipId: string
   clipAuthorId: string
   focusedCommentId?: string | null
+  showCount?: boolean
 }
 
 type Sort = "top" | "new"
@@ -79,6 +80,7 @@ function ClipComments({
   clipId,
   clipAuthorId,
   focusedCommentId = null,
+  showCount = true,
   ...props
 }: ClipCommentsProps) {
   const [draft, setDraft] = useState("")
@@ -259,7 +261,9 @@ function ClipComments({
       {...props}
     >
       <div data-slot="clip-comments-scroll" className="min-h-0 overflow-y-auto">
-        {comments.length > 0 ? <CommentsHeader count={totalCount} /> : null}
+        {showCount && comments.length > 0 ? (
+          <CommentsHeader count={totalCount} />
+        ) : null}
         {commentsQuery.isLoading ? (
           <div className="flex h-full items-center justify-center p-6">
             <Spinner />

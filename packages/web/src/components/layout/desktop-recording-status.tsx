@@ -163,7 +163,7 @@ function RecordingStatusPopover({
         align="start"
         side="top"
         sideOffset={0}
-        className="alloy-blur w-[26rem] max-w-[calc(100vw-1.5rem)] gap-0 overflow-hidden border p-0 ring-0"
+        className="alloy-blur w-[26rem] max-w-[calc(100vw-var(--sidebar-rail)-var(--app-content-padding)-var(--app-content-padding))] gap-0 overflow-hidden border p-0 ring-0"
         style={cssVariables({
           "--alloy-blur-opacity": "90%",
           "--alloy-blur-blur": "36px",

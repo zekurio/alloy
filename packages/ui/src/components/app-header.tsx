@@ -75,6 +75,7 @@ interface AppHeaderSearchProps extends Omit<
   onClear?: () => void
   /** Accessible label for the clear button. Defaults to "Clear search". */
   clearAriaLabel?: string
+  onInteractOutside?: () => void
   children?: ReactNode
 }
 
@@ -88,6 +89,7 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
       placeholder = t("Search clips and games..."),
       onClear,
       onBlur,
+      onInteractOutside,
       clearAriaLabel = t("Clear search"),
       onFocus,
       value,
@@ -125,6 +127,7 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
         if (wrapperRef.current?.contains(target)) return
 
         setExpanded(false)
+        onInteractOutside?.()
         if (document.activeElement === inputRef.current) {
           inputRef.current?.blur()
         }
@@ -138,7 +141,7 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
           capture: true,
         })
       }
-    }, [])
+    }, [onInteractOutside])
 
     return (
       <div
@@ -151,16 +154,16 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
           containerClassName,
         )}
       >
-        <div className="group/search relative flex h-10 w-full items-center md:h-8">
+        <div className="group/search relative flex h-11 w-full items-center md:h-8">
           <span
             aria-hidden
             className={cn(
-              "pointer-events-none absolute top-1/2 left-2.5 z-10 -translate-y-1/2",
+              "pointer-events-none absolute top-1/2 left-3 z-10 -translate-y-1/2 md:left-2.5",
               // Leading icon picks up the accent colour while the input is
               // focused — another visual cue the field is active. On mobile the
               // input sits on a transparent surface, so lift the resting glyph a
               // step brighter to stay legible against the dark header.
-              "text-foreground-faint max-md:text-foreground-muted [&_svg]:size-3.5",
+              "text-foreground-faint max-md:text-foreground-muted [&_svg]:size-5 md:[&_svg]:size-3.5",
               "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "group-focus-within/search:text-accent",
             )}
@@ -179,6 +182,7 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
                 !wrapperRef.current?.contains(nextTarget)
               ) {
                 setExpanded(false)
+                onInteractOutside?.()
               }
               onBlur?.(event)
             }}
@@ -187,9 +191,9 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
               onFocus?.(event)
             }}
             className={cn(
-              "h-full w-full min-w-0 rounded-lg border border-border bg-transparent pr-11 pl-8",
+              "h-full w-full min-w-0 rounded-lg border border-border bg-transparent pr-12 pl-10 md:pr-11 md:pl-8",
               "max-md:border-transparent",
-              "text-sm text-foreground placeholder:text-foreground-faint max-md:placeholder:text-foreground-muted",
+              "text-base text-foreground placeholder:text-foreground-faint max-md:placeholder:text-foreground-muted md:text-sm",
               "transition-[border-color,background-color,box-shadow,border-radius] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "outline-none",
               "focus:border-accent focus:bg-surface-raised",
@@ -212,7 +216,7 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
               }}
               className={cn(
                 "absolute top-1/2 right-1.5 -translate-y-1/2",
-                "grid size-6 place-items-center rounded-sm",
+                "grid size-8 place-items-center rounded-sm md:size-6",
                 // Brand-blue-aware hover: soft fill from the accent family
                 // instead of the off-white the native browser X paints.
                 "text-foreground-faint",
@@ -220,7 +224,7 @@ const AppHeaderSearch = forwardRef<HTMLInputElement, AppHeaderSearchProps>(
                 "hover:text-accent",
                 "focus-visible:bg-accent-soft focus-visible:text-accent",
                 "focus-visible:ring-2 focus-visible:ring-accent-border focus-visible:outline-none",
-                "[&_svg]:size-3",
+                "[&_svg]:size-4 md:[&_svg]:size-3",
               )}
             >
               <XIcon />

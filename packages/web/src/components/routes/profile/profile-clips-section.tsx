@@ -5,27 +5,37 @@ import { useMemo } from "react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
 import { compareDateAsc, compareDateDesc } from "@/lib/date-format"
-import type { ProfileAllSort } from "@/lib/profile-all-search"
+import type { ProfileClipSort } from "@/lib/profile-all-search"
 
-import { ClipsFilterBar } from "./clips-filter-bar"
+import { ClipsFilterBar, type ProfileClipTab } from "./clips-filter-bar"
 
-type AllClipsSectionProps = {
+type ProfileClipsSectionProps = {
   username: string
+  tab: ProfileClipTab
   clips: UserClip[] | null
   error: Error | null
+  errorTitle: string
+  emptyTitle: string
+  emptyHint: string
+  emptySeed: string
   isSelf: boolean
-  sort: ProfileAllSort
+  sort: ProfileClipSort
   gameSlug: string | null
 }
 
-export function AllClipsSection({
+export function ProfileClipsSection({
   username,
+  tab,
   clips,
   error,
+  errorTitle,
+  emptyTitle,
+  emptyHint,
+  emptySeed,
   isSelf,
   sort,
   gameSlug,
-}: AllClipsSectionProps) {
+}: ProfileClipsSectionProps) {
   const gameOptions = useMemo(() => {
     if (!clips) return []
     const map = new Map<
@@ -33,7 +43,6 @@ export function AllClipsSection({
       {
         slug: string
         name: string
-        count: number
         iconUrl: string | null
         logoUrl: string | null
       }
@@ -41,70 +50,68 @@ export function AllClipsSection({
     for (const clip of clips) {
       const ref = clip.gameRef
       if (!ref) continue
-      const existing = map.get(ref.slug)
-      if (existing) existing.count += 1
-      else {
-        map.set(ref.slug, {
-          slug: ref.slug,
-          name: ref.name,
-          count: 1,
-          iconUrl: ref.iconUrl,
-          logoUrl: ref.logoUrl,
-        })
-      }
+      if (map.has(ref.slug)) continue
+      map.set(ref.slug, {
+        slug: ref.slug,
+        name: ref.name,
+        iconUrl: ref.iconUrl,
+        logoUrl: ref.logoUrl,
+      })
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
   }, [clips])
 
   const selectedGame = useMemo(() => {
     if (!gameSlug) return null
-    return gameOptions.find((g) => g.slug === gameSlug) ?? null
+    return gameOptions.find((game) => game.slug === gameSlug) ?? null
   }, [gameOptions, gameSlug])
-  const selectedGameName = selectedGame?.name ?? null
 
   const visible = useMemo(() => {
     if (!clips) return null
     const byGame = gameSlug
-      ? clips.filter((c) => c.gameRef?.slug === gameSlug)
+      ? clips.filter((clip) => clip.gameRef?.slug === gameSlug)
       : clips
     return sortClips(byGame, sort)
   }, [clips, gameSlug, sort])
 
+  const showToolbar = clips !== null && clips.length > 0
+
   return (
     <section>
-      <PageToolbar rail={false} className="-mt-4 sm:-mt-6">
-        <ClipsFilterBar
-          username={username}
-          sort={sort}
-          gameSlug={gameSlug}
-          gameOptions={gameOptions}
-        />
-      </PageToolbar>
+      {showToolbar ? (
+        <PageToolbar rail={false} className="-mt-4 !mb-2 sm:-mt-6">
+          <ClipsFilterBar
+            username={username}
+            tab={tab}
+            sort={sort}
+            gameSlug={gameSlug}
+            gameOptions={gameOptions}
+          />
+        </PageToolbar>
+      ) : null}
       <ClipSectionContent
         rows={visible}
         error={error}
-        errorTitle={t("Couldn't load clips")}
-        emptySeed={`profile-all-empty-${gameSlug ?? "none"}`}
+        errorTitle={errorTitle}
+        emptySeed={`${emptySeed}-${gameSlug ?? "none"}`}
         emptyTitle={
           gameSlug
             ? t("No clips for {game} yet", {
-                game: selectedGameName ?? t("this game"),
+                game: selectedGame?.name ?? t("this game"),
               })
-            : t("No clips uploaded yet")
+            : emptyTitle
         }
         emptyHint={
-          gameSlug
-            ? t("Try a different game or clear the filter.")
-            : t("Clips from this user will show up here once they upload.")
+          gameSlug ? t("Try a different game or clear the filter.") : emptyHint
         }
-        listKey={`profile:${username}:all:${sort}:${gameSlug ?? ""}`}
+        listKey={`profile:${username}:${tab}:${sort}:${gameSlug ?? ""}`}
         isOwnedByViewer={() => isSelf}
       />
     </section>
   )
 }
 
-function sortClips(clips: UserClip[], sort: ProfileAllSort): UserClip[] {
+function sortClips(clips: UserClip[], sort: ProfileClipSort): UserClip[] {
   const copy = clips.slice()
   switch (sort) {
     case "recent":

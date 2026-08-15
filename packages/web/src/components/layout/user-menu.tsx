@@ -95,7 +95,7 @@ function UserMenuInner({ className }: { className?: string }) {
         anchor={topRightAppCornerAnchor}
         align="end"
         side="bottom"
-        sideOffset={16}
+        sideOffset={0}
         className="alloy-blur text-foreground min-w-[220px] border-white/8"
       >
         <div className="flex flex-col gap-0.5 px-3 py-2">

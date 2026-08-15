@@ -178,12 +178,8 @@ export function MobileClipEditor({
         </Button>
       ) : null}
 
-      <Card
-        tone="surface"
-        role="complementary"
-        className="min-h-[28rem] min-w-0"
-      >
-        <ClipEditorTabs row={row} {...tabs} />
+      <Card tone="surface" role="complementary" className="min-w-0">
+        <ClipEditorTabs row={row} commentsFlow="page" {...tabs} />
       </Card>
     </section>
   )

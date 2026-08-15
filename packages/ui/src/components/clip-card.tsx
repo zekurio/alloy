@@ -119,7 +119,7 @@ function ClipCard({
       className={cn("group/clip-card flex flex-col gap-1.5", className)}
       {...props}
     >
-      <div className="relative">
+      <div className="relative -mx-[var(--app-content-padding,0.75rem)] md:mx-0">
         <ClipCardThumb
           title={title}
           thumbnail={thumbnail}
@@ -137,7 +137,7 @@ function ClipCard({
       </div>
       <div
         className={cn(
-          "grid grid-rows-[auto_auto] gap-x-2",
+          "grid grid-rows-[auto_auto] gap-x-2 md:grid-rows-[auto_auto_auto]",
           author
             ? "grid-cols-[auto_minmax(0,1fr)_auto]"
             : "grid-cols-[minmax(0,1fr)_auto]",
@@ -197,17 +197,27 @@ function ClipCard({
             )}
           </div>
         ) : null}
-        {metaVariant === "showcase" ? null : metaContent ? (
-          <div className="text-foreground-faint flex min-w-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums">
-            {metaContent}
-          </div>
-        ) : (
-          <div className="text-foreground-faint flex shrink-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums">
-            <span className="shrink-0">
-              {views} {tp(viewCountForLabel(viewCount, views), "view", "views")}
-            </span>
-            <span className="shrink-0">{"·"}</span>
-            <span className="shrink-0">{postedAt}</span>
+        {metaVariant === "showcase" ? null : (
+          <div
+            className={cn(
+              "text-foreground-faint flex min-w-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums md:mt-0.5 md:justify-start",
+              author
+                ? "col-start-3 row-start-2 md:col-span-2 md:col-start-2 md:row-start-3"
+                : "col-start-2 row-start-2 md:col-span-2 md:col-start-1 md:row-start-3",
+            )}
+          >
+            {metaContent ? (
+              metaContent
+            ) : (
+              <>
+                <span className="shrink-0">
+                  {views}{" "}
+                  {tp(viewCountForLabel(viewCount, views), "view", "views")}
+                </span>
+                <span className="shrink-0">{"·"}</span>
+                <span className="shrink-0">{postedAt}</span>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -3,14 +3,17 @@ import { t, tp } from "@alloy/i18n"
 import {
   Dialog,
   DialogBody,
+  DialogClose,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@alloy/ui/components/dialog"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
+import { XIcon } from "lucide-react"
 import { useRef, useState } from "react"
 
+import { mobileSurfaceCloseButtonClassName } from "@/components/app/mobile-close-button"
 import { UserFollowRow } from "@/components/user/user-follow-row"
 import {
   useUserFollowersQuery,
@@ -84,11 +87,17 @@ export function IdentityStats({ handle, counts }: IdentityStatsProps) {
 
       <Dialog open={open !== null} onOpenChange={(v) => !v && setOpen(null)}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
+          <DialogHeader className="pr-14">
             <DialogTitle>
               {view === "followers" ? t("Followers") : t("Following")}
             </DialogTitle>
           </DialogHeader>
+          <DialogClose
+            aria-label={t("Close")}
+            className={`${mobileSurfaceCloseButtonClassName} absolute top-3 right-3 z-10`}
+          >
+            <XIcon />
+          </DialogClose>
           <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
             {loading ? (
               <div className="text-foreground-faint grid place-items-center px-2 py-4">

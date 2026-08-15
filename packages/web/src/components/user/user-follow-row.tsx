@@ -5,11 +5,10 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "@alloy/ui/components/avatar"
-import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { Link } from "@tanstack/react-router"
-import { UserPlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
+import { UserFollowButton } from "@/components/user/user-follow-button"
 import { useSession } from "@/lib/auth-client"
 import { errorMessage } from "@/lib/error-message"
 import { userChipData } from "@/lib/user-display"
@@ -79,10 +78,8 @@ export function UserFollowRow({
         </span>
       </Link>
       {session?.user.id !== user.id ? (
-        <FeedbackButton
-          type="button"
-          size="sm"
-          variant={following ? "ghost" : "primary"}
+        <UserFollowButton
+          following={following}
           disabled={followMutation.isPending}
           state={
             followMutation.isPending
@@ -91,18 +88,13 @@ export function UserFollowRow({
                 ? "error"
                 : "idle"
           }
-          pendingLabel={t("Updating…")}
-          errorLabel={t("Try again")}
           title={
             followMutation.error
               ? errorMessage(followMutation.error, t("Something went wrong"))
               : undefined
           }
           onClick={toggle}
-        >
-          <UserPlusIcon className="size-3.5" />
-          {following ? t("Following") : t("Follow")}
-        </FeedbackButton>
+        />
       ) : null}
     </li>
   )
