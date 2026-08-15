@@ -15,9 +15,7 @@ export function resolvePublicUrlWithQuery(
   return resolvePublicUrl(`${path}${suffix}`, origin)
 }
 
-export function queryParams(
-  input: Record<string, QueryParamValue>,
-): Record<string, string> {
+export function queryParams(input: Record<string, QueryParamValue>) {
   const query: Record<string, string> = {}
   for (const [key, value] of Object.entries(input)) {
     if (value === undefined || value === null || value === "") continue

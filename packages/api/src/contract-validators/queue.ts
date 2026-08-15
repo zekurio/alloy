@@ -25,10 +25,11 @@ import {
   type UploadTicket,
 } from "@alloy/contracts"
 
+import type { ApiJsonInput, ApiJsonValue } from "../json-value"
 import { validateLikeState, validateNullableBlurHash } from "./shared"
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
-function validateQueueClip(value: unknown): QueueClip {
+function validateQueueClip(value: ApiJsonInput): QueueClip {
   const row = objectRecord(value, "queue clip")
   validateRequiredString(row.id, "Invalid queue response: id is required")
   validateRequiredString(row.title, "Invalid queue response: title is required")
@@ -76,10 +77,11 @@ function validateQueueClip(value: unknown): QueueClip {
     row.thumbBlurHash,
     "Invalid queue response: thumbBlurHash",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as QueueClip
 }
 
-function validateQueueStageFields(row: Record<string, unknown>) {
+function validateQueueStageFields(row: Record<string, ApiJsonValue>) {
   if (row.encodeStage !== undefined) {
     validateNullableEnumString(
       row.encodeStage,
@@ -107,15 +109,16 @@ function validateQueueStageFields(row: Record<string, unknown>) {
   }
 }
 
-export function validateQueueClips(value: unknown): QueueClip[] {
+export function validateQueueClips(value: ApiJsonInput): QueueClip[] {
   return validateArray(value, "Invalid queue response").map(validateQueueClip)
 }
 
-export function validateQueueEvent(value: unknown): QueueEvent {
+export function validateQueueEvent(value: ApiJsonInput): QueueEvent {
   const event = objectRecord(value, "queue event")
   switch (event.type) {
     case "upsert":
       validateQueueClip(event.clip)
+      // SAFETY: The checks above validate every field in the asserted response contract.
       return value as QueueEvent
     case "progress":
       validateRequiredString(
@@ -128,12 +131,14 @@ export function validateQueueEvent(value: unknown): QueueEvent {
         100,
         "Invalid queue event response: encodeProgress must be an integer between 0 and 100",
       )
+      // SAFETY: The checks above validate every field in the asserted response contract.
       return value as QueueEvent
     case "remove":
       validateRequiredString(
         event.id,
         "Invalid queue event response: id is required",
       )
+      // SAFETY: The checks above validate every field in the asserted response contract.
       return value as QueueEvent
     default:
       throw new Error("Invalid queue event response: type is invalid")
@@ -141,7 +146,7 @@ export function validateQueueEvent(value: unknown): QueueEvent {
 }
 
 export function validateInitiateClipResponse(
-  value: unknown,
+  value: ApiJsonInput,
 ): InitiateClipResponse {
   const response = objectRecord(value, "initiate clip")
   validateRequiredString(
@@ -152,10 +157,11 @@ export function validateInitiateClipResponse(
   if (response.scrubberTicket !== undefined) {
     validateUploadTicket(response.scrubberTicket)
   }
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as InitiateClipResponse
 }
 
-export function validateUploadTicket(value: unknown): UploadTicket {
+export function validateUploadTicket(value: ApiJsonInput): UploadTicket {
   const ticket = objectRecord(value, "upload ticket")
   validateUrlString(
     ticket.uploadUrl,
@@ -185,25 +191,27 @@ export function validateUploadTicket(value: unknown): UploadTicket {
       )
     }
   }
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UploadTicket
 }
 
-export function validateClipLikeState(value: unknown): ClipLikeState {
+export function validateClipLikeState(value: ApiJsonInput): ClipLikeState {
   validateLikeState(value, "clip")
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as ClipLikeState
 }
 
 export function validateBooleanFlag<T extends string>(
-  value: unknown,
+  value: ApiJsonInput,
   key: T,
 ): Record<T, boolean>
 export function validateBooleanFlag<T extends string, V extends boolean>(
-  value: unknown,
+  value: ApiJsonInput,
   key: T,
   expected: V,
 ): Record<T, V>
 export function validateBooleanFlag<T extends string>(
-  value: unknown,
+  value: ApiJsonInput,
   key: T,
   expected?: boolean,
 ): Record<T, boolean> {
@@ -216,21 +224,22 @@ export function validateBooleanFlag<T extends string>(
   ) {
     throw new Error(`Invalid ${key} response: ${key} must be boolean`)
   }
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return response as Record<T, boolean>
 }
 
 export function booleanFlagResponseValidator<T extends string>(
   key: T,
-): (value: unknown) => Record<T, boolean>
+): (value: ApiJsonInput) => Record<T, boolean>
 export function booleanFlagResponseValidator<
   T extends string,
   V extends boolean,
->(key: T, expected: V): (value: unknown) => Record<T, V>
+>(key: T, expected: V): (value: ApiJsonInput) => Record<T, V>
 export function booleanFlagResponseValidator<T extends string>(
   key: T,
   expected?: boolean,
-): (value: unknown) => Record<T, boolean> {
-  return (value: unknown) =>
+): (value: ApiJsonInput) => Record<T, boolean> {
+  return (value: ApiJsonInput) =>
     expected === undefined
       ? validateBooleanFlag(value, key)
       : validateBooleanFlag(value, key, expected)

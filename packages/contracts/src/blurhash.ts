@@ -1,3 +1,6 @@
+import type { ContractJsonInput } from "./json-value"
+import { isStringValue } from "./object"
+
 const BLURHASH_ALPHABET =
   "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz#$%*+,-.:;=?@[]^_{|}~"
 
@@ -6,8 +9,8 @@ const BLURHASH_ALPHABET_SET = new Set(BLURHASH_ALPHABET)
 export const BLURHASH_MIN_LENGTH = 6
 export const BLURHASH_MAX_LENGTH = 166
 
-export function isBlurHash(value: unknown): value is string {
-  if (typeof value !== "string") return false
+export function isBlurHash(value: ContractJsonInput): value is string {
+  if (!isStringValue(value)) return false
   if (
     value.length < BLURHASH_MIN_LENGTH ||
     value.length > BLURHASH_MAX_LENGTH
@@ -30,10 +33,7 @@ export function blurHashAverageColor(hash: string): string | null {
   return `rgb(${value >> 16} ${(value >> 8) & 0xff} ${value & 0xff})`
 }
 
-export function blurHashComponents(
-  width: number,
-  height: number,
-): { x: number; y: number } {
+export function blurHashComponents(width: number, height: number) {
   if (width <= 0 || height <= 0) return { x: 1, y: 1 }
   const xCompF = Math.sqrt((16 * width) / height)
   const yCompF = (xCompF * height) / width

@@ -20,6 +20,8 @@ type ValidationIssue = {
   message: string
 }
 
+type SchemaBoundaryInput = Parameters<typeof Decode>[2]
+
 type RefinementContext = {
   addIssue(issue: ValidationIssue & { code?: string }): void
 }
@@ -31,6 +33,32 @@ type SafeParseResult<Value> =
 const trimmed = Symbol("alloy.schema.trimmed")
 const defaulted = Symbol("alloy.schema.defaulted")
 const inputType = Symbol("alloy.schema.inputType")
+const stringSchema = Type.String()
+
+type SchemaMetadata = {
+  [defaulted]?: true
+  [trimmed]?: true
+  additionalProperties?: boolean | TSchema
+  default?: SchemaBoundaryInput
+  properties?: TProperties
+  type?: string
+}
+
+type SchemaUpdates = {
+  additionalProperties?: boolean | TSchema
+  default?: SchemaBoundaryInput
+  exclusiveMinimum?: number
+  format?: string
+  maximum?: number
+  maxItems?: number
+  maxLength?: number
+  minimum?: number
+  minItems?: number
+  minLength?: number
+  multipleOf?: number
+  pattern?: string
+  type?: string
+}
 
 type Defaulted = { [defaulted]: true }
 type InputType<Value> = { [inputType]: Value }
@@ -75,7 +103,7 @@ type ExtendedObject<SchemaType extends TSchema, Fields extends TProperties> =
     : TObject<UnwrapProperties<Fields>>
 
 type SchemaMethods<SchemaType extends TSchema> = {
-  readonly shape: SchemaType extends TObject<infer Fields>
+  readonly ["shape"]: SchemaType extends TObject<infer Fields>
     ? Fields
     : TProperties
   optional(): Schema<TOptional<SchemaType>>
@@ -111,8 +139,10 @@ type SchemaMethods<SchemaType extends TSchema> = {
   extend<Fields extends TProperties>(
     fields: Fields,
   ): Schema<ExtendedObject<SchemaType, Fields>>
-  parse(value: unknown): StaticDecode<SchemaType>
-  safeParse(value: unknown): SafeParseResult<StaticDecode<SchemaType>>
+  parse(value: SchemaBoundaryInput): StaticDecode<SchemaType>
+  safeParse(
+    value: SchemaBoundaryInput,
+  ): SafeParseResult<StaticDecode<SchemaType>>
 }
 
 export type Schema<SchemaType extends TSchema = TSchema> = SchemaType &
@@ -127,9 +157,11 @@ export class SchemaError extends Error {
 function schema<SchemaType extends TSchema>(
   value: SchemaType,
 ): Schema<SchemaType> {
+  // SAFETY: The proxy preserves the schema and provides every declared adapter method.
   return new Proxy(value, {
-    get(target, property, receiver) {
-      const targetRecord = target as TSchema & Record<PropertyKey, unknown>
+    get(target, property) {
+      // SAFETY: These are the metadata fields that this adapter writes and reads.
+      const targetRecord = target as TSchema & SchemaMetadata
       if (property === "optional") {
         return () => schema(Type.Optional(target))
       }
@@ -137,7 +169,7 @@ function schema<SchemaType extends TSchema>(
         return () => schema(Type.Union([target, Type.Null()]))
       }
       if (property === "$default") {
-        return (defaultValue: unknown) =>
+        return (defaultValue: SchemaBoundaryInput) =>
           schema(
             Object.assign(copySchema(target, { default: defaultValue }), {
               [defaulted]: true as const,
@@ -145,7 +177,7 @@ function schema<SchemaType extends TSchema>(
           )
       }
       if (property === "catch") {
-        return (defaultValue: unknown) => {
+        return (defaultValue: SchemaBoundaryInput) => {
           const caught = Type.Decode(Type.Unknown(), (input) => {
             const result = safeParse(target, input)
             return result.success ? result.data : defaultValue
@@ -162,21 +194,24 @@ function schema<SchemaType extends TSchema>(
       }
       if (property === "refine") {
         return (
-          check: (input: unknown) => boolean,
+          check: (input: SchemaBoundaryInput) => boolean,
           options?: string | { message?: string },
-        ) =>
-          schema(
-            Type.Refine(
-              target,
-              check,
-              typeof options === "string"
-                ? () => options
-                : () => options?.message ?? "Invalid value",
-            ),
+        ) => {
+          const message = Check(stringSchema, options)
+            ? options
+            : options?.message
+          return schema(
+            Type.Refine(target, check, () => message ?? "Invalid value"),
           )
+        }
       }
       if (property === "superRefine") {
-        return (check: (input: unknown, context: RefinementContext) => void) =>
+        return (
+          check: (
+            input: SchemaBoundaryInput,
+            context: RefinementContext,
+          ) => void,
+        ) =>
           schema(
             Type.Refine(
               target,
@@ -187,7 +222,7 @@ function schema<SchemaType extends TSchema>(
           )
       }
       if (property === "transform") {
-        return (decode: (input: unknown) => unknown) =>
+        return (decode: (input: SchemaBoundaryInput) => SchemaBoundaryInput) =>
           schema(Type.Decode(target, decode))
       }
       if (property === "trim") {
@@ -195,7 +230,7 @@ function schema<SchemaType extends TSchema>(
           schema(
             Object.assign(
               Type.Decode(target, (input) =>
-                typeof input === "string" ? input.trim() : input,
+                Check(stringSchema, input) ? input.trim() : input,
               ),
               { [trimmed]: true },
             ),
@@ -244,23 +279,22 @@ function schema<SchemaType extends TSchema>(
           schema(
             Type.Object(
               {
-                ...(targetRecord.properties as TProperties | undefined),
+                ...targetRecord.properties,
                 ...fields,
               },
               {
-                additionalProperties: targetRecord.additionalProperties as
-                  | boolean
-                  | TSchema
-                  | undefined,
+                additionalProperties: targetRecord.additionalProperties,
               },
             ),
           )
       }
-      if (property === "parse") return (input: unknown) => parse(target, input)
+      if (property === "parse")
+        return (input: SchemaBoundaryInput) => parse(target, input)
       if (property === "safeParse") {
-        return (input: unknown) => safeParse(target, input)
+        return (input: SchemaBoundaryInput) => safeParse(target, input)
       }
-      return Reflect.get(target, property, receiver)
+      // SAFETY: The proxy forwards only property keys read from the wrapped schema.
+      return target[property as keyof SchemaType]
     },
   }) as Schema<SchemaType>
 }
@@ -271,12 +305,13 @@ function withLimit(
   limit: number,
   message?: string,
 ) {
-  const valueRecord = value as TSchema & Record<PropertyKey, unknown>
+  // SAFETY: TypeBox schemas store their validation keywords as own metadata.
+  const valueRecord = value as TSchema & SchemaMetadata
   if (valueRecord[trimmed]) {
     return Type.Refine(
       value,
       (input) =>
-        typeof input !== "string" ||
+        !Check(stringSchema, input) ||
         (kind === "min"
           ? input.trim().length >= limit
           : input.trim().length <= limit),
@@ -284,43 +319,41 @@ function withLimit(
     )
   }
   if (valueRecord.type === "string") {
-    return copySchema(value, {
-      [kind === "min" ? "minLength" : "maxLength"]: limit,
-    })
+    return kind === "min"
+      ? copySchema(value, { minLength: limit })
+      : copySchema(value, { maxLength: limit })
   }
   if (valueRecord.type === "array") {
-    return copySchema(value, {
-      [kind === "min" ? "minItems" : "maxItems"]: limit,
-    })
+    return kind === "min"
+      ? copySchema(value, { minItems: limit })
+      : copySchema(value, { maxItems: limit })
   }
-  return copySchema(value, {
-    [kind === "min" ? "minimum" : "maximum"]: limit,
-  })
+  return kind === "min"
+    ? copySchema(value, { minimum: limit })
+    : copySchema(value, { maximum: limit })
 }
 
 function withStringValidation(
   value: TSchema,
   options: { format?: string; pattern?: string },
 ) {
-  const valueRecord = value as TSchema & Record<PropertyKey, unknown>
+  // SAFETY: TypeBox schemas store their validation keywords as own metadata.
+  const valueRecord = value as TSchema & SchemaMetadata
   if (!valueRecord[trimmed]) return copySchema(value, options)
   const validationSchema = Type.String(options)
   return Type.Refine(
     value,
     (input) =>
-      typeof input === "string" && Check(validationSchema, input.trim()),
+      Check(stringSchema, input) && Check(validationSchema, input.trim()),
   )
 }
 
-function copySchema(
-  value: TSchema,
-  updates: Record<PropertyKey, unknown>,
-  kind?: string,
-) {
+function copySchema(value: TSchema, updates: SchemaUpdates, kind?: string) {
+  // SAFETY: The clone keeps the TypeBox schema prototype and all descriptors.
   const copy = Object.create(
     Object.getPrototypeOf(value),
     Object.getOwnPropertyDescriptors(value),
-  ) as TSchema & Record<PropertyKey, unknown>
+  ) as TSchema & SchemaMetadata
   Object.assign(copy, updates)
   if (kind) {
     Object.defineProperty(copy, "~kind", {
@@ -333,8 +366,8 @@ function copySchema(
 }
 
 function refinementIssues(
-  value: unknown,
-  check: (value: unknown, context: RefinementContext) => void,
+  value: SchemaBoundaryInput,
+  check: (value: SchemaBoundaryInput, context: RefinementContext) => void,
 ) {
   const issues: ValidationIssue[] = []
   check(value, { addIssue: (issue) => issues.push(issue) })
@@ -343,7 +376,7 @@ function refinementIssues(
 
 export function parse<SchemaType extends TSchema>(
   valueSchema: SchemaType,
-  value: unknown,
+  value: SchemaBoundaryInput,
 ): StaticDecode<SchemaType> {
   try {
     return Decode(valueSchema, value)
@@ -354,7 +387,7 @@ export function parse<SchemaType extends TSchema>(
 
 export function safeParse<SchemaType extends TSchema>(
   valueSchema: SchemaType,
-  value: unknown,
+  value: SchemaBoundaryInput,
 ): SafeParseResult<StaticDecode<SchemaType>> {
   try {
     return { success: true, data: Decode(valueSchema, value) }
@@ -363,7 +396,11 @@ export function safeParse<SchemaType extends TSchema>(
   }
 }
 
-function schemaError(valueSchema: TSchema, value: unknown, cause: unknown) {
+function schemaError(
+  valueSchema: TSchema,
+  value: SchemaBoundaryInput,
+  cause: unknown,
+) {
   const errors = decodeErrors(cause) ?? [...Errors(valueSchema, value)]
   return new SchemaError(
     errors.map((error) => ({
@@ -377,33 +414,34 @@ function schemaError(valueSchema: TSchema, value: unknown, cause: unknown) {
 }
 
 function decodeErrors(cause: unknown) {
-  if (!cause || typeof cause !== "object" || !("cause" in cause)) return null
+  if (!(cause instanceof Error) || !("cause" in cause)) return null
   const details = cause.cause
-  if (!details || typeof details !== "object" || !("errors" in details)) {
+  if (!(details instanceof Object) || !("errors" in details)) {
     return null
   }
   if (!Array.isArray(details.errors)) return null
   const errors = details.errors.filter(
     (error): error is { instancePath: string; message: string } =>
       Boolean(
-        error &&
-        typeof error === "object" &&
+        error instanceof Object &&
         "instancePath" in error &&
-        typeof error.instancePath === "string" &&
+        Check(stringSchema, error.instancePath) &&
         "message" in error &&
-        typeof error.message === "string",
+        Check(stringSchema, error.message),
       ),
   )
   return errors.length > 0 ? errors : null
 }
 
 function object<Fields extends TProperties>(fields: Fields) {
+  // SAFETY: UnwrapProperties matches the runtime schema values passed to Type.Object.
   return schema(Type.Object(fields as UnwrapProperties<Fields>)) as Schema<
     TObject<UnwrapProperties<Fields>>
   >
 }
 
 function looseObject<Fields extends TProperties>(fields: Fields) {
+  // SAFETY: UnwrapProperties matches the runtime schema values passed to Type.Object.
   return schema(
     Type.Object(fields as UnwrapProperties<Fields>, {
       additionalProperties: true,
@@ -425,6 +463,7 @@ export const t = {
   array,
   boolean: () => schema(Type.Boolean()),
   coerce: {
+    // SAFETY: This changes only the accepted input type; the decoded value stays numeric.
     number: () =>
       schema(Type.Number()) as Schema<TNumber & InputType<string | number>>,
   },
@@ -450,7 +489,7 @@ export const t = {
   number: () => schema(Type.Number()),
   object,
   preprocess: <SchemaType extends TSchema>(
-    preprocess: (value: unknown) => unknown,
+    preprocess: (value: SchemaBoundaryInput) => SchemaBoundaryInput,
     valueSchema: SchemaType,
   ) =>
     schema(

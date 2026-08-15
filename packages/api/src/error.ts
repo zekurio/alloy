@@ -1,5 +1,7 @@
+import { isObjectRecord, isStringValue } from "@alloy/contracts"
+
 function messageFromUnknown(cause: unknown): string | null {
-  if (typeof cause === "string") {
+  if (isStringValue(cause)) {
     const message = cause.trim()
     return message.length > 0 ? message : null
   }
@@ -9,12 +11,7 @@ function messageFromUnknown(cause: unknown): string | null {
     return message.length > 0 ? message : null
   }
 
-  if (
-    cause &&
-    typeof cause === "object" &&
-    "message" in cause &&
-    typeof cause.message === "string"
-  ) {
+  if (isObjectRecord(cause) && isStringValue(cause.message)) {
     const message = cause.message.trim()
     return message.length > 0 ? message : null
   }
@@ -28,10 +25,7 @@ export function errorMessage(cause: unknown, fallback: string): string {
   return fallback
 }
 
-export function errorFrom(
-  cause: unknown,
-  fallback: string,
-): { message: string } {
+export function errorFrom(cause: unknown, fallback: string) {
   return { message: errorMessage(cause, fallback) }
 }
 

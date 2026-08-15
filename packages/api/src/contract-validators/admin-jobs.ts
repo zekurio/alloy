@@ -7,18 +7,22 @@ import {
   AdminJobsSummarySchema,
 } from "@alloy/contracts"
 
+import type { ApiJsonInput } from "../json-value"
+
 export function validateAdminJobEnqueueResponse(
-  value: unknown,
+  value: ApiJsonInput,
 ): AdminJobEnqueueResponse {
   return AdminJobEnqueueResponseSchema.parse(value)
 }
 
-export function validateAdminJobsSummary(value: unknown): AdminJobsSummary {
+export function validateAdminJobsSummary(
+  value: ApiJsonInput,
+): AdminJobsSummary {
   return AdminJobsSummarySchema.parse(value)
 }
 
 export function validateAdminFailedJobsPage(
-  value: unknown,
+  value: ApiJsonInput,
 ): AdminFailedJobsPage {
   return AdminFailedJobsPageSchema.parse(value)
 }

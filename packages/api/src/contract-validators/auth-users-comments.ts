@@ -35,6 +35,7 @@ import {
   type UserStorageUsage,
 } from "@alloy/contracts"
 
+import type { ApiJsonInput } from "../json-value"
 import { validateUserSummary } from "./people"
 import {
   validateAuthProviderColors,
@@ -49,7 +50,7 @@ const PUBLIC_AUTH_BOOLEAN_FIELDS = [
 ] as const
 const USER_ROLE_SET: ReadonlySet<string> = new Set(USER_ROLES)
 const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
-function validatePublicAuthProvider(value: unknown): PublicAuthProvider {
+function validatePublicAuthProvider(value: ApiJsonInput): PublicAuthProvider {
   const provider = objectRecord(value, "auth provider")
   for (const key of ["providerId", "displayName"] as const) {
     validateRequiredString(
@@ -62,22 +63,24 @@ function validatePublicAuthProvider(value: unknown): PublicAuthProvider {
     provider.iconUrl,
     "Invalid auth config response: provider.iconUrl must be a URL",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicAuthProvider
 }
 
 function validatePublicDesktopAuthConfig(
-  value: unknown,
+  value: ApiJsonInput,
 ): PublicDesktopAuthConfig {
   const desktopAuth = objectRecord(value, "auth config desktopAuth")
   validateNonNegativeInteger(
     desktopAuth.version,
     "Invalid auth config response: desktopAuth.version must be a non-negative integer",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicDesktopAuthConfig
 }
 
 function validatePublicLoginSplashConfig(
-  value: unknown,
+  value: ApiJsonInput,
 ): PublicLoginSplashConfig {
   const splash = objectRecord(value, "login splash")
   validateBoolean(
@@ -85,11 +88,12 @@ function validatePublicLoginSplashConfig(
     "Invalid auth config response: loginSplash.enabled must be boolean",
   )
   validateBackdropTreatment(splash, "auth config response")
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicLoginSplashConfig
 }
 
 export function validateLoginBackdropsResponse(
-  value: unknown,
+  value: ApiJsonInput,
 ): LoginBackdropsResponse {
   const response = objectRecord(value, "login backdrops response")
   validateArray(
@@ -106,10 +110,13 @@ export function validateLoginBackdropsResponse(
       "Invalid login backdrops response: thumbVersion is required",
     )
   })
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as LoginBackdropsResponse
 }
 
-export function validatePublicAuthConfig(value: unknown): PublicAuthConfig {
+export function validatePublicAuthConfig(
+  value: ApiJsonInput,
+): PublicAuthConfig {
   const config = objectRecord(value, "auth config")
   for (const key of ["adminAccountRequired", "setupRequired"] as const) {
     validateBoolean(
@@ -138,11 +145,12 @@ export function validatePublicAuthConfig(value: unknown): PublicAuthConfig {
       "Invalid auth config response: appearance.customCss must be a string",
     )
   }
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicAuthConfig
 }
 
 export function validateAdminUserStorageRow(
-  value: unknown,
+  value: ApiJsonInput,
 ): AdminUserStorageRow {
   const row = objectRecord(value, "admin user")
   for (const key of ["id", "username", "email", "createdAt"] as const) {
@@ -185,10 +193,13 @@ export function validateAdminUserStorageRow(
     row.clipCount,
     "Invalid admin user response: clipCount must be a non-negative integer",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as AdminUserStorageRow
 }
 
-export function validateAdminUsersResponse(value: unknown): AdminUsersResponse {
+export function validateAdminUsersResponse(
+  value: ApiJsonInput,
+): AdminUsersResponse {
   const response = objectRecord(value, "admin users")
   validateArray(
     response.users,
@@ -202,10 +213,11 @@ export function validateAdminUsersResponse(value: unknown): AdminUsersResponse {
     response.total,
     "Invalid admin users response: total must be a non-negative integer",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as AdminUsersResponse
 }
 
-export function validateCommentRow(value: unknown): CommentRow {
+export function validateCommentRow(value: ApiJsonInput): CommentRow {
   const row = objectRecord(value, "comment")
   for (const key of ["id", "clipId"] as const) {
     validateRequiredString(
@@ -243,10 +255,11 @@ export function validateCommentRow(value: unknown): CommentRow {
     row.replies,
     "Invalid comment response: replies must be an array",
   ).map(validateCommentRow)
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as CommentRow
 }
 
-export function validateCommentPage(value: unknown): CommentPage {
+export function validateCommentPage(value: ApiJsonInput): CommentPage {
   const page = objectRecord(value, "comments")
   validateArray(
     page.items,
@@ -256,10 +269,11 @@ export function validateCommentPage(value: unknown): CommentPage {
     page.nextCursor,
     "Invalid comments response: nextCursor must be a non-empty string or null",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as CommentPage
 }
 
-export function validateCommentUpdateResponse(value: unknown): {
+export function validateCommentUpdateResponse(value: ApiJsonInput): {
   id: string
   body: string
   editedAt: string | null
@@ -275,18 +289,20 @@ export function validateCommentUpdateResponse(value: unknown): {
     row.editedAt,
     "Invalid comment update response: editedAt must be a date string or null",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { id: string; body: string; editedAt: string | null }
 }
 
-export function validateCommentLikeState(value: unknown): {
+export function validateCommentLikeState(value: ApiJsonInput): {
   liked: boolean
   likeCount: number
 } {
   validateLikeState(value, "comment")
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as { liked: boolean; likeCount: number }
 }
 
-export function validatePublicUser(value: unknown): PublicUser {
+export function validatePublicUser(value: ApiJsonInput): PublicUser {
   const row = objectRecord(value, "user")
   for (const key of ["id", "username", "createdAt", "updatedAt"] as const) {
     validateRequiredString(
@@ -310,10 +326,11 @@ export function validatePublicUser(value: unknown): PublicUser {
     row.updatedAt,
     "Invalid user response: updatedAt must be a date string",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicUser
 }
 
-function validateProfileCounts(value: unknown): ProfileCounts {
+function validateProfileCounts(value: ApiJsonInput): ProfileCounts {
   const counts = objectRecord(value, "profile counts")
   for (const key of ["clips", "followers", "following"] as const) {
     validateNonNegativeInteger(
@@ -321,10 +338,11 @@ function validateProfileCounts(value: unknown): ProfileCounts {
       `Invalid profile counts response: ${key} must be a non-negative integer`,
     )
   }
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as ProfileCounts
 }
 
-function validateProfileViewer(value: unknown): ProfileViewer {
+function validateProfileViewer(value: ApiJsonInput): ProfileViewer {
   const viewer = objectRecord(value, "profile viewer")
   for (const key of [
     "isSelf",
@@ -337,24 +355,29 @@ function validateProfileViewer(value: unknown): ProfileViewer {
       `Invalid profile viewer response: ${key} must be boolean`,
     )
   }
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as ProfileViewer
 }
 
-export function validateUserProfile(value: unknown): UserProfile {
+export function validateUserProfile(value: ApiJsonInput): UserProfile {
   const profile = objectRecord(value, "user profile")
   validatePublicUser(profile.user)
   validateProfileCounts(profile.counts)
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UserProfile
 }
 
-export function validateUserProfileViewer(value: unknown): UserProfileViewer {
+export function validateUserProfileViewer(
+  value: ApiJsonInput,
+): UserProfileViewer {
   const response = objectRecord(value, "profile viewer")
   if (response.viewer !== null) validateProfileViewer(response.viewer)
   if (response.counts !== null) validateProfileCounts(response.counts)
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UserProfileViewer
 }
 
-function validateProfileGameRow(value: unknown): ProfileGameRow {
+function validateProfileGameRow(value: ApiJsonInput): ProfileGameRow {
   const row = objectRecord(value, "profile game")
   validateGameRowFields(row, "profile game")
   validateNonNegativeInteger(
@@ -365,16 +388,19 @@ function validateProfileGameRow(value: unknown): ProfileGameRow {
     row.lastClippedAt,
     "Invalid profile game response: lastClippedAt must be a date string",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as ProfileGameRow
 }
 
-export function validateProfileGameRows(value: unknown): ProfileGameRow[] {
+export function validateProfileGameRows(value: ApiJsonInput): ProfileGameRow[] {
   return validateArray(value, "Invalid profile games response").map(
     validateProfileGameRow,
   )
 }
 
-export function validateUserStorageUsage(value: unknown): UserStorageUsage {
+export function validateUserStorageUsage(
+  value: ApiJsonInput,
+): UserStorageUsage {
   const usage = objectRecord(value, "storage usage")
   validateNonNegativeInteger(
     usage.usedBytes,
@@ -384,5 +410,6 @@ export function validateUserStorageUsage(value: unknown): UserStorageUsage {
     usage.quotaBytes,
     "Invalid storage usage response: quotaBytes must be a positive integer or null",
   )
+  // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UserStorageUsage
 }
