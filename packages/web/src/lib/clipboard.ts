@@ -25,7 +25,7 @@ export async function copyTextToClipboard(
   const dedupeKey = options.dedupeKey ?? action
   const clipboard = globalThis.navigator?.clipboard
 
-  if (!clipboard || typeof clipboard.writeText !== "function") {
+  if (!clipboard) {
     logClipboardFailure(
       action,
       dedupeKey,

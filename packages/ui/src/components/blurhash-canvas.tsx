@@ -63,7 +63,7 @@ export function BlurHashCanvas({
   aspectRatio?: number
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
-  const contained = typeof aspectRatio === "number" && aspectRatio > 0
+  const contained = aspectRatio !== undefined && aspectRatio > 0
   const size = decodeSize(contained ? aspectRatio : undefined)
   const validHash = hash && isBlurHash(hash) ? hash : null
 
@@ -97,10 +97,7 @@ export function BlurHashCanvas({
   )
 }
 
-function decodeSize(aspectRatio: number | undefined): {
-  width: number
-  height: number
-} {
+function decodeSize(aspectRatio: number | undefined) {
   if (!aspectRatio || !Number.isFinite(aspectRatio)) {
     return { width: DEFAULT_DECODE_WIDTH, height: DEFAULT_DECODE_HEIGHT }
   }

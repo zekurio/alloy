@@ -92,6 +92,8 @@ function sameDate(a: DateParts | null, b: DateParts): boolean {
 }
 
 function getFirstDayOfWeek(languageTag: string): number {
+  // SAFETY: The added weekInfo property is optional, so older Locale objects
+  // also satisfy this view.
   const locale = new Intl.Locale(languageTag) as LocaleWithWeekInfo
   const firstDay = locale.weekInfo?.firstDay ?? 1
   return firstDay === 7 ? 0 : firstDay

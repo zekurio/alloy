@@ -38,6 +38,7 @@ export function tagClipsInfiniteQueryOptions(
         limit: TAG_PAGE_LIMIT,
         cursor: pageParam,
       } satisfies TagClipsParams),
+    // SAFETY: The API cursor domain is string or null; null is its first page.
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     placeholderData: keepPreviousData,

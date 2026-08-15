@@ -56,11 +56,11 @@ export function CommentComposer({
   const setTextareaRef = useCallback(
     (node: HTMLTextAreaElement | null) => {
       textareaRef.current = node
-      if (typeof inputRef === "function") {
-        inputRef(node)
+      if (inputRef && "current" in inputRef) {
+        inputRef.current = node
         return
       }
-      if (inputRef) inputRef.current = node
+      inputRef?.(node)
     },
     [inputRef],
   )

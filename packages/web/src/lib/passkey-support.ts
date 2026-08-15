@@ -6,10 +6,7 @@ type PasskeySupport = {
 }
 
 function hasPasskeySupport(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.PublicKeyCredential !== "undefined"
-  )
+  return Boolean(globalThis.window?.PublicKeyCredential)
 }
 
 function subscribe(): () => void {

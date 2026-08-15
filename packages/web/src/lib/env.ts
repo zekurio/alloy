@@ -20,7 +20,7 @@ function browserServerUrl(value: string | undefined): string {
 }
 
 function webServerUrl(): string {
-  if (typeof window !== "undefined") {
+  if (globalThis.window) {
     return browserServerUrl(import.meta.env.VITE_SERVER_URL)
   }
 
@@ -36,7 +36,7 @@ export function apiOrigin(): string {
 }
 
 export function publicOrigin(): string {
-  if (typeof window !== "undefined") return window.location.origin
+  if (globalThis.window) return window.location.origin
   return normalizePublicServerUrl(
     nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl(),
   )

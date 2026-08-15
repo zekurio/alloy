@@ -91,18 +91,15 @@ export function librarySourceForPrivacy(
   return "link-disabled"
 }
 
-const SOURCE_META: Record<
-  LibrarySource,
-  {
-    icon: ComponentType<{ className?: string }>
-    label: string
-  }
-> = {
+const SOURCE_META = {
   local: { icon: MonitorIcon, label: t("Local") },
   "link-disabled": { icon: LockIcon, label: t("Private") },
   "link-only": { icon: Link2Icon, label: t("Unlisted") },
   "on-profile": { icon: GlobeIcon, label: t("Public") },
-}
+} satisfies Record<
+  LibrarySource,
+  { icon: ComponentType<{ className?: string }>; label: string }
+>
 
 function LibraryCardTitle({ title }: { title: string }) {
   return (

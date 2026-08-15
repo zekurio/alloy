@@ -29,6 +29,7 @@ function useRouteSession(): RouteSessionState {
   return useRouterState({
     select: (state): RouteSessionState => {
       for (let i = state.matches.length - 1; i >= 0; i -= 1) {
+        // SAFETY: Route matches carry the root context that defines session.
         const context = state.matches[i]?.context as
           | { session?: SessionData }
           | undefined
@@ -48,6 +49,7 @@ function useRouteAuthConfig(): RouteAuthConfigState {
   return useRouterState({
     select: (state): RouteAuthConfigState => {
       for (let i = state.matches.length - 1; i >= 0; i -= 1) {
+        // SAFETY: Route matches carry the root context that defines authConfig.
         const context = state.matches[i]?.context as
           | { authConfig?: PublicAuthConfig }
           | undefined
@@ -66,7 +68,7 @@ function useRouteAuthConfig(): RouteAuthConfigState {
 function sessionInitializedPromise(): Promise<void> {
   if (sessionInitialPromise) return sessionInitialPromise
 
-  if (typeof window === "undefined") {
+  if (!globalThis.window) {
     sessionInitialPromise = Promise.resolve()
     return sessionInitialPromise
   }
@@ -97,7 +99,7 @@ function sessionInitializedPromise(): Promise<void> {
  * failed fetch triggers a refetch, shared across concurrent callers.
  */
 export async function loadSession(): Promise<SessionData> {
-  if (typeof window === "undefined") return null
+  if (!globalThis.window) return null
 
   await sessionInitializedPromise()
   const snapshot = authClient.$store.getSnapshot()
@@ -130,6 +132,7 @@ export async function loadSession(): Promise<SessionData> {
  * reuse the now-stale boot snapshot.
  */
 function readBootstrapAuthConfig(): PublicAuthConfig | null {
+  // SAFETY: The server writes this optional global from PublicAuthConfig.
   const holder = globalThis as { __ALLOY_PUBLIC_CONFIG__?: PublicAuthConfig }
   const config = holder.__ALLOY_PUBLIC_CONFIG__
   if (!config) return null
@@ -138,7 +141,7 @@ function readBootstrapAuthConfig(): PublicAuthConfig | null {
 }
 
 export function loadAuthConfig(): Promise<PublicAuthConfig> {
-  if (typeof window === "undefined") {
+  if (!globalThis.window) {
     return api.authConfig.fetch()
   }
 
@@ -162,7 +165,7 @@ export function useSuspenseSession(): SessionData {
   const routeSession = useRouteSession()
   if (routeSession.found) return routeSession.data
 
-  if (typeof window === "undefined") {
+  if (!globalThis.window) {
     return null
   }
 

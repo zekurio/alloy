@@ -1,4 +1,8 @@
-import type { AdminWebhookRow } from "@alloy/api"
+import type {
+  AdminWebhookInput,
+  AdminWebhookPatch,
+  AdminWebhookRow,
+} from "@alloy/api"
 import { WEBHOOK_PROVIDERS, type WebhookProvider } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
@@ -59,13 +63,15 @@ export function CreateWebhookDialog() {
   }, [open])
 
   const { error, isPending, mutate } = useMutation({
-    mutationFn: () =>
-      api.admin.createWebhook({
+    mutationFn: () => {
+      const input: AdminWebhookInput = {
         name: name.trim(),
         provider,
         url: url.trim(),
-        ...(provider === "generic" && secret ? { secret } : {}),
-      }),
+      }
+      if (provider === "generic" && secret) input.secret = secret
+      return api.admin.createWebhook(input)
+    },
     onSuccess: (created) => {
       setAdminWebhookCacheRow(queryClient, created)
       setOpen(false)
@@ -185,12 +191,12 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
   }, [open, webhook.name])
 
   const { error, isPending, mutate } = useMutation({
-    mutationFn: () =>
-      api.admin.updateWebhook(webhook.id, {
-        name: name.trim(),
-        ...(url.trim() ? { url: url.trim() } : {}),
-        ...(webhook.provider === "generic" && secret ? { secret } : {}),
-      }),
+    mutationFn: () => {
+      const patch: AdminWebhookPatch = { name: name.trim() }
+      if (url.trim()) patch.url = url.trim()
+      if (webhook.provider === "generic" && secret) patch.secret = secret
+      return api.admin.updateWebhook(webhook.id, patch)
+    },
     onSuccess: (updated) => {
       setAdminWebhookCacheRow(queryClient, updated)
       setOpen(false)

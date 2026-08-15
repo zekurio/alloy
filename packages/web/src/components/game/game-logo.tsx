@@ -10,10 +10,10 @@ type GameLogoProps = {
   onError?: () => void
 }
 
-const logoClasses: Record<GameLogoVariant, string> = {
+const logoClasses = {
   card: "h-12 max-w-[80%] object-center sm:h-14",
   header: "h-14 max-w-[min(24rem,58vw)] object-left sm:h-16",
-}
+} satisfies Record<GameLogoVariant, string>
 
 export function GameLogo({
   src,

@@ -1,5 +1,6 @@
 import {
   type AdminRuntimeConfig,
+  type RenditionTierConfig,
   HARDWARE_ACCELERATIONS,
   TRANSCODE_VIDEO_CODECS,
 } from "@alloy/api"
@@ -100,13 +101,16 @@ export function TranscodingSettingsContent({
         vaapiDevice: form.vaapiDevice.trim(),
         quality: form.quality,
         audioBitrateKbps: form.audioBitrateKbps,
-        tiers: form.tiers.map((tier) => ({
-          height: tier.height,
-          maxFps: tier.maxFps,
-          maxrateKbps: tier.maxrateKbps,
-          ...(tier.codec ? { codec: tier.codec } : {}),
-          ...(tier.og ? { og: true } : {}),
-        })),
+        tiers: form.tiers.map((tier) => {
+          const config: RenditionTierConfig = {
+            height: tier.height,
+            maxFps: tier.maxFps,
+            maxrateKbps: tier.maxrateKbps,
+          }
+          if (tier.codec) config.codec = tier.codec
+          if (tier.og) config.og = true
+          return config
+        }),
       })
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
     } finally {

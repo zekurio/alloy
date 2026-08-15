@@ -214,7 +214,7 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
     defaultValues: {
       username: "",
       email: "",
-    } as PasskeySignUpFormState,
+    } satisfies PasskeySignUpFormState,
     onSubmit: async ({ value }) => {
       await submit(value)
     },

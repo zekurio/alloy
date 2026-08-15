@@ -1,9 +1,6 @@
 import { stableHue } from "./stable-hash"
 
-export function pastelAvatarColors(seed: string | number): {
-  bg: string
-  fg: string
-} {
+export function pastelAvatarColors(seed: string | number) {
   const hue = stableHue(seed || "user")
   return {
     bg: `oklch(0.82 0.08 ${hue})`,
