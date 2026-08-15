@@ -1306,6 +1306,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Orphan candidates": "Verwaiste Kandidaten",
   Pending: "Ausstehend",
   "Preview cleanup": "Bereinigung prüfen",
+  "Preview from {time}: {count} object is a candidate for deletion.":
+    "Vorschau von {time}: {count} Objekt kann gelöscht werden.",
   "Preview from {time}: {count} objects are candidates for deletion.":
     "Vorschau von {time}: {count} Objekte können gelöscht werden.",
   "Preview old clip objects that are no longer referenced, then confirm their deletion.":

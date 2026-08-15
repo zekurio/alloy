@@ -301,6 +301,9 @@ function StorageGcOperation({
   const active = operation.pending > 0 || operation.running > 0
   const preview =
     operation.summary?.mode === "preview" ? operation.summary : null
+  const previewCandidateCount = confirmPreview
+    ? confirmPreview.orphanCandidates + confirmPreview.staleAssetCandidates
+    : 0
 
   return (
     <Card>
@@ -377,12 +380,12 @@ function StorageGcOperation({
           {confirmPreview ? (
             <p className="text-foreground-muted text-sm">
               {t(
-                "Preview from {time}: {count} objects are candidates for deletion.",
+                previewCandidateCount === 1
+                  ? "Preview from {time}: {count} object is a candidate for deletion."
+                  : "Preview from {time}: {count} objects are candidates for deletion.",
                 {
                   time: formatDateTime(confirmPreview.finishedAt),
-                  count:
-                    confirmPreview.orphanCandidates +
-                    confirmPreview.staleAssetCandidates,
+                  count: previewCandidateCount,
                 },
               )}
             </p>
