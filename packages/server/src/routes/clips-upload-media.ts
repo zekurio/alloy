@@ -251,14 +251,23 @@ export const clipsUploadMediaRoutes = new Hono()
 
       if (row.status === "failed") {
         // The encode handler no-ops on failed clips, so flip it back to
-        // processing before enqueueing. Guarded on the null lease so a run that
-        // just took over isn't clobbered.
-        if (!(await resetFailedClipForEncode(id))) {
+        // processing in the same transaction that creates the job. The lease
+        // guard stops a run that just took over from being clobbered.
+        const queued = await db.transaction(async (tx) => {
+          if (!(await resetFailedClipForEncode(id, tx))) return false
+          await enqueueClipEncode(id, {
+            trigger: "reencode",
+            priority: 10,
+            tx,
+          })
+          return true
+        })
+        if (!queued) {
           return conflict(c, "Clip is already processing")
         }
 
+        wakeClipEncodeQueue()
         void publishClipUpsert(row.author_id, id)
-        await enqueueClipEncode(id, { trigger: "reencode", priority: 10 })
         return updatedClipResponse(c, id)
       }
 

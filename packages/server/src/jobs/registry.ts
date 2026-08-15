@@ -2,6 +2,8 @@ import { JOB_QUEUES, type JobKind, type JobQueue } from "@alloy/contracts"
 import type { t } from "@alloy/contracts/schema"
 import type { TSchema } from "typebox"
 
+import type { JobTransaction } from "./store-types"
+
 export interface JobHandlerContext {
   signal: AbortSignal
   attempt: number
@@ -20,6 +22,14 @@ export interface JobRetry {
   backoffMs: number
 }
 
+export type JobAfterCommit = () => Promise<void> | void
+
+export interface JobFailureContext {
+  willRetry: boolean
+  runId: string
+  tx: JobTransaction
+}
+
 export interface RegisteredJobKind<ValueSchema extends TSchema = TSchema> {
   kind: JobKind
   queue: JobQueue
@@ -31,16 +41,19 @@ export interface RegisteredJobKind<ValueSchema extends TSchema = TSchema> {
     payload: t.infer<ValueSchema>,
     ctx: JobHandlerContext,
   ) => Promise<void> | void
+  // Runs in the same transaction that moves the job to pending or failed.
+  // Return external cleanup or event work that must run after commit.
   onFailed?: (
     payload: t.infer<ValueSchema>,
     error: Error,
-    willRetry: boolean,
-    runId: string,
+    ctx: JobFailureContext,
+  ) => Promise<JobAfterCommit | void> | JobAfterCommit | void
+  // Invoked in the same transaction that re-arms a failed job. Lets a kind
+  // restore side state before a dispatcher can see the pending job.
+  onRetry?: (
+    payload: t.infer<ValueSchema>,
+    tx: JobTransaction,
   ) => Promise<void> | void
-  // Invoked by the admin retry path after a failed job is re-armed to pending,
-  // before the queue is woken. Lets a kind restore side state its handler needs
-  // (e.g. clip.encode flips a quarantined clip back to processing).
-  onRetry?: (payload: t.infer<ValueSchema>) => Promise<void> | void
   extendLease?: (
     payload: t.infer<ValueSchema>,
     ctx: JobHandlerContext,
