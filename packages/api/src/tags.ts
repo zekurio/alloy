@@ -7,8 +7,13 @@ import type {
 import type { ApiContext } from "./client"
 import { validateClipPage, validateGameListRows } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
+import type { ApiJsonInput } from "./json-value"
 import { queryParams } from "./paths"
-import { objectRecord, validateNonNegativeInteger } from "./runtime-validation"
+import {
+  objectRecord,
+  validateNonNegativeInteger,
+  validateString,
+} from "./runtime-validation"
 
 export type { TagClipsParams, TagGamesResponse } from "@alloy/contracts"
 
@@ -39,7 +44,7 @@ async function fetchTagGames(
   return readJsonOrThrow(res, validateTagGamesResponse)
 }
 
-function validateTagGamesResponse(value: unknown): TagGamesResponse {
+function validateTagGamesResponse(value: ApiJsonInput): TagGamesResponse {
   const payload = objectRecord(value, "tag games")
   const clipCount = payload.clipCount
   validateNonNegativeInteger(
@@ -52,15 +57,13 @@ function validateTagGamesResponse(value: unknown): TagGamesResponse {
   }
 }
 
-function validateTagSuggestions(value: unknown): string[] {
+function validateTagSuggestions(value: ApiJsonInput): string[] {
   const tags = objectRecord(value, "tag search").tags
   if (!Array.isArray(tags)) {
     throw new Error("Invalid tag search response: tags must be an array")
   }
   return tags.map((tag) => {
-    if (typeof tag !== "string") {
-      throw new Error("Invalid tag search response: tag must be a string")
-    }
+    validateString(tag, "Invalid tag search response: tag must be a string")
     return tag
   })
 }

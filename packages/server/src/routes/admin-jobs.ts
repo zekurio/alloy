@@ -7,7 +7,7 @@ import {
   type JobQueue,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import type { JobStatus } from "@alloy/db/schema"
+import { job, type JobStatus } from "@alloy/db/schema"
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
 import {
   cleanupExpiredStorageOrphanGcPreview,
@@ -48,6 +48,8 @@ const FailedQuery = t.object({
   cursor: t.string().optional(),
   limit: t.coerce.number().int().min(1).max(100).$default(20),
 })
+const JobClipPayload = t.object({ clipId: t.string() })
+type JobPayload = (typeof job.$inferSelect)["payload"]
 
 const SWEEP_KINDS: ReadonlySet<string> = new Set(ADMIN_SWEEP_KINDS)
 
@@ -79,8 +81,8 @@ export const adminJobsRoute = new Hono()
     const cursor = decodeFailedCursor(query.cursor)
     const page = await listJobs({
       status: "failed" satisfies JobStatus,
-      ...(query.kind ? { kind: query.kind } : {}),
-      ...(cursor ? { cursor } : {}),
+      kind: query.kind,
+      cursor: cursor ?? undefined,
       limit: query.limit,
     })
     return c.json({
@@ -203,7 +205,7 @@ function decodeFailedCursor(
 function toFailedJob(row: {
   id: string
   kind: string
-  payload: unknown
+  payload: JobPayload
   error: string | null
   attempt: number
   finished_at: Date | null
@@ -219,8 +221,7 @@ function toFailedJob(row: {
   }
 }
 
-function payloadClipId(payload: unknown): string | null {
-  if (!payload || typeof payload !== "object") return null
-  const clipId = (payload as Record<string, unknown>).clipId
-  return typeof clipId === "string" ? clipId : null
+function payloadClipId(payload: JobPayload): string | null {
+  const parsed = JobClipPayload.safeParse(payload)
+  return parsed.success ? parsed.data.clipId : null
 }

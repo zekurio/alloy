@@ -1,4 +1,5 @@
 import type { UserRole } from "@alloy/contracts"
+import type { JsonObject } from "openid-client"
 
 export type OAuthMode = "sign-in" | "link"
 
@@ -16,7 +17,7 @@ export type OAuthProfile = {
   email: string | null
   emailVerified: boolean
   providerAccountId: string
-  raw: Record<string, unknown>
+  raw: JsonObject
   role: UserRole | undefined
   storageQuotaBytes: number | null | undefined
   usernameHint: string | null

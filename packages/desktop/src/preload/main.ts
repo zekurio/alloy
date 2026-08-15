@@ -10,6 +10,18 @@ import {
 } from "@alloy/contracts"
 import { contextBridge, ipcRenderer } from "electron"
 
+type BridgeTree = {
+  readonly [key: string]: DesktopBridgeMethodMeta | BridgeTree
+}
+
+type BridgeArgument = Parameters<typeof ipcRenderer.invoke>[1]
+type BridgeEventPayload = Parameters<Parameters<typeof ipcRenderer.on>[1]>[1]
+type BridgeApiValue =
+  | ((...args: BridgeArgument[]) => Promise<BridgeEventPayload>)
+  | ((listener: (payload: BridgeEventPayload) => void) => () => void)
+  | BridgeApiTree
+type BridgeApiTree = { [key: string]: BridgeApiValue }
+
 /**
  * Desktop bridge injected into the main window, which loads the configured
  * Alloy web app. The runtime shape is generated from the `DESKTOP_BRIDGE`
@@ -20,30 +32,30 @@ import { contextBridge, ipcRenderer } from "electron"
 
 const APP_VERSION_ARG_PREFIX = "--alloy-app-version="
 
-function isMethodMeta(value: unknown): value is DesktopBridgeMethodMeta {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "since" in value &&
-    typeof value.since === "number"
-  )
-}
-
 function buildBridgeApi(
-  tree: Record<string, unknown>,
+  tree: typeof DESKTOP_BRIDGE,
+  prefix: "",
+): Omit<AlloyDesktop, "bridge" | "titlebarOverlay">
+function buildBridgeApi(tree: BridgeTree, prefix: string): BridgeApiTree
+function buildBridgeApi(
+  tree: BridgeTree,
   prefix: string,
-): Record<string, unknown> {
-  const api: Record<string, unknown> = {}
+): BridgeApiTree | Omit<AlloyDesktop, "bridge" | "titlebarOverlay"> {
+  const api: BridgeApiTree = {}
   for (const [key, value] of Object.entries(tree)) {
+    // SAFETY: Each prefix and key comes from the closed DESKTOP_BRIDGE tree.
     const path = (prefix ? `${prefix}.${key}` : key) as DesktopBridgePath
-    if (!isMethodMeta(value)) {
-      api[key] = buildBridgeApi(value as Record<string, unknown>, path)
+    if (!("since" in value)) {
+      api[key] = buildBridgeApi(value, path)
       continue
     }
     const channel = desktopBridgeChannel(path)
     if (value.event) {
-      api[key] = (listener: (payload: unknown) => void) => {
-        const handler = (_event: unknown, payload: unknown) => {
+      api[key] = (listener: (payload: BridgeEventPayload) => void) => {
+        const handler = (
+          _event: Electron.IpcRendererEvent,
+          payload: BridgeEventPayload,
+        ) => {
           listener(payload)
         }
         ipcRenderer.on(channel, handler)
@@ -51,17 +63,13 @@ function buildBridgeApi(
       }
       continue
     }
-    api[key] = (...args: unknown[]) => ipcRenderer.invoke(channel, ...args)
+    api[key] = (...args: BridgeArgument[]) =>
+      ipcRenderer.invoke(channel, ...args)
   }
   return api
 }
 
-// The generated record mirrors the contract tree by construction; the cast
-// names the shape the walk produces from `DESKTOP_BRIDGE`.
-const api = buildBridgeApi(DESKTOP_BRIDGE, "") as Omit<
-  AlloyDesktop,
-  "bridge" | "titlebarOverlay"
->
+const api = buildBridgeApi(DESKTOP_BRIDGE, "")
 
 // The main process injects the app version through `additionalArguments`;
 // preload cannot call `app.getVersion()` directly.

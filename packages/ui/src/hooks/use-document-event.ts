@@ -15,10 +15,10 @@ export function useDocumentEvent<K extends keyof DocumentEventMap>(
   }, [listener])
 
   useEffect(() => {
-    if (!enabled || typeof document === "undefined") return
+    if (!enabled || !globalThis.document) return
 
-    const handleEvent: EventListener = (event) => {
-      listenerRef.current(event as DocumentEventMap[K])
+    const handleEvent = (event: DocumentEventMap[K]) => {
+      listenerRef.current(event)
     }
 
     document.addEventListener(type, handleEvent, options)

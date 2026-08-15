@@ -19,6 +19,8 @@ const boolValues = new Map<string, boolean>([
   ["no", false],
   ["off", false],
 ])
+const EnvBooleanSchema = t.boolean()
+const EnvStringSchema = t.string()
 
 export function parseServerEnvRaw(
   source: Record<string, string | undefined>,
@@ -112,9 +114,11 @@ function envBool(defaultValue: boolean) {
   return t
     .preprocess((value) => {
       if (value === undefined || value === "") return defaultValue
-      if (typeof value === "boolean") return value
-      if (typeof value !== "string") return value
-      return boolValues.get(value.trim().toLowerCase()) ?? value
+      const booleanValue = EnvBooleanSchema.safeParse(value)
+      if (booleanValue.success) return booleanValue.data
+      const stringValue = EnvStringSchema.safeParse(value)
+      if (!stringValue.success) return value
+      return boolValues.get(stringValue.data.trim().toLowerCase()) ?? value
     }, t.boolean())
     .$default(defaultValue)
 }
@@ -126,9 +130,11 @@ function envBoolOrNull() {
   return t
     .preprocess((value) => {
       if (value === undefined || value === "") return null
-      if (typeof value === "boolean" || value === null) return value
-      if (typeof value !== "string") return value
-      return boolValues.get(value.trim().toLowerCase()) ?? value
+      const booleanValue = EnvBooleanSchema.safeParse(value)
+      if (booleanValue.success || value === null) return value
+      const stringValue = EnvStringSchema.safeParse(value)
+      if (!stringValue.success) return value
+      return boolValues.get(stringValue.data.trim().toLowerCase()) ?? value
     }, t.boolean().nullable())
     .$default(null)
 }

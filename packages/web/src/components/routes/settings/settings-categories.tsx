@@ -204,6 +204,8 @@ function ProfilePanel() {
   const session = useRequireAuthStrict()
   const user = session?.user
   if (!user) return null
+  // SAFETY: The auth API includes the optional banner field on session users.
+  const banner = (user as { banner?: string | null }).banner ?? ""
   return (
     <SettingsSections>
       <SettingsSubsection
@@ -217,7 +219,7 @@ function ProfilePanel() {
           initialUsername={user.username ?? ""}
           initialDisplayName={user.displayName ?? ""}
           image={user.image ?? ""}
-          banner={(user as { banner?: string | null }).banner ?? ""}
+          banner={banner}
           email={user.email ?? ""}
         />
       </SettingsSubsection>
@@ -250,11 +252,11 @@ function AccountDataPanel() {
   )
 }
 
-const THEME_LABELS: Record<Theme, string> = {
+const THEME_LABELS = {
   system: t("System"),
   light: t("Light"),
   dark: t("Dark"),
-}
+} satisfies Record<Theme, string>
 
 function PreferencesPanel() {
   const [locale, setLocale] = useState<Locale>(() => getClientLocale())

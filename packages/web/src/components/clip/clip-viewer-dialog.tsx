@@ -9,12 +9,12 @@ import {
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
+import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
-import type { CSSProperties } from "react"
 
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { clipGameLabel } from "@/lib/clip-format"
@@ -221,15 +221,13 @@ function ClipViewerDialogBody({
   return (
     <DialogViewportContent
       initialFocus={initialFocusRef}
-      style={
-        {
-          "--clip-modal-margin-x": "16px",
-          "--clip-modal-margin-y": "16px",
-          "--clip-modal-nav-gutter": "72px",
-          "--clip-modal-sidebar": "400px",
-          "--clip-modal-meta": "13rem",
-        } as CSSProperties
-      }
+      style={cssVariables({
+        "--clip-modal-margin-x": "16px",
+        "--clip-modal-margin-y": "16px",
+        "--clip-modal-nav-gutter": "72px",
+        "--clip-modal-sidebar": "400px",
+        "--clip-modal-meta": "13rem",
+      })}
       className={cn(
         // Below lg this branch is normally hidden by MobileClipViewerBody, but
         // we keep a sensible fallback in case the breakpoint check disagrees.

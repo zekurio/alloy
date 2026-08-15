@@ -47,14 +47,17 @@ export async function postWebhook(
       ? JSON.stringify({ content: message.content })
       : JSON.stringify(message.body)
 
-  const headers: Record<string, string> = {
+  const headers = new Headers({
     "content-type": "application/json",
-  }
+  })
   if (target.provider === "generic") {
-    headers[WEBHOOK_EVENT_HEADER] = message.event
-    headers[WEBHOOK_DELIVERY_HEADER] = message.deliveryId
+    headers.set(WEBHOOK_EVENT_HEADER, message.event)
+    headers.set(WEBHOOK_DELIVERY_HEADER, message.deliveryId)
     if (target.secret) {
-      headers[WEBHOOK_SIGNATURE_HEADER] = signWebhookBody(body, target.secret)
+      headers.set(
+        WEBHOOK_SIGNATURE_HEADER,
+        signWebhookBody(body, target.secret),
+      )
     }
   }
 
@@ -66,9 +69,9 @@ export async function postWebhook(
     body,
     redirect: "error",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  }).catch((err: unknown) => errorMessage(err, "Webhook request failed"))
+  }).catch((cause: unknown) => errorMessage(cause, "Webhook request failed"))
 
-  if (typeof response === "string") {
+  if (!(response instanceof Response)) {
     return { ok: false, status: null, error: response }
   }
   if (response.ok) return { ok: true, status: response.status }

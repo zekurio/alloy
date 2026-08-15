@@ -1,4 +1,4 @@
-import { normalizeBlurHash, type AcceptedContentType } from "@alloy/contracts"
+import { normalizeBlurHash } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { renditionIsH264 } from "@alloy/server/clips/codecs"
 import {
@@ -125,8 +125,8 @@ async function runPipelineInWorkDir({
   retainSourceAsset: (asset: Asset, publishedByRun: boolean) => void
   retainPublishedKey: (key: string) => void
 }): Promise<void> {
-  const sourceContentType = row.sourceContentType as AcceptedContentType | null
-  if (!sourceContentType)
+  const sourceContentType = row.sourceContentType
+  if (sourceContentType !== "video/mp4")
     throw new Error("Recording is missing source content type")
 
   const sourcePath = await acquireSourceFile({

@@ -1,6 +1,17 @@
 import { Type } from "typebox"
 import type { StaticDecode, TSchema } from "typebox"
-import { Decode, Errors } from "typebox/value"
+import { Check, Decode, Errors } from "typebox/value"
+
+const DecodeErrorsSchema = Type.Object({
+  cause: Type.Object({
+    errors: Type.Array(
+      Type.Object({
+        instancePath: Type.String(),
+        message: Type.String(),
+      }),
+    ),
+  }),
+})
 
 /**
  * Parse environment variables against a TypeBox schema, throwing a readable
@@ -27,7 +38,11 @@ export function createEnv<Schema extends TSchema>(
   }
 }
 
-function groupErrors(schema: TSchema, value: unknown, cause: unknown) {
+function groupErrors(
+  schema: TSchema,
+  value: Parameters<typeof Errors>[1],
+  cause: unknown,
+) {
   return (decodeErrors(cause) ?? [...Errors(schema, value)]).reduce<
     Record<string, string[]>
   >((groups, error) => {
@@ -38,22 +53,7 @@ function groupErrors(schema: TSchema, value: unknown, cause: unknown) {
 }
 
 function decodeErrors(cause: unknown) {
-  if (!cause || typeof cause !== "object" || !("cause" in cause)) return null
-  const details = cause.cause
-  if (!details || typeof details !== "object" || !("errors" in details)) {
-    return null
-  }
-  if (!Array.isArray(details.errors)) return null
-  const errors = details.errors.filter(
-    (error): error is { instancePath: string; message: string } =>
-      typeof error === "object" &&
-      error !== null &&
-      "instancePath" in error &&
-      typeof error.instancePath === "string" &&
-      "message" in error &&
-      typeof error.message === "string",
-  )
-  return errors.length > 0 ? errors : null
+  return Check(DecodeErrorsSchema, cause) ? cause.cause.errors : null
 }
 
 /** TypeBox schema for a postgres:// or postgresql:// connection URL. */

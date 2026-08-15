@@ -6,10 +6,10 @@ export type Locale = (typeof SUPPORTED_LOCALES)[number]
 export const DEFAULT_LOCALE: Locale = "en"
 export const LOCALE_STORAGE_KEY = "alloy.locale"
 
-export const LOCALE_LABELS: Record<Locale, string> = {
+export const LOCALE_LABELS = {
   de: "Deutsch",
   en: "English",
-}
+} satisfies Record<Locale, string>
 
 type TranslationValue = boolean | number | string | null | undefined
 export type TranslationValues = Record<string, TranslationValue>
@@ -51,7 +51,7 @@ export function getRuntimeLocale(): Locale {
 }
 
 export function getClientLocale(storageKey = LOCALE_STORAGE_KEY): Locale {
-  if (typeof window === "undefined") return DEFAULT_LOCALE
+  if (!globalThis.window) return DEFAULT_LOCALE
 
   try {
     const stored = normalizeLocale(window.localStorage.getItem(storageKey))
@@ -60,10 +60,10 @@ export function getClientLocale(storageKey = LOCALE_STORAGE_KEY): Locale {
     // localStorage can be unavailable in hardened/privacy contexts.
   }
 
-  const navigatorLanguages =
-    typeof window.navigator === "undefined"
-      ? []
-      : [...(window.navigator.languages ?? []), window.navigator.language]
+  const navigatorLanguages = [
+    ...(window.navigator.languages ?? []),
+    window.navigator.language,
+  ]
 
   return detectLocale(navigatorLanguages)
 }
@@ -73,10 +73,10 @@ export function setClientLocale(
   storageKey = LOCALE_STORAGE_KEY,
 ): void {
   setRuntimeLocale(locale)
-  if (typeof document !== "undefined") {
+  if (globalThis.document) {
     document.documentElement.lang = localeToLanguageTag(locale)
   }
-  if (typeof window === "undefined") return
+  if (!globalThis.window) return
 
   try {
     window.localStorage.setItem(storageKey, locale)
@@ -98,8 +98,13 @@ export function translate(
   key: string,
   values?: TranslationValues,
 ): string {
-  const template = locale === "de" ? (DE_MESSAGES[key] ?? key) : key
+  const template =
+    locale === "de" && isGermanMessageKey(key) ? DE_MESSAGES[key] : key
   return interpolate(template, values)
+}
+
+function isGermanMessageKey(key: string): key is keyof typeof DE_MESSAGES {
+  return Object.hasOwn(DE_MESSAGES, key)
 }
 
 export function t(key: string, values?: TranslationValues): string {

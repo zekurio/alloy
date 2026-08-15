@@ -65,7 +65,7 @@ import { useActionFeedback } from "@/lib/use-action-feedback"
 
 // Exhaustive over the contracts JOB_KINDS list: adding a job kind without a
 // dashboard label fails typecheck here.
-const JOB_KIND_LABELS: Record<JobKind, string> = {
+const JOB_KIND_LABELS = {
   "auth.challenge-prune": t("Prune auth challenges"),
   "clip.encode": t("Encode clip"),
   "clip.renditions-sweep": t("Rendition sweep"),
@@ -74,13 +74,13 @@ const JOB_KIND_LABELS: Record<JobKind, string> = {
   "notification.prune": t("Prune notifications"),
   "upload.cleanup": t("Clean up uploads"),
   "webhook.deliver": t("Deliver webhook"),
-}
+} satisfies Record<JobKind, string>
 
-const QUEUE_LABELS: Record<JobQueue, string> = {
+const QUEUE_LABELS = {
   encode: t("Media encoding"),
   io: t("Storage and delivery"),
   maintenance: t("Routine maintenance"),
-}
+} satisfies Record<JobQueue, string>
 
 function kindLabel(kind: string): string {
   return isJobKind(kind) ? JOB_KIND_LABELS[kind] : kind

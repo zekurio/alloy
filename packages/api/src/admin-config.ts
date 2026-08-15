@@ -14,7 +14,7 @@ import {
 
 import type { ApiContext } from "./client"
 import { readJsonOrThrow } from "./http"
-
+import type { ApiJsonInput } from "./json-value"
 export type RuntimeConfigPatch = {
   setupComplete?: boolean
 }
@@ -37,7 +37,7 @@ export type TranscodingConfigPatch = {
   tiers?: RenditionTierConfig[]
 }
 
-function validateAdminRuntimeConfig(value: unknown): AdminRuntimeConfig {
+function validateAdminRuntimeConfig(value: ApiJsonInput): AdminRuntimeConfig {
   return AdminRuntimeConfigSchema.parse(value)
 }
 

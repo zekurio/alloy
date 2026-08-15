@@ -24,6 +24,8 @@ import type {
   RecordingStorageInfo,
 } from "./desktop-recording-types"
 import type { AlloyDesktopUpdatesApi } from "./desktop-update"
+import type { ContractJsonValue } from "./json-value"
+import { isFiniteNumberValue, isObjectRecord } from "./object"
 
 /**
  * Single source of truth for the `window.alloyDesktop` bridge the desktop
@@ -191,7 +193,7 @@ export interface DesktopBridgeMethodMeta {
 }
 
 type DesktopBridgeApiMeta<T> = {
-  [K in keyof T]-?: T[K] extends (...args: never[]) => unknown
+  [K in keyof T]-?: T[K] extends (...args: never[]) => infer _Result
     ? DesktopBridgeMethodMeta
     : DesktopBridgeApiMeta<T[K]>
 }
@@ -274,27 +276,32 @@ type BridgePathsOf<T> = {
 export type DesktopBridgePath = BridgePathsOf<typeof DESKTOP_BRIDGE>
 
 function flattenBridge(
-  tree: Record<string, unknown>,
+  tree: Record<string, ContractJsonValue>,
   prefix: string,
   into: Record<string, DesktopBridgeMethodMeta>,
 ): Record<string, DesktopBridgeMethodMeta> {
   for (const [key, value] of Object.entries(tree)) {
     const path = prefix ? `${prefix}.${key}` : key
-    if (typeof (value as DesktopBridgeMethodMeta).since === "number") {
-      into[path] = value as DesktopBridgeMethodMeta
+    if (!isObjectRecord(value)) continue
+    if (isFiniteNumberValue(value.since)) {
+      const metadata: DesktopBridgeMethodMeta = { since: value.since }
+      if (value.event === true) metadata.event = true
+      into[path] = metadata
       continue
     }
-    flattenBridge(value as Record<string, unknown>, path, into)
+    flattenBridge(value, path, into)
   }
   return into
 }
 
 /** Flat path → metadata view of {@link DESKTOP_BRIDGE}. */
-export const DESKTOP_BRIDGE_METHODS = flattenBridge(
-  DESKTOP_BRIDGE,
-  "",
-  {},
-) as Record<DesktopBridgePath, DesktopBridgeMethodMeta>
+const flattenedBridgeMethods = flattenBridge(DESKTOP_BRIDGE, "", {})
+// SAFETY: flattenBridge visits every leaf of the statically checked bridge tree.
+const typedBridgeMethods = flattenedBridgeMethods as Record<
+  DesktopBridgePath,
+  DesktopBridgeMethodMeta
+>
+export const DESKTOP_BRIDGE_METHODS = typedBridgeMethods
 
 /**
  * IPC channel backing a bridge member. Internal to the desktop binary

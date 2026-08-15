@@ -1,5 +1,7 @@
-import type { JsonValidator } from "./auth-validators"
+import { isObjectRecord, isStringValue } from "@alloy/contracts"
 
+import type { JsonValidator } from "./auth-validators"
+import type { ApiJsonInput, ApiJsonValue } from "./json-value"
 export class HttpError extends Error {
   readonly status: number
 
@@ -11,8 +13,8 @@ export class HttpError extends Error {
 }
 
 type ErrorBody = {
-  error?: unknown
-  message?: unknown
+  error?: ApiJsonValue
+  message?: ApiJsonValue
 } | null
 
 function isJsonResponse(res: Response): boolean {
@@ -32,29 +34,26 @@ async function readErrorBody(res: Response): Promise<ErrorBody> {
     .catch(() => null)
 }
 
-function asErrorBody(value: unknown): ErrorBody {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
-  return value as ErrorBody
+function asErrorBody(value: ApiJsonInput): ErrorBody {
+  if (!isObjectRecord(value)) return null
+  return { error: value.error, message: value.message }
 }
 
-function errorText(value: unknown): string | null {
-  if (typeof value === "string") {
+function errorText(value: ApiJsonInput): string | null {
+  if (isStringValue(value)) {
     const trimmed = value.trim()
     return trimmed || null
   }
-  if (!value || typeof value !== "object") return null
+  if (!isObjectRecord(value)) return null
 
-  const message = (value as { message?: unknown }).message
-  if (typeof message === "string" && message.trim()) return message.trim()
+  const message = value.message
+  if (isStringValue(message) && message.trim()) return message.trim()
 
-  const issues = (value as { issues?: unknown }).issues
+  const issues = value.issues
   if (Array.isArray(issues)) {
     for (const issue of issues) {
-      const issueMessage =
-        issue && typeof issue === "object"
-          ? (issue as { message?: unknown }).message
-          : null
-      if (typeof issueMessage === "string" && issueMessage.trim()) {
+      const issueMessage = isObjectRecord(issue) ? issue.message : null
+      if (isStringValue(issueMessage) && issueMessage.trim()) {
         return issueMessage.trim()
       }
     }
@@ -73,10 +72,10 @@ function responseErrorMessage(res: Response, body: ErrorBody): string {
 
 export function parseJsonPayload<T>(
   data: string,
-  validate: (value: unknown) => T,
+  validate: (value: ApiJsonInput) => T,
 ): T | null {
   try {
-    return validate(JSON.parse(data) as unknown)
+    return validate(JSON.parse(data))
   } catch {
     return null
   }
@@ -84,7 +83,7 @@ export function parseJsonPayload<T>(
 
 export function parseErrorMessagePayload(data: string): string | null {
   try {
-    const body = asErrorBody(JSON.parse(data) as unknown)
+    const body = asErrorBody(JSON.parse(data))
     return errorText(body?.error) ?? errorText(body?.message)
   } catch {
     return null
@@ -131,6 +130,6 @@ export async function readNoContentOrThrow(res: Response): Promise<void> {
   }
 }
 
-export function isServerHttpError(error: unknown): error is HttpError {
-  return error instanceof HttpError && error.status >= 500
+export function isServerHttpError(cause: unknown): cause is HttpError {
+  return cause instanceof HttpError && cause.status >= 500
 }

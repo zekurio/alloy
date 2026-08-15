@@ -16,6 +16,7 @@ import {
   queryParams,
   resolvePublicUrlWithQuery,
 } from "./paths"
+import { objectRecord, validateNonNegativeInteger } from "./runtime-validation"
 
 export type {
   NotificationItem,
@@ -62,14 +63,8 @@ async function unreadCount(context: ApiContext): Promise<number> {
   const row = await readJsonOrThrow(
     await context.client.request("/api/notifications/unread-count"),
     (value) => {
-      const record = value as { count?: unknown } | null
-      if (
-        !record ||
-        typeof record !== "object" ||
-        typeof record.count !== "number"
-      ) {
-        throw new Error("Invalid unread count response")
-      }
+      const record = objectRecord(value, "unread count")
+      validateNonNegativeInteger(record.count, "Invalid unread count response")
       return { count: record.count }
     },
   )

@@ -1,7 +1,7 @@
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { MutableRefObject, RefObject } from "react"
+import type { RefObject } from "react"
 
 import {
   hasCustomMix,
@@ -36,10 +36,7 @@ export function useAudioTrackMixerEngine({
   videoRef: RefObject<HTMLVideoElement | null>
   volume: number
   muted: boolean
-}): {
-  engaged: boolean
-  engagedRef: MutableRefObject<boolean>
-} {
+}) {
   const key = mixer?.key ?? ""
   const runtimeRef = useRef<MixerRuntime | null>(null)
   const mixerRef = useRef(mixer)

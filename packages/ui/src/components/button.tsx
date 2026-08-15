@@ -103,11 +103,11 @@ function ButtonRoot({
   const setRef = useCallback(
     (node: HTMLButtonElement | null) => {
       buttonRef.current = node
-      if (typeof ref === "function") {
-        ref(node)
+      if (ref && "current" in ref) {
+        ref.current = node
         return
       }
-      if (ref) ref.current = node
+      ref?.(node)
     },
     [ref],
   )

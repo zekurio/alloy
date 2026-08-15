@@ -87,20 +87,17 @@ export const clipsUploadRoutes = new Hono()
         body.tags !== undefined ? normalizeTags(body.tags) : undefined
 
       await db.transaction(async (tx) => {
-        await tx
-          .update(clip)
-          .set({
-            ...patch,
-            ...(body.privacy === "public"
-              ? {
-                  // Evaluate under the update lock: a processing clip can
-                  // become ready between the access read above and this write.
-                  // The encode pipeline stamps rows that are not ready yet.
-                  published_at: sql`case when ${clip.status} = 'ready' then coalesce(${clip.published_at}, now()) else ${clip.published_at} end`,
-                }
-              : {}),
-          })
-          .where(eq(clip.id, id))
+        const updates =
+          body.privacy === "public"
+            ? {
+                ...patch,
+                // Evaluate under the update lock: a processing clip can become
+                // ready between the access read above and this write. The encode
+                // pipeline stamps rows that are not ready yet.
+                published_at: sql`case when ${clip.status} = 'ready' then coalesce(${clip.published_at}, now()) else ${clip.published_at} end`,
+              }
+            : patch
+        await tx.update(clip).set(updates).where(eq(clip.id, id))
 
         if (mentionedIds !== undefined) {
           await tx.delete(clipMention).where(eq(clipMention.clip_id, id))

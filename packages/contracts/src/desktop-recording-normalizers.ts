@@ -17,10 +17,16 @@ import {
   type RecordingQualityProfile,
   type RecordingQualitySettings,
 } from "./desktop-recording-types"
-import { isObjectRecord } from "./object"
+import type { ContractJsonInput, ContractJsonValue } from "./json-value"
+import {
+  isBooleanValue,
+  isFiniteNumberValue,
+  isObjectRecord,
+  isStringValue,
+} from "./object"
 
 export function normalizeQualitySettings(
-  value: unknown,
+  value: ContractJsonInput,
   fallback: RecordingQualitySettings,
 ): RecordingQualitySettings {
   const record = isObjectRecord(value) ? value : {}
@@ -40,7 +46,7 @@ export function normalizeQualitySettings(
 }
 
 export function normalizeQualityProfile(
-  value: unknown,
+  value: ContractJsonInput,
 ): RecordingQualityProfile {
   return normalizeLiteral(
     value,
@@ -49,7 +55,7 @@ export function normalizeQualityProfile(
   )
 }
 
-export function normalizeHotkeys(value: unknown): RecordingHotkeys {
+export function normalizeHotkeys(value: ContractJsonInput): RecordingHotkeys {
   const record = isObjectRecord(value) ? value : {}
   return {
     clip: normalizeClipHotkey(record),
@@ -57,7 +63,7 @@ export function normalizeHotkeys(value: unknown): RecordingHotkeys {
 }
 
 export function normalizeNotificationSounds(
-  value: unknown,
+  value: ContractJsonInput,
 ): RecordingNotificationSounds {
   const record = isObjectRecord(value) ? value : {}
   return {
@@ -70,7 +76,7 @@ export function normalizeNotificationSounds(
 }
 
 export function normalizeAudioDevices(
-  value: unknown,
+  value: ContractJsonInput,
 ): RecordingAudioDeviceSelection[] {
   if (!Array.isArray(value)) return DEFAULT_RECORDING_SETTINGS.audioDevices
 
@@ -91,7 +97,7 @@ export function normalizeAudioDevices(
         id,
         label: normalizeNonEmptyString(record.label) ?? id,
         kind,
-        enabled: typeof record.enabled === "boolean" ? record.enabled : true,
+        enabled: isBooleanValue(record.enabled) ? record.enabled : true,
         volume: normalizeAudioVolume(record.volume),
       },
     ]
@@ -101,7 +107,7 @@ export function normalizeAudioDevices(
 }
 
 export function normalizeAudioApplications(
-  value: unknown,
+  value: ContractJsonInput,
 ): RecordingAudioApplicationSelection[] {
   if (!Array.isArray(value)) return DEFAULT_RECORDING_SETTINGS.audioApplications
 
@@ -123,7 +129,7 @@ export function normalizeAudioApplications(
           executable: normalizeNullableString(record.executable),
           iconUrl: normalizeNullableString(record.iconUrl),
           processId: normalizeNullableNumber(record.processId),
-          enabled: typeof record.enabled === "boolean" ? record.enabled : true,
+          enabled: isBooleanValue(record.enabled) ? record.enabled : true,
           volume: normalizeAudioVolume(record.volume),
         },
       ]
@@ -133,7 +139,9 @@ export function normalizeAudioApplications(
   return dedupeBy(applications, (application) => application.id)
 }
 
-export function normalizeAllowedGames(value: unknown): RecordingAllowedGame[] {
+export function normalizeAllowedGames(
+  value: ContractJsonInput,
+): RecordingAllowedGame[] {
   if (!Array.isArray(value)) return DEFAULT_RECORDING_SETTINGS.allowedGames
 
   const games = value.flatMap((entry): RecordingAllowedGame[] => {
@@ -176,18 +184,17 @@ export function normalizeAllowedGames(value: unknown): RecordingAllowedGame[] {
  * saved by the clip hotkey. Snap to the 15s slider grid so the stored value
  * always lines up with the UI control.
  */
-export function normalizeReplayBufferSeconds(value: unknown): number {
+export function normalizeReplayBufferSeconds(value: ContractJsonInput): number {
   const fallback = DEFAULT_RECORDING_SETTINGS.replayBufferSeconds
-  const requested =
-    typeof value === "number" && Number.isFinite(value)
-      ? Math.round(value / 15) * 15
-      : fallback
+  const requested = isFiniteNumberValue(value)
+    ? Math.round(value / 15) * 15
+    : fallback
 
   return Math.min(600, Math.max(15, requested))
 }
 
 export function normalizeLiteral<const T extends readonly (string | number)[]>(
-  value: unknown,
+  value: ContractJsonInput,
   allowed: T,
   fallback: T[number],
 ): T[number] {
@@ -204,7 +211,7 @@ export function normalizeLiteral<const T extends readonly (string | number)[]>(
  * values, labels trimmed and clamped, entries sorted by index.
  */
 export function normalizeCaptureAudioTracks(
-  value: unknown,
+  value: ContractJsonInput,
 ): RecordingCaptureAudioTrack[] | undefined {
   if (!Array.isArray(value)) return undefined
   const seen = new Set<number>()
@@ -212,10 +219,10 @@ export function normalizeCaptureAudioTracks(
   for (const entry of value) {
     if (!isObjectRecord(entry)) return undefined
     const index = entry.index
-    if (typeof index !== "number" || !Number.isInteger(index) || index < 0) {
+    if (!isFiniteNumberValue(index) || !Number.isInteger(index) || index < 0) {
       return undefined
     }
-    if (seen.has(index) || typeof entry.label !== "string") return undefined
+    if (seen.has(index) || !isStringValue(entry.label)) return undefined
     seen.add(index)
     tracks.push({
       index,
@@ -228,7 +235,9 @@ export function normalizeCaptureAudioTracks(
   return tracks
 }
 
-function normalizeClipHotkey(record: Record<string, unknown>): string {
+function normalizeClipHotkey(
+  record: Record<string, ContractJsonValue>,
+): string {
   return (
     normalizeNonEmptyString(record.clip) ??
     DEFAULT_RECORDING_SETTINGS.hotkeys.clip
@@ -236,17 +245,16 @@ function normalizeClipHotkey(record: Record<string, unknown>): string {
 }
 
 function normalizeNotificationSound(
-  value: unknown,
+  value: ContractJsonInput,
   event: RecordingNotificationSoundEvent,
 ): RecordingNotificationSounds[RecordingNotificationSoundEvent] {
   const fallback = DEFAULT_RECORDING_SETTINGS.notificationSounds[event]
   const record = isObjectRecord(value) ? value : {}
 
   return {
-    enabled:
-      typeof record.enabled === "boolean" ? record.enabled : fallback.enabled,
+    enabled: isBooleanValue(record.enabled) ? record.enabled : fallback.enabled,
     volume: normalizeAudioVolume(record.volume),
-    path: typeof record.path === "string" ? record.path.trim() : fallback.path,
+    path: isStringValue(record.path) ? record.path.trim() : fallback.path,
   }
 }
 
@@ -256,25 +264,23 @@ function allowedGameKey(game: RecordingAllowedGame): string {
     .join(":")
 }
 
-function normalizeAudioVolume(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) return 100
+function normalizeAudioVolume(value: ContractJsonInput): number {
+  if (!isFiniteNumberValue(value)) return 100
   return Math.min(100, Math.max(0, Math.round(value)))
 }
 
-function normalizeNonEmptyString(value: unknown): string | null {
-  if (typeof value !== "string") return null
+function normalizeNonEmptyString(value: ContractJsonInput): string | null {
+  if (!isStringValue(value)) return null
   const trimmed = value.trim()
   return trimmed.length > 0 ? trimmed : null
 }
 
-function normalizeNullableString(value: unknown): string | null {
-  return typeof value === "string" && value.trim().length > 0 ? value : null
+function normalizeNullableString(value: ContractJsonInput): string | null {
+  return isStringValue(value) && value.trim().length > 0 ? value : null
 }
 
-function normalizeNullableNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.trunc(value)
-    : null
+function normalizeNullableNumber(value: ContractJsonInput): number | null {
+  return isFiniteNumberValue(value) ? Math.trunc(value) : null
 }
 
 function pathFileName(path: string): string | null {

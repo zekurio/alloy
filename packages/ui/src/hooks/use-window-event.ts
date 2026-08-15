@@ -15,10 +15,10 @@ export function useWindowEvent<K extends keyof WindowEventMap>(
   }, [listener])
 
   useEffect(() => {
-    if (!enabled || typeof window === "undefined") return
+    if (!enabled || !globalThis.window) return
 
-    const handleEvent: EventListener = (event) => {
-      listenerRef.current(event as WindowEventMap[K])
+    const handleEvent = (event: WindowEventMap[K]) => {
+      listenerRef.current(event)
     }
 
     window.addEventListener(type, handleEvent, options)

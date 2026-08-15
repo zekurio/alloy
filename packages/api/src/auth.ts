@@ -1,4 +1,4 @@
-import type { AuthUser } from "@alloy/contracts"
+import { isStringValue, type AuthUser } from "@alloy/contracts"
 import { useSyncExternalStore } from "react"
 
 import { createAuthActions } from "./auth-actions"
@@ -11,6 +11,7 @@ import {
 import { createApiClient } from "./client"
 import { errorFrom, toError } from "./error"
 import { readJsonOrThrow } from "./http"
+import type { ApiJsonInput } from "./json-value"
 
 export {
   DISPLAY_NAME_MAX_LENGTH,
@@ -81,7 +82,7 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
   }
 
   async function refetch(
-    _options?: unknown,
+    _options?: ApiJsonInput,
   ): Promise<{ data: SessionData | null }> {
     state = { ...state, isPending: true, error: null }
     emit()
@@ -116,18 +117,17 @@ function createSessionStore(fetchSession: () => Promise<SessionData | null>) {
 }
 
 function defaultAuthRedirect(url: string): void {
-  if (typeof window === "undefined") {
+  if (!("window" in globalThis)) {
     throw new Error("OAuth redirects require a browser redirect handler")
   }
   window.location.assign(url)
 }
 
 export function createAuth(input: string | CreateAuthOptions) {
-  const baseURL = typeof input === "string" ? input : input.baseURL
-  const redirect =
-    typeof input === "string"
-      ? defaultAuthRedirect
-      : (input.redirect ?? defaultAuthRedirect)
+  const baseURL = isStringValue(input) ? input : input.baseURL
+  const redirect = isStringValue(input)
+    ? defaultAuthRedirect
+    : (input.redirect ?? defaultAuthRedirect)
   const client = createApiClient(baseURL)
 
   async function request<T>(

@@ -28,11 +28,11 @@ const GAME_ASSET_EXT = ".webp"
 const GAME_ASSET_KEY_RE =
   /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:hero|grid|logo|icon)\.webp$/i
 
-const EXT_FOR_CONTENT_TYPE: Record<string, string> = {
+const EXT_FOR_CONTENT_TYPE = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
   "image/webp": ".webp",
-}
+} satisfies Record<string, string>
 
 // Standardized output sizes. Hero/grid are cropped to a fixed frame; logo and
 // icon keep their aspect ratio and transparency (no flatten).
@@ -43,22 +43,23 @@ const GAME_ASSET_TARGETS = {
   icon: { width: 256, height: 256, fit: "inside" },
 } as const
 
-const GAME_ASSET_URL_COLUMN: Record<
-  GameAssetRole,
-  "hero_url" | "grid_url" | "logo_url" | "icon_url"
-> = {
+const GAME_ASSET_URL_COLUMN = {
   hero: "hero_url",
   grid: "grid_url",
   logo: "logo_url",
   icon: "icon_url",
-}
+} satisfies Record<
+  GameAssetRole,
+  "hero_url" | "grid_url" | "logo_url" | "icon_url"
+>
 
-const GAME_ASSET_BLUR_COLUMN: Partial<
-  Record<GameAssetRole, "hero_blur_hash" | "grid_blur_hash">
-> = {
-  hero: "hero_blur_hash",
-  grid: "grid_blur_hash",
-}
+const GAME_ASSET_BLUR_COLUMN = new Map<
+  GameAssetRole,
+  "hero_blur_hash" | "grid_blur_hash"
+>([
+  ["hero", "hero_blur_hash"],
+  ["grid", "grid_blur_hash"],
+])
 
 type PreparedGameAsset =
   | { ok: true; bytes: Buffer }
@@ -105,7 +106,7 @@ export async function storeGameAsset(
 
   const patch: Partial<typeof game.$inferInsert> = {}
   patch[GAME_ASSET_URL_COLUMN[role]] = gameAssetImagePath(key, updatedAt)
-  const blurColumn = GAME_ASSET_BLUR_COLUMN[role]
+  const blurColumn = GAME_ASSET_BLUR_COLUMN.get(role)
   if (blurColumn) {
     patch[blurColumn] = await imageBlurHashFromBytes(bytes).catch(() => null)
   }
@@ -151,7 +152,7 @@ export async function removeGameAsset(
   await gameAssetStorage.delete(gameAssetKey(gameId, role, GAME_ASSET_EXT))
   const patch: Partial<typeof game.$inferInsert> = { updated_at: new Date() }
   patch[GAME_ASSET_URL_COLUMN[role]] = null
-  const blurColumn = GAME_ASSET_BLUR_COLUMN[role]
+  const blurColumn = GAME_ASSET_BLUR_COLUMN.get(role)
   if (blurColumn) patch[blurColumn] = null
   await db.update(game).set(patch).where(eq(game.id, gameId))
 }

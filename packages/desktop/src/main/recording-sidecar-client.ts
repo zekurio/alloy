@@ -21,7 +21,9 @@ import {
   type SidecarConfig,
   type SidecarEvent,
   type SidecarMethod,
+  type SidecarResponse,
   type SidecarRequest,
+  type SidecarResultByMethod,
 } from "./recording-sidecar-protocol"
 
 export type { RecordingSidecarVersion, SidecarConfig, SidecarEvent }
@@ -30,7 +32,7 @@ const logger = createLogger("sidecar")
 
 interface PendingRequest {
   method: SidecarMethod
-  resolve: (value: unknown) => void
+  resolve: (value: SidecarResponse["result"]) => void
   reject: (reason: Error) => void
   timeout: ReturnType<typeof setTimeout>
 }
@@ -82,8 +84,7 @@ export class RecordingSidecarClient {
     this.emitEvent = options.emitEvent
     this.lastStatus = options.initialStatus
     this.configureQueue = new SidecarConfigureQueue({
-      request: (method, params) =>
-        this.requestRaw<RecordingStatus>(method, params),
+      request: (method, params) => this.requestRaw(method, params),
       isShutdown: () => this.shutdownRequested,
     })
   }
@@ -99,16 +100,22 @@ export class RecordingSidecarClient {
   }
 
   async version(): Promise<RecordingSidecarVersion> {
-    return await this.request<RecordingSidecarVersion>("version")
+    return await this.request("version")
   }
 
-  async request<T>(method: SidecarMethod, params?: unknown): Promise<T> {
+  async request<Method extends SidecarMethod>(
+    method: Method,
+    params?: SidecarRequest["params"],
+  ): Promise<SidecarResultByMethod[Method]> {
     this.ensureProcess()
     await this.ready
-    return this.requestRaw<T>(method, params)
+    return this.requestRaw(method, params)
   }
 
-  private requestRaw<T>(method: SidecarMethod, params?: unknown): Promise<T> {
+  private requestRaw<Method extends SidecarMethod>(
+    method: Method,
+    params?: SidecarRequest["params"],
+  ): Promise<SidecarResultByMethod[Method]> {
     const child = this.child
     if (!child) throw new Error("Alloy agent is not available.")
 
@@ -121,7 +128,7 @@ export class RecordingSidecarClient {
       params,
       deadlineUnixMs: Date.now() + timeoutMs,
     }
-    return new Promise<T>((resolve, reject) => {
+    return new Promise<SidecarResultByMethod[Method]>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error(`Alloy agent timed out during ${method}.`))
@@ -130,7 +137,10 @@ export class RecordingSidecarClient {
       this.pending.set(id, {
         method,
         timeout,
-        resolve: (value) => resolve(value as T),
+        // SAFETY: This IPC boundary trusts the bundled sidecar to honor the
+        // current protocol version. The pending entry keeps the same literal
+        // method from request creation through response delivery.
+        resolve: (value) => resolve(value as SidecarResultByMethod[Method]),
         reject,
       })
 
@@ -164,7 +174,7 @@ export class RecordingSidecarClient {
 
     try {
       await Promise.race([
-        this.request<RecordingStatus>("shutdown"),
+        this.request("shutdown"),
         delay(SIDECAR_SHUTDOWN_REQUEST_TIMEOUT_MS),
       ])
     } catch {
@@ -202,7 +212,7 @@ export class RecordingSidecarClient {
       windowsHide: true,
       env: sidecarEnv(runtimeDir, discordDetectionCachePath),
       cwd: sidecarCwd(runtimeDir),
-    }) as ChildProcessWithoutNullStreams
+    })
 
     this.child = child
     this.shutdownRequested = false
@@ -235,9 +245,7 @@ export class RecordingSidecarClient {
   }
 
   private async startAgent(config: SidecarConfig): Promise<void> {
-    assertCurrentAgentVersion(
-      await this.requestRaw<RecordingSidecarVersion>("version"),
-    )
+    assertCurrentAgentVersion(await this.requestRaw("version"))
     await this.configureQueue.configure(config)
   }
 

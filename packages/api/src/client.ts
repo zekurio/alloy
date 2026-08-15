@@ -1,3 +1,4 @@
+import { isStringValue } from "@alloy/contracts"
 import type { AppType } from "@alloy/server/app"
 import { type ClientRequestOptions, hc } from "hono/client"
 
@@ -116,7 +117,7 @@ function isAuthRefreshBypass(
   input: RequestInfo | URL,
 ): boolean {
   const url =
-    typeof input === "string" || input instanceof URL
+    isStringValue(input) || input instanceof URL
       ? new URL(input, baseURL)
       : new URL(input.url, baseURL)
   return (

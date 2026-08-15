@@ -251,20 +251,16 @@ export const clipsUploadLifecycleRoutes = new Hono()
           videoKey: uploadKey,
           videoContentType: body.contentType,
           videoBytes: body.sizeBytes,
-          ...(scrubberKey && scrubberSizeBytes
-            ? {
-                scrubber: {
-                  key: scrubberKey,
-                  bytes: scrubberSizeBytes,
-                },
-              }
-            : {}),
+          scrubber:
+            scrubberKey && scrubberSizeBytes
+              ? { key: scrubberKey, bytes: scrubberSizeBytes }
+              : undefined,
           expiresAt,
         })
         return c.json({
           clipId,
           ticket: videoUpload,
-          ...(scrubberUpload ? { scrubberTicket: scrubberUpload } : {}),
+          scrubberTicket: scrubberUpload ?? undefined,
         })
       } catch (err) {
         await cleanupFailedInitiate(clipId, [

@@ -174,12 +174,12 @@ function findObsRuntimeRoot(directory, depth = 0) {
 }
 
 function releaseAssetSha256(release, asset) {
-  if (typeof asset.digest === "string") {
+  if (asset.digest?.constructor === String) {
     const digest = asset.digest.match(/^sha256:([a-f0-9]{64})$/i)
     if (digest) return digest[1].toLowerCase()
   }
 
-  if (typeof release.body !== "string") return null
+  if (release.body?.constructor !== String) return null
   const bodyDigest = release.body.match(
     new RegExp(`${escapeRegex(asset.name)}[^a-f0-9]+([a-f0-9]{64})`, "i"),
   )

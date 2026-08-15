@@ -11,6 +11,6 @@ export function runWithLogContext<T>(ctx: LogContext, fn: () => T): T {
   )
 }
 
-export function getLogContext(): LogContext {
+export function getLogContext() {
   return { ...logContextStorage.getStore() }
 }

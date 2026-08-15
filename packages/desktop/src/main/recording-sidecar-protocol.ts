@@ -1,8 +1,19 @@
 import type {
+  RecordingActionResult,
+  RecordingDisplay,
   RecordingEvent,
+  RecordingGameProcess,
+  SaveReplayClipRequest,
   RecordingSettings,
   RecordingStatus,
 } from "@alloy/contracts"
+
+import {
+  parseBoolean,
+  parseFiniteNumber,
+  parseUntrustedRecord,
+  type UntrustedInput,
+} from "./runtime-validation"
 
 export interface SidecarConfig {
   settings: RecordingSettings
@@ -37,14 +48,34 @@ export type SidecarMethod = (typeof SIDECAR_METHODS)[number]
 export interface SidecarRequest {
   id: number
   method: SidecarMethod
-  params?: unknown
+  params?: SidecarParams
   deadlineUnixMs: number
 }
+
+export type SidecarParams =
+  | SidecarConfig
+  | SaveReplayClipRequest
+  | { path: string; volume: number }
+
+export interface SidecarResultByMethod {
+  version: RecordingSidecarVersion
+  configure: RecordingStatus
+  status: RecordingStatus
+  listGameProcesses: RecordingGameProcess[]
+  listDisplays: RecordingDisplay[]
+  saveReplayClip: RecordingActionResult
+  playNotificationSound: null
+  subscribeAudioLevels: null
+  stopAudioLevels: null
+  shutdown: RecordingStatus
+}
+
+export type SidecarResult = SidecarResultByMethod[SidecarMethod]
 
 export interface SidecarResponse {
   id: number
   ok: boolean
-  result?: unknown
+  result?: SidecarResult
   error?: string
   status?: RecordingStatus
 }
@@ -78,21 +109,19 @@ export function assertCurrentAgentVersion(
 }
 
 export function isSidecarEventEnvelope(
-  value: unknown,
+  value: UntrustedInput,
 ): value is SidecarEventEnvelope {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "event" in value &&
-    typeof (value as { event?: unknown }).event === "object"
-  )
+  const record = parseUntrustedRecord(value)
+  return record !== null && parseUntrustedRecord(record.event) !== null
 }
 
-export function isSidecarResponse(value: unknown): value is SidecarResponse {
+export function isSidecarResponse(
+  value: UntrustedInput,
+): value is SidecarResponse {
+  const record = parseUntrustedRecord(value)
   return (
-    typeof value === "object" &&
-    value !== null &&
-    typeof (value as { id?: unknown }).id === "number" &&
-    typeof (value as { ok?: unknown }).ok === "boolean"
+    record !== null &&
+    parseFiniteNumber(record.id) !== null &&
+    parseBoolean(record.ok) !== null
   )
 }

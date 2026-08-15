@@ -31,16 +31,31 @@ export type AdminCreateUserInput = {
   role?: "user" | "admin"
 }
 
+type AdminGameCreateForm = {
+  name: string
+  releaseDate?: string
+  hero?: File
+  grid?: File
+  logo?: File
+  icon?: File
+}
+
+type AdminUsersQuery = {
+  cursor?: string
+  limit?: string
+  search?: string
+}
+
 export async function fetchUsers(
   context: ApiContext,
   options: { cursor?: string; limit?: number; search?: string } = {},
 ): Promise<AdminUsersResponse> {
+  const query: AdminUsersQuery = {}
+  if (options.cursor) query.cursor = options.cursor
+  if (options.limit) query.limit = String(options.limit)
+  if (options.search) query.search = options.search
   const res = await context.rpc.api.admin.users.$get({
-    query: {
-      ...(options.cursor ? { cursor: options.cursor } : {}),
-      ...(options.limit ? { limit: String(options.limit) } : {}),
-      ...(options.search ? { search: options.search } : {}),
-    },
+    query,
   })
   return readJsonOrThrow(res, validateAdminUsersResponse)
 }
@@ -84,15 +99,14 @@ export async function createGame(
   context: ApiContext,
   input: AdminCreateGameInput,
 ): Promise<AdminGameRow> {
+  const form: AdminGameCreateForm = { name: input.name }
+  if (input.releaseDate) form.releaseDate = input.releaseDate
+  if (input.assets?.hero) form.hero = input.assets.hero
+  if (input.assets?.grid) form.grid = input.assets.grid
+  if (input.assets?.logo) form.logo = input.assets.logo
+  if (input.assets?.icon) form.icon = input.assets.icon
   const res = await context.rpc.api.admin.games.$post({
-    form: {
-      name: input.name,
-      ...(input.releaseDate ? { releaseDate: input.releaseDate } : {}),
-      ...(input.assets?.hero ? { hero: input.assets.hero } : {}),
-      ...(input.assets?.grid ? { grid: input.assets.grid } : {}),
-      ...(input.assets?.logo ? { logo: input.assets.logo } : {}),
-      ...(input.assets?.icon ? { icon: input.assets.icon } : {}),
-    },
+    form,
   })
   return readJsonOrThrow(res, validateAdminGameRow)
 }
