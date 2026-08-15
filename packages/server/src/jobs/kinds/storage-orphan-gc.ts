@@ -333,32 +333,48 @@ async function handleStorageOrphanGcFailed(
     manifest.data.cutoffAt === payload.cutoffAt
       ? manifest.data
       : null
-  const failureSummary = AdminStorageGcSummarySchema.parse(
-    accurateSummary ??
-      createTerminalFailureSummary(
-        payload,
-        matchingManifest,
-        confirmation.success &&
-          confirmation.data.previewJobId === payload.previewJobId &&
-          confirmation.data.jobId === ctx.jobId
-          ? confirmation.data.jobId
-          : ctx.jobId,
+  if (
+    !storedSummary.success ||
+    summaryBelongsToFailedDelete(storedSummary.data, payload, ctx.jobId)
+  ) {
+    await writeStorageMaintenanceSummary(
+      STORAGE_GC_SUMMARY_KEY,
+      AdminStorageGcSummarySchema.parse(
+        accurateSummary ??
+          createTerminalFailureSummary(payload, matchingManifest, ctx.jobId),
       ),
-  )
-
-  await writeStorageMaintenanceSummary(
-    STORAGE_GC_SUMMARY_KEY,
-    failureSummary,
-    ctx.tx,
-  )
-  await ctx.tx
-    .delete(instanceSetting)
-    .where(
-      inArray(instanceSetting.key, [
-        STORAGE_GC_MANIFEST_KEY,
-        STORAGE_GC_CONFIRMATION_KEY,
-      ]),
+      ctx.tx,
     )
+  }
+  if (matchingManifest) {
+    await ctx.tx
+      .delete(instanceSetting)
+      .where(eq(instanceSetting.key, STORAGE_GC_MANIFEST_KEY))
+  }
+  if (
+    confirmation.success &&
+    confirmation.data.previewJobId === payload.previewJobId &&
+    confirmation.data.jobId === ctx.jobId
+  ) {
+    await ctx.tx
+      .delete(instanceSetting)
+      .where(eq(instanceSetting.key, STORAGE_GC_CONFIRMATION_KEY))
+  }
+}
+
+function summaryBelongsToFailedDelete(
+  summary: t.infer<typeof AdminStorageGcSummarySchema>,
+  payload: Extract<StorageOrphanGcPayload, { mode: "delete" }>,
+  jobId: string,
+): boolean {
+  if (
+    summary.previewJobId !== payload.previewJobId ||
+    summary.cutoffAt !== payload.cutoffAt
+  ) {
+    return false
+  }
+  if (summary.mode === "preview") return summary.jobId === payload.previewJobId
+  return summary.jobId === jobId
 }
 
 function createTerminalFailureSummary(
