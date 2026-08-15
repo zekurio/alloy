@@ -7,9 +7,10 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import type { CSSProperties } from "react"
 import { Toaster } from "sonner"
 import type { ToasterProps } from "sonner"
+
+import { cssVariables } from "../lib/css-properties"
 
 const AlloyToaster = ({ ...props }: ToasterProps) => {
   return (
@@ -27,16 +28,14 @@ const AlloyToaster = ({ ...props }: ToasterProps) => {
         error: <OctagonXIcon className="size-4" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
-      style={
-        {
-          "--normal-bg": "var(--surface-raised)",
-          "--normal-text": "var(--foreground)",
-          "--normal-border": "var(--border)",
-          "--border-radius": "var(--radius-md)",
-          "--width": "380px",
-          fontFamily: "var(--font-sans)",
-        } as CSSProperties
-      }
+      style={cssVariables({
+        "--normal-bg": "var(--surface-raised)",
+        "--normal-text": "var(--foreground)",
+        "--normal-border": "var(--border)",
+        "--border-radius": "var(--radius-md)",
+        "--width": "380px",
+        fontFamily: "var(--font-sans)",
+      })}
       toastOptions={{
         classNames: {
           toast: "alloy-toast",

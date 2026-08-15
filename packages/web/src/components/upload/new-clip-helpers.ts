@@ -85,9 +85,9 @@ const ACCEPTED_CLIP_CONTENT_TYPE_SET = new Set<string>(
 
 const FALLBACK_CLIP_CONTENT_TYPE = ACCEPTED_CLIP_CONTENT_TYPES[0]
 
-const EXTENSION_CONTENT_TYPE_ALIASES: Record<string, AcceptedContentType> = {
+const EXTENSION_CONTENT_TYPE_ALIASES = {
   mp4: FALLBACK_CLIP_CONTENT_TYPE,
-}
+} satisfies Record<string, AcceptedContentType>
 
 const ACCEPTED_CLIP_EXTENSIONS = Object.keys(
   EXTENSION_CONTENT_TYPE_ALIASES,
@@ -102,12 +102,20 @@ function isAcceptedContentType(value: string): value is AcceptedContentType {
   return ACCEPTED_CLIP_CONTENT_TYPE_SET.has(value)
 }
 
+function isAcceptedClipExtension(
+  extension: string,
+): extension is keyof typeof EXTENSION_CONTENT_TYPE_ALIASES {
+  return Object.hasOwn(EXTENSION_CONTENT_TYPE_ALIASES, extension)
+}
+
 function resolveContentType(file: File): AcceptedContentType | null {
   const contentType = file.type.toLowerCase()
   if (isAcceptedContentType(contentType)) return contentType
 
   const ext = file.name.split(".").pop()?.toLowerCase() ?? ""
-  return EXTENSION_CONTENT_TYPE_ALIASES[ext] ?? null
+  return isAcceptedClipExtension(ext)
+    ? EXTENSION_CONTENT_TYPE_ALIASES[ext]
+    : null
 }
 
 /**

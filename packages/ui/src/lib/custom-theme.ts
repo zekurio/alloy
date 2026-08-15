@@ -15,6 +15,10 @@ export interface CustomThemeState {
   serverThemeEnabled: boolean
 }
 
+export interface ThemeTokenOverrides {
+  [name: string]: string
+}
+
 export const DEFAULT_CUSTOM_THEME: CustomThemeState = {
   css: "",
   enabled: true,
@@ -22,7 +26,7 @@ export const DEFAULT_CUSTOM_THEME: CustomThemeState = {
 }
 
 function readFlag(key: string, fallback: boolean): boolean {
-  if (typeof window === "undefined") return fallback
+  if (!globalThis.window) return fallback
   try {
     const stored = window.localStorage.getItem(key)
     if (stored === "true") return true
@@ -34,7 +38,7 @@ function readFlag(key: string, fallback: boolean): boolean {
 }
 
 function writeFlag(key: string, value: boolean): void {
-  if (typeof window === "undefined") return
+  if (!globalThis.window) return
   try {
     window.localStorage.setItem(key, value ? "true" : "false")
   } catch {
@@ -43,7 +47,7 @@ function writeFlag(key: string, value: boolean): void {
 }
 
 export function readCustomTheme(): CustomThemeState {
-  if (typeof window === "undefined") return DEFAULT_CUSTOM_THEME
+  if (!globalThis.window) return DEFAULT_CUSTOM_THEME
 
   let css = ""
   try {
@@ -60,7 +64,7 @@ export function readCustomTheme(): CustomThemeState {
 }
 
 export function writeCustomTheme(state: CustomThemeState): void {
-  if (typeof window === "undefined") return
+  if (!globalThis.window) return
   try {
     window.localStorage.setItem(CUSTOM_CSS_STORAGE_KEY, state.css)
   } catch {
@@ -79,7 +83,7 @@ export function applyCustomTheme(
   serverCss: string,
   state: CustomThemeState,
 ): void {
-  if (typeof document === "undefined") return
+  if (!globalThis.document) return
 
   const css = [
     state.serverThemeEnabled ? serverCss : "",
@@ -189,8 +193,8 @@ function declarationSource(name: string): string {
  * same as a root one — the editor treats the document as one flat set. When a
  * token is declared more than once the last occurrence wins, like the cascade.
  */
-export function readTokenOverrides(css: string): Record<string, string> {
-  const overrides: Record<string, string> = {}
+export function readTokenOverrides(css: string): ThemeTokenOverrides {
+  const overrides: ThemeTokenOverrides = {}
   for (const [, name, value] of stripComments(css).matchAll(
     /(--[\w-]+)\s*:\s*([^;{}]+)/g,
   )) {

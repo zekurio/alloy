@@ -78,7 +78,7 @@ export function ChromeBar({
   const portalContainer = containerRef.current ?? undefined
 
   useEffect(() => {
-    if (typeof document === "undefined") return
+    if (!globalThis.document) return
     setFullscreenSupported(isFullscreenSupported())
   }, [])
 

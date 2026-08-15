@@ -118,7 +118,7 @@ function LocationMenu({
 }) {
   const [removingLocal, setRemovingLocal] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
-  const hasSize = typeof sizeBytes === "number" && sizeBytes > 0
+  const hasSize = sizeBytes !== null && sizeBytes !== undefined && sizeBytes > 0
 
   const revealLocal = () => {
     if (!localItem) return

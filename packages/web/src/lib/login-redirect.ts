@@ -5,9 +5,14 @@
  * login code) to another origin. Used by the desktop browser-login handshake,
  * which returns to `/api/auth/desktop/authorize` after sign-in.
  */
-export function sanitizeLoginRedirect(value: unknown): string | null {
-  if (typeof value !== "string" || value.length === 0) return null
-  if (!value.startsWith("/")) return null
-  if (value.startsWith("//") || value.startsWith("/\\")) return null
-  return value
+export function sanitizeLoginRedirect(cause: unknown): string | null {
+  const result = LoginRedirectSchema.safeParse(cause)
+  if (!result.success || result.data.length === 0) return null
+  const redirect = result.data
+  if (!redirect.startsWith("/")) return null
+  if (redirect.startsWith("//") || redirect.startsWith("/\\")) return null
+  return redirect
 }
+import { t } from "@alloy/contracts/schema"
+
+const LoginRedirectSchema = t.string()

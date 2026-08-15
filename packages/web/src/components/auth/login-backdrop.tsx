@@ -29,7 +29,7 @@ const MIN_TILES_PER_COPY = 16
 function usePrefersReducedMotion(): boolean {
   const [reduced, setReduced] = useState(false)
   useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return
+    if (!globalThis.window?.matchMedia) return
     const query = window.matchMedia("(prefers-reduced-motion: reduce)")
     const update = () => setReduced(query.matches)
     update()

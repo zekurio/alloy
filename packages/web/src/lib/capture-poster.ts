@@ -3,7 +3,10 @@ import { useEffect, useState } from "react"
 import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
-import { scheduleBackgroundMediaWork } from "./background-media-work"
+import {
+  BackgroundMediaWorkCache,
+  scheduleBackgroundMediaWork,
+} from "./background-media-work"
 import { clientLogger } from "./client-log"
 import {
   drawVideoFrameJpeg,
@@ -13,6 +16,7 @@ import {
 
 const POSTER_HEIGHT = 360
 const POSTER_QUALITY = 0.82
+const capturePosterWork = new BackgroundMediaWorkCache<Blob | null>()
 
 interface CapturePosterOptions {
   id: string
@@ -85,6 +89,7 @@ async function resolveCapturePoster({
   if (await thumbnailExists(thumbnailUrl)) return null
 
   const blob = await scheduleBackgroundMediaWork(
+    capturePosterWork,
     `poster:${id}:${thumbnailUrl}`,
     (signal) => capturePosterBlob(mediaUrl, durationMs, signal),
   )
@@ -164,7 +169,7 @@ async function capturePosterBlob(
       durationMs && durationMs > 0 ? durationMs / 1000 : video.duration
     if (!Number.isFinite(durationSec) || !(durationSec > 0)) return null
 
-    let lastError: unknown = null
+    let lastError: Error | null = null
     for (const timeSec of posterCandidateTimes(durationSec)) {
       try {
         const seeked = videoEvent(video, "seeked", { signal })
@@ -177,7 +182,7 @@ async function capturePosterBlob(
         if (frame) return frame.blob
       } catch (cause) {
         if (signal.aborted) throw cause
-        lastError = cause
+        if (cause instanceof Error) lastError = cause
       }
     }
 

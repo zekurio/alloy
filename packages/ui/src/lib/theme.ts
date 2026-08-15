@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import {
   applyStoredThemePresets,
   THEME_PRESET_STORAGE_KEYS,
@@ -13,9 +14,10 @@ export const DEFAULT_THEME: Theme = "system"
 type ResolvedTheme = "light" | "dark"
 
 const DARK_QUERY = "(prefers-color-scheme: dark)"
+const MatchMediaSchema = t.instanceof(Function)
 
 export function getStoredTheme(storageKey = THEME_STORAGE_KEY): Theme {
-  if (typeof window === "undefined") return DEFAULT_THEME
+  if (!globalThis.window) return DEFAULT_THEME
 
   try {
     const stored = window.localStorage.getItem(storageKey)
@@ -33,12 +35,12 @@ export function getStoredTheme(storageKey = THEME_STORAGE_KEY): Theme {
 // is unavailable so behavior matches the historical dark-only default.
 export function resolveTheme(theme: Theme): ResolvedTheme {
   if (theme !== "system") return theme
-  if (typeof window === "undefined" || !window.matchMedia) return "dark"
+  if (!globalThis.window?.matchMedia) return "dark"
   return window.matchMedia(DARK_QUERY).matches ? "dark" : "light"
 }
 
 export function applyTheme(theme: Theme): void {
-  if (typeof document === "undefined") return
+  if (!globalThis.document) return
   const resolved = resolveTheme(theme)
   const classes = document.documentElement.classList
   classes.toggle("dark", resolved === "dark")
@@ -50,7 +52,7 @@ export function setStoredTheme(
   storageKey = THEME_STORAGE_KEY,
 ): void {
   applyTheme(theme)
-  if (typeof window === "undefined") return
+  if (!globalThis.window) return
 
   try {
     window.localStorage.setItem(storageKey, theme)
@@ -66,13 +68,16 @@ export function initTheme(storageKey = THEME_STORAGE_KEY): Theme {
   applyTheme(theme)
   applyStoredThemePresets()
 
-  if (typeof window !== "undefined" && window.matchMedia) {
+  if (
+    globalThis.window &&
+    MatchMediaSchema.safeParse(window.matchMedia).success
+  ) {
     window.matchMedia(DARK_QUERY).addEventListener("change", () => {
       if (getStoredTheme(storageKey) === "system") applyTheme("system")
     })
   }
 
-  if (typeof window !== "undefined") {
+  if (globalThis.window) {
     window.addEventListener("storage", (event) => {
       // A null key means the whole store was cleared, presets included.
       if (
