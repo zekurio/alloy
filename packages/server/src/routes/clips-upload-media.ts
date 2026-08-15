@@ -7,6 +7,7 @@ import { db } from "@alloy/server/db/index"
 import {
   enqueueClipEncode,
   requeueClipEncode,
+  wakeClipEncodeQueue,
 } from "@alloy/server/jobs/kinds/clip-encode"
 import { extractPoster } from "@alloy/server/media/poster"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
@@ -221,6 +222,7 @@ export const clipsUploadMediaRoutes = new Hono()
         ]
       })
       if (!staleAssetKeys) return conflict(c, "Clip is already processing")
+      wakeClipEncodeQueue()
 
       await deleteAssetsBestEffort(staleAssetKeys, "pre-trim derived asset")
 
