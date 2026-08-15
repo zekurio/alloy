@@ -239,12 +239,6 @@ export const TranscodingConfigSchema = t.looseObject({
 
 export type TranscodingConfig = t.infer<typeof TranscodingConfigSchema>
 
-export const JobsConfigSchema = t.looseObject({
-  pausedKinds: t.array(t.string()).$default([]),
-})
-
-export type JobsConfig = t.infer<typeof JobsConfigSchema>
-
 /**
  * Result of probing the configured ffmpeg binary for encoder support. `status`
  * is "missing" when the encoder is not compiled into the binary, "failed" when
@@ -320,7 +314,6 @@ export const RuntimeConfigSchema = t.looseObject({
   storage: StorageConfigSchema,
   appearance: AppearanceConfigSchema,
   transcoding: TranscodingConfigSchema,
-  jobs: JobsConfigSchema,
 })
 
 export type RuntimeConfig = t.infer<typeof RuntimeConfigSchema>
@@ -343,7 +336,6 @@ export const AdminRuntimeConfigSchema = t.looseObject({
   storage: AdminStorageConfigSchema,
   appearance: AppearanceConfigSchema,
   transcoding: TranscodingConfigSchema,
-  jobs: JobsConfigSchema,
   integrations: AdminIntegrationsConfigSchema,
   authLocks: AuthConfigLocksSchema,
   authBaseURL: UrlStringSchema,
