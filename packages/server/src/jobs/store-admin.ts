@@ -1,6 +1,17 @@
+import { JOB_KINDS } from "@alloy/contracts"
 import { job, type JobStatus } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
-import { and, count, desc, eq, getTableColumns, lt, or, sql } from "drizzle-orm"
+import {
+  and,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  lt,
+  or,
+  sql,
+} from "drizzle-orm"
 
 import type { ListedJobs, ListJobsOptions } from "./store-types"
 
@@ -80,6 +91,7 @@ export async function prune(
 
 function listJobsWhere(options: ListJobsOptions) {
   const filters = [
+    inArray(job.kind, [...JOB_KINDS]),
     options.kind ? eq(job.kind, options.kind) : undefined,
     options.status ? eq(job.status, options.status) : undefined,
     options.cursor

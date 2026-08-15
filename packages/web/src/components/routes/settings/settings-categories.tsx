@@ -627,7 +627,6 @@ const ADMIN_CATEGORIES = categoryDrafts([
       "queue",
       "sweeps",
       "rendition sweep",
-      "storage verify",
       "storage cleanup",
       "orphan gc",
       "failed jobs",

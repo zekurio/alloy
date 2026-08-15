@@ -11,10 +11,13 @@ import {
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
 import { inArray } from "drizzle-orm"
 
-import type { JobHandlerContext } from "../registry"
+import { EmptyPayloadSchema } from "../payloads"
+import { defineJobKind, type JobHandlerContext } from "../registry"
+import { enqueue, type EnqueueOptions } from "../store"
 import { writeStorageMaintenanceSummary } from "./storage-maintenance-summary"
 
 const logger = createLogger("jobs")
+const STORAGE_ORPHAN_GC_KIND = "storage.orphan-gc"
 const PAGE_SIZE = 500
 // Comfortably above encode timeout ceilings and lease-retry cycles, so
 // in-flight runs' freshly uploaded objects are never collected.
@@ -51,7 +54,30 @@ interface GcClipRow {
   encodeRunId: string | null
 }
 
-export async function runStorageOrphanGc(
+defineJobKind({
+  kind: STORAGE_ORPHAN_GC_KIND,
+  queue: "io",
+  schema: EmptyPayloadSchema,
+  defaultPriority: 80,
+  retry: { maxAttempts: 1, backoffMs: 60_000 },
+  handler: runStorageOrphanGc,
+})
+
+export function enqueueStorageOrphanGc(
+  options: Pick<EnqueueOptions, "runAt"> = {},
+): Promise<string> {
+  return enqueue(
+    STORAGE_ORPHAN_GC_KIND,
+    {},
+    {
+      dedupKey: STORAGE_ORPHAN_GC_KIND,
+      priority: 80,
+      runAt: options.runAt,
+    },
+  )
+}
+
+async function runStorageOrphanGc(
   _payload: object,
   ctx: JobHandlerContext,
 ): Promise<void> {

@@ -71,13 +71,13 @@ const RENDITIONS_SWEEP_KIND = "clip.renditions-sweep"
 // Exhaustive over the contracts JOB_KINDS list: adding a job kind without a
 // dashboard label fails typecheck here.
 const JOB_KIND_LABELS: Record<JobKind, string> = {
+  "auth.challenge-prune": t("Prune auth challenges"),
   "clip.encode": t("Encode clip"),
   "clip.renditions-sweep": t("Rendition sweep"),
-  "clip.verify-assets": t("Verify assets"),
-  "clip.verify": t("Verify clip"),
+  "job.prune": t("Prune job history"),
   "storage.orphan-gc": t("Storage cleanup"),
-  "maintenance.run": t("Maintenance"),
   "notification.prune": t("Prune notifications"),
+  "upload.cleanup": t("Clean up uploads"),
   "webhook.deliver": t("Deliver webhook"),
 }
 

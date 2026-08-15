@@ -8,10 +8,7 @@ import { t } from "@alloy/contracts/schema"
 import type { JobStatus } from "@alloy/db/schema"
 import { configStore } from "@alloy/server/config/store"
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
-import {
-  enqueueStorageOrphanGc,
-  enqueueStorageVerify,
-} from "@alloy/server/jobs/kinds/storage-verify"
+import { enqueueStorageOrphanGc } from "@alloy/server/jobs/kinds/storage-orphan-gc"
 import { registeredJobKinds } from "@alloy/server/jobs/registry"
 import {
   discardFailed,
@@ -148,7 +145,6 @@ function runSweep(
   if (kind === "clip.renditions-sweep") {
     return enqueueRenditionsSweep(mode, { runAt })
   }
-  if (kind === "clip.verify-assets") return enqueueStorageVerify({ runAt })
   return enqueueStorageOrphanGc({ runAt })
 }
 

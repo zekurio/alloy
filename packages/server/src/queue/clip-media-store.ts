@@ -140,8 +140,8 @@ export const clipMediaStore: MediaStore = {
     return rows.length > 0
   },
 
-  async releaseLease(id, runId, reason) {
-    await db
+  async releaseLease(id, runId, reason, tx) {
+    await (tx ?? db)
       .update(clip)
       .set({
         ...clearedStageColumns,
@@ -153,46 +153,33 @@ export const clipMediaStore: MediaStore = {
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
   },
 
-  async markFailed(id, runId, reason, encodeFailedFingerprint) {
-    try {
-      const [row] = await db
-        .select({ status: clip.status })
-        .from(clip)
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .limit(1)
-      if (row?.status === "ready") {
-        await db
-          .update(clip)
-          .set({
-            ...clearedStageColumns,
-            encode_run_id: null,
-            encode_locked_at: null,
-            encode_failed_fingerprint: sql`coalesce(${encodeFailedFingerprint}, ${clip.encode_failed_fingerprint})`,
-            failure_reason: reason.slice(0, 500),
-            updated_at: new Date(),
-          })
-          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        void publishClipUpsertById(id)
-        return
+  async markFailed(id, runId, reason, encodeFailedFingerprint, tx) {
+    const [updated] = await tx
+      .update(clip)
+      .set({
+        ...clearedStageColumns,
+        status: sql`case when ${clip.status} = 'ready' then 'ready' else 'failed' end`,
+        encode_run_id: null,
+        encode_locked_at: null,
+        encode_failed_fingerprint: sql`coalesce(${encodeFailedFingerprint}, ${clip.encode_failed_fingerprint})`,
+        failure_reason: reason.slice(0, 500),
+        updated_at: new Date(),
+      })
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+      .returning({ status: clip.status })
+    if (!updated) return
+    return async () => {
+      if (updated.status === "failed") {
+        try {
+          await cleanupTickets(
+            { type: "clip", id },
+            `terminal clip ${id} upload`,
+          )
+        } catch (err) {
+          logger.error(`failed to clean terminal clip ${id} uploads:`, err)
+        }
       }
-      const [failed] = await db
-        .update(clip)
-        .set({
-          ...clearedStageColumns,
-          status: "failed",
-          encode_run_id: null,
-          encode_locked_at: null,
-          encode_failed_fingerprint: sql`coalesce(${encodeFailedFingerprint}, ${clip.encode_failed_fingerprint})`,
-          failure_reason: reason.slice(0, 500),
-          updated_at: new Date(),
-        })
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .returning({ id: clip.id })
-      if (!failed) return
-      await cleanupTickets({ type: "clip", id }, `terminal clip ${id} upload`)
       void publishClipUpsertById(id)
-    } catch (err) {
-      logger.error(`failed to mark clip ${id} as failed:`, err)
     }
   },
 

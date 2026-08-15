@@ -224,14 +224,21 @@ class JobDispatcher {
     }
 
     const message = errorMessage(err, "Job failed")
-    const result = await fail(row.id, runId, message, true)
     const registration = getJobKind(row.kind)
-    if (!result.changed || !registration?.onFailed) return
-    await registration.onFailed(
-      row.payload,
-      err instanceof Error ? err : new Error(message),
-      result.willRetry,
+    const onFailed = registration?.onFailed
+    await fail(
+      row.id,
       runId,
+      message,
+      true,
+      onFailed
+        ? (tx, willRetry) =>
+            onFailed(
+              row.payload,
+              err instanceof Error ? err : new Error(message),
+              { willRetry, runId, tx },
+            )
+        : undefined,
     )
   }
 

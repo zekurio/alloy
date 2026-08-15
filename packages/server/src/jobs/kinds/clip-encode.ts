@@ -20,7 +20,11 @@ import {
 } from "../../queue/lease-conditions"
 import { runMediaProcessing, runThumbnailBackfill } from "../../queue/media-run"
 import { abortActiveJobByDedup } from "../dispatcher"
-import { defineJobKind, type JobHandlerContext } from "../registry"
+import {
+  defineJobKind,
+  type JobFailureContext,
+  type JobHandlerContext,
+} from "../registry"
 import {
   cancel,
   cancelByKindDedup,
@@ -28,6 +32,7 @@ import {
   hasLiveJob,
   snooze,
   type EnqueueOptions,
+  type JobTransaction,
   wakeQueueForKind,
 } from "../store"
 
@@ -37,14 +42,7 @@ const SNOOZE_JITTER_MS = 1000
 
 const ClipEncodePayloadSchema = t.object({
   clipId: t.uuid(),
-  trigger: t.enum([
-    "upload",
-    "trim",
-    "reencode",
-    "reconcile",
-    "sweep",
-    "repair",
-  ]),
+  trigger: t.enum(["upload", "trim", "reencode", "sweep"]),
 })
 
 export type ClipEncodeTrigger = t.infer<
@@ -211,19 +209,19 @@ async function fanOutReadyClipMentions(clipId: string): Promise<void> {
 async function handleClipEncodeFailed(
   payload: t.infer<typeof ClipEncodePayloadSchema>,
   error: Error,
-  willRetry: boolean,
-  runId: string,
-): Promise<void> {
+  ctx: JobFailureContext,
+) {
   const reason = errorMessage(error, "Media processing failed")
-  if (willRetry) {
-    await clipMediaStore.releaseLease(payload.clipId, runId, reason)
+  if (ctx.willRetry) {
+    await clipMediaStore.releaseLease(payload.clipId, ctx.runId, reason, ctx.tx)
     return
   }
-  await clipMediaStore.markFailed(
+  return clipMediaStore.markFailed(
     payload.clipId,
-    runId,
+    ctx.runId,
     reason,
-    failedFingerprint(await selectFailedClipFacts(payload.clipId)),
+    failedFingerprint(await selectFailedClipFacts(payload.clipId, ctx.tx)),
+    ctx.tx,
   )
 }
 
@@ -233,15 +231,17 @@ async function handleClipEncodeFailed(
 // still-quarantined clip.
 async function handleClipEncodeRetry(
   payload: t.infer<typeof ClipEncodePayloadSchema>,
+  tx: JobTransaction,
 ): Promise<void> {
-  await resetFailedClipForEncode(payload.clipId)
+  await resetFailedClipForEncode(payload.clipId, tx)
 }
 
 async function selectFailedClipFacts(
   clipId: string,
+  tx: JobTransaction,
 ): Promise<FingerprintSourceFacts | null> {
   try {
-    return await selectClipEncodeFacts(clipId)
+    return await selectClipEncodeFacts(clipId, tx)
   } catch {
     // Quarantine can fall back to null facts without losing terminal markFailed.
     return null
@@ -255,7 +255,10 @@ function extendClipLease(
   return clipMediaStore.heartbeat(payload.clipId, ctx.runId)
 }
 
-async function selectClipEncodeLease(clipId: string): Promise<{
+async function selectClipEncodeLease(
+  clipId: string,
+  tx?: JobTransaction,
+): Promise<{
   status: typeof clip.$inferSelect.status
   encodeLockedAt: Date | null
   fresh: boolean
@@ -265,7 +268,7 @@ async function selectClipEncodeLease(clipId: string): Promise<{
   thumbFailedAt: Date | null
   facts: FingerprintSourceFacts | null
 } | null> {
-  const [row] = await db
+  const [row] = await (tx ?? db)
     .select({
       status: clip.status,
       encodeLockedAt: clip.encode_locked_at,
@@ -305,8 +308,9 @@ async function selectClipEncodeLease(clipId: string): Promise<{
 
 async function selectClipEncodeFacts(
   clipId: string,
+  tx?: JobTransaction,
 ): Promise<FingerprintSourceFacts | null> {
-  const row = await selectClipEncodeLease(clipId)
+  const row = await selectClipEncodeLease(clipId, tx)
   return row?.facts ?? null
 }
 

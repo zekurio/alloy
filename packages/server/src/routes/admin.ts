@@ -18,7 +18,6 @@ import {
   setOAuthProviders,
 } from "@alloy/server/config/store"
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
-import { enqueueStorageVerify } from "@alloy/server/jobs/kinds/storage-verify"
 import { probeTranscodingCapabilities } from "@alloy/server/media/capabilities"
 import {
   badRequest,
@@ -218,9 +217,5 @@ export const adminRoute = new Hono()
   })
   .post("/clips/re-encode", async (c) => {
     await enqueueRenditionsSweep("force", { runAt: new Date() })
-    return batchProgress(c, "enqueued", 1, false)
-  })
-  .post("/clips/verify-storage", async (c) => {
-    await enqueueStorageVerify({ runAt: new Date() })
     return batchProgress(c, "enqueued", 1, false)
   })

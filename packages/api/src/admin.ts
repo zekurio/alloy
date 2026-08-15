@@ -72,7 +72,6 @@ export type {
   AdminJobsSweeps,
   AdminRenditionSweepSummary,
   AdminStorageGcSummary,
-  AdminStorageVerifySummary,
   AdminSweepKind,
   AdminLimitsConfig,
   AdminAuthConfigPatch,

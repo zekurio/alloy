@@ -3,12 +3,11 @@ import { t } from "./schema"
 
 /**
  * Sweep kinds an admin can trigger manually from the jobs dashboard. Only these
- * three have "run now" affordances; every other kind runs on its own schedule
- * or in response to uploads/playback.
+ * two have "run now" affordances; every other kind runs on its own schedule
+ * or in response to product events.
  */
 export const ADMIN_SWEEP_KINDS = [
   "clip.renditions-sweep",
-  "clip.verify-assets",
   "storage.orphan-gc",
 ] as const satisfies readonly JobKind[]
 export type AdminSweepKind = (typeof ADMIN_SWEEP_KINDS)[number]
@@ -37,26 +36,12 @@ export const AdminRenditionSweepSummarySchema = t.object({
   mode: t.enum(["stale", "force"]),
   scanned: NonNegativeIntSchema,
   upToDate: NonNegativeIntSchema,
-  adopted: NonNegativeIntSchema,
   enqueued: NonNegativeIntSchema,
   unprobed: NonNegativeIntSchema,
   quarantined: NonNegativeIntSchema,
 })
 export type AdminRenditionSweepSummary = t.infer<
   typeof AdminRenditionSweepSummarySchema
->
-
-export const AdminStorageVerifySummarySchema = t.object({
-  finishedAt: t.string(),
-  checked: NonNegativeIntSchema,
-  missingRenditions: NonNegativeIntSchema,
-  missingCuts: NonNegativeIntSchema,
-  missingThumbs: NonNegativeIntSchema,
-  missingSources: NonNegativeIntSchema,
-  repaired: NonNegativeIntSchema,
-})
-export type AdminStorageVerifySummary = t.infer<
-  typeof AdminStorageVerifySummarySchema
 >
 
 export const AdminStorageGcSummarySchema = t.object({
@@ -69,7 +54,6 @@ export type AdminStorageGcSummary = t.infer<typeof AdminStorageGcSummarySchema>
 
 export const AdminJobsSweepsSchema = t.object({
   renditionSweep: AdminRenditionSweepSummarySchema.nullable(),
-  storageVerify: AdminStorageVerifySummarySchema.nullable(),
   storageGc: AdminStorageGcSummarySchema.nullable(),
 })
 export type AdminJobsSweeps = t.infer<typeof AdminJobsSweepsSchema>

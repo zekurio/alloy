@@ -13,13 +13,13 @@ export const JOB_QUEUES = ["encode", "io", "maintenance"] as const
 export type JobQueue = (typeof JOB_QUEUES)[number]
 
 export const JOB_KINDS = [
+  "auth.challenge-prune",
   "clip.encode",
   "clip.renditions-sweep",
-  "clip.verify",
-  "clip.verify-assets",
-  "maintenance.run",
+  "job.prune",
   "notification.prune",
   "storage.orphan-gc",
+  "upload.cleanup",
   "webhook.deliver",
 ] as const
 export type JobKind = (typeof JOB_KINDS)[number]

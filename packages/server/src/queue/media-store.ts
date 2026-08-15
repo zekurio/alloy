@@ -5,6 +5,8 @@ import type {
 } from "@alloy/contracts"
 import type { UploadTicketTarget } from "@alloy/db/schema"
 
+import type { JobTransaction } from "../jobs/store-types"
+
 /** The media-bearing subset of a recording row the processing run reads. */
 export interface MediaRow {
   id: string
@@ -96,14 +98,20 @@ export interface MediaStore {
   /** Refresh the lease; false means another run took over. */
   heartbeat(id: string, runId: string): Promise<boolean>
   /** Clear the lease (leaving status) so the row is retried later. */
-  releaseLease(id: string, runId: string, reason: string): Promise<void>
-  /** Terminal failure (unless already ready); cleans tickets. */
+  releaseLease(
+    id: string,
+    runId: string,
+    reason: string,
+    tx?: JobTransaction,
+  ): Promise<void>
+  /** Commit terminal failure unless already ready. Cleanup runs after commit. */
   markFailed(
     id: string,
     runId: string,
     reason: string,
     encodeFailedFingerprint: string | null,
-  ): Promise<void>
+    tx: JobTransaction,
+  ): Promise<(() => Promise<void> | void) | void>
 
   /** True while the row still holds this run's lease. */
   stillPresent(id: string, runId: string): Promise<boolean>
