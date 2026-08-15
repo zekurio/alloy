@@ -13,6 +13,19 @@
 - Provide step-by-step instructions for verifying the changes.
 - Include expected outcomes, edge cases, or setup requirements.
 
+## Screenshots
+
+<!-- Optional for non-UI changes. Delete this section if it does not apply. -->
+<!-- UI changes must include before and after screenshots. -->
+
+### Before
+
+<!-- Paste or drag the previous UI here. -->
+
+### After
+
+<!-- Paste or drag the updated UI here. -->
+
 ## Additional Notes
 
 - Mention risks, dependencies, or alternatives considered.
