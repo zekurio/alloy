@@ -44,6 +44,9 @@ Examples: `fix(web): add upload UI`, `docs: update contributing guide`, `chore: 
 Release notes group PRs by one `changelog:*` label derived from the
 conventional PR title; use `changelog:skip` to exclude a PR.
 
+PRs with UI changes must include before and after screenshots. Other PRs may
+omit the screenshots section.
+
 ## Style Guide
 
 ### General Principles

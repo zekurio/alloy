@@ -2,7 +2,6 @@ import type {
   AdminFailedJob,
   AdminJobOperations,
   AdminJobQueueRow,
-  AdminRenditionSweepSummary,
   AdminStorageGcSummary,
   AdminSweepKind,
 } from "@alloy/api"
@@ -19,6 +18,12 @@ import {
   CardTitle,
 } from "@alloy/ui/components/card"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@alloy/ui/components/dropdown-menu"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { List, ListItem } from "@alloy/ui/components/list"
 import {
@@ -37,6 +42,7 @@ import {
 } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
+  ChevronDownIcon,
   ExternalLinkIcon,
   PlayIcon,
   RotateCcwIcon,
@@ -93,7 +99,7 @@ export function AdminJobsCard({ hideHeader }: { hideHeader?: boolean }) {
       <Spinner className="size-4" />
     </div>
   ) : (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <QueueHealth queues={summaryQuery.data.queues} />
       <Operations operations={summaryQuery.data.operations} />
       <FailedJobs
@@ -121,66 +127,94 @@ export function AdminJobsCard({ hideHeader }: { hideHeader?: boolean }) {
 function QueueHealth({ queues }: { queues: AdminJobQueueRow[] }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h3 className="text-sm font-semibold">{t("Queue health")}</h3>
-        <p className="text-foreground-dim text-xs">
-          {t("Current work and recent results for each worker queue.")}
-        </p>
-      </div>
-      <List>
-        {queues.map((row) => (
-          <ListItem key={row.queue}>
-            <div className="min-w-0 flex-1">
-              <div className="flex min-w-0 items-center gap-2">
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "size-1.5 shrink-0 rounded-full",
-                    row.failed > 0
-                      ? "bg-destructive"
-                      : row.running > 0
-                        ? "bg-primary"
-                        : "bg-border-emphasis",
-                  )}
-                />
-                <h4 className="truncate text-sm font-semibold">
-                  {QUEUE_LABELS[row.queue]}
-                </h4>
-              </div>
-              <JobCounts counts={row} />
-            </div>
-          </ListItem>
-        ))}
-      </List>
+      <h3 className="text-sm font-semibold">{t("Queue health")}</h3>
+      <Card tone="surface">
+        <CardContent className="overflow-x-auto p-0">
+          <table className="w-full table-fixed">
+            <thead className="bg-surface-raised/40 text-foreground-muted text-xs">
+              <tr>
+                <th scope="col" className="w-[40%] px-4 py-2 text-left">
+                  <span className="sr-only">{t("Queue health")}</span>
+                </th>
+                <QueueCountHeader>{t("Waiting")}</QueueCountHeader>
+                <QueueCountHeader>{t("Running")}</QueueCountHeader>
+                <QueueCountHeader>{t("Failures")}</QueueCountHeader>
+                <QueueCountHeader>{t("Done")}</QueueCountHeader>
+              </tr>
+            </thead>
+            <tbody className="divide-border divide-y">
+              {queues.map((row) => (
+                <tr key={row.queue}>
+                  <th scope="row" className="px-4 py-2.5 text-left">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={cn(
+                          "size-1.5 shrink-0 rounded-full",
+                          row.failed > 0
+                            ? "bg-destructive"
+                            : row.running > 0
+                              ? "bg-primary"
+                              : "bg-border-emphasis",
+                        )}
+                      />
+                      <span className="truncate text-sm font-semibold">
+                        {QUEUE_LABELS[row.queue]}
+                      </span>
+                    </div>
+                  </th>
+                  <QueueCount value={row.pending} />
+                  <QueueCount value={row.running} tone="active" />
+                  <QueueCount value={row.failed} tone="danger" />
+                  <QueueCount value={row.completed} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </CardContent>
+      </Card>
     </div>
   )
 }
 
-function JobCounts({
-  counts,
+function QueueCountHeader({ children }: { children: ReactNode }) {
+  return (
+    <th
+      scope="col"
+      className="px-1 py-2 text-center font-medium break-words hyphens-auto"
+    >
+      {children}
+    </th>
+  )
+}
+
+function QueueCount({
+  value,
+  tone = "muted",
 }: {
-  counts: Pick<AdminJobQueueRow, "pending" | "running" | "failed" | "completed">
+  value: number
+  tone?: "muted" | "active" | "danger"
 }) {
   return (
-    <div className="text-foreground-dim mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-      <CountCell label={t("Pending")} value={counts.pending} />
-      <CountCell label={t("Running")} value={counts.running} tone="active" />
-      <CountCell label={t("Failed")} value={counts.failed} tone="danger" />
-      <CountCell label={t("Completed")} value={counts.completed} />
-    </div>
+    <td
+      className={cn(
+        "px-2 py-2.5 text-center text-sm font-semibold tabular-nums",
+        value === 0 && "text-foreground-faint",
+        value > 0 && tone === "muted" && "text-foreground",
+        value > 0 && tone === "active" && "text-primary",
+        value > 0 && tone === "danger" && "text-destructive",
+      )}
+    >
+      {value}
+    </td>
   )
 }
 
 function Operations({ operations }: { operations: AdminJobOperations }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-col gap-0.5">
-        <h3 className="text-sm font-semibold">{t("Operations")}</h3>
-        <p className="text-foreground-dim text-xs">
-          {t("Start maintenance work and review its last completed run.")}
-        </p>
-      </div>
-      <div className="grid gap-3 xl:grid-cols-2">
+      <h3 className="text-sm font-semibold">{t("Operations")}</h3>
+      <div className="flex flex-wrap items-center gap-2">
         <RenditionOperation operation={operations.renditionSweep} />
         <StorageGcOperation operation={operations.storageGc} />
       </div>
@@ -213,30 +247,26 @@ function RenditionOperation({
         : null
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-0.5">
-          <CardTitle>{t("Apply transcoding changes")}</CardTitle>
-          <CardDescription>
-            {t(
-              "Queue clips whose current renditions do not match the transcoding settings.",
-            )}
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <JobCounts counts={operation} />
-        <RenditionSummary summary={operation.summary} />
-        <div className="flex flex-wrap gap-2">
-          <FeedbackButton
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={active || mutation.isPending}
-            state={staleFeedback.feedback.state}
-            pendingLabel={t("Starting...")}
-            successLabel={t("Started")}
-            errorLabel={t("Try again")}
+    <div className="contents">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={active || mutation.isPending}
+            >
+              <PlayIcon />
+              {mutation.isPending
+                ? t("Starting...")
+                : t("Apply transcoding changes")}
+              <ChevronDownIcon />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="start" sideOffset={6}>
+          <DropdownMenuItem
             onClick={() => {
               forceFeedback.reset()
               void staleFeedback.run(
@@ -247,16 +277,8 @@ function RenditionOperation({
           >
             <PlayIcon />
             {t("Apply transcoding changes")}
-          </FeedbackButton>
-          <FeedbackButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={active || mutation.isPending}
-            state={forceFeedback.feedback.state}
-            pendingLabel={t("Starting...")}
-            successLabel={t("Started")}
-            errorLabel={t("Try again")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
             onClick={() => {
               staleFeedback.reset()
               void forceFeedback.run(
@@ -267,15 +289,15 @@ function RenditionOperation({
           >
             <RotateCcwIcon />
             {t("Re-encode all")}
-          </FeedbackButton>
-        </div>
-        {actionError ? (
-          <p role="alert" className="text-destructive text-xs">
-            {actionError}
-          </p>
-        ) : null}
-      </CardContent>
-    </Card>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {actionError ? (
+        <p role="alert" className="text-destructive basis-full text-xs">
+          {actionError}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -322,215 +344,103 @@ function StorageGcOperation({
     : 0
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-col gap-0.5">
-          <CardTitle>{t("Clean orphaned storage")}</CardTitle>
-          <CardDescription>
-            {t(
-              "Preview old clip objects that are no longer referenced, then confirm their deletion.",
-            )}
-          </CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <JobCounts counts={operation} />
-        <StorageGcSummary summary={operation.summary} />
-        <FeedbackButton
+    <div className="contents">
+      <FeedbackButton
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={active || previewMutation.isPending}
+        state={previewFeedback.feedback.state}
+        pendingLabel={t("Starting...")}
+        successLabel={t("Started")}
+        errorLabel={t("Try again")}
+        onClick={() =>
+          void previewFeedback.run(async () => {
+            await previewMutation.mutateAsync()
+          }, t("Couldn't start job"))
+        }
+      >
+        <SearchIcon />
+        {t("Preview cleanup")}
+      </FeedbackButton>
+      {preview && !previewExpired ? (
+        <Button
           type="button"
-          variant="outline"
+          variant="danger"
           size="sm"
-          className="self-start"
-          disabled={active || previewMutation.isPending}
-          state={previewFeedback.feedback.state}
-          pendingLabel={t("Starting...")}
-          successLabel={t("Started")}
-          errorLabel={t("Try again")}
-          onClick={() =>
-            void previewFeedback.run(async () => {
-              await previewMutation.mutateAsync()
-            }, t("Couldn't start job"))
-          }
+          disabled={active || confirmMutation.isPending}
+          onClick={() => setConfirmPreview(preview)}
         >
-          <SearchIcon />
-          {t("Preview cleanup")}
-        </FeedbackButton>
-        {previewFeedback.feedback.state === "error" ? (
-          <p role="alert" className="text-destructive text-xs">
-            {previewFeedback.feedback.message}
-          </p>
-        ) : null}
-        {preview?.hasMoreCandidates ? (
+          <Trash2Icon />
+          {t("Delete previewed objects")}
+        </Button>
+      ) : null}
+      {previewFeedback.feedback.state === "error" ? (
+        <p role="alert" className="text-destructive basis-full text-xs">
+          {previewFeedback.feedback.message}
+        </p>
+      ) : null}
+      {preview?.hasMoreCandidates ? (
+        <div className="basis-full">
           <Callout>
             {t(
               "This preview reached the 10,000-object batch limit. Delete it, then run another preview for the remaining objects.",
             )}
           </Callout>
-        ) : null}
-        {operation.summary?.mode === "delete" &&
-        operation.summary.hasMoreCandidates ? (
+        </div>
+      ) : null}
+      {operation.summary?.mode === "delete" &&
+      operation.summary.hasMoreCandidates ? (
+        <div className="basis-full">
           <Callout>
             {t("More objects remain. Run another cleanup preview.")}
           </Callout>
-        ) : null}
-        {previewExpired ? (
+        </div>
+      ) : null}
+      {previewExpired ? (
+        <div className="basis-full">
           <Callout>{t("This preview expired. Run a new preview.")}</Callout>
-        ) : null}
-        {preview && !previewExpired ? (
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            className="self-start"
-            disabled={active || confirmMutation.isPending}
-            onClick={() => setConfirmPreview(preview)}
-          >
-            <Trash2Icon />
-            {t("Delete previewed objects")}
-          </Button>
-        ) : null}
-        <ConfirmDeleteDialog
-          open={confirmPreview !== null && !previewExpired}
-          onOpenChange={(open) => {
-            if (open) return
-            setConfirmPreview(null)
-            confirmMutation.reset()
-          }}
-          title={t("Delete previewed objects?")}
-          description={t(
-            "This permanently deletes only the objects in the selected preview. Alloy checks each object again before deletion. This action cannot be undone.",
-          )}
-          confirmLabel={t("Delete objects")}
-          pendingLabel={t("Starting...")}
-          pending={confirmMutation.isPending}
-          error={
-            confirmMutation.error
-              ? errorMessage(confirmMutation.error, t("Couldn't start job"))
-              : undefined
-          }
-          onConfirm={() => {
-            if (confirmPreview && !previewExpired) {
-              confirmMutation.mutate(confirmPreview.previewJobId)
-            }
-          }}
-        >
-          {confirmPreview ? (
-            <p className="text-foreground-muted text-sm">
-              {t(
-                previewCandidateCount === 1
-                  ? "Preview from {time}: {count} object is a candidate for deletion."
-                  : "Preview from {time}: {count} objects are candidates for deletion.",
-                {
-                  time: formatDateTime(confirmPreview.finishedAt),
-                  count: previewCandidateCount,
-                },
-              )}
-            </p>
-          ) : null}
-        </ConfirmDeleteDialog>
-      </CardContent>
-    </Card>
-  )
-}
-
-function RenditionSummary({
-  summary,
-}: {
-  summary: AdminRenditionSweepSummary | null
-}) {
-  if (!summary) return <EmptyOperationSummary />
-  return (
-    <OperationSummary finishedAt={summary.finishedAt}>
-      <SummaryValue
-        label={t("Mode")}
-        value={
-          summary.mode === "force" ? t("Re-encode all") : t("Apply changes")
+        </div>
+      ) : null}
+      <ConfirmDeleteDialog
+        open={confirmPreview !== null && !previewExpired}
+        onOpenChange={(open) => {
+          if (open) return
+          setConfirmPreview(null)
+          confirmMutation.reset()
+        }}
+        title={t("Delete previewed objects?")}
+        description={t(
+          "This permanently deletes only the objects in the selected preview. Alloy checks each object again before deletion. This action cannot be undone.",
+        )}
+        confirmLabel={t("Delete objects")}
+        pendingLabel={t("Starting...")}
+        pending={confirmMutation.isPending}
+        error={
+          confirmMutation.error
+            ? errorMessage(confirmMutation.error, t("Couldn't start job"))
+            : undefined
         }
-      />
-      <SummaryValue label={t("Scanned")} value={summary.scanned} />
-      <SummaryValue label={t("Queued")} value={summary.enqueued} />
-      <SummaryValue label={t("Up to date")} value={summary.upToDate} />
-      <SummaryValue label={t("Unprobed or invalid")} value={summary.unprobed} />
-      <SummaryValue label={t("Quarantined")} value={summary.quarantined} />
-    </OperationSummary>
-  )
-}
-
-function StorageGcSummary({
-  summary,
-}: {
-  summary: AdminStorageGcSummary | null
-}) {
-  if (!summary) return <EmptyOperationSummary />
-  return (
-    <OperationSummary finishedAt={summary.finishedAt}>
-      <SummaryValue
-        label={t("Mode")}
-        value={summary.mode === "preview" ? t("Preview") : t("Delete")}
-      />
-      <SummaryValue label={t("Scanned")} value={summary.scanned} />
-      <SummaryValue
-        label={t("Orphan candidates")}
-        value={summary.orphanCandidates}
-      />
-      <SummaryValue
-        label={t("Stale asset candidates")}
-        value={summary.staleAssetCandidates}
-      />
-      <SummaryValue
-        label={t("Deleted orphan objects")}
-        value={summary.deletedOrphanObjects}
-      />
-      <SummaryValue
-        label={t("Deleted stale assets")}
-        value={summary.deletedStaleAssets}
-      />
-      <SummaryValue
-        label={t("Delete failures")}
-        value={summary.deleteFailures}
-      />
-    </OperationSummary>
-  )
-}
-
-function EmptyOperationSummary() {
-  return (
-    <div className="border-border-subtle text-foreground-dim rounded-md border p-3 text-xs">
-      {t("No completed run yet")}
-    </div>
-  )
-}
-
-function OperationSummary({
-  finishedAt,
-  children,
-}: {
-  finishedAt: string
-  children: ReactNode
-}) {
-  return (
-    <div className="border-border-subtle rounded-md border p-3">
-      <p className="text-foreground-dim mb-2 text-xs">
-        {t("Last completed {time}", { time: formatDateTime(finishedAt) })}
-      </p>
-      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3">
-        {children}
-      </dl>
-    </div>
-  )
-}
-
-function SummaryValue({
-  label,
-  value,
-}: {
-  label: string
-  value: string | number
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-foreground-muted truncate text-xs">{label}</dt>
-      <dd className="text-sm font-semibold tabular-nums">{value}</dd>
+        onConfirm={() => {
+          if (confirmPreview && !previewExpired) {
+            confirmMutation.mutate(confirmPreview.previewJobId)
+          }
+        }}
+      >
+        {confirmPreview ? (
+          <p className="text-foreground-muted text-sm">
+            {t(
+              previewCandidateCount === 1
+                ? "Preview from {time}: {count} object is a candidate for deletion."
+                : "Preview from {time}: {count} objects are candidates for deletion.",
+              {
+                time: formatDateTime(confirmPreview.finishedAt),
+                count: previewCandidateCount,
+              },
+            )}
+          </p>
+        ) : null}
+      </ConfirmDeleteDialog>
     </div>
   )
 }
@@ -538,32 +448,6 @@ function SummaryValue({
 function invalidateJobQueries(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: adminKeys.jobsSummary() })
   void queryClient.invalidateQueries({ queryKey: adminKeys.jobsFailed(null) })
-}
-
-function CountCell({
-  label,
-  value,
-  tone = "muted",
-}: {
-  label: string
-  value: number
-  tone?: "muted" | "active" | "danger"
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-1">
-      <span className="truncate text-xs">{label}</span>
-      <span
-        className={cn(
-          "text-xs font-semibold tabular-nums",
-          tone === "danger" && "text-destructive",
-          tone === "active" && "text-primary",
-          tone === "muted" && "text-foreground",
-        )}
-      >
-        {value}
-      </span>
-    </div>
-  )
 }
 
 function FailedJobs({
