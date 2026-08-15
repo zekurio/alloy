@@ -30,6 +30,7 @@ import {
   titleForCapture,
   VIDEO_EXTENSIONS,
 } from "./recording-library-shared"
+import { parseUntrustedRecord } from "./runtime-validation"
 
 const logger = createLogger("library")
 const STAGED_IMPORT_MAX_AGE_MS = 24 * 60 * 60 * 1000
@@ -197,12 +198,7 @@ async function moveFile(source: string, destination: string): Promise<void> {
 }
 
 function isCrossDeviceError(cause: unknown): boolean {
-  return (
-    typeof cause === "object" &&
-    cause !== null &&
-    "code" in cause &&
-    cause.code === "EXDEV"
-  )
+  return parseUntrustedRecord(cause)?.code === "EXDEV"
 }
 
 async function cleanupStaleStagedImportFiles(): Promise<void> {

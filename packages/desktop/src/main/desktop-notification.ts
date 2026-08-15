@@ -1,11 +1,19 @@
 import type { DesktopNotificationInput } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { Notification } from "electron"
 
+import { StrictStringSchema, type UntrustedInput } from "./runtime-validation"
 import type { Windows } from "./windows"
+
+const DesktopNotificationInputSchema = t.object({
+  title: StrictStringSchema,
+  body: StrictStringSchema,
+  targetPath: StrictStringSchema.refine((path) => path.startsWith("/")),
+})
 
 export function showDesktopNotification(
   windows: Windows,
-  input: unknown,
+  input: UntrustedInput,
 ): void {
   const notification = desktopNotificationInput(input)
   if (!Notification.isSupported()) return
@@ -19,22 +27,10 @@ export function showDesktopNotification(
   toast.show()
 }
 
-function desktopNotificationInput(input: unknown): DesktopNotificationInput {
-  if (!input || typeof input !== "object" || Array.isArray(input)) {
-    throw new Error("Invalid notification input")
-  }
-  const value = input as Record<string, unknown>
-  if (
-    typeof value.title !== "string" ||
-    typeof value.body !== "string" ||
-    typeof value.targetPath !== "string" ||
-    !value.targetPath.startsWith("/")
-  ) {
-    throw new Error("Invalid notification input")
-  }
-  return {
-    title: value.title,
-    body: value.body,
-    targetPath: value.targetPath,
-  }
+function desktopNotificationInput(
+  input: UntrustedInput,
+): DesktopNotificationInput {
+  const result = DesktopNotificationInputSchema.safeParse(input)
+  if (!result.success) throw new Error("Invalid notification input")
+  return result.data
 }

@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react"
+import type { CSSVariableProperties } from "@alloy/ui/lib/css-properties"
 
 // Small, dependency-free color helpers shared by the color picker and the
 // profile accent theming. Hues are 0–360; s/v/l are 0–1; channels are 0–255.
@@ -17,7 +17,8 @@ function clamp(value: number, lo: number, hi: number): number {
 export function normalizeHex(input: string): string | null {
   const match = HEX_RE.exec(input.trim())
   if (!match) return null
-  let hex = match[1] as string
+  let hex = match[1]
+  if (!hex) return null
   if (hex.length === 3) {
     hex = hex
       .split("")
@@ -152,7 +153,7 @@ function shiftLightness(hex: string, delta: number): string {
  * `--primary`/`--ring` aliases) to a single base color. Apply via `style` on a
  * container to retint everything inside it.
  */
-export function accentCssVars(hex: string): CSSProperties {
+export function accentCssVars(hex: string): CSSVariableProperties {
   const base = normalizeHex(hex) ?? hex
   return {
     "--accent": base,
@@ -166,5 +167,5 @@ export function accentCssVars(hex: string): CSSProperties {
     "--primary": base,
     "--primary-foreground": readableForeground(base),
     "--ring": base,
-  } as CSSProperties
+  }
 }

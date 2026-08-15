@@ -124,7 +124,9 @@ export function EditUserDialog({
               <FieldLabel htmlFor={`role-${user.id}`}>{t("Role")}</FieldLabel>
               <Select
                 value={role}
-                onValueChange={(value) => setRole(value as "admin" | "user")}
+                onValueChange={(value) => {
+                  if (value === "admin" || value === "user") setRole(value)
+                }}
                 disabled={saving}
               >
                 <SelectTrigger id={`role-${user.id}`}>
@@ -222,7 +224,7 @@ export function CreateUserDialog() {
     const trimmedUsername = username.trim()
     mutate({
       email: trimmedEmail,
-      ...(trimmedUsername ? { username: trimmedUsername } : {}),
+      username: trimmedUsername || undefined,
       role,
     })
   }
@@ -276,7 +278,9 @@ export function CreateUserDialog() {
               <FieldLabel htmlFor="create-user-role">{t("Role")}</FieldLabel>
               <Select
                 value={role}
-                onValueChange={(value) => setRole(value as "admin" | "user")}
+                onValueChange={(value) => {
+                  if (value === "admin" || value === "user") setRole(value)
+                }}
                 disabled={isPending}
               >
                 <SelectTrigger id="create-user-role">

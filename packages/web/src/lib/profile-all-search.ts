@@ -9,23 +9,28 @@ type ProfileAllSearch = {
   game?: string
 }
 
+interface ProfileAllSearchInput {
+  sort?: unknown
+  game?: unknown
+}
+
 export function profileAllSearchFor(
   sort: ProfileAllSort,
   gameSlug: string | null,
 ): ProfileAllSearch {
-  return {
-    ...(sort !== "recent" ? { sort } : {}),
-    ...(gameSlug ? { game: gameSlug } : {}),
-  }
+  const search: ProfileAllSearch = {}
+  if (sort !== "recent") search.sort = sort
+  if (gameSlug) search.game = gameSlug
+  return search
 }
 
 export function parseProfileAllSearch(
-  search: Record<string, unknown>,
+  search: ProfileAllSearchInput,
 ): ProfileAllSearch {
   const sort = searchEnum(search.sort, SORT_KEYS)
   const game = searchString(search.game)
-  return {
-    ...(sort ? { sort } : {}),
-    ...(game ? { game } : {}),
-  }
+  const parsed: ProfileAllSearch = {}
+  if (sort) parsed.sort = sort
+  if (game) parsed.game = game
+  return parsed
 }

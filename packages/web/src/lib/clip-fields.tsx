@@ -54,8 +54,8 @@ export const PRIVACY_OPTIONS: readonly PrivacyOption[] = [
   { value: "private", label: t("Private"), icon: LockIcon },
 ] as const
 
-export const PRIVACY_BY_VALUE: Record<ClipPrivacy, PrivacyOption> =
-  Object.fromEntries(PRIVACY_OPTIONS.map((o) => [o.value, o])) as Record<
-    ClipPrivacy,
-    PrivacyOption
-  >
+export const PRIVACY_BY_VALUE = {
+  public: PRIVACY_OPTIONS[0],
+  unlisted: PRIVACY_OPTIONS[1],
+  private: PRIVACY_OPTIONS[2],
+} satisfies Record<ClipPrivacy, PrivacyOption>

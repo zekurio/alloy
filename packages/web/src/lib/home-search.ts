@@ -9,15 +9,21 @@ export type HomeSearch = {
   game?: string
 }
 
-export function parseHomeSearch(search: Record<string, unknown>): HomeSearch {
+interface HomeSearchInput {
+  sort?: unknown
+  feed?: unknown
+  game?: unknown
+}
+
+export function parseHomeSearch(search: HomeSearchInput): HomeSearch {
   const sort =
     search.feed === "recommended" ? "recommended" : parseClipSort(search.sort)
   const game = searchString(search.game)
-  return {
-    ...(sort ? { sort } : {}),
-    ...(search.feed === "following" ? { feed: search.feed } : {}),
-    ...(game ? { game } : {}),
-  }
+  const parsed: HomeSearch = {}
+  if (sort) parsed.sort = sort
+  if (search.feed === "following") parsed.feed = search.feed
+  if (game) parsed.game = game
+  return parsed
 }
 
 export function homeFeedFilter(search: HomeSearch): FeedFilter {

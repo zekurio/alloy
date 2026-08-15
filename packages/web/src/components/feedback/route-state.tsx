@@ -149,11 +149,11 @@ function RouteStateFrame({
 }
 
 function getErrorDetails(
-  error: unknown,
+  cause: unknown,
   info?: { componentStack: string },
 ): string | null {
-  const message = getErrorMessage(error)
-  const stack = error instanceof Error ? error.stack : null
+  const message = getErrorMessage(cause)
+  const stack = cause instanceof Error ? cause.stack : null
   const componentStack = info?.componentStack
   const parts = [
     message ? `Message:\n${message}` : null,
@@ -164,9 +164,9 @@ function getErrorDetails(
   return parts.length > 0 ? parts.join("\n\n") : null
 }
 
-function getErrorMessage(error: unknown): string | null {
+function getErrorMessage(cause: unknown): string | null {
   return (
-    messageFromUnknown(error) ?? (error instanceof Error ? error.name : null)
+    messageFromUnknown(cause) ?? (cause instanceof Error ? cause.name : null)
   )
 }
 

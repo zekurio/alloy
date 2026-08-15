@@ -7,9 +7,12 @@ export type LibrarySearch = {
   source?: Exclude<LibrarySource, "all">
 }
 
-export function parseLibrarySearch(
-  search: Record<string, unknown>,
-): LibrarySearch {
+interface LibrarySearchInput {
+  sort?: unknown
+  source?: unknown
+}
+
+export function parseLibrarySearch(search: LibrarySearchInput): LibrarySearch {
   const parsed: LibrarySearch = {}
   // The defaults (newest first, all sources) stay out of the URL.
   if (search.sort === "oldest") parsed.sort = "oldest"

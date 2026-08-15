@@ -3,6 +3,8 @@ import type { Stats } from "node:fs"
 
 import { contentTypeForFile } from "@alloy/contracts"
 
+import { parseString, type UntrustedInput } from "./runtime-validation"
+
 export { contentTypeForFile }
 
 export const MEDIA_PROTOCOL = "alloy-capture"
@@ -19,8 +21,9 @@ export function captureId(filename: string): string {
     .slice(0, 22)
 }
 
-export function isCaptureId(value: unknown): value is string {
-  return typeof value === "string" && /^[A-Za-z0-9_-]{12,64}$/.test(value)
+export function isCaptureId(value: UntrustedInput): value is string {
+  const parsed = parseString(value)
+  return parsed !== null && /^[A-Za-z0-9_-]{12,64}$/.test(parsed)
 }
 
 export function thumbnailSignature(id: string, stat: Stats): string {

@@ -1,3 +1,4 @@
+import { t } from "@alloy/contracts/schema"
 import { useSyncExternalStore } from "react"
 
 export type PlayerVolumeState = {
@@ -8,6 +9,10 @@ export type PlayerVolumeState = {
 const STORAGE_KEY = "alloy.player-volume"
 const PERSIST_INTERVAL_MS = 200
 const SERVER_SNAPSHOT: PlayerVolumeState = { volume: 1, muted: false }
+const PlayerVolumeSchema = t.object({
+  volume: t.number(),
+  muted: t.boolean(),
+})
 
 const listeners = new Set<() => void>()
 let state: PlayerVolumeState | null = null
@@ -52,7 +57,7 @@ export function flushPlayerVolume(): void {
   const pending = pendingPersistence
   pendingPersistence = null
   lastPersistedAt = Date.now()
-  if (typeof localStorage === "undefined") return
+  if (!globalThis.localStorage) return
 
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(pending))
@@ -73,7 +78,7 @@ function playerVolumeSnapshot(): PlayerVolumeState {
 }
 
 function schedulePersistence(): void {
-  if (persistTimer !== null || typeof window === "undefined") return
+  if (persistTimer !== null || !globalThis.window) return
   persistTimer = window.setTimeout(
     flushPlayerVolume,
     Math.max(0, PERSIST_INTERVAL_MS - (Date.now() - lastPersistedAt)),
@@ -81,7 +86,7 @@ function schedulePersistence(): void {
 }
 
 function ensureWindowListeners(): void {
-  if (listeningToWindow || typeof window === "undefined") return
+  if (listeningToWindow || !globalThis.window) return
   listeningToWindow = true
   window.addEventListener("storage", handleStorage)
   window.addEventListener("pagehide", flushPlayerVolume)
@@ -102,7 +107,7 @@ function handleStorage(event: StorageEvent): void {
 }
 
 function readStoredPlayerVolume(): PlayerVolumeState {
-  if (typeof localStorage === "undefined") return defaultPlayerVolume()
+  if (!globalThis.localStorage) return defaultPlayerVolume()
 
   try {
     return parsePlayerVolume(localStorage.getItem(STORAGE_KEY))
@@ -115,9 +120,10 @@ function parsePlayerVolume(value: string | null): PlayerVolumeState {
   if (!value) return defaultPlayerVolume()
 
   try {
-    const parsed: unknown = JSON.parse(value)
-    if (!isPlayerVolumeState(parsed)) return defaultPlayerVolume()
-    return normalizePlayerVolume(parsed)
+    const result = PlayerVolumeSchema.safeParse(JSON.parse(value))
+    return result.success
+      ? normalizePlayerVolume(result.data)
+      : defaultPlayerVolume()
   } catch {
     return defaultPlayerVolume()
   }
@@ -132,14 +138,4 @@ function normalizePlayerVolume(value: PlayerVolumeState): PlayerVolumeState {
 
 function defaultPlayerVolume(): PlayerVolumeState {
   return { volume: 1, muted: false }
-}
-
-function isPlayerVolumeState(value: unknown): value is PlayerVolumeState {
-  if (!value || typeof value !== "object") return false
-  const candidate = value as Record<string, unknown>
-  return (
-    typeof candidate.volume === "number" &&
-    Number.isFinite(candidate.volume) &&
-    typeof candidate.muted === "boolean"
-  )
 }

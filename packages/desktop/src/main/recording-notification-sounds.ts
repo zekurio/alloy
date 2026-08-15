@@ -29,13 +29,7 @@ const SUPPORTED_RECORDING_SOUND_EXTENSIONS = new Set(
 
 const RECORDING_SOUND_CRAWL_MAX_FILES = 500
 
-const RECORDING_NOTIFICATION_SOUND_MATCHES: Record<
-  RecordingNotificationSoundEvent,
-  {
-    files: readonly string[]
-    terms: readonly string[]
-  }
-> = {
+const RECORDING_NOTIFICATION_SOUND_MATCHES = {
   replayBufferStarted: {
     files: ["replay_recording.wav", "start_recording.wav"],
     terms: ["replay", "buffer", "start"],
@@ -44,7 +38,13 @@ const RECORDING_NOTIFICATION_SOUND_MATCHES: Record<
     files: ["clip_saved.wav", "save_clip.wav"],
     terms: ["clip", "save", "saved"],
   },
-}
+} satisfies Record<
+  RecordingNotificationSoundEvent,
+  {
+    files: readonly string[]
+    terms: readonly string[]
+  }
+>
 
 type RecordingNotificationSoundPlayer = (
   path: string,
@@ -112,11 +112,13 @@ export function listNotificationSoundLibrary(): RecordingNotificationSoundLibrar
   ensureNotificationSoundsDir()
 
   const discovered = crawlNotificationSoundsRoot()
-  const library = {} as RecordingNotificationSoundLibrary
-  for (const sound of RECORDING_NOTIFICATION_SOUND_EVENTS) {
-    library[sound] = rankedNotificationSoundFiles(sound, discovered)
+  return {
+    replayBufferStarted: rankedNotificationSoundFiles(
+      "replayBufferStarted",
+      discovered,
+    ),
+    clipSaved: rankedNotificationSoundFiles("clipSaved", discovered),
   }
-  return library
 }
 
 export async function playRecordingNotificationSound(

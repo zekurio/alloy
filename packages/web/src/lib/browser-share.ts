@@ -19,7 +19,7 @@ export async function shareUrlWithFallback(
   const action = options.action ?? "share link"
   const share = globalThis.navigator?.share
 
-  if (typeof share === "function") {
+  if (share) {
     try {
       await share.call(globalThis.navigator, {
         title: options.title,

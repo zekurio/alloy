@@ -8,9 +8,15 @@ import {
 } from "node:fs"
 import { basename, dirname, join } from "node:path"
 
-import { isObjectRecord } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app, net } from "electron"
+
+import {
+  parseString,
+  parseUntrustedRecord,
+  type UntrustedInput,
+  type UntrustedRecord,
+} from "./runtime-validation"
 
 const logger = createLogger("recording")
 
@@ -102,7 +108,7 @@ async function fetchDiscordDetections(): Promise<DiscordDetectionCache> {
     )
   }
 
-  const payload: unknown = await response.json()
+  const payload = await response.json()
   if (!Array.isArray(payload)) {
     throw new Error("Discord detectable games response was not an array")
   }
@@ -110,7 +116,9 @@ async function fetchDiscordDetections(): Promise<DiscordDetectionCache> {
   return trimDiscordDetections(payload)
 }
 
-function trimDiscordDetections(payload: unknown[]): DiscordDetectionCache {
+function trimDiscordDetections(
+  payload: UntrustedInput[],
+): DiscordDetectionCache {
   const games: DiscordDetectionGame[] = []
   const executables = new Map<string, DiscordExecutableRule[]>()
 
@@ -196,14 +204,12 @@ function emptyDetectionCache(): DiscordDetectionCache {
 
 function cacheIsFresh(cachePath: string): boolean {
   const cache = readDetectionCache(cachePath)
-  const fetchedAt =
-    cache && typeof cache.fetchedAt === "string"
-      ? Date.parse(cache.fetchedAt)
-      : Number.NaN
+  const fetchedAtValue = parseString(cache?.fetchedAt)
+  const fetchedAt = fetchedAtValue ? Date.parse(fetchedAtValue) : Number.NaN
   return Number.isFinite(fetchedAt) && Date.now() - fetchedAt < CACHE_TTL_MS
 }
 
-function readDetectionCache(cachePath: string): Record<string, unknown> | null {
+function readDetectionCache(cachePath: string): UntrustedRecord | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(cachePath, "utf8"))
     return recordValue(parsed)
@@ -230,19 +236,19 @@ function writeDetectionCache(
   }
 }
 
-function recordValue(value: unknown): Record<string, unknown> | null {
-  return isObjectRecord(value) ? value : null
+function recordValue(value: UntrustedInput): UntrustedRecord | null {
+  return parseUntrustedRecord(value)
 }
 
-function arrayValue(value: unknown): unknown[] {
+function arrayValue(value: UntrustedInput): UntrustedInput[] {
   return Array.isArray(value) ? value : []
 }
 
-function stringValue(value: unknown): string {
-  return typeof value === "string" ? value.trim() : ""
+function stringValue(value: UntrustedInput): string {
+  return parseString(value)?.trim() ?? ""
 }
 
-function arrayStrings(value: unknown): string[] {
+function arrayStrings(value: UntrustedInput): string[] {
   return [...new Set(arrayValue(value).map(stringValue).filter(Boolean))].sort(
     (left, right) => left.localeCompare(right),
   )

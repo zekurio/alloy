@@ -219,8 +219,8 @@ export function initAutoUpdater(): void {
       // so background checks re-discover the update.
       installInFlight = false
       logger.warn("update install did not start; restarting recording backend")
-      void configureRecordingBackend().catch((restartCause: unknown) => {
-        logger.warn("failed to restart recording backend:", restartCause)
+      void configureRecordingBackend().catch((cause: unknown) => {
+        logger.warn("failed to restart recording backend:", cause)
       })
       configureRecordingHotkeys()
       setState(idleUpdateState())

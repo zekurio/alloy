@@ -7,15 +7,22 @@ export interface AppSearch {
   welcome?: string
 }
 
-export function parseAppSearch(search: Record<string, unknown>): AppSearch {
+interface AppSearchInput {
+  clip?: unknown
+  comment?: unknown
+  settings?: unknown
+  welcome?: unknown
+}
+
+export function parseAppSearch(search: AppSearchInput): AppSearch {
   const clip = searchString(search.clip)
   const comment = searchString(search.comment)
   const settings = searchString(search.settings)
   const welcome = searchString(search.welcome)
-  return {
-    ...(clip ? { clip } : {}),
-    ...(comment ? { comment } : {}),
-    ...(settings ? { settings } : {}),
-    ...(welcome ? { welcome } : {}),
-  }
+  const parsed: AppSearch = {}
+  if (clip) parsed.clip = clip
+  if (comment) parsed.comment = comment
+  if (settings) parsed.settings = settings
+  if (welcome) parsed.welcome = welcome
+  return parsed
 }

@@ -23,6 +23,7 @@ export const Route = createFileRoute("/(auth)/setup")({
     const session = config.adminAccountRequired
       ? null
       : (context.session ?? (await loadSession()))
+    // SAFETY: The auth API includes the optional role field on session users.
     const role = (session?.user as { role?: string } | undefined)?.role
     if (!config.adminAccountRequired && !session) {
       throw redirect({ to: "/login" })
