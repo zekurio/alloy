@@ -27,6 +27,7 @@ export type JobAfterCommit = () => Promise<void> | void
 export interface JobFailureContext {
   willRetry: boolean
   runId: string
+  jobId: string
   tx: JobTransaction
 }
 
@@ -36,6 +37,8 @@ export interface RegisteredJobKind<ValueSchema extends TSchema = TSchema> {
   schema: ValueSchema
   defaultPriority: number
   retry: JobRetry
+  /** Allow an admin to re-arm a failed job without its normal enqueue flow. */
+  adminRetryable?: boolean
   schedule?: JobSchedule
   handler: (
     payload: t.infer<ValueSchema>,
