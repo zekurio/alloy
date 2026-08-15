@@ -1,4 +1,4 @@
-export const DE_MESSAGES: Record<string, string> = {
+export const DE_MESSAGES = {
   " (primary)": "(primär)",
   " and {count} {label}": "und {count} {label}",
   ". Do you want to show their profile anyway?":
@@ -1532,4 +1532,4 @@ export const DE_MESSAGES: Record<string, string> = {
     "Dies ersetzt dein aktuelles eigenes CSS. Du kannst es danach bearbeiten.",
   "CSS written by someone else can load remote resources and change or overlay any part of the interface. Only apply themes from people you trust.":
     "CSS von anderen kann externe Ressourcen laden und jeden Teil der Oberfläche verändern oder überlagern. Wende nur Themes von Personen an, denen du vertraust.",
-}
+} satisfies Record<string, string>

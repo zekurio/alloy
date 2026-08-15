@@ -24,7 +24,7 @@ function makeClient(): QueryClient {
 }
 
 export function getQueryClient(): QueryClient {
-  if (typeof window === "undefined") {
+  if (!globalThis.window) {
     // Server render — new client per request.
     return makeClient()
   }

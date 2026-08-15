@@ -26,10 +26,7 @@ export function useActiveVideoPlayer({
   clearChromeHideTimer,
   enableHorizontalSeekShortcuts,
   keyCommand,
-}: ActiveVideoPlayerOptions): {
-  activatePlayer: () => void
-  focusPlayerContainer: () => void
-} {
+}: ActiveVideoPlayerOptions) {
   const playerId = useId()
 
   const activatePlayer = useCallback(() => {

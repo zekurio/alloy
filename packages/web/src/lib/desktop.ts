@@ -22,6 +22,8 @@ export type {
 
 export function alloyDesktop(): AlloyDesktop | null {
   // Injected by the desktop preload; unexpressible on `typeof globalThis`.
+  // SAFETY: The preload is the only writer of this optional global and uses
+  // the shared AlloyDesktop bridge contract.
   const host = globalThis as { alloyDesktop?: AlloyDesktop }
   return host.alloyDesktop ?? null
 }
@@ -62,6 +64,8 @@ export function onLibraryCapturesChanged(
   listener: (detail: LibraryCapturesChangedDetail) => void,
 ): () => void {
   const handle = (event: Event) => {
+    // SAFETY: This listener only handles the named CustomEvent created above,
+    // whose detail is LibraryCapturesChangedDetail.
     listener(
       event instanceof CustomEvent
         ? (event.detail as LibraryCapturesChangedDetail)

@@ -22,6 +22,7 @@ import {
 import { Skeleton } from "@alloy/ui/components/skeleton"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { useIsMobile } from "@alloy/ui/hooks/use-mobile"
+import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router"
@@ -36,7 +37,7 @@ import {
   UserPlusIcon,
   type LucideIcon,
 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { EmptyState } from "@/components/feedback/empty-state"
 import { bottomLeftAppCornerAnchor } from "@/components/layout/corner-anchors"
@@ -156,14 +157,12 @@ function NotificationPopover({
         side={variant === "sidebar" ? "top" : "bottom"}
         sideOffset={variant === "sidebar" ? 0 : 4}
         className="alloy-blur w-[22rem] max-w-[calc(100vw-1rem)] gap-0 overflow-hidden border p-0 ring-0"
-        style={
-          {
-            "--alloy-blur-opacity": "90%",
-            "--alloy-blur-blur": "28px",
-            "--alloy-blur-shadow":
-              "0 24px 60px -28px var(--floating-shadow-strong-color)",
-          } as CSSProperties
-        }
+        style={cssVariables({
+          "--alloy-blur-opacity": "90%",
+          "--alloy-blur-blur": "28px",
+          "--alloy-blur-shadow":
+            "0 24px 60px -28px var(--floating-shadow-strong-color)",
+        })}
       >
         <NotificationHeader
           layout="popover"
@@ -299,7 +298,7 @@ function NotificationContent({
   const removeNotification = useRemoveNotificationMutation()
   const navigate = useNavigate()
   const [permission, setPermission] = useState(() =>
-    typeof Notification === "undefined" ? "denied" : Notification.permission,
+    globalThis.Notification ? Notification.permission : "denied",
   )
   const sentinelRef = useInfiniteScrollSentinel(
     listQuery.fetchNextPage,
@@ -309,7 +308,7 @@ function NotificationContent({
   const items = listQuery.data?.pages.flatMap((page) => page.items) ?? []
   const sections = useMemo(() => groupNotificationsByRecency(items), [items])
   const enableBrowserNotifications = async () => {
-    if (typeof Notification === "undefined") return
+    if (!globalThis.Notification) return
     setPermission(await Notification.requestPermission())
   }
   return (
@@ -394,7 +393,7 @@ function NotificationContent({
   )
 }
 
-const KIND_ICONS: Record<NotificationItem["kind"], LucideIcon> = {
+const KIND_ICONS = {
   follow: UserPlusIcon,
   clip_like: HeartIcon,
   comment_like: HeartIcon,
@@ -402,11 +401,11 @@ const KIND_ICONS: Record<NotificationItem["kind"], LucideIcon> = {
   comment_reply: MessageSquareIcon,
   clip_mention: AtSignIcon,
   comment_mention: AtSignIcon,
-}
+} satisfies Record<NotificationItem["kind"], LucideIcon>
 
 // Hearts reuse the app's liked-heart red; mentions and follows carry the
 // accent since they address the viewer directly; comments stay neutral.
-const KIND_BADGE_CLASSES: Record<NotificationItem["kind"], string> = {
+const KIND_BADGE_CLASSES = {
   follow: "bg-accent text-accent-foreground",
   clip_like: "bg-red-500 text-white",
   comment_like: "bg-red-500 text-white",
@@ -414,7 +413,7 @@ const KIND_BADGE_CLASSES: Record<NotificationItem["kind"], string> = {
   comment_reply: "bg-neutral-300 text-foreground",
   clip_mention: "bg-accent text-accent-foreground",
   comment_mention: "bg-accent text-accent-foreground",
-}
+} satisfies Record<NotificationItem["kind"], string>
 
 function NotificationRow({
   item,

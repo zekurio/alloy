@@ -11,7 +11,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@alloy/ui/components/tooltip"
-import { cn } from "@alloy/ui/lib/utils"
+import { cn, sliderValue } from "@alloy/ui/lib/utils"
 import { useMemo, useState } from "react"
 
 import { AuthPageFrame } from "@/components/auth/auth-page-frame"
@@ -65,10 +65,6 @@ function AuthPreviewContent({
       )}
     </AuthPageFrame>
   )
-}
-
-function sliderValue(value: number | readonly number[]): number {
-  return typeof value === "number" ? value : (value[0] ?? 0)
 }
 
 function BackdropTreatmentControls({

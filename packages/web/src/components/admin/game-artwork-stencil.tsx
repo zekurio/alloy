@@ -35,11 +35,12 @@ export type GameArtworkSlot = {
  * missing on purpose: it is a transparent wordmark of any aspect, which the
  * server fits rather than crops, so it uploads untouched.
  */
-const ROLE_CROP_MODE: Partial<Record<GameAssetRole, CropMode>> = {
+const ROLE_CROP_MODE = {
   hero: "gameHero",
   grid: "gameGrid",
   icon: "gameIcon",
-}
+  logo: null,
+} satisfies Record<GameAssetRole, CropMode | null>
 
 /**
  * The artwork picker drawn as a miniature of the real game page: the hero

@@ -1,6 +1,7 @@
 import type { ClipFeedSort } from "@alloy/api"
 
 import { DEFAULT_CLIP_SORT, parseClipSort } from "./clip-sort"
+import { searchString } from "./route-search"
 
 export type GameSearch = {
   sort?: ClipFeedSort
@@ -8,16 +9,18 @@ export type GameSearch = {
   creator?: string
 }
 
-export function parseGameSearch(search: Record<string, unknown>): GameSearch {
+interface GameSearchInput {
+  sort?: unknown
+  creator?: unknown
+}
+
+export function parseGameSearch(search: GameSearchInput): GameSearch {
   const sort = parseClipSort(search.sort)
-  const creator =
-    typeof search.creator === "string" && search.creator.length > 0
-      ? search.creator
-      : undefined
-  return {
-    ...(sort ? { sort } : {}),
-    ...(creator ? { creator } : {}),
-  }
+  const creator = searchString(search.creator)
+  const parsed: GameSearch = {}
+  if (sort) parsed.sort = sort
+  if (creator) parsed.creator = creator
+  return parsed
 }
 
 export function gameClipsSort(search: GameSearch): ClipFeedSort {

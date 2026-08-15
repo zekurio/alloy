@@ -49,7 +49,7 @@ let sharedContext: CanvasRenderingContext2D | null | undefined
 
 function measurementContext(): CanvasRenderingContext2D | null {
   if (sharedContext !== undefined) return sharedContext
-  if (typeof document === "undefined") return (sharedContext = null)
+  if (!globalThis.document) return (sharedContext = null)
   sharedContext = document.createElement("canvas").getContext("2d")
   return sharedContext
 }

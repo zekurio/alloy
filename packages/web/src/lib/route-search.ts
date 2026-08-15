@@ -1,13 +1,19 @@
-export function searchString(value: unknown): string | undefined {
-  if (typeof value !== "string") return undefined
-  const trimmed = value.trim()
+import { t } from "@alloy/contracts/schema"
+
+const SearchStringSchema = t.string()
+
+export function searchString(cause: unknown): string | undefined {
+  const result = SearchStringSchema.safeParse(cause)
+  if (!result.success) return undefined
+  const trimmed = result.data.trim()
   return trimmed.length > 0 ? trimmed : undefined
 }
 
 export function searchEnum<T extends string>(
-  value: unknown,
+  cause: unknown,
   allowed: readonly T[],
 ): T | undefined {
-  if (typeof value !== "string") return undefined
-  return allowed.includes(value as T) ? (value as T) : undefined
+  const result = SearchStringSchema.safeParse(cause)
+  if (!result.success) return undefined
+  return allowed.find((candidate) => candidate === result.data)
 }

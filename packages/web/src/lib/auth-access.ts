@@ -5,6 +5,7 @@ import type { Session } from "./session-suspense"
 type AuthRouteTarget = "/setup" | "/login" | null
 
 export function isAdmin(session: Session | null): boolean {
+  // SAFETY: The auth API includes the optional role field on session users.
   return (session?.user as { role?: string } | undefined)?.role === "admin"
 }
 

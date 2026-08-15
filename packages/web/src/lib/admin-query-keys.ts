@@ -53,11 +53,13 @@ export function adminFailedJobsQueryOptions(
 ) {
   return infiniteQueryOptions({
     queryKey: adminKeys.jobsFailed(kind),
-    queryFn: ({ pageParam }) =>
-      api.admin.fetchFailedJobs({
-        ...(kind ? { kind } : {}),
-        ...(pageParam ? { cursor: pageParam } : {}),
-      }),
+    queryFn: ({ pageParam }) => {
+      const filters: Parameters<typeof api.admin.fetchFailedJobs>[0] = {}
+      if (kind) filters.kind = kind
+      if (pageParam) filters.cursor = pageParam
+      return api.admin.fetchFailedJobs(filters)
+    },
+    // SAFETY: The API cursor domain is string or null; null is its first page.
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     refetchInterval: jobsActive
@@ -91,6 +93,7 @@ export function adminUsersQueryOptions(search = "") {
       api.admin.fetchUsers(
         pageParam ? { cursor: pageParam, search } : { search },
       ),
+    // SAFETY: The API cursor domain is string or null; null is its first page.
     initialPageParam: null as string | null,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
   })

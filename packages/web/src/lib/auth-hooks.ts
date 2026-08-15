@@ -18,10 +18,7 @@ export function useRequireAuth(): Session | null {
   return allowed ? session : null
 }
 
-export function useBrowseAuthGate(): {
-  allowed: boolean
-  session: Session | null
-} {
+export function useBrowseAuthGate() {
   const session = useSuspenseSession()
   const config = useSuspenseAuthConfig()
   const navigate = useNavigate()

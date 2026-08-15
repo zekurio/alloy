@@ -24,14 +24,12 @@ const avatarBadgeSizeClasses = [
 
 function getAvatarImageKey(children: ReactNode): string {
   return Children.toArray(children).reduce<string>((imageKey, child) => {
-    if (!isValidElement<{ children?: ReactNode; src?: unknown }>(child)) {
+    if (!isValidElement<{ children?: ReactNode; src?: string }>(child)) {
       return imageKey
     }
 
     if (child.type === AvatarImage) {
-      return typeof child.props.src === "string" && child.props.src
-        ? child.props.src
-        : "fallback"
+      return child.props.src || "fallback"
     }
 
     if (child.props.children === undefined) return imageKey

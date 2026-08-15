@@ -9,8 +9,8 @@ import { useEffect, useRef } from "react"
  * Latest values are tracked through refs so the observer is created once and
  * never re-subscribes as query state changes.
  */
-export function useInfiniteScrollSentinel(
-  fetchNextPage: () => Promise<unknown>,
+export function useInfiniteScrollSentinel<Result>(
+  fetchNextPage: () => Promise<Result>,
   hasNextPage: boolean,
   isFetchingNextPage: boolean,
 ) {
@@ -24,7 +24,7 @@ export function useInfiniteScrollSentinel(
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   useEffect(() => {
     const el = sentinelRef.current
-    if (!el || typeof IntersectionObserver === "undefined") return
+    if (!el || !globalThis.IntersectionObserver) return
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]

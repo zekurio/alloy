@@ -7,7 +7,10 @@ import type {
 import { CLIP_AUDIO_TRACKS_MAX } from "@alloy/contracts/content"
 import { isClipAudioTrackKind } from "@alloy/contracts/desktop-recording-types"
 
-import { prepareSelectedClipFile } from "@/components/upload/new-clip-helpers"
+import {
+  prepareSelectedClipFile,
+  type PublishPayload,
+} from "@/components/upload/new-clip-helpers"
 import type {
   PublishClipFn,
   PublishClipResult,
@@ -37,8 +40,8 @@ type CapturePublishInput = {
 }
 
 function acceptedContentType(value: string): AcceptedContentType {
-  if (ACCEPTED_EXPORT_TYPES.has(value as AcceptedContentType)) {
-    return value as AcceptedContentType
+  for (const accepted of ACCEPTED_EXPORT_TYPES) {
+    if (accepted === value) return accepted
   }
   throw new Error("Exported clip type is not supported for upload.")
 }
@@ -100,7 +103,7 @@ async function prepareCapturePublishPayload(
     })
     .slice(0, CLIP_AUDIO_TRACKS_MAX)
 
-  return {
+  const payload: PublishPayload = {
     file: selected.file,
     contentType: selected.contentType,
     title: input.title,
@@ -112,23 +115,22 @@ async function prepareCapturePublishPayload(
     height: selected.height,
     durationMs: selected.durationMs,
     sizeBytes: selected.sizeBytes,
-    ...(scrubber ? { scrubber } : {}),
-    ...(audioTracks && audioTracks.length > 0 ? { audioTracks } : {}),
     mentionedUserIds: input.mentions.map((mention) => mention.id),
     localCaptureId: input.item.id,
     // Exports report the keyframe-snap offset; sending the exact
     // file-relative range lets the server cut the requested frames out of
     // the slightly longer packet-copy file. Full-range publishes send none.
     // Rounded at this boundary because the initiate schema requires integers.
-    ...(input.trimmed
-      ? {
-          trimStartMs: Math.round(exported.startOffsetMs),
-          trimEndMs: Math.round(
-            exported.startOffsetMs + input.trim.endMs - input.trim.startMs,
-          ),
-        }
-      : {}),
   }
+  if (scrubber) payload.scrubber = scrubber
+  if (audioTracks && audioTracks.length > 0) payload.audioTracks = audioTracks
+  if (input.trimmed) {
+    payload.trimStartMs = Math.round(exported.startOffsetMs)
+    payload.trimEndMs = Math.round(
+      exported.startOffsetMs + input.trim.endMs - input.trim.startMs,
+    )
+  }
+  return payload
 }
 
 function estimatedExportSizeBytes(

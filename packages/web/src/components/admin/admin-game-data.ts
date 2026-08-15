@@ -12,22 +12,19 @@ export const GAME_ASSET_ROLES: GameAssetRole[] = [
   "icon",
 ]
 
-export const GAME_ASSET_FIELDS: Record<
-  GameAssetRole,
-  { label: string; description: string }
-> = {
+export const GAME_ASSET_FIELDS = {
   grid: { label: t("Cover"), description: t("Vertical box art") },
   hero: { label: t("Banner"), description: t("Wide page header") },
   logo: { label: t("Logo"), description: t("Transparent wordmark") },
   icon: { label: t("Icon"), description: t("Square app tile") },
-}
+} satisfies Record<GameAssetRole, { label: string; description: string }>
 
-export const GAME_ASSET_URL: Record<GameAssetRole, keyof AdminGameRow> = {
+export const GAME_ASSET_URL = {
   grid: "gridUrl",
   hero: "heroUrl",
   logo: "logoUrl",
   icon: "iconUrl",
-}
+} satisfies Record<GameAssetRole, keyof AdminGameRow>
 
 export function setAdminGameCacheRow(
   queryClient: QueryClient,
