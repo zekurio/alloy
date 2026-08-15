@@ -347,6 +347,7 @@ export {
   ADMIN_SWEEP_KINDS,
   AdminFailedJobSchema,
   AdminFailedJobsPageSchema,
+  AdminJobEnqueueResponseSchema,
   AdminJobOperationsSchema,
   AdminJobQueueRowSchema,
   AdminJobsSummarySchema,
@@ -356,6 +357,7 @@ export {
 export type {
   AdminFailedJob,
   AdminFailedJobsPage,
+  AdminJobEnqueueResponse,
   AdminJobOperations,
   AdminJobQueueRow,
   AdminJobsSummary,

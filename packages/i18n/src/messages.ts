@@ -1274,7 +1274,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Apply transcoding changes": "Transkodierungsänderungen anwenden",
   "Background jobs": "Hintergrundjobs",
   "Clean orphaned storage": "Verwaiste Speicherdaten bereinigen",
-  "Clean orphaned storage?": "Verwaiste Speicherdaten bereinigen?",
   "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match; you can also trigger a sweep from the Jobs panel.":
     "Änderungen gelten für neue Uploads. Vorhandene Clips werden automatisch neu kodiert, wenn ihre Renditionen nicht mehr passen; du kannst einen Durchlauf auch im Jobs-Bereich auslösen.",
   Completed: "Abgeschlossen",
@@ -1283,8 +1282,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Couldn't discard job": "Job konnte nicht verworfen werden",
   "Couldn't retry job": "Job konnte nicht erneut versucht werden",
   "Couldn't start job": "Job konnte nicht gestartet werden",
-  "Delete old clip objects that are no longer referenced by the database.":
-    "Lösche alte Clip-Objekte, auf die die Datenbank nicht mehr verweist.",
+  "Delete failures": "Fehlgeschlagene Löschungen",
+  "Delete objects": "Objekte löschen",
+  "Delete previewed objects": "Vorgeprüfte Objekte löschen",
+  "Delete previewed objects?": "Vorgeprüfte Objekte löschen?",
   "Deleted orphan objects": "Gelöschte verwaiste Objekte",
   "Deleted stale assets": "Gelöschte veraltete Assets",
   "Discard job": "Job verwerfen",
@@ -1302,7 +1303,13 @@ export const DE_MESSAGES: Record<string, string> = {
   Mode: "Modus",
   "No completed run yet": "Noch kein abgeschlossener Lauf",
   Operations: "Aktionen",
+  "Orphan candidates": "Verwaiste Kandidaten",
   Pending: "Ausstehend",
+  "Preview cleanup": "Bereinigung prüfen",
+  "Preview from {time}: {count} objects are candidates for deletion.":
+    "Vorschau von {time}: {count} Objekte können gelöscht werden.",
+  "Preview old clip objects that are no longer referenced, then confirm their deletion.":
+    "Prüfe alte Clip-Objekte ohne Datenbankverweis und bestätige danach ihre Löschung.",
   "Prune auth challenges": "Anmeldeanfragen bereinigen",
   "Prune job history": "Jobverlauf bereinigen",
   "Prune notifications": "Benachrichtigungen bereinigen",
@@ -1321,13 +1328,13 @@ export const DE_MESSAGES: Record<string, string> = {
   "Routine maintenance": "Regelmäßige Wartung",
   Running: "Läuft",
   Scanned: "Geprüft",
-  "Start cleanup": "Bereinigung starten",
+  "Stale asset candidates": "Veraltete Asset-Kandidaten",
   "Start maintenance work and review its last completed run.":
     "Starte Wartungsarbeiten und prüfe den letzten abgeschlossenen Lauf.",
   "Storage and delivery": "Speicher und Zustellung",
   "Storage cleanup": "Speicherbereinigung",
-  "This permanently deletes old clip objects that are not referenced by Alloy. This action cannot be undone.":
-    "Dies löscht alte Clip-Objekte dauerhaft, auf die Alloy nicht mehr verweist. Diese Aktion kann nicht rückgängig gemacht werden.",
+  "This permanently deletes the objects from this preview. Alloy checks each object again before deletion. This action cannot be undone.":
+    "Dies löscht die Objekte aus dieser Vorschau dauerhaft. Alloy prüft jedes Objekt vor dem Löschen erneut. Diese Aktion kann nicht rückgängig gemacht werden.",
   "Unprobed or invalid": "Nicht geprüft oder ungültig",
   "Up to date": "Aktuell",
   "Clean up uploads": "Uploads bereinigen",

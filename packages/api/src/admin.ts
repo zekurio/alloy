@@ -25,9 +25,11 @@ import {
   updateTranscodingConfig,
 } from "./admin-config"
 import {
+  confirmStorageCleanup,
   discardJob,
   fetchFailedJobs,
   fetchJobsSummary,
+  previewStorageCleanup,
   reEncodeAllClips,
   retryJob,
   runJobSweep,
@@ -64,6 +66,7 @@ export type {
   AdminCreateGameInput,
   AdminFailedJob,
   AdminFailedJobsPage,
+  AdminJobEnqueueResponse,
   AdminGameRow,
   AdminIntegrationsConfig,
   AdminJobOperations,
@@ -130,6 +133,9 @@ export function createAdminApi(context: ApiContext) {
     discardJob: (jobId: string) => discardJob(context, jobId),
     runJobSweep: (kind: AdminSweepKind, mode?: "stale" | "force") =>
       runJobSweep(context, kind, mode),
+    previewStorageCleanup: () => previewStorageCleanup(context),
+    confirmStorageCleanup: (previewJobId: string) =>
+      confirmStorageCleanup(context, previewJobId),
     fetchUsers: (options?: {
       cursor?: string
       limit?: number

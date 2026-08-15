@@ -1,5 +1,13 @@
+import { AdminStorageGcSummarySchema } from "@alloy/contracts"
 import { CLIP_AUDIO_TRACKS_MAX } from "@alloy/contracts/content"
-import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
+import { safeParse, t } from "@alloy/contracts/schema"
+import {
+  clip,
+  clipAudioTrack,
+  clipRendition,
+  instanceSetting,
+  job,
+} from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { clipScrubberKey } from "@alloy/server/clips/scrubber"
 import { db } from "@alloy/server/db/index"
@@ -9,11 +17,10 @@ import {
   type StorageDriver,
 } from "@alloy/server/storage/driver"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
-import { inArray } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 
-import { EmptyPayloadSchema } from "../payloads"
 import { defineJobKind, type JobHandlerContext } from "../registry"
-import { enqueue, type EnqueueOptions } from "../store"
+import { enqueue, type EnqueueOptions, wakeQueueForKind } from "../store"
 import { writeStorageMaintenanceSummary } from "./storage-maintenance-summary"
 
 const logger = createLogger("jobs")
@@ -23,16 +30,41 @@ const PAGE_SIZE = 500
 // in-flight runs' freshly uploaded objects are never collected.
 const ORPHAN_SAFETY_MARGIN_MS = 48 * 60 * 60 * 1000
 const STORAGE_GC_SUMMARY_KEY = "storageGc"
+const STORAGE_GC_CONFIRMATION_KEY = "storageGcConfirmation"
 const AUDIO_TRACK_ASSET_RE = new RegExp(
   `^audio-[0-${CLIP_AUDIO_TRACKS_MAX - 1}]-[0-9a-f]{12}\\.m4a$`,
   "i",
 )
 
+const StorageOrphanGcPayloadSchema = t.union([
+  t.object({ mode: t.enum(["preview"]) }).strict(),
+  t
+    .object({
+      mode: t.enum(["delete"]),
+      previewJobId: t.string().uuid(),
+      cutoffAt: t.string().datetime({ offset: true }),
+    })
+    .strict(),
+])
+const StorageGcConfirmationSchema = t.object({
+  previewJobId: t.string().uuid(),
+  jobId: t.string().uuid(),
+})
+
+type StorageOrphanGcPayload = t.infer<typeof StorageOrphanGcPayloadSchema>
+
 interface StorageGcSummary {
-  finishedAt: Date
+  jobId: string
+  previewJobId: string
+  mode: StorageOrphanGcPayload["mode"]
+  finishedAt: string
+  cutoffAt: string
   scanned: number
+  orphanCandidates: number
+  staleAssetCandidates: number
   deletedOrphanObjects: number
   deletedStaleAssets: number
+  deleteFailures: number
 }
 
 interface ParsedStorageKey {
@@ -57,35 +89,159 @@ interface GcClipRow {
 defineJobKind({
   kind: STORAGE_ORPHAN_GC_KIND,
   queue: "io",
-  schema: EmptyPayloadSchema,
+  schema: StorageOrphanGcPayloadSchema,
   defaultPriority: 80,
   retry: { maxAttempts: 1, backoffMs: 60_000 },
   handler: runStorageOrphanGc,
 })
 
-export function enqueueStorageOrphanGc(
+export function enqueueStorageOrphanGcPreview(
   options: Pick<EnqueueOptions, "runAt"> = {},
+): Promise<string | null> {
+  return enqueueModeSafePreview(options)
+}
+
+async function enqueueModeSafePreview(
+  options: Pick<EnqueueOptions, "runAt">,
+): Promise<string | null> {
+  const dedupKey = `${STORAGE_ORPHAN_GC_KIND}:preview`
+  const result = await db.transaction(async (tx) => {
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${STORAGE_ORPHAN_GC_KIND}), hashtext(${dedupKey}))`,
+    )
+    await tx
+      .select({ key: instanceSetting.key })
+      .from(instanceSetting)
+      .where(eq(instanceSetting.key, STORAGE_GC_SUMMARY_KEY))
+      .for("update")
+    const liveJobs = await tx
+      .select({ id: job.id, dedupKey: job.dedup_key })
+      .from(job)
+      .where(
+        and(
+          eq(job.kind, STORAGE_ORPHAN_GC_KIND),
+          inArray(job.status, ["pending", "running"]),
+        ),
+      )
+    if (liveJobs.some((liveJob) => liveJob.dedupKey !== dedupKey)) return null
+    const existingPreview = liveJobs[0]
+    if (existingPreview) {
+      return { jobId: existingPreview.id, enqueued: false }
+    }
+    return {
+      jobId: await enqueue(
+        STORAGE_ORPHAN_GC_KIND,
+        { mode: "preview" },
+        {
+          dedupKey,
+          priority: 80,
+          runAt: options.runAt,
+          tx,
+        },
+      ),
+      enqueued: true,
+    }
+  })
+  if (!result) return null
+  if (result.enqueued) wakeQueueForKind(STORAGE_ORPHAN_GC_KIND)
+  return result.jobId
+}
+
+function enqueueStorageOrphanGcDelete(
+  previewJobId: string,
+  cutoffAt: string,
+  options: Pick<EnqueueOptions, "runAt" | "tx"> = {},
 ): Promise<string> {
   return enqueue(
     STORAGE_ORPHAN_GC_KIND,
-    {},
+    { mode: "delete", previewJobId, cutoffAt },
     {
-      dedupKey: STORAGE_ORPHAN_GC_KIND,
+      dedupKey: `${STORAGE_ORPHAN_GC_KIND}:delete:${previewJobId}`,
       priority: 80,
       runAt: options.runAt,
+      tx: options.tx,
     },
   )
 }
 
+export async function confirmStorageOrphanGcPreview(
+  previewJobId: string,
+): Promise<string | null> {
+  const result = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ value: instanceSetting.value })
+      .from(instanceSetting)
+      .where(eq(instanceSetting.key, STORAGE_GC_SUMMARY_KEY))
+      .for("update")
+    const parsed = safeParse(AdminStorageGcSummarySchema, row?.value)
+    if (!parsed.success) return null
+    if (parsed.data.mode === "delete") return null
+    if (parsed.data.previewJobId !== previewJobId) return null
+
+    const [livePreview] = await tx
+      .select({ id: job.id })
+      .from(job)
+      .where(
+        and(
+          eq(job.kind, STORAGE_ORPHAN_GC_KIND),
+          eq(job.dedup_key, `${STORAGE_ORPHAN_GC_KIND}:preview`),
+          inArray(job.status, ["pending", "running"]),
+        ),
+      )
+      .limit(1)
+    if (livePreview) return null
+
+    const [confirmationRow] = await tx
+      .select({ value: instanceSetting.value })
+      .from(instanceSetting)
+      .where(eq(instanceSetting.key, STORAGE_GC_CONFIRMATION_KEY))
+    const confirmation = safeParse(
+      StorageGcConfirmationSchema,
+      confirmationRow?.value,
+    )
+    if (
+      confirmation.success &&
+      confirmation.data.previewJobId === previewJobId
+    ) {
+      return { jobId: confirmation.data.jobId, enqueued: false }
+    }
+
+    const jobId = await enqueueStorageOrphanGcDelete(
+      previewJobId,
+      parsed.data.cutoffAt,
+      { runAt: new Date(), tx },
+    )
+    await writeStorageMaintenanceSummary(
+      STORAGE_GC_CONFIRMATION_KEY,
+      { previewJobId, jobId },
+      tx,
+    )
+    return { jobId, enqueued: true }
+  })
+  if (result?.enqueued) wakeQueueForKind(STORAGE_ORPHAN_GC_KIND)
+  return result?.jobId ?? null
+}
+
 async function runStorageOrphanGc(
-  _payload: object,
+  payload: StorageOrphanGcPayload,
   ctx: JobHandlerContext,
 ): Promise<void> {
+  const cutoffAt =
+    payload.mode === "preview"
+      ? new Date(Date.now() - ORPHAN_SAFETY_MARGIN_MS).toISOString()
+      : payload.cutoffAt
   const summary: StorageGcSummary = {
-    finishedAt: new Date(),
+    jobId: ctx.jobId,
+    previewJobId: payload.mode === "preview" ? ctx.jobId : payload.previewJobId,
+    mode: payload.mode,
+    finishedAt: new Date().toISOString(),
+    cutoffAt,
     scanned: 0,
+    orphanCandidates: 0,
+    staleAssetCandidates: 0,
     deletedOrphanObjects: 0,
     deletedStaleAssets: 0,
+    deleteFailures: 0,
   }
   let page: GcEntry[] = []
 
@@ -102,10 +258,10 @@ async function runStorageOrphanGc(
   }
   if (ctx.signal.aborted) return
 
-  summary.finishedAt = new Date()
+  summary.finishedAt = new Date().toISOString()
   await writeStorageMaintenanceSummary(STORAGE_GC_SUMMARY_KEY, summary)
   logger.info(
-    `storage orphan gc complete: scanned=${summary.scanned} deletedOrphanObjects=${summary.deletedOrphanObjects} deletedStaleAssets=${summary.deletedStaleAssets}`,
+    `storage orphan gc ${summary.mode} complete: scanned=${summary.scanned} orphanCandidates=${summary.orphanCandidates} staleAssetCandidates=${summary.staleAssetCandidates} deletedOrphanObjects=${summary.deletedOrphanObjects} deletedStaleAssets=${summary.deletedStaleAssets} deleteFailures=${summary.deleteFailures}`,
   )
 }
 
@@ -127,6 +283,10 @@ async function processGcPage(
   summary: StorageGcSummary,
   signal: AbortSignal,
 ): Promise<void> {
+  if (summary.mode === "delete") {
+    await processDeletePage(page, summary, signal)
+    return
+  }
   const parsed = page.map((entry) => ({
     entry,
     parsed: parseClipStorageKey(entry.key),
@@ -140,7 +300,7 @@ async function processGcPage(
   ]
   const rows = await selectGcClipRows(clipIds)
   const liveKeys = await selectLiveKeys(clipIds, rows)
-  const cutoff = Date.now() - ORPHAN_SAFETY_MARGIN_MS
+  const cutoff = new Date(summary.cutoffAt).getTime()
 
   for (const item of parsed) {
     if (signal.aborted) return
@@ -149,8 +309,7 @@ async function processGcPage(
     if (!olderThan(item.entry.lastModified, cutoff)) continue
     const row = rows.get(item.parsed.clipId)
     if (!row) {
-      await item.entry.storage.delete(item.entry.key)
-      summary.deletedOrphanObjects += 1
+      summary.orphanCandidates += 1
       continue
     }
     // An active encode lease brackets publish-to-commit. During that window a
@@ -159,9 +318,56 @@ async function processGcPage(
     if (row.encodeRunId !== null) continue
     if (liveKeys.get(row.id)?.has(item.entry.key)) continue
     if (!isRunStampedFilename(item.parsed.filename)) continue
-    await item.entry.storage.delete(item.entry.key)
-    summary.deletedStaleAssets += 1
+    summary.staleAssetCandidates += 1
   }
+}
+
+async function processDeletePage(
+  page: GcEntry[],
+  summary: StorageGcSummary,
+  signal: AbortSignal,
+): Promise<void> {
+  for (const entry of page) {
+    if (signal.aborted) return
+    summary.scanned += 1
+    const candidate = await classifyCurrentEntry(entry, summary.cutoffAt)
+    if (!candidate) continue
+    if (candidate === "orphan") summary.orphanCandidates += 1
+    if (candidate === "stale") summary.staleAssetCandidates += 1
+    try {
+      await entry.storage.delete(entry.key)
+      if (candidate === "orphan") {
+        summary.deletedOrphanObjects += 1
+        continue
+      }
+      summary.deletedStaleAssets += 1
+    } catch (error) {
+      summary.deleteFailures += 1
+      logger.error(`storage orphan gc could not delete ${entry.key}`, error)
+    }
+  }
+}
+
+async function classifyCurrentEntry(
+  entry: GcEntry,
+  cutoffAt: string,
+): Promise<"orphan" | "stale" | null> {
+  const parsed = parseClipStorageKey(entry.key)
+  if (!parsed) return null
+  const resolved = await entry.storage.resolve(entry.key)
+  if (
+    !resolved ||
+    !olderThan(resolved.lastModified, new Date(cutoffAt).getTime())
+  ) {
+    return null
+  }
+  const rows = await selectGcClipRows([parsed.clipId])
+  const row = rows.get(parsed.clipId)
+  if (!row) return "orphan"
+  if (row.encodeRunId !== null) return null
+  const liveKeys = await selectLiveKeys([parsed.clipId], rows)
+  if (liveKeys.get(row.id)?.has(entry.key)) return null
+  return isRunStampedFilename(parsed.filename) ? "stale" : null
 }
 
 async function selectGcClipRows(

@@ -630,6 +630,8 @@ const ADMIN_CATEGORIES = categoryDrafts([
       "re-encode clips",
       "orphaned storage",
       "storage cleanup",
+      "preview cleanup",
+      "confirm deletion",
       "failed jobs",
       "retry",
     ],

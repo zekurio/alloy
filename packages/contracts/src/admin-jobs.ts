@@ -2,13 +2,11 @@ import { JOB_QUEUES, type JobKind, type JobQueue } from "./jobs"
 import { t } from "./schema"
 
 /**
- * Sweep kinds an admin can trigger manually from the jobs dashboard. Only these
- * two have "run now" affordances; every other kind runs on its own schedule
- * or in response to product events.
+ * Sweep kinds an admin can trigger with the generic sweep route. Storage
+ * cleanup uses separate preview and confirm routes.
  */
 export const ADMIN_SWEEP_KINDS = [
   "clip.renditions-sweep",
-  "storage.orphan-gc",
 ] as const satisfies readonly JobKind[]
 export type AdminSweepKind = (typeof ADMIN_SWEEP_KINDS)[number]
 
@@ -41,12 +39,26 @@ export type AdminRenditionSweepSummary = t.infer<
 >
 
 export const AdminStorageGcSummarySchema = t.object({
+  jobId: t.string().uuid(),
+  previewJobId: t.string().uuid(),
+  mode: t.enum(["preview", "delete"]),
   finishedAt: t.string().datetime({ offset: true }),
+  cutoffAt: t.string().datetime({ offset: true }),
   scanned: NonNegativeIntSchema,
+  orphanCandidates: NonNegativeIntSchema,
+  staleAssetCandidates: NonNegativeIntSchema,
   deletedOrphanObjects: NonNegativeIntSchema,
   deletedStaleAssets: NonNegativeIntSchema,
+  deleteFailures: NonNegativeIntSchema,
 })
 export type AdminStorageGcSummary = t.infer<typeof AdminStorageGcSummarySchema>
+
+export const AdminJobEnqueueResponseSchema = t.object({
+  jobId: t.string().uuid(),
+})
+export type AdminJobEnqueueResponse = t.infer<
+  typeof AdminJobEnqueueResponseSchema
+>
 
 export const AdminJobOperationsSchema = t.object({
   renditionSweep: t.object({

@@ -1,11 +1,13 @@
 import type {
   AdminFailedJobsPage,
+  AdminJobEnqueueResponse,
   AdminJobsSummary,
   AdminSweepKind,
 } from "@alloy/contracts"
 
 import type { ApiContext } from "./client"
 import {
+  validateAdminJobEnqueueResponse,
   validateAdminFailedJobsPage,
   validateAdminJobsSummary,
   validateAdminReEncodeResponse,
@@ -71,4 +73,24 @@ export async function runJobSweep(
     json: { mode },
   })
   await readSuccessJson(res)
+}
+
+export async function previewStorageCleanup(
+  context: ApiContext,
+): Promise<AdminJobEnqueueResponse> {
+  const res =
+    await context.rpc.api.admin.jobs.sweeps["storage.orphan-gc"].preview.$post()
+  return readJsonOrThrow(res, validateAdminJobEnqueueResponse)
+}
+
+export async function confirmStorageCleanup(
+  context: ApiContext,
+  previewJobId: string,
+): Promise<AdminJobEnqueueResponse> {
+  const res = await context.rpc.api.admin.jobs.sweeps[
+    "storage.orphan-gc"
+  ].confirm.$post({
+    json: { previewJobId },
+  })
+  return readJsonOrThrow(res, validateAdminJobEnqueueResponse)
 }

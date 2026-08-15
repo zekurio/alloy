@@ -4,13 +4,15 @@ import {
   type AdminFailedJob,
   type AdminJobOperations,
   type AdminJobQueueRow,
-  type AdminSweepKind,
   type JobQueue,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import type { JobStatus } from "@alloy/db/schema"
 import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
-import { enqueueStorageOrphanGc } from "@alloy/server/jobs/kinds/storage-orphan-gc"
+import {
+  confirmStorageOrphanGcPreview,
+  enqueueStorageOrphanGcPreview,
+} from "@alloy/server/jobs/kinds/storage-orphan-gc"
 import { registeredJobKinds } from "@alloy/server/jobs/registry"
 import {
   discardFailed,
@@ -21,6 +23,7 @@ import {
 import { readJobOperationSummaries } from "@alloy/server/jobs/summaries"
 import {
   badRequest,
+  conflict,
   notFound,
   success,
 } from "@alloy/server/runtime/http-response"
@@ -38,6 +41,7 @@ const KindParam = t.object({ kind: t.string().min(1) })
 const SweepBody = t.object({
   mode: t.enum(["stale", "force"]).$default("stale"),
 })
+const StorageGcConfirmBody = t.object({ previewJobId: t.string().uuid() })
 const FailedQuery = t.object({
   kind: t.string().min(1).optional(),
   cursor: t.string().optional(),
@@ -99,6 +103,26 @@ export const adminJobsRoute = new Hono()
     }
     return success(c)
   })
+  .post("/jobs/sweeps/storage.orphan-gc/preview", async (c) => {
+    const jobId = await enqueueStorageOrphanGcPreview()
+    if (!jobId) {
+      return conflict(c, "Wait for the current storage cleanup to finish.")
+    }
+    return c.json({ jobId })
+  })
+  .post(
+    "/jobs/sweeps/storage.orphan-gc/confirm",
+    tbValidator("json", StorageGcConfirmBody),
+    async (c) => {
+      const jobId = await confirmStorageOrphanGcPreview(
+        c.req.valid("json").previewJobId,
+      )
+      if (!jobId) {
+        return conflict(c, "Run a new storage cleanup preview.")
+      }
+      return c.json({ jobId })
+    },
+  )
   .post(
     "/jobs/sweeps/:kind",
     tbValidator("param", KindParam),
@@ -106,7 +130,9 @@ export const adminJobsRoute = new Hono()
     async (c) => {
       const kind = c.req.valid("param").kind
       if (!SWEEP_KINDS.has(kind)) return badRequest(c, "Unknown sweep.")
-      await runSweep(kind as AdminSweepKind, c.req.valid("json").mode)
+      await enqueueRenditionsSweep(c.req.valid("json").mode, {
+        runAt: new Date(),
+      })
       return success(c)
     },
   )
@@ -156,17 +182,6 @@ function sumFor(
   return rows
     .filter((row) => row.status === status)
     .reduce((sum, row) => sum + row.count, 0)
-}
-
-function runSweep(
-  kind: AdminSweepKind,
-  mode: "stale" | "force",
-): Promise<string> {
-  const runAt = new Date()
-  if (kind === "clip.renditions-sweep") {
-    return enqueueRenditionsSweep(mode, { runAt })
-  }
-  return enqueueStorageOrphanGc({ runAt })
 }
 
 function decodeFailedCursor(

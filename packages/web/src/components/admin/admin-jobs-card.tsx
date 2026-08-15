@@ -36,7 +36,14 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { ExternalLinkIcon, PlayIcon, RotateCcwIcon, XIcon } from "lucide-react"
+import {
+  ExternalLinkIcon,
+  PlayIcon,
+  RotateCcwIcon,
+  SearchIcon,
+  Trash2Icon,
+  XIcon,
+} from "lucide-react"
 import { type ReactNode, useState } from "react"
 
 import {
@@ -279,13 +286,20 @@ function StorageGcOperation({
 }) {
   const queryClient = useQueryClient()
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const mutation = useMutation({
-    mutationFn: () =>
-      api.admin.runJobSweep("storage.orphan-gc" satisfies AdminSweepKind),
+  const previewMutation = useMutation({
+    mutationFn: () => api.admin.previewStorageCleanup(),
+    onSettled: () => invalidateJobQueries(queryClient),
+  })
+  const previewFeedback = useActionFeedback()
+  const confirmMutation = useMutation({
+    mutationFn: (previewJobId: string) =>
+      api.admin.confirmStorageCleanup(previewJobId),
     onSuccess: () => setConfirmOpen(false),
     onSettled: () => invalidateJobQueries(queryClient),
   })
   const active = operation.pending > 0 || operation.running > 0
+  const preview =
+    operation.summary?.mode === "preview" ? operation.summary : null
 
   return (
     <Card>
@@ -294,7 +308,7 @@ function StorageGcOperation({
           <CardTitle>{t("Clean orphaned storage")}</CardTitle>
           <CardDescription>
             {t(
-              "Delete old clip objects that are no longer referenced by the database.",
+              "Preview old clip objects that are no longer referenced, then confirm their deletion.",
             )}
           </CardDescription>
         </div>
@@ -302,37 +316,73 @@ function StorageGcOperation({
       <CardContent className="flex flex-col gap-4">
         <JobCounts counts={operation} />
         <StorageGcSummary summary={operation.summary} />
-        <Button
+        <FeedbackButton
           type="button"
           variant="outline"
           size="sm"
           className="self-start"
-          disabled={active || mutation.isPending}
-          onClick={() => setConfirmOpen(true)}
+          disabled={active || previewMutation.isPending}
+          state={previewFeedback.feedback.state}
+          pendingLabel={t("Starting...")}
+          successLabel={t("Started")}
+          errorLabel={t("Try again")}
+          onClick={() =>
+            void previewFeedback.run(async () => {
+              await previewMutation.mutateAsync()
+            }, t("Couldn't start job"))
+          }
         >
-          <PlayIcon />
-          {t("Clean orphaned storage")}
-        </Button>
+          <SearchIcon />
+          {t("Preview cleanup")}
+        </FeedbackButton>
+        {preview ? (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="self-start"
+            disabled={active || confirmMutation.isPending}
+            onClick={() => setConfirmOpen(true)}
+          >
+            <Trash2Icon />
+            {t("Delete previewed objects")}
+          </Button>
+        ) : null}
         <ConfirmDeleteDialog
           open={confirmOpen}
           onOpenChange={(open) => {
             setConfirmOpen(open)
-            if (!open) mutation.reset()
+            if (!open) confirmMutation.reset()
           }}
-          title={t("Clean orphaned storage?")}
+          title={t("Delete previewed objects?")}
           description={t(
-            "This permanently deletes old clip objects that are not referenced by Alloy. This action cannot be undone.",
+            "This permanently deletes the objects from this preview. Alloy checks each object again before deletion. This action cannot be undone.",
           )}
-          confirmLabel={t("Start cleanup")}
+          confirmLabel={t("Delete objects")}
           pendingLabel={t("Starting...")}
-          pending={mutation.isPending}
+          pending={confirmMutation.isPending}
           error={
-            mutation.error
-              ? errorMessage(mutation.error, t("Couldn't start job"))
+            confirmMutation.error
+              ? errorMessage(confirmMutation.error, t("Couldn't start job"))
               : undefined
           }
-          onConfirm={() => mutation.mutate()}
-        />
+          onConfirm={() => {
+            if (preview) confirmMutation.mutate(preview.previewJobId)
+          }}
+        >
+          {preview ? (
+            <p className="text-foreground-muted text-sm">
+              {t(
+                "Preview from {time}: {count} objects are candidates for deletion.",
+                {
+                  time: formatDateTime(preview.finishedAt),
+                  count:
+                    preview.orphanCandidates + preview.staleAssetCandidates,
+                },
+              )}
+            </p>
+          ) : null}
+        </ConfirmDeleteDialog>
       </CardContent>
     </Card>
   )
@@ -369,7 +419,19 @@ function StorageGcSummary({
   if (!summary) return <EmptyOperationSummary />
   return (
     <OperationSummary finishedAt={summary.finishedAt}>
+      <SummaryValue
+        label={t("Mode")}
+        value={summary.mode === "preview" ? t("Preview") : t("Delete")}
+      />
       <SummaryValue label={t("Scanned")} value={summary.scanned} />
+      <SummaryValue
+        label={t("Orphan candidates")}
+        value={summary.orphanCandidates}
+      />
+      <SummaryValue
+        label={t("Stale asset candidates")}
+        value={summary.staleAssetCandidates}
+      />
       <SummaryValue
         label={t("Deleted orphan objects")}
         value={summary.deletedOrphanObjects}
@@ -377,6 +439,10 @@ function StorageGcSummary({
       <SummaryValue
         label={t("Deleted stale assets")}
         value={summary.deletedStaleAssets}
+      />
+      <SummaryValue
+        label={t("Delete failures")}
+        value={summary.deleteFailures}
       />
     </OperationSummary>
   )
