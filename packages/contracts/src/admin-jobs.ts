@@ -1,4 +1,4 @@
-import type { JobKind } from "./jobs"
+import { JOB_QUEUES, type JobKind, type JobQueue } from "./jobs"
 import { t } from "./schema"
 
 /**
@@ -14,25 +14,21 @@ export type AdminSweepKind = (typeof ADMIN_SWEEP_KINDS)[number]
 
 const NonNegativeIntSchema = t.number().int().nonnegative()
 
-export const AdminJobKindRowSchema = t.object({
-  kind: t.string(),
-  queue: t.string(),
+const AdminJobCountsSchema = t.object({
   pending: NonNegativeIntSchema,
   running: NonNegativeIntSchema,
   failed: NonNegativeIntSchema,
   completed: NonNegativeIntSchema,
-  paused: t.boolean(),
-  schedule: t
-    .object({
-      everyMs: t.number().int().positive(),
-      nextRunAt: t.string().nullable(),
-    })
-    .optional(),
 })
-export type AdminJobKindRow = t.infer<typeof AdminJobKindRowSchema>
+
+export const AdminJobQueueRowSchema = t.object({
+  queue: t.enum(JOB_QUEUES satisfies readonly JobQueue[]),
+  ...AdminJobCountsSchema.properties,
+})
+export type AdminJobQueueRow = t.infer<typeof AdminJobQueueRowSchema>
 
 export const AdminRenditionSweepSummarySchema = t.object({
-  finishedAt: t.string(),
+  finishedAt: t.string().datetime({ offset: true }),
   mode: t.enum(["stale", "force"]),
   scanned: NonNegativeIntSchema,
   upToDate: NonNegativeIntSchema,
@@ -45,22 +41,28 @@ export type AdminRenditionSweepSummary = t.infer<
 >
 
 export const AdminStorageGcSummarySchema = t.object({
-  finishedAt: t.string(),
+  finishedAt: t.string().datetime({ offset: true }),
   scanned: NonNegativeIntSchema,
   deletedOrphanObjects: NonNegativeIntSchema,
   deletedStaleAssets: NonNegativeIntSchema,
 })
 export type AdminStorageGcSummary = t.infer<typeof AdminStorageGcSummarySchema>
 
-export const AdminJobsSweepsSchema = t.object({
-  renditionSweep: AdminRenditionSweepSummarySchema.nullable(),
-  storageGc: AdminStorageGcSummarySchema.nullable(),
+export const AdminJobOperationsSchema = t.object({
+  renditionSweep: t.object({
+    ...AdminJobCountsSchema.properties,
+    summary: AdminRenditionSweepSummarySchema.nullable(),
+  }),
+  storageGc: t.object({
+    ...AdminJobCountsSchema.properties,
+    summary: AdminStorageGcSummarySchema.nullable(),
+  }),
 })
-export type AdminJobsSweeps = t.infer<typeof AdminJobsSweepsSchema>
+export type AdminJobOperations = t.infer<typeof AdminJobOperationsSchema>
 
 export const AdminJobsSummarySchema = t.object({
-  kinds: t.array(AdminJobKindRowSchema),
-  sweeps: AdminJobsSweepsSchema,
+  queues: t.array(AdminJobQueueRowSchema),
+  operations: AdminJobOperationsSchema,
 })
 export type AdminJobsSummary = t.infer<typeof AdminJobsSummarySchema>
 

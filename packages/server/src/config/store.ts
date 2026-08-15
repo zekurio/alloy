@@ -1,11 +1,9 @@
 import {
   AppearanceConfigSchema,
-  JobsConfigSchema,
   RUNTIME_CONFIG_VERSION,
   TranscodingConfigSchema,
   type AppearanceConfig,
   type AuthConfigLocks,
-  type JobsConfig,
   type OAuthProviderConfig,
   type RuntimeConfig,
   type TranscodingConfig,
@@ -48,9 +46,8 @@ const DEFAULT_APPEARANCE: AppearanceConfig = AppearanceConfigSchema.parse({
   customCss: "",
 })
 const DEFAULT_TRANSCODING: TranscodingConfig = TranscodingConfigSchema.parse({})
-const DEFAULT_JOBS: JobsConfig = JobsConfigSchema.parse({})
 
-type DbOwnedConfigKey = "setupComplete" | "appearance" | "transcoding" | "jobs"
+type DbOwnedConfigKey = "setupComplete" | "appearance" | "transcoding"
 
 let setupSetting = deepFreeze(DEFAULT_SETUP)
 let authSetting = deepFreeze(DEFAULT_AUTH)
@@ -58,7 +55,6 @@ let oauthProvidersSetting: readonly OAuthProviderConfig[] = deepFreeze([])
 let oauthClientSecretsSetting: Readonly<Record<string, string>> = deepFreeze({})
 let appearanceSetting = deepFreeze(DEFAULT_APPEARANCE)
 let transcodingSetting = deepFreeze(DEFAULT_TRANSCODING)
-let jobsSetting = deepFreeze(DEFAULT_JOBS)
 // Built on first read rather than at import: buildRuntimeConfig() reads env,
 // and importing this module must not validate the environment as a side effect.
 let state: Readonly<RuntimeConfig> | null = null
@@ -87,7 +83,6 @@ function buildRuntimeConfig(): RuntimeConfig {
     storage: env.storage,
     appearance: appearanceSetting,
     transcoding: transcodingSetting,
-    jobs: jobsSetting,
   }
 }
 
@@ -235,7 +230,6 @@ export async function initializeConfigStore(): Promise<void> {
     oauthClientSecretsValue,
     appearanceValue,
     transcodingValue,
-    jobsValue,
   ] = await Promise.all([
     readSetting("setup"),
     readSetting("auth"),
@@ -243,7 +237,6 @@ export async function initializeConfigStore(): Promise<void> {
     readSetting("oauthClientSecrets"),
     readSetting("appearance"),
     readSetting("transcoding"),
-    readSetting("jobs"),
   ])
 
   setupSetting = deepFreeze(SetupSettingSchema.parse(setupValue ?? {}))
@@ -260,7 +253,6 @@ export async function initializeConfigStore(): Promise<void> {
   transcodingSetting = deepFreeze(
     TranscodingConfigSchema.parse(transcodingValue ?? DEFAULT_TRANSCODING),
   )
-  jobsSetting = deepFreeze(JobsConfigSchema.parse(jobsValue ?? DEFAULT_JOBS))
   refreshState()
 }
 
@@ -270,8 +262,7 @@ function assertDbOwnedKey(
   if (
     key !== "setupComplete" &&
     key !== "appearance" &&
-    key !== "transcoding" &&
-    key !== "jobs"
+    key !== "transcoding"
   ) {
     throw new Error(
       `Runtime config key "${String(key)}" is declarative and must be set with environment variables or Nix options.`,
@@ -310,14 +301,6 @@ export const configStore: ConfigStore = {
       const nextAppearance = AppearanceConfigSchema.parse(value)
       await writeSetting("appearance", nextAppearance)
       appearanceSetting = deepFreeze(nextAppearance)
-      refreshState()
-      return
-    }
-
-    if (key === "jobs") {
-      const nextJobs = JobsConfigSchema.parse(value)
-      await writeSetting("jobs", nextJobs)
-      jobsSetting = deepFreeze(nextJobs)
       refreshState()
       return
     }

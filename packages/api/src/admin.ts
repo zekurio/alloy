@@ -31,7 +31,6 @@ import {
   reEncodeAllClips,
   retryJob,
   runJobSweep,
-  setJobKindPaused,
 } from "./admin-jobs"
 import type { AdminCreateUserInput } from "./admin-resources"
 import {
@@ -67,9 +66,9 @@ export type {
   AdminFailedJobsPage,
   AdminGameRow,
   AdminIntegrationsConfig,
-  AdminJobKindRow,
+  AdminJobOperations,
+  AdminJobQueueRow,
   AdminJobsSummary,
-  AdminJobsSweeps,
   AdminRenditionSweepSummary,
   AdminStorageGcSummary,
   AdminSweepKind,
@@ -131,8 +130,6 @@ export function createAdminApi(context: ApiContext) {
     discardJob: (jobId: string) => discardJob(context, jobId),
     runJobSweep: (kind: AdminSweepKind, mode?: "stale" | "force") =>
       runJobSweep(context, kind, mode),
-    setJobKindPaused: (kind: string, paused: boolean) =>
-      setJobKindPaused(context, kind, paused),
     fetchUsers: (options?: {
       cursor?: string
       limit?: number

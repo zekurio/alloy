@@ -1,6 +1,5 @@
-import { JOB_QUEUES, type JobQueue } from "@alloy/contracts"
+import type { JobQueue } from "@alloy/contracts"
 import { createLogger, runWithLogContext } from "@alloy/logging"
-import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 
@@ -106,7 +105,10 @@ class JobDispatcher {
     while (this.started && !this.stopping) {
       if (this.activeJobs.size >= this.spec.concurrency) return
       const leaseToken = crypto.randomUUID()
-      const row = await claim(this.claimableKinds(), leaseToken)
+      const row = await claim(
+        registeredKindsForQueue(this.spec.queue),
+        leaseToken,
+      )
       if (!this.started || this.stopping) {
         if (row) await releaseForShutdown(row.id, leaseToken)
         return
@@ -128,13 +130,6 @@ class JobDispatcher {
           logger.error(`${this.spec.queue} job run failed:`, err)
         })
     }
-  }
-
-  private claimableKinds(): string[] {
-    const paused = new Set(configStore.get("jobs").pausedKinds)
-    return registeredKindsForQueue(this.spec.queue).filter(
-      (kind) => !paused.has(kind),
-    )
   }
 
   private async processOne(row: Awaited<ReturnType<typeof claim>>) {
@@ -283,7 +278,6 @@ class JobDispatcher {
 
 const dispatchers = new Map<JobQueue, JobDispatcher>()
 let unsubscribeWake: (() => void) | null = null
-let unsubscribeConfig: (() => void) | null = null
 
 export function startDispatchers(): void {
   if (dispatchers.size > 0) return
@@ -295,17 +289,11 @@ export function startDispatchers(): void {
   unsubscribeWake = subscribeToQueueWake((queue) => {
     dispatchers.get(queue)?.wake()
   })
-  unsubscribeConfig = configStore.subscribe((next, prev) => {
-    if (next.jobs === prev.jobs) return
-    wakeAll()
-  })
 }
 
 export async function stopDispatchers(): Promise<void> {
   unsubscribeWake?.()
   unsubscribeWake = null
-  unsubscribeConfig?.()
-  unsubscribeConfig = null
   await Promise.all(
     [...dispatchers.values()].map((dispatcher) => dispatcher.stop()),
   )
@@ -328,10 +316,6 @@ export async function abortActiveJobByDedup(
     return { jobId: entry.id, runId: entry.runId }
   }
   return null
-}
-
-function wakeAll(): void {
-  for (const queue of JOB_QUEUES) wake(queue)
 }
 
 function activeDedupKey(kind: string, dedupKey: string): string {

@@ -1,10 +1,4 @@
-export {
-  discardFailed,
-  jobCounts,
-  listJobs,
-  nextPendingRunByKind,
-  prune,
-} from "./store-admin"
+export { discardFailed, jobCounts, listJobs, prune } from "./store-admin"
 export { claim, heartbeat } from "./store-claim"
 export { enqueue, hasLiveJob, wakeQueueForKind } from "./store-enqueue"
 export {

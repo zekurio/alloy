@@ -72,18 +72,3 @@ export async function runJobSweep(
   })
   await readSuccessJson(res)
 }
-
-export async function setJobKindPaused(
-  context: ApiContext,
-  kind: string,
-  paused: boolean,
-): Promise<void> {
-  const res = paused
-    ? await context.rpc.api.admin.jobs.kinds[":kind"].pause.$post({
-        param: { kind },
-      })
-    : await context.rpc.api.admin.jobs.kinds[":kind"].resume.$post({
-        param: { kind },
-      })
-  await readSuccessJson(res)
-}
