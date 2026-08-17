@@ -14,7 +14,6 @@ import {
   RouteErrorState,
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
-import { DesktopScrubberGenerator } from "@/components/layout/desktop-scrubber-generator"
 import { HomeHeader } from "@/components/layout/home-header"
 import { HomeSidebar } from "@/components/layout/home-sidebar"
 import { MobileBottomNav } from "@/components/layout/mobile-bottom-nav"
@@ -112,7 +111,6 @@ function AppLayout() {
   return (
     <AppSearchProvider>
       <UploadFlowProvider>
-        <DesktopScrubberGenerator />
         <AppShellContent session={session !== null} />
       </UploadFlowProvider>
       <ClipViewerDialog
