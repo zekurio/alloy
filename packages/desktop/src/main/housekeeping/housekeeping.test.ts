@@ -11,6 +11,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, test } from "node:test"
 
+import {
+  activeHousekeepingPaths,
+  markHousekeepingPathActive,
+  markHousekeepingPathInactive,
+} from "./active-paths"
 import { HousekeepingCoordinator, type HousekeepingTask } from "./core"
 import {
   allowedUserDataRoot,
@@ -89,6 +94,18 @@ test("deduplicates concurrent lane requests", async () => {
 
   await Promise.all([coordinator.runDue(), coordinator.runDue()])
   assert.equal(releases, 1)
+})
+
+test("keeps a path active until every consumer releases it", () => {
+  const path = "/recording-exports/export.mp4"
+  markHousekeepingPathActive("export", path)
+  markHousekeepingPathActive("export", path)
+
+  markHousekeepingPathInactive("export", path)
+  assert.equal(activeHousekeepingPaths("export").has(path), true)
+
+  markHousekeepingPathInactive("export", path)
+  assert.equal(activeHousekeepingPaths("export").has(path), false)
 })
 
 test("rejects roots outside the allowlist and user data", async () => {
