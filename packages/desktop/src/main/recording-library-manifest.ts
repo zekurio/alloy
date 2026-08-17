@@ -86,8 +86,8 @@ export function writeCaptureManifest(manifest: CaptureManifest): void {
 /**
  * Replaces a capture's recorded duration with the measured one. Replay saves
  * report the requested buffer window, which overshoots when the buffer
- * wasn't full yet; downstream seeks (filmstrip, editor) need the real value.
- * Returns true when the manifest changed.
+ * wasn't full yet; downstream editing needs the real value. Returns true
+ * when the manifest changed.
  */
 export function correctCaptureDurationMs(
   filename: string,

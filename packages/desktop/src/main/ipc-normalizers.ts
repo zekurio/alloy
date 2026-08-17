@@ -1,6 +1,5 @@
 import {
   CLIP_PRIVACY,
-  CLIP_SCRUBBER_MAX_BYTES,
   RECORDING_NOTIFICATION_SOUND_EVENTS,
   type RecordingCaptureMention,
   type RecordingLibraryCommitStagedImportRequest,
@@ -92,29 +91,12 @@ const LibraryThumbnailSaveSchema = t.looseObject({
       (data) => data.byteLength > 0 && data.byteLength <= THUMBNAIL_MAX_BYTES,
     ),
 })
-const LibraryScrubberSaveSchema = t.looseObject({
-  id: StrictStringSchema.min(1),
-  data: t
-    .instanceof(Uint8Array)
-    .refine(
-      (data) =>
-        data.byteLength > 0 && data.byteLength <= CLIP_SCRUBBER_MAX_BYTES,
-    ),
-})
 
 export function normalizeLibraryThumbnailSaveRequest(
   id: IpcInput,
   data: IpcInput,
 ): { id: string; data: Uint8Array } | null {
   const result = LibraryThumbnailSaveSchema.safeParse({ id, data })
-  return result.success ? result.data : null
-}
-
-export function normalizeLibraryScrubberSaveRequest(
-  id: IpcInput,
-  data: IpcInput,
-): { id: string; data: Uint8Array } | null {
-  const result = LibraryScrubberSaveSchema.safeParse({ id, data })
   return result.success ? result.data : null
 }
 
