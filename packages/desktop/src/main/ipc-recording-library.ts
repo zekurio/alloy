@@ -8,7 +8,6 @@ import {
   normalizeLibraryDownloadRequest,
   normalizeLibraryExportRequest,
   normalizeLibraryMetaPatch,
-  normalizeLibraryScrubberSaveRequest,
   normalizeLibraryThumbnailSaveRequest,
   normalizeLibraryTrimUpdate,
 } from "./ipc-normalizers"
@@ -130,31 +129,6 @@ export const recordingLibraryBridgeHandlers = {
       const { storeRecordingThumbnail } =
         await import("./recording-library-thumbnails")
       storeRecordingThumbnail(normalized.id, normalized.data)
-    },
-  },
-  "recording.getLibraryCaptureScrubber": {
-    guard: requireMainSender,
-    handle: async (_windows, _event, input: UntrustedInput) => {
-      const id = parseString(input)
-      if (id === null) return null
-      const { readRecordingScrubber } =
-        await import("./recording-library-scrubbers")
-      return readRecordingScrubber(id)
-    },
-  },
-  "recording.saveLibraryCaptureScrubber": {
-    guard: requireMainSender,
-    handle: async (
-      _windows,
-      _event,
-      id: UntrustedInput,
-      data: UntrustedInput,
-    ) => {
-      const normalized = normalizeLibraryScrubberSaveRequest(id, data)
-      if (!normalized) throw new Error("Invalid scrubber save request.")
-      const { storeRecordingScrubber } =
-        await import("./recording-library-scrubbers")
-      storeRecordingScrubber(normalized.id, normalized.data)
     },
   },
   "recording.getLibraryCaptureAudioTrackUrl": {

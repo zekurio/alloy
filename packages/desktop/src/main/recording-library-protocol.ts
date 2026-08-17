@@ -24,7 +24,7 @@ export function recordingLibraryProtocolScheme(): Electron.CustomScheme {
       // Without this, the scheme is missing from Chromium's CORS-enabled
       // scheme list and any cross-origin fetch() from the web app fails
       // outright with "Failed to fetch" — the request never reaches the
-      // handler. Mediabunny-backed filmstrip/poster readers fetch bytes.
+      // handler. Range-based media readers fetch bytes.
       corsEnabled: true,
     },
   }
@@ -116,10 +116,9 @@ function fileBodyStream(
 
 /**
  * Serves a capture file with HTTP Range support. `net.fetch(file://…)`
- * ignores Range headers, so every seek of Chromium's media element and
- * filmstrip samplers would restart a full-file stream — large captures stall
- * and the element eventually gives up with
- * MEDIA_ERR_SRC_NOT_SUPPORTED.
+ * ignores Range headers, so every seek of Chromium's media element would
+ * restart a full-file stream — large captures stall and the element
+ * eventually gives up with MEDIA_ERR_SRC_NOT_SUPPORTED.
  */
 function rangedFileResponse(filename: string, request: Request): Response {
   let size: number

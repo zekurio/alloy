@@ -36,14 +36,14 @@ import { isFiniteNumberValue, isObjectRecord } from "./object"
  * freely, but the JS shape below is consumed by whatever web app version the
  * connected server serves.
  *
- * Shape policy — the bridge is ADDITIVE-ONLY:
- * - Never remove a shipped member or change its signature or semantics.
+ * Shape policy:
+ * - Breaking changes remove members only when the bridge version is bumped.
  * - New members get `since: DESKTOP_BRIDGE_VERSION + 1` and the version
  *   constant is bumped in the same change.
  * - Alloy 1.0 requires the current version before rendering desktop routes;
  *   feature-by-feature compatibility gates are not supported.
  */
-export const DESKTOP_BRIDGE_VERSION = 1
+export const DESKTOP_BRIDGE_VERSION = 2
 
 /** Handshake info exposed as `alloyDesktop.bridge`. */
 export interface AlloyDesktopBridgeInfo {
@@ -111,10 +111,6 @@ export interface AlloyDesktopRecordingApi {
   discardStagedLibraryImport(id: string): Promise<void>
   /** Persists a renderer-decoded JPEG poster for a local video capture. */
   saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
-  /** Returns the persistent renderer-generated JPEG scrubber sprite, if any. */
-  getLibraryCaptureScrubber(id: string): Promise<Uint8Array | null>
-  /** Persists a renderer-generated JPEG scrubber sprite for a local capture. */
-  saveLibraryCaptureScrubber(id: string, data: Uint8Array): Promise<void>
   /**
    * Fetchable `alloy-capture://` URL for one audio track of a local
    * multi-track capture, extracting the capture's stems to a local cache on
@@ -232,8 +228,6 @@ export const DESKTOP_BRIDGE = {
     commitStagedLibraryImport: { since: 1 },
     discardStagedLibraryImport: { since: 1 },
     saveLibraryCaptureThumbnail: { since: 1 },
-    getLibraryCaptureScrubber: { since: 1 },
-    saveLibraryCaptureScrubber: { since: 1 },
     getLibraryCaptureAudioTrackUrl: { since: 1 },
     downloadClip: { since: 1 },
     cancelClipDownload: { since: 1 },

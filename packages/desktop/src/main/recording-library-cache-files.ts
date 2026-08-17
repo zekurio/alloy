@@ -7,10 +7,10 @@ import {
 } from "./recording-library-shared"
 
 /**
- * The thumbnail and scrubber caches both store one JPEG per capture version,
- * named after the capture's mtime/size signature so editing the file
- * invalidates the old entry. Path derivation and the prune sweep live here so
- * the two caches cannot drift apart.
+ * The thumbnail cache stores one JPEG per capture version, named after the
+ * capture's mtime/size signature so editing the file invalidates the old
+ * entry. Path derivation and the prune sweep live here so cache users cannot
+ * drift apart.
  */
 export function captureCachePath(
   folder: string,
@@ -30,9 +30,9 @@ export function captureCachePath(
 
 /**
  * Drops every cached entry for a capture except the kept ones: `path` keeps
- * exactly one file (thumbnail/scrubber caches), `prefix` keeps every file of
- * the capture's current signature (audio stem cache, one file per track).
- * Pass `{ path: "" }` to clear all of them (the capture itself was deleted).
+ * exactly one file (thumbnail cache), `prefix` keeps every file of the
+ * capture's current signature (audio stem cache, one file per track). Pass
+ * `{ path: "" }` to clear all of them (the capture itself was deleted).
  */
 export function pruneCaptureCache(
   folder: string,
