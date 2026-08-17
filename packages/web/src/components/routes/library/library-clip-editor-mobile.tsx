@@ -322,8 +322,7 @@ function MobileTrimView({
 
       <div className="border-border bg-surface-raised overflow-hidden rounded-lg border">
         <TrimTimeline
-          frames={media.filmstrip.frames}
-          frameAspect={media.filmstrip.aspect}
+          waveform={media.waveform}
           durationMs={playback.durationMs}
           startMs={playback.trim.startMs}
           endMs={playback.trim.endMs}

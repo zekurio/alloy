@@ -39,8 +39,6 @@ export interface PublishPayload {
   height: number
   durationMs: number
   sizeBytes: number
-  /** Optional desktop-generated JPEG scrubber sprite. */
-  scrubber?: Blob
   /**
    * Kept source range in the uploaded file's timeline; the server derives
    * the cut at ingest. Desktop publishes of a trimmed capture send the exact
