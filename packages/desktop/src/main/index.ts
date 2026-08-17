@@ -157,7 +157,7 @@ async function openInitialWindow(windows: Windows): Promise<void> {
     return
   }
 
-  windows.createOverlay()
+  windows.openConnect()
 }
 
 async function showOrOpenInitialWindow(windows: Windows): Promise<void> {
