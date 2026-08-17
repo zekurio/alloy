@@ -154,9 +154,6 @@ export function validateInitiateClipResponse(
     "Invalid initiate clip response: clipId is required",
   )
   validateUploadTicket(response.ticket)
-  if (response.scrubberTicket !== undefined) {
-    validateUploadTicket(response.scrubberTicket)
-  }
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as InitiateClipResponse
 }

@@ -126,10 +126,6 @@ export function clipOriginalFileUrl(clipId: string, origin?: string): string {
   return versionedClipAssetUrl(clipId, "/original/file", origin)
 }
 
-export function clipScrubberFileUrl(clipId: string, origin?: string): string {
-  return versionedClipAssetUrl(clipId, "/scrubber/file", origin)
-}
-
 export function clipThumbnailUrl(
   clipId: string,
   origin?: string,

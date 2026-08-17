@@ -9,7 +9,6 @@ import {
   job,
 } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import { clipScrubberKey } from "@alloy/server/clips/scrubber"
 import { db } from "@alloy/server/db/index"
 import {
   clipAssetDir,
@@ -843,7 +842,6 @@ function staticLiveKeys(row: GcClipRow): string[] {
     row.sourceKey,
     row.cutKey,
     row.thumbKey,
-    clipScrubberKey(row.id),
     clipAssetKey(row.id, "thumb"),
     clipAssetKey(row.id, "thumb-small"),
   ].filter((key): key is string => Boolean(key))
