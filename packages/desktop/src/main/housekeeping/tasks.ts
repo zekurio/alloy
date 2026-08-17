@@ -45,6 +45,8 @@ export interface DesktopHousekeepingTaskOptions {
   now?: () => number
 }
 
+type ActivePaths = () => ReadonlySet<string>
+
 export function createDesktopHousekeepingTasks(
   options: DesktopHousekeepingTaskOptions,
 ): HousekeepingTask[] {
@@ -66,51 +68,51 @@ export function createDesktopHousekeepingTasks(
     },
     {
       id: "prune-staged-recording-imports",
-      revision: 1,
+      revision: 2,
       intervalMs: SWEEP_INTERVAL_MS,
       run: (signal) =>
         removeExpiredFiles({
           root: roots["recording-library-imports"],
           pattern: IMPORT_FILE_RE,
-          protectedPaths: options.activeImportPaths(),
+          activePaths: options.activeImportPaths,
           olderThan: now() - DAY_MS,
           signal,
         }),
     },
     {
       id: "prune-recording-exports",
-      revision: 1,
+      revision: 2,
       intervalMs: SWEEP_INTERVAL_MS,
       run: (signal) =>
         removeExpiredFiles({
           root: roots["recording-exports"],
           pattern: EXPORT_FILE_RE,
-          protectedPaths: options.activeExportPaths(),
+          activePaths: options.activeExportPaths,
           olderThan: now() - DAY_MS,
           signal,
         }),
     },
     {
       id: "prune-asset-cache",
-      revision: 1,
+      revision: 2,
       intervalMs: SWEEP_INTERVAL_MS,
       run: (signal) =>
         pruneAssetCache(
           roots["asset-cache"],
           MAX_ASSET_CACHE_BYTES,
-          options.activeAssetPaths(),
+          options.activeAssetPaths,
           signal,
         ),
     },
     {
       id: "prune-recording-audio-tracks",
-      revision: 1,
+      revision: 2,
       intervalMs: SWEEP_INTERVAL_MS,
       run: (signal) =>
         pruneSizedCache({
           root: roots["recording-audio-tracks"],
           pattern: AUDIO_FILE_RE,
-          protectedPaths: options.activeAudioPaths(),
+          activePaths: options.activeAudioPaths,
           maxBytes: MAX_AUDIO_TRACK_CACHE_BYTES,
           partialOlderThan: now() - DAY_MS,
           signal,
@@ -171,7 +173,7 @@ export async function removeExactLegacyRoot(
 async function pruneAssetCache(
   root: string,
   maxBytes: number,
-  protectedPaths: ReadonlySet<string>,
+  activePaths: ActivePaths,
   signal: AbortSignal,
 ): Promise<HousekeepingResult> {
   const entries = await directoryEntries(root)
@@ -186,13 +188,12 @@ async function pruneAssetCache(
     lastUsedAt: number
   }> = []
   const result = emptyResult()
-  const activePaths = normalizedPaths(protectedPaths)
 
   for (const [index, key] of [...keys].entries()) {
     await yieldForScan(index, signal)
     const bodyPath = containedPath(root, join(root, `${key}.bin`))
     const metaPath = containedPath(root, join(root, `${key}.json`))
-    if (activePaths.has(bodyPath) || activePaths.has(metaPath)) continue
+    if (anyPathIsActive(activePaths, [bodyPath, metaPath])) continue
     try {
       const body = await stat(bodyPath)
       const meta: unknown = JSON.parse(await readFile(metaPath, "utf8"))
@@ -206,8 +207,10 @@ async function pruneAssetCache(
         lastUsedAt: parsedMeta.data.lastUsedAt,
       })
     } catch {
-      addResult(result, await removeKnownFile(bodyPath))
-      addResult(result, await removeKnownFile(metaPath))
+      if (!anyPathIsActive(activePaths, [bodyPath, metaPath])) {
+        addResult(result, await removeKnownFile(bodyPath))
+        addResult(result, await removeKnownFile(metaPath))
+      }
     }
   }
 
@@ -215,8 +218,11 @@ async function pruneAssetCache(
   for (const asset of assets.sort((a, b) => a.lastUsedAt - b.lastUsedAt)) {
     if (totalBytes <= maxBytes) break
     signal.throwIfAborted()
-    addResult(result, await removeKnownFile(join(root, `${asset.key}.bin`)))
-    addResult(result, await removeKnownFile(join(root, `${asset.key}.json`)))
+    const bodyPath = join(root, `${asset.key}.bin`)
+    const metaPath = join(root, `${asset.key}.json`)
+    if (anyPathIsActive(activePaths, [bodyPath, metaPath])) continue
+    addResult(result, await removeKnownFile(bodyPath))
+    addResult(result, await removeKnownFile(metaPath))
     totalBytes -= asset.sizeBytes
   }
   return result
@@ -225,7 +231,7 @@ async function pruneAssetCache(
 async function pruneSizedCache(input: {
   root: string
   pattern: RegExp
-  protectedPaths: ReadonlySet<string>
+  activePaths: ActivePaths
   maxBytes: number
   partialOlderThan: number
   signal: AbortSignal
@@ -233,20 +239,22 @@ async function pruneSizedCache(input: {
   const entries = await directoryEntries(input.root)
   const files: Array<{ path: string; sizeBytes: number; mtimeMs: number }> = []
   const result = emptyResult()
-  const protectedPaths = normalizedPaths(input.protectedPaths)
 
   for (const [index, entry] of entries.entries()) {
     await yieldForScan(index, input.signal)
     if (!entry.isFile()) continue
     const path = containedPath(input.root, join(input.root, entry.name))
-    if (protectedPaths.has(resolve(path))) continue
+    if (pathIsActive(input.activePaths, path)) continue
     const info = await stat(path).catch(() => null)
     if (!info) continue
     if (
       entry.name.endsWith(".partial") &&
       input.pattern.test(entry.name.slice(0, -".partial".length))
     ) {
-      if (info.mtimeMs < input.partialOlderThan) {
+      if (
+        info.mtimeMs < input.partialOlderThan &&
+        !pathIsActive(input.activePaths, path)
+      ) {
         addResult(result, await removeKnownFile(path, info.size))
       }
       continue
@@ -259,6 +267,7 @@ async function pruneSizedCache(input: {
   for (const file of files.sort((a, b) => a.mtimeMs - b.mtimeMs)) {
     if (totalBytes <= input.maxBytes) break
     input.signal.throwIfAborted()
+    if (pathIsActive(input.activePaths, file.path)) continue
     addResult(result, await removeKnownFile(file.path, file.sizeBytes))
     totalBytes -= file.sizeBytes
   }
@@ -268,20 +277,20 @@ async function pruneSizedCache(input: {
 async function removeExpiredFiles(input: {
   root: string
   pattern: RegExp
-  protectedPaths: ReadonlySet<string>
+  activePaths: ActivePaths
   olderThan: number
   signal: AbortSignal
 }): Promise<HousekeepingResult> {
   const entries = await directoryEntries(input.root)
-  const protectedPaths = normalizedPaths(input.protectedPaths)
   const result = emptyResult()
   for (const [index, entry] of entries.entries()) {
     await yieldForScan(index, input.signal)
     if (!entry.isFile() || !input.pattern.test(entry.name)) continue
     const path = containedPath(input.root, join(input.root, entry.name))
-    if (protectedPaths.has(resolve(path))) continue
+    if (pathIsActive(input.activePaths, path)) continue
     const info = await stat(path).catch(() => null)
     if (!info || info.mtimeMs >= input.olderThan) continue
+    if (pathIsActive(input.activePaths, path)) continue
     addResult(result, await removeKnownFile(path, info.size))
   }
   return result
@@ -367,6 +376,15 @@ function containedPath(root: string, candidate: string): string {
 
 function normalizedPaths(paths: ReadonlySet<string>): Set<string> {
   return new Set([...paths].map((path) => resolve(path)))
+}
+
+function pathIsActive(activePaths: ActivePaths, path: string): boolean {
+  return normalizedPaths(activePaths()).has(resolve(path))
+}
+
+function anyPathIsActive(activePaths: ActivePaths, paths: string[]): boolean {
+  const active = normalizedPaths(activePaths())
+  return paths.some((path) => active.has(resolve(path)))
 }
 
 async function yieldForScan(index: number, signal: AbortSignal): Promise<void> {
