@@ -11,10 +11,6 @@ export function stagedSourceKey(
   return `uploads/${recordingId}/source${sourceExtension(contentType)}`
 }
 
-export function stagedScrubberKey(recordingId: string): string {
-  return `uploads/${recordingId}/scrubber-upload.jpg`
-}
-
 export async function mintStagedUpload(input: {
   key: string
   contentType: string

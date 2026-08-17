@@ -23,38 +23,18 @@ export async function createUploadTickets(input: {
   videoKey: string
   videoContentType: string
   videoBytes: number
-  scrubber?: {
-    key: string
-    bytes: number
-  }
   expiresAt: Date
 }): Promise<void> {
-  await db.insert(uploadTicket).values([
-    {
-      owner_id: input.ownerId,
-      target_type: input.target.type,
-      target_id: input.target.id,
-      role: "video",
-      storage_key: input.videoKey,
-      content_type: input.videoContentType,
-      expected_bytes: input.videoBytes,
-      expires_at: input.expiresAt,
-    },
-    ...(input.scrubber
-      ? [
-          {
-            owner_id: input.ownerId,
-            target_type: input.target.type,
-            target_id: input.target.id,
-            role: "scrubber" as const,
-            storage_key: input.scrubber.key,
-            content_type: "image/jpeg",
-            expected_bytes: input.scrubber.bytes,
-            expires_at: input.expiresAt,
-          },
-        ]
-      : []),
-  ])
+  await db.insert(uploadTicket).values({
+    owner_id: input.ownerId,
+    target_type: input.target.type,
+    target_id: input.target.id,
+    role: "video",
+    storage_key: input.videoKey,
+    content_type: input.videoContentType,
+    expected_bytes: input.videoBytes,
+    expires_at: input.expiresAt,
+  })
 }
 
 export async function assertUsableVideoTicket(input: {
@@ -122,10 +102,6 @@ export function selectVideoTicketKey(
 
 export function selectVideoTicket(target: UploadTarget) {
   return selectTicket(target, "video")
-}
-
-export function selectScrubberTicket(target: UploadTarget) {
-  return selectTicket(target, "scrubber")
 }
 
 export async function selectTicketKeys(

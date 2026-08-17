@@ -120,13 +120,12 @@ export function clipAssetDir(clipId: string): string {
   return `${aa}/${bb}/${clipId}`
 }
 
-type ClipAssetRole = "source" | "thumb" | "thumb-small" | "scrubber"
+type ClipAssetRole = "source" | "thumb" | "thumb-small"
 
 const CLIP_ASSET_EXTENSION = {
   source: "",
   thumb: ".jpg",
   "thumb-small": ".jpg",
-  scrubber: ".jpg",
 } satisfies Record<ClipAssetRole, string>
 
 export function clipAssetKey(clipId: string, role: ClipAssetRole): string {
