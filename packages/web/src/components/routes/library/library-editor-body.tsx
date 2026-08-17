@@ -69,10 +69,7 @@ import {
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { notifyLibraryCapturesChanged, type AlloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
-import {
-  useDesktopMediaFilmstrip,
-  useMediaFilmstrip,
-} from "@/lib/media-filmstrip"
+import { useMediaWaveform } from "@/lib/media-waveform"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import { exportAndPublishCapture } from "./library-capture-publish"
@@ -234,7 +231,11 @@ function LocalEditorBody({
     durationMs: item.durationMs,
     enabled: true,
   })
-  const filmstrip = useDesktopMediaFilmstrip(desktop, item)
+  const waveform = useMediaWaveform(
+    item.mediaUrl,
+    `desktop:${item.id}:${item.modifiedAt}:${item.sizeBytes}:${item.mediaUrl}`,
+    item.durationMs ?? 0,
+  )
   const aspectRatio = mediaAspectRatio(item.width, item.height)
   const publishLocked =
     item.uploadedClipId !== null ||
@@ -457,8 +458,7 @@ function LocalEditorBody({
           />
 
           <TrimBar
-            frames={filmstrip.frames}
-            frameAspect={filmstrip.aspect}
+            waveform={waveform}
             durationMs={playback.durationMs}
             startMs={trim.startMs}
             endMs={trim.endMs}
@@ -604,7 +604,11 @@ function UploadEditorBody({
 }: UploadEditorBodyProps) {
   const playback = useTrimPlayback({ initialDurationMs: selected.durationMs })
   const { playerRef, trim, trimmed, rangeMs } = playback
-  const filmstrip = useMediaFilmstrip(previewUrl)
+  const waveform = useMediaWaveform(
+    previewUrl,
+    `upload:${previewUrl}`,
+    selected.durationMs,
+  )
   const aspectRatio = mediaAspectRatio(selected.width, selected.height)
   const {
     title,
@@ -673,8 +677,7 @@ function UploadEditorBody({
           <TrimTransportControls playback={playback} />
 
           <TrimBar
-            frames={filmstrip.frames}
-            frameAspect={filmstrip.aspect}
+            waveform={waveform}
             durationMs={playback.durationMs}
             startMs={trim.startMs}
             endMs={trim.endMs}

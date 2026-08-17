@@ -2,7 +2,6 @@ import {
   ACCEPTED_CLIP_CONTENT_TYPES,
   CLIP_AUDIO_TRACK_KINDS,
   CLIP_DESCRIPTION_MAX_LENGTH,
-  CLIP_SCRUBBER_MAX_BYTES,
   CLIP_TAG_MAX_LENGTH,
   CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
@@ -214,12 +213,6 @@ export const InitiateBody = t
     filename: t.string().min(1).max(255),
     contentType: t.enum(ACCEPTED_CLIP_CONTENT_TYPES),
     sizeBytes: t.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-    scrubberSizeBytes: t
-      .number()
-      .int()
-      .positive()
-      .max(CLIP_SCRUBBER_MAX_BYTES)
-      .optional(),
     title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
     description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
     gameId: t.uuid().nullable().optional(),

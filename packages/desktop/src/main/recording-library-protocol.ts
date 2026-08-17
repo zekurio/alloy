@@ -3,6 +3,10 @@ import { extname } from "node:path"
 import { Readable } from "node:stream"
 import type { ReadableStream } from "node:stream/web"
 
+import {
+  markHousekeepingPathActive,
+  markHousekeepingPathInactive,
+} from "./housekeeping/active-paths"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
   AUDIO_HOST,
@@ -24,7 +28,7 @@ export function recordingLibraryProtocolScheme(): Electron.CustomScheme {
       // Without this, the scheme is missing from Chromium's CORS-enabled
       // scheme list and any cross-origin fetch() from the web app fails
       // outright with "Failed to fetch" — the request never reaches the
-      // handler. Mediabunny-backed filmstrip/poster readers fetch bytes.
+      // handler. Range-based media readers fetch bytes.
       corsEnabled: true,
     },
   }
@@ -64,7 +68,10 @@ export function registerRecordingLibraryProtocol(): void {
       if (!filename || !existsSync(filename)) {
         return new Response("Not found", { status: 404 })
       }
-      return rangedFileResponse(filename, request)
+      markHousekeepingPathActive("export", filename)
+      return rangedFileResponse(filename, request, () => {
+        markHousekeepingPathInactive("export", filename)
+      })
     }
 
     if (!item) return new Response("Not found", { status: 404 })
@@ -116,16 +123,20 @@ function fileBodyStream(
 
 /**
  * Serves a capture file with HTTP Range support. `net.fetch(file://…)`
- * ignores Range headers, so every seek of Chromium's media element and
- * filmstrip samplers would restart a full-file stream — large captures stall
- * and the element eventually gives up with
- * MEDIA_ERR_SRC_NOT_SUPPORTED.
+ * ignores Range headers, so every seek of Chromium's media element would
+ * restart a full-file stream — large captures stall and the element
+ * eventually gives up with MEDIA_ERR_SRC_NOT_SUPPORTED.
  */
-function rangedFileResponse(filename: string, request: Request): Response {
+function rangedFileResponse(
+  filename: string,
+  request: Request,
+  onClose?: () => void,
+): Response {
   let size: number
   try {
     size = statSync(filename).size
   } catch {
+    onClose?.()
     return new Response("Not found", { status: 404 })
   }
 
@@ -153,6 +164,13 @@ function rangedFileResponse(filename: string, request: Request): Response {
   if (range) {
     headers.set("Content-Range", `bytes ${range.start}-${range.end}/${size}`)
   }
+  if (request.method === "HEAD") {
+    onClose?.()
+    return new Response(null, {
+      status: range ? 206 : 200,
+      headers,
+    })
+  }
 
   const stream = createReadStream(filename, {
     ...(range ? { start: range.start, end: range.end } : undefined),
@@ -163,6 +181,7 @@ function rangedFileResponse(filename: string, request: Request): Response {
     // even when the main process is busy.
     highWaterMark: 4 * 1024 * 1024,
   })
+  if (onClose) stream.once("close", onClose)
   return new Response(fileBodyStream(stream), {
     status: range ? 206 : 200,
     headers,

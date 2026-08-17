@@ -7,7 +7,6 @@ import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { eq } from "drizzle-orm"
 
 import { publishClipRemove } from "./events"
-import { clipScrubberKey } from "./scrubber"
 
 const logger = createLogger("clips")
 
@@ -31,8 +30,6 @@ export async function deleteClipRowAndAssets(
     row.thumb_key,
     ...renditionRows.map((rendition) => rendition.storageKey),
     ...audioTrackRows.map((track) => track.storageKey),
-    // Deterministic derived asset; deleting a never-generated key is a no-op.
-    clipScrubberKey(row.id),
   ].filter((key): key is string => Boolean(key))
   for (const key of keys) {
     try {

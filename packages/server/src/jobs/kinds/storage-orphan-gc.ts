@@ -9,7 +9,6 @@ import {
   job,
 } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import { clipScrubberKey } from "@alloy/server/clips/scrubber"
 import { db } from "@alloy/server/db/index"
 import {
   clipAssetDir,
@@ -712,7 +711,7 @@ async function processPreviewPage(
     // deletion must wait for a later sweep.
     if (row.encodeRunId !== null) continue
     if (liveKeys.get(row.id)?.has(item.entry.key)) continue
-    if (!isRunStampedFilename(item.parsed.filename)) continue
+    if (!isCollectableAsset(item.entry, item.parsed.filename)) continue
     if (addManifestCandidate(manifest, item.entry, "stale")) return true
   }
   return false
@@ -785,7 +784,7 @@ async function classifyCurrentEntry(
   if (row.encodeRunId !== null) return null
   const liveKeys = await selectLiveKeys([parsed.clipId], rows)
   if (liveKeys.get(row.id)?.has(entry.key)) return null
-  return isRunStampedFilename(parsed.filename) ? "stale" : null
+  return isCollectableAsset(entry, parsed.filename) ? "stale" : null
 }
 
 async function selectGcClipRows(
@@ -843,7 +842,6 @@ function staticLiveKeys(row: GcClipRow): string[] {
     row.sourceKey,
     row.cutKey,
     row.thumbKey,
-    clipScrubberKey(row.id),
     clipAssetKey(row.id, "thumb"),
     clipAssetKey(row.id, "thumb-small"),
   ].filter((key): key is string => Boolean(key))
@@ -869,6 +867,12 @@ function isRunStampedFilename(filename: string): boolean {
     AUDIO_TRACK_ASSET_RE.test(filename) ||
     /^thumb-[0-9a-f]{12}\.jpg$/i.test(filename)
   )
+}
+
+function isCollectableAsset(entry: GcEntry, filename: string): boolean {
+  // The thumbnail namespace contains derived clip images only. Any old key
+  // that is not in the complete live-key set is safe to collect.
+  return entry.storageKind === "thumbnail" || isRunStampedFilename(filename)
 }
 
 function olderThan(lastModified: Date | null, cutoff: number): boolean {

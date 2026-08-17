@@ -280,9 +280,7 @@ jobs:
         run: |
           image="ghcr.io/${GITHUB_REPOSITORY,,}"
           docker tag "alloy:$RELEASE_VERSION" "$image:$RELEASE_VERSION"
-          docker tag "alloy:$RELEASE_VERSION" "$image:latest"
           docker push "$image:$RELEASE_VERSION"
-          docker push "$image:latest"
 
   publish:
     name: publish github release
@@ -351,3 +349,28 @@ jobs:
             release-assets/latest.yml
             release-assets/checksums.txt
           fail_on_unmatched_files: true
+
+  promote:
+    name: promote latest container image
+    needs:
+      - preflight
+      - image
+      - publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: log in to ghcr
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: promote immutable image to latest
+        env:
+          RELEASE_VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          docker buildx imagetools create \
+            --tag "$image:latest" \
+            "$image:$RELEASE_VERSION"

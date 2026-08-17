@@ -3,20 +3,18 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useRef, useState, useSyncExternalStore } from "react"
 import type { KeyboardEvent, PointerEvent } from "react"
 
-import { FilmstripCanvas } from "@/components/media/filmstrip-canvas"
-import { useFilmstripCellCount } from "@/lib/media-filmstrip"
+import { WaveformCanvas } from "@/components/media/waveform-canvas"
 import { formatTrimMs } from "@/lib/media-time"
+import type { MediaWaveformState } from "@/lib/media-waveform"
 
 /**
- * Simple single-range trimmer for the publish screen: a filmstrip of the
- * whole capture with one kept range styled like a selected clip block.
+ * Simple single-range trimmer for the publish screen: an audio waveform for
+ * the whole capture with one kept range styled like a selected clip block.
  * Dragging the block slides the trim window; dragging either edge resizes it.
- * Material outside the range stays visible but dimmed, clicking or dragging
+ * Material outside the range stays visible but dimmed. Clicking or dragging
  * the strip scrubs the playhead.
  */
 
-/** Hard cap on filmstrip cells (DOM size guard). */
-const MAX_FILMSTRIP_CELLS = 64
 const TRIM_DRAG_THRESHOLD_PX = 4
 
 type DragState =
@@ -64,8 +62,7 @@ function movedPastTrimThreshold(
 }
 
 export function TrimBar({
-  frames,
-  frameAspect,
+  waveform,
   durationMs,
   startMs,
   endMs,
@@ -76,10 +73,8 @@ export function TrimBar({
   onEndChange,
   onMove,
 }: {
-  /** Frame image URLs sampled evenly across the source media. */
-  frames: string[]
-  /** Width/height ratio of the frames — cells size to match, never squish. */
-  frameAspect: number
+  /** Audio peak data for the source media. */
+  waveform: MediaWaveformState
   durationMs: number
   startMs: number
   endMs: number
@@ -213,11 +208,12 @@ export function TrimBar({
       onPointerCancel={(e) => finishPointer(e, true)}
     >
       <div className="bg-surface-raised absolute inset-x-0 top-4 bottom-0 overflow-hidden rounded-md">
-        <FilmstripCells
-          frames={frames}
-          frameAspect={frameAspect}
+        <WaveformCanvas
+          peaks={waveform.peaks}
           durationMs={durationMs}
+          status={waveform.status}
         />
+        <WaveformStatus status={waveform.status} />
         {/* Cut-away material outside the kept range stays visible, dimmed,
             so the handles can always be dragged back out to recover it. */}
         <div
@@ -303,6 +299,16 @@ export function TrimBar({
   )
 }
 
+function WaveformStatus({ status }: { status: MediaWaveformState["status"] }) {
+  if (status === "ready") return null
+  const label = status === "loading" ? t("Loading…") : t("Unavailable")
+  return (
+    <span className="text-foreground-faint pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-medium tracking-wide uppercase">
+      {label}
+    </span>
+  )
+}
+
 /** Leaf that follows the playhead store so only it re-renders per frame. */
 function TrimPlayhead({
   subscribeCurrentMs,
@@ -335,36 +341,5 @@ function trimHandleClass(side: "left" | "right"): string {
     // Widen the hit area beyond the visible grip for touch/precision.
     "after:absolute after:-inset-x-1.5 after:inset-y-0",
     "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-  )
-}
-
-/**
- * Evenly spaced filmstrip cells covering the whole capture. The cell count
- * adapts to the strip's box so each cell keeps the frame aspect ratio.
- */
-function FilmstripCells({
-  frames,
-  frameAspect,
-  durationMs,
-}: {
-  frames: string[]
-  frameAspect: number
-  durationMs: number
-}) {
-  const stripRef = useRef<HTMLDivElement | null>(null)
-  const cellCount = useFilmstripCellCount(
-    stripRef,
-    frameAspect,
-    MAX_FILMSTRIP_CELLS,
-    frames.length,
-  )
-  return (
-    <div ref={stripRef} className="size-full">
-      <FilmstripCanvas
-        frames={frames}
-        cellCount={cellCount}
-        durationMs={durationMs}
-      />
-    </div>
   )
 }

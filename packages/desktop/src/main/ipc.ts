@@ -5,6 +5,8 @@ import {
 import { t } from "@alloy/i18n"
 import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 
+import { OVERLAY_STARTUP_UPDATE_EVENT_CHANNEL } from "@/shared/ipc"
+
 import { getAutostartState, setAutostartEnabled } from "./autostart"
 import { showDesktopNotification } from "./desktop-notification"
 import type {
@@ -41,6 +43,7 @@ import {
   downloadUpdateNow,
   getUpdateState,
   onUpdateStateChange,
+  onStartupUpdateStateChange,
   restartToInstallUpdate,
 } from "./updater"
 import type { Windows } from "./windows"
@@ -95,6 +98,13 @@ function registerBridgeEvents(): void {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) {
         window.webContents.send(updateStateChannel, state)
+      }
+    }
+  })
+  onStartupUpdateStateChange((state) => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(OVERLAY_STARTUP_UPDATE_EVENT_CHANNEL, state)
       }
     }
   })

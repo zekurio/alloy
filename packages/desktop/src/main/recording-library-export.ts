@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, statSync } from "node:fs"
+import { existsSync, mkdirSync, statSync, utimesSync } from "node:fs"
 import { basename, dirname, extname, join } from "node:path"
 
 import type {
@@ -95,6 +95,10 @@ export async function exportRecordingLibraryItem(
     segments,
   )
 
+  // The export sweep uses mtime as its last-use time. Refresh cached files
+  // before the renderer starts reading them.
+  const lastUsedAt = new Date()
+  utimesSync(out, lastUsedAt, lastUsedAt)
   const stat = statSync(out)
   exportedCaptureFiles.set(exportId, out)
 

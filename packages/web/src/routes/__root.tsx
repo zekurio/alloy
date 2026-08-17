@@ -4,6 +4,7 @@ import { Suspense, lazy, useEffect } from "react"
 
 import { ClientOnly } from "@/components/app/client-only"
 import { OAuthErrorToast } from "@/components/auth/oauth-error-toast"
+import { DesktopBridgeRecovery } from "@/components/desktop-bridge-recovery"
 import {
   RouteErrorState,
   RouteNotFoundState,
@@ -47,18 +48,7 @@ function RootLayout() {
   }, [])
 
   if (bridgeMismatch) {
-    return (
-      <main className="bg-background text-foreground flex min-h-screen items-center justify-center p-8">
-        <div className="max-w-md text-center">
-          <h1 className="text-xl font-semibold">Desktop update required</h1>
-          <p className="text-muted-foreground mt-2 text-sm">
-            This Alloy server requires desktop bridge {bridgeMismatch.expected},
-            but this app provides bridge {bridgeMismatch.actual}. Update Alloy
-            Desktop to continue.
-          </p>
-        </div>
-      </main>
-    )
+    return <DesktopBridgeRecovery {...bridgeMismatch} />
   }
 
   return (

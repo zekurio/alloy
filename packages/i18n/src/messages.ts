@@ -261,6 +261,44 @@ export const DE_MESSAGES = {
   "Check for updates": "Nach Updates suchen",
   "Checking...": "Wird geprüft...",
   "Checking for updates": "Suche nach Updates",
+  "Alloy could not check for updates. It will start normally.":
+    "Alloy konnte nicht nach Updates suchen. Alloy startet normal.",
+  "Alloy could not download the update.":
+    "Alloy konnte das Update nicht herunterladen.",
+  "Alloy could not start the update installer.":
+    "Alloy konnte das Update-Installationsprogramm nicht starten.",
+  "Alloy could not update": "Alloy konnte nicht aktualisiert werden",
+  "Alloy is closing capture services and will restart shortly.":
+    "Alloy beendet die Aufnahmedienste und startet gleich neu.",
+  "Automatic update failed. Download the installer to continue.":
+    "Das automatische Update ist fehlgeschlagen. Lade das Installationsprogramm herunter, um fortzufahren.",
+  "Checking for updates...": "Updates werden gesucht...",
+  "Continue without updating": "Ohne Update fortfahren",
+  "Continue without updating ({seconds})": "Ohne Update fortfahren ({seconds})",
+  "Desktop update required": "Desktop-Update erforderlich",
+  "Download the installer manually":
+    "Installationsprogramm manuell herunterladen",
+  "Downloading Alloy {version}": "Alloy {version} wird heruntergeladen",
+  "Downloading update...": "Update wird heruntergeladen...",
+  "Installing Alloy {version}": "Alloy {version} wird installiert",
+  "Keep Alloy open. It will restart when the update is ready.":
+    "Lass Alloy geöffnet. Alloy startet neu, sobald das Update bereit ist.",
+  "No compatible desktop update was found.":
+    "Es wurde kein kompatibles Desktop-Update gefunden.",
+  "Reload server app": "Server-App neu laden",
+  "Server update required": "Server-Update erforderlich",
+  "Starting Alloy...": "Alloy wird gestartet...",
+  "The update check took too long. Alloy will start normally.":
+    "Die Update-Suche hat zu lange gedauert. Alloy startet normal.",
+  "The update download took too long. It will continue in the background.":
+    "Der Update-Download hat zu lange gedauert. Er läuft im Hintergrund weiter.",
+  "This desktop app has bridge {actual}, but this server supports bridge {expected}. Update the Alloy server, then reload this page.":
+    "Diese Desktop-App hat Bridge {actual}, aber dieser Server unterstützt Bridge {expected}. Aktualisiere den Alloy-Server und lade diese Seite dann neu.",
+  "This quick check keeps Alloy Desktop and your server in sync.":
+    "Diese kurze Prüfung hält Alloy Desktop und deinen Server synchron.",
+  "This server needs desktop bridge {expected}, but this app has bridge {actual}. Update Alloy Desktop to continue.":
+    "Dieser Server braucht Desktop-Bridge {expected}, aber diese App hat Bridge {actual}. Aktualisiere Alloy Desktop, um fortzufahren.",
+  "Update Alloy Desktop": "Alloy Desktop aktualisieren",
   Choose: "Auswählen",
   "Change {label}": "{label} ändern",
   "Choose date": "Datum wählen",
