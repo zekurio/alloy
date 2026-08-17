@@ -12,7 +12,7 @@ export async function makeMediaWorkDir(id: string): Promise<string> {
 /**
  * Materialize a committed clip source into a scratch work dir, run `fn`
  * against it, and clean up regardless of outcome. Shared by the one-shot
- * source consumers (poster route, scrubber sheet, probe backfill).
+ * source consumers such as the poster route.
  */
 export async function withClipSourceWorkDir<T>(
   label: string,
