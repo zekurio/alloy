@@ -4,6 +4,8 @@ import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 import electronUpdater from "electron-updater"
 
+import type { StartupUpdateState } from "@/shared/ipc"
+
 import {
   configureRecordingBackend,
   stopRecordingBackendForInstall,
@@ -12,91 +14,153 @@ import {
   configureRecordingHotkeys,
   unregisterRecordingHotkeys,
 } from "./recording-hotkeys"
+import {
+  runInteractiveStartupUpdate,
+  StartupDeadlineError,
+  type StartupUpdateCheck,
+  type StartupUpdateChoice,
+  type StartupUpdateResult,
+  withStartupDeadline,
+} from "./startup-update"
 
-// electron-updater is CommonJS with a lazy `autoUpdater` getter; read from the
-// default import so Rollup does not capture an undefined named binding. Do
-// not construct an updater with a custom app adapter: AppUpdater only builds
-// its HTTP executor when no adapter is supplied, so a custom adapter silently
-// breaks every update check at runtime.
+// electron-updater is CommonJS with a lazy `autoUpdater` getter. Reading the
+// default import keeps Rollup from capturing an undefined named binding.
 const autoUpdater = electronUpdater.autoUpdater
 
 const logger = createLogger("updater")
 
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000
-const INITIAL_UPDATE_CHECK_DELAY_MS = 30 * 1000
+const STARTUP_UPDATE_CHECK_TIMEOUT_MS = 2_500
+const STARTUP_UPDATE_DOWNLOAD_TIMEOUT_MS = 2 * 60 * 1000
+const UPDATE_INSTALL_START_TIMEOUT_MS = 10_000
 let state: DesktopUpdateState = idleUpdateState()
+let startupState: StartupUpdateState = { phase: "inactive" }
 let initialized = false
+let startupFlowActive = false
 let checkInterval: ReturnType<typeof setInterval> | null = null
-let pendingCheckTimer: ReturnType<typeof setTimeout> | null = null
-let checkInFlight = false
-let downloadInFlight = false
+let checkInFlight: Promise<DesktopUpdateState> | null = null
+let downloadInFlight: Promise<DesktopUpdateState> | null = null
 let installInFlight = false
+let installAttempt:
+  | { reject: (cause: Error) => void; finish: () => void }
+  | undefined
+let startupChoice:
+  | {
+      resolve: (choice: StartupUpdateChoice) => void
+      timer: ReturnType<typeof setTimeout> | null
+    }
+  | undefined
 const stateListeners = new Set<(state: DesktopUpdateState) => void>()
+const startupStateListeners = new Set<(state: StartupUpdateState) => void>()
 
-/** Current auto-update state, served to the web app over the desktop bridge. */
 export function getUpdateState(): DesktopUpdateState {
   return state
 }
 
-/** Runs an immediate user-requested update check. */
+export function getStartupUpdateState(): StartupUpdateState {
+  return startupState
+}
+
 export async function checkForUpdatesNow(): Promise<DesktopUpdateState> {
   if (!app.isPackaged) {
-    logger.info("manual update check skipped in development")
+    logger.info("update check skipped in development")
     return state
   }
 
-  if (!initialized) initAutoUpdater()
-
-  ensureBackgroundChecks()
-  clearPendingCheck()
+  initAutoUpdater()
+  startBackgroundUpdateChecks()
   return runUpdateCheck()
 }
 
-/** Downloads the pending update only after an explicit user action. */
-export async function downloadUpdateNow(): Promise<DesktopUpdateState> {
+/** Downloads one discovered update. Concurrent callers share the same work. */
+export function downloadUpdateNow(): Promise<DesktopUpdateState> {
   if (!app.isPackaged) {
-    logger.info("manual update download skipped in development")
-    return state
+    logger.info("update download skipped in development")
+    return Promise.resolve(state)
   }
 
-  if (!initialized) initAutoUpdater()
-  if (downloadInFlight || state.status === "downloaded") return state
+  initAutoUpdater()
+  if (downloadInFlight) return downloadInFlight
+  if (state.status === "downloaded") return Promise.resolve(state)
   if (state.status !== "available" || !state.version) {
     logger.warn("download requested but no update is available; ignoring")
-    return state
+    return Promise.resolve(state)
   }
 
   const version = state.version
-  downloadInFlight = true
   setState({ ...idleUpdateState(), status: "downloading", version })
-  try {
-    await autoUpdater.downloadUpdate()
-    return state
-  } catch (cause) {
-    logger.warn("update download failed:", cause)
-    if (getUpdateState().status !== "downloaded") {
-      setState({ ...idleUpdateState(), status: "available", version })
-    }
-    throw cause
-  } finally {
-    downloadInFlight = false
-  }
+  downloadInFlight = autoUpdater
+    .downloadUpdate()
+    .then(() => state)
+    .catch((cause: unknown) => {
+      logger.warn("update download failed:", cause)
+      if (state.status !== "downloaded") {
+        setState({ ...idleUpdateState(), status: "available", version })
+      }
+      throw cause
+    })
+    .finally(() => {
+      downloadInFlight = null
+    })
+  return downloadInFlight
 }
 
-/** Subscribe to update-state changes (used to push events to windows). */
 export function onUpdateStateChange(
   listener: (state: DesktopUpdateState) => void,
 ): () => void {
   stateListeners.add(listener)
-  return () => {
-    stateListeners.delete(listener)
-  }
+  return () => stateListeners.delete(listener)
+}
+
+export function onStartupUpdateStateChange(
+  listener: (state: StartupUpdateState) => void,
+): () => void {
+  startupStateListeners.add(listener)
+  return () => startupStateListeners.delete(listener)
 }
 
 /**
- * Quit and install the downloaded update, relaunching into the new version.
- * No-op unless a download has finished, so a stale renderer can't quit the
- * app for nothing.
+ * Runs before the recorder and hotkeys start. Visible launches install a found
+ * update. Login-item launches only stage it, so they never open an unexpected
+ * installer while Windows is starting.
+ */
+export async function runStartupUpdateBeforeServices(
+  interactive: boolean,
+): Promise<StartupUpdateResult> {
+  initAutoUpdater()
+  if (!app.isPackaged) return "continue"
+
+  startupFlowActive = true
+  try {
+    const result = interactive
+      ? await runInteractiveStartupUpdate({
+          currentVersion: app.getVersion(),
+          check: checkForStartupUpdate,
+          download: downloadStartupUpdate,
+          install: restartToInstallUpdate,
+          publish: setStartupState,
+          choose: waitForStartupChoice,
+        })
+      : await stageLoginItemStartupUpdate()
+    if (result === "continue") setStartupState({ phase: "inactive" })
+    return result
+  } finally {
+    startupFlowActive = false
+    startBackgroundUpdateChecks()
+  }
+}
+
+export function retryStartupUpdate(): void {
+  settleStartupChoice("retry")
+}
+
+export function continueStartup(): void {
+  settleStartupChoice("continue")
+}
+
+/**
+ * Stops capture services before NSIS starts. A downloaded update never forces
+ * a restart during normal use; this runs at startup or after an explicit click.
  */
 export async function restartToInstallUpdate(): Promise<void> {
   if (installInFlight) return
@@ -107,8 +171,6 @@ export async function restartToInstallUpdate(): Promise<void> {
 
   installInFlight = true
   logger.info("stopping recording backend before update install")
-  // A global capture hotkey is the likeliest respawn trigger during the quit
-  // window; drop the hotkeys before stopping the backend blocks respawns.
   unregisterRecordingHotkeys()
   const recorderStopped = await stopRecordingBackendForInstall().catch(
     (cause: unknown) => {
@@ -116,55 +178,60 @@ export async function restartToInstallUpdate(): Promise<void> {
       return false
     },
   )
-  // The error listener may have recovered (and respawned recording) while
-  // the shutdown was in flight; installing now would fight that recovery.
   if (!installInFlight) return
   if (!recorderStopped) {
-    // A live sidecar keeps the packaged OBS DLLs open and NSIS would hit
-    // locked files mid-upgrade. Respawns stay blocked until the next
-    // configureRecordingBackend call — the old process may still be exiting,
-    // and a second recorder would fight it over devices. The update stays
-    // downloaded so the user can retry.
     installInFlight = false
     configureRecordingHotkeys()
     throw new Error(t("The recorder did not stop. Try restarting again."))
   }
 
   logger.info(`restarting to install ${state.version ?? "update"}`)
-  // electron-updater launches NSIS before app.quit(), so every packaged child
-  // must already be gone before this call or Windows will lock its executable.
-  autoUpdater.quitAndInstall(true, true)
-}
-
-function setState(next: DesktopUpdateState): void {
-  if (
-    next.status === state.status &&
-    next.currentVersion === state.currentVersion &&
-    next.version === state.version
-  ) {
-    return
-  }
-  state = next
-  for (const listener of stateListeners) {
-    try {
-      listener(state)
-    } catch (cause) {
-      logger.warn("update state listener threw:", cause)
+  // quitAndInstall closes windows before Electron emits before-quit. The
+  // recorder must be stopped before this call because NSIS replaces its files.
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      failInstallAttempt()
+    }, UPDATE_INSTALL_START_TIMEOUT_MS)
+    const handleBeforeQuit = () => {
+      clearTimeout(timer)
+      installAttempt = undefined
+      resolve()
     }
+    app.once("before-quit", handleBeforeQuit)
+    installAttempt = {
+      reject,
+      finish: () => {
+        clearTimeout(timer)
+        app.off("before-quit", handleBeforeQuit)
+      },
+    }
+    autoUpdater.quitAndInstall(true, true)
+  })
+}
+
+/** Starts periodic checks after the bounded startup check. */
+export function startBackgroundUpdateChecks(): void {
+  if (!app.isPackaged || state.status === "downloaded") return
+  if (state.status === "available") {
+    void downloadUpdateNow().catch(() => {
+      // The updater error event and logs already report this failure.
+    })
   }
+  if (checkInterval) return
+  checkInterval = setInterval(() => {
+    if (state.status === "available") {
+      void downloadUpdateNow().catch(() => {
+        // The updater error event and logs already report this failure.
+      })
+      return
+    }
+    void runUpdateCheck().catch(() => {
+      // The updater error event and logs already report this failure.
+    })
+  }, UPDATE_CHECK_INTERVAL_MS)
+  checkInterval.unref?.()
 }
 
-function idleUpdateState(): DesktopUpdateState {
-  return { status: "idle", currentVersion: app.getVersion(), version: null }
-}
-
-/**
- * Background auto-update from the GitHub releases feed. electron-builder
- * embeds `app-update.yml` (from the `publish` config) into packaged builds,
- * which is where the updater finds the repo; published releases expose
- * `latest.yml` plus the installer. Checks run in the background, while download
- * and installation remain explicit user actions surfaced through the web app.
- */
 export function initAutoUpdater(): void {
   if (initialized) return
   initialized = true
@@ -178,6 +245,8 @@ export function initAutoUpdater(): void {
   autoUpdater.allowPrerelease = false
   autoUpdater.allowDowngrade = false
   autoUpdater.autoDownload = false
+  // A background download must not install when the user quits while capture
+  // is active. The next visible launch installs it at a safe boundary.
   autoUpdater.autoInstallOnAppQuit = false
 
   autoUpdater.on("checking-for-update", () => {
@@ -198,86 +267,197 @@ export function initAutoUpdater(): void {
     })
   })
   autoUpdater.on("update-downloaded", (info) => {
-    logger.info(`update ${info.version} downloaded; waiting for restart`)
+    logger.info(`update ${info.version} downloaded; waiting for safe restart`)
     setState({
       ...idleUpdateState(),
       status: "downloaded",
       version: info.version,
     })
-    // Nothing left to look for until the user restarts into the new version.
-    stopBackgroundChecks()
+    stopBackgroundUpdateChecks()
   })
-  // An emitted "error" without a listener would crash the process. Offline
-  // checks are routine for a desktop app, so log at warn rather than error.
   autoUpdater.on("error", (cause) => {
-    logger.warn("update check failed:", cause)
-    if (installInFlight) {
-      // quitAndInstall is fire-and-forget: when the staged installer is gone
-      // (AV quarantine, disk cleanup) it dispatches an error instead of
-      // quitting. The recorder was already stopped, so bring it back —
-      // configureRecordingBackend also unblocks respawns — and drop to idle
-      // so background checks re-discover the update.
-      installInFlight = false
-      logger.warn("update install did not start; restarting recording backend")
-      void configureRecordingBackend().catch((cause: unknown) => {
-        logger.warn("failed to restart recording backend:", cause)
-      })
-      configureRecordingHotkeys()
-      setState(idleUpdateState())
-      ensureBackgroundChecks()
-      scheduleUpdateCheck(0)
+    logger.warn("update operation failed:", cause)
+    if (installAttempt) {
+      failInstallAttempt()
       return
     }
-    if (state.status === "checking") {
-      setState(idleUpdateState())
+    if (state.status === "checking") setState(idleUpdateState())
+  })
+}
+
+async function stageLoginItemStartupUpdate(): Promise<StartupUpdateResult> {
+  const check = await checkForStartupUpdate()
+  if (check.kind !== "available") return "continue"
+  void downloadUpdateNow().catch((cause: unknown) => {
+    logger.warn("login-item update download failed:", cause)
+  })
+  return "continue"
+}
+
+async function downloadStartupUpdate(): Promise<void> {
+  try {
+    await withStartupDeadline(
+      downloadUpdateNow(),
+      STARTUP_UPDATE_DOWNLOAD_TIMEOUT_MS,
+      t(
+        "The update download took too long. It will continue in the background.",
+      ),
+    )
+  } catch (cause) {
+    if (cause instanceof StartupDeadlineError) throw cause
+    throw new Error(t("Alloy could not download the update."))
+  }
+}
+
+async function checkForStartupUpdate(): Promise<StartupUpdateCheck> {
+  const result = await withTimeout(
+    runUpdateCheck(),
+    STARTUP_UPDATE_CHECK_TIMEOUT_MS,
+  )
+  if (result.kind === "timeout") {
+    return {
+      kind: "unavailable",
+      message: t("The update check took too long. Alloy will start normally."),
+    }
+  }
+  if (result.kind === "error") {
+    return {
+      kind: "unavailable",
+      message: t("Alloy could not check for updates. It will start normally."),
+    }
+  }
+  if (result.state.status === "available" && result.state.version) {
+    return { kind: "available", version: result.state.version }
+  }
+  if (result.state.status === "downloaded" && result.state.version) {
+    return { kind: "available", version: result.state.version }
+  }
+  return { kind: "current" }
+}
+
+function runUpdateCheck(): Promise<DesktopUpdateState> {
+  if (checkInFlight) return checkInFlight
+  if (
+    state.status === "available" ||
+    state.status === "downloading" ||
+    state.status === "downloaded"
+  ) {
+    return Promise.resolve(state)
+  }
+
+  setState({ ...idleUpdateState(), status: "checking" })
+  checkInFlight = autoUpdater
+    .checkForUpdates()
+    .then(() => state)
+    .finally(() => {
+      checkInFlight = null
+      if (!startupFlowActive && state.status === "available") {
+        void downloadUpdateNow().catch(() => {
+          // The updater error event and logs already report this failure.
+        })
+      }
+    })
+  return checkInFlight
+}
+
+function setState(next: DesktopUpdateState): void {
+  if (
+    next.status === state.status &&
+    next.currentVersion === state.currentVersion &&
+    next.version === state.version
+  ) {
+    return
+  }
+  state = next
+  for (const listener of stateListeners) {
+    try {
+      listener(state)
+    } catch (cause) {
+      logger.warn("update state listener threw:", cause)
+    }
+  }
+}
+
+function setStartupState(next: StartupUpdateState): void {
+  startupState = next
+  for (const listener of startupStateListeners) {
+    try {
+      listener(startupState)
+    } catch (cause) {
+      logger.warn("startup update listener threw:", cause)
+    }
+  }
+}
+
+function idleUpdateState(): DesktopUpdateState {
+  return { status: "idle", currentVersion: app.getVersion(), version: null }
+}
+
+function failInstallAttempt(): void {
+  const attempt = installAttempt
+  if (!attempt) return
+  installAttempt = undefined
+  attempt.finish()
+  installInFlight = false
+  logger.warn("update install did not start; restarting recording backend")
+  void configureRecordingBackend().catch(() => {
+    logger.warn("failed to restart recording backend")
+  })
+  configureRecordingHotkeys()
+  setState(idleUpdateState())
+  startBackgroundUpdateChecks()
+  attempt.reject(new Error(t("Alloy could not start the update installer.")))
+}
+
+function waitForStartupChoice(
+  autoContinueMs: number | null,
+): Promise<StartupUpdateChoice> {
+  if (startupChoice) settleStartupChoice("continue")
+  if (startupState.phase === "error" && autoContinueMs !== null) {
+    setStartupState({
+      ...startupState,
+      autoContinueAt: new Date(Date.now() + autoContinueMs).toISOString(),
+    })
+  }
+  return new Promise((resolve) => {
+    startupChoice = {
+      resolve,
+      timer:
+        autoContinueMs === null
+          ? null
+          : setTimeout(() => settleStartupChoice("continue"), autoContinueMs),
     }
   })
-
-  ensureBackgroundChecks()
-  scheduleUpdateCheck(INITIAL_UPDATE_CHECK_DELAY_MS)
 }
 
-function ensureBackgroundChecks(): void {
-  if (checkInterval) return
-  checkInterval = setInterval(
-    () => scheduleUpdateCheck(0),
-    UPDATE_CHECK_INTERVAL_MS,
+function settleStartupChoice(choice: StartupUpdateChoice): void {
+  const pending = startupChoice
+  if (!pending) return
+  startupChoice = undefined
+  if (pending.timer) clearTimeout(pending.timer)
+  pending.resolve(choice)
+}
+
+function stopBackgroundUpdateChecks(): void {
+  if (!checkInterval) return
+  clearInterval(checkInterval)
+  checkInterval = null
+}
+
+function withTimeout(
+  promise: Promise<DesktopUpdateState>,
+  timeoutMs: number,
+): Promise<
+  | { kind: "done"; state: DesktopUpdateState }
+  | { kind: "error" }
+  | { kind: "timeout" }
+> {
+  const result = promise.then(
+    (next) => ({ kind: "done" as const, state: next }),
+    () => ({ kind: "error" as const }),
   )
-}
-
-function stopBackgroundChecks(): void {
-  if (checkInterval) {
-    clearInterval(checkInterval)
-    checkInterval = null
-  }
-  clearPendingCheck()
-}
-
-function scheduleUpdateCheck(delayMs: number): void {
-  if (!app.isPackaged || state.status !== "idle") return
-  clearPendingCheck()
-  pendingCheckTimer = setTimeout(() => {
-    pendingCheckTimer = null
-    void runUpdateCheck().catch(() => {
-      // Failures already surface through the updater's error event and logs.
-    })
-  }, delayMs)
-}
-
-async function runUpdateCheck(): Promise<DesktopUpdateState> {
-  if (checkInFlight || state.status !== "idle") return state
-
-  checkInFlight = true
-  setState({ ...idleUpdateState(), status: "checking" })
-  try {
-    await autoUpdater.checkForUpdates()
-    return state
-  } finally {
-    checkInFlight = false
-  }
-}
-function clearPendingCheck(): void {
-  if (!pendingCheckTimer) return
-  clearTimeout(pendingCheckTimer)
-  pendingCheckTimer = null
+  const timeout = new Promise<{ kind: "timeout" }>((resolve) => {
+    setTimeout(() => resolve({ kind: "timeout" }), timeoutMs)
+  })
+  return Promise.race([result, timeout])
 }

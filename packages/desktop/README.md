@@ -101,10 +101,23 @@ Release builds require `obs.dll` in either the staged or configured runtime.
 
 ## Release
 
-Desktop releases ship on a single channel. The publish workflow stamps the
-desktop package version before building and publishes `latest.yml` next to the
-Windows installer, so packaged builds check the GitHub releases feed in the
-background. Download and install updates manually from Desktop > Updates.
+Desktop releases ship on a single channel. A visible launch checks the GitHub
+release feed before it starts the recorder and hotkeys. The check has a 2.5
+second startup limit. Alloy starts normally when GitHub is offline or slow.
+
+When Alloy finds an update during visible startup, it shows a bundled local
+screen. It downloads the update, keeps capture services stopped, runs the NSIS
+installer, and relaunches. A login-item launch downloads the update but does
+not open the installer. Later checks also download in the background. They do
+not force a restart while Alloy is running. The next visible launch installs
+the staged update at a safe boundary.
+
+The publish workflow uploads the installer, blockmap, and `latest.yml` before
+it promotes the server container's `latest` tag. The immutable version image
+is available first for recovery and pinned deployments.
 
 GitHub Release assets are desktop-only: the unsigned Windows NSIS installer,
 blockmap, updater metadata, and checksums from `packages/desktop/release`.
+Electron Updater checks the SHA-512 value in `latest.yml`, but the installer is
+not code-signed yet. Windows code signing remains required before Alloy can
+claim publisher identity or remove SmartScreen warnings.

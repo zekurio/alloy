@@ -1,7 +1,13 @@
 import type { DesktopConnectResult } from "@alloy/contracts"
 import { ipcMain, shell } from "electron"
 
-import { OVERLAY_GET_STARTUP_SERVER_CHANNEL } from "@/shared/ipc"
+import {
+  OVERLAY_CONTINUE_STARTUP_CHANNEL,
+  OVERLAY_GET_STARTUP_SERVER_CHANNEL,
+  OVERLAY_GET_STARTUP_UPDATE_CHANNEL,
+  OVERLAY_OPEN_RELEASES_CHANNEL,
+  OVERLAY_RETRY_STARTUP_UPDATE_CHANNEL,
+} from "@/shared/ipc"
 
 import { loginViaBrowser } from "./browser-login"
 import type { BridgeHandlerFragment } from "./ipc-bridge"
@@ -26,6 +32,11 @@ import {
   rememberServer,
 } from "./server-store"
 import { clearRemoteWebCache, hasStoredSession } from "./session"
+import {
+  continueStartup,
+  getStartupUpdateState,
+  retryStartupUpdate,
+} from "./updater"
 import type { Windows } from "./windows"
 
 const SETUP_REQUIRED_ERROR =
@@ -44,6 +55,22 @@ export function registerOverlayIpc(windows: Windows): void {
   ipcMain.handle(OVERLAY_GET_STARTUP_SERVER_CHANNEL, (event): string | null => {
     requireOverlaySender(windows, event)
     return getStartupServerUrl()
+  })
+  ipcMain.handle(OVERLAY_GET_STARTUP_UPDATE_CHANNEL, (event) => {
+    requireOverlaySender(windows, event)
+    return getStartupUpdateState()
+  })
+  ipcMain.handle(OVERLAY_RETRY_STARTUP_UPDATE_CHANNEL, (event) => {
+    requireOverlaySender(windows, event)
+    retryStartupUpdate()
+  })
+  ipcMain.handle(OVERLAY_CONTINUE_STARTUP_CHANNEL, (event) => {
+    requireOverlaySender(windows, event)
+    continueStartup()
+  })
+  ipcMain.handle(OVERLAY_OPEN_RELEASES_CHANNEL, async (event) => {
+    requireOverlaySender(windows, event)
+    await shell.openExternal("https://github.com/zekurio/alloy/releases/latest")
   })
 }
 
