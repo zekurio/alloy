@@ -85,16 +85,6 @@ async function prepareCapturePublishPayload(
   })
   const selected = await prepareSelectedClipFile(file)
   throwIfAborted(signal)
-  const scrubber = !input.trimmed
-    ? await input.desktop.recording
-        .getLibraryCaptureScrubber(input.item.id)
-        .then((bytes) =>
-          bytes
-            ? new Blob([bytes.slice().buffer], { type: "image/jpeg" })
-            : undefined,
-        )
-        .catch(() => undefined)
-    : undefined
   const audioTracks = input.item.audioTracks
     ?.toSorted((left, right) => left.index - right.index)
     .flatMap((track) => {
@@ -122,7 +112,6 @@ async function prepareCapturePublishPayload(
     // the slightly longer packet-copy file. Full-range publishes send none.
     // Rounded at this boundary because the initiate schema requires integers.
   }
-  if (scrubber) payload.scrubber = scrubber
   if (audioTracks && audioTracks.length > 0) payload.audioTracks = audioTracks
   if (input.trimmed) {
     payload.trimStartMs = Math.round(exported.startOffsetMs)

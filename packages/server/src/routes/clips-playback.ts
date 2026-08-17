@@ -15,10 +15,6 @@ import {
   sourceIsBroadlyDecodable,
 } from "@alloy/server/clips/codecs"
 import { selectClipRenditions } from "@alloy/server/clips/renditions"
-import {
-  clipScrubberKey,
-  ensureClipScrubberSheet,
-} from "@alloy/server/clips/scrubber"
 import { db } from "@alloy/server/db/index"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
@@ -224,48 +220,6 @@ export const clipsPlaybackRoutes = new Hono()
         etag: `"orig-${clipAssetVersion(row.source_key)}"`,
         unavailable: "Source unavailable",
       },
-    )
-  })
-  /**
-   * GET /api/clips/:id/scrubber/file — trim-scrubber sprite sheet for the
-   * owner editor, derived lazily from the uncut stored source and cached
-   * under a deterministic key.
-   */
-  .get("/:id/scrubber/file", tbValidator("param", IdParam), async (c) => {
-    const { id } = c.req.valid("param")
-    const access = await resolveClipAccess({ id, c, policy: "ownerAsset" })
-    if (!access.accessible) return clipAccessResponse(c, access)
-    if (!access.isOwner && !access.isAdmin) return notFound(c, "Not found")
-    const row = access.row
-
-    const durationMs = row.source_duration_ms ?? row.duration_ms
-    if (!row.source_key || durationMs == null || durationMs <= 0) {
-      return notFound(c, "Scrubber unavailable")
-    }
-
-    // The sheet derives from the immutable source, so the source version
-    // makes a stable validator for the lifetime of the clip — check it
-    // before touching storage so revalidations stay free.
-    const etag = `"scrub-${clipAssetVersion(row.source_key)}"`
-    const cacheControl = "private, max-age=86400"
-    c.header("ETag", etag)
-    if (ifNoneMatchSatisfied(c.req.header("if-none-match"), etag)) {
-      c.header("Cache-Control", cacheControl)
-      return c.body(null, 304)
-    }
-
-    const exists = await ensureClipScrubberSheet({
-      clipId: id,
-      sourceKey: row.source_key,
-      durationMs,
-    })
-    if (!exists) return notFound(c, "Scrubber unavailable")
-
-    return await streamThumbnail(
-      c,
-      clipThumbnailStorage,
-      clipScrubberKey(id),
-      cacheControl,
     )
   })
   /**

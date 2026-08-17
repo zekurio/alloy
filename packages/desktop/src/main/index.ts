@@ -8,6 +8,10 @@ import {
   registerAssetCacheProtocol,
 } from "./asset-cache"
 import { WINDOWS_APP_USER_MODEL_ID, wasLaunchedAtLogin } from "./autostart"
+import {
+  startDesktopHousekeeping,
+  stopDesktopHousekeeping,
+} from "./housekeeping"
 import { registerBridge } from "./ipc"
 import { installCrashLogging, installFileLogSink } from "./logging"
 import {
@@ -27,7 +31,7 @@ import { destroyRecordingNotificationSoundPlayer } from "./recording-notificatio
 import { getRecordingSettings, getStartupServerUrl } from "./server-store"
 import { hasStoredSession, watchAuthCookiePersistence } from "./session"
 import { createAlloyTray } from "./tray"
-import { initAutoUpdater } from "./updater"
+import { runStartupUpdateBeforeServices } from "./updater"
 import { Windows } from "./windows"
 
 const BACKGROUND_STARTUP_DELAY_MS = 1000
@@ -89,9 +93,20 @@ function startApp(): void {
         app.quit()
       },
     })
+    const interactiveStartup = !wasLaunchedAtLogin()
+    // Publish the checking state before the bundled window loads, so the
+    // connect form never flashes before the update screen.
+    const startupUpdate = runStartupUpdateBeforeServices(interactiveStartup)
+    if (interactiveStartup) windows.createOverlay()
+    const startupUpdateResult = await startupUpdate.catch((cause: unknown) => {
+      logger.warn("startup update flow failed; continuing:", cause)
+      return "continue" as const
+    })
+    if (startupUpdateResult === "installing") return
+
     // Launched as a login item: stay in the tray and keep the recording
     // backend warm; the user opens a window from the tray when needed.
-    if (!wasLaunchedAtLogin()) await openInitialWindow(windows)
+    if (interactiveStartup) await openInitialWindow(windows)
     scheduleBackgroundStartup()
 
     app.on("activate", () => {
@@ -112,6 +127,7 @@ function startApp(): void {
     windows.allowAppQuit()
     unregisterRecordingHotkeys()
     destroyRecordingNotificationSoundPlayer()
+    stopDesktopHousekeeping()
     if (recorderShutdownDone) return
     event.preventDefault()
     void shutdownWithDeadline().finally(() => {
@@ -141,7 +157,7 @@ async function openInitialWindow(windows: Windows): Promise<void> {
     return
   }
 
-  windows.createOverlay()
+  windows.openConnect()
 }
 
 async function showOrOpenInitialWindow(windows: Windows): Promise<void> {
@@ -154,8 +170,8 @@ function scheduleBackgroundStartup(): void {
     runBackgroundStartupTask("Discord detection refresh", () => {
       startRecordingDiscordDetectionsRefresh()
     })
-    runBackgroundStartupTask("auto updater", () => {
-      initAutoUpdater()
+    runBackgroundStartupTask("desktop housekeeping", () => {
+      startDesktopHousekeeping()
     })
 
     const recordingSettings = getRecordingSettings()

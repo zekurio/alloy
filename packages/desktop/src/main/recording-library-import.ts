@@ -14,6 +14,10 @@ import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
+import {
+  markHousekeepingPathActive,
+  markHousekeepingPathInactive,
+} from "./housekeeping/active-paths"
 import { probeVideoFileMeta } from "./media"
 import {
   readCaptureManifest,
@@ -111,6 +115,7 @@ async function stageVideoFile(
     createdAt,
   }
   stagedImports.set(id, staged)
+  markHousekeepingPathActive("import", staged.stagedPath)
 
   return {
     id,
@@ -157,6 +162,7 @@ export async function commitRecordingLibraryStagedImport(
   writeCaptureManifest(manifest)
   invalidateRecordingLibrarySnapshot()
   stagedImports.delete(request.id)
+  markHousekeepingPathInactive("import", staged.stagedPath)
 
   return { id }
 }
@@ -167,6 +173,7 @@ export async function discardRecordingLibraryStagedImport(
   const staged = stagedImports.get(id)
   if (!staged) return
   stagedImports.delete(id)
+  markHousekeepingPathInactive("import", staged.stagedPath)
   try {
     await unlink(staged.stagedPath)
   } catch (cause) {

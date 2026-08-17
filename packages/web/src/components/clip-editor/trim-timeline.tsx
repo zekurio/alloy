@@ -9,8 +9,9 @@ import {
 } from "react"
 import type { KeyboardEvent, PointerEvent } from "react"
 
-import { FilmstripCanvas } from "@/components/media/filmstrip-canvas"
+import { WaveformCanvas } from "@/components/media/waveform-canvas"
 import { formatMediaDurationMs, formatTrimMs } from "@/lib/media-time"
+import type { MediaWaveformState } from "@/lib/media-waveform"
 
 /**
  * Touch trimmer built like a mobile editor timeline: the playhead is pinned
@@ -20,8 +21,6 @@ import { formatMediaDurationMs, formatTrimMs } from "@/lib/media-time"
  * needed beside it.
  */
 
-/** Hard cap on filmstrip cells (canvas draw-call guard). */
-const MAX_FILMSTRIP_CELLS = 64
 /** Rendered strip width, in viewport widths, so panning is a GPU transform. */
 const CONTENT_SPAN = 2
 /** Ceiling on the time scale: ~1px per 2.5ms, finer than a 60fps frame. */
@@ -47,8 +46,7 @@ type Gesture =
   | { kind: "pinch"; startDistance: number; startZoom: number }
 
 export function TrimTimeline({
-  frames,
-  frameAspect,
+  waveform,
   durationMs,
   startMs,
   endMs,
@@ -60,10 +58,8 @@ export function TrimTimeline({
   canTrim = true,
   className,
 }: {
-  /** Frame image URLs sampled evenly across the source media. */
-  frames: string[]
-  /** Width/height ratio of the frames — cells size to match, never squish. */
-  frameAspect: number
+  /** Audio peak data for the source media. */
+  waveform: MediaWaveformState
   durationMs: number
   startMs: number
   endMs: number
@@ -235,7 +231,7 @@ export function TrimTimeline({
     if (gesture.pointerId !== e.pointerId) return
     const deltaMs = (e.clientX - gesture.startX) / zoom
     // Dragging right pulls earlier material under the playhead, like sliding
-    // a filmstrip past a fixed gate.
+    // a waveform past a fixed gate.
     if (gesture.kind === "pan") {
       onScrub(gesture.startMs - deltaMs)
       return
@@ -310,7 +306,7 @@ export function TrimTimeline({
         onPointerCancel={finishPointer}
       >
         {/* Sunken track under the strip: the run with no media reads as
-            empty runway rather than as part of the filmstrip. */}
+            empty runway rather than as part of the waveform. */}
         <div
           aria-hidden
           className="bg-surface-sunken absolute inset-x-0 bottom-0"
@@ -340,19 +336,16 @@ export function TrimTimeline({
                 className="bg-surface absolute inset-y-0 overflow-hidden"
                 style={{ left: x(paintStartMs), width: paintWidth }}
               >
-                <FilmstripCanvas
-                  frames={frames}
-                  cellCount={Math.min(
-                    MAX_FILMSTRIP_CELLS,
-                    Math.max(
-                      1,
-                      Math.round(paintWidth / (STRIP_HEIGHT_PX * frameAspect)),
-                    ),
-                  )}
+                <WaveformCanvas
+                  peaks={waveform.peaks}
                   durationMs={durationMs}
+                  status={waveform.status}
                   startMs={paintStartMs}
                   endMs={paintEndMs}
                 />
+                {waveform.status !== "ready" ? (
+                  <WaveformStatus status={waveform.status} />
+                ) : null}
                 {/* Cut-away material stays visible but dimmed, so the handles
                     can always be dragged back out to recover it. */}
                 <div
@@ -404,6 +397,16 @@ export function TrimTimeline({
         </div>
       </div>
     </div>
+  )
+}
+
+function WaveformStatus({ status }: { status: MediaWaveformState["status"] }) {
+  if (status === "ready") return null
+  const label = status === "loading" ? t("Loading…") : t("Unavailable")
+  return (
+    <span className="text-foreground-faint pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-medium tracking-wide uppercase">
+      {label}
+    </span>
   )
 }
 
