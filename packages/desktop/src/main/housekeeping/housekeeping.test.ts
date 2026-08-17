@@ -171,6 +171,40 @@ test("recurring import sweep keeps fresh and active files", async () => {
   assert.deepEqual(result, { removedFiles: 1, removedBytes: 5 })
 })
 
+test("rechecks active paths before deleting a stale file", async () => {
+  const root = await temporaryRoot()
+  const logs = join(root, "logs")
+  const imports = join(root, "recording-library-imports")
+  await mkdir(logs)
+  await mkdir(imports)
+  const stale = join(imports, "00000000-0000-0000-0000-000000000004.mp4")
+  await writeFile(stale, "stale")
+  const old = new Date(1_000)
+  await utimes(stale, old, old)
+  let activeChecks = 0
+  const tasks = createDesktopHousekeepingTasks({
+    userData: root,
+    logs,
+    activeAssetPaths: () => new Set(),
+    activeAudioPaths: () => new Set(),
+    activeExportPaths: () => new Set(),
+    activeImportPaths: () => {
+      activeChecks += 1
+      return activeChecks > 1 ? new Set([stale]) : new Set()
+    },
+    now: () => 2 * 24 * 60 * 60 * 1000,
+  })
+  const task = tasks.find(
+    (candidate) => candidate.id === "prune-staged-recording-imports",
+  )
+  assert.ok(task)
+
+  const result = await task.run(new AbortController().signal)
+
+  assert.equal(await readFile(stale, "utf8"), "stale")
+  assert.deepEqual(result, { removedFiles: 0, removedBytes: 0 })
+})
+
 async function temporaryRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "alloy-housekeeping-"))
   temporaryRoots.push(root)
