@@ -7,6 +7,7 @@ import type {
 } from "@alloy/contracts"
 import { app } from "electron"
 
+import { markHousekeepingPathActive } from "./housekeeping/active-paths"
 import {
   assertUploadMp4File,
   remuxToUploadMp4,
@@ -97,6 +98,7 @@ export async function exportRecordingLibraryItem(
 
   const stat = statSync(out)
   exportedCaptureFiles.set(exportId, out)
+  markHousekeepingPathActive("export", out)
 
   return {
     id: exportId,

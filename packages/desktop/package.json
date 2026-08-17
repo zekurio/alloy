@@ -17,6 +17,7 @@
     "dist:win": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win dir --x64 --publish never",
     "dist:win:installer": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win nsis --x64 --publish never",
     "preview": "pnpm prepare:assets && pnpm ensure:electron && electron-vite preview",
+    "test:housekeeping": "tsx --test src/main/housekeeping/housekeeping.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

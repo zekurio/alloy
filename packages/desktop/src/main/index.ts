@@ -8,6 +8,10 @@ import {
   registerAssetCacheProtocol,
 } from "./asset-cache"
 import { WINDOWS_APP_USER_MODEL_ID, wasLaunchedAtLogin } from "./autostart"
+import {
+  startDesktopHousekeeping,
+  stopDesktopHousekeeping,
+} from "./housekeeping"
 import { registerBridge } from "./ipc"
 import { installCrashLogging, installFileLogSink } from "./logging"
 import {
@@ -112,6 +116,7 @@ function startApp(): void {
     windows.allowAppQuit()
     unregisterRecordingHotkeys()
     destroyRecordingNotificationSoundPlayer()
+    stopDesktopHousekeeping()
     if (recorderShutdownDone) return
     event.preventDefault()
     void shutdownWithDeadline().finally(() => {
@@ -156,6 +161,9 @@ function scheduleBackgroundStartup(): void {
     })
     runBackgroundStartupTask("auto updater", () => {
       initAutoUpdater()
+    })
+    runBackgroundStartupTask("desktop housekeeping", () => {
+      startDesktopHousekeeping()
     })
 
     const recordingSettings = getRecordingSettings()
