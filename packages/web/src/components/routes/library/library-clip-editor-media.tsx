@@ -2,7 +2,6 @@ import {
   type ClipRow,
   clipOriginalFileUrl,
   clipRenditionFileUrl,
-  clipScrubberFileUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
@@ -42,7 +41,7 @@ import { useSetClipPosterMutation } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { canPlaySource } from "@/lib/media-capability"
-import { useSpriteSheetFilmstrip } from "@/lib/media-filmstrip"
+import { useMediaWaveform } from "@/lib/media-waveform"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
 import {
@@ -88,8 +87,14 @@ export function useClipEditorMedia(
           playableRendition.version,
         )
       : null
-  const filmstrip = useSpriteSheetFilmstrip(
-    processing ? null : clipScrubberFileUrl(row.id, apiOrigin()),
+  const waveform = useMediaWaveform(
+    processing ? (localItem?.mediaUrl ?? null) : streamSrc,
+    processing
+      ? localItem
+        ? `desktop:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localItem.mediaUrl}`
+        : null
+      : `clip:${row.id}:${row.sourceVersion ?? ""}:${streamSrc}`,
+    row.durationMs ?? localItem?.durationMs ?? 0,
   )
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
@@ -152,7 +157,7 @@ export function useClipEditorMedia(
   return {
     aspectRatio,
     cloudFrameReady,
-    filmstrip,
+    waveform,
     handoffPoster,
     mediaVersion,
     playbackSrc,
@@ -355,8 +360,7 @@ function ClipEditorTrimControls({
         }
       />
       <TrimBar
-        frames={media.filmstrip.frames}
-        frameAspect={media.filmstrip.aspect}
+        waveform={media.waveform}
         durationMs={playback.durationMs}
         startMs={playback.trim.startMs}
         endMs={playback.trim.endMs}
