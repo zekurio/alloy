@@ -33,9 +33,9 @@ const MAX_AUDIO_TRACK_CACHE_BYTES = 1024 * 1024 * 1024
  * captures, so the web app's audio mixer can decode individual tracks (the
  * `<video>` element only ever plays the embedded mix). Entries are named
  * `<signature>.<track>.m4a` after the capture's mtime/size signature like the
- * thumbnail and scrubber caches, so editing the file invalidates stale stems.
- * Unlike those caches the entries are tens of MB each, so a size-budgeted
- * LRU sweep bounds the folder.
+ * thumbnail cache, so editing the file invalidates stale stems. Unlike the
+ * thumbnail cache, the entries are tens of MB each, so a size-budgeted LRU
+ * sweep bounds the folder.
  */
 
 /** In-flight jobs keyed by capture signature; one job extracts every stem. */
