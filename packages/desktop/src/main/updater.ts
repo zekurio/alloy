@@ -181,7 +181,7 @@ export async function restartToInstallUpdate(): Promise<void> {
   if (!installInFlight) return
   if (!recorderStopped) {
     installInFlight = false
-    configureRecordingHotkeys()
+    if (!startupFlowActive) configureRecordingHotkeys()
     throw new Error(t("The recorder did not stop. Try restarting again."))
   }
 
@@ -399,14 +399,24 @@ function failInstallAttempt(): void {
   installAttempt = undefined
   attempt.finish()
   installInFlight = false
+  restoreCaptureServicesAfterInstallFailure()
+  setState(idleUpdateState())
+  startBackgroundUpdateChecks()
+  attempt.reject(new Error(t("Alloy could not start the update installer.")))
+}
+
+function restoreCaptureServicesAfterInstallFailure(): void {
+  if (startupFlowActive) {
+    logger.warn(
+      "update install did not start; capture services remain stopped during startup",
+    )
+    return
+  }
   logger.warn("update install did not start; restarting recording backend")
   void configureRecordingBackend().catch(() => {
     logger.warn("failed to restart recording backend")
   })
   configureRecordingHotkeys()
-  setState(idleUpdateState())
-  startBackgroundUpdateChecks()
-  attempt.reject(new Error(t("Alloy could not start the update installer.")))
 }
 
 function waitForStartupChoice(
