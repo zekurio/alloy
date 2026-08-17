@@ -1,10 +1,5 @@
 import { normalizeBlurHash } from "@alloy/contracts"
-import { createLogger } from "@alloy/logging"
 import { renditionIsH264 } from "@alloy/server/clips/codecs"
-import {
-  clipScrubberKey,
-  publishScrubberSheet,
-} from "@alloy/server/clips/scrubber"
 import { configStore } from "@alloy/server/config/store"
 import {
   encodeFingerprint,
@@ -13,7 +8,6 @@ import {
 } from "@alloy/server/media/encode-fingerprint"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
 import { join } from "@alloy/server/runtime/path"
-import { clipThumbnailStorage } from "@alloy/server/storage/index"
 import { deleteStagedUpload } from "@alloy/server/uploads/staged"
 import {
   cleanupTickets,
@@ -56,8 +50,6 @@ export {
   encodeProgressTotalCost,
 } from "./media-encode-progress"
 export { runThumbnailBackfill } from "./media-thumbnail-backfill"
-
-const logger = createLogger("queue")
 
 /**
  * Run the media pipeline for one leased clip. Downloads the source, applies a
@@ -364,22 +356,6 @@ async function runPipelineInWorkDir({
     ],
   )
   await cleanupTickets({ type: store.target, id }, "completed staged upload")
-  if (!(await clipThumbnailStorage.resolve(clipScrubberKey(id)))) {
-    try {
-      // Warm the trim scrubber while the source is already on disk. The
-      // editor's first open otherwise re-downloads the source and blocks on
-      // generation; best-effort, the lazy path regenerates it.
-      await publishScrubberSheet({
-        clipId: id,
-        sourcePath,
-        workDir,
-        durationMs: sourceProbe.durationMs,
-        signal,
-      })
-    } catch (err) {
-      logger.warn(`scrubber sheet warmup failed for ${id}:`, err)
-    }
-  }
   progress.complete(FINALIZE_PHASE_COST)
   store.publishUpsert(row.authorId, id)
 }

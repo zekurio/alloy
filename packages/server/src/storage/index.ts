@@ -40,7 +40,6 @@ function isClipThumbnailKey(key: string): boolean {
   return (
     filename === "thumb.jpg" ||
     filename === "thumb-small.jpg" ||
-    filename === "scrubber.jpg" ||
     (filename.startsWith("thumb-") && filename.endsWith(".jpg"))
   )
 }
