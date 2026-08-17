@@ -13,6 +13,10 @@ import { createLogger } from "@alloy/logging"
 import { app, net } from "electron"
 
 import {
+  markHousekeepingPathActive,
+  markHousekeepingPathInactive,
+} from "./housekeeping/active-paths"
+import {
   StrictFiniteNumberSchema,
   StrictStringSchema,
   type UntrustedInput,
@@ -104,8 +108,12 @@ async function serveAsset(sourceUrl: string): Promise<Response> {
   const pending = pendingFetches.get(key)
   if (pending) return pending.then((response) => response.clone())
 
+  markHousekeepingPathActive("asset", assetBodyPath(key))
+  markHousekeepingPathActive("asset", assetMetaPath(key))
   const task = fetchAndStoreAsset(sourceUrl, key, cached).finally(() => {
     pendingFetches.delete(key)
+    markHousekeepingPathInactive("asset", assetBodyPath(key))
+    markHousekeepingPathInactive("asset", assetMetaPath(key))
   })
   pendingFetches.set(key, task)
   return task.then((response) => response.clone())

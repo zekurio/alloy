@@ -15,6 +15,10 @@ import { isClipAudioTrackKind } from "@alloy/contracts/desktop-recording-types"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
+import {
+  markHousekeepingPathActive,
+  markHousekeepingPathInactive,
+} from "./housekeeping/active-paths"
 import { pruneCaptureCache } from "./recording-library-cache-files"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
@@ -141,6 +145,8 @@ async function extractAllStems(
     .map((stem) => ({ ...stem, outPath: `${stem.finalPath}.partial` }))
   if (stems.length === 0) return
 
+  for (const stem of stems) markHousekeepingPathActive("audio", stem.outPath)
+
   try {
     await extractCaptureAudioStems(item.filename, stems)
     for (const stem of stems) {
@@ -150,7 +156,10 @@ async function extractAllStems(
       touchStem(stem.finalPath)
     }
   } finally {
-    for (const stem of stems) rmSync(stem.outPath, { force: true })
+    for (const stem of stems) {
+      markHousekeepingPathInactive("audio", stem.outPath)
+      rmSync(stem.outPath, { force: true })
+    }
   }
 
   // The capture may have been deleted while the job ran; its sweep already
