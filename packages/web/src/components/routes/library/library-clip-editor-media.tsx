@@ -94,7 +94,9 @@ export function useClipEditorMedia(
         ? `desktop:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localItem.mediaUrl}`
         : null
       : `clip:${row.id}:${row.sourceVersion ?? ""}:${streamSrc}`,
-    row.durationMs ?? localItem?.durationMs ?? 0,
+    processing
+      ? (localItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs ?? 0)
+      : (row.sourceDurationMs ?? row.durationMs ?? 0),
   )
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
