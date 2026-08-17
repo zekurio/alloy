@@ -333,7 +333,7 @@ export function TrimTimeline({
           >
             {paintWidth > 0 ? (
               <div
-                className="bg-surface absolute relative inset-y-0 overflow-hidden"
+                className="bg-surface absolute inset-y-0 overflow-hidden"
                 style={{ left: x(paintStartMs), width: paintWidth }}
               >
                 <WaveformCanvas
@@ -402,12 +402,7 @@ export function TrimTimeline({
 
 function WaveformStatus({ status }: { status: MediaWaveformState["status"] }) {
   if (status === "ready") return null
-  const label =
-    status === "loading"
-      ? t("Loading…")
-      : status === "empty"
-        ? t("Unavailable")
-        : t("Retry")
+  const label = status === "loading" ? t("Loading…") : t("Unavailable")
   return (
     <span className="text-foreground-faint pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-medium tracking-wide uppercase">
       {label}
