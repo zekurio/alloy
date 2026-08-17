@@ -204,23 +204,16 @@ function RecordingStatusContent({
       <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3">
         <div className="text-sm font-semibold">{t("Capture with Alloy")}</div>
         {settings ? (
-          <div className="flex items-center gap-2">
-            <span className="text-foreground-dim text-[10px] font-semibold tracking-wide uppercase">
-              {settings.enabled ? t("On") : t("Off")}
-            </span>
-            <Switch
-              checked={settings.enabled}
-              onCheckedChange={(enabled) =>
-                void onSave({ ...settings, enabled })
-              }
-            />
-          </div>
+          <Switch
+            aria-label={t("Capture with Alloy")}
+            checked={settings.enabled}
+            onCheckedChange={(enabled) => void onSave({ ...settings, enabled })}
+          />
         ) : null}
       </div>
 
       <div className="flex flex-col gap-3 px-4 pb-4">
         <RecordingAudioSettings
-          desktop={desktop}
           settings={settings}
           status={status}
           onSave={onSave}
@@ -251,12 +244,10 @@ function RecordingStatusContent({
 }
 
 function RecordingAudioSettings({
-  desktop,
   settings,
   status,
   onSave,
 }: {
-  desktop: AlloyDesktop
   settings: RecordingSettings | null
   status: RecordingStatus | null
   onSave: SaveRecordingSettings
@@ -272,21 +263,6 @@ function RecordingAudioSettings({
 
   return (
     <>
-      <div className="flex items-center justify-between">
-        <span className="text-foreground-dim text-xs font-semibold tracking-wide uppercase">
-          {t("Audio settings")}
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-accent h-7 px-1.5"
-          onClick={() => void desktop.openSettings()}
-        >
-          {t("Manage Audio")}
-          <ArrowRightIcon className="size-3.5" />
-        </Button>
-      </div>
       {settings?.audioMode !== "applications" ? (
         <AudioRow
           icon={<Volume2Icon className="size-4" />}
@@ -326,42 +302,54 @@ function RecordingCaptureTarget({
 
   return (
     <>
-      <div
-        className="alloy-blur relative flex h-24 overflow-hidden rounded-md border text-center"
-        style={cssVariables({
-          "--alloy-blur-opacity": "58%",
-          "--alloy-blur-blur": "24px",
-          "--alloy-blur-shadow": "none",
-        })}
-      >
-        {settings?.captureMode === "display" &&
-        activeDisplay?.thumbnailDataUrl ? (
-          <>
-            <img
-              src={activeDisplay.thumbnailDataUrl}
-              alt=""
-              draggable={false}
-              className="h-full w-full object-cover"
-            />
-            <div className="absolute inset-x-0 bottom-0 bg-black/70 px-3 py-2">
-              <div className="truncate text-sm font-semibold">
+      {settings?.captureMode === "display" ? (
+        <div
+          className="alloy-blur relative flex h-24 overflow-hidden rounded-md border text-center"
+          style={cssVariables({
+            "--alloy-blur-opacity": "58%",
+            "--alloy-blur-blur": "24px",
+            "--alloy-blur-shadow": "none",
+          })}
+        >
+          {activeDisplay?.thumbnailDataUrl ? (
+            <>
+              <img
+                src={activeDisplay.thumbnailDataUrl}
+                alt=""
+                draggable={false}
+                className="h-full w-full object-cover"
+              />
+              <div className="absolute inset-x-0 bottom-0 bg-black/70 px-3 py-2">
+                <div className="truncate text-sm font-semibold">
+                  {captureTargetLabel(settings, status)}
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 py-4">
+              <MonitorIcon className="text-foreground-muted size-5" />
+              <div className="text-foreground-muted text-sm font-semibold">
                 {captureTargetLabel(settings, status)}
               </div>
             </div>
-          </>
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 py-4">
-            {settings?.captureMode === "display" ? (
-              <MonitorIcon className="text-foreground-muted size-5" />
-            ) : (
-              <Gamepad2Icon className="text-foreground-muted size-5" />
-            )}
-            <div className="text-foreground-muted text-sm font-semibold">
-              {captureTargetLabel(settings, status)}
-            </div>
+          )}
+        </div>
+      ) : (
+        <div className="border-border bg-surface-raised/40 flex min-h-12 items-center gap-3 rounded-md border px-3 py-2.5">
+          {status?.activeGameDetail ? (
+            <GameIcon
+              src={status.activeGameDetail.iconUrl}
+              name={status.activeGameDetail.name}
+              className="size-6 shrink-0"
+            />
+          ) : (
+            <Gamepad2Icon className="text-foreground-muted size-5 shrink-0" />
+          )}
+          <div className="text-foreground-muted min-w-0 text-sm font-semibold">
+            {captureTargetLabel(settings, status)}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {settings?.captureMode === "display" ? (
         <Button
