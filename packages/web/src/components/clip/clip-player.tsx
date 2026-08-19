@@ -1,5 +1,4 @@
 import {
-  type ClipAudioTrackRef,
   type ClipRenditionRef,
   clipRenditionFileUrl,
   type ClipStatus,
@@ -21,7 +20,6 @@ import {
   encodeStageLabel,
   QueueProgressBar,
 } from "@/components/upload/queue-progress"
-import { useAudioTrackMixer } from "@/components/video/audio-track-mixer"
 import {
   resolvePlayback,
   type RenditionPlayback,
@@ -49,8 +47,6 @@ interface ClipPlayerProps {
   sourceVersion?: string | null
   /** Committed quality tiers, highest first. Empty while none are prepared. */
   renditions?: ClipRenditionRef[]
-  /** Per-source stems available for optional client-side mixing. */
-  audioTracks?: ClipAudioTrackRef[]
   durationMs?: number | null
   thumbnail?: string | null
   thumbnailBlurHash?: string | null
@@ -81,15 +77,12 @@ interface ClipPlayerProps {
 }
 
 const DEFAULT_ASPECT_RATIO = 16 / 9
-const EMPTY_AUDIO_TRACKS: ClipAudioTrackRef[] = []
-
 function ClipPlayer({
   clipId,
   playbackContentType,
   sourceCodecs,
   sourceVersion,
   renditions = [],
-  audioTracks = EMPTY_AUDIO_TRACKS,
   durationMs = null,
   thumbnail,
   thumbnailBlurHash,
@@ -114,7 +107,6 @@ function ClipPlayer({
   enableHorizontalSeekShortcuts,
   aspectRatio: aspectRatioProp,
 }: ClipPlayerProps) {
-  const audioMixer = useAudioTrackMixer(clipId, audioTracks, durationMs)
   const poster =
     thumbnail === undefined
       ? clipThumbnailUrl(clipId, apiOrigin())
@@ -348,7 +340,6 @@ function ClipPlayer({
       qualityOptions={qualityOptions}
       selectedQualityId={active?.name ?? selectedQualityId}
       onSelectQuality={pinQuality}
-      audioMixer={audioMixer.tracks.length >= 2 ? audioMixer : undefined}
       onPlayThreshold={onPlayThreshold}
       onEnded={onEnded}
       onPlaybackError={handlePlaybackError}
