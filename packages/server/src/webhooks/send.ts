@@ -63,17 +63,23 @@ export async function postWebhook(
 
   // redirect: "error" — a webhook endpoint that redirects is misconfigured or
   // hostile, and following it would send the signature to an unintended host.
-  const response = await fetch(target.url, {
+  const result = await fetch(target.url, {
     method: "POST",
     headers,
     body,
     redirect: "error",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  }).catch((cause: unknown) => errorMessage(cause, "Webhook request failed"))
+  }).then(
+    (response) => ({ response }),
+    (cause: unknown) => ({
+      error: errorMessage(cause, "Webhook request failed"),
+    }),
+  )
 
-  if (!(response instanceof Response)) {
-    return { ok: false, status: null, error: response }
+  if ("error" in result) {
+    return { ok: false, status: null, error: result.error }
   }
+  const response = result.response
   if (response.ok) return { ok: true, status: response.status }
 
   const detail = await response.text().catch(() => "")
