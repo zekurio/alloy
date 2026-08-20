@@ -39,7 +39,7 @@
     "oxlint": "1.78.0",
     "oxlint-tsgolint": "7.0.2001",
     "tsx": "4.23.12",
-    "turbo": "2.10.9",
+    "turbo": "2.10.10",
     "typescript": "7.0.2"
   },
   "engines": {
