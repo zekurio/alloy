@@ -4,6 +4,7 @@ import type { RefObject } from "react"
 import { canPlaySource } from "@/lib/media-capability"
 import { createObjectUrl, revokeObjectUrl } from "@/lib/object-url"
 
+import type { MediaPlaybackRange } from "./video-player-types"
 import type { SourceSpec } from "./video-source"
 
 export interface RenditionSource {
@@ -13,6 +14,8 @@ export interface RenditionSource {
   codecs: string
   /** Container MIME type, e.g. "video/mp4". */
   contentType: string
+  /** Optional window within this source that represents the clip timeline. */
+  playbackRange?: MediaPlaybackRange
 }
 
 /** Progressive playback config, source entry first. */
@@ -69,6 +72,7 @@ export function useMediaEngine(
   spec: SourceSpec,
   videoRef: RefObject<HTMLVideoElement | null>,
   renditionPlayback?: RenditionPlayback | null,
+  playbackRange?: MediaPlaybackRange,
 ) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null)
   const [switchingRendition, setSwitchingRendition] = useState(false)
@@ -197,7 +201,10 @@ export function useMediaEngine(
   if (spec.kind === "file") {
     return {
       src: objectUrl,
-      mediaKey: objectUrl ? `file:${objectUrl}` : "file",
+      mediaKey: objectUrl
+        ? `file:${objectUrl}:${playbackRangeKey(playbackRange)}`
+        : "file",
+      activePlaybackRange: playbackRange,
       onMediaError,
       switchingRendition: false,
     }
@@ -206,7 +213,8 @@ export function useMediaEngine(
   if (activeUrl !== null) {
     return {
       src: activeUrl,
-      mediaKey: `url:${activeUrl}`,
+      mediaKey: `url:${activeUrl}:${playbackRangeKey(active?.playbackRange)}`,
+      activePlaybackRange: active?.playbackRange,
       onMediaError,
       switchingRendition,
     }
@@ -214,8 +222,13 @@ export function useMediaEngine(
 
   return {
     src: spec.url,
-    mediaKey: `url:${spec.url}`,
+    mediaKey: `url:${spec.url}:${playbackRangeKey(playbackRange)}`,
+    activePlaybackRange: playbackRange,
     onMediaError,
     switchingRendition: false,
   }
+}
+
+function playbackRangeKey(range: MediaPlaybackRange | undefined): string {
+  return range ? `${range.start}-${range.end}` : "full"
 }

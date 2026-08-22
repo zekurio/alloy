@@ -107,6 +107,13 @@ async function prepareCapturePublishPayload(
     sizeBytes: selected.sizeBytes,
     mentionedUserIds: input.mentions.map((mention) => mention.id),
     localCaptureId: input.item.id,
+    localClipSource: {
+      startMs: Math.max(
+        0,
+        Math.round(input.trim.startMs - exported.startOffsetMs),
+      ),
+      durationMs: Math.max(1, Math.round(selected.durationMs)),
+    },
     // Exports report the keyframe-snap offset; sending the exact
     // file-relative range lets the server cut the requested frames out of
     // the slightly longer packet-copy file. Full-range publishes send none.

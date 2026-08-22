@@ -1,5 +1,8 @@
 import type { RenditionPlayback } from "./video-media-engine"
-import type { SharedPlayerProps } from "./video-player-types"
+import type {
+  MediaPlaybackRange,
+  SharedPlayerProps,
+} from "./video-player-types"
 import type { SourceSpec } from "./video-source"
 
 export type PlayerCoreProps = SharedPlayerProps & {
@@ -15,4 +18,5 @@ export type PlayerCoreProps = SharedPlayerProps & {
   loop: boolean
   initialMuted: boolean
   playbackRate: number
+  playbackRange?: MediaPlaybackRange
 }

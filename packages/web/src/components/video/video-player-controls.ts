@@ -21,6 +21,8 @@ interface VideoPlayerControlsOptions {
   audioMixerEngagedRef: MutableRefObject<boolean>
   containerRef: RefObject<HTMLDivElement | null>
   duration: number
+  getCurrentTime: () => number
+  getDuration: () => number
   isCoarsePointer: boolean
   mutedRef: MutableRefObject<boolean>
   pauseInternal: () => void
@@ -39,6 +41,8 @@ export function useVideoPlayerControls({
   audioMixerEngagedRef,
   containerRef,
   duration,
+  getCurrentTime,
+  getDuration,
   isCoarsePointer,
   mutedRef,
   pauseInternal,
@@ -95,11 +99,8 @@ export function useVideoPlayerControls({
       pause: () => pauseInternal(),
       seek: (seconds: number, keepPlaying?: boolean) =>
         seekInternal(seconds, keepPlaying),
-      getCurrentTime: () => videoRef.current?.currentTime ?? 0,
-      getDuration: () => {
-        const value = videoRef.current?.duration ?? 0
-        return Number.isFinite(value) ? value : 0
-      },
+      getCurrentTime,
+      getDuration,
       setVolume,
       setMuted,
       setPlaybackRate: (rate: number) => {
@@ -107,7 +108,16 @@ export function useVideoPlayerControls({
         if (video) video.playbackRate = rate
       },
     }),
-    [pauseInternal, playInternal, seekInternal, setMuted, setVolume, videoRef],
+    [
+      getCurrentTime,
+      getDuration,
+      pauseInternal,
+      playInternal,
+      seekInternal,
+      setMuted,
+      setVolume,
+      videoRef,
+    ],
   )
 
   const togglePlay = useCallback(() => {
@@ -133,12 +143,8 @@ export function useVideoPlayerControls({
   )
 
   const seekBy = useCallback(
-    (deltaSec: number) => {
-      const video = videoRef.current
-      if (!video) return
-      seekInternal((video.currentTime || 0) + deltaSec)
-    },
-    [seekInternal, videoRef],
+    (deltaSec: number) => seekInternal(getCurrentTime() + deltaSec),
+    [getCurrentTime, seekInternal],
   )
 
   const toggleFullscreen = useCallback(() => {

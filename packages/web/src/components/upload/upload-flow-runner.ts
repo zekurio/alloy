@@ -2,7 +2,11 @@ import { uploadToTicket } from "@alloy/api"
 
 import { api } from "@/lib/api"
 import { clientLogger } from "@/lib/client-log"
-import { alloyDesktop, notifyLibraryCapturesChanged } from "@/lib/desktop"
+import {
+  alloyDesktop,
+  desktopSupports,
+  notifyLibraryCapturesChanged,
+} from "@/lib/desktop"
 
 import type { PublishPayload } from "./new-clip-helpers"
 import type { ActiveUpload } from "./upload-queue-mapping"
@@ -76,7 +80,11 @@ export async function startUpload(
   bump()
   void invalidateClips()
   if (payload.localCaptureId) {
-    void linkLocalCaptureToClip(payload.localCaptureId, clipId)
+    void linkLocalCaptureToClip(
+      payload.localCaptureId,
+      clipId,
+      payload.localClipSource,
+    )
   }
 
   return {
@@ -114,10 +122,21 @@ async function completeUpload(
 export async function linkLocalCaptureToClip(
   captureId: string,
   clipId: string,
+  source?: { startMs: number; durationMs: number },
 ): Promise<void> {
   const desktop = alloyDesktop()
   if (!desktop) return
   try {
+    if (desktopSupports("recording.setLibraryCaptureClipLink")) {
+      await desktop.recording.setLibraryCaptureClipLink({
+        id: captureId,
+        uploadedClipId: clipId,
+        uploadedClipSourceStartMs: source?.startMs ?? null,
+        uploadedClipSourceDurationMs: source?.durationMs ?? null,
+      })
+      notifyLibraryCapturesChanged()
+      return
+    }
     await desktop.recording.updateLibraryCapture({
       id: captureId,
       uploadedClipId: clipId,
@@ -138,6 +157,16 @@ export async function clearLocalCaptureClipLink(
   const desktop = alloyDesktop()
   if (!desktop) return
   try {
+    if (desktopSupports("recording.setLibraryCaptureClipLink")) {
+      await desktop.recording.setLibraryCaptureClipLink({
+        id: captureId,
+        uploadedClipId: null,
+        uploadedClipSourceStartMs: null,
+        uploadedClipSourceDurationMs: null,
+      })
+      notifyLibraryCapturesChanged()
+      return
+    }
     await desktop.recording.updateLibraryCapture({
       id: captureId,
       uploadedClipId: null,

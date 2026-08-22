@@ -24,6 +24,7 @@ import {
   LoadOverlay,
   type LoadStatus,
 } from "./video-player-shell"
+import type { MediaPlaybackRange } from "./video-player-types"
 import { VideoFrame } from "./video-player-video"
 import { isInterruptedPlayRequest, mediaErrorMessage } from "./video-source"
 
@@ -54,6 +55,7 @@ export function PlayerCore({
   shortcutBounds,
   enableHorizontalSeekShortcuts = true,
   playbackRate,
+  playbackRange,
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
@@ -62,9 +64,10 @@ export function PlayerCore({
   const {
     src: mediaUrl,
     mediaKey,
+    activePlaybackRange,
     onMediaError,
     switchingRendition,
-  } = useMediaEngine(spec, videoRef, renditionPlayback)
+  } = useMediaEngine(spec, videoRef, renditionPlayback, playbackRange)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const playerVolume = usePlayerVolume()
   const initialPlayerVolumeRef = useRef(playerVolume)
@@ -75,6 +78,7 @@ export function PlayerCore({
   const lastTimeRef = useRef(0)
   const playRequestIdRef = useRef(0)
   const hasRenderedFrameRef = useRef(false)
+  const rangeEndedRef = useRef(false)
   const resumeRef = useRef<{ time: number; play: boolean } | null>(null)
   const prevSourceRef = useRef<{
     identity: string
@@ -113,16 +117,37 @@ export function PlayerCore({
     onEndedRef.current = onEnded
   }, [onTimeUpdate, onPlayingChange, onPlaybackError, onFrameReady, onEnded])
 
+  const readDuration = useCallback(() => {
+    const video = videoRef.current
+    return video
+      ? playbackDuration(
+          finiteMediaDuration(video.duration),
+          activePlaybackRange,
+        )
+      : 0
+  }, [activePlaybackRange])
+
+  const readCurrentTime = useCallback(() => {
+    const video = videoRef.current
+    return video
+      ? toPlaybackTime(
+          video.currentTime || 0,
+          finiteMediaDuration(video.duration),
+          activePlaybackRange,
+        )
+      : 0
+  }, [activePlaybackRange])
+
   const syncTime = useCallback(() => {
     const video = videoRef.current
     if (!video) return
-    const nextTime = video.currentTime || 0
-    const nextDuration = Number.isFinite(video.duration) ? video.duration : 0
+    const nextDuration = readDuration()
+    const nextTime = readCurrentTime()
     lastTimeRef.current = nextTime
     setCurrentTime(nextTime)
     setDuration(nextDuration)
     onTimeUpdateRef.current?.(nextTime)
-  }, [])
+  }, [readCurrentTime, readDuration])
 
   const syncBuffered = useCallback(() => {
     const video = videoRef.current
@@ -130,8 +155,14 @@ export function PlayerCore({
       setBufferedEnd(0)
       return
     }
-    setBufferedEnd(video.buffered.end(video.buffered.length - 1))
-  }, [])
+    setBufferedEnd(
+      toPlaybackTime(
+        video.buffered.end(video.buffered.length - 1),
+        finiteMediaDuration(video.duration),
+        activePlaybackRange,
+      ),
+    )
+  }, [activePlaybackRange])
 
   const clearBuffering = useCallback(() => {
     if (bufferingTimerRef.current !== null) {
@@ -184,30 +215,46 @@ export function PlayerCore({
     }
   }, [clearBuffering, onMediaError, setPlayingState])
 
-  const playInternal = useCallback(async (reportBlocked = true) => {
-    const video = videoRef.current
-    if (!video) return
-    const requestId = playRequestIdRef.current + 1
-    playRequestIdRef.current = requestId
-    try {
-      await video.play()
-    } catch (err) {
-      if (
-        requestId !== playRequestIdRef.current ||
-        isInterruptedPlayRequest(err)
-      ) {
-        return
+  const playInternal = useCallback(
+    async (reportBlocked = true) => {
+      const video = videoRef.current
+      if (!video) return
+      const mediaDuration = finiteMediaDuration(video.duration)
+      const duration = playbackDuration(mediaDuration, activePlaybackRange)
+      const currentTime = toPlaybackTime(
+        video.currentTime || 0,
+        mediaDuration,
+        activePlaybackRange,
+      )
+      if (duration > 0 && currentTime >= duration - 0.01) {
+        video.currentTime = toMediaTime(0, mediaDuration, activePlaybackRange)
+        lastTimeRef.current = 0
+        setCurrentTime(0)
       }
-      if (!reportBlocked) return
-      const message = errorMessage(err, t("Playback failed"))
-      if (onPlaybackErrorRef.current) {
-        setStatus({ kind: "ready" })
-        onPlaybackErrorRef.current(message)
-      } else {
-        setStatus({ kind: "error", message })
+      rangeEndedRef.current = false
+      const requestId = playRequestIdRef.current + 1
+      playRequestIdRef.current = requestId
+      try {
+        await video.play()
+      } catch (err) {
+        if (
+          requestId !== playRequestIdRef.current ||
+          isInterruptedPlayRequest(err)
+        ) {
+          return
+        }
+        if (!reportBlocked) return
+        const message = errorMessage(err, t("Playback failed"))
+        if (onPlaybackErrorRef.current) {
+          setStatus({ kind: "ready" })
+          onPlaybackErrorRef.current(message)
+        } else {
+          setStatus({ kind: "error", message })
+        }
       }
-    }
-  }, [])
+    },
+    [activePlaybackRange],
+  )
 
   const pauseInternal = useCallback(() => {
     playRequestIdRef.current += 1
@@ -218,7 +265,10 @@ export function PlayerCore({
     (targetSec: number, keepPlaying: boolean = playingRef.current) => {
       const video = videoRef.current
       if (!video) return
-      const dur = Number.isFinite(video.duration) ? video.duration : targetSec
+      const dur = playbackDuration(
+        finiteMediaDuration(video.duration),
+        activePlaybackRange,
+      )
       const min = Math.max(0, shortcutBounds?.start ?? 0)
       const max = Math.max(
         min,
@@ -228,12 +278,22 @@ export function PlayerCore({
         min,
         Math.min(max, Number.isFinite(targetSec) ? targetSec : 0),
       )
-      video.currentTime = clamped
+      video.currentTime = toMediaTime(
+        clamped,
+        finiteMediaDuration(video.duration),
+        activePlaybackRange,
+      )
+      rangeEndedRef.current = dur > 0 && clamped >= dur - 0.01
       setCurrentTime(clamped)
       onTimeUpdateRef.current?.(clamped)
       if (keepPlaying) void playInternal()
     },
-    [playInternal, shortcutBounds?.end, shortcutBounds?.start],
+    [
+      activePlaybackRange,
+      playInternal,
+      shortcutBounds?.end,
+      shortcutBounds?.start,
+    ],
   )
 
   const audioMixerEngine = useAudioTrackMixerEngine({
@@ -299,6 +359,8 @@ export function PlayerCore({
     containerRef,
     audioMixerEngagedRef,
     duration,
+    getCurrentTime: readCurrentTime,
+    getDuration: readDuration,
     isCoarsePointer,
     mutedRef,
     pauseInternal,
@@ -352,9 +414,8 @@ export function PlayerCore({
   const handleLoadedMetadata = useCallback(() => {
     const element = videoRef.current
     if (!element) return
-    const nextDuration = Number.isFinite(element.duration)
-      ? element.duration
-      : 0
+    const mediaDuration = finiteMediaDuration(element.duration)
+    const nextDuration = playbackDuration(mediaDuration, activePlaybackRange)
     setDuration(nextDuration)
     setBufferedEnd(0)
     element.volume = volumeRef.current
@@ -365,14 +426,18 @@ export function PlayerCore({
 
     const resume = resumeRef.current
     resumeRef.current = null
-    if (resume && resume.time > 0) {
+    if (resume) {
       // Restore the position from before a quality switch, then continue
       // playing if the viewer was. The poster stays up until the seeked frame
       // decodes, so there is no black flash.
       const target =
         nextDuration > 0 ? Math.min(resume.time, nextDuration) : resume.time
       try {
-        element.currentTime = target
+        element.currentTime = toMediaTime(
+          target,
+          mediaDuration,
+          activePlaybackRange,
+        )
       } catch {
         // Seeking can throw if the element is not yet seekable; the timeupdate
         // loop will reconcile the scrubber regardless.
@@ -381,12 +446,16 @@ export function PlayerCore({
       setCurrentTime(target)
       if (resume.play) void playInternal(false)
     } else {
-      setCurrentTime(element.currentTime || 0)
+      const target = toMediaTime(0, mediaDuration, activePlaybackRange)
+      if (element.currentTime !== target) element.currentTime = target
+      lastTimeRef.current = 0
+      setCurrentTime(0)
       if (autoPlay) void playInternal(false)
     }
     syncBuffered()
   }, [
     audioMixerEngagedRef,
+    activePlaybackRange,
     autoPlay,
     clearBuffering,
     playbackRate,
@@ -438,6 +507,7 @@ export function PlayerCore({
       setDuration(0)
       setCurrentTime(0)
       setPlayingState(false)
+      rangeEndedRef.current = false
     } else {
       // Same clip, different source: resume where the viewer was. Capture
       // the position/playing state now, before the element load resets them,
@@ -474,7 +544,35 @@ export function PlayerCore({
   const handleTimeUpdate = useCallback(() => {
     syncTime()
     syncBuffered()
-  }, [syncBuffered, syncTime])
+    const video = videoRef.current
+    if (!video || !activePlaybackRange || rangeEndedRef.current) return
+    const mediaDuration = finiteMediaDuration(video.duration)
+    const duration = playbackDuration(mediaDuration, activePlaybackRange)
+    const current = toPlaybackTime(
+      video.currentTime || 0,
+      mediaDuration,
+      activePlaybackRange,
+    )
+    if (!(duration > 0) || current < duration - 0.01) return
+
+    rangeEndedRef.current = true
+    if (loop) {
+      video.currentTime = toMediaTime(0, mediaDuration, activePlaybackRange)
+      rangeEndedRef.current = false
+      void playInternal(false)
+      return
+    }
+    video.pause()
+    setPlayingState(false)
+    onEndedRef.current?.()
+  }, [
+    activePlaybackRange,
+    loop,
+    playInternal,
+    setPlayingState,
+    syncBuffered,
+    syncTime,
+  ])
 
   const handlePlaying = useCallback(() => {
     clearBuffering()
@@ -482,6 +580,19 @@ export function PlayerCore({
     if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
     handleLoadedData()
   }, [clearBuffering, handleLoadedData])
+
+  const handleEnded = useCallback(() => {
+    setPlayingState(false)
+    syncTime()
+    if (activePlaybackRange && loop) {
+      rangeEndedRef.current = false
+      void playInternal(false)
+      return
+    }
+    if (rangeEndedRef.current) return
+    rangeEndedRef.current = true
+    onEndedRef.current?.()
+  }, [activePlaybackRange, loop, playInternal, setPlayingState, syncTime])
 
   const handleChromePointerMove = useCallback(() => {
     if (isCoarsePointer) return
@@ -532,7 +643,7 @@ export function PlayerCore({
       placeholderVisible={!hasRenderedFrame}
       posterVisible={posterVisible}
       autoPlay={autoPlay}
-      loop={loop}
+      loop={loop && !activePlaybackRange}
       muted={muted || audioMixerEngaged}
       onPointerDown={focusPlayerContainer}
       onClick={clickHandler}
@@ -550,11 +661,7 @@ export function PlayerCore({
         setPlayingState(false)
         clearBuffering()
       }}
-      onEnded={() => {
-        setPlayingState(false)
-        syncTime()
-        onEndedRef.current?.()
-      }}
+      onEnded={handleEnded}
       onError={reportError}
     />
   )
@@ -623,4 +730,42 @@ export function PlayerCore({
       />
     </ChromeShell>
   )
+}
+
+function finiteMediaDuration(duration: number): number {
+  return Number.isFinite(duration) && duration > 0 ? duration : 0
+}
+
+function playbackDuration(
+  mediaDuration: number,
+  range: MediaPlaybackRange | undefined,
+): number {
+  if (!range) return mediaDuration
+  const start = Math.max(0, range.start)
+  const end = mediaDuration > 0 ? Math.min(range.end, mediaDuration) : range.end
+  return Number.isFinite(end) ? Math.max(0, end - start) : 0
+}
+
+function toPlaybackTime(
+  mediaTime: number,
+  mediaDuration: number,
+  range: MediaPlaybackRange | undefined,
+): number {
+  if (!range) return Math.max(0, Math.min(mediaDuration, mediaTime))
+  return Math.max(
+    0,
+    Math.min(playbackDuration(mediaDuration, range), mediaTime - range.start),
+  )
+}
+
+function toMediaTime(
+  playbackTime: number,
+  mediaDuration: number,
+  range: MediaPlaybackRange | undefined,
+): number {
+  const clamped = Math.max(
+    0,
+    Math.min(playbackDuration(mediaDuration, range), playbackTime),
+  )
+  return range ? Math.max(0, range.start) + clamped : clamped
 }

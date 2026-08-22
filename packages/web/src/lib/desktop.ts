@@ -1,7 +1,9 @@
 import {
+  desktopBridgeSupports,
   DESKTOP_BRIDGE_VERSION,
   isCurrentDesktopBridge,
   type AlloyDesktop,
+  type DesktopBridgePath,
 } from "@alloy/contracts"
 
 // Bridge and recording-library contract types live in @alloy/contracts (single
@@ -26,6 +28,12 @@ export function alloyDesktop(): AlloyDesktop | null {
   // the shared AlloyDesktop bridge contract.
   const host = globalThis as { alloyDesktop?: AlloyDesktop }
   return host.alloyDesktop ?? null
+}
+
+/** Whether the active desktop shell implements one bridge member. */
+export function desktopSupports(path: DesktopBridgePath): boolean {
+  const desktop = alloyDesktop()
+  return Boolean(desktop && desktopBridgeSupports(desktop.bridge.version, path))
 }
 
 export function desktopBridgeMismatch(): {

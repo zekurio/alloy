@@ -57,6 +57,11 @@ export interface PublishPayload {
    * capture to the server clip once the upload finalizes.
    */
   localCaptureId?: string
+  /**
+   * Range in the local capture that represents the uploaded server source.
+   * Server source time zero maps to `startMs` in the local file.
+   */
+  localClipSource?: { startMs: number; durationMs: number }
 }
 
 export interface DeferredPublishPayload {

@@ -4,6 +4,7 @@ import {
   clipRenditionFileUrl,
   clipThumbnailUrl,
 } from "@alloy/api"
+import { contentTypeForFile } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Card } from "@alloy/ui/components/card"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
@@ -40,6 +41,11 @@ import { useCapturePoster } from "@/lib/capture-poster"
 import { useSetClipPosterMutation } from "@/lib/clip-queries"
 import type { RecordingLibraryItem } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
+import {
+  localClipSourceWindow,
+  mediaWindowSeconds,
+  versionedLocalMediaUrl,
+} from "@/lib/local-clip-media"
 import { canPlaySource } from "@/lib/media-capability"
 import { useMediaWaveform } from "@/lib/media-waveform"
 import { useActionFeedback } from "@/lib/use-action-feedback"
@@ -87,16 +93,41 @@ export function useClipEditorMedia(
           playableRendition.version,
         )
       : null
+  const localSourceWindow =
+    !processing && localItem ? localClipSourceWindow(localItem, row) : null
+  const localMediaSrc = localItem ? versionedLocalMediaUrl(localItem) : null
+  const localPlaybackSrc =
+    localItem &&
+    localMediaSrc &&
+    localSourceWindow &&
+    canPlaySource(contentTypeForFile(localItem.fileName), "")
+      ? localMediaSrc
+      : null
+  const waveformSrc = processing
+    ? localMediaSrc
+    : localSourceWindow && localMediaSrc
+      ? localMediaSrc
+      : streamSrc
+  const waveformRange =
+    !processing && localSourceWindow
+      ? {
+          startMs: localSourceWindow.startMs,
+          endMs: localSourceWindow.endMs,
+        }
+      : undefined
   const waveform = useMediaWaveform(
-    processing ? (localItem?.mediaUrl ?? null) : streamSrc,
+    waveformSrc,
     processing
       ? localItem
         ? `desktop:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localItem.mediaUrl}`
         : null
-      : `clip:${row.id}:${row.sourceVersion ?? ""}:${streamSrc}`,
+      : localSourceWindow && localItem
+        ? `desktop-clip:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localSourceWindow.startMs}:${localSourceWindow.endMs}`
+        : `clip:${row.id}:${row.sourceVersion ?? ""}:${streamSrc}`,
     processing
       ? (localItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs ?? 0)
       : (row.sourceDurationMs ?? row.durationMs ?? 0),
+    waveformRange,
   )
   const serverPoster = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
@@ -120,11 +151,17 @@ export function useClipEditorMedia(
     serverPoster ?? localPoster ?? localItem?.thumbnailUrl ?? queuePoster
   const posterBlurHash = row.thumbBlurHash ?? localItem?.thumbBlurHash ?? null
   const fallbackSeed = row.gameId ?? localItem?.groupLabel ?? row.id
-  const playbackSrc = processing ? (localItem?.mediaUrl ?? null) : previewSrc
+  const playbackSrc = processing
+    ? localMediaSrc
+    : (localPlaybackSrc ?? previewSrc)
+  const playbackRange =
+    !processing && localPlaybackSrc && localSourceWindow
+      ? mediaWindowSeconds(localSourceWindow)
+      : undefined
   const previewUnavailable =
     !processing &&
     Boolean(row.sourceContentType || row.renditions.length > 0) &&
-    previewSrc === null
+    playbackSrc === null
   const aspectRatio = mediaAspectRatio(
     row.width ?? localItem?.width,
     row.height ?? localItem?.height,
@@ -161,7 +198,11 @@ export function useClipEditorMedia(
     cloudFrameReady,
     waveform,
     handoffPoster,
-    mediaVersion,
+    mediaVersion:
+      localPlaybackSrc && localItem
+        ? `${mediaVersion}:local:${localItem.modifiedAt}:${localItem.sizeBytes}`
+        : mediaVersion,
+    playbackRange,
     playbackSrc,
     poster,
     posterBlurHash,
@@ -206,6 +247,7 @@ export function useClipEditorAudioMixer(
 ): AudioTrackMixerController | undefined {
   const mixer = useAudioTrackMixer(row.id, row.audioTracks, row.durationMs)
   return media.playbackSrc &&
+    (!media.playbackRange || media.playbackRange.start === 0) &&
     row.trimStartMs === null &&
     row.trimEndMs === null &&
     mixer.tracks.length >= 2
@@ -238,6 +280,7 @@ export function ClipEditorStage({
         {media.playbackSrc ? (
           <VideoPlayer
             src={media.playbackSrc}
+            playbackRange={media.playbackRange}
             sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
             poster={media.poster}
             posterBlurHash={media.posterBlurHash}

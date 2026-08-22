@@ -126,6 +126,7 @@ export function MobileClipEditor({
         {media.playbackSrc ? (
           <VideoPlayer
             src={media.playbackSrc}
+            playbackRange={media.playbackRange}
             sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
             poster={media.poster}
             posterBlurHash={media.posterBlurHash}
@@ -239,6 +240,7 @@ function MobileTrimView({
         {media.playbackSrc ? (
           <VideoPlayer
             src={media.playbackSrc}
+            playbackRange={media.playbackRange}
             sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
             poster={media.poster}
             posterBlurHash={media.posterBlurHash}

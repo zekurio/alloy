@@ -22,6 +22,12 @@ export interface MediaWaveformState extends MediaWaveformData {
   error: unknown | null
 }
 
+/** Range in the media file that maps to waveform time zero and duration. */
+export interface MediaWaveformRange {
+  startMs: number
+  endMs: number
+}
+
 const EMPTY_WAVEFORM_DATA: MediaWaveformData = {
   peaks: new Float32Array(),
   durationMs: 0,
@@ -45,6 +51,7 @@ export function useMediaWaveform(
   mediaUrl: string | null,
   cacheKey = mediaUrl,
   durationHintMs = 0,
+  range?: MediaWaveformRange,
 ): MediaWaveformState {
   const [state, setState] = useState<MediaWaveformState>(() =>
     mediaUrl ? loadingWaveform(durationHintMs) : emptyWaveform(durationHintMs),
@@ -57,10 +64,12 @@ export function useMediaWaveform(
     }
 
     const durationMs = finiteDurationMs(durationHintMs)
+    const normalizedRange = normalizeWaveformRange(range)
     const request = acquireMediaWaveform(
       mediaUrl,
-      `${cacheKey}:duration:${durationMs}`,
+      `${cacheKey}:duration:${durationMs}:range:${waveformRangeKey(normalizedRange)}`,
       durationMs,
+      normalizedRange,
     )
     let active = true
     setState(loadingWaveform(durationMs))
@@ -88,7 +97,7 @@ export function useMediaWaveform(
       active = false
       request.release()
     }
-  }, [cacheKey, durationHintMs, mediaUrl])
+  }, [cacheKey, durationHintMs, mediaUrl, range?.endMs, range?.startMs])
 
   if (state.durationMs > 0 || durationHintMs <= 0) return state
   return { ...state, durationMs: durationHintMs }
@@ -103,6 +112,7 @@ function acquireMediaWaveform(
   mediaUrl: string,
   cacheKey: string,
   durationHintMs: number,
+  range: MediaWaveformRange | undefined,
 ) {
   const cached = waveformCache.get(cacheKey)
   if (cached) {
@@ -113,7 +123,7 @@ function acquireMediaWaveform(
 
   const existing = pendingWaveforms.get(cacheKey)
   const pending =
-    existing ?? startMediaWaveform(mediaUrl, cacheKey, durationHintMs)
+    existing ?? startMediaWaveform(mediaUrl, cacheKey, durationHintMs, range)
   pending.consumers += 1
   let released = false
   return {
@@ -134,12 +144,14 @@ function startMediaWaveform(
   mediaUrl: string,
   cacheKey: string,
   durationHintMs: number,
+  range: MediaWaveformRange | undefined,
 ): PendingWaveform {
   const controller = new AbortController()
   const promise = loadMediaWaveform(
     mediaUrl,
     durationHintMs,
     controller.signal,
+    range,
   ).then((data) => {
     if (!controller.signal.aborted) cacheWaveform(cacheKey, data)
     return data
@@ -157,6 +169,7 @@ async function loadMediaWaveform(
   mediaUrl: string,
   durationHintMs: number,
   signal: AbortSignal,
+  range: MediaWaveformRange | undefined,
 ): Promise<MediaWaveformData> {
   const { ALL_FORMATS, AudioBufferSink, Input, UrlSource } =
     await import("mediabunny")
@@ -181,21 +194,23 @@ async function loadMediaWaveform(
     const hintedDuration = durationHintMs / 1000
     const audioTrack = await input.getPrimaryAudioTrack()
     if (!audioTrack) {
+      const bounds = waveformBounds(range, hintedDuration, metadataDuration)
       return {
         ...EMPTY_WAVEFORM_DATA,
-        durationMs:
-          sourceDurationSeconds(hintedDuration, metadataDuration) * 1000,
+        durationMs: bounds.durationSeconds * 1000,
       }
     }
 
     const endTimestamp = await audioTrack.computeDuration({
       skipLiveWait: true,
     })
-    const durationSeconds = sourceDurationSeconds(
+    const bounds = waveformBounds(
+      range,
       hintedDuration,
       metadataDuration,
       endTimestamp,
     )
+    const durationSeconds = bounds.durationSeconds
     if (!(durationSeconds > 0) || !Number.isFinite(durationSeconds)) {
       return { ...EMPTY_WAVEFORM_DATA, durationMs: 0, hasAudio: true }
     }
@@ -209,16 +224,19 @@ async function loadMediaWaveform(
       Math.floor(bucketFrames / SAMPLE_POINTS_PER_PEAK),
     )
 
-    for await (const wrapped of sink.buffers(0, endTimestamp, {
-      skipLiveWait: true,
-    })) {
+    for await (const wrapped of sink.buffers(
+      bounds.startSeconds,
+      bounds.endSeconds,
+      { skipLiveWait: true },
+    )) {
       const buffer = wrapped.buffer
       const channelData = Array.from(
         { length: buffer.numberOfChannels },
         (_, channel) => buffer.getChannelData(channel),
       )
       for (let frame = 0; frame < buffer.length; frame += stride) {
-        const sourceSeconds = wrapped.timestamp + frame / buffer.sampleRate
+        const sourceSeconds =
+          wrapped.timestamp - bounds.startSeconds + frame / buffer.sampleRate
         const bucket = Math.floor(
           (sourceSeconds / durationSeconds) * PEAK_COUNT,
         )
@@ -302,6 +320,37 @@ function sourceDurationSeconds(...durations: Array<number | null>): number {
       duration !== null && Number.isFinite(duration) ? duration : 0,
     ),
   )
+}
+
+function waveformBounds(
+  range: MediaWaveformRange | undefined,
+  ...durations: Array<number | null>
+) {
+  const sourceDuration = sourceDurationSeconds(...durations)
+  const startSeconds = range ? range.startMs / 1_000 : 0
+  const requestedEnd = range ? range.endMs / 1_000 : sourceDuration
+  const endSeconds =
+    sourceDuration > 0 ? Math.min(requestedEnd, sourceDuration) : requestedEnd
+  return {
+    startSeconds,
+    endSeconds,
+    durationSeconds: Math.max(0, endSeconds - startSeconds),
+  }
+}
+
+function normalizeWaveformRange(
+  range: MediaWaveformRange | undefined,
+): MediaWaveformRange | undefined {
+  if (!range) return undefined
+  if (!Number.isFinite(range.startMs) || !Number.isFinite(range.endMs)) {
+    return undefined
+  }
+  const startMs = Math.max(0, range.startMs)
+  return range.endMs > startMs ? { startMs, endMs: range.endMs } : undefined
+}
+
+function waveformRangeKey(range: MediaWaveformRange | undefined): string {
+  return range ? `${range.startMs}-${range.endMs}` : "full"
 }
 
 function finiteDurationMs(durationMs: number): number {

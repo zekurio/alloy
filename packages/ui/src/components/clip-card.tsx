@@ -42,6 +42,8 @@ interface ClipCardProps extends ComponentProps<"article"> {
   fallbackSeed?: string | number
   accentHue?: number
   streamUrl?: string
+  /** Window within `streamUrl` that represents the clip preview. */
+  streamRange?: { start: number; end: number }
   /** When set, the thumbnail becomes a button that fires this handler. */
   onThumbnailClick?: () => void
   /** When set, the title becomes a button that fires this handler. */
@@ -100,6 +102,7 @@ function ClipCard({
   // Retained on the contract for callers; fallback color is now seed-driven.
   accentHue: _accentHue,
   streamUrl,
+  streamRange,
   onThumbnailClick,
   onTitleClick,
   onThumbnailIntent,
@@ -128,6 +131,7 @@ function ClipCard({
           thumbnailFallbackBlurHash={thumbnailFallbackBlurHash}
           fallbackSeed={fallbackSeed ?? game}
           streamUrl={streamUrl}
+          streamRange={streamRange}
           onClick={onThumbnailClick}
           onIntent={onThumbnailIntent}
           onPreviewError={onPreviewError}
