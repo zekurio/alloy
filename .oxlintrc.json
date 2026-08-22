@@ -56,6 +56,19 @@
     "import/no-cycle": "error",
     "import/no-duplicates": "error",
     "import/no-self-import": "error",
+    "import/extensions": [
+      "error",
+      "ignorePackages",
+      {
+        "checkTypeImports": true,
+        "pattern": {
+          "cts": "never",
+          "mts": "never",
+          "ts": "never",
+          "tsx": "never"
+        }
+      }
+    ],
     "react/jsx-no-useless-fragment": "error",
     "react/jsx-pascal-case": "error",
     "import/no-unassigned-import": "off",

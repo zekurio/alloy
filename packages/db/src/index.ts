@@ -1,11 +1,11 @@
 import { drizzle } from "drizzle-orm/node-postgres"
 
-import { createPostgresPool } from "./runtime/connection.ts"
+import { createPostgresPool } from "./runtime/connection"
 import { domainSchema } from "./schema"
 import { authSchema } from "./schema/auth"
 
 export { authSchema, domainSchema }
-export { createPostgresPool } from "./runtime/connection.ts"
+export { createPostgresPool } from "./runtime/connection"
 export { migrateDatabase } from "./runtime/migrate"
 export * from "./schema"
 export * from "./schema/auth"
