@@ -25,7 +25,7 @@ import {
   SettingsIcon,
 } from "lucide-react"
 import { memo, useCallback, useEffect, useState } from "react"
-import type { RefObject } from "react"
+import type { ComponentProps, RefObject } from "react"
 
 import {
   mobileDrawerContentClass,
@@ -417,14 +417,23 @@ function QualitySettingsControl({
   )
 }
 
-function QualitySettingsButton({ size }: { size: ChromeBarSize }) {
+function QualitySettingsButton({
+  size,
+  className,
+  ...props
+}: { size: ChromeBarSize } & Omit<ComponentProps<typeof Button>, "size">) {
   return (
     <Button
+      {...props}
       type="button"
       variant="ghost"
       size="icon-sm"
       aria-label={t("Playback quality")}
-      className={cn(videoChromeIconClass, size === "compact" && "size-[56px]")}
+      className={cn(
+        videoChromeIconClass,
+        size === "compact" && "size-[56px]",
+        className,
+      )}
     >
       <SettingsIcon className={videoChromeGlyphClass} />
     </Button>
