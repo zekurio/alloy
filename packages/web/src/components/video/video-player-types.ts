@@ -19,6 +19,12 @@ export type QualityOption = {
   detail?: string
 }
 
+/** Range in the underlying media that maps to player time zero and duration. */
+export interface MediaPlaybackRange {
+  start: number
+  end: number
+}
+
 export type SharedPlayerProps = {
   className?: string
   maxDisplayHeight?: string

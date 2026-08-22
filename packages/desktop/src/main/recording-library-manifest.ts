@@ -47,6 +47,10 @@ export interface CaptureManifestEntry {
   privacy?: RecordingLibraryItem["privacy"]
   /** Server clip id this capture was published as, once an upload finished. */
   uploadedClipId?: string | null
+  /** Local source time that maps to time zero of the uploaded server source. */
+  uploadedClipSourceStartMs?: number
+  /** Duration of the uploaded server source within the local file. */
+  uploadedClipSourceDurationMs?: number
   /** Non-destructive trim range; cleared trims omit both fields. */
   trimStartMs?: number
   trimEndMs?: number

@@ -186,6 +186,7 @@ function libraryItemForFile(
   const mediaUrl = `${MEDIA_PROTOCOL}://${MEDIA_HOST}/${id}`
   const thumbnailVersion = `${Math.round(stat.mtimeMs)}-${stat.size}`
   const trim = manifestTrim(manifestEntry, manifestEntry?.durationMs ?? null)
+  const uploadedSource = manifestUploadedSource(manifestEntry)
 
   return {
     id,
@@ -214,12 +215,26 @@ function libraryItemForFile(
     mentions: manifestEntry?.mentions ?? [],
     privacy: manifestEntry?.privacy ?? null,
     uploadedClipId: manifestEntry?.uploadedClipId ?? null,
+    uploadedClipSourceStartMs: uploadedSource?.startMs ?? null,
+    uploadedClipSourceDurationMs: uploadedSource?.durationMs ?? null,
     trimStartMs: trim ? trim.startMs : null,
     trimEndMs: trim ? trim.endMs : null,
     audioTracks: manifestEntry?.audioTracks,
     createdAt,
     modifiedAt,
   }
+}
+
+/** Valid local range that represents the uploaded server source. */
+function manifestUploadedSource(
+  entry: CaptureManifestEntry | undefined,
+): { startMs: number; durationMs: number } | null {
+  const startMs = entry?.uploadedClipSourceStartMs
+  const durationMs = entry?.uploadedClipSourceDurationMs
+  if (!Number.isFinite(startMs) || !Number.isFinite(durationMs)) return null
+  if (startMs === undefined || durationMs === undefined) return null
+  if (startMs < 0 || durationMs <= 0) return null
+  return { startMs, durationMs }
 }
 
 /**

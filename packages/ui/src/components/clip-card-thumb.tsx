@@ -18,6 +18,8 @@ interface ClipCardThumbProps {
   thumbnailFallbackBlurHash?: string | null | undefined
   fallbackSeed: string | number
   streamUrl: string | undefined
+  /** Window within the preview source that maps to this clip. */
+  streamRange?: { start: number; end: number }
   onClick?: () => void
   onIntent?: () => void
   onPreviewError?: (cause: unknown) => void
@@ -33,6 +35,7 @@ export function ClipCardThumb({
   thumbnailFallbackBlurHash,
   fallbackSeed,
   streamUrl,
+  streamRange,
   onClick,
   onIntent,
   onPreviewError,
@@ -126,9 +129,10 @@ export function ClipCardThumb({
     if (v.getAttribute("src") !== streamUrl) {
       v.src = streamUrl
       v.load()
-    } else if (v.readyState >= HTMLMediaElement.HAVE_METADATA) {
-      v.currentTime = 0
     }
+    if (v.readyState < HTMLMediaElement.HAVE_METADATA) return
+
+    v.currentTime = previewStart(streamRange)
     void v
       .play()
       .then(revealPreview)
@@ -138,7 +142,16 @@ export function ClipCardThumb({
         onPreviewError?.(cause)
         setPreviewing(false)
       })
-  }, [onPreviewError, revealPreview, streamUrl])
+  }, [onPreviewError, revealPreview, streamRange, streamUrl])
+
+  const handlePreviewTimeUpdate = () => {
+    const video = videoRef.current
+    if (video && streamRange && video.currentTime >= streamRange.end - 0.01) {
+      video.currentTime = previewStart(streamRange)
+      void video.play().catch(() => undefined)
+    }
+    revealPreview()
+  }
 
   useEffect(() => {
     if (!previewMounted || !hoveredRef.current) return
@@ -248,13 +261,15 @@ export function ClipCardThumb({
         <video
           ref={videoRef}
           muted
-          loop
+          loop={!streamRange}
           playsInline
           preload="auto"
+          onLoadedMetadata={startPreview}
           onLoadedData={startPreview}
           onCanPlay={startPreview}
           onPlaying={revealPreview}
-          onTimeUpdate={revealPreview}
+          onTimeUpdate={handlePreviewTimeUpdate}
+          onEnded={streamRange ? startPreview : undefined}
           aria-hidden
           className={cn(
             CLIP_MEDIA_CLASS,
@@ -287,4 +302,8 @@ export function ClipCardThumb({
       {body}
     </div>
   )
+}
+
+function previewStart(range: { start: number; end: number } | undefined) {
+  return range && Number.isFinite(range.start) ? Math.max(0, range.start) : 0
 }

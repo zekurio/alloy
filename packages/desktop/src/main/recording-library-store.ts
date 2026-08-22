@@ -3,6 +3,7 @@ import { basename, extname, resolve } from "node:path"
 
 import type {
   RecordingCapture,
+  RecordingLibraryClipLinkUpdate,
   RecordingLibraryItem,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
@@ -104,6 +105,12 @@ export function updateRecordingLibraryCaptureMeta(
   if (patch.mentions !== undefined) entry.mentions = patch.mentions
   if (patch.privacy !== undefined) entry.privacy = patch.privacy
   if (patch.uploadedClipId !== undefined) {
+    if (
+      patch.uploadedClipId === null ||
+      patch.uploadedClipId !== entry.uploadedClipId
+    ) {
+      clearUploadedSource(entry)
+    }
     entry.uploadedClipId = patch.uploadedClipId
   }
   entry.updatedAt = new Date().toISOString()
@@ -115,6 +122,37 @@ export function updateRecordingLibraryCaptureMeta(
       key = manifestKey(moved)
     }
   }
+
+  manifest.captures[key] = entry
+  writeCaptureManifest(manifest)
+  invalidateRecordingLibrarySnapshot()
+  return { id: entry.id }
+}
+
+/** Persists a clip link together with the local-to-server source mapping. */
+export function setRecordingLibraryCaptureClipLink(
+  update: RecordingLibraryClipLinkUpdate,
+): RecordingLibraryMetaUpdateResult {
+  const item = findRecordingLibraryItem(update.id)
+  if (!item) throw new Error("Capture not found.")
+
+  const manifest = readCaptureManifest()
+  const key = manifestKey(item.filename)
+  const entry = manifest.captures[key] ?? seedManifestEntry(item)
+  if (!isCaptureId(entry.id)) entry.id = item.id
+
+  entry.uploadedClipId = update.uploadedClipId
+  if (
+    update.uploadedClipId !== null &&
+    update.uploadedClipSourceStartMs !== null &&
+    update.uploadedClipSourceDurationMs !== null
+  ) {
+    entry.uploadedClipSourceStartMs = update.uploadedClipSourceStartMs
+    entry.uploadedClipSourceDurationMs = update.uploadedClipSourceDurationMs
+  } else {
+    clearUploadedSource(entry)
+  }
+  entry.updatedAt = new Date().toISOString()
 
   manifest.captures[key] = entry
   writeCaptureManifest(manifest)
@@ -172,6 +210,11 @@ function requireTrimRange(
     throw new Error("Invalid trim range.")
   }
   return { startMs, endMs }
+}
+
+function clearUploadedSource(entry: CaptureManifestEntry): void {
+  delete entry.uploadedClipSourceStartMs
+  delete entry.uploadedClipSourceDurationMs
 }
 
 /** Fresh manifest entry for a capture scanned from disk rather than recorded. */
