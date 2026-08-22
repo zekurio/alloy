@@ -6,7 +6,7 @@ import {
   clipThumbnailUrl,
   type EncodeStage,
 } from "@alloy/api"
-import { contentTypeForFile, type RecordingLibraryItem } from "@alloy/contracts"
+import { contentTypeForFile } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
@@ -27,6 +27,11 @@ import {
 } from "@/components/video/video-media-engine"
 import { VideoPlayer } from "@/components/video/video-player"
 import { apiOrigin } from "@/lib/env"
+import {
+  localClipPlaybackWindow,
+  mediaWindowSeconds,
+  versionedLocalMediaUrl,
+} from "@/lib/local-clip-media"
 import { canPlaySource } from "@/lib/media-capability"
 
 import { useLocalClipPlayback } from "./use-local-clip-playback"
@@ -34,7 +39,6 @@ import { useLocalClipPlayback } from "./use-local-clip-playback"
 // Rendition names are resolution tiers ("1080p60"), so "source" never collides.
 const SOURCE_QUALITY_ID = "source"
 const LOCAL_QUALITY_ID = "local"
-const LOCAL_DURATION_TOLERANCE_MS = 1500
 
 interface ClipPlayerProps {
   /** Real clip id: drives the stream URL and the default poster. */
@@ -48,6 +52,9 @@ interface ClipPlayerProps {
   /** Committed quality tiers, highest first. Empty while none are prepared. */
   renditions?: ClipRenditionRef[]
   durationMs?: number | null
+  sourceDurationMs?: number | null
+  trimStartMs?: number | null
+  trimEndMs?: number | null
   thumbnail?: string | null
   thumbnailBlurHash?: string | null
   fallbackSeed?: string | number
@@ -84,6 +91,9 @@ function ClipPlayer({
   sourceVersion,
   renditions = [],
   durationMs = null,
+  sourceDurationMs = null,
+  trimStartMs = null,
+  trimEndMs = null,
   thumbnail,
   thumbnailBlurHash,
   fallbackSeed,
@@ -165,20 +175,29 @@ function ClipPlayer({
 
     if (!remotelyPlayable) return remoteSources
     if (!localPlayback.settled) return remoteSources
-    const localItem = localPlayback.items.find((item) =>
-      canUseLocalPlayback(item, durationMs),
-    )
-    if (!localItem) return remoteSources
+    const localSource = localPlayback.items.flatMap((item) => {
+      if (!canPlaySource(contentTypeForFile(item.fileName), "")) return []
+      const window = localClipPlaybackWindow(item, {
+        id: clipId,
+        durationMs,
+        sourceDurationMs,
+        trimStartMs,
+        trimEndMs,
+      })
+      if (!window) return []
+      return [
+        {
+          name: LOCAL_QUALITY_ID,
+          url: versionedLocalMediaUrl(item),
+          codecs: "",
+          contentType: contentTypeForFile(item.fileName),
+          playbackRange: mediaWindowSeconds(window),
+        },
+      ]
+    })[0]
+    if (!localSource) return remoteSources
 
-    return [
-      {
-        name: LOCAL_QUALITY_ID,
-        url: localItem.mediaUrl,
-        codecs: "",
-        contentType: contentTypeForFile(localItem.fileName),
-      },
-      ...remoteSources,
-    ]
+    return [localSource, ...remoteSources]
   }, [
     clipId,
     durationMs,
@@ -187,7 +206,10 @@ function ClipPlayer({
     remotelyPlayable,
     renditions,
     sourceCodecs,
+    sourceDurationMs,
     sourceVersion,
+    trimEndMs,
+    trimStartMs,
   ])
 
   const renditionPlayback = useMemo(
@@ -346,26 +368,6 @@ function ClipPlayer({
       autoPlay={autoPlay}
       enableHorizontalSeekShortcuts={enableHorizontalSeekShortcuts}
     />
-  )
-}
-
-function canUseLocalPlayback(
-  item: RecordingLibraryItem,
-  durationMs: number | null,
-): boolean {
-  if (!canPlaySource(contentTypeForFile(item.fileName), "")) return false
-  if (!durationMatches(item.durationMs, durationMs)) return false
-  return true
-}
-
-function durationMatches(
-  localDurationMs: number | null,
-  clipDurationMs: number | null,
-): boolean {
-  if (!(localDurationMs && localDurationMs > 0)) return false
-  if (!(clipDurationMs && clipDurationMs > 0)) return false
-  return (
-    Math.abs(localDurationMs - clipDurationMs) <= LOCAL_DURATION_TOLERANCE_MS
   )
 }
 

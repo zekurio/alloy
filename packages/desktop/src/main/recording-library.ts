@@ -22,6 +22,7 @@ export {
   deleteRecordingLibraryItem,
   rememberRecordingLibraryCapture,
   revealRecordingLibraryItem,
+  setRecordingLibraryCaptureClipLink,
   setRecordingLibraryCaptureTrim,
   updateRecordingLibraryCaptureMeta,
 } from "./recording-library-store"

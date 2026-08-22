@@ -2,7 +2,10 @@ import { useMemo } from "react"
 
 import type { RenditionPlayback } from "./video-media-engine"
 import { PlayerCore } from "./video-player-core"
-import type { SharedPlayerProps } from "./video-player-types"
+import type {
+  MediaPlaybackRange,
+  SharedPlayerProps,
+} from "./video-player-types"
 import { type SourceSpec, sourceSpecKey, toSourceSpec } from "./video-source"
 
 export { useExternalVideoVolume, VolumeControl } from "./video-volume-control"
@@ -21,6 +24,8 @@ interface VideoPlayerProps extends SharedPlayerProps {
   loop?: boolean
   muted?: boolean
   playbackRate?: number
+  /** Window in `src` that maps to this player's zero-based timeline. */
+  playbackRange?: MediaPlaybackRange
 }
 
 export function VideoPlayer({
@@ -33,6 +38,7 @@ export function VideoPlayer({
   loop = false,
   muted = false,
   playbackRate = 1,
+  playbackRange,
   ...rest
 }: VideoPlayerProps) {
   const spec = useMemo<SourceSpec>(() => toSourceSpec(src), [src])
@@ -50,6 +56,7 @@ export function VideoPlayer({
       loop={loop}
       initialMuted={muted}
       playbackRate={playbackRate}
+      playbackRange={playbackRange}
       {...rest}
     />
   )

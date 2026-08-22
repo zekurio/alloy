@@ -1,4 +1,5 @@
 import { type ClipRow } from "@alloy/api"
+import { contentTypeForFile } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ClipCard } from "@alloy/ui/components/clip-card"
@@ -22,6 +23,12 @@ import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
 import type { RecordingLibraryItem } from "@/lib/desktop"
+import {
+  localClipPlaybackWindow,
+  mediaWindowSeconds,
+  versionedLocalMediaUrl,
+} from "@/lib/local-clip-media"
+import { canPlaySource } from "@/lib/media-capability"
 
 import { useClipCardGameLink } from "../../clip/clip-card-links"
 import { type LibraryItemView } from "./library-data"
@@ -66,7 +73,15 @@ export function LibraryCaptureCard({
       thumbnail={cardThumbnail}
       thumbnailBlurHash={cardThumbnailBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
-      streamUrl={item.mediaUrl}
+      streamUrl={versionedLocalMediaUrl(item)}
+      streamRange={
+        item.trimStartMs !== null && item.trimEndMs !== null
+          ? {
+              start: item.trimStartMs / 1_000,
+              end: item.trimEndMs / 1_000,
+            }
+          : undefined
+      }
       thumbnailLabel={t("Edit {title}", { title: item.title })}
       onThumbnailClick={onOpen}
       metaContent={
@@ -185,6 +200,14 @@ export function UploadedClipCard({
   const gameId = card.gameRef?.slug ?? null
   const renderGameLink = useClipCardGameLink(gameId)
   const gameUrl = gameId ? gameHref(gameId) : null
+  const localPreviewWindow = localItem
+    ? localClipPlaybackWindow(localItem, row)
+    : null
+  const localPreview = Boolean(
+    localItem &&
+    localPreviewWindow &&
+    canPlaySource(contentTypeForFile(localItem.fileName), ""),
+  )
   return (
     <ClipCard
       title={card.title}
@@ -202,7 +225,16 @@ export function UploadedClipCard({
       thumbnailBlurHash={thumbnailBlurHash}
       thumbnailFallbackBlurHash={localThumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
-      streamUrl={card.streamUrl}
+      streamUrl={
+        localPreview && localItem
+          ? versionedLocalMediaUrl(localItem)
+          : card.streamUrl
+      }
+      streamRange={
+        localPreview && localPreviewWindow
+          ? mediaWindowSeconds(localPreviewWindow)
+          : undefined
+      }
       thumbnailLabel={t("Edit {title}", { title: card.title })}
       onThumbnailClick={onOpen}
       onThumbnailIntent={onIntent}
