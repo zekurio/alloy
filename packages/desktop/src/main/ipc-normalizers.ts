@@ -2,7 +2,6 @@ import {
   CLIP_PRIVACY,
   RECORDING_NOTIFICATION_SOUND_EVENTS,
   type RecordingCaptureMention,
-  type RecordingLibraryClipLinkUpdate,
   type RecordingLibraryCommitStagedImportRequest,
   type RecordingLibraryDownloadRequest,
   type RecordingLibraryExportRequest,
@@ -249,33 +248,6 @@ export function normalizeLibraryMetaPatch(
     patch.uploadedClipSourceDurationMs = uploadedClipSourceDurationMs.data
   }
   return patch
-}
-
-const LibraryClipLinkUpdateSchema = t
-  .looseObject({
-    id: StrictStringSchema.min(1),
-    uploadedClipId: StrictStringSchema.min(1).max(64).nullable(),
-    uploadedClipSourceStartMs: TrimBoundSchema.nullable(),
-    uploadedClipSourceDurationMs: ClipSourceDurationSchema.nullable(),
-  })
-  .refine(
-    (value) =>
-      (value.uploadedClipId === null &&
-        value.uploadedClipSourceStartMs === null &&
-        value.uploadedClipSourceDurationMs === null) ||
-      (value.uploadedClipId !== null &&
-        ((value.uploadedClipSourceStartMs === null &&
-          value.uploadedClipSourceDurationMs === null) ||
-          (value.uploadedClipSourceStartMs !== null &&
-            value.uploadedClipSourceDurationMs !== null))),
-  )
-
-/** Returns a valid clip link, a pending link, a clear request, or null. */
-export function normalizeLibraryClipLinkUpdate(
-  value: IpcInput,
-): RecordingLibraryClipLinkUpdate | null {
-  const result = LibraryClipLinkUpdateSchema.safeParse(value)
-  return result.success ? result.data : null
 }
 
 const LibraryTrimUpdateSchema = t

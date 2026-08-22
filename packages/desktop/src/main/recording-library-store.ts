@@ -3,7 +3,6 @@ import { basename, extname, resolve } from "node:path"
 
 import type {
   RecordingCapture,
-  RecordingLibraryClipLinkUpdate,
   RecordingLibraryItem,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
@@ -142,13 +141,6 @@ export function updateRecordingLibraryCaptureMeta(
   writeCaptureManifest(manifest)
   invalidateRecordingLibrarySnapshot()
   return { id: entry.id }
-}
-
-/** Persists a clip link together with the local-to-server source mapping. */
-export function setRecordingLibraryCaptureClipLink(
-  update: RecordingLibraryClipLinkUpdate,
-): RecordingLibraryMetaUpdateResult {
-  return updateRecordingLibraryCaptureMeta(update)
 }
 
 /**

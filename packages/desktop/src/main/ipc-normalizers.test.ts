@@ -5,11 +5,10 @@ import { isCurrentDesktopBridge } from "@alloy/contracts"
 
 import { normalizeLibraryMetaPatch } from "./ipc-normalizers"
 
-test("accepts bridge v2 and v3", () => {
+test("accepts only bridge v2", () => {
   assert.equal(isCurrentDesktopBridge(1), false)
   assert.equal(isCurrentDesktopBridge(2), true)
-  assert.equal(isCurrentDesktopBridge(3), true)
-  assert.equal(isCurrentDesktopBridge(4), false)
+  assert.equal(isCurrentDesktopBridge(3), false)
 })
 
 test("normalizes a clip link and its source mapping together", () => {
