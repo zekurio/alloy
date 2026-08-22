@@ -4,7 +4,7 @@ import { logger } from "@alloy/logging"
 import { drizzle } from "drizzle-orm/node-postgres"
 import { migrate } from "drizzle-orm/node-postgres/migrator"
 
-import { createPostgresPool } from "./connection.ts"
+import { createPostgresPool } from "./connection"
 
 const migrationsFolder =
   process.env.ALLOY_MIGRATIONS_DIR ??
