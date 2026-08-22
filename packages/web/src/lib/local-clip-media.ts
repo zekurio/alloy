@@ -180,10 +180,12 @@ function durationMatches(
   return Boolean(left && right && Math.abs(left - right) <= toleranceMs)
 }
 
-function nonnegativeMs(value: number | null): number | null {
-  return Number.isFinite(value) && value !== null && value >= 0 ? value : null
+function nonnegativeMs(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  return Number.isFinite(value) && value >= 0 ? value : null
 }
 
-function positiveMs(value: number | null): number | null {
-  return Number.isFinite(value) && value !== null && value > 0 ? value : null
+function positiveMs(value: number | null | undefined): number | null {
+  if (value === null || value === undefined) return null
+  return Number.isFinite(value) && value > 0 ? value : null
 }

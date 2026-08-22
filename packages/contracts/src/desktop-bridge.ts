@@ -92,7 +92,7 @@ export interface AlloyDesktopRecordingApi {
   updateLibraryCapture(
     patch: RecordingLibraryMetaPatch,
   ): Promise<RecordingLibraryMetaUpdateResult>
-  /** Links a capture to a server clip and persists their timeline mapping. */
+  /** @deprecated Use updateLibraryCapture. Kept for Alloy 1.1.1 compatibility. */
   setLibraryCaptureClipLink(
     request: RecordingLibraryClipLinkUpdate,
   ): Promise<RecordingLibraryMetaUpdateResult>
@@ -319,7 +319,7 @@ export function desktopBridgeSupports(
   return version >= DESKTOP_BRIDGE_METHODS[path].since
 }
 
-/** Whether the shell and server-hosted web app share the 1.0 bridge. */
+/** Whether the shell and server-hosted web app share a supported bridge. */
 export function isCurrentDesktopBridge(version: number): boolean {
-  return version === DESKTOP_BRIDGE_VERSION
+  return version >= 2 && version <= DESKTOP_BRIDGE_VERSION
 }

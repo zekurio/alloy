@@ -152,6 +152,12 @@ const META_GAME_ICON_URL_MAX = 2000
 const META_DESCRIPTION_MAX = 4000
 const META_TAGS_MAX = 500
 const META_MENTIONS_MAX = 50
+const TrimBoundSchema = StrictFiniteNumberSchema.refine(
+  (value) => Number.isFinite(value) && value >= 0,
+).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
+const ClipSourceDurationSchema = StrictFiniteNumberSchema.refine(
+  (value) => Number.isFinite(value) && value >= 1,
+).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
 const CaptureMentionSchema = t.looseObject({
   id: StrictStringSchema.min(1),
   username: StrictStringSchema.catch("").$default(""),
@@ -167,6 +173,8 @@ const LibraryMetaPatchEnvelopeSchema = t.looseObject({
   mentions: t.array(AnyIpcValueSchema).optional(),
   privacy: AnyIpcValueSchema.optional(),
   uploadedClipId: AnyIpcValueSchema.optional(),
+  uploadedClipSourceStartMs: AnyIpcValueSchema.optional(),
+  uploadedClipSourceDurationMs: AnyIpcValueSchema.optional(),
 })
 
 /** Returns a sanitized draft-metadata patch, or null for an invalid id. */
@@ -220,15 +228,29 @@ export function normalizeLibraryMetaPatch(
     .nullable()
     .safeParse(result.data.uploadedClipId)
   if (uploadedClipId.success) patch.uploadedClipId = uploadedClipId.data
+  const uploadedClipSourceStartMs = TrimBoundSchema.nullable().safeParse(
+    result.data.uploadedClipSourceStartMs,
+  )
+  const uploadedClipSourceDurationMs =
+    ClipSourceDurationSchema.nullable().safeParse(
+      result.data.uploadedClipSourceDurationMs,
+    )
+  if (
+    uploadedClipId.success &&
+    uploadedClipId.data !== null &&
+    uploadedClipSourceStartMs.success &&
+    uploadedClipSourceDurationMs.success &&
+    ((uploadedClipSourceStartMs.data === null &&
+      uploadedClipSourceDurationMs.data === null) ||
+      (uploadedClipSourceStartMs.data !== null &&
+        uploadedClipSourceDurationMs.data !== null))
+  ) {
+    patch.uploadedClipSourceStartMs = uploadedClipSourceStartMs.data
+    patch.uploadedClipSourceDurationMs = uploadedClipSourceDurationMs.data
+  }
   return patch
 }
 
-const TrimBoundSchema = StrictFiniteNumberSchema.refine(
-  (value) => Number.isFinite(value) && value >= 0,
-).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
-const ClipSourceDurationSchema = StrictFiniteNumberSchema.refine(
-  (value) => Number.isFinite(value) && value >= 1,
-).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
 const LibraryClipLinkUpdateSchema = t
   .looseObject({
     id: StrictStringSchema.min(1),

@@ -41,12 +41,12 @@ export interface RecordingLibraryItem {
   uploadedClipId: string | null
   /**
    * Position in this local file that corresponds to time zero of the uploaded
-   * server source. Null for older links and server downloads that only keep
-   * the final cut.
+   * server source. Missing on bridge v2. Null for older links and server
+   * downloads that only keep the final cut.
    */
-  uploadedClipSourceStartMs: number | null
+  uploadedClipSourceStartMs?: number | null
   /** Duration of the uploaded server source within this local file. */
-  uploadedClipSourceDurationMs: number | null
+  uploadedClipSourceDurationMs?: number | null
   /**
    * Persisted non-destructive trim range in source time, or null when the
    * capture is untrimmed. The source file is never rewritten; exports and
@@ -110,6 +110,10 @@ export interface RecordingLibraryMetaPatch {
   mentions?: RecordingCaptureMention[]
   privacy?: ClipPrivacy | null
   uploadedClipId?: string | null
+  /** Local source position that maps to time zero of the uploaded source. */
+  uploadedClipSourceStartMs?: number | null
+  /** Duration of the uploaded source within the local capture. */
+  uploadedClipSourceDurationMs?: number | null
 }
 
 /**

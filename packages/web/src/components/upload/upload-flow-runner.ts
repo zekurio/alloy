@@ -127,6 +127,7 @@ export async function linkLocalCaptureToClip(
   const desktop = alloyDesktop()
   if (!desktop) return
   try {
+    // Alloy 1.1.1 only accepts the mapping through this v3 method.
     if (desktopSupports("recording.setLibraryCaptureClipLink")) {
       await desktop.recording.setLibraryCaptureClipLink({
         id: captureId,
@@ -140,6 +141,8 @@ export async function linkLocalCaptureToClip(
     await desktop.recording.updateLibraryCapture({
       id: captureId,
       uploadedClipId: clipId,
+      uploadedClipSourceStartMs: source?.startMs ?? null,
+      uploadedClipSourceDurationMs: source?.durationMs ?? null,
     })
     notifyLibraryCapturesChanged()
   } catch (cause) {
