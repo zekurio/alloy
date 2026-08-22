@@ -3,7 +3,6 @@ import { basename, extname, resolve } from "node:path"
 
 import type {
   RecordingCapture,
-  RecordingLibraryClipLinkUpdate,
   RecordingLibraryItem,
   RecordingLibraryMetaPatch,
   RecordingLibraryMetaUpdateResult,
@@ -112,6 +111,21 @@ export function updateRecordingLibraryCaptureMeta(
       clearUploadedSource(entry)
     }
     entry.uploadedClipId = patch.uploadedClipId
+    if (
+      patch.uploadedClipId !== null &&
+      patch.uploadedClipSourceStartMs !== undefined &&
+      patch.uploadedClipSourceDurationMs !== undefined
+    ) {
+      if (
+        patch.uploadedClipSourceStartMs !== null &&
+        patch.uploadedClipSourceDurationMs !== null
+      ) {
+        entry.uploadedClipSourceStartMs = patch.uploadedClipSourceStartMs
+        entry.uploadedClipSourceDurationMs = patch.uploadedClipSourceDurationMs
+      } else {
+        clearUploadedSource(entry)
+      }
+    }
   }
   entry.updatedAt = new Date().toISOString()
 
@@ -122,37 +136,6 @@ export function updateRecordingLibraryCaptureMeta(
       key = manifestKey(moved)
     }
   }
-
-  manifest.captures[key] = entry
-  writeCaptureManifest(manifest)
-  invalidateRecordingLibrarySnapshot()
-  return { id: entry.id }
-}
-
-/** Persists a clip link together with the local-to-server source mapping. */
-export function setRecordingLibraryCaptureClipLink(
-  update: RecordingLibraryClipLinkUpdate,
-): RecordingLibraryMetaUpdateResult {
-  const item = findRecordingLibraryItem(update.id)
-  if (!item) throw new Error("Capture not found.")
-
-  const manifest = readCaptureManifest()
-  const key = manifestKey(item.filename)
-  const entry = manifest.captures[key] ?? seedManifestEntry(item)
-  if (!isCaptureId(entry.id)) entry.id = item.id
-
-  entry.uploadedClipId = update.uploadedClipId
-  if (
-    update.uploadedClipId !== null &&
-    update.uploadedClipSourceStartMs !== null &&
-    update.uploadedClipSourceDurationMs !== null
-  ) {
-    entry.uploadedClipSourceStartMs = update.uploadedClipSourceStartMs
-    entry.uploadedClipSourceDurationMs = update.uploadedClipSourceDurationMs
-  } else {
-    clearUploadedSource(entry)
-  }
-  entry.updatedAt = new Date().toISOString()
 
   manifest.captures[key] = entry
   writeCaptureManifest(manifest)

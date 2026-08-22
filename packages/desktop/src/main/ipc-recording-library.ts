@@ -5,7 +5,6 @@ import type { BridgeHandlerFragment } from "./ipc-bridge"
 import { requireMainSender } from "./ipc-guards"
 import {
   normalizeLibraryCommitStagedImportRequest,
-  normalizeLibraryClipLinkUpdate,
   normalizeLibraryDownloadRequest,
   normalizeLibraryExportRequest,
   normalizeLibraryMetaPatch,
@@ -19,7 +18,6 @@ import {
   exportRecordingLibraryItem,
   getRecordingLibrarySnapshot,
   revealRecordingLibraryItem,
-  setRecordingLibraryCaptureClipLink,
   setRecordingLibraryCaptureTrim,
   stageRecordingLibraryVideoFiles,
   updateRecordingLibraryCaptureMeta,
@@ -61,14 +59,6 @@ export const recordingLibraryBridgeHandlers = {
       const patch = normalizeLibraryMetaPatch(request)
       if (!patch) throw new Error("Invalid capture metadata request.")
       return updateRecordingLibraryCaptureMeta(patch)
-    },
-  },
-  "recording.setLibraryCaptureClipLink": {
-    guard: requireMainSender,
-    handle: (_windows, _event, request: UntrustedInput) => {
-      const update = normalizeLibraryClipLinkUpdate(request)
-      if (!update) throw new Error("Invalid capture clip link request.")
-      return setRecordingLibraryCaptureClipLink(update)
     },
   },
   "recording.setLibraryCaptureTrim": {

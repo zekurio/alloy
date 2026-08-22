@@ -2,7 +2,6 @@ import {
   CLIP_PRIVACY,
   RECORDING_NOTIFICATION_SOUND_EVENTS,
   type RecordingCaptureMention,
-  type RecordingLibraryClipLinkUpdate,
   type RecordingLibraryCommitStagedImportRequest,
   type RecordingLibraryDownloadRequest,
   type RecordingLibraryExportRequest,
@@ -152,6 +151,12 @@ const META_GAME_ICON_URL_MAX = 2000
 const META_DESCRIPTION_MAX = 4000
 const META_TAGS_MAX = 500
 const META_MENTIONS_MAX = 50
+const TrimBoundSchema = StrictFiniteNumberSchema.refine(
+  (value) => Number.isFinite(value) && value >= 0,
+).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
+const ClipSourceDurationSchema = StrictFiniteNumberSchema.refine(
+  (value) => Number.isFinite(value) && value >= 1,
+).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
 const CaptureMentionSchema = t.looseObject({
   id: StrictStringSchema.min(1),
   username: StrictStringSchema.catch("").$default(""),
@@ -167,6 +172,8 @@ const LibraryMetaPatchEnvelopeSchema = t.looseObject({
   mentions: t.array(AnyIpcValueSchema).optional(),
   privacy: AnyIpcValueSchema.optional(),
   uploadedClipId: AnyIpcValueSchema.optional(),
+  uploadedClipSourceStartMs: AnyIpcValueSchema.optional(),
+  uploadedClipSourceDurationMs: AnyIpcValueSchema.optional(),
 })
 
 /** Returns a sanitized draft-metadata patch, or null for an invalid id. */
@@ -220,40 +227,27 @@ export function normalizeLibraryMetaPatch(
     .nullable()
     .safeParse(result.data.uploadedClipId)
   if (uploadedClipId.success) patch.uploadedClipId = uploadedClipId.data
-  return patch
-}
-
-const TrimBoundSchema = StrictFiniteNumberSchema.refine(
-  (value) => Number.isFinite(value) && value >= 0,
-).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
-const ClipSourceDurationSchema = StrictFiniteNumberSchema.refine(
-  (value) => Number.isFinite(value) && value >= 1,
-).transform((value) => Math.min(Math.round(value), Number.MAX_SAFE_INTEGER))
-const LibraryClipLinkUpdateSchema = t
-  .looseObject({
-    id: StrictStringSchema.min(1),
-    uploadedClipId: StrictStringSchema.min(1).max(64).nullable(),
-    uploadedClipSourceStartMs: TrimBoundSchema.nullable(),
-    uploadedClipSourceDurationMs: ClipSourceDurationSchema.nullable(),
-  })
-  .refine(
-    (value) =>
-      (value.uploadedClipId === null &&
-        value.uploadedClipSourceStartMs === null &&
-        value.uploadedClipSourceDurationMs === null) ||
-      (value.uploadedClipId !== null &&
-        ((value.uploadedClipSourceStartMs === null &&
-          value.uploadedClipSourceDurationMs === null) ||
-          (value.uploadedClipSourceStartMs !== null &&
-            value.uploadedClipSourceDurationMs !== null))),
+  const uploadedClipSourceStartMs = TrimBoundSchema.nullable().safeParse(
+    result.data.uploadedClipSourceStartMs,
   )
-
-/** Returns a valid clip link, a pending link, a clear request, or null. */
-export function normalizeLibraryClipLinkUpdate(
-  value: IpcInput,
-): RecordingLibraryClipLinkUpdate | null {
-  const result = LibraryClipLinkUpdateSchema.safeParse(value)
-  return result.success ? result.data : null
+  const uploadedClipSourceDurationMs =
+    ClipSourceDurationSchema.nullable().safeParse(
+      result.data.uploadedClipSourceDurationMs,
+    )
+  if (
+    uploadedClipId.success &&
+    uploadedClipId.data !== null &&
+    uploadedClipSourceStartMs.success &&
+    uploadedClipSourceDurationMs.success &&
+    ((uploadedClipSourceStartMs.data === null &&
+      uploadedClipSourceDurationMs.data === null) ||
+      (uploadedClipSourceStartMs.data !== null &&
+        uploadedClipSourceDurationMs.data !== null))
+  ) {
+    patch.uploadedClipSourceStartMs = uploadedClipSourceStartMs.data
+    patch.uploadedClipSourceDurationMs = uploadedClipSourceDurationMs.data
+  }
+  return patch
 }
 
 const LibraryTrimUpdateSchema = t

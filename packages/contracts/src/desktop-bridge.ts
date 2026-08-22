@@ -2,7 +2,6 @@ import type { AlloyDesktopAutostartApi } from "./desktop-autostart"
 import type { AlloyDesktopNotificationsApi } from "./desktop-notification"
 import type {
   RecordingLibraryCommitStagedImportRequest,
-  RecordingLibraryClipLinkUpdate,
   RecordingLibraryDownload,
   RecordingLibraryDownloadRequest,
   RecordingLibraryExport,
@@ -44,7 +43,7 @@ import { isFiniteNumberValue, isObjectRecord } from "./object"
  * - Alloy 1.0 requires the current version before rendering desktop routes;
  *   feature-by-feature compatibility gates are not supported.
  */
-export const DESKTOP_BRIDGE_VERSION = 3
+export const DESKTOP_BRIDGE_VERSION = 2
 
 /** Handshake info exposed as `alloyDesktop.bridge`. */
 export interface AlloyDesktopBridgeInfo {
@@ -91,10 +90,6 @@ export interface AlloyDesktopRecordingApi {
   /** Persists draft upload metadata for a capture across app restarts. */
   updateLibraryCapture(
     patch: RecordingLibraryMetaPatch,
-  ): Promise<RecordingLibraryMetaUpdateResult>
-  /** Links a capture to a server clip and persists their timeline mapping. */
-  setLibraryCaptureClipLink(
-    request: RecordingLibraryClipLinkUpdate,
   ): Promise<RecordingLibraryMetaUpdateResult>
   /**
    * Persists a non-destructive trim range for a capture, or clears it when
@@ -227,7 +222,6 @@ export const DESKTOP_BRIDGE = {
     revealLibraryCapture: { since: 1 },
     exportLibraryCapture: { since: 1 },
     updateLibraryCapture: { since: 1 },
-    setLibraryCaptureClipLink: { since: 3 },
     setLibraryCaptureTrim: { since: 1 },
     deleteLibraryCapture: { since: 1 },
     importLibraryFiles: { since: 1 },
@@ -319,7 +313,7 @@ export function desktopBridgeSupports(
   return version >= DESKTOP_BRIDGE_METHODS[path].since
 }
 
-/** Whether the shell and server-hosted web app share the 1.0 bridge. */
+/** Whether the shell and server-hosted web app share the current bridge. */
 export function isCurrentDesktopBridge(version: number): boolean {
   return version === DESKTOP_BRIDGE_VERSION
 }
