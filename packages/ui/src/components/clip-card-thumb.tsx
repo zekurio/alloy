@@ -129,9 +129,10 @@ export function ClipCardThumb({
     if (v.getAttribute("src") !== streamUrl) {
       v.src = streamUrl
       v.load()
-    } else if (v.readyState >= HTMLMediaElement.HAVE_METADATA) {
-      v.currentTime = previewStart(streamRange)
     }
+    if (v.readyState < HTMLMediaElement.HAVE_METADATA) return
+
+    v.currentTime = previewStart(streamRange)
     void v
       .play()
       .then(revealPreview)
@@ -263,6 +264,7 @@ export function ClipCardThumb({
           loop={!streamRange}
           playsInline
           preload="auto"
+          onLoadedMetadata={startPreview}
           onLoadedData={startPreview}
           onCanPlay={startPreview}
           onPlaying={revealPreview}
