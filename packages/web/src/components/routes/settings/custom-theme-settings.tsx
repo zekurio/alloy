@@ -17,11 +17,11 @@ import {
 } from "@alloy/ui/lib/custom-theme"
 import {
   CircleAlertIcon,
-  DownloadIcon,
+  FileInputIcon,
+  FileOutputIcon,
   RotateCcwIcon,
   SearchIcon,
   Share2Icon,
-  UploadIcon,
 } from "lucide-react"
 import { useRef, useState } from "react"
 
@@ -175,7 +175,7 @@ export function CustomThemeSettings() {
             variant="secondary"
             onClick={() => fileInput.current?.click()}
           >
-            <UploadIcon />
+            <FileInputIcon />
             {t("Import theme")}
           </Button>
           <Button
@@ -184,7 +184,7 @@ export function CustomThemeSettings() {
             onClick={exportTheme}
             disabled={!theme.css}
           >
-            <DownloadIcon />
+            <FileOutputIcon />
             {t("Export theme")}
           </Button>
           <FeedbackButton
