@@ -1,6 +1,5 @@
 import {
-  INSTANCE_THEME_STYLE_ID,
-  THEME_CUSTOMIZATION_STYLE_ID,
+  THEME_ACCENT_STYLE_ID,
   THEME_PRESET_STYLE_ID,
 } from "@alloy/ui/lib/theme-style"
 
@@ -77,6 +76,7 @@ export interface ThemePresetTokens {
 export const DEFAULT_THEME_PRESET_ID = "default"
 
 export const THEME_PALETTE_STORAGE_KEY = "alloy.themePalette"
+const LEGACY_CUSTOM_THEME_PALETTE_ID = "custom"
 
 /** Read-only migration keys used by builds that selected each mode separately. */
 export const LEGACY_THEME_PRESET_STORAGE_KEYS = {
@@ -212,38 +212,6 @@ export const DARK_THEME_PRESETS: readonly ThemePreset[] = [
       danger: "#e06c75",
       info: "#56b6c2",
       live: "#e06c75",
-    },
-  },
-  {
-    id: "gruvbox",
-    label: "Gruvbox",
-    tokens: {
-      neutrals: [
-        "#282828",
-        "#32302f",
-        "#3c3836",
-        "#46403d",
-        "#504945",
-        "#665c54",
-        "#7c6f64",
-        "#928374",
-        "#a89984",
-        "#bdae93",
-        "#d5c4a1",
-        "#ebdbb2",
-      ],
-      surfaceSunken: "#1d2021",
-      foregroundFaint: "#9d8e7c",
-      accent: "#fe8019",
-      accentHover: "#ff9838",
-      accentActive: "#d65d0e",
-      accentForeground: "#1d2021",
-      accentDim: "#9d5b20",
-      success: "#b8bb26",
-      warning: "#fabd2f",
-      danger: "#fb4934",
-      info: "#83a598",
-      live: "#fb4934",
     },
   },
   {
@@ -415,38 +383,6 @@ export const LIGHT_THEME_PRESETS: readonly ThemePreset[] = [
     },
   },
   {
-    id: "gruvbox-light",
-    label: "Gruvbox Light",
-    tokens: {
-      neutrals: [
-        "#fbf1c7",
-        "#f2e5bc",
-        "#ebdbb2",
-        "#e0cfa7",
-        "#d5c4a1",
-        "#bdae93",
-        "#a89984",
-        "#928374",
-        "#7c6f64",
-        "#665c54",
-        "#504945",
-        "#3c3836",
-      ],
-      surfaceSunken: "#ebdbb2",
-      foregroundFaint: "#928374",
-      accent: "#af3a03",
-      accentHover: "#933102",
-      accentActive: "#c94f0e",
-      accentForeground: "#ffffff",
-      accentDim: "#dfa878",
-      success: "#79740e",
-      warning: "#b57614",
-      danger: "#9d0006",
-      info: "#076678",
-      live: "#9d0006",
-    },
-  },
-  {
     id: "rose-pine-dawn",
     label: "Rosé Pine Dawn",
     tokens: {
@@ -490,7 +426,6 @@ export const THEME_PALETTES: readonly ThemePalette[] = [
   ),
   pairTheme("nord", "Nord", "nord", "nord-light"),
   pairTheme("one", "One", "one-dark", "one-light"),
-  pairTheme("gruvbox", "Gruvbox", "gruvbox", "gruvbox-light"),
   pairTheme("rose-pine", "Rosé Pine", "rose-pine", "rose-pine-dawn"),
 ]
 
@@ -504,6 +439,13 @@ export function getStoredThemePaletteId(): string {
     const stored = window.localStorage.getItem(THEME_PALETTE_STORAGE_KEY)
     if (stored && THEME_PALETTES.some((palette) => palette.id === stored)) {
       return stored
+    }
+    if (stored === LEGACY_CUSTOM_THEME_PALETTE_ID) {
+      window.localStorage.setItem(
+        THEME_PALETTE_STORAGE_KEY,
+        DEFAULT_THEME_PRESET_ID,
+      )
+      return DEFAULT_THEME_PRESET_ID
     }
 
     const migrated = migrateLegacyThemePalette(
@@ -581,12 +523,14 @@ function pairTheme(
   }
 }
 
-/**
- * Writes both appearances into one style element. Instance CSS follows this
- * base palette; structured personal colors are applied as the final layer.
- */
+/** Writes both appearances into one preset style element. */
 export function applyStoredThemePresets(): void {
   applyThemePalette(getStoredThemePalette())
+}
+
+function removeThemePresetStyle(): void {
+  if (!globalThis.document) return
+  document.getElementById(THEME_PRESET_STYLE_ID)?.remove()
 }
 
 function applyThemePalette(palette: ThemePalette): void {
@@ -601,7 +545,7 @@ function applyThemePalette(palette: ThemePalette): void {
     dark.id === DEFAULT_THEME_PRESET_ID &&
     light.id === DEFAULT_THEME_PRESET_ID
   ) {
-    existing?.remove()
+    removeThemePresetStyle()
     return
   }
 
@@ -613,9 +557,7 @@ function applyThemePalette(palette: ThemePalette): void {
   style.id = THEME_PRESET_STYLE_ID
   if (style.textContent !== css) style.textContent = css
 
-  const nextLayer =
-    document.getElementById(INSTANCE_THEME_STYLE_ID) ??
-    document.getElementById(THEME_CUSTOMIZATION_STYLE_ID)
+  const nextLayer = document.getElementById(THEME_ACCENT_STYLE_ID)
   if (nextLayer) {
     document.head.insertBefore(style, nextLayer)
     return

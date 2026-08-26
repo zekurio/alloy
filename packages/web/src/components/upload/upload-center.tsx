@@ -117,7 +117,7 @@ export function UploadCenter() {
               ))}
             </div>
           ) : (
-            <div className="border-border flex flex-col items-center justify-center gap-1 rounded-md border border-dashed px-6 py-8 text-center">
+            <div className="flex flex-col items-center justify-center gap-1 px-6 py-8 text-center">
               <p className="text-foreground text-sm font-medium">
                 {t("Nothing in the queue")}
               </p>

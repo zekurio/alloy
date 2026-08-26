@@ -43,7 +43,6 @@ import { lazy, useEffect, useMemo, useState } from "react"
 import type { ComponentType, LazyExoticComponent } from "react"
 
 import { ClipAnnouncementRow } from "@/components/routes/settings/clip-announcement-settings"
-import { CustomThemeSettings } from "@/components/routes/settings/custom-theme-settings"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
 import {
   ClipDataCard,
@@ -55,6 +54,7 @@ import {
   SettingsSections,
   SettingsSubsection,
 } from "@/components/routes/settings/settings-panel"
+import { ThemeSettings } from "@/components/routes/settings/theme-settings"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -296,7 +296,7 @@ function AppearancePanel() {
           </SettingRow>
         </SettingRows>
       </SettingsSubsection>
-      <CustomThemeSettings />
+      <ThemeSettings />
     </SettingsSections>
   )
 }
@@ -366,7 +366,7 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
     "personal-appearance",
     t("Appearance"),
     t("Appearance"),
-    t("Color mode, first-class themes, accent, and custom palettes."),
+    t("Color mode and theme palettes."),
     [
       "theme",
       "appearance",
@@ -381,12 +381,7 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
       "nord",
       "one dark",
       "one light",
-      "gruvbox",
       "rose pine",
-      "custom colors",
-      "custom theme",
-      "accent",
-      "advanced colors",
     ],
     PaletteIcon,
     AppearancePanel,
@@ -518,7 +513,7 @@ const ADMIN_CATEGORIES = categoryDrafts([
     "appearance",
     t("Appearance"),
     t("Appearance"),
-    t("Instance-wide custom CSS and the generated login backdrop."),
+    t("The generated login backdrop."),
     [
       "login backdrop",
       "splash",
@@ -526,8 +521,6 @@ const ADMIN_CATEGORIES = categoryDrafts([
       "darkening",
       "custom backdrop",
       "regenerate",
-      "custom css",
-      "instance theme",
       "branding",
     ],
     PaletteIcon,

@@ -78,7 +78,7 @@ export function ColorPicker({
     <Popover>
       <PopoverTrigger
         disabled={disabled}
-        aria-label={label}
+        aria-label={t("Pick a color for {label}", { label })}
         className={cn(
           "border-border hover:border-border-strong focus-visible:ring-ring focus-visible:ring-offset-background size-9 shrink-0 rounded-md border p-0.5 transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40 sm:size-8",
           className,

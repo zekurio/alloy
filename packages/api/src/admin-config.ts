@@ -25,7 +25,6 @@ export type AppearanceConfigPatch = {
     blurPx?: number
     darkenOpacity?: number
   }
-  customCss?: string
 }
 
 export type TranscodingConfigPatch = {

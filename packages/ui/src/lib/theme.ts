@@ -1,8 +1,8 @@
 import { t } from "@alloy/contracts/schema"
 import {
-  applyStoredThemeCustomization,
-  THEME_CUSTOMIZATION_STORAGE_KEY,
-} from "@alloy/ui/lib/theme-customization"
+  applyStoredThemeAccents,
+  THEME_ACCENT_STORAGE_KEY,
+} from "@alloy/ui/lib/theme-accent"
 import {
   applyStoredThemePresets,
   LEGACY_THEME_PRESET_STORAGE_KEYS,
@@ -72,7 +72,7 @@ export function initTheme(storageKey = THEME_STORAGE_KEY): Theme {
   const theme = getStoredTheme(storageKey)
   applyTheme(theme)
   applyStoredThemePresets()
-  applyStoredThemeCustomization()
+  applyStoredThemeAccents()
 
   if (
     globalThis.window &&
@@ -92,14 +92,14 @@ export function initTheme(storageKey = THEME_STORAGE_KEY): Theme {
       if (
         event.key !== null &&
         event.key !== THEME_PALETTE_STORAGE_KEY &&
-        event.key !== THEME_CUSTOMIZATION_STORAGE_KEY &&
+        event.key !== THEME_ACCENT_STORAGE_KEY &&
         event.key !== LEGACY_THEME_PRESET_STORAGE_KEYS.dark &&
         event.key !== LEGACY_THEME_PRESET_STORAGE_KEYS.light
       ) {
         return
       }
       applyStoredThemePresets()
-      applyStoredThemeCustomization()
+      applyStoredThemeAccents()
     })
   }
 
