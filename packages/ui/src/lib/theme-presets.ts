@@ -1,4 +1,8 @@
-import { CUSTOM_THEME_STYLE_ID } from "@alloy/ui/lib/custom-theme"
+import {
+  INSTANCE_THEME_STYLE_ID,
+  THEME_CUSTOMIZATION_STYLE_ID,
+  THEME_PRESET_STYLE_ID,
+} from "@alloy/ui/lib/theme-style"
 
 /**
  * Bundled palette presets for the theme selector, split into dark and light
@@ -22,6 +26,14 @@ export interface ThemePreset {
   tokens: ThemePresetTokens
 }
 
+/** A first-class theme owns both appearances as one coherent choice. */
+export interface ThemePalette {
+  id: string
+  label: string
+  dark: ThemePreset
+  light: ThemePreset
+}
+
 /** Values for `--neutral-0` … `--neutral-900`, background to strongest text. */
 type NeutralRamp = readonly [
   string,
@@ -38,7 +50,7 @@ type NeutralRamp = readonly [
   string,
 ]
 
-interface ThemePresetTokens {
+export interface ThemePresetTokens {
   neutrals: NeutralRamp
   surfaceSunken: string
   foregroundFaint: string
@@ -47,23 +59,30 @@ interface ThemePresetTokens {
   accentHover: string
   accentActive: string
   accentForeground: string
+  /** Optional generated soft fill when the standard mode alpha is unsafe. */
+  accentSoft?: string
   accentDim: string
   success: string
+  successSoft?: string
   warning: string
+  warningSoft?: string
   danger: string
+  dangerSoft?: string
   info: string
+  infoSoft?: string
   live: string
+  liveSoft?: string
 }
 
 export const DEFAULT_THEME_PRESET_ID = "default"
 
-export const THEME_PRESET_STORAGE_KEYS = {
+export const THEME_PALETTE_STORAGE_KEY = "alloy.themePalette"
+
+/** Read-only migration keys used by builds that selected each mode separately. */
+export const LEGACY_THEME_PRESET_STORAGE_KEYS = {
   dark: "alloy.themeDark",
   light: "alloy.themeLight",
 } satisfies Record<ThemePresetMode, string>
-
-/** Id of the single <style> element the active presets are written into. */
-export const THEME_PRESET_STYLE_ID = "alloy-theme-preset"
 
 export const DARK_THEME_PRESETS: readonly ThemePreset[] = [
   {
@@ -461,21 +480,42 @@ export const LIGHT_THEME_PRESETS: readonly ThemePreset[] = [
   },
 ]
 
-export function themePresetsFor(mode: ThemePresetMode): readonly ThemePreset[] {
-  return mode === "dark" ? DARK_THEME_PRESETS : LIGHT_THEME_PRESETS
-}
+export const THEME_PALETTES: readonly ThemePalette[] = [
+  pairTheme("default", "Alloy", "default", "default"),
+  pairTheme(
+    "catppuccin",
+    "Catppuccin",
+    "catppuccin-frappe",
+    "catppuccin-latte",
+  ),
+  pairTheme("nord", "Nord", "nord", "nord-light"),
+  pairTheme("one", "One", "one-dark", "one-light"),
+  pairTheme("gruvbox", "Gruvbox", "gruvbox", "gruvbox-light"),
+  pairTheme("rose-pine", "Rosé Pine", "rose-pine", "rose-pine-dawn"),
+]
 
-export function getStoredThemePresetId(mode: ThemePresetMode): string {
+let sessionThemePaletteId: string | null = null
+
+export function getStoredThemePaletteId(): string {
+  if (sessionThemePaletteId) return sessionThemePaletteId
   if (!globalThis.window) return DEFAULT_THEME_PRESET_ID
 
   try {
-    const stored = window.localStorage.getItem(THEME_PRESET_STORAGE_KEYS[mode])
-    if (
-      stored &&
-      themePresetsFor(mode).some((preset) => preset.id === stored)
-    ) {
+    const stored = window.localStorage.getItem(THEME_PALETTE_STORAGE_KEY)
+    if (stored && THEME_PALETTES.some((palette) => palette.id === stored)) {
       return stored
     }
+
+    const migrated = migrateLegacyThemePalette(
+      window.localStorage.getItem(LEGACY_THEME_PRESET_STORAGE_KEYS.dark),
+      window.localStorage.getItem(LEGACY_THEME_PRESET_STORAGE_KEYS.light),
+    )
+    try {
+      window.localStorage.setItem(THEME_PALETTE_STORAGE_KEY, migrated)
+    } catch {
+      sessionThemePaletteId = migrated
+    }
+    return migrated
   } catch {
     // localStorage can be unavailable in hardened/privacy contexts.
   }
@@ -483,28 +523,77 @@ export function getStoredThemePresetId(mode: ThemePresetMode): string {
   return DEFAULT_THEME_PRESET_ID
 }
 
-export function setStoredThemePreset(mode: ThemePresetMode, id: string): void {
-  if (!themePresetsFor(mode).some((preset) => preset.id === id)) return
-  if (!globalThis.window) return
+function migrateLegacyThemePalette(
+  darkId: string | null,
+  lightId: string | null,
+): string {
+  const dark = THEME_PALETTES.find((palette) => palette.dark.id === darkId)
+  const light = THEME_PALETTES.find((palette) => palette.light.id === lightId)
+  if (dark?.id === light?.id) return dark?.id ?? DEFAULT_THEME_PRESET_ID
+  if (dark && dark.id !== DEFAULT_THEME_PRESET_ID && !light) return dark.id
+  if (light && light.id !== DEFAULT_THEME_PRESET_ID && !dark) return light.id
+  if (dark?.id === DEFAULT_THEME_PRESET_ID && light) return light.id
+  if (light?.id === DEFAULT_THEME_PRESET_ID && dark) return dark.id
 
-  try {
-    window.localStorage.setItem(THEME_PRESET_STORAGE_KEYS[mode], id)
-  } catch {
-    // Best effort: the applied presets still hold for this session.
+  const preference = window.localStorage.getItem("alloy.theme")
+  const prefersDark =
+    preference === "dark" ||
+    (preference !== "light" &&
+      window.matchMedia?.("(prefers-color-scheme: dark)").matches)
+  return (
+    (prefersDark ? dark : light)?.id ??
+    dark?.id ??
+    light?.id ??
+    DEFAULT_THEME_PRESET_ID
+  )
+}
+
+export function setStoredThemePalette(id: string): void {
+  const palette = THEME_PALETTES.find((candidate) => candidate.id === id)
+  if (!palette) return
+
+  if (globalThis.window) {
+    try {
+      window.localStorage.setItem(THEME_PALETTE_STORAGE_KEY, id)
+      sessionThemePaletteId = null
+    } catch {
+      sessionThemePaletteId = id
+    }
   }
-  applyStoredThemePresets()
+  applyThemePalette(palette)
+}
+
+export function getStoredThemePalette(): ThemePalette {
+  return paletteById(getStoredThemePaletteId())
+}
+
+function pairTheme(
+  id: string,
+  label: string,
+  darkId: string,
+  lightId: string,
+): ThemePalette {
+  return {
+    id,
+    label,
+    dark: presetById("dark", darkId),
+    light: presetById("light", lightId),
+  }
 }
 
 /**
- * Writes the stored dark and light presets into one <style> element. It sits
- * before the custom-theme <style>, so user CSS overrides still win against
- * the preset the same way they win against the bundled stylesheet.
+ * Writes both appearances into one style element. Instance CSS follows this
+ * base palette; structured personal colors are applied as the final layer.
  */
 export function applyStoredThemePresets(): void {
+  applyThemePalette(getStoredThemePalette())
+}
+
+function applyThemePalette(palette: ThemePalette): void {
   if (!globalThis.document) return
 
-  const dark = presetById("dark", getStoredThemePresetId("dark"))
-  const light = presetById("light", getStoredThemePresetId("light"))
+  const dark = palette.dark
+  const light = palette.light
   const existing = document.getElementById(THEME_PRESET_STYLE_ID)
 
   // Both defaults means the bundled stylesheet already has it exactly right.
@@ -516,25 +605,32 @@ export function applyStoredThemePresets(): void {
     return
   }
 
-  const css = `:root,\n.dark {\n${declarations(dark.tokens, DARK_ACCENT_ALPHAS)}\n}\n\n:root.light {\n${declarations(light.tokens, LIGHT_ACCENT_ALPHAS)}\n}\n`
+  const css = `:root,\n.dark {\n${themeTokenDeclarations(dark.tokens, "dark")}\n}\n\n:root.light {\n${themeTokenDeclarations(light.tokens, "light")}\n}\n`
   const style =
     existing instanceof HTMLStyleElement
       ? existing
       : document.createElement("style")
   style.id = THEME_PRESET_STYLE_ID
   if (style.textContent !== css) style.textContent = css
-  if (style.isConnected) return
 
-  const customTheme = document.getElementById(CUSTOM_THEME_STYLE_ID)
-  if (customTheme) {
-    document.head.insertBefore(style, customTheme)
+  const nextLayer =
+    document.getElementById(INSTANCE_THEME_STYLE_ID) ??
+    document.getElementById(THEME_CUSTOMIZATION_STYLE_ID)
+  if (nextLayer) {
+    document.head.insertBefore(style, nextLayer)
     return
   }
-  document.head.append(style)
+  if (!style.isConnected) document.head.append(style)
+}
+
+function paletteById(id: string): ThemePalette {
+  return (
+    THEME_PALETTES.find((palette) => palette.id === id) ?? THEME_PALETTES[0]!
+  )
 }
 
 function presetById(mode: ThemePresetMode, id: string): ThemePreset {
-  const presets = themePresetsFor(mode)
+  const presets = mode === "dark" ? DARK_THEME_PRESETS : LIGHT_THEME_PRESETS
   return presets.find((preset) => preset.id === id) ?? presets[0]!
 }
 
@@ -571,7 +667,11 @@ const LIGHT_ACCENT_ALPHAS: AccentAlphas = {
   glow: 0.28,
 }
 
-function declarations(tokens: ThemePresetTokens, alphas: AccentAlphas): string {
+export function themeTokenDeclarations(
+  tokens: ThemePresetTokens,
+  mode: ThemePresetMode,
+): string {
+  const alphas = mode === "dark" ? DARK_ACCENT_ALPHAS : LIGHT_ACCENT_ALPHAS
   const lines = [
     ...NEUTRAL_STEPS.map(
       (step, index) => `--neutral-${step}: ${tokens.neutrals[index]};`,
@@ -584,18 +684,27 @@ function declarations(tokens: ThemePresetTokens, alphas: AccentAlphas): string {
     `--accent-hover: ${tokens.accentHover};`,
     `--accent-active: ${tokens.accentActive};`,
     `--accent-foreground: ${tokens.accentForeground};`,
-    `--accent-soft: ${accentAlpha(tokens.accent, alphas.soft)};`,
+    `--accent-soft: ${tokens.accentSoft ?? accentAlpha(tokens.accent, alphas.soft)};`,
     `--accent-border: ${accentAlpha(tokens.accent, alphas.border)};`,
     `--accent-glow: ${accentAlpha(tokens.accent, alphas.glow)};`,
     `--accent-dim: ${tokens.accentDim};`,
     `--success: ${tokens.success};`,
+    `--success-soft: ${tokens.successSoft ?? statusSoft(tokens.success)};`,
     `--warning: ${tokens.warning};`,
+    `--warning-soft: ${tokens.warningSoft ?? statusSoft(tokens.warning)};`,
     `--danger: ${tokens.danger};`,
+    `--danger-soft: ${tokens.dangerSoft ?? statusSoft(tokens.danger)};`,
     `--destructive: ${tokens.danger};`,
     `--info: ${tokens.info};`,
+    `--info-soft: ${tokens.infoSoft ?? statusSoft(tokens.info)};`,
     `--live: ${tokens.live};`,
+    `--live-soft: ${tokens.liveSoft ?? statusSoft(tokens.live)};`,
   ]
   return lines.map((line) => `  ${line}`).join("\n")
+}
+
+function statusSoft(color: string): string {
+  return `color-mix(in srgb, ${color} 12%, transparent)`
 }
 
 function accentAlpha(hex: string, alpha: number): string {

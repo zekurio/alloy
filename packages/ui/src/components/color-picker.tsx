@@ -1,3 +1,4 @@
+import { t } from "@alloy/i18n"
 import { ColorSwatch } from "@alloy/ui/components/color-swatch"
 import {
   Popover,
@@ -29,6 +30,7 @@ export function ColorPicker({
   onValueChange,
   label,
   disabled,
+  allowAlpha = true,
   className,
 }: {
   /** Any CSS colour. Unparseable values open the picker on black. */
@@ -36,6 +38,7 @@ export function ColorPicker({
   onValueChange: (next: string) => void
   label: string
   disabled?: boolean
+  allowAlpha?: boolean
   className?: string
 }) {
   // HSVA is component state, not derived from `value` each render: achromatic
@@ -43,7 +46,7 @@ export function ColorPicker({
   // would snap the hue rail back and make it inert until saturation is raised.
   const [hsva, setHsva] = useState<Hsva>(() => {
     const rgba = parseCssColor(value)
-    return rgba ? rgbaToHsva(rgba) : FALLBACK
+    return rgba ? rgbaToHsva({ ...rgba, a: allowAlpha ? rgba.a : 1 }) : FALLBACK
   })
 
   // Sync from the prop only when it changes to a colour that no longer matches
@@ -53,17 +56,22 @@ export function ColorPicker({
   if (value !== syncedValue) {
     setSyncedValue(value)
     const rgba = parseCssColor(value)
-    if (rgba && formatCssColor(rgba) !== formatCssColor(hsvaToRgba(hsva))) {
-      setHsva(rgbaToHsva(rgba))
+    const normalized = rgba ? { ...rgba, a: allowAlpha ? rgba.a : 1 } : null
+    if (
+      normalized &&
+      formatCssColor(normalized) !== formatCssColor(hsvaToRgba(hsva))
+    ) {
+      setHsva(rgbaToHsva(normalized))
     }
   }
 
   const emit = useCallback(
     (next: Hsva) => {
-      setHsva(next)
-      onValueChange(formatCssColor(hsvaToRgba(next)))
+      const normalized = allowAlpha ? next : { ...next, a: 1 }
+      setHsva(normalized)
+      onValueChange(formatCssColor(hsvaToRgba(normalized)))
     },
-    [onValueChange],
+    [allowAlpha, onValueChange],
   )
 
   return (
@@ -80,6 +88,7 @@ export function ColorPicker({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-60 gap-3">
         <SaturationField
+          label={label}
           hsva={hsva}
           onChange={(s, v) => emit({ ...hsva, s, v })}
         />
@@ -94,25 +103,29 @@ export function ColorPicker({
           thumbColor={hueColor(hsva.h)}
           onChange={(ratio) => emit({ ...hsva, h: ratio * 360 })}
         />
-        <Rail
-          label={label}
-          kind="alpha"
-          position={hsva.a}
-          trackStyle={{
-            background: `linear-gradient(to right, transparent, ${formatCssColor(hsvaToRgba({ ...hsva, a: 1 }))})`,
-          }}
-          thumbColor={value}
-          onChange={(ratio) => emit({ ...hsva, a: ratio })}
-        />
+        {allowAlpha ? (
+          <Rail
+            label={label}
+            kind="alpha"
+            position={hsva.a}
+            trackStyle={{
+              background: `linear-gradient(to right, transparent, ${formatCssColor(hsvaToRgba({ ...hsva, a: 1 }))})`,
+            }}
+            thumbColor={value}
+            onChange={(ratio) => emit({ ...hsva, a: ratio })}
+          />
+        ) : null}
       </PopoverContent>
     </Popover>
   )
 }
 
 function SaturationField({
+  label,
   hsva,
   onChange,
 }: {
+  label: string
   hsva: Hsva
   onChange: (s: number, v: number) => void
 }) {
@@ -122,11 +135,35 @@ function SaturationField({
   return (
     <div
       ref={ref}
-      role="application"
-      aria-label="Saturation and brightness"
-      className="relative h-32 w-full cursor-crosshair touch-none rounded-md"
+      role="slider"
+      aria-label={t("{label} saturation and brightness", { label })}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(hsva.v * 100)}
+      aria-valuetext={t("{saturation}% saturation, {brightness}% brightness", {
+        saturation: Math.round(hsva.s * 100),
+        brightness: Math.round(hsva.v * 100),
+      })}
+      tabIndex={0}
+      className="focus-visible:ring-ring focus-visible:ring-offset-background relative h-32 w-full cursor-crosshair touch-none rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       style={{ background: hueColor(hsva.h) }}
       onPointerDown={track}
+      onKeyDown={(event) => {
+        const step = event.shiftKey ? 0.1 : 0.02
+        const next =
+          event.key === "ArrowLeft"
+            ? { s: Math.max(0, hsva.s - step), v: hsva.v }
+            : event.key === "ArrowRight"
+              ? { s: Math.min(1, hsva.s + step), v: hsva.v }
+              : event.key === "ArrowDown"
+                ? { s: hsva.s, v: Math.max(0, hsva.v - step) }
+                : event.key === "ArrowUp"
+                  ? { s: hsva.s, v: Math.min(1, hsva.v + step) }
+                  : null
+        if (!next) return
+        event.preventDefault()
+        onChange(next.s, next.v)
+      }}
     >
       <div className="absolute inset-0 rounded-md bg-[linear-gradient(to_right,#fff,transparent)]" />
       <div className="absolute inset-0 rounded-md bg-[linear-gradient(to_top,#000,transparent)]" />
@@ -163,12 +200,16 @@ function Rail({
     <div
       ref={ref}
       role="slider"
-      aria-label={`${label} ${kind}`}
+      aria-label={
+        kind === "hue"
+          ? t("{label} hue", { label })
+          : t("{label} opacity", { label })
+      }
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(position * 100)}
       tabIndex={0}
-      className="relative h-3 w-full cursor-pointer touch-none rounded-full"
+      className="focus-visible:ring-ring focus-visible:ring-offset-background relative h-3 w-full cursor-pointer touch-none rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
       style={
         kind === "alpha"
           ? {
@@ -181,9 +222,9 @@ function Rail({
       onKeyDown={(event) => {
         const step = event.shiftKey ? 0.1 : 0.01
         const next =
-          event.key === "ArrowLeft"
+          event.key === "ArrowLeft" || event.key === "ArrowDown"
             ? Math.max(0, position - step)
-            : event.key === "ArrowRight"
+            : event.key === "ArrowRight" || event.key === "ArrowUp"
               ? Math.min(1, position + step)
               : event.key === "Home"
                 ? 0

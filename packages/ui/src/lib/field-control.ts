@@ -9,8 +9,8 @@ const fieldControlClassName = cn(
   "hover:border-border-strong hover:bg-surface-raised",
   "focus-visible:border-accent-border focus-visible:bg-surface-raised focus-visible:ring-2 focus-visible:ring-accent-border/20 focus-visible:ring-inset",
   "disabled:cursor-not-allowed disabled:opacity-50",
-  "aria-invalid:border-destructive aria-invalid:bg-destructive/5 aria-invalid:ring-2 aria-invalid:ring-destructive/15 aria-invalid:ring-inset",
-  "user-invalid:border-destructive user-invalid:bg-destructive/5 user-invalid:ring-2 user-invalid:ring-destructive/15 user-invalid:ring-inset",
+  "aria-invalid:border-destructive aria-invalid:bg-danger-soft aria-invalid:ring-2 aria-invalid:ring-destructive/15 aria-invalid:ring-inset",
+  "user-invalid:border-destructive user-invalid:bg-danger-soft user-invalid:ring-2 user-invalid:ring-destructive/15 user-invalid:ring-inset",
 )
 
 export { fieldControlClassName, fieldControlTransitionClassName }

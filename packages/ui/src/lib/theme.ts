@@ -1,7 +1,12 @@
 import { t } from "@alloy/contracts/schema"
 import {
+  applyStoredThemeCustomization,
+  THEME_CUSTOMIZATION_STORAGE_KEY,
+} from "@alloy/ui/lib/theme-customization"
+import {
   applyStoredThemePresets,
-  THEME_PRESET_STORAGE_KEYS,
+  LEGACY_THEME_PRESET_STORAGE_KEYS,
+  THEME_PALETTE_STORAGE_KEY,
 } from "@alloy/ui/lib/theme-presets"
 
 export const THEME_STORAGE_KEY = "alloy.theme"
@@ -67,6 +72,7 @@ export function initTheme(storageKey = THEME_STORAGE_KEY): Theme {
   const theme = getStoredTheme(storageKey)
   applyTheme(theme)
   applyStoredThemePresets()
+  applyStoredThemeCustomization()
 
   if (
     globalThis.window &&
@@ -79,15 +85,21 @@ export function initTheme(storageKey = THEME_STORAGE_KEY): Theme {
 
   if (globalThis.window) {
     window.addEventListener("storage", (event) => {
-      // A null key means the whole store was cleared, presets included.
+      // A null key means the whole store was cleared, preferences included.
+      if (event.key === storageKey || event.key === null) {
+        applyTheme(getStoredTheme(storageKey))
+      }
       if (
         event.key !== null &&
-        event.key !== THEME_PRESET_STORAGE_KEYS.dark &&
-        event.key !== THEME_PRESET_STORAGE_KEYS.light
+        event.key !== THEME_PALETTE_STORAGE_KEY &&
+        event.key !== THEME_CUSTOMIZATION_STORAGE_KEY &&
+        event.key !== LEGACY_THEME_PRESET_STORAGE_KEYS.dark &&
+        event.key !== LEGACY_THEME_PRESET_STORAGE_KEYS.light
       ) {
         return
       }
       applyStoredThemePresets()
+      applyStoredThemeCustomization()
     })
   }
 
