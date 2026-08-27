@@ -14,7 +14,7 @@ type PublicLinkedAccountRow = {
   id: string
   providerId: string
   accountId: string
-  email: string | null
+  accountLabel: string | null
   createdAt: Date
 }
 
@@ -29,8 +29,6 @@ export function publicAuthUserRow(row: User): AuthUser {
   // shows up as a silently-undefined value in the UI.
   return {
     id: row.id,
-    email: row.email,
-    emailVerified: row.email_verified,
     username: row.username,
     displayName: row.display_name,
     image: row.image,
@@ -77,7 +75,7 @@ export function publicLinkedAccountRow(row: PublicLinkedAccountRow) {
     id: row.id,
     providerId: row.providerId,
     accountId: row.accountId,
-    email: row.email,
+    accountLabel: row.accountLabel,
     createdAt: isoDate(row.createdAt),
   }
 }

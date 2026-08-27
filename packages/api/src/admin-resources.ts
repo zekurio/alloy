@@ -26,8 +26,7 @@ import { readJsonOrThrow } from "./http"
 import { readDeletedJson, readSuccessJson } from "./mutations"
 
 export type AdminCreateUserInput = {
-  email: string
-  username?: string
+  username: string
   role?: "user" | "admin"
 }
 

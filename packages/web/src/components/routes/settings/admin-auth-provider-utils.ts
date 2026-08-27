@@ -44,7 +44,7 @@ const EMPTY_PROVIDER_DRAFT: ProviderDraft = {
   authorizationUrl: "",
   tokenUrl: "",
   userInfoUrl: "",
-  scopes: "openid email profile",
+  scopes: "openid profile",
   tokenAuthMethod: OAUTH_CLIENT_SECRET_POST_AUTH_METHOD,
   pkce: true,
   uidClaim: "sub",

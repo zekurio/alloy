@@ -19,10 +19,6 @@ export {
   userHasEnabledSignInMethod,
 } from "./identity-sign-in-methods"
 
-export function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase()
-}
-
 export function validateUsername(value: string): string {
   return normalizeUsername(value)
 }
@@ -89,7 +85,6 @@ export async function assertCanRemoveAdmin(
 }
 
 export async function createUserIdentity(input: {
-  email: string
   username?: string
   role?: "user" | "admin"
 }): Promise<User> {
@@ -99,19 +94,15 @@ export async function createUserIdentity(input: {
 async function createUserIdentityWith(
   executor: AuthDbExecutor,
   input: {
-    email: string
     username?: string
     role?: "user" | "admin"
   },
 ): Promise<User> {
-  const email = normalizeEmail(input.email)
   const username = input.username
     ? validateUsername(input.username)
-    : await generateUniqueUsername({ email, name: email })
+    : await generateUniqueUsername({})
   await assertUsernameAvailable(executor, username)
   const values: NewUser = {
-    email,
-    email_verified: true,
     username,
     role: input.role ?? "user",
     storage_quota_bytes: configStore.get("limits").defaultStorageQuotaBytes,
@@ -121,65 +112,13 @@ async function createUserIdentityWith(
   return created
 }
 
-export async function findUserByEmail(email: string): Promise<User | null> {
-  const [row] = await db
-    .select()
-    .from(user)
-    .where(eq(user.email, normalizeEmail(email)))
-    .limit(1)
-  return row ?? null
-}
-
-async function createOrClaimSetupUserWith(
-  executor: AuthDbExecutor,
-  input: {
-    email: string
-    username: string
-  },
-): Promise<{ user: User; created: boolean }> {
-  const email = normalizeEmail(input.email)
-  const [existing] = await executor
-    .select()
-    .from(user)
-    .where(eq(user.email, email))
-    .limit(1)
-  if (existing) {
-    const now = new Date()
-    const username = validateUsername(input.username)
-    await assertUsernameAvailable(executor, username, existing.id)
-    const [updated] = await executor
-      .update(user)
-      .set({
-        role: "admin",
-        status: "active",
-        disabled_at: null,
-        username,
-        updated_at: now,
-      })
-      .where(eq(user.id, existing.id))
-      .returning()
-    if (!updated) throw new Error("Could not claim setup user.")
-    return { user: updated, created: false }
-  }
-  return {
-    user: await createUserIdentityWith(executor, {
-      email,
-      username: input.username,
-      role: "admin",
-    }),
-    created: true,
-  }
-}
-
 export async function createRegistrationUserInTransaction(
   tx: AuthTransaction,
   input: {
-    email: string
     username: string
     setupFirstAdmin: boolean
   },
-): Promise<{ user: User; created: boolean }> {
-  const email = normalizeEmail(input.email)
+): Promise<User> {
   const username = validateUsername(input.username)
 
   if (input.setupFirstAdmin) {
@@ -192,52 +131,28 @@ export async function createRegistrationUserInTransaction(
     ) {
       throw new Error("Initial setup is already complete.")
     }
-    return createOrClaimSetupUserWith(tx, { email, username })
+    // Setup creates a fresh admin because no verified attribute remains to claim.
+    return createUserIdentityWith(tx, { username, role: "admin" })
   }
 
   if (!configStore.get("passkeyEnabled")) {
     throw new Error("Passkey sign-up is currently disabled.")
   }
-  const [existing] = await tx
-    .select({ id: user.id })
-    .from(user)
-    .where(eq(user.email, email))
-    .limit(1)
-  if (existing) {
-    throw new Error("An account already exists for that email address.")
-  }
   if (!configStore.get("openRegistrations")) {
     throw new Error("Sign-up is currently closed.")
   }
-  return {
-    user: await createUserIdentityWith(tx, {
-      email,
-      username,
-      role: "user",
-    }),
-    created: true,
-  }
+  return createUserIdentityWith(tx, { username, role: "user" })
 }
 
 export async function updateUserIdentity(
   userId: string,
   input: {
-    email?: string
     username?: string
     displayName?: string
     clipAnnouncementsEnabled?: boolean
   },
 ): Promise<User> {
   const patch: Partial<NewUser> = { updated_at: new Date() }
-  if (input.email !== undefined) {
-    const email = normalizeEmail(input.email)
-    const existing = await findUserByEmail(email)
-    if (existing && existing.id !== userId) {
-      throw new Error("An account already exists for that email address.")
-    }
-    patch.email = email
-    patch.email_verified = true
-  }
   if (input.username !== undefined) {
     const username = validateUsername(input.username)
     await assertUsernameAvailable(db, username, userId)

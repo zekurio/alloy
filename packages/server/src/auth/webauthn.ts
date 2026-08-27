@@ -37,14 +37,12 @@ const WebAuthnContextPayloadSchema = t.object({
   webAuthnRpId: t.string(),
 })
 const RegistrationPayloadSchema = t.object({
-  email: t.string().optional(),
   setupFirstAdmin: t.boolean().optional(),
   userId: t.string().optional(),
   username: t.string().optional(),
 })
 
 type RegistrationPayload = {
-  email?: string
   setupFirstAdmin?: boolean
   userId?: string
   username?: string
@@ -124,7 +122,7 @@ export async function beginPasskeyRegistration(input: {
   identifier: string
   origin?: string
   payload: RegistrationPayload
-  user: Pick<User, "id" | "email" | "username"> & {
+  user: Pick<User, "id" | "username"> & {
     passkeys?: UserPasskey[]
   }
 }) {
@@ -138,7 +136,7 @@ export async function beginPasskeyRegistration(input: {
     rpName: RP_NAME,
     rpID: context.rpId,
     userID: Buffer.from(input.user.id, "utf8"),
-    userName: input.user.email,
+    userName: input.user.username,
     userDisplayName: input.user.username,
     attestationType: "none",
     excludeCredentials,

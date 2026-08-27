@@ -214,10 +214,6 @@ export const DE_MESSAGES = {
   "Audio tracks": "Audiospuren",
   "Audio tracks could not be loaded. Playing the mixed track instead.":
     "Audiospuren konnten nicht geladen werden. Stattdessen wird die gemischte Spur abgespielt.",
-  "An account already exists for that email address.":
-    "Für diese E-Mail-Adresse existiert bereits ein Konto.",
-  "An account already exists for that email. Sign in and link this provider from settings.":
-    "Für diese E-Mail-Adresse existiert bereits ein Konto. Melde dich an und verknüpfe diesen Anbieter in den Einstellungen.",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
   Author: "Autor",
   Auto: "Auto",
@@ -370,7 +366,7 @@ export const DE_MESSAGES = {
     "Verbinde weitere Anmeldemethoden mit deinem Konto.",
   "Connect to Alloy": "Mit Alloy verbinden",
   Connected: "Verbunden",
-  "Connected as {email}": "Verbunden als {email}",
+  "Connected as {label}": "Verbunden als {label}",
   "Connecting...": "Verbindung wird hergestellt...",
   "Connection timed out.": "Zeitüberschreitung bei der Verbindung.",
   "Continue with {displayName}": "Mit {displayName} fortfahren",
@@ -522,7 +518,7 @@ export const DE_MESSAGES = {
   Custom: "Nutzerdefiniert",
   Darkening: "Verdunkelung",
   Delete: "Löschen",
-  "Delete {email}?": "{email} löschen?",
+  "Delete {username}?": "{username} löschen?",
   "Delete {noun}": "{noun} löschen",
   "Delete account": "Konto löschen",
   "Delete all clips?": "Alle Clips löschen?",
@@ -560,7 +556,7 @@ export const DE_MESSAGES = {
   "Devices, microphones, application streams, and volumes.":
     "Geräte, Mikrofone, Anwendungsstreams und Lautstärken.",
   Disable: "Deaktivieren",
-  "Disable {email}?": "{email} deaktivieren?",
+  "Disable {username}?": "{username} deaktivieren?",
   "Disable account": "Konto deaktivieren",
   "Disable Link": "Link deaktivieren",
   "Disable user": "Nutzer deaktivieren",
@@ -609,13 +605,11 @@ export const DE_MESSAGES = {
   "Edit user": "Nutzer bearbeiten",
   "Edit user accounts, roles, and moderation state.":
     "Bearbeite Nutzerkonten, Rollen und Moderationsstatus.",
-  "Edit your username, email, avatar, and sign-in methods.":
-    "Bearbeite deinen Nutzernamen, deine E-Mail, deinen Avatar und deine Anmeldemethoden.",
-  Email: "E-Mail",
-  "Email is required": "E-Mail ist erforderlich",
+  "Edit your username, avatar, and sign-in methods.":
+    "Bearbeite deinen Benutzernamen, Avatar und Anmeldemethoden.",
   Emoji: "Emoji",
   Enable: "Aktivieren",
-  "Enable {email}?": "{email} aktivieren?",
+  "Enable {username}?": "{username} aktivieren?",
   "Enable user": "Nutzer aktivieren",
   "Encoder detection refreshed": "Encoder-Erkennung aktualisiert",
   "Encoder used for GPU-accelerated encoding. Decoding and scaling always stay on the CPU.":
@@ -623,7 +617,6 @@ export const DE_MESSAGES = {
   Encoding: "Wird kodiert",
   "Encoding {tier} ({index}/{count})": "{tier} wird codiert ({index}/{count})",
   "Enter a VA-API render node path.": "Gib einen VA-API-Render-Node-Pfad an.",
-  "Enter a valid email address": "Gib eine gültige E-Mail-Adresse ein",
   "Enter your server URL to authenticate the desktop app.":
     "Gib deine Server-URL ein, um die Desktop-App zu authentifizieren.",
   "Error details copied": "Fehlerdetails kopiert",
@@ -835,8 +828,6 @@ export const DE_MESSAGES = {
     "Die OAuth-Rückruf-URL ist nicht vertrauenswürdig.",
   "OAuth profile is missing a subject.":
     "Im OAuth-Profil fehlt eine Nutzerkennung.",
-  "OAuth profile is missing an email address.":
-    "Im OAuth-Profil fehlt eine E-Mail-Adresse.",
   "OAuth provider changed during sign-in.":
     "Der OAuth-Anbieter wurde während der Anmeldung geändert.",
   "OAuth provider endpoints are incomplete.":
@@ -1141,8 +1132,6 @@ export const DE_MESSAGES = {
     "Der ausgewählte {backend}-Encoder ist für {codec} auf diesem Server nicht verfügbar.",
   "Theme, language, and announcement settings.":
     "Theme-, Sprach- und Ankündigungseinstellungen.",
-  "They can claim the account by signing in with an identity provider that uses this email.":
-    "Das Konto kann übernommen werden, indem man sich über einen Identitätsanbieter mit dieser E-Mail anmeldet.",
   "They'll be able to sign in and their clips will be visible again.":
     "Der Nutzer kann sich wieder anmelden und seine Clips sind wieder sichtbar.",
   "They'll be signed out and their clips hidden. Their data is kept and you can enable them again later.":

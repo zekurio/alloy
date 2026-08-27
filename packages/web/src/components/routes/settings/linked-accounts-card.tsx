@@ -308,8 +308,8 @@ function AccountsList({
 }
 
 function linkedAccountLabel(account: LinkedAccount): string {
-  return account.email
-    ? t("Connected as {email}", { email: account.email })
+  return account.accountLabel
+    ? t("Connected as {label}", { label: account.accountLabel })
     : t("Connected")
 }
 

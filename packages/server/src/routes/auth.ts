@@ -12,8 +12,6 @@ import {
 import {
   assertCanRemoveAdmin,
   deleteUserPasskeyPreservingSignIn,
-  findUserByEmail,
-  normalizeEmail,
   setupRequired,
   updateUserIdentity,
   validateUsername,
@@ -68,7 +66,6 @@ import {
 } from "./validation"
 
 const SignUpOptionsBody = t.object({
-  email: t.string().trim().email(),
   username: requiredTrimmedString(),
 })
 
@@ -129,7 +126,6 @@ const PasskeyNamedRegistrationVerifyBody = PasskeyRegistrationVerifyBody.extend(
 )
 
 const UpdateUserBody = t.object({
-  email: t.string().trim().email().optional(),
   username: t
     .string()
     .min(USERNAME_MIN_LENGTH)
@@ -202,31 +198,16 @@ export const authRoute = new Hono()
       try {
         const body = c.req.valid("json")
         const setupFirstAdmin = await setupRequired()
-        if (!setupFirstAdmin) {
-          if (!(await canOpenPasskeyRegistration())) {
-            return badRequest(c, "Passkey sign-up is currently disabled.")
-          }
-          const existing = await findUserByEmail(body.email)
-          if (existing) {
-            return badRequest(
-              c,
-              "An account already exists for that email address.",
-            )
-          }
+        if (!setupFirstAdmin && !(await canOpenPasskeyRegistration())) {
+          return badRequest(c, "Passkey sign-up is currently disabled.")
         }
 
-        const email = normalizeEmail(body.email)
         const username = validateUsername(body.username)
-        const existing = await findUserByEmail(email)
         const registration = await beginPasskeyRegistration({
-          identifier: email,
+          identifier: username,
           origin: c.req.header("origin"),
-          payload: { email, username, setupFirstAdmin },
-          user: {
-            id: existing && setupFirstAdmin ? existing.id : crypto.randomUUID(),
-            email,
-            username,
-          },
+          payload: { username, setupFirstAdmin },
+          user: { id: crypto.randomUUID(), username },
         })
         return c.json(registration)
       } catch (cause) {
@@ -247,7 +228,7 @@ export const authRoute = new Hono()
           challengeId: body.challengeId,
           response,
         })
-        if (!payload.email || !payload.username) {
+        if (!payload.username) {
           return badRequest(c, "Invalid registration request.")
         }
         const userRow = await completePasskeySignUp({

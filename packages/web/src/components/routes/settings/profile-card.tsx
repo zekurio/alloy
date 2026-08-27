@@ -26,11 +26,7 @@ import type { useClickAnchor } from "@/hooks/use-click-anchor"
 import { authClient } from "@/lib/auth-client"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
 import { errorMessage } from "@/lib/error-message"
-import {
-  validateDisplayName,
-  validateEmail,
-  validateUsername,
-} from "@/lib/form-validators"
+import { validateDisplayName, validateUsername } from "@/lib/form-validators"
 import {
   normalizeProfileIdentity,
   profileIdentityChanged,
@@ -50,7 +46,6 @@ type ProfileCardProps = {
   initialDisplayName: string
   image: string
   banner: string
-  email: string
 }
 
 type ProfileAvatarPreviewProps = {
@@ -63,9 +58,9 @@ type IdentityTextFieldConfig = {
   autoComplete: string
   description?: ReactNode
   label: string
-  name: "username" | "email" | "displayName"
+  name: "username" | "displayName"
   onChangeValue?: (value: string) => string
-  type: "email" | "text"
+  type: "text"
   validate: (value: string) => string | undefined
 }
 
@@ -106,7 +101,6 @@ export function ProfileCard({
   initialDisplayName,
   image,
   banner,
-  email,
 }: ProfileCardProps) {
   const media = useProfileMedia({ image, banner })
   const identityFeedback = useActionFeedback()
@@ -116,7 +110,6 @@ export function ProfileCard({
     banner: media.profileBanner || null,
   }
   const initialIdentity = {
-    email,
     username: initialUsername,
     displayName: initialDisplayName,
   }
@@ -136,11 +129,10 @@ export function ProfileCard({
 
   useEffect(() => {
     form.reset({
-      email,
       username: initialUsername,
       displayName: initialDisplayName,
     })
-  }, [email, form, initialUsername, initialDisplayName])
+  }, [form, initialUsername, initialDisplayName])
 
   // Media (avatar, banner) applies as soon as it uploads; only the identity
   // fields go through the dialog's unified save bar.
@@ -223,14 +215,6 @@ export function ProfileCard({
       type: "text",
       validate: validateUsername,
     },
-    {
-      autoComplete: "email",
-      label: t("Email"),
-      name: "email",
-      onChangeValue: undefined,
-      type: "email",
-      validate: validateEmail,
-    },
   ]
 
   return (
@@ -281,16 +265,11 @@ export function ProfileCard({
 
               <form.Subscribe
                 selector={(state) =>
-                  [
-                    state.values.email,
-                    state.values.username,
-                    state.values.displayName,
-                  ] as const
+                  [state.values.username, state.values.displayName] as const
                 }
               >
-                {([currentEmail, currentUsername, currentDisplayName]) => {
+                {([currentUsername, currentDisplayName]) => {
                   const normalizedIdentity = normalizeProfileIdentity({
-                    email: currentEmail,
                     username: currentUsername,
                     displayName: currentDisplayName,
                   })
@@ -298,7 +277,6 @@ export function ProfileCard({
                     id: userId,
                     username: normalizedIdentity.username || null,
                     displayName: normalizedIdentity.displayName || null,
-                    email: normalizedIdentity.email || email,
                     image: media.profileImage || null,
                   }
                   const previewName = displayName(identityUser)
@@ -351,7 +329,7 @@ export function ProfileCard({
                             {previewName}
                           </div>
                           <div className="text-foreground-faint truncate text-xs">
-                            {normalizedIdentity.email || email}
+                            {normalizedIdentity.username}
                           </div>
                         </div>
                       </div>

@@ -216,7 +216,6 @@ function ProfilePanel() {
           initialDisplayName={user.displayName ?? ""}
           image={user.image ?? ""}
           banner={banner}
-          email={user.email ?? ""}
         />
       </SettingsSubsection>
       <SecuritySettings />
@@ -348,10 +347,9 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
     "profile",
     t("Profile"),
     null,
-    t("Edit your username, email, avatar, and sign-in methods."),
+    t("Edit your username, avatar, and sign-in methods."),
     [
       "username",
-      "email",
       "avatar",
       "profile picture",
       "banner",

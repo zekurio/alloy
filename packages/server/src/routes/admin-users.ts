@@ -25,7 +25,7 @@ import {
   decodeCursorPayload,
   encodeCursorPayload,
 } from "./cursor-codec"
-import { optionalTrimmedString, tbValidator } from "./validation"
+import { requiredTrimmedString, tbValidator } from "./validation"
 
 const UserIdParam = t.object({
   id: t.string().uuid(),
@@ -45,8 +45,7 @@ const StorageQuotaValue = t
   .nullable()
 
 const CreateUserBody = t.object({
-  email: t.string().trim().email(),
-  username: optionalTrimmedString(),
+  username: requiredTrimmedString(),
   role: t.enum(USER_ROLES).$default("user"),
 })
 
@@ -129,7 +128,6 @@ export const adminUsersRoute = new Hono()
     try {
       const body = c.req.valid("json")
       const created = await createUserIdentity({
-        email: body.email,
         username: body.username,
         role: body.role,
       })

@@ -144,7 +144,7 @@ export function validateAdminUserStorageRow(
   value: ApiJsonInput,
 ): AdminUserStorageRow {
   const row = objectRecord(value, "admin user")
-  for (const key of ["id", "username", "email", "createdAt"] as const) {
+  for (const key of ["id", "username", "createdAt"] as const) {
     validateRequiredString(
       row[key],
       `Invalid admin user response: ${key} is required`,
