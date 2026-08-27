@@ -23,7 +23,7 @@ const cardVariants = cva(
       tone: {
         default: "border-border bg-surface-raised/40",
         surface: "border-border bg-surface/60",
-        destructive: "border-destructive/40 bg-destructive/5",
+        destructive: "border-destructive/40 bg-danger-soft",
       },
     },
     defaultVariants: {

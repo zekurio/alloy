@@ -8,9 +8,9 @@ const calloutVariants = cva(
     variants: {
       tone: {
         neutral: "border-border bg-surface-raised/40 text-foreground-muted",
-        info: "border-info/30 bg-info/5 text-foreground",
-        warning: "border-warning/30 bg-warning/5 text-warning",
-        destructive: "border-destructive/40 bg-destructive/5 text-destructive",
+        info: "border-info/30 bg-info-soft text-foreground",
+        warning: "border-warning/30 bg-warning-soft text-warning",
+        destructive: "border-destructive/40 bg-danger-soft text-destructive",
       },
     },
     defaultVariants: {

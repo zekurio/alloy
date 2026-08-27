@@ -1,6 +1,5 @@
 import {
   HardwareAccelerationSchema,
-  INSTANCE_CUSTOM_CSS_MAX_LENGTH,
   RenditionTierConfigSchema,
   VideoCodecSchema,
 } from "@alloy/contracts"
@@ -90,7 +89,6 @@ const AppearancePatch = t.object({
       darkenOpacity: t.number().min(0).max(1).optional(),
     })
     .optional(),
-  customCss: t.string().max(INSTANCE_CUSTOM_CSS_MAX_LENGTH).optional(),
 })
 
 export const adminRoute = new Hono()
@@ -194,7 +192,6 @@ export const adminRoute = new Hono()
     if (patch.loginSplash?.darkenOpacity !== undefined) {
       next.loginSplash.darkenOpacity = patch.loginSplash.darkenOpacity
     }
-    if (patch.customCss !== undefined) next.customCss = patch.customCss
     await configStore.set("appearance", next)
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))
   })

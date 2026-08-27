@@ -9,7 +9,6 @@ import {
 } from "@alloy/ui/components/section"
 import { SettingRow, SettingRows } from "@alloy/ui/components/setting-row"
 import { Switch } from "@alloy/ui/components/switch"
-import { Textarea } from "@alloy/ui/components/textarea"
 import { useQueryClient } from "@tanstack/react-query"
 import { SaveIcon } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
@@ -49,22 +48,13 @@ export function AppearanceSettingsContent({
     }),
     [draftBlurPx, draftDarkenOpacity, splash],
   )
-  const [draftCustomCss, setDraftCustomCss] = useState(
-    config.appearance.customCss,
-  )
   const treatmentChanged =
-    draftBlurPx !== splash.blurPx ||
-    draftDarkenOpacity !== splash.darkenOpacity ||
-    draftCustomCss !== config.appearance.customCss
+    draftBlurPx !== splash.blurPx || draftDarkenOpacity !== splash.darkenOpacity
 
   useEffect(() => {
     setDraftBlurPx(splash.blurPx)
     setDraftDarkenOpacity(splash.darkenOpacity)
   }, [splash.blurPx, splash.darkenOpacity])
-
-  useEffect(() => {
-    setDraftCustomCss(config.appearance.customCss)
-  }, [config.appearance.customCss])
 
   async function updateSplashEnabled(next: boolean) {
     if (enabledPending) return
@@ -87,7 +77,6 @@ export function AppearanceSettingsContent({
     treatmentFeedback.reset()
     setDraftBlurPx(splash.blurPx)
     setDraftDarkenOpacity(splash.darkenOpacity)
-    setDraftCustomCss(config.appearance.customCss)
   }
 
   async function saveTreatment() {
@@ -99,7 +88,6 @@ export function AppearanceSettingsContent({
           blurPx: draftBlurPx,
           darkenOpacity: draftDarkenOpacity,
         },
-        customCss: draftCustomCss,
       })
       queryClient.setQueryData(adminKeys.runtimeConfig(), updated)
       publishRuntimeConfigUpdate({ authConfigChanged: true })
@@ -121,23 +109,6 @@ export function AppearanceSettingsContent({
     <Section>
       <SectionContent className="py-0">
         <SettingsSections>
-          <SettingsSubsection
-            id="instance-theme"
-            title={t("Instance theme")}
-            description={t(
-              "CSS applied to everyone on this server, including the login page. Users can turn it off for their own browser.",
-            )}
-          >
-            <Textarea
-              value={draftCustomCss}
-              spellCheck={false}
-              onChange={(event) => setDraftCustomCss(event.target.value)}
-              placeholder={":root {\n  --accent: #7c5cff;\n}"}
-              aria-label={t("Instance CSS")}
-              className="min-h-48 font-mono text-xs"
-            />
-          </SettingsSubsection>
-
           <SettingsSubsection
             id="login-backdrop"
             title={t("Login backdrop")}

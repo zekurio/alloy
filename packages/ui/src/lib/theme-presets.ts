@@ -1,4 +1,14 @@
-import { CUSTOM_THEME_STYLE_ID } from "@alloy/ui/lib/custom-theme"
+import {
+  DEFAULT_THEME_PALETTE_ID,
+  readThemePreferences,
+  type ThemeAppearance,
+  type ThemePaletteId,
+  writeThemePreferences,
+} from "@alloy/ui/lib/theme-storage"
+import {
+  THEME_ACCENT_STYLE_ID,
+  THEME_PRESET_STYLE_ID,
+} from "@alloy/ui/lib/theme-style"
 
 /**
  * Bundled palette presets for the theme selector, split into dark and light
@@ -13,13 +23,21 @@ import { CUSTOM_THEME_STYLE_ID } from "@alloy/ui/lib/custom-theme"
  * root) keeps the chosen dark palette.
  */
 
-export type ThemePresetMode = "dark" | "light"
+export type ThemePresetMode = ThemeAppearance
 
 export interface ThemePreset {
   id: string
   /** Palette names are proper nouns and intentionally untranslated. */
   label: string
   tokens: ThemePresetTokens
+}
+
+/** A first-class theme owns both appearances as one coherent choice. */
+export interface ThemePalette {
+  id: ThemePaletteId
+  label: string
+  dark: ThemePreset
+  light: ThemePreset
 }
 
 /** Values for `--neutral-0` … `--neutral-900`, background to strongest text. */
@@ -38,7 +56,7 @@ type NeutralRamp = readonly [
   string,
 ]
 
-interface ThemePresetTokens {
+export interface ThemePresetTokens {
   neutrals: NeutralRamp
   surfaceSunken: string
   foregroundFaint: string
@@ -47,23 +65,22 @@ interface ThemePresetTokens {
   accentHover: string
   accentActive: string
   accentForeground: string
+  /** Optional generated soft fill when the standard mode alpha is unsafe. */
+  accentSoft?: string
   accentDim: string
   success: string
+  successSoft?: string
   warning: string
+  warningSoft?: string
   danger: string
+  dangerSoft?: string
   info: string
+  infoSoft?: string
   live: string
+  liveSoft?: string
 }
 
-export const DEFAULT_THEME_PRESET_ID = "default"
-
-export const THEME_PRESET_STORAGE_KEYS = {
-  dark: "alloy.themeDark",
-  light: "alloy.themeLight",
-} satisfies Record<ThemePresetMode, string>
-
-/** Id of the single <style> element the active presets are written into. */
-export const THEME_PRESET_STYLE_ID = "alloy-theme-preset"
+export const DEFAULT_THEME_PRESET_ID = DEFAULT_THEME_PALETTE_ID
 
 export const DARK_THEME_PRESETS: readonly ThemePreset[] = [
   {
@@ -193,38 +210,6 @@ export const DARK_THEME_PRESETS: readonly ThemePreset[] = [
       danger: "#e06c75",
       info: "#56b6c2",
       live: "#e06c75",
-    },
-  },
-  {
-    id: "gruvbox",
-    label: "Gruvbox",
-    tokens: {
-      neutrals: [
-        "#282828",
-        "#32302f",
-        "#3c3836",
-        "#46403d",
-        "#504945",
-        "#665c54",
-        "#7c6f64",
-        "#928374",
-        "#a89984",
-        "#bdae93",
-        "#d5c4a1",
-        "#ebdbb2",
-      ],
-      surfaceSunken: "#1d2021",
-      foregroundFaint: "#9d8e7c",
-      accent: "#fe8019",
-      accentHover: "#ff9838",
-      accentActive: "#d65d0e",
-      accentForeground: "#1d2021",
-      accentDim: "#9d5b20",
-      success: "#b8bb26",
-      warning: "#fabd2f",
-      danger: "#fb4934",
-      info: "#83a598",
-      live: "#fb4934",
     },
   },
   {
@@ -396,38 +381,6 @@ export const LIGHT_THEME_PRESETS: readonly ThemePreset[] = [
     },
   },
   {
-    id: "gruvbox-light",
-    label: "Gruvbox Light",
-    tokens: {
-      neutrals: [
-        "#fbf1c7",
-        "#f2e5bc",
-        "#ebdbb2",
-        "#e0cfa7",
-        "#d5c4a1",
-        "#bdae93",
-        "#a89984",
-        "#928374",
-        "#7c6f64",
-        "#665c54",
-        "#504945",
-        "#3c3836",
-      ],
-      surfaceSunken: "#ebdbb2",
-      foregroundFaint: "#928374",
-      accent: "#af3a03",
-      accentHover: "#933102",
-      accentActive: "#c94f0e",
-      accentForeground: "#ffffff",
-      accentDim: "#dfa878",
-      success: "#79740e",
-      warning: "#b57614",
-      danger: "#9d0006",
-      info: "#076678",
-      live: "#9d0006",
-    },
-  },
-  {
     id: "rose-pine-dawn",
     label: "Rosé Pine Dawn",
     tokens: {
@@ -461,50 +414,65 @@ export const LIGHT_THEME_PRESETS: readonly ThemePreset[] = [
   },
 ]
 
-export function themePresetsFor(mode: ThemePresetMode): readonly ThemePreset[] {
-  return mode === "dark" ? DARK_THEME_PRESETS : LIGHT_THEME_PRESETS
+export const THEME_PALETTES: readonly ThemePalette[] = [
+  pairTheme("default", "Alloy", "default", "default"),
+  pairTheme(
+    "catppuccin",
+    "Catppuccin",
+    "catppuccin-frappe",
+    "catppuccin-latte",
+  ),
+  pairTheme("nord", "Nord", "nord", "nord-light"),
+  pairTheme("one", "One", "one-dark", "one-light"),
+  pairTheme("rose-pine", "Rosé Pine", "rose-pine", "rose-pine-dawn"),
+]
+
+export function getStoredThemePaletteId(): ThemePaletteId {
+  return readThemePreferences().palette
 }
 
-export function getStoredThemePresetId(mode: ThemePresetMode): string {
-  if (!globalThis.window) return DEFAULT_THEME_PRESET_ID
+export function setStoredThemePalette(id: string): void {
+  const palette = THEME_PALETTES.find((candidate) => candidate.id === id)
+  if (!palette) return
 
-  try {
-    const stored = window.localStorage.getItem(THEME_PRESET_STORAGE_KEYS[mode])
-    if (
-      stored &&
-      themePresetsFor(mode).some((preset) => preset.id === stored)
-    ) {
-      return stored
-    }
-  } catch {
-    // localStorage can be unavailable in hardened/privacy contexts.
+  const preferences = readThemePreferences()
+  writeThemePreferences({ ...preferences, palette: palette.id })
+  applyThemePalette(palette)
+}
+
+export function getStoredThemePalette(): ThemePalette {
+  return paletteById(getStoredThemePaletteId())
+}
+
+function pairTheme(
+  id: ThemePaletteId,
+  label: string,
+  darkId: string,
+  lightId: string,
+): ThemePalette {
+  return {
+    id,
+    label,
+    dark: presetById("dark", darkId),
+    light: presetById("light", lightId),
   }
-
-  return DEFAULT_THEME_PRESET_ID
 }
 
-export function setStoredThemePreset(mode: ThemePresetMode, id: string): void {
-  if (!themePresetsFor(mode).some((preset) => preset.id === id)) return
-  if (!globalThis.window) return
-
-  try {
-    window.localStorage.setItem(THEME_PRESET_STORAGE_KEYS[mode], id)
-  } catch {
-    // Best effort: the applied presets still hold for this session.
-  }
-  applyStoredThemePresets()
-}
-
-/**
- * Writes the stored dark and light presets into one <style> element. It sits
- * before the custom-theme <style>, so user CSS overrides still win against
- * the preset the same way they win against the bundled stylesheet.
- */
+/** Writes both appearances into one preset style element. */
 export function applyStoredThemePresets(): void {
+  applyThemePalette(getStoredThemePalette())
+}
+
+function removeThemePresetStyle(): void {
+  if (!globalThis.document) return
+  document.getElementById(THEME_PRESET_STYLE_ID)?.remove()
+}
+
+function applyThemePalette(palette: ThemePalette): void {
   if (!globalThis.document) return
 
-  const dark = presetById("dark", getStoredThemePresetId("dark"))
-  const light = presetById("light", getStoredThemePresetId("light"))
+  const dark = palette.dark
+  const light = palette.light
   const existing = document.getElementById(THEME_PRESET_STYLE_ID)
 
   // Both defaults means the bundled stylesheet already has it exactly right.
@@ -512,29 +480,34 @@ export function applyStoredThemePresets(): void {
     dark.id === DEFAULT_THEME_PRESET_ID &&
     light.id === DEFAULT_THEME_PRESET_ID
   ) {
-    existing?.remove()
+    removeThemePresetStyle()
     return
   }
 
-  const css = `:root,\n.dark {\n${declarations(dark.tokens, DARK_ACCENT_ALPHAS)}\n}\n\n:root.light {\n${declarations(light.tokens, LIGHT_ACCENT_ALPHAS)}\n}\n`
+  const css = `:root,\n.dark {\n${themeTokenDeclarations(dark.tokens, "dark")}\n}\n\n:root.light {\n${themeTokenDeclarations(light.tokens, "light")}\n}\n`
   const style =
     existing instanceof HTMLStyleElement
       ? existing
       : document.createElement("style")
   style.id = THEME_PRESET_STYLE_ID
   if (style.textContent !== css) style.textContent = css
-  if (style.isConnected) return
 
-  const customTheme = document.getElementById(CUSTOM_THEME_STYLE_ID)
-  if (customTheme) {
-    document.head.insertBefore(style, customTheme)
+  const nextLayer = document.getElementById(THEME_ACCENT_STYLE_ID)
+  if (nextLayer) {
+    document.head.insertBefore(style, nextLayer)
     return
   }
-  document.head.append(style)
+  if (!style.isConnected) document.head.append(style)
+}
+
+function paletteById(id: string): ThemePalette {
+  return (
+    THEME_PALETTES.find((palette) => palette.id === id) ?? THEME_PALETTES[0]!
+  )
 }
 
 function presetById(mode: ThemePresetMode, id: string): ThemePreset {
-  const presets = themePresetsFor(mode)
+  const presets = mode === "dark" ? DARK_THEME_PRESETS : LIGHT_THEME_PRESETS
   return presets.find((preset) => preset.id === id) ?? presets[0]!
 }
 
@@ -571,7 +544,11 @@ const LIGHT_ACCENT_ALPHAS: AccentAlphas = {
   glow: 0.28,
 }
 
-function declarations(tokens: ThemePresetTokens, alphas: AccentAlphas): string {
+export function themeTokenDeclarations(
+  tokens: ThemePresetTokens,
+  mode: ThemePresetMode,
+): string {
+  const alphas = mode === "dark" ? DARK_ACCENT_ALPHAS : LIGHT_ACCENT_ALPHAS
   const lines = [
     ...NEUTRAL_STEPS.map(
       (step, index) => `--neutral-${step}: ${tokens.neutrals[index]};`,
@@ -584,18 +561,27 @@ function declarations(tokens: ThemePresetTokens, alphas: AccentAlphas): string {
     `--accent-hover: ${tokens.accentHover};`,
     `--accent-active: ${tokens.accentActive};`,
     `--accent-foreground: ${tokens.accentForeground};`,
-    `--accent-soft: ${accentAlpha(tokens.accent, alphas.soft)};`,
+    `--accent-soft: ${tokens.accentSoft ?? accentAlpha(tokens.accent, alphas.soft)};`,
     `--accent-border: ${accentAlpha(tokens.accent, alphas.border)};`,
     `--accent-glow: ${accentAlpha(tokens.accent, alphas.glow)};`,
     `--accent-dim: ${tokens.accentDim};`,
     `--success: ${tokens.success};`,
+    `--success-soft: ${tokens.successSoft ?? statusSoft(tokens.success)};`,
     `--warning: ${tokens.warning};`,
+    `--warning-soft: ${tokens.warningSoft ?? statusSoft(tokens.warning)};`,
     `--danger: ${tokens.danger};`,
+    `--danger-soft: ${tokens.dangerSoft ?? statusSoft(tokens.danger)};`,
     `--destructive: ${tokens.danger};`,
     `--info: ${tokens.info};`,
+    `--info-soft: ${tokens.infoSoft ?? statusSoft(tokens.info)};`,
     `--live: ${tokens.live};`,
+    `--live-soft: ${tokens.liveSoft ?? statusSoft(tokens.live)};`,
   ]
   return lines.map((line) => `  ${line}`).join("\n")
+}
+
+function statusSoft(color: string): string {
+  return `color-mix(in srgb, ${color} 12%, transparent)`
 }
 
 function accentAlpha(hex: string, alpha: number): string {
