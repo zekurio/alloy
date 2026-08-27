@@ -35,6 +35,5 @@ export async function buildPublicAuthConfig(): Promise<PublicAuthConfig> {
       blurPx: loginSplash.blurPx,
       darkenOpacity: loginSplash.darkenOpacity,
     },
-    appearance: { customCss: appearance.customCss },
   }
 }

@@ -35,7 +35,6 @@ function toPublicAuthConfig(
     passkeyEnabled: config.passkeyEnabled,
     requireAuthToBrowse: config.requireAuthToBrowse,
     desktopAuth: { version: DESKTOP_AUTH_CAPABILITY_VERSION },
-    appearance: { customCss: config.appearance.customCss },
     providers: config.oauthProviders
       .filter((provider) => provider.enabled)
       .map((provider) => ({

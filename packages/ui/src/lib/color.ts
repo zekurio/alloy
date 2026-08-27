@@ -42,7 +42,17 @@ export function parseCssColor(value: string): Rgba | null {
   context.fillStyle = input
   if (context.fillStyle !== fromBlack) return null
 
-  return parseHex(fromBlack) ?? parseRgbFunction(fromBlack)
+  const serialized = parseHex(fromBlack) ?? parseRgbFunction(fromBlack)
+  if (serialized) return serialized
+
+  // Modern canvas implementations may preserve authored color spaces such as
+  // `oklch()` in fillStyle instead of serializing to rgb(). A painted pixel is
+  // always returned as sRGB bytes, which gives the picker one stable format.
+  context.clearRect(0, 0, 1, 1)
+  context.fillStyle = fromBlack
+  context.fillRect(0, 0, 1, 1)
+  const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data
+  return { r: r ?? 0, g: g ?? 0, b: b ?? 0, a: (a ?? 255) / 255 }
 }
 
 let sharedContext: CanvasRenderingContext2D | null | undefined

@@ -136,15 +136,6 @@ export function validatePublicAuthConfig(
   ).map(validatePublicAuthProvider)
   validatePublicLoginSplashConfig(config.loginSplash)
   validatePublicDesktopAuthConfig(config.desktopAuth)
-  // Optional because servers predating instance themes omit it; callers treat
-  // a missing appearance as "no instance CSS".
-  if (config.appearance !== undefined) {
-    const appearance = objectRecord(config.appearance, "auth config appearance")
-    validateString(
-      appearance.customCss,
-      "Invalid auth config response: appearance.customCss must be a string",
-    )
-  }
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as PublicAuthConfig
 }

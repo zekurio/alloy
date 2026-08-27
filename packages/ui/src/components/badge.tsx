@@ -18,22 +18,18 @@ const badgeVariants = cva(
       variant: {
         default: "border-border bg-surface-raised text-foreground-muted",
         accent: "border-accent-border bg-accent-soft text-accent",
-        success:
-          "border-[oklch(0.72_0.19_145/0.35)] bg-[oklch(0.72_0.19_145/0.1)] text-success",
-        warning:
-          "border-[oklch(0.82_0.18_90/0.35)] bg-[oklch(0.82_0.18_90/0.1)] text-warning",
-        danger:
-          "border-[oklch(0.65_0.24_25/0.4)] bg-[oklch(0.65_0.24_25/0.12)] text-danger",
+        success: "border-success/35 bg-success-soft text-success",
+        warning: "border-warning/35 bg-warning-soft text-warning",
+        danger: "border-danger/40 bg-danger-soft text-danger",
         live: cn(
-          "border-[oklch(0.65_0.25_25/0.4)] bg-[oklch(0.65_0.25_25/0.12)] text-live",
+          "border-live/40 bg-live-soft text-live",
           // pulsing dot — leading pseudo
           "before:size-1.5 before:rounded-full before:bg-live before:content-['']",
           "before:animate-pulse-dot before:shadow-[0_0_6px_var(--live)]",
         ),
         // shadcn aliases
         secondary: "border-border bg-surface-raised text-foreground-muted",
-        destructive:
-          "border-[oklch(0.65_0.24_25/0.4)] bg-[oklch(0.65_0.24_25/0.12)] text-danger",
+        destructive: "border-danger/40 bg-danger-soft text-danger",
         outline: "border-border-strong bg-transparent text-foreground",
         ghost: "border-transparent bg-transparent text-foreground-muted",
         link: "border-transparent bg-transparent text-accent underline-offset-4 hover:underline",

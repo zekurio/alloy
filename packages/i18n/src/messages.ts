@@ -1526,48 +1526,26 @@ export const DE_MESSAGES = {
   "The generated wall of clip thumbnails behind the login form.":
     "Die generierte Wand aus Clip-Vorschaubildern hinter dem Anmeldeformular.",
 
-  // Custom themes
+  // Themes
+  Accent: "Akzent",
+  "Choose a base palette with matching light and dark appearances.":
+    "Wähle eine Basispalette mit aufeinander abgestimmten hellen und dunklen Varianten.",
+  "Choose separate colors for light and dark mode.":
+    "Wähle separate Farben für den hellen und dunklen Modus.",
+  "Color mode": "Farbmodus",
+  "Color mode and theme palettes.": "Farbmodus und Theme-Paletten.",
+  "Follow the system or keep Alloy light or dark.":
+    "Systemeinstellung übernehmen oder Alloy immer im hellen bzw. dunklen Modus anzeigen.",
   Interface: "Oberfläche",
-  "Custom CSS for this browser. It applies as you type and is never shared with anyone else on this server.":
-    "Eigenes CSS für diesen Browser. Es wird beim Tippen angewendet und niemals mit anderen auf diesem Server geteilt.",
-  "Use this server's theme": "Theme dieses Servers verwenden",
-  "Apply the CSS the administrator set for everyone. Turn this off to use only your own.":
-    "Das CSS anwenden, das die Administration für alle festgelegt hat. Deaktivieren, um nur dein eigenes zu verwenden.",
-  "Use my custom CSS": "Mein eigenes CSS verwenden",
-  "Turning this off keeps your CSS but stops applying it.":
-    "Beim Deaktivieren bleibt dein CSS erhalten, wird aber nicht mehr angewendet.",
-  "Custom theme tokens": "Eigene Theme-Tokens",
-  "Fine-tune core colors and fonts. Changes here are stored as custom CSS overrides and sync with the editor below.":
-    "Kernfarben und Schriften feinjustieren. Änderungen werden als CSS-Overrides gespeichert und mit dem Editor unten synchronisiert.",
-  "Search tokens": "Tokens durchsuchen",
-  "No tokens found.": "Keine Tokens gefunden.",
-  "Pick a color for {token}": "Farbe für {token} wählen",
-  "Custom CSS overrides": "Eigene CSS-Overrides",
-  "Write CSS to override any theme token. Broken CSS can make the app unusable — clear this field to recover.":
-    "Schreibe CSS, um beliebige Theme-Tokens zu überschreiben. Fehlerhaftes CSS kann die App unbrauchbar machen — leere dieses Feld zur Wiederherstellung.",
-  "Custom CSS": "Eigenes CSS",
-  "Reset all overrides to theme default":
-    "Alle Overrides auf Theme-Standard zurücksetzen",
-  "Share this theme": "Dieses Theme teilen",
-  "Theme CSS copied": "Theme-CSS kopiert",
-  "Couldn't copy the theme": "Theme konnte nicht kopiert werden",
-  "Instance theme": "Server-Theme",
-  "CSS applied to everyone on this server, including the login page. Users can turn it off for their own browser.":
-    "CSS, das für alle auf diesem Server gilt, auch auf der Anmeldeseite. Nutzer können es für sich deaktivieren.",
-  "Instance CSS": "Server-CSS",
-  "Theme, language, custom CSS, and announcement settings.":
-    "Theme-, Sprach-, CSS- und Ankündigungseinstellungen.",
-  "Instance-wide custom CSS and the generated login backdrop.":
-    "Serverweites eigenes CSS und der generierte Anmelde-Hintergrund.",
-  "Import theme": "Theme importieren",
-  "Export theme": "Theme exportieren",
-  "Apply theme": "Theme anwenden",
-  "Theme imported": "Theme importiert",
-  "Couldn't export the theme": "Theme konnte nicht exportiert werden",
-  "That file is empty": "Diese Datei ist leer",
-  "by {author}": "von {author}",
-  "This replaces your current custom CSS. You can edit it afterwards.":
-    "Dies ersetzt dein aktuelles eigenes CSS. Du kannst es danach bearbeiten.",
-  "CSS written by someone else can load remote resources and change or overlay any part of the interface. Only apply themes from people you trust.":
-    "CSS von anderen kann externe Ressourcen laden und jeden Teil der Oberfläche verändern oder überlagern. Wende nur Themes von Personen an, denen du vertraust.",
+  "Language and announcement settings.":
+    "Sprach- und Ankündigungseinstellungen.",
+  "Pick a color for {label}": "Farbe für {label} wählen",
+  Reset: "Zurücksetzen",
+  Themes: "Themes",
+  "{label} color": "Farbe: {label}",
+  "{label} hue": "Farbton für {label}",
+  "{label} opacity": "Deckkraft für {label}",
+  "{label} saturation and brightness": "Sättigung und Helligkeit für {label}",
+  "{saturation}% saturation, {brightness}% brightness":
+    "{saturation} % Sättigung, {brightness} % Helligkeit",
 } satisfies Record<string, string>

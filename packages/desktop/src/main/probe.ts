@@ -40,7 +40,6 @@ const PublicAuthConfigSchema = t.looseObject({
     blurPx: StrictFiniteNumberSchema,
     darkenOpacity: StrictFiniteNumberSchema,
   }),
-  appearance: t.looseObject({ customCss: StrictStringSchema }).optional(),
 })
 
 /**
@@ -99,8 +98,6 @@ async function probeOne(baseUrl: string): Promise<ProbeResult> {
     if (!result.success) {
       return { ok: false, error: "Not an Alloy server." }
     }
-    // Capability version 1 predates the public appearance field. Keep that
-    // protocol version compatible and supply the current empty CSS default.
     const body: PublicAuthConfig = {
       adminAccountRequired: result.data.adminAccountRequired,
       setupRequired: result.data.setupRequired,
@@ -110,7 +107,6 @@ async function probeOne(baseUrl: string): Promise<ProbeResult> {
       desktopAuth: result.data.desktopAuth,
       providers: result.data.providers,
       loginSplash: result.data.loginSplash,
-      appearance: result.data.appearance ?? { customCss: "" },
     }
     if (!supportsDesktopAuth(body)) {
       return {

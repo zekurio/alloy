@@ -92,10 +92,6 @@ export const LoginSplashConfigSchema = t.looseObject({
 
 export type LoginSplashConfig = t.infer<typeof LoginSplashConfigSchema>
 
-export interface PublicAppearanceConfig {
-  customCss: string
-}
-
 export interface PublicLoginSplashConfig {
   enabled: boolean
   blurPx: number
@@ -117,15 +113,11 @@ export interface LoginBackdropsResponse {
 }
 
 /**
- * Instance-wide CSS, applied to every visitor before their own custom CSS. Not
- * validated beyond a length cap: it is authored by an admin, who already
- * controls the server.
+ * Login backdrop treatment. Structured and validated: admins tune the login
+ * page through typed fields rather than raw CSS overrides.
  */
-export const INSTANCE_CUSTOM_CSS_MAX_LENGTH = 64_000
-
 export const AppearanceConfigSchema = t.looseObject({
   loginSplash: LoginSplashConfigSchema,
-  customCss: t.string().max(INSTANCE_CUSTOM_CSS_MAX_LENGTH).$default(""),
 })
 
 export type AppearanceConfig = t.infer<typeof AppearanceConfigSchema>
@@ -389,5 +381,4 @@ export interface PublicAuthConfig {
   desktopAuth: PublicDesktopAuthConfig
   providers: PublicAuthProvider[]
   loginSplash: PublicLoginSplashConfig
-  appearance: PublicAppearanceConfig
 }

@@ -19,14 +19,10 @@ import {
   getStoredTheme,
   setStoredTheme,
   THEMES,
+  THEME_STORAGE_KEY,
   type Theme,
 } from "@alloy/ui/lib/theme"
-import {
-  getStoredThemePresetId,
-  setStoredThemePreset,
-  themePresetsFor,
-  type ThemePresetMode,
-} from "@alloy/ui/lib/theme-presets"
+import { refreshThemePreferences } from "@alloy/ui/lib/theme-storage"
 import {
   DatabaseIcon,
   FilmIcon,
@@ -44,11 +40,10 @@ import {
   Volume2Icon,
   WebhookIcon,
 } from "lucide-react"
-import { lazy, useMemo, useState } from "react"
+import { lazy, useEffect, useMemo, useState } from "react"
 import type { ComponentType, LazyExoticComponent } from "react"
 
 import { ClipAnnouncementRow } from "@/components/routes/settings/clip-announcement-settings"
-import { CustomThemeSettings } from "@/components/routes/settings/custom-theme-settings"
 import { DangerZoneCard } from "@/components/routes/settings/danger-zone-card"
 import {
   ClipDataCard,
@@ -60,6 +55,7 @@ import {
   SettingsSections,
   SettingsSubsection,
 } from "@/components/routes/settings/settings-panel"
+import { ThemeSettings } from "@/components/routes/settings/theme-settings"
 import { useIsAdmin, useRequireAuthStrict } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
 
@@ -258,17 +254,19 @@ const THEME_LABELS = {
   dark: t("Dark"),
 } satisfies Record<Theme, string>
 
-function PreferencesPanel() {
-  const [locale, setLocale] = useState<Locale>(() => getClientLocale())
+function AppearancePanel() {
   const [theme, setTheme] = useState<Theme>(() => getStoredTheme())
 
-  function changeLocale(value: string | null) {
-    const nextLocale = normalizeLocale(value)
-    if (!nextLocale || nextLocale === locale) return
-    setLocale(nextLocale)
-    setClientLocale(nextLocale)
-    window.location.reload()
-  }
+  useEffect(() => {
+    const syncStoredTheme = (event: StorageEvent) => {
+      if (event.key === null || event.key === THEME_STORAGE_KEY) {
+        refreshThemePreferences()
+        setTheme(getStoredTheme())
+      }
+    }
+    window.addEventListener("storage", syncStoredTheme)
+    return () => window.removeEventListener("storage", syncStoredTheme)
+  }, [])
 
   function changeTheme(value: string | null) {
     if (value !== "system" && value !== "light" && value !== "dark") return
@@ -278,15 +276,15 @@ function PreferencesPanel() {
 
   return (
     <SettingsSections>
-      <SettingsSubsection id="interface" title={t("Interface")}>
+      <SettingsSubsection id="color-mode" title={t("Color mode")}>
         <SettingRows>
           <SettingRow
-            title={t("Theme")}
-            description={t("Choose how Alloy looks.")}
-            htmlFor="theme"
+            title={t("Appearance")}
+            description={t("Follow the system or keep Alloy light or dark.")}
+            htmlFor="color-mode-select"
           >
             <Select value={theme} onValueChange={changeTheme}>
-              <SelectTrigger id="theme" size="sm" className="w-40">
+              <SelectTrigger id="color-mode-select" size="sm" className="w-40">
                 <SelectValue>{THEME_LABELS[theme]}</SelectValue>
               </SelectTrigger>
               <SelectContent align="end">
@@ -298,8 +296,28 @@ function PreferencesPanel() {
               </SelectContent>
             </Select>
           </SettingRow>
-          <ThemePresetRow mode="dark" />
-          <ThemePresetRow mode="light" />
+        </SettingRows>
+      </SettingsSubsection>
+      <ThemeSettings />
+    </SettingsSections>
+  )
+}
+
+function PreferencesPanel() {
+  const [locale, setLocale] = useState<Locale>(() => getClientLocale())
+
+  function changeLocale(value: string | null) {
+    const nextLocale = normalizeLocale(value)
+    if (!nextLocale || nextLocale === locale) return
+    setLocale(nextLocale)
+    setClientLocale(nextLocale)
+    window.location.reload()
+  }
+
+  return (
+    <SettingsSections>
+      <SettingsSubsection id="preferences" title={t("Preferences")}>
+        <SettingRows>
           <SettingRow
             title={t("Language")}
             description={t("Choose the language used by Alloy.")}
@@ -321,47 +339,7 @@ function PreferencesPanel() {
           <ClipAnnouncementRow />
         </SettingRows>
       </SettingsSubsection>
-
-      <CustomThemeSettings />
     </SettingsSections>
-  )
-}
-
-function ThemePresetRow({ mode }: { mode: ThemePresetMode }) {
-  const presets = themePresetsFor(mode)
-  const [presetId, setPresetId] = useState(() => getStoredThemePresetId(mode))
-
-  function changePreset(value: string | null) {
-    if (!value || !presets.some((preset) => preset.id === value)) return
-    setPresetId(value)
-    setStoredThemePreset(mode, value)
-  }
-
-  return (
-    <SettingRow
-      title={mode === "dark" ? t("Dark theme") : t("Light theme")}
-      description={
-        mode === "dark"
-          ? t("Color palette used while Alloy is dark.")
-          : t("Color palette used while Alloy is light.")
-      }
-      htmlFor={`theme-${mode}`}
-    >
-      <Select value={presetId} onValueChange={changePreset}>
-        <SelectTrigger id={`theme-${mode}`} size="sm" className="w-40">
-          <SelectValue>
-            {presets.find((preset) => preset.id === presetId)?.label}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent align="end">
-          {presets.map((preset) => (
-            <SelectItem key={preset.id} value={preset.id}>
-              {preset.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </SettingRow>
   )
 }
 
@@ -387,10 +365,10 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
     ProfilePanel,
   ],
   [
-    "preferences",
-    t("General"),
-    t("General"),
-    t("Theme, language, custom CSS, and announcement settings."),
+    "personal-appearance",
+    t("Appearance"),
+    t("Appearance"),
+    t("Color mode and theme palettes."),
     [
       "theme",
       "appearance",
@@ -405,8 +383,17 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
       "nord",
       "one dark",
       "one light",
-      "gruvbox",
       "rose pine",
+    ],
+    PaletteIcon,
+    AppearancePanel,
+  ],
+  [
+    "preferences",
+    t("General"),
+    t("General"),
+    t("Language and announcement settings."),
+    [
       "language",
       "locale",
       "settings",
@@ -416,9 +403,6 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
       "announce clips",
       "webhooks",
       "discord",
-      "custom css",
-      "custom theme",
-      "theme tokens",
     ],
     LanguagesIcon,
     PreferencesPanel,
@@ -531,7 +515,7 @@ const ADMIN_CATEGORIES = categoryDrafts([
     "appearance",
     t("Appearance"),
     t("Appearance"),
-    t("Instance-wide custom CSS and the generated login backdrop."),
+    t("The generated login backdrop."),
     [
       "login backdrop",
       "splash",
@@ -539,8 +523,6 @@ const ADMIN_CATEGORIES = categoryDrafts([
       "darkening",
       "custom backdrop",
       "regenerate",
-      "custom css",
-      "instance theme",
       "branding",
     ],
     PaletteIcon,

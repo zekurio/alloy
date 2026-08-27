@@ -99,10 +99,15 @@
 
   /* Status */
   --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
   --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
   --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
   --color-live: var(--live);
+  --color-live-soft: var(--live-soft);
 
   /* Brand */
   --color-brand-blue: var(--brand-blue);
@@ -300,10 +305,15 @@
 
   /* Status */
   --success: oklch(0.72 0.19 145);
+  --success-soft: color-mix(in srgb, var(--success) 12%, transparent);
   --warning: oklch(0.82 0.18 90);
+  --warning-soft: color-mix(in srgb, var(--warning) 12%, transparent);
   --danger: oklch(0.65 0.24 25);
+  --danger-soft: color-mix(in srgb, var(--danger) 12%, transparent);
   --info: oklch(0.72 0.15 230);
+  --info-soft: color-mix(in srgb, var(--info) 12%, transparent);
   --live: oklch(0.65 0.25 25);
+  --live-soft: color-mix(in srgb, var(--live) 12%, transparent);
 }
 
 /* Neutral tone variants — swap on :root[data-neutral="..."] ─────────────── */
