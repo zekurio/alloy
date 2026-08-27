@@ -24,7 +24,9 @@ type PublicSessionData = {
 }
 
 export function publicAuthUserRow(row: User): AuthUser {
-  // SAFETY: This serializer omits legacy identity fields removed from the user model.
+  // Return type is annotated deliberately: the client validates this payload
+  // with a runtime cast, so without it a missing field compiles clean and only
+  // shows up as a silently-undefined value in the UI.
   return {
     id: row.id,
     username: row.username,
@@ -38,7 +40,7 @@ export function publicAuthUserRow(row: User): AuthUser {
     clipAnnouncementsEnabled: row.clip_announcements_enabled,
     createdAt: isoDate(row.created_at),
     updatedAt: isoDate(row.updated_at),
-  } as AuthUser
+  }
 }
 
 export function publicAuthSessionRow(row: AuthSession) {

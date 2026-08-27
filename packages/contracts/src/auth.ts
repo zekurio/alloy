@@ -10,8 +10,6 @@ import type { IsoDateString, UserRole, UserStatus } from "./shared"
  */
 export interface AuthUser {
   id: string
-  email: string
-  emailVerified: boolean
   username: string
   displayName: string | null
   image: string | null
