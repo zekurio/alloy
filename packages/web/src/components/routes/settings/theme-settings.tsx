@@ -2,10 +2,10 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ColorPicker } from "@alloy/ui/components/color-picker"
 import { Input } from "@alloy/ui/components/input"
+import { THEME_STORAGE_KEY } from "@alloy/ui/lib/theme"
 import {
   readThemeAccents,
   themeAccentToHex,
-  THEME_ACCENT_STORAGE_KEY,
   type ThemeAccentState,
   writeThemeAccents,
 } from "@alloy/ui/lib/theme-accent"
@@ -13,10 +13,11 @@ import {
   getStoredThemePaletteId,
   setStoredThemePalette,
   THEME_PALETTES,
-  THEME_PALETTE_STORAGE_KEY,
+  type ThemePalette,
   type ThemePresetMode,
   type ThemePresetTokens,
 } from "@alloy/ui/lib/theme-presets"
+import { refreshThemePreferences } from "@alloy/ui/lib/theme-storage"
 import { cn } from "@alloy/ui/lib/utils"
 import { CheckIcon, MoonIcon, RotateCcwIcon, SunIcon } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -29,12 +30,10 @@ export function ThemeSettings() {
 
   useEffect(() => {
     const syncStoredTheme = (event: StorageEvent) => {
-      if (event.key === null || event.key === THEME_PALETTE_STORAGE_KEY) {
-        setPaletteId(getStoredThemePaletteId())
-      }
-      if (event.key === null || event.key === THEME_ACCENT_STORAGE_KEY) {
-        setAccentState(readThemeAccents())
-      }
+      if (event.key !== null && event.key !== THEME_STORAGE_KEY) return
+      refreshThemePreferences()
+      setPaletteId(getStoredThemePaletteId())
+      setAccentState(readThemeAccents())
     }
     window.addEventListener("storage", syncStoredTheme)
     return () => window.removeEventListener("storage", syncStoredTheme)
@@ -44,7 +43,7 @@ export function ThemeSettings() {
     THEME_PALETTES.find((palette) => palette.id === paletteId) ??
     THEME_PALETTES[0]!
 
-  function chooseTheme(id: string) {
+  function chooseTheme(id: ThemePalette["id"]) {
     setPaletteId(id)
     setStoredThemePalette(id)
     // Recalculate contrast-aware accent tokens against the new backgrounds.

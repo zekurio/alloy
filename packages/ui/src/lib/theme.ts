@@ -1,39 +1,28 @@
 import { t } from "@alloy/contracts/schema"
+import { applyStoredThemeAccents } from "@alloy/ui/lib/theme-accent"
+import { applyStoredThemePresets } from "@alloy/ui/lib/theme-presets"
 import {
-  applyStoredThemeAccents,
-  THEME_ACCENT_STORAGE_KEY,
-} from "@alloy/ui/lib/theme-accent"
-import {
-  applyStoredThemePresets,
-  LEGACY_THEME_PRESET_STORAGE_KEYS,
-  THEME_PALETTE_STORAGE_KEY,
-} from "@alloy/ui/lib/theme-presets"
+  readThemePreferences,
+  refreshThemePreferences,
+  THEME_STORAGE_KEY,
+  type Theme,
+  writeThemePreferences,
+} from "@alloy/ui/lib/theme-storage"
 
-export const THEME_STORAGE_KEY = "alloy.theme"
-
-export const THEMES = ["system", "light", "dark"] as const
-export type Theme = (typeof THEMES)[number]
-
-export const DEFAULT_THEME: Theme = "system"
+export {
+  DEFAULT_THEME,
+  THEMES,
+  THEME_STORAGE_KEY,
+  type Theme,
+} from "@alloy/ui/lib/theme-storage"
 
 type ResolvedTheme = "light" | "dark"
 
 const DARK_QUERY = "(prefers-color-scheme: dark)"
 const MatchMediaSchema = t.instanceof(Function)
 
-export function getStoredTheme(storageKey = THEME_STORAGE_KEY): Theme {
-  if (!globalThis.window) return DEFAULT_THEME
-
-  try {
-    const stored = window.localStorage.getItem(storageKey)
-    if (stored === "system" || stored === "light" || stored === "dark") {
-      return stored
-    }
-  } catch {
-    // localStorage can be unavailable in hardened/privacy contexts.
-  }
-
-  return DEFAULT_THEME
+export function getStoredTheme(): Theme {
+  return readThemePreferences().mode
 }
 
 // "system" resolves to the OS preference; falls back to dark when matchMedia
@@ -52,24 +41,16 @@ export function applyTheme(theme: Theme): void {
   classes.toggle("light", resolved === "light")
 }
 
-export function setStoredTheme(
-  theme: Theme,
-  storageKey = THEME_STORAGE_KEY,
-): void {
-  applyTheme(theme)
-  if (!globalThis.window) return
-
-  try {
-    window.localStorage.setItem(storageKey, theme)
-  } catch {
-    // Best effort: the applied theme still holds for this session.
-  }
+export function setStoredTheme(theme: Theme): void {
+  const preferences = readThemePreferences()
+  const stored = writeThemePreferences({ ...preferences, mode: theme })
+  applyTheme(stored.mode)
 }
 
-// Applies the stored theme and palette presets, keeps "system" in sync with
-// live OS changes, and follows preset edits made in other tabs.
-export function initTheme(storageKey = THEME_STORAGE_KEY): Theme {
-  const theme = getStoredTheme(storageKey)
+// Applies the stored theme preferences, keeps "system" in sync with live OS
+// changes, and follows edits made in other tabs.
+export function initTheme(): Theme {
+  const theme = getStoredTheme()
   applyTheme(theme)
   applyStoredThemePresets()
   applyStoredThemeAccents()
@@ -79,25 +60,16 @@ export function initTheme(storageKey = THEME_STORAGE_KEY): Theme {
     MatchMediaSchema.safeParse(window.matchMedia).success
   ) {
     window.matchMedia(DARK_QUERY).addEventListener("change", () => {
-      if (getStoredTheme(storageKey) === "system") applyTheme("system")
+      if (getStoredTheme() === "system") applyTheme("system")
     })
   }
 
   if (globalThis.window) {
     window.addEventListener("storage", (event) => {
       // A null key means the whole store was cleared, preferences included.
-      if (event.key === storageKey || event.key === null) {
-        applyTheme(getStoredTheme(storageKey))
-      }
-      if (
-        event.key !== null &&
-        event.key !== THEME_PALETTE_STORAGE_KEY &&
-        event.key !== THEME_ACCENT_STORAGE_KEY &&
-        event.key !== LEGACY_THEME_PRESET_STORAGE_KEYS.dark &&
-        event.key !== LEGACY_THEME_PRESET_STORAGE_KEYS.light
-      ) {
-        return
-      }
+      if (event.key !== THEME_STORAGE_KEY && event.key !== null) return
+      const preferences = refreshThemePreferences()
+      applyTheme(preferences.mode)
       applyStoredThemePresets()
       applyStoredThemeAccents()
     })

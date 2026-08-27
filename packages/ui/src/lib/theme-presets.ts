@@ -1,4 +1,11 @@
 import {
+  DEFAULT_THEME_PALETTE_ID,
+  readThemePreferences,
+  type ThemeAppearance,
+  type ThemePaletteId,
+  writeThemePreferences,
+} from "@alloy/ui/lib/theme-storage"
+import {
   THEME_ACCENT_STYLE_ID,
   THEME_PRESET_STYLE_ID,
 } from "@alloy/ui/lib/theme-style"
@@ -16,7 +23,7 @@ import {
  * root) keeps the chosen dark palette.
  */
 
-export type ThemePresetMode = "dark" | "light"
+export type ThemePresetMode = ThemeAppearance
 
 export interface ThemePreset {
   id: string
@@ -27,7 +34,7 @@ export interface ThemePreset {
 
 /** A first-class theme owns both appearances as one coherent choice. */
 export interface ThemePalette {
-  id: string
+  id: ThemePaletteId
   label: string
   dark: ThemePreset
   light: ThemePreset
@@ -73,16 +80,7 @@ export interface ThemePresetTokens {
   liveSoft?: string
 }
 
-export const DEFAULT_THEME_PRESET_ID = "default"
-
-export const THEME_PALETTE_STORAGE_KEY = "alloy.themePalette"
-const LEGACY_CUSTOM_THEME_PALETTE_ID = "custom"
-
-/** Read-only migration keys used by builds that selected each mode separately. */
-export const LEGACY_THEME_PRESET_STORAGE_KEYS = {
-  dark: "alloy.themeDark",
-  light: "alloy.themeLight",
-} satisfies Record<ThemePresetMode, string>
+export const DEFAULT_THEME_PRESET_ID = DEFAULT_THEME_PALETTE_ID
 
 export const DARK_THEME_PRESETS: readonly ThemePreset[] = [
   {
@@ -429,79 +427,16 @@ export const THEME_PALETTES: readonly ThemePalette[] = [
   pairTheme("rose-pine", "Rosé Pine", "rose-pine", "rose-pine-dawn"),
 ]
 
-let sessionThemePaletteId: string | null = null
-
-export function getStoredThemePaletteId(): string {
-  if (sessionThemePaletteId) return sessionThemePaletteId
-  if (!globalThis.window) return DEFAULT_THEME_PRESET_ID
-
-  try {
-    const stored = window.localStorage.getItem(THEME_PALETTE_STORAGE_KEY)
-    if (stored && THEME_PALETTES.some((palette) => palette.id === stored)) {
-      return stored
-    }
-    if (stored === LEGACY_CUSTOM_THEME_PALETTE_ID) {
-      window.localStorage.setItem(
-        THEME_PALETTE_STORAGE_KEY,
-        DEFAULT_THEME_PRESET_ID,
-      )
-      return DEFAULT_THEME_PRESET_ID
-    }
-
-    const migrated = migrateLegacyThemePalette(
-      window.localStorage.getItem(LEGACY_THEME_PRESET_STORAGE_KEYS.dark),
-      window.localStorage.getItem(LEGACY_THEME_PRESET_STORAGE_KEYS.light),
-    )
-    try {
-      window.localStorage.setItem(THEME_PALETTE_STORAGE_KEY, migrated)
-    } catch {
-      sessionThemePaletteId = migrated
-    }
-    return migrated
-  } catch {
-    // localStorage can be unavailable in hardened/privacy contexts.
-  }
-
-  return DEFAULT_THEME_PRESET_ID
-}
-
-function migrateLegacyThemePalette(
-  darkId: string | null,
-  lightId: string | null,
-): string {
-  const dark = THEME_PALETTES.find((palette) => palette.dark.id === darkId)
-  const light = THEME_PALETTES.find((palette) => palette.light.id === lightId)
-  if (dark?.id === light?.id) return dark?.id ?? DEFAULT_THEME_PRESET_ID
-  if (dark && dark.id !== DEFAULT_THEME_PRESET_ID && !light) return dark.id
-  if (light && light.id !== DEFAULT_THEME_PRESET_ID && !dark) return light.id
-  if (dark?.id === DEFAULT_THEME_PRESET_ID && light) return light.id
-  if (light?.id === DEFAULT_THEME_PRESET_ID && dark) return dark.id
-
-  const preference = window.localStorage.getItem("alloy.theme")
-  const prefersDark =
-    preference === "dark" ||
-    (preference !== "light" &&
-      window.matchMedia?.("(prefers-color-scheme: dark)").matches)
-  return (
-    (prefersDark ? dark : light)?.id ??
-    dark?.id ??
-    light?.id ??
-    DEFAULT_THEME_PRESET_ID
-  )
+export function getStoredThemePaletteId(): ThemePaletteId {
+  return readThemePreferences().palette
 }
 
 export function setStoredThemePalette(id: string): void {
   const palette = THEME_PALETTES.find((candidate) => candidate.id === id)
   if (!palette) return
 
-  if (globalThis.window) {
-    try {
-      window.localStorage.setItem(THEME_PALETTE_STORAGE_KEY, id)
-      sessionThemePaletteId = null
-    } catch {
-      sessionThemePaletteId = id
-    }
-  }
+  const preferences = readThemePreferences()
+  writeThemePreferences({ ...preferences, palette: palette.id })
   applyThemePalette(palette)
 }
 
@@ -510,7 +445,7 @@ export function getStoredThemePalette(): ThemePalette {
 }
 
 function pairTheme(
-  id: string,
+  id: ThemePaletteId,
   label: string,
   darkId: string,
   lightId: string,

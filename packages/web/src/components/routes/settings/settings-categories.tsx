@@ -22,6 +22,7 @@ import {
   THEME_STORAGE_KEY,
   type Theme,
 } from "@alloy/ui/lib/theme"
+import { refreshThemePreferences } from "@alloy/ui/lib/theme-storage"
 import {
   DatabaseIcon,
   FilmIcon,
@@ -259,6 +260,7 @@ function AppearancePanel() {
   useEffect(() => {
     const syncStoredTheme = (event: StorageEvent) => {
       if (event.key === null || event.key === THEME_STORAGE_KEY) {
+        refreshThemePreferences()
         setTheme(getStoredTheme())
       }
     }

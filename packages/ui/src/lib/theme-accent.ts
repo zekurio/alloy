@@ -1,13 +1,15 @@
-import { t } from "@alloy/contracts/schema"
 import { formatCssColor, parseCssColor, type Rgba } from "@alloy/ui/lib/color"
 import {
   getStoredThemePalette,
   type ThemePresetMode,
 } from "@alloy/ui/lib/theme-presets"
+import {
+  readThemePreferences,
+  writeThemePreferences,
+} from "@alloy/ui/lib/theme-storage"
 import { THEME_ACCENT_STYLE_ID } from "@alloy/ui/lib/theme-style"
 
-/** Retains the existing key so saved accent choices survive this simplification. */
-export const THEME_ACCENT_STORAGE_KEY = "alloy.themeColors"
+export { normalizeThemeAccent as themeAccentToHex } from "@alloy/ui/lib/theme-storage"
 
 export interface ThemeAccentState {
   accents: Partial<Record<ThemePresetMode, string>>
@@ -15,33 +17,17 @@ export interface ThemeAccentState {
 
 export const DEFAULT_THEME_ACCENTS: ThemeAccentState = { accents: {} }
 
-let sessionThemeAccents: ThemeAccentState | null = null
-
 export function readThemeAccents(): ThemeAccentState {
-  if (sessionThemeAccents) return sessionThemeAccents
-  if (!globalThis.window) return DEFAULT_THEME_ACCENTS
-
-  try {
-    const stored = window.localStorage.getItem(THEME_ACCENT_STORAGE_KEY)
-    if (!stored) return DEFAULT_THEME_ACCENTS
-    const parsed = StoredThemeAccentsSchema.safeParse(JSON.parse(stored))
-    return parsed.success
-      ? normalizeThemeAccents(parsed.data)
-      : DEFAULT_THEME_ACCENTS
-  } catch {
-    return DEFAULT_THEME_ACCENTS
-  }
+  return { accents: readThemePreferences().accents }
 }
 
 export function writeThemeAccents(state: ThemeAccentState): void {
-  if (!globalThis.window) return
-  try {
-    window.localStorage.setItem(THEME_ACCENT_STORAGE_KEY, JSON.stringify(state))
-    sessionThemeAccents = null
-  } catch {
-    sessionThemeAccents = state
-  }
-  applyThemeAccents(state)
+  const preferences = readThemePreferences()
+  const stored = writeThemePreferences({
+    ...preferences,
+    accents: state.accents,
+  })
+  applyThemeAccents({ accents: stored.accents })
 }
 
 export function applyStoredThemeAccents(): void {
@@ -77,39 +63,6 @@ export function applyThemeAccents(state: ThemeAccentState): void {
   style.id = THEME_ACCENT_STYLE_ID
   if (style.textContent !== css) style.textContent = css
   document.head.append(style)
-}
-
-/** Converts a picker-compatible CSS color into the opaque hex stored by themes. */
-export function themeAccentToHex(value: string): string | null {
-  const color = parseCssColor(value)
-  if (!color) return null
-  return formatCssColor({ ...color, a: 1 })
-}
-
-const StoredThemeAccentsSchema = t.object({
-  /** Legacy builds stored one accent for both appearances. */
-  accent: t.string().nullable().optional(),
-  accents: t
-    .object({
-      dark: t.string().optional(),
-      light: t.string().optional(),
-    })
-    .optional(),
-})
-
-type StoredThemeAccents = t.infer<typeof StoredThemeAccentsSchema>
-
-function normalizeThemeAccents(value: StoredThemeAccents): ThemeAccentState {
-  const legacyAccent = value.accent ? themeAccentToHex(value.accent) : null
-  const dark = value.accents?.dark
-    ? themeAccentToHex(value.accents.dark)
-    : legacyAccent
-  const light = value.accents?.light
-    ? themeAccentToHex(value.accents.light)
-    : legacyAccent
-  const accents =
-    dark && light ? { dark, light } : dark ? { dark } : light ? { light } : {}
-  return { accents }
 }
 
 function accentTokenDeclarations(
