@@ -16,7 +16,6 @@ import {
   type TokenEndpointResponse,
 } from "openid-client"
 
-import { normalizeEmail } from "./identity"
 import { fetchOAuthUserInfo } from "./oauth-client"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
 
@@ -47,8 +46,6 @@ export async function profileFromTokens(
   const providerAccountId =
     stringClaim(raw, uidClaim) ??
     (uidClaim === "sub" ? stringClaim(raw, "id") : null)
-  const email = stringClaim(raw, "email")
-  const normalizedEmail = email ? normalizeEmail(email) : null
   const usernameHint = stringClaim(
     raw,
     provider.usernameClaim ?? OAUTH_USERNAME_CLAIM_DEFAULT,
@@ -61,8 +58,6 @@ export async function profileFromTokens(
       raw,
       provider.avatarClaim ?? OAUTH_AVATAR_CLAIM_DEFAULT,
     ),
-    email: normalizedEmail,
-    emailVerified: raw.email_verified === true || raw.verified === true,
     providerAccountId,
     raw,
     role: roleFromProfile(raw, provider.roleClaim),

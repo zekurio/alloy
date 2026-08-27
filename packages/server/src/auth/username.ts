@@ -69,23 +69,15 @@ export function slugifyUsername(input: string): string {
   )
 }
 
-function baseSlugFromUser(hints: {
-  name?: string | null
-  email?: string | null
-}): string {
+function baseSlugFromUser(hints: { name?: string | null }): string {
   const fromName = hints.name ? slugifyUsername(hints.name) : ""
   if (fromName.length >= MIN_LEN) return fromName
-
-  const localPart = hints.email?.split("@")[0] ?? ""
-  const fromEmail = slugifyUsername(localPart)
-  if (fromEmail.length >= MIN_LEN) return fromEmail
 
   return "user"
 }
 
 export async function generateUniqueUsername(hints: {
   name?: string | null
-  email?: string | null
 }): Promise<string> {
   const base = baseSlugFromUser(hints)
 
