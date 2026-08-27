@@ -262,7 +262,6 @@ export type TranscodingCapabilities = t.infer<
 export interface AdminUserStorageRow {
   id: string
   username: string
-  email: string
   image: string | null
   role: string | null
   status: UserStatus

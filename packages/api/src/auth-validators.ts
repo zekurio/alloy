@@ -27,22 +27,12 @@ const USER_STATUS_SET: ReadonlySet<string> = new Set(USER_STATUSES)
 
 export function validateAuthUser(value: ApiJsonInput): AuthUser {
   const user = objectRecord(value, "auth user")
-  for (const key of [
-    "id",
-    "email",
-    "username",
-    "createdAt",
-    "updatedAt",
-  ] as const) {
+  for (const key of ["id", "username", "createdAt", "updatedAt"] as const) {
     validateRequiredString(
       user[key],
       `Invalid auth user response: ${key} is required`,
     )
   }
-  validateBoolean(
-    user.emailVerified,
-    "Invalid auth user response: emailVerified must be boolean",
-  )
   validateNullableString(
     user.displayName,
     "Invalid auth user response: displayName must be string or null",
@@ -202,8 +192,8 @@ export function validateLinkedAccount(value: ApiJsonInput): LinkedAccount {
     )
   }
   validateNullableString(
-    account.email,
-    "Invalid linked account response: email must be string or null",
+    account.accountLabel,
+    "Invalid linked account response: accountLabel must be string or null",
   )
   validateIsoDateString(
     account.createdAt,

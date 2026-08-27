@@ -39,8 +39,6 @@ export const user = pgTable(
   "user",
   {
     id: uuid().primaryKey().defaultRandom(),
-    email: text().notNull().unique(),
-    email_verified: boolean().notNull().default(false),
     username: text().notNull(),
     // Free-form label shown instead of the handle. Null means "no display name
     // set" — readers fall back to username rather than storing a copy of it.
@@ -138,7 +136,10 @@ export const authAccount = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     provider_id: text().notNull(),
     provider_account_id: text().notNull(),
-    email: text(),
+    // Human-readable label (provider username claim) so the owner can tell
+    // linked accounts apart in settings. Null until refreshed at sign-in;
+    // never populated from the provider's email claim.
+    account_label: text(),
     access_token: text(),
     refresh_token: text(),
     id_token: text(),
