@@ -8,7 +8,6 @@ import { db } from "@alloy/server/db/index"
 import type { RegistrationResponseJSON } from "@simplewebauthn/server"
 
 type PasskeyRegistrationPayload = {
-  email?: unknown
   username?: unknown
   setupFirstAdmin?: unknown
 }
@@ -34,8 +33,7 @@ export async function completePasskeySignUp({
   response: RegistrationResponseJSON
 }) {
   const row = await db.transaction(async (tx) => {
-    const { user: row } = await createRegistrationUserInTransaction(tx, {
-      email: String(payload.email ?? ""),
+    const row = await createRegistrationUserInTransaction(tx, {
       username: String(payload.username ?? ""),
       setupFirstAdmin: payload.setupFirstAdmin === true,
     })

@@ -82,7 +82,7 @@ async function passkeySignIn(
 async function passkeySignUp(
   request: RequestFn,
   store: SessionStore,
-  input: { email: string; username: string },
+  input: { username: string },
 ): AuthResult<SessionData> {
   try {
     const data = await completeRegistrationChallenge<SessionData>(request, {
@@ -166,7 +166,7 @@ function createPasskeyActions(
     fallback: string,
     validate: JsonValidator<T>,
   ) => jsonResult<T>(request, path, init, fallback, validate)
-  const signUpWithPasskey = (input: { email: string; username: string }) =>
+  const signUpWithPasskey = (input: { username: string }) =>
     passkeySignUp(request, store, input)
 
   return {
@@ -225,7 +225,6 @@ function createUserActions(request: RequestFn, store: SessionStore) {
 
   return {
     updateUser: async (input: {
-      email?: string
       name?: string
       username?: string
       displayName?: string

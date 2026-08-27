@@ -1,7 +1,7 @@
 import { t } from "@alloy/i18n"
 import { useForm } from "@tanstack/react-form"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { ArrowRightIcon, KeyRoundIcon, MailIcon, UserIcon } from "lucide-react"
+import { ArrowRightIcon, KeyRoundIcon, UserIcon } from "lucide-react"
 import { useCallback } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
@@ -14,12 +14,11 @@ import {
   completeAuthSessionFlow,
   toastAuthAttemptFailure,
 } from "@/lib/auth-flow"
-import { validateEmail, validateUsername } from "@/lib/form-validators"
+import { validateUsername } from "@/lib/form-validators"
 import { invalidateAuthConfig } from "@/lib/session-suspense"
 
 type PasskeySignUpFormState = {
   username: string
-  email: string
 }
 
 type FieldMetaState = {
@@ -50,7 +49,6 @@ function usePasskeySignUpSubmit({ redirectTo = "/" }: PasskeySignUpFormProps) {
     async (form: PasskeySignUpFormState) => {
       try {
         const { error } = await authClient.passkey.signUp({
-          email: form.email.trim(),
           username: form.username.trim(),
         })
         if (error) {
@@ -173,31 +171,6 @@ function UsernameField(props: {
   )
 }
 
-function EmailField(props: {
-  disabled: boolean
-  field: StringFieldController
-  submissionAttempts: number
-}) {
-  const { errors, invalid } = getFieldValidationState(
-    props.field.state.meta,
-    props.submissionAttempts,
-  )
-
-  return (
-    <PasskeyAccountField
-      label={t("Email")}
-      icon={<MailIcon />}
-      type="email"
-      autoComplete="email"
-      placeholder="you@example.com"
-      field={props.field}
-      invalid={invalid}
-      errors={errors}
-      disabled={props.disabled}
-    />
-  )
-}
-
 function SubmitButton() {
   return (
     <>
@@ -213,7 +186,6 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
   const form = useForm({
     defaultValues: {
       username: "",
-      email: "",
     } satisfies PasskeySignUpFormState,
     onSubmit: async ({ value }) => {
       await submit(value)
@@ -239,21 +211,6 @@ export function PasskeySignUpForm(props: PasskeySignUpFormProps) {
       >
         {(field) => (
           <UsernameField
-            disabled={isSubmitting}
-            field={field}
-            submissionAttempts={submissionAttempts}
-          />
-        )}
-      </form.Field>
-
-      <form.Field
-        name="email"
-        validators={{
-          onChange: ({ value }) => validateEmail(value),
-        }}
-      >
-        {(field) => (
-          <EmailField
             disabled={isSubmitting}
             field={field}
             submissionAttempts={submissionAttempts}

@@ -63,7 +63,7 @@ export const authOAuthRoute = new Hono()
         id: authAccount.id,
         providerId: authAccount.provider_id,
         accountId: authAccount.provider_account_id,
-        email: authAccount.email,
+        accountLabel: authAccount.account_label,
         createdAt: authAccount.created_at,
       })
       .from(authAccount)

@@ -5,11 +5,11 @@ import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { and, eq } from "drizzle-orm"
 
-import { assertCanRemoveAdmin, findUserByEmail } from "./identity"
+import { assertCanRemoveAdmin } from "./identity"
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
-import { generateUniqueUsername, slugifyUsername } from "./username"
+import { generateUniqueUsername } from "./username"
 
 const logger = createLogger("oauth")
 
@@ -28,31 +28,18 @@ export async function resolveSignInUser(input: {
     return { userId: existingAccount.user_id, created: false }
   }
 
-  if (!input.profile.email) {
-    throw new Error("OAuth profile is missing an email address.")
-  }
-
-  const existingUser = await findUserByEmail(input.profile.email)
-  if (existingUser && !input.profile.emailVerified) {
-    throw new Error(
-      "An account already exists for that email. Sign in and link this provider from settings.",
-    )
-  }
-  if (!existingUser && !configStore.get("openRegistrations")) {
+  if (!configStore.get("openRegistrations")) {
     throw new Error(
       "No Alloy account is linked to this OAuth account. Sign in with another method and link it from settings.",
     )
   }
-  const created = !existingUser
 
   const userId = await db.transaction(async (tx) => {
-    const row =
-      existingUser ??
-      (await createOAuthUser(input.profile, async (values) => {
-        const [inserted] = await tx.insert(user).values(values).returning()
-        if (!inserted) throw new Error("Could not create user.")
-        return inserted
-      }))
+    const row = await createOAuthUser(input.profile, async (values) => {
+      const [inserted] = await tx.insert(user).values(values).returning()
+      if (!inserted) throw new Error("Could not create user.")
+      return inserted
+    })
 
     const [linked] = await tx
       .insert(authAccount)
@@ -84,7 +71,7 @@ export async function resolveSignInUser(input: {
 
   await syncOAuthUserRole(userId, input.profile)
   await syncOAuthAvatar(userId, input.profile)
-  return { userId, created }
+  return { userId, created: true }
 }
 
 export async function linkAccountToUser(input: {
@@ -145,7 +132,7 @@ async function updateLinkedAccount(
   await db
     .update(authAccount)
     .set({
-      email: profile.email,
+      account_label: profile.usernameHint,
       access_token: tokens.accessToken,
       refresh_token: tokens.refreshToken,
       id_token: tokens.idToken,
@@ -190,18 +177,8 @@ async function createOAuthUser(
     values: typeof user.$inferInsert,
   ) => Promise<typeof user.$inferSelect>,
 ) {
-  if (!profile.email) {
-    throw new Error("OAuth profile is missing an email address.")
-  }
-  const username = await generateUniqueUsername({
-    email: profile.email,
-    name: profile.usernameHint
-      ? slugifyUsername(profile.usernameHint)
-      : profile.email,
-  })
+  const username = await generateUniqueUsername({ name: profile.usernameHint })
   return insert({
-    email: profile.email,
-    email_verified: profile.emailVerified,
     username,
     role: profile.role ?? "user",
     storage_quota_bytes:
@@ -221,7 +198,7 @@ function accountValues(
     user_id: userId,
     provider_id: providerId,
     provider_account_id: profile.providerAccountId,
-    email: profile.email,
+    account_label: profile.usernameHint,
     access_token: tokens.accessToken,
     refresh_token: tokens.refreshToken,
     id_token: tokens.idToken,

@@ -186,7 +186,7 @@ const UserCard = memo(function UserCard({
         </>
       }
       title={name}
-      subtitle={user.email}
+      subtitle={user.username}
       meta={`${user.clipCount} ${tp(user.clipCount, "clip", "clips")} · ${storage}`}
     />
   )
@@ -224,8 +224,8 @@ function ToggleUserStatusDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>
             {isDisabled
-              ? t("Enable {email}?", { email: user.email })
-              : t("Disable {email}?", { email: user.email })}
+              ? t("Enable {username}?", { username: user.username })
+              : t("Disable {username}?", { username: user.username })}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {isDisabled
@@ -287,7 +287,7 @@ function DeleteUserDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {t("Delete {email}?", { email: user.email })}
+            {t("Delete {username}?", { username: user.username })}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {t("This removes their sessions and clips. It can't be undone.")}

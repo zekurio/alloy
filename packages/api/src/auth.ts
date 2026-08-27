@@ -53,7 +53,7 @@ export type LinkedAccount = {
   id: string
   providerId: string
   accountId: string
-  email: string | null
+  accountLabel: string | null
   createdAt: string
 }
 
