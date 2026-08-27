@@ -10,7 +10,6 @@ type DisplayUser = {
   id?: string
   username?: string | null
   displayName?: string | null
-  email?: string | null
   image?: string | null
   banner?: string | null
 }
@@ -58,8 +57,7 @@ function normalizeUserAssetPath(value: string): string {
 }
 
 /**
- * Pulls a stable display label from the chosen display name, then the handle,
- * then the email local part.
+ * Pulls a stable display label from the chosen display name, then the handle.
  */
 export function displayName(user: DisplayUser | null | undefined): string {
   if (!user) return t("user")
@@ -69,7 +67,6 @@ export function displayName(user: DisplayUser | null | undefined): string {
   if (user.username && user.username.trim()) {
     return user.username.trim()
   }
-  if (user.email) return user.email.split("@")[0] ?? "user"
   return t("user")
 }
 
