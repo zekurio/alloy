@@ -38,7 +38,7 @@ export function ProfileTextField({
   label: string
   onChangeValue?: (value: string) => string
   submissionAttempts: number
-  type: "email" | "text"
+  type: "text"
 }) {
   const showError = field.state.meta.isTouched || submissionAttempts > 0
   const invalid = showError && !field.state.meta.isValid

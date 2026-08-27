@@ -1,5 +1,4 @@
 type ProfileIdentityFields = {
-  email: string
   username: string
   displayName: string
 }
@@ -8,7 +7,6 @@ export function normalizeProfileIdentity(
   value: ProfileIdentityFields,
 ): ProfileIdentityFields {
   return {
-    email: value.email.trim(),
     username: value.username.trim(),
     displayName: value.displayName.trim(),
   }
@@ -22,12 +20,6 @@ export function profileIdentityPatch(
   const normalizedInitial = normalizeProfileIdentity(initial)
   const patch: Partial<ProfileIdentityFields> = {}
 
-  if (
-    normalizedCurrent.email.toLowerCase() !==
-    normalizedInitial.email.toLowerCase()
-  ) {
-    patch.email = normalizedCurrent.email
-  }
   if (normalizedCurrent.username !== normalizedInitial.username) {
     patch.username = normalizedCurrent.username
   }

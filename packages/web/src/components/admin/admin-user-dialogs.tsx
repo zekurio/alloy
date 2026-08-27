@@ -190,23 +190,18 @@ export function EditUserDialog({
 export function CreateUserDialog() {
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
-  const [email, setEmail] = useState("")
   const [username, setUsername] = useState("")
   const [role, setRole] = useState<"admin" | "user">("user")
 
   useEffect(() => {
     if (!open) return
-    setEmail("")
     setUsername("")
     setRole("user")
   }, [open])
 
   const { error, isPending, mutate } = useMutation({
-    mutationFn: (input: {
-      email: string
-      username?: string
-      role: "admin" | "user"
-    }) => api.admin.createUser(input),
+    mutationFn: (input: { username: string; role: "admin" | "user" }) =>
+      api.admin.createUser(input),
     onSuccess: () => {
       setOpen(false)
       return queryClient.invalidateQueries({ queryKey: adminKeys.users() })
@@ -219,14 +214,9 @@ export function CreateUserDialog() {
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (isPending) return
-    const trimmedEmail = email.trim()
-    if (!trimmedEmail) return
     const trimmedUsername = username.trim()
-    mutate({
-      email: trimmedEmail,
-      username: trimmedUsername || undefined,
-      role,
-    })
+    if (!trimmedUsername) return
+    mutate({ username: trimmedUsername, role })
   }
 
   return (
@@ -242,38 +232,21 @@ export function CreateUserDialog() {
         <form onSubmit={onSubmit}>
           <ResponsiveDialogHeader>
             <ResponsiveDialogTitle>{t("Create user")}</ResponsiveDialogTitle>
-            <ResponsiveDialogDescription>
-              {t(
-                "They can claim the account by signing in with an identity provider that uses this email.",
-              )}
-            </ResponsiveDialogDescription>
           </ResponsiveDialogHeader>
           <ResponsiveDialogBody className="flex flex-col gap-4">
-            <Field>
-              <FieldLabel htmlFor="create-user-email">{t("Email")}</FieldLabel>
-              <Input
-                id="create-user-email"
-                type="email"
-                required
-                autoComplete="off"
-                value={email}
-                disabled={isPending}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-            </Field>
-            <FieldError>{submitError}</FieldError>
             <Field>
               <FieldLabel htmlFor="create-user-username">
                 {t("Username")}
               </FieldLabel>
               <Input
                 id="create-user-username"
+                required
                 value={username}
-                placeholder={t("Optional")}
                 disabled={isPending}
                 onChange={(event) => setUsername(event.target.value)}
               />
             </Field>
+            <FieldError>{submitError}</FieldError>
             <Field>
               <FieldLabel htmlFor="create-user-role">{t("Role")}</FieldLabel>
               <Select

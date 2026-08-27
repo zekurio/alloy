@@ -5,8 +5,6 @@ import {
 } from "@alloy/api/auth"
 import { t } from "@alloy/i18n"
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/u
-
 const USERNAME_MIN_LEN = USERNAME_MIN_LENGTH
 const USERNAME_MAX_LEN = USERNAME_MAX_LENGTH
 const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
@@ -19,20 +17,6 @@ export function validateRequiredString(
   return value.trim().length === 0
     ? t("{label} is required", { label })
     : undefined
-}
-
-export function validateEmail(value: string): string | undefined {
-  const trimmed = value.trim()
-
-  if (trimmed.length === 0) {
-    return t("Email is required")
-  }
-
-  if (!EMAIL_RE.test(trimmed)) {
-    return t("Enter a valid email address")
-  }
-
-  return undefined
 }
 
 /** Optional: an empty display name is valid and clears the field. */
