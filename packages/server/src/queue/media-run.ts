@@ -1,5 +1,4 @@
 import { normalizeBlurHash } from "@alloy/contracts"
-import { renditionIsH264 } from "@alloy/server/clips/codecs"
 import { configStore } from "@alloy/server/config/store"
 import {
   encodeFingerprint,
@@ -278,11 +277,12 @@ async function runPipelineInWorkDir({
     hardwareFailed,
     uploadedKeys,
     progress,
-    // The clip went live at commitPlayable. Announce once the OG tier is an
-    // embeddable H.264 rendition; non-H.264 OG tiers use the end-of-run net.
+    // The clip went live at commitPlayable. Announce as soon as the OG
+    // rendition lands — embeds serve it with its configured codec — while the
+    // remaining tiers still encode.
     onOgRenditionCommitted: (rendition) => {
       retainPublishedKey(rendition.storageKey)
-      if (renditionIsH264(rendition.codecs)) announceClipPublished(id)
+      announceClipPublished(id)
     },
   })
 

@@ -29,7 +29,6 @@ import { useEffect, useMemo, useState } from "react"
 
 import { TranscodingLadder } from "@/components/routes/settings/admin-transcoding-ladder"
 import {
-  compatTierCodec,
   ffmpegBadgeLabel,
   findProbe,
   formFromConfig,
@@ -82,9 +81,6 @@ export function TranscodingSettingsContent({
     form.hardwareAcceleration === "none" || !capabilities
       ? null
       : findProbe(capabilities, form.videoCodec, form.hardwareAcceleration)
-  // The link-preview tier doubles as the OpenGraph/compat rendition, so social
-  // embed support hinges on its effective codec, not the global default.
-  const compatCodec = compatTierCodec(form)
 
   async function save() {
     if (saving || !dirty) return
@@ -201,16 +197,6 @@ export function TranscodingSettingsContent({
                 )}
                 htmlFor="transcoding-codec"
                 align="start"
-                footer={
-                  compatCodec !== "h264" ? (
-                    <Callout tone="warning" className="text-xs">
-                      <TriangleAlertIcon />
-                      {t(
-                        "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1 on the link preview tier, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.",
-                      )}
-                    </Callout>
-                  ) : null
-                }
               >
                 <Select
                   value={form.videoCodec}

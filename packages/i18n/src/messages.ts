@@ -1029,8 +1029,6 @@ export const DE_MESSAGES = {
   "Save trim": "Zuschnitt speichern",
   "Saving...": "Wird gespeichert...",
   "Saving…": "Wird gespeichert…",
-  "Social embeds (Discord, Slack, X) need H.264 video. With HEVC or AV1 on the link preview tier, the server stops adding video embed tags, so shared links fall back to a thumbnail card instead of an inline player.":
-    "Social-Einbettungen (Discord, Slack, X) brauchen H.264-Video. Mit HEVC oder AV1 auf der Link-Vorschau-Stufe fügt der Server keine Video-Einbettungs-Tags mehr hinzu, sodass geteilte Links auf eine Vorschaubild-Karte statt eines eingebetteten Players zurückfallen.",
   "Software (CPU)": "Software (CPU)",
   "Starting...": "Wird gestartet...",
   Search: "Suchen",
