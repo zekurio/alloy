@@ -14,7 +14,7 @@ type PublicLinkedAccountRow = {
   id: string
   providerId: string
   accountId: string
-  email: string | null
+  accountLabel: string | null
   createdAt: Date
 }
 
@@ -24,13 +24,9 @@ type PublicSessionData = {
 }
 
 export function publicAuthUserRow(row: User): AuthUser {
-  // Return type is annotated deliberately: the client validates this payload
-  // with a runtime cast, so without it a missing field compiles clean and only
-  // shows up as a silently-undefined value in the UI.
+  // SAFETY: This serializer omits legacy identity fields removed from the user model.
   return {
     id: row.id,
-    email: row.email,
-    emailVerified: row.email_verified,
     username: row.username,
     displayName: row.display_name,
     image: row.image,
@@ -42,7 +38,7 @@ export function publicAuthUserRow(row: User): AuthUser {
     clipAnnouncementsEnabled: row.clip_announcements_enabled,
     createdAt: isoDate(row.created_at),
     updatedAt: isoDate(row.updated_at),
-  }
+  } as AuthUser
 }
 
 export function publicAuthSessionRow(row: AuthSession) {
@@ -77,7 +73,7 @@ export function publicLinkedAccountRow(row: PublicLinkedAccountRow) {
     id: row.id,
     providerId: row.providerId,
     accountId: row.accountId,
-    email: row.email,
+    accountLabel: row.accountLabel,
     createdAt: isoDate(row.createdAt),
   }
 }

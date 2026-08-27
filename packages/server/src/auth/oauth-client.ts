@@ -162,7 +162,7 @@ function usesInsecureEndpoint(provider: OAuthProviderConfig): boolean {
 
 export function scopesForProvider(provider: OAuthProviderConfig): string {
   const scopes = provider.scopes?.map((scope) => scope.trim()).filter(Boolean)
-  return scopes && scopes.length > 0 ? scopes.join(" ") : "openid profile email"
+  return scopes && scopes.length > 0 ? scopes.join(" ") : "openid profile"
 }
 
 function providerUsesOpenId(provider: OAuthProviderConfig): boolean {
