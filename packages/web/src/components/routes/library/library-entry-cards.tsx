@@ -22,7 +22,7 @@ import { gameHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
 import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
-import type { RecordingLibraryItem } from "@/lib/desktop"
+import { desktopCachedAssetUrl, type RecordingLibraryItem } from "@/lib/desktop"
 import {
   localClipPlaybackWindow,
   mediaWindowSeconds,
@@ -64,7 +64,7 @@ export function LibraryCaptureCard({
       titleContent={<LibraryCardTitle title={item.title} />}
       author=""
       game={item.displayGameName}
-      gameIcon={item.displayGameIconUrl}
+      gameIcon={desktopCachedAssetUrl(item.displayGameIconUrl)}
       gameHref={gameUrl}
       renderGameLink={renderGameLink}
       views="0"
@@ -214,7 +214,7 @@ export function UploadedClipCard({
       titleContent={<LibraryCardTitle title={card.title} />}
       author=""
       game={card.game}
-      gameIcon={card.gameRef?.iconUrl ?? null}
+      gameIcon={desktopCachedAssetUrl(card.gameRef?.iconUrl ?? null)}
       gameHref={gameUrl}
       renderGameLink={renderGameLink}
       views={card.views}

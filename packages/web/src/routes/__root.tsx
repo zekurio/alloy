@@ -4,13 +4,12 @@ import { Suspense, lazy, useEffect } from "react"
 
 import { ClientOnly } from "@/components/app/client-only"
 import { OAuthErrorToast } from "@/components/auth/oauth-error-toast"
-import { DesktopBridgeRecovery } from "@/components/desktop-bridge-recovery"
 import {
   RouteErrorState,
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
-import { alloyDesktop, desktopBridgeMismatch } from "@/lib/desktop"
+import { alloyDesktop } from "@/lib/desktop"
 import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
 
 export const Route = createRootRouteWithContext<{
@@ -37,7 +36,6 @@ const Toaster = lazy(() =>
 )
 
 function RootLayout() {
-  const bridgeMismatch = desktopBridgeMismatch()
   // In the desktop shell with custom chrome, flag the document so the app
   // header becomes a draggable title bar (see globals.css).
   useEffect(() => {
@@ -46,10 +44,6 @@ function RootLayout() {
     root.classList.add("is-desktop-titlebar")
     return () => root.classList.remove("is-desktop-titlebar")
   }, [])
-
-  if (bridgeMismatch) {
-    return <DesktopBridgeRecovery {...bridgeMismatch} />
-  }
 
   return (
     <>

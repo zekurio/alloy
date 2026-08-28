@@ -15,7 +15,6 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   Popover,
   PopoverContent,
@@ -36,6 +35,7 @@ import {
 import { useMemo } from "react"
 import type { ReactNode } from "react"
 
+import { GameIcon } from "@/components/game/game-icon"
 import {
   mergeAudioDevices,
   type RecordingAudioDeviceView,

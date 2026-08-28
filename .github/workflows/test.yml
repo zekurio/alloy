@@ -81,5 +81,29 @@ jobs:
       - name: Run typecheck
         run: corepack pnpm typecheck
 
+      - name: Run tests
+        run: corepack pnpm test
+
       - name: Build server and web
         run: corepack pnpm turbo run build --filter=@alloy/server --filter=@alloy/web
+
+      - name: Check browser artifact
+        run: |
+          if grep -R -q "alloyDesktop" packages/web/dist; then
+            echo "The server-hosted browser build contains native desktop integration."
+            exit 1
+          fi
+
+      - name: Build bundled desktop renderer
+        run: corepack pnpm --filter @alloy/desktop exec electron-vite build
+
+      - name: Check bundled desktop artifact
+        run: |
+          test -f packages/desktop/out/renderer/desktop.html
+          grep -q "Content-Security-Policy" packages/desktop/out/renderer/desktop.html
+          grep -q "alloy-capture:" packages/desktop/out/renderer/desktop.html
+          if grep -q "localhost:5273" packages/desktop/out/renderer/desktop.html; then
+            echo "The packaged CSP contains the development websocket origin."
+            exit 1
+          fi
+          grep -R -q "alloyDesktop" packages/desktop/out/renderer/assets

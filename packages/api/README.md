@@ -10,6 +10,7 @@ runtime response validation out of UI components.
 packages/api/
   src/client.ts                 low-level API client
   src/http.ts                   fetch wrapper and request helpers
+  src/server-info.ts            desktop HTTP contract discovery
   src/*                         endpoint-specific helpers
   src/contract-validators.ts    runtime validators for server responses
 ```
@@ -27,6 +28,7 @@ import { authPaths } from "@alloy/api/auth"
 
 ```bash
 pnpm --filter @alloy/api build
+pnpm --filter @alloy/api test
 pnpm --filter @alloy/api typecheck
 ```
 
@@ -36,3 +38,5 @@ The `build` command is a TypeScript no-emit build.
 
 Prefer adding shared response types to `@alloy/contracts` and validators here
 instead of duplicating shape checks in `packages/web` or `packages/desktop`.
+Desktop HTTP contract clients must runtime-validate responses and remain
+available while that contract is in the supported current/previous window.

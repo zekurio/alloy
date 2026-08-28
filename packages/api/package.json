@@ -9,7 +9,8 @@
   },
   "scripts": {
     "build": "tsc --noEmit",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/server-info.test.ts"
   },
   "dependencies": {
     "@alloy/contracts": "workspace:*",

@@ -1,7 +1,7 @@
 import { t } from "@alloy/i18n"
 import { BrowserWindow, dialog } from "electron"
 
-import type { BridgeHandlerFragment } from "./ipc-bridge"
+import type { DesktopApiHandlerFragment } from "./ipc-api"
 import { requireMainSender } from "./ipc-guards"
 import {
   normalizeLibraryCommitStagedImportRequest,
@@ -11,6 +11,7 @@ import {
   normalizeLibraryThumbnailSaveRequest,
   normalizeLibraryTrimUpdate,
 } from "./ipc-normalizers"
+import { confirmNativeAction } from "./native-confirmation"
 import {
   commitRecordingLibraryStagedImport,
   deleteRecordingLibraryItem,
@@ -27,16 +28,16 @@ import {
   listRecordingLibraryClipDownloads,
   startRecordingLibraryClipDownload,
 } from "./recording-library-download"
+import { selectedServerClipDownloadUrl } from "./recording-library-download-policy"
 import { VIDEO_EXTENSIONS } from "./recording-library-shared"
 import {
   parseNonnegativeInteger,
   parseString,
   type UntrustedInput,
 } from "./runtime-validation"
-import { sameOrigin } from "./url-policy"
 
-/** Capture-library bridge handlers; every channel is main-app-only. */
-export const recordingLibraryBridgeHandlers = {
+/** Capture-library native handlers; every channel is main-app-only. */
+export const recordingLibraryDesktopApiHandlers = {
   "recording.getLibrary": {
     guard: requireMainSender,
     handle: () => getRecordingLibrarySnapshot(),
@@ -71,9 +72,19 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.deleteLibraryCapture": {
     guard: requireMainSender,
-    handle: (_windows, _event, input: UntrustedInput) => {
+    handle: async (_windows, event, input: UntrustedInput) => {
       const id = parseString(input)
-      if (id !== null) return deleteRecordingLibraryItem(id)
+      if (id === null) return
+      if (
+        !(await confirmNativeAction(event, {
+          title: t("Delete local capture?"),
+          message: t("This moves the recording file to the system trash."),
+          confirmLabel: t("Delete capture"),
+        }))
+      ) {
+        throw new Error("Capture deletion cancelled.")
+      }
+      return deleteRecordingLibraryItem(id)
     },
   },
   "recording.importLibraryFiles": {
@@ -149,14 +160,28 @@ export const recordingLibraryBridgeHandlers = {
   },
   "recording.downloadClip": {
     guard: requireMainSender,
-    handle: (windows, _event, request: UntrustedInput) => {
+    handle: async (windows, event, request: UntrustedInput) => {
       const normalized = normalizeLibraryDownloadRequest(request)
       if (!normalized) throw new Error("Invalid clip download request.")
       const serverUrl = windows.currentServerUrl()
-      if (!serverUrl || !sameOrigin(normalized.mediaUrl, serverUrl)) {
-        throw new Error("Clip downloads must come from the connected server.")
+      if (!serverUrl) throw new Error("No Alloy server is connected.")
+      if (
+        !(await confirmNativeAction(event, {
+          type: "question",
+          title: t("Download clip to this computer?"),
+          message: normalized.title,
+          confirmLabel: t("Download clip"),
+        }))
+      ) {
+        throw new Error("Clip download cancelled.")
       }
-      return startRecordingLibraryClipDownload(normalized)
+
+      const mediaUrl = selectedServerClipDownloadUrl(
+        normalized.clipId,
+        serverUrl,
+      )
+      if (!mediaUrl) throw new Error("Invalid clip download target.")
+      return startRecordingLibraryClipDownload(normalized, mediaUrl)
     },
   },
   "recording.cancelClipDownload": {
@@ -170,4 +195,4 @@ export const recordingLibraryBridgeHandlers = {
     guard: requireMainSender,
     handle: () => listRecordingLibraryClipDownloads(),
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment

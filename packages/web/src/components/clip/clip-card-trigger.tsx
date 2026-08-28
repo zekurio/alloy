@@ -12,6 +12,7 @@ import { clientLogger } from "@/lib/client-log"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import { toClipCardData } from "@/lib/clip-format"
 import { warmClipDetailCache } from "@/lib/clip-queries"
+import { desktopCachedAssetUrl } from "@/lib/desktop"
 
 import { useClipCardAuthorLink, useClipCardGameLink } from "./clip-card-links"
 import { setActiveClipList, useClipList } from "./clip-list-context"
@@ -79,7 +80,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
       authorHref={authorHref}
       renderAuthorLink={renderAuthorLink}
       game={card.game}
-      gameIcon={card.gameRef?.iconUrl ?? null}
+      gameIcon={desktopCachedAssetUrl(card.gameRef?.iconUrl ?? null)}
       gameHref={gameLink}
       renderGameLink={renderGameLink}
       views={card.views}

@@ -4,6 +4,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
+import { desktopCachedAssetUrl } from "@/lib/desktop"
 import { gameDisplayName } from "@/lib/game-display-name"
 
 import { GameLogo } from "./game-logo"
@@ -31,7 +32,8 @@ type GameCardProps = {
 function GameCardBody({ game, name }: { game: GameCardData; name: string }) {
   const [heroFailed, setHeroFailed] = useState(false)
   const [logoFailed, setLogoFailed] = useState(false)
-  const heroSrc = game.heroUrl && !heroFailed ? game.heroUrl : null
+  const heroSrc =
+    game.heroUrl && !heroFailed ? desktopCachedAssetUrl(game.heroUrl) : null
   const logoSrc = game.logoUrl && !logoFailed ? game.logoUrl : null
 
   return (

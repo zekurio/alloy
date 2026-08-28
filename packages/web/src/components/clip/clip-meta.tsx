@@ -19,7 +19,6 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
 import {
@@ -34,6 +33,7 @@ import {
 import { useCallback } from "react"
 import type { ReactNode } from "react"
 
+import { GameIcon } from "@/components/game/game-icon"
 import { UserFollowButton } from "@/components/user/user-follow-button"
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"

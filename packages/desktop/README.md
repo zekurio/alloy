@@ -1,28 +1,35 @@
 # @alloy/desktop
 
-Electron shell for Alloy Desktop. It connects to a self-hosted Alloy server,
-loads the live web app from that server origin, and exposes a narrow desktop
-bridge for local recording and settings.
+Electron application for Alloy Desktop. It connects to a self-hosted Alloy
+server, records through the Rust sidecar, and runs an installer-owned build of
+the React app.
 
-## How It Works
+## How it works
 
-The remote web app runs with real server-origin cookies. Login happens in the
-system browser because Electron Chromium does not provide the full WebAuthn UI
-layer for passkeys and some OAuth providers reject embedded browser flows. The
-desktop app opens `/api/auth/desktop/authorize`, receives a loopback code on
-`127.0.0.1`, and exchanges it for a session that is injected into the Electron
-cookie jar.
+The main window loads `alloy-app://app/desktop.html`; it never executes HTML or
+JavaScript from the selected server. The browser and desktop builds share the
+source in `packages/web`, while Electron main, preload, and the desktop renderer
+ship together.
 
-There are two trust surfaces:
+The bundled app sends `/api/*` requests to its fixed local origin. Main proxies
+only those paths to the selected server through Electron's persistent session,
+so HttpOnly access and refresh cookies never enter renderer JavaScript. Login
+still happens in the system browser because passkeys belong to the server's web
+origin and OAuth providers may reject embedded flows. Main opens
+`/api/auth/desktop/authorize`, receives a loopback PKCE code on `127.0.0.1`, and
+stores the exchanged session in Electron's cookie jar.
 
-- `src/renderer`: bundled trusted connect UI with `window.alloyNative`.
-- Main window: remote server origin with the narrower `window.alloyDesktop`
-  bridge.
+There are two local renderer surfaces:
 
-The main process pins navigation to the connected server origin, denies browser
-permission requests by default, and opens normal external URLs in the system
-browser. HTTP Alloy servers are allowed only for loopback development; remote
-servers must use HTTPS.
+- `src/renderer/index.html`: connect and startup-update UI with
+  `window.alloyNative`.
+- `src/renderer/desktop.html`: the bundled web app with the lockstep
+  `window.alloyDesktop` native API.
+
+Main allows native IPC only from the exact local document and main frame,
+denies browser permissions by default, and opens only selected-server links in
+the system browser. HTTP Alloy servers are allowed only for loopback development;
+remote servers must use HTTPS.
 
 Recording is delegated to `packages/recorder`. Development builds use
 `packages/recorder/dist`; packaged builds bundle that artifact under Electron
@@ -34,7 +41,7 @@ resources as the immutable fallback recorder runtime.
 packages/desktop/
   src/main/      Electron lifecycle, windows, IPC, auth, tray, recorder client
   src/preload/   contextBridge scripts for the connect window and web app
-  src/renderer/  React connect screen
+  src/renderer/  Connect entry and bundled-web desktop entry
   src/shared/    IPC channel names and payload types
   scripts/       Electron runtime and icon helpers
   assets/        Desktop icons and build resources
@@ -47,6 +54,7 @@ From the repository root:
 ```bash
 pnpm --filter @alloy/desktop dev
 pnpm --filter @alloy/desktop build
+pnpm --filter @alloy/desktop test
 pnpm --filter @alloy/desktop typecheck
 pnpm --filter @alloy/desktop preview
 ```
@@ -113,8 +121,10 @@ not force a restart while Alloy is running. The next visible launch installs
 the staged update at a safe boundary.
 
 The publish workflow uploads the installer, blockmap, and `latest.yml` before
-it promotes the server container's `latest` tag. The immutable version image
-is available first for recovery and pinned deployments.
+it promotes the server container's `latest` tag. This order matters at the
+one-time bundled-renderer cutover. Afterward, desktop/server skew is handled by
+exact HTTP contract IDs from `/api/server-info`; the desktop supports contract
+1 and the pre-cut server's equivalent API baseline.
 
 GitHub Release assets are desktop-only: the unsigned Windows NSIS installer,
 blockmap, updater metadata, and checksums from `packages/desktop/release`.
