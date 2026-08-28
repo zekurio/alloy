@@ -17,6 +17,7 @@ import type { ReactNode } from "react"
 
 import { clipGameLabel } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
+import { desktopCachedAssetUrl } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { formatCount } from "@/lib/number-format"
@@ -267,7 +268,7 @@ export function GameRowItem({
         // Grids are ~2:3 box art that fills a portrait slot cleanly; the wide
         // hero is only a fallback. object-cover keeps the placeholder hidden
         // instead of letterboxing it into view.
-        src={row.gridUrl ?? row.heroUrl}
+        src={desktopCachedAssetUrl(row.gridUrl ?? row.heroUrl)}
         viewportClassName="relative aspect-[3/4] overflow-hidden"
         imageClassName="absolute inset-0 size-full object-cover object-center"
         className="w-12"

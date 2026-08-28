@@ -1,5 +1,4 @@
 import { t } from "@alloy/i18n"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Link } from "@tanstack/react-router"
 import { GlobeIcon } from "lucide-react"
 
@@ -11,6 +10,7 @@ import {
   SortDropdown,
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
+import { GameIcon } from "@/components/game/game-icon"
 import {
   profileClipSearchFor,
   type ProfileClipSort,

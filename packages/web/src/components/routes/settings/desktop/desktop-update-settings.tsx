@@ -9,7 +9,7 @@ import { useState } from "react"
 
 import { useDesktopUpdateState } from "@/lib/desktop-updates"
 
-import { alloyDesktop } from "./desktop-bridge"
+import { alloyDesktop } from "./desktop-native"
 
 type Phase = "idle" | "checking" | "downloading" | "installing"
 

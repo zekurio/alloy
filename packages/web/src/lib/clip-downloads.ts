@@ -1,4 +1,4 @@
-import { type ClipRow, clipDownloadUrl } from "@alloy/api"
+import type { ClipRow } from "@alloy/api"
 import { useSyncExternalStore } from "react"
 
 import { clientLogger } from "@/lib/client-log"
@@ -7,7 +7,6 @@ import {
   notifyLibraryCapturesChanged,
   type RecordingLibraryDownload,
 } from "@/lib/desktop"
-import { apiOrigin } from "@/lib/env"
 
 /**
  * Shared renderer-side view of the desktop shell's clip downloads (uploaded
@@ -100,11 +99,8 @@ export async function startClipDownload(row: ClipRow): Promise<void> {
   const accepted = await desktop.recording.downloadClip({
     clipId: row.id,
     title: row.title,
-    // The shell picks the saved file's extension from this contentType, and
-    // corrects sizeBytes from the response's Content-Length once the transfer
-    // starts.
-    mediaUrl: clipDownloadUrl(row.id, apiOrigin()),
-    contentType: row.playbackContentType,
+    // Main derives the selected-server URL and MIME type. Renderer input never
+    // chooses the native download target.
     sizeBytes: row.sourceSizeBytes,
     durationMs: row.durationMs,
     width: row.width,

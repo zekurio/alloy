@@ -6,17 +6,22 @@ import { StrictStringSchema, type UntrustedInput } from "./runtime-validation"
 import type { Windows } from "./windows"
 
 const DesktopNotificationInputSchema = t.object({
-  title: StrictStringSchema,
-  body: StrictStringSchema,
-  targetPath: StrictStringSchema.refine((path) => path.startsWith("/")),
+  title: StrictStringSchema.max(200),
+  body: StrictStringSchema.max(1000),
+  targetPath: StrictStringSchema.max(2048).refine(
+    (path) => path.startsWith("/") && !path.startsWith("//"),
+  ),
 })
+const NOTIFICATION_RATE_WINDOW_MS = 60_000
+const NOTIFICATION_RATE_LIMIT = 10
+const notificationTimes: number[] = []
 
 export function showDesktopNotification(
   windows: Windows,
   input: UntrustedInput,
 ): void {
   const notification = desktopNotificationInput(input)
-  if (!Notification.isSupported()) return
+  if (!Notification.isSupported() || !takeNotificationSlot()) return
   const toast = new Notification({
     title: notification.title,
     body: notification.body,
@@ -25,6 +30,18 @@ export function showDesktopNotification(
     windows.showAndNavigate(notification.targetPath)
   })
   toast.show()
+}
+
+function takeNotificationSlot(now = Date.now()): boolean {
+  while (
+    notificationTimes[0] !== undefined &&
+    notificationTimes[0] <= now - NOTIFICATION_RATE_WINDOW_MS
+  ) {
+    notificationTimes.shift()
+  }
+  if (notificationTimes.length >= NOTIFICATION_RATE_LIMIT) return false
+  notificationTimes.push(now)
+  return true
 }
 
 function desktopNotificationInput(

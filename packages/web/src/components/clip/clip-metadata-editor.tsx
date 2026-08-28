@@ -1,7 +1,6 @@
 import type { GameRow, UserSearchResult } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Textarea } from "@alloy/ui/components/textarea"
 import { cn } from "@alloy/ui/lib/utils"
 import { ChevronRightIcon, Gamepad2Icon, PencilIcon } from "lucide-react"
@@ -9,6 +8,7 @@ import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
 import { GameCombobox } from "@/components/game/game-combobox"
+import { GameIcon } from "@/components/game/game-icon"
 import { CLIP_DESCRIPTION_MAX, CLIP_TITLE_MAX } from "@/lib/clip-fields"
 
 import {

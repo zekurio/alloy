@@ -101,26 +101,16 @@ export function normalizeLibraryThumbnailSaveRequest(
 }
 
 const DOWNLOAD_TITLE_MAX = 200
-const DOWNLOAD_ID_MAX = 64
-const DOWNLOAD_URL_MAX = 2000
 const DOWNLOAD_GAME_NAME_MAX = 200
-const DOWNLOAD_CONTENT_TYPE_MAX = 100
 const PositiveIntegerSchema = StrictFiniteNumberSchema.refine(
   (value) => Number.isFinite(value) && value > 0,
 ).transform(Math.round)
-const LibraryDownloadRequestSchema = t.looseObject({
-  clipId: StrictStringSchema.min(1).max(DOWNLOAD_ID_MAX),
+const LibraryDownloadRequestSchema = t.object({
+  clipId: StrictStringSchema.uuid(),
   title: StrictStringSchema.trim()
     .transform((value) => value.slice(0, DOWNLOAD_TITLE_MAX))
     .catch("")
     .$default(""),
-  mediaUrl: StrictStringSchema.min(1).max(DOWNLOAD_URL_MAX),
-  contentType: StrictStringSchema.transform((value) =>
-    value.slice(0, DOWNLOAD_CONTENT_TYPE_MAX),
-  )
-    .nullable()
-    .catch(null)
-    .$default(null),
   sizeBytes: PositiveIntegerSchema.nullable().catch(null).$default(null),
   durationMs: PositiveIntegerSchema.nullable().catch(null).$default(null),
   width: PositiveIntegerSchema.nullable().catch(null).$default(null),
@@ -135,7 +125,7 @@ const LibraryDownloadRequestSchema = t.looseObject({
 
 /**
  * Returns a sanitized clip download request, or null when it lacks a usable
- * clip id or media URL. The IPC handler checks the URL origin.
+ * clip id. Main derives the server URL from that id.
  */
 export function normalizeLibraryDownloadRequest(
   value: IpcInput,

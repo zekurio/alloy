@@ -19,6 +19,7 @@ import { gamesRoute } from "./routes/games"
 import { notificationsRoute } from "./routes/notifications"
 import { oembedRoute } from "./routes/oembed"
 import { searchRoute } from "./routes/search"
+import { serverInfoRoute } from "./routes/server-info"
 import { setupRoute } from "./routes/setup"
 import { tagsRoute } from "./routes/tags"
 import { usersRoute } from "./routes/users"
@@ -159,6 +160,7 @@ const apiApp = new Hono()
   .route("/api/oembed", oembedRoute)
   .route("/api/auth", authRoute)
   .route("/api/auth-config", authConfigRoute)
+  .route("/api/server-info", serverInfoRoute)
   .route("/api/setup", setupRoute)
   .route("/api/admin", adminRoute)
   .route("/api/clips", clips)

@@ -1,14 +1,7 @@
-import {
-  desktopBridgeSupports,
-  DESKTOP_BRIDGE_VERSION,
-  isCurrentDesktopBridge,
-  type AlloyDesktop,
-  type DesktopBridgePath,
-} from "@alloy/contracts"
+import type { AlloyDesktop } from "@alloy/contracts"
 
-// Bridge and recording-library contract types live in @alloy/contracts (single
-// source of truth shared with the desktop shell); re-exported here so existing
-// consumer imports keep working.
+// Native and recording-library types live in @alloy/contracts. Re-export them
+// here so web consumers use one import path.
 export type {
   AlloyDesktop,
   AlloyDesktopRecordingApi,
@@ -23,29 +16,14 @@ export type {
 } from "@alloy/contracts"
 
 export function alloyDesktop(): AlloyDesktop | null {
+  // Browser builds ignore globals left behind by old Electron shells. The
+  // desktop build and its preload ship the complete lockstep API together.
+  if (import.meta.env.VITE_ALLOY_DESKTOP !== "true") return null
+
   // Injected by the desktop preload; unexpressible on `typeof globalThis`.
-  // SAFETY: The preload is the only writer of this optional global and uses
-  // the shared AlloyDesktop bridge contract.
+  // SAFETY: The lockstep preload is the only writer in the desktop build.
   const host = globalThis as { alloyDesktop?: AlloyDesktop }
   return host.alloyDesktop ?? null
-}
-
-/** Whether the active desktop shell implements one bridge member. */
-export function desktopSupports(path: DesktopBridgePath): boolean {
-  const desktop = alloyDesktop()
-  return Boolean(desktop && desktopBridgeSupports(desktop.bridge.version, path))
-}
-
-export function desktopBridgeMismatch(): {
-  actual: number
-  expected: number
-} | null {
-  const desktop = alloyDesktop()
-  if (!desktop || isCurrentDesktopBridge(desktop.bridge.version)) return null
-  return {
-    actual: desktop.bridge.version,
-    expected: DESKTOP_BRIDGE_VERSION,
-  }
 }
 
 /**

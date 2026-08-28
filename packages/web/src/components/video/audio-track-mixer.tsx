@@ -96,7 +96,7 @@ export function useAudioTrackMixer(
 /**
  * {@link useAudioTrackMixer} with a caller-supplied track loader, for media
  * whose stems are not served by the clip API — e.g. local desktop captures,
- * whose tracks come off the capture file via the desktop bridge.
+ * whose tracks come from the capture file through the desktop native API.
  */
 export function useAudioTrackMixerWithLoader(
   clipId: string,

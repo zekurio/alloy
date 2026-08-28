@@ -6,14 +6,18 @@ export function requireOverlaySender(
   windows: Windows,
   event: IpcMainInvokeEvent,
 ): void {
-  if (!windows.canUseOverlayBridge(event.sender)) throw unauthorizedIpcError()
+  requireMainFrame(event)
+  if (!windows.canUseOverlayApi(event.sender, event.senderFrame?.url ?? "")) {
+    throw unauthorizedIpcError()
+  }
 }
 
 export function requireMainSender(
   windows: Windows,
   event: IpcMainInvokeEvent,
 ): void {
-  if (!windows.canUseAppBridge(event.sender, event.senderFrame?.url ?? "")) {
+  requireMainFrame(event)
+  if (!windows.canUseAppApi(event.sender, event.senderFrame?.url ?? "")) {
     throw unauthorizedIpcError()
   }
 }
@@ -22,9 +26,8 @@ export function requireDesktopSender(
   windows: Windows,
   event: IpcMainInvokeEvent,
 ): void {
-  if (
-    !windows.canUseDesktopBridge(event.sender, event.senderFrame?.url ?? "")
-  ) {
+  requireMainFrame(event)
+  if (!windows.canUseDesktopApi(event.sender, event.senderFrame?.url ?? "")) {
     throw unauthorizedIpcError()
   }
 }
@@ -33,8 +36,9 @@ export function requireDesktopServerStateSender(
   windows: Windows,
   event: IpcMainInvokeEvent,
 ): void {
+  requireMainFrame(event)
   if (
-    !windows.canUseDesktopServerStateBridge(
+    !windows.canUseDesktopServerStateApi(
       event.sender,
       event.senderFrame?.url ?? "",
     )
@@ -51,6 +55,12 @@ export function requireControllableWindow(
   const window = BrowserWindow.fromWebContents(event.sender)
   if (!window) throw unauthorizedIpcError()
   return window
+}
+
+function requireMainFrame(event: IpcMainInvokeEvent): void {
+  if (!event.senderFrame || event.senderFrame !== event.sender.mainFrame) {
+    throw unauthorizedIpcError()
+  }
 }
 
 function unauthorizedIpcError(): Error {

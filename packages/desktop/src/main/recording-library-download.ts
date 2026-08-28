@@ -1,7 +1,7 @@
 import { createWriteStream, mkdirSync, rmSync } from "node:fs"
 import { rename } from "node:fs/promises"
 import { resolve } from "node:path"
-import { Readable } from "node:stream"
+import { Readable, Transform, type TransformCallback } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
 import type {
@@ -11,7 +11,9 @@ import type {
 import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
+import { isRejectedProxyRedirect } from "./app-protocol-policy"
 import { emitRecordingLibraryDownloadEvent } from "./recording"
+import { clipDownloadByteLimit } from "./recording-library-download-policy"
 import {
   correctCaptureDurationMs,
   manifestKey,
@@ -74,6 +76,7 @@ export function cancelRecordingLibraryClipDownload(clipId: string): void {
  */
 export function startRecordingLibraryClipDownload(
   request: RecordingLibraryDownloadRequest,
+  mediaUrl: string,
 ): RecordingLibraryDownload {
   const existing = jobs.get(request.clipId)
   if (existing && existing.download.status === "downloading") {
@@ -94,7 +97,7 @@ export function startRecordingLibraryClipDownload(
   jobs.set(request.clipId, job)
   emitRecordingLibraryDownloadEvent({ ...download })
 
-  void runDownload(request, job).catch((cause) => {
+  void runDownload(request, mediaUrl, job).catch((cause) => {
     logger.warn(`clip download crashed for ${request.clipId}:`, cause)
   })
 
@@ -103,43 +106,57 @@ export function startRecordingLibraryClipDownload(
 
 async function runDownload(
   request: RecordingLibraryDownloadRequest,
+  mediaUrl: string,
   job: DownloadJob,
 ): Promise<void> {
   const signal = job.abort?.signal
   const root = captureCollectionFolder("Clips", request.gameName)
   let partialFile: string | null = null
   try {
-    mkdirSync(root, { recursive: true })
-    const filename = uniqueTargetFile(root, request)
-    partialFile = `${filename}.part`
-
-    const response = await mainSession().fetch(request.mediaUrl, {
+    const byteLimit = clipDownloadByteLimit(request.sizeBytes)
+    const response = await mainSession().fetch(mediaUrl, {
       credentials: "include",
+      redirect: "manual",
       signal,
     })
+    if (isRejectedProxyRedirect(response.status)) {
+      response.body?.cancel().catch(() => undefined)
+      throw new Error("The server redirected the clip download.")
+    }
     if (!response.ok || !response.body) {
       throw new Error(`The server answered ${response.status}.`)
     }
 
+    const responseContentType =
+      response.headers.get("content-type")?.split(";", 1)[0]?.trim() ?? ""
+    if (!EXTENSION_BY_CONTENT_TYPE.has(responseContentType)) {
+      await response.body.cancel().catch(() => undefined)
+      throw new Error("The server did not return a supported video file.")
+    }
+
     const contentLength = Number(response.headers.get("content-length"))
     if (Number.isFinite(contentLength) && contentLength > 0) {
+      if (contentLength > byteLimit) {
+        await response.body.cancel().catch(() => undefined)
+        throw new Error("The clip exceeds the desktop download limit.")
+      }
       job.download.totalBytes = contentLength
     }
 
-    let lastEmitAt = 0
+    mkdirSync(root, { recursive: true })
+    const filename = uniqueTargetFile(root, request, responseContentType)
+    partialFile = `${filename}.part`
+
     // SAFETY: Fetch and Node expose the same byte-stream interface here.
     const source = Readable.fromWeb(
       response.body as import("node:stream/web").ReadableStream,
     )
-    source.on("data", (chunk: Buffer) => {
-      job.download.receivedBytes += chunk.byteLength
-      const now = Date.now()
-      if (now - lastEmitAt >= PROGRESS_EMIT_INTERVAL_MS) {
-        lastEmitAt = now
-        emitRecordingLibraryDownloadEvent({ ...job.download })
-      }
-    })
-    await pipeline(source, createWriteStream(partialFile), { signal })
+    await pipeline(
+      source,
+      downloadProgress(job, byteLimit),
+      createWriteStream(partialFile),
+      { signal },
+    )
 
     await rename(partialFile, filename)
     partialFile = null
@@ -184,12 +201,36 @@ async function runDownload(
   }
 }
 
+function downloadProgress(job: DownloadJob, byteLimit: number): Transform {
+  let lastEmitAt = 0
+  return new Transform({
+    transform(
+      chunk: Buffer,
+      _encoding: BufferEncoding,
+      callback: TransformCallback,
+    ) {
+      const receivedBytes = job.download.receivedBytes + chunk.byteLength
+      if (receivedBytes > byteLimit) {
+        callback(new Error("The clip exceeds the desktop download limit."))
+        return
+      }
+      job.download.receivedBytes = receivedBytes
+      const now = Date.now()
+      if (now - lastEmitAt >= PROGRESS_EMIT_INTERVAL_MS) {
+        lastEmitAt = now
+        emitRecordingLibraryDownloadEvent({ ...job.download })
+      }
+      callback(null, chunk)
+    },
+  })
+}
+
 function uniqueTargetFile(
   root: string,
   request: RecordingLibraryDownloadRequest,
+  contentType: string,
 ): string {
-  const extension =
-    EXTENSION_BY_CONTENT_TYPE.get(request.contentType ?? "") ?? ".mp4"
+  const extension = EXTENSION_BY_CONTENT_TYPE.get(contentType) ?? ".mp4"
   const safeBase =
     request.title.replace(/[^A-Za-z0-9 ._-]/g, "_").trim() || "clip"
   return uniqueCaptureFilename(root, safeBase, extension)

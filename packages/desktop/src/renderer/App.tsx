@@ -218,7 +218,7 @@ function ConnectApp() {
 
     const result = await window.alloyNative?.connect(nextUrl)
     if (!result) {
-      toast.error(t("Desktop bridge is unavailable."), {
+      toast.error(t("Desktop native API is unavailable."), {
         id: CONNECT_ERROR_TOAST_ID,
       })
       setPhase("idle")

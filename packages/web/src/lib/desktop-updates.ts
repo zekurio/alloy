@@ -36,7 +36,7 @@ function ensureStarted(): void {
       if (!receivedStateEvent) applyState(initial)
     })
     .catch(() => {
-      // Bridge unavailable; stay idle.
+      // Native API unavailable; stay idle.
     })
 }
 

@@ -1,14 +1,44 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { isCurrentDesktopBridge } from "@alloy/contracts"
+import {
+  normalizeLibraryDownloadRequest,
+  normalizeLibraryMetaPatch,
+} from "./ipc-normalizers"
 
-import { normalizeLibraryMetaPatch } from "./ipc-normalizers"
-
-test("accepts only bridge v2", () => {
-  assert.equal(isCurrentDesktopBridge(1), false)
-  assert.equal(isCurrentDesktopBridge(2), true)
-  assert.equal(isCurrentDesktopBridge(3), false)
+test("accepts only canonical clip-download identity and metadata", () => {
+  const clipId = "123e4567-e89b-42d3-a456-426614174000"
+  assert.deepEqual(
+    normalizeLibraryDownloadRequest({ clipId, title: "Example" }),
+    {
+      clipId,
+      title: "Example",
+      sizeBytes: null,
+      durationMs: null,
+      width: null,
+      height: null,
+      gameName: null,
+    },
+  )
+  const attemptedTarget = normalizeLibraryDownloadRequest({
+    clipId,
+    title: "Example",
+    mediaUrl: "https://attacker.example/endless",
+  })
+  assert.deepEqual(attemptedTarget, {
+    clipId,
+    title: "Example",
+    sizeBytes: null,
+    durationMs: null,
+    width: null,
+    height: null,
+    gameName: null,
+  })
+  assert.equal(Object.hasOwn(attemptedTarget ?? {}, "mediaUrl"), false)
+  assert.equal(
+    normalizeLibraryDownloadRequest({ clipId: "../../admin", title: "Bad" }),
+    null,
+  )
 })
 
 test("normalizes a clip link and its source mapping together", () => {

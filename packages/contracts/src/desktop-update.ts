@@ -1,7 +1,6 @@
 /**
- * Auto-update state the desktop shell exposes to the web app over the
- * desktop bridge. This never goes through the server — an update is specific
- * to the machine running the desktop app.
+ * Auto-update state exposed to the bundled app through its native API. This
+ * never goes through the server because an update belongs to this machine.
  */
 export type DesktopUpdateStatus =
   | "idle"
@@ -17,7 +16,7 @@ export interface DesktopUpdateState {
   version: string | null
 }
 
-/** Desktop auto-update state and controls bridged into the web app. */
+/** Desktop auto-update state and controls exposed to the bundled app. */
 export interface AlloyDesktopUpdatesApi {
   getState(): Promise<DesktopUpdateState>
   /** Runs an immediate update check instead of waiting for the background interval. */

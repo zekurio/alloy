@@ -7,7 +7,7 @@ import { useState } from "react"
 
 import { useDesktopQuery } from "@/lib/use-desktop-query"
 
-import { alloyDesktop } from "./desktop-bridge"
+import { alloyDesktop } from "./desktop-native"
 
 export function DesktopAutostartSettings() {
   const desktop = alloyDesktop()

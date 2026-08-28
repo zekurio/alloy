@@ -1,5 +1,7 @@
 import { nonEmpty, normalizePublicServerUrl } from "@alloy/env"
 
+import { getRuntimeConfig } from "./runtime-env"
+
 const DEFAULT_SERVER_URL = "http://localhost:2552"
 const DEFAULT_SERVER_PORT = "2552"
 
@@ -32,10 +34,14 @@ function webServerUrl(): string {
 }
 
 export function apiOrigin(): string {
+  const runtime = getRuntimeConfig()
+  if (runtime) return runtime.apiOrigin
   return normalizePublicServerUrl(webServerUrl())
 }
 
 export function publicOrigin(): string {
+  const runtime = getRuntimeConfig()
+  if (runtime) return runtime.publicOrigin
   if (globalThis.window) return window.location.origin
   return normalizePublicServerUrl(
     nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl(),

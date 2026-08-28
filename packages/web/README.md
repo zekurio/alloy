@@ -1,13 +1,15 @@
 # @alloy/web
 
-React/TanStack web app for Alloy. In development it runs as a Vite app on port 5173. In production the server serves the built web assets.
+React/TanStack application for Alloy. The server serves the browser build, and
+Electron packages a separate desktop entry from the same source.
 
 ## Layout
 
 ```text
 packages/web/
-  src/main.tsx           browser entrypoint
-  src/router.tsx         TanStack router setup
+  src/main.tsx           shared application bootstrap
+  src/desktop.tsx        desktop runtime bootstrap
+  src/router.tsx         browser/hash TanStack router setup
   src/routes/            file-based routes
   src/components/        app-specific UI and route components
   src/lib/               app-specific client helpers, queries, formatting
@@ -20,6 +22,7 @@ packages/web/
 pnpm --filter @alloy/web dev
 pnpm --filter @alloy/web build
 pnpm --filter @alloy/web preview
+pnpm --filter @alloy/web test
 pnpm --filter @alloy/web typecheck
 ```
 
@@ -42,9 +45,15 @@ pnpm dev
 
 ## Production
 
-`pnpm --filter @alloy/web build` emits `packages/web/dist`. The Nix package copies
-that into the server runtime and sets `WEB_DIST_DIR` so the Hono server can serve
-the web app.
+`pnpm --filter @alloy/web build` emits the browser build in
+`packages/web/dist`. The Nix package copies it into the server runtime and sets
+`WEB_DIST_DIR` so Hono can serve it.
+
+Electron Vite builds `packages/web/src/desktop.tsx` into
+`packages/desktop/out/renderer/desktop.html`. That entry installs the selected
+server before importing the shared app, uses hash history, and sends API calls
+to `alloy-app://app`. The normal browser build ignores `window.alloyDesktop`
+even when an obsolete shell injects it.
 
 ## Guidelines
 

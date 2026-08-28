@@ -41,8 +41,8 @@ export interface RecordingLibraryItem {
   uploadedClipId: string | null
   /**
    * Position in this local file that corresponds to time zero of the uploaded
-   * server source. Missing from older bridge v2 builds. Null for older links
-   * and server downloads that only keep the final cut.
+   * server source. Missing from older manifests. Null for links and server
+   * downloads that only keep the final cut.
    */
   uploadedClipSourceStartMs?: number | null
   /** Duration of the uploaded server source within this local file. */
@@ -191,10 +191,6 @@ export interface RecordingLibraryDownloadRequest {
   /** Server clip id; doubles as the download's identity (one job per clip). */
   clipId: string
   title: string
-  /** Absolute URL of the clip's source media on the connected server. */
-  mediaUrl: string
-  /** MIME type of the uploaded source; picks the saved file extension. */
-  contentType: string | null
   sizeBytes: number | null
   durationMs: number | null
   width: number | null

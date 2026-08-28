@@ -1,7 +1,6 @@
 import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { AppMainColumn, AppMainScroll } from "@alloy/ui/components/app-shell"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import { LoadingState } from "@alloy/ui/components/loading-state"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useQueryClient } from "@tanstack/react-query"
@@ -28,6 +27,7 @@ import {
   type SortDropdownOption,
 } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
+import { GameIcon } from "@/components/game/game-icon"
 import { useAppSearch } from "@/components/search/app-search"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
@@ -91,7 +91,7 @@ function LibraryContent({
   const model = useLibraryContentModel({
     desktop,
     kind: "all",
-    // Without the desktop bridge there are no local captures and the source
+    // Without the desktop native API there are no local captures and the source
     // dropdown is hidden, so a stray ?source= in the URL must not blank the
     // library.
     source: desktop ? source : "all",

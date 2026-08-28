@@ -1,8 +1,10 @@
+import { DESKTOP_HTTP_CONTRACT_1 } from "@alloy/contracts"
 import { detectLocale, setRuntimeLocale } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow, Menu, protocol } from "electron"
 
 import { configureAppPaths } from "./app-paths"
+import { appProtocolScheme, registerAppProtocol } from "./app-protocol"
 import {
   assetCacheProtocolScheme,
   registerAssetCacheProtocol,
@@ -12,7 +14,7 @@ import {
   startDesktopHousekeeping,
   stopDesktopHousekeeping,
 } from "./housekeeping"
-import { registerBridge } from "./ipc"
+import { registerDesktopApi } from "./ipc"
 import { installCrashLogging, installFileLogSink } from "./logging"
 import {
   configureRecordingBackend,
@@ -28,8 +30,8 @@ import {
   registerRecordingLibraryProtocol,
 } from "./recording-library"
 import { destroyRecordingNotificationSoundPlayer } from "./recording-notification-sounds"
-import { getRecordingSettings, getStartupServerUrl } from "./server-store"
-import { hasStoredSession, watchAuthCookiePersistence } from "./session"
+import { getRecordingSettings, getStartupServer } from "./server-store"
+import { watchAuthCookiePersistence } from "./session"
 import { createAlloyTray } from "./tray"
 import { runStartupUpdateBeforeServices } from "./updater"
 import { Windows } from "./windows"
@@ -46,6 +48,7 @@ installCrashLogging()
 logger.info(`Alloy Desktop ${app.getVersion()} starting`)
 // Privileged schemes must all be declared in this single pre-ready call.
 protocol.registerSchemesAsPrivileged([
+  appProtocolScheme(),
   recordingLibraryProtocolScheme(),
   assetCacheProtocolScheme(),
 ])
@@ -75,11 +78,12 @@ function startApp(): void {
     // app-driven chrome. (Standard editing shortcuts still work in web content
     // on Windows; revisit if macOS support needs its app menu back.)
     Menu.setApplicationMenu(null)
+    registerAppProtocol()
     registerRecordingLibraryProtocol()
     registerAssetCacheProtocol()
     watchAuthCookiePersistence()
 
-    registerBridge(windows)
+    registerDesktopApi(windows)
     createAlloyTray({
       showAlloy: () => showOrOpenInitialWindow(windows),
       openLibrary: () => {
@@ -110,8 +114,8 @@ function startApp(): void {
     scheduleBackgroundStartup()
 
     app.on("activate", () => {
-      // macOS: re-open the connected app when possible, or the fallback connect
-      // surface when no valid saved session exists.
+      // macOS: re-open the bundled app when a server is selected, or the
+      // connect surface when no server has been saved.
       if (BrowserWindow.getAllWindows().length === 0) {
         void showOrOpenInitialWindow(windows)
       }
@@ -146,15 +150,16 @@ async function shutdownWithDeadline(): Promise<void> {
 }
 
 async function openInitialWindow(windows: Windows): Promise<void> {
-  const startupServerUrl = getStartupServerUrl()
-  if (startupServerUrl) {
-    if (await hasStoredSession(startupServerUrl)) {
-      windows.connectTo(startupServerUrl)
+  const startupServer = getStartupServer()
+  if (startupServer?.httpContract === DESKTOP_HTTP_CONTRACT_1) {
+    // The cached exact contract permits offline startup. A successful explicit
+    // connection refreshes this value before selecting another server.
+    try {
+      windows.connectTo(startupServer.serverUrl)
       return
+    } catch (cause) {
+      logger.warn("saved server URL is invalid; opening connect window:", cause)
     }
-
-    windows.connectToLogin(startupServerUrl)
-    return
   }
 
   windows.openConnect()

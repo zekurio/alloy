@@ -1,6 +1,6 @@
-import { desktopBridgeChannel } from "@alloy/contracts"
 import { contextBridge, ipcRenderer } from "electron"
 
+import { desktopApiChannel } from "@/shared/desktop-api"
 import type { AlloyNative } from "@/shared/ipc"
 import {
   OVERLAY_CONTINUE_STARTUP_CHANNEL,
@@ -12,13 +12,12 @@ import {
 } from "@/shared/ipc"
 
 /**
- * The single privileged bridge, exposed only in the overlay window. It forwards
- * to request/response IPC channels — no raw `ipcRenderer` reaches the renderer,
- * so the attack surface is exactly the methods below.
+ * Native API exposed only in the overlay window. It forwards to fixed IPC
+ * channels; raw `ipcRenderer` never reaches the renderer.
  */
 const alloyNative: AlloyNative = {
   connect: (url, options) =>
-    ipcRenderer.invoke(desktopBridgeChannel("servers.connect"), url, options),
+    ipcRenderer.invoke(desktopApiChannel("servers.connect"), url, options),
   getStartupServer: () =>
     ipcRenderer.invoke(OVERLAY_GET_STARTUP_SERVER_CHANNEL),
   getStartupUpdate: () =>

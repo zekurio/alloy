@@ -5,9 +5,8 @@ import type {
 } from "@alloy/contracts"
 
 /**
- * Overlay-only IPC channel, deliberately outside the web bridge contract
- * (`DESKTOP_BRIDGE` in @alloy/contracts): only the bundled connect screen may
- * ask which server URL to pre-fill.
+ * Overlay-only IPC channel, deliberately outside the main window's native API.
+ * Only the bundled connect screen may ask which server URL to pre-fill.
  */
 export const OVERLAY_GET_STARTUP_SERVER_CHANNEL =
   "alloy:overlay.get-startup-server"

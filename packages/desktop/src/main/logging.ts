@@ -53,9 +53,8 @@ export function installCrashLogging(): void {
 }
 
 /**
- * Surface renderer errors in the main-process log. The main window runs the
- * remote web app, so this is the only place its production errors become
- * visible. Errors only — warnings from web frameworks are too noisy to keep.
+ * Surface bundled renderer errors in the main-process log, where production
+ * diagnostics are persisted. Framework warnings are too noisy to keep.
  */
 export function forwardRendererConsole(contents: WebContents): void {
   contents.on("console-message", (details) => {

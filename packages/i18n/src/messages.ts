@@ -263,38 +263,51 @@ export const DE_MESSAGES = {
     "Alloy konnte das Update nicht herunterladen.",
   "Alloy could not start the update installer.":
     "Alloy konnte das Update-Installationsprogramm nicht starten.",
+  "Active recording and replay buffering will stop.":
+    "Aktive Aufnahmen und der Replay-Puffer werden beendet.",
   "Alloy could not update": "Alloy konnte nicht aktualisiert werden",
+  "Apply recording settings?": "Aufnahmeeinstellungen anwenden?",
+  "Apply settings": "Einstellungen anwenden",
   "Alloy is closing capture services and will restart shortly.":
     "Alloy beendet die Aufnahmedienste und startet gleich neu.",
-  "Automatic update failed. Download the installer to continue.":
-    "Das automatische Update ist fehlgeschlagen. Lade das Installationsprogramm herunter, um fortzufahren.",
-  "Checking for updates...": "Updates werden gesucht...",
+  "Change startup": "Autostart ändern",
+  "Change startup behavior?": "Autostart-Verhalten ändern?",
+  "Connect to another Alloy server?":
+    "Mit einem anderen Alloy-Server verbinden?",
+  Continue: "Fortfahren",
   "Continue without updating": "Ohne Update fortfahren",
   "Continue without updating ({seconds})": "Ohne Update fortfahren ({seconds})",
-  "Desktop update required": "Desktop-Update erforderlich",
   "Download the installer manually":
     "Installationsprogramm manuell herunterladen",
+  "Forget Alloy server?": "Alloy-Server vergessen?",
+  "Download clip": "Clip herunterladen",
+  "Download clip to this computer?": "Clip auf diesen Computer herunterladen?",
   "Downloading Alloy {version}": "Alloy {version} wird heruntergeladen",
-  "Downloading update...": "Update wird heruntergeladen...",
   "Installing Alloy {version}": "Alloy {version} wird installiert",
   "Keep Alloy open. It will restart when the update is ready.":
     "Lass Alloy geöffnet. Alloy startet neu, sobald das Update bereit ist.",
-  "No compatible desktop update was found.":
-    "Es wurde kein kompatibles Desktop-Update gefunden.",
-  "Reload server app": "Server-App neu laden",
-  "Server update required": "Server-Update erforderlich",
+  "Recording and hotkey behavior may change.":
+    "Aufnahme- und Hotkey-Verhalten können sich ändern.",
+  "Recording stops while the desktop update is installed.":
+    "Die Aufnahme wird während der Installation des Desktop-Updates angehalten.",
+  "Restart and install": "Neu starten und installieren",
+  "Restart and install Alloy?": "Alloy neu starten und installieren?",
+  "Restart recording services?": "Aufnahmedienste neu starten?",
+  "Restart services": "Dienste neu starten",
+  "Manage sign-in methods in a browser": "Anmeldemethoden im Browser verwalten",
+  "Open security settings": "Sicherheitseinstellungen öffnen",
+  "Passkeys and linked accounts stay tied to your server's web address.":
+    "Passkeys und verknüpfte Konten bleiben an die Webadresse deines Servers gebunden.",
+  "Server switch cancelled.": "Serverwechsel abgebrochen.",
   "Starting Alloy...": "Alloy wird gestartet...",
   "The update check took too long. Alloy will start normally.":
     "Die Update-Suche hat zu lange gedauert. Alloy startet normal.",
   "The update download took too long. It will continue in the background.":
     "Der Update-Download hat zu lange gedauert. Er läuft im Hintergrund weiter.",
-  "This desktop app has bridge {actual}, but this server supports bridge {expected}. Update the Alloy server, then reload this page.":
-    "Diese Desktop-App hat Bridge {actual}, aber dieser Server unterstützt Bridge {expected}. Aktualisiere den Alloy-Server und lade diese Seite dann neu.",
+  "This changes whether Alloy starts when you sign in.":
+    "Dadurch wird geändert, ob Alloy bei der Anmeldung gestartet wird.",
   "This quick check keeps Alloy Desktop and your server in sync.":
     "Diese kurze Prüfung hält Alloy Desktop und deinen Server synchron.",
-  "This server needs desktop bridge {expected}, but this app has bridge {actual}. Update Alloy Desktop to continue.":
-    "Dieser Server braucht Desktop-Bridge {expected}, aber diese App hat Bridge {actual}. Aktualisiere Alloy Desktop, um fortzufahren.",
-  "Update Alloy Desktop": "Alloy Desktop aktualisieren",
   Choose: "Auswählen",
   "Change {label}": "{label} ändern",
   "Choose date": "Datum wählen",
@@ -523,6 +536,9 @@ export const DE_MESSAGES = {
   "Delete account": "Konto löschen",
   "Delete all clips?": "Alle Clips löschen?",
   "Delete capture": "Aufnahme löschen",
+  "Delete local capture?": "Lokale Aufnahme löschen?",
+  "This moves the recording file to the system trash.":
+    "Dadurch wird die Aufnahmedatei in den Systempapierkorb verschoben.",
   "Delete clip": "Clip löschen",
   Dismiss: "Ausblenden",
   "Delete clips": "Clips löschen",
@@ -547,7 +563,8 @@ export const DE_MESSAGES = {
   "Description can be at most {max} characters":
     "Die Beschreibung darf höchstens {max} Zeichen lang sein",
   Desktop: "Desktop",
-  "Desktop bridge is unavailable.": "Desktop-Bridge ist nicht verfügbar.",
+  "Desktop native API is unavailable.":
+    "Die native Desktop-API ist nicht verfügbar.",
   "Desktop releases": "Desktop-Versionen",
   Details: "Details",
   "Detecting encoders...": "Encoder werden erkannt …",

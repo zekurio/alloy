@@ -77,8 +77,8 @@ export function candidateUrls(input: string): string[] {
   return bases
 }
 
-function supportsDesktopAuth(config: PublicAuthConfig): boolean {
-  return config.desktopAuth.version >= DESKTOP_AUTH_CAPABILITY_VERSION
+export function supportsDesktopAuthVersion(version: number): boolean {
+  return version === DESKTOP_AUTH_CAPABILITY_VERSION
 }
 
 async function probeOne(baseUrl: string): Promise<ProbeResult> {
@@ -108,7 +108,7 @@ async function probeOne(baseUrl: string): Promise<ProbeResult> {
       providers: result.data.providers,
       loginSplash: result.data.loginSplash,
     }
-    if (!supportsDesktopAuth(body)) {
+    if (!supportsDesktopAuthVersion(body.desktopAuth.version)) {
       return {
         ok: false,
         error: "This Alloy server does not support desktop login yet.",

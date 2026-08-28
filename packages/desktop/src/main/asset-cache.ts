@@ -12,6 +12,8 @@ import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import { app, net } from "electron"
 
+import { selectedAppProtocolServer } from "./app-protocol"
+import { isAllowedAssetSource } from "./asset-cache-policy"
 import {
   markHousekeepingPathActive,
   markHousekeepingPathInactive,
@@ -31,9 +33,9 @@ const logger = createLogger("assets")
  * are served through the `alloy-asset://` protocol so they stay available
  * across restarts and when the network (or the Alloy server) is slow or gone.
  *
- * URL shape: `alloy-asset://remote/<base64url(source URL)>`. The handler only
- * proxies http(s) URLs, only persists image responses, and never forwards
- * cookies — it is a read-only image mirror, not a general fetch bypass.
+ * URL shape: `alloy-asset://remote/<base64url(source URL)>`. The handler accepts
+ * only selected-server game assets and fixed SteamGridDB HTTPS hosts. It
+ * validates every redirect, bounds the stream, and never forwards cookies.
  */
 export const ASSET_PROTOCOL = "alloy-asset"
 const ASSET_HOST = "remote"
@@ -41,6 +43,7 @@ const FRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const MAX_ENTRY_BYTES = 10 * 1024 * 1024
 const MAX_CACHE_BYTES = 128 * 1024 * 1024
 const FETCH_TIMEOUT_MS = 15_000
+const MAX_REDIRECTS = 3
 
 export function assetCacheProtocolScheme(): Electron.CustomScheme {
   return {
@@ -54,9 +57,8 @@ export function assetCacheProtocolScheme(): Electron.CustomScheme {
 }
 
 /**
- * Maps a remote asset URL to its cached protocol URL. Non-http(s) inputs
- * (including URLs already routed through a custom protocol) pass through
- * unchanged.
+ * Maps a candidate remote image to its cache URL. The protocol handler applies
+ * the authoritative source allowlist before making a request.
  */
 export function cachedAssetUrl(url: string | null): string | null {
   if (!url || !/^https?:\/\//i.test(url)) return url
@@ -125,21 +127,24 @@ async function fetchAndStoreAsset(
   stale: { meta: AssetMeta; body: Buffer } | null,
 ): Promise<Response> {
   try {
-    const response = await net.fetch(sourceUrl, {
-      // Never attach the Alloy session cookie (or any other credentials) to
-      // asset fetches; cached assets are public images.
-      credentials: "omit",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    })
+    const response = await fetchAllowedAsset(
+      sourceUrl,
+      AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    )
     const contentType = response.headers.get("content-type") ?? ""
     if (!response.ok || !contentType.toLowerCase().startsWith("image/")) {
       throw new Error(
         `Asset fetch failed: ${response.status} ${contentType || "no content type"}`,
       )
     }
+    const declaredBytes = Number(response.headers.get("content-length"))
+    if (Number.isFinite(declaredBytes) && declaredBytes > MAX_ENTRY_BYTES) {
+      await response.body?.cancel().catch(() => undefined)
+      throw new Error("Asset exceeds byte limit")
+    }
 
-    const body = Buffer.from(await response.arrayBuffer())
-    if (body.byteLength > 0 && body.byteLength <= MAX_ENTRY_BYTES) {
+    const body = await readBoundedAssetBody(response)
+    if (body.byteLength > 0) {
       writeCachedAsset(key, sourceUrl, contentType, body)
     }
     return assetResponse(body, contentType)
@@ -152,6 +157,56 @@ async function fetchAndStoreAsset(
     logger.warn("failed to fetch remote asset:", cause)
     return new Response("Bad gateway", { status: 502 })
   }
+}
+
+async function fetchAllowedAsset(
+  sourceUrl: string,
+  signal: AbortSignal,
+  redirects = 0,
+): Promise<Response> {
+  if (!isAllowedAssetSource(sourceUrl, selectedAppProtocolServer())) {
+    throw new Error("Asset source is not allowed")
+  }
+
+  const response = await net.fetch(sourceUrl, {
+    // Cached assets are public images. Never attach session credentials.
+    credentials: "omit",
+    redirect: "manual",
+    signal,
+  })
+  if (response.status < 300 || response.status > 399) return response
+
+  const location = response.headers.get("location")
+  await response.body?.cancel().catch(() => undefined)
+  if (!location || redirects >= MAX_REDIRECTS) {
+    throw new Error("Asset redirect was rejected")
+  }
+  return fetchAllowedAsset(
+    new URL(location, sourceUrl).toString(),
+    signal,
+    redirects + 1,
+  )
+}
+
+async function readBoundedAssetBody(response: Response): Promise<Buffer> {
+  const reader = response.body?.getReader()
+  if (!reader) throw new Error("Asset response has no body")
+
+  const chunks: Uint8Array[] = []
+  let total = 0
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      total += value.byteLength
+      if (total > MAX_ENTRY_BYTES) throw new Error("Asset exceeds byte limit")
+      chunks.push(value)
+    }
+  } catch (cause) {
+    await reader.cancel().catch(() => undefined)
+    throw cause
+  }
+  return Buffer.concat(chunks, total)
 }
 
 function assetResponse(body: Buffer, contentType: string): Response {
@@ -291,11 +346,10 @@ function assetUrlFromRequest(rawUrl: string): string | null {
     const encoded = url.pathname.replace(/^\/+/, "")
     if (!/^[A-Za-z0-9_-]{8,2048}$/.test(encoded)) return null
     const decoded = Buffer.from(encoded, "base64url").toString("utf8")
-    const source = new URL(decoded)
-    if (source.protocol !== "https:" && source.protocol !== "http:") {
-      return null
-    }
-    return source.toString()
+    const source = new URL(decoded).toString()
+    return isAllowedAssetSource(source, selectedAppProtocolServer())
+      ? source
+      : null
   } catch {
     return null
   }

@@ -3,9 +3,8 @@ import { session, type Session } from "electron"
 import { isAllowedMainSessionPermission } from "./permissions"
 
 /**
- * Persistent session partition for the main window. The Alloy session cookie
- * lives here so the user stays logged in across restarts; it's also where the
- * browser-login handshake injects the session it obtains.
+ * Persistent session partition for the bundled main window and its API proxy.
+ * HttpOnly server cookies stay here and never move to the local app origin.
  */
 export const MAIN_PARTITION = "persist:alloy"
 const ACCESS_COOKIE = "alloy_access"
@@ -13,6 +12,11 @@ const REFRESH_COOKIE = "alloy_refresh"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
 const AUTH_COOKIE_FLUSH_DELAY_MS = 100
 const AUTH_COOKIE_NAMES = [ACCESS_COOKIE, REFRESH_COOKIE] as const
+const MANAGED_COOKIE_NAMES = [
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  AUTH_MARKER_COOKIE,
+] as const
 
 let watchingAuthCookiePersistence = false
 let authCookieFlushTimer: ReturnType<typeof setTimeout> | null = null
@@ -28,19 +32,7 @@ export function mainSession(): Session {
   return session.fromPartition(MAIN_PARTITION)
 }
 
-/**
- * Drop cached remote web assets before loading a server after reconnect or
- * upgrade. Keep cookies/storage intact so authenticated sessions survive.
- */
-export function clearRemoteWebCache(): Promise<void> {
-  return mainSession().clearCache()
-}
-
-/**
- * The main partition loads server-provided web content. Keep browser
- * permissions deny-by-default; future native features should request OS
- * permissions from trusted main/preload code, not from remote page JS.
- */
+/** Keep renderer permission requests deny-by-default. */
 export function hardenMainSessionPermissions(): void {
   const ses = mainSession()
   ses.setPermissionRequestHandler((_webContents, permission, callback) => {
@@ -52,7 +44,7 @@ export function hardenMainSessionPermissions(): void {
 }
 
 /**
- * Flush auth-cookie changes made by remote web responses promptly. Windows can
+ * Flush auth-cookie changes made by server API responses promptly. Windows can
  * terminate applications without Electron's asynchronous quit path during a
  * reboot, so relying on Chromium's eventual cookie-store flush can leave an
  * already-rotated refresh token only in memory.
@@ -69,9 +61,9 @@ export function watchAuthCookiePersistence(): void {
 
 /**
  * Report whether this installation has a locally usable credential for the
- * server. This deliberately performs no network validation: normal web
- * navigation is the single owner of refresh-token rotation, and a transient
- * startup network failure must not be interpreted as a logout.
+ * server. This deliberately performs no network validation: the bundled app's
+ * API proxy owns refresh-token rotation, and a transient startup network
+ * failure must not be interpreted as a logout.
  */
 export async function hasStoredSession(serverUrl: string): Promise<boolean> {
   return (await mainSession().cookies.get({ url: serverUrl })).some(
@@ -79,10 +71,18 @@ export async function hasStoredSession(serverUrl: string): Promise<boolean> {
   )
 }
 
+/** Remove only Alloy auth cookies visible to one forgotten server. */
+export async function clearServerAuthCookies(serverUrl: string): Promise<void> {
+  const url = new URL(serverUrl).origin
+  await Promise.all(
+    MANAGED_COOKIE_NAMES.map((name) => mainSession().cookies.remove(url, name)),
+  )
+  await flushCookieStore()
+}
+
 /**
- * Write the session obtained from the browser-login handshake into the main
- * partition's cookie jar, so the main window loads the server already
- * authenticated. Mirrors the cookies the server sets on a normal login.
+ * Write the session obtained from browser login into the API proxy's cookie
+ * jar. Mirrors the cookies the server sets on a normal login.
  */
 export async function injectSessionCookie(
   serverUrl: string,
@@ -140,7 +140,7 @@ function isAuthCookie(name: string): boolean {
 }
 
 function isManagedAuthCookie(name: string): boolean {
-  return isAuthCookie(name) || name === AUTH_MARKER_COOKIE
+  return MANAGED_COOKIE_NAMES.some((cookieName) => cookieName === name)
 }
 
 function scheduleCookieStoreFlush(): void {

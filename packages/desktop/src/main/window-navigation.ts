@@ -1,11 +1,14 @@
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 
 import { createLogger } from "@alloy/logging"
-import { shell, type BrowserWindow } from "electron"
+import { app, shell, type BrowserWindow } from "electron"
 
-import { sameOrigin } from "./url-policy"
+import { APP_URL, isTrustedAppDocumentUrl } from "./app-protocol-policy"
+import { desktopNavigationScript } from "./desktop-navigation"
 
 const logger = createLogger("windows")
+const OVERLAY_DOCUMENT = join(import.meta.dirname, "../renderer/index.html")
 
 export function showWindow(win: BrowserWindow): void {
   if (win.isMinimized()) win.restore()
@@ -13,91 +16,60 @@ export function showWindow(win: BrowserWindow): void {
   win.focus()
 }
 
-/**
- * Script for a same-document navigation inside the remote app. The pushed
- * state must carry TanStack Router's history bookkeeping: the router derives
- * back/forward availability from the `__TSR_index` it stores on every entry,
- * and a plain `pushState({})` breaks that chain — each later in-app push then
- * computes `undefined + 1 = NaN`, leaving the header nav arrows disabled for
- * the rest of the session.
- */
-function sameDocumentNavigationScript(mutateUrl: string): string {
-  return `
-    (() => {
-      const url = new URL(window.location.href);
-      ${mutateUrl}
-      const prevIndex = window.history.state?.__TSR_index;
-      const key = Math.random().toString(36).slice(2, 10);
-      window.history.pushState(
-        {
-          key,
-          __TSR_key: key,
-          __TSR_index: Number.isInteger(prevIndex) ? prevIndex + 1 : 0,
-        },
-        "",
-        url,
-      );
-      window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }));
-    })();
-  `
+export function loadDesktopRenderer(win: BrowserWindow): Promise<void> {
+  return win.loadURL(desktopRendererUrl())
 }
 
-export async function openWebSettings(
+export async function openDesktopPath(
   win: BrowserWindow,
-  origin: string,
-): Promise<void> {
-  const settingsUrl = new URL(origin)
-  settingsUrl.searchParams.set("settings", "desktop")
-
-  if (win.webContents.isLoadingMainFrame()) {
-    win.webContents.once("did-finish-load", () => {
-      void openWebSettings(win, origin)
-    })
-    return
-  }
-
-  const currentUrl = win.webContents.getURL()
-  if (!sameOrigin(currentUrl, origin)) {
-    await win.loadURL(settingsUrl.toString())
-    return
-  }
-
-  await win.webContents.executeJavaScript(
-    sameDocumentNavigationScript(
-      `url.searchParams.set("settings", "desktop");`,
-    ),
-    true,
-  )
-}
-
-export async function openWebPath(
-  win: BrowserWindow,
-  origin: string,
   path: string,
 ): Promise<void> {
-  const targetUrl = new URL(path, origin)
+  if (!isInternalAppPath(path)) return
 
   if (win.webContents.isLoadingMainFrame()) {
     win.webContents.once("did-finish-load", () => {
-      void openWebPath(win, origin, path)
+      void openDesktopPath(win, path)
     })
     return
   }
 
-  const currentUrl = win.webContents.getURL()
-  if (!sameOrigin(currentUrl, origin)) {
-    await win.loadURL(targetUrl.toString())
+  if (!isTrustedMainRendererUrl(win.webContents.getURL())) {
+    await win.loadURL(desktopRendererUrl(path))
     return
   }
 
-  await win.webContents.executeJavaScript(
-    sameDocumentNavigationScript(`
-      url.pathname = ${JSON.stringify(targetUrl.pathname)};
-      url.search = ${JSON.stringify(targetUrl.search)};
-      url.hash = "";
-    `),
-    true,
-  )
+  await win.webContents.executeJavaScript(desktopNavigationScript(path), true)
+}
+
+export function desktopRendererUrl(path?: string): string {
+  const devUrl = devRendererDocumentUrl("desktop.html")
+  const base = devUrl ?? APP_URL
+  if (!path || !isInternalAppPath(path)) return base
+  const url = new URL(base)
+  url.hash = path
+  return url.toString()
+}
+
+export function isTrustedMainRendererUrl(rawUrl: string): boolean {
+  return isTrustedAppDocumentUrl(rawUrl, devRendererDocumentUrl("desktop.html"))
+}
+
+export function isTrustedOverlayRendererUrl(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl)
+    const devUrl = devRendererDocumentUrl("index.html")
+    if (devUrl) {
+      const expected = new URL(devUrl)
+      return (
+        url.origin === expected.origin && url.pathname === expected.pathname
+      )
+    }
+
+    const expected = new URL(pathToFileURL(OVERLAY_DOCUMENT))
+    return url.protocol === "file:" && url.pathname === expected.pathname
+  } catch {
+    return false
+  }
 }
 
 export function openExternal(url: string): void {
@@ -106,11 +78,7 @@ export function openExternal(url: string): void {
   })
 }
 
-/**
- * Load the overlay renderer: the electron-vite dev server in development, the
- * built HTML in production. `ELECTRON_RENDERER_URL` is injected by electron-vite
- * during `dev`.
- */
+/** Load the overlay from Electron Vite in development and disk when built. */
 export function loadRenderer(
   win: BrowserWindow,
   query?: Record<string, string | undefined>,
@@ -121,7 +89,7 @@ export function loadRenderer(
       Boolean(entry[1]),
     ),
   )
-  const devUrl = process.env.ELECTRON_RENDERER_URL
+  const devUrl = devRendererDocumentUrl(html)
   if (!devUrl) {
     win.loadFile(join(import.meta.dirname, "../renderer", html), {
       query: params,
@@ -129,9 +97,27 @@ export function loadRenderer(
     return
   }
 
-  const url = new URL(html, devUrl.endsWith("/") ? devUrl : `${devUrl}/`)
+  const url = new URL(devUrl)
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value)
   }
   win.loadURL(url.toString())
+}
+
+function devRendererDocumentUrl(html: string): string | null {
+  if (app.isPackaged) return null
+  const rawUrl = process.env.ELECTRON_RENDERER_URL
+  if (!rawUrl) return null
+  try {
+    return new URL(
+      html,
+      rawUrl.endsWith("/") ? rawUrl : `${rawUrl}/`,
+    ).toString()
+  } catch {
+    return null
+  }
+}
+
+function isInternalAppPath(path: string): boolean {
+  return path.startsWith("/") && !path.startsWith("//")
 }

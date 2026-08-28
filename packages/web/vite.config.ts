@@ -89,6 +89,11 @@ function apiProxy(mode: string): ProxyOptions {
 const config = defineConfig(({ mode }) => ({
   cacheDir: "../../node_modules/.vite/web",
   clearScreen: false,
+  // Server-hosted builds are browser-only, even if the build environment has
+  // a stray VITE_ALLOY_DESKTOP variable.
+  define: {
+    "import.meta.env.VITE_ALLOY_DESKTOP": JSON.stringify("false"),
+  },
   publicDir: "../../public",
   resolve: {
     // Keep workspace path aliases in tsconfig; Vite resolves them natively

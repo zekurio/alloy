@@ -18,7 +18,7 @@ import {
   DESKTOP_RECORDING_ENCODERS,
   DESKTOP_RECORDING_FRAME_RATES,
   DESKTOP_RECORDING_RESOLUTIONS,
-} from "./desktop-bridge"
+} from "./desktop-native"
 import {
   asLiteral,
   asNumberLiteral,

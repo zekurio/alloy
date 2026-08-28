@@ -1,11 +1,13 @@
 import {
   DEFAULT_RECORDING_SETTINGS,
+  DESKTOP_HTTP_CONTRACT_1,
   normalizeRecordingSettings,
   type DesktopSavedServer,
   type RecordingSettings,
 } from "@alloy/contracts"
 
 import {
+  parseNonnegativeInteger,
   parseString,
   parseUntrustedRecord,
   type UntrustedInput,
@@ -47,10 +49,11 @@ export function normalizeState(parsed: UntrustedRecord): DesktopState {
 export function upsertServer(
   servers: DesktopSavedServer[],
   serverUrl: string,
+  httpContract: number,
   now: Date = new Date(),
 ): DesktopSavedServer[] {
   return dedupeServers([
-    { serverUrl, lastConnectedAt: now.toISOString() },
+    { serverUrl, lastConnectedAt: now.toISOString(), httpContract },
     ...servers.filter((server) => server.serverUrl !== serverUrl),
   ]).slice(0, MAX_SAVED_SERVERS)
 }
@@ -61,10 +64,17 @@ function normalizeSavedServer(
   const record = parseUntrustedRecord(value)
   const serverUrl = parseString(record?.serverUrl)
   if (serverUrl === null) return null
+  const parsedContract = parseNonnegativeInteger(record?.httpContract)
   return {
     serverUrl,
     lastConnectedAt:
       parseString(record?.lastConnectedAt) ?? new Date(0).toISOString(),
+    // Released pre-cut state had no field and is the implicit contract-1
+    // baseline. Preserve explicit future IDs so this client can reject them.
+    httpContract:
+      parsedContract && parsedContract > 0
+        ? parsedContract
+        : DESKTOP_HTTP_CONTRACT_1,
   }
 }
 

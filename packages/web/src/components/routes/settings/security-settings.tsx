@@ -3,7 +3,7 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { useQuery } from "@tanstack/react-query"
-import { CircleAlertIcon, RefreshCcwIcon } from "lucide-react"
+import { CircleAlertIcon, ExternalLinkIcon, RefreshCcwIcon } from "lucide-react"
 
 import {
   LinkedAccountsCard,
@@ -14,17 +14,20 @@ import {
   linkedAccountsQueryOptions,
   passkeysQueryOptions,
 } from "@/lib/auth-query-keys"
+import { alloyDesktop } from "@/lib/desktop"
+import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 import { useSuspenseAuthConfig } from "@/lib/session-suspense"
 
-function useSecurityData(config: PublicAuthConfig) {
+function useSecurityData(config: PublicAuthConfig, enabled: boolean) {
   const accountsQuery = useQuery({
     ...linkedAccountsQueryOptions(),
+    enabled,
   })
 
   const passkeysQuery = useQuery({
     ...passkeysQueryOptions(),
-    enabled: config.passkeyEnabled,
+    enabled: enabled && config.passkeyEnabled,
   })
 
   return {
@@ -52,8 +55,10 @@ function useSecurityData(config: PublicAuthConfig) {
 
 export function SecuritySettings() {
   const config = useSuspenseAuthConfig()
-  const security = useSecurityData(config)
+  const desktop = alloyDesktop()
+  const security = useSecurityData(config, desktop === null)
 
+  if (desktop) return <DesktopSecuritySettings />
   if (security.loading) return null
 
   if (!security.accounts) {
@@ -102,5 +107,34 @@ export function SecuritySettings() {
         />
       )}
     </>
+  )
+}
+
+function DesktopSecuritySettings() {
+  const securityUrl = new URL("/?settings=profile", publicOrigin()).toString()
+
+  return (
+    <Callout>
+      <ExternalLinkIcon />
+      <div className="flex flex-1 items-center justify-between gap-3">
+        <div>
+          <p className="font-medium">
+            {t("Manage sign-in methods in a browser")}
+          </p>
+          <p className="text-foreground-muted mt-1 text-xs">
+            {t(
+              "Passkeys and linked accounts stay tied to your server's web address.",
+            )}
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          render={<a href={securityUrl} target="_blank" rel="noreferrer" />}
+        >
+          {t("Open security settings")}
+        </Button>
+      </div>
+    </Callout>
   )
 }

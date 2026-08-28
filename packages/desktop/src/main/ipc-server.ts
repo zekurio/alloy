@@ -1,4 +1,9 @@
-import type { DesktopConnectResult } from "@alloy/contracts"
+import {
+  DESKTOP_AUTH_CAPABILITY_VERSION,
+  DESKTOP_HTTP_CONTRACT_1,
+  type DesktopConnectResult,
+} from "@alloy/contracts"
+import { t } from "@alloy/i18n"
 import { ipcMain, shell } from "electron"
 
 import {
@@ -10,7 +15,7 @@ import {
 } from "@/shared/ipc"
 
 import { loginViaBrowser } from "./browser-login"
-import type { BridgeHandlerFragment } from "./ipc-bridge"
+import type { DesktopApiHandlerFragment } from "./ipc-api"
 import {
   requireControllableWindow,
   requireDesktopSender,
@@ -18,6 +23,7 @@ import {
   requireMainSender,
   requireOverlaySender,
 } from "./ipc-guards"
+import { confirmNativeAction } from "./native-confirmation"
 import { probeServer } from "./probe"
 import {
   parseBoolean,
@@ -25,13 +31,14 @@ import {
   parseUntrustedRecord,
   type UntrustedInput,
 } from "./runtime-validation"
+import { evaluateServerInfoResponse } from "./server-http-contract"
 import {
   forgetServer,
   getSavedServers,
   getStartupServerUrl,
   rememberServer,
 } from "./server-store"
-import { clearRemoteWebCache, hasStoredSession } from "./session"
+import { clearServerAuthCookies, hasStoredSession } from "./session"
 import {
   continueStartup,
   getStartupUpdateState,
@@ -41,15 +48,16 @@ import type { Windows } from "./windows"
 
 const SETUP_REQUIRED_ERROR =
   "This Alloy server needs setup. Finish setup in your browser, then connect again."
+const SERVER_INFO_PATH = "/api/server-info"
+const SERVER_INFO_TIMEOUT_MS = 8000
 
 interface ConnectOptions {
   forceBrowserLogin: boolean
 }
 
 /**
- * Overlay-only channels, deliberately outside the web bridge contract. The
- * bundled connect screen is the only sender allowed to read the startup
- * server.
+ * Overlay-only channels, deliberately outside the main window's native API.
+ * The bundled connect screen is the only sender allowed to read startup state.
  */
 export function registerOverlayIpc(windows: Windows): void {
   ipcMain.handle(OVERLAY_GET_STARTUP_SERVER_CHANNEL, (event): string | null => {
@@ -74,15 +82,15 @@ export function registerOverlayIpc(windows: Windows): void {
   })
 }
 
-/** Server connection, navigation, and window-control bridge handlers. */
-export const serverBridgeHandlers = {
+/** Server connection, navigation, and window-control native handlers. */
+export const serverDesktopApiHandlers = {
   // `servers.connect` serves both the overlay's first connect and the
   // connected app's server switcher, so it takes the wider desktop guard.
   "servers.connect": {
     guard: requireDesktopSender,
     handle: async (
       windows,
-      _event,
+      event,
       rawUrl: UntrustedInput,
       options: UntrustedInput,
     ): Promise<DesktopConnectResult> => {
@@ -91,8 +99,23 @@ export const serverBridgeHandlers = {
         return { ok: false, error: "Enter a server URL." }
       }
       const forceBrowserLogin = connectOptions(options).forceBrowserLogin
-      // Re-probe before committing so we only ever persist + load a URL we
-      // just confirmed is a reachable Alloy server.
+      const currentServerUrl = windows.currentServerUrl()
+      const requestedOrigin = URL.canParse(url) ? new URL(url).origin : null
+      if (
+        currentServerUrl &&
+        requestedOrigin !== new URL(currentServerUrl).origin &&
+        !(await confirmNativeAction(event, {
+          type: "question",
+          title: t("Connect to another Alloy server?"),
+          message: url.slice(0, 200),
+          confirmLabel: t("Continue"),
+        }))
+      ) {
+        return { ok: false, error: t("Server switch cancelled.") }
+      }
+
+      // Re-probe after user confirmation so renderer input cannot turn main
+      // into a private-network probe.
       const result = await probeServer(url)
       if (!result.ok) return { ok: false, error: result.error }
       if (result.config.setupRequired) {
@@ -101,19 +124,31 @@ export const serverBridgeHandlers = {
           .catch(() => undefined)
         return { ok: false, error: SETUP_REQUIRED_ERROR }
       }
+      // Legacy fallback is allowed only after this exact pre-cut capability
+      // has validated. A future auth capability is not contract 1.
+      if (
+        result.config.desktopAuth.version !== DESKTOP_AUTH_CAPABILITY_VERSION
+      ) {
+        return {
+          ok: false,
+          error: "This Alloy server is not compatible with this desktop app.",
+        }
+      }
+      const contract = await checkServerHttpContract(result.serverUrl)
+      if (!contract.ok) return { ok: false, error: contract.error }
 
-      // Let the server and web app validate stored credentials during normal
-      // navigation. A separate validation request could rotate a refresh token
-      // and strand it if the request is interrupted. Browser login is only
-      // required when no usable local auth cookie exists.
+      // Let the bundled app validate stored credentials through the API proxy.
+      // A separate validation request could rotate a refresh token and strand
+      // it if interrupted. Browser login is required only when no usable local
+      // auth cookie exists.
       if (forceBrowserLogin || !(await hasStoredSession(result.serverUrl))) {
         const login = await loginViaBrowser(result.serverUrl)
         if (!login.ok) return { ok: false, error: login.error }
       }
 
-      rememberServer(result.serverUrl)
-      await clearRemoteWebCache()
-      windows.connectTo(result.serverUrl)
+      rememberServer(result.serverUrl, DESKTOP_HTTP_CONTRACT_1)
+      // Resolve IPC before destroying or closing the invoking renderer.
+      setTimeout(() => windows.connectTo(result.serverUrl), 0)
       return { ok: true, serverUrl: result.serverUrl }
     },
   },
@@ -127,10 +162,29 @@ export const serverBridgeHandlers = {
   },
   "servers.forgetServer": {
     guard: requireDesktopSender,
-    handle: (_windows, _event, input: UntrustedInput) => {
+    handle: async (windows, event, input: UntrustedInput) => {
       const url = parseString(input)
       if (url === null) return getSavedServers()
-      return forgetServer(url)
+      const saved = getSavedServers().find((server) => server.serverUrl === url)
+      if (!saved) return getSavedServers()
+      if (
+        !(await confirmNativeAction(event, {
+          title: t("Forget Alloy server?"),
+          message: new URL(saved.serverUrl).host,
+          confirmLabel: t("Forget server"),
+        }))
+      ) {
+        return getSavedServers()
+      }
+
+      await clearServerAuthCookies(saved.serverUrl)
+      const remaining = forgetServer(saved.serverUrl)
+      if (new URL(saved.serverUrl).origin === windows.currentServerUrl()) {
+        // Re-open the connect surface instead of selecting another saved
+        // server without probing its current HTTP contract.
+        setTimeout(() => windows.disconnectFromServer(), 0)
+      }
+      return remaining
     },
   },
   openConnect: {
@@ -177,7 +231,37 @@ export const serverBridgeHandlers = {
       requireControllableWindow(windows, event).close()
     },
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment
+
+async function checkServerHttpContract(
+  serverUrl: string,
+): Promise<ReturnType<typeof evaluateServerInfoResponse>> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), SERVER_INFO_TIMEOUT_MS)
+  try {
+    const response = await fetch(new URL(SERVER_INFO_PATH, serverUrl), {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      credentials: "omit",
+      redirect: "manual",
+      signal: controller.signal,
+    })
+    const body: unknown = response.ok
+      ? await response.json().catch(() => null)
+      : null
+    return evaluateServerInfoResponse(response.status, body)
+  } catch (cause) {
+    return {
+      ok: false,
+      error:
+        cause instanceof Error && cause.name === "AbortError"
+          ? t("Connection timed out.")
+          : t("Could not reach server."),
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 function connectOptions(value: UntrustedInput): ConnectOptions {
   const record = parseUntrustedRecord(value)

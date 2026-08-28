@@ -22,7 +22,7 @@ import {
 } from "react"
 import type { Dispatch, ReactNode, SetStateAction } from "react"
 
-import { alloyDesktop } from "./desktop-bridge"
+import { alloyDesktop } from "./desktop-native"
 
 type Phase = "loading" | "idle"
 
