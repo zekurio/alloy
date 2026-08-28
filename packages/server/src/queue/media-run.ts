@@ -12,7 +12,6 @@ import {
   cleanupTickets,
   selectVideoTicketKey,
 } from "@alloy/server/uploads/tickets"
-import { announceClipPublished } from "@alloy/server/webhooks/publish"
 
 import { abortMediaProcessing } from "./media-abort"
 import {
@@ -168,8 +167,6 @@ async function runPipelineInWorkDir({
   const fingerprintFacts = {
     height: sourceProbe.height,
     sourceFps,
-    sourceContentType,
-    sourceCodecs,
     trimStartMs: row.trimStartMs,
     trimEndMs: row.trimEndMs,
     audioTrackFingerprint: audioTrackHints.length
@@ -277,13 +274,6 @@ async function runPipelineInWorkDir({
     hardwareFailed,
     uploadedKeys,
     progress,
-    // The clip went live at commitPlayable. Announce as soon as the OG
-    // rendition lands — embeds serve it with its configured codec — while the
-    // remaining tiers still encode.
-    onOgRenditionCommitted: (rendition) => {
-      retainPublishedKey(rendition.storageKey)
-      announceClipPublished(id)
-    },
   })
 
   await ensureStillPresent(store, id, runId, signal)

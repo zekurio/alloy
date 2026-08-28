@@ -187,9 +187,9 @@ export const DEFAULT_RENDITION_TIERS: RenditionTierConfig[] = [
 ]
 
 /**
- * How the media pipeline encodes new clips. Tiers at/above a browser-safe
- * H.264 MP4 source's height are skipped because the source serves them; the
- * og-flagged tier matters for sources that are not browser-safe H.264 MP4.
+ * How the media pipeline encodes new clips. Every tier at or below the
+ * source's height encodes; taller tiers are skipped. The og-flagged tier
+ * (default: the tallest) powers OpenGraph/social embeds.
  * `videoCodec` is the default codec for every tier; a tier may override it
  * with its own `codec`. `quality` is a CRF-scale value (lower = better) mapped
  * to the equivalent rate-control knob of hardware encoders. Audio is always
