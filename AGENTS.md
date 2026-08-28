@@ -29,7 +29,7 @@ Do not overwrite unrelated working-tree changes.
 
 ## Tooling and development
 
-Use Node 24 and the pinned `pnpm@11.13.0`. Never use npm, Yarn, or Bun. Prefer
+Use Node 24 and the pinned `pnpm@11.24.0`. Never use npm, Yarn, or Bun. Prefer
 root scripts. For package-specific work, run
 `pnpm --filter @alloy/<package> <script>`.
 
