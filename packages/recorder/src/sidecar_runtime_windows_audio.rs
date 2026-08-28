@@ -503,8 +503,7 @@
 
         let count = (len / 4) as usize;
         let raw = std::slice::from_raw_parts(buffer.cast::<u16>(), count * 2);
-        raw.chunks_exact(2)
-            .map(|chunk| VersionTranslation {
+        raw.as_chunks::<2>().0.iter().map(|chunk| VersionTranslation {
                 language: chunk[0],
                 code_page: chunk[1],
             })

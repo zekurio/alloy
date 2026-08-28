@@ -3,11 +3,12 @@
 /* eslint-disable no-console */
 
 import {
-  cpSync,
+  copyFileSync,
   lstatSync,
   mkdirSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   realpathSync,
   symlinkSync,
 } from "node:fs"
@@ -102,14 +103,33 @@ while (queue.length > 0) {
   }
 }
 
+const copyTree = (source, destination) => {
+  const stat = lstatSync(source)
+  if (stat.isSymbolicLink()) {
+    symlinkSync(readlinkSync(source), destination)
+    return
+  }
+  if (stat.isDirectory()) {
+    // pnpm's store directories can be read-only. Creating destination
+    // directories ourselves avoids copying that mode before their children.
+    mkdirSync(destination, { recursive: true })
+    for (const child of readdirSync(source)) {
+      copyTree(join(source, child), join(destination, child))
+    }
+    return
+  }
+  if (stat.isFile()) {
+    copyFileSync(source, destination)
+    return
+  }
+  throw new Error(`Unsupported node_modules entry: ${source}`)
+}
+
 const outModules = join(outServerDir, "node_modules")
 mkdirSync(join(outModules, ".pnpm"), { recursive: true })
 
 for (const entry of seen) {
-  cpSync(join(pnpmStore, entry), join(outModules, ".pnpm", entry), {
-    recursive: true,
-    verbatimSymlinks: true,
-  })
+  copyTree(join(pnpmStore, entry), join(outModules, ".pnpm", entry))
 }
 
 for (const name of directDeps) {
