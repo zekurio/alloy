@@ -38,7 +38,7 @@ import {
   upsertAudioDevice,
 } from "@/lib/audio-device-selection"
 
-import { alloyDesktop, DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-bridge"
+import { alloyDesktop, DESKTOP_RECORDING_AUDIO_MODES } from "./desktop-native"
 import {
   DesktopRecordingNotice,
   useDesktopRecording,

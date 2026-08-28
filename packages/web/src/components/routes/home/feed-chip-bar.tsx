@@ -1,6 +1,5 @@
 import type { FeedFilter } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import { Link } from "@tanstack/react-router"
 import { GlobeIcon, UsersIcon } from "lucide-react"
 
@@ -8,6 +7,7 @@ import {
   FilterChipRail,
   type FilterChipOption,
 } from "@/components/clip/filter-chip-rail"
+import { GameIcon } from "@/components/game/game-icon"
 import { useFeedChipsQuery } from "@/lib/feed-queries"
 import type { HomeSearch } from "@/lib/home-search"
 

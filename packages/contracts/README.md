@@ -14,6 +14,8 @@ packages/contracts/
   src/blurhash.ts                    BlurHash validation helpers
   src/content.ts                     clip/content contracts
   src/tags.ts                        tag normalization contracts
+  src/server-http.ts                 desktop/server HTTP contract declaration
+  src/desktop-api.ts                 lockstep renderer/preload/main API
   src/desktop-recording*.ts          desktop recorder contracts
   src/desktop-update.ts              desktop updater state contracts
 ```
@@ -23,10 +25,12 @@ packages/contracts/
 ```bash
 pnpm --filter @alloy/contracts build
 pnpm --filter @alloy/contracts typecheck
+pnpm --filter @alloy/contracts test
 ```
 
 ## Guidelines
 
 Put cross-boundary contracts here before wiring new behavior into clients or
-server routes. Keep contracts serializable and stable; prefer additive changes
-when desktop or recorder versions may lag behind the server.
+server routes. Keep values serializable. The bundled desktop renderer, preload,
+and main process share one lockstep API; external server and recorder contracts
+still need compatibility when their versions can drift.

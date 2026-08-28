@@ -1,13 +1,13 @@
 # Alloy
 
 Alloy is a self-hosted Medal.tv alternative. Its Electron desktop app records
-gameplay through a Windows-only Rust OBS sidecar and loads the server-hosted
-web app. The Hono server and React web app handle uploads, encoding, playback,
-and social features.
+gameplay through a Windows-only Rust OBS sidecar and ships a bundled build of
+the React app. The Hono server handles uploads, encoding, playback, and social
+features; it also serves the React app to normal browsers.
 
 Alloy is early and can take broad refactors. Prefer a smaller correct design
-over preserving weak internals. Keep compatibility where versions can drift,
-especially between the desktop shell and the server-hosted web app.
+over preserving weak internals. Keep compatibility at independently released
+boundaries, especially desktop-to-server HTTP and desktop-to-recorder IPC.
 
 ## Repository map
 
@@ -40,6 +40,7 @@ pnpm db:generate
 pnpm db:migrate
 pnpm db:push
 pnpm db:studio
+pnpm test
 pnpm verify       # formatting check, lint, and typecheck
 ```
 
@@ -55,8 +56,8 @@ For changes under `nix/` or to `flake.nix`, run `nix flake check`. Run
 
 ## Architecture
 
-Server routes use Hono handlers with `zValidator` and Zod input schemas. Return
-helpers from `packages/server/src/runtime/http-response.ts` for HTTP errors.
+Server routes use Hono handlers with `tbValidator` and TypeBox input schemas.
+Return helpers from `packages/server/src/runtime/http-response.ts` for HTTP errors.
 Define background work with `defineJobKind(...)` in
 `packages/server/src/jobs/kinds/`. Keep the media pipeline behind the
 `MediaStore` interface in `packages/server/src/queue/media-store.ts`.
@@ -66,12 +67,19 @@ configuration lives in `packages/web/src/lib/*-queries.ts` and uses TanStack
 Query options. Routes live in `packages/web/src/routes/`; use the guards from
 `packages/web/src/lib/auth-guards.ts`.
 
-Desktop renderers reach the main process through preload bridges. The web
-bridge in `packages/contracts/src/desktop-bridge.ts` is additive-only because
-the web app and desktop shell update independently. Add a contract entry and
-its typed handler fragment instead of creating a channel or preload wrapper.
-Gate web features with `desktopSupports` from
-`packages/web/src/lib/desktop.ts`.
+Electron main, preload, and the bundled renderer release together. Their
+`window.alloyDesktop` API is lockstep, not a versioned deployment boundary.
+Define its cross-process types in `packages/contracts/src/desktop-api.ts`, add
+operation wiring in `packages/desktop/src/shared/desktop-api.ts`, and add an
+exhaustive validated main-process handler. The browser build must ignore native
+globals from retired remote-renderer shells.
+
+The bundled renderer calls `alloy-app://app/api/*`; the main process proxies
+only those paths to the selected server with its HttpOnly cookie jar. Never
+accept a renderer-supplied target origin. Desktop/server compatibility uses
+exact IDs from `/api/server-info`. Contract 1 is immutable, and a breaking HTTP
+change must add a new contract while the current desktop and server continue
+to support the previous one.
 
 Sidecar protocol changes must update both
 `packages/desktop/src/main/recording-sidecar-protocol.ts` and

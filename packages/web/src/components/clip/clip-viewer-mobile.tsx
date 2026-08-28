@@ -2,7 +2,6 @@ import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
@@ -15,6 +14,7 @@ import {
   mobileDrawerContentClass,
   MobileDrawerHandle,
 } from "@/components/app/mobile-drawer-surface"
+import { GameIcon } from "@/components/game/game-icon"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"

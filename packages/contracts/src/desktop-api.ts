@@ -24,35 +24,19 @@ import type {
   RecordingStorageInfo,
 } from "./desktop-recording-types"
 import type { AlloyDesktopUpdatesApi } from "./desktop-update"
-import type { ContractJsonValue } from "./json-value"
-import { isFiniteNumberValue, isObjectRecord } from "./object"
+
+export const DESKTOP_APP_SCHEME = "alloy-app" as const
+export const DESKTOP_APP_HOST = "app" as const
+export const DESKTOP_APP_ORIGIN =
+  `${DESKTOP_APP_SCHEME}://${DESKTOP_APP_HOST}` as const
+export const DESKTOP_APP_DOCUMENT = "desktop.html" as const
+export const DESKTOP_APP_URL =
+  `${DESKTOP_APP_ORIGIN}/${DESKTOP_APP_DOCUMENT}` as const
 
 /**
- * Single source of truth for the `window.alloyDesktop` bridge the desktop
- * shell exposes to the server-hosted web app.
- *
- * The bridge is the contract boundary between the two: IPC channel
- * names and preload internals ship inside one desktop binary and may change
- * freely, but the JS shape below is consumed by whatever web app version the
- * connected server serves.
- *
- * Shape policy:
- * - Breaking changes remove members only when the bridge version is bumped.
- * - New members get `since: DESKTOP_BRIDGE_VERSION + 1` and the version
- *   constant is bumped in the same change.
- * - Alloy 1.0 requires the current version before rendering desktop routes;
- *   feature-by-feature compatibility gates are not supported.
+ * Single source of truth for the lockstep `window.alloyDesktop` API shared by
+ * the bundled renderer, preload, and main process.
  */
-export const DESKTOP_BRIDGE_VERSION = 2
-
-/** Handshake info exposed as `alloyDesktop.bridge`. */
-export interface AlloyDesktopBridgeInfo {
-  /** Bridge contract version; Alloy 1.0 requires the current value. */
-  version: number
-  /** Desktop app version running this shell, e.g. "1.4.0". */
-  appVersion: string
-}
-
 export type DesktopConnectResult =
   | { ok: true; serverUrl: string }
   | { ok: false; error: string }
@@ -64,6 +48,8 @@ export interface DesktopConnectOptions {
 export interface DesktopSavedServer {
   serverUrl: string
   lastConnectedAt: string
+  /** Last exact desktop HTTP contract validated for this server. */
+  httpContract: number
 }
 
 export interface AlloyDesktopServerApi {
@@ -160,12 +146,11 @@ export interface AlloyDesktopRecordingApi {
 }
 
 /**
- * The desktop bridge exposed to the configured Alloy web app as
- * `window.alloyDesktop`. Native side effects stay behind explicit IPC
- * handlers; no raw Electron APIs reach the renderer.
+ * The desktop API exposed to the bundled renderer as `window.alloyDesktop`.
+ * Native side effects stay behind explicit IPC handlers; no raw Electron APIs
+ * reach the renderer.
  */
 export interface AlloyDesktop {
-  bridge: AlloyDesktopBridgeInfo
   /** True when the web app header must provide the draggable title bar. */
   titlebarOverlay: boolean
   minimizeWindow(): Promise<void>
@@ -179,141 +164,4 @@ export interface AlloyDesktop {
   updates: AlloyDesktopUpdatesApi
   autostart: AlloyDesktopAutostartApi
   notifications: AlloyDesktopNotificationsApi
-}
-
-export interface DesktopBridgeMethodMeta {
-  /** Bridge version this member first shipped in. */
-  since: number
-  /** Push-event subscription (listener in, unsubscribe out), not an invoke. */
-  event?: true
-}
-
-type DesktopBridgeApiMeta<T> = {
-  [K in keyof T]-?: T[K] extends (...args: never[]) => infer _Result
-    ? DesktopBridgeMethodMeta
-    : DesktopBridgeApiMeta<T[K]>
-}
-
-/**
- * Invokable bridge members. Drives the desktop preload (channel wiring), the
- * main process handler map (exhaustiveness), and web-side version gating.
- * `bridge` and `titlebarOverlay` are preload-provided values, not channels.
- */
-export const DESKTOP_BRIDGE = {
-  minimizeWindow: { since: 1 },
-  toggleMaximizeWindow: { since: 1 },
-  closeWindow: { since: 1 },
-  openConnect: { since: 1 },
-  openSettings: { since: 1 },
-  reloadApp: { since: 1 },
-  servers: {
-    connect: { since: 1 },
-    getServers: { since: 1 },
-    getCurrentServer: { since: 1 },
-    forgetServer: { since: 1 },
-  },
-  recording: {
-    getSettings: { since: 1 },
-    setSettings: { since: 1 },
-    restartBackend: { since: 1 },
-    getStatus: { since: 1 },
-    getStorageInfo: { since: 1 },
-    getLibrary: { since: 1 },
-    revealLibraryCapture: { since: 1 },
-    exportLibraryCapture: { since: 1 },
-    updateLibraryCapture: { since: 1 },
-    setLibraryCaptureTrim: { since: 1 },
-    deleteLibraryCapture: { since: 1 },
-    importLibraryFiles: { since: 1 },
-    commitStagedLibraryImport: { since: 1 },
-    discardStagedLibraryImport: { since: 1 },
-    saveLibraryCaptureThumbnail: { since: 1 },
-    getLibraryCaptureAudioTrackUrl: { since: 1 },
-    downloadClip: { since: 1 },
-    cancelClipDownload: { since: 1 },
-    listClipDownloads: { since: 1 },
-    onEvent: { since: 1, event: true },
-    selectOutputFolder: { since: 1 },
-    listGameProcesses: { since: 1 },
-    listDisplays: { since: 1 },
-    subscribeAudioLevels: { since: 1 },
-    stopAudioLevels: { since: 1 },
-    listNotificationSounds: { since: 1 },
-    openNotificationSoundsFolder: { since: 1 },
-    previewNotificationSound: { since: 1 },
-  },
-  updates: {
-    getState: { since: 1 },
-    checkForUpdates: { since: 1 },
-    downloadUpdate: { since: 1 },
-    restartToInstall: { since: 1 },
-    onState: { since: 1, event: true },
-  },
-  autostart: {
-    getState: { since: 1 },
-    setEnabled: { since: 1 },
-  },
-  notifications: {
-    show: { since: 1 },
-  },
-} as const satisfies DesktopBridgeApiMeta<
-  Omit<AlloyDesktop, "bridge" | "titlebarOverlay">
->
-
-type BridgePathsOf<T> = {
-  [K in keyof T & string]: T[K] extends DesktopBridgeMethodMeta
-    ? K
-    : `${K}.${BridgePathsOf<T[K]>}`
-}[keyof T & string]
-
-/** Dotted path of an invokable bridge member, e.g. "recording.getSettings". */
-export type DesktopBridgePath = BridgePathsOf<typeof DESKTOP_BRIDGE>
-
-function flattenBridge(
-  tree: Record<string, ContractJsonValue>,
-  prefix: string,
-  into: Record<string, DesktopBridgeMethodMeta>,
-): Record<string, DesktopBridgeMethodMeta> {
-  for (const [key, value] of Object.entries(tree)) {
-    const path = prefix ? `${prefix}.${key}` : key
-    if (!isObjectRecord(value)) continue
-    if (isFiniteNumberValue(value.since)) {
-      const metadata: DesktopBridgeMethodMeta = { since: value.since }
-      if (value.event === true) metadata.event = true
-      into[path] = metadata
-      continue
-    }
-    flattenBridge(value, path, into)
-  }
-  return into
-}
-
-/** Flat path → metadata view of {@link DESKTOP_BRIDGE}. */
-const flattenedBridgeMethods = flattenBridge(DESKTOP_BRIDGE, "", {})
-// SAFETY: flattenBridge visits every leaf of the statically checked bridge tree.
-const typedBridgeMethods = flattenedBridgeMethods as Record<
-  DesktopBridgePath,
-  DesktopBridgeMethodMeta
->
-export const DESKTOP_BRIDGE_METHODS = typedBridgeMethods
-
-/**
- * IPC channel backing a bridge member. Internal to the desktop binary
- * (preload + main ship together); never referenced by the web app.
- */
-export function desktopBridgeChannel(path: DesktopBridgePath): string {
-  return `alloy:${path}`
-}
-
-/** Whether a shell reporting `version` implements the member at `path`. */
-export function desktopBridgeSupports(
-  version: number,
-  path: DesktopBridgePath,
-): boolean {
-  return version >= DESKTOP_BRIDGE_METHODS[path].since
-}
-
-/** Whether the shell and server-hosted web app share the current bridge. */
-export function isCurrentDesktopBridge(version: number): boolean {
-  return version === DESKTOP_BRIDGE_VERSION
 }

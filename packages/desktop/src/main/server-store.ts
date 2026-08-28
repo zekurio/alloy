@@ -54,18 +54,24 @@ function writeState(state: DesktopState): void {
   }
 }
 
+export function getStartupServer(): DesktopSavedServer | null {
+  return readState().servers[0] ?? null
+}
+
 export function getStartupServerUrl(): string | null {
-  const state = readState()
-  return state.servers[0]?.serverUrl ?? null
+  return getStartupServer()?.serverUrl ?? null
 }
 
 export function getSavedServers(): DesktopSavedServer[] {
   return readState().servers
 }
 
-export function rememberServer(serverUrl: string): DesktopSavedServer[] {
+export function rememberServer(
+  serverUrl: string,
+  httpContract: number,
+): DesktopSavedServer[] {
   const state = readState()
-  const servers = upsertServer(state.servers, serverUrl)
+  const servers = upsertServer(state.servers, serverUrl, httpContract)
   writeState({ ...state, servers })
   return servers
 }

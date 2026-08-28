@@ -7,6 +7,7 @@ import { useCallback, useState } from "react"
 
 import { GameLogo } from "@/components/game/game-logo"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
+import { desktopCachedAssetUrl } from "@/lib/desktop"
 import { gameDisplayName } from "@/lib/game-display-name"
 import { formatCount } from "@/lib/number-format"
 
@@ -45,7 +46,7 @@ function GameHeroBanner({
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null)
   const headerUrl =
     game.heroUrl && !failedHeaderUrls.includes(game.heroUrl)
-      ? game.heroUrl
+      ? desktopCachedAssetUrl(game.heroUrl)
       : null
   const logoUrl =
     game.logoUrl && failedLogoUrl !== game.logoUrl ? game.logoUrl : null
@@ -75,7 +76,7 @@ function GameHeroBanner({
           aria-hidden
           className="absolute inset-0 size-full object-cover"
           decoding="async"
-          onError={() => onHeaderError(headerUrl)}
+          onError={() => onHeaderError(game.heroUrl ?? headerUrl)}
         />
       ) : null}
       <div

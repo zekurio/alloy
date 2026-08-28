@@ -22,7 +22,7 @@ import {
 } from "@/components/routes/settings/settings-panel"
 
 import { DesktopAutostartSettings } from "./desktop-autostart-settings"
-import { alloyDesktop, type DesktopSavedServer } from "./desktop-bridge"
+import { alloyDesktop, type DesktopSavedServer } from "./desktop-native"
 import { DesktopUpdateSettings } from "./desktop-update-settings"
 
 type Phase = "idle" | "loading" | "connecting"

@@ -1,0 +1,72 @@
+import assert from "node:assert/strict"
+import test from "node:test"
+
+import {
+  consumeCurrentQueryParam,
+  currentUrlWithQueryParam,
+  currentUrlWithoutSearchOrHash,
+} from "./browser-url"
+import {
+  createDesktopRuntimeConfig,
+  resetRuntimeConfig,
+  setRuntimeConfig,
+} from "./runtime-env"
+
+const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window")
+
+test.afterEach(() => {
+  resetRuntimeConfig()
+  if (originalWindow)
+    Object.defineProperty(globalThis, "window", originalWindow)
+  else Reflect.deleteProperty(globalThis, "window")
+})
+
+test("builds share URLs from the selected server in desktop mode", () => {
+  installWindow(
+    "alloy-app://app/desktop.html#/games/halo/clips/clip-1?view=grid",
+  )
+  setRuntimeConfig(createDesktopRuntimeConfig("https://clips.example.test"))
+
+  assert.equal(
+    currentUrlWithoutSearchOrHash(),
+    "https://clips.example.test/games/halo/clips/clip-1",
+  )
+  assert.equal(
+    currentUrlWithQueryParam("comment", "comment-1"),
+    "https://clips.example.test/games/halo/clips/clip-1?view=grid&comment=comment-1",
+  )
+})
+
+test("consumes a desktop route query without replacing the local document", () => {
+  let replaced = ""
+  installWindow(
+    "alloy-app://app/desktop.html#/settings?oauth_linked=1&tab=profile",
+    (url) => {
+      replaced = url
+    },
+  )
+  setRuntimeConfig(createDesktopRuntimeConfig("https://clips.example.test"))
+
+  assert.equal(consumeCurrentQueryParam("oauth_linked"), "1")
+  assert.equal(replaced, "alloy-app://app/desktop.html#/settings?tab=profile")
+})
+
+function installWindow(href: string, replace?: (url: string) => void): void {
+  const url = new URL(href)
+  const value = {
+    location: { href, hash: url.hash },
+    history: {
+      length: 1,
+      back() {},
+      replaceState(
+        _data: null,
+        _unused: string,
+        nextUrl?: string | URL | null,
+      ) {
+        replace?.(String(nextUrl ?? ""))
+      },
+    },
+  }
+  // SAFETY: These helpers use only the location and history members above.
+  Object.defineProperty(globalThis, "window", { configurable: true, value })
+}

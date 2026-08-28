@@ -5,7 +5,6 @@ import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
 import { Card } from "@alloy/ui/components/card"
 import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
-import { GameIcon } from "@alloy/ui/components/game-icon"
 import {
   InputGroup,
   InputGroupAddon,
@@ -24,8 +23,10 @@ import { ImageIcon, SearchIcon, Trash2Icon } from "lucide-react"
 import { useMemo, useState } from "react"
 
 import { ListEmpty } from "@/components/feedback/empty-state"
+import { GameIcon } from "@/components/game/game-icon"
 import { adminGamesQueryOptions } from "@/lib/admin-query-keys"
 import { api } from "@/lib/api"
+import { desktopCachedAssetUrl } from "@/lib/desktop"
 import { errorMessage } from "@/lib/error-message"
 
 import {
@@ -125,7 +126,9 @@ function AdminGameCard({ game }: { game: AdminGameRow }) {
         <GameIcon
           // The grid asset is the portrait cover; the others are square or wide
           // and only stand in when a game has no cover yet.
-          src={game.gridUrl ?? game.logoUrl ?? game.iconUrl}
+          src={desktopCachedAssetUrl(
+            game.gridUrl ?? game.logoUrl ?? game.iconUrl,
+          )}
           name={game.name}
           className="size-full rounded-none text-3xl [&_img]:object-cover"
         />
@@ -208,7 +211,9 @@ function DeleteGamePreview({ game }: { game: AdminGameRow }) {
     <Card className="gap-3 p-3">
       <div className="flex items-center gap-3">
         <GameIcon
-          src={game.iconUrl ?? game.logoUrl ?? game.gridUrl}
+          src={desktopCachedAssetUrl(
+            game.iconUrl ?? game.logoUrl ?? game.gridUrl,
+          )}
           name={game.name}
           className="size-10 rounded-md [&_img]:object-contain"
         />

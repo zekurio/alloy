@@ -26,6 +26,7 @@ packages/server/
 pnpm --filter @alloy/server dev
 pnpm --filter @alloy/server build
 pnpm --filter @alloy/server start
+pnpm --filter @alloy/server test
 pnpm --filter @alloy/server typecheck
 ```
 
@@ -64,6 +65,20 @@ copies that output and wraps it with runtime defaults for:
 - `WEB_DIST_DIR`
 - `ALLOY_MIGRATIONS_DIR`
 - `NODE_ENV=production`
+
+## Desktop HTTP compatibility
+
+`GET /api/server-info` publishes exact desktop HTTP contract IDs. Contract 1
+freezes the `/api` behavior used by the first bundled desktop renderer. Keep it
+additive. A breaking request, response, error, or side-effect change needs a new
+contract ID while the server retains contract 1 for the supported previous
+desktop release. Product SemVer is diagnostic only and must not select a
+contract.
+
+The pre-cut server has the same contract-1 endpoint behavior but predates the
+capability document. New desktop builds accept that baseline only when
+`/api/server-info` returns 404 and the existing desktop-auth capability is
+exactly 1.
 
 ## Guidelines
 

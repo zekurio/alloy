@@ -1,23 +1,22 @@
-import {
-  desktopBridgeChannel,
-  normalizeRecordingSettings,
-} from "@alloy/contracts"
+import { normalizeRecordingSettings } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 
+import { desktopApiChannel } from "@/shared/desktop-api"
 import { OVERLAY_STARTUP_UPDATE_EVENT_CHANNEL } from "@/shared/ipc"
 
 import { getAutostartState, setAutostartEnabled } from "./autostart"
 import { showDesktopNotification } from "./desktop-notification"
 import type {
-  BridgeHandlerFragment,
-  BridgeHandlerMap,
-  DesktopBridgeInvokePath,
-} from "./ipc-bridge"
+  DesktopApiHandlerFragment,
+  DesktopApiHandlerMap,
+  DesktopApiInvokePath,
+} from "./ipc-api"
 import { requireDesktopSender, requireMainSender } from "./ipc-guards"
 import { isNotificationSoundEvent } from "./ipc-normalizers"
-import { recordingLibraryBridgeHandlers } from "./ipc-recording-library"
-import { registerOverlayIpc, serverBridgeHandlers } from "./ipc-server"
+import { recordingLibraryDesktopApiHandlers } from "./ipc-recording-library"
+import { registerOverlayIpc, serverDesktopApiHandlers } from "./ipc-server"
+import { confirmNativeAction } from "./native-confirmation"
 import {
   configureRecordingBackend,
   emitRecordingSettingsEvent,
@@ -49,43 +48,41 @@ import {
 import type { Windows } from "./windows"
 
 /**
- * Register the desktop bridge's privileged IPC surface. The merged handler
- * map is exhaustive over the invokable `DESKTOP_BRIDGE` contract paths in
- * both directions, so the contract and the main process cannot drift.
- * Handlers are intentionally thin: validate input, mutate persisted state,
- * drive the windows. Every bridge channel is request/response (`handle`) so
- * callers get typed results back; the contract's event members are push
- * broadcasts registered in {@link registerBridgeEvents}.
+ * Register the bundled renderer's privileged native API. The merged handler
+ * map is exhaustive over `DESKTOP_API_OPERATIONS`, so preload and main cannot
+ * drift. Handlers are intentionally thin: validate input, mutate persisted
+ * state, and drive windows. Invoke channels use request/response (`handle`);
+ * event operations are broadcasts registered in {@link registerDesktopApiEvents}.
  */
-export function registerBridge(windows: Windows): void {
-  registerBridgeEvents()
+export function registerDesktopApi(windows: Windows): void {
+  registerDesktopApiEvents()
   registerOverlayIpc(windows)
 
-  const handlers: BridgeHandlerMap = {
-    ...serverBridgeHandlers,
-    ...recordingSettingsBridgeHandlers,
-    ...recordingStorageBridgeHandlers,
-    ...recordingLibraryBridgeHandlers,
-    ...recordingSoundBridgeHandlers,
-    ...recordingSourceBridgeHandlers,
-    ...updateBridgeHandlers,
-    ...autostartBridgeHandlers,
-    ...notificationBridgeHandlers,
+  const handlers: DesktopApiHandlerMap = {
+    ...serverDesktopApiHandlers,
+    ...recordingSettingsDesktopApiHandlers,
+    ...recordingStorageDesktopApiHandlers,
+    ...recordingLibraryDesktopApiHandlers,
+    ...recordingSoundDesktopApiHandlers,
+    ...recordingSourceDesktopApiHandlers,
+    ...updateDesktopApiHandlers,
+    ...autostartDesktopApiHandlers,
+    ...notificationDesktopApiHandlers,
   }
   // SAFETY: The exhaustive handler map is a closed record over these paths.
-  const paths = Object.keys(handlers) as DesktopBridgeInvokePath[]
+  const paths = Object.keys(handlers) as DesktopApiInvokePath[]
   for (const path of paths) {
     const { guard, handle } = handlers[path]
-    ipcMain.handle(desktopBridgeChannel(path), (event, ...args: unknown[]) => {
+    ipcMain.handle(desktopApiChannel(path), (event, ...args: unknown[]) => {
       guard(windows, event)
       return handle(windows, event, ...args)
     })
   }
 }
 
-/** Contract event members: pushed to every live window, no invoke handler. */
-function registerBridgeEvents(): void {
-  const recordingEventChannel = desktopBridgeChannel("recording.onEvent")
+/** Event operations pushed to every live window, with no invoke handler. */
+function registerDesktopApiEvents(): void {
+  const recordingEventChannel = desktopApiChannel("recording.onEvent")
   onRecordingEvent((recordingEvent) => {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) {
@@ -93,7 +90,7 @@ function registerBridgeEvents(): void {
       }
     }
   })
-  const updateStateChannel = desktopBridgeChannel("updates.onState")
+  const updateStateChannel = desktopApiChannel("updates.onState")
   onUpdateStateChange((state) => {
     for (const window of BrowserWindow.getAllWindows()) {
       if (!window.isDestroyed()) {
@@ -110,7 +107,7 @@ function registerBridgeEvents(): void {
   })
 }
 
-const updateBridgeHandlers = {
+const updateDesktopApiHandlers = {
   "updates.getState": {
     guard: requireDesktopSender,
     handle: () => getUpdateState(),
@@ -125,39 +122,71 @@ const updateBridgeHandlers = {
   },
   "updates.restartToInstall": {
     guard: requireDesktopSender,
-    handle: () => restartToInstallUpdate(),
+    handle: async (_windows, event) => {
+      if (
+        !(await confirmNativeAction(event, {
+          title: t("Restart and install Alloy?"),
+          message: t("Recording stops while the desktop update is installed."),
+          confirmLabel: t("Restart and install"),
+        }))
+      ) {
+        throw new Error("Update installation cancelled.")
+      }
+      restartToInstallUpdate()
+    },
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment
 
-const autostartBridgeHandlers = {
+const autostartDesktopApiHandlers = {
   "autostart.getState": {
     guard: requireMainSender,
     handle: () => getAutostartState(),
   },
   "autostart.setEnabled": {
     guard: requireMainSender,
-    handle: (_windows, _event, enabled: UntrustedInput) =>
-      setAutostartEnabled(parseBoolean(enabled) === true),
+    handle: async (_windows, event, enabled: UntrustedInput) => {
+      if (
+        !(await confirmNativeAction(event, {
+          type: "question",
+          title: t("Change startup behavior?"),
+          message: t("This changes whether Alloy starts when you sign in."),
+          confirmLabel: t("Change startup"),
+        }))
+      ) {
+        throw new Error("Autostart change cancelled.")
+      }
+      return setAutostartEnabled(parseBoolean(enabled) === true)
+    },
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment
 
-const notificationBridgeHandlers = {
+const notificationDesktopApiHandlers = {
   "notifications.show": {
     guard: requireMainSender,
     handle: (windows, _event, input: UntrustedInput) => {
       showDesktopNotification(windows, input)
     },
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment
 
-const recordingSettingsBridgeHandlers = {
+const recordingSettingsDesktopApiHandlers = {
   "recording.getSettings": {
     guard: requireMainSender,
     handle: () => getRecordingSettings(),
   },
   "recording.setSettings": {
     guard: requireMainSender,
-    handle: (_windows, _event, settings: UntrustedInput) => {
+    handle: async (_windows, event, settings: UntrustedInput) => {
+      if (
+        !(await confirmNativeAction(event, {
+          type: "question",
+          title: t("Apply recording settings?"),
+          message: t("Recording and hotkey behavior may change."),
+          confirmLabel: t("Apply settings"),
+        }))
+      ) {
+        throw new Error("Recording settings change cancelled.")
+      }
       const saved = saveRecordingSettings(normalizeRecordingSettings(settings))
       emitRecordingSettingsEvent()
       void configureRecordingBackend()
@@ -167,15 +196,26 @@ const recordingSettingsBridgeHandlers = {
   },
   "recording.restartBackend": {
     guard: requireMainSender,
-    handle: () => restartRecordingBackend(),
+    handle: async (_windows, event) => {
+      if (
+        !(await confirmNativeAction(event, {
+          title: t("Restart recording services?"),
+          message: t("Active recording and replay buffering will stop."),
+          confirmLabel: t("Restart services"),
+        }))
+      ) {
+        throw new Error("Recording restart cancelled.")
+      }
+      return restartRecordingBackend()
+    },
   },
   "recording.getStatus": {
     guard: requireMainSender,
     handle: () => getRecordingStatus(),
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment
 
-const recordingStorageBridgeHandlers = {
+const recordingStorageDesktopApiHandlers = {
   "recording.getStorageInfo": {
     guard: requireMainSender,
     handle: () => getRecordingStorageInfo(),
@@ -204,9 +244,9 @@ const recordingStorageBridgeHandlers = {
       return folder
     },
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment
 
-const recordingSoundBridgeHandlers = {
+const recordingSoundDesktopApiHandlers = {
   "recording.listNotificationSounds": {
     guard: requireMainSender,
     handle: () => listNotificationSoundLibrary(),
@@ -232,9 +272,9 @@ const recordingSoundBridgeHandlers = {
       })
     },
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment
 
-const recordingSourceBridgeHandlers = {
+const recordingSourceDesktopApiHandlers = {
   "recording.listGameProcesses": {
     guard: requireMainSender,
     handle: () => listGameProcesses(),
@@ -251,4 +291,4 @@ const recordingSourceBridgeHandlers = {
     guard: requireMainSender,
     handle: () => stopAudioLevels(),
   },
-} satisfies BridgeHandlerFragment
+} satisfies DesktopApiHandlerFragment

@@ -1,8 +1,25 @@
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"])
-const EXTERNAL_PROTOCOLS = new Set(["http:", "https:"])
+const IPV4_PART = /^\d{1,3}$/
 
 export function isLoopbackHost(hostname: string): boolean {
-  return LOOPBACK_HOSTS.has(hostname.toLowerCase())
+  const normalized = hostname.toLowerCase()
+  if (
+    normalized === "localhost" ||
+    normalized.endsWith(".localhost") ||
+    normalized === "::1" ||
+    normalized === "[::1]"
+  ) {
+    return true
+  }
+
+  const parts = normalized.split(".")
+  return (
+    parts.length === 4 &&
+    parts[0] === "127" &&
+    parts.every(
+      (part) =>
+        IPV4_PART.test(part) && Number(part) >= 0 && Number(part) <= 255,
+    )
+  )
 }
 
 export function isSecureServerUrl(url: URL): boolean {
@@ -12,18 +29,17 @@ export function isSecureServerUrl(url: URL): boolean {
   )
 }
 
-export function canOpenExternally(rawUrl: string): boolean {
-  try {
-    return EXTERNAL_PROTOCOLS.has(new URL(rawUrl).protocol)
-  } catch {
-    return false
-  }
-}
-
 export function sameOrigin(rawUrl: string, origin: string): boolean {
   try {
     return new URL(rawUrl).origin === origin
   } catch {
     return false
   }
+}
+
+export function isSelectedServerExternalUrl(
+  rawUrl: string,
+  selectedServerUrl: string | null,
+): boolean {
+  return selectedServerUrl !== null && sameOrigin(rawUrl, selectedServerUrl)
 }

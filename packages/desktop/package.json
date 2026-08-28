@@ -17,6 +17,7 @@
     "dist:win": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win dir --x64 --publish never",
     "dist:win:installer": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win nsis --x64 --publish never",
     "preview": "pnpm prepare:assets && pnpm ensure:electron && electron-vite preview",
+    "test": "tsx --test src/main/housekeeping/housekeeping.test.ts src/main/startup-update.test.ts src/main/ipc-normalizers.test.ts src/main/app-protocol-policy.test.ts src/main/asset-cache-policy.test.ts src/main/desktop-navigation.test.ts src/main/recording-library-download-policy.test.ts src/main/server-http-contract.test.ts src/main/server-store-state.test.ts src/main/url-policy.test.ts src/main/probe.test.ts",
     "test:housekeeping": "tsx --test src/main/housekeeping/housekeeping.test.ts",
     "test:updater": "tsx --test src/main/startup-update.test.ts",
     "typecheck": "tsc --noEmit"
@@ -28,6 +29,7 @@
     "@alloy/media": "workspace:*",
     "@alloy/ui": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
+    "@tanstack/router-plugin": "1.168.29",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
     "@vitejs/plugin-react": "6.0.5",

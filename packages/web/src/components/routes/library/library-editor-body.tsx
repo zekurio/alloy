@@ -815,7 +815,7 @@ async function copyPublishedClipLink(link: string) {
 /**
  * Per-source audio mixing for a local capture: the stage's `<video>` element
  * only ever plays the capture's embedded mix (track 0), so the mixer decodes
- * the per-source stem tracks through the desktop bridge's stem cache. Both
+ * the per-source stem tracks through the desktop native API's stem cache. Both
  * the stems and the raw capture share one timeline, so no trim gating is
  * needed here (unlike the uploaded-clip editor, whose canonical cut rebases
  * time). Undefined when the capture has fewer than two stems.

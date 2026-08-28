@@ -4,14 +4,21 @@ import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow, type Event, type WebContents } from "electron"
 
+import {
+  clearAppProtocolServer,
+  selectAppProtocolServer,
+  selectedAppProtocolServer,
+} from "./app-protocol"
 import { forwardRendererConsole } from "./logging"
 import { hardenMainSessionPermissions, MAIN_PARTITION } from "./session"
-import { canOpenExternally, sameOrigin } from "./url-policy"
+import { isSelectedServerExternalUrl } from "./url-policy"
 import {
+  isTrustedMainRendererUrl,
+  isTrustedOverlayRendererUrl,
+  loadDesktopRenderer,
   loadRenderer,
+  openDesktopPath,
   openExternal,
-  openWebPath,
-  openWebSettings,
   showWindow,
 } from "./window-navigation"
 
@@ -28,28 +35,13 @@ const MAIN_WINDOW_WIDTH = 1280
 const MAIN_WINDOW_HEIGHT = 800
 const MAIN_WINDOW_MIN_WIDTH = 1024
 const MAIN_WINDOW_MIN_HEIGHT = 700
-
-/**
- * The app theme's `--background` (oklch(0.19 0 0)). Without an explicit
- * window background Electron paints white, so any compositor gap — initial
- * load, resize, video surfaces being created or torn down in the editor —
- * flashes bright through the dark UI.
- */
 const WINDOW_BACKGROUND_COLOR = "#171717"
 
-/**
- * Owns the two window surfaces:
- *  - `overlay`: trusted, bundled connect screen; the only window granted the
- *    privileged `window.alloyNative` bridge via its preload.
- *  - `main`: loads the remote server origin with a narrow desktop bridge used
- *    by the normal in-app settings dialog.
- */
+/** Owns the bundled connect overlay and bundled main application window. */
 export class Windows {
   private overlay: BrowserWindow | null = null
   private main: BrowserWindow | null = null
-  private mainOrigin: string | null = null
-  private staleMainOrigin: string | null = null
-  private staleMainOriginTimer: ReturnType<typeof setTimeout> | null = null
+  private selectedServerUrl: string | null = null
   private isQuitting = false
 
   createOverlay(): BrowserWindow {
@@ -71,7 +63,17 @@ export class Windows {
 
     win.once("ready-to-show", () => win.show())
     win.on("closed", () => {
-      this.overlay = null
+      if (this.overlay === win) this.overlay = null
+    })
+    win.webContents.setWindowOpenHandler(() => {
+      logger.warn("blocked external popup from the connect renderer")
+      return { action: "deny" }
+    })
+    win.webContents.on("will-navigate", (event, url) => {
+      this.handleOverlayNavigation(event, url)
+    })
+    win.webContents.on("will-redirect", (event, url) => {
+      this.handleOverlayNavigation(event, url)
     })
 
     forwardRendererConsole(win.webContents)
@@ -80,44 +82,30 @@ export class Windows {
     return win
   }
 
-  /**
-   * Navigate the main window to the chosen server origin, creating it on first
-   * use, then hand the screen over from the overlay to the app.
-   */
+  /** Select a server before replacing the main document with the local app. */
   connectTo(serverUrl: string): void {
-    this.connectToUrl(serverUrl)
-  }
+    // Destroy the old renderer before changing the process-wide proxy target.
+    // Otherwise an in-flight request from server A could race onto server B.
+    if (this.main && !this.main.isDestroyed()) this.main.destroy()
 
-  connectToLogin(serverUrl: string): void {
-    this.connectToUrl(new URL("/login", serverUrl).toString())
-  }
-
-  private connectToUrl(url: string): void {
-    const nextOrigin = new URL(url).origin
-    const previousOrigin = this.mainOrigin
-    if (
-      previousOrigin &&
-      previousOrigin !== nextOrigin &&
-      this.main &&
-      !this.main.isDestroyed()
-    ) {
-      this.allowStaleMainOrigin(previousOrigin)
-    }
-
-    this.mainOrigin = nextOrigin
+    selectAppProtocolServer(serverUrl)
+    this.selectedServerUrl = selectedAppProtocolServer()
     hardenMainSessionPermissions()
+
     const win = this.ensureMain()
-    void win
-      .loadURL(url)
-      .catch((cause: unknown) => {
-        logger.warn("failed to load server URL:", cause)
-      })
-      .finally(() => {
-        if (previousOrigin) this.clearStaleMainOrigin(previousOrigin)
-      })
+    void loadDesktopRenderer(win).catch((cause: unknown) => {
+      logger.warn("failed to load bundled renderer:", cause)
+    })
     win.show()
     win.focus()
     this.overlay?.close()
+  }
+
+  disconnectFromServer(): void {
+    this.selectedServerUrl = null
+    clearAppProtocolServer()
+    if (this.main && !this.main.isDestroyed()) this.main.destroy()
+    this.openConnect()
   }
 
   openConnect(): void {
@@ -125,84 +113,76 @@ export class Windows {
       showWindow(this.overlay)
       return
     }
-
     this.createOverlay()
   }
 
   openLibrary(): void {
     const win = this.main
-    const origin = this.mainOrigin
-    if (!win || win.isDestroyed() || !origin) {
+    if (!win || win.isDestroyed() || !this.selectedServerUrl) {
       if (!this.showPrimary()) this.openConnect()
       return
     }
 
     showWindow(win)
-    void openWebPath(win, origin, "/library")
+    void openDesktopPath(win, "/library")
   }
 
-  canUseOverlayBridge(sender: WebContents): boolean {
-    return BrowserWindow.fromWebContents(sender) === this.overlay
+  canUseOverlayApi(sender: WebContents, frameUrl: string): boolean {
+    return (
+      BrowserWindow.fromWebContents(sender) === this.overlay &&
+      isTrustedOverlayRendererUrl(frameUrl)
+    )
   }
 
-  canUseMainBridge(sender: WebContents, frameUrl: string): boolean {
-    const origin = this.mainOrigin
+  canUseMainApi(sender: WebContents, frameUrl: string): boolean {
     return (
       BrowserWindow.fromWebContents(sender) === this.main &&
-      origin !== null &&
-      sameOrigin(frameUrl, origin)
+      isTrustedMainRendererUrl(frameUrl)
     )
   }
 
-  canUseAppBridge(sender: WebContents, frameUrl: string): boolean {
-    return this.canUseMainBridge(sender, frameUrl)
+  canUseAppApi(sender: WebContents, frameUrl: string): boolean {
+    return this.canUseMainApi(sender, frameUrl)
   }
 
-  canUseDesktopBridge(sender: WebContents, frameUrl: string): boolean {
+  canUseDesktopApi(sender: WebContents, frameUrl: string): boolean {
     return (
-      this.canUseOverlayBridge(sender) || this.canUseAppBridge(sender, frameUrl)
+      this.canUseOverlayApi(sender, frameUrl) ||
+      this.canUseAppApi(sender, frameUrl)
     )
   }
 
-  canUseDesktopServerStateBridge(
-    sender: WebContents,
-    frameUrl: string,
-  ): boolean {
-    return (
-      this.canUseDesktopBridge(sender, frameUrl) ||
-      this.canUseStaleMainBridge(sender, frameUrl)
-    )
+  canUseDesktopServerStateApi(sender: WebContents, frameUrl: string): boolean {
+    return this.canUseDesktopApi(sender, frameUrl)
   }
 
   currentServerUrl(): string | null {
-    return this.mainOrigin
+    return this.selectedServerUrl
   }
 
   openSettings(): void {
     const win = this.main
-    const origin = this.mainOrigin
-    if (!win || win.isDestroyed() || !origin) {
+    if (!win || win.isDestroyed() || !this.selectedServerUrl) {
       this.showPrimary()
       return
     }
 
     showWindow(win)
-    void openWebSettings(win, origin)
+    void openDesktopPath(win, "/?settings=desktop")
   }
 
   showAndNavigate(path: string): void {
-    if (!path.startsWith("/")) {
+    if (!path.startsWith("/") || path.startsWith("//")) {
       this.showPrimary()
       return
     }
     const win = this.main
-    const origin = this.mainOrigin
-    if (!win || win.isDestroyed() || !origin) {
+    if (!win || win.isDestroyed() || !this.selectedServerUrl) {
       this.showPrimary()
       return
     }
     showWindow(win)
-    void openWebPath(win, origin, path)
+    void openDesktopPath(win, path)
   }
 
   showPrimary(): boolean {
@@ -237,77 +217,50 @@ export class Windows {
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
-        // Lets the sandboxed preload report the app version in
-        // `alloyDesktop.bridge` without an extra IPC round trip.
-        additionalArguments: [`--alloy-app-version=${app.getVersion()}`],
       },
     })
 
-    // Keep requested popup windows in the user's real browser, but only for
-    // normal web URLs. Never pass file/custom/javascript protocols from remote
-    // content to the OS shell.
     win.webContents.setWindowOpenHandler(({ url }) => {
-      if (canOpenExternally(url)) openExternal(url)
+      if (this.isSelectedServerUrl(url)) openExternal(url)
+      else logger.warn("blocked non-server popup from the bundled renderer")
       return { action: "deny" }
     })
 
     forwardRendererConsole(win.webContents)
     win.webContents.on("will-navigate", (event, url) => {
-      this.handleNavigation(event, url)
+      this.handleMainNavigation(event, url)
     })
     win.webContents.on("will-redirect", (event, url) => {
-      this.handleNavigation(event, url)
+      this.handleMainNavigation(event, url)
     })
 
     win.on("close", (event) => {
       if (this.isQuitting) return
-
       event.preventDefault()
       win.hide()
     })
     win.on("closed", () => {
-      this.main = null
-      this.clearStaleMainOrigin()
+      if (this.main === win) this.main = null
     })
 
     this.main = win
     return win
   }
 
-  private handleNavigation(event: Event, url: string): void {
-    const origin = this.mainOrigin
-    if (origin && sameOrigin(url, origin)) return
-
+  private handleMainNavigation(event: Event, url: string): void {
+    if (isTrustedMainRendererUrl(url)) return
     event.preventDefault()
-    if (canOpenExternally(url)) openExternal(url)
+    if (this.isSelectedServerUrl(url)) openExternal(url)
+    else logger.warn("blocked non-server navigation from the bundled renderer")
   }
 
-  private canUseStaleMainBridge(
-    sender: WebContents,
-    frameUrl: string,
-  ): boolean {
-    const origin = this.staleMainOrigin
-    return (
-      BrowserWindow.fromWebContents(sender) === this.main &&
-      origin !== null &&
-      sameOrigin(frameUrl, origin)
-    )
+  private handleOverlayNavigation(event: Event, url: string): void {
+    if (isTrustedOverlayRendererUrl(url)) return
+    event.preventDefault()
+    logger.warn("blocked navigation from the connect renderer")
   }
 
-  private allowStaleMainOrigin(origin: string): void {
-    this.staleMainOrigin = origin
-    if (this.staleMainOriginTimer) clearTimeout(this.staleMainOriginTimer)
-    this.staleMainOriginTimer = setTimeout(() => {
-      this.clearStaleMainOrigin(origin)
-    }, 10_000)
-  }
-
-  private clearStaleMainOrigin(origin?: string): void {
-    if (origin && this.staleMainOrigin !== origin) return
-    this.staleMainOrigin = null
-    if (this.staleMainOriginTimer) {
-      clearTimeout(this.staleMainOriginTimer)
-      this.staleMainOriginTimer = null
-    }
+  private isSelectedServerUrl(url: string): boolean {
+    return isSelectedServerExternalUrl(url, this.selectedServerUrl)
   }
 }

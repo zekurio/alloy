@@ -15,7 +15,7 @@ import type { Dispatch, SetStateAction } from "react"
 
 import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
-import { DESKTOP_RECORDING_BUFFER_STORAGE } from "./desktop-bridge"
+import { DESKTOP_RECORDING_BUFFER_STORAGE } from "./desktop-native"
 import {
   asLiteral,
   applyQualitySettings,
