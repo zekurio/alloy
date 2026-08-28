@@ -28,8 +28,6 @@ interface SweepClipRow {
   id: string
   height: number | null
   sourceFps: number | null
-  sourceContentType: string | null
-  sourceCodecs: string | null
   trimStartMs: number | null
   trimEndMs: number | null
   audioTrackFingerprint: string | null
@@ -114,8 +112,6 @@ async function runRenditionsSweep(
       const facts = {
         height: row.height,
         sourceFps: row.sourceFps,
-        sourceContentType: row.sourceContentType,
-        sourceCodecs: row.sourceCodecs,
         trimStartMs: row.trimStartMs,
         trimEndMs: row.trimEndMs,
         audioTrackFingerprint: row.audioTrackFingerprint,
@@ -156,8 +152,6 @@ async function selectSweepPage(cursor: string | null): Promise<SweepClipRow[]> {
       id: clip.id,
       height: clip.height,
       sourceFps: clip.source_fps,
-      sourceContentType: clip.source_content_type,
-      sourceCodecs: clip.source_codecs,
       trimStartMs: clip.trim_start_ms,
       trimEndMs: clip.trim_end_ms,
       audioTrackFingerprint: clip.audio_track_fingerprint,

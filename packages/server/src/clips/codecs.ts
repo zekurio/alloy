@@ -1,10 +1,3 @@
-export function renditionIsH264(codecs: string): boolean {
-  return codecs
-    .split(",")
-    .map((codec) => codec.trim().toLowerCase())
-    .some((codec) => codec.startsWith("avc1."))
-}
-
 /**
  * Whether embed scrapers' plain `<video>` players can be expected to decode
  * the source: H.264 video and, when an audio entry is present, AAC. A source

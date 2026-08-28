@@ -85,12 +85,6 @@ export function effectiveOgTierIndex(tiers: readonly LadderTier[]): number {
   }, -1)
 }
 
-/** Effective codec of the link preview tier (flagged, or tallest). */
-export function compatTierCodec(form: TranscodingForm): VideoCodec {
-  const index = effectiveOgTierIndex(form.tiers)
-  return (index === -1 ? null : form.tiers[index].codec) ?? form.videoCodec
-}
-
 export function ffmpegBadgeLabel(
   capabilities: TranscodingCapabilities,
 ): string {

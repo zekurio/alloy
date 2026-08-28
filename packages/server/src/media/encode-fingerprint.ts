@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto"
 
 import type { TranscodingConfig } from "@alloy/contracts"
-import { sourceIsBroadlyDecodable } from "@alloy/server/clips/codecs"
 
 import { MEDIA_PIPELINE_VERSION } from "./pipeline-version"
 import { effectiveLadder, type LadderStep } from "./renditions"
@@ -9,22 +8,10 @@ import { effectiveLadder, type LadderStep } from "./renditions"
 export interface FingerprintSourceFacts {
   height: number
   sourceFps: number | null
-  sourceContentType: string | null
-  sourceCodecs: string | null
   trimStartMs: number | null
   trimEndMs: number | null
   /** Probed stem count/codecs plus validated semantic metadata. */
   audioTrackFingerprint: string | null
-}
-
-export function browserSafeSource(
-  facts: Pick<FingerprintSourceFacts, "sourceCodecs" | "sourceContentType">,
-  options: { trimmed: boolean },
-): boolean {
-  return (
-    (options.trimmed || facts.sourceContentType === "video/mp4") &&
-    sourceIsBroadlyDecodable(facts.sourceCodecs)
-  )
 }
 
 export function expectedLadder(
@@ -34,9 +21,6 @@ export function expectedLadder(
   return effectiveLadder(config, {
     height: facts.height,
     fps: facts.sourceFps === 0 ? null : facts.sourceFps,
-    browserSafe: browserSafeSource(facts, {
-      trimmed: facts.trimStartMs !== null && facts.trimEndMs !== null,
-    }),
   })
 }
 

@@ -40,7 +40,7 @@ export interface RenditionTier {
 
 export interface LadderStep {
   tier: RenditionTier
-  /** Output frame height, clamped to the source and rounded down to even. */
+  /** Output frame height; equal to the tier's, since taller tiers are out. */
   height: number
   /** Output frame rate used for GOP sizing. */
   fps: number
@@ -55,22 +55,20 @@ export interface LadderStep {
 }
 
 /**
- * The tiers to actually encode for a source. Browser-safe H.264/AAC MP4
- * sources already serve their own height and above, so those tiers are skipped
- * before clamping and the ladder may be empty. For other sources, configured
- * tiers are clamped to source height and deduplicated
- * when clamping collapses them to the same output signature (height, fps,
- * codec); the survivor keeps the highest maxrate and inherits the og flag.
+ * The tiers to encode for a source. Tiers taller than the source are left
+ * out entirely, and tiers that resolve to the same output signature (height,
+ * fps, codec) deduplicate, with the survivor keeping the highest maxrate and
+ * inheriting the og flag. When no tier is flagged og, the tallest step is the
+ * link preview rendition.
  */
 export function effectiveLadder(
   config: TranscodingConfig,
-  source: { height: number; fps: number | null; browserSafe: boolean },
+  source: { height: number; fps: number | null },
 ): LadderStep[] {
   const byOutput = new Map<string, Omit<LadderStep, "name">>()
   for (const tier of sortedTiers(config.tiers)) {
-    if (source.browserSafe && tier.height >= source.height) continue
-    const height = evenFloor(Math.min(tier.height, source.height))
-    if (height <= 0) continue
+    if (tier.height > source.height) continue
+    const height = tier.height
     // Cap the frame rate when the source exceeds the tier's target, and also
     // when the source rate is unknown — an uncapped 144fps encode is worse
     // than a rare 24->30 upsample.
@@ -104,8 +102,11 @@ export function effectiveLadder(
     (a, b) => b.height - a.height || b.fps - a.fps,
   )
   const names = deriveRenditionNames(steps)
+  const hasOgStep = steps.some((step) => step.og)
   return steps.map((step, index) => ({
     ...step,
+    // Unflagged ladders still get an unambiguous link preview: the tallest.
+    og: hasOgStep ? step.og : index === 0,
     name: names[index] ?? `${step.height}p`,
   }))
 }

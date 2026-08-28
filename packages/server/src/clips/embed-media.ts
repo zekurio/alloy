@@ -1,7 +1,4 @@
-import {
-  renditionIsH264,
-  sourceIsBroadlyDecodable,
-} from "@alloy/server/clips/codecs"
+import { sourceIsBroadlyDecodable } from "@alloy/server/clips/codecs"
 
 import { clipAssetVersion } from "./asset-version"
 
@@ -50,22 +47,20 @@ export function embedPosterUrl(
  *
  * Renditions win over the source: the `og`-flagged tier exists precisely to
  * power social embeds, and crawlers (Discord especially) give up on the
- * multi-hundred-megabyte originals a capture card produces. The source is only
- * used only when it is already a verified broadly-decodable asset.
- *
- * Embeds are only reliable for H.264/AAC and require codec metadata.
+ * multi-hundred-megabyte originals a capture card produces. The rendition
+ * embeds with whatever codec the ladder encoded — H.264 compatibility is the
+ * admin's ladder choice, not a constraint enforced here. The source is used
+ * only when it is already a verified broadly-decodable asset.
  */
 export function embedVideo(
   row: EmbedMediaClip,
   origin: string,
 ): EmbedVideo | null {
   const renditionRows = row.renditionRows ?? []
+  // Runs always mark an og rendition; the tallest-first fallback covers rows
+  // committed before that was guaranteed.
   const rendition =
-    renditionRows.find(
-      (candidate) => candidate.og && renditionIsH264(candidate.codecs),
-    ) ??
-    renditionRows.find((candidate) => renditionIsH264(candidate.codecs)) ??
-    null
+    renditionRows.find((candidate) => candidate.og) ?? renditionRows[0] ?? null
 
   if (rendition) {
     return {
