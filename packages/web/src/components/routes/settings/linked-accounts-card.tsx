@@ -20,7 +20,10 @@ import {
   isAuthAttemptCancellation,
   reportAuthFlowFailure,
 } from "@/lib/auth-flow"
-import { consumeCurrentQueryParam } from "@/lib/browser-url"
+import {
+  consumeCurrentQueryParam,
+  currentUrlWithQueryParam,
+} from "@/lib/browser-url"
 import { errorMessage } from "@/lib/error-message"
 
 export type { LinkedAccount }
@@ -138,7 +141,9 @@ function useLinkedAccountActions({
       try {
         const { error } = await authClient.oauth2.link({
           providerId: provider.providerId,
-          callbackURL: authCallbackUrl(`/settings?${OAUTH_LINKED_QUERY_KEY}=1`),
+          callbackURL:
+            currentUrlWithQueryParam(OAUTH_LINKED_QUERY_KEY, "1") ??
+            authCallbackUrl(`/settings?${OAUTH_LINKED_QUERY_KEY}=1`),
         })
         if (error) {
           reportAuthFlowFailure(
