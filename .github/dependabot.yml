@@ -2,7 +2,8 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
-    labels: []
+    labels:
+      - "changelog:other"
     schedule:
       interval: weekly
     groups:
@@ -13,7 +14,8 @@ updates:
 
   - package-ecosystem: cargo
     directory: /packages/recorder
-    labels: []
+    labels:
+      - "changelog:other"
     schedule:
       interval: weekly
     groups:
@@ -24,7 +26,8 @@ updates:
 
   - package-ecosystem: github-actions
     directory: /
-    labels: []
+    labels:
+      - "changelog:other"
     schedule:
       interval: weekly
     groups:
