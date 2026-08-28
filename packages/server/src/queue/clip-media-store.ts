@@ -294,59 +294,6 @@ export const clipMediaStore: MediaStore = {
     return Boolean(row)
   },
 
-  async commitOgRendition(id, runId, rendition) {
-    return db.transaction(async (tx) => {
-      const [guard] = await tx
-        .update(clip)
-        .set({ updated_at: new Date() })
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .returning({ id: clip.id })
-      if (!guard) return null
-      const [previous] = await tx
-        .select({ storageKey: clipRendition.storage_key })
-        .from(clipRendition)
-        .where(
-          and(
-            eq(clipRendition.clip_id, id),
-            eq(clipRendition.name, rendition.name),
-          ),
-        )
-        .limit(1)
-      // A re-encode can move the OG flag to another tier; keep one unambiguous
-      // embed rendition while the old ladder is still otherwise available.
-      await tx
-        .update(clipRendition)
-        .set({ is_og: false })
-        .where(eq(clipRendition.clip_id, id))
-      await tx
-        .insert(clipRendition)
-        .values({
-          clip_id: id,
-          name: rendition.name,
-          is_og: true,
-          height: rendition.height,
-          width: rendition.width,
-          fps: rendition.fps,
-          storage_key: rendition.storageKey,
-          codecs: rendition.codecs,
-          size_bytes: rendition.sizeBytes,
-        })
-        .onConflictDoUpdate({
-          target: [clipRendition.clip_id, clipRendition.name],
-          set: {
-            is_og: true,
-            height: rendition.height,
-            width: rendition.width,
-            fps: rendition.fps,
-            storage_key: rendition.storageKey,
-            codecs: rendition.codecs,
-            size_bytes: rendition.sizeBytes,
-          },
-        })
-      return { replacedStorageKey: previous?.storageKey ?? null }
-    })
-  },
-
   async commitReady(id, runId, patch, renditions, audioTracks) {
     return db.transaction(async (tx) => {
       const [updated] = await tx

@@ -177,10 +177,9 @@ async function runClipEncode(
     if (payload.trigger === "upload") {
       await fanOutReadyClipMentions(payload.clipId)
     }
-    // Not gated on the trigger: the delivery ledger makes a re-encode or trim
-    // a no-op, and this is the announcement net for OG-less ladders (the
-    // OG-tier mid-run dispatch normally beats it) and for clips that went
-    // public before any webhook existed.
+    // Not gated on the trigger: this is the clip.published announcement
+    // point once the run completes, and the delivery ledger makes a
+    // re-encode or trim a no-op for clips that already announced.
     announceClipPublished(payload.clipId)
   } catch (err) {
     if (ctx.signal.aborted && ctx.signal.reason === "shutdown") {
@@ -279,8 +278,6 @@ async function selectClipEncodeLease(
       thumbFailedAt: clip.thumb_failed_at,
       height: clip.height,
       sourceFps: clip.source_fps,
-      sourceContentType: clip.source_content_type,
-      sourceCodecs: clip.source_codecs,
       trimStartMs: clip.trim_start_ms,
       trimEndMs: clip.trim_end_ms,
       audioTrackFingerprint: clip.audio_track_fingerprint,
@@ -297,8 +294,6 @@ async function selectClipEncodeLease(
         : {
             height: row.height,
             sourceFps: row.sourceFps,
-            sourceContentType: row.sourceContentType,
-            sourceCodecs: row.sourceCodecs,
             trimStartMs: row.trimStartMs,
             trimEndMs: row.trimEndMs,
             audioTrackFingerprint: row.audioTrackFingerprint,

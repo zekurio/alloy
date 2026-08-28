@@ -10,10 +10,7 @@ import {
   resolveClipAccess,
 } from "@alloy/server/clips/access"
 import { clipAssetVersion } from "@alloy/server/clips/asset-version"
-import {
-  renditionIsH264,
-  sourceIsBroadlyDecodable,
-} from "@alloy/server/clips/codecs"
+import { sourceIsBroadlyDecodable } from "@alloy/server/clips/codecs"
 import { selectClipRenditions } from "@alloy/server/clips/renditions"
 import { db } from "@alloy/server/db/index"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
@@ -147,26 +144,17 @@ export const clipsPlaybackRoutes = new Hono()
     const renditions = await selectClipRenditions(id)
     const preferred =
       renditions.find((rendition) => rendition.is_og) ?? renditions[0]
-    const h264 =
-      renditions.find(
-        (rendition) => rendition.is_og && renditionIsH264(rendition.codecs),
-      ) ??
-      renditions.find((rendition) => renditionIsH264(rendition.codecs)) ??
-      null
     // The cut normally wins for privacy. Exact cuts commit their own codec
     // string and are broadly decodable H.264. When the cut's codec is
-    // undecodable for this endpoint's plain-video consumers, prefer an H.264
-    // tier (encoded with the same trim range, so nothing trimmed-away leaks)
-    // and fall back to the cut when no rendition exists.
-    const selected = row.cut_key
-      ? sourceIsBroadlyDecodable(row.cut_codecs)
+    // undecodable for this endpoint's plain-video consumers, the preferred
+    // rendition (encoded with the same trim range, so nothing trimmed-away
+    // leaks) serves instead, with the cut as the last resort.
+    const selected =
+      row.cut_key && sourceIsBroadlyDecodable(row.cut_codecs)
         ? cutOrSourceAsset(row)
-        : h264
-          ? { key: h264.storage_key, contentType: "video/mp4" }
+        : preferred
+          ? { key: preferred.storage_key, contentType: "video/mp4" }
           : cutOrSourceAsset(row)
-      : preferred
-        ? { key: preferred.storage_key, contentType: "video/mp4" }
-        : cutOrSourceAsset(row)
 
     if (!selected) {
       return notFound(c, "Stream unavailable")
