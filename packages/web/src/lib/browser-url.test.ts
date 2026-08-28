@@ -37,6 +37,15 @@ test("builds share URLs from the selected server in desktop mode", () => {
   )
 })
 
+test("keeps the current browser route in an OAuth callback URL", () => {
+  installWindow("https://clips.example.test/?settings=security&tab=profile")
+
+  assert.equal(
+    currentUrlWithQueryParam("oauthLinked", "1"),
+    "https://clips.example.test/?settings=security&tab=profile&oauthLinked=1",
+  )
+})
+
 test("consumes a desktop route query without replacing the local document", () => {
   let replaced = ""
   installWindow(
