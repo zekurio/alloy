@@ -27,7 +27,6 @@ jobs:
               "Packaging / Nix": "server",
               Documentation: "documentation",
               Accessibility: "accessibility",
-              "Maintenance / technical debt": "tech-debt",
             };
             const label = labelsByArea[area];
             if (!label) return;
