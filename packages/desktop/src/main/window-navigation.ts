@@ -1,14 +1,14 @@
-import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 
 import { createLogger } from "@alloy/logging"
 import { app, shell, type BrowserWindow } from "electron"
 
+import { appRendererFile } from "./app-protocol-files"
 import { APP_URL, isTrustedAppDocumentUrl } from "./app-protocol-policy"
 import { desktopNavigationScript } from "./desktop-navigation"
 
 const logger = createLogger("windows")
-const OVERLAY_DOCUMENT = join(import.meta.dirname, "../renderer/index.html")
+const OVERLAY_DOCUMENT = appRendererFile(app.getAppPath(), "index.html")
 
 export function showWindow(win: BrowserWindow): void {
   if (win.isMinimized()) win.restore()
@@ -91,7 +91,7 @@ export function loadRenderer(
   )
   const devUrl = devRendererDocumentUrl(html)
   if (!devUrl) {
-    win.loadFile(join(import.meta.dirname, "../renderer", html), {
+    win.loadFile(appRendererFile(app.getAppPath(), html), {
       query: params,
     })
     return
