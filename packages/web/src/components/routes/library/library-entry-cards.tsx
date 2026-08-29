@@ -50,10 +50,8 @@ export function LibraryCaptureCard({
     enabled: true,
   })
   const source: LibrarySource = "local"
-  const renderGameLink = useClipCardGameLink(item.gameSteamGridDBId)
-  const gameUrl = item.gameSteamGridDBId
-    ? gameHref(item.gameSteamGridDBId)
-    : null
+  const renderGameLink = useClipCardGameLink(item.gameSlug)
+  const gameUrl = item.gameSlug ? gameHref(item.gameSlug) : null
   const cardThumbnail =
     transfer?.thumbUrl ?? transfer?.thumbFallbackUrl ?? thumbnail ?? undefined
   const cardThumbnailBlurHash = transfer?.thumbBlurHash ?? item.thumbBlurHash

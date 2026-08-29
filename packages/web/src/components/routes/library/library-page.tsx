@@ -38,7 +38,7 @@ import type { LibrarySort, LibrarySource } from "@/lib/library-search"
 
 import {
   buildLibraryGroups,
-  enrichGroupIcon,
+  enrichLibraryGroup,
   type LibraryGroupView,
   type LibraryItemView,
   useLibraryGameLookup,
@@ -219,7 +219,7 @@ function useLibraryContentModel({
   const localGroups = useMemo(
     () =>
       (snapshot?.groups ?? []).map((group) =>
-        enrichGroupIcon(group, gamesByName),
+        enrichLibraryGroup(group, gamesByName),
       ),
     [snapshot, gamesByName],
   )

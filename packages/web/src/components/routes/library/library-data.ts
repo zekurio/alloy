@@ -22,7 +22,6 @@ export type LibraryItemView = RecordingLibraryItem & {
   displayGameIconUrl: string | null
   displayGameName: string
   gameSlug: string | null
-  gameSteamGridDBId: number | null
 }
 
 export interface LibrarySnapshotState {
@@ -168,8 +167,8 @@ export function enrichLibraryItem(
       : gamesByName.get(gameNameKey(lookupName))
   const game = match?.confidence === 1 ? match.game : null
   const displayGameName =
-    item.gameName ??
     game?.name ??
+    item.gameName ??
     (item.source === "display" ? "" : item.groupLabel)
   const steamgriddbIconUrl = desktopCachedAssetUrl(
     game?.iconUrl ?? game?.logoUrl ?? null,
@@ -183,7 +182,6 @@ export function enrichLibraryItem(
     displayGameIconUrl: steamgriddbIconUrl ?? item.gameIconUrl,
     displayGameName,
     gameSlug: game?.slug ?? null,
-    gameSteamGridDBId: game?.steamgriddbId ?? null,
   }
 }
 
@@ -305,7 +303,7 @@ function addNoGameGroup(
   })
 }
 
-export function enrichGroupIcon(
+export function enrichLibraryGroup(
   group: RecordingLibraryGroup,
   gamesByName: Map<string, GameNameLookupResult>,
 ): RecordingLibraryGroup {
@@ -317,6 +315,11 @@ export function enrichGroupIcon(
   )
   return {
     ...group,
+    // Prefer the resolved server identity over a detector/folder label. This
+    // keeps local "VALORANT" captures in the same canonical "Valorant" group
+    // as uploaded clips while the original folder key continues to filter the
+    // on-disk snapshot.
+    label: game?.name ?? group.label,
     iconUrl: steamgriddbIconUrl ?? group.iconUrl,
   }
 }
