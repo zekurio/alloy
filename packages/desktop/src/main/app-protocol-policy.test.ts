@@ -1,6 +1,8 @@
 import assert from "node:assert/strict"
+import { join } from "node:path"
 import test from "node:test"
 
+import { appRendererFile, appRendererRoot } from "./app-protocol-files"
 import {
   APP_ORIGIN,
   appProxyUrlForSelectedServerResource,
@@ -16,6 +18,15 @@ import {
 } from "./app-protocol-policy"
 
 const SERVER = "https://alloy.example"
+
+test("anchors bundled renderer files at the Electron app root", () => {
+  const appPath = "/opt/Alloy/resources/app.asar"
+  assert.equal(appRendererRoot(appPath), join(appPath, "out", "renderer"))
+  assert.equal(
+    appRendererFile(appPath, "desktop.html"),
+    join(appPath, "out", "renderer", "desktop.html"),
+  )
+})
 
 test("allows HTTPS and standards-defined loopback HTTP only", () => {
   assert.equal(

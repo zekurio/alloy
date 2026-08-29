@@ -1,11 +1,12 @@
 import { createReadStream, realpathSync, statSync } from "node:fs"
-import { extname, isAbsolute, join, relative, resolve } from "node:path"
+import { extname, isAbsolute, relative, resolve } from "node:path"
 import { Readable } from "node:stream"
 import type { ReadableStream } from "node:stream/web"
 
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
+import { appRendererRoot } from "./app-protocol-files"
 import {
   APP_DOCUMENT,
   APP_PROTOCOL,
@@ -22,7 +23,7 @@ import {
 import { mainSession } from "./session"
 
 const logger = createLogger("app-protocol")
-const RENDERER_ROOT = join(import.meta.dirname, "../renderer")
+const RENDERER_ROOT = appRendererRoot(app.getAppPath())
 const RESPONSE_HEADERS_TO_DROP = new Set([
   // Electron fetch may decode the body before the protocol response sees it.
   // Dropping length also means renderer downloads cannot show an upstream
