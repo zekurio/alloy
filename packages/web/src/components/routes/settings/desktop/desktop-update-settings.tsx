@@ -1,6 +1,7 @@
 import type { DesktopUpdateState, DesktopUpdateStatus } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
+import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
 import { cn } from "@alloy/ui/lib/utils"
@@ -17,6 +18,7 @@ export function DesktopUpdateSettings() {
   const desktop = alloyDesktop()
   const updateState = useDesktopUpdateState()
   const [phase, setPhase] = useState<Phase>("idle")
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false)
   const [actionMessage, setActionMessage] = useState<{
     tone: "success" | "error"
     text: string
@@ -108,7 +110,7 @@ export function DesktopUpdateSettings() {
           type="button"
           size="sm"
           disabled={phase === "installing"}
-          onClick={() => void restartToInstall()}
+          onClick={() => setRestartDialogOpen(true)}
         >
           {phase === "installing" ? (
             <>
@@ -167,6 +169,22 @@ export function DesktopUpdateSettings() {
           )}
         </Button>
       )}
+      <ConfirmActionDialog
+        open={restartDialogOpen}
+        onOpenChange={(open) => {
+          setRestartDialogOpen(open)
+          if (!open && actionMessage?.tone === "error") setActionMessage(null)
+        }}
+        title={t("Install the update and restart Alloy?")}
+        description={t(
+          "Recording will stop while the desktop update is installed.",
+        )}
+        confirmLabel={t("Install and restart")}
+        pendingLabel={t("Installing...")}
+        pending={phase === "installing"}
+        error={actionMessage?.tone === "error" ? actionMessage.text : null}
+        onConfirm={() => void restartToInstall()}
+      />
     </SettingRow>
   )
 }

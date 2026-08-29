@@ -16,7 +16,6 @@ import { requireDesktopSender, requireMainSender } from "./ipc-guards"
 import { isNotificationSoundEvent } from "./ipc-normalizers"
 import { recordingLibraryDesktopApiHandlers } from "./ipc-recording-library"
 import { registerOverlayIpc, serverDesktopApiHandlers } from "./ipc-server"
-import { confirmNativeAction } from "./native-confirmation"
 import {
   configureRecordingBackend,
   emitRecordingSettingsEvent,
@@ -122,16 +121,7 @@ const updateDesktopApiHandlers = {
   },
   "updates.restartToInstall": {
     guard: requireDesktopSender,
-    handle: async (_windows, event) => {
-      if (
-        !(await confirmNativeAction(event, {
-          title: t("Restart and install Alloy?"),
-          message: t("Recording stops while the desktop update is installed."),
-          confirmLabel: t("Restart and install"),
-        }))
-      ) {
-        throw new Error("Update installation cancelled.")
-      }
+    handle: () => {
       restartToInstallUpdate()
     },
   },
@@ -144,19 +134,8 @@ const autostartDesktopApiHandlers = {
   },
   "autostart.setEnabled": {
     guard: requireMainSender,
-    handle: async (_windows, event, enabled: UntrustedInput) => {
-      if (
-        !(await confirmNativeAction(event, {
-          type: "question",
-          title: t("Change startup behavior?"),
-          message: t("This changes whether Alloy starts when you sign in."),
-          confirmLabel: t("Change startup"),
-        }))
-      ) {
-        throw new Error("Autostart change cancelled.")
-      }
-      return setAutostartEnabled(parseBoolean(enabled) === true)
-    },
+    handle: (_windows, _event, enabled: UntrustedInput) =>
+      setAutostartEnabled(parseBoolean(enabled) === true),
   },
 } satisfies DesktopApiHandlerFragment
 
@@ -176,17 +155,7 @@ const recordingSettingsDesktopApiHandlers = {
   },
   "recording.setSettings": {
     guard: requireMainSender,
-    handle: async (_windows, event, settings: UntrustedInput) => {
-      if (
-        !(await confirmNativeAction(event, {
-          type: "question",
-          title: t("Apply recording settings?"),
-          message: t("Recording and hotkey behavior may change."),
-          confirmLabel: t("Apply settings"),
-        }))
-      ) {
-        throw new Error("Recording settings change cancelled.")
-      }
+    handle: (_windows, _event, settings: UntrustedInput) => {
       const saved = saveRecordingSettings(normalizeRecordingSettings(settings))
       emitRecordingSettingsEvent()
       void configureRecordingBackend()
@@ -196,18 +165,7 @@ const recordingSettingsDesktopApiHandlers = {
   },
   "recording.restartBackend": {
     guard: requireMainSender,
-    handle: async (_windows, event) => {
-      if (
-        !(await confirmNativeAction(event, {
-          title: t("Restart recording services?"),
-          message: t("Active recording and replay buffering will stop."),
-          confirmLabel: t("Restart services"),
-        }))
-      ) {
-        throw new Error("Recording restart cancelled.")
-      }
-      return restartRecordingBackend()
-    },
+    handle: () => restartRecordingBackend(),
   },
   "recording.getStatus": {
     guard: requireMainSender,
