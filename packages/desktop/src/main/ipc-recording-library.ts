@@ -11,7 +11,6 @@ import {
   normalizeLibraryThumbnailSaveRequest,
   normalizeLibraryTrimUpdate,
 } from "./ipc-normalizers"
-import { confirmNativeAction } from "./native-confirmation"
 import {
   commitRecordingLibraryStagedImport,
   deleteRecordingLibraryItem,
@@ -72,18 +71,9 @@ export const recordingLibraryDesktopApiHandlers = {
   },
   "recording.deleteLibraryCapture": {
     guard: requireMainSender,
-    handle: async (_windows, event, input: UntrustedInput) => {
+    handle: (_windows, _event, input: UntrustedInput) => {
       const id = parseString(input)
       if (id === null) return
-      if (
-        !(await confirmNativeAction(event, {
-          title: t("Delete local capture?"),
-          message: t("This moves the recording file to the system trash."),
-          confirmLabel: t("Delete capture"),
-        }))
-      ) {
-        throw new Error("Capture deletion cancelled.")
-      }
       return deleteRecordingLibraryItem(id)
     },
   },
@@ -160,22 +150,11 @@ export const recordingLibraryDesktopApiHandlers = {
   },
   "recording.downloadClip": {
     guard: requireMainSender,
-    handle: async (windows, event, request: UntrustedInput) => {
+    handle: (windows, _event, request: UntrustedInput) => {
       const normalized = normalizeLibraryDownloadRequest(request)
       if (!normalized) throw new Error("Invalid clip download request.")
       const serverUrl = windows.currentServerUrl()
       if (!serverUrl) throw new Error("No Alloy server is connected.")
-      if (
-        !(await confirmNativeAction(event, {
-          type: "question",
-          title: t("Download clip to this computer?"),
-          message: normalized.title,
-          confirmLabel: t("Download clip"),
-        }))
-      ) {
-        throw new Error("Clip download cancelled.")
-      }
-
       const mediaUrl = selectedServerClipDownloadUrl(
         normalized.clipId,
         serverUrl,

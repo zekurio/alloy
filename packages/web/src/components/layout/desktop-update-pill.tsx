@@ -3,6 +3,7 @@ import {
   AppSidebarItem,
   AppSidebarItemTooltip,
 } from "@alloy/ui/components/app-sidebar"
+import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { cn } from "@alloy/ui/lib/utils"
 import { CircleAlertIcon, DownloadIcon, RefreshCwIcon } from "lucide-react"
 import { useState } from "react"
@@ -20,6 +21,7 @@ export function DesktopUpdatePill() {
   const { status, version } = useDesktopUpdateState()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false)
 
   if (
     status !== "available" &&
@@ -48,6 +50,14 @@ export function DesktopUpdatePill() {
     }
 
     if (!downloaded) return
+    setRestartDialogOpen(true)
+  }
+
+  const restartToInstall = () => {
+    if (pending) return
+    const desktop = alloyDesktop()
+    if (!desktop) return
+    setError(null)
     setPending(true)
     void desktop.updates.restartToInstall().catch(() => {
       setError(t("Couldn't restart to update."))
@@ -77,39 +87,57 @@ export function DesktopUpdatePill() {
         : t("A new version has been downloaded."))
 
   return (
-    <AppSidebarItemTooltip
-      className="flex-col items-start gap-0.5"
-      label={
-        <>
-          <span className="font-medium">{label}</span>
-          <span className="opacity-80">{detail}</span>
-        </>
-      }
-      render={
-        // aria-disabled (with a guarded click handler) instead of the
-        // disabled attribute so the control keeps emitting hover events and
-        // the tooltip still explains the downloading state.
-        <AppSidebarItem
-          type="button"
-          aria-disabled={busy || undefined}
-          onClick={runAction}
-          aria-label={busy ? label : detail}
-          className={cn(
-            "text-accent bg-accent/12",
-            busy
-              ? "cursor-default opacity-80"
-              : "cursor-pointer hover:bg-accent/20",
-          )}
-        >
-          {error ? (
-            <CircleAlertIcon className="text-destructive" />
-          ) : downloaded ? (
-            <RefreshCwIcon />
-          ) : (
-            <DownloadIcon />
-          )}
-        </AppSidebarItem>
-      }
-    />
+    <>
+      <AppSidebarItemTooltip
+        className="flex-col items-start gap-0.5"
+        label={
+          <>
+            <span className="font-medium">{label}</span>
+            <span className="opacity-80">{detail}</span>
+          </>
+        }
+        render={
+          // aria-disabled (with a guarded click handler) instead of the
+          // disabled attribute so the control keeps emitting hover events and
+          // the tooltip still explains the downloading state.
+          <AppSidebarItem
+            type="button"
+            aria-disabled={busy || undefined}
+            onClick={runAction}
+            aria-label={busy ? label : detail}
+            className={cn(
+              "text-accent bg-accent/12",
+              busy
+                ? "cursor-default opacity-80"
+                : "cursor-pointer hover:bg-accent/20",
+            )}
+          >
+            {error ? (
+              <CircleAlertIcon className="text-destructive" />
+            ) : downloaded ? (
+              <RefreshCwIcon />
+            ) : (
+              <DownloadIcon />
+            )}
+          </AppSidebarItem>
+        }
+      />
+      <ConfirmActionDialog
+        open={restartDialogOpen}
+        onOpenChange={(open) => {
+          setRestartDialogOpen(open)
+          if (!open) setError(null)
+        }}
+        title={t("Install the update and restart Alloy?")}
+        description={t(
+          "Recording will stop while the desktop update is installed.",
+        )}
+        confirmLabel={t("Install and restart")}
+        pendingLabel={t("Installing...")}
+        pending={pending}
+        error={error}
+        onConfirm={restartToInstall}
+      />
+    </>
   )
 }

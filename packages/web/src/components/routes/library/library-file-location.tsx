@@ -1,6 +1,7 @@
 import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Chip } from "@alloy/ui/components/chip"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,6 +119,7 @@ function LocationMenu({
 }) {
   const [removingLocal, setRemovingLocal] = useState(false)
   const [removeError, setRemoveError] = useState<string | null>(null)
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false)
   const hasSize = sizeBytes !== null && sizeBytes !== undefined && sizeBytes > 0
 
   const revealLocal = () => {
@@ -131,6 +133,7 @@ function LocationMenu({
     setRemovingLocal(true)
     try {
       await deleteLocalLibraryCopy(localItem)
+      setRemoveDialogOpen(false)
     } catch (cause) {
       clientLogger.warn("[library] Failed to remove local clip copy.", cause)
       setRemoveError(t("Couldn't remove the local copy"))
@@ -167,9 +170,7 @@ function LocationMenu({
                 <DropdownMenuItem
                   variant="destructive"
                   disabled={removingLocal}
-                  onClick={() => {
-                    void removeLocal()
-                  }}
+                  onClick={() => setRemoveDialogOpen(true)}
                 >
                   <Trash2Icon />
                   {removingLocal ? t("Removing...") : t("Remove local copy")}
@@ -207,11 +208,22 @@ function LocationMenu({
           ) : null}
         </DropdownMenuContent>
       </DropdownMenu>
-      {removeError ? (
-        <span role="alert" className="text-destructive text-xs">
-          {removeError}
-        </span>
-      ) : null}
+      <ConfirmDeleteDialog
+        open={removeDialogOpen}
+        onOpenChange={(open) => {
+          setRemoveDialogOpen(open)
+          if (!open) setRemoveError(null)
+        }}
+        title={t("Remove the local copy?")}
+        description={t(
+          "The file will be moved to your system trash. The server clip will remain available.",
+        )}
+        confirmLabel={t("Remove local copy")}
+        pendingLabel={t("Removing...")}
+        pending={removingLocal}
+        error={removeError}
+        onConfirm={() => void removeLocal()}
+      />
     </div>
   )
 }

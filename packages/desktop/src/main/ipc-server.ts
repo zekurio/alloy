@@ -23,7 +23,6 @@ import {
   requireMainSender,
   requireOverlaySender,
 } from "./ipc-guards"
-import { confirmNativeAction } from "./native-confirmation"
 import { probeServer } from "./probe"
 import {
   parseBoolean,
@@ -90,7 +89,7 @@ export const serverDesktopApiHandlers = {
     guard: requireDesktopSender,
     handle: async (
       windows,
-      event,
+      _event,
       rawUrl: UntrustedInput,
       options: UntrustedInput,
     ): Promise<DesktopConnectResult> => {
@@ -99,23 +98,6 @@ export const serverDesktopApiHandlers = {
         return { ok: false, error: "Enter a server URL." }
       }
       const forceBrowserLogin = connectOptions(options).forceBrowserLogin
-      const currentServerUrl = windows.currentServerUrl()
-      const requestedOrigin = URL.canParse(url) ? new URL(url).origin : null
-      if (
-        currentServerUrl &&
-        requestedOrigin !== new URL(currentServerUrl).origin &&
-        !(await confirmNativeAction(event, {
-          type: "question",
-          title: t("Connect to another Alloy server?"),
-          message: url.slice(0, 200),
-          confirmLabel: t("Continue"),
-        }))
-      ) {
-        return { ok: false, error: t("Server switch cancelled.") }
-      }
-
-      // Re-probe after user confirmation so renderer input cannot turn main
-      // into a private-network probe.
       const result = await probeServer(url)
       if (!result.ok) return { ok: false, error: result.error }
       if (result.config.setupRequired) {
@@ -162,21 +144,11 @@ export const serverDesktopApiHandlers = {
   },
   "servers.forgetServer": {
     guard: requireDesktopSender,
-    handle: async (windows, event, input: UntrustedInput) => {
+    handle: async (windows, _event, input: UntrustedInput) => {
       const url = parseString(input)
       if (url === null) return getSavedServers()
       const saved = getSavedServers().find((server) => server.serverUrl === url)
       if (!saved) return getSavedServers()
-      if (
-        !(await confirmNativeAction(event, {
-          title: t("Forget Alloy server?"),
-          message: new URL(saved.serverUrl).host,
-          confirmLabel: t("Forget server"),
-        }))
-      ) {
-        return getSavedServers()
-      }
-
       await clearServerAuthCookies(saved.serverUrl)
       const remaining = forgetServer(saved.serverUrl)
       if (new URL(saved.serverUrl).origin === windows.currentServerUrl()) {

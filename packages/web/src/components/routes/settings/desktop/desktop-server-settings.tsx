@@ -1,6 +1,8 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
+import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import { Input } from "@alloy/ui/components/input"
 import { SettingRows } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
@@ -38,6 +40,10 @@ export function DesktopServerSettings() {
   )
   const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [serverToConnect, setServerToConnect] = useState<string | null>(null)
+  const [serverToForget, setServerToForget] = useState<string | null>(null)
+  const [forgetting, setForgetting] = useState(false)
+  const [forgetError, setForgetError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -73,10 +79,19 @@ export function DesktopServerSettings() {
   if (!serverApi) return null
   const activeServerApi = serverApi
 
-  async function connectTo(serverUrl: string) {
+  async function connectTo(serverUrl: string, confirmed = false) {
     const nextUrl = serverUrl.trim()
     if (!nextUrl || connectingServerUrl !== null) return
+    if (
+      !confirmed &&
+      currentServerUrl !== null &&
+      !sameOrigin(nextUrl, currentServerUrl)
+    ) {
+      setServerToConnect(nextUrl)
+      return
+    }
     setError(null)
+    setServerToConnect(null)
 
     flushSync(() => {
       setConnectingServerUrl(nextUrl)
@@ -107,13 +122,17 @@ export function DesktopServerSettings() {
   }
 
   async function forgetServer(serverUrl: string) {
-    if (phase === "connecting") return
-    setError(null)
+    if (phase === "connecting" || forgetting) return
+    setForgetError(null)
+    setForgetting(true)
     try {
       const nextServers = await activeServerApi.forgetServer(serverUrl)
       setServers(nextServers)
+      setServerToForget(null)
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't forget server.")))
+      setForgetError(errorText(cause, t("Couldn't forget server.")))
+    } finally {
+      setForgetting(false)
     }
   }
 
@@ -142,7 +161,51 @@ export function DesktopServerSettings() {
         connectingServerUrl={connectingServerUrl}
         busy={busy}
         connectTo={connectTo}
-        forgetServer={forgetServer}
+        forgetServer={(serverUrl) => {
+          setForgetError(null)
+          setServerToForget(serverUrl)
+        }}
+      />
+      <ConfirmActionDialog
+        open={serverToConnect !== null}
+        onOpenChange={(open) => {
+          if (!open) setServerToConnect(null)
+        }}
+        title={t("Connect to another Alloy server?")}
+        description={t(
+          "Alloy will leave the current server and connect to {serverUrl}.",
+          { serverUrl: serverToConnect ?? "" },
+        )}
+        confirmLabel={t("Switch server")}
+        pendingLabel={t("Connecting...")}
+        pending={
+          serverToConnect !== null &&
+          sameServerTarget(connectingServerUrl, serverToConnect)
+        }
+        onConfirm={() => {
+          if (serverToConnect !== null) void connectTo(serverToConnect, true)
+        }}
+      />
+      <ConfirmDeleteDialog
+        open={serverToForget !== null}
+        onOpenChange={(open) => {
+          if (!open && !forgetting) {
+            setServerToForget(null)
+            setForgetError(null)
+          }
+        }}
+        title={t("Forget this Alloy server?")}
+        description={t(
+          "Saved login data for {serverUrl} will be removed from this device.",
+          { serverUrl: serverToForget ?? "" },
+        )}
+        confirmLabel={t("Forget server")}
+        pendingLabel={t("Forgetting...")}
+        pending={forgetting}
+        error={forgetError}
+        onConfirm={() => {
+          if (serverToForget !== null) void forgetServer(serverToForget)
+        }}
       />
     </div>
   )
@@ -231,7 +294,7 @@ function SavedServerList({
   connectingServerUrl: string | null
   busy: boolean
   connectTo: (serverUrl: string) => Promise<void>
-  forgetServer: (serverUrl: string) => Promise<void>
+  forgetServer: (serverUrl: string) => void
 }) {
   if (phase === "loading") {
     return (
@@ -283,7 +346,7 @@ function SavedServerRow({
   connecting: boolean
   busy: boolean
   connectTo: (serverUrl: string) => Promise<void>
-  forgetServer: (serverUrl: string) => Promise<void>
+  forgetServer: (serverUrl: string) => void
 }) {
   return (
     <div className="not-last:border-border flex items-center gap-2 py-3 not-last:border-b first:pt-0 last:pb-0">
@@ -332,7 +395,7 @@ function SavedServerRow({
         })}
         title={t("Forget server")}
         disabled={busy || current}
-        onClick={() => void forgetServer(server.serverUrl)}
+        onClick={() => forgetServer(server.serverUrl)}
         className={cn(!current && "hover:text-danger")}
       >
         <Trash2Icon className="size-3.5" />
