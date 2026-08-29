@@ -6,7 +6,7 @@
     "build": "vite build",
     "dev": "vite dev --port 5173 --strictPort",
     "preview": "vite preview --port 5173 --strictPort",
-    "test": "tsx --test src/lib/runtime-env.test.ts src/lib/browser-url.test.ts",
+    "test": "tsx --test src/lib/runtime-env.test.ts src/lib/browser-url.test.ts src/components/routes/library/library-data.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
