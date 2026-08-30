@@ -61,9 +61,6 @@ export function validateStorageKey(key: string): void {
       "Storage deletion key must be between 1 and 2048 characters",
     )
   }
-  if (key !== key.toLowerCase()) {
-    throw new Error("Storage deletion key must use canonical lower-case")
-  }
   if (
     key.includes("\\") ||
     key.includes("\0") ||

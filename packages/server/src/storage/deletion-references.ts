@@ -45,8 +45,8 @@ async function clipObjectHasLiveReference(key: string): Promise<boolean> {
       .from(clip)
       .where(
         or(
-          eq(clip.source_key, key),
-          eq(clip.cut_key, key),
+          storageKeyMatches(clip.source_key, key),
+          storageKeyMatches(clip.cut_key, key),
           ownerId
             ? and(eq(clip.id, ownerId), isNotNull(clip.encode_run_id))
             : undefined,
@@ -56,17 +56,17 @@ async function clipObjectHasLiveReference(key: string): Promise<boolean> {
     db
       .select({ id: clipRendition.id })
       .from(clipRendition)
-      .where(eq(clipRendition.storage_key, key))
+      .where(storageKeyMatches(clipRendition.storage_key, key))
       .limit(1),
     db
       .select({ clipId: clipAudioTrack.clip_id })
       .from(clipAudioTrack)
-      .where(eq(clipAudioTrack.storage_key, key))
+      .where(storageKeyMatches(clipAudioTrack.storage_key, key))
       .limit(1),
     db
       .select({ id: uploadTicket.id })
       .from(uploadTicket)
-      .where(eq(uploadTicket.storage_key, key))
+      .where(storageKeyMatches(uploadTicket.storage_key, key))
       .limit(1),
   ])
   return (
@@ -81,7 +81,7 @@ async function thumbnailHasLiveReference(key: string): Promise<boolean> {
   const [direct] = await db
     .select({ id: clip.id })
     .from(clip)
-    .where(eq(clip.thumb_key, key))
+    .where(storageKeyMatches(clip.thumb_key, key))
     .limit(1)
   if (direct) return true
 
@@ -131,7 +131,17 @@ async function assetHasLiveReference(key: string): Promise<boolean> {
 function exactInternalAssetPath(column: AnyColumn, expectedPath: string) {
   // Internal asset helpers append only a cache-busting query. Comparing the
   // parsed base path avoids substring/wildcard matches against external URLs.
-  return sql`split_part(coalesce(${column}, ''), '?', 1) = ${expectedPath}`
+  // Case-insensitive comparison also protects the same physical object on
+  // Windows while retaining the exact legacy key for deletion on Linux.
+  return sql`lower(split_part(coalesce(${column}, ''), '?', 1)) = lower(${expectedPath})`
+}
+
+function storageKeyMatches(column: AnyColumn, key: string) {
+  // Historical client-supplied clip UUIDs could produce upper-case upload
+  // keys. Treat case aliases as references for deletion safety on Windows,
+  // but retain the exact key in the ledger so Linux can remove the object that
+  // was actually minted.
+  return sql`lower(${column}) = lower(${key})`
 }
 
 export function stableThumbnailClipId(key: string): string | null {

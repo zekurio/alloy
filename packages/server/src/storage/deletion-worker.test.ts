@@ -48,18 +48,11 @@ test("coordinator faults use the short error retry instead of reconciliation", a
 })
 
 test("storage deletion identity rejects path aliases", () => {
-  for (const key of [
-    "",
-    "/root",
-    "a//b",
-    "a/../b",
-    "a\\b",
-    "a?b",
-    "AA/bb/object",
-  ]) {
+  for (const key of ["", "/root", "a//b", "a/../b", "a\\b", "a?b"]) {
     assert.throws(() => validateStorageKey(key))
   }
   assert.doesNotThrow(() => validateStorageKey("aa/bb/object/source.mp4"))
+  assert.doesNotThrow(() => validateStorageKey("AA/bb/object/source.mp4"))
 })
 
 test("enqueue metadata is normalized and abort defaults off", () => {

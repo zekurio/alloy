@@ -2746,7 +2746,7 @@
         },
         "storage_deletion_key_check": {
           "name": "storage_deletion_key_check",
-          "value": "char_length(\"storage_deletion\".\"storage_key\") between 1 and 2048 and \"storage_deletion\".\"storage_key\" = lower(\"storage_deletion\".\"storage_key\")"
+          "value": "char_length(\"storage_deletion\".\"storage_key\") between 1 and 2048"
         },
         "storage_deletion_reason_check": {
           "name": "storage_deletion_reason_check",

@@ -66,7 +66,7 @@ export const storageDeletion = pgTable(
     check("storage_deletion_revision_check", sql`${t.revision} > 0`),
     check(
       "storage_deletion_key_check",
-      sql`char_length(${t.storage_key}) between 1 and 2048 and ${t.storage_key} = lower(${t.storage_key})`,
+      sql`char_length(${t.storage_key}) between 1 and 2048`,
     ),
     check(
       "storage_deletion_reason_check",

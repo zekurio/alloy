@@ -15,7 +15,7 @@ CREATE TABLE "storage_deletion" (
 	CONSTRAINT "storage_deletion_namespace_check" CHECK ("storage_deletion"."namespace" in ('clips', 'thumbnails', 'assets')),
 	CONSTRAINT "storage_deletion_attempts_check" CHECK ("storage_deletion"."attempts" >= 0),
 	CONSTRAINT "storage_deletion_revision_check" CHECK ("storage_deletion"."revision" > 0),
-	CONSTRAINT "storage_deletion_key_check" CHECK (char_length("storage_deletion"."storage_key") between 1 and 2048 and "storage_deletion"."storage_key" = lower("storage_deletion"."storage_key")),
+	CONSTRAINT "storage_deletion_key_check" CHECK (char_length("storage_deletion"."storage_key") between 1 and 2048),
 	CONSTRAINT "storage_deletion_reason_check" CHECK (char_length(btrim("storage_deletion"."reason")) between 1 and 500),
 	CONSTRAINT "storage_deletion_source_type_check" CHECK (char_length(btrim("storage_deletion"."source_type")) between 1 and 100),
 	CONSTRAINT "storage_deletion_source_id_check" CHECK ("storage_deletion"."source_id" is null or char_length(btrim("storage_deletion"."source_id")) between 1 and 500)
