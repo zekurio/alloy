@@ -3,7 +3,10 @@ import { clip } from "@alloy/db/schema"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { withClipMediaStopped } from "@alloy/server/queue/clip-media-worker"
+import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
+import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
+import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import { and, eq, inArray, sql } from "drizzle-orm"
 
 export type UploadQuotaResult =
@@ -75,39 +78,53 @@ export async function markUploadFailed(
   authorId: string,
   clipId: string,
   reason: string,
+  options: { ownershipStopped?: boolean } = {},
 ): Promise<void> {
-  const updated = await withClipMediaStopped(clipId, async () => {
-    const [row] = await db
-      .update(clip)
-      .set({
-        status: "failed",
-        encode_request_id: null,
-        encode_request_force: false,
-        encode_requested_at: null,
-        encode_run_after: null,
-        encode_priority: 90,
-        encode_claimed_request_id: null,
-        encode_run_id: null,
-        encode_locked_at: null,
-        encode_attempt: 0,
-        encode_stage: null,
-        encode_tier: null,
-        encode_tier_index: null,
-        encode_tier_count: null,
-        encode_progress: 0,
-        encode_failed_fingerprint: null,
-        encode_failed_generation: null,
-        failure_reason: reason.slice(0, 500),
-        updated_at: new Date(),
-      })
-      .where(
-        and(
-          eq(clip.id, clipId),
-          inArray(clip.status, ["pending", "processing"]),
-        ),
+  const failTransaction = () =>
+    db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(clip)
+        .set({
+          status: "failed",
+          encode_request_id: null,
+          encode_request_force: false,
+          encode_requested_at: null,
+          encode_run_after: null,
+          encode_priority: 90,
+          encode_claimed_request_id: null,
+          encode_run_id: null,
+          encode_locked_at: null,
+          encode_attempt: 0,
+          encode_stage: null,
+          encode_tier: null,
+          encode_tier_index: null,
+          encode_tier_count: null,
+          encode_progress: 0,
+          encode_failed_fingerprint: null,
+          encode_failed_generation: null,
+          failure_reason: reason.slice(0, 500),
+          updated_at: new Date(),
+        })
+        .where(
+          and(
+            eq(clip.id, clipId),
+            inArray(clip.status, ["pending", "processing"]),
+          ),
+        )
+        .returning({ id: clip.id })
+      if (!row) return { updated: false, queued: 0 }
+      const queued = await deleteUploadTicketsWithStorageIntents(
+        { type: "clip", id: clipId },
+        `clip upload failed: ${reason}`,
+        tx,
       )
-      .returning({ id: clip.id })
-    return Boolean(row)
-  })
-  if (updated) void publishClipUpsert(authorId, clipId)
+      return { updated: true, queued }
+    })
+  const result = options.ownershipStopped
+    ? await failTransaction()
+    : await withClipMediaStopped(clipId, () =>
+        withUploadActivityStopped(clipId, failTransaction),
+      )
+  if (result.queued > 0) wakeStorageDeletionWorker()
+  if (result.updated) void publishClipUpsert(authorId, clipId)
 }

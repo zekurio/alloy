@@ -7,8 +7,9 @@ const logger = createLogger("uploads")
 export function stagedSourceKey(
   recordingId: string,
   contentType: AcceptedContentType,
+  uploadAttemptId: string,
 ): string {
-  return `uploads/${recordingId}/source${sourceExtension(contentType)}`
+  return `uploads/${recordingId.toLowerCase()}/${uploadAttemptId.toLowerCase()}/source${sourceExtension(contentType)}`
 }
 
 export async function mintStagedUpload(input: {

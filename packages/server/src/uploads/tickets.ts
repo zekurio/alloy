@@ -1,8 +1,13 @@
 import type { UploadTicketRole } from "@alloy/contracts"
 import { uploadTicket, type UploadTicketTarget } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
-import { deleteStagedUploads } from "@alloy/server/uploads/staged"
-import { and, eq, gt } from "drizzle-orm"
+import type { DbTransaction } from "@alloy/server/db/transaction"
+import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
+import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
+import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
+import { and, eq, gt, isNull, lt } from "drizzle-orm"
+
+import { withUploadActivityStopped } from "./activity"
 
 /** Identifies the clip an upload ticket belongs to. */
 export interface UploadTarget {
@@ -118,21 +123,100 @@ export async function selectTicketKeys(
   }))
 }
 
-/** Drop the ticket rows for a recording (does not touch storage objects). */
-export async function deleteTicketRows(target: UploadTarget): Promise<void> {
-  await db.delete(uploadTicket).where(targetMatch(target))
+type DeletedUploadTicket = {
+  id: string
+  storageKey: string
 }
 
 /**
- * Delete a clip's staged upload objects AND their ticket rows. Used after a
- * successful publish/finalize and on terminal failure.
+ * Atomically detach every staged object owned by a target. The physical worker
+ * is woken by the caller only after this transaction commits.
+ */
+export async function deleteUploadTicketsWithStorageIntents(
+  target: UploadTarget,
+  reason: string,
+  tx: DbTransaction,
+): Promise<number> {
+  const rows = await tx
+    .delete(uploadTicket)
+    .where(targetMatch(target))
+    .returning({
+      id: uploadTicket.id,
+      storageKey: uploadTicket.storage_key,
+    })
+  return enqueueDeletedUploadTickets(rows, reason, tx)
+}
+
+/** Atomically cancel one still-owned upload ticket by its durable identity. */
+export async function deleteUploadTicketWithStorageIntent(
+  ticketId: string,
+  reason: string,
+  tx: DbTransaction,
+): Promise<number> {
+  const rows = await tx
+    .delete(uploadTicket)
+    .where(eq(uploadTicket.id, ticketId))
+    .returning({
+      id: uploadTicket.id,
+      storageKey: uploadTicket.storage_key,
+    })
+  return enqueueDeletedUploadTickets(rows, reason, tx)
+}
+
+/** Claim every expired, unused ticket without racing a late successful use. */
+export async function deleteExpiredUploadTicketWithStorageIntent(
+  ticketId: string,
+  expiresBefore: Date,
+  reason: string,
+  tx: DbTransaction,
+): Promise<number> {
+  const rows = await tx
+    .delete(uploadTicket)
+    .where(
+      and(
+        eq(uploadTicket.id, ticketId),
+        isNull(uploadTicket.used_at),
+        lt(uploadTicket.expires_at, expiresBefore),
+      ),
+    )
+    .returning({
+      id: uploadTicket.id,
+      storageKey: uploadTicket.storage_key,
+    })
+  return enqueueDeletedUploadTickets(rows, reason, tx)
+}
+
+async function enqueueDeletedUploadTickets(
+  rows: readonly DeletedUploadTicket[],
+  reason: string,
+  tx: DbTransaction,
+): Promise<number> {
+  for (const row of rows) {
+    await enqueueStorageDeletion(
+      stagedUploadDeletionIntent({
+        key: row.storageKey,
+        reason,
+        source: { type: "upload-ticket", id: row.id },
+      }),
+      { tx },
+    )
+  }
+  return rows.length
+}
+
+/**
+ * Standalone compatibility wrapper for media paths not yet adopted into their
+ * owning transaction. It is durable, but a crash before this function is
+ * called remains the generated-media layer's responsibility.
  */
 export async function cleanupTickets(
   target: UploadTarget,
-  label: string,
+  reason: string,
 ): Promise<void> {
-  const keys = await selectTicketKeys(target)
-  if (keys.length === 0) return
-  await deleteStagedUploads(keys, label)
-  await deleteTicketRows(target)
+  const queued = await withUploadActivityStopped(target.id, () =>
+    db.transaction((tx) =>
+      deleteUploadTicketsWithStorageIntents(target, reason, tx),
+    ),
+  )
+  if (queued > 0) wakeStorageDeletionWorker()
 }
