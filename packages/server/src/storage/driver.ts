@@ -154,6 +154,19 @@ export function userAssetKey(
   return `${shardedAssetDir(userId)}/${role}${ext}`
 }
 
+export function versionedUserAssetKey(
+  userId: string,
+  role: UserAssetRole,
+  versionId: string,
+  ext: string,
+): string {
+  const version = versionId.replaceAll("-", "").toLowerCase()
+  if (!/^[0-9a-f]{32}$/.test(version)) {
+    throw new Error("User asset version must be a UUID")
+  }
+  return `${shardedAssetDir(userId)}/${role}-${version}${ext}`
+}
+
 export function gameAssetKey(
   gameId: string,
   role: GameAssetRole,

@@ -8,7 +8,7 @@ import {
   resolvesToPublicAddress,
 } from "@alloy/server/media/remote-image"
 import { uploadUserAsset } from "@alloy/server/users/user-assets"
-import { eq } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 
 import type { OAuthProfile } from "./oauth-types"
 
@@ -22,7 +22,10 @@ export async function syncOAuthAvatar(
 
   try {
     const [row] = await db
-      .select({ image: user.image })
+      .select({
+        image: user.image,
+        revision: sql<string>`${user.updated_at}::text`,
+      })
       .from(user)
       .where(eq(user.id, userId))
       .limit(1)
@@ -56,6 +59,10 @@ export async function syncOAuthAvatar(
       role: "avatar",
       bytes,
       contentType: parsed.contentType,
+      expected: {
+        currentUrl: row.image,
+        revision: row.revision,
+      },
     })
     if (!result.ok) {
       logger.warn(

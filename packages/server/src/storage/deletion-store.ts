@@ -1,4 +1,7 @@
-import { storageDeletion } from "@alloy/db/schema"
+import {
+  storageDeletion,
+  type StorageDeletionNamespace,
+} from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, asc, eq, sql } from "drizzle-orm"
@@ -9,6 +12,7 @@ import {
   storageDeletionRetryAt,
   type StorageDeletionInput,
   validateStorageDeletionInput,
+  validateStorageKey,
 } from "./deletion-policy"
 
 export interface EnqueueStorageDeletionOptions {
@@ -65,6 +69,25 @@ export async function enqueueStorageDeletions(
   options: EnqueueStorageDeletionOptions = {},
 ): Promise<void> {
   for (const input of inputs) await enqueueStorageDeletion(input, options)
+}
+
+export async function cancelStorageDeletion(
+  namespace: StorageDeletionNamespace,
+  key: string,
+  options: { tx?: DbTransaction } = {},
+): Promise<boolean> {
+  validateStorageKey(key)
+  const executor = options.tx ?? db
+  const rows = await executor
+    .delete(storageDeletion)
+    .where(
+      and(
+        eq(storageDeletion.namespace, namespace),
+        eq(storageDeletion.storage_key, key),
+      ),
+    )
+    .returning({ id: storageDeletion.id })
+  return rows.length > 0
 }
 
 export async function probeStorageDeletionStore(): Promise<void> {

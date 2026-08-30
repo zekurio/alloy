@@ -3,6 +3,7 @@ import { requireSession } from "@alloy/server/auth/require-session"
 import { errorResult } from "@alloy/server/runtime/http-response"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
 import { userStorage } from "@alloy/server/storage/index"
+import { USER_ASSET_ROUTE_KEY_RE } from "@alloy/server/users/user-asset-deletion"
 import {
   EXT_FOR_CONTENT_TYPE,
   removeUserAsset,
@@ -19,9 +20,6 @@ import { tbValidator } from "./validation"
 const UserAssetUploadForm = t.object({
   file: t.instanceof(File, { message: "Expected an uploaded image file" }),
 })
-
-const USER_ASSET_KEY_RE =
-  /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner)\.webp$/i
 
 function validateUserAssetFile(
   role: UserAssetRole,
@@ -112,5 +110,5 @@ export const usersUploadRoute = new Hono<{
 
 export const userAssetsRoute = immutableImageAssetsRoute(
   userStorage,
-  USER_ASSET_KEY_RE,
+  USER_ASSET_ROUTE_KEY_RE,
 )
