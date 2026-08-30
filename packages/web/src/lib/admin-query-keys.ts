@@ -1,22 +1,6 @@
-import type { AdminJobsSummary } from "@alloy/api"
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query"
 
 import { api } from "@/lib/api"
-
-// Ephemeral admin panels poll instead of subscribing to an SSE channel: the
-// settings dialog is short-lived and admin-only, so a refetch while mounted is
-// cheaper than fanning job events out to every admin. Poll fast while jobs are
-// moving, then back off hard once the queues go idle so an open panel isn't
-// hitting the server every few seconds when nothing can change.
-const JOBS_ACTIVE_REFETCH_INTERVAL_MS = 3000
-const JOBS_IDLE_REFETCH_INTERVAL_MS = 30000
-
-export function hasActiveJobs(summary: AdminJobsSummary | undefined): boolean {
-  return (
-    summary?.queues.some((queue) => queue.pending > 0 || queue.running > 0) ??
-    false
-  )
-}
 
 export const adminKeys = {
   all: ["admin"] as const,
@@ -29,43 +13,6 @@ export const adminKeys = {
       : ([...adminKeys.all, "users"] as const),
   games: () => [...adminKeys.all, "games"] as const,
   webhooks: () => [...adminKeys.all, "webhooks"] as const,
-  jobsSummary: () => [...adminKeys.all, "jobs", "summary"] as const,
-  jobsFailed: (kind: string | null) =>
-    [...adminKeys.all, "jobs", "failed", kind ?? "all"] as const,
-}
-
-export function adminJobsSummaryQueryOptions() {
-  return queryOptions({
-    queryKey: adminKeys.jobsSummary(),
-    queryFn: () => api.admin.fetchJobsSummary(),
-    refetchInterval: (query) =>
-      hasActiveJobs(query.state.data)
-        ? JOBS_ACTIVE_REFETCH_INTERVAL_MS
-        : JOBS_IDLE_REFETCH_INTERVAL_MS,
-  })
-}
-
-// Failed jobs only grow while other jobs are running, so the caller passes the
-// current activity so this list slows down alongside the summary when idle.
-export function adminFailedJobsQueryOptions(
-  kind: string | null,
-  jobsActive = false,
-) {
-  return infiniteQueryOptions({
-    queryKey: adminKeys.jobsFailed(kind),
-    queryFn: ({ pageParam }) => {
-      const filters: Parameters<typeof api.admin.fetchFailedJobs>[0] = {}
-      if (kind) filters.kind = kind
-      if (pageParam) filters.cursor = pageParam
-      return api.admin.fetchFailedJobs(filters)
-    },
-    // SAFETY: The API cursor domain is string or null; null is its first page.
-    initialPageParam: null as string | null,
-    getNextPageParam: (lastPage) => lastPage.nextCursor,
-    refetchInterval: jobsActive
-      ? JOBS_ACTIVE_REFETCH_INTERVAL_MS
-      : JOBS_IDLE_REFETCH_INTERVAL_MS,
-  })
 }
 
 export function adminRuntimeConfigQueryOptions() {

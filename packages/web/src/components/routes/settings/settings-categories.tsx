@@ -29,7 +29,6 @@ import {
   Gamepad2Icon,
   LanguagesIcon,
   KeyRoundIcon,
-  ListChecksIcon,
   type LucideIcon,
   PaletteIcon,
   ServerIcon,
@@ -157,12 +156,6 @@ const AdminUsersPanel = lazy(() =>
 const AdminGamesPanel = lazy(() =>
   import("@/components/routes/settings/admin-tab-content").then((module) => ({
     default: module.AdminGamesPanel,
-  })),
-)
-
-const AdminJobsPanel = lazy(() =>
-  import("@/components/routes/settings/admin-tab-content").then((module) => ({
-    default: module.AdminJobsPanel,
   })),
 )
 
@@ -598,27 +591,6 @@ const ADMIN_CATEGORIES = categoryDrafts([
     ["games", "custom games", "artwork", "cover", "hero", "logo", "icon"],
     Gamepad2Icon,
     AdminGamesPanel,
-  ],
-  [
-    "jobs",
-    t("Jobs"),
-    t("Background jobs"),
-    t("Queue health, maintenance operations, and failed jobs."),
-    [
-      "background jobs",
-      "queue",
-      "queue health",
-      "transcoding changes",
-      "re-encode clips",
-      "orphaned storage",
-      "storage cleanup",
-      "preview cleanup",
-      "confirm deletion",
-      "failed jobs",
-      "retry",
-    ],
-    ListChecksIcon,
-    AdminJobsPanel,
   ],
   [
     "webhooks",

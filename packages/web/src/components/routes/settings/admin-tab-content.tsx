@@ -3,7 +3,6 @@ import { Callout } from "@alloy/ui/components/callout"
 import type { ReactNode } from "react"
 
 import { AdminGamesCard } from "@/components/admin/admin-games-card"
-import { AdminJobsCard } from "@/components/admin/admin-jobs-card"
 import { AdminUsersCard } from "@/components/admin/admin-users-card"
 import { AdminWebhooksCard } from "@/components/admin/admin-webhooks-card"
 import { AppearanceSettingsContent } from "@/components/routes/settings/admin-appearance-settings"
@@ -50,10 +49,6 @@ export function AdminUsersPanel() {
 
 export function AdminGamesPanel() {
   return <AdminGamesCard hideHeader />
-}
-
-export function AdminJobsPanel() {
-  return <AdminJobsCard hideHeader />
 }
 
 export function AdminWebhooksPanel() {
