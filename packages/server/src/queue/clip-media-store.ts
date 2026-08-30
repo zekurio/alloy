@@ -8,6 +8,10 @@ import {
 import { db } from "@alloy/server/db/index"
 import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
 import { cleanupTickets } from "@alloy/server/uploads/tickets"
+import {
+  claimClipPublishedDeliveries,
+  wakeClaimedClipPublishedDeliveries,
+} from "@alloy/server/webhooks/publish"
 import { and, eq, lt, sql } from "drizzle-orm"
 
 import { encodeLeaseConditions } from "./lease-conditions"
@@ -282,20 +286,26 @@ export const clipMediaStore: MediaStore = {
   },
 
   async commitPlayable(id, runId) {
-    const [row] = await db
-      .update(clip)
-      .set({
-        status: "ready",
-        published_at: publishedAtStamp,
-        updated_at: new Date(),
-      })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    return Boolean(row)
+    const result = await db.transaction(async (tx) => {
+      const [row] = await tx
+        .update(clip)
+        .set({
+          status: "ready",
+          published_at: publishedAtStamp,
+          updated_at: new Date(),
+        })
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        .returning({ id: clip.id })
+      if (!row) return { committed: false, webhookClaims: 0 }
+      const webhookClaims = await claimClipPublishedDeliveries(tx, id)
+      return { committed: true, webhookClaims }
+    })
+    wakeClaimedClipPublishedDeliveries(result.webhookClaims)
+    return result.committed
   },
 
   async commitReady(id, runId, patch, renditions, audioTracks) {
-    return db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
       const [updated] = await tx
         .update(clip)
         .set({
@@ -315,7 +325,7 @@ export const clipMediaStore: MediaStore = {
         })
         .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
         .returning({ id: clip.id })
-      if (!updated) return false
+      if (!updated) return { committed: false, webhookClaims: 0 }
 
       await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
       await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
@@ -347,8 +357,11 @@ export const clipMediaStore: MediaStore = {
           })),
         )
       }
-      return true
+      const webhookClaims = await claimClipPublishedDeliveries(tx, id)
+      return { committed: true, webhookClaims }
     })
+    wakeClaimedClipPublishedDeliveries(result.webhookClaims)
+    return result.committed
   },
 
   async currentAssetKeys(id) {

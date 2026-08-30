@@ -9,6 +9,10 @@ import { env } from "./env"
 import { startJobs, stopJobs } from "./jobs"
 import { configureTranscode } from "./media/transcode-settings"
 import { requestShutdown } from "./runtime/shutdown"
+import {
+  startWebhookDeliveryWorker,
+  stopWebhookDeliveryWorker,
+} from "./webhooks/delivery-worker"
 
 const logger = createLogger("server")
 
@@ -65,6 +69,7 @@ const SHUTDOWN_GRACE_MS = 5000
 void startJobs().catch((err) => {
   logger.error("failed to start jobs:", err)
 })
+startWebhookDeliveryWorker()
 
 let shuttingDown = false
 const shutdown = () => {
@@ -79,7 +84,7 @@ const shutdown = () => {
 
   // Stop background work before the HTTP server goes away so in-flight media
   // jobs get a chance to flush state.
-  void stopJobs()
+  void Promise.all([stopWebhookDeliveryWorker(), stopJobs()])
     .catch((err) => {
       logger.error("failed to stop background workers cleanly:", err)
     })

@@ -8,7 +8,11 @@ import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
 import { createNotification } from "@alloy/server/notifications/service"
 import { badRequest, deleted } from "@alloy/server/runtime/http-response"
-import { announceClipPublished } from "@alloy/server/webhooks/publish"
+import {
+  announceClipPublished,
+  claimClipPublishedDeliveries,
+  wakeClaimedClipPublishedDeliveries,
+} from "@alloy/server/webhooks/publish"
 import { eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -86,7 +90,7 @@ export const clipsUploadRoutes = new Hono()
       const tags =
         body.tags !== undefined ? normalizeTags(body.tags) : undefined
 
-      await db.transaction(async (tx) => {
+      const webhookClaims = await db.transaction(async (tx) => {
         const updates =
           body.privacy === "public"
             ? {
@@ -111,14 +115,18 @@ export const clipsUploadRoutes = new Hono()
           }
         }
 
-        if (tags === undefined) return
-        await tx.delete(clipTag).where(eq(clipTag.clip_id, id))
-        if (tags.length > 0) {
-          await tx
-            .insert(clipTag)
-            .values(tags.map((tag) => ({ clip_id: id, tag })))
+        if (tags !== undefined) {
+          await tx.delete(clipTag).where(eq(clipTag.clip_id, id))
+          if (tags.length > 0) {
+            await tx
+              .insert(clipTag)
+              .values(tags.map((tag) => ({ clip_id: id, tag })))
+          }
         }
+
+        return publishRequested ? claimClipPublishedDeliveries(tx, id) : 0
       })
+      wakeClaimedClipPublishedDeliveries(webhookClaims)
 
       void publishClipUpsert(row.author_id, id)
       // A clip that was already encoded and is only now being made public
