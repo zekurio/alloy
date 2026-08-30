@@ -1,6 +1,5 @@
 import type { JobQueue } from "@alloy/contracts"
 import { createLogger, runWithLogContext } from "@alloy/logging"
-import { env } from "@alloy/server/env"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 
 import { subscribeToQueueWake } from "./events"
@@ -324,7 +323,6 @@ function activeDedupKey(kind: string, dedupKey: string): string {
 
 function queueSpecs(): QueueSpec[] {
   return [
-    { queue: "encode", concurrency: env.transcode.concurrency, restMs: 0 },
     { queue: "io", concurrency: 1, restMs: 2000 },
     { queue: "maintenance", concurrency: 1, restMs: 0 },
   ]

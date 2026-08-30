@@ -1,13 +1,19 @@
-import { JOB_QUEUES, type JobKind, type JobQueue } from "./jobs"
+import type { JobQueue } from "./jobs"
 import { t } from "./schema"
+
+/** Contract-1 queue labels, including the retired encode queue adapter. */
+export const ADMIN_JOB_QUEUES = [
+  "encode",
+  "io",
+  "maintenance",
+] as const satisfies readonly ("encode" | JobQueue)[]
+export type AdminJobQueue = (typeof ADMIN_JOB_QUEUES)[number]
 
 /**
  * Sweep kinds an admin can trigger with the generic sweep route. Storage
  * cleanup uses separate preview and confirm routes.
  */
-export const ADMIN_SWEEP_KINDS = [
-  "clip.renditions-sweep",
-] as const satisfies readonly JobKind[]
+export const ADMIN_SWEEP_KINDS = ["clip.renditions-sweep"] as const
 export type AdminSweepKind = (typeof ADMIN_SWEEP_KINDS)[number]
 
 const NonNegativeIntSchema = t.number().int().nonnegative()
@@ -20,7 +26,7 @@ const AdminJobCountsSchema = t.object({
 })
 
 export const AdminJobQueueRowSchema = t.object({
-  queue: t.enum(JOB_QUEUES satisfies readonly JobQueue[]),
+  queue: t.enum(ADMIN_JOB_QUEUES),
   ...AdminJobCountsSchema.properties,
 })
 export type AdminJobQueueRow = t.infer<typeof AdminJobQueueRowSchema>

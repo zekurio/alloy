@@ -335,6 +335,7 @@ export const AdminRuntimeConfigSchema = t.looseObject({
 export type AdminRuntimeConfig = t.infer<typeof AdminRuntimeConfigSchema>
 
 export {
+  ADMIN_JOB_QUEUES,
   ADMIN_SWEEP_KINDS,
   AdminFailedJobSchema,
   AdminFailedJobsPageSchema,
@@ -346,6 +347,7 @@ export {
   AdminStorageGcSummarySchema,
 } from "./admin-jobs"
 export type {
+  AdminJobQueue,
   AdminFailedJob,
   AdminFailedJobsPage,
   AdminJobEnqueueResponse,

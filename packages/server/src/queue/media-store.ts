@@ -5,8 +5,6 @@ import type {
 } from "@alloy/contracts"
 import type { UploadTicketTarget } from "@alloy/db/schema"
 
-import type { JobTransaction } from "../jobs/store-types"
-
 /** The media-bearing subset of a recording row the processing run reads. */
 export interface MediaRow {
   id: string
@@ -82,36 +80,19 @@ export interface MediaAudioTrackRecord {
   sizeBytes: number
 }
 
+export interface MediaCompletion {
+  requestId: string
+  targetGeneration: number
+}
+
 /**
- * Table-specific glue for the media pipeline. The `clip.encode` job handler
- * (dispatched by the jobs dispatcher) and the processing run
- * ({@link runMediaProcessing}) are written once against this interface. Every
- * write is guarded by the encode runId and returns false/null once the lease
- * has moved on (stale-takeover safe).
+ * Table-specific glue for the media pipeline. Every write is guarded by the
+ * encode runId and returns false/null once the run has moved on
+ * (stale-takeover safe).
  */
 export interface MediaStore {
   /** Distinguishes the worker instances and scopes upload tickets. */
   readonly target: UploadTicketTarget
-
-  /** Atomically take the lease (processing + runId + lockedAt + attempt++). */
-  lease(id: string, runId: string): Promise<MediaRow | null>
-  /** Refresh the lease; false means another run took over. */
-  heartbeat(id: string, runId: string): Promise<boolean>
-  /** Clear the lease (leaving status) so the row is retried later. */
-  releaseLease(
-    id: string,
-    runId: string,
-    reason: string,
-    tx?: JobTransaction,
-  ): Promise<void>
-  /** Commit terminal failure unless already ready. Cleanup runs after commit. */
-  markFailed(
-    id: string,
-    runId: string,
-    reason: string,
-    encodeFailedFingerprint: string | null,
-    tx: JobTransaction,
-  ): Promise<(() => Promise<void> | void) | void>
 
   /** True while the row still holds this run's lease. */
   stillPresent(id: string, runId: string): Promise<boolean>
@@ -140,10 +121,18 @@ export interface MediaStore {
     runId: string,
     patch: MediaThumbPatch,
   ): Promise<boolean>
-  /** Clear a thumbnail-only lease after success or transient extraction error. */
-  finishThumbnailBackfill(id: string, runId: string): Promise<boolean>
+  /** Clear a thumbnail-only run after success. */
+  finishThumbnailBackfill(
+    id: string,
+    runId: string,
+    completion: MediaCompletion,
+  ): Promise<boolean>
   /** Mark content as permanently unsuitable for poster extraction. */
-  commitThumbFailed(id: string, runId: string): Promise<boolean>
+  commitThumbFailed(
+    id: string,
+    runId: string,
+    completion: MediaCompletion,
+  ): Promise<boolean>
   /**
    * Transitions the row to publicly playable once source and thumbnail state
    * are committed, while the encode ladder continues under the same lease.
@@ -166,6 +155,7 @@ export interface MediaStore {
       },
     renditions: readonly MediaRenditionRecord[],
     audioTracks: readonly MediaAudioTrackRecord[],
+    completion: MediaCompletion,
   ): Promise<boolean>
   /** Current asset keys, so a failing run never deletes live assets. */
   currentAssetKeys(id: string): Promise<{

@@ -43,9 +43,8 @@ export async function jobCounts(): Promise<
 }
 
 // Dismisses a terminally failed job from the admin failed list. Deletes the row
-// rather than cancelling it: the failed row carries no clip state (quarantine
-// lives on clip.encode_failed_fingerprint), so removing it clears the dashboard
-// entry without ever un-quarantining the clip.
+// rather than cancelling it: failed domain state belongs to the domain row, so
+// removing a generic job only clears the dashboard entry.
 export async function discardFailed(jobId: string): Promise<boolean> {
   const [row] = await db
     .delete(job)
