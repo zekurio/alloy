@@ -33,7 +33,7 @@ import { destroyRecordingNotificationSoundPlayer } from "./recording-notificatio
 import { getRecordingSettings, getStartupServer } from "./server-store"
 import { watchAuthCookiePersistence } from "./session"
 import { createAlloyTray } from "./tray"
-import { runStartupUpdateBeforeServices } from "./updater"
+import { startBackgroundUpdateChecks } from "./updater"
 import { Windows } from "./windows"
 
 const BACKGROUND_STARTUP_DELAY_MS = 1000
@@ -98,20 +98,11 @@ function startApp(): void {
       },
     })
     const interactiveStartup = !wasLaunchedAtLogin()
-    // Publish the checking state before the bundled window loads, so the
-    // connect form never flashes before the update screen.
-    const startupUpdate = runStartupUpdateBeforeServices(interactiveStartup)
-    if (interactiveStartup) windows.createOverlay()
-    const startupUpdateResult = await startupUpdate.catch((cause: unknown) => {
-      logger.warn("startup update flow failed; continuing:", cause)
-      return "continue" as const
-    })
-    if (startupUpdateResult === "installing") return
-
     // Launched as a login item: stay in the tray and keep the recording
     // backend warm; the user opens a window from the tray when needed.
     if (interactiveStartup) await openInitialWindow(windows)
     scheduleBackgroundStartup()
+    startBackgroundUpdateChecks()
 
     app.on("activate", () => {
       // macOS: re-open the bundled app when a server is selected, or the

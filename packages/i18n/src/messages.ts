@@ -257,39 +257,26 @@ export const DE_MESSAGES = {
   "Check for updates": "Nach Updates suchen",
   "Checking...": "Wird geprüft...",
   "Checking for updates": "Suche nach Updates",
-  "Alloy could not check for updates. It will start normally.":
-    "Alloy konnte nicht nach Updates suchen. Alloy startet normal.",
-  "Alloy could not download the update.":
-    "Alloy konnte das Update nicht herunterladen.",
   "Alloy could not start the update installer.":
     "Alloy konnte das Update-Installationsprogramm nicht starten.",
   "Active recording and replay buffering will stop.":
     "Aktive Aufnahmen und der Replay-Puffer werden beendet.",
-  "Alloy could not update": "Alloy konnte nicht aktualisiert werden",
   "Apply recording settings?": "Aufnahmeeinstellungen anwenden?",
   "Apply settings": "Einstellungen anwenden",
-  "Alloy is closing capture services and will restart shortly.":
-    "Alloy beendet die Aufnahmedienste und startet gleich neu.",
   "Change startup": "Autostart ändern",
   "Change startup behavior?": "Autostart-Verhalten ändern?",
   "Connect to another Alloy server?":
     "Mit einem anderen Alloy-Server verbinden?",
   Continue: "Fortfahren",
-  "Continue without updating": "Ohne Update fortfahren",
-  "Continue without updating ({seconds})": "Ohne Update fortfahren ({seconds})",
-  "Download the installer manually":
-    "Installationsprogramm manuell herunterladen",
   "Forget Alloy server?": "Alloy-Server vergessen?",
   "Download clip": "Clip herunterladen",
   "Download clip to this computer?": "Clip auf diesen Computer herunterladen?",
-  "Downloading Alloy {version}": "Alloy {version} wird heruntergeladen",
-  "Installing Alloy {version}": "Alloy {version} wird installiert",
-  "Keep Alloy open. It will restart when the update is ready.":
-    "Lass Alloy geöffnet. Alloy startet neu, sobald das Update bereit ist.",
   "Recording and hotkey behavior may change.":
     "Aufnahme- und Hotkey-Verhalten können sich ändern.",
   "Recording stops while the desktop update is installed.":
     "Die Aufnahme wird während der Installation des Desktop-Updates angehalten.",
+  "Recording will stop while the desktop update is installed.":
+    "Die Aufnahme wird beendet, während das Desktop-Update installiert wird.",
   "Restart and install": "Neu starten und installieren",
   "Restart and install Alloy?": "Alloy neu starten und installieren?",
   "Restart recording services?": "Aufnahmedienste neu starten?",
@@ -299,15 +286,8 @@ export const DE_MESSAGES = {
   "Passkeys and linked accounts stay tied to your server's web address.":
     "Passkeys und verknüpfte Konten bleiben an die Webadresse deines Servers gebunden.",
   "Server switch cancelled.": "Serverwechsel abgebrochen.",
-  "Starting Alloy...": "Alloy wird gestartet...",
-  "The update check took too long. Alloy will start normally.":
-    "Die Update-Suche hat zu lange gedauert. Alloy startet normal.",
-  "The update download took too long. It will continue in the background.":
-    "Der Update-Download hat zu lange gedauert. Er läuft im Hintergrund weiter.",
   "This changes whether Alloy starts when you sign in.":
     "Dadurch wird geändert, ob Alloy bei der Anmeldung gestartet wird.",
-  "This quick check keeps Alloy Desktop and your server in sync.":
-    "Diese kurze Prüfung hält Alloy Desktop und deinen Server synchron.",
   Choose: "Auswählen",
   "Change {label}": "{label} ändern",
   "Choose date": "Datum wählen",
@@ -1013,6 +993,8 @@ export const DE_MESSAGES = {
     "Auflösung, Bildrate, Encoder und Replay-Puffer.",
   Restart: "Neustart",
   "Install and restart": "Installieren und neu starten",
+  "Install the update and restart Alloy?":
+    "Update installieren und Alloy neu starten?",
   "Installing...": "Wird installiert...",
   "Restart to update": "Zum Aktualisieren neu starten",
   "Restart the capture component if recording gets stuck.":
