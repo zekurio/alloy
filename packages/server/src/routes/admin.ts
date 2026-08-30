@@ -4,6 +4,7 @@ import {
   VideoCodecSchema,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
+import { withAdminAccessChange } from "@alloy/server/auth/admin-access"
 import { requireAdmin } from "@alloy/server/auth/session"
 import { signInConfigError } from "@alloy/server/auth/sign-in-config"
 import {
@@ -127,18 +128,20 @@ export const adminRoute = new Hono()
       }
     }
 
-    // Turning passkeys off must leave a usable sign-in method (and one an
-    // active admin can actually use) — same lockout guard as provider edits.
-    if (patch.passkeyEnabled === false) {
-      const error = await signInConfigError({
-        passkeyEnabled: false,
-        oauthProviders: configStore.get("oauthProviders"),
-      })
-      if (error) return conflict(c, error)
-    }
+    return withAdminAccessChange(async () => {
+      // Snapshot, validate, persist, and refresh the process config under the
+      // same mutex as every admin-access-removing user transition.
+      if (patch.passkeyEnabled === false) {
+        const error = await signInConfigError({
+          passkeyEnabled: false,
+          oauthProviders: configStore.get("oauthProviders"),
+        })
+        if (error) return conflict(c, error)
+      }
 
-    await setAuthToggles(patch)
-    return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+      await setAuthToggles(patch)
+      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+    })
   })
   .put(
     "/oauth-providers",
@@ -166,17 +169,19 @@ export const adminRoute = new Hono()
         }: OAuthProviderSubmission) => provider,
       )
 
-      const error = await signInConfigError(
-        {
-          passkeyEnabled: configStore.get("passkeyEnabled"),
-          oauthProviders: providers,
-        },
-        (providerId) => Object.hasOwn(newSecrets, providerId),
-      )
-      if (error) return conflict(c, error)
+      return withAdminAccessChange(async () => {
+        const error = await signInConfigError(
+          {
+            passkeyEnabled: configStore.get("passkeyEnabled"),
+            oauthProviders: providers,
+          },
+          (providerId) => Object.hasOwn(newSecrets, providerId),
+        )
+        if (error) return conflict(c, error)
 
-      await setOAuthProviders(providers, newSecrets)
-      return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+        await setOAuthProviders(providers, newSecrets)
+        return c.json(adminRuntimeConfigResponse(configStore.getAll()))
+      })
     },
   )
   .patch("/appearance", tbValidator("json", AppearancePatch), async (c) => {

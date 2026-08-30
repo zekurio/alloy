@@ -33,6 +33,7 @@ import {
   deleteUploadTicketsWithStorageIntents,
   selectVideoTicket,
 } from "@alloy/server/uploads/tickets"
+import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
 import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -127,158 +128,167 @@ export const clipsUploadLifecycleRoutes = new Hono()
         body.contentType,
         crypto.randomUUID(),
       )
-      return withUploadActivityStopped(clipId, async () => {
-        const privacy = body.privacy ?? "public"
-        const trim =
-          body.trimStartMs !== undefined &&
-          body.trimEndMs !== undefined &&
-          body.durationMs !== undefined
-            ? resolveTrimRange({
-                startMs: body.trimStartMs,
-                endMs: body.trimEndMs,
-                durationMs: body.durationMs,
-              })
-            : null
+      const initiate = () =>
+        withUploadActivityStopped(clipId, async () => {
+          const privacy = body.privacy ?? "public"
+          const trim =
+            body.trimStartMs !== undefined &&
+            body.trimEndMs !== undefined &&
+            body.durationMs !== undefined
+              ? resolveTrimRange({
+                  startMs: body.trimStartMs,
+                  endMs: body.trimEndMs,
+                  durationMs: body.durationMs,
+                })
+              : null
 
-        let gameRef: Awaited<ReturnType<typeof getGameRefById>> = null
-        if (body.gameId !== undefined && body.gameId !== null) {
-          gameRef = await getGameRefById(body.gameId)
-          if (!gameRef) return badRequest(c, "Unknown game")
-        }
-
-        const mentionedIds = body.mentionedUserIds
-          ? await resolveMentionIds(body.mentionedUserIds, viewerId)
-          : []
-
-        const initiateResult = await db.transaction<InitiateTransactionResult>(
-          async (tx) => {
-            const { quotaBytes, usedBytes } = await selectLockedQuotaState(
-              tx,
-              viewerId,
-            )
-            const quota = uploadQuotaResult({
-              quotaBytes,
-              usedBytes,
-              incomingBytes: body.sizeBytes,
-            })
-            if (!quota.ok) return quota
-
-            const [inserted] = await tx
-              .insert(clip)
-              .values({
-                id: clipId,
-                author_id: viewerId,
-                title: body.title,
-                description: body.description ?? null,
-                game: gameRef?.name ?? null,
-                game_id: gameRef?.id ?? null,
-                privacy,
-                source_content_type: body.contentType,
-                source_size_bytes: body.sizeBytes,
-                pending_audio_tracks: body.audioTracks ?? null,
-                // Client-probed hints so placeholders keep the media's shape
-                // while processing; the media run re-probes and overwrites them.
-                width: body.width ?? null,
-                height: body.height ?? null,
-                duration_ms: body.durationMs ?? null,
-                // Kept source range applied by the media run at first ingest —
-                // full-range requests are dropped and the raw upload is stored
-                // untouched while the run derives any real cut.
-                trim_start_ms: trim
-                  ? trim.kind === "range"
-                    ? trim.startMs
-                    : null
-                  : (body.trimStartMs ?? null),
-                trim_end_ms: trim
-                  ? trim.kind === "range"
-                    ? trim.endMs
-                    : null
-                  : (body.trimEndMs ?? null),
-                status: "pending",
-              })
-              .onConflictDoNothing()
-              .returning({ id: clip.id })
-            if (!inserted) return { ok: false, reason: "id-conflict" }
-
-            if (mentionedIds.length > 0) {
-              await tx.insert(clipMention).values(
-                mentionedIds.map((mentionedUserId) => ({
-                  clip_id: clipId,
-                  mentioned_user_id: mentionedUserId,
-                })),
-              )
-            }
-
-            const tags = body.tags ? normalizeTags(body.tags) : []
-            if (tags.length > 0) {
-              await tx
-                .insert(clipTag)
-                .values(tags.map((tag) => ({ clip_id: clipId, tag })))
-            }
-
-            // Older servers could leave a ticket behind after its clip row was
-            // deleted between reservation and ticket creation. The exclusive
-            // upload gate has drained any issued token before we detach those
-            // legacy owners. The new attempt uses a versioned key, so its
-            // object can never alias the deletion intent below.
-            const queuedDeletions = await deleteUploadTicketsWithStorageIntents(
-              { type: "clip", id: clipId },
-              "superseded orphan upload ticket",
-              tx,
-            )
-
-            return { ok: true, queuedDeletions }
-          },
-        )
-
-        if (!initiateResult.ok) {
-          if ("reason" in initiateResult) {
-            return conflict(c, "Clip upload already exists")
+          let gameRef: Awaited<ReturnType<typeof getGameRefById>> = null
+          if (body.gameId !== undefined && body.gameId !== null) {
+            gameRef = await getGameRefById(body.gameId)
+            if (!gameRef) return badRequest(c, "Unknown game")
           }
-          return c.json(
-            {
-              error: "Storage quota exceeded",
-              usedBytes: initiateResult.usedBytes,
-              quotaBytes: initiateResult.quotaBytes,
-            },
-            413,
-          )
-        }
 
-        if (initiateResult.queuedDeletions > 0) {
-          wakeStorageDeletionWorker()
-        }
+          const mentionedIds = body.mentionedUserIds
+            ? await resolveMentionIds(body.mentionedUserIds, viewerId)
+            : []
 
-        void publishClipUpsert(viewerId, clipId)
+          const initiateResult =
+            await db.transaction<InitiateTransactionResult>(async (tx) => {
+              const { quotaBytes, usedBytes } = await selectLockedQuotaState(
+                tx,
+                viewerId,
+              )
+              const quota = uploadQuotaResult({
+                quotaBytes,
+                usedBytes,
+                incomingBytes: body.sizeBytes,
+              })
+              if (!quota.ok) return quota
 
-        const expiresInSec = configStore.get("limits").uploadTtlSec
-        const expiresAt = new Date(Date.now() + expiresInSec * 1000)
-        try {
-          const videoUpload = await mintStagedUpload({
-            key: uploadKey,
-            contentType: body.contentType,
-            maxBytes: body.sizeBytes,
-            expiresInSec,
-            userId: viewerId,
-            clipId,
-          })
-          await createUploadTickets({
-            target: { type: "clip", id: clipId },
-            ownerId: viewerId,
-            videoKey: uploadKey,
-            videoContentType: body.contentType,
-            videoBytes: body.sizeBytes,
-            expiresAt,
-          })
-          return c.json({
-            clipId,
-            ticket: videoUpload,
-          })
-        } catch (err) {
-          await cleanupFailedInitiate(clipId, uploadKey)
-          throw err
-        }
-      })
+              const [inserted] = await tx
+                .insert(clip)
+                .values({
+                  id: clipId,
+                  author_id: viewerId,
+                  title: body.title,
+                  description: body.description ?? null,
+                  game: gameRef?.name ?? null,
+                  game_id: gameRef?.id ?? null,
+                  privacy,
+                  source_content_type: body.contentType,
+                  source_size_bytes: body.sizeBytes,
+                  pending_audio_tracks: body.audioTracks ?? null,
+                  // Client-probed hints so placeholders keep the media's shape
+                  // while processing; the media run re-probes and overwrites them.
+                  width: body.width ?? null,
+                  height: body.height ?? null,
+                  duration_ms: body.durationMs ?? null,
+                  // Kept source range applied by the media run at first ingest —
+                  // full-range requests are dropped and the raw upload is stored
+                  // untouched while the run derives any real cut.
+                  trim_start_ms: trim
+                    ? trim.kind === "range"
+                      ? trim.startMs
+                      : null
+                    : (body.trimStartMs ?? null),
+                  trim_end_ms: trim
+                    ? trim.kind === "range"
+                      ? trim.endMs
+                      : null
+                    : (body.trimEndMs ?? null),
+                  status: "pending",
+                })
+                .onConflictDoNothing()
+                .returning({ id: clip.id })
+              if (!inserted) return { ok: false, reason: "id-conflict" }
+
+              if (mentionedIds.length > 0) {
+                await tx.insert(clipMention).values(
+                  mentionedIds.map((mentionedUserId) => ({
+                    clip_id: clipId,
+                    mentioned_user_id: mentionedUserId,
+                  })),
+                )
+              }
+
+              const tags = body.tags ? normalizeTags(body.tags) : []
+              if (tags.length > 0) {
+                await tx
+                  .insert(clipTag)
+                  .values(tags.map((tag) => ({ clip_id: clipId, tag })))
+              }
+
+              // Older servers could leave a ticket behind after its clip row was
+              // deleted between reservation and ticket creation. The exclusive
+              // upload gate has drained any issued token before we detach those
+              // legacy owners. The new attempt uses a versioned key, so its
+              // object can never alias the deletion intent below.
+              const queuedDeletions =
+                await deleteUploadTicketsWithStorageIntents(
+                  { type: "clip", id: clipId },
+                  "superseded orphan upload ticket",
+                  tx,
+                )
+
+              return { ok: true, queuedDeletions }
+            })
+
+          if (!initiateResult.ok) {
+            if ("reason" in initiateResult) {
+              return conflict(c, "Clip upload already exists")
+            }
+            return c.json(
+              {
+                error: "Storage quota exceeded",
+                usedBytes: initiateResult.usedBytes,
+                quotaBytes: initiateResult.quotaBytes,
+              },
+              413,
+            )
+          }
+
+          if (initiateResult.queuedDeletions > 0) {
+            wakeStorageDeletionWorker()
+          }
+
+          void publishClipUpsert(viewerId, clipId)
+
+          const expiresInSec = configStore.get("limits").uploadTtlSec
+          const expiresAt = new Date(Date.now() + expiresInSec * 1000)
+          try {
+            const videoUpload = await mintStagedUpload({
+              key: uploadKey,
+              contentType: body.contentType,
+              maxBytes: body.sizeBytes,
+              expiresInSec,
+              userId: viewerId,
+              clipId,
+            })
+            await createUploadTickets({
+              target: { type: "clip", id: clipId },
+              ownerId: viewerId,
+              videoKey: uploadKey,
+              videoContentType: body.contentType,
+              videoBytes: body.sizeBytes,
+              expiresAt,
+            })
+            return c.json({
+              clipId,
+              ticket: videoUpload,
+            })
+          } catch (err) {
+            await cleanupFailedInitiate(clipId, uploadKey)
+            throw err
+          }
+        })
+      const initiated = await accountDeletionState.withInactive(
+        viewerId,
+        initiate,
+      )
+      if (!initiated.ok) {
+        return conflict(c, "Account deletion is in progress")
+      }
+      return initiated.value
     },
   )
   .post(

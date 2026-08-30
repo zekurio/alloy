@@ -23,6 +23,7 @@ import {
 } from "@simplewebauthn/server"
 import { and, eq, gt } from "drizzle-orm"
 
+import { existingAccountChallengeOwnerId } from "./challenge-ownership"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 import {
   webAuthnChallengeContext,
@@ -41,6 +42,7 @@ const RegistrationPayloadSchema = t.object({
   userId: t.string().optional(),
   username: t.string().optional(),
 })
+const ExistingAccountUserIdSchema = t.string().uuid()
 
 type RegistrationPayload = {
   setupFirstAdmin?: boolean
@@ -82,9 +84,15 @@ async function createChallenge(input: {
   payload: AuthChallengePayload
   ttlMs: number
 }): Promise<{ id: string }> {
+  const parsedUserId = ExistingAccountUserIdSchema.safeParse(
+    input.payload.userId,
+  )
   const [challenge] = await db
     .insert(authChallenge)
     .values({
+      user_id: existingAccountChallengeOwnerId(
+        parsedUserId.success ? parsedUserId.data : undefined,
+      ),
       purpose: input.purpose,
       identifier: input.identifier,
       challenge: input.challenge,
