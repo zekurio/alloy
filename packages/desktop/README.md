@@ -21,8 +21,7 @@ stores the exchanged session in Electron's cookie jar.
 
 There are two local renderer surfaces:
 
-- `src/renderer/index.html`: connect and startup-update UI with
-  `window.alloyNative`.
+- `src/renderer/index.html`: connect UI with `window.alloyNative`.
 - `src/renderer/desktop.html`: the bundled web app with the lockstep
   `window.alloyDesktop` native API.
 
@@ -109,16 +108,16 @@ Release builds require `obs.dll` in either the staged or configured runtime.
 
 ## Release
 
-Desktop releases ship on a single channel. A visible launch checks the GitHub
-release feed before it starts the recorder and hotkeys. The check has a 2.5
-second startup limit. Alloy starts normally when GitHub is offline or slow.
+Desktop releases ship on a single channel. Launching Alloy does not check the
+GitHub release feed or delay recorder and hotkey startup. The app schedules its
+first background check four hours after launch and repeats the check every four
+hours while it remains open. A manual check is also available under Desktop
+Settings.
 
-When Alloy finds an update during visible startup, it shows a bundled local
-screen. It downloads the update, keeps capture services stopped, runs the NSIS
-installer, and relaunches. A login-item launch downloads the update but does
-not open the installer. Later checks also download in the background. They do
-not force a restart while Alloy is running. The next visible launch installs
-the staged update at a safe boundary.
+When Alloy finds an update, it downloads the update in the background and
+offers an explicit restart action in the bundled app. It never forces a restart
+while Alloy is running. Before starting the NSIS installer, Alloy stops capture
+services so the installer can safely replace their files.
 
 The publish workflow uploads the installer, blockmap, and `latest.yml` before
 it promotes the server container's `latest` tag. This order matters at the
