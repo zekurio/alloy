@@ -4,6 +4,8 @@ import test from "node:test"
 import { stagedSourceKey } from "../uploads/staged"
 import {
   clipStorageDeletionIntents,
+  mediaAssetDeletionIntents,
+  posterDeletionIntents,
   stagedUploadDeletionIntent,
 } from "./deletion-producers"
 
@@ -98,5 +100,79 @@ test("staged upload deletion always aborts resumable state", () => {
       reason: "upload cancelled",
       source: { type: "upload-ticket", id: "ticket-id" },
     },
+  )
+})
+
+test("media replacement classifies namespaces and excludes every retained key", () => {
+  const runId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+  const intents = mediaAssetDeletionIntents({
+    keys: [
+      `11/eb/${clipId}/source-old`,
+      `11/eb/${clipId}/cut-old.mp4`,
+      `11/eb/${clipId}/thumb-old.jpg`,
+      `11/eb/${clipId}/rendition-1080p-old.mp4`,
+      `11/eb/${clipId}/audio-1-old.m4a`,
+    ],
+    retainedKeys: [
+      `11/EB/${clipId}/SOURCE-OLD`,
+      `11/eb/${clipId}/audio-1-old.m4a`,
+    ],
+    reason: "media output replaced",
+    source: { type: "media-run", id: runId },
+  })
+
+  assert.deepEqual(
+    intents.map(({ namespace, key, source }) => ({ namespace, key, source })),
+    [
+      {
+        namespace: "clips",
+        key: `11/eb/${clipId}/cut-old.mp4`,
+        source: { type: "media-run", id: runId },
+      },
+      {
+        namespace: "thumbnails",
+        key: `11/eb/${clipId}/thumb-old.jpg`,
+        source: { type: "media-run", id: runId },
+      },
+      {
+        namespace: "clips",
+        key: `11/eb/${clipId}/rendition-1080p-old.mp4`,
+        source: { type: "media-run", id: runId },
+      },
+    ],
+  )
+})
+
+test("serialized poster swaps retire the fresh predecessor and rejected loser", () => {
+  const oldKey = `11/eb/${clipId}/thumb-old.jpg`
+  const firstKey = `11/eb/${clipId}/thumb-first.jpg`
+  const secondKey = `11/eb/${clipId}/thumb-second.jpg`
+
+  assert.deepEqual(
+    posterDeletionIntents({
+      previousKey: oldKey,
+      uploadedKey: firstKey,
+      accepted: true,
+      attemptId: "first",
+    }).map(({ namespace, key }) => ({ namespace, key })),
+    [{ namespace: "thumbnails", key: oldKey }],
+  )
+  assert.deepEqual(
+    posterDeletionIntents({
+      previousKey: firstKey,
+      uploadedKey: secondKey,
+      accepted: true,
+      attemptId: "second",
+    }).map(({ namespace, key }) => ({ namespace, key })),
+    [{ namespace: "thumbnails", key: firstKey }],
+  )
+  assert.deepEqual(
+    posterDeletionIntents({
+      previousKey: firstKey,
+      uploadedKey: secondKey,
+      accepted: false,
+      attemptId: "loser",
+    }).map(({ namespace, key }) => ({ namespace, key })),
+    [{ namespace: "thumbnails", key: secondKey }],
   )
 })

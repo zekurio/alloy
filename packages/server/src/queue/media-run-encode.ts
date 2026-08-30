@@ -59,8 +59,8 @@ export async function encodeAndPublishCut(options: {
     onHardwareFailed: options.onHardwareFailed,
   })
   const cutKey = runScopedCutKey(options.id, options.runId)
-  await clipStorage.uploadFromFile(cut.filePath, cutKey, "video/mp4")
   options.uploadedKeys.push(cutKey)
+  await clipStorage.uploadFromFile(cut.filePath, cutKey, "video/mp4")
   return {
     key: cutKey,
     durationMs: cut.durationMs,
@@ -130,12 +130,12 @@ export async function encodeAndUploadRenditions(options: {
       options.runId,
       step.name,
     )
+    options.uploadedKeys.push(renditionKey)
     await clipStorage.uploadFromFile(
       encoded.filePath,
       renditionKey,
       "video/mp4",
     )
-    options.uploadedKeys.push(renditionKey)
     await rm(encoded.filePath, { force: true }).catch(() => undefined)
     const rendition: MediaRenditionRecord = {
       name: step.name,

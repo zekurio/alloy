@@ -5,12 +5,10 @@ import { createLogger } from "@alloy/logging"
 import { extractAudioStems } from "@alloy/server/media/audio-stems"
 import type { MediaAudioProbe } from "@alloy/server/media/probe"
 import { clipStorage } from "@alloy/server/storage/index"
+import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
 
 import { runScopedAudioTrackKey } from "./media-asset-keys"
-import {
-  deleteAssetsBestEffort,
-  ensureStillPresent,
-} from "./media-run-workspace"
+import { ensureStillPresent } from "./media-run-workspace"
 import type { MediaAudioTrackRecord, MediaRow, MediaStore } from "./media-store"
 
 const logger = createLogger("queue")
@@ -53,6 +51,7 @@ export async function extractAndUploadAudioStemsBestEffort(options: {
       options.runId,
       stem.index,
     )
+    options.uploadedKeys.push(storageKey)
     const uploaded = await uploadAudioStemBestEffort(
       options.id,
       stem.filePath,
@@ -60,14 +59,14 @@ export async function extractAndUploadAudioStemsBestEffort(options: {
       options.signal,
     )
     if (!uploaded) {
-      await deleteAssetsBestEffort(
-        [...audioTracks.map((track) => track.storageKey), storageKey],
-        "incomplete audio stem",
-      )
+      await enqueueUnownedMediaAssets({
+        keys: [...audioTracks.map((track) => track.storageKey), storageKey],
+        reason: "incomplete audio stem",
+        source: { type: "media-run", id: options.runId },
+      })
       return []
     }
 
-    options.uploadedKeys.push(storageKey)
     await rm(stem.filePath, { force: true }).catch(() => undefined)
     audioTracks.push({
       index: stem.index,

@@ -19,7 +19,7 @@ export async function runThumbnailBackfill(
   completion: MediaCompletion,
 ): Promise<void> {
   await withMediaRunWorkspace(
-    { store, id, row, cleanupLabel: "thumbnail" },
+    { store, id, runId, row, cleanupLabel: "thumbnail" },
     async (workspace) => {
       const media = await materializeEffectiveMedia(store, id, row, runId, {
         workDir: workspace.workDir,

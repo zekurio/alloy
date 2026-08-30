@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto"
 
 import { clip } from "@alloy/db/schema"
-import { createLogger } from "@alloy/logging"
 import { publishClipUpsertById } from "@alloy/server/clips/events"
 import { client, db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import type { FingerprintSourceFacts } from "@alloy/server/media/encode-fingerprint"
-import { cleanupTickets } from "@alloy/server/uploads/tickets"
+import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
+import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
+import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import { and, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
 
 import { clipMediaRetryDelayMs } from "./clip-media-policy"
@@ -14,7 +15,6 @@ import { clearedStageColumns, completeRequestColumns } from "./clip-media-store"
 import type { MediaGeneration } from "./media-generation"
 import type { MediaRow } from "./media-store"
 
-const logger = createLogger("media-worker")
 const MAX_ATTEMPTS = 3
 
 const mediaClaimSelect = {
@@ -453,73 +453,101 @@ export async function failClipMedia(
     thumbnailOnly: boolean
   },
 ): Promise<"retry" | "failed" | "superseded" | "lost"> {
-  const result = await db.transaction(async (tx) => {
-    const [current] = await tx
-      .select({
-        requestId: clip.encode_request_id,
-        attempt: clip.encode_attempt,
-        status: clip.status,
-      })
-      .from(clip)
-      .where(and(eq(clip.id, claim.id), eq(clip.encode_run_id, claim.runId)))
-      .limit(1)
-      .for("update")
-    if (!current) return { outcome: "lost" as const, terminalStatus: null }
+  const result = await withUploadActivityStopped(claim.id, () =>
+    db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({
+          requestId: clip.encode_request_id,
+          attempt: clip.encode_attempt,
+          status: clip.status,
+        })
+        .from(clip)
+        .where(and(eq(clip.id, claim.id), eq(clip.encode_run_id, claim.runId)))
+        .limit(1)
+        .for("update")
+      if (!current) {
+        return {
+          outcome: "lost" as const,
+          terminalStatus: null,
+          queuedDeletions: 0,
+        }
+      }
 
-    if (current.requestId !== claim.requestId) {
-      await releaseRun(tx, claim, reason)
-      return { outcome: "superseded" as const, terminalStatus: null }
-    }
+      if (current.requestId !== claim.requestId) {
+        await releaseRun(tx, claim, reason)
+        return {
+          outcome: "superseded" as const,
+          terminalStatus: null,
+          queuedDeletions: 0,
+        }
+      }
 
-    if (current.attempt < MAX_ATTEMPTS) {
-      await tx
+      if (current.attempt < MAX_ATTEMPTS) {
+        await tx
+          .update(clip)
+          .set({
+            ...clearedStageColumns,
+            encode_run_id: null,
+            encode_locked_at: null,
+            encode_run_after: sql`now() + ${clipMediaRetryDelayMs(current.attempt)} * interval '1 millisecond'`,
+            failure_reason: reason.slice(0, 500),
+            updated_at: sql`now()`,
+          })
+          .where(
+            and(eq(clip.id, claim.id), eq(clip.encode_run_id, claim.runId)),
+          )
+        return {
+          outcome: "retry" as const,
+          terminalStatus: null,
+          queuedDeletions: 0,
+        }
+      }
+
+      const terminalStatus = current.status === "ready" ? "ready" : "failed"
+      const [terminal] = await tx
         .update(clip)
         .set({
           ...clearedStageColumns,
+          ...completeRequestColumns(claim),
+          status: terminalStatus,
           encode_run_id: null,
           encode_locked_at: null,
-          encode_run_after: sql`now() + ${clipMediaRetryDelayMs(current.attempt)} * interval '1 millisecond'`,
-          failure_reason: reason.slice(0, 500),
+          encode_failed_fingerprint: options.thumbnailOnly
+            ? clip.encode_failed_fingerprint
+            : sql`coalesce(${options.encodeFailedFingerprint}, ${clip.encode_failed_fingerprint})`,
+          encode_failed_generation: options.thumbnailOnly
+            ? clip.encode_failed_generation
+            : claim.targetGeneration,
+          thumb_failed_at: options.thumbnailOnly
+            ? new Date()
+            : clip.thumb_failed_at,
+          failure_reason: options.thumbnailOnly ? null : reason.slice(0, 500),
           updated_at: sql`now()`,
         })
         .where(and(eq(clip.id, claim.id), eq(clip.encode_run_id, claim.runId)))
-      return { outcome: "retry" as const, terminalStatus: null }
-    }
+        .returning({ id: clip.id })
+      if (!terminal) {
+        return {
+          outcome: "lost" as const,
+          terminalStatus: null,
+          queuedDeletions: 0,
+        }
+      }
+      const queuedDeletions = await deleteUploadTicketsWithStorageIntents(
+        { type: "clip", id: claim.id },
+        `terminal clip ${claim.id} upload`,
+        tx,
+      )
+      return {
+        outcome: "failed" as const,
+        terminalStatus,
+        queuedDeletions,
+      }
+    }),
+  )
 
-    const terminalStatus = current.status === "ready" ? "ready" : "failed"
-    await tx
-      .update(clip)
-      .set({
-        ...clearedStageColumns,
-        ...completeRequestColumns(claim),
-        status: terminalStatus,
-        encode_run_id: null,
-        encode_locked_at: null,
-        encode_failed_fingerprint: options.thumbnailOnly
-          ? clip.encode_failed_fingerprint
-          : sql`coalesce(${options.encodeFailedFingerprint}, ${clip.encode_failed_fingerprint})`,
-        encode_failed_generation: options.thumbnailOnly
-          ? clip.encode_failed_generation
-          : claim.targetGeneration,
-        thumb_failed_at: options.thumbnailOnly
-          ? new Date()
-          : clip.thumb_failed_at,
-        failure_reason: options.thumbnailOnly ? null : reason.slice(0, 500),
-        updated_at: sql`now()`,
-      })
-      .where(and(eq(clip.id, claim.id), eq(clip.encode_run_id, claim.runId)))
-    return { outcome: "failed" as const, terminalStatus }
-  })
-
+  if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
   if (result.outcome !== "failed") return result.outcome
-  if (result.terminalStatus === "failed") {
-    await cleanupTickets(
-      { type: "clip", id: claim.id },
-      `terminal clip ${claim.id} upload`,
-    ).catch((err) =>
-      logger.error(`failed to clean terminal clip uploads:`, err),
-    )
-  }
   void publishClipUpsertById(claim.id)
   return result.outcome
 }

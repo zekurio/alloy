@@ -3,6 +3,7 @@ import { env } from "@alloy/server/env"
 import { lazy } from "@alloy/server/runtime/lazy"
 import { resolve } from "@alloy/server/runtime/path"
 
+import { clipKeyDeletionNamespace } from "./clip-key"
 import type { StorageDriver } from "./driver"
 import { FsStorageDriver } from "./fs-driver"
 import { configuredFilesystemStoragePath, type StorageNamespace } from "./paths"
@@ -30,18 +31,9 @@ export const gameAssetStorage: StorageDriver = assetStorage
 export const dataStorage: StorageDriver = assetStorage
 
 export function clipStorageForKey(key: string): StorageDriver {
-  return isClipThumbnailKey(key) ? clipThumbnailStorage : clipStorage
-}
-
-function isClipThumbnailKey(key: string): boolean {
-  // Every clip asset key generator must classify correctly here; routing is
-  // asserted by storage/routing.test.ts.
-  const filename = key.slice(key.lastIndexOf("/") + 1).toLowerCase()
-  return (
-    filename === "thumb.jpg" ||
-    filename === "thumb-small.jpg" ||
-    (filename.startsWith("thumb-") && filename.endsWith(".jpg"))
-  )
+  return clipKeyDeletionNamespace(key) === "thumbnails"
+    ? clipThumbnailStorage
+    : clipStorage
 }
 
 export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"

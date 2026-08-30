@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "vite build",
-    "test": "tsx --test src/server-info.test.ts src/queue/direct-media-worker.test.ts src/runtime/wakeable-serial-worker.test.ts src/storage/deletion-producers.test.ts src/storage/deletion-worker.test.ts",
+    "test": "tsx --test src/server-info.test.ts src/queue/direct-media-worker.test.ts src/queue/media-deletion-policy.test.ts src/runtime/wakeable-serial-worker.test.ts src/storage/deletion-producers.test.ts src/storage/deletion-worker.test.ts",
     "dev": "tsx watch --clear-screen=false src/index.ts",
     "start": "NODE_ENV=production node dist/index.js",
     "typecheck": "tsc --noEmit",

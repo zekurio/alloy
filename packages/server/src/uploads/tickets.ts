@@ -4,10 +4,7 @@ import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
-import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { and, eq, gt, isNull, lt } from "drizzle-orm"
-
-import { withUploadActivityStopped } from "./activity"
 
 /** Identifies the clip an upload ticket belongs to. */
 export interface UploadTarget {
@@ -188,21 +185,4 @@ async function enqueueDeletedUploadTickets(
     )
   }
   return rows.length
-}
-
-/**
- * Standalone compatibility wrapper for media paths not yet adopted into their
- * owning transaction. It is durable, but a crash before this function is
- * called remains the generated-media layer's responsibility.
- */
-export async function cleanupTickets(
-  target: UploadTarget,
-  reason: string,
-): Promise<void> {
-  const queued = await withUploadActivityStopped(target.id, () =>
-    db.transaction((tx) =>
-      deleteUploadTicketsWithStorageIntents(target, reason, tx),
-    ),
-  )
-  if (queued > 0) wakeStorageDeletionWorker()
 }
