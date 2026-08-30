@@ -23,6 +23,7 @@ import {
 } from "@simplewebauthn/server"
 import { and, eq, gt } from "drizzle-orm"
 
+import { insertAuthChallengeAndWake } from "./challenge-expiry"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 import {
   webAuthnChallengeContext,
@@ -86,17 +87,19 @@ async function createChallenge(input: {
   const parsedUserId = ExistingAccountUserIdSchema.safeParse(
     input.payload.userId,
   )
-  const [challenge] = await db
-    .insert(authChallenge)
-    .values({
-      user_id: parsedUserId.success ? parsedUserId.data : null,
-      purpose: input.purpose,
-      identifier: input.identifier,
-      challenge: input.challenge,
-      payload: input.payload,
-      expires_at: new Date(Date.now() + input.ttlMs),
-    })
-    .returning({ id: authChallenge.id })
+  const [challenge] = await insertAuthChallengeAndWake(() =>
+    db
+      .insert(authChallenge)
+      .values({
+        user_id: parsedUserId.success ? parsedUserId.data : null,
+        purpose: input.purpose,
+        identifier: input.identifier,
+        challenge: input.challenge,
+        payload: input.payload,
+        expires_at: new Date(Date.now() + input.ttlMs),
+      })
+      .returning({ id: authChallenge.id }),
+  )
   if (!challenge) throw new Error("Could not create passkey challenge.")
   return challenge
 }
