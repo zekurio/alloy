@@ -5,6 +5,7 @@ export * from "./job"
 export * from "./notification"
 export * from "./recording"
 export * from "./social"
+export * from "./storage-deletion"
 export * from "./webhook"
 
 import {
@@ -25,6 +26,7 @@ import { job } from "./job"
 import { notification } from "./notification"
 import { uploadTicket } from "./recording"
 import { block, follow } from "./social"
+import { storageDeletion } from "./storage-deletion"
 import { webhook, webhookDelivery } from "./webhook"
 
 /**
@@ -51,6 +53,7 @@ export const domainSchema = {
   job,
   notification,
   block,
+  storageDeletion,
   webhook,
   webhookDelivery,
 } as const
