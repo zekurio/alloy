@@ -1,5 +1,4 @@
 import "./kinds/job-retention"
-import "./kinds/notification-retention"
 import "./kinds/storage-orphan-gc"
 import "./kinds/upload-retention"
 import { startDispatchers, stopDispatchers } from "./dispatcher"
