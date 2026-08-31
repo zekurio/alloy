@@ -51,16 +51,3 @@ export function gameAssetDeletionIntents(input: {
   }
   return [...intents.values()]
 }
-
-export function prewriteGameAssetDeletionIntent(input: {
-  key: string
-  attemptId: string
-  reason?: string
-}): StorageDeletionInput {
-  return {
-    namespace: "assets",
-    key: input.key,
-    reason: input.reason ?? "pending game asset upload",
-    source: { type: "storage-prewrite", id: input.attemptId },
-  }
-}

@@ -10,10 +10,7 @@ import { clip, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { withGameAssetMutation } from "@alloy/server/games/game-asset-activity"
-import {
-  gameAssetDeletionIntents,
-  prewriteGameAssetDeletionIntent,
-} from "@alloy/server/games/game-asset-deletion"
+import { gameAssetDeletionIntents } from "@alloy/server/games/game-asset-deletion"
 import {
   availableCustomGameSlug,
   gameSelection,
@@ -25,14 +22,16 @@ import {
   errorResult,
   notFound,
 } from "@alloy/server/runtime/http-response"
+import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import {
   cancelStorageDeletion,
   enqueueStorageDeletion,
+  enqueueStorageDeletions,
 } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import {
   gameAssetStorage,
-  versionedGameAssetKey,
+  versionedAssetKey,
 } from "@alloy/server/storage/index"
 import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
 import { eq, getTableColumns, sql } from "drizzle-orm"
@@ -42,7 +41,7 @@ import type { ContentfulStatusCode } from "hono/utils/http-status"
 import {
   clearedGameAssetColumns,
   GAME_ASSET_CONTENT_TYPE,
-  GAME_ASSET_EXT,
+  GAME_ASSET_URL_COLUMN,
   gameAssetColumns,
   prepareGameAsset,
   type PreparedGameAsset,
@@ -93,12 +92,6 @@ const GameAssetUploadForm = t.object({
 })
 
 const PREWRITE_DELETION_DELAY_MS = 60 * 1000
-const GAME_ASSET_URL_COLUMN = {
-  hero: "hero_url",
-  grid: "grid_url",
-  logo: "logo_url",
-  icon: "icon_url",
-} as const
 const GAME_ASSET_INPUT_COLUMN = {
   hero: "heroUrl",
   grid: "gridUrl",
@@ -245,13 +238,6 @@ async function lockCustomGame(
   return row?.row.source === "custom" ? row.row : null
 }
 
-async function enqueueGameAssetIntents(
-  tx: DbTransaction,
-  intents: ReturnType<typeof gameAssetDeletionIntents>,
-): Promise<void> {
-  for (const intent of intents) await enqueueStorageDeletion(intent, { tx })
-}
-
 function missingGameResult(): AdminGameResult {
   return { ok: false, status: 404, error: "Unknown game" }
 }
@@ -289,7 +275,7 @@ async function createCustomGame(input: {
     return {
       ...asset,
       attemptId,
-      key: versionedGameAssetKey(gameId, asset.role, attemptId, GAME_ASSET_EXT),
+      key: versionedAssetKey(gameId, asset.role, attemptId),
     }
   })
   let wakeAfterWrite = false
@@ -299,14 +285,10 @@ async function createCustomGame(input: {
         writes.map(({ key }) => key),
         async () => {
           try {
-            for (const write of writes) {
-              await enqueueStorageDeletion(
-                prewriteGameAssetDeletionIntent(write),
-                {
-                  runAt: new Date(Date.now() + PREWRITE_DELETION_DELAY_MS),
-                },
-              )
-            }
+            await enqueueStorageDeletions(
+              writes.map(prewriteAssetDeletionIntent),
+              { runAt: new Date(Date.now() + PREWRITE_DELETION_DELAY_MS) },
+            )
             for (const write of writes) {
               await gameAssetStorage.put(
                 write.key,
@@ -420,7 +402,7 @@ async function updateCustomGame(
       if (!updated) return { result: badGamePersistenceResult(), queued: 0 }
       // PATCH accepts validated absolute URLs only. They are external and are
       // never allowed to adopt an object from the local game-asset namespace.
-      await enqueueGameAssetIntents(tx, intents)
+      await enqueueStorageDeletions(intents, { tx })
       return { result: null, queued: intents.length }
     })
     return {
@@ -450,7 +432,7 @@ async function deleteCustomGame(gameId: string): Promise<void> {
           includeLegacyVariant: true,
         }),
       )
-      await enqueueGameAssetIntents(tx, intents)
+      await enqueueStorageDeletions(intents, { tx })
       // FK cleanup: clip.game_id is set null, game_follow rows cascade.
       await tx.delete(game).where(eq(game.id, gameId))
       return intents.length
@@ -479,7 +461,7 @@ async function removeCustomGameAsset(
         .update(game)
         .set(clearedGameAssetColumns(role))
         .where(eq(game.id, gameId))
-      await enqueueGameAssetIntents(tx, intents)
+      await enqueueStorageDeletions(intents, { tx })
       return { result: null, queued: intents.length }
     })
     if (transactionResult.queued > 0) wakeStorageDeletionWorker()
@@ -496,13 +478,13 @@ async function uploadGameAsset(
   if (!prepared.ok) return prepared
 
   const attemptId = randomUUID()
-  const key = versionedGameAssetKey(gameId, role, attemptId, GAME_ASSET_EXT)
+  const key = versionedAssetKey(gameId, role, attemptId)
   let wakeAfterWrite = false
   try {
     return await withGameAssetMutation(gameId, () =>
       withStorageObjectWriteActivity("assets", key, async () => {
         await enqueueStorageDeletion(
-          prewriteGameAssetDeletionIntent({ key, attemptId }),
+          prewriteAssetDeletionIntent({ key, attemptId }),
           { runAt: new Date(Date.now() + PREWRITE_DELETION_DELAY_MS) },
         )
         try {
@@ -515,7 +497,7 @@ async function uploadGameAsset(
             const locked = await lockCustomGame(tx, gameId)
             if (!locked) {
               await enqueueStorageDeletion(
-                prewriteGameAssetDeletionIntent({
+                prewriteAssetDeletionIntent({
                   key,
                   attemptId,
                   reason: "game row missing after asset upload",
@@ -547,7 +529,7 @@ async function uploadGameAsset(
               source: { type: "game-asset", id: gameId },
               includeLegacyVariant: true,
             })
-            await enqueueGameAssetIntents(tx, intents)
+            await enqueueStorageDeletions(intents, { tx })
             return { result: null, queued: intents.length }
           })
           wakeAfterWrite ||= transactionResult.queued > 0
@@ -590,11 +572,9 @@ async function enqueueGameAssetCleanupNow(
 ): Promise<void> {
   if (writes.length === 0) return
   await db.transaction(async (tx) => {
-    for (const write of writes) {
-      await enqueueStorageDeletion(
-        prewriteGameAssetDeletionIntent({ ...write, reason }),
-        { tx, runAt: new Date() },
-      )
-    }
+    await enqueueStorageDeletions(
+      writes.map((write) => prewriteAssetDeletionIntent({ ...write, reason })),
+      { tx, runAt: new Date() },
+    )
   })
 }

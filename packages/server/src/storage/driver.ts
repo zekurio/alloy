@@ -154,29 +154,16 @@ export function userAssetKey(
   return `${shardedAssetDir(userId)}/${role}${ext}`
 }
 
-export function versionedUserAssetKey(
-  userId: string,
-  role: UserAssetRole,
+export function versionedAssetKey(
+  id: string,
+  role: UserAssetRole | GameAssetRole,
   versionId: string,
 ): string {
   const version = versionId.replaceAll("-", "").toLowerCase()
   if (!/^[0-9a-f]{32}$/.test(version)) {
-    throw new Error("User asset version must be a UUID")
+    throw new Error("Asset version must be a UUID")
   }
-  return `${shardedAssetDir(userId)}/${role}-${version}.webp`
-}
-
-export function versionedGameAssetKey(
-  gameId: string,
-  role: GameAssetRole,
-  versionId: string,
-  ext: string,
-): string {
-  const version = versionId.replaceAll("-", "").toLowerCase()
-  if (!/^[0-9a-f]{32}$/.test(version)) {
-    throw new Error("Game asset version must be a UUID")
-  }
-  return `${shardedAssetDir(gameId)}/${role}-${version}${ext}`
+  return `${shardedAssetDir(id)}/${role}-${version}.webp`
 }
 
 export function gameAssetKey(

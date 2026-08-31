@@ -3,13 +3,12 @@ import test from "node:test"
 
 import { GAME_ASSET_PATH_PREFIX } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import { versionedGameAssetKey } from "@alloy/server/storage/driver"
+import { versionedAssetKey } from "@alloy/server/storage/driver"
 
 import {
   GAME_ASSET_ROUTE_KEY_RE,
   gameAssetDeletionIntents,
   internalGameAssetKey,
-  prewriteGameAssetDeletionIntent,
 } from "./game-asset-deletion"
 
 const GAME_ID = "11ebc58a-92f9-4f9d-b88c-3e89150b7d1e"
@@ -19,7 +18,7 @@ const VERSION_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 const GAME_DIR = `11/eb/${GAME_ID}`
 
 test("game asset keys are immutable and legacy URLs stay readable", () => {
-  const key = versionedGameAssetKey(GAME_ID, "hero", VERSION_A, ".webp")
+  const key = versionedAssetKey(GAME_ID, "hero", VERSION_A)
   assert.equal(key, `${GAME_DIR}/hero-${VERSION_A.replaceAll("-", "")}.webp`)
   assert.equal(GAME_ASSET_ROUTE_KEY_RE.test(key), true)
   assert.equal(GAME_ASSET_ROUTE_KEY_RE.test(`${GAME_DIR}/hero.webp`), true)
@@ -27,9 +26,7 @@ test("game asset keys are immutable and legacy URLs stay readable", () => {
     GAME_ASSET_ROUTE_KEY_RE.test(`${GAME_DIR}/hero-aabbccddeeff.webp`),
     false,
   )
-  assert.throws(() =>
-    versionedGameAssetKey(GAME_ID, "hero", "aabbccddeeff", ".webp"),
-  )
+  assert.throws(() => versionedAssetKey(GAME_ID, "hero", "aabbccddeeff"))
 })
 
 test("owned game asset paths parse exactly and retain their key case", () => {
@@ -53,8 +50,8 @@ test("owned game asset paths parse exactly and retain their key case", () => {
 })
 
 test("game asset ownership rejects external, prefix, owner, role, shard, and short-version aliases", () => {
-  const own = versionedGameAssetKey(GAME_ID, "hero", VERSION_A, ".webp")
-  const other = versionedGameAssetKey(OTHER_GAME_ID, "hero", VERSION_A, ".webp")
+  const own = versionedAssetKey(GAME_ID, "hero", VERSION_A)
+  const other = versionedAssetKey(OTHER_GAME_ID, "hero", VERSION_A)
   for (const candidate of [
     `https://example.test${GAME_ASSET_PATH_PREFIX}${own}`,
     `/api/assets/games-evil/${own}`,
@@ -68,8 +65,8 @@ test("game asset ownership rejects external, prefix, owner, role, shard, and sho
 })
 
 test("replacement and removal retire the locked predecessor but never the retained version", () => {
-  const a = versionedGameAssetKey(GAME_ID, "logo", VERSION_A, ".webp")
-  const b = versionedGameAssetKey(GAME_ID, "logo", VERSION_B, ".webp")
+  const a = versionedAssetKey(GAME_ID, "logo", VERSION_A)
+  const b = versionedAssetKey(GAME_ID, "logo", VERSION_B)
   const replacement = gameAssetDeletionIntents({
     gameId: GAME_ID,
     role: "logo",
@@ -93,7 +90,7 @@ test("replacement and removal retire the locked predecessor but never the retain
   )
 })
 
-test("external URLs never become deletion authority and prewrites use adoption semantics", () => {
+test("external URLs never become deletion authority", () => {
   const intents = gameAssetDeletionIntents({
     gameId: GAME_ID,
     role: "icon",
@@ -106,20 +103,10 @@ test("external URLs never become deletion authority and prewrites use adoption s
     intents.map(({ key }) => key),
     [`${GAME_DIR}/icon.webp`],
   )
-  const key = versionedGameAssetKey(GAME_ID, "icon", VERSION_A, ".webp")
-  assert.deepEqual(
-    prewriteGameAssetDeletionIntent({ key, attemptId: VERSION_A }),
-    {
-      namespace: "assets",
-      key,
-      reason: "pending game asset upload",
-      source: { type: "storage-prewrite", id: VERSION_A },
-    },
-  )
 })
 
 test("URL patches cannot re-adopt a relative internal asset path", () => {
-  const key = versionedGameAssetKey(GAME_ID, "grid", VERSION_A, ".webp")
+  const key = versionedAssetKey(GAME_ID, "grid", VERSION_A)
   assert.equal(
     t.url().safeParse(`${GAME_ASSET_PATH_PREFIX}${key}`).success,
     false,

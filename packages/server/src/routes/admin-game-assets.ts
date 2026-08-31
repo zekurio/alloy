@@ -19,7 +19,6 @@ const logger = createLogger("admin-games")
 
 const GAME_ASSET_MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 const GAME_ASSET_CONTENT_TYPE = "image/webp"
-const GAME_ASSET_EXT = ".webp"
 const EXT_FOR_CONTENT_TYPE = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -35,7 +34,7 @@ const GAME_ASSET_TARGETS = {
   icon: { width: 256, height: 256, fit: "inside" },
 } as const
 
-const GAME_ASSET_URL_COLUMN = {
+export const GAME_ASSET_URL_COLUMN = {
   hero: "hero_url",
   grid: "grid_url",
   logo: "logo_url",
@@ -164,4 +163,4 @@ export const gameAssetsRoute = immutableImageAssetsRoute(
   GAME_ASSET_ROUTE_KEY_RE,
 )
 
-export { GAME_ASSET_CONTENT_TYPE, GAME_ASSET_EXT }
+export { GAME_ASSET_CONTENT_TYPE }
