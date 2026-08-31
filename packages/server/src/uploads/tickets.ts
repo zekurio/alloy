@@ -5,7 +5,7 @@ import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
-import { and, eq, isNull, lte, sql } from "drizzle-orm"
+import { and, eq, isNull, sql } from "drizzle-orm"
 
 import { completedUploadDeadline, uploadTicketCanFinalize } from "./deadline"
 
@@ -285,6 +285,7 @@ export async function deleteUploadTicketWithStorageIntent(
 /** Claim every expired, unused ticket without racing a late successful use. */
 export async function deleteExpiredUploadTicketWithStorageIntent(
   ticketId: string,
+  targetId: string,
   expiresBefore: Date,
   reason: string,
   tx: DbTransaction,
@@ -292,17 +293,38 @@ export async function deleteExpiredUploadTicketWithStorageIntent(
   const rows = await tx
     .delete(uploadTicket)
     .where(
-      and(
-        eq(uploadTicket.id, ticketId),
-        isNull(uploadTicket.used_at),
-        lte(uploadTicket.expires_at, expiresBefore),
-      ),
+      expiredOrphanUploadTicketPredicate(ticketId, targetId, expiresBefore),
     )
     .returning({
       id: uploadTicket.id,
       storageKey: uploadTicket.storage_key,
     })
   return enqueueDeletedUploadTickets(rows, reason, tx)
+}
+
+/** Exact destructive CAS repeated after acquiring the target upload-stop gate. */
+export function expiredOrphanUploadTicketPredicate(
+  ticketId: string,
+  targetId: string,
+  expiresBefore: Date,
+) {
+  return and(
+    eq(uploadTicket.id, ticketId),
+    eq(uploadTicket.target_type, "clip"),
+    eq(uploadTicket.target_id, targetId),
+    isNull(uploadTicket.used_at),
+    // upload_ticket predates timestamptz. Compare the DB scan's captured
+    // instant against its timestamp-without-time-zone value as UTC.
+    sql`${uploadTicket.expires_at} <= (cast(${expiresBefore} as timestamptz) at time zone 'UTC')`,
+    // Pending cleanup owns crash recovery, while processing may still read a
+    // legacy ticket's object. Terminal and missing owners are safe to retire.
+    sql`not exists (
+      select 1
+      from ${clip} owner
+      where owner.id = ${targetId}
+        and owner.status in ('pending', 'processing')
+    )`,
+  )!
 }
 
 async function enqueueDeletedUploadTickets(

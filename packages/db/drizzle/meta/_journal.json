@@ -78,6 +78,13 @@
       "when": 1788132991782,
       "tag": "0010_durable_upload_deadline",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788135132860,
+      "tag": "0011_direct_upload_expiry",
+      "breakpoints": true
     }
   ]
 }
