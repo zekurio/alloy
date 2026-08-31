@@ -1,15 +1,8 @@
 import { type ClipRow } from "@alloy/api"
 import { contentTypeForFile } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
 import { ClipCard } from "@alloy/ui/components/clip-card"
-import {
-  GlobeIcon,
-  Link2Icon,
-  LockIcon,
-  MonitorIcon,
-  RefreshCwIcon,
-} from "lucide-react"
+import { GlobeIcon, Link2Icon, LockIcon, MonitorIcon } from "lucide-react"
 import { useMemo } from "react"
 import type { ComponentType } from "react"
 
@@ -146,17 +139,17 @@ function LibraryCardMeta({
   createdAt: string
   transfer?: QueueItem
 }) {
+  if (
+    transfer &&
+    transfer.status !== "published" &&
+    transfer.status !== "downloaded"
+  ) {
+    return <LibraryTransferMeta transfer={transfer} />
+  }
+
   return (
     <>
-      {transfer ? (
-        transfer.status === "published" || transfer.status === "downloaded" ? (
-          <LibrarySourceBadge source={source} />
-        ) : (
-          <LibraryTransferMeta transfer={transfer} />
-        )
-      ) : (
-        <LibrarySourceBadge source={source} />
-      )}
+      <LibrarySourceBadge source={source} />
       <span className="shrink-0">{"·"}</span>
       <span className="truncate">{formatRelativeTime(createdAt)}</span>
     </>
@@ -286,33 +279,13 @@ function transferFromClipRow(row: ClipRow): QueueItem | undefined {
  * progress bar (no numeric percent — the bar carries it in this tight space).
  */
 function LibraryTransferMeta({ transfer }: { transfer: QueueItem }) {
-  if (transfer.status === "published" || transfer.status === "downloaded") {
-    return null
-  }
-
   if (transfer.status === "failed") {
     return (
       <span
-        className="text-destructive inline-flex shrink-0 items-center gap-1 whitespace-nowrap"
+        className="text-destructive shrink-0 whitespace-nowrap"
         title={transfer.detail || t("Failed")}
       >
         {t("Failed")}
-        {transfer.onRetry ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("Retry")}
-            title={t("Retry")}
-            onClick={(event) => {
-              event.stopPropagation()
-              transfer.onRetry?.()
-            }}
-            className="text-destructive hover:text-foreground size-6"
-          >
-            <RefreshCwIcon />
-          </Button>
-        ) : null}
       </span>
     )
   }
