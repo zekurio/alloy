@@ -6,6 +6,7 @@ import type { MouseEvent, MouseEventHandler } from "react"
 import { suspendBackgroundMediaWork } from "@/lib/background-media-work"
 import { errorMessage } from "@/lib/error-message"
 import { usePlayerVolume } from "@/lib/player-volume"
+import { teardownVideoElement } from "@/lib/video-events"
 
 import { useAudioTrackMixerEngine } from "./audio-track-mixer-engine"
 import { useMediaEngine } from "./video-media-engine"
@@ -115,6 +116,16 @@ export function PlayerCore({
   const onPlaybackErrorRef = useRef(onPlaybackError)
   const onFrameReadyRef = useRef(onFrameReady)
   const onEndedRef = useRef(onEnded)
+
+  useEffect(() => {
+    const video = videoRef.current
+    return () => {
+      // A controls change replaces the shell and its video node. StrictMode
+      // also replays effects, but without removing the mounted element.
+      if (video && !video.isConnected) teardownVideoElement(video)
+    }
+  }, [controls])
+
   useEffect(() => {
     onTimeUpdateRef.current = onTimeUpdate
     onPlayingChangeRef.current = onPlayingChange

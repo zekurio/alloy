@@ -178,6 +178,13 @@ async function loadMediaWaveform(
       maxCacheSize: MAX_SOURCE_CACHE_BYTES,
       parallelism: 1,
       requestInit: { credentials: mediaRequestCredentials(mediaUrl) },
+      fetchFn: (input, init) =>
+        fetch(input, {
+          ...init,
+          signal: init?.signal
+            ? AbortSignal.any([signal, init.signal])
+            : signal,
+        }),
       getRetryDelay: (attempt) =>
         attempt < 3 ? 0.25 * 2 ** Math.max(0, attempt - 1) : null,
     }),

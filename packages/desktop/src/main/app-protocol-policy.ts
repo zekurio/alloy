@@ -266,6 +266,21 @@ export function isRejectedProxyRedirect(status: number): boolean {
   return status >= 300 && status <= 399 && status !== 304
 }
 
+export function isStreamingProxyUpload(
+  method: string,
+  pathname: string,
+  contentType: string | null,
+): boolean {
+  const normalizedMethod = method.toUpperCase()
+  return (
+    (normalizedMethod === "PUT" &&
+      pathname.startsWith("/api/assets/upload/")) ||
+    (normalizedMethod !== "GET" &&
+      normalizedMethod !== "HEAD" &&
+      contentType?.toLowerCase().startsWith("multipart/form-data") === true)
+  )
+}
+
 function isApiPath(pathname: string): boolean {
   return pathname === API_PATH || pathname.startsWith(`${API_PATH}/`)
 }
