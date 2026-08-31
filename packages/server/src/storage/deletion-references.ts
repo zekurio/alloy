@@ -15,6 +15,11 @@ import { db } from "@alloy/server/db/index"
 import { clipAssetDir, clipAssetKey } from "@alloy/server/storage/driver"
 import { and, type AnyColumn, eq, isNotNull, or, sql } from "drizzle-orm"
 
+export interface StorageDeletionReferenceSource {
+  type: string
+  id: string | null
+}
+
 /**
  * Re-check authoritative database ownership immediately before touching
  * storage. Producers still enqueue atomically with reference removal; this
@@ -26,19 +31,24 @@ import { and, type AnyColumn, eq, isNotNull, or, sql } from "drizzle-orm"
 export async function storageDeletionHasLiveReference(
   namespace: StorageDeletionNamespace,
   key: string,
+  source: StorageDeletionReferenceSource,
 ): Promise<boolean> {
   switch (namespace) {
     case "clips":
-      return clipObjectHasLiveReference(key)
+      return clipObjectHasLiveReference(key, source)
     case "thumbnails":
-      return thumbnailHasLiveReference(key)
+      return thumbnailHasLiveReference(key, source)
     case "assets":
       return assetHasLiveReference(key)
   }
 }
 
-async function clipObjectHasLiveReference(key: string): Promise<boolean> {
+async function clipObjectHasLiveReference(
+  key: string,
+  source: StorageDeletionReferenceSource,
+): Promise<boolean> {
   const ownerId = clipStorageKeyClipId(key)
+  const differentActiveRun = activeRunReferenceCondition(source)
   const [clipRows, renditionRows, audioRows, ticketRows] = await Promise.all([
     db
       .select({ id: clip.id })
@@ -48,7 +58,11 @@ async function clipObjectHasLiveReference(key: string): Promise<boolean> {
           storageKeyMatches(clip.source_key, key),
           storageKeyMatches(clip.cut_key, key),
           ownerId
-            ? and(eq(clip.id, ownerId), isNotNull(clip.encode_run_id))
+            ? and(
+                eq(clip.id, ownerId),
+                isNotNull(clip.encode_run_id),
+                differentActiveRun,
+              )
             : undefined,
         ),
       )
@@ -77,7 +91,10 @@ async function clipObjectHasLiveReference(key: string): Promise<boolean> {
   )
 }
 
-async function thumbnailHasLiveReference(key: string): Promise<boolean> {
+async function thumbnailHasLiveReference(
+  key: string,
+  source: StorageDeletionReferenceSource,
+): Promise<boolean> {
   const [direct] = await db
     .select({ id: clip.id })
     .from(clip)
@@ -95,7 +112,28 @@ async function thumbnailHasLiveReference(key: string): Promise<boolean> {
     .from(clip)
     .where(eq(clip.id, ownerId))
     .limit(1)
-  return Boolean(owner && (stableOwnerId || owner.encodeRunId))
+  return Boolean(
+    owner &&
+    (stableOwnerId ||
+      activeRunBlocksStorageDeletion(owner.encodeRunId, source)),
+  )
+}
+
+function activeRunReferenceCondition(source: StorageDeletionReferenceSource) {
+  if (source.type !== "media-run" || !source.id) return undefined
+  return sql`lower(${clip.encode_run_id}::text) <> lower(${source.id}::text)`
+}
+
+export function activeRunBlocksStorageDeletion(
+  activeRunId: string | null,
+  source: StorageDeletionReferenceSource,
+): boolean {
+  if (!activeRunId) return false
+  return !(
+    source.type === "media-run" &&
+    source.id !== null &&
+    activeRunId.toLowerCase() === source.id.toLowerCase()
+  )
 }
 
 async function assetHasLiveReference(key: string): Promise<boolean> {

@@ -60,6 +60,13 @@ export async function enqueueStorageDeletion(
   return row.id
 }
 
+export async function enqueueStorageDeletions(
+  inputs: Iterable<StorageDeletionInput>,
+  options: EnqueueStorageDeletionOptions = {},
+): Promise<void> {
+  for (const input of inputs) await enqueueStorageDeletion(input, options)
+}
+
 export async function probeStorageDeletionStore(): Promise<void> {
   await db.select({ id: storageDeletion.id }).from(storageDeletion).limit(1)
 }
