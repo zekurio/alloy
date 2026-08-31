@@ -82,6 +82,7 @@ export async function markUploadFailed(
       .update(clip)
       .set({
         status: "failed",
+        upload_cleanup_at: null,
         encode_request_id: null,
         encode_request_force: false,
         encode_requested_at: null,

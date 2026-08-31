@@ -1,10 +1,13 @@
 import type { UploadTicketRole } from "@alloy/contracts"
-import { uploadTicket, type UploadTicketTarget } from "@alloy/db/schema"
+import { clip, uploadTicket, type UploadTicketTarget } from "@alloy/db/schema"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
-import { and, eq, gt, isNull, lt } from "drizzle-orm"
+import { and, eq, isNull, lte, sql } from "drizzle-orm"
+
+import { completedUploadDeadline, uploadTicketCanFinalize } from "./deadline"
 
 /** Identifies the clip an upload ticket belongs to. */
 export interface UploadTarget {
@@ -19,15 +22,19 @@ function targetMatch(target: UploadTarget) {
   )
 }
 
-export async function createUploadTickets(input: {
-  target: UploadTarget
-  ownerId: string
-  videoKey: string
-  videoContentType: string
-  videoBytes: number
-  expiresAt: Date
-}): Promise<void> {
-  await db.insert(uploadTicket).values({
+export async function createUploadTickets(
+  input: {
+    target: UploadTarget
+    ownerId: string
+    videoKey: string
+    videoContentType: string
+    videoBytes: number
+    expiresAt: Date
+  },
+  options: { tx?: DbTransaction } = {},
+): Promise<void> {
+  const executor = options.tx ?? db
+  await executor.insert(uploadTicket).values({
     owner_id: input.ownerId,
     target_type: input.target.type,
     target_id: input.target.id,
@@ -44,9 +51,14 @@ export async function assertUsableVideoTicket(input: {
   storageKey: string
   contentType: string
   expectedBytes: number
+  uploadCleanupAt: Date | null
 }): Promise<boolean> {
+  const now = new Date()
   const [ticket] = await db
-    .select({ id: uploadTicket.id })
+    .select({
+      expiresAt: sql<Date>`${uploadTicket.expires_at} at time zone 'UTC'`,
+      usedAt: sql<Date | null>`${uploadTicket.used_at} at time zone 'UTC'`,
+    })
     .from(uploadTicket)
     .where(
       and(
@@ -55,56 +67,164 @@ export async function assertUsableVideoTicket(input: {
         eq(uploadTicket.content_type, input.contentType),
         eq(uploadTicket.expected_bytes, input.expectedBytes),
         eq(uploadTicket.role, "video"),
-        gt(uploadTicket.expires_at, new Date()),
       ),
     )
     .limit(1)
-  return Boolean(ticket)
+  return ticket
+    ? uploadTicketCanFinalize(ticket, input.uploadCleanupAt, now)
+    : false
 }
 
-async function selectTicketKey(
-  target: UploadTarget,
-  role: UploadTicketRole,
-): Promise<string | null> {
-  const [ticket] = await db
-    .select({ storageKey: uploadTicket.storage_key })
-    .from(uploadTicket)
-    .where(and(targetMatch(target), eq(uploadTicket.role, role)))
-    .limit(1)
-  return ticket?.storageKey ?? null
+export interface SelectedUploadTicket {
+  id: string
+  storageKey: string
+  contentType: string
+  expectedBytes: number
+  expiresAt: Date
+  usedAt: Date | null
+  createdAt: Date
+}
+
+export function effectiveUploadTicketDeadline(
+  ticket: Pick<SelectedUploadTicket, "expiresAt" | "usedAt">,
+  uploadTtlSec: number,
+): number {
+  return ticket.usedAt === null
+    ? ticket.expiresAt.getTime()
+    : Math.max(
+        ticket.expiresAt.getTime(),
+        completedUploadDeadline(ticket.usedAt, uploadTtlSec).getTime(),
+      )
+}
+
+/** Match the max-deadline rule used by legacy repair with stable tie breaks. */
+export function selectPreferredUploadTicket<T extends SelectedUploadTicket>(
+  tickets: readonly T[],
+  uploadTtlSec: number,
+): T | null {
+  let preferred: T | null = null
+  for (const ticket of tickets) {
+    if (
+      !preferred ||
+      uploadTicketIsPreferred(ticket, preferred, uploadTtlSec)
+    ) {
+      preferred = ticket
+    }
+  }
+  return preferred
+}
+
+function uploadTicketIsPreferred(
+  candidate: SelectedUploadTicket,
+  current: SelectedUploadTicket,
+  uploadTtlSec: number,
+): boolean {
+  const deadlineDifference =
+    effectiveUploadTicketDeadline(candidate, uploadTtlSec) -
+    effectiveUploadTicketDeadline(current, uploadTtlSec)
+  if (deadlineDifference !== 0) return deadlineDifference > 0
+  if ((candidate.usedAt !== null) !== (current.usedAt !== null)) {
+    return candidate.usedAt !== null
+  }
+  const creationDifference =
+    candidate.createdAt.getTime() - current.createdAt.getTime()
+  if (creationDifference !== 0) return creationDifference > 0
+  return candidate.id.localeCompare(current.id) > 0
 }
 
 async function selectTicket(
   target: UploadTarget,
   role: UploadTicketRole,
-): Promise<{
-  storageKey: string
-  contentType: string
-  expectedBytes: number
-  expiresAt: Date
-} | null> {
-  const [ticket] = await db
+): Promise<SelectedUploadTicket | null> {
+  const tickets = await db
     .select({
+      id: uploadTicket.id,
       storageKey: uploadTicket.storage_key,
       contentType: uploadTicket.content_type,
       expectedBytes: uploadTicket.expected_bytes,
-      expiresAt: uploadTicket.expires_at,
+      expiresAt: sql<Date>`${uploadTicket.expires_at} at time zone 'UTC'`,
+      usedAt: sql<Date | null>`${uploadTicket.used_at} at time zone 'UTC'`,
+      createdAt: sql<Date>`${uploadTicket.created_at} at time zone 'UTC'`,
     })
     .from(uploadTicket)
     .where(and(targetMatch(target), eq(uploadTicket.role, role)))
-    .limit(1)
-  return ticket ?? null
+  return selectPreferredUploadTicket(
+    tickets,
+    configStore.get("limits").uploadTtlSec,
+  )
 }
 
 export function selectVideoTicketKey(
   target: UploadTarget,
 ): Promise<string | null> {
-  return selectTicketKey(target, "video")
+  return selectTicket(target, "video").then(
+    (ticket) => ticket?.storageKey ?? null,
+  )
 }
 
 export function selectVideoTicket(target: UploadTarget) {
   return selectTicket(target, "video")
 }
+
+/** Mark one accepted legacy ticket used inside its caller's transaction. */
+export async function markUploadTicketUsed(
+  ticketId: string,
+  usedAt: Date,
+  tx: DbTransaction,
+): Promise<string | null> {
+  const [row] = await tx
+    .update(uploadTicket)
+    .set({ used_at: usedAt })
+    .where(and(eq(uploadTicket.id, ticketId), isNull(uploadTicket.used_at)))
+    .returning({ targetId: uploadTicket.target_id })
+  return row?.targetId ?? null
+}
+
+/**
+ * Persist byte completion and the pending clip's grace deadline atomically.
+ * The upload activity gate around the caller keeps cleanup/finalize outside
+ * this transaction until both ownership changes are committed.
+ */
+export async function markUploadTicketUsedAndExtendDeadline(
+  ticketId: string,
+  uploadTtlSec: number,
+  options: { expectedCleanupAt?: Date | null } = {},
+): Promise<boolean> {
+  const usedAt = new Date()
+  const cleanupAt = completedUploadDeadline(usedAt, uploadTtlSec)
+  try {
+    return await db.transaction(async (tx) => {
+      const targetId = await markUploadTicketUsed(ticketId, usedAt, tx)
+      if (!targetId) return false
+      const conditions = [eq(clip.id, targetId), eq(clip.status, "pending")]
+      const expectedCleanupAt = options.expectedCleanupAt
+      if (expectedCleanupAt !== undefined) {
+        conditions.push(
+          expectedCleanupAt === null
+            ? isNull(clip.upload_cleanup_at)
+            : eq(clip.upload_cleanup_at, expectedCleanupAt),
+        )
+      }
+      const [updated] = await tx
+        .update(clip)
+        .set({
+          upload_cleanup_at: sql<Date>`greatest(
+            coalesce(${clip.upload_cleanup_at}, ${cleanupAt}),
+            ${cleanupAt}
+          )`,
+        })
+        .where(and(...conditions))
+        .returning({ id: clip.id })
+      if (!updated) throw new UploadCompletionOwnershipChangedError()
+      return true
+    })
+  } catch (err) {
+    if (err instanceof UploadCompletionOwnershipChangedError) return false
+    throw err
+  }
+}
+
+class UploadCompletionOwnershipChangedError extends Error {}
 
 type DeletedUploadTicket = {
   id: string
@@ -175,7 +295,7 @@ export async function deleteExpiredUploadTicketWithStorageIntent(
       and(
         eq(uploadTicket.id, ticketId),
         isNull(uploadTicket.used_at),
-        lt(uploadTicket.expires_at, expiresBefore),
+        lte(uploadTicket.expires_at, expiresBefore),
       ),
     )
     .returning({

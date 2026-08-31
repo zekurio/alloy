@@ -71,6 +71,13 @@
       "when": 1788131765894,
       "tag": "0009_direct_notification_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788132991782,
+      "tag": "0010_durable_upload_deadline",
+      "breakpoints": true
     }
   ]
 }

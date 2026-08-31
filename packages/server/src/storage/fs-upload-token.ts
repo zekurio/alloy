@@ -69,8 +69,8 @@ export async function mintFsUploadTicket(input: {
 }
 
 type DecodedToken =
-  | { ok: true; payload: UploadTokenPayload }
-  | { ok: false; reason: "malformed" | "bad-signature" | "expired" }
+  | { ok: true; payload: UploadTokenPayload; expired: boolean }
+  | { ok: false; reason: "malformed" | "bad-signature" }
 
 function parseUploadTokenPayload(
   value: Parameters<typeof UploadTokenPayloadSchema.safeParse>[0],
@@ -119,8 +119,16 @@ export async function decodeUploadToken(
   if (!payload) {
     return { ok: false, reason: "malformed" }
   }
-  if (payload.exp < Math.floor(Date.now() / 1000)) {
-    return { ok: false, reason: "expired" }
+  return {
+    ok: true,
+    payload,
+    expired: uploadTokenIsExpired(payload.exp, Math.floor(Date.now() / 1000)),
   }
-  return { ok: true, payload }
+}
+
+export function uploadTokenIsExpired(
+  expiresAtEpochSec: number,
+  nowEpochSec: number,
+): boolean {
+  return expiresAtEpochSec <= nowEpochSec
 }
