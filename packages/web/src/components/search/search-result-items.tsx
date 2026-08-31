@@ -15,9 +15,9 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useEffect, useState } from "react"
 import type { ReactNode } from "react"
 
+import { GameIcon } from "@/components/game/game-icon"
 import { clipGameLabel } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
-import { desktopCachedAssetUrl } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { formatMediaDurationMs } from "@/lib/media-time"
 import { formatCount } from "@/lib/number-format"
@@ -183,6 +183,12 @@ export function ClipRowItem({
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : null
   const label = clipGameLabel(row)
+  const author = userChipData({
+    id: row.authorId,
+    username: row.authorUsername,
+    displayName: row.authorDisplayName,
+    image: row.authorImage,
+  })
   const blurHash = row.thumbBlurHash ?? localFallback?.thumbBlurHash ?? null
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
@@ -194,9 +200,29 @@ export function ClipRowItem({
         className="w-16"
       />
       <SearchItemText title={row.title} active={active}>
-        <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
-          <span>{label}</span>
-          <span>{row.authorUsername}</span>
+        <div className="text-foreground-muted flex items-center gap-2 text-xs font-semibold">
+          <span className="flex min-w-0 items-center gap-1">
+            <GameIcon
+              src={row.gameRef?.iconUrl ?? row.gameRef?.logoUrl}
+              name={label}
+              size="sm"
+            />
+            <span className="truncate">{label}</span>
+          </span>
+          <span className="flex min-w-0 items-center gap-1">
+            <Avatar size="sm" className="!size-3.5">
+              {author.avatar.src ? (
+                <AvatarImage src={author.avatar.src} alt="" />
+              ) : null}
+              <AvatarFallback
+                style={{
+                  backgroundColor: author.avatar.bg,
+                  color: author.avatar.fg,
+                }}
+              />
+            </Avatar>
+            <span className="truncate">{row.authorUsername}</span>
+          </span>
           <span>
             {formatCount(row.viewCount)} {tp(row.viewCount, "view", "views")}
           </span>
@@ -221,7 +247,6 @@ export function LocalClipRowItem({
 }) {
   const label = row.displayGameName || row.groupLabel || t("Local capture")
   const details = [
-    label,
     row.durationMs && row.durationMs > 0
       ? formatMediaDurationMs(row.durationMs)
       : null,
@@ -238,6 +263,10 @@ export function LocalClipRowItem({
       />
       <SearchItemText title={row.title} active={active}>
         <div className="text-foreground-muted flex items-center gap-2 truncate text-xs font-semibold">
+          <span className="flex min-w-0 items-center gap-1">
+            <GameIcon src={row.displayGameIconUrl} name={label} size="sm" />
+            <span className="truncate">{label}</span>
+          </span>
           {details.map((detail, index) => (
             <span key={`${detail}:${index}`}>{detail}</span>
           ))}
@@ -262,16 +291,10 @@ export function GameRowItem({
 }) {
   return (
     <RowButton id={id} active={active} onHover={onHover} onSelect={onSelect}>
-      <SearchMediaThumb
-        seed={row.id}
-        blurHash={row.gridBlurHash ?? row.heroBlurHash}
-        // Grids are ~2:3 box art that fills a portrait slot cleanly; the wide
-        // hero is only a fallback. object-cover keeps the placeholder hidden
-        // instead of letterboxing it into view.
-        src={desktopCachedAssetUrl(row.gridUrl ?? row.heroUrl)}
-        viewportClassName="relative aspect-[3/4] overflow-hidden"
-        imageClassName="absolute inset-0 size-full object-cover object-center"
-        className="w-12"
+      <GameIcon
+        src={row.iconUrl ?? row.logoUrl}
+        name={row.name}
+        className="size-9"
       />
       <SearchItemText title={row.name} active={active}>
         <div className="text-foreground-muted truncate text-xs font-semibold">
