@@ -5,10 +5,9 @@ import {
   publishClipUpsertById,
 } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import type { DbTransaction } from "@alloy/server/db/transaction"
 import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
 import { mediaAssetDeletionIntents } from "@alloy/server/storage/deletion-producers"
-import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
+import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
@@ -192,7 +191,7 @@ export const clipMediaStore: MediaStore = {
           reason: "media source replaced",
           source: { type: "media-run", id: runId },
         })
-        await enqueueDeletionIntents(tx, intents)
+        await enqueueStorageDeletions(intents, { tx })
         const stagedIntents = await deleteUploadTicketsWithStorageIntents(
           { type: "clip", id },
           "media source committed",
@@ -231,7 +230,7 @@ export const clipMediaStore: MediaStore = {
         reason: "media thumbnail replaced",
         source: { type: "media-run", id: runId },
       })
-      await enqueueDeletionIntents(tx, intents)
+      await enqueueStorageDeletions(intents, { tx })
       return { committed: true, queuedDeletions: intents.length }
     })
     if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
@@ -357,7 +356,7 @@ export const clipMediaStore: MediaStore = {
           reason: "media output replaced",
           source: { type: "media-run", id: runId },
         })
-        await enqueueDeletionIntents(tx, mediaIntents)
+        await enqueueStorageDeletions(mediaIntents, { tx })
 
         await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
         await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
@@ -436,11 +435,4 @@ export const clipMediaStore: MediaStore = {
   publishUpsert(authorId, id) {
     void publishClipUpsert(authorId, id)
   },
-}
-
-async function enqueueDeletionIntents(
-  tx: DbTransaction,
-  intents: ReturnType<typeof mediaAssetDeletionIntents>,
-): Promise<void> {
-  for (const intent of intents) await enqueueStorageDeletion(intent, { tx })
 }

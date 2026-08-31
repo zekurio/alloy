@@ -4,7 +4,6 @@ import { publishClipUpsert } from "@alloy/server/clips/events"
 import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
 import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { db } from "@alloy/server/db/index"
-import type { DbTransaction } from "@alloy/server/db/transaction"
 import { extractPoster } from "@alloy/server/media/poster"
 import {
   requestClipMedia,
@@ -12,7 +11,6 @@ import {
 } from "@alloy/server/queue/clip-media-work-store"
 import { wakeClipMediaWorker } from "@alloy/server/queue/clip-media-worker"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
-import { sameClipSourceIncarnation } from "@alloy/server/queue/media-deletion-policy"
 import { withClipSourceWorkDir } from "@alloy/server/queue/media-run-helpers"
 import {
   badRequest,
@@ -26,7 +24,7 @@ import {
   mediaAssetDeletionIntents,
   posterDeletionIntents,
 } from "@alloy/server/storage/deletion-producers"
-import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
+import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { clipThumbnailStorage } from "@alloy/server/storage/index"
 import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
@@ -125,10 +123,8 @@ export const clipsUploadMediaRoutes = new Hono()
 
           if (
             !current ||
-            !sameClipSourceIncarnation(
-              { authorId: row.author_id, sourceKey },
-              current,
-            ) ||
+            current.authorId !== row.author_id ||
+            current.sourceKey !== sourceKey ||
             current.status !== "ready" ||
             current.encodeRunId !== null
           ) {
@@ -138,7 +134,7 @@ export const clipsUploadMediaRoutes = new Hono()
               accepted: false,
               attemptId,
             })
-            await enqueueDeletionIntents(tx, intents)
+            await enqueueStorageDeletions(intents, { tx })
             return { accepted: false, queuedDeletions: intents.length }
           }
 
@@ -167,7 +163,7 @@ export const clipsUploadMediaRoutes = new Hono()
             accepted,
             attemptId,
           })
-          await enqueueDeletionIntents(tx, intents)
+          await enqueueStorageDeletions(intents, { tx })
           return { accepted, queuedDeletions: intents.length }
         })
       } catch (cause) {
@@ -294,7 +290,7 @@ export const clipsUploadMediaRoutes = new Hono()
           reason: "trim invalidated derived media",
           source: { type: "clip-trim", id },
         })
-        await enqueueDeletionIntents(tx, intents)
+        await enqueueStorageDeletions(intents, { tx })
         await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
         await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
         await requestClipMedia(id, {
@@ -406,11 +402,4 @@ function extractSourcePoster(
   return withClipSourceWorkDir("poster", sourceKey, ({ workDir, sourcePath }) =>
     extractPoster(sourcePath, workDir, opts),
   )
-}
-
-async function enqueueDeletionIntents(
-  tx: DbTransaction,
-  intents: ReturnType<typeof mediaAssetDeletionIntents>,
-): Promise<void> {
-  for (const intent of intents) await enqueueStorageDeletion(intent, { tx })
 }

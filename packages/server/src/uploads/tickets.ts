@@ -3,7 +3,7 @@ import { uploadTicket, type UploadTicketTarget } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
-import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
+import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { and, eq, gt, isNull, lt } from "drizzle-orm"
 
 /** Identifies the clip an upload ticket belongs to. */
@@ -174,15 +174,15 @@ async function enqueueDeletedUploadTickets(
   reason: string,
   tx: DbTransaction,
 ): Promise<number> {
-  for (const row of rows) {
-    await enqueueStorageDeletion(
+  await enqueueStorageDeletions(
+    rows.map((row) =>
       stagedUploadDeletionIntent({
         key: row.storageKey,
         reason,
         source: { type: "upload-ticket", id: row.id },
       }),
-      { tx },
-    )
-  }
+    ),
+    { tx },
+  )
   return rows.length
 }

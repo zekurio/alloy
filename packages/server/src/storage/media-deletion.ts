@@ -1,7 +1,7 @@
 import { db } from "@alloy/server/db/index"
 
 import { mediaAssetDeletionIntents } from "./deletion-producers"
-import { enqueueStorageDeletion } from "./deletion-store"
+import { enqueueStorageDeletions } from "./deletion-store"
 import { wakeStorageDeletionWorker } from "./deletion-worker"
 
 /** Durably claim immutable media objects that were never attached to a row. */
@@ -15,9 +15,7 @@ export async function enqueueUnownedMediaAssets(input: {
   if (intents.length === 0) return 0
 
   await db.transaction(async (tx) => {
-    for (const intent of intents) {
-      await enqueueStorageDeletion(intent, { tx })
-    }
+    await enqueueStorageDeletions(intents, { tx })
   })
   wakeStorageDeletionWorker()
   return intents.length
