@@ -13,6 +13,10 @@ import { env } from "./env"
 import { startJobs, stopJobs } from "./jobs"
 import { configureTranscode } from "./media/transcode-settings"
 import {
+  startNotificationExpiryWorker,
+  stopNotificationExpiryWorker,
+} from "./notifications/expiry"
+import {
   startClipMediaWorker,
   stopClipMediaWorker,
 } from "./queue/clip-media-worker"
@@ -77,6 +81,9 @@ try {
   // Auth challenge TTLs use their own indexed deadline coordinator rather
   // than manufacturing recurring generic jobs.
   startAuthChallengeExpiryWorker()
+  // Notification retention has different read/unread deadlines. Start its
+  // indexed coordinator before accepting notification mutations.
+  startNotificationExpiryWorker()
 } catch (err) {
   logger.error("failed to start durable background workers:", err)
   process.exit(1)
@@ -116,6 +123,7 @@ const shutdown = () => {
     stopClipMediaWorker(),
     stopStorageDeletionWorker(),
     stopAuthChallengeExpiryWorker(),
+    stopNotificationExpiryWorker(),
     stopWebhookDeliveryWorker(),
     stopJobs(),
   ])
