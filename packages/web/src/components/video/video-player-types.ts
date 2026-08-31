@@ -28,6 +28,8 @@ export interface MediaPlaybackRange {
 export type SharedPlayerProps = {
   className?: string
   maxDisplayHeight?: string
+  /** Stable duration of the player's zero-based timeline, in seconds. */
+  durationHint?: number
   playerRef?: Ref<VideoPlayerHandle>
   onTimeUpdate?: (seconds: number) => void
   onPlayingChange?: (playing: boolean) => void

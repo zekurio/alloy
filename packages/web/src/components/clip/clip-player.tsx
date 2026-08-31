@@ -352,6 +352,9 @@ function ClipPlayer({
       fallbackSeed={fallbackSeed ?? clipId}
       aspectRatio={aspectRatio}
       maxDisplayHeight={maxDisplayHeight}
+      durationHint={
+        durationMs !== null && durationMs > 0 ? durationMs / 1000 : undefined
+      }
       chromeSize={chromeSize}
       className={className}
       // A re-trim rebases the clip's timeline under the same id; folding the
