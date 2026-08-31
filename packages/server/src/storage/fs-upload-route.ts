@@ -9,8 +9,13 @@ import {
   noContent,
   payloadTooLarge,
 } from "@alloy/server/runtime/http-response"
+import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { clipStorage } from "@alloy/server/storage/index"
-import { deleteStagedUpload } from "@alloy/server/uploads/staged"
+import {
+  withUploadActivity,
+  withUploadActivityStopped,
+} from "@alloy/server/uploads/activity"
+import { deleteUploadTicketWithStorageIntent } from "@alloy/server/uploads/tickets"
 import { and, eq, gt, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -29,122 +34,160 @@ type ResolvedUploadTicket = {
   ticket: UploadTicketRecord
 }
 
+type DecodedUploadTicket = Omit<ResolvedUploadTicket, "ticket">
+type UploadTicketGateMode = "activity" | "stopped"
+
 export const storageRoute = new Hono()
-  .post("/upload/:token", async (c) => {
-    const resolved = await resolveUploadTicket(c.req.param("token"), ["single"])
-    if (resolved instanceof Response) return resolved
-    const {
-      payload: { k: key, ct: expectedContentType, mb: maxBytes },
-      ticket,
-    } = resolved
+  .post("/upload/:token", (c) =>
+    withResolvedUploadTicket(
+      c.req.param("token"),
+      ["single"],
+      "activity",
+      async (resolved) => {
+        const {
+          payload: { k: key, ct: expectedContentType, mb: maxBytes },
+          ticket,
+        } = resolved
 
-    const contentType = c.req.header("content-type")
-    if (contentType && contentType !== expectedContentType) {
-      return badRequest(c, "Content-Type does not match the upload ticket")
-    }
+        const contentType = c.req.header("content-type")
+        if (contentType && contentType !== expectedContentType) {
+          return badRequest(c, "Content-Type does not match the upload ticket")
+        }
 
-    if (!c.req.raw.body) {
-      return badRequest(c, "Empty upload body")
-    }
+        if (!c.req.raw.body) {
+          return badRequest(c, "Empty upload body")
+        }
 
-    let limitTripped = false
+        let limitTripped = false
 
-    if (await clipStorage.resolve(key)) {
-      return conflict(c, "Upload ticket has already been used")
-    }
+        if (await clipStorage.resolve(key)) {
+          return conflict(c, "Upload ticket has already been used")
+        }
 
-    try {
-      await clipStorage.put(
-        key,
-        limitUploadBody(c.req.raw.body, maxBytes, () => {
-          limitTripped = true
-        }),
-        expectedContentType,
-      )
-    } catch (err) {
-      await deletePartialUpload(key)
-      if (limitTripped) {
-        return payloadTooLarge(c, "Upload exceeded declared size")
-      }
-      logger.error("upload write failed:", err)
-      return internalServerError(c, "Upload write failed")
-    }
+        try {
+          await clipStorage.put(
+            key,
+            limitUploadBody(c.req.raw.body, maxBytes, () => {
+              limitTripped = true
+            }),
+            expectedContentType,
+          )
+        } catch (err) {
+          await deletePartialUpload(key)
+          if (limitTripped) {
+            return payloadTooLarge(c, "Upload exceeded declared size")
+          }
+          logger.error("upload write failed:", err)
+          return internalServerError(c, "Upload write failed")
+        }
 
-    await markTicketUsed(ticket.id)
-    return noContent(c)
-  })
-  .put("/upload/:token/chunks/:partNumber", async (c) => {
-    const resolved = await resolveUploadTicket(c.req.param("token"), [
-      "fs-chunked",
-    ])
-    if (resolved instanceof Response) return resolved
-    const partNumber = parsePartNumber(c.req.param("partNumber"))
-    if (!partNumber) return badRequest(c, "Invalid upload part number")
-    const { payload } = resolved
-    const partSizeBytes = payload.cs
-    if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
-    if (!partNumberInRange(partNumber, partSizeBytes, payload.mb)) {
-      return badRequest(c, "Upload part is outside declared size")
-    }
-    if (!c.req.raw.body) return badRequest(c, "Empty upload body")
+        await markTicketUsed(ticket.id)
+        return noContent(c)
+      },
+    ),
+  )
+  .put("/upload/:token/chunks/:partNumber", (c) =>
+    withResolvedUploadTicket(
+      c.req.param("token"),
+      ["fs-chunked"],
+      "activity",
+      async (resolved) => {
+        const partNumber = parsePartNumber(c.req.param("partNumber"))
+        if (!partNumber) return badRequest(c, "Invalid upload part number")
+        const { payload } = resolved
+        const partSizeBytes = payload.cs
+        if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
+        if (!partNumberInRange(partNumber, partSizeBytes, payload.mb)) {
+          return badRequest(c, "Upload part is outside declared size")
+        }
+        if (!c.req.raw.body) return badRequest(c, "Empty upload body")
 
-    try {
-      await clipStorage.writeUploadPart({
-        key: payload.k,
-        partNumber,
-        partSizeBytes,
-        maxBytes: payload.mb,
-        body: c.req.raw.body,
-      })
-    } catch (err) {
-      if (err instanceof UploadPartTooLargeError) {
-        return payloadTooLarge(c, "Upload part exceeded declared size")
-      }
-      logger.error("upload part write failed:", err)
-      return badRequest(c, "Upload part did not match declared size")
-    }
-    return noContent(c)
-  })
-  .post("/upload/:token/complete", async (c) => {
-    const resolved = await resolveUploadTicket(c.req.param("token"), [
-      "fs-chunked",
-    ])
-    if (resolved instanceof Response) return resolved
-    const { payload, ticket } = resolved
-    const partSizeBytes = payload.cs
-    if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
+        try {
+          await clipStorage.writeUploadPart({
+            key: payload.k,
+            partNumber,
+            partSizeBytes,
+            maxBytes: payload.mb,
+            body: c.req.raw.body,
+          })
+        } catch (err) {
+          if (err instanceof UploadPartTooLargeError) {
+            return payloadTooLarge(c, "Upload part exceeded declared size")
+          }
+          logger.error("upload part write failed:", err)
+          return badRequest(c, "Upload part did not match declared size")
+        }
+        return noContent(c)
+      },
+    ),
+  )
+  .post("/upload/:token/complete", (c) =>
+    withResolvedUploadTicket(
+      c.req.param("token"),
+      ["fs-chunked"],
+      "activity",
+      async (resolved) => {
+        const { payload, ticket } = resolved
+        const partSizeBytes = payload.cs
+        if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
 
-    try {
-      await clipStorage.completeUpload({
-        key: payload.k,
-        contentType: payload.ct,
-        maxBytes: payload.mb,
-        partSizeBytes,
-      })
-    } catch (err) {
-      logger.error("upload completion failed:", err)
-      return badRequest(c, "Upload could not be completed")
-    }
+        try {
+          await clipStorage.completeUpload({
+            key: payload.k,
+            contentType: payload.ct,
+            maxBytes: payload.mb,
+            partSizeBytes,
+          })
+        } catch (err) {
+          logger.error("upload completion failed:", err)
+          return badRequest(c, "Upload could not be completed")
+        }
 
-    await markTicketUsed(ticket.id)
-    return noContent(c)
-  })
-  .delete("/upload/:token", async (c) => {
-    const resolved = await resolveUploadTicket(c.req.param("token"), [
-      "single",
-      "fs-chunked",
-    ])
-    if (resolved instanceof Response) return resolved
-    const { payload, ticket } = resolved
-    await deleteStagedUpload(payload.k)
-    await db.delete(uploadTicket).where(eq(uploadTicket.id, ticket.id))
-    return noContent(c)
-  })
+        await markTicketUsed(ticket.id)
+        return noContent(c)
+      },
+    ),
+  )
+  .delete("/upload/:token", (c) =>
+    withResolvedUploadTicket(
+      c.req.param("token"),
+      ["single", "fs-chunked"],
+      "stopped",
+      async ({ ticket }) => {
+        const queued = await db.transaction((tx) =>
+          deleteUploadTicketWithStorageIntent(
+            ticket.id,
+            "upload cancelled",
+            tx,
+          ),
+        )
+        if (queued > 0) wakeStorageDeletionWorker()
+        return noContent(c)
+      },
+    ),
+  )
 
-async function resolveUploadTicket(
+async function withResolvedUploadTicket(
   token: string,
   allowedModes: readonly UploadTokenMode[],
-): Promise<ResolvedUploadTicket | Response> {
+  gateMode: UploadTicketGateMode,
+  operation: (resolved: ResolvedUploadTicket) => Promise<Response>,
+): Promise<Response> {
+  const decoded = await resolveUploadToken(token, allowedModes)
+  if (decoded instanceof Response) return decoded
+  const gate =
+    gateMode === "activity" ? withUploadActivity : withUploadActivityStopped
+  return gate(decoded.payload.cid, async () => {
+    const resolved = await selectUploadTicket(decoded)
+    if (resolved instanceof Response) return resolved
+    return operation(resolved)
+  })
+}
+
+async function resolveUploadToken(
+  token: string,
+  allowedModes: readonly UploadTokenMode[],
+): Promise<DecodedUploadTicket | Response> {
   const decoded = await decodeUploadToken(
     token,
     secretStore.get("uploadHmacSecret"),
@@ -158,6 +201,13 @@ async function resolveUploadTicket(
     return unauthorizedResponse("Upload ticket does not allow this operation")
   }
 
+  return { payload, mode }
+}
+
+async function selectUploadTicket(
+  decoded: DecodedUploadTicket,
+): Promise<ResolvedUploadTicket | Response> {
+  const { payload, mode } = decoded
   const [ticket] = await db
     .select({ id: uploadTicket.id })
     .from(uploadTicket)
