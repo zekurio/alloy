@@ -48,7 +48,7 @@ export function HomePageInner() {
         <FeedChipBar filter={filter} search={toolbarSearch} />
         <div className="shrink-0">{sortControl}</div>
       </PageToolbar>
-      <AppMainScroll className="!pt-2">
+      <AppMainScroll className="!pt-0">
         <section className="flex w-full flex-col gap-6">
           <FeedSection filter={filter} sort={sort} viewerId={viewerId} />
         </section>

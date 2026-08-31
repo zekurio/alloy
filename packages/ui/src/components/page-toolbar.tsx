@@ -38,8 +38,7 @@ function PageToolbar({
       data-slot="page-toolbar"
       className={cn(
         "bg-background",
-        !pinned &&
-          "sticky top-0 z-10 -mx-[var(--app-content-padding)] mb-4 md:mb-6",
+        !pinned && "sticky top-0 z-10 -mx-[var(--app-content-padding)]",
         className,
       )}
       {...props}

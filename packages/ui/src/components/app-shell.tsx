@@ -27,17 +27,17 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
       <span
         aria-hidden
         data-slot="app-bottom-left-anchor"
-        className="pointer-events-none fixed bottom-[var(--app-content-padding)] left-[calc(var(--sidebar-rail)+var(--app-content-padding))] hidden size-0 md:block"
+        className="pointer-events-none fixed bottom-[var(--app-content-padding)] left-[calc(var(--sidebar-rail)+1rem)] hidden size-0 md:block"
       />
       <span
         aria-hidden
         data-slot="app-top-right-anchor"
-        className="pointer-events-none fixed top-[calc(var(--header-h)+var(--app-content-padding))] right-[var(--app-content-padding)] size-0"
+        className="pointer-events-none fixed top-[calc(var(--header-h)+var(--app-content-padding))] right-4 size-0"
       />
       <span
         aria-hidden
         data-slot="app-bottom-right-anchor"
-        className="pointer-events-none fixed right-[var(--app-content-padding)] bottom-[var(--app-content-padding)] hidden size-0 md:block"
+        className="pointer-events-none fixed right-4 bottom-[var(--app-content-padding)] hidden size-0 md:block"
       />
     </div>
   )
