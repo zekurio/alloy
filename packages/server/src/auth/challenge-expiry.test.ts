@@ -2,10 +2,13 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import {
+  createExpiryWorker,
+  type ExpiryStore,
+} from "@alloy/server/runtime/wakeable-serial-worker"
+
+import {
   AUTH_CHALLENGE_EXPIRY_DELETE_SQL,
   AUTH_CHALLENGE_EXPIRY_NEXT_SQL,
-  AuthChallengeExpiryCoordinator,
-  type AuthChallengeExpiryStore,
   insertAuthChallengeAndWake,
 } from "./challenge-expiry"
 
@@ -213,16 +216,16 @@ test("producer wake runs only after a successful insert", async () => {
 })
 
 function coordinator(
-  store: AuthChallengeExpiryStore,
+  store: ExpiryStore,
   overrides: {
     batchSize?: number
     errorRetryMs?: number
     onError?: (cause: unknown) => void
   } = {},
-): AuthChallengeExpiryCoordinator {
-  return new AuthChallengeExpiryCoordinator({
+) {
+  return createExpiryWorker({
     store,
-    batchSize: overrides.batchSize,
+    batchSize: overrides.batchSize ?? 500,
     errorRetryMs: overrides.errorRetryMs,
     reconciliationIntervalMs: 60_000,
     onError: overrides.onError ?? ((cause) => assert.fail(String(cause))),

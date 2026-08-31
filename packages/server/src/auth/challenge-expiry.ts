@@ -1,6 +1,9 @@
 import { createLogger } from "@alloy/logging"
 import { client } from "@alloy/server/db/index"
-import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
+import {
+  createExpiryWorker,
+  type ExpiryStore,
+} from "@alloy/server/runtime/wakeable-serial-worker"
 
 const logger = createLogger("auth-challenge-expiry")
 
@@ -30,65 +33,7 @@ export const AUTH_CHALLENGE_EXPIRY_NEXT_SQL = `
   from auth_challenge
 `
 
-export interface AuthChallengeExpiryStore {
-  deleteExpiredBatch(limit: number, signal: AbortSignal): Promise<number>
-  selectNextExpiry(signal: AbortSignal): Promise<Date | null>
-}
-
-export interface AuthChallengeExpiryCoordinatorOptions {
-  store: AuthChallengeExpiryStore
-  batchSize?: number
-  reconciliationIntervalMs?: number
-  errorRetryMs?: number
-  onError(cause: unknown): void
-}
-
-/** Direct, single-process coordinator for the auth challenge TTL index. */
-export class AuthChallengeExpiryCoordinator {
-  readonly #batchSize: number
-  readonly #store: AuthChallengeExpiryStore
-  readonly #worker: WakeableSerialWorker
-
-  constructor(options: AuthChallengeExpiryCoordinatorOptions) {
-    this.#batchSize = options.batchSize ?? DELETE_BATCH_SIZE
-    this.#store = options.store
-    this.#worker = new WakeableSerialWorker({
-      reconciliationIntervalMs:
-        options.reconciliationIntervalMs ?? RECONCILIATION_INTERVAL_MS,
-      errorRetryMs: options.errorRetryMs ?? ERROR_RETRY_MS,
-      runOne: (signal) => this.#runOne(signal),
-      onError: options.onError,
-    })
-  }
-
-  start(): void {
-    this.#worker.start()
-  }
-
-  wake(): void {
-    this.#worker.wake()
-  }
-
-  stop(): Promise<void> {
-    return this.#worker.stop()
-  }
-
-  async #runOne(signal: AbortSignal) {
-    if (signal.aborted) return { worked: false as const, nextRunAt: null }
-
-    const deleted = await this.#store.deleteExpiredBatch(
-      this.#batchSize,
-      signal,
-    )
-    if (signal.aborted) return { worked: false as const, nextRunAt: null }
-    if (deleted >= this.#batchSize) return { worked: true as const }
-
-    const nextRunAt = await this.#store.selectNextExpiry(signal)
-    return { worked: false as const, nextRunAt }
-  }
-}
-
-const databaseStore: AuthChallengeExpiryStore = {
+const databaseStore: ExpiryStore = {
   async deleteExpiredBatch(limit) {
     const result = await client.query<{ id: string }>(
       AUTH_CHALLENGE_EXPIRY_DELETE_SQL,
@@ -104,8 +49,11 @@ const databaseStore: AuthChallengeExpiryStore = {
   },
 }
 
-const coordinator = new AuthChallengeExpiryCoordinator({
+const coordinator = createExpiryWorker({
   store: databaseStore,
+  batchSize: DELETE_BATCH_SIZE,
+  reconciliationIntervalMs: RECONCILIATION_INTERVAL_MS,
+  errorRetryMs: ERROR_RETRY_MS,
   onError: (cause) =>
     logger.error("auth challenge expiry coordinator failed:", cause),
 })
