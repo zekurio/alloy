@@ -14,6 +14,10 @@ import {
 } from "./queue/clip-media-worker"
 import { requestShutdown } from "./runtime/shutdown"
 import {
+  startStorageDeletionWorker,
+  stopStorageDeletionWorker,
+} from "./storage/deletion-worker"
+import {
   startWebhookDeliveryWorker,
   stopWebhookDeliveryWorker,
 } from "./webhooks/delivery-worker"
@@ -63,8 +67,11 @@ try {
   // worker is operationally unhealthy. Gate listen on recovery and generation
   // initialization so startup either succeeds completely or exits.
   await startClipMediaWorker()
+  // Physical deletion is likewise durable. Probe the ledger before accepting
+  // mutations so a missing migration cannot silently strand cleanup intents.
+  await startStorageDeletionWorker()
 } catch (err) {
-  logger.error("failed to start media worker:", err)
+  logger.error("failed to start durable background workers:", err)
   process.exit(1)
 }
 
@@ -100,6 +107,7 @@ const shutdown = () => {
   // runs get a chance to flush state.
   void Promise.all([
     stopClipMediaWorker(),
+    stopStorageDeletionWorker(),
     stopWebhookDeliveryWorker(),
     stopJobs(),
   ])
