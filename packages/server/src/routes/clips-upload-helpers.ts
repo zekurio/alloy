@@ -2,8 +2,9 @@ import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
+import { withClipMediaStopped } from "@alloy/server/queue/clip-media-worker"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
-import { eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 
 export type UploadQuotaResult =
   | { ok: true }
@@ -75,13 +76,38 @@ export async function markUploadFailed(
   clipId: string,
   reason: string,
 ): Promise<void> {
-  await db
-    .update(clip)
-    .set({
-      status: "failed",
-      failure_reason: reason.slice(0, 500),
-      updated_at: new Date(),
-    })
-    .where(eq(clip.id, clipId))
-  void publishClipUpsert(authorId, clipId)
+  const updated = await withClipMediaStopped(clipId, async () => {
+    const [row] = await db
+      .update(clip)
+      .set({
+        status: "failed",
+        encode_request_id: null,
+        encode_request_force: false,
+        encode_requested_at: null,
+        encode_run_after: null,
+        encode_priority: 90,
+        encode_claimed_request_id: null,
+        encode_run_id: null,
+        encode_locked_at: null,
+        encode_attempt: 0,
+        encode_stage: null,
+        encode_tier: null,
+        encode_tier_index: null,
+        encode_tier_count: null,
+        encode_progress: 0,
+        encode_failed_fingerprint: null,
+        encode_failed_generation: null,
+        failure_reason: reason.slice(0, 500),
+        updated_at: new Date(),
+      })
+      .where(
+        and(
+          eq(clip.id, clipId),
+          inArray(clip.status, ["pending", "processing"]),
+        ),
+      )
+      .returning({ id: clip.id })
+    return Boolean(row)
+  })
+  if (updated) void publishClipUpsert(authorId, clipId)
 }

@@ -4,12 +4,12 @@ import { publishClipUpsert } from "@alloy/server/clips/events"
 import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
 import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { db } from "@alloy/server/db/index"
-import {
-  enqueueClipEncode,
-  requeueClipEncode,
-  wakeClipEncodeQueue,
-} from "@alloy/server/jobs/kinds/clip-encode"
 import { extractPoster } from "@alloy/server/media/poster"
+import {
+  requestClipMedia,
+  requeueClipMedia,
+} from "@alloy/server/queue/clip-media-work-store"
+import { wakeClipMediaWorker } from "@alloy/server/queue/clip-media-worker"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
 import { withClipSourceWorkDir } from "@alloy/server/queue/media-run-helpers"
 import { deleteAssetsBestEffort } from "@alloy/server/queue/media-run-workspace"
@@ -211,9 +211,10 @@ export const clipsUploadMediaRoutes = new Hono()
           .where(eq(clipAudioTrack.clip_id, id))
         await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
         await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
-        await enqueueClipEncode(id, {
-          trigger: "trim",
+        await requestClipMedia(id, {
+          force: false,
           priority: 10,
+          clearFailure: true,
           tx,
         })
         return [
@@ -222,7 +223,7 @@ export const clipsUploadMediaRoutes = new Hono()
         ]
       })
       if (!staleAssetKeys) return conflict(c, "Clip is already processing")
-      wakeClipEncodeQueue()
+      wakeClipMediaWorker()
 
       await deleteAssetsBestEffort(staleAssetKeys, "pre-trim derived asset")
 
@@ -250,14 +251,15 @@ export const clipsUploadMediaRoutes = new Hono()
       const row = access.row
 
       if (row.status === "failed") {
-        // The encode handler no-ops on failed clips, so flip it back to
-        // processing in the same transaction that creates the job. The lease
+        // Failed clips are not claimable, so flip it back to processing in the
+        // same transaction that creates the durable media request. The run-ID
         // guard stops a run that just took over from being clobbered.
         const queued = await db.transaction(async (tx) => {
           if (!(await resetFailedClipForEncode(id, tx))) return false
-          await enqueueClipEncode(id, {
-            trigger: "reencode",
+          await requestClipMedia(id, {
+            force: true,
             priority: 10,
+            clearFailure: true,
             tx,
           })
           return true
@@ -266,7 +268,7 @@ export const clipsUploadMediaRoutes = new Hono()
           return conflict(c, "Clip is already processing")
         }
 
-        wakeClipEncodeQueue()
+        wakeClipMediaWorker()
         void publishClipUpsert(row.author_id, id)
         return updatedClipResponse(c, id)
       }
@@ -280,12 +282,13 @@ export const clipsUploadMediaRoutes = new Hono()
       // Ready clip: re-encode in place, keeping it publicly playable from its
       // committed renditions. Rejected while a live run holds the clip lease,
       // mirroring the trim guard.
-      const result = await requeueClipEncode(id, {
-        trigger: "reencode",
+      const result = await requeueClipMedia(id, {
+        force: true,
         priority: 10,
+        clearFailure: true,
       })
       if (!result.ok) {
-        if (result.reason === "active-lease") {
+        if (result.reason === "active-run") {
           return conflict(c, "Clip is already processing")
         }
         return notFound(c)
@@ -306,6 +309,8 @@ export const clipsUploadMediaRoutes = new Hono()
             isNull(clip.encode_run_id),
           ),
         )
+
+      wakeClipMediaWorker()
 
       void publishClipUpsert(row.author_id, id)
       return updatedClipResponse(c, id)

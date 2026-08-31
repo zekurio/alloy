@@ -8,7 +8,7 @@ import {
   ensureStillPresent,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
-import type { MediaRow, MediaStore } from "./media-store"
+import type { MediaCompletion, MediaRow, MediaStore } from "./media-store"
 
 export async function runThumbnailBackfill(
   store: MediaStore,
@@ -16,6 +16,7 @@ export async function runThumbnailBackfill(
   row: MediaRow,
   runId: string,
   signal: AbortSignal,
+  completion: MediaCompletion,
 ): Promise<void> {
   await withMediaRunWorkspace(
     { store, id, row, cleanupLabel: "thumbnail" },
@@ -35,11 +36,12 @@ export async function runThumbnailBackfill(
         },
       )
       if (poster.kind === "transient-error") {
-        await store.finishThumbnailBackfill(id, runId)
-        return
+        throw new Error("Thumbnail extraction failed transiently")
       }
       if (poster.kind === "permanent-empty") {
-        await store.commitThumbFailed(id, runId)
+        if (!(await store.commitThumbFailed(id, runId, completion))) {
+          throw abortMediaProcessing()
+        }
         return
       }
 
@@ -53,7 +55,7 @@ export async function runThumbnailBackfill(
         throw abortMediaProcessing()
       }
       workspace.retainedKeys.add(thumb.thumbKey)
-      if (!(await store.finishThumbnailBackfill(id, runId))) {
+      if (!(await store.finishThumbnailBackfill(id, runId, completion))) {
         throw abortMediaProcessing()
       }
       store.publishUpsert(row.authorId, id)

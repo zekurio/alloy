@@ -1,21 +1,12 @@
 /**
- * Canonical registry of background job queues and kinds.
- *
- * This list is the single source of truth shared by the server and the web
- * admin dashboard: the server's defineJobKind() only accepts kinds declared
- * here, and the dashboard's label maps must cover every kind and queue. Both
- * sides are enforced at compile time, so adding a job kind without updating
- * the contract — or without giving it a dashboard label — fails typecheck.
- * A server test additionally asserts that registered kinds match this list
- * exactly, so stale entries are caught too.
+ * Canonical registry of the remaining generic background queues and kinds.
+ * Legacy contract-1 admin projections are defined separately in admin-jobs.
  */
-export const JOB_QUEUES = ["encode", "io", "maintenance"] as const
+export const JOB_QUEUES = ["io", "maintenance"] as const
 export type JobQueue = (typeof JOB_QUEUES)[number]
 
 export const JOB_KINDS = [
   "auth.challenge-prune",
-  "clip.encode",
-  "clip.renditions-sweep",
   "job.prune",
   "notification.prune",
   "storage.orphan-gc",

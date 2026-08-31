@@ -123,6 +123,19 @@ export const clip = pgTable(
     encode_run_id: uuid(),
     encode_locked_at: timestamp(),
     encode_attempt: integer().notNull().default(0),
+    // The clip row owns its media work. A request id is the durable pending
+    // marker; the claimed id lets a completing run avoid clearing a newer
+    // request that arrived while it was encoding.
+    encode_request_id: uuid(),
+    encode_request_force: boolean().notNull().default(false),
+    encode_requested_at: timestamp({ withTimezone: true }),
+    encode_run_after: timestamp({ withTimezone: true }),
+    encode_priority: integer().notNull().default(90),
+    encode_claimed_request_id: uuid(),
+    // Global media generations make stale clips directly claimable without a
+    // persisted sweep job. The exact desired state remains encode_fingerprint.
+    encode_generation: integer().notNull().default(0),
+    encode_failed_generation: integer(),
     failure_reason: text(),
 
     created_at: timestamp().notNull().defaultNow(),
@@ -147,6 +160,15 @@ export const clip = pgTable(
       .where(
         sql`${t.status} = 'ready' and ${t.source_key} is not null and ${t.thumb_key} is null and ${t.thumb_failed_at} is null`,
       ),
+    index("clip_encode_request_claim_idx")
+      .on(t.encode_priority, t.encode_run_after, t.encode_requested_at, t.id)
+      .where(sql`${t.encode_request_id} is not null`),
+    index("clip_encode_generation_claim_idx")
+      .on(t.encode_generation, t.id)
+      .where(sql`${t.status} = 'ready' and ${t.source_key} is not null`),
+    index("clip_encode_active_idx")
+      .on(t.encode_locked_at)
+      .where(sql`${t.encode_run_id} is not null`),
     index("clip_game_published_idx").on(t.game_id, t.published_at),
     index("clip_ready_visible_game_top_idx")
       .on(

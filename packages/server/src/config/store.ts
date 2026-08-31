@@ -13,6 +13,7 @@ import { instanceSetting } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
+import { synchronizeMediaGeneration } from "@alloy/server/queue/media-generation"
 import { eq } from "drizzle-orm"
 
 import { OAuthProvidersSchema } from "./oauth-schema"
@@ -310,7 +311,10 @@ export const configStore: ConfigStore = {
     }
 
     const nextTranscoding = TranscodingConfigSchema.parse(value)
-    await writeSetting("transcoding", nextTranscoding)
+    await db.transaction(async (tx) => {
+      await writeSetting("transcoding", nextTranscoding, tx)
+      await synchronizeMediaGeneration(nextTranscoding, tx)
+    })
     transcodingSetting = deepFreeze(nextTranscoding)
     refreshState()
   },

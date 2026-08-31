@@ -8,6 +8,10 @@ import { warmDatabase } from "./db"
 import { env } from "./env"
 import { startJobs, stopJobs } from "./jobs"
 import { configureTranscode } from "./media/transcode-settings"
+import {
+  startClipMediaWorker,
+  stopClipMediaWorker,
+} from "./queue/clip-media-worker"
 import { requestShutdown } from "./runtime/shutdown"
 import {
   startWebhookDeliveryWorker,
@@ -23,7 +27,7 @@ process.on("unhandledRejection", (reason) => {
 })
 
 // Media modules default to a bare `ffmpeg`; apply env overrides before the
-// queue can run any transcodes.
+// worker can run any transcodes.
 configureTranscode(env.transcode)
 
 if (!env.steamgriddbApiKey) {
@@ -54,6 +58,16 @@ if (configStore.get("setupComplete")) {
 
 const { app } = await import("./app")
 
+try {
+  // Media requests are durable, but a server that accepts them without a live
+  // worker is operationally unhealthy. Gate listen on recovery and generation
+  // initialization so startup either succeeds completely or exits.
+  await startClipMediaWorker()
+} catch (err) {
+  logger.error("failed to start media worker:", err)
+  process.exit(1)
+}
+
 const server = serve(
   {
     fetch: app.fetch,
@@ -83,8 +97,12 @@ const shutdown = () => {
   }, SHUTDOWN_GRACE_MS)
 
   // Stop background work before the HTTP server goes away so in-flight media
-  // jobs get a chance to flush state.
-  void Promise.all([stopWebhookDeliveryWorker(), stopJobs()])
+  // runs get a chance to flush state.
+  void Promise.all([
+    stopClipMediaWorker(),
+    stopWebhookDeliveryWorker(),
+    stopJobs(),
+  ])
     .catch((err) => {
       logger.error("failed to stop background workers cleanly:", err)
     })

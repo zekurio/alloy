@@ -1,15 +1,15 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { webhookFailurePlan } from "./delivery-policy"
-import { OutboxWorker } from "./outbox-worker"
+import { webhookFailurePlan } from "../webhooks/delivery-policy"
+import { WakeableSerialWorker } from "./wakeable-serial-worker"
 
 test("outbox worker drains available work serially", async () => {
   let remaining = 2
   let calls = 0
   const idle = deferred<void>()
-  const worker = new OutboxWorker({
-    pollIntervalMs: 60_000,
+  const worker = new WakeableSerialWorker({
+    reconciliationIntervalMs: 60_000,
     async runOne() {
       calls += 1
       if (remaining > 0) {
@@ -33,8 +33,8 @@ test("a wake racing an active drain schedules an immediate second pass", async (
   const entered = deferred<void>()
   const release = deferred<void>()
   const repumped = deferred<void>()
-  const worker = new OutboxWorker({
-    pollIntervalMs: 60_000,
+  const worker = new WakeableSerialWorker({
+    reconciliationIntervalMs: 60_000,
     async runOne() {
       calls += 1
       if (calls === 1) {
@@ -60,8 +60,8 @@ test("a wake racing an active drain schedules an immediate second pass", async (
 test("stopping aborts and joins an in-flight pass", async () => {
   const entered = deferred<void>()
   let aborted = false
-  const worker = new OutboxWorker({
-    pollIntervalMs: 60_000,
+  const worker = new WakeableSerialWorker({
+    reconciliationIntervalMs: 60_000,
     async runOne(signal) {
       entered.resolve()
       await new Promise<void>((resolve) => {
@@ -92,8 +92,8 @@ test("starting after a stop rescans durable work without a wake", async () => {
   let calls = 0
   const firstIdle = deferred<void>()
   const delivered = deferred<void>()
-  const worker = new OutboxWorker({
-    pollIntervalMs: 60_000,
+  const worker = new WakeableSerialWorker({
+    reconciliationIntervalMs: 60_000,
     async runOne() {
       calls += 1
       if (calls === 1) firstIdle.resolve()
@@ -119,8 +119,8 @@ test("starting after a stop rescans durable work without a wake", async () => {
 test("an idle worker wakes at the persisted next-run deadline", async () => {
   let calls = 0
   const reachedDeadline = deferred<void>()
-  const worker = new OutboxWorker({
-    pollIntervalMs: 60_000,
+  const worker = new WakeableSerialWorker({
+    reconciliationIntervalMs: 60_000,
     async runOne() {
       calls += 1
       if (calls === 1) {

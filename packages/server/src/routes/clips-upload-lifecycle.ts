@@ -7,10 +7,8 @@ import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
-import {
-  enqueueClipEncode,
-  wakeClipEncodeQueue,
-} from "@alloy/server/jobs/kinds/clip-encode"
+import { requestClipMedia } from "@alloy/server/queue/clip-media-work-store"
+import { wakeClipMediaWorker } from "@alloy/server/queue/clip-media-worker"
 import {
   badRequest,
   conflict,
@@ -346,13 +344,18 @@ export const clipsUploadLifecycleRoutes = new Hono()
           )
           .returning({ id: clip.id })
         if (!row) return null
-        await enqueueClipEncode(id, { trigger: "upload", priority: 10, tx })
+        await requestClipMedia(id, {
+          force: false,
+          priority: 10,
+          clearFailure: true,
+          tx,
+        })
         return row
       })
       if (!transitioned) {
         return conflict(c, "Clip is already being finalized")
       }
-      wakeClipEncodeQueue()
+      wakeClipMediaWorker()
 
       void publishClipUpsert(viewerId, id)
 
@@ -375,11 +378,11 @@ export const clipsUploadLifecycleRoutes = new Hono()
       if ("response" in access) return access.response
       const row = access.row
 
+      await markUploadFailed(row.author_id, id, "Upload failed")
       await deleteStagedUploads(
         await selectTicketKeys({ type: "clip", id }),
         "failed staged upload",
       )
-      await markUploadFailed(row.author_id, id, "Upload failed")
       return success(c)
     },
   )

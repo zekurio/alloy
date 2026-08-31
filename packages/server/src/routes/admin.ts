@@ -16,8 +16,8 @@ import {
   setAuthToggles,
   setOAuthProviders,
 } from "@alloy/server/config/store"
-import { enqueueRenditionsSweep } from "@alloy/server/jobs/kinds/renditions-sweep"
 import { probeTranscodingCapabilities } from "@alloy/server/media/capabilities"
+import { forceReconcileClipMedia } from "@alloy/server/queue/clip-media-worker"
 import {
   badRequest,
   batchProgress,
@@ -213,6 +213,6 @@ export const adminRoute = new Hono()
     )
   })
   .post("/clips/re-encode", async (c) => {
-    await enqueueRenditionsSweep("force", { runAt: new Date() })
+    await forceReconcileClipMedia()
     return batchProgress(c, "enqueued", 1, false)
   })

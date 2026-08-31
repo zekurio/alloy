@@ -1,5 +1,5 @@
-import { normalizeBlurHash } from "@alloy/contracts"
-import { configStore } from "@alloy/server/config/store"
+import { normalizeBlurHash, type TranscodingConfig } from "@alloy/contracts"
+import { createLogger } from "@alloy/logging"
 import {
   encodeFingerprint,
   expectedLadder,
@@ -42,12 +42,14 @@ import {
   pruneStaleAssets,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
-import type { MediaRow, MediaStore } from "./media-store"
+import type { MediaCompletion, MediaRow, MediaStore } from "./media-store"
 export {
   encodeProgressPercent,
   encodeProgressTotalCost,
 } from "./media-encode-progress"
 export { runThumbnailBackfill } from "./media-thumbnail-backfill"
+
+const logger = createLogger("media-worker")
 
 /**
  * Run the media pipeline for one leased clip. Downloads the source, applies a
@@ -60,6 +62,10 @@ export async function runMediaProcessing(
   row: MediaRow,
   runId: string,
   signal: AbortSignal,
+  options: {
+    config: Readonly<TranscodingConfig>
+    completion: MediaCompletion
+  },
 ): Promise<void> {
   let sourcePublishedForRetry = false
   await withMediaRunWorkspace(
@@ -82,6 +88,8 @@ export async function runMediaProcessing(
         row,
         runId,
         signal,
+        transcodingConfig: options.config,
+        completion: options.completion,
         workDir: workspace.workDir,
         uploadedKeys: workspace.uploadedKeys,
         retainSourceAsset: (asset, publishedByRun) => {
@@ -100,6 +108,8 @@ async function runPipelineInWorkDir({
   row,
   runId,
   signal,
+  transcodingConfig,
+  completion,
   workDir,
   uploadedKeys,
   retainSourceAsset,
@@ -110,6 +120,8 @@ async function runPipelineInWorkDir({
   row: MediaRow
   runId: string
   signal: AbortSignal
+  transcodingConfig: Readonly<TranscodingConfig>
+  completion: MediaCompletion
   workDir: string
   uploadedKeys: string[]
   retainSourceAsset: (asset: Asset, publishedByRun: boolean) => void
@@ -140,7 +152,6 @@ async function runPipelineInWorkDir({
     sourceProbe.audioTracks.length,
   )
   const trim = trimRange(row, sourceProbe.durationMs)
-  const transcodingConfig = configStore.get("transcoding")
   let hardwareFailed = false
   // The frame-exact H.264 cut is the clip's canonical playback media and the
   // poster source. Renditions encode from the original with the same range,
@@ -327,6 +338,7 @@ async function runPipelineInWorkDir({
     },
     renditions,
     readyAudioTracks,
+    completion,
   )
   if (!committed) throw abortMediaProcessing()
   // The row now points at the newly published assets. Any previous asset that
@@ -345,7 +357,15 @@ async function runPipelineInWorkDir({
       ...(thumbKey ? [thumbKey] : []),
     ],
   )
-  await cleanupTickets({ type: store.target, id }, "completed staged upload")
+  await cleanupTickets(
+    { type: store.target, id },
+    "completed staged upload",
+  ).catch((cause: unknown) =>
+    logger.error(
+      `failed to clean completed ${store.target} upload ${id}:`,
+      cause,
+    ),
+  )
   progress.complete(FINALIZE_PHASE_COST)
   store.publishUpsert(row.authorId, id)
 }
