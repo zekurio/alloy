@@ -14,15 +14,11 @@ type AuthDbExecutor = typeof db | AuthTransaction
 export function usableSignInConfig(
   config: SignInMethodConfig,
   pendingSecret: (providerId: string) => boolean = () => false,
-  providerUsable: (
-    provider: SignInMethodConfig["oauthProviders"][number],
-    pendingSecret: (providerId: string) => boolean,
-  ) => boolean = isOAuthProviderUsable,
 ): SignInMethodConfig {
   return {
     passkeyEnabled: config.passkeyEnabled,
     oauthProviders: config.oauthProviders.filter((provider) =>
-      providerUsable(provider, pendingSecret),
+      isOAuthProviderUsable(provider, pendingSecret),
     ),
   }
 }

@@ -23,7 +23,6 @@ import {
 } from "@simplewebauthn/server"
 import { and, eq, gt } from "drizzle-orm"
 
-import { existingAccountChallengeOwnerId } from "./challenge-ownership"
 import { base64UrlToBytes, bytesToBase64Url } from "./tokens"
 import {
   webAuthnChallengeContext,
@@ -90,9 +89,7 @@ async function createChallenge(input: {
   const [challenge] = await db
     .insert(authChallenge)
     .values({
-      user_id: existingAccountChallengeOwnerId(
-        parsedUserId.success ? parsedUserId.data : undefined,
-      ),
+      user_id: parsedUserId.success ? parsedUserId.data : null,
       purpose: input.purpose,
       identifier: input.identifier,
       challenge: input.challenge,

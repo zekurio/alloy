@@ -4,7 +4,6 @@ import test from "node:test"
 import {
   accountDeletionCounterRepairPlan,
   canonicalIds,
-  canonicalUploadTargetIds,
   postgresErrorHasCode,
   retryPostgresDeadlocks,
   withCanonicalUploadTargetsStopped,
@@ -108,11 +107,6 @@ test("upload targets are deduplicated and acquired in canonical nesting order", 
   )
 
   assert.equal(result, 42)
-  assert.deepEqual(canonicalUploadTargetIds(["BB", "aa", "AA", "cc"]), [
-    "aa",
-    "bb",
-    "cc",
-  ])
   assert.deepEqual(events, [
     "enter:aa",
     "enter:bb",

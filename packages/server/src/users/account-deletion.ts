@@ -17,7 +17,7 @@ import {
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsertById } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
+import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteOwnedUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
@@ -51,18 +51,12 @@ export function deleteUserAccount(
   return accountDeletionState.run(userId, () => runAccountDeletion(userId))
 }
 
-export function canonicalUploadTargetIds(
-  targetIds: readonly string[],
-): string[] {
-  return [...new Set(targetIds.map((id) => id.toLowerCase()))].sort()
-}
-
 export async function withCanonicalUploadTargetsStopped<T>(
   targetIds: readonly string[],
   operation: () => Promise<T>,
   stop: typeof withUploadActivityStopped = withUploadActivityStopped,
 ): Promise<T> {
-  const canonical = canonicalUploadTargetIds(targetIds)
+  const canonical = canonicalIds(targetIds)
   const acquire = (index: number): Promise<T> => {
     const targetId = canonical[index]
     return targetId ? stop(targetId, () => acquire(index + 1)) : operation()
@@ -94,7 +88,7 @@ async function runAccountDeletion(
         () =>
           finalizeWithDeadlockRetry(
             userId,
-            new Set(canonicalUploadTargetIds(gatedTargetIds)),
+            new Set(canonicalIds(gatedTargetIds)),
           ),
       )
       if (finalized.kind === "retry-clips") continue
@@ -127,7 +121,7 @@ async function selectOwnedUploadTargetIds(userId: string): Promise<string[]> {
     .selectDistinct({ targetId: uploadTicket.target_id })
     .from(uploadTicket)
     .where(eq(uploadTicket.owner_id, userId))
-  return canonicalUploadTargetIds(rows.map((row) => row.targetId))
+  return canonicalIds(rows.map((row) => row.targetId))
 }
 
 async function finalizeWithDeadlockRetry(
@@ -174,9 +168,9 @@ async function finalizeAccountDeletion(
     .from(uploadTicket)
     .where(eq(uploadTicket.owner_id, userId))
   if (
-    canonicalUploadTargetIds(
-      currentTicketTargets.map((row) => row.targetId),
-    ).some((targetId) => !gatedTargetIds.has(targetId))
+    canonicalIds(currentTicketTargets.map((row) => row.targetId)).some(
+      (targetId) => !gatedTargetIds.has(targetId),
+    )
   ) {
     // Throw rather than return so no future mutation added above this check
     // can accidentally commit before the larger stable gate set is retried.
@@ -191,7 +185,6 @@ async function finalizeAccountDeletion(
       previousUrl: lockedUser.image,
       reason: "account avatar deleted",
       source: { type: "account-deletion", id: userId },
-      includeLegacyVariants: true,
     }),
     ...userAssetDeletionIntents({
       userId,
@@ -199,12 +192,9 @@ async function finalizeAccountDeletion(
       previousUrl: lockedUser.banner,
       reason: "account banner deleted",
       source: { type: "account-deletion", id: userId },
-      includeLegacyVariants: true,
     }),
   ]
-  for (const intent of assetIntents) {
-    await enqueueStorageDeletion(intent, { tx })
-  }
+  await enqueueStorageDeletions(assetIntents, { tx })
   const stagedIntentCount = await deleteOwnedUploadTicketsWithStorageIntents(
     userId,
     `account ${userId} deleted`,

@@ -4,8 +4,6 @@ import { db } from "@alloy/server/db/index"
 import { randomBase64Url, sha256Base64Url } from "@alloy/server/runtime/crypto"
 import { and, eq, gt, lt } from "drizzle-orm"
 
-import { existingAccountChallengeOwnerId } from "./challenge-ownership"
-
 /**
  * One-time codes for the desktop browser-login handshake (RFC 8252 loopback).
  * Reuses the `auth_challenge` table — same shape as OAuth state and WebAuthn
@@ -37,7 +35,7 @@ export async function createDesktopLinkCode(
 
   const code = randomBase64Url(32)
   await db.insert(authChallenge).values({
-    user_id: existingAccountChallengeOwnerId(userId),
+    user_id: userId,
     purpose: DESKTOP_LINK_PURPOSE,
     identifier: code,
     challenge: codeChallenge,

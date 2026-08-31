@@ -10,21 +10,12 @@ test("enabled OAuth providers count only when their client secret is usable", ()
     passkeyEnabled: false,
     oauthProviders: [{ enabled: true, providerId: PROVIDER_ID }],
   }
-  const providerUsable = (
-    provider: (typeof config.oauthProviders)[number],
-    pendingSecret: (providerId: string) => boolean,
-  ) => provider.enabled && pendingSecret(provider.providerId)
-
   assert.deepEqual(
-    usableSignInConfig(config, () => false, providerUsable),
+    usableSignInConfig(config, () => false),
     { passkeyEnabled: false, oauthProviders: [] },
   )
   assert.deepEqual(
-    usableSignInConfig(
-      config,
-      (providerId) => providerId === PROVIDER_ID,
-      providerUsable,
-    ),
+    usableSignInConfig(config, (providerId) => providerId === PROVIDER_ID),
     config,
   )
 })
