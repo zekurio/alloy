@@ -52,10 +52,12 @@ export function clipEmbedDescription(clip: {
   likeCount: number
   commentCount: number
 }): string {
+  // Keep each icon as a fully-qualified emoji sequence. Discord otherwise
+  // renders text-default characters such as the eye as monochrome glyphs.
   return [
     clip.gameName,
-    `👁 ${formatStatCount(clip.viewCount)}`,
+    `👁️ ${formatStatCount(clip.viewCount)}`,
     `❤️ ${formatStatCount(clip.likeCount)}`,
-    `💬 ${formatStatCount(clip.commentCount)}`,
+    `💬️ ${formatStatCount(clip.commentCount)}`,
   ].join(" · ")
 }
