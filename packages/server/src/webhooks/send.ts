@@ -41,6 +41,7 @@ export type WebhookSendResult =
 export async function postWebhook(
   target: WebhookTarget,
   message: WebhookMessage,
+  signal?: AbortSignal,
 ): Promise<WebhookSendResult> {
   const body =
     target.provider === "discord"
@@ -68,7 +69,9 @@ export async function postWebhook(
     headers,
     body,
     redirect: "error",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+      : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   }).then(
     (response) => ({ response }),
     (cause: unknown) => ({
