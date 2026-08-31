@@ -1,11 +1,11 @@
 import { clip, uploadTicket } from "@alloy/db/schema"
-import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
+import { cleanupPendingUploadCandidate } from "@alloy/server/uploads/cleanup"
 import { deleteExpiredUploadTicketWithStorageIntent } from "@alloy/server/uploads/tickets"
-import { and, eq, isNull, lt, sql } from "drizzle-orm"
+import { and, asc, eq, isNotNull, isNull, lte, ne, or, sql } from "drizzle-orm"
 
 import { EmptyPayloadSchema } from "../payloads"
 import { defineJobKind } from "../registry"
@@ -34,15 +34,18 @@ async function removeAbandonedClipUploads(): Promise<void> {
     .where(
       and(
         eq(clip.status, "pending"),
-        lt(
-          clip.created_at,
-          sql`now() - ${configStore.get("limits").uploadTtlSec} * interval '1 second'`,
-        ),
+        isNotNull(clip.upload_cleanup_at),
+        lte(clip.upload_cleanup_at, sql`now()`),
       ),
     )
+    .orderBy(asc(clip.upload_cleanup_at), asc(clip.id))
 
   for (const row of stale) {
-    await deleteClipRowAndAssets(row, { expectedStatus: "pending" })
+    if (!row.upload_cleanup_at) continue
+    await cleanupPendingUploadCandidate(
+      row,
+      configStore.get("limits").uploadTtlSec,
+    )
   }
 }
 
@@ -54,10 +57,22 @@ async function removeExpiredUploadTickets(): Promise<void> {
       targetId: uploadTicket.target_id,
     })
     .from(uploadTicket)
+    .leftJoin(
+      clip,
+      and(
+        eq(uploadTicket.target_type, "clip"),
+        eq(uploadTicket.target_id, clip.id),
+      ),
+    )
     .where(
       and(
         isNull(uploadTicket.used_at),
-        lt(uploadTicket.expires_at, expiresBefore),
+        lte(uploadTicket.expires_at, expiresBefore),
+        // Pending clips own both their ticket and crash-window recovery. Do
+        // not detach a ticket merely because its deadline crossed after the
+        // clip phase took its snapshot; the next clip pass will adopt exact
+        // committed bytes or delete both owners under the shared gates.
+        or(isNull(clip.id), ne(clip.status, "pending")),
       ),
     )
 

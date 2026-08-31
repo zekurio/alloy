@@ -100,6 +100,11 @@ export const clip = pgTable(
     cut_codecs: text(),
 
     status: text().$type<ClipStatus>().notNull().default("pending"),
+    // Durable ownership deadline for an unfinished upload. New writes derive
+    // it from the minted ticket; successful byte completion extends it. Keep
+    // this absolute instant timezone-aware even though legacy upload columns
+    // predate the repository's timestamptz convention.
+    upload_cleanup_at: timestamp({ withTimezone: true }),
     // First moment the clip became publicly listed (ready + public). Stamped
     // exactly once: by commitPlayable/commitReady for clips public when the
     // encode finishes, or by the privacy-flip route for the rest. Feeds and
@@ -152,6 +157,11 @@ export const clip = pgTable(
       .on(t.view_count.desc(), t.like_count.desc(), t.published_at.desc(), t.id)
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
+    index("clip_pending_upload_cleanup_idx")
+      .on(t.upload_cleanup_at, t.id)
+      .where(
+        sql`${t.status} = 'pending' and ${t.upload_cleanup_at} is not null`,
+      ),
     index("clip_ready_fingerprint_idx")
       .on(t.id)
       .where(sql`${t.status} = 'ready' and ${t.source_key} is not null`),

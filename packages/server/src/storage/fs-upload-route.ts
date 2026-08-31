@@ -1,10 +1,10 @@
 import { uploadTicket } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { secretStore } from "@alloy/server/config/secret-store"
+import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import {
   badRequest,
-  conflict,
   internalServerError,
   noContent,
   payloadTooLarge,
@@ -15,8 +15,20 @@ import {
   withUploadActivity,
   withUploadActivityStopped,
 } from "@alloy/server/uploads/activity"
-import { deleteUploadTicketWithStorageIntent } from "@alloy/server/uploads/tickets"
-import { and, eq, gt, isNull } from "drizzle-orm"
+import {
+  completedUploadPersistenceSatisfied,
+  completedUploadMatches,
+  uploadTicketCanAcceptBytes,
+} from "@alloy/server/uploads/deadline"
+import {
+  uploadOperationGateMode,
+  type UploadGateMode,
+} from "@alloy/server/uploads/gate-policy"
+import {
+  deleteUploadTicketWithStorageIntent,
+  markUploadTicketUsedAndExtendDeadline,
+} from "@alloy/server/uploads/tickets"
+import { and, eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { decodeUploadToken, UploadPartTooLargeError } from "./fs-driver"
@@ -26,28 +38,52 @@ const logger = createLogger("assets")
 
 type UploadTicketRecord = {
   id: string
+  expiresAt: Date
+  usedAt: Date | null
 }
 
 type ResolvedUploadTicket = {
   payload: UploadTokenPayload
   mode: UploadTokenMode
+  tokenExpired: boolean
   ticket: UploadTicketRecord
 }
 
 type DecodedUploadTicket = Omit<ResolvedUploadTicket, "ticket">
-type UploadTicketGateMode = "activity" | "stopped"
+type UploadTicketLookupMode = "terminal" | "unused"
 
 export const storageRoute = new Hono()
   .post("/upload/:token", (c) =>
     withResolvedUploadTicket(
       c.req.param("token"),
       ["single"],
-      "activity",
+      uploadOperationGateMode("single"),
+      "terminal",
       async (resolved) => {
         const {
           payload: { k: key, ct: expectedContentType, mb: maxBytes },
           ticket,
         } = resolved
+
+        const existing = await clipStorage.resolve(key)
+        const exactExisting =
+          existing &&
+          completedUploadMatches(existing, {
+            bytes: maxBytes,
+            contentType: expectedContentType,
+          })
+        if (exactExisting) {
+          if (ticket.usedAt === null) {
+            await persistCompletedUpload(ticket.id)
+          }
+          return noContent(c)
+        }
+
+        if (
+          !uploadTicketCanAcceptBytes(ticket, resolved.tokenExpired, new Date())
+        ) {
+          return unauthorizedResponse("Upload ticket has expired or was used")
+        }
 
         const contentType = c.req.header("content-type")
         if (contentType && contentType !== expectedContentType) {
@@ -60,8 +96,10 @@ export const storageRoute = new Hono()
 
         let limitTripped = false
 
-        if (await clipStorage.resolve(key)) {
-          return conflict(c, "Upload ticket has already been used")
+        if (existing) {
+          // A crashed single-part write leaves its partial bytes at the final
+          // unique key. Only a still-live unused ticket may replace it.
+          await deletePartialUpload(key)
         }
 
         try {
@@ -81,7 +119,7 @@ export const storageRoute = new Hono()
           return internalServerError(c, "Upload write failed")
         }
 
-        await markTicketUsed(ticket.id)
+        await persistCompletedUpload(ticket.id)
         return noContent(c)
       },
     ),
@@ -90,7 +128,8 @@ export const storageRoute = new Hono()
     withResolvedUploadTicket(
       c.req.param("token"),
       ["fs-chunked"],
-      "activity",
+      uploadOperationGateMode("part"),
+      "unused",
       async (resolved) => {
         const partNumber = parsePartNumber(c.req.param("partNumber"))
         if (!partNumber) return badRequest(c, "Invalid upload part number")
@@ -125,25 +164,64 @@ export const storageRoute = new Hono()
     withResolvedUploadTicket(
       c.req.param("token"),
       ["fs-chunked"],
-      "activity",
+      uploadOperationGateMode("complete"),
+      "terminal",
       async (resolved) => {
         const { payload, ticket } = resolved
         const partSizeBytes = payload.cs
         if (!partSizeBytes) return badRequest(c, "Invalid upload ticket")
 
-        try {
-          await clipStorage.completeUpload({
-            key: payload.k,
+        const existing = await clipStorage.resolve(payload.k)
+        const exactExisting =
+          existing &&
+          completedUploadMatches(existing, {
+            bytes: payload.mb,
             contentType: payload.ct,
-            maxBytes: payload.mb,
-            partSizeBytes,
           })
-        } catch (err) {
-          logger.error("upload completion failed:", err)
-          return badRequest(c, "Upload could not be completed")
+        if (existing && !exactExisting) {
+          return badRequest(c, "Upload destination contains unexpected bytes")
         }
 
-        await markTicketUsed(ticket.id)
+        if (exactExisting) {
+          if (ticket.usedAt === null) {
+            await persistCompletedUpload(ticket.id)
+          }
+          return noContent(c)
+        }
+
+        if (
+          !uploadTicketCanAcceptBytes(ticket, resolved.tokenExpired, new Date())
+        ) {
+          return unauthorizedResponse("Upload ticket has expired or was used")
+        }
+
+        if (!existing) {
+          try {
+            await clipStorage.completeUpload({
+              key: payload.k,
+              contentType: payload.ct,
+              maxBytes: payload.mb,
+              partSizeBytes,
+            })
+          } catch (err) {
+            // Completion may have durably renamed the object before a tail
+            // operation or prior DB adoption failed. Accept only the exact
+            // staged object so retry can finish the ownership handoff.
+            const recovered = await clipStorage.resolve(payload.k)
+            if (
+              !recovered ||
+              !completedUploadMatches(recovered, {
+                bytes: payload.mb,
+                contentType: payload.ct,
+              })
+            ) {
+              logger.error("upload completion failed:", err)
+              return badRequest(c, "Upload could not be completed")
+            }
+          }
+        }
+
+        await persistCompletedUpload(ticket.id)
         return noContent(c)
       },
     ),
@@ -152,7 +230,8 @@ export const storageRoute = new Hono()
     withResolvedUploadTicket(
       c.req.param("token"),
       ["single", "fs-chunked"],
-      "stopped",
+      uploadOperationGateMode("cancel"),
+      "unused",
       async ({ ticket }) => {
         const queued = await db.transaction((tx) =>
           deleteUploadTicketWithStorageIntent(
@@ -170,7 +249,8 @@ export const storageRoute = new Hono()
 async function withResolvedUploadTicket(
   token: string,
   allowedModes: readonly UploadTokenMode[],
-  gateMode: UploadTicketGateMode,
+  gateMode: UploadGateMode,
+  lookupMode: UploadTicketLookupMode,
   operation: (resolved: ResolvedUploadTicket) => Promise<Response>,
 ): Promise<Response> {
   const decoded = await resolveUploadToken(token, allowedModes)
@@ -178,7 +258,7 @@ async function withResolvedUploadTicket(
   const gate =
     gateMode === "activity" ? withUploadActivity : withUploadActivityStopped
   return gate(decoded.payload.cid, async () => {
-    const resolved = await selectUploadTicket(decoded)
+    const resolved = await selectUploadTicket(decoded, lookupMode)
     if (resolved instanceof Response) return resolved
     return operation(resolved)
   })
@@ -201,35 +281,44 @@ async function resolveUploadToken(
     return unauthorizedResponse("Upload ticket does not allow this operation")
   }
 
-  return { payload, mode }
+  return { payload, mode, tokenExpired: decoded.expired }
 }
 
 async function selectUploadTicket(
   decoded: DecodedUploadTicket,
+  lookupMode: UploadTicketLookupMode,
 ): Promise<ResolvedUploadTicket | Response> {
-  const { payload, mode } = decoded
+  const { payload, mode, tokenExpired } = decoded
   const [ticket] = await db
-    .select({ id: uploadTicket.id })
+    .select({
+      id: uploadTicket.id,
+      expiresAt: sql<Date>`${uploadTicket.expires_at} at time zone 'UTC'`,
+      usedAt: sql<Date | null>`${uploadTicket.used_at} at time zone 'UTC'`,
+    })
     .from(uploadTicket)
     .where(
       and(
         eq(uploadTicket.owner_id, payload.uid),
+        eq(uploadTicket.target_type, "clip"),
         eq(uploadTicket.target_id, payload.cid),
+        eq(uploadTicket.role, "video"),
         eq(uploadTicket.storage_key, payload.k),
         eq(uploadTicket.content_type, payload.ct),
         eq(uploadTicket.expected_bytes, payload.mb),
-        isNull(uploadTicket.used_at),
-        gt(uploadTicket.expires_at, new Date()),
       ),
     )
     .limit(1)
-  if (!ticket) {
+  if (
+    !ticket ||
+    (lookupMode === "unused" &&
+      !uploadTicketCanAcceptBytes(ticket, tokenExpired, new Date()))
+  ) {
     return unauthorizedResponse(
       "Upload ticket has expired or already been used",
     )
   }
 
-  return { payload, mode, ticket }
+  return { payload, mode, tokenExpired, ticket }
 }
 
 function unauthorizedResponse(message: string): Response {
@@ -249,11 +338,26 @@ function partNumberInRange(
   return (partNumber - 1) * partSizeBytes < maxBytes
 }
 
-async function markTicketUsed(ticketId: string): Promise<void> {
-  await db
-    .update(uploadTicket)
-    .set({ used_at: new Date() })
+async function persistCompletedUpload(ticketId: string): Promise<void> {
+  const adopted = await markUploadTicketUsedAndExtendDeadline(
+    ticketId,
+    configStore.get("limits").uploadTtlSec,
+  )
+  if (adopted) return
+
+  // Upload activity is shared so duplicate terminal requests can both observe
+  // an unused ticket. A losing CAS is still successful when the winner has
+  // durably completed the same ticket in the meantime.
+  const [refreshed] = await db
+    .select({
+      usedAt: sql<Date | null>`${uploadTicket.used_at} at time zone 'UTC'`,
+    })
+    .from(uploadTicket)
     .where(eq(uploadTicket.id, ticketId))
+    .limit(1)
+  if (!completedUploadPersistenceSatisfied(adopted, refreshed ?? null)) {
+    throw new Error("Completed upload ownership changed")
+  }
 }
 
 function limitUploadBody(

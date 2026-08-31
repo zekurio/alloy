@@ -23,6 +23,11 @@ import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import {
+  completedUploadMatches,
+  pendingUploadFinalizationAction,
+  uploadTicketDeadline,
+} from "@alloy/server/uploads/deadline"
+import {
   mintStagedUpload,
   resolveStagedUpload,
   stagedSourceKey,
@@ -31,10 +36,12 @@ import {
   assertUsableVideoTicket,
   createUploadTickets,
   deleteUploadTicketsWithStorageIntents,
+  markUploadTicketUsed,
+  markUploadTicketUsedAndExtendDeadline,
   selectVideoTicket,
 } from "@alloy/server/uploads/tickets"
 import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
-import { and, eq } from "drizzle-orm"
+import { and, eq, gt } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { IdParam, InitiateBody } from "./clips-helpers"
@@ -62,30 +69,21 @@ async function cleanupFailedInitiate(
   clipId: string,
   uploadKey: string,
 ): Promise<void> {
-  let queued = 0
   try {
-    queued = await db.transaction(async (tx) => {
-      await enqueueStorageDeletion(
-        stagedUploadDeletionIntent({
-          key: uploadKey,
-          reason: "clip initiation failed",
-          source: { type: "clip-initiate", id: clipId },
-        }),
-        { tx },
-      )
-      const ticketIntents = await deleteUploadTicketsWithStorageIntents(
-        { type: "clip", id: clipId },
-        "clip initiation failed",
-        tx,
-      )
-      await tx.delete(clip).where(eq(clip.id, clipId))
-      return ticketIntents + 1
-    })
+    await enqueueStorageDeletion(
+      stagedUploadDeletionIntent({
+        key: uploadKey,
+        reason: "clip initiation failed",
+        source: { type: "clip-initiate", id: clipId },
+      }),
+    )
   } catch (err) {
-    logger.warn(`failed to detach clip ${clipId} after initiate failure:`, err)
+    logger.warn(
+      `failed to compensate upload key for clip ${clipId} after initiate failure:`,
+      err,
+    )
     return
   }
-  if (queued > 0) wakeStorageDeletionWorker()
 }
 
 function uploadQuotaResult({
@@ -152,88 +150,126 @@ export const clipsUploadLifecycleRoutes = new Hono()
             ? await resolveMentionIds(body.mentionedUserIds, viewerId)
             : []
 
-          const initiateResult =
-            await db.transaction<InitiateTransactionResult>(async (tx) => {
-              const { quotaBytes, usedBytes } = await selectLockedQuotaState(
-                tx,
-                viewerId,
-              )
-              const quota = uploadQuotaResult({
-                quotaBytes,
-                usedBytes,
-                incomingBytes: body.sizeBytes,
-              })
-              if (!quota.ok) return quota
-
-              const [inserted] = await tx
-                .insert(clip)
-                .values({
-                  id: clipId,
-                  author_id: viewerId,
-                  title: body.title,
-                  description: body.description ?? null,
-                  game: gameRef?.name ?? null,
-                  game_id: gameRef?.id ?? null,
-                  privacy,
-                  source_content_type: body.contentType,
-                  source_size_bytes: body.sizeBytes,
-                  pending_audio_tracks: body.audioTracks ?? null,
-                  // Client-probed hints so placeholders keep the media's shape
-                  // while processing; the media run re-probes and overwrites them.
-                  width: body.width ?? null,
-                  height: body.height ?? null,
-                  duration_ms: body.durationMs ?? null,
-                  // Kept source range applied by the media run at first ingest —
-                  // full-range requests are dropped and the raw upload is stored
-                  // untouched while the run derives any real cut.
-                  trim_start_ms: trim
-                    ? trim.kind === "range"
-                      ? trim.startMs
-                      : null
-                    : (body.trimStartMs ?? null),
-                  trim_end_ms: trim
-                    ? trim.kind === "range"
-                      ? trim.endMs
-                      : null
-                    : (body.trimEndMs ?? null),
-                  status: "pending",
-                })
-                .onConflictDoNothing()
-                .returning({ id: clip.id })
-              if (!inserted) return { ok: false, reason: "id-conflict" }
-
-              if (mentionedIds.length > 0) {
-                await tx.insert(clipMention).values(
-                  mentionedIds.map((mentionedUserId) => ({
-                    clip_id: clipId,
-                    mentioned_user_id: mentionedUserId,
-                  })),
-                )
-              }
-
-              const tags = body.tags ? normalizeTags(body.tags) : []
-              if (tags.length > 0) {
-                await tx
-                  .insert(clipTag)
-                  .values(tags.map((tag) => ({ clip_id: clipId, tag })))
-              }
-
-              // Older servers could leave a ticket behind after its clip row was
-              // deleted between reservation and ticket creation. The exclusive
-              // upload gate has drained any issued token before we detach those
-              // legacy owners. The new attempt uses a versioned key, so its
-              // object can never alias the deletion intent below.
-              const queuedDeletions =
-                await deleteUploadTicketsWithStorageIntents(
-                  { type: "clip", id: clipId },
-                  "superseded orphan upload ticket",
-                  tx,
-                )
-
-              return { ok: true, queuedDeletions }
+          const expiresInSec = configStore.get("limits").uploadTtlSec
+          let videoUpload: Awaited<ReturnType<typeof mintStagedUpload>>
+          try {
+            videoUpload = await mintStagedUpload({
+              key: uploadKey,
+              contentType: body.contentType,
+              maxBytes: body.sizeBytes,
+              expiresInSec,
+              userId: viewerId,
+              clipId,
             })
+          } catch (err) {
+            await cleanupFailedInitiate(clipId, uploadKey)
+            throw err
+          }
+          const expiresAt = uploadTicketDeadline(videoUpload.expiresAt)
+
+          let initiateResult: InitiateTransactionResult
+          try {
+            initiateResult = await db.transaction<InitiateTransactionResult>(
+              async (tx) => {
+                const { quotaBytes, usedBytes } = await selectLockedQuotaState(
+                  tx,
+                  viewerId,
+                )
+                const quota = uploadQuotaResult({
+                  quotaBytes,
+                  usedBytes,
+                  incomingBytes: body.sizeBytes,
+                })
+                if (!quota.ok) return quota
+
+                const [inserted] = await tx
+                  .insert(clip)
+                  .values({
+                    id: clipId,
+                    author_id: viewerId,
+                    title: body.title,
+                    description: body.description ?? null,
+                    game: gameRef?.name ?? null,
+                    game_id: gameRef?.id ?? null,
+                    privacy,
+                    source_content_type: body.contentType,
+                    source_size_bytes: body.sizeBytes,
+                    pending_audio_tracks: body.audioTracks ?? null,
+                    // Client-probed hints so placeholders keep the media's shape
+                    // while processing; the media run re-probes and overwrites them.
+                    width: body.width ?? null,
+                    height: body.height ?? null,
+                    duration_ms: body.durationMs ?? null,
+                    // Kept source range applied by the media run at first ingest —
+                    // full-range requests are dropped and the raw upload is stored
+                    // untouched while the run derives any real cut.
+                    trim_start_ms: trim
+                      ? trim.kind === "range"
+                        ? trim.startMs
+                        : null
+                      : (body.trimStartMs ?? null),
+                    trim_end_ms: trim
+                      ? trim.kind === "range"
+                        ? trim.endMs
+                        : null
+                      : (body.trimEndMs ?? null),
+                    status: "pending",
+                    upload_cleanup_at: expiresAt,
+                  })
+                  .onConflictDoNothing()
+                  .returning({ id: clip.id })
+                if (!inserted) return { ok: false, reason: "id-conflict" }
+
+                if (mentionedIds.length > 0) {
+                  await tx.insert(clipMention).values(
+                    mentionedIds.map((mentionedUserId) => ({
+                      clip_id: clipId,
+                      mentioned_user_id: mentionedUserId,
+                    })),
+                  )
+                }
+
+                const tags = body.tags ? normalizeTags(body.tags) : []
+                if (tags.length > 0) {
+                  await tx
+                    .insert(clipTag)
+                    .values(tags.map((tag) => ({ clip_id: clipId, tag })))
+                }
+
+                // Older servers could leave a ticket behind after its clip row was
+                // deleted between reservation and ticket creation. The exclusive
+                // upload gate has drained any issued token before we detach those
+                // legacy owners. The new attempt uses a versioned key, so its
+                // object can never alias the deletion intent below.
+                const queuedDeletions =
+                  await deleteUploadTicketsWithStorageIntents(
+                    { type: "clip", id: clipId },
+                    "superseded orphan upload ticket",
+                    tx,
+                  )
+
+                await createUploadTickets(
+                  {
+                    target: { type: "clip", id: clipId },
+                    ownerId: viewerId,
+                    videoKey: uploadKey,
+                    videoContentType: body.contentType,
+                    videoBytes: body.sizeBytes,
+                    expiresAt,
+                  },
+                  { tx },
+                )
+
+                return { ok: true, queuedDeletions }
+              },
+            )
+          } catch (err) {
+            await cleanupFailedInitiate(clipId, uploadKey)
+            throw err
+          }
 
           if (!initiateResult.ok) {
+            await cleanupFailedInitiate(clipId, uploadKey)
             if ("reason" in initiateResult) {
               return conflict(c, "Clip upload already exists")
             }
@@ -252,34 +288,10 @@ export const clipsUploadLifecycleRoutes = new Hono()
           }
 
           void publishClipUpsert(viewerId, clipId)
-
-          const expiresInSec = configStore.get("limits").uploadTtlSec
-          const expiresAt = new Date(Date.now() + expiresInSec * 1000)
-          try {
-            const videoUpload = await mintStagedUpload({
-              key: uploadKey,
-              contentType: body.contentType,
-              maxBytes: body.sizeBytes,
-              expiresInSec,
-              userId: viewerId,
-              clipId,
-            })
-            await createUploadTickets({
-              target: { type: "clip", id: clipId },
-              ownerId: viewerId,
-              videoKey: uploadKey,
-              videoContentType: body.contentType,
-              videoBytes: body.sizeBytes,
-              expiresAt,
-            })
-            return c.json({
-              clipId,
-              ticket: videoUpload,
-            })
-          } catch (err) {
-            await cleanupFailedInitiate(clipId, uploadKey)
-            throw err
-          }
+          return c.json({
+            clipId,
+            ticket: videoUpload,
+          })
         })
       const initiated = await accountDeletionState.withInactive(
         viewerId,
@@ -309,28 +321,13 @@ export const clipsUploadLifecycleRoutes = new Hono()
           const row = access.row
 
           const videoTicket = await selectVideoTicket({ type: "clip", id })
-          const videoTicketKey = videoTicket?.storageKey ?? null
           const sourceContentType = row.source_content_type
           const sourceSizeBytes = row.source_size_bytes
-          if (
-            !videoTicketKey ||
-            !sourceContentType ||
-            sourceSizeBytes == null
-          ) {
+          if (!videoTicket || !sourceContentType || sourceSizeBytes == null) {
             await markUploadFailed(row.author_id, id, "Upload ticket missing")
             return badRequest(c, "Upload ticket missing")
           }
-
-          const videoTicketOk = await assertUsableVideoTicket({
-            target: { type: "clip", id },
-            storageKey: videoTicketKey,
-            contentType: sourceContentType,
-            expectedBytes: sourceSizeBytes,
-          })
-          if (!videoTicketOk) {
-            await markUploadFailed(row.author_id, id, "Upload ticket expired")
-            return gone(c, "Upload ticket expired")
-          }
+          const videoTicketKey = videoTicket.storageKey
 
           const stagedUpload = await resolveStagedUpload(videoTicketKey)
           if (!stagedUpload) {
@@ -340,6 +337,39 @@ export const clipsUploadLifecycleRoutes = new Hono()
               "Upload bytes are missing",
             )
             return badRequest(c, "Upload bytes are missing")
+          }
+
+          const finalizationAction = pendingUploadFinalizationAction(
+            videoTicket,
+            stagedUpload,
+            row.upload_cleanup_at,
+            new Date(),
+          )
+          let recovered = false
+          if (finalizationAction === "recover") {
+            recovered = await markUploadTicketUsedAndExtendDeadline(
+              videoTicket.id,
+              configStore.get("limits").uploadTtlSec,
+              { expectedCleanupAt: row.upload_cleanup_at },
+            )
+            if (!recovered) {
+              return conflict(c, "Clip upload ownership changed")
+            }
+          }
+
+          const videoTicketOk =
+            recovered ||
+            (finalizationAction === "usable" &&
+              (await assertUsableVideoTicket({
+                target: { type: "clip", id },
+                storageKey: videoTicketKey,
+                contentType: sourceContentType,
+                expectedBytes: sourceSizeBytes,
+                uploadCleanupAt: row.upload_cleanup_at,
+              })))
+          if (!videoTicketOk) {
+            await markUploadFailed(row.author_id, id, "Upload ticket expired")
+            return gone(c, "Upload ticket expired")
           }
 
           const quotaResult = await db.transaction<UploadQuotaResult>(
@@ -376,12 +406,30 @@ export const clipsUploadLifecycleRoutes = new Hono()
             )
             return badRequest(c, "Upload size did not match declared size")
           }
+          if (
+            !completedUploadMatches(stagedUpload, {
+              bytes: sourceSizeBytes,
+              contentType: sourceContentType,
+            })
+          ) {
+            await markUploadFailed(
+              row.author_id,
+              id,
+              "Upload content type did not match declared type",
+            )
+            return badRequest(
+              c,
+              "Upload content type did not match declared type",
+            )
+          }
 
           const transitioned = await db.transaction(async (tx) => {
+            const finalizedAt = new Date()
             const [row] = await tx
               .update(clip)
               .set({
                 status: "processing",
+                upload_cleanup_at: null,
                 source_size_bytes: stagedUpload.size,
                 updated_at: new Date(),
               })
@@ -390,10 +438,12 @@ export const clipsUploadLifecycleRoutes = new Hono()
                   eq(clip.id, id),
                   eq(clip.author_id, viewerId),
                   eq(clip.status, "pending"),
+                  gt(clip.upload_cleanup_at, finalizedAt),
                 ),
               )
               .returning({ id: clip.id })
             if (!row) return null
+            await markUploadTicketUsed(videoTicket.id, finalizedAt, tx)
             await requestClipMedia(id, {
               force: false,
               priority: 10,

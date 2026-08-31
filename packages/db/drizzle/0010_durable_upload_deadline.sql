@@ -1,0 +1,2 @@
+ALTER TABLE "clip" ADD COLUMN "upload_cleanup_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "clip_pending_upload_cleanup_idx" ON "clip" USING btree ("upload_cleanup_at","id") WHERE "clip"."status" = 'pending' and "clip"."upload_cleanup_at" is not null;
