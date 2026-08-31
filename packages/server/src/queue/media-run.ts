@@ -44,7 +44,7 @@ export { runThumbnailBackfill } from "./media-thumbnail-backfill"
 
 /**
  * Run the media pipeline for one leased clip. Downloads the source, applies a
- * virtual owner trim when present, publishes playable source/cut + poster, then
+ * physical owner cut when present, publishes playable source/cut + poster, then
  * finishes the encode ladder under the same lease.
  */
 export async function runMediaProcessing(

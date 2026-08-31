@@ -187,7 +187,7 @@ export const clipsPlaybackRoutes = new Hono()
   })
   /**
    * GET /api/clips/:id/original/file — the uncut stored source for the owner
-   * trim editor. Re-trims must be able to expand a previous virtual trim.
+   * trim editor. Re-trims must be able to expand a previous cut.
    */
   .get("/:id/original/file", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")

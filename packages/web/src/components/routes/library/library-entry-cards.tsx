@@ -13,8 +13,7 @@ import { toClipCardData } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
 import { desktopCachedAssetUrl, type RecordingLibraryItem } from "@/lib/desktop"
 import {
-  localClipPlaybackWindow,
-  mediaWindowSeconds,
+  localClipIsFinalCut,
   versionedLocalMediaUrl,
 } from "@/lib/local-clip-media"
 import { canPlaySource } from "@/lib/media-capability"
@@ -173,13 +172,10 @@ export function UploadedClipCard({
   const gameId = card.gameRef?.slug ?? null
   const renderGameLink = useClipCardGameLink(gameId)
   const gameUrl = gameId ? gameHref(gameId) : null
-  const localPreviewWindow = localItem
-    ? localClipPlaybackWindow(localItem, row)
-    : null
   const localPreview = Boolean(
     localItem &&
-    localPreviewWindow &&
-    canPlaySource(contentTypeForFile(localItem.fileName), ""),
+    canPlaySource(contentTypeForFile(localItem.fileName), "") &&
+    localClipIsFinalCut(localItem, row),
   )
   return (
     <ClipCard
@@ -202,11 +198,6 @@ export function UploadedClipCard({
         localPreview && localItem
           ? versionedLocalMediaUrl(localItem)
           : card.streamUrl
-      }
-      streamRange={
-        localPreview && localPreviewWindow
-          ? mediaWindowSeconds(localPreviewWindow)
-          : undefined
       }
       thumbnailLabel={t("Edit {title}", { title: card.title })}
       onThumbnailClick={onOpen}
