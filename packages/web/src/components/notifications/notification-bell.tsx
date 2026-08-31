@@ -105,7 +105,7 @@ function NotificationPopover({
   variant: Exclude<NotificationBellVariant, "bottom-nav">
 }) {
   const isMobile = useIsMobile()
-  const stream = useNotificationStream({ enabled: !isMobile })
+  useNotificationStream({ enabled: !isMobile })
   const unreadQuery = useQuery(unreadCountQueryOptions())
   const markAllRead = useMarkAllNotificationsReadMutation()
   const { ringing, stopRinging } = useRingingBell(unreadQuery.data)
@@ -170,10 +170,7 @@ function NotificationPopover({
           markingAllRead={markAllRead.isPending}
           onMarkAllRead={() => markAllRead.mutate()}
         />
-        <NotificationContent
-          layout="popover"
-          initialError={stream.initialError}
-        />
+        <NotificationContent layout="popover" />
       </PopoverContent>
     </Popover>
   )
@@ -181,7 +178,7 @@ function NotificationPopover({
 
 export function NotificationsPage() {
   const isMobile = useIsMobile()
-  const stream = useNotificationStream({ enabled: isMobile })
+  useNotificationStream({ enabled: isMobile })
   const unreadQuery = useQuery(unreadCountQueryOptions())
   const markAllRead = useMarkAllNotificationsReadMutation()
 
@@ -193,7 +190,7 @@ export function NotificationsPage() {
         markingAllRead={markAllRead.isPending}
         onMarkAllRead={() => markAllRead.mutate()}
       />
-      <NotificationContent layout="page" initialError={stream.initialError} />
+      <NotificationContent layout="page" />
     </AppMainColumn>
   )
 }
@@ -286,13 +283,7 @@ function NotificationHeader({
   )
 }
 
-function NotificationContent({
-  layout,
-  initialError,
-}: {
-  layout: "page" | "popover"
-  initialError: boolean
-}) {
+function NotificationContent({ layout }: { layout: "page" | "popover" }) {
   const listQuery = useInfiniteQuery(notificationsInfiniteQueryOptions())
   const markRead = useMarkNotificationReadMutation()
   const removeNotification = useRemoveNotificationMutation()
@@ -313,12 +304,6 @@ function NotificationContent({
   }
   return (
     <>
-      {initialError ? (
-        <div className="text-foreground-faint border-border flex items-center gap-1.5 border-b px-3 py-1.5 text-xs">
-          <Spinner className="size-3" />
-          {t("Reconnecting…")}
-        </div>
-      ) : null}
       {alloyDesktop() === null && permission === "default" ? (
         <div className="border-border flex items-center gap-2.5 border-b px-3 py-2">
           <BellRingIcon
