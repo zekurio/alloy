@@ -1,10 +1,10 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
 import {
   createExpiryWorker,
   type ExpiryStore,
 } from "@alloy/server/runtime/wakeable-serial-worker"
+import { test } from "vite-plus/test"
 
 import {
   AUTH_CHALLENGE_EXPIRY_DELETE_SQL,

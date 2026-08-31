@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
 import { join } from "node:path"
-import test from "node:test"
+
+import { test } from "vite-plus/test"
 
 import { appRendererFile, appRendererRoot } from "./app-protocol-files"
 import {

@@ -1,6 +1,6 @@
 import { builtinModules } from "node:module"
 
-import { defineConfig } from "vite"
+import { defineConfig } from "vite-plus"
 
 const nodeBuiltins = builtinModules.flatMap((name) => [name, `node:${name}`])
 

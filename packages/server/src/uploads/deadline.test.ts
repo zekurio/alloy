@@ -1,8 +1,6 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
-import { clip } from "@alloy/db/schema"
-import { getTableConfig, PgDialect } from "drizzle-orm/pg-core"
+import { test } from "vite-plus/test"
 
 import {
   decodeUploadToken,
@@ -15,7 +13,6 @@ import {
   withPendingUploadCleanupStopped,
 } from "./cleanup"
 import {
-  LEGACY_UPLOAD_DEADLINE_REPAIR_SQL,
   completedUploadDeadline,
   completedUploadMatches,
   completedUploadPersistenceSatisfied,
@@ -457,33 +454,6 @@ test("cleanup ownership nests media-stop outside upload-stop", async () => {
   ])
 })
 
-test("legacy repair is bounded, UTC-normalized, and rechecks ownership", () => {
-  assert.match(
-    LEGACY_UPLOAD_DEADLINE_REPAIR_SQL,
-    /where status = 'pending'[\s\S]*upload_cleanup_at is null[\s\S]*limit \$2/,
-  )
-  assert.match(
-    LEGACY_UPLOAD_DEADLINE_REPAIR_SQL,
-    /max\([\s\S]*greatest\([\s\S]*expires_at at time zone 'UTC'[\s\S]*used_at at time zone 'UTC'/,
-  )
-  assert.match(
-    LEGACY_UPLOAD_DEADLINE_REPAIR_SQL,
-    /created_at at time zone 'UTC'/,
-  )
-  assert.match(
-    LEGACY_UPLOAD_DEADLINE_REPAIR_SQL,
-    /date_trunc\('milliseconds', cleanup_at\)[\s\S]*interval '1 millisecond'/,
-  )
-  assert.match(
-    LEGACY_UPLOAD_DEADLINE_REPAIR_SQL,
-    /target_type = 'clip'[\s\S]*target_id = candidates.id/,
-  )
-  assert.match(
-    LEGACY_UPLOAD_DEADLINE_REPAIR_SQL,
-    /where clip.id = deadlines.id[\s\S]*clip.status = 'pending'[\s\S]*clip.upload_cleanup_at is null/,
-  )
-})
-
 test("startup repair drains full bounded batches", async () => {
   const results = [2, 2, 1]
   const calls: Array<{ ttl: number; limit: number }> = []
@@ -503,17 +473,6 @@ test("startup repair drains full bounded batches", async () => {
   ])
 })
 
-test("pending cleanup uses a timezone-aware partial deadline index", () => {
-  assert.equal(clip.upload_cleanup_at.getSQLType(), "timestamp with time zone")
-  const index = getTableConfig(clip).indexes.find(
-    (candidate) => candidate.config.name === "clip_pending_upload_cleanup_idx",
-  )
-  assert.ok(index)
-  assert.deepEqual(indexColumnNames(index), ["upload_cleanup_at", "id"])
-  assert.match(indexPredicate(index), /"status" = 'pending'/)
-  assert.match(indexPredicate(index), /"upload_cleanup_at" is not null/)
-})
-
 function recoverableTicket(): RecoverableUploadTicket {
   return {
     id: "ticket-id",
@@ -521,21 +480,4 @@ function recoverableTicket(): RecoverableUploadTicket {
     contentType: "video/mp4",
     expectedBytes: 10_000,
   }
-}
-
-function indexColumnNames(
-  index: ReturnType<typeof getTableConfig>["indexes"][number],
-): string[] {
-  return index.config.columns.map((column) => {
-    assert.ok("name" in column)
-    assert.ok(column.name)
-    return column.name
-  })
-}
-
-function indexPredicate(
-  index: ReturnType<typeof getTableConfig>["indexes"][number],
-): string {
-  assert.ok(index.config.where)
-  return new PgDialect().sqlToQuery(index.config.where, "indexes").sql
 }

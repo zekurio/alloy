@@ -1,6 +1,7 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 import { runInNewContext } from "node:vm"
+
+import { test } from "vite-plus/test"
 
 import { desktopNavigationScript } from "./desktop-navigation"
 

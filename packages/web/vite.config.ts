@@ -3,7 +3,7 @@ import { fileURLToPath, URL } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import viteReact from "@vitejs/plugin-react"
-import { defineConfig, loadEnv, type ProxyOptions } from "vite"
+import { defineConfig, loadEnv, type ProxyOptions } from "vite-plus"
 
 import { clientLogger } from "./src/lib/client-log"
 

@@ -1,11 +1,15 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
-import { supportsDesktopAuthVersion } from "./probe"
+import { test } from "vite-plus/test"
 
-test("uses exact desktop-auth capability membership", () => {
-  assert.equal(supportsDesktopAuthVersion(1), true)
-  assert.equal(supportsDesktopAuthVersion(0), false)
-  assert.equal(supportsDesktopAuthVersion(2), false)
-  assert.equal(supportsDesktopAuthVersion(Number.POSITIVE_INFINITY), false)
+import { candidateUrls } from "./probe"
+
+test("normalizes pasted server addresses before probing", () => {
+  assert.deepEqual(candidateUrls(" alloy.example/api?source=desktop#login "), [
+    "https://alloy.example",
+  ])
+  assert.deepEqual(candidateUrls("http://localhost:2552/api/"), [
+    "http://localhost:2552",
+  ])
+  assert.deepEqual(candidateUrls("http://alloy.example"), [])
 })

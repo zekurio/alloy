@@ -23,25 +23,24 @@
     "db:push": "pnpm --filter @alloy/db db:push",
     "db:studio": "pnpm --filter @alloy/db db:studio",
     "audit": "pnpm audit",
-    "fmt": "oxfmt .",
-    "fmt:check": "oxfmt --check .",
-    "lint": "oxlint .",
+    "fmt": "vp fmt",
+    "fmt:check": "vp fmt --check",
+    "lint": "vp lint",
     "lint:github": "pnpm lint",
     "lint:ci": "pnpm lint",
     "typecheck": "turbo run typecheck",
-    "test": "pnpm --filter @alloy/contracts test && pnpm --filter @alloy/api test && pnpm --filter @alloy/server test && pnpm --filter @alloy/desktop test && pnpm --filter @alloy/web test",
+    "test": "vp test run",
     "verify": "pnpm fmt:check && pnpm lint && pnpm typecheck"
   },
   "devDependencies": {
     "@oxlint/plugins": "1.80.0",
     "@types/node": "26.3.0",
     "@types/pg": "8.23.1",
-    "oxfmt": "0.65.0",
     "oxlint": "1.80.0",
-    "oxlint-tsgolint": "7.0.2001",
     "tsx": "4.23.12",
     "turbo": "2.10.11",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": ">=24"

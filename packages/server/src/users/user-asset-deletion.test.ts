@@ -1,8 +1,8 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
 import { USER_ASSET_PATH_PREFIX } from "@alloy/contracts"
 import { versionedAssetKey } from "@alloy/server/storage/driver"
+import { test } from "vite-plus/test"
 
 import {
   internalUserAssetKey,

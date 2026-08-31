@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
 import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
 import type {
   RecordingLibraryGroup,
   RecordingLibraryItem,
 } from "@alloy/contracts"
+import { test } from "vite-plus/test"
 
 import {
   buildLibraryGroups,

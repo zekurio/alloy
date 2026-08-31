@@ -67,6 +67,11 @@ Without Nix: install Node 24 and pnpm 11, provide a PostgreSQL database, copy
 `.env.example` to `.env`, then `pnpm install && pnpm dev`. `pnpm dev:all` adds
 the desktop shell; the recorder builds only on Windows.
 
+Vite+ runs formatting, linting, builds, and the unified test suite. Tests are
+discovered by filename, so a new `*.test.ts` or `*.test.tsx` file needs no
+package script entry. Run all tests with `pnpm test`, or target a path with
+`pnpm test packages/server`.
+
 Run `pnpm verify` before opening a pull request. The
 [contributing guide](.github/CONTRIBUTING.md) covers branch, commit, and PR
 conventions; package READMEs contain deeper implementation notes.

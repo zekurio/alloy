@@ -3,10 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build",
-    "dev": "vite dev --port 5173 --strictPort",
-    "preview": "vite preview --port 5173 --strictPort",
-    "test": "tsx --test src/lib/runtime-env.test.ts src/lib/browser-url.test.ts src/components/routes/library/library-data.test.ts",
+    "build": "vp build",
+    "dev": "vp dev --port 5173 --strictPort",
+    "preview": "vp preview --port 5173 --strictPort",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -26,11 +25,10 @@
     "mediabunny": "1.55.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "vite": "8.2.2"
+    "vite": "catalog:"
   },
   "devDependencies": {
     "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.5",
-    "tsx": "4.23.12"
+    "@types/react-dom": "19.2.5"
   }
 }

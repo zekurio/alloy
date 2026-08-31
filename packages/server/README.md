@@ -26,7 +26,7 @@ packages/server/
 pnpm --filter @alloy/server dev
 pnpm --filter @alloy/server build
 pnpm --filter @alloy/server start
-pnpm --filter @alloy/server test
+pnpm test packages/server
 pnpm --filter @alloy/server typecheck
 ```
 

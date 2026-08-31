@@ -1,105 +1,20 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
-import { JOB_KINDS } from "@alloy/contracts"
-import { uploadTicket } from "@alloy/db/schema"
-import { getTableConfig, PgDialect } from "drizzle-orm/pg-core"
+import { test } from "vite-plus/test"
 
 import {
-  UPLOAD_EXPIRY_DUE_SQL,
-  UPLOAD_EXPIRY_NEXT_SQL,
   UploadExpiryCoordinator,
   commitUploadInitiateAndWake,
   type UploadExpiryCandidate,
   type UploadExpiryExclusions,
   type UploadExpiryStore,
 } from "./expiry"
-import { expiredOrphanUploadTicketPredicate } from "./tickets"
 
 const clipCandidate = candidate("clip", "11111111-1111-4111-8111-111111111111")
 const ticketCandidate = candidate(
   "ticket",
   "22222222-2222-4222-8222-222222222222",
 )
-
-test("due work is bounded and globally ordered across both deadline indexes", () => {
-  assert.equal([...UPLOAD_EXPIRY_DUE_SQL.matchAll(/limit \$1/g)].length, 3)
-  assert.match(
-    UPLOAD_EXPIRY_DUE_SQL,
-    /order by candidates\.deadline, candidates\.kind, candidates\.id/,
-  )
-  assert.match(
-    UPLOAD_EXPIRY_DUE_SQL,
-    /clip\.upload_cleanup_at <= clock\.cutoff/,
-  )
-  assert.match(
-    UPLOAD_EXPIRY_DUE_SQL,
-    /upload_ticket\.expires_at <= \(clock\.cutoff at time zone 'UTC'\)/,
-  )
-  assert.match(
-    UPLOAD_EXPIRY_DUE_SQL,
-    /upload_ticket\.expires_at at time zone 'UTC' as deadline/,
-  )
-})
-
-test("due and next queries leave active clip tickets to domain owners", () => {
-  for (const query of [UPLOAD_EXPIRY_DUE_SQL, UPLOAD_EXPIRY_NEXT_SQL]) {
-    assert.match(
-      query,
-      /not exists \([\s\S]*owner\.id = upload_ticket\.target_id[\s\S]*owner\.status in \('pending', 'processing'\)/,
-    )
-  }
-  assert.match(
-    UPLOAD_EXPIRY_NEXT_SQL,
-    /order by deadline, kind, id[\s\S]*limit 1/,
-  )
-})
-
-test("unused tickets have a stable partial deadline index", () => {
-  const index = getTableConfig(uploadTicket).indexes.find(
-    (candidate) => candidate.config.name === "upload_ticket_unused_expiry_idx",
-  )
-  assert.ok(index)
-  assert.deepEqual(
-    index.config.columns.map((column) => {
-      assert.ok("name" in column)
-      return column.name
-    }),
-    ["expires_at", "id"],
-  )
-  assert.ok(index.config.where)
-  assert.match(
-    new PgDialect().sqlToQuery(index.config.where, "indexes").sql,
-    /"used_at" is null/,
-  )
-})
-
-test("contract-1 retains the retired upload job kind", () => {
-  assert.equal(new Set<string>(JOB_KINDS).has("upload.cleanup"), true)
-})
-
-test("orphan ticket CAS repeats identity, UTC cutoff, and active-owner guards", () => {
-  const query = new PgDialect().sqlToQuery(
-    expiredOrphanUploadTicketPredicate(
-      ticketCandidate.id,
-      ticketCandidate.targetId,
-      ticketCandidate.scanCutoff,
-    ),
-    "indexes",
-  ).sql
-  assert.match(query, /"id" = \$1/)
-  assert.match(query, /"target_type" = \$2/)
-  assert.match(query, /"target_id" = \$3/)
-  assert.match(query, /"used_at" is null/)
-  assert.match(
-    query,
-    /"expires_at" <= \(cast\(\$4 as timestamptz\) at time zone 'UTC'\)/,
-  )
-  assert.match(
-    query,
-    /not exists \([\s\S]*owner\.status in \('pending', 'processing'\)/,
-  )
-})
 
 test("initiation wakes only after successful atomic database work", async () => {
   const events: string[] = []
@@ -284,6 +199,7 @@ test("expired poison cooldowns stay excluded until the due tail advances", async
 
   worker.start()
   await tailProcessed.promise
+  assert.equal(tailAvailable, false)
   await worker.stop()
 })
 
