@@ -8,6 +8,7 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
       className={cn(
         "relative grid h-dvh w-full overflow-hidden bg-background",
         "[--app-content-padding:0.75rem]",
+        "[--app-popover-anchor-inset:calc(var(--app-content-padding)+5px)]",
         // Mobile: single column; navigation lives in a fixed bottom nav.
         "[grid-template-columns:1fr]",
         "[grid-template-rows:var(--header-h)_1fr]",
@@ -27,17 +28,17 @@ function AppShell({ className, children, ...props }: ComponentProps<"div">) {
       <span
         aria-hidden
         data-slot="app-bottom-left-anchor"
-        className="pointer-events-none fixed bottom-[var(--app-content-padding)] left-[calc(var(--sidebar-rail)+1rem)] hidden size-0 md:block"
+        className="pointer-events-none fixed bottom-[var(--app-content-padding)] left-[calc(var(--sidebar-rail)+var(--app-popover-anchor-inset))] hidden size-0 md:block"
       />
       <span
         aria-hidden
         data-slot="app-top-right-anchor"
-        className="pointer-events-none fixed top-[calc(var(--header-h)+var(--app-content-padding))] right-4 size-0"
+        className="pointer-events-none fixed top-[calc(var(--header-h)+var(--app-content-padding))] right-[var(--app-popover-anchor-inset)] size-0"
       />
       <span
         aria-hidden
         data-slot="app-bottom-right-anchor"
-        className="pointer-events-none fixed right-4 bottom-[var(--app-content-padding)] hidden size-0 md:block"
+        className="pointer-events-none fixed right-[var(--app-popover-anchor-inset)] bottom-[var(--app-content-padding)] hidden size-0 md:block"
       />
     </div>
   )
