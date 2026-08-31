@@ -61,8 +61,9 @@ import { renderHashtagTokens } from "./description-tokens"
 interface ClipMetaProps {
   /** Clip id — powers each field's PATCH and the delete action. */
   clipId: string
-  /** Encode status — gates the "Re-encode" action to settled clips. */
+  /** Publication status and background encode state gate media actions. */
   status: ClipStatus
+  encodeActive: boolean
   authorId: string
   title: string
   game: string
@@ -98,6 +99,7 @@ interface ClipMetaProps {
 function ClipMeta({
   clipId,
   status,
+  encodeActive,
   authorId,
   title,
   game,
@@ -270,9 +272,12 @@ function ClipMeta({
                     {status === "failed" || (status === "ready" && isAdmin) ? (
                       <DropdownMenuItem
                         onClick={() => reEncodeMutation.mutate({ clipId })}
-                        disabled={reEncodeMutation.isPending}
+                        disabled={encodeActive || reEncodeMutation.isPending}
                       >
-                        <RefreshCwIcon /> {t("Re-encode")}
+                        <RefreshCwIcon
+                          className={cn(encodeActive && "animate-spin")}
+                        />
+                        {encodeActive ? t("Re-encoding") : t("Re-encode")}
                       </DropdownMenuItem>
                     ) : null}
                     <DropdownMenuSeparator />

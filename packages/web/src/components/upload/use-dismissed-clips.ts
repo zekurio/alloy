@@ -7,6 +7,7 @@ import {
   writeLocalStorageItem,
 } from "@/lib/browser-storage"
 import { clientLogger } from "@/lib/client-log"
+import { clipEncodingActive } from "@/lib/clip-encoding"
 import { searchString } from "@/lib/route-search"
 
 const DISMISSED_KEY = "alloy:queue-dismissed"
@@ -53,11 +54,12 @@ export function useDismissedClips(
 
   useEffect(() => {
     if (!serverQueueHydrated || dismissed.size === 0) return
-    const live = new Set(serverQueue.map((r) => r.id))
+    const live = new Map(serverQueue.map((row) => [row.id, row]))
     let changed = false
     const next = new Set<string>()
     for (const id of dismissed) {
-      if (live.has(id)) next.add(id)
+      const row = live.get(id)
+      if (row && !clipEncodingActive(row)) next.add(id)
       else changed = true
     }
     if (changed) {
