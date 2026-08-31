@@ -9,7 +9,6 @@ import { getGameRefById } from "@alloy/server/games/ref"
 import { createNotification } from "@alloy/server/notifications/service"
 import { badRequest, deleted } from "@alloy/server/runtime/http-response"
 import {
-  announceClipPublished,
   claimClipPublishedDeliveries,
   wakeClaimedClipPublishedDeliveries,
 } from "@alloy/server/webhooks/publish"
@@ -129,13 +128,6 @@ export const clipsUploadRoutes = new Hono()
       wakeClaimedClipPublishedDeliveries(webhookClaims)
 
       void publishClipUpsert(row.author_id, id)
-      // A clip that was already encoded and is only now being made public
-      // never passes through the encode job's announce path. The dispatcher
-      // re-checks ready+public, so a still-processing clip is announced by the
-      // pipeline when it gets there instead.
-      if (publishRequested) {
-        announceClipPublished(id)
-      }
       if (mentionedIds !== undefined && row.status === "ready") {
         const existingMentionedIdSet = new Set(existingMentionedIds)
         for (const mentionedId of mentionedIds) {
