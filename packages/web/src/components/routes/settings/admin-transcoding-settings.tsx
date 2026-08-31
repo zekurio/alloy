@@ -371,7 +371,7 @@ export function TranscodingSettingsContent({
 
           <p className="text-foreground-dim text-xs">
             {t(
-              "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match; you can also trigger a sweep from the Jobs panel.",
+              "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match.",
             )}
           </p>
         </SettingsSections>

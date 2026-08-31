@@ -1293,88 +1293,12 @@ export const DE_MESSAGES = {
   "Your profile and clips will be hidden until you sign back in and reactivate.":
     "Dein Profil und deine Clips werden ausgeblendet, bis du dich wieder anmeldest und reaktivierst.",
   Zoom: "Zoom",
-  "Attempt {n}": "Versuch {n}",
   "Apply changes": "Änderungen anwenden",
-  "Apply transcoding changes": "Transkodierung aktualisieren",
-  "Background jobs": "Hintergrundjobs",
-  "Clean orphaned storage": "Verwaiste Speicherdaten bereinigen",
-  "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match; you can also trigger a sweep from the Jobs panel.":
-    "Änderungen gelten für neue Uploads. Vorhandene Clips werden automatisch neu kodiert, wenn ihre Renditionen nicht mehr passen; du kannst einen Durchlauf auch im Jobs-Bereich auslösen.",
-  Completed: "Abgeschlossen",
-  "Current work and recent results for each worker queue.":
-    "Aktuelle Arbeit und letzte Ergebnisse für jede Warteschlange.",
-  "Couldn't discard job": "Job konnte nicht verworfen werden",
-  "Couldn't retry job": "Job konnte nicht erneut versucht werden",
-  "Couldn't start job": "Job konnte nicht gestartet werden",
-  "Delete failures": "Fehlgeschlagene Löschungen",
-  "Delete objects": "Objekte löschen",
-  "Delete previewed objects": "Vorgeprüfte Objekte löschen",
-  "Delete previewed objects?": "Vorgeprüfte Objekte löschen?",
-  "Deleted orphan objects": "Gelöschte verwaiste Objekte",
-  "Deleted stale assets": "Gelöschte veraltete Assets",
-  "Discard job": "Job verwerfen",
+  "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match.":
+    "Änderungen gelten für neue Uploads. Vorhandene Clips werden automatisch neu kodiert, wenn ihre Renditionen nicht mehr passen.",
   Enabled: "Aktiviert",
-  "Encode clip": "Clip kodieren",
-  "Failed jobs": "Fehlgeschlagene Jobs",
-  Failures: "Fehler",
-  "Failed to load jobs": "Jobs konnten nicht geladen werden",
-  "Job discarded": "Job verworfen",
-  "Job queued for retry": "Job für erneuten Versuch eingereiht",
-  "Job started": "Job gestartet",
-  Jobs: "Jobs",
-  "Last completed {time}": "Zuletzt abgeschlossen: {time}",
   "Loading…": "Wird geladen…",
-  "Media encoding": "Medienkodierung",
   Mode: "Modus",
-  "More objects remain. Run another cleanup preview.":
-    "Weitere Objekte sind übrig. Starte eine weitere Bereinigungsvorschau.",
-  "No completed run yet": "Noch kein abgeschlossener Lauf",
-  Operations: "Aktionen",
-  "Orphan candidates": "Verwaiste Kandidaten",
-  Pending: "Ausstehend",
-  "Preview cleanup": "Bereinigung prüfen",
-  "Preview from {time}: {count} object is a candidate for deletion.":
-    "Vorschau von {time}: {count} Objekt kann gelöscht werden.",
-  "Preview from {time}: {count} objects are candidates for deletion.":
-    "Vorschau von {time}: {count} Objekte können gelöscht werden.",
-  "Preview old clip objects that are no longer referenced, then confirm their deletion.":
-    "Prüfe alte Clip-Objekte ohne Datenbankverweis und bestätige danach ihre Löschung.",
-  "This preview expired. Run a new preview.":
-    "Diese Vorschau ist abgelaufen. Starte eine neue Vorschau.",
-  "This preview reached the 10,000-object batch limit. Delete it, then run another preview for the remaining objects.":
-    "Diese Vorschau hat das Limit von 10.000 Objekten erreicht. Lösche sie und starte danach eine weitere Vorschau für die übrigen Objekte.",
-  "Prune auth challenges": "Anmeldeanfragen bereinigen",
-  "Prune job history": "Jobverlauf bereinigen",
-  "Prune notifications": "Benachrichtigungen bereinigen",
-  Quarantined: "Unter Quarantäne",
-  Queued: "Eingereiht",
-  "Queue clips whose current renditions do not match the transcoding settings.":
-    "Reihe Clips ein, deren aktuelle Renditionen nicht zu den Transkodierungseinstellungen passen.",
-  "Queue health": "Zustand der Warteschlangen",
-  "Queue health, maintenance operations, and failed jobs.":
-    "Zustand der Warteschlangen, Wartungsaktionen und fehlgeschlagene Jobs.",
-  "Re-encode all": "Alle neu kodieren",
-  "Rendition sweep": "Rendition-Durchlauf",
-  "Retry job": "Job erneut versuchen",
-  "Retry or discard failures after checking the error message.":
-    "Fehlgeschlagene Jobs nach Prüfung der Fehlermeldung erneut versuchen oder verwerfen.",
-  "Routine maintenance": "Regelmäßige Wartung",
-  Running: "Läuft",
-  "Run a new storage cleanup preview to recover this operation.":
-    "Starte eine neue Vorschau der Speicherbereinigung, um diesen Vorgang wiederherzustellen.",
-  Scanned: "Geprüft",
-  "Stale asset candidates": "Veraltete Asset-Kandidaten",
-  "Start maintenance work and review its last completed run.":
-    "Starte Wartungsarbeiten und prüfe den letzten abgeschlossenen Lauf.",
-  "Storage and delivery": "Speicher und Zustellung",
-  "Storage cleanup": "Speicherbereinigung",
-  "This permanently deletes only the objects in the selected preview. Alloy checks each object again before deletion. This action cannot be undone.":
-    "Dies löscht dauerhaft nur die Objekte aus der ausgewählten Vorschau. Alloy prüft jedes Objekt vor dem Löschen erneut. Diese Aktion kann nicht rückgängig gemacht werden.",
-  "Unprobed or invalid": "Nicht geprüft oder ungültig",
-  "Up to date": "Aktuell",
-  "Clean up uploads": "Uploads bereinigen",
-  "View clip": "Clip ansehen",
-  Waiting: "Wartend",
   "Add OAuth provider": "OAuth-Anbieter hinzufügen",
   "Add provider": "Anbieter hinzufügen",
   Advanced: "Erweitert",
@@ -1456,7 +1380,6 @@ export const DE_MESSAGES = {
   "Couldn't update webhook": "Webhook konnte nicht aktualisiert werden",
   "Delete this webhook?": "Diesen Webhook löschen?",
   "Delete webhook": "Webhook löschen",
-  "Deliver webhook": "Webhook zustellen",
   Discord: "Discord",
   "Discord renders the clip link as a playable preview.":
     "Discord rendert den Clip-Link als abspielbare Vorschau.",
