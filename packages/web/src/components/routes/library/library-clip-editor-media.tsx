@@ -158,6 +158,9 @@ export function useClipEditorMedia(
     !processing && localPlaybackSrc && localSourceWindow
       ? mediaWindowSeconds(localSourceWindow)
       : undefined
+  const durationHintMs = processing
+    ? (localItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs)
+    : (row.sourceDurationMs ?? row.durationMs)
   const previewUnavailable =
     !processing &&
     Boolean(row.sourceContentType || row.renditions.length > 0) &&
@@ -202,6 +205,10 @@ export function useClipEditorMedia(
       localPlaybackSrc && localItem
         ? `${mediaVersion}:local:${localItem.modifiedAt}:${localItem.sizeBytes}`
         : mediaVersion,
+    durationHint:
+      durationHintMs !== null && durationHintMs > 0
+        ? durationHintMs / 1000
+        : undefined,
     playbackRange,
     playbackSrc,
     poster,
@@ -281,6 +288,7 @@ export function ClipEditorStage({
           <VideoPlayer
             src={media.playbackSrc}
             playbackRange={media.playbackRange}
+            durationHint={media.durationHint}
             sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
             poster={media.poster}
             posterBlurHash={media.posterBlurHash}
