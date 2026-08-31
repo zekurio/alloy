@@ -6,6 +6,11 @@ import {
 } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
+import { mediaAssetDeletionIntents } from "@alloy/server/storage/deletion-producers"
+import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
+import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
+import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
+import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import {
   claimClipPublishedDeliveries,
   wakeClaimedClipPublishedDeliveries,
@@ -160,24 +165,76 @@ export const clipMediaStore: MediaStore = {
   },
 
   async commitSource(id, runId, patch: MediaSourcePatch) {
-    const [row] = await db
-      .update(clip)
-      .set({
-        ...sourcePatchToColumns(patch),
-        updated_at: new Date(),
-      })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    return Boolean(row)
+    const result = await withUploadActivityStopped(id, () =>
+      db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({ sourceKey: clip.source_key, cutKey: clip.cut_key })
+          .from(clip)
+          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+          .limit(1)
+          .for("update")
+        if (!current) return { committed: false, queuedDeletions: 0 }
+
+        const [updated] = await tx
+          .update(clip)
+          .set({
+            ...sourcePatchToColumns(patch),
+            updated_at: new Date(),
+          })
+          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+          .returning({ id: clip.id })
+        if (!updated) return { committed: false, queuedDeletions: 0 }
+
+        const intents = mediaAssetDeletionIntents({
+          keys: [current.sourceKey, current.cutKey],
+          retainedKeys: [patch.sourceKey, patch.cutKey],
+          reason: "media source replaced",
+          source: { type: "media-run", id: runId },
+        })
+        await enqueueStorageDeletions(intents, { tx })
+        const stagedIntents = await deleteUploadTicketsWithStorageIntents(
+          { type: "clip", id },
+          "media source committed",
+          tx,
+        )
+        return {
+          committed: true,
+          queuedDeletions: intents.length + stagedIntents,
+        }
+      }),
+    )
+    if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
+    return result.committed
   },
 
   async commitThumb(id, runId, patch: MediaThumbPatch) {
-    const [row] = await db
-      .update(clip)
-      .set({ ...thumbPatchToColumns(patch), updated_at: new Date() })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    return Boolean(row)
+    const result = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ thumbKey: clip.thumb_key })
+        .from(clip)
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        .limit(1)
+        .for("update")
+      if (!current) return { committed: false, queuedDeletions: 0 }
+
+      const [updated] = await tx
+        .update(clip)
+        .set({ ...thumbPatchToColumns(patch), updated_at: new Date() })
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        .returning({ id: clip.id })
+      if (!updated) return { committed: false, queuedDeletions: 0 }
+
+      const intents = mediaAssetDeletionIntents({
+        keys: [current.thumbKey],
+        retainedKeys: [patch.thumbKey],
+        reason: "media thumbnail replaced",
+        source: { type: "media-run", id: runId },
+      })
+      await enqueueStorageDeletions(intents, { tx })
+      return { committed: true, queuedDeletions: intents.length }
+    })
+    if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
+    return result.committed
   },
 
   async finishThumbnailBackfill(id, runId, completion) {
@@ -222,64 +279,129 @@ export const clipMediaStore: MediaStore = {
   },
 
   async commitReady(id, runId, patch, renditions, audioTracks, completion) {
-    const result = await db.transaction(async (tx) => {
-      const [updated] = await tx
-        .update(clip)
-        .set({
-          ...sourcePatchToColumns(patch),
-          ...thumbPatchToColumns(patch),
-          ...clearedStageColumns,
-          status: "ready",
-          published_at: publishedAtStamp,
-          encode_pipeline: MEDIA_PIPELINE_VERSION,
-          encode_fingerprint: patch.encodeFingerprint,
-          encode_failed_fingerprint: null,
-          encode_generation: completion.targetGeneration,
-          encode_failed_generation: null,
-          encode_progress: 100,
-          ...completeRequestColumns(completion),
-          encode_run_id: null,
-          encode_locked_at: null,
-          failure_reason: null,
-          updated_at: new Date(),
-        })
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .returning({ id: clip.id })
-      if (!updated) return { committed: false, webhookClaims: 0 }
+    const result = await withUploadActivityStopped(id, () =>
+      db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({
+            sourceKey: clip.source_key,
+            cutKey: clip.cut_key,
+            thumbKey: clip.thumb_key,
+          })
+          .from(clip)
+          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+          .limit(1)
+          .for("update")
+        if (!current) {
+          return {
+            committed: false,
+            webhookClaims: 0,
+            queuedDeletions: 0,
+          }
+        }
 
-      await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
-      await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
-      if (renditions.length > 0) {
-        await tx.insert(clipRendition).values(
-          renditions.map((rendition) => ({
-            clip_id: id,
-            name: rendition.name,
-            is_og: rendition.isOg,
-            height: rendition.height,
-            width: rendition.width,
-            fps: rendition.fps,
-            storage_key: rendition.storageKey,
-            codecs: rendition.codecs,
-            size_bytes: rendition.sizeBytes,
-          })),
+        const previousRenditions = await tx
+          .select({ storageKey: clipRendition.storage_key })
+          .from(clipRendition)
+          .where(eq(clipRendition.clip_id, id))
+        const previousAudioTracks = await tx
+          .select({ storageKey: clipAudioTrack.storage_key })
+          .from(clipAudioTrack)
+          .where(eq(clipAudioTrack.clip_id, id))
+
+        const [updated] = await tx
+          .update(clip)
+          .set({
+            ...sourcePatchToColumns(patch),
+            ...thumbPatchToColumns(patch),
+            ...clearedStageColumns,
+            status: "ready",
+            published_at: publishedAtStamp,
+            encode_pipeline: MEDIA_PIPELINE_VERSION,
+            encode_fingerprint: patch.encodeFingerprint,
+            encode_failed_fingerprint: null,
+            encode_generation: completion.targetGeneration,
+            encode_failed_generation: null,
+            encode_progress: 100,
+            ...completeRequestColumns(completion),
+            encode_run_id: null,
+            encode_locked_at: null,
+            failure_reason: null,
+            updated_at: new Date(),
+          })
+          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+          .returning({ id: clip.id })
+        if (!updated) {
+          return {
+            committed: false,
+            webhookClaims: 0,
+            queuedDeletions: 0,
+          }
+        }
+
+        const mediaIntents = mediaAssetDeletionIntents({
+          keys: [
+            current.sourceKey,
+            current.cutKey,
+            current.thumbKey,
+            ...previousRenditions.map((row) => row.storageKey),
+            ...previousAudioTracks.map((row) => row.storageKey),
+          ],
+          retainedKeys: [
+            patch.sourceKey,
+            patch.cutKey,
+            patch.thumbKey,
+            ...renditions.map((row) => row.storageKey),
+            ...audioTracks.map((row) => row.storageKey),
+          ],
+          reason: "media output replaced",
+          source: { type: "media-run", id: runId },
+        })
+        await enqueueStorageDeletions(mediaIntents, { tx })
+
+        await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
+        await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
+        if (renditions.length > 0) {
+          await tx.insert(clipRendition).values(
+            renditions.map((rendition) => ({
+              clip_id: id,
+              name: rendition.name,
+              is_og: rendition.isOg,
+              height: rendition.height,
+              width: rendition.width,
+              fps: rendition.fps,
+              storage_key: rendition.storageKey,
+              codecs: rendition.codecs,
+              size_bytes: rendition.sizeBytes,
+            })),
+          )
+        }
+        if (audioTracks.length > 0) {
+          await tx.insert(clipAudioTrack).values(
+            audioTracks.map((track) => ({
+              clip_id: id,
+              idx: track.index,
+              kind: track.kind,
+              label: track.label,
+              storage_key: track.storageKey,
+              codecs: track.codecs,
+              size_bytes: track.sizeBytes,
+            })),
+          )
+        }
+        const stagedIntents = await deleteUploadTicketsWithStorageIntents(
+          { type: "clip", id },
+          "media source committed",
+          tx,
         )
-      }
-      if (audioTracks.length > 0) {
-        await tx.insert(clipAudioTrack).values(
-          audioTracks.map((track) => ({
-            clip_id: id,
-            idx: track.index,
-            kind: track.kind,
-            label: track.label,
-            storage_key: track.storageKey,
-            codecs: track.codecs,
-            size_bytes: track.sizeBytes,
-          })),
-        )
-      }
-      const webhookClaims = await claimClipPublishedDeliveries(tx, id)
-      return { committed: true, webhookClaims }
-    })
+        const webhookClaims = await claimClipPublishedDeliveries(tx, id)
+        return {
+          committed: true,
+          webhookClaims,
+          queuedDeletions: mediaIntents.length + stagedIntents,
+        }
+      }),
+    )
+    if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
     wakeClaimedClipPublishedDeliveries(result.webhookClaims)
     return result.committed
   },

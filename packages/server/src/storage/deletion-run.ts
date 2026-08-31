@@ -6,6 +6,8 @@ export interface StorageDeletionRunInput {
   namespace: StorageDeletionNamespace
   key: string
   abortUpload: boolean
+  sourceType: string
+  sourceId: string | null
 }
 
 export interface StorageDeletionRunDependencies {
@@ -13,6 +15,7 @@ export interface StorageDeletionRunDependencies {
   hasLiveReference(
     namespace: StorageDeletionNamespace,
     key: string,
+    source: { type: string; id: string | null },
   ): Promise<boolean>
   signal: AbortSignal
 }
@@ -29,7 +32,12 @@ export async function runStorageDeletion(
   dependencies: StorageDeletionRunDependencies,
 ): Promise<StorageDeletionRunResult> {
   if (dependencies.signal.aborted) return "interrupted"
-  if (await dependencies.hasLiveReference(input.namespace, input.key)) {
+  if (
+    await dependencies.hasLiveReference(input.namespace, input.key, {
+      type: input.sourceType,
+      id: input.sourceId,
+    })
+  ) {
     return "referenced"
   }
   if (dependencies.signal.aborted) return "interrupted"

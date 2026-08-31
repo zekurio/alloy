@@ -12,7 +12,6 @@ import {
 import { wakeClipMediaWorker } from "@alloy/server/queue/clip-media-worker"
 import { runScopedThumbKey } from "@alloy/server/queue/media-asset-keys"
 import { withClipSourceWorkDir } from "@alloy/server/queue/media-run-helpers"
-import { deleteAssetsBestEffort } from "@alloy/server/queue/media-run-workspace"
 import {
   badRequest,
   conflict,
@@ -21,7 +20,14 @@ import {
 } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { requestIp } from "@alloy/server/runtime/request-ip"
+import {
+  mediaAssetDeletionIntents,
+  posterDeletionIntents,
+} from "@alloy/server/storage/deletion-producers"
+import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
+import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { clipThumbnailStorage } from "@alloy/server/storage/index"
+import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
 import { and, eq, isNull } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -61,6 +67,7 @@ export const clipsUploadMediaRoutes = new Hono()
       const row = access.row
 
       if (!row.source_key) return badRequest(c, "Clip has no source media")
+      const sourceKey = row.source_key
       const durationMs = row.source_duration_ms ?? row.duration_ms
       if (durationMs == null || durationMs <= 0) {
         return badRequest(c, "Clip duration is unknown")
@@ -73,43 +80,108 @@ export const clipsUploadMediaRoutes = new Hono()
         row.trim_end_ms ?? durationMs,
       )
 
-      const poster = await extractSourcePoster(row.source_key, {
+      const poster = await extractSourcePoster(sourceKey, {
         atMs: timeMs,
         durationMs,
         allowUniform: true,
       })
       if (!poster) return badRequest(c, "Could not extract a poster frame")
 
-      const thumbKey = runScopedThumbKey(id, crypto.randomUUID())
-      await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
+      const attemptId = crypto.randomUUID()
+      const thumbKey = runScopedThumbKey(id, attemptId)
+      try {
+        await clipThumbnailStorage.put(thumbKey, poster.jpeg, "image/jpeg")
+      } catch (cause) {
+        await enqueueUnownedMediaAssets({
+          keys: [thumbKey],
+          reason: "poster upload failed",
+          source: { type: "poster-request", id: attemptId },
+        })
+        throw cause
+      }
 
       // Guarded on "ready" plus a null encode lease: a reprocess that started
       // meanwhile republishes its own thumbnail at commitReady and would
-      // silently clobber this one.
-      const [updated] = await db
-        .update(clip)
-        .set({
-          thumb_key: thumbKey,
-          thumb_blur_hash: poster.blurHash,
-          thumb_failed_at: null,
-          updated_at: new Date(),
+      // silently clobber this one. Locking and re-reading also serializes two
+      // poster requests so the second one retires the first request's key,
+      // rather than both acting on the stale pre-upload snapshot.
+      let swapped: { accepted: boolean; queuedDeletions: number }
+      try {
+        swapped = await db.transaction(async (tx) => {
+          const [current] = await tx
+            .select({
+              authorId: clip.author_id,
+              sourceKey: clip.source_key,
+              status: clip.status,
+              encodeRunId: clip.encode_run_id,
+              thumbKey: clip.thumb_key,
+            })
+            .from(clip)
+            .where(eq(clip.id, id))
+            .limit(1)
+            .for("update")
+
+          if (
+            !current ||
+            current.authorId !== row.author_id ||
+            current.sourceKey !== sourceKey ||
+            current.status !== "ready" ||
+            current.encodeRunId !== null
+          ) {
+            const intents = posterDeletionIntents({
+              previousKey: null,
+              uploadedKey: thumbKey,
+              accepted: false,
+              attemptId,
+            })
+            await enqueueStorageDeletions(intents, { tx })
+            return { accepted: false, queuedDeletions: intents.length }
+          }
+
+          const [updated] = await tx
+            .update(clip)
+            .set({
+              thumb_key: thumbKey,
+              thumb_blur_hash: poster.blurHash,
+              thumb_failed_at: null,
+              updated_at: new Date(),
+            })
+            .where(
+              and(
+                eq(clip.id, id),
+                eq(clip.author_id, row.author_id),
+                eq(clip.source_key, sourceKey),
+                eq(clip.status, "ready"),
+                isNull(clip.encode_run_id),
+              ),
+            )
+            .returning({ id: clip.id })
+          const accepted = Boolean(updated)
+          const intents = posterDeletionIntents({
+            previousKey: current.thumbKey,
+            uploadedKey: thumbKey,
+            accepted,
+            attemptId,
+          })
+          await enqueueStorageDeletions(intents, { tx })
+          return { accepted, queuedDeletions: intents.length }
         })
-        .where(
-          and(
-            eq(clip.id, id),
-            eq(clip.status, "ready"),
-            isNull(clip.encode_run_id),
-          ),
-        )
-        .returning({ id: clip.id })
-      if (!updated) {
-        await clipThumbnailStorage.delete(thumbKey)
+      } catch (cause) {
+        // The upload is already externally visible. If the swap transaction
+        // rolls back (or its outcome is uncertain), a live-reference recheck
+        // makes this compensating intent safe in either case.
+        await enqueueUnownedMediaAssets({
+          keys: [thumbKey],
+          reason: "poster swap failed",
+          source: { type: "poster-request", id: attemptId },
+        })
+        throw cause
+      }
+      if (swapped.queuedDeletions > 0) wakeStorageDeletionWorker()
+      if (!swapped.accepted) {
         return conflict(c, "Clip is already processing")
       }
 
-      if (row.thumb_key && row.thumb_key !== thumbKey) {
-        await clipThumbnailStorage.delete(row.thumb_key)
-      }
       void publishClipUpsert(row.author_id, id)
 
       return updatedClipResponse(c, id)
@@ -134,6 +206,7 @@ export const clipsUploadMediaRoutes = new Hono()
       const row = access.row
 
       if (!row.source_key) return badRequest(c, "Clip has no source media")
+      const sourceKey = row.source_key
       const durationMs = row.source_duration_ms ?? row.duration_ms
       if (durationMs == null || durationMs <= 0) {
         return badRequest(c, "Clip duration is unknown")
@@ -174,11 +247,10 @@ export const clipsUploadMediaRoutes = new Hono()
       // Fireshare-style eager invalidation: the accepted trim makes existing
       // renditions and stems stale, so drop their records before playback can
       // select them. The previously committed cut keeps the clip's cut_key
-      // until commitSource swaps in the new exact cut. These records are the
-      // only reference the run's stale-asset prune reads (currentAssetKeys),
-      // so capture the storage keys and delete the objects here instead of
-      // leaking them to the orphan GC.
-      const staleAssetKeys = await db.transaction(async (tx) => {
+      // until commitSource swaps in the new exact cut. Snapshot the derived
+      // references and enqueue their durable deletion intents in the same
+      // transaction that invalidates their rows.
+      const trimmed = await db.transaction(async (tx) => {
         const [accepted] = await tx
           .update(clip)
           .set({
@@ -194,6 +266,7 @@ export const clipsUploadMediaRoutes = new Hono()
             and(
               eq(clip.id, id),
               eq(clip.author_id, row.author_id),
+              eq(clip.source_key, sourceKey),
               eq(clip.status, "ready"),
               isNull(clip.encode_run_id),
             ),
@@ -209,6 +282,15 @@ export const clipsUploadMediaRoutes = new Hono()
           .select({ storageKey: clipAudioTrack.storage_key })
           .from(clipAudioTrack)
           .where(eq(clipAudioTrack.clip_id, id))
+        const intents = mediaAssetDeletionIntents({
+          keys: [
+            ...staleRenditions.map((rendition) => rendition.storageKey),
+            ...staleAudioTracks.map((track) => track.storageKey),
+          ],
+          reason: "trim invalidated derived media",
+          source: { type: "clip-trim", id },
+        })
+        await enqueueStorageDeletions(intents, { tx })
         await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
         await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
         await requestClipMedia(id, {
@@ -217,15 +299,11 @@ export const clipsUploadMediaRoutes = new Hono()
           clearFailure: true,
           tx,
         })
-        return [
-          ...staleRenditions.map((rendition) => rendition.storageKey),
-          ...staleAudioTracks.map((track) => track.storageKey),
-        ]
+        return { queuedDeletions: intents.length }
       })
-      if (!staleAssetKeys) return conflict(c, "Clip is already processing")
+      if (!trimmed) return conflict(c, "Clip is already processing")
+      if (trimmed.queuedDeletions > 0) wakeStorageDeletionWorker()
       wakeClipMediaWorker()
-
-      await deleteAssetsBestEffort(staleAssetKeys, "pre-trim derived asset")
 
       void publishClipUpsert(row.author_id, id)
 

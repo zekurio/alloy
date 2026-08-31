@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises"
 
 import { createLogger } from "@alloy/logging"
-import { clipStorageForKey } from "@alloy/server/storage/index"
+import { enqueueUnownedMediaAssets } from "@alloy/server/storage/media-deletion"
 
 import { abortMediaProcessing } from "./media-abort"
 import { makeMediaWorkDir } from "./media-run-helpers"
@@ -19,9 +19,9 @@ export async function withMediaRunWorkspace(
   options: {
     store: MediaStore
     id: string
+    runId: string
     row: MediaRow
     cleanupLabel: string
-    onFailure?: () => Promise<void>
   },
   run: (workspace: MediaRunWorkspace) => Promise<void>,
 ): Promise<void> {
@@ -40,12 +40,12 @@ export async function withMediaRunWorkspace(
     await run({ workDir, uploadedKeys, retainedKeys })
   } catch (err) {
     await retainRowAssetKeys(options.store, options.id, retainedKeys)
-    await deleteAssetsBestEffort(
-      new Set(uploadedKeys),
-      "failed media processing asset",
+    await enqueueUnownedMediaAssets({
+      keys: new Set(uploadedKeys),
       retainedKeys,
-    )
-    if (options.onFailure) await options.onFailure()
+      reason: "failed media processing asset",
+      source: { type: "media-run", id: options.runId },
+    })
     throw err
   } finally {
     await rm(workDir, { recursive: true, force: true }).catch((err) => {
@@ -68,31 +68,10 @@ export async function ensureStillPresent(
   throw abortMediaProcessing()
 }
 
-export async function pruneStaleAssets(
-  row: Pick<MediaRow, "sourceKey" | "cutKey" | "thumbKey">,
-  previousDerivedKeys: readonly string[],
-  retainedKeys: Iterable<string>,
-): Promise<void> {
-  const retained = new Set(retainedKeys)
-  const previousKeys = new Set([
-    row.sourceKey,
-    row.cutKey,
-    row.thumbKey,
-    ...previousDerivedKeys,
-  ])
-  previousKeys.delete(null)
-
-  await deleteAssetsBestEffort(
-    [...previousKeys].filter((key): key is string => key !== null),
-    "stale recording asset",
-    retained,
-  )
-}
-
 /**
  * A competing run may have published while this run was failing; never delete
- * whatever the row currently points at. Best-effort: if the read fails,
- * uploadedKeys are run-scoped, so deleting them is safe regardless.
+ * whatever the row currently points at. If the read fails, uploaded keys are
+ * still safe to enqueue because every generated key is scoped to this run.
  */
 async function retainRowAssetKeys(
   store: MediaStore,
@@ -109,23 +88,4 @@ async function retainRowAssetKeys(
   } catch (err) {
     logger.warn(`failed to retain row asset keys for ${id}:`, err)
   }
-}
-
-/** Best-effort storage deletion for keys no row references anymore. */
-export async function deleteAssetsBestEffort(
-  keys: Iterable<string>,
-  label: string,
-  retainedKeys?: ReadonlySet<string>,
-): Promise<void> {
-  await Promise.all(
-    [...keys]
-      .filter((key) => !retainedKeys?.has(key))
-      .map(async (key) => {
-        try {
-          await clipStorageForKey(key).delete(key)
-        } catch (err) {
-          logger.warn(`failed to delete ${label} ${key}:`, err)
-        }
-      }),
-  )
 }

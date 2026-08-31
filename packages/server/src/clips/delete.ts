@@ -2,7 +2,7 @@ import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { withClipMediaStopped } from "@alloy/server/queue/clip-media-worker"
 import { clipStorageDeletionIntents } from "@alloy/server/storage/deletion-producers"
-import { enqueueStorageDeletion } from "@alloy/server/storage/deletion-store"
+import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
@@ -61,9 +61,7 @@ export async function deleteClipRowAndAssets(
           renditionKeys: renditionRows.map((rendition) => rendition.storageKey),
           audioTrackKeys: audioTrackRows.map((track) => track.storageKey),
         })
-        for (const intent of assetIntents) {
-          await enqueueStorageDeletion(intent, { tx })
-        }
+        await enqueueStorageDeletions(assetIntents, { tx })
         const stagedIntents = await deleteUploadTicketsWithStorageIntents(
           { type: "clip", id: row.id },
           `clip ${row.id} deleted`,

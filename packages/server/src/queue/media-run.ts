@@ -1,5 +1,4 @@
 import { normalizeBlurHash, type TranscodingConfig } from "@alloy/contracts"
-import { createLogger } from "@alloy/logging"
 import {
   encodeFingerprint,
   expectedLadder,
@@ -7,11 +6,6 @@ import {
 } from "@alloy/server/media/encode-fingerprint"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
 import { join } from "@alloy/server/runtime/path"
-import { deleteStagedUpload } from "@alloy/server/uploads/staged"
-import {
-  cleanupTickets,
-  selectVideoTicketKey,
-} from "@alloy/server/uploads/tickets"
 
 import { abortMediaProcessing } from "./media-abort"
 import {
@@ -39,7 +33,6 @@ import {
 } from "./media-run-stems"
 import {
   ensureStillPresent,
-  pruneStaleAssets,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
 import type { MediaCompletion, MediaRow, MediaStore } from "./media-store"
@@ -48,8 +41,6 @@ export {
   encodeProgressTotalCost,
 } from "./media-encode-progress"
 export { runThumbnailBackfill } from "./media-thumbnail-backfill"
-
-const logger = createLogger("media-worker")
 
 /**
  * Run the media pipeline for one leased clip. Downloads the source, applies a
@@ -67,19 +58,13 @@ export async function runMediaProcessing(
     completion: MediaCompletion
   },
 ): Promise<void> {
-  let sourcePublishedForRetry = false
   await withMediaRunWorkspace(
     {
       store,
       id,
+      runId,
       row,
       cleanupLabel: "media processing",
-      onFailure: async () => {
-        if (!sourcePublishedForRetry) return
-        await deleteStagedUpload(
-          await selectVideoTicketKey({ type: store.target, id }),
-        )
-      },
     },
     async (workspace) => {
       await runPipelineInWorkDir({
@@ -92,9 +77,8 @@ export async function runMediaProcessing(
         completion: options.completion,
         workDir: workspace.workDir,
         uploadedKeys: workspace.uploadedKeys,
-        retainSourceAsset: (asset, publishedByRun) => {
+        retainSourceAsset: (asset) => {
           workspace.retainedKeys.add(asset.storageKey)
-          if (publishedByRun) sourcePublishedForRetry = true
         },
         retainPublishedKey: (key) => workspace.retainedKeys.add(key),
       })
@@ -124,7 +108,7 @@ async function runPipelineInWorkDir({
   completion: MediaCompletion
   workDir: string
   uploadedKeys: string[]
-  retainSourceAsset: (asset: Asset, publishedByRun: boolean) => void
+  retainSourceAsset: (asset: Asset) => void
   retainPublishedKey: (key: string) => void
 }): Promise<void> {
   const sourceContentType = row.sourceContentType
@@ -211,8 +195,8 @@ async function runPipelineInWorkDir({
     sourcePath,
     sourceContentType,
     probe: sourceProbe,
+    uploadedKeys,
   })
-  if (!row.sourceKey) uploadedKeys.push(sourceAsset.storageKey)
 
   const sourcePatch = {
     sourceKey: sourceAsset.storageKey,
@@ -233,7 +217,7 @@ async function runPipelineInWorkDir({
   }
   if (!(await store.commitSource(id, runId, sourcePatch)))
     throw abortMediaProcessing()
-  retainSourceAsset(sourceAsset, !row.sourceKey)
+  retainSourceAsset(sourceAsset)
   if (cut.key) retainPublishedKey(cut.key)
   progress.complete(SOURCE_PHASE_COST)
 
@@ -323,7 +307,6 @@ async function runPipelineInWorkDir({
     : fingerprintFacts
 
   await ensureStillPresent(store, id, runId, signal)
-  const previousAssets = await store.currentAssetKeys(id)
   const committed = await store.commitReady(
     id,
     runId,
@@ -341,31 +324,6 @@ async function runPipelineInWorkDir({
     completion,
   )
   if (!committed) throw abortMediaProcessing()
-  // The row now points at the newly published assets. Any previous asset that
-  // was not retained is orphaned; prune it best-effort after publish.
-  await pruneStaleAssets(
-    row,
-    [
-      ...(previousAssets?.renditionKeys ?? []),
-      ...(previousAssets?.audioTrackKeys ?? []),
-    ],
-    [
-      sourceAsset.storageKey,
-      ...(cut.key ? [cut.key] : []),
-      ...renditions.map((rendition) => rendition.storageKey),
-      ...readyAudioTracks.map((track) => track.storageKey),
-      ...(thumbKey ? [thumbKey] : []),
-    ],
-  )
-  await cleanupTickets(
-    { type: store.target, id },
-    "completed staged upload",
-  ).catch((cause: unknown) =>
-    logger.error(
-      `failed to clean completed ${store.target} upload ${id}:`,
-      cause,
-    ),
-  )
   progress.complete(FINALIZE_PHASE_COST)
   store.publishUpsert(row.authorId, id)
 }

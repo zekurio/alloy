@@ -9,6 +9,7 @@ import {
   validateStorageKey,
 } from "./deletion-policy"
 import {
+  activeRunBlocksStorageDeletion,
   clipStorageKeyClipId,
   stableThumbnailClipId,
 } from "./deletion-references"
@@ -77,7 +78,13 @@ test("enqueue metadata is normalized and abort defaults off", () => {
 test("a live reference prevents both upload abort and object deletion", async () => {
   const calls: string[] = []
   const result = await runStorageDeletion(
-    { namespace: "clips", key: "uploads/id/source.mp4", abortUpload: true },
+    {
+      namespace: "clips",
+      key: "uploads/id/source.mp4",
+      abortUpload: true,
+      sourceType: "upload-ticket",
+      sourceId: "ticket-id",
+    },
     {
       storage: fakeStorage(calls),
       hasLiveReference: async () => true,
@@ -91,7 +98,13 @@ test("a live reference prevents both upload abort and object deletion", async ()
 test("staged cleanup aborts upload state before deleting the object", async () => {
   const calls: string[] = []
   const result = await runStorageDeletion(
-    { namespace: "clips", key: "uploads/id/source.mp4", abortUpload: true },
+    {
+      namespace: "clips",
+      key: "uploads/id/source.mp4",
+      abortUpload: true,
+      sourceType: "upload-ticket",
+      sourceId: "ticket-id",
+    },
     {
       storage: fakeStorage(calls),
       hasLiveReference: async () => false,
@@ -110,7 +123,13 @@ test("shutdown after upload abort leaves the durable object intent", async () =>
   const controller = new AbortController()
   const storage = fakeStorage(calls, () => controller.abort())
   const result = await runStorageDeletion(
-    { namespace: "clips", key: "uploads/id/source.mp4", abortUpload: true },
+    {
+      namespace: "clips",
+      key: "uploads/id/source.mp4",
+      abortUpload: true,
+      sourceType: "upload-ticket",
+      sourceId: "ticket-id",
+    },
     {
       storage,
       hasLiveReference: async () => false,
@@ -140,6 +159,31 @@ test("run-scoped objects are attributed only to their exact clip shard", () => {
     null,
   )
   assert.equal(clipStorageKeyClipId(`11/eb/${id}/nested/file.mp4`), null)
+})
+
+test("a media run may retire its own unreferenced keys without active-run deferral", () => {
+  const runId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+  assert.equal(
+    activeRunBlocksStorageDeletion(runId, {
+      type: "media-run",
+      id: runId.toUpperCase(),
+    }),
+    false,
+  )
+  assert.equal(
+    activeRunBlocksStorageDeletion(runId, {
+      type: "media-run",
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    }),
+    true,
+  )
+  assert.equal(
+    activeRunBlocksStorageDeletion(runId, {
+      type: "poster-request",
+      id: runId,
+    }),
+    true,
+  )
 })
 
 function fakeStorage(calls: string[], afterAbort?: () => void): StorageDriver {

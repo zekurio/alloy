@@ -61,6 +61,7 @@ export async function resolveSourceAsset(options: {
   sourcePath: string
   sourceContentType: AcceptedContentType
   probe: MediaProbe
+  uploadedKeys: string[]
 }): Promise<SourceAsset> {
   if (options.row.sourceKey) {
     return {
@@ -74,9 +75,13 @@ export async function resolveSourceAsset(options: {
       audioCodec: options.probe.audioCodec,
     }
   }
+  const sourceKey = runScopedSourceKey(options.id, options.runId)
+  // Register before IO so a throwing driver cannot leave an untracked partial
+  // object. Deleting a key that was never created remains idempotent.
+  options.uploadedKeys.push(sourceKey)
   return publishOriginalSource({
     sourcePath: options.sourcePath,
-    sourceKey: runScopedSourceKey(options.id, options.runId),
+    sourceKey,
     contentType: options.sourceContentType,
     probe: options.probe,
   })

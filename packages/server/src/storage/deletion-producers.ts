@@ -1,6 +1,8 @@
 import type { StorageDeletionInput } from "@alloy/server/storage/deletion-policy"
 import { clipAssetKey } from "@alloy/server/storage/driver"
 
+import { clipKeyDeletionNamespace } from "./clip-key"
+
 export interface ClipStorageDeletionSnapshot {
   clipId: string
   sourceKey: string | null
@@ -69,6 +71,44 @@ export function stagedUploadDeletionIntent(input: {
     reason: input.reason,
     source: input.source,
   }
+}
+
+export function mediaAssetDeletionIntents(input: {
+  keys: Iterable<string | null>
+  retainedKeys?: Iterable<string | null>
+  reason: string
+  source: { type: string; id?: string | null }
+}): StorageDeletionInput[] {
+  const retained = new Set(
+    [...(input.retainedKeys ?? [])]
+      .filter((key): key is string => key !== null)
+      .map((key) => key.toLowerCase()),
+  )
+  const intents: StorageDeletionInput[] = []
+  for (const key of input.keys) {
+    if (!key || retained.has(key.toLowerCase())) continue
+    intents.push({
+      namespace: clipKeyDeletionNamespace(key),
+      key,
+      reason: input.reason,
+      source: input.source,
+    })
+  }
+  return deduplicateDeletionIntents(intents)
+}
+
+export function posterDeletionIntents(input: {
+  previousKey: string | null
+  uploadedKey: string
+  accepted: boolean
+  attemptId: string
+}): StorageDeletionInput[] {
+  return mediaAssetDeletionIntents({
+    keys: [input.accepted ? input.previousKey : input.uploadedKey],
+    retainedKeys: input.accepted ? [input.uploadedKey] : [],
+    reason: input.accepted ? "poster replaced" : "poster update rejected",
+    source: { type: "poster-request", id: input.attemptId },
+  })
 }
 
 function deduplicateDeletionIntents(
