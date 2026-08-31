@@ -42,5 +42,5 @@ export {
   clipAssetKey,
   gameAssetKey,
   userAssetKey,
-  versionedUserAssetKey,
+  versionedAssetKey,
 } from "./driver"

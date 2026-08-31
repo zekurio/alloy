@@ -5,6 +5,7 @@ import { user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
+import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import {
   cancelStorageDeletion,
   enqueueStorageDeletion,
@@ -12,14 +13,13 @@ import {
 } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
-import { userStorage, versionedUserAssetKey } from "@alloy/server/storage/index"
+import { userStorage, versionedAssetKey } from "@alloy/server/storage/index"
 import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
 import { eq, getTableColumns, sql } from "drizzle-orm"
 import sharp from "sharp"
 
 import { toPublicUser } from "../routes/users-helpers"
 import {
-  prewriteUserAssetDeletionIntent,
   userAssetConditionalUploadMatches,
   userAssetDeletionIntents,
 } from "./user-asset-deletion"
@@ -112,12 +112,12 @@ export async function uploadUserAsset(input: {
   }
 
   const attemptId = randomUUID()
-  const key = versionedUserAssetKey(input.userId, input.role, attemptId)
+  const key = versionedAssetKey(input.userId, input.role, attemptId)
   let wakeAfterWrite = false
   try {
     return await withStorageObjectWriteActivity("assets", key, async () => {
       await enqueueStorageDeletion(
-        prewriteUserAssetDeletionIntent({ key, attemptId }),
+        prewriteAssetDeletionIntent({ key, attemptId }),
         { runAt: new Date(Date.now() + PREWRITE_DELETION_DELAY_MS) },
       )
 
@@ -143,7 +143,7 @@ export async function uploadUserAsset(input: {
               .for("update")
             if (!locked) {
               await enqueueStorageDeletion(
-                prewriteUserAssetDeletionIntent({
+                prewriteAssetDeletionIntent({
                   key,
                   reason: "user row missing after asset upload",
                   attemptId,
@@ -165,7 +165,7 @@ export async function uploadUserAsset(input: {
               )
             ) {
               await enqueueStorageDeletion(
-                prewriteUserAssetDeletionIntent({
+                prewriteAssetDeletionIntent({
                   key,
                   reason: "conditional user asset upload rejected",
                   attemptId,
@@ -191,7 +191,7 @@ export async function uploadUserAsset(input: {
               .returning()
             if (!updated) {
               await enqueueStorageDeletion(
-                prewriteUserAssetDeletionIntent({
+                prewriteAssetDeletionIntent({
                   key,
                   reason: "user asset update rejected",
                   attemptId,
@@ -291,7 +291,7 @@ async function enqueueUserAssetCleanupNow(input: {
   attemptId: string
 }): Promise<void> {
   await db.transaction(async (tx) => {
-    await enqueueStorageDeletion(prewriteUserAssetDeletionIntent(input), {
+    await enqueueStorageDeletion(prewriteAssetDeletionIntent(input), {
       tx,
       runAt: new Date(),
     })

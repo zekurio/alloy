@@ -6,6 +6,7 @@ import {
   clipStorageDeletionIntents,
   mediaAssetDeletionIntents,
   posterDeletionIntents,
+  prewriteAssetDeletionIntent,
   stagedUploadDeletionIntent,
 } from "./deletion-producers"
 
@@ -99,6 +100,18 @@ test("staged upload deletion always aborts resumable state", () => {
       abortUpload: true,
       reason: "upload cancelled",
       source: { type: "upload-ticket", id: "ticket-id" },
+    },
+  )
+})
+
+test("asset prewrites reserve cleanup under the upload attempt", () => {
+  assert.deepEqual(
+    prewriteAssetDeletionIntent({ key: "asset.webp", attemptId: "attempt" }),
+    {
+      namespace: "assets",
+      key: "asset.webp",
+      reason: "pending asset upload",
+      source: { type: "storage-prewrite", id: "attempt" },
     },
   )
 })

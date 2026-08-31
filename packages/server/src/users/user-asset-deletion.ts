@@ -72,21 +72,3 @@ export function userAssetDeletionIntents(input: {
   }
   return [...intents.values()]
 }
-
-/**
- * Reserve a unique object key before the physical write begins. The deletion
- * coordinator treats a later authoritative DB reference as successful
- * adoption and completes this reservation without touching storage.
- */
-export function prewriteUserAssetDeletionIntent(input: {
-  key: string
-  attemptId: string
-  reason?: string
-}): StorageDeletionInput {
-  return {
-    namespace: "assets",
-    key: input.key,
-    reason: input.reason ?? "pending user asset upload",
-    source: { type: "storage-prewrite", id: input.attemptId },
-  }
-}
