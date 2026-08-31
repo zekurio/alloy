@@ -79,7 +79,7 @@ export function ProfileClipsSection({
   return (
     <section>
       {showToolbar ? (
-        <PageToolbar rail={false} className="-mt-4 !mb-2 sm:-mt-6">
+        <PageToolbar rail={false} className="-mt-4 sm:-mt-6">
           <ClipsFilterBar
             username={username}
             tab={tab}
