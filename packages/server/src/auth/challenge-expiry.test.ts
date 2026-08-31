@@ -71,6 +71,29 @@ test("an idle coordinator runs at the indexed future deadline", async () => {
   await worker.stop()
 })
 
+test("an empty expiry store is periodically reconciled", async () => {
+  const reconciled = deferred<void>()
+  let deleteCalls = 0
+  const worker = coordinator(
+    {
+      async deleteExpiredBatch() {
+        deleteCalls += 1
+        if (deleteCalls === 2) reconciled.resolve()
+        return 0
+      },
+      async selectNextExpiry() {
+        return null
+      },
+    },
+    { reconciliationIntervalMs: 15 },
+  )
+
+  worker.start()
+  await reconciled.promise
+  assert.equal(deleteCalls, 2)
+  await worker.stop()
+})
+
 test("a wake preempts a later deadline", async () => {
   const firstIdle = deferred<void>()
   const delivered = deferred<void>()
@@ -219,6 +242,7 @@ function coordinator(
   store: ExpiryStore,
   overrides: {
     batchSize?: number
+    reconciliationIntervalMs?: number
     errorRetryMs?: number
     onError?: (cause: unknown) => void
   } = {},
@@ -227,7 +251,7 @@ function coordinator(
     store,
     batchSize: overrides.batchSize ?? 500,
     errorRetryMs: overrides.errorRetryMs,
-    reconciliationIntervalMs: 60_000,
+    reconciliationIntervalMs: overrides.reconciliationIntervalMs ?? 60_000,
     onError: overrides.onError ?? ((cause) => assert.fail(String(cause))),
   })
 }
