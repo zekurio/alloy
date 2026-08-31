@@ -11,9 +11,11 @@ import {
 import { useCallback } from "react"
 
 import { api } from "./api"
+import { clipEncodingActive } from "./clip-encoding"
 import {
   adjustClipCountsInCaches,
   type ClipsSnapshot,
+  findClipInCaches,
   invalidateClipCaches,
   patchClipInCaches,
   removeClipDetailFromCache,
@@ -53,9 +55,7 @@ export function clipDetailQueryOptions(
     refetchInterval: (query) => {
       const row = query.state.data
       if (!row) return false
-      return row.status === "processing" || row.encodeProgress < 100
-        ? 2500
-        : false
+      return clipEncodingActive(row) ? 2500 : false
     },
     // Keep the previous clip visible while the next one loads so
     // route-driven modal navigation feels continuous.
@@ -177,30 +177,44 @@ export function useTrimClipMutation() {
 export function useReEncodeClipMutation() {
   const qc = useQueryClient()
 
-  return useMutation<ClipRow, Error, { clipId: string }, ClipsSnapshot>({
+  return useMutation<
+    ClipRow,
+    Error,
+    { clipId: string },
+    Partial<ClipRow> | null
+  >({
     mutationFn: ({ clipId }) => api.clips.reEncode(clipId),
     onMutate: async ({ clipId }) => {
       await qc.cancelQueries({ queryKey: clipKeys.all })
-      const snap = snapshotClips(qc)
-      // Only a failed clip visibly changes state. A ready clip stays playable
-      // from its committed renditions while it re-encodes, so leave its player
-      // alone rather than flashing it into a "preparing" placeholder.
-      const current = qc.getQueryData<ClipRow>(clipKeys.detail(clipId))
-      if (current?.status === "failed") {
-        patchClipInCaches(qc, clipId, {
-          status: "processing",
-          encodeProgress: 0,
-          encodeStage: null,
-          encodeTier: null,
-          encodeTierIndex: null,
-          encodeTierCount: null,
-          failureReason: null,
-        })
+      // A ready clip remains playable from its committed media. encodeActive
+      // exposes the background work without overloading its publication state.
+      const current = findClipInCaches(qc, clipId)
+      if (!current) return null
+
+      const previous: Partial<ClipRow> = {
+        status: current.status,
+        encodeActive: current.encodeActive,
+        encodeProgress: current.encodeProgress,
+        encodeStage: current.encodeStage,
+        encodeTier: current.encodeTier,
+        encodeTierIndex: current.encodeTierIndex,
+        encodeTierCount: current.encodeTierCount,
+        failureReason: current.failureReason,
       }
-      return snap
+      patchClipInCaches(qc, clipId, {
+        status: current.status === "failed" ? "processing" : current.status,
+        encodeActive: true,
+        encodeProgress: 0,
+        encodeStage: null,
+        encodeTier: null,
+        encodeTierIndex: null,
+        encodeTierCount: null,
+        failureReason: null,
+      })
+      return previous
     },
-    onError: (cause, _vars, context) => {
-      if (context) restoreClips(qc, context)
+    onError: (cause, { clipId }, previous) => {
+      if (previous) patchClipInCaches(qc, clipId, previous)
       toast.error(errorMessage(cause, t("Couldn't start re-encode")))
     },
     onSuccess: (row) => {

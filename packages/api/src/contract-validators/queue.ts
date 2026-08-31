@@ -52,6 +52,12 @@ function validateQueueClip(value: ApiJsonInput): QueueClip {
     100,
     "Invalid queue response: encodeProgress must be an integer between 0 and 100",
   )
+  if (row.encodeActive !== undefined) {
+    validateBoolean(
+      row.encodeActive,
+      "Invalid queue response: encodeActive must be boolean",
+    )
+  }
   validateQueueStageFields(row)
   validateNullableString(
     row.failureReason,

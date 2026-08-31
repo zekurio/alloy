@@ -1,6 +1,7 @@
 import {
   parseQueueEventPayload,
   parseQueueSnapshotPayload,
+  type ClipRow,
   type QueueClip,
   type QueueEvent,
   uploadQueueStreamUrl,
@@ -8,6 +9,8 @@ import {
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 
+import { clipEncodingActive } from "./clip-encoding"
+import { invalidateClipCaches, patchClipInCaches } from "./clip-query-cache"
 import { clipKeys } from "./clip-query-keys"
 import { apiOrigin } from "./env"
 import { bindEventSourceListeners } from "./event-source-listeners"
@@ -55,6 +58,30 @@ export function removeUploadQueueClip(
   return applyUploadQueueEvent(prev, { type: "remove", id: clipId })
 }
 
+function queueClipPatch(row: QueueClip): Partial<ClipRow> {
+  return {
+    status: row.status,
+    encodeActive: row.encodeActive,
+    encodeProgress: row.encodeProgress,
+    encodeStage: row.encodeStage,
+    encodeTier: row.encodeTier,
+    encodeTierIndex: row.encodeTierIndex,
+    encodeTierCount: row.encodeTierCount,
+    failureReason: row.failureReason,
+  }
+}
+
+function syncQueueClipCaches(
+  queryClient: QueryClient,
+  previous: QueueClip | undefined,
+  current: QueueClip,
+): boolean {
+  patchClipInCaches(queryClient, current.id, queueClipPatch(current))
+  return Boolean(
+    previous && clipEncodingActive(previous) && !clipEncodingActive(current),
+  )
+}
+
 function bindUploadQueueStream(input: {
   source: EventSource
   queryClient: QueryClient
@@ -67,7 +94,16 @@ function bindUploadQueueStream(input: {
       setInitialError(true)
       return
     }
+    const previous = queryClient.getQueryData<QueueClip[]>(clipKeys.queue())
+    const previousById = new Map(previous?.map((row) => [row.id, row]))
+    let completed = false
+    for (const row of snapshot) {
+      completed =
+        syncQueueClipCaches(queryClient, previousById.get(row.id), row) ||
+        completed
+    }
     queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), snapshot)
+    if (completed) invalidateClipCaches(queryClient)
     setInitialError(false)
   }
 
@@ -77,9 +113,31 @@ function bindUploadQueueStream(input: {
       setInitialError(true)
       return
     }
-    queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (prev) =>
-      applyUploadQueueEvent(prev, event),
+    const previousQueue = queryClient.getQueryData<QueueClip[]>(
+      clipKeys.queue(),
     )
+    const eventClipId =
+      event.type === "upsert"
+        ? event.clip.id
+        : event.type === "progress"
+          ? event.id
+          : null
+    const previous = eventClipId
+      ? previousQueue?.find((row) => row.id === eventClipId)
+      : undefined
+    queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (current) =>
+      applyUploadQueueEvent(current, event),
+    )
+
+    if (event.type === "upsert") {
+      if (syncQueueClipCaches(queryClient, previous, event.clip)) {
+        invalidateClipCaches(queryClient)
+      }
+    } else if (event.type === "progress") {
+      patchClipInCaches(queryClient, event.id, {
+        encodeProgress: event.encodeProgress,
+      })
+    }
   }
 
   return bindEventSourceListeners(
