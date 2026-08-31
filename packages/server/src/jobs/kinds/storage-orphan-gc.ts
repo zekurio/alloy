@@ -10,12 +10,15 @@ import {
 } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
+import { storageDeletionHasLiveReference } from "@alloy/server/storage/deletion-references"
 import {
   clipAssetDir,
   clipAssetKey,
   type StorageDriver,
 } from "@alloy/server/storage/driver"
+import { deleteStorageGcCandidate } from "@alloy/server/storage/gc-candidate-deletion"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
+import { storageObjectWriteIsActive } from "@alloy/server/storage/write-activity"
 import { and, eq, inArray, sql } from "drizzle-orm"
 
 import {
@@ -575,7 +578,7 @@ async function runConfirmedStorageOrphanGc(
   for (const candidate of manifest.candidates) {
     if (ctx.signal.aborted) return
     summary.scanned += 1
-    await deleteManifestCandidate(candidate, summary)
+    await deleteManifestCandidate(candidate, summary, ctx.signal)
   }
   if (ctx.signal.aborted) return
 
@@ -733,15 +736,21 @@ function addManifestCandidate(
 async function deleteManifestCandidate(
   candidate: StorageGcCandidate,
   summary: StorageGcSummary,
+  signal: AbortSignal,
 ): Promise<void> {
   try {
     const entry = manifestEntry(candidate)
-    if (
-      (await classifyCurrentEntry(entry, summary.cutoffAt)) !== candidate.kind
-    ) {
-      return
-    }
-    await entry.storage.delete(entry.key)
+    const namespace = candidate.storage === "clip" ? "clips" : "thumbnails"
+    const result = await deleteStorageGcCandidate(namespace, entry.key, {
+      storage: entry.storage,
+      classifyCurrent: async () =>
+        (await classifyCurrentEntry(entry, summary.cutoffAt)) ===
+        candidate.kind,
+      isWriteActive: storageObjectWriteIsActive,
+      hasLiveReference: storageDeletionHasLiveReference,
+      signal,
+    })
+    if (result !== "deleted") return
     if (candidate.kind === "orphan") {
       summary.deletedOrphanObjects += 1
       return
