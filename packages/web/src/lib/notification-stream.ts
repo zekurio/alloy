@@ -6,7 +6,7 @@ import {
 import { t } from "@alloy/contracts/schema"
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 
 import { apiOrigin } from "./env"
 import { bindEventSourceListeners } from "./event-source-listeners"
@@ -28,13 +28,11 @@ function bindNotificationStream(input: {
   source: EventSource
   queryClient: QueryClient
   navigate: (options: { to: string }) => void
-  setInitialError: (next: boolean) => void
 }) {
-  const { source, queryClient, navigate, setInitialError } = input
+  const { source, queryClient, navigate } = input
   const handleSnapshot = (ev: MessageEvent<string>) => {
     const snapshot = parseSnapshot(ev.data)
     if (!snapshot) return
-    setInitialError(false)
     queryClient.setQueryData(
       notificationKeys.unreadCount(),
       snapshot.unreadCount,
@@ -54,22 +52,17 @@ function bindNotificationStream(input: {
     )
     presentNotification(event.item, navigate)
   }
-  return bindEventSourceListeners(
-    source,
-    { snapshot: handleSnapshot, notification: handleNotification },
-    () => {
-      setInitialError(true)
-    },
-  )
+  return bindEventSourceListeners(source, {
+    snapshot: handleSnapshot,
+    notification: handleNotification,
+  })
 }
 
 export function useNotificationStream({ enabled }: { enabled: boolean }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const [initialError, setInitialError] = useState(false)
   useEffect(() => {
     if (!enabled) return
-    setInitialError(false)
     const source = new EventSource(notificationStreamUrl(apiOrigin()), {
       withCredentials: true,
     })
@@ -77,14 +70,12 @@ export function useNotificationStream({ enabled }: { enabled: boolean }) {
       source,
       queryClient,
       navigate,
-      setInitialError,
     })
     return () => {
       cleanup()
       source.close()
     }
   }, [enabled, navigate, queryClient])
-  return { initialError }
 }
 
 export type { NotificationItem }
