@@ -233,10 +233,9 @@ export class UploadExpiryCoordinator {
         if (signal.aborted) break
         this.#recordFailure(identity)
         this.#onError(
-          new UploadExpiryCandidateError(
-            candidate.kind,
-            candidate.id,
-            toError(cause, "Upload expiry candidate failed"),
+          new Error(
+            `Could not clean expired upload ${candidate.kind}:${candidate.id}`,
+            { cause: toError(cause, "Upload expiry candidate failed") },
           ),
         )
       }
@@ -279,18 +278,6 @@ export class UploadExpiryCoordinator {
   }
 }
 
-export class UploadExpiryCandidateError extends Error {
-  constructor(
-    readonly kind: UploadExpiryCandidateKind,
-    readonly candidateId: string,
-    cause: Error,
-  ) {
-    super(`Could not clean expired upload ${kind}:${candidateId}`, {
-      cause,
-    })
-  }
-}
-
 function candidateIdentity(candidate: UploadExpiryCandidate): string {
   return `${candidate.kind}:${candidate.id}`
 }
@@ -301,22 +288,13 @@ function earlierDate(left: Date | null, right: Date | null): Date | null {
   return left.getTime() <= right.getTime() ? left : right
 }
 
-interface DueRow {
-  kind: UploadExpiryCandidateKind
-  id: string
-  targetId: string
-  deadline: Date
-  scanCutoff: Date
-}
-
 const databaseStore: UploadExpiryStore = {
   async selectDueCandidates(limit, exclusions, signal) {
     if (signal.aborted) return []
-    const result = await client.query<DueRow>(UPLOAD_EXPIRY_DUE_SQL, [
-      limit,
-      exclusions.clipIds,
-      exclusions.ticketIds,
-    ])
+    const result = await client.query<UploadExpiryCandidate>(
+      UPLOAD_EXPIRY_DUE_SQL,
+      [limit, exclusions.clipIds, exclusions.ticketIds],
+    )
     return result.rows
   },
   async selectNextExpiry(exclusions, signal) {
