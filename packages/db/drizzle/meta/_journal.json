@@ -50,6 +50,13 @@
       "when": 1788124174112,
       "tag": "0006_misty_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788129027102,
+      "tag": "0007_left_dreadnoughts",
+      "breakpoints": true
     }
   ]
 }

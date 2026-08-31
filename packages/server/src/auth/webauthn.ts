@@ -41,6 +41,7 @@ const RegistrationPayloadSchema = t.object({
   userId: t.string().optional(),
   username: t.string().optional(),
 })
+const ExistingAccountUserIdSchema = t.string().uuid()
 
 type RegistrationPayload = {
   setupFirstAdmin?: boolean
@@ -82,9 +83,13 @@ async function createChallenge(input: {
   payload: AuthChallengePayload
   ttlMs: number
 }): Promise<{ id: string }> {
+  const parsedUserId = ExistingAccountUserIdSchema.safeParse(
+    input.payload.userId,
+  )
   const [challenge] = await db
     .insert(authChallenge)
     .values({
+      user_id: parsedUserId.success ? parsedUserId.data : null,
       purpose: input.purpose,
       identifier: input.identifier,
       challenge: input.challenge,

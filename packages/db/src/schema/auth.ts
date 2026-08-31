@@ -161,6 +161,9 @@ export const authChallenge = pgTable(
   "auth_challenge",
   {
     id: uuid().primaryKey().defaultRandom(),
+    // Challenges tied to an existing account participate in account deletion.
+    // Sign-up, discoverable authentication, and OAuth sign-in remain null.
+    user_id: uuid().references(() => user.id, { onDelete: "cascade" }),
     purpose: text().notNull(),
     identifier: text().notNull(),
     challenge: text().notNull(),
@@ -169,6 +172,7 @@ export const authChallenge = pgTable(
     created_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
+    index("auth_challenge_user_idx").on(t.user_id),
     // High-churn table swept by `expires_at`; without this the TTL cleanup is a
     // sequential scan on every passkey challenge create.
     index("auth_challenge_expires_at_idx").on(t.expires_at),

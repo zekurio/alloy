@@ -107,6 +107,7 @@ async function startOAuthFlow(input: {
   const [challenge] = await db
     .insert(authChallenge)
     .values({
+      user_id: input.mode === "link" ? (input.userId ?? null) : null,
       purpose: OAUTH_PURPOSE,
       identifier: state,
       challenge: state,

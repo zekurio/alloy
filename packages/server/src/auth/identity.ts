@@ -4,8 +4,13 @@ import { db } from "@alloy/server/db/index"
 import { and, eq, ne, sql } from "drizzle-orm"
 
 import {
+  lockAdminAccessInvariant,
+  withAdminAccessInvariant,
+} from "./admin-access"
+import {
   hasAdminSignInMethodForConfig,
   hasAdminSignInMethodWith,
+  usableSignInConfig,
 } from "./sign-in-config"
 import {
   generateUniqueUsername,
@@ -18,6 +23,7 @@ export {
   unlinkOAuthAccountPreservingSignIn,
   userHasEnabledSignInMethod,
 } from "./identity-sign-in-methods"
+export { lockAdminAccessInvariant, withAdminAccessInvariant }
 
 export function validateUsername(value: string): string {
   return normalizeUsername(value)
@@ -27,8 +33,6 @@ export type AuthTransaction = Parameters<
   Parameters<typeof db.transaction>[0]
 >[0]
 type AuthDbExecutor = typeof db | AuthTransaction
-
-const SETUP_ADVISORY_LOCK = sql`select pg_advisory_xact_lock(hashtext('alloy:first-admin-setup'))`
 
 async function assertUsernameAvailable(
   executor: AuthDbExecutor,
@@ -46,10 +50,7 @@ async function assertUsernameAvailable(
 }
 
 async function hasAdminSignInMethod(): Promise<boolean> {
-  return hasAdminSignInMethodForConfig({
-    passkeyEnabled: configStore.get("passkeyEnabled"),
-    oauthProviders: configStore.get("oauthProviders"),
-  })
+  return hasAdminSignInMethodForConfig(currentUsableSignInConfig())
 }
 
 export async function setupRequired(): Promise<boolean> {
@@ -57,31 +58,75 @@ export async function setupRequired(): Promise<boolean> {
 }
 
 async function hasOtherAdminSignInMethod(
+  executor: AuthDbExecutor,
   excludeUserId: string,
 ): Promise<boolean> {
-  return hasAdminSignInMethodWith(
-    db,
-    {
-      passkeyEnabled: configStore.get("passkeyEnabled"),
-      oauthProviders: configStore.get("oauthProviders"),
-    },
-    { excludeUserId },
-  )
+  return hasAdminSignInMethodWith(executor, currentUsableSignInConfig(), {
+    excludeUserId,
+  })
 }
 
-export async function assertCanRemoveAdmin(
+function currentUsableSignInConfig() {
+  return usableSignInConfig({
+    passkeyEnabled: configStore.get("passkeyEnabled"),
+    oauthProviders: configStore.get("oauthProviders"),
+  })
+}
+
+export async function assertCanRemoveAdminInTransaction(
+  tx: AuthTransaction,
   targetUserId: string,
 ): Promise<void> {
-  const [row] = await db
+  const [row] = await tx
     .select({ role: user.role })
     .from(user)
-    .where(eq(user.id, targetUserId))
+    .where(
+      and(
+        eq(user.id, targetUserId),
+        eq(user.role, "admin"),
+        eq(user.status, "active"),
+      ),
+    )
     .limit(1)
   if (row?.role !== "admin") return
-  if (await hasOtherAdminSignInMethod(targetUserId)) return
+  if (await hasOtherAdminSignInMethod(tx, targetUserId)) return
   throw new Error(
     "Cannot remove the last admin with a sign-in method. Add a sign-in method to another admin first.",
   )
+}
+
+export async function disableUserIdentity(
+  userId: string,
+): Promise<{ disabledAt: Date } | null> {
+  return withAdminAccessInvariant(async (tx) => {
+    const [row] = await tx
+      .select({
+        id: user.id,
+        status: user.status,
+        disabledAt: user.disabled_at,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+      .for("update")
+    if (!row) return null
+
+    if (row.status === "active") {
+      await assertCanRemoveAdminInTransaction(tx, userId)
+    }
+    const disabledAt = row.disabledAt ?? new Date()
+    if (row.status !== "disabled" || row.disabledAt === null) {
+      await tx
+        .update(user)
+        .set({
+          disabled_at: disabledAt,
+          status: "disabled",
+          updated_at: new Date(),
+        })
+        .where(eq(user.id, userId))
+    }
+    return { disabledAt }
+  })
 }
 
 export async function createUserIdentity(input: {
@@ -122,7 +167,7 @@ export async function createRegistrationUserInTransaction(
   const username = validateUsername(input.username)
 
   if (input.setupFirstAdmin) {
-    await tx.execute(SETUP_ADVISORY_LOCK)
+    await lockAdminAccessInvariant(tx)
     if (
       await hasAdminSignInMethodWith(tx, {
         passkeyEnabled: configStore.get("passkeyEnabled"),
