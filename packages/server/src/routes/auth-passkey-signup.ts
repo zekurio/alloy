@@ -1,4 +1,5 @@
 import { userPasskey } from "@alloy/db/auth-schema"
+import { withAdminAccessChange } from "@alloy/server/auth/admin-access"
 import { createRegistrationUserInTransaction } from "@alloy/server/auth/identity"
 import {
   passkeyPublicKey,
@@ -32,26 +33,31 @@ export async function completePasskeySignUp({
   registrationInfo: PasskeyRegistrationInfo
   response: RegistrationResponseJSON
 }) {
-  const row = await db.transaction(async (tx) => {
-    const row = await createRegistrationUserInTransaction(tx, {
-      username: String(payload.username ?? ""),
-      setupFirstAdmin: payload.setupFirstAdmin === true,
-    })
+  const complete = () =>
+    db.transaction(async (tx) => {
+      const row = await createRegistrationUserInTransaction(tx, {
+        username: String(payload.username ?? ""),
+        setupFirstAdmin: payload.setupFirstAdmin === true,
+      })
 
-    await tx.insert(userPasskey).values({
-      user_id: row.id,
-      credential_id: registrationInfo.credential.id,
-      public_key: passkeyPublicKey(registrationInfo.credential.publicKey),
-      counter: registrationInfo.credential.counter,
-      device_type: registrationInfo.credentialDeviceType,
-      backed_up: registrationInfo.credentialBackedUp,
-      transports: serializeTransports(response.response.transports),
-      aaguid: registrationInfo.aaguid,
-      name: `${row.username}'s passkey`,
-    })
+      await tx.insert(userPasskey).values({
+        user_id: row.id,
+        credential_id: registrationInfo.credential.id,
+        public_key: passkeyPublicKey(registrationInfo.credential.publicKey),
+        counter: registrationInfo.credential.counter,
+        device_type: registrationInfo.credentialDeviceType,
+        backed_up: registrationInfo.credentialBackedUp,
+        transports: serializeTransports(response.response.transports),
+        aaguid: registrationInfo.aaguid,
+        name: `${row.username}'s passkey`,
+      })
 
-    return row
-  })
+      return row
+    })
+  const row =
+    payload.setupFirstAdmin === true
+      ? await withAdminAccessChange(complete)
+      : await complete()
 
   return row
 }

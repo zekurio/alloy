@@ -130,6 +130,22 @@ export async function deleteUploadTicketsWithStorageIntents(
   return enqueueDeletedUploadTickets(rows, reason, tx)
 }
 
+/** Atomically detach every residual staged object owned by one account. */
+export async function deleteOwnedUploadTicketsWithStorageIntents(
+  ownerId: string,
+  reason: string,
+  tx: DbTransaction,
+): Promise<number> {
+  const rows = await tx
+    .delete(uploadTicket)
+    .where(eq(uploadTicket.owner_id, ownerId))
+    .returning({
+      id: uploadTicket.id,
+      storageKey: uploadTicket.storage_key,
+    })
+  return enqueueDeletedUploadTickets(rows, reason, tx)
+}
+
 /** Atomically cancel one still-owned upload ticket by its durable identity. */
 export async function deleteUploadTicketWithStorageIntent(
   ticketId: string,

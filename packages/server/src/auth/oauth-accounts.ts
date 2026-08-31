@@ -5,7 +5,10 @@ import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { and, eq } from "drizzle-orm"
 
-import { assertCanRemoveAdmin } from "./identity"
+import {
+  assertCanRemoveAdminInTransaction,
+  withAdminAccessInvariant,
+} from "./identity"
 import { syncOAuthAvatar } from "./oauth-avatar"
 import { defaultOAuthStorageQuota } from "./oauth-profile"
 import type { OAuthProfile, StoredTokens } from "./oauth-types"
@@ -148,27 +151,36 @@ async function syncOAuthUserRole(
   profile: OAuthProfile,
 ): Promise<void> {
   if (profile.role === undefined) return
+  const result = await withAdminAccessInvariant(async (tx) => {
+    const [current] = await tx
+      .select({ role: user.role, status: user.status })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+      .for("update")
+    if (!current || current.role === profile.role) return null
 
-  const [current] = await db
-    .select({ role: user.role })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1)
-  if (!current || current.role === profile.role) return
-
-  if (profile.role !== "admin") {
-    try {
-      await assertCanRemoveAdmin(userId)
-    } catch (cause) {
-      logger.warn("skipped OAuth role demotion:", cause)
-      return
+    if (
+      current.role === "admin" &&
+      current.status === "active" &&
+      profile.role !== "admin"
+    ) {
+      try {
+        await assertCanRemoveAdminInTransaction(tx, userId)
+      } catch (cause) {
+        return { skipped: cause }
+      }
     }
-  }
 
-  await db
-    .update(user)
-    .set({ role: profile.role, updated_at: new Date() })
-    .where(eq(user.id, userId))
+    await tx
+      .update(user)
+      .set({ role: profile.role, updated_at: new Date() })
+      .where(eq(user.id, userId))
+    return null
+  })
+  if (result?.skipped) {
+    logger.warn("skipped OAuth role demotion:", result.skipped)
+  }
 }
 
 async function createOAuthUser(

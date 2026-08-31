@@ -35,6 +35,7 @@ export async function createDesktopLinkCode(
 
   const code = randomBase64Url(32)
   await db.insert(authChallenge).values({
+    user_id: userId,
     purpose: DESKTOP_LINK_PURPOSE,
     identifier: code,
     challenge: codeChallenge,

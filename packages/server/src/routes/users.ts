@@ -4,7 +4,7 @@ import { block, clip, follow } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { createZipStream } from "@alloy/server/archive/zip-stream"
 import { clearSessionCookies } from "@alloy/server/auth/cookies"
-import { assertCanRemoveAdmin } from "@alloy/server/auth/identity"
+import { disableUserIdentity } from "@alloy/server/auth/identity"
 import { requireSession } from "@alloy/server/auth/require-session"
 import {
   deleteAllSessionsForUser,
@@ -17,12 +17,14 @@ import { createNotification } from "@alloy/server/notifications/service"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import {
   accountState,
+  badRequest,
   batchProgress,
   booleanFlag,
 } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage } from "@alloy/server/storage/index"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
+import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
 import { and, eq, or } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
@@ -94,22 +96,26 @@ export const usersRoute = new Hono()
   })
   .post("/me/disable", requireSession, async (c) => {
     const viewerId = c.var.viewerId
-    const now = new Date()
-    await assertCanRemoveAdmin(viewerId)
-    await db
-      .update(user)
-      .set({ disabled_at: now, status: "disabled", updated_at: now })
-      .where(eq(user.id, viewerId))
+    const disabled = await disableUserIdentity(viewerId)
+    const disabledAt = disabled?.disabledAt ?? new Date()
     await deleteAllSessionsForUser(viewerId)
     clearSessionCookies(c)
-    return accountState(c, isoDate(now))
+    return accountState(c, isoDate(disabledAt))
   })
   .post("/me/reactivate", requireAnySession, async (c) => {
-    const now = new Date()
-    await db
-      .update(user)
-      .set({ disabled_at: null, status: "active", updated_at: now })
-      .where(eq(user.id, c.var.viewerId))
+    const reactivated = await accountDeletionState.withInactive(
+      c.var.viewerId,
+      async () => {
+        const now = new Date()
+        await db
+          .update(user)
+          .set({ disabled_at: null, status: "active", updated_at: now })
+          .where(eq(user.id, c.var.viewerId))
+      },
+    )
+    if (!reactivated.ok) {
+      return badRequest(c, "Account deletion is in progress.")
+    }
     return accountState(c, null)
   })
   .get("/me/clips/download", requireSession, async (c) => {

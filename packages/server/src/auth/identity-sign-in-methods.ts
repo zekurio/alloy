@@ -1,7 +1,10 @@
 import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
+import { isOAuthProviderUsable } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import { and, count, eq, inArray, sql } from "drizzle-orm"
+
+import { withAdminAccessChange } from "./admin-access"
 
 type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type AuthExecutor = typeof db | AuthTransaction
@@ -21,7 +24,7 @@ async function countEnabledOAuthAccounts(
 ): Promise<number> {
   const providerIds = configStore
     .get("oauthProviders")
-    .filter((provider) => provider.enabled)
+    .filter((provider) => isOAuthProviderUsable(provider))
     .map((provider) => provider.providerId)
   if (providerIds.length === 0) return 0
 
@@ -90,30 +93,32 @@ export async function deleteUserPasskeyPreservingSignIn(input: {
   userId: string
   passkeyId: string
 }): Promise<"deleted" | "not-found" | "last-sign-in-method"> {
-  return db.transaction(async (tx) => {
-    await lockUserSignInMethods(tx, input.userId)
+  return withAdminAccessChange(() =>
+    db.transaction(async (tx) => {
+      await lockUserSignInMethods(tx, input.userId)
 
-    if (
-      !(await userHasEnabledSignInMethod(input.userId, {
-        excludePasskeyId: input.passkeyId,
-        executor: tx,
-      }))
-    ) {
-      return "last-sign-in-method"
-    }
+      if (
+        !(await userHasEnabledSignInMethod(input.userId, {
+          excludePasskeyId: input.passkeyId,
+          executor: tx,
+        }))
+      ) {
+        return "last-sign-in-method"
+      }
 
-    const [deleted] = await tx
-      .delete(userPasskey)
-      .where(
-        and(
-          eq(userPasskey.id, input.passkeyId),
-          eq(userPasskey.user_id, input.userId),
-        ),
-      )
-      .returning({ id: userPasskey.id })
+      const [deleted] = await tx
+        .delete(userPasskey)
+        .where(
+          and(
+            eq(userPasskey.id, input.passkeyId),
+            eq(userPasskey.user_id, input.userId),
+          ),
+        )
+        .returning({ id: userPasskey.id })
 
-    return deleted ? "deleted" : "not-found"
-  })
+      return deleted ? "deleted" : "not-found"
+    }),
+  )
 }
 
 export async function unlinkOAuthAccountPreservingSignIn(input: {
@@ -121,32 +126,34 @@ export async function unlinkOAuthAccountPreservingSignIn(input: {
   providerId: string
   providerAccountId: string
 }): Promise<"deleted" | "not-found" | "last-sign-in-method"> {
-  return db.transaction(async (tx) => {
-    await lockUserSignInMethods(tx, input.userId)
+  return withAdminAccessChange(() =>
+    db.transaction(async (tx) => {
+      await lockUserSignInMethods(tx, input.userId)
 
-    if (
-      !(await userHasEnabledSignInMethod(input.userId, {
-        excludeAccount: {
-          providerId: input.providerId,
-          providerAccountId: input.providerAccountId,
-        },
-        executor: tx,
-      }))
-    ) {
-      return "last-sign-in-method"
-    }
+      if (
+        !(await userHasEnabledSignInMethod(input.userId, {
+          excludeAccount: {
+            providerId: input.providerId,
+            providerAccountId: input.providerAccountId,
+          },
+          executor: tx,
+        }))
+      ) {
+        return "last-sign-in-method"
+      }
 
-    const [deleted] = await tx
-      .delete(authAccount)
-      .where(
-        and(
-          eq(authAccount.user_id, input.userId),
-          eq(authAccount.provider_id, input.providerId),
-          eq(authAccount.provider_account_id, input.providerAccountId),
-        ),
-      )
-      .returning({ id: authAccount.id })
+      const [deleted] = await tx
+        .delete(authAccount)
+        .where(
+          and(
+            eq(authAccount.user_id, input.userId),
+            eq(authAccount.provider_id, input.providerId),
+            eq(authAccount.provider_account_id, input.providerAccountId),
+          ),
+        )
+        .returning({ id: authAccount.id })
 
-    return deleted ? "deleted" : "not-found"
-  })
+      return deleted ? "deleted" : "not-found"
+    }),
+  )
 }

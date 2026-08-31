@@ -4,13 +4,12 @@ import {
   USERNAME_MIN_LENGTH,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
-import { user, userPasskey } from "@alloy/db/auth-schema"
+import { userPasskey } from "@alloy/db/auth-schema"
 import {
   clearSessionCookies,
   setSessionCookies,
 } from "@alloy/server/auth/cookies"
 import {
-  assertCanRemoveAdmin,
   deleteUserPasskeyPreservingSignIn,
   setupRequired,
   updateUserIdentity,
@@ -26,6 +25,7 @@ import {
   deleteCurrentSession,
   getSession,
   refreshSession,
+  requireAnySession,
   requireSession,
 } from "@alloy/server/auth/session"
 import {
@@ -47,6 +47,7 @@ import {
 } from "@alloy/server/runtime/http-response"
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { requestIp } from "@alloy/server/runtime/request-ip"
+import { deleteUserAccount } from "@alloy/server/users/account-deletion"
 import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
@@ -412,10 +413,9 @@ export const authRoute = new Hono()
       }
     },
   )
-  .delete("/user", requireSession, async (c) => {
+  .delete("/user", requireAnySession, async (c) => {
     try {
-      await assertCanRemoveAdmin(c.var.viewerId)
-      await db.delete(user).where(eq(user.id, c.var.viewerId))
+      await deleteUserAccount(c.var.viewerId)
       clearSessionCookies(c)
       return success(c)
     } catch (cause) {

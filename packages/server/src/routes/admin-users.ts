@@ -2,17 +2,19 @@ import { USER_STATUSES } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user, USER_ROLES } from "@alloy/db/auth-schema"
 import {
-  assertCanRemoveAdmin,
+  assertCanRemoveAdminInTransaction,
   createUserIdentity,
+  withAdminAccessInvariant,
 } from "@alloy/server/auth/identity"
 import { deleteAllSessionsForUser } from "@alloy/server/auth/session"
-import { db } from "@alloy/server/db/index"
 import {
   badRequestFromCause,
   internalServerError,
   notFound,
   success,
 } from "@alloy/server/runtime/http-response"
+import { deleteUserAccount } from "@alloy/server/users/account-deletion"
+import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
 import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -64,31 +66,52 @@ const UserPatch = t
   )
 
 async function updateAdminUser(id: string, patch: t.infer<typeof UserPatch>) {
-  const demoting = patch.role !== undefined && patch.role !== "admin"
   const disabling = patch.status === "disabled"
-  // Both losing admin and being disabled remove the account's admin access, so
-  // guard against locking out the last usable admin.
-  if (demoting || disabling) {
-    await assertCanRemoveAdmin(id)
-  }
+  const mutate = () =>
+    withAdminAccessInvariant(async (tx) => {
+      const [current] = await tx
+        .select({ role: user.role, status: user.status })
+        .from(user)
+        .where(eq(user.id, id))
+        .limit(1)
+        .for("update")
+      if (!current) return null
 
-  const now = new Date()
-  const update: Partial<typeof user.$inferInsert> = { updated_at: now }
-  if (patch.role !== undefined) update.role = patch.role
-  if (patch.status !== undefined) {
-    update.status = patch.status
-    update.disabled_at = patch.status === "disabled" ? now : null
-  }
-  if (patch.storageQuotaBytes !== undefined) {
-    update.storage_quota_bytes = patch.storageQuotaBytes
-  }
+      const nextRole = patch.role ?? current.role
+      const nextStatus = patch.status ?? current.status
+      const losesAdminAccess =
+        current.role === "admin" &&
+        current.status === "active" &&
+        (nextRole !== "admin" || nextStatus !== "active")
+      if (losesAdminAccess) {
+        await assertCanRemoveAdminInTransaction(tx, id)
+      }
 
-  const [updated] = await db
-    .update(user)
-    .set(update)
-    .where(eq(user.id, id))
-    .returning({ id: user.id })
-  if (!updated) return null
+      const now = new Date()
+      const update: Partial<typeof user.$inferInsert> = { updated_at: now }
+      if (patch.role !== undefined) update.role = patch.role
+      if (patch.status !== undefined) {
+        update.status = patch.status
+        update.disabled_at = patch.status === "disabled" ? now : null
+      }
+      if (patch.storageQuotaBytes !== undefined) {
+        update.storage_quota_bytes = patch.storageQuotaBytes
+      }
+
+      const [updated] = await tx
+        .update(user)
+        .set(update)
+        .where(eq(user.id, id))
+        .returning({ id: user.id })
+      return updated ?? null
+    })
+
+  const updated =
+    patch.status === "active"
+      ? await accountDeletionState.withInactive(id, mutate)
+      : { ok: true as const, value: await mutate() }
+  if (!updated.ok) throw new Error("Account deletion is in progress.")
+  if (!updated.value) return null
 
   // A disabled account must not keep live sessions.
   if (disabling) await deleteAllSessionsForUser(id)
@@ -143,13 +166,8 @@ export const adminUsersRoute = new Hono()
   .delete("/users/:id", tbValidator("param", UserIdParam), async (c) => {
     try {
       const { id } = c.req.valid("param")
-      await assertCanRemoveAdmin(id)
-      await deleteAllSessionsForUser(id)
-      const [deleted] = await db
-        .delete(user)
-        .where(eq(user.id, id))
-        .returning({ id: user.id })
-      if (!deleted) return notFound(c, "User not found")
+      const deleted = await deleteUserAccount(id)
+      if (deleted === "not-found") return notFound(c, "User not found")
       return success(c)
     } catch (cause) {
       return badRequestFromCause(c, cause, "Couldn't remove user.")
