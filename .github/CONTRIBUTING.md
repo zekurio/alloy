@@ -53,12 +53,13 @@ Never use npm, yarn, or Bun in this repo.
 
 ## Code Style
 
-Formatting is oxfmt and linting is oxlint (not Prettier/ESLint); TypeScript
-is strict ESM. Don't hand-format — run the tools:
+Vite+ runs oxfmt and oxlint (not Prettier/ESLint); TypeScript is strict ESM.
+Don't hand-format. Run the root commands:
 
 ```bash
 pnpm fmt        # format
 pnpm lint       # lint (type-aware; no-console is an error)
+pnpm test       # discover and run every test
 pnpm typecheck  # tsc --noEmit across packages
 ```
 

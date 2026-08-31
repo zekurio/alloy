@@ -49,7 +49,7 @@ function isTestFrameworkObject(
     const source = definition.parent.source.value
     const name = importedName(definition.node)
     return (
-      (source === "vitest" && name === "vi") ||
+      ((source === "vitest" || source === "vite-plus/test") && name === "vi") ||
       (source === "@jest/globals" && name === "jest")
     )
   })

@@ -17,8 +17,6 @@
     "dist:win": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win dir --x64 --publish never",
     "dist:win:installer": "pnpm prepare:icons && pnpm build:win:release && electron-builder --win nsis --x64 --publish never",
     "preview": "pnpm prepare:assets && pnpm ensure:electron && electron-vite preview",
-    "test": "tsx --test src/main/housekeeping/housekeeping.test.ts src/main/ipc-normalizers.test.ts src/main/app-protocol-policy.test.ts src/main/asset-cache-policy.test.ts src/main/desktop-navigation.test.ts src/main/recording-library-download-policy.test.ts src/main/server-http-contract.test.ts src/main/server-store-state.test.ts src/main/url-policy.test.ts src/main/probe.test.ts",
-    "test:housekeeping": "tsx --test src/main/housekeeping/housekeeping.test.ts",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
@@ -41,7 +39,7 @@
     "png-to-ico": "3.0.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
-    "vite": "8.2.2"
+    "vite": "catalog:"
   },
   "build": {
     "appId": "dev.zekurio.alloy.desktop",

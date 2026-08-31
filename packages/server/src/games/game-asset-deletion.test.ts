@@ -1,9 +1,9 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
 import { GAME_ASSET_PATH_PREFIX } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { versionedAssetKey } from "@alloy/server/storage/driver"
+import { test } from "vite-plus/test"
 
 import {
   GAME_ASSET_ROUTE_KEY_RE,

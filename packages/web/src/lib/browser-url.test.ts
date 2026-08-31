@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
-import test from "node:test"
+
+import { afterEach, test } from "vite-plus/test"
 
 import {
   consumeCurrentQueryParam,
@@ -14,7 +15,7 @@ import {
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window")
 
-test.afterEach(() => {
+afterEach(() => {
   resetRuntimeConfig()
   if (originalWindow)
     Object.defineProperty(globalThis, "window", originalWindow)

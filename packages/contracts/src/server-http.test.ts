@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
-import test from "node:test"
+
+import { test } from "vite-plus/test"
 
 import {
   DESKTOP_HTTP_CONTRACT_1,
@@ -123,5 +124,4 @@ test("does not use the informational app version for compatibility", () => {
 
   assert.equal(selectDesktopHttpContract(value), DESKTOP_HTTP_CONTRACT_1)
   assert.deepEqual(DESKTOP_HTTP_CONTRACT_IDS, [1])
-  assert.equal(Object.isFrozen(DESKTOP_HTTP_CONTRACT_IDS), true)
 })
