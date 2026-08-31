@@ -2,8 +2,9 @@ import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import { withClipMediaStopped } from "@alloy/server/queue/clip-media-worker"
+import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
+import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import { and, eq, inArray, sql } from "drizzle-orm"
 
 export type UploadQuotaResult =
@@ -76,8 +77,8 @@ export async function markUploadFailed(
   clipId: string,
   reason: string,
 ): Promise<void> {
-  const updated = await withClipMediaStopped(clipId, async () => {
-    const [row] = await db
+  const result = await db.transaction(async (tx) => {
+    const [row] = await tx
       .update(clip)
       .set({
         status: "failed",
@@ -107,7 +108,14 @@ export async function markUploadFailed(
         ),
       )
       .returning({ id: clip.id })
-    return Boolean(row)
+    if (!row) return { updated: false, queued: 0 }
+    const queued = await deleteUploadTicketsWithStorageIntents(
+      { type: "clip", id: clipId },
+      `clip upload failed: ${reason}`,
+      tx,
+    )
+    return { updated: true, queued }
   })
-  if (updated) void publishClipUpsert(authorId, clipId)
+  if (result.queued > 0) wakeStorageDeletionWorker()
+  if (result.updated) void publishClipUpsert(authorId, clipId)
 }
