@@ -1,3 +1,6 @@
+ALTER TABLE "webhook_delivery" ADD COLUMN "next_attempt_at" timestamp with time zone DEFAULT now() NOT NULL;--> statement-breakpoint
+CREATE INDEX "webhook_delivery_pending_idx" ON "webhook_delivery" USING btree ("next_attempt_at","created_at") WHERE "webhook_delivery"."status" = 'pending';--> statement-breakpoint
+DELETE FROM "job" WHERE "kind" = 'webhook.deliver';--> statement-breakpoint
 ALTER TABLE "clip" ADD COLUMN "encode_request_id" uuid;--> statement-breakpoint
 ALTER TABLE "clip" ADD COLUMN "encode_request_force" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "clip" ADD COLUMN "encode_requested_at" timestamp with time zone;--> statement-breakpoint
@@ -134,4 +137,47 @@ DELETE FROM "job"
 WHERE "kind" IN ('clip.encode', 'clip.renditions-sweep');--> statement-breakpoint
 CREATE INDEX "clip_encode_request_claim_idx" ON "clip" USING btree ("encode_priority","encode_run_after","encode_requested_at","id") WHERE "clip"."encode_request_id" is not null;--> statement-breakpoint
 CREATE INDEX "clip_encode_generation_claim_idx" ON "clip" USING btree ("encode_generation","id") WHERE "clip"."status" = 'ready' and "clip"."source_key" is not null;--> statement-breakpoint
-CREATE INDEX "clip_encode_active_idx" ON "clip" USING btree ("encode_locked_at") WHERE "clip"."encode_run_id" is not null;
+CREATE INDEX "clip_encode_active_idx" ON "clip" USING btree ("encode_locked_at") WHERE "clip"."encode_run_id" is not null;--> statement-breakpoint
+CREATE TABLE "storage_deletion" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"namespace" text NOT NULL,
+	"storage_key" text NOT NULL,
+	"abort_upload" boolean DEFAULT false NOT NULL,
+	"reason" text NOT NULL,
+	"source_type" text NOT NULL,
+	"source_id" text,
+	"next_attempt_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"attempts" integer DEFAULT 0 NOT NULL,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"last_error" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "storage_deletion_namespace_check" CHECK ("storage_deletion"."namespace" in ('clips', 'thumbnails', 'assets')),
+	CONSTRAINT "storage_deletion_attempts_check" CHECK ("storage_deletion"."attempts" >= 0),
+	CONSTRAINT "storage_deletion_revision_check" CHECK ("storage_deletion"."revision" > 0),
+	CONSTRAINT "storage_deletion_key_check" CHECK (char_length("storage_deletion"."storage_key") between 1 and 2048),
+	CONSTRAINT "storage_deletion_reason_check" CHECK (char_length(btrim("storage_deletion"."reason")) between 1 and 500),
+	CONSTRAINT "storage_deletion_source_type_check" CHECK (char_length(btrim("storage_deletion"."source_type")) between 1 and 100),
+	CONSTRAINT "storage_deletion_source_id_check" CHECK ("storage_deletion"."source_id" is null or char_length(btrim("storage_deletion"."source_id")) between 1 and 500)
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX "storage_deletion_object_idx" ON "storage_deletion" USING btree ("namespace","storage_key");--> statement-breakpoint
+CREATE INDEX "storage_deletion_next_attempt_idx" ON "storage_deletion" USING btree ("next_attempt_at","created_at");--> statement-breakpoint
+ALTER TABLE "auth_challenge" ADD COLUMN "user_id" uuid;--> statement-breakpoint
+UPDATE "auth_challenge" AS "challenge"
+SET "user_id" = "owner"."id"
+FROM "user" AS "owner"
+WHERE "challenge"."user_id" IS NULL
+  AND lower("challenge"."payload"->>'userId') = lower("owner"."id"::text);--> statement-breakpoint
+ALTER TABLE "auth_challenge" ADD CONSTRAINT "auth_challenge_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "auth_challenge_user_idx" ON "auth_challenge" USING btree ("user_id");--> statement-breakpoint
+DELETE FROM "job" WHERE "kind" = 'auth.challenge-prune';--> statement-breakpoint
+CREATE INDEX "notification_retention_read_idx" ON "notification" USING btree ("created_at","id") WHERE "notification"."read_at" is not null;--> statement-breakpoint
+CREATE INDEX "notification_retention_unread_idx" ON "notification" USING btree ("created_at","id") WHERE "notification"."read_at" is null;--> statement-breakpoint
+DELETE FROM "job" WHERE "kind" = 'notification.prune';--> statement-breakpoint
+ALTER TABLE "clip" ADD COLUMN "upload_cleanup_at" timestamp with time zone;--> statement-breakpoint
+CREATE INDEX "clip_pending_upload_cleanup_idx" ON "clip" USING btree ("upload_cleanup_at","id") WHERE "clip"."status" = 'pending' and "clip"."upload_cleanup_at" is not null;--> statement-breakpoint
+DROP INDEX "upload_ticket_expires_idx";--> statement-breakpoint
+DROP INDEX "upload_ticket_used_idx";--> statement-breakpoint
+CREATE INDEX "upload_ticket_unused_expiry_idx" ON "upload_ticket" USING btree ("expires_at","id") WHERE "upload_ticket"."used_at" is null;--> statement-breakpoint
+DELETE FROM "job" WHERE "kind" = 'upload.cleanup';
