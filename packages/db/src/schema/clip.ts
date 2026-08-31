@@ -109,7 +109,7 @@ export const clip = pgTable(
     // exactly once: by commitPlayable/commitReady for clips public when the
     // encode finishes, or by the privacy-flip route for the rest. Feeds and
     // the clip.published webhook key off this, never off created_at.
-    published_at: timestamp(),
+    published_at: timestamp({ withTimezone: true }),
     // Media pipeline version that committed the current renditions; null until
     // the first media run commits.
     encode_pipeline: text(),
