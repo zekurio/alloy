@@ -1,8 +1,5 @@
 import type { AcceptedContentType, UploadTicket } from "@alloy/contracts"
-import { createLogger } from "@alloy/logging"
 import { clipStorage, clipStorageForKey } from "@alloy/server/storage/index"
-
-const logger = createLogger("uploads")
 
 export function stagedSourceKey(
   recordingId: string,
@@ -39,23 +36,6 @@ export async function deleteStagedUpload(key: string | null): Promise<void> {
   const storage = clipStorageForKey(key)
   await storage.abortUpload({ key })
   await storage.delete(key)
-}
-
-export async function deleteStagedUploads(
-  keys: Iterable<string | { key: string | null } | null>,
-  label: string,
-): Promise<void> {
-  await Promise.all(
-    Array.from(keys, async (entry) => {
-      const key = entry instanceof Object ? entry.key : entry
-      if (!key) return
-      try {
-        await deleteStagedUpload(key)
-      } catch (err) {
-        logger.warn(`failed to delete ${label} ${key}:`, err)
-      }
-    }),
-  )
 }
 
 function sourceExtension(contentType: AcceptedContentType): string {

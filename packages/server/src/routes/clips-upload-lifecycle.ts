@@ -59,33 +59,26 @@ type InitiateTransactionResult =
 
 async function cleanupFailedInitiate(
   clipId: string,
-  uploads: Array<{
-    key: string | null
-  }>,
+  uploadKey: string,
 ): Promise<void> {
   let queued = 0
   try {
     queued = await db.transaction(async (tx) => {
-      let intents = 0
-      for (const upload of uploads) {
-        if (!upload.key) continue
-        await enqueueStorageDeletion(
-          stagedUploadDeletionIntent({
-            key: upload.key,
-            reason: "clip initiation failed",
-            source: { type: "clip-initiate", id: clipId },
-          }),
-          { tx },
-        )
-        intents += 1
-      }
-      intents += await deleteUploadTicketsWithStorageIntents(
+      await enqueueStorageDeletion(
+        stagedUploadDeletionIntent({
+          key: uploadKey,
+          reason: "clip initiation failed",
+          source: { type: "clip-initiate", id: clipId },
+        }),
+        { tx },
+      )
+      const ticketIntents = await deleteUploadTicketsWithStorageIntents(
         { type: "clip", id: clipId },
         "clip initiation failed",
         tx,
       )
       await tx.delete(clip).where(eq(clip.id, clipId))
-      return intents
+      return ticketIntents + 1
     })
   } catch (err) {
     logger.warn(`failed to detach clip ${clipId} after initiate failure:`, err)
@@ -282,7 +275,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
             ticket: videoUpload,
           })
         } catch (err) {
-          await cleanupFailedInitiate(clipId, [{ key: uploadKey }])
+          await cleanupFailedInitiate(clipId, uploadKey)
           throw err
         }
       })
@@ -314,9 +307,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
             !sourceContentType ||
             sourceSizeBytes == null
           ) {
-            await markUploadFailed(row.author_id, id, "Upload ticket missing", {
-              ownershipStopped: true,
-            })
+            await markUploadFailed(row.author_id, id, "Upload ticket missing")
             return badRequest(c, "Upload ticket missing")
           }
 
@@ -327,9 +318,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
             expectedBytes: sourceSizeBytes,
           })
           if (!videoTicketOk) {
-            await markUploadFailed(row.author_id, id, "Upload ticket expired", {
-              ownershipStopped: true,
-            })
+            await markUploadFailed(row.author_id, id, "Upload ticket expired")
             return gone(c, "Upload ticket expired")
           }
 
@@ -339,9 +328,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
               row.author_id,
               id,
               "Upload bytes are missing",
-              {
-                ownershipStopped: true,
-              },
             )
             return badRequest(c, "Upload bytes are missing")
           }
@@ -361,14 +347,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
             },
           )
           if (!quotaResult.ok) {
-            await markUploadFailed(
-              row.author_id,
-              id,
-              "Storage quota exceeded",
-              {
-                ownershipStopped: true,
-              },
-            )
+            await markUploadFailed(row.author_id, id, "Storage quota exceeded")
             return c.json(
               {
                 error: "Storage quota exceeded",
@@ -384,7 +363,6 @@ export const clipsUploadLifecycleRoutes = new Hono()
               row.author_id,
               id,
               "Upload size did not match declared size",
-              { ownershipStopped: true },
             )
             return badRequest(c, "Upload size did not match declared size")
           }
@@ -443,9 +421,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
           if ("response" in access) return access.response
           const row = access.row
 
-          await markUploadFailed(row.author_id, id, "Upload failed", {
-            ownershipStopped: true,
-          })
+          await markUploadFailed(row.author_id, id, "Upload failed")
           return success(c)
         }),
       )

@@ -109,20 +109,6 @@ export function selectVideoTicket(target: UploadTarget) {
   return selectTicket(target, "video")
 }
 
-export async function selectTicketKeys(
-  target: UploadTarget,
-): Promise<Array<{ key: string }>> {
-  const tickets = await db
-    .select({
-      storageKey: uploadTicket.storage_key,
-    })
-    .from(uploadTicket)
-    .where(targetMatch(target))
-  return tickets.map((ticket) => ({
-    key: ticket.storageKey,
-  }))
-}
-
 type DeletedUploadTicket = {
   id: string
   storageKey: string
