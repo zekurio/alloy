@@ -124,15 +124,6 @@ export function pendingUploadFinalizationAction(
     : "expired"
 }
 
-export function laterUploadDeadline(
-  current: Date | null,
-  candidate: Date,
-): Date {
-  return current && current.getTime() > candidate.getTime()
-    ? current
-    : candidate
-}
-
 export function uploadTicketCanFinalize(
   ticket: { expiresAt: Date; usedAt: Date | null },
   uploadCleanupAt: Date | null,

@@ -19,7 +19,6 @@ import {
   completedUploadDeadline,
   completedUploadMatches,
   completedUploadPersistenceSatisfied,
-  laterUploadDeadline,
   pendingUploadFinalizationAction,
   pendingUploadCleanupStillDue,
   repairLegacyUploadDeadlines,
@@ -27,7 +26,6 @@ import {
   uploadTicketCanFinalize,
   uploadTicketDeadline,
 } from "./deadline"
-import { uploadOperationGateMode } from "./gate-policy"
 import { selectPreferredUploadTicket } from "./tickets"
 
 test("minted token expiry is the exact initial persisted deadline", () => {
@@ -43,14 +41,6 @@ test("completed bytes receive a full new upload grace period", () => {
     completedUploadDeadline(completedAt, 3_600).toISOString(),
     "2026-08-31T13:00:00.250Z",
   )
-})
-
-test("completion can only move a persisted deadline later", () => {
-  const earlier = new Date("2026-08-31T12:00:00.000Z")
-  const later = new Date("2026-08-31T13:00:00.000Z")
-  assert.equal(laterUploadDeadline(null, earlier), earlier)
-  assert.equal(laterUploadDeadline(earlier, later), later)
-  assert.equal(laterUploadDeadline(later, earlier), later)
 })
 
 test("unused and completed tickets use their respective strict grace", () => {
@@ -80,13 +70,6 @@ test("signed upload tokens expire at the equality boundary", () => {
   assert.equal(uploadTokenIsExpired(100, 99), false)
   assert.equal(uploadTokenIsExpired(100, 100), true)
   assert.equal(uploadTokenIsExpired(100, 101), true)
-})
-
-test("only chunk parts share upload activity; terminal operations stop it", () => {
-  assert.equal(uploadOperationGateMode("part"), "activity")
-  assert.equal(uploadOperationGateMode("single"), "stopped")
-  assert.equal(uploadOperationGateMode("complete"), "stopped")
-  assert.equal(uploadOperationGateMode("cancel"), "stopped")
 })
 
 test("a verified expired token retains payload only for terminal recovery", async () => {

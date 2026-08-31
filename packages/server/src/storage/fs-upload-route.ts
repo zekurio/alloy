@@ -21,10 +21,6 @@ import {
   uploadTicketCanAcceptBytes,
 } from "@alloy/server/uploads/deadline"
 import {
-  uploadOperationGateMode,
-  type UploadGateMode,
-} from "@alloy/server/uploads/gate-policy"
-import {
   deleteUploadTicketWithStorageIntent,
   markUploadTicketUsedAndExtendDeadline,
 } from "@alloy/server/uploads/tickets"
@@ -57,7 +53,7 @@ export const storageRoute = new Hono()
     withResolvedUploadTicket(
       c.req.param("token"),
       ["single"],
-      uploadOperationGateMode("single"),
+      withUploadActivityStopped,
       "terminal",
       async (resolved) => {
         const {
@@ -128,7 +124,7 @@ export const storageRoute = new Hono()
     withResolvedUploadTicket(
       c.req.param("token"),
       ["fs-chunked"],
-      uploadOperationGateMode("part"),
+      withUploadActivity,
       "unused",
       async (resolved) => {
         const partNumber = parsePartNumber(c.req.param("partNumber"))
@@ -164,7 +160,7 @@ export const storageRoute = new Hono()
     withResolvedUploadTicket(
       c.req.param("token"),
       ["fs-chunked"],
-      uploadOperationGateMode("complete"),
+      withUploadActivityStopped,
       "terminal",
       async (resolved) => {
         const { payload, ticket } = resolved
@@ -230,7 +226,7 @@ export const storageRoute = new Hono()
     withResolvedUploadTicket(
       c.req.param("token"),
       ["single", "fs-chunked"],
-      uploadOperationGateMode("cancel"),
+      withUploadActivityStopped,
       "unused",
       async ({ ticket }) => {
         const queued = await db.transaction((tx) =>
@@ -249,14 +245,12 @@ export const storageRoute = new Hono()
 async function withResolvedUploadTicket(
   token: string,
   allowedModes: readonly UploadTokenMode[],
-  gateMode: UploadGateMode,
+  gate: typeof withUploadActivity,
   lookupMode: UploadTicketLookupMode,
   operation: (resolved: ResolvedUploadTicket) => Promise<Response>,
 ): Promise<Response> {
   const decoded = await resolveUploadToken(token, allowedModes)
   if (decoded instanceof Response) return decoded
-  const gate =
-    gateMode === "activity" ? withUploadActivity : withUploadActivityStopped
   return gate(decoded.payload.cid, async () => {
     const resolved = await selectUploadTicket(decoded, lookupMode)
     if (resolved instanceof Response) return resolved
