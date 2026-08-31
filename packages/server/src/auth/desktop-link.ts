@@ -2,7 +2,9 @@ import { t } from "@alloy/contracts/schema"
 import { authChallenge } from "@alloy/db/auth-schema"
 import { db } from "@alloy/server/db/index"
 import { randomBase64Url, sha256Base64Url } from "@alloy/server/runtime/crypto"
-import { and, eq, gt, lt } from "drizzle-orm"
+import { and, eq, gt } from "drizzle-orm"
+
+import { insertAuthChallengeAndWake } from "./challenge-expiry"
 
 /**
  * One-time codes for the desktop browser-login handshake (RFC 8252 loopback).
@@ -15,33 +17,21 @@ const DESKTOP_LINK_PURPOSE = "desktop-link"
 const DESKTOP_LINK_TTL_MS = 2 * 60 * 1000
 const DesktopLinkPayloadSchema = t.object({ userId: t.string() })
 
-export async function deleteExpiredDesktopLinkCodes(): Promise<void> {
-  await db
-    .delete(authChallenge)
-    .where(
-      and(
-        eq(authChallenge.purpose, DESKTOP_LINK_PURPOSE),
-        lt(authChallenge.expires_at, new Date()),
-      ),
-    )
-}
-
 export async function createDesktopLinkCode(
   userId: string,
   codeChallenge: string,
 ): Promise<string> {
-  // Best-effort sweep of abandoned codes, mirroring the OAuth-state pattern.
-  await deleteExpiredDesktopLinkCodes().catch(() => {})
-
   const code = randomBase64Url(32)
-  await db.insert(authChallenge).values({
-    user_id: userId,
-    purpose: DESKTOP_LINK_PURPOSE,
-    identifier: code,
-    challenge: codeChallenge,
-    payload: { userId },
-    expires_at: new Date(Date.now() + DESKTOP_LINK_TTL_MS),
-  })
+  await insertAuthChallengeAndWake(() =>
+    db.insert(authChallenge).values({
+      user_id: userId,
+      purpose: DESKTOP_LINK_PURPOSE,
+      identifier: code,
+      challenge: codeChallenge,
+      payload: { userId },
+      expires_at: new Date(Date.now() + DESKTOP_LINK_TTL_MS),
+    }),
+  )
   return code
 }
 

@@ -1,4 +1,3 @@
-import "./kinds/auth-challenge-retention"
 import "./kinds/job-retention"
 import "./kinds/notification-retention"
 import "./kinds/storage-orphan-gc"

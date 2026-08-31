@@ -2,6 +2,10 @@ import { migrateDatabase } from "@alloy/db"
 import { createLogger } from "@alloy/logging"
 import { serve, type ServerType } from "@hono/node-server"
 
+import {
+  startAuthChallengeExpiryWorker,
+  stopAuthChallengeExpiryWorker,
+} from "./auth/challenge-expiry"
 import { signInConfigError } from "./auth/sign-in-config"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
@@ -70,6 +74,9 @@ try {
   // Physical deletion is likewise durable. Probe the ledger before accepting
   // mutations so a missing migration cannot silently strand cleanup intents.
   await startStorageDeletionWorker()
+  // Auth challenge TTLs use their own indexed deadline coordinator rather
+  // than manufacturing recurring generic jobs.
+  startAuthChallengeExpiryWorker()
 } catch (err) {
   logger.error("failed to start durable background workers:", err)
   process.exit(1)
@@ -108,6 +115,7 @@ const shutdown = () => {
   void Promise.all([
     stopClipMediaWorker(),
     stopStorageDeletionWorker(),
+    stopAuthChallengeExpiryWorker(),
     stopWebhookDeliveryWorker(),
     stopJobs(),
   ])
