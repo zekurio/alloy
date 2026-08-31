@@ -1,11 +1,11 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
 import { createLocalStorageDriver } from "@alloy/ui/lib/local-storage"
 import {
   DEFAULT_THEME_PREFERENCES,
   normalizeThemePreferences,
 } from "@alloy/ui/lib/theme-storage"
+import { test } from "vite-plus/test"
 
 class MemoryStorage implements Storage {
   readonly #values = new Map<string, string>()

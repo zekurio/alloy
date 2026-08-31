@@ -28,6 +28,7 @@ packages/recorder/src/detections/*.generated.json
 .nitro
 .tanstack
 .vite
+.vite-plus
 .vinxi
 
 # Debug

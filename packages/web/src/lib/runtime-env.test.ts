@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
-import test from "node:test"
+
+import { afterEach, test } from "vite-plus/test"
 
 import { apiOrigin, publicOrigin } from "./env"
 import {
@@ -10,7 +11,7 @@ import {
   setRuntimeConfig,
 } from "./runtime-env"
 
-test.afterEach(resetRuntimeConfig)
+afterEach(resetRuntimeConfig)
 
 test("uses the app protocol for desktop API requests", () => {
   const config = createDesktopRuntimeConfig("https://clips.example.test/api")

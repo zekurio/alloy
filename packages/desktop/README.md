@@ -53,7 +53,7 @@ From the repository root:
 ```bash
 pnpm --filter @alloy/desktop dev
 pnpm --filter @alloy/desktop build
-pnpm --filter @alloy/desktop test
+pnpm test packages/desktop
 pnpm --filter @alloy/desktop typecheck
 pnpm --filter @alloy/desktop preview
 ```

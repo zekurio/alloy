@@ -1,5 +1,4 @@
 import assert from "node:assert/strict"
-import test from "node:test"
 
 import {
   ADMIN_JOB_QUEUES,
@@ -9,6 +8,7 @@ import {
   TranscodingConfigSchema,
 } from "@alloy/contracts"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
+import { test } from "vite-plus/test"
 
 import {
   clipIdFromMediaFailureId,
@@ -26,9 +26,10 @@ const facts = {
   audioTrackFingerprint: null,
 }
 
-test("media jobs and their empty queue are retired from the registry contract", () => {
+test("the job registry retains contract 1 while retiring media work", () => {
   const kinds = new Set<string>(JOB_KINDS)
   const queues = new Set<string>(JOB_QUEUES)
+  assert.equal(kinds.has("upload.cleanup"), true)
   assert.equal(kinds.has("clip.encode"), false)
   assert.equal(kinds.has("clip.renditions-sweep"), false)
   assert.equal(queues.has("encode"), false)

@@ -41,11 +41,18 @@ pnpm db:migrate
 pnpm db:push
 pnpm db:studio
 pnpm test
+pnpm test packages/server/src/path/to/file.test.ts
 pnpm verify       # formatting check, lint, and typecheck
 ```
 
-Run `pnpm verify` before completing a code change. The repo uses oxfmt, oxlint,
-strict ESM TypeScript, and `tsc --noEmit`.
+Run `pnpm verify` before completing a code change. Vite+ owns test discovery,
+formatting, and linting through the root `vite.config.ts`; the repo also uses
+strict ESM TypeScript and `tsc --noEmit`.
+
+Add tests only for observable, regression-prone behavior. Do not assert raw SQL
+text, schema layout, private helper composition, or framework behavior. Test
+constants only at released contract boundaries. Prefer one boundary-level test
+over separate tests for each branch.
 
 The recorder builds only on Windows. From `packages/recorder`, check Rust
 changes with `cargo fmt --check` and

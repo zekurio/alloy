@@ -28,7 +28,7 @@ import { authPaths } from "@alloy/api/auth"
 
 ```bash
 pnpm --filter @alloy/api build
-pnpm --filter @alloy/api test
+pnpm test packages/api
 pnpm --filter @alloy/api typecheck
 ```
 

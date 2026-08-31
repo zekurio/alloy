@@ -2,7 +2,6 @@ import assert from "node:assert/strict"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import test from "node:test"
 
 import {
   SERVER_INFO_PRODUCT,
@@ -10,6 +9,7 @@ import {
   ServerInfoSchema,
 } from "@alloy/contracts"
 import { SERVER_HTTP_CONTRACT_1_FIXTURE } from "@alloy/contracts/server-http-fixtures"
+import { test } from "vite-plus/test"
 
 test("serves server info publicly when browse auth is enabled", async () => {
   // Production mode skips the workspace .env file, whose numeric values are
