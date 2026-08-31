@@ -56,8 +56,8 @@ export async function assertUsableVideoTicket(input: {
   const now = new Date()
   const [ticket] = await db
     .select({
-      expiresAt: sql<Date>`${uploadTicket.expires_at} at time zone 'UTC'`,
-      usedAt: sql<Date | null>`${uploadTicket.used_at} at time zone 'UTC'`,
+      expiresAt: uploadTicket.expires_at,
+      usedAt: uploadTicket.used_at,
     })
     .from(uploadTicket)
     .where(
@@ -142,9 +142,9 @@ async function selectTicket(
       storageKey: uploadTicket.storage_key,
       contentType: uploadTicket.content_type,
       expectedBytes: uploadTicket.expected_bytes,
-      expiresAt: sql<Date>`${uploadTicket.expires_at} at time zone 'UTC'`,
-      usedAt: sql<Date | null>`${uploadTicket.used_at} at time zone 'UTC'`,
-      createdAt: sql<Date>`${uploadTicket.created_at} at time zone 'UTC'`,
+      expiresAt: uploadTicket.expires_at,
+      usedAt: uploadTicket.used_at,
+      createdAt: uploadTicket.created_at,
     })
     .from(uploadTicket)
     .where(and(targetMatch(target), eq(uploadTicket.role, role)))

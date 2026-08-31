@@ -24,7 +24,7 @@ import {
   deleteUploadTicketWithStorageIntent,
   markUploadTicketUsedAndExtendDeadline,
 } from "@alloy/server/uploads/tickets"
-import { and, eq, sql } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { decodeUploadToken, UploadPartTooLargeError } from "./fs-driver"
@@ -286,8 +286,8 @@ async function selectUploadTicket(
   const [ticket] = await db
     .select({
       id: uploadTicket.id,
-      expiresAt: sql<Date>`${uploadTicket.expires_at} at time zone 'UTC'`,
-      usedAt: sql<Date | null>`${uploadTicket.used_at} at time zone 'UTC'`,
+      expiresAt: uploadTicket.expires_at,
+      usedAt: uploadTicket.used_at,
     })
     .from(uploadTicket)
     .where(
@@ -344,7 +344,7 @@ async function persistCompletedUpload(ticketId: string): Promise<void> {
   // durably completed the same ticket in the meantime.
   const [refreshed] = await db
     .select({
-      usedAt: sql<Date | null>`${uploadTicket.used_at} at time zone 'UTC'`,
+      usedAt: uploadTicket.used_at,
     })
     .from(uploadTicket)
     .where(eq(uploadTicket.id, ticketId))
