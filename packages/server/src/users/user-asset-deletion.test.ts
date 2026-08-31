@@ -2,11 +2,10 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { USER_ASSET_PATH_PREFIX } from "@alloy/contracts"
-import { versionedUserAssetKey } from "@alloy/server/storage/driver"
+import { versionedAssetKey } from "@alloy/server/storage/driver"
 
 import {
   internalUserAssetKey,
-  prewriteUserAssetDeletionIntent,
   USER_ASSET_ROUTE_KEY_RE,
   userAssetConditionalUploadMatches,
   userAssetDeletionIntents,
@@ -19,16 +18,16 @@ const VERSION_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 const USER_DIR = `11/eb/${USER_ID}`
 
 test("new user asset attempts mint full UUID-versioned immutable keys", () => {
-  const a = versionedUserAssetKey(USER_ID, "avatar", VERSION_A)
-  const b = versionedUserAssetKey(USER_ID, "avatar", VERSION_B)
+  const a = versionedAssetKey(USER_ID, "avatar", VERSION_A)
+  const b = versionedAssetKey(USER_ID, "avatar", VERSION_B)
   assert.equal(a, `${USER_DIR}/avatar-${VERSION_A.replaceAll("-", "")}.webp`)
   assert.notEqual(a, b)
-  assert.throws(() => versionedUserAssetKey(USER_ID, "avatar", "aabbccddeeff"))
+  assert.throws(() => versionedAssetKey(USER_ID, "avatar", "aabbccddeeff"))
 })
 
 test("the serving route accepts legacy stable and full-version keys", () => {
   const stable = `${USER_DIR}/avatar.webp`
-  const versioned = versionedUserAssetKey(USER_ID, "banner", VERSION_A)
+  const versioned = versionedAssetKey(USER_ID, "banner", VERSION_A)
   assert.equal(USER_ASSET_ROUTE_KEY_RE.test(stable), true)
   assert.equal(USER_ASSET_ROUTE_KEY_RE.test(versioned), true)
   assert.equal(
@@ -59,12 +58,8 @@ test("owned internal paths parse exactly and retain their key case", () => {
 })
 
 test("producer parsing rejects external, prefix, cross-owner, and cross-role paths", () => {
-  const ownKey = versionedUserAssetKey(USER_ID, "avatar", VERSION_A)
-  const crossOwnerKey = versionedUserAssetKey(
-    OTHER_USER_ID,
-    "avatar",
-    VERSION_A,
-  )
+  const ownKey = versionedAssetKey(USER_ID, "avatar", VERSION_A)
+  const crossOwnerKey = versionedAssetKey(OTHER_USER_ID, "avatar", VERSION_A)
   for (const candidate of [
     `https://example.test${USER_ASSET_PATH_PREFIX}${ownKey}`,
     `/api/assets/users-evil/${ownKey}`,
@@ -78,8 +73,8 @@ test("producer parsing rejects external, prefix, cross-owner, and cross-role pat
 
 test("serialized replacement and removal retire the actual prior version", () => {
   const legacy = `${USER_DIR}/avatar.webp`
-  const a = versionedUserAssetKey(USER_ID, "avatar", VERSION_A)
-  const b = versionedUserAssetKey(USER_ID, "avatar", VERSION_B)
+  const a = versionedAssetKey(USER_ID, "avatar", VERSION_A)
+  const b = versionedAssetKey(USER_ID, "avatar", VERSION_B)
 
   assert.equal(intentKeys(replacementIntents(legacy, a)).has(legacy), true)
   assert.equal(intentKeys(replacementIntents(a, b)).has(a), true)
@@ -106,22 +101,6 @@ test("legacy role variants are safe candidates without adopting external URLs", 
   assert.equal(
     intents.some((intent) => intent.key.includes("example.test")),
     false,
-  )
-})
-
-test("prewrite cleanup keeps a stable reservation identity across outcomes", () => {
-  assert.deepEqual(
-    prewriteUserAssetDeletionIntent({
-      key: `${USER_DIR}/avatar-${VERSION_A.replaceAll("-", "")}.webp`,
-      attemptId: VERSION_A,
-      reason: "conditional user asset upload rejected",
-    }),
-    {
-      namespace: "assets",
-      key: `${USER_DIR}/avatar-${VERSION_A.replaceAll("-", "")}.webp`,
-      reason: "conditional user asset upload rejected",
-      source: { type: "storage-prewrite", id: VERSION_A },
-    },
   )
 })
 

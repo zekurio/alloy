@@ -73,6 +73,19 @@ export function stagedUploadDeletionIntent(input: {
   }
 }
 
+export function prewriteAssetDeletionIntent(input: {
+  key: string
+  attemptId: string
+  reason?: string
+}): StorageDeletionInput {
+  return {
+    namespace: "assets",
+    key: input.key,
+    reason: input.reason ?? "pending asset upload",
+    source: { type: "storage-prewrite", id: input.attemptId },
+  }
+}
+
 export function mediaAssetDeletionIntents(input: {
   keys: Iterable<string | null>
   retainedKeys?: Iterable<string | null>
