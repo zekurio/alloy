@@ -27,6 +27,10 @@ import {
 } from "./storage/deletion-worker"
 import { repairLegacyUploadDeadlines } from "./uploads/deadline"
 import {
+  startUploadExpiryWorker,
+  stopUploadExpiryWorker,
+} from "./uploads/expiry"
+import {
   startWebhookDeliveryWorker,
   stopWebhookDeliveryWorker,
 } from "./webhooks/delivery-worker"
@@ -88,6 +92,9 @@ try {
   // Notification retention has different read/unread deadlines. Start its
   // indexed coordinator before accepting notification mutations.
   startNotificationExpiryWorker()
+  // Pending clip uploads and detached ticket owners share one globally ordered
+  // deadline coordinator. Pending clips retain exact-object crash recovery.
+  startUploadExpiryWorker()
 } catch (err) {
   logger.error("failed to start durable background workers:", err)
   process.exit(1)
@@ -128,6 +135,7 @@ const shutdown = () => {
     stopStorageDeletionWorker(),
     stopAuthChallengeExpiryWorker(),
     stopNotificationExpiryWorker(),
+    stopUploadExpiryWorker(),
     stopWebhookDeliveryWorker(),
     stopJobs(),
   ])

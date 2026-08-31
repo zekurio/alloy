@@ -58,8 +58,9 @@ export const uploadTicket = pgTable(
   (t) => [
     index("upload_ticket_target_idx").on(t.target_type, t.target_id),
     index("upload_ticket_owner_idx").on(t.owner_id),
-    index("upload_ticket_expires_idx").on(t.expires_at),
-    index("upload_ticket_used_idx").on(t.used_at),
+    index("upload_ticket_unused_expiry_idx")
+      .on(t.expires_at, t.id)
+      .where(sql`${t.used_at} is null`),
     check(
       "upload_ticket_role_check",
       sql`${t.role} in (${sql.raw(sqlStringList(UPLOAD_TICKET_ROLE))})`,

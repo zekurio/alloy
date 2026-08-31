@@ -27,6 +27,7 @@ import {
   pendingUploadFinalizationAction,
   uploadTicketDeadline,
 } from "@alloy/server/uploads/deadline"
+import { commitUploadInitiateAndWake } from "@alloy/server/uploads/expiry"
 import {
   mintStagedUpload,
   resolveStagedUpload,
@@ -169,8 +170,8 @@ export const clipsUploadLifecycleRoutes = new Hono()
 
           let initiateResult: InitiateTransactionResult
           try {
-            initiateResult = await db.transaction<InitiateTransactionResult>(
-              async (tx) => {
+            initiateResult = await commitUploadInitiateAndWake(() =>
+              db.transaction<InitiateTransactionResult>(async (tx) => {
                 const { quotaBytes, usedBytes } = await selectLockedQuotaState(
                   tx,
                   viewerId,
@@ -261,7 +262,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
                 )
 
                 return { ok: true, queuedDeletions }
-              },
+              }),
             )
           } catch (err) {
             await cleanupFailedInitiate(clipId, uploadKey)

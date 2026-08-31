@@ -1,5 +1,5 @@
 {
-  "id": "107800f1-ae54-4d71-a4a2-83ad83020b68",
+  "id": "d8c0d8e8-3b7a-4f8b-948b-a7c78fb8bef8",
   "prevId": "c511d01e-cff5-4be2-adc7-7dab78e5470d",
   "version": "7",
   "dialect": "postgresql",
@@ -200,6 +200,12 @@
           "notNull": true,
           "default": "'pending'"
         },
+        "upload_cleanup_at": {
+          "name": "upload_cleanup_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "published_at": {
           "name": "published_at",
           "type": "timestamp",
@@ -273,6 +279,57 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "encode_request_id": {
+          "name": "encode_request_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "encode_request_force": {
+          "name": "encode_request_force",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "encode_requested_at": {
+          "name": "encode_requested_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "encode_run_after": {
+          "name": "encode_run_after",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "encode_priority": {
+          "name": "encode_priority",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 90
+        },
+        "encode_claimed_request_id": {
+          "name": "encode_claimed_request_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "encode_generation": {
+          "name": "encode_generation",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "encode_failed_generation": {
+          "name": "encode_failed_generation",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "failure_reason": {
           "name": "failure_reason",
@@ -381,6 +438,28 @@
           "method": "btree",
           "with": {}
         },
+        "clip_pending_upload_cleanup_idx": {
+          "name": "clip_pending_upload_cleanup_idx",
+          "columns": [
+            {
+              "expression": "upload_cleanup_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"clip\".\"status\" = 'pending' and \"clip\".\"upload_cleanup_at\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "clip_ready_fingerprint_idx": {
           "name": "clip_ready_fingerprint_idx",
           "columns": [
@@ -409,6 +488,78 @@
           ],
           "isUnique": false,
           "where": "\"clip\".\"status\" = 'ready' and \"clip\".\"source_key\" is not null and \"clip\".\"thumb_key\" is null and \"clip\".\"thumb_failed_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clip_encode_request_claim_idx": {
+          "name": "clip_encode_request_claim_idx",
+          "columns": [
+            {
+              "expression": "encode_priority",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "encode_run_after",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "encode_requested_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"clip\".\"encode_request_id\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clip_encode_generation_claim_idx": {
+          "name": "clip_encode_generation_claim_idx",
+          "columns": [
+            {
+              "expression": "encode_generation",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"clip\".\"status\" = 'ready' and \"clip\".\"source_key\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "clip_encode_active_idx": {
+          "name": "clip_encode_active_idx",
+          "columns": [
+            {
+              "expression": "encode_locked_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"clip\".\"encode_run_id\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2040,6 +2191,50 @@
           "method": "btree",
           "with": {}
         },
+        "notification_retention_read_idx": {
+          "name": "notification_retention_read_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"notification\".\"read_at\" is not null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "notification_retention_unread_idx": {
+          "name": "notification_retention_unread_idx",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"notification\".\"read_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "notification_dedup_idx": {
           "name": "notification_dedup_idx",
           "columns": [
@@ -2228,32 +2423,24 @@
           "method": "btree",
           "with": {}
         },
-        "upload_ticket_expires_idx": {
-          "name": "upload_ticket_expires_idx",
+        "upload_ticket_unused_expiry_idx": {
+          "name": "upload_ticket_unused_expiry_idx",
           "columns": [
             {
               "expression": "expires_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "upload_ticket_used_idx": {
-          "name": "upload_ticket_used_idx",
-          "columns": [
+            },
             {
-              "expression": "used_at",
+              "expression": "id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
+          "where": "\"upload_ticket\".\"used_at\" is null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -2468,6 +2655,176 @@
       "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.storage_deletion": {
+      "name": "storage_deletion",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "namespace": {
+          "name": "namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "storage_key": {
+          "name": "storage_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "abort_upload": {
+          "name": "abort_upload",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_type": {
+          "name": "source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source_id": {
+          "name": "source_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_attempt_at": {
+          "name": "next_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "storage_deletion_object_idx": {
+          "name": "storage_deletion_object_idx",
+          "columns": [
+            {
+              "expression": "namespace",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "storage_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "storage_deletion_next_attempt_idx": {
+          "name": "storage_deletion_next_attempt_idx",
+          "columns": [
+            {
+              "expression": "next_attempt_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "storage_deletion_namespace_check": {
+          "name": "storage_deletion_namespace_check",
+          "value": "\"storage_deletion\".\"namespace\" in ('clips', 'thumbnails', 'assets')"
+        },
+        "storage_deletion_attempts_check": {
+          "name": "storage_deletion_attempts_check",
+          "value": "\"storage_deletion\".\"attempts\" >= 0"
+        },
+        "storage_deletion_revision_check": {
+          "name": "storage_deletion_revision_check",
+          "value": "\"storage_deletion\".\"revision\" > 0"
+        },
+        "storage_deletion_key_check": {
+          "name": "storage_deletion_key_check",
+          "value": "char_length(\"storage_deletion\".\"storage_key\") between 1 and 2048"
+        },
+        "storage_deletion_reason_check": {
+          "name": "storage_deletion_reason_check",
+          "value": "char_length(btrim(\"storage_deletion\".\"reason\")) between 1 and 500"
+        },
+        "storage_deletion_source_type_check": {
+          "name": "storage_deletion_source_type_check",
+          "value": "char_length(btrim(\"storage_deletion\".\"source_type\")) between 1 and 100"
+        },
+        "storage_deletion_source_id_check": {
+          "name": "storage_deletion_source_id_check",
+          "value": "\"storage_deletion\".\"source_id\" is null or char_length(btrim(\"storage_deletion\".\"source_id\")) between 1 and 500"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.webhook": {
@@ -2896,6 +3253,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "purpose": {
           "name": "purpose",
           "type": "text",
@@ -2936,6 +3299,21 @@
         }
       },
       "indexes": {
+        "auth_challenge_user_idx": {
+          "name": "auth_challenge_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "auth_challenge_expires_at_idx": {
           "name": "auth_challenge_expires_at_idx",
           "columns": [
@@ -2973,7 +3351,17 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "auth_challenge_user_id_user_id_fk": {
+          "name": "auth_challenge_user_id_user_id_fk",
+          "tableFrom": "auth_challenge",
+          "tableTo": "user",
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
