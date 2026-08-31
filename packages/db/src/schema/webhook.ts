@@ -74,6 +74,10 @@ export const webhookDelivery = pgTable(
     dedup_key: text().notNull(),
     status: text().$type<WebhookDeliveryStatus>().notNull().default("pending"),
     attempts: integer().notNull().default(0),
+    // The delivery row is the durable outbox. A persisted deadline lets the
+    // single-server worker resume the same retry schedule after a restart
+    // without needing a second, generic job row.
+    next_attempt_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     response_status: integer(),
     error: text(),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
@@ -82,6 +86,9 @@ export const webhookDelivery = pgTable(
   (t) => [
     uniqueIndex("webhook_delivery_dedup_idx").on(t.webhook_id, t.dedup_key),
     index("webhook_delivery_clip_idx").on(t.clip_id),
+    index("webhook_delivery_pending_idx")
+      .on(t.next_attempt_at, t.created_at)
+      .where(sql`${t.status} = 'pending'`),
     check(
       "webhook_delivery_event_check",
       sql`${t.event} in (${sql.raw(sqlStringList(WEBHOOK_EVENTS))})`,

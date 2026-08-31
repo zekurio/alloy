@@ -4,9 +4,13 @@ import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { and, eq, isNull } from "drizzle-orm"
 
-import { enqueueWebhookDelivery } from "../jobs/kinds/webhook-deliver"
+import { wakeWebhookDeliveryWorker } from "./delivery-worker"
 
 const logger = createLogger("webhooks")
+export type WebhookTransaction = Parameters<
+  Parameters<typeof db.transaction>[0]
+>[0]
+type WebhookDbExecutor = typeof db | WebhookTransaction
 
 /**
  * Fire-and-forget dispatch: a webhook problem must never fail, and therefore
@@ -23,19 +27,27 @@ export function clipPublishedDedupKey(clipId: string): string {
   return `clip.published:${clipId}`
 }
 
+/** Wake only after the transaction that claimed these rows has committed. */
+export function wakeClaimedClipPublishedDeliveries(claimed: number): void {
+  if (claimed > 0) wakeWebhookDeliveryWorker()
+}
+
 /**
- * Claim and enqueue a `clip.published` delivery for every enabled webhook that
+ * Claim a `clip.published` delivery for every enabled webhook that
  * has not already received this clip.
  *
  * The ledger row is written before anything leaves the server, so an author
  * cannot re-announce by flipping a clip between public and private: the second
  * publish conflicts with the first claim and enqueues nothing. The cost of that
  * guarantee is that a webhook which is down through every retry loses the clip
- * permanently — the failed job stays in the admin dashboard as the recovery
- * path.
+ * permanently. The delivery row is both the dedup ledger and durable outbox,
+ * so there is no second queue insert that can be lost after this commit.
  */
-export async function dispatchClipPublished(clipId: string): Promise<void> {
-  const [row] = await db
+export async function claimClipPublishedDeliveries(
+  executor: WebhookDbExecutor,
+  clipId: string,
+): Promise<number> {
+  const [row] = await executor
     .select({
       announcementsEnabled: user.clip_announcements_enabled,
     })
@@ -53,15 +65,15 @@ export async function dispatchClipPublished(clipId: string): Promise<void> {
 
   // Checked here rather than at delivery time so an opted-out author leaves no
   // ledger rows behind, and opting back in still announces their next publish.
-  if (!row || !row.announcementsEnabled) return
+  if (!row || !row.announcementsEnabled) return 0
 
-  const targets = await db
+  const targets = await executor
     .select({ id: webhook.id })
     .from(webhook)
     .where(eq(webhook.enabled, true))
-  if (targets.length === 0) return
+  if (targets.length === 0) return 0
 
-  const claimed = await db
+  const claimed = await executor
     .insert(webhookDelivery)
     .values(
       targets.map((target) => ({
@@ -76,8 +88,13 @@ export async function dispatchClipPublished(clipId: string): Promise<void> {
     })
     .returning({ id: webhookDelivery.id })
 
-  // enqueue() wakes the io queue itself; these are not transactional inserts.
-  for (const delivery of claimed) {
-    await enqueueWebhookDelivery(delivery.id)
-  }
+  return claimed.length
+}
+
+export async function dispatchClipPublished(clipId: string): Promise<void> {
+  const claimed = await claimClipPublishedDeliveries(db, clipId)
+  // The direct dispatcher writes outside a caller-owned transaction, so its
+  // insert has committed here. Startup/reconciliation scans recover if this
+  // process exits before the latency-only wake.
+  wakeClaimedClipPublishedDeliveries(claimed)
 }
