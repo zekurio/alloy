@@ -2,15 +2,13 @@ import { user } from "@alloy/db/auth-schema"
 import { clip, webhook, webhookDelivery } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { and, eq, isNull } from "drizzle-orm"
 
 import { wakeWebhookDeliveryWorker } from "./delivery-worker"
 
 const logger = createLogger("webhooks")
-export type WebhookTransaction = Parameters<
-  Parameters<typeof db.transaction>[0]
->[0]
-type WebhookDbExecutor = typeof db | WebhookTransaction
+type WebhookDbExecutor = typeof db | DbTransaction
 
 /**
  * Fire-and-forget dispatch: a webhook problem must never fail, and therefore

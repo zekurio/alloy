@@ -1,5 +1,4 @@
 import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
-import { createLogger } from "@alloy/logging"
 import {
   publishClipProgress,
   publishClipUpsert,
@@ -7,35 +6,24 @@ import {
 } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
-import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import {
   claimClipPublishedDeliveries,
   wakeClaimedClipPublishedDeliveries,
 } from "@alloy/server/webhooks/publish"
 import { and, eq, lt, sql } from "drizzle-orm"
 
-import { encodeLeaseConditions } from "./lease-conditions"
 import type {
-  MediaRow,
+  MediaCompletion,
   MediaSourcePatch,
   MediaStore,
   MediaThumbPatch,
 } from "./media-store"
 
-const logger = createLogger("queue")
-
-const leaseConditions = () =>
-  encodeLeaseConditions({
-    status: clip.status,
-    encodeLockedAt: clip.encode_locked_at,
-    encodeRunId: clip.encode_run_id,
-  })
-
 // Ready rows stay ready across a reprocess run so `stream` access (which is
 // gated on status = 'ready') keeps serving the committed assets meanwhile.
 const keepReadyStatus = sql`case when ${clip.status} = 'ready' then 'ready' else 'processing' end`
 
-const clearedStageColumns = {
+export const clearedStageColumns = {
   encode_stage: null,
   encode_tier: null,
   encode_tier_index: null,
@@ -45,25 +33,6 @@ const clearedStageColumns = {
 // Write-once publish stamp: only public rows get one, and the first transition
 // to (ready + public) wins so a privacy round-trip can't bump feed position.
 const publishedAtStamp = sql`coalesce(${clip.published_at}, case when ${clip.privacy} = 'public' then now() end)`
-
-const mediaRowSelect = {
-  id: clip.id,
-  authorId: clip.author_id,
-  sourceKey: clip.source_key,
-  sourceContentType: clip.source_content_type,
-  sourceSizeBytes: clip.source_size_bytes,
-  sourceDurationMs: clip.source_duration_ms,
-  pendingAudioTracks: clip.pending_audio_tracks,
-  audioTrackFingerprint: clip.audio_track_fingerprint,
-  cutKey: clip.cut_key,
-  thumbKey: clip.thumb_key,
-  thumbBlurHash: clip.thumb_blur_hash,
-  thumbFailedAt: clip.thumb_failed_at,
-  trimStartMs: clip.trim_start_ms,
-  trimEndMs: clip.trim_end_ms,
-  durationMs: clip.duration_ms,
-  encodeAttempt: clip.encode_attempt,
-} as const
 
 function sourcePatchToColumns(patch: MediaSourcePatch) {
   return {
@@ -98,10 +67,28 @@ function thumbPatchToColumns(patch: MediaThumbPatch) {
   return { ...columns, thumb_failed_at: patch.thumbFailedAt }
 }
 
-function finishedThumbnailLeaseColumns(patch: { thumb_failed_at?: Date } = {}) {
+export function completeRequestColumns(completion: MediaCompletion) {
+  const ownsRequest = sql`${clip.encode_request_id} = ${completion.requestId}`
+  return {
+    encode_request_id: sql`case when ${ownsRequest} then null else ${clip.encode_request_id} end`,
+    encode_request_force: sql`case when ${ownsRequest} then false else ${clip.encode_request_force} end`,
+    encode_requested_at: sql`case when ${ownsRequest} then null else ${clip.encode_requested_at} end`,
+    encode_run_after: sql`case when ${ownsRequest} then null else ${clip.encode_run_after} end`,
+    encode_priority: sql`case when ${ownsRequest} then 90 else ${clip.encode_priority} end`,
+    encode_claimed_request_id: null,
+  }
+}
+
+function finishedThumbnailLeaseColumns(
+  completion: MediaCompletion,
+  patch: { thumb_failed_at?: Date } = {},
+) {
   return {
     ...clearedStageColumns,
+    ...completeRequestColumns(completion),
     ...patch,
+    encode_generation: completion.targetGeneration,
+    encode_failed_generation: null,
     encode_progress: 100,
     encode_run_id: null,
     encode_locked_at: null,
@@ -112,80 +99,6 @@ function finishedThumbnailLeaseColumns(patch: { thumb_failed_at?: Date } = {}) {
 
 export const clipMediaStore: MediaStore = {
   target: "clip",
-
-  async lease(id, runId): Promise<MediaRow | null> {
-    const [row] = await db
-      .update(clip)
-      .set({
-        // A reprocess of a ready clip (backfill, owner trim retry) keeps the
-        // clip publicly playable from its committed assets while this run
-        // works; only genuinely unfinished rows show as processing.
-        status: keepReadyStatus,
-        encode_run_id: runId,
-        // DB now(), not a JS Date: the freshness check compares against
-        // Postgres now(), and JS-serialized timestamps skew by the server's
-        // timezone offset on timestamp-without-tz columns.
-        encode_locked_at: sql`now()`,
-        encode_attempt: sql`${clip.encode_attempt} + 1`,
-        failure_reason: null,
-        updated_at: sql`now()`,
-      })
-      .where(and(eq(clip.id, id), ...leaseConditions()))
-      .returning(mediaRowSelect)
-    return row ?? null
-  },
-
-  async heartbeat(id, runId) {
-    const rows = await db
-      .update(clip)
-      .set({ encode_locked_at: sql`now()` })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ id: clip.id })
-    return rows.length > 0
-  },
-
-  async releaseLease(id, runId, reason, tx) {
-    await (tx ?? db)
-      .update(clip)
-      .set({
-        ...clearedStageColumns,
-        encode_run_id: null,
-        encode_locked_at: null,
-        failure_reason: reason.slice(0, 500),
-        updated_at: new Date(),
-      })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-  },
-
-  async markFailed(id, runId, reason, encodeFailedFingerprint, tx) {
-    const [updated] = await tx
-      .update(clip)
-      .set({
-        ...clearedStageColumns,
-        status: sql`case when ${clip.status} = 'ready' then 'ready' else 'failed' end`,
-        encode_run_id: null,
-        encode_locked_at: null,
-        encode_failed_fingerprint: sql`coalesce(${encodeFailedFingerprint}, ${clip.encode_failed_fingerprint})`,
-        failure_reason: reason.slice(0, 500),
-        updated_at: new Date(),
-      })
-      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-      .returning({ status: clip.status })
-    if (!updated) return
-    return async () => {
-      if (updated.status === "failed") {
-        try {
-          await cleanupTickets(
-            { type: "clip", id },
-            `terminal clip ${id} upload`,
-          )
-        } catch (err) {
-          logger.error(`failed to clean terminal clip ${id} uploads:`, err)
-        }
-      }
-      void publishClipUpsertById(id)
-    }
-  },
 
   async stillPresent(id, runId) {
     const [row] = await db
@@ -267,19 +180,23 @@ export const clipMediaStore: MediaStore = {
     return Boolean(row)
   },
 
-  async finishThumbnailBackfill(id, runId) {
+  async finishThumbnailBackfill(id, runId, completion) {
     const [row] = await db
       .update(clip)
-      .set(finishedThumbnailLeaseColumns())
+      .set(finishedThumbnailLeaseColumns(completion))
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
   },
 
-  async commitThumbFailed(id, runId) {
+  async commitThumbFailed(id, runId, completion) {
     const [row] = await db
       .update(clip)
-      .set(finishedThumbnailLeaseColumns({ thumb_failed_at: new Date() }))
+      .set(
+        finishedThumbnailLeaseColumns(completion, {
+          thumb_failed_at: new Date(),
+        }),
+      )
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
@@ -304,7 +221,7 @@ export const clipMediaStore: MediaStore = {
     return result.committed
   },
 
-  async commitReady(id, runId, patch, renditions, audioTracks) {
+  async commitReady(id, runId, patch, renditions, audioTracks, completion) {
     const result = await db.transaction(async (tx) => {
       const [updated] = await tx
         .update(clip)
@@ -317,7 +234,10 @@ export const clipMediaStore: MediaStore = {
           encode_pipeline: MEDIA_PIPELINE_VERSION,
           encode_fingerprint: patch.encodeFingerprint,
           encode_failed_fingerprint: null,
+          encode_generation: completion.targetGeneration,
+          encode_failed_generation: null,
           encode_progress: 100,
+          ...completeRequestColumns(completion),
           encode_run_id: null,
           encode_locked_at: null,
           failure_reason: null,

@@ -1,23 +1,25 @@
-export interface OutboxWorkerOptions {
-  /** Upper bound for reconciliation scans when the outbox is empty. */
-  pollIntervalMs: number
-  runOne(signal: AbortSignal): Promise<OutboxRunResult>
+export interface WakeableSerialWorkerOptions {
+  /** Upper bound for reconciliation scans when durable work is empty. */
+  reconciliationIntervalMs: number
+  /** Short fallback after a coordinator/store failure. */
+  errorRetryMs?: number
+  runOne(signal: AbortSignal): Promise<WakeableRunResult>
   onError(cause: unknown): void
 }
 
-export type OutboxRunResult =
+export type WakeableRunResult =
   | { worked: true }
   | { worked: false; nextRunAt: Date | null }
 
 /**
- * Wakeable, serial worker for a database-backed outbox.
+ * Adaptive serial coordinator for database-backed work.
  *
  * The database row owns durability; this class only removes polling latency.
  * A wake that races an active drain is remembered and schedules another pass
  * immediately after it, while the periodic poll covers process restarts and
  * wakeups lost between a committing process and this one.
  */
-export class OutboxWorker {
+export class WakeableSerialWorker {
   private timer: ReturnType<typeof setTimeout> | null = null
   private timerAt = 0
   private pumpPromise: Promise<void> | null = null
@@ -26,7 +28,7 @@ export class OutboxWorker {
   private started = false
   private stopping = false
 
-  constructor(private readonly options: OutboxWorkerOptions) {}
+  constructor(private readonly options: WakeableSerialWorkerOptions) {}
 
   start(): void {
     if (this.started) return
@@ -81,9 +83,11 @@ export class OutboxWorker {
     this.activeAbort = abort
     this.wakeAfterPump = false
     let nextRunAt: Date | null = null
+    let failed = false
 
     const pump = this.drain(abort.signal)
       .catch((cause: unknown) => {
+        failed = true
         this.options.onError(cause)
         return null
       })
@@ -96,7 +100,10 @@ export class OutboxWorker {
         if (!this.started || this.stopping) return
         const delay = this.wakeAfterPump
           ? 0
-          : this.nextDelay(nextRunAt, Date.now())
+          : failed
+            ? (this.options.errorRetryMs ??
+              this.options.reconciliationIntervalMs)
+            : this.nextDelay(nextRunAt, Date.now())
         this.wakeAfterPump = false
         this.schedulePump(delay)
       })
@@ -112,9 +119,9 @@ export class OutboxWorker {
   }
 
   private nextDelay(nextRunAt: Date | null, now: number): number {
-    if (!nextRunAt) return this.options.pollIntervalMs
+    if (!nextRunAt) return this.options.reconciliationIntervalMs
     return Math.min(
-      this.options.pollIntervalMs,
+      this.options.reconciliationIntervalMs,
       Math.max(0, nextRunAt.getTime() - now),
     )
   }
