@@ -936,6 +936,7 @@ export const DE_MESSAGES = {
   Recommended: "Empfohlen",
   "Re-encode": "Neu codieren",
   "Re-encode started.": "Neukodierung gestartet.",
+  "Re-encoding": "Wird neu codiert",
   "Remove tier": "Stufe entfernen",
   "Reserving slot…": "Slot wird reserviert…",
   "Render node passed to ffmpeg for VA-API encoding.":
@@ -1294,8 +1295,8 @@ export const DE_MESSAGES = {
     "Dein Profil und deine Clips werden ausgeblendet, bis du dich wieder anmeldest und reaktivierst.",
   Zoom: "Zoom",
   "Apply changes": "Änderungen anwenden",
-  "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match.":
-    "Änderungen gelten für neue Uploads. Vorhandene Clips werden automatisch neu kodiert, wenn ihre Renditionen nicht mehr passen.",
+  "Changes apply to new uploads. Existing clips re-encode in the background and keep playing their current renditions until replacements are ready.":
+    "Änderungen gelten für neue Uploads. Vorhandene Clips werden im Hintergrund neu codiert und spielen ihre aktuellen Renditionen weiter ab, bis die neuen bereit sind.",
   Enabled: "Aktiviert",
   "Loading…": "Wird geladen…",
   Mode: "Modus",

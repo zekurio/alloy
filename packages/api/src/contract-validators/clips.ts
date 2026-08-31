@@ -1,6 +1,7 @@
 import {
   objectRecord,
   validateArray,
+  validateBoolean,
   validateEnumString,
   validateIntegerInRange,
   validateIsoDateString,
@@ -137,6 +138,12 @@ function validateClipCounters(row: Record<string, ApiJsonValue>) {
 }
 
 function validateClipStageFields(row: Record<string, ApiJsonValue>) {
+  if (row.encodeActive !== undefined) {
+    validateBoolean(
+      row.encodeActive,
+      "Invalid clip response: encodeActive must be boolean",
+    )
+  }
   if (row.encodeStage !== undefined) {
     validateNullableEnumString(
       row.encodeStage,

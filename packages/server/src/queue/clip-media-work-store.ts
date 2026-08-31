@@ -68,7 +68,7 @@ export interface RequestClipMediaOptions {
 
 export type RequeueClipMediaResult =
   | { ok: true }
-  | { ok: false; reason: "active-run" | "missing" }
+  | { ok: false; reason: "active-work" | "missing" }
 
 interface RawClaim {
   id: string
@@ -92,6 +92,13 @@ export async function requestClipMedia(
       encode_priority: sql`case when ${clip.encode_request_id} is null then ${options.priority} else least(${clip.encode_priority}, ${options.priority}) end`,
       encode_claimed_request_id: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_claimed_request_id} end`,
       encode_attempt: sql`case when ${clip.encode_run_id} is null then 0 else ${clip.encode_attempt} end`,
+      // Queue state and progress move together. In particular, ready clips must
+      // not rely on a later progress reset that can race the worker's commit.
+      encode_progress: sql`case when ${clip.encode_run_id} is null then 0 else ${clip.encode_progress} end`,
+      encode_stage: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_stage} end`,
+      encode_tier: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_tier} end`,
+      encode_tier_index: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_tier_index} end`,
+      encode_tier_count: sql`case when ${clip.encode_run_id} is null then null else ${clip.encode_tier_count} end`,
       failure_reason: options.clearFailure ? null : undefined,
       encode_failed_fingerprint: options.clearFailure ? null : undefined,
       encode_failed_generation: options.clearFailure ? null : undefined,
@@ -100,7 +107,9 @@ export async function requestClipMedia(
     .where(
       and(
         eq(clip.id, clipId),
-        options.requireIdle ? isNull(clip.encode_run_id) : undefined,
+        options.requireIdle
+          ? and(isNull(clip.encode_request_id), isNull(clip.encode_run_id))
+          : undefined,
       ),
     )
     .returning({ id: clip.id })
@@ -125,7 +134,7 @@ export async function requeueClipMedia(
     .where(eq(clip.id, clipId))
     .limit(1)
   return row
-    ? { ok: false, reason: "active-run" }
+    ? { ok: false, reason: "active-work" }
     : { ok: false, reason: "missing" }
 }
 

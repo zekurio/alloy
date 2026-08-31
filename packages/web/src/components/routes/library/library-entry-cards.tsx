@@ -6,10 +6,6 @@ import { GlobeIcon, Link2Icon, LockIcon, MonitorIcon } from "lucide-react"
 import { useMemo } from "react"
 import type { ComponentType } from "react"
 
-import {
-  encodeStageLabel,
-  QueueProgressBar,
-} from "@/components/upload/queue-progress"
 import type { QueueItem } from "@/components/upload/upload-queue-types"
 import { gameHref } from "@/lib/app-paths"
 import { useCapturePoster } from "@/lib/capture-poster"
@@ -76,11 +72,7 @@ export function LibraryCaptureCard({
       thumbnailLabel={t("Edit {title}", { title: item.title })}
       onThumbnailClick={onOpen}
       metaContent={
-        <LibraryCardMeta
-          source={source}
-          createdAt={item.createdAt}
-          transfer={transfer}
-        />
+        <LibraryCardMeta source={source} createdAt={item.createdAt} />
       }
     />
   )
@@ -133,20 +125,10 @@ function LibrarySourceBadge({ source }: { source: LibrarySource }) {
 function LibraryCardMeta({
   source,
   createdAt,
-  transfer,
 }: {
   source: LibrarySource
   createdAt: string
-  transfer?: QueueItem
 }) {
-  if (
-    transfer &&
-    transfer.status !== "published" &&
-    transfer.status !== "downloaded"
-  ) {
-    return <LibraryTransferMeta transfer={transfer} />
-  }
-
   return (
     <>
       <LibrarySourceBadge source={source} />
@@ -172,7 +154,7 @@ export function UploadedClipCard({
 }) {
   const card = useMemo(() => toClipCardData(row), [row])
   const source = librarySourceForPrivacy(row.privacy)
-  const effectiveTransfer = transfer ?? transferFromClipRow(row)
+  const effectiveTransfer = transfer
   const localPoster = useCapturePoster({
     id: localItem?.id ?? "",
     mediaUrl: localItem?.mediaUrl ?? null,
@@ -230,93 +212,8 @@ export function UploadedClipCard({
       onThumbnailClick={onOpen}
       onThumbnailIntent={onIntent}
       metaContent={
-        <LibraryCardMeta
-          source={source}
-          createdAt={row.createdAt}
-          transfer={effectiveTransfer}
-        />
+        <LibraryCardMeta source={source} createdAt={row.createdAt} />
       }
     />
-  )
-}
-
-function transferFromClipRow(row: ClipRow): QueueItem | undefined {
-  if (row.status === "ready") return undefined
-
-  const failed = row.status === "failed"
-  const processing = row.status === "processing"
-  // Uncapped: the server self-caps encodeProgress at 99 until the clip is
-  // ready, so the card only ever hits 100 once playback is committed.
-  const progress = processing
-    ? Math.max(0, Math.min(100, Math.floor(row.encodeProgress)))
-    : 0
-
-  return {
-    id: row.id,
-    title: row.title,
-    kind: "upload",
-    status: failed ? "failed" : processing ? "uploading" : "queued",
-    progress,
-    showProgress: processing,
-    indeterminate: processing ? progress <= 0 : true,
-    label: failed
-      ? t("Failed")
-      : processing
-        ? encodeStageLabel({
-            stage: row.encodeStage,
-            tier: row.encodeTier,
-            tierIndex: row.encodeTierIndex,
-            tierCount: row.encodeTierCount,
-          })
-        : t("Local"),
-    detail: failed ? (row.failureReason ?? t("Upload failed")) : "",
-    hue: 0,
-  }
-}
-
-/**
- * Compact transfer state for the card meta line: a stage label plus a thin
- * progress bar (no numeric percent — the bar carries it in this tight space).
- */
-function LibraryTransferMeta({ transfer }: { transfer: QueueItem }) {
-  if (transfer.status === "failed") {
-    return (
-      <span
-        className="text-destructive shrink-0 whitespace-nowrap"
-        title={transfer.detail || t("Failed")}
-      >
-        {t("Failed")}
-      </span>
-    )
-  }
-
-  const idle =
-    transfer.status === "queued" ||
-    transfer.status === "paused" ||
-    transfer.status === "preparing"
-  if (idle) {
-    return (
-      <span className="text-foreground-muted shrink-0 whitespace-nowrap">
-        {transfer.label ?? t("Local")}
-      </span>
-    )
-  }
-
-  const title = transfer.detail
-    ? `${transfer.label}: ${transfer.detail}`
-    : transfer.label
-  return (
-    <span
-      className="text-accent inline-flex min-w-0 items-center gap-1.5"
-      title={title}
-      aria-label={title}
-    >
-      <span className="shrink-0 whitespace-nowrap">{transfer.label}</span>
-      <QueueProgressBar
-        value={transfer.progress}
-        indeterminate={transfer.indeterminate}
-        className="w-14 shrink-0"
-      />
-    </span>
   )
 }

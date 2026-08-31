@@ -2,7 +2,7 @@ import { normalizeBlurHash, type QueueClip } from "@alloy/contracts"
 import { clip, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { isoDate } from "@alloy/server/runtime/date"
-import { desc, eq } from "drizzle-orm"
+import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm"
 
 import { clipAssetVersion } from "./asset-version"
 
@@ -12,6 +12,7 @@ const queueSelection = {
   gameSlug: game.slug,
   title: clip.title,
   status: clip.status,
+  encodeActive: sql<boolean>`${clip.encode_request_id} is not null or ${clip.encode_run_id} is not null`,
   encodeProgress: clip.encode_progress,
   encodeStage: clip.encode_stage,
   encodeTier: clip.encode_tier,
@@ -28,6 +29,7 @@ function serialize(row: {
   id: string
   title: string
   status: (typeof clip.$inferSelect)["status"]
+  encodeActive: boolean
   encodeProgress: number
   encodeStage: QueueClip["encodeStage"]
   encodeTier: string | null
@@ -45,6 +47,7 @@ function serialize(row: {
     id: row.id,
     title: row.title,
     status: row.status,
+    encodeActive: row.encodeActive,
     encodeProgress: row.encodeProgress,
     encodeStage: row.encodeStage,
     encodeTier: row.encodeTier,
@@ -61,19 +64,36 @@ function serialize(row: {
   }
 }
 
-/** Viewer's 50 most recent clips — the snapshot sent on queue opens and on
- *  SSE (re)connects. Single source of truth for the queue shape. */
+/**
+ * Snapshot sent when the queue opens or reconnects. Active work is always
+ * included, even for clips older than the 50-row recent history.
+ */
 export async function selectQueueRowsForAuthor(
   authorId: string,
 ): Promise<QueueClip[]> {
-  const rows = await db
-    .select(queueSelection)
-    .from(clip)
-    .leftJoin(game, eq(clip.game_id, game.id))
-    .where(eq(clip.author_id, authorId))
-    .orderBy(desc(clip.created_at))
-    .limit(50)
-  return rows.map((row) => serialize(row))
+  const activeCondition = or(
+    isNotNull(clip.encode_request_id),
+    isNotNull(clip.encode_run_id),
+  )
+  const [active, recent] = await Promise.all([
+    db
+      .select(queueSelection)
+      .from(clip)
+      .leftJoin(game, eq(clip.game_id, game.id))
+      .where(and(eq(clip.author_id, authorId), activeCondition))
+      .orderBy(desc(clip.updated_at)),
+    db
+      .select(queueSelection)
+      .from(clip)
+      .leftJoin(game, eq(clip.game_id, game.id))
+      .where(eq(clip.author_id, authorId))
+      .orderBy(desc(clip.created_at))
+      .limit(50),
+  ])
+  const activeIds = new Set(active.map((row) => row.id))
+  return [...active, ...recent.filter((row) => !activeIds.has(row.id))].map(
+    (row) => serialize(row),
+  )
 }
 
 export async function selectQueueRowById(

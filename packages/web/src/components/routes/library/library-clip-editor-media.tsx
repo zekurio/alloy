@@ -493,12 +493,14 @@ export function ClipProcessingNotice({
       <Spinner className="size-4 shrink-0" />
       <div className="min-w-0 flex-1">
         <p className="text-foreground text-sm font-medium">
-          {encodeStageLabel({
-            stage: row.encodeStage,
-            tier: row.encodeTier,
-            tierIndex: row.encodeTierIndex,
-            tierCount: row.encodeTierCount,
-          })}
+          {row.status === "ready" && !row.encodeStage
+            ? t("Re-encoding")
+            : encodeStageLabel({
+                stage: row.encodeStage,
+                tier: row.encodeTier,
+                tierIndex: row.encodeTierIndex,
+                tierCount: row.encodeTierCount,
+              })}
         </p>
         <QueueProgressBar
           value={progress}

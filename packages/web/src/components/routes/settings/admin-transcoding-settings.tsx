@@ -371,7 +371,7 @@ export function TranscodingSettingsContent({
 
           <p className="text-foreground-dim text-xs">
             {t(
-              "Changes apply to new uploads. Existing clips re-encode automatically when their renditions no longer match.",
+              "Changes apply to new uploads. Existing clips re-encode in the background and keep playing their current renditions until replacements are ready.",
             )}
           </p>
         </SettingsSections>

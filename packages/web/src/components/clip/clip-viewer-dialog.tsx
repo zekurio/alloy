@@ -17,6 +17,7 @@ import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
+import { clipEncodingActive } from "@/lib/clip-encoding"
 import { clipGameLabel } from "@/lib/clip-format"
 import {
   clipDetailQueryOptions,
@@ -338,6 +339,7 @@ function ClipViewerDialogBody({
             <ClipMeta
               clipId={row.id}
               status={row.status}
+              encodeActive={clipEncodingActive(row)}
               authorId={row.authorId}
               title={row.title}
               game={gameLabel}

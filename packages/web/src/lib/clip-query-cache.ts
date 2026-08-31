@@ -16,6 +16,30 @@ export interface ClipsSnapshot {
   details: Array<[readonly unknown[], ClipRow | undefined]>
 }
 
+export function findClipInCaches(
+  qc: QueryClient,
+  clipId: string,
+): ClipRow | undefined {
+  const detail = qc.getQueryData<ClipRow>(clipKeys.detail(clipId))
+  if (detail) return detail
+
+  for (const [, rows] of qc.getQueriesData<ClipRow[]>({
+    queryKey: clipKeys.lists(),
+  })) {
+    const row = rows?.find((candidate) => candidate.id === clipId)
+    if (row) return row
+  }
+  for (const [, data] of qc.getQueriesData<
+    InfiniteData<ClipPage, string | null>
+  >({ queryKey: clipKeys.infinite() })) {
+    for (const page of data?.pages ?? []) {
+      const row = page.items.find((candidate) => candidate.id === clipId)
+      if (row) return row
+    }
+  }
+  return undefined
+}
+
 export function patchClipInCaches(
   qc: QueryClient,
   clipId: string,

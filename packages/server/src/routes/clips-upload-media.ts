@@ -358,35 +358,18 @@ export const clipsUploadMediaRoutes = new Hono()
       }
 
       // Ready clip: re-encode in place, keeping it publicly playable from its
-      // committed renditions. Rejected while a live run holds the clip lease,
-      // mirroring the trim guard.
+      // committed renditions. Reject duplicate queued or running work.
       const result = await requeueClipMedia(id, {
         force: true,
         priority: 10,
         clearFailure: true,
       })
       if (!result.ok) {
-        if (result.reason === "active-run") {
+        if (result.reason === "active-work") {
           return conflict(c, "Clip is already processing")
         }
         return notFound(c)
       }
-
-      // The requeued run leaves the clip ready+100, where the watch page's
-      // refetchInterval stops polling and never picks up the fresh renditions.
-      // Reset encode_progress so polling resumes; guarded like trim on the null
-      // lease, and the response re-selects regardless so a run that already
-      // leased (progress owned by the run) is tolerated.
-      await db
-        .update(clip)
-        .set({ encode_progress: 0, updated_at: new Date() })
-        .where(
-          and(
-            eq(clip.id, id),
-            eq(clip.status, "ready"),
-            isNull(clip.encode_run_id),
-          ),
-        )
 
       wakeClipMediaWorker()
 

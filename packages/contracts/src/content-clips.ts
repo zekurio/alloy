@@ -114,6 +114,12 @@ export interface ClipRow {
   trimStartMs: number | null
   trimEndMs: number | null
   status: ClipStatus
+  /**
+   * True while media encoding is queued or running. A ready clip keeps serving
+   * its committed media while this is true. Optional for older contract-1
+   * servers that predate this field.
+   */
+  encodeActive?: boolean
   encodeProgress: number
   encodeStage: EncodeStage | null
   encodeTier: string | null
@@ -229,6 +235,8 @@ export interface QueueClip {
   id: string
   title: string
   status: ClipStatus
+  /** See {@link ClipRow.encodeActive}. */
+  encodeActive?: boolean
   encodeProgress: number
   encodeStage: EncodeStage | null
   encodeTier: string | null

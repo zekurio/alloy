@@ -2,6 +2,7 @@ import { clipThumbnailUrl, type QueueClip } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { stableHue } from "@alloy/ui/lib/stable-hash"
 
+import { clipEncodingActive } from "@/lib/clip-encoding"
 import type { RecordingLibraryDownload } from "@/lib/desktop"
 import { apiOrigin } from "@/lib/env"
 import { formatBytes } from "@/lib/storage-format"
@@ -213,28 +214,27 @@ export function serverToQueueItem(
       })
       break
     case "ready":
-      // The clip can stay playable after a later ladder failure; don't mistake
-      // that for a fully successful publish just because the stage was cleared.
-      if (row.failureReason) {
-        status = "failed"
-        label = t("Failed")
-        detail = row.failureReason
-        break
-      }
-      // Eager release makes the clip playable before the rendition ladder is
-      // necessarily finished. Keep that remaining work visible as ordinary
-      // processing without introducing a separate "live" status.
-      if (row.encodeStage) {
+      // Ready describes the committed playback. Background media work has its
+      // own state so the old rendition set stays usable until replacement.
+      if (clipEncodingActive(row)) {
         status = "uploading"
         progress = Math.max(0, Math.min(100, Math.floor(row.encodeProgress)))
         showProgress = true
         indeterminate = progress <= 0
-        label = encodeStageLabel({
-          stage: row.encodeStage,
-          tier: row.encodeTier,
-          tierIndex: row.encodeTierIndex,
-          tierCount: row.encodeTierCount,
-        })
+        label = row.encodeStage
+          ? encodeStageLabel({
+              stage: row.encodeStage,
+              tier: row.encodeTier,
+              tierIndex: row.encodeTierIndex,
+              tierCount: row.encodeTierCount,
+            })
+          : t("Re-encoding")
+        break
+      }
+      if (row.failureReason) {
+        status = "failed"
+        label = t("Failed")
+        detail = row.failureReason
         break
       }
       status = "published"
@@ -251,10 +251,7 @@ export function serverToQueueItem(
     id: row.id,
     title: row.title,
     kind: "upload",
-    phase:
-      row.status === "processing" || (row.status === "ready" && row.encodeStage)
-        ? "processing"
-        : "upload",
+    phase: clipEncodingActive(row) ? "processing" : "upload",
     status,
     progress,
     showProgress,

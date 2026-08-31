@@ -50,6 +50,7 @@ export const clipSelection = {
   trimStartMs: clip.trim_start_ms,
   trimEndMs: clip.trim_end_ms,
   status: clip.status,
+  encodeActive: sql<boolean>`${clip.encode_request_id} is not null or ${clip.encode_run_id} is not null`,
   encodeProgress: clip.encode_progress,
   encodeStage: clip.encode_stage,
   encodeTier: clip.encode_tier,

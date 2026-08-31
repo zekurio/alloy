@@ -5,6 +5,7 @@ import type { MutableRefObject } from "react"
 
 import { absoluteClipHref } from "@/lib/app-paths"
 import { removeClipDownload, useClipDownloads } from "@/lib/clip-downloads"
+import { clipEncodingActive } from "@/lib/clip-encoding"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { alloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
@@ -87,7 +88,11 @@ function useServerQueueItems(
         .filter((clipId): clipId is string => Boolean(clipId)),
     )
     return serverQueue
-      .filter((row) => !localClipIds.has(row.id) && !dismissed.has(row.id))
+      .filter(
+        (row) =>
+          !localClipIds.has(row.id) &&
+          (!dismissed.has(row.id) || clipEncodingActive(row)),
+      )
       .map((row) =>
         serverToQueueItem(row, {
           onCancel:
@@ -101,12 +106,14 @@ function useServerQueueItems(
           onCopyLink:
             row.status === "ready" ? () => copyClipLink(row) : undefined,
           onRetry:
-            row.status === "failed" ||
-            (row.status === "ready" && row.failureReason)
+            !clipEncodingActive(row) &&
+            (row.status === "failed" ||
+              (row.status === "ready" && row.failureReason))
               ? () => handlers.reEncodeClip({ clipId: row.id })
               : undefined,
           onDismiss:
-            row.status === "ready" || row.status === "failed"
+            !clipEncodingActive(row) &&
+            (row.status === "ready" || row.status === "failed")
               ? () => {
                   handlers.releaseRetainedThumb(row.id)
                   handlers.dismiss(row.id)

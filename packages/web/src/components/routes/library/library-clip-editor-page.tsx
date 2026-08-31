@@ -17,6 +17,7 @@ import {
 } from "@/components/clip-editor/use-trim-playback"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useSession } from "@/lib/auth-client"
+import { clipEncodingActive } from "@/lib/clip-encoding"
 import {
   invalidateClipCaches,
   removeClipDetailFromCache,
@@ -78,19 +79,20 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
     )
   }
 
-  const processing = row.status !== "ready" || row.encodeProgress < 100
+  const mediaPending = row.status !== "ready"
+  const processing = mediaPending || clipEncodingActive(row)
 
   return (
     <AppMain className="p-4 md:p-6">
       {/* Keyed by clip id: edits reset when navigating between clips, but
-          survive background detail refetches. Also keyed by the processing
-          flag: the stage previews the raw local capture while the encode
-          runs, so playback state must re-seed once the server preview (the
-          timeline the trim bounds describe) takes over. */}
+          survive background detail refetches. The processing key also resets
+          playback when a newly published server preview takes over or a
+          background re-encode commits replacement media. */}
       <ClipEditorBody
         key={`${row.id}:${processing ? "processing" : "ready"}`}
         row={row}
         processing={processing}
+        mediaPending={mediaPending}
       />
     </AppMain>
   )
@@ -99,9 +101,11 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
 function ClipEditorBody({
   row,
   processing,
+  mediaPending,
 }: {
   row: ClipRow
   processing: boolean
+  mediaPending: boolean
 }) {
   // Matches the app shell's mobile breakpoint (the bottom nav takes over
   // below md), so the touch editor and the mobile chrome appear together.
@@ -110,12 +114,11 @@ function ClipEditorBody({
   const { localItem, prevEntry, nextEntry } = navigation
   const { canManage, isOwner } = useClipEditorPermissions(row)
   const canTrim = isOwner && !processing
-  // While processing, the stage plays the raw local capture. The persisted
-  // trim bounds describe the exported upload's timeline (they carry the
-  // keyframe-snap offset), so applying them to the raw file would seek the
-  // preview past its real start.
+  // Before first publish, the stage plays the raw local capture. The
+  // persisted trim bounds describe the exported upload's timeline, so
+  // applying them to the raw file would seek the preview past its real start.
   const initialTrim =
-    !processing && row.trimStartMs !== null && row.trimEndMs !== null
+    !mediaPending && row.trimStartMs !== null && row.trimEndMs !== null
       ? { startMs: row.trimStartMs, endMs: row.trimEndMs }
       : undefined
   const playback = useTrimPlayback({
@@ -138,7 +141,9 @@ function ClipEditorBody({
   )
   const canSaveTrim =
     canTrim && trimChanged && rangeMs >= MIN_TRIM_MS && !trimMutation.isPending
-  const media = useClipEditorMedia(row, processing, localItem)
+  // A ready clip keeps its committed server media during a background
+  // re-encode. Only an unpublished clip falls back to the local capture.
+  const media = useClipEditorMedia(row, mediaPending, localItem)
   const deleteFlow = useServerBackedClipDelete({
     row,
     localItem,
