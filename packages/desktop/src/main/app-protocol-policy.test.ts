@@ -10,6 +10,7 @@ import {
   forwardedProxyRequestHeaders,
   isAllowedProxyOrigin,
   isRejectedProxyRedirect,
+  isStreamingProxyUpload,
   isTrustedAppDocumentUrl,
   mapAppRequest,
   normalizeSelectedServerUrl,
@@ -281,4 +282,35 @@ test("rejects redirects but preserves conditional 304 responses", () => {
   }
   assert.equal(isRejectedProxyRedirect(304), false)
   assert.equal(isRejectedProxyRedirect(200), false)
+})
+
+test("identifies only streamed upload ticket requests", () => {
+  assert.equal(
+    isStreamingProxyUpload("PUT", "/api/assets/upload/ticket-1", "video/mp4"),
+    true,
+  )
+  assert.equal(
+    isStreamingProxyUpload(
+      "POST",
+      "/api/users/me/avatar/upload",
+      "multipart/form-data; boundary=alloy",
+    ),
+    true,
+  )
+  assert.equal(
+    isStreamingProxyUpload("GET", "/api/assets/upload/ticket-1", null),
+    false,
+  )
+  assert.equal(
+    isStreamingProxyUpload(
+      "GET",
+      "/api/users/me/avatar/upload",
+      "multipart/form-data; boundary=alloy",
+    ),
+    false,
+  )
+  assert.equal(
+    isStreamingProxyUpload("PUT", "/api/assets/uploads/ticket-1", "video/mp4"),
+    false,
+  )
 })

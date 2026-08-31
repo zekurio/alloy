@@ -15,11 +15,16 @@ import {
   isAllowedProxyMethod,
   isAllowedProxyOrigin,
   isRejectedProxyRedirect,
+  isStreamingProxyUpload,
   mapAppRequest,
   normalizeSelectedServerUrl,
   requestedPreflightHeadersAreAllowed,
   translateSelectedServerUploadTicket,
 } from "./app-protocol-policy"
+import {
+  proxyResponseBody,
+  responseHeaderDeadline,
+} from "./app-protocol-stream"
 import { mainSession } from "./session"
 
 const logger = createLogger("app-protocol")
@@ -148,20 +153,36 @@ async function proxyApiRequest(
 ): Promise<Response> {
   const target = new URL(targetUrl)
   const headers = forwardedProxyRequestHeaders(request.headers, target.origin)
+  const requestBody =
+    request.method === "GET" || request.method === "HEAD"
+      ? undefined
+      : request.body
+  const streamingUpload = isStreamingProxyUpload(
+    request.method,
+    target.pathname,
+    request.headers.get("content-type"),
+  )
+  const deadline = streamingUpload
+    ? null
+    : responseHeaderDeadline(request.signal)
   try {
-    const response = await mainSession().fetch(targetUrl, {
-      method: request.method,
-      headers,
-      body:
-        request.method === "GET" || request.method === "HEAD"
-          ? undefined
-          : request.body,
-      credentials: target.pathname.startsWith("/api/assets/upload/")
-        ? "omit"
-        : "include",
-      redirect: "manual",
-      signal: request.signal,
-    })
+    let response: Response
+    try {
+      const init: RequestInit & { duplex?: "half" } = {
+        method: request.method,
+        headers,
+        body: requestBody,
+        credentials: target.pathname.startsWith("/api/assets/upload/")
+          ? "omit"
+          : "include",
+        redirect: "manual",
+        signal: deadline?.signal ?? request.signal,
+        duplex: requestBody ? "half" : undefined,
+      }
+      response = await mainSession().fetch(targetUrl, init)
+    } finally {
+      deadline?.clear()
+    }
     if (isRejectedProxyRedirect(response.status)) {
       response.body?.cancel().catch(() => undefined)
       return proxyErrorResponse(
@@ -182,13 +203,22 @@ async function proxyApiRequest(
 
     const responseHeaders = proxyResponseHeaders(response.headers)
     addDevCorsHeaders(responseHeaders, request.headers.get("origin"), devOrigin)
-    return new Response(request.method === "HEAD" ? null : response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: responseHeaders,
-    })
+    return new Response(
+      request.method === "HEAD"
+        ? null
+        : proxyResponseBody(response.body, request.signal),
+      {
+        status: response.status,
+        statusText: response.statusText,
+        headers: responseHeaders,
+      },
+    )
   } catch (cause) {
     if (request.signal.aborted) throw cause
+    if (deadline?.timedOut()) {
+      logger.warn("API proxy response header timed out:", cause)
+      return proxyErrorResponse(504, "Gateway timeout", request, devOrigin)
+    }
     logger.warn("API proxy request failed:", cause)
     return proxyErrorResponse(502, "Bad gateway", request, devOrigin)
   }
