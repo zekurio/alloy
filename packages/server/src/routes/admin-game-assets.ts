@@ -1,20 +1,15 @@
 import { Buffer } from "node:buffer"
 
-import {
-  GAME_ASSET_ROLES,
-  gameAssetImagePath,
-  type GameAssetRole,
-} from "@alloy/contracts"
+import { gameAssetImagePath, type GameAssetRole } from "@alloy/contracts"
 import { game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
-import { db } from "@alloy/server/db/index"
+import { GAME_ASSET_ROUTE_KEY_RE } from "@alloy/server/games/game-asset-deletion"
 import {
   imageBlurHash,
   imageBlurHashFromBytes,
 } from "@alloy/server/media/blurhash"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
-import { gameAssetKey, gameAssetStorage } from "@alloy/server/storage/index"
-import { eq } from "drizzle-orm"
+import { gameAssetStorage } from "@alloy/server/storage/index"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 import sharp from "sharp"
 
@@ -25,9 +20,6 @@ const logger = createLogger("admin-games")
 const GAME_ASSET_MAX_BYTES = 10 * 1024 * 1024 // 10 MB
 const GAME_ASSET_CONTENT_TYPE = "image/webp"
 const GAME_ASSET_EXT = ".webp"
-const GAME_ASSET_KEY_RE =
-  /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:hero|grid|logo|icon)\.webp$/i
-
 const EXT_FOR_CONTENT_TYPE = {
   "image/jpeg": ".jpg",
   "image/png": ".png",
@@ -61,8 +53,8 @@ const GAME_ASSET_BLUR_COLUMN = new Map<
   ["grid", "grid_blur_hash"],
 ])
 
-type PreparedGameAsset =
-  | { ok: true; bytes: Buffer }
+export type PreparedGameAsset =
+  | { ok: true; bytes: Buffer; blurHash: string | null }
   | { ok: false; status: ContentfulStatusCode; error: string }
 
 export async function prepareGameAsset(
@@ -88,28 +80,27 @@ export async function prepareGameAsset(
   if (!validation.ok) return { ok: false, status: 400, error: validation.error }
 
   try {
-    return { ok: true, bytes: await processGameAsset(role, buf) }
+    const bytes = await processGameAsset(role, buf)
+    const blurHash = GAME_ASSET_BLUR_COLUMN.has(role)
+      ? await imageBlurHashFromBytes(bytes).catch(() => null)
+      : null
+    return { ok: true, bytes, blurHash }
   } catch (cause) {
     logger.error(`failed to process ${role} image:`, cause)
     return { ok: false, status: 400, error: "Could not process image" }
   }
 }
 
-export async function storeGameAsset(
-  gameId: string,
+export function gameAssetColumns(
   role: GameAssetRole,
-  bytes: Buffer,
+  key: string,
+  prepared: Extract<PreparedGameAsset, { ok: true }>,
   updatedAt: Date,
-): Promise<Partial<typeof game.$inferInsert>> {
-  const key = gameAssetKey(gameId, role, GAME_ASSET_EXT)
-  await gameAssetStorage.put(key, bytes, GAME_ASSET_CONTENT_TYPE)
-
+): Partial<typeof game.$inferInsert> {
   const patch: Partial<typeof game.$inferInsert> = {}
   patch[GAME_ASSET_URL_COLUMN[role]] = gameAssetImagePath(key, updatedAt)
   const blurColumn = GAME_ASSET_BLUR_COLUMN.get(role)
-  if (blurColumn) {
-    patch[blurColumn] = await imageBlurHashFromBytes(bytes).catch(() => null)
-  }
+  if (blurColumn) patch[blurColumn] = prepared.blurHash
   return patch
 }
 
@@ -137,24 +128,14 @@ export async function urlAssetColumns(input: {
   return patch
 }
 
-export async function deleteAllGameAssets(gameId: string): Promise<void> {
-  await Promise.all(
-    GAME_ASSET_ROLES.map((role) =>
-      gameAssetStorage.delete(gameAssetKey(gameId, role, GAME_ASSET_EXT)),
-    ),
-  )
-}
-
-export async function removeGameAsset(
-  gameId: string,
+export function clearedGameAssetColumns(
   role: GameAssetRole,
-): Promise<void> {
-  await gameAssetStorage.delete(gameAssetKey(gameId, role, GAME_ASSET_EXT))
+): Partial<typeof game.$inferInsert> {
   const patch: Partial<typeof game.$inferInsert> = { updated_at: new Date() }
   patch[GAME_ASSET_URL_COLUMN[role]] = null
   const blurColumn = GAME_ASSET_BLUR_COLUMN.get(role)
   if (blurColumn) patch[blurColumn] = null
-  await db.update(game).set(patch).where(eq(game.id, gameId))
+  return patch
 }
 
 function processGameAsset(role: GameAssetRole, bytes: Buffer): Promise<Buffer> {
@@ -180,5 +161,7 @@ async function blurHashForUrl(url: string): Promise<string | null> {
 
 export const gameAssetsRoute = immutableImageAssetsRoute(
   gameAssetStorage,
-  GAME_ASSET_KEY_RE,
+  GAME_ASSET_ROUTE_KEY_RE,
 )
+
+export { GAME_ASSET_CONTENT_TYPE, GAME_ASSET_EXT }
