@@ -315,7 +315,6 @@ function MobileClipViewerBody({
               sourceVersion={row.sourceVersion}
               renditions={row.renditions}
               durationMs={row.durationMs}
-              sourceDurationMs={row.sourceDurationMs}
               trimStartMs={row.trimStartMs}
               trimEndMs={row.trimEndMs}
               thumbnail={thumbnail}

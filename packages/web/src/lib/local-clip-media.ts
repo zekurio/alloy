@@ -4,14 +4,41 @@ import type { RecordingLibraryItem } from "@alloy/contracts"
 const SOURCE_DURATION_TOLERANCE_MS = 1_500
 const FINAL_COPY_DURATION_TOLERANCE_MS = 100
 
-type ClipTimeline = Pick<
+type FinalClipTimeline = Pick<
   ClipRow,
-  "id" | "durationMs" | "sourceDurationMs" | "trimStartMs" | "trimEndMs"
+  "id" | "durationMs" | "trimStartMs" | "trimEndMs"
 >
+type ClipTimeline = FinalClipTimeline & Pick<ClipRow, "sourceDurationMs">
 
 export interface LocalClipMediaWindow {
   startMs: number
   endMs: number
+}
+
+/** Whether this local file already contains the final published clip. */
+export function localClipIsFinalCut(
+  item: Pick<
+    RecordingLibraryItem,
+    | "uploadedClipId"
+    | "uploadedClipSourceStartMs"
+    | "uploadedClipSourceDurationMs"
+    | "durationMs"
+  >,
+  clip: FinalClipTimeline,
+): boolean {
+  if (item.uploadedClipId !== clip.id) return false
+  const trimmed = clip.trimStartMs !== null || clip.trimEndMs !== null
+  if (
+    trimmed &&
+    (item.uploadedClipSourceStartMs != null ||
+      item.uploadedClipSourceDurationMs != null)
+  ) {
+    return false
+  }
+  const tolerance = trimmed
+    ? FINAL_COPY_DURATION_TOLERANCE_MS
+    : SOURCE_DURATION_TOLERANCE_MS
+  return durationMatches(item.durationMs, clip.durationMs, tolerance)
 }
 
 /**
@@ -32,38 +59,6 @@ export function localClipSourceWindow(
   if (!sourceDurationMs) return null
   if (!durationMatches(item.durationMs, sourceDurationMs)) return null
   return boundedWindow(0, sourceDurationMs, item.durationMs)
-}
-
-/** Local range that represents the final published clip. */
-export function localClipPlaybackWindow(
-  item: RecordingLibraryItem,
-  clip: ClipTimeline,
-): LocalClipMediaWindow | null {
-  if (item.uploadedClipId !== clip.id) return null
-
-  const source = linkedSourceWindow(item, clip)
-  if (source) {
-    const sourceDurationMs = source.endMs - source.startMs
-    const relativeStartMs = clip.trimStartMs ?? 0
-    const relativeEndMs = clip.trimEndMs ?? sourceDurationMs
-    if (relativeStartMs < 0 || relativeEndMs <= relativeStartMs) return null
-    if (relativeEndMs > sourceDurationMs + SOURCE_DURATION_TOLERANCE_MS) {
-      return null
-    }
-    const endMs = Math.min(source.endMs, source.startMs + relativeEndMs)
-    const window = { startMs: source.startMs + relativeStartMs, endMs }
-    if (!windowMatchesClip(window, clip.durationMs)) return null
-    return window
-  }
-
-  const durationMs = positiveMs(item.durationMs)
-  if (!durationMs) return null
-  const tolerance =
-    clip.trimStartMs === null && clip.trimEndMs === null
-      ? SOURCE_DURATION_TOLERANCE_MS
-      : FINAL_COPY_DURATION_TOLERANCE_MS
-  if (!durationMatches(item.durationMs, clip.durationMs, tolerance)) return null
-  return { startMs: 0, endMs: durationMs }
 }
 
 export function mediaWindowSeconds(window: LocalClipMediaWindow) {
@@ -157,17 +152,6 @@ function boundedWindow(
     return null
   }
   return { startMs, endMs }
-}
-
-function windowMatchesClip(
-  window: LocalClipMediaWindow,
-  clipDurationMs: number | null,
-): boolean {
-  return durationMatches(
-    window.endMs - window.startMs,
-    clipDurationMs,
-    SOURCE_DURATION_TOLERANCE_MS,
-  )
 }
 
 function durationMatches(

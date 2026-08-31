@@ -14,8 +14,6 @@ export interface RenditionSource {
   codecs: string
   /** Container MIME type, e.g. "video/mp4". */
   contentType: string
-  /** Optional window within this source that represents the clip timeline. */
-  playbackRange?: MediaPlaybackRange
 }
 
 /** Progressive playback config, source entry first. */
@@ -213,8 +211,8 @@ export function useMediaEngine(
   if (activeUrl !== null) {
     return {
       src: activeUrl,
-      mediaKey: `url:${activeUrl}:${playbackRangeKey(active?.playbackRange)}`,
-      activePlaybackRange: active?.playbackRange,
+      mediaKey: `url:${activeUrl}:${playbackRangeKey(playbackRange)}`,
+      activePlaybackRange: playbackRange,
       onMediaError,
       switchingRendition,
     }

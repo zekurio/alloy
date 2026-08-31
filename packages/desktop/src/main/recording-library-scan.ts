@@ -1,3 +1,4 @@
+import { join } from "node:path"
 import { Worker } from "node:worker_threads"
 
 import type {
@@ -5,6 +6,7 @@ import type {
   RecordingLibrarySnapshot,
 } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
+import { app } from "electron"
 
 import { cachedAssetUrl } from "./asset-cache"
 import { readCaptureManifest } from "./recording-library-manifest"
@@ -109,7 +111,7 @@ function recordingLibraryScanWorker(): Worker {
   }
 
   const worker = new Worker(
-    new URL("./recording-library-scan-worker.js", import.meta.url),
+    join(app.getAppPath(), "out", "main", "recording-library-scan-worker.js"),
   )
   worker.on("message", handleScanWorkerMessage)
   worker.on("error", (cause) => {
