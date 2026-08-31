@@ -23,7 +23,7 @@ import type {
 // gated on status = 'ready') keeps serving the committed assets meanwhile.
 const keepReadyStatus = sql`case when ${clip.status} = 'ready' then 'ready' else 'processing' end`
 
-const clearedStageColumns = {
+export const clearedStageColumns = {
   encode_stage: null,
   encode_tier: null,
   encode_tier_index: null,
@@ -67,7 +67,7 @@ function thumbPatchToColumns(patch: MediaThumbPatch) {
   return { ...columns, thumb_failed_at: patch.thumbFailedAt }
 }
 
-function completeRequestColumns(completion: MediaCompletion) {
+export function completeRequestColumns(completion: MediaCompletion) {
   const ownsRequest = sql`${clip.encode_request_id} = ${completion.requestId}`
   return {
     encode_request_id: sql`case when ${ownsRequest} then null else ${clip.encode_request_id} end`,

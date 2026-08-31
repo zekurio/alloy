@@ -21,7 +21,6 @@ import { readJobOperationSummaries } from "@alloy/server/jobs/summaries"
 import {
   CLIP_MEDIA_FAILURE_ID_PREFIX,
   clipIdFromMediaFailureId,
-  legacyRenditionOperationCounts,
 } from "@alloy/server/queue/clip-media-policy"
 import {
   clipMediaAdminQueueCounts,
@@ -80,7 +79,7 @@ export const adminJobsRoute = new Hono()
     )
     const operations: AdminJobOperations = {
       renditionSweep: {
-        ...legacyRenditionOperationCounts(mediaQueueCounts),
+        ...mediaQueueCounts,
         summary: summaries.renditionSweep,
       },
       storageGc: {

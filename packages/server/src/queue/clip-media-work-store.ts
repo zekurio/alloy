@@ -10,18 +10,12 @@ import { cleanupTickets } from "@alloy/server/uploads/tickets"
 import { and, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
 
 import { clipMediaRetryDelayMs } from "./clip-media-policy"
+import { clearedStageColumns, completeRequestColumns } from "./clip-media-store"
 import type { MediaGeneration } from "./media-generation"
 import type { MediaRow } from "./media-store"
 
 const logger = createLogger("media-worker")
 const MAX_ATTEMPTS = 3
-
-const clearedStageColumns = {
-  encode_stage: null,
-  encode_tier: null,
-  encode_tier_index: null,
-  encode_tier_count: null,
-}
 
 const mediaClaimSelect = {
   id: clip.id,
@@ -405,7 +399,7 @@ export async function completeClipMediaWithoutPipeline(
     .update(clip)
     .set({
       ...clearedStageColumns,
-      ...completeRequestColumns(claim.requestId),
+      ...completeRequestColumns(claim),
       encode_generation: options.quarantined
         ? clip.encode_generation
         : claim.targetGeneration,
@@ -497,7 +491,7 @@ export async function failClipMedia(
       .update(clip)
       .set({
         ...clearedStageColumns,
-        ...completeRequestColumns(claim.requestId),
+        ...completeRequestColumns(claim),
         status: terminalStatus,
         encode_run_id: null,
         encode_locked_at: null,
@@ -571,18 +565,6 @@ export async function recoverClipMediaWork(): Promise<void> {
       })
       .where(and(eq(clip.status, "processing"), isNull(clip.encode_request_id)))
   })
-}
-
-function completeRequestColumns(requestId: string) {
-  const ownsRequest = sql`${clip.encode_request_id} = ${requestId}`
-  return {
-    encode_request_id: sql`case when ${ownsRequest} then null else ${clip.encode_request_id} end`,
-    encode_request_force: sql`case when ${ownsRequest} then false else ${clip.encode_request_force} end`,
-    encode_requested_at: sql`case when ${ownsRequest} then null else ${clip.encode_requested_at} end`,
-    encode_run_after: sql`case when ${ownsRequest} then null else ${clip.encode_run_after} end`,
-    encode_priority: sql`case when ${ownsRequest} then 90 else ${clip.encode_priority} end`,
-    encode_claimed_request_id: null,
-  }
 }
 
 async function releaseRun(

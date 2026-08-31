@@ -2,18 +2,18 @@ import { webhook, webhookDelivery } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { errorMessage } from "@alloy/server/runtime/error-message"
+import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
 import { and, asc, eq, sql } from "drizzle-orm"
 
 import { webhookFailurePlan } from "./delivery-policy"
-import { OutboxWorker } from "./outbox-worker"
 import { clipPublishedPayload, discordContent } from "./payload"
 import { postWebhook, type WebhookSendResult } from "./send"
 
 const logger = createLogger("webhooks")
 const RECONCILE_INTERVAL_MS = 60_000
 
-const worker = new OutboxWorker({
-  pollIntervalMs: RECONCILE_INTERVAL_MS,
+const worker = new WakeableSerialWorker({
+  reconciliationIntervalMs: RECONCILE_INTERVAL_MS,
   runOne: deliverNextPending,
   onError: (cause) => logger.error("webhook outbox worker failed:", cause),
 })

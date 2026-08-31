@@ -13,61 +13,36 @@ const FORCE_PENDING_KEY = "mediaEncodeForcePending"
 
 const MediaGenerationSchema = t.object({
   generation: t.number().int().min(1),
-  outputSignature: t.string().min(1),
-  executionSignature: t.string().min(1),
+  signature: t.string().min(1),
   forceGeneration: t.number().int().nonnegative(),
   retryFailuresGeneration: t.number().int().nonnegative(),
-  changedAt: t.string().datetime({ offset: true }),
 })
 
 export type MediaGeneration = Readonly<t.infer<typeof MediaGenerationSchema>>
 
 type Executor = Pick<DbTransaction, "delete" | "insert" | "select" | "update">
 
-export interface MediaConfigSignatures {
-  outputSignature: string
-  executionSignature: string
-}
-
-type SignatureValue =
-  | string
-  | number
-  | boolean
-  | null
-  | undefined
-  | SignatureArray
-  | SignatureObject
-
-interface SignatureArray extends ReadonlyArray<SignatureValue> {}
-
-interface SignatureObject {
-  readonly [key: string]: SignatureValue
-}
-
-export function mediaConfigSignatures(
-  config: TranscodingConfig,
-): MediaConfigSignatures {
-  const output = {
-    pipeline: MEDIA_PIPELINE_VERSION,
-    videoCodec: config.videoCodec,
-    quality: config.quality,
-    audioBitrateKbps: config.audioBitrateKbps,
-    tiers: config.tiers.map((tier) => ({
-      height: tier.height,
-      maxFps: tier.maxFps,
-      maxrateKbps: tier.maxrateKbps,
-      codec: tier.codec,
-      og: tier.og,
-    })),
-  }
-  return {
-    outputSignature: signature(output),
-    executionSignature: signature({
-      ...output,
-      hardwareAcceleration: config.hardwareAcceleration,
-      vaapiDevice: config.vaapiDevice,
-    }),
-  }
+export function mediaConfigSignature(config: TranscodingConfig): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        pipeline: MEDIA_PIPELINE_VERSION,
+        videoCodec: config.videoCodec,
+        quality: config.quality,
+        audioBitrateKbps: config.audioBitrateKbps,
+        tiers: config.tiers.map((tier) => ({
+          height: tier.height,
+          maxFps: tier.maxFps,
+          maxrateKbps: tier.maxrateKbps,
+          codec: tier.codec,
+          og: tier.og,
+        })),
+        hardwareAcceleration: config.hardwareAcceleration,
+        vaapiDevice: config.vaapiDevice,
+      }),
+    )
+    .digest("hex")
+    .slice(0, 24)
 }
 
 export async function synchronizeMediaGeneration(
@@ -99,7 +74,6 @@ export async function forceMediaGeneration(
       ...current,
       generation: current.generation + 1,
       forceGeneration: current.generation + 1,
-      changedAt: new Date().toISOString(),
     })
   })
 }
@@ -108,13 +82,12 @@ async function synchronizeWithExecutor(
   config: TranscodingConfig,
   executor: Executor,
 ): Promise<MediaGeneration> {
-  const signatures = mediaConfigSignatures(config)
+  const configSignature = mediaConfigSignature(config)
   const initial: MediaGeneration = {
     generation: 1,
-    ...signatures,
+    signature: configSignature,
     forceGeneration: 0,
     retryFailuresGeneration: 0,
-    changedAt: new Date().toISOString(),
   }
   await executor
     .insert(instanceSetting)
@@ -130,17 +103,13 @@ async function synchronizeWithExecutor(
   const parsed = safeParse(MediaGenerationSchema, storedRow?.value)
   let current = parsed.success ? parsed.data : initial
 
-  if (
-    current.outputSignature !== signatures.outputSignature ||
-    current.executionSignature !== signatures.executionSignature
-  ) {
+  if (current.signature !== configSignature) {
     const generation = current.generation + 1
     current = await writeGeneration(executor, {
       ...current,
-      ...signatures,
+      signature: configSignature,
       generation,
       retryFailuresGeneration: generation,
-      changedAt: new Date().toISOString(),
     })
   } else if (!parsed.success) {
     current = await writeGeneration(executor, initial)
@@ -157,7 +126,6 @@ async function synchronizeWithExecutor(
     ...current,
     generation,
     forceGeneration: generation,
-    changedAt: new Date().toISOString(),
   })
 }
 
@@ -170,11 +138,4 @@ async function writeGeneration(
     .set({ value, updated_at: new Date() })
     .where(eq(instanceSetting.key, GENERATION_KEY))
   return Object.freeze(value)
-}
-
-function signature(value: SignatureValue): string {
-  return createHash("sha256")
-    .update(JSON.stringify(value))
-    .digest("hex")
-    .slice(0, 24)
 }

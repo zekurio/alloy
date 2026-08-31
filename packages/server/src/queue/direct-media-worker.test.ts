@@ -12,13 +12,10 @@ import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
 
 import {
   clipIdFromMediaFailureId,
-  clipMediaFailureId,
   chooseClipMediaAction,
   clipMediaRetryDelayMs,
-  legacyRenditionOperationCounts,
 } from "./clip-media-policy"
-import { mediaConfigSignatures } from "./media-generation"
-import { WakeableMediaPump } from "./wakeable-media-pump"
+import { mediaConfigSignature } from "./media-generation"
 
 const config = TranscodingConfigSchema.parse({})
 const facts = {
@@ -38,22 +35,20 @@ test("media jobs and their empty queue are retired from the registry contract", 
   assert.deepEqual(ADMIN_JOB_QUEUES, ["encode", "io", "maintenance"])
 })
 
-test("generation signatures distinguish output and execution-only changes", () => {
-  const baseline = mediaConfigSignatures(config)
-  const hardware = mediaConfigSignatures({
+test("generation signature tracks output and execution config", () => {
+  const baseline = mediaConfigSignature(config)
+  const hardware = mediaConfigSignature({
     ...config,
     hardwareAcceleration:
       config.hardwareAcceleration === "none" ? "nvenc" : "none",
   })
-  assert.equal(hardware.outputSignature, baseline.outputSignature)
-  assert.notEqual(hardware.executionSignature, baseline.executionSignature)
+  assert.notEqual(hardware, baseline)
 
-  const quality = mediaConfigSignatures({
+  const quality = mediaConfigSignature({
     ...config,
     quality: config.quality + 1,
   })
-  assert.notEqual(quality.outputSignature, baseline.outputSignature)
-  assert.notEqual(quality.executionSignature, baseline.executionSignature)
+  assert.notEqual(quality, baseline)
 })
 
 test("matching media skips full work but repairs a missing thumbnail", () => {
@@ -118,8 +113,7 @@ test("retry policy retains the existing linear media backoff", () => {
 
 test("contract-1 media failure ids are synthetic and unambiguous", () => {
   const clipId = "018fdb4c-7d55-7ad8-9c18-3b8948ce6b55"
-  const failureId = clipMediaFailureId(clipId)
-  assert.equal(failureId, `clip-media:${clipId}`)
+  const failureId = `clip-media:${clipId}`
   assert.equal(clipIdFromMediaFailureId(failureId), clipId)
   assert.equal(clipIdFromMediaFailureId(clipId), null)
   assert.equal(clipIdFromMediaFailureId("clip-media:not-a-uuid"), null)
@@ -136,74 +130,3 @@ test("contract-1 media failure ids are synthetic and unambiguous", () => {
     true,
   )
 })
-
-test("legacy rendition operation projects direct media activity", () => {
-  assert.deepEqual(
-    legacyRenditionOperationCounts({
-      pending: 4,
-      running: 2,
-      failed: 1,
-      completed: 99,
-    }),
-    { pending: 4, running: 2, failed: 1, completed: 0 },
-  )
-})
-
-test("a wake racing an active media pass schedules an immediate second pass", async () => {
-  let calls = 0
-  const entered = deferred<void>()
-  const release = deferred<void>()
-  const repumped = deferred<void>()
-  const pump = new WakeableMediaPump({
-    reconciliationIntervalMs: 60_000,
-    errorRetryMs: 5000,
-    async runPass() {
-      calls += 1
-      if (calls === 1) {
-        entered.resolve()
-        await release.promise
-      } else {
-        repumped.resolve()
-      }
-      return null
-    },
-    onError: () => assert.fail("media pump unexpectedly failed"),
-  })
-
-  pump.start()
-  await entered.promise
-  pump.wake()
-  release.resolve()
-  await repumped.promise
-  assert.equal(calls, 2)
-  await pump.stop()
-})
-
-test("the media pump wakes at a persisted retry deadline", async () => {
-  let calls = 0
-  const reachedDeadline = deferred<void>()
-  const pump = new WakeableMediaPump({
-    reconciliationIntervalMs: 60_000,
-    errorRetryMs: 5000,
-    async runPass() {
-      calls += 1
-      if (calls === 1) return new Date(Date.now() + 20)
-      reachedDeadline.resolve()
-      return null
-    },
-    onError: () => assert.fail("media pump unexpectedly failed"),
-  })
-
-  pump.start()
-  await reachedDeadline.promise
-  assert.equal(calls, 2)
-  await pump.stop()
-})
-
-function deferred<T>() {
-  let resolve!: (value: T | PromiseLike<T>) => void
-  const promise = new Promise<T>((res) => {
-    resolve = res
-  })
-  return { promise, resolve }
-}

@@ -6,6 +6,7 @@ import { writeMediaReconciliationSummary } from "@alloy/server/jobs/summaries"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
 import { createStoredClipMentionNotifications } from "@alloy/server/notifications/service"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
+import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
 import { announceClipPublished } from "@alloy/server/webhooks/publish"
 
 import {
@@ -32,7 +33,6 @@ import {
   type MediaGeneration,
 } from "./media-generation"
 import { runMediaProcessing, runThumbnailBackfill } from "./media-run"
-import { WakeableMediaPump } from "./wakeable-media-pump"
 
 const logger = createLogger("media-worker")
 const HEARTBEAT_MS = 30_000
@@ -53,10 +53,13 @@ interface ActiveRun {
 export class ClipMediaWorker {
   private readonly active = new Map<string, ActiveRun>()
   private readonly blockedClipIds = new Map<string, number>()
-  private readonly scheduler = new WakeableMediaPump({
+  private readonly scheduler = new WakeableSerialWorker({
     reconciliationIntervalMs: RECONCILIATION_INTERVAL_MS,
     errorRetryMs: ERROR_RETRY_MS,
-    runPass: () => this.pumpInner(),
+    runOne: async () => ({
+      worked: false,
+      nextRunAt: await this.pumpInner(),
+    }),
     onError: (cause) => logger.error("media pump failed:", cause),
   })
   private startPromise: Promise<void> | null = null
