@@ -12,6 +12,7 @@ export interface StorageDeletionRunInput {
 
 export interface StorageDeletionRunDependencies {
   storage: StorageDriver
+  isWriteActive(namespace: StorageDeletionNamespace, key: string): boolean
   hasLiveReference(
     namespace: StorageDeletionNamespace,
     key: string,
@@ -20,7 +21,11 @@ export interface StorageDeletionRunDependencies {
   signal: AbortSignal
 }
 
-export type StorageDeletionRunResult = "deleted" | "referenced" | "interrupted"
+export type StorageDeletionRunResult =
+  | "adopted"
+  | "deleted"
+  | "referenced"
+  | "interrupted"
 
 /**
  * Execute one idempotent physical deletion. Database state transitions stay in
@@ -32,13 +37,21 @@ export async function runStorageDeletion(
   dependencies: StorageDeletionRunDependencies,
 ): Promise<StorageDeletionRunResult> {
   if (dependencies.signal.aborted) return "interrupted"
+
+  // A durable prewrite reservation deliberately exists before its object is
+  // attached to a row. Keep this process-local fence distinct from the DB
+  // reference check: an active writer must always defer, while a later live
+  // DB reference means that a prewrite reservation was successfully adopted.
+  if (dependencies.isWriteActive(input.namespace, input.key)) {
+    return "referenced"
+  }
   if (
     await dependencies.hasLiveReference(input.namespace, input.key, {
       type: input.sourceType,
       id: input.sourceId,
     })
   ) {
-    return "referenced"
+    return input.sourceType === "storage-prewrite" ? "adopted" : "referenced"
   }
   if (dependencies.signal.aborted) return "interrupted"
 

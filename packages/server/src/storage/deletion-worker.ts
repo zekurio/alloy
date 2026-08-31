@@ -15,6 +15,7 @@ import {
 } from "./deletion-store"
 import type { StorageDriver } from "./driver"
 import { assetStorage, clipStorage, clipThumbnailStorage } from "./index"
+import { storageObjectWriteIsActive } from "./write-activity"
 
 const logger = createLogger("storage-deletion")
 const RECONCILIATION_INTERVAL_MS = 60_000
@@ -72,6 +73,7 @@ async function deleteNextPendingObject(signal: AbortSignal) {
   try {
     const result = await runStorageDeletion(row, {
       storage: storageDriver(row.namespace),
+      isWriteActive: storageObjectWriteIsActive,
       hasLiveReference: storageDeletionHasLiveReference,
       signal,
     })
@@ -82,6 +84,9 @@ async function deleteNextPendingObject(signal: AbortSignal) {
       await deferReferencedStorageDeletion(row, attemptedAt)
       return { worked: true as const }
     }
+    // A prewrite reservation whose object is now authoritatively referenced
+    // has fulfilled its purpose. Completing it prevents a successful, but
+    // commit-uncertain, upload from being deferred forever.
     await completeStorageDeletion(row)
     return { worked: true as const }
   } catch (cause) {
