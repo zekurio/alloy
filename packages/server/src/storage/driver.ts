@@ -158,13 +158,12 @@ export function versionedUserAssetKey(
   userId: string,
   role: UserAssetRole,
   versionId: string,
-  ext: string,
 ): string {
   const version = versionId.replaceAll("-", "").toLowerCase()
   if (!/^[0-9a-f]{32}$/.test(version)) {
     throw new Error("User asset version must be a UUID")
   }
-  return `${shardedAssetDir(userId)}/${role}-${version}${ext}`
+  return `${shardedAssetDir(userId)}/${role}-${version}.webp`
 }
 
 export function gameAssetKey(

@@ -19,18 +19,16 @@ const VERSION_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 const USER_DIR = `11/eb/${USER_ID}`
 
 test("new user asset attempts mint full UUID-versioned immutable keys", () => {
-  const a = versionedUserAssetKey(USER_ID, "avatar", VERSION_A, ".webp")
-  const b = versionedUserAssetKey(USER_ID, "avatar", VERSION_B, ".webp")
+  const a = versionedUserAssetKey(USER_ID, "avatar", VERSION_A)
+  const b = versionedUserAssetKey(USER_ID, "avatar", VERSION_B)
   assert.equal(a, `${USER_DIR}/avatar-${VERSION_A.replaceAll("-", "")}.webp`)
   assert.notEqual(a, b)
-  assert.throws(() =>
-    versionedUserAssetKey(USER_ID, "avatar", "aabbccddeeff", ".webp"),
-  )
+  assert.throws(() => versionedUserAssetKey(USER_ID, "avatar", "aabbccddeeff"))
 })
 
 test("the serving route accepts legacy stable and full-version keys", () => {
   const stable = `${USER_DIR}/avatar.webp`
-  const versioned = versionedUserAssetKey(USER_ID, "banner", VERSION_A, ".webp")
+  const versioned = versionedUserAssetKey(USER_ID, "banner", VERSION_A)
   assert.equal(USER_ASSET_ROUTE_KEY_RE.test(stable), true)
   assert.equal(USER_ASSET_ROUTE_KEY_RE.test(versioned), true)
   assert.equal(
@@ -61,12 +59,11 @@ test("owned internal paths parse exactly and retain their key case", () => {
 })
 
 test("producer parsing rejects external, prefix, cross-owner, and cross-role paths", () => {
-  const ownKey = versionedUserAssetKey(USER_ID, "avatar", VERSION_A, ".webp")
+  const ownKey = versionedUserAssetKey(USER_ID, "avatar", VERSION_A)
   const crossOwnerKey = versionedUserAssetKey(
     OTHER_USER_ID,
     "avatar",
     VERSION_A,
-    ".webp",
   )
   for (const candidate of [
     `https://example.test${USER_ASSET_PATH_PREFIX}${ownKey}`,
@@ -81,8 +78,8 @@ test("producer parsing rejects external, prefix, cross-owner, and cross-role pat
 
 test("serialized replacement and removal retire the actual prior version", () => {
   const legacy = `${USER_DIR}/avatar.webp`
-  const a = versionedUserAssetKey(USER_ID, "avatar", VERSION_A, ".webp")
-  const b = versionedUserAssetKey(USER_ID, "avatar", VERSION_B, ".webp")
+  const a = versionedUserAssetKey(USER_ID, "avatar", VERSION_A)
+  const b = versionedUserAssetKey(USER_ID, "avatar", VERSION_B)
 
   assert.equal(intentKeys(replacementIntents(legacy, a)).has(legacy), true)
   assert.equal(intentKeys(replacementIntents(a, b)).has(a), true)
@@ -97,7 +94,6 @@ test("legacy role variants are safe candidates without adopting external URLs", 
     previousUrl: "https://cdn.example.test/foreign-banner.webp",
     reason: "banner removed",
     source: { type: "user-asset", id: USER_ID },
-    includeLegacyVariants: true,
   })
   assert.deepEqual(
     intentKeys(intents),
@@ -165,7 +161,6 @@ function replacementIntents(previousKey: string, retainedKey: string) {
     retainedKey,
     reason: "avatar replaced",
     source: { type: "user-asset", id: USER_ID },
-    includeLegacyVariants: true,
   })
 }
 
@@ -176,7 +171,6 @@ function removalIntents(previousKey: string) {
     previousUrl: `${USER_ASSET_PATH_PREFIX}${previousKey}?v=1`,
     reason: "avatar removed",
     source: { type: "user-asset", id: USER_ID },
-    includeLegacyVariants: true,
   })
 }
 

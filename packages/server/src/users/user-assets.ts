@@ -4,11 +4,11 @@ import { userAssetImagePath, type PublicUser } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
-import type { DbTransaction } from "@alloy/server/db/transaction"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import {
   cancelStorageDeletion,
   enqueueStorageDeletion,
+  enqueueStorageDeletions,
 } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
@@ -29,7 +29,6 @@ const logger = createLogger("users")
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024 // 5 MB
 const MAX_BANNER_BYTES = 10 * 1024 * 1024 // 10 MB
 const USER_ASSET_CONTENT_TYPE = "image/webp"
-const USER_ASSET_EXT = ".webp"
 // The active-write fence provides correctness. This short delay merely avoids
 // waking the worker during the normal small-image upload/attach path.
 const PREWRITE_DELETION_DELAY_MS = 60 * 1000
@@ -113,12 +112,7 @@ export async function uploadUserAsset(input: {
   }
 
   const attemptId = randomUUID()
-  const key = versionedUserAssetKey(
-    input.userId,
-    input.role,
-    attemptId,
-    USER_ASSET_EXT,
-  )
+  const key = versionedUserAssetKey(input.userId, input.role, attemptId)
   let wakeAfterWrite = false
   try {
     return await withStorageObjectWriteActivity("assets", key, async () => {
@@ -220,9 +214,8 @@ export async function uploadUserAsset(input: {
               retainedKey: key,
               reason: `${input.role} replaced`,
               source: { type: "user-asset", id: input.userId },
-              includeLegacyVariants: true,
             })
-            await enqueueDeletionIntents(tx, displaced)
+            await enqueueStorageDeletions(displaced, { tx })
             return {
               result: { ok: true, user: toPublicUser(updated) },
               queuedDeletions: displaced.length,
@@ -277,9 +270,8 @@ export async function removeUserAsset(
       previousUrl,
       reason: `${role} removed`,
       source: { type: "user-asset", id: viewerId },
-      includeLegacyVariants: true,
     })
-    await enqueueDeletionIntents(tx, intents)
+    await enqueueStorageDeletions(intents, { tx })
     return {
       result: { ok: true, user: toPublicUser(updated) } as const,
       queuedDeletions: intents.length,
@@ -291,13 +283,6 @@ export async function removeUserAsset(
 
 function missingUserResult(): UserAssetUpdateResult {
   return { ok: false, status: 500, error: "User update did not persist" }
-}
-
-async function enqueueDeletionIntents(
-  tx: DbTransaction,
-  intents: readonly ReturnType<typeof userAssetDeletionIntents>[number][],
-): Promise<void> {
-  for (const intent of intents) await enqueueStorageDeletion(intent, { tx })
 }
 
 async function enqueueUserAssetCleanupNow(input: {

@@ -51,16 +51,13 @@ export function userAssetDeletionIntents(input: {
   retainedKey?: string | null
   reason: string
   source: { type: string; id?: string | null }
-  includeLegacyVariants?: boolean
 }): StorageDeletionInput[] {
   const retained = input.retainedKey?.toLowerCase() ?? null
   const candidates = [
     internalUserAssetKey(input.previousUrl, input.userId, input.role),
   ]
-  if (input.includeLegacyVariants) {
-    for (const ext of LEGACY_USER_ASSET_EXTENSIONS) {
-      candidates.push(userAssetKey(input.userId, input.role, ext))
-    }
+  for (const ext of LEGACY_USER_ASSET_EXTENSIONS) {
+    candidates.push(userAssetKey(input.userId, input.role, ext))
   }
 
   const intents = new Map<string, StorageDeletionInput>()

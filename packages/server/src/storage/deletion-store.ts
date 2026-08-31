@@ -75,10 +75,10 @@ export async function cancelStorageDeletion(
   namespace: StorageDeletionNamespace,
   key: string,
   options: { tx?: DbTransaction } = {},
-): Promise<boolean> {
+): Promise<void> {
   validateStorageKey(key)
   const executor = options.tx ?? db
-  const rows = await executor
+  await executor
     .delete(storageDeletion)
     .where(
       and(
@@ -86,8 +86,6 @@ export async function cancelStorageDeletion(
         eq(storageDeletion.storage_key, key),
       ),
     )
-    .returning({ id: storageDeletion.id })
-  return rows.length > 0
 }
 
 export async function probeStorageDeletionStore(): Promise<void> {
