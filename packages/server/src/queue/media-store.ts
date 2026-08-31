@@ -109,7 +109,7 @@ export interface MediaStore {
   commitProgress(id: string, runId: string, pct: number): Promise<boolean>
   /** Side-channel progress signal (SSE for clips). */
   publishProgress(authorId: string, id: string, pct: number): void
-  /** Commit source facts plus the current virtual cut reference. */
+  /** Commit source facts plus the current materialized cut reference. */
   commitSource(
     id: string,
     runId: string,

@@ -73,7 +73,7 @@ export const clipsUploadMediaRoutes = new Hono()
         return badRequest(c, "Clip duration is unknown")
       }
 
-      // Timestamps are source-time; clamp into the virtual trim range so the
+      // Timestamps are source-time; clamp into the committed trim range so the
       // poster always shows a frame the published clip actually contains.
       const timeMs = Math.min(
         Math.max(body.timeMs, row.trim_start_ms ?? 0),
