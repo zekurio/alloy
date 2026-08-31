@@ -173,8 +173,8 @@ export const authChallenge = pgTable(
   },
   (t) => [
     index("auth_challenge_user_idx").on(t.user_id),
-    // High-churn table swept by `expires_at`; without this the TTL cleanup is a
-    // sequential scan on every passkey challenge create.
+    // Backs the direct expiry coordinator's bounded due-row scan and minimum
+    // persisted deadline lookup.
     index("auth_challenge_expires_at_idx").on(t.expires_at),
     // Consume paths (OAuth state, desktop link codes) look up by
     // (purpose, identifier).

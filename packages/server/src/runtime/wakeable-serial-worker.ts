@@ -126,3 +126,33 @@ export class WakeableSerialWorker {
     )
   }
 }
+
+export interface ExpiryStore {
+  deleteExpiredBatch(limit: number, signal: AbortSignal): Promise<number>
+  selectNextExpiry(signal: AbortSignal): Promise<Date | null>
+}
+
+export function createExpiryWorker({
+  store,
+  batchSize,
+  ...options
+}: Omit<WakeableSerialWorkerOptions, "runOne"> & {
+  store: ExpiryStore
+  batchSize: number
+}): WakeableSerialWorker {
+  return new WakeableSerialWorker({
+    ...options,
+    async runOne(signal) {
+      if (signal.aborted) return { worked: false, nextRunAt: null }
+
+      const deleted = await store.deleteExpiredBatch(batchSize, signal)
+      if (signal.aborted) return { worked: false, nextRunAt: null }
+      if (deleted >= batchSize) return { worked: true }
+
+      return {
+        worked: false,
+        nextRunAt: await store.selectNextExpiry(signal),
+      }
+    },
+  })
+}

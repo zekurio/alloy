@@ -13,6 +13,7 @@ import {
   randomState,
 } from "openid-client"
 
+import { insertAuthChallengeAndWake } from "./challenge-expiry"
 import {
   clearOAuthStateCookie,
   readOAuthStateCookie,
@@ -21,7 +22,6 @@ import {
 import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
   consumeOAuthChallenge,
-  deleteExpiredOAuthChallenges,
   OAUTH_PURPOSE,
   OAUTH_STATE_TTL_MS,
 } from "./oauth-challenges"
@@ -73,7 +73,6 @@ async function startOAuthFlow(input: {
   userId?: string
 }): Promise<{ browserNonce: string; url: string }> {
   const provider = requireEnabledProvider(input.providerId)
-  await deleteExpiredOAuthChallenges()
 
   const state = randomState()
   const browserNonce = randomState()
@@ -104,17 +103,19 @@ async function startOAuthFlow(input: {
     userId: input.userId,
   }
 
-  const [challenge] = await db
-    .insert(authChallenge)
-    .values({
-      user_id: input.mode === "link" ? (input.userId ?? null) : null,
-      purpose: OAUTH_PURPOSE,
-      identifier: state,
-      challenge: state,
-      payload,
-      expires_at: new Date(Date.now() + OAUTH_STATE_TTL_MS),
-    })
-    .returning({ id: authChallenge.id })
+  const [challenge] = await insertAuthChallengeAndWake(() =>
+    db
+      .insert(authChallenge)
+      .values({
+        user_id: input.mode === "link" ? (input.userId ?? null) : null,
+        purpose: OAUTH_PURPOSE,
+        identifier: state,
+        challenge: state,
+        payload,
+        expires_at: new Date(Date.now() + OAUTH_STATE_TTL_MS),
+      })
+      .returning({ id: authChallenge.id }),
+  )
   if (!challenge) throw new Error("Could not start OAuth flow.")
 
   return { browserNonce, url: url.toString() }

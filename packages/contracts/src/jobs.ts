@@ -1,6 +1,7 @@
 /**
- * Canonical registry of the remaining generic background queues and kinds.
- * Legacy contract-1 admin projections are defined separately in admin-jobs.
+ * Canonical contract-1 registry of generic background queue and kind values.
+ * Retired values remain here for wire compatibility; live registrations are
+ * owned by the server registry. Admin projections are defined separately.
  */
 export const JOB_QUEUES = ["io", "maintenance"] as const
 export type JobQueue = (typeof JOB_QUEUES)[number]
