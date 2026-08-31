@@ -87,6 +87,7 @@ test("a live reference prevents both upload abort and object deletion", async ()
     },
     {
       storage: fakeStorage(calls),
+      isWriteActive: () => false,
       hasLiveReference: async () => true,
       signal: new AbortController().signal,
     },
@@ -107,6 +108,7 @@ test("staged cleanup aborts upload state before deleting the object", async () =
     },
     {
       storage: fakeStorage(calls),
+      isWriteActive: () => false,
       hasLiveReference: async () => false,
       signal: new AbortController().signal,
     },
@@ -132,12 +134,55 @@ test("shutdown after upload abort leaves the durable object intent", async () =>
     },
     {
       storage,
+      isWriteActive: () => false,
       hasLiveReference: async () => false,
       signal: controller.signal,
     },
   )
   assert.equal(result, "interrupted")
   assert.deepEqual(calls, ["abort:uploads/id/source.mp4"])
+})
+
+test("an active object writer defers a prewrite intent before DB adoption", async () => {
+  const calls: string[] = []
+  const result = await runStorageDeletion(
+    {
+      namespace: "assets",
+      key: "aa/bb/user/avatar-version.webp",
+      abortUpload: false,
+      sourceType: "storage-prewrite",
+      sourceId: "attempt-id",
+    },
+    {
+      storage: fakeStorage(calls),
+      isWriteActive: () => true,
+      hasLiveReference: async () => true,
+      signal: new AbortController().signal,
+    },
+  )
+  assert.equal(result, "referenced")
+  assert.deepEqual(calls, [])
+})
+
+test("a DB-live prewrite reservation completes as an adopted object", async () => {
+  const calls: string[] = []
+  const result = await runStorageDeletion(
+    {
+      namespace: "assets",
+      key: "aa/bb/user/avatar-version.webp",
+      abortUpload: false,
+      sourceType: "storage-prewrite",
+      sourceId: "attempt-id",
+    },
+    {
+      storage: fakeStorage(calls),
+      isWriteActive: () => false,
+      hasLiveReference: async () => true,
+      signal: new AbortController().signal,
+    },
+  )
+  assert.equal(result, "adopted")
+  assert.deepEqual(calls, [])
 })
 
 test("legacy stable thumbnail ownership is parsed without prefix guesses", () => {
