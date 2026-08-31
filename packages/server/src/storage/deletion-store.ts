@@ -93,8 +93,8 @@ export type PendingStorageDeletion = NonNullable<
 
 export async function completeStorageDeletion(
   row: Pick<PendingStorageDeletion, "id" | "revision">,
-): Promise<boolean> {
-  const deleted = await db
+): Promise<void> {
+  await db
     .delete(storageDeletion)
     .where(
       and(
@@ -102,35 +102,13 @@ export async function completeStorageDeletion(
         eq(storageDeletion.revision, row.revision),
       ),
     )
-    .returning({ id: storageDeletion.id })
-  return deleted.length > 0
 }
 
-export function deferReferencedStorageDeletion(
+export async function deferReferencedStorageDeletion(
   row: Pick<PendingStorageDeletion, "id" | "revision">,
   checkedAt: Date,
-): Promise<boolean> {
-  return deferStorageDeletionReference(row, checkedAt)
-}
-
-export function retryStorageDeletion(
-  row: Pick<PendingStorageDeletion, "id" | "revision" | "attempts">,
-  error: string,
-  attemptedAt: Date,
-): Promise<boolean> {
-  return recordStorageDeletionFailure(
-    row,
-    error,
-    storageDeletionRetryAt(row.attempts, attemptedAt),
-    attemptedAt,
-  )
-}
-
-async function deferStorageDeletionReference(
-  row: Pick<PendingStorageDeletion, "id" | "revision">,
-  checkedAt: Date,
-): Promise<boolean> {
-  const updated = await db
+): Promise<void> {
+  await db
     .update(storageDeletion)
     .set({
       next_attempt_at: new Date(
@@ -144,8 +122,19 @@ async function deferStorageDeletionReference(
         eq(storageDeletion.revision, row.revision),
       ),
     )
-    .returning({ id: storageDeletion.id })
-  return updated.length > 0
+}
+
+export function retryStorageDeletion(
+  row: Pick<PendingStorageDeletion, "id" | "revision" | "attempts">,
+  error: string,
+  attemptedAt: Date,
+): Promise<boolean> {
+  return recordStorageDeletionFailure(
+    row,
+    error,
+    storageDeletionRetryAt(row.attempts, attemptedAt),
+    attemptedAt,
+  )
 }
 
 async function recordStorageDeletionFailure(
