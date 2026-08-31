@@ -40,6 +40,16 @@ export const notification = pgTable(
     index("notification_recipient_unread_idx")
       .on(t.recipient_id)
       .where(sql`${t.read_at} is null`),
+    // Retention is partitioned by read state: read notifications expire after
+    // 30 days, while unread notifications remain for 90 days. These global,
+    // stable-order indexes let the expiry worker find both the due batch and
+    // the exact next deadline without scanning recipient-local indexes.
+    index("notification_retention_read_idx")
+      .on(t.created_at, t.id)
+      .where(sql`${t.read_at} is not null`),
+    index("notification_retention_unread_idx")
+      .on(t.created_at, t.id)
+      .where(sql`${t.read_at} is null`),
     uniqueIndex("notification_dedup_idx")
       .on(t.recipient_id, t.dedup_key)
       .where(sql`${t.dedup_key} is not null`),

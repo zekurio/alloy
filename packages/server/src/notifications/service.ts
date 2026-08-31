@@ -21,6 +21,7 @@ import {
   userSummarySelection,
 } from "../routes/users-helpers"
 import { publishNotification } from "./events"
+import { insertNotificationAndWake, mutateNotificationsAndWake } from "./expiry"
 
 export type NotificationRow = typeof notification.$inferSelect
 
@@ -40,20 +41,24 @@ export async function createNotification(input: {
   dedupKey?: string | null
 }): Promise<void> {
   if (input.recipientId === input.actorId) return
-  const rows = await db
-    .insert(notification)
-    .values({
-      recipient_id: input.recipientId,
-      actor_id: input.actorId,
-      kind: input.kind,
-      clip_id: input.clipId ?? null,
-      comment_id: input.commentId ?? null,
-      dedup_key: input.dedupKey ?? null,
-    })
-    .onConflictDoNothing()
-    .returning()
-  const row = rows[0]
+  const row = await insertNotificationAndWake(async () => {
+    const rows = await db
+      .insert(notification)
+      .values({
+        recipient_id: input.recipientId,
+        actor_id: input.actorId,
+        kind: input.kind,
+        clip_id: input.clipId ?? null,
+        comment_id: input.commentId ?? null,
+        dedup_key: input.dedupKey ?? null,
+      })
+      .onConflictDoNothing()
+      .returning()
+    return rows[0] ?? null
+  })
   if (!row) return
+  // The expiry wake already ran. Hydration/publish failures therefore cannot
+  // suppress cleanup scheduling for this durable row.
   const items = await hydrateNotifications([row])
   const item = items[0]
   if (item) publishNotification(input.recipientId, item)
@@ -207,28 +212,32 @@ export async function countUnread(viewerId: string): Promise<number> {
 }
 
 export async function markRead(viewerId: string, id: string): Promise<void> {
-  await db
-    .update(notification)
-    .set({ read_at: new Date() })
-    .where(
-      and(
-        eq(notification.id, id),
-        eq(notification.recipient_id, viewerId),
-        sql`${notification.read_at} is null`,
+  await mutateNotificationsAndWake(() =>
+    db
+      .update(notification)
+      .set({ read_at: new Date() })
+      .where(
+        and(
+          eq(notification.id, id),
+          eq(notification.recipient_id, viewerId),
+          sql`${notification.read_at} is null`,
+        ),
       ),
-    )
+  )
 }
 
 export async function markAllRead(viewerId: string): Promise<void> {
-  await db
-    .update(notification)
-    .set({ read_at: new Date() })
-    .where(
-      and(
-        eq(notification.recipient_id, viewerId),
-        sql`${notification.read_at} is null`,
+  await mutateNotificationsAndWake(() =>
+    db
+      .update(notification)
+      .set({ read_at: new Date() })
+      .where(
+        and(
+          eq(notification.recipient_id, viewerId),
+          sql`${notification.read_at} is null`,
+        ),
       ),
-    )
+  )
 }
 
 export async function removeNotification(

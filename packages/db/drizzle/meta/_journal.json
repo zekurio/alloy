@@ -64,6 +64,13 @@
       "when": 1788131039985,
       "tag": "0008_direct_auth_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788131765894,
+      "tag": "0009_direct_notification_expiry",
+      "breakpoints": true
     }
   ]
 }
