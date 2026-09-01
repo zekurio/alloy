@@ -13,6 +13,7 @@ export interface MediaRow {
   sourceContentType: string | null
   sourceSizeBytes: number | null
   sourceDurationMs: number | null
+  waveformKey: string | null
   pendingAudioTracks: ClipAudioTrackInput[] | null
   audioTrackFingerprint: string | null
   cutKey: string | null
@@ -34,6 +35,7 @@ export interface MediaSourcePatch {
   sourceFps: number
   sourceSizeBytes: number
   sourceDurationMs: number
+  waveformKey: string | null
   pendingAudioTracks: ClipAudioTrackInput[] | null
   audioTrackFingerprint: string | null
   cutKey: string | null
@@ -160,6 +162,7 @@ export interface MediaStore {
   /** Current asset keys, so a failing run never deletes live assets. */
   currentAssetKeys(id: string): Promise<{
     sourceKey: string | null
+    waveformKey: string | null
     cutKey: string | null
     thumbKey: string | null
     renditionKeys: string[]

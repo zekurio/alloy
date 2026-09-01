@@ -25,6 +25,7 @@ const mediaClaimSelect = {
   sourceContentType: clip.source_content_type,
   sourceSizeBytes: clip.source_size_bytes,
   sourceDurationMs: clip.source_duration_ms,
+  waveformKey: clip.waveform_key,
   pendingAudioTracks: clip.pending_audio_tracks,
   audioTrackFingerprint: clip.audio_track_fingerprint,
   cutKey: clip.cut_key,

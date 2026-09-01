@@ -30,6 +30,7 @@ export async function withMediaRunWorkspace(
   const retainedKeys = new Set<string>()
   for (const key of [
     options.row.sourceKey,
+    options.row.waveformKey,
     options.row.cutKey,
     options.row.thumbKey,
   ]) {
@@ -81,6 +82,7 @@ async function retainRowAssetKeys(
   try {
     const fresh = await store.currentAssetKeys(id)
     if (fresh?.sourceKey) retainedKeys.add(fresh.sourceKey)
+    if (fresh?.waveformKey) retainedKeys.add(fresh.waveformKey)
     if (fresh?.cutKey) retainedKeys.add(fresh.cutKey)
     if (fresh?.thumbKey) retainedKeys.add(fresh.thumbKey)
     for (const key of fresh?.renditionKeys ?? []) retainedKeys.add(key)

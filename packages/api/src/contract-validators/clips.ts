@@ -196,6 +196,10 @@ function validateClipTimestamps(row: Record<string, ApiJsonValue>) {
     row.sourceVersion,
     "Invalid clip response: sourceVersion must be string or null",
   )
+  validateNullableString(
+    row.waveformVersion ?? null,
+    "Invalid clip response: waveformVersion must be string or null",
+  )
   validateNullableBlurHash(
     row.thumbBlurHash,
     "Invalid clip response: thumbBlurHash",

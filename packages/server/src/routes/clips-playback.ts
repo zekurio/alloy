@@ -211,6 +211,34 @@ export const clipsPlaybackRoutes = new Hono()
     )
   })
   /**
+   * GET /api/clips/:id/waveform/file.m4a — compact uncut source audio for the
+   * owner trim editor. Keep this private even when the clip itself is public.
+   */
+  .get("/:id/waveform/file.m4a", tbValidator("param", IdParam), async (c) => {
+    const { id } = c.req.valid("param")
+    const access = await resolveClipAccess({ id, c, policy: "ownerAsset" })
+    if (!access.accessible) return clipAccessResponse(c, access)
+    if (!access.isOwner && !access.isAdmin) return notFound(c, "Not found")
+
+    const key = access.row.waveform_key
+    if (!key) return notFound(c, "Waveform unavailable")
+
+    const version = clipAssetVersion(key)
+    return serveClipAsset(
+      c,
+      { key, contentType: "audio/mp4" },
+      {
+        cacheControl: versionedCacheControl(
+          c.req.query("v"),
+          version,
+          "private",
+        ),
+        etag: `"wfm-${version}"`,
+        unavailable: "Waveform unavailable",
+      },
+    )
+  })
+  /**
    * GET /api/clips/:id/rendition/:name/file.mp4 — the tier's progressive
    * MP4, served via range requests for playback and quality selection.
    */

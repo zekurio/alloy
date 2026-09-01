@@ -126,6 +126,14 @@ export function clipOriginalFileUrl(clipId: string, origin?: string): string {
   return versionedClipAssetUrl(clipId, "/original/file", origin)
 }
 
+export function clipWaveformFileUrl(
+  clipId: string,
+  origin?: string,
+  version?: string,
+): string {
+  return versionedClipAssetUrl(clipId, "/waveform/file.m4a", origin, version)
+}
+
 export function clipThumbnailUrl(
   clipId: string,
   origin?: string,

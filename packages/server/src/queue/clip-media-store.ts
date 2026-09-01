@@ -49,6 +49,7 @@ function sourcePatchToColumns(patch: MediaSourcePatch) {
     source_fps: patch.sourceFps,
     source_size_bytes: patch.sourceSizeBytes,
     source_duration_ms: patch.sourceDurationMs,
+    waveform_key: patch.waveformKey,
     pending_audio_tracks: patch.pendingAudioTracks,
     audio_track_fingerprint: patch.audioTrackFingerprint,
     cut_key: patch.cutKey,
@@ -168,7 +169,11 @@ export const clipMediaStore: MediaStore = {
     const result = await withUploadActivityStopped(id, () =>
       db.transaction(async (tx) => {
         const [current] = await tx
-          .select({ sourceKey: clip.source_key, cutKey: clip.cut_key })
+          .select({
+            sourceKey: clip.source_key,
+            waveformKey: clip.waveform_key,
+            cutKey: clip.cut_key,
+          })
           .from(clip)
           .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
           .limit(1)
@@ -186,8 +191,8 @@ export const clipMediaStore: MediaStore = {
         if (!updated) return { committed: false, queuedDeletions: 0 }
 
         const intents = mediaAssetDeletionIntents({
-          keys: [current.sourceKey, current.cutKey],
-          retainedKeys: [patch.sourceKey, patch.cutKey],
+          keys: [current.sourceKey, current.waveformKey, current.cutKey],
+          retainedKeys: [patch.sourceKey, patch.waveformKey, patch.cutKey],
           reason: "media source replaced",
           source: { type: "media-run", id: runId },
         })
@@ -284,6 +289,7 @@ export const clipMediaStore: MediaStore = {
         const [current] = await tx
           .select({
             sourceKey: clip.source_key,
+            waveformKey: clip.waveform_key,
             cutKey: clip.cut_key,
             thumbKey: clip.thumb_key,
           })
@@ -341,6 +347,7 @@ export const clipMediaStore: MediaStore = {
         const mediaIntents = mediaAssetDeletionIntents({
           keys: [
             current.sourceKey,
+            current.waveformKey,
             current.cutKey,
             current.thumbKey,
             ...previousRenditions.map((row) => row.storageKey),
@@ -348,6 +355,7 @@ export const clipMediaStore: MediaStore = {
           ],
           retainedKeys: [
             patch.sourceKey,
+            patch.waveformKey,
             patch.cutKey,
             patch.thumbKey,
             ...renditions.map((row) => row.storageKey),
@@ -410,6 +418,7 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .select({
         sourceKey: clip.source_key,
+        waveformKey: clip.waveform_key,
         cutKey: clip.cut_key,
         thumbKey: clip.thumb_key,
       })

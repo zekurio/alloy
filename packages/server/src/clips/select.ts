@@ -37,6 +37,7 @@ export const clipSelection = {
   sourceCodecs: clip.source_codecs,
   sourceSizeBytes: clip.source_size_bytes,
   sourceDurationMs: clip.source_duration_ms,
+  waveformKey: clip.waveform_key,
   cutKey: clip.cut_key,
   cutCodecs: clip.cut_codecs,
   durationMs: clip.duration_ms,
@@ -131,6 +132,7 @@ export function toPublicClipRow<
     sourceCodecs?: string | null
     sourceSizeBytes: number | null
     sourceDurationMs?: number | null
+    waveformKey: string | null
     cutKey?: string | null
     cutCodecs?: string | null
     durationMs: number | null
@@ -163,6 +165,7 @@ export function toPublicClipRow<
 >(row: T) {
   const {
     sourceKey: _sourceKey,
+    waveformKey: _waveformKey,
     cutKey: _cutKey,
     cutCodecs: _cutCodecs,
     gameRef,
@@ -196,6 +199,7 @@ export function toPublicClipRow<
       : row.sourceKey
         ? clipAssetVersion(row.sourceKey)
         : null,
+    waveformVersion: row.waveformKey ? clipAssetVersion(row.waveformKey) : null,
     renditions,
     audioTracks,
     gameRef: gameRef
