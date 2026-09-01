@@ -15,7 +15,7 @@ packages/contracts/
   src/content.ts                     clip/content contracts
   src/tags.ts                        tag normalization contracts
   src/server-http.ts                 desktop/server HTTP contract declaration
-  src/desktop-api.ts                 versioned server-renderer/native bridge
+  src/desktop-api.ts                 lockstep renderer/preload/main API
   src/desktop-recording*.ts          desktop recorder contracts
   src/desktop-update.ts              desktop updater state contracts
 ```
@@ -31,7 +31,6 @@ pnpm test packages/contracts
 ## Guidelines
 
 Put cross-boundary contracts here before wiring new behavior into clients or
-server routes. Keep values serializable. The server-hosted renderer and desktop
-preload release independently, so native bridge changes need exact contract
-IDs. Desktop/server HTTP and recorder protocols require the same compatibility
-discipline.
+server routes. Keep values serializable. The bundled desktop renderer, preload,
+and main process share one lockstep API; external server and recorder contracts
+still need compatibility when their versions can drift.

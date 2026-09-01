@@ -10,7 +10,7 @@ runtime response validation out of UI components.
 packages/api/
   src/client.ts                 low-level API client
   src/http.ts                   fetch wrapper and request helpers
-  src/server-info.ts            desktop HTTP and bridge contract discovery
+  src/server-info.ts            desktop HTTP contract discovery
   src/*                         endpoint-specific helpers
   src/contract-validators.ts    runtime validators for server responses
 ```

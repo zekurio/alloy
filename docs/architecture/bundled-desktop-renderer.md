@@ -1,9 +1,6 @@
 # Bundled desktop renderer
 
-Status: superseded by [Server-hosted desktop renderer](server-hosted-desktop-renderer.md)
-
-This document records the architecture introduced by #197. Alloy later
-returned to a server-hosted renderer with an explicit native bridge contract.
+Status: accepted
 
 This decision replaces the remote Electron renderer described in issue #196.
 

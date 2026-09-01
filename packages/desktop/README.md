@@ -1,35 +1,34 @@
 # @alloy/desktop
 
 Electron application for Alloy Desktop. It connects to a self-hosted Alloy
-server, records through the Rust sidecar, and ships an installer-owned native
-bridge around the server-owned React app.
+server, records through the Rust sidecar, and runs an installer-owned build of
+the React app.
 
 ## How it works
 
-The main window loads the selected server origin directly. It uses that
-server's normal browser build, history routes, HTTP stack, event streams,
-uploads, media, and HttpOnly cookies. Electron does not proxy application
-traffic.
+The main window loads `alloy-app://app/desktop.html`; it never executes HTML or
+JavaScript from the selected server. The browser and desktop builds share the
+source in `packages/web`, while Electron main, preload, and the desktop renderer
+ship together.
 
-Login still happens in the system browser because OAuth providers may reject
-embedded flows and passkeys belong to a browser profile. Main opens
+The bundled app sends `/api/*` requests to its fixed local origin. Main proxies
+only those paths to the selected server through Electron's persistent session,
+so HttpOnly access and refresh cookies never enter renderer JavaScript. Login
+still happens in the system browser because passkeys belong to the server's web
+origin and OAuth providers may reject embedded flows. Main opens
 `/api/auth/desktop/authorize`, receives a loopback PKCE code on `127.0.0.1`, and
 stores the exchanged session in Electron's cookie jar.
 
-There is one local renderer surface:
+There are two local renderer surfaces:
 
 - `src/renderer/index.html`: connect UI with `window.alloyNative`.
+- `src/renderer/desktop.html`: the bundled web app with the lockstep
+  `window.alloyDesktop` native API.
 
-The sandboxed main preload receives the selected origin through a
-main-controlled argument and exposes `window.alloyDesktop` only on that exact
-origin. Main independently requires the selected BrowserWindow, top-level
-frame, exact origin, and bridge contract before privileged IPC. Browser
-permissions are deny-by-default. HTTP Alloy servers are allowed only for
-loopback development; remote servers must use HTTPS.
-
-`alloy-capture://` provides bounded local capture playback and
-`alloy-asset://` provides the allowlisted image cache. Everything else stays on
-the server origin.
+Main allows native IPC only from the exact local document and main frame,
+denies browser permissions by default, and opens only selected-server links in
+the system browser. HTTP Alloy servers are allowed only for loopback development;
+remote servers must use HTTPS.
 
 Recording is delegated to `packages/recorder`. Development builds use
 `packages/recorder/dist`; packaged builds bundle that artifact under Electron
@@ -41,7 +40,7 @@ resources as the immutable fallback recorder runtime.
 packages/desktop/
   src/main/      Electron lifecycle, windows, IPC, auth, tray, recorder client
   src/preload/   contextBridge scripts for the connect window and web app
-  src/renderer/  Local connect/recovery entry
+  src/renderer/  Connect entry and bundled-web desktop entry
   src/shared/    IPC channel names and payload types
   scripts/       Electron runtime and icon helpers
   assets/        Desktop icons and build resources
@@ -58,11 +57,6 @@ pnpm test packages/desktop
 pnpm --filter @alloy/desktop typecheck
 pnpm --filter @alloy/desktop preview
 ```
-
-`pnpm dev:all` starts the web development origin at
-`http://localhost:5173`. Connect the desktop shell to that URL; Vite keeps the
-renderer and its proxied `/api` requests on one origin while preserving HMR.
-Production desktops connect to the Alloy server origin itself.
 
 Packaging commands:
 
@@ -121,14 +115,15 @@ hours while it remains open. A manual check is also available under Desktop
 Settings.
 
 When Alloy finds an update, it downloads the update in the background and
-offers an explicit restart action in the server-hosted app. It never forces a restart
+offers an explicit restart action in the bundled app. It never forces a restart
 while Alloy is running. Before starting the NSIS installer, Alloy stops capture
 services so the installer can safely replace their files.
 
-The publish workflow promotes the compatible server container before it
-publishes the installer, blockmap, and `latest.yml`. The new desktop therefore
-never updates onto a server without its required web bridge. Existing bundled
-desktop releases remain compatible with the additive server release.
+The publish workflow uploads the installer, blockmap, and `latest.yml` before
+it promotes the server container's `latest` tag. This order matters at the
+one-time bundled-renderer cutover. Afterward, desktop/server skew is handled by
+exact HTTP contract IDs from `/api/server-info`; the desktop supports contract
+1 and the pre-cut server's equivalent API baseline.
 
 GitHub Release assets are desktop-only: the unsigned Windows NSIS installer,
 blockmap, updater metadata, and checksums from `packages/desktop/release`.

@@ -1,9 +1,9 @@
 # Alloy
 
 Alloy is a self-hosted Medal.tv alternative. Its Electron desktop app records
-gameplay through a Windows-only Rust OBS sidecar and loads the selected
-server's React app. The Hono server handles uploads, encoding, playback, and
-social features; it serves the same UI to browsers and Alloy Desktop.
+gameplay through a Windows-only Rust OBS sidecar and ships a bundled build of
+the React app. The Hono server handles uploads, encoding, playback, and social
+features; it also serves the React app to normal browsers.
 
 Alloy is early and can take broad refactors. Prefer a smaller correct design
 over preserving weak internals. Keep compatibility at independently released
@@ -74,19 +74,19 @@ configuration lives in `packages/web/src/lib/*-queries.ts` and uses TanStack
 Query options. Routes live in `packages/web/src/routes/`; use the guards from
 `packages/web/src/lib/auth-guards.ts`.
 
-Electron injects `window.alloyDesktop` only into the selected server's exact
-origin. The server-hosted renderer and installed preload release independently,
-so the bridge uses an exact contract ID advertised by `/api/server-info`.
+Electron main, preload, and the bundled renderer release together. Their
+`window.alloyDesktop` API is lockstep, not a versioned deployment boundary.
 Define its cross-process types in `packages/contracts/src/desktop-api.ts`, add
 operation wiring in `packages/desktop/src/shared/desktop-api.ts`, and add an
-exhaustive validated main-process handler. Main-process IPC guards must require
-the selected BrowserWindow, top-level frame, and exact selected server origin.
+exhaustive validated main-process handler. The browser build must ignore native
+globals from retired remote-renderer shells.
 
-The main window loads the server origin directly. Browser networking, cookies,
-uploads, event streams, media, and history use normal same-origin Chromium
-behavior; do not add an Electron HTTP proxy. The local connect renderer is only
-for selection and recovery. Desktop/server HTTP and bridge compatibility use
-exact IDs from `/api/server-info`; contract 1 IDs are immutable.
+The bundled renderer calls `alloy-app://app/api/*`; the main process proxies
+only those paths to the selected server with its HttpOnly cookie jar. Never
+accept a renderer-supplied target origin. Desktop/server compatibility uses
+exact IDs from `/api/server-info`. Contract 1 is immutable, and a breaking HTTP
+change must add a new contract while the current desktop and server continue
+to support the previous one.
 
 Sidecar protocol changes must update both
 `packages/desktop/src/main/recording-sidecar-protocol.ts` and
