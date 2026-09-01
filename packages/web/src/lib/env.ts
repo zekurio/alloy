@@ -1,30 +1,8 @@
 import { nonEmpty, normalizePublicServerUrl } from "@alloy/env"
 
-import { getRuntimeConfig } from "./runtime-env"
-
 const DEFAULT_SERVER_URL = "http://localhost:2552"
-const DEFAULT_SERVER_PORT = "2552"
-
-function isDefaultLocalServerUrl(value: string): boolean {
-  const url = new URL(value)
-  return (
-    url.protocol === "http:" &&
-    url.hostname === "localhost" &&
-    url.port === DEFAULT_SERVER_PORT
-  )
-}
-
-function browserServerUrl(value: string | undefined): string {
-  const configured = nonEmpty(value)
-  if (!configured) return window.location.origin
-  if (!isDefaultLocalServerUrl(configured)) return configured
-  return window.location.origin
-}
-
 function webServerUrl(): string {
-  if (globalThis.window) {
-    return browserServerUrl(import.meta.env.VITE_SERVER_URL)
-  }
+  if (globalThis.window) return window.location.origin
 
   return (
     nonEmpty(process.env.INTERNAL_API_URL) ??
@@ -34,14 +12,10 @@ function webServerUrl(): string {
 }
 
 export function apiOrigin(): string {
-  const runtime = getRuntimeConfig()
-  if (runtime) return runtime.apiOrigin
   return normalizePublicServerUrl(webServerUrl())
 }
 
 export function publicOrigin(): string {
-  const runtime = getRuntimeConfig()
-  if (runtime) return runtime.publicOrigin
   if (globalThis.window) return window.location.origin
   return normalizePublicServerUrl(
     nonEmpty(process.env.PUBLIC_SERVER_URL) ?? webServerUrl(),

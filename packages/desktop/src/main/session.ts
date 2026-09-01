@@ -1,10 +1,12 @@
 import { session, type Session } from "electron"
 
 import { isAllowedMainSessionPermission } from "./permissions"
+import { sameOrigin } from "./url-policy"
 
 /**
- * Persistent session partition for the bundled main window and its API proxy.
- * HttpOnly server cookies stay here and never move to the local app origin.
+ * Persistent session partition for the server-hosted main window. HttpOnly
+ * server cookies stay in Chromium and are sent through normal same-origin
+ * requests.
  */
 export const MAIN_PARTITION = "persist:alloy"
 const ACCESS_COOKIE = "alloy_access"
@@ -33,13 +35,27 @@ export function mainSession(): Session {
 }
 
 /** Keep renderer permission requests deny-by-default. */
-export function hardenMainSessionPermissions(): void {
+export function hardenMainSessionPermissions(serverOrigin: string): void {
   const ses = mainSession()
-  ses.setPermissionRequestHandler((_webContents, permission, callback) => {
-    callback(isAllowedMainSessionPermission(permission))
-  })
-  ses.setPermissionCheckHandler((_webContents, permission) =>
-    isAllowedMainSessionPermission(permission),
+  ses.setPermissionRequestHandler(
+    (webContents, permission, callback, details) => {
+      callback(
+        details.isMainFrame &&
+          sameOrigin(details.requestingUrl, serverOrigin) &&
+          sameOrigin(webContents.getURL(), serverOrigin) &&
+          isAllowedMainSessionPermission(permission),
+      )
+    },
+  )
+  ses.setPermissionCheckHandler(
+    (webContents, permission, requestingOrigin, details) =>
+      Boolean(
+        webContents &&
+        details.isMainFrame &&
+        sameOrigin(requestingOrigin, serverOrigin) &&
+        sameOrigin(webContents.getURL(), serverOrigin) &&
+        isAllowedMainSessionPermission(permission),
+      ),
   )
 }
 
@@ -61,9 +77,9 @@ export function watchAuthCookiePersistence(): void {
 
 /**
  * Report whether this installation has a locally usable credential for the
- * server. This deliberately performs no network validation: the bundled app's
- * API proxy owns refresh-token rotation, and a transient startup network
- * failure must not be interpreted as a logout.
+ * server. This deliberately performs no network validation: the hosted app
+ * owns refresh-token rotation, and a transient startup network failure must
+ * not be interpreted as a logout.
  */
 export async function hasStoredSession(serverUrl: string): Promise<boolean> {
   return (await mainSession().cookies.get({ url: serverUrl })).some(
@@ -81,7 +97,7 @@ export async function clearServerAuthCookies(serverUrl: string): Promise<void> {
 }
 
 /**
- * Write the session obtained from browser login into the API proxy's cookie
+ * Write the session obtained from browser login into the main window's cookie
  * jar. Mirrors the cookies the server sets on a normal login.
  */
 export async function injectSessionCookie(

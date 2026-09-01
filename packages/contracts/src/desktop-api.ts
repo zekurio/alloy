@@ -25,17 +25,18 @@ import type {
 } from "./desktop-recording-types"
 import type { AlloyDesktopUpdatesApi } from "./desktop-update"
 
-export const DESKTOP_APP_SCHEME = "alloy-app" as const
-export const DESKTOP_APP_HOST = "app" as const
-export const DESKTOP_APP_ORIGIN =
-  `${DESKTOP_APP_SCHEME}://${DESKTOP_APP_HOST}` as const
-export const DESKTOP_APP_DOCUMENT = "desktop.html" as const
-export const DESKTOP_APP_URL =
-  `${DESKTOP_APP_ORIGIN}/${DESKTOP_APP_DOCUMENT}` as const
+/**
+ * Exact contract for the native bridge injected into a server-hosted web app.
+ * A breaking bridge change gets a new identifier; contract 1 is immutable.
+ */
+export const DESKTOP_BRIDGE_CONTRACT_1 = 1 as const
+export const DESKTOP_BRIDGE_CONTRACT_IDS = Object.freeze([
+  DESKTOP_BRIDGE_CONTRACT_1,
+] as const)
 
 /**
- * Single source of truth for the lockstep `window.alloyDesktop` API shared by
- * the bundled renderer, preload, and main process.
+ * Single source of truth for the versioned `window.alloyDesktop` API shared by
+ * the server renderer, preload, and main process.
  */
 export type DesktopConnectResult =
   | { ok: true; serverUrl: string }
@@ -50,6 +51,8 @@ export interface DesktopSavedServer {
   lastConnectedAt: string
   /** Last exact desktop HTTP contract validated for this server. */
   httpContract: number
+  /** Last exact native bridge contract advertised by this server's web app. */
+  bridgeContract: number
 }
 
 export interface AlloyDesktopServerApi {
@@ -146,11 +149,14 @@ export interface AlloyDesktopRecordingApi {
 }
 
 /**
- * The desktop API exposed to the bundled renderer as `window.alloyDesktop`.
+ * The desktop API exposed to a compatible server renderer as
+ * `window.alloyDesktop`.
  * Native side effects stay behind explicit IPC handlers; no raw Electron APIs
  * reach the renderer.
  */
 export interface AlloyDesktop {
+  /** Exact native bridge contract implemented by this preload. */
+  bridgeContract: typeof DESKTOP_BRIDGE_CONTRACT_1
   /** True when the web app header must provide the draggable title bar. */
   titlebarOverlay: boolean
   minimizeWindow(): Promise<void>

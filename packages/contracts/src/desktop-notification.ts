@@ -1,5 +1,5 @@
 /**
- * Native notification payload sent by the bundled app. This never goes through
+ * Native notification payload sent by the desktop web app. This never goes through
  * the server; Electron validates it before showing an OS notification.
  */
 export interface DesktopNotificationInput {
@@ -8,7 +8,7 @@ export interface DesktopNotificationInput {
   targetPath: string
 }
 
-/** Desktop notification controls exposed to the bundled app. */
+/** Desktop notification controls exposed through the native bridge. */
 export interface AlloyDesktopNotificationsApi {
   show(input: DesktopNotificationInput): Promise<void>
 }

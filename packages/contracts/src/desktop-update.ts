@@ -1,5 +1,5 @@
 /**
- * Auto-update state exposed to the bundled app through its native API. This
+ * Auto-update state exposed to the desktop web app through its native API. This
  * never goes through the server because an update belongs to this machine.
  */
 export type DesktopUpdateStatus =
@@ -16,7 +16,7 @@ export interface DesktopUpdateState {
   version: string | null
 }
 
-/** Desktop auto-update state and controls exposed to the bundled app. */
+/** Desktop auto-update state and controls exposed through the native bridge. */
 export interface AlloyDesktopUpdatesApi {
   getState(): Promise<DesktopUpdateState>
   /** Runs an immediate update check instead of waiting for the background interval. */

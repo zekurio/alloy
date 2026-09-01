@@ -53,7 +53,7 @@ export function installCrashLogging(): void {
 }
 
 /**
- * Surface bundled renderer errors in the main-process log, where production
+ * Surface server renderer errors in the main-process log, where production
  * diagnostics are persisted. Framework warnings are too noisy to keep.
  */
 export function forwardRendererConsole(contents: WebContents): void {

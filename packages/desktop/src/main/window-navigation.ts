@@ -3,12 +3,12 @@ import { pathToFileURL } from "node:url"
 import { createLogger } from "@alloy/logging"
 import { app, shell, type BrowserWindow } from "electron"
 
-import { appRendererFile } from "./app-protocol-files"
-import { APP_URL, isTrustedAppDocumentUrl } from "./app-protocol-policy"
-import { desktopNavigationScript } from "./desktop-navigation"
+import { isTrustedDesktopOrigin } from "../shared/desktop-origin"
+import { rendererFile } from "./renderer-files"
+import { selectedServerPathUrl } from "./url-policy"
 
 const logger = createLogger("windows")
-const OVERLAY_DOCUMENT = appRendererFile(app.getAppPath(), "index.html")
+const OVERLAY_DOCUMENT = rendererFile(app.getAppPath(), "index.html")
 
 export function showWindow(win: BrowserWindow): void {
   if (win.isMinimized()) win.restore()
@@ -16,43 +16,16 @@ export function showWindow(win: BrowserWindow): void {
   win.focus()
 }
 
-export function loadDesktopRenderer(win: BrowserWindow): Promise<void> {
-  return win.loadURL(desktopRendererUrl())
-}
-
-export async function openDesktopPath(
+export function loadServerRenderer(
   win: BrowserWindow,
+  serverOrigin: string,
   path: string,
 ): Promise<void> {
-  if (!isInternalAppPath(path)) return
-
-  if (win.webContents.isLoadingMainFrame()) {
-    win.webContents.once("did-finish-load", () => {
-      void openDesktopPath(win, path)
-    })
-    return
-  }
-
-  if (!isTrustedMainRendererUrl(win.webContents.getURL())) {
-    await win.loadURL(desktopRendererUrl(path))
-    return
-  }
-
-  await win.webContents.executeJavaScript(desktopNavigationScript(path), true)
+  const target = selectedServerPathUrl(serverOrigin, path)
+  return target ? win.loadURL(target) : Promise.resolve()
 }
 
-export function desktopRendererUrl(path?: string): string {
-  const devUrl = devRendererDocumentUrl("desktop.html")
-  const base = devUrl ?? APP_URL
-  if (!path || !isInternalAppPath(path)) return base
-  const url = new URL(base)
-  url.hash = path
-  return url.toString()
-}
-
-export function isTrustedMainRendererUrl(rawUrl: string): boolean {
-  return isTrustedAppDocumentUrl(rawUrl, devRendererDocumentUrl("desktop.html"))
-}
+export const isTrustedMainRendererUrl = isTrustedDesktopOrigin
 
 export function isTrustedOverlayRendererUrl(rawUrl: string): boolean {
   try {
@@ -91,7 +64,7 @@ export function loadRenderer(
   )
   const devUrl = devRendererDocumentUrl(html)
   if (!devUrl) {
-    win.loadFile(appRendererFile(app.getAppPath(), html), {
+    win.loadFile(rendererFile(app.getAppPath(), html), {
       query: params,
     })
     return
@@ -116,8 +89,4 @@ function devRendererDocumentUrl(html: string): string | null {
   } catch {
     return null
   }
-}
-
-function isInternalAppPath(path: string): boolean {
-  return path.startsWith("/") && !path.startsWith("//")
 }

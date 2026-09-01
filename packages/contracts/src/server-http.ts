@@ -1,3 +1,4 @@
+import { DESKTOP_BRIDGE_CONTRACT_1 } from "./desktop-api"
 import type { ContractJsonInput } from "./json-value"
 import { isFiniteNumberValue, isStringValue } from "./object"
 import { t } from "./schema"
@@ -112,6 +113,8 @@ export const ServerInfoSchema = t.looseObject({
   /** Informational application SemVer. Compatibility never uses this value. */
   version: InformationalVersionSchema,
   httpContracts: t.array(PositiveSafeIntegerSchema),
+  /** Native bridge contracts understood by the server-hosted web app. */
+  desktopBridgeContracts: t.array(PositiveSafeIntegerSchema).optional(),
   capabilities: DesktopHttpCapabilitiesSchema,
 })
 
@@ -150,6 +153,17 @@ export function selectDesktopHttpContract(
   if (!result.success) return null
   return result.data.httpContracts.includes(DESKTOP_HTTP_CONTRACT_1)
     ? DESKTOP_HTTP_CONTRACT_1
+    : null
+}
+
+/** Select the native bridge contract advertised by the server-hosted UI. */
+export function selectDesktopBridgeContract(
+  value: ContractJsonInput,
+): typeof DESKTOP_BRIDGE_CONTRACT_1 | null {
+  const result = ServerInfoSchema.safeParse(value)
+  if (!result.success) return null
+  return result.data.desktopBridgeContracts?.includes(DESKTOP_BRIDGE_CONTRACT_1)
+    ? DESKTOP_BRIDGE_CONTRACT_1
     : null
 }
 

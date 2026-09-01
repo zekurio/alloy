@@ -1,5 +1,5 @@
 /**
- * Login-item state exposed to the bundled app through its native API. This
+ * Login-item state exposed to the desktop web app through its native API. This
  * never goes through the server because autostart belongs to this machine.
  */
 export interface DesktopAutostartState {
@@ -12,7 +12,7 @@ export interface DesktopAutostartState {
   enabled: boolean
 }
 
-/** Desktop autostart state and controls exposed to the bundled app. */
+/** Desktop autostart state and controls exposed through the native bridge. */
 export interface AlloyDesktopAutostartApi {
   getState(): Promise<DesktopAutostartState>
   setEnabled(enabled: boolean): Promise<DesktopAutostartState>

@@ -4,6 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import {
+  DESKTOP_BRIDGE_CONTRACT_IDS,
   SERVER_INFO_PRODUCT,
   SERVER_INFO_SCHEMA,
   ServerInfoSchema,
@@ -39,10 +40,15 @@ test("serves server info publicly when browse auth is enabled", async () => {
 
     assert.equal(response.status, 200)
     assert.equal(response.headers.get("Cache-Control"), "private, no-store")
+    const csp =
+      response.headers.get("Content-Security-Policy-Report-Only") ?? ""
+    assert.match(csp, /alloy-asset:/)
+    assert.match(csp, /alloy-capture:/)
     const body = ServerInfoSchema.parse(await response.json())
     assert.equal(body.schema, SERVER_INFO_SCHEMA)
     assert.equal(body.product, SERVER_INFO_PRODUCT)
     assert.ok(body.version.length > 0)
+    assert.deepEqual(body.desktopBridgeContracts, DESKTOP_BRIDGE_CONTRACT_IDS)
     assert.deepEqual(
       {
         schema: body.schema,

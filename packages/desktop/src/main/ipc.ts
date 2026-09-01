@@ -45,7 +45,7 @@ import {
 import type { Windows } from "./windows"
 
 /**
- * Register the bundled renderer's privileged native API. The merged handler
+ * Register the server renderer's privileged native API. The merged handler
  * map is exhaustive over `DESKTOP_API_OPERATIONS`, so preload and main cannot
  * drift. Handlers are intentionally thin: validate input, mutate persisted
  * state, and drive windows. Invoke channels use request/response (`handle`);

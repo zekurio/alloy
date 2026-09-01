@@ -11,7 +11,6 @@ import type {
 import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 
-import { isRejectedProxyRedirect } from "./app-protocol-policy"
 import { emitRecordingLibraryDownloadEvent } from "./recording"
 import { clipDownloadByteLimit } from "./recording-library-download-policy"
 import {
@@ -26,6 +25,7 @@ import {
 } from "./recording-library-paths"
 import { captureId } from "./recording-library-shared"
 import { mainSession } from "./session"
+import { isRedirectStatus } from "./url-policy"
 
 const logger = createLogger("library")
 
@@ -119,7 +119,7 @@ async function runDownload(
       redirect: "manual",
       signal,
     })
-    if (isRejectedProxyRedirect(response.status)) {
+    if (isRedirectStatus(response.status)) {
       response.body?.cancel().catch(() => undefined)
       throw new Error("The server redirected the clip download.")
     }

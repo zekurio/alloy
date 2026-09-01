@@ -26,7 +26,6 @@
     "@alloy/media": "workspace:*",
     "@alloy/ui": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
-    "@tanstack/router-plugin": "1.168.35",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
     "@vitejs/plugin-react": "6.1.0",

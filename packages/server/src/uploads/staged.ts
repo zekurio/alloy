@@ -20,6 +20,29 @@ export async function mintStagedUpload(input: {
   return clipStorage.mintUploadUrl(input)
 }
 
+/**
+ * Filesystem tickets are served by this Alloy instance. Return them on the
+ * same origin the browser used, so reverse-proxy aliases stay same-origin.
+ * Future external-storage tickets keep their provider URL unchanged.
+ */
+export function uploadTicketForRequestOrigin(
+  ticket: UploadTicket,
+  requestUrl: string,
+): UploadTicket {
+  try {
+    const upload = new URL(ticket.uploadUrl)
+    const request = new URL(requestUrl)
+    if (!upload.pathname.startsWith("/api/assets/upload/")) return ticket
+    const rebased = new URL(
+      `${upload.pathname}${upload.search}`,
+      request.origin,
+    )
+    return { ...ticket, uploadUrl: rebased.toString() }
+  } catch {
+    return ticket
+  }
+}
+
 export async function resolveStagedUpload(key: string) {
   return clipStorageForKey(key).resolve(key)
 }

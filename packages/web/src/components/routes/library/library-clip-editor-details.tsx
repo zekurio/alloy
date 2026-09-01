@@ -365,6 +365,7 @@ function ClipDetailsForm({
             type="button"
             variant="ghost"
             disabled={deleting || saving || visibilityPending}
+            className={visibilityPending ? "disabled:opacity-100" : undefined}
             render={<Link to="/library" />}
           >
             {t("Cancel")}

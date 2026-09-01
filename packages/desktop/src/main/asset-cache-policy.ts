@@ -1,4 +1,4 @@
-/** Allow only known public game-art sources used by the bundled renderer. */
+/** Allow only known public game-art sources used by the desktop renderer. */
 export function isAllowedAssetSource(
   rawUrl: string,
   selectedServer: string | null,

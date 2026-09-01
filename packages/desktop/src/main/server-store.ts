@@ -69,9 +69,15 @@ export function getSavedServers(): DesktopSavedServer[] {
 export function rememberServer(
   serverUrl: string,
   httpContract: number,
+  bridgeContract: number,
 ): DesktopSavedServer[] {
   const state = readState()
-  const servers = upsertServer(state.servers, serverUrl, httpContract)
+  const servers = upsertServer(
+    state.servers,
+    serverUrl,
+    httpContract,
+    bridgeContract,
+  )
   writeState({ ...state, servers })
   return servers
 }

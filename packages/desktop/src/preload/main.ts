@@ -1,4 +1,4 @@
-import type { AlloyDesktop } from "@alloy/contracts"
+import { DESKTOP_BRIDGE_CONTRACT_1, type AlloyDesktop } from "@alloy/contracts"
 import { contextBridge, ipcRenderer } from "electron"
 
 import {
@@ -7,6 +7,10 @@ import {
   type DesktopApiOperationMeta,
   type DesktopApiPath,
 } from "@/shared/desktop-api"
+import {
+  desktopOriginFromArguments,
+  isTrustedDesktopOrigin,
+} from "@/shared/desktop-origin"
 
 type DesktopApiTree = {
   readonly [key: string]: DesktopApiOperationMeta | DesktopApiTree
@@ -23,19 +27,19 @@ type DesktopApiValue =
 type DesktopApiObject = { [key: string]: DesktopApiValue }
 
 /**
- * Desktop API injected into the bundled renderer. The runtime shape comes
+ * Desktop API injected into the compatible server renderer. The runtime shape comes
  * from `DESKTOP_API_OPERATIONS`: invokes use private IPC channels and events
  * subscribe to those channels, so preload and handlers cannot drift.
  */
 function buildDesktopApi(
   tree: typeof DESKTOP_API_OPERATIONS,
   prefix: "",
-): Omit<AlloyDesktop, "titlebarOverlay">
+): Omit<AlloyDesktop, "bridgeContract" | "titlebarOverlay">
 function buildDesktopApi(tree: DesktopApiTree, prefix: string): DesktopApiObject
 function buildDesktopApi(
   tree: DesktopApiTree,
   prefix: string,
-): DesktopApiObject | Omit<AlloyDesktop, "titlebarOverlay"> {
+): DesktopApiObject | Omit<AlloyDesktop, "bridgeContract" | "titlebarOverlay"> {
   const api: DesktopApiObject = {}
   for (const [key, value] of Object.entries(tree)) {
     // SAFETY: Prefixes and keys come from DESKTOP_API_OPERATIONS.
@@ -68,9 +72,16 @@ const api = buildDesktopApi(DESKTOP_API_OPERATIONS, "")
 
 const alloyDesktop: AlloyDesktop = {
   ...api,
+  bridgeContract: DESKTOP_BRIDGE_CONTRACT_1,
   // The main window is frameless; the app header provides the draggable title
   // bar and custom window controls.
   titlebarOverlay: true,
 }
 
-contextBridge.exposeInMainWorld("alloyDesktop", alloyDesktop)
+const expectedOrigin = desktopOriginFromArguments(process.argv)
+if (
+  process.isMainFrame &&
+  isTrustedDesktopOrigin(window.location.href, expectedOrigin)
+) {
+  contextBridge.exposeInMainWorld("alloyDesktop", alloyDesktop)
+}
