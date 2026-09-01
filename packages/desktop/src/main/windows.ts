@@ -4,20 +4,16 @@ import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow, type Event, type WebContents } from "electron"
 
-import {
-  clearAppProtocolServer,
-  selectAppProtocolServer,
-  selectedAppProtocolServer,
-} from "./app-protocol"
+import { desktopOriginArgument } from "../shared/desktop-origin"
+import { clearAssetCacheServer, selectAssetCacheServer } from "./asset-cache"
 import { forwardRendererConsole } from "./logging"
 import { hardenMainSessionPermissions, MAIN_PARTITION } from "./session"
-import { isSelectedServerExternalUrl } from "./url-policy"
+import { isSafeExternalUrl, normalizeServerOrigin } from "./url-policy"
 import {
   isTrustedMainRendererUrl,
   isTrustedOverlayRendererUrl,
-  loadDesktopRenderer,
+  loadServerRenderer,
   loadRenderer,
-  openDesktopPath,
   openExternal,
   showWindow,
 } from "./window-navigation"
@@ -37,7 +33,7 @@ const MAIN_WINDOW_MIN_WIDTH = 1024
 const MAIN_WINDOW_MIN_HEIGHT = 700
 const WINDOW_BACKGROUND_COLOR = "#171717"
 
-/** Owns the bundled connect overlay and bundled main application window. */
+/** Owns the local connect overlay and server-hosted main application window. */
 export class Windows {
   private overlay: BrowserWindow | null = null
   private main: BrowserWindow | null = null
@@ -82,28 +78,38 @@ export class Windows {
     return win
   }
 
-  /** Select a server before replacing the main document with the local app. */
+  /** Select a server before loading its web application into the main window. */
   connectTo(serverUrl: string): void {
-    // Destroy the old renderer before changing the process-wide proxy target.
-    // Otherwise an in-flight request from server A could race onto server B.
     if (this.main && !this.main.isDestroyed()) this.main.destroy()
 
-    selectAppProtocolServer(serverUrl)
-    this.selectedServerUrl = selectedAppProtocolServer()
-    hardenMainSessionPermissions()
+    const serverOrigin = normalizeServerOrigin(serverUrl)
+    if (!serverOrigin) throw new Error("Invalid desktop server origin")
+    this.selectedServerUrl = serverOrigin
+    selectAssetCacheServer(serverOrigin)
+    hardenMainSessionPermissions(serverOrigin)
 
-    const win = this.ensureMain()
-    void loadDesktopRenderer(win).catch((cause: unknown) => {
-      logger.warn("failed to load bundled renderer:", cause)
-    })
-    win.show()
-    win.focus()
-    this.overlay?.close()
+    const win = this.ensureMain(serverOrigin)
+    void loadServerRenderer(win, serverOrigin, "/")
+      .then(() => {
+        if (win.isDestroyed() || this.main !== win) return
+        showWindow(win)
+        this.overlay?.close()
+      })
+      .catch((cause: unknown) => {
+        logger.warn("failed to load server renderer:", cause)
+        if (!win.isDestroyed()) win.destroy()
+        if (this.main === win) this.main = null
+        if (this.selectedServerUrl === serverOrigin) {
+          this.selectedServerUrl = null
+          clearAssetCacheServer()
+        }
+        this.openConnect()
+      })
   }
 
   disconnectFromServer(): void {
     this.selectedServerUrl = null
-    clearAppProtocolServer()
+    clearAssetCacheServer()
     if (this.main && !this.main.isDestroyed()) this.main.destroy()
     this.openConnect()
   }
@@ -124,7 +130,7 @@ export class Windows {
     }
 
     showWindow(win)
-    void openDesktopPath(win, "/library")
+    void loadServerRenderer(win, this.selectedServerUrl, "/library")
   }
 
   canUseOverlayApi(sender: WebContents, frameUrl: string): boolean {
@@ -137,7 +143,7 @@ export class Windows {
   canUseMainApi(sender: WebContents, frameUrl: string): boolean {
     return (
       BrowserWindow.fromWebContents(sender) === this.main &&
-      isTrustedMainRendererUrl(frameUrl)
+      isTrustedMainRendererUrl(frameUrl, this.selectedServerUrl)
     )
   }
 
@@ -168,7 +174,7 @@ export class Windows {
     }
 
     showWindow(win)
-    void openDesktopPath(win, "/?settings=desktop")
+    void loadServerRenderer(win, this.selectedServerUrl, "/?settings=desktop")
   }
 
   showAndNavigate(path: string): void {
@@ -182,7 +188,7 @@ export class Windows {
       return
     }
     showWindow(win)
-    void openDesktopPath(win, path)
+    void loadServerRenderer(win, this.selectedServerUrl, path)
   }
 
   showPrimary(): boolean {
@@ -197,7 +203,7 @@ export class Windows {
     this.isQuitting = true
   }
 
-  private ensureMain(): BrowserWindow {
+  private ensureMain(serverOrigin: string): BrowserWindow {
     if (this.main && !this.main.isDestroyed()) return this.main
 
     const win = new BrowserWindow({
@@ -217,12 +223,13 @@ export class Windows {
         contextIsolation: true,
         sandbox: true,
         nodeIntegration: false,
+        additionalArguments: [desktopOriginArgument(serverOrigin)],
       },
     })
 
     win.webContents.setWindowOpenHandler(({ url }) => {
-      if (this.isSelectedServerUrl(url)) openExternal(url)
-      else logger.warn("blocked non-server popup from the bundled renderer")
+      if (isSafeExternalUrl(url)) openExternal(url)
+      else logger.warn("blocked unsafe popup from the server renderer")
       return { action: "deny" }
     })
 
@@ -248,19 +255,15 @@ export class Windows {
   }
 
   private handleMainNavigation(event: Event, url: string): void {
-    if (isTrustedMainRendererUrl(url)) return
+    if (isTrustedMainRendererUrl(url, this.selectedServerUrl)) return
     event.preventDefault()
-    if (this.isSelectedServerUrl(url)) openExternal(url)
-    else logger.warn("blocked non-server navigation from the bundled renderer")
+    if (isSafeExternalUrl(url)) openExternal(url)
+    else logger.warn("blocked unsafe navigation from the server renderer")
   }
 
   private handleOverlayNavigation(event: Event, url: string): void {
     if (isTrustedOverlayRendererUrl(url)) return
     event.preventDefault()
     logger.warn("blocked navigation from the connect renderer")
-  }
-
-  private isSelectedServerUrl(url: string): boolean {
-    return isSelectedServerExternalUrl(url, this.selectedServerUrl)
   }
 }

@@ -32,6 +32,7 @@ import {
   mintStagedUpload,
   resolveStagedUpload,
   stagedSourceKey,
+  uploadTicketForRequestOrigin,
 } from "@alloy/server/uploads/staged"
 import {
   assertUsableVideoTicket,
@@ -291,7 +292,7 @@ export const clipsUploadLifecycleRoutes = new Hono()
           void publishClipUpsert(viewerId, clipId)
           return c.json({
             clipId,
-            ticket: videoUpload,
+            ticket: uploadTicketForRequestOrigin(videoUpload, c.req.url),
           })
         })
       const initiated = await accountDeletionState.withInactive(
