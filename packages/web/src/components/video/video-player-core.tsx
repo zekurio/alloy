@@ -27,7 +27,6 @@ import {
 } from "./video-player-shell"
 import {
   finiteMediaDuration,
-  initialPlaybackTime,
   playbackDuration,
   toMediaTime,
   toPlaybackTime,
@@ -486,7 +485,7 @@ export function PlayerCore({
       setCurrentTime(target)
       if (resume.play) void playInternal(false)
     } else {
-      const target = initialPlaybackTime(initialTime, nextDuration)
+      const target = toPlaybackTime(initialTime, nextDuration, undefined)
       const mediaTarget = toMediaTime(
         target,
         mediaDuration,
