@@ -154,18 +154,20 @@ export function DesktopServerSettings() {
         onSubmit={handleSubmit}
       />
 
-      <SavedServerList
-        phase={phase}
-        servers={servers}
-        currentServerUrl={currentServerUrl}
-        connectingServerUrl={connectingServerUrl}
-        busy={busy}
-        connectTo={connectTo}
-        forgetServer={(serverUrl) => {
-          setForgetError(null)
-          setServerToForget(serverUrl)
-        }}
-      />
+      <div className="border-border border-t pt-4">
+        <SavedServerList
+          phase={phase}
+          servers={servers}
+          currentServerUrl={currentServerUrl}
+          connectingServerUrl={connectingServerUrl}
+          busy={busy}
+          connectTo={connectTo}
+          forgetServer={(serverUrl) => {
+            setForgetError(null)
+            setServerToForget(serverUrl)
+          }}
+        />
+      </div>
       <ConfirmActionDialog
         open={serverToConnect !== null}
         onOpenChange={(open) => {
@@ -251,30 +253,35 @@ function ServerConnectForm({
   onSubmit: (event: FormEvent) => void
 }) {
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
-      <Input
-        type="text"
-        inputMode="url"
-        placeholder="alloy.example.com"
-        value={url}
-        onChange={(event) => setUrl(event.target.value)}
-        disabled={busy}
-        aria-label={t("Server URL")}
-        className="sm:flex-1"
-      />
-      <Button type="submit" disabled={busy || !url.trim()}>
-        {busy && sameServerTarget(connectingServerUrl, url) ? (
-          <>
-            <Spinner />
-            {t("Connecting...")}
-          </>
-        ) : (
-          <>
-            <PlusIcon className="size-4" />
-            {t("Add server")}
-          </>
-        )}
-      </Button>
+    <form onSubmit={onSubmit} className="flex flex-col gap-1.5">
+      <label htmlFor="desktop-server-url" className="text-xs font-medium">
+        {t("Server address")}
+      </label>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <Input
+          id="desktop-server-url"
+          type="text"
+          inputMode="url"
+          placeholder="alloy.example.com"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          disabled={busy}
+          className="sm:flex-1"
+        />
+        <Button type="submit" disabled={busy || !url.trim()}>
+          {busy && sameServerTarget(connectingServerUrl, url) ? (
+            <>
+              <Spinner />
+              {t("Connecting...")}
+            </>
+          ) : (
+            <>
+              <PlusIcon className="size-4" />
+              {t("Add server")}
+            </>
+          )}
+        </Button>
+      </div>
     </form>
   )
 }

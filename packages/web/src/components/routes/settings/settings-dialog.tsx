@@ -315,7 +315,7 @@ function SettingsDialogContent({
               native && "max-sm:hidden",
             )}
           >
-            <h2 className="text-foreground truncate text-base font-medium max-sm:hidden">
+            <h2 className="text-foreground truncate text-xl font-semibold tracking-[var(--tracking-tight)] max-sm:hidden">
               {active.title ?? active.label}
             </h2>
             {native ? null : (
