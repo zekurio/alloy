@@ -42,6 +42,7 @@ export {
   encodeProgressTotalCost,
 } from "./media-encode-progress"
 export { runThumbnailBackfill } from "./media-thumbnail-backfill"
+export { runWaveformBackfill } from "./media-run-waveform"
 
 /**
  * Run the media pipeline for one leased clip. Downloads the source, applies a
@@ -198,16 +199,20 @@ async function runPipelineInWorkDir({
     probe: sourceProbe,
     uploadedKeys,
   })
-  const waveformKey = await resolveWaveformAudio({
-    id,
-    runId,
-    sourcePath,
-    workDir,
-    durationMs: sourceProbe.durationMs,
-    hasAudio: sourceProbe.audioTracks.length > 0,
-    signal,
-    uploadedKeys,
-  })
+  const hasAudio = sourceProbe.audioTracks.length > 0
+  const waveformKey = hasAudio
+    ? (row.waveformKey ??
+      (await resolveWaveformAudio({
+        id,
+        runId,
+        sourcePath,
+        workDir,
+        durationMs: sourceProbe.durationMs,
+        hasAudio,
+        signal,
+        uploadedKeys,
+      })))
+    : null
 
   const sourcePatch = {
     sourceKey: sourceAsset.storageKey,

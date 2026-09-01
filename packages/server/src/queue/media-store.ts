@@ -11,6 +11,7 @@ export interface MediaRow {
   authorId: string
   sourceKey: string | null
   sourceContentType: string | null
+  sourceAudioCodec: string | null
   sourceSizeBytes: number | null
   sourceDurationMs: number | null
   waveformKey: string | null
@@ -123,6 +124,13 @@ export interface MediaStore {
     runId: string,
     patch: MediaThumbPatch,
   ): Promise<boolean>
+  /** Commit a compact waveform source and release an asset-only run. */
+  commitWaveform(
+    id: string,
+    runId: string,
+    waveformKey: string | null,
+    completion: MediaCompletion,
+  ): Promise<boolean>
   /** Clear a thumbnail-only run after success. */
   finishThumbnailBackfill(
     id: string,
@@ -140,7 +148,7 @@ export interface MediaStore {
    * are committed, while the encode ladder continues under the same lease.
    * This is the eager-release moment: when the clip is public it also stamps
    * `published_at` (write-once) since the clip is now feed-visible. Does not
-   * touch encode_pipeline/encode_progress; only commitReady owns those.
+   * touch encode_progress; only commitReady owns the full encode result.
    */
   commitPlayable(id: string, runId: string): Promise<boolean>
   /**
