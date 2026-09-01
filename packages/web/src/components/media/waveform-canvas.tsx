@@ -58,6 +58,7 @@ export function WaveformCanvas({
     if (canvas.height !== height) canvas.height = height
     context.clearRect(0, 0, canvas.width, canvas.height)
     if (!(size.width > 0) || !(size.height > 0)) return
+    if (status !== "ready") return
 
     context.save()
     context.scale(dpr, dpr)
@@ -69,7 +70,7 @@ export function WaveformCanvas({
     context.stroke()
 
     const hasPeaks = peaks.length >= 2 && durationMs > 0
-    if (!hasPeaks || status !== "ready") {
+    if (!hasPeaks) {
       context.restore()
       return
     }
