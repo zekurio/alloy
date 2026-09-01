@@ -98,6 +98,11 @@ export interface ClipRow {
   sourceDurationMs: number | null
   /** Cache-busting version of the published source bytes; changes on republish. */
   sourceVersion: string | null
+  /**
+   * Cache-busting version of the owner-only compact waveform audio. Optional
+   * for older contract-1 servers; null when the source has no audio.
+   */
+  waveformVersion?: string | null
   /** Encoded quality tiers, highest first; empty until the pipeline commits. */
   renditions: ClipRenditionRef[]
   /** Per-source audio stems, ordered by index; empty when the clip has only the mixed track. */

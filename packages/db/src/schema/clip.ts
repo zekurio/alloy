@@ -65,6 +65,8 @@ export const clip = pgTable(
     // Full duration of the stored source; `duration_ms` stays the effective
     // playback duration (equals the trim cut's duration for trimmed clips).
     source_duration_ms: integer(),
+    // Compact mono audio derived from the uncut source for editor waveforms.
+    waveform_key: text(),
     // Rounded probe fps; 0 = probed but unknown; null = not yet probed.
     source_fps: integer(),
     // Upload-time stem labels are only hints until the media run verifies that
