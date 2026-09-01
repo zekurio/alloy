@@ -27,7 +27,7 @@ import {
   Link2OffIcon,
   SaveIcon,
 } from "lucide-react"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import type { ComponentType } from "react"
 
 import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
@@ -40,9 +40,12 @@ import { type RecordingLibraryItem } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 
+import {
+  profileVisibilityIntent,
+  type VisibilityIntent,
+  visibilityFeedbackIntent,
+} from "./library-clip-visibility"
 import { ClipFileLocation } from "./library-file-location"
-
-type VisibilityIntent = "post" | "unpost" | "create-link" | "disable-link"
 
 type VisibilityAction = {
   label: string
@@ -228,6 +231,7 @@ function ClipDetailsForm({
   const visibilityMutation = useUpdateClipMutation()
   const saveFeedback = useActionFeedback()
   const visibilityFeedback = useActionFeedback()
+  const activeVisibilityIntent = useRef<VisibilityIntent | null>(null)
   const saving = saveMutation.isPending
   const visibilityPending = visibilityMutation.isPending
 
@@ -242,8 +246,10 @@ function ClipDetailsForm({
 
   // Visibility changes save immediately from the action controls — they're
   // publish/link actions, not draft fields like the rest of the form.
-  const updateVisibility = (action: VisibilityAction) => {
+  const updateVisibility = (intent: VisibilityIntent) => {
+    const action = VISIBILITY_ACTIONS[intent]
     if (visibilityPending || action.privacy === row.privacy) return
+    activeVisibilityIntent.current = intent
     void visibilityFeedback.run(async () => {
       const updated = await visibilityMutation.mutateAsync({
         clipId: row.id,
@@ -275,11 +281,17 @@ function ClipDetailsForm({
     }, t("Couldn't save changes"))
   }
 
-  const profileVisibilityAction =
-    VISIBILITY_ACTIONS[row.privacy === "public" ? "unpost" : "post"]
-  const linkVisibilityAction =
+  const profileIntent = profileVisibilityIntent(row.privacy)
+  const linkIntent = row.privacy === "private" ? "create-link" : "disable-link"
+  const profileVisibilityAction = VISIBILITY_ACTIONS[profileIntent]
+  const linkVisibilityAction = VISIBILITY_ACTIONS[linkIntent]
+  const feedbackVisibilityAction =
     VISIBILITY_ACTIONS[
-      row.privacy === "private" ? "create-link" : "disable-link"
+      visibilityFeedbackIntent(
+        row.privacy,
+        activeVisibilityIntent.current,
+        visibilityFeedback.feedback.state !== "idle",
+      )
     ]
   const ProfileVisibilityIcon = profileVisibilityAction.icon
   const LinkVisibilityIcon = linkVisibilityAction.icon
@@ -290,7 +302,7 @@ function ClipDetailsForm({
     : (!dirty && !canSaveTrim) || titleInvalid || saving || trimPending
   const primaryLabel = primaryPublishes
     ? visibilityPending
-      ? profileVisibilityAction.pendingLabel
+      ? feedbackVisibilityAction.pendingLabel
       : profileVisibilityAction.label
     : saving || trimPending
       ? t("Saving…")
@@ -365,12 +377,12 @@ function ClipDetailsForm({
               state={primaryFeedback.state}
               pendingLabel={primaryLabel}
               successLabel={
-                primaryPublishes ? profileVisibilityAction.success : t("Saved")
+                primaryPublishes ? feedbackVisibilityAction.success : t("Saved")
               }
               errorLabel={t("Try again")}
               className="rounded-r-none"
               onClick={() => {
-                if (primaryPublishes) updateVisibility(profileVisibilityAction)
+                if (primaryPublishes) updateVisibility(profileIntent)
                 else handleSave()
               }}
             >
@@ -397,7 +409,7 @@ function ClipDetailsForm({
                   <DropdownMenuItem
                     disabled={visibilityPending}
                     onClick={() => {
-                      updateVisibility(profileVisibilityAction)
+                      updateVisibility(profileIntent)
                     }}
                   >
                     <ProfileVisibilityIcon className="size-4" />
@@ -407,7 +419,7 @@ function ClipDetailsForm({
                 <DropdownMenuItem
                   disabled={visibilityPending}
                   onClick={() => {
-                    updateVisibility(linkVisibilityAction)
+                    updateVisibility(linkIntent)
                   }}
                 >
                   <LinkVisibilityIcon className="size-4" />
