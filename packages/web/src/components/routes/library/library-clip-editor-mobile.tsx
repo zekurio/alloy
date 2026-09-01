@@ -135,6 +135,7 @@ export function MobileClipEditor({
             aspectRatio={media.aspectRatio}
             maxDisplayHeight="100%"
             chromeSize="compact"
+            initialTime={playback.getCurrentMs() / 1000}
             playerRef={playback.playerRef}
             onTimeUpdate={(seconds) => {
               playback.handleTimeUpdate()
@@ -250,6 +251,7 @@ function MobileTrimView({
             aspectRatio={media.aspectRatio}
             maxDisplayHeight="52dvh"
             controls={false}
+            initialTime={playback.getCurrentMs() / 1000}
             onVideoClick={() => playback.togglePlayback()}
             playerRef={playback.playerRef}
             onTimeUpdate={playback.handleTimeUpdate}

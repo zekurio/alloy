@@ -68,7 +68,7 @@ export function useTrimPlayback({
   // publishes it every animation frame, and rendering it through setState
   // would reconcile the whole editor subtree at 60fps. Leaf components
   // subscribe via useSyncExternalStore so only they re-render per frame.
-  const currentMsRef = useRef(0)
+  const currentMsRef = useRef(trim.startMs)
   const currentMsListenersRef = useRef(new Set<() => void>())
   const setCurrentMs = useCallback((next: number) => {
     currentMsRef.current = next
