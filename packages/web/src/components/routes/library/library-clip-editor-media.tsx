@@ -106,7 +106,7 @@ export function useClipEditorMedia(
       : null
   const serverWaveformSrc = row.waveformVersion
     ? clipWaveformFileUrl(row.id, apiOrigin(), row.waveformVersion)
-    : streamSrc
+    : null
   const waveformSrc = processing
     ? localMediaSrc
     : localSourceWindow && localMediaSrc
@@ -127,7 +127,9 @@ export function useClipEditorMedia(
         : null
       : localSourceWindow && localItem
         ? `desktop-clip:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localSourceWindow.startMs}:${localSourceWindow.endMs}`
-        : `clip:${row.id}:${row.waveformVersion ?? row.sourceVersion ?? ""}:${waveformSrc}`,
+        : waveformSrc
+          ? `clip:${row.id}:${waveformSrc}`
+          : null,
     processing
       ? (localItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs ?? 0)
       : (row.sourceDurationMs ?? row.durationMs ?? 0),

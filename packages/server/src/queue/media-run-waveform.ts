@@ -1,4 +1,4 @@
-import { extractWaveformAudio } from "@alloy/server/media/waveform-audio"
+import { runFfmpeg, transcodeTimeoutMs } from "@alloy/server/media/ffmpeg"
 import { join } from "@alloy/server/runtime/path"
 import { clipStorage } from "@alloy/server/storage/index"
 
@@ -12,18 +12,33 @@ export async function resolveWaveformAudio(options: {
   workDir: string
   durationMs: number
   hasAudio: boolean
-  existingKey: string | null
   signal: AbortSignal
   uploadedKeys: string[]
 }): Promise<string | null> {
   if (!options.hasAudio) return null
-  if (options.existingKey) return options.existingKey
 
   const outputPath = join(options.workDir, "waveform.m4a")
-  await extractWaveformAudio({
-    sourcePath: options.sourcePath,
-    outputPath,
-    durationMs: options.durationMs,
+  await runFfmpeg({
+    args: [
+      "-y",
+      "-i",
+      options.sourcePath,
+      "-map",
+      "0:a:0",
+      "-vn",
+      "-ac",
+      "1",
+      "-ar",
+      "22050",
+      "-c:a",
+      "aac",
+      "-b:a",
+      "32k",
+      "-movflags",
+      "+faststart",
+      outputPath,
+    ],
+    timeoutMs: transcodeTimeoutMs(options.durationMs),
     signal: options.signal,
   })
   const key = runScopedWaveformKey(options.id, options.runId)

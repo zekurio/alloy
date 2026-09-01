@@ -132,7 +132,7 @@ export function toPublicClipRow<
     sourceCodecs?: string | null
     sourceSizeBytes: number | null
     sourceDurationMs?: number | null
-    waveformKey?: string | null
+    waveformKey: string | null
     cutKey?: string | null
     cutCodecs?: string | null
     durationMs: number | null

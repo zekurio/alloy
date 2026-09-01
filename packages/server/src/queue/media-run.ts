@@ -205,7 +205,6 @@ async function runPipelineInWorkDir({
     workDir,
     durationMs: sourceProbe.durationMs,
     hasAudio: sourceProbe.audioTracks.length > 0,
-    existingKey: row.waveformKey,
     signal,
     uploadedKeys,
   })
