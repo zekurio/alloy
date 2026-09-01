@@ -52,8 +52,9 @@ test("generation signature tracks output and execution config", () => {
   assert.notEqual(quality, baseline)
 })
 
-test("matching media skips full work but repairs a missing thumbnail", () => {
+test("matching media repairs only the missing asset", () => {
   const fingerprint = encodeFingerprint(config, facts)
+  assert.equal(Object.hasOwn(JSON.parse(fingerprint), "p"), false)
   const base = {
     force: false,
     status: "ready" as const,
@@ -62,6 +63,9 @@ test("matching media skips full work but repairs a missing thumbnail", () => {
     encodeFailedFingerprint: null,
     encodeFailedGeneration: null,
     hasSource: true,
+    hasAudio: true,
+    hasWaveform: true,
+    hasCut: false,
     hasThumbnail: true,
     thumbnailFailed: false,
     config,
@@ -69,8 +73,31 @@ test("matching media skips full work but repairs a missing thumbnail", () => {
   }
   assert.equal(chooseClipMediaAction(base), "skip")
   assert.equal(
+    chooseClipMediaAction({ ...base, hasWaveform: false }),
+    "waveform",
+  )
+  assert.equal(chooseClipMediaAction({ ...base, hasAudio: false }), "waveform")
+  assert.equal(
+    chooseClipMediaAction({
+      ...base,
+      hasAudio: false,
+      hasWaveform: false,
+    }),
+    "skip",
+  )
+  assert.equal(
     chooseClipMediaAction({ ...base, hasThumbnail: false }),
     "thumbnail",
+  )
+
+  const trimmedFacts = { ...facts, trimStartMs: 1_000, trimEndMs: 2_000 }
+  assert.equal(
+    chooseClipMediaAction({
+      ...base,
+      facts: trimmedFacts,
+      encodeFingerprint: encodeFingerprint(config, trimmedFacts),
+    }),
+    "full",
   )
 })
 
@@ -84,6 +111,9 @@ test("known failures quarantine until a generation explicitly rearms them", () =
     encodeFailedFingerprint: failedFingerprint,
     encodeFailedGeneration: 4,
     hasSource: true,
+    hasAudio: true,
+    hasWaveform: true,
+    hasCut: false,
     hasThumbnail: true,
     thumbnailFailed: false,
     config,

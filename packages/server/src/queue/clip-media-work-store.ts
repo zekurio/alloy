@@ -23,6 +23,7 @@ const mediaClaimSelect = {
   status: clip.status,
   sourceKey: clip.source_key,
   sourceContentType: clip.source_content_type,
+  sourceAudioCodec: clip.source_audio_codec,
   sourceSizeBytes: clip.source_size_bytes,
   sourceDurationMs: clip.source_duration_ms,
   waveformKey: clip.waveform_key,
@@ -333,6 +334,18 @@ export async function clipMediaAdminQueueCounts(
               ${clip.encode_generation} = ${generation}
               and ${clip.thumb_key} is null
               and ${clip.thumb_failed_at} is null
+            )
+            or (
+              (${clip.source_audio_codec} is not null)
+              <> (${clip.waveform_key} is not null)
+              and ${clip.encode_failed_generation} is distinct from ${generation}
+            )
+            or (
+              (
+                (${clip.trim_start_ms} is not null and ${clip.trim_end_ms} is not null)
+                <> (${clip.cut_key} is not null)
+              )
+              and ${clip.encode_failed_generation} is distinct from ${generation}
             )
           )
         )`
@@ -700,6 +713,18 @@ async function claimReconciliation(
               c.encode_generation = $3::int
               and c.thumb_key is null
               and c.thumb_failed_at is null
+            )
+            or (
+              (c.source_audio_codec is not null)
+              <> (c.waveform_key is not null)
+              and c.encode_failed_generation is distinct from $3::int
+            )
+            or (
+              (
+                (c.trim_start_ms is not null and c.trim_end_ms is not null)
+                <> (c.cut_key is not null)
+              )
+              and c.encode_failed_generation is distinct from $3::int
             )
           )
         order by c.encode_generation asc, c.id asc
