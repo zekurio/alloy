@@ -296,6 +296,7 @@ export function ClipEditorStage({
             aspectRatio={media.aspectRatio}
             maxDisplayHeight="100%"
             controls={false}
+            initialTime={playback.getCurrentMs() / 1000}
             onVideoClick={() => playback.togglePlayback()}
             playerRef={playback.playerRef}
             onTimeUpdate={playback.handleTimeUpdate}

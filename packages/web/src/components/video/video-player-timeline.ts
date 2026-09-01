@@ -4,6 +4,14 @@ export function finiteMediaDuration(duration: number): number {
   return Number.isFinite(duration) && duration > 0 ? duration : 0
 }
 
+export function initialPlaybackTime(
+  requestedTime: number,
+  duration: number,
+): number {
+  const time = Number.isFinite(requestedTime) ? Math.max(0, requestedTime) : 0
+  return duration > 0 ? Math.min(time, duration) : time
+}
+
 export function playbackDuration(
   mediaDuration: number,
   range: MediaPlaybackRange | undefined,

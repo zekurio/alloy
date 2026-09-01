@@ -27,6 +27,7 @@ import {
 } from "./video-player-shell"
 import {
   finiteMediaDuration,
+  initialPlaybackTime,
   playbackDuration,
   toMediaTime,
   toPlaybackTime,
@@ -46,6 +47,7 @@ export function PlayerCore({
   autoPlay,
   loop,
   initialMuted,
+  initialTime,
   className,
   maxDisplayHeight,
   durationHint,
@@ -484,15 +486,16 @@ export function PlayerCore({
       setCurrentTime(target)
       if (resume.play) void playInternal(false)
     } else {
-      const target = toMediaTime(
-        0,
+      const target = initialPlaybackTime(initialTime, nextDuration)
+      const mediaTarget = toMediaTime(
+        target,
         mediaDuration,
         activePlaybackRange,
         durationHint,
       )
-      if (element.currentTime !== target) element.currentTime = target
-      lastTimeRef.current = 0
-      setCurrentTime(0)
+      if (element.currentTime !== mediaTarget) element.currentTime = mediaTarget
+      lastTimeRef.current = target
+      setCurrentTime(target)
       if (autoPlay) void playInternal(false)
     }
     syncBuffered()
@@ -502,6 +505,7 @@ export function PlayerCore({
     autoPlay,
     clearBuffering,
     durationHint,
+    initialTime,
     playbackRate,
     playInternal,
     syncBuffered,
