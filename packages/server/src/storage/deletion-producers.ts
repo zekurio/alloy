@@ -6,6 +6,7 @@ import { clipKeyDeletionNamespace } from "./clip-key"
 export interface ClipStorageDeletionSnapshot {
   clipId: string
   sourceKey: string | null
+  waveformKey: string | null
   cutKey: string | null
   thumbKey: string | null
   renditionKeys: readonly string[]
@@ -26,6 +27,7 @@ export function clipStorageDeletionIntents(
 
   for (const key of [
     snapshot.sourceKey,
+    snapshot.waveformKey,
     snapshot.cutKey,
     ...snapshot.renditionKeys,
     ...snapshot.audioTrackKeys,

@@ -36,6 +36,7 @@ test("clip deletion classifies committed and legacy objects by namespace", () =>
   const intents = clipStorageDeletionIntents({
     clipId,
     sourceKey: `11/eb/${clipId}/source-aabbccddeeff`,
+    waveformKey: `11/eb/${clipId}/waveform-aabbccddeeff.m4a`,
     cutKey: `11/eb/${clipId}/cut-aabbccddeeff.mp4`,
     thumbKey: `11/eb/${clipId}/thumb-aabbccddeeff.jpg`,
     renditionKeys: [`11/eb/${clipId}/rendition-1080p-aabbccddeeff.mp4`],
@@ -52,6 +53,11 @@ test("clip deletion classifies committed and legacy objects by namespace", () =>
       {
         namespace: "clips",
         key: `11/eb/${clipId}/source-aabbccddeeff`,
+        abortUpload: false,
+      },
+      {
+        namespace: "clips",
+        key: `11/eb/${clipId}/waveform-aabbccddeeff.m4a`,
         abortUpload: false,
       },
       {

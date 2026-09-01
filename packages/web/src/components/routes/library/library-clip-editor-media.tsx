@@ -3,6 +3,7 @@ import {
   clipOriginalFileUrl,
   clipRenditionFileUrl,
   clipThumbnailUrl,
+  clipWaveformFileUrl,
 } from "@alloy/api"
 import { contentTypeForFile } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
@@ -103,11 +104,14 @@ export function useClipEditorMedia(
     canPlaySource(contentTypeForFile(localItem.fileName), "")
       ? localMediaSrc
       : null
+  const serverWaveformSrc = row.waveformVersion
+    ? clipWaveformFileUrl(row.id, apiOrigin(), row.waveformVersion)
+    : null
   const waveformSrc = processing
     ? localMediaSrc
     : localSourceWindow && localMediaSrc
       ? localMediaSrc
-      : streamSrc
+      : serverWaveformSrc
   const waveformRange =
     !processing && localSourceWindow
       ? {
@@ -123,7 +127,9 @@ export function useClipEditorMedia(
         : null
       : localSourceWindow && localItem
         ? `desktop-clip:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localSourceWindow.startMs}:${localSourceWindow.endMs}`
-        : `clip:${row.id}:${row.sourceVersion ?? ""}:${streamSrc}`,
+        : waveformSrc
+          ? `clip:${row.id}:${waveformSrc}`
+          : null,
     processing
       ? (localItem?.durationMs ?? row.sourceDurationMs ?? row.durationMs ?? 0)
       : (row.sourceDurationMs ?? row.durationMs ?? 0),

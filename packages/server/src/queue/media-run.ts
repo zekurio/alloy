@@ -31,6 +31,7 @@ import {
   extractAndUploadAudioStemsBestEffort,
   validatedAudioTrackHints,
 } from "./media-run-stems"
+import { resolveWaveformAudio } from "./media-run-waveform"
 import {
   ensureStillPresent,
   withMediaRunWorkspace,
@@ -197,6 +198,16 @@ async function runPipelineInWorkDir({
     probe: sourceProbe,
     uploadedKeys,
   })
+  const waveformKey = await resolveWaveformAudio({
+    id,
+    runId,
+    sourcePath,
+    workDir,
+    durationMs: sourceProbe.durationMs,
+    hasAudio: sourceProbe.audioTracks.length > 0,
+    signal,
+    uploadedKeys,
+  })
 
   const sourcePatch = {
     sourceKey: sourceAsset.storageKey,
@@ -207,6 +218,7 @@ async function runPipelineInWorkDir({
     sourceFps,
     sourceSizeBytes: sourceAsset.sizeBytes,
     sourceDurationMs: sourceProbe.durationMs,
+    waveformKey,
     pendingAudioTracks: audioTrackHints.length ? audioTrackHints : null,
     audioTrackFingerprint: fingerprintFacts.audioTrackFingerprint,
     cutKey: cut.key,
@@ -218,6 +230,7 @@ async function runPipelineInWorkDir({
   if (!(await store.commitSource(id, runId, sourcePatch)))
     throw abortMediaProcessing()
   retainSourceAsset(sourceAsset)
+  if (waveformKey) retainPublishedKey(waveformKey)
   if (cut.key) retainPublishedKey(cut.key)
   progress.complete(SOURCE_PHASE_COST)
 

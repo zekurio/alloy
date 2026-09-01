@@ -10,4 +10,4 @@
  * fingerprint includes the running config, so sweeps can find and heal those
  * clips without an operator pressing the admin re-encode button.
  */
-export const MEDIA_PIPELINE_VERSION = "3"
+export const MEDIA_PIPELINE_VERSION = "4"

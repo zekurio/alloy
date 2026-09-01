@@ -56,6 +56,7 @@ async function clipObjectHasLiveReference(
       .where(
         or(
           storageKeyMatches(clip.source_key, key),
+          storageKeyMatches(clip.waveform_key, key),
           storageKeyMatches(clip.cut_key, key),
           ownerId
             ? and(

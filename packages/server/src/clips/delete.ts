@@ -33,6 +33,7 @@ export async function deleteClipRowAndAssets(
         .select({
           authorId: clip.author_id,
           sourceKey: clip.source_key,
+          waveformKey: clip.waveform_key,
           cutKey: clip.cut_key,
           thumbKey: clip.thumb_key,
           status: clip.status,
@@ -74,6 +75,7 @@ export async function deleteClipRowAndAssets(
       const assetIntents = clipStorageDeletionIntents({
         clipId: row.id,
         sourceKey: fresh.sourceKey,
+        waveformKey: fresh.waveformKey,
         cutKey: fresh.cutKey,
         thumbKey: fresh.thumbKey,
         renditionKeys: renditionRows.map((rendition) => rendition.storageKey),

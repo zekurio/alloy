@@ -114,6 +114,7 @@ interface GcEntry {
 interface GcClipRow {
   id: string
   sourceKey: string | null
+  waveformKey: string | null
   cutKey: string | null
   thumbKey: string | null
   encodeRunId: string | null
@@ -804,6 +805,7 @@ async function selectGcClipRows(
     .select({
       id: clip.id,
       sourceKey: clip.source_key,
+      waveformKey: clip.waveform_key,
       cutKey: clip.cut_key,
       thumbKey: clip.thumb_key,
       encodeRunId: clip.encode_run_id,
@@ -849,6 +851,7 @@ async function selectLiveKeys(
 function staticLiveKeys(row: GcClipRow): string[] {
   return [
     row.sourceKey,
+    row.waveformKey,
     row.cutKey,
     row.thumbKey,
     clipAssetKey(row.id, "thumb"),
@@ -871,6 +874,7 @@ function parseClipStorageKey(key: string): ParsedStorageKey | null {
 function isRunStampedFilename(filename: string): boolean {
   return (
     /^source-[0-9a-f]{12}$/i.test(filename) ||
+    /^waveform-[0-9a-f]{12}\.m4a$/i.test(filename) ||
     /^cut-[0-9a-f]{12}\.mp4$/i.test(filename) ||
     /^rendition-.+-[0-9a-f]{12}\.mp4$/i.test(filename) ||
     AUDIO_TRACK_ASSET_RE.test(filename) ||

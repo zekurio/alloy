@@ -71,6 +71,7 @@ type ClipListPageRow = ClipListCursorRow & {
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
   sourceSizeBytes: number | null
+  waveformKey: string | null
   durationMs: number | null
   width: number | null
   height: number | null
