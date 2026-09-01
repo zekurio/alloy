@@ -1,5 +1,4 @@
-import type { QueueClip } from "@alloy/api"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useState } from "react"
 
 import {
   readLocalStorageItem,
@@ -7,7 +6,6 @@ import {
   writeLocalStorageItem,
 } from "@/lib/browser-storage"
 import { clientLogger } from "@/lib/client-log"
-import { clipEncodingActive } from "@/lib/clip-encoding"
 import { searchString } from "@/lib/route-search"
 
 const DISMISSED_KEY = "alloy:queue-dismissed"
@@ -46,27 +44,13 @@ function saveDismissed(ids: Set<string>): void {
   writeLocalStorageItem(DISMISSED_KEY, JSON.stringify([...ids]))
 }
 
-export function useDismissedClips(
-  serverQueue: QueueClip[],
-  serverQueueHydrated: boolean,
-) {
+export function useDismissedClips() {
   const [dismissed, setDismissed] = useState<Set<string>>(() => loadDismissed())
 
-  useEffect(() => {
-    if (!serverQueueHydrated || dismissed.size === 0) return
-    const live = new Map(serverQueue.map((row) => [row.id, row]))
-    let changed = false
-    const next = new Set<string>()
-    for (const id of dismissed) {
-      const row = live.get(id)
-      if (row && !clipEncodingActive(row)) next.add(id)
-      else changed = true
-    }
-    if (changed) {
-      setDismissed(next)
-      saveDismissed(next)
-    }
-  }, [serverQueue, serverQueueHydrated, dismissed])
+  // Queue snapshots contain only the 50 newest clips plus active media work.
+  // An absent row is therefore not proof that the clip was deleted. Keep its
+  // dismissal so an older clip cannot reappear after reconnecting or while a
+  // background re-encode temporarily makes it active again.
 
   const dismiss = useCallback((id: string) => {
     setDismissed((prev) => {

@@ -46,10 +46,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
     runtime.retainedThumbsRef,
     runtime.bump,
   )
-  const dismissedClips = useDismissedClips(
-    serverQueue,
-    serverQueueData !== undefined,
-  )
+  const dismissedClips = useDismissedClips()
   const queue = useUploadQueueItems(
     runtime.queueVersion,
     runtime.activeRef,
