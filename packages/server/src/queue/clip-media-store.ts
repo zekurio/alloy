@@ -5,7 +5,6 @@ import {
   publishClipUpsertById,
 } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
-import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
 import { mediaAssetDeletionIntents } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
@@ -85,7 +84,7 @@ export function completeRequestColumns(completion: MediaCompletion) {
   }
 }
 
-function finishedThumbnailLeaseColumns(
+function finishedAssetLeaseColumns(
   completion: MediaCompletion,
   patch: { thumb_failed_at?: Date } = {},
 ) {
@@ -242,10 +241,43 @@ export const clipMediaStore: MediaStore = {
     return result.committed
   },
 
+  async commitWaveform(id, runId, waveformKey, completion) {
+    const result = await db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ waveformKey: clip.waveform_key })
+        .from(clip)
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        .limit(1)
+        .for("update")
+      if (!current) return { committed: false, queuedDeletions: 0 }
+
+      const [updated] = await tx
+        .update(clip)
+        .set({
+          ...finishedAssetLeaseColumns(completion),
+          waveform_key: waveformKey,
+        })
+        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+        .returning({ id: clip.id })
+      if (!updated) return { committed: false, queuedDeletions: 0 }
+
+      const intents = mediaAssetDeletionIntents({
+        keys: [current.waveformKey],
+        retainedKeys: [waveformKey],
+        reason: "media waveform replaced",
+        source: { type: "media-run", id: runId },
+      })
+      await enqueueStorageDeletions(intents, { tx })
+      return { committed: true, queuedDeletions: intents.length }
+    })
+    if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
+    return result.committed
+  },
+
   async finishThumbnailBackfill(id, runId, completion) {
     const [row] = await db
       .update(clip)
-      .set(finishedThumbnailLeaseColumns(completion))
+      .set(finishedAssetLeaseColumns(completion))
       .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
       .returning({ id: clip.id })
     return Boolean(row)
@@ -255,7 +287,7 @@ export const clipMediaStore: MediaStore = {
     const [row] = await db
       .update(clip)
       .set(
-        finishedThumbnailLeaseColumns(completion, {
+        finishedAssetLeaseColumns(completion, {
           thumb_failed_at: new Date(),
         }),
       )
@@ -322,7 +354,6 @@ export const clipMediaStore: MediaStore = {
             ...clearedStageColumns,
             status: "ready",
             published_at: publishedAtStamp,
-            encode_pipeline: MEDIA_PIPELINE_VERSION,
             encode_fingerprint: patch.encodeFingerprint,
             encode_failed_fingerprint: null,
             encode_generation: completion.targetGeneration,

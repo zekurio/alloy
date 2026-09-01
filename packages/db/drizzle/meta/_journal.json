@@ -50,6 +50,13 @@
       "when": 1788257278665,
       "tag": "0006_illegal_reavers",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788260862251,
+      "tag": "0007_sloppy_liz_osborn",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,6 @@ import { createHash } from "node:crypto"
 
 import type { TranscodingConfig } from "@alloy/contracts"
 
-import { MEDIA_PIPELINE_VERSION } from "./pipeline-version"
 import { effectiveLadder, type LadderStep } from "./renditions"
 
 export interface FingerprintSourceFacts {
@@ -34,7 +33,6 @@ export function encodeFingerprint(
   facts: FingerprintSourceFacts,
 ): string {
   return JSON.stringify({
-    p: MEDIA_PIPELINE_VERSION,
     q: config.quality,
     a: config.audioBitrateKbps,
     cut:

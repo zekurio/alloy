@@ -5,7 +5,6 @@ import { safeParse, t } from "@alloy/contracts/schema"
 import { instanceSetting } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
-import { MEDIA_PIPELINE_VERSION } from "@alloy/server/media/pipeline-version"
 import { eq } from "drizzle-orm"
 
 const GENERATION_KEY = "mediaEncodeGeneration"
@@ -26,7 +25,6 @@ export function mediaConfigSignature(config: TranscodingConfig): string {
   return createHash("sha256")
     .update(
       JSON.stringify({
-        pipeline: MEDIA_PIPELINE_VERSION,
         videoCodec: config.videoCodec,
         quality: config.quality,
         audioBitrateKbps: config.audioBitrateKbps,

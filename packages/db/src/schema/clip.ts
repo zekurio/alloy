@@ -112,9 +112,6 @@ export const clip = pgTable(
     // encode finishes, or by the privacy-flip route for the rest. Feeds and
     // the clip.published webhook key off this, never off created_at.
     published_at: timestamp({ withTimezone: true }),
-    // Media pipeline version that committed the current renditions; null until
-    // the first media run commits.
-    encode_pipeline: text(),
     // Canonical desired-state JSON stamped by commitReady; null = never
     // verified under the fingerprint model.
     encode_fingerprint: text(),

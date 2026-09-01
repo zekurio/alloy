@@ -4,7 +4,12 @@ import {
   type FingerprintSourceFacts,
 } from "@alloy/server/media/encode-fingerprint"
 
-export type ClipMediaAction = "full" | "thumbnail" | "skip" | "quarantine"
+export type ClipMediaAction =
+  | "full"
+  | "waveform"
+  | "thumbnail"
+  | "skip"
+  | "quarantine"
 
 export const CLIP_MEDIA_FAILURE_ID_PREFIX = "clip-media:"
 
@@ -19,6 +24,9 @@ export interface ClipMediaPolicyInput {
   encodeFailedFingerprint: string | null
   encodeFailedGeneration: number | null
   hasSource: boolean
+  hasAudio: boolean
+  hasWaveform: boolean
+  hasCut: boolean
   hasThumbnail: boolean
   thumbnailFailed: boolean
   config: Readonly<TranscodingConfig>
@@ -30,19 +38,21 @@ export function chooseClipMediaAction(
 ): ClipMediaAction {
   if (input.force || input.status !== "ready" || !input.facts) return "full"
   const expected = encodeFingerprint(input.config, input.facts)
-  if (input.encodeFingerprint === expected) {
-    if (!input.hasThumbnail && !input.thumbnailFailed && input.hasSource) {
-      return "thumbnail"
-    }
-    return "skip"
-  }
   if (
     input.encodeFailedFingerprint === expected &&
     (input.encodeFailedGeneration ?? 0) >= input.retryFailuresGeneration
   ) {
     return "quarantine"
   }
-  return "full"
+  if (input.encodeFingerprint !== expected) return "full"
+  const needsCut =
+    input.facts.trimStartMs !== null && input.facts.trimEndMs !== null
+  if (input.hasCut !== needsCut) return "full"
+  if (input.hasAudio !== input.hasWaveform) return "waveform"
+  if (!input.hasThumbnail && !input.thumbnailFailed && input.hasSource) {
+    return "thumbnail"
+  }
+  return "skip"
 }
 
 export function clipMediaRetryDelayMs(attempt: number): number {
