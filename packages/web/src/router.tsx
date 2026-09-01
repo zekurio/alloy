@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query"
-import { createHashHistory, createRouter } from "@tanstack/react-router"
+import { createRouter } from "@tanstack/react-router"
 
 import {
   RouteErrorState,
@@ -7,7 +7,6 @@ import {
 } from "@/components/feedback/route-state"
 
 import { getQueryClient } from "./lib/query-client"
-import { isDesktopRuntime } from "./lib/runtime-env"
 import { routeTree } from "./routeTree.gen"
 
 export function getRouter() {
@@ -18,10 +17,6 @@ export function getRouter() {
     context: {
       queryClient,
     },
-    // The bundled renderer has no server-side route fallback. Main-process
-    // commands place both the route and its search parameters after `#`.
-    history: isDesktopRuntime() ? createHashHistory() : undefined,
-
     scrollRestoration: true,
     defaultPreload: "intent",
     defaultPreloadStaleTime: 30_000,

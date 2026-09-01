@@ -1,10 +1,12 @@
-import { DESKTOP_HTTP_CONTRACT_1 } from "@alloy/contracts"
+import {
+  DESKTOP_BRIDGE_CONTRACT_1,
+  DESKTOP_HTTP_CONTRACT_1,
+} from "@alloy/contracts"
 import { detectLocale, setRuntimeLocale } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
 import { app, BrowserWindow, Menu, protocol } from "electron"
 
 import { configureAppPaths } from "./app-paths"
-import { appProtocolScheme, registerAppProtocol } from "./app-protocol"
 import {
   assetCacheProtocolScheme,
   registerAssetCacheProtocol,
@@ -48,7 +50,6 @@ installCrashLogging()
 logger.info(`Alloy Desktop ${app.getVersion()} starting`)
 // Privileged schemes must all be declared in this single pre-ready call.
 protocol.registerSchemesAsPrivileged([
-  appProtocolScheme(),
   recordingLibraryProtocolScheme(),
   assetCacheProtocolScheme(),
 ])
@@ -78,7 +79,6 @@ function startApp(): void {
     // app-driven chrome. (Standard editing shortcuts still work in web content
     // on Windows; revisit if macOS support needs its app menu back.)
     Menu.setApplicationMenu(null)
-    registerAppProtocol()
     registerRecordingLibraryProtocol()
     registerAssetCacheProtocol()
     watchAuthCookiePersistence()
@@ -105,7 +105,7 @@ function startApp(): void {
     startBackgroundUpdateChecks()
 
     app.on("activate", () => {
-      // macOS: re-open the bundled app when a server is selected, or the
+      // macOS: re-open the server app when a server is selected, or the
       // connect surface when no server has been saved.
       if (BrowserWindow.getAllWindows().length === 0) {
         void showOrOpenInitialWindow(windows)
@@ -142,7 +142,10 @@ async function shutdownWithDeadline(): Promise<void> {
 
 async function openInitialWindow(windows: Windows): Promise<void> {
   const startupServer = getStartupServer()
-  if (startupServer?.httpContract === DESKTOP_HTTP_CONTRACT_1) {
+  if (
+    startupServer?.httpContract === DESKTOP_HTTP_CONTRACT_1 &&
+    startupServer.bridgeContract === DESKTOP_BRIDGE_CONTRACT_1
+  ) {
     // The cached exact contract permits offline startup. A successful explicit
     // connection refreshes this value before selecting another server.
     try {

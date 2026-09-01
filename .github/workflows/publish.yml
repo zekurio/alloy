@@ -224,10 +224,10 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
           $releaseDir = "packages/desktop/release"
-          $renderer = "packages/desktop/out/renderer/desktop.html"
+          $renderer = "packages/desktop/out/renderer/index.html"
 
           if (-not (Test-Path $renderer)) {
-            Write-Error "The installer build did not produce the bundled desktop renderer."
+            Write-Error "The installer build did not produce the local connect renderer."
           }
           if (-not (Get-ChildItem -LiteralPath $releaseDir -Filter "*.exe" -File)) {
             Write-Error "No Windows installer was produced in $releaseDir."
@@ -292,6 +292,7 @@ jobs:
       - preflight
       - desktop
       - image
+      - promote
     runs-on: ubuntu-latest
 
     steps:
@@ -359,7 +360,6 @@ jobs:
     needs:
       - preflight
       - image
-      - publish
     runs-on: ubuntu-latest
 
     steps:

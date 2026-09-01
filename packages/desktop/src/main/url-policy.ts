@@ -29,6 +29,16 @@ export function isSecureServerUrl(url: URL): boolean {
   )
 }
 
+export function normalizeServerOrigin(rawUrl: string): string | null {
+  try {
+    const url = new URL(rawUrl)
+    if (url.username || url.password || !isSecureServerUrl(url)) return null
+    return url.origin
+  } catch {
+    return null
+  }
+}
+
 export function sameOrigin(rawUrl: string, origin: string): boolean {
   try {
     return new URL(rawUrl).origin === origin
@@ -37,9 +47,32 @@ export function sameOrigin(rawUrl: string, origin: string): boolean {
   }
 }
 
-export function isSelectedServerExternalUrl(
-  rawUrl: string,
-  selectedServerUrl: string | null,
-): boolean {
-  return selectedServerUrl !== null && sameOrigin(rawUrl, selectedServerUrl)
+export function isSafeExternalUrl(rawUrl: string): boolean {
+  try {
+    const url = new URL(rawUrl)
+    return (
+      (url.protocol === "https:" || url.protocol === "http:") &&
+      !url.username &&
+      !url.password
+    )
+  } catch {
+    return false
+  }
+}
+
+export function selectedServerPathUrl(
+  serverOrigin: string,
+  path: string,
+): string | null {
+  if (!path.startsWith("/") || path.startsWith("//")) return null
+  try {
+    const target = new URL(path, serverOrigin)
+    return target.origin === serverOrigin ? target.toString() : null
+  } catch {
+    return null
+  }
+}
+
+export function isRedirectStatus(status: number): boolean {
+  return status >= 300 && status <= 399 && status !== 304
 }

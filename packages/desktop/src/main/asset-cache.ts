@@ -12,7 +12,6 @@ import { t } from "@alloy/contracts/schema"
 import { createLogger } from "@alloy/logging"
 import { app, net } from "electron"
 
-import { selectedAppProtocolServer } from "./app-protocol"
 import { isAllowedAssetSource } from "./asset-cache-policy"
 import {
   markHousekeepingPathActive,
@@ -66,6 +65,15 @@ export function cachedAssetUrl(url: string | null): string | null {
 }
 
 let assetProtocolRegistered = false
+let selectedServerOrigin: string | null = null
+
+export function selectAssetCacheServer(serverOrigin: string): void {
+  selectedServerOrigin = serverOrigin
+}
+
+export function clearAssetCacheServer(): void {
+  selectedServerOrigin = null
+}
 
 export function registerAssetCacheProtocol(): void {
   if (assetProtocolRegistered) return
@@ -164,7 +172,7 @@ async function fetchAllowedAsset(
   signal: AbortSignal,
   redirects = 0,
 ): Promise<Response> {
-  if (!isAllowedAssetSource(sourceUrl, selectedAppProtocolServer())) {
+  if (!isAllowedAssetSource(sourceUrl, selectedServerOrigin)) {
     throw new Error("Asset source is not allowed")
   }
 
@@ -347,9 +355,7 @@ function assetUrlFromRequest(rawUrl: string): string | null {
     if (!/^[A-Za-z0-9_-]{8,2048}$/.test(encoded)) return null
     const decoded = Buffer.from(encoded, "base64url").toString("utf8")
     const source = new URL(decoded).toString()
-    return isAllowedAssetSource(source, selectedAppProtocolServer())
-      ? source
-      : null
+    return isAllowedAssetSource(source, selectedServerOrigin) ? source : null
   } catch {
     return null
   }

@@ -7,26 +7,17 @@ import {
   currentUrlWithQueryParam,
   currentUrlWithoutSearchOrHash,
 } from "./browser-url"
-import {
-  createDesktopRuntimeConfig,
-  resetRuntimeConfig,
-  setRuntimeConfig,
-} from "./runtime-env"
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window")
 
 afterEach(() => {
-  resetRuntimeConfig()
   if (originalWindow)
     Object.defineProperty(globalThis, "window", originalWindow)
   else Reflect.deleteProperty(globalThis, "window")
 })
 
-test("builds share URLs from the selected server in desktop mode", () => {
-  installWindow(
-    "alloy-app://app/desktop.html#/games/halo/clips/clip-1?view=grid",
-  )
-  setRuntimeConfig(createDesktopRuntimeConfig("https://clips.example.test"))
+test("builds share URLs from the current server route", () => {
+  installWindow("https://clips.example.test/games/halo/clips/clip-1?view=grid")
 
   assert.equal(
     currentUrlWithoutSearchOrHash(),
@@ -47,18 +38,16 @@ test("keeps the current browser route in an OAuth callback URL", () => {
   )
 })
 
-test("consumes a desktop route query without replacing the local document", () => {
+test("consumes a route query on the current server document", () => {
   let replaced = ""
   installWindow(
-    "alloy-app://app/desktop.html#/settings?oauth_linked=1&tab=profile",
+    "https://clips.example.test/settings?oauth_linked=1&tab=profile",
     (url) => {
       replaced = url
     },
   )
-  setRuntimeConfig(createDesktopRuntimeConfig("https://clips.example.test"))
-
   assert.equal(consumeCurrentQueryParam("oauth_linked"), "1")
-  assert.equal(replaced, "alloy-app://app/desktop.html#/settings?tab=profile")
+  assert.equal(replaced, "/settings?tab=profile")
 })
 
 function installWindow(href: string, replace?: (url: string) => void): void {

@@ -1,4 +1,4 @@
-import type { AlloyDesktop } from "@alloy/contracts"
+import { DESKTOP_BRIDGE_CONTRACT_1, type AlloyDesktop } from "@alloy/contracts"
 
 // Native and recording-library types live in @alloy/contracts. Re-export them
 // here so web consumers use one import path.
@@ -16,14 +16,13 @@ export type {
 } from "@alloy/contracts"
 
 export function alloyDesktop(): AlloyDesktop | null {
-  // Browser builds ignore globals left behind by old Electron shells. The
-  // desktop build and its preload ship the complete lockstep API together.
-  if (import.meta.env.VITE_ALLOY_DESKTOP !== "true") return null
-
   // Injected by the desktop preload; unexpressible on `typeof globalThis`.
-  // SAFETY: The lockstep preload is the only writer in the desktop build.
+  // The exact marker ignores globals from retired, unversioned remote shells.
+  // SAFETY: The optional host property is checked by its runtime contract ID.
   const host = globalThis as { alloyDesktop?: AlloyDesktop }
-  return host.alloyDesktop ?? null
+  return host.alloyDesktop?.bridgeContract === DESKTOP_BRIDGE_CONTRACT_1
+    ? host.alloyDesktop
+    : null
 }
 
 /**

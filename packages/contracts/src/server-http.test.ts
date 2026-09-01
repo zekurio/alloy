@@ -3,10 +3,13 @@ import assert from "node:assert/strict"
 import { test } from "vite-plus/test"
 
 import {
+  DESKTOP_BRIDGE_CONTRACT_1,
+  DESKTOP_BRIDGE_CONTRACT_IDS,
   DESKTOP_HTTP_CONTRACT_1,
   DESKTOP_HTTP_CONTRACT_IDS,
   ServerInfoSchema,
   isServerInfo,
+  selectDesktopBridgeContract,
   type ServerInfo,
   selectDesktopHttpContract,
   supportsDesktopHttpContract,
@@ -32,8 +35,24 @@ test("accepts the frozen contract-1 wire fixture", () => {
   assert.equal(isServerInfo(value), true)
   assert.equal(selectDesktopHttpContract(value), DESKTOP_HTTP_CONTRACT_1)
   assert.equal(supportsDesktopHttpContract(value, 1), true)
+  assert.equal(selectDesktopBridgeContract(value), null)
   assert.deepEqual(value.schema, "alloy.server-info")
   assert.deepEqual(value.product, "alloy")
+})
+
+test("selects only exact advertised native bridge contract 1", () => {
+  const value = {
+    ...fixture(),
+    desktopBridgeContracts: [DESKTOP_BRIDGE_CONTRACT_1, 27],
+  }
+
+  assert.equal(selectDesktopBridgeContract(value), DESKTOP_BRIDGE_CONTRACT_1)
+  assert.equal(selectDesktopBridgeContract(fixture()), null)
+  assert.equal(
+    selectDesktopBridgeContract({ ...value, desktopBridgeContracts: [2] }),
+    null,
+  )
+  assert.deepEqual(DESKTOP_BRIDGE_CONTRACT_IDS, [1])
 })
 
 test("accepts unknown future contract IDs without selecting them", () => {

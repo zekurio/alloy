@@ -1,5 +1,6 @@
 import {
   DESKTOP_AUTH_CAPABILITY_VERSION,
+  DESKTOP_BRIDGE_CONTRACT_1,
   DESKTOP_HTTP_CONTRACT_1,
   type DesktopConnectResult,
 } from "@alloy/contracts"
@@ -92,16 +93,19 @@ export const serverDesktopApiHandlers = {
       const contract = await checkServerHttpContract(result.serverUrl)
       if (!contract.ok) return { ok: false, error: contract.error }
 
-      // Let the bundled app validate stored credentials through the API proxy.
-      // A separate validation request could rotate a refresh token and strand
-      // it if interrupted. Browser login is required only when no usable local
+      // The server-hosted app validates stored credentials in its normal
+      // Chromium session. Browser login is required only when no usable local
       // auth cookie exists.
       if (forceBrowserLogin || !(await hasStoredSession(result.serverUrl))) {
         const login = await loginViaBrowser(result.serverUrl)
         if (!login.ok) return { ok: false, error: login.error }
       }
 
-      rememberServer(result.serverUrl, DESKTOP_HTTP_CONTRACT_1)
+      rememberServer(
+        result.serverUrl,
+        DESKTOP_HTTP_CONTRACT_1,
+        DESKTOP_BRIDGE_CONTRACT_1,
+      )
       // Resolve IPC before destroying or closing the invoking renderer.
       setTimeout(() => windows.connectTo(result.serverUrl), 0)
       return { ok: true, serverUrl: result.serverUrl }

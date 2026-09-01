@@ -1,6 +1,5 @@
 import {
   DEFAULT_RECORDING_SETTINGS,
-  DESKTOP_HTTP_CONTRACT_1,
   normalizeRecordingSettings,
   type DesktopSavedServer,
   type RecordingSettings,
@@ -50,10 +49,16 @@ export function upsertServer(
   servers: DesktopSavedServer[],
   serverUrl: string,
   httpContract: number,
+  bridgeContract: number,
   now: Date = new Date(),
 ): DesktopSavedServer[] {
   return dedupeServers([
-    { serverUrl, lastConnectedAt: now.toISOString(), httpContract },
+    {
+      serverUrl,
+      lastConnectedAt: now.toISOString(),
+      httpContract,
+      bridgeContract,
+    },
     ...servers.filter((server) => server.serverUrl !== serverUrl),
   ]).slice(0, MAX_SAVED_SERVERS)
 }
@@ -65,16 +70,15 @@ function normalizeSavedServer(
   const serverUrl = parseString(record?.serverUrl)
   if (serverUrl === null) return null
   const parsedContract = parseNonnegativeInteger(record?.httpContract)
+  const parsedBridgeContract = parseNonnegativeInteger(record?.bridgeContract)
   return {
     serverUrl,
     lastConnectedAt:
       parseString(record?.lastConnectedAt) ?? new Date(0).toISOString(),
-    // Released pre-cut state had no field and is the implicit contract-1
-    // baseline. Preserve explicit future IDs so this client can reject them.
-    httpContract:
-      parsedContract && parsedContract > 0
-        ? parsedContract
-        : DESKTOP_HTTP_CONTRACT_1,
+    // Missing compatibility fields belong to the bundled-renderer era. Keep
+    // them saved for display, but force a fresh probe before remote startup.
+    httpContract: parsedContract ?? 0,
+    bridgeContract: parsedBridgeContract ?? 0,
   }
 }
 

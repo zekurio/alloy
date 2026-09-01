@@ -1,4 +1,5 @@
 import {
+  DESKTOP_BRIDGE_CONTRACT_IDS,
   DESKTOP_HTTP_CAPABILITIES,
   DESKTOP_HTTP_CONTRACT_IDS,
   SERVER_INFO_PRODUCT,
@@ -9,7 +10,7 @@ import {
 import packageJson from "../../../package.json" with { type: "json" }
 
 /**
- * Public, unauthenticated server metadata for the bundled desktop renderer.
+ * Public, unauthenticated server metadata for desktop compatibility.
  * The application version is useful for diagnostics only. Contract selection
  * is driven by the exact desktop HTTP declarations below.
  */
@@ -20,6 +21,7 @@ export function buildServerInfo(): ServerInfo {
     version: packageJson.version,
     // Copy the policy array so callers cannot mutate the shared declaration.
     httpContracts: [...DESKTOP_HTTP_CONTRACT_IDS],
+    desktopBridgeContracts: [...DESKTOP_BRIDGE_CONTRACT_IDS],
     capabilities: {
       auth: { ...DESKTOP_HTTP_CAPABILITIES.auth },
       transport: { ...DESKTOP_HTTP_CAPABILITIES.transport },

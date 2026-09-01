@@ -13,7 +13,8 @@ type DesktopApiTreeMeta<T> = {
 /**
  * Operation wiring for the lockstep desktop API. The preload uses this tree to
  * generate methods, and the main process uses it to require an exhaustive
- * invoke handler map. `titlebarOverlay` is a preload-provided value.
+ * invoke handler map. `bridgeContract` and `titlebarOverlay` are
+ * preload-provided values.
  */
 export const DESKTOP_API_OPERATIONS = {
   minimizeWindow: { kind: "invoke" },
@@ -72,7 +73,9 @@ export const DESKTOP_API_OPERATIONS = {
   notifications: {
     show: { kind: "invoke" },
   },
-} as const satisfies DesktopApiTreeMeta<Omit<AlloyDesktop, "titlebarOverlay">>
+} as const satisfies DesktopApiTreeMeta<
+  Omit<AlloyDesktop, "bridgeContract" | "titlebarOverlay">
+>
 
 type ApiPathsOf<T> = {
   [K in keyof T & string]: T[K] extends DesktopApiOperationMeta
