@@ -24,16 +24,20 @@ export const DEFAULT_THEME_PALETTE_ID: ThemePaletteId = "default"
 
 export type ThemeAppearance = "dark" | "light"
 export type ThemeAccents = Partial<Record<ThemeAppearance, string>>
+/** Selected preset ids per appearance for the active palette. */
+export type ThemeVariants = Partial<Record<ThemeAppearance, string>>
 
 export interface ThemePreferences {
   mode: Theme
   palette: ThemePaletteId
+  variants: ThemeVariants
   accents: ThemeAccents
 }
 
 export const DEFAULT_THEME_PREFERENCES: ThemePreferences = {
   mode: DEFAULT_THEME,
   palette: DEFAULT_THEME_PALETTE_ID,
+  variants: {},
   accents: {},
 }
 
@@ -49,6 +53,7 @@ export function normalizeThemePreferences(
     palette:
       THEME_PALETTE_IDS.find((candidate) => candidate === value.palette) ??
       DEFAULT_THEME_PALETTE_ID,
+    variants: normalizeThemeVariants(value.variants),
     accents: normalizeThemeAccents(value.accents),
   }
 }
@@ -76,6 +81,22 @@ export function writeThemePreferences(
   preferences: ThemePreferences,
 ): ThemePreferences {
   return themeStorage.write(preferences)
+}
+
+function normalizeThemeVariants(value: ContractJsonInput): ThemeVariants {
+  if (!isObjectRecord(value)) return {}
+
+  // Preset ids resolve against the active palette at apply time; unknown ids
+  // fall back to the palette default, so any string is safe to keep here.
+  const dark = isStringValue(value.dark) ? value.dark : null
+  const light = isStringValue(value.light) ? value.light : null
+  return dark && light
+    ? { dark, light }
+    : dark
+      ? { dark }
+      : light
+        ? { light }
+        : {}
 }
 
 function normalizeThemeAccents(value: ContractJsonInput): ThemeAccents {

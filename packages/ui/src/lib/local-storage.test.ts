@@ -42,6 +42,11 @@ test("theme preferences retain valid fields and drop the rest", () => {
     normalizeThemePreferences({
       mode: "dark",
       palette: "removed-palette",
+      variants: {
+        dark: "catppuccin-mocha",
+        light: 42,
+        removed: "nord",
+      },
       accents: {
         dark: "#abc",
         light: "not-a-color",
@@ -52,6 +57,7 @@ test("theme preferences retain valid fields and drop the rest", () => {
     {
       mode: "dark",
       palette: "default",
+      variants: { dark: "catppuccin-mocha" },
       accents: { dark: "#aabbcc" },
     },
   )
@@ -85,7 +91,12 @@ test("writeback replaces only the current config value", () => {
 
   assert.equal(
     storage.getItem("alloy.theme"),
-    JSON.stringify({ mode: "light", palette: "nord", accents: {} }),
+    JSON.stringify({
+      mode: "light",
+      palette: "nord",
+      variants: {},
+      accents: {},
+    }),
   )
   assert.equal(storage.getItem("alloy.themeBackup"), "unmanaged")
   assert.equal(storage.getItem("alloy.locale"), "de")
@@ -100,11 +111,12 @@ test("failed writes remain available for the browser session", () => {
   )
   storage.failWrites = true
 
-  driver.write({ mode: "dark", palette: "one", accents: {} })
+  driver.write({ mode: "dark", palette: "one", variants: {}, accents: {} })
 
   assert.deepEqual(driver.read(), {
     mode: "dark",
     palette: "one",
+    variants: {},
     accents: {},
   })
 })

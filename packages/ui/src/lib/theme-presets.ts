@@ -3,6 +3,7 @@ import {
   readThemePreferences,
   type ThemeAppearance,
   type ThemePaletteId,
+  type ThemeVariants,
   writeThemePreferences,
 } from "@alloy/ui/lib/theme-storage"
 import {
@@ -13,7 +14,8 @@ import {
 /**
  * Bundled palette presets for the theme selector, split into dark and light
  * families so each mode can carry its own palette (e.g. Catppuccin Frappé in
- * dark, Latte in light).
+ * dark, Latte in light). A palette can also offer variant presets per
+ * appearance, like Catppuccin's Macchiato and Mocha dark flavours.
  *
  * Every preset restates the same fixed token set, and the generated CSS uses
  * the base stylesheet's own selector structure — `:root, .dark` for the dark
@@ -38,6 +40,11 @@ export interface ThemePalette {
   label: string
   dark: ThemePreset
   light: ThemePreset
+  /**
+   * Alternative presets selectable per appearance (e.g. Catppuccin's dark
+   * flavours). Excludes the defaults above.
+   */
+  variants?: Partial<Record<ThemePresetMode, readonly ThemePreset[]>>
 }
 
 /** Values for `--neutral-0` … `--neutral-900`, background to strongest text. */
@@ -149,6 +156,70 @@ export const DARK_THEME_PRESETS: readonly ThemePreset[] = [
     },
   },
   {
+    id: "catppuccin-macchiato",
+    label: "Catppuccin Macchiato",
+    tokens: {
+      neutrals: [
+        "#24273a",
+        "#2d3044",
+        "#363a4f",
+        "#404459",
+        "#494d64",
+        "#5b6078",
+        "#6e738d",
+        "#8087a2",
+        "#939ab7",
+        "#a5adcb",
+        "#b8c0e0",
+        "#cad3f5",
+      ],
+      surfaceSunken: "#181926",
+      foregroundFaint: "#878da6",
+      accent: "#c6a0f6",
+      accentHover: "#d4b6f8",
+      accentActive: "#ad88d9",
+      accentForeground: "#181926",
+      accentDim: "#72608f",
+      success: "#a6da95",
+      warning: "#eed49f",
+      danger: "#ed8796",
+      info: "#8aadf4",
+      live: "#ed8796",
+    },
+  },
+  {
+    id: "catppuccin-mocha",
+    label: "Catppuccin Mocha",
+    tokens: {
+      neutrals: [
+        "#1e1e2e",
+        "#272839",
+        "#313244",
+        "#3b3c50",
+        "#45475a",
+        "#585b70",
+        "#6c7086",
+        "#7f849c",
+        "#9399b2",
+        "#a6adc8",
+        "#bac2de",
+        "#cdd6f4",
+      ],
+      surfaceSunken: "#11111b",
+      foregroundFaint: "#898ea9",
+      accent: "#cba6f7",
+      accentHover: "#dabcf9",
+      accentActive: "#b28ede",
+      accentForeground: "#11111b",
+      accentDim: "#74618f",
+      success: "#a6e3a1",
+      warning: "#f9e2af",
+      danger: "#f38ba8",
+      info: "#89b4fa",
+      live: "#f38ba8",
+    },
+  },
+  {
     id: "nord",
     label: "Nord",
     tokens: {
@@ -239,6 +310,38 @@ export const DARK_THEME_PRESETS: readonly ThemePreset[] = [
       accentDim: "#6a5c8a",
       // Rosé Pine has no green: foam stands in for success, the brighter
       // Moon-variant pine for info, per common ports of the palette.
+      success: "#9ccfd8",
+      warning: "#f6c177",
+      danger: "#eb6f92",
+      info: "#3e8fb0",
+      live: "#eb6f92",
+    },
+  },
+  {
+    id: "rose-pine-moon",
+    label: "Rosé Pine Moon",
+    tokens: {
+      neutrals: [
+        "#232136",
+        "#2a273f",
+        "#393552",
+        "#3f3c53",
+        "#44415a",
+        "#56526e",
+        "#6e6a86",
+        "#7e7a97",
+        "#908caa",
+        "#aeaac5",
+        "#c7c4dd",
+        "#e0def4",
+      ],
+      surfaceSunken: "#1e1b2e",
+      foregroundFaint: "#86829f",
+      accent: "#c4a7e7",
+      accentHover: "#d3bcee",
+      accentActive: "#b192da",
+      accentForeground: "#232136",
+      accentDim: "#6a5c8a",
       success: "#9ccfd8",
       warning: "#f6c177",
       danger: "#eb6f92",
@@ -421,11 +524,73 @@ export const THEME_PALETTES: readonly ThemePalette[] = [
     "Catppuccin",
     "catppuccin-frappe",
     "catppuccin-latte",
+    {
+      dark: [
+        presetById("dark", "catppuccin-macchiato"),
+        presetById("dark", "catppuccin-mocha"),
+      ],
+    },
   ),
   pairTheme("nord", "Nord", "nord", "nord-light"),
   pairTheme("one", "One", "one-dark", "one-light"),
-  pairTheme("rose-pine", "Rosé Pine", "rose-pine", "rose-pine-dawn"),
+  pairTheme("rose-pine", "Rosé Pine", "rose-pine", "rose-pine-dawn", {
+    dark: [presetById("dark", "rose-pine-moon")],
+  }),
 ]
+
+/** Default preset first, then any variant presets for that appearance. */
+export function themePalettePresets(
+  palette: ThemePalette,
+  mode: ThemePresetMode,
+): readonly ThemePreset[] {
+  return [palette[mode], ...(palette.variants?.[mode] ?? [])]
+}
+
+/** Applies the stored variant choice, falling back to the palette default. */
+export function resolveThemePreset(
+  palette: ThemePalette,
+  mode: ThemePresetMode,
+  variants: ThemeVariants,
+): ThemePreset {
+  const selected = variants[mode]
+  return (
+    themePalettePresets(palette, mode).find(
+      (preset) => preset.id === selected,
+    ) ?? palette[mode]
+  )
+}
+
+export function getStoredThemeVariants(): ThemeVariants {
+  return readThemePreferences().variants
+}
+
+/** The active preset for one appearance, variants included. */
+export function getStoredThemePreset(mode: ThemePresetMode): ThemePreset {
+  return resolveThemePreset(
+    getStoredThemePalette(),
+    mode,
+    readThemePreferences().variants,
+  )
+}
+
+export function setStoredThemeVariant(
+  mode: ThemePresetMode,
+  presetId: string,
+): void {
+  const palette = getStoredThemePalette()
+  const preset = themePalettePresets(palette, mode).find(
+    (candidate) => candidate.id === presetId,
+  )
+  if (!preset) return
+
+  const preferences = readThemePreferences()
+  const variants = { ...preferences.variants }
+  // Selecting the palette default clears the override instead of storing it.
+  if (preset.id === palette[mode].id) delete variants[mode]
+  else variants[mode] = preset.id
+  writeThemePreferences({ ...preferences, variants })
+  applyThemePalette(palette)
+}
 
 export function getStoredThemePaletteId(): ThemePaletteId {
   return readThemePreferences().palette
@@ -449,12 +614,14 @@ function pairTheme(
   label: string,
   darkId: string,
   lightId: string,
+  variants?: ThemePalette["variants"],
 ): ThemePalette {
   return {
     id,
     label,
     dark: presetById("dark", darkId),
     light: presetById("light", lightId),
+    variants,
   }
 }
 
@@ -471,8 +638,9 @@ function removeThemePresetStyle(): void {
 function applyThemePalette(palette: ThemePalette): void {
   if (!globalThis.document) return
 
-  const dark = palette.dark
-  const light = palette.light
+  const storedVariants = readThemePreferences().variants
+  const dark = resolveThemePreset(palette, "dark", storedVariants)
+  const light = resolveThemePreset(palette, "light", storedVariants)
   const existing = document.getElementById(THEME_PRESET_STYLE_ID)
 
   // Both defaults means the bundled stylesheet already has it exactly right.

@@ -1431,10 +1431,13 @@ export const DE_MESSAGES = {
   Accent: "Akzent",
   "Choose a base palette with matching light and dark appearances.":
     "Wähle eine Basispalette mit aufeinander abgestimmten hellen und dunklen Varianten.",
+  "Choose a variant for light and dark mode.":
+    "Wähle eine Variante für den hellen und dunklen Modus.",
   "Choose separate colors for light and dark mode.":
     "Wähle separate Farben für den hellen und dunklen Modus.",
   "Color mode": "Farbmodus",
   "Color mode and theme palettes.": "Farbmodus und Theme-Paletten.",
+  "Theme variants": "Theme-Varianten",
   "Follow the system or keep Alloy light or dark.":
     "Systemeinstellung übernehmen oder Alloy immer im hellen bzw. dunklen Modus anzeigen.",
   Interface: "Oberfläche",
