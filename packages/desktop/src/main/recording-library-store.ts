@@ -54,7 +54,6 @@ export function rememberRecordingLibraryCapture(
     durationMs: capture.durationMs,
     width: capture.width,
     height: capture.height,
-    audioTracks: capture.audioTracks,
     createdAt: capture.createdAt,
     updatedAt: new Date().toISOString(),
   }
@@ -215,7 +214,6 @@ function seedManifestEntry(item: RecordingLibraryItem): CaptureManifestEntry {
     durationMs: item.durationMs,
     width: item.width,
     height: item.height,
-    audioTracks: item.audioTracks,
     createdAt: item.createdAt,
     updatedAt: new Date().toISOString(),
   }
@@ -264,13 +262,6 @@ export async function deleteRecordingLibraryItem(id: string): Promise<void> {
     pruneStaleThumbnails(id, "")
   } catch (cause) {
     logger.warn("failed to prune deleted recording thumbnails:", cause)
-  }
-  try {
-    const { pruneRecordingCaptureAudioTracks } =
-      await import("./recording-library-audio-tracks")
-    pruneRecordingCaptureAudioTracks(id)
-  } catch (cause) {
-    logger.warn("failed to prune deleted recording audio tracks:", cause)
   }
 }
 

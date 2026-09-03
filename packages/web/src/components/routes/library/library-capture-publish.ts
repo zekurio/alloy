@@ -4,8 +4,6 @@ import type {
   GameRow,
   UserSearchResult,
 } from "@alloy/api"
-import { CLIP_AUDIO_TRACKS_MAX } from "@alloy/contracts/content"
-import { isClipAudioTrackKind } from "@alloy/contracts/desktop-recording-types"
 
 import {
   prepareSelectedClipFile,
@@ -85,14 +83,6 @@ async function prepareCapturePublishPayload(
   })
   const selected = await prepareSelectedClipFile(file)
   throwIfAborted(signal)
-  const audioTracks = input.item.audioTracks
-    ?.toSorted((left, right) => left.index - right.index)
-    .flatMap((track) => {
-      if (!isClipAudioTrackKind(track.kind)) return []
-      return [{ kind: track.kind, label: track.label }]
-    })
-    .slice(0, CLIP_AUDIO_TRACKS_MAX)
-
   const payload: PublishPayload = {
     file: selected.file,
     contentType: selected.contentType,
@@ -119,7 +109,6 @@ async function prepareCapturePublishPayload(
     // the slightly longer packet-copy file. Full-range publishes send none.
     // Rounded at this boundary because the initiate schema requires integers.
   }
-  if (audioTracks && audioTracks.length > 0) payload.audioTracks = audioTracks
   if (input.trimmed) {
     payload.trimStartMs = Math.round(exported.startOffsetMs)
     payload.trimEndMs = Math.round(

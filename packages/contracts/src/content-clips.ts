@@ -25,13 +25,9 @@ export interface ClipRenditionRef {
 }
 
 /**
- * One isolated audio stem of a clip, extracted server-side from a multi-track
- * source. The default full mix is embedded in the clip's video assets (source,
- * cut, renditions) and is never listed here; stems exist only for clips whose
- * recording carried per-source audio tracks. Stem bytes are served from
- * `/api/clips/:id/audio/:index/file.m4a` (with the same immutable `?v=`
- * cache-busting convention as renditions) and share the playback timeline of
- * the clip's canonical cut, so player time maps 1:1 onto stem time.
+ * One isolated audio stem retained for compatibility with multi-track clips
+ * created by older desktop releases. Current Alloy recorders produce only the
+ * mixed track embedded in the video assets.
  */
 export interface ClipAudioTrackRef {
   /**
@@ -51,21 +47,14 @@ export interface ClipAudioTrackRef {
   version: string
 }
 
-/**
- * Most stems a clip may carry. The recording backend writes at most 6 audio
- * tracks (libobs MAX_AUDIO_MIXES), one of which is the mix.
- */
+/** Most legacy stems a clip may carry. */
 export const CLIP_AUDIO_TRACKS_MAX = 5
 /** Longest a stem label may be, in characters (after trimming). */
 export const CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH = 64
 
 /**
- * Stem metadata attached at upload time by Alloy Desktop. Positional: entry i
- * describes container audio track i + 1 (the leading mix track is never
- * hinted). The server re-probes the file and drops all hints when the counts
- * disagree; it never fails the upload over them. At most
- * {@link CLIP_AUDIO_TRACKS_MAX} entries; labels are clamped to
- * {@link CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH}.
+ * Legacy stem metadata accepted from older desktop releases. New clients omit
+ * it, while the server keeps processing it for desktop HTTP compatibility.
  */
 export interface ClipAudioTrackInput {
   kind: ClipAudioTrackKind
@@ -102,7 +91,7 @@ export interface ClipRow {
   waveformVersion?: string | null
   /** Encoded quality tiers, highest first; empty until the pipeline commits. */
   renditions: ClipRenditionRef[]
-  /** Per-source audio stems, ordered by index; empty when the clip has only the mixed track. */
+  /** Legacy per-source stems, normally empty for new Alloy clips. */
   audioTracks: ClipAudioTrackRef[]
   durationMs: number | null
   width: number | null
@@ -187,7 +176,7 @@ export interface InitiateClipInput {
    */
   trimStartMs?: number
   trimEndMs?: number
-  /** Stem roles/labels for multi-track uploads; see ClipAudioTrackInput. */
+  /** Legacy stem metadata accepted from older desktop releases. */
   audioTracks?: ClipAudioTrackInput[]
 }
 

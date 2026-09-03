@@ -1,4 +1,4 @@
-export type HousekeepingPathKind = "asset" | "audio" | "export" | "import"
+export type HousekeepingPathKind = "asset" | "export" | "import"
 
 const paths = new Map<HousekeepingPathKind, Map<string, number>>()
 

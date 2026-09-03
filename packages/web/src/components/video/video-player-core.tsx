@@ -8,7 +8,6 @@ import { errorMessage } from "@/lib/error-message"
 import { usePlayerVolume } from "@/lib/player-volume"
 import { teardownVideoElement } from "@/lib/video-events"
 
-import { useAudioTrackMixerEngine } from "./audio-track-mixer-engine"
 import { useMediaEngine } from "./video-media-engine"
 import { useActiveVideoPlayer } from "./video-player-active"
 import { useVideoPlayerControls } from "./video-player-controls"
@@ -58,7 +57,6 @@ export function PlayerCore({
   onPlayThreshold,
   onFrameReady,
   onEnded,
-  audioMixer,
   chromeSize = "default",
   shortcutBounds,
   enableHorizontalSeekShortcuts = true,
@@ -330,23 +328,14 @@ export function PlayerCore({
     ],
   )
 
-  const audioMixerEngine = useAudioTrackMixerEngine({
-    mixer: audioMixer,
-    videoRef,
-    volume,
-    muted,
-  })
-  const audioMixerEngaged = audioMixerEngine.engaged
-  const audioMixerEngagedRef = audioMixerEngine.engagedRef
-
   useEffect(() => {
     if (initialMutedPropRef.current === initialMuted) return
     initialMutedPropRef.current = initialMuted
     mutedRef.current = initialMuted
     setMutedState(initialMuted)
     const video = videoRef.current
-    if (video) video.muted = initialMuted || audioMixerEngagedRef.current
-  }, [audioMixerEngagedRef, initialMuted])
+    if (video) video.muted = initialMuted
+  }, [initialMuted])
 
   useEffect(() => {
     if (initialPlayerVolumeRef.current === playerVolume) return
@@ -357,8 +346,8 @@ export function PlayerCore({
     const video = videoRef.current
     if (!video) return
     video.volume = playerVolume.volume
-    video.muted = playerVolume.muted || audioMixerEngagedRef.current
-  }, [audioMixerEngagedRef, playerVolume])
+    video.muted = playerVolume.muted
+  }, [playerVolume])
 
   useEffect(() => {
     volumeRef.current = volume
@@ -366,8 +355,8 @@ export function PlayerCore({
     const video = videoRef.current
     if (!video) return
     video.volume = volume
-    video.muted = muted || audioMixerEngaged
-  }, [audioMixerEngaged, muted, volume])
+    video.muted = muted
+  }, [muted, volume])
 
   useEffect(() => {
     const video = videoRef.current
@@ -391,7 +380,6 @@ export function PlayerCore({
     togglePlay,
   } = useVideoPlayerControls({
     containerRef,
-    audioMixerEngagedRef,
     duration,
     getCurrentTime: readCurrentTime,
     getDuration: readDuration,
@@ -457,7 +445,7 @@ export function PlayerCore({
     setDuration(nextDuration)
     setBufferedEnd(0)
     element.volume = volumeRef.current
-    element.muted = mutedRef.current || audioMixerEngagedRef.current
+    element.muted = mutedRef.current
     element.playbackRate = playbackRate
     setStatus({ kind: "ready" })
     clearBuffering()
@@ -499,7 +487,6 @@ export function PlayerCore({
     }
     syncBuffered()
   }, [
-    audioMixerEngagedRef,
     activePlaybackRange,
     autoPlay,
     clearBuffering,
@@ -702,7 +689,7 @@ export function PlayerCore({
       posterVisible={posterVisible}
       autoPlay={autoPlay}
       loop={loop && !activePlaybackRange}
-      muted={muted || audioMixerEngaged}
+      muted={muted}
       onPointerDown={focusPlayerContainer}
       onClick={clickHandler}
       onLoadedMetadata={handleLoadedMetadata}
@@ -775,7 +762,6 @@ export function PlayerCore({
           qualityOptions={qualityOptions}
           selectedQualityId={selectedQualityId}
           onSelectQuality={onSelectQuality}
-          audioMixer={audioMixer}
         />
       }
     >

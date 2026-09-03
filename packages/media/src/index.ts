@@ -1,7 +1,6 @@
 export {
   assertUploadMp4Compatible,
   copyAudioPackets,
-  extractAudioTrackToMp4Target,
   snappedTrimStartMs,
   trimToMp4Target,
   UPLOAD_MP4_AUDIO_CODECS,

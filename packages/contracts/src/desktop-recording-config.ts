@@ -1,5 +1,4 @@
 import type { RecordingAllowedGame } from "./desktop-recording-games"
-import { CLIP_AUDIO_TRACK_KINDS, type ClipAudioTrackKind } from "./shared"
 
 export const RECORDING_ENCODERS = ["hardware", "software"] as const
 export const RECORDING_CODECS = ["h264", "hevc", "av1"] as const
@@ -46,24 +45,6 @@ export const RECORDING_RUN_STATES = [
 export const RECORDING_CAPTURE_SOURCES = ["game", "display"] as const
 export const RECORDING_AUDIO_MODES = ["devices", "applications"] as const
 export const RECORDING_AUDIO_DEVICE_KINDS = ["output", "input"] as const
-/**
- * Track roles as reported by the recording backend: the clip stem kinds plus
- * "mix". Audio track 0 of a multi-track capture is always the full mix of
- * every enabled source; the remaining tracks are per-source stems.
- */
-export const RECORDING_AUDIO_TRACK_KINDS = [
-  "mix",
-  ...CLIP_AUDIO_TRACK_KINDS,
-] as const
-export type RecordingAudioTrackKind =
-  (typeof RECORDING_AUDIO_TRACK_KINDS)[number]
-
-/** Narrows a recording track kind to a clip stem kind by excluding the mix. */
-export function isClipAudioTrackKind(
-  kind: RecordingAudioTrackKind,
-): kind is ClipAudioTrackKind {
-  return kind !== "mix"
-}
 export const RECORDING_NOTIFICATION_SOUND_EVENTS = [
   "replayBufferStarted",
   "clipSaved",
