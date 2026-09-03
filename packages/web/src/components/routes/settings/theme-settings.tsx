@@ -2,6 +2,13 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { ColorPicker } from "@alloy/ui/components/color-picker"
 import { Input } from "@alloy/ui/components/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@alloy/ui/components/select"
 import { THEME_STORAGE_KEY } from "@alloy/ui/lib/theme"
 import {
   readThemeAccents,
@@ -11,13 +18,21 @@ import {
 } from "@alloy/ui/lib/theme-accent"
 import {
   getStoredThemePaletteId,
+  getStoredThemeVariants,
+  resolveThemePreset,
   setStoredThemePalette,
+  setStoredThemeVariant,
   THEME_PALETTES,
+  themePalettePresets,
   type ThemePalette,
+  type ThemePreset,
   type ThemePresetMode,
   type ThemePresetTokens,
 } from "@alloy/ui/lib/theme-presets"
-import { refreshThemePreferences } from "@alloy/ui/lib/theme-storage"
+import {
+  refreshThemePreferences,
+  type ThemeVariants,
+} from "@alloy/ui/lib/theme-storage"
 import { cn } from "@alloy/ui/lib/utils"
 import { CheckIcon, MoonIcon, RotateCcwIcon, SunIcon } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -26,6 +41,7 @@ import { SettingsSubsection } from "@/components/routes/settings/settings-panel"
 
 export function ThemeSettings() {
   const [paletteId, setPaletteId] = useState(getStoredThemePaletteId)
+  const [variants, setVariants] = useState(getStoredThemeVariants)
   const [accentState, setAccentState] = useState(readThemeAccents)
 
   useEffect(() => {
@@ -33,6 +49,7 @@ export function ThemeSettings() {
       if (event.key !== null && event.key !== THEME_STORAGE_KEY) return
       refreshThemePreferences()
       setPaletteId(getStoredThemePaletteId())
+      setVariants(getStoredThemeVariants())
       setAccentState(readThemeAccents())
     }
     window.addEventListener("storage", syncStoredTheme)
@@ -47,6 +64,13 @@ export function ThemeSettings() {
     setPaletteId(id)
     setStoredThemePalette(id)
     // Recalculate contrast-aware accent tokens against the new backgrounds.
+    writeThemeAccents(accentState)
+  }
+
+  function chooseVariant(mode: ThemePresetMode, presetId: string) {
+    setStoredThemeVariant(mode, presetId)
+    setVariants(getStoredThemeVariants())
+    // The variant's background changes accent contrast calculations.
     writeThemeAccents(accentState)
   }
 
@@ -75,21 +99,38 @@ export function ThemeSettings() {
       )}
     >
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {THEME_PALETTES.map((theme) => (
-          <ThemeCard
-            key={theme.id}
-            label={theme.label}
-            lightTokens={theme.light.tokens}
-            darkTokens={theme.dark.tokens}
-            selected={theme.id === paletteId}
-            onSelect={() => chooseTheme(theme.id)}
-          />
-        ))}
+        {THEME_PALETTES.map((theme) => {
+          const active = theme.id === paletteId
+          return (
+            <ThemeCard
+              key={theme.id}
+              label={theme.label}
+              lightTokens={
+                active
+                  ? resolveThemePreset(theme, "light", variants).tokens
+                  : theme.light.tokens
+              }
+              darkTokens={
+                active
+                  ? resolveThemePreset(theme, "dark", variants).tokens
+                  : theme.dark.tokens
+              }
+              selected={active}
+              onSelect={() => chooseTheme(theme.id)}
+            />
+          )
+        })}
       </div>
+
+      <ThemeVariantFields
+        palette={selectedTheme}
+        variants={variants}
+        onSelect={chooseVariant}
+      />
 
       <div className="flex flex-col gap-3">
         <div>
-          <h4 className="text-sm font-medium">{t("Accent")}</h4>
+          <h4 className="text-base font-medium">{t("Accent")}</h4>
           <p className="text-foreground-dim mt-1 text-xs">
             {t("Choose separate colors for light and dark mode.")}
           </p>
@@ -115,6 +156,97 @@ export function ThemeSettings() {
       </div>
     </SettingsSubsection>
   )
+}
+
+function ThemeVariantFields({
+  palette,
+  variants,
+  onSelect,
+}: {
+  palette: ThemePalette
+  variants: ThemeVariants
+  onSelect: (mode: ThemePresetMode, presetId: string) => void
+}) {
+  const modes = ["light", "dark"] as const
+  const hasVariants = modes.some(
+    (mode) => themePalettePresets(palette, mode).length > 1,
+  )
+  if (!hasVariants) return null
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <h4 className="text-base font-medium">{t("Theme variants")}</h4>
+        <p className="text-foreground-dim mt-1 text-xs">
+          {t("Choose a variant for light and dark mode.")}
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {modes.map((mode) => (
+          <VariantField
+            key={mode}
+            mode={mode}
+            palette={palette}
+            variants={variants}
+            onSelect={(presetId) => onSelect(mode, presetId)}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function VariantField({
+  mode,
+  palette,
+  variants,
+  onSelect,
+}: {
+  mode: ThemePresetMode
+  palette: ThemePalette
+  variants: ThemeVariants
+  onSelect: (presetId: string) => void
+}) {
+  const presets = themePalettePresets(palette, mode)
+  const selected = resolveThemePreset(palette, mode, variants)
+  const label = mode === "light" ? t("Light") : t("Dark")
+  return (
+    <div className="flex min-w-0 flex-col gap-1.5 text-xs font-medium">
+      <span className="flex items-center gap-1.5">
+        {mode === "light" ? (
+          <SunIcon className="size-3.5" strokeWidth={2.5} />
+        ) : (
+          <MoonIcon className="size-3.5" strokeWidth={2.5} />
+        )}
+        {label}
+      </span>
+      <Select
+        value={selected.id}
+        disabled={presets.length < 2}
+        onValueChange={(presetId) => {
+          if (presetId) onSelect(presetId)
+        }}
+      >
+        <SelectTrigger size="sm" className="w-full" aria-label={label}>
+          <SelectValue>{flavourLabel(palette.label, selected)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent>
+          {presets.map((preset) => (
+            <SelectItem key={preset.id} value={preset.id}>
+              {flavourLabel(palette.label, preset)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+/** "Catppuccin Macchiato" reads as "Macchiato" inside the Catppuccin context. */
+function flavourLabel(paletteLabel: string, preset: ThemePreset): string {
+  return preset.label.startsWith(`${paletteLabel} `)
+    ? preset.label.slice(paletteLabel.length + 1)
+    : preset.label
 }
 
 function AccentColorField({
