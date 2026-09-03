@@ -401,9 +401,19 @@ export function CommentMenu({
   deleteDescription: string
   deleteActionLabel: string
   onCopyLink: () => void
-  onDelete: () => void
+  /** Rejects on failure; the mutation error renders under the comment. */
+  onDelete: () => Promise<void>
 }) {
   const [alertOpen, setAlertOpen] = useState(false)
+
+  async function handleDelete() {
+    try {
+      await onDelete()
+      setAlertOpen(false)
+    } catch {
+      // Keep the dialog open so the user can retry or cancel.
+    }
+  }
 
   return (
     <>
@@ -448,7 +458,7 @@ export function CommentMenu({
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
-              onClick={onDelete}
+              onClick={() => void handleDelete()}
               disabled={deletePending}
             >
               {deletePending ? t("Deleting…") : deleteActionLabel}
