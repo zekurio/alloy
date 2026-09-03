@@ -29,11 +29,6 @@ import {
 } from "@/components/upload/queue-progress"
 import { useUploadQueue } from "@/components/upload/upload-flow-context"
 import {
-  AudioTrackMixerControl,
-  type AudioTrackMixerController,
-  useAudioTrackMixer,
-} from "@/components/video/audio-track-mixer"
-import {
   useExternalVideoVolume,
   VideoPlayer,
   VolumeControl,
@@ -249,25 +244,6 @@ export function EditorVolumeControl({
   )
 }
 
-/**
- * Stem mixer for the editor preview, or undefined when the preview can't be
- * mixed. Trimmed previews use the uncut source timeline; supporting canonical
- * -cut stems needs an explicit trim offset before the clocks can be synced.
- */
-export function useClipEditorAudioMixer(
-  row: ClipRow,
-  media: ClipEditorMediaState,
-): AudioTrackMixerController | undefined {
-  const mixer = useAudioTrackMixer(row.id, row.audioTracks, row.durationMs)
-  return media.playbackSrc &&
-    (!media.playbackRange || media.playbackRange.start === 0) &&
-    row.trimStartMs === null &&
-    row.trimEndMs === null &&
-    mixer.tracks.length >= 2
-    ? mixer
-    : undefined
-}
-
 export function ClipEditorStage({
   row,
   media,
@@ -286,7 +262,6 @@ export function ClipEditorStage({
   nextEntry: NavigableLibraryEntry | null
 }) {
   const playerVolume = useExternalVideoVolume(playback.playerRef)
-  const editorAudioMixer = useClipEditorAudioMixer(row, media)
   return (
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
       <MediaStage aspectRatio={media.aspectRatio}>
@@ -307,7 +282,6 @@ export function ClipEditorStage({
             playerRef={playback.playerRef}
             onTimeUpdate={playback.handleTimeUpdate}
             onPlayingChange={playback.setPlaying}
-            audioMixer={editorAudioMixer}
             onFrameReady={() => media.setCloudFrameReady(true)}
             onEnded={playback.handleEnded}
           />
@@ -338,7 +312,6 @@ export function ClipEditorStage({
               ? playerVolume
               : undefined
           }
-          audioMixer={editorAudioMixer}
         />
       )}
     </section>
@@ -394,14 +367,12 @@ function ClipEditorTrimControls({
   playback,
   canManage,
   playerVolume,
-  audioMixer,
 }: {
   clipId: string
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
   canManage: boolean
   playerVolume?: ReturnType<typeof useExternalVideoVolume>
-  audioMixer?: AudioTrackMixerController
 }) {
   return (
     <>
@@ -412,7 +383,6 @@ function ClipEditorTrimControls({
             {canManage ? (
               <SetPosterButton clipId={clipId} playback={playback} />
             ) : null}
-            <AudioTrackMixerControl mixer={audioMixer} />
             {playerVolume ? (
               <EditorVolumeControl playerVolume={playerVolume} />
             ) : null}

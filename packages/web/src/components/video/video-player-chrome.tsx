@@ -33,10 +33,6 @@ import {
 } from "@/components/app/mobile-drawer-surface"
 import { isFullscreenElement, isFullscreenSupported } from "@/lib/fullscreen"
 
-import {
-  AudioTrackMixerControl,
-  type AudioTrackMixerController,
-} from "./audio-track-mixer"
 import type { QualityOption } from "./video-player-types"
 import { VideoScrubber } from "./video-scrubber"
 import { VolumeControl } from "./video-volume-control"
@@ -67,7 +63,6 @@ export function ChromeBar({
   qualityOptions,
   selectedQualityId,
   onSelectQuality,
-  audioMixer,
 }: {
   size?: ChromeBarSize
   containerRef: RefObject<HTMLDivElement | null>
@@ -87,7 +82,6 @@ export function ChromeBar({
   qualityOptions?: QualityOption[]
   selectedQualityId?: string
   onSelectQuality?: (qualityId: string) => void
-  audioMixer?: AudioTrackMixerController
 }) {
   const [fullscreenSupported, setFullscreenSupported] = useState(false)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -151,8 +145,6 @@ export function ChromeBar({
             onToggleMute={onToggleMute}
             onVolumeChange={onVolumeChange}
             onVolumeChangeEnd={onVolumeChangeEnd}
-            audioMixer={audioMixer}
-            portalContainer={portalContainer}
           />
 
           <ChromeTimeline
@@ -190,8 +182,6 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onToggleMute,
   onVolumeChange,
   onVolumeChangeEnd,
-  audioMixer,
-  portalContainer,
 }: {
   size: ChromeBarSize
   playing: boolean
@@ -202,8 +192,6 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
   onToggleMute: () => void
   onVolumeChange: (v: number) => void
   onVolumeChangeEnd: () => void
-  audioMixer?: AudioTrackMixerController
-  portalContainer: HTMLDivElement | undefined
 }) {
   return (
     <>
@@ -237,13 +225,6 @@ const ChromeLeadingControls = memo(function ChromeLeadingControls({
           videoChromeIconClass,
           size === "compact" && "size-[56px]",
         )}
-      />
-
-      <AudioTrackMixerControl
-        mixer={audioMixer}
-        portalContainer={portalContainer}
-        chrome
-        className={cn(size === "compact" && "size-[56px]")}
       />
     </>
   )

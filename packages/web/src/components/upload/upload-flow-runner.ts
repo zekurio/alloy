@@ -65,7 +65,6 @@ export async function startUpload(
     durationMs: Math.round(payload.durationMs),
     trimStartMs: payload.trimStartMs,
     trimEndMs: payload.trimEndMs,
-    audioTracks: payload.audioTracks,
   })
   const { clipId } = initiate
 

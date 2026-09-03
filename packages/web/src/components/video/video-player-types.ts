@@ -1,7 +1,5 @@
 import type { MouseEventHandler, Ref } from "react"
 
-import type { AudioTrackMixerController } from "./audio-track-mixer"
-
 export interface VideoPlayerHandle {
   play(): Promise<void>
   pause(): void
@@ -38,7 +36,6 @@ export type SharedPlayerProps = {
   onPlayThreshold?: () => void
   onFrameReady?: () => void
   onEnded?: () => void
-  audioMixer?: AudioTrackMixerController
   chromeSize?: "default" | "compact"
   shortcutBounds?: {
     start: number

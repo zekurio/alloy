@@ -29,11 +29,7 @@ import {
 } from "./recording-library-download"
 import { selectedServerClipDownloadUrl } from "./recording-library-download-policy"
 import { VIDEO_EXTENSIONS } from "./recording-library-shared"
-import {
-  parseNonnegativeInteger,
-  parseString,
-  type UntrustedInput,
-} from "./runtime-validation"
+import { parseString, type UntrustedInput } from "./runtime-validation"
 
 /** Capture-library native handlers; every channel is main-app-only. */
 export const recordingLibraryDesktopApiHandlers = {
@@ -130,22 +126,6 @@ export const recordingLibraryDesktopApiHandlers = {
       const { storeRecordingThumbnail } =
         await import("./recording-library-thumbnails")
       storeRecordingThumbnail(normalized.id, normalized.data)
-    },
-  },
-  "recording.getLibraryCaptureAudioTrackUrl": {
-    guard: requireMainSender,
-    handle: async (
-      _windows,
-      _event,
-      rawId: UntrustedInput,
-      rawIndex: UntrustedInput,
-    ) => {
-      const id = parseString(rawId)
-      const index = parseNonnegativeInteger(rawIndex)
-      if (id === null || index === null) return null
-      const { recordingCaptureAudioTrackUrl } =
-        await import("./recording-library-audio-tracks")
-      return recordingCaptureAudioTrackUrl(id, index)
     },
   },
   "recording.downloadClip": {

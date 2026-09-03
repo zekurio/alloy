@@ -154,7 +154,6 @@ test("recurring import sweep keeps fresh and active files", async () => {
     userData: root,
     logs,
     activeAssetPaths: () => new Set(),
-    activeAudioPaths: () => new Set(),
     activeExportPaths: () => new Set(),
     activeImportPaths: () => new Set([active]),
     now: () => 2 * 24 * 60 * 60 * 1000,
@@ -187,7 +186,6 @@ test("rechecks active paths before deleting a stale file", async () => {
     userData: root,
     logs,
     activeAssetPaths: () => new Set(),
-    activeAudioPaths: () => new Set(),
     activeExportPaths: () => new Set(),
     activeImportPaths: () => {
       activeChecks += 1

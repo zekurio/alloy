@@ -5,7 +5,6 @@ import { Card } from "@alloy/ui/components/card"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
 import {
-  AudioLinesIcon,
   PauseIcon,
   PlayIcon,
   RotateCcwIcon,
@@ -21,10 +20,6 @@ import { TrimElapsed } from "@/components/clip-editor/transport-controls"
 import { TrimTimeline } from "@/components/clip-editor/trim-timeline"
 import type { TrimRange } from "@/components/clip-editor/use-trim-playback"
 import {
-  AudioTrackMixerTracks,
-  type AudioTrackMixerController,
-} from "@/components/video/audio-track-mixer"
-import {
   useExternalVideoVolume,
   VideoPlayer,
   VolumeControl,
@@ -38,7 +33,6 @@ import {
   type ClipEditorPlaybackState,
   ClipProcessingNotice,
   SetPosterButton,
-  useClipEditorAudioMixer,
 } from "./library-clip-editor-media"
 import {
   LibraryEntryNavButton,
@@ -83,9 +77,6 @@ export function MobileClipEditor({
   tabs,
 }: MobileClipEditorProps) {
   const [trimming, setTrimming] = useState(false)
-  // Held here so the mix survives switching between the two views, which
-  // remounts the player (chromed preview vs. bare trim stage).
-  const audioMixer = useClipEditorAudioMixer(row, media)
 
   if (trimming && canTrim) {
     return (
@@ -94,7 +85,6 @@ export function MobileClipEditor({
         media={media}
         playback={playback}
         canManage={canManage}
-        audioMixer={audioMixer}
         canSaveTrim={tabs.canSaveTrim}
         trimPending={tabs.trimPending}
         trimError={tabs.trimError}
@@ -144,7 +134,6 @@ export function MobileClipEditor({
               playback.setCurrentMs(seconds * 1000)
             }}
             onPlayingChange={playback.setPlaying}
-            audioMixer={audioMixer}
             onFrameReady={() => {
               media.setCloudFrameReady(true)
               // Switching views mounts a fresh element at zero; catch it up to
@@ -189,17 +178,15 @@ export function MobileClipEditor({
 }
 
 /**
- * The trim view: player over one editor panel holding the timeline and the
- * stem mixer. Precision comes from the timeline itself — pan against the
- * centred playhead, pinch to zoom the time scale — so nothing below it exists
- * to compensate for coarse handles.
+ * The trim view keeps the player and timeline in one full-height panel.
+ * Precision comes from panning against the centred playhead and pinching to
+ * zoom the time scale.
  */
 function MobileTrimView({
   row,
   media,
   playback,
   canManage,
-  audioMixer,
   canSaveTrim,
   trimPending,
   trimError,
@@ -210,7 +197,6 @@ function MobileTrimView({
   media: ClipEditorMediaState
   playback: ClipEditorPlaybackState
   canManage: boolean
-  audioMixer: AudioTrackMixerController | undefined
   canSaveTrim: boolean
   trimPending: boolean
   trimError: string | null
@@ -256,7 +242,6 @@ function MobileTrimView({
             playerRef={playback.playerRef}
             onTimeUpdate={playback.handleTimeUpdate}
             onPlayingChange={playback.setPlaying}
-            audioMixer={audioMixer}
             onFrameReady={() => {
               media.setCloudFrameReady(true)
               // Switching views mounts a fresh element at zero; catch it up to
@@ -341,16 +326,6 @@ function MobileTrimView({
           onStartChange={playback.handleTrimStartChange}
           onEndChange={playback.handleTrimEndChange}
         />
-
-        {audioMixer ? (
-          <div className="border-border border-t p-3">
-            <div className="text-foreground-muted mb-2 flex items-center gap-2">
-              <AudioLinesIcon className="size-4" />
-              <span className="text-xs font-semibold">{t("Audio tracks")}</span>
-            </div>
-            <AudioTrackMixerTracks mixer={audioMixer} touch />
-          </div>
-        ) : null}
       </div>
 
       <p className="text-foreground-faint text-center text-xs">

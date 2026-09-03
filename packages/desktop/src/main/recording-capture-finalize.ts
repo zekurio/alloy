@@ -1,7 +1,6 @@
 import { copyFileSync, renameSync, rmSync, statSync } from "node:fs"
 
 import type { RecordingCapture } from "@alloy/contracts"
-import { normalizeCaptureAudioTracks } from "@alloy/contracts/desktop-recording-normalizers"
 import { createLogger } from "@alloy/logging"
 
 const logger = createLogger("recording")
@@ -11,21 +10,15 @@ const pendingFinalizes = new Map<string, Promise<RecordingCapture>>()
 export function finalizeRecordingCapture(
   capture: RecordingCapture,
 ): Promise<RecordingCapture> {
-  const normalizedCapture = {
-    ...capture,
-    audioTracks: normalizeCaptureAudioTracks(capture.audioTracks),
-  }
-  if (!normalizedCapture.postProcess) {
-    return Promise.resolve(clearedCapture(normalizedCapture))
-  }
+  if (!capture.postProcess) return Promise.resolve(capture)
 
-  const pending = pendingFinalizes.get(normalizedCapture.filename)
+  const pending = pendingFinalizes.get(capture.filename)
   if (pending) return pending
 
-  const task = runFinalize(normalizedCapture).finally(() => {
-    pendingFinalizes.delete(normalizedCapture.filename)
+  const task = runFinalize(capture).finally(() => {
+    pendingFinalizes.delete(capture.filename)
   })
-  pendingFinalizes.set(normalizedCapture.filename, task)
+  pendingFinalizes.set(capture.filename, task)
   return task
 }
 
@@ -122,8 +115,4 @@ function removeFile(path: string): void {
   } catch {
     // Best effort cleanup; stale .tmp files are ignored by the library scan.
   }
-}
-
-function clearedCapture(capture: RecordingCapture): RecordingCapture {
-  return capture.postProcess ? { ...capture, postProcess: null } : capture
 }

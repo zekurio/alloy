@@ -172,7 +172,7 @@ export function DesktopAudioSettings() {
           <SettingRow
             title={t("Capture audio from")}
             description={t(
-              "Record individual playback and capture devices, or per-application audio streams.",
+              "Mix selected playback devices and microphones, or application audio streams.",
             )}
             htmlFor="desktop-recording-audio-mode"
           >

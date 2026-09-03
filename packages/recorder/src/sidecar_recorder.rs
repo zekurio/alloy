@@ -394,7 +394,6 @@ impl Recorder {
             source: session.capture.source.clone(),
             kind: RecordingCaptureKind::Replay,
             post_process: saved.post_process,
-            audio_tracks: session.capture.audio_tracks.clone(),
             created_at: system_time_iso(requested_at),
         };
         self.last_capture = Some(capture.clone());
@@ -550,7 +549,6 @@ impl Recorder {
             source: recording_source_from_kind(source_kind),
             kind,
             post_process: None,
-            audio_tracks: None,
             created_at: now_iso(),
         }
     }

@@ -25,7 +25,6 @@ export function startDesktopHousekeeping(): void {
       userData: app.getPath("userData"),
       logs: app.getPath("logs"),
       activeAssetPaths: () => activeHousekeepingPaths("asset"),
-      activeAudioPaths: () => activeHousekeepingPaths("audio"),
       activeExportPaths: () => activeHousekeepingPaths("export"),
       activeImportPaths: () => activeHousekeepingPaths("import"),
     }),

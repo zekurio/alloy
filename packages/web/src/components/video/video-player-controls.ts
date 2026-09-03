@@ -18,7 +18,6 @@ import type { PlayerCoreProps } from "./video-player-core-types"
 import type { VideoKeyCommand } from "./video-player-shell"
 
 interface VideoPlayerControlsOptions {
-  audioMixerEngagedRef: MutableRefObject<boolean>
   containerRef: RefObject<HTMLDivElement | null>
   duration: number
   getCurrentTime: () => number
@@ -38,7 +37,6 @@ interface VideoPlayerControlsOptions {
 }
 
 export function useVideoPlayerControls({
-  audioMixerEngagedRef,
   containerRef,
   duration,
   getCurrentTime,
@@ -61,10 +59,10 @@ export function useVideoPlayerControls({
       mutedRef.current = next
       setMutedState(next)
       const video = videoRef.current
-      if (video) video.muted = next || audioMixerEngagedRef.current
+      if (video) video.muted = next
       writePlayerVolume({ volume: volumeRef.current, muted: next })
     },
-    [audioMixerEngagedRef, mutedRef, setMutedState, videoRef, volumeRef],
+    [mutedRef, setMutedState, videoRef, volumeRef],
   )
 
   const setVolume = useCallback(
@@ -78,18 +76,11 @@ export function useVideoPlayerControls({
       const video = videoRef.current
       if (video) {
         video.volume = clamped
-        video.muted = nextMuted || audioMixerEngagedRef.current
+        video.muted = nextMuted
       }
       writePlayerVolume({ volume: clamped, muted: nextMuted })
     },
-    [
-      audioMixerEngagedRef,
-      mutedRef,
-      setMutedState,
-      setVolumeState,
-      videoRef,
-      volumeRef,
-    ],
+    [mutedRef, setMutedState, setVolumeState, videoRef, volumeRef],
   )
 
   useImperativeHandle(

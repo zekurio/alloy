@@ -13,11 +13,9 @@ export const RECORDING_KIND = ["clip"] as const
 export type RecordingKind = (typeof RECORDING_KIND)[number]
 
 /**
- * Semantic role of one isolated audio stem recorded alongside the combined
- * mix. Stems let players rebalance sources (game vs voice) after the fact.
- * `desktop` means system/loopback output audio, not screen capture. The list
- * may grow; consumers must coerce unknown kinds with
- * {@link normalizeClipAudioTrackKind} instead of rejecting the track.
+ * Legacy semantic roles for isolated audio stems. Current Alloy recorders
+ * produce one mixed track, but servers retain this contract for clips and
+ * desktop clients released with stem support. `desktop` means system audio.
  */
 export const CLIP_AUDIO_TRACK_KINDS = [
   "game",

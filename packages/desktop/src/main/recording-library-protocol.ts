@@ -9,7 +9,6 @@ import {
 } from "./housekeeping/active-paths"
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
-  AUDIO_HOST,
   EXPORT_HOST,
   MEDIA_HOST,
   MEDIA_PROTOCOL,
@@ -75,17 +74,6 @@ export function registerRecordingLibraryProtocol(): void {
     }
 
     if (!item) return new Response("Not found", { status: 404 })
-
-    if (route.kind === "audio") {
-      const { recordingCaptureAudioTrackFile } =
-        await import("./recording-library-audio-tracks")
-      const filename = await recordingCaptureAudioTrackFile(
-        route.id,
-        route.trackIndex,
-      )
-      if (!filename) return new Response("Not found", { status: 404 })
-      return rangedFileResponse(filename, request)
-    }
 
     if (route.kind === "thumbnail") {
       const { cachedRecordingThumbnail } =
@@ -240,21 +228,15 @@ function parseByteRange(
   return { start, end }
 }
 
-type CaptureRoute =
-  | { kind: "media" | "thumbnail" | "export"; id: string }
-  | { kind: "audio"; id: string; trackIndex: number }
+type CaptureRoute = {
+  kind: "media" | "thumbnail" | "export"
+  id: string
+}
 
 function captureRouteFromUrl(rawUrl: string): CaptureRoute | null {
   try {
     const url = new URL(rawUrl)
     if (url.protocol !== `${MEDIA_PROTOCOL}:`) return null
-
-    if (url.hostname === AUDIO_HOST) {
-      // /<capture id>/<container audio track index>
-      const match = /^\/([A-Za-z0-9_-]{12,64})\/(\d{1,2})$/.exec(url.pathname)
-      if (!match) return null
-      return { kind: "audio", id: match[1], trackIndex: Number(match[2]) }
-    }
 
     const kind =
       url.hostname === MEDIA_HOST

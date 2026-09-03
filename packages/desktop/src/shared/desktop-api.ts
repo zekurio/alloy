@@ -45,7 +45,6 @@ export const DESKTOP_API_OPERATIONS = {
     commitStagedLibraryImport: { kind: "invoke" },
     discardStagedLibraryImport: { kind: "invoke" },
     saveLibraryCaptureThumbnail: { kind: "invoke" },
-    getLibraryCaptureAudioTrackUrl: { kind: "invoke" },
     downloadClip: { kind: "invoke" },
     cancelClipDownload: { kind: "invoke" },
     listClipDownloads: { kind: "invoke" },

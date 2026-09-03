@@ -40,7 +40,6 @@ impl Recorder {
             .ok_or_else(|| "No OBS audio encoder is available.".to_string())?;
 
         let output_quality = effective_quality_for_base(settings, video_config.base);
-        let mut capture = capture;
         // SAFETY: OBS is initialized above and this session is creating sources
         // for the same libobs instance.
         let video_graph = unsafe {
@@ -60,9 +59,6 @@ impl Recorder {
                 return Err(error);
             }
         };
-        capture.audio_tracks =
-            (!audio_graph.tracks.is_empty()).then(|| audio_graph.tracks.clone());
-
         let video_settings = unsafe { obs.create_data() };
         let video_encoder = unsafe {
             let result = (|| {
@@ -81,7 +77,7 @@ impl Recorder {
                         obs,
                         ptr::null_mut(),
                         ptr::null_mut(),
-                        Vec::new(),
+                        ptr::null_mut(),
                         video_graph,
                         audio_graph,
                     );
@@ -91,18 +87,15 @@ impl Recorder {
         };
         unsafe { (obs.obs_encoder_set_video)(video_encoder, (obs.obs_get_video)()) };
 
-        let audio_track_count = audio_graph.tracks.len().clamp(1, MAX_AUDIO_MIXES);
-        let audio_encoders = match unsafe {
-            create_audio_encoders(obs, &audio_encoder_id, audio_track_count)
-        } {
-            Ok(audio_encoders) => audio_encoders,
+        let audio_encoder = match unsafe { create_output_audio_encoder(obs, &audio_encoder_id) } {
+            Ok(audio_encoder) => audio_encoder,
             Err(error) => {
                 unsafe {
                     release_output_graph(
                         obs,
                         ptr::null_mut(),
                         video_encoder,
-                        Vec::new(),
+                        ptr::null_mut(),
                         video_graph,
                         audio_graph,
                     );
@@ -163,7 +156,6 @@ impl Recorder {
                             i64::from(estimated_replay_buffer_mb(
                                 settings,
                                 &output_quality,
-                                audio_track_count,
                             )),
                         )
                     };
@@ -180,7 +172,7 @@ impl Recorder {
                         obs,
                         ptr::null_mut(),
                         video_encoder,
-                        audio_encoders,
+                        audio_encoder,
                         video_graph,
                         audio_graph,
                     );
@@ -197,7 +189,7 @@ impl Recorder {
                         obs,
                         ptr::null_mut(),
                         video_encoder,
-                        audio_encoders,
+                        audio_encoder,
                         video_graph,
                         audio_graph,
                     );
@@ -209,9 +201,7 @@ impl Recorder {
             (obs.obs_output_update)(output, output_settings);
             obs.release_data(output_settings);
             (obs.obs_output_set_video_encoder)(output, video_encoder);
-            for (track_index, audio_encoder) in audio_encoders.iter().enumerate() {
-                (obs.obs_output_set_audio_encoder)(output, *audio_encoder, track_index);
-            }
+            (obs.obs_output_set_audio_encoder)(output, audio_encoder, 0);
         }
 
         if unsafe { !(obs.obs_output_start)(output) } {
@@ -224,7 +214,7 @@ impl Recorder {
                     obs,
                     output,
                     video_encoder,
-                    audio_encoders,
+                    audio_encoder,
                     video_graph,
                     audio_graph,
                 );
@@ -239,7 +229,7 @@ impl Recorder {
             kind,
             output,
             video_encoder,
-            audio_encoders,
+            audio_encoder,
             video_encoder_id,
             audio_encoder_id,
             video_codec,
@@ -379,7 +369,7 @@ impl Recorder {
             obs,
             session.output,
             session.video_encoder,
-            session.audio_encoders,
+            session.audio_encoder,
             session.video_graph,
             session.audio_graph,
         );

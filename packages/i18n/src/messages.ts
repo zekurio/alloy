@@ -126,7 +126,6 @@ export const DE_MESSAGES = {
   "{kbps} kbps": "{kbps} kbps",
   "{label} · No longer configured": "{label} · Nicht mehr konfiguriert",
   "{label} is required": "{label} ist erforderlich",
-  "{label} volume": "Lautstärke von {label}",
   "{resolution} · {fps} FPS": "{resolution} · {fps} FPS",
   "{used} used": "{used} verwendet",
   "≈ {size}/hr": "≈ {size}/Std.",
@@ -207,13 +206,8 @@ export const DE_MESSAGES = {
   Audio: "Audio",
   "Audio bitrate": "Audio-Bitrate",
   "Audio level": "Audiopegel",
-  "Audio mixer unavailable for this clip.":
-    "Der Audiomixer ist für diesen Clip nicht verfügbar.",
   "Audio settings": "Audioeinstellungen",
   "Audio source": "Audioquelle",
-  "Audio tracks": "Audiospuren",
-  "Audio tracks could not be loaded. Playing the mixed track instead.":
-    "Audiospuren konnten nicht geladen werden. Stattdessen wird die gemischte Spur abgespielt.",
   "Auth attempt cancelled.": "Authentifizierungsversuch abgebrochen.",
   Author: "Autor",
   Auto: "Auto",
@@ -767,7 +761,6 @@ export const DE_MESSAGES = {
   "Most viewed": "Meiste Aufrufe",
   "Move trim window": "Trimmfenster verschieben",
   Mute: "Stumm",
-  "Mute {label}": "{label} stummschalten",
   Name: "Name",
   "Name (optional)": "Name (optional)",
   "Name the game and attach its artwork in one step.":
@@ -944,8 +937,8 @@ export const DE_MESSAGES = {
   Rendition: "Qualitätsstufe",
   "Rendition ladder": "Qualitätsstufen-Leiter",
   recently: "kürzlich",
-  "Record individual playback and capture devices, or per-application audio streams.":
-    "Nimm einzelne Wiedergabe- und Aufnahmegeräte oder Audiostreams pro App auf.",
+  "Mix selected playback devices and microphones, or application audio streams.":
+    "Mische ausgewählte Wiedergabegeräte und Mikrofone oder Audiostreams von Apps.",
   "Alloy's native agent is not built yet. Run pnpm --filter @alloy/recorder build.":
     "Alloys nativer Agent ist noch nicht gebaut. Führe pnpm --filter @alloy/recorder build aus.",
   "Recording is unavailable because the capture component is missing. Try reinstalling Alloy.":
@@ -987,7 +980,6 @@ export const DE_MESSAGES = {
   "Reply to {authorName}…": "Antwort an {authorName}…",
   "Replying to": "Antwort auf",
   required: "erforderlich",
-  "Reset mix": "Mix zurücksetzen",
   "Reset trim": "Zuschnitt zurücksetzen",
   Resolution: "Auflösung",
   "Resolution, frame rate, encoder, and replay buffer.":
@@ -1181,7 +1173,6 @@ export const DE_MESSAGES = {
   Unlink: "Trennen",
   Unlisted: "Nicht gelistet",
   Unmute: "Stummschaltung aufheben",
-  "Unmute {label}": "Stummschaltung von {label} aufheben",
   Unpin: "Lösen",
   Unpost: "Zurückziehen",
   "Unposting...": "Wird zurückgezogen...",

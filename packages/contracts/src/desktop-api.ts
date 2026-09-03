@@ -101,17 +101,6 @@ export interface AlloyDesktopRecordingApi {
   /** Persists a renderer-decoded JPEG poster for a local video capture. */
   saveLibraryCaptureThumbnail(id: string, data: Uint8Array): Promise<void>
   /**
-   * Fetchable `alloy-capture://` URL for one audio track of a local
-   * multi-track capture, extracting the capture's stems to a local cache on
-   * first use. `index` is the capture's zero-based container audio track
-   * index (0 is the embedded mix; stems occupy 1..N). Null when the capture
-   * or track does not exist or its stems cannot be extracted.
-   */
-  getLibraryCaptureAudioTrackUrl(
-    id: string,
-    index: number,
-  ): Promise<string | null>
-  /**
    * Persists an uploaded clip into the local capture library. Progress
    * streams out as "library-download" recording events.
    */

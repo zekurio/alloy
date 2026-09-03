@@ -1,8 +1,6 @@
-import { CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH } from "./content"
 import { DEFAULT_RECORDING_SETTINGS } from "./desktop-recording-defaults"
 import {
   RECORDING_AUDIO_DEVICE_KINDS,
-  RECORDING_AUDIO_TRACK_KINDS,
   RECORDING_BITRATES,
   RECORDING_FRAME_RATES,
   RECORDING_QUALITY_PROFILES,
@@ -10,7 +8,6 @@ import {
   type RecordingAllowedGame,
   type RecordingAudioApplicationSelection,
   type RecordingAudioDeviceSelection,
-  type RecordingCaptureAudioTrack,
   type RecordingHotkeys,
   type RecordingNotificationSoundEvent,
   type RecordingNotificationSounds,
@@ -201,38 +198,6 @@ export function normalizeLiteral<const T extends readonly (string | number)[]>(
   const normalized = allowed.find((allowedValue) => allowedValue === value)
   if (normalized !== undefined) return normalized
   return fallback
-}
-
-/**
- * Validates an untrusted audio-track layout (persisted manifest JSON, sidecar
- * events) before it can reach the renderer or an upload payload. Returns
- * undefined unless the value is well formed: object entries with unique
- * non-negative integer indices and string labels. Kinds are coerced to known
- * values, labels trimmed and clamped, entries sorted by index.
- */
-export function normalizeCaptureAudioTracks(
-  value: ContractJsonInput,
-): RecordingCaptureAudioTrack[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const seen = new Set<number>()
-  const tracks: RecordingCaptureAudioTrack[] = []
-  for (const entry of value) {
-    if (!isObjectRecord(entry)) return undefined
-    const index = entry.index
-    if (!isFiniteNumberValue(index) || !Number.isInteger(index) || index < 0) {
-      return undefined
-    }
-    if (seen.has(index) || !isStringValue(entry.label)) return undefined
-    seen.add(index)
-    tracks.push({
-      index,
-      kind: normalizeLiteral(entry.kind, RECORDING_AUDIO_TRACK_KINDS, "other"),
-      label: entry.label.trim().slice(0, CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH),
-    })
-  }
-  if (tracks.length === 0) return undefined
-  tracks.sort((a, b) => a.index - b.index)
-  return tracks
 }
 
 function normalizeClipHotkey(

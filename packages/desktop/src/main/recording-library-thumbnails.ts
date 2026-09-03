@@ -74,7 +74,7 @@ export function storeRecordingThumbnail(
 
 /** Drops thumbnails generated from an older mtime/size of the same capture. */
 export function pruneStaleThumbnails(id: string, keep: string): void {
-  pruneCaptureCache(thumbnailFolder(), id, { path: keep })
+  pruneCaptureCache(thumbnailFolder(), id, keep)
 }
 
 /**

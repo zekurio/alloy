@@ -2,7 +2,6 @@ import type {
   RecordingAudioApplicationSelection,
   RecordingAudioDevice,
   RecordingAudioDeviceKind,
-  RecordingAudioTrackKind,
   RecordingBufferStorage,
   RecordingCaptureContentType,
   RecordingCaptureKind,
@@ -47,24 +46,6 @@ export type RecordingCapturePostProcess =
   | { kind: "trim-tail"; keepMs: number }
   | { kind: "concat-segments"; segmentPaths: string[] }
 
-/**
- * One audio track of a recorded capture file, as reported by the recording
- * backend. Track 0 is always the full mix of every enabled source; higher
- * indices are per-source stems recorded at the same time. Older sidecars omit
- * the list entirely, which means the capture has a single mixed track.
- */
-export interface RecordingCaptureAudioTrack {
-  /**
-   * Zero-based audio track index in the container file. Index 0 is always
-   * the mix; stems occupy 1..N in recorded source order. Uploads re-base
-   * stems to zero: container track i maps to clip stem index i - 1.
-   */
-  index: number
-  kind: RecordingAudioTrackKind
-  /** Human-readable source label, e.g. "VALORANT", "Microphone". */
-  label: string
-}
-
 export interface RecordingCapture {
   id: string
   filename: string
@@ -77,8 +58,6 @@ export interface RecordingCapture {
   source: RecordingCaptureSource
   kind: RecordingCaptureKind
   postProcess: RecordingCapturePostProcess | null
-  /** Audio track layout of the file; absent when only a single mixed track exists. */
-  audioTracks?: RecordingCaptureAudioTrack[]
   createdAt: IsoDateString
 }
 
