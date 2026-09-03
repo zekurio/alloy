@@ -349,6 +349,38 @@ export const DARK_THEME_PRESETS: readonly ThemePreset[] = [
       live: "#eb6f92",
     },
   },
+  {
+    id: "gruvbox-dark",
+    label: "Gruvbox Dark",
+    tokens: {
+      neutrals: [
+        "#282828",
+        "#32302f",
+        "#3c3836",
+        "#453e3c",
+        "#504945",
+        "#665c54",
+        "#7c6f64",
+        "#928374",
+        "#a89984",
+        "#bdae93",
+        "#d5c4a1",
+        "#ebdbb2",
+      ],
+      surfaceSunken: "#1d2021",
+      foregroundFaint: "#928374",
+      accent: "#8ec07c",
+      accentHover: "#a4d39d",
+      accentActive: "#7aab70",
+      accentForeground: "#1d2021",
+      accentDim: "#5c7355",
+      success: "#b8bb26",
+      warning: "#fabd2f",
+      danger: "#fb4934",
+      info: "#83a598",
+      live: "#fb4934",
+    },
+  },
 ]
 
 export const LIGHT_THEME_PRESETS: readonly ThemePreset[] = [
@@ -515,6 +547,38 @@ export const LIGHT_THEME_PRESETS: readonly ThemePreset[] = [
       live: "#b4637a",
     },
   },
+  {
+    id: "gruvbox-light",
+    label: "Gruvbox Light",
+    tokens: {
+      neutrals: [
+        "#fbf1c7",
+        "#f2e5bc",
+        "#ebdbb2",
+        "#e0cfa9",
+        "#d5c4a1",
+        "#bdae93",
+        "#a89984",
+        "#928374",
+        "#7c6f64",
+        "#665c54",
+        "#504945",
+        "#3c3836",
+      ],
+      surfaceSunken: "#ebdbb2",
+      foregroundFaint: "#a89984",
+      accent: "#427b58",
+      accentHover: "#386a4c",
+      accentActive: "#4f8a68",
+      accentForeground: "#ffffff",
+      accentDim: "#9fc4ae",
+      success: "#79740e",
+      warning: "#b57614",
+      danger: "#9d0006",
+      info: "#076678",
+      live: "#9d0006",
+    },
+  },
 ]
 
 export const THEME_PALETTES: readonly ThemePalette[] = [
@@ -536,6 +600,7 @@ export const THEME_PALETTES: readonly ThemePalette[] = [
   pairTheme("rose-pine", "Rosé Pine", "rose-pine", "rose-pine-dawn", {
     dark: [presetById("dark", "rose-pine-moon")],
   }),
+  pairTheme("gruvbox", "Gruvbox", "gruvbox-dark", "gruvbox-light"),
 ]
 
 /** Default preset first, then any variant presets for that appearance. */

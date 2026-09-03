@@ -378,6 +378,7 @@ const ACCOUNT_CATEGORIES = categoryDrafts([
       "one light",
       "rose pine",
       "moon",
+      "gruvbox",
     ],
     PaletteIcon,
     AppearancePanel,

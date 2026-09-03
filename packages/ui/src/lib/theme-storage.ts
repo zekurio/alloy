@@ -18,6 +18,7 @@ export const THEME_PALETTE_IDS = [
   "nord",
   "one",
   "rose-pine",
+  "gruvbox",
 ] as const
 export type ThemePaletteId = (typeof THEME_PALETTE_IDS)[number]
 export const DEFAULT_THEME_PALETTE_ID: ThemePaletteId = "default"
