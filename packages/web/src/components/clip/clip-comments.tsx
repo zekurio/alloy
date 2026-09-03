@@ -438,8 +438,8 @@ function CommentRowView({
     togglePin.mutate({ commentId: comment.id, nextPinned: !comment.pinned })
   }
 
-  function onDelete() {
-    del.mutate({ commentId: comment.id })
+  async function onDelete() {
+    await del.mutateAsync({ commentId: comment.id })
   }
 
   const actionError = toggleLike.error
