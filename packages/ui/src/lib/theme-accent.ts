@@ -1,6 +1,6 @@
 import { formatCssColor, parseCssColor, type Rgba } from "@alloy/ui/lib/color"
 import {
-  getStoredThemePalette,
+  getStoredThemePreset,
   type ThemePresetMode,
 } from "@alloy/ui/lib/theme-presets"
 import {
@@ -38,14 +38,13 @@ export function applyThemeAccents(state: ThemeAccentState): void {
   if (!globalThis.document) return
 
   const existing = document.getElementById(THEME_ACCENT_STYLE_ID)
-  const storedPalette = getStoredThemePalette()
   const sections = (["dark", "light"] as const).flatMap((mode) => {
     const accent = state.accents[mode]
     if (!accent) return []
     const selector = mode === "dark" ? ":root.dark,\n.dark" : ":root.light"
     return `${selector} {\n${accentTokenDeclarations(
       accent,
-      storedPalette[mode].tokens.neutrals[0],
+      getStoredThemePreset(mode).tokens.neutrals[0],
       mode,
     )}\n}`
   })
