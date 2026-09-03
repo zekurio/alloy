@@ -1,5 +1,4 @@
 import type { ClipPrivacy } from "@alloy/api"
-import { isClipAudioTrackKind } from "@alloy/contracts/desktop-recording-types"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { Callout } from "@alloy/ui/components/callout"
@@ -20,7 +19,7 @@ import {
   SaveIcon,
   UploadIcon,
 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 import {
   MediaStage,
@@ -48,11 +47,6 @@ import type {
   WebUploadAction,
   WebUploadMetadata,
 } from "@/components/upload/web-upload-action"
-import {
-  AudioTrackMixerControl,
-  useAudioTrackMixerWithLoader,
-  type MixerTrackLoader,
-} from "@/components/video/audio-track-mixer"
 import {
   useExternalVideoVolume,
   VideoPlayer,
@@ -138,7 +132,6 @@ function LocalEditorBody({
   })
   const { playerRef, trim, trimmed, rangeMs } = playback
   const playerVolume = useExternalVideoVolume(playerRef)
-  const audioMixer = useLocalCaptureAudioMixer(desktop, item)
   const [savedTrim, setSavedTrim] = useState(() => persistedTrim(item))
 
   const [savedMetadata, setSavedMetadata] = useState(() =>
@@ -434,7 +427,6 @@ function LocalEditorBody({
               playerRef={playerRef}
               onTimeUpdate={playback.handleTimeUpdate}
               onPlayingChange={playback.setPlaying}
-              audioMixer={audioMixer}
               onFrameReady={() => setLocalFrameReady(true)}
               onEnded={playback.handleEnded}
             />
@@ -449,12 +441,7 @@ function LocalEditorBody({
 
           <TrimTransportControls
             playback={playback}
-            trailing={
-              <>
-                <AudioTrackMixerControl mixer={audioMixer} />
-                <EditorVolumeControl playerVolume={playerVolume} />
-              </>
-            }
+            trailing={<EditorVolumeControl playerVolume={playerVolume} />}
           />
 
           <TrimBar
@@ -810,59 +797,6 @@ function UploadEditorBody({
 
 async function copyPublishedClipLink(link: string) {
   return copyTextToClipboard(link, { action: "copy published clip link" })
-}
-
-/**
- * Per-source audio mixing for a local capture: the stage's `<video>` element
- * only ever plays the capture's embedded mix (track 0), so the mixer decodes
- * the per-source stem tracks through the desktop native API's stem cache. Both
- * the stems and the raw capture share one timeline, so no trim gating is
- * needed here (unlike the uploaded-clip editor, whose canonical cut rebases
- * time). Undefined when the capture has fewer than two stems.
- */
-function useLocalCaptureAudioMixer(
-  desktop: AlloyDesktop,
-  item: LibraryItemView,
-) {
-  const stemTracks = useMemo(
-    () =>
-      (item.audioTracks ?? []).filter(
-        // Same narrowing the publish path uses to decide which container
-        // tracks become clip stems.
-        (track) => track.index > 0 && isClipAudioTrackKind(track.kind),
-      ),
-    [item.audioTracks],
-  )
-  const loadTrack = useCallback<MixerTrackLoader>(
-    async (track, signal) => {
-      // The bridge call can cover a long extraction; honor teardown aborts
-      // around it even though the call itself cannot be cancelled.
-      signal.throwIfAborted()
-      const url = await desktop.recording.getLibraryCaptureAudioTrackUrl(
-        item.id,
-        track.index,
-      )
-      signal.throwIfAborted()
-      if (!url) throw new Error(`Audio track ${track.index} is unavailable`)
-      const response = await fetch(url, { signal })
-      if (!response.ok) {
-        throw new Error(
-          `Audio track ${track.index} returned ${response.status}`,
-        )
-      }
-      return response.arrayBuffer()
-    },
-    [desktop, item.id],
-  )
-  const mixer = useAudioTrackMixerWithLoader(
-    item.id,
-    stemTracks,
-    // Decoded PCM is bounded by duration; an unknown duration must not
-    // bypass the cap, and local captures are the likeliest to run long.
-    item.durationMs ?? Number.POSITIVE_INFINITY,
-    loadTrack,
-  )
-  return mixer.tracks.length >= 2 ? mixer : undefined
 }
 
 function savedLocalMetadata(item: LibraryItemView) {

@@ -1,7 +1,6 @@
 import {
   ACCEPTED_CLIP_CONTENT_TYPES,
   type AcceptedContentType,
-  type ClipAudioTrackInput,
   type ClipPrivacy,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
@@ -47,8 +46,6 @@ export interface PublishPayload {
    */
   trimStartMs?: number
   trimEndMs?: number
-  /** Per-source stem metadata in the uploaded file's track order. */
-  audioTracks?: ClipAudioTrackInput[]
   mentionedUserIds: string[]
   /** Bare, canonical hashtags for the clip. */
   tags: string[]

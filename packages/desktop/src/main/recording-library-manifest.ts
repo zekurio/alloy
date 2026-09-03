@@ -2,14 +2,12 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 
 import type {
-  RecordingCaptureAudioTrack,
   RecordingCaptureKind,
   RecordingCaptureMention,
   RecordingCaptureSource,
   RecordingGameGuess,
   RecordingLibraryItem,
 } from "@alloy/contracts"
-import { normalizeCaptureAudioTracks } from "@alloy/contracts/desktop-recording-normalizers"
 import { createLogger } from "@alloy/logging"
 import { app } from "electron"
 
@@ -36,8 +34,6 @@ export interface CaptureManifestEntry {
   durationMs: number | null
   width: number | null
   height: number | null
-  /** Omitted for captures recorded with only the fallback mix track. */
-  audioTracks?: RecordingCaptureAudioTrack[]
   createdAt: string
   updatedAt: string
   /** Draft upload metadata edited in the library. */
@@ -60,18 +56,7 @@ export function readCaptureManifest(): CaptureManifest {
   try {
     const parsed: unknown = JSON.parse(readFileSync(manifestPath(), "utf8"))
     if (!isCaptureManifest(parsed)) throw new Error("Invalid manifest.")
-    return {
-      version: 2,
-      captures: Object.fromEntries(
-        Object.entries(parsed.captures).map(([key, entry]) => [
-          key,
-          {
-            ...entry,
-            audioTracks: normalizeCaptureAudioTracks(entry.audioTracks),
-          },
-        ]),
-      ),
-    }
+    return parsed
   } catch {
     return { version: 2, captures: {} }
   }

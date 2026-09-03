@@ -101,56 +101,6 @@ export async function withMp4Output(
 }
 
 /**
- * Furthest a stem's first packet may sit into the timeline before decoded
- * PCM (which starts at the first sample) would audibly desync from video.
- * Mirrors the *start* tolerance of the server-side extractor
- * (`packages/server/src/media/audio-stems.ts`); duration and mid-stream gap
- * validation is out of scope for a packet copy.
- */
-const MAX_STEM_LEAD_SEC = 0.06
-
-/**
- * Copy one audio track of `input` into an audio-only fragmented MP4 written
- * to `target`, without re-encoding. Timestamps are preserved verbatim so the
- * extracted stem stays aligned with the source's playback timeline; a track
- * whose first packet leads the timeline by more than ~one AAC frame is
- * rejected, because WebAudio decoding collapses the gap and would play the
- * stem out of sync. Does not dispose `input`; the caller owns its lifecycle.
- */
-export async function extractAudioTrackToMp4Target(opts: {
-  input: Input
-  target: Target
-  /** Zero-based container audio track index. */
-  trackIndex: number
-}): Promise<void> {
-  const track = (await opts.input.getAudioTracks())[opts.trackIndex]
-  if (!track) throw new Error("Audio extract source has no such audio track")
-  const first = await new EncodedPacketSink(track).getFirstPacket()
-  if (!first) throw new Error("Audio extract track has no packets")
-  if (first.timestamp > MAX_STEM_LEAD_SEC) {
-    throw new Error("Audio extract track starts too far into the timeline")
-  }
-
-  const output = new Output({
-    format: new Mp4OutputFormat({ fastStart: "fragmented" }),
-    target: opts.target,
-  })
-  try {
-    const source = new EncodedAudioPacketSource(
-      track.codec ?? throwUnknownCodec("audio"),
-    )
-    output.addAudioTrack(source)
-    await output.start()
-    await copyAudioPackets(track, source, 0, undefined)
-    source.close()
-    await output.finalize()
-  } catch (err) {
-    await output.cancel().catch(() => undefined)
-    throw err
-  }
-}
-
-/**
  * Cut `[startMs, endMs]` out of `input` into a fragmented MP4 written to
  * `target`, without re-encoding. Every AAC audio track is preserved. The cut
  * start snaps to the nearest preceding video keyframe; the returned

@@ -96,7 +96,6 @@ Release builds require `obs.dll` in either the staged or configured runtime.
 - Capture manifest (titles, upload metadata, game info): `%APPDATA%\Alloy Desktop\recording-library.json`
 - Capture thumbnails + BlurHash metadata: `%APPDATA%\Alloy Desktop\recording-thumbnails`
 - Remote asset cache (game icons etc.): `%APPDATA%\Alloy Desktop\asset-cache`
-- Extracted audio-track cache: `%APPDATA%\Alloy Desktop\recording-audio-tracks`
 - Temporary imports and exports: `%APPDATA%\Alloy Desktop\recording-library-imports`, `%APPDATA%\Alloy Desktop\recording-exports`
 - Housekeeping task ledger: `%APPDATA%\Alloy Desktop\housekeeping\state.json`
 - Browser session/cache: `%APPDATA%\Alloy Desktop\session`
