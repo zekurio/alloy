@@ -58,11 +58,11 @@ export function TrimTransportControls({
           <RotateCcwIcon />
         </Button>
       </div>
-      <span className="text-foreground-muted text-sm tabular-nums">
+      <span className="text-foreground-muted font-mono text-sm tabular-nums">
         <TrimElapsed playback={playback} /> / {formatTrimMs(rangeMs)}
       </span>
       {trimmed ? (
-        <span className="text-foreground-faint text-sm tabular-nums">
+        <span className="text-foreground-faint font-mono text-sm tabular-nums">
           {t("Trimmed to")} {formatTrimMs(trim.startMs)} {"–"}{" "}
           {formatTrimMs(trim.endMs)}
         </span>

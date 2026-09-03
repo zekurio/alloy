@@ -291,7 +291,7 @@ function MobileTrimView({
         >
           <SquareIcon />
         </Button>
-        <span className="text-foreground-muted ml-1 text-sm tabular-nums">
+        <span className="text-foreground-muted ml-1 font-mono text-sm tabular-nums">
           <TrimElapsed playback={playback} /> / {formatTrimMs(playback.rangeMs)}
         </span>
         <div className="ml-auto flex items-center">
