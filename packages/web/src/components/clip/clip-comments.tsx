@@ -462,10 +462,9 @@ function CommentRowView({
       }}
       data-comment-id={comment.id}
       className={cn(
-        "flex min-w-0 scroll-mt-6 rounded-md transition-[background-color,box-shadow] duration-700",
+        "flex min-w-0 scroll-mt-6 transition-colors duration-700",
         isTopLevel ? "gap-2.5 px-4 py-3" : "gap-2.5 py-2.5",
-        flashingCommentId === comment.id &&
-          "bg-accent-soft shadow-[inset_3px_0_0_var(--accent),0_0_0_1px_var(--accent-border)]",
+        flashingCommentId === comment.id && "bg-accent-soft",
       )}
     >
       <Avatar

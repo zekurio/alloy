@@ -209,7 +209,7 @@ export function CommentComposer({
       ) : null}
 
       <div className="flex items-start gap-2">
-        <Avatar size="md" className="mt-0.5" style={meAvatarStyle}>
+        <Avatar size="md" style={meAvatarStyle}>
           {me.avatar.src ? (
             <AvatarImage src={me.avatar.src} alt={me.name} />
           ) : null}
@@ -262,7 +262,8 @@ export function CommentComposer({
           rows={2}
           maxLength={COMMENT_BODY_MAX_LENGTH}
           className={cn(
-            "min-h-[32px] flex-1 resize-none bg-transparent text-sm text-foreground outline-none",
+            // pt-1 + leading-5 centers the first line on the 28px avatar.
+            "min-h-[32px] flex-1 resize-none bg-transparent pt-1 text-sm leading-5 text-foreground outline-none",
             "placeholder:text-foreground-faint",
           )}
         />
