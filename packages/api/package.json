@@ -15,7 +15,7 @@
     "@alloy/contracts": "workspace:*",
     "@alloy/server": "workspace:*",
     "@simplewebauthn/browser": "13.3.0",
-    "hono": "4.13.4",
+    "hono": "4.13.5",
     "react": "19.2.8"
   },
   "devDependencies": {
