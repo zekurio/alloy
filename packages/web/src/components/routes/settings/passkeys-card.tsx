@@ -315,8 +315,7 @@ function PasskeyRow({
           {passkey.name || "Passkey"}
         </div>
         <p className="text-foreground-dim truncate text-xs">
-          {t("Added")}
-          {formatCalendarDate(passkey.createdAt)}
+          {t("Added")} {formatCalendarDate(passkey.createdAt)}
         </p>
       </div>
       <div className="flex shrink-0 items-center">
