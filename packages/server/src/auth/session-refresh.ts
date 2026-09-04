@@ -109,9 +109,10 @@ async function cachedRefreshResult(
     return null
   }
 
-  const [active] = await db
-    .select({ id: authSession.id })
+  const [current] = await db
+    .select({ session: authSession, user })
     .from(authSession)
+    .innerJoin(user, eq(user.id, authSession.user_id))
     .where(
       and(
         eq(authSession.id, cached.result.data.session.id),
@@ -121,7 +122,8 @@ async function cachedRefreshResult(
       ),
     )
     .limit(1)
-  return active ? cached.result : null
+  if (!current) return null
+  return { tokens: cached.result.tokens, data: current }
 }
 
 function cacheRefreshResult(tokenHash: string, result: RefreshResult): void {

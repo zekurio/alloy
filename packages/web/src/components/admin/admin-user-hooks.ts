@@ -58,12 +58,19 @@ function useDeleteAdminUser() {
   }
 }
 
+function nextAdminUserStatus(user: AdminUserRow) {
+  if (user.adminSuspendedAt === undefined) {
+    return user.status === "disabled" ? "active" : "disabled"
+  }
+  return user.adminSuspendedAt ? "active" : "disabled"
+}
+
 function useToggleAdminUserStatus() {
   const queryClient = useQueryClient()
   const { isPending, mutateAsync, variables } = useMutation({
     mutationFn: (user: AdminUserRow) =>
       api.admin.updateUser(user.id, {
-        status: user.status === "disabled" ? "active" : "disabled",
+        status: nextAdminUserStatus(user),
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: adminKeys.users() })

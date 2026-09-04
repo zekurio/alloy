@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router"
 import { LogInIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 
+import { SignInReactivationPrompt } from "@/components/account/reactivate-account-prompt"
 import { authClient } from "@/lib/auth-client"
 import { useLoginRedirect } from "@/lib/auth-hooks"
 import { alloyDesktop } from "@/lib/desktop"
@@ -19,6 +20,7 @@ import { PasskeySignIn } from "./passkey-sign-in"
 type LoginPageInnerProps = {
   config: PublicAuthConfig
   redirectTo?: string
+  reactivate?: boolean
 }
 
 const DESKTOP_LOGIN_ERROR_TOAST_ID = "desktop-login-error"
@@ -33,11 +35,13 @@ export function LoginForm({
   passkeyReady = true,
   passkeySupported,
   redirectTo,
+  onReactivationRequired,
 }: {
   config: PublicAuthConfig
   passkeyReady?: boolean
   passkeySupported: boolean
   redirectTo?: string
+  onReactivationRequired?: () => void
 }) {
   const { providers, openRegistrations, passkeyEnabled } = config
   const showPasskeySignIn = passkeyReady && passkeyEnabled && passkeySupported
@@ -53,7 +57,12 @@ export function LoginForm({
       </div>
 
       <div className="flex flex-col gap-3">
-        {showPasskeySignIn ? <PasskeySignIn redirectTo={redirectTo} /> : null}
+        {showPasskeySignIn ? (
+          <PasskeySignIn
+            redirectTo={redirectTo}
+            onReactivationRequired={onReactivationRequired}
+          />
+        ) : null}
         {providers.map((provider) => (
           <OAuthSignIn
             key={provider.providerId}
@@ -86,8 +95,13 @@ export function LoginForm({
   )
 }
 
-export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
+export function LoginPageInner({
+  config,
+  redirectTo,
+  reactivate = false,
+}: LoginPageInnerProps) {
   const canRender = useLoginRedirect(redirectTo ?? null)
+  const [reactivationRequired, setReactivationRequired] = useState(reactivate)
   const { ready: passkeyReady, supported: passkeySupported } =
     usePasskeySupport()
   const desktop = alloyDesktop()
@@ -105,12 +119,20 @@ export function LoginPageInner({ config, redirectTo }: LoginPageInnerProps) {
   }
 
   return (
-    <LoginForm
-      config={config}
-      passkeyReady={passkeyReady}
-      passkeySupported={passkeySupported}
-      redirectTo={redirectTo}
-    />
+    <>
+      <LoginForm
+        config={config}
+        passkeyReady={passkeyReady}
+        passkeySupported={passkeySupported}
+        redirectTo={redirectTo}
+        onReactivationRequired={() => setReactivationRequired(true)}
+      />
+      <SignInReactivationPrompt
+        open={reactivationRequired}
+        redirectTo={redirectTo}
+        onDismiss={() => setReactivationRequired(false)}
+      />
+    </>
   )
 }
 

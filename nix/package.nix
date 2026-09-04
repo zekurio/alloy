@@ -86,10 +86,12 @@ stdenvNoCC.mkDerivation (finalAttrs: {
     # and their -dev closures, which the server never needs at runtime.
     # ffmpeg is on PATH for the rendition transcode pipeline and poster
     # extraction; override with ALLOY_FFMPEG_PATH if needed.
+    # Force production mode so an inherited environment cannot lower the
+    # server's transport checks.
     makeWrapper "${nodejs-slim_24}/bin/node" "$out/bin/alloy" \
       --add-flags "$out/share/alloy/server/dist/index.js" \
       --prefix PATH : "${lib.makeBinPath [ ffmpegPackage ]}" \
-      --set-default NODE_ENV production \
+      --set NODE_ENV production \
       --set-default WEB_DIST_DIR "$out/share/alloy/web" \
       --set-default ALLOY_MIGRATIONS_DIR "$out/share/alloy/migrations"
 

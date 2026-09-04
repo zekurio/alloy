@@ -66,7 +66,7 @@ export async function createNotification(input: {
   // The expiry wake already ran. Hydration/publish failures therefore cannot
   // suppress cleanup scheduling for this durable row.
   const [recipient] = await db
-    .select({ id: user.id, role: user.role })
+    .select({ id: user.id, role: user.role, status: user.status })
     .from(user)
     .where(and(eq(user.id, input.recipientId), eq(user.status, "active")))
     .limit(1)

@@ -53,6 +53,7 @@ export function ProfileTextField({
         id={field.name}
         type={type}
         autoComplete={autoComplete}
+        data-1p-ignore="true"
         autoCapitalize="none"
         autoCorrect="off"
         spellCheck={false}

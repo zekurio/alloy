@@ -1,14 +1,25 @@
-import { isObjectRecord, isStringValue } from "@alloy/contracts"
+import {
+  AUTH_ERROR_CODES,
+  type AuthErrorCode,
+  isObjectRecord,
+  isStringValue,
+} from "@alloy/contracts"
 
 import type { JsonValidator } from "./auth-validators"
 import type { ApiJsonInput, ApiJsonValue } from "./json-value"
 export class HttpError extends Error {
   readonly status: number
+  readonly code: AuthErrorCode | null
 
-  constructor(status: number, message: string) {
+  constructor(
+    status: number,
+    message: string,
+    code: AuthErrorCode | null = null,
+  ) {
     super(message)
     this.name = "HttpError"
     this.status = status
+    this.code = code
   }
 }
 
@@ -70,6 +81,18 @@ function responseErrorMessage(res: Response, body: ErrorBody): string {
   )
 }
 
+function responseAuthErrorCode(body: ErrorBody): AuthErrorCode | null {
+  const error = body?.error
+  if (!isObjectRecord(error) || !isStringValue(error.code)) return null
+  if (
+    error.code === AUTH_ERROR_CODES.accountReactivationRequired ||
+    error.code === AUTH_ERROR_CODES.accountBanned
+  ) {
+    return error.code
+  }
+  return null
+}
+
 export function parseJsonPayload<T>(
   data: string,
   validate: (value: ApiJsonInput) => T,
@@ -106,7 +129,11 @@ export async function readJsonOrThrow<T>(
 ): Promise<T> {
   if (!res.ok) {
     const body = await readErrorBody(res)
-    throw new HttpError(res.status, responseErrorMessage(res, body))
+    throw new HttpError(
+      res.status,
+      responseErrorMessage(res, body),
+      responseAuthErrorCode(body),
+    )
   }
 
   if (!isJsonResponse(res)) {
@@ -119,7 +146,11 @@ export async function readJsonOrThrow<T>(
 export async function readNoContentOrThrow(res: Response): Promise<void> {
   if (!res.ok) {
     const body = await readErrorBody(res)
-    throw new HttpError(res.status, responseErrorMessage(res, body))
+    throw new HttpError(
+      res.status,
+      responseErrorMessage(res, body),
+      responseAuthErrorCode(body),
+    )
   }
 
   if (res.status !== 204) {

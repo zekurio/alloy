@@ -1,0 +1,49 @@
+import type { UserStatus } from "@alloy/contracts"
+
+export type AccountDisableSource = "administrator" | "self"
+
+export type StoredAccountState = {
+  status: UserStatus
+  disabledAt: Date | null
+  adminSuspendedAt: Date | null
+}
+
+export type AccountStateUpdate = StoredAccountState
+export type AccountSignInState = "active" | "banned" | "reactivation-required"
+
+export function accountSignInState(
+  current: StoredAccountState,
+): AccountSignInState {
+  if (current.status === "active") return "active"
+  return current.adminSuspendedAt ? "banned" : "reactivation-required"
+}
+
+export function disabledAccountState(
+  current: StoredAccountState,
+  source: AccountDisableSource,
+  now: Date,
+): AccountStateUpdate {
+  return {
+    status: "disabled",
+    disabledAt: source === "administrator" ? now : (current.disabledAt ?? now),
+    adminSuspendedAt:
+      source === "administrator"
+        ? (current.adminSuspendedAt ?? now)
+        : current.adminSuspendedAt,
+  }
+}
+
+export function activeAccountState(): AccountStateUpdate {
+  return {
+    status: "active",
+    disabledAt: null,
+    adminSuspendedAt: null,
+  }
+}
+
+export function selfReactivatedAccountState(
+  current: StoredAccountState,
+): AccountStateUpdate | null {
+  if (current.adminSuspendedAt) return null
+  return activeAccountState()
+}

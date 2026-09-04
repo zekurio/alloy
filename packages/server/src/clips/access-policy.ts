@@ -1,4 +1,10 @@
-export type ClipViewer = { id: string; role: string | null } | null
+import type { UserRole, UserStatus } from "@alloy/contracts"
+
+export type ClipViewer = {
+  id: string
+  role: UserRole
+  status: UserStatus
+} | null
 
 type ClipAccessReadiness = "ready" | "ready-or-owner-admin"
 
@@ -66,8 +72,10 @@ export type ClipAccessDecision =
  */
 export function evaluateClipAccess(input: ClipAccessInput): ClipAccessDecision {
   const accessPolicy = CLIP_ACCESS_POLICIES[input.policy]
-  const isOwner = input.viewer?.id === input.authorId
-  const isAdmin = input.viewer?.role === "admin"
+  const isOwner =
+    input.viewer?.status === "active" && input.viewer.id === input.authorId
+  const isAdmin =
+    input.viewer?.status === "active" && input.viewer.role === "admin"
   const canBypassVisibility = isOwner || isAdmin
 
   if (input.authorDisabledAt && !canBypassVisibility) {
