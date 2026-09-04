@@ -12,7 +12,11 @@ import { stream } from "hono/streaming"
 import { parseRange } from "./clips-range"
 
 export function mediaCacheControl(privacy: ClipPrivacy): string {
-  return privacy === "public" ? "public, max-age=300" : "private, max-age=300"
+  const cacheScope = privacy === "public" ? "public" : "private"
+  // Clip access can change without changing the media bytes. Caches may keep
+  // those bytes, but they must ask the origin before every reuse so the route
+  // can apply the current access policy.
+  return `${cacheScope}, no-cache, must-revalidate`
 }
 
 export function streamResolved(
