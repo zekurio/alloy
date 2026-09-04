@@ -5,11 +5,11 @@ import type {
 } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipComment, clipMention, notification } from "@alloy/db/schema"
+import type { ClipViewer } from "@alloy/server/clips/access-policy"
 import { db } from "@alloy/server/db/index"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import { and, desc, eq, inArray, lt, or, sql } from "drizzle-orm"
 
-import { clipAssetVersion } from "../clips/asset-version"
 import {
   cursorDate,
   cursorRequiredString,
@@ -22,8 +22,14 @@ import {
 } from "../routes/users-helpers"
 import { publishNotification } from "./events"
 import { insertNotificationAndWake, mutateNotificationsAndWake } from "./expiry"
+import {
+  notificationReferenceFields,
+  type NotificationClipSource,
+  type NotificationCommentSource,
+} from "./hydration"
 
 export type NotificationRow = typeof notification.$inferSelect
+type AuthenticatedClipViewer = Exclude<ClipViewer, null>
 
 export class InvalidNotificationCursorError extends Error {
   constructor() {
@@ -59,7 +65,13 @@ export async function createNotification(input: {
   if (!row) return
   // The expiry wake already ran. Hydration/publish failures therefore cannot
   // suppress cleanup scheduling for this durable row.
-  const items = await hydrateNotifications([row])
+  const [recipient] = await db
+    .select({ id: user.id, role: user.role })
+    .from(user)
+    .where(and(eq(user.id, input.recipientId), eq(user.status, "active")))
+    .limit(1)
+  if (!recipient) return
+  const items = await hydrateNotifications([row], recipient)
   const item = items[0]
   if (item) publishNotification(input.recipientId, item)
 }
@@ -89,6 +101,7 @@ export async function createStoredClipMentionNotifications(
 
 export async function hydrateNotifications(
   rows: NotificationRow[],
+  viewer: AuthenticatedClipViewer,
 ): Promise<NotificationItem[]> {
   const actorIds = [
     ...new Set(
@@ -112,45 +125,77 @@ export async function hydrateNotifications(
       ? db
           .select({
             id: clip.id,
+            authorId: clip.author_id,
+            authorDisabledAt: user.disabled_at,
+            privacy: clip.privacy,
+            status: clip.status,
             title: clip.title,
             thumbKey: clip.thumb_key,
           })
           .from(clip)
+          .innerJoin(user, eq(clip.author_id, user.id))
           .where(inArray(clip.id, clipIds))
       : [],
     commentIds.length > 0
       ? db
-          .select({ id: clipComment.id, body: clipComment.body })
+          .select({
+            id: clipComment.id,
+            body: clipComment.body,
+            clipId: clipComment.clip_id,
+            clipAuthorId: clip.author_id,
+            clipAuthorDisabledAt: user.disabled_at,
+            clipPrivacy: clip.privacy,
+            clipStatus: clip.status,
+            clipTitle: clip.title,
+            clipThumbKey: clip.thumb_key,
+          })
           .from(clipComment)
+          .innerJoin(clip, eq(clipComment.clip_id, clip.id))
+          .innerJoin(user, eq(clip.author_id, user.id))
           .where(inArray(clipComment.id, commentIds))
       : [],
   ])
   const actorsById = new Map(
     actors.map((actor) => [actor.id, serialiseUserSummary(actor)]),
   )
-  const clipsById = new Map(
-    clips.map((row) => [
+  const clipsById = new Map<string, NotificationClipSource>(
+    clips.map((row) => [row.id, row]),
+  )
+  const commentsById = new Map<string, NotificationCommentSource>(
+    comments.map((row) => [
       row.id,
       {
         id: row.id,
-        title: row.title,
-        thumbVersion: row.thumbKey ? clipAssetVersion(row.thumbKey) : null,
+        body: row.body,
+        clipId: row.clipId,
+        clip: {
+          id: row.clipId,
+          authorId: row.clipAuthorId,
+          authorDisabledAt: row.clipAuthorDisabledAt,
+          privacy: row.clipPrivacy,
+          status: row.clipStatus,
+          title: row.clipTitle,
+          thumbKey: row.clipThumbKey,
+        },
       },
     ]),
   )
-  const commentsById = new Map(comments.map((row) => [row.id, row.body]))
   return rows.flatMap((row) => {
     const actor = row.actor_id ? (actorsById.get(row.actor_id) ?? null) : null
     if (row.actor_id && !actor) return []
-    const commentBody = row.comment_id ? commentsById.get(row.comment_id) : null
+    const references = notificationReferenceFields(
+      viewer,
+      row.clip_id,
+      row.comment_id,
+      row.clip_id ? (clipsById.get(row.clip_id) ?? null) : null,
+      row.comment_id ? (commentsById.get(row.comment_id) ?? null) : null,
+    )
     return [
       {
         id: row.id,
         kind: row.kind,
         actor,
-        clip: row.clip_id ? (clipsById.get(row.clip_id) ?? null) : null,
-        commentId: row.comment_id,
-        commentSnippet: commentBody ? commentBody.slice(0, 80) : null,
+        ...references,
         readAt: nullableIsoDate(row.read_at),
         createdAt: isoDate(row.created_at),
       },
@@ -159,14 +204,14 @@ export async function hydrateNotifications(
 }
 
 export async function listNotifications(
-  viewerId: string,
+  viewer: AuthenticatedClipViewer,
   input: { cursor?: string; limit: number },
 ): Promise<NotificationListResponse> {
   const cursor = decodeNotificationCursor(input.cursor)
   if (input.cursor && !cursor) {
     throw new InvalidNotificationCursorError()
   }
-  const conditions = [eq(notification.recipient_id, viewerId)]
+  const conditions = [eq(notification.recipient_id, viewer.id)]
   if (cursor) {
     conditions.push(
       or(
@@ -187,7 +232,7 @@ export async function listNotifications(
   const page = rows.slice(0, input.limit)
   const last = page.at(-1)
   return {
-    items: await hydrateNotifications(page),
+    items: await hydrateNotifications(page, viewer),
     nextCursor:
       rows.length > input.limit && last
         ? encodeCursorPayload({

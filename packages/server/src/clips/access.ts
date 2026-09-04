@@ -2,6 +2,7 @@ import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
 import {
+  CLIP_ACCESS_POLICIES,
   denied,
   evaluateClipAccess,
   type ClipAccessDenied,
@@ -10,8 +11,9 @@ import {
 } from "@alloy/server/clips/access-policy"
 import { selectClipById } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
+import { requiredSql } from "@alloy/server/db/sql"
 import { errorResult } from "@alloy/server/runtime/http-response"
-import { eq } from "drizzle-orm"
+import { and, eq, isNull, ne, or, type SQL, sql } from "drizzle-orm"
 import type { Context } from "hono"
 
 type ClipAccessAllowed = {
@@ -23,6 +25,46 @@ type ClipAccessAllowed = {
 }
 
 type ClipAccessResult = ClipAccessAllowed | ClipAccessDenied
+
+/**
+ * Apply the same clip policy while loading rows through a related resource.
+ * The query must join the clip author as `user` before it uses this condition.
+ */
+export function clipAccessCondition(
+  viewer: ClipViewer,
+  policy: ClipAccessPolicyName,
+): SQL {
+  const readiness = CLIP_ACCESS_POLICIES[policy].readiness
+  if (viewer?.role === "admin") {
+    return readiness === "ready" ? eq(clip.status, "ready") : sql`true`
+  }
+
+  const owner = viewer ? eq(clip.author_id, viewer.id) : null
+  const conditions: SQL[] = [
+    owner
+      ? requiredSql(
+          or(isNull(user.disabled_at), owner),
+          "clip author visibility",
+        )
+      : isNull(user.disabled_at),
+    owner
+      ? requiredSql(
+          or(ne(clip.privacy, "private"), owner),
+          "clip privacy visibility",
+        )
+      : ne(clip.privacy, "private"),
+  ]
+  if (readiness === "ready") {
+    conditions.push(eq(clip.status, "ready"))
+  } else if (owner) {
+    conditions.push(
+      requiredSql(or(eq(clip.status, "ready"), owner), "clip readiness"),
+    )
+  } else {
+    conditions.push(eq(clip.status, "ready"))
+  }
+  return requiredSql(and(...conditions), "clip access")
+}
 
 async function peekClipViewer(c: Context): Promise<ClipViewer> {
   const session = await getSession(c)

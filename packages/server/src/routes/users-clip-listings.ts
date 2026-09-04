@@ -2,6 +2,7 @@ import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipLike, clipMention, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
+import { clipAccessCondition } from "@alloy/server/clips/access"
 import { clipSelection, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelection, serialiseGameRow } from "@alloy/server/games/ref"
@@ -127,9 +128,17 @@ export async function listLikedClips(row: UserRow, c: Context) {
     eq(clip.status, "ready"),
     isNull(user.disabled_at),
   ]
-  if (!isAdmin && !isOwner) {
+  if (isOwner) {
     // Liking required link access, so owners keep unlisted clips in their own
-    // list; everyone else only sees the public ones.
+    // list. Current clip access still hides another author's private clip.
+    conditions.push(
+      clipAccessCondition(
+        { id: session.user.id, role: session.user.role },
+        "engagement",
+      ),
+    )
+  } else if (!isAdmin) {
+    // Other profile viewers only see discoverable clips.
     conditions.push(publicClipPrivacyCondition())
   }
 
