@@ -9,6 +9,14 @@ export type StoredAccountState = {
 }
 
 export type AccountStateUpdate = StoredAccountState
+export type AccountSignInState = "active" | "banned" | "reactivation-required"
+
+export function accountSignInState(
+  current: StoredAccountState,
+): AccountSignInState {
+  if (current.status === "active") return "active"
+  return current.adminSuspendedAt ? "banned" : "reactivation-required"
+}
 
 export function disabledAccountState(
   current: StoredAccountState,

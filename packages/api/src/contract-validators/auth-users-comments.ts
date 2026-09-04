@@ -172,6 +172,12 @@ export function validateAdminUserStorageRow(
     row.disabledAt,
     "Invalid admin user response: disabledAt must be a date string or null",
   )
+  if (row.adminSuspendedAt !== undefined) {
+    validateNullableDateString(
+      row.adminSuspendedAt,
+      "Invalid admin user response: adminSuspendedAt must be a date string or null",
+    )
+  }
   validateNullablePositiveInteger(
     row.storageQuotaBytes,
     "Invalid admin user response: storageQuotaBytes must be a positive integer or null",

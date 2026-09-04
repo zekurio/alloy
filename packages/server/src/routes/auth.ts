@@ -1,16 +1,26 @@
 import {
+  AUTH_ERROR_CODES,
+  type AuthErrorCode,
   DISPLAY_NAME_MAX_LENGTH,
   USERNAME_MAX_LENGTH,
   USERNAME_MIN_LENGTH,
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { userPasskey } from "@alloy/db/auth-schema"
+import { consumeAccountReactivation } from "@alloy/server/auth/account-reactivation"
 import {
+  type AuthenticatedSignInResult,
+  completeAuthenticatedSignIn,
+} from "@alloy/server/auth/account-sign-in"
+import {
+  clearAccountReactivationCookie,
   clearSessionCookies,
+  readAccountReactivationCookie,
   setSessionCookies,
 } from "@alloy/server/auth/cookies"
 import {
   deleteUserPasskeyPreservingSignIn,
+  reactivateSelfDisabledIdentity,
   setupRequired,
   updateUserIdentity,
   validateUsername,
@@ -48,6 +58,7 @@ import {
 import { rateLimiter } from "@alloy/server/runtime/rate-limit"
 import { requestIp } from "@alloy/server/runtime/request-ip"
 import { deleteUserAccount } from "@alloy/server/users/account-deletion"
+import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
 import type {
   AuthenticationResponseJSON,
   RegistrationResponseJSON,
@@ -149,6 +160,8 @@ const STRICT_AUTH_RATE_LIMIT_PATHS = new Set([
   "/oauth/link",
 ])
 const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"])
+const REACTIVATION_REQUIRED_CODE = AUTH_ERROR_CODES.accountReactivationRequired
+const ACCOUNT_BANNED_CODE = AUTH_ERROR_CODES.accountBanned
 
 function authSubpath(c: Context): string {
   const path = c.req.path
@@ -171,6 +184,38 @@ const standardAuthRateLimit = rateLimiter({
   },
 })
 
+function authError(
+  c: Context,
+  status: 403 | 409,
+  code: AuthErrorCode,
+  message: string,
+) {
+  return c.json({ error: { code, message } }, status)
+}
+
+function authenticatedSignInResponse(
+  c: Context,
+  result: AuthenticatedSignInResult,
+) {
+  if (result.kind === "session") {
+    return c.json(publicSessionData(result.session.data))
+  }
+  if (result.kind === "reactivation-required") {
+    return authError(
+      c,
+      409,
+      REACTIVATION_REQUIRED_CODE,
+      "Reactivate your account to finish signing in.",
+    )
+  }
+  return authError(
+    c,
+    403,
+    ACCOUNT_BANNED_CODE,
+    "This account has been banned by an administrator.",
+  )
+}
+
 export const authRoute = new Hono()
   .use("*", csrf)
   .use("*", standardAuthRateLimit)
@@ -191,6 +236,37 @@ export const authRoute = new Hono()
     await deleteCurrentSession(c)
     clearSessionCookies(c)
     return success(c)
+  })
+  .post("/reactivate", async (c) => {
+    const token = readAccountReactivationCookie(c)
+    clearAccountReactivationCookie(c)
+    if (!token) return badRequest(c, "Account reactivation expired.")
+
+    const userId = await consumeAccountReactivation(token)
+    if (!userId) return badRequest(c, "Account reactivation expired.")
+
+    const reactivated = await accountDeletionState.withInactive(userId, () =>
+      reactivateSelfDisabledIdentity(userId),
+    )
+    if (!reactivated.ok) {
+      return badRequest(c, "Account deletion is in progress.")
+    }
+    if (reactivated.value === "not-found") {
+      return badRequest(c, "Account reactivation expired.")
+    }
+    if (reactivated.value === "suspended") {
+      return authError(
+        c,
+        403,
+        ACCOUNT_BANNED_CODE,
+        "This account has been banned by an administrator.",
+      )
+    }
+
+    return authenticatedSignInResponse(
+      c,
+      await completeAuthenticatedSignIn(c, userId),
+    )
   })
   .post(
     "/passkey/sign-up/options",
@@ -239,6 +315,7 @@ export const authRoute = new Hono()
         })
 
         const { tokens, data } = await createSession(c, userRow.id)
+        clearAccountReactivationCookie(c)
         setSessionCookies(c, tokens)
         return c.json(publicSessionData(data))
       } catch (cause) {
@@ -276,9 +353,10 @@ export const authRoute = new Hono()
             updated_at: now,
           })
           .where(eq(userPasskey.id, credential.id))
-        const { tokens, data } = await createSession(c, credential.user_id)
-        setSessionCookies(c, tokens)
-        return c.json(publicSessionData(data))
+        return authenticatedSignInResponse(
+          c,
+          await completeAuthenticatedSignIn(c, credential.user_id),
+        )
       } catch (cause) {
         return badRequestFromCause(c, cause, "Passkey sign-in failed.")
       }

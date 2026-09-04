@@ -3,6 +3,7 @@ import assert from "node:assert/strict"
 import { test } from "vite-plus/test"
 
 import {
+  accountSignInState,
   activeAccountState,
   disabledAccountState,
   selfReactivatedAccountState,
@@ -17,7 +18,11 @@ const ACTIVE: StoredAccountState = {
 const DISABLED_AT = new Date("2026-01-01T00:00:00.000Z")
 const SUSPENDED_AT = new Date("2026-01-02T00:00:00.000Z")
 
-test("self-disabled accounts can reactivate", () => {
+test("active accounts can sign in normally", () => {
+  assert.equal(accountSignInState(ACTIVE), "active")
+})
+
+test("self-disabled accounts must reactivate before signing in", () => {
   const disabled = disabledAccountState(ACTIVE, "self", DISABLED_AT)
 
   assert.deepEqual(disabled, {
@@ -25,6 +30,7 @@ test("self-disabled accounts can reactivate", () => {
     disabledAt: DISABLED_AT,
     adminSuspendedAt: null,
   })
+  assert.equal(accountSignInState(disabled), "reactivation-required")
   assert.deepEqual(selfReactivatedAccountState(disabled), activeAccountState())
 })
 
@@ -36,6 +42,7 @@ test("administrator-suspended accounts cannot reactivate themselves", () => {
     disabledAt: SUSPENDED_AT,
     adminSuspendedAt: SUSPENDED_AT,
   })
+  assert.equal(accountSignInState(suspended), "banned")
   assert.equal(selfReactivatedAccountState(suspended), null)
 })
 

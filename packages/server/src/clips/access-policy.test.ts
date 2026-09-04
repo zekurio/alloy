@@ -100,10 +100,7 @@ test("inactive users retain anonymous access to ready shareable clips", () => {
 })
 
 test("active owners and administrators retain direct clip authority", () => {
-  const viewers = [
-    viewer(AUTHOR_ID, "user"),
-    viewer(OTHER_ID, "admin"),
-  ]
+  const viewers = [viewer(AUTHOR_ID, "user"), viewer(OTHER_ID, "admin")]
 
   for (const activeViewer of viewers) {
     assert.equal(

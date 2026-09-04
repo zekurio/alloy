@@ -216,7 +216,7 @@ export const gamesRoute = new Hono()
 
     const session = await getSession(c)
     let viewer: { isFollowing: boolean } | null = null
-    if (session) {
+    if (session?.user.status === "active") {
       const [followRow] = await db
         .select({ id: gameFollow.id })
         .from(gameFollow)

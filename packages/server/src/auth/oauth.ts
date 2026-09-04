@@ -13,12 +13,9 @@ import {
   randomState,
 } from "openid-client"
 
+import { completeAuthenticatedSignIn } from "./account-sign-in"
 import { insertAuthChallengeAndWake } from "./challenge-expiry"
-import {
-  clearOAuthStateCookie,
-  readOAuthStateCookie,
-  setSessionCookies,
-} from "./cookies"
+import { clearOAuthStateCookie, readOAuthStateCookie } from "./cookies"
 import { linkAccountToUser, resolveSignInUser } from "./oauth-accounts"
 import {
   consumeOAuthChallenge,
@@ -29,6 +26,7 @@ import {
   callbackURLForProvider,
   callbackURLWithOAuthError,
   callbackURLWithWelcome,
+  loginURLWithAccountReactivation,
   loginURLWithOAuthError,
   normalizeCallbackURL,
   oauthClient,
@@ -37,7 +35,7 @@ import {
 } from "./oauth-client"
 import { profileFromTokens, storedTokens } from "./oauth-profile"
 import type { OAuthChallengePayload, OAuthMode } from "./oauth-types"
-import { createSession, getSession } from "./session"
+import { getSession } from "./session"
 
 const logger = createLogger("oauth")
 const OAuthChallengePayloadSchema = t.object({
@@ -154,7 +152,11 @@ export async function finishOAuthCallback(
 
     if (payload.mode === "link") {
       const session = await getSession(c)
-      if (!session || session.user.id !== payload.userId) {
+      if (
+        !session ||
+        session.user.status !== "active" ||
+        session.user.id !== payload.userId
+      ) {
         throw new Error("Sign in again before linking this account.")
       }
       await linkAccountToUser({
@@ -171,8 +173,20 @@ export async function finishOAuthCallback(
       provider,
       tokens: storedTokens(tokens),
     })
-    const { tokens: sessionTokens } = await createSession(c, userId)
-    setSessionCookies(c, sessionTokens)
+    const signIn = await completeAuthenticatedSignIn(c, userId)
+    if (signIn.kind === "reactivation-required") {
+      return {
+        redirectTo: loginURLWithAccountReactivation(payload.callbackURL),
+      }
+    }
+    if (signIn.kind === "banned") {
+      return {
+        redirectTo: loginURLWithOAuthError(
+          payload.callbackURL,
+          new Error("This account has been banned by an administrator."),
+        ),
+      }
+    }
     return {
       redirectTo: created
         ? callbackURLWithWelcome(payload.callbackURL, provider.providerId)

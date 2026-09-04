@@ -28,9 +28,16 @@ export {
 } from "./session-refresh"
 const SESSION_TOUCH_MS = 60 * 60 * 1000
 
-type CreatedSession = {
+export type CreatedSession = {
   tokens: SessionCookieTokens
   data: SessionData
+}
+
+export class InactiveAccountError extends Error {
+  constructor() {
+    super("Account is not active.")
+    this.name = "InactiveAccountError"
+  }
 }
 
 const requestSessionCache = new WeakMap<Context, Promise<SessionData | null>>()
@@ -56,8 +63,18 @@ export async function createSession(
   const now = new Date()
   const accessHash = await hashSessionToken(accessToken)
   const refreshHash = await hashSessionToken(refreshToken)
-  const session = await db.transaction(async (tx) => {
-    const [created] = await tx
+  const data = await db.transaction(async (tx) => {
+    const [account] = await tx
+      .select()
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+      .for("update")
+    if (!account || account.status !== "active") {
+      throw new InactiveAccountError()
+    }
+
+    const [session] = await tx
       .insert(authSession)
       .values({
         token_hash: accessHash,
@@ -68,19 +85,17 @@ export async function createSession(
         last_seen_at: now,
       })
       .returning()
-    if (!created) throw new Error("Could not create session.")
+    if (!session) throw new Error("Could not create session.")
 
     await tx.insert(authRefreshToken).values({
-      session_id: created.id,
+      session_id: session.id,
       token_hash: refreshHash,
       expires_at: refreshIdleExpiresAt(now),
       absolute_expires_at: refreshAbsoluteExpiresAt(now),
     })
-    return created
+    return { session, user: account }
   })
 
-  const data = await selectSessionByAccessHash(session.token_hash)
-  if (!data) throw new Error("Could not load session.")
   return { tokens: { accessToken, refreshToken }, data }
 }
 

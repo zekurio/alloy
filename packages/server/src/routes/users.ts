@@ -71,7 +71,7 @@ export const usersRoute = new Hono()
     const rows = await searchVisibleUsers({
       q,
       limit,
-      viewerId: session?.user.id ?? null,
+      viewerId: session?.user.status === "active" ? session.user.id : null,
     })
     return c.json(rows)
   })
@@ -192,7 +192,9 @@ export const usersRoute = new Hono()
     const row = result.target
 
     const session = await sessionPromise
-    if (!session) return c.json({ viewer: null, counts: null })
+    if (!session || session.user.status !== "active") {
+      return c.json({ viewer: null, counts: null })
+    }
 
     const viewerId = session.user.id
     const isAdmin = session.user.role === "admin"

@@ -35,11 +35,12 @@ export function clipAccessCondition(
   policy: ClipAccessPolicyName,
 ): SQL {
   const readiness = CLIP_ACCESS_POLICIES[policy].readiness
-  if (viewer?.role === "admin") {
+  const activeViewer = viewer?.status === "active" ? viewer : null
+  if (activeViewer?.role === "admin") {
     return readiness === "ready" ? eq(clip.status, "ready") : sql`true`
   }
 
-  const owner = viewer ? eq(clip.author_id, viewer.id) : null
+  const owner = activeViewer ? eq(clip.author_id, activeViewer.id) : null
   const conditions: SQL[] = [
     owner
       ? requiredSql(

@@ -1,5 +1,7 @@
 import { isObjectRecord, isStringValue } from "@alloy/contracts"
 
+import { HttpError } from "./http"
+
 function messageFromUnknown(cause: unknown): string | null {
   if (isStringValue(cause)) {
     const message = cause.trim()
@@ -26,7 +28,10 @@ export function errorMessage(cause: unknown, fallback: string): string {
 }
 
 export function errorFrom(cause: unknown, fallback: string) {
-  return { message: errorMessage(cause, fallback) }
+  const message = errorMessage(cause, fallback)
+  return cause instanceof HttpError && cause.code
+    ? { message, code: cause.code }
+    : { message }
 }
 
 export function toError(cause: unknown, fallback: string): Error {
