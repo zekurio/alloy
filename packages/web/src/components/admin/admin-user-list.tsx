@@ -126,7 +126,11 @@ const UserCard = memo(function UserCard({
       }
       badge={
         isDisabled ? (
-          <Badge variant="destructive" size="text">
+          <Badge
+            variant="destructive"
+            size="text"
+            className="border-danger bg-danger text-white shadow-sm"
+          >
             {isBanned ? t("Banned") : t("Disabled")}
           </Badge>
         ) : null
