@@ -24,7 +24,10 @@ export const notificationsRoute = new Hono()
   .get("/", requireSession, tbValidator("query", ListQuery), async (c) => {
     try {
       return c.json(
-        await listNotifications(c.var.viewerId, c.req.valid("query")),
+        await listNotifications(
+          { id: c.var.viewerId, role: c.var.session.user.role },
+          c.req.valid("query"),
+        ),
       )
     } catch (err) {
       if (err instanceof InvalidNotificationCursorError) {
