@@ -4,6 +4,7 @@ import { clip, clipComment, clipCommentMention } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import {
+  clipAccessCondition,
   clipAccessResponse,
   resolveClipAccess,
 } from "@alloy/server/clips/access"
@@ -15,7 +16,7 @@ import {
   internalServerError,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import { CommentIdParam, CreateBody, UpdateBody } from "./clip-comments-helpers"
@@ -216,7 +217,24 @@ export const clipCommentWriteRoutes = new Hono()
           : [],
       )
 
-      const [updated] = await db.transaction(async (tx) => {
+      const updateResult = await db.transaction(async (tx) => {
+        const [allowedClip] = await tx
+          .select({ id: clip.id })
+          .from(clip)
+          .innerJoin(user, eq(clip.author_id, user.id))
+          .where(
+            and(
+              eq(clip.id, existing.clipId),
+              clipAccessCondition(
+                { id: viewerId, role: c.var.session.user.role },
+                "engagement",
+              ),
+            ),
+          )
+          .limit(1)
+          .for("update", { of: clip })
+        if (!allowedClip) return null
+
         const rows = await tx
           .update(clipComment)
           .set({ body, edited_at: new Date() })
@@ -239,6 +257,8 @@ export const clipCommentWriteRoutes = new Hono()
         }
         return rows
       })
+      if (!updateResult) return notFound(c)
+      const [updated] = updateResult
       if (!updated) {
         return internalServerError(c, "Comment update did not persist")
       }
