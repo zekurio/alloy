@@ -63,7 +63,24 @@ export const clipCommentWriteRoutes = new Hono()
       }
       const resolvedParentId = parent?.id ?? null
 
-      const [inserted] = await db.transaction(async (tx) => {
+      const insertResult = await db.transaction(async (tx) => {
+        const [allowedClip] = await tx
+          .select({ id: clip.id })
+          .from(clip)
+          .innerJoin(user, eq(clip.author_id, user.id))
+          .where(
+            and(
+              eq(clip.id, id),
+              clipAccessCondition(
+                { id: viewerId, role: c.var.session.user.role },
+                "engagement",
+              ),
+            ),
+          )
+          .limit(1)
+          .for("update", { of: clip })
+        if (!allowedClip) return null
+
         const rows = await tx
           .insert(clipComment)
           .values({
@@ -79,6 +96,8 @@ export const clipCommentWriteRoutes = new Hono()
           .where(eq(clip.id, id))
         return rows
       })
+      if (!insertResult) return notFound(c)
+      const [inserted] = insertResult
       if (!inserted) return internalServerError(c, "Insert failed")
 
       const mentionUserIds = await resolveMentionUsernames(
