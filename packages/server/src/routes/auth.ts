@@ -415,7 +415,7 @@ export const authRoute = new Hono()
   )
   .delete("/user", requireAnySession, async (c) => {
     try {
-      await deleteUserAccount(c.var.viewerId)
+      await deleteUserAccount(c.var.viewerId, "self")
       clearSessionCookies(c)
       return success(c)
     } catch (cause) {

@@ -16,7 +16,10 @@ export type SessionCookieTokens = {
 }
 
 function secureCookies(): boolean {
-  return new URL(env.PUBLIC_SERVER_URL).protocol === "https:"
+  return (
+    env.NODE_ENV === "production" ||
+    new URL(env.PUBLIC_SERVER_URL).protocol === "https:"
+  )
 }
 
 export function readAccessCookie(c: Context): string | null {

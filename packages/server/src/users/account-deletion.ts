@@ -10,6 +10,7 @@ import {
   clipView,
   uploadTicket,
 } from "@alloy/db/schema"
+import type { AccountDisableSource } from "@alloy/server/auth/account-state"
 import {
   disableUserIdentity,
   type AuthTransaction,
@@ -47,8 +48,11 @@ class UngatedUploadTargetError extends Error {}
 
 export function deleteUserAccount(
   userId: string,
+  source: AccountDisableSource,
 ): Promise<AccountDeletionResult> {
-  return accountDeletionState.run(userId, () => runAccountDeletion(userId))
+  return accountDeletionState.run(userId, () =>
+    runAccountDeletion(userId, source),
+  )
 }
 
 export async function withCanonicalUploadTargetsStopped<T>(
@@ -66,10 +70,11 @@ export async function withCanonicalUploadTargetsStopped<T>(
 
 async function runAccountDeletion(
   userId: string,
+  source: AccountDisableSource,
 ): Promise<AccountDeletionResult> {
   // This is the short, monotonic access-removing transition. Sessions remain
   // so a self-delete can retry through requireAnySession after a crash.
-  const disabled = await disableUserIdentity(userId)
+  const disabled = await disableUserIdentity(userId, source)
   if (!disabled) return "not-found"
 
   while (true) {

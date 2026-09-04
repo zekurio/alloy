@@ -2,6 +2,10 @@ import { USER_STATUSES } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user, USER_ROLES } from "@alloy/db/auth-schema"
 import {
+  activeAccountState,
+  disabledAccountState,
+} from "@alloy/server/auth/account-state"
+import {
   assertCanRemoveAdminInTransaction,
   createUserIdentity,
   withAdminAccessInvariant,
@@ -70,7 +74,12 @@ async function updateAdminUser(id: string, patch: t.infer<typeof UserPatch>) {
   const mutate = () =>
     withAdminAccessInvariant(async (tx) => {
       const [current] = await tx
-        .select({ role: user.role, status: user.status })
+        .select({
+          role: user.role,
+          status: user.status,
+          disabledAt: user.disabled_at,
+          adminSuspendedAt: user.admin_suspended_at,
+        })
         .from(user)
         .where(eq(user.id, id))
         .limit(1)
@@ -91,8 +100,13 @@ async function updateAdminUser(id: string, patch: t.infer<typeof UserPatch>) {
       const update: Partial<typeof user.$inferInsert> = { updated_at: now }
       if (patch.role !== undefined) update.role = patch.role
       if (patch.status !== undefined) {
-        update.status = patch.status
-        update.disabled_at = patch.status === "disabled" ? now : null
+        const accountState =
+          patch.status === "disabled"
+            ? disabledAccountState(current, "administrator", now)
+            : activeAccountState()
+        update.status = accountState.status
+        update.disabled_at = accountState.disabledAt
+        update.admin_suspended_at = accountState.adminSuspendedAt
       }
       if (patch.storageQuotaBytes !== undefined) {
         update.storage_quota_bytes = patch.storageQuotaBytes
@@ -166,7 +180,7 @@ export const adminUsersRoute = new Hono()
   .delete("/users/:id", tbValidator("param", UserIdParam), async (c) => {
     try {
       const { id } = c.req.valid("param")
-      const deleted = await deleteUserAccount(id)
+      const deleted = await deleteUserAccount(id, "administrator")
       if (deleted === "not-found") return notFound(c, "User not found")
       return success(c)
     } catch (cause) {

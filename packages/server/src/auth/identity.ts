@@ -4,6 +4,11 @@ import { db } from "@alloy/server/db/index"
 import { and, eq, ne, sql } from "drizzle-orm"
 
 import {
+  type AccountDisableSource,
+  disabledAccountState,
+  selfReactivatedAccountState,
+} from "./account-state"
+import {
   lockAdminAccessInvariant,
   withAdminAccessInvariant,
 } from "./admin-access"
@@ -97,6 +102,7 @@ export async function assertCanRemoveAdminInTransaction(
 
 export async function disableUserIdentity(
   userId: string,
+  source: AccountDisableSource,
 ): Promise<{ disabledAt: Date } | null> {
   return withAdminAccessInvariant(async (tx) => {
     const [row] = await tx
@@ -104,6 +110,7 @@ export async function disableUserIdentity(
         id: user.id,
         status: user.status,
         disabledAt: user.disabled_at,
+        adminSuspendedAt: user.admin_suspended_at,
       })
       .from(user)
       .where(eq(user.id, userId))
@@ -114,18 +121,52 @@ export async function disableUserIdentity(
     if (row.status === "active") {
       await assertCanRemoveAdminInTransaction(tx, userId)
     }
-    const disabledAt = row.disabledAt ?? new Date()
-    if (row.status !== "disabled" || row.disabledAt === null) {
-      await tx
-        .update(user)
-        .set({
-          disabled_at: disabledAt,
-          status: "disabled",
-          updated_at: new Date(),
-        })
-        .where(eq(user.id, userId))
-    }
-    return { disabledAt }
+    const now = new Date()
+    const next = disabledAccountState(row, source, now)
+    await tx
+      .update(user)
+      .set({
+        status: next.status,
+        disabled_at: next.disabledAt,
+        admin_suspended_at: next.adminSuspendedAt,
+        updated_at: now,
+      })
+      .where(eq(user.id, userId))
+    return { disabledAt: next.disabledAt ?? now }
+  })
+}
+
+export type SelfReactivationResult = "not-found" | "reactivated" | "suspended"
+
+export function reactivateSelfDisabledIdentity(
+  userId: string,
+): Promise<SelfReactivationResult> {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({
+        status: user.status,
+        disabledAt: user.disabled_at,
+        adminSuspendedAt: user.admin_suspended_at,
+      })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1)
+      .for("update")
+    if (!row) return "not-found"
+
+    const next = selfReactivatedAccountState(row)
+    if (!next) return "suspended"
+
+    await tx
+      .update(user)
+      .set({
+        status: next.status,
+        disabled_at: next.disabledAt,
+        admin_suspended_at: next.adminSuspendedAt,
+        updated_at: new Date(),
+      })
+      .where(eq(user.id, userId))
+    return "reactivated"
   })
 }
 

@@ -30,6 +30,7 @@ async function peekClipViewer(c: Context): Promise<ClipViewer> {
   return {
     id: session.user.id,
     role: session.user.role,
+    status: session.user.status,
   }
 }
 
