@@ -51,18 +51,6 @@ function thumbnailEtag(key: string): string {
   return `"thumb1-${hash}"`
 }
 
-/** Immutable when the request names the current version, short TTL otherwise. */
-function versionedCacheControl(
-  requestedVersion: string | undefined,
-  version: string,
-  privacy: ClipPrivacy,
-): string {
-  if (requestedVersion === version) {
-    return `${privacy === "public" ? "public" : "private"}, max-age=31536000, immutable`
-  }
-  return mediaCacheControl(privacy)
-}
-
 /**
  * The clip's default playback bytes: the derived cut shadows the stored
  * source so trimmed-away footage never serves from a public endpoint.
@@ -115,11 +103,7 @@ function serveVersionedClipAsset(
 ): Promise<Response> {
   const version = clipAssetVersion(asset.key)
   return serveClipAsset(c, asset, {
-    cacheControl: versionedCacheControl(
-      c.req.query("v"),
-      version,
-      options.privacy,
-    ),
+    cacheControl: mediaCacheControl(options.privacy),
     etag: `"${options.etagPrefix}-${version}"`,
     unavailable: options.unavailable,
   })
@@ -204,7 +188,7 @@ export const clipsPlaybackRoutes = new Hono()
       c,
       { key: row.source_key, contentType: row.source_content_type },
       {
-        cacheControl: "private, max-age=300",
+        cacheControl: mediaCacheControl("private"),
         etag: `"orig-${clipAssetVersion(row.source_key)}"`,
         unavailable: "Source unavailable",
       },
@@ -228,11 +212,7 @@ export const clipsPlaybackRoutes = new Hono()
       c,
       { key, contentType: "audio/mp4" },
       {
-        cacheControl: versionedCacheControl(
-          c.req.query("v"),
-          version,
-          "private",
-        ),
+        cacheControl: mediaCacheControl("private"),
         etag: `"wfm-${version}"`,
         unavailable: "Waveform unavailable",
       },
@@ -319,10 +299,9 @@ export const clipsPlaybackRoutes = new Hono()
     const key = row.thumb_key
     if (!key) return notFound(c, "No thumbnail")
 
-    const thumbCacheControl =
-      row.privacy === "public" && row.status === "ready"
-        ? "public, max-age=86400"
-        : "private, max-age=86400"
+    const thumbCacheControl = mediaCacheControl(
+      row.privacy === "public" && row.status === "ready" ? "public" : "private",
+    )
 
     const etag = thumbnailEtag(key)
     c.header("ETag", etag)
@@ -355,8 +334,7 @@ export const clipsPlaybackRoutes = new Hono()
     }
     const selected = { ...asset, filename: downloadFilename(row) }
 
-    const dlCacheControl =
-      row.privacy === "public" ? "public, max-age=300" : "private, max-age=300"
+    const dlCacheControl = mediaCacheControl(row.privacy)
 
     const resolved = await clipStorage.resolve(selected.key)
     if (!resolved) {
