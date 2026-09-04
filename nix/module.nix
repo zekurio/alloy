@@ -55,6 +55,22 @@ let
     else
       "postgresql://${cfg.database.user}@${databaseConnectHost}:${toString cfg.database.port}/${cfg.database.name}";
   hasEnv = name: builtins.hasAttr name cfg.environment;
+  effectivePublicServerUrl =
+    if hasEnv "PUBLIC_SERVER_URL" then
+      cfg.environment.PUBLIC_SERVER_URL
+    else
+      cfg.publicServerUrl;
+  hasHttpsPublicServerUrl =
+    effectivePublicServerUrl != null
+    && lib.hasPrefix "https://" (lib.toLower effectivePublicServerUrl);
+  publicServerUrlForService =
+    if effectivePublicServerUrl == null then "" else effectivePublicServerUrl;
+  serverStart = pkgs.writeShellScript "alloy-server-start" ''
+    exec ${pkgs.coreutils}/bin/env \
+      NODE_ENV=production \
+      PUBLIC_SERVER_URL=${lib.escapeShellArg publicServerUrlForService} \
+      ${lib.getExe cfg.package}
+  '';
   hasAccelerationDevices = cfg.accelerationDevices != [ ];
 in
 {
@@ -234,7 +250,7 @@ in
       type = lib.types.nullOr lib.types.str;
       default = null;
       example = "https://alloy.example.com";
-      description = "Externally reachable Alloy origin. Required in production.";
+      description = "Externally reachable HTTPS Alloy origin. Required in production.";
     };
 
     trustedOrigins = lib.mkOption {
@@ -407,6 +423,14 @@ in
         message = "services.alloy-server.publicServerUrl must be set for production deployments.";
       }
       {
+        assertion = hasHttpsPublicServerUrl;
+        message = "The effective services.alloy-server PUBLIC_SERVER_URL must use https:// in production.";
+      }
+      {
+        assertion = !hasEnv "NODE_ENV" || cfg.environment.NODE_ENV == "production";
+        message = "services.alloy-server.environment.NODE_ENV must be production.";
+      }
+      {
         assertion =
           cfg.environmentFile != null
           || hasEnv "ALLOY_VIEWER_COOKIE_SECRET";
@@ -496,7 +520,7 @@ in
 
       serviceConfig =
         {
-          ExecStart = lib.getExe cfg.package;
+          ExecStart = serverStart;
           User = cfg.user;
           Group = cfg.group;
           WorkingDirectory = cfg.stateDir;

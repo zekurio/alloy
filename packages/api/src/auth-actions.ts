@@ -79,6 +79,26 @@ async function passkeySignIn(
   }
 }
 
+async function completeAccountReactivation(
+  request: RequestFn,
+  store: SessionStore,
+): AuthResult<SessionData> {
+  try {
+    const data = await request(
+      AUTH_PATHS.reactivate,
+      { method: "POST" },
+      validateSessionData,
+    )
+    store.set(data)
+    return { data, error: null }
+  } catch (cause) {
+    return {
+      data: null,
+      error: errorFrom(cause, "Account reactivation failed"),
+    }
+  }
+}
+
 async function passkeySignUp(
   request: RequestFn,
   store: SessionStore,
@@ -172,6 +192,7 @@ function createPasskeyActions(
   return {
     signIn: {
       passkey: () => passkeySignIn(request, store),
+      reactivate: () => completeAccountReactivation(request, store),
       preloadPasskey: preloadWebAuthnBrowser,
       oauth2: (input: { providerId: string; callbackURL?: string }) =>
         startOAuthRedirect(

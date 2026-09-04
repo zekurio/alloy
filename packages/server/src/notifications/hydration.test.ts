@@ -13,6 +13,10 @@ const viewerId = "22222222-2222-4222-8222-222222222222"
 const clipId = "33333333-3333-4333-8333-333333333333"
 const commentId = "44444444-4444-4444-8444-444444444444"
 
+function viewer(id: string, role: "user" | "admin") {
+  return { id, role, status: "active" as const }
+}
+
 function clip(privacy: string): NotificationClipSource {
   return {
     id: clipId,
@@ -41,7 +45,7 @@ test("notification hydration redacts current private clip and comment data", () 
 
   assert.deepEqual(
     notificationReferenceFields(
-      { id: viewerId, role: "user" },
+      viewer(viewerId, "user"),
       clipId,
       commentId,
       sourceClip,
@@ -55,7 +59,7 @@ test("notification hydration keeps allowed public, unlisted, owner, and admin da
   for (const privacy of ["public", "unlisted"]) {
     const sourceClip = clip(privacy)
     const fields = notificationReferenceFields(
-      { id: viewerId, role: "user" },
+      viewer(viewerId, "user"),
       clipId,
       commentId,
       sourceClip,
@@ -66,12 +70,12 @@ test("notification hydration keeps allowed public, unlisted, owner, and admin da
   }
 
   const privateClip = clip("private")
-  for (const viewer of [
-    { id: ownerId, role: "user" },
-    { id: viewerId, role: "admin" },
+  for (const currentViewer of [
+    viewer(ownerId, "user"),
+    viewer(viewerId, "admin"),
   ]) {
     const fields = notificationReferenceFields(
-      viewer,
+      currentViewer,
       clipId,
       commentId,
       privateClip,
@@ -90,7 +94,7 @@ test("notification hydration checks a comment against its own clip", () => {
   }
 
   const fields = notificationReferenceFields(
-    { id: viewerId, role: "user" },
+    viewer(viewerId, "user"),
     clipId,
     commentId,
     publicClip,

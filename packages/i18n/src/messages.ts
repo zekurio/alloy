@@ -86,6 +86,9 @@ export const DE_MESSAGES = {
   "Wide page header": "Breiter Seitenkopf",
   "Vertical box art": "Vertikales Box-Artwork",
   Published: "Veröffentlicht",
+  Unban: "Entsperren",
+  "Unban {username}?": "{username} entsperren?",
+  "Unban user": "Nutzer entsperren",
   Uploaded: "Hochgeladen",
   Unread: "Ungelesen",
   "Try a different search or filter.":
@@ -222,6 +225,10 @@ export const DE_MESSAGES = {
   "Avatar updated": "Avatar aktualisiert",
   "Awaiting upload": "Warten auf Upload",
   "Back to library": "Zurück zur Bibliothek",
+  Ban: "Sperren",
+  "Ban {username}?": "{username} sperren?",
+  "Ban user": "Nutzer sperren",
+  Banned: "Gesperrt",
   Banner: "Banner",
   "Banner removed": "Banner entfernt",
   "Banner updated": "Banner aktualisiert",
@@ -1124,8 +1131,12 @@ export const DE_MESSAGES = {
     "Theme-, Sprach- und Ankündigungseinstellungen.",
   "They'll be able to sign in and their clips will be visible again.":
     "Der Nutzer kann sich wieder anmelden und seine Clips sind wieder sichtbar.",
+  "They won't be able to sign in and their clips will be hidden. Their data is kept and you can unban them later.":
+    "Der Nutzer kann sich nicht mehr anmelden und seine Clips werden ausgeblendet. Die Daten bleiben erhalten und du kannst ihn später wieder entsperren.",
   "They'll be signed out and their clips hidden. Their data is kept and you can enable them again later.":
     "Der Nutzer wird abgemeldet und seine Clips ausgeblendet. Die Daten bleiben erhalten und du kannst ihn später wieder aktivieren.",
+  "This account has been banned by an administrator.":
+    "Dieses Konto wurde von einem Administrator gesperrt.",
   "This can't be undone.": "Das kann nicht rückgängig gemacht werden.",
   "This ffmpeg build has no {backend} encoder for {codec}. Pick another backend or install jellyfin-ffmpeg.":
     "Dieser ffmpeg-Build hat keinen {backend}-Encoder für {codec}. Wähle ein anderes Backend oder installiere jellyfin-ffmpeg.",
@@ -1263,7 +1274,7 @@ export const DE_MESSAGES = {
   views: "Aufrufe",
   Volume: "Lautstärke",
   "Waiting for a game": "Warte auf ein Spiel",
-  "Waiting for authenticator…": "Warte auf Authenticator…",
+  "Waiting for authenticator…": "Warte auf Bestätigung…",
   "Waiting for game": "Warte auf Spiel",
   "Where replay video is kept before a clip is saved.":
     "Wo das Replay-Video aufbewahrt wird, bevor ein Clip gespeichert wird.",

@@ -1,4 +1,8 @@
-import { isStringValue, type AuthUser } from "@alloy/contracts"
+import {
+  type AuthErrorCode,
+  isStringValue,
+  type AuthUser,
+} from "@alloy/contracts"
 import { useSyncExternalStore } from "react"
 
 import { createAuthActions } from "./auth-actions"
@@ -19,7 +23,7 @@ export {
   USERNAME_MIN_LENGTH,
 } from "@alloy/contracts"
 
-type AuthError = { message: string }
+type AuthError = { message: string; code?: AuthErrorCode }
 type AuthResult<T> = Promise<{ data: T | null; error: AuthError | null }>
 type AuthRedirect = (url: string) => void
 

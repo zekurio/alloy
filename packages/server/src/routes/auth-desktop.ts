@@ -6,10 +6,11 @@ import {
 import {
   createSession,
   getSession,
+  InactiveAccountError,
   REFRESH_IDLE_TTL_MS,
 } from "@alloy/server/auth/session"
 import { getSetupStatus } from "@alloy/server/auth/user-bootstrap"
-import { badRequest } from "@alloy/server/runtime/http-response"
+import { badRequest, forbidden } from "@alloy/server/runtime/http-response"
 import { type Context, Hono } from "hono"
 
 import { loopbackRedirect } from "./auth-desktop-helpers"
@@ -264,7 +265,13 @@ export const authDesktopRoute = new Hono()
     const userId = await consumeDesktopLinkCode(code, codeVerifier)
     if (!userId) return badRequest(c, "Invalid or expired code.")
 
-    const { tokens, data } = await createSession(c, userId)
+    const created = await createSession(c, userId).catch((cause: unknown) => {
+      if (cause instanceof InactiveAccountError) return null
+      throw cause
+    })
+    if (!created) return forbidden(c, "Account is not active.")
+
+    const { tokens, data } = created
     const expiresAt = data.session.expires_at
     if (!expiresAt) throw new Error("Session created without an expiry.")
     return c.json({

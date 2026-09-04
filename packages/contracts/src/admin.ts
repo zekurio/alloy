@@ -266,6 +266,7 @@ export interface AdminUserStorageRow {
   role: string | null
   status: UserStatus
   disabledAt: string | null
+  adminSuspendedAt?: string | null
   createdAt: string
   storageQuotaBytes: number | null
   storageUsedBytes: number

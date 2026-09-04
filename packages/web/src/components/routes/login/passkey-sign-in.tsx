@@ -1,3 +1,4 @@
+import { AUTH_ERROR_CODES } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { useNavigate, useRouter } from "@tanstack/react-router"
@@ -10,7 +11,13 @@ import {
   toastAuthAttemptFailure,
 } from "@/lib/auth-flow"
 
-export function PasskeySignIn({ redirectTo }: { redirectTo?: string }) {
+export function PasskeySignIn({
+  redirectTo,
+  onReactivationRequired,
+}: {
+  redirectTo?: string
+  onReactivationRequired?: () => void
+}) {
   const [pending, setPending] = useState(false)
   const navigate = useNavigate()
   const router = useRouter()
@@ -21,11 +28,18 @@ export function PasskeySignIn({ redirectTo }: { redirectTo?: string }) {
     try {
       const { error } = await authClient.signIn.passkey()
       if (error) {
-        toastAuthAttemptFailure(
-          "passkey sign-in",
-          "Passkey sign-in failed",
-          error,
-        )
+        if (
+          error.code === AUTH_ERROR_CODES.accountReactivationRequired &&
+          onReactivationRequired
+        ) {
+          onReactivationRequired()
+        } else {
+          toastAuthAttemptFailure(
+            "passkey sign-in",
+            "Passkey sign-in failed",
+            error,
+          )
+        }
         setPending(false)
         return
       }

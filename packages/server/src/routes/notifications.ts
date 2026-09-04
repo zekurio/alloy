@@ -25,7 +25,11 @@ export const notificationsRoute = new Hono()
     try {
       return c.json(
         await listNotifications(
-          { id: c.var.viewerId, role: c.var.session.user.role },
+          {
+            id: c.var.viewerId,
+            role: c.var.session.user.role,
+            status: c.var.session.user.status,
+          },
           c.req.valid("query"),
         ),
       )

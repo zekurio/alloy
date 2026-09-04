@@ -4,7 +4,10 @@ import { block, clip, follow } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { createZipStream } from "@alloy/server/archive/zip-stream"
 import { clearSessionCookies } from "@alloy/server/auth/cookies"
-import { disableUserIdentity } from "@alloy/server/auth/identity"
+import {
+  disableUserIdentity,
+  reactivateSelfDisabledIdentity,
+} from "@alloy/server/auth/identity"
 import { requireSession } from "@alloy/server/auth/require-session"
 import {
   deleteAllSessionsForUser,
@@ -20,6 +23,7 @@ import {
   badRequest,
   batchProgress,
   booleanFlag,
+  forbidden,
 } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage } from "@alloy/server/storage/index"
@@ -67,7 +71,7 @@ export const usersRoute = new Hono()
     const rows = await searchVisibleUsers({
       q,
       limit,
-      viewerId: session?.user.id ?? null,
+      viewerId: session?.user.status === "active" ? session.user.id : null,
     })
     return c.json(rows)
   })
@@ -96,7 +100,7 @@ export const usersRoute = new Hono()
   })
   .post("/me/disable", requireSession, async (c) => {
     const viewerId = c.var.viewerId
-    const disabled = await disableUserIdentity(viewerId)
+    const disabled = await disableUserIdentity(viewerId, "self")
     const disabledAt = disabled?.disabledAt ?? new Date()
     await deleteAllSessionsForUser(viewerId)
     clearSessionCookies(c)
@@ -105,16 +109,13 @@ export const usersRoute = new Hono()
   .post("/me/reactivate", requireAnySession, async (c) => {
     const reactivated = await accountDeletionState.withInactive(
       c.var.viewerId,
-      async () => {
-        const now = new Date()
-        await db
-          .update(user)
-          .set({ disabled_at: null, status: "active", updated_at: now })
-          .where(eq(user.id, c.var.viewerId))
-      },
+      () => reactivateSelfDisabledIdentity(c.var.viewerId),
     )
     if (!reactivated.ok) {
       return badRequest(c, "Account deletion is in progress.")
+    }
+    if (reactivated.value !== "reactivated") {
+      return forbidden(c, "An administrator must reactivate this account.")
     }
     return accountState(c, null)
   })
@@ -191,7 +192,9 @@ export const usersRoute = new Hono()
     const row = result.target
 
     const session = await sessionPromise
-    if (!session) return c.json({ viewer: null, counts: null })
+    if (!session || session.user.status !== "active") {
+      return c.json({ viewer: null, counts: null })
+    }
 
     const viewerId = session.user.id
     const isAdmin = session.user.role === "admin"

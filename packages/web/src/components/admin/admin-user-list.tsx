@@ -69,6 +69,12 @@ export function UsersList({
   )
 }
 
+function adminUserIsBanned(user: AdminUserRow): boolean {
+  return user.adminSuspendedAt === undefined
+    ? user.status === "disabled"
+    : user.adminSuspendedAt !== null
+}
+
 const UserCard = memo(function UserCard({
   user,
   currentUserId,
@@ -89,6 +95,7 @@ const UserCard = memo(function UserCard({
   >(null)
   const isSelf = user.id === currentUserId
   const isDisabled = user.status === "disabled"
+  const isBanned = adminUserIsBanned(user)
   const name = displayName(user)
   const avatar = userAvatar(user)
   const storage =
@@ -119,8 +126,12 @@ const UserCard = memo(function UserCard({
       }
       badge={
         isDisabled ? (
-          <Badge variant="destructive" size="text">
-            {t("Disabled")}
+          <Badge
+            variant="destructive"
+            size="text"
+            className="border-danger bg-danger text-white shadow-sm"
+          >
+            {isBanned ? t("Banned") : t("Disabled")}
           </Badge>
         ) : null
       }
@@ -149,8 +160,8 @@ const UserCard = memo(function UserCard({
                 disabled={isSelf}
                 onClick={() => setOpenDialog("status")}
               >
-                {isDisabled ? <UserCheckIcon /> : <UserXIcon />}
-                {isDisabled ? t("Enable user") : t("Disable user")}
+                {isBanned ? <UserCheckIcon /> : <UserXIcon />}
+                {isBanned ? t("Unban user") : t("Ban user")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 variant="destructive"
@@ -205,7 +216,7 @@ function ToggleUserStatusDialog({
   onOpenChange: (open: boolean) => void
   onToggleStatus: (user: AdminUserRow) => Promise<void>
 }) {
-  const isDisabled = user.status === "disabled"
+  const isBanned = adminUserIsBanned(user)
   const [error, setError] = useState<string | null>(null)
 
   async function handleToggleStatus() {
@@ -223,17 +234,17 @@ function ToggleUserStatusDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {isDisabled
-              ? t("Enable {username}?", { username: user.username })
-              : t("Disable {username}?", { username: user.username })}
+            {isBanned
+              ? t("Unban {username}?", { username: user.username })
+              : t("Ban {username}?", { username: user.username })}
           </AlertDialogTitle>
           <AlertDialogDescription>
-            {isDisabled
+            {isBanned
               ? t(
                   "They'll be able to sign in and their clips will be visible again.",
                 )
               : t(
-                  "They'll be signed out and their clips hidden. Their data is kept and you can enable them again later.",
+                  "They won't be able to sign in and their clips will be hidden. Their data is kept and you can unban them later.",
                 )}
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -245,11 +256,11 @@ function ToggleUserStatusDialog({
         <AlertDialogFooter>
           <AlertDialogCancel disabled={busy}>{t("Cancel")}</AlertDialogCancel>
           <AlertDialogAction
-            variant={isDisabled ? "primary" : "destructive"}
+            variant={isBanned ? "primary" : "destructive"}
             onClick={() => void handleToggleStatus()}
             disabled={busy}
           >
-            {error ? t("Try again") : isDisabled ? t("Enable") : t("Disable")}
+            {error ? t("Try again") : isBanned ? t("Unban") : t("Ban")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -40,6 +40,9 @@ pnpm db:studio
 ```
 
 Production startup applies pending Drizzle migrations automatically.
+`PUBLIC_SERVER_URL` must use an externally reachable HTTPS origin. Terminate
+TLS and set HSTS at the reverse proxy. Local development can still use loopback
+HTTP.
 
 ## Local Development
 

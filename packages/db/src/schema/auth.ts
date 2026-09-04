@@ -48,6 +48,7 @@ export const user = pgTable(
     role: text().$type<UserRole>().notNull().default("user"),
     status: text().$type<UserStatus>().notNull().default("active"),
     disabled_at: timestamp(),
+    admin_suspended_at: timestamp(),
     storage_quota_bytes: bigint({ mode: "number" }),
     // Opt-out for instance webhooks. Positive polarity: false means this
     // author's clips are never announced.
@@ -64,6 +65,10 @@ export const user = pgTable(
     check(
       "user_status_check",
       sql`${t.status} in (${sql.raw(sqlStringList(USER_STATUSES))})`,
+    ),
+    check(
+      "user_admin_suspension_check",
+      sql`${t.admin_suspended_at} is null or ${t.status} = 'disabled'`,
     ),
     check(
       "user_storage_quota_bytes_safe_check",

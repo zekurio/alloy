@@ -5,10 +5,12 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie"
 const ACCESS_COOKIE = "alloy_access"
 const REFRESH_COOKIE = "alloy_refresh"
 const AUTH_MARKER_COOKIE = "alloy_is_authenticated"
+const ACCOUNT_REACTIVATION_COOKIE = "alloy_account_reactivation"
 const OAUTH_STATE_COOKIE_PREFIX = "alloy_oauth_state_"
 const ACCESS_MAX_AGE_SEC = 15 * 60
 const REFRESH_MAX_AGE_SEC = 30 * 24 * 60 * 60
 const OAUTH_STATE_MAX_AGE_SEC = 10 * 60
+const ACCOUNT_REACTIVATION_MAX_AGE_SEC = 10 * 60
 
 export type SessionCookieTokens = {
   accessToken: string
@@ -16,7 +18,10 @@ export type SessionCookieTokens = {
 }
 
 function secureCookies(): boolean {
-  return new URL(env.PUBLIC_SERVER_URL).protocol === "https:"
+  return (
+    env.NODE_ENV === "production" ||
+    new URL(env.PUBLIC_SERVER_URL).protocol === "https:"
+  )
 }
 
 export function readAccessCookie(c: Context): string | null {
@@ -60,6 +65,31 @@ export function clearSessionCookies(c: Context): void {
   deleteCookie(c, ACCESS_COOKIE, { path: "/", secure })
   deleteCookie(c, REFRESH_COOKIE, { path: "/", secure })
   deleteCookie(c, AUTH_MARKER_COOKIE, { path: "/", secure })
+  deleteCookie(c, ACCOUNT_REACTIVATION_COOKIE, {
+    path: "/api/auth/reactivate",
+    secure,
+  })
+}
+
+export function readAccountReactivationCookie(c: Context): string | null {
+  return getCookie(c, ACCOUNT_REACTIVATION_COOKIE) ?? null
+}
+
+export function setAccountReactivationCookie(c: Context, token: string): void {
+  setCookie(c, ACCOUNT_REACTIVATION_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: secureCookies(),
+    path: "/api/auth/reactivate",
+    maxAge: ACCOUNT_REACTIVATION_MAX_AGE_SEC,
+  })
+}
+
+export function clearAccountReactivationCookie(c: Context): void {
+  deleteCookie(c, ACCOUNT_REACTIVATION_COOKIE, {
+    path: "/api/auth/reactivate",
+    secure: secureCookies(),
+  })
 }
 
 function oauthStateCookieName(providerId: string): string {

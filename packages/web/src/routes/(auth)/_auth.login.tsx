@@ -5,10 +5,20 @@ import { redirectAuthedBeforeLoad } from "@/lib/auth-guards"
 import { sanitizeLoginRedirect } from "@/lib/login-redirect"
 import { loadAuthConfig } from "@/lib/session-suspense"
 
+type LoginSearch = {
+  redirect?: string
+  reactivate?: boolean
+}
+
 export const Route = createFileRoute("/(auth)/_auth/login")({
-  validateSearch: (search): { redirect?: string } => {
+  validateSearch: (search) => {
+    const result: LoginSearch = {}
     const target = sanitizeLoginRedirect(search.redirect)
-    return target ? { redirect: target } : {}
+    if (target) result.redirect = target
+    if (search.reactivate === true || search.reactivate === "true") {
+      result.reactivate = true
+    }
+    return result
   },
   beforeLoad: redirectAuthedBeforeLoad,
   loader: async ({ context }) => {
@@ -23,7 +33,13 @@ export const Route = createFileRoute("/(auth)/_auth/login")({
 
 function LoginPage() {
   const { config } = Route.useLoaderData()
-  const { redirect: redirectTo } = Route.useSearch()
+  const { reactivate, redirect: redirectTo } = Route.useSearch()
 
-  return <LoginPageInner config={config} redirectTo={redirectTo} />
+  return (
+    <LoginPageInner
+      config={config}
+      redirectTo={redirectTo}
+      reactivate={reactivate}
+    />
+  )
 }

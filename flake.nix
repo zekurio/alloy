@@ -48,7 +48,17 @@
           inherit alloy dockerImage;
         };
 
-        checks.default = alloy;
+        checks = {
+          default = alloy;
+          nixos-module-security = import ./nix/module-security-test.nix {
+            inherit
+              nixpkgs
+              pkgs
+              self
+              system
+              ;
+          };
+        };
       }
     )
     // {

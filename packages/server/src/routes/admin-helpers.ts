@@ -70,6 +70,7 @@ const adminUserColumns = {
   role: user.role,
   status: user.status,
   disabledAt: user.disabled_at,
+  adminSuspendedAt: user.admin_suspended_at,
   createdAt: user.created_at,
   storageQuotaBytes: user.storage_quota_bytes,
 }
@@ -81,6 +82,7 @@ interface AdminUserBaseRow {
   role: string | null
   status: UserStatus
   disabledAt: Date | null
+  adminSuspendedAt: Date | null
   createdAt: Date
   storageQuotaBytes: number | null
 }
@@ -102,6 +104,7 @@ async function enrichUserRows(
     status: row.status,
     createdAt: isoDate(row.createdAt),
     disabledAt: nullableIsoDate(row.disabledAt),
+    adminSuspendedAt: nullableIsoDate(row.adminSuspendedAt),
     storageQuotaBytes: row.storageQuotaBytes,
     storageUsedBytes: usage.get(row.id) ?? 0,
     clipCount: clipCounts.get(row.id) ?? 0,

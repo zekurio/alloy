@@ -214,6 +214,16 @@ export function callbackURLWithWelcome(
   return url.toString()
 }
 
+export function loginURLWithAccountReactivation(callbackURL: string): string {
+  const callback = new URL(callbackURL)
+  const login = new URL("/login", callback.origin)
+  login.searchParams.set("reactivate", "true")
+
+  const redirect = `${callback.pathname}${callback.search}`
+  if (redirect !== "/") login.searchParams.set("redirect", redirect)
+  return login.toString()
+}
+
 /**
  * Build an error redirect aimed at the login page on the sign-in callback's
  * own origin. A failed sign-in leaves the visitor logged out, so the original

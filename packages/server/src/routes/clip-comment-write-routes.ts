@@ -72,7 +72,11 @@ export const clipCommentWriteRoutes = new Hono()
             and(
               eq(clip.id, id),
               clipAccessCondition(
-                { id: viewerId, role: c.var.session.user.role },
+                {
+                  id: viewerId,
+                  role: c.var.session.user.role,
+                  status: c.var.session.user.status,
+                },
                 "engagement",
               ),
             ),
@@ -245,7 +249,11 @@ export const clipCommentWriteRoutes = new Hono()
             and(
               eq(clip.id, existing.clipId),
               clipAccessCondition(
-                { id: viewerId, role: c.var.session.user.role },
+                {
+                  id: viewerId,
+                  role: c.var.session.user.role,
+                  status: c.var.session.user.status,
+                },
                 "engagement",
               ),
             ),

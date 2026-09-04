@@ -173,10 +173,17 @@ export function parseServerEnv(source: EnvSource = process.env) {
     source.PUBLIC_SERVER_URL ?? "http://localhost:2552"
 
   const raw = parseServerEnvRaw(source, defaultPublicServerUrl)
+  const publicServerUrl = new URL(raw.PUBLIC_SERVER_URL)
+
+  if (raw.NODE_ENV === "production" && publicServerUrl.protocol !== "https:") {
+    throw new Error(
+      "[server/env] PUBLIC_SERVER_URL must use HTTPS in production.",
+    )
+  }
 
   if (
     raw.NODE_ENV === "production" &&
-    isLoopbackHostname(new URL(raw.PUBLIC_SERVER_URL).hostname)
+    isLoopbackHostname(publicServerUrl.hostname)
   ) {
     throw new Error(
       "[server/env] PUBLIC_SERVER_URL must be the externally reachable origin in production.",

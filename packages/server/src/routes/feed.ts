@@ -56,7 +56,7 @@ export const feedRoute = new Hono()
     } = c.req.valid("query")
 
     const session = await getSession(c)
-    const viewerId = session?.user.id ?? null
+    const viewerId = session?.user.status === "active" ? session.user.id : null
 
     if (filter === "following" && !viewerId) {
       return c.json({ items: [], nextCursor: null })
@@ -125,7 +125,7 @@ export const feedRoute = new Hono()
     const { limit } = c.req.valid("query")
 
     const session = await getSession(c)
-    const viewerId = session?.user.id ?? null
+    const viewerId = session?.user.status === "active" ? session.user.id : null
     const vid = viewerId ?? null
 
     const likedCount = sql<number>`(count(distinct ${clipLike.clip_id}))::int`

@@ -1,5 +1,12 @@
 import type { IsoDateString, UserRole, UserStatus } from "./shared"
 
+export const AUTH_ERROR_CODES = {
+  accountReactivationRequired: "account_reactivation_required",
+  accountBanned: "account_banned",
+} as const
+export type AuthErrorCode =
+  (typeof AUTH_ERROR_CODES)[keyof typeof AUTH_ERROR_CODES]
+
 /**
  * The authenticated user as it crosses the wire.
  *

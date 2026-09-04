@@ -77,8 +77,9 @@ async function visibleClipConditions(
   { includeOwnerUploads = false }: { includeOwnerUploads?: boolean } = {},
 ): Promise<SQL[]> {
   const session = await getSession(c)
-  const isOwner = session?.user.id === row.id
-  const isAdmin = session?.user.role === "admin"
+  const activeUser = session?.user.status === "active" ? session.user : null
+  const isOwner = activeUser?.id === row.id
+  const isAdmin = activeUser?.role === "admin"
   const canSeeUploads = includeOwnerUploads && (isOwner || isAdmin)
   const conditions: SQL[] = [
     eq(clip.author_id, row.id),
@@ -95,7 +96,8 @@ async function visibleClipConditions(
 
 export async function listTaggedClips(row: UserRow, c: Context) {
   const session = await getSession(c)
-  const isAdmin = session?.user.role === "admin"
+  const isAdmin =
+    session?.user.status === "active" && session.user.role === "admin"
 
   const conditions: SQL[] = [
     eq(clipMention.mentioned_user_id, row.id),
@@ -120,8 +122,9 @@ export async function listTaggedClips(row: UserRow, c: Context) {
 
 export async function listLikedClips(row: UserRow, c: Context) {
   const session = await getSession(c)
-  const isOwner = session?.user.id === row.id
-  const isAdmin = session?.user.role === "admin"
+  const activeUser = session?.user.status === "active" ? session.user : null
+  const isOwner = activeUser?.id === row.id
+  const isAdmin = activeUser?.role === "admin"
 
   const conditions: SQL[] = [
     eq(clipLike.user_id, row.id),
@@ -131,12 +134,7 @@ export async function listLikedClips(row: UserRow, c: Context) {
   if (isOwner) {
     // Liking required link access, so owners keep unlisted clips in their own
     // list. Current clip access still hides another author's private clip.
-    conditions.push(
-      clipAccessCondition(
-        { id: session.user.id, role: session.user.role },
-        "engagement",
-      ),
-    )
+    conditions.push(clipAccessCondition(activeUser, "engagement"))
   } else if (!isAdmin) {
     // Other profile viewers only see discoverable clips.
     conditions.push(publicClipPrivacyCondition())

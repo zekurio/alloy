@@ -61,7 +61,8 @@ export async function canModerateComment({
 
   const clipAuthorId = await selectClipAuthorId(row.clipId)
   const session = await getSession(c)
-  const isAdmin = session?.user.role === "admin"
+  const isAdmin =
+    session?.user.status === "active" && session.user.role === "admin"
   const isCommentAuthor = row.authorId === viewerId
   const isClipAuthor = clipAuthorId === viewerId
   if (!isCommentAuthor && !isClipAuthor && !isAdmin) {
