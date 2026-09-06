@@ -16,7 +16,6 @@ import { getRecordingSettings } from "./server-store"
 
 let lastReplayBufferStartSoundKey: string | null = null
 let lastClipSavedSoundKey: string | null = null
-let pendingReplaySaveRequestSounds = 0
 let replayBufferStartSoundSuppressionDepth = 0
 
 export function playNotificationSound(
@@ -54,27 +53,6 @@ export async function withReplayBufferStartSoundSuppressed<T>(
   } finally {
     replayBufferStartSoundSuppressionDepth -= 1
   }
-}
-
-/**
- * Play the clip-saved sound immediately when a replay save is requested (so
- * the user hears feedback before the file lands) and suppress the duplicate
- * sound for the capture that follows.
- */
-export function requestReplaySaveSound(
-  status: RecordingStatus | null,
-): boolean {
-  if (!canReplayBufferSaveFromStatus(status)) return false
-
-  pendingReplaySaveRequestSounds += 1
-  playClipSavedSound(
-    `requested:${Date.now()}:${pendingReplaySaveRequestSounds}`,
-  )
-  return true
-}
-
-export function cancelReplaySaveRequestedSoundSuppression(): void {
-  if (pendingReplaySaveRequestSounds > 0) pendingReplaySaveRequestSounds -= 1
 }
 
 function maybePlayReplayBufferStartedSound(event: RecordingEvent): void {
@@ -128,12 +106,6 @@ function maybePlayClipSavedSound(capture: RecordingCapture): void {
   if (capture.kind !== "replay") return
 
   const soundKey = capture.id || capture.filename
-  if (pendingReplaySaveRequestSounds > 0) {
-    pendingReplaySaveRequestSounds -= 1
-    lastClipSavedSoundKey = soundKey
-    return
-  }
-
   playClipSavedSound(soundKey)
 }
 
@@ -142,14 +114,4 @@ function playClipSavedSound(soundKey: string): void {
   lastClipSavedSoundKey = soundKey
 
   playNotificationSound("clipSaved")
-}
-
-function canReplayBufferSaveFromStatus(
-  status: RecordingStatus | null,
-): boolean {
-  return (
-    status?.backend === "ready" &&
-    status.replayActive &&
-    status.runState !== "error"
-  )
 }

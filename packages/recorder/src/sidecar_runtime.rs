@@ -602,6 +602,25 @@ fn main() {
     sidecar_hotkeys::start();
     let (tx, rx) = mpsc::channel::<Request>();
     let status = Arc::new(Mutex::new(Recorder::default().status()));
+    // Allow normal configure and output shutdown work to finish. If OBS blocks
+    // beyond this deadline, exit so Electron can start a fresh recorder.
+    let progress = Arc::new(sidecar_watchdog::RecorderProgress::new(
+        Instant::now(),
+        Duration::from_secs(90),
+    ));
+    let watched_progress = Arc::clone(&progress);
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_secs(5));
+        if watched_progress.stalled(Instant::now()) {
+            eprintln!("[{SIDE_CAR_NAME}] recorder made no progress for 90 seconds; exiting for recovery");
+            // DLL shutdown handlers can wait on the blocked OBS thread too.
+            // SAFETY: This is our own process. Electron owns its restart.
+            unsafe {
+                use windows_sys::Win32::System::Threading::{GetCurrentProcess, TerminateProcess};
+                TerminateProcess(GetCurrentProcess(), 1);
+            }
+        }
+    });
 
     let io_status = Arc::clone(&status);
     thread::spawn(move || {
@@ -656,6 +675,7 @@ fn main() {
                     handle_request(&mut recorder, batch.request)
                 };
                 publish_status(&status, &recorder);
+                progress.completed(Instant::now());
                 for id in batch.superseded_configure_ids {
                     write_response(response_for_id(&response, id));
                 }
@@ -673,6 +693,7 @@ fn main() {
         if Instant::now() >= next_tick {
             recorder.tick();
             publish_status(&status, &recorder);
+            progress.completed(Instant::now());
             next_tick = Instant::now() + TICK_INTERVAL;
         }
     }

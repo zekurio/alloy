@@ -68,6 +68,7 @@ type SignalHandler = c_void;
 type SignalCallback = unsafe extern "C" fn(*mut c_void, *mut CallData);
 
 mod sidecar_hotkeys;
+mod sidecar_watchdog;
 mod sidecar_windows_com;
 
 include!("sidecar_types.rs");
