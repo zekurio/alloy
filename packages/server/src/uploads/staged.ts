@@ -22,7 +22,8 @@ export async function mintStagedUpload(input: {
 
 /**
  * Filesystem tickets are served by this Alloy instance. Return them on the
- * same origin the browser used, so reverse-proxy aliases stay same-origin.
+ * request host, so reverse-proxy aliases stay same-origin. Preserve HTTPS
+ * from the configured upload URL when the proxy forwards requests over HTTP.
  * Future external-storage tickets keep their provider URL unchanged.
  */
 export function uploadTicketForRequestOrigin(
@@ -33,6 +34,7 @@ export function uploadTicketForRequestOrigin(
     const upload = new URL(ticket.uploadUrl)
     const request = new URL(requestUrl)
     if (!upload.pathname.startsWith("/api/assets/upload/")) return ticket
+    if (upload.protocol === "https:") request.protocol = "https:"
     const rebased = new URL(
       `${upload.pathname}${upload.search}`,
       request.origin,
