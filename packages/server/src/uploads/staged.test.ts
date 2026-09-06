@@ -35,3 +35,26 @@ test("preserves external storage upload tickets", () => {
     external,
   )
 })
+
+test("keeps HTTPS upload tickets secure behind an HTTP reverse proxy", () => {
+  assert.equal(
+    uploadTicketForRequestOrigin(
+      ticket,
+      "http://lan-alias.example/api/clips/initiate",
+    ).uploadUrl,
+    "https://lan-alias.example/api/assets/upload/signed?part=1",
+  )
+})
+
+test("supports HTTP upload tickets for local development", () => {
+  assert.equal(
+    uploadTicketForRequestOrigin(
+      {
+        ...ticket,
+        uploadUrl: "http://localhost:2552/api/assets/upload/signed",
+      },
+      "http://localhost:3000/api/clips/initiate",
+    ).uploadUrl,
+    "http://localhost:3000/api/assets/upload/signed",
+  )
+})
