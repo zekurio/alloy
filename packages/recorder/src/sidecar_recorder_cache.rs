@@ -226,7 +226,7 @@ impl Recorder {
     }
 
     fn current_mode(&self) -> RecordingMode {
-        if self.replay_session.is_some() {
+        if self.replay_buffer_available() {
             RecordingMode::ReplayBuffer
         } else {
             RecordingMode::Idle

@@ -29,7 +29,6 @@ import {
 import { obsRuntimeDir, sidecarExecutablePath } from "./recording-sidecar-paths"
 import {
   handleRecordingEventSound,
-  requestReplaySaveSound,
   withReplayBufferStartSoundSuppressed,
 } from "./recording-sound-policy"
 import {
@@ -67,7 +66,6 @@ export {
 } from "./recording-storage"
 
 const logger = createLogger("recording")
-export { cancelReplaySaveRequestedSoundSuppression } from "./recording-sound-policy"
 
 setRecordingNotificationSoundPlayer((path, volume) => {
   const client = getSidecarClient()
@@ -239,10 +237,6 @@ export async function restartRecordingBackend(): Promise<RecordingStatus> {
   return configureRecordingBackend()
 }
 
-export function playReplaySaveRequestedSound(): boolean {
-  return requestReplaySaveSound(getLastRecordingStatus())
-}
-
 async function runRecordingAction(
   method: "saveReplayClip",
   params?: SaveReplayClipRequest,
@@ -353,7 +347,6 @@ function emitRecordingEvent(event: SidecarEvent): void {
   }
 
   if (event.type === "capture-ready") {
-    handleRecordingEventSound(event)
     void emitFinalizedCaptureReady(event)
     return
   }
@@ -374,6 +367,7 @@ async function emitFinalizedCaptureReady(
     }
     rememberRecordingStatus(finalized.status)
     rememberRecordingLibraryCapture(capture)
+    handleRecordingEventSound(finalized)
     sendRecordingEvent(finalized)
   } catch (cause) {
     logger.warn("failed to finalize recording capture:", cause)
