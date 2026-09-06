@@ -2,12 +2,7 @@ import type { RecordingSettings } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app, globalShortcut } from "electron"
 
-import {
-  cancelReplaySaveRequestedSoundSuppression,
-  onRecordingClipHotkey,
-  playReplaySaveRequestedSound,
-  saveReplayClip,
-} from "./recording"
+import { onRecordingClipHotkey, saveReplayClip } from "./recording"
 import { electronAccelerator } from "./recording-hotkey-accelerator"
 import { getRecordingSettings } from "./server-store"
 
@@ -116,18 +111,13 @@ async function runAction(
 ): Promise<void> {
   switch (action.type) {
     case "clip": {
-      const playedRequestSound = playReplaySaveRequestedSound()
       const result = await saveReplayClip({
         requestedAtUnixMs,
         durationSeconds: action.durationSeconds,
       })
       if (!result.ok) {
-        if (playedRequestSound) cancelReplaySaveRequestedSoundSuppression()
         logger.warn(`recording clip hotkey failed: ${result.error}`)
         return
-      }
-      if (!result.capture && playedRequestSound) {
-        cancelReplaySaveRequestedSoundSuppression()
       }
       return
     }

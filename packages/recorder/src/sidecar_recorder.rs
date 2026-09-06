@@ -170,7 +170,7 @@ impl Recorder {
             mode,
             capture_mode: settings.capture_mode.clone(),
             run_state,
-            replay_active: self.replay_session.is_some(),
+            replay_active: self.replay_buffer_available(),
             active_game: self.active_game.as_ref().map(|game| game.game.name.clone()),
             active_game_detail: self.active_game.as_ref().map(|game| game.game.clone()),
             active_display: self.active_display.clone(),
@@ -352,6 +352,15 @@ impl Recorder {
     }
 
     fn save_replay_clip(&mut self, params: SaveReplayClipParams) -> RecordingActionResult {
+        if let Err(error) = self.discard_unavailable_replay_buffer() {
+            self.last_error = Some(error.clone());
+            let result = self.action_error(&error);
+            emit_event(RecordingEvent::Error {
+                error,
+                status: result.status.clone(),
+            });
+            return result;
+        }
         let Some(session) = self.replay_session.as_ref() else {
             return RecordingActionResult {
                 ok: true,
@@ -697,13 +706,11 @@ impl Recorder {
             }
         }
 
-        if self.active_replay_buffer_game_content_expired() {
-            if let Err(error) = self.stop_active_replay_buffer() {
-                self.last_error = Some(error.clone());
-                let status = self.status();
-                emit_event(RecordingEvent::Error { error, status });
-                return;
-            }
+        if let Err(error) = self.discard_unavailable_replay_buffer() {
+            self.last_error = Some(error.clone());
+            let status = self.status();
+            emit_event(RecordingEvent::Error { error, status });
+            return;
         }
 
         if settings.enabled
@@ -801,6 +808,37 @@ impl Recorder {
             .as_ref()
             .and_then(|session| session.game_content_expires_at)
             .is_some_and(|expires_at| Instant::now() >= expires_at)
+    }
+
+    fn replay_output_active(&self) -> bool {
+        self.replay_session.as_ref().is_some_and(|session| {
+            self.obs.as_ref().is_some_and(|obs| unsafe {
+                (obs.obs_output_active)(session.output)
+            })
+        })
+    }
+
+    fn replay_buffer_available(&self) -> bool {
+        self.replay_output_active() && !self.active_replay_buffer_game_content_expired()
+    }
+
+    fn discard_unavailable_replay_buffer(&mut self) -> Result<(), String> {
+        if self.active_replay_buffer_game_content_expired() {
+            return self.stop_active_replay_buffer();
+        }
+        let Some(session) = self.replay_session.as_ref() else {
+            return Ok(());
+        };
+        if self.replay_output_active() {
+            return Ok(());
+        }
+
+        let error = self.obs.as_ref()
+            .and_then(|obs| unsafe { output_last_error(obs, session.output) })
+            .unwrap_or_else(|| "OBS replay output stopped unexpectedly.".to_string());
+        eprintln!("[{SIDE_CAR_NAME}] discarding stopped replay buffer: {error}");
+        self.stop_active_replay_buffer()?;
+        Err(error)
     }
 
     fn active_replay_target_changed(&self, settings: &RecordingSettings) -> bool {

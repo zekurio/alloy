@@ -34,6 +34,13 @@ Supported methods:
 The `version` method returns the agent semantic version, protocol version, and
 capability list. Desktop requires protocol v1 before calling `configure`.
 
+## Recovery
+
+The recorder checks whether OBS still has an active replay output before saving.
+It discards stopped outputs. If recorder work stalls for 90 seconds, a watchdog
+ends the process so Electron can restart it. This discards the unsaved buffer.
+Cached status reads and hotkey events do not renew the watchdog deadline.
+
 ## Commands
 
 ```bash
