@@ -305,7 +305,21 @@ export class RecordingSidecarClient {
     this.reader = null
     const error = new Error(message)
     this.configureQueue.fail(error)
-    const status = { ...this.lastStatus, backend: "error" as const, message }
+    const status: RecordingStatus = {
+      ...this.lastStatus,
+      backend: "error",
+      mode: "idle",
+      runState: "error",
+      replayActive: false,
+      activeGame: null,
+      activeGameDetail: null,
+      activeDisplay: null,
+      focused: false,
+      currentSource: null,
+      currentCapture: null,
+      telemetry: null,
+      message,
+    }
     this.lastStatus = status
     this.rejectPending(error)
     this.emitEvent({ type: "error", error: message, status })
