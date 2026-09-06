@@ -13,12 +13,12 @@ import { useDesktopUpdateState } from "@/lib/desktop-updates"
 
 /**
  * Device-local "update ready" control pinned in the nav rail's bottom cluster.
- * Icon-only to fit the rail; the state and version details live in a tooltip.
+ * The rail shows an icon. Its tooltip shows the current update state.
  * Renders nothing in a regular browser or until an update is available,
  * downloading, or ready to install.
  */
 export function DesktopUpdatePill() {
-  const { status, version } = useDesktopUpdateState()
+  const { status } = useDesktopUpdateState()
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [restartDialogOpen, setRestartDialogOpen] = useState(false)
@@ -66,7 +66,7 @@ export function DesktopUpdatePill() {
   }
 
   const label = error
-    ? t("Try again")
+    ? error
     : pending
       ? downloaded
         ? t("Restarting…")
@@ -76,26 +76,11 @@ export function DesktopUpdatePill() {
         : status === "available"
           ? t("Update available")
           : t("Downloading update")
-  const detail =
-    error ??
-    (version
-      ? status === "available"
-        ? t("Alloy {version} is available to download.", { version })
-        : t("Alloy {version} has been downloaded.", { version })
-      : status === "available"
-        ? t("A new version is available to download.")
-        : t("A new version has been downloaded."))
 
   return (
     <>
       <AppSidebarItemTooltip
-        className="flex-col items-start gap-0.5"
-        label={
-          <>
-            <span className="font-medium">{label}</span>
-            <span className="opacity-80">{detail}</span>
-          </>
-        }
+        label={label}
         render={
           // aria-disabled (with a guarded click handler) instead of the
           // disabled attribute so the control keeps emitting hover events and
@@ -104,7 +89,7 @@ export function DesktopUpdatePill() {
             type="button"
             aria-disabled={busy || undefined}
             onClick={runAction}
-            aria-label={busy ? label : detail}
+            aria-label={label}
             className={cn(
               "text-accent bg-accent/12",
               busy
