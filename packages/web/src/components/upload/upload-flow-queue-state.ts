@@ -5,6 +5,7 @@ import {
   useReEncodeClipMutation,
   useUploadQueueQuery,
 } from "@/lib/clip-queries"
+import { useDismissedClips } from "@/lib/clip-queue-dismissal-queries"
 
 import { useRunUpload } from "./upload-flow-active-upload"
 import { useUploadQueueItems } from "./upload-flow-queue-items"
@@ -14,7 +15,6 @@ import {
   useServerQueueSync,
   useUploadQueueRuntime,
 } from "./upload-flow-queue-runtime"
-import { useDismissedClips } from "./use-dismissed-clips"
 
 export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
   const runtime = useUploadQueueRuntime()
@@ -46,7 +46,7 @@ export function useUploadQueueState(onOpenClip: (row: QueueClip) => void) {
     runtime.retainedThumbsRef,
     runtime.bump,
   )
-  const dismissedClips = useDismissedClips()
+  const dismissedClips = useDismissedClips(serverQueue)
   const queue = useUploadQueueItems(
     runtime.queueVersion,
     runtime.activeRef,

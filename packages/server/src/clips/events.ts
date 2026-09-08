@@ -19,7 +19,10 @@ export async function publishClipUpsert(
 ): Promise<void> {
   try {
     const row = await selectQueueRowById(clipId)
-    if (!row) return
+    if (!row) {
+      publishClipRemove(authorId, clipId)
+      return
+    }
     publish(channel(authorId), {
       type: "upsert",
       clip: row,

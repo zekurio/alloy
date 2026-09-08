@@ -2,9 +2,17 @@ import { normalizeBlurHash, type QueueClip } from "@alloy/contracts"
 import { clip, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { isoDate } from "@alloy/server/runtime/date"
-import { and, desc, eq, isNotNull, or, sql } from "drizzle-orm"
+import { and, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm"
 
 import { clipAssetVersion } from "./asset-version"
+
+const activeCondition = or(
+  eq(clip.status, "pending"),
+  eq(clip.status, "processing"),
+  isNotNull(clip.encode_request_id),
+  isNotNull(clip.encode_run_id),
+)
+const visibleCondition = or(isNull(clip.queue_dismissed_at), activeCondition)
 
 const queueSelection = {
   id: clip.id,
@@ -71,10 +79,6 @@ function serialize(row: {
 export async function selectQueueRowsForAuthor(
   authorId: string,
 ): Promise<QueueClip[]> {
-  const activeCondition = or(
-    isNotNull(clip.encode_request_id),
-    isNotNull(clip.encode_run_id),
-  )
   const [active, recent] = await Promise.all([
     db
       .select(queueSelection)
@@ -86,7 +90,7 @@ export async function selectQueueRowsForAuthor(
       .select(queueSelection)
       .from(clip)
       .leftJoin(game, eq(clip.game_id, game.id))
-      .where(eq(clip.author_id, authorId))
+      .where(and(eq(clip.author_id, authorId), visibleCondition))
       .orderBy(desc(clip.created_at))
       .limit(50),
   ])
@@ -103,7 +107,7 @@ export async function selectQueueRowById(
     .select(queueSelection)
     .from(clip)
     .leftJoin(game, eq(clip.game_id, game.id))
-    .where(eq(clip.id, clipId))
+    .where(and(eq(clip.id, clipId), visibleCondition))
     .limit(1)
   return row ? serialize(row) : null
 }
