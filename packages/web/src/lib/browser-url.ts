@@ -24,15 +24,6 @@ export function goBackInBrowserHistory(): boolean {
   return true
 }
 
-export function currentUrlWithoutSearchOrHash(): string | null {
-  if (!globalThis.window) return null
-
-  const url = currentPublicUrl()
-  url.search = ""
-  url.hash = ""
-  return url.toString()
-}
-
 export function currentUrlWithQueryParam(
   key: string,
   value: string,

@@ -5,7 +5,6 @@ import { afterEach, test } from "vite-plus/test"
 import {
   consumeCurrentQueryParam,
   currentUrlWithQueryParam,
-  currentUrlWithoutSearchOrHash,
 } from "./browser-url"
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window")
@@ -19,10 +18,6 @@ afterEach(() => {
 test("builds share URLs from the current server route", () => {
   installWindow("https://clips.example.test/games/halo/clips/clip-1?view=grid")
 
-  assert.equal(
-    currentUrlWithoutSearchOrHash(),
-    "https://clips.example.test/games/halo/clips/clip-1",
-  )
   assert.equal(
     currentUrlWithQueryParam("comment", "comment-1"),
     "https://clips.example.test/games/halo/clips/clip-1?view=grid&comment=comment-1",

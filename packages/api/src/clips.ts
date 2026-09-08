@@ -253,6 +253,16 @@ async function setClipPoster(
   return readJsonOrThrow(res, validateClipRow)
 }
 
+async function reannounceClip(
+  context: ApiContext,
+  clipId: string,
+): Promise<void> {
+  const res = await context.rpc.api.clips[":id"].reannounce.$post({
+    param: { id: clipId },
+  })
+  await readNoContentOrThrow(res)
+}
+
 async function fetchLikeState(
   context: ApiContext,
   clipId: string,
@@ -308,6 +318,7 @@ export function createClipsApi(context: ApiContext) {
     trim: (clipId: string, input: TrimClipInput) =>
       trimClip(context, clipId, input),
     reEncode: (clipId: string) => reEncodeClip(context, clipId),
+    reannounce: (clipId: string) => reannounceClip(context, clipId),
     setPoster: (clipId: string, input: SetClipPosterInput) =>
       setClipPoster(context, clipId, input),
     fetchLikeState: (clipId: string) => fetchLikeState(context, clipId),

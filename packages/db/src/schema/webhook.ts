@@ -79,6 +79,7 @@ export const webhookDelivery = pgTable(
     // without needing a second, generic job row.
     next_attempt_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     response_status: integer(),
+    discord_message_id: text(),
     error: text(),
     created_at: timestamp({ withTimezone: true }).notNull().defaultNow(),
     delivered_at: timestamp({ withTimezone: true }),

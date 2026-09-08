@@ -1,6 +1,6 @@
 {
-  "id": "92ba3fa1-9b8a-4ace-a29a-8aa6401c1c8d",
-  "prevId": "68e1111f-e898-49bd-90d4-f555e7582a1c",
+  "id": "7bcbff0a-a8cd-48e8-b068-6cf4f8cf74ae",
+  "prevId": "92ba3fa1-9b8a-4ace-a29a-8aa6401c1c8d",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -214,6 +214,12 @@
         },
         "published_at": {
           "name": "published_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "queue_dismissed_at": {
+          "name": "queue_dismissed_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

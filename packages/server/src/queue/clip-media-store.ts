@@ -297,22 +297,17 @@ export const clipMediaStore: MediaStore = {
   },
 
   async commitPlayable(id, runId) {
-    const result = await db.transaction(async (tx) => {
-      const [row] = await tx
-        .update(clip)
-        .set({
-          status: "ready",
-          published_at: publishedAtStamp,
-          updated_at: new Date(),
-        })
-        .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-        .returning({ id: clip.id })
-      if (!row) return { committed: false, webhookClaims: 0 }
-      const webhookClaims = await claimClipPublishedDeliveries(tx, id)
-      return { committed: true, webhookClaims }
-    })
-    wakeClaimedClipPublishedDeliveries(result.webhookClaims)
-    return result.committed
+    const [row] = await db
+      .update(clip)
+      .set({
+        status: "ready",
+        published_at: publishedAtStamp,
+        updated_at: new Date(),
+      })
+      .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
+      .returning({ id: clip.id })
+    // commitReady announces after the OG rendition is publicly reachable.
+    return Boolean(row)
   },
 
   async commitReady(id, runId, patch, renditions, audioTracks, completion) {
