@@ -33,5 +33,9 @@ export function absoluteClipHref(
   origin: string,
   options: { commentId?: string | null } = {},
 ): string {
-  return resolvePublicUrl(clipHref(steamgriddbId, clipId, options), origin)
+  const url = new URL(
+    resolvePublicUrl(clipHref(steamgriddbId, clipId, options), origin),
+  )
+  url.searchParams.set("t", String(Date.now()))
+  return url.toString()
 }

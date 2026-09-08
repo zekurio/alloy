@@ -166,7 +166,11 @@ export async function mountWeb(app: Hono): Promise<Hono> {
     if (pathname === "/health" || pathname.startsWith("/api/")) {
       return c.notFound()
     }
-    const head = await clipHead(pathname)
+    const timestamp = Number(c.req.query("t"))
+    const head = await clipHead(
+      pathname,
+      Number.isSafeInteger(timestamp) && timestamp > 0 ? timestamp : undefined,
+    )
     if (
       configStore.get("requireAuthToBrowse") &&
       !PUBLIC_WEB_PATHS.has(pathname) &&

@@ -1,8 +1,28 @@
-import type { ClipPublishedPayload } from "@alloy/contracts"
+import { clipShareUrl, type ClipPublishedPayload } from "@alloy/contracts"
 import { selectEmbeddableClip } from "@alloy/server/clips/access"
-import { embedPosterUrl, embedVideo } from "@alloy/server/clips/embed-media"
+import {
+  embedPosterUrl,
+  embedVideo,
+  type EmbedMediaClip,
+} from "@alloy/server/clips/embed-media"
 import { env } from "@alloy/server/env"
 import { clipGameName } from "@alloy/server/games/ref"
+
+type AnnouncementClip = Pick<
+  NonNullable<Awaited<ReturnType<typeof selectEmbeddableClip>>>,
+  | keyof EmbedMediaClip
+  | "privacy"
+  | "title"
+  | "description"
+  | "game"
+  | "gameId"
+  | "durationMs"
+  | "createdAt"
+  | "publishedAt"
+  | "authorId"
+  | "authorUsername"
+  | "authorDisplayName"
+>
 
 export function clipPermalink(clipId: string): string {
   return new URL(`/clips/${clipId}`, env.PUBLIC_SERVER_URL).toString()
@@ -19,21 +39,41 @@ export function clipPermalink(clipId: string): string {
 export async function clipPublishedPayload(
   clipId: string,
   deliveryId: string,
+  announcedAt: Date,
 ): Promise<ClipPublishedPayload | null> {
   // selectEmbeddableClip already enforces ready status and a live author, but
   // it also admits unlisted clips because embeds are reachable by link.
   // Announcements are not: only public clips leave the instance.
   const row = await selectEmbeddableClip(clipId)
-  if (!row || row.privacy !== "public") return null
+  return row
+    ? buildClipPublishedPayload(
+        row,
+        deliveryId,
+        env.PUBLIC_SERVER_URL,
+        announcedAt,
+      )
+    : null
+}
 
-  const origin = env.PUBLIC_SERVER_URL
+export function buildClipPublishedPayload(
+  row: AnnouncementClip,
+  deliveryId: string,
+  origin: string,
+  announcedAt: Date,
+): ClipPublishedPayload | null {
+  if (
+    row.privacy !== "public" ||
+    !row.renditionRows.some((rendition) => rendition.og)
+  )
+    return null
+
   return {
     event: "clip.published",
     deliveryId,
-    timestamp: new Date().toISOString(),
+    timestamp: announcedAt.toISOString(),
     clip: {
       id: row.id,
-      url: clipPermalink(row.id),
+      url: clipShareUrl(row.id, origin, announcedAt.getTime()),
       title: row.title,
       description: row.description,
       game: clipGameName(row),

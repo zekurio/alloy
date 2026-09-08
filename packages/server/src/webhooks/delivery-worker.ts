@@ -34,6 +34,7 @@ async function selectNextPending() {
   const [row] = await db
     .select({
       deliveryId: webhookDelivery.id,
+      createdAt: webhookDelivery.created_at,
       attempts: webhookDelivery.attempts,
       nextAttemptAt: webhookDelivery.next_attempt_at,
       clipId: webhookDelivery.clip_id,
@@ -84,7 +85,11 @@ async function deliverPending(
 
   let announcement
   try {
-    announcement = await clipPublishedPayload(row.clipId, row.deliveryId)
+    announcement = await clipPublishedPayload(
+      row.clipId,
+      row.deliveryId,
+      row.createdAt,
+    )
   } catch (cause) {
     if (signal.aborted) return
     await recordAttempt(row, {
@@ -95,7 +100,7 @@ async function deliverPending(
     return
   }
   if (!announcement) {
-    await skipDelivery(row.deliveryId, "Clip is no longer public")
+    await skipDelivery(row.deliveryId, "Clip is no longer announceable")
     return
   }
   if (signal.aborted) return
