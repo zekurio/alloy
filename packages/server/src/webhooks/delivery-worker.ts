@@ -3,11 +3,15 @@ import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
-import { and, asc, eq, sql } from "drizzle-orm"
+import { and, asc, eq, isNotNull, ne, sql } from "drizzle-orm"
 
 import { webhookFailurePlan } from "./delivery-policy"
 import { clipPublishedPayload, discordContent } from "./payload"
-import { postWebhook, type WebhookSendResult } from "./send"
+import {
+  deleteDiscordWebhookMessage,
+  postWebhook,
+  type WebhookSendResult,
+} from "./send"
 
 const logger = createLogger("webhooks")
 const RECONCILE_INTERVAL_MS = 60_000
@@ -119,6 +123,44 @@ async function deliverPending(
   // the receiver, so the stable delivery ID remains the receiver's dedup key.
   if (signal.aborted) return
   await recordAttempt(row, result)
+  if (result.ok && row.provider === "discord") {
+    if (!result.discordMessageId) {
+      logger.warn(`webhook delivery ${row.deliveryId} returned no message ID`)
+      return
+    }
+    // ponytail: cleanup is best effort; the next announcement retries leftovers.
+    // Add durable cleanup jobs if deletion must recover without another post.
+    const previous = await db
+      .select({
+        id: webhookDelivery.id,
+        messageId: webhookDelivery.discord_message_id,
+      })
+      .from(webhookDelivery)
+      .where(
+        and(
+          eq(webhookDelivery.webhook_id, row.webhookId),
+          eq(webhookDelivery.clip_id, row.clipId),
+          ne(webhookDelivery.id, row.deliveryId),
+          isNotNull(webhookDelivery.discord_message_id),
+        ),
+      )
+    for (const delivery of previous) {
+      if (signal.aborted) return
+      if (!delivery.messageId) continue
+      if (
+        await deleteDiscordWebhookMessage(row.url, delivery.messageId, signal)
+      ) {
+        await db
+          .update(webhookDelivery)
+          .set({ discord_message_id: null })
+          .where(eq(webhookDelivery.id, delivery.id))
+      } else {
+        logger.warn(
+          `could not delete Discord message for delivery ${delivery.id}`,
+        )
+      }
+    }
+  }
 }
 
 async function recordAttempt(
@@ -135,6 +177,9 @@ async function recordAttempt(
       .set({
         attempts: sql`${webhookDelivery.attempts} + 1`,
         response_status: result.status,
+        discord_message_id: result.ok
+          ? (result.discordMessageId ?? null)
+          : null,
         status: result.ok
           ? ("succeeded" as const)
           : terminalFailure

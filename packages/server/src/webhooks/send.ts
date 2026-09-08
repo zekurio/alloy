@@ -7,10 +7,12 @@ import {
   type WebhookEvent,
   type WebhookProvider,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 
 const REQUEST_TIMEOUT_MS = 10_000
 const ERROR_BODY_MAX_CHARS = 200
+const DiscordMessage = t.object({ id: t.string().regex(/^\d+$/) })
 
 export interface WebhookTarget {
   provider: WebhookProvider
@@ -28,7 +30,7 @@ export interface WebhookMessage {
 }
 
 export type WebhookSendResult =
-  | { ok: true; status: number }
+  | { ok: true; status: number; discordMessageId?: string }
   | { ok: false; status: number | null; error: string }
 
 /**
@@ -64,7 +66,9 @@ export async function postWebhook(
 
   // redirect: "error" — a webhook endpoint that redirects is misconfigured or
   // hostile, and following it would send the signature to an unintended host.
-  const result = await fetch(target.url, {
+  const url = new URL(target.url)
+  if (target.provider === "discord") url.searchParams.set("wait", "true")
+  const result = await fetch(url, {
     method: "POST",
     headers,
     body,
@@ -83,7 +87,22 @@ export async function postWebhook(
     return { ok: false, status: null, error: result.error }
   }
   const response = result.response
-  if (response.ok) return { ok: true, status: response.status }
+  if (response.ok) {
+    if (target.provider === "discord") {
+      const message = DiscordMessage.safeParse(
+        await response.json().catch(() => null),
+      )
+      if (message.success) {
+        return {
+          ok: true,
+          status: response.status,
+          discordMessageId: message.data.id,
+        }
+      }
+      // A successful post with an unreadable response must not be reposted.
+    }
+    return { ok: true, status: response.status }
+  }
 
   const detail = await response.text().catch(() => "")
   return {
@@ -93,6 +112,28 @@ export async function postWebhook(
       ? `${response.status}: ${detail.slice(0, ERROR_BODY_MAX_CHARS)}`
       : `Endpoint responded ${response.status}`,
   }
+}
+
+export async function deleteDiscordWebhookMessage(
+  webhookUrl: string,
+  messageId: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const url = new URL(webhookUrl)
+  url.pathname += `/messages/${encodeURIComponent(messageId)}`
+  const threadId = url.searchParams.get("thread_id")
+  url.search = ""
+  if (threadId) url.searchParams.set("thread_id", threadId)
+  return fetch(url, {
+    method: "DELETE",
+    redirect: "error",
+    signal: signal
+      ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+      : AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  }).then(
+    (response) => response.ok || response.status === 404,
+    () => false,
+  )
 }
 
 /**
