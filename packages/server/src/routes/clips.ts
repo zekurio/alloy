@@ -7,6 +7,7 @@ import { notFound } from "@alloy/server/runtime/http-response"
 import { Hono } from "hono"
 
 import { clipCommentsRoutes } from "./clip-comments"
+import { clipsAnnouncementRoutes } from "./clips-announcements"
 import { clipsEngagementRoutes } from "./clips-engagement"
 import { IdParam } from "./clips-helpers"
 import { clipsPlaybackRoutes } from "./clips-playback"
@@ -28,6 +29,7 @@ export const clips = new Hono()
     return c.json(toPublicClipRow(row))
   })
   .route("/", clipsUploadRoutes)
+  .route("/", clipsAnnouncementRoutes)
   .route("/", clipsEngagementRoutes)
   .route("/", clipsPlaybackRoutes)
   .route("/", clipCommentsRoutes)

@@ -4,6 +4,7 @@ import type {
   ClipPrivacy,
   ClipStatus,
 } from "@alloy/api"
+import { clipShareUrl } from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import {
   Avatar,
@@ -37,13 +38,13 @@ import { GameIcon } from "@/components/game/game-icon"
 import { UserFollowButton } from "@/components/user/user-follow-button"
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"
-import { currentUrlWithoutSearchOrHash } from "@/lib/browser-url"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
 import {
   useLikeStateQuery,
   useReEncodeClipMutation,
   useToggleLikeMutation,
 } from "@/lib/clip-queries"
+import { publicOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 import { useGameQuery, useToggleGameFavoriteMutation } from "@/lib/game-queries"
 import { formatCount } from "@/lib/number-format"
@@ -55,6 +56,7 @@ import {
 } from "@/lib/user-queries"
 
 import { ClipMentionsRow } from "./clip-mentions-row"
+import { ClipReannounceMenuItem } from "./clip-reannounce-menu-item"
 import { ClipTagsRow } from "./clip-tags-row"
 import { renderHashtagTokens } from "./description-tokens"
 
@@ -164,8 +166,7 @@ function ClipMeta({
   const handleShare = useCallback(async () => {
     await shareFeedback.run(async () => {
       if (privacy === "private") throw new Error(t("Clip link is disabled"))
-      const url = currentUrlWithoutSearchOrHash()
-      if (url === null) throw new Error(t("Couldn't share clip"))
+      const url = clipShareUrl(clipId, publicOrigin(), Date.now())
       const result = await shareUrlWithFallback(url, {
         title,
         action: "share clip link",
@@ -173,7 +174,7 @@ function ClipMeta({
       if (result === "failed") throw new Error(t("Couldn't share clip"))
       return result !== "cancelled"
     }, t("Couldn't share clip"))
-  }, [privacy, shareFeedback, title])
+  }, [clipId, privacy, shareFeedback, title])
 
   function handleFollow() {
     if (followPending || !profileViewer) return
@@ -279,6 +280,12 @@ function ClipMeta({
                         />
                         {encodeActive ? t("Re-encoding") : t("Re-encode")}
                       </DropdownMenuItem>
+                    ) : null}
+                    {isAdmin && status === "ready" && privacy === "public" ? (
+                      <ClipReannounceMenuItem
+                        clipId={clipId}
+                        disabled={encodeActive}
+                      />
                     ) : null}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

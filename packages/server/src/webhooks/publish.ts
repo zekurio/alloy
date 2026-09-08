@@ -1,5 +1,5 @@
 import { user } from "@alloy/db/auth-schema"
-import { clip, webhook, webhookDelivery } from "@alloy/db/schema"
+import { clip, clipRendition, webhook, webhookDelivery } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
@@ -44,6 +44,7 @@ export function wakeClaimedClipPublishedDeliveries(claimed: number): void {
 export async function claimClipPublishedDeliveries(
   executor: WebhookDbExecutor,
   clipId: string,
+  dedupKey = clipPublishedDedupKey(clipId),
 ): Promise<number> {
   const [row] = await executor
     .select({
@@ -51,6 +52,12 @@ export async function claimClipPublishedDeliveries(
     })
     .from(clip)
     .innerJoin(user, eq(clip.author_id, user.id))
+    // Browser playback can start from the source while encoding continues.
+    // Announcements must wait for the committed social-preview rendition.
+    .innerJoin(
+      clipRendition,
+      and(eq(clipRendition.clip_id, clip.id), eq(clipRendition.is_og, true)),
+    )
     .where(
       and(
         eq(clip.id, clipId),
@@ -78,7 +85,7 @@ export async function claimClipPublishedDeliveries(
         webhook_id: target.id,
         clip_id: clipId,
         event: "clip.published" as const,
-        dedup_key: clipPublishedDedupKey(clipId),
+        dedup_key: dedupKey,
       })),
     )
     .onConflictDoNothing({

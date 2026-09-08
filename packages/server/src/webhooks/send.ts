@@ -7,10 +7,13 @@ import {
   type WebhookEvent,
   type WebhookProvider,
 } from "@alloy/contracts"
+import { t } from "@alloy/contracts/schema"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 
 const REQUEST_TIMEOUT_MS = 10_000
 const ERROR_BODY_MAX_CHARS = 200
+const DiscordMessage = t.object({ id: t.string().regex(/^\d+$/) })
+const DiscordError = t.object({ code: t.number() })
 
 export interface WebhookTarget {
   provider: WebhookProvider
@@ -25,10 +28,12 @@ export interface WebhookMessage {
   content: string
   /** What a generic endpoint receives as the JSON body. */
   body: unknown
+  /** Edit this Discord message; other providers always receive a new post. */
+  discordMessageId?: string
 }
 
 export type WebhookSendResult =
-  | { ok: true; status: number }
+  | { ok: true; status: number; discordMessageId?: string }
   | { ok: false; status: number | null; error: string }
 
 /**
@@ -38,7 +43,7 @@ export type WebhookSendResult =
  * the outcome verbatim, and the delivery job records it before deciding
  * whether to retry.
  */
-export async function postWebhook(
+export async function sendWebhook(
   target: WebhookTarget,
   message: WebhookMessage,
   signal?: AbortSignal,
@@ -64,8 +69,18 @@ export async function postWebhook(
 
   // redirect: "error" — a webhook endpoint that redirects is misconfigured or
   // hostile, and following it would send the signature to an unintended host.
-  const result = await fetch(target.url, {
-    method: "POST",
+  const url = new URL(target.url)
+  const editing = target.provider === "discord" && message.discordMessageId
+  if (editing) {
+    url.pathname += `/messages/${encodeURIComponent(editing)}`
+    const threadId = url.searchParams.get("thread_id")
+    url.search = ""
+    if (threadId) url.searchParams.set("thread_id", threadId)
+  } else if (target.provider === "discord") {
+    url.searchParams.set("wait", "true")
+  }
+  const result = await fetch(url, {
+    method: editing ? "PATCH" : "POST",
     headers,
     body,
     redirect: "error",
@@ -83,7 +98,43 @@ export async function postWebhook(
     return { ok: false, status: null, error: result.error }
   }
   const response = result.response
-  if (response.ok) return { ok: true, status: response.status }
+  if (response.ok) {
+    if (target.provider === "discord") {
+      const message = DiscordMessage.safeParse(
+        await response.json().catch(() => null),
+      )
+      if (message.success) {
+        return {
+          ok: true,
+          status: response.status,
+          discordMessageId: message.data.id,
+        }
+      }
+      // A successful post with an unreadable response must not be reposted.
+      if (editing) {
+        return { ok: true, status: response.status, discordMessageId: editing }
+      }
+    }
+    return { ok: true, status: response.status }
+  }
+
+  if (editing && response.status === 404) {
+    const error = DiscordError.safeParse(
+      await response
+        .clone()
+        .json()
+        .catch(() => null),
+    )
+    // Only Unknown Message permits a replacement. Missing webhooks, permission
+    // errors, and temporary failures must follow the normal delivery retries.
+    if (error.success && error.data.code === 10008) {
+      return sendWebhook(
+        target,
+        { ...message, discordMessageId: undefined },
+        signal,
+      )
+    }
+  }
 
   const detail = await response.text().catch(() => "")
   return {

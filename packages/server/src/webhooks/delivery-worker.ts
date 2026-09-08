@@ -3,11 +3,11 @@ import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
 import { errorMessage } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
-import { and, asc, eq, sql } from "drizzle-orm"
+import { and, asc, desc, eq, isNotNull, sql } from "drizzle-orm"
 
 import { webhookFailurePlan } from "./delivery-policy"
 import { clipPublishedPayload, discordContent } from "./payload"
-import { postWebhook, type WebhookSendResult } from "./send"
+import { sendWebhook, type WebhookSendResult } from "./send"
 
 const logger = createLogger("webhooks")
 const RECONCILE_INTERVAL_MS = 60_000
@@ -34,6 +34,7 @@ async function selectNextPending() {
   const [row] = await db
     .select({
       deliveryId: webhookDelivery.id,
+      createdAt: webhookDelivery.created_at,
       attempts: webhookDelivery.attempts,
       nextAttemptAt: webhookDelivery.next_attempt_at,
       clipId: webhookDelivery.clip_id,
@@ -84,7 +85,11 @@ async function deliverPending(
 
   let announcement
   try {
-    announcement = await clipPublishedPayload(row.clipId, row.deliveryId)
+    announcement = await clipPublishedPayload(
+      row.clipId,
+      row.deliveryId,
+      row.createdAt,
+    )
   } catch (cause) {
     if (signal.aborted) return
     await recordAttempt(row, {
@@ -95,18 +100,39 @@ async function deliverPending(
     return
   }
   if (!announcement) {
-    await skipDelivery(row.deliveryId, "Clip is no longer public")
+    await skipDelivery(row.deliveryId, "Clip is no longer announceable")
     return
   }
   if (signal.aborted) return
 
-  const result = await postWebhook(
+  let discordMessageId: string | undefined
+  if (row.provider === "discord") {
+    // Message IDs belong to a clip AND a configured webhook. Each destination
+    // can be edited or retried independently of the others.
+    const [previous] = await db
+      .select({ messageId: webhookDelivery.discord_message_id })
+      .from(webhookDelivery)
+      .where(
+        and(
+          eq(webhookDelivery.webhook_id, row.webhookId),
+          eq(webhookDelivery.clip_id, row.clipId),
+          eq(webhookDelivery.status, "succeeded"),
+          isNotNull(webhookDelivery.discord_message_id),
+        ),
+      )
+      .orderBy(desc(webhookDelivery.delivered_at), desc(webhookDelivery.id))
+      .limit(1)
+    discordMessageId = previous?.messageId ?? undefined
+  }
+
+  const result = await sendWebhook(
     { provider: row.provider, url: row.url, secret: row.secret },
     {
       deliveryId: row.deliveryId,
       event: row.event,
       content: discordContent(announcement),
       body: announcement,
+      discordMessageId,
     },
     signal,
   )
@@ -114,6 +140,9 @@ async function deliverPending(
   // the receiver, so the stable delivery ID remains the receiver's dedup key.
   if (signal.aborted) return
   await recordAttempt(row, result)
+  if (result.ok && row.provider === "discord" && !result.discordMessageId) {
+    logger.warn(`webhook delivery ${row.deliveryId} returned no message ID`)
+  }
 }
 
 async function recordAttempt(
@@ -130,6 +159,9 @@ async function recordAttempt(
       .set({
         attempts: sql`${webhookDelivery.attempts} + 1`,
         response_status: result.status,
+        discord_message_id: result.ok
+          ? (result.discordMessageId ?? null)
+          : null,
         status: result.ok
           ? ("succeeded" as const)
           : terminalFailure

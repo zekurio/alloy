@@ -1,4 +1,8 @@
 export const DE_MESSAGES = {
+  Reannounce: "Erneut ankündigen",
+  "Queuing announcement…": "Ankündigung wird eingereiht…",
+  "Clip announcement queued": "Clip-Ankündigung eingereiht",
+  "Couldn't reannounce clip": "Clip konnte nicht erneut angekündigt werden",
   " (primary)": "(primär)",
   " and {count} {label}": "und {count} {label}",
   ". Do you want to show their profile anyway?":

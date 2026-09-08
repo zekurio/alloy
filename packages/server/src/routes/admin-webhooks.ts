@@ -18,7 +18,7 @@ import {
   deleted,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { postWebhook } from "@alloy/server/webhooks/send"
+import { sendWebhook } from "@alloy/server/webhooks/send"
 import { desc, eq } from "drizzle-orm"
 import { Hono } from "hono"
 
@@ -124,7 +124,7 @@ export const adminWebhooksRoute = new Hono()
       // Deliberately does not touch webhook_delivery: a test is not an
       // announcement, and recording one would consume nothing and prove
       // nothing about which clips have been sent.
-      const result = await postWebhook(
+      const result = await sendWebhook(
         { provider: row.provider, url: row.url, secret: row.secret },
         {
           deliveryId,
@@ -155,7 +155,7 @@ function selectWebhook(id: string) {
  * Unlike user-supplied avatar URLs (see media/remote-image.ts) there is no
  * private-address guard here: only admins reach this route, and a self-hosted
  * instance announcing to a bot on the same box or LAN is the normal case, not
- * an attack. postWebhook still refuses to follow redirects, so a signed body
+ * an attack. sendWebhook still refuses to follow redirects, so a signed body
  * cannot be bounced to an unintended host.
  */
 function webhookUrlProblem(

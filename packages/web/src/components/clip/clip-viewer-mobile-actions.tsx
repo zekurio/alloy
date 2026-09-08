@@ -98,6 +98,7 @@ function MobileActionButton({
 }
 
 type ClipActionsMenuProps = {
+  announcementAction?: ReactNode
   canManage: boolean
   deleting: boolean
   downloadAction?: ReactNode
@@ -107,6 +108,7 @@ type ClipActionsMenuProps = {
 }
 
 function ClipActionsMenu({
+  announcementAction,
   canManage,
   deleting,
   downloadAction,
@@ -135,6 +137,7 @@ function ClipActionsMenu({
             <DropdownMenuItem onClick={onEdit}>
               <PencilIcon /> {t("Edit")}
             </DropdownMenuItem>
+            {announcementAction}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               variant="destructive"
@@ -151,6 +154,7 @@ function ClipActionsMenu({
 }
 
 type MobileActionsRailProps = {
+  announcementAction?: ReactNode
   liked: boolean
   canLike: boolean
   canManage: boolean
@@ -173,6 +177,7 @@ type MobileActionsRailProps = {
 }
 
 export function MobileActionsRail({
+  announcementAction,
   liked,
   canLike,
   canManage,
@@ -257,6 +262,7 @@ export function MobileActionsRail({
       />
       {canManage || downloadAction ? (
         <ClipActionsMenu
+          announcementAction={announcementAction}
           canManage={canManage}
           deleting={deleting}
           downloadAction={downloadAction}

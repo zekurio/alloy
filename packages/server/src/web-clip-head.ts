@@ -1,3 +1,4 @@
+import { clipShareUrl } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 
 import { selectEmbeddableClip } from "./clips/access"
@@ -18,26 +19,29 @@ type MetadataClip = NonNullable<
   Awaited<ReturnType<typeof selectEmbeddableClip>>
 >
 
-export async function clipHead(pathname: string): Promise<string> {
+export async function clipHead(
+  pathname: string,
+  timestamp?: number,
+): Promise<string> {
   const clipId = clipIdFromPath(pathname)
   if (!clipId) return ""
 
   try {
     const row = await selectEmbeddableClip(clipId)
-    return row ? buildClipHead(row) : ""
+    return row ? buildClipHead(row, timestamp) : ""
   } catch (error) {
     logger.error("failed to build clip metadata:", error)
     return ""
   }
 }
 
-function buildClipHead(row: MetadataClip): string {
+function buildClipHead(row: MetadataClip, timestamp?: number): string {
   const origin = env.PUBLIC_SERVER_URL
   const gameName = clipGameName(row)
   const description = clipEmbedDescription({ ...row, gameName })
   const poster = embedPosterUrl(row, origin)
   const video = embedVideo(row, origin)
-  const permalink = new URL(`/clips/${row.id}`, origin).toString()
+  const permalink = clipShareUrl(row.id, origin, timestamp)
 
   return [
     `<title>${htmlEscape(row.title)} | alloy</title>`,

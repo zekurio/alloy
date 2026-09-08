@@ -228,6 +228,16 @@ export function useReEncodeClipMutation() {
   })
 }
 
+export function useReannounceClipMutation() {
+  return useMutation({
+    mutationFn: ({ clipId }: { clipId: string }) =>
+      api.clips.reannounce(clipId),
+    onSuccess: () => toast.success(t("Clip announcement queued")),
+    onError: (cause) =>
+      toast.error(errorMessage(cause, t("Couldn't reannounce clip"))),
+  })
+}
+
 export function useSetClipPosterMutation() {
   const qc = useQueryClient()
 

@@ -1,0 +1,1 @@
+ALTER TABLE "webhook_delivery" ADD COLUMN "discord_message_id" text;
