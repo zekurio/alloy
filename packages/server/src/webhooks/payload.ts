@@ -24,10 +24,6 @@ type AnnouncementClip = Pick<
   | "authorDisplayName"
 >
 
-export function clipPermalink(clipId: string): string {
-  return new URL(`/clips/${clipId}`, env.PUBLIC_SERVER_URL).toString()
-}
-
 /**
  * Build the `clip.published` envelope, or null when the clip is no longer
  * announceable.

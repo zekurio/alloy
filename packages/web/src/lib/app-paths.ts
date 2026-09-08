@@ -1,8 +1,4 @@
-import {
-  encodedPathSegment,
-  resolvePublicUrl,
-  resolvePublicUrlWithQuery,
-} from "@alloy/api"
+import { encodedPathSegment, resolvePublicUrlWithQuery } from "@alloy/api"
 
 export function userProfileHref(username: string): string {
   return `/u/${encodedPathSegment(username)}`
@@ -33,9 +29,7 @@ export function absoluteClipHref(
   origin: string,
   options: { commentId?: string | null } = {},
 ): string {
-  const url = new URL(
-    resolvePublicUrl(clipHref(steamgriddbId, clipId, options), origin),
-  )
+  const url = new URL(clipHref(steamgriddbId, clipId, options), origin)
   url.searchParams.set("t", String(Date.now()))
   return url.toString()
 }
