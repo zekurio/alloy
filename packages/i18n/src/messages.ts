@@ -16,6 +16,8 @@ export const DE_MESSAGES = {
     "Benachrichtigung konnte nicht als gelesen markiert werden",
   "Couldn't remove notification":
     "Benachrichtigung konnte nicht entfernt werden",
+  "Couldn't remove from queue":
+    "Eintrag konnte nicht aus der Warteschlange entfernt werden",
   "Changes saved.": "Änderungen gespeichert.",
   "Color palette used while Alloy is dark.":
     "Farbpalette für den dunklen Alloy-Modus.",

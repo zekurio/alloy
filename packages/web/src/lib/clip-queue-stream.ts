@@ -116,15 +116,8 @@ function bindUploadQueueStream(input: {
     const previousQueue = queryClient.getQueryData<QueueClip[]>(
       clipKeys.queue(),
     )
-    const eventClipId =
-      event.type === "upsert"
-        ? event.clip.id
-        : event.type === "progress"
-          ? event.id
-          : null
-    const previous = eventClipId
-      ? previousQueue?.find((row) => row.id === eventClipId)
-      : undefined
+    const eventClipId = event.type === "upsert" ? event.clip.id : event.id
+    const previous = previousQueue?.find((row) => row.id === eventClipId)
     queryClient.setQueryData<QueueClip[]>(clipKeys.queue(), (current) =>
       applyUploadQueueEvent(current, event),
     )
@@ -137,6 +130,9 @@ function bindUploadQueueStream(input: {
       patchClipInCaches(queryClient, event.id, {
         encodeProgress: event.encodeProgress,
       })
+    } else if (previous) {
+      // A dismissed clip also leaves the queue when re-encoding finishes.
+      invalidateClipCaches(queryClient)
     }
   }
 

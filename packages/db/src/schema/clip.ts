@@ -112,6 +112,7 @@ export const clip = pgTable(
     // encode finishes, or by the privacy-flip route for the rest. Feeds and
     // the clip.published webhook key off this, never off created_at.
     published_at: timestamp({ withTimezone: true }),
+    queue_dismissed_at: timestamp({ withTimezone: true }),
     // Canonical desired-state JSON stamped by commitReady; null = never
     // verified under the fingerprint model.
     encode_fingerprint: text(),

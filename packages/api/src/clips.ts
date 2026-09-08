@@ -193,6 +193,20 @@ async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
   await readDeletedJson(res)
 }
 
+async function dismissQueueClip(
+  context: ApiContext,
+  clipId: string,
+): Promise<boolean> {
+  const res = await context.rpc.api.clips[":id"]["queue-dismissal"].$post({
+    param: { id: clipId },
+  })
+  // Older contract-1 servers have no dismissal endpoint. The caller can keep
+  // its local fallback; a missing clip is also safe to hide locally.
+  if (res.status === 404) return false
+  await readSuccessJson(res)
+  return true
+}
+
 async function updateClip(
   context: ApiContext,
   clipId: string,
@@ -288,6 +302,7 @@ export function createClipsApi(context: ApiContext) {
     finalize: (clipId: string) => finalizeClip(context, clipId),
     markUploadFailed: (clipId: string) => markUploadFailed(context, clipId),
     delete: (clipId: string) => deleteClip(context, clipId),
+    dismissQueue: (clipId: string) => dismissQueueClip(context, clipId),
     update: (clipId: string, input: UpdateClipInput) =>
       updateClip(context, clipId, input),
     trim: (clipId: string, input: TrimClipInput) =>
