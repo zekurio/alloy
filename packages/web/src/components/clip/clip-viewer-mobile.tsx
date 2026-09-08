@@ -1,4 +1,5 @@
 import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
+import { clipShareUrl } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
@@ -22,11 +23,10 @@ import {
   readSessionStorageItem,
   writeSessionStorageItem,
 } from "@/lib/browser-storage"
-import { currentUrlWithoutSearchOrHash } from "@/lib/browser-url"
 import { clipGameLabel } from "@/lib/clip-format"
 import { useLikeStateQuery, useToggleLikeMutation } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
-import { apiOrigin } from "@/lib/env"
+import { apiOrigin, publicOrigin } from "@/lib/env"
 import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 import { userAvatar } from "@/lib/user-display"
@@ -40,6 +40,7 @@ import type { ClipListEntry } from "./clip-list-context"
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { ClipTitleWithVisibility, ClipVisibilityBadge } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
+import { ClipReannounceMenuItem } from "./clip-reannounce-menu-item"
 import { ClipTagsRow } from "./clip-tags-row"
 import { ClipAuthorLink, MobileActionsRail } from "./clip-viewer-mobile-actions"
 import { renderHashtagTokens } from "./description-tokens"
@@ -170,8 +171,7 @@ function MobileClipViewerBody({
 
   const handleShare = useCallback(async () => {
     await shareFeedback.run(async () => {
-      const url = currentUrlWithoutSearchOrHash()
-      if (url === null) throw new Error(t("Couldn't share clip"))
+      const url = clipShareUrl(row.id, publicOrigin(), Date.now())
       const result = await shareUrlWithFallback(url, {
         title: row.title,
         action: "share clip link",
@@ -179,7 +179,7 @@ function MobileClipViewerBody({
       if (result === "failed") throw new Error(t("Couldn't share clip"))
       return result !== "cancelled"
     }, t("Couldn't share clip"))
-  }, [row.title, shareFeedback])
+  }, [row.id, row.title, shareFeedback])
 
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
   const initialFocusRef = useRef<HTMLDivElement>(null)
@@ -193,6 +193,13 @@ function MobileClipViewerBody({
   }, [])
 
   const actionRailProps = {
+    announcementAction:
+      isAdmin && row.status === "ready" && row.privacy === "public" ? (
+        <ClipReannounceMenuItem
+          clipId={row.id}
+          disabled={Boolean(row.encodeActive)}
+        />
+      ) : undefined,
     liked,
     canLike,
     canManage,
