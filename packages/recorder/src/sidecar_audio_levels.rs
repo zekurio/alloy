@@ -6,6 +6,85 @@
         sync::{Mutex, MutexGuard},
         time::Instant,
     };
+    use windows_sys::Win32::{
+        Media::Audio::{AUDCLNT_SHAREMODE_SHARED, WAVEFORMATEX},
+        System::Com::CoTaskMemFree,
+    };
+
+    const IID_IAUDIO_CLIENT: GUID =
+        GUID::from_u128(0x1cb9ad4c_dbfa_4c32_b178_c2f568a703b2);
+
+    #[repr(C)]
+    #[allow(non_snake_case)]
+    struct IAudioClientVtbl {
+        base: IUnknown_Vtbl,
+        Initialize: unsafe extern "system" fn(
+            *mut c_void,
+            i32,
+            u32,
+            i64,
+            i64,
+            *const WAVEFORMATEX,
+            *const GUID,
+        ) -> HRESULT,
+        GetBufferSize: usize,
+        GetStreamLatency: usize,
+        GetCurrentPadding: usize,
+        IsFormatSupported: usize,
+        GetMixFormat: unsafe extern "system" fn(*mut c_void, *mut *mut WAVEFORMATEX) -> HRESULT,
+        GetDevicePeriod: usize,
+        Start: unsafe extern "system" fn(*mut c_void) -> HRESULT,
+        Stop: unsafe extern "system" fn(*mut c_void) -> HRESULT,
+        Reset: usize,
+        SetEventHandle: usize,
+        GetService: usize,
+    }
+
+    struct MicrophoneMeterStream(ComPtr);
+
+    impl Drop for MicrophoneMeterStream {
+        fn drop(&mut self) {
+            unsafe {
+                let vtbl = com_vtbl::<IAudioClientVtbl>(self.0.as_ptr());
+                ((*vtbl).Stop)(self.0.as_ptr());
+            }
+        }
+    }
+
+    unsafe fn start_microphone_meter_stream(device: &ComPtr) -> Option<MicrophoneMeterStream> {
+        let device_vtbl = com_vtbl::<IMMDeviceVtbl>(device.as_ptr());
+        let mut client_ptr = ptr::null_mut();
+        if !succeeded(((*device_vtbl).Activate)(
+            device.as_ptr(),
+            &IID_IAUDIO_CLIENT,
+            CLSCTX_ALL,
+            ptr::null(),
+            &mut client_ptr,
+        )) {
+            return None;
+        }
+        let client = ComPtr::new(client_ptr)?;
+        let vtbl = com_vtbl::<IAudioClientVtbl>(client.as_ptr());
+        let mut format = ptr::null_mut();
+        if !succeeded(((*vtbl).GetMixFormat)(client.as_ptr(), &mut format)) {
+            return None;
+        }
+        let initialized = ((*vtbl).Initialize)(
+            client.as_ptr(),
+            AUDCLNT_SHAREMODE_SHARED,
+            0,
+            0,
+            0,
+            format,
+            ptr::null(),
+        );
+        CoTaskMemFree(format.cast());
+        if !succeeded(initialized) || !succeeded(((*vtbl).Start)(client.as_ptr())) {
+            return None;
+        }
+        // The endpoint meter supplies peaks; no captured samples are read or saved.
+        Some(MicrophoneMeterStream(client))
+    }
 
     const IID_IAUDIO_METER_INFORMATION: GUID =
         GUID::from_u128(0xc02216f6_8c67_4b5b_9d00_d008e73e0064);
@@ -90,7 +169,7 @@
                 if refreshed_at
                     .is_none_or(|at| at.elapsed() >= AUDIO_LEVEL_REFRESH_INTERVAL)
                 {
-                    meters = collect_audio_level_meters();
+                    meters = collect_audio_level_meters(&mut meters);
                     refreshed_at = Some(Instant::now());
                 }
 
@@ -112,6 +191,7 @@
         /// Endpoint id plus the "default" alias used by the settings UI.
         ids: Vec<String>,
         meter: ComPtr,
+        capture: Option<MicrophoneMeterStream>,
     }
 
     struct ApplicationLevelMeter {
@@ -125,7 +205,7 @@
         applications: Vec<ApplicationLevelMeter>,
     }
 
-    unsafe fn collect_audio_level_meters() -> AudioLevelMeters {
+    unsafe fn collect_audio_level_meters(previous: &mut AudioLevelMeters) -> AudioLevelMeters {
         let mut meters = AudioLevelMeters::default();
         let Some(enumerator) = create_mm_device_enumerator() else {
             return meters;
@@ -135,7 +215,7 @@
             (eRender, RecordingAudioDeviceKind::Output),
             (eCapture, RecordingAudioDeviceKind::Input),
         ] {
-            collect_device_level_meters(&enumerator, data_flow, kind, &mut meters);
+            collect_device_level_meters(&enumerator, data_flow, kind, &mut meters, previous);
         }
         meters
     }
@@ -145,6 +225,7 @@
         data_flow: i32,
         kind: RecordingAudioDeviceKind,
         meters: &mut AudioLevelMeters,
+        previous: &mut AudioLevelMeters,
     ) {
         let default_role = match kind {
             RecordingAudioDeviceKind::Output => eConsole,
@@ -164,6 +245,18 @@
                 continue;
             };
 
+            // Reading a peak meter alone does not start microphone capture.
+            // Keep our shared stream alive across refreshes so another app is
+            // never needed to wake the mic. Failed opens retry on the next refresh.
+            let capture = if data_flow == eCapture {
+                previous.devices.iter_mut()
+                    .find(|device| device.ids.first() == Some(&id))
+                    .and_then(|device| device.capture.take())
+                    .or_else(|| start_microphone_meter_stream(&device))
+            } else {
+                None
+            };
+
             let mut ids = vec![id.clone()];
             if default_id.as_deref() == Some(id.as_str()) {
                 ids.push("default".to_string());
@@ -172,6 +265,7 @@
                 kind: kind.clone(),
                 ids,
                 meter,
+                capture,
             });
 
             if data_flow == eRender {
@@ -346,4 +440,41 @@
             return 0.0;
         }
         peak.clamp(0.0, 1.0)
+    }
+
+    #[cfg(test)]
+    mod audio_level_tests {
+        use super::*;
+
+        #[test]
+        #[ignore = "Close other microphone apps and speak into a microphone for 5 seconds"]
+        fn microphone_levels_without_other_capture_apps() {
+            unsafe {
+                let uninitialize = initialize_com().expect("COM initialization failed");
+                {
+                    let mut meters = collect_audio_level_meters(&mut AudioLevelMeters::default());
+                    assert!(
+                        meters.devices.iter().any(|device| device.capture.is_some()),
+                        "No microphone capture stream could be started"
+                    );
+                    let mut heard_input = false;
+                    for index in 0..50 {
+                        if index == 25 {
+                            meters = collect_audio_level_meters(&mut meters);
+                        }
+                        thread::sleep(AUDIO_LEVEL_POLL_INTERVAL);
+                        if index >= 25 {
+                            heard_input |= poll_audio_levels(&meters).iter().any(|level| {
+                                matches!(level.kind, Some(RecordingAudioDeviceKind::Input))
+                                    && level.peak > 0.001
+                            });
+                        }
+                    }
+                    assert!(heard_input, "No microphone signal after the meter refresh");
+                }
+                if uninitialize {
+                    uninitialize_com();
+                }
+            }
+        }
     }
