@@ -103,12 +103,10 @@ function DropdownMenuItem({
       className={cn(
         "group/dropdown-menu-item relative flex h-8 items-center gap-2.5 rounded-md px-3",
         "cursor-default text-sm leading-4 text-foreground-muted outline-none select-none",
-        "transition-colors",
-        "focus:bg-neutral-150 focus:text-foreground data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
+        "data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "data-[variant=destructive]:text-danger",
-        "data-[variant=destructive]:focus:bg-danger-soft data-[variant=destructive]:focus:text-danger",
         "data-[variant=destructive]:data-highlighted:bg-danger-soft data-[variant=destructive]:data-highlighted:text-danger",
         "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-foreground-dim",
         "data-[variant=destructive]:[&_svg]:text-danger",
@@ -138,7 +136,7 @@ function DropdownMenuSubTrigger({
       data-inset={inset}
       className={cn(
         "flex h-8 cursor-default items-center gap-2.5 rounded-md px-3 text-sm leading-4 text-foreground-muted outline-none select-none",
-        "focus:bg-neutral-150 focus:text-foreground",
+        "data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
         "data-popup-open:bg-neutral-150 data-popup-open:text-foreground data-open:bg-neutral-150 data-open:text-foreground",
         "data-inset:pl-6",
         "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
@@ -191,7 +189,7 @@ function DropdownMenuCheckboxItem({
       data-inset={inset}
       className={cn(
         "relative flex h-8 cursor-default items-center gap-2.5 rounded-md pr-8 pl-3 text-sm leading-4 text-foreground-muted outline-none select-none",
-        "focus:bg-neutral-150 focus:text-foreground",
+        "data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -232,7 +230,7 @@ function DropdownMenuRadioItem({
       data-inset={inset}
       className={cn(
         "relative flex h-8 cursor-default items-center gap-2.5 rounded-md pr-8 pl-3 text-sm leading-4 text-foreground-muted outline-none select-none",
-        "focus:bg-neutral-150 focus:text-foreground",
+        "data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
         "data-inset:pl-6",
         "data-disabled:pointer-events-none data-disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
