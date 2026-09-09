@@ -4,6 +4,7 @@ import type { ClipRow, GameNameLookupResult, GameRow } from "@alloy/api"
 import type {
   RecordingLibraryGroup,
   RecordingLibraryItem,
+  RecordingLibrarySnapshot,
 } from "@alloy/contracts"
 import { test } from "vite-plus/test"
 
@@ -12,6 +13,7 @@ import {
   enrichLibraryGroup,
   enrichLibraryItem,
 } from "./library-data"
+import { buildLibraryEntries, collapsedServerCounts } from "./library-entries"
 
 const valorant: GameRow = {
   id: "6bd20429-2b5d-4e4f-9a69-2909e07fd78d",
@@ -66,6 +68,71 @@ test("canonicalizes a local game group before merging uploaded clips", () => {
   assert.equal(groups[0]?.label, "Valorant")
   assert.equal(groups[0]?.totalCount, 2)
   assert.deepEqual(groups[0]?.localKeys, ["valorant"])
+})
+
+test("source filters include synced clips wherever a copy exists", () => {
+  const synced = { ...localValorantCapture(), uploadedClipId: "clip-1" }
+  const local = { ...localValorantCapture(), id: "local-2" }
+  // SAFETY: library entries read only these clip fields for filtering and sorting.
+  const uploaded = ["clip-1", "clip-2"].map(
+    (id) =>
+      ({
+        id,
+        title: "Synced title",
+        game: "Valorant",
+        gameRef: valorant,
+        createdAt: synced.createdAt,
+      }) as ClipRow,
+  )
+  const snapshot: RecordingLibrarySnapshot = {
+    outputFolder: "C:\\Videos\\Alloy",
+    scannedAt: synced.createdAt,
+    totalCount: 2,
+    totalSizeBytes: 2,
+    items: [synced, local],
+    groups: [
+      { ...localValorantGroup(), totalCount: 2, items: [synced, local] },
+    ],
+  }
+  const options = {
+    snapshot,
+    gamesByName: valorantLookup,
+    uploaded,
+    active: null,
+    kind: "all" as const,
+    query: "",
+  }
+  const keys = (source: "all" | "local" | "server") =>
+    buildLibraryEntries({ ...options, source }).map((entry) => entry.key)
+
+  assert.deepEqual(keys("all"), [
+    "local:local-2",
+    "cloud:clip-1",
+    "cloud:clip-2",
+  ])
+  assert.deepEqual(keys("server"), ["cloud:clip-1", "cloud:clip-2"])
+  assert.deepEqual(keys("local"), ["local:local-2", "cloud:clip-1"])
+
+  const [active] = buildLibraryGroups(
+    snapshot.groups,
+    uploaded,
+    collapsedServerCounts(
+      snapshot.items,
+      new Set(uploaded.map((row) => row.id)),
+    ),
+  )
+  const filtered = buildLibraryEntries({
+    ...options,
+    source: "local",
+    active: active!,
+    query: "Synced title",
+  })
+  assert.equal(filtered.length, 1)
+  assert.equal(filtered[0]?.status, "synced")
+  assert.equal(filtered[0]?.type === "cloud" && filtered[0].localItem, synced)
+
+  snapshot.items = [local]
+  assert.deepEqual(keys("local"), ["local:local-2"])
 })
 
 function localValorantCapture(): RecordingLibraryItem {
