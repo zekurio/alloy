@@ -56,7 +56,7 @@ protocol.registerSchemesAsPrivileged([
 
 if (process.platform === "win32") {
   app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID)
-  app.commandLine.appendSwitch("enable-features", "OverlayScrollbar")
+  app.commandLine.appendSwitch("enable-features", "FluentOverlayScrollbar")
 }
 
 // Single-instance: a second launch focuses the existing overlay/app instead of

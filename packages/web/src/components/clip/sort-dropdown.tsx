@@ -6,6 +6,7 @@ import {
 } from "@alloy/ui/components/dropdown-menu"
 import { cn } from "@alloy/ui/lib/utils"
 import {
+  CheckIcon,
   Clock3Icon,
   EyeIcon,
   HistoryIcon,
@@ -70,13 +71,14 @@ export function SortDropdown<K extends string>({
           {options.map((opt) => (
             <DropdownMenuItem
               key={opt.key}
-              className={cn(
-                "data-active:bg-accent-soft data-active:text-accent data-active:[&_svg]:text-accent",
-              )}
+              className="pr-8"
               render={renderOptionLink(opt, opt.key === value)}
             >
               {opt.icon ?? defaultSortIcon(opt.key)}
               {opt.label}
+              {opt.key === value ? (
+                <CheckIcon className="absolute right-2.5" />
+              ) : null}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
