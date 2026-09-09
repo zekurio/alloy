@@ -148,20 +148,21 @@ export function buildLibraryEntries({
       })
     : []
 
-  const cloudVisible =
-    source !== "local" && (kind === "all" || kind === "replay")
+  const cloudVisible = kind === "all" || kind === "replay"
   const cloud: LibraryEntry[] = cloudVisible
-    ? filterUploadedClips(uploaded, query, active).map((row) => {
-        const localItem = localByClipId.get(row.id) ?? null
-        return {
-          type: "cloud",
-          key: `cloud:${row.id}`,
-          createdAt: row.createdAt,
-          status: localItem ? "synced" : "cloud",
-          row,
-          localItem,
-        }
-      })
+    ? filterUploadedClips(uploaded, query, active)
+        .filter((row) => source !== "local" || localByClipId.has(row.id))
+        .map((row) => {
+          const localItem = localByClipId.get(row.id) ?? null
+          return {
+            type: "cloud",
+            key: `cloud:${row.id}`,
+            createdAt: row.createdAt,
+            status: localItem ? "synced" : "cloud",
+            row,
+            localItem,
+          }
+        })
     : []
 
   return [...local, ...cloud].sort(
