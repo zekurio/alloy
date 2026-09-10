@@ -18,7 +18,7 @@ export function ClipGrid({
     return (
       <div
         className={cn(
-          "columns-1 gap-4 sm:columns-2 xl:columns-3 [&>*]:mb-6 [&>*]:break-inside-avoid",
+          "columns-2 gap-2 sm:columns-[260px] [&>*]:mb-2 [&>*]:break-inside-avoid",
           className,
         )}
         {...props}

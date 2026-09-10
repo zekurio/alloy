@@ -20,7 +20,7 @@ import { setActiveClipList, useClipList } from "./clip-list-context"
 interface ClipCardTriggerProps {
   row: ClipRow
   className?: string
-  metaVariant?: "default" | "showcase"
+  metaVariant?: "default" | "showcase" | "gallery"
   showVisibilityStatus?: boolean
 }
 

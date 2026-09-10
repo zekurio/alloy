@@ -197,10 +197,10 @@ function ClipMeta({
           titleClassName="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]"
         />
 
-        <div className="flex shrink-0 items-center gap-1 self-start">
+        <div className="flex shrink-0 items-center gap-2 self-start">
           <FeedbackButton
             variant={liked ? "accent-outline" : "ghost"}
-            size="sm"
+            size="default"
             onClick={handleLikeToggle}
             disabled={!canLike || likeMutation.isPending}
             state={
@@ -222,12 +222,12 @@ function ClipMeta({
                   : t("Sign in to like")
             }
           >
-            <HeartIcon className={cn(liked && "fill-current")} />
+            <HeartIcon className={cn("size-5", liked && "fill-current")} />
             <span className="tabular-nums">{formatCount(likes)}</span>
           </FeedbackButton>
           <FeedbackButton
             variant="ghost"
-            size="icon-sm"
+            size="icon"
             onClick={handleShare}
             state={shareFeedback.feedback.state}
             pendingLabel={<span className="sr-only">{t("Sharing…")}</span>}
@@ -243,7 +243,7 @@ function ClipMeta({
               privacy === "private" ? t("Clip link is disabled") : undefined
             }
           >
-            <Share2Icon />
+            <Share2Icon className="size-5" />
           </FeedbackButton>
           {canManage || !!downloadAction ? (
             <DropdownMenu>
@@ -251,14 +251,17 @@ function ClipMeta({
                 render={
                   <Button
                     variant="ghost"
-                    size="icon-sm"
+                    size="icon"
                     aria-label={t("Clip actions")}
                   >
-                    <MoreHorizontalIcon className="rotate-90" />
+                    <MoreHorizontalIcon className="size-5 rotate-90" />
                   </Button>
                 }
               />
-              <DropdownMenuContent align="end" className="min-w-[150px]">
+              <DropdownMenuContent
+                align="end"
+                className="alloy-blur w-max max-w-[calc(100dvw-2rem)] min-w-56"
+              >
                 {downloadAction}
                 {canManage && downloadAction ? <DropdownMenuSeparator /> : null}
                 {canManage ? (

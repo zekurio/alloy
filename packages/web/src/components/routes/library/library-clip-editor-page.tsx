@@ -201,6 +201,11 @@ function ClipEditorBody({
           {row.mediaKind === "image" ? (
             <ClipPlayer
               clipId={row.id}
+              aspectRatio={
+                row.mediaKind === "image" && row.width && row.height
+                  ? row.width / row.height
+                  : undefined
+              }
               playbackContentType={row.sourceContentType}
               sourceVersion={row.sourceVersion}
               status={row.status}

@@ -317,6 +317,11 @@ function MobileClipViewerBody({
           >
             <ClipPlayer
               clipId={row.id}
+              aspectRatio={
+                row.mediaKind === "image" && row.width && row.height
+                  ? row.width / row.height
+                  : undefined
+              }
               playbackContentType={row.playbackContentType}
               sourceCodecs={row.sourceCodecs}
               sourceVersion={row.sourceVersion}

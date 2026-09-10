@@ -101,12 +101,27 @@ function ScreenshotPlayer({
   sourceVersion,
   onPlayThreshold,
   className,
+  aspectRatio,
+  maxDisplayHeight = "70dvh",
 }: ClipPlayerProps) {
+  const [naturalRatio, setNaturalRatio] = useState(1)
+  const ratio = aspectRatio ?? naturalRatio
   const [zoomed, setZoomed] = useState(false)
   const [failed, setFailed] = useState(false)
   return (
     <div
-      className={cn("relative h-full w-full overflow-auto bg-black", className)}
+      className={cn(
+        "relative mx-auto w-full overflow-auto bg-black",
+        className,
+      )}
+      style={{
+        aspectRatio: ratio,
+        maxHeight: maxDisplayHeight,
+        maxWidth:
+          maxDisplayHeight === "100%"
+            ? undefined
+            : `min(100%, calc(${maxDisplayHeight} * ${ratio}))`,
+      }}
     >
       {failed ? (
         <p role="alert" className="p-4 text-white">
@@ -116,8 +131,8 @@ function ScreenshotPlayer({
         <button
           type="button"
           className={cn(
-            "block min-h-full min-w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-ring",
-            zoomed && "cursor-zoom-out",
+            "block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-ring",
+            zoomed && "h-auto w-auto min-h-full min-w-full cursor-zoom-out",
           )}
           aria-label={zoomed ? t("Fit image") : t("Zoom image")}
           onClick={() => setZoomed(!zoomed)}
@@ -129,12 +144,14 @@ function ScreenshotPlayer({
               sourceVersion ?? undefined,
             )}
             alt={t("Screenshot")}
-            className={
-              zoomed
-                ? "max-w-none"
-                : "h-full max-h-[70dvh] w-full object-contain"
-            }
-            onLoad={onPlayThreshold}
+            className={zoomed ? "max-w-none" : "h-full w-full object-contain"}
+            onLoad={(event) => {
+              setNaturalRatio(
+                event.currentTarget.naturalWidth /
+                  event.currentTarget.naturalHeight,
+              )
+              onPlayThreshold?.()
+            }}
             onError={() => setFailed(true)}
           />
         </button>

@@ -26,12 +26,14 @@ export function ClipCardList({
       })),
     [rows],
   )
+  const masonry = rows.some((row) => row.mediaKind === "image")
   const grid = (
-    <ClipGrid masonry={rows.some((row) => row.mediaKind === "image")}>
+    <ClipGrid masonry={masonry}>
       {rows.map((row) => (
         <ClipCardTrigger
           key={row.id}
           row={row}
+          metaVariant={masonry ? "gallery" : "default"}
           showVisibilityStatus={isOwnedByViewer?.(row) ?? false}
         />
       ))}
