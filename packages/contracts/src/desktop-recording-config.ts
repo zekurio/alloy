@@ -28,7 +28,7 @@ export const RECORDING_BITRATES = [
 /** Where the replay buffer is held while recording: RAM or scratch on disk. */
 export const RECORDING_BUFFER_STORAGE = ["memory", "disk"] as const
 export const RECORDING_CAPTURE_MODES = ["game", "display"] as const
-export const RECORDING_CAPTURE_KINDS = ["replay"] as const
+export const RECORDING_CAPTURE_KINDS = ["replay", "screenshot"] as const
 export const RECORDING_QUALITY_PROFILES = [
   "low",
   "standard",
@@ -80,7 +80,10 @@ export const RECORDING_VIDEO_CONTENT_TYPES = [
 ] as const
 
 export type RecordingCaptureContentType =
-  (typeof RECORDING_VIDEO_CONTENT_TYPES)[number]
+  | (typeof RECORDING_VIDEO_CONTENT_TYPES)[number]
+  | "image/png"
+  | "image/jpeg"
+  | "image/webp"
 
 export interface RecordingQualitySettings {
   resolution: RecordingResolution
@@ -115,6 +118,7 @@ export const RECORDING_QUALITY_PRESETS: Array<
 
 /** Keyboard shortcuts for the capture controls (empty string = unbound). */
 export interface RecordingHotkeys {
+  screenshot: string
   /** Saves the full replay buffer (its length is `replayBufferSeconds`). */
   clip: string
 }

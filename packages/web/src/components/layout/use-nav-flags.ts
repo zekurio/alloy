@@ -1,6 +1,7 @@
 import { useRouterState } from "@tanstack/react-router"
 
 export interface NavFlags {
+  isScreenshots: boolean
   isHome: boolean
   isGames: boolean
   isLibrary: boolean
@@ -13,6 +14,7 @@ export interface NavFlags {
 export function useNavFlags(): NavFlags {
   return useRouterState({
     select: (s) => ({
+      isScreenshots: s.location.pathname === "/screenshots",
       isHome: s.location.pathname === "/",
       isGames:
         s.location.pathname === "/games" ||

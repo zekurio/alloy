@@ -9,7 +9,21 @@ function GridFrame({
   return <div className={cn(baseClassName, className)} {...props} />
 }
 
-export function ClipGrid({ className, ...props }: ComponentProps<"div">) {
+export function ClipGrid({
+  className,
+  masonry,
+  ...props
+}: ComponentProps<"div"> & { masonry?: boolean }) {
+  if (masonry)
+    return (
+      <div
+        className={cn(
+          "columns-1 gap-4 sm:columns-2 xl:columns-3 [&>*]:mb-6 [&>*]:break-inside-avoid",
+          className,
+        )}
+        {...props}
+      />
+    )
   return (
     <GridFrame
       data-slot="clip-grid"

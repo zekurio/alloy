@@ -62,6 +62,7 @@ export function clipGameLabel(row: Pick<ClipRow, "gameRef" | "game">): string {
  * rendition.
  */
 function previewStreamUrl(row: ClipRow): string {
+  if (row.mediaKind === "image") return ""
   const playable = row.renditions.filter((rendition) =>
     canPlaySource("video/mp4", rendition.codecs),
   )

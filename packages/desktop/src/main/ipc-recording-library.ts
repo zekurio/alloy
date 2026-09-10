@@ -28,7 +28,7 @@ import {
   startRecordingLibraryClipDownload,
 } from "./recording-library-download"
 import { selectedServerClipDownloadUrl } from "./recording-library-download-policy"
-import { VIDEO_EXTENSIONS } from "./recording-library-shared"
+import { MEDIA_EXTENSIONS } from "./recording-library-shared"
 import { parseString, type UntrustedInput } from "./runtime-validation"
 
 /** Capture-library native handlers; every channel is main-app-only. */
@@ -78,11 +78,11 @@ export const recordingLibraryDesktopApiHandlers = {
     handle: async (_windows, event) => {
       const parent = BrowserWindow.fromWebContents(event.sender)
       const options: Electron.OpenDialogOptions = {
-        title: t("Import clips"),
+        title: t("Import media"),
         filters: [
           {
-            name: "Videos",
-            extensions: [...VIDEO_EXTENSIONS].map((ext) => ext.slice(1)),
+            name: t("Videos and images"),
+            extensions: [...MEDIA_EXTENSIONS].map((ext) => ext.slice(1)),
           },
         ],
         properties: ["openFile"],

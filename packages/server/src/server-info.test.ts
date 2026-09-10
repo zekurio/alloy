@@ -60,7 +60,10 @@ test("serves server info publicly when browse auth is enabled", async () => {
         schema: SERVER_HTTP_CONTRACT_1_FIXTURE.schema,
         product: SERVER_HTTP_CONTRACT_1_FIXTURE.product,
         httpContracts: SERVER_HTTP_CONTRACT_1_FIXTURE.httpContracts,
-        capabilities: SERVER_HTTP_CONTRACT_1_FIXTURE.capabilities,
+        capabilities: {
+          ...SERVER_HTTP_CONTRACT_1_FIXTURE.capabilities,
+          screenshots: 1,
+        },
       },
     )
   } finally {

@@ -1,3 +1,4 @@
+import { SCREENSHOT_MAX_BYTES, SCREENSHOT_MAX_PIXELS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 
 import { formatMediaDurationMs } from "@/lib/media-time"
@@ -17,6 +18,8 @@ type VideoSession = {
 export type ProbedFile = Omit<SelectedFile, "contentType">
 
 export function probeFile(file: File): Promise<ProbedFile> {
+  if (file.type.startsWith("image/") || /\.(png|jpe?g|webp)$/i.test(file.name))
+    return probeImage(file)
   return new Promise<ProbedFile>((resolve, reject) => {
     const { video, cleanup: cleanupVideo } = createVideoSession(
       file,
@@ -68,6 +71,31 @@ export function probeFile(file: File): Promise<ProbedFile> {
     }, VIDEO_LOAD_TIMEOUT_MS)
     video.load()
   })
+}
+
+async function probeImage(file: File): Promise<ProbedFile> {
+  if (file.size > SCREENSHOT_MAX_BYTES)
+    throw new Error(t("Screenshot exceeds 50 MiB"))
+  const image = await createImageBitmap(file)
+  try {
+    const { width, height } = image
+    if (width * height > SCREENSHOT_MAX_PIXELS)
+      throw new Error(t("Image dimensions are too large"))
+    return {
+      file,
+      name: file.name,
+      size: formatBytes(file.size),
+      resolution: `${width}×${height}`,
+      fps: "",
+      duration: "",
+      durationMs: 0,
+      width,
+      height,
+      sizeBytes: file.size,
+    }
+  } finally {
+    image.close()
+  }
 }
 
 function createVideoSession(

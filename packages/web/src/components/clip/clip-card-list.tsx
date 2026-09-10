@@ -27,7 +27,7 @@ export function ClipCardList({
     [rows],
   )
   const grid = (
-    <ClipGrid>
+    <ClipGrid masonry={rows.some((row) => row.mediaKind === "image")}>
       {rows.map((row) => (
         <ClipCardTrigger
           key={row.id}

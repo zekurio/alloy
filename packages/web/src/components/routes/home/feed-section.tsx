@@ -23,6 +23,8 @@ type FeedSectionProps = {
 const FEED_PAGE_LIMIT = 20
 
 function emptyTitle(filter: FeedFilter): string {
+  if (filter.media === "image") return t("No screenshots yet")
+  if (filter.media === "all") return t("No posts yet")
   switch (filter.kind) {
     case "all":
       return t("No public clips yet")
@@ -36,7 +38,7 @@ function emptyTitle(filter: FeedFilter): string {
 function emptyHint(filter: FeedFilter): string {
   switch (filter.kind) {
     case "all":
-      return t("Come back when others have uploaded some clips.")
+      return t("Be the first to post one.")
     case "following":
       return t("Follow users to populate this tab.")
     case "game":

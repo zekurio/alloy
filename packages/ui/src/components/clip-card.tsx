@@ -17,6 +17,7 @@ import type {
 import { ClipCardThumb } from "./clip-card-thumb"
 
 interface ClipCardProps extends ComponentProps<"article"> {
+  imageAspectRatio?: number
   title: string
   titleContent?: ReactNode
   author: string
@@ -73,6 +74,7 @@ type ClipCardLabelLinkProps = {
 type ClipCardLabelLinkRenderer = (props: ClipCardLabelLinkProps) => ReactNode
 
 function ClipCard({
+  imageAspectRatio,
   className,
   title,
   titleContent,
@@ -124,6 +126,7 @@ function ClipCard({
     >
       <div className="relative -mx-[var(--app-content-padding,0.75rem)] md:mx-0">
         <ClipCardThumb
+          imageAspectRatio={imageAspectRatio}
           title={title}
           thumbnail={thumbnail}
           thumbnailFallback={thumbnailFallback}

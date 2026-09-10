@@ -194,6 +194,8 @@ struct RecordingQualitySettings {
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 struct RecordingHotkeys {
+    #[serde(default)]
+    screenshot: String,
     clip: String,
 }
 
@@ -418,6 +420,7 @@ enum RecordingCaptureSource {
 #[allow(dead_code)]
 enum RecordingCaptureKind {
     Replay,
+    Screenshot,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -498,6 +501,7 @@ struct RecordingActionResult {
 #[serde(tag = "type", rename_all = "kebab-case")]
 enum RecordingEvent {
     ClipHotkey,
+    ScreenshotHotkey,
     Status {
         status: RecordingStatus,
     },
@@ -759,6 +763,7 @@ impl Default for RecordingSettings {
             buffer_storage: RecordingBufferStorage::Memory,
             output_folder: String::new(),
             hotkeys: RecordingHotkeys {
+                screenshot: "F7".to_string(),
                 clip: "F8".to_string(),
             },
         }

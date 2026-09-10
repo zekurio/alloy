@@ -4,7 +4,7 @@ import { join } from "node:path"
 import { currentOutputFolder } from "./recording-storage"
 
 export function captureCollectionFolder(
-  collection: "Clips",
+  collection: "Clips" | "Screenshots",
   gameName: string | null,
 ): string {
   return join(

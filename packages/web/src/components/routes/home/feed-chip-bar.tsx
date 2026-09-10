@@ -15,6 +15,7 @@ const SCOPE_ALL = "all"
 const SCOPE_FOLLOWING = "following"
 
 type FeedChipBarProps = {
+  to?: "/" | "/screenshots"
   filter: FeedFilter
   search: HomeSearch
 }
@@ -35,8 +36,8 @@ function searchForKey(search: HomeSearch, key: string): HomeSearch {
   return { ...search, feed: undefined, game: undefined }
 }
 
-export function FeedChipBar({ filter, search }: FeedChipBarProps) {
-  const { data } = useFeedChipsQuery()
+export function FeedChipBar({ filter, search, to = "/" }: FeedChipBarProps) {
+  const { data } = useFeedChipsQuery(filter.media)
   const games = data?.games ?? []
   const activeKey = filterKey(filter)
 
@@ -55,7 +56,7 @@ export function FeedChipBar({ filter, search }: FeedChipBarProps) {
       options={options}
       activeKey={activeKey}
       renderOptionLink={(option) => (
-        <Link to="/" search={searchForKey(search, option.key)} />
+        <Link to={to} search={searchForKey(search, option.key)} />
       )}
     />
   )

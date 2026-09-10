@@ -7,7 +7,7 @@ import {
 } from "@alloy/ui/components/app-sidebar"
 import { TooltipProvider } from "@alloy/ui/components/tooltip"
 import { Link } from "@tanstack/react-router"
-import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
+import { GamepadIcon, HomeIcon, LibraryIcon, ImageIcon } from "lucide-react"
 import { Suspense } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
@@ -62,6 +62,13 @@ function SidebarNav() {
         render={<Link to="/library" />}
       >
         <LibraryIcon />
+      </SidebarNavItem>
+      <SidebarNavItem
+        active={flags.isScreenshots}
+        label={t("Screenshots")}
+        render={<Link to="/screenshots" />}
+      >
+        <ImageIcon />
       </SidebarNavItem>
       <SidebarNavItem
         active={flags.isGames}

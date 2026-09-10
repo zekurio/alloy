@@ -1,4 +1,5 @@
 struct LibObs {
+    screenshots: ScreenshotBindings,
     _library: Library,
     obs_startup: unsafe extern "C" fn(*const c_char, *const c_char, *const c_char) -> bool,
     obs_initialized: unsafe extern "C" fn() -> bool,
@@ -140,6 +141,7 @@ impl LibObs {
 
     unsafe fn from_library(library: Library) -> Result<Self, String> {
         Ok(Self {
+            screenshots: ScreenshotBindings::load(&library)?,
             obs_startup: load_symbol(&library, b"obs_startup\0")?,
             obs_initialized: load_symbol(&library, b"obs_initialized\0")?,
             obs_shutdown: load_symbol(&library, b"obs_shutdown\0")?,

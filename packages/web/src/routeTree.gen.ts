@@ -15,6 +15,7 @@ import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as appAppIndexRouteImport } from './routes/(app)/_app.index'
 import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
 import { Route as appAppNotificationsRouteImport } from './routes/(app)/_app.notifications'
+import { Route as appAppScreenshotsRouteImport } from './routes/(app)/_app.screenshots'
 import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
 import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
 import { Route as authAuthSignUpRouteImport } from './routes/(auth)/_auth.sign-up'
@@ -60,6 +61,11 @@ const appAppGamesRoute = appAppGamesRouteImport.update({
 const appAppNotificationsRoute = appAppNotificationsRouteImport.update({
   id: '/notifications',
   path: '/notifications',
+  getParentRoute: () => appAppRoute,
+} as any)
+const appAppScreenshotsRoute = appAppScreenshotsRouteImport.update({
+  id: '/screenshots',
+  path: '/screenshots',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppSettingsRoute = appAppSettingsRouteImport.update({
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof authSetupRoute
   '/games': typeof appAppGamesRouteWithChildren
   '/notifications': typeof appAppNotificationsRoute
+  '/screenshots': typeof appAppScreenshotsRoute
   '/settings': typeof appAppSettingsRoute
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/setup': typeof authSetupRoute
   '/notifications': typeof appAppNotificationsRoute
+  '/screenshots': typeof appAppScreenshotsRoute
   '/settings': typeof appAppSettingsRoute
   '/login': typeof authAuthLoginRoute
   '/sign-up': typeof authAuthSignUpRoute
@@ -208,6 +216,7 @@ export interface FileRoutesById {
   '/(auth)/setup': typeof authSetupRoute
   '/(app)/_app/games': typeof appAppGamesRouteWithChildren
   '/(app)/_app/notifications': typeof appAppNotificationsRoute
+  '/(app)/_app/screenshots': typeof appAppScreenshotsRoute
   '/(app)/_app/settings': typeof appAppSettingsRoute
   '/(auth)/_auth/login': typeof authAuthLoginRoute
   '/(auth)/_auth/sign-up': typeof authAuthSignUpRoute
@@ -234,6 +243,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/games'
     | '/notifications'
+    | '/screenshots'
     | '/settings'
     | '/login'
     | '/sign-up'
@@ -257,6 +267,7 @@ export interface FileRouteTypes {
   to:
     | '/setup'
     | '/notifications'
+    | '/screenshots'
     | '/settings'
     | '/login'
     | '/sign-up'
@@ -282,6 +293,7 @@ export interface FileRouteTypes {
     | '/(auth)/setup'
     | '/(app)/_app/games'
     | '/(app)/_app/notifications'
+    | '/(app)/_app/screenshots'
     | '/(app)/_app/settings'
     | '/(auth)/_auth/login'
     | '/(auth)/_auth/sign-up'
@@ -351,6 +363,13 @@ declare module '@tanstack/react-router' {
       path: '/notifications'
       fullPath: '/notifications'
       preLoaderRoute: typeof appAppNotificationsRouteImport
+      parentRoute: typeof appAppRoute
+    }
+    '/(app)/_app/screenshots': {
+      id: '/(app)/_app/screenshots'
+      path: '/screenshots'
+      fullPath: '/screenshots'
+      preLoaderRoute: typeof appAppScreenshotsRouteImport
       parentRoute: typeof appAppRoute
     }
     '/(app)/_app/settings': {
@@ -530,6 +549,7 @@ const appAppUUsernameRouteWithChildren = appAppUUsernameRoute._addFileChildren(
 interface appAppRouteChildren {
   appAppGamesRoute: typeof appAppGamesRouteWithChildren
   appAppNotificationsRoute: typeof appAppNotificationsRoute
+  appAppScreenshotsRoute: typeof appAppScreenshotsRoute
   appAppSettingsRoute: typeof appAppSettingsRoute
   appAppIndexRoute: typeof appAppIndexRoute
   appAppClipsClipIdRoute: typeof appAppClipsClipIdRoute
@@ -544,6 +564,7 @@ interface appAppRouteChildren {
 const appAppRouteChildren: appAppRouteChildren = {
   appAppGamesRoute: appAppGamesRouteWithChildren,
   appAppNotificationsRoute: appAppNotificationsRoute,
+  appAppScreenshotsRoute: appAppScreenshotsRoute,
   appAppSettingsRoute: appAppSettingsRoute,
   appAppIndexRoute: appAppIndexRoute,
   appAppClipsClipIdRoute: appAppClipsClipIdRoute,

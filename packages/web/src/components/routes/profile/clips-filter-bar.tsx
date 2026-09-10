@@ -1,5 +1,6 @@
+import { MEDIA_FILTERS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Link } from "@tanstack/react-router"
+import { Link, useSearch } from "@tanstack/react-router"
 import { GlobeIcon } from "lucide-react"
 
 import {
@@ -49,6 +50,8 @@ export function ClipsFilterBar({
   gameSlug,
   gameOptions,
 }: ClipsFilterBarProps) {
+  const search = useSearch({ strict: false })
+  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
   const to = PROFILE_CLIP_ROUTES[tab]
   const gameFilterOptions: FilterChipOption<string>[] = [
     { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
@@ -72,6 +75,7 @@ export function ClipsFilterBar({
               search={profileClipSearchFor(
                 sort,
                 opt.key === ALL_GAMES ? null : opt.key,
+                media,
               )}
               data-active={active ? "true" : undefined}
             />
@@ -87,7 +91,7 @@ export function ClipsFilterBar({
             <Link
               to={to}
               params={{ username }}
-              search={profileClipSearchFor(opt.key, gameSlug)}
+              search={profileClipSearchFor(opt.key, gameSlug, media)}
               data-active={active ? "true" : undefined}
             />
           )}

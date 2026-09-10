@@ -35,13 +35,16 @@ export function LibraryCaptureCard({
     mediaUrl: item.mediaUrl,
     thumbnailUrl: item.thumbnailUrl,
     durationMs: item.durationMs,
-    enabled: true,
+    enabled: item.kind !== "screenshot",
   })
   const source: LibrarySource = "local"
   const renderGameLink = useClipCardGameLink(item.gameSlug)
   const gameUrl = item.gameSlug ? gameHref(item.gameSlug) : null
   const cardThumbnail =
-    transfer?.thumbUrl ?? transfer?.thumbFallbackUrl ?? thumbnail ?? undefined
+    transfer?.thumbUrl ??
+    transfer?.thumbFallbackUrl ??
+    (item.kind === "screenshot" ? item.thumbnailUrl : thumbnail) ??
+    undefined
   const cardThumbnailBlurHash = transfer?.thumbBlurHash ?? item.thumbBlurHash
 
   return (
@@ -59,7 +62,14 @@ export function LibraryCaptureCard({
       thumbnail={cardThumbnail}
       thumbnailBlurHash={cardThumbnailBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
-      streamUrl={versionedLocalMediaUrl(item)}
+      streamUrl={
+        item.kind === "screenshot" ? undefined : versionedLocalMediaUrl(item)
+      }
+      imageAspectRatio={
+        item.kind === "screenshot" && item.width && item.height
+          ? item.width / item.height
+          : undefined
+      }
       streamRange={
         item.trimStartMs !== null && item.trimEndMs !== null
           ? {
@@ -159,7 +169,8 @@ export function UploadedClipCard({
     mediaUrl: localItem?.mediaUrl ?? null,
     thumbnailUrl: localItem?.thumbnailUrl ?? null,
     durationMs: localItem?.durationMs ?? null,
-    enabled: Boolean(localItem) && !card.thumbnail,
+    enabled:
+      Boolean(localItem) && localItem?.kind !== "screenshot" && !card.thumbnail,
   })
   const localThumbnail = localPoster ?? localItem?.thumbnailUrl ?? undefined
   const localThumbnailBlurHash = localItem?.thumbBlurHash ?? null
@@ -179,6 +190,11 @@ export function UploadedClipCard({
   )
   return (
     <ClipCard
+      imageAspectRatio={
+        row.mediaKind === "image" && row.width && row.height
+          ? row.width / row.height
+          : undefined
+      }
       title={card.title}
       titleContent={<LibraryCardTitle title={card.title} />}
       author=""

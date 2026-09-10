@@ -1,9 +1,9 @@
-import type { AcceptedContentType, UploadTicket } from "@alloy/contracts"
+import type { AcceptedMediaContentType, UploadTicket } from "@alloy/contracts"
 import { clipStorage, clipStorageForKey } from "@alloy/server/storage/index"
 
 export function stagedSourceKey(
   recordingId: string,
-  contentType: AcceptedContentType,
+  contentType: AcceptedMediaContentType,
   uploadAttemptId: string,
 ): string {
   return `uploads/${recordingId.toLowerCase()}/${uploadAttemptId.toLowerCase()}/source${sourceExtension(contentType)}`
@@ -63,8 +63,14 @@ export async function deleteStagedUpload(key: string | null): Promise<void> {
   await storage.delete(key)
 }
 
-function sourceExtension(contentType: AcceptedContentType): string {
+function sourceExtension(contentType: AcceptedMediaContentType): string {
   switch (contentType) {
+    case "image/jpeg":
+      return ".jpg"
+    case "image/png":
+      return ".png"
+    case "image/webp":
+      return ".webp"
     case "video/mp4":
       return ".mp4"
   }

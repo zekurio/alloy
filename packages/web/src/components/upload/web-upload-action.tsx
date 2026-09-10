@@ -3,12 +3,17 @@ import { t } from "@alloy/i18n"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 import {
+  exportScreenshot,
+  type ScreenshotEdit,
+} from "@/components/media/screenshot-edit"
+import {
   prepareSelectedClipFile,
   type PublishClipInput,
   type PublishPayload,
   type SelectedFile,
 } from "@/components/upload/new-clip-helpers"
 import type { PublishClipFn } from "@/components/upload/upload-flow-context"
+import { api } from "@/lib/api"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import { copyTextToClipboard } from "@/lib/clipboard"
@@ -32,6 +37,7 @@ export interface WebUploadAction {
 }
 
 export interface WebUploadMetadata {
+  screenshotEdit?: ScreenshotEdit
   title: string
   description: string
   tags: string
@@ -239,12 +245,21 @@ async function copyUploadedClipLink(link: string) {
   return copyTextToClipboard(link, { action: "copy uploaded clip link" })
 }
 
-async function prepareWebUploadPayload(
+export async function prepareWebUploadPayload(
   selected: SelectedFile,
   metadata: WebUploadMetadata,
   signal: AbortSignal,
 ): Promise<PublishPayload> {
   throwIfAborted(signal)
+  if (selected.contentType.startsWith("image/")) {
+    const server = await api.serverInfo.fetch()
+    if (server.capabilities.screenshots !== 1)
+      throw new Error(t("This server does not support screenshot uploads yet."))
+    if (metadata.screenshotEdit)
+      selected = await prepareSelectedClipFile(
+        await exportScreenshot(selected.file, metadata.screenshotEdit),
+      )
+  }
   return {
     file: selected.file,
     contentType: selected.contentType,

@@ -82,7 +82,68 @@ interface ClipPlayerProps {
 }
 
 const DEFAULT_ASPECT_RATIO = 16 / 9
-function ClipPlayer({
+function ClipPlayer({ ...props }: ClipPlayerProps) {
+  if (
+    props.playbackContentType?.startsWith("image/") &&
+    props.status === "ready"
+  )
+    return (
+      <ScreenshotPlayer
+        key={`${props.clipId}:${props.sourceVersion}`}
+        {...props}
+      />
+    )
+  return <VideoClipPlayer {...props} />
+}
+
+function ScreenshotPlayer({
+  clipId,
+  sourceVersion,
+  onPlayThreshold,
+  className,
+}: ClipPlayerProps) {
+  const [zoomed, setZoomed] = useState(false)
+  const [failed, setFailed] = useState(false)
+  return (
+    <div
+      className={cn("relative h-full w-full overflow-auto bg-black", className)}
+    >
+      {failed ? (
+        <p role="alert" className="p-4 text-white">
+          {t("Couldn't load screenshot")}
+        </p>
+      ) : (
+        <button
+          type="button"
+          className={cn(
+            "block min-h-full min-w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-ring",
+            zoomed && "cursor-zoom-out",
+          )}
+          aria-label={zoomed ? t("Fit image") : t("Zoom image")}
+          onClick={() => setZoomed(!zoomed)}
+        >
+          <img
+            src={clipSourceFileUrl(
+              clipId,
+              apiOrigin(),
+              sourceVersion ?? undefined,
+            )}
+            alt={t("Screenshot")}
+            className={
+              zoomed
+                ? "max-w-none"
+                : "h-full max-h-[70dvh] w-full object-contain"
+            }
+            onLoad={onPlayThreshold}
+            onError={() => setFailed(true)}
+          />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function VideoClipPlayer({
   clipId,
   playbackContentType,
   sourceCodecs,

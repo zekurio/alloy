@@ -188,6 +188,9 @@ export const clipsUploadLifecycleRoutes = new Hono()
                   .insert(clip)
                   .values({
                     id: clipId,
+                    media_kind: body.contentType.startsWith("image/")
+                      ? "image"
+                      : "video",
                     author_id: viewerId,
                     title: body.title,
                     description: body.description ?? null,

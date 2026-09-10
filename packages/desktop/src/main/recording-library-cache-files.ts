@@ -3,7 +3,7 @@ import { extname, join } from "node:path"
 
 import {
   thumbnailSignature,
-  VIDEO_EXTENSIONS,
+  MEDIA_EXTENSIONS,
 } from "./recording-library-shared"
 
 /**
@@ -17,7 +17,7 @@ export function captureCachePath(
   id: string,
   filename: string,
 ): string | null {
-  if (!VIDEO_EXTENSIONS.has(extname(filename).toLowerCase())) return null
+  if (!MEDIA_EXTENSIONS.has(extname(filename).toLowerCase())) return null
 
   let stat: Stats
   try {

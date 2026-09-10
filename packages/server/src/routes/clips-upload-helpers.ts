@@ -3,7 +3,6 @@ import { clip } from "@alloy/db/schema"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
-import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import { and, eq, inArray, sql } from "drizzle-orm"
 
@@ -11,38 +10,10 @@ export type UploadQuotaResult =
   | { ok: true }
   | { ok: false; usedBytes: number; quotaBytes: number }
 
-export function uploadWouldExceedQuota({
-  quotaBytes,
-  usedBytes,
-  incomingBytes,
-  reservedBytes = 0,
-}: {
-  quotaBytes: number
-  usedBytes: number
-  incomingBytes: number
-  reservedBytes?: number
-}): boolean {
-  return usedBytes - reservedBytes + incomingBytes > quotaBytes
-}
-
-type QuotaDb = Pick<typeof db, "execute" | "select">
-
-export async function selectLockedQuotaState(
-  database: QuotaDb,
-  viewerId: string,
-) {
-  await database.execute(
-    sql`select "id" from "user" where "id" = ${viewerId} for update`,
-  )
-  const [quotaRow] = await database
-    .select({ storageQuotaBytes: user.storage_quota_bytes })
-    .from(user)
-    .where(eq(user.id, viewerId))
-    .limit(1)
-  const quotaBytes = quotaRow?.storageQuotaBytes ?? null
-  const usedBytes = await selectSourceStorageUsedBytes(database, viewerId)
-  return { quotaBytes, usedBytes }
-}
+export {
+  uploadWouldExceedQuota,
+  selectLockedQuotaState,
+} from "@alloy/server/storage/quota"
 
 export async function resolveMentionIds(
   rawIds: ReadonlyArray<string>,

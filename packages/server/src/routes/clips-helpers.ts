@@ -1,5 +1,7 @@
 import {
-  ACCEPTED_CLIP_CONTENT_TYPES,
+  ACCEPTED_MEDIA_CONTENT_TYPES,
+  SCREENSHOT_MAX_BYTES,
+  type MediaFilter,
   CLIP_AUDIO_TRACK_KINDS,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TAG_MAX_LENGTH,
@@ -86,8 +88,15 @@ export function publicClipPrivacyCondition(): SQL {
   return eq(clip.privacy, "public")
 }
 
-export function publicClipListingConditions(): SQL[] {
+export function mediaKindCondition(media: MediaFilter = "video"): SQL {
+  return media === "all" ? sql`true` : eq(clip.media_kind, media)
+}
+
+export function publicClipListingConditions(
+  media: MediaFilter = "video",
+): SQL[] {
   return [
+    mediaKindCondition(media),
     eq(clip.status, "ready"),
     publicClipPrivacyCondition(),
     isNull(user.disabled_at),
@@ -212,7 +221,7 @@ export const InitiateBody = t
   .object({
     clientClipId: t.uuid().optional(),
     filename: t.string().min(1).max(255),
-    contentType: t.enum(ACCEPTED_CLIP_CONTENT_TYPES),
+    contentType: t.enum(ACCEPTED_MEDIA_CONTENT_TYPES),
     sizeBytes: t.number().int().positive().max(Number.MAX_SAFE_INTEGER),
     title: requiredTrimmedString(CLIP_TITLE_MAX_LENGTH),
     description: optionalBlankToNullTrimmedString(CLIP_DESCRIPTION_MAX_LENGTH),
@@ -230,6 +239,23 @@ export const InitiateBody = t
     trimEndMs: t.number().int().positive().optional(),
   })
   .superRefine((body, ctx) => {
+    if (body.contentType.startsWith("image/")) {
+      if (
+        body.sizeBytes > SCREENSHOT_MAX_BYTES ||
+        body.durationMs !== undefined ||
+        body.trimStartMs !== undefined ||
+        body.trimEndMs !== undefined ||
+        body.audioTracks !== undefined
+      ) {
+        ctx.addIssue({
+          code: "custom",
+          message:
+            "Screenshots must be at most 50 MiB and cannot contain video timeline or audio fields",
+          path: ["contentType"],
+        })
+      }
+      return
+    }
     if (body.trimStartMs === undefined && body.trimEndMs === undefined) return
     if (body.trimStartMs === undefined || body.trimEndMs === undefined) {
       ctx.addIssue({
@@ -290,6 +316,12 @@ type PlaybackClipRow = typeof clip.$inferSelect
 
 function extensionForContentType(contentType: string): string {
   switch (contentType) {
+    case "image/png":
+      return "png"
+    case "image/jpeg":
+      return "jpg"
+    case "image/webp":
+      return "webp"
     case "video/mp4":
       return "mp4"
     default:

@@ -9,7 +9,7 @@ import { dirname, extname, join } from "node:path"
 
 import type { RecordingLibraryItem } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
-import { app } from "electron"
+import { app, nativeImage } from "electron"
 
 import { imageFileBlurHash } from "./image-blurhash"
 import {
@@ -19,7 +19,7 @@ import {
 import { findRecordingLibraryItem } from "./recording-library-scan"
 import {
   thumbnailSignature,
-  VIDEO_EXTENSIONS,
+  MEDIA_EXTENSIONS,
 } from "./recording-library-shared"
 import {
   pruneThumbnailBlurHashes,
@@ -35,7 +35,18 @@ export type ThumbnailSource = Pick<
 
 export function cachedRecordingThumbnail(item: ThumbnailSource): string | null {
   const out = captureCachePath(thumbnailFolder(), item.id, item.filename)
-  if (!out || !existsSync(out)) return null
+  if (!out) return null
+  if (!existsSync(out) && item.kind === "screenshot") {
+    const image = nativeImage.createFromPath(item.filename)
+    if (image.isEmpty()) return null
+    mkdirSync(dirname(out), { recursive: true })
+    writeFileSync(
+      out,
+      image.resize({ width: Math.min(960, image.getSize().width) }).toJPEG(85),
+    )
+    pruneStaleThumbnails(item.id, out)
+  }
+  if (!existsSync(out)) return null
   return out
 }
 
@@ -45,7 +56,7 @@ export function storeRecordingThumbnail(
 ): void {
   const item = findRecordingLibraryItem(id)
   if (!item) return
-  if (!VIDEO_EXTENSIONS.has(extname(item.filename).toLowerCase())) return
+  if (!MEDIA_EXTENSIONS.has(extname(item.filename).toLowerCase())) return
 
   let stat: Stats
   try {

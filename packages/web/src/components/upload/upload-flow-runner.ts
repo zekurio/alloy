@@ -62,7 +62,9 @@ export async function startUpload(
     tags: payload.tags.length > 0 ? payload.tags : undefined,
     width: payload.width,
     height: payload.height,
-    durationMs: Math.round(payload.durationMs),
+    durationMs: payload.contentType.startsWith("image/")
+      ? undefined
+      : Math.round(payload.durationMs),
     trimStartMs: payload.trimStartMs,
     trimEndMs: payload.trimEndMs,
   })
