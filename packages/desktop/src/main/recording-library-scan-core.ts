@@ -1,10 +1,4 @@
-import {
-  existsSync,
-  readdirSync,
-  statSync,
-  type Dirent,
-  type Stats,
-} from "node:fs"
+import { readdirSync, statSync, type Dirent, type Stats } from "node:fs"
 import { basename, dirname, extname, join, relative, resolve } from "node:path"
 
 import type {
@@ -32,7 +26,6 @@ import {
 export interface RecordingLibraryScanInput {
   outputFolder: string
   manifest: CaptureManifest
-  hiddenFileKeys: string[]
   thumbnailBlurHashes: Record<string, string>
 }
 
@@ -67,10 +60,9 @@ interface CollectionScan {
 export function createRecordingLibrarySnapshot(
   input: RecordingLibraryScanInput,
 ): RecordingLibrarySnapshot {
-  const items = scanRecordingLibraryItems(
-    input,
-    new Set(input.hiddenFileKeys),
-  ).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+  const items = scanRecordingLibraryItems(input).sort(
+    (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
+  )
   const groups = groupLibraryItems(items)
   return {
     outputFolder: input.outputFolder,
@@ -86,10 +78,7 @@ export function findRecordingLibraryItemInScan(
   input: RecordingLibraryScanInput,
   id: string,
 ): RecordingLibraryItem | null {
-  for (const item of scanRecordingLibraryItems(
-    input,
-    new Set(input.hiddenFileKeys),
-  )) {
+  for (const item of scanRecordingLibraryItems(input)) {
     if (item.id === id) return item
   }
 
@@ -98,7 +87,6 @@ export function findRecordingLibraryItemInScan(
 
 function scanRecordingLibraryItems(
   input: RecordingLibraryScanInput,
-  hiddenFileKeys: Set<string>,
 ): RecordingLibraryItem[] {
   const collections: CollectionScan[] = [
     {
@@ -108,28 +96,18 @@ function scanRecordingLibraryItems(
     },
   ]
 
-  return collections.flatMap((collection) =>
-    scanCollection(collection, input, hiddenFileKeys),
-  )
+  return collections.flatMap((collection) => scanCollection(collection, input))
 }
 
 function scanCollection(
   collection: CollectionScan,
   input: RecordingLibraryScanInput,
-  hiddenFileKeys: Set<string>,
 ): RecordingLibraryItem[] {
   const root = resolve(collection.root)
-  if (!existsSync(root)) return []
 
   const items: RecordingLibraryItem[] = []
   walkFiles(root, (filename) => {
-    const item = libraryItemForFile(
-      collection,
-      root,
-      filename,
-      input,
-      hiddenFileKeys,
-    )
+    const item = libraryItemForFile(collection, root, filename, input)
     if (item) items.push(item)
   })
   return items
@@ -158,13 +136,11 @@ function libraryItemForFile(
   collectionRoot: string,
   filename: string,
   input: RecordingLibraryScanInput,
-  hiddenFileKeys: Set<string>,
 ): RecordingLibraryItem | null {
   const extension = extname(filename).toLowerCase()
   if (!extensionMatchesKind(extension, collection.kind)) return null
 
   const absoluteFilename = resolve(filename)
-  if (hiddenFileKeys.has(manifestKey(absoluteFilename))) return null
 
   let stat: Stats
   try {

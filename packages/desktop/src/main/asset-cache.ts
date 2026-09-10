@@ -1,11 +1,5 @@
 import { createHash } from "node:crypto"
-import {
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs"
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 
 import { t } from "@alloy/contracts/schema"
@@ -40,7 +34,6 @@ export const ASSET_PROTOCOL = "alloy-asset"
 const ASSET_HOST = "remote"
 const FRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const MAX_ENTRY_BYTES = 10 * 1024 * 1024
-const MAX_CACHE_BYTES = 128 * 1024 * 1024
 const FETCH_TIMEOUT_MS = 15_000
 const MAX_REDIRECTS = 3
 
@@ -257,7 +250,6 @@ function writeCachedAsset(
       sizeBytes: body.byteLength,
     }
     writeFileSync(assetMetaPath(key), JSON.stringify(meta))
-    pruneAssetCache()
   } catch (cause) {
     logger.warn("failed to persist cached asset:", cause)
   }
@@ -276,53 +268,6 @@ function touchAssetMeta(key: string, meta: AssetMeta): void {
     )
   } catch {
     // Best effort — a missed touch only skews LRU ordering slightly.
-  }
-}
-
-function pruneAssetCache(): void {
-  const folder = assetCacheFolder()
-  let names: string[]
-  try {
-    names = readdirSync(folder)
-  } catch {
-    return
-  }
-
-  const entries: Array<{ key: string; meta: AssetMeta }> = []
-  for (const name of names) {
-    if (!name.endsWith(".json")) continue
-    const key = name.slice(0, -".json".length)
-    try {
-      const meta: unknown = JSON.parse(readFileSync(join(folder, name), "utf8"))
-      if (isAssetMeta(meta)) entries.push({ key, meta })
-    } catch {
-      // Corrupt meta — drop the pair below by treating it as oldest.
-      entries.push({
-        key,
-        meta: {
-          url: "",
-          contentType: "",
-          fetchedAt: 0,
-          lastUsedAt: 0,
-          sizeBytes: 0,
-        },
-      })
-    }
-  }
-
-  let total = entries.reduce((sum, entry) => sum + entry.meta.sizeBytes, 0)
-  if (total <= MAX_CACHE_BYTES) return
-
-  entries.sort((a, b) => a.meta.lastUsedAt - b.meta.lastUsedAt)
-  for (const entry of entries) {
-    if (total <= MAX_CACHE_BYTES) break
-    try {
-      rmSync(assetBodyPath(entry.key), { force: true })
-      rmSync(assetMetaPath(entry.key), { force: true })
-      total -= entry.meta.sizeBytes
-    } catch {
-      // A locked file just stays until the next prune pass.
-    }
   }
 }
 

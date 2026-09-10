@@ -35,17 +35,8 @@ const MAX_ENTRIES = 2000
 
 let cache: ThumbnailMetaFile | null = null
 
-export function getThumbnailBlurHash(signature: string): string | null {
-  const hash = readMeta().blurHashes[signature]
-  return isBlurHash(hash) ? hash : null
-}
-
 export function getThumbnailBlurHashes(): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(readMeta().blurHashes).filter(([, hash]) =>
-      isBlurHash(hash),
-    ),
-  )
+  return readMeta().blurHashes
 }
 
 export function rememberThumbnailBlurHash(

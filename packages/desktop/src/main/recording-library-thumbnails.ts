@@ -22,7 +22,6 @@ import {
   VIDEO_EXTENSIONS,
 } from "./recording-library-shared"
 import {
-  getThumbnailBlurHash,
   pruneThumbnailBlurHashes,
   rememberThumbnailBlurHash,
 } from "./recording-thumbnail-meta"
@@ -75,37 +74,6 @@ export function storeRecordingThumbnail(
 /** Drops thumbnails generated from an older mtime/size of the same capture. */
 export function pruneStaleThumbnails(id: string, keep: string): void {
   pruneCaptureCache(thumbnailFolder(), id, keep)
-}
-
-/**
- * Computes (and persists) the BlurHash for a capture from its thumbnail. Hashes
- * are keyed by the same mtime/size signature as thumbnail files, so they stay
- * stable across app starts and invalidate together with the thumbnail when the
- * file changes.
- */
-export async function ensureCaptureBlurHash(
-  item: ThumbnailSource,
-): Promise<string | null> {
-  let stat: Stats
-  try {
-    stat = statSync(item.filename)
-  } catch {
-    return null
-  }
-
-  const signature = thumbnailSignature(item.id, stat)
-  const existing = getThumbnailBlurHash(signature)
-  if (existing) return existing
-
-  const imagePath = cachedRecordingThumbnail(item)
-  if (!imagePath) return null
-
-  const blurHash = imageFileBlurHash(imagePath)
-  if (blurHash) {
-    rememberThumbnailBlurHash(signature, blurHash)
-    pruneThumbnailBlurHashes(item.id, signature)
-  }
-  return blurHash
 }
 
 function thumbnailPath(id: string, stat: Stats): string {

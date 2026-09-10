@@ -26,16 +26,6 @@ export function imageFileBlurHash(path: string): string | null {
   }
 }
 
-export function imageBufferBlurHash(bytes: Uint8Array): string | null {
-  try {
-    const image = nativeImage.createFromBuffer(Buffer.from(bytes))
-    return nativeImageBlurHash(image)
-  } catch (cause) {
-    logger.warn("failed to compute image blurhash:", cause)
-    return null
-  }
-}
-
 function nativeImageBlurHash(image: Electron.NativeImage): string | null {
   if (image.isEmpty()) return null
 
