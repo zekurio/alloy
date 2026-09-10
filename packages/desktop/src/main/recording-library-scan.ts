@@ -111,7 +111,7 @@ function recordingLibraryScanWorker(): Worker {
   }
 
   const worker = new Worker(
-    join(app.getAppPath(), "out", "main", "recording-library-scan-worker.js"),
+    join(app.getAppPath(), "out", "main", "recording-library-scan-worker.cjs"),
   )
   worker.on("message", handleScanWorkerMessage)
   worker.on("error", (cause) => {

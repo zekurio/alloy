@@ -48,6 +48,8 @@ export default defineConfig({
           ),
         },
         external: nodeExternals,
+        // Electron must apply Chromium flags before its asynchronous ESM loader runs.
+        output: { format: "cjs", entryFileNames: "[name].cjs" },
       },
     },
   },
