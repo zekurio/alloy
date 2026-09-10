@@ -4,7 +4,7 @@
   "private": true,
   "description": "Alloy desktop app",
   "type": "module",
-  "main": "./out/main/index.js",
+  "main": "./out/main/index.cjs",
   "scripts": {
     "dev": "pnpm prepare:assets && pnpm build:recorder && pnpm ensure:electron && electron-vite dev",
     "build": "pnpm prepare:assets && pnpm build:recorder && electron-vite build",
