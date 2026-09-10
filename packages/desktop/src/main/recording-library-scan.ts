@@ -193,7 +193,6 @@ function recordingLibraryScanInput(): RecordingLibraryScanInput {
   return {
     outputFolder: currentOutputFolder(),
     manifest: readCaptureManifest(),
-    hiddenFileKeys: [],
     thumbnailBlurHashes: getThumbnailBlurHashes(),
   }
 }
