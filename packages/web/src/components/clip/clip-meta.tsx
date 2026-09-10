@@ -197,7 +197,7 @@ function ClipMeta({
           titleClassName="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]"
         />
 
-        <div className="flex shrink-0 items-center gap-2 self-start">
+        <div className="flex shrink-0 items-center gap-1 self-start">
           <FeedbackButton
             variant={liked ? "accent-outline" : "ghost"}
             size="default"
@@ -222,7 +222,7 @@ function ClipMeta({
                   : t("Sign in to like")
             }
           >
-            <HeartIcon className={cn("size-5", liked && "fill-current")} />
+            <HeartIcon className={cn("size-4", liked && "fill-current")} />
             <span className="tabular-nums">{formatCount(likes)}</span>
           </FeedbackButton>
           <FeedbackButton
@@ -243,7 +243,7 @@ function ClipMeta({
               privacy === "private" ? t("Clip link is disabled") : undefined
             }
           >
-            <Share2Icon className="size-5" />
+            <Share2Icon className="size-4" />
           </FeedbackButton>
           {canManage || !!downloadAction ? (
             <DropdownMenu>
@@ -254,7 +254,7 @@ function ClipMeta({
                     size="icon"
                     aria-label={t("Clip actions")}
                   >
-                    <MoreHorizontalIcon className="size-5 rotate-90" />
+                    <MoreHorizontalIcon className="size-4 rotate-90" />
                   </Button>
                 }
               />
