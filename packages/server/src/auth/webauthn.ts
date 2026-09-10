@@ -13,7 +13,6 @@ import { db } from "@alloy/server/db/index"
 import { env } from "@alloy/server/env"
 import {
   type AuthenticationResponseJSON,
-  type AuthenticatorTransportFuture,
   generateAuthenticationOptions,
   generateRegistrationOptions,
   type RegistrationResponseJSON,
@@ -60,20 +59,12 @@ const AUTHENTICATOR_TRANSPORTS = new Set<string>([
   "usb",
 ])
 
-function isAuthenticatorTransport(
-  value: string,
-): value is AuthenticatorTransportFuture {
-  return AUTHENTICATOR_TRANSPORTS.has(value)
-}
-
-function transports(
-  row: UserPasskey,
-): AuthenticatorTransportFuture[] | undefined {
+function transports(row: UserPasskey): string[] | undefined {
   return row.transports
     ? row.transports
         .split(",")
         .map((part) => part.trim())
-        .filter(isAuthenticatorTransport)
+        .filter((part) => AUTHENTICATOR_TRANSPORTS.has(part))
     : undefined
 }
 
