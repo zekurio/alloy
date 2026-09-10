@@ -17,7 +17,6 @@ import {
   assertCurrentAgentVersion,
   isSidecarEventEnvelope,
   isSidecarResponse,
-  type RecordingSidecarVersion,
   type SidecarConfig,
   type SidecarEvent,
   type SidecarMethod,
@@ -26,7 +25,7 @@ import {
   type SidecarResultByMethod,
 } from "./recording-sidecar-protocol"
 
-export type { RecordingSidecarVersion, SidecarConfig, SidecarEvent }
+export type { SidecarConfig, SidecarEvent }
 
 const logger = createLogger("sidecar")
 
@@ -97,10 +96,6 @@ export class RecordingSidecarClient {
     this.ensureProcess()
     await this.ready
     return this.configureQueue.configure(config)
-  }
-
-  async version(): Promise<RecordingSidecarVersion> {
-    return await this.request("version")
   }
 
   async request<Method extends SidecarMethod>(
