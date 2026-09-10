@@ -126,7 +126,6 @@ fn publish_status(status: &Mutex<RecordingStatus>, recorder: &Recorder) {
 
 fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
     match request.method.as_str() {
-        "version" => response_ok(request.id, sidecar_version(), || recorder.status()),
         "configure" => match serde_json::from_value::<ConfigureParams>(request.params) {
             Ok(params) => match prepare_agent_state(&params.agent_state_folder)
                 .and_then(|()| recorder.configure(params))
@@ -140,7 +139,6 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
                 recorder.status(),
             ),
         },
-        "status" => response_ok(request.id, recorder.status(), || recorder.status()),
         "listGameProcesses" => {
             response_ok(request.id, list_game_processes(), || recorder.status())
         }
@@ -325,7 +323,6 @@ fn detected_game_from_parts(
         window_key,
         window_handle,
         fullscreen,
-        force_display_capture: match_.force_display_capture,
         capture_dimensions,
         hdr_enabled,
         detection_score: match_.detection_score,

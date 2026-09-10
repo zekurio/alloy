@@ -349,11 +349,6 @@
             });
         }
 
-        applications.sort_by(|left, right| {
-            left.name
-                .to_ascii_lowercase()
-                .cmp(&right.name.to_ascii_lowercase())
-        });
         applications
     }
 

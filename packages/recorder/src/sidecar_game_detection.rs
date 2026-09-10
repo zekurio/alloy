@@ -1,12 +1,7 @@
-const PLAYS_GAME_DETECTIONS_JSON: &str =
-    include_str!("detections/gameDetections.json");
 const PLAYS_NON_GAME_DETECTIONS_JSON: &str =
     include_str!("detections/nonGameDetections.json");
 
 const MANUAL_ALLOW_SCORE: i32 = 120;
-const CURATED_GAME_SCORE: i32 = 90;
-const STORE_PATH_SCORE: i32 = 75;
-const HEURISTIC_GAME_SCORE: i32 = 50;
 const DISCORD_DETECTIONS_PATH_ENV: &str = "ALLOY_DISCORD_DETECTIONS_PATH";
 const DISCORD_DETECTION_CACHE_CHECK_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -36,7 +31,6 @@ struct CandidateGameMatch {
     aliases: Vec<String>,
     icon_url: Option<String>,
     preserve_name: bool,
-    force_display_capture: bool,
     detection_score: i32,
     confidence: u8,
     match_kind: RecordingGameGuessMatchKind,
@@ -53,13 +47,6 @@ struct ProcessDisplayName<'a> {
 }
 
 #[derive(Default)]
-struct AutoDetectionCatalog {
-    game_rules_by_executable: HashMap<String, Vec<GameDetectionRule>>,
-    fallback_game_rules: Vec<GameDetectionRule>,
-    non_game_executables: HashSet<String>,
-}
-
-#[derive(Default)]
 struct RuntimeDiscordDetectionState {
     path: Option<PathBuf>,
     modified: Option<SystemTime>,
@@ -71,14 +58,6 @@ struct RuntimeDiscordDetectionState {
 struct DiscordDetectionCatalog {
     games_by_id: HashMap<String, DiscordDetectionGame>,
     rules_by_executable: HashMap<String, Vec<DiscordExecutableRule>>,
-}
-
-#[derive(Clone)]
-struct GameDetectionRule {
-    id: String,
-    title: String,
-    pattern: String,
-    force_display_capture: bool,
 }
 
 #[derive(Clone, Deserialize)]
@@ -108,20 +87,6 @@ struct DiscordExecutableRule {
 }
 
 #[derive(Deserialize)]
-struct PlaysGameEntry {
-    title: Option<String>,
-    #[serde(default)]
-    game_detection: Vec<PlaysGameRule>,
-}
-
-#[derive(Deserialize)]
-struct PlaysGameRule {
-    gameexe: Option<String>,
-    #[serde(default)]
-    force_display_capture: bool,
-}
-
-#[derive(Deserialize)]
 struct PlaysNonGameEntry {
     #[serde(default)]
     detections: Vec<PlaysNonGameRule>,
@@ -132,10 +97,8 @@ struct PlaysNonGameRule {
     detect_exe: Option<String>,
 }
 
-static AUTO_DETECTION_CATALOG: OnceLock<AutoDetectionCatalog> = OnceLock::new();
+static NON_GAME_EXECUTABLES: OnceLock<HashSet<String>> = OnceLock::new();
 static DISCORD_DETECTION_STATE: OnceLock<Mutex<RuntimeDiscordDetectionState>> = OnceLock::new();
-type GameRegexCache = Mutex<HashMap<String, Option<Regex>>>;
-static GAME_REGEX_CACHE: OnceLock<GameRegexCache> = OnceLock::new();
 
 fn candidate_game_detection_match(
     path: Option<&str>,
@@ -160,7 +123,6 @@ fn candidate_game_detection_match(
             aliases: Vec::new(),
             icon_url: game.icon_url.clone(),
             preserve_name: true,
-            force_display_capture: false,
             detection_score: MANUAL_ALLOW_SCORE + match_score,
             confidence: 100,
             match_kind: RecordingGameGuessMatchKind::Manual,
@@ -171,62 +133,8 @@ fn candidate_game_detection_match(
         return None;
     }
 
-    if let Some(match_) = discord_game_match(executable) {
-        if known_game_window_is_plausible(capture_dimensions, class_name) {
-            return Some(match_);
-        }
-        return None;
-    }
-
-    if let Some(match_) = curated_game_match(path, executable) {
-        if known_game_window_is_plausible(capture_dimensions, class_name) {
-            return Some(match_);
-        }
-        return None;
-    }
-
-    if let Some(name) = steam_game_name(path) {
-        if known_game_window_is_plausible(capture_dimensions, class_name) {
-            return Some(CandidateGameMatch {
-                id: Some(format!("steam-path:{}", detection_slug(&name))),
-                source: RecordingGameGuessSource::SteamPath,
-                source_id: None,
-                name,
-                aliases: Vec::new(),
-                icon_url: None,
-                preserve_name: false,
-                force_display_capture: false,
-                detection_score: STORE_PATH_SCORE,
-                confidence: 74,
-                match_kind: RecordingGameGuessMatchKind::Path,
-            });
-        }
-    }
-
-    if let Some(name) = windows_store_game_name(path) {
-        // WindowsApps contains ordinary packaged desktop software too. Unlike
-        // a curated executable match, the path alone is not positive evidence
-        // that the process is a game.
-        if class_is_game_like(class_name)
-            && capture_dimensions.is_some_and(has_valid_game_dimensions)
-        {
-            return Some(CandidateGameMatch {
-                id: Some(format!("windows-store:{}", detection_slug(&name))),
-                source: RecordingGameGuessSource::WindowsStore,
-                source_id: None,
-                name,
-                aliases: Vec::new(),
-                icon_url: None,
-                preserve_name: false,
-                force_display_capture: false,
-                detection_score: STORE_PATH_SCORE,
-                confidence: 74,
-                match_kind: RecordingGameGuessMatchKind::Path,
-            });
-        }
-    }
-
-    heuristic_game_match(title, executable, class_name, capture_dimensions)
+    discord_game_match(executable)
+        .filter(|_| known_game_window_is_plausible(capture_dimensions, class_name))
 }
 
 fn detected_game_still_allowed(
@@ -266,29 +174,6 @@ fn manual_game_name(
         .unwrap_or_else(|| "Game".to_string())
 }
 
-fn curated_game_match(path: Option<&str>, executable: Option<&str>) -> Option<CandidateGameMatch> {
-    let executable_key = executable.map(|value| value.to_ascii_lowercase())?;
-    let catalog = auto_detection_catalog();
-    let path = path.map(normalized_path);
-    let candidate = path.as_deref().or(executable)?;
-
-    if let Some(rules) = catalog.game_rules_by_executable.get(&executable_key) {
-        for rule in rules {
-            if game_rule_matches(rule, candidate) {
-                return Some(candidate_match_from_rule(rule));
-            }
-        }
-    }
-
-    for rule in &catalog.fallback_game_rules {
-        if game_rule_matches(rule, candidate) {
-            return Some(candidate_match_from_rule(rule));
-        }
-    }
-
-    None
-}
-
 fn discord_game_match(executable: Option<&str>) -> Option<CandidateGameMatch> {
     let executable_key = executable.map(|value| value.to_ascii_lowercase())?;
     let mut state = discord_detection_state()
@@ -311,7 +196,6 @@ fn discord_game_match(executable: Option<&str>) -> Option<CandidateGameMatch> {
         aliases: game.aliases.clone(),
         icon_url: discord_icon_url(game),
         preserve_name: true,
-        force_display_capture: false,
         detection_score: rule.score,
         confidence: if rule.is_launcher { 82 } else { 96 },
         match_kind: RecordingGameGuessMatchKind::Executable,
@@ -328,63 +212,10 @@ fn discord_icon_url(game: &DiscordDetectionGame) -> Option<String> {
     })
 }
 
-fn candidate_match_from_rule(rule: &GameDetectionRule) -> CandidateGameMatch {
-    CandidateGameMatch {
-        id: Some(rule.id.clone()),
-        source: RecordingGameGuessSource::Plays,
-        source_id: Some(rule.id.clone()),
-        name: rule.title.clone(),
-        aliases: Vec::new(),
-        icon_url: None,
-        preserve_name: true,
-        force_display_capture: rule.force_display_capture,
-        detection_score: CURATED_GAME_SCORE,
-        confidence: 86,
-        match_kind: RecordingGameGuessMatchKind::Executable,
-    }
-}
-
 fn is_builtin_non_game(executable: Option<&str>) -> bool {
     executable.is_some_and(|executable| {
-        auto_detection_catalog()
-            .non_game_executables
+        non_game_executables()
             .contains(&executable.to_ascii_lowercase())
-    })
-}
-
-fn heuristic_game_match(
-    title: Option<&str>,
-    executable: Option<&str>,
-    class_name: Option<&str>,
-    capture_dimensions: Option<VideoDimensions>,
-) -> Option<CandidateGameMatch> {
-    let dimensions = capture_dimensions?;
-    if !class_is_game_like(class_name) || !has_valid_game_dimensions(dimensions) {
-        return None;
-    }
-
-    let name = user_facing_process_name(ProcessDisplayName {
-        path: None,
-        preferred: title,
-        title,
-        executable,
-        fallback: Some("Detected Game"),
-        preserve_preferred: false,
-    })
-    .unwrap_or_else(|| "Detected Game".to_string());
-
-    Some(CandidateGameMatch {
-        id: Some(format!("heuristic:{}", detection_slug(&name))),
-        source: RecordingGameGuessSource::Heuristic,
-        source_id: None,
-        name,
-        aliases: Vec::new(),
-        icon_url: None,
-        preserve_name: false,
-        force_display_capture: false,
-        detection_score: HEURISTIC_GAME_SCORE,
-        confidence: 50,
-        match_kind: RecordingGameGuessMatchKind::Heuristic,
     })
 }
 
@@ -442,36 +273,6 @@ fn contains_any_folded(value: &str, terms: &[&str]) -> bool {
     terms
         .iter()
         .any(|term| lower.contains(term) || compact.contains(term))
-}
-
-fn steam_game_name(path: Option<&str>) -> Option<String> {
-    let path = normalized_path(path?);
-    let (_, rest) = split_once_case_insensitive(&path, "/steamapps/common/")?;
-    rest.split('/')
-        .next()
-        .map(clean_detection_name)
-        .filter(|name| !name.is_empty())
-}
-
-fn windows_store_game_name(path: Option<&str>) -> Option<String> {
-    let path = normalized_path(path?);
-    let (_, rest) = split_once_case_insensitive(&path, "/windowsapps/")?;
-    let package = rest.split('/').next()?;
-    let name = package.split('_').next().unwrap_or(package);
-    Some(clean_detection_name(name)).filter(|name| !name.is_empty())
-}
-
-fn split_once_case_insensitive<'a>(value: &'a str, needle: &str) -> Option<(&'a str, &'a str)> {
-    let index = value.to_ascii_lowercase().find(&needle.to_ascii_lowercase())?;
-    Some(value.split_at(index + needle.len()))
-}
-
-fn clean_detection_name(value: &str) -> String {
-    value
-        .replace(['\\', '/', '_'], " ")
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 fn readable_detected_game_name(
@@ -604,44 +405,8 @@ fn compact_name_boundary(previous: char, current: char, next: Option<char>) -> b
         && next.is_some_and(|next| next.is_ascii_lowercase())
 }
 
-fn game_rule_matches(rule: &GameDetectionRule, candidate_path: &str) -> bool {
-    let mut cache = GAME_REGEX_CACHE
-        .get_or_init(|| Mutex::new(HashMap::new()))
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-
-    if !cache.contains_key(&rule.pattern) {
-        let regex = match RegexBuilder::new(&rule.pattern)
-            .case_insensitive(true)
-            .build()
-        {
-            Ok(regex) => Some(regex),
-            Err(error) => {
-                eprintln!(
-                    "[{SIDE_CAR_NAME}] failed to compile game detection regex {:?}: {error}",
-                    rule.pattern
-                );
-                None
-            }
-        };
-        cache.insert(rule.pattern.clone(), regex);
-    }
-
-    cache
-        .get(&rule.pattern)
-        .and_then(Option::as_ref)
-        .is_some_and(|regex| regex.is_match(candidate_path))
-}
-
-fn auto_detection_catalog() -> &'static AutoDetectionCatalog {
-    AUTO_DETECTION_CATALOG.get_or_init(load_auto_detection_catalog)
-}
-
-fn load_auto_detection_catalog() -> AutoDetectionCatalog {
-    let mut catalog = AutoDetectionCatalog::default();
-    load_game_detection_rules(&mut catalog);
-    load_non_game_detection_rules(&mut catalog);
-    catalog
+fn non_game_executables() -> &'static HashSet<String> {
+    NON_GAME_EXECUTABLES.get_or_init(load_non_game_executables)
 }
 
 fn discord_detection_state() -> &'static Mutex<RuntimeDiscordDetectionState> {
@@ -733,53 +498,7 @@ fn parse_discord_detection_catalog(
     })
 }
 
-fn load_game_detection_rules(catalog: &mut AutoDetectionCatalog) {
-    let entries = match serde_json::from_str::<Vec<PlaysGameEntry>>(PLAYS_GAME_DETECTIONS_JSON) {
-        Ok(entries) => entries,
-        Err(error) => {
-            eprintln!("[{SIDE_CAR_NAME}] failed to parse embedded game detections: {error}");
-            return;
-        }
-    };
-
-    for entry in entries {
-        let Some(title) = entry
-            .title
-            .as_deref()
-            .map(str::trim)
-            .filter(|title| !title.is_empty())
-            .map(str::to_string)
-        else {
-            continue;
-        };
-
-        for detection in entry.game_detection {
-            let Some(patterns) = detection.gameexe else {
-                continue;
-            };
-            for pattern in patterns.split('|').map(str::trim).filter(|p| !p.is_empty()) {
-                let rule = GameDetectionRule {
-                    id: format!("plays:{}", detection_slug(&title)),
-                    title: title.clone(),
-                    pattern: pattern.to_string(),
-                    force_display_capture: detection.force_display_capture,
-                };
-
-                if let Some(executable) = executable_hint_from_pattern(pattern) {
-                    catalog
-                        .game_rules_by_executable
-                        .entry(executable)
-                        .or_default()
-                        .push(rule);
-                } else {
-                    catalog.fallback_game_rules.push(rule);
-                }
-            }
-        }
-    }
-}
-
-fn load_non_game_detection_rules(catalog: &mut AutoDetectionCatalog) {
+fn load_non_game_executables() -> HashSet<String> {
     let entries = match serde_json::from_str::<Vec<PlaysNonGameEntry>>(
         PLAYS_NON_GAME_DETECTIONS_JSON,
     )
@@ -787,10 +506,11 @@ fn load_non_game_detection_rules(catalog: &mut AutoDetectionCatalog) {
         Ok(entries) => entries,
         Err(error) => {
             eprintln!("[{SIDE_CAR_NAME}] failed to parse embedded non-game detections: {error}");
-            return;
+            return HashSet::new();
         }
     };
 
+    let mut catalog = HashSet::new();
     for entry in entries {
         for detection in entry.detections {
             let Some(patterns) = detection.detect_exe else {
@@ -798,66 +518,10 @@ fn load_non_game_detection_rules(catalog: &mut AutoDetectionCatalog) {
             };
             for pattern in patterns.split('|').map(str::trim).filter(|p| !p.is_empty()) {
                 if let Some(executable) = path_file_name(pattern) {
-                    catalog
-                        .non_game_executables
-                        .insert(executable.to_ascii_lowercase());
+                    catalog.insert(executable.to_ascii_lowercase());
                 }
             }
         }
     }
-}
-
-fn executable_hint_from_pattern(pattern: &str) -> Option<String> {
-    let tail = pattern
-        .trim_end_matches('$')
-        .rsplit('/')
-        .next()
-        .map(str::trim)
-        .filter(|tail| !tail.is_empty())?;
-    let mut output = String::new();
-    let mut chars = tail.chars();
-
-    while let Some(ch) = chars.next() {
-        if ch == '\\' {
-            if let Some(escaped) = chars.next() {
-                output.push(escaped);
-            }
-            continue;
-        }
-
-        if matches!(ch, '.' | '^' | '$' | '*' | '+' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '|')
-        {
-            return None;
-        }
-
-        output.push(ch);
-    }
-
-    output
-        .to_ascii_lowercase()
-        .ends_with(".exe")
-        .then(|| output.to_ascii_lowercase())
-}
-
-fn detection_slug(value: &str) -> String {
-    let slug = value
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() {
-                ch.to_ascii_lowercase()
-            } else {
-                '-'
-            }
-        })
-        .collect::<String>();
-    let slug = slug
-        .split('-')
-        .filter(|part| !part.is_empty())
-        .collect::<Vec<_>>()
-        .join("-");
-    if slug.is_empty() {
-        "game".to_string()
-    } else {
-        slug
-    }
+    catalog
 }

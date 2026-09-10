@@ -637,7 +637,6 @@ fn audio_source_configs(
                     Some(&RecordingAudioDeviceKind::Input),
                 )?
                     .into_iter()
-                    .filter(|device| device.kind == RecordingAudioDeviceKind::Input)
                     .map(audio_device_source_config),
             );
 
@@ -880,10 +879,8 @@ fn game_capture_mode(game: Option<&DetectedGame>) -> &'static str {
     }
 }
 
-fn source_kind(settings: &RecordingSettings, game: Option<&DetectedGame>) -> OutputSourceKind {
-    if settings.capture_mode == RecordingCaptureMode::Display
-        || game.is_some_and(|game| game.force_display_capture)
-    {
+fn source_kind(settings: &RecordingSettings) -> OutputSourceKind {
+    if settings.capture_mode == RecordingCaptureMode::Display {
         OutputSourceKind::Display
     } else {
         OutputSourceKind::Game
