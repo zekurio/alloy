@@ -228,26 +228,21 @@ function ClipViewerDialogBody({
     <DialogViewportContent
       initialFocus={initialFocusRef}
       style={cssVariables({
-        "--clip-modal-margin-x": "16px",
-        "--clip-modal-margin-y": "16px",
-        "--clip-modal-nav-gutter": "72px",
-        "--clip-modal-sidebar": "400px",
-        "--clip-modal-meta": "13rem",
+        "--clip-modal-margin-x": "24px",
+        "--clip-modal-margin-y": "24px",
+        "--clip-modal-nav-gutter": "56px",
+        "--clip-modal-sidebar": "360px",
+        "--clip-modal-meta": "10rem",
         "--clip-modal-ratio": aspectRatio,
       })}
       className={cn(
         // Below lg this branch is normally hidden by MobileClipViewerBody, but
         // we keep a sensible fallback in case the breakpoint check disagrees.
         "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-xl bg-surface transition-[filter,opacity,transform] duration-100",
-        "lg:[--clip-modal-margin-x:160px] lg:[--clip-modal-margin-y:20px] lg:[--clip-modal-nav-gutter:72px]",
         "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta)),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))/var(--clip-modal-ratio)))+var(--clip-modal-meta))]",
         "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
         "lg:w-[calc(min(calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar)),calc((100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta))*var(--clip-modal-ratio)))+var(--clip-modal-sidebar))]",
         "lg:max-w-[calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2)]",
-        // xl: wider sidebar + extra horizontal gutter, still slim vertically.
-        "xl:[--clip-modal-margin-x:200px] xl:[--clip-modal-margin-y:24px] xl:[--clip-modal-meta:14rem] xl:[--clip-modal-sidebar:448px]",
-        // 2xl: max breathing room for chevrons + meta on ultrawide.
-        "2xl:[--clip-modal-margin-x:256px] 2xl:[--clip-modal-margin-y:28px]",
       )}
     >
       <DialogClose
@@ -274,7 +269,7 @@ function ClipViewerDialogBody({
           className={cn(
             // h/w carry the lg: prefix so they beat the icon-size default
             // (sm:size-8) in the cascade; the buttons only render at lg+.
-            "absolute top-1/2 right-full z-40 lg:h-12 lg:w-[calc((100dvw-100%)/2)] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+            "absolute top-1/2 left-[calc(50%-50dvw+24px)] z-40 lg:size-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
             "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
             "hidden lg:inline-flex",
           )}
@@ -291,7 +286,7 @@ function ClipViewerDialogBody({
           aria-label={t("Next clip")}
           disabled={nextDisabled}
           className={cn(
-            "absolute top-1/2 left-full z-40 lg:h-12 lg:w-[calc((100dvw-100%)/2)] -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
+            "absolute top-1/2 right-[calc(50%-50dvw+24px)] z-40 lg:size-12 -translate-y-1/2 rounded-none border-transparent bg-transparent text-white/70 shadow-none drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] hover:border-transparent hover:bg-transparent hover:text-white hover:shadow-none hover:drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] [&_svg]:!size-8 [&_svg]:stroke-[2.5]",
             "disabled:cursor-default disabled:text-white/25 disabled:hover:text-white/25",
             "hidden lg:inline-flex",
           )}

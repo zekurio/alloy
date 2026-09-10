@@ -4,11 +4,10 @@ import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useInfiniteQuery } from "@tanstack/react-query"
-import { useNavigate, useSearch } from "@tanstack/react-router"
+import { useSearch } from "@tanstack/react-router"
 import { useMemo } from "react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
-import { MediaFilterControl } from "@/components/clip/media-filter-control"
 import { profileMediaQueryOptions } from "@/lib/clip-queries"
 import type { ProfileClipSort } from "@/lib/profile-all-search"
 
@@ -43,7 +42,6 @@ export function ProfileClipsSection({
 }: ProfileClipsSectionProps) {
   const search = useSearch({ strict: false })
   const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
-  const navigate = useNavigate()
   const query = useInfiniteQuery(
     profileMediaQueryOptions(username, {
       tab,
@@ -93,15 +91,6 @@ export function ProfileClipsSection({
     <section>
       {
         <PageToolbar rail={false} className="-mt-4 sm:-mt-6">
-          <MediaFilterControl
-            value={media}
-            onChange={(media) => {
-              void navigate({
-                to: ".",
-                search: (previous) => ({ ...previous, media }),
-              })
-            }}
-          />
           <ClipsFilterBar
             username={username}
             tab={tab}

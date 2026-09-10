@@ -1,3 +1,5 @@
+import { logger } from "@alloy/logging"
+import { DrizzleError, DrizzleQueryError } from "drizzle-orm"
 import type { Context } from "hono"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 
@@ -109,6 +111,10 @@ export function badRequestFromCause(
   cause: unknown,
   fallback: string,
 ) {
+  if (cause instanceof DrizzleError || cause instanceof DrizzleQueryError) {
+    logger.error("Database request failed", cause)
+    return internalServerError(c, fallback)
+  }
   return badRequest(c, errorMessage(cause, fallback))
 }
 

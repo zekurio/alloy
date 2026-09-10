@@ -1,7 +1,12 @@
 import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { GamepadIcon, HomeIcon, LibraryIcon, ImageIcon } from "lucide-react"
+import {
+  GamepadIcon,
+  ClapperboardIcon,
+  LibraryIcon,
+  ImageIcon,
+} from "lucide-react"
 import type { ReactNode } from "react"
 
 import { NotificationBell } from "@/components/notifications/notification-bell"
@@ -36,16 +41,9 @@ export function MobileBottomNav() {
         <BottomNavLink
           to="/"
           active={isHome}
-          label={t("Home")}
-          icon={<HomeIcon />}
+          label={t("Clips")}
+          icon={<ClapperboardIcon />}
         />
-        <BottomNavLink
-          to="/library"
-          active={isLibrary}
-          label={t("Library")}
-          icon={<LibraryIcon />}
-        />
-        {session ? <NotificationBell variant="bottom-nav" /> : null}
         <BottomNavLink
           to="/screenshots"
           active={isScreenshots}
@@ -58,6 +56,13 @@ export function MobileBottomNav() {
           label={t("Games")}
           icon={<GamepadIcon />}
         />
+        <BottomNavLink
+          to="/library"
+          active={isLibrary}
+          label={t("Library")}
+          icon={<LibraryIcon />}
+        />
+        {session ? <NotificationBell variant="bottom-nav" /> : null}
       </div>
     </nav>
   )

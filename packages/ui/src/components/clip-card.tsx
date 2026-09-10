@@ -154,7 +154,7 @@ function ClipCard({
         />
       </div>
       {gallery ? (
-        <div className="pointer-events-none invisible absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pt-10 pb-3 text-white opacity-0 transition-opacity duration-150 group-focus-within/clip-card:visible group-focus-within/clip-card:opacity-100 group-hover/clip-card:visible group-hover/clip-card:opacity-100 motion-reduce:transition-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto [@media(hover:none)]:visible [@media(hover:none)]:opacity-100">
+        <div className="pointer-events-none invisible absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pt-10 pb-3 text-white opacity-0 transition-opacity duration-150 group-hover/clip-card:visible group-hover/clip-card:opacity-100 group-has-[:focus-visible]/clip-card:visible group-has-[:focus-visible]/clip-card:opacity-100 motion-reduce:transition-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto [@media(hover:none)]:visible [@media(hover:none)]:opacity-100">
           <div className="truncate text-sm leading-5 font-semibold">
             <ClipCardTitleButton
               title={title}

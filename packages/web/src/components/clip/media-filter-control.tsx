@@ -1,12 +1,8 @@
-import { MEDIA_FILTERS, type MediaFilter } from "@alloy/contracts"
+import { type MediaFilter } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@alloy/ui/components/select"
+import { ClapperboardIcon, ImageIcon, LayersIcon } from "lucide-react"
+
+import { SortDropdown } from "./sort-dropdown"
 
 export function MediaFilterControl({
   value,
@@ -15,29 +11,17 @@ export function MediaFilterControl({
   value: MediaFilter
   onChange: (value: MediaFilter) => void
 }) {
-  const labels = {
-    all: t("All media"),
-    video: t("Clips"),
-    image: t("Screenshots"),
-  }
   return (
-    <Select
+    <SortDropdown
       value={value}
-      onValueChange={(selected) => {
-        const next = MEDIA_FILTERS.find((kind) => kind === selected)
-        if (next) onChange(next)
-      }}
-    >
-      <SelectTrigger aria-label={t("Media type")} className="shrink-0">
-        <SelectValue>{labels[value]}</SelectValue>
-      </SelectTrigger>
-      <SelectContent align="start" className="alloy-blur">
-        {MEDIA_FILTERS.map((kind) => (
-          <SelectItem key={kind} value={kind}>
-            {labels[kind]}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+      options={[
+        { key: "all", label: t("All media"), icon: <LayersIcon /> },
+        { key: "video", label: t("Clips"), icon: <ClapperboardIcon /> },
+        { key: "image", label: t("Screenshots"), icon: <ImageIcon /> },
+      ]}
+      renderOptionLink={(option) => (
+        <button type="button" onClick={() => onChange(option.key)} />
+      )}
+    />
   )
 }

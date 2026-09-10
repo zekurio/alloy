@@ -1,4 +1,10 @@
 export const DE_MESSAGES = {
+  "Internal Server Error": "Interner Serverfehler",
+  "API server unavailable": "Der Server ist derzeit nicht erreichbar",
+  "Failed to fetch":
+    "Der Server ist nicht erreichbar. Bitte versuche es erneut.",
+  "NetworkError when attempting to fetch resource.":
+    "Der Server ist nicht erreichbar. Bitte versuche es erneut.",
   "Redo (Ctrl+Shift+Z)": "Wiederholen (Strg+Umschalt+Z)",
   "Undo (Ctrl+Z)": "Rückgängig (Strg+Z)",
   Redo: "Wiederholen",

@@ -131,7 +131,7 @@ function ScreenshotPlayer({
         <button
           type="button"
           className={cn(
-            "block h-full w-full cursor-zoom-in focus-visible:outline-2 focus-visible:outline-ring",
+            "grid h-full w-full place-items-center cursor-zoom-in focus-visible:outline-2 focus-visible:outline-ring",
             zoomed && "h-auto w-auto min-h-full min-w-full cursor-zoom-out",
           )}
           aria-label={zoomed ? t("Fit image") : t("Zoom image")}

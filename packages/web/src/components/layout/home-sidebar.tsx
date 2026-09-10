@@ -7,7 +7,12 @@ import {
 } from "@alloy/ui/components/app-sidebar"
 import { TooltipProvider } from "@alloy/ui/components/tooltip"
 import { Link } from "@tanstack/react-router"
-import { GamepadIcon, HomeIcon, LibraryIcon, ImageIcon } from "lucide-react"
+import {
+  GamepadIcon,
+  ClapperboardIcon,
+  LibraryIcon,
+  ImageIcon,
+} from "lucide-react"
 import { Suspense } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
@@ -51,17 +56,10 @@ function SidebarNav() {
     <>
       <SidebarNavItem
         active={flags.isHome}
-        label={t("Home")}
+        label={t("Clips")}
         render={<Link to="/" />}
       >
-        <HomeIcon />
-      </SidebarNavItem>
-      <SidebarNavItem
-        active={flags.isLibrary}
-        label={t("Library")}
-        render={<Link to="/library" />}
-      >
-        <LibraryIcon />
+        <ClapperboardIcon />
       </SidebarNavItem>
       <SidebarNavItem
         active={flags.isScreenshots}
@@ -77,6 +75,13 @@ function SidebarNav() {
       >
         <GamepadIcon />
       </SidebarNavItem>
+      <SidebarNavItem
+        active={flags.isLibrary}
+        label={t("Library")}
+        render={<Link to="/library" />}
+      >
+        <LibraryIcon />
+      </SidebarNavItem>
     </>
   )
 }
@@ -84,14 +89,17 @@ function SidebarNav() {
 function SidebarNavFallback() {
   return (
     <>
-      <SidebarNavItem label={t("Home")}>
-        <HomeIcon />
+      <SidebarNavItem label={t("Clips")}>
+        <ClapperboardIcon />
       </SidebarNavItem>
-      <SidebarNavItem label={t("Library")}>
-        <LibraryIcon />
+      <SidebarNavItem label={t("Screenshots")}>
+        <ImageIcon />
       </SidebarNavItem>
       <SidebarNavItem label={t("Games")}>
         <GamepadIcon />
+      </SidebarNavItem>
+      <SidebarNavItem label={t("Library")}>
+        <LibraryIcon />
       </SidebarNavItem>
     </>
   )

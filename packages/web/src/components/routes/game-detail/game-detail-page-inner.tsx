@@ -89,22 +89,23 @@ export function GameDetailPageInner({
             <GameHeader game={game} viewerId={viewerId ?? null} />
             <div className="flex flex-col px-[var(--app-content-padding)]">
               <PageToolbar rail={false}>
-                <MediaFilterControl
-                  value={media}
-                  onChange={(media) => {
-                    void navigate({
-                      to: "/games/$gameId",
-                      params: { gameId },
-                      search: { sort, creator: creator ?? undefined, media },
-                    })
-                  }}
-                />
                 <GameCreatorChips
                   gameId={gameId}
                   sort={sort}
                   creator={creator}
                 />
-                <div className="shrink-0">
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <MediaFilterControl
+                    value={media}
+                    onChange={(media) => {
+                      void navigate({
+                        to: "/games/$gameId",
+                        params: { gameId },
+                        search: { sort, creator: creator ?? undefined, media },
+                      })
+                    }}
+                  />
+
                   <SortDropdown
                     value={sort}
                     options={CLIP_SORT_OPTIONS}
