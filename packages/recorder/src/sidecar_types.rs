@@ -146,19 +146,13 @@ struct RecordingGameProcess {
 enum RecordingGameGuessSource {
     DiscordDetectable,
     Manual,
-    Plays,
-    SteamPath,
-    WindowsStore,
-    Heuristic,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "kebab-case")]
 enum RecordingGameGuessMatchKind {
     Executable,
-    Path,
     Manual,
-    Heuristic,
 }
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -552,7 +546,6 @@ struct DetectedGame {
     window_key: String,
     window_handle: isize,
     fullscreen: bool,
-    force_display_capture: bool,
     capture_dimensions: Option<VideoDimensions>,
     hdr_enabled: bool,
     detection_score: i32,

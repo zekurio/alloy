@@ -21,7 +21,6 @@ use std::{
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use libloading::{Library, Symbol};
-use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
