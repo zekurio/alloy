@@ -13,7 +13,7 @@ impl Recorder {
         capture: RecordingCapture,
         output_config: OutputConfig,
     ) -> Result<ActiveSession, String> {
-        let source_kind = source_kind(settings, game);
+        let source_kind = source_kind(settings);
         let video_config = self.ensure_obs_for_source(settings, game, source_kind)?;
         let obs = self
             .obs
@@ -198,7 +198,6 @@ impl Recorder {
             }
         };
         unsafe {
-            (obs.obs_output_update)(output, output_settings);
             obs.release_data(output_settings);
             (obs.obs_output_set_video_encoder)(output, video_encoder);
             (obs.obs_output_set_audio_encoder)(output, audio_encoder, 0);

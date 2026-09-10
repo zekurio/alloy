@@ -327,9 +327,6 @@ impl Recorder {
         self.last_capture = None;
         self.last_error = None;
         let status = self.status();
-        emit_event(RecordingEvent::Status {
-            status: status.clone(),
-        });
         emit_event(RecordingEvent::ReplayBufferStarted { status });
         Ok(())
     }
@@ -452,7 +449,7 @@ impl Recorder {
         } else {
             self.active_game.clone()
         };
-        let source_kind = source_kind(&settings, game.as_ref());
+        let source_kind = source_kind(&settings);
         self.ensure_obs_for_source(&settings, game.as_ref(), source_kind)
             .map(|_| ())
     }
@@ -544,7 +541,7 @@ impl Recorder {
         kind: RecordingCaptureKind,
         filename: String,
     ) -> RecordingCapture {
-        let source_kind = source_kind(settings, game);
+        let source_kind = source_kind(settings);
         let video_config = obs_video_config(settings, game, source_kind);
         RecordingCapture {
             id: format!("capture-{}", timestamp_millis()),
@@ -923,7 +920,7 @@ impl Recorder {
         } else {
             self.active_game.as_ref()
         };
-        let source_kind = source_kind(settings, game);
+        let source_kind = source_kind(settings);
         let video_config = obs_video_config(settings, game, source_kind);
         session.video_config != video_config
     }
