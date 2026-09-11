@@ -64,14 +64,14 @@ export function SortDropdown<K extends string>({
           sideOffset={6}
           className={cn(
             "alloy-blur border-white/8",
-            "!w-48 !min-w-48 md:!w-40 md:!min-w-40",
+            "w-max! min-w-48! md:min-w-40!",
             contentClassName,
           )}
         >
           {options.map((opt) => (
             <DropdownMenuItem
               key={opt.key}
-              className="w-full pr-8 text-left"
+              className="w-full pr-8 text-left whitespace-nowrap"
               render={renderOptionLink(opt, opt.key === value)}
             >
               {opt.icon ?? defaultSortIcon(opt.key)}
