@@ -1,4 +1,4 @@
-import { UNCATEGORISED_GAME_ID } from "@alloy/contracts"
+import { UNCATEGORISED_GAME_ID, MEDIA_FILTERS } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, clipLike, clipView, follow, game } from "@alloy/db/schema"
@@ -29,6 +29,7 @@ const FeedSortEnum = t.enum(["top", "recent", "recommended"])
 const FeedQuery = t
   .object({
     filter: FilterEnum.$default("all"),
+    media: t.enum(MEDIA_FILTERS).$default("video"),
     sort: FeedSortEnum.$default("recent"),
     gameId: t.uuid().optional(),
     authorId: t.uuid().optional(),
@@ -41,6 +42,7 @@ const FeedQuery = t
   })
 
 const ChipsQuery = t.object({
+  media: t.enum(MEDIA_FILTERS).$default("video"),
   limit: limitQueryParam(40, 20),
 })
 
@@ -48,6 +50,7 @@ export const feedRoute = new Hono()
   .get("/", tbValidator("query", FeedQuery), async (c) => {
     const {
       filter,
+      media,
       sort,
       gameId,
       authorId,
@@ -62,7 +65,7 @@ export const feedRoute = new Hono()
       return c.json({ items: [], nextCursor: null })
     }
 
-    const conditions: SQL[] = publicClipListingConditions()
+    const conditions: SQL[] = publicClipListingConditions(media)
 
     if (filter === "game") {
       if (!gameId) return badRequest(c, "gameId is required")
@@ -122,7 +125,7 @@ export const feedRoute = new Hono()
     return c.json(clipListPage(rows, limit, sort))
   })
   .get("/chips", tbValidator("query", ChipsQuery), async (c) => {
-    const { limit } = c.req.valid("query")
+    const { limit, media } = c.req.valid("query")
 
     const session = await getSession(c)
     const viewerId = session?.user.status === "active" ? session.user.id : null
@@ -137,7 +140,7 @@ export const feedRoute = new Hono()
     // Chips mirror the "All" feed, which includes the viewer's own clips, so
     // a game you've only posted in yourself still gets a chip. `clipLike`/
     // `clipView` are still joined per-viewer to weight by your interaction.
-    const conditions: SQL[] = publicClipListingConditions()
+    const conditions: SQL[] = publicClipListingConditions(media)
 
     const rows = await db
       .select({

@@ -25,6 +25,7 @@ import {
   encodeAndPublishCut,
   encodeAndUploadRenditions,
 } from "./media-run-encode"
+import { runImageProcessing } from "./media-run-image"
 import {
   extractPosterBestEffort,
   publishRunThumbnail,
@@ -69,6 +70,9 @@ export async function runMediaProcessing(
     completion: MediaCompletion
   },
 ): Promise<void> {
+  if (row.sourceContentType?.startsWith("image/")) {
+    return runImageProcessing(store, id, row, runId, signal, options.completion)
+  }
   await withMediaRunWorkspace(
     {
       store,

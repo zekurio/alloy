@@ -76,6 +76,7 @@ export class RecordingSidecarClient {
   private consecutiveRespawns = 0
   private spawnedAt = 0
   private ready: Promise<void> | null = null
+  private capabilities: string[] = []
 
   constructor(executable: string, options: RecordingSidecarClientOptions) {
     this.executable = executable
@@ -104,6 +105,11 @@ export class RecordingSidecarClient {
   ): Promise<SidecarResultByMethod[Method]> {
     this.ensureProcess()
     await this.ready
+    if (
+      method === "saveScreenshot" &&
+      !this.capabilities.includes("screenshots")
+    )
+      throw new Error(t("Update the Alloy recorder to save screenshots."))
     return this.requestRaw(method, params)
   }
 
@@ -240,7 +246,9 @@ export class RecordingSidecarClient {
   }
 
   private async startAgent(config: SidecarConfig): Promise<void> {
-    assertCurrentAgentVersion(await this.requestRaw("version"))
+    const version = await this.requestRaw("version")
+    assertCurrentAgentVersion(version)
+    this.capabilities = version.capabilities
     await this.configureQueue.configure(config)
   }
 

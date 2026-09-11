@@ -8,6 +8,10 @@ import { db } from "@alloy/server/db/index"
 import { mediaAssetDeletionIntents } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
+import {
+  selectLockedQuotaState,
+  uploadWouldExceedQuota,
+} from "@alloy/server/storage/quota"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import {
@@ -313,9 +317,18 @@ export const clipMediaStore: MediaStore = {
   async commitReady(id, runId, patch, renditions, audioTracks, completion) {
     const result = await withUploadActivityStopped(id, () =>
       db.transaction(async (tx) => {
+        const [owner] = patch.sourceContentType.startsWith("image/")
+          ? await tx
+              .select({ id: clip.author_id })
+              .from(clip)
+              .where(eq(clip.id, id))
+              .limit(1)
+          : []
+        const quota = owner ? await selectLockedQuotaState(tx, owner.id) : null
         const [current] = await tx
           .select({
             sourceKey: clip.source_key,
+            sourceSizeBytes: clip.source_size_bytes,
             waveformKey: clip.waveform_key,
             cutKey: clip.cut_key,
             thumbKey: clip.thumb_key,
@@ -331,6 +344,17 @@ export const clipMediaStore: MediaStore = {
             queuedDeletions: 0,
           }
         }
+
+        if (
+          quota?.quotaBytes != null &&
+          uploadWouldExceedQuota({
+            ...quota,
+            quotaBytes: quota.quotaBytes,
+            reservedBytes: current.sourceSizeBytes ?? 0,
+            incomingBytes: patch.sourceSizeBytes,
+          })
+        )
+          throw new Error("Processed screenshot exceeds storage quota")
 
         const previousRenditions = await tx
           .select({ storageKey: clipRendition.storage_key })

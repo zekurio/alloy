@@ -13,6 +13,12 @@ export const THUMBNAIL_HOST = "thumbnail"
 export const EXPORT_HOST = "export"
 export const VIDEO_EXTENSIONS = new Set([".mp4", ".mkv", ".mov", ".webm"])
 
+export const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp"])
+export const MEDIA_EXTENSIONS = new Set([
+  ...VIDEO_EXTENSIONS,
+  ...IMAGE_EXTENSIONS,
+])
+
 export function captureId(filename: string): string {
   return createHash("sha256")
     .update(process.platform === "win32" ? filename.toLowerCase() : filename)

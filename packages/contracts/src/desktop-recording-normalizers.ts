@@ -56,6 +56,9 @@ export function normalizeHotkeys(value: ContractJsonInput): RecordingHotkeys {
   const record = isObjectRecord(value) ? value : {}
   return {
     clip: normalizeClipHotkey(record),
+    screenshot: isStringValue(record.screenshot)
+      ? record.screenshot.trim()
+      : DEFAULT_RECORDING_SETTINGS.hotkeys.screenshot,
   }
 }
 

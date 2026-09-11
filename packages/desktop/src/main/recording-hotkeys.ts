@@ -2,13 +2,20 @@ import type { RecordingSettings } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 import { app, globalShortcut } from "electron"
 
-import { onRecordingClipHotkey, saveReplayClip } from "./recording"
+import {
+  onRecordingClipHotkey,
+  saveReplayClip,
+  onRecordingScreenshotHotkey,
+  saveScreenshot,
+} from "./recording"
 import { electronAccelerator } from "./recording-hotkey-accelerator"
 import { getRecordingSettings } from "./server-store"
 
 const logger = createLogger("hotkeys")
 
-type HotkeyAction = { type: "clip"; durationSeconds: number }
+type HotkeyAction =
+  | { type: "clip"; durationSeconds: number }
+  | { type: "screenshot" }
 
 const HOTKEY_HEALTH_INTERVAL_MS = 30_000
 const HOTKEY_ACTION_DEBOUNCE_MS = 700
@@ -25,6 +32,10 @@ let lastActionAt = new Map<string, number>()
 // Electron's RegisterHotKey path remains a useful fallback, while the
 // recorder's low-level Windows hook still receives keys consumed by games.
 onRecordingClipHotkey(() => void runNativeClipHotkey())
+onRecordingScreenshotHotkey(() => {
+  if (activeSettings?.enabled)
+    void runDebouncedAction({ type: "screenshot" }, Date.now())
+})
 
 export function configureRecordingHotkeys(
   settings: RecordingSettings = getRecordingSettings(),
@@ -110,6 +121,11 @@ async function runAction(
   requestedAtUnixMs: number,
 ): Promise<void> {
   switch (action.type) {
+    case "screenshot": {
+      const result = await saveScreenshot()
+      if (!result.ok) logger.warn(`screenshot hotkey failed: ${result.error}`)
+      return
+    }
     case "clip": {
       const result = await saveReplayClip({
         requestedAtUnixMs,
@@ -160,11 +176,17 @@ function hotkeyActionMap(
     type: "clip",
     durationSeconds: settings.replayBufferSeconds,
   })
+  if (
+    electronAccelerator(settings.hotkeys.screenshot) !==
+    electronAccelerator(settings.hotkeys.clip)
+  )
+    add(settings.hotkeys.screenshot, { type: "screenshot" })
 
   return actions
 }
 
 function actionKey(action: HotkeyAction): string {
+  if (action.type === "screenshot") return "screenshot"
   // Providers intentionally share this key: on Windows both Electron and the
   // native hook can observe one press, but it must save only one clip.
   return `clip:${action.durationSeconds}`

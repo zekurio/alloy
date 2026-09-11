@@ -1,4 +1,78 @@
 export const DE_MESSAGES = {
+  "Internal Server Error": "Interner Serverfehler",
+  "API server unavailable": "Der Server ist derzeit nicht erreichbar",
+  "Failed to fetch":
+    "Der Server ist nicht erreichbar. Bitte versuche es erneut.",
+  "NetworkError when attempting to fetch resource.":
+    "Der Server ist nicht erreichbar. Bitte versuche es erneut.",
+  "Redo (Ctrl+Shift+Z)": "Wiederholen (Strg+Umschalt+Z)",
+  "Undo (Ctrl+Z)": "Rückgängig (Strg+Z)",
+  Redo: "Wiederholen",
+  Undo: "Rückgängig",
+  "Arrow keys move the crop. Shift + arrow keys resize it.":
+    "Pfeiltasten verschieben den Ausschnitt. Umschalt + Pfeiltasten ändern seine Größe.",
+  Square: "Quadratisch",
+  Original: "Original",
+  Free: "Frei",
+  "Aspect ratio": "Seitenverhältnis",
+  Crop: "Zuschneiden",
+  "Drag on the image to crop.": "Ziehe einen Rahmen im Bild zum Zuschneiden.",
+  "Image dimensions": "Bildabmessungen",
+  "Rotate right": "Nach rechts drehen",
+  "Rotate left": "Nach links drehen",
+  "Image tools": "Bildwerkzeuge",
+  "Media type": "Medientyp",
+  "All media": "Alle Medien",
+  Screenshots: "Screenshots",
+  Screenshot: "Screenshot",
+  "Couldn't open image": "Bild konnte nicht geöffnet werden",
+  "Rotate 90°": "Um 90° drehen",
+  "Flip horizontal": "Horizontal spiegeln",
+  "Flip vertical": "Vertikal spiegeln",
+  Rotation: "Drehung",
+  "Screenshot preview": "Screenshot-Vorschau",
+  "Drag to crop, or adjust the crop percentages below. Your original file stays unchanged.":
+    "Ziehe einen Rahmen zum Zuschneiden oder passe die Prozentwerte unten an. Deine Originaldatei bleibt unverändert.",
+  Left: "Links",
+  "Crop top": "Oben",
+  Width: "Breite",
+  "Import media": "Medien importieren",
+  "Videos and images": "Videos und Bilder",
+  "Open screenshot: {title}": "Screenshot öffnen: {title}",
+  "Couldn't load screenshot": "Screenshot konnte nicht geladen werden",
+  "Fit image": "Bild einpassen",
+  "Zoom image": "Bild vergrößern",
+  "No screenshots yet": "Noch keine Screenshots",
+  "No posts yet": "Noch keine Beiträge",
+  "Saves the current game or display as a PNG.":
+    "Speichert das aktuelle Spiel oder den Bildschirm als PNG.",
+  "Screenshot shortcut": "Screenshot-Tastenkürzel",
+  "This shortcut is already assigned to clips.":
+    "Dieses Tastenkürzel ist bereits Clips zugewiesen.",
+  "This shortcut is already assigned to screenshots.":
+    "Dieses Tastenkürzel ist bereits Screenshots zugewiesen.",
+  "Upload media": "Medien hochladen",
+  "Add details before the file enters your library.":
+    "Ergänze die Details, bevor die Datei in deiner Bibliothek gespeichert wird.",
+  "Choose an MP4 video or a PNG, JPEG, or WebP image.":
+    "Wähle ein MP4-Video oder ein Bild im Format PNG, JPEG oder WebP.",
+  "Screenshot exceeds 50 MiB": "Der Screenshot ist größer als 50 MiB",
+  "Image dimensions are too large": "Die Bildabmessungen sind zu groß",
+  "This server does not support screenshot uploads yet.":
+    "Dieser Server unterstützt noch keine Screenshot-Uploads.",
+  "Image editing is unavailable": "Die Bildbearbeitung ist nicht verfügbar",
+  "Rotated image dimensions are too large":
+    "Die Abmessungen des gedrehten Bildes sind zu groß",
+  "Could not export screenshot": "Screenshot konnte nicht exportiert werden",
+  "Could not read screenshot.": "Screenshot konnte nicht gelesen werden.",
+  "Not a supported media format.":
+    "Dieses Medienformat wird nicht unterstützt.",
+  "Couldn't read this media file.":
+    "Diese Mediendatei konnte nicht gelesen werden.",
+  "The server did not return a supported media file.":
+    "Der Server hat keine unterstützte Mediendatei zurückgegeben.",
+  "Update the Alloy recorder to save screenshots.":
+    "Aktualisiere den Alloy-Recorder, um Screenshots zu speichern.",
   Reannounce: "Erneut ankündigen",
   "Queuing announcement…": "Ankündigung wird eingereiht…",
   "Clip announcement queued": "Clip-Ankündigung eingereiht",
@@ -1302,6 +1376,8 @@ export const DE_MESSAGES = {
   "Your profile and clips will be hidden until you sign back in and reactivate.":
     "Dein Profil und deine Clips werden ausgeblendet, bis du dich wieder anmeldest und reaktivierst.",
   Zoom: "Zoom",
+  "Zoom in": "Vergrößern",
+  "Zoom out": "Verkleinern",
   "Apply changes": "Änderungen anwenden",
   "Changes apply to new uploads. Existing clips re-encode in the background and keep playing their current renditions until replacements are ready.":
     "Änderungen gelten für neue Uploads. Vorhandene Clips werden im Hintergrund neu codiert und spielen ihre aktuellen Renditionen weiter ab, bis die neuen bereit sind.",

@@ -376,6 +376,7 @@ function actionFor(
   claim: ClipMediaClaim,
   snapshot: GenerationSnapshot,
 ): ClipMediaAction {
+  if (claim.row.sourceContentType?.startsWith("image/")) return "full"
   return chooseClipMediaAction({
     force: claim.force,
     status: claim.status,

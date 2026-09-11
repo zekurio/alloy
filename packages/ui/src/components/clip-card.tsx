@@ -17,6 +17,7 @@ import type {
 import { ClipCardThumb } from "./clip-card-thumb"
 
 interface ClipCardProps extends ComponentProps<"article"> {
+  imageAspectRatio?: number
   title: string
   titleContent?: ReactNode
   author: string
@@ -59,7 +60,7 @@ interface ClipCardProps extends ComponentProps<"article"> {
   /** Accessible label for the title button. */
   titleLabel?: string
   thumbnailRef?: Ref<HTMLButtonElement>
-  metaVariant?: "default" | "showcase"
+  metaVariant?: "default" | "showcase" | "gallery"
 }
 
 type ClipCardLabelLinkProps = {
@@ -73,6 +74,7 @@ type ClipCardLabelLinkProps = {
 type ClipCardLabelLinkRenderer = (props: ClipCardLabelLinkProps) => ReactNode
 
 function ClipCard({
+  imageAspectRatio,
   className,
   title,
   titleContent,
@@ -114,16 +116,28 @@ function ClipCard({
   metaVariant = "default",
   ...props
 }: ClipCardProps) {
+  const gallery = metaVariant === "gallery"
   const showAttributionRow = Boolean(author || game)
 
   return (
     <article
       data-slot="clip-card"
-      className={cn("group/clip-card flex flex-col gap-1.5", className)}
+      data-gallery={gallery || undefined}
+      className={cn(
+        "group/clip-card relative flex flex-col",
+        gallery ? "overflow-hidden rounded-md" : "gap-1.5",
+        className,
+      )}
       {...props}
     >
-      <div className="relative -mx-[var(--app-content-padding,0.75rem)] md:mx-0">
+      <div
+        className={cn(
+          gallery ? "relative flex" : "relative",
+          !gallery && "-mx-[var(--app-content-padding,0.75rem)] md:mx-0",
+        )}
+      >
         <ClipCardThumb
+          imageAspectRatio={imageAspectRatio}
           title={title}
           thumbnail={thumbnail}
           thumbnailFallback={thumbnailFallback}
@@ -139,92 +153,143 @@ function ClipCard({
           buttonRef={thumbnailRef}
         />
       </div>
-      <div
-        className={cn(
-          "grid grid-rows-[auto_auto] gap-x-2 md:grid-rows-[auto_auto_auto]",
-          author
-            ? "grid-cols-[auto_minmax(0,1fr)_auto]"
-            : "grid-cols-[minmax(0,1fr)_auto]",
-        )}
-      >
-        {author ? (
-          <ClipCardAvatar
-            author={author}
-            authorImage={authorImage}
-            authorAvatarBg={authorAvatarBg}
-            authorAvatarFg={authorAvatarFg}
-            href={authorHref}
-            renderLink={renderAuthorLink}
-            className="row-span-2 mt-0.5 size-9"
-          />
-        ) : null}
-        <div className="text-foreground col-span-2 truncate text-lg leading-6 font-semibold">
-          <ClipCardTitleButton
-            title={title}
-            label={titleLabel}
-            onClick={onTitleClick}
-            onIntent={onTitleIntent}
-          >
-            {titleContent ?? title}
-          </ClipCardTitleButton>
-        </div>
-        {showAttributionRow ? (
-          <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-base leading-5">
-            {author ? (
-              <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+      {gallery ? (
+        <div className="pointer-events-none invisible absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pt-10 pb-3 text-white opacity-0 transition-opacity duration-150 group-hover/clip-card:visible group-hover/clip-card:opacity-100 group-has-[:focus-visible]/clip-card:visible group-has-[:focus-visible]/clip-card:opacity-100 motion-reduce:transition-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
+          <div className="truncate text-sm leading-5 font-semibold">
+            <ClipCardTitleButton
+              title={title}
+              label={titleLabel}
+              onClick={onTitleClick}
+              onIntent={onTitleIntent}
+            >
+              {titleContent ?? title}
+            </ClipCardTitleButton>
+          </div>
+          {showAttributionRow ? (
+            <div className="flex min-w-0 items-center gap-2 text-xs">
+              {author ? (
                 <AuthorLabel
                   author={author}
                   href={authorHref}
                   renderLink={renderAuthorLink}
                 />
-                {game ? (
-                  <>
-                    <span className="text-foreground-faint shrink-0">
-                      {"·"}
-                    </span>
-                    <GameLabel
-                      game={game}
-                      icon={gameIcon}
-                      href={gameHref}
-                      renderLink={renderGameLink}
-                    />
-                  </>
-                ) : null}
-              </span>
-            ) : (
-              <GameLabel
-                game={game}
-                icon={gameIcon}
-                href={gameHref}
-                renderLink={renderGameLink}
-              />
-            )}
-          </div>
-        ) : null}
-        {metaVariant === "showcase" ? null : (
-          <div
-            className={cn(
-              "text-foreground-faint flex min-w-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums md:mt-0.5 md:justify-start",
-              author
-                ? "col-start-3 row-start-2 md:col-span-2 md:col-start-2 md:row-start-3"
-                : "col-start-2 row-start-2 md:col-span-2 md:col-start-1 md:row-start-3",
-            )}
-          >
-            {metaContent ? (
-              metaContent
-            ) : (
+              ) : null}
+              {author && game ? (
+                <span aria-hidden="true" className="text-white/50">
+                  ·
+                </span>
+              ) : null}
+              {game ? (
+                <GameLabel
+                  game={game}
+                  icon={gameIcon}
+                  href={gameHref}
+                  renderLink={renderGameLink}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs leading-4 text-white/70 [&_span]:text-inherit">
+            {metaContent ?? (
               <>
-                <span className="shrink-0">
+                <span>
                   {views}{" "}
                   {tp(viewCountForLabel(viewCount, views), "view", "views")}
                 </span>
-                <span className="shrink-0">{"·"}</span>
-                <span className="shrink-0">{postedAt}</span>
+                <span aria-hidden="true">·</span>
+                <span>{postedAt}</span>
               </>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            "grid grid-rows-[auto_auto] gap-x-2 md:grid-rows-[auto_auto_auto]",
+            author
+              ? "grid-cols-[auto_minmax(0,1fr)_auto]"
+              : "grid-cols-[minmax(0,1fr)_auto]",
+          )}
+        >
+          {author ? (
+            <ClipCardAvatar
+              author={author}
+              authorImage={authorImage}
+              authorAvatarBg={authorAvatarBg}
+              authorAvatarFg={authorAvatarFg}
+              href={authorHref}
+              renderLink={renderAuthorLink}
+              className="row-span-2 mt-0.5 size-9"
+            />
+          ) : null}
+          <div className="text-foreground col-span-2 truncate text-lg leading-6 font-semibold">
+            <ClipCardTitleButton
+              title={title}
+              label={titleLabel}
+              onClick={onTitleClick}
+              onIntent={onTitleIntent}
+            >
+              {titleContent ?? title}
+            </ClipCardTitleButton>
+          </div>
+          {showAttributionRow ? (
+            <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-base leading-5">
+              {author ? (
+                <span className="flex min-w-0 items-center gap-1.5 overflow-hidden">
+                  <AuthorLabel
+                    author={author}
+                    href={authorHref}
+                    renderLink={renderAuthorLink}
+                  />
+                  {game ? (
+                    <>
+                      <span className="text-foreground-faint shrink-0">
+                        {"·"}
+                      </span>
+                      <GameLabel
+                        game={game}
+                        icon={gameIcon}
+                        href={gameHref}
+                        renderLink={renderGameLink}
+                      />
+                    </>
+                  ) : null}
+                </span>
+              ) : (
+                <GameLabel
+                  game={game}
+                  icon={gameIcon}
+                  href={gameHref}
+                  renderLink={renderGameLink}
+                />
+              )}
+            </div>
+          ) : null}
+          {metaVariant === "showcase" ? null : (
+            <div
+              className={cn(
+                "text-foreground-faint flex min-w-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums md:mt-0.5 md:justify-start",
+                author
+                  ? "col-start-3 row-start-2 md:col-span-2 md:col-start-2 md:row-start-3"
+                  : "col-start-2 row-start-2 md:col-span-2 md:col-start-1 md:row-start-3",
+              )}
+            >
+              {metaContent ? (
+                metaContent
+              ) : (
+                <>
+                  <span className="shrink-0">
+                    {views}{" "}
+                    {tp(viewCountForLabel(viewCount, views), "view", "views")}
+                  </span>
+                  <span className="shrink-0">{"·"}</span>
+                  <span className="shrink-0">{postedAt}</span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </article>
   )
 }
@@ -247,7 +312,7 @@ function AuthorLabel({
   renderLink: ClipCardLabelLinkRenderer | undefined
 }) {
   const className = cn(
-    "min-w-0 shrink truncate leading-5 font-medium text-foreground-muted",
+    "min-w-0 shrink truncate leading-5 font-medium text-foreground-muted group-data-[gallery=true]/clip-card:text-white/85",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )
@@ -370,7 +435,7 @@ function GameLabel({
   renderLink: ClipCardLabelLinkRenderer | undefined
 }) {
   const className = cn(
-    "inline-flex min-w-0 items-center gap-1.5 truncate leading-5 text-accent",
+    "inline-flex min-w-0 items-center gap-1.5 truncate leading-5 text-accent group-data-[gallery=true]/clip-card:text-white/85",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )

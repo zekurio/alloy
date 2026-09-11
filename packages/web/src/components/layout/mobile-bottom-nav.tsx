@@ -1,7 +1,12 @@
 import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
-import { GamepadIcon, HomeIcon, LibraryIcon } from "lucide-react"
+import {
+  GamepadIcon,
+  ClapperboardIcon,
+  LibraryIcon,
+  ImageIcon,
+} from "lucide-react"
 import type { ReactNode } from "react"
 
 import { NotificationBell } from "@/components/notifications/notification-bell"
@@ -15,7 +20,7 @@ import { useNavFlags } from "./use-nav-flags"
  * navigation and notifications.
  */
 export function MobileBottomNav() {
-  const { isHome, isGames, isLibrary } = useNavFlags()
+  const { isHome, isGames, isLibrary, isScreenshots } = useNavFlags()
   const session = useSuspenseSession()
 
   return (
@@ -30,14 +35,26 @@ export function MobileBottomNav() {
       <div
         className={cn(
           "grid h-[var(--bottomnav-h)] items-stretch",
-          session ? "grid-cols-4" : "grid-cols-3",
+          session ? "grid-cols-5" : "grid-cols-4",
         )}
       >
         <BottomNavLink
           to="/"
           active={isHome}
-          label={t("Home")}
-          icon={<HomeIcon />}
+          label={t("Clips")}
+          icon={<ClapperboardIcon />}
+        />
+        <BottomNavLink
+          to="/screenshots"
+          active={isScreenshots}
+          label={t("Screenshots")}
+          icon={<ImageIcon />}
+        />
+        <BottomNavLink
+          to="/games"
+          active={isGames}
+          label={t("Games")}
+          icon={<GamepadIcon />}
         />
         <BottomNavLink
           to="/library"
@@ -46,12 +63,6 @@ export function MobileBottomNav() {
           icon={<LibraryIcon />}
         />
         {session ? <NotificationBell variant="bottom-nav" /> : null}
-        <BottomNavLink
-          to="/games"
-          active={isGames}
-          label={t("Games")}
-          icon={<GamepadIcon />}
-        />
       </div>
     </nav>
   )
@@ -74,7 +85,7 @@ function BottomNavLink({
   label,
   icon,
 }: {
-  to: "/" | "/library" | "/games"
+  to: "/" | "/library" | "/games" | "/screenshots"
   active: boolean
   label: string
   icon: ReactNode

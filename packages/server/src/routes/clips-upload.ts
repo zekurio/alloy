@@ -21,6 +21,7 @@ import {
   updatedClipResponse,
 } from "./clips-upload-access"
 import { resolveMentionIds } from "./clips-upload-helpers"
+import { clipsUploadImageRoutes } from "./clips-upload-image"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
 import { clipsUploadMediaRoutes } from "./clips-upload-media"
 import { tbValidator } from "./validation"
@@ -30,6 +31,7 @@ const logger = createLogger("clips-upload")
 export const clipsUploadRoutes = new Hono()
   .route("/", clipsUploadLifecycleRoutes)
   .route("/", clipsUploadMediaRoutes)
+  .route("/", clipsUploadImageRoutes)
   .patch(
     "/:id",
     requireSession,

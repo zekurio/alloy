@@ -1,3 +1,4 @@
+import { isStringValue } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { createElement } from "react"
@@ -27,6 +28,9 @@ function withCloseAction(
   const action = data?.action
   return {
     ...data,
+    description: isStringValue(data?.description)
+      ? t(data.description)
+      : data?.description,
     id,
     action: action ?? getCloseAction(id),
     cancel: action ? getCloseAction(id) : undefined,
@@ -37,35 +41,56 @@ function withCloseAction(
 const alloyToast = Object.assign(
   (message: ReactNode, data?: ExternalToast) => {
     const id = getToastId(data?.id)
-    return toast(message, withCloseAction(id, data))
+    return toast(
+      isStringValue(message) ? t(message) : message,
+      withCloseAction(id, data),
+    )
   },
   {
     success: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
-      return toast.success(message, withCloseAction(id, data))
+      return toast.success(
+        isStringValue(message) ? t(message) : message,
+        withCloseAction(id, data),
+      )
     },
     info: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
-      return toast.info(message, withCloseAction(id, data))
+      return toast.info(
+        isStringValue(message) ? t(message) : message,
+        withCloseAction(id, data),
+      )
     },
     warning: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
-      return toast.warning(message, withCloseAction(id, data))
+      return toast.warning(
+        isStringValue(message) ? t(message) : message,
+        withCloseAction(id, data),
+      )
     },
     error: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
-      return toast.error(message, withCloseAction(id, data))
+      return toast.error(
+        isStringValue(message) ? t(message) : message,
+        withCloseAction(id, data),
+      )
     },
     custom: toast.custom,
     message: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
-      return toast.message(message, withCloseAction(id, data))
+      return toast.message(
+        isStringValue(message) ? t(message) : message,
+        withCloseAction(id, data),
+      )
     },
     promise: toast.promise,
     dismiss: toast.dismiss,
     loading: (message: ReactNode, data?: ExternalToast) => {
       const id = getToastId(data?.id)
-      return toast.loading(message, withCloseAction(id, data))
+      return toast.loading(
+        isStringValue(message) ? t(message) : message,
+        withCloseAction(id, data),
+      )
     },
     getHistory: toast.getHistory,
     getToasts: toast.getToasts,

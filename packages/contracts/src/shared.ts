@@ -75,6 +75,19 @@ export const ACCEPTED_CLIP_CONTENT_TYPES = ["video/mp4"] as const
 
 export type AcceptedContentType = (typeof ACCEPTED_CLIP_CONTENT_TYPES)[number]
 
+export const ACCEPTED_MEDIA_CONTENT_TYPES = [
+  ...ACCEPTED_CLIP_CONTENT_TYPES,
+  ...ACCEPTED_IMAGE_CONTENT_TYPES,
+] as const
+export type AcceptedMediaContentType =
+  (typeof ACCEPTED_MEDIA_CONTENT_TYPES)[number]
+export const MEDIA_KINDS = ["video", "image"] as const
+export type MediaKind = (typeof MEDIA_KINDS)[number]
+export const MEDIA_FILTERS = ["all", ...MEDIA_KINDS] as const
+export type MediaFilter = (typeof MEDIA_FILTERS)[number]
+export const SCREENSHOT_MAX_BYTES = 50 * 1024 * 1024
+export const SCREENSHOT_MAX_PIXELS = 64_000_000
+
 export type UploadTicketStrategy =
   | { type: "single" }
   | { type: "chunked"; chunkSizeBytes: number }

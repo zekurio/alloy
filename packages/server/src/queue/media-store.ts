@@ -33,16 +33,16 @@ export interface MediaSourcePatch {
   sourceVideoCodec: string | null
   sourceAudioCodec: string | null
   sourceCodecs: string | null
-  sourceFps: number
+  sourceFps: number | null
   sourceSizeBytes: number
-  sourceDurationMs: number
+  sourceDurationMs: number | null
   waveformKey: string | null
   pendingAudioTracks: ClipAudioTrackInput[] | null
   audioTrackFingerprint: string | null
   cutKey: string | null
   /** RFC 6381 codecs of the committed cut; null when `cutKey` is null. */
   cutCodecs: string | null
-  durationMs: number
+  durationMs: number | null
   width: number
   height: number
 }

@@ -37,6 +37,7 @@ export const SIDECAR_METHODS = [
   "listGameProcesses",
   "listDisplays",
   "saveReplayClip",
+  "saveScreenshot",
   "playNotificationSound",
   "subscribeAudioLevels",
   "stopAudioLevels",
@@ -64,6 +65,7 @@ export interface SidecarResultByMethod {
   listGameProcesses: RecordingGameProcess[]
   listDisplays: RecordingDisplay[]
   saveReplayClip: RecordingActionResult
+  saveScreenshot: RecordingActionResult
   playNotificationSound: null
   subscribeAudioLevels: null
   stopAudioLevels: null
@@ -80,7 +82,10 @@ export interface SidecarResponse {
   status?: RecordingStatus
 }
 
-export type SidecarEvent = RecordingEvent | { type: "clip-hotkey" }
+export type SidecarEvent =
+  | RecordingEvent
+  | { type: "clip-hotkey" }
+  | { type: "screenshot-hotkey" }
 
 export interface SidecarEventEnvelope {
   event: SidecarEvent

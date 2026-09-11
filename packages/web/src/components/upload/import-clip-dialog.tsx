@@ -82,9 +82,9 @@ function ImportClipDetailsDialogInner({
     <Dialog open={staged !== null} onOpenChange={onOpenChange}>
       <DialogContent variant="secondary" className="max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>{t("Import clip")}</DialogTitle>
+          <DialogTitle>{t("Import media")}</DialogTitle>
           <DialogDescription>
-            {t("Add the clip details before it enters your library.")}
+            {t("Add details before the file enters your library.")}
           </DialogDescription>
         </DialogHeader>
         <form

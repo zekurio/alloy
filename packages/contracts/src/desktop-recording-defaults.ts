@@ -33,6 +33,7 @@ export const DEFAULT_RECORDING_SETTINGS: RecordingSettings = {
   bufferStorage: "memory",
   outputFolder: "",
   hotkeys: {
+    screenshot: "F7",
     clip: "F8",
   },
   notificationSounds: {

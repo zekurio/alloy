@@ -51,6 +51,12 @@ function validateClipGameRef(value: ApiJsonInput) {
 
 export function validateClipRow(value: ApiJsonInput): ClipRow {
   const row = objectRecord(value, "clip")
+  if (row.mediaKind !== undefined)
+    validateEnumString(
+      row.mediaKind,
+      new Set(["image", "video"]),
+      "Invalid media kind",
+    )
   assertNoStorageKey(row, "clip")
   validateClipIdentityFields(row)
   validateClipMetadataFields(row)

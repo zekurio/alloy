@@ -1,6 +1,6 @@
 import { createWriteStream, mkdirSync, rmSync } from "node:fs"
 import { rename } from "node:fs/promises"
-import { resolve } from "node:path"
+import { resolve, extname } from "node:path"
 import { Readable, Transform, type TransformCallback } from "node:stream"
 import { pipeline } from "node:stream/promises"
 
@@ -23,7 +23,7 @@ import {
   captureCollectionFolder,
   uniqueCaptureFilename,
 } from "./recording-library-paths"
-import { captureId } from "./recording-library-shared"
+import { captureId, IMAGE_EXTENSIONS } from "./recording-library-shared"
 import { mainSession } from "./session"
 import { isRedirectStatus } from "./url-policy"
 
@@ -46,6 +46,9 @@ const jobs = new Map<string, DownloadJob>()
 const PROGRESS_EMIT_INTERVAL_MS = 200
 
 const EXTENSION_BY_CONTENT_TYPE = new Map([
+  ["image/png", ".png"],
+  ["image/jpeg", ".jpg"],
+  ["image/webp", ".webp"],
   ["video/mp4", ".mp4"],
   ["video/quicktime", ".mov"],
   ["video/x-matroska", ".mkv"],
@@ -110,7 +113,6 @@ async function runDownload(
   job: DownloadJob,
 ): Promise<void> {
   const signal = job.abort?.signal
-  const root = captureCollectionFolder("Clips", request.gameName)
   let partialFile: string | null = null
   try {
     const byteLimit = clipDownloadByteLimit(request.sizeBytes)
@@ -131,7 +133,7 @@ async function runDownload(
       response.headers.get("content-type")?.split(";", 1)[0]?.trim() ?? ""
     if (!EXTENSION_BY_CONTENT_TYPE.has(responseContentType)) {
       await response.body.cancel().catch(() => undefined)
-      throw new Error("The server did not return a supported video file.")
+      throw new Error(t("The server did not return a supported media file."))
     }
 
     const contentLength = Number(response.headers.get("content-length"))
@@ -143,6 +145,10 @@ async function runDownload(
       job.download.totalBytes = contentLength
     }
 
+    const root = captureCollectionFolder(
+      responseContentType.startsWith("image/") ? "Screenshots" : "Clips",
+      request.gameName,
+    )
     mkdirSync(root, { recursive: true })
     const filename = uniqueTargetFile(root, request, responseContentType)
     partialFile = `${filename}.part`
@@ -173,7 +179,10 @@ async function runDownload(
 
     // Uploaded clips carry their duration, but probe when it's missing so the
     // editor timeline gets a real value (mirrors recorded captures).
-    if (request.durationMs === null) {
+    if (
+      request.durationMs === null &&
+      !responseContentType.startsWith("image/")
+    ) {
       void (async () => {
         const { probeDurationMs } = await import("./media")
         const probed = await probeDurationMs(absolute)
@@ -253,7 +262,9 @@ function registerDownloadedCapture(
     id,
     filename: absolute,
     title: request.title,
-    kind: "replay",
+    kind: IMAGE_EXTENSIONS.has(extname(absolute).toLowerCase())
+      ? "screenshot"
+      : "replay",
     source: "display",
     gameName: request.gameName,
     gameIconUrl: null,

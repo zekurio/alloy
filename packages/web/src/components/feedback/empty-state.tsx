@@ -97,7 +97,7 @@ export function ContentEmptyState({
           <span
             aria-hidden
             className={cn(
-              "font-mono leading-none text-foreground-faint select-none",
+              "font-mono leading-none whitespace-nowrap text-foreground-faint select-none",
               faceSizeClasses[size],
             )}
           >

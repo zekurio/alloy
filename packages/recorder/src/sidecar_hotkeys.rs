@@ -15,7 +15,7 @@ use windows_sys::Win32::{
 use super::{emit_event, RecordingEvent, RecordingSettings, SIDE_CAR_NAME};
 
 static HOTKEY_STATE: OnceLock<Mutex<HotkeyState>> = OnceLock::new();
-static HOTKEY_EVENTS: OnceLock<mpsc::SyncSender<()>> = OnceLock::new();
+static HOTKEY_EVENTS: OnceLock<mpsc::SyncSender<usize>> = OnceLock::new();
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct Modifiers {
@@ -25,7 +25,7 @@ struct Modifiers {
     meta: bool,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 struct NativeHotkey {
     key: u32,
     modifiers: Modifiers,
@@ -33,9 +33,9 @@ struct NativeHotkey {
 
 #[derive(Default)]
 struct HotkeyState {
-    hotkey: Option<NativeHotkey>,
+    hotkeys: [Option<NativeHotkey>; 2],
     held_modifier_keys: u8,
-    hotkey_down: bool,
+    hotkey_down: [bool; 2],
 }
 
 pub(super) fn start() {
@@ -47,8 +47,12 @@ pub(super) fn start() {
     if let Err(error) = thread::Builder::new()
         .name("alloy-hotkey-events".to_string())
         .spawn(move || {
-            while event_rx.recv().is_ok() {
-                emit_event(RecordingEvent::ClipHotkey);
+            while let Ok(action) = event_rx.recv() {
+                emit_event(if action == 0 {
+                    RecordingEvent::ClipHotkey
+                } else {
+                    RecordingEvent::ScreenshotHotkey
+                });
             }
         })
     {
@@ -64,22 +68,21 @@ pub(super) fn start() {
 }
 
 pub(super) fn configure(settings: &RecordingSettings) {
-    let hotkey = settings
-        .enabled
-        .then(|| parse_hotkey(&settings.hotkeys.clip))
-        .flatten();
-    if settings.enabled && !settings.hotkeys.clip.trim().is_empty() && hotkey.is_none() {
-        eprintln!(
-            "[{SIDE_CAR_NAME}] invalid native recording hotkey: {}",
-            settings.hotkeys.clip
-        );
+    let mut hotkeys = [&settings.hotkeys.clip, &settings.hotkeys.screenshot].map(|value| {
+        if settings.enabled {
+            parse_hotkey(value)
+        } else {
+            None
+        }
+    });
+    if hotkeys[0] == hotkeys[1] {
+        hotkeys[1] = None;
     }
-
     let mut state = hotkey_state()
         .lock()
         .unwrap_or_else(|error| error.into_inner());
-    state.hotkey = hotkey;
-    state.hotkey_down = false;
+    state.hotkeys = hotkeys;
+    state.hotkey_down = [false; 2];
 }
 
 fn run_keyboard_hook() {
@@ -105,12 +108,14 @@ unsafe extern "system" fn keyboard_hook(code: i32, wparam: WPARAM, lparam: LPARA
             // SAFETY: Windows supplies a KBDLLHOOKSTRUCT pointer for every
             // non-negative WH_KEYBOARD_LL callback.
             let event = unsafe { &*(lparam as *const KBDLLHOOKSTRUCT) };
-            if update_hotkey_state(event.vkCode, matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN)) {
+            if let Some(action) =
+                update_hotkey_state(event.vkCode, matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN))
+            {
                 // Never block the low-level hook on stdout. Windows removes
                 // hooks that overrun LowLevelHooksTimeout; the emitter thread
                 // owns sidecar I/O instead.
                 if let Some(events) = HOTKEY_EVENTS.get() {
-                    let _ = events.try_send(());
+                    let _ = events.try_send(action);
                 }
             }
         }
@@ -121,7 +126,7 @@ unsafe extern "system" fn keyboard_hook(code: i32, wparam: WPARAM, lparam: LPARA
     unsafe { CallNextHookEx(ptr::null_mut(), code, wparam, lparam) }
 }
 
-fn update_hotkey_state(key: u32, down: bool) -> bool {
+fn update_hotkey_state(key: u32, down: bool) -> Option<usize> {
     let mut state = hotkey_state()
         .lock()
         .unwrap_or_else(|error| error.into_inner());
@@ -131,25 +136,23 @@ fn update_hotkey_state(key: u32, down: bool) -> bool {
         } else {
             state.held_modifier_keys &= !bit;
         }
-        return false;
+        return None;
     }
-
-    let Some(hotkey) = state.hotkey else {
-        return false;
-    };
-    if key != hotkey.key {
-        return false;
+    let mut action = None;
+    for index in 0..state.hotkeys.len() {
+        let Some(hotkey) = state.hotkeys[index] else {
+            continue;
+        };
+        if key != hotkey.key {
+            continue;
+        }
+        let was_down = state.hotkey_down[index];
+        state.hotkey_down[index] = down;
+        if down && !was_down && active_modifiers(state.held_modifier_keys) == hotkey.modifiers {
+            action = Some(index);
+        }
     }
-    if !down {
-        state.hotkey_down = false;
-        return false;
-    }
-    if state.hotkey_down {
-        return false;
-    }
-
-    state.hotkey_down = true;
-    active_modifiers(state.held_modifier_keys) == hotkey.modifiers
+    action
 }
 
 fn hotkey_state() -> &'static Mutex<HotkeyState> {
@@ -272,6 +275,25 @@ fn virtual_key(value: &str) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::{parse_hotkey, Modifiers};
+
+    #[test]
+    fn screenshot_and_clip_keys_fire_once_per_press() {
+        {
+            let mut state = super::hotkey_state().lock().unwrap();
+            state.hotkeys = [parse_hotkey("F8"), parse_hotkey("F7")];
+            state.hotkey_down = [false; 2];
+            state.held_modifier_keys = 0;
+        }
+        assert_eq!(super::update_hotkey_state(0x76, true), Some(1));
+        assert_eq!(super::update_hotkey_state(0x76, true), None);
+        assert_eq!(super::update_hotkey_state(0x76, false), None);
+        assert_eq!(super::update_hotkey_state(0x77, true), Some(0));
+        assert_eq!(super::update_hotkey_state(0x77, false), None);
+        assert_eq!(super::update_hotkey_state(0xA0, true), None);
+        assert_eq!(super::update_hotkey_state(0x76, true), None);
+        super::update_hotkey_state(0x76, false);
+        super::update_hotkey_state(0xA0, false);
+    }
 
     #[test]
     fn parses_function_key_with_modifiers() {

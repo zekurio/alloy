@@ -550,7 +550,7 @@ async function claimReconciliation(
       with candidate as (
         select c.id
         from clip c
-        where c.status = 'ready'
+        where c.status = 'ready' and c.media_kind = 'video'
           and c.source_key is not null
           and c.encode_request_id is null
           and not (c.id = any($5::uuid[]))

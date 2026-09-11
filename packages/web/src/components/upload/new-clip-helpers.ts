@@ -1,8 +1,8 @@
 import {
-  ACCEPTED_CLIP_CONTENT_TYPES,
-  type AcceptedContentType,
+  ACCEPTED_MEDIA_CONTENT_TYPES,
+  type AcceptedMediaContentType,
   type ClipPrivacy,
-} from "@alloy/api"
+} from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 
 import { type ProbedFile, probeFile } from "./new-clip-media"
@@ -11,7 +11,7 @@ import { type ProbedFile, probeFile } from "./new-clip-media"
 export interface SelectedFile {
   /** The actual File the parent will upload. */
   file: File
-  contentType: AcceptedContentType
+  contentType: AcceptedMediaContentType
   name: string
   size: string
   resolution: string
@@ -29,7 +29,7 @@ export type Visibility = ClipPrivacy
 export interface PublishPayload {
   file: File
   /** Canonical server-accepted MIME — see `SelectedFile.contentType`. */
-  contentType: AcceptedContentType
+  contentType: AcceptedMediaContentType
   title: string
   description: string | null
   gameId: string | null
@@ -80,25 +80,31 @@ export function isDeferredPublishPayload(
 }
 
 const ACCEPTED_CLIP_CONTENT_TYPE_SET = new Set<string>(
-  ACCEPTED_CLIP_CONTENT_TYPES,
+  ACCEPTED_MEDIA_CONTENT_TYPES,
 )
 
-const FALLBACK_CLIP_CONTENT_TYPE = ACCEPTED_CLIP_CONTENT_TYPES[0]
+const FALLBACK_CLIP_CONTENT_TYPE = ACCEPTED_MEDIA_CONTENT_TYPES[0]
 
 const EXTENSION_CONTENT_TYPE_ALIASES = {
   mp4: FALLBACK_CLIP_CONTENT_TYPE,
-} satisfies Record<string, AcceptedContentType>
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+} satisfies Record<string, AcceptedMediaContentType>
 
 const ACCEPTED_CLIP_EXTENSIONS = Object.keys(
   EXTENSION_CONTENT_TYPE_ALIASES,
 ).map((extension) => `.${extension}`)
 
 export const ACCEPT_LIST = [
-  ...ACCEPTED_CLIP_CONTENT_TYPES,
+  ...ACCEPTED_MEDIA_CONTENT_TYPES,
   ...ACCEPTED_CLIP_EXTENSIONS,
 ].join(",")
 
-function isAcceptedContentType(value: string): value is AcceptedContentType {
+function isAcceptedContentType(
+  value: string,
+): value is AcceptedMediaContentType {
   return ACCEPTED_CLIP_CONTENT_TYPE_SET.has(value)
 }
 
@@ -108,7 +114,7 @@ function isAcceptedClipExtension(
   return Object.hasOwn(EXTENSION_CONTENT_TYPE_ALIASES, extension)
 }
 
-function resolveContentType(file: File): AcceptedContentType | null {
+function resolveContentType(file: File): AcceptedMediaContentType | null {
   const contentType = file.type.toLowerCase()
   if (isAcceptedContentType(contentType)) return contentType
 
@@ -128,7 +134,8 @@ export async function prepareSelectedClipFile(
   file: File,
 ): Promise<SelectedFile> {
   const contentType = resolveContentType(file)
-  if (!contentType) throw new Error(t("Choose an MP4 video file."))
+  if (!contentType)
+    throw new Error(t("Choose an MP4 video or a PNG, JPEG, or WebP image."))
   const meta = await probeFile(file)
   return { ...meta, contentType }
 }

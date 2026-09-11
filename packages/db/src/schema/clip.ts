@@ -8,6 +8,7 @@ import {
   type ClipPrivacy,
   type ClipStatus,
   type EncodeStage,
+  type MediaKind,
 } from "@alloy/contracts"
 import { sql } from "drizzle-orm"
 import {
@@ -36,6 +37,7 @@ export const clip = pgTable(
   "clip",
   {
     id: uuid().primaryKey().defaultRandom(),
+    media_kind: text().$type<MediaKind>().notNull().default("video"),
 
     author_id: uuid()
       .notNull()
@@ -147,6 +149,11 @@ export const clip = pgTable(
     updated_at: timestamp().notNull().defaultNow(),
   },
   (t) => [
+    check("clip_media_kind_check", sql`${t.media_kind} in ('video', 'image')`),
+    check(
+      "clip_image_timeline_check",
+      sql`${t.media_kind} = 'video' or (${t.duration_ms} is null and ${t.trim_start_ms} is null and ${t.trim_end_ms} is null)`,
+    ),
     index("clip_author_idx").on(t.author_id),
     // Home feed hot path: "newest public clips by publish time".
     // Filter on privacy, sort by publishedAt — composite supports both.

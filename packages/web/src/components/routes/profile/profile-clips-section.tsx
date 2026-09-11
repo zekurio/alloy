@@ -1,10 +1,14 @@
 import type { UserClip } from "@alloy/api"
+import { MEDIA_FILTERS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
+import { Button } from "@alloy/ui/components/button"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
+import { useInfiniteQuery } from "@tanstack/react-query"
+import { useSearch } from "@tanstack/react-router"
 import { useMemo } from "react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
-import { compareDateAsc, compareDateDesc } from "@/lib/date-format"
+import { profileMediaQueryOptions } from "@/lib/clip-queries"
 import type { ProfileClipSort } from "@/lib/profile-all-search"
 
 import { ClipsFilterBar, type ProfileClipTab } from "./clips-filter-bar"
@@ -36,8 +40,18 @@ export function ProfileClipsSection({
   sort,
   gameSlug,
 }: ProfileClipsSectionProps) {
+  const search = useSearch({ strict: false })
+  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
+  const query = useInfiniteQuery(
+    profileMediaQueryOptions(username, {
+      tab,
+      media,
+      sort,
+      game: gameSlug ?? undefined,
+    }),
+  )
   const gameOptions = useMemo(() => {
-    if (!clips) return []
+    if (!clips && !query.data) return []
     const map = new Map<
       string,
       {
@@ -47,7 +61,10 @@ export function ProfileClipsSection({
         logoUrl: string | null
       }
     >()
-    for (const clip of clips) {
+    for (const clip of [
+      ...(clips ?? []),
+      ...(query.data?.pages.flatMap((page) => page.items) ?? []),
+    ]) {
       const ref = clip.gameRef
       if (!ref) continue
       if (map.has(ref.slug)) continue
@@ -59,26 +76,20 @@ export function ProfileClipsSection({
       })
     }
     return [...map.values()].sort((a, b) => a.name.localeCompare(b.name))
-  }, [clips])
+  }, [clips, query.data])
 
   const selectedGame = useMemo(() => {
     if (!gameSlug) return null
     return gameOptions.find((game) => game.slug === gameSlug) ?? null
   }, [gameOptions, gameSlug])
 
-  const visible = useMemo(() => {
-    if (!clips) return null
-    const byGame = gameSlug
-      ? clips.filter((clip) => clip.gameRef?.slug === gameSlug)
-      : clips
-    return sortClips(byGame, sort)
-  }, [clips, gameSlug, sort])
-
-  const showToolbar = clips !== null && clips.length > 0
+  const visible = query.data
+    ? query.data.pages.flatMap((page) => page.items)
+    : null
 
   return (
     <section>
-      {showToolbar ? (
+      {
         <PageToolbar rail={false} className="-mt-4 sm:-mt-6">
           <ClipsFilterBar
             username={username}
@@ -88,10 +99,10 @@ export function ProfileClipsSection({
             gameOptions={gameOptions}
           />
         </PageToolbar>
-      ) : null}
+      }
       <ClipSectionContent
         rows={visible}
-        error={error}
+        error={query.error ?? (query.data ? null : error)}
         errorTitle={errorTitle}
         emptySeed={`${emptySeed}-${gameSlug ?? "none"}`}
         emptyTitle={
@@ -99,41 +110,28 @@ export function ProfileClipsSection({
             ? t("No clips for {game} yet", {
                 game: selectedGame?.name ?? t("this game"),
               })
-            : emptyTitle
+            : media === "image"
+              ? t("No screenshots yet")
+              : emptyTitle
         }
         emptyHint={
           gameSlug ? t("Try a different game or clear the filter.") : emptyHint
         }
-        listKey={`profile:${username}:${tab}:${sort}:${gameSlug ?? ""}`}
+        listKey={`profile:${username}:${tab}:${sort}:${gameSlug ?? ""}:${media}`}
         isOwnedByViewer={() => isSelf}
       />
+      {query.hasNextPage ? (
+        <Button
+          variant="secondary"
+          className="mt-6"
+          disabled={query.isFetchingNextPage}
+          onClick={() => {
+            void query.fetchNextPage()
+          }}
+        >
+          {query.isFetchingNextPage ? t("Loading…") : t("Load more")}
+        </Button>
+      ) : null}
     </section>
   )
-}
-
-function sortClips(clips: UserClip[], sort: ProfileClipSort): UserClip[] {
-  const copy = clips.slice()
-  switch (sort) {
-    case "recent":
-      copy.sort((a, b) => compareDateDesc(a.createdAt, b.createdAt))
-      break
-    case "oldest":
-      copy.sort((a, b) => compareDateAsc(a.createdAt, b.createdAt))
-      break
-    case "top":
-      copy.sort(
-        (a, b) =>
-          b.likeCount - a.likeCount ||
-          compareDateDesc(a.createdAt, b.createdAt),
-      )
-      break
-    case "views":
-      copy.sort(
-        (a, b) =>
-          b.viewCount - a.viewCount ||
-          compareDateDesc(a.createdAt, b.createdAt),
-      )
-      break
-  }
-  return copy
 }

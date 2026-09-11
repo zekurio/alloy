@@ -21,6 +21,7 @@ import {
   isCaptureId,
   titleForCapture,
   VIDEO_EXTENSIONS,
+  IMAGE_EXTENSIONS,
 } from "./recording-library-shared"
 
 export interface RecordingLibraryScanInput {
@@ -94,6 +95,11 @@ function scanRecordingLibraryItems(
       collection: "Clips",
       kind: "replay",
     },
+    {
+      root: join(input.outputFolder, "Screenshots"),
+      collection: "Screenshots",
+      kind: "screenshot",
+    },
   ]
 
   return collections.flatMap((collection) => scanCollection(collection, input))
@@ -166,7 +172,11 @@ function libraryItemForFile(
 
   return {
     id,
-    title: manifestEntry?.title ?? titleForCapture(createdAt),
+    title:
+      manifestEntry?.title ??
+      (kind === "screenshot"
+        ? `Screenshot ${new Date(createdAt).toLocaleString()}`
+        : titleForCapture(createdAt)),
     filename: absoluteFilename,
     fileName: basename(absoluteFilename),
     mediaUrl,
@@ -241,7 +251,9 @@ function extensionMatchesKind(
   extension: string,
   kind: RecordingCaptureKind,
 ): boolean {
-  return kind === "replay" && VIDEO_EXTENSIONS.has(extension)
+  return (kind === "screenshot" ? IMAGE_EXTENSIONS : VIDEO_EXTENSIONS).has(
+    extension,
+  )
 }
 
 function groupLabelForFile(collectionRoot: string, filename: string): string {

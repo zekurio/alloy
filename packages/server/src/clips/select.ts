@@ -23,6 +23,7 @@ import { eq, sql } from "drizzle-orm"
 import { clipAssetVersion } from "./asset-version"
 
 export const clipSelection = {
+  mediaKind: clip.media_kind,
   id: clip.id,
   authorId: clip.author_id,
   title: clip.title,

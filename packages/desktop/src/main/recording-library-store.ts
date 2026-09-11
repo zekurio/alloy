@@ -44,7 +44,10 @@ export function rememberRecordingLibraryCapture(
     ...existing,
     id: isCaptureId(existing?.id) ? existing.id : captureId(filename),
     filename,
-    title: titleForCapture(capture.createdAt),
+    title:
+      capture.kind === "screenshot"
+        ? `Screenshot ${new Date(capture.createdAt).toLocaleString()}`
+        : titleForCapture(capture.createdAt),
     kind: capture.kind,
     source: capture.source,
     gameName: capture.game?.name ?? null,
@@ -59,6 +62,8 @@ export function rememberRecordingLibraryCapture(
   }
   writeCaptureManifest(manifest)
   invalidateRecordingLibrarySnapshot()
+
+  if (capture.kind === "screenshot") return
 
   // The sidecar reports the requested duration (for replays, the configured
   // buffer window even when the buffer held less footage). Measure the real

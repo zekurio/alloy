@@ -35,6 +35,8 @@ import {
   useTrimPlayback,
 } from "@/components/clip-editor/use-trim-playback"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
+import { DEFAULT_SCREENSHOT_EDIT } from "@/components/media/screenshot-edit"
+import { ScreenshotEditor } from "@/components/media/screenshot-editor"
 import {
   stripExtension,
   type SelectedFile,
@@ -122,6 +124,8 @@ function LocalEditorBody({
   deleting,
   onRequestDelete,
 }: LocalEditorBodyProps) {
+  const isImage = item.kind === "screenshot"
+  const [screenshotEdit, setScreenshotEdit] = useState(DEFAULT_SCREENSHOT_EDIT)
   const navigate = useNavigate()
   const { publishClip } = useUploadActions()
   const { queue } = useUploadQueue()
@@ -222,10 +226,10 @@ function LocalEditorBody({
     mediaUrl: item.mediaUrl,
     thumbnailUrl: item.thumbnailUrl,
     durationMs: item.durationMs,
-    enabled: true,
+    enabled: !isImage,
   })
   const waveform = useMediaWaveform(
-    item.mediaUrl,
+    isImage ? null : item.mediaUrl,
     `desktop:${item.id}:${item.modifiedAt}:${item.sizeBytes}:${item.mediaUrl}`,
     item.durationMs ?? 0,
   )
@@ -241,7 +245,7 @@ function LocalEditorBody({
     !deleting &&
     !publishLocked &&
     !titleInvalid &&
-    rangeMs >= MIN_TRIM_MS
+    (isImage || rangeMs >= MIN_TRIM_MS)
 
   useLibraryEditorShortcuts({
     prevEntry,
@@ -326,6 +330,7 @@ function LocalEditorBody({
       const { clipId } = await exportAndPublishCapture({
         desktop,
         item,
+        screenshotEdit: isImage ? screenshotEdit : undefined,
         trim: { startMs: trim.startMs, endMs: trim.endMs },
         trimmed,
         title: normalizedTitle,
@@ -413,52 +418,64 @@ function LocalEditorBody({
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
       <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
         <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
-          <MediaStage aspectRatio={aspectRatio}>
-            <VideoPlayer
-              src={item.mediaUrl}
-              sourceIdentity={item.id}
-              poster={poster ?? undefined}
-              posterBlurHash={item.thumbBlurHash}
-              fallbackSeed={item.id}
-              aspectRatio={aspectRatio}
-              maxDisplayHeight="100%"
-              controls={false}
-              onVideoClick={() => playback.togglePlayback()}
-              playerRef={playerRef}
-              onTimeUpdate={playback.handleTimeUpdate}
-              onPlayingChange={playback.setPlaying}
-              onFrameReady={() => setLocalFrameReady(true)}
-              onEnded={playback.handleEnded}
+          {isImage ? (
+            <ScreenshotEditor
+              key={item.id}
+              mediaUrl={item.mediaUrl}
+              value={screenshotEdit}
+              onChange={setScreenshotEdit}
+              disabled={saving || publishing || deleting}
             />
+          ) : (
+            <>
+              <MediaStage aspectRatio={aspectRatio}>
+                <VideoPlayer
+                  src={item.mediaUrl}
+                  sourceIdentity={item.id}
+                  poster={poster ?? undefined}
+                  posterBlurHash={item.thumbBlurHash}
+                  fallbackSeed={item.id}
+                  aspectRatio={aspectRatio}
+                  maxDisplayHeight="100%"
+                  controls={false}
+                  onVideoClick={() => playback.togglePlayback()}
+                  playerRef={playerRef}
+                  onTimeUpdate={playback.handleTimeUpdate}
+                  onPlayingChange={playback.setPlaying}
+                  onFrameReady={() => setLocalFrameReady(true)}
+                  onEnded={playback.handleEnded}
+                />
 
-            <LibraryEntryNavButton side="left" target={prevEntry} />
-            <LibraryEntryNavButton side="right" target={nextEntry} />
-            <LibraryHandoffPosterOverlay
-              poster={handoffPoster}
-              ready={localFrameReady}
-            />
-          </MediaStage>
+                <LibraryEntryNavButton side="left" target={prevEntry} />
+                <LibraryEntryNavButton side="right" target={nextEntry} />
+                <LibraryHandoffPosterOverlay
+                  poster={handoffPoster}
+                  ready={localFrameReady}
+                />
+              </MediaStage>
 
-          <TrimTransportControls
-            playback={playback}
-            trailing={<EditorVolumeControl playerVolume={playerVolume} />}
-          />
+              <TrimTransportControls
+                playback={playback}
+                trailing={<EditorVolumeControl playerVolume={playerVolume} />}
+              />
 
-          <TrimBar
-            waveform={waveform}
-            durationMs={playback.durationMs}
-            startMs={trim.startMs}
-            endMs={trim.endMs}
-            subscribeCurrentMs={playback.subscribeCurrentMs}
-            getCurrentMs={playback.getCurrentMs}
-            onSeek={(sourceMs) => {
-              playerRef.current?.pause()
-              playback.seek(sourceMs)
-            }}
-            onStartChange={playback.handleTrimStartChange}
-            onEndChange={playback.handleTrimEndChange}
-            onMove={playback.handleTrimMove}
-          />
+              <TrimBar
+                waveform={waveform}
+                durationMs={playback.durationMs}
+                startMs={trim.startMs}
+                endMs={trim.endMs}
+                subscribeCurrentMs={playback.subscribeCurrentMs}
+                getCurrentMs={playback.getCurrentMs}
+                onSeek={(sourceMs) => {
+                  playerRef.current?.pause()
+                  playback.seek(sourceMs)
+                }}
+                onStartChange={playback.handleTrimStartChange}
+                onEndChange={playback.handleTrimEndChange}
+                onMove={playback.handleTrimMove}
+              />
+            </>
+          )}
         </section>
 
         <Card
@@ -589,10 +606,12 @@ function UploadEditorBody({
   selected,
   previewUrl,
 }: UploadEditorBodyProps) {
+  const isImage = selected.contentType.startsWith("image/")
+  const [screenshotEdit, setScreenshotEdit] = useState(DEFAULT_SCREENSHOT_EDIT)
   const playback = useTrimPlayback({ initialDurationMs: selected.durationMs })
   const { playerRef, trim, trimmed, rangeMs } = playback
   const waveform = useMediaWaveform(
-    previewUrl,
+    isImage ? null : previewUrl,
     `upload:${previewUrl}`,
     selected.durationMs,
   )
@@ -624,7 +643,7 @@ function UploadEditorBody({
     !uploadAction.awaitingLinkCopy &&
     !titleInvalid &&
     !descriptionInvalid &&
-    rangeMs >= MIN_TRIM_MS
+    (isImage || rangeMs >= MIN_TRIM_MS)
 
   const publish = (privacy: ClipPrivacy) => {
     if (!canPublish) return
@@ -636,7 +655,8 @@ function UploadEditorBody({
       privacy,
       mentions,
       trim: { startMs: trim.startMs, endMs: trim.endMs },
-      trimmed,
+      trimmed: !isImage && trimmed,
+      screenshotEdit: isImage ? screenshotEdit : undefined,
     }
     void uploadAction.publish(metadata)
   }
@@ -645,39 +665,50 @@ function UploadEditorBody({
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
       <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
         <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
-          <MediaStage aspectRatio={aspectRatio}>
-            <VideoPlayer
-              src={previewUrl}
-              sourceIdentity={previewUrl}
-              fallbackSeed={selected.name}
-              aspectRatio={aspectRatio}
-              maxDisplayHeight="100%"
-              controls={false}
-              onVideoClick={() => playback.togglePlayback()}
-              playerRef={playerRef}
-              onTimeUpdate={playback.handleTimeUpdate}
-              onPlayingChange={playback.setPlaying}
-              onEnded={playback.handleEnded}
+          {isImage ? (
+            <ScreenshotEditor
+              file={selected.file}
+              value={screenshotEdit}
+              onChange={setScreenshotEdit}
+              disabled={uploadAction.publishing}
             />
-          </MediaStage>
+          ) : (
+            <>
+              <MediaStage aspectRatio={aspectRatio}>
+                <VideoPlayer
+                  src={previewUrl}
+                  sourceIdentity={previewUrl}
+                  fallbackSeed={selected.name}
+                  aspectRatio={aspectRatio}
+                  maxDisplayHeight="100%"
+                  controls={false}
+                  onVideoClick={() => playback.togglePlayback()}
+                  playerRef={playerRef}
+                  onTimeUpdate={playback.handleTimeUpdate}
+                  onPlayingChange={playback.setPlaying}
+                  onEnded={playback.handleEnded}
+                />
+              </MediaStage>
 
-          <TrimTransportControls playback={playback} />
+              <TrimTransportControls playback={playback} />
 
-          <TrimBar
-            waveform={waveform}
-            durationMs={playback.durationMs}
-            startMs={trim.startMs}
-            endMs={trim.endMs}
-            subscribeCurrentMs={playback.subscribeCurrentMs}
-            getCurrentMs={playback.getCurrentMs}
-            onSeek={(sourceMs) => {
-              playerRef.current?.pause()
-              playback.seek(sourceMs)
-            }}
-            onStartChange={playback.handleTrimStartChange}
-            onEndChange={playback.handleTrimEndChange}
-            onMove={playback.handleTrimMove}
-          />
+              <TrimBar
+                waveform={waveform}
+                durationMs={playback.durationMs}
+                startMs={trim.startMs}
+                endMs={trim.endMs}
+                subscribeCurrentMs={playback.subscribeCurrentMs}
+                getCurrentMs={playback.getCurrentMs}
+                onSeek={(sourceMs) => {
+                  playerRef.current?.pause()
+                  playback.seek(sourceMs)
+                }}
+                onStartChange={playback.handleTrimStartChange}
+                onEndChange={playback.handleTrimEndChange}
+                onMove={playback.handleTrimMove}
+              />
+            </>
+          )}
         </section>
 
         <Card

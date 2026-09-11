@@ -1,0 +1,3 @@
+ALTER TABLE "clip" ADD COLUMN "media_kind" text DEFAULT 'video' NOT NULL;--> statement-breakpoint
+ALTER TABLE "clip" ADD CONSTRAINT "clip_media_kind_check" CHECK ("clip"."media_kind" in ('video', 'image'));--> statement-breakpoint
+ALTER TABLE "clip" ADD CONSTRAINT "clip_image_timeline_check" CHECK ("clip"."media_kind" = 'video' or ("clip"."duration_ms" is null and "clip"."trim_start_ms" is null and "clip"."trim_end_ms" is null));
