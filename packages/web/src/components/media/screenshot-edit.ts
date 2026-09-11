@@ -32,6 +32,36 @@ export function fitScreenshotCrop(
   }
 }
 
+/** Move a normalized crop without letting it leave the image. */
+export function moveScreenshotCrop(
+  crop: ScreenshotEdit["crop"],
+  dx: number,
+  dy: number,
+): ScreenshotEdit["crop"] {
+  return {
+    ...crop,
+    x: Math.max(0, Math.min(1 - crop.width, crop.x + dx)),
+    y: Math.max(0, Math.min(1 - crop.height, crop.y + dy)),
+  }
+}
+
+/** Return whether a pointer can move an existing crop at this position. */
+export function canMoveScreenshotCropAt(
+  crop: ScreenshotEdit["crop"],
+  x: number,
+  y: number,
+): boolean {
+  const isFullImage =
+    crop.x === 0 && crop.y === 0 && crop.width === 1 && crop.height === 1
+  return (
+    !isFullImage &&
+    x >= crop.x &&
+    x <= crop.x + crop.width &&
+    y >= crop.y &&
+    y <= crop.y + crop.height
+  )
+}
+
 export function screenshotDimensions(
   width: number,
   height: number,

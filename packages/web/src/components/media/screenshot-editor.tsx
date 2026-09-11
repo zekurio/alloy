@@ -21,9 +21,11 @@ import {
 import { useEffect, useRef, useState } from "react"
 
 import {
+  canMoveScreenshotCropAt,
   DEFAULT_SCREENSHOT_EDIT,
   drawScreenshot,
   fitScreenshotCrop,
+  moveScreenshotCrop,
   screenshotDimensions,
   type ScreenshotEdit,
 } from "./screenshot-edit"
@@ -41,6 +43,12 @@ const ASPECT_RATIOS = [
   "3:4",
   "2:3",
 ] as const
+
+type CropDrag = {
+  pointerId: number
+  startX: number
+  startY: number
+} & ({ kind: "create" } | { kind: "move"; startCrop: ScreenshotEdit["crop"] })
 
 export function ScreenshotEditor({
   file,
@@ -69,7 +77,7 @@ export function ScreenshotEditor({
   const canvas = useRef<HTMLCanvasElement>(null)
   const [image, setImage] = useState<ImageBitmap | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const drag = useRef<{ x: number; y: number } | null>(null)
+  const drag = useRef<CropDrag | null>(null)
   useEffect(() => {
     let cancelled = false
     let bitmap: ImageBitmap | null = null
@@ -127,14 +135,12 @@ export function ScreenshotEditor({
       preview,
     )
   }
-  const edited =
-    value.rotation !== 0 ||
-    value.flipX ||
-    value.flipY ||
+  const hasCrop =
     value.crop.x !== 0 ||
     value.crop.y !== 0 ||
     value.crop.width !== 1 ||
     value.crop.height !== 1
+  const edited = value.rotation !== 0 || value.flipX || value.flipY || hasCrop
   const unavailable = disabled || !image
   const outputWidth = Math.max(
     1,
@@ -242,21 +248,39 @@ export function ScreenshotEditor({
             if (disabled || !image || !cropping) return
             event.currentTarget.focus()
             const rect = event.currentTarget.getBoundingClientRect()
-            drag.current = {
-              x: Math.max(
-                0,
-                Math.min(1, (event.clientX - rect.left) / rect.width),
-              ),
-              y: Math.max(
-                0,
-                Math.min(1, (event.clientY - rect.top) / rect.height),
-              ),
-            }
+            const startX = Math.max(
+              0,
+              Math.min(1, (event.clientX - rect.left) / rect.width),
+            )
+            const startY = Math.max(
+              0,
+              Math.min(1, (event.clientY - rect.top) / rect.height),
+            )
+            const insideCrop = canMoveScreenshotCropAt(
+              value.crop,
+              startX,
+              startY,
+            )
+            drag.current = insideCrop
+              ? {
+                  kind: "move",
+                  pointerId: event.pointerId,
+                  startX,
+                  startY,
+                  startCrop: { ...value.crop },
+                }
+              : { kind: "create", pointerId: event.pointerId, startX, startY }
             event.currentTarget.setPointerCapture(event.pointerId)
           }}
           onPointerMove={(event) => {
             const start = drag.current
-            if (!start || disabled || !cropping) return
+            if (
+              !start ||
+              start.pointerId !== event.pointerId ||
+              disabled ||
+              !cropping
+            )
+              return
             const rect = event.currentTarget.getBoundingClientRect()
             const x = Math.max(
               0,
@@ -266,27 +290,50 @@ export function ScreenshotEditor({
               0,
               Math.min(1, (event.clientY - rect.top) / rect.height),
             )
-            if (Math.abs(x - start.x) < 0.01 || Math.abs(y - start.y) < 0.01)
+            if (start.kind === "move") {
+              history.change(
+                {
+                  ...value,
+                  crop: moveScreenshotCrop(
+                    start.startCrop,
+                    x - start.startX,
+                    y - start.startY,
+                  ),
+                },
+                aspectRatio,
+                true,
+              )
+              return
+            }
+            if (
+              Math.abs(x - start.startX) < 0.01 ||
+              Math.abs(y - start.startY) < 0.01
+            )
               return
             const crop = fitScreenshotCrop(
               {
-                x: Math.min(start.x, x),
-                y: Math.min(start.y, y),
-                width: Math.abs(x - start.x),
-                height: Math.abs(y - start.y),
+                x: Math.min(start.startX, x),
+                y: Math.min(start.startY, y),
+                width: Math.abs(x - start.startX),
+                height: Math.abs(y - start.startY),
               },
               dimensions,
               ratio,
             )
-            crop.x = x < start.x ? start.x - crop.width : start.x
-            crop.y = y < start.y ? start.y - crop.height : start.y
+            crop.x = x < start.startX ? start.startX - crop.width : start.startX
+            crop.y =
+              y < start.startY ? start.startY - crop.height : start.startY
             history.change({ ...value, crop }, aspectRatio, true)
           }}
-          onPointerUp={() => {
+          onPointerUp={(event) => {
+            if (drag.current?.pointerId !== event.pointerId) return
             drag.current = null
+            if (event.currentTarget.hasPointerCapture(event.pointerId))
+              event.currentTarget.releasePointerCapture(event.pointerId)
             history.commit()
           }}
-          onPointerCancel={() => {
+          onPointerCancel={(event) => {
+            if (drag.current?.pointerId !== event.pointerId) return
             drag.current = null
             history.commit()
           }}
@@ -300,8 +347,12 @@ export function ScreenshotEditor({
             <div
               aria-hidden="true"
               className={cn(
-                "pointer-events-none absolute shadow-[0_0_0_9999px_#000a]",
-                cropping && "border border-white/80",
+                "absolute shadow-[0_0_0_9999px_#000a]",
+                cropping &&
+                  "border-2 border-accent shadow-[0_0_0_1px_#0008,0_0_18px_var(--accent-glow),0_0_0_9999px_#000a]",
+                cropping && hasCrop
+                  ? "pointer-events-auto cursor-move"
+                  : "pointer-events-none",
               )}
               style={{
                 left: `${value.crop.x * 100}%`,
@@ -312,12 +363,17 @@ export function ScreenshotEditor({
             >
               {cropping ? (
                 <>
-                  <div className="absolute inset-x-0 top-1/3 h-1/3 border-y border-white/25" />
-                  <div className="absolute inset-y-0 left-1/3 w-1/3 border-x border-white/25" />
-                  <div className="absolute -top-px -left-px size-3 border-t-2 border-l-2 border-white" />
-                  <div className="absolute -top-px -right-px size-3 border-t-2 border-r-2 border-white" />
-                  <div className="absolute -bottom-px -left-px size-3 border-b-2 border-l-2 border-white" />
-                  <div className="absolute -right-px -bottom-px size-3 border-r-2 border-b-2 border-white" />
+                  <div className="absolute inset-x-0 top-1/3 h-1/3 border-y border-white/20" />
+                  <div className="absolute inset-y-0 left-1/3 w-1/3 border-x border-white/20" />
+                  <div className="border-accent-foreground absolute -top-0.5 -left-0.5 size-3 border-t-2 border-l-2" />
+                  <div className="border-accent-foreground absolute -top-0.5 -right-0.5 size-3 border-t-2 border-r-2" />
+                  <div className="border-accent-foreground absolute -bottom-0.5 -left-0.5 size-3 border-b-2 border-l-2" />
+                  <div className="border-accent-foreground absolute -right-0.5 -bottom-0.5 size-3 border-r-2 border-b-2" />
+                  {hasCrop ? (
+                    <span className="absolute bottom-2 left-1/2 max-w-[calc(100%-1rem)] -translate-x-1/2 truncate rounded-sm border border-white/10 bg-black/75 px-2 py-1 font-mono text-[10px] leading-none text-white/90 tabular-nums shadow-sm backdrop-blur-sm">
+                      {outputWidth} × {outputHeight}
+                    </span>
+                  ) : null}
                 </>
               ) : null}
             </div>

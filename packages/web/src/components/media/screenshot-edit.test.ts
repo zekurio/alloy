@@ -1,8 +1,10 @@
 import { expect, it } from "vite-plus/test"
 
 import {
+  canMoveScreenshotCropAt,
   DEFAULT_SCREENSHOT_EDIT,
   fitScreenshotCrop,
+  moveScreenshotCrop,
   screenshotDimensions,
 } from "./screenshot-edit"
 
@@ -40,4 +42,32 @@ it("fits aspect-ratio crops inside landscape, portrait, and rotated images", () 
       16 / 9,
     ),
   ).toEqual(DEFAULT_SCREENSHOT_EDIT.crop)
+})
+
+it("moves crops without changing their size or leaving the image", () => {
+  const crop = { x: 0.2, y: 0.25, width: 0.4, height: 0.3 }
+
+  const moved = moveScreenshotCrop(crop, 0.1, -0.15)
+  expect(moved).toMatchObject({
+    y: 0.1,
+    width: 0.4,
+    height: 0.3,
+  })
+  expect(moved.x).toBeCloseTo(0.3)
+  expect(moveScreenshotCrop(crop, -1, 1)).toEqual({
+    x: 0,
+    y: 0.7,
+    width: 0.4,
+    height: 0.3,
+  })
+})
+
+it("moves only custom crops when the pointer starts inside them", () => {
+  const crop = { x: 0.2, y: 0.25, width: 0.4, height: 0.3 }
+
+  expect(canMoveScreenshotCropAt(crop, 0.3, 0.4)).toBe(true)
+  expect(canMoveScreenshotCropAt(crop, 0.1, 0.4)).toBe(false)
+  expect(canMoveScreenshotCropAt(DEFAULT_SCREENSHOT_EDIT.crop, 0.5, 0.5)).toBe(
+    false,
+  )
 })
