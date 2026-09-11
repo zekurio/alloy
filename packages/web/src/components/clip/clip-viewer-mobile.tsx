@@ -1,13 +1,12 @@
 import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
 import { clipShareUrl } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
 import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
+import { XIcon } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { TouchEvent } from "react"
 
@@ -185,9 +184,7 @@ function MobileClipViewerBody({
   const avatarStyle = { background: avatar.bg, color: avatar.fg } as const
   const initialFocusRef = useRef<HTMLDivElement>(null)
 
-  const landscape = useMediaQuery("(orientation: landscape)")
-  const isImage = row.mediaKind === "image"
-  const isLandscape = landscape && !isImage
+  const isLandscape = useMediaQuery("(orientation: landscape)")
 
   useEffect(() => {
     return () => {
@@ -242,15 +239,12 @@ function MobileClipViewerBody({
       >
         <div
           data-orientation={isLandscape ? "landscape" : "portrait"}
-          className={cn(
-            "relative flex h-full flex-col",
-            isImage ? "overflow-y-auto bg-surface" : "bg-[oklch(12%_0.01_250)]",
-          )}
-          onTouchStart={isImage ? undefined : onTouchStart}
-          onTouchEnd={isImage ? undefined : onTouchEnd}
+          className="relative flex h-full flex-col bg-[oklch(12%_0.01_250)]"
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
         >
           {/* ---- Blurred thumbnail background (full-screen) ---- */}
-          {thumbnail && !isImage ? (
+          {thumbnail ? (
             <img
               src={thumbnail}
               alt=""
@@ -297,32 +291,6 @@ function MobileClipViewerBody({
           ) : null}
 
           {/* ---- Close button ---- */}
-          {isImage && canNav ? (
-            <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-30 flex gap-1 rounded-full bg-black/60 p-1 text-white backdrop-blur-md">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("Previous clip")}
-                disabled={!prev}
-                onClick={() => {
-                  if (prev) onNavigate?.(prev)
-                }}
-              >
-                <ChevronLeftIcon />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("Next clip")}
-                disabled={!next}
-                onClick={() => {
-                  if (next) onNavigate?.(next)
-                }}
-              >
-                <ChevronRightIcon />
-              </Button>
-            </div>
-          ) : null}
           <DialogClose
             className={cn(
               mobileOverlayCloseButtonClassName,
@@ -334,7 +302,7 @@ function MobileClipViewerBody({
           </DialogClose>
 
           {/* ---- Top spacer (keeps the player higher while metadata stays bottom-pinned) ---- */}
-          {isLandscape || isImage ? null : (
+          {isLandscape ? null : (
             <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />
           )}
 
@@ -345,7 +313,6 @@ function MobileClipViewerBody({
             className={cn(
               "relative z-10 outline-none",
               isLandscape ? "flex min-h-0 flex-1 items-center" : "shrink-0",
-              isImage && "bg-black pt-[env(safe-area-inset-top)]",
             )}
           >
             <ClipPlayer
@@ -376,11 +343,7 @@ function MobileClipViewerBody({
               onRetry={retry.onRetry}
               retryPending={retry.retryPending}
               maxDisplayHeight={
-                isImage
-                  ? "64dvh"
-                  : isLandscape
-                    ? "100dvh"
-                    : "min(72dvh, calc(100dvh - 18rem))"
+                isLandscape ? "100dvh" : "min(72dvh, calc(100dvh - 18rem))"
               }
               chromeSize="compact"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
@@ -396,7 +359,7 @@ function MobileClipViewerBody({
             />
           </div>
 
-          {showSwipeHint && !isLandscape && !isImage ? (
+          {showSwipeHint && !isLandscape ? (
             <div
               aria-hidden
               className={cn(
@@ -409,25 +372,17 @@ function MobileClipViewerBody({
             </div>
           ) : null}
 
-          {isLandscape || isImage ? null : <div className="min-h-0 flex-1" />}
+          {isLandscape ? null : <div className="min-h-0 flex-1" />}
 
           {/* ---- Bottom section ---- */}
           <div
             className={cn(
-              "relative z-10 flex shrink-0",
-              isImage ? "flex-col" : "max-h-[min(40dvh,16rem)] overflow-hidden",
+              "relative z-10 flex max-h-[min(40dvh,16rem)] shrink-0 overflow-hidden",
               isLandscape && "hidden",
             )}
           >
             {/* Left: metadata cluster */}
-            <div
-              className={cn(
-                "flex min-h-0 flex-1 flex-col gap-2.5",
-                isImage
-                  ? "p-4"
-                  : "justify-end overflow-hidden pt-4 pr-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]",
-              )}
-            >
+            <div className="flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden pt-4 pr-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]">
               {/* Game badge */}
               {gameRef ? (
                 <Link
@@ -486,14 +441,7 @@ function MobileClipViewerBody({
             </div>
 
             {/* Right: action buttons */}
-            <div
-              className={cn(
-                "flex items-center",
-                isImage
-                  ? "mx-4 justify-between gap-4 border-t border-border pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
-                  : "flex-col justify-end gap-5 pr-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-3",
-              )}
-            >
+            <div className="flex flex-col items-center justify-end gap-5 pr-[max(0.75rem,calc(env(safe-area-inset-right)+0.25rem))] pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-3">
               <MobileActionsRail
                 {...actionRailProps}
                 iconSizeClassName="size-7"
