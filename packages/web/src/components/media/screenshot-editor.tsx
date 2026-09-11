@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 
+import { ImageZoomControls, useImageZoom } from "./image-zoom"
 import {
   canMoveScreenshotCropAt,
   DEFAULT_SCREENSHOT_EDIT,
@@ -100,6 +101,7 @@ export function ScreenshotEditor({
           ? t("Square")
           : option
   const [cropping, setCropping] = useState(false)
+  const view = useImageZoom()
   const history = useScreenshotHistory(initialValue, onChange)
   const { edit: value, aspectRatio } = history.snapshot
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -136,8 +138,8 @@ export function ScreenshotEditor({
   }, [file, mediaUrl])
   useEffect(() => {
     if (canvas.current && image && image.width > 0 && image.height > 0)
-      drawScreenshot(canvas.current, image, value, 1600)
-  }, [image, value])
+      drawScreenshot(canvas.current, image, value, 1600 * view.zoom)
+  }, [image, value, view.zoom])
   const dimensions = image
     ? screenshotDimensions(image.width, image.height, value.rotation)
     : { width: 16, height: 9 }
@@ -200,18 +202,34 @@ export function ScreenshotEditor({
         else history.undo()
       }}
     >
-      <div className="[container-type:size] relative grid h-[52dvh] min-h-0 place-items-center overflow-hidden rounded-md lg:h-auto lg:flex-1">
+      <div
+        ref={view.viewportRef}
+        className={cn(
+          "[container-type:size] relative grid h-[52dvh] min-h-0 place-items-center overflow-hidden rounded-md lg:h-auto lg:flex-1",
+          view.zoom > 1 && !cropping && "cursor-grab active:cursor-grabbing",
+        )}
+        style={{ touchAction: view.zoom > 1 ? "none" : undefined }}
+        onPointerDown={(event) => {
+          if (!unavailable && (!cropping || event.button === 1))
+            view.startPan(event)
+        }}
+        onPointerMove={view.movePan}
+        onPointerUp={view.endPan}
+        onPointerCancel={view.endPan}
+      >
         {error ? (
           <p role="alert" className="text-destructive px-4 text-sm">
             {error}
           </p>
         ) : null}
         <div
+          ref={view.contentRef}
           className={cn(
             "relative overflow-hidden bg-black focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
             cropping && "cursor-crosshair",
           )}
           style={{
+            ...view.style,
             touchAction: cropping ? "none" : "auto",
             width: `min(100cqw, calc(100cqh * ${dimensions.width / dimensions.height}))`,
             aspectRatio: dimensions.width / dimensions.height,
@@ -521,6 +539,11 @@ export function ScreenshotEditor({
             {value.rotation}°
           </output>
         </div>
+        <ImageZoomControls
+          zoom={view.zoom}
+          onChange={view.changeZoom}
+          disabled={unavailable}
+        />
         <div className="ml-auto flex items-center gap-3">
           <Select
             value={aspectRatio}
@@ -548,7 +571,11 @@ export function ScreenshotEditor({
               )
             }}
           >
-            <SelectTrigger size="sm" aria-label={t("Aspect ratio")}>
+            <SelectTrigger
+              size="sm"
+              aria-label={t("Aspect ratio")}
+              className="border-transparent bg-transparent hover:border-transparent focus-visible:border-transparent disabled:bg-transparent"
+            >
               <SelectValue>{ratioLabel(aspectRatio)}</SelectValue>
             </SelectTrigger>
             <SelectContent align="end" className="alloy-blur">

@@ -101,13 +101,13 @@ interface ClipDetailsProps {
   canManage: boolean
   onRequestDelete: () => void
   deleting: boolean
-  /** True while the stage holds a valid, uncommitted trim change. */
-  canSaveTrim: boolean
-  /** True while a saved trim is being applied on the server. */
-  trimPending: boolean
-  trimError: string | null
-  /** Commits the stage's pending trim — Save runs it with the fields. */
-  onSaveTrim: () => void
+  /** True while the stage holds an unsaved image or trim edit. */
+  canSaveMedia: boolean
+  /** True while the media edit is being saved. */
+  mediaPending: boolean
+  mediaError: string | null
+  /** Save the media edit with the metadata fields. */
+  onSaveMedia: () => void
 }
 
 interface ClipEditorTabsProps extends ClipDetailsProps {
@@ -185,10 +185,10 @@ function ClipDetailsForm({
   canManage,
   onRequestDelete,
   deleting,
-  canSaveTrim,
-  trimPending,
-  trimError,
-  onSaveTrim,
+  canSaveMedia,
+  mediaPending,
+  mediaError,
+  onSaveMedia,
 }: ClipDetailsProps) {
   const {
     title,
@@ -265,10 +265,10 @@ function ClipDetailsForm({
   }
 
   // Save commits everything outstanding at once: the field edits and any
-  // pending trim from the stage. The two server calls are independent.
+  // pending media edit from the stage. The two server calls are independent.
   const handleSave = () => {
-    if (saving || trimPending || titleInvalid) return
-    if (canSaveTrim) onSaveTrim()
+    if (saving || mediaPending || titleInvalid) return
+    if (canSaveMedia) onSaveMedia()
     if (!dirty) return
     const input: Parameters<typeof saveMutation.mutate>[0]["input"] = {}
     if (titleChanged) input.title = normalizedTitle
@@ -296,15 +296,15 @@ function ClipDetailsForm({
   const ProfileVisibilityIcon = profileVisibilityAction.icon
   const LinkVisibilityIcon = linkVisibilityAction.icon
 
-  const primaryPublishes = !dirty && !canSaveTrim
+  const primaryPublishes = !dirty && !canSaveMedia
   const primaryDisabled = primaryPublishes
     ? visibilityPending || deleting
-    : (!dirty && !canSaveTrim) || titleInvalid || saving || trimPending
+    : (!dirty && !canSaveMedia) || titleInvalid || saving || mediaPending
   const primaryLabel = primaryPublishes
     ? visibilityPending
       ? feedbackVisibilityAction.pendingLabel
       : profileVisibilityAction.label
-    : saving || trimPending
+    : saving || mediaPending
       ? t("Saving…")
       : t("Save")
   const PrimaryIcon = primaryPublishes ? ProfileVisibilityIcon : SaveIcon
@@ -317,7 +317,7 @@ function ClipDetailsForm({
       ? saveFeedback.feedback.message
       : visibilityFeedback.feedback.state === "error"
         ? visibilityFeedback.feedback.message
-        : trimError
+        : mediaError
 
   return (
     <>

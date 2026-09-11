@@ -16,6 +16,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { RefreshCwIcon } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 
+import { ImageZoomControls, useImageZoom } from "@/components/media/image-zoom"
 import {
   encodeStageLabel,
   QueueProgressBar,
@@ -105,6 +106,7 @@ function ScreenshotPlayer({
   maxDisplayHeight = "70dvh",
 }: ClipPlayerProps) {
   const [naturalRatio, setNaturalRatio] = useState(1)
+  const view = useImageZoom()
   const ratio = aspectRatio ?? naturalRatio
   const [failed, setFailed] = useState(false)
   return (
@@ -127,25 +129,54 @@ function ScreenshotPlayer({
           {t("Couldn't load screenshot")}
         </p>
       ) : (
-        <img
-          src={clipSourceFileUrl(
-            clipId,
-            apiOrigin(),
-            sourceVersion ?? undefined,
+        <div
+          ref={view.viewportRef}
+          className={cn(
+            "absolute inset-0 grid place-items-center overflow-hidden",
+            view.zoom > 1 && "touch-none cursor-grab active:cursor-grabbing",
           )}
-          alt={t("Screenshot")}
-          className="h-full w-full object-contain"
-          draggable={false}
-          onLoad={(event) => {
-            setNaturalRatio(
-              event.currentTarget.naturalWidth /
-                event.currentTarget.naturalHeight,
-            )
-            onPlayThreshold?.()
-          }}
-          onError={() => setFailed(true)}
-        />
+          onPointerDown={view.startPan}
+          onPointerMove={view.movePan}
+          onPointerUp={view.endPan}
+          onPointerCancel={view.endPan}
+        >
+          <div
+            ref={view.contentRef}
+            className="h-full w-full"
+            style={view.style}
+          >
+            <img
+              src={clipSourceFileUrl(
+                clipId,
+                apiOrigin(),
+                sourceVersion ?? undefined,
+              )}
+              alt={t("Screenshot")}
+              className="h-full w-full object-contain"
+              draggable={false}
+              onLoad={(event) => {
+                setNaturalRatio(
+                  event.currentTarget.naturalWidth /
+                    event.currentTarget.naturalHeight,
+                )
+                onPlayThreshold?.()
+              }}
+              onError={() => setFailed(true)}
+            />
+          </div>
+        </div>
       )}
+      {!failed ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+          <div className="pointer-events-auto">
+            <ImageZoomControls
+              zoom={view.zoom}
+              onChange={view.changeZoom}
+              floating
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

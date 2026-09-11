@@ -48,7 +48,10 @@ import {
   setLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { finishLocalClipDelete } from "./library-local-actions"
-import { LibraryScreenshotEditor } from "./library-screenshot-editor"
+import {
+  LibraryScreenshotEditor,
+  useLibraryScreenshotEdit,
+} from "./library-screenshot-editor"
 
 /**
  * Edit view for an already-uploaded clip: the same stage-and-trimmer layout
@@ -116,6 +119,10 @@ function ClipEditorBody({
   const { localItem, prevEntry, nextEntry } = navigation
   const { canManage, isOwner } = useClipEditorPermissions(row)
   const canTrim = isOwner && !processing && row.mediaKind !== "image"
+  const screenshot = useLibraryScreenshotEdit({
+    row,
+    disabled: !isOwner || processing || row.mediaKind !== "image",
+  })
   // Before first publish, the stage plays the raw local capture. The
   // persisted trim bounds describe the exported upload's timeline, so
   // applying them to the raw file would seek the preview past its real start.
@@ -187,12 +194,16 @@ function ClipEditorBody({
     canManage,
     onRequestDelete: deleteFlow.openDialog,
     deleting: deleteFlow.pending,
-    canSaveTrim,
-    trimPending: trimMutation.isPending,
-    trimError: trimMutation.error
-      ? errorMessage(trimMutation.error, t("Couldn't trim the clip"))
-      : null,
-    onSaveTrim: handleSaveTrim,
+    canSaveMedia: row.mediaKind === "image" ? screenshot.changed : canSaveTrim,
+    mediaPending:
+      row.mediaKind === "image" ? screenshot.saving : trimMutation.isPending,
+    mediaError:
+      row.mediaKind === "image"
+        ? screenshot.error
+        : trimMutation.error
+          ? errorMessage(trimMutation.error, t("Couldn't trim the clip"))
+          : null,
+    onSaveMedia: row.mediaKind === "image" ? screenshot.save : handleSaveTrim,
   }
 
   return (
@@ -203,7 +214,7 @@ function ClipEditorBody({
             row.status === "ready" ? (
               <LibraryScreenshotEditor
                 key={`${row.id}:${row.sourceVersion}`}
-                row={row}
+                state={screenshot}
                 disabled={!isOwner || processing}
               />
             ) : (

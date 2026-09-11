@@ -1,7 +1,6 @@
 import { clipSourceFileUrl, type ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import {
   DEFAULT_SCREENSHOT_EDIT,
@@ -12,7 +11,7 @@ import { useUpdateClipImageMutation } from "@/lib/clip-queries"
 import { apiOrigin } from "@/lib/env"
 import { errorMessage } from "@/lib/error-message"
 
-export function LibraryScreenshotEditor({
+export function useLibraryScreenshotEdit({
   row,
   disabled,
 }: {
@@ -23,6 +22,10 @@ export function LibraryScreenshotEditor({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const mutation = useUpdateClipImageMutation()
+  useEffect(() => {
+    setEdit(DEFAULT_SCREENSHOT_EDIT)
+    setError(null)
+  }, [row.id, row.sourceVersion])
   const mediaUrl = clipSourceFileUrl(
     row.id,
     apiOrigin(),
@@ -31,7 +34,7 @@ export function LibraryScreenshotEditor({
   const changed =
     JSON.stringify(edit) !== JSON.stringify(DEFAULT_SCREENSHOT_EDIT)
   const save = async () => {
-    if (disabled || saving || !changed || !row.sourceVersion) return
+    if (disabled || saving || !changed || !row.sourceVersion) return false
     setSaving(true)
     setError(null)
     try {
@@ -46,33 +49,33 @@ export function LibraryScreenshotEditor({
         file,
         sourceVersion: row.sourceVersion,
       })
+      setEdit(DEFAULT_SCREENSHOT_EDIT)
+      return true
     } catch (cause) {
       setError(errorMessage(cause, t("Couldn't save changes")))
+      return false
     } finally {
       setSaving(false)
     }
   }
+  return { edit, setEdit, mediaUrl, changed, saving, error, save }
+}
+
+export function LibraryScreenshotEditor({
+  state,
+  disabled,
+}: {
+  state: ReturnType<typeof useLibraryScreenshotEdit>
+  disabled: boolean
+}) {
   return (
     <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
       <ScreenshotEditor
-        mediaUrl={mediaUrl}
-        value={edit}
-        onChange={setEdit}
-        disabled={disabled || saving}
+        mediaUrl={state.mediaUrl}
+        value={state.edit}
+        onChange={state.setEdit}
+        disabled={disabled || state.saving}
       />
-      {error ? (
-        <p role="alert" className="text-destructive text-sm">
-          {error}
-        </p>
-      ) : null}
-      <div className="flex justify-end">
-        <Button
-          disabled={disabled || saving || !changed}
-          onClick={() => void save()}
-        >
-          {saving ? t("Saving…") : t("Save")}
-        </Button>
-      </div>
     </section>
   )
 }

@@ -52,9 +52,9 @@ interface MobileClipEditorProps {
   initialTrim: TrimRange | undefined
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
-  tabs: Omit<Parameters<typeof ClipEditorTabs>[0], "row" | "onSaveTrim"> & {
+  tabs: Omit<Parameters<typeof ClipEditorTabs>[0], "row" | "onSaveMedia"> & {
     /** Resolves true only when the trim was persisted. */
-    onSaveTrim: () => Promise<boolean>
+    onSaveMedia: () => Promise<boolean>
   }
 }
 
@@ -85,14 +85,14 @@ export function MobileClipEditor({
         media={media}
         playback={playback}
         canManage={canManage}
-        canSaveTrim={tabs.canSaveTrim}
-        trimPending={tabs.trimPending}
-        trimError={tabs.trimError}
+        canSaveTrim={tabs.canSaveMedia}
+        trimPending={tabs.mediaPending}
+        trimError={tabs.mediaError}
         onSaveTrim={() => {
           // Stay in the trim view while the save is pending (the button shows
           // "Saving…") and on failure, so the unsaved handles remain editable;
           // the mutation already toasts the error.
-          void tabs.onSaveTrim().then((saved) => {
+          void tabs.onSaveMedia().then((saved) => {
             if (saved) setTrimming(false)
           })
         }}

@@ -1376,6 +1376,8 @@ export const DE_MESSAGES = {
   "Your profile and clips will be hidden until you sign back in and reactivate.":
     "Dein Profil und deine Clips werden ausgeblendet, bis du dich wieder anmeldest und reaktivierst.",
   Zoom: "Zoom",
+  "Zoom in": "Vergrößern",
+  "Zoom out": "Verkleinern",
   "Apply changes": "Änderungen anwenden",
   "Changes apply to new uploads. Existing clips re-encode in the background and keep playing their current renditions until replacements are ready.":
     "Änderungen gelten für neue Uploads. Vorhandene Clips werden im Hintergrund neu codiert und spielen ihre aktuellen Renditionen weiter ab, bis die neuen bereit sind.",
