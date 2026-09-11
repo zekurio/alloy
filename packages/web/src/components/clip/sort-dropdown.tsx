@@ -71,7 +71,7 @@ export function SortDropdown<K extends string>({
           {options.map((opt) => (
             <DropdownMenuItem
               key={opt.key}
-              className="pr-8"
+              className="w-full pr-8 text-left"
               render={renderOptionLink(opt, opt.key === value)}
             >
               {opt.icon ?? defaultSortIcon(opt.key)}
