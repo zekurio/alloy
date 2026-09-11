@@ -48,6 +48,7 @@ import {
   setLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { finishLocalClipDelete } from "./library-local-actions"
+import { LibraryScreenshotEditor } from "./library-screenshot-editor"
 
 /**
  * Edit view for an already-uploaded clip: the same stage-and-trimmer layout
@@ -199,18 +200,26 @@ function ClipEditorBody({
       {desktopLayout || row.mediaKind === "image" ? (
         <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
           {row.mediaKind === "image" ? (
-            <ClipPlayer
-              clipId={row.id}
-              aspectRatio={
-                row.mediaKind === "image" && row.width && row.height
-                  ? row.width / row.height
-                  : undefined
-              }
-              playbackContentType={row.sourceContentType}
-              sourceVersion={row.sourceVersion}
-              status={row.status}
-              failureReason={row.failureReason}
-            />
+            row.status === "ready" ? (
+              <LibraryScreenshotEditor
+                key={`${row.id}:${row.sourceVersion}`}
+                row={row}
+                disabled={!isOwner || processing}
+              />
+            ) : (
+              <ClipPlayer
+                clipId={row.id}
+                aspectRatio={
+                  row.mediaKind === "image" && row.width && row.height
+                    ? row.width / row.height
+                    : undefined
+                }
+                playbackContentType={row.sourceContentType}
+                sourceVersion={row.sourceVersion}
+                status={row.status}
+                failureReason={row.failureReason}
+              />
+            )
           ) : (
             <ClipEditorStage
               row={row}

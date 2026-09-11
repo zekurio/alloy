@@ -106,12 +106,11 @@ function ScreenshotPlayer({
 }: ClipPlayerProps) {
   const [naturalRatio, setNaturalRatio] = useState(1)
   const ratio = aspectRatio ?? naturalRatio
-  const [zoomed, setZoomed] = useState(false)
   const [failed, setFailed] = useState(false)
   return (
     <div
       className={cn(
-        "relative mx-auto w-full overflow-auto bg-black",
+        "relative mx-auto w-full overflow-hidden bg-black",
         className,
       )}
       style={{
@@ -128,33 +127,24 @@ function ScreenshotPlayer({
           {t("Couldn't load screenshot")}
         </p>
       ) : (
-        <button
-          type="button"
-          className={cn(
-            "grid h-full w-full place-items-center cursor-zoom-in focus-visible:outline-2 focus-visible:outline-ring",
-            zoomed && "h-auto w-auto min-h-full min-w-full cursor-zoom-out",
+        <img
+          src={clipSourceFileUrl(
+            clipId,
+            apiOrigin(),
+            sourceVersion ?? undefined,
           )}
-          aria-label={zoomed ? t("Fit image") : t("Zoom image")}
-          onClick={() => setZoomed(!zoomed)}
-        >
-          <img
-            src={clipSourceFileUrl(
-              clipId,
-              apiOrigin(),
-              sourceVersion ?? undefined,
-            )}
-            alt={t("Screenshot")}
-            className={zoomed ? "max-w-none" : "h-full w-full object-contain"}
-            onLoad={(event) => {
-              setNaturalRatio(
-                event.currentTarget.naturalWidth /
-                  event.currentTarget.naturalHeight,
-              )
-              onPlayThreshold?.()
-            }}
-            onError={() => setFailed(true)}
-          />
-        </button>
+          alt={t("Screenshot")}
+          className="h-full w-full object-contain"
+          draggable={false}
+          onLoad={(event) => {
+            setNaturalRatio(
+              event.currentTarget.naturalWidth /
+                event.currentTarget.naturalHeight,
+            )
+            onPlayThreshold?.()
+          }}
+          onError={() => setFailed(true)}
+        />
       )}
     </div>
   )

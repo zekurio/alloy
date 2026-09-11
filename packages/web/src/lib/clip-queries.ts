@@ -187,6 +187,26 @@ export function useTrimClipMutation() {
   })
 }
 
+export function useUpdateClipImageMutation() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      clipId,
+      file,
+      sourceVersion,
+    }: {
+      clipId: string
+      file: File
+      sourceVersion: string
+    }) => api.clips.updateImage(clipId, file, sourceVersion),
+    onSuccess: (row) => patchClipInCaches(qc, row.id, row),
+    onSettled: () => {
+      void invalidateClipCaches(qc)
+      void invalidateStorageUsage(qc)
+    },
+  })
+}
+
 export function useReEncodeClipMutation() {
   const qc = useQueryClient()
 
