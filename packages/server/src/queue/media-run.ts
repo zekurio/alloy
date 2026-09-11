@@ -1,4 +1,8 @@
-import { normalizeBlurHash, type TranscodingConfig } from "@alloy/contracts"
+import {
+  normalizeBlurHash,
+  type ClipAudioTrackInput,
+  type TranscodingConfig,
+} from "@alloy/contracts"
 import {
   encodeFingerprint,
   expectedLadder,
@@ -16,7 +20,7 @@ import {
   SOURCE_PHASE_COST,
 } from "./media-encode-progress"
 import { makeMediaProgressWriter } from "./media-progress"
-import { type Asset } from "./media-publish"
+import { type Asset, type SourceAsset } from "./media-publish"
 import {
   encodeAndPublishCut,
   encodeAndUploadRenditions,
@@ -36,7 +40,12 @@ import {
   ensureStillPresent,
   withMediaRunWorkspace,
 } from "./media-run-workspace"
-import type { MediaCompletion, MediaRow, MediaStore } from "./media-store"
+import type {
+  MediaCompletion,
+  MediaRow,
+  MediaSourcePatch,
+  MediaStore,
+} from "./media-store"
 export {
   encodeProgressPercent,
   encodeProgressTotalCost,
@@ -159,7 +168,6 @@ async function runPipelineInWorkDir({
   await ensureStillPresent(store, id, runId, signal)
 
   const durationMs = cut.durationMs ?? sourceProbe.durationMs
-  const sourceCodecs = sourceCodecsString(sourceProbe)
   const sourceFps = persistedSourceFps(sourceProbe.fps)
   const fingerprintFacts = {
     height: sourceProbe.height,
@@ -214,26 +222,20 @@ async function runPipelineInWorkDir({
       })))
     : null
 
-  const sourcePatch = {
-    sourceKey: sourceAsset.storageKey,
-    sourceContentType: sourceAsset.contentType,
-    sourceVideoCodec: sourceAsset.videoCodec,
-    sourceAudioCodec: sourceAsset.audioCodec,
-    sourceCodecs,
+  const sourcePatch = makeSourcePatch({
+    asset: sourceAsset,
+    probe: sourceProbe,
     sourceFps,
-    sourceSizeBytes: sourceAsset.sizeBytes,
-    sourceDurationMs: sourceProbe.durationMs,
     waveformKey,
-    pendingAudioTracks: audioTrackHints.length ? audioTrackHints : null,
+    audioTrackHints,
     audioTrackFingerprint: fingerprintFacts.audioTrackFingerprint,
-    cutKey: cut.key,
-    cutCodecs: cut.codecs,
+    cut,
     durationMs,
-    width: sourceProbe.width,
-    height: sourceProbe.height,
-  }
-  if (!(await store.commitSource(id, runId, sourcePatch)))
+  })
+  const sourceCommitted = await store.commitSource(id, runId, sourcePatch)
+  if (!sourceCommitted) {
     throw abortMediaProcessing()
+  }
   retainSourceAsset(sourceAsset)
   if (waveformKey) retainPublishedKey(waveformKey)
   if (cut.key) retainPublishedKey(cut.key)
@@ -344,4 +346,43 @@ async function runPipelineInWorkDir({
   if (!committed) throw abortMediaProcessing()
   progress.complete(FINALIZE_PHASE_COST)
   store.publishUpsert(row.authorId, id)
+}
+
+function makeSourcePatch({
+  asset,
+  probe,
+  sourceFps,
+  waveformKey,
+  audioTrackHints,
+  audioTrackFingerprint,
+  cut,
+  durationMs,
+}: {
+  asset: SourceAsset
+  probe: Awaited<ReturnType<typeof probeMedia>>
+  sourceFps: MediaSourcePatch["sourceFps"]
+  waveformKey: string | null
+  audioTrackHints: ClipAudioTrackInput[]
+  audioTrackFingerprint: string | null
+  cut: Awaited<ReturnType<typeof encodeAndPublishCut>>
+  durationMs: number
+}): MediaSourcePatch {
+  return {
+    sourceKey: asset.storageKey,
+    sourceContentType: asset.contentType,
+    sourceVideoCodec: asset.videoCodec,
+    sourceAudioCodec: asset.audioCodec,
+    sourceCodecs: sourceCodecsString(probe),
+    sourceFps,
+    sourceSizeBytes: asset.sizeBytes,
+    sourceDurationMs: probe.durationMs,
+    waveformKey,
+    pendingAudioTracks: audioTrackHints.length ? audioTrackHints : null,
+    audioTrackFingerprint,
+    cutKey: cut.key,
+    cutCodecs: cut.codecs,
+    durationMs,
+    width: probe.width,
+    height: probe.height,
+  }
 }
