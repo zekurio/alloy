@@ -1,8 +1,8 @@
 /**
- * Frozen wire fixture for the desktop HTTP contract 1 cutover.
+ * Representative server-info response for desktop HTTP contract 1.
  *
- * Keep this literal append-only after release. It intentionally does not import
- * policy constants, so tests catch a source change that mutates the contract.
+ * Keep it independent of policy constants so tests check the wire format.
+ * Update it when a coordinated desktop and server change requires it.
  */
 export const SERVER_HTTP_CONTRACT_1_FIXTURE = {
   schema: "alloy.server-info",

@@ -1,7 +1,6 @@
 export * from "./clip"
 export * from "./game"
 export * from "./instance"
-export * from "./job"
 export * from "./notification"
 export * from "./recording"
 export * from "./social"
@@ -22,7 +21,6 @@ import {
 } from "./clip"
 import { game, gameDetectionMapping, gameFollow } from "./game"
 import { instanceSetting } from "./instance"
-import { job } from "./job"
 import { notification } from "./notification"
 import { uploadTicket } from "./recording"
 import { block, follow } from "./social"
@@ -50,7 +48,6 @@ export const domainSchema = {
   gameFollow,
   gameDetectionMapping,
   instanceSetting,
-  job,
   notification,
   block,
   storageDeletion,

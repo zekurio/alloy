@@ -8,7 +8,7 @@ import type { FingerprintSourceFacts } from "@alloy/server/media/encode-fingerpr
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
-import { and, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm"
+import { and, eq, isNull, sql } from "drizzle-orm"
 
 import { clipMediaRetryDelayMs } from "./clip-media-policy"
 import { clearedStageColumns, completeRequestColumns } from "./clip-media-store"
@@ -140,71 +140,6 @@ export async function requeueClipMedia(
     : { ok: false, reason: "missing" }
 }
 
-export async function retryClipMediaFailure(clipId: string): Promise<boolean> {
-  const requestId = randomUUID()
-  const [row] = await db
-    .update(clip)
-    .set({
-      ...clearedStageColumns,
-      status: sql`case when ${clip.status} = 'failed' then 'processing' else ${clip.status} end`,
-      encode_progress: 0,
-      encode_attempt: 0,
-      encode_request_id: requestId,
-      encode_request_force: true,
-      encode_requested_at: sql`now()`,
-      encode_run_after: sql`now()`,
-      encode_priority: 10,
-      encode_claimed_request_id: null,
-      encode_failed_fingerprint: null,
-      encode_failed_generation: null,
-      failure_reason: null,
-      updated_at: sql`now()`,
-    })
-    .where(
-      and(
-        eq(clip.id, clipId),
-        inArray(clip.status, ["ready", "failed"]),
-        isNull(clip.encode_request_id),
-        isNull(clip.encode_run_id),
-        isNotNull(clip.encode_failed_generation),
-      ),
-    )
-    .returning({ id: clip.id })
-  if (!row) return false
-  void publishClipUpsertById(clipId)
-  return true
-}
-
-export async function discardClipMediaFailure(
-  clipId: string,
-  currentGeneration: number,
-): Promise<boolean> {
-  const [row] = await db
-    .update(clip)
-    .set({
-      // Acknowledge this desired generation without claiming that its
-      // fingerprint succeeded. A later config generation or explicit retry
-      // can still re-arm the clip.
-      encode_generation: currentGeneration,
-      encode_failed_generation: null,
-      updated_at: sql`now()`,
-    })
-    .where(
-      and(
-        eq(clip.id, clipId),
-        isNull(clip.encode_request_id),
-        isNull(clip.encode_run_id),
-        isNotNull(clip.encode_failed_generation),
-        or(
-          eq(clip.status, "failed"),
-          eq(clip.encode_failed_generation, currentGeneration),
-        ),
-      ),
-    )
-    .returning({ id: clip.id })
-  return Boolean(row)
-}
-
 export async function claimClipMedia(
   generation: MediaGeneration,
   excludedClipIds: readonly string[] = [],
@@ -308,86 +243,6 @@ export async function nextClipMediaRunAt(
     [excludedClipIds],
   )
   return result.rows[0]?.next_run_at ?? null
-}
-
-export async function clipMediaAdminQueueCounts(
-  generation: number | null,
-): Promise<{
-  pending: number
-  running: number
-  failed: number
-  completed: number
-}> {
-  const implicitPending =
-    generation === null
-      ? sql`false`
-      : sql`(
-          ${clip.status} = 'ready'
-          and ${clip.source_key} is not null
-          and ${clip.encode_request_id} is null
-          and (
-            (
-              ${clip.encode_generation} <> ${generation}
-              and ${clip.encode_failed_generation} is distinct from ${generation}
-            )
-            or (
-              ${clip.encode_generation} = ${generation}
-              and ${clip.thumb_key} is null
-              and ${clip.thumb_failed_at} is null
-            )
-            or (
-              (${clip.source_audio_codec} is not null)
-              <> (${clip.waveform_key} is not null)
-              and ${clip.encode_failed_generation} is distinct from ${generation}
-            )
-            or (
-              (
-                (${clip.trim_start_ms} is not null and ${clip.trim_end_ms} is not null)
-                <> (${clip.cut_key} is not null)
-              )
-              and ${clip.encode_failed_generation} is distinct from ${generation}
-            )
-          )
-        )`
-  const visibleFailure =
-    generation === null
-      ? sql`${clip.encode_failed_generation} is not null`
-      : sql`(
-          ${clip.encode_failed_generation} is not null
-          and (
-            ${clip.status} = 'failed'
-            or ${clip.encode_failed_generation} = ${generation}
-          )
-        )`
-  const [counts] = await db
-    .select({
-      pending: sql<number>`count(*) filter (where
-        ${clip.encode_run_id} is null
-        and (
-          (
-            ${clip.encode_request_id} is not null
-            and ${clip.status} in ('processing', 'ready')
-          )
-          or ${implicitPending}
-        )
-      )::int`,
-      running: sql<number>`count(*) filter (where
-        ${clip.encode_run_id} is not null
-      )::int`,
-      failed: sql<number>`count(*) filter (where
-        ${clip.encode_request_id} is null
-        and ${clip.encode_run_id} is null
-        and ${visibleFailure}
-      )::int`,
-    })
-    .from(clip)
-  return {
-    pending: counts?.pending ?? 0,
-    running: counts?.running ?? 0,
-    failed: counts?.failed ?? 0,
-    // Direct clip state intentionally has no unbounded completion history.
-    completed: 0,
-  }
 }
 
 export async function selectClipMediaFacts(

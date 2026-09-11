@@ -28,7 +28,6 @@ import { Hono } from "hono"
 
 import { adminGamesRoute } from "./admin-games"
 import { adminRuntimeConfigResponse } from "./admin-helpers"
-import { adminJobsRoute } from "./admin-jobs"
 import { adminUsersRoute } from "./admin-users"
 import { adminWebhooksRoute } from "./admin-webhooks"
 import { tbValidator } from "./validation"
@@ -96,7 +95,6 @@ export const adminRoute = new Hono()
   .use("*", requireAdmin)
   .route("/", adminUsersRoute)
   .route("/", adminGamesRoute)
-  .route("/", adminJobsRoute)
   .route("/", adminWebhooksRoute)
   .get("/runtime-config", (c) => {
     return c.json(adminRuntimeConfigResponse(configStore.getAll()))

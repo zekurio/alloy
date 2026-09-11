@@ -11,8 +11,8 @@ export type ServerHttpContractResult =
   | { ok: false; error: string }
 
 /**
- * A remote renderer must advertise both the immutable HTTP contract and the
- * native bridge contract expected by this desktop release.
+ * The server must advertise the HTTP and native bridge contract IDs expected
+ * by this desktop release.
  */
 export function evaluateServerInfoResponse(
   status: number,

@@ -71,17 +71,13 @@ copies that output and wraps it with runtime defaults for:
 
 ## Desktop HTTP compatibility
 
-`GET /api/server-info` publishes exact desktop HTTP contract IDs. Contract 1
-freezes the `/api` behavior used by the first bundled desktop renderer. Keep it
-additive. A breaking request, response, error, or side-effect change needs a new
-contract ID while the server retains contract 1 for the supported previous
-desktop release. Product SemVer is diagnostic only and must not select a
-contract.
+`GET /api/server-info` publishes exact desktop HTTP contract IDs. Alloy has one
+operator and no external deployments, so contract 1 can change when the desktop
+and server are updated together. Once independent deployments exist, version
+breaking changes and define a support window for older clients.
 
-The pre-cut server has the same contract-1 endpoint behavior but predates the
-capability document. New desktop builds accept that baseline only when
-`/api/server-info` returns 404 and the existing desktop-auth capability is
-exactly 1.
+Product SemVer is diagnostic only. The desktop requires compatible IDs in
+`/api/server-info` and rejects a server that does not provide that document.
 
 ## Guidelines
 

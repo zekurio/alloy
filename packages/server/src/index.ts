@@ -10,7 +10,6 @@ import { signInConfigError } from "./auth/sign-in-config"
 import { configStore, initializeConfigStore } from "./config/store"
 import { warmDatabase } from "./db"
 import { env } from "./env"
-import { startJobs, stopJobs } from "./jobs"
 import { configureTranscode } from "./media/transcode-settings"
 import {
   startNotificationExpiryWorker,
@@ -112,9 +111,6 @@ const server = serve(
 
 const SHUTDOWN_GRACE_MS = 5000
 
-void startJobs().catch((err) => {
-  logger.error("failed to start jobs:", err)
-})
 startWebhookDeliveryWorker()
 
 let shuttingDown = false
@@ -137,7 +133,6 @@ const shutdown = () => {
     stopNotificationExpiryWorker(),
     stopUploadExpiryWorker(),
     stopWebhookDeliveryWorker(),
-    stopJobs(),
   ])
     .catch((err) => {
       logger.error("failed to stop background workers cleanly:", err)
