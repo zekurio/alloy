@@ -234,6 +234,8 @@ function ClipViewerDialogBody({
         "--clip-modal-sidebar": "360px",
         "--clip-modal-meta": "10rem",
         "--clip-modal-ratio": aspectRatio,
+        "--clip-modal-media-height":
+          "min(calc(100dvh - var(--clip-modal-margin-y)*2 - var(--clip-modal-meta)), calc((100dvw - var(--clip-modal-margin-x)*2 - var(--clip-modal-nav-gutter)*2 - var(--clip-modal-sidebar))/var(--clip-modal-ratio)))",
       })}
       className={cn(
         // Below lg this branch is normally hidden by MobileClipViewerBody, but
@@ -243,6 +245,8 @@ function ClipViewerDialogBody({
         "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
         "lg:w-[calc(min(calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar)),calc((100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta))*var(--clip-modal-ratio)))+var(--clip-modal-sidebar))]",
         "lg:max-w-[calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2)]",
+        row.mediaKind === "image" &&
+          "lg:min-w-[min(840px,calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2))]",
       )}
     >
       <DialogClose
@@ -304,7 +308,11 @@ function ClipViewerDialogBody({
           <div
             ref={initialFocusRef}
             tabIndex={-1}
-            className="relative w-full overflow-hidden outline-none"
+            className={cn(
+              "relative w-full overflow-hidden outline-none",
+              row.mediaKind === "image" &&
+                "lg:h-(--clip-modal-media-height) lg:aspect-auto",
+            )}
             style={{ aspectRatio }}
           >
             <ClipPlayer
@@ -330,7 +338,11 @@ function ClipViewerDialogBody({
               onRetry={retry.onRetry}
               retryPending={retry.retryPending}
               aspectRatio={aspectRatio}
-              maxDisplayHeight="100%"
+              maxDisplayHeight={
+                row.mediaKind === "image"
+                  ? "var(--clip-modal-media-height)"
+                  : "100%"
+              }
               className="h-full w-full overflow-hidden rounded-lg shadow-[0_30px_90px_-42px_rgba(0,0,0,0.92)] ring-1 ring-white/10 ring-inset lg:rounded-none lg:shadow-none lg:ring-0"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
               autoPlay

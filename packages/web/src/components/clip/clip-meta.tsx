@@ -189,11 +189,12 @@ function ClipMeta({
   return (
     <section className="flex flex-col gap-2">
       {/* Title + top-right actions */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <ClipTitleWithVisibility
           title={title}
           privacy={privacy}
           heading="h1"
+          className="flex-1 basis-64"
           titleClassName="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]"
         />
 
