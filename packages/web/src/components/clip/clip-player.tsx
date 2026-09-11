@@ -132,7 +132,7 @@ function ScreenshotPlayer({
         <div
           ref={view.viewportRef}
           className={cn(
-            "absolute inset-0 grid place-items-center overflow-hidden",
+            "absolute inset-0 grid touch-none place-items-center overflow-hidden",
             view.zoom > 1 && "touch-none cursor-grab active:cursor-grabbing",
           )}
           onPointerDown={view.startPan}

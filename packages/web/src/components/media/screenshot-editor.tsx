@@ -101,7 +101,10 @@ export function ScreenshotEditor({
           ? t("Square")
           : option
   const [cropping, setCropping] = useState(false)
-  const view = useImageZoom()
+  const view = useImageZoom(() => {
+    drag.current = null
+    history.commit()
+  })
   const history = useScreenshotHistory(initialValue, onChange)
   const { edit: value, aspectRatio } = history.snapshot
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -208,7 +211,7 @@ export function ScreenshotEditor({
           "[container-type:size] relative grid h-[52dvh] min-h-0 place-items-center overflow-hidden rounded-md lg:h-auto lg:flex-1",
           view.zoom > 1 && !cropping && "cursor-grab active:cursor-grabbing",
         )}
-        style={{ touchAction: view.zoom > 1 ? "none" : undefined }}
+        style={{ touchAction: "none" }}
         onPointerDown={(event) => {
           if (!unavailable && (!cropping || event.button === 1))
             view.startPan(event)
@@ -291,7 +294,14 @@ export function ScreenshotEditor({
           onKeyUp={history.commit}
           onBlur={history.commit}
           onPointerDown={(event) => {
-            if (disabled || !image || !cropping || event.button !== 0) return
+            if (
+              disabled ||
+              !image ||
+              !cropping ||
+              event.button !== 0 ||
+              !event.isPrimary
+            )
+              return
             event.currentTarget.focus()
             const rect = event.currentTarget.getBoundingClientRect()
             const startX = Math.max(
