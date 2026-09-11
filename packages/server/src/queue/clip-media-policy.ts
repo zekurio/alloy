@@ -11,11 +11,6 @@ export type ClipMediaAction =
   | "skip"
   | "quarantine"
 
-export const CLIP_MEDIA_FAILURE_ID_PREFIX = "clip-media:"
-
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 export interface ClipMediaPolicyInput {
   force: boolean
   status: ClipStatus
@@ -57,10 +52,4 @@ export function chooseClipMediaAction(
 
 export function clipMediaRetryDelayMs(attempt: number): number {
   return 30_000 * attempt
-}
-
-export function clipIdFromMediaFailureId(value: string): string | null {
-  if (!value.startsWith(CLIP_MEDIA_FAILURE_ID_PREFIX)) return null
-  const clipId = value.slice(CLIP_MEDIA_FAILURE_ID_PREFIX.length)
-  return UUID_PATTERN.test(clipId) ? clipId : null
 }

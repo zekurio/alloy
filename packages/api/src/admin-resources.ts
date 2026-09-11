@@ -16,6 +16,7 @@ import type { ApiContext } from "./client"
 import {
   validateAdminGameRow,
   validateAdminGameRows,
+  validateAdminReEncodeResponse,
   validateAdminUsersResponse,
   validateAdminUserStorageRow,
   validateAdminWebhookRow,
@@ -28,6 +29,13 @@ import { readDeletedJson, readSuccessJson } from "./mutations"
 export type AdminCreateUserInput = {
   username: string
   role?: "user" | "admin"
+}
+
+export async function reEncodeAllClips(
+  context: ApiContext,
+): Promise<{ enqueued: number; hasMore: boolean }> {
+  const res = await context.rpc.api.admin.clips["re-encode"].$post()
+  return readJsonOrThrow(res, validateAdminReEncodeResponse)
 }
 
 type AdminGameCreateForm = {

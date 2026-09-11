@@ -29,7 +29,7 @@ function fixture(): ServerInfo {
   }
 }
 
-test("accepts the frozen contract-1 wire fixture", () => {
+test("accepts the contract-1 server-info response", () => {
   const value = fixture()
 
   assert.equal(isServerInfo(value), true)
