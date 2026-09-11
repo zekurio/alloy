@@ -29,8 +29,8 @@ export function ToolbarChipTrigger({
         "h-9 w-auto max-w-[10rem] min-w-0 justify-start gap-2 rounded-lg border-transparent bg-transparent px-3 text-sm leading-4 font-medium text-foreground-muted hover:border-border hover:bg-surface-raised/60 hover:text-foreground",
         "max-md:gap-1 max-md:px-2.5",
         "[&_svg:not([class*='size-'])]:size-[18px]",
-        "md:h-6 md:max-w-[9.5rem] md:gap-1 md:rounded-md md:px-1.5 md:text-xs md:leading-3",
-        "md:[&_svg:not([class*='size-'])]:size-3.5",
+        "md:h-6 md:max-w-[9.5rem] md:gap-1 md:rounded-md md:px-1.5 md:text-2xs md:leading-3",
+        "md:[&_svg:not([class*='size-'])]:size-3",
         className,
       )}
       {...props}
@@ -39,7 +39,7 @@ export function ToolbarChipTrigger({
       <span className="min-w-0 flex-1 truncate text-left max-md:sr-only">
         {label}
       </span>
-      <ChevronDownIcon className="max-md:size-3.5!" />
+      <ChevronDownIcon className="size-3.5 md:size-3" />
     </Chip>
   )
 }
