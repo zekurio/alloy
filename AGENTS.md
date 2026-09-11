@@ -65,8 +65,9 @@ For changes under `nix/` or to `flake.nix`, run `nix flake check`. Run
 
 Server routes use Hono handlers with `tbValidator` and TypeBox input schemas.
 Return helpers from `packages/server/src/runtime/http-response.ts` for HTTP errors.
-Define background work with `defineJobKind(...)` in
-`packages/server/src/jobs/kinds/`. Keep the media pipeline behind the
+Start background work from the action that requires it. Keep durable intent
+in its owning domain, and validate current data before acting. Do not add
+generic job registries or recurring sweeps. Keep the media pipeline behind the
 `MediaStore` interface in `packages/server/src/queue/media-store.ts`.
 
 Web requests go through `createApi()` in `packages/web/src/lib/api.ts`. Query
@@ -84,9 +85,11 @@ globals from retired remote-renderer shells.
 The bundled renderer calls `alloy-app://app/api/*`; the main process proxies
 only those paths to the selected server with its HttpOnly cookie jar. Never
 accept a renderer-supplied target origin. Desktop/server compatibility uses
-exact IDs from `/api/server-info`. Contract 1 is immutable, and a breaking HTTP
-change must add a new contract while the current desktop and server continue
-to support the previous one.
+exact IDs from `/api/server-info`. Alloy currently has one operator and no
+external deployments. HTTP contract 1 can change in place when the desktop
+and server are updated together. Remove unused routes and adapters. Once
+independent deployments exist, version breaking changes and define a support
+window for older clients.
 
 Sidecar protocol changes must update both
 `packages/desktop/src/main/recording-sidecar-protocol.ts` and

@@ -1,17 +1,10 @@
 import assert from "node:assert/strict"
 
-import {
-  ADMIN_JOB_QUEUES,
-  AdminFailedJobSchema,
-  JOB_KINDS,
-  JOB_QUEUES,
-  TranscodingConfigSchema,
-} from "@alloy/contracts"
+import { TranscodingConfigSchema } from "@alloy/contracts"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
 import { test } from "vite-plus/test"
 
 import {
-  clipIdFromMediaFailureId,
   chooseClipMediaAction,
   clipMediaRetryDelayMs,
 } from "./clip-media-policy"
@@ -25,16 +18,6 @@ const facts = {
   trimEndMs: null,
   audioTrackFingerprint: null,
 }
-
-test("the job registry retains contract 1 while retiring media work", () => {
-  const kinds = new Set<string>(JOB_KINDS)
-  const queues = new Set<string>(JOB_QUEUES)
-  assert.equal(kinds.has("upload.cleanup"), true)
-  assert.equal(kinds.has("clip.encode"), false)
-  assert.equal(kinds.has("clip.renditions-sweep"), false)
-  assert.equal(queues.has("encode"), false)
-  assert.deepEqual(ADMIN_JOB_QUEUES, ["encode", "io", "maintenance"])
-})
 
 test("generation signature tracks output and execution config", () => {
   const baseline = mediaConfigSignature(config)
@@ -140,24 +123,4 @@ test("retry policy retains the existing linear media backoff", () => {
   assert.equal(clipMediaRetryDelayMs(1), 30_000)
   assert.equal(clipMediaRetryDelayMs(2), 60_000)
   assert.equal(clipMediaRetryDelayMs(3), 90_000)
-})
-
-test("contract-1 media failure ids are synthetic and unambiguous", () => {
-  const clipId = "018fdb4c-7d55-7ad8-9c18-3b8948ce6b55"
-  const failureId = `clip-media:${clipId}`
-  assert.equal(clipIdFromMediaFailureId(failureId), clipId)
-  assert.equal(clipIdFromMediaFailureId(clipId), null)
-  assert.equal(clipIdFromMediaFailureId("clip-media:not-a-uuid"), null)
-  assert.equal(
-    AdminFailedJobSchema.safeParse({
-      id: failureId,
-      kind: "clip.encode",
-      clipId,
-      error: "encode failed",
-      attempt: 3,
-      finishedAt: new Date().toISOString(),
-      retryable: true,
-    }).success,
-    true,
-  )
 })

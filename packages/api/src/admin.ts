@@ -2,7 +2,6 @@ import type {
   AdminAuthConfigPatch,
   AdminCreateGameInput,
   AdminOAuthProviderInput,
-  AdminSweepKind,
   AdminUpdateGameInput,
   AdminUpdateUserInput,
   AdminWebhookInput,
@@ -24,16 +23,6 @@ import {
   updateRuntimeConfig,
   updateTranscodingConfig,
 } from "./admin-config"
-import {
-  confirmStorageCleanup,
-  discardJob,
-  fetchFailedJobs,
-  fetchJobsSummary,
-  previewStorageCleanup,
-  reEncodeAllClips,
-  retryJob,
-  runJobSweep,
-} from "./admin-jobs"
 import type { AdminCreateUserInput } from "./admin-resources"
 import {
   createGame,
@@ -46,6 +35,7 @@ import {
   fetchGames,
   fetchUsers,
   fetchWebhooks,
+  reEncodeAllClips,
   testWebhook,
   updateGame,
   updateUser,
@@ -64,17 +54,8 @@ export {
 } from "@alloy/contracts"
 export type {
   AdminCreateGameInput,
-  AdminFailedJob,
-  AdminFailedJobsPage,
-  AdminJobEnqueueResponse,
   AdminGameRow,
   AdminIntegrationsConfig,
-  AdminJobOperations,
-  AdminJobQueueRow,
-  AdminJobsSummary,
-  AdminRenditionSweepSummary,
-  AdminStorageGcSummary,
-  AdminSweepKind,
   AdminLimitsConfig,
   AdminAuthConfigPatch,
   AdminOAuthProviderInput,
@@ -123,19 +104,6 @@ export function createAdminApi(context: ApiContext) {
     fetchTranscodingCapabilities: (options?: { refresh?: boolean }) =>
       fetchTranscodingCapabilities(context, options),
     reEncodeAllClips: () => reEncodeAllClips(context),
-    fetchJobsSummary: () => fetchJobsSummary(context),
-    fetchFailedJobs: (options?: {
-      kind?: string
-      cursor?: string
-      limit?: number
-    }) => fetchFailedJobs(context, options),
-    retryJob: (jobId: string) => retryJob(context, jobId),
-    discardJob: (jobId: string) => discardJob(context, jobId),
-    runJobSweep: (kind: AdminSweepKind, mode?: "stale" | "force") =>
-      runJobSweep(context, kind, mode),
-    previewStorageCleanup: () => previewStorageCleanup(context),
-    confirmStorageCleanup: (previewJobId: string) =>
-      confirmStorageCleanup(context, previewJobId),
     fetchUsers: (options?: {
       cursor?: string
       limit?: number

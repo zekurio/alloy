@@ -12,9 +12,9 @@ export const SERVER_INFO_PRODUCT = "alloy" as const
 /**
  * The only desktop HTTP contract this renderer knows how to use.
  *
- * Contract 1 is the `/api` behavior shipped at the bundled-renderer cut. Its
- * identifier and semantics are permanent. A breaking HTTP change gets a new
- * identifier; it must not change this declaration or reinterpret 1.
+ * Alloy currently has one operator and no external deployments. Contract 1
+ * can change with a coordinated desktop and server update. Version breaking
+ * changes once independently deployed clients need a support window.
  */
 export const DESKTOP_HTTP_CONTRACT_1 = 1 as const
 export const DESKTOP_HTTP_CONTRACT_IDS = Object.freeze([
@@ -29,9 +29,8 @@ export const SUPPORTED_DESKTOP_HTTP_CONTRACTS = DESKTOP_HTTP_CONTRACT_IDS
 export const DESKTOP_HTTP_CAPABILITY_VERSION = 1 as const
 
 /**
- * Capability identifiers implemented by the current `/api` surface. Unknown
- * identifiers may be added by a future server, but these version numbers may
- * never be changed in place.
+ * Capability identifiers implemented by the current API. Their versions must
+ * match the behavior implemented by both the desktop and server.
  */
 export const DESKTOP_HTTP_CAPABILITIES = Object.freeze({
   auth: Object.freeze({
@@ -100,7 +99,7 @@ const DesktopHttpCapabilitiesSchema = t.looseObject({
 })
 
 /**
- * Runtime schema for the permanent `/api/server-info` document.
+ * Runtime schema for the `/api/server-info` document.
  *
  * The loose objects are intentional. A future server can append document or
  * capability fields without making this renderer reject a response. Known

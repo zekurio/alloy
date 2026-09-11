@@ -2,7 +2,6 @@ import type { TranscodingConfig } from "@alloy/contracts"
 import { createLogger, runWithLogContext } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
-import { writeMediaReconciliationSummary } from "@alloy/server/jobs/summaries"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
 import { createStoredClipMentionNotifications } from "@alloy/server/notifications/service"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
@@ -88,7 +87,7 @@ export class ClipMediaWorker {
   private async startInner(): Promise<void> {
     await recoverClipMediaWork()
     if (this.stopping) return
-    const generation = await this.refresh(configStore.get("transcoding"))
+    await this.refresh(configStore.get("transcoding"))
     if (this.stopping) return
     this.started = true
     this.unsubscribeConfig = configStore.subscribe((next, prev) => {
@@ -96,7 +95,6 @@ export class ClipMediaWorker {
       this.queueRefresh()
     })
     this.scheduler.start()
-    void writeReconciliationSummaryBestEffort(generation.generation, "stale")
   }
 
   async stop(): Promise<void> {
@@ -127,18 +125,7 @@ export class ClipMediaWorker {
     const generation = await forceMediaGeneration(config)
     this.installSnapshot(generation, config)
     this.wake()
-    await writeReconciliationSummaryBestEffort(generation.generation, "force")
     return generation
-  }
-
-  async reconcile(): Promise<MediaGeneration> {
-    await this.refresh(configStore.get("transcoding"))
-    this.wake()
-    await writeReconciliationSummaryBestEffort(
-      this.requireSnapshot().generation.generation,
-      "stale",
-    )
-    return this.requireSnapshot().generation
   }
 
   async withStopped<T>(
@@ -168,12 +155,8 @@ export class ClipMediaWorker {
       // Read at execution time so rapid A -> B changes cannot replay A after
       // B has already committed its generation.
       .then(() => this.refresh(configStore.get("transcoding")))
-      .then((generation) => {
+      .then(() => {
         this.wake()
-        void writeReconciliationSummaryBestEffort(
-          generation.generation,
-          "stale",
-        )
       })
       .catch((cause: unknown) => {
         logger.error("failed to refresh media generation:", cause)
@@ -382,7 +365,6 @@ export const clipMediaWorker = new ClipMediaWorker()
 export const startClipMediaWorker = () => clipMediaWorker.start()
 export const stopClipMediaWorker = () => clipMediaWorker.stop()
 export const wakeClipMediaWorker = () => clipMediaWorker.wake()
-export const reconcileClipMedia = () => clipMediaWorker.reconcile()
 export const forceReconcileClipMedia = () =>
   clipMediaWorker.forceReconciliation()
 export const withClipMediaStopped = <T>(
@@ -424,16 +406,6 @@ async function announceReadySideEffects(clipId: string): Promise<void> {
     logger.error("notification fan-out failed:", cause),
   )
   announceClipPublished(clipId)
-}
-
-async function writeReconciliationSummaryBestEffort(
-  generation: number,
-  mode: "stale" | "force",
-): Promise<void> {
-  await writeMediaReconciliationSummary(generation, mode).catch(
-    (cause: unknown) =>
-      logger.error("failed to write media reconciliation summary:", cause),
-  )
 }
 
 function frozenConfig(config: TranscodingConfig): Readonly<TranscodingConfig> {

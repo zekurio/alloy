@@ -78,6 +78,13 @@
       "when": 1788902824904,
       "tag": "0010_normal_mad_thinker",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789115655020,
+      "tag": "0011_remove-jobs",
+      "breakpoints": true
     }
   ]
 }
