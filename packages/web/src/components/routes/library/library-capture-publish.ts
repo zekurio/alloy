@@ -4,7 +4,10 @@ import type {
   GameRow,
   UserSearchResult,
 } from "@alloy/api"
+import { contentTypeForFile } from "@alloy/contracts"
+import { t } from "@alloy/i18n"
 
+import type { ScreenshotEdit } from "@/components/media/screenshot-edit"
 import {
   prepareSelectedClipFile,
   type PublishPayload,
@@ -13,6 +16,7 @@ import type {
   PublishClipFn,
   PublishClipResult,
 } from "@/components/upload/upload-flow-context"
+import { prepareWebUploadPayload } from "@/components/upload/web-upload-action"
 import { nullableClipDescription, parseTagString } from "@/lib/clip-fields"
 import type { AlloyDesktop } from "@/lib/desktop"
 
@@ -21,6 +25,7 @@ import type { LibraryItemView } from "./library-data"
 const ACCEPTED_EXPORT_TYPES = new Set<AcceptedContentType>(["video/mp4"])
 
 type CapturePublishInput = {
+  screenshotEdit?: ScreenshotEdit
   desktop: AlloyDesktop
   item: LibraryItemView
   trim: { startMs: number; endMs: number }
@@ -67,6 +72,19 @@ async function prepareCapturePublishPayload(
   signal: AbortSignal,
 ) {
   throwIfAborted(signal)
+  if (input.item.kind === "screenshot") {
+    const response = await fetch(input.item.mediaUrl, { signal })
+    if (!response.ok) throw new Error(t("Could not read screenshot."))
+    const file = new File([await response.blob()], input.item.fileName, {
+      type: contentTypeForFile(input.item.fileName),
+    })
+    const payload = await prepareWebUploadPayload(
+      await prepareSelectedClipFile(file),
+      { ...input, trimmed: false },
+      signal,
+    )
+    return { ...payload, localCaptureId: input.item.id }
+  }
   const exported = await input.desktop.recording.exportLibraryCapture({
     id: input.item.id,
     segments: [{ startMs: input.trim.startMs, endMs: input.trim.endMs }],

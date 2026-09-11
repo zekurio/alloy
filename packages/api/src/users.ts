@@ -1,5 +1,6 @@
 import type {
   ProfileGameRow,
+  ProfileMediaParams,
   PublicUser,
   UserClip,
   UserProfile,
@@ -124,7 +125,7 @@ async function getProfileGames(
 ): Promise<ProfileGameRow[]> {
   const res = await context.rpc.api.users[":username"].games.$get({
     param: usernameParam(handle),
-    query: queryParams(params),
+    query: queryParams({ ...params }),
   })
   return readJsonOrThrow(res, validateProfileGameRows)
 }
@@ -291,6 +292,16 @@ async function deleteAllClips(
 
 export function createUsersApi(context: ApiContext) {
   return {
+    async fetchMedia(
+      handle: string,
+      params: ProfileMediaParams = {},
+    ): Promise<UserClip[]> {
+      const res = await context.rpc.api.users[":username"].media.$get({
+        param: usernameParam(handle),
+        query: queryParams({ ...params }),
+      })
+      return readJsonOrThrow(res, validateClipRows)
+    },
     uploadAvatar: (blob: Blob) => uploadAvatarImage(context, blob),
     uploadBanner: (blob: Blob) => uploadBannerImage(context, blob),
     removeAvatar: () => deleteAvatar(context),

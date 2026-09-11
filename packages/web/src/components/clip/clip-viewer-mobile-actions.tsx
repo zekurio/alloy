@@ -129,7 +129,10 @@ function ClipActionsMenu({
           </button>
         }
       />
-      <DropdownMenuContent align="end" className="min-w-[150px]">
+      <DropdownMenuContent
+        align="end"
+        className="alloy-blur w-max max-w-[calc(100dvw-2rem)] min-w-56"
+      >
         {downloadAction}
         {canManage && downloadAction ? <DropdownMenuSeparator /> : null}
         {canManage ? (

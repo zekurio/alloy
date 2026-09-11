@@ -1,7 +1,9 @@
 import type { ClipGameRef } from "./content-games"
 import type { UserSummary } from "./content-users"
 import type {
-  AcceptedContentType,
+  AcceptedMediaContentType,
+  MediaKind,
+  MediaFilter,
   ClipAudioTrackKind,
   ClipPrivacy,
   ClipStatus,
@@ -70,6 +72,8 @@ export const ENCODE_STAGE = [
 export type EncodeStage = (typeof ENCODE_STAGE)[number]
 
 export interface ClipRow {
+  /** Absent on older servers, whose content is always video. */
+  mediaKind?: MediaKind
   id: string
   authorId: string
   title: string
@@ -145,6 +149,15 @@ export interface ClipPage {
   nextCursor: string | null
 }
 
+export interface ProfileMediaParams {
+  tab?: "all" | "liked" | "tagged"
+  media?: MediaFilter
+  sort?: "recent" | "oldest" | "top" | "views"
+  game?: string
+  limit?: number
+  offset?: number
+}
+
 export interface InitiateClipInput {
   /**
    * Client-generated clip ID for optimistic local queue rows. The server still
@@ -152,7 +165,7 @@ export interface InitiateClipInput {
    */
   clientClipId?: string
   filename: string
-  contentType: AcceptedContentType
+  contentType: AcceptedMediaContentType
   sizeBytes: number
   title: string
   description?: string

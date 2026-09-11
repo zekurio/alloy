@@ -11,6 +11,7 @@ import type { PointerEvent, Ref } from "react"
 const HOVER_PREVIEW_DELAY_MS = 250
 
 interface ClipCardThumbProps {
+  imageAspectRatio?: number
   title: string
   thumbnail: string | undefined
   thumbnailFallback?: string | undefined
@@ -28,6 +29,7 @@ interface ClipCardThumbProps {
 }
 
 export function ClipCardThumb({
+  imageAspectRatio,
   title,
   thumbnail,
   thumbnailFallback,
@@ -290,6 +292,7 @@ export function ClipCardThumb({
         aria-label={label}
         data-pointer-activated={pointerActivated ? "true" : undefined}
         className={surfaceClass}
+        style={imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
         {...hoverHandlers}
       >
         {body}
@@ -298,7 +301,11 @@ export function ClipCardThumb({
   }
 
   return (
-    <div className={surfaceClass} {...hoverHandlers}>
+    <div
+      className={surfaceClass}
+      style={imageAspectRatio ? { aspectRatio: imageAspectRatio } : undefined}
+      {...hoverHandlers}
+    >
       {body}
     </div>
   )

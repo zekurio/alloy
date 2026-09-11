@@ -295,7 +295,8 @@ function ClipComments({
           <div className="flex h-full items-center justify-center p-6">
             <ContentEmptyState
               seed={`comments-${clipId}`}
-              size="lg"
+              size="md"
+              className="px-0"
               title={t("No comments yet")}
               hint={t("Be the first to leave your thoughts!")}
             />

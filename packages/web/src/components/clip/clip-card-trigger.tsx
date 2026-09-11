@@ -20,7 +20,7 @@ import { setActiveClipList, useClipList } from "./clip-list-context"
 interface ClipCardTriggerProps {
   row: ClipRow
   className?: string
-  metaVariant?: "default" | "showcase"
+  metaVariant?: "default" | "showcase" | "gallery"
   showVisibilityStatus?: boolean
 }
 
@@ -71,6 +71,11 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
 
   return (
     <ClipCard
+      imageAspectRatio={
+        row.mediaKind === "image"
+          ? (row.width ?? 16) / (row.height ?? 9)
+          : undefined
+      }
       className={className}
       title={card.title}
       author={card.author}
@@ -99,7 +104,11 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
       onThumbnailIntent={preloadClip}
       onTitleIntent={preloadClip}
       onPreviewError={handlePreviewError}
-      thumbnailLabel={t("Play clip: {title}", { title: card.title })}
+      thumbnailLabel={
+        row.mediaKind === "image"
+          ? t("Open screenshot: {title}", { title: card.title })
+          : t("Play clip: {title}", { title: card.title })
+      }
       titleLabel={t("Open clip: {title}", { title: card.title })}
       metaContent={
         showVisibilityStatus && card.privacy !== "public" ? (

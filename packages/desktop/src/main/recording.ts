@@ -57,6 +57,18 @@ type RecordingClipHotkeyListener = () => void
 
 const recordingEventListeners = new Set<RecordingEventListener>()
 const recordingClipHotkeyListeners = new Set<RecordingClipHotkeyListener>()
+const screenshotHotkeyListeners = new Set<RecordingClipHotkeyListener>()
+
+export function onRecordingScreenshotHotkey(
+  listener: RecordingClipHotkeyListener,
+): () => void {
+  screenshotHotkeyListeners.add(listener)
+  return () => screenshotHotkeyListeners.delete(listener)
+}
+
+export function saveScreenshot(): Promise<RecordingActionResult> {
+  return runRecordingAction("saveScreenshot")
+}
 let sidecarClient: RecordingSidecarClient | null = null
 
 export {
@@ -238,7 +250,7 @@ export async function restartRecordingBackend(): Promise<RecordingStatus> {
 }
 
 async function runRecordingAction(
-  method: "saveReplayClip",
+  method: "saveReplayClip" | "saveScreenshot",
   params?: SaveReplayClipRequest,
 ): Promise<RecordingActionResult> {
   const client = getSidecarClient()
@@ -335,6 +347,10 @@ function unavailableRecordingAction(
 }
 
 function emitRecordingEvent(event: SidecarEvent): void {
+  if (event.type === "screenshot-hotkey") {
+    for (const listener of screenshotHotkeyListeners) listener()
+    return
+  }
   if (event.type === "clip-hotkey") {
     for (const listener of recordingClipHotkeyListeners) listener()
     return

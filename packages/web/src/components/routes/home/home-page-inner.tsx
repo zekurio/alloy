@@ -12,14 +12,25 @@ import { useSuspenseSession } from "@/lib/session-suspense"
 import { FeedChipBar } from "./feed-chip-bar"
 import { FeedSection } from "./feed-section"
 
-export function HomePageInner() {
+export function HomePageInner({
+  screenshots = false,
+}: {
+  screenshots?: boolean
+}) {
+  const to = screenshots ? "/screenshots" : "/"
   const session = useSuspenseSession()
   // SAFETY: The home route's validateSearch function returns HomeSearch.
   const search = useSearch({ strict: false }) as HomeSearch
   const toolbarSearchKey = JSON.stringify(search)
   const toolbarSearch = useMemo(() => search, [toolbarSearchKey])
 
-  const filter = useMemo(() => homeFeedFilter(toolbarSearch), [toolbarSearch])
+  const filter = useMemo(
+    () => ({
+      ...homeFeedFilter(toolbarSearch),
+      media: screenshots ? ("image" as const) : ("video" as const),
+    }),
+    [toolbarSearch, screenshots],
+  )
   const sort: ClipFeedSort = toolbarSearch.sort ?? DEFAULT_CLIP_SORT
 
   const viewerId = session?.user.id
@@ -30,7 +41,7 @@ export function HomePageInner() {
       contentClassName="w-40"
       renderOptionLink={(opt, active) => (
         <Link
-          to="/"
+          to={to}
           search={{
             ...toolbarSearch,
             // The default sort stays out of the URL.
@@ -45,7 +56,7 @@ export function HomePageInner() {
   return (
     <AppMainColumn>
       <PageToolbar pinned rail={false}>
-        <FeedChipBar filter={filter} search={toolbarSearch} />
+        <FeedChipBar filter={filter} search={toolbarSearch} to={to} />
         <div className="shrink-0">{sortControl}</div>
       </PageToolbar>
       <AppMainScroll className="!pt-0">

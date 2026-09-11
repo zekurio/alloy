@@ -94,6 +94,7 @@ const TransportCapabilitiesSchema = t.looseObject({
 })
 
 const DesktopHttpCapabilitiesSchema = t.looseObject({
+  screenshots: t.enum([1]).optional(),
   auth: AuthCapabilitiesSchema,
   transport: TransportCapabilitiesSchema,
 })

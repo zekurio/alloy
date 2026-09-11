@@ -53,6 +53,7 @@ fn sidecar_version() -> SidecarVersion {
         version: env!("CARGO_PKG_VERSION"),
         protocol_version: RECORDER_PROTOCOL_VERSION,
         capabilities: &[
+            "screenshots",
             "game-capture",
             "audio-devices",
             "audio-applications",
@@ -143,6 +144,10 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
             response_ok(request.id, list_game_processes(), || recorder.status())
         }
         "listDisplays" => response_ok(request.id, list_displays(), || recorder.status()),
+        "saveScreenshot" => {
+            let result = recorder.save_screenshot();
+            response_ok(request.id, result, || recorder.status())
+        }
         "saveReplayClip" => match serde_json::from_value::<SaveReplayClipParams>(request.params) {
             Ok(params) => {
                 let result = recorder.save_replay_clip(params);

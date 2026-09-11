@@ -1,4 +1,5 @@
 import type { ClipFeedSort } from "@alloy/api"
+import { MEDIA_FILTERS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { AppMain } from "@alloy/ui/components/app-shell"
 import {
@@ -8,13 +9,14 @@ import {
 } from "@alloy/ui/components/avatar"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate, useSearch } from "@tanstack/react-router"
 import { AlertCircleIcon, UsersIcon } from "lucide-react"
 
 import {
   FilterChipRail,
   type FilterChipOption,
 } from "@/components/clip/filter-chip-rail"
+import { MediaFilterControl } from "@/components/clip/media-filter-control"
 import { SortDropdown } from "@/components/clip/sort-dropdown"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { FeedSection } from "@/components/routes/home/feed-section"
@@ -39,6 +41,9 @@ export function GameDetailPageInner({
   sort,
   creator,
 }: GameDetailPageInnerProps) {
+  const search = useSearch({ strict: false })
+  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
+  const navigate = useNavigate()
   const session = useSuspenseSession()
   const viewerId = session?.user.id
 
@@ -53,6 +58,7 @@ export function GameDetailPageInner({
         // The default sort stays out of the URL, and so does "all creators".
         sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
         creator: creator ?? undefined,
+        media,
       }}
       data-active={active ? "true" : undefined}
     />
@@ -88,7 +94,18 @@ export function GameDetailPageInner({
                   sort={sort}
                   creator={creator}
                 />
-                <div className="shrink-0">
+                <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <MediaFilterControl
+                    value={media}
+                    onChange={(media) => {
+                      void navigate({
+                        to: "/games/$gameId",
+                        params: { gameId },
+                        search: { sort, creator: creator ?? undefined, media },
+                      })
+                    }}
+                  />
+
                   <SortDropdown
                     value={sort}
                     options={CLIP_SORT_OPTIONS}
@@ -100,6 +117,7 @@ export function GameDetailPageInner({
               <FeedSection
                 filter={{
                   kind: "game",
+                  media,
                   gameId: game.id,
                   authorId: creator ?? undefined,
                 }}
@@ -128,7 +146,9 @@ function GameCreatorChips({
   sort: ClipFeedSort
   creator: string | null
 }) {
-  const { data } = useGameCreatorsQuery(gameId)
+  const search = useSearch({ strict: false })
+  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
+  const { data } = useGameCreatorsQuery(gameId, media)
   const creators = data?.creators ?? []
   if (creators.length === 0) return null
 
@@ -167,6 +187,7 @@ function GameCreatorChips({
           search={{
             sort: sort === DEFAULT_CLIP_SORT ? undefined : sort,
             creator: opt.key === ALL_CREATORS ? undefined : opt.key,
+            media,
           }}
           data-active={active ? "true" : undefined}
         />

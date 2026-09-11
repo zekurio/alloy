@@ -1,5 +1,7 @@
 import {
   type GameRow,
+  type MediaFilter,
+  MEDIA_FILTERS,
   UNCATEGORISED_GAME_ID,
   UNCATEGORISED_GAME_NAME,
   UNCATEGORISED_GAME_SLUG,
@@ -43,7 +45,9 @@ import {
 } from "./games-helpers"
 import { limitQueryParam, tbValidator } from "./validation"
 
+const MediaQuery = t.object({ media: t.enum(MEDIA_FILTERS).$default("video") })
 const CreatorsQuery = t.object({
+  media: t.enum(MEDIA_FILTERS).$default("video"),
   limit: limitQueryParam(24, 12),
 })
 
@@ -159,8 +163,8 @@ export const gamesRoute = new Hono()
     },
   )
   .get("/", tbValidator("query", GamesListQuery), async (c) => {
-    const { limit, offset } = c.req.valid("query")
-    const uncategorisedCount = await publicUncategorisedClipCount()
+    const { limit, offset, media } = c.req.valid("query")
+    const uncategorisedCount = await publicUncategorisedClipCount(media)
     const includesUncategorised = uncategorisedCount > 0
     const regularLimit =
       includesUncategorised && offset === 0 ? limit - 1 : limit
@@ -177,7 +181,7 @@ export const gamesRoute = new Hono()
             .from(game)
             .innerJoin(clip, eq(clip.game_id, game.id))
             .innerJoin(user, eq(clip.author_id, user.id))
-            .where(and(...publicClipListingConditions()))
+            .where(and(...publicClipListingConditions(media)))
             .groupBy(game.id)
             .orderBy(sql`count(${clip.id}) desc`, game.name)
             .limit(regularLimit)
@@ -199,63 +203,71 @@ export const gamesRoute = new Hono()
       })),
     ])
   })
-  .get("/:slug", tbValidator("param", SlugParam), async (c) => {
-    const { slug } = c.req.valid("param")
-    const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
-    if (resolved.response) return resolved.response
-    const gameId = resolved.row.id
+  .get(
+    "/:slug",
+    tbValidator("param", SlugParam),
+    tbValidator("query", MediaQuery),
+    async (c) => {
+      const { media } = c.req.valid("query")
+      const { slug } = c.req.valid("param")
+      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
+      if (resolved.response) return resolved.response
+      const gameId = resolved.row.id
 
-    if (gameId === UNCATEGORISED_GAME_ID) {
+      if (gameId === UNCATEGORISED_GAME_ID) {
+        return c.json({
+          ...resolved.row,
+          viewer: null,
+          favouritesCount: 0,
+          clipCount: await publicUncategorisedClipCount(media),
+        })
+      }
+
+      const session = await getSession(c)
+      let viewer: { isFollowing: boolean } | null = null
+      if (session?.user.status === "active") {
+        const [followRow] = await db
+          .select({ id: gameFollow.id })
+          .from(gameFollow)
+          .where(
+            and(
+              eq(gameFollow.user_id, session.user.id),
+              eq(gameFollow.game_id, gameId),
+            ),
+          )
+          .limit(1)
+        viewer = { isFollowing: followRow !== undefined }
+      }
+
+      const [{ value: favouritesCount }] = await db
+        .select({ value: sql<number>`count(*)::int` })
+        .from(gameFollow)
+        .innerJoin(user, eq(user.id, gameFollow.user_id))
+        .where(and(eq(gameFollow.game_id, gameId), isNull(user.disabled_at)))
+
+      const [{ value: clipCount }] = await db
+        .select({ value: sql<number>`count(*)::int` })
+        .from(clip)
+        .innerJoin(user, eq(clip.author_id, user.id))
+        .where(
+          and(eq(clip.game_id, gameId), ...publicClipListingConditions(media)),
+        )
+
       return c.json({
         ...resolved.row,
-        viewer: null,
-        favouritesCount: 0,
-        clipCount: await publicUncategorisedClipCount(),
+        viewer,
+        favouritesCount,
+        clipCount,
       })
-    }
-
-    const session = await getSession(c)
-    let viewer: { isFollowing: boolean } | null = null
-    if (session?.user.status === "active") {
-      const [followRow] = await db
-        .select({ id: gameFollow.id })
-        .from(gameFollow)
-        .where(
-          and(
-            eq(gameFollow.user_id, session.user.id),
-            eq(gameFollow.game_id, gameId),
-          ),
-        )
-        .limit(1)
-      viewer = { isFollowing: followRow !== undefined }
-    }
-
-    const [{ value: favouritesCount }] = await db
-      .select({ value: sql<number>`count(*)::int` })
-      .from(gameFollow)
-      .innerJoin(user, eq(user.id, gameFollow.user_id))
-      .where(and(eq(gameFollow.game_id, gameId), isNull(user.disabled_at)))
-
-    const [{ value: clipCount }] = await db
-      .select({ value: sql<number>`count(*)::int` })
-      .from(clip)
-      .innerJoin(user, eq(clip.author_id, user.id))
-      .where(and(eq(clip.game_id, gameId), ...publicClipListingConditions()))
-
-    return c.json({
-      ...resolved.row,
-      viewer,
-      favouritesCount,
-      clipCount,
-    })
-  })
+    },
+  )
   .get(
     "/:slug/creators",
     tbValidator("param", SlugParam),
     tbValidator("query", CreatorsQuery),
     async (c) => {
       const { slug } = c.req.valid("param")
-      const { limit } = c.req.valid("query")
+      const { limit, media } = c.req.valid("query")
       const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
       if (resolved.response) return resolved.response
       const gameCondition: SQL =
@@ -272,7 +284,7 @@ export const gamesRoute = new Hono()
         })
         .from(clip)
         .innerJoin(user, eq(clip.author_id, user.id))
-        .where(and(gameCondition, ...publicClipListingConditions()))
+        .where(and(gameCondition, ...publicClipListingConditions(media)))
         .groupBy(user.id, user.username, user.image)
         .orderBy(desc(sql`count(*)`), user.username)
         .limit(limit)
@@ -344,11 +356,13 @@ function uncategorisedGameRow(): GameRow {
   }
 }
 
-async function publicUncategorisedClipCount(): Promise<number> {
+async function publicUncategorisedClipCount(
+  media: MediaFilter,
+): Promise<number> {
   const rows = await db
     .select({ value: sql<number>`count(*)::int` })
     .from(clip)
     .innerJoin(user, eq(clip.author_id, user.id))
-    .where(and(isNull(clip.game_id), ...publicClipListingConditions()))
+    .where(and(isNull(clip.game_id), ...publicClipListingConditions(media)))
   return rows[0]?.value ?? 0
 }

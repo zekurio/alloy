@@ -20,7 +20,7 @@ export interface RecordingLibraryItem {
   mediaUrl: string
   thumbnailUrl: string | null
   thumbBlurHash: string | null
-  collection: "Clips"
+  collection: "Clips" | "Screenshots"
   kind: RecordingCaptureKind
   source: RecordingCaptureSource
   groupKey: string
@@ -59,6 +59,13 @@ export interface RecordingLibraryItem {
 
 export function contentTypeForFile(fileName: string): string {
   switch (fileNameExtension(fileName)) {
+    case ".png":
+      return "image/png"
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg"
+    case ".webp":
+      return "image/webp"
     case ".mp4":
       return "video/mp4"
     case ".mov":

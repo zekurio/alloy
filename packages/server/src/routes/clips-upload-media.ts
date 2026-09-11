@@ -66,6 +66,8 @@ export const clipsUploadMediaRoutes = new Hono()
       if ("response" in access) return access.response
       const row = access.row
 
+      if (row.media_kind === "image")
+        return badRequest(c, "This operation requires a video")
       if (!row.source_key) return badRequest(c, "Clip has no source media")
       const sourceKey = row.source_key
       const durationMs = row.source_duration_ms ?? row.duration_ms
@@ -205,6 +207,8 @@ export const clipsUploadMediaRoutes = new Hono()
       if ("response" in access) return access.response
       const row = access.row
 
+      if (row.media_kind === "image")
+        return badRequest(c, "This operation requires a video")
       if (!row.source_key) return badRequest(c, "Clip has no source media")
       const sourceKey = row.source_key
       const durationMs = row.source_duration_ms ?? row.duration_ms

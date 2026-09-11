@@ -38,7 +38,7 @@ export function GlobalUploadControl({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const triggerClassName = variant === "header" ? "max-md:hidden" : "shrink-0"
-  const triggerLabel = t("Upload clip")
+  const triggerLabel = t("Upload media")
 
   if (desktop) {
     const pending = importAction.picking || importAction.committing

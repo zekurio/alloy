@@ -1,11 +1,13 @@
 import type { ClipFeedSort, ClipListSort, ClipRow } from "./content-clips"
 import type { GameListRow } from "./content-games"
 import type { UserListRow, UserSummary } from "./content-users"
+import type { MediaFilter } from "./shared"
 
-export type FeedFilter =
+export type FeedFilter = { media?: MediaFilter } & (
   | { kind: "all" }
   | { kind: "following" }
   | { kind: "game"; gameId: string; authorId?: string }
+)
 
 export interface FeedPageParams {
   filter: FeedFilter

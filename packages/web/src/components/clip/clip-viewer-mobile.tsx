@@ -1,4 +1,4 @@
-import { type ClipRow, clipThumbnailUrl } from "@alloy/api"
+import { type ClipRow, clipSourceFileUrl, clipThumbnailUrl } from "@alloy/api"
 import { clipShareUrl } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
@@ -185,6 +185,7 @@ function MobileClipViewerBody({
   const initialFocusRef = useRef<HTMLDivElement>(null)
 
   const isLandscape = useMediaQuery("(orientation: landscape)")
+  const isImage = row.mediaKind === "image"
 
   useEffect(() => {
     return () => {
@@ -302,7 +303,7 @@ function MobileClipViewerBody({
           </DialogClose>
 
           {/* ---- Top spacer (keeps the player higher while metadata stays bottom-pinned) ---- */}
-          {isLandscape ? null : (
+          {isLandscape || isImage ? null : (
             <div className="h-[clamp(4rem,28dvh,16rem)] min-h-0 shrink" />
           )}
 
@@ -312,11 +313,36 @@ function MobileClipViewerBody({
             tabIndex={-1}
             className={cn(
               "relative z-10 outline-none",
-              isLandscape ? "flex min-h-0 flex-1 items-center" : "shrink-0",
+              isImage
+                ? "flex min-h-0 flex-1 items-center justify-center [container-type:size]"
+                : isLandscape
+                  ? "flex min-h-0 flex-1 items-center"
+                  : "shrink-0",
             )}
           >
+            {isImage && row.status === "ready" ? (
+              // Blurred cover-fit copy of the screenshot behind the fitted
+              // player. Both share the same center, so the sharp image
+              // appears to bleed into the blur. The player loads the same
+              // URL, so the backdrop costs no extra request.
+              <img
+                src={clipSourceFileUrl(
+                  row.id,
+                  apiOrigin(),
+                  row.sourceVersion ?? undefined,
+                )}
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 size-full scale-110 object-cover blur-2xl brightness-[0.65] saturate-150"
+              />
+            ) : null}
             <ClipPlayer
               clipId={row.id}
+              aspectRatio={
+                row.mediaKind === "image" && row.width && row.height
+                  ? row.width / row.height
+                  : undefined
+              }
               playbackContentType={row.playbackContentType}
               sourceCodecs={row.sourceCodecs}
               sourceVersion={row.sourceVersion}
@@ -338,7 +364,11 @@ function MobileClipViewerBody({
               onRetry={retry.onRetry}
               retryPending={retry.retryPending}
               maxDisplayHeight={
-                isLandscape ? "100dvh" : "min(72dvh, calc(100dvh - 18rem))"
+                isImage
+                  ? "100cqh"
+                  : isLandscape
+                    ? "100dvh"
+                    : "min(72dvh, calc(100dvh - 18rem))"
               }
               chromeSize="compact"
               onPlayThreshold={() => recordClipViewBestEffort(row.id)}
@@ -358,26 +388,41 @@ function MobileClipViewerBody({
             <div
               aria-hidden
               className={cn(
-                "pointer-events-none relative z-20 mx-auto mt-3 rounded-full border border-white/10 bg-[oklch(12%_0.01_250)]/35 px-3 py-1.5",
+                "pointer-events-none rounded-full border border-white/10 bg-[oklch(12%_0.01_250)]/35 px-3 py-1.5",
                 "text-xs font-semibold tracking-wide text-white/75 shadow-[0_8px_30px_-14px_rgb(0_0_0_/_0.9)] backdrop-blur-md",
                 "animate-in duration-200 fade-in-0 slide-in-from-bottom-1",
+                isImage
+                  ? // The metadata overlay is bottom-anchored with a dynamic
+                    // height; float the hint clear above it.
+                    "absolute inset-x-0 bottom-[max(17rem,38dvh)] z-30 mx-auto w-fit"
+                  : "relative z-20 mx-auto mt-3",
               )}
             >
               {t("Swipe to navigate")}
             </div>
           ) : null}
 
-          {isLandscape ? null : <div className="min-h-0 flex-1" />}
+          {isLandscape || isImage ? null : <div className="min-h-0 flex-1" />}
 
           {/* ---- Bottom section ---- */}
           <div
             className={cn(
-              "relative z-10 flex max-h-[min(40dvh,16rem)] shrink-0 overflow-hidden",
+              "flex max-h-[min(40dvh,16rem)] overflow-hidden",
+              // Images fit the full screen, so the metadata overlays their
+              // bottom edge on a gradient instead of taking layout space.
+              isImage
+                ? "absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/80 via-black/40 to-transparent"
+                : "relative z-10 shrink-0",
               isLandscape && "hidden",
             )}
           >
             {/* Left: metadata cluster */}
-            <div className="flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden pt-4 pr-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]">
+            <div
+              className={cn(
+                "flex min-h-0 flex-1 flex-col justify-end gap-2.5 overflow-hidden pr-2 pb-[max(1.25rem,env(safe-area-inset-bottom))] pl-[max(0.75rem,calc(env(safe-area-inset-left)+0.25rem))]",
+                isImage ? "pt-24" : "pt-4",
+              )}
+            >
               {/* Game badge */}
               {gameRef ? (
                 <Link

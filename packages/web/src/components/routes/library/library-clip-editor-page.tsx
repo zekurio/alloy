@@ -15,6 +15,7 @@ import {
   toPersistedTrimRange,
   useTrimPlayback,
 } from "@/components/clip-editor/use-trim-playback"
+import { ClipPlayer } from "@/components/clip/clip-player"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useSession } from "@/lib/auth-client"
 import { clipEncodingActive } from "@/lib/clip-encoding"
@@ -47,6 +48,10 @@ import {
   setLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import { finishLocalClipDelete } from "./library-local-actions"
+import {
+  LibraryScreenshotEditor,
+  useLibraryScreenshotEdit,
+} from "./library-screenshot-editor"
 
 /**
  * Edit view for an already-uploaded clip: the same stage-and-trimmer layout
@@ -113,7 +118,11 @@ function ClipEditorBody({
   const navigation = useLibraryEntryNavigation({ type: "cloud", id: row.id })
   const { localItem, prevEntry, nextEntry } = navigation
   const { canManage, isOwner } = useClipEditorPermissions(row)
-  const canTrim = isOwner && !processing
+  const canTrim = isOwner && !processing && row.mediaKind !== "image"
+  const screenshot = useLibraryScreenshotEdit({
+    row,
+    disabled: !isOwner || processing || row.mediaKind !== "image",
+  })
   // Before first publish, the stage plays the raw local capture. The
   // persisted trim bounds describe the exported upload's timeline, so
   // applying them to the raw file would seek the preview past its real start.
@@ -185,27 +194,54 @@ function ClipEditorBody({
     canManage,
     onRequestDelete: deleteFlow.openDialog,
     deleting: deleteFlow.pending,
-    canSaveTrim,
-    trimPending: trimMutation.isPending,
-    trimError: trimMutation.error
-      ? errorMessage(trimMutation.error, t("Couldn't trim the clip"))
-      : null,
-    onSaveTrim: handleSaveTrim,
+    canSaveMedia: row.mediaKind === "image" ? screenshot.changed : canSaveTrim,
+    mediaPending:
+      row.mediaKind === "image" ? screenshot.saving : trimMutation.isPending,
+    mediaError:
+      row.mediaKind === "image"
+        ? screenshot.error
+        : trimMutation.error
+          ? errorMessage(trimMutation.error, t("Couldn't trim the clip"))
+          : null,
+    onSaveMedia: row.mediaKind === "image" ? screenshot.save : handleSaveTrim,
   }
 
   return (
     <section className="flex w-full flex-col lg:h-full lg:min-h-0">
-      {desktopLayout ? (
+      {desktopLayout || row.mediaKind === "image" ? (
         <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
-          <ClipEditorStage
-            row={row}
-            media={media}
-            playback={playback}
-            processing={processing}
-            canManage={canManage}
-            prevEntry={prevEntry}
-            nextEntry={nextEntry}
-          />
+          {row.mediaKind === "image" ? (
+            row.status === "ready" ? (
+              <LibraryScreenshotEditor
+                key={`${row.id}:${row.sourceVersion}`}
+                state={screenshot}
+                disabled={!isOwner || processing}
+              />
+            ) : (
+              <ClipPlayer
+                clipId={row.id}
+                aspectRatio={
+                  row.mediaKind === "image" && row.width && row.height
+                    ? row.width / row.height
+                    : undefined
+                }
+                playbackContentType={row.sourceContentType}
+                sourceVersion={row.sourceVersion}
+                status={row.status}
+                failureReason={row.failureReason}
+              />
+            )
+          ) : (
+            <ClipEditorStage
+              row={row}
+              media={media}
+              playback={playback}
+              processing={processing}
+              canManage={canManage}
+              prevEntry={prevEntry}
+              nextEntry={nextEntry}
+            />
+          )}
 
           <Card
             tone="surface"

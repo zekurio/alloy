@@ -1,3 +1,4 @@
+import { user } from "@alloy/db/auth-schema"
 import { clip } from "@alloy/db/schema"
 import type { db } from "@alloy/server/db/index"
 import { and, eq, inArray, ne, sql } from "drizzle-orm"
@@ -39,4 +40,37 @@ export async function selectSourceStorageUsedBytesByUserIds(
   }
 
   return usage
+}
+
+export function uploadWouldExceedQuota({
+  quotaBytes,
+  usedBytes,
+  incomingBytes,
+  reservedBytes = 0,
+}: {
+  quotaBytes: number
+  usedBytes: number
+  incomingBytes: number
+  reservedBytes?: number
+}): boolean {
+  return usedBytes - reservedBytes + incomingBytes > quotaBytes
+}
+
+type QuotaDb = Pick<typeof db, "execute" | "select">
+
+export async function selectLockedQuotaState(
+  database: QuotaDb,
+  viewerId: string,
+) {
+  await database.execute(
+    sql`select "id" from "user" where "id" = ${viewerId} for update`,
+  )
+  const [quotaRow] = await database
+    .select({ storageQuotaBytes: user.storage_quota_bytes })
+    .from(user)
+    .where(eq(user.id, viewerId))
+    .limit(1)
+  const quotaBytes = quotaRow?.storageQuotaBytes ?? null
+  const usedBytes = await selectSourceStorageUsedBytes(database, viewerId)
+  return { quotaBytes, usedBytes }
 }

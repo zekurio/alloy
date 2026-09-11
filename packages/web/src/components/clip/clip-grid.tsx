@@ -9,7 +9,25 @@ function GridFrame({
   return <div className={cn(baseClassName, className)} {...props} />
 }
 
-export function ClipGrid({ className, ...props }: ComponentProps<"div">) {
+export function ClipGrid({
+  className,
+  masonry,
+  ...props
+}: ComponentProps<"div"> & { masonry?: boolean }) {
+  if (masonry)
+    return (
+      <div
+        className={cn(
+          "columns-2 gap-2 sm:columns-[260px] [&>*]:mb-2 [&>*]:break-inside-avoid",
+          // WebKit fails to paint multicol content beyond the first column
+          // when the grid sits inside an overflow scroll container; forcing a
+          // compositing layer on the grid works around it.
+          "[transform:translateZ(0)]",
+          className,
+        )}
+        {...props}
+      />
+    )
   return (
     <GridFrame
       data-slot="clip-grid"

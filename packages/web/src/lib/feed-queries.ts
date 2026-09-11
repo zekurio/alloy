@@ -1,4 +1,5 @@
 import type { ClipFeedSort, FeedFilter, FeedPageParams } from "@alloy/api"
+import type { MediaFilter } from "@alloy/contracts"
 import {
   infiniteQueryOptions,
   keepPreviousData,
@@ -10,11 +11,12 @@ import {
 import { api } from "./api"
 
 function filterKey(filter: FeedFilter): readonly unknown[] {
-  if (filter.kind !== "game") return [filter.kind] as const
+  const media = filter.media ?? "video"
+  if (filter.kind !== "game") return [filter.kind, media] as const
   if (filter.authorId) {
-    return ["game", filter.gameId, filter.authorId] as const
+    return ["game", filter.gameId, filter.authorId, media] as const
   }
-  return ["game", filter.gameId] as const
+  return ["game", filter.gameId, media] as const
 }
 
 /**
@@ -62,15 +64,15 @@ export function useFeedInfiniteQuery(
   return useInfiniteQuery(feedInfiniteQueryOptions(filter, sort, { limit }))
 }
 
-export function feedChipsQueryOptions() {
+export function feedChipsQueryOptions(media: MediaFilter = "video") {
   return queryOptions({
-    queryKey: feedKeys.chips(),
-    queryFn: () => api.feed.fetchChips(),
+    queryKey: [...feedKeys.chips(), media],
+    queryFn: () => api.feed.fetchChips(media),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   })
 }
 
-export function useFeedChipsQuery() {
-  return useQuery(feedChipsQueryOptions())
+export function useFeedChipsQuery(media: MediaFilter = "video") {
+  return useQuery(feedChipsQueryOptions(media))
 }

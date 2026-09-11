@@ -1,3 +1,4 @@
+import { MEDIA_FILTERS } from "@alloy/contracts"
 import type { GameRow, ProfileGameRow } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import {
@@ -37,6 +38,7 @@ export const LookupBody = t.object({
 })
 
 export const GamesListQuery = t.object({
+  media: t.enum(MEDIA_FILTERS).$default("video"),
   limit: limitQueryParam(100, 100),
   offset: offsetQueryParam(),
 })

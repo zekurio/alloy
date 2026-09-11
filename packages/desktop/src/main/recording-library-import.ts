@@ -12,7 +12,7 @@ import type {
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { createLogger } from "@alloy/logging"
-import { app } from "electron"
+import { app, nativeImage } from "electron"
 
 import {
   markHousekeepingPathActive,
@@ -32,7 +32,8 @@ import { invalidateRecordingLibrarySnapshot } from "./recording-library-scan"
 import {
   captureId,
   titleForCapture,
-  VIDEO_EXTENSIONS,
+  MEDIA_EXTENSIONS,
+  IMAGE_EXTENSIONS,
 } from "./recording-library-shared"
 import { parseUntrustedRecord } from "./runtime-validation"
 
@@ -81,15 +82,22 @@ async function stageVideoFile(
 ): Promise<RecordingLibraryStagedImport> {
   const source = resolve(sourcePath)
   const extension = extname(source).toLowerCase()
-  if (!VIDEO_EXTENSIONS.has(extension)) {
-    throw new Error("Not a supported video format.")
+  if (!MEDIA_EXTENSIONS.has(extension)) {
+    throw new Error(t("Not a supported media format."))
   }
 
   const sourceStat = statSync(source)
   if (!sourceStat.isFile()) throw new Error("This is not a file.")
 
-  const meta = await probeVideoFileMeta(source)
-  if (!meta) throw new Error("Couldn't read this file as a video.")
+  const image = IMAGE_EXTENSIONS.has(extension)
+    ? nativeImage.createFromPath(source)
+    : null
+  const meta = image
+    ? image.isEmpty()
+      ? null
+      : { ...image.getSize(), durationMs: null }
+    : await probeVideoFileMeta(source)
+  if (!meta) throw new Error(t("Couldn't read this media file."))
 
   const id = randomUUID()
   const root = stagedImportFolder()
@@ -134,7 +142,10 @@ export async function commitRecordingLibraryStagedImport(
   const staged = stagedImports.get(request.id)
   if (!staged) throw new Error("Staged import not found.")
 
-  const root = captureCollectionFolder("Clips", request.gameName)
+  const root = captureCollectionFolder(
+    IMAGE_EXTENSIONS.has(staged.extension) ? "Screenshots" : "Clips",
+    request.gameName,
+  )
   mkdirSync(root, { recursive: true })
   const safeBase = safeCaptureBase(request.title, { fallback: "import" })
   const destination = uniqueCaptureFilename(root, safeBase, staged.extension)
@@ -147,7 +158,7 @@ export async function commitRecordingLibraryStagedImport(
     id,
     filename: absolute,
     title: request.title,
-    kind: "replay",
+    kind: IMAGE_EXTENSIONS.has(staged.extension) ? "screenshot" : "replay",
     source: "display",
     gameName: request.gameName,
     gameIconUrl: request.gameIconUrl,

@@ -55,6 +55,8 @@ function SliderRoot({
         </Slider.Track>
         {Array.from({ length: _values.length }, (_, index) => (
           <Slider.Thumb
+            aria-label={props["aria-label"]}
+            aria-labelledby={props["aria-labelledby"]}
             key={index}
             data-slot="slider-thumb"
             className={cn(

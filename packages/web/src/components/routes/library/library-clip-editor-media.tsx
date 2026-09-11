@@ -115,7 +115,7 @@ export function useClipEditorMedia(
         }
       : undefined
   const waveform = useMediaWaveform(
-    waveformSrc,
+    row.mediaKind === "image" ? null : waveformSrc,
     processing
       ? localItem
         ? `desktop:${localItem.id}:${localItem.modifiedAt}:${localItem.sizeBytes}:${localItem.mediaUrl}`
@@ -138,7 +138,7 @@ export function useClipEditorMedia(
     mediaUrl: localItem?.mediaUrl ?? null,
     thumbnailUrl: localItem?.thumbnailUrl ?? null,
     durationMs: localItem?.durationMs ?? null,
-    enabled: processing && Boolean(localItem),
+    enabled: row.mediaKind !== "image" && processing && Boolean(localItem),
   })
   // While the server still owes us a thumbnail, the upload queue may hold an
   // existing local library poster for the pending card.

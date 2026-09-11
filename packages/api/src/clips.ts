@@ -317,6 +317,16 @@ export function createClipsApi(context: ApiContext) {
       updateClip(context, clipId, input),
     trim: (clipId: string, input: TrimClipInput) =>
       trimClip(context, clipId, input),
+    updateImage: async (clipId: string, file: File, sourceVersion: string) => {
+      const body = new FormData()
+      body.set("file", file)
+      body.set("sourceVersion", sourceVersion)
+      const response = await context.request(
+        `/api/clips/${encodedPathSegment(clipId)}/image`,
+        { method: "POST", init: { body } },
+      )
+      return readJsonOrThrow(response, validateClipRow)
+    },
     reEncode: (clipId: string) => reEncodeClip(context, clipId),
     reannounce: (clipId: string) => reannounceClip(context, clipId),
     setPoster: (clipId: string, input: SetClipPosterInput) =>

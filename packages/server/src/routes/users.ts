@@ -40,6 +40,7 @@ import {
   listUserClips,
   listUserGames,
   UserGamesQuery,
+  UserMediaQuery,
 } from "./users-clip-listings"
 import {
   listFollowers,
@@ -65,6 +66,23 @@ const ClipBatchQuery = t.object({
 })
 
 export const usersRoute = new Hono()
+  .get(
+    "/:username/media",
+    tbValidator("param", UsernameParam),
+    tbValidator("query", UserMediaQuery),
+    async (c) => {
+      const result = await resolveUserTarget(c, c.req.valid("param").username)
+      if ("response" in result) return result.response
+      const options = c.req.valid("query")
+      const list =
+        options.tab === "liked"
+          ? listLikedClips
+          : options.tab === "tagged"
+            ? listTaggedClips
+            : listUserClips
+      return c.json(await list(result.target, c, options))
+    },
+  )
   .get("/search", tbValidator("query", SearchQuery), async (c) => {
     const { q, limit } = c.req.valid("query")
     const session = await getSession(c)

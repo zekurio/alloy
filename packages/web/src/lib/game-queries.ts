@@ -6,6 +6,7 @@ import type {
   SteamGridDBSearchResult,
   SteamGridDBStatus,
 } from "@alloy/api"
+import type { MediaFilter } from "@alloy/contracts"
 import {
   keepPreviousData,
   type QueryClient,
@@ -98,7 +99,7 @@ export function useResolveGameMutation() {
 export function gamesListQueryOptions() {
   return queryOptions({
     queryKey: gameKeys.list(),
-    queryFn: () => api.games.fetchAll(),
+    queryFn: () => api.games.fetchAll({ media: "all" }),
     // Clip uploads nudge this indirectly (new game → new row). 60s is a
     // decent balance between freshness and not hammering on tab flips.
     staleTime: 60_000,
@@ -145,21 +146,27 @@ export function useGameQuery(
 export function gameQueryOptions(gameId: string, viewerId: string | null) {
   return queryOptions({
     queryKey: gameKeys.detail(gameId, viewerId),
-    queryFn: () => api.games.fetchById(gameId),
+    queryFn: () => api.games.fetchById(gameId, "all"),
     enabled: gameId.length > 0,
   })
 }
 
-export function gameCreatorsQueryOptions(gameId: string) {
+export function gameCreatorsQueryOptions(
+  gameId: string,
+  media: MediaFilter = "all",
+) {
   return queryOptions({
-    queryKey: gameKeys.creators(gameId),
-    queryFn: () => api.games.fetchCreators(gameId),
+    queryKey: [...gameKeys.creators(gameId), media],
+    queryFn: () => api.games.fetchCreators(gameId, undefined, media),
     enabled: gameId.length > 0,
   })
 }
 
-export function useGameCreatorsQuery(gameId: string) {
-  return useQuery(gameCreatorsQueryOptions(gameId))
+export function useGameCreatorsQuery(
+  gameId: string,
+  media: MediaFilter = "all",
+) {
+  return useQuery(gameCreatorsQueryOptions(gameId, media))
 }
 
 function normaliseLookupNames(names: readonly string[]): readonly string[] {

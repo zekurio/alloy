@@ -23,6 +23,7 @@ export function buildServerInfo(): ServerInfo {
     httpContracts: [...DESKTOP_HTTP_CONTRACT_IDS],
     desktopBridgeContracts: [...DESKTOP_BRIDGE_CONTRACT_IDS],
     capabilities: {
+      screenshots: 1,
       auth: { ...DESKTOP_HTTP_CAPABILITIES.auth },
       transport: { ...DESKTOP_HTTP_CAPABILITIES.transport },
     },

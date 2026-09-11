@@ -16,6 +16,7 @@ import { cn } from "@alloy/ui/lib/utils"
 import { RefreshCwIcon } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"
 
+import { ImageZoomControls, useImageZoom } from "@/components/media/image-zoom"
 import {
   encodeStageLabel,
   QueueProgressBar,
@@ -82,7 +83,105 @@ interface ClipPlayerProps {
 }
 
 const DEFAULT_ASPECT_RATIO = 16 / 9
-function ClipPlayer({
+function ClipPlayer({ ...props }: ClipPlayerProps) {
+  if (
+    props.playbackContentType?.startsWith("image/") &&
+    props.status === "ready"
+  )
+    return (
+      <ScreenshotPlayer
+        key={`${props.clipId}:${props.sourceVersion}`}
+        {...props}
+      />
+    )
+  return <VideoClipPlayer {...props} />
+}
+
+function ScreenshotPlayer({
+  clipId,
+  sourceVersion,
+  onPlayThreshold,
+  className,
+  aspectRatio,
+  maxDisplayHeight = "70dvh",
+}: ClipPlayerProps) {
+  const [naturalRatio, setNaturalRatio] = useState(1)
+  const view = useImageZoom()
+  const ratio = aspectRatio ?? naturalRatio
+  const [failed, setFailed] = useState(false)
+  return (
+    <div
+      className={cn(
+        "relative mx-auto w-full overflow-hidden bg-black",
+        className,
+      )}
+      style={{
+        aspectRatio: ratio,
+        maxHeight: maxDisplayHeight,
+        maxWidth:
+          maxDisplayHeight === "100%"
+            ? undefined
+            : `min(100%, calc(${maxDisplayHeight} * ${ratio}))`,
+      }}
+    >
+      {failed ? (
+        <p role="alert" className="p-4 text-white">
+          {t("Couldn't load screenshot")}
+        </p>
+      ) : (
+        <div
+          ref={view.viewportRef}
+          className={cn(
+            "absolute inset-0 grid touch-none place-items-center overflow-hidden",
+            view.zoom > 1 && "touch-none cursor-grab active:cursor-grabbing",
+          )}
+          onPointerDown={view.startPan}
+          onPointerMove={view.movePan}
+          onPointerUp={view.endPan}
+          onPointerCancel={view.endPan}
+        >
+          <div
+            ref={view.contentRef}
+            className="h-full w-full"
+            style={view.style}
+          >
+            <img
+              src={clipSourceFileUrl(
+                clipId,
+                apiOrigin(),
+                sourceVersion ?? undefined,
+              )}
+              alt={t("Screenshot")}
+              className="h-full w-full object-contain"
+              draggable={false}
+              onLoad={(event) => {
+                setNaturalRatio(
+                  event.currentTarget.naturalWidth /
+                    event.currentTarget.naturalHeight,
+                )
+                onPlayThreshold?.()
+              }}
+              onError={() => setFailed(true)}
+            />
+          </div>
+        </div>
+      )}
+      {!failed && view.zoom > 1 ? (
+        <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+          <div className="pointer-events-auto">
+            <ImageZoomControls
+              zoom={view.zoom}
+              onChange={view.changeZoom}
+              floating
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function VideoClipPlayer({
   clipId,
   playbackContentType,
   sourceCodecs,

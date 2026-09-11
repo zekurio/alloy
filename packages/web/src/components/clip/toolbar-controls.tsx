@@ -9,7 +9,9 @@ export const filterLabelClass =
 
 /**
  * Compact chip trigger showing the active option's icon + label and a trailing
- * chevron. Shared by the sort and filter dropdowns' `chip` variant.
+ * chevron. Shared by the sort and filter dropdowns' `chip` variant. On mobile
+ * the label is visually hidden (kept for a11y) so crowded toolbars render the
+ * trigger icon-only.
  */
 export function ToolbarChipTrigger({
   icon,
@@ -25,6 +27,7 @@ export function ToolbarChipTrigger({
       size="xl"
       className={cn(
         "h-9 w-auto max-w-[10rem] min-w-0 justify-start gap-2 rounded-lg border-transparent bg-transparent px-3 text-sm leading-4 font-medium text-foreground-muted hover:border-border hover:bg-surface-raised/60 hover:text-foreground",
+        "max-md:gap-1 max-md:px-2.5",
         "[&_svg:not([class*='size-'])]:size-[18px]",
         "md:h-7 md:max-w-[9.5rem] md:gap-1.5 md:rounded-md md:px-2 md:text-xs md:leading-3",
         "md:[&_svg:not([class*='size-'])]:size-3.5",
@@ -33,8 +36,10 @@ export function ToolbarChipTrigger({
       {...props}
     >
       {icon}
-      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
-      <ChevronDownIcon />
+      <span className="min-w-0 flex-1 truncate text-left max-md:sr-only">
+        {label}
+      </span>
+      <ChevronDownIcon className="max-md:size-3.5!" />
     </Chip>
   )
 }
