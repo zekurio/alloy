@@ -5,6 +5,8 @@ import {
   DEFAULT_SCREENSHOT_EDIT,
   fitScreenshotCrop,
   moveScreenshotCrop,
+  resizeScreenshotCrop,
+  type CropHandle,
   screenshotDimensions,
 } from "./screenshot-edit"
 
@@ -70,4 +72,73 @@ it("moves only custom crops when the pointer starts inside them", () => {
   expect(canMoveScreenshotCropAt(DEFAULT_SCREENSHOT_EDIT.crop, 0.5, 0.5)).toBe(
     false,
   )
+})
+
+it("resizes every crop handle within the image and keeps fixed aspect ratios", () => {
+  const dimensions = { width: 1600, height: 900 }
+  const source = { x: 0.2, y: 0.2, width: 0.6, height: 0.6 }
+  const handles: CropHandle[] = ["n", "s", "e", "w", "ne", "nw", "se", "sw"]
+  for (const handle of handles) {
+    for (const ratio of [null, 16 / 9]) {
+      for (const delta of [-2, -0.1, 0.1, 2]) {
+        const crop = resizeScreenshotCrop(
+          source,
+          handle,
+          delta,
+          delta,
+          dimensions,
+          ratio,
+        )
+        expect(crop.x).toBeGreaterThanOrEqual(-1e-10)
+        expect(crop.y).toBeGreaterThanOrEqual(-1e-10)
+        expect(crop.x + crop.width).toBeLessThanOrEqual(1 + 1e-10)
+        expect(crop.y + crop.height).toBeLessThanOrEqual(1 + 1e-10)
+        expect(crop.width).toBeGreaterThan(0)
+        expect(crop.height).toBeGreaterThan(0)
+        const anchorX = handle.includes("w")
+          ? 1
+          : handle.includes("e")
+            ? 0
+            : 0.5
+        const anchorY = handle.includes("n")
+          ? 1
+          : handle.includes("s")
+            ? 0
+            : 0.5
+        expect(crop.x + crop.width * anchorX).toBeCloseTo(
+          source.x + source.width * anchorX,
+        )
+        expect(crop.y + crop.height * anchorY).toBeCloseTo(
+          source.y + source.height * anchorY,
+        )
+        const locked = resizeScreenshotCrop(
+          source,
+          handle,
+          delta,
+          delta,
+          dimensions,
+          16 / 9,
+        )
+        expect(
+          (locked.width * dimensions.width) /
+            (locked.height * dimensions.height),
+        ).toBeCloseTo(16 / 9)
+      }
+    }
+  }
+  expect(resizeScreenshotCrop(source, "e", 0.1, 0.2, dimensions, null)).toEqual(
+    { ...source, width: 0.7 },
+  )
+  const resized = resizeScreenshotCrop(
+    DEFAULT_SCREENSHOT_EDIT.crop,
+    "nw",
+    0.2,
+    0.3,
+    dimensions,
+    null,
+  )
+  expect(resized.x).toBeCloseTo(0.2)
+  expect(resized.y).toBeCloseTo(0.3)
+  expect(resized.width).toBeCloseTo(0.8)
+  expect(resized.height).toBeCloseTo(0.7)
 })

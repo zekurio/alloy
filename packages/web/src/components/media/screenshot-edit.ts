@@ -45,6 +45,58 @@ export function moveScreenshotCrop(
   }
 }
 
+export type CropHandle = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw"
+
+/** Resize from an edge or corner. Keep the opposite edge or corner fixed. */
+export function resizeScreenshotCrop(
+  crop: ScreenshotEdit["crop"],
+  handle: CropHandle,
+  dx: number,
+  dy: number,
+  dimensions: { width: number; height: number },
+  ratio: number | null,
+): ScreenshotEdit["crop"] {
+  const horizontal = handle.includes("w") ? -1 : handle.includes("e") ? 1 : 0
+  const vertical = handle.includes("n") ? -1 : handle.includes("s") ? 1 : 0
+  const anchorX = crop.x + (crop.width * (1 - horizontal)) / 2
+  const anchorY = crop.y + (crop.height * (1 - vertical)) / 2
+  const maxWidth = horizontal
+    ? horizontal > 0
+      ? 1 - anchorX
+      : anchorX
+    : 2 * Math.min(anchorX, 1 - anchorX)
+  const maxHeight = vertical
+    ? vertical > 0
+      ? 1 - anchorY
+      : anchorY
+    : 2 * Math.min(anchorY, 1 - anchorY)
+  let width = Math.max(0.01, crop.width + horizontal * dx)
+  let height = Math.max(0.01, crop.height + vertical * dy)
+  if (ratio !== null) {
+    const normalizedRatio = (ratio * dimensions.height) / dimensions.width
+    if (
+      horizontal &&
+      (!vertical || Math.abs(dx) >= Math.abs(dy * normalizedRatio))
+    ) {
+      height = width / normalizedRatio
+    } else {
+      width = height * normalizedRatio
+    }
+    const scale = Math.min(1, maxWidth / width, maxHeight / height)
+    width *= scale
+    height *= scale
+  } else {
+    width = Math.min(width, maxWidth)
+    height = Math.min(height, maxHeight)
+  }
+  return {
+    x: anchorX - (width * (1 - horizontal)) / 2,
+    y: anchorY - (height * (1 - vertical)) / 2,
+    width,
+    height,
+  }
+}
+
 /** Return whether a pointer can move an existing crop at this position. */
 export function canMoveScreenshotCropAt(
   crop: ScreenshotEdit["crop"],

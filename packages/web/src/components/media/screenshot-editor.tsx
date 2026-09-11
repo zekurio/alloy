@@ -26,6 +26,8 @@ import {
   drawScreenshot,
   fitScreenshotCrop,
   moveScreenshotCrop,
+  resizeScreenshotCrop,
+  type CropHandle,
   screenshotDimensions,
   type ScreenshotEdit,
 } from "./screenshot-edit"
@@ -48,7 +50,33 @@ type CropDrag = {
   pointerId: number
   startX: number
   startY: number
-} & ({ kind: "create" } | { kind: "move"; startCrop: ScreenshotEdit["crop"] })
+} & (
+  | { kind: "create" }
+  | { kind: "move"; startCrop: ScreenshotEdit["crop"] }
+  | { kind: "resize"; handle: CropHandle; startCrop: ScreenshotEdit["crop"] }
+)
+
+const CROP_HANDLES = {
+  n: "inset-x-3 top-0 h-3 cursor-ns-resize",
+  s: "inset-x-3 bottom-0 h-3 cursor-ns-resize",
+  e: "inset-y-3 right-0 w-3 cursor-ew-resize",
+  w: "inset-y-3 left-0 w-3 cursor-ew-resize",
+  nw: "top-0 left-0 size-5 cursor-nwse-resize border-t-2 border-l-2",
+  ne: "top-0 right-0 size-5 cursor-nesw-resize border-t-2 border-r-2",
+  sw: "bottom-0 left-0 size-5 cursor-nesw-resize border-b-2 border-l-2",
+  se: "bottom-0 right-0 size-5 cursor-nwse-resize border-b-2 border-r-2",
+} satisfies Record<CropHandle, string>
+
+const CROP_HANDLE_NAMES: CropHandle[] = [
+  "n",
+  "s",
+  "e",
+  "w",
+  "nw",
+  "ne",
+  "sw",
+  "se",
+]
 
 export function ScreenshotEditor({
   file,
@@ -245,7 +273,7 @@ export function ScreenshotEditor({
           onKeyUp={history.commit}
           onBlur={history.commit}
           onPointerDown={(event) => {
-            if (disabled || !image || !cropping) return
+            if (disabled || !image || !cropping || event.button !== 0) return
             event.currentTarget.focus()
             const rect = event.currentTarget.getBoundingClientRect()
             const startX = Math.max(
@@ -261,15 +289,30 @@ export function ScreenshotEditor({
               startX,
               startY,
             )
-            drag.current = insideCrop
+            const target = event.target
+            const handle = CROP_HANDLE_NAMES.find(
+              (name) =>
+                target instanceof HTMLElement &&
+                target.dataset.cropHandle === name,
+            )
+            drag.current = handle
               ? {
-                  kind: "move",
+                  kind: "resize",
+                  handle,
                   pointerId: event.pointerId,
                   startX,
                   startY,
                   startCrop: { ...value.crop },
                 }
-              : { kind: "create", pointerId: event.pointerId, startX, startY }
+              : insideCrop
+                ? {
+                    kind: "move",
+                    pointerId: event.pointerId,
+                    startX,
+                    startY,
+                    startCrop: { ...value.crop },
+                  }
+                : { kind: "create", pointerId: event.pointerId, startX, startY }
             event.currentTarget.setPointerCapture(event.pointerId)
           }}
           onPointerMove={(event) => {
@@ -290,15 +333,25 @@ export function ScreenshotEditor({
               0,
               Math.min(1, (event.clientY - rect.top) / rect.height),
             )
-            if (start.kind === "move") {
+            if (start.kind === "move" || start.kind === "resize") {
               history.change(
                 {
                   ...value,
-                  crop: moveScreenshotCrop(
-                    start.startCrop,
-                    x - start.startX,
-                    y - start.startY,
-                  ),
+                  crop:
+                    start.kind === "resize"
+                      ? resizeScreenshotCrop(
+                          start.startCrop,
+                          start.handle,
+                          x - start.startX,
+                          y - start.startY,
+                          dimensions,
+                          ratio,
+                        )
+                      : moveScreenshotCrop(
+                          start.startCrop,
+                          x - start.startX,
+                          y - start.startY,
+                        ),
                 },
                 aspectRatio,
                 true,
@@ -349,7 +402,7 @@ export function ScreenshotEditor({
               className={cn(
                 "absolute shadow-[0_0_0_9999px_#000a]",
                 cropping &&
-                  "border-2 border-accent shadow-[0_0_0_1px_#0008,0_0_18px_var(--accent-glow),0_0_0_9999px_#000a]",
+                  "outline outline-1 -outline-offset-1 outline-white/80",
                 cropping && hasCrop
                   ? "pointer-events-auto cursor-move"
                   : "pointer-events-none",
@@ -365,10 +418,16 @@ export function ScreenshotEditor({
                 <>
                   <div className="absolute inset-x-0 top-1/3 h-1/3 border-y border-white/20" />
                   <div className="absolute inset-y-0 left-1/3 w-1/3 border-x border-white/20" />
-                  <div className="border-accent-foreground absolute -top-0.5 -left-0.5 size-3 border-t-2 border-l-2" />
-                  <div className="border-accent-foreground absolute -top-0.5 -right-0.5 size-3 border-t-2 border-r-2" />
-                  <div className="border-accent-foreground absolute -bottom-0.5 -left-0.5 size-3 border-b-2 border-l-2" />
-                  <div className="border-accent-foreground absolute -right-0.5 -bottom-0.5 size-3 border-r-2 border-b-2" />
+                  {CROP_HANDLE_NAMES.map((handle) => (
+                    <div
+                      key={handle}
+                      data-crop-handle={handle}
+                      className={cn(
+                        "pointer-events-auto absolute z-10 border-white",
+                        CROP_HANDLES[handle],
+                      )}
+                    />
+                  ))}
                   {hasCrop ? (
                     <span className="absolute bottom-2 left-1/2 max-w-[calc(100%-1rem)] -translate-x-1/2 truncate rounded-sm border border-white/10 bg-black/75 px-2 py-1 font-mono text-[10px] leading-none text-white/90 tabular-nums shadow-sm backdrop-blur-sm">
                       {outputWidth} × {outputHeight}
