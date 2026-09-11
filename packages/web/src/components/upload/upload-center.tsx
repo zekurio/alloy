@@ -83,11 +83,7 @@ export function UploadCenter() {
         align="end"
         side="top"
         sideOffset={0}
-        className={cn(
-          "alloy-blur max-h-[calc(100dvh-var(--header-h)-var(--app-content-padding)-var(--app-content-padding))] w-[420px] max-w-[calc(100vw-var(--sidebar-rail)-var(--app-content-padding)-var(--app-content-padding))] gap-0 overflow-hidden border p-0 ring-0",
-          "data-open:animate-[alloy-fab-morph-in_320ms_var(--ease-out)_forwards]",
-          "data-closed:animate-[alloy-fab-morph-out_180ms_var(--ease-out)_forwards]",
-        )}
+        className="alloy-blur max-h-[calc(100dvh-var(--header-h)-var(--app-content-padding)-var(--app-content-padding))] w-[420px] max-w-[calc(100vw-var(--sidebar-rail)-var(--app-content-padding)-var(--app-content-padding))] gap-0 overflow-hidden border p-0 ring-0"
         style={cssVariables({
           transformOrigin: "bottom right",
           "--alloy-blur-opacity": "78%",
