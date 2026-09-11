@@ -18,6 +18,20 @@ const responsiveChipClass = cn(
   "md:[&_svg:not([class*='size-'])]:size-4 md:[&_[data-slot=game-icon]]:size-4",
 )
 
+/** Label text: on mobile only the active chip keeps its visible label. */
+function ChipLabel({
+  active,
+  children,
+}: {
+  active: boolean
+  children: ReactNode
+}) {
+  // sr-only (not hidden) keeps the label in the accessible name.
+  return (
+    <span className={active ? undefined : "max-md:sr-only"}>{children}</span>
+  )
+}
+
 type FilterChipRailProps<K extends string> = {
   options: ReadonlyArray<FilterChipOption<K>>
   activeKey: K
@@ -52,7 +66,7 @@ export function FilterChipRail<K extends string>({
               render={renderOptionLink(option, active)}
             >
               {option.icon}
-              {option.label}
+              <ChipLabel active={active}>{option.label}</ChipLabel>
             </Chip>
           )
         }
@@ -66,7 +80,7 @@ export function FilterChipRail<K extends string>({
             onClick={() => onSelect?.(option.key)}
           >
             {option.icon}
-            {option.label}
+            <ChipLabel active={active}>{option.label}</ChipLabel>
           </Chip>
         )
       })}

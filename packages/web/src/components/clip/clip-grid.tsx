@@ -19,6 +19,10 @@ export function ClipGrid({
       <div
         className={cn(
           "columns-2 gap-2 sm:columns-[260px] [&>*]:mb-2 [&>*]:break-inside-avoid",
+          // WebKit fails to paint multicol content beyond the first column
+          // when the grid sits inside an overflow scroll container; forcing a
+          // compositing layer on the grid works around it.
+          "[transform:translateZ(0)]",
           className,
         )}
         {...props}
