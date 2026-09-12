@@ -23,12 +23,10 @@ import {
   normalizeUsername,
 } from "./username"
 export {
-  countUserPasskeys,
   deleteUserPasskeyPreservingSignIn,
   unlinkOAuthAccountPreservingSignIn,
-  userHasEnabledSignInMethod,
 } from "./identity-sign-in-methods"
-export { lockAdminAccessInvariant, withAdminAccessInvariant }
+export { withAdminAccessInvariant }
 
 export function validateUsername(value: string): string {
   return normalizeUsername(value)

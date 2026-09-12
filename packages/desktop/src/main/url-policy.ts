@@ -1,6 +1,6 @@
 const IPV4_PART = /^\d{1,3}$/
 
-export function isLoopbackHost(hostname: string): boolean {
+function isLoopbackHost(hostname: string): boolean {
   const normalized = hostname.toLowerCase()
   if (
     normalized === "localhost" ||

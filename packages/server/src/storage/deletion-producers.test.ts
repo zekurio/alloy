@@ -32,7 +32,7 @@ test("staged source keys are canonical and unique per upload attempt", () => {
   assert.notEqual(first, second)
 })
 
-test("clip deletion classifies committed and legacy objects by namespace", () => {
+test("clip deletion classifies committed objects by namespace", () => {
   const intents = clipStorageDeletionIntents({
     clipId,
     sourceKey: `11/eb/${clipId}/source-aabbccddeeff`,
@@ -40,7 +40,6 @@ test("clip deletion classifies committed and legacy objects by namespace", () =>
     cutKey: `11/eb/${clipId}/cut-aabbccddeeff.mp4`,
     thumbKey: `11/eb/${clipId}/thumb-aabbccddeeff.jpg`,
     renditionKeys: [`11/eb/${clipId}/rendition-1080p-aabbccddeeff.mp4`],
-    audioTrackKeys: [`11/eb/${clipId}/audio-1-aabbccddeeff.m4a`],
   })
 
   assert.deepEqual(
@@ -71,23 +70,8 @@ test("clip deletion classifies committed and legacy objects by namespace", () =>
         abortUpload: false,
       },
       {
-        namespace: "clips",
-        key: `11/eb/${clipId}/audio-1-aabbccddeeff.m4a`,
-        abortUpload: false,
-      },
-      {
         namespace: "thumbnails",
         key: `11/eb/${clipId}/thumb-aabbccddeeff.jpg`,
-        abortUpload: false,
-      },
-      {
-        namespace: "thumbnails",
-        key: `11/eb/${clipId}/thumb.jpg`,
-        abortUpload: false,
-      },
-      {
-        namespace: "thumbnails",
-        key: `11/eb/${clipId}/thumb-small.jpg`,
         abortUpload: false,
       },
     ],
@@ -131,11 +115,11 @@ test("media replacement classifies namespaces and excludes every retained key", 
       `11/eb/${clipId}/cut-old.mp4`,
       `11/eb/${clipId}/thumb-old.jpg`,
       `11/eb/${clipId}/rendition-1080p-old.mp4`,
-      `11/eb/${clipId}/audio-1-old.m4a`,
+      `11/eb/${clipId}/waveform-old.m4a`,
     ],
     retainedKeys: [
       `11/EB/${clipId}/SOURCE-OLD`,
-      `11/eb/${clipId}/audio-1-old.m4a`,
+      `11/eb/${clipId}/waveform-old.m4a`,
     ],
     reason: "media output replaced",
     source: { type: "media-run", id: runId },

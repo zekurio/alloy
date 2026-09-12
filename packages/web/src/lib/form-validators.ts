@@ -10,15 +10,6 @@ const USERNAME_MAX_LEN = USERNAME_MAX_LENGTH
 const USERNAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}/\\]/u
 const DISPLAY_NAME_DISALLOWED_RE = /[\p{Cc}\p{Cs}]/u
 
-export function validateRequiredString(
-  value: string,
-  label: string,
-): string | undefined {
-  return value.trim().length === 0
-    ? t("{label} is required", { label })
-    : undefined
-}
-
 /** Optional: an empty display name is valid and clears the field. */
 export function validateDisplayName(value: string): string | undefined {
   const trimmed = value.trim()

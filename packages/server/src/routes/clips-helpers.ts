@@ -2,16 +2,11 @@ import {
   ACCEPTED_MEDIA_CONTENT_TYPES,
   SCREENSHOT_MAX_BYTES,
   type MediaFilter,
-  CLIP_AUDIO_TRACK_KINDS,
   CLIP_DESCRIPTION_MAX_LENGTH,
   CLIP_TAG_MAX_LENGTH,
   CLIP_TAGS_MAX,
   CLIP_TITLE_MAX_LENGTH,
 } from "@alloy/contracts"
-import {
-  CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH,
-  CLIP_AUDIO_TRACKS_MAX,
-} from "@alloy/contracts/content"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
 import { clip, CLIP_PRIVACY } from "@alloy/db/schema"
@@ -43,9 +38,7 @@ type ClipListSort = "top" | "recent"
 type ClipListCursorPayload = {
   v: 1
   sort: ClipListSort
-  /** Current key; falls back to the pre-publish-pipeline `createdAt` key. */
-  publishedAt?: string
-  createdAt?: string
+  publishedAt: string
   id: string
   viewCount?: number
   likeCount?: number
@@ -61,8 +54,6 @@ type ParsedClipListCursor = {
 type ClipListCursorRow = {
   id: string
   publishedAt: Date | string | null
-  /** Pre-publish-moment fallback for rows that predate stamping. */
-  createdAt: Date | string
   viewCount: number
   likeCount: number
 }
@@ -110,7 +101,7 @@ export function parseClipListCursor(
   if (!value) return null
   const payload = decodeCursorPayload(value)
   if (!payload) return null
-  const publishedAt = cursorDate(payload.publishedAt ?? payload.createdAt)
+  const publishedAt = cursorDate(payload.publishedAt)
   const id = cursorRequiredString(payload.id)
   if (payload.v !== 1 || payload.sort !== sort || !publishedAt || !id) {
     return null
@@ -127,11 +118,12 @@ export function parseClipListCursor(
 function encodeClipListCursor(
   row: ClipListCursorRow,
   sort: ClipListSort,
-): string {
+): string | null {
+  if (row.publishedAt === null) return null
   const payload: ClipListCursorPayload = {
     v: 1,
     sort,
-    publishedAt: isoDate(row.publishedAt ?? row.createdAt),
+    publishedAt: isoDate(row.publishedAt),
     id: row.id,
     viewCount: sort === "top" ? row.viewCount : undefined,
     likeCount: sort === "top" ? row.likeCount : undefined,
@@ -207,16 +199,6 @@ const TagsInput = t
   .max(CLIP_TAGS_MAX)
   .optional()
 
-const AudioTracksInput = t
-  .array(
-    t.object({
-      kind: t.enum(CLIP_AUDIO_TRACK_KINDS),
-      label: t.string().trim().min(1).max(CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH),
-    }),
-  )
-  .max(CLIP_AUDIO_TRACKS_MAX)
-  .optional()
-
 export const InitiateBody = t
   .object({
     clientClipId: t.uuid().optional(),
@@ -229,7 +211,6 @@ export const InitiateBody = t
     privacy: t.enum(CLIP_PRIVACY).$default("public"),
     mentionedUserIds: t.array(t.uuid()).optional(),
     tags: TagsInput,
-    audioTracks: AudioTracksInput,
     width: t.number().int().positive().max(32_768).optional(),
     height: t.number().int().positive().max(32_768).optional(),
     durationMs: t.number().int().positive().optional(),
@@ -244,13 +225,12 @@ export const InitiateBody = t
         body.sizeBytes > SCREENSHOT_MAX_BYTES ||
         body.durationMs !== undefined ||
         body.trimStartMs !== undefined ||
-        body.trimEndMs !== undefined ||
-        body.audioTracks !== undefined
+        body.trimEndMs !== undefined
       ) {
         ctx.addIssue({
           code: "custom",
           message:
-            "Screenshots must be at most 50 MiB and cannot contain video timeline or audio fields",
+            "Screenshots must be at most 50 MiB and cannot contain video timeline fields",
           path: ["contentType"],
         })
       }

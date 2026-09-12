@@ -80,8 +80,6 @@ export const StorageConfigSchema = t.looseObject({
 
 export type StorageConfig = t.infer<typeof StorageConfigSchema>
 
-export const AdminStorageConfigSchema = StorageConfigSchema
-
 export type AdminStorageConfig = StorageConfig
 
 export const LoginSplashConfigSchema = t.looseObject({
@@ -325,7 +323,7 @@ export const AdminRuntimeConfigSchema = t.looseObject({
   requireAuthToBrowse: t.boolean(),
   oauthProviders: t.array(AdminOAuthProviderSchema),
   limits: AdminLimitsConfigSchema,
-  storage: AdminStorageConfigSchema,
+  storage: StorageConfigSchema,
   appearance: AppearanceConfigSchema,
   transcoding: TranscodingConfigSchema,
   integrations: AdminIntegrationsConfigSchema,

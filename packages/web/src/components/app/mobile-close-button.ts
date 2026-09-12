@@ -1,7 +1,5 @@
 import { cn } from "@alloy/ui/lib/utils"
 
-const mobileCloseIconClassName = "size-5"
-
 const mobileSurfaceCloseButtonClassName = cn(
   "inline-flex size-9 items-center justify-center rounded-md",
   "text-foreground-muted transition-colors hover:text-foreground",
@@ -16,8 +14,4 @@ const mobileOverlayCloseButtonClassName = cn(
   "[&_svg]:pointer-events-none [&_svg]:size-5 [&_svg]:shrink-0",
 )
 
-export {
-  mobileCloseIconClassName,
-  mobileOverlayCloseButtonClassName,
-  mobileSurfaceCloseButtonClassName,
-}
+export { mobileOverlayCloseButtonClassName, mobileSurfaceCloseButtonClassName }

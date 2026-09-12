@@ -269,17 +269,6 @@ function AppHeaderActions({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-function AppHeaderDivider({ className, ...props }: ComponentProps<"span">) {
-  return (
-    <span
-      aria-hidden
-      data-slot="app-header-divider"
-      className={cn("bg-border hidden h-6 w-px shrink-0 md:block", className)}
-      {...props}
-    />
-  )
-}
-
 interface AppHeaderWindowControlsProps extends Omit<
   ComponentProps<"div">,
   "children"
@@ -349,7 +338,6 @@ export {
   AppHeader,
   AppHeaderActions,
   AppHeaderBrand,
-  AppHeaderDivider,
   AppHeaderSearch,
   AppHeaderWindowControls,
 }

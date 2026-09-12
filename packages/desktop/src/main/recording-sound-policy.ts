@@ -18,9 +18,7 @@ let lastReplayBufferStartSoundKey: string | null = null
 let lastClipSavedSoundKey: string | null = null
 let replayBufferStartSoundSuppressionDepth = 0
 
-export function playNotificationSound(
-  sound: RecordingNotificationSoundEvent,
-): void {
+function playNotificationSound(sound: RecordingNotificationSoundEvent): void {
   const sounds = getRecordingSettings().notificationSounds
   void playRecordingNotificationSound(sound, sounds[sound])
 }

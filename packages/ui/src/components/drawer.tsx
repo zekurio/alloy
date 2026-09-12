@@ -162,17 +162,6 @@ function DrawerContent({
   )
 }
 
-function DrawerHeader({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <DrawerSlot
-      slot="drawer-header"
-      baseClassName="grid gap-1.5 p-4 text-center sm:text-left"
-      className={className}
-      {...props}
-    />
-  )
-}
-
 function DrawerFooter({ className, ...props }: ComponentProps<"div">) {
   return (
     <DrawerSlot
@@ -211,10 +200,6 @@ export {
   DrawerDescription,
   DrawerFooter,
   DrawerHandle,
-  DrawerHeader,
-  DrawerOverlay,
-  DrawerPortal,
   DrawerTitle,
   DrawerTrigger,
-  DrawerViewport,
 }

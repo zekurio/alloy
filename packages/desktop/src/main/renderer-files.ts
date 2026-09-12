@@ -6,7 +6,7 @@ import { join } from "node:path"
  * Main-process modules may be emitted into `out/main/chunks`, so a path based
  * on `import.meta.dirname` changes when Rollup moves a module between chunks.
  */
-export function rendererRoot(appPath: string): string {
+function rendererRoot(appPath: string): string {
   return join(appPath, "out", "renderer")
 }
 

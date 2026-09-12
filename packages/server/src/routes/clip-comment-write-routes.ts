@@ -9,6 +9,7 @@ import {
   resolveClipAccess,
 } from "@alloy/server/clips/access"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { createNotification } from "@alloy/server/notifications/service"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import {
@@ -26,6 +27,23 @@ import { serialiseUserSummary, userSummarySelection } from "./users-helpers"
 import { tbValidator } from "./validation"
 
 const logger = createLogger("clip-comments")
+
+type EngagementViewer = Parameters<typeof clipAccessCondition>[0]
+
+async function lockEngagementClip(
+  tx: DbTransaction,
+  clipId: string,
+  viewer: EngagementViewer,
+): Promise<boolean> {
+  const [allowedClip] = await tx
+    .select({ id: clip.id })
+    .from(clip)
+    .innerJoin(user, eq(clip.author_id, user.id))
+    .where(and(eq(clip.id, clipId), clipAccessCondition(viewer, "engagement")))
+    .limit(1)
+    .for("update", { of: clip })
+  return Boolean(allowedClip)
+}
 
 export const clipCommentWriteRoutes = new Hono()
   .post(
@@ -64,26 +82,14 @@ export const clipCommentWriteRoutes = new Hono()
       const resolvedParentId = parent?.id ?? null
 
       const insertResult = await db.transaction(async (tx) => {
-        const [allowedClip] = await tx
-          .select({ id: clip.id })
-          .from(clip)
-          .innerJoin(user, eq(clip.author_id, user.id))
-          .where(
-            and(
-              eq(clip.id, id),
-              clipAccessCondition(
-                {
-                  id: viewerId,
-                  role: c.var.session.user.role,
-                  status: c.var.session.user.status,
-                },
-                "engagement",
-              ),
-            ),
-          )
-          .limit(1)
-          .for("update", { of: clip })
-        if (!allowedClip) return null
+        if (
+          !(await lockEngagementClip(tx, id, {
+            id: viewerId,
+            role: c.var.session.user.role,
+            status: c.var.session.user.status,
+          }))
+        )
+          return null
 
         const rows = await tx
           .insert(clipComment)
@@ -241,26 +247,14 @@ export const clipCommentWriteRoutes = new Hono()
       )
 
       const updateResult = await db.transaction(async (tx) => {
-        const [allowedClip] = await tx
-          .select({ id: clip.id })
-          .from(clip)
-          .innerJoin(user, eq(clip.author_id, user.id))
-          .where(
-            and(
-              eq(clip.id, existing.clipId),
-              clipAccessCondition(
-                {
-                  id: viewerId,
-                  role: c.var.session.user.role,
-                  status: c.var.session.user.status,
-                },
-                "engagement",
-              ),
-            ),
-          )
-          .limit(1)
-          .for("update", { of: clip })
-        if (!allowedClip) return null
+        if (
+          !(await lockEngagementClip(tx, existing.clipId, {
+            id: viewerId,
+            role: c.var.session.user.role,
+            status: c.var.session.user.status,
+          }))
+        )
+          return null
 
         const rows = await tx
           .update(clipComment)

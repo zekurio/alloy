@@ -23,7 +23,7 @@ export function clipAccentColor(gameName: string | null): string {
  * formatCount is locale-aware via the i18n runtime, which has no meaning in
  * someone else's Discord client.
  */
-export function formatStatCount(value: number): string {
+function formatStatCount(value: number): string {
   const count = Math.trunc(Math.abs(value))
   if (count < 1_000) return String(count)
 

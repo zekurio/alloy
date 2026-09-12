@@ -7,4 +7,4 @@ export const authClient = createAuth({
   redirect: (url) => window.location.assign(url),
 })
 
-export const { useSession, signIn, signUp, signOut, getSession } = authClient
+export const { useSession, signOut } = authClient

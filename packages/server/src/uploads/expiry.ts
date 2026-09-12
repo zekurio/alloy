@@ -17,14 +17,14 @@ const RECONCILIATION_INTERVAL_MS = 10 * 60 * 1000
 const ERROR_RETRY_MS = 5_000
 const CANDIDATE_RETRY_MS = 5_000
 
-export type UploadExpiryCandidateKind = "clip" | "ticket"
+type UploadExpiryCandidateKind = "clip" | "ticket"
 
 export interface UploadExpiryCandidate {
   kind: UploadExpiryCandidateKind
   id: string
   targetId: string
   deadline: Date
-  /** Database time captured by the due scan, used by destructive CAS checks. */
+  /** Destructive CAS checks must use the due scan's database time. */
   scanCutoff: Date
 }
 
@@ -38,7 +38,7 @@ export interface UploadExpiryExclusions {
  * upload_ticket timestamps predate the timestamptz convention, so both its
  * comparison and returned deadline explicitly interpret the value as UTC.
  */
-export const UPLOAD_EXPIRY_DUE_SQL = `
+const UPLOAD_EXPIRY_DUE_SQL = `
   with clock as materialized (
     select now() as cutoff
   ), candidates as (
@@ -93,7 +93,7 @@ export const UPLOAD_EXPIRY_DUE_SQL = `
 `
 
 /** Return the exact global deadline while skipping locally cooled identities. */
-export const UPLOAD_EXPIRY_NEXT_SQL = `
+const UPLOAD_EXPIRY_NEXT_SQL = `
   with candidates as (
     (
       select
@@ -357,7 +357,7 @@ export function startUploadExpiryWorker(): void {
   coordinator.start()
 }
 
-export function wakeUploadExpiryWorker(): void {
+function wakeUploadExpiryWorker(): void {
   coordinator.wake()
 }
 

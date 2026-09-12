@@ -20,7 +20,6 @@ boundaries, especially desktop-to-server HTTP and desktop-to-recorder IPC.
 | `packages/contracts`                                | Shared schemas, types, and desktop contracts            |
 | `packages/api`                                      | Typed API client                                        |
 | `packages/db`                                       | Drizzle schema and database workflows                   |
-| `packages/media`                                    | Shared media code                                       |
 | `packages/ui`                                       | Shared React components and styles                      |
 | `packages/env`, `packages/i18n`, `packages/logging` | Shared infrastructure                                   |
 

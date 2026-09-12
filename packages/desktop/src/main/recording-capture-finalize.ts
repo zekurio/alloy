@@ -1,6 +1,6 @@
 import { copyFileSync, renameSync, rmSync, statSync } from "node:fs"
 
-import type { RecordingCapture } from "@alloy/contracts"
+import type { RecordingCapture, RecordingStatus } from "@alloy/contracts"
 import { createLogger } from "@alloy/logging"
 
 const logger = createLogger("recording")
@@ -114,5 +114,18 @@ function removeFile(path: string): void {
     rmSync(path, { force: true })
   } catch {
     // Best effort cleanup; stale .tmp files are ignored by the library scan.
+  }
+}
+
+export function statusWithCapture(
+  status: RecordingStatus,
+  capture: RecordingCapture,
+): RecordingStatus {
+  return {
+    ...status,
+    currentCapture:
+      status.currentCapture?.filename === capture.filename
+        ? capture
+        : status.currentCapture,
   }
 }

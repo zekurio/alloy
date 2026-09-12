@@ -190,42 +190,19 @@ export function TranscodingSettingsContent({
             }
           >
             <SettingRows>
-              <SettingRow
+              <TranscodingChoiceSetting
                 title={t("Video codec")}
                 description={t(
                   "Default codec for every rendition. Individual tiers in the ladder can override it.",
                 )}
-                htmlFor="transcoding-codec"
-                align="start"
-              >
-                <Select
-                  value={form.videoCodec}
-                  onValueChange={(value) => {
-                    const codec = TRANSCODE_VIDEO_CODECS.find(
-                      (option) => option === value,
-                    )
-                    if (codec)
-                      setForm((prev) => ({ ...prev, videoCodec: codec }))
-                  }}
-                >
-                  <SelectTrigger
-                    id="transcoding-codec"
-                    size="sm"
-                    className="w-48"
-                  >
-                    <SelectValue>
-                      {VIDEO_CODEC_LABELS[form.videoCodec]}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent align="end">
-                    {TRANSCODE_VIDEO_CODECS.map((codec) => (
-                      <SelectItem key={codec} value={codec}>
-                        {VIDEO_CODEC_LABELS[codec]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </SettingRow>
+                id="transcoding-codec"
+                value={form.videoCodec}
+                options={TRANSCODE_VIDEO_CODECS}
+                getOptionLabel={(codec) => VIDEO_CODEC_LABELS[codec]}
+                onChange={(videoCodec) =>
+                  setForm((prev) => ({ ...prev, videoCodec }))
+                }
+              />
 
               <SettingRow
                 title={t("Hardware acceleration")}
@@ -323,43 +300,19 @@ export function TranscodingSettingsContent({
 
           <SettingsSubsection id="audio" title={t("Audio")}>
             <SettingRows>
-              <SettingRow
+              <TranscodingChoiceSetting
                 title={t("Audio bitrate")}
                 description={t(
                   "Stereo AAC bitrate applied to every rendition.",
                 )}
-                htmlFor="transcoding-audio"
-                align="start"
-              >
-                <Select
-                  value={String(form.audioBitrateKbps)}
-                  onValueChange={(value) => {
-                    const kbps = AUDIO_BITRATES.find(
-                      (option) => String(option) === value,
-                    )
-                    if (kbps) {
-                      setForm((prev) => ({ ...prev, audioBitrateKbps: kbps }))
-                    }
-                  }}
-                >
-                  <SelectTrigger
-                    id="transcoding-audio"
-                    size="sm"
-                    className="w-48"
-                  >
-                    <SelectValue>
-                      {t("{kbps} kbps", { kbps: form.audioBitrateKbps })}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent align="end">
-                    {AUDIO_BITRATES.map((kbps) => (
-                      <SelectItem key={kbps} value={String(kbps)}>
-                        {t("{kbps} kbps", { kbps })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </SettingRow>
+                id="transcoding-audio"
+                value={form.audioBitrateKbps}
+                options={AUDIO_BITRATES}
+                getOptionLabel={(kbps) => t("{kbps} kbps", { kbps })}
+                onChange={(audioBitrateKbps) =>
+                  setForm((prev) => ({ ...prev, audioBitrateKbps }))
+                }
+              />
             </SettingRows>
           </SettingsSubsection>
 
@@ -417,6 +370,52 @@ export function TranscodingSettingsContent({
         </SectionFooter>
       )}
     </Section>
+  )
+}
+
+function TranscodingChoiceSetting<T extends string | number>({
+  title,
+  description,
+  id,
+  value,
+  options,
+  getOptionLabel,
+  onChange,
+}: {
+  title: string
+  description: string
+  id: string
+  value: T
+  options: readonly T[]
+  getOptionLabel: (option: T) => string
+  onChange: (value: T) => void
+}) {
+  return (
+    <SettingRow
+      title={title}
+      description={description}
+      htmlFor={id}
+      align="start"
+    >
+      <Select
+        value={String(value)}
+        onValueChange={(next) => {
+          const option = options.find((candidate) => String(candidate) === next)
+          if (option !== undefined) onChange(option)
+        }}
+      >
+        <SelectTrigger id={id} size="sm" className="w-48">
+          <SelectValue>{getOptionLabel(value)}</SelectValue>
+        </SelectTrigger>
+        <SelectContent align="end">
+          {options.map((option) => (
+            <SelectItem key={String(option)} value={String(option)}>
+              {getOptionLabel(option)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </SettingRow>
   )
 }
 

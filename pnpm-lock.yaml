@@ -117,9 +117,6 @@ importers:
       '@alloy/logging':
         specifier: workspace:*
         version: link:../logging
-      '@alloy/media':
-        specifier: workspace:*
-        version: link:../media
       '@alloy/ui':
         specifier: workspace:*
         version: link:../ui
@@ -183,12 +180,6 @@ importers:
 
   packages/logging: {}
 
-  packages/media:
-    dependencies:
-      mediabunny:
-        specifier: 1.55.7
-        version: 1.55.7
-
   packages/recorder: {}
 
   packages/server:
@@ -236,9 +227,6 @@ importers:
       tsx:
         specifier: 4.23.13
         version: 4.23.13
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@0.3.0
-        version: '@voidzero-dev/vite-plus-core@0.3.0(@types/node@26.4.1)(esbuild@0.28.1)(jiti@2.7.0)(tsx@4.23.13)(typescript@7.0.2)'
 
   packages/ui:
     dependencies:
@@ -4807,7 +4795,7 @@ snapshots:
 
   '@peculiar/webcrypto@1.7.1':
     dependencies:
-      '@peculiar/asn1-schema': 2.8.0
+      '@peculiar/asn1-schema': 2.9.4
       '@peculiar/json-schema': 1.1.12
       '@peculiar/utils': 2.0.3
       tslib: 2.8.1
@@ -7115,7 +7103,7 @@ snapshots:
 
   webcrypto-core@1.9.2:
     dependencies:
-      '@peculiar/asn1-schema': 2.8.0
+      '@peculiar/asn1-schema': 2.9.4
       '@peculiar/json-schema': 1.1.12
       '@peculiar/utils': 2.0.3
       asn1js: 3.0.10

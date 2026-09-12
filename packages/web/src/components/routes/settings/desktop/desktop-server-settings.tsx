@@ -32,49 +32,22 @@ type Phase = "idle" | "loading" | "connecting"
 export function DesktopServerSettings() {
   const desktop = alloyDesktop()
   const serverApi = desktop?.servers
-  const [servers, setServers] = useState<DesktopSavedServer[]>([])
   const [url, setUrl] = useState("")
   const [phase, setPhase] = useState<Phase>("loading")
   const [connectingServerUrl, setConnectingServerUrl] = useState<string | null>(
     null,
   )
-  const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [serverToConnect, setServerToConnect] = useState<string | null>(null)
   const [serverToForget, setServerToForget] = useState<string | null>(null)
   const [forgetting, setForgetting] = useState(false)
   const [forgetError, setForgetError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      if (!serverApi) return
-      setError(null)
-      setPhase("loading")
-      try {
-        const [savedServers, currentServer] = await Promise.all([
-          serverApi.getServers(),
-          serverApi.getCurrentServer(),
-        ])
-        if (cancelled) return
-        setServers(savedServers)
-        setCurrentServerUrl(currentServer)
-      } catch (cause) {
-        if (!cancelled) {
-          setError(errorText(cause, t("Couldn't load servers.")))
-        }
-      } finally {
-        if (!cancelled) setPhase("idle")
-      }
-    }
-
-    void load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [serverApi])
+  const { servers, setServers, currentServerUrl } = useSavedServers(
+    serverApi,
+    setError,
+    setPhase,
+  )
 
   if (!serverApi) return null
   const activeServerApi = serverApi
@@ -237,6 +210,49 @@ export function DesktopAppPanel() {
       </SettingsSubsection>
     </SettingsSections>
   )
+}
+
+function useSavedServers(
+  serverApi:
+    | NonNullable<ReturnType<typeof alloyDesktop>>["servers"]
+    | undefined,
+  setError: (value: string | null) => void,
+  setPhase: (value: Phase) => void,
+) {
+  const [servers, setServers] = useState<DesktopSavedServer[]>([])
+  const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+
+    async function load() {
+      if (!serverApi) return
+      setError(null)
+      setPhase("loading")
+      try {
+        const [savedServers, currentServer] = await Promise.all([
+          serverApi.getServers(),
+          serverApi.getCurrentServer(),
+        ])
+        if (cancelled) return
+        setServers(savedServers)
+        setCurrentServerUrl(currentServer)
+      } catch (cause) {
+        if (!cancelled) {
+          setError(errorText(cause, t("Couldn't load servers.")))
+        }
+      } finally {
+        if (!cancelled) setPhase("idle")
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
+  }, [serverApi, setError, setPhase])
+
+  return { servers, setServers, currentServerUrl }
 }
 
 function ServerConnectForm({

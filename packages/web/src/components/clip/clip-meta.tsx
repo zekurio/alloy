@@ -567,10 +567,6 @@ function ClipTitleWithVisibility({
   )
 }
 
-function ClipUnlistedBadge({ className }: { className?: string }) {
-  return <ClipVisibilityBadge privacy="unlisted" className={className} />
-}
-
 function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   const display = PRIVACY_BY_VALUE[privacy]
   const Icon = display.icon
@@ -583,9 +579,4 @@ function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
   )
 }
 
-export {
-  ClipMeta,
-  ClipTitleWithVisibility,
-  ClipUnlistedBadge,
-  ClipVisibilityBadge,
-}
+export { ClipMeta, ClipTitleWithVisibility, ClipVisibilityBadge }

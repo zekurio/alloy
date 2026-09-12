@@ -43,7 +43,7 @@ export function publicAuthUserRow(row: User): AuthUser {
   }
 }
 
-export function publicAuthSessionRow(row: AuthSession) {
+function publicAuthSessionRow(row: AuthSession) {
   return {
     id: row.id,
     userId: row.user_id,

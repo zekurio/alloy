@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto"
 
 import { t } from "@alloy/contracts/schema"
-import { authChallenge, user } from "@alloy/db/auth-schema"
+import { user } from "@alloy/db/auth-schema"
 import {
   clip,
   clipComment,
@@ -22,7 +22,7 @@ import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteOwnedUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
-import { and, eq, inArray, or, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 
 import { accountDeletionState } from "./account-deletion-state"
 import { userAssetDeletionIntents } from "./user-asset-deletion"
@@ -236,22 +236,6 @@ async function finalizeAccountDeletion(
         ),
       )
   }
-
-  // The FK owns new challenge rows. These predicates retire legacy rows made
-  // before user_id existed while avoiding discoverable/sign-up challenges.
-  await tx.delete(authChallenge).where(
-    or(
-      eq(authChallenge.user_id, userId),
-      sql`lower(coalesce(${authChallenge.payload}->>'userId', '')) = lower(${userId})`,
-      and(
-        eq(authChallenge.purpose, "passkey-registration"),
-        sql`lower(${authChallenge.identifier}) = lower(${userId})`,
-        // A sign-up challenge uses username as its identifier. Existing-user
-        // registration never carries the username payload field.
-        sql`not (${authChallenge.payload} ? 'username')`,
-      ),
-    ),
-  )
 
   const [deletedUser] = await tx
     .delete(user)

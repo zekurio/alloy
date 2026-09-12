@@ -1,3 +1,4 @@
+import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { useLayoutEffect, useEffect, useRef, useState } from "react"
 
@@ -119,4 +120,14 @@ export function WaveformCanvas({
 function clampMs(value: number, durationMs: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.min(durationMs, Math.max(0, value))
+}
+
+export function WaveformStatus({ status }: { status: MediaWaveformStatus }) {
+  if (status === "ready") return null
+  const label = status === "loading" ? t("Loading…") : t("Unavailable")
+  return (
+    <span className="text-foreground-faint pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-medium tracking-wide uppercase">
+      {label}
+    </span>
+  )
 }

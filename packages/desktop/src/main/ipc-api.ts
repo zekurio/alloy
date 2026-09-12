@@ -32,7 +32,7 @@ export type DesktopApiInvokePath = InvokePathsOf<typeof DESKTOP_API_OPERATIONS>
  * uniformly by `registerDesktopApi` before `handle` runs; `handle` validates its
  * raw renderer input and does the work.
  */
-export interface DesktopApiHandler {
+interface DesktopApiHandler {
   guard(windows: Windows, event: IpcMainInvokeEvent): void
   handle(
     windows: Windows,

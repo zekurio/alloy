@@ -1,13 +1,5 @@
 import { runFfprobe, type FfprobeStream } from "./ffprobe"
 
-export interface MediaAudioProbe {
-  /** Absolute container stream index, matching ffmpeg's `0:<index>` map. */
-  index: number
-  codec: string
-  /** RFC 6381 codec parameter string, when derivable. */
-  codecString: string | null
-}
-
 export interface MediaProbe {
   durationMs: number
   width: number
@@ -23,8 +15,6 @@ export interface MediaProbe {
    */
   videoCodecString: string | null
   audioCodecString: string | null
-  /** Every audio stream in container order; index 0 is the full mix. */
-  audioTracks: MediaAudioProbe[]
 }
 
 /**
@@ -41,11 +31,10 @@ export async function probeMedia(
     (stream) => stream.codec_type === "video" && stream.codec_name,
   )
   if (!video) throw new Error("No video track found")
-  const audioStreams = probed.streams.filter(
+  const audio = probed.streams.find(
     (stream) =>
       stream.codec_type === "audio" && stream.codec_name && stream.index >= 0,
   )
-  const audio = audioStreams[0]
 
   const durationSec = Number.parseFloat(probed.format.duration ?? "")
   if (!Number.isFinite(durationSec) || durationSec <= 0) {
@@ -64,11 +53,6 @@ export async function probeMedia(
     fps: parseFrameRate(video.avg_frame_rate),
     videoCodecString: buildVideoCodecString(video),
     audioCodecString: audio ? buildAudioCodecString(audio) : null,
-    audioTracks: audioStreams.map((stream) => ({
-      index: stream.index,
-      codec: stream.codec_name,
-      codecString: buildAudioCodecString(stream),
-    })),
   }
 }
 
@@ -115,7 +99,7 @@ export function sourceCodecsString(
  * RFC 6381 video codec string from ffprobe stream fields. Exported for unit
  * tests; callers go through {@link probeMedia}.
  */
-export function buildVideoCodecString(
+function buildVideoCodecString(
   stream: Pick<
     FfprobeStream,
     "codec_name" | "codec_tag_string" | "profile" | "level" | "pix_fmt"
@@ -154,7 +138,7 @@ const AUDIO_CODEC_NAME_TO_RFC6381 = new Map<string, string>([
  * H.264+AC-3 source look fully playable and play silently. Exported for
  * unit tests.
  */
-export function buildAudioCodecString(
+function buildAudioCodecString(
   stream: Pick<FfprobeStream, "codec_name" | "profile">,
 ): string | null {
   if (stream.codec_name === "aac") {

@@ -17,16 +17,13 @@ export interface DesktopState {
   version: 2
   servers: DesktopSavedServer[]
   recording: RecordingSettings
-  /** Stable identity for this install, registered with the server for sync. */
-  deviceId: string | null
 }
 
-export const MAX_SAVED_SERVERS = 8
+const MAX_SAVED_SERVERS = 8
 export const EMPTY_STATE: DesktopState = {
   version: 2,
   servers: [],
   recording: DEFAULT_RECORDING_SETTINGS,
-  deviceId: null,
 }
 
 export function normalizeState(parsed: UntrustedRecord): DesktopState {
@@ -41,7 +38,6 @@ export function normalizeState(parsed: UntrustedRecord): DesktopState {
     version: 2,
     servers: dedupeServers(servers).slice(0, MAX_SAVED_SERVERS),
     recording: normalizeRecordingSettings(parsed.recording),
-    deviceId: parseString(parsed.deviceId),
   }
 }
 

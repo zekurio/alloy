@@ -17,7 +17,7 @@ interface FilesystemInfo {
 }
 
 /** Default capture folder when the user hasn't picked one. */
-export function defaultOutputFolder(): string {
+function defaultOutputFolder(): string {
   return join(app.getPath("videos"), "Alloy")
 }
 

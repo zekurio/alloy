@@ -41,7 +41,7 @@ export interface FfprobeOutput {
   format: { duration?: string; start_time?: string }
 }
 
-export class FfprobeError extends Error {
+class FfprobeError extends Error {
   constructor(
     message: string,
     readonly exitCode: number | null,

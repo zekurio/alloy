@@ -114,33 +114,11 @@ export function MobileClipEditor({
     <section className="flex w-full flex-col gap-4">
       <MediaStage aspectRatio={media.aspectRatio} maxHeight="56dvh">
         {media.playbackSrc ? (
-          <VideoPlayer
-            src={media.playbackSrc}
-            playbackRange={media.playbackRange}
-            durationHint={media.durationHint}
-            sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
-            poster={media.poster}
-            posterBlurHash={media.posterBlurHash}
-            fallbackSeed={media.fallbackSeed}
-            aspectRatio={media.aspectRatio}
-            maxDisplayHeight="100%"
-            chromeSize="compact"
-            initialTime={playback.getCurrentMs() / 1000}
-            playerRef={playback.playerRef}
-            onTimeUpdate={(seconds) => {
-              playback.handleTimeUpdate()
-              // The chrome scrubber moves the player directly, so publish its
-              // position too — the trim view opens on the frame shown here.
-              playback.setCurrentMs(seconds * 1000)
-            }}
-            onPlayingChange={playback.setPlaying}
-            onFrameReady={() => {
-              media.setCloudFrameReady(true)
-              // Switching views mounts a fresh element at zero; catch it up to
-              // the playhead the trim view (or a cancel) left off at.
-              playback.seek(playback.getCurrentMs())
-            }}
-            onEnded={playback.handleEnded}
+          <MobileClipVideo
+            row={row}
+            media={media}
+            playback={playback}
+            variant="preview"
           />
         ) : (
           <ClipEditorPreviewPlaceholder media={media} />
@@ -226,29 +204,11 @@ function MobileTrimView({
 
       <div className="flex min-h-0 flex-1 items-center justify-center">
         {media.playbackSrc ? (
-          <VideoPlayer
-            src={media.playbackSrc}
-            playbackRange={media.playbackRange}
-            durationHint={media.durationHint}
-            sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
-            poster={media.poster}
-            posterBlurHash={media.posterBlurHash}
-            fallbackSeed={media.fallbackSeed}
-            aspectRatio={media.aspectRatio}
-            maxDisplayHeight="52dvh"
-            controls={false}
-            initialTime={playback.getCurrentMs() / 1000}
-            onVideoClick={() => playback.togglePlayback()}
-            playerRef={playback.playerRef}
-            onTimeUpdate={playback.handleTimeUpdate}
-            onPlayingChange={playback.setPlaying}
-            onFrameReady={() => {
-              media.setCloudFrameReady(true)
-              // Switching views mounts a fresh element at zero; catch it up to
-              // the playhead the details view left off at.
-              playback.seek(playback.getCurrentMs())
-            }}
-            onEnded={playback.handleEnded}
+          <MobileClipVideo
+            row={row}
+            media={media}
+            playback={playback}
+            variant="trim"
           />
         ) : (
           <MediaStage aspectRatio={media.aspectRatio} maxHeight="52dvh">
@@ -353,5 +313,52 @@ function MobileTrimView({
         {t("Save trim")}
       </FeedbackButton>
     </section>
+  )
+}
+
+function MobileClipVideo({
+  row,
+  media,
+  playback,
+  variant,
+}: {
+  row: ClipRow
+  media: ClipEditorMediaState
+  playback: ClipEditorPlaybackState
+  variant: "preview" | "trim"
+}) {
+  if (!media.playbackSrc) return null
+  const isTrim = variant === "trim"
+  const onTimeUpdate = isTrim
+    ? playback.handleTimeUpdate
+    : (seconds: number) => {
+        playback.handleTimeUpdate()
+        playback.setCurrentMs(seconds * 1000)
+      }
+
+  return (
+    <VideoPlayer
+      src={media.playbackSrc}
+      playbackRange={media.playbackRange}
+      durationHint={media.durationHint}
+      sourceIdentity={`${row.id}:${media.mediaVersion}:${media.playbackSrc}`}
+      poster={media.poster}
+      posterBlurHash={media.posterBlurHash}
+      fallbackSeed={media.fallbackSeed}
+      aspectRatio={media.aspectRatio}
+      maxDisplayHeight={isTrim ? "52dvh" : "100%"}
+      controls={!isTrim}
+      chromeSize={isTrim ? undefined : "compact"}
+      initialTime={playback.getCurrentMs() / 1000}
+      onVideoClick={isTrim ? () => playback.togglePlayback() : undefined}
+      playerRef={playback.playerRef}
+      onTimeUpdate={onTimeUpdate}
+      onPlayingChange={playback.setPlaying}
+      onFrameReady={() => {
+        media.setCloudFrameReady(true)
+        playback.seek(playback.getCurrentMs())
+      }}
+      onEnded={playback.handleEnded}
+    />
   )
 }

@@ -1,4 +1,4 @@
-import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
+import { clip, clipRendition } from "@alloy/db/schema"
 import {
   publishClipProgress,
   publishClipUpsert,
@@ -8,18 +8,18 @@ import { db } from "@alloy/server/db/index"
 import { mediaAssetDeletionIntents } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
-import {
-  selectLockedQuotaState,
-  uploadWouldExceedQuota,
-} from "@alloy/server/storage/quota"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
-import {
-  claimClipPublishedDeliveries,
-  wakeClaimedClipPublishedDeliveries,
-} from "@alloy/server/webhooks/publish"
 import { and, eq, lt, sql } from "drizzle-orm"
 
+import {
+  clearedStageColumns,
+  completeRequestColumns,
+  publishedAtStamp,
+  sourcePatchToColumns,
+  thumbPatchToColumns,
+} from "./clip-media-store-columns"
+import { commitClipMediaReady } from "./clip-media-store-ready"
 import type {
   MediaCompletion,
   MediaSourcePatch,
@@ -30,63 +30,6 @@ import type {
 // Ready rows stay ready across a reprocess run so `stream` access (which is
 // gated on status = 'ready') keeps serving the committed assets meanwhile.
 const keepReadyStatus = sql`case when ${clip.status} = 'ready' then 'ready' else 'processing' end`
-
-export const clearedStageColumns = {
-  encode_stage: null,
-  encode_tier: null,
-  encode_tier_index: null,
-  encode_tier_count: null,
-}
-
-// Write-once publish stamp: only public rows get one, and the first transition
-// to (ready + public) wins so a privacy round-trip can't bump feed position.
-const publishedAtStamp = sql`coalesce(${clip.published_at}, case when ${clip.privacy} = 'public' then now() end)`
-
-function sourcePatchToColumns(patch: MediaSourcePatch) {
-  return {
-    source_key: patch.sourceKey,
-    source_content_type: patch.sourceContentType,
-    source_video_codec: patch.sourceVideoCodec,
-    source_audio_codec: patch.sourceAudioCodec,
-    source_codecs: patch.sourceCodecs,
-    source_fps: patch.sourceFps,
-    source_size_bytes: patch.sourceSizeBytes,
-    source_duration_ms: patch.sourceDurationMs,
-    waveform_key: patch.waveformKey,
-    pending_audio_tracks: patch.pendingAudioTracks,
-    audio_track_fingerprint: patch.audioTrackFingerprint,
-    cut_key: patch.cutKey,
-    cut_codecs: patch.cutCodecs,
-    duration_ms: patch.durationMs,
-    width: patch.width,
-    height: patch.height,
-    thumb_failed_at: null,
-  }
-}
-
-function thumbPatchToColumns(patch: MediaThumbPatch) {
-  const columns = {
-    thumb_key: patch.thumbKey,
-    thumb_blur_hash: patch.thumbBlurHash,
-  }
-  if (patch.thumbFailedAt === undefined && patch.thumbKey) {
-    return { ...columns, thumb_failed_at: null }
-  }
-  if (patch.thumbFailedAt === undefined) return columns
-  return { ...columns, thumb_failed_at: patch.thumbFailedAt }
-}
-
-export function completeRequestColumns(completion: MediaCompletion) {
-  const ownsRequest = sql`${clip.encode_request_id} = ${completion.requestId}`
-  return {
-    encode_request_id: sql`case when ${ownsRequest} then null else ${clip.encode_request_id} end`,
-    encode_request_force: sql`case when ${ownsRequest} then false else ${clip.encode_request_force} end`,
-    encode_requested_at: sql`case when ${ownsRequest} then null else ${clip.encode_requested_at} end`,
-    encode_run_after: sql`case when ${ownsRequest} then null else ${clip.encode_run_after} end`,
-    encode_priority: sql`case when ${ownsRequest} then 90 else ${clip.encode_priority} end`,
-    encode_claimed_request_id: null,
-  }
-}
 
 function finishedAssetLeaseColumns(
   completion: MediaCompletion,
@@ -314,154 +257,8 @@ export const clipMediaStore: MediaStore = {
     return Boolean(row)
   },
 
-  async commitReady(id, runId, patch, renditions, audioTracks, completion) {
-    const result = await withUploadActivityStopped(id, () =>
-      db.transaction(async (tx) => {
-        const [owner] = patch.sourceContentType.startsWith("image/")
-          ? await tx
-              .select({ id: clip.author_id })
-              .from(clip)
-              .where(eq(clip.id, id))
-              .limit(1)
-          : []
-        const quota = owner ? await selectLockedQuotaState(tx, owner.id) : null
-        const [current] = await tx
-          .select({
-            sourceKey: clip.source_key,
-            sourceSizeBytes: clip.source_size_bytes,
-            waveformKey: clip.waveform_key,
-            cutKey: clip.cut_key,
-            thumbKey: clip.thumb_key,
-          })
-          .from(clip)
-          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-          .limit(1)
-          .for("update")
-        if (!current) {
-          return {
-            committed: false,
-            webhookClaims: 0,
-            queuedDeletions: 0,
-          }
-        }
-
-        if (
-          quota?.quotaBytes != null &&
-          uploadWouldExceedQuota({
-            ...quota,
-            quotaBytes: quota.quotaBytes,
-            reservedBytes: current.sourceSizeBytes ?? 0,
-            incomingBytes: patch.sourceSizeBytes,
-          })
-        )
-          throw new Error("Processed screenshot exceeds storage quota")
-
-        const previousRenditions = await tx
-          .select({ storageKey: clipRendition.storage_key })
-          .from(clipRendition)
-          .where(eq(clipRendition.clip_id, id))
-        const previousAudioTracks = await tx
-          .select({ storageKey: clipAudioTrack.storage_key })
-          .from(clipAudioTrack)
-          .where(eq(clipAudioTrack.clip_id, id))
-
-        const [updated] = await tx
-          .update(clip)
-          .set({
-            ...sourcePatchToColumns(patch),
-            ...thumbPatchToColumns(patch),
-            ...clearedStageColumns,
-            status: "ready",
-            published_at: publishedAtStamp,
-            encode_fingerprint: patch.encodeFingerprint,
-            encode_failed_fingerprint: null,
-            encode_generation: completion.targetGeneration,
-            encode_failed_generation: null,
-            encode_progress: 100,
-            ...completeRequestColumns(completion),
-            encode_run_id: null,
-            encode_locked_at: null,
-            failure_reason: null,
-            updated_at: new Date(),
-          })
-          .where(and(eq(clip.id, id), eq(clip.encode_run_id, runId)))
-          .returning({ id: clip.id })
-        if (!updated) {
-          return {
-            committed: false,
-            webhookClaims: 0,
-            queuedDeletions: 0,
-          }
-        }
-
-        const mediaIntents = mediaAssetDeletionIntents({
-          keys: [
-            current.sourceKey,
-            current.waveformKey,
-            current.cutKey,
-            current.thumbKey,
-            ...previousRenditions.map((row) => row.storageKey),
-            ...previousAudioTracks.map((row) => row.storageKey),
-          ],
-          retainedKeys: [
-            patch.sourceKey,
-            patch.waveformKey,
-            patch.cutKey,
-            patch.thumbKey,
-            ...renditions.map((row) => row.storageKey),
-            ...audioTracks.map((row) => row.storageKey),
-          ],
-          reason: "media output replaced",
-          source: { type: "media-run", id: runId },
-        })
-        await enqueueStorageDeletions(mediaIntents, { tx })
-
-        await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
-        await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
-        if (renditions.length > 0) {
-          await tx.insert(clipRendition).values(
-            renditions.map((rendition) => ({
-              clip_id: id,
-              name: rendition.name,
-              is_og: rendition.isOg,
-              height: rendition.height,
-              width: rendition.width,
-              fps: rendition.fps,
-              storage_key: rendition.storageKey,
-              codecs: rendition.codecs,
-              size_bytes: rendition.sizeBytes,
-            })),
-          )
-        }
-        if (audioTracks.length > 0) {
-          await tx.insert(clipAudioTrack).values(
-            audioTracks.map((track) => ({
-              clip_id: id,
-              idx: track.index,
-              kind: track.kind,
-              label: track.label,
-              storage_key: track.storageKey,
-              codecs: track.codecs,
-              size_bytes: track.sizeBytes,
-            })),
-          )
-        }
-        const stagedIntents = await deleteUploadTicketsWithStorageIntents(
-          { type: "clip", id },
-          "media source committed",
-          tx,
-        )
-        const webhookClaims = await claimClipPublishedDeliveries(tx, id)
-        return {
-          committed: true,
-          webhookClaims,
-          queuedDeletions: mediaIntents.length + stagedIntents,
-        }
-      }),
-    )
-    if (result.queuedDeletions > 0) wakeStorageDeletionWorker()
-    wakeClaimedClipPublishedDeliveries(result.webhookClaims)
-    return result.committed
+  async commitReady(id, runId, patch, renditions, completion) {
+    return commitClipMediaReady(id, runId, patch, renditions, completion)
   },
 
   async currentAssetKeys(id) {
@@ -480,14 +277,9 @@ export const clipMediaStore: MediaStore = {
       .select({ storageKey: clipRendition.storage_key })
       .from(clipRendition)
       .where(eq(clipRendition.clip_id, id))
-    const audioTrackRows = await db
-      .select({ storageKey: clipAudioTrack.storage_key })
-      .from(clipAudioTrack)
-      .where(eq(clipAudioTrack.clip_id, id))
     return {
       ...row,
       renditionKeys: renditionRows.map((rendition) => rendition.storageKey),
-      audioTrackKeys: audioTrackRows.map((track) => track.storageKey),
     }
   },
 

@@ -17,7 +17,7 @@ const ERROR_RETRY_MS = 5_000
  * earliest deadlines. The outer limit keeps one pass bounded even when both
  * partitions contain due rows.
  */
-export const NOTIFICATION_EXPIRY_DELETE_SQL = `
+const NOTIFICATION_EXPIRY_DELETE_SQL = `
   with candidates as (
     (
       select id, created_at + interval '30 days' as expires_at
@@ -50,7 +50,7 @@ export const NOTIFICATION_EXPIRY_DELETE_SQL = `
 `
 
 /** Return the exact first persisted deadline from the same two indexes. */
-export const NOTIFICATION_EXPIRY_NEXT_SQL = `
+const NOTIFICATION_EXPIRY_NEXT_SQL = `
   select min(expires_at) as "nextRunAt"
   from (
     (
@@ -102,7 +102,7 @@ export function startNotificationExpiryWorker(): void {
   coordinator.start()
 }
 
-export function wakeNotificationExpiryWorker(): void {
+function wakeNotificationExpiryWorker(): void {
   coordinator.wake()
 }
 

@@ -150,6 +150,6 @@ export async function sendWebhook(
  * HMAC-SHA256 over the exact bytes that go on the wire, so a receiver can
  * verify without re-serialising (and re-ordering) the JSON.
  */
-export function signWebhookBody(body: string, secret: string): string {
+function signWebhookBody(body: string, secret: string): string {
   return `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`
 }

@@ -55,6 +55,15 @@ type ResolvedGameRef =
   | { row: GameRow; response?: never }
   | { row?: never; response: Response }
 
+async function resolveFollowGame(c: Context, slug: string) {
+  const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
+  if (resolved.response) return resolved
+  if (resolved.row.id === UNCATEGORISED_GAME_ID) {
+    return { response: badRequest(c, "Uncategorised cannot be followed") }
+  }
+  return resolved
+}
+
 async function resolveSteamGridDBGameRef(
   c: Context,
   steamgriddbId: number,
@@ -299,11 +308,8 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
+      const resolved = await resolveFollowGame(c, slug)
       if (resolved.response) return resolved.response
-      if (resolved.row.id === UNCATEGORISED_GAME_ID) {
-        return badRequest(c, "Uncategorised cannot be followed")
-      }
 
       await db
         .insert(gameFollow)
@@ -320,11 +326,8 @@ export const gamesRoute = new Hono()
     async (c) => {
       const { slug } = c.req.valid("param")
       const viewerId = c.var.viewerId
-      const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
+      const resolved = await resolveFollowGame(c, slug)
       if (resolved.response) return resolved.response
-      if (resolved.row.id === UNCATEGORISED_GAME_ID) {
-        return badRequest(c, "Uncategorised cannot be followed")
-      }
 
       await db
         .delete(gameFollow)

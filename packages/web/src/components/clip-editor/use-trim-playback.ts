@@ -4,7 +4,7 @@ import type { VideoPlayerHandle } from "@/components/video/video-player-types"
 
 export const MIN_TRIM_MS = 1000
 /** Tolerance when deciding whether the trim still covers the full clip. */
-export const FULL_CLIP_TOLERANCE_MS = 50
+const FULL_CLIP_TOLERANCE_MS = 50
 
 export type TrimRange = { startMs: number; endMs: number }
 

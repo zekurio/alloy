@@ -282,4 +282,3 @@ export {
   CarouselNext,
   CarouselPrevious,
 }
-export type { CarouselApi }

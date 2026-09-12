@@ -5,7 +5,7 @@ import { configStore } from "@alloy/server/config/store"
 // Only enabled providers with a stored secret are usable for sign-in (see
 // isOAuthProviderUsable). Enforcing it here means no config path (boot, reload,
 // import, hand-edit) can surface an enabled-but-secretless provider.
-export function getEnabledProviderConfigs(): OAuthProviderConfig[] {
+function getEnabledProviderConfigs(): OAuthProviderConfig[] {
   return configStore
     .get("oauthProviders")
     .filter((provider) => isOAuthProviderUsable(provider))

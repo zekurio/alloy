@@ -1,7 +1,7 @@
 import type { PublicAuthConfig } from "@alloy/api"
 import { redirect } from "@tanstack/react-router"
 
-import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"
+import { shouldForceOnboarding } from "./auth-access"
 import { sanitizeLoginRedirect } from "./login-redirect"
 import { loadAuthConfig, loadSession, type Session } from "./session-suspense"
 
@@ -54,29 +54,6 @@ export async function redirectToSetupBeforeLoad({
   return authContext(config, session)
 }
 
-export async function requireBrowseAuthBeforeLoad({
-  context,
-  location,
-}: {
-  context: AuthRouteContext
-  location: { pathname: string }
-}) {
-  const config = await loadContextAuthConfig(context)
-
-  if (config.adminAccountRequired) {
-    throw redirect({ to: "/setup" })
-  }
-
-  const session = await loadContextSession(context)
-  if (shouldForceOnboarding(config, session)) {
-    throw redirect({ to: "/setup" })
-  }
-
-  const target = browseAuthTarget(session, config, location.pathname)
-  if (target) throw redirect({ to: target })
-  return authContext(config, session)
-}
-
 export async function requireStrictAuthBeforeLoad({
   context,
 }: {
@@ -97,34 +74,6 @@ export async function requireStrictAuthBeforeLoad({
 
   if (!session) {
     throw redirect({ to: "/login" })
-  }
-  return authContext(config, session)
-}
-
-export async function requireAdminBeforeLoad({
-  context,
-}: {
-  context: AuthRouteContext
-}) {
-  const [config, session] = await Promise.all([
-    loadContextAuthConfig(context),
-    loadContextSession(context),
-  ])
-
-  if (config.adminAccountRequired) {
-    throw redirect({ to: "/setup" })
-  }
-
-  if (shouldForceOnboarding(config, session)) {
-    throw redirect({ to: "/setup" })
-  }
-
-  if (!session) {
-    throw redirect({ to: "/login" })
-  }
-
-  if (!isAdmin(session)) {
-    throw redirect({ to: "/" })
   }
   return authContext(config, session)
 }

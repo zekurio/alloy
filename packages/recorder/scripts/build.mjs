@@ -1,12 +1,11 @@
 /* eslint-disable no-console */
 
 import { spawnSync } from "node:child_process"
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, writeFileSync } from "node:fs"
 import { join, resolve } from "node:path"
 
 import {
   copyFileIfChanged,
-  distDir,
   normalizeObsRuntimeDir,
   obsResourcesDir,
   pruneObsRuntime,
@@ -29,7 +28,6 @@ if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
   mkdirSync(obsResourcesDir, { recursive: true })
   writeFileSync(join(agentResourcesDir, ".gitkeep"), "")
   writeFileSync(join(obsResourcesDir, ".gitkeep"), "")
-  writeManifest()
   process.exit(0)
 }
 
@@ -60,37 +58,10 @@ if (!existsSync(builtBinary)) {
 mkdirSync(agentResourcesDir, { recursive: true })
 copyFileIfChanged(builtBinary, join(agentResourcesDir, binaryName))
 writeFileSync(join(agentResourcesDir, ".gitkeep"), "")
-writeManifest()
 
 stageObsRuntime(obsRuntimeSource)
 stageObsHelpers()
 pruneObsRuntime()
-
-function writeManifest() {
-  const packageJson = JSON.parse(
-    readFileSync(join(recorderDir, "package.json"), "utf8"),
-  )
-  const manifest = {
-    name: packageJson.name,
-    version: packageJson.version,
-    protocolVersion: 1,
-    platform: process.platform,
-    arch: process.arch,
-    binary: binaryName,
-    capabilities: [
-      "game-capture",
-      "audio-devices",
-      "audio-applications",
-      "game-processes",
-      "replay-buffer",
-    ],
-  }
-
-  writeFileSync(
-    join(distDir, "agent.json"),
-    `${JSON.stringify(manifest, null, 2)}\n`,
-  )
-}
 
 function resolveObsRuntimeSource() {
   const runtimeDir = process.env.ALLOY_OBS_RUNTIME_DIR

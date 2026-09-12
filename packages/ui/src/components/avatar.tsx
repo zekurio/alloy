@@ -14,14 +14,6 @@ const avatarRootSizeClasses = [
   "data-[size=2xl]:size-24",
 ]
 
-const avatarBadgeSizeClasses = [
-  "group-data-[size=sm]/avatar:size-2",
-  "group-data-[size=md]/avatar:size-2.5",
-  "group-data-[size=lg]/avatar:size-3",
-  "group-data-[size=xl]/avatar:size-3.5",
-  "group-data-[size=2xl]/avatar:size-5",
-]
-
 function getAvatarImageKey(children: ReactNode): string {
   return Children.toArray(children).reduce<string>((imageKey, child) => {
     if (!isValidElement<{ children?: ReactNode; src?: string }>(child)) {
@@ -127,20 +119,6 @@ function AvatarFallback({
   )
 }
 
-function AvatarBadge({ className, ...props }: ComponentProps<"span">) {
-  return (
-    <span
-      data-slot="avatar-badge"
-      className={cn(
-        "absolute right-0 bottom-0 z-10 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-background select-none",
-        ...avatarBadgeSizeClasses,
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 function AvatarGroup({ className, ...props }: ComponentProps<"div">) {
   return (
     <div
@@ -154,25 +132,4 @@ function AvatarGroup({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-function AvatarGroupCount({ className, ...props }: ComponentProps<"div">) {
-  return (
-    <div
-      data-slot="avatar-group-count"
-      className={cn(
-        "relative inline-flex shrink-0 items-center justify-center rounded-full bg-surface-raised text-foreground-muted ring-2 ring-background select-none",
-        "size-7 text-[10px] leading-3 group-has-data-[size=lg]/avatar-group:size-9 group-has-data-[size=sm]/avatar-group:size-5 group-has-data-[size=xl]/avatar-group:size-12",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-export {
-  AvatarRoot as Avatar,
-  AvatarBadge,
-  AvatarFallback,
-  AvatarGroup,
-  AvatarGroupCount,
-  AvatarImage,
-}
+export { AvatarRoot as Avatar, AvatarFallback, AvatarGroup, AvatarImage }

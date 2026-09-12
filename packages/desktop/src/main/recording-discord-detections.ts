@@ -52,7 +52,7 @@ interface DiscordExecutableRule {
 
 let refreshTimer: ReturnType<typeof setInterval> | null = null
 
-export function recordingDiscordDetectionsCachePath(): string {
+function recordingDiscordDetectionsCachePath(): string {
   return join(app.getPath("userData"), "recording", CACHE_FILE_NAME)
 }
 
