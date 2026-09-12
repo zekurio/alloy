@@ -47,7 +47,7 @@ impl Recorder {
             PathBuf::from(params.replay_scratch_folder)
         };
 
-        let active_paths_changed = self.has_active_outputs()
+        let active_paths_changed = self.replay_session.is_some()
             && !self.can_reconfigure_active_output_paths(
                 &output_folder,
                 &replay_scratch_folder,
@@ -59,16 +59,12 @@ impl Recorder {
         let active_video_config_changed = self.active_video_config_changed(&settings);
         let next_quality = effective_quality(&settings);
         let next_adapter = selected_gpu_adapter(&settings, &self.cached_gpus);
-        let needs_reinit = self
-            .settings
-            .as_ref()
-            .map(|settings| {
-                (
-                    effective_quality(settings),
-                    selected_gpu_adapter(settings, &self.cached_gpus),
-                )
-            })
-            != Some((next_quality, next_adapter))
+        let needs_reinit = self.settings.as_ref().map(|settings| {
+            (
+                effective_quality(settings),
+                selected_gpu_adapter(settings, &self.cached_gpus),
+            )
+        }) != Some((next_quality, next_adapter))
             || self.obs_runtime_dir != params.obs_runtime_dir;
         let active_output_should_stop = self
             .settings
@@ -101,7 +97,11 @@ impl Recorder {
 
         self.refresh_discovery_caches();
 
-        if !self.settings.as_ref().is_some_and(|settings| settings.enabled) {
+        if !self
+            .settings
+            .as_ref()
+            .is_some_and(|settings| settings.enabled)
+        {
             if let Err(error) = self.stop_all_outputs() {
                 self.last_error = Some(error.clone());
                 let status = self.status();
@@ -203,12 +203,6 @@ impl Recorder {
         let session = self.replay_session.as_ref()?;
         let obs = self.obs.as_ref()?;
         let settings = self.settings.clone().unwrap_or_default();
-        let OutputConfig::ReplayBuffer {
-            scratch_directory: _,
-            output_directory: _,
-            storage,
-            replay_seconds: _,
-        } = &session.output_config;
         let quality = effective_quality_for_base(&settings, session.video_config.base);
         let render_total_frames = unsafe { obs.obs_get_total_frames.map(|read| read()) };
         let render_lagged_frames = unsafe { obs.obs_get_lagged_frames.map(|read| read()) };
@@ -225,7 +219,7 @@ impl Recorder {
             sampled_at: now_iso(),
             capture_mode: settings.capture_mode.clone(),
             capture_source: Some(recording_source_from_kind(session.source_kind)),
-            buffer_storage: storage.clone(),
+            buffer_storage: session.output_config.storage.clone(),
             encoder: settings.encoder.clone(),
             codec: session.video_codec.clone(),
             video_encoder: Some(session.video_encoder_id.clone()),
@@ -243,7 +237,8 @@ impl Recorder {
             paused: session.paused,
             active_fps: unsafe { obs.obs_get_active_fps.map(|read| read()) },
             average_frame_time_ms: unsafe {
-                obs.obs_get_average_frame_time_ns.map(|read| ns_to_ms(read()))
+                obs.obs_get_average_frame_time_ns
+                    .map(|read| ns_to_ms(read()))
             },
             frame_interval_ms: unsafe {
                 obs.obs_get_frame_interval_ns.map(|read| ns_to_ms(read()))
@@ -299,7 +294,8 @@ impl Recorder {
         }
 
         let settings = self.settings.clone().unwrap_or_default();
-        let game = self.capture_game_for_mode("No detected game is available for replay buffer.")?;
+        let game =
+            self.capture_game_for_mode("No detected game is available for replay buffer.")?;
         let output_folder = self.current_output_folder()?;
         let replay_scratch_folder = self.current_replay_scratch_folder()?;
         let path = saved_recording_path(&output_folder, self.capture_folder_game(game.as_ref()));
@@ -313,9 +309,8 @@ impl Recorder {
         let session = self.start_output(
             &settings,
             game.as_ref(),
-            ActiveOutputKind::ReplayBuffer,
             capture,
-            OutputConfig::ReplayBuffer {
+            ReplayBufferConfig {
                 scratch_directory: replay_scratch_folder,
                 output_directory: output_folder,
                 storage: settings.buffer_storage.clone(),
@@ -465,9 +460,10 @@ impl Recorder {
             return Ok(video_config);
         }
         if self.obs.is_some() {
-            if self.has_active_outputs() {
-                return Err("Stop the current recording before changing the OBS video canvas."
-                    .to_string());
+            if self.replay_session.is_some() {
+                return Err(
+                    "Stop the current recording before changing the OBS video canvas.".to_string(),
+                );
             }
             self.shutdown_obs();
         }
@@ -646,7 +642,10 @@ impl Recorder {
             self.refresh_codec_capabilities();
         }
         let settings = self.settings.clone().unwrap_or_default();
-        let previous_game_key = self.active_game.as_ref().map(|game| game.window_key.clone());
+        let previous_game_key = self
+            .active_game
+            .as_ref()
+            .map(|game| game.window_key.clone());
         let game_boundary = if settings.capture_mode == RecordingCaptureMode::Game {
             if self
                 .active_game
@@ -669,7 +668,10 @@ impl Recorder {
             self.active_display = selected_display(&settings);
             game_boundary
         };
-        let current_game_key = self.active_game.as_ref().map(|game| game.window_key.clone());
+        let current_game_key = self
+            .active_game
+            .as_ref()
+            .map(|game| game.window_key.clone());
         let game_switched = previous_game_key.is_some()
             && current_game_key.is_some()
             && previous_game_key != current_game_key;
@@ -690,11 +692,7 @@ impl Recorder {
         }
         self.clear_replay_buffer_deadline_for_active_game(&settings);
 
-        if self
-            .replay_session
-            .as_ref()
-            .is_some_and(|session| active_session_should_stop(session, &settings))
-        {
+        if self.replay_session.is_some() && !settings.enabled {
             if let Err(error) = self.stop_active_replay_buffer() {
                 self.last_error = Some(error.clone());
                 let status = self.status();
@@ -725,7 +723,7 @@ impl Recorder {
             }
         }
 
-        if self.has_active_outputs() {
+        if self.replay_session.is_some() {
             if let Err(error) = self.refresh_active_output_for_focus() {
                 self.last_error = Some(error.clone());
                 let status = self.status();
@@ -809,9 +807,9 @@ impl Recorder {
 
     fn replay_output_active(&self) -> bool {
         self.replay_session.as_ref().is_some_and(|session| {
-            self.obs.as_ref().is_some_and(|obs| unsafe {
-                (obs.obs_output_active)(session.output)
-            })
+            self.obs
+                .as_ref()
+                .is_some_and(|obs| unsafe { (obs.obs_output_active)(session.output) })
         })
     }
 
@@ -830,7 +828,9 @@ impl Recorder {
             return Ok(());
         }
 
-        let error = self.obs.as_ref()
+        let error = self
+            .obs
+            .as_ref()
             .and_then(|obs| unsafe { output_last_error(obs, session.output) })
             .unwrap_or_else(|| "OBS replay output stopped unexpectedly.".to_string());
         eprintln!("[{SIDE_CAR_NAME}] discarding stopped replay buffer: {error}");
@@ -887,10 +887,7 @@ impl Recorder {
         self.refreshed_active_game(missing_message).map(Some)
     }
 
-    fn capture_folder_game<'a>(
-        &self,
-        game: Option<&'a DetectedGame>,
-    ) -> Option<&'a RecordingGame> {
+    fn capture_folder_game<'a>(&self, game: Option<&'a DetectedGame>) -> Option<&'a RecordingGame> {
         if self
             .settings
             .as_ref()
@@ -912,7 +909,7 @@ impl Recorder {
     }
 
     fn active_video_config_changed(&self, settings: &RecordingSettings) -> bool {
-        let Some(session) = self.capture_owner_session() else {
+        let Some(session) = self.replay_session.as_ref() else {
             return false;
         };
         let game = if settings.capture_mode == RecordingCaptureMode::Display {
@@ -937,7 +934,8 @@ impl Recorder {
 
     fn refresh_active_pause(&mut self) -> Result<(), String> {
         let settings = self.settings.clone().unwrap_or_default();
-        let should_pause = should_pause_for_focus(&settings, self.active_game.as_ref(), self.focused);
+        let should_pause =
+            should_pause_for_focus(&settings, self.active_game.as_ref(), self.focused);
 
         let obs = self
             .obs
@@ -956,7 +954,7 @@ impl Recorder {
                     });
                 }
                 let paused = (obs.obs_output_paused)(session.output);
-                update_session_pause_time(session, paused);
+                session.paused = paused;
             }
         }
 
@@ -977,5 +975,4 @@ impl Recorder {
         self.tick();
         Ok(())
     }
-
 }

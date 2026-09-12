@@ -1,9 +1,7 @@
 import { clipDownloadUrl, type ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { Button } from "@alloy/ui/components/button"
 import { DropdownMenuItem } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
-import { cn } from "@alloy/ui/lib/utils"
 import {
   CheckIcon,
   CircleAlertIcon,
@@ -30,7 +28,7 @@ import { apiOrigin } from "@/lib/env"
  * Non-hook variant of the support check, for call sites that decide whether
  * to render a download action at all (e.g. menu gating).
  */
-export function clipDownloadActionSupported(row: ClipRow): boolean {
+function clipDownloadActionSupported(row: ClipRow): boolean {
   return (
     clipDownloadsSupported() &&
     row.status === "ready" &&
@@ -42,7 +40,7 @@ export function clipBrowserDownloadActionSupported(row: ClipRow): boolean {
   return row.status === "ready" && Boolean(row.playbackContentType)
 }
 
-export function useClipDownloadAction(row: ClipRow, alreadyLocal = false) {
+function useClipDownloadAction(row: ClipRow, alreadyLocal = false) {
   const download = useClipDownload(row.id)
   const [error, setError] = useState<string | null>(null)
   const supported = clipDownloadActionSupported(row)
@@ -70,46 +68,6 @@ export function useClipDownloadAction(row: ClipRow, alreadyLocal = false) {
     [row],
   )
   return { supported, downloading, saved, progress, error, start }
-}
-
-/** Compact icon-only variant for cards and title rows. */
-export function ClipDownloadIconButton({
-  row,
-  alreadyLocal = false,
-  className,
-}: {
-  row: ClipRow
-  /** The clip already has a copy on disk (library snapshot knowledge). */
-  alreadyLocal?: boolean
-  className?: string
-}) {
-  const action = useClipDownloadAction(row, alreadyLocal)
-  if (!action.supported) return null
-
-  const label = action.saved
-    ? t("Saved on this device")
-    : action.downloading
-      ? t("Downloading…")
-      : (action.error ??
-        t("Download {title} to this device", { title: row.title }))
-  return (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      aria-label={label}
-      title={label}
-      disabled={action.saved || action.downloading}
-      className={cn("disabled:opacity-100", className)}
-      onClick={(event) => {
-        // Cards put this button inside a clickable surface.
-        event.stopPropagation()
-        action.start()
-      }}
-    >
-      <ClipDownloadStatusIcon action={action} />
-    </Button>
-  )
 }
 
 /** Dropdown menu item variant for clip action menus. */

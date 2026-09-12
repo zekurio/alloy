@@ -15,8 +15,6 @@ export interface ThemeAccentState {
   accents: Partial<Record<ThemePresetMode, string>>
 }
 
-export const DEFAULT_THEME_ACCENTS: ThemeAccentState = { accents: {} }
-
 export function readThemeAccents(): ThemeAccentState {
   return { accents: readThemePreferences().accents }
 }
@@ -34,7 +32,7 @@ export function applyStoredThemeAccents(): void {
   applyThemeAccents(readThemeAccents())
 }
 
-export function applyThemeAccents(state: ThemeAccentState): void {
+function applyThemeAccents(state: ThemeAccentState): void {
   if (!globalThis.document) return
 
   const existing = document.getElementById(THEME_ACCENT_STYLE_ID)

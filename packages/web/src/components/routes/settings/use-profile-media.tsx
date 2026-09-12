@@ -4,6 +4,7 @@ import { useRouter } from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ChangeEvent, Dispatch, SetStateAction } from "react"
 
+import { ImageCropDialog } from "@/components/media/image-crop-dialog"
 import type { CropMode } from "@/components/media/image-crop-utils"
 import { useClickAnchor } from "@/hooks/use-click-anchor"
 import { api } from "@/lib/api"
@@ -238,11 +239,29 @@ export function useProfileMedia(input: ProfileMediaInput) {
   return {
     avatarAnchor,
     bannerAnchor,
-    cropApplying,
-    cropFile,
-    cropMode,
-    fileInputs,
-    handleImageUpload: mutations.handleImageUpload,
+    inputs: (
+      <>
+        {fileInputs}
+        <ImageCropDialog
+          file={cropFile}
+          mode={cropMode}
+          open={!!cropFile}
+          applying={mutations.uploading}
+          onApplyingChange={setCropApplying}
+          onOpenChange={(open) => {
+            if (!open && !mutations.uploading && !cropApplying) {
+              setCropFile(null)
+            }
+          }}
+          onApply={async ({ blob }) => {
+            const uploaded = await mutations.handleImageUpload(blob, cropMode)
+            if (uploaded) {
+              setCropFile(null)
+            }
+          }}
+        />
+      </>
+    ),
     error: mutations.error,
     hasBanner: !!userImageSrc(media.profileBanner),
     mediaMenu,
@@ -250,8 +269,6 @@ export function useProfileMedia(input: ProfileMediaInput) {
     profileBanner: media.profileBanner,
     profileImage: media.profileImage,
     refreshProfile,
-    setCropApplying,
-    setCropFile,
     uploading: mutations.uploading,
   }
 }

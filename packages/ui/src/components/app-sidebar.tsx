@@ -76,25 +76,6 @@ const SIDEBAR_ITEM_STYLE: NavItemStyle = {
   ),
 }
 
-const BOTTOM_NAV_ITEM_STYLE: NavItemStyle = {
-  slot: "app-bottom-nav-item",
-  className: cn(
-    "group/app-bottom-nav-item relative flex min-w-0 items-center justify-center",
-    "min-h-[48px] rounded-md text-foreground-muted",
-    "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-    "not-data-active:hover:text-foreground",
-    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-    "data-active:text-accent",
-    // Active dot indicator at the top of the item.
-    "data-active:before:absolute data-active:before:top-1 data-active:before:left-1/2",
-    "data-active:before:h-[3px] data-active:before:w-6 data-active:before:-translate-x-1/2",
-    "data-active:before:rounded-full data-active:before:bg-accent",
-    "data-active:before:shadow-[0_0_8px_var(--accent-glow)]",
-    "data-active:before:content-['']",
-    "[&_svg]:size-6 [&_svg]:shrink-0",
-  ),
-}
-
 function AppSidebarItem(props: NavItemProps) {
   return useNavItem(SIDEBAR_ITEM_STYLE, props)
 }
@@ -117,30 +98,4 @@ function AppSidebarItemTooltip({
   )
 }
 
-function AppBottomNav({ className, ...props }: ComponentProps<"nav">) {
-  return (
-    <nav
-      data-slot="app-bottom-nav"
-      className={cn(
-        "relative z-10 grid grid-flow-col auto-cols-fr items-stretch gap-1",
-        "h-full border-t border-border bg-surface-sunken",
-        "px-2 pb-[env(safe-area-inset-bottom,0px)]",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function AppBottomNavItem(props: NavItemProps) {
-  return useNavItem(BOTTOM_NAV_ITEM_STYLE, props)
-}
-
-export {
-  AppBottomNav,
-  AppBottomNavItem,
-  AppSidebar,
-  AppSidebarGroup,
-  AppSidebarItem,
-  AppSidebarItemTooltip,
-}
+export { AppSidebar, AppSidebarGroup, AppSidebarItem, AppSidebarItemTooltip }

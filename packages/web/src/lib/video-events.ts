@@ -71,7 +71,7 @@ export function teardownVideoElement(video: HTMLVideoElement): void {
  * synchronous SecurityError a tainted canvas throws (cross-origin media
  * without CORS headers).
  */
-export function canvasJpegBlob(
+function canvasJpegBlob(
   canvas: HTMLCanvasElement,
   quality: number,
 ): Promise<Blob | null> {

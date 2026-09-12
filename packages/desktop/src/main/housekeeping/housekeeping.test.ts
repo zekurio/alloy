@@ -115,24 +115,40 @@ test("rejects roots outside the allowlist and user data", async () => {
   assert.throws(() => allowedUserDataRoot(root, "../asset-cache"))
 })
 
-test("removes only the exact legacy scrubber directory", async () => {
-  const root = await temporaryRoot()
-  const scrubbers = join(root, "recording-scrubbers")
-  const thumbnails = join(root, "recording-thumbnails")
-  await mkdir(scrubbers)
-  await mkdir(thumbnails)
-  await writeFile(join(scrubbers, "old.jpg"), "old")
-  await writeFile(join(thumbnails, "keep.jpg"), "keep")
+test.each(["recording-scrubbers", "recording-audio-tracks"])(
+  "removes only the legacy %s directory",
+  async (name) => {
+    const root = await temporaryRoot()
+    const legacy = join(root, name)
+    const thumbnails = join(root, "recording-thumbnails")
+    await mkdir(legacy)
+    await mkdir(thumbnails)
+    await writeFile(join(legacy, "old.cache"), "old")
+    await writeFile(join(thumbnails, "keep.jpg"), "keep")
 
-  const result = await removeExactLegacyRoot(
-    allowedUserDataRoot(root, "recording-scrubbers"),
-    new AbortController().signal,
-  )
+    const tasks = createDesktopHousekeepingTasks({
+      userData: root,
+      logs: join(root, "logs"),
+      activeAssetPaths: () => new Set(),
+      activeExportPaths: () => new Set(),
+      activeImportPaths: () => new Set(),
+    })
+    const task = tasks.find(
+      (candidate) => candidate.id === `remove-legacy-${name}`,
+    )
+    assert.ok(task)
+    const signal = new AbortController().signal
+    await assert.rejects(
+      removeExactLegacyRoot(thumbnails, signal),
+      /wrong root/,
+    )
+    const result = await task.run(signal)
 
-  await assert.rejects(stat(scrubbers))
-  assert.equal(await readFile(join(thumbnails, "keep.jpg"), "utf8"), "keep")
-  assert.deepEqual(result, { removedFiles: 1, removedBytes: 3 })
-})
+    await assert.rejects(stat(legacy))
+    assert.equal(await readFile(join(thumbnails, "keep.jpg"), "utf8"), "keep")
+    assert.deepEqual(result, { removedFiles: 1, removedBytes: 3 })
+  },
+)
 
 test("recurring import sweep keeps fresh and active files", async () => {
   const root = await temporaryRoot()

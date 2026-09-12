@@ -53,7 +53,7 @@ export function normalizeDisplayName(input: string): string | null {
   return displayName
 }
 
-export function slugifyUsername(input: string): string {
+function slugifyUsername(input: string): string {
   return (
     input
       // Strip combining diacritics by decomposing then discarding marks.

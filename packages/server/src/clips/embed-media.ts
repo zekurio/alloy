@@ -57,10 +57,7 @@ export function embedVideo(
   origin: string,
 ): EmbedVideo | null {
   const renditionRows = row.renditionRows ?? []
-  // Runs always mark an og rendition; the tallest-first fallback covers rows
-  // committed before that was guaranteed.
-  const rendition =
-    renditionRows.find((candidate) => candidate.og) ?? renditionRows[0] ?? null
+  const rendition = renditionRows.find((candidate) => candidate.og)
 
   if (rendition) {
     return {

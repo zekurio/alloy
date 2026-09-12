@@ -7,7 +7,6 @@ import {
 import {
   type QueryClient,
   queryOptions,
-  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
@@ -59,26 +58,6 @@ export function taggedClipsQueryOptions(handle: string) {
 
 export function useTaggedClipsQuery(handle: string) {
   return useQuery(taggedClipsQueryOptions(handle))
-}
-
-export function useProfileGamesInfiniteQuery(
-  handle: string,
-  { limit = 24 }: { limit?: number } = {},
-) {
-  return useInfiniteQuery({
-    queryKey: userKeys.profileGamesInfinite(handle, limit),
-    queryFn: ({ pageParam }) =>
-      api.users.fetchProfileGames(handle, {
-        limit,
-        offset: pageParam,
-      }),
-    enabled: handle.length > 0,
-    initialPageParam: 0,
-    getNextPageParam: (last, pages) =>
-      last.length < limit
-        ? undefined
-        : pages.reduce((total, page) => total + page.length, 0),
-  })
 }
 
 export function useUserFollowersQuery(

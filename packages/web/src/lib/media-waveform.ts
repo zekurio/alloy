@@ -11,7 +11,7 @@ const NORMALIZATION_PERCENTILE = 0.98
 
 export type MediaWaveformStatus = "loading" | "ready" | "empty" | "error"
 
-export interface MediaWaveformData {
+interface MediaWaveformData {
   peaks: Float32Array
   durationMs: number
   hasAudio: boolean

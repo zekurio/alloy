@@ -16,7 +16,6 @@ const facts = {
   sourceFps: 60,
   trimStartMs: null,
   trimEndMs: null,
-  audioTrackFingerprint: null,
 }
 
 test("generation signature tracks output and execution config", () => {

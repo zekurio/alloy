@@ -66,4 +66,4 @@ function AlloyLogoMark({
   )
 }
 
-export { AlloyLogo, AlloyLogoMark }
+export { AlloyLogo }

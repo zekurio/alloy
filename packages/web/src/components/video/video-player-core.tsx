@@ -1,7 +1,7 @@
 import { t } from "@alloy/i18n"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { MouseEvent, MouseEventHandler } from "react"
+import type { MouseEventHandler } from "react"
 
 import { suspendBackgroundMediaWork } from "@/lib/background-media-work"
 import { errorMessage } from "@/lib/error-message"
@@ -11,6 +11,11 @@ import { teardownVideoElement } from "@/lib/video-events"
 import { useMediaEngine } from "./video-media-engine"
 import { useActiveVideoPlayer } from "./video-player-active"
 import { useVideoPlayerControls } from "./video-player-controls"
+import { useVideoPlayerEvents } from "./video-player-core-events"
+import {
+  useControlledVideoClick,
+  useVideoChromePointerHandlers,
+} from "./video-player-core-interactions"
 import type { PlayerCoreProps } from "./video-player-core-types"
 import {
   usePlayingTimeSync,
@@ -119,8 +124,7 @@ export function PlayerCore({
   useEffect(() => {
     const video = videoRef.current
     return () => {
-      // A controls change replaces the shell and its video node. StrictMode
-      // also replays effects, but without removing the mounted element.
+      // Keep connected nodes alive during StrictMode effect replay.
       if (video && !video.isConnected) teardownVideoElement(video)
     }
   }, [controls])
@@ -433,249 +437,67 @@ export function PlayerCore({
     onPlayThreshold,
   })
 
-  const handleLoadedMetadata = useCallback(() => {
-    const element = videoRef.current
-    if (!element) return
-    const mediaDuration = finiteMediaDuration(element.duration)
-    const nextDuration = playbackDuration(
-      mediaDuration,
-      activePlaybackRange,
-      durationHint,
-    )
-    setDuration(nextDuration)
-    setBufferedEnd(0)
-    element.volume = volumeRef.current
-    element.muted = mutedRef.current
-    element.playbackRate = playbackRate
-    setStatus({ kind: "ready" })
-    clearBuffering()
-
-    const resume = resumeRef.current
-    resumeRef.current = null
-    if (resume) {
-      // Restore the position from before a quality switch, then continue
-      // playing if the viewer was. The poster stays up until the seeked frame
-      // decodes, so there is no black flash.
-      const target =
-        nextDuration > 0 ? Math.min(resume.time, nextDuration) : resume.time
-      try {
-        element.currentTime = toMediaTime(
-          target,
-          mediaDuration,
-          activePlaybackRange,
-          durationHint,
-        )
-      } catch {
-        // Seeking can throw if the element is not yet seekable; the timeupdate
-        // loop will reconcile the scrubber regardless.
-      }
-      lastTimeRef.current = target
-      setCurrentTime(target)
-      if (resume.play) void playInternal(false)
-    } else {
-      const target = toPlaybackTime(initialTime, nextDuration, undefined)
-      const mediaTarget = toMediaTime(
-        target,
-        mediaDuration,
-        activePlaybackRange,
-        durationHint,
-      )
-      if (element.currentTime !== mediaTarget) element.currentTime = mediaTarget
-      lastTimeRef.current = target
-      setCurrentTime(target)
-      if (autoPlay) void playInternal(false)
-    }
-    syncBuffered()
-  }, [
+  const {
+    handleLoadedMetadata,
+    handleLoadedData,
+    handleCanPlay,
+    handleTimeUpdate,
+    handlePlaying,
+    handleEnded,
+  } = useVideoPlayerEvents({
+    videoRef,
+    identity,
+    mediaKey,
     activePlaybackRange,
-    autoPlay,
-    clearBuffering,
     durationHint,
-    initialTime,
     playbackRate,
-    playInternal,
-    syncBuffered,
-  ])
-
-  const handleLoadedData = useCallback(() => {
-    if (hasRenderedFrameRef.current) return
-    hasRenderedFrameRef.current = true
-    setHasRenderedFrame(true)
-    onFrameReadyRef.current?.()
-  }, [])
-
-  const handleCanPlay = useCallback(() => {
-    handleLoadedData()
-    clearBuffering()
-  }, [clearBuffering, handleLoadedData])
-
-  useEffect(() => {
-    // A changed `identity` means a different clip. A changed media key with
-    // the same identity is a source swap for the same clip (e.g. a quality
-    // switch or an automatic downgrade).
-    const previous = prevSourceRef.current
-    const isNewMedia = !previous || previous.identity !== identity
-    // Load state only resets when the element will actually reload (a new
-    // effective media URL). An identity change with an unchanged URL never
-    // re-fires `loadedmetadata`, so entering "loading" there would strand the
-    // spinner over a playing video.
-    const isElementReload = !previous || previous.mediaKey !== mediaKey
-    if (!isNewMedia && !isElementReload) return
-    prevSourceRef.current = { identity, mediaKey }
-
-    if (isElementReload) {
-      playRequestIdRef.current += 1
-      setStatus({ kind: "loading" })
-      setBufferedEnd(0)
-      hasRenderedFrameRef.current = false
-      setHasRenderedFrame(false)
-    }
-    clearBuffering()
-    clearChromeHideTimer()
-    setChromeVisible(!(isCoarsePointer && autoPlay))
-
-    if (isNewMedia) {
-      // Brand-new clip: start from the beginning.
-      resumeRef.current = null
-      lastTimeRef.current = 0
-      setDuration(0)
-      setCurrentTime(0)
-      setPlayingState(false)
-      rangeEndedRef.current = false
-    } else {
-      // Same clip, different source: resume where the viewer was. Capture
-      // the position/playing state now, before the element load resets them,
-      // and leave the scrubber untouched so the UI doesn't jump to zero.
-      resumeRef.current = {
-        time: lastTimeRef.current,
-        play: playingRef.current,
-      }
-    }
-
-    if (!isElementReload) return
-    const video = videoRef.current
-    if (!video) return
-    if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
-      handleLoadedMetadata()
-    }
-    if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-      handleLoadedData()
-    }
-  }, [
+    initialTime,
     autoPlay,
+    loop,
+    isCoarsePointer,
     clearBuffering,
     clearChromeHideTimer,
-    handleLoadedData,
-    handleLoadedMetadata,
-    identity,
-    isCoarsePointer,
-    mediaKey,
-    setPlayingState,
-  ])
-
-  const posterVisible = Boolean(poster) && !hasRenderedFrame
-
-  const handleTimeUpdate = useCallback(() => {
-    syncTime()
-    syncBuffered()
-    const video = videoRef.current
-    if (!video || !activePlaybackRange || rangeEndedRef.current) return
-    const mediaDuration = finiteMediaDuration(video.duration)
-    const duration = playbackDuration(
-      mediaDuration,
-      activePlaybackRange,
-      durationHint,
-    )
-    const current = toPlaybackTime(
-      video.currentTime || 0,
-      mediaDuration,
-      activePlaybackRange,
-      durationHint,
-    )
-    if (!(duration > 0) || current < duration - 0.01) return
-
-    rangeEndedRef.current = true
-    if (loop) {
-      video.currentTime = toMediaTime(
-        0,
-        mediaDuration,
-        activePlaybackRange,
-        durationHint,
-      )
-      rangeEndedRef.current = false
-      void playInternal(false)
-      return
-    }
-    video.pause()
-    setPlayingState(false)
-    onEndedRef.current?.()
-  }, [
-    activePlaybackRange,
-    durationHint,
-    loop,
-    playInternal,
+    setChromeVisible,
+    setStatus,
+    setDuration,
+    setCurrentTime,
+    setBufferedEnd,
+    setHasRenderedFrame,
     setPlayingState,
     syncBuffered,
     syncTime,
-  ])
+    playInternal,
+    volumeRef,
+    mutedRef,
+    playingRef,
+    lastTimeRef,
+    playRequestIdRef,
+    hasRenderedFrameRef,
+    rangeEndedRef,
+    resumeRef,
+    prevSourceRef,
+    onFrameReadyRef,
+    onEndedRef,
+  })
+  const {
+    handlePointerMove: handleChromePointerMove,
+    handlePointerLeave: handleChromePointerLeave,
+  } = useVideoChromePointerHandlers({
+    clearChromeHideTimer,
+    isCoarsePointer,
+    playingRef,
+    scheduleChromeHide,
+    setChromeVisible,
+  })
 
-  const handlePlaying = useCallback(() => {
-    clearBuffering()
-    const video = videoRef.current
-    if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return
-    handleLoadedData()
-  }, [clearBuffering, handleLoadedData])
-
-  const handleEnded = useCallback(() => {
-    setPlayingState(false)
-    syncTime()
-    if (activePlaybackRange && loop) {
-      rangeEndedRef.current = false
-      void playInternal(false)
-      return
-    }
-    if (rangeEndedRef.current) return
-    rangeEndedRef.current = true
-    onEndedRef.current?.()
-  }, [activePlaybackRange, loop, playInternal, setPlayingState, syncTime])
-
-  const handleChromePointerMove = useCallback(() => {
-    if (isCoarsePointer) return
-    setChromeVisible(true)
-    if (playingRef.current) scheduleChromeHide()
-  }, [isCoarsePointer, scheduleChromeHide])
-
-  const handleChromePointerLeave = useCallback(() => {
-    if (isCoarsePointer) return
-    clearChromeHideTimer()
-    setChromeVisible(false)
-  }, [clearChromeHideTimer, isCoarsePointer])
-
-  const handleControlledVideoClick = useCallback(
-    (event: MouseEvent<HTMLVideoElement>) => {
-      onVideoClick?.(event)
-
-      if (isCoarsePointer) {
-        setChromeVisible((current) => {
-          const next = !current
-          if (next) scheduleChromeHide()
-          else clearChromeHideTimer()
-          return next
-        })
-        return
-      }
-
-      setChromeVisible(true)
-      togglePlay()
-    },
-    [
-      clearChromeHideTimer,
-      isCoarsePointer,
-      onVideoClick,
-      scheduleChromeHide,
-      togglePlay,
-    ],
-  )
+  const handleControlledVideoClick = useControlledVideoClick({
+    clearChromeHideTimer,
+    isCoarsePointer,
+    onVideoClick,
+    scheduleChromeHide,
+    setChromeVisible,
+    togglePlay,
+  })
 
   const renderVideo = (clickHandler?: MouseEventHandler<HTMLVideoElement>) => (
     <VideoFrame
@@ -686,7 +508,7 @@ export function PlayerCore({
       fallbackSeed={fallbackSeed ?? identity}
       aspectRatio={aspectRatio}
       placeholderVisible={!hasRenderedFrame}
-      posterVisible={posterVisible}
+      posterVisible={Boolean(poster) && !hasRenderedFrame}
       autoPlay={autoPlay}
       loop={loop && !activePlaybackRange}
       muted={muted}

@@ -1,5 +1,5 @@
 const RETRY_BACKOFF_MS = 30_000
-export const WEBHOOK_MAX_ATTEMPTS = 5
+const WEBHOOK_MAX_ATTEMPTS = 5
 
 /** Match the former job retry policy: five attempts, with linear backoff. */
 export function webhookFailurePlan(

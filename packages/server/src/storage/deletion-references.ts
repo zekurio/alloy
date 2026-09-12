@@ -5,14 +5,13 @@ import {
 import { user } from "@alloy/db/auth-schema"
 import {
   clip,
-  clipAudioTrack,
   clipRendition,
   game,
   type StorageDeletionNamespace,
   uploadTicket,
 } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
-import { clipAssetDir, clipAssetKey } from "@alloy/server/storage/driver"
+import { clipAssetDir } from "@alloy/server/storage/driver"
 import { and, type AnyColumn, eq, isNotNull, or, sql } from "drizzle-orm"
 
 export interface StorageDeletionReferenceSource {
@@ -21,12 +20,9 @@ export interface StorageDeletionReferenceSource {
 }
 
 /**
- * Re-check authoritative database ownership immediately before touching
- * storage. Producers still enqueue atomically with reference removal; this
- * guard protects against stale, duplicated, or manually inserted intents.
- * It does not serialize a later writer reusing the same physical key after
- * this check. Producers must publish immutable/versioned keys, or explicitly
- * coordinate key reuse with the deletion worker before adopting this ledger.
+ * Check DB ownership before deletion. Enqueueing and reference removal must
+ * share a transaction. Writers must use versioned keys or coordinate key reuse
+ * with the deletion worker; this check cannot prevent a later write.
  */
 export async function storageDeletionHasLiveReference(
   namespace: StorageDeletionNamespace,
@@ -49,7 +45,7 @@ async function clipObjectHasLiveReference(
 ): Promise<boolean> {
   const ownerId = clipStorageKeyClipId(key)
   const differentActiveRun = activeRunReferenceCondition(source)
-  const [clipRows, renditionRows, audioRows, ticketRows] = await Promise.all([
+  const [clipRows, renditionRows, ticketRows] = await Promise.all([
     db
       .select({ id: clip.id })
       .from(clip)
@@ -74,21 +70,13 @@ async function clipObjectHasLiveReference(
       .where(storageKeyMatches(clipRendition.storage_key, key))
       .limit(1),
     db
-      .select({ clipId: clipAudioTrack.clip_id })
-      .from(clipAudioTrack)
-      .where(storageKeyMatches(clipAudioTrack.storage_key, key))
-      .limit(1),
-    db
       .select({ id: uploadTicket.id })
       .from(uploadTicket)
       .where(storageKeyMatches(uploadTicket.storage_key, key))
       .limit(1),
   ])
   return (
-    clipRows.length > 0 ||
-    renditionRows.length > 0 ||
-    audioRows.length > 0 ||
-    ticketRows.length > 0
+    clipRows.length > 0 || renditionRows.length > 0 || ticketRows.length > 0
   )
 }
 
@@ -103,9 +91,6 @@ async function thumbnailHasLiveReference(
     .limit(1)
   if (direct) return true
 
-  // Legacy stable thumbnail keys remain readable for a live clip even when
-  // thumb_key was not populated. This mirrors storage GC's ownership rule.
-  const stableOwnerId = stableThumbnailClipId(key)
   const ownerId = clipStorageKeyClipId(key)
   if (!ownerId) return false
   const [owner] = await db
@@ -114,9 +99,7 @@ async function thumbnailHasLiveReference(
     .where(eq(clip.id, ownerId))
     .limit(1)
   return Boolean(
-    owner &&
-    (stableOwnerId ||
-      activeRunBlocksStorageDeletion(owner.encodeRunId, source)),
+    owner && activeRunBlocksStorageDeletion(owner.encodeRunId, source),
   )
 }
 
@@ -171,29 +154,15 @@ function exactInternalAssetPath(column: AnyColumn, expectedPath: string) {
   // Internal asset helpers append only a cache-busting query. Comparing the
   // parsed base path avoids substring/wildcard matches against external URLs.
   // Case-insensitive comparison also protects the same physical object on
-  // Windows while retaining the exact legacy key for deletion on Linux.
+  // Windows while retaining the exact key for deletion on Linux.
   return sql`lower(split_part(coalesce(${column}, ''), '?', 1)) = lower(${expectedPath})`
 }
 
 function storageKeyMatches(column: AnyColumn, key: string) {
-  // Historical client-supplied clip UUIDs could produce upper-case upload
-  // keys. Treat case aliases as references for deletion safety on Windows,
+  // Treat case aliases as references for deletion safety on Windows,
   // but retain the exact key in the ledger so Linux can remove the object that
   // was actually minted.
   return sql`lower(${column}) = lower(${key})`
-}
-
-export function stableThumbnailClipId(key: string): string | null {
-  const match =
-    /^[0-9a-f]{2}\/[0-9a-f]{2}\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/(thumb|thumb-small)\.jpg$/i.exec(
-      key,
-    )
-  const clipId = match?.[1]
-  if (!clipId) return null
-  const role = match?.[2] === "thumb-small" ? "thumb-small" : "thumb"
-  return clipAssetKey(clipId, role) === key.toLowerCase()
-    ? clipId.toLowerCase()
-    : null
 }
 
 /** Attribute a single-file clip object to its sharded clip directory. */

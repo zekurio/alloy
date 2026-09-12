@@ -1,6 +1,6 @@
 import type { ContractJsonInput } from "@alloy/contracts"
 
-export interface LocalStorageDriver<Value> {
+interface LocalStorageDriver<Value> {
   read(): Value
   refresh(): Value
   write(value: Value): Value

@@ -20,7 +20,7 @@ export function publishRuntimeConfigUpdate(event: RuntimeConfigEvent): void {
   }
 }
 
-export function subscribeRuntimeConfigUpdates(
+function subscribeRuntimeConfigUpdates(
   listener: RuntimeConfigListener,
 ): () => void {
   listeners.add(listener)

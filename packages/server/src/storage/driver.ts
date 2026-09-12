@@ -14,7 +14,7 @@ export interface ResolvedObject {
   lastModified: Date | null
 }
 
-export interface ListedObject {
+interface ListedObject {
   key: string
   lastModified: Date | null
 }
@@ -118,18 +118,6 @@ export function clipAssetDir(clipId: string): string {
   // Keys are relative to the configured clip-store root, which already means
   // "clips", so no `clips/` prefix here.
   return `${aa}/${bb}/${clipId}`
-}
-
-type ClipAssetRole = "source" | "thumb" | "thumb-small"
-
-const CLIP_ASSET_EXTENSION = {
-  source: "",
-  thumb: ".jpg",
-  "thumb-small": ".jpg",
-} satisfies Record<ClipAssetRole, string>
-
-export function clipAssetKey(clipId: string, role: ClipAssetRole): string {
-  return `${clipAssetDir(clipId)}/${role}${CLIP_ASSET_EXTENSION[role]}`
 }
 
 // Shared by userAssetKey and gameAssetKey: both are sharded by id under the

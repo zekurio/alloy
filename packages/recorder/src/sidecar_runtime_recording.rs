@@ -314,14 +314,11 @@ fn disk_replay_segment_count(replay_seconds: u32) -> usize {
 }
 
 fn replay_buffer_duration(session: &ActiveSession) -> Duration {
-    let OutputConfig::ReplayBuffer {
-        replay_seconds, ..
-    } = &session.output_config;
-    Duration::from_secs(u64::from((*replay_seconds).max(1)))
+    Duration::from_secs(u64::from(session.output_config.replay_seconds.max(1)))
 }
 
-fn cleanup_disk_replay_segments(config: &OutputConfig, keep: Option<&str>) {
-    let OutputConfig::ReplayBuffer {
+fn cleanup_disk_replay_segments(config: &ReplayBufferConfig, keep: Option<&str>) {
+    let ReplayBufferConfig {
         scratch_directory,
         output_directory: _,
         storage,
@@ -342,10 +339,6 @@ fn cleanup_disk_replay_segments(config: &OutputConfig, keep: Option<&str>) {
         }
         let _ = fs::remove_file(segment.path);
     }
-}
-
-fn update_session_pause_time(session: &mut ActiveSession, paused: bool) {
-    session.paused = paused;
 }
 
 fn unix_millis_to_system_time(value: u64) -> SystemTime {

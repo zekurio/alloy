@@ -1,19 +1,13 @@
-import {
-  normalizeBlurHash,
-  type ClipAudioTrackInput,
-  type TranscodingConfig,
-} from "@alloy/contracts"
+import { normalizeBlurHash, type TranscodingConfig } from "@alloy/contracts"
 import {
   encodeFingerprint,
   expectedLadder,
   persistedSourceFps,
 } from "@alloy/server/media/encode-fingerprint"
 import { probeMedia, sourceCodecsString } from "@alloy/server/media/probe"
-import { join } from "@alloy/server/runtime/path"
 
 import { abortMediaProcessing } from "./media-abort"
 import {
-  audioStemPhaseCost,
   FINALIZE_PHASE_COST,
   makeEncodeProgressTracker,
   POSTER_PHASE_COST,
@@ -32,10 +26,6 @@ import {
   trimRange,
 } from "./media-run-input"
 import { acquireSourceFile, resolveSourceAsset } from "./media-run-source"
-import {
-  extractAndUploadAudioStemsBestEffort,
-  validatedAudioTrackHints,
-} from "./media-run-stems"
 import { resolveWaveformAudio } from "./media-run-waveform"
 import {
   ensureStillPresent,
@@ -47,10 +37,7 @@ import type {
   MediaSourcePatch,
   MediaStore,
 } from "./media-store"
-export {
-  encodeProgressPercent,
-  encodeProgressTotalCost,
-} from "./media-encode-progress"
+
 export { runThumbnailBackfill } from "./media-thumbnail-backfill"
 export { runWaveformBackfill } from "./media-run-waveform"
 
@@ -146,10 +133,6 @@ async function runPipelineInWorkDir({
     throw abortMediaProcessing()
 
   const sourceProbe = await probeMedia(sourcePath)
-  const audioTrackHints = validatedAudioTrackHints(
-    row,
-    sourceProbe.audioTracks.length,
-  )
   const trim = trimRange(row, sourceProbe.durationMs)
   let hardwareFailed = false
   // The frame-exact H.264 cut is the clip's canonical playback media and the
@@ -178,15 +161,6 @@ async function runPipelineInWorkDir({
     sourceFps,
     trimStartMs: row.trimStartMs,
     trimEndMs: row.trimEndMs,
-    audioTrackFingerprint: audioTrackHints.length
-      ? JSON.stringify({
-          hints: audioTrackHints,
-          tracks: sourceProbe.audioTracks.slice(1).map((track) => ({
-            codec: track.codec,
-            codecs: track.codecString,
-          })),
-        })
-      : null,
   }
   const ladder = expectedLadder(transcodingConfig, fingerprintFacts)
 
@@ -195,12 +169,7 @@ async function runPipelineInWorkDir({
     commit: (pct) => store.commitProgress(id, runId, pct),
     onCommitted: (pct) => store.publishProgress(row.authorId, id, pct),
   })
-  const stemPhaseCost = audioTrackHints.length ? audioStemPhaseCost(ladder) : 0
-  const progress = makeEncodeProgressTracker(
-    ladder,
-    writeProgress,
-    stemPhaseCost,
-  )
+  const progress = makeEncodeProgressTracker(ladder, writeProgress)
 
   const sourceAsset = await resolveSourceAsset({
     id,
@@ -211,7 +180,7 @@ async function runPipelineInWorkDir({
     probe: sourceProbe,
     uploadedKeys,
   })
-  const hasAudio = sourceProbe.audioTracks.length > 0
+  const hasAudio = sourceProbe.audioCodec !== null
   const waveformKey = hasAudio
     ? (row.waveformKey ??
       (await resolveWaveformAudio({
@@ -231,8 +200,6 @@ async function runPipelineInWorkDir({
     probe: sourceProbe,
     sourceFps,
     waveformKey,
-    audioTrackHints,
-    audioTrackFingerprint: fingerprintFacts.audioTrackFingerprint,
     cut,
     durationMs,
   })
@@ -298,53 +265,16 @@ async function runPipelineInWorkDir({
   await ensureStillPresent(store, id, runId, signal)
   if (!(await store.commitStage(id, runId, "finalizing")))
     throw abortMediaProcessing()
-  // Stems use the original source and the same trim bounds as the canonical
-  // cut. They run after the ladder so a bad or sparse source track can never
-  // discard otherwise-usable renditions.
-  const audioTracks = await extractAndUploadAudioStemsBestEffort({
-    store,
-    id,
-    runId,
-    signal,
-    sourcePath,
-    outDir: join(workDir, "audio-stems"),
-    sourceTracks: sourceProbe.audioTracks,
-    hints: audioTrackHints,
-    trim: trim ?? undefined,
-    canonicalDurationMs: durationMs,
-    uploadedKeys,
-    onProgress: (fraction) => progress.writeAt(stemPhaseCost, fraction),
-  })
-  progress.complete(stemPhaseCost)
-
-  const stemsFailed = audioTracks.length !== audioTrackHints.length
-  const readyAudioTracks = stemsFailed ? [] : audioTracks
-  const readySourcePatch = stemsFailed
-    ? {
-        ...sourcePatch,
-        pendingAudioTracks: null,
-        audioTrackFingerprint: null,
-      }
-    : sourcePatch
-  const readyFingerprintFacts = stemsFailed
-    ? { ...fingerprintFacts, audioTrackFingerprint: null }
-    : fingerprintFacts
-
-  await ensureStillPresent(store, id, runId, signal)
   const committed = await store.commitReady(
     id,
     runId,
     {
-      ...readySourcePatch,
+      ...sourcePatch,
       thumbKey,
       thumbBlurHash,
-      encodeFingerprint: encodeFingerprint(
-        transcodingConfig,
-        readyFingerprintFacts,
-      ),
+      encodeFingerprint: encodeFingerprint(transcodingConfig, fingerprintFacts),
     },
     renditions,
-    readyAudioTracks,
     completion,
   )
   if (!committed) throw abortMediaProcessing()
@@ -357,8 +287,6 @@ function makeSourcePatch({
   probe,
   sourceFps,
   waveformKey,
-  audioTrackHints,
-  audioTrackFingerprint,
   cut,
   durationMs,
 }: {
@@ -366,8 +294,6 @@ function makeSourcePatch({
   probe: Awaited<ReturnType<typeof probeMedia>>
   sourceFps: MediaSourcePatch["sourceFps"]
   waveformKey: string | null
-  audioTrackHints: ClipAudioTrackInput[]
-  audioTrackFingerprint: string | null
   cut: Awaited<ReturnType<typeof encodeAndPublishCut>>
   durationMs: number
 }): MediaSourcePatch {
@@ -381,8 +307,6 @@ function makeSourcePatch({
     sourceSizeBytes: asset.sizeBytes,
     sourceDurationMs: probe.durationMs,
     waveformKey,
-    pendingAudioTracks: audioTrackHints.length ? audioTrackHints : null,
-    audioTrackFingerprint,
     cutKey: cut.key,
     cutCodecs: cut.codecs,
     durationMs,

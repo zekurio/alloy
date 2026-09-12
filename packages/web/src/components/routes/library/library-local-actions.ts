@@ -17,7 +17,7 @@ export async function deleteLocalLibraryCopy(
   notifyLibraryCapturesChanged(item.id)
 }
 
-export async function detachLocalServerLink({
+async function detachLocalServerLink({
   item,
   serverId,
 }: {

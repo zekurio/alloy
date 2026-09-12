@@ -37,18 +37,12 @@ import {
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import { DEFAULT_SCREENSHOT_EDIT } from "@/components/media/screenshot-edit"
 import { ScreenshotEditor } from "@/components/media/screenshot-editor"
-import {
-  stripExtension,
-  type SelectedFile,
-} from "@/components/upload/new-clip-helpers"
+import type { SelectedFile } from "@/components/upload/new-clip-helpers"
 import {
   useUploadActions,
   useUploadQueue,
 } from "@/components/upload/upload-flow-context"
-import type {
-  WebUploadAction,
-  WebUploadMetadata,
-} from "@/components/upload/web-upload-action"
+import type { WebUploadAction } from "@/components/upload/web-upload-action"
 import {
   useExternalVideoVolume,
   VideoPlayer,
@@ -58,11 +52,8 @@ import { useCapturePoster } from "@/lib/capture-poster"
 import {
   CLIP_DESCRIPTION_MAX,
   formatTags,
-  normalizeClipDescription,
-  normalizeClipTitle,
   parseTagString,
 } from "@/lib/clip-fields"
-import { copyTextToClipboard } from "@/lib/clipboard"
 import { notifyLibraryCapturesChanged, type AlloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
 import { useMediaWaveform } from "@/lib/media-waveform"
@@ -71,6 +62,7 @@ import { useActionFeedback } from "@/lib/use-action-feedback"
 import { exportAndPublishCapture } from "./library-capture-publish"
 import { EditorVolumeControl } from "./library-clip-editor-media"
 import { type LibraryItemView } from "./library-data"
+import { clipMetadataEditorFields } from "./library-editor-metadata"
 import {
   LibraryEntryNavButton,
   type NavigableLibraryEntry,
@@ -83,9 +75,15 @@ import {
   readLibraryHandoffPoster,
 } from "./library-handoff-poster"
 import {
+  copyPublishedClipLink,
+  persistedTrim,
+  savedLocalMetadata,
+} from "./library-local-editor-helpers"
+import {
   captureMentionsFromUsers,
   usersFromCaptureMentions,
 } from "./library-metadata"
+import { UploadEditorBody } from "./library-upload-editor-body"
 
 /**
  * Medal-style publish screen: the capture fills the space on the left with a
@@ -102,7 +100,7 @@ type LocalEditorBodyProps = {
   onRequestDelete: () => void
 }
 
-type UploadEditorBodyProps = {
+export type UploadEditorBodyProps = {
   uploadAction: WebUploadAction
   selected: SelectedFile
   previewUrl: string
@@ -141,17 +139,24 @@ function LocalEditorBody({
   const [savedMetadata, setSavedMetadata] = useState(() =>
     savedLocalMetadata(item),
   )
+  const metadata = useClipMetadataDraft(
+    {
+      title: item.title,
+      description: item.description ?? "",
+      game: item.displayGame,
+      mentions: usersFromCaptureMentions(item.mentions),
+      tags: parseTagString(item.tags ?? ""),
+    },
+    savedMetadata,
+  )
   const {
-    title,
     setTitle,
     description,
     setDescription,
     game,
     setGame,
     mentions,
-    setMentions,
     tags,
-    setTags,
     normalizedTitle,
     normalizedDescription,
     mentionIds,
@@ -162,16 +167,7 @@ function LocalEditorBody({
     mentionsChanged,
     tagsChanged,
     dirty,
-  } = useClipMetadataDraft(
-    {
-      title: item.title,
-      description: item.description ?? "",
-      game: item.displayGame,
-      mentions: usersFromCaptureMentions(item.mentions),
-      tags: parseTagString(item.tags ?? ""),
-    },
-    savedMetadata,
-  )
+  } = metadata
   const saveFeedback = useActionFeedback()
   const publishFeedback = useActionFeedback()
   const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
@@ -459,21 +455,7 @@ function LocalEditorBody({
                 trailing={<EditorVolumeControl playerVolume={playerVolume} />}
               />
 
-              <TrimBar
-                waveform={waveform}
-                durationMs={playback.durationMs}
-                startMs={trim.startMs}
-                endMs={trim.endMs}
-                subscribeCurrentMs={playback.subscribeCurrentMs}
-                getCurrentMs={playback.getCurrentMs}
-                onSeek={(sourceMs) => {
-                  playerRef.current?.pause()
-                  playback.seek(sourceMs)
-                }}
-                onStartChange={playback.handleTrimStartChange}
-                onEndChange={playback.handleTrimEndChange}
-                onMove={playback.handleTrimMove}
-              />
+              <TrimBar waveform={waveform} playback={playback} />
             </>
           )}
         </section>
@@ -484,16 +466,7 @@ function LocalEditorBody({
           className="min-w-0 gap-5 self-stretch overflow-visible p-4 lg:min-h-0 lg:overflow-y-auto"
         >
           <ClipMetadataEditor
-            title={title}
-            onTitleChange={setTitle}
-            description={description}
-            onDescriptionChange={setDescription}
-            game={game}
-            onGameChange={setGame}
-            mentions={mentions}
-            onMentionsChange={setMentions}
-            tags={tags}
-            onTagsChange={setTags}
+            {...clipMetadataEditorFields(metadata)}
             disabled={saving || publishing || deleting || awaitingLinkCopy}
             titleInvalid={titleInvalid}
             gameInvalid={false}
@@ -599,257 +572,4 @@ function LocalEditorBody({
       </div>
     </section>
   )
-}
-
-function UploadEditorBody({
-  uploadAction,
-  selected,
-  previewUrl,
-}: UploadEditorBodyProps) {
-  const isImage = selected.contentType.startsWith("image/")
-  const [screenshotEdit, setScreenshotEdit] = useState(DEFAULT_SCREENSHOT_EDIT)
-  const playback = useTrimPlayback({ initialDurationMs: selected.durationMs })
-  const { playerRef, trim, trimmed, rangeMs } = playback
-  const waveform = useMediaWaveform(
-    isImage ? null : previewUrl,
-    `upload:${previewUrl}`,
-    selected.durationMs,
-  )
-  const aspectRatio = mediaAspectRatio(selected.width, selected.height)
-  const {
-    title,
-    setTitle,
-    description,
-    setDescription,
-    game,
-    setGame,
-    mentions,
-    setMentions,
-    tags,
-    setTags,
-    normalizedTitle,
-    normalizedDescription,
-    titleInvalid,
-    descriptionInvalid,
-  } = useClipMetadataDraft({
-    title: stripExtension(selected.name),
-    description: "",
-    game: null,
-    mentions: [],
-    tags: [],
-  })
-  const canPublish =
-    !uploadAction.publishing &&
-    !uploadAction.awaitingLinkCopy &&
-    !titleInvalid &&
-    !descriptionInvalid &&
-    (isImage || rangeMs >= MIN_TRIM_MS)
-
-  const publish = (privacy: ClipPrivacy) => {
-    if (!canPublish) return
-    const metadata: WebUploadMetadata = {
-      title: normalizedTitle,
-      description: normalizedDescription,
-      tags: formatTags(tags),
-      game,
-      privacy,
-      mentions,
-      trim: { startMs: trim.startMs, endMs: trim.endMs },
-      trimmed: !isImage && trimmed,
-      screenshotEdit: isImage ? screenshotEdit : undefined,
-    }
-    void uploadAction.publish(metadata)
-  }
-
-  return (
-    <section className="flex w-full flex-col lg:h-full lg:min-h-0">
-      <div className="grid w-full grid-cols-1 items-start gap-6 lg:h-full lg:min-h-0 lg:grid-cols-[minmax(0,1fr)_400px] lg:grid-rows-1 lg:items-stretch">
-        <section className="relative flex min-w-0 flex-col gap-3 lg:min-h-0">
-          {isImage ? (
-            <ScreenshotEditor
-              file={selected.file}
-              value={screenshotEdit}
-              onChange={setScreenshotEdit}
-              disabled={uploadAction.publishing}
-            />
-          ) : (
-            <>
-              <MediaStage aspectRatio={aspectRatio}>
-                <VideoPlayer
-                  src={previewUrl}
-                  sourceIdentity={previewUrl}
-                  fallbackSeed={selected.name}
-                  aspectRatio={aspectRatio}
-                  maxDisplayHeight="100%"
-                  controls={false}
-                  onVideoClick={() => playback.togglePlayback()}
-                  playerRef={playerRef}
-                  onTimeUpdate={playback.handleTimeUpdate}
-                  onPlayingChange={playback.setPlaying}
-                  onEnded={playback.handleEnded}
-                />
-              </MediaStage>
-
-              <TrimTransportControls playback={playback} />
-
-              <TrimBar
-                waveform={waveform}
-                durationMs={playback.durationMs}
-                startMs={trim.startMs}
-                endMs={trim.endMs}
-                subscribeCurrentMs={playback.subscribeCurrentMs}
-                getCurrentMs={playback.getCurrentMs}
-                onSeek={(sourceMs) => {
-                  playerRef.current?.pause()
-                  playback.seek(sourceMs)
-                }}
-                onStartChange={playback.handleTrimStartChange}
-                onEndChange={playback.handleTrimEndChange}
-                onMove={playback.handleTrimMove}
-              />
-            </>
-          )}
-        </section>
-
-        <Card
-          tone="surface"
-          role="complementary"
-          className="min-w-0 gap-5 self-stretch overflow-visible p-4 lg:min-h-0 lg:overflow-y-auto"
-        >
-          <ClipMetadataEditor
-            title={title}
-            onTitleChange={setTitle}
-            description={description}
-            onDescriptionChange={setDescription}
-            game={game}
-            onGameChange={setGame}
-            mentions={mentions}
-            onMentionsChange={setMentions}
-            tags={tags}
-            onTagsChange={setTags}
-            disabled={uploadAction.publishing || uploadAction.awaitingLinkCopy}
-            titleInvalid={titleInvalid}
-            gameInvalid={false}
-          />
-          {descriptionInvalid ? (
-            <p className="text-destructive text-xs">
-              {t("Description can be at most {max} characters", {
-                max: CLIP_DESCRIPTION_MAX,
-              })}
-            </p>
-          ) : null}
-          {uploadAction.error ? (
-            <Callout tone="destructive" className="text-xs">
-              <CircleAlertIcon />
-              <span>{uploadAction.error}</span>
-            </Callout>
-          ) : null}
-
-          <div className="border-border mt-auto flex items-center justify-between gap-2 border-t pt-4">
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={uploadAction.publishing}
-              onClick={uploadAction.discard}
-            >
-              {uploadAction.awaitingLinkCopy ? t("Done") : t("Cancel")}
-            </Button>
-            {uploadAction.awaitingLinkCopy ? (
-              <FeedbackButton
-                type="button"
-                variant="primary"
-                state={
-                  uploadAction.publishing
-                    ? "pending"
-                    : uploadAction.error
-                      ? "error"
-                      : "idle"
-                }
-                pendingLabel={t("Copying…")}
-                errorLabel={t("Try again")}
-                onClick={() => {
-                  void uploadAction.retryLinkCopy()
-                }}
-              >
-                <CopyIcon />
-                {t("Copy link")}
-              </FeedbackButton>
-            ) : (
-              <div className="flex items-center">
-                <FeedbackButton
-                  type="button"
-                  variant="primary"
-                  disabled={!canPublish}
-                  state={
-                    uploadAction.publishing
-                      ? "pending"
-                      : uploadAction.error
-                        ? "error"
-                        : "idle"
-                  }
-                  pendingLabel={t("Uploading...")}
-                  errorLabel={t("Try again")}
-                  className="rounded-r-none"
-                  onClick={() => publish("public")}
-                >
-                  <UploadIcon />
-                  {t("Post")}
-                </FeedbackButton>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="primary"
-                        size="icon"
-                        disabled={!canPublish}
-                        aria-label={t("More post options")}
-                        className="border-l-accent-hover size-9 rounded-l-none sm:size-8"
-                      />
-                    }
-                  >
-                    <ChevronUpIcon />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="top" className="w-52">
-                    <DropdownMenuItem onClick={() => publish("unlisted")}>
-                      <Link2Icon className="size-4" />
-                      {t("Create Link")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-    </section>
-  )
-}
-
-async function copyPublishedClipLink(link: string) {
-  return copyTextToClipboard(link, { action: "copy published clip link" })
-}
-
-function savedLocalMetadata(item: LibraryItemView) {
-  return {
-    title: normalizeClipTitle(item.title),
-    description: normalizeClipDescription(item.description ?? ""),
-    tags: parseTagString(item.tags ?? ""),
-    mentionIds: item.mentions.map((mention) => mention.id),
-    gameId: item.displayGame?.id ?? null,
-  }
-}
-
-/**
- * The trim persisted on the capture, or null when untrimmed or malformed.
- * Number.isFinite rejects stale bridge values without coercing strings.
- */
-function persistedTrim(item: LibraryItemView) {
-  const startMs = finiteTrimMs(item.trimStartMs)
-  const endMs = finiteTrimMs(item.trimEndMs)
-  return startMs !== null && endMs !== null ? { startMs, endMs } : null
-}
-
-function finiteTrimMs(value: number | null | undefined): number | null {
-  return Number.isFinite(value) ? Number(value) : null
 }

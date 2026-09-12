@@ -74,23 +74,9 @@ function PopoverTitle({ className, ...props }: Popover.Title.Props) {
   )
 }
 
-function PopoverDescription({
-  className,
-  ...props
-}: Popover.Description.Props) {
-  return (
-    <Popover.Description
-      data-slot="popover-description"
-      className={cn("text-muted-foreground", className)}
-      {...props}
-    />
-  )
-}
-
 export {
   PopoverRoot as Popover,
   PopoverContent,
-  PopoverDescription,
   PopoverHeader,
   PopoverTitle,
   PopoverTrigger,

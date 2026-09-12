@@ -58,7 +58,6 @@ export function LibraryCaptureCard({
       renderGameLink={renderGameLink}
       views="0"
       viewCount={0}
-      likes="0"
       thumbnail={cardThumbnail}
       thumbnailBlurHash={cardThumbnailBlurHash}
       fallbackSeed={`${item.groupLabel}:${item.id}`}
@@ -90,9 +89,7 @@ export function LibraryCaptureCard({
 type LibrarySource = "local" | "link-disabled" | "link-only" | "on-profile"
 
 /** How visible a published clip is, mirroring the privacy picker icons. */
-export function librarySourceForPrivacy(
-  privacy: ClipRow["privacy"],
-): LibrarySource {
+function librarySourceForPrivacy(privacy: ClipRow["privacy"]): LibrarySource {
   if (privacy === "public") return "on-profile"
   if (privacy === "unlisted") return "link-only"
   return "link-disabled"
@@ -204,7 +201,6 @@ export function UploadedClipCard({
       renderGameLink={renderGameLink}
       views={card.views}
       viewCount={card.viewCount}
-      likes={card.likes}
       thumbnail={thumbnail}
       thumbnailFallback={localThumbnail}
       thumbnailBlurHash={thumbnailBlurHash}

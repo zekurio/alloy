@@ -9,7 +9,10 @@ import {
 } from "react"
 import type { KeyboardEvent, PointerEvent } from "react"
 
-import { WaveformCanvas } from "@/components/media/waveform-canvas"
+import {
+  WaveformCanvas,
+  WaveformStatus,
+} from "@/components/media/waveform-canvas"
 import { formatMediaDurationMs, formatTrimMs } from "@/lib/media-time"
 import type { MediaWaveformState } from "@/lib/media-waveform"
 
@@ -397,16 +400,6 @@ export function TrimTimeline({
         </div>
       </div>
     </div>
-  )
-}
-
-function WaveformStatus({ status }: { status: MediaWaveformState["status"] }) {
-  if (status === "ready") return null
-  const label = status === "loading" ? t("Loading…") : t("Unavailable")
-  return (
-    <span className="text-foreground-faint pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-medium tracking-wide uppercase">
-      {label}
-    </span>
   )
 }
 

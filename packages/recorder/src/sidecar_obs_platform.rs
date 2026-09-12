@@ -62,7 +62,8 @@ fn platform_gpus() -> Vec<String> {
 }
 
 fn platform_gpu_labels() -> Vec<String> {
-    let script = "Get-CimInstance Win32_VideoController | Select-Object Name | ConvertTo-Json -Compress";
+    let script =
+        "Get-CimInstance Win32_VideoController | Select-Object Name | ConvertTo-Json -Compress";
     let Some(output) = command_output(
         "powershell.exe",
         &[
@@ -135,7 +136,9 @@ unsafe fn collect_active_audio_devices(
     devices: &mut Vec<RecordingAudioDevice>,
 ) -> Result<(), String> {
     let Some(audio_devices) = active_audio_endpoint_devices(enumerator, data_flow) else {
-        return Err(format!("Windows audio endpoint enumeration failed for {kind:?}."));
+        return Err(format!(
+            "Windows audio endpoint enumeration failed for {kind:?}."
+        ));
     };
     for device in audio_devices {
         let Some(id) = endpoint_id(&device) else {
@@ -154,11 +157,7 @@ fn sort_audio_devices(devices: &mut [RecordingAudioDevice]) {
     devices.sort_by(|a, b| {
         audio_device_kind_order(&a.kind)
             .cmp(&audio_device_kind_order(&b.kind))
-            .then_with(|| {
-                a.label
-                    .to_lowercase()
-                    .cmp(&b.label.to_lowercase())
-            })
+            .then_with(|| a.label.to_lowercase().cmp(&b.label.to_lowercase()))
             .then_with(|| a.id.cmp(&b.id))
     });
 }
@@ -244,10 +243,8 @@ fn obs_window_selector_component(value: &str) -> String {
     value.replace('#', "#22").replace(':', "#3A")
 }
 
-fn available_audio_applications(
-    _game: Option<&DetectedGame>,
-) -> HashMap<String, RecordingAudioApplicationSelection> {
-    platform_audio_applications()
+fn available_audio_applications() -> HashMap<String, RecordingAudioApplicationSelection> {
+    windows_detector::audio_applications()
         .into_iter()
         .map(|application| (application.id.clone(), application))
         .collect()

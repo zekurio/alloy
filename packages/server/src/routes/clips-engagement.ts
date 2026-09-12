@@ -14,7 +14,7 @@ import {
   noContent,
 } from "@alloy/server/runtime/http-response"
 import { and, eq, type SQL, sql } from "drizzle-orm"
-import { Hono } from "hono"
+import { type Context, Hono } from "hono"
 
 import { IdParam } from "./clips-helpers"
 import { tbValidator } from "./validation"
@@ -47,6 +47,13 @@ async function readLikeCount(tx: Tx, clipId: string): Promise<number> {
   return row.likeCount
 }
 
+async function resolveEngagementClip(c: Context, id: string) {
+  const target = await resolveClipAccess({ id, c, policy: "engagement" })
+  return target.accessible
+    ? target
+    : { response: clipAccessResponse(c, target) }
+}
+
 export const clipsEngagementRoutes = new Hono()
   .get(
     "/:id/like",
@@ -55,12 +62,8 @@ export const clipsEngagementRoutes = new Hono()
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
-      const target = await resolveClipAccess({
-        id,
-        c,
-        policy: "engagement",
-      })
-      if (!target.accessible) return clipAccessResponse(c, target)
+      const target = await resolveEngagementClip(c, id)
+      if ("response" in target) return target.response
 
       const [row] = await db
         .select({ clipId: clipLike.clip_id })
@@ -78,12 +81,8 @@ export const clipsEngagementRoutes = new Hono()
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
 
-      const target = await resolveClipAccess({
-        id,
-        c,
-        policy: "engagement",
-      })
-      if (!target.accessible) return clipAccessResponse(c, target)
+      const target = await resolveEngagementClip(c, id)
+      if ("response" in target) return target.response
 
       const result = await db.transaction(async (tx) => {
         const inserted = await tx
@@ -124,12 +123,8 @@ export const clipsEngagementRoutes = new Hono()
     async (c) => {
       const viewerId = c.var.viewerId
       const { id } = c.req.valid("param")
-      const target = await resolveClipAccess({
-        id,
-        c,
-        policy: "engagement",
-      })
-      if (!target.accessible) return clipAccessResponse(c, target)
+      const target = await resolveEngagementClip(c, id)
+      if ("response" in target) return target.response
 
       const likeCount = await db.transaction(async (tx) => {
         const removed = await tx
@@ -152,12 +147,8 @@ export const clipsEngagementRoutes = new Hono()
   .post("/:id/view", tbValidator("param", IdParam), async (c) => {
     const { id } = c.req.valid("param")
 
-    const target = await resolveClipAccess({
-      id,
-      c,
-      policy: "engagement",
-    })
-    if (!target.accessible) return clipAccessResponse(c, target)
+    const target = await resolveEngagementClip(c, id)
+    if ("response" in target) return target.response
 
     const viewer = await resolveViewer(c)
 

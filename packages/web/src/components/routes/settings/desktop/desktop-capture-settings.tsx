@@ -1,10 +1,9 @@
 import { t } from "@alloy/i18n"
-import { Callout } from "@alloy/ui/components/callout"
 import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { SettingRow } from "@alloy/ui/components/setting-row"
 import { Spinner } from "@alloy/ui/components/spinner"
-import { CircleAlertIcon, RefreshCcwIcon } from "lucide-react"
+import { RefreshCcwIcon } from "lucide-react"
 import { useState } from "react"
 
 import {
@@ -17,7 +16,10 @@ import { AllowedGamesSection } from "./desktop-capture-games"
 import { HotkeysSection } from "./desktop-capture-hotkeys"
 import { NotificationSoundsSection } from "./desktop-capture-notifications"
 import { ModeSection } from "./desktop-capture-sections"
-import { useDesktopRecording } from "./desktop-recording-context"
+import {
+  DesktopRecordingNotice,
+  useDesktopRecording,
+} from "./desktop-recording-context"
 import { DesktopStorageSettings } from "./desktop-storage-settings"
 
 export function DesktopCaptureSettings() {
@@ -27,14 +29,7 @@ export function DesktopCaptureSettings() {
   const [restartDialogOpen, setRestartDialogOpen] = useState(false)
 
   if (!settings || !status) {
-    if (error) {
-      return (
-        <Callout tone="destructive">
-          <CircleAlertIcon />
-          <span>{error}</span>
-        </Callout>
-      )
-    }
+    if (error) return <DesktopRecordingNotice />
     return (
       <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />
@@ -45,19 +40,7 @@ export function DesktopCaptureSettings() {
 
   return (
     <>
-      {error ? (
-        <Callout tone="destructive">
-          <CircleAlertIcon />
-          <span>{error}</span>
-        </Callout>
-      ) : status.message ? (
-        <Callout
-          tone={status.backend === "missing" ? "warning" : "destructive"}
-        >
-          <CircleAlertIcon />
-          <span>{t(status.message)}</span>
-        </Callout>
-      ) : null}
+      <DesktopRecordingNotice />
       <ModeSection settings={settings} status={status} busy={busy} save={save}>
         <SettingRow
           title={t("Alloy agent")}
@@ -138,14 +121,7 @@ export function DesktopStoragePanel() {
   const { settings, storageInfo, error } = useDesktopRecording()
 
   if (!settings || !storageInfo) {
-    if (error) {
-      return (
-        <Callout tone="destructive">
-          <CircleAlertIcon />
-          <span>{error}</span>
-        </Callout>
-      )
-    }
+    if (error) return <DesktopRecordingNotice />
     return (
       <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
         <Spinner />

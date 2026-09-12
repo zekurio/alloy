@@ -4,6 +4,7 @@ import { userAssetImagePath, type PublicUser } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import { createLogger } from "@alloy/logging"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
 import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import {
@@ -13,7 +14,7 @@ import {
 } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
-import { userStorage, versionedAssetKey } from "@alloy/server/storage/index"
+import { assetStorage, versionedAssetKey } from "@alloy/server/storage/index"
 import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
 import { eq, getTableColumns, sql } from "drizzle-orm"
 import sharp from "sharp"
@@ -42,6 +43,23 @@ const USER_ASSET_COLUMN = {
   avatar: "image",
   banner: "banner",
 } satisfies Record<UserAssetRole, "image" | "banner">
+
+async function rejectUserAssetUpload(
+  tx: DbTransaction,
+  key: string,
+  reason: string,
+  attemptId: string,
+  result: UserAssetUpdateResult,
+): Promise<{
+  result: UserAssetUpdateResult
+  queuedDeletions: number
+}> {
+  await enqueueStorageDeletion(
+    prewriteAssetDeletionIntent({ key, reason, attemptId }),
+    { tx },
+  )
+  return { result, queuedDeletions: 1 }
+}
 
 export const USER_ASSET_LIMITS = {
   avatar: { label: "Avatar", maxBytes: MAX_AVATAR_BYTES },
@@ -123,7 +141,7 @@ export async function uploadUserAsset(input: {
 
       let cleanupReason = "user asset upload failed"
       try {
-        await userStorage.put(key, resized, USER_ASSET_CONTENT_TYPE)
+        await assetStorage.put(key, resized, USER_ASSET_CONTENT_TYPE)
         cleanupReason = "user asset swap failed"
         const transactionResult = await db.transaction(
           async (
@@ -142,18 +160,13 @@ export async function uploadUserAsset(input: {
               .limit(1)
               .for("update")
             if (!locked) {
-              await enqueueStorageDeletion(
-                prewriteAssetDeletionIntent({
-                  key,
-                  reason: "user row missing after asset upload",
-                  attemptId,
-                }),
-                { tx },
+              return rejectUserAssetUpload(
+                tx,
+                key,
+                "user row missing after asset upload",
+                attemptId,
+                missingUserResult(),
               )
-              return {
-                result: missingUserResult(),
-                queuedDeletions: 1,
-              }
             }
 
             const column = USER_ASSET_COLUMN[input.role]
@@ -164,18 +177,13 @@ export async function uploadUserAsset(input: {
                 input.expected,
               )
             ) {
-              await enqueueStorageDeletion(
-                prewriteAssetDeletionIntent({
-                  key,
-                  reason: "conditional user asset upload rejected",
-                  attemptId,
-                }),
-                { tx },
+              return rejectUserAssetUpload(
+                tx,
+                key,
+                "conditional user asset upload rejected",
+                attemptId,
+                { ok: true, user: toPublicUser(locked.row) },
               )
-              return {
-                result: { ok: true, user: toPublicUser(locked.row) },
-                queuedDeletions: 1,
-              }
             }
 
             const previousUrl = locked.row[column]
@@ -190,18 +198,13 @@ export async function uploadUserAsset(input: {
               .where(eq(user.id, input.userId))
               .returning()
             if (!updated) {
-              await enqueueStorageDeletion(
-                prewriteAssetDeletionIntent({
-                  key,
-                  reason: "user asset update rejected",
-                  attemptId,
-                }),
-                { tx },
+              return rejectUserAssetUpload(
+                tx,
+                key,
+                "user asset update rejected",
+                attemptId,
+                missingUserResult(),
               )
-              return {
-                result: missingUserResult(),
-                queuedDeletions: 1,
-              }
             }
 
             // The pointer and reservation change atomically. An uncertain commit

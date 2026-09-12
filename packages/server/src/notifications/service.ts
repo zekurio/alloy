@@ -28,7 +28,7 @@ import {
   type NotificationCommentSource,
 } from "./hydration"
 
-export type NotificationRow = typeof notification.$inferSelect
+type NotificationRow = typeof notification.$inferSelect
 type AuthenticatedClipViewer = Exclude<ClipViewer, null>
 
 export class InvalidNotificationCursorError extends Error {
@@ -99,7 +99,7 @@ export async function createStoredClipMentionNotifications(
   }
 }
 
-export async function hydrateNotifications(
+async function hydrateNotifications(
   rows: NotificationRow[],
   viewer: AuthenticatedClipViewer,
 ): Promise<NotificationItem[]> {

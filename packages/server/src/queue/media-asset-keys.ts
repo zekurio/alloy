@@ -24,14 +24,6 @@ export function runScopedWaveformKey(clipId: string, runId: string): string {
   return `${clipAssetDir(clipId)}/waveform-${runKeyStamp(runId)}.m4a`
 }
 
-export function runScopedAudioTrackKey(
-  clipId: string,
-  runId: string,
-  index: number,
-): string {
-  return `${clipAssetDir(clipId)}/audio-${index}-${runKeyStamp(runId)}.m4a`
-}
-
 export function runScopedRenditionKey(
   clipId: string,
   runId: string,

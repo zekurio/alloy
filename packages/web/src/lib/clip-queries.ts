@@ -1,12 +1,9 @@
-import { HttpError } from "@alloy/api"
 import type { ClipRow, QueueClip, UpdateClipInput, UserClip } from "@alloy/api"
-import type { ProfileMediaParams } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import {
   type QueryClient,
   queryOptions,
-  infiniteQueryOptions,
   useMutation,
   useQuery,
   useQueryClient,
@@ -14,7 +11,6 @@ import {
 import { useCallback } from "react"
 
 import { api } from "./api"
-import { clipEncodingActive } from "./clip-encoding"
 import {
   adjustClipCountsInCaches,
   type ClipsSnapshot,
@@ -28,11 +24,11 @@ import {
 } from "./clip-query-cache"
 import { clipKeys } from "./clip-query-keys"
 import { useUploadQueueStream } from "./clip-queue-stream"
-import { compareDateAsc, compareDateDesc } from "./date-format"
 import { errorMessage } from "./error-message"
 import { invalidateGameQueries } from "./game-queries"
-import type { ProfileClipSort } from "./profile-all-search"
 import { invalidateStorageUsage } from "./user-queries"
+
+export { profileMediaQueryOptions } from "./profile-media-queries"
 
 export {
   adjustClipCountsInCaches,
@@ -60,7 +56,7 @@ export function clipDetailQueryOptions(
     refetchInterval: (query) => {
       const row = query.state.data
       if (!row) return false
-      return clipEncodingActive(row) ? 2500 : false
+      return row.encodeActive ? 2500 : false
     },
     // Keep the previous clip visible while the next one loads so
     // route-driven modal navigation feels continuous.
@@ -86,15 +82,7 @@ export function useUserClipsQuery(handle: string) {
 export function userClipsQueryOptions(handle: string) {
   return queryOptions({
     queryKey: clipKeys.userList(handle),
-    queryFn: async () => {
-      try {
-        return await api.users.fetchMedia(handle, { media: "all", limit: 50 })
-      } catch (error) {
-        if (error instanceof HttpError && error.status === 404)
-          return api.users.fetchClips(handle)
-        throw error
-      }
-    },
+    queryFn: () => api.users.fetchMedia(handle, { media: "all", limit: 50 }),
     enabled: handle.length > 0,
   })
 }
@@ -396,74 +384,3 @@ export function useInvalidateClips() {
 }
 
 export type { ClipRow, QueueClip, UpdateClipInput, UserClip }
-
-export function profileMediaQueryOptions(
-  username: string,
-  params: Pick<ProfileMediaParams, "tab" | "media" | "sort" | "game">,
-) {
-  return infiniteQueryOptions({
-    queryKey: [...clipKeys.infinite(), "profile-media", username, params],
-    // SAFETY: The offset cursor is a string; null denotes the first page.
-    initialPageParam: null as string | null,
-    queryFn: async ({ pageParam }) => {
-      try {
-        const items = await api.users.fetchMedia(username, {
-          ...params,
-          limit: 30,
-          offset: Number(pageParam ?? 0),
-        })
-        return {
-          items,
-          nextCursor:
-            items.length === 30
-              ? String(Number(pageParam ?? 0) + items.length)
-              : null,
-        }
-      } catch (cause) {
-        if (!(cause instanceof HttpError) || cause.status !== 404) throw cause
-        if (pageParam !== null || params.media === "image")
-          return { items: [], nextCursor: null }
-        const rows = await (params.tab === "liked"
-          ? api.users.fetchLikedClips(username)
-          : params.tab === "tagged"
-            ? api.users.fetchTaggedClips(username)
-            : api.users.fetchClips(username))
-        const items = sortClips(
-          params.game
-            ? rows.filter((row) => row.gameRef?.slug === params.game)
-            : rows,
-          params.sort ?? "recent",
-        )
-        return { items, nextCursor: null }
-      }
-    },
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-  })
-}
-
-function sortClips(clips: UserClip[], sort: ProfileClipSort): UserClip[] {
-  const copy = clips.slice()
-  switch (sort) {
-    case "recent":
-      copy.sort((a, b) => compareDateDesc(a.createdAt, b.createdAt))
-      break
-    case "oldest":
-      copy.sort((a, b) => compareDateAsc(a.createdAt, b.createdAt))
-      break
-    case "top":
-      copy.sort(
-        (a, b) =>
-          b.likeCount - a.likeCount ||
-          compareDateDesc(a.createdAt, b.createdAt),
-      )
-      break
-    case "views":
-      copy.sort(
-        (a, b) =>
-          b.viewCount - a.viewCount ||
-          compareDateDesc(a.createdAt, b.createdAt),
-      )
-      break
-  }
-  return copy
-}

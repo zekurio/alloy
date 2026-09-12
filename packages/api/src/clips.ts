@@ -35,9 +35,6 @@ export {
 export { uploadToTicket } from "./clip-upload"
 export type {
   AcceptedContentType,
-  ClipAudioTrackInput,
-  ClipAudioTrackKind,
-  ClipAudioTrackRef,
   ClipFeedSort,
   ClipGameRef,
   ClipListSort,
@@ -95,20 +92,6 @@ export function clipRenditionFileUrl(
   return versionedClipAssetUrl(
     clipId,
     `/rendition/${encodeURIComponent(name)}/file.mp4`,
-    origin,
-    version,
-  )
-}
-
-export function clipAudioTrackFileUrl(
-  clipId: string,
-  index: number,
-  origin?: string,
-  version?: string,
-): string {
-  return versionedClipAssetUrl(
-    clipId,
-    `/audio/${index}/file.m4a`,
     origin,
     version,
   )
@@ -196,15 +179,11 @@ async function deleteClip(context: ApiContext, clipId: string): Promise<void> {
 async function dismissQueueClip(
   context: ApiContext,
   clipId: string,
-): Promise<boolean> {
+): Promise<void> {
   const res = await context.rpc.api.clips[":id"]["queue-dismissal"].$post({
     param: { id: clipId },
   })
-  // Older contract-1 servers have no dismissal endpoint. The caller can keep
-  // its local fallback; a missing clip is also safe to hide locally.
-  if (res.status === 404) return false
   await readSuccessJson(res)
-  return true
 }
 
 async function updateClip(

@@ -24,7 +24,6 @@ import {
   startStorageDeletionWorker,
   stopStorageDeletionWorker,
 } from "./storage/deletion-worker"
-import { repairLegacyUploadDeadlines } from "./uploads/deadline"
 import {
   startUploadExpiryWorker,
   stopUploadExpiryWorker,
@@ -75,9 +74,6 @@ if (configStore.get("setupComplete")) {
 const { app } = await import("./app")
 
 try {
-  // Older pending uploads did not own an absolute cleanup deadline. Repair
-  // them in bounded statements before cleanup or HTTP can race the backfill.
-  await repairLegacyUploadDeadlines(configStore.get("limits").uploadTtlSec)
   // Media requests are durable, but a server that accepts them without a live
   // worker is operationally unhealthy. Gate listen on recovery and generation
   // initialization so startup either succeeds completely or exits.

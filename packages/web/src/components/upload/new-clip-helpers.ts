@@ -5,7 +5,7 @@ import {
 } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 
-import { type ProbedFile, probeFile } from "./new-clip-media"
+import { probeFile } from "./new-clip-media"
 
 /** Metadata derived from a real File for display in the library editor. */
 export interface SelectedFile {
@@ -24,7 +24,7 @@ export interface SelectedFile {
   sizeBytes: number
 }
 
-export type Visibility = ClipPrivacy
+type Visibility = ClipPrivacy
 
 export interface PublishPayload {
   file: File
@@ -157,5 +157,3 @@ export function fileExtensionLabel(filename: string): string | null {
   if (ext.length > 5 || /[^a-z0-9]/i.test(ext)) return null
   return ext.toUpperCase()
 }
-
-export { type ProbedFile, probeFile }

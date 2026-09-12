@@ -1,8 +1,4 @@
-import type {
-  ClipAudioTrackInput,
-  ClipAudioTrackKind,
-  EncodeStage,
-} from "@alloy/contracts"
+import type { EncodeStage } from "@alloy/contracts"
 import type { UploadTicketTarget } from "@alloy/db/schema"
 
 /** The media-bearing subset of a recording row the processing run reads. */
@@ -15,8 +11,6 @@ export interface MediaRow {
   sourceSizeBytes: number | null
   sourceDurationMs: number | null
   waveformKey: string | null
-  pendingAudioTracks: ClipAudioTrackInput[] | null
-  audioTrackFingerprint: string | null
   cutKey: string | null
   thumbKey: string | null
   thumbBlurHash: string | null
@@ -37,8 +31,6 @@ export interface MediaSourcePatch {
   sourceSizeBytes: number
   sourceDurationMs: number | null
   waveformKey: string | null
-  pendingAudioTracks: ClipAudioTrackInput[] | null
-  audioTrackFingerprint: string | null
   cutKey: string | null
   /** RFC 6381 codecs of the committed cut; null when `cutKey` is null. */
   cutCodecs: string | null
@@ -53,7 +45,7 @@ export interface MediaThumbPatch {
   thumbFailedAt?: Date | null
 }
 
-export interface MediaStageTier {
+interface MediaStageTier {
   name: string
   index: number
   count: number
@@ -68,16 +60,6 @@ export interface MediaRenditionRecord {
   height: number
   width: number
   fps: number
-  storageKey: string
-  codecs: string
-  sizeBytes: number
-}
-
-/** One extracted per-source audio track produced by a media run. */
-export interface MediaAudioTrackRecord {
-  index: number
-  kind: ClipAudioTrackKind
-  label: string
   storageKey: string
   codecs: string
   sizeBytes: number
@@ -164,7 +146,6 @@ export interface MediaStore {
         encodeFingerprint: string
       },
     renditions: readonly MediaRenditionRecord[],
-    audioTracks: readonly MediaAudioTrackRecord[],
     completion: MediaCompletion,
   ): Promise<boolean>
   /** Current asset keys, so a failing run never deletes live assets. */
@@ -174,7 +155,6 @@ export interface MediaStore {
     cutKey: string | null
     thumbKey: string | null
     renditionKeys: string[]
-    audioTrackKeys: string[]
   } | null>
 
   publishUpsert(authorId: string, id: string): void

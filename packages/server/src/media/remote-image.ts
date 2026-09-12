@@ -1,8 +1,8 @@
 import { lookup } from "node:dns/promises"
 import { BlockList, isIP } from "node:net"
 
-export const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 10000
-export const REMOTE_IMAGE_MAX_BYTES = 10 * 1024 * 1024
+const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 10000
+const REMOTE_IMAGE_MAX_BYTES = 10 * 1024 * 1024
 
 // Address space an attacker-influenced URL must never reach from the server:
 // loopback, unspecified, RFC 1918/6598 private, link-local, IPv6 unique-local.

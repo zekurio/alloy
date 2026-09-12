@@ -1,12 +1,7 @@
-import {
-  normalizeBlurHash,
-  type ClipAudioTrackKind,
-  type ClipMentionRef,
-} from "@alloy/contracts"
+import { normalizeBlurHash, type ClipMentionRef } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
 import {
   clip,
-  clipAudioTrack,
   clipMention,
   clipRendition,
   clipTag,
@@ -71,17 +66,6 @@ export const clipSelection = {
   tags: sql<
     string[]
   >`coalesce((select array_agg(${clipTag.tag} order by ${clipTag.tag}) from ${clipTag} where ${clipTag.clip_id} = ${clip.id}), '{}')`,
-  // Committed stem metadata. Keys are aggregated for version derivation and
-  // stripped before the row leaves the server.
-  audioTrackRows: sql<
-    {
-      index: number
-      kind: ClipAudioTrackKind
-      label: string
-      codecs: string
-      key: string
-    }[]
-  >`coalesce((select json_agg(json_build_object('index', ${clipAudioTrack.idx}, 'kind', ${clipAudioTrack.kind}, 'label', ${clipAudioTrack.label}, 'codecs', ${clipAudioTrack.codecs}, 'key', ${clipAudioTrack.storage_key}) order by ${clipAudioTrack.idx}) from ${clipAudioTrack} where ${clipAudioTrack.clip_id} = ${clip.id}), '[]'::json)`,
   // Committed quality tiers, highest first. Keys are aggregated for version
   // derivation and stripped before the row leaves the server.
   renditionRows: sql<
@@ -146,13 +130,6 @@ export function toPublicClipRow<
     gameId: string | null
     game: string | null
     gameRef?: Parameters<typeof serialiseGameRow>[0] | null
-    audioTrackRows?: {
-      index: number
-      kind: ClipAudioTrackKind
-      label: string
-      codecs: string
-      key: string
-    }[]
     renditionRows?: {
       name: string
       og: boolean
@@ -170,7 +147,6 @@ export function toPublicClipRow<
     cutKey: _cutKey,
     cutCodecs: _cutCodecs,
     gameRef,
-    audioTrackRows,
     renditionRows,
     ...rest
   } = row
@@ -182,13 +158,6 @@ export function toPublicClipRow<
     fps: rendition.fps,
     codecs: rendition.codecs,
     version: clipAssetVersion(rendition.key),
-  }))
-  const audioTracks = (audioTrackRows ?? []).map((track) => ({
-    index: track.index,
-    kind: track.kind,
-    label: track.label,
-    codecs: track.codecs,
-    version: clipAssetVersion(track.key),
   }))
   return {
     ...rest,
@@ -202,7 +171,6 @@ export function toPublicClipRow<
         : null,
     waveformVersion: row.waveformKey ? clipAssetVersion(row.waveformKey) : null,
     renditions,
-    audioTracks,
     gameRef: gameRef
       ? serialiseGameRow(gameRef)
       : row.gameId !== null

@@ -93,25 +93,4 @@ function AppMainScroll({ className, ...props }: ComponentProps<"div">) {
   )
 }
 
-/**
- * 1px vertical divider — the little rule that separates header groups.
- * Pass `h={20}` or override via `className` (e.g. `h-5`).
- */
-function DividerV({
-  className,
-  h = 20,
-  style,
-  ...props
-}: ComponentProps<"span"> & { h?: number }) {
-  return (
-    <span
-      aria-hidden
-      data-slot="divider-v"
-      className={cn("inline-block w-px shrink-0 bg-border", className)}
-      style={{ height: h, ...style }}
-      {...props}
-    />
-  )
-}
-
-export { AppMain, AppMainColumn, AppMainScroll, AppShell, DividerV }
+export { AppMain, AppMainColumn, AppMainScroll, AppShell }

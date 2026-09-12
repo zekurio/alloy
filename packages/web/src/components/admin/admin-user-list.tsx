@@ -1,16 +1,8 @@
 import { t, tp } from "@alloy/i18n"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@alloy/ui/components/alert-dialog"
 import { Badge } from "@alloy/ui/components/badge"
 import { Button } from "@alloy/ui/components/button"
+import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
+import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -230,41 +222,30 @@ function ToggleUserStatusDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {isBanned
-              ? t("Unban {username}?", { username: user.username })
-              : t("Ban {username}?", { username: user.username })}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {isBanned
-              ? t(
-                  "They'll be able to sign in and their clips will be visible again.",
-                )
-              : t(
-                  "They won't be able to sign in and their clips will be hidden. Their data is kept and you can unban them later.",
-                )}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {error ? (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>{t("Cancel")}</AlertDialogCancel>
-          <AlertDialogAction
-            variant={isBanned ? "primary" : "destructive"}
-            onClick={() => void handleToggleStatus()}
-            disabled={busy}
-          >
-            {error ? t("Try again") : isBanned ? t("Unban") : t("Ban")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmActionDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={
+        isBanned
+          ? t("Unban {username}?", { username: user.username })
+          : t("Ban {username}?", { username: user.username })
+      }
+      description={
+        isBanned
+          ? t(
+              "They'll be able to sign in and their clips will be visible again.",
+            )
+          : t(
+              "They won't be able to sign in and their clips will be hidden. Their data is kept and you can unban them later.",
+            )
+      }
+      confirmLabel={isBanned ? t("Unban") : t("Ban")}
+      pendingLabel={isBanned ? t("Unban") : t("Ban")}
+      pending={busy}
+      error={error}
+      confirmVariant={isBanned ? "primary" : "destructive"}
+      onConfirm={() => void handleToggleStatus()}
+    />
   )
 }
 
@@ -294,32 +275,18 @@ function DeleteUserDialog({
   }
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>
-            {t("Delete {username}?", { username: user.username })}
-          </AlertDialogTitle>
-          <AlertDialogDescription>
-            {t("This removes their sessions and clips. It can't be undone.")}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        {error ? (
-          <p role="alert" className="text-destructive text-sm">
-            {error}
-          </p>
-        ) : null}
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={busy}>{t("Cancel")}</AlertDialogCancel>
-          <AlertDialogAction
-            variant="destructive"
-            onClick={() => void handleDelete()}
-            disabled={busy}
-          >
-            {busy ? t("Deleting…") : error ? t("Try again") : t("Delete")}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmDeleteDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("Delete {username}?", { username: user.username })}
+      description={t(
+        "This removes their sessions and clips. It can't be undone.",
+      )}
+      confirmLabel={t("Delete")}
+      pendingLabel={t("Deleting…")}
+      pending={busy}
+      error={error}
+      onConfirm={() => void handleDelete()}
+    />
   )
 }

@@ -186,7 +186,7 @@ export function enrichLibraryItem(
 }
 
 /** Sentinel filter key for captures and server rows that carry no game. */
-export const LIBRARY_NO_GAME_GROUP_KEY = "::no-game"
+const LIBRARY_NO_GAME_GROUP_KEY = "::no-game"
 
 /** A source chip in the library filter bar, merging local and uploaded clips. */
 export interface LibraryGroupView {
@@ -337,21 +337,4 @@ function gameLookupByName(
 
 export function gameNameKey(name: string): string {
   return name.trim().toLowerCase()
-}
-
-export function libraryKindLabel(kind: RecordingLibraryItem["kind"]): string {
-  switch (kind) {
-    case "replay":
-      return t("Clip")
-    default:
-      return t("Capture")
-  }
-}
-
-export function formatLibraryDate(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(value))
 }

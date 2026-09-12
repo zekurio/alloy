@@ -1,8 +1,4 @@
-import {
-  notificationStreamUrl,
-  parseNotificationPayload,
-  type NotificationItem,
-} from "@alloy/api"
+import { notificationStreamUrl, parseNotificationPayload } from "@alloy/api"
 import { t } from "@alloy/contracts/schema"
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
@@ -77,5 +73,3 @@ export function useNotificationStream({ enabled }: { enabled: boolean }) {
     }
   }, [enabled, navigate, queryClient])
 }
-
-export type { NotificationItem }

@@ -18,12 +18,10 @@ import {
   completedUploadPersistenceSatisfied,
   pendingUploadFinalizationAction,
   pendingUploadCleanupStillDue,
-  repairLegacyUploadDeadlines,
   uploadTicketCanAcceptBytes,
   uploadTicketCanFinalize,
   uploadTicketDeadline,
 } from "./deadline"
-import { selectPreferredUploadTicket } from "./tickets"
 
 test("minted token expiry is the exact initial persisted deadline", () => {
   assert.equal(
@@ -180,39 +178,6 @@ test("finalize recovers exact unused bytes but never re-extends used grace", () 
       now,
     ),
     "expired",
-  )
-})
-
-test("legacy duplicate selection matches the repaired maximum deadline", () => {
-  const createdAt = new Date("2026-08-31T10:00:00.000Z")
-  const tickets = [
-    {
-      id: "00000000-0000-0000-0000-000000000001",
-      storageKey: "uploads/clip/old/source.mp4",
-      contentType: "video/mp4",
-      expectedBytes: 10_000,
-      expiresAt: new Date("2026-08-31T11:00:00.000Z"),
-      usedAt: null,
-      createdAt,
-    },
-    {
-      id: "00000000-0000-0000-0000-000000000002",
-      storageKey: "uploads/clip/winner/source.mp4",
-      contentType: "video/mp4",
-      expectedBytes: 10_000,
-      expiresAt: new Date("2026-08-31T10:30:00.000Z"),
-      usedAt: new Date("2026-08-31T11:30:00.000Z"),
-      createdAt,
-    },
-  ]
-
-  assert.equal(
-    selectPreferredUploadTicket(tickets, 3_600)?.storageKey,
-    "uploads/clip/winner/source.mp4",
-  )
-  assert.equal(
-    selectPreferredUploadTicket(tickets.toReversed(), 3_600)?.storageKey,
-    "uploads/clip/winner/source.mp4",
   )
 })
 
@@ -451,25 +416,6 @@ test("cleanup ownership nests media-stop outside upload-stop", async () => {
     "operation",
     "upload-exit",
     "media-exit",
-  ])
-})
-
-test("startup repair drains full bounded batches", async () => {
-  const results = [2, 2, 1]
-  const calls: Array<{ ttl: number; limit: number }> = []
-  const repaired = await repairLegacyUploadDeadlines(3_600, {
-    batchSize: 2,
-    async repairBatch(ttl, limit) {
-      calls.push({ ttl, limit })
-      return results.shift() ?? 0
-    },
-  })
-
-  assert.equal(repaired, 5)
-  assert.deepEqual(calls, [
-    { ttl: 3_600, limit: 2 },
-    { ttl: 3_600, limit: 2 },
-    { ttl: 3_600, limit: 2 },
   ])
 })
 

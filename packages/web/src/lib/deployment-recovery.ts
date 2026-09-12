@@ -94,7 +94,7 @@ function appShellAssetSignature(
   return assets.length > 0 ? JSON.stringify(assets.toSorted()) : null
 }
 
-export function shouldReloadForDeployment(
+function shouldReloadForDeployment(
   loadedAssetSignature: string | null,
   latestAssetSignature: string | null,
   reloadedAssetSignature: string | null,

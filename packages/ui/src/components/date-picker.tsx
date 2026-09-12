@@ -328,4 +328,3 @@ function DatePicker({
 }
 
 export { DatePicker }
-export type { DatePickerProps }

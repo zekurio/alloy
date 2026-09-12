@@ -53,16 +53,6 @@ export function useTagClipsInfiniteQuery(
   return useInfiniteQuery(tagClipsInfiniteQueryOptions(tag, filters))
 }
 
-export function useTagGamesQuery(tag: string) {
-  return useQuery({
-    queryKey: tagKeys.games(tag),
-    queryFn: () => api.tags.fetchGames(tag),
-    enabled: tag.length > 0,
-    staleTime: 30_000,
-    refetchOnWindowFocus: false,
-  })
-}
-
 export function useTagSummaryQuery(tag: string) {
   return useQuery(tagSummaryQueryOptions(tag))
 }

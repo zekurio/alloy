@@ -14,13 +14,16 @@ const MAX_THUMBNAILS = 2000
 const MAX_LOG_FILES = 14
 const YIELD_EVERY_ENTRIES = 64
 
+const LEGACY_RECORDING_ROOTS = new Set([
+  "recording-scrubbers",
+  "recording-audio-tracks",
+])
 const ALLOWED_USER_DATA_ROOTS = new Set([
+  ...LEGACY_RECORDING_ROOTS,
   "asset-cache",
   "housekeeping",
-  "recording-audio-tracks",
   "recording-exports",
   "recording-library-imports",
-  "recording-scrubbers",
   "recording-thumbnails",
 ])
 const LOG_FILE_RE =
@@ -56,13 +59,12 @@ export function createDesktopHousekeepingTasks(
   const now = () => options.now?.() ?? Date.now()
 
   return [
-    {
-      id: "remove-legacy-recording-scrubbers",
+    ...[...LEGACY_RECORDING_ROOTS].map((name): HousekeepingTask => ({
+      id: `remove-legacy-${name}`,
       revision: 1,
       intervalMs: null,
-      run: (signal) =>
-        removeExactLegacyRoot(roots["recording-scrubbers"], signal),
-    },
+      run: (signal) => removeExactLegacyRoot(roots[name], signal),
+    })),
     {
       id: "prune-staged-recording-imports",
       revision: 2,
@@ -100,13 +102,6 @@ export function createDesktopHousekeepingTasks(
           options.activeAssetPaths,
           signal,
         ),
-    },
-    {
-      id: "remove-legacy-recording-audio-tracks",
-      revision: 1,
-      intervalMs: null,
-      run: (signal) =>
-        removeExactLegacyRoot(roots["recording-audio-tracks"], signal),
     },
     {
       id: "prune-recording-thumbnails",
@@ -147,7 +142,7 @@ export async function removeExactLegacyRoot(
   signal: AbortSignal,
 ): Promise<HousekeepingResult> {
   signal.throwIfAborted()
-  if (basename(root) !== "recording-scrubbers") {
+  if (!LEGACY_RECORDING_ROOTS.has(basename(root))) {
     throw new Error("Legacy cleanup received the wrong root")
   }
   const rootInfo = await lstat(root).catch(() => null)

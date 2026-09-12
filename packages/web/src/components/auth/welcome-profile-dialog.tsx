@@ -19,7 +19,6 @@ import { ImageIcon, Pencil } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import type { ReactNode } from "react"
 
-import { ImageCropDialog } from "@/components/media/image-crop-dialog"
 import { MediaEditOverlay } from "@/components/routes/settings/profile-media-controls"
 import { useProfileMedia } from "@/components/routes/settings/use-profile-media"
 import { PROFILE_BANNER_ASPECT_CLASS } from "@/lib/banner-layout"
@@ -101,25 +100,8 @@ function WelcomeProfileDialogContent({
       : t("Avatar imported from your sign-in provider")
   return (
     <>
-      {media.fileInputs}
-      <ImageCropDialog
-        file={media.cropFile}
-        mode={media.cropMode}
-        open={!!media.cropFile}
-        applying={media.uploading}
-        onApplyingChange={media.setCropApplying}
-        onOpenChange={(open) => {
-          if (!open && !media.uploading && !media.cropApplying) {
-            media.setCropFile(null)
-          }
-        }}
-        onApply={async ({ blob }) => {
-          const uploaded = await media.handleImageUpload(blob, media.cropMode)
-          if (uploaded) {
-            media.setCropFile(null)
-          }
-        }}
-      />
+      {media.inputs}
+
       <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
         <DialogContent
           ref={popupRef}

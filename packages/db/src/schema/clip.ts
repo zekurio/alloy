@@ -1,10 +1,7 @@
 import {
-  CLIP_AUDIO_TRACK_KINDS,
   CLIP_PRIVACY,
   CLIP_STATUS,
   ENCODE_STAGE,
-  type ClipAudioTrackInput,
-  type ClipAudioTrackKind,
   type ClipPrivacy,
   type ClipStatus,
   type EncodeStage,
@@ -18,7 +15,6 @@ import {
   foreignKey,
   index,
   integer,
-  jsonb,
   pgTable,
   primaryKey,
   text,
@@ -71,11 +67,6 @@ export const clip = pgTable(
     waveform_key: text(),
     // Rounded probe fps; 0 = probed but unknown; null = not yet probed.
     source_fps: integer(),
-    // Upload-time stem labels are only hints until the media run verifies that
-    // their count matches every audio stream after the leading full mix.
-    pending_audio_tracks: jsonb().$type<ClipAudioTrackInput[] | null>(),
-    // Canonicalized probed stem codec facts used by the encode fingerprint.
-    audio_track_fingerprint: text(),
     // Nullable: populated by the finalize step after probing. Clips in
     // 'pending' or 'failed' status may be missing some or all of these.
     duration_ms: integer(),
@@ -250,43 +241,6 @@ export const clipRendition = pgTable(
   ],
 )
 
-// One row per committed per-source audio stem. The full mix remains audio
-// track 0 in video assets and is not represented here. Rows are replaced in
-// the same transaction as renditions when a media run becomes ready.
-export const clipAudioTrack = pgTable(
-  "clip_audio_track",
-  {
-    clip_id: uuid()
-      .notNull()
-      .references(() => clip.id, { onDelete: "cascade" }),
-    idx: integer().notNull(),
-    kind: text().$type<ClipAudioTrackKind>().notNull(),
-    label: text().notNull(),
-    codecs: text().notNull(),
-    storage_key: text().notNull(),
-    size_bytes: bigint({ mode: "number" }).notNull(),
-    created_at: timestamp().notNull().defaultNow(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.clip_id, t.idx] }),
-    // Keep these SQL literals aligned with CLIP_AUDIO_TRACKS_MAX and
-    // CLIP_AUDIO_TRACK_LABEL_MAX_LENGTH from @alloy/contracts/content.
-    check("clip_audio_track_idx_check", sql`${t.idx} >= 0 and ${t.idx} < 5`),
-    check(
-      "clip_audio_track_kind_check",
-      sql`${t.kind} in (${sql.raw(sqlStringList(CLIP_AUDIO_TRACK_KINDS))})`,
-    ),
-    check(
-      "clip_audio_track_label_check",
-      sql`char_length(${t.label}) between 1 and 64 and ${t.label} = btrim(${t.label})`,
-    ),
-    check(
-      "clip_audio_track_size_bytes_safe_check",
-      sql`${t.size_bytes} >= 0 and ${t.size_bytes} <= 9007199254740991`,
-    ),
-  ],
-)
-
 export const clipLike = pgTable(
   "clip_like",
   {
@@ -432,4 +386,3 @@ export const clipView = pgTable(
 
 export type Clip = typeof clip.$inferSelect
 export type ClipRendition = typeof clipRendition.$inferSelect
-export type ClipAudioTrack = typeof clipAudioTrack.$inferSelect
