@@ -10,7 +10,7 @@ interface ImageDataLike {
   readonly height: number
 }
 
-export function isUniformImageData(imageData: ImageDataLike): boolean {
+function isUniformImageData(imageData: ImageDataLike): boolean {
   const pixelCount = Math.min(
     imageData.width * imageData.height,
     Math.floor(imageData.data.length / 4),

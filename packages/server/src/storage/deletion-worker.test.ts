@@ -11,7 +11,6 @@ import {
 import {
   activeRunBlocksStorageDeletion,
   clipStorageKeyClipId,
-  stableThumbnailClipId,
 } from "./deletion-references"
 import { runStorageDeletion } from "./deletion-run"
 import type { StorageDriver } from "./driver"
@@ -183,14 +182,6 @@ test("a DB-live prewrite reservation completes as an adopted object", async () =
   )
   assert.equal(result, "adopted")
   assert.deepEqual(calls, [])
-})
-
-test("legacy stable thumbnail ownership is parsed without prefix guesses", () => {
-  const id = "11ebc58a-92f9-4f9d-b88c-3e89150b7d1e"
-  assert.equal(stableThumbnailClipId(`11/eb/${id}/thumb.jpg`), id)
-  assert.equal(stableThumbnailClipId(`11/eb/${id}/thumb-small.jpg`), id)
-  assert.equal(stableThumbnailClipId(`22/eb/${id}/thumb.jpg`), null)
-  assert.equal(stableThumbnailClipId(`prefix/11/eb/${id}/thumb.jpg`), null)
 })
 
 test("run-scoped objects are attributed only to their exact clip shard", () => {

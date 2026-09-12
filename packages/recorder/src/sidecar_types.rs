@@ -588,19 +588,12 @@ struct AudioGraph {
     sources: Vec<*mut ObsSource>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ActiveOutputKind {
-    ReplayBuffer,
-}
-
 #[derive(Clone)]
-enum OutputConfig {
-    ReplayBuffer {
-        scratch_directory: PathBuf,
-        output_directory: PathBuf,
-        storage: RecordingBufferStorage,
-        replay_seconds: u32,
-    },
+struct ReplayBufferConfig {
+    scratch_directory: PathBuf,
+    output_directory: PathBuf,
+    storage: RecordingBufferStorage,
+    replay_seconds: u32,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -690,7 +683,6 @@ struct Recorder {
 }
 
 struct ActiveSession {
-    kind: ActiveOutputKind,
     output: *mut ObsOutput,
     video_encoder: *mut ObsEncoder,
     /// Reads OBS mixer 0, which contains every audio source.
@@ -702,7 +694,7 @@ struct ActiveSession {
     video_config: ObsVideoConfig,
     audio_graph: AudioGraph,
     source_kind: OutputSourceKind,
-    output_config: OutputConfig,
+    output_config: ReplayBufferConfig,
     capture: RecordingCapture,
     target_game_key: Option<String>,
     game_content_expires_at: Option<Instant>,

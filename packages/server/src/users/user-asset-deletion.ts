@@ -3,9 +3,7 @@ import type { StorageDeletionInput } from "@alloy/server/storage/deletion-policy
 import { userAssetKey, type UserAssetRole } from "@alloy/server/storage/driver"
 
 export const USER_ASSET_ROUTE_KEY_RE =
-  /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner)(?:-[0-9a-f]{32})?\.webp$/i
-
-const LEGACY_USER_ASSET_EXTENSIONS = [".jpg", ".png", ".webp"] as const
+  /^[0-9a-f]{2}\/[0-9a-f]{2}\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/(?:avatar|banner)-[0-9a-f]{32}\.webp$/i
 
 export function internalUserAssetKey(
   publicUrl: string | null,
@@ -18,18 +16,9 @@ export function internalUserAssetKey(
   const key = base.slice(USER_ASSET_PATH_PREFIX.length)
   const roleBase = userAssetKey(userId, role, "").toLowerCase()
   const normalized = key.toLowerCase()
-  if (
-    LEGACY_USER_ASSET_EXTENSIONS.some(
-      (ext) => normalized === `${roleBase}${ext}`,
-    )
-  ) {
-    return key
-  }
   if (!normalized.startsWith(`${roleBase}-`)) return null
   const versionAndExtension = normalized.slice(roleBase.length + 1)
-  return /^[0-9a-f]{32}\.(?:jpg|png|webp)$/.test(versionAndExtension)
-    ? key
-    : null
+  return /^[0-9a-f]{32}\.webp$/.test(versionAndExtension) ? key : null
 }
 
 export function userAssetConditionalUploadMatches(
@@ -52,23 +41,9 @@ export function userAssetDeletionIntents(input: {
   reason: string
   source: { type: string; id?: string | null }
 }): StorageDeletionInput[] {
-  const retained = input.retainedKey?.toLowerCase() ?? null
-  const candidates = [
-    internalUserAssetKey(input.previousUrl, input.userId, input.role),
+  const key = internalUserAssetKey(input.previousUrl, input.userId, input.role)
+  if (!key || key.toLowerCase() === input.retainedKey?.toLowerCase()) return []
+  return [
+    { namespace: "assets", key, reason: input.reason, source: input.source },
   ]
-  for (const ext of LEGACY_USER_ASSET_EXTENSIONS) {
-    candidates.push(userAssetKey(input.userId, input.role, ext))
-  }
-
-  const intents = new Map<string, StorageDeletionInput>()
-  for (const key of candidates) {
-    if (!key || key.toLowerCase() === retained) continue
-    intents.set(key, {
-      namespace: "assets",
-      key,
-      reason: input.reason,
-      source: input.source,
-    })
-  }
-  return [...intents.values()]
 }

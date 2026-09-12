@@ -14,7 +14,11 @@ fn response_ok<T: Serialize>(
     let result = match serde_json::to_value(result) {
         Ok(value) => value,
         Err(error) => {
-            return response_error(id, format!("Failed to serialize response: {error}"), status());
+            return response_error(
+                id,
+                format!("Failed to serialize response: {error}"),
+                status(),
+            );
         }
     };
 
@@ -140,9 +144,7 @@ fn handle_request(recorder: &mut Recorder, request: Request) -> Response {
                 recorder.status(),
             ),
         },
-        "listGameProcesses" => {
-            response_ok(request.id, list_game_processes(), || recorder.status())
-        }
+        "listGameProcesses" => response_ok(request.id, list_game_processes(), || recorder.status()),
         "listDisplays" => response_ok(request.id, list_displays(), || recorder.status()),
         "saveScreenshot" => {
             let result = recorder.save_screenshot();
@@ -184,22 +186,14 @@ fn detect_game_activity(
     active_game: Option<&DetectedGame>,
     settings: &RecordingSettings,
 ) -> Option<GameDetection> {
-    platform_detect_game_activity(active_game, settings)
+    windows_detector::detect_game_activity(active_game, settings)
 }
 
 fn is_detected_game_alive(game: &DetectedGame) -> bool {
-    platform_detected_game_alive(game)
-}
-
-fn platform_detected_game_alive(game: &DetectedGame) -> bool {
     windows_detector::detected_game_alive(game)
 }
 
 fn refresh_capture_metadata(game: &mut DetectedGame) {
-    platform_refresh_capture_metadata(game);
-}
-
-fn platform_refresh_capture_metadata(game: &mut DetectedGame) {
     windows_detector::refresh_capture_metadata(game);
 }
 
@@ -209,10 +203,6 @@ fn application_icon_url(path: &str) -> Option<String> {
 
 fn application_display_name(path: &str) -> Option<String> {
     windows_detector::application_display_name(path)
-}
-
-fn platform_audio_applications() -> Vec<RecordingAudioApplicationSelection> {
-    windows_detector::audio_applications()
 }
 
 fn subscribe_audio_level_events() {
@@ -257,10 +247,6 @@ fn selected_display_dimensions(settings: &RecordingSettings) -> Option<VideoDime
 }
 
 fn primary_display_id() -> Option<String> {
-    platform_primary_display_id()
-}
-
-fn platform_primary_display_id() -> Option<String> {
     windows_detector::primary_display_id()
 }
 
@@ -381,10 +367,7 @@ fn normalized_path(path: &str) -> String {
     path.replace('\\', "/")
 }
 
-fn detected_game_allowed(
-    detected: &DetectedGame,
-    settings: &RecordingSettings,
-) -> bool {
+fn detected_game_allowed(detected: &DetectedGame, settings: &RecordingSettings) -> bool {
     detected_game_still_allowed(detected, settings)
 }
 
@@ -417,8 +400,7 @@ fn allowed_game_match_score(
         }
     }
 
-    if let (Some(allowed_class), Some(candidate_class)) =
-        (game.window_class.as_deref(), class_name)
+    if let (Some(allowed_class), Some(candidate_class)) = (game.window_class.as_deref(), class_name)
     {
         if allowed_class.eq_ignore_ascii_case(candidate_class) {
             return 60;
@@ -456,7 +438,9 @@ fn file_component(value: &str, fallback: &str) -> String {
     let mut previous_was_separator = false;
 
     for ch in value.trim().chars() {
-        let replacement = if ch.is_control() || matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*') {
+        let replacement = if ch.is_control()
+            || matches!(ch, '<' | '>' | ':' | '"' | '/' | '\\' | '|' | '?' | '*')
+        {
             '-'
         } else {
             ch
@@ -464,7 +448,11 @@ fn file_component(value: &str, fallback: &str) -> String {
 
         if replacement == '-' || replacement.is_whitespace() {
             if !previous_was_separator && !component.is_empty() {
-                component.push(if replacement.is_whitespace() { ' ' } else { '-' });
+                component.push(if replacement.is_whitespace() {
+                    ' '
+                } else {
+                    '-'
+                });
                 previous_was_separator = true;
             }
             continue;
@@ -513,13 +501,6 @@ fn is_reserved_windows_name(value: &str) -> bool {
             | "LPT8"
             | "LPT9"
     )
-}
-
-fn platform_detect_game_activity(
-    active_game: Option<&DetectedGame>,
-    settings: &RecordingSettings,
-) -> Option<GameDetection> {
-    windows_detector::detect_game_activity(active_game, settings)
 }
 
 fn command_output(command: &str, args: &[&str]) -> Option<String> {
@@ -614,7 +595,9 @@ fn main() {
     thread::spawn(move || loop {
         thread::sleep(Duration::from_secs(5));
         if watched_progress.stalled(Instant::now()) {
-            eprintln!("[{SIDE_CAR_NAME}] recorder made no progress for 90 seconds; exiting for recovery");
+            eprintln!(
+                "[{SIDE_CAR_NAME}] recorder made no progress for 90 seconds; exiting for recovery"
+            );
             // DLL shutdown handlers can wait on the blocked OBS thread too.
             // SAFETY: This is our own process. Electron owns its restart.
             unsafe {

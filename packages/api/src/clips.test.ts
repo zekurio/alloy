@@ -8,7 +8,7 @@ import { createApiContext } from "./client"
 import { createClipsApi } from "./clips"
 import { HttpError } from "./http"
 
-test("queue dismissal falls back only for missing endpoints and validates success", async () => {
+test("queue dismissal requires server persistence and validates success", async () => {
   let response = Response.json({ success: true })
   const context = createApiContext({ baseURL: "https://alloy.example" })
   context.rpc = hc<AppType>(context.baseURL, {
@@ -22,10 +22,8 @@ test("queue dismissal falls back only for missing endpoints and validates succes
     },
   })
   const api = createClipsApi(context)
-  assert.equal(await api.dismissQueue("clip-id"), true)
-  response = new Response("404 Not Found", { status: 404 })
-  assert.equal(await api.dismissQueue("clip-id"), false)
-  for (const status of [401, 403, 500]) {
+  assert.equal(await api.dismissQueue("clip-id"), undefined)
+  for (const status of [401, 403, 404, 500]) {
     response = Response.json({ error: "Request failed" }, { status })
     await assert.rejects(
       api.dismissQueue("clip-id"),

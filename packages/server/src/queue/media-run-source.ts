@@ -15,7 +15,7 @@ import type { MediaRow, MediaStore } from "./media-store"
 
 /**
  * Download the committed or staged source into the run workspace. Committed
- * sources were normalized at first ingest (or by the probe backfill); only
+ * sources were normalized at first ingest; only
  * fresh uploads need the faststart check.
  */
 export async function acquireSourceFile(options: {

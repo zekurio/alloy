@@ -1,7 +1,7 @@
-import { useLocation, useNavigate } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import { useEffect } from "react"
 
-import { browseAuthTarget, isAdmin, shouldForceOnboarding } from "./auth-access"
+import { isAdmin, shouldForceOnboarding } from "./auth-access"
 import {
   type Session,
   useSuspenseAuthConfig,
@@ -11,26 +11,6 @@ import {
 /** Reactive admin flag. Suspends on first fetch. */
 export function useIsAdmin(): boolean {
   return isAdmin(useSuspenseSession())
-}
-
-export function useRequireAuth(): Session | null {
-  const { allowed, session } = useBrowseAuthGate()
-  return allowed ? session : null
-}
-
-export function useBrowseAuthGate() {
-  const session = useSuspenseSession()
-  const config = useSuspenseAuthConfig()
-  const navigate = useNavigate()
-  const location = useLocation()
-
-  const target = browseAuthTarget(session, config, location.pathname)
-
-  useEffect(() => {
-    if (target) void navigate({ to: target, replace: true })
-  }, [target, navigate])
-
-  return { allowed: target === null, session }
 }
 
 export function useRequireAuthStrict(): Session | null {

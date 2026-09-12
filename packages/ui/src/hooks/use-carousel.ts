@@ -40,11 +40,4 @@ function useCarousel() {
   return context
 }
 
-export {
-  type CarouselApi,
-  CarouselContext,
-  type CarouselOptions,
-  type CarouselPlugin,
-  type CarouselProps,
-  useCarousel,
-}
+export { type CarouselApi, CarouselContext, type CarouselProps, useCarousel }

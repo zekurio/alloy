@@ -9,7 +9,6 @@ import {
 import { type QueryClient, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 
-import { clipEncodingActive } from "./clip-encoding"
 import { invalidateClipCaches, patchClipInCaches } from "./clip-query-cache"
 import { clipKeys } from "./clip-query-keys"
 import { apiOrigin } from "./env"
@@ -77,9 +76,7 @@ function syncQueueClipCaches(
   current: QueueClip,
 ): boolean {
   patchClipInCaches(queryClient, current.id, queueClipPatch(current))
-  return Boolean(
-    previous && clipEncodingActive(previous) && !clipEncodingActive(current),
-  )
+  return Boolean(previous && previous.encodeActive && !current.encodeActive)
 }
 
 function bindUploadQueueStream(input: {

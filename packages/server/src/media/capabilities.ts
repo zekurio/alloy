@@ -84,7 +84,7 @@ export async function probeTranscodingCapabilities(options?: {
   return cachedCapabilities
 }
 
-export function parseFfmpegEncoders(output: string): Set<string> {
+function parseFfmpegEncoders(output: string): Set<string> {
   const encoders = new Set<string>()
   for (const line of output.split("\n")) {
     const match = /^\s*[VASDT.]{6}\s+([^\s]+)\s/.exec(line)

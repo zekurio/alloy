@@ -189,7 +189,9 @@ function ClipComments({
         setReplyTarget(null)
       }
       setDraft("")
-    } catch {}
+    } catch {
+      // The mutation renders its error below; keep the draft for retry.
+    }
   }
 
   useEffect(() => {

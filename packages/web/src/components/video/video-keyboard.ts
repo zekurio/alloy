@@ -1,5 +1,5 @@
 const KEYBOARD_SEEK_SECONDS = 5
-export const KEYBOARD_LONG_SEEK_SECONDS = 10
+const KEYBOARD_LONG_SEEK_SECONDS = 10
 const KEYBOARD_VOLUME_STEP = 0.1
 
 export type VideoKeyCommand = {

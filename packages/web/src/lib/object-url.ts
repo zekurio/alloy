@@ -34,7 +34,3 @@ export function revokeObjectUrl(
     clientLogger.warn(`[object-url] Failed to revoke ${label}.`, cause)
   }
 }
-
-export function scheduleObjectUrlRevoke(url: string, label: string): void {
-  globalThis.setTimeout(() => revokeObjectUrl(url, label), 0)
-}

@@ -77,7 +77,7 @@ export function candidateUrls(input: string): string[] {
   return bases
 }
 
-export function supportsDesktopAuthVersion(version: number): boolean {
+function supportsDesktopAuthVersion(version: number): boolean {
   return version === DESKTOP_AUTH_CAPABILITY_VERSION
 }
 

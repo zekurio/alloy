@@ -20,7 +20,7 @@ export function transcodeTimeoutMs(durationMs: number): number {
   return Math.min(Math.max(durationMs * 30, MIN_TIMEOUT_MS), MAX_TIMEOUT_MS)
 }
 
-export class FfmpegError extends Error {
+class FfmpegError extends Error {
   constructor(
     message: string,
     readonly exitCode: number | null,

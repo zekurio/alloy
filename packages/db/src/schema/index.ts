@@ -9,7 +9,6 @@ export * from "./webhook"
 
 import {
   clip,
-  clipAudioTrack,
   clipComment,
   clipCommentMention,
   clipCommentLike,
@@ -33,7 +32,6 @@ import { webhook, webhookDelivery } from "./webhook"
  */
 export const domainSchema = {
   clip,
-  clipAudioTrack,
   clipRendition,
   uploadTicket,
   clipLike,

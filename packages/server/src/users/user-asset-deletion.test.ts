@@ -25,10 +25,10 @@ test("new user asset attempts mint full UUID-versioned immutable keys", () => {
   assert.throws(() => versionedAssetKey(USER_ID, "avatar", "aabbccddeeff"))
 })
 
-test("the serving route accepts legacy stable and full-version keys", () => {
+test("the serving route accepts only full-version keys", () => {
   const stable = `${USER_DIR}/avatar.webp`
   const versioned = versionedAssetKey(USER_ID, "banner", VERSION_A)
-  assert.equal(USER_ASSET_ROUTE_KEY_RE.test(stable), true)
+  assert.equal(USER_ASSET_ROUTE_KEY_RE.test(stable), false)
   assert.equal(USER_ASSET_ROUTE_KEY_RE.test(versioned), true)
   assert.equal(
     USER_ASSET_ROUTE_KEY_RE.test(`${USER_DIR}/avatar-aabbccddeeff.webp`),
@@ -53,7 +53,7 @@ test("owned internal paths parse exactly and retain their key case", () => {
       USER_ID,
       "avatar",
     ),
-    `${USER_DIR}/avatar.webp`,
+    null,
   )
 })
 
@@ -72,17 +72,15 @@ test("producer parsing rejects external, prefix, cross-owner, and cross-role pat
 })
 
 test("serialized replacement and removal retire the actual prior version", () => {
-  const legacy = `${USER_DIR}/avatar.webp`
   const a = versionedAssetKey(USER_ID, "avatar", VERSION_A)
   const b = versionedAssetKey(USER_ID, "avatar", VERSION_B)
 
-  assert.equal(intentKeys(replacementIntents(legacy, a)).has(legacy), true)
   assert.equal(intentKeys(replacementIntents(a, b)).has(a), true)
   assert.equal(intentKeys(removalIntents(b)).has(b), true)
   assert.equal(intentKeys(replacementIntents(a, b)).has(b), false)
 })
 
-test("legacy role variants are safe candidates without adopting external URLs", () => {
+test("external URLs produce no deletion intents", () => {
   const intents = userAssetDeletionIntents({
     userId: USER_ID,
     role: "banner",
@@ -90,14 +88,7 @@ test("legacy role variants are safe candidates without adopting external URLs", 
     reason: "banner removed",
     source: { type: "user-asset", id: USER_ID },
   })
-  assert.deepEqual(
-    intentKeys(intents),
-    new Set([
-      `${USER_DIR}/banner.jpg`,
-      `${USER_DIR}/banner.png`,
-      `${USER_DIR}/banner.webp`,
-    ]),
-  )
+  assert.deepEqual(intentKeys(intents), new Set())
   assert.equal(
     intents.some((intent) => intent.key.includes("example.test")),
     false,

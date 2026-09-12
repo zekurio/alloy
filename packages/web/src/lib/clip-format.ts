@@ -7,18 +7,12 @@ import {
   clipThumbnailUrl,
 } from "@alloy/api"
 import { t } from "@alloy/i18n"
-import { stableHue } from "@alloy/ui/lib/stable-hash"
 
 import { formatRelativeTime } from "./date-format"
 import { apiOrigin } from "./env"
 import { canPlaySource } from "./media-capability"
 import { formatCount } from "./number-format"
 import { displayName, type UserAvatar, userAvatar } from "./user-display"
-
-export function hueForGame(game: string | null | undefined): number {
-  if (!game) return 220
-  return stableHue(game)
-}
 
 interface ClipCardData {
   clipId: string
@@ -36,8 +30,6 @@ interface ClipCardData {
   authorAvatar: UserAvatar
   views: string
   viewCount: number
-  likes: string
-  comments: string
   postedAt: string
   /** Full-size poster URL; omitted when the clip has no `thumbKey` yet. */
   thumbnail?: string
@@ -45,7 +37,6 @@ interface ClipCardData {
   fallbackSeed: string | number
   /** Stream URL used for the hover-to-play preview. */
   streamUrl: string
-  accentHue: number
   /** Stored privacy setting — whether the card surfaces it is up to the caller. */
   privacy: ClipPrivacy
   description: string | null
@@ -100,8 +91,6 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     authorAvatar,
     views: formatCount(row.viewCount),
     viewCount: row.viewCount,
-    likes: formatCount(row.likeCount),
-    comments: formatCount(row.commentCount),
     postedAt: formatRelativeTime(row.publishedAt ?? row.createdAt, now),
     thumbnail: row.thumbKey
       ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
@@ -109,7 +98,6 @@ export function toClipCardData(row: ClipRow, now?: number): ClipCardData {
     thumbnailBlurHash: row.thumbBlurHash,
     fallbackSeed: row.gameId ?? row.id,
     streamUrl: previewStreamUrl(row),
-    accentHue: hueForGame(game),
     privacy: row.privacy,
     description: row.description,
   }

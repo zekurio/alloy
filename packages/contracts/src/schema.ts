@@ -1,38 +1,35 @@
 import { Type } from "typebox"
 import type {
   StaticDecode,
-  StaticEncode,
   TArray,
-  TCodec,
   TEnum,
   TEnumValue,
   TObject,
-  TOptional,
   TProperties,
   TNumber,
   TSchema,
-  TUnion,
 } from "typebox"
-import { Check, Decode, Errors } from "typebox/value"
+import { Check } from "typebox/value"
 
-type ValidationIssue = {
-  path: PropertyKey[]
-  message: string
-}
+import {
+  defaulted,
+  type InputType,
+  type Schema,
+  type UnwrapProperties,
+} from "./schema-types"
+import {
+  parse,
+  safeParse,
+  type SchemaError,
+  type SchemaBoundaryInput,
+  type RefinementContext,
+  type ValidationIssue,
+} from "./schema-validation"
 
-type SchemaBoundaryInput = Parameters<typeof Decode>[2]
-
-type RefinementContext = {
-  addIssue(issue: ValidationIssue & { code?: string }): void
-}
-
-type SafeParseResult<Value> =
-  | { success: true; data: Value }
-  | { success: false; error: SchemaError }
+export type { Schema, StaticInput } from "./schema-types"
+export { parse, safeParse, SchemaError } from "./schema-validation"
 
 const trimmed = Symbol("alloy.schema.trimmed")
-const defaulted = Symbol("alloy.schema.defaulted")
-const inputType = Symbol("alloy.schema.inputType")
 const stringSchema = Type.String()
 
 type SchemaMetadata = {
@@ -58,100 +55,6 @@ type SchemaUpdates = {
   multipleOf?: number
   pattern?: string
   type?: string
-}
-
-type Defaulted = { [defaulted]: true }
-type InputType<Value> = { [inputType]: Value }
-
-type OptionalInputKeys<Fields extends TProperties> = {
-  [Key in keyof Fields]: Fields[Key] extends TOptional | Defaulted ? Key : never
-}[keyof Fields]
-
-type ObjectInput<Fields extends TProperties> = {
-  [Key in Exclude<keyof Fields, OptionalInputKeys<Fields>>]: StaticInput<
-    Fields[Key]
-  >
-} & {
-  [Key in OptionalInputKeys<Fields>]?: StaticInput<Fields[Key]>
-}
-
-export type StaticInput<SchemaType extends TSchema> =
-  SchemaType extends InputType<infer Input>
-    ? Input
-    : SchemaType extends TArray<infer Items>
-      ? StaticInput<Items>[]
-      : SchemaType extends TUnion<infer Types>
-        ? StaticInput<Types[number]>
-        : SchemaType extends TObject<infer Fields>
-          ? ObjectInput<Fields>
-          : StaticEncode<SchemaType>
-
-type UnwrapSchema<Value> =
-  Value extends Schema<infer SchemaType>
-    ? SchemaType
-    : Value extends TSchema
-      ? Value
-      : never
-
-type UnwrapProperties<Fields extends TProperties> = {
-  [Key in keyof Fields]: UnwrapSchema<Fields[Key]>
-}
-
-type ExtendedObject<SchemaType extends TSchema, Fields extends TProperties> =
-  SchemaType extends TObject<infer Existing>
-    ? TObject<Existing & UnwrapProperties<Fields>>
-    : TObject<UnwrapProperties<Fields>>
-
-type SchemaMethods<SchemaType extends TSchema> = {
-  readonly ["shape"]: SchemaType extends TObject<infer Fields>
-    ? Fields
-    : TProperties
-  optional(): Schema<TOptional<SchemaType>>
-  nullable(): Schema<TUnion<[SchemaType, ReturnType<typeof Type.Null>]>>
-  $default(value: StaticDecode<SchemaType>): Schema<SchemaType & Defaulted>
-  catch(value: StaticDecode<SchemaType>): Schema<SchemaType>
-  refine(
-    check: (value: StaticDecode<SchemaType>) => boolean,
-    message?: string | { message?: string; path?: PropertyKey[] },
-  ): Schema<SchemaType>
-  superRefine(
-    check: (
-      value: StaticDecode<SchemaType>,
-      context: RefinementContext,
-    ) => void,
-  ): Schema<SchemaType>
-  transform<Output>(
-    decode: (value: StaticDecode<SchemaType>) => Output,
-  ): Schema<TCodec<SchemaType, Output>>
-  trim(): Schema<SchemaType>
-  min(value: number, message?: string): Schema<SchemaType>
-  max(value: number, message?: string): Schema<SchemaType>
-  int(): Schema<SchemaType>
-  positive(): Schema<SchemaType>
-  nonnegative(): Schema<SchemaType>
-  multipleOf(value: number): Schema<SchemaType>
-  regex(pattern: RegExp, message?: string): Schema<SchemaType>
-  url(): Schema<SchemaType>
-  uuid(): Schema<SchemaType>
-  email(): Schema<SchemaType>
-  datetime(options?: { offset?: boolean }): Schema<SchemaType>
-  strict(): Schema<SchemaType>
-  extend<Fields extends TProperties>(
-    fields: Fields,
-  ): Schema<ExtendedObject<SchemaType, Fields>>
-  parse(value: SchemaBoundaryInput): StaticDecode<SchemaType>
-  safeParse(
-    value: SchemaBoundaryInput,
-  ): SafeParseResult<StaticDecode<SchemaType>>
-}
-
-export type Schema<SchemaType extends TSchema = TSchema> = SchemaType &
-  SchemaMethods<SchemaType>
-
-export class SchemaError extends Error {
-  constructor(public readonly issues: ValidationIssue[]) {
-    super(issues[0]?.message ?? "Invalid value")
-  }
 }
 
 function schema<SchemaType extends TSchema>(
@@ -372,65 +275,6 @@ function refinementIssues(
   const issues: ValidationIssue[] = []
   check(value, { addIssue: (issue) => issues.push(issue) })
   return issues
-}
-
-export function parse<SchemaType extends TSchema>(
-  valueSchema: SchemaType,
-  value: SchemaBoundaryInput,
-): StaticDecode<SchemaType> {
-  try {
-    return Decode(valueSchema, value)
-  } catch (cause) {
-    throw schemaError(valueSchema, value, cause)
-  }
-}
-
-export function safeParse<SchemaType extends TSchema>(
-  valueSchema: SchemaType,
-  value: SchemaBoundaryInput,
-): SafeParseResult<StaticDecode<SchemaType>> {
-  try {
-    return { success: true, data: Decode(valueSchema, value) }
-  } catch (cause) {
-    return { success: false, error: schemaError(valueSchema, value, cause) }
-  }
-}
-
-function schemaError(
-  valueSchema: TSchema,
-  value: SchemaBoundaryInput,
-  cause: unknown,
-) {
-  const errors = decodeErrors(cause) ?? [...Errors(valueSchema, value)]
-  return new SchemaError(
-    errors.map((error) => ({
-      path: error.instancePath
-        .split("/")
-        .slice(1)
-        .map((part) => part.replaceAll("~1", "/").replaceAll("~0", "~")),
-      message: error.message,
-    })),
-  )
-}
-
-function decodeErrors(cause: unknown) {
-  if (!(cause instanceof Error) || !("cause" in cause)) return null
-  const details = cause.cause
-  if (!(details instanceof Object) || !("errors" in details)) {
-    return null
-  }
-  if (!Array.isArray(details.errors)) return null
-  const errors = details.errors.filter(
-    (error): error is { instancePath: string; message: string } =>
-      Boolean(
-        error instanceof Object &&
-        "instancePath" in error &&
-        Check(stringSchema, error.instancePath) &&
-        "message" in error &&
-        Check(stringSchema, error.message),
-      ),
-  )
-  return errors.length > 0 ? errors : null
 }
 
 function object<Fields extends TProperties>(fields: Fields) {

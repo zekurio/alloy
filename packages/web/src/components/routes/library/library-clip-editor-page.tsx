@@ -18,7 +18,6 @@ import {
 import { ClipPlayer } from "@/components/clip/clip-player"
 import { EmptyState } from "@/components/feedback/empty-state"
 import { useSession } from "@/lib/auth-client"
-import { clipEncodingActive } from "@/lib/clip-encoding"
 import {
   invalidateClipCaches,
   removeClipDetailFromCache,
@@ -85,7 +84,7 @@ export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
   }
 
   const mediaPending = row.status !== "ready"
-  const processing = mediaPending || clipEncodingActive(row)
+  const processing = mediaPending || row.encodeActive
 
   return (
     <AppMain className="p-4 md:p-6">

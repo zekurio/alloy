@@ -3,10 +3,12 @@ import { cn } from "@alloy/ui/lib/utils"
 import { useRef, useState, useSyncExternalStore } from "react"
 import type { KeyboardEvent, PointerEvent } from "react"
 
-import { WaveformCanvas } from "@/components/media/waveform-canvas"
+import {
+  WaveformCanvas,
+  WaveformStatus,
+} from "@/components/media/waveform-canvas"
 import { formatTrimMs } from "@/lib/media-time"
 import type { MediaWaveformState } from "@/lib/media-waveform"
-
 /**
  * Simple single-range trimmer for the publish screen: an audio waveform for
  * the whole capture with one kept range styled like a selected clip block.
@@ -14,6 +16,8 @@ import type { MediaWaveformState } from "@/lib/media-waveform"
  * Material outside the range stays visible but dimmed. Clicking or dragging
  * the strip scrubs the playhead.
  */
+
+import type { TrimPlayback } from "./use-trim-playback"
 
 const TRIM_DRAG_THRESHOLD_PX = 4
 
@@ -63,31 +67,24 @@ function movedPastTrimThreshold(
 
 export function TrimBar({
   waveform,
-  durationMs,
-  startMs,
-  endMs,
-  subscribeCurrentMs,
-  getCurrentMs,
-  onSeek,
-  onStartChange,
-  onEndChange,
-  onMove,
+  playback,
 }: {
-  /** Audio peak data for the source media. */
   waveform: MediaWaveformState
-  durationMs: number
-  startMs: number
-  endMs: number
-  /** Playhead store in source time; only the playhead re-renders per frame. */
-  subscribeCurrentMs: (listener: () => void) => () => void
-  getCurrentMs: () => number
-  onSeek: (sourceMs: number) => void
-  /** Live trim-handle updates in absolute source time (caller clamps). */
-  onStartChange: (sourceMs: number) => void
-  onEndChange: (sourceMs: number) => void
-  /** Slides the whole kept range to a new start (caller preserves length). */
-  onMove: (sourceStartMs: number) => void
+  playback: TrimPlayback
 }) {
+  const {
+    durationMs,
+    trim: { startMs, endMs },
+    subscribeCurrentMs,
+    getCurrentMs,
+    handleTrimStartChange: onStartChange,
+    handleTrimEndChange: onEndChange,
+    handleTrimMove: onMove,
+  } = playback
+  const onSeek = (sourceMs: number) => {
+    playback.playerRef.current?.pause()
+    playback.seek(sourceMs)
+  }
   const trackRef = useRef<HTMLDivElement | null>(null)
   const dragRef = useRef<DragState | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -296,16 +293,6 @@ export function TrimBar({
         />
       ) : null}
     </div>
-  )
-}
-
-function WaveformStatus({ status }: { status: MediaWaveformState["status"] }) {
-  if (status === "ready") return null
-  const label = status === "loading" ? t("Loading…") : t("Unavailable")
-  return (
-    <span className="text-foreground-faint pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-medium tracking-wide uppercase">
-      {label}
-    </span>
   )
 }
 

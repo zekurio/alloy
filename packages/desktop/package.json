@@ -23,7 +23,6 @@
     "@alloy/contracts": "workspace:*",
     "@alloy/i18n": "workspace:*",
     "@alloy/logging": "workspace:*",
-    "@alloy/media": "workspace:*",
     "@alloy/ui": "workspace:*",
     "@tailwindcss/vite": "4.3.3",
     "@types/react": "19.2.18",

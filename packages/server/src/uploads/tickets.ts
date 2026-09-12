@@ -1,11 +1,10 @@
 import type { UploadTicketRole } from "@alloy/contracts"
 import { clip, uploadTicket, type UploadTicketTarget } from "@alloy/db/schema"
-import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
 import type { DbTransaction } from "@alloy/server/db/transaction"
 import { stagedUploadDeletionIntent } from "@alloy/server/storage/deletion-producers"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
-import { and, eq, isNull, sql } from "drizzle-orm"
+import { and, desc, eq, isNull, sql } from "drizzle-orm"
 
 import { completedUploadDeadline, uploadTicketCanFinalize } from "./deadline"
 
@@ -85,58 +84,11 @@ export interface SelectedUploadTicket {
   createdAt: Date
 }
 
-export function effectiveUploadTicketDeadline(
-  ticket: Pick<SelectedUploadTicket, "expiresAt" | "usedAt">,
-  uploadTtlSec: number,
-): number {
-  return ticket.usedAt === null
-    ? ticket.expiresAt.getTime()
-    : Math.max(
-        ticket.expiresAt.getTime(),
-        completedUploadDeadline(ticket.usedAt, uploadTtlSec).getTime(),
-      )
-}
-
-/** Match the max-deadline rule used by legacy repair with stable tie breaks. */
-export function selectPreferredUploadTicket<T extends SelectedUploadTicket>(
-  tickets: readonly T[],
-  uploadTtlSec: number,
-): T | null {
-  let preferred: T | null = null
-  for (const ticket of tickets) {
-    if (
-      !preferred ||
-      uploadTicketIsPreferred(ticket, preferred, uploadTtlSec)
-    ) {
-      preferred = ticket
-    }
-  }
-  return preferred
-}
-
-function uploadTicketIsPreferred(
-  candidate: SelectedUploadTicket,
-  current: SelectedUploadTicket,
-  uploadTtlSec: number,
-): boolean {
-  const deadlineDifference =
-    effectiveUploadTicketDeadline(candidate, uploadTtlSec) -
-    effectiveUploadTicketDeadline(current, uploadTtlSec)
-  if (deadlineDifference !== 0) return deadlineDifference > 0
-  if ((candidate.usedAt !== null) !== (current.usedAt !== null)) {
-    return candidate.usedAt !== null
-  }
-  const creationDifference =
-    candidate.createdAt.getTime() - current.createdAt.getTime()
-  if (creationDifference !== 0) return creationDifference > 0
-  return candidate.id.localeCompare(current.id) > 0
-}
-
 async function selectTicket(
   target: UploadTarget,
   role: UploadTicketRole,
 ): Promise<SelectedUploadTicket | null> {
-  const tickets = await db
+  const [ticket] = await db
     .select({
       id: uploadTicket.id,
       storageKey: uploadTicket.storage_key,
@@ -148,10 +100,9 @@ async function selectTicket(
     })
     .from(uploadTicket)
     .where(and(targetMatch(target), eq(uploadTicket.role, role)))
-  return selectPreferredUploadTicket(
-    tickets,
-    configStore.get("limits").uploadTtlSec,
-  )
+    .orderBy(desc(uploadTicket.created_at), desc(uploadTicket.id))
+    .limit(1)
+  return ticket ?? null
 }
 
 export function selectVideoTicketKey(
@@ -166,7 +117,7 @@ export function selectVideoTicket(target: UploadTarget) {
   return selectTicket(target, "video")
 }
 
-/** Mark one accepted legacy ticket used inside its caller's transaction. */
+/** Mark one accepted ticket used inside its caller's transaction. */
 export async function markUploadTicketUsed(
   ticketId: string,
   usedAt: Date,
@@ -303,7 +254,7 @@ export async function deleteExpiredUploadTicketWithStorageIntent(
 }
 
 /** Exact destructive CAS repeated after acquiring the target upload-stop gate. */
-export function expiredOrphanUploadTicketPredicate(
+function expiredOrphanUploadTicketPredicate(
   ticketId: string,
   targetId: string,
   expiresBefore: Date,
@@ -317,7 +268,7 @@ export function expiredOrphanUploadTicketPredicate(
     // instant against its timestamp-without-time-zone value as UTC.
     sql`${uploadTicket.expires_at} <= (cast(${expiresBefore} as timestamptz) at time zone 'UTC')`,
     // Pending cleanup owns crash recovery, while processing may still read a
-    // legacy ticket's object. Terminal and missing owners are safe to retire.
+    // ticket's object. Terminal and missing owners are safe to retire.
     sql`not exists (
       select 1
       from ${clip} owner

@@ -1,6 +1,5 @@
 import { t } from "@alloy/i18n"
 import { Label } from "@alloy/ui/components/label"
-import { Separator } from "@alloy/ui/components/separator"
 import { messageFromUnknown } from "@alloy/ui/lib/error-message"
 import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -53,80 +52,6 @@ function FieldHeaderContent({
   )
 }
 
-function FieldSet({ className, ...props }: ComponentProps<"fieldset">) {
-  return (
-    <fieldset
-      data-slot="field-set"
-      className={cn(
-        "flex flex-col gap-4 has-[>[data-slot=checkbox-group]]:gap-3 has-[>[data-slot=radio-group]]:gap-3",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function FieldLegend({
-  className,
-  variant = "legend",
-  children,
-  required,
-  optional,
-  ...props
-}: ComponentProps<"legend"> & {
-  variant?: "legend" | "label"
-  required?: boolean
-  optional?: boolean
-}) {
-  return (
-    <legend
-      data-slot="field-legend"
-      data-variant={variant}
-      className={cn(
-        "mb-1.5 flex items-center gap-2.5 font-semibold tracking-[-0.01em] text-foreground group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[invalid=true]/field:text-destructive data-[variant=label]:text-sm data-[variant=legend]:text-base",
-        className,
-      )}
-      {...props}
-    >
-      <FieldHeaderContent required={required} optional={optional}>
-        {children}
-      </FieldHeaderContent>
-    </legend>
-  )
-}
-
-function FieldSection({
-  className,
-  slot,
-  ...props
-}: ComponentProps<"div"> & {
-  slot: string
-}) {
-  return <div data-slot={slot} className={cn(className)} {...props} />
-}
-
-function renderFieldSection(
-  slot: string,
-  defaultClassName: string,
-  { className, ...props }: ComponentProps<"div">,
-) {
-  return (
-    <FieldSection
-      slot={slot}
-      className={cn(defaultClassName, className)}
-      {...props}
-    />
-  )
-}
-
-function FieldGroup({ className, ...props }: ComponentProps<"div">) {
-  return renderFieldSection(
-    "field-group",
-    "group/field-group @container/field-group flex w-full flex-col gap-5 data-[slot=checkbox-group]:gap-3 *:data-[slot=field-group]:gap-4",
-    { className, ...props },
-  )
-}
-
 const fieldVariants = cva(
   "group/field flex w-full gap-2 data-[invalid=true]:text-destructive",
   {
@@ -161,14 +86,6 @@ function Field({
   )
 }
 
-function FieldContent({ className, ...props }: ComponentProps<"div">) {
-  return renderFieldSection(
-    "field-content",
-    "group/field-content flex flex-1 flex-col gap-1.5 leading-tight",
-    { className, ...props },
-  )
-}
-
 function FieldLabel({
   className,
   children,
@@ -196,32 +113,6 @@ function FieldLabel({
   )
 }
 
-function FieldTitle({
-  className,
-  children,
-  required,
-  optional,
-  ...props
-}: ComponentProps<"div"> & {
-  required?: boolean
-  optional?: boolean
-}) {
-  return (
-    <div
-      data-slot="field-label"
-      className={cn(
-        "flex w-fit items-center gap-2.5 text-sm font-semibold tracking-[-0.01em] text-foreground group-has-[:user-invalid]/field:text-destructive group-has-[[aria-invalid=true]]/field:text-destructive group-data-[disabled=true]/field:opacity-50 group-data-[invalid=true]/field:text-destructive",
-        className,
-      )}
-      {...props}
-    >
-      <FieldHeaderContent required={required} optional={optional}>
-        {children}
-      </FieldHeaderContent>
-    </div>
-  )
-}
-
 function FieldDescription({ className, ...props }: ComponentProps<"p">) {
   return (
     <p
@@ -234,36 +125,6 @@ function FieldDescription({ className, ...props }: ComponentProps<"p">) {
       )}
       {...props}
     />
-  )
-}
-
-function FieldSeparator({
-  children,
-  className,
-  ...props
-}: ComponentProps<"div"> & {
-  children?: ReactNode
-}) {
-  return (
-    <div
-      data-slot="field-separator"
-      data-content={!!children}
-      className={cn(
-        "relative -my-2 h-5 text-sm group-data-[variant=outline]/field-group:-mb-2",
-        className,
-      )}
-      {...props}
-    >
-      <Separator className="absolute inset-0 top-1/2" />
-      {children ? (
-        <span
-          className="bg-background text-muted-foreground relative mx-auto block w-fit px-2"
-          data-slot="field-separator-content"
-        >
-          {children}
-        </span>
-      ) : null}
-    </div>
   )
 }
 
@@ -328,15 +189,4 @@ function FieldError({
   )
 }
 
-export {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSeparator,
-  FieldSet,
-  FieldTitle,
-}
+export { Field, FieldDescription, FieldError, FieldLabel }

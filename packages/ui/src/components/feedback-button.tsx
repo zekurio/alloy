@@ -65,4 +65,4 @@ function FeedbackButton({
 }
 
 export { FeedbackButton }
-export type { FeedbackButtonProps, FeedbackState }
+export type { FeedbackButtonProps }

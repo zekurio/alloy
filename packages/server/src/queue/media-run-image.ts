@@ -67,13 +67,10 @@ export async function runImageProcessing(
           sourceDurationMs: null,
           durationMs: null,
           waveformKey: null,
-          pendingAudioTracks: null,
-          audioTrackFingerprint: null,
           cutKey: null,
           cutCodecs: null,
           encodeFingerprint: "screenshot:1",
         },
-        [],
         [],
         completion,
       )

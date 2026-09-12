@@ -236,8 +236,6 @@ export function parseServerEnv(source: EnvSource = process.env) {
   } as const
 }
 
-export type ServerEnv = ReturnType<typeof parseServerEnv>
-
 /**
  * Parsed on first property read, not at import, so importing a module never
  * validates env as a side effect. `src/index.ts` reads env immediately, so a

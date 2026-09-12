@@ -1,5 +1,4 @@
 import type { StorageDeletionInput } from "@alloy/server/storage/deletion-policy"
-import { clipAssetKey } from "@alloy/server/storage/driver"
 
 import { clipKeyDeletionNamespace } from "./clip-key"
 
@@ -10,7 +9,6 @@ export interface ClipStorageDeletionSnapshot {
   cutKey: string | null
   thumbKey: string | null
   renditionKeys: readonly string[]
-  audioTrackKeys: readonly string[]
 }
 
 /**
@@ -30,7 +28,6 @@ export function clipStorageDeletionIntents(
     snapshot.waveformKey,
     snapshot.cutKey,
     ...snapshot.renditionKeys,
-    ...snapshot.audioTrackKeys,
   ]) {
     if (!key) continue
     intents.push({
@@ -41,18 +38,10 @@ export function clipStorageDeletionIntents(
     })
   }
 
-  // The stable names predate thumb_key. They remain protected as live while a
-  // clip exists, so deleting the owner is the one exact moment we can safely
-  // retire them even when no current row points at them.
-  for (const key of [
-    snapshot.thumbKey,
-    clipAssetKey(clipId, "thumb"),
-    clipAssetKey(clipId, "thumb-small"),
-  ]) {
-    if (!key) continue
+  if (snapshot.thumbKey) {
     intents.push({
       namespace: "thumbnails",
-      key,
+      key: snapshot.thumbKey,
       reason: "clip deleted",
       source,
     })

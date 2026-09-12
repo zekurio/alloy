@@ -2,20 +2,12 @@ import { authAccount, user, userPasskey } from "@alloy/db/auth-schema"
 import { isOAuthProviderUsable } from "@alloy/server/config/secret-store"
 import { configStore } from "@alloy/server/config/store"
 import { db } from "@alloy/server/db/index"
-import { and, count, eq, inArray, sql } from "drizzle-orm"
+import { and, eq, inArray, sql } from "drizzle-orm"
 
 import { withAdminAccessChange } from "./admin-access"
 
 type AuthTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
 type AuthExecutor = typeof db | AuthTransaction
-
-export async function countUserPasskeys(userId: string): Promise<number> {
-  const [row] = await db
-    .select({ value: count() })
-    .from(userPasskey)
-    .where(eq(userPasskey.user_id, userId))
-  return row?.value ?? 0
-}
 
 async function countEnabledOAuthAccounts(
   userId: string,
@@ -49,7 +41,7 @@ async function countEnabledOAuthAccounts(
   ).length
 }
 
-export async function userHasEnabledSignInMethod(
+async function userHasEnabledSignInMethod(
   userId: string,
   options: {
     excludeAccount?: { providerId: string; providerAccountId: string }

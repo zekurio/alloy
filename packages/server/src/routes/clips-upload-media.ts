@@ -1,9 +1,10 @@
-import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
+import { clip, clipRendition } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { resetFailedClipForEncode } from "@alloy/server/clips/reencode"
 import { resolveTrimRange } from "@alloy/server/clips/trim-range"
 import { db } from "@alloy/server/db/index"
+import type { DbTransaction } from "@alloy/server/db/transaction"
 import { extractPoster } from "@alloy/server/media/poster"
 import {
   requestClipMedia,
@@ -45,6 +46,31 @@ const reEncodeRateLimit = rateLimiter({
   max: 10,
   key: requestIp,
 })
+
+async function updateReadyClip(
+  tx: DbTransaction,
+  input: {
+    id: string
+    authorId: string
+    sourceKey: string
+    patch: Partial<typeof clip.$inferInsert>
+  },
+): Promise<boolean> {
+  const [updated] = await tx
+    .update(clip)
+    .set({ ...input.patch, updated_at: new Date() })
+    .where(
+      and(
+        eq(clip.id, input.id),
+        eq(clip.author_id, input.authorId),
+        eq(clip.source_key, input.sourceKey),
+        eq(clip.status, "ready"),
+        isNull(clip.encode_run_id),
+      ),
+    )
+    .returning({ id: clip.id })
+  return Boolean(updated)
+}
 
 export const clipsUploadMediaRoutes = new Hono()
   .post(
@@ -140,25 +166,16 @@ export const clipsUploadMediaRoutes = new Hono()
             return { accepted: false, queuedDeletions: intents.length }
           }
 
-          const [updated] = await tx
-            .update(clip)
-            .set({
+          const accepted = await updateReadyClip(tx, {
+            id,
+            authorId: row.author_id,
+            sourceKey,
+            patch: {
               thumb_key: thumbKey,
               thumb_blur_hash: poster.blurHash,
               thumb_failed_at: null,
-              updated_at: new Date(),
-            })
-            .where(
-              and(
-                eq(clip.id, id),
-                eq(clip.author_id, row.author_id),
-                eq(clip.source_key, sourceKey),
-                eq(clip.status, "ready"),
-                isNull(clip.encode_run_id),
-              ),
-            )
-            .returning({ id: clip.id })
-          const accepted = Boolean(updated)
+            },
+          })
           const intents = posterDeletionIntents({
             previousKey: current.thumbKey,
             uploadedKey: thumbKey,
@@ -249,54 +266,38 @@ export const clipsUploadMediaRoutes = new Hono()
       // already "ready" but still encoding its ladder — its commitReady
       // would otherwise clobber this trim's processing state.
       // Fireshare-style eager invalidation: the accepted trim makes existing
-      // renditions and stems stale, so drop their records before playback can
+      // renditions stale, so drop their records before playback can
       // select them. The previously committed cut keeps the clip's cut_key
       // until commitSource swaps in the new exact cut. Snapshot the derived
       // references and enqueue their durable deletion intents in the same
       // transaction that invalidates their rows.
       const trimmed = await db.transaction(async (tx) => {
-        const [accepted] = await tx
-          .update(clip)
-          .set({
+        const accepted = await updateReadyClip(tx, {
+          id,
+          authorId: row.author_id,
+          sourceKey,
+          patch: {
             trim_start_ms: range?.startMs ?? null,
             trim_end_ms: range?.endMs ?? null,
             status: "processing",
             encode_progress: 0,
             encode_attempt: 0,
             failure_reason: null,
-            updated_at: new Date(),
-          })
-          .where(
-            and(
-              eq(clip.id, id),
-              eq(clip.author_id, row.author_id),
-              eq(clip.source_key, sourceKey),
-              eq(clip.status, "ready"),
-              isNull(clip.encode_run_id),
-            ),
-          )
-          .returning({ id: clip.id })
+          },
+        })
         if (!accepted) return null
 
         const staleRenditions = await tx
           .select({ storageKey: clipRendition.storage_key })
           .from(clipRendition)
           .where(eq(clipRendition.clip_id, id))
-        const staleAudioTracks = await tx
-          .select({ storageKey: clipAudioTrack.storage_key })
-          .from(clipAudioTrack)
-          .where(eq(clipAudioTrack.clip_id, id))
         const intents = mediaAssetDeletionIntents({
-          keys: [
-            ...staleRenditions.map((rendition) => rendition.storageKey),
-            ...staleAudioTracks.map((track) => track.storageKey),
-          ],
+          keys: staleRenditions.map((rendition) => rendition.storageKey),
           reason: "trim invalidated derived media",
           source: { type: "clip-trim", id },
         })
         await enqueueStorageDeletions(intents, { tx })
         await tx.delete(clipRendition).where(eq(clipRendition.clip_id, id))
-        await tx.delete(clipAudioTrack).where(eq(clipAudioTrack.clip_id, id))
         await requestClipMedia(id, {
           force: false,
           priority: 10,

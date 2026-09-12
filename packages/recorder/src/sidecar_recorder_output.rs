@@ -9,9 +9,8 @@ impl Recorder {
         &mut self,
         settings: &RecordingSettings,
         game: Option<&DetectedGame>,
-        kind: ActiveOutputKind,
         capture: RecordingCapture,
-        output_config: OutputConfig,
+        output_config: ReplayBufferConfig,
     ) -> Result<ActiveSession, String> {
         let source_kind = source_kind(settings);
         let video_config = self.ensure_obs_for_source(settings, game, source_kind)?;
@@ -42,9 +41,8 @@ impl Recorder {
         let output_quality = effective_quality_for_base(settings, video_config.base);
         // SAFETY: OBS is initialized above and this session is creating sources
         // for the same libobs instance.
-        let video_graph = unsafe {
-            create_video_graph(obs, settings, game, source_kind, video_config.base)?
-        };
+        let video_graph =
+            unsafe { create_video_graph(obs, settings, game, source_kind, video_config.base)? };
         unsafe {
             (obs.obs_set_output_source)(0, video_graph.output_source);
         }
@@ -105,63 +103,52 @@ impl Recorder {
         };
 
         let output_settings = unsafe { obs.create_data() };
-        let output_id = match &output_config {
-            OutputConfig::ReplayBuffer {
-                scratch_directory,
-                output_directory: _,
-                storage,
-                replay_seconds: _,
-            } => {
-                if storage == &RecordingBufferStorage::Disk {
-                    let path = scratch_directory.join(format!(
-                        "{DISK_REPLAY_PREFIX}{}.mp4",
-                        timestamp_file_slug()
-                    ));
-                    let result = unsafe {
-                        obs.set_string(output_settings, "path", &path.to_string_lossy())?;
-                        obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")?;
-                        obs.set_bool(output_settings, "split_file", true)?;
-                        obs.set_int(
-                            output_settings,
-                            "max_time_sec",
-                            i64::from(disk_replay_segment_seconds(
-                                settings.replay_buffer_seconds,
-                            )),
-                        )?;
-                        obs.set_int(output_settings, "max_size_mb", 0)
-                    };
-                    result.map(|_| "ffmpeg_muxer")
-                } else {
-                    let result = unsafe {
-                        obs.set_string(
-                            output_settings,
-                            "directory",
-                            &scratch_directory.to_string_lossy(),
-                        )?;
-                        obs.set_string(
-                            output_settings,
-                            "format",
-                            "alloy-replay-%CCYY%MM%DD-%hh%mm%ss",
-                        )?;
-                        obs.set_string(output_settings, "extension", "mp4")?;
-                        obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")?;
-                        obs.set_int(
-                            output_settings,
-                            "max_time_sec",
-                            i64::from(settings.replay_buffer_seconds),
-                        )?;
-                        obs.set_int(
-                            output_settings,
-                            "max_size_mb",
-                            i64::from(estimated_replay_buffer_mb(
-                                settings,
-                                &output_quality,
-                            )),
-                        )
-                    };
-                    result.map(|_| "replay_buffer")
-                }
-            }
+        let ReplayBufferConfig {
+            scratch_directory,
+            storage,
+            ..
+        } = &output_config;
+        let output_id = if storage == &RecordingBufferStorage::Disk {
+            let path = scratch_directory
+                .join(format!("{DISK_REPLAY_PREFIX}{}.mp4", timestamp_file_slug()));
+            let result = unsafe {
+                obs.set_string(output_settings, "path", &path.to_string_lossy())?;
+                obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")?;
+                obs.set_bool(output_settings, "split_file", true)?;
+                obs.set_int(
+                    output_settings,
+                    "max_time_sec",
+                    i64::from(disk_replay_segment_seconds(settings.replay_buffer_seconds)),
+                )?;
+                obs.set_int(output_settings, "max_size_mb", 0)
+            };
+            result.map(|_| "ffmpeg_muxer")
+        } else {
+            let result = unsafe {
+                obs.set_string(
+                    output_settings,
+                    "directory",
+                    &scratch_directory.to_string_lossy(),
+                )?;
+                obs.set_string(
+                    output_settings,
+                    "format",
+                    "alloy-replay-%CCYY%MM%DD-%hh%mm%ss",
+                )?;
+                obs.set_string(output_settings, "extension", "mp4")?;
+                obs.set_string(output_settings, "muxer_settings", "movflags=+faststart")?;
+                obs.set_int(
+                    output_settings,
+                    "max_time_sec",
+                    i64::from(settings.replay_buffer_seconds),
+                )?;
+                obs.set_int(
+                    output_settings,
+                    "max_size_mb",
+                    i64::from(estimated_replay_buffer_mb(settings, &output_quality)),
+                )
+            };
+            result.map(|_| "replay_buffer")
         };
         let output_id = match output_id {
             Ok(output_id) => output_id,
@@ -222,10 +209,9 @@ impl Recorder {
         }
 
         let can_pause = unsafe { (obs.obs_output_can_pause)(output) };
-        let game_capture_hook_wait = (source_kind == OutputSourceKind::Game)
-            .then(|| start_game_capture_hook_wait(game));
+        let game_capture_hook_wait =
+            (source_kind == OutputSourceKind::Game).then(|| start_game_capture_hook_wait(game));
         Ok(ActiveSession {
-            kind,
             output,
             video_encoder,
             audio_encoder,
@@ -380,10 +366,7 @@ impl Recorder {
         session: &ActiveSession,
         duration_seconds: u32,
     ) -> Result<SavedReplayClip, String> {
-        if session.kind != ActiveOutputKind::ReplayBuffer {
-            return Err("Current OBS output is not a replay buffer.".to_string());
-        }
-        let OutputConfig::ReplayBuffer {
+        let ReplayBufferConfig {
             scratch_directory,
             output_directory,
             storage,
@@ -496,14 +479,13 @@ unsafe fn last_replay_path(obs: &LibObs, handler: *mut ProcHandler) -> Option<St
 
     let key = CString::new("path").expect("static string has no nul byte");
     let mut raw_path: *const c_char = ptr::null();
-    let path = if (obs.calldata_get_string)(&data, key.as_ptr(), &mut raw_path)
-        && !raw_path.is_null()
-    {
-        let path = CStr::from_ptr(raw_path).to_string_lossy().into_owned();
-        (!path.is_empty()).then_some(path)
-    } else {
-        None
-    };
+    let path =
+        if (obs.calldata_get_string)(&data, key.as_ptr(), &mut raw_path) && !raw_path.is_null() {
+            let path = CStr::from_ptr(raw_path).to_string_lossy().into_owned();
+            (!path.is_empty()).then_some(path)
+        } else {
+            None
+        };
     free_calldata(obs, &mut data);
     path
 }

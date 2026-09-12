@@ -22,7 +22,6 @@ import {
   type ClipPage,
   type ClipRow,
 } from "@alloy/contracts"
-import { normalizeClipAudioTrackKind } from "@alloy/contracts/shared"
 
 import type { ApiJsonInput, ApiJsonValue } from "../json-value"
 import { validateUserSummary } from "./people"
@@ -51,12 +50,11 @@ function validateClipGameRef(value: ApiJsonInput) {
 
 export function validateClipRow(value: ApiJsonInput): ClipRow {
   const row = objectRecord(value, "clip")
-  if (row.mediaKind !== undefined)
-    validateEnumString(
-      row.mediaKind,
-      new Set(["image", "video"]),
-      "Invalid media kind",
-    )
+  validateEnumString(
+    row.mediaKind,
+    new Set(["image", "video"]),
+    "Invalid media kind",
+  )
   assertNoStorageKey(row, "clip")
   validateClipIdentityFields(row)
   validateClipMetadataFields(row)
@@ -144,37 +142,27 @@ function validateClipCounters(row: Record<string, ApiJsonValue>) {
 }
 
 function validateClipStageFields(row: Record<string, ApiJsonValue>) {
-  if (row.encodeActive !== undefined) {
-    validateBoolean(
-      row.encodeActive,
-      "Invalid clip response: encodeActive must be boolean",
-    )
-  }
-  if (row.encodeStage !== undefined) {
-    validateNullableEnumString(
-      row.encodeStage,
-      ENCODE_STAGE_SET,
-      "Invalid clip response: encodeStage is invalid",
-    )
-  }
-  if (row.encodeTier !== undefined) {
-    validateNullableString(
-      row.encodeTier,
-      "Invalid clip response: encodeTier must be string or null",
-    )
-  }
-  if (row.encodeTierIndex !== undefined) {
-    validateNullablePositiveInteger(
-      row.encodeTierIndex,
-      "Invalid clip response: encodeTierIndex must be a positive integer or null",
-    )
-  }
-  if (row.encodeTierCount !== undefined) {
-    validateNullablePositiveInteger(
-      row.encodeTierCount,
-      "Invalid clip response: encodeTierCount must be a positive integer or null",
-    )
-  }
+  validateBoolean(
+    row.encodeActive,
+    "Invalid clip response: encodeActive must be boolean",
+  )
+  validateNullableEnumString(
+    row.encodeStage,
+    ENCODE_STAGE_SET,
+    "Invalid clip response: encodeStage is invalid",
+  )
+  validateNullableString(
+    row.encodeTier,
+    "Invalid clip response: encodeTier must be string or null",
+  )
+  validateNullablePositiveInteger(
+    row.encodeTierIndex,
+    "Invalid clip response: encodeTierIndex must be a positive integer or null",
+  )
+  validateNullablePositiveInteger(
+    row.encodeTierCount,
+    "Invalid clip response: encodeTierCount must be a positive integer or null",
+  )
 }
 
 function validateClipTimestamps(row: Record<string, ApiJsonValue>) {
@@ -203,7 +191,7 @@ function validateClipTimestamps(row: Record<string, ApiJsonValue>) {
     "Invalid clip response: sourceVersion must be string or null",
   )
   validateNullableString(
-    row.waveformVersion ?? null,
+    row.waveformVersion,
     "Invalid clip response: waveformVersion must be string or null",
   )
   validateNullableBlurHash(
@@ -243,24 +231,6 @@ function validateClipRelationships(row: Record<string, ApiJsonValue>) {
       rendition.version,
       "Invalid clip rendition response: version is required",
     )
-  })
-  validateArray(
-    row.audioTracks,
-    "Invalid clip response: audioTracks must be an array",
-  ).map((entry) => {
-    const track = objectRecord(entry, "clip audio track")
-    assertNoStorageKey(track, "clip audio track")
-    validateNonNegativeInteger(
-      track.index,
-      "Invalid clip audio track response: index must be a non-negative integer",
-    )
-    track.kind = normalizeClipAudioTrackKind(track.kind)
-    for (const key of ["label", "codecs", "version"] as const) {
-      validateString(
-        track[key],
-        `Invalid clip audio track response: ${key} must be a string`,
-      )
-    }
   })
   if (row.mentions !== undefined) {
     validateArray(

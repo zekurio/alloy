@@ -35,7 +35,7 @@ import {
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { PencilIcon, PlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
-import type { FormEvent, ReactNode } from "react"
+import type { FormEvent, ReactElement, ReactNode } from "react"
 
 import { api } from "@/lib/api"
 import { errorMessage } from "@/lib/error-message"
@@ -88,89 +88,77 @@ export function CreateWebhookDialog() {
   }
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={setOpen}>
-      <ResponsiveDialogTrigger
-        render={
-          <Button type="button" size="icon" aria-label={t("Add webhook")}>
-            <PlusIcon />
-          </Button>
-        }
+    <WebhookDialog
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button type="button" size="icon" aria-label={t("Add webhook")}>
+          <PlusIcon />
+        </Button>
+      }
+      title={t("New webhook")}
+      description={t(
+        "Public clips are announced here as soon as they finish encoding.",
+      )}
+      onSubmit={handleSubmit}
+      isPending={isPending}
+      error={submitError}
+    >
+      <WebhookNameField
+        id="new-webhook-name"
+        value={name}
+        onValueChange={setName}
+        placeholder={t("e.g. #clips")}
       />
-      <ResponsiveDialogContent>
-        <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{t("New webhook")}</ResponsiveDialogTitle>
-          <ResponsiveDialogDescription>
-            {t(
-              "Public clips are announced here as soon as they finish encoding.",
-            )}
-          </ResponsiveDialogDescription>
-        </ResponsiveDialogHeader>
-        <form onSubmit={handleSubmit}>
-          <ResponsiveDialogBody className="flex flex-col gap-4">
-            <WebhookNameField
-              id="new-webhook-name"
-              value={name}
-              onValueChange={setName}
-              placeholder={t("e.g. #clips")}
-            />
-            <Field>
-              <FieldLabel htmlFor="new-webhook-provider">
-                {t("Provider")}
-              </FieldLabel>
-              <Select
-                value={provider}
-                onValueChange={(value) => {
-                  if (value === "discord" || value === "generic") {
-                    setProvider(value)
-                  }
-                }}
-              >
-                <SelectTrigger id="new-webhook-provider" size="sm">
-                  <SelectValue>{WEBHOOK_PROVIDER_LABELS[provider]}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {WEBHOOK_PROVIDERS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {WEBHOOK_PROVIDER_LABELS[option]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <FieldDescription>
-                {provider === "discord"
-                  ? t("Discord renders the clip link as a playable preview.")
-                  : t("Your endpoint receives a signed JSON payload.")}
-              </FieldDescription>
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="new-webhook-url">
-                {t("Endpoint URL")}
-              </FieldLabel>
-              <Input
-                id="new-webhook-url"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder={WEBHOOK_URL_PLACEHOLDERS[provider]}
-                type="url"
-                required
-              />
-            </Field>
-            {provider === "generic" ? (
-              <WebhookSecretField
-                id="new-webhook-secret"
-                value={secret}
-                onValueChange={setSecret}
-                description={t(
-                  "Used to sign each payload so your endpoint can verify it.",
-                )}
-              />
-            ) : null}
-            <FieldError>{submitError}</FieldError>
-          </ResponsiveDialogBody>
-          <WebhookDialogFooter isPending={isPending} error={submitError} />
-        </form>
-      </ResponsiveDialogContent>
-    </ResponsiveDialog>
+      <Field>
+        <FieldLabel htmlFor="new-webhook-provider">{t("Provider")}</FieldLabel>
+        <Select
+          value={provider}
+          onValueChange={(value) => {
+            if (value === "discord" || value === "generic") {
+              setProvider(value)
+            }
+          }}
+        >
+          <SelectTrigger id="new-webhook-provider" size="sm">
+            <SelectValue>{WEBHOOK_PROVIDER_LABELS[provider]}</SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {WEBHOOK_PROVIDERS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {WEBHOOK_PROVIDER_LABELS[option]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <FieldDescription>
+          {provider === "discord"
+            ? t("Discord renders the clip link as a playable preview.")
+            : t("Your endpoint receives a signed JSON payload.")}
+        </FieldDescription>
+      </Field>
+      <Field>
+        <FieldLabel htmlFor="new-webhook-url">{t("Endpoint URL")}</FieldLabel>
+        <Input
+          id="new-webhook-url"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          placeholder={WEBHOOK_URL_PLACEHOLDERS[provider]}
+          type="url"
+          required
+        />
+      </Field>
+      {provider === "generic" ? (
+        <WebhookSecretField
+          id="new-webhook-secret"
+          value={secret}
+          onValueChange={setSecret}
+          description={t(
+            "Used to sign each payload so your endpoint can verify it.",
+          )}
+        />
+      ) : null}
+    </WebhookDialog>
   )
 }
 
@@ -213,65 +201,100 @@ export function EditWebhookDialog({ webhook }: { webhook: AdminWebhookRow }) {
   }
 
   return (
-    <ResponsiveDialog open={open} onOpenChange={setOpen}>
-      <ResponsiveDialogTrigger
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            aria-label={t("Edit webhook")}
-          >
-            <PencilIcon />
-          </Button>
-        }
+    <WebhookDialog
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label={t("Edit webhook")}
+        >
+          <PencilIcon />
+        </Button>
+      }
+      title={t("Edit webhook")}
+      description={
+        <>
+          {WEBHOOK_PROVIDER_LABELS[webhook.provider]} · {webhook.url}
+        </>
+      }
+      onSubmit={handleSubmit}
+      isPending={isPending}
+      error={submitError}
+    >
+      <WebhookNameField
+        id="edit-webhook-name"
+        value={name}
+        onValueChange={setName}
       />
+      <Field>
+        <FieldLabel htmlFor="edit-webhook-url">{t("Endpoint URL")}</FieldLabel>
+        <Input
+          id="edit-webhook-url"
+          value={url}
+          onChange={(event) => setUrl(event.target.value)}
+          placeholder={WEBHOOK_URL_PLACEHOLDERS[webhook.provider]}
+          type="url"
+        />
+        <FieldDescription>
+          {t("Leave blank to keep the current URL.")}
+        </FieldDescription>
+      </Field>
+      {webhook.provider === "generic" ? (
+        <WebhookSecretField
+          id="edit-webhook-secret"
+          value={secret}
+          onValueChange={setSecret}
+          description={
+            webhook.secretSet
+              ? t("Leave blank to keep the current secret.")
+              : t("Used to sign each payload so your endpoint can verify it.")
+          }
+        />
+      ) : null}
+    </WebhookDialog>
+  )
+}
+
+function WebhookDialog({
+  open,
+  onOpenChange,
+  trigger,
+  title,
+  description,
+  onSubmit,
+  isPending,
+  error,
+  children,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  trigger: ReactElement
+  title: ReactNode
+  description: ReactNode
+  onSubmit: (event: FormEvent) => void
+  isPending: boolean
+  error: string | null
+  children: ReactNode
+}) {
+  return (
+    <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
+      <ResponsiveDialogTrigger render={trigger} />
       <ResponsiveDialogContent>
         <ResponsiveDialogHeader>
-          <ResponsiveDialogTitle>{t("Edit webhook")}</ResponsiveDialogTitle>
+          <ResponsiveDialogTitle>{title}</ResponsiveDialogTitle>
           <ResponsiveDialogDescription>
-            {WEBHOOK_PROVIDER_LABELS[webhook.provider]} · {webhook.url}
+            {description}
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={onSubmit}>
           <ResponsiveDialogBody className="flex flex-col gap-4">
-            <WebhookNameField
-              id="edit-webhook-name"
-              value={name}
-              onValueChange={setName}
-            />
-            <Field>
-              <FieldLabel htmlFor="edit-webhook-url">
-                {t("Endpoint URL")}
-              </FieldLabel>
-              <Input
-                id="edit-webhook-url"
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                placeholder={WEBHOOK_URL_PLACEHOLDERS[webhook.provider]}
-                type="url"
-              />
-              <FieldDescription>
-                {t("Leave blank to keep the current URL.")}
-              </FieldDescription>
-            </Field>
-            {webhook.provider === "generic" ? (
-              <WebhookSecretField
-                id="edit-webhook-secret"
-                value={secret}
-                onValueChange={setSecret}
-                description={
-                  webhook.secretSet
-                    ? t("Leave blank to keep the current secret.")
-                    : t(
-                        "Used to sign each payload so your endpoint can verify it.",
-                      )
-                }
-              />
-            ) : null}
-            <FieldError>{submitError}</FieldError>
+            {children}
+            <FieldError>{error}</FieldError>
           </ResponsiveDialogBody>
-          <WebhookDialogFooter isPending={isPending} error={submitError} />
+          <WebhookDialogFooter isPending={isPending} error={error} />
         </form>
       </ResponsiveDialogContent>
     </ResponsiveDialog>

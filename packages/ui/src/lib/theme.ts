@@ -10,7 +10,6 @@ import {
 } from "@alloy/ui/lib/theme-storage"
 
 export {
-  DEFAULT_THEME,
   THEMES,
   THEME_STORAGE_KEY,
   type Theme,
@@ -27,13 +26,13 @@ export function getStoredTheme(): Theme {
 
 // "system" resolves to the OS preference; falls back to dark when matchMedia
 // is unavailable so behavior matches the historical dark-only default.
-export function resolveTheme(theme: Theme): ResolvedTheme {
+function resolveTheme(theme: Theme): ResolvedTheme {
   if (theme !== "system") return theme
   if (!globalThis.window?.matchMedia) return "dark"
   return window.matchMedia(DARK_QUERY).matches ? "dark" : "light"
 }
 
-export function applyTheme(theme: Theme): void {
+function applyTheme(theme: Theme): void {
   if (!globalThis.document) return
   const resolved = resolveTheme(theme)
   const classes = document.documentElement.classList

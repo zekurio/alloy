@@ -2,7 +2,7 @@ import { t } from "@alloy/contracts/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { errorResult } from "@alloy/server/runtime/http-response"
 import type { UserAssetRole } from "@alloy/server/storage/driver"
-import { userStorage } from "@alloy/server/storage/index"
+import { assetStorage } from "@alloy/server/storage/index"
 import { USER_ASSET_ROUTE_KEY_RE } from "@alloy/server/users/user-asset-deletion"
 import {
   EXT_FOR_CONTENT_TYPE,
@@ -109,6 +109,6 @@ export const usersUploadRoute = new Hono<{
   )
 
 export const userAssetsRoute = immutableImageAssetsRoute(
-  userStorage,
+  assetStorage,
   USER_ASSET_ROUTE_KEY_RE,
 )

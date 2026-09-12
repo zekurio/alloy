@@ -16,7 +16,6 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query"
-import { useCallback } from "react"
 
 import { api } from "./api"
 import { feedKeys } from "./feed-queries"
@@ -114,13 +113,6 @@ export function invalidateGameQueries(qc: QueryClient): Promise<void> {
   return qc.invalidateQueries({ queryKey: gameKeys.all })
 }
 
-export function useInvalidateGames(): () => void {
-  const qc = useQueryClient()
-  return useCallback(() => {
-    void invalidateGameQueries(qc)
-  }, [qc])
-}
-
 export function useGameNameLookupQuery(
   names: readonly string[],
   { enabled = true }: { enabled?: boolean } = {},
@@ -151,10 +143,7 @@ export function gameQueryOptions(gameId: string, viewerId: string | null) {
   })
 }
 
-export function gameCreatorsQueryOptions(
-  gameId: string,
-  media: MediaFilter = "all",
-) {
+function gameCreatorsQueryOptions(gameId: string, media: MediaFilter = "all") {
   return queryOptions({
     queryKey: [...gameKeys.creators(gameId), media],
     queryFn: () => api.games.fetchCreators(gameId, undefined, media),

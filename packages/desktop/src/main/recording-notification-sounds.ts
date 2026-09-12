@@ -14,7 +14,7 @@ import { app } from "electron"
 
 const logger = createLogger("sounds")
 
-export const RECORDING_SOUND_FILE_EXTENSIONS = [
+const RECORDING_SOUND_FILE_EXTENSIONS = [
   "wav",
   "mp3",
   "ogg",
@@ -59,7 +59,7 @@ export function setRecordingNotificationSoundPlayer(
   soundPlayer = player
 }
 
-export function recordingNotificationSoundPath(
+function recordingNotificationSoundPath(
   sound: RecordingNotificationSoundEvent,
   settings: RecordingNotificationSoundSettings,
 ): string | null {
@@ -71,12 +71,12 @@ export function recordingNotificationSoundPath(
   return defaultRecordingSoundPath(sound)
 }
 
-export function isRecordingSoundFile(path: string): boolean {
+function isRecordingSoundFile(path: string): boolean {
   return SUPPORTED_RECORDING_SOUND_EXTENSIONS.has(extname(path).toLowerCase())
 }
 
 /** Shared folder users drop their own notification sounds into. */
-export function notificationSoundsDir(): string {
+function notificationSoundsDir(): string {
   return notificationSoundsRootDir()
 }
 
@@ -98,14 +98,6 @@ export function ensureNotificationSoundsDir(): string {
     logger.warn("failed to prepare notification sounds folder:", cause)
   }
   return dir
-}
-
-/** Audio files available in the sounds library, ranked for this event. */
-export function listNotificationSoundFiles(
-  sound: RecordingNotificationSoundEvent,
-): RecordingNotificationSoundOption[] {
-  ensureNotificationSoundsDir()
-  return rankedNotificationSoundFiles(sound, crawlNotificationSoundsRoot())
 }
 
 export function listNotificationSoundLibrary(): RecordingNotificationSoundLibrary {

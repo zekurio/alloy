@@ -29,11 +29,6 @@ export function usePlayerVolume(): PlayerVolumeState {
   )
 }
 
-export function readPlayerVolume(): PlayerVolumeState {
-  const current = playerVolumeSnapshot()
-  return { volume: current.volume, muted: current.muted }
-}
-
 export function writePlayerVolume(next: PlayerVolumeState): void {
   const normalized = normalizePlayerVolume(next)
   const current = playerVolumeSnapshot()

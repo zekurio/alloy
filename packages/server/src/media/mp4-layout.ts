@@ -8,7 +8,7 @@ const BOX_HEADER_SIZE = 8
 const LARGE_SIZE_HEADER_SIZE = 16
 const FASTSTART_REMUX_TIMEOUT_SOURCE_MS = 60 * 60 * 1000
 
-export async function mp4Layout(path: string): Promise<Mp4Layout> {
+async function mp4Layout(path: string): Promise<Mp4Layout> {
   let file
   try {
     file = await open(path, "r")

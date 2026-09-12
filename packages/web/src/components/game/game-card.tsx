@@ -9,7 +9,7 @@ import { gameDisplayName } from "@/lib/game-display-name"
 
 import { GameLogo } from "./game-logo"
 
-export type GameCardData = {
+type GameCardData = {
   id: string
   name: string
   slug: string | null
@@ -19,7 +19,7 @@ export type GameCardData = {
   logoUrl: string | null
 }
 
-export type GameCardLink =
+type GameCardLink =
   | { kind: "game"; slug: string }
   | { kind: "user-clips"; username: string; slug: string }
 

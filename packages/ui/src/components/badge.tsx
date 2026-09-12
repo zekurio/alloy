@@ -78,4 +78,4 @@ function NumberBadge({ className, ...props }: ComponentProps<"span">) {
   )
 }
 
-export { Badge, NumberBadge, badgeVariants }
+export { Badge, NumberBadge }

@@ -72,11 +72,13 @@ impl Recorder {
             return;
         }
 
-        if self.codec_caps_failed_probe.as_ref().is_some_and(
-            |(failed_key, failed_at)| {
+        if self
+            .codec_caps_failed_probe
+            .as_ref()
+            .is_some_and(|(failed_key, failed_at)| {
                 failed_key == &key && failed_at.elapsed() < CODEC_PROBE_RETRY_COOLDOWN
-            },
-        ) {
+            })
+        {
             return;
         }
 
@@ -99,15 +101,11 @@ impl Recorder {
             return true;
         };
         self.codec_caps.is_some()
-            && self
-                .codec_caps_key
-                .as_ref()
-                .is_some_and(|key| {
-                    key.adapter == selected_gpu_adapter(settings, &self.cached_gpus)
-                        && key.gpu_label.as_deref()
-                            == selected_gpu_label(settings, &self.cached_gpus)
-                        && key.runtime_dir == self.obs_runtime_dir
-                })
+            && self.codec_caps_key.as_ref().is_some_and(|key| {
+                key.adapter == selected_gpu_adapter(settings, &self.cached_gpus)
+                    && key.gpu_label.as_deref() == selected_gpu_label(settings, &self.cached_gpus)
+                    && key.runtime_dir == self.obs_runtime_dir
+            })
     }
 
     /// Briefly initializes OBS on a default canvas to enumerate the available
@@ -171,10 +169,9 @@ impl Recorder {
     }
 
     fn refresh_audio_device_cache(&mut self) {
-        if self.should_refresh_idle_cache(
-            self.cached_audio_devices_at,
-            HARDWARE_DISCOVERY_CACHE_TTL,
-        ) {
+        if self
+            .should_refresh_idle_cache(self.cached_audio_devices_at, HARDWARE_DISCOVERY_CACHE_TTL)
+        {
             match platform_audio_devices(self.obs.as_ref()) {
                 Ok(physical_devices) => {
                     let mut devices = default_audio_devices();
@@ -186,9 +183,7 @@ impl Recorder {
                     if self.cached_audio_devices.is_empty() {
                         self.cached_audio_devices = default_audio_devices();
                     }
-                    eprintln!(
-                        "[{SIDE_CAR_NAME}] keeping the last audio-device inventory: {error}"
-                    );
+                    eprintln!("[{SIDE_CAR_NAME}] keeping the last audio-device inventory: {error}");
                     self.cached_audio_devices_at = Some(Instant::now());
                 }
             }
@@ -196,7 +191,10 @@ impl Recorder {
     }
 
     fn refresh_audio_application_cache(&mut self) {
-        let game_key = self.active_game.as_ref().map(|game| game.window_key.clone());
+        let game_key = self
+            .active_game
+            .as_ref()
+            .map(|game| game.window_key.clone());
         let stale = cache_expired(
             self.cached_audio_applications_at,
             AUDIO_APPLICATION_DISCOVERY_CACHE_TTL,
@@ -205,9 +203,7 @@ impl Recorder {
         // started (or joined a voice call) mid-session, and the enumeration is
         // cheap next to the detection work each tick already does.
         if stale {
-            let mut applications: Vec<_> = available_audio_applications(self.active_game.as_ref())
-                .into_values()
-                .collect();
+            let mut applications: Vec<_> = available_audio_applications().into_values().collect();
             applications.sort_by(|a, b| {
                 a.name
                     .to_ascii_lowercase()
@@ -232,29 +228,13 @@ impl Recorder {
             RecordingMode::Idle
         }
     }
-
-    fn capture_owner_session(&self) -> Option<&ActiveSession> {
-        self.replay_session.as_ref()
-    }
-
-    fn has_active_outputs(&self) -> bool {
-        self.replay_session.is_some()
-    }
-}
-fn active_session_should_stop(session: &ActiveSession, settings: &RecordingSettings) -> bool {
-    match session.kind {
-        ActiveOutputKind::ReplayBuffer => !settings.enabled,
-    }
 }
 
 /// Settings whose change requires tearing down active outputs. Allow/deny game
 /// list edits are intentionally absent: the tick loop already ends sessions
 /// whose active game became disallowed, so list edits never interrupt an
 /// unrelated active recording.
-fn active_settings_require_restart(
-    current: &RecordingSettings,
-    next: &RecordingSettings,
-) -> bool {
+fn active_settings_require_restart(current: &RecordingSettings, next: &RecordingSettings) -> bool {
     current.audio_mode != next.audio_mode
         || current.audio_devices != next.audio_devices
         || current.audio_applications != next.audio_applications

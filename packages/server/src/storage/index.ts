@@ -9,9 +9,7 @@ import { FsStorageDriver } from "./fs-driver"
 import { configuredFilesystemStoragePath, type StorageNamespace } from "./paths"
 
 // Storage config is deploy-time env, so each namespace binds to its root once,
-// on first use. Namespaces map to distinct roots on disk; the `user`/`game`/
-// `data` aliases all share the assets root (the URL prefix, not the root,
-// separates them — see storage/paths.ts and the key generators in driver.ts).
+// on first use. User and game assets share the assets root.
 function createFsStorage(namespace: StorageNamespace): StorageDriver {
   return lazy(
     () =>
@@ -26,9 +24,6 @@ function createFsStorage(namespace: StorageNamespace): StorageDriver {
 export const clipStorage: StorageDriver = createFsStorage("clips")
 export const clipThumbnailStorage: StorageDriver = createFsStorage("thumbnails")
 export const assetStorage: StorageDriver = createFsStorage("assets")
-export const userStorage: StorageDriver = assetStorage
-export const gameAssetStorage: StorageDriver = assetStorage
-export const dataStorage: StorageDriver = assetStorage
 
 export function clipStorageForKey(key: string): StorageDriver {
   return clipKeyDeletionNamespace(key) === "thumbnails"
@@ -36,11 +31,5 @@ export function clipStorageForKey(key: string): StorageDriver {
     : clipStorage
 }
 
-export type { StorageDriver, UploadTicket, UserAssetRole } from "./driver"
-export {
-  clipAssetDir,
-  clipAssetKey,
-  gameAssetKey,
-  userAssetKey,
-  versionedAssetKey,
-} from "./driver"
+export type { StorageDriver } from "./driver"
+export { versionedAssetKey } from "./driver"

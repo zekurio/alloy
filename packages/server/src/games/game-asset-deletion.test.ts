@@ -17,11 +17,11 @@ const VERSION_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
 const VERSION_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
 const GAME_DIR = `11/eb/${GAME_ID}`
 
-test("game asset keys are immutable and legacy URLs stay readable", () => {
+test("game asset keys are immutable and unversioned URLs are rejected", () => {
   const key = versionedAssetKey(GAME_ID, "hero", VERSION_A)
   assert.equal(key, `${GAME_DIR}/hero-${VERSION_A.replaceAll("-", "")}.webp`)
   assert.equal(GAME_ASSET_ROUTE_KEY_RE.test(key), true)
-  assert.equal(GAME_ASSET_ROUTE_KEY_RE.test(`${GAME_DIR}/hero.webp`), true)
+  assert.equal(GAME_ASSET_ROUTE_KEY_RE.test(`${GAME_DIR}/hero.webp`), false)
   assert.equal(
     GAME_ASSET_ROUTE_KEY_RE.test(`${GAME_DIR}/hero-aabbccddeeff.webp`),
     false,
@@ -45,7 +45,7 @@ test("owned game asset paths parse exactly and retain their key case", () => {
       GAME_ID,
       "hero",
     ),
-    `${GAME_DIR}/hero.webp`,
+    null,
   )
 })
 
@@ -74,7 +74,6 @@ test("replacement and removal retire the locked predecessor but never the retain
     retainedKey: b,
     reason: "logo replaced",
     source: { type: "game-asset", id: GAME_ID },
-    includeLegacyVariant: true,
   })
   assert.equal(
     replacement.some(({ key }) => key === a),
@@ -86,7 +85,7 @@ test("replacement and removal retire the locked predecessor but never the retain
   )
   assert.equal(
     replacement.some(({ key }) => key === `${GAME_DIR}/logo.webp`),
-    true,
+    false,
   )
 })
 
@@ -97,11 +96,10 @@ test("external URLs never become deletion authority", () => {
     previousUrl: "https://cdn.example.test/icon.webp",
     reason: "icon removed",
     source: { type: "game-asset", id: GAME_ID },
-    includeLegacyVariant: true,
   })
   assert.deepEqual(
     intents.map(({ key }) => key),
-    [`${GAME_DIR}/icon.webp`],
+    [],
   )
 })
 

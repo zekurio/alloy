@@ -2,7 +2,7 @@
 export const TRIM_MIN_RANGE_MS = 1000
 
 /** Slack when deciding whether a requested trim still covers the full clip. */
-export const TRIM_FULL_RANGE_TOLERANCE_MS = 50
+const TRIM_FULL_RANGE_TOLERANCE_MS = 50
 
 export type ResolvedTrimRange =
   | { kind: "invalid"; reason: string }

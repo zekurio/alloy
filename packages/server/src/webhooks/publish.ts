@@ -21,7 +21,7 @@ export function announceClipPublished(clipId: string): void {
   )
 }
 
-export function clipPublishedDedupKey(clipId: string): string {
+function clipPublishedDedupKey(clipId: string): string {
   return `clip.published:${clipId}`
 }
 
@@ -96,7 +96,7 @@ export async function claimClipPublishedDeliveries(
   return claimed.length
 }
 
-export async function dispatchClipPublished(clipId: string): Promise<void> {
+async function dispatchClipPublished(clipId: string): Promise<void> {
   const claimed = await claimClipPublishedDeliveries(db, clipId)
   // The direct dispatcher writes outside a caller-owned transaction, so its
   // insert has committed here. Startup/reconciliation scans recover if this

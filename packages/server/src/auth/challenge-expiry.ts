@@ -62,7 +62,7 @@ export function startAuthChallengeExpiryWorker(): void {
   coordinator.start()
 }
 
-export function wakeAuthChallengeExpiryWorker(): void {
+function wakeAuthChallengeExpiryWorker(): void {
   coordinator.wake()
 }
 

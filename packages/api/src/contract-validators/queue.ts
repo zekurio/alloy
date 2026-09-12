@@ -52,12 +52,10 @@ function validateQueueClip(value: ApiJsonInput): QueueClip {
     100,
     "Invalid queue response: encodeProgress must be an integer between 0 and 100",
   )
-  if (row.encodeActive !== undefined) {
-    validateBoolean(
-      row.encodeActive,
-      "Invalid queue response: encodeActive must be boolean",
-    )
-  }
+  validateBoolean(
+    row.encodeActive,
+    "Invalid queue response: encodeActive must be boolean",
+  )
   validateQueueStageFields(row)
   validateNullableString(
     row.failureReason,
@@ -88,31 +86,23 @@ function validateQueueClip(value: ApiJsonInput): QueueClip {
 }
 
 function validateQueueStageFields(row: Record<string, ApiJsonValue>) {
-  if (row.encodeStage !== undefined) {
-    validateNullableEnumString(
-      row.encodeStage,
-      ENCODE_STAGE_SET,
-      "Invalid queue response: encodeStage is invalid",
-    )
-  }
-  if (row.encodeTier !== undefined) {
-    validateNullableString(
-      row.encodeTier,
-      "Invalid queue response: encodeTier must be string or null",
-    )
-  }
-  if (row.encodeTierIndex !== undefined) {
-    validateNullablePositiveInteger(
-      row.encodeTierIndex,
-      "Invalid queue response: encodeTierIndex must be a positive integer or null",
-    )
-  }
-  if (row.encodeTierCount !== undefined) {
-    validateNullablePositiveInteger(
-      row.encodeTierCount,
-      "Invalid queue response: encodeTierCount must be a positive integer or null",
-    )
-  }
+  validateNullableEnumString(
+    row.encodeStage,
+    ENCODE_STAGE_SET,
+    "Invalid queue response: encodeStage is invalid",
+  )
+  validateNullableString(
+    row.encodeTier,
+    "Invalid queue response: encodeTier must be string or null",
+  )
+  validateNullablePositiveInteger(
+    row.encodeTierIndex,
+    "Invalid queue response: encodeTierIndex must be a positive integer or null",
+  )
+  validateNullablePositiveInteger(
+    row.encodeTierCount,
+    "Invalid queue response: encodeTierCount must be a positive integer or null",
+  )
 }
 
 export function validateQueueClips(value: ApiJsonInput): QueueClip[] {

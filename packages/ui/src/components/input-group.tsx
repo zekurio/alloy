@@ -2,7 +2,6 @@
 
 import { Button } from "@alloy/ui/components/button"
 import { Input } from "@alloy/ui/components/input"
-import { Textarea } from "@alloy/ui/components/textarea"
 import { fieldControlTransitionClassName } from "@alloy/ui/lib/field-control"
 import { cn } from "@alloy/ui/lib/utils"
 import { cva, type VariantProps } from "class-variance-authority"
@@ -138,27 +137,10 @@ function InputGroupInput({ className, ...props }: ComponentProps<"input">) {
   )
 }
 
-function InputGroupTextarea({
-  className,
-  ...props
-}: ComponentProps<"textarea">) {
-  return (
-    <Textarea
-      data-slot="input-group-control"
-      className={cn(
-        "flex-1 resize-none rounded-none border-0 bg-transparent px-0 py-3 shadow-none ring-0 hover:border-transparent hover:bg-transparent focus-visible:border-transparent focus-visible:bg-transparent focus-visible:ring-0 disabled:bg-transparent aria-invalid:ring-0",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 export {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
   InputGroupText,
-  InputGroupTextarea,
 }

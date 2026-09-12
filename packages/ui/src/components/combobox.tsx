@@ -1,4 +1,3 @@
-import { Button } from "@alloy/ui/components/button"
 import {
   InputGroup,
   InputGroupAddon,
@@ -8,13 +7,8 @@ import {
 import { cn } from "@alloy/ui/lib/utils"
 import { Combobox } from "@base-ui/react"
 import { CheckIcon, ChevronDownIcon, XIcon } from "lucide-react"
-import type { ComponentPropsWithRef } from "react"
 
 const ComboboxRoot = Combobox.Root
-
-function ComboboxValue({ ...props }: Combobox.Value.Props) {
-  return <Combobox.Value data-slot="combobox-value" {...props} />
-}
 
 function ComboboxTrigger({
   className,
@@ -153,30 +147,6 @@ function ComboboxItem({ className, children, ...props }: Combobox.Item.Props) {
   )
 }
 
-function ComboboxGroup({ className, ...props }: Combobox.Group.Props) {
-  return (
-    <Combobox.Group
-      data-slot="combobox-group"
-      className={cn(className)}
-      {...props}
-    />
-  )
-}
-
-function ComboboxLabel({ className, ...props }: Combobox.GroupLabel.Props) {
-  return (
-    <Combobox.GroupLabel
-      data-slot="combobox-label"
-      className={cn("px-2 py-1.5 text-xs text-muted-foreground", className)}
-      {...props}
-    />
-  )
-}
-
-function ComboboxCollection({ ...props }: Combobox.Collection.Props) {
-  return <Combobox.Collection data-slot="combobox-collection" {...props} />
-}
-
 function ComboboxEmpty({ className, ...props }: Combobox.Empty.Props) {
   return (
     <Combobox.Empty
@@ -190,87 +160,11 @@ function ComboboxEmpty({ className, ...props }: Combobox.Empty.Props) {
   )
 }
 
-function ComboboxSeparator({ className, ...props }: Combobox.Separator.Props) {
-  return (
-    <Combobox.Separator
-      data-slot="combobox-separator"
-      className={cn("-mx-1 my-1 h-px bg-border", className)}
-      {...props}
-    />
-  )
-}
-
-function ComboboxChips({
-  className,
-  ...props
-}: ComponentPropsWithRef<typeof Combobox.Chips> & Combobox.Chips.Props) {
-  return (
-    <Combobox.Chips
-      data-slot="combobox-chips"
-      className={cn(
-        "flex min-h-8 flex-wrap items-center gap-1 rounded-lg border border-input bg-transparent bg-clip-padding px-2.5 py-1 text-sm transition-colors focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50 has-aria-invalid:border-destructive has-aria-invalid:ring-3 has-aria-invalid:ring-destructive/20 has-data-[slot=combobox-chip]:px-1 dark:bg-input/30 dark:has-aria-invalid:border-destructive/50 dark:has-aria-invalid:ring-destructive/40",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-function ComboboxChip({
-  className,
-  children,
-  showRemove = true,
-  ...props
-}: Combobox.Chip.Props & {
-  showRemove?: boolean
-}) {
-  return (
-    <Combobox.Chip
-      data-slot="combobox-chip"
-      className={cn(
-        "flex h-[calc(--spacing(5.25))] w-fit items-center justify-center gap-1 rounded-sm bg-muted px-1.5 text-xs font-medium whitespace-nowrap text-foreground has-disabled:pointer-events-none has-disabled:cursor-not-allowed has-disabled:opacity-50 has-data-[slot=combobox-chip-remove]:pr-0",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      {showRemove ? (
-        <Combobox.ChipRemove
-          render={<Button variant="ghost" size="icon-xs" />}
-          className="-ml-1 opacity-50 hover:opacity-100"
-          data-slot="combobox-chip-remove"
-        >
-          <XIcon className="pointer-events-none" />
-        </Combobox.ChipRemove>
-      ) : null}
-    </Combobox.Chip>
-  )
-}
-
-function ComboboxChipsInput({ className, ...props }: Combobox.Input.Props) {
-  return (
-    <Combobox.Input
-      data-slot="combobox-chip-input"
-      className={cn("min-w-16 flex-1 outline-none", className)}
-      {...props}
-    />
-  )
-}
-
 export {
   ComboboxRoot as Combobox,
-  ComboboxChip,
-  ComboboxChips,
-  ComboboxChipsInput,
-  ComboboxCollection,
   ComboboxContent,
   ComboboxEmpty,
-  ComboboxGroup,
   ComboboxInput,
   ComboboxItem,
-  ComboboxLabel,
   ComboboxList,
-  ComboboxSeparator,
-  ComboboxTrigger,
-  ComboboxValue,
 }

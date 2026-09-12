@@ -20,12 +20,7 @@ import {
 } from "./session-refresh"
 import { generateSessionToken, hashSessionToken } from "./tokens"
 
-export {
-  ACCESS_TTL_MS,
-  REFRESH_ABSOLUTE_TTL_MS,
-  REFRESH_IDLE_TTL_MS,
-  refreshSession,
-} from "./session-refresh"
+export { REFRESH_IDLE_TTL_MS, refreshSession } from "./session-refresh"
 const SESSION_TOUCH_MS = 60 * 60 * 1000
 
 export type CreatedSession = {

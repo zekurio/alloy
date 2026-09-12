@@ -7,7 +7,7 @@ export interface WakeableSerialWorkerOptions {
   onError(cause: unknown): void
 }
 
-export type WakeableRunResult =
+type WakeableRunResult =
   | { worked: true }
   | { worked: false; nextRunAt: Date | null }
 

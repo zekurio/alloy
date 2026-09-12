@@ -56,13 +56,6 @@ export async function downloadStagedUploadToFile(
   await clipStorageForKey(key).downloadToFile(key, destPath)
 }
 
-export async function deleteStagedUpload(key: string | null): Promise<void> {
-  if (!key) return
-  const storage = clipStorageForKey(key)
-  await storage.abortUpload({ key })
-  await storage.delete(key)
-}
-
 function sourceExtension(contentType: AcceptedMediaContentType): string {
   switch (contentType) {
     case "image/jpeg":

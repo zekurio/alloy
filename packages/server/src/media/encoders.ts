@@ -3,10 +3,6 @@ import type {
   TranscodingConfig,
   VideoCodec,
 } from "@alloy/contracts"
-import {
-  HARDWARE_ACCELERATIONS,
-  TRANSCODE_VIDEO_CODECS,
-} from "@alloy/contracts"
 
 export interface TranscodeEncoder {
   codec: VideoCodec
@@ -45,17 +41,6 @@ export function transcodeEncoder(
   const name = ENCODER_MATRIX[codec][acceleration]
   if (!name) return null
   return { codec, acceleration, name }
-}
-
-export function transcodeEncoderMatrix(): TranscodeEncoder[] {
-  const encoders: TranscodeEncoder[] = []
-  for (const codec of TRANSCODE_VIDEO_CODECS) {
-    for (const acceleration of HARDWARE_ACCELERATIONS) {
-      const encoder = transcodeEncoder(codec, acceleration)
-      if (encoder) encoders.push(encoder)
-    }
-  }
-  return encoders
 }
 
 export function transcodeEncoderName(

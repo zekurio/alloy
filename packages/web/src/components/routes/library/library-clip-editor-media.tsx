@@ -389,21 +389,7 @@ function ClipEditorTrimControls({
           </>
         }
       />
-      <TrimBar
-        waveform={media.waveform}
-        durationMs={playback.durationMs}
-        startMs={playback.trim.startMs}
-        endMs={playback.trim.endMs}
-        subscribeCurrentMs={playback.subscribeCurrentMs}
-        getCurrentMs={playback.getCurrentMs}
-        onSeek={(sourceMs) => {
-          playback.playerRef.current?.pause()
-          playback.seek(sourceMs)
-        }}
-        onStartChange={playback.handleTrimStartChange}
-        onEndChange={playback.handleTrimEndChange}
-        onMove={playback.handleTrimMove}
-      />
+      <TrimBar waveform={media.waveform} playback={playback} />
     </>
   )
 }

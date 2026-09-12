@@ -104,11 +104,4 @@ function TabsCount({ className, ...props }: ComponentProps<"span">) {
   )
 }
 
-export {
-  TabsRoot as Tabs,
-  TabsContent,
-  TabsCount,
-  TabsList,
-  tabsListVariants,
-  TabsTrigger,
-}
+export { TabsRoot as Tabs, TabsContent, TabsCount, TabsList, TabsTrigger }

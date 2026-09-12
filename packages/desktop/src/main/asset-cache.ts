@@ -30,7 +30,7 @@ const logger = createLogger("assets")
  * only selected-server game assets and fixed SteamGridDB HTTPS hosts. It
  * validates every redirect, bounds the stream, and never forwards cookies.
  */
-export const ASSET_PROTOCOL = "alloy-asset"
+const ASSET_PROTOCOL = "alloy-asset"
 const ASSET_HOST = "remote"
 const FRESH_TTL_MS = 7 * 24 * 60 * 60 * 1000
 const MAX_ENTRY_BYTES = 10 * 1024 * 1024

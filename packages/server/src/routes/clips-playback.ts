@@ -1,9 +1,7 @@
 import { createHash } from "node:crypto"
 
 import type { ClipPrivacy } from "@alloy/contracts"
-import { CLIP_AUDIO_TRACKS_MAX } from "@alloy/contracts/content"
 import { t } from "@alloy/contracts/schema"
-import { clipAudioTrack } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
 import {
   clipAccessResponse,
@@ -12,12 +10,10 @@ import {
 import { clipAssetVersion } from "@alloy/server/clips/asset-version"
 import { sourceIsBroadlyDecodable } from "@alloy/server/clips/codecs"
 import { selectClipRenditions } from "@alloy/server/clips/renditions"
-import { db } from "@alloy/server/db/index"
 import { ifNoneMatchSatisfied } from "@alloy/server/runtime/http-conditional"
 import { notFound } from "@alloy/server/runtime/http-response"
 import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage, clipThumbnailStorage } from "@alloy/server/storage/index"
-import { and, eq } from "drizzle-orm"
 import { Hono } from "hono"
 import type { Context } from "hono"
 import { stream } from "hono/streaming"
@@ -31,15 +27,6 @@ import {
 import { tbValidator } from "./validation"
 
 const logger = createLogger("clips")
-
-const AudioTrackParam = t.object({
-  id: t.uuid(),
-  index: t
-    .string()
-    .regex(/^\d$/)
-    .transform(Number)
-    .refine((index) => index < CLIP_AUDIO_TRACKS_MAX),
-})
 
 const RenditionParam = t.object({
   id: t.uuid(),
@@ -243,39 +230,6 @@ export const clipsPlaybackRoutes = new Hono()
           privacy: row.privacy,
           etagPrefix: "rnd",
           unavailable: "Rendition unavailable",
-        },
-      )
-    },
-  )
-  /**
-   * GET /api/clips/:id/audio/:index/file.m4a — one isolated source stem,
-   * with the same access, range, validator, and versioned-cache behavior as a
-   * rendition file.
-   */
-  .get(
-    "/:id/audio/:index/file.m4a",
-    tbValidator("param", AudioTrackParam),
-    async (c) => {
-      const { id, index } = c.req.valid("param")
-      const access = await resolveClipAccess({ id, c, policy: "stream" })
-      if (!access.accessible) return clipAccessResponse(c, access)
-
-      const [audioTrack] = await db
-        .select({ storageKey: clipAudioTrack.storage_key })
-        .from(clipAudioTrack)
-        .where(
-          and(eq(clipAudioTrack.clip_id, id), eq(clipAudioTrack.idx, index)),
-        )
-        .limit(1)
-      if (!audioTrack) return notFound(c, "Audio track unavailable")
-
-      return serveVersionedClipAsset(
-        c,
-        { key: audioTrack.storageKey, contentType: "audio/mp4" },
-        {
-          privacy: access.row.privacy,
-          etagPrefix: `aud-${index}`,
-          unavailable: "Audio track unavailable",
         },
       )
     },

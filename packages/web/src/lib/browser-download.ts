@@ -1,5 +1,4 @@
 import { clientLogger } from "./client-log"
-import { createObjectUrl, scheduleObjectUrlRevoke } from "./object-url"
 
 interface BrowserDownloadOptions {
   filename?: string
@@ -24,12 +23,4 @@ export function startBrowserDownload(
     clientLogger.warn("[download] Failed to start browser download.", cause)
     return false
   }
-}
-
-export function startBlobDownload(blob: Blob, filename: string): boolean {
-  const url = createObjectUrl(blob, "blob download URL")
-  if (!url) return false
-  const started = startBrowserDownload(url, { filename })
-  scheduleObjectUrlRevoke(url, "blob download URL")
-  return started
 }

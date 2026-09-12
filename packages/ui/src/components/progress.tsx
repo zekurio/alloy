@@ -48,33 +48,4 @@ function ProgressIndicator({ className, ...props }: Progress.Indicator.Props) {
   )
 }
 
-function ProgressLabel({ className, ...props }: Progress.Label.Props) {
-  return (
-    <Progress.Label
-      data-slot="progress-label"
-      className={cn("text-xs font-medium text-foreground-muted", className)}
-      {...props}
-    />
-  )
-}
-
-function ProgressValue({ className, ...props }: Progress.Value.Props) {
-  return (
-    <Progress.Value
-      data-slot="progress-value"
-      className={cn(
-        "ml-auto text-2xs text-foreground-faint tabular-nums",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
-export {
-  ProgressRoot as Progress,
-  ProgressIndicator,
-  ProgressLabel,
-  ProgressTrack,
-  ProgressValue,
-}
+export { ProgressRoot as Progress }

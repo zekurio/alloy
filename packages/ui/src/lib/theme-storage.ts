@@ -10,9 +10,9 @@ export const THEME_STORAGE_KEY = "alloy.theme"
 
 export const THEMES = ["system", "light", "dark"] as const
 export type Theme = (typeof THEMES)[number]
-export const DEFAULT_THEME: Theme = "system"
+const DEFAULT_THEME: Theme = "system"
 
-export const THEME_PALETTE_IDS = [
+const THEME_PALETTE_IDS = [
   "default",
   "catppuccin",
   "nord",
@@ -24,11 +24,11 @@ export type ThemePaletteId = (typeof THEME_PALETTE_IDS)[number]
 export const DEFAULT_THEME_PALETTE_ID: ThemePaletteId = "default"
 
 export type ThemeAppearance = "dark" | "light"
-export type ThemeAccents = Partial<Record<ThemeAppearance, string>>
+type ThemeAccents = Partial<Record<ThemeAppearance, string>>
 /** Selected preset ids per appearance for the active palette. */
 export type ThemeVariants = Partial<Record<ThemeAppearance, string>>
 
-export interface ThemePreferences {
+interface ThemePreferences {
   mode: Theme
   palette: ThemePaletteId
   variants: ThemeVariants

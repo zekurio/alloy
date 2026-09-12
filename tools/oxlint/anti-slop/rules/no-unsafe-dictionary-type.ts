@@ -4,9 +4,11 @@ import type { ESTree } from "@oxlint/plugins"
 import {
   classifyUnsafeDictionary,
   classifyUnsafeDictionaryValue,
+} from "../shared/dictionary-types.ts"
+import {
   createTypeEnvironment,
   type TypeEnvironment,
-} from "../shared/dictionary-types.ts"
+} from "../shared/type-environment.ts"
 
 const typeNodeKinds: ReadonlySet<string> = new Set([
   "JSDocNonNullableType",

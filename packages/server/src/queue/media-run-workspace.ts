@@ -86,7 +86,6 @@ async function retainRowAssetKeys(
     if (fresh?.cutKey) retainedKeys.add(fresh.cutKey)
     if (fresh?.thumbKey) retainedKeys.add(fresh.thumbKey)
     for (const key of fresh?.renditionKeys ?? []) retainedKeys.add(key)
-    for (const key of fresh?.audioTrackKeys ?? []) retainedKeys.add(key)
   } catch (err) {
     logger.warn(`failed to retain row asset keys for ${id}:`, err)
   }

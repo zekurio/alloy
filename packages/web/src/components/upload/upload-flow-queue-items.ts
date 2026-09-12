@@ -5,7 +5,6 @@ import type { MutableRefObject } from "react"
 
 import { absoluteClipHref } from "@/lib/app-paths"
 import { removeClipDownload, useClipDownloads } from "@/lib/clip-downloads"
-import { clipEncodingActive } from "@/lib/clip-encoding"
 import { copyTextToClipboard } from "@/lib/clipboard"
 import { alloyDesktop } from "@/lib/desktop"
 import { publicOrigin } from "@/lib/env"
@@ -32,7 +31,6 @@ export function useUploadQueueItems(
   activeRef: MutableRefObject<Map<string, ActiveUpload>>,
   retainedThumbsRef: MutableRefObject<Map<string, string>>,
   serverQueue: QueueClip[],
-  dismissed: Set<string>,
   handlers: QueueItemHandlers,
 ): QueueItem[] {
   const downloads = useClipDownloads()
@@ -42,7 +40,6 @@ export function useUploadQueueItems(
     serverQueue,
     activeRef,
     retainedThumbsRef,
-    dismissed,
     handlers,
   )
   const downloadItems = useDownloadQueueItems(downloads)
@@ -78,7 +75,6 @@ function useServerQueueItems(
   serverQueue: QueueClip[],
   activeRef: MutableRefObject<Map<string, ActiveUpload>>,
   retainedThumbsRef: MutableRefObject<Map<string, string>>,
-  dismissed: Set<string>,
   handlers: QueueItemHandlers,
 ) {
   return useMemo(() => {
@@ -88,11 +84,7 @@ function useServerQueueItems(
         .filter((clipId): clipId is string => Boolean(clipId)),
     )
     return serverQueue
-      .filter(
-        (row) =>
-          !localClipIds.has(row.id) &&
-          (!dismissed.has(row.id) || clipEncodingActive(row)),
-      )
+      .filter((row) => !localClipIds.has(row.id))
       .map((row) =>
         serverToQueueItem(row, {
           onCancel:
@@ -106,13 +98,13 @@ function useServerQueueItems(
           onCopyLink:
             row.status === "ready" ? () => copyClipLink(row) : undefined,
           onRetry:
-            !clipEncodingActive(row) &&
+            !row.encodeActive &&
             (row.status === "failed" ||
               (row.status === "ready" && row.failureReason))
               ? () => handlers.reEncodeClip({ clipId: row.id })
               : undefined,
           onDismiss:
-            !clipEncodingActive(row) &&
+            !row.encodeActive &&
             (row.status === "ready" || row.status === "failed")
               ? () => {
                   handlers.releaseRetainedThumb(row.id)
@@ -128,7 +120,6 @@ function useServerQueueItems(
     serverQueue,
     activeRef,
     retainedThumbsRef,
-    dismissed,
     handlers.cancelRow,
     handlers.onOpenClip,
     handlers.reEncodeClip,

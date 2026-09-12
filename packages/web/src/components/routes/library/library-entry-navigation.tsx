@@ -1,4 +1,3 @@
-import type { ClipRow } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { cn } from "@alloy/ui/lib/utils"
@@ -230,10 +229,4 @@ function isEditableTarget(event: KeyboardEvent): boolean {
       target.closest('[role="slider"]') ||
       target.closest('[role="dialog"]')),
   )
-}
-
-export function entryClipRow(
-  entry: NavigableLibraryEntry | null,
-): ClipRow | null {
-  return entry?.type === "cloud" ? entry.row : null
 }

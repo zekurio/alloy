@@ -33,7 +33,7 @@ function snapshotName(name: string | null): string {
   return trimmed && trimmed.length > 0 ? trimmed : "Game"
 }
 
-export function gameRowFromSnapshot(input: {
+function gameRowFromSnapshot(input: {
   id: string
   name: string | null
 }): GameRow {

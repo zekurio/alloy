@@ -3,17 +3,58 @@ import { clip } from "@alloy/db/schema"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
+import {
+  selectLockedQuotaState,
+  uploadWouldExceedQuota,
+} from "@alloy/server/storage/quota"
 import { deleteUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
 import { and, eq, inArray, sql } from "drizzle-orm"
+import type { Context } from "hono"
 
 export type UploadQuotaResult =
   | { ok: true }
   | { ok: false; usedBytes: number; quotaBytes: number }
 
-export {
-  uploadWouldExceedQuota,
-  selectLockedQuotaState,
-} from "@alloy/server/storage/quota"
+export { selectLockedQuotaState, uploadWouldExceedQuota }
+
+export function uploadQuotaExceededResponse(
+  c: Context,
+  result: Extract<UploadQuotaResult, { ok: false }>,
+) {
+  return c.json(
+    {
+      error: "Storage quota exceeded",
+      usedBytes: result.usedBytes,
+      quotaBytes: result.quotaBytes,
+    },
+    413,
+  )
+}
+
+export function uploadQuotaResult({
+  quotaBytes,
+  usedBytes,
+  reservedBytes,
+  incomingBytes,
+}: {
+  quotaBytes: number | null
+  usedBytes: number
+  reservedBytes?: number
+  incomingBytes: number
+}): UploadQuotaResult {
+  if (
+    quotaBytes !== null &&
+    uploadWouldExceedQuota({
+      quotaBytes,
+      usedBytes,
+      reservedBytes,
+      incomingBytes,
+    })
+  ) {
+    return { ok: false, usedBytes, quotaBytes }
+  }
+  return { ok: true }
+}
 
 export async function resolveMentionIds(
   rawIds: ReadonlyArray<string>,

@@ -53,16 +53,6 @@ export async function synchronizeMediaGeneration(
   )
 }
 
-export async function readMediaGeneration(): Promise<MediaGeneration | null> {
-  const [row] = await db
-    .select({ value: instanceSetting.value })
-    .from(instanceSetting)
-    .where(eq(instanceSetting.key, GENERATION_KEY))
-    .limit(1)
-  const parsed = safeParse(MediaGenerationSchema, row?.value)
-  return parsed.success ? Object.freeze(parsed.data) : null
-}
-
 export async function forceMediaGeneration(
   config: TranscodingConfig,
 ): Promise<MediaGeneration> {

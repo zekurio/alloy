@@ -58,23 +58,15 @@ unsafe fn create_audio_encoder(
     let id =
         CString::new(id).map_err(|_| "OBS audio encoder id contained a nul byte.".to_string())?;
     let name = CString::new("alloy_audio_encoder").expect("static name has no nul byte");
-    let encoder = (obs.obs_audio_encoder_create)(
-        id.as_ptr(),
-        name.as_ptr(),
-        settings,
-        0,
-        ptr::null_mut(),
-    );
+    let encoder =
+        (obs.obs_audio_encoder_create)(id.as_ptr(), name.as_ptr(), settings, 0, ptr::null_mut());
     if encoder.is_null() {
         return Err("Could not create OBS audio encoder for mixer 0.".to_string());
     }
     Ok(encoder)
 }
 
-unsafe fn create_output_audio_encoder(
-    obs: &LibObs,
-    id: &str,
-) -> Result<*mut ObsEncoder, String> {
+unsafe fn create_output_audio_encoder(obs: &LibObs, id: &str) -> Result<*mut ObsEncoder, String> {
     let settings = obs.create_data();
     let result = (|| {
         obs.set_int(settings, "bitrate", 160)?;
@@ -210,10 +202,7 @@ fn target_bitrate_kbps(quality: &EffectiveQuality) -> u32 {
     }
 }
 
-fn estimated_replay_buffer_mb(
-    settings: &RecordingSettings,
-    quality: &EffectiveQuality,
-) -> u32 {
+fn estimated_replay_buffer_mb(settings: &RecordingSettings, quality: &EffectiveQuality) -> u32 {
     let video_kbps = target_bitrate_kbps(quality);
     let audio_kbps = 160_u32;
     let megabytes = u64::from(video_kbps.saturating_add(audio_kbps))
@@ -570,10 +559,7 @@ unsafe fn create_audio_graph(
         const MIXER_ZERO: u32 = 1;
         (obs.obs_source_set_audio_mixers)(source, MIXER_ZERO);
         (obs.obs_source_set_volume)(source, config.volume);
-        (obs.obs_set_output_source)(
-            AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32,
-            source,
-        );
+        (obs.obs_set_output_source)(AUDIO_OUTPUT_CHANNEL_BASE + source_index as u32, source);
         eprintln!(
             "[{SIDE_CAR_NAME}] configured audio source selector={} effective={} channel={} mixer=0",
             config.selector,
@@ -610,20 +596,18 @@ fn audio_source_configs(
                     applications
                         .into_iter()
                         .filter(|application| !application.window.is_empty())
-                        .map(|application| {
-                            AudioSourceConfig {
-                                source_id,
-                                name: audio_source_name(
-                                    "application",
-                                    &application.name,
-                                    &application.window,
-                                ),
-                                selector: application.id,
-                                device_id: None,
-                                window: Some(application.window),
-                                priority: Some(OBS_WINDOW_PRIORITY_EXE),
-                                volume: audio_volume(application.volume),
-                            }
+                        .map(|application| AudioSourceConfig {
+                            source_id,
+                            name: audio_source_name(
+                                "application",
+                                &application.name,
+                                &application.window,
+                            ),
+                            selector: application.id,
+                            device_id: None,
+                            window: Some(application.window),
+                            priority: Some(OBS_WINDOW_PRIORITY_EXE),
+                            volume: audio_volume(application.volume),
                         }),
                 );
             }
@@ -631,11 +615,7 @@ fn audio_source_configs(
             // Microphones aren't application playback streams, so input devices
             // stay capturable in applications mode for voice-over.
             configs.extend(
-                selected_audio_devices(
-                    obs,
-                    settings,
-                    Some(&RecordingAudioDeviceKind::Input),
-                )?
+                selected_audio_devices(obs, settings, Some(&RecordingAudioDeviceKind::Input))?
                     .into_iter()
                     .map(audio_device_source_config),
             );
@@ -653,9 +633,7 @@ fn selected_audio_devices(
     let selected: Vec<_> = settings
         .audio_devices
         .iter()
-        .filter(|device| {
-            device.enabled && selected_kind.is_none_or(|kind| device.kind == *kind)
-        })
+        .filter(|device| device.enabled && selected_kind.is_none_or(|kind| device.kind == *kind))
         .cloned()
         .collect();
     if !selected.is_empty() {
@@ -672,9 +650,7 @@ fn selected_audio_devices(
 
     Ok(default_audio_device_selections()
         .into_iter()
-        .filter(|device| {
-            device.enabled && selected_kind.is_none_or(|kind| device.kind == *kind)
-        })
+        .filter(|device| device.enabled && selected_kind.is_none_or(|kind| device.kind == *kind))
         .collect())
 }
 
@@ -777,7 +753,7 @@ fn selected_audio_applications(
     game: Option<&DetectedGame>,
 ) -> Vec<RecordingAudioApplicationSelection> {
     let current_application = game.and_then(|game| audio_application_from_game(game, true));
-    let mut available = available_audio_applications(game);
+    let mut available = available_audio_applications();
     let selected: Vec<_> = settings
         .audio_applications
         .iter()

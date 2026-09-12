@@ -14,10 +14,6 @@ export function isoDateString(value: DateInput = new Date()): string {
   return validDate(value)?.toISOString() ?? ""
 }
 
-export function isoDateStamp(value: DateInput = new Date()): string {
-  return isoDateString(value).slice(0, 10)
-}
-
 export function compareDateAsc(a: DateInput, b: DateInput): number {
   return (
     (dateTime(a) ?? Number.POSITIVE_INFINITY) -
@@ -49,13 +45,6 @@ export function formatCalendarDate(value: DateInput): string {
     month: "short",
     day: "numeric",
   })
-}
-
-export function formatDateTime(value: DateInput): string {
-  const date = validDate(value)
-  return date
-    ? date.toLocaleString(localeToLanguageTag(getRuntimeLocale()))
-    : ""
 }
 
 export function formatRelativeTime(

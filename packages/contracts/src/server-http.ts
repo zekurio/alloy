@@ -21,10 +21,6 @@ export const DESKTOP_HTTP_CONTRACT_IDS = Object.freeze([
   DESKTOP_HTTP_CONTRACT_1,
 ] as const)
 
-/** Short alias for the one contract currently understood by the desktop. */
-export const DESKTOP_HTTP_CONTRACT = DESKTOP_HTTP_CONTRACT_1
-export const SUPPORTED_DESKTOP_HTTP_CONTRACTS = DESKTOP_HTTP_CONTRACT_IDS
-
 /** Known capability version in the contract-1 declaration. */
 export const DESKTOP_HTTP_CAPABILITY_VERSION = 1 as const
 

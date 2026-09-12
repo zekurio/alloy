@@ -3,13 +3,17 @@ import { Buffer } from "node:buffer"
 import { gameAssetImagePath, type GameAssetRole } from "@alloy/contracts"
 import { game } from "@alloy/db/schema"
 import { createLogger } from "@alloy/logging"
+import { db } from "@alloy/server/db/index"
 import { GAME_ASSET_ROUTE_KEY_RE } from "@alloy/server/games/game-asset-deletion"
 import {
   imageBlurHash,
   imageBlurHashFromBytes,
 } from "@alloy/server/media/blurhash"
 import { validateImageBytes } from "@alloy/server/media/image-validation"
-import { gameAssetStorage } from "@alloy/server/storage/index"
+import { prewriteAssetDeletionIntent } from "@alloy/server/storage/deletion-producers"
+import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
+import { assetStorage } from "@alloy/server/storage/index"
+import { withStorageObjectWriteActivity } from "@alloy/server/storage/write-activity"
 import type { ContentfulStatusCode } from "hono/utils/http-status"
 import sharp from "sharp"
 
@@ -137,6 +141,32 @@ export function clearedGameAssetColumns(
   return patch
 }
 
+export function withGameAssetWriteFences<T>(
+  keys: readonly string[],
+  operation: () => Promise<T>,
+  index = 0,
+): Promise<T> {
+  const key = keys[index]
+  return key
+    ? withStorageObjectWriteActivity("assets", key, () =>
+        withGameAssetWriteFences(keys, operation, index + 1),
+      )
+    : operation()
+}
+
+export async function enqueueGameAssetCleanupNow(
+  writes: readonly { key: string; attemptId: string }[],
+  reason: string,
+): Promise<void> {
+  if (writes.length === 0) return
+  await db.transaction(async (tx) => {
+    await enqueueStorageDeletions(
+      writes.map((write) => prewriteAssetDeletionIntent({ ...write, reason })),
+      { tx, runAt: new Date() },
+    )
+  })
+}
+
 function processGameAsset(role: GameAssetRole, bytes: Buffer): Promise<Buffer> {
   const target = GAME_ASSET_TARGETS[role]
   return sharp(bytes)
@@ -159,7 +189,7 @@ async function blurHashForUrl(url: string): Promise<string | null> {
 }
 
 export const gameAssetsRoute = immutableImageAssetsRoute(
-  gameAssetStorage,
+  assetStorage,
   GAME_ASSET_ROUTE_KEY_RE,
 )
 

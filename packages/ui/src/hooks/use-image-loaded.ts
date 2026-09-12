@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react"
 
-export type ImageLoadStatus = "idle" | "loading" | "loaded" | "error"
+type ImageLoadStatus = "idle" | "loading" | "loaded" | "error"
 
 type ImageLoadState = {
   src: string | null | undefined

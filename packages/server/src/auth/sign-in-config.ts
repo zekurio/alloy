@@ -23,7 +23,7 @@ export function usableSignInConfig(
   }
 }
 
-export function hasEnabledSignInMethod(config: SignInMethodConfig): boolean {
+function hasEnabledSignInMethod(config: SignInMethodConfig): boolean {
   return (
     config.passkeyEnabled ||
     config.oauthProviders.some((provider) => provider.enabled)

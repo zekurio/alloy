@@ -28,7 +28,7 @@ const GOP_SECONDS = 2
 
 const MEDIA_FILENAME = "media.mp4"
 
-export interface RenditionTier {
+interface RenditionTier {
   height: number
   maxFps: number
   maxrateKbps: number
@@ -111,7 +111,7 @@ export function effectiveLadder(
   }))
 }
 
-export function buildRenditionArgs(options: {
+function buildRenditionArgs(options: {
   config: TranscodingConfig
   srcPath: string
   step: LadderStep
@@ -189,7 +189,7 @@ export interface EncodedRendition {
  * output duration — the trim length when `trim` is set — and drives both the
  * encode timeout and progress mapping.
  */
-export async function encodeRendition(
+async function encodeRendition(
   srcPath: string,
   outDir: string,
   config: TranscodingConfig,

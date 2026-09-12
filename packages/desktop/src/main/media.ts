@@ -1,11 +1,4 @@
 import {
-  assertUploadMp4Compatible,
-  type OutputSinks,
-  snappedTrimStartMs,
-  trimToMp4Target,
-  withMp4Output,
-} from "@alloy/media"
-import {
   ALL_FORMATS,
   EncodedPacketSink,
   FilePathSource,
@@ -16,12 +9,17 @@ import {
   type InputVideoTrack,
 } from "mediabunny"
 
+import {
+  assertUploadMp4Compatible,
+  type OutputSinks,
+  snappedTrimStartMs,
+  trimToMp4Target,
+  withMp4Output,
+} from "./media-mp4"
+
 /**
- * Main-process media operations via mediabunny packet copy — no decoding, no
- * external binaries. The packet-copy core lives in `@alloy/media`, shared with
- * `packages/server/src/media/trim.ts` and the web upload editor; like there,
- * cuts snap to the nearest preceding video keyframe. Outputs are fragmented
- * MP4s so they stream progressively without a second faststart pass.
+ * Main-process media operations using packet copy. Cuts snap to the preceding
+ * video keyframe. Fragmented MP4 output streams without a faststart pass.
  */
 
 export interface VideoFileMeta {

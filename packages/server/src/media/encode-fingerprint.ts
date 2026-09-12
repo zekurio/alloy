@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto"
-
 import type { TranscodingConfig } from "@alloy/contracts"
 
 import { effectiveLadder, type LadderStep } from "./renditions"
@@ -9,8 +7,6 @@ export interface FingerprintSourceFacts {
   sourceFps: number | null
   trimStartMs: number | null
   trimEndMs: number | null
-  /** Probed stem count/codecs plus validated semantic metadata. */
-  audioTrackFingerprint: string | null
 }
 
 export function expectedLadder(
@@ -39,12 +35,6 @@ export function encodeFingerprint(
       facts.trimStartMs === null || facts.trimEndMs === null
         ? null
         : [facts.trimStartMs, facts.trimEndMs],
-    at: facts.audioTrackFingerprint
-      ? createHash("sha256")
-          .update(facts.audioTrackFingerprint)
-          .digest("hex")
-          .slice(0, 16)
-      : undefined,
     steps: expectedLadder(config, facts).map((step) => ({
       n: step.name,
       h: step.height,

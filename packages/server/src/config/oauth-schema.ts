@@ -77,7 +77,7 @@ function validateOAuthProvider(
 }
 
 /** Stored provider metadata (no secret — secrets live in the secret store). */
-export const OAuthProviderSchema = OAuthProviderBaseSchema.superRefine(
+const OAuthProviderSchema = OAuthProviderBaseSchema.superRefine(
   validateOAuthProvider,
 )
 

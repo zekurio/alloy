@@ -24,7 +24,6 @@ export { ChromeBar } from "./video-player-chrome"
 
 export {
   handleVideoKeyCommand,
-  KEYBOARD_LONG_SEEK_SECONDS,
   shouldHandleGlobalVideoShortcut,
   type VideoKeyCommand,
 } from "./video-keyboard"

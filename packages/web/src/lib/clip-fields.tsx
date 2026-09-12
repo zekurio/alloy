@@ -10,7 +10,7 @@ import type { ComponentType } from "react"
 
 // Re-exported so callers keep a single import surface for clip field helpers;
 // the canonical tag logic lives in @alloy/contracts (shared with the server).
-export { normalizeTags, sanitizeTag }
+export { sanitizeTag }
 
 export const CLIP_TITLE_MAX = CLIP_TITLE_MAX_LENGTH
 export const CLIP_DESCRIPTION_MAX = CLIP_DESCRIPTION_MAX_LENGTH
@@ -48,7 +48,7 @@ interface PrivacyOption {
   icon: ComponentType<{ className?: string }>
 }
 
-export const PRIVACY_OPTIONS: readonly PrivacyOption[] = [
+const PRIVACY_OPTIONS: readonly PrivacyOption[] = [
   { value: "public", label: t("Public"), icon: GlobeIcon },
   { value: "unlisted", label: t("Unlisted"), icon: Link2Icon },
   { value: "private", label: t("Private"), icon: LockIcon },

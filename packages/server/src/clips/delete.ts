@@ -1,4 +1,4 @@
-import { clip, clipAudioTrack, clipRendition } from "@alloy/db/schema"
+import { clip, clipRendition } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { withClipMediaStopped } from "@alloy/server/queue/clip-media-worker"
 import { clipStorageDeletionIntents } from "@alloy/server/storage/deletion-producers"
@@ -68,10 +68,6 @@ export async function deleteClipRowAndAssets(
         .select({ storageKey: clipRendition.storage_key })
         .from(clipRendition)
         .where(eq(clipRendition.clip_id, row.id))
-      const audioTrackRows = await tx
-        .select({ storageKey: clipAudioTrack.storage_key })
-        .from(clipAudioTrack)
-        .where(eq(clipAudioTrack.clip_id, row.id))
       const assetIntents = clipStorageDeletionIntents({
         clipId: row.id,
         sourceKey: fresh.sourceKey,
@@ -79,7 +75,6 @@ export async function deleteClipRowAndAssets(
         cutKey: fresh.cutKey,
         thumbKey: fresh.thumbKey,
         renditionKeys: renditionRows.map((rendition) => rendition.storageKey),
-        audioTrackKeys: audioTrackRows.map((track) => track.storageKey),
       })
       await enqueueStorageDeletions(assetIntents, { tx })
       const stagedIntents = await deleteUploadTicketsWithStorageIntents(

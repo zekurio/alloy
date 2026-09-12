@@ -1,14 +1,9 @@
 import { cn } from "@alloy/ui/lib/utils"
 import { Menu } from "@base-ui/react/menu"
-import { CheckIcon, ChevronRightIcon } from "lucide-react"
-import type { ComponentProps } from "react"
+import { CheckIcon } from "lucide-react"
 
 function DropdownMenu({ ...props }: Menu.Root.Props) {
   return <Menu.Root data-slot="dropdown-menu" {...props} />
-}
-
-function DropdownMenuPortal({ ...props }: Menu.Portal.Props) {
-  return <Menu.Portal data-slot="dropdown-menu-portal" {...props} />
 }
 
 function DropdownMenuTrigger({ ...props }: Menu.Trigger.Props) {
@@ -61,31 +56,6 @@ function DropdownMenuContent({
   )
 }
 
-function DropdownMenuGroup({ ...props }: Menu.Group.Props) {
-  return <Menu.Group data-slot="dropdown-menu-group" {...props} />
-}
-
-function DropdownMenuLabel({
-  className,
-  inset,
-  ...props
-}: Menu.GroupLabel.Props & {
-  inset?: boolean
-}) {
-  return (
-    <Menu.GroupLabel
-      data-slot="dropdown-menu-label"
-      data-inset={inset}
-      className={cn(
-        "px-2.5 py-1 font-mono text-2xs tracking-[0.1em] text-foreground-faint uppercase",
-        "data-inset:pl-6",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 function DropdownMenuItem({
   className,
   inset,
@@ -113,62 +83,6 @@ function DropdownMenuItem({
         "max-md:h-10 max-md:rounded-lg max-md:[&_svg]:size-[18px]",
         className,
       )}
-      {...props}
-    />
-  )
-}
-
-function DropdownMenuSub({ ...props }: Menu.SubmenuRoot.Props) {
-  return <Menu.SubmenuRoot data-slot="dropdown-menu-sub" {...props} />
-}
-
-function DropdownMenuSubTrigger({
-  className,
-  inset,
-  children,
-  ...props
-}: Menu.SubmenuTrigger.Props & {
-  inset?: boolean
-}) {
-  return (
-    <Menu.SubmenuTrigger
-      data-slot="dropdown-menu-sub-trigger"
-      data-inset={inset}
-      className={cn(
-        "flex h-8 cursor-default items-center gap-2.5 rounded-md px-3 text-sm leading-4 text-foreground-muted outline-none select-none",
-        "data-highlighted:bg-neutral-150 data-highlighted:text-foreground",
-        "data-popup-open:bg-neutral-150 data-popup-open:text-foreground data-open:bg-neutral-150 data-open:text-foreground",
-        "data-inset:pl-6",
-        "[&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
-        "max-md:h-10 max-md:rounded-lg max-md:[&_svg]:size-[18px]",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-      <ChevronRightIcon className="ml-auto" />
-    </Menu.SubmenuTrigger>
-  )
-}
-
-function DropdownMenuSubContent({
-  align = "start",
-  alignOffset = -3,
-  side = "right",
-  sideOffset = 0,
-  portalContainer,
-  className,
-  ...props
-}: ComponentProps<typeof DropdownMenuContent>) {
-  return (
-    <DropdownMenuContent
-      data-slot="dropdown-menu-sub-content"
-      className={cn("min-w-[160px]", className)}
-      align={align}
-      alignOffset={alignOffset}
-      side={side}
-      sideOffset={sideOffset}
-      portalContainer={portalContainer}
       {...props}
     />
   )
@@ -262,34 +176,13 @@ function DropdownMenuSeparator({ className, ...props }: Menu.Separator.Props) {
   )
 }
 
-function DropdownMenuShortcut({ className, ...props }: ComponentProps<"span">) {
-  return (
-    <span
-      data-slot="dropdown-menu-shortcut"
-      className={cn(
-        "ml-auto font-mono text-2xs tracking-[0.06em] text-foreground-faint uppercase",
-        "group-focus/dropdown-menu-item:text-foreground-muted",
-        className,
-      )}
-      {...props}
-    />
-  )
-}
-
 export {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuPortal,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 }

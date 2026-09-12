@@ -11,37 +11,24 @@ import {
 } from "mediabunny"
 
 /**
- * Isomorphic MP4 packet-copy primitives shared by the server, the desktop
- * main process, and the web upload editor. Everything here is a pure packet
- * copy — no decoding, no encoding, no WebCodecs — so it runs in Node, Electron
- * main, and the browser alike. Callers supply the mediabunny `Input` (built
- * from a `FilePathSource`/`BlobSource`/…) and `Target` (`FilePathTarget`,
- * `BufferTarget`, …); this module owns the format and the packet plumbing.
- *
- * Outputs are fragmented MP4s so they stream progressively without a second
- * faststart pass. Because packets are copied verbatim, a trim's start snaps to
- * the nearest preceding video keyframe.
+ * Packet-copy helpers for desktop media operations. Callers own the input
+ * files; this module creates fragmented MP4 output and copies encoded packets.
  */
 
-export const UPLOAD_MP4_VIDEO_CODECS = new Set(["avc", "hevc", "av1"])
-export const UPLOAD_MP4_AUDIO_CODECS = new Set(["aac"])
+const UPLOAD_MP4_VIDEO_CODECS = new Set(["avc", "hevc", "av1"])
+const UPLOAD_MP4_AUDIO_CODECS = new Set(["aac"])
 
 /**
  * Reject sources whose codecs the upload pipeline cannot accept, before any
- * bytes are written. The audio argument remains scalar-compatible for older
- * callers while accepting every track for multi-track validation.
+ * bytes are written. Check every audio track.
  */
 export function assertUploadMp4Compatible(
   videoCodec: InputVideoTrack["codec"],
-  audioCodec:
-    | InputAudioTrack["codec"]
-    | readonly InputAudioTrack["codec"][]
-    | null,
+  audioCodecs: readonly InputAudioTrack["codec"][],
 ): void {
   if (!videoCodec || !UPLOAD_MP4_VIDEO_CODECS.has(videoCodec)) {
     throw new Error("Only H.264, HEVC, or AV1 video can be uploaded.")
   }
-  const audioCodecs = Array.isArray(audioCodec) ? audioCodec : [audioCodec]
   if (
     audioCodecs.some((codec) => codec && !UPLOAD_MP4_AUDIO_CODECS.has(codec))
   ) {
@@ -195,7 +182,7 @@ async function trimStartKeyPacket(sink: EncodedPacketSink, startMs: number) {
  * whose rebased timestamp is negative are dropped to satisfy the muxer's
  * monotonic, non-negative contract, costing at most one AAC frame (~20ms).
  */
-export async function copyAudioPackets(
+async function copyAudioPackets(
   audio: InputAudioTrack,
   audioSource: EncodedAudioPacketSource,
   baseSec: number,

@@ -32,8 +32,6 @@ interface ClipCardProps extends ComponentProps<"article"> {
   renderGameLink?: ClipCardLabelLinkRenderer
   views: string
   viewCount?: number
-  likes: string
-  comments?: string | number
   postedAt?: string
   metaContent?: ReactNode
   thumbnail?: string
@@ -41,7 +39,6 @@ interface ClipCardProps extends ComponentProps<"article"> {
   thumbnailBlurHash?: string | null
   thumbnailFallbackBlurHash?: string | null
   fallbackSeed?: string | number
-  accentHue?: number
   streamUrl?: string
   /** Window within `streamUrl` that represents the clip preview. */
   streamRange?: { start: number; end: number }
@@ -60,7 +57,7 @@ interface ClipCardProps extends ComponentProps<"article"> {
   /** Accessible label for the title button. */
   titleLabel?: string
   thumbnailRef?: Ref<HTMLButtonElement>
-  metaVariant?: "default" | "showcase" | "gallery"
+  metaVariant?: "default" | "gallery"
 }
 
 type ClipCardLabelLinkProps = {
@@ -90,19 +87,13 @@ function ClipCard({
   renderGameLink,
   views,
   viewCount,
-  // Likes and comments stay in the contract but are no longer shown on the
-  // card face — the meta line mirrors the channel-style "views · age" layout.
-  likes: _likes,
-  comments: _comments,
-  postedAt = "2h ago",
+  postedAt,
   metaContent,
   thumbnail,
   thumbnailFallback,
   thumbnailBlurHash,
   thumbnailFallbackBlurHash,
   fallbackSeed,
-  // Retained on the contract for callers; fallback color is now seed-driven.
-  accentHue: _accentHue,
   streamUrl,
   streamRange,
   onThumbnailClick,
@@ -116,6 +107,16 @@ function ClipCard({
   metaVariant = "default",
   ...props
 }: ClipCardProps) {
+  const titleButton = (
+    <ClipCardTitleButton
+      title={title}
+      label={titleLabel}
+      onClick={onTitleClick}
+      onIntent={onTitleIntent}
+    >
+      {titleContent ?? title}
+    </ClipCardTitleButton>
+  )
   const gallery = metaVariant === "gallery"
   const showAttributionRow = Boolean(author || game)
 
@@ -156,14 +157,7 @@ function ClipCard({
       {gallery ? (
         <div className="pointer-events-none invisible absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pt-10 pb-3 text-white opacity-0 transition-opacity duration-150 group-hover/clip-card:visible group-hover/clip-card:opacity-100 group-has-[:focus-visible]/clip-card:visible group-has-[:focus-visible]/clip-card:opacity-100 motion-reduce:transition-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
           <div className="truncate text-sm leading-5 font-semibold">
-            <ClipCardTitleButton
-              title={title}
-              label={titleLabel}
-              onClick={onTitleClick}
-              onIntent={onTitleIntent}
-            >
-              {titleContent ?? title}
-            </ClipCardTitleButton>
+            {titleButton}
           </div>
           {showAttributionRow ? (
             <div className="flex min-w-0 items-center gap-2 text-xs">
@@ -223,14 +217,7 @@ function ClipCard({
             />
           ) : null}
           <div className="text-foreground col-span-2 truncate text-lg leading-6 font-semibold">
-            <ClipCardTitleButton
-              title={title}
-              label={titleLabel}
-              onClick={onTitleClick}
-              onIntent={onTitleIntent}
-            >
-              {titleContent ?? title}
-            </ClipCardTitleButton>
+            {titleButton}
           </div>
           {showAttributionRow ? (
             <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 text-base leading-5">
@@ -265,29 +252,27 @@ function ClipCard({
               )}
             </div>
           ) : null}
-          {metaVariant === "showcase" ? null : (
-            <div
-              className={cn(
-                "text-foreground-faint flex min-w-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums md:mt-0.5 md:justify-start",
-                author
-                  ? "col-start-3 row-start-2 md:col-span-2 md:col-start-2 md:row-start-3"
-                  : "col-start-2 row-start-2 md:col-span-2 md:col-start-1 md:row-start-3",
-              )}
-            >
-              {metaContent ? (
-                metaContent
-              ) : (
-                <>
-                  <span className="shrink-0">
-                    {views}{" "}
-                    {tp(viewCountForLabel(viewCount, views), "view", "views")}
-                  </span>
-                  <span className="shrink-0">{"·"}</span>
-                  <span className="shrink-0">{postedAt}</span>
-                </>
-              )}
-            </div>
-          )}
+          <div
+            className={cn(
+              "text-foreground-faint flex min-w-0 items-center justify-end gap-1.5 text-sm leading-5 tabular-nums md:mt-0.5 md:justify-start",
+              author
+                ? "col-start-3 row-start-2 md:col-span-2 md:col-start-2 md:row-start-3"
+                : "col-start-2 row-start-2 md:col-span-2 md:col-start-1 md:row-start-3",
+            )}
+          >
+            {metaContent ? (
+              metaContent
+            ) : (
+              <>
+                <span className="shrink-0">
+                  {views}{" "}
+                  {tp(viewCountForLabel(viewCount, views), "view", "views")}
+                </span>
+                <span className="shrink-0">{"·"}</span>
+                <span className="shrink-0">{postedAt}</span>
+              </>
+            )}
+          </div>
         </div>
       )}
     </article>
@@ -467,9 +452,4 @@ function stopLabelLinkPropagation(event: MouseEvent<HTMLAnchorElement>) {
   event.stopPropagation()
 }
 
-export {
-  ClipCard,
-  type ClipCardLabelLinkProps,
-  type ClipCardLabelLinkRenderer,
-  type ClipCardProps,
-}
+export { ClipCard, type ClipCardLabelLinkRenderer }

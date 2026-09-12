@@ -17,9 +17,9 @@ import {
 } from "./cookies"
 import { generateSessionToken, hashSessionToken } from "./tokens"
 
-export const ACCESS_TTL_MS = 15 * 60 * 1000
+const ACCESS_TTL_MS = 15 * 60 * 1000
 export const REFRESH_IDLE_TTL_MS = 30 * 24 * 60 * 60 * 1000
-export const REFRESH_ABSOLUTE_TTL_MS = 90 * 24 * 60 * 60 * 1000
+const REFRESH_ABSOLUTE_TTL_MS = 90 * 24 * 60 * 60 * 1000
 const REFRESH_REUSE_GRACE_MS = 10 * 1000
 
 type AuthUser = User

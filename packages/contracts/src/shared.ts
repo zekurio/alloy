@@ -1,5 +1,3 @@
-import type { ContractJsonInput } from "./json-value"
-
 export type IsoDateString = string
 
 export const CLIP_PRIVACY = ["public", "unlisted", "private"] as const
@@ -11,32 +9,6 @@ export type ClipStatus = (typeof CLIP_STATUS)[number]
 /** What a recording is. Alloy currently publishes short replay/highlight clips. */
 export const RECORDING_KIND = ["clip"] as const
 export type RecordingKind = (typeof RECORDING_KIND)[number]
-
-/**
- * Legacy semantic roles for isolated audio stems. Current Alloy recorders
- * produce one mixed track, but servers retain this contract for clips and
- * desktop clients released with stem support. `desktop` means system audio.
- */
-export const CLIP_AUDIO_TRACK_KINDS = [
-  "game",
-  "microphone",
-  "desktop",
-  "application",
-  "other",
-] as const
-export type ClipAudioTrackKind = (typeof CLIP_AUDIO_TRACK_KINDS)[number]
-
-/**
- * Coerces a possibly-foreign kind value to a known one. Unknown kinds map to
- * "other" so version skew between recorder, server, and web never rejects a
- * track (or the clip carrying it) over a cosmetic classification.
- */
-export function normalizeClipAudioTrackKind(
-  value: ContractJsonInput,
-): ClipAudioTrackKind {
-  const known = CLIP_AUDIO_TRACK_KINDS.find((kind) => kind === value)
-  return known ?? "other"
-}
 
 export const UPLOAD_TICKET_ROLE = ["video"] as const
 export type UploadTicketRole = (typeof UPLOAD_TICKET_ROLE)[number]

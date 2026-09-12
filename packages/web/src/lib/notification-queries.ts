@@ -3,6 +3,7 @@ import { t } from "@alloy/i18n"
 import { toast } from "@alloy/ui/lib/toast"
 import {
   type InfiniteData,
+  type QueryClient,
   infiniteQueryOptions,
   queryOptions,
   useMutation,
@@ -91,14 +92,25 @@ function markNotificationRead(
   }
 }
 
-export function isNotificationUnread(
-  data: NotificationListData,
-  id: string,
-): boolean {
+function isNotificationUnread(data: NotificationListData, id: string): boolean {
   return (
     data?.pages.some((page) =>
       page.items.some((item) => item.id === id && item.readAt === null),
     ) ?? false
+  )
+}
+
+function decrementUnreadNotificationCount(qc: QueryClient, id: string) {
+  if (
+    !isNotificationUnread(
+      qc.getQueryData<NotificationListData>(notificationKeys.list()),
+      id,
+    )
+  ) {
+    return
+  }
+  qc.setQueryData<number>(notificationKeys.unreadCount(), (old) =>
+    Math.max(0, (old ?? 0) - 1),
   )
 }
 
@@ -137,15 +149,7 @@ export function useMarkNotificationReadMutation() {
   return useMutation<string, Error, string>({
     mutationFn: (id: string) => api.notifications.markRead(id).then(() => id),
     onSuccess: (id) => {
-      const wasUnread = isNotificationUnread(
-        qc.getQueryData<NotificationListData>(notificationKeys.list()),
-        id,
-      )
-      if (wasUnread) {
-        qc.setQueryData<number>(notificationKeys.unreadCount(), (old) =>
-          Math.max(0, (old ?? 0) - 1),
-        )
-      }
+      decrementUnreadNotificationCount(qc, id)
       qc.setQueryData<NotificationListData>(notificationKeys.list(), (old) =>
         markNotificationRead(old, id),
       )
@@ -179,15 +183,7 @@ export function useRemoveNotificationMutation() {
   return useMutation<string, Error, string>({
     mutationFn: (id) => api.notifications.remove(id).then(() => id),
     onSuccess: (id) => {
-      const wasUnread = isNotificationUnread(
-        qc.getQueryData<NotificationListData>(notificationKeys.list()),
-        id,
-      )
-      if (wasUnread) {
-        qc.setQueryData<number>(notificationKeys.unreadCount(), (old) =>
-          Math.max(0, (old ?? 0) - 1),
-        )
-      }
+      decrementUnreadNotificationCount(qc, id)
       qc.setQueryData<NotificationListData>(notificationKeys.list(), (old) =>
         removeNotification(old, id),
       )

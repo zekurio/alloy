@@ -98,14 +98,6 @@ export function tooManyRequests(
   return errorResponse(c, error, 429)
 }
 
-export function badGateway(c: Context, error: string) {
-  return errorResponse(c, error, 502)
-}
-
-export function serviceUnavailable(c: Context, error: string) {
-  return errorResponse(c, error, 503)
-}
-
 export function badRequestFromCause(
   c: Context,
   cause: unknown,

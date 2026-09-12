@@ -20,7 +20,7 @@ import { setActiveClipList, useClipList } from "./clip-list-context"
 interface ClipCardTriggerProps {
   row: ClipRow
   className?: string
-  metaVariant?: "default" | "showcase" | "gallery"
+  metaVariant?: "default" | "gallery"
   showVisibilityStatus?: boolean
 }
 
@@ -90,13 +90,10 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
       renderGameLink={renderGameLink}
       views={card.views}
       viewCount={card.viewCount}
-      likes={card.likes}
-      comments={card.comments}
       postedAt={card.postedAt}
       thumbnail={card.thumbnail}
       thumbnailBlurHash={card.thumbnailBlurHash}
       fallbackSeed={card.fallbackSeed}
-      accentHue={card.accentHue}
       streamUrl={card.streamUrl}
       metaVariant={metaVariant}
       onThumbnailClick={handleThumbnailClick}

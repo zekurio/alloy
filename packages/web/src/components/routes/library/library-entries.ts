@@ -34,7 +34,7 @@ export type LibraryEntry =
       localItem: RecordingLibraryItem | null
     }
 
-export function filterLibraryItems(
+function filterLibraryItems(
   items: RecordingLibraryItem[],
   filters: {
     localKeys: string[] | null
@@ -55,7 +55,7 @@ export function filterLibraryItems(
   })
 }
 
-export function filterUploadedClips(
+function filterUploadedClips(
   rows: ClipRow[],
   rawQuery: string,
   active: LibraryGroupView | null,
@@ -82,9 +82,7 @@ export function filterUploadedClips(
   })
 }
 
-export function libraryServerIdForItem(
-  item: RecordingLibraryItem,
-): string | null {
+function libraryServerIdForItem(item: RecordingLibraryItem): string | null {
   return item.uploadedClipId
 }
 

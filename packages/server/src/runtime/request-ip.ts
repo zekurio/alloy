@@ -13,7 +13,7 @@ function forwardedForIp(value: string | null | undefined): string | null {
   return normalizedIp(value?.split(",")[0])
 }
 
-export function requestIpFromHeaderValues(input: {
+function requestIpFromHeaderValues(input: {
   forwardedFor?: string | null
   realIp?: string | null
   socketAddress?: string | null

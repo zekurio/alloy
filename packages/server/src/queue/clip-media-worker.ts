@@ -9,22 +9,24 @@ import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-work
 import { announceClipPublished } from "@alloy/server/webhooks/publish"
 
 import {
+  claimClipMedia,
+  nextClipMediaRunAt,
+  type ClipMediaClaim,
+} from "./clip-media-claim-store"
+import {
   chooseClipMediaAction,
   type ClipMediaAction,
 } from "./clip-media-policy"
 import { clipMediaStore } from "./clip-media-store"
 import {
-  claimClipMedia,
   clipMediaClaimCompleted,
   completeClipMediaWithoutPipeline,
   failClipMedia,
   heartbeatClipMedia,
-  nextClipMediaRunAt,
   recoverClipMediaWork,
   releaseClipMediaForCancellation,
   releaseClipMediaForShutdown,
   selectClipMediaFacts,
-  type ClipMediaClaim,
 } from "./clip-media-work-store"
 import {
   forceMediaGeneration,
@@ -53,7 +55,7 @@ interface ActiveRun {
   done: Promise<void>
 }
 
-export class ClipMediaWorker {
+class ClipMediaWorker {
   private readonly active = new Map<string, ActiveRun>()
   private readonly blockedClipIds = new Map<string, number>()
   private readonly scheduler = new WakeableSerialWorker({
@@ -360,7 +362,7 @@ export class ClipMediaWorker {
   }
 }
 
-export const clipMediaWorker = new ClipMediaWorker()
+const clipMediaWorker = new ClipMediaWorker()
 
 export const startClipMediaWorker = () => clipMediaWorker.start()
 export const stopClipMediaWorker = () => clipMediaWorker.stop()

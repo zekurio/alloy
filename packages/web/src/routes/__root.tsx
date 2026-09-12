@@ -2,7 +2,6 @@ import type { QueryClient } from "@tanstack/react-query"
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router"
 import { Suspense, lazy, useEffect } from "react"
 
-import { ClientOnly } from "@/components/app/client-only"
 import { OAuthErrorToast } from "@/components/auth/oauth-error-toast"
 import {
   RouteErrorState,
@@ -48,13 +47,11 @@ function RootLayout() {
   return (
     <>
       <Outlet />
-      <ClientOnly>
-        <Suspense fallback={null}>
-          <RuntimeConfigEvents />
-          <OAuthErrorToast />
-          <ReactivateAccountPrompt />
-        </Suspense>
-      </ClientOnly>
+      <Suspense fallback={null}>
+        <RuntimeConfigEvents />
+        <OAuthErrorToast />
+        <ReactivateAccountPrompt />
+      </Suspense>
       {/* Global toast portal — rendered once at the root so every route
           can call `toast.*` without mounting its own provider. */}
       <Suspense fallback={null}>

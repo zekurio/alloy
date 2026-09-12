@@ -21,7 +21,7 @@ export function webAuthnChallengeContext(input: {
   }
 }
 
-export function webAuthnRpIdForOrigin(
+function webAuthnRpIdForOrigin(
   publicServerUrl: string,
   origin: string,
 ): string {
