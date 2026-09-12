@@ -16,9 +16,6 @@ import {
 import { Suspense } from "react"
 import type { ComponentProps, ReactNode } from "react"
 
-import { NotificationBell } from "@/components/notifications/notification-bell"
-import { useSuspenseSession } from "@/lib/session-suspense"
-
 import { DesktopRecordingStatus } from "./desktop-recording-status"
 import { DesktopUpdatePill } from "./desktop-update-pill"
 import { useNavFlags } from "./use-nav-flags"
@@ -29,8 +26,6 @@ import { useNavFlags } from "./use-nav-flags"
  * account activity alongside device-local status controls.
  */
 export function HomeSidebar() {
-  const session = useSuspenseSession()
-
   return (
     <AppSidebar className="hidden md:flex">
       <TooltipProvider delay={300}>
@@ -40,7 +35,6 @@ export function HomeSidebar() {
           </Suspense>
         </AppSidebarGroup>
         <AppSidebarGroup className="mt-auto">
-          {session ? <NotificationBell variant="sidebar" /> : null}
           <DesktopRecordingStatus />
           <DesktopUpdatePill />
         </AppSidebarGroup>

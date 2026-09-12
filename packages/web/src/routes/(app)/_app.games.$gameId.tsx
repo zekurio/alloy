@@ -22,7 +22,7 @@ export const Route = createFileRoute("/(app)/_app/games/$gameId")({
   }),
   loader: ({ context, deps, params }) => {
     const gamePromise = context.queryClient.fetchQuery(
-      gameQueryOptions(params.gameId, context.session?.user.id ?? null),
+      gameQueryOptions(params.gameId),
     )
     void loadGameDetailPageInner()
     void gamePromise

@@ -24,14 +24,13 @@ import {
   writeSessionStorageItem,
 } from "@/lib/browser-storage"
 import { clipGameLabel } from "@/lib/clip-format"
-import { useLikeStateQuery, useToggleLikeMutation } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
 import { apiOrigin, publicOrigin } from "@/lib/env"
 import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 import { userAvatar } from "@/lib/user-display"
 
-import { ClipComments } from "./clip-comments"
+import { ClipDetailsPanel } from "./clip-details-panel"
 import {
   clipBrowserDownloadActionSupported,
   ClipBrowserDownloadMenuItem,
@@ -59,7 +58,6 @@ interface MobileClipViewerBodyProps {
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
-  focusedCommentId?: string | null
 }
 
 /* ------------------------------------------------------------------ */
@@ -72,7 +70,6 @@ function MobileClipViewerBody({
   prev,
   next,
   onNavigate,
-  focusedCommentId = null,
 }: MobileClipViewerBodyProps) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
@@ -82,7 +79,6 @@ function MobileClipViewerBody({
   const isOwner = viewerId !== null && viewerId === row.authorId
   const isAdmin = viewerRole === "admin"
   const canManage = isOwner || isAdmin
-  const canLike = viewerId !== null
   const canNav = Boolean(onNavigate)
 
   /* ---- derived ---- */
@@ -100,15 +96,7 @@ function MobileClipViewerBody({
   const gameRef = row.gameRef
   const gameIcon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
 
-  /* ---- like state ---- */
-  const likeQuery = useLikeStateQuery(row.id, { enabled: canLike })
-  const likeMut = useToggleLikeMutation()
   const shareFeedback = useActionFeedback()
-  const pendingLiked =
-    likeMut.isPending && likeMut.variables?.clipId === row.id
-      ? likeMut.variables.nextLiked
-      : undefined
-  const liked = pendingLiked ?? likeQuery.data?.liked ?? false
 
   /* ---- edit / delete ---- */
   const navigate = useNavigate()
@@ -116,17 +104,13 @@ function MobileClipViewerBody({
   const deleting = deleteFlow.pending
   const retry = useClipRetry(row)
 
-  /* ---- comments panel ---- */
-  const [commentsOpen, setCommentsOpen] = useState(false)
+  /* ---- details panel ---- */
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const [showSwipeHint, setShowSwipeHint] = useState(false)
 
   useEffect(() => {
-    setCommentsOpen(false)
+    setDetailsOpen(false)
   }, [row.id])
-
-  useEffect(() => {
-    if (focusedCommentId) setCommentsOpen(true)
-  }, [focusedCommentId])
 
   useEffect(() => {
     if (!canNav || (!prev && !next)) return
@@ -164,11 +148,6 @@ function MobileClipViewerBody({
   )
 
   /* ---- handlers ---- */
-  const handleLike = useCallback(() => {
-    if (!canLike) return
-    likeMut.mutate({ clipId: row.id, nextLiked: !liked })
-  }, [canLike, row.id, liked, likeMut])
-
   const handleShare = useCallback(async () => {
     await shareFeedback.run(async () => {
       const url = clipShareUrl(row.id, publicOrigin(), Date.now())
@@ -201,25 +180,18 @@ function MobileClipViewerBody({
           disabled={Boolean(row.encodeActive)}
         />
       ) : undefined,
-    liked,
-    canLike,
     canManage,
     deleting,
     downloadAction: clipBrowserDownloadActionSupported(row) ? (
       <ClipBrowserDownloadMenuItem row={row} />
     ) : undefined,
-    likeCount: row.likeCount,
-    likePending: likeMut.isPending,
-    likeError: likeMut.error ? t("Couldn't update like") : null,
-    commentCount: row.commentCount,
     shareState: shareFeedback.feedback.state,
     shareError:
       shareFeedback.feedback.state === "error"
         ? shareFeedback.feedback.message
         : null,
     shareDisabled: row.privacy === "private",
-    onLike: handleLike,
-    onComments: () => setCommentsOpen(true),
+    onDetails: () => setDetailsOpen(true),
     onShare: handleShare,
     onEdit: () => {
       // The edit view lives at its own route; navigating there drops the
@@ -286,7 +258,6 @@ function MobileClipViewerBody({
               <MobileActionsRail
                 {...actionRailProps}
                 iconSizeClassName="size-6"
-                countClassName="text-[11px] font-semibold text-white tabular-nums"
               />
             </div>
           ) : null}
@@ -485,25 +456,25 @@ function MobileClipViewerBody({
               <MobileActionsRail
                 {...actionRailProps}
                 iconSizeClassName="size-7"
-                countClassName="text-xs font-semibold text-white tabular-nums"
               />
             </div>
           </div>
 
-          {/* ---- Comments drawer (bottom sheet) ---- */}
+          {/* Details and recommendations */}
           <Drawer
-            open={commentsOpen}
-            onOpenChange={setCommentsOpen}
+            open={detailsOpen}
+            onOpenChange={setDetailsOpen}
             direction="bottom"
           >
             <DrawerContent className={mobileDrawerContentClass}>
-              <DrawerTitle className="sr-only">{t("Comments")}</DrawerTitle>
+              <DrawerTitle className="sr-only">{t("Details")}</DrawerTitle>
               <MobileDrawerHandle />
-              <ClipComments
-                clipId={row.id}
-                clipAuthorId={row.authorId}
-                focusedCommentId={focusedCommentId}
-                className="min-h-0 flex-1 overflow-y-scroll border-0 [&>[data-slot=clip-comments-scroll]]:overflow-y-scroll"
+              <ClipDetailsPanel
+                key={row.id}
+                row={row}
+                onRequestDelete={deleteFlow.openDialog}
+                deletePending={deleteFlow.pending}
+                onNavigate={onNavigate}
               />
             </DrawerContent>
           </Drawer>

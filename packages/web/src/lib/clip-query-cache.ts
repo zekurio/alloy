@@ -122,37 +122,3 @@ export function restoreClips(qc: QueryClient, snapshot: ClipsSnapshot) {
   for (const [key, data] of snapshot.infinite) qc.setQueryData(key, data)
   for (const [key, data] of snapshot.details) qc.setQueryData(key, data)
 }
-
-export function adjustClipCountsInCaches(
-  qc: QueryClient,
-  clipId: string,
-  deltas: { commentCount?: number; likeCount?: number; viewCount?: number },
-) {
-  const apply = (row: ClipRow): ClipRow => {
-    if (row.id !== clipId) return row
-    return {
-      ...row,
-      commentCount: Math.max(0, row.commentCount + (deltas.commentCount ?? 0)),
-      likeCount: Math.max(0, row.likeCount + (deltas.likeCount ?? 0)),
-      viewCount: Math.max(0, row.viewCount + (deltas.viewCount ?? 0)),
-    }
-  }
-  qc.setQueriesData<ClipRow[] | undefined>(
-    { queryKey: clipKeys.lists() },
-    (old) => old?.map(apply),
-  )
-  qc.setQueriesData<InfiniteData<ClipPage, string | null> | undefined>(
-    { queryKey: clipKeys.infinite() },
-    (old) =>
-      old && {
-        ...old,
-        pages: old.pages.map((page) => ({
-          ...page,
-          items: page.items.map(apply),
-        })),
-      },
-  )
-  qc.setQueryData<ClipRow | undefined>(clipKeys.detail(clipId), (old) =>
-    old ? apply(old) : old,
-  )
-}

@@ -14,7 +14,6 @@ import { Route as authAuthRouteImport } from './routes/(auth)/_auth'
 import { Route as authSetupRouteImport } from './routes/(auth)/setup'
 import { Route as appAppIndexRouteImport } from './routes/(app)/_app.index'
 import { Route as appAppGamesRouteImport } from './routes/(app)/_app.games'
-import { Route as appAppNotificationsRouteImport } from './routes/(app)/_app.notifications'
 import { Route as appAppScreenshotsRouteImport } from './routes/(app)/_app.screenshots'
 import { Route as appAppSettingsRouteImport } from './routes/(app)/_app.settings'
 import { Route as authAuthLoginRouteImport } from './routes/(auth)/_auth.login'
@@ -31,7 +30,6 @@ import { Route as appAppLibraryClipsClipIdRouteImport } from './routes/(app)/_ap
 import { Route as appAppUUsernameIndexRouteImport } from './routes/(app)/_app.u.$username.index'
 import { Route as appAppUUsernameAllRouteImport } from './routes/(app)/_app.u.$username.all'
 import { Route as appAppUUsernameFeedRouteImport } from './routes/(app)/_app.u.$username.feed'
-import { Route as appAppUUsernameLikedRouteImport } from './routes/(app)/_app.u.$username.liked'
 import { Route as appAppUUsernameTaggedRouteImport } from './routes/(app)/_app.u.$username.tagged'
 import { Route as appAppGamesGameIdClipsClipIdRouteImport } from './routes/(app)/_app.games.$gameId.clips.$clipId'
 
@@ -56,11 +54,6 @@ const appAppIndexRoute = appAppIndexRouteImport.update({
 const appAppGamesRoute = appAppGamesRouteImport.update({
   id: '/games',
   path: '/games',
-  getParentRoute: () => appAppRoute,
-} as any)
-const appAppNotificationsRoute = appAppNotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
   getParentRoute: () => appAppRoute,
 } as any)
 const appAppScreenshotsRoute = appAppScreenshotsRouteImport.update({
@@ -144,11 +137,6 @@ const appAppUUsernameFeedRoute = appAppUUsernameFeedRouteImport.update({
   path: '/feed',
   getParentRoute: () => appAppUUsernameRoute,
 } as any)
-const appAppUUsernameLikedRoute = appAppUUsernameLikedRouteImport.update({
-  id: '/liked',
-  path: '/liked',
-  getParentRoute: () => appAppUUsernameRoute,
-} as any)
 const appAppUUsernameTaggedRoute = appAppUUsernameTaggedRouteImport.update({
   id: '/tagged',
   path: '/tagged',
@@ -164,7 +152,6 @@ const appAppGamesGameIdClipsClipIdRoute =
 export interface FileRoutesByFullPath {
   '/setup': typeof authSetupRoute
   '/games': typeof appAppGamesRouteWithChildren
-  '/notifications': typeof appAppNotificationsRoute
   '/screenshots': typeof appAppScreenshotsRoute
   '/settings': typeof appAppSettingsRoute
   '/login': typeof authAuthLoginRoute
@@ -181,14 +168,12 @@ export interface FileRoutesByFullPath {
   '/library/clips/$clipId': typeof appAppLibraryClipsClipIdRoute
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
-  '/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/u/$username/': typeof appAppUUsernameIndexRoute
   '/games/$gameId/clips/$clipId': typeof appAppGamesGameIdClipsClipIdRoute
 }
 export interface FileRoutesByTo {
   '/setup': typeof authSetupRoute
-  '/notifications': typeof appAppNotificationsRoute
   '/screenshots': typeof appAppScreenshotsRoute
   '/settings': typeof appAppSettingsRoute
   '/login': typeof authAuthLoginRoute
@@ -204,7 +189,6 @@ export interface FileRoutesByTo {
   '/library/clips/$clipId': typeof appAppLibraryClipsClipIdRoute
   '/u/$username/all': typeof appAppUUsernameAllRoute
   '/u/$username/feed': typeof appAppUUsernameFeedRoute
-  '/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/u/$username': typeof appAppUUsernameIndexRoute
   '/games/$gameId/clips/$clipId': typeof appAppGamesGameIdClipsClipIdRoute
@@ -215,7 +199,6 @@ export interface FileRoutesById {
   '/(auth)/_auth': typeof authAuthRouteWithChildren
   '/(auth)/setup': typeof authSetupRoute
   '/(app)/_app/games': typeof appAppGamesRouteWithChildren
-  '/(app)/_app/notifications': typeof appAppNotificationsRoute
   '/(app)/_app/screenshots': typeof appAppScreenshotsRoute
   '/(app)/_app/settings': typeof appAppSettingsRoute
   '/(auth)/_auth/login': typeof authAuthLoginRoute
@@ -232,7 +215,6 @@ export interface FileRoutesById {
   '/(app)/_app/library/clips/$clipId': typeof appAppLibraryClipsClipIdRoute
   '/(app)/_app/u/$username/all': typeof appAppUUsernameAllRoute
   '/(app)/_app/u/$username/feed': typeof appAppUUsernameFeedRoute
-  '/(app)/_app/u/$username/liked': typeof appAppUUsernameLikedRoute
   '/(app)/_app/u/$username/tagged': typeof appAppUUsernameTaggedRoute
   '/(app)/_app/u/$username/': typeof appAppUUsernameIndexRoute
   '/(app)/_app/games/$gameId/clips/$clipId': typeof appAppGamesGameIdClipsClipIdRoute
@@ -242,7 +224,6 @@ export interface FileRouteTypes {
   fullPaths:
     | '/setup'
     | '/games'
-    | '/notifications'
     | '/screenshots'
     | '/settings'
     | '/login'
@@ -259,14 +240,12 @@ export interface FileRouteTypes {
     | '/library/clips/$clipId'
     | '/u/$username/all'
     | '/u/$username/feed'
-    | '/u/$username/liked'
     | '/u/$username/tagged'
     | '/u/$username/'
     | '/games/$gameId/clips/$clipId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
-    | '/notifications'
     | '/screenshots'
     | '/settings'
     | '/login'
@@ -282,7 +261,6 @@ export interface FileRouteTypes {
     | '/library/clips/$clipId'
     | '/u/$username/all'
     | '/u/$username/feed'
-    | '/u/$username/liked'
     | '/u/$username/tagged'
     | '/u/$username'
     | '/games/$gameId/clips/$clipId'
@@ -292,7 +270,6 @@ export interface FileRouteTypes {
     | '/(auth)/_auth'
     | '/(auth)/setup'
     | '/(app)/_app/games'
-    | '/(app)/_app/notifications'
     | '/(app)/_app/screenshots'
     | '/(app)/_app/settings'
     | '/(auth)/_auth/login'
@@ -309,7 +286,6 @@ export interface FileRouteTypes {
     | '/(app)/_app/library/clips/$clipId'
     | '/(app)/_app/u/$username/all'
     | '/(app)/_app/u/$username/feed'
-    | '/(app)/_app/u/$username/liked'
     | '/(app)/_app/u/$username/tagged'
     | '/(app)/_app/u/$username/'
     | '/(app)/_app/games/$gameId/clips/$clipId'
@@ -356,13 +332,6 @@ declare module '@tanstack/react-router' {
       path: '/games'
       fullPath: '/games'
       preLoaderRoute: typeof appAppGamesRouteImport
-      parentRoute: typeof appAppRoute
-    }
-    '/(app)/_app/notifications': {
-      id: '/(app)/_app/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof appAppNotificationsRouteImport
       parentRoute: typeof appAppRoute
     }
     '/(app)/_app/screenshots': {
@@ -477,13 +446,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof appAppUUsernameFeedRouteImport
       parentRoute: typeof appAppUUsernameRoute
     }
-    '/(app)/_app/u/$username/liked': {
-      id: '/(app)/_app/u/$username/liked'
-      path: '/liked'
-      fullPath: '/u/$username/liked'
-      preLoaderRoute: typeof appAppUUsernameLikedRouteImport
-      parentRoute: typeof appAppUUsernameRoute
-    }
     '/(app)/_app/u/$username/tagged': {
       id: '/(app)/_app/u/$username/tagged'
       path: '/tagged'
@@ -529,7 +491,6 @@ const appAppGamesRouteWithChildren = appAppGamesRoute._addFileChildren(
 interface appAppUUsernameRouteChildren {
   appAppUUsernameAllRoute: typeof appAppUUsernameAllRoute
   appAppUUsernameFeedRoute: typeof appAppUUsernameFeedRoute
-  appAppUUsernameLikedRoute: typeof appAppUUsernameLikedRoute
   appAppUUsernameTaggedRoute: typeof appAppUUsernameTaggedRoute
   appAppUUsernameIndexRoute: typeof appAppUUsernameIndexRoute
 }
@@ -537,7 +498,6 @@ interface appAppUUsernameRouteChildren {
 const appAppUUsernameRouteChildren: appAppUUsernameRouteChildren = {
   appAppUUsernameAllRoute: appAppUUsernameAllRoute,
   appAppUUsernameFeedRoute: appAppUUsernameFeedRoute,
-  appAppUUsernameLikedRoute: appAppUUsernameLikedRoute,
   appAppUUsernameTaggedRoute: appAppUUsernameTaggedRoute,
   appAppUUsernameIndexRoute: appAppUUsernameIndexRoute,
 }
@@ -548,7 +508,6 @@ const appAppUUsernameRouteWithChildren = appAppUUsernameRoute._addFileChildren(
 
 interface appAppRouteChildren {
   appAppGamesRoute: typeof appAppGamesRouteWithChildren
-  appAppNotificationsRoute: typeof appAppNotificationsRoute
   appAppScreenshotsRoute: typeof appAppScreenshotsRoute
   appAppSettingsRoute: typeof appAppSettingsRoute
   appAppIndexRoute: typeof appAppIndexRoute
@@ -563,7 +522,6 @@ interface appAppRouteChildren {
 
 const appAppRouteChildren: appAppRouteChildren = {
   appAppGamesRoute: appAppGamesRouteWithChildren,
-  appAppNotificationsRoute: appAppNotificationsRoute,
   appAppScreenshotsRoute: appAppScreenshotsRoute,
   appAppSettingsRoute: appAppSettingsRoute,
   appAppIndexRoute: appAppIndexRoute,

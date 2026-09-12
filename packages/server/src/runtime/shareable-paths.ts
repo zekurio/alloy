@@ -11,10 +11,6 @@ const SHAREABLE_CLIP_DETAIL_RE = new RegExp(
   String.raw`^/api/clips/${CLIP_ID}$`,
   "i",
 )
-const SHAREABLE_CLIP_COMMENTS_RE = new RegExp(
-  String.raw`^/api/clips/${CLIP_ID}/comments$`,
-  "i",
-)
 const SHAREABLE_CLIP_VIEW_RE = new RegExp(
   String.raw`^/api/clips/${CLIP_ID}/view$`,
   "i",
@@ -33,7 +29,6 @@ export function isShareableClipRequest(method: string, path: string): boolean {
     return method === "GET" || method === "HEAD"
   }
   if (SHAREABLE_CLIP_DETAIL_RE.test(path)) return method === "GET"
-  if (SHAREABLE_CLIP_COMMENTS_RE.test(path)) return method === "GET"
   if (SHAREABLE_CLIP_VIEW_RE.test(path)) return method === "POST"
   return false
 }

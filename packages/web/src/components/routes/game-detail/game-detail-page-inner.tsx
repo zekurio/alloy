@@ -64,11 +64,7 @@ export function GameDetailPageInner({
     />
   )
 
-  const {
-    data: game,
-    error,
-    isPending,
-  } = useGameQuery(gameId, viewerId ?? null)
+  const { data: game, error, isPending } = useGameQuery(gameId)
   return (
     <AppMain className="!px-0 !pt-0">
       <div className="flex w-full flex-col">
@@ -86,7 +82,7 @@ export function GameDetailPageInner({
           </div>
         ) : (
           <>
-            <GameHeader game={game} viewerId={viewerId ?? null} />
+            <GameHeader game={game} />
             <div className="flex flex-col px-[var(--app-content-padding)]">
               <PageToolbar rail={false}>
                 <GameCreatorChips

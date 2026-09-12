@@ -18,7 +18,7 @@ import {
   type ProfileClipSort,
 } from "@/lib/profile-all-search"
 
-export type ProfileClipTab = "all" | "liked" | "tagged"
+export type ProfileClipTab = "all" | "tagged"
 
 type GameOption = {
   slug: string
@@ -38,7 +38,6 @@ type ClipsFilterBarProps = {
 const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileClipSort>> = [
   { key: "recent", label: t("Newest") },
   { key: "oldest", label: t("Oldest") },
-  { key: "top", label: t("Most liked") },
   { key: "views", label: t("Most viewed") },
 ]
 
@@ -115,6 +114,5 @@ export function ClipsFilterBar({
 
 const PROFILE_CLIP_ROUTES = {
   all: "/u/$username/all",
-  liked: "/u/$username/liked",
   tagged: "/u/$username/tagged",
 } as const

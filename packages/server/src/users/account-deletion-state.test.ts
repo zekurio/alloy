@@ -3,7 +3,6 @@ import assert from "node:assert/strict"
 import { test } from "vite-plus/test"
 
 import {
-  accountDeletionCounterRepairPlan,
   canonicalIds,
   postgresErrorHasCode,
   retryPostgresDeadlocks,
@@ -119,19 +118,8 @@ test("upload targets are deduplicated and acquired in canonical nesting order", 
   ])
 })
 
-test("counter repair IDs and nested PostgreSQL deadlocks are recognized", () => {
+test("canonical IDs and nested PostgreSQL deadlocks are recognized", () => {
   assert.deepEqual(canonicalIds(["BB", "aa", "AA"]), ["aa", "bb"])
-  assert.deepEqual(
-    accountDeletionCounterRepairPlan({
-      authoredCommentClipIds: ["CC", "aa"],
-      likedClipIds: ["BB", "AA"],
-      likedCommentIds: ["DD", "dd", "cc"],
-    }),
-    {
-      affectedClipIds: ["aa", "bb", "cc"],
-      affectedCommentIds: ["cc", "dd"],
-    },
-  )
   assert.equal(
     postgresErrorHasCode({ cause: { cause: { code: "40P01" } } }, "40P01"),
     true,

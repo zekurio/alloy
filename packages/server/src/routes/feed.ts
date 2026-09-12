@@ -1,13 +1,13 @@
 import { UNCATEGORISED_GAME_ID, MEDIA_FILTERS } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
-import { clip, clipLike, clipView, follow, game } from "@alloy/db/schema"
+import { clip, clipView, game } from "@alloy/db/schema"
 import { getSession } from "@alloy/server/auth/session"
 import { clipSelection } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { gameSelection, serialiseGameRow } from "@alloy/server/games/ref"
 import { badRequest, invalidCursor } from "@alloy/server/runtime/http-response"
-import { and, eq, exists, isNull, ne, type SQL, sql } from "drizzle-orm"
+import { and, eq, isNull, ne, type SQL, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
 import {
@@ -23,7 +23,7 @@ import {
 } from "./feed-recommendations"
 import { limitQueryParam, tbValidator } from "./validation"
 
-const FilterEnum = t.enum(["all", "following", "game"])
+const FilterEnum = t.enum(["all", "game"])
 const FeedSortEnum = t.enum(["top", "recent", "recommended"])
 
 const FeedQuery = t
@@ -33,6 +33,7 @@ const FeedQuery = t
     sort: FeedSortEnum.$default("recent"),
     gameId: t.uuid().optional(),
     authorId: t.uuid().optional(),
+    excludeClipId: t.uuid().optional(),
     limit: limitQueryParam(50, 20),
     cursor: t.string().optional(),
   })
@@ -54,6 +55,7 @@ export const feedRoute = new Hono()
       sort,
       gameId,
       authorId,
+      excludeClipId,
       limit,
       cursor: rawCursor,
     } = c.req.valid("query")
@@ -61,11 +63,8 @@ export const feedRoute = new Hono()
     const session = await getSession(c)
     const viewerId = session?.user.status === "active" ? session.user.id : null
 
-    if (filter === "following" && !viewerId) {
-      return c.json({ items: [], nextCursor: null })
-    }
-
     const conditions: SQL[] = publicClipListingConditions(media)
+    if (excludeClipId) conditions.push(ne(clip.id, excludeClipId))
 
     if (filter === "game") {
       if (!gameId) return badRequest(c, "gameId is required")
@@ -75,28 +74,6 @@ export const feedRoute = new Hono()
           : eq(clip.game_id, gameId),
       )
       if (authorId) conditions.push(eq(clip.author_id, authorId))
-    }
-
-    if (filter === "following") {
-      // The following feed is strictly creator follows. Game follows power
-      // recommendations instead, so starring a game doesn't muddy this tab.
-      const followingViewerId = viewerId
-      if (!followingViewerId) return c.json({ items: [], nextCursor: null })
-      // Your own clips don't belong in a feed of people you follow.
-      conditions.push(ne(clip.author_id, followingViewerId))
-      conditions.push(
-        exists(
-          db
-            .select({ one: sql`1` })
-            .from(follow)
-            .where(
-              and(
-                eq(follow.follower_id, followingViewerId),
-                eq(follow.following_id, clip.author_id),
-              ),
-            ),
-        ),
-      )
     }
 
     if (sort === "recommended") {
@@ -131,15 +108,11 @@ export const feedRoute = new Hono()
     const viewerId = session?.user.status === "active" ? session.user.id : null
     const vid = viewerId ?? null
 
-    const likedCount = sql<number>`(count(distinct ${clipLike.clip_id}))::int`
-    const viewedCount = sql<number>`(count(distinct ${clipView.clip_id}))::int`
+    const interaction = sql<number>`(count(distinct ${clipView.clip_id}))::int`
     const clipCount = sql<number>`(count(distinct ${clip.id}))::int`
-    const interaction = sql<number>`(
-      (2 * (${likedCount}) + (${viewedCount}))::double precision
-    )`
     // Chips mirror the "All" feed, which includes the viewer's own clips, so
-    // a game you've only posted in yourself still gets a chip. `clipLike`/
-    // `clipView` are still joined per-viewer to weight by your interaction.
+    // a game you've only posted in yourself still gets a chip. Views weight
+    // the games you watch ahead of other games.
     const conditions: SQL[] = publicClipListingConditions(media)
 
     const rows = await db
@@ -151,13 +124,6 @@ export const feedRoute = new Hono()
       .from(clip)
       .innerJoin(user, eq(clip.author_id, user.id))
       .innerJoin(game, eq(clip.game_id, game.id))
-      .leftJoin(
-        clipLike,
-        and(
-          eq(clipLike.clip_id, clip.id),
-          sql`${clipLike.user_id} = ${vid}::uuid`,
-        ),
-      )
       .leftJoin(
         clipView,
         and(

@@ -42,13 +42,10 @@ export function userAssetImagePath(key: string, updatedAt: Date): string {
 
 export interface ProfileCounts {
   clips: number
-  followers: number
-  following: number
 }
 
 export interface ProfileViewer {
   isSelf: boolean
-  isFollowing: boolean
   isBlocked: boolean
   isBlockedBy: boolean
 }

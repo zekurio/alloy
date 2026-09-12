@@ -18,7 +18,6 @@ import {
 import {
   CLIP_STATUS,
   ENCODE_STAGE,
-  type ClipLikeState,
   type InitiateClipResponse,
   type QueueClip,
   type QueueEvent,
@@ -26,7 +25,7 @@ import {
 } from "@alloy/contracts"
 
 import type { ApiJsonInput, ApiJsonValue } from "../json-value"
-import { validateLikeState, validateNullableBlurHash } from "./shared"
+import { validateNullableBlurHash } from "./shared"
 const CLIP_STATUS_SET: ReadonlySet<string> = new Set(CLIP_STATUS)
 const ENCODE_STAGE_SET: ReadonlySet<string> = new Set(ENCODE_STAGE)
 function validateQueueClip(value: ApiJsonInput): QueueClip {
@@ -186,12 +185,6 @@ export function validateUploadTicket(value: ApiJsonInput): UploadTicket {
   }
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as UploadTicket
-}
-
-export function validateClipLikeState(value: ApiJsonInput): ClipLikeState {
-  validateLikeState(value, "clip")
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as ClipLikeState
 }
 
 export function validateBooleanFlag<T extends string>(

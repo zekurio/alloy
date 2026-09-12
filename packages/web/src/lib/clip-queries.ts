@@ -12,7 +12,6 @@ import { useCallback } from "react"
 
 import { api } from "./api"
 import {
-  adjustClipCountsInCaches,
   type ClipsSnapshot,
   findClipInCaches,
   invalidateClipCaches,
@@ -30,11 +29,7 @@ import { invalidateStorageUsage } from "./user-queries"
 
 export { profileMediaQueryOptions } from "./profile-media-queries"
 
-export {
-  adjustClipCountsInCaches,
-  invalidateClipCaches,
-  removeClipDetailFromCache,
-}
+export { invalidateClipCaches, removeClipDetailFromCache }
 export { clipKeys }
 
 interface ClipDetailQueryOptions {
@@ -85,18 +80,6 @@ export function userClipsQueryOptions(handle: string) {
     queryFn: () => api.users.fetchMedia(handle, { media: "all", limit: 50 }),
     enabled: handle.length > 0,
   })
-}
-
-export function userLikedClipsQueryOptions(handle: string) {
-  return queryOptions({
-    queryKey: clipKeys.userLikedList(handle),
-    queryFn: () => api.users.fetchLikedClips(handle),
-    enabled: handle.length > 0,
-  })
-}
-
-export function useUserLikedClipsQuery(handle: string) {
-  return useQuery(userLikedClipsQueryOptions(handle))
 }
 
 export function useUploadQueueQuery({ enabled }: { enabled: boolean }) {
@@ -301,74 +284,6 @@ export function useDeleteClipMutation() {
     onSettled: (_data, _error, variables) => {
       if (variables.deferInvalidation) return
       invalidateClipCaches(qc)
-    },
-  })
-}
-
-export function useLikeStateQuery(
-  clipId: string,
-  { enabled = true }: { enabled?: boolean } = {},
-) {
-  return useQuery({
-    queryKey: clipKeys.like(clipId),
-    queryFn: () => api.clips.fetchLikeState(clipId),
-    enabled: enabled && clipId.length > 0,
-    // Like state is per-viewer and rarely changes from other tabs —
-    // don't hammer the server on window refocus.
-    refetchOnWindowFocus: false,
-  })
-}
-
-export function useToggleLikeMutation() {
-  const qc = useQueryClient()
-
-  interface Context {
-    previousLiked: boolean
-    clipsSnapshot: ClipsSnapshot
-  }
-
-  return useMutation<
-    { liked: boolean; likeCount: number },
-    Error,
-    { clipId: string; nextLiked: boolean },
-    Context
-  >({
-    mutationFn: ({ clipId, nextLiked }) =>
-      nextLiked ? api.clips.like(clipId) : api.clips.unlike(clipId),
-    onMutate: async ({ clipId, nextLiked }) => {
-      // Pause in-flight fetches so the optimistic values aren't
-      // overwritten by a stale refetch landing mid-mutation.
-      await qc.cancelQueries({ queryKey: clipKeys.like(clipId) })
-      await qc.cancelQueries({ queryKey: clipKeys.all })
-
-      const previousLiked =
-        qc.getQueryData<{ liked: boolean }>(clipKeys.like(clipId))?.liked ??
-        !nextLiked
-      const clipsSnapshot = snapshotClips(qc)
-
-      qc.setQueryData<{ liked: boolean }>(clipKeys.like(clipId), {
-        liked: nextLiked,
-      })
-
-      const delta = nextLiked ? 1 : -1
-      adjustClipCountsInCaches(qc, clipId, { likeCount: delta })
-
-      return { previousLiked, clipsSnapshot }
-    },
-    onError: (_err, { clipId }, context) => {
-      if (!context) return
-      qc.setQueryData<{ liked: boolean }>(clipKeys.like(clipId), {
-        liked: context.previousLiked,
-      })
-      restoreClips(qc, context.clipsSnapshot)
-    },
-    onSuccess: (data, { clipId }) => {
-      // Server-canonical state. The boolean rarely differs from what we
-      // optimistically set, but the count often does (other viewers).
-      qc.setQueryData<{ liked: boolean }>(clipKeys.like(clipId), {
-        liked: data.liked,
-      })
-      patchClipInCaches(qc, clipId, { likeCount: data.likeCount })
     },
   })
 }

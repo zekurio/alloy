@@ -4,11 +4,6 @@ import {
   subscribeToAuthorQueue,
 } from "@alloy/server/clips/events"
 import { selectQueueRowsForAuthor } from "@alloy/server/clips/queue-select"
-import {
-  type NotificationStreamEvent,
-  subscribeToNotifications,
-} from "@alloy/server/notifications/events"
-import { countUnread } from "@alloy/server/notifications/service"
 import { shutdownSignal } from "@alloy/server/runtime/shutdown"
 import { Hono } from "hono"
 import { type SSEStreamingApi, streamSSE } from "hono/streaming"
@@ -31,16 +26,6 @@ async function writeQueueSnapshot(
   await writeSSE({
     event: "snapshot",
     data: JSON.stringify(snapshot),
-  })
-}
-
-async function writeNotificationSnapshot(
-  writeSSE: (message: { event: string; data: string }) => Promise<void>,
-  viewerId: string,
-): Promise<void> {
-  await writeSSE({
-    event: "snapshot",
-    data: JSON.stringify({ unreadCount: await countUnread(viewerId) }),
   })
 }
 
@@ -183,8 +168,10 @@ async function streamSubscribedEvents<T>(input: {
   }
 }
 
-export const eventsRoute = new Hono()
-  .get("/clips/queue", requireSession, (c) => {
+export const eventsRoute = new Hono().get(
+  "/clips/queue",
+  requireSession,
+  (c) => {
     const viewerId = c.var.viewerId
 
     c.header("Cache-Control", "no-cache, no-transform")
@@ -202,23 +189,5 @@ export const eventsRoute = new Hono()
         eventName: (event) => event.type,
       })
     })
-  })
-  .get("/notifications", requireSession, (c) => {
-    const viewerId = c.var.viewerId
-
-    c.header("Cache-Control", "no-cache, no-transform")
-    c.header("X-Accel-Buffering", "no")
-    c.header("Content-Encoding", "identity")
-
-    return streamSSE(c, async (stream) => {
-      const pending: NotificationStreamEvent[] = []
-      await streamSubscribedEvents({
-        stream,
-        pending,
-        subscribe: (push) => subscribeToNotifications(viewerId, push),
-        writeSnapshot: () =>
-          writeNotificationSnapshot(stream.writeSSE.bind(stream), viewerId),
-        eventName: (event) => event.type,
-      })
-    })
-  })
+  },
+)

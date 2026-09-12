@@ -8,11 +8,11 @@ type ProfileTabsNavProps = {
   username: string
 }
 
-type TabSegment = "all" | "liked" | "tagged"
+type TabSegment = "all" | "tagged"
 type Tab = {
   segment: TabSegment
   label: string
-  to: "/u/$username/all" | "/u/$username/liked" | "/u/$username/tagged"
+  to: "/u/$username/all" | "/u/$username/tagged"
 }
 
 const TABS: ReadonlyArray<Tab> = [
@@ -20,11 +20,6 @@ const TABS: ReadonlyArray<Tab> = [
     segment: "all",
     label: t("Uploads"),
     to: "/u/$username/all",
-  },
-  {
-    segment: "liked",
-    label: t("Liked"),
-    to: "/u/$username/liked",
   },
   {
     segment: "tagged",

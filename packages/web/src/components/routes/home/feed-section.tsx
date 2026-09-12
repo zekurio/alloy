@@ -28,8 +28,6 @@ function emptyTitle(filter: FeedFilter): string {
   switch (filter.kind) {
     case "all":
       return t("No public clips yet")
-    case "following":
-      return t("Your following feed is empty")
     case "game":
       return t("No clips in this game yet")
   }
@@ -39,8 +37,6 @@ function emptyHint(filter: FeedFilter): string {
   switch (filter.kind) {
     case "all":
       return t("Be the first to post one.")
-    case "following":
-      return t("Follow users to populate this tab.")
     case "game":
       return t("Be the first to post one.")
   }

@@ -33,10 +33,6 @@ export function batchProgress(
   return c.json({ [countKey]: count, hasMore })
 }
 
-export function likeState(c: Context, liked: boolean, likeCount: number) {
-  return c.json({ liked, likeCount })
-}
-
 export function accountState(c: Context, disabledAt: string | null) {
   return c.json({ disabledAt })
 }

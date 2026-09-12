@@ -16,9 +16,8 @@ import { Link } from "@tanstack/react-router"
 import {
   CheckIcon,
   CircleAlertIcon,
-  HeartIcon,
   LoaderCircleIcon,
-  MessageSquareIcon,
+  InfoIcon,
   MoreHorizontalIcon,
   PencilIcon,
   Share2Icon,
@@ -26,7 +25,6 @@ import {
 } from "lucide-react"
 import type { CSSProperties, ReactNode } from "react"
 
-import { formatCount } from "@/lib/number-format"
 import { userAvatar } from "@/lib/user-display"
 
 type ClipAuthorLinkProps = {
@@ -61,22 +59,18 @@ export function ClipAuthorLink({
 
 type MobileActionButtonProps = {
   icon: ReactNode
-  count?: number
   onClick: () => void
   disabled?: boolean
   className?: string
-  countClassName?: string
   ariaLabel: string
   title?: string
 }
 
 function MobileActionButton({
   icon,
-  count,
   onClick,
   disabled,
   className,
-  countClassName,
   ariaLabel,
   title,
 }: MobileActionButtonProps) {
@@ -90,9 +84,6 @@ function MobileActionButton({
       title={title}
     >
       {icon}
-      {count != null ? (
-        <span className={countClassName}>{formatCount(count)}</span>
-      ) : null}
     </button>
   )
 }
@@ -158,22 +149,14 @@ function ClipActionsMenu({
 
 type MobileActionsRailProps = {
   announcementAction?: ReactNode
-  liked: boolean
-  canLike: boolean
   canManage: boolean
   deleting: boolean
   downloadAction?: ReactNode
-  likeCount: number
-  likePending: boolean
-  likeError: string | null
-  commentCount: number
   shareState: "idle" | "pending" | "success" | "error"
   shareError: string | null
   shareDisabled: boolean
   iconSizeClassName: string
-  countClassName: string
-  onLike: () => void
-  onComments: () => void
+  onDetails: () => void
   onShare: () => void
   onEdit: () => void
   onDelete: () => void
@@ -181,22 +164,14 @@ type MobileActionsRailProps = {
 
 export function MobileActionsRail({
   announcementAction,
-  liked,
-  canLike,
   canManage,
   deleting,
   downloadAction,
-  likeCount,
-  likePending,
-  likeError,
-  commentCount,
   shareState,
   shareError,
   shareDisabled,
   iconSizeClassName,
-  countClassName,
-  onLike,
-  onComments,
+  onDetails,
   onShare,
   onEdit,
   onDelete,
@@ -204,40 +179,9 @@ export function MobileActionsRail({
   return (
     <>
       <MobileActionButton
-        onClick={onLike}
-        disabled={!canLike || likePending}
-        className="flex flex-col items-center gap-0.5 disabled:opacity-50"
-        ariaLabel={liked ? t("Unlike") : t("Like")}
-        title={likeError ?? undefined}
-        count={likeCount}
-        countClassName={countClassName}
-        icon={
-          likePending ? (
-            <LoaderCircleIcon
-              className={cn(iconSizeClassName, "animate-spin text-white")}
-            />
-          ) : likeError ? (
-            <CircleAlertIcon
-              className={cn(iconSizeClassName, "text-destructive")}
-            />
-          ) : (
-            <HeartIcon
-              className={cn(
-                iconSizeClassName,
-                liked ? "fill-red-500 text-red-500" : "text-white",
-              )}
-            />
-          )
-        }
-      />
-      <MobileActionButton
-        onClick={onComments}
-        ariaLabel={t("Comments")}
-        count={commentCount}
-        countClassName={countClassName}
-        icon={
-          <MessageSquareIcon className={cn(iconSizeClassName, "text-white")} />
-        }
+        onClick={onDetails}
+        ariaLabel={t("Details")}
+        icon={<InfoIcon className={cn(iconSizeClassName, "text-white")} />}
       />
       <MobileActionButton
         onClick={onShare}

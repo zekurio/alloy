@@ -2,27 +2,19 @@ import { randomUUID } from "node:crypto"
 
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
-import {
-  clip,
-  clipComment,
-  clipCommentLike,
-  clipLike,
-  clipView,
-  uploadTicket,
-} from "@alloy/db/schema"
+import { clip, clipView, uploadTicket } from "@alloy/db/schema"
 import type { AccountDisableSource } from "@alloy/server/auth/account-state"
 import {
   disableUserIdentity,
   type AuthTransaction,
 } from "@alloy/server/auth/identity"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
-import { publishClipUpsertById } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { enqueueStorageDeletions } from "@alloy/server/storage/deletion-store"
 import { wakeStorageDeletionWorker } from "@alloy/server/storage/deletion-worker"
 import { withUploadActivityStopped } from "@alloy/server/uploads/activity"
 import { deleteOwnedUploadTicketsWithStorageIntents } from "@alloy/server/uploads/tickets"
-import { and, eq, inArray, sql } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 
 import { accountDeletionState } from "./account-deletion-state"
 import { userAssetDeletionIntents } from "./user-asset-deletion"
@@ -40,7 +32,6 @@ type FinalTransactionResult =
   | { kind: "retry-clips" }
   | {
       kind: "deleted"
-      affectedClipIds: string[]
       queuedDeletions: number
     }
 
@@ -100,9 +91,6 @@ async function runAccountDeletion(
       if (finalized.kind === "not-found") return "not-found"
 
       if (finalized.queuedDeletions > 0) wakeStorageDeletionWorker()
-      for (const clipId of finalized.affectedClipIds) {
-        void publishClipUpsertById(clipId)
-      }
       return "deleted"
     } catch (cause) {
       if (cause instanceof UngatedUploadTargetError) continue
@@ -182,7 +170,6 @@ async function finalizeAccountDeletion(
     throw new UngatedUploadTargetError()
   }
 
-  const descendantClipIds = await selectAuthoredCommentTreeClipIds(tx, userId)
   const assetIntents = [
     ...userAssetDeletionIntents({
       userId,
@@ -205,19 +192,6 @@ async function finalizeAccountDeletion(
     `account ${userId} deleted`,
     tx,
   )
-
-  const deletedLikes = await tx
-    .delete(clipLike)
-    .where(eq(clipLike.user_id, userId))
-    .returning({ clipId: clipLike.clip_id })
-  const deletedCommentLikes = await tx
-    .delete(clipCommentLike)
-    .where(eq(clipCommentLike.user_id, userId))
-    .returning({ commentId: clipCommentLike.comment_id })
-  const deletedComments = await tx
-    .delete(clipComment)
-    .where(eq(clipComment.author_id, userId))
-    .returning({ id: clipComment.id, clipId: clipComment.clip_id })
 
   const viewRows = await tx
     .select({ clipId: clipView.clip_id, viewerKey: clipView.viewer_key })
@@ -243,114 +217,14 @@ async function finalizeAccountDeletion(
     .returning({ id: user.id })
   if (!deletedUser) throw new Error("Locked user could not be deleted")
 
-  const { affectedCommentIds, affectedClipIds } =
-    accountDeletionCounterRepairPlan({
-      authoredCommentClipIds: [
-        ...descendantClipIds,
-        ...deletedComments.map((row) => row.clipId),
-      ],
-      likedClipIds: deletedLikes.map((row) => row.clipId),
-      likedCommentIds: deletedCommentLikes.map((row) => row.commentId),
-    })
-
-  // Existing engagement writes lock child rows before their cached parent.
-  // Follow that order, lock parents canonically, then recompute in subsequent
-  // statements so READ COMMITTED snapshots include writers we waited for.
-  if (affectedCommentIds.length > 0) {
-    await tx
-      .select({ id: clipComment.id })
-      .from(clipComment)
-      .where(inArray(clipComment.id, affectedCommentIds))
-      .orderBy(clipComment.id)
-      .for("update")
-  }
-  if (affectedClipIds.length > 0) {
-    await tx
-      .select({ id: clip.id })
-      .from(clip)
-      .where(inArray(clip.id, affectedClipIds))
-      .orderBy(clip.id)
-      .for("update")
-  }
-  if (affectedCommentIds.length > 0) {
-    await tx
-      .update(clipComment)
-      .set({
-        like_count: sql<number>`(
-          select count(*)::int
-          from ${clipCommentLike}
-          where ${clipCommentLike.comment_id} = ${clipComment.id}
-        )`,
-      })
-      .where(inArray(clipComment.id, affectedCommentIds))
-  }
-  if (affectedClipIds.length > 0) {
-    await tx
-      .update(clip)
-      .set({
-        like_count: sql<number>`(
-          select count(*)::int
-          from ${clipLike}
-          where ${clipLike.clip_id} = ${clip.id}
-        )`,
-        comment_count: sql<number>`(
-          select count(*)::int
-          from ${clipComment}
-          where ${clipComment.clip_id} = ${clip.id}
-        )`,
-      })
-      .where(inArray(clip.id, affectedClipIds))
-  }
-
   return {
     kind: "deleted",
-    affectedClipIds,
     queuedDeletions: assetIntents.length + stagedIntentCount,
   }
 }
 
-async function selectAuthoredCommentTreeClipIds(
-  tx: AuthTransaction,
-  userId: string,
-): Promise<string[]> {
-  const result = await tx.execute<{ clipId: string }>(sql`
-    with recursive account_comment_tree as (
-      select ${clipComment.id} as id, ${clipComment.clip_id} as clip_id
-      from ${clipComment}
-      where ${clipComment.author_id} = ${userId}
-      union
-      select child.id, child.clip_id
-      from ${clipComment} as child
-      inner join account_comment_tree as parent
-        on child.parent_id = parent.id
-    )
-    select distinct clip_id as "clipId"
-    from account_comment_tree
-  `)
-  return canonicalIds(result.rows.map((row) => row.clipId))
-}
-
 export function canonicalIds(ids: readonly string[]): string[] {
   return [...new Set(ids.map((id) => id.toLowerCase()))].sort()
-}
-
-export function accountDeletionCounterRepairPlan(input: {
-  authoredCommentClipIds: readonly string[]
-  likedClipIds: readonly string[]
-  likedCommentIds: readonly string[]
-}): AccountDeletionCounterRepairPlan {
-  return {
-    affectedClipIds: canonicalIds([
-      ...input.authoredCommentClipIds,
-      ...input.likedClipIds,
-    ]),
-    affectedCommentIds: canonicalIds(input.likedCommentIds),
-  }
-}
-
-export interface AccountDeletionCounterRepairPlan {
-  affectedClipIds: string[]
-  affectedCommentIds: string[]
 }
 
 export function postgresErrorHasCode(

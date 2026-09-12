@@ -1,7 +1,7 @@
 import type { PublicUser, UserListRow, UserSummary } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
-import { block, clip, follow } from "@alloy/db/schema"
+import { block, clip } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
@@ -141,38 +141,11 @@ export async function resolveTarget(segment: string): Promise<UserRow | null> {
   return row ?? null
 }
 
-export async function listFollowers(row: UserRow) {
-  const rows = await db
-    .select({
-      ...userSummarySelection,
-    })
-    .from(follow)
-    .innerJoin(user, eq(user.id, follow.follower_id))
-    .where(and(eq(follow.following_id, row.id), isNull(user.disabled_at)))
-    .orderBy(user.username)
-    .limit(200)
-  return rows.map(serialiseUserSummary)
-}
-
-export async function listFollowing(row: UserRow) {
-  const rows = await db
-    .select({
-      ...userSummarySelection,
-    })
-    .from(follow)
-    .innerJoin(user, eq(user.id, follow.following_id))
-    .where(and(eq(follow.follower_id, row.id), isNull(user.disabled_at)))
-    .orderBy(user.username)
-    .limit(200)
-  return rows.map(serialiseUserSummary)
-}
-
 export async function resolveViewerState(
   viewerId: string | null,
   targetId: string,
 ): Promise<{
   isSelf: boolean
-  isFollowing: boolean
   isBlocked: boolean
   isBlockedBy: boolean
 } | null> {
@@ -182,40 +155,26 @@ export async function resolveViewerState(
   if (isSelf) {
     return {
       isSelf: true,
-      isFollowing: false,
       isBlocked: false,
       isBlockedBy: false,
     }
   }
 
-  const [followRow, blockRows] = await Promise.all([
-    db
-      .select({ id: follow.id })
-      .from(follow)
-      .where(
-        and(
-          eq(follow.follower_id, viewerId),
-          eq(follow.following_id, targetId),
-        ),
-      )
-      .limit(1),
-    db
-      .select({
-        blockerId: block.blocker_id,
-        blockedId: block.blocked_id,
-      })
-      .from(block)
-      .where(
-        or(
-          and(eq(block.blocker_id, viewerId), eq(block.blocked_id, targetId)),
-          and(eq(block.blocker_id, targetId), eq(block.blocked_id, viewerId)),
-        ),
+  const blockRows = await db
+    .select({
+      blockerId: block.blocker_id,
+      blockedId: block.blocked_id,
+    })
+    .from(block)
+    .where(
+      or(
+        and(eq(block.blocker_id, viewerId), eq(block.blocked_id, targetId)),
+        and(eq(block.blocker_id, targetId), eq(block.blocked_id, viewerId)),
       ),
-  ])
+    )
 
   return {
     isSelf: false,
-    isFollowing: followRow.length > 0,
     isBlocked: blockRows.some((b) => b.blockerId === viewerId),
     isBlockedBy: blockRows.some((b) => b.blockerId === targetId),
   }
@@ -233,28 +192,9 @@ export async function selectProfileCounts(
     clipConditions.push(publicClipPrivacyCondition())
   }
 
-  const [
-    [{ value: clipCount }],
-    [{ value: followerCount }],
-    [{ value: followingCount }],
-  ] = await Promise.all([
-    db
-      .select({ value: count() })
-      .from(clip)
-      .where(and(...clipConditions)),
-    db
-      .select({ value: count() })
-      .from(follow)
-      .where(eq(follow.following_id, targetId)),
-    db
-      .select({ value: count() })
-      .from(follow)
-      .where(eq(follow.follower_id, targetId)),
-  ])
-
-  return {
-    clips: clipCount,
-    followers: followerCount,
-    following: followingCount,
-  }
+  const [{ value: clipCount }] = await db
+    .select({ value: count() })
+    .from(clip)
+    .where(and(...clipConditions))
+  return { clips: clipCount }
 }

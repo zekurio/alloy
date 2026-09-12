@@ -3,32 +3,14 @@ import { db } from "@alloy/server/db/index"
 import {
   badRequest,
   booleanFlag,
-  forbidden,
   notFound,
 } from "@alloy/server/runtime/http-response"
-import { and, eq, or } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import type { Context } from "hono"
 
 import { resolveTarget, type UserRow } from "./users-helpers"
 
 type UserTargetResult = { target: UserRow } | { response: Response }
-
-async function hasBlockingRelationship(
-  viewerId: string,
-  targetId: string,
-): Promise<boolean> {
-  const [row] = await db
-    .select({ id: block.id })
-    .from(block)
-    .where(
-      or(
-        and(eq(block.blocker_id, viewerId), eq(block.blocked_id, targetId)),
-        and(eq(block.blocker_id, targetId), eq(block.blocked_id, viewerId)),
-      ),
-    )
-    .limit(1)
-  return row !== undefined
-}
 
 export async function resolveUserTarget(
   c: Context,
@@ -45,7 +27,6 @@ export async function resolveRelationshipTarget(
     username: string
     viewerId: string
     selfError?: string
-    rejectBlockedRelationship?: boolean
   },
 ): Promise<UserTargetResult> {
   const result = await resolveUserTarget(c, input.username)
@@ -54,15 +35,6 @@ export async function resolveRelationshipTarget(
 
   if (input.selfError && input.viewerId === target.id) {
     return { response: badRequest(c, input.selfError) }
-  }
-
-  if (
-    input.rejectBlockedRelationship &&
-    (await hasBlockingRelationship(input.viewerId, target.id))
-  ) {
-    return {
-      response: forbidden(c, "Can't follow a blocked user."),
-    }
   }
 
   return { target }

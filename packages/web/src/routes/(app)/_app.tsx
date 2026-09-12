@@ -41,7 +41,7 @@ export const Route = createFileRoute("/(app)/_app")({
 })
 
 function AppLayout() {
-  const { clip, comment, settings, welcome } = Route.useSearch()
+  const { clip, settings, welcome } = Route.useSearch()
   const session = useSuspenseSession()
   const navigate = useNavigate()
 
@@ -51,7 +51,6 @@ function AppLayout() {
       search: (prev: AppSearch) => ({
         ...prev,
         clip: undefined,
-        comment: undefined,
       }),
       replace: true,
     })
@@ -64,7 +63,6 @@ function AppLayout() {
         search: (prev: AppSearch) => ({
           ...prev,
           clip: entry.id,
-          comment: undefined,
         }),
         mask: entry.gameId
           ? {
@@ -115,7 +113,6 @@ function AppLayout() {
       </UploadFlowProvider>
       <ClipViewerDialog
         clipId={clip ?? null}
-        focusedCommentId={comment ?? null}
         onClose={handleCloseClipModal}
         onNavigate={handleNavigateClip}
       />

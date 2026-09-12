@@ -9,19 +9,15 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 
-import { NotificationBell } from "@/components/notifications/notification-bell"
-import { useSuspenseSession } from "@/lib/session-suspense"
-
 import { useNavFlags } from "./use-nav-flags"
 
 /**
  * Mobile primary navigation. Hidden on md+, where the sidebar rail takes over.
  * Account access lives in the header. This icon-only bar stays focused on
- * navigation and notifications.
+ * navigation.
  */
 export function MobileBottomNav() {
   const { isHome, isGames, isLibrary, isScreenshots } = useNavFlags()
-  const session = useSuspenseSession()
 
   return (
     <nav
@@ -35,7 +31,7 @@ export function MobileBottomNav() {
       <div
         className={cn(
           "grid h-[var(--bottomnav-h)] items-stretch",
-          session ? "grid-cols-5" : "grid-cols-4",
+          "grid-cols-4",
         )}
       >
         <BottomNavLink
@@ -62,7 +58,6 @@ export function MobileBottomNav() {
           label={t("Library")}
           icon={<LibraryIcon />}
         />
-        {session ? <NotificationBell variant="bottom-nav" /> : null}
       </div>
     </nav>
   )

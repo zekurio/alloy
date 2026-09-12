@@ -2,7 +2,7 @@ import { MEDIA_FILTERS, type MediaFilter } from "@alloy/contracts"
 
 import { searchEnum, searchString } from "./route-search"
 
-const SORT_KEYS = ["recent", "oldest", "top", "views"] as const
+const SORT_KEYS = ["recent", "oldest", "views"] as const
 
 export type ProfileClipSort = (typeof SORT_KEYS)[number]
 
