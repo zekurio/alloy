@@ -12,10 +12,6 @@ import { warmDatabase } from "./db"
 import { env } from "./env"
 import { configureTranscode } from "./media/transcode-settings"
 import {
-  startNotificationExpiryWorker,
-  stopNotificationExpiryWorker,
-} from "./notifications/expiry"
-import {
   startClipMediaWorker,
   stopClipMediaWorker,
 } from "./queue/clip-media-worker"
@@ -84,9 +80,6 @@ try {
   // Auth challenge TTLs use their own indexed deadline coordinator rather
   // than manufacturing recurring generic jobs.
   startAuthChallengeExpiryWorker()
-  // Notification retention has different read/unread deadlines. Start its
-  // indexed coordinator before accepting notification mutations.
-  startNotificationExpiryWorker()
   // Pending clip uploads and detached ticket owners share one globally ordered
   // deadline coordinator. Pending clips retain exact-object crash recovery.
   startUploadExpiryWorker()
@@ -126,7 +119,6 @@ const shutdown = () => {
     stopClipMediaWorker(),
     stopStorageDeletionWorker(),
     stopAuthChallengeExpiryWorker(),
-    stopNotificationExpiryWorker(),
     stopUploadExpiryWorker(),
     stopWebhookDeliveryWorker(),
   ])

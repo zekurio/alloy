@@ -11,12 +11,11 @@ import { notFound, success } from "@alloy/server/runtime/http-response"
 import { and, eq, sql } from "drizzle-orm"
 import { Hono } from "hono"
 
-import { clipCommentsRoutes } from "./clip-comments"
 import { clipsAnnouncementRoutes } from "./clips-announcements"
-import { clipsEngagementRoutes } from "./clips-engagement"
 import { IdParam } from "./clips-helpers"
 import { clipsPlaybackRoutes } from "./clips-playback"
 import { clipsUploadRoutes } from "./clips-upload"
+import { clipsViewRoutes } from "./clips-views"
 import { tbValidator } from "./validation"
 
 export const clips = new Hono()
@@ -54,6 +53,5 @@ export const clips = new Hono()
   })
   .route("/", clipsUploadRoutes)
   .route("/", clipsAnnouncementRoutes)
-  .route("/", clipsEngagementRoutes)
+  .route("/", clipsViewRoutes)
   .route("/", clipsPlaybackRoutes)
-  .route("/", clipCommentsRoutes)

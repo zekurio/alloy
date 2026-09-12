@@ -5,11 +5,9 @@ import { useCallback, useEffect, useState } from "react"
 import { ClipViewerDialog } from "@/components/clip/clip-viewer-dialog"
 import { goBackInBrowserHistory } from "@/lib/browser-url"
 import { clipDetailQueryOptions } from "@/lib/clip-queries"
-import { parseClipRouteSearch } from "@/lib/clip-route-search"
 
 export const Route = createFileRoute("/(app)/_app/games/$gameId/clips/$clipId")(
   {
-    validateSearch: parseClipRouteSearch,
     loader: async ({ context, params }) => {
       try {
         const clip = await context.queryClient.ensureQueryData(
@@ -36,7 +34,6 @@ export const Route = createFileRoute("/(app)/_app/games/$gameId/clips/$clipId")(
 
 function ClipModalRoute() {
   const { gameId, clipId } = Route.useParams()
-  const { comment } = Route.useSearch()
   const router = useRouter()
   const [modalClipId, setModalClipId] = useState<string | null>(clipId)
 
@@ -82,7 +79,6 @@ function ClipModalRoute() {
   return (
     <ClipViewerDialog
       clipId={modalClipId}
-      focusedCommentId={comment ?? null}
       onClose={handleClose}
       onNavigate={handleNavigate}
     />

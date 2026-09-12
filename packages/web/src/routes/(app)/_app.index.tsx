@@ -18,7 +18,6 @@ const HomePageInner = lazy(loadHomePageInner)
 export const Route = createFileRoute("/(app)/_app/")({
   validateSearch: parseHomeSearch,
   loaderDeps: ({ search }) => ({
-    feed: search.feed,
     game: search.game,
     sort: search.sort,
   }),

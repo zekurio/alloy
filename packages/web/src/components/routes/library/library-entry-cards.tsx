@@ -64,11 +64,6 @@ export function LibraryCaptureCard({
       streamUrl={
         item.kind === "screenshot" ? undefined : versionedLocalMediaUrl(item)
       }
-      imageAspectRatio={
-        item.kind === "screenshot" && item.width && item.height
-          ? item.width / item.height
-          : undefined
-      }
       streamRange={
         item.trimStartMs !== null && item.trimEndMs !== null
           ? {
@@ -187,11 +182,6 @@ export function UploadedClipCard({
   )
   return (
     <ClipCard
-      imageAspectRatio={
-        row.mediaKind === "image" && row.width && row.height
-          ? row.width / row.height
-          : undefined
-      }
       title={card.title}
       titleContent={<LibraryCardTitle title={card.title} />}
       author=""

@@ -9,14 +9,6 @@ import {
   DropdownMenuTrigger,
 } from "@alloy/ui/components/dropdown-menu"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import {
-  Tabs,
-  TabsContent,
-  TabsCount,
-  TabsList,
-  TabsTrigger,
-} from "@alloy/ui/components/tabs"
-import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import {
   ChevronUpIcon,
@@ -27,11 +19,10 @@ import {
   Link2OffIcon,
   SaveIcon,
 } from "lucide-react"
-import { useRef, useState } from "react"
+import { useRef } from "react"
 import type { ComponentType } from "react"
 
 import { useClipMetadataDraft } from "@/components/clip-editor/use-clip-metadata-draft"
-import { ClipComments } from "@/components/clip/clip-comments"
 import { ClipMetadataEditor } from "@/components/clip/clip-metadata-editor"
 import { absoluteClipHref } from "@/lib/app-paths"
 import { useUpdateClipMutation } from "@/lib/clip-queries"
@@ -110,10 +101,6 @@ interface ClipDetailsProps {
   onSaveMedia: () => void
 }
 
-interface ClipEditorTabsProps extends ClipDetailsProps {
-  commentsFlow?: "column" | "page"
-}
-
 function gameRowFromRef(row: ClipRow): GameRow | null {
   const ref = row.gameRef
   if (!ref) return null
@@ -133,53 +120,8 @@ function gameRowFromRef(row: ClipRow): GameRow | null {
   }
 }
 
-export function ClipEditorTabs({
-  commentsFlow = "column",
-  ...props
-}: ClipEditorTabsProps) {
-  const { row } = props
-  const [tab, setTab] = useState("details")
-
-  return (
-    <Tabs
-      value={tab}
-      onValueChange={(value) => setTab(String(value))}
-      className="flex min-h-0 flex-1 flex-col gap-0"
-    >
-      <TabsList className="shrink-0 px-4 pt-1">
-        <TabsTrigger value="details">{t("Details")}</TabsTrigger>
-        <TabsTrigger value="comments">
-          {t("Comments")}
-          {row.commentCount > 0 ? (
-            <TabsCount>{row.commentCount}</TabsCount>
-          ) : null}
-        </TabsTrigger>
-      </TabsList>
-
-      <TabsContent
-        value="details"
-        className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4"
-      >
-        <ClipDetailsForm {...props} />
-      </TabsContent>
-
-      <TabsContent value="comments" className="min-h-0 flex-1">
-        <ClipComments
-          clipId={row.id}
-          clipAuthorId={row.authorId}
-          showCount={false}
-          className={cn(
-            "border-l-0",
-            commentsFlow === "page" && "h-auto min-h-64 grid-rows-[auto_auto]",
-          )}
-        />
-      </TabsContent>
-    </Tabs>
-  )
-}
-
 /** Metadata sheet: the dialog editor's fields and dirty tracking, inline. */
-function ClipDetailsForm({
+export function ClipEditorDetails({
   row,
   localItem,
   canManage,
@@ -320,7 +262,7 @@ function ClipDetailsForm({
         : mediaError
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto p-4">
       <ClipMetadataEditor
         title={title}
         onTitleChange={setTitle}
@@ -431,6 +373,6 @@ function ClipDetailsForm({
           </div>
         </div>
       ) : null}
-    </>
+    </div>
   )
 }

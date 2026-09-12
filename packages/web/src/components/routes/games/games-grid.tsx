@@ -13,8 +13,8 @@ export function GamesGrid({ children }: GamesGridProps) {
         // full-width card on narrow viewports and fan out to a few across
         // on desktop.
         "grid gap-4",
-        "[grid-template-columns:repeat(auto-fill,minmax(min(100%,360px),1fr))]",
-        "xl:[grid-template-columns:repeat(auto-fill,minmax(420px,1fr))]",
+        "grid-cols-1 md:[grid-template-columns:repeat(auto-fill,minmax(min(100%,320px),1fr))]",
+        "xl:[grid-template-columns:repeat(auto-fill,minmax(380px,1fr))]",
       )}
     >
       {children}

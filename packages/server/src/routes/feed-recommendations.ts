@@ -1,12 +1,13 @@
 import type { FeedPage } from "@alloy/contracts"
 import { user } from "@alloy/db/auth-schema"
-import { clip, follow, game, gameFollow } from "@alloy/db/schema"
+import { clip, clipView, game } from "@alloy/db/schema"
 import { clipSelection, toPublicClipRow } from "@alloy/server/clips/select"
 import { db } from "@alloy/server/db/index"
 import { requiredSql } from "@alloy/server/db/sql"
 import { dateFromDateLike, isoDate } from "@alloy/server/runtime/date"
-import { and, eq, lt, or, type SQL, sql } from "drizzle-orm"
+import { and, eq, lt, lte, or, type SQL, sql } from "drizzle-orm"
 
+import { publicClipListingConditions } from "./clips-helpers"
 import {
   cursorDate,
   cursorFiniteNumber,
@@ -83,38 +84,6 @@ function recommendedClipPage(
   }
 }
 
-function rankScore(viewerId: string | null, asOf: string) {
-  const vid = viewerId ?? null
-  return sql<number>`
-    (
-      (${clip.like_count} + 0.1 * ${clip.view_count})
-      / power(
-          extract(epoch from (${asOf}::timestamp - ${clip.published_at})) / 3600.0 + 2.0,
-          1.5
-        )
-    )
-    * (
-        1.0
-        + 1.0 * (
-            CASE WHEN ${vid}::uuid IS NULL THEN 0
-                 WHEN EXISTS (
-                    SELECT 1 FROM ${follow}
-                    WHERE ${follow.follower_id} = ${vid}::uuid
-                      AND ${follow.following_id} = ${clip.author_id}
-                 ) THEN 1 ELSE 0 END
-          )
-        + 0.5 * (
-            CASE WHEN ${vid}::uuid IS NULL THEN 0
-                 WHEN EXISTS (
-                    SELECT 1 FROM ${gameFollow}
-                    WHERE ${gameFollow.user_id} = ${vid}::uuid
-                      AND ${gameFollow.game_id} = ${clip.game_id}
-                 ) THEN 1 ELSE 0 END
-          )
-      )
-  `
-}
-
 function recommendedCursorCondition(
   cursor: RecommendedClipCursor | null,
   score: SQL<number>,
@@ -140,15 +109,66 @@ function recommendedCursorCondition(
 }
 
 async function selectRecommendedClipRows(
-  pageConditions: SQL[],
-  score: SQL<number>,
+  conditions: SQL[],
+  cursor: RecommendedClipCursor | null,
   limit: number,
+  viewerId: string | null,
+  asOf: Date,
 ) {
+  // Qualified views are unique per viewer/clip. Read preferences through the
+  // existing user/clip index, with no separate preference store to maintain.
+  const watched = db.$with("viewer_history").as(
+    db
+      .select({ authorId: clip.author_id, gameId: clip.game_id })
+      .from(clipView)
+      .innerJoin(clip, eq(clipView.clip_id, clip.id))
+      .innerJoin(user, eq(clip.author_id, user.id))
+      .where(
+        and(
+          sql`${clipView.user_id} = ${viewerId}::uuid`,
+          sql`${clip.author_id} <> ${viewerId}::uuid`,
+          // View timestamps use database-local now(); let PostgreSQL apply
+          // its time zone when comparing them to the UTC pagination anchor.
+          sql`${clipView.created_at} <= ${isoDate(asOf)}::timestamptz`,
+          ...publicClipListingConditions("video"),
+        ),
+      ),
+  )
+  const authorViews = db
+    .select({
+      authorId: watched.authorId,
+      views: sql<number>`count(*)::int`.as("author_view_count"),
+    })
+    .from(watched)
+    .groupBy(watched.authorId)
+    .as("author_views")
+  const gameViews = db
+    .select({
+      gameId: watched.gameId,
+      views: sql<number>`count(*)::int`.as("game_view_count"),
+    })
+    .from(watched)
+    .groupBy(watched.gameId)
+    .as("game_views")
+  const score = sql<number>`
+    ((1.0 + ${clip.view_count})
+    / power(extract(epoch from (${isoDate(asOf)}::timestamptz - ${clip.published_at})) / 3600.0 + 2.0, 1.5)
+    * (1.0
+       + least(2.0, ln(1.0 + coalesce(${authorViews.views}, 0)))
+       + 0.5 * least(2.0, ln(1.0 + coalesce(${gameViews.views}, 0)))))::double precision
+  `
+  const pageConditions = [...conditions, lte(clip.published_at, asOf)]
+  const cursorCondition = recommendedCursorCondition(cursor, score)
+  if (cursorCondition) pageConditions.push(cursorCondition)
+
   return db
+    .with(watched)
     .select({ ...clipSelection, rankScore: score })
     .from(clip)
     .innerJoin(user, eq(clip.author_id, user.id))
     .leftJoin(game, eq(clip.game_id, game.id))
+    .leftJoin(authorViews, eq(clip.author_id, authorViews.authorId))
+    .leftJoin(gameViews, eq(clip.game_id, gameViews.gameId))
     .where(and(...pageConditions))
     .orderBy(sql`${score} desc`, sql`${clip.published_at} desc`, clip.id)
     .limit(limit + 1)
@@ -166,12 +186,12 @@ export async function listRecommendedClips({
   viewerId: string | null
 }): Promise<FeedPage> {
   const asOf = cursor?.asOf ?? new Date()
-  const score = rankScore(viewerId, isoDate(asOf))
-  const pageConditions = [...conditions]
-  const cursorCondition = recommendedCursorCondition(cursor, score)
-  if (cursorCondition) pageConditions.push(cursorCondition)
-
-  const rows = await selectRecommendedClipRows(pageConditions, score, limit)
-
+  const rows = await selectRecommendedClipRows(
+    conditions,
+    cursor,
+    limit,
+    viewerId,
+    asOf,
+  )
   return recommendedClipPage(rows, limit, asOf)
 }

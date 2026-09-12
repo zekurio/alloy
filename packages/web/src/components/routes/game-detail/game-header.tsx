@@ -1,5 +1,4 @@
 import type { GameDetail } from "@alloy/api"
-import { UNCATEGORISED_GAME_ID } from "@alloy/contracts"
 import { t, tp } from "@alloy/i18n"
 import { MediaPlaceholder } from "@alloy/ui/components/media-placeholder"
 import { cn } from "@alloy/ui/lib/utils"
@@ -11,35 +10,21 @@ import { desktopCachedAssetUrl } from "@/lib/desktop"
 import { gameDisplayName } from "@/lib/game-display-name"
 import { formatCount } from "@/lib/number-format"
 
-import { GameFavoriteButton } from "./game-favorite-button"
-
 function releaseYear(releaseDate: string | null): number | null {
   if (!releaseDate) return null
   const year = new Date(releaseDate).getUTCFullYear()
   return Number.isFinite(year) ? year : null
 }
 
-export function GameHeader({
-  game,
-  viewerId,
-}: {
-  game: GameDetail
-  viewerId: string | null
-}) {
+export function GameHeader({ game }: { game: GameDetail }) {
   return (
     <header className="w-full min-w-0">
-      <GameHeroBanner game={game} viewerId={viewerId} />
+      <GameHeroBanner game={game} />
     </header>
   )
 }
 
-function GameHeroBanner({
-  game,
-  viewerId,
-}: {
-  game: GameDetail
-  viewerId: string | null
-}) {
+function GameHeroBanner({ game }: { game: GameDetail }) {
   const [failedHeaderUrls, setFailedHeaderUrls] = useState<readonly string[]>(
     [],
   )
@@ -104,22 +89,9 @@ function GameHeroBanner({
                 {name}
               </h1>
             )}
-            {game.id !== UNCATEGORISED_GAME_ID ? (
-              <GameFavoriteButton
-                gameId={game.slug}
-                viewerId={viewerId}
-                viewer={game.viewer}
-                className="shrink-0 shadow-[0_6px_18px_oklch(0_0_0_/_0.35)]"
-              />
-            ) : null}
           </div>
 
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-white/75">
-            <HeroStat
-              value={game.favouritesCount}
-              label={tp(game.favouritesCount, "favourite", "favourites")}
-            />
-            <HeroDot />
             <HeroStat
               value={game.clipCount}
               label={tp(game.clipCount, "clip", "clips")}

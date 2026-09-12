@@ -8,10 +8,8 @@ import {
   type CreateApiOptions,
 } from "./client"
 import { createClipsApi } from "./clips"
-import { createCommentsApi } from "./comments"
 import { createFeedApi } from "./feed"
 import { createGamesApi } from "./games"
-import { createNotificationsApi, type NotificationsApi } from "./notifications"
 import { createSearchApi } from "./search"
 import { createServerInfoApi } from "./server-info"
 import { createTagsApi } from "./tags"
@@ -21,12 +19,10 @@ export * from "./admin"
 export * from "./auth-config"
 export * from "./client"
 export * from "./clips"
-export * from "./comments"
 export * from "./feed"
 export * from "./games"
 export * from "./http"
 export * from "./json-value"
-export * from "./notifications"
 export * from "./paths"
 export * from "./search"
 export * from "./server-info"
@@ -37,12 +33,10 @@ export interface AlloyApi extends ApiContext {
   admin: ReturnType<typeof createAdminApi>
   authConfig: ReturnType<typeof createAuthConfigApi>
   clips: ReturnType<typeof createClipsApi>
-  comments: ReturnType<typeof createCommentsApi>
   feed: ReturnType<typeof createFeedApi>
   games: ReturnType<typeof createGamesApi>
   search: ReturnType<typeof createSearchApi>
   serverInfo: ReturnType<typeof createServerInfoApi>
-  notifications: NotificationsApi
   tags: ReturnType<typeof createTagsApi>
   users: ReturnType<typeof createUsersApi>
 }
@@ -60,10 +54,8 @@ export function createApi(
     admin: createAdminApi(context),
     authConfig: createAuthConfigApi(context),
     clips: createClipsApi(context),
-    comments: createCommentsApi(context),
     feed: createFeedApi(context),
     games: createGamesApi(context),
-    notifications: createNotificationsApi(context),
     search: createSearchApi(context),
     serverInfo: createServerInfoApi(context),
     tags: createTagsApi(context),

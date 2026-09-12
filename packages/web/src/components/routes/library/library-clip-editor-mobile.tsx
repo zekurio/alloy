@@ -26,7 +26,7 @@ import {
 } from "@/components/video/video-player"
 import { formatTrimMs } from "@/lib/media-time"
 
-import { ClipEditorTabs } from "./library-clip-editor-details"
+import { ClipEditorDetails } from "./library-clip-editor-details"
 import {
   ClipEditorPreviewPlaceholder,
   type ClipEditorMediaState,
@@ -52,7 +52,10 @@ interface MobileClipEditorProps {
   initialTrim: TrimRange | undefined
   prevEntry: NavigableLibraryEntry | null
   nextEntry: NavigableLibraryEntry | null
-  tabs: Omit<Parameters<typeof ClipEditorTabs>[0], "row" | "onSaveMedia"> & {
+  details: Omit<
+    Parameters<typeof ClipEditorDetails>[0],
+    "row" | "onSaveMedia"
+  > & {
     /** Resolves true only when the trim was persisted. */
     onSaveMedia: () => Promise<boolean>
   }
@@ -74,7 +77,7 @@ export function MobileClipEditor({
   initialTrim,
   prevEntry,
   nextEntry,
-  tabs,
+  details,
 }: MobileClipEditorProps) {
   const [trimming, setTrimming] = useState(false)
 
@@ -85,14 +88,14 @@ export function MobileClipEditor({
         media={media}
         playback={playback}
         canManage={canManage}
-        canSaveTrim={tabs.canSaveMedia}
-        trimPending={tabs.mediaPending}
-        trimError={tabs.mediaError}
+        canSaveTrim={details.canSaveMedia}
+        trimPending={details.mediaPending}
+        trimError={details.mediaError}
         onSaveTrim={() => {
           // Stay in the trim view while the save is pending (the button shows
           // "Saving…") and on failure, so the unsaved handles remain editable;
           // the mutation already toasts the error.
-          void tabs.onSaveMedia().then((saved) => {
+          void details.onSaveMedia().then((saved) => {
             if (saved) setTrimming(false)
           })
         }}
@@ -149,7 +152,7 @@ export function MobileClipEditor({
       ) : null}
 
       <Card tone="surface" role="complementary" className="min-w-0">
-        <ClipEditorTabs row={row} commentsFlow="page" {...tabs} />
+        <ClipEditorDetails row={row} {...details} />
       </Card>
     </section>
   )

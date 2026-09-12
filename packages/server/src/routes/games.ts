@@ -8,9 +8,8 @@ import {
 } from "@alloy/contracts"
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
-import { clip, game, gameFollow } from "@alloy/db/schema"
+import { clip, game } from "@alloy/db/schema"
 import { requireSession } from "@alloy/server/auth/require-session"
-import { getSession } from "@alloy/server/auth/session"
 import { db } from "@alloy/server/db/index"
 import { lookupGamesByName } from "@alloy/server/games/lookup"
 import {
@@ -25,8 +24,6 @@ import {
   searchGames,
 } from "@alloy/server/games/steamgriddb"
 import {
-  badRequest,
-  booleanFlag,
   errorResult,
   steamgriddbStatus,
   notFound,
@@ -54,15 +51,6 @@ const CreatorsQuery = t.object({
 type ResolvedGameRef =
   | { row: GameRow; response?: never }
   | { row?: never; response: Response }
-
-async function resolveFollowGame(c: Context, slug: string) {
-  const resolved = await resolveSteamGridDBGameRefByParam(c, slug)
-  if (resolved.response) return resolved
-  if (resolved.row.id === UNCATEGORISED_GAME_ID) {
-    return { response: badRequest(c, "Uncategorised cannot be followed") }
-  }
-  return resolved
-}
 
 async function resolveSteamGridDBGameRef(
   c: Context,
@@ -226,33 +214,9 @@ export const gamesRoute = new Hono()
       if (gameId === UNCATEGORISED_GAME_ID) {
         return c.json({
           ...resolved.row,
-          viewer: null,
-          favouritesCount: 0,
           clipCount: await publicUncategorisedClipCount(media),
         })
       }
-
-      const session = await getSession(c)
-      let viewer: { isFollowing: boolean } | null = null
-      if (session?.user.status === "active") {
-        const [followRow] = await db
-          .select({ id: gameFollow.id })
-          .from(gameFollow)
-          .where(
-            and(
-              eq(gameFollow.user_id, session.user.id),
-              eq(gameFollow.game_id, gameId),
-            ),
-          )
-          .limit(1)
-        viewer = { isFollowing: followRow !== undefined }
-      }
-
-      const [{ value: favouritesCount }] = await db
-        .select({ value: sql<number>`count(*)::int` })
-        .from(gameFollow)
-        .innerJoin(user, eq(user.id, gameFollow.user_id))
-        .where(and(eq(gameFollow.game_id, gameId), isNull(user.disabled_at)))
 
       const [{ value: clipCount }] = await db
         .select({ value: sql<number>`count(*)::int` })
@@ -264,8 +228,6 @@ export const gamesRoute = new Hono()
 
       return c.json({
         ...resolved.row,
-        viewer,
-        favouritesCount,
         clipCount,
       })
     },
@@ -299,46 +261,6 @@ export const gamesRoute = new Hono()
         .limit(limit)
 
       return c.json({ creators })
-    },
-  )
-  .post(
-    "/:slug/follow",
-    requireSession,
-    tbValidator("param", SlugParam),
-    async (c) => {
-      const { slug } = c.req.valid("param")
-      const viewerId = c.var.viewerId
-      const resolved = await resolveFollowGame(c, slug)
-      if (resolved.response) return resolved.response
-
-      await db
-        .insert(gameFollow)
-        .values({ user_id: viewerId, game_id: resolved.row.id })
-        .onConflictDoNothing()
-
-      return booleanFlag(c, "following", true)
-    },
-  )
-  .delete(
-    "/:slug/follow",
-    requireSession,
-    tbValidator("param", SlugParam),
-    async (c) => {
-      const { slug } = c.req.valid("param")
-      const viewerId = c.var.viewerId
-      const resolved = await resolveFollowGame(c, slug)
-      if (resolved.response) return resolved.response
-
-      await db
-        .delete(gameFollow)
-        .where(
-          and(
-            eq(gameFollow.user_id, viewerId),
-            eq(gameFollow.game_id, resolved.row.id),
-          ),
-        )
-
-      return booleanFlag(c, "following", false)
     },
   )
 

@@ -17,7 +17,6 @@ import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import { useState } from "react"
 
-import { UserFollowRow } from "@/components/user/user-follow-row"
 import { userChipData } from "@/lib/user-display"
 
 function UserAvatar({
@@ -123,11 +122,17 @@ function MentionsListDialog({
         <DialogBody className="max-h-[60vh] overflow-y-auto px-2 py-2">
           <ul className="flex flex-col">
             {mentions.map((u) => (
-              <UserFollowRow
-                key={u.id}
-                user={u}
-                onNavigate={() => onOpenChange(false)}
-              />
+              <li key={u.id}>
+                <Link
+                  to="/u/$username"
+                  params={{ username: u.username }}
+                  onClick={() => onOpenChange(false)}
+                  className="hover:bg-surface-raised flex items-center gap-3 rounded-md px-2 py-2 text-sm"
+                >
+                  <UserAvatar user={u} size="md" />
+                  <span>{userChipData(u).name}</span>
+                </Link>
+              </li>
             ))}
           </ul>
         </DialogBody>

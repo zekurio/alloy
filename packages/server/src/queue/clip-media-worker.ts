@@ -3,7 +3,6 @@ import { createLogger, runWithLogContext } from "@alloy/logging"
 import { configStore } from "@alloy/server/config/store"
 import { env } from "@alloy/server/env"
 import { encodeFingerprint } from "@alloy/server/media/encode-fingerprint"
-import { createStoredClipMentionNotifications } from "@alloy/server/notifications/service"
 import { errorMessage, isAbortError } from "@alloy/server/runtime/error-message"
 import { WakeableSerialWorker } from "@alloy/server/runtime/wakeable-serial-worker"
 import { announceClipPublished } from "@alloy/server/webhooks/publish"
@@ -405,9 +404,6 @@ function completionFor(claim: ClipMediaClaim) {
 }
 
 async function announceReadySideEffects(clipId: string): Promise<void> {
-  await createStoredClipMentionNotifications(clipId).catch((cause: unknown) =>
-    logger.error("notification fan-out failed:", cause),
-  )
   announceClipPublished(clipId)
 }
 

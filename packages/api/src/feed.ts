@@ -33,6 +33,7 @@ export function createFeedApi(context: ApiContext) {
             params.filter.kind === "game" ? params.filter.gameId : undefined,
           authorId:
             params.filter.kind === "game" ? params.filter.authorId : undefined,
+          excludeClipId: params.excludeClipId,
           limit: params.limit,
           cursor: params.cursor,
         }),

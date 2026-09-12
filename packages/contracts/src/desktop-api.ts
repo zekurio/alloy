@@ -1,5 +1,4 @@
 import type { AlloyDesktopAutostartApi } from "./desktop-autostart"
-import type { AlloyDesktopNotificationsApi } from "./desktop-notification"
 import type {
   RecordingLibraryCommitStagedImportRequest,
   RecordingLibraryDownload,
@@ -158,5 +157,4 @@ export interface AlloyDesktop {
   recording: AlloyDesktopRecordingApi
   updates: AlloyDesktopUpdatesApi
   autostart: AlloyDesktopAutostartApi
-  notifications: AlloyDesktopNotificationsApi
 }

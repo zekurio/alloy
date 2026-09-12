@@ -14,7 +14,6 @@ test("clip cursors require the publication timestamp and matching sort", () => {
       publishedAt: new Date(publishedAt),
       id: "clip-id",
       viewCount: null,
-      likeCount: null,
     },
   )
   assert.equal(parseClipListCursor(encodeCursorPayload(payload), "top"), null)

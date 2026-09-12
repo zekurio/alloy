@@ -1,10 +1,8 @@
 import type { UserClip } from "@alloy/api"
-import { MEDIA_FILTERS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
 import { PageToolbar } from "@alloy/ui/components/page-toolbar"
 import { useInfiniteQuery } from "@tanstack/react-query"
-import { useSearch } from "@tanstack/react-router"
 import { useMemo } from "react"
 
 import { ClipSectionContent } from "@/components/clip/clip-section-content"
@@ -40,11 +38,10 @@ export function ProfileClipsSection({
   sort,
   gameSlug,
 }: ProfileClipsSectionProps) {
-  const search = useSearch({ strict: false })
-  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
+  const media = tab === "screenshots" ? "image" : "video"
   const query = useInfiniteQuery(
     profileMediaQueryOptions(username, {
-      tab,
+      tab: "all",
       media,
       sort,
       game: gameSlug ?? undefined,

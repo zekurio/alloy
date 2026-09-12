@@ -5,12 +5,12 @@ import type { MediaFilter } from "./shared"
 
 export type FeedFilter = { media?: MediaFilter } & (
   | { kind: "all" }
-  | { kind: "following" }
   | { kind: "game"; gameId: string; authorId?: string }
 )
 
 export interface FeedPageParams {
   filter: FeedFilter
+  excludeClipId?: string
   sort: ClipFeedSort
   limit?: number
   cursor?: string | null

@@ -15,11 +15,7 @@ import {
   useLibraryGameLookup,
   useLibrarySnapshot,
 } from "./library-data"
-import {
-  buildLibraryEntries,
-  type LibraryEntry,
-  type LibraryKindFilter,
-} from "./library-entries"
+import { buildLibraryEntries, type LibraryEntry } from "./library-entries"
 
 export type NavigableLibraryEntry = Extract<
   LibraryEntry,
@@ -45,7 +41,8 @@ export function useLibraryEntryNavigation(current: CurrentLibraryEntry) {
         gamesByName,
         uploaded,
         active: null,
-        kind: "all" satisfies LibraryKindFilter,
+        // Editor navigation roams the whole library, unfiltered by media type.
+        media: "all",
         source: "all",
         query: "",
       }).filter(isNavigableEntry),

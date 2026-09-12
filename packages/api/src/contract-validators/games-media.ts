@@ -77,17 +77,6 @@ export function validateGameDetail(value: ApiJsonInput): GameDetail {
   const row = objectRecord(value, "game detail")
   validateGameRowFields(row, "game detail")
   validateGameSource(row, "game detail")
-  if (row.viewer !== null) {
-    const viewer = objectRecord(row.viewer, "game detail viewer")
-    validateBoolean(
-      viewer.isFollowing,
-      "Invalid game detail response: viewer.isFollowing must be boolean",
-    )
-  }
-  validateNonNegativeInteger(
-    row.favouritesCount,
-    "Invalid game detail response: favouritesCount must be a non-negative integer",
-  )
   validateNonNegativeInteger(
     row.clipCount,
     "Invalid game detail response: clipCount must be a non-negative integer",

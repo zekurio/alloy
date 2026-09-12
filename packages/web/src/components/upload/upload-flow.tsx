@@ -35,7 +35,6 @@ function AuthedUploadFlow() {
         search: (prev: AppSearch) => ({
           ...prev,
           clip: row.id,
-          comment: undefined,
         }),
         mask: row.gameSlug
           ? {

@@ -76,3 +76,20 @@ export function feedChipsQueryOptions(media: MediaFilter = "video") {
 export function useFeedChipsQuery(media: MediaFilter = "video") {
   return useQuery(feedChipsQueryOptions(media))
 }
+
+export function recommendedClipsQueryOptions(
+  clipId: string,
+  viewerId: string | null,
+) {
+  return queryOptions({
+    queryKey: [...feedKeys.all, "recommendations", clipId, viewerId],
+    queryFn: () =>
+      api.feed.fetch({
+        filter: { kind: "all", media: "video" },
+        sort: "recommended",
+        excludeClipId: clipId,
+        limit: 8,
+      }),
+    staleTime: 30_000,
+  })
+}

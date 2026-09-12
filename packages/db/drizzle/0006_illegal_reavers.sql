@@ -1,1 +1,0 @@
-ALTER TABLE "clip" ADD COLUMN "waveform_key" text;

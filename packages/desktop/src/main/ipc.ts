@@ -5,7 +5,6 @@ import { BrowserWindow, dialog, ipcMain, shell } from "electron"
 import { desktopApiChannel } from "@/shared/desktop-api"
 
 import { getAutostartState, setAutostartEnabled } from "./autostart"
-import { showDesktopNotification } from "./desktop-notification"
 import type {
   DesktopApiHandlerFragment,
   DesktopApiHandlerMap,
@@ -64,7 +63,6 @@ export function registerDesktopApi(windows: Windows): void {
     ...recordingSourceDesktopApiHandlers,
     ...updateDesktopApiHandlers,
     ...autostartDesktopApiHandlers,
-    ...notificationDesktopApiHandlers,
   }
   // SAFETY: The exhaustive handler map is a closed record over these paths.
   const paths = Object.keys(handlers) as DesktopApiInvokePath[]
@@ -127,15 +125,6 @@ const autostartDesktopApiHandlers = {
     guard: requireMainSender,
     handle: (_windows, _event, enabled: UntrustedInput) =>
       setAutostartEnabled(parseBoolean(enabled) === true),
-  },
-} satisfies DesktopApiHandlerFragment
-
-const notificationDesktopApiHandlers = {
-  "notifications.show": {
-    guard: requireMainSender,
-    handle: (windows, _event, input: UntrustedInput) => {
-      showDesktopNotification(windows, input)
-    },
   },
 } satisfies DesktopApiHandlerFragment
 

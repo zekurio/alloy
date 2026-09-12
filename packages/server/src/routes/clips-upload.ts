@@ -1,12 +1,10 @@
 import { normalizeTags } from "@alloy/contracts"
 import { clip, clipMention, clipTag } from "@alloy/db/schema"
-import { createLogger } from "@alloy/logging"
 import { requireSession } from "@alloy/server/auth/require-session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { publishClipUpsert } from "@alloy/server/clips/events"
 import { db } from "@alloy/server/db/index"
 import { getGameRefById } from "@alloy/server/games/ref"
-import { createNotification } from "@alloy/server/notifications/service"
 import { badRequest, deleted } from "@alloy/server/runtime/http-response"
 import {
   claimClipPublishedDeliveries,
@@ -25,8 +23,6 @@ import { clipsUploadImageRoutes } from "./clips-upload-image"
 import { clipsUploadLifecycleRoutes } from "./clips-upload-lifecycle"
 import { clipsUploadMediaRoutes } from "./clips-upload-media"
 import { tbValidator } from "./validation"
-
-const logger = createLogger("clips-upload")
 
 export const clipsUploadRoutes = new Hono()
   .route("/", clipsUploadLifecycleRoutes)
@@ -78,16 +74,6 @@ export const clipsUploadRoutes = new Hono()
         body.mentionedUserIds !== undefined
           ? await resolveMentionIds(body.mentionedUserIds, row.author_id)
           : undefined
-      const existingMentionedIds =
-        mentionedIds !== undefined
-          ? (
-              await db
-                .select({ mentionedUserId: clipMention.mentioned_user_id })
-                .from(clipMention)
-                .where(eq(clipMention.clip_id, id))
-            ).map((mention) => mention.mentionedUserId)
-          : []
-
       const tags =
         body.tags !== undefined ? normalizeTags(body.tags) : undefined
 
@@ -130,22 +116,6 @@ export const clipsUploadRoutes = new Hono()
       wakeClaimedClipPublishedDeliveries(webhookClaims)
 
       void publishClipUpsert(row.author_id, id)
-      if (mentionedIds !== undefined && row.status === "ready") {
-        const existingMentionedIdSet = new Set(existingMentionedIds)
-        for (const mentionedId of mentionedIds) {
-          if (existingMentionedIdSet.has(mentionedId)) continue
-          void createNotification({
-            recipientId: mentionedId,
-            actorId: viewerId,
-            kind: "clip_mention",
-            clipId: id,
-            dedupKey: `clip_mention:${id}`,
-          }).catch((error) =>
-            logger.error("notification fan-out failed", error),
-          )
-        }
-      }
-
       return updatedClipResponse(c, id)
     },
   )

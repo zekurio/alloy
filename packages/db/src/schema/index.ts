@@ -1,28 +1,16 @@
 export * from "./clip"
 export * from "./game"
 export * from "./instance"
-export * from "./notification"
 export * from "./recording"
 export * from "./social"
 export * from "./storage-deletion"
 export * from "./webhook"
 
-import {
-  clip,
-  clipComment,
-  clipCommentMention,
-  clipCommentLike,
-  clipLike,
-  clipMention,
-  clipRendition,
-  clipTag,
-  clipView,
-} from "./clip"
-import { game, gameDetectionMapping, gameFollow } from "./game"
+import { clip, clipMention, clipRendition, clipTag, clipView } from "./clip"
+import { game, gameDetectionMapping } from "./game"
 import { instanceSetting } from "./instance"
-import { notification } from "./notification"
 import { uploadTicket } from "./recording"
-import { block, follow } from "./social"
+import { block } from "./social"
 import { storageDeletion } from "./storage-deletion"
 import { webhook, webhookDelivery } from "./webhook"
 
@@ -34,19 +22,12 @@ export const domainSchema = {
   clip,
   clipRendition,
   uploadTicket,
-  clipLike,
   clipView,
-  clipComment,
-  clipCommentLike,
   clipMention,
-  clipCommentMention,
   clipTag,
-  follow,
   game,
-  gameFollow,
   gameDetectionMapping,
   instanceSetting,
-  notification,
   block,
   storageDeletion,
   webhook,

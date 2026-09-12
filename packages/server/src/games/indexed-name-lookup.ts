@@ -1,5 +1,5 @@
 import type { GameRow } from "@alloy/contracts"
-import { clip, clipView, game, gameFollow } from "@alloy/db/schema"
+import { clip, clipView, game } from "@alloy/db/schema"
 import { db } from "@alloy/server/db/index"
 import { and, eq, ilike, inArray, or, type SQL, sql } from "drizzle-orm"
 
@@ -33,10 +33,6 @@ export async function lookupIndexedGamesByName(
   const viewerViewCount = viewerId
     ? sql<number>`count(distinct ${clipView.clip_id})::int`
     : sql<number>`0`
-  const followed = viewerId
-    ? sql<number>`max(case when ${gameFollow.id} is null then 0 else 1 end)::int`
-    : sql<number>`0`
-
   const rows = await db
     .select({
       ...gameSelection,
@@ -46,7 +42,6 @@ export async function lookupIndexedGamesByName(
       clipCount: sql<number>`count(distinct ${clip.id})::int`,
       viewerClipCount,
       viewerViewCount,
-      followed,
     })
     .from(game)
     .leftJoin(clip, eq(clip.game_id, game.id))
@@ -57,13 +52,6 @@ export async function lookupIndexedGamesByName(
         viewerId ? sql`${clipView.user_id} = ${viewerId}::uuid` : sql`false`,
       ),
     )
-    .leftJoin(
-      gameFollow,
-      and(
-        eq(gameFollow.game_id, game.id),
-        viewerId ? sql`${gameFollow.user_id} = ${viewerId}::uuid` : sql`false`,
-      ),
-    )
     .where(matchCondition)
     .groupBy(game.id)
 
@@ -71,9 +59,7 @@ export async function lookupIndexedGamesByName(
     const gameRow = serialiseGameRow(row)
     const searchableNames = [gameRow.name, ...row.clipNames.filter(Boolean)]
     const personalScore =
-      Number(row.followed) * 1_000 +
-      Number(row.viewerClipCount) * 100 +
-      Number(row.viewerViewCount) * 10
+      Number(row.viewerClipCount) * 100 + Number(row.viewerViewCount) * 10
     const score = personalScore + Number(row.clipCount)
 
     for (const name of queries) {

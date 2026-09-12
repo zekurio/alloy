@@ -28,7 +28,7 @@ import {
 } from "@/lib/clip-queries"
 import { errorMessage } from "@/lib/error-message"
 
-import { ClipEditorTabs } from "./library-clip-editor-details"
+import { ClipEditorDetails } from "./library-clip-editor-details"
 import {
   ClipEditorStage,
   useClipEditorMedia,
@@ -54,9 +54,9 @@ import {
 
 /**
  * Edit view for an already-uploaded clip: the same stage-and-trimmer layout
- * as the local capture editor on the left, and a Details / Comments tabbed
+ * as the local capture editor on the left, and a details
  * sheet on the right. Saving the trim cuts the clip's media on the server
- * and reprocesses it in place — id, comments, and likes survive.
+ * and reprocesses it in place.
  */
 export function LibraryClipEditorPage({ clipId }: { clipId: string }) {
   const query = useClipQuery(clipId, { keepPreviousData: false })
@@ -188,7 +188,7 @@ function ClipEditorBody({
       .catch(() => false)
   }
 
-  const tabs = {
+  const details = {
     localItem,
     canManage,
     onRequestDelete: deleteFlow.openDialog,
@@ -247,7 +247,7 @@ function ClipEditorBody({
             role="complementary"
             className="min-w-0 self-stretch lg:min-h-0"
           >
-            <ClipEditorTabs row={row} {...tabs} />
+            <ClipEditorDetails row={row} {...details} />
           </Card>
         </div>
       ) : (
@@ -261,7 +261,7 @@ function ClipEditorBody({
           initialTrim={initialTrim}
           prevEntry={prevEntry}
           nextEntry={nextEntry}
-          tabs={tabs}
+          details={details}
         />
       )}
 

@@ -84,7 +84,7 @@ export function SettingsSaveBar() {
       <div
         key={attention}
         className={cn(
-          "flex items-center gap-3 px-4 py-3 max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:pr-12 sm:pl-8",
+          "flex items-center gap-3 px-4 py-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] md:pr-12 md:pl-8",
           warned && "animate-attention-shake",
         )}
       >

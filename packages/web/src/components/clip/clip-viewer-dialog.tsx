@@ -12,35 +12,24 @@ import { useWindowEvent } from "@alloy/ui/hooks/use-window-event"
 import { cssVariables } from "@alloy/ui/lib/css-properties"
 import { cn } from "@alloy/ui/lib/utils"
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
-import { clipGameLabel } from "@/lib/clip-format"
 import {
   clipDetailQueryOptions,
   seedClipDetailInCache,
   useClipQuery,
 } from "@/lib/clip-queries"
 import { recordClipViewBestEffort } from "@/lib/clip-view-tracking"
-import { commentListQueryOptions } from "@/lib/comment-queries"
-import { formatRelativeTime } from "@/lib/date-format"
 import { apiOrigin } from "@/lib/env"
-import { formatCount } from "@/lib/number-format"
-import { userAvatar } from "@/lib/user-display"
 
-import { ClipComments } from "./clip-comments"
-import {
-  clipBrowserDownloadActionSupported,
-  ClipBrowserDownloadMenuItem,
-} from "./clip-download-button"
+import { ClipDetailsPanel } from "./clip-details-panel"
 import {
   type ClipListEntry,
   setActiveClipList,
   useActiveClipList,
 } from "./clip-list-context"
-import { ClipMeta } from "./clip-meta"
 import { ClipPlayer } from "./clip-player"
 import { MobileClipViewerBody } from "./clip-viewer-mobile"
 import { useClipRetry } from "./use-clip-retry"
@@ -49,7 +38,6 @@ import { useClipViewerDelete } from "./use-clip-viewer-delete"
 interface ClipViewerDialogProps {
   /** Current dialog target. `null` keeps the viewer open. */
   clipId: string | null
-  focusedCommentId?: string | null
   /** How to dismiss — typically clears the search param or navigates back. */
   onClose: () => void
   onNavigate?: (entry: ClipListEntry) => void
@@ -57,7 +45,6 @@ interface ClipViewerDialogProps {
 
 export function ClipViewerDialog({
   clipId,
-  focusedCommentId = null,
   onClose,
   onNavigate,
 }: ClipViewerDialogProps) {
@@ -116,7 +103,6 @@ export function ClipViewerDialog({
     for (const entry of neighbours) {
       seedClipDetail(queryClient, entry)
       void queryClient.prefetchQuery(clipDetailQueryOptions(entry.id))
-      void queryClient.prefetchInfiniteQuery(commentListQueryOptions(entry.id))
     }
   }, [open, prev, next, queryClient])
 
@@ -136,7 +122,6 @@ export function ClipViewerDialog({
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
-              focusedCommentId={focusedCommentId}
             />
           ) : (
             <ClipViewerDialogBody
@@ -145,7 +130,6 @@ export function ClipViewerDialog({
               prev={prev}
               next={next}
               onNavigate={onNavigate ? navigateTo : null}
-              focusedCommentId={focusedCommentId}
             />
           )
         ) : (
@@ -185,7 +169,6 @@ interface ClipViewerDialogBodyProps {
   prev?: ClipListEntry | null
   next?: ClipListEntry | null
   onNavigate?: ((entry: ClipListEntry) => void) | null
-  focusedCommentId?: string | null
 }
 
 function ClipViewerDialogBody({
@@ -194,17 +177,7 @@ function ClipViewerDialogBody({
   prev,
   next,
   onNavigate,
-  focusedCommentId = null,
 }: ClipViewerDialogBodyProps) {
-  const navigate = useNavigate()
-  const handle = row.authorUsername
-  const author = handle
-  const avatar = userAvatar({
-    id: row.authorId,
-    username: handle,
-    image: row.authorImage,
-  })
-  const gameLabel = clipGameLabel(row)
   const thumbnail = row.thumbKey
     ? clipThumbnailUrl(row.id, apiOrigin(), row.thumbVersion ?? undefined)
     : null
@@ -231,36 +204,23 @@ function ClipViewerDialogBody({
         "--clip-modal-margin-y": "24px",
         "--clip-modal-nav-gutter": "56px",
         "--clip-modal-sidebar": "360px",
-        "--clip-modal-meta": "10rem",
         "--clip-modal-ratio": aspectRatio,
         "--clip-modal-media-height":
-          "min(calc(100dvh - var(--clip-modal-margin-y)*2 - var(--clip-modal-meta)), calc((100dvw - var(--clip-modal-margin-x)*2 - var(--clip-modal-nav-gutter)*2 - var(--clip-modal-sidebar))/var(--clip-modal-ratio)))",
+          "min(calc(100dvh - var(--clip-modal-margin-y)*2), calc((100dvw - var(--clip-modal-margin-x)*2 - var(--clip-modal-nav-gutter)*2 - var(--clip-modal-sidebar))/var(--clip-modal-ratio)))",
       })}
       className={cn(
         // Below lg this branch is normally hidden by MobileClipViewerBody, but
         // we keep a sensible fallback in case the breakpoint check disagrees.
         "h-auto max-h-[calc(100dvh-32px)] w-[calc(100dvw-32px)] overflow-visible rounded-xl bg-surface transition-[filter,opacity,transform] duration-100",
-        "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta)),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))/var(--clip-modal-ratio)))+var(--clip-modal-meta))]",
+        "lg:h-[calc(min(calc(100dvh-var(--clip-modal-margin-y)*2),calc((100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar))/var(--clip-modal-ratio))))]",
         "lg:max-h-[calc(100dvh-var(--clip-modal-margin-y)*2)]",
-        "lg:w-[calc(min(calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar)),calc((100dvh-var(--clip-modal-margin-y)*2-var(--clip-modal-meta))*var(--clip-modal-ratio)))+var(--clip-modal-sidebar))]",
+        "lg:min-h-[min(480px,calc(100dvh-var(--clip-modal-margin-y)*2))]",
+        "lg:w-[calc(min(calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2-var(--clip-modal-sidebar)),calc((100dvh-var(--clip-modal-margin-y)*2)*var(--clip-modal-ratio)))+var(--clip-modal-sidebar))]",
         "lg:max-w-[calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2)]",
         row.mediaKind === "image" &&
           "lg:min-w-[min(840px,calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2))]",
       )}
     >
-      <DialogClose
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute top-3 right-3 z-30 hidden rounded-full border-transparent bg-transparent text-white/80 shadow-none hover:border-transparent hover:bg-transparent hover:text-white lg:inline-flex [&_svg]:!size-5"
-          />
-        }
-        aria-label={t("Close")}
-      >
-        <XIcon />
-      </DialogClose>
       {showPrev ? (
         <Button
           type="button"
@@ -303,7 +263,7 @@ function ClipViewerDialogBody({
           "lg:grid-cols-[minmax(0,1fr)_var(--clip-modal-sidebar)]",
         )}
       >
-        <div className="bg-surface grid min-h-0 grid-rows-[auto_auto] p-4 sm:p-6 lg:grid-rows-[auto_minmax(0,1fr)] lg:p-0">
+        <div className="flex min-h-0 items-center justify-center overflow-hidden bg-black">
           <div
             ref={initialFocusRef}
             tabIndex={-1}
@@ -348,59 +308,21 @@ function ClipViewerDialogBody({
               enableHorizontalSeekShortcuts={false}
             />
           </div>
-          <div className="min-h-0 overflow-y-auto px-1 pt-4 sm:pt-6 lg:px-4 lg:pt-3 lg:pb-4 xl:px-5 xl:pt-4 xl:pb-5">
-            <ClipMeta
-              clipId={row.id}
-              status={row.status}
-              encodeActive={row.encodeActive}
-              authorId={row.authorId}
-              title={row.title}
-              game={gameLabel}
-              gameRef={row.gameRef}
-              views={formatCount(row.viewCount)}
-              viewCount={row.viewCount}
-              postedAt={formatRelativeTime(row.publishedAt ?? row.createdAt)}
-              likes={row.likeCount}
-              privacy={row.privacy}
-              description={row.description}
-              mentions={row.mentions ?? []}
-              tags={row.tags}
-              downloadAction={
-                // Gate on support here: ClipMeta shows its "…" menu whenever
-                // a download action exists, and an always-truthy element
-                // would leave non-owners on the web with an empty menu.
-                clipBrowserDownloadActionSupported(row) ? (
-                  <ClipBrowserDownloadMenuItem row={row} />
-                ) : undefined
-              }
-              uploader={{
-                handle,
-                name: author,
-                avatar: {
-                  src: avatar.src,
-                  bg: avatar.bg,
-                  fg: avatar.fg,
-                },
-              }}
-              onEdit={() => {
-                // The edit view lives at its own route; navigating there
-                // drops the `clip` search param and closes this viewer.
-                void navigate({
-                  to: "/library/clips/$clipId",
-                  params: { clipId: row.id },
-                })
-              }}
-              onRequestDelete={deleteFlow.openDialog}
-              deletePending={deleteFlow.pending}
-            />
-          </div>
         </div>
-
-        <ClipComments
-          clipId={row.id}
-          clipAuthorId={row.authorId}
-          focusedCommentId={focusedCommentId}
-          className="bg-surface"
+        <ClipDetailsPanel
+          key={row.id}
+          row={row}
+          onRequestDelete={deleteFlow.openDialog}
+          deletePending={deleteFlow.pending}
+          onNavigate={onNavigate}
+          closeAction={
+            <DialogClose
+              render={<Button type="button" variant="ghost" size="icon" />}
+              aria-label={t("Close")}
+            >
+              <XIcon className="size-4" />
+            </DialogClose>
+          }
         />
       </div>
       <DeleteServerBackedDialog

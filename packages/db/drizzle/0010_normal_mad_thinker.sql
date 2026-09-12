@@ -1,1 +1,0 @@
-ALTER TABLE "clip" ADD COLUMN "queue_dismissed_at" timestamp with time zone;

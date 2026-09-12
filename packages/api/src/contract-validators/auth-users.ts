@@ -8,17 +8,13 @@ import {
   validateNullableDateString,
   validateNullableEnumString,
   validateNullablePositiveInteger,
-  validateNullableRequiredString,
   validateNullableString,
   validateOptionalUrlString,
   validateRequiredString,
-  validateString,
 } from "@alloy/api/runtime-validation"
 import {
   type AdminUsersResponse,
   type AdminUserStorageRow,
-  type CommentPage,
-  type CommentRow,
   type LoginBackdropsResponse,
   type ProfileCounts,
   type PublicDesktopAuthConfig,
@@ -36,12 +32,10 @@ import {
 } from "@alloy/contracts"
 
 import type { ApiJsonInput } from "../json-value"
-import { validateUserSummary } from "./people"
 import {
   validateAuthProviderColors,
   validateBackdropTreatment,
   validateGameRowFields,
-  validateLikeState,
 } from "./shared"
 const PUBLIC_AUTH_BOOLEAN_FIELDS = [
   "openRegistrations",
@@ -214,91 +208,6 @@ export function validateAdminUsersResponse(
   return value as AdminUsersResponse
 }
 
-export function validateCommentRow(value: ApiJsonInput): CommentRow {
-  const row = objectRecord(value, "comment")
-  for (const key of ["id", "clipId"] as const) {
-    validateRequiredString(
-      row[key],
-      `Invalid comment response: ${key} is required`,
-    )
-  }
-  validateString(row.body, "Invalid comment response: body is required")
-  validateNullableString(
-    row.parentId,
-    "Invalid comment response: parentId must be string or null",
-  )
-  validateNonNegativeInteger(
-    row.likeCount,
-    "Invalid comment response: likeCount must be a non-negative integer",
-  )
-  for (const key of ["pinned", "likedByViewer", "likedByAuthor"] as const) {
-    validateBoolean(
-      row[key],
-      `Invalid comment response: ${key} must be boolean`,
-    )
-  }
-  validateIsoDateString(
-    row.createdAt,
-    "Invalid comment response: createdAt must be a date string",
-  )
-  for (const key of ["pinnedAt", "editedAt"] as const) {
-    validateNullableDateString(
-      row[key],
-      `Invalid comment response: ${key} must be a date string or null`,
-    )
-  }
-  validateUserSummary(row.author, "comment author")
-  validateArray(
-    row.replies,
-    "Invalid comment response: replies must be an array",
-  ).map(validateCommentRow)
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as CommentRow
-}
-
-export function validateCommentPage(value: ApiJsonInput): CommentPage {
-  const page = objectRecord(value, "comments")
-  validateArray(
-    page.items,
-    "Invalid comments response: items must be an array",
-  ).map(validateCommentRow)
-  validateNullableRequiredString(
-    page.nextCursor,
-    "Invalid comments response: nextCursor must be a non-empty string or null",
-  )
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as CommentPage
-}
-
-export function validateCommentUpdateResponse(value: ApiJsonInput): {
-  id: string
-  body: string
-  editedAt: string | null
-} {
-  const row = objectRecord(value, "comment update")
-  for (const key of ["id", "body"] as const) {
-    validateRequiredString(
-      row[key],
-      `Invalid comment update response: ${key} is required`,
-    )
-  }
-  validateNullableDateString(
-    row.editedAt,
-    "Invalid comment update response: editedAt must be a date string or null",
-  )
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as { id: string; body: string; editedAt: string | null }
-}
-
-export function validateCommentLikeState(value: ApiJsonInput): {
-  liked: boolean
-  likeCount: number
-} {
-  validateLikeState(value, "comment")
-  // SAFETY: The checks above validate every field in the asserted response contract.
-  return value as { liked: boolean; likeCount: number }
-}
-
 export function validatePublicUser(value: ApiJsonInput): PublicUser {
   const row = objectRecord(value, "user")
   for (const key of ["id", "username", "createdAt", "updatedAt"] as const) {
@@ -329,24 +238,25 @@ export function validatePublicUser(value: ApiJsonInput): PublicUser {
 
 function validateProfileCounts(value: ApiJsonInput): ProfileCounts {
   const counts = objectRecord(value, "profile counts")
-  for (const key of ["clips", "followers", "following"] as const) {
-    validateNonNegativeInteger(
-      counts[key],
-      `Invalid profile counts response: ${key} must be a non-negative integer`,
-    )
-  }
+  validateNonNegativeInteger(
+    counts.clips,
+    "Invalid profile counts response: clips must be a non-negative integer",
+  )
+  validateNonNegativeInteger(
+    counts.screenshots,
+    "Invalid profile counts response: screenshots must be a non-negative integer",
+  )
+  validateNonNegativeInteger(
+    counts.games,
+    "Invalid profile counts response: games must be a non-negative integer",
+  )
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as ProfileCounts
 }
 
 function validateProfileViewer(value: ApiJsonInput): ProfileViewer {
   const viewer = objectRecord(value, "profile viewer")
-  for (const key of [
-    "isSelf",
-    "isFollowing",
-    "isBlocked",
-    "isBlockedBy",
-  ] as const) {
+  for (const key of ["isSelf", "isBlocked", "isBlockedBy"] as const) {
     validateBoolean(
       viewer[key],
       `Invalid profile viewer response: ${key} must be boolean`,

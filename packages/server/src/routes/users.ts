@@ -1,7 +1,6 @@
 import { t } from "@alloy/contracts/schema"
 import { user } from "@alloy/db/auth-schema"
-import { block, clip, follow } from "@alloy/db/schema"
-import { createLogger } from "@alloy/logging"
+import { block, clip } from "@alloy/db/schema"
 import { createZipStream } from "@alloy/server/archive/zip-stream"
 import { clearSessionCookies } from "@alloy/server/auth/cookies"
 import {
@@ -16,7 +15,6 @@ import {
 } from "@alloy/server/auth/session"
 import { deleteClipRowAndAssets } from "@alloy/server/clips/delete"
 import { db } from "@alloy/server/db/index"
-import { createNotification } from "@alloy/server/notifications/service"
 import { isoDate, nullableIsoDate } from "@alloy/server/runtime/date"
 import {
   accountState,
@@ -29,13 +27,12 @@ import { pipeReadable } from "@alloy/server/runtime/streaming"
 import { clipStorage } from "@alloy/server/storage/index"
 import { selectSourceStorageUsedBytes } from "@alloy/server/storage/quota"
 import { accountDeletionState } from "@alloy/server/users/account-deletion-state"
-import { and, eq, or } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { Hono } from "hono"
 import { stream } from "hono/streaming"
 
 import { contentDisposition, downloadFilename } from "./clips-helpers"
 import {
-  listLikedClips,
   listTaggedClips,
   listUserClips,
   listUserGames,
@@ -43,8 +40,6 @@ import {
   UserMediaQuery,
 } from "./users-clip-listings"
 import {
-  listFollowers,
-  listFollowing,
   resolveViewerState,
   SearchQuery,
   searchVisibleUsers,
@@ -59,8 +54,6 @@ import {
 } from "./users-relationship"
 import { limitQueryParam, tbValidator } from "./validation"
 
-const logger = createLogger("users")
-
 const ClipBatchQuery = t.object({
   limit: limitQueryParam(100, 100),
 })
@@ -74,12 +67,7 @@ export const usersRoute = new Hono()
       const result = await resolveUserTarget(c, c.req.valid("param").username)
       if ("response" in result) return result.response
       const options = c.req.valid("query")
-      const list =
-        options.tab === "liked"
-          ? listLikedClips
-          : options.tab === "tagged"
-            ? listTaggedClips
-            : listUserClips
+      const list = options.tab === "tagged" ? listTaggedClips : listUserClips
       return c.json(await list(result.target, c, options))
     },
   )
@@ -259,98 +247,6 @@ export const usersRoute = new Hono()
 
     return c.json(await listTaggedClips(row, c))
   })
-  .get("/:username/liked", tbValidator("param", UsernameParam), async (c) => {
-    const { username } = c.req.valid("param")
-    const result = await resolveUserTarget(c, username)
-    if ("response" in result) return result.response
-    const row = result.target
-
-    return c.json(await listLikedClips(row, c))
-  })
-  .get(
-    "/:username/followers",
-    tbValidator("param", UsernameParam),
-    async (c) => {
-      const { username } = c.req.valid("param")
-      const result = await resolveUserTarget(c, username)
-      if ("response" in result) return result.response
-      const row = result.target
-
-      return c.json(await listFollowers(row))
-    },
-  )
-  .get(
-    "/:username/following",
-    tbValidator("param", UsernameParam),
-    async (c) => {
-      const { username } = c.req.valid("param")
-      const result = await resolveUserTarget(c, username)
-      if ("response" in result) return result.response
-      const row = result.target
-
-      return c.json(await listFollowing(row))
-    },
-  )
-  .post(
-    "/:username/follow",
-    requireSession,
-    tbValidator("param", UsernameParam),
-    async (c) => {
-      const { username } = c.req.valid("param")
-      const viewerId = c.var.viewerId
-
-      const result = await resolveRelationshipTarget(c, {
-        username,
-        viewerId,
-        selfError: "You can't follow yourself.",
-        rejectBlockedRelationship: true,
-      })
-      if ("response" in result) return result.response
-      const target = result.target
-      const targetId = target.id
-
-      const rows = await db
-        .insert(follow)
-        .values({
-          id: crypto.randomUUID(),
-          follower_id: viewerId,
-          following_id: targetId,
-        })
-        .onConflictDoNothing()
-        .returning({ id: follow.id })
-      if (rows.length > 0) {
-        void createNotification({
-          recipientId: targetId,
-          actorId: viewerId,
-          kind: "follow",
-          dedupKey: `follow:${viewerId}`,
-        }).catch((error) => logger.error("notification fan-out failed", error))
-      }
-      return booleanFlag(c, "following", true)
-    },
-  )
-  .delete(
-    "/:username/follow",
-    requireSession,
-    tbValidator("param", UsernameParam),
-    async (c) => {
-      const { username } = c.req.valid("param")
-      const viewerId = c.var.viewerId
-      const result = await resolveRelationshipTarget(c, { username, viewerId })
-      if ("response" in result) return result.response
-      const target = result.target
-
-      await db
-        .delete(follow)
-        .where(
-          and(
-            eq(follow.follower_id, viewerId),
-            eq(follow.following_id, target.id),
-          ),
-        )
-      return booleanFlag(c, "following", false)
-    },
-  )
   .post(
     "/:username/block",
     requireSession,
@@ -374,21 +270,6 @@ export const usersRoute = new Hono()
           blocked_id: target.id,
         })
         .onConflictDoNothing()
-
-      await db
-        .delete(follow)
-        .where(
-          or(
-            and(
-              eq(follow.follower_id, viewerId),
-              eq(follow.following_id, target.id),
-            ),
-            and(
-              eq(follow.follower_id, target.id),
-              eq(follow.following_id, viewerId),
-            ),
-          ),
-        )
 
       return booleanFlag(c, "blocked", true)
     },

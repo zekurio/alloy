@@ -1,4 +1,5 @@
 import type { ProfileCounts, ProfileViewer, PublicUser } from "@alloy/api"
+import { tp } from "@alloy/i18n"
 import {
   Avatar,
   AvatarFallback,
@@ -10,7 +11,7 @@ import { ProfileActions } from "@/components/profile/profile-actions"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
 import { userAvatar, UserBanner } from "@/lib/user-display"
 
-import { IdentityStats } from "./identity-stats"
+import { StatInline } from "./stat-inline"
 
 type ProfileData = {
   user: PublicUser
@@ -20,40 +21,25 @@ type ProfileData = {
 type ProfileIdentityProps = {
   profile: ProfileData
   viewer: ProfileViewer | null | undefined
-  currentUserId: string | null
   onViewerChange: (viewer: ProfileViewer) => void
-  onFollowerDelta: (delta: number) => void
 }
 
 export function ProfileIdentity({
   profile,
   viewer,
-  currentUserId,
   onViewerChange,
-  onFollowerDelta,
 }: ProfileIdentityProps) {
   const { user, counts } = profile
   const handle = user.username
   const avatar = userAvatar(user)
-  const isSelf = viewer?.isSelf ?? currentUserId === user.id
-  const showProfileAction =
-    !isSelf &&
-    (viewer === undefined || !viewer || (!viewer.isSelf && !viewer.isBlockedBy))
-
-  const actionNode = showProfileAction ? (
-    <ProfileActions
-      targetHandle={handle}
-      viewer={viewer}
-      onChange={(next) => {
-        const wasFollowing = viewer?.isFollowing ?? false
-        const willFollow = next.isFollowing
-        if (wasFollowing !== willFollow) {
-          onFollowerDelta(willFollow ? 1 : -1)
-        }
-        onViewerChange(next)
-      }}
-    />
-  ) : null
+  const actionNode =
+    viewer?.isBlocked && !viewer.isSelf && !viewer.isBlockedBy ? (
+      <ProfileActions
+        targetHandle={handle}
+        viewer={viewer}
+        onChange={onViewerChange}
+      />
+    ) : null
 
   return (
     <div className="flex w-full flex-col">
@@ -93,16 +79,16 @@ export function ProfileIdentity({
             />
           </Avatar>
 
-          {/* Identity cluster + follow action */}
+          {/* Profile identity */}
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <div className="min-w-0">
               <h1 className="text-foreground truncate text-lg font-semibold tracking-[-0.02em] sm:text-2xl">
                 {handle}
               </h1>
-
-              <div className="mt-0.5">
-                <IdentityStats handle={handle} counts={counts} />
-              </div>
+              <StatInline
+                value={counts.clips + counts.screenshots}
+                label={tp(counts.clips + counts.screenshots, "post", "posts")}
+              />
             </div>
 
             {actionNode ? <div className="shrink-0">{actionNode}</div> : null}

@@ -41,21 +41,18 @@ type ClipListCursorPayload = {
   publishedAt: string
   id: string
   viewCount?: number
-  likeCount?: number
 }
 
 type ParsedClipListCursor = {
   publishedAt: Date
   id: string
   viewCount: number | null
-  likeCount: number | null
 }
 
 type ClipListCursorRow = {
   id: string
   publishedAt: Date | string | null
   viewCount: number
-  likeCount: number
 }
 
 type ClipListPageRow = ClipListCursorRow & {
@@ -108,11 +105,10 @@ export function parseClipListCursor(
   }
   if (sort === "top") {
     const viewCount = cursorNonNegativeInteger(payload.viewCount)
-    const likeCount = cursorNonNegativeInteger(payload.likeCount)
-    if (viewCount === null || likeCount === null) return null
-    return { publishedAt, id, viewCount, likeCount }
+    if (viewCount === null) return null
+    return { publishedAt, id, viewCount }
   }
-  return { publishedAt, id, viewCount: null, likeCount: null }
+  return { publishedAt, id, viewCount: null }
 }
 
 function encodeClipListCursor(
@@ -126,7 +122,6 @@ function encodeClipListCursor(
     publishedAt: isoDate(row.publishedAt),
     id: row.id,
     viewCount: sort === "top" ? row.viewCount : undefined,
-    likeCount: sort === "top" ? row.likeCount : undefined,
   }
   return encodeCursorPayload(payload)
 }
@@ -151,13 +146,7 @@ export function clipListCursorCondition(
     return requiredSql(
       or(
         lt(clip.view_count, cursor.viewCount ?? 0),
-        and(
-          eq(clip.view_count, cursor.viewCount ?? 0),
-          or(
-            lt(clip.like_count, cursor.likeCount ?? 0),
-            and(eq(clip.like_count, cursor.likeCount ?? 0), afterPublishedAt),
-          ),
-        ),
+        and(eq(clip.view_count, cursor.viewCount ?? 0), afterPublishedAt),
       ),
       "top clips cursor",
     )
@@ -168,12 +157,7 @@ export function clipListCursorCondition(
 
 export function clipListOrderBy(sort: ClipListSort) {
   return sort === "top"
-    ? [
-        desc(clip.view_count),
-        desc(clip.like_count),
-        desc(clip.published_at),
-        clip.id,
-      ]
+    ? [desc(clip.view_count), desc(clip.published_at), clip.id]
     : [desc(clip.published_at), clip.id]
 }
 

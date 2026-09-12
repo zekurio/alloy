@@ -1,6 +1,6 @@
 import { t } from "@alloy/i18n"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
-import { Loader2Icon, UploadIcon } from "lucide-react"
+import { Loader2Icon, PlusIcon, UploadIcon } from "lucide-react"
 import { Suspense, lazy, useRef } from "react"
 
 import { alloyDesktop } from "@/lib/desktop"
@@ -17,7 +17,7 @@ const loadImportClipDialog = async () => {
 
 const ImportClipDetailsDialog = lazy(loadImportClipDialog)
 
-type GlobalUploadControlVariant = "header" | "center"
+type GlobalUploadControlVariant = "header" | "center" | "mobile"
 
 /**
  * Global "Upload" entry point, mounted wherever the app exposes the upload
@@ -37,8 +37,21 @@ export function GlobalUploadControl({
   const webUploadAction = useWebUploadActionContext()
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const triggerClassName = variant === "header" ? "max-md:hidden" : "shrink-0"
+  const triggerClassName =
+    variant === "header"
+      ? "max-md:hidden"
+      : variant === "mobile"
+        ? "size-12 place-self-center rounded-full p-0 [&_svg]:!size-[22px]"
+        : "shrink-0"
   const triggerLabel = t("Upload media")
+  const compactFeedbackLabel =
+    variant === "mobile" ? (
+      <span className="sr-only">{t("Working…")}</span>
+    ) : null
+  const compactErrorLabel =
+    variant === "mobile" ? (
+      <span className="sr-only">{t("Try again")}</span>
+    ) : null
 
   if (desktop) {
     const pending = importAction.picking || importAction.committing
@@ -50,8 +63,10 @@ export function GlobalUploadControl({
           size="sm"
           disabled={!importAction.available || pending}
           state={pending ? "pending" : importAction.error ? "error" : "idle"}
-          pendingLabel={variant === "header" ? t("Working…") : null}
-          errorLabel={variant === "header" ? t("Try again") : null}
+          pendingLabel={
+            variant === "header" ? t("Working…") : compactFeedbackLabel
+          }
+          errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
           className={triggerClassName}
           title={
             importAction.error ??
@@ -65,7 +80,10 @@ export function GlobalUploadControl({
             void importAction.start()
           }}
         >
-          <UploadTriggerContent pending={pending} />
+          <UploadTriggerContent
+            pending={pending}
+            iconOnly={variant === "mobile"}
+          />
         </FeedbackButton>
         {importAction.staged !== null ? (
           <Suspense fallback={null}>
@@ -101,8 +119,10 @@ export function GlobalUploadControl({
           webUploadAction.selected !== null
         }
         state={pending ? "pending" : webUploadAction.error ? "error" : "idle"}
-        pendingLabel={variant === "header" ? t("Working…") : null}
-        errorLabel={variant === "header" ? t("Try again") : null}
+        pendingLabel={
+          variant === "header" ? t("Working…") : compactFeedbackLabel
+        }
+        errorLabel={variant === "header" ? t("Try again") : compactErrorLabel}
         title={
           webUploadAction.error ??
           (variant !== "header" || webUploadAction.available
@@ -113,17 +133,32 @@ export function GlobalUploadControl({
           inputRef.current?.click()
         }}
       >
-        <UploadTriggerContent pending={pending} />
+        <UploadTriggerContent
+          pending={pending}
+          iconOnly={variant === "mobile"}
+        />
       </FeedbackButton>
     </>
   )
 }
 
-function UploadTriggerContent({ pending }: { pending: boolean }) {
+function UploadTriggerContent({
+  pending,
+  iconOnly = false,
+}: {
+  pending: boolean
+  iconOnly?: boolean
+}) {
   return (
     <>
-      {pending ? <Loader2Icon className="animate-spin" /> : <UploadIcon />}
-      <span>{t("Upload")}</span>
+      {pending ? (
+        <Loader2Icon className="animate-spin" />
+      ) : iconOnly ? (
+        <PlusIcon />
+      ) : (
+        <UploadIcon />
+      )}
+      <span className={iconOnly ? "sr-only" : undefined}>{t("Upload")}</span>
     </>
   )
 }

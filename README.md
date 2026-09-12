@@ -6,9 +6,13 @@
 
 The open-source, self-hosted alternative to Medal.tv: a Windows app records
 gameplay clips locally and publishes them to your own server; the web app
-handles playback, profiles, comments, search, and admin.
+handles playback, profiles, recommendations, search, and admin.
 
 This project is early and under active development. Expect sharp edges.
+
+Version 0.0.1 resets the migration history to a single initial migration.
+Start with a fresh PostgreSQL database. Existing databases cannot upgrade
+through this reset.
 
 ### Desktop App
 

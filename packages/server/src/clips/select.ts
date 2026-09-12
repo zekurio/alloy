@@ -42,8 +42,6 @@ export const clipSelection = {
   thumbKey: clip.thumb_key,
   thumbBlurHash: clip.thumb_blur_hash,
   viewCount: clip.view_count,
-  likeCount: clip.like_count,
-  commentCount: clip.comment_count,
   trimStartMs: clip.trim_start_ms,
   trimEndMs: clip.trim_end_ms,
   status: clip.status,

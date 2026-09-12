@@ -21,39 +21,24 @@ import {
 } from "@alloy/ui/components/dropdown-menu"
 import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
-import { Link, useNavigate } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import {
-  HeartIcon,
   MoreHorizontalIcon,
   PencilIcon,
   RefreshCwIcon,
   Share2Icon,
-  StarIcon,
   Trash2Icon,
 } from "lucide-react"
 import { useCallback } from "react"
 import type { ReactNode } from "react"
 
 import { GameIcon } from "@/components/game/game-icon"
-import { UserFollowButton } from "@/components/user/user-follow-button"
 import { useSession } from "@/lib/auth-client"
 import { shareUrlWithFallback } from "@/lib/browser-share"
 import { PRIVACY_BY_VALUE } from "@/lib/clip-fields"
-import {
-  useLikeStateQuery,
-  useReEncodeClipMutation,
-  useToggleLikeMutation,
-} from "@/lib/clip-queries"
+import { useReEncodeClipMutation } from "@/lib/clip-queries"
 import { publicOrigin } from "@/lib/env"
-import { errorMessage } from "@/lib/error-message"
-import { useGameQuery, useToggleGameFavoriteMutation } from "@/lib/game-queries"
-import { formatCount } from "@/lib/number-format"
 import { useActionFeedback } from "@/lib/use-action-feedback"
-import {
-  useToggleUserFollowMutation,
-  useUserProfileQuery,
-  useUserProfileViewerQuery,
-} from "@/lib/user-queries"
 
 import { ClipMentionsRow } from "./clip-mentions-row"
 import { ClipReannounceMenuItem } from "./clip-reannounce-menu-item"
@@ -87,7 +72,6 @@ interface ClipMetaProps {
       fg?: string
     }
   }
-  likes: number
   mentions: ClipMentionRef[]
   /** Structured hashtags, rendered as a chip row below the description. */
   tags: string[]
@@ -96,6 +80,8 @@ interface ClipMetaProps {
   onEdit?: () => void
   /** Desktop-only "save to this device" affordance, slotted by the viewer. */
   downloadAction?: ReactNode
+  /** Viewer dialog close button, rendered as the trailing header action. */
+  closeAction?: ReactNode
 }
 
 function ClipMeta({
@@ -112,13 +98,13 @@ function ClipMeta({
   viewCount,
   postedAt,
   uploader,
-  likes,
   mentions,
   tags,
   onRequestDelete,
   deletePending,
   onEdit,
   downloadAction,
+  closeAction,
 }: ClipMetaProps) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
@@ -128,40 +114,11 @@ function ClipMeta({
   const isOwner = viewerId !== null && viewerId === authorId
   const isAdmin = viewerRole === "admin"
   const canManage = isOwner || isAdmin
-  const canLike = viewerId !== null
   const hasDescription = Boolean(description && description.trim().length > 0)
 
   const deleting = deletePending
   const reEncodeMutation = useReEncodeClipMutation()
   const shareFeedback = useActionFeedback()
-
-  const likeStateQuery = useLikeStateQuery(clipId, { enabled: canLike })
-  const likeMutation = useToggleLikeMutation()
-  const pendingLiked =
-    likeMutation.isPending && likeMutation.variables?.clipId === clipId
-      ? likeMutation.variables.nextLiked
-      : undefined
-  const liked = pendingLiked ?? likeStateQuery.data?.liked ?? false
-
-  const profileQuery = useUserProfileQuery(uploader.handle)
-  const profileViewerQuery = useUserProfileViewerQuery(uploader.handle)
-  const profileData = profileQuery.data
-  const followerCount = profileData?.counts.followers ?? null
-  const profileViewer = profileViewerQuery.data?.viewer
-  const followMutation = useToggleUserFollowMutation(uploader.handle)
-  const followPending = followMutation.isPending
-  const isFollowing = profileViewer?.isFollowing ?? false
-  const canFollow =
-    viewerId !== null &&
-    profileViewer !== undefined &&
-    profileViewer !== null &&
-    !profileViewer.isSelf &&
-    !profileViewer.isBlockedBy
-
-  const handleLikeToggle = useCallback(() => {
-    if (!canLike) return
-    likeMutation.mutate({ clipId, nextLiked: !liked })
-  }, [canLike, clipId, liked, likeMutation])
 
   const handleShare = useCallback(async () => {
     await shareFeedback.run(async () => {
@@ -176,56 +133,24 @@ function ClipMeta({
     }, t("Couldn't share clip"))
   }, [clipId, privacy, shareFeedback, title])
 
-  function handleFollow() {
-    if (followPending || !profileViewer) return
-    followMutation.mutate({ next: !isFollowing })
-  }
-
   const avatarStyle = {
     background: uploader.avatar.bg ?? "var(--neutral-200)",
     color: uploader.avatar.fg ?? "var(--foreground)",
   } as const
 
   return (
-    <section className="flex flex-col gap-2">
+    <section className="flex flex-col gap-4">
       {/* Title + top-right actions */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <ClipTitleWithVisibility
           title={title}
           privacy={privacy}
           heading="h1"
-          className="flex-1 basis-64"
-          titleClassName="text-foreground min-w-0 text-2xl leading-none font-bold tracking-[-0.02em] sm:text-[2rem]"
+          className="min-w-0 flex-1"
+          titleClassName="text-foreground min-w-0 text-xl leading-snug font-bold"
         />
 
-        <div className="flex shrink-0 items-center gap-1 self-start">
-          <FeedbackButton
-            variant={liked ? "accent-outline" : "ghost"}
-            size="default"
-            onClick={handleLikeToggle}
-            disabled={!canLike || likeMutation.isPending}
-            state={
-              likeMutation.isPending
-                ? "pending"
-                : likeMutation.isError
-                  ? "error"
-                  : "idle"
-            }
-            pendingLabel={<span className="sr-only">{t("Updating…")}</span>}
-            errorLabel={<span className="sr-only">{t("Try again")}</span>}
-            aria-pressed={liked}
-            aria-label={canLike ? t("Like clip") : t("Sign in to like")}
-            title={
-              likeMutation.error
-                ? errorMessage(likeMutation.error, t("Couldn't update like"))
-                : canLike
-                  ? undefined
-                  : t("Sign in to like")
-            }
-          >
-            <HeartIcon className={cn("size-4", liked && "fill-current")} />
-            <span className="tabular-nums">{formatCount(likes)}</span>
-          </FeedbackButton>
+        <div className="flex shrink-0 items-center gap-1">
           <FeedbackButton
             variant="ghost"
             size="icon"
@@ -304,12 +229,13 @@ function ClipMeta({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
+          {closeAction}
         </div>
       </div>
 
       {/* User row */}
-      <div className="flex items-end justify-between gap-4">
-        <div className="flex min-w-0 items-start gap-3">
+      <div className="flex flex-col gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/u/$username"
             params={{ username: uploader.handle }}
@@ -317,7 +243,7 @@ function ClipMeta({
               name: uploader.name,
             })}
             className={cn(
-              "mt-0.5 shrink-0 rounded-md",
+              "shrink-0 rounded-md",
               "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
             )}
@@ -344,42 +270,12 @@ function ClipMeta({
               >
                 <span className="truncate">{uploader.name}</span>
               </Link>
-              {canFollow ? (
-                <UserFollowButton
-                  following={isFollowing}
-                  onClick={() => void handleFollow()}
-                  disabled={followPending}
-                  state={
-                    followPending
-                      ? "pending"
-                      : followMutation.isError
-                        ? "error"
-                        : "idle"
-                  }
-                  title={
-                    followMutation.error
-                      ? errorMessage(
-                          followMutation.error,
-                          t("Something went wrong"),
-                        )
-                      : undefined
-                  }
-                />
-              ) : null}
             </div>
-            {followerCount !== null ? (
-              <div className="text-foreground-faint mt-0.5 text-xs">
-                <span className="text-foreground-muted">
-                  {formatCount(followerCount)}
-                </span>{" "}
-                {tp(followerCount, "follower", "followers")}
-              </div>
-            ) : null}
           </div>
         </div>
 
-        <div className="flex shrink-0 flex-col items-end gap-1">
-          <ClipGameBadge game={game} gameRef={gameRef} viewerId={viewerId} />
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <ClipGameBadge game={game} gameRef={gameRef} />
           <div className="text-foreground-faint flex items-center gap-1.5 pt-0.5 text-xs leading-4">
             {privacy !== "public" ? (
               <>
@@ -412,101 +308,32 @@ function ClipMeta({
 function ClipGameBadge({
   game,
   gameRef,
-  viewerId,
 }: {
   game: string
   gameRef: ClipGameRef | null
-  viewerId: string | null
 }) {
-  const navigate = useNavigate()
-  const icon = gameRef?.iconUrl ?? gameRef?.logoUrl ?? null
-  const gameId = gameRef ? gameRef.slug : ""
-  const gameQuery = useGameQuery(gameId, viewerId)
-  const favoriteMutation = useToggleGameFavoriteMutation()
-  const viewer = gameQuery.data?.viewer
-  const isFavorite = viewer?.isFollowing ?? false
-  const canToggle = Boolean(gameRef) && viewer !== undefined
-
-  function toggleFavorite() {
-    if (!gameRef || !canToggle || favoriteMutation.isPending) return
-    if (!viewer) {
-      void navigate({ to: "/login" })
-      return
-    }
-    favoriteMutation.mutate({ gameId, next: !isFavorite, viewerId })
-  }
-
-  const gameBody = (
+  const body = (
     <>
-      <GameIcon src={icon} name={game} />
+      <GameIcon
+        src={gameRef?.iconUrl ?? gameRef?.logoUrl ?? null}
+        name={game}
+      />
       <span className="truncate">{game}</span>
     </>
   )
-
-  const base = cn(
-    "inline-flex h-8 items-center overflow-hidden rounded-lg border border-border bg-surface-raised",
-  )
-
-  const starBtn = (
-    <button
-      type="button"
-      disabled={!canToggle || favoriteMutation.isPending}
-      title={
-        favoriteMutation.error
-          ? errorMessage(favoriteMutation.error, t("Something went wrong"))
-          : !gameRef
-            ? t("Game details unavailable")
-            : viewer === null
-              ? t("Sign in to favourite")
-              : isFavorite
-                ? t("Remove from favourites")
-                : t("Add to favourites")
-      }
-      aria-label={
-        isFavorite
-          ? t("Remove game from favourites")
-          : t("Add game to favourites")
-      }
-      onClick={toggleFavorite}
-      className={cn(
-        "inline-flex h-full items-center justify-center px-2.5 transition-colors",
-        "text-foreground-faint hover:text-foreground",
-        "disabled:pointer-events-none disabled:opacity-50",
-        isFavorite && "text-accent",
-        favoriteMutation.isError && "text-destructive",
-      )}
+  const className =
+    "inline-flex h-8 max-w-full items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 text-sm font-semibold text-foreground-muted"
+  return gameRef ? (
+    <Link
+      to="/games/$gameId"
+      params={{ gameId: gameRef.slug }}
+      className={cn(className, "hover:text-foreground")}
+      title={game}
     >
-      <StarIcon className={cn("size-4", isFavorite && "fill-current")} />
-    </button>
-  )
-
-  const separator = <div className="bg-border h-4 w-px" />
-
-  if (gameRef) {
-    return (
-      <div className={base}>
-        {starBtn}
-        {separator}
-        <Link
-          to="/games/$gameId"
-          params={{ gameId }}
-          className="text-foreground-muted hover:text-foreground inline-flex h-full items-center gap-2 px-2.5 text-sm font-semibold transition-colors"
-          title={game}
-        >
-          {gameBody}
-        </Link>
-      </div>
-    )
-  }
-
-  return (
-    <div className={base}>
-      {starBtn}
-      {separator}
-      <span className="text-foreground-muted inline-flex h-full items-center gap-2 px-2.5 text-sm leading-4 font-semibold">
-        {gameBody}
-      </span>
-    </div>
+      {body}
+    </Link>
+  ) : (
+    <span className={className}>{body}</span>
   )
 }
 

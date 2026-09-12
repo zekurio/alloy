@@ -12,7 +12,6 @@ import {
   bigint,
   boolean,
   check,
-  foreignKey,
   index,
   integer,
   pgTable,
@@ -81,8 +80,6 @@ export const clip = pgTable(
     thumb_failed_at: timestamp(),
 
     view_count: integer().notNull().default(0),
-    like_count: integer().notNull().default(0),
-    comment_count: integer().notNull().default(0),
 
     // Owner trim range in source-time ms. Virtual: the source is never
     // modified; the media pipeline derives a stream-copy cut + renditions from
@@ -152,7 +149,7 @@ export const clip = pgTable(
     // Top clips are the same for every viewer: only ready public rows
     // participate, so keep the ranking columns first and in route order.
     index("clip_ready_visible_top_idx")
-      .on(t.view_count.desc(), t.like_count.desc(), t.published_at.desc(), t.id)
+      .on(t.view_count.desc(), t.published_at.desc(), t.id)
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     index("clip_status_idx").on(t.status),
     index("clip_pending_upload_cleanup_idx")
@@ -179,13 +176,7 @@ export const clip = pgTable(
       .where(sql`${t.encode_run_id} is not null`),
     index("clip_game_published_idx").on(t.game_id, t.published_at),
     index("clip_ready_visible_game_top_idx")
-      .on(
-        t.game_id,
-        t.view_count.desc(),
-        t.like_count.desc(),
-        t.published_at.desc(),
-        t.id,
-      )
+      .on(t.game_id, t.view_count.desc(), t.published_at.desc(), t.id)
       .where(sql`${t.status} = 'ready' and ${t.privacy} = 'public'`),
     check(
       "clip_privacy_check",
@@ -241,80 +232,6 @@ export const clipRendition = pgTable(
   ],
 )
 
-export const clipLike = pgTable(
-  "clip_like",
-  {
-    clip_id: uuid()
-      .notNull()
-      .references(() => clip.id, { onDelete: "cascade" }),
-    user_id: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    created_at: timestamp().notNull().defaultNow(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.clip_id, t.user_id] }),
-    // Inverse lookup: "clips this user liked" for a future liked-feed.
-    index("clip_like_user_idx").on(t.user_id),
-  ],
-)
-
-export const clipComment = pgTable(
-  "clip_comment",
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    clip_id: uuid()
-      .notNull()
-      .references(() => clip.id, { onDelete: "cascade" }),
-    author_id: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    parent_id: uuid(),
-    body: text().notNull(),
-    like_count: integer().notNull().default(0),
-    // Null = not pinned. At most one pinned per clip — enforced by a
-    // partial unique index below plus a transaction on the pin route.
-    pinned_at: timestamp(),
-    created_at: timestamp().notNull().defaultNow(),
-    edited_at: timestamp(),
-  },
-  (t) => [
-    foreignKey({
-      columns: [t.parent_id],
-      foreignColumns: [t.id],
-      name: "clip_comment_parent_fk",
-    }).onDelete("cascade"),
-    // Main read path: top-level comments for a clip ordered by createdAt,
-    // then replies batched per top-level id.
-    index("clip_comment_clip_created_idx").on(t.clip_id, t.created_at),
-    index("clip_comment_parent_idx").on(t.parent_id),
-    // One pinned comment per clip. Partial index so non-pinned rows
-    // don't conflict on the NULL.
-    uniqueIndex("clip_comment_one_pin_per_clip_idx")
-      .on(t.clip_id)
-      .where(sql`${t.pinned_at} IS NOT NULL`),
-  ],
-)
-
-export const clipCommentLike = pgTable(
-  "clip_comment_like",
-  {
-    comment_id: uuid()
-      .notNull()
-      .references(() => clipComment.id, { onDelete: "cascade" }),
-    user_id: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    created_at: timestamp().notNull().defaultNow(),
-  },
-  (t) => [
-    primaryKey({ columns: [t.comment_id, t.user_id] }),
-    // Reverse lookup: "did the clip author like this comment?" — the
-    // list query joins on (commentId, clip.authorId).
-    index("clip_comment_like_user_idx").on(t.user_id),
-  ],
-)
-
 export const clipMention = pgTable(
   "clip_mention",
   {
@@ -328,22 +245,6 @@ export const clipMention = pgTable(
   (t) => [
     primaryKey({ columns: [t.clip_id, t.mentioned_user_id] }),
     index("clip_mention_user_idx").on(t.mentioned_user_id),
-  ],
-)
-
-export const clipCommentMention = pgTable(
-  "clip_comment_mention",
-  {
-    comment_id: uuid()
-      .notNull()
-      .references(() => clipComment.id, { onDelete: "cascade" }),
-    mentioned_user_id: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-  },
-  (t) => [
-    primaryKey({ columns: [t.comment_id, t.mentioned_user_id] }),
-    index("clip_comment_mention_user_idx").on(t.mentioned_user_id),
   ],
 )
 

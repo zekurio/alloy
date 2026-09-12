@@ -11,7 +11,6 @@ import type {
 
 import type { ApiContext } from "./client"
 import {
-  booleanFlagResponseValidator,
   validateGameCreatorsResponse,
   validateGameDetail,
   validateGameListRows,
@@ -22,7 +21,6 @@ import {
   validateSteamGridDBStatus,
 } from "./contract-validators"
 import { readJsonOrThrow } from "./http"
-import { readPostDeleteJson } from "./mutations"
 import { queryParams } from "./paths"
 
 export type {
@@ -119,38 +117,6 @@ async function fetchGameCreators(
   return readJsonOrThrow(res, validateGameCreatorsResponse)
 }
 
-async function setGameFollow(
-  context: ApiContext,
-  gameId: number | string,
-  following: true,
-): Promise<{ following: true }>
-async function setGameFollow(
-  context: ApiContext,
-  gameId: number | string,
-  following: false,
-): Promise<{ following: false }>
-async function setGameFollow(
-  context: ApiContext,
-  gameId: number | string,
-  following: boolean,
-): Promise<{ following: boolean }> {
-  const response = await readPostDeleteJson(
-    following,
-    {
-      post: () =>
-        context.rpc.api.games[":slug"].follow.$post({
-          param: { slug: String(gameId) },
-        }),
-      delete: () =>
-        context.rpc.api.games[":slug"].follow.$delete({
-          param: { slug: String(gameId) },
-        }),
-    },
-    booleanFlagResponseValidator("following", following),
-  )
-  return { following: response.following }
-}
-
 export function createGamesApi(context: ApiContext) {
   return {
     fetchSteamGridDBStatus: () => fetchSteamGridDBStatus(context),
@@ -170,11 +136,5 @@ export function createGamesApi(context: ApiContext) {
       limit?: number,
       media?: MediaFilter,
     ) => fetchGameCreators(context, gameId, limit, media),
-    favorite: (gameId: number | string) => setGameFollow(context, gameId, true),
-    unfavorite: (gameId: number | string) =>
-      setGameFollow(context, gameId, false),
-    follow: (gameId: number | string) => setGameFollow(context, gameId, true),
-    unfollow: (gameId: number | string) =>
-      setGameFollow(context, gameId, false),
   }
 }
