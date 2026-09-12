@@ -370,8 +370,6 @@ export const DE_MESSAGES = {
   Clips: "Clips",
   "Clips from this user will show up here once they upload.":
     "Clips von diesem Nutzer erscheinen hier, sobald er etwas hochlädt.",
-  "Clips where this user is tagged will show up here.":
-    "Clips, in denen dieser Nutzer getaggt ist, erscheinen hier.",
   Close: "Schließen",
   "Close process picker": "Prozessauswahl schließen",
   "Close settings": "Einstellungen schließen",
@@ -465,7 +463,6 @@ export const DE_MESSAGES = {
     "Laufende Prozesse konnten nicht geladen werden.",
   "Couldn't load servers.": "Server konnten nicht geladen werden.",
   "Couldn't load settings": "Einstellungen konnten nicht geladen werden",
-  "Couldn't load tagged clips": "Getaggte Clips konnten nicht geladen werden",
   "Couldn't load this game": "Dieses Spiel konnte nicht geladen werden",
   "Couldn't open the sounds folder.":
     "Der Sound-Ordner konnte nicht geöffnet werden.",
@@ -798,7 +795,6 @@ export const DE_MESSAGES = {
   "No saved servers yet.": "Noch keine gespeicherten Server.",
   "No settings found.": "Keine Einstellungen gefunden.",
   "No sounds found": "Keine Sounds gefunden",
-  "No tagged clips yet": "Noch keine getaggten Clips",
   "No updates found.": "Keine Updates gefunden.",
   "No users yet": "Noch keine Nutzer",
   "Not linked": "Nicht verknüpft",
@@ -890,6 +886,8 @@ export const DE_MESSAGES = {
   "Poster updated": "Poster aktualisiert",
   "Posted, but couldn't copy the link":
     "Veröffentlicht, aber der Link konnte nicht kopiert werden",
+  post: "Beitrag",
+  posts: "Beiträge",
   "Posting...": "Wird gepostet...",
   Preferences: "Einstellungen",
   "Preparing...": "Wird vorbereitet...",
@@ -1077,7 +1075,6 @@ export const DE_MESSAGES = {
   Switch: "Wechseln",
   System: "System",
   "Tag people": "Nutzer markieren",
-  Tagged: "Markiert",
   "Tagged in clip": "Im Clip getaggt",
   "Test {title} sound": "{title}-Sound testen",
   "Test sound": "Sound testen",

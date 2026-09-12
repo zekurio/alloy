@@ -17,7 +17,6 @@ import {
   CheckIcon,
   CircleAlertIcon,
   LoaderCircleIcon,
-  InfoIcon,
   MoreHorizontalIcon,
   PencilIcon,
   Share2Icon,
@@ -156,7 +155,6 @@ type MobileActionsRailProps = {
   shareError: string | null
   shareDisabled: boolean
   iconSizeClassName: string
-  onDetails: () => void
   onShare: () => void
   onEdit: () => void
   onDelete: () => void
@@ -171,18 +169,12 @@ export function MobileActionsRail({
   shareError,
   shareDisabled,
   iconSizeClassName,
-  onDetails,
   onShare,
   onEdit,
   onDelete,
 }: MobileActionsRailProps) {
   return (
     <>
-      <MobileActionButton
-        onClick={onDetails}
-        ariaLabel={t("Details")}
-        icon={<InfoIcon className={cn(iconSizeClassName, "text-white")} />}
-      />
       <MobileActionButton
         onClick={onShare}
         disabled={shareDisabled || shareState === "pending"}

@@ -87,7 +87,7 @@ export function ProfileIdentity({
               </h1>
               <StatInline
                 value={counts.clips}
-                label={tp(counts.clips, "clip", "clips")}
+                label={tp(counts.clips, "post", "posts")}
               />
             </div>
 

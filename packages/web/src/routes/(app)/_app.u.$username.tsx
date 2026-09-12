@@ -11,7 +11,6 @@ import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-ide
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
 import { userClipsQueryOptions, useUserClipsQuery } from "@/lib/clip-queries"
 import {
-  taggedClipsQueryOptions,
   useProfileCachePatchers,
   userProfileQueryOptions,
   userProfileViewerQueryOptions,
@@ -26,12 +25,7 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
     const viewerOptions = userProfileViewerQueryOptions(params.username)
     const profile = await context.queryClient.ensureQueryData(profileOptions)
     await context.queryClient.ensureQueryData(viewerOptions)
-    // Warm every tab's clip list so switching to Tagged shows data
-    // immediately instead of flashing a spinner then the empty state.
     void context.queryClient.prefetchQuery(clipsOptions)
-    void context.queryClient.prefetchQuery(
-      taggedClipsQueryOptions(params.username),
-    )
     return { profile }
   },
   component: UserProfileLayout,

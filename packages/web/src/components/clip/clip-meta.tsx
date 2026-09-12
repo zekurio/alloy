@@ -80,6 +80,8 @@ interface ClipMetaProps {
   onEdit?: () => void
   /** Desktop-only "save to this device" affordance, slotted by the viewer. */
   downloadAction?: ReactNode
+  /** Viewer dialog close button, rendered as the trailing header action. */
+  closeAction?: ReactNode
 }
 
 function ClipMeta({
@@ -102,6 +104,7 @@ function ClipMeta({
   deletePending,
   onEdit,
   downloadAction,
+  closeAction,
 }: ClipMetaProps) {
   const { data: session } = useSession()
   const viewerId = session?.user?.id ?? null
@@ -138,7 +141,7 @@ function ClipMeta({
   return (
     <section className="flex flex-col gap-4">
       {/* Title + top-right actions */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <ClipTitleWithVisibility
           title={title}
           privacy={privacy}
@@ -147,7 +150,7 @@ function ClipMeta({
           titleClassName="text-foreground min-w-0 text-xl leading-snug font-bold"
         />
 
-        <div className="flex shrink-0 items-center gap-1 self-start">
+        <div className="flex shrink-0 items-center gap-1">
           <FeedbackButton
             variant="ghost"
             size="icon"
@@ -226,12 +229,13 @@ function ClipMeta({
               </DropdownMenuContent>
             </DropdownMenu>
           ) : null}
+          {closeAction}
         </div>
       </div>
 
       {/* User row */}
       <div className="flex flex-col gap-3">
-        <div className="flex min-w-0 items-start gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/u/$username"
             params={{ username: uploader.handle }}
@@ -239,7 +243,7 @@ function ClipMeta({
               name: uploader.name,
             })}
             className={cn(
-              "mt-0.5 shrink-0 rounded-md",
+              "shrink-0 rounded-md",
               "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
             )}

@@ -221,19 +221,6 @@ function ClipViewerDialogBody({
           "lg:min-w-[min(840px,calc(100dvw-var(--clip-modal-margin-x)*2-var(--clip-modal-nav-gutter)*2))]",
       )}
     >
-      <DialogClose
-        render={
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="absolute -top-1 -right-11 z-30 hidden rounded-full border-transparent bg-transparent text-white/80 shadow-none hover:border-transparent hover:bg-transparent hover:text-white lg:inline-flex [&_svg]:!size-5"
-          />
-        }
-        aria-label={t("Close")}
-      >
-        <XIcon />
-      </DialogClose>
       {showPrev ? (
         <Button
           type="button"
@@ -328,6 +315,14 @@ function ClipViewerDialogBody({
           onRequestDelete={deleteFlow.openDialog}
           deletePending={deleteFlow.pending}
           onNavigate={onNavigate}
+          closeAction={
+            <DialogClose
+              render={<Button type="button" variant="ghost" size="icon" />}
+              aria-label={t("Close")}
+            >
+              <XIcon className="size-4" />
+            </DialogClose>
+          }
         />
       </div>
       <DeleteServerBackedDialog

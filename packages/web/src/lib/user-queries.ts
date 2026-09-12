@@ -5,6 +5,7 @@ import {
 } from "@alloy/api"
 import {
   type QueryClient,
+  infiniteQueryOptions,
   queryOptions,
   useQuery,
   useQueryClient,
@@ -23,13 +24,24 @@ export const userKeys = {
     [...userKeys.all, "profile-viewer", handle] as const,
   search: (q: string) => [...userKeys.all, "search", q] as const,
   storage: () => [...userKeys.all, "storage"] as const,
-  tagged: (handle: string) => [...userKeys.all, "tagged", handle] as const,
   profileGamesInfinite: (handle: string, limit: number) =>
     [...userKeys.all, "profile-games-infinite", { handle, limit }] as const,
 }
 
 export function invalidateStorageUsage(qc: QueryClient): Promise<void> {
   return qc.invalidateQueries({ queryKey: userKeys.storage() })
+}
+
+export function profileGamesQueryOptions(handle: string) {
+  const limit = 24
+  return infiniteQueryOptions({
+    queryKey: userKeys.profileGamesInfinite(handle, limit),
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) =>
+      api.users.fetchProfileGames(handle, { limit, offset: pageParam }),
+    getNextPageParam: (last, pages) =>
+      last.length === limit ? pages.length * limit : undefined,
+  })
 }
 
 export function useUserSearchQuery(q: string) {
@@ -40,18 +52,6 @@ export function useUserSearchQuery(q: string) {
     enabled: trimmed.length > 0,
     staleTime: 30_000,
   })
-}
-
-export function taggedClipsQueryOptions(handle: string) {
-  return queryOptions({
-    queryKey: userKeys.tagged(handle),
-    queryFn: () => api.users.fetchTaggedClips(handle),
-    enabled: handle.length > 0,
-  })
-}
-
-export function useTaggedClipsQuery(handle: string) {
-  return useQuery(taggedClipsQueryOptions(handle))
 }
 
 export function useUserProfileQuery(handle: string) {

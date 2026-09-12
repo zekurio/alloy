@@ -8,23 +8,28 @@ type ProfileTabsNavProps = {
   username: string
 }
 
-type TabSegment = "all" | "tagged"
+type TabSegment = "all" | "screenshots" | "games"
 type Tab = {
   segment: TabSegment
   label: string
-  to: "/u/$username/all" | "/u/$username/tagged"
+  to: "/u/$username/all" | "/u/$username/screenshots" | "/u/$username/games"
 }
 
 const TABS: ReadonlyArray<Tab> = [
   {
     segment: "all",
-    label: t("Uploads"),
+    label: t("Clips"),
     to: "/u/$username/all",
   },
   {
-    segment: "tagged",
-    label: t("Tagged"),
-    to: "/u/$username/tagged",
+    segment: "screenshots",
+    label: t("Screenshots"),
+    to: "/u/$username/screenshots",
+  },
+  {
+    segment: "games",
+    label: t("Games"),
+    to: "/u/$username/games",
   },
 ]
 
@@ -60,7 +65,7 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
               // Underline tab: plain label, accent underline when active. The
               // -mb-px pulls the active border onto the nav's bottom rule.
               "relative -mb-px inline-flex h-10 shrink-0 items-center border-b-2 px-0.5",
-              "border-transparent text-sm font-medium whitespace-nowrap text-foreground-muted",
+              "border-transparent text-sm font-bold whitespace-nowrap text-foreground-muted",
               "transition-[color,border-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "outline-none hover:text-foreground",
               "focus-visible:text-foreground",

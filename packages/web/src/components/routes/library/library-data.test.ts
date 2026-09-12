@@ -79,6 +79,7 @@ test("source filters include synced clips wherever a copy exists", () => {
       ({
         id,
         title: "Synced title",
+        mediaKind: "video",
         game: "Valorant",
         gameRef: valorant,
         createdAt: synced.createdAt,
@@ -99,7 +100,7 @@ test("source filters include synced clips wherever a copy exists", () => {
     gamesByName: valorantLookup,
     uploaded,
     active: null,
-    kind: "all" as const,
+    media: "all" as const,
     query: "",
   }
   const keys = (source: "all" | "local" | "server") =>
@@ -112,6 +113,31 @@ test("source filters include synced clips wherever a copy exists", () => {
   ])
   assert.deepEqual(keys("server"), ["cloud:clip-1", "cloud:clip-2"])
   assert.deepEqual(keys("local"), ["local:local-2", "cloud:clip-1"])
+
+  const mixed = {
+    ...options,
+    source: "all" as const,
+    snapshot: {
+      ...snapshot,
+      items: [
+        ...snapshot.items,
+        { ...local, id: "image-local", kind: "screenshot" as const },
+      ],
+    },
+    uploaded: [
+      ...uploaded,
+      { ...uploaded[0]!, id: "image-cloud", mediaKind: "image" as const },
+    ],
+  }
+  const imageEntries = buildLibraryEntries({ ...mixed, media: "image" })
+  assert.deepEqual(
+    new Set(imageEntries.map((entry) => entry.key)),
+    new Set(["local:image-local", "cloud:image-cloud"]),
+  )
+  assert.deepEqual(
+    buildLibraryEntries({ ...mixed, media: "video" }).map((entry) => entry.key),
+    keys("all"),
+  )
 
   const [active] = buildLibraryGroups(
     snapshot.groups,

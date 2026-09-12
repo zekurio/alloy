@@ -6,7 +6,9 @@ import { Spinner } from "@alloy/ui/components/spinner"
 import { useQuery } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useMemo } from "react"
+import type { ReactNode } from "react"
 
+import { ContentEmptyState } from "@/components/feedback/empty-state"
 import { useSession } from "@/lib/auth-client"
 import { clipGameLabel } from "@/lib/clip-format"
 import { formatRelativeTime } from "@/lib/date-format"
@@ -27,11 +29,14 @@ export function ClipDetailsPanel({
   onRequestDelete,
   deletePending,
   onNavigate,
+  closeAction,
 }: {
   row: ClipRow
   onRequestDelete: () => void
   deletePending: boolean
   onNavigate?: ((entry: ClipListEntry) => void) | null
+  /** Viewer dialog close button, slotted into the ClipMeta header row. */
+  closeAction?: ReactNode
 }) {
   const navigate = useNavigate()
   const { data: session } = useSession()
@@ -95,6 +100,7 @@ export function ClipDetailsPanel({
             params: { clipId: row.id },
           })
         }}
+        closeAction={closeAction}
         onRequestDelete={onRequestDelete}
         deletePending={deletePending}
       />
@@ -132,9 +138,11 @@ export function ClipDetailsPanel({
             </Button>
           </div>
         ) : entries.length === 0 ? (
-          <p className="text-foreground-muted text-sm">
-            {t("No other videos yet")}
-          </p>
+          <ContentEmptyState
+            seed={`recommendations-${row.id}-empty`}
+            size="sm"
+            title={t("No other videos yet")}
+          />
         ) : (
           <ClipListProvider
             listKey={`recommendations:${row.id}`}

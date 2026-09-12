@@ -160,26 +160,32 @@ function ClipCard({
         />
       </div>
       {compact ? (
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        // pb matches the thumb's corner radius so the bottom text line
+        // aligns with the end of the thumb's straight edge, not inside
+        // the rounded corner.
+        <div className="flex min-w-0 flex-1 flex-col justify-between self-stretch pb-(--radius-md)">
           <div className="text-foreground truncate text-sm leading-5 font-semibold">
             {titleButton}
           </div>
-          <div className="flex min-w-0 text-xs">
-            <AuthorLabel
-              author={author}
-              href={authorHref}
-              renderLink={renderAuthorLink}
-            />
-          </div>
-          <div className="flex min-w-0 text-xs">
-            <GameLabel
-              game={game}
-              icon={gameIcon}
-              href={gameHref}
-              renderLink={renderGameLink}
-            />
-          </div>
-          <div className="text-foreground-faint flex flex-wrap gap-x-1 text-xs tabular-nums">
+          {author ? (
+            <div className="flex min-w-0 text-xs">
+              <AuthorLabel
+                author={author}
+                href={authorHref}
+                renderLink={renderAuthorLink}
+              />
+            </div>
+          ) : null}
+          <div className="text-foreground-faint flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs tabular-nums">
+            {game ? (
+              <GameLabel
+                game={game}
+                icon={gameIcon}
+                href={gameHref}
+                renderLink={renderGameLink}
+              />
+            ) : null}
+            {game ? <span aria-hidden="true">·</span> : null}
             <span>
               {views} {tp(viewCountForLabel(viewCount, views), "view", "views")}
             </span>

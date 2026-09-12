@@ -2,7 +2,6 @@ import { type ClipRow, clipSourceFileUrl, clipThumbnailUrl } from "@alloy/api"
 import { clipShareUrl } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { DialogClose, DialogViewportContent } from "@alloy/ui/components/dialog"
-import { Drawer, DrawerContent, DrawerTitle } from "@alloy/ui/components/drawer"
 import { useMediaQuery } from "@alloy/ui/hooks/use-media-query"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useNavigate } from "@tanstack/react-router"
@@ -11,10 +10,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { TouchEvent } from "react"
 
 import { mobileOverlayCloseButtonClassName } from "@/components/app/mobile-close-button"
-import {
-  mobileDrawerContentClass,
-  MobileDrawerHandle,
-} from "@/components/app/mobile-drawer-surface"
 import { GameIcon } from "@/components/game/game-icon"
 import { DeleteServerBackedDialog } from "@/components/routes/library/library-delete-dialog"
 import { useSession } from "@/lib/auth-client"
@@ -30,7 +25,6 @@ import { exitFullscreenBestEffort } from "@/lib/fullscreen"
 import { useActionFeedback } from "@/lib/use-action-feedback"
 import { userAvatar } from "@/lib/user-display"
 
-import { ClipDetailsPanel } from "./clip-details-panel"
 import {
   clipBrowserDownloadActionSupported,
   ClipBrowserDownloadMenuItem,
@@ -104,13 +98,8 @@ function MobileClipViewerBody({
   const deleting = deleteFlow.pending
   const retry = useClipRetry(row)
 
-  /* ---- details panel ---- */
-  const [detailsOpen, setDetailsOpen] = useState(false)
+  /* ---- swipe hint ---- */
   const [showSwipeHint, setShowSwipeHint] = useState(false)
-
-  useEffect(() => {
-    setDetailsOpen(false)
-  }, [row.id])
 
   useEffect(() => {
     if (!canNav || (!prev && !next)) return
@@ -191,7 +180,6 @@ function MobileClipViewerBody({
         ? shareFeedback.feedback.message
         : null,
     shareDisabled: row.privacy === "private",
-    onDetails: () => setDetailsOpen(true),
     onShare: handleShare,
     onEdit: () => {
       // The edit view lives at its own route; navigating there drops the
@@ -459,25 +447,6 @@ function MobileClipViewerBody({
               />
             </div>
           </div>
-
-          {/* Details and recommendations */}
-          <Drawer
-            open={detailsOpen}
-            onOpenChange={setDetailsOpen}
-            direction="bottom"
-          >
-            <DrawerContent className={mobileDrawerContentClass}>
-              <DrawerTitle className="sr-only">{t("Details")}</DrawerTitle>
-              <MobileDrawerHandle />
-              <ClipDetailsPanel
-                key={row.id}
-                row={row}
-                onRequestDelete={deleteFlow.openDialog}
-                deletePending={deleteFlow.pending}
-                onNavigate={onNavigate}
-              />
-            </DrawerContent>
-          </Drawer>
         </div>
       </DialogViewportContent>
 

@@ -42,7 +42,7 @@ export function GameDetailPageInner({
   creator,
 }: GameDetailPageInnerProps) {
   const search = useSearch({ strict: false })
-  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
+  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "video"
   const navigate = useNavigate()
   const session = useSuspenseSession()
   const viewerId = session?.user.id
@@ -55,10 +55,10 @@ export function GameDetailPageInner({
       to="/games/$gameId"
       params={{ gameId }}
       search={{
-        // The default sort stays out of the URL, and so does "all creators".
+        // The default sort and media filter stay out of the URL.
         sort: opt.key === DEFAULT_CLIP_SORT ? undefined : opt.key,
         creator: creator ?? undefined,
-        media,
+        media: media === "video" ? undefined : media,
       }}
       data-active={active ? "true" : undefined}
     />
@@ -97,7 +97,11 @@ export function GameDetailPageInner({
                       void navigate({
                         to: "/games/$gameId",
                         params: { gameId },
-                        search: { sort, creator: creator ?? undefined, media },
+                        search: {
+                          sort: sort === DEFAULT_CLIP_SORT ? undefined : sort,
+                          creator: creator ?? undefined,
+                          media: media === "video" ? undefined : media,
+                        },
                       })
                     }}
                   />
@@ -143,7 +147,7 @@ function GameCreatorChips({
   creator: string | null
 }) {
   const search = useSearch({ strict: false })
-  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
+  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "video"
   const { data } = useGameCreatorsQuery(gameId, media)
   const creators = data?.creators ?? []
   if (creators.length === 0) return null
@@ -183,7 +187,7 @@ function GameCreatorChips({
           search={{
             sort: sort === DEFAULT_CLIP_SORT ? undefined : sort,
             creator: opt.key === ALL_CREATORS ? undefined : opt.key,
-            media,
+            media: media === "video" ? undefined : media,
           }}
           data-active={active ? "true" : undefined}
         />
