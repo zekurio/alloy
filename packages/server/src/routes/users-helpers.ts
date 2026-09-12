@@ -7,7 +7,6 @@ import { requiredSql } from "@alloy/server/db/sql"
 import { isoDate } from "@alloy/server/runtime/date"
 import {
   and,
-  count,
   eq,
   ilike,
   isNull,
@@ -192,9 +191,13 @@ export async function selectProfileCounts(
     clipConditions.push(publicClipPrivacyCondition())
   }
 
-  const [{ value: clipCount }] = await db
-    .select({ value: count() })
+  const [counts] = await db
+    .select({
+      clips: sql<number>`count(*) filter (where ${eq(clip.media_kind, "video")})::int`,
+      screenshots: sql<number>`count(*) filter (where ${eq(clip.media_kind, "image")})::int`,
+      games: sql<number>`count(distinct ${clip.game_id})::int`,
+    })
     .from(clip)
     .where(and(...clipConditions))
-  return { clips: clipCount }
+  return counts ?? { clips: 0, screenshots: 0, games: 0 }
 }

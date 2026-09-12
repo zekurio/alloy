@@ -42,6 +42,8 @@ export function userAssetImagePath(key: string, updatedAt: Date): string {
 
 export interface ProfileCounts {
   clips: number
+  screenshots: number
+  games: number
 }
 
 export interface ProfileViewer {

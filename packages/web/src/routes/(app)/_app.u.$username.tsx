@@ -83,7 +83,7 @@ function UserProfileLayout() {
         )}
 
         <div className="px-[var(--app-content-padding)]">
-          <ProfileTabsNav username={username} />
+          <ProfileTabsNav username={username} counts={profile?.counts} />
           <Outlet />
         </div>
       </div>

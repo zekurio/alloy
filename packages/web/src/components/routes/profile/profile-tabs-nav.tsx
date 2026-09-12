@@ -1,11 +1,14 @@
+import type { ProfileCounts } from "@alloy/api"
 import { t } from "@alloy/i18n"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link, useLocation } from "@tanstack/react-router"
 
+import { formatCount } from "@/lib/number-format"
 import { parseProfilePathname } from "@/lib/profile-path"
 
 type ProfileTabsNavProps = {
   username: string
+  counts?: ProfileCounts
 }
 
 type TabSegment = "all" | "screenshots" | "games"
@@ -40,7 +43,7 @@ function activeProfileSegment(pathname: string, username: string): TabSegment {
   return TABS.find((tab) => tab.segment === segment)?.segment ?? "all"
 }
 
-export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
+export function ProfileTabsNav({ username, counts }: ProfileTabsNavProps) {
   const { pathname } = useLocation()
   // `/u/:username` with no trailing segment defaults to feed (the index
   // route redirects there, but paint the right active state immediately).
@@ -55,6 +58,7 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
     >
       {TABS.map((tab) => {
         const isActive = tab.segment === active
+        const count = counts?.[tab.segment === "all" ? "clips" : tab.segment]
         return (
           <Link
             key={tab.segment}
@@ -64,7 +68,7 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
             className={cn(
               // Underline tab: plain label, accent underline when active. The
               // -mb-px pulls the active border onto the nav's bottom rule.
-              "relative -mb-px inline-flex h-10 shrink-0 items-center border-b-2 px-0.5",
+              "relative -mb-px inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-0.5",
               "border-transparent text-sm font-bold whitespace-nowrap text-foreground-muted",
               "transition-[color,border-color] duration-[var(--duration-fast)] ease-[var(--ease-out)]",
               "outline-none hover:text-foreground",
@@ -73,6 +77,11 @@ export function ProfileTabsNav({ username }: ProfileTabsNavProps) {
             )}
           >
             {tab.label}
+            {count !== undefined && count > 0 ? (
+              <span className="text-foreground-muted text-xs font-semibold tabular-nums">
+                {formatCount(count)}
+              </span>
+            ) : null}
           </Link>
         )
       })}

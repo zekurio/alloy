@@ -86,8 +86,8 @@ export function ProfileIdentity({
                 {handle}
               </h1>
               <StatInline
-                value={counts.clips}
-                label={tp(counts.clips, "post", "posts")}
+                value={counts.clips + counts.screenshots}
+                label={tp(counts.clips + counts.screenshots, "post", "posts")}
               />
             </div>
 

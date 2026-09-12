@@ -242,6 +242,14 @@ function validateProfileCounts(value: ApiJsonInput): ProfileCounts {
     counts.clips,
     "Invalid profile counts response: clips must be a non-negative integer",
   )
+  validateNonNegativeInteger(
+    counts.screenshots,
+    "Invalid profile counts response: screenshots must be a non-negative integer",
+  )
+  validateNonNegativeInteger(
+    counts.games,
+    "Invalid profile counts response: games must be a non-negative integer",
+  )
   // SAFETY: The checks above validate every field in the asserted response contract.
   return value as ProfileCounts
 }
