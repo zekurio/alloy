@@ -57,7 +57,7 @@ interface ClipCardProps extends ComponentProps<"article"> {
   /** Accessible label for the title button. */
   titleLabel?: string
   thumbnailRef?: Ref<HTMLButtonElement>
-  metaVariant?: "default" | "gallery"
+  metaVariant?: "default" | "gallery" | "compact"
 }
 
 type ClipCardLabelLinkProps = {
@@ -118,6 +118,7 @@ function ClipCard({
     </ClipCardTitleButton>
   )
   const gallery = metaVariant === "gallery"
+  const compact = metaVariant === "compact"
   const showAttributionRow = Boolean(author || game)
 
   return (
@@ -127,6 +128,7 @@ function ClipCard({
       className={cn(
         "group/clip-card relative flex flex-col",
         gallery ? "overflow-hidden rounded-md" : "gap-1.5",
+        compact && "flex-row items-start gap-3",
         className,
       )}
       {...props}
@@ -134,7 +136,10 @@ function ClipCard({
       <div
         className={cn(
           gallery ? "relative flex" : "relative",
-          !gallery && "-mx-[var(--app-content-padding,0.75rem)] md:mx-0",
+          !gallery &&
+            !compact &&
+            "-mx-[var(--app-content-padding,0.75rem)] md:mx-0",
+          compact && "w-28 shrink-0 overflow-hidden rounded-md",
         )}
       >
         <ClipCardThumb
@@ -154,7 +159,41 @@ function ClipCard({
           buttonRef={thumbnailRef}
         />
       </div>
-      {gallery ? (
+      {compact ? (
+        // pb matches the thumb's corner radius so the bottom text line
+        // aligns with the end of the thumb's straight edge, not inside
+        // the rounded corner.
+        <div className="flex min-w-0 flex-1 flex-col justify-between self-stretch pb-(--radius-md)">
+          <div className="text-foreground truncate text-sm leading-5 font-semibold">
+            {titleButton}
+          </div>
+          {author ? (
+            <div className="flex min-w-0 text-xs">
+              <AuthorLabel
+                author={author}
+                href={authorHref}
+                renderLink={renderAuthorLink}
+              />
+            </div>
+          ) : null}
+          <div className="text-foreground-faint flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs tabular-nums">
+            {game ? (
+              <GameLabel
+                game={game}
+                icon={gameIcon}
+                href={gameHref}
+                renderLink={renderGameLink}
+              />
+            ) : null}
+            {game ? <span aria-hidden="true">·</span> : null}
+            <span>
+              {views} {tp(viewCountForLabel(viewCount, views), "view", "views")}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span>{postedAt}</span>
+          </div>
+        </div>
+      ) : gallery ? (
         <div className="pointer-events-none invisible absolute inset-x-0 bottom-0 z-10 flex flex-col gap-1 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-3 pt-10 pb-3 text-white opacity-0 transition-opacity duration-150 group-hover/clip-card:visible group-hover/clip-card:opacity-100 group-has-[:focus-visible]/clip-card:visible group-has-[:focus-visible]/clip-card:opacity-100 motion-reduce:transition-none [&_a]:pointer-events-auto [&_button]:pointer-events-auto">
           <div className="truncate text-sm leading-5 font-semibold">
             {titleButton}

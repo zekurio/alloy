@@ -147,7 +147,7 @@ function SettingsDialogRoot({
         disableZoom
         className={cn(
           "flex h-[94vh] max-h-[1040px] w-[calc(100vw-2rem)] max-w-7xl gap-0 overflow-hidden p-0",
-          "settings-sheet max-sm:top-0 max-sm:left-0 max-sm:h-dvh max-sm:max-h-none max-sm:w-screen max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-none max-sm:border-0",
+          "settings-sheet max-md:top-0 max-md:left-0 max-md:h-dvh max-md:max-h-none max-md:w-screen max-md:max-w-none max-md:translate-x-0 max-md:translate-y-0 max-md:rounded-none max-md:border-0",
         )}
       >
         <DialogTitle className="sr-only">{t("Settings")}</DialogTitle>
@@ -230,7 +230,7 @@ function SettingsDialogContent({
 
   return (
     <SettingsSectionsProvider>
-      <nav className="border-border bg-background hidden w-64 shrink-0 flex-col gap-1 overflow-y-auto border-r p-5 sm:flex">
+      <nav className="border-border bg-background hidden w-64 shrink-0 flex-col gap-1 overflow-y-auto border-r p-5 md:flex">
         <div className="text-foreground px-2.5 pb-3 text-lg font-semibold tracking-[var(--tracking-tight)]">
           {t("Settings")}
         </div>
@@ -305,17 +305,17 @@ function SettingsDialogContent({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Discord-style title bar: the category name and the close button stay
             pinned while the panel below them scrolls. */}
-        <header className="border-border bg-background flex shrink-0 flex-col gap-3 border-b px-5 py-3 sm:px-10">
+        <header className="border-border bg-background flex shrink-0 flex-col gap-3 border-b px-5 py-3 md:px-10">
           {/* The mobile section select below already names the active section,
               so the title only earns its row from sm up (or for the dialog's
               close button). */}
           <div
             className={cn(
               "flex items-center justify-between gap-4",
-              native && "max-sm:hidden",
+              native && "max-md:hidden",
             )}
           >
-            <h2 className="text-foreground truncate text-xl font-semibold tracking-[var(--tracking-tight)] max-sm:hidden">
+            <h2 className="text-foreground truncate text-xl font-semibold tracking-[var(--tracking-tight)] max-md:hidden">
               {active.title ?? active.label}
             </h2>
             {native ? null : (
@@ -327,7 +327,7 @@ function SettingsDialogContent({
               </DialogClose>
             )}
           </div>
-          <div className="sm:hidden">
+          <div className="md:hidden">
             <Select
               value={active.id}
               onValueChange={(value) => {
@@ -374,10 +374,10 @@ function SettingsDialogContent({
         <div
           ref={scrollRef}
           className={cn(
-            "min-h-0 flex-1 overflow-y-auto px-5 py-6 sm:py-8 sm:pr-14 sm:pl-10",
+            "min-h-0 flex-1 overflow-y-auto px-5 py-6 md:py-8 md:pr-14 md:pl-10",
             native
-              ? "max-sm:pb-6"
-              : "max-sm:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
+              ? "max-md:pb-6"
+              : "max-md:pb-[max(1.5rem,env(safe-area-inset-bottom))]",
           )}
         >
           <Suspense fallback={<PanelLoading />}>

@@ -20,8 +20,9 @@ import { setActiveClipList, useClipList } from "./clip-list-context"
 interface ClipCardTriggerProps {
   row: ClipRow
   className?: string
-  metaVariant?: "default" | "gallery"
+  metaVariant?: "default" | "gallery" | "compact"
   showVisibilityStatus?: boolean
+  onOpen?: (row: ClipRow) => void
 }
 
 export const ClipCardTrigger = memo(function ClipCardTrigger({
@@ -29,6 +30,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
   className,
   metaVariant = "default",
   showVisibilityStatus = false,
+  onOpen,
 }: ClipCardTriggerProps) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
@@ -50,6 +52,10 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
   const handleThumbnailClick = useCallback(() => {
     preloadClip()
     setActiveClipList(list)
+    if (onOpen) {
+      onOpen(row)
+      return
+    }
     void navigate({
       to: ".",
       search: (prev: AppSearch) => ({ ...prev, clip: card.clipId }),
@@ -63,7 +69,7 @@ export const ClipCardTrigger = memo(function ClipCardTrigger({
             params: { clipId: card.clipId },
           },
     })
-  }, [navigate, gameId, card.clipId, list, preloadClip])
+  }, [navigate, gameId, card.clipId, list, preloadClip, onOpen, row])
 
   const handlePreviewError = useCallback((cause: unknown) => {
     clientLogger.warn("[clip-card] Hover preview playback failed.", cause)

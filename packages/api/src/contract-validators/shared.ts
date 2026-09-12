@@ -1,8 +1,5 @@
 import {
-  objectRecord,
-  validateBoolean,
   validateEnumString,
-  validateNonNegativeInteger,
   validateNonNegativeNumber,
   validateNullableDateString,
   validateNullablePublicImageSrcString,
@@ -28,21 +25,6 @@ export function validateAuthProviderColors(
       `Invalid ${label}: ${key} must be a string`,
     )
   }
-}
-
-export function validateLikeState(
-  value: ApiJsonInput,
-  label: "clip" | "comment",
-): void {
-  const response = objectRecord(value, `${label} like`)
-  validateBoolean(
-    response.liked,
-    `Invalid ${label} like response: liked must be boolean`,
-  )
-  validateNonNegativeInteger(
-    response.likeCount,
-    `Invalid ${label} like response: likeCount must be a non-negative integer`,
-  )
 }
 
 export function validateGameRowFields(

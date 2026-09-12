@@ -1,13 +1,11 @@
-import { MEDIA_FILTERS } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
-import { Link, useNavigate, useSearch } from "@tanstack/react-router"
+import { Link } from "@tanstack/react-router"
 import { GlobeIcon } from "lucide-react"
 
 import {
   FilterChipRail,
   type FilterChipOption,
 } from "@/components/clip/filter-chip-rail"
-import { MediaFilterControl } from "@/components/clip/media-filter-control"
 import {
   SortDropdown,
   type SortDropdownOption,
@@ -18,7 +16,7 @@ import {
   type ProfileClipSort,
 } from "@/lib/profile-all-search"
 
-export type ProfileClipTab = "all" | "liked" | "tagged"
+export type ProfileClipTab = "all" | "screenshots"
 
 type GameOption = {
   slug: string
@@ -38,7 +36,6 @@ type ClipsFilterBarProps = {
 const SORT_OPTIONS: ReadonlyArray<SortDropdownOption<ProfileClipSort>> = [
   { key: "recent", label: t("Newest") },
   { key: "oldest", label: t("Oldest") },
-  { key: "top", label: t("Most liked") },
   { key: "views", label: t("Most viewed") },
 ]
 
@@ -51,9 +48,7 @@ export function ClipsFilterBar({
   gameSlug,
   gameOptions,
 }: ClipsFilterBarProps) {
-  const navigate = useNavigate()
-  const search = useSearch({ strict: false })
-  const media = MEDIA_FILTERS.find((value) => value === search.media) ?? "all"
+  const media = tab === "screenshots" ? "image" : "video"
   const to = PROFILE_CLIP_ROUTES[tab]
   const gameFilterOptions: FilterChipOption<string>[] = [
     { key: ALL_GAMES, label: t("All games"), icon: <GlobeIcon /> },
@@ -86,16 +81,6 @@ export function ClipsFilterBar({
       ) : null}
 
       <div className="ml-auto flex shrink-0 items-center gap-2">
-        <MediaFilterControl
-          value={media}
-          onChange={(next) => {
-            void navigate({
-              to,
-              params: { username },
-              search: profileClipSearchFor(sort, gameSlug, next),
-            })
-          }}
-        />
         <SortDropdown
           value={sort}
           options={SORT_OPTIONS}
@@ -115,6 +100,5 @@ export function ClipsFilterBar({
 
 const PROFILE_CLIP_ROUTES = {
   all: "/u/$username/all",
-  liked: "/u/$username/liked",
-  tagged: "/u/$username/tagged",
+  screenshots: "/u/$username/screenshots",
 } as const

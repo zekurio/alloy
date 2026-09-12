@@ -9,14 +9,8 @@ import { BlockedGate } from "@/components/routes/profile/blocked-gate"
 import { ProfileIdentity } from "@/components/routes/profile/profile-identity"
 import { ProfileIdentitySkeleton } from "@/components/routes/profile/profile-identity-skeleton"
 import { ProfileTabsNav } from "@/components/routes/profile/profile-tabs-nav"
+import { userClipsQueryOptions, useUserClipsQuery } from "@/lib/clip-queries"
 import {
-  userClipsQueryOptions,
-  userLikedClipsQueryOptions,
-  useUserClipsQuery,
-} from "@/lib/clip-queries"
-import { useSuspenseSession } from "@/lib/session-suspense"
-import {
-  taggedClipsQueryOptions,
   useProfileCachePatchers,
   userProfileQueryOptions,
   userProfileViewerQueryOptions,
@@ -31,15 +25,7 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
     const viewerOptions = userProfileViewerQueryOptions(params.username)
     const profile = await context.queryClient.ensureQueryData(profileOptions)
     await context.queryClient.ensureQueryData(viewerOptions)
-    // Warm every tab's clip list so switching to Liked/Tagged shows data
-    // immediately instead of flashing a spinner then the empty state.
     void context.queryClient.prefetchQuery(clipsOptions)
-    void context.queryClient.prefetchQuery(
-      userLikedClipsQueryOptions(params.username),
-    )
-    void context.queryClient.prefetchQuery(
-      taggedClipsQueryOptions(params.username),
-    )
     return { profile }
   },
   component: UserProfileLayout,
@@ -48,13 +34,12 @@ export const Route = createFileRoute("/(app)/_app/u/$username")({
 function UserProfileLayout() {
   const { username } = Route.useParams()
   const navigate = useNavigate()
-  const session = useSuspenseSession()
   const profileQuery = useUserProfileQuery(username)
   const viewerQuery = useUserProfileViewerQuery(username)
   // Prime the clips cache from the layout — children read the same query key
   // via `useUserClipsQuery` and will get instant data on route change.
   useUserClipsQuery(username)
-  const { setViewer, bumpFollowers } = useProfileCachePatchers(username)
+  const { setViewer } = useProfileCachePatchers(username)
   const baseProfile = profileQuery.data ?? null
   const viewer = viewerQuery.data?.viewer
   const profile = baseProfile
@@ -91,16 +76,14 @@ function UserProfileLayout() {
           <ProfileIdentity
             profile={profile}
             viewer={viewer}
-            currentUserId={session?.user.id ?? null}
             onViewerChange={setViewer}
-            onFollowerDelta={bumpFollowers}
           />
         ) : (
           <ProfileIdentitySkeleton />
         )}
 
         <div className="px-[var(--app-content-padding)]">
-          <ProfileTabsNav username={username} />
+          <ProfileTabsNav username={username} counts={profile?.counts} />
           <Outlet />
         </div>
       </div>

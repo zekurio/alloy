@@ -2,8 +2,8 @@
 
 Alloy is a self-hosted Medal.tv alternative. Its Electron desktop app records
 gameplay through a Windows-only Rust OBS sidecar and ships a bundled build of
-the React app. The Hono server handles uploads, encoding, playback, and social
-features; it also serves the React app to normal browsers.
+the React app. The Hono server handles uploads, encoding, playback, and
+recommendations; it also serves the React app to normal browsers.
 
 Alloy is early and can take broad refactors. Prefer a smaller correct design
 over preserving weak internals. Keep compatibility at independently released

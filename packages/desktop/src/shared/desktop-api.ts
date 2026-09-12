@@ -69,9 +69,6 @@ export const DESKTOP_API_OPERATIONS = {
     getState: { kind: "invoke" },
     setEnabled: { kind: "invoke" },
   },
-  notifications: {
-    show: { kind: "invoke" },
-  },
 } as const satisfies DesktopApiTreeMeta<
   Omit<AlloyDesktop, "bridgeContract" | "titlebarOverlay">
 >

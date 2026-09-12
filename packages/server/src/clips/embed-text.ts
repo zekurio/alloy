@@ -42,22 +42,13 @@ function formatStatCount(value: number): string {
 }
 
 /**
- * The embed's description line: game, then engagement. Counts are always shown,
- * including zeros — a clip with no likes yet should still read as a clip with
- * likes rather than losing the row and shifting the layout.
+ * The embed description shows the game and view count.
  */
 export function clipEmbedDescription(clip: {
   gameName: string
   viewCount: number
-  likeCount: number
-  commentCount: number
 }): string {
   // Keep each icon as a fully-qualified emoji sequence. Discord otherwise
   // renders text-default characters such as the eye as monochrome glyphs.
-  return [
-    clip.gameName,
-    `👁️ ${formatStatCount(clip.viewCount)}`,
-    `❤️ ${formatStatCount(clip.likeCount)}`,
-    `💬️ ${formatStatCount(clip.commentCount)}`,
-  ].join(" · ")
+  return [clip.gameName, `👁️ ${formatStatCount(clip.viewCount)}`].join(" · ")
 }

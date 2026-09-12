@@ -102,8 +102,6 @@ export interface ProfileGameRow extends GameListRow {
 }
 
 export interface GameDetail extends GameRow {
-  viewer: { isFollowing: boolean } | null
-  favouritesCount: number
   /** Ready, public clips attributed to this game by enabled users. */
   clipCount: number
 }

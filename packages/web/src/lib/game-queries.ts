@@ -13,12 +13,10 @@ import {
   queryOptions,
   useMutation,
   useQuery,
-  useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query"
 
 import { api } from "./api"
-import { feedKeys } from "./feed-queries"
 
 export const gameKeys = {
   all: ["games"] as const,
@@ -32,11 +30,7 @@ export const gameKeys = {
     [...gameKeys.all, "lookup-by-name", names] as const,
   /** Per-game detail for the banner header on `/games/:gameId`. */
   detailScope: (gameId: string) => [...gameKeys.all, "detail", gameId] as const,
-  detail: (gameId: string, viewerId: string | null) =>
-    [
-      ...gameKeys.detailScope(gameId),
-      { viewerId: viewerId ?? "anonymous" },
-    ] as const,
+  detail: (gameId: string) => gameKeys.detailScope(gameId),
   /** Top creators chip rail on `/games/:gameId`. */
   creators: (gameId: string) =>
     [...gameKeys.detailScope(gameId), "creators"] as const,
@@ -128,16 +122,13 @@ export function useGameNameLookupQuery(
   })
 }
 
-export function useGameQuery(
-  gameId: string,
-  viewerId: string | null,
-): UseQueryResult<GameDetail> {
-  return useQuery(gameQueryOptions(gameId, viewerId))
+export function useGameQuery(gameId: string): UseQueryResult<GameDetail> {
+  return useQuery(gameQueryOptions(gameId))
 }
 
-export function gameQueryOptions(gameId: string, viewerId: string | null) {
+export function gameQueryOptions(gameId: string) {
   return queryOptions({
-    queryKey: gameKeys.detail(gameId, viewerId),
+    queryKey: gameKeys.detail(gameId),
     queryFn: () => api.games.fetchById(gameId, "all"),
     enabled: gameId.length > 0,
   })
@@ -170,48 +161,4 @@ function normaliseLookupNames(names: readonly string[]): readonly string[] {
     result.push(trimmed)
   }
   return result.sort((a, b) => a.localeCompare(b))
-}
-
-export function useToggleGameFavoriteMutation() {
-  const qc = useQueryClient()
-
-  return useMutation<
-    { following: boolean },
-    Error,
-    { gameId: string; next: boolean; viewerId: string | null },
-    {
-      detailKey: ReturnType<typeof gameKeys.detail>
-      previous: GameDetail | undefined
-    }
-  >({
-    mutationFn: ({ gameId, next }) =>
-      next ? api.games.follow(gameId) : api.games.unfollow(gameId),
-    onMutate: async ({ gameId, next, viewerId }) => {
-      const detailKey = gameKeys.detail(gameId, viewerId)
-      await qc.cancelQueries({ queryKey: detailKey })
-      const previous = qc.getQueryData<GameDetail>(detailKey)
-      qc.setQueryData<GameDetail>(detailKey, (old) => {
-        if (!old) return old
-        const wasFollowing = old.viewer?.isFollowing ?? false
-        const delta = next === wasFollowing ? 0 : next ? 1 : -1
-        return {
-          ...old,
-          viewer: { isFollowing: next },
-          favouritesCount: Math.max(0, old.favouritesCount + delta),
-        }
-      })
-      return { detailKey, previous }
-    },
-    onError: (_error, _variables, context) => {
-      if (context?.previous !== undefined) {
-        qc.setQueryData(context.detailKey, context.previous)
-      }
-    },
-    onSettled: (_data, _error, variables) => {
-      void qc.invalidateQueries({
-        queryKey: gameKeys.detailScope(variables.gameId),
-      })
-      void qc.invalidateQueries({ queryKey: feedKeys.all })
-    },
-  })
 }

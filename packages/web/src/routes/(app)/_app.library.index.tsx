@@ -5,6 +5,7 @@ import { requireStrictAuthBeforeLoad } from "@/lib/auth-guards"
 import { userClipsQueryOptions } from "@/lib/clip-queries"
 import {
   librarySort,
+  libraryMedia,
   librarySource,
   parseLibrarySearch,
 } from "@/lib/library-search"
@@ -32,7 +33,11 @@ function LibraryIndexPage() {
   const search = Route.useSearch()
   return (
     <Suspense fallback={null}>
-      <LibraryPage sort={librarySort(search)} source={librarySource(search)} />
+      <LibraryPage
+        sort={librarySort(search)}
+        source={librarySource(search)}
+        media={libraryMedia(search)}
+      />
     </Suspense>
   )
 }

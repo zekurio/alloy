@@ -134,14 +134,10 @@ async function getTaggedClips(
   context: ApiContext,
   handle: string,
 ): Promise<UserClip[]> {
-  return getUserClipsArray(context, handle, "tagged")
-}
-
-async function getLikedClips(
-  context: ApiContext,
-  handle: string,
-): Promise<UserClip[]> {
-  return getUserClipsArray(context, handle, "liked")
+  const res = await context.rpc.api.users[":username"].tagged.$get({
+    param: usernameParam(handle),
+  })
+  return readJsonOrThrow(res, validateClipRows)
 }
 
 async function searchUsers(
@@ -155,102 +151,23 @@ async function searchUsers(
   return readJsonOrThrow(res, validateUserSummaries)
 }
 
-async function getFollowers(
+async function setUserBlocked(
   context: ApiContext,
   handle: string,
-): Promise<UserSearchResult[]> {
-  return getUserConnections(context, handle, "followers")
-}
-
-async function getFollowing(
-  context: ApiContext,
-  handle: string,
-): Promise<UserSearchResult[]> {
-  return getUserConnections(context, handle, "following")
-}
-
-async function getUserConnections(
-  context: ApiContext,
-  handle: string,
-  pathSegment: "followers" | "following",
-): Promise<UserSearchResult[]> {
-  const endpoint = context.rpc.api.users[":username"][pathSegment]
-  const res = await endpoint.$get({ param: usernameParam(handle) })
-  return readJsonOrThrow(res, validateUserSummaries)
-}
-
-async function getUserClipsArray(
-  context: ApiContext,
-  handle: string,
-  pathSegment: "tagged" | "liked",
-): Promise<UserClip[]> {
-  const endpoint = context.rpc.api.users[":username"][pathSegment]
-  const res = await endpoint.$get({ param: usernameParam(handle) })
-  return readJsonOrThrow(res, validateClipRows)
-}
-
-async function setUserFlag(input: {
-  context: ApiContext
-  handle: string
-  endpoint: "follow" | "block"
-  key: "following" | "blocked"
-  next: boolean
-}): Promise<void> {
-  const endpoint = input.context.rpc.api.users[":username"][input.endpoint]
+  blocked: boolean,
+): Promise<void> {
+  const endpoint = context.rpc.api.users[":username"].block
   const params = {
-    param: usernameParam(input.handle),
+    param: usernameParam(handle),
   }
   await readPostDeleteJson(
-    input.next,
+    blocked,
     {
       post: () => endpoint.$post(params),
       delete: () => endpoint.$delete(params),
     },
-    booleanFlagResponseValidator(input.key, input.next),
+    booleanFlagResponseValidator("blocked", blocked),
   )
-}
-
-async function followUser(context: ApiContext, handle: string): Promise<void> {
-  await setUserFlag({
-    context,
-    handle,
-    endpoint: "follow",
-    key: "following",
-    next: true,
-  })
-}
-
-async function unfollowUser(
-  context: ApiContext,
-  handle: string,
-): Promise<void> {
-  await setUserFlag({
-    context,
-    handle,
-    endpoint: "follow",
-    key: "following",
-    next: false,
-  })
-}
-
-async function blockUser(context: ApiContext, handle: string): Promise<void> {
-  await setUserFlag({
-    context,
-    handle,
-    endpoint: "block",
-    key: "blocked",
-    next: true,
-  })
-}
-
-async function unblockUser(context: ApiContext, handle: string): Promise<void> {
-  await setUserFlag({
-    context,
-    handle,
-    endpoint: "block",
-    key: "blocked",
-    next: false,
-  })
 }
 
 async function getAccountState(
@@ -316,14 +233,9 @@ export function createUsersApi(context: ApiContext) {
       params: { limit?: number; offset?: number } = {},
     ) => getProfileGames(context, handle, params),
     fetchTaggedClips: (handle: string) => getTaggedClips(context, handle),
-    fetchLikedClips: (handle: string) => getLikedClips(context, handle),
     search: (q: string, limit = 8) => searchUsers(context, q, limit),
-    fetchFollowers: (handle: string) => getFollowers(context, handle),
-    fetchFollowing: (handle: string) => getFollowing(context, handle),
-    follow: (handle: string) => followUser(context, handle),
-    unfollow: (handle: string) => unfollowUser(context, handle),
-    block: (handle: string) => blockUser(context, handle),
-    unblock: (handle: string) => unblockUser(context, handle),
+    block: (handle: string) => setUserBlocked(context, handle, true),
+    unblock: (handle: string) => setUserBlocked(context, handle, false),
     fetchAccountState: () => getAccountState(context),
     fetchStorageUsage: () => getStorageUsage(context),
     disableAccount: () => disableAccount(context),

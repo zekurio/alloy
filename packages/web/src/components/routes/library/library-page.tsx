@@ -1,4 +1,5 @@
 import type { ClipRow } from "@alloy/api"
+import type { MediaFilter } from "@alloy/contracts"
 import { t } from "@alloy/i18n"
 import { AppMainColumn, AppMainScroll } from "@alloy/ui/components/app-shell"
 import { LoadingState } from "@alloy/ui/components/loading-state"
@@ -22,6 +23,7 @@ import {
   FilterChipRail,
   type FilterChipOption,
 } from "@/components/clip/filter-chip-rail"
+import { MediaFilterControl } from "@/components/clip/media-filter-control"
 import {
   SortDropdown,
   type SortDropdownOption,
@@ -48,7 +50,6 @@ import {
   buildLibraryEntries,
   collapsedServerCounts,
   type LibraryEntry,
-  type LibraryKindFilter,
 } from "./library-entries"
 import { LibraryCaptureCard, UploadedClipCard } from "./library-entry-cards"
 
@@ -67,21 +68,32 @@ const LIBRARY_SOURCE_OPTIONS: ReadonlyArray<SortDropdownOption<LibrarySource>> =
 export function LibraryPage({
   sort,
   source,
+  media,
 }: {
   sort: LibrarySort
   source: LibrarySource
+  media: MediaFilter
 }) {
-  return <LibraryContent desktop={alloyDesktop()} sort={sort} source={source} />
+  return (
+    <LibraryContent
+      desktop={alloyDesktop()}
+      sort={sort}
+      source={source}
+      media={media}
+    />
+  )
 }
 
 function LibraryContent({
   desktop,
   sort,
   source,
+  media,
 }: {
   desktop: AlloyDesktop | null
   sort: LibrarySort
   source: LibrarySource
+  media: MediaFilter
 }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -90,7 +102,7 @@ function LibraryContent({
   const { queue } = useUploadQueue()
   const model = useLibraryContentModel({
     desktop,
-    kind: "all",
+    media,
     // Without the desktop native API there are no local captures and the source
     // dropdown is hidden, so a stray ?source= in the URL must not blank the
     // library.
@@ -130,6 +142,20 @@ function LibraryContent({
           onGroupChange={setGroupKey}
         />
         <div className="flex shrink-0 items-center gap-2">
+          <MediaFilterControl
+            value={media}
+            onChange={(next) => {
+              void navigate({
+                to: "/library",
+                search: {
+                  // The defaults stay out of the URL.
+                  media: next === "video" ? undefined : next,
+                  sort: sort === "recent" ? undefined : sort,
+                  source: !desktop || source === "all" ? undefined : source,
+                },
+              })
+            }}
+          />
           {desktop ? (
             <SortDropdown
               value={source}
@@ -141,6 +167,7 @@ function LibraryContent({
                     // The default source stays out of the URL.
                     source: opt.key === "all" ? undefined : opt.key,
                     sort: sort === "recent" ? undefined : sort,
+                    media: media === "video" ? undefined : media,
                   }}
                   data-active={active ? "true" : undefined}
                 />
@@ -157,6 +184,7 @@ function LibraryContent({
                   // The default sort stays out of the URL.
                   sort: opt.key === "recent" ? undefined : opt.key,
                   source: source === "all" ? undefined : source,
+                  media: media === "video" ? undefined : media,
                 }}
                 data-active={active ? "true" : undefined}
               />
@@ -197,13 +225,13 @@ function LibraryContent({
 
 function useLibraryContentModel({
   desktop,
-  kind,
+  media,
   source,
   query,
   groupKey,
 }: {
   desktop: AlloyDesktop | null
-  kind: LibraryKindFilter
+  media: MediaFilter
   source: LibrarySource
   query: string
   groupKey: string | null
@@ -245,11 +273,11 @@ function useLibraryContentModel({
       gamesByName,
       uploaded,
       active,
-      kind,
+      media,
       source,
       query,
     })
-  }, [snapshot, gamesByName, uploaded, groups, groupKey, kind, source, query])
+  }, [snapshot, gamesByName, uploaded, groups, groupKey, media, source, query])
   const loading =
     (desktop !== null && !snapshot && !error) ||
     (handle.length > 0 && uploadedQuery.isLoading)

@@ -63,8 +63,6 @@ export interface ClipRow {
   thumbVersion: string | null
   thumbBlurHash: string | null
   viewCount: number
-  likeCount: number
-  commentCount: number
   trimStartMs: number | null
   trimEndMs: number | null
   status: ClipStatus
@@ -108,9 +106,9 @@ export interface ClipPage {
 }
 
 export interface ProfileMediaParams {
-  tab?: "all" | "liked" | "tagged"
+  tab?: "all" | "tagged"
   media?: MediaFilter
-  sort?: "recent" | "oldest" | "top" | "views"
+  sort?: "recent" | "oldest" | "views"
   game?: string
   limit?: number
   offset?: number
@@ -184,11 +182,6 @@ export interface TrimClipInput {
  */
 export interface SetClipPosterInput {
   timeMs: number
-}
-
-export interface ClipLikeState {
-  liked: boolean
-  likeCount: number
 }
 
 export interface QueueClip {

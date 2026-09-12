@@ -1,5 +1,4 @@
 import type {
-  ClipLikeState,
   ClipRow,
   InitiateClipInput,
   InitiateClipResponse,
@@ -12,19 +11,13 @@ import type {
 
 import type { ApiContext } from "./client"
 import {
-  validateClipLikeState,
   validateClipRow,
   validateInitiateClipResponse,
   validateQueueClips,
   validateQueueEvent,
 } from "./contract-validators"
 import { parseJsonPayload, readJsonOrThrow, readNoContentOrThrow } from "./http"
-import {
-  readBooleanFlagJson,
-  readDeletedJson,
-  readPostDeleteJson,
-  readSuccessJson,
-} from "./mutations"
+import { readDeletedJson, readSuccessJson } from "./mutations"
 import { encodedPathSegment, resolvePublicUrlWithQuery } from "./paths"
 
 export {
@@ -38,7 +31,6 @@ export type {
   ClipFeedSort,
   ClipGameRef,
   ClipListSort,
-  ClipLikeState,
   ClipMentionRef,
   ClipPage,
   ClipPrivacy,
@@ -242,37 +234,6 @@ async function reannounceClip(
   await readNoContentOrThrow(res)
 }
 
-async function fetchLikeState(
-  context: ApiContext,
-  clipId: string,
-): Promise<{ liked: boolean }> {
-  const res = await context.rpc.api.clips[":id"].like.$get({
-    param: { id: clipId },
-  })
-  return readBooleanFlagJson(res, "liked")
-}
-
-async function setClipLike(
-  context: ApiContext,
-  clipId: string,
-  liked: boolean,
-): Promise<ClipLikeState> {
-  return readPostDeleteJson(
-    liked,
-    {
-      post: () =>
-        context.rpc.api.clips[":id"].like.$post({
-          param: { id: clipId },
-        }),
-      delete: () =>
-        context.rpc.api.clips[":id"].like.$delete({
-          param: { id: clipId },
-        }),
-    },
-    validateClipLikeState,
-  )
-}
-
 async function recordClipView(
   context: ApiContext,
   clipId: string,
@@ -310,9 +271,6 @@ export function createClipsApi(context: ApiContext) {
     reannounce: (clipId: string) => reannounceClip(context, clipId),
     setPoster: (clipId: string, input: SetClipPosterInput) =>
       setClipPoster(context, clipId, input),
-    fetchLikeState: (clipId: string) => fetchLikeState(context, clipId),
-    like: (clipId: string) => setClipLike(context, clipId, true),
-    unlike: (clipId: string) => setClipLike(context, clipId, false),
     recordView: (clipId: string) => recordClipView(context, clipId),
   }
 }

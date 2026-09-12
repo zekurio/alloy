@@ -8,11 +8,9 @@ import {
   real,
   text,
   timestamp,
-  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core"
 
-import { user } from "./auth"
 import { sqlStringList } from "./internal"
 
 export const game = pgTable(
@@ -42,26 +40,6 @@ export const game = pgTable(
       "game_source_check",
       sql`${t.source} in (${sql.raw(sqlStringList(GAME_SOURCE))})`,
     ),
-  ],
-)
-
-export const gameFollow = pgTable(
-  "game_follow",
-  {
-    id: uuid().primaryKey().defaultRandom(),
-    user_id: uuid()
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
-    game_id: uuid()
-      .notNull()
-      .references(() => game.id, { onDelete: "cascade" }),
-    created_at: timestamp().notNull().defaultNow(),
-  },
-  (t) => [
-    uniqueIndex("game_follow_pair_idx").on(t.user_id, t.game_id),
-    // Reverse lookup for the feed-ranking join ("is this clip's game
-    // followed by the viewer?"), and for per-game follower counts.
-    index("game_follow_game_idx").on(t.game_id),
   ],
 )
 

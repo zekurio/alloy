@@ -127,12 +127,10 @@ function validateClipCounters(row: Record<string, ApiJsonValue>) {
       `Invalid clip response: ${key} must be a positive integer or null`,
     )
   }
-  for (const key of ["viewCount", "likeCount", "commentCount"] as const) {
-    validateNonNegativeInteger(
-      row[key],
-      `Invalid clip response: ${key} must be a non-negative integer`,
-    )
-  }
+  validateNonNegativeInteger(
+    row.viewCount,
+    "Invalid clip response: viewCount must be a non-negative integer",
+  )
   validateIntegerInRange(
     row.encodeProgress,
     0,

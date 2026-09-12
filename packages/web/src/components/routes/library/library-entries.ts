@@ -1,4 +1,5 @@
 import { type ClipRow, type GameNameLookupResult } from "@alloy/api"
+import type { MediaFilter } from "@alloy/contracts"
 
 import type {
   RecordingLibraryItem,
@@ -12,8 +13,6 @@ import {
   type LibraryGroupView,
   type LibraryItemView,
 } from "./library-data"
-
-export type LibraryKindFilter = "all" | "replay"
 
 /** One row of the combined grid: a local capture or an uploaded clip. */
 export type LibraryEntry =
@@ -38,15 +37,22 @@ function filterLibraryItems(
   items: RecordingLibraryItem[],
   filters: {
     localKeys: string[] | null
-    kind: LibraryKindFilter
+    media: MediaFilter
     query: string
   },
 ): RecordingLibraryItem[] {
   const query = filters.query.trim().toLowerCase()
   const localKeys = filters.localKeys ? new Set(filters.localKeys) : null
+  // Local captures call videos "replay" and images "screenshot".
+  const captureKind =
+    filters.media === "video"
+      ? "replay"
+      : filters.media === "image"
+        ? "screenshot"
+        : null
   return items.filter((item) => {
     if (localKeys && !localKeys.has(item.groupKey)) return false
-    if (filters.kind !== "all" && item.kind !== filters.kind) return false
+    if (captureKind && item.kind !== captureKind) return false
     if (!query) return true
     return [item.title, item.groupLabel, item.fileName]
       .join(" ")
@@ -59,9 +65,11 @@ function filterUploadedClips(
   rows: ClipRow[],
   rawQuery: string,
   active: LibraryGroupView | null,
+  media: MediaFilter,
 ): ClipRow[] {
   const query = rawQuery.trim().toLowerCase()
   return rows.filter((row) => {
+    if (media !== "all" && row.mediaKind !== media) return false
     if (active) {
       const gameName = row.gameRef?.name ?? row.game
       if (active.kind === "no-game") {
@@ -105,7 +113,7 @@ export function buildLibraryEntries({
   gamesByName,
   uploaded,
   active,
-  kind,
+  media,
   source,
   query,
 }: {
@@ -113,7 +121,7 @@ export function buildLibraryEntries({
   gamesByName: Map<string, GameNameLookupResult>
   uploaded: ClipRow[]
   active: LibraryGroupView | null
-  kind: LibraryKindFilter
+  media: MediaFilter
   source: LibrarySource
   query: string
 }): LibraryEntry[] {
@@ -132,7 +140,7 @@ export function buildLibraryEntries({
   const local: LibraryEntry[] = localVisible
     ? filterLibraryItems(localItems, {
         localKeys: active?.localKeys ?? null,
-        kind,
+        media,
         query,
       }).map((item) => {
         const view = enrichLibraryItem(item, gamesByName)
@@ -146,22 +154,24 @@ export function buildLibraryEntries({
       })
     : []
 
-  const cloudVisible = kind === "all" || kind === "replay"
-  const cloud: LibraryEntry[] = cloudVisible
-    ? filterUploadedClips(uploaded, query, active)
-        .filter((row) => source !== "local" || localByClipId.has(row.id))
-        .map((row) => {
-          const localItem = localByClipId.get(row.id) ?? null
-          return {
-            type: "cloud",
-            key: `cloud:${row.id}`,
-            createdAt: row.createdAt,
-            status: localItem ? "synced" : "cloud",
-            row,
-            localItem,
-          }
-        })
-    : []
+  const cloud: LibraryEntry[] = filterUploadedClips(
+    uploaded,
+    query,
+    active,
+    media,
+  )
+    .filter((row) => source !== "local" || localByClipId.has(row.id))
+    .map((row) => {
+      const localItem = localByClipId.get(row.id) ?? null
+      return {
+        type: "cloud",
+        key: `cloud:${row.id}`,
+        createdAt: row.createdAt,
+        status: localItem ? "synced" : "cloud",
+        row,
+        localItem,
+      }
+    })
 
   return [...local, ...cloud].sort(
     (a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt),
