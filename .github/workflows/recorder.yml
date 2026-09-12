@@ -33,10 +33,10 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout repository
+      - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Audit dependencies
+      - name: audit dependencies
         uses: rustsec/audit-check@69366f33c96575abad1ee0dba8212993eecbe998 # v2.0.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -54,22 +54,22 @@ jobs:
         working-directory: packages/recorder
 
     steps:
-      - name: Checkout repository
+      - name: checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Set up Rust
+      - name: set up rust
         uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
         with:
           toolchain: stable
           components: clippy, rustfmt
 
-      - name: Cache cargo artifacts
+      - name: cache cargo artifacts
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: packages/recorder
 
-      - name: Check formatting
+      - name: check formatting
         run: cargo fmt --check
 
-      - name: Run clippy
+      - name: run clippy
         run: cargo clippy --all-targets --locked -- -D warnings
