@@ -704,7 +704,7 @@
 /* Mobile settings sheet — at full-screen size a plain fade reads as a rough
    pop. Use Base UI's starting/ending style attributes so the first painted
    frame is already offscreen instead of briefly flashing in place. */
-@media (max-width: 639px) {
+@media (max-width: 767px) {
   [data-slot="dialog-content"].settings-sheet {
     opacity: 1;
     transform: translate3d(0, 0, 0);
@@ -730,7 +730,7 @@
     transition-timing-function: var(--ease-in, ease-in);
   }
 }
-@media (max-width: 639px) and (prefers-reduced-motion: reduce) {
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
   [data-slot="dialog-content"].settings-sheet,
   [data-slot="dialog-content"].settings-sheet[data-closed] {
     transition-duration: 0ms;

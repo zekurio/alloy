@@ -9,6 +9,8 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 
+import { GlobalUploadControl } from "@/components/upload/global-upload-control"
+
 import { useNavFlags } from "./use-nav-flags"
 
 /**
@@ -16,7 +18,7 @@ import { useNavFlags } from "./use-nav-flags"
  * Account access lives in the header. This icon-only bar stays focused on
  * navigation.
  */
-export function MobileBottomNav() {
+export function MobileBottomNav({ session }: { session: boolean }) {
   const { isHome, isGames, isLibrary, isScreenshots } = useNavFlags()
 
   return (
@@ -31,7 +33,7 @@ export function MobileBottomNav() {
       <div
         className={cn(
           "grid h-[var(--bottomnav-h)] items-stretch",
-          "grid-cols-4",
+          session ? "grid-cols-5" : "grid-cols-4",
         )}
       >
         <BottomNavLink
@@ -46,6 +48,7 @@ export function MobileBottomNav() {
           label={t("Screenshots")}
           icon={<ImageIcon />}
         />
+        {session ? <GlobalUploadControl variant="mobile" /> : null}
         <BottomNavLink
           to="/games"
           active={isGames}

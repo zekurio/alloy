@@ -155,7 +155,7 @@ function AppShellContent({ session }: { session: boolean }) {
           <UploadCenter />
         </div>
       ) : null}
-      <MobileBottomNav />
+      <MobileBottomNav session={session} />
     </AppShell>
   )
 }
