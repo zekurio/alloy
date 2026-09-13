@@ -125,10 +125,11 @@ function ClipCard({
     <article
       data-slot="clip-card"
       data-gallery={gallery || undefined}
+      data-compact={compact || undefined}
       className={cn(
         "group/clip-card relative flex flex-col",
         gallery ? "overflow-hidden rounded-md" : "gap-1.5",
-        compact && "flex-row items-start gap-3",
+        compact && "grid grid-cols-[7rem_minmax(0,1fr)] items-stretch gap-3",
         className,
       )}
       {...props}
@@ -139,11 +140,11 @@ function ClipCard({
           !gallery &&
             !compact &&
             "-mx-[var(--app-content-padding,0.75rem)] md:mx-0",
-          compact && "w-28 shrink-0 overflow-hidden rounded-md",
+          compact && "flex min-w-0 overflow-hidden rounded-md",
         )}
       >
         <ClipCardThumb
-          imageAspectRatio={imageAspectRatio}
+          imageAspectRatio={compact ? 16 / 9 : imageAspectRatio}
           title={title}
           thumbnail={thumbnail}
           thumbnailFallback={thumbnailFallback}
@@ -160,23 +161,38 @@ function ClipCard({
         />
       </div>
       {compact ? (
-        // pb matches the thumb's corner radius so the bottom text line
-        // aligns with the end of the thumb's straight edge, not inside
-        // the rounded corner.
-        <div className="flex min-w-0 flex-1 flex-col justify-between self-stretch pb-(--radius-md)">
+        <div className="flex h-full min-w-0 flex-1 flex-col justify-between">
           <div className="text-foreground truncate text-sm leading-5 font-semibold">
             {titleButton}
           </div>
-          {author ? (
-            <div className="flex min-w-0 text-xs">
-              <AuthorLabel
-                author={author}
-                href={authorHref}
-                renderLink={renderAuthorLink}
-              />
-            </div>
-          ) : null}
-          <div className="text-foreground-faint flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs tabular-nums">
+          <div className="flex min-w-0 items-center gap-1.5 text-xs leading-5">
+            {author ? (
+              <div className="flex min-w-0 items-center gap-1.5">
+                <ClipCardAvatar
+                  author={author}
+                  authorImage={authorImage}
+                  authorAvatarBg={authorAvatarBg}
+                  authorAvatarFg={authorAvatarFg}
+                  href={authorHref}
+                  renderLink={renderAuthorLink}
+                  size="sm"
+                  className="flex size-5 shrink-0"
+                />
+                <AuthorLabel
+                  author={author}
+                  href={authorHref}
+                  renderLink={renderAuthorLink}
+                />
+              </div>
+            ) : null}
+            {author && game ? (
+              <span
+                aria-hidden="true"
+                className="text-foreground-faint shrink-0"
+              >
+                ·
+              </span>
+            ) : null}
             {game ? (
               <GameLabel
                 game={game}
@@ -185,12 +201,19 @@ function ClipCard({
                 renderLink={renderGameLink}
               />
             ) : null}
-            {game ? <span aria-hidden="true">·</span> : null}
-            <span>
+          </div>
+          <div className="text-foreground-dim flex min-w-0 items-center gap-1.5 overflow-hidden text-xs leading-4 whitespace-nowrap tabular-nums">
+            <span className="shrink-0">
               {views} {tp(viewCountForLabel(viewCount, views), "view", "views")}
             </span>
-            <span aria-hidden="true">·</span>
-            <span>{postedAt}</span>
+            {postedAt ? (
+              <>
+                <span aria-hidden="true" className="shrink-0">
+                  ·
+                </span>
+                <span className="truncate">{postedAt}</span>
+              </>
+            ) : null}
           </div>
         </div>
       ) : gallery ? (
@@ -366,6 +389,7 @@ function ClipCardAvatar({
   href,
   renderLink,
   className,
+  size = "lg",
 }: {
   author: string
   authorImage: string | null | undefined
@@ -374,6 +398,7 @@ function ClipCardAvatar({
   href: string | null | undefined
   renderLink: ClipCardLabelLinkRenderer | undefined
   className?: string
+  size?: "sm" | "lg"
 }) {
   const avatarStyle = {
     background: authorAvatarBg,
@@ -381,7 +406,7 @@ function ClipCardAvatar({
   }
 
   const avatar = (
-    <Avatar aria-hidden size="lg" className={className} style={avatarStyle}>
+    <Avatar aria-hidden size={size} className={className} style={avatarStyle}>
       {authorImage ? <AvatarImage src={authorImage} alt="" /> : null}
       <AvatarFallback style={avatarStyle} />
     </Avatar>
@@ -459,7 +484,7 @@ function GameLabel({
   renderLink: ClipCardLabelLinkRenderer | undefined
 }) {
   const className = cn(
-    "inline-flex min-w-0 items-center gap-1.5 truncate leading-5 text-accent group-data-[gallery=true]/clip-card:text-white/85",
+    "inline-flex min-w-0 items-center gap-1.5 truncate leading-5 text-accent group-data-[gallery=true]/clip-card:text-white/85 group-data-[compact=true]/clip-card:text-foreground-muted group-data-[compact=true]/clip-card:hover:text-accent",
     href &&
       "hover:underline focus-visible:underline focus-visible:outline-none",
   )
