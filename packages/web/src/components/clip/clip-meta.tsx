@@ -23,7 +23,7 @@ import { FeedbackButton } from "@alloy/ui/components/feedback-button"
 import { cn } from "@alloy/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import {
-  MoreHorizontalIcon,
+  MoreVerticalIcon,
   PencilIcon,
   RefreshCwIcon,
   Share2Icon,
@@ -78,7 +78,7 @@ interface ClipMetaProps {
   onRequestDelete: () => void
   deletePending: boolean
   onEdit?: () => void
-  /** Desktop-only "save to this device" affordance, slotted by the viewer. */
+  /** Download action for any viewer who can access the clip. */
   downloadAction?: ReactNode
   /** Viewer dialog close button, rendered as the trailing header action. */
   closeAction?: ReactNode
@@ -140,17 +140,22 @@ function ClipMeta({
 
   return (
     <section className="flex flex-col gap-4">
-      {/* Title + top-right actions */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5">
         <ClipTitleWithVisibility
           title={title}
           privacy={privacy}
           heading="h1"
-          className="min-w-0 flex-1"
-          titleClassName="text-foreground min-w-0 text-xl leading-snug font-bold"
+          titleClassName="text-foreground min-w-0 text-lg leading-6 font-semibold wrap-anywhere"
         />
+        <div className="text-foreground-dim col-start-1 row-start-2 flex flex-wrap items-center gap-x-1.5 text-xs leading-4">
+          <span>
+            {views} {tp(viewCount, "view", "views")}
+          </span>
+          <span aria-hidden="true">·</span>
+          <span>{postedAt}</span>
+        </div>
 
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="col-start-2 row-start-1 -my-1.5 flex shrink-0 items-center gap-1 self-start sm:-my-1">
           <FeedbackButton
             variant="ghost"
             size="icon"
@@ -180,7 +185,7 @@ function ClipMeta({
                     size="icon"
                     aria-label={t("Clip actions")}
                   >
-                    <MoreHorizontalIcon className="size-4 rotate-90" />
+                    <MoreVerticalIcon className="size-4" />
                   </Button>
                 }
               />
@@ -195,11 +200,7 @@ function ClipMeta({
                     <DropdownMenuItem onClick={onEdit}>
                       <PencilIcon /> {t("Edit")}
                     </DropdownMenuItem>
-                    {/* Failed clips offer the owner an encode retry; a ready
-                        clip's re-encode is admin-only operator tooling,
-                        matching the server-side gate. Both are rejected
-                        server-side while the clip is still processing. */}
-                    {status === "failed" || (status === "ready" && isAdmin) ? (
+                    {isAdmin && (status === "failed" || status === "ready") ? (
                       <DropdownMenuItem
                         onClick={() => reEncodeMutation.mutate({ clipId })}
                         disabled={encodeActive || reEncodeMutation.isPending}
@@ -233,63 +234,25 @@ function ClipMeta({
         </div>
       </div>
 
-      {/* User row */}
-      <div className="flex flex-col gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Link
-            to="/u/$username"
-            params={{ username: uploader.handle }}
-            aria-label={t("Open {name}'s profile", {
-              name: uploader.name,
-            })}
-            className={cn(
-              "shrink-0 rounded-md",
-              "transition-transform duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-              "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none",
-            )}
-          >
-            <Avatar size="lg" style={avatarStyle}>
-              {uploader.avatar.src ? (
-                <AvatarImage src={uploader.avatar.src} alt={uploader.name} />
-              ) : null}
-              <AvatarFallback style={avatarStyle} />
-            </Avatar>
-          </Link>
-
-          <div className="min-w-0 leading-tight">
-            <div className="flex items-center gap-2">
-              <Link
-                to="/u/$username"
-                params={{ username: uploader.handle }}
-                className={cn(
-                  "inline-flex items-center gap-1.5 text-lg font-semibold tracking-[-0.01em] text-foreground",
-                  "hover:text-accent",
-                  "transition-colors duration-[var(--duration-fast)] ease-[var(--ease-out)]",
-                  "focus-visible:text-accent focus-visible:outline-none",
-                )}
-              >
-                <span className="truncate">{uploader.name}</span>
-              </Link>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <ClipGameBadge game={game} gameRef={gameRef} />
-          <div className="text-foreground-faint flex items-center gap-1.5 pt-0.5 text-xs leading-4">
-            {privacy !== "public" ? (
-              <>
-                <ClipPrivacyBadge privacy={privacy} />
-                <span>{"•"}</span>
-              </>
+      <div className="flex min-w-0 items-center gap-2">
+        <Link
+          to="/u/$username"
+          params={{ username: uploader.handle }}
+          aria-label={t("Open {name}'s profile", { name: uploader.name })}
+          className="text-foreground hover:text-accent focus-visible:ring-ring flex min-w-0 items-center gap-2 rounded-sm text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+        >
+          <Avatar size="md" style={avatarStyle}>
+            {uploader.avatar.src ? (
+              <AvatarImage src={uploader.avatar.src} alt="" />
             ) : null}
-            <span>
-              {views} {tp(viewCount, "view", "views")}
-            </span>
-            <span>{"•"}</span>
-            <span>{postedAt}</span>
-          </div>
-        </div>
+            <AvatarFallback style={avatarStyle} />
+          </Avatar>
+          <span className="truncate">{uploader.name}</span>
+        </Link>
+        <span aria-hidden="true" className="text-foreground-faint shrink-0">
+          ·
+        </span>
+        <ClipGameLink game={game} gameRef={gameRef} />
       </div>
 
       {mentions.length > 0 ? <ClipMentionsRow mentions={mentions} /> : null}
@@ -305,7 +268,7 @@ function ClipMeta({
   )
 }
 
-function ClipGameBadge({
+function ClipGameLink({
   game,
   gameRef,
 }: {
@@ -317,17 +280,21 @@ function ClipGameBadge({
       <GameIcon
         src={gameRef?.iconUrl ?? gameRef?.logoUrl ?? null}
         name={game}
+        size="sm"
       />
       <span className="truncate">{game}</span>
     </>
   )
   const className =
-    "inline-flex h-8 max-w-full items-center gap-2 rounded-lg border border-border bg-surface-raised px-2.5 text-sm font-semibold text-foreground-muted"
+    "inline-flex min-w-0 max-w-[50%] items-center gap-1.5 text-sm leading-4 text-foreground-muted"
   return gameRef ? (
     <Link
       to="/games/$gameId"
       params={{ gameId: gameRef.slug }}
-      className={cn(className, "hover:text-foreground")}
+      className={cn(
+        className,
+        "rounded-sm hover:text-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+      )}
       title={game}
     >
       {body}
@@ -391,18 +358,6 @@ function ClipTitleWithVisibility({
         <ClipVisibilityBadge privacy={privacy} className={badgeClassName} />
       ) : null}
     </div>
-  )
-}
-
-function ClipPrivacyBadge({ privacy }: { privacy: ClipPrivacy }) {
-  const display = PRIVACY_BY_VALUE[privacy]
-  const Icon = display.icon
-
-  return (
-    <span className="text-foreground-faint inline-flex items-center gap-1 leading-4">
-      <Icon className="size-3" />
-      <span className="tabular-nums">{display.label}</span>
-    </span>
   )
 }
 
