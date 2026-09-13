@@ -14,7 +14,7 @@
     inherit lib;
     root = ../.;
   },
-  pnpmDepsHash ? "sha256-lATbCsosZ2Qso2AKMibg3Jvug3/yresR6dMAzMlA24c=",
+  pnpmDepsHash ? "",
 }:
 
 let
