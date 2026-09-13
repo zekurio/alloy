@@ -14,8 +14,7 @@ the [repository guide in the README](../README.md#repository-guide).
 
 ## Development Setup
 
-Nix users get the complete toolchain (Node, pnpm, PostgreSQL, ffmpeg, Rust,
-Electron) plus a repo-local Postgres via devenv:
+Nix users get the complete toolchain (Node, pnpm, PostgreSQL, ffmpeg, Rust) plus a repo-local Postgres via devenv:
 
 ```bash
 nix profile install nixpkgs#devenv nixpkgs#direnv
@@ -35,7 +34,7 @@ pnpm dev
 ```
 
 `pnpm dev` pushes the Drizzle schema and starts the API server plus the Vite
-web app. `pnpm dev:all` also starts the Electron desktop shell. The recorder
+web app. `pnpm dev:all` also starts the Tauri desktop shell. The recorder
 sidecar (`packages/recorder`) is Rust and only builds on Windows.
 
 Never use npm, yarn, or Bun in this repo.

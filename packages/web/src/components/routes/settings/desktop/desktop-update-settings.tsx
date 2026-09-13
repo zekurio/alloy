@@ -30,7 +30,8 @@ export function DesktopUpdateSettings() {
   const checkBusy = phase === "checking" || updateState.status === "checking"
   const downloadBusy =
     phase === "downloading" || updateState.status === "downloading"
-  const checkDisabled = phase !== "idle" || updateState.status !== "idle"
+  const checkDisabled =
+    !updateState.supported || phase !== "idle" || updateState.status !== "idle"
 
   async function restartToInstall() {
     setActionMessage(null)
@@ -89,6 +90,11 @@ export function DesktopUpdateSettings() {
       description={
         <>
           {updateVersionSummary(updateState)}
+          {!updateState.supported ? (
+            <span className="mt-1 block">
+              {t("Automatic updates are unavailable in this build.")}
+            </span>
+          ) : null}
           {actionMessage ? (
             <span
               role={actionMessage.tone === "error" ? "alert" : "status"}

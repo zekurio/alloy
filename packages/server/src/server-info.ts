@@ -1,9 +1,9 @@
 import {
-  DESKTOP_BRIDGE_CONTRACT_IDS,
   DESKTOP_HTTP_CAPABILITIES,
   DESKTOP_HTTP_CONTRACT_IDS,
   SERVER_INFO_PRODUCT,
   SERVER_INFO_SCHEMA,
+  TAURI_DESKTOP_BRIDGE_CONTRACT_IDS,
   type ServerInfo,
 } from "@alloy/contracts"
 
@@ -21,7 +21,7 @@ export function buildServerInfo(): ServerInfo {
     version: packageJson.version,
     // Copy the policy array so callers cannot mutate the shared declaration.
     httpContracts: [...DESKTOP_HTTP_CONTRACT_IDS],
-    desktopBridgeContracts: [...DESKTOP_BRIDGE_CONTRACT_IDS],
+    desktopTauriBridgeContracts: [...TAURI_DESKTOP_BRIDGE_CONTRACT_IDS],
     capabilities: {
       screenshots: 1,
       auth: { ...DESKTOP_HTTP_CAPABILITIES.auth },

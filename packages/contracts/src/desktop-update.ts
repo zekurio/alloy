@@ -9,6 +9,8 @@ export type DesktopUpdateStatus =
   | "downloading"
   | "downloaded"
 export interface DesktopUpdateState {
+  /** False when this build has no native updater configuration. */
+  supported: boolean
   status: DesktopUpdateStatus
   /** Version currently running on this machine, e.g. "0.1.0". */
   currentVersion: string | null

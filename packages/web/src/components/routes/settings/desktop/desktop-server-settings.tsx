@@ -1,22 +1,7 @@
 import { t } from "@alloy/i18n"
 import { Button } from "@alloy/ui/components/button"
-import { Callout } from "@alloy/ui/components/callout"
-import { ConfirmActionDialog } from "@alloy/ui/components/confirm-action-dialog"
-import { ConfirmDeleteDialog } from "@alloy/ui/components/confirm-delete-dialog"
-import { Input } from "@alloy/ui/components/input"
 import { SettingRows } from "@alloy/ui/components/setting-row"
-import { Spinner } from "@alloy/ui/components/spinner"
-import { cn } from "@alloy/ui/lib/utils"
-import {
-  CheckCircle2Icon,
-  CircleAlertIcon,
-  LogInIcon,
-  PlusIcon,
-  Trash2Icon,
-} from "lucide-react"
-import { useEffect, useState } from "react"
-import type { FormEvent } from "react"
-import { flushSync } from "react-dom"
+import { useState } from "react"
 
 import {
   SettingsSections,
@@ -24,164 +9,36 @@ import {
 } from "@/components/routes/settings/settings-panel"
 
 import { DesktopAutostartSettings } from "./desktop-autostart-settings"
-import { alloyDesktop, type DesktopSavedServer } from "./desktop-native"
+import { alloyDesktop } from "./desktop-native"
 import { DesktopUpdateSettings } from "./desktop-update-settings"
-
-type Phase = "idle" | "loading" | "connecting"
 
 export function DesktopServerSettings() {
   const desktop = alloyDesktop()
-  const serverApi = desktop?.servers
-  const [url, setUrl] = useState("")
-  const [phase, setPhase] = useState<Phase>("loading")
-  const [connectingServerUrl, setConnectingServerUrl] = useState<string | null>(
-    null,
-  )
   const [error, setError] = useState<string | null>(null)
-  const [serverToConnect, setServerToConnect] = useState<string | null>(null)
-  const [serverToForget, setServerToForget] = useState<string | null>(null)
-  const [forgetting, setForgetting] = useState(false)
-  const [forgetError, setForgetError] = useState<string | null>(null)
+  if (!desktop) return null
 
-  const { servers, setServers, currentServerUrl } = useSavedServers(
-    serverApi,
-    setError,
-    setPhase,
-  )
-
-  if (!serverApi) return null
-  const activeServerApi = serverApi
-
-  async function connectTo(serverUrl: string, confirmed = false) {
-    const nextUrl = serverUrl.trim()
-    if (!nextUrl || connectingServerUrl !== null) return
-    if (
-      !confirmed &&
-      currentServerUrl !== null &&
-      !sameOrigin(nextUrl, currentServerUrl)
-    ) {
-      setServerToConnect(nextUrl)
-      return
-    }
+  async function openServers() {
     setError(null)
-    setServerToConnect(null)
-
-    flushSync(() => {
-      setConnectingServerUrl(nextUrl)
-      setPhase("connecting")
-    })
     try {
-      const result = await activeServerApi.connect(nextUrl)
-      if (!result.ok) {
-        setError(result.error)
-        setConnectingServerUrl(null)
-        setPhase("idle")
-        return
-      }
-
-      setUrl("")
-      setConnectingServerUrl(null)
-      setPhase("idle")
+      await desktop?.openConnect()
     } catch (cause) {
-      setError(errorText(cause, t("Couldn't connect to server.")))
-      setConnectingServerUrl(null)
-      setPhase("idle")
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : t("Could not open server settings."),
+      )
     }
   }
-
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault()
-    await connectTo(url)
-  }
-
-  async function forgetServer(serverUrl: string) {
-    if (phase === "connecting" || forgetting) return
-    setForgetError(null)
-    setForgetting(true)
-    try {
-      const nextServers = await activeServerApi.forgetServer(serverUrl)
-      setServers(nextServers)
-      setServerToForget(null)
-    } catch (cause) {
-      setForgetError(errorText(cause, t("Couldn't forget server.")))
-    } finally {
-      setForgetting(false)
-    }
-  }
-
-  const busy = connectingServerUrl !== null
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col items-start gap-3">
+      <p className="text-foreground-muted text-sm">{window.location.origin}</p>
+      <Button onClick={() => void openServers()}>{t("Manage servers")}</Button>
       {error ? (
-        <Callout tone="destructive" className="text-xs">
-          <CircleAlertIcon />
-          <span>{error}</span>
-        </Callout>
+        <p role="alert" className="text-danger text-sm">
+          {error}
+        </p>
       ) : null}
-      <ServerConnectForm
-        url={url}
-        busy={busy}
-        connectingServerUrl={connectingServerUrl}
-        setUrl={setUrl}
-        onSubmit={handleSubmit}
-      />
-
-      <div className="border-border border-t pt-4">
-        <SavedServerList
-          phase={phase}
-          servers={servers}
-          currentServerUrl={currentServerUrl}
-          connectingServerUrl={connectingServerUrl}
-          busy={busy}
-          connectTo={connectTo}
-          forgetServer={(serverUrl) => {
-            setForgetError(null)
-            setServerToForget(serverUrl)
-          }}
-        />
-      </div>
-      <ConfirmActionDialog
-        open={serverToConnect !== null}
-        onOpenChange={(open) => {
-          if (!open) setServerToConnect(null)
-        }}
-        title={t("Connect to another Alloy server?")}
-        description={t(
-          "Alloy will leave the current server and connect to {serverUrl}.",
-          { serverUrl: serverToConnect ?? "" },
-        )}
-        confirmLabel={t("Switch server")}
-        pendingLabel={t("Connecting...")}
-        pending={
-          serverToConnect !== null &&
-          sameServerTarget(connectingServerUrl, serverToConnect)
-        }
-        onConfirm={() => {
-          if (serverToConnect !== null) void connectTo(serverToConnect, true)
-        }}
-      />
-      <ConfirmDeleteDialog
-        open={serverToForget !== null}
-        onOpenChange={(open) => {
-          if (!open && !forgetting) {
-            setServerToForget(null)
-            setForgetError(null)
-          }
-        }}
-        title={t("Forget this Alloy server?")}
-        description={t(
-          "Saved login data for {serverUrl} will be removed from this device.",
-          { serverUrl: serverToForget ?? "" },
-        )}
-        confirmLabel={t("Forget server")}
-        pendingLabel={t("Forgetting...")}
-        pending={forgetting}
-        error={forgetError}
-        onConfirm={() => {
-          if (serverToForget !== null) void forgetServer(serverToForget)
-        }}
-      />
     </div>
   )
 }
@@ -210,244 +67,4 @@ export function DesktopAppPanel() {
       </SettingsSubsection>
     </SettingsSections>
   )
-}
-
-function useSavedServers(
-  serverApi:
-    | NonNullable<ReturnType<typeof alloyDesktop>>["servers"]
-    | undefined,
-  setError: (value: string | null) => void,
-  setPhase: (value: Phase) => void,
-) {
-  const [servers, setServers] = useState<DesktopSavedServer[]>([])
-  const [currentServerUrl, setCurrentServerUrl] = useState<string | null>(null)
-  useEffect(() => {
-    let cancelled = false
-
-    async function load() {
-      if (!serverApi) return
-      setError(null)
-      setPhase("loading")
-      try {
-        const [savedServers, currentServer] = await Promise.all([
-          serverApi.getServers(),
-          serverApi.getCurrentServer(),
-        ])
-        if (cancelled) return
-        setServers(savedServers)
-        setCurrentServerUrl(currentServer)
-      } catch (cause) {
-        if (!cancelled) {
-          setError(errorText(cause, t("Couldn't load servers.")))
-        }
-      } finally {
-        if (!cancelled) setPhase("idle")
-      }
-    }
-
-    void load()
-
-    return () => {
-      cancelled = true
-    }
-  }, [serverApi, setError, setPhase])
-
-  return { servers, setServers, currentServerUrl }
-}
-
-function ServerConnectForm({
-  url,
-  busy,
-  connectingServerUrl,
-  setUrl,
-  onSubmit,
-}: {
-  url: string
-  busy: boolean
-  connectingServerUrl: string | null
-  setUrl: (url: string) => void
-  onSubmit: (event: FormEvent) => void
-}) {
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-1.5">
-      <label htmlFor="desktop-server-url" className="text-xs font-medium">
-        {t("Server address")}
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <Input
-          id="desktop-server-url"
-          type="text"
-          inputMode="url"
-          placeholder="alloy.example.com"
-          value={url}
-          onChange={(event) => setUrl(event.target.value)}
-          disabled={busy}
-          className="sm:flex-1"
-        />
-        <Button type="submit" disabled={busy || !url.trim()}>
-          {busy && sameServerTarget(connectingServerUrl, url) ? (
-            <>
-              <Spinner />
-              {t("Connecting...")}
-            </>
-          ) : (
-            <>
-              <PlusIcon className="size-4" />
-              {t("Add server")}
-            </>
-          )}
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-function SavedServerList({
-  phase,
-  servers,
-  currentServerUrl,
-  connectingServerUrl,
-  busy,
-  connectTo,
-  forgetServer,
-}: {
-  phase: Phase
-  servers: DesktopSavedServer[]
-  currentServerUrl: string | null
-  connectingServerUrl: string | null
-  busy: boolean
-  connectTo: (serverUrl: string) => Promise<void>
-  forgetServer: (serverUrl: string) => void
-}) {
-  if (phase === "loading") {
-    return (
-      <div className="text-foreground-muted flex h-20 items-center justify-center gap-2 text-sm">
-        <Spinner />
-        {t("Loading servers")}
-      </div>
-    )
-  }
-
-  if (servers.length === 0) {
-    return (
-      <p className="text-foreground-dim text-xs">
-        {t("No saved servers yet.")}
-      </p>
-    )
-  }
-
-  return (
-    <SettingRows>
-      {servers.map((server) => (
-        <SavedServerRow
-          key={server.serverUrl}
-          server={server}
-          current={
-            currentServerUrl !== null &&
-            sameOrigin(server.serverUrl, currentServerUrl)
-          }
-          connecting={sameServerTarget(connectingServerUrl, server.serverUrl)}
-          busy={busy}
-          connectTo={connectTo}
-          forgetServer={forgetServer}
-        />
-      ))}
-    </SettingRows>
-  )
-}
-
-function SavedServerRow({
-  server,
-  current,
-  connecting,
-  busy,
-  connectTo,
-  forgetServer,
-}: {
-  server: DesktopSavedServer
-  current: boolean
-  connecting: boolean
-  busy: boolean
-  connectTo: (serverUrl: string) => Promise<void>
-  forgetServer: (serverUrl: string) => void
-}) {
-  return (
-    <div className="not-last:border-border flex items-center gap-2 py-3 not-last:border-b first:pt-0 last:pb-0">
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium">
-            {server.serverUrl}
-          </span>
-          {current ? (
-            <span className="text-success inline-flex shrink-0 items-center gap-1 text-xs font-medium">
-              <CheckCircle2Icon className="size-3.5" />
-              {t("Current")}
-            </span>
-          ) : null}
-        </div>
-        <div className="text-foreground-dim mt-0.5 text-xs">
-          {t("Last used")} {formatLastConnected(server.lastConnectedAt)}
-        </div>
-      </div>
-
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        disabled={busy || current}
-        onClick={() => void connectTo(server.serverUrl)}
-      >
-        {connecting ? (
-          <>
-            <Spinner />
-            {t("Connecting...")}
-          </>
-        ) : (
-          <>
-            <LogInIcon className="size-3.5" />
-            {t("Switch")}
-          </>
-        )}
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={t("Forget {serverUrl}", {
-          serverUrl: server.serverUrl,
-        })}
-        title={t("Forget server")}
-        disabled={busy || current}
-        onClick={() => forgetServer(server.serverUrl)}
-        className={cn(!current && "hover:text-danger")}
-      >
-        <Trash2Icon className="size-3.5" />
-      </Button>
-    </div>
-  )
-}
-
-function sameOrigin(serverUrl: string, origin: string): boolean {
-  try {
-    return new URL(serverUrl).origin === origin
-  } catch {
-    return false
-  }
-}
-
-function sameServerTarget(left: string | null, right: string): boolean {
-  return left !== null && left.trim() === right.trim()
-}
-
-function formatLastConnected(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return t("recently")
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(date)
-}
-
-function errorText(cause: unknown, fallback: string): string {
-  return cause instanceof Error ? cause.message : fallback
 }

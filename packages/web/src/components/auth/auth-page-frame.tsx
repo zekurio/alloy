@@ -6,7 +6,7 @@ import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
 
 import { LoginBackdrop } from "@/components/auth/login-backdrop"
-import { alloyDesktop } from "@/lib/desktop"
+import { alloyWindowChrome } from "@/lib/desktop"
 
 type AuthPageFrameProps = {
   splash: PublicLoginSplashConfig
@@ -22,7 +22,7 @@ export function AuthPageFrame({
   desktopChrome = true,
 }: AuthPageFrameProps) {
   const heightClass = fill ? "h-full min-h-full" : "h-dvh min-h-dvh"
-  const desktop = desktopChrome ? alloyDesktop() : null
+  const desktop = desktopChrome ? alloyWindowChrome() : null
   return (
     <div
       className={cn(

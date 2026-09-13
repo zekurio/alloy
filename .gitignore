@@ -19,8 +19,13 @@ build
 out
 .output
 image-stream
-packages/desktop/assets/icon.ico
-packages/desktop/release/
+packages/desktop-tauri/release/
+packages/desktop-tauri/.cache/
+packages/desktop-tauri/resources/
+packages/recording-host/target/
+packages/capture-library/target/
+packages/desktop-tauri/src-tauri/target/
+packages/desktop-tauri/src-tauri/gen/
 packages/recorder/dist/
 packages/recorder/release/
 packages/recorder/target/

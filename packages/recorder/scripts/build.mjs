@@ -20,6 +20,7 @@ const binaryName = "alloy-agent.exe"
 const requireObsRuntime =
   process.argv.includes("--require-obs-runtime") ||
   process.env.ALLOY_REQUIRE_OBS_RUNTIME === "1"
+const release = process.argv.includes("--release")
 const targetTriple = process.env.CARGO_BUILD_TARGET ?? process.env.CARGO_TARGET
 
 if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
@@ -33,7 +34,8 @@ if (process.platform !== "win32" && !requireObsRuntime && !targetTriple) {
 
 const obsRuntimeSource = resolveObsRuntimeSource()
 
-const cargoArgs = ["build", "--manifest-path", manifestPath, "--release"]
+const cargoArgs = ["build", "--manifest-path", manifestPath]
+if (release) cargoArgs.push("--release")
 if (targetTriple) cargoArgs.push("--target", targetTriple)
 
 const cargo = spawnSync("cargo", cargoArgs, { stdio: "inherit" })
@@ -46,10 +48,11 @@ if (cargo.status !== 0) process.exit(cargo.status ?? 1)
 const targetRoot = resolve(
   process.env.CARGO_TARGET_DIR ?? join(recorderDir, "target"),
 )
-const releaseDir = targetTriple
-  ? join(targetRoot, targetTriple, "release")
-  : join(targetRoot, "release")
-const builtBinary = join(releaseDir, binaryName)
+const profileDir = release ? "release" : "debug"
+const buildDir = targetTriple
+  ? join(targetRoot, targetTriple, profileDir)
+  : join(targetRoot, profileDir)
+const builtBinary = join(buildDir, binaryName)
 if (!existsSync(builtBinary)) {
   console.error(`Sidecar build finished, but ${builtBinary} was not found.`)
   process.exit(1)

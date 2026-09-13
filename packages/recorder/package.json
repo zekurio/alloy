@@ -7,6 +7,6 @@
   "scripts": {
     "obs:install": "node scripts/install-obs-runtime.mjs",
     "build": "node scripts/build.mjs",
-    "build:release": "node scripts/build.mjs --require-obs-runtime"
+    "build:release": "node scripts/build.mjs --release --require-obs-runtime"
   }
 }

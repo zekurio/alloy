@@ -10,7 +10,7 @@ on:
       - dev
     paths:
       - "packages/**"
-      - "!packages/desktop/**"
+      - "!packages/desktop-tauri/**"
       - "!packages/recorder/**"
       - "nix/**"
       - "flake.nix"

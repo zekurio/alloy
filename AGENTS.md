@@ -1,8 +1,8 @@
 # Alloy
 
-Alloy is a self-hosted Medal.tv alternative. Its Electron desktop app records
-gameplay through a Windows-only Rust OBS sidecar and ships a bundled build of
-the React app. The Hono server handles uploads, encoding, playback, and
+Alloy is a self-hosted Medal.tv alternative. Its Tauri desktop app records
+gameplay through a Windows-only Rust OBS sidecar. It bundles a local connection
+screen and loads the selected server's React app. The Hono server handles uploads, encoding, playback, and
 recommendations; it also serves the React app to normal browsers.
 
 Alloy is early and can take broad refactors. Prefer a smaller correct design
@@ -11,17 +11,19 @@ boundaries, especially desktop-to-server HTTP and desktop-to-recorder IPC.
 
 ## Repository map
 
-| Path                                                | Purpose                                                 |
-| --------------------------------------------------- | ------------------------------------------------------- |
-| `packages/desktop`                                  | Electron shell, preload bridges, and sidecar management |
-| `packages/recorder`                                 | Windows Rust recorder built on OBS                      |
-| `packages/server`                                   | Hono API, uploads, jobs, and media processing           |
-| `packages/web`                                      | React web app and file-based routes                     |
-| `packages/contracts`                                | Shared schemas, types, and desktop contracts            |
-| `packages/api`                                      | Typed API client                                        |
-| `packages/db`                                       | Drizzle schema and database workflows                   |
-| `packages/ui`                                       | Shared React components and styles                      |
-| `packages/env`, `packages/i18n`, `packages/logging` | Shared infrastructure                                   |
+| Path                                                | Purpose                                                  |
+| --------------------------------------------------- | -------------------------------------------------------- |
+| `packages/desktop-tauri`                            | Tauri shell, local connection screen, and native bridge  |
+| `packages/recording-host`                           | Rust recorder process control and settings               |
+| `packages/capture-library`                          | Rust local library, file streaming, and media processing |
+| `packages/recorder`                                 | Windows Rust recorder built on OBS                       |
+| `packages/server`                                   | Hono API, uploads, jobs, and media processing            |
+| `packages/web`                                      | React web app and file-based routes                      |
+| `packages/contracts`                                | Shared schemas, types, and desktop contracts             |
+| `packages/api`                                      | Typed API client                                         |
+| `packages/db`                                       | Drizzle schema and database workflows                    |
+| `packages/ui`                                       | Shared React components and styles                       |
+| `packages/env`, `packages/i18n`, `packages/logging` | Shared infrastructure                                    |
 
 Read the relevant package README and nearby code before changing a subsystem.
 Do not overwrite unrelated working-tree changes.
@@ -74,25 +76,23 @@ configuration lives in `packages/web/src/lib/*-queries.ts` and uses TanStack
 Query options. Routes live in `packages/web/src/routes/`; use the guards from
 `packages/web/src/lib/auth-guards.ts`.
 
-Electron main, preload, and the bundled renderer release together. Their
-`window.alloyDesktop` API is lockstep, not a versioned deployment boundary.
-Define its cross-process types in `packages/contracts/src/desktop-api.ts`, add
-operation wiring in `packages/desktop/src/shared/desktop-api.ts`, and add an
-exhaustive validated main-process handler. The browser build must ignore native
-globals from retired remote-renderer shells.
+The Tauri host and server-hosted web UI can release separately. Define exact
+native bridge contracts in `packages/contracts/src/desktop-tauri.ts`. Native
+commands must validate their inputs and the calling window's selected origin.
+Keep local connection commands separate from remote window permissions. The
+browser build must ignore globals from unsupported native bridge contracts.
 
-The bundled renderer calls `alloy-app://app/api/*`; the main process proxies
-only those paths to the selected server with its HttpOnly cookie jar. Never
-accept a renderer-supplied target origin. Desktop/server compatibility uses
-exact IDs from `/api/server-info`. Alloy currently has one operator and no
-external deployments. HTTP contract 1 can change in place when the desktop
-and server are updated together. Remove unused routes and adapters. Once
-independent deployments exist, version breaking changes and define a support
-window for older clients.
+The WebView makes normal same-origin server requests with its HttpOnly cookies.
+The native PKCE flow sets those cookies before loading the server UI. Do not
+add a general API proxy. Native downloads derive their target from the selected
+server and a validated clip ID. Never accept a renderer-supplied target origin.
+Desktop/server compatibility uses exact IDs from `/api/server-info`. Alloy
+currently has one operator and no external deployments. HTTP contract 1 can
+change in place when desktop and server are updated together. Once independent
+deployments exist, version breaking changes and define a support window.
 
-Sidecar protocol changes must update both
-`packages/desktop/src/main/recording-sidecar-protocol.ts` and
-`packages/recorder/src/sidecar_types.rs`.
+Keep OBS in the recorder process. Sidecar protocol changes must update both
+`packages/recording-host` and `packages/recorder/src/sidecar_types.rs`.
 
 Put cross-package types and constants in `packages/contracts`. Use Zod when a
 value crosses a runtime boundary; use plain TypeScript types otherwise.

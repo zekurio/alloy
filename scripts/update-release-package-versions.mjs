@@ -8,11 +8,18 @@ const version = process.argv[2]
 
 const releasePackageFiles = [
   "package.json",
-  "packages/desktop/package.json",
+  "packages/desktop-tauri/package.json",
+  "packages/desktop-tauri/src-tauri/tauri.conf.json",
   "packages/recorder/package.json",
 ]
-const cargoPackageFiles = ["packages/recorder/Cargo.toml"]
-const cargoLockPackageFiles = ["packages/recorder/Cargo.lock"]
+const cargoPackageFiles = [
+  "packages/recorder/Cargo.toml",
+  "packages/desktop-tauri/src-tauri/Cargo.toml",
+]
+const cargoLockPackageFiles = [
+  ["packages/recorder/Cargo.lock", "alloy-agent"],
+  ["packages/desktop-tauri/src-tauri/Cargo.lock", "alloy-desktop-tauri"],
+]
 
 if (!version || process.argv.length > 3) {
   console.error(
@@ -53,10 +60,12 @@ for (const filePath of cargoPackageFiles) {
   writeFileSync(filePath, updated)
 }
 
-for (const filePath of cargoLockPackageFiles) {
+for (const [filePath, packageName] of cargoLockPackageFiles) {
   const original = readFileSync(filePath, "utf8")
   const updated = original.replace(
-    /(\[\[package\]\]\nname = "alloy-agent"\nversion = ")[^"]+(")/,
+    new RegExp(
+      `(\\[\\[package\\]\\]\\nname = "${packageName}"\\nversion = ")[^"]+(")`,
+    ),
     `$1${version}$2`,
   )
 

@@ -8,7 +8,7 @@ import {
   RouteNotFoundState,
 } from "@/components/feedback/route-state"
 import { redirectToSetupBeforeLoad } from "@/lib/auth-guards"
-import { alloyDesktop } from "@/lib/desktop"
+import { alloyWindowChrome } from "@/lib/desktop"
 import { RuntimeConfigEvents } from "@/lib/runtime-config-events"
 
 export const Route = createRootRouteWithContext<{
@@ -38,7 +38,7 @@ function RootLayout() {
   // In the desktop shell with custom chrome, flag the document so the app
   // header becomes a draggable title bar (see globals.css).
   useEffect(() => {
-    if (!alloyDesktop()?.titlebarOverlay) return
+    if (!alloyWindowChrome()?.titlebarOverlay) return
     const root = document.documentElement
     root.classList.add("is-desktop-titlebar")
     return () => root.classList.remove("is-desktop-titlebar")

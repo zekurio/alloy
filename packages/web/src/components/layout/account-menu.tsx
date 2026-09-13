@@ -5,16 +5,18 @@ import {
 } from "@alloy/ui/components/dropdown-menu"
 import { toast } from "@alloy/ui/lib/toast"
 import { Link, useNavigate, useRouter } from "@tanstack/react-router"
-import { LogOutIcon, SettingsIcon, UserIcon } from "lucide-react"
+import { GlobeIcon, LogOutIcon, SettingsIcon, UserIcon } from "lucide-react"
 
 import { StorageQuotaCompact } from "@/components/storage-quota"
 import { completeSignOutFlow, reportAuthFlowFailure } from "@/lib/auth-flow"
+import { alloyTauriDesktop } from "@/lib/desktop"
 import { useOpenSettings } from "@/lib/use-open-settings"
 
 export function AccountMenuItems({ handle }: { handle: string | null }) {
   const router = useRouter()
   const navigate = useNavigate()
   const openSettings = useOpenSettings()
+  const tauriDesktop = alloyTauriDesktop()
 
   async function onSignOut() {
     try {
@@ -29,6 +31,21 @@ export function AccountMenuItems({ handle }: { handle: string | null }) {
     }
   }
 
+  async function onSwitchServer() {
+    if (!tauriDesktop) return
+    try {
+      await tauriDesktop.openConnect()
+    } catch (cause) {
+      toast.error(
+        reportAuthFlowFailure(
+          "switch-server",
+          t("Couldn't connect to server."),
+          cause,
+        ),
+      )
+    }
+  }
+
   return (
     <>
       {handle ? (
@@ -37,6 +54,12 @@ export function AccountMenuItems({ handle }: { handle: string | null }) {
         >
           <UserIcon />
           {t("Profile")}
+        </DropdownMenuItem>
+      ) : null}
+      {tauriDesktop ? (
+        <DropdownMenuItem onClick={() => void onSwitchServer()}>
+          <GlobeIcon />
+          {t("Switch server")}
         </DropdownMenuItem>
       ) : null}
       <DropdownMenuItem onClick={openSettings}>

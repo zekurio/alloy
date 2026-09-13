@@ -58,7 +58,7 @@ options.
 ### Development
 
 With [devenv](https://devenv.sh/) (provides Node, pnpm, PostgreSQL, ffmpeg,
-Rust, and Electron):
+and Rust):
 
 ```bash
 nix profile install nixpkgs#devenv nixpkgs#direnv

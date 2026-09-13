@@ -21,14 +21,14 @@ import type { ReactNode } from "react"
 
 import { useAppSearch } from "@/components/search/app-search"
 import { SearchResultsPopover } from "@/components/search/search-results-popover"
-import { alloyDesktop } from "@/lib/desktop"
+import { alloyWindowChrome } from "@/lib/desktop"
 
 import { UserMenu } from "./user-menu"
 
 export function HomeHeader() {
   const { query, setQuery, clear, setOpen } = useAppSearch()
   const inputRef = useRef<HTMLInputElement>(null)
-  const desktop = alloyDesktop()
+  const desktop = alloyWindowChrome()
   const closeSearch = useCallback(() => setOpen(false), [setOpen])
 
   const onKeyDown = useCallback((event: KeyboardEvent) => {

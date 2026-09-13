@@ -144,7 +144,10 @@ jobs:
             if [[ "$version" != "$current" ]]; then
               node scripts/update-release-package-versions.mjs "$version"
               git add package.json \
-                packages/desktop/package.json \
+                packages/desktop-tauri/package.json \
+                packages/desktop-tauri/src-tauri/tauri.conf.json \
+                packages/desktop-tauri/src-tauri/Cargo.toml \
+                packages/desktop-tauri/src-tauri/Cargo.lock \
                 packages/recorder/package.json \
                 packages/recorder/Cargo.toml \
                 packages/recorder/Cargo.lock
@@ -188,65 +191,55 @@ jobs:
       - name: install dependencies
         run: corepack pnpm install --frozen-lockfile
 
+      - name: set up rust
+        uses: dtolnay/rust-toolchain@4be7066ada62dd38de10e7b70166bc74ed198c30 # stable
+        with:
+          toolchain: stable
+
+      - name: cache cargo artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            packages/desktop-tauri/src-tauri
+            packages/recorder
+
+      - name: cache native runtimes
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
+        with:
+          path: |
+            packages/recorder/dist/obs-runtime
+            packages/desktop-tauri/.cache/ffmpeg
+          key: windows-native-obs-32.1.2-ffmpeg-8.1.2-v1
+
       - name: stage obs runtime
-        shell: pwsh
-        env:
-          OBS_STUDIO_VERSION: 32.1.2
-        run: |
-          $ErrorActionPreference = "Stop"
-          $archive = Join-Path $env:RUNNER_TEMP "obs-studio.zip"
-          $runtimeDir = Join-Path $env:RUNNER_TEMP "obs-runtime"
-          $downloadUrl = "https://github.com/obsproject/obs-studio/releases/download/$env:OBS_STUDIO_VERSION/OBS-Studio-$env:OBS_STUDIO_VERSION-Windows-x64.zip"
+        run: corepack pnpm --filter @alloy/recorder obs:install --version 32.1.2
 
-          Invoke-WebRequest -Uri $downloadUrl -OutFile $archive
-
-          if (Test-Path $runtimeDir) {
-            Remove-Item -LiteralPath $runtimeDir -Recurse -Force
-          }
-          New-Item -ItemType Directory -Path $runtimeDir | Out-Null
-          Expand-Archive -Path $archive -DestinationPath $runtimeDir
-
-          $obsDll = Join-Path $runtimeDir "bin\64bit\obs.dll"
-          if (!(Test-Path $obsDll)) {
-            Write-Error "Downloaded OBS runtime is invalid; missing $obsDll."
-          }
-
-          "ALLOY_OBS_RUNTIME_DIR=$runtimeDir" >> $env:GITHUB_ENV
-          "ALLOY_REQUIRE_OBS_RUNTIME=1" >> $env:GITHUB_ENV
-
-      - name: build desktop installer
+      - name: build desktop installer and update signature
         env:
           NODE_ENV: production
-        run: corepack pnpm --filter @alloy/desktop dist:win:installer
-
-      - name: validate desktop release assets
+          ALLOY_UPDATER_PUBLIC_KEY: ${{ vars.ALLOY_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $releaseDir = "packages/desktop/release"
-          $renderer = "packages/desktop/out/renderer/index.html"
+          if (!$env:ALLOY_UPDATER_PUBLIC_KEY -or !$env:TAURI_SIGNING_PRIVATE_KEY) {
+            throw "Configure the Tauri update signing key and public key before a release."
+          }
+          corepack pnpm --filter @alloy/desktop-tauri dist:win:installer:signed
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-          if (-not (Test-Path $renderer)) {
-            Write-Error "The installer build did not produce the local connect renderer."
-          }
-          if (-not (Get-ChildItem -LiteralPath $releaseDir -Filter "*.exe" -File)) {
-            Write-Error "No Windows installer was produced in $releaseDir."
-          }
-          if (-not (Test-Path (Join-Path $releaseDir "latest.yml"))) {
-            Write-Error "No Electron updater metadata (latest.yml) was produced in $releaseDir."
-          }
-          if (-not (Get-ChildItem -LiteralPath $releaseDir -Filter "*.blockmap" -File)) {
-            Write-Error "No Electron blockmap was produced in $releaseDir."
-          }
+      - name: prepare desktop release assets
+        run: node scripts/prepare-desktop-release.mjs ${{ needs.preflight.outputs.version }}
 
       - name: upload desktop release assets
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: desktop-release-assets
           path: |
-            packages/desktop/release/*.exe
-            packages/desktop/release/*.blockmap
-            packages/desktop/release/latest.yml
+            packages/desktop-tauri/release/*.exe
+            packages/desktop-tauri/release/*.sig
+            packages/desktop-tauri/release/latest.json
           if-no-files-found: error
 
   image:

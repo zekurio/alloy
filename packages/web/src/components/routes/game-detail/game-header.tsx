@@ -6,7 +6,6 @@ import { useCallback, useState } from "react"
 
 import { GameLogo } from "@/components/game/game-logo"
 import { APP_BANNER_HEIGHT_CLASS } from "@/lib/banner-layout"
-import { desktopCachedAssetUrl } from "@/lib/desktop"
 import { gameDisplayName } from "@/lib/game-display-name"
 import { formatCount } from "@/lib/number-format"
 
@@ -31,7 +30,7 @@ function GameHeroBanner({ game }: { game: GameDetail }) {
   const [failedLogoUrl, setFailedLogoUrl] = useState<string | null>(null)
   const headerUrl =
     game.heroUrl && !failedHeaderUrls.includes(game.heroUrl)
-      ? desktopCachedAssetUrl(game.heroUrl)
+      ? game.heroUrl
       : null
   const logoUrl =
     game.logoUrl && failedLogoUrl !== game.logoUrl ? game.logoUrl : null

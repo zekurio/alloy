@@ -1,0 +1,34 @@
+{
+  "name": "@alloy/desktop-tauri",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Alloy desktop app",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/prepare-native.mjs && tauri dev",
+    "build:app": "node scripts/prepare-native.mjs --release && tauri build --no-bundle",
+    "dist:win:installer": "node scripts/prepare-native.mjs --release && tauri build --target x86_64-pc-windows-msvc --bundles nsis",
+    "build:renderer": "vp build",
+    "typecheck": "tsc --noEmit",
+    "check:native": "cargo fmt --manifest-path src-tauri/Cargo.toml --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --locked -- -D warnings",
+    "test:native": "cargo test --manifest-path src-tauri/Cargo.toml --all-targets --locked",
+    "dist:win:installer:signed": "pnpm dist:win:installer --config src-tauri/tauri.signed.conf.json"
+  },
+  "dependencies": {
+    "@alloy/contracts": "workspace:*",
+    "@alloy/i18n": "workspace:*",
+    "@alloy/ui": "workspace:*",
+    "@tauri-apps/api": "2.11.1",
+    "lucide-react": "1.42.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "vite": "catalog:"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "2.11.4",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "@vitejs/plugin-react": "6.1.1"
+  }
+}

@@ -1,5 +1,5 @@
 import { clientLogger } from "./client-log"
-import { alloyDesktop } from "./desktop"
+import { alloyDesktop, alloyTauriDesktop } from "./desktop"
 
 const RELOADED_ASSET_SIGNATURE_KEY = "alloy.deployment-recovery-target"
 
@@ -53,7 +53,7 @@ async function recoverFromDeployment(
   }
   if (!rememberReloadedAssetSignature(latestAssetSignature)) return
 
-  const desktop = alloyDesktop()
+  const desktop = alloyDesktop() ?? alloyTauriDesktop()
   if (desktop) {
     void desktop.reloadApp().catch(() => window.location.reload())
     return

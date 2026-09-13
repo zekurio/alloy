@@ -31,9 +31,9 @@ export interface RecordingAudioLevel {
 }
 
 export interface RecordingDisplay {
-  /** OBS monitor id when available, otherwise a stable Electron display id. */
+  /** OBS monitor ID. */
   id: string
-  /** Electron desktopCapturer display id, used for display previews. */
+  /** Legacy field retained by recorder protocol 1. The Tauri host leaves it null. */
   electronId: string | null
   name: string
   width: number

@@ -91,13 +91,8 @@ jobs:
         run: |
           grep -R -q "alloyDesktop" packages/web/dist
 
-      - name: build desktop shell
-        run: corepack pnpm --filter @alloy/desktop exec electron-vite build
+      - name: build desktop connection screen
+        run: corepack pnpm --filter @alloy/desktop-tauri build:renderer
 
-      - name: check desktop shell artifact
-        run: |
-          test -f packages/desktop/out/renderer/index.html
-          test ! -f packages/desktop/out/renderer/desktop.html
-          grep -q "Content-Security-Policy" packages/desktop/out/renderer/index.html
-          grep -q "alloyDesktop" packages/desktop/out/preload/main.cjs
-          grep -q "alloy-server-origin" packages/desktop/out/preload/main.cjs
+      - name: check desktop connection artifact
+        run: test -f packages/desktop-tauri/dist/index.html
